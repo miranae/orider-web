@@ -1,0 +1,114 @@
+/* Settings — redesign 시안 (orider-web-setting.zip) 적용 */
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  background: var(--bg-0);
+  min-height: 100%;
+}
+
+.settings-sidebar {
+  border-right: 1px solid var(--line-soft);
+  background: var(--bg-1);
+  padding: 28px 16px 40px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+.settings-sidebar-header {
+  padding: 0 8px 18px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.settings-sidebar-header h1 {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink-0);
+}
+.settings-navgroup { margin-bottom: 18px; }
+.settings-navgroup-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 0 10px 6px;
+}
+.settings-navitem {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink-2);
+  margin-bottom: 2px;
+  transition: background .12s, color .12s;
+}
+.settings-navitem:hover { background: var(--bg-2); color: var(--ink-0); }
+.settings-navitem.is-active {
+  background: var(--accent-soft-bg);
+  color: var(--lime);
+}
+.settings-navitem.is-active .settings-navitem-label {
+  color: var(--lime);
+  font-weight: 600;
+}
+.settings-navitem > svg { margin-top: 2px; flex-shrink: 0; }
+.settings-navitem-text { display: flex; flex-direction: column; min-width: 0; }
+.settings-navitem-label { font-size: 13px; color: var(--ink-1); }
+.settings-navitem-hint { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+
+.settings-main {
+  padding: 32px 40px 60px;
+  max-width: 880px;
+  width: 100%;
+}
+.settings-content-header {
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: var(--space-4, 16px);
+  margin-bottom: var(--space-6, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+.settings-content-header h2 {
+  margin: 0;
+  font-size: var(--fs-3xl, 30px);
+  font-weight: 700;
+  color: var(--ink-0);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+.settings-content-header p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-base, 13px);
+}
+.settings-main .ds-card { box-shadow: none; }
+
+/* 폐기 이력 (2026-05-24 ~ 25):
+ *   rd2-btn / rd2-input → <Button> / <Input> 으로 마이그레이션 후 CSS 제거
+ *   rd-btn / rd-card / rd-chip → <Button> / <Card> / <Chip> 또는 ds-* 로 마이그레이션 후 CSS 제거
+ * settings-* 클래스(layout/sidebar/navgroup/navitem/main/content-header)는 이 페이지 전용 레이아웃이라 유지.
+ * 후속 PR 에서 <DrawerNav> / <Page> 프리미티브로 추가 추출 예정. */
+
+@media (max-width: 800px) {
+  .settings-layout { grid-template-columns: 1fr; }
+  .settings-sidebar {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--line-soft);
+    padding: 16px 12px;
+  }
+  .settings-main { padding: 20px 16px 40px; }
+}

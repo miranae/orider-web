@@ -1,0 +1,230 @@
+{
+  "button": {
+    "save": "저장",
+    "cancel": "취소",
+    "confirm": "확인",
+    "delete": "삭제",
+    "edit": "편집",
+    "back": "뒤로",
+    "loading": "불러오는 중...",
+    "retry": "다시 시도",
+    "close": "닫기",
+    "more": "더보기",
+    "less": "접기",
+    "login": "로그인",
+    "logout": "로그아웃",
+    "loginGoogle": "Google 로그인",
+    "markAllRead": "모두 읽음"
+  },
+  "error": {
+    "generic": "오류가 발생했습니다.",
+    "network": "네트워크 오류입니다.",
+    "permission": "권한이 없습니다.",
+    "notFound": "찾을 수 없습니다.",
+    "title": "문제가 발생했어요",
+    "description": "잠시 후 다시 시도해 주세요.",
+    "boundaryTitle": "오류가 발생했습니다",
+    "unknownError": "알 수 없는 오류",
+    "reload": "새로고침",
+    "reloadAriaLabel": "페이지 새로고침",
+    "appLoadFailed": "앱을 불러오지 못했습니다",
+    "appLoadFailedReload": "새로고침"
+  },
+  "label": {
+    "today": "오늘",
+    "yesterday": "어제",
+    "thisWeek": "이번 주",
+    "thisMonth": "이번 달",
+    "all": "전체",
+    "language": "언어",
+    "profile": "프로필",
+    "settings": "설정",
+    "rider": "라이더",
+    "ride": "라이딩",
+    "notifications": "알림",
+    "noNotifications": "알림이 없습니다",
+    "search": "검색",
+    "searchEmpty": "\"{{query}}\" 검색 결과가 없습니다",
+    "loadingHint": "로딩 중"
+  },
+  "auth": {
+    "loginRequiredTitle": "로그인이 필요합니다",
+    "loginRequiredDescription": "이 기능을 사용하려면 로그인이 필요해요."
+  },
+  "footer": {
+    "feedback": "피드백",
+    "terms": "이용약관",
+    "privacy": "개인정보처리방침",
+    "community": "커뮤니티 가이드라인",
+    "contact": "문의",
+    "more": "더보기",
+    "collapse": "접기"
+  },
+  "nav": {
+    "dashboard": "대시보드",
+    "fitness": "피트니스",
+    "plan": "운동 계획",
+    "log": "운동 기록",
+    "courses": "코스",
+    "leaderboard": "리더보드",
+    "groups": "그룹",
+    "events": "이벤트",
+    "communityBoard": "커뮤니티",
+    "social": "소셜",
+    "my": "MY",
+    "home": "홈",
+    "train": "내 운동",
+    "explore": "탐색",
+    "community": "커뮤니티",
+    "settings": "설정",
+    "segments": "세그먼트",
+    "discover": "도전",
+    "board": "게시판",
+    "creator": "크리에이터",
+    "friends": "친구",
+    "profile": "프로필",
+    "account": "계정",
+    "mainNavAria": "메인 내비게이션"
+  },
+  "search": {
+    "activities": "활동",
+    "courses": "코스"
+  },
+  "time": {
+    "justNow": "방금",
+    "minsAgo": "{{count}}분 전",
+    "hoursAgo": "{{count}}시간 전",
+    "daysAgo": "{{count}}일 전",
+    "am": "오전",
+    "pm": "오후",
+    "hour": "시",
+    "minute": "분",
+    "yesterday": "어제"
+  },
+  "field": {
+    "datePlaceholder": "날짜 선택",
+    "timePlaceholder": "시간 선택",
+    "selectDateAria": "날짜 선택",
+    "selectTimeAria": "시간 선택",
+    "prevMonth": "이전 달",
+    "nextMonth": "다음 달",
+    "now": "지금",
+    "clear": "지우기",
+    "presetWeek": "+1주",
+    "presetMonth": "+1개월",
+    "preset3Months": "+3개월",
+    "yearMonth": "{{year}}년 {{month}}월",
+    "dateLabel": "{{year}}년 {{month}}월 {{day}}일 ({{weekday}})"
+  },
+  "discipline": {
+    "selectAria": "종목 선택",
+    "tri": "통합",
+    "bike": "사이클",
+    "run": "러닝",
+    "swim": "수영"
+  },
+  "unit": {
+    "km": "km",
+    "mi": "mi",
+    "m": "m",
+    "ft": "ft",
+    "h": "시간",
+    "min": "분",
+    "sec": "초"
+  },
+  "difficulty": {
+    "easy": "하",
+    "mid": "중",
+    "hard": "상",
+    "hc": "HC"
+  },
+  "weekday": {
+    "mon": "월",
+    "tue": "화",
+    "wed": "수",
+    "thu": "목",
+    "fri": "금",
+    "sat": "토",
+    "sun": "일"
+  },
+  "topnav": {
+    "searchPlaceholder": "검색",
+    "notifications": "알림",
+    "activities": "활동",
+    "language": "언어"
+  },
+  "notif": {
+    "fromUser": "{{fromNickname}}님의 알림"
+  },
+  "sportFilter": {
+    "bike": "🚴 사이클",
+    "run": "🏃 러닝",
+    "swim": "🏊 수영"
+  },
+  "social": {
+    "tabFriends": "친구",
+    "tabGroups": "그룹",
+    "searchFriendsPlaceholder": "친구 검색",
+    "friendCodeCopied": "친구 코드가 복사되었습니다",
+    "invite": "초대",
+    "followingCount": "팔로잉 {{count}}명",
+    "following": "팔로잉",
+    "searchEmpty": "검색 결과가 없습니다",
+    "noFriends": "아직 친구가 없습니다",
+    "newGroup": "+ 새 그룹 만들기",
+    "myGroupCount": "내 그룹 {{count}}개",
+    "memberCount": "{{count}}명",
+    "noGroups": "가입된 그룹이 없습니다"
+  },
+  "sport": {
+    "ride": "라이딩",
+    "mtb": "MTB",
+    "gravel": "그래블",
+    "ebike": "E-바이크",
+    "velolift": "벨로리프트",
+    "virtualRide": "가상 라이딩",
+    "run": "러닝",
+    "trailRun": "트레일런",
+    "virtualRun": "가상 러닝",
+    "walk": "걷기",
+    "hike": "하이킹",
+    "swim": "수영",
+    "workout": "운동",
+    "weightTraining": "웨이트",
+    "yoga": "요가",
+    "tennis": "테니스",
+    "soccer": "축구",
+    "golf": "골프",
+    "ski": "스키",
+    "snowboard": "스노보드",
+    "activity": "활동"
+  },
+  "map": {
+    "placeholder": "지도",
+    "noRouteData": "경로 데이터 없음"
+  },
+  "designTheme": {
+    "default": "기본",
+    "appParity": "앱 패리티"
+  },
+  "discover": {
+    "title": "탐색",
+    "subtitle": "코스·세그먼트·리더보드를 한 곳에서",
+    "searchPlaceholder": "코스·세그먼트 검색…",
+    "searching": "검색 중…",
+    "noResults": "검색 결과가 없어요",
+    "viewAll": "전체 보기",
+    "entrySegmentsDesc": "지도에서 주변 세그먼트 둘러보기",
+    "entryLeaderboardDesc": "KOM·코호트 순위 보기",
+    "entryCoursesDesc": "라이딩 코스 찾기",
+    "challenge": {
+      "beatPr": "내 기록 깨기",
+      "strength": "내 강점 도전",
+      "newPlace": "새로운 곳",
+      "popularCourses": "인기 코스",
+      "notable": "주목 세그먼트",
+      "predicted": "예상 {{time}}",
+      "faster": "−{{sec}}초 단축"
+    }
+  }
+}

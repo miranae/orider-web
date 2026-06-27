@@ -1,0 +1,91 @@
+name: Deploy (Hosting → production)
+
+# main 머지 시에만 프로덕션 Hosting 배포. PR/포크에서는 절대 실행되지 않음(시크릿 노출 차단).
+# 함수(functions)는 별도 비공개 백엔드 레포에서 배포 — 이 레포는 hosting만 배포한다.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation OIDC 토큰 발급용(키리스 인증)
+
+concurrency:
+  group: deploy-hosting-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production # GitHub Environment 보호(필수 리뷰어)로 게이트
+    env:
+      # 빌드·predeploy(check-env) 공통 env.
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+      VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+      VITE_FIREBASE_FUNCTIONS_REGION: ${{ vars.VITE_FIREBASE_FUNCTIONS_REGION }}
+      VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}
+      VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}
+      VITE_SEGMENT_TILES_BASE: ${{ vars.VITE_SEGMENT_TILES_BASE }}
+      VITE_HEATMAP_BASE: ${{ vars.VITE_HEATMAP_BASE }}
+      VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
+      VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Auth (Workload Identity Federation — 키리스)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - name: Deploy Hosting only
+        run: |
+          set -euo pipefail
+          npm install -g firebase-tools
+          set +e
+          firebase deploy --only hosting --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-deploy.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-deploy.log; then
+            echo "Firebase Hosting version is already active; treating deploy as idempotent success."
+            exit 0
+          fi
+          exit "$status"
+
+      # 배포 후 라이브 검증 — "Deploy success인데 옛 번들 서빙" 사고 차단 (백엔드 #728~731 포팅)
+      - name: Verify live deploy (no stale HTML / asset cache intact)
+        run: |
+          set -euo pipefail
+          BUILT=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1)
+          if [ -z "$BUILT" ]; then echo "::error::빌드 index.html 에서 entry 청크를 못 찾음"; exit 1; fi
+          echo "built entry: $BUILT"
+          ok=0
+          for i in $(seq 1 10); do
+            LIVE=$(curl -fsSL -H 'Cache-Control: no-cache' "https://orider.co.kr/?cacheBust=${GITHUB_SHA}-$i" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1 || true)
+            echo "attempt $i: live entry = ${LIVE:-<none>}"
+            if [ "$LIVE" = "$BUILT" ]; then ok=1; break; fi
+            sleep 15
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::라이브가 방금 빌드한 번들($BUILT)을 서빙하지 않음 — stale 배포/캐시."
+            exit 1
+          fi
+          CC=$(curl -fsSI "https://orider.co.kr/$BUILT" | tr -d '\r' | grep -i '^cache-control:' || true)
+          echo "asset cache-control: $CC"
+          if ! echo "$CC" | grep -qi 'immutable'; then
+            echo "::error::해시 자산이 immutable 캐시가 아님 — 헤더 규칙 회귀 의심: $CC"
+            exit 1
+          fi
+          echo "✓ 라이브가 최신 번들 + 자산 immutable 확인"

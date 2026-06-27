@@ -1,0 +1,671 @@
+{
+  "title": "Training",
+  "plan": "Plan",
+  "log": "Log",
+  "goal": "Goal",
+  "goalSetup": "Goal Setup",
+  "addWorkout": "Add Workout",
+  "intensity": "Intensity",
+  "duration": "Duration",
+  "distance": "Distance",
+  "power": "Power",
+  "heartRate": "Heart Rate",
+  "button": {
+    "createGoal": "Create Goal",
+    "editGoal": "Edit Goal",
+    "addWorkout": "Add Workout"
+  },
+  "intensityLabel": {
+    "easy": "Easy",
+    "threshold": "Threshold",
+    "vo2max": "VO2Max",
+    "sprint": "Sprint"
+  },
+  "empty": {
+    "noPlans": "No training plans"
+  },
+  "log": {
+    "dayNames": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "monthLabel": "{{year}}/{{month}}",
+    "activitiesCount": "{{count}} activities",
+    "activitiesCountTitle": "{{count}} activities — click each row"
+  },
+  "page": {
+    "planTitle": "Current Goal · Auto-Generated Training Plan",
+    "planEmpty": "No {{sportLabel}} training plan yet",
+    "planEmptyDesc": "Setting a {{sportLabel}} goal will automatically generate a training plan.",
+    "planEmptyAction": "Set {{sportLabel}} Goal",
+    "logTitle": "Training Log",
+    "logActivities": "{{count}} activities",
+    "logActivityCount": "Activity Count",
+    "logActivityUnit": "sessions",
+    "logTotalDistance": "Total Distance",
+    "logTotalTime": "Total Time",
+    "logTotalElevation": "Total Elevation",
+    "logTotalTSS": "Total TSS",
+    "prevMonth": "← Previous Month",
+    "nextMonth": "Next Month →",
+    "currentMonth": "This Month",
+    "import": "Import",
+    "monthlyBarTitle": "Monthly Daily Distance (km)",
+    "weekNavigate": "Weekly TSS",
+    "weekTSSLabel": "TSS",
+    "inProgress": "In progress",
+    "goalDateLabel": "Goal date",
+    "daysLeftPrefix": "D-",
+    "targetDuration": "Target time",
+    "weekHeader": "Week",
+    "tssHeader": "TSS",
+    "skipped": "Skipped",
+    "missed": "Missed",
+    "today": "TODAY",
+    "goalDay": "Goal day",
+    "planEmptyBody": "Training plan is still being generated. Please refresh later."
+  },
+  "workoutStatus": {
+    "skipped": "Skipped",
+    "completed": "Completed",
+    "today": "TODAY"
+  },
+  "phase": {
+    "build": "Build",
+    "peak": "Peak",
+    "taper": "Taper",
+    "weeksUnit": "wk",
+    "label": "Phase"
+  },
+  "phaseDescription": {
+    "buildWeek": "weeks",
+    "buildPhaseLabel": "Phase"
+  },
+  "legend": {
+    "z1Recovery": "Z1 Recovery",
+    "z2Endurance": "Z2 Endurance",
+    "z3Tempo": "Z3 Tempo",
+    "z4Threshold": "Z4 Threshold",
+    "z5VO2": "Z5 VO2",
+    "simGoal": "Sim/Goal",
+    "longSim": "Long/Sim",
+    "note": "Skipped workouts will be automatically recalculated."
+  },
+  "buttons": {
+    "ics": "📅 ICS",
+    "reroll": "🔄 Regenerate",
+    "goalReset": "🎯 Reset Goal",
+    "abandonGoal": "Abandon Goal"
+  },
+  "confirmations": {
+    "rerollConfirm": "Regenerate future schedule. Completed workouts will be preserved.",
+    "abandonConfirm": "Abandon this training goal? Your records will be kept."
+  },
+  "errors": {
+    "loadingFailed": "Failed to load training plan:",
+    "rerollFailed": "Plan regeneration failed:",
+    "rerollError": "Failed to regenerate plan.",
+    "abandonFailed": "Goal abandonment failed:",
+    "abandonError": "Failed to abandon goal.",
+    "creationFailed": "Goal creation failed:",
+    "creationError": "Failed to create goal. Please try again later."
+  },
+  "adaptation": {
+    "rerollNow": "Reroll now",
+    "snooze": "Hide for 1 week",
+    "adjustedChip": "Adjusted",
+    "adjustedTooltipDown": "Lowered next week's load to {{pct}}% due to under-performance last week.",
+    "adjustedTooltipUp": "Raised next week's load to {{pct}}% due to over-performance last week.",
+    "metricsLine": "Last 4 weeks: {{pct}}% of plan",
+    "streakSuffix": " · {{count}}w off-track",
+    "snoozeError": "Failed to snooze for 1 week.",
+    "detailsArrow": "Training plan →",
+    "cta": "View details in training plan"
+  },
+  "metrics": {
+    "progress": "Progress",
+    "completedTSS": "Completed TSS",
+    "weeksLeft": "Weeks Left",
+    "weeksUnit": "wk",
+    "projectedCTL": "Projected CTL",
+    "goalDate": "Goal Date",
+    "daysLeft": "D-",
+    "courseDistance": "km",
+    "courseElevation": "↑{{value}} m",
+    "targetDuration": "Target Duration",
+    "plannedGeneration": "Training plan is still being generated. Please refresh later."
+  },
+  "goals": {
+    "wizardTitle": {
+      "bike": "Create Your Training Plan in 3 Minutes",
+      "run": "Create Your Running Training Plan in 3 Minutes",
+      "swim": "Design Your Swimming Plan in 3 Steps"
+    },
+    "wizardSubtitle": {
+      "bike": "Set your goal course and target time, and O-Rider will automatically distribute your weekly workouts based on remaining weeks.",
+      "run": "Set a race or distance goal, and we'll automatically distribute weekly workouts based on your recent 5K PB and LTHR.",
+      "swim": "Distance goal, triathlon, or open water — we calculate workout distribution based on your CSS and 1500m PB."
+    },
+    "eyebrowLabel": {
+      "bike": "Training Goal Setup · Course-Based Plan",
+      "run": "Goal Setup · Running",
+      "swim": "Goal Setup · Swimming"
+    },
+    "stepLabels": {
+      "courseSelect": "Select Course",
+      "goalDetails": "Goal Settings",
+      "planPreview": "Plan Preview",
+      "eventSelect": "Select Event",
+      "runEvent": "Select Event",
+      "swimEvent": "Select Event"
+    },
+    "courseEmpty": "No courses registered",
+    "courseEmptyDesc": "Create a course or upload a GPX file first",
+    "courseSearchPlaceholder": "Search courses...",
+    "courseSearchEmpty": "No results found for \"{{query}}\"",
+    "courseCreateLink": "Can't find the course you want? Create a new one (GPX upload / from activity)",
+    "courseSelectInstructions": "Select a course for your goal",
+    "courseSelectDetail": "We'll compare difficulty in real-time based on your fitness level",
+    "stepLabel": "STEP",
+    "distanceLabel": "Distance"
+  },
+  "feasibility": {
+    "label": "Goal Feasibility"
+  },
+  "feasLabels": {
+    "easy": "Comfortable",
+    "on_track": "On Track",
+    "stretch": "Challenging",
+    "risky": "Risky"
+  },
+  "footerButtons": {
+    "prev": "← Previous",
+    "next": "Next →",
+    "start": "Start Plan →",
+    "starting": "Creating..."
+  },
+  "discipline": {
+    "bike": "Cycling",
+    "run": "Running",
+    "swim": "Swimming",
+    "rest": "Rest"
+  },
+  "disciplineIcon": {
+    "bike": "🚴",
+    "run": "🏃",
+    "swim": "🏊"
+  },
+  "workouts": {
+    "rest": "Rest",
+    "rec": "Z1 Recovery",
+    "z2": "Z2 Endurance",
+    "z2Long": "Z2 Long",
+    "tempo": "Z3 Tempo",
+    "ftp": "Z4 Threshold",
+    "vo2": "Z5 VO2",
+    "vo2Max": "Z5 VO₂max",
+    "sim": "Goal Sim",
+    "simFull": "Goal Simulation",
+    "goal": "Goal Day",
+    "goalEmoji": "🏆 Goal Day",
+    "easyRun": "Easy Run",
+    "tempoRun": "Tempo Run",
+    "intervalRun": "Interval Run",
+    "longRun": "Long Run",
+    "recoveryRun": "Recovery Run",
+    "easySwim": "Easy Swim",
+    "drillSwim": "Drill Swim",
+    "intervalSwim": "Interval Swim",
+    "longSwim": "Long Swim",
+    "recoverySwim": "Recovery Swim",
+    "stridesRun": "Strides",
+    "progressRun": "Progress Run",
+    "progressRunFull": "Progress Run",
+    "threshRun": "Threshold Run",
+    "raceRun": "Race Sim",
+    "raceRunFull": "Race Simulation",
+    "kickSwim": "Kick Swim",
+    "enduranceSwim": "Endurance Swim",
+    "cssSwim": "CSS Threshold",
+    "racepaceSwim": "Race Pace",
+    "sprintSwim": "Sprint",
+    "sprintSwimFull": "Sprint Swim",
+    "owSwim": "Open Water",
+    "owSwimFull": "Open Water Swim",
+    "brickSwim": "Brick",
+    "brickSwimFull": "Brick Workout"
+  },
+  "intensityChip": {
+    "rest": "REST",
+    "easy": "EASY",
+    "mod": "MOD",
+    "hard": "HARD"
+  },
+  "session": {
+    "burnoutRest": "Full Rest (Required)",
+    "restOrZ1": "{{disc}} Rest or Light Z1",
+    "recoveryZ1": "Recovery {{disc}} Z1",
+    "taperSharpening": "Taper {{disc}} Sharpener",
+    "vo2Interval": "VO₂max Interval {{disc}}",
+    "sweetSpot": "Sweet Spot {{disc}}",
+    "tempo": "Tempo {{disc}}",
+    "z2Endurance": "Z2 Endurance {{disc}}"
+  },
+  "fallback": {
+    "today": "Today: {{sessionName}} · Z{{zone}} · {{dur}}",
+    "durRest": "—",
+    "durFixed": "{{min}} min",
+    "durRange": "{{lo}}–{{hi}} min",
+    "current": "Status: CTL {{ctl}} · ATL {{atl}} · TSB {{tsb}}",
+    "week": "Last 7d: {{count}} sessions · {{tss}} TSS · rest {{rest}}d",
+    "month": "Last 30d: {{count}} sessions · {{tss}} TSS · avg {{avg}}/wk",
+    "todayRecord": "Today's record: {{tss}} TSS · {{min}} min"
+  },
+  "today": {
+    "eyebrow": "Today's Workout",
+    "noGoalTitle": "No training goal yet",
+    "noGoalDesc": "Set a goal and we'll plan today's workout for you.",
+    "goalSetupCta": "Set goal →",
+    "preparing": "Preparing your plan",
+    "restToday": "Rest day · take it easy",
+    "courseDay": "{{course}} · D-{{daysLeft}}",
+    "courseDayInline": " · {{course}} D-{{daysLeft}}",
+    "minutes": "{{value}} min",
+    "tssValue": "{{value}} TSS",
+    "actualTssValue": "Actual {{value}} TSS",
+    "completedBadge": "✓ Done",
+    "viewPlan": "View plan →",
+    "viewActivity": "View activity →",
+    "purposeLabel": "Purpose",
+    "benefitLabel": "Benefit",
+    "purpose": {
+      "rest": "Recovery for muscles, ligaments, and nervous system",
+      "recovery": "Clear accumulated fatigue — preserve intensity for next key workout",
+      "base": "Build aerobic system foundation week by week",
+      "long": "Stimulate endurance system needed for long efforts",
+      "tempo": "Lift aerobic efficiency just below threshold",
+      "threshold": "Directly stimulate threshold power/pace",
+      "vo2": "Short, hard intervals to push maximum aerobic capacity",
+      "simulation": "Rehearse race course / pacing",
+      "specialty": "Targeted stimulus for technique or muscular weakness",
+      "goal": "The day you deliver 12 weeks of training"
+    },
+    "benefit": {
+      "rest": "Better adaptation to upcoming training stimulus",
+      "recovery": "Less accumulated fatigue → preserve next session's output",
+      "base": "Mitochondrial density↑ → lower HR/RPE at same intensity",
+      "long": "Fat oxidation↑ → maintain late-effort pace",
+      "tempo": "Sweet Spot adaptation — sustain near-FTP power longer",
+      "threshold": "FTP/threshold pace↑ → higher 1-hour sustainable power",
+      "vo2": "VO2max↑ → raises ceiling across all zones",
+      "simulation": "Pacing/nutrition/gear validated → race-day confidence",
+      "specialty": "Address weak link or improve efficiency",
+      "goal": "Deliver the fitness you've built"
+    },
+    "currentStatus": "Current Status",
+    "tsbGood": "Feeling good",
+    "tsbHigh": "Fatigued",
+    "tsbModerate": "Balanced",
+    "tsbHint": "TSB · {{label}}",
+    "weekDoneLabel": "This week",
+    "ctlVsGoal": "CTL vs goal",
+    "closingBike": "Have a great ride today.",
+    "closingRun": "Have a great run today.",
+    "closingSwim": "Have a great swim today.",
+    "intervalTitle": "{{label}} {{minutes}} min",
+    "loadFailed": "[TodaysWorkout] CF call failed:",
+    "noActivityRecord": "No activity records",
+    "activityToday": "Trained today",
+    "activityYesterday": "Trained yesterday",
+    "activityDaysAgo": "Trained {{count}}d ago",
+    "revalidatingUpdating": "Updating fitness data…",
+    "revalidatingDone": "Up to date",
+    "llmPreparing": "Recalculating today's data…",
+    "llmCalling": "AI coach is analyzing…",
+    "restFallbackNarrative": "Rest day — focus on sleep, hydration, and nutrition.",
+    "thisWeek": "This week",
+    "sevenDayTss": "Rolling 7d {{value}} TSS",
+    "narrativeExpand": "Show {{n}} more ▼",
+    "narrativeCollapse": "Show less ▲",
+    "weeklyLoadLabel": "This week's target load",
+    "weeklyTargetRange": "Target {{lo}}–{{hi}} TSS",
+    "weeklyAccumulated": "Done {{value}}",
+    "weeklyRemaining": "Left {{value}}",
+    "balanceDirection": "Balance target {{lo}}~{{hi}}",
+    "balancePhase": {
+      "build": "Build",
+      "maintain": "Maintain",
+      "taper": "Taper",
+      "recovery": "Recovery"
+    },
+    "analyzeStart": "Analyze",
+    "analyzeWaiting": "Awaiting analysis — data collection complete",
+    "reanalyze": "Re-analyze",
+    "upToDate": "Up to date"
+  },
+  "plan": {
+    "revalidatingUpdating": "Refining plan based on recent activity…",
+    "revalidatingDone": "Plan has been updated"
+  },
+  "revalidatingIndicator": {
+    "updating": "Updating training plan to reflect current status…",
+    "done": "Up to date"
+  },
+  "mobile": {
+    "headerTitle": "Training Plan",
+    "addAction": "+ Add",
+    "weekHeading": "WEEK",
+    "weekThis": "This week",
+    "weeklyTSS": "Weekly TSS",
+    "timeLabel": "Time",
+    "sessions": "Sessions",
+    "weeklyPlan": "Weekly Plan",
+    "edit": "Edit",
+    "restDay": "Rest day",
+    "stateDone": "Done",
+    "stateToday": "Today",
+    "statePast": "Missed",
+    "statePlanned": "Planned",
+    "start": "Start"
+  },
+  "add": {
+    "title": "Add Workout",
+    "selectDay": "Select Day",
+    "discipline": "Discipline",
+    "selectWorkout": "Select Workout",
+    "saving": "Saving...",
+    "weekDataMissing": "Week data not found.",
+    "addFailed": "Failed to add workout:",
+    "addFailedAlert": "Failed to add workout. Please try again.",
+    "restFailed": "Failed to set rest day:",
+    "minutes": "{{value}} min",
+    "tssValue": "{{value}} TSS",
+    "templates": {
+      "bike": {
+        "rec": "Easy spin",
+        "z2": "Aerobic base",
+        "z2Long": "4h+ LSD",
+        "tempo": "SST or tempo intervals",
+        "ftp": "FTP intervals",
+        "vo2": "Short high-intensity intervals",
+        "sim": "Goal-course style ride"
+      },
+      "run": {
+        "recoveryRun": "Easy shake-out",
+        "easyRun": "Z2 easy run",
+        "tempoRun": "Z3 tempo pace",
+        "intervalRun": "VO₂ or threshold intervals",
+        "longRun": "Weekly LSD"
+      },
+      "swim": {
+        "recoverySwim": "Easy + drills",
+        "easySwim": "Z2 easy set",
+        "drillSwim": "Kick/drill focus",
+        "intervalSwim": "CSS threshold set",
+        "longSwim": "Long easy + pace"
+      }
+    }
+  },
+  "edit": {
+    "closeAria": "Close",
+    "saving": "Saving...",
+    "weekDataMissing": "Week data not found.",
+    "rangeError": "Day index out of range",
+    "saveFailed": "Workout edit failed:",
+    "saveFailedAlert": "Failed to save changes. Please try again.",
+    "swapNoNext": "No next day available to swap.",
+    "swapNoPrev": "No previous day available.",
+    "swapNoPrevValid": "No previous day available to swap.",
+    "swapFailed": "Day swap failed:",
+    "swapFailedAlert": "Failed to swap days.",
+    "linkedActivity": "View linked activity",
+    "uncheckCompleted": "Undo completion",
+    "markCompleted": "Mark complete",
+    "unskip": "Undo skip",
+    "skip": "Skip",
+    "changeWorkout": "Change workout",
+    "swapPrev": "Swap with previous day",
+    "swapNext": "Swap with next day",
+    "minutesAndTss": "{{tss}} TSS · {{minutes}} min",
+    "importWorkout": "Import workout file",
+    "importedIntervals": "{{count}} intervals",
+    "importTooLarge": "File too large (max 1MB).",
+    "importUnsupported": "Unsupported format. Use a .zwo, .erg, or .mrc file.",
+    "importFailedAlert": "Could not read the workout file.",
+    "importFailed": "Workout import failed:"
+  },
+  "goalDetails": {
+    "eventTypeLabel": "Event Type",
+    "feasDesc": {
+      "easy": "Well within your current fitness. Consider a harder goal.",
+      "on_track": "Good difficulty. Achievable with consistent training.",
+      "stretch": "Challenging goal. A regular training plan is essential.",
+      "risky": "Beyond current level. Extend the target time or training period."
+    },
+    "eventType": {
+      "completion": "Completion",
+      "time": "Target Time",
+      "race": "Race"
+    },
+    "eventTypeDesc": {
+      "completion": "Finish-focused. Pacing workouts, no time pressure",
+      "time": "Complete within a target time. Endurance + power balance",
+      "race": "Max output + group riding workouts included"
+    },
+    "targetDate": "Goal Date",
+    "targetDatePlaceholder": "Select goal date",
+    "daysLeft": "D-{{days}} · {{weeks}} weeks remaining",
+    "targetDuration": "Target Duration",
+    "hourUnit": "hr",
+    "minUnit": "min",
+    "avgSpeed": "avg {{speed}} km/h",
+    "weeklySessions": "Weekly Sessions",
+    "sessionCount": "{{n}}x",
+    "feasibilityLabel": "Goal Feasibility",
+    "requiredPower": "Required Avg Power",
+    "sustainablePower": "My Sustainable Power",
+    "fatigueAdj": "Fatigue {{pct}}%",
+    "gap": "Gap",
+    "trainingPeriod": "Training Period",
+    "periodValue": "{{weeks}} wk · {{sessions}} total",
+    "fatigueTsbHint": "Reflecting current TSB {{tsb}}"
+  },
+  "planPreview": {
+    "loading": "Generating plan on server...",
+    "loadingDetail": "Calculating {{weeks}}-week plan for {{courseName}}.",
+    "kpi": {
+      "totalWeeks": "Total Weeks",
+      "totalSessions": "Total Sessions",
+      "avgWeeklyTss": "Avg Weekly TSS",
+      "projectedCtl": "Projected CTL"
+    },
+    "phasesTitle": "Training Phases",
+    "phasesSubtitle": "Build → Peak → Taper",
+    "phase": {
+      "buildup": "Build",
+      "peak": "Peak",
+      "taper": "Taper"
+    },
+    "phaseDesc": {
+      "buildup": "Z2 volume + Z4 interval once/week",
+      "peak": "Goal-course long ride + 2 high-intensity sessions",
+      "taper": "Volume −30%, short openers to stay sharp"
+    },
+    "feasibilityLabel": "Goal Feasibility",
+    "required": "Required",
+    "current": "Current",
+    "gap": "Gap",
+    "summaryTitle": "Today's workout appears on your dashboard every morning.",
+    "summaryBody": "A {{weeks}}-week plan of {{sessions}} sessions (est. {{tss}} TSS) has been created. You can adjust anytime — skipped rides are automatically recalculated."
+  },
+  "runWizard": {
+    "selectHeading": "Select your goal event",
+    "selectSubtitle": "Race, distance, or trail — workout templates adjust to your choice.",
+    "distanceLabel": "Distance",
+    "goalTypeLabel": "Goal Type",
+    "goalType": {
+      "completion": "Completion",
+      "time": "Target Time",
+      "race": "Race"
+    },
+    "goalTypeDesc": {
+      "completion": "Focus on finishing without pace pressure",
+      "time": "Threshold + long runs to hold target pace",
+      "race": "High-intensity intervals in peak week + taper"
+    },
+    "targetDate": "Goal Date",
+    "targetDatePlaceholder": "Select goal date",
+    "daysLeft": "D-{{days}} · {{weeks}} weeks remaining",
+    "targetTime": "Target Finish Time",
+    "hourUnit": "hr",
+    "minUnit": "min",
+    "secUnit": "sec",
+    "requiredPace": "Required Avg Pace",
+    "weeklySessions": "Weekly Sessions",
+    "sessionCount": "{{n}}x",
+    "sessionsHint": "Auto-distributed by the 80/20 rule (80% easy, 20% hard).",
+    "feasibilityLabel": "Goal Feasibility",
+    "feasDesc": {
+      "easy": "Well within your threshold pace. Consider a faster goal.",
+      "on_track": "Good difficulty. Achievable with 80/20 weekly runs.",
+      "stretch": "Challenging goal. Threshold runs + progressive long runs essential.",
+      "risky": "Significantly faster than threshold. Lower the goal or extend training time."
+    },
+    "feasRequiredPace": "Required Avg Pace",
+    "feasLthrPace": "My Threshold Pace (LTHR)",
+    "feasPb5k": "Recent 5K PB",
+    "feasGap": "Pace Gap",
+    "trainingPeriod": "Training Period",
+    "periodValue": "{{weeks}} wk · {{sessions}} total",
+    "peakWeeklyDist": "Est. Peak Weekly Distance",
+    "kpi": {
+      "totalWeeks": "Total Weeks",
+      "totalSessions": "Total Runs",
+      "totalDist": "Total Distance",
+      "tsbGoal": "Goal-Day TSB"
+    },
+    "phasesTitle": "Training Phases",
+    "phasesSubtitle": "Build → Peak → Taper · 80/20 Running Model",
+    "phase": {
+      "buildup": "Build",
+      "peak": "Peak",
+      "taper": "Taper"
+    },
+    "phaseDesc": {
+      "buildup": "Increase weekly mileage + 1 long run, 1 tempo",
+      "peak": "Goal-pace progress runs + threshold intervals",
+      "taper": "Distance −40%, short openers to stay sharp"
+    },
+    "paceZonesTitle": "Pace Zones",
+    "paceZonesSubtitle": "Based on LTHR {{pace}}/km",
+    "paceZone": {
+      "z1": "Z1 Recovery",
+      "z2": "Z2 Endurance",
+      "z3": "Z3 Tempo",
+      "z4": "Z4 Threshold",
+      "z5": "Z5 VO2"
+    },
+    "tsbTitle": "Projected Form (TSB) Curve",
+    "tsbSubtitle": "Projected to reach +12 on goal day",
+    "tsbToday": "Today",
+    "tsbBuildupLabel": "+{{weeks}}wk Build",
+    "tsbPeakLabel": "+{{weeks}}wk Peak",
+    "tsbGoalDay": "Goal Day ({{date}})",
+    "infoTitle": "Cycling and running share one CTL.",
+    "infoBody": "Running load (rTSS) is calculated from pace and GAP, then added to cycling TSS. View per-sport breakdown on the Fitness page.",
+    "event": {
+      "5k":    { "name": "5K Run",              "kind": "Track/Road", "tag": "Speed" },
+      "10k":   { "name": "10K Run",             "kind": "Road",       "tag": "Threshold" },
+      "half":  { "name": "Half Marathon",        "kind": "Road",       "tag": "Endurance" },
+      "full":  { "name": "Full Marathon",        "kind": "Road",       "tag": "Endurance" },
+      "seoul": { "name": "Seoul Marathon (Full)", "kind": "Road",      "tag": "Race" },
+      "trail": { "name": "Trail 24K",            "kind": "Trail",      "tag": "Trail" }
+    }
+  },
+  "swimWizard": {
+    "selectHeading": "Select your goal event",
+    "selectSubtitle": "Pool, open water, or triathlon — workout structure adapts to your environment.",
+    "distanceLabel": "Distance",
+    "goalTypeLabel": "Goal Type",
+    "goalType": {
+      "completion": "Completion",
+      "time": "Target Time",
+      "technique": "Technique"
+    },
+    "goalTypeDesc": {
+      "completion": "Distance adaptation · drill + easy long swims",
+      "time": "Maintain CSS · threshold sets + 1500m pace work",
+      "technique": "SWOLF/DPS improvement · drills + kick focus"
+    },
+    "targetDate": "Goal Date",
+    "targetDatePlaceholder": "Select goal date",
+    "daysLeft": "D-{{days}} · {{weeks}} weeks remaining",
+    "targetTime": "Target Finish Time",
+    "minUnit": "min",
+    "secUnit": "sec",
+    "requiredPace": "Required Avg Pace",
+    "weeklySessions": "Weekly Sessions",
+    "sessionCount": "{{n}}x",
+    "sessionsHint": "Min 2 sessions recommended · 3+ per week is optimal for CSS improvement.",
+    "owNote": "Open Water Adjustment",
+    "owNoteBody": "Sighting and navigation reduce speed by +8–12s/100m vs. pool pace. Open-water-specific drills included.",
+    "triNote": "Triathlon Swim",
+    "triNoteBody": "Control effort at 90% CSS to save legs for the bike. One brick workout (swim→bike) per week recommended.",
+    "feasibilityLabel": "Goal Feasibility",
+    "feasDesc": {
+      "easy": "Comfortable at current CSS. Consider a faster target.",
+      "on_track": "Good difficulty. Achievable with CSS threshold sets + easy long swims.",
+      "stretch": "Challenging goal. CSS pace improvement workouts are essential.",
+      "risky": "Significantly faster than current CSS. Extend the timeline or ease the goal."
+    },
+    "feasRequiredPace": "Required Avg Pace",
+    "feasCss": "My CSS (current)",
+    "feasPb1500": "Recent 1500m PB",
+    "feasGap": "Gap vs. CSS",
+    "trainingPeriod": "Training Period",
+    "periodValue": "{{weeks}} wk · {{sessions}} total",
+    "peakWeeklyDist": "Est. Peak Weekly Distance",
+    "projectedCss": "Projected CSS Goal",
+    "kpi": {
+      "totalWeeks": "Total Weeks",
+      "totalSessions": "Total Swims",
+      "totalDist": "Total Distance",
+      "tsbGoal": "Goal-Day TSB"
+    },
+    "phasesTitle": "Training Phases",
+    "phasesSubtitle": "Technique → Build → Peak → Taper",
+    "phase": {
+      "buildup": "Build",
+      "peak": "Peak",
+      "taper": "Taper"
+    },
+    "phaseDesc": {
+      "buildup": "Drill/kick + easy long swims. CSS test every other week",
+      "peak": "CSS threshold sets + 1500m pace work",
+      "peakOw": "CSS threshold sets + 1500m pace work + sighting",
+      "taper": "Distance −40%, short openers to maintain feel"
+    },
+    "paceZonesTitle": "Swim Pace Zones",
+    "paceZonesSubtitle": "Based on CSS {{pace}}/100m",
+    "paceZone": {
+      "z1": "Z1 Recovery",
+      "z2": "Z2 Easy",
+      "z3": "Z3 Endurance",
+      "z4": "Z4 CSS",
+      "z5": "Z5 Sprint"
+    },
+    "tsbTitle": "Projected Form (TSB) Curve",
+    "tsbSubtitle": "Projected to reach +10 on goal day",
+    "tsbToday": "Today",
+    "tsbBuildupLabel": "+{{weeks}}wk Build",
+    "tsbPeakLabel": "+{{weeks}}wk Peak",
+    "tsbGoalDay": "Goal Day ({{date}})",
+    "infoTitle": "All three sports share one CTL.",
+    "infoBody": "Swimming load (sTSS) is calculated from CSS and pace, then combined with cycling TSS and rTSS. View per-sport stack and fatigue on the Fitness page.",
+    "event": {
+      "test1500": { "name": "1500m Test",                           "kind": "Pool · 25m/50m", "tag": "Benchmark" },
+      "ow1500":   { "name": "Open Water 1500m",                     "kind": "Open Water",     "tag": "Open Water" },
+      "tri750":   { "name": "Sprint Triathlon (Swim 750m)",          "kind": "Tri Leg",        "tag": "Triathlon" },
+      "tri1500":  { "name": "Olympic Triathlon (Swim 1.5km)",        "kind": "Tri Leg",        "tag": "Triathlon" },
+      "ow3000":   { "name": "Open Water 3 km",                      "kind": "Open Water",     "tag": "Endurance" },
+      "swim5k":   { "name": "Pool / Open Water 5 km",               "kind": "Long Distance",  "tag": "Marathon Swim" }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Generated i18n locales (built from src/i18n/resources)
+public/locales/
+
+# Secrets — only .env.example / .env.e2e(emulator template) are tracked
+.env
+.env.local
+.env.*.local
+
+# Test / coverage
+coverage/
+playwright-report/
+test-results/
+.vitest/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Firebase
+.firebase/
+firebase-debug.log

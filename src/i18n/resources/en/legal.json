@@ -1,0 +1,392 @@
+{
+  "terms": {
+    "title": "O-Rider Terms of Service",
+    "lastUpdated": "Last updated: February 18, 2026",
+    "stravaTermsLink": "Strava Migration Addendum",
+    "sections": [
+      {
+        "title": "Article 1 (Purpose)",
+        "paragraphs": [
+          "These Terms govern the use of the ride-tracking and social platform service (including the website and mobile applications) provided by O-Rider (\"Company\"), and define the rights, obligations, and responsibilities between the Company and Users, as well as other necessary matters."
+        ]
+      },
+      {
+        "title": "Article 2 (Definitions)",
+        "list": [
+          "\"Service\" means all services provided by the Company through the website (orider.app) and mobile applications (Android, iOS), including ride record management, data analysis, segments and leaderboards, social features, and external service integrations.",
+          "\"User\" means a member or non-member who accesses and uses the Service in accordance with these Terms.",
+          "\"Member\" means a person who has signed in via a Google account or similar method and entered into a service agreement with the Company.",
+          "\"Content\" means all information uploaded or posted by Users, including ride records, photos, comments, descriptions, and profile information.",
+          "\"External Service\" means a third-party service such as Strava that the Company integrates with."
+        ]
+      },
+      {
+        "title": "Article 3 (Formation of Service Agreement)",
+        "list": [
+          "A service agreement is formed when the User agrees to these Terms and completes the sign-in process.",
+          "The Company may restrict registration or terminate the agreement after the fact in the following cases: (1) if another person's information is misused, (2) if the User is under 14 years old (including without legal guardian consent), (3) if the User violates laws or these Terms.",
+          "Members may not transfer, lend, or share their account with others."
+        ]
+      },
+      {
+        "title": "Article 4 (Account Management)",
+        "list": [
+          "Members are responsible for managing their own account information.",
+          "Members must promptly notify the Company if unauthorized use of their account is suspected.",
+          "The Company is not responsible for damages caused by the Member's own fault."
+        ]
+      },
+      {
+        "title": "Article 5 (Provision and Modification of the Service)",
+        "paragraphs": ["The Company provides the following services:"],
+        "list": [
+          "Ride record storage and analysis",
+          "Strava data migration and synchronization",
+          "Segments and leaderboards",
+          "Social features such as friends, comments, and kudos",
+          "Real-time ride recording (GPS route, speed, elevation)",
+          "BLE sensor integration (heart rate, cadence, power, gearing, radar)",
+          "Group rides and real-time location sharing"
+        ],
+        "list2": [
+          "The Service is currently in an early (Beta) stage and some features may change or be discontinued.",
+          "The Company may modify all or part of the Service for operational or technical reasons; significant changes will be announced in advance.",
+          "The Service is currently provided free of charge, but paid features may be introduced in the future with prior notice."
+        ]
+      },
+      {
+        "title": "Article 6 (External Service Integration and Data)",
+        "list": [
+          "The Service may integrate with external services such as the Strava API with the User's explicit consent.",
+          "Some features may be limited due to changes in external service policies, API limits, or outages.",
+          "The Company does not guarantee the accuracy, completeness, or timeliness of data fetched from external services.",
+          "Users may disconnect external services at any time, in which case authentication tokens are discarded.",
+          "Deleting data from the Service does not affect data on external services."
+        ],
+        "stravaLinkSentencePrefix": "Details of Strava integration follow the ",
+        "stravaLinkSentenceSuffix": "."
+      },
+      {
+        "title": "Article 7 (Privacy Protection)",
+        "list": [
+          "The Company processes and protects Users' personal information in accordance with applicable laws.",
+          "Categories collected, purposes, and retention periods are governed by the separate Privacy Policy.",
+          "Users may export or request deletion of their data through Settings."
+        ]
+      },
+      {
+        "title": "Article 8 (User Obligations and Prohibited Activities)",
+        "paragraphs": ["Users must not engage in any of the following:"],
+        "list": [
+          "Acts that violate laws or these Terms",
+          "Infringing on others' rights (copyright, portrait rights, personal data, etc.)",
+          "Posting content that defames, insults, or causes hate or discomfort",
+          "Mass collection (scraping) using automated tools, generating abnormal traffic",
+          "Reverse engineering, bypassing access, sharing credentials, or interfering with Service operation",
+          "Inducing violations of external service policies"
+        ]
+      },
+      {
+        "title": "Article 9 (Restriction and Termination of Use)",
+        "list": [
+          "The Company may issue warnings, temporary suspension, or permanent suspension if a User violates these Terms.",
+          "For serious violations, use may be restricted without prior notice.",
+          "Members may request withdrawal at any time; upon withdrawal, personal data is processed in accordance with applicable laws and the Privacy Policy.",
+          "Members may appeal restriction measures to the Company."
+        ]
+      },
+      {
+        "title": "Article 10 (Content Rights and Liability)",
+        "list": [
+          "Users must own or have lawful rights to the content they upload.",
+          "Users grant the Company a non-exclusive, royalty-free, worldwide license to the extent necessary to provide, display, store, and transmit the Service.",
+          "The Company may take temporary measures (blinding, deletion, etc.) on content suspected of infringement.",
+          "Users are responsible for any disputes arising from their content."
+        ]
+      },
+      {
+        "title": "Article 11 (Service Interruption)",
+        "list": [
+          "The Company may temporarily interrupt all or part of the Service due to system maintenance, failures, or force majeure.",
+          "Notices will be posted in advance when possible, or after the fact when unavoidable."
+        ]
+      },
+      {
+        "title": "Article 12 (Limitation of Liability)",
+        "list": [
+          "The Company limits its liability for the free Service to the extent permitted by law.",
+          "The Company is not liable for damages caused by external service outages or policy changes.",
+          "The Company is not liable for indirect, special, or consequential damages.",
+          "However, damages caused by the Company's willful misconduct or gross negligence are governed by applicable laws."
+        ]
+      },
+      {
+        "title": "Article 13 (Changes to Terms)",
+        "list": [
+          "The Company may change these Terms within the scope permitted by law.",
+          "Changes will be announced through the Service screen or by email.",
+          "Users who do not agree to the changes may withdraw."
+        ]
+      },
+      {
+        "title": "Article 14 (Dispute Resolution and Governing Law)",
+        "list": [
+          "Disputes related to the Service shall be resolved through mutual consultation.",
+          "If consultation fails, the laws of the Republic of Korea shall govern, and the court with jurisdiction over the Company's headquarters shall have jurisdiction."
+        ]
+      },
+      {
+        "title": "Article 15 (Contact)",
+        "paragraphs": ["Inquiries about the Service can be made through the following:"],
+        "list": [
+          "Email: orider.app@gmail.com",
+          "In-service feedback or email"
+        ]
+      }
+    ]
+  },
+  "stravaTerms": {
+    "pageTitle": "Strava Data Migration & Integration Addendum",
+    "pageSubtitle": "This Addendum forms part of the O-Rider Terms of Service.",
+    "article1": {
+      "title": "Article 1 (Purpose)",
+      "body": "This Addendum governs the rights and responsibilities related to the feature that allows Users to import Strava data into O-Rider."
+    },
+    "article2": {
+      "title": "Article 2 (Integration Method)",
+      "item1": "Integration is performed via OAuth authentication.",
+      "item2": "Users grant data access permissions through explicit consent."
+    },
+    "article3": {
+      "title": "Article 3 (Data Scope)",
+      "intro": "The following data may be imported:",
+      "item1": "Ride records",
+      "item2": "Distance, speed, elevation, and time",
+      "item3": "Segment records",
+      "item4": "Activity descriptions",
+      "footer": "The scope of importable data is subject to Strava API policies."
+    },
+    "article4": {
+      "title": "Article 4 (Limitation of Liability)",
+      "item1": "Some data may be missing due to Strava API limitations or policy changes.",
+      "item2": "Data synchronization delays may occur subject to API rate limits.",
+      "item3": "The Company does not guarantee the accuracy of Strava data."
+    },
+    "article5": {
+      "title": "Article 5 (Disconnection)",
+      "item1": "Users may disconnect the integration at any time.",
+      "item2": "Upon disconnection, authentication tokens are discarded.",
+      "item3": "Data already imported will be retained within the Service unless the User requests deletion."
+    },
+    "article6": {
+      "title": "Article 6 (Relationship with Strava)",
+      "body": "O-Rider is not affiliated with or an official partner of Strava, and Strava is not the operator of this Service."
+    }
+  },
+  "guidelines": {
+    "pageTitle": "O-Rider Community Guidelines",
+    "intro": "O-Rider is a platform for a healthy riding culture. All Users must comply with the following standards.",
+    "section1": {
+      "title": "1. Respect and Consideration",
+      "item1": "No defamation, insults, or hate speech toward others",
+      "item2": "No discrimination based on race, gender, region, physical condition, etc."
+    },
+    "section2": {
+      "title": "2. Safe Content",
+      "item1": "No posting of violent or obscene content",
+      "item2": "No unauthorized disclosure of others' personal information",
+      "item3": "No posting of false records or manipulated data"
+    },
+    "section3": {
+      "title": "3. Copyright and Portrait Rights",
+      "item1": "No unauthorized posting of others' photos, videos, or records",
+      "item2": "No unauthorized reproduction for commercial purposes"
+    },
+    "section4": {
+      "title": "4. Fair Leaderboards",
+      "item1": "No GPS manipulation, record falsification, or uploading of abnormal data",
+      "item2": "No ranking manipulation using automated tools"
+    },
+    "section5": {
+      "title": "5. Enforcement Policy",
+      "intro": "Violations may result in the following actions:",
+      "item1": "Content removal",
+      "item2": "Temporary suspension",
+      "item3": "Permanent suspension",
+      "footer": "Accounts may be suspended immediately for serious violations."
+    }
+  },
+  "privacy": {
+    "title": "O-Rider Privacy Policy",
+    "lastUpdated": "Last updated: February 18, 2026",
+    "intro": "O-Rider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
+    "stravaPrivacyLink": "Strava Privacy Policy",
+    "sections": [
+      {
+        "title": "Article 1 (Personal Information Collected)",
+        "paragraphs": ["The Company collects the following personal information:"],
+        "groups": [
+          {
+            "heading": "1. Sign-up and sign-in",
+            "list": [
+              "Google account information: name, email address, profile image",
+              "Google unique identifier"
+            ]
+          },
+          {
+            "heading": "2. Strava integration",
+            "list": [
+              "Strava unique ID",
+              "Ride records (distance, speed, elevation, route, activity time, etc.)",
+              "Activity descriptions, segment records, and other data the User has made public on Strava"
+            ]
+          },
+          {
+            "heading": "3. Automatically collected during use",
+            "list": [
+              "Access logs, IP address",
+              "Device info (device type, OS version)",
+              "Cookies (web) and local storage (app)",
+              "Location info (GPS): ride routes, real-time location sharing",
+              "BLE sensor data: heart rate, cadence, power, gearing status, radar"
+            ]
+          },
+          {
+            "heading": "4. Additional collection on mobile apps",
+            "list": [
+              "Device identifiers (device model, OS version, app version)",
+              "Bluetooth device info (connected sensor name, device ID)",
+              "Background location (during ride recording, with User consent)"
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Article 2 (Purposes of Collection and Use)",
+        "paragraphs": ["The Company processes personal information for the following purposes:"],
+        "list": [
+          "Member identification and account management",
+          "Storing and analyzing ride records",
+          "Providing Strava integration features",
+          "Operating leaderboards and social features",
+          "Collecting real-time ride and sensor data",
+          "Real-time location sharing during group rides",
+          "BLE sensor integration and device management",
+          "Service improvement and error analysis",
+          "Compliance with laws and dispute response"
+        ]
+      },
+      {
+        "title": "Article 3 (Retention and Use Period)",
+        "list": [
+          "Personal data is deleted without delay upon withdrawal in principle.",
+          "However, data may be retained for a certain period if required by applicable laws.",
+          "Ride records are deleted immediately upon User request."
+        ]
+      },
+      {
+        "title": "Article 4 (Provision to Third Parties)",
+        "paragraphs": [
+          "The Company does not, in principle, provide Users' personal information to third parties, except in the following cases:"
+        ],
+        "list": [
+          "When the User has consented in advance",
+          "When required by law"
+        ],
+        "footer": "Strava integration is performed with the User's explicit consent and does not separately provide personal information to Strava (integration is handled via OAuth authentication)."
+      },
+      {
+        "title": "Article 4-2 (Data Processing for Strava Integration)",
+        "paragraphs": ["When a User integrates a Strava account, data is processed as follows:"],
+        "groups": [
+          {
+            "heading": "1. Data collected",
+            "list": [
+              "Strava profile info (name, profile image)",
+              "Ride activity summary (distance, speed, heart rate, power, cadence, elevation)",
+              "GPS route data (lat/lng, elevation profile)",
+              "Segment records and achievements (PR, KOM)",
+              "Activity photos (if selected by the User)"
+            ]
+          },
+          {
+            "heading": "2. Purposes of use",
+            "list": [
+              "Unified management and analysis of the User's ride records",
+              "Visualization features such as elevation profiles and performance charts",
+              "Segment leaderboards and personal record comparison"
+            ]
+          },
+          {
+            "heading": "3. Data access scope (OAuth scopes)",
+            "list": [
+              "read — Read public profile information",
+              "activity:read_all — Read all activity data",
+              "activity:write — Upload activities (used only by mobile apps)"
+            ]
+          },
+          {
+            "heading": "4. Withdrawal of consent and data deletion",
+            "list": [
+              "Users may disconnect Strava integration at any time from the Settings page.",
+              "Strava authentication tokens are discarded immediately upon disconnection.",
+              "Users may request deletion of all activity data imported from Strava from the Settings page.",
+              "Upon a deletion request, activity records, GPS stream data, and photos are all deleted."
+            ]
+          },
+          {
+            "heading": "5. Credential security",
+            "list": [
+              "Strava OAuth tokens are stored and managed only on the server side and are not exposed to clients (browser/app).",
+              "Token exchange is handled over HTTPS encrypted communication."
+            ]
+          }
+        ],
+        "stravaLinkHeading": "6. Strava Privacy Policy",
+        "stravaLinkSentencePrefix": "Data processing on the Strava platform follows the ",
+        "stravaLinkSentenceSuffix": ". If this Policy and the Strava policy conflict, the Strava policy shall prevail."
+      },
+      {
+        "title": "Article 5 (Outsourced Processing)",
+        "paragraphs": ["Currently, the Company does not outsource personal information processing to external companies. If outsourcing occurs in the future, related details will be disclosed in this Policy."]
+      },
+      {
+        "title": "Article 6 (User Rights and How to Exercise Them)",
+        "paragraphs": ["Users may exercise the following rights at any time:"],
+        "list": [
+          "Request to view personal information",
+          "Request to correct personal information",
+          "Request to delete personal information",
+          "Request to download data (ZIP)"
+        ],
+        "footer": "Rights may be exercised by email, and the Company will act without delay."
+      },
+      {
+        "title": "Article 7 (Cookies and Similar Technologies)",
+        "paragraphs": ["The Company may use cookies (web), local storage (app), or similar technologies to improve the Service. Users may refuse the use of cookies and local storage through browser settings (web) or app settings (mobile)."]
+      },
+      {
+        "title": "Article 8 (Security Measures)",
+        "paragraphs": ["The Company implements the following protective measures:"],
+        "list": [
+          "OAuth-based authentication",
+          "HTTPS encrypted communication",
+          "Minimization of access permissions",
+          "Internal access log management"
+        ]
+      },
+      {
+        "title": "Article 9 (Protection of Children's Information)",
+        "paragraphs": ["Children under the age of 14 may not register without the consent of a legal guardian."]
+      },
+      {
+        "title": "Article 10 (Privacy Officer)",
+        "list": ["Email: orider.app@gmail.com"]
+      },
+      {
+        "title": "Article 11 (Changes to the Policy)",
+        "paragraphs": ["This Policy may be revised due to changes in laws or the Service, and changes will be announced."]
+      }
+    ]
+  }
+}

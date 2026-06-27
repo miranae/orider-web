@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12. 액션캠 제어 - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">12. 액션캠 제어</div>
+  <div class="nav-right"><a href="ch11-weather.html">이전</a><span class="nav-sep">|</span><a href="ch13-lightweight.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s12">
+  <h2>12. 액션캠 제어</h2>
+  <p>라이딩 영상을 촬영한다면 핸들에서 손을 떼지 않고도 O-Rider 화면에서 액션캠을 제어할 수 있습니다. BLE를 통해 연결하므로 별도의 Wi-Fi 설정이 필요 없습니다.</p>
+  <div class="card">
+    <h4>지원 카메라</h4>
+    <table>
+      <tr><th>브랜드</th><th>연결 방식</th><th>기능</th></tr>
+      <tr><td><strong>GoPro</strong></td><td>BLE (GoPro Open API)</td><td>녹화 시작/정지, 사진 촬영, 모드 전환, 배터리 확인</td></tr>
+      <tr><td><strong>DJI</strong></td><td>BLE (커스텀 프로토콜)</td><td>녹화 시작/정지, 사진 촬영, 모드 전환, 배터리 확인</td></tr>
+    </table>
+
+    <h4>연결 방법</h4>
+    <ol>
+      <li>설정 → 센서에서 <strong>센서 추가</strong>를 탭합니다</li>
+      <li>센서 유형에서 <strong>액션캠</strong>을 선택합니다</li>
+      <li>카메라를 스캔하고 탭하여 페어링합니다</li>
+    </ol>
+
+    <h4>데이터 필드</h4>
+    <p>레이아웃 에디터에서 다음 액션캠 필드를 배치할 수 있습니다:</p>
+    <ul>
+      <li><strong>배터리</strong> — 카메라 배터리 잔량 (%)</li>
+      <li><strong>녹화 상태</strong> — 현재 녹화 중 여부</li>
+      <li><strong>모드</strong> — 비디오/사진/타임랩스</li>
+      <li><strong>사진 촬영</strong> — 탭하여 사진 촬영 (인터랙티브 필드)</li>
+      <li><strong>녹화 제어</strong> — 탭하여 녹화 시작/정지 (인터랙티브 필드)</li>
+    </ul>
+    <div class="tip">데이터 화면에 "녹화 제어"와 "사진 촬영" 필드를 크게 배치하면 라이딩 중 장갑 낀 손으로도 쉽게 조작할 수 있습니다.</div>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch11-weather.html">&larr; 이전</a></div>
+    <div class="nav-title">12. 액션캠 제어</div>
+    <div><a href="ch13-lightweight.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

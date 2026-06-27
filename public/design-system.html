@@ -1,0 +1,2291 @@
+<!doctype html>
+<html lang="ko" data-theme="dark" data-design="default">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>O-Rider Design System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+    <style>
+      :root { --font-mono: "JetBrains Mono", ui-monospace, monospace; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; min-height: 100%; }
+      body {
+        font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
+        background: var(--bg-0); color: var(--ink-1);
+        -webkit-font-smoothing: antialiased;
+        transition: background .2s, color .2s;
+      }
+      svg { display: block; }
+      button { font: inherit; }
+
+      /* ===== Layout ===== */
+      .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+      @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .sidenav { display: none; } }
+
+      .sidenav {
+        position: sticky; top: 0; height: 100vh; overflow-y: auto;
+        background: var(--bg-1); border-right: 1px solid var(--line-soft);
+        padding: 20px 0;
+      }
+      .sidenav__brand {
+        padding: 0 20px 20px; border-bottom: 1px solid var(--line-soft);
+        margin-bottom: 12px;
+      }
+      .sidenav__brand-title { font-size: 14px; font-weight: 700; color: var(--ink-0); margin: 0; }
+      .sidenav__brand-tag {
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        color: var(--ink-3); margin-top: 4px; display: block;
+      }
+      .sidenav__group { padding: 12px 20px 6px; }
+      .sidenav__group-label {
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        color: var(--ink-3); text-transform: uppercase;
+      }
+      .sidenav__link {
+        display: block; padding: 6px 20px; color: var(--ink-2);
+        text-decoration: none; font-size: 13px; border-left: 2px solid transparent;
+      }
+      .sidenav__link:hover { color: var(--ink-0); background: var(--bg-2); }
+      .sidenav__link.is-active { color: var(--accent); border-left-color: var(--accent); background: var(--bg-2); }
+
+      .toolbar {
+        position: sticky; top: 0; z-index: 10;
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        padding: 12px 24px;
+        background: color-mix(in oklab, var(--bg-1) 92%, transparent);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .seg-label {
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        color: var(--ink-3); text-transform: uppercase;
+      }
+      .seg {
+        display: inline-flex; padding: 3px; gap: 2px;
+        background: var(--bg-2); border: 1px solid var(--line-soft); border-radius: 6px;
+      }
+      .seg button {
+        font-size: 12px; font-weight: 500; padding: 5px 12px;
+        border: 0; cursor: pointer; background: transparent; color: var(--ink-2);
+        border-radius: 4px;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--bg-0); color: var(--ink-0);
+        box-shadow: 0 1px 2px rgba(0,0,0,.12);
+      }
+
+      main { padding: 32px 24px 80px; max-width: 1200px; }
+      section { margin-bottom: 56px; scroll-margin-top: 72px; }
+      .section-h {
+        display: flex; align-items: baseline; gap: 12px;
+        margin: 0 0 6px;
+      }
+      .section-h h2 { margin: 0; font-size: 22px; font-weight: 700; color: var(--ink-0); }
+      .section-h .sub {
+        font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
+        letter-spacing: .06em;
+      }
+      .section-desc { color: var(--ink-2); font-size: 13px; margin: 0 0 20px; max-width: 720px; }
+
+      .subgroup { margin-bottom: 24px; }
+      .subgroup__label {
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        color: var(--ink-3); text-transform: uppercase; margin-bottom: 10px;
+        display: block;
+      }
+
+      /* ===== Card / panel ===== */
+      .panel {
+        background: var(--bg-1); border: 1px solid var(--line-soft);
+        border-radius: var(--r-lg, 10px); padding: 16px;
+      }
+      .panel--inset { background: var(--bg-2); }
+
+      /* ===== Swatches ===== */
+      .grid { display: grid; gap: 10px; }
+      .grid--colors { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+      .grid--components { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+      .swatch {
+        background: var(--bg-1); border: 1px solid var(--line-soft);
+        border-radius: 6px; overflow: hidden;
+      }
+      .swatch__box { height: 56px; }
+      .swatch__meta { padding: 8px 10px; }
+      .swatch__name { font-size: 12px; font-weight: 600; color: var(--ink-0); }
+      .swatch__val {
+        font-family: var(--font-mono); font-size: 10px;
+        color: var(--ink-3); word-break: break-all; display: block; margin-top: 2px;
+      }
+
+      /* ===== Buttons ===== */
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        height: var(--dim-button-height, 40px);
+        padding: 0 var(--dim-button-padding-h, 14px);
+        border-radius: var(--r-md, 6px);
+        font-size: 13px; font-weight: 500; line-height: 1;
+        border: 1px solid var(--line); background: var(--bg-2); color: var(--ink-1);
+        cursor: pointer; transition: background .12s, border-color .12s, transform .04s;
+        white-space: nowrap;
+      }
+      .btn:hover { background: var(--bg-3); border-color: var(--bg-4); }
+      .btn:active { transform: translateY(1px); }
+      .btn:disabled, .btn[aria-disabled="true"] {
+        opacity: .5; cursor: not-allowed; pointer-events: none;
+      }
+      .btn--primary {
+        background: var(--accent); color: var(--primary-fg);
+        border-color: var(--accent); font-weight: 600;
+      }
+      .btn--primary:hover { background: color-mix(in oklab, var(--accent) 85%, white); border-color: transparent; }
+      .btn--secondary {
+        background: var(--bg-2); color: var(--ink-0); border-color: var(--line);
+      }
+      .btn--ghost {
+        background: transparent; border-color: transparent; color: var(--ink-2);
+      }
+      .btn--ghost:hover { background: var(--bg-2); color: var(--ink-0); }
+      .btn--danger {
+        background: var(--color-error); color: white; border-color: var(--color-error);
+      }
+      .btn--outline {
+        background: transparent; color: var(--accent); border-color: var(--accent);
+      }
+      .btn--sm { height: 28px; padding: 0 10px; font-size: 12px; }
+      .btn--lg { height: 48px; padding: 0 20px; font-size: 14px; }
+      .btn--icon-only { width: var(--dim-button-height, 40px); padding: 0; }
+      .btn--block { width: 100%; }
+      .btn--loading::before {
+        content: ""; width: 12px; height: 12px;
+        border: 2px solid currentColor; border-right-color: transparent;
+        border-radius: 50%; animation: spin .7s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .btn-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+      /* ===== Chips / badges ===== */
+      .chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 8px; border-radius: var(--r-sm, 4px);
+        background: var(--bg-3); color: var(--ink-2);
+        font-size: 11px; font-family: var(--font-mono);
+        letter-spacing: .02em; border: 1px solid var(--line-soft);
+      }
+      .chip--accent { background: var(--accent-soft-bg); color: var(--accent); border-color: var(--accent-soft-border); }
+      .chip--success {
+        background: color-mix(in oklab, var(--color-success) 14%, var(--bg-2));
+        color: var(--color-success);
+        border-color: color-mix(in oklab, var(--color-success) 30%, transparent);
+      }
+      .chip--warning {
+        background: color-mix(in oklab, var(--color-warning) 14%, var(--bg-2));
+        color: var(--color-warning);
+        border-color: color-mix(in oklab, var(--color-warning) 30%, transparent);
+      }
+      .chip--danger {
+        background: color-mix(in oklab, var(--color-error) 14%, var(--bg-2));
+        color: var(--color-error);
+        border-color: color-mix(in oklab, var(--color-error) 30%, transparent);
+      }
+      .chip__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+      .badge {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 18px; height: 18px; padding: 0 5px;
+        border-radius: 9px; background: var(--accent); color: var(--primary-fg);
+        font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+      }
+      .badge--dot { width: 8px; height: 8px; min-width: 0; padding: 0; }
+
+      /* ===== Form ===== */
+      .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+      .field__label {
+        font-size: 12px; font-weight: 500; color: var(--ink-1);
+        font-family: var(--font-mono); letter-spacing: .04em;
+      }
+      .input {
+        height: 36px; padding: 0 12px; border-radius: var(--r-md, 6px);
+        background: var(--bg-0); border: 1px solid var(--line); color: var(--ink-0);
+        font-size: 13px; outline: none; transition: border-color .12s;
+      }
+      .input:focus { border-color: var(--accent); }
+      .textarea { min-height: 80px; padding: 8px 12px; resize: vertical; }
+      .select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%), linear-gradient(135deg, var(--ink-2) 50%, transparent 50%); background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 28px; }
+
+      .check {
+        display: inline-flex; align-items: center; gap: 8px;
+        cursor: pointer; font-size: 13px; color: var(--ink-1);
+      }
+      .check input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+      .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch__slider {
+        position: absolute; inset: 0; background: var(--bg-3);
+        border: 1px solid var(--line); border-radius: 999px;
+        transition: background .15s;
+      }
+      .switch__slider::before {
+        content: ""; position: absolute; top: 1px; left: 1px;
+        width: 16px; height: 16px; background: white; border-radius: 50%;
+        transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+      }
+      .switch input:checked + .switch__slider { background: var(--accent); border-color: var(--accent); }
+      .switch input:checked + .switch__slider::before { transform: translateX(16px); }
+
+      .slider { -webkit-appearance: none; width: 100%; height: 4px; background: var(--bg-3); border-radius: 999px; outline: none; }
+      .slider::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 16px; height: 16px;
+        border-radius: 50%; background: var(--accent); cursor: pointer;
+        border: 2px solid var(--bg-1);
+      }
+
+      /* ===== Tabs ===== */
+      .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line-soft); }
+      .tab {
+        padding: 10px 16px; font-size: 13px; font-weight: 500;
+        color: var(--ink-2); cursor: pointer; background: transparent;
+        border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+      }
+      .tab:hover { color: var(--ink-0); }
+      .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+      /* ===== Tooltip / alert ===== */
+      .alert {
+        display: flex; gap: 12px; padding: 12px 14px;
+        border-radius: var(--r-md, 6px); border: 1px solid;
+        font-size: 13px; line-height: 1.5; margin-bottom: 8px;
+      }
+      .alert__icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+      .alert__body { color: var(--ink-1); }
+      .alert__title { font-weight: 600; color: var(--ink-0); display: block; margin-bottom: 2px; }
+      .alert--info { background: color-mix(in oklab, var(--color-brand-bike) 8%, transparent); border-color: color-mix(in oklab, var(--color-brand-bike) 30%, var(--line-soft)); }
+      .alert--info .alert__icon, .alert--info .alert__title { color: var(--color-brand-bike); }
+      .alert--success { background: color-mix(in oklab, var(--color-success) 8%, transparent); border-color: color-mix(in oklab, var(--color-success) 30%, var(--line-soft)); }
+      .alert--success .alert__icon, .alert--success .alert__title { color: var(--color-success); }
+      .alert--warning { background: color-mix(in oklab, var(--color-warning) 8%, transparent); border-color: color-mix(in oklab, var(--color-warning) 30%, var(--line-soft)); }
+      .alert--warning .alert__icon, .alert--warning .alert__title { color: var(--color-warning); }
+      .alert--danger { background: color-mix(in oklab, var(--color-error) 8%, transparent); border-color: color-mix(in oklab, var(--color-error) 30%, var(--line-soft)); }
+      .alert--danger .alert__icon, .alert--danger .alert__title { color: var(--color-error); }
+
+      /* ===== Progress ===== */
+      .progress { width: 100%; height: 6px; background: var(--bg-3); border-radius: 999px; overflow: hidden; }
+      .progress__fill { height: 100%; background: var(--accent); border-radius: inherit; transition: width .3s; }
+      .progress--success .progress__fill { background: var(--color-success); }
+      .progress--warning .progress__fill { background: var(--color-warning); }
+
+      /* ===== Activity card ===== */
+      .activity-card {
+        background: var(--bg-1); border: 1px solid var(--line-soft);
+        border-radius: var(--r-lg, 10px); overflow: hidden;
+      }
+      .activity-card__head {
+        display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      }
+      .avatar {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: linear-gradient(135deg, var(--color-brand-bike), var(--accent));
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-weight: 700; font-size: 13px;
+      }
+      .activity-card__user-name { font-size: 13px; font-weight: 600; color: var(--ink-0); }
+      .activity-card__user-meta {
+        font-family: var(--font-mono); font-size: 10px; color: var(--ink-3);
+        letter-spacing: .04em;
+      }
+      .activity-card__title { padding: 0 14px 8px; font-size: 15px; font-weight: 600; color: var(--ink-0); }
+      .activity-card__stats {
+        display: grid; grid-template-columns: repeat(4, 1fr);
+        gap: 1px; background: var(--line-soft);
+        border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft);
+      }
+      .activity-card__stat { background: var(--bg-1); padding: 10px 12px; text-align: center; }
+      .activity-card__stat-label {
+        font-family: var(--font-mono); font-size: 9px; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px;
+      }
+      .activity-card__stat-value {
+        font-family: var(--font-mono); font-weight: 500; font-size: 18px;
+        color: var(--ink-0); line-height: 1;
+      }
+      .activity-card__stat-unit { font-size: 10px; color: var(--ink-3); margin-left: 2px; }
+      .activity-card__actions {
+        display: flex; gap: 4px; padding: 8px 10px;
+      }
+
+      /* ===== Data hierarchy ===== */
+      .data-block { display: flex; align-items: baseline; gap: 12px; }
+      .data-block__label {
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--ink-3); min-width: 72px;
+      }
+      .data-block__value {
+        font-family: var(--font-mono); font-weight: 500; line-height: 1; color: var(--ink-0);
+      }
+      .data-block__unit { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-left: 4px; }
+      .v-hero { font-size: var(--fs-data-hero); }
+      .v-large { font-size: var(--fs-data-large); }
+      .v-medium { font-size: var(--fs-data-medium); }
+      .v-small { font-size: var(--fs-data-small); }
+
+      /* ===== Zone ===== */
+      .zone-strip { display: flex; gap: 2px; border-radius: var(--r-sm, 4px); overflow: hidden; }
+      .zone-strip__cell {
+        flex: 1; height: 32px; display: flex; align-items: center; justify-content: center;
+        font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+        color: var(--primary-fg);
+      }
+
+      /* ===== Skeleton ===== */
+      .skeleton {
+        background: linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2));
+        background-size: 200% 100%; animation: sk 1.4s ease-in-out infinite;
+        border-radius: 4px;
+      }
+      @keyframes sk { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+      /* ===== Mobile tab bar ===== */
+      .tabbar {
+        display: flex; background: var(--bg-1);
+        border-top: 1px solid var(--line-soft); border-radius: var(--r-lg, 10px);
+        overflow: hidden;
+      }
+      .tabbar__item {
+        flex: 1; padding: 10px 4px; text-align: center; cursor: pointer;
+        color: var(--ink-3); font-size: 10px;
+        display: flex; flex-direction: column; gap: 2px; align-items: center;
+      }
+      .tabbar__item.is-active { color: var(--accent); }
+      .tabbar__icon { width: 22px; height: 22px; }
+
+      /* ===== Table ===== */
+      .table { width: 100%; border-collapse: collapse; }
+      .table th, .table td {
+        text-align: left; padding: 10px 12px; font-size: 13px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .table th {
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--ink-3); font-weight: 500;
+        background: var(--bg-2);
+      }
+      .table td.num { font-family: var(--font-mono); text-align: right; color: var(--ink-0); font-weight: 500; }
+      .table tr:hover td { background: var(--bg-2); }
+
+      /* ===== Modal ===== */
+      .modal {
+        background: var(--bg-1); border: 1px solid var(--line);
+        border-radius: var(--r-xl, 12px); padding: 20px;
+        max-width: 380px;
+        box-shadow: 0 12px 32px rgba(0,0,0,.4);
+      }
+      .modal__title { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: var(--ink-0); }
+      .modal__body { font-size: 13px; color: var(--ink-2); margin-bottom: 14px; line-height: 1.5; }
+      .modal__actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+      /* ===== Chart common ===== */
+      .chart-card { padding: 16px; }
+      .chart-card__title {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .chart-card__name { font-size: 13px; font-weight: 600; color: var(--ink-0); }
+      .chart-card__sub {
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        color: var(--ink-3); text-transform: uppercase;
+      }
+      .chart-legend {
+        display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap;
+      }
+      .chart-legend__item {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-family: var(--font-mono); font-size: 11px; color: var(--ink-2);
+      }
+      .chart-legend__dot { width: 8px; height: 8px; border-radius: 2px; }
+
+      .charts-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+      .charts-grid > .chart-card.span-2 { grid-column: span 2; }
+      @media (max-width: 800px) { .charts-grid > .chart-card.span-2 { grid-column: span 1; } }
+
+      .gauge-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+
+      /* ===== Typography rows ===== */
+      .type-row {
+        display: grid; grid-template-columns: 140px 100px 1fr;
+        align-items: baseline; gap: 16px;
+        padding: 10px 14px; border: 1px solid var(--line-soft);
+        background: var(--bg-1); border-radius: 6px; margin-bottom: 8px;
+      }
+      .type-row__name { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: .06em; }
+      .type-row__meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); }
+      .type-row__sample { color: var(--ink-0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* ===== Dimens viz ===== */
+      .dimen-card {
+        background: var(--bg-1); border: 1px solid var(--line-soft);
+        border-radius: 6px; padding: 12px;
+      }
+      .dimen-card__name {
+        font-family: var(--font-mono); font-size: 11px; letter-spacing: .06em;
+        color: var(--ink-3); margin-bottom: 8px;
+      }
+      .dimen-card__bar { height: 8px; background: var(--accent); border-radius: 2px; }
+      .dimen-card__val { font-family: var(--font-mono); font-size: 14px; font-weight: 500; color: var(--ink-0); margin-top: 8px; }
+
+      .radius-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+      .radius-sample {
+        width: 64px; height: 64px; background: var(--accent);
+        display: flex; align-items: end; justify-content: center;
+        color: var(--primary-fg); font-family: var(--font-mono); font-size: 10px; padding: 4px;
+      }
+
+      /* ===== Breadcrumb / pagination ===== */
+      .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+      .breadcrumb a { color: var(--ink-2); text-decoration: none; }
+      .breadcrumb a:hover { color: var(--ink-0); }
+      .breadcrumb__sep { color: var(--ink-3); }
+      .breadcrumb__current { color: var(--ink-0); font-weight: 600; }
+
+      .pager { display: inline-flex; gap: 4px; }
+      .pager button {
+        min-width: 32px; height: 32px; padding: 0 8px;
+        border: 1px solid var(--line-soft); background: var(--bg-1); color: var(--ink-1);
+        border-radius: var(--r-md, 6px); cursor: pointer; font-size: 12px;
+        font-family: var(--font-mono);
+      }
+      .pager button[aria-current="page"] { background: var(--accent); color: var(--primary-fg); border-color: var(--accent); }
+      .pager button:disabled { opacity: .4; cursor: not-allowed; }
+
+      /* ===== Search ===== */
+      .search {
+        position: relative; display: inline-flex; align-items: center; width: 100%; max-width: 360px;
+      }
+      .search svg { position: absolute; left: 10px; width: 14px; height: 14px; color: var(--ink-3); }
+      .search input { padding-left: 30px; width: 100%; }
+      .search kbd {
+        position: absolute; right: 8px; padding: 2px 6px;
+        background: var(--bg-2); border: 1px solid var(--line-soft); border-radius: 4px;
+        font-family: var(--font-mono); font-size: 10px; color: var(--ink-3);
+      }
+
+      /* ===== Stepper ===== */
+      .stepper { display: flex; align-items: center; gap: 0; }
+      .step {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 6px 10px; font-size: 12px; color: var(--ink-3);
+      }
+      .step__circle {
+        width: 22px; height: 22px; border-radius: 50%;
+        border: 1.5px solid var(--line); background: var(--bg-1);
+        display: inline-flex; align-items: center; justify-content: center;
+        font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+      }
+      .step.is-active .step__circle { background: var(--accent); color: var(--primary-fg); border-color: var(--accent); }
+      .step.is-active { color: var(--ink-0); font-weight: 600; }
+      .step.is-done .step__circle { background: var(--color-success); border-color: var(--color-success); color: white; }
+      .step.is-done { color: var(--ink-1); }
+      .step__line { flex: 1; height: 1px; background: var(--line-soft); min-width: 24px; }
+
+      /* ===== Toast ===== */
+      .toast {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; border-radius: var(--r-md, 6px);
+        background: var(--bg-1); border: 1px solid var(--line);
+        box-shadow: 0 6px 18px rgba(0,0,0,.18);
+        font-size: 13px; color: var(--ink-0); max-width: 380px;
+        margin-bottom: 8px;
+      }
+      .toast__icon { width: 18px; height: 18px; flex-shrink: 0; }
+      .toast--success .toast__icon { color: var(--color-success); }
+      .toast--error .toast__icon { color: var(--color-error); }
+      .toast--warning .toast__icon { color: var(--color-warning); }
+      .toast--info .toast__icon { color: var(--accent); }
+      .toast__close { margin-left: auto; background: transparent; border: 0; color: var(--ink-3); cursor: pointer; padding: 4px; }
+
+      /* ===== Accordion ===== */
+      .accordion {
+        background: var(--bg-1); border: 1px solid var(--line-soft);
+        border-radius: var(--r-md, 6px); overflow: hidden;
+      }
+      .accordion__item { border-bottom: 1px solid var(--line-soft); }
+      .accordion__item:last-child { border-bottom: 0; }
+      .accordion__head {
+        width: 100%; padding: 12px 14px; background: transparent; border: 0;
+        display: flex; align-items: center; justify-content: space-between;
+        cursor: pointer; color: var(--ink-0); font-size: 13px; font-weight: 600;
+      }
+      .accordion__head:hover { background: var(--bg-2); }
+      .accordion__chevron { transition: transform .15s; color: var(--ink-2); }
+      .accordion__item[open] .accordion__chevron { transform: rotate(90deg); }
+      .accordion__body {
+        padding: 0 14px 14px; font-size: 13px; color: var(--ink-2); line-height: 1.5;
+      }
+
+      /* ===== Tooltip / popover ===== */
+      .tt-wrap { position: relative; display: inline-block; }
+      .tt {
+        position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+        background: var(--ink-0); color: var(--bg-0);
+        padding: 4px 8px; border-radius: 4px;
+        font-size: 11px; font-family: var(--font-mono); white-space: nowrap;
+        pointer-events: none;
+      }
+      .tt::after {
+        content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+        border: 4px solid transparent; border-top-color: var(--ink-0);
+      }
+      .popover {
+        position: absolute; top: calc(100% + 8px); left: 0;
+        min-width: 220px; padding: 12px;
+        background: var(--bg-1); border: 1px solid var(--line);
+        border-radius: var(--r-md, 6px); box-shadow: 0 8px 24px rgba(0,0,0,.2);
+        font-size: 13px; color: var(--ink-1);
+      }
+      .popover__title { font-weight: 600; color: var(--ink-0); margin-bottom: 6px; font-size: 12px; }
+
+      /* ===== Drawer ===== */
+      .drawer-demo { display: flex; gap: 0; height: 320px; background: var(--bg-0); border: 1px solid var(--line-soft); border-radius: var(--r-lg, 10px); overflow: hidden; }
+      .drawer {
+        width: 240px; background: var(--bg-1); border-right: 1px solid var(--line-soft);
+        padding: 14px; overflow-y: auto;
+      }
+      .drawer__title { font-size: 14px; font-weight: 700; color: var(--ink-0); margin-bottom: 12px; }
+      .drawer__item {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 10px; border-radius: var(--r-sm, 4px);
+        color: var(--ink-1); font-size: 13px; cursor: pointer;
+      }
+      .drawer__item:hover { background: var(--bg-2); }
+      .drawer__item.is-active { background: var(--accent-soft-bg); color: var(--accent); }
+      .drawer__main { flex: 1; padding: 14px; overflow-y: auto; }
+
+      /* ===== Stat cards ===== */
+      .stat-card {
+        background: var(--bg-1); border: 1px solid var(--line-soft);
+        border-radius: var(--r-lg, 10px); padding: 16px;
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      .stat-card__label {
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--ink-3);
+      }
+      .stat-card__value {
+        font-family: var(--font-mono); font-weight: 600; font-size: 28px;
+        color: var(--ink-0); line-height: 1; letter-spacing: -0.02em;
+      }
+      .stat-card__delta {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-family: var(--font-mono); font-size: 11px;
+      }
+      .stat-card__delta--up { color: var(--color-success); }
+      .stat-card__delta--down { color: var(--color-error); }
+
+      /* ===== Avatar group ===== */
+      .avatar-group { display: inline-flex; }
+      .avatar-group > .avatar {
+        margin-left: -8px; border: 2px solid var(--bg-0);
+        width: 28px; height: 28px; font-size: 11px;
+      }
+      .avatar-group > .avatar:first-child { margin-left: 0; }
+      .avatar-group__more {
+        width: 28px; height: 28px; border-radius: 50%;
+        background: var(--bg-3); color: var(--ink-2);
+        font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+        display: inline-flex; align-items: center; justify-content: center;
+        margin-left: -8px; border: 2px solid var(--bg-0);
+      }
+
+      /* ===== Themed scrollbar ===== */
+      .scroll-demo {
+        height: 200px; overflow-y: scroll;
+        padding: 12px; background: var(--bg-1);
+        border: 1px solid var(--line-soft); border-radius: var(--r-md, 6px);
+      }
+      .scroll-demo::-webkit-scrollbar { width: 10px; }
+      .scroll-demo::-webkit-scrollbar-track { background: var(--bg-2); }
+      .scroll-demo::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 10px; border: 2px solid var(--bg-2); }
+      .scroll-demo::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+      .scroll-demo--thin::-webkit-scrollbar { width: 6px; }
+      .scroll-demo--thin::-webkit-scrollbar-thumb { background: var(--ink-3); border: 0; opacity: .4; }
+      .scroll-demo--minimal { scrollbar-width: thin; scrollbar-color: var(--ink-3) transparent; }
+      .scroll-demo--minimal::-webkit-scrollbar { width: 4px; }
+      .scroll-demo--minimal::-webkit-scrollbar-thumb { background: var(--ink-3); }
+      .scroll-demo--minimal::-webkit-scrollbar-track { background: transparent; }
+
+      /* ===== Empty state ===== */
+      .empty {
+        text-align: center; padding: 40px 24px;
+        border: 1px dashed var(--line); border-radius: var(--r-lg, 10px);
+        background: var(--bg-1);
+      }
+      .empty__icon {
+        width: 56px; height: 56px; margin: 0 auto 12px;
+        background: var(--bg-3); border-radius: 50%;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: var(--ink-3);
+      }
+      .empty__title { font-size: 15px; font-weight: 600; color: var(--ink-0); margin: 0 0 4px; }
+      .empty__body { font-size: 13px; color: var(--ink-2); margin: 0 0 16px; }
+
+      /* ===== Inline code ===== */
+      code, .code {
+        font-family: var(--font-mono); font-size: 12px;
+        padding: 1px 6px; background: var(--bg-2); border: 1px solid var(--line-soft);
+        border-radius: 4px; color: var(--accent);
+      }
+      pre.code-block {
+        font-family: var(--font-mono); font-size: 12px;
+        padding: 14px 16px; background: var(--bg-2); border: 1px solid var(--line-soft);
+        border-radius: var(--r-md, 6px); color: var(--ink-0);
+        overflow-x: auto; line-height: 1.5; margin: 0;
+      }
+      pre.code-block .tk-key { color: var(--color-brand-bike); }
+      pre.code-block .tk-str { color: var(--color-success); }
+      pre.code-block .tk-com { color: var(--ink-3); font-style: italic; }
+
+      /* ===== Calendar heatmap ===== */
+      .heatmap { display: grid; grid-template-columns: repeat(26, 1fr); gap: 3px; }
+      .heatmap__cell { aspect-ratio: 1; border-radius: 2px; background: var(--bg-3); }
+
+      /* ===== Sparkline ===== */
+      .spark-row {
+        display: flex; align-items: center; gap: 16px;
+        padding: 10px 14px; border: 1px solid var(--line-soft);
+        background: var(--bg-1); border-radius: var(--r-md, 6px);
+        margin-bottom: 8px;
+      }
+      .spark-row__name { width: 120px; font-size: 13px; color: var(--ink-0); font-weight: 600; }
+      .spark-row__val { font-family: var(--font-mono); font-weight: 600; color: var(--ink-0); min-width: 80px; }
+      .spark-row__delta { font-family: var(--font-mono); font-size: 11px; min-width: 60px; }
+
+      /* ===== Map ===== */
+      .map-card {
+        background: var(--bg-1); border: 1px solid var(--line-soft);
+        border-radius: var(--r-lg, 10px); overflow: hidden;
+      }
+      .map-canvas {
+        position: relative;
+        background:
+          radial-gradient(ellipse at 30% 40%, color-mix(in oklab, var(--color-brand-bike) 15%, var(--bg-2)) 0%, transparent 50%),
+          radial-gradient(ellipse at 70% 60%, color-mix(in oklab, var(--accent) 10%, var(--bg-2)) 0%, transparent 60%),
+          var(--bg-2);
+      }
+      .map-overlay-tl, .map-overlay-tr, .map-overlay-bl, .map-overlay-br {
+        position: absolute; padding: 6px;
+        background: color-mix(in oklab, var(--bg-1) 90%, transparent);
+        border: 1px solid var(--line); border-radius: var(--r-sm, 4px);
+        backdrop-filter: blur(4px);
+        font-family: var(--font-mono); font-size: 10px; color: var(--ink-1);
+      }
+      .map-overlay-tl { top: 10px; left: 10px; }
+      .map-overlay-tr { top: 10px; right: 10px; display: flex; flex-direction: column; gap: 1px; }
+      .map-overlay-tr button {
+        width: 28px; height: 28px; background: transparent; border: 0;
+        color: var(--ink-1); cursor: pointer; border-radius: 4px;
+      }
+      .map-overlay-tr button:hover { background: var(--bg-2); }
+      .map-overlay-bl { bottom: 10px; left: 10px; min-width: 140px; }
+      .map-overlay-br { bottom: 10px; right: 10px; }
+      .map-scale {
+        width: 60px; height: 4px; background: var(--ink-0); position: relative;
+        margin: 4px 0;
+      }
+      .map-scale::before, .map-scale::after { content: ""; position: absolute; top: -3px; width: 1px; height: 10px; background: var(--ink-0); }
+      .map-scale::before { left: 0; }
+      .map-scale::after { right: 0; }
+
+      .map-marker { position: absolute; transform: translate(-50%, -100%); }
+      .map-marker__pin {
+        width: 18px; height: 18px; border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        background: var(--accent); border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,.3);
+      }
+
+      footer { padding: 24px; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: .06em; border-top: 1px solid var(--line-soft); }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidenav">
+        <div class="sidenav__brand">
+          <h1 class="sidenav__brand-title">O-Rider DS</h1>
+          <span class="sidenav__brand-tag">v0.1 · WEB</span>
+        </div>
+        <div class="sidenav__group"><span class="sidenav__group-label">Foundations</span></div>
+        <a class="sidenav__link" href="#colors">Colors</a>
+        <a class="sidenav__link" href="#typography">Typography</a>
+        <a class="sidenav__link" href="#spacing">Spacing &amp; Radius</a>
+        <div class="sidenav__group"><span class="sidenav__group-label">Components</span></div>
+        <a class="sidenav__link" href="#buttons">Buttons</a>
+        <a class="sidenav__link" href="#chips">Chips &amp; Badges</a>
+        <a class="sidenav__link" href="#forms">Forms</a>
+        <a class="sidenav__link" href="#feedback">Alerts &amp; Progress</a>
+        <a class="sidenav__link" href="#nav">Tabs &amp; Nav</a>
+        <a class="sidenav__link" href="#breadcrumb">Breadcrumb &amp; Pagination</a>
+        <a class="sidenav__link" href="#search">Search &amp; Stepper</a>
+        <a class="sidenav__link" href="#toast">Toasts</a>
+        <a class="sidenav__link" href="#accordion">Accordion</a>
+        <a class="sidenav__link" href="#tooltip">Tooltip &amp; Popover</a>
+        <a class="sidenav__link" href="#drawer">Drawer</a>
+        <a class="sidenav__link" href="#data">Data Display</a>
+        <a class="sidenav__link" href="#stats">Stat Cards</a>
+        <a class="sidenav__link" href="#avatars">Avatars</a>
+        <a class="sidenav__link" href="#scroll">Scrollbar</a>
+        <a class="sidenav__link" href="#empty">Empty / Code</a>
+        <a class="sidenav__link" href="#modal">Modal</a>
+        <a class="sidenav__link" href="#skeleton">Skeleton</a>
+        <div class="sidenav__group"><span class="sidenav__group-label">Charts</span></div>
+        <a class="sidenav__link" href="#charts">All Charts</a>
+        <a class="sidenav__link" href="#sparkline">Sparkline &amp; Heatmap</a>
+        <div class="sidenav__group"><span class="sidenav__group-label">Map &amp; Geo</span></div>
+        <a class="sidenav__link" href="#map">Map / Route</a>
+        <div class="sidenav__group"><span class="sidenav__group-label">Patterns</span></div>
+        <a class="sidenav__link" href="#activity">Activity Card</a>
+        <a class="sidenav__link" href="#dashboard">Dashboard Sample</a>
+      </aside>
+
+      <div>
+        <header class="toolbar">
+          <span class="seg-label">Theme</span>
+          <div class="seg" id="seg-design">
+            <button data-design="default" aria-pressed="true">Default</button>
+            <button data-design="app-parity" aria-pressed="false">App Parity</button>
+          </div>
+          <span class="seg-label">Mode</span>
+          <div class="seg" id="seg-mode">
+            <button data-mode="light" aria-pressed="false">Light</button>
+            <button data-mode="dark" aria-pressed="true">Dark</button>
+          </div>
+          <span style="flex: 1"></span>
+          <span class="seg-label" id="active-token">// scheme.dark · default</span>
+        </header>
+
+        <main>
+          <!-- ============== COLORS ============== -->
+          <section id="colors">
+            <div class="section-h"><h2>Colors</h2><span class="sub">// variant.colors</span></div>
+            <p class="section-desc">앱 <code>OriderColorTokens.kt</code> 와 정합. 표면 5단계 · 텍스트 5단계 · accent/status/brand/zone 그룹.</p>
+            <div id="grid-colors"></div>
+          </section>
+
+          <!-- ============== TYPOGRAPHY ============== -->
+          <section id="typography">
+            <div class="section-h"><h2>Typography</h2><span class="sub">// theme.typography</span></div>
+            <p class="section-desc">데이터 위계 4단계(hero/large/medium/small) + UI 텍스트. 수치는 JetBrains Mono(tnum), 본문은 Pretendard Variable.</p>
+            <div class="subgroup">
+              <span class="subgroup__label">Data Hierarchy</span>
+              <div id="grid-type-data"></div>
+            </div>
+            <div class="subgroup">
+              <span class="subgroup__label">UI Text</span>
+              <div id="grid-type-ui"></div>
+            </div>
+          </section>
+
+          <!-- ============== SPACING ============== -->
+          <section id="spacing">
+            <div class="section-h"><h2>Spacing &amp; Radius</h2><span class="sub">// theme.dimens</span></div>
+            <p class="section-desc">8pt grid 기반. itemGap/sectionGap 은 앱 <code>RideDimensions</code> 와 정합.</p>
+            <div class="subgroup">
+              <span class="subgroup__label">Spacing scale</span>
+              <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))" id="grid-dimens"></div>
+            </div>
+            <div class="subgroup">
+              <span class="subgroup__label">Corner radius</span>
+              <div class="radius-row" id="grid-radius"></div>
+            </div>
+          </section>
+
+          <!-- ============== BUTTONS ============== -->
+          <section id="buttons">
+            <div class="section-h"><h2>Buttons</h2><span class="sub">// .btn variants</span></div>
+            <p class="section-desc">5 variant × 3 size × 상태(hover/disabled/loading/icon-only/full-width).</p>
+
+            <div class="subgroup">
+              <span class="subgroup__label">Variants — default size</span>
+              <div class="panel"><div class="btn-row">
+                <button class="btn btn--primary">Primary</button>
+                <button class="btn btn--secondary">Secondary</button>
+                <button class="btn btn--outline">Outline</button>
+                <button class="btn btn--ghost">Ghost</button>
+                <button class="btn btn--danger">Danger</button>
+                <button class="btn" disabled>Disabled</button>
+              </div></div>
+            </div>
+
+            <div class="subgroup">
+              <span class="subgroup__label">Sizes</span>
+              <div class="panel"><div class="btn-row">
+                <button class="btn btn--primary btn--sm">Small</button>
+                <button class="btn btn--primary">Default</button>
+                <button class="btn btn--primary btn--lg">Large</button>
+              </div></div>
+            </div>
+
+            <div class="subgroup">
+              <span class="subgroup__label">With icons / states</span>
+              <div class="panel"><div class="btn-row">
+                <button class="btn btn--primary">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                  새 라이드
+                </button>
+                <button class="btn btn--secondary">
+                  업로드
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>
+                </button>
+                <button class="btn btn--primary btn--loading">분석 중</button>
+                <button class="btn btn--icon-only btn--secondary" aria-label="설정">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+                </button>
+                <button class="btn btn--icon-only btn--ghost" aria-label="좋아요">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-7-10a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>
+                </button>
+              </div></div>
+            </div>
+
+            <div class="subgroup">
+              <span class="subgroup__label">Block / full width</span>
+              <div class="panel" style="max-width: 320px">
+                <button class="btn btn--primary btn--lg btn--block">Strava 로 라이드 업로드</button>
+                <div style="height: 8px"></div>
+                <button class="btn btn--block">취소</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== CHIPS ============== -->
+          <section id="chips">
+            <div class="section-h"><h2>Chips &amp; Badges</h2><span class="sub">// .chip / .badge</span></div>
+            <div class="panel">
+              <div class="btn-row" style="margin-bottom: 12px">
+                <span class="chip">Z3 · 템포</span>
+                <span class="chip chip--accent"><span class="chip__dot"></span>Strava 연결됨</span>
+                <span class="chip chip--success">완료</span>
+                <span class="chip chip--warning">주의</span>
+                <span class="chip chip--danger">오프코스</span>
+              </div>
+              <div class="btn-row">
+                <span class="chip">사이클</span>
+                <span class="chip">러닝</span>
+                <span class="chip">수영</span>
+                <span class="chip" style="background: var(--color-brand-bike); color: white; border-color: transparent">BIKE</span>
+                <span class="chip" style="background: var(--color-brand-run); color: white; border-color: transparent">RUN</span>
+                <span class="chip" style="background: var(--color-brand-swim); color: white; border-color: transparent">SWIM</span>
+              </div>
+              <div class="btn-row" style="margin-top: 12px">
+                <div style="position: relative; display: inline-block">
+                  <button class="btn btn--icon-only btn--secondary" aria-label="알림">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M14 21a2 2 0 0 1-4 0"/></svg>
+                  </button>
+                  <span class="badge" style="position: absolute; top: -4px; right: -4px">5</span>
+                </div>
+                <div style="position: relative; display: inline-block">
+                  <button class="btn btn--icon-only btn--secondary" aria-label="메시지">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  </button>
+                  <span class="badge badge--dot" style="position: absolute; top: 4px; right: 4px; background: var(--color-error)"></span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== FORMS ============== -->
+          <section id="forms">
+            <div class="section-h"><h2>Forms</h2></div>
+            <div class="grid grid--components">
+              <div class="panel">
+                <div class="field">
+                  <label class="field__label">제목</label>
+                  <input class="input" value="한강 새벽 라이드" />
+                </div>
+                <div class="field">
+                  <label class="field__label">설명</label>
+                  <textarea class="input textarea">팔당 왕복 — 평균 28km/h, 막판 스프린트 좋았다.</textarea>
+                </div>
+                <div class="field">
+                  <label class="field__label">종목</label>
+                  <select class="input select"><option>사이클</option><option>러닝</option><option>수영</option></select>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="field">
+                  <label class="field__label">FTP (W)</label>
+                  <input class="input" type="number" value="245" />
+                </div>
+                <div class="field">
+                  <label class="field__label">강도 (TSS 목표)</label>
+                  <input class="slider" type="range" min="0" max="300" value="180" />
+                  <span class="swatch__val">180 TSS · Z3 sweet spot</span>
+                </div>
+                <div class="field"><label class="check"><input type="checkbox" checked /> Strava 자동 업로드</label></div>
+                <div class="field"><label class="check"><input type="checkbox" /> 그룹 라이브 공유</label></div>
+                <div class="field" style="flex-direction: row; align-items: center; gap: 12px">
+                  <label class="switch"><input type="checkbox" checked /><span class="switch__slider"></span></label>
+                  <span style="font-size: 13px; color: var(--ink-1)">다크 모드 자동 전환</span>
+                </div>
+                <div class="field" style="flex-direction: row; align-items: center; gap: 12px">
+                  <label class="switch"><input type="checkbox" /><span class="switch__slider"></span></label>
+                  <span style="font-size: 13px; color: var(--ink-1)">배터리 절약 (경량 모드)</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== FEEDBACK ============== -->
+          <section id="feedback">
+            <div class="section-h"><h2>Alerts &amp; Progress</h2></div>
+            <div class="grid grid--components">
+              <div>
+                <div class="alert alert--info">
+                  <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  <div class="alert__body"><span class="alert__title">새 코스 추천</span>북한산 둘레길 — FTP 95% 기준 2시간 예상.</div>
+                </div>
+                <div class="alert alert--success">
+                  <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4L12 14l-3-3"/></svg>
+                  <div class="alert__body"><span class="alert__title">Strava 업로드 완료</span>활동이 피드에 게시되었습니다.</div>
+                </div>
+                <div class="alert alert--warning">
+                  <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                  <div class="alert__body"><span class="alert__title">익명 모드 감지</span>업로드한 라이드가 공개되지 않을 수 있습니다.</div>
+                </div>
+                <div class="alert alert--danger">
+                  <svg class="alert__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                  <div class="alert__body"><span class="alert__title">코스 이탈</span>경로에서 150m 벗어났습니다.</div>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="field">
+                  <label class="field__label">주간 거리 목표</label>
+                  <div class="progress"><div class="progress__fill" style="width: 72%"></div></div>
+                  <span class="swatch__val">72km / 100km</span>
+                </div>
+                <div class="field">
+                  <label class="field__label">TSS 누적</label>
+                  <div class="progress progress--success"><div class="progress__fill" style="width: 45%"></div></div>
+                  <span class="swatch__val">320 / 700 TSS</span>
+                </div>
+                <div class="field">
+                  <label class="field__label">피로도</label>
+                  <div class="progress progress--warning"><div class="progress__fill" style="width: 88%"></div></div>
+                  <span class="swatch__val">CTL 88 · 회복 권장</span>
+                </div>
+                <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px">
+                  <div style="width: 56px; height: 56px; position: relative">
+                    <svg viewBox="0 0 36 36" width="56" height="56">
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg-3)" stroke-width="3"/>
+                      <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--accent)" stroke-width="3"
+                              stroke-dasharray="100" stroke-dashoffset="28" stroke-linecap="round"
+                              transform="rotate(-90 18 18)"/>
+                    </svg>
+                    <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 600; font-size: 13px; color: var(--ink-0)">72%</div>
+                  </div>
+                  <div>
+                    <div style="font-weight: 600; color: var(--ink-0)">이번 주 컴플리션</div>
+                    <div class="swatch__val">5/7 일 운동 완료</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== NAV ============== -->
+          <section id="nav">
+            <div class="section-h"><h2>Tabs &amp; Navigation</h2></div>
+            <div class="subgroup">
+              <span class="subgroup__label">Top tabs</span>
+              <div class="panel">
+                <div class="tabs">
+                  <button class="tab" aria-selected="true">활동</button>
+                  <button class="tab">분석</button>
+                  <button class="tab">랩</button>
+                  <button class="tab">세그먼트</button>
+                  <button class="tab">코스</button>
+                </div>
+              </div>
+            </div>
+            <div class="subgroup">
+              <span class="subgroup__label">Mobile bottom tab bar</span>
+              <div class="tabbar" style="max-width: 380px">
+                <div class="tabbar__item is-active">
+                  <svg class="tabbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+                  홈
+                </div>
+                <div class="tabbar__item">
+                  <svg class="tabbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="m12 17.5 4-9 4 9M15 7l3 10M7 13.5 12 5"/></svg>
+                  라이드
+                </div>
+                <div class="tabbar__item">
+                  <svg class="tabbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                  분석
+                </div>
+                <div class="tabbar__item">
+                  <svg class="tabbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
+                  프로필
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== DATA DISPLAY ============== -->
+          <section id="data">
+            <div class="section-h"><h2>Data Display</h2></div>
+            <div class="grid grid--components">
+              <div class="panel">
+                <div style="font-weight:600;margin-bottom:12px;color:var(--ink-0)">Data Hierarchy (4단계)</div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div class="data-block"><span class="data-block__label">Speed</span><span class="data-block__value v-hero">32<span class="data-block__unit">km/h</span></span></div>
+                  <div class="data-block"><span class="data-block__label">Power</span><span class="data-block__value v-large">245<span class="data-block__unit">W</span></span></div>
+                  <div class="data-block"><span class="data-block__label">Cadence</span><span class="data-block__value v-medium">92<span class="data-block__unit">rpm</span></span></div>
+                  <div class="data-block"><span class="data-block__label">HR</span><span class="data-block__value v-small">142<span class="data-block__unit">bpm</span></span></div>
+                </div>
+              </div>
+              <div class="panel">
+                <div style="font-weight:600;margin-bottom:12px;color:var(--ink-0)">Training Zones</div>
+                <div class="zone-strip" id="zone-strip"></div>
+                <div style="margin-top:10px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);letter-spacing:.06em">Z1 회복 · Z2 지구력 · Z3 템포 · Z4 역치 · Z5 VO2+</div>
+              </div>
+              <div class="panel" style="grid-column: 1/-1">
+                <div style="font-weight:600;margin-bottom:12px;color:var(--ink-0)">Ride Log</div>
+                <table class="table">
+                  <thead><tr><th>날짜</th><th>코스</th><th>종목</th><th style="text-align:right">거리</th><th style="text-align:right">시간</th><th style="text-align:right">TSS</th><th>강도</th></tr></thead>
+                  <tbody>
+                    <tr><td>05-24</td><td>한강 새벽</td><td><span class="chip">사이클</span></td><td class="num">82.4 km</td><td class="num">2:48</td><td class="num">180</td><td><span class="chip chip--accent">on_track</span></td></tr>
+                    <tr><td>05-22</td><td>북한산 인터벌</td><td><span class="chip">러닝</span></td><td class="num">12.0 km</td><td class="num">1:05</td><td class="num">95</td><td><span class="chip chip--warning">stretch</span></td></tr>
+                    <tr><td>05-20</td><td>팔당 왕복</td><td><span class="chip">사이클</span></td><td class="num">128.5 km</td><td class="num">4:35</td><td class="num">285</td><td><span class="chip chip--danger">risky</span></td></tr>
+                    <tr><td>05-18</td><td>잠실 자유수영</td><td><span class="chip">수영</span></td><td class="num">2.4 km</td><td class="num">0:48</td><td class="num">62</td><td><span class="chip chip--accent">easy</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== BREADCRUMB / PAGINATION ============== -->
+          <section id="breadcrumb">
+            <div class="section-h"><h2>Breadcrumb &amp; Pagination</h2></div>
+            <div class="panel">
+              <nav class="breadcrumb" aria-label="breadcrumb">
+                <a href="#">홈</a>
+                <span class="breadcrumb__sep">/</span>
+                <a href="#">활동</a>
+                <span class="breadcrumb__sep">/</span>
+                <a href="#">2026-05</a>
+                <span class="breadcrumb__sep">/</span>
+                <span class="breadcrumb__current">한강 새벽 라이드</span>
+              </nav>
+            </div>
+            <div style="height:12px"></div>
+            <div class="panel">
+              <div class="pager">
+                <button aria-label="이전" disabled>&larr;</button>
+                <button aria-current="page">1</button>
+                <button>2</button>
+                <button>3</button>
+                <button disabled>…</button>
+                <button>12</button>
+                <button aria-label="다음">&rarr;</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== SEARCH / STEPPER ============== -->
+          <section id="search">
+            <div class="section-h"><h2>Search &amp; Stepper</h2></div>
+            <div class="grid grid--components">
+              <div class="panel">
+                <span class="subgroup__label">Search input</span>
+                <div class="search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                  <input class="input" placeholder="라이더·코스·세그먼트 검색" />
+                  <kbd>⌘ K</kbd>
+                </div>
+                <div style="height:12px"></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <span class="chip">최근: 한강</span>
+                  <span class="chip">팔당</span>
+                  <span class="chip">남한산성</span>
+                </div>
+              </div>
+              <div class="panel">
+                <span class="subgroup__label">Stepper</span>
+                <div class="stepper">
+                  <div class="step is-done"><span class="step__circle">✓</span>코스 선택</div>
+                  <div class="step__line"></div>
+                  <div class="step is-active"><span class="step__circle">2</span>강도 설정</div>
+                  <div class="step__line"></div>
+                  <div class="step"><span class="step__circle">3</span>일정</div>
+                  <div class="step__line"></div>
+                  <div class="step"><span class="step__circle">4</span>완료</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== TOAST ============== -->
+          <section id="toast">
+            <div class="section-h"><h2>Toasts</h2><span class="sub">// floating notifications</span></div>
+            <div class="panel" style="background: var(--bg-0)">
+              <div class="toast toast--success">
+                <svg class="toast__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="M22 4 12 14l-3-3"/></svg>
+                <div><strong>업로드 완료</strong> · 한강 라이드가 Strava 에 게시됨</div>
+                <button class="toast__close">✕</button>
+              </div>
+              <div class="toast toast--error">
+                <svg class="toast__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                <div><strong>네트워크 오류</strong> · 다시 시도해주세요</div>
+                <button class="toast__close">✕</button>
+              </div>
+              <div class="toast toast--warning">
+                <svg class="toast__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+                <div><strong>익명 모드</strong> · 라이드가 공개되지 않음</div>
+                <button class="toast__close">✕</button>
+              </div>
+              <div class="toast toast--info">
+                <svg class="toast__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                <div><strong>새 기능</strong> · Hybrid Boost 보정이 활성화됨</div>
+                <button class="toast__close">✕</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== ACCORDION ============== -->
+          <section id="accordion">
+            <div class="section-h"><h2>Accordion</h2></div>
+            <div class="accordion">
+              <details class="accordion__item" open>
+                <summary class="accordion__head">파워 분석은 어떻게 계산되나요?
+                  <svg class="accordion__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                </summary>
+                <div class="accordion__body">NP·IF·TSS 는 ACSM 표준 공식을 사용합니다. xPower·CP/W'·매치 등은 intervals.icu 알고리즘과 동등합니다.</div>
+              </details>
+              <details class="accordion__item">
+                <summary class="accordion__head">FTP 를 변경하면 과거 활동도 갱신되나요?
+                  <svg class="accordion__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                </summary>
+                <div class="accordion__body">우선순위: 프로필 현재값 → 스트림 스냅샷 → 기본값. 변경 시 모든 분석이 즉시 재계산됩니다.</div>
+              </details>
+              <details class="accordion__item">
+                <summary class="accordion__head">Strava 연동을 해제할 수 있나요?
+                  <svg class="accordion__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                </summary>
+                <div class="accordion__body">설정 → 연결 → Strava → 연동 해제. 기존 활동은 유지되지만 신규 동기화는 중단됩니다.</div>
+              </details>
+            </div>
+          </section>
+
+          <!-- ============== TOOLTIP ============== -->
+          <section id="tooltip">
+            <div class="section-h"><h2>Tooltip &amp; Popover</h2></div>
+            <div class="panel">
+              <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end">
+                <div class="tt-wrap">
+                  <button class="btn btn--secondary">툴팁 미리보기</button>
+                  <span class="tt">SHIFT + ? 로 단축키 열기</span>
+                </div>
+                <div class="tt-wrap" style="position:relative">
+                  <button class="btn btn--secondary">상세 정보</button>
+                  <div class="popover">
+                    <div class="popover__title">NP (Normalized Power)</div>
+                    <div style="font-size:12px;color:var(--ink-2);line-height:1.5">
+                      30초 이동평균 → 4승 평균 → 4제곱근. 가변 강도 라이드의 실효 출력을 평탄 페이스 환산값으로 표현.
+                    </div>
+                  </div>
+                </div>
+                <div class="tt-wrap" style="margin-left:200px">
+                  <span class="chip chip--accent">FTP 245</span>
+                  <span class="tt">최근 20분 베스트 × 0.95</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== DRAWER ============== -->
+          <section id="drawer">
+            <div class="section-h"><h2>Drawer / Sidesheet</h2></div>
+            <div class="drawer-demo">
+              <aside class="drawer">
+                <div class="drawer__title">설정</div>
+                <div class="drawer__item is-active">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+                  일반
+                </div>
+                <div class="drawer__item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 1 1-7-7"/></svg>
+                  센서
+                </div>
+                <div class="drawer__item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="13" rx="2"/></svg>
+                  지도
+                </div>
+                <div class="drawer__item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/></svg>
+                  연결
+                </div>
+                <div class="drawer__item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/></svg>
+                  프로필
+                </div>
+              </aside>
+              <main class="drawer__main">
+                <div class="breadcrumb"><a href="#">설정</a><span class="breadcrumb__sep">/</span><span class="breadcrumb__current">일반</span></div>
+                <h3 style="margin:12px 0 4px;font-size:18px;color:var(--ink-0)">일반 설정</h3>
+                <div class="swatch__val" style="margin-bottom:16px">단위 · 언어 · 자동 일시정지</div>
+                <div class="field" style="flex-direction:row;align-items:center;gap:12px">
+                  <label class="switch"><input type="checkbox" checked /><span class="switch__slider"></span></label>
+                  <span style="font-size:13px;color:var(--ink-1)">자동 일시정지 (3초 정지)</span>
+                </div>
+                <div class="field" style="flex-direction:row;align-items:center;gap:12px">
+                  <label class="switch"><input type="checkbox" /><span class="switch__slider"></span></label>
+                  <span style="font-size:13px;color:var(--ink-1)">화면 항상 켜기</span>
+                </div>
+                <div class="field" style="margin-top:16px">
+                  <label class="field__label">단위</label>
+                  <select class="input select"><option>km / kg</option><option>mi / lb</option></select>
+                </div>
+              </main>
+            </div>
+          </section>
+
+          <!-- ============== STATS ============== -->
+          <section id="stats">
+            <div class="section-h"><h2>Stat Cards</h2></div>
+            <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+              <div class="stat-card">
+                <div class="stat-card__label">주간 거리</div>
+                <div class="stat-card__value">235<span style="font-size:14px;color:var(--ink-3);margin-left:4px">km</span></div>
+                <span class="stat-card__delta stat-card__delta--up">▲ +18% vs PREV</span>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card__label">TSS 누적</div>
+                <div class="stat-card__value">812</div>
+                <span class="stat-card__delta stat-card__delta--up">▲ +12%</span>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card__label">평균 출력</div>
+                <div class="stat-card__value">232<span style="font-size:14px;color:var(--ink-3);margin-left:4px">W</span></div>
+                <span class="stat-card__delta stat-card__delta--down">▼ -3W</span>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card__label">CTL 피트니스</div>
+                <div class="stat-card__value">88</div>
+                <span class="stat-card__delta stat-card__delta--up">▲ +4</span>
+              </div>
+              <div class="stat-card">
+                <div class="stat-card__label">상승 고도</div>
+                <div class="stat-card__value">2,340<span style="font-size:14px;color:var(--ink-3);margin-left:4px">m</span></div>
+                <span class="stat-card__delta" style="color:var(--ink-3)">— 변동 없음</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== AVATARS ============== -->
+          <section id="avatars">
+            <div class="section-h"><h2>Avatars</h2></div>
+            <div class="panel">
+              <div class="btn-row" style="margin-bottom:14px">
+                <div class="avatar" style="width:24px;height:24px;font-size:10px">M</div>
+                <div class="avatar">K</div>
+                <div class="avatar" style="width:48px;height:48px;font-size:18px">L</div>
+                <div class="avatar" style="width:64px;height:64px;font-size:24px;background:linear-gradient(135deg,var(--color-brand-run),var(--color-warning))">J</div>
+              </div>
+              <div class="avatar-group">
+                <div class="avatar">M</div>
+                <div class="avatar" style="background:linear-gradient(135deg,var(--color-brand-run),var(--color-warning))">K</div>
+                <div class="avatar" style="background:linear-gradient(135deg,var(--color-brand-swim),var(--color-success))">L</div>
+                <div class="avatar" style="background:linear-gradient(135deg,var(--accent),var(--color-error))">J</div>
+                <div class="avatar-group__more">+12</div>
+              </div>
+              <div style="margin-top:8px;font-size:12px;color:var(--ink-2)">15명이 이 라이드를 좋아합니다</div>
+            </div>
+          </section>
+
+          <!-- ============== SCROLLBAR ============== -->
+          <section id="scroll">
+            <div class="section-h"><h2>Scrollbar</h2><span class="sub">// 토큰 기반 3 종</span></div>
+            <p class="section-desc">기본(가시) · 얇은(호버 강조) · 미니멀. 모두 라이트/다크/앱패리티에서 자동 재색.</p>
+            <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+              <div>
+                <span class="subgroup__label">Default (10px)</span>
+                <div class="scroll-demo">
+                  <div style="height:600px;background:linear-gradient(180deg,var(--bg-2),var(--accent-soft-bg));border-radius:6px"></div>
+                </div>
+              </div>
+              <div>
+                <span class="subgroup__label">Thin (6px)</span>
+                <div class="scroll-demo scroll-demo--thin">
+                  <div style="height:600px;background:linear-gradient(180deg,var(--bg-2),var(--color-brand-bike));border-radius:6px;opacity:.3"></div>
+                </div>
+              </div>
+              <div>
+                <span class="subgroup__label">Minimal (4px)</span>
+                <div class="scroll-demo scroll-demo--minimal">
+                  <div style="height:600px;background:linear-gradient(180deg,var(--bg-2),var(--color-warning));border-radius:6px;opacity:.3"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== EMPTY / CODE ============== -->
+          <section id="empty">
+            <div class="section-h"><h2>Empty States &amp; Code</h2></div>
+            <div class="grid grid--components">
+              <div class="empty">
+                <div class="empty__icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="m12 17.5 4-9 4 9M15 7l3 10M7 13.5 12 5"/></svg>
+                </div>
+                <h3 class="empty__title">아직 라이드가 없습니다</h3>
+                <p class="empty__body">Strava 를 연결하거나 GPX 파일을 업로드해 시작하세요.</p>
+                <button class="btn btn--primary">Strava 연결</button>
+              </div>
+              <div>
+                <span class="subgroup__label">Inline code · Pre block</span>
+                <p style="font-size:13px;color:var(--ink-1);line-height:1.6">
+                  훅 사용은 <code>useOriderTheme()</code> 한 줄. 토큰은 <code>theme.dimens.cardPadding</code> 같은 형식으로 직접 접근합니다.
+                </p>
+                <pre class="code-block"><span class="tk-com">// 새 테마 등록</span>
+<span class="tk-key">export const</span> MY_THEME = {
+  <span class="tk-key">id</span>: <span class="tk-str">'my-theme'</span>,
+  <span class="tk-key">label</span>: <span class="tk-str">'고대비'</span>,
+  <span class="tk-key">scheme</span>: { <span class="tk-key">light</span>, <span class="tk-key">dark</span> },
+};</pre>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== SPARKLINE / HEATMAP ============== -->
+          <section id="sparkline">
+            <div class="section-h"><h2>Sparkline &amp; Heatmap</h2></div>
+            <div class="subgroup">
+              <span class="subgroup__label">Sparklines (mini chart)</span>
+              <div id="spark-list"></div>
+            </div>
+            <div class="subgroup">
+              <span class="subgroup__label">Activity heatmap (최근 6개월)</span>
+              <div class="panel">
+                <div class="heatmap" id="heatmap"></div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11px;color:var(--ink-3);font-family:var(--font-mono);justify-content:flex-end">
+                  적음
+                  <span class="heatmap__cell" style="width:10px;height:10px;background:var(--bg-3)"></span>
+                  <span class="heatmap__cell" style="width:10px;height:10px;background:color-mix(in oklab, var(--accent) 30%, var(--bg-3))"></span>
+                  <span class="heatmap__cell" style="width:10px;height:10px;background:color-mix(in oklab, var(--accent) 60%, var(--bg-3))"></span>
+                  <span class="heatmap__cell" style="width:10px;height:10px;background:var(--accent)"></span>
+                  많음
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== MAP ============== -->
+          <section id="map">
+            <div class="section-h"><h2>Map / Route</h2><span class="sub">// route preview + overlays</span></div>
+            <p class="section-desc">실제 Mapbox 의존성 없는 SVG mock. 라우트·마커·고도 프로파일·범례·줌 컨트롤·스케일바·미니맵 패턴.</p>
+            <div class="map-card">
+              <div class="map-canvas" style="height:380px;position:relative" id="map-canvas">
+                <!-- terrain hatching grid -->
+                <svg viewBox="0 0 800 380" width="100%" height="100%" preserveAspectRatio="none" style="position:absolute;inset:0">
+                  <defs>
+                    <pattern id="contour" width="40" height="40" patternUnits="userSpaceOnUse">
+                      <path d="M 0 20 Q 20 0 40 20" stroke="var(--line-soft)" stroke-width="1" fill="none" opacity=".5"/>
+                    </pattern>
+                  </defs>
+                  <rect width="800" height="380" fill="url(#contour)"/>
+                  <!-- water -->
+                  <path d="M 0 240 Q 200 220 400 250 T 800 240 L 800 380 L 0 380 Z"
+                        fill="color-mix(in oklab, var(--color-brand-bike) 20%, var(--bg-2))" opacity=".7"/>
+                  <!-- roads -->
+                  <path d="M 40 320 Q 200 280 380 290 T 700 220" stroke="var(--ink-3)" stroke-width="1.5" fill="none" stroke-dasharray="0" opacity=".4"/>
+                  <path d="M 100 50 Q 200 100 280 90 T 500 180 T 760 200" stroke="var(--ink-3)" stroke-width="1.5" fill="none" opacity=".4"/>
+                  <!-- ride route -->
+                  <path id="route-line" d="M 60 300 Q 140 240 220 260 T 380 200 Q 450 160 520 180 T 700 90"
+                        stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- route shadow -->
+                  <path d="M 60 300 Q 140 240 220 260 T 380 200 Q 450 160 520 180 T 700 90"
+                        stroke="var(--bg-0)" stroke-width="6" fill="none" stroke-linecap="round" stroke-opacity=".4"
+                        style="paint-order:stroke"/>
+                  <!-- climb segment highlight -->
+                  <path d="M 380 200 Q 450 160 520 180" stroke="var(--color-warning)" stroke-width="4" fill="none" stroke-linecap="round"/>
+                  <!-- mile markers -->
+                  <circle cx="220" cy="260" r="4" fill="var(--bg-1)" stroke="var(--accent)" stroke-width="2"/>
+                  <circle cx="380" cy="200" r="4" fill="var(--bg-1)" stroke="var(--accent)" stroke-width="2"/>
+                  <circle cx="520" cy="180" r="4" fill="var(--bg-1)" stroke="var(--accent)" stroke-width="2"/>
+                </svg>
+
+                <!-- markers -->
+                <div class="map-marker" style="left:60px;top:300px"><div class="map-marker__pin" style="background:var(--color-success)"></div></div>
+                <div class="map-marker" style="left:700px;top:90px"><div class="map-marker__pin" style="background:var(--color-error)"></div></div>
+
+                <!-- friends -->
+                <div style="position:absolute;left:300px;top:230px;transform:translate(-50%,-50%)">
+                  <div class="avatar" style="width:28px;height:28px;font-size:11px;border:2px solid var(--bg-0);background:linear-gradient(135deg,var(--color-brand-run),var(--color-warning))">K</div>
+                </div>
+                <div style="position:absolute;left:560px;top:160px;transform:translate(-50%,-50%)">
+                  <div class="avatar" style="width:28px;height:28px;font-size:11px;border:2px solid var(--bg-0);background:linear-gradient(135deg,var(--color-brand-swim),var(--color-success))">L</div>
+                </div>
+
+                <!-- overlay: layer chooser -->
+                <div class="map-overlay-tl">
+                  <div style="display:flex;gap:4px">
+                    <button class="btn btn--sm btn--primary">위성</button>
+                    <button class="btn btn--sm">지형</button>
+                    <button class="btn btn--sm">교통</button>
+                  </div>
+                </div>
+
+                <!-- overlay: zoom -->
+                <div class="map-overlay-tr">
+                  <button aria-label="zoom in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+                  <div style="height:1px;background:var(--line-soft)"></div>
+                  <button aria-label="zoom out"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></button>
+                  <div style="height:1px;background:var(--line-soft)"></div>
+                  <button aria-label="locate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></button>
+                </div>
+
+                <!-- overlay: bottom-left elevation profile -->
+                <div class="map-overlay-bl" style="padding:8px 10px">
+                  <div style="font-size:10px;color:var(--ink-3);margin-bottom:4px">고도 +1,240m</div>
+                  <svg viewBox="0 0 120 40" width="160" height="40">
+                    <path d="M 0 32 L 15 25 L 30 22 L 45 18 L 60 10 L 75 6 L 90 14 L 105 20 L 120 28" stroke="var(--color-warning)" stroke-width="1.5" fill="none"/>
+                    <path d="M 0 32 L 15 25 L 30 22 L 45 18 L 60 10 L 75 6 L 90 14 L 105 20 L 120 28 L 120 40 L 0 40 Z" fill="var(--color-warning)" fill-opacity=".2"/>
+                  </svg>
+                </div>
+
+                <!-- overlay: bottom-right scale + attribution -->
+                <div class="map-overlay-br">
+                  <div class="map-scale"></div>
+                  <div style="text-align:right">5 km</div>
+                </div>
+              </div>
+              <div style="padding:12px 14px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line-soft)">
+                <div style="display:flex;gap:10px;font-family:var(--font-mono);font-size:11px;color:var(--ink-2)">
+                  <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:var(--color-success);border-radius:50%"></span>시작</span>
+                  <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:8px;height:8px;background:var(--color-error);border-radius:50%"></span>도착</span>
+                  <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:14px;height:3px;background:var(--accent)"></span>경로</span>
+                  <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:14px;height:3px;background:var(--color-warning)"></span>오르막</span>
+                </div>
+                <div class="btn-row">
+                  <button class="btn btn--ghost btn--sm">GPX 다운로드</button>
+                  <button class="btn btn--secondary btn--sm">코스 생성</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== MODAL ============== -->
+          <section id="modal">
+            <div class="section-h"><h2>Modal / Dialog</h2></div>
+            <div class="panel--inset panel">
+              <div class="modal">
+                <h3 class="modal__title">라이드를 삭제할까요?</h3>
+                <p class="modal__body">이 작업은 되돌릴 수 없습니다. Strava 에 업로드된 활동도 함께 제거됩니다.</p>
+                <div class="modal__actions">
+                  <button class="btn btn--ghost">취소</button>
+                  <button class="btn btn--danger">삭제</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== SKELETON ============== -->
+          <section id="skeleton">
+            <div class="section-h"><h2>Skeleton (Loading)</h2></div>
+            <div class="panel" style="max-width: 480px">
+              <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+                <div class="skeleton" style="width:36px;height:36px;border-radius:50%"></div>
+                <div style="flex:1">
+                  <div class="skeleton" style="height:12px;width:60%;margin-bottom:6px"></div>
+                  <div class="skeleton" style="height:10px;width:40%"></div>
+                </div>
+              </div>
+              <div class="skeleton" style="height:14px;width:80%;margin-bottom:8px"></div>
+              <div class="skeleton" style="height:120px;width:100%;margin-bottom:8px"></div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                <div class="skeleton" style="height:42px"></div>
+                <div class="skeleton" style="height:42px"></div>
+                <div class="skeleton" style="height:42px"></div>
+                <div class="skeleton" style="height:42px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== CHARTS ============== -->
+          <section id="charts">
+            <div class="section-h"><h2>Charts</h2><span class="sub">// chartColors</span></div>
+            <p class="section-desc">SVG 인라인. 토큰 변경 시 색이 즉시 갱신.</p>
+            <div class="charts-grid">
+
+              <!-- Line: Speed over time -->
+              <div class="panel chart-card span-2">
+                <div class="chart-card__title">
+                  <span class="chart-card__name">속도 · 고도 · 심박</span>
+                  <span class="chart-card__sub">2H 48M</span>
+                </div>
+                <svg viewBox="0 0 600 200" width="100%" height="200" id="chart-multi"></svg>
+                <div class="chart-legend">
+                  <span class="chart-legend__item"><span class="chart-legend__dot" id="leg-speed"></span>속도</span>
+                  <span class="chart-legend__item"><span class="chart-legend__dot" id="leg-alt"></span>고도</span>
+                  <span class="chart-legend__item"><span class="chart-legend__dot" id="leg-hr"></span>심박</span>
+                </div>
+              </div>
+
+              <!-- Area: Altitude profile -->
+              <div class="panel chart-card">
+                <div class="chart-card__title">
+                  <span class="chart-card__name">고도 프로파일</span>
+                  <span class="chart-card__sub">ELEV +1,240M</span>
+                </div>
+                <svg viewBox="0 0 360 160" width="100%" height="160" id="chart-alt"></svg>
+              </div>
+
+              <!-- Bar: weekly distance -->
+              <div class="panel chart-card">
+                <div class="chart-card__title">
+                  <span class="chart-card__name">주간 거리</span>
+                  <span class="chart-card__sub">+18% vs PREV</span>
+                </div>
+                <svg viewBox="0 0 360 160" width="100%" height="160" id="chart-bar"></svg>
+              </div>
+
+              <!-- Donut: Zone distribution -->
+              <div class="panel chart-card">
+                <div class="chart-card__title">
+                  <span class="chart-card__name">존 분포</span>
+                  <span class="chart-card__sub">RIDE TIME</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px">
+                  <svg viewBox="0 0 160 160" width="160" height="160" id="chart-donut"></svg>
+                  <div id="chart-donut-legend" style="display:flex;flex-direction:column;gap:6px;font-size:12px"></div>
+                </div>
+              </div>
+
+              <!-- Power curve -->
+              <div class="panel chart-card">
+                <div class="chart-card__title">
+                  <span class="chart-card__name">파워 커브</span>
+                  <span class="chart-card__sub">CP 245 · W' 16KJ</span>
+                </div>
+                <svg viewBox="0 0 360 160" width="100%" height="160" id="chart-pc"></svg>
+              </div>
+
+              <!-- Gauges -->
+              <div class="panel chart-card span-2">
+                <div class="chart-card__title">
+                  <span class="chart-card__name">실시간 게이지</span>
+                  <span class="chart-card__sub">LIVE</span>
+                </div>
+                <div class="gauge-grid" id="gauge-grid"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== ACTIVITY ============== -->
+          <section id="activity">
+            <div class="section-h"><h2>Activity Card</h2></div>
+            <div class="grid grid--components">
+              <div class="activity-card">
+                <div class="activity-card__head">
+                  <div class="avatar">M</div>
+                  <div>
+                    <div class="activity-card__user-name">Moon · 사이클</div>
+                    <div class="activity-card__user-meta">05-24 06:12 · 한강 · 맑음 12°C</div>
+                  </div>
+                  <span style="flex:1"></span>
+                  <span class="chip chip--accent"><span class="chip__dot"></span>Strava</span>
+                </div>
+                <div class="activity-card__title">한강 새벽 페이스 라이드</div>
+                <!-- mini map preview -->
+                <svg viewBox="0 0 400 120" width="100%" height="120" style="background: var(--bg-2); display: block">
+                  <path d="M10 90 Q60 30 120 60 T220 50 T340 80 L390 60" stroke="var(--accent)" stroke-width="3" fill="none" stroke-linecap="round"/>
+                  <circle cx="10" cy="90" r="5" fill="var(--color-success)"/>
+                  <circle cx="390" cy="60" r="5" fill="var(--color-error)"/>
+                </svg>
+                <div class="activity-card__stats">
+                  <div class="activity-card__stat"><div class="activity-card__stat-label">DIST</div><div class="activity-card__stat-value">82.4<span class="activity-card__stat-unit">km</span></div></div>
+                  <div class="activity-card__stat"><div class="activity-card__stat-label">TIME</div><div class="activity-card__stat-value">2:48</div></div>
+                  <div class="activity-card__stat"><div class="activity-card__stat-label">AVG</div><div class="activity-card__stat-value">29.4<span class="activity-card__stat-unit">km/h</span></div></div>
+                  <div class="activity-card__stat"><div class="activity-card__stat-label">TSS</div><div class="activity-card__stat-value">180</div></div>
+                </div>
+                <div class="activity-card__actions">
+                  <button class="btn btn--ghost btn--sm">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.5-7-10a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>
+                    24
+                  </button>
+                  <button class="btn btn--ghost btn--sm">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    5
+                  </button>
+                  <span style="flex:1"></span>
+                  <button class="btn btn--ghost btn--sm">분석</button>
+                </div>
+              </div>
+
+              <div class="activity-card">
+                <div class="activity-card__head">
+                  <div class="avatar" style="background: linear-gradient(135deg, var(--color-brand-run), var(--color-warning))">K</div>
+                  <div>
+                    <div class="activity-card__user-name">Kim · 러닝</div>
+                    <div class="activity-card__user-meta">05-22 19:33 · 북한산</div>
+                  </div>
+                  <span style="flex:1"></span>
+                  <span class="chip chip--warning">stretch</span>
+                </div>
+                <div class="activity-card__title">북한산 인터벌 8×400m</div>
+                <svg viewBox="0 0 400 120" width="100%" height="120" style="background: var(--bg-2)">
+                  <path d="M10 100 L50 60 L90 80 L130 50 L170 70 L210 40 L250 65 L290 35 L330 55 L370 30 L390 50" stroke="var(--color-brand-run)" stroke-width="3" fill="none"/>
+                </svg>
+                <div class="activity-card__stats">
+                  <div class="activity-card__stat"><div class="activity-card__stat-label">DIST</div><div class="activity-card__stat-value">12.0<span class="activity-card__stat-unit">km</span></div></div>
+                  <div class="activity-card__stat"><div class="activity-card__stat-label">PACE</div><div class="activity-card__stat-value">4:32<span class="activity-card__stat-unit">/km</span></div></div>
+                  <div class="activity-card__stat"><div class="activity-card__stat-label">HR</div><div class="activity-card__stat-value">168<span class="activity-card__stat-unit">bpm</span></div></div>
+                  <div class="activity-card__stat"><div class="activity-card__stat-label">TSS</div><div class="activity-card__stat-value">95</div></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============== DASHBOARD ============== -->
+          <section id="dashboard">
+            <div class="section-h"><h2>Dashboard Composition</h2><span class="sub">// 모든 토큰 조합</span></div>
+            <div class="panel" style="background: var(--bg-0)">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px">
+                <div>
+                  <div style="font-size:22px;font-weight:700;color:var(--ink-0)">오늘의 라이드</div>
+                  <div class="swatch__val">2026-05-24 · 한강 · 좋은 컨디션</div>
+                </div>
+                <div class="btn-row">
+                  <button class="btn btn--ghost btn--sm">공유</button>
+                  <button class="btn btn--primary btn--sm">분석</button>
+                </div>
+              </div>
+              <div class="charts-grid">
+                <div class="panel chart-card span-2">
+                  <div class="chart-card__title">
+                    <span class="chart-card__name">파워</span>
+                    <span class="chart-card__sub">NP 232 · IF 0.95</span>
+                  </div>
+                  <svg viewBox="0 0 600 160" width="100%" height="160" id="dash-power"></svg>
+                </div>
+                <div class="panel chart-card">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div><div class="swatch__val">평균 속도</div><div class="data-block__value v-medium">29.4<span class="data-block__unit">km/h</span></div></div>
+                    <div><div class="swatch__val">평균 케이던스</div><div class="data-block__value v-medium">88<span class="data-block__unit">rpm</span></div></div>
+                    <div><div class="swatch__val">평균 심박</div><div class="data-block__value v-medium">142<span class="data-block__unit">bpm</span></div></div>
+                    <div><div class="swatch__val">상승 고도</div><div class="data-block__value v-medium">580<span class="data-block__unit">m</span></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <footer>web/src/theme/* — DEFAULT_THEME · APP_PARITY_THEME · useOriderTheme()</footer>
+      </div>
+    </div>
+
+    <script type="module">
+      /* =========================
+       * Theme tokens (mirror src/theme/themes/*.ts)
+       * ========================= */
+      const DEFAULT_DIMENS = { paddingXs:4,paddingS:8,paddingM:16,paddingL:24,paddingXl:32, itemGap:8,itemInner:12,sectionGap:16, cornerRadiusS:4,cornerRadiusM:6,cornerRadiusL:10,cornerRadiusXl:16, listItemHeight:56,cardPadding:16, buttonHeight:40,buttonPaddingHorizontal:14, iconS:16,iconM:24,iconL:32 };
+      const APP_PARITY_DIMENS = { ...DEFAULT_DIMENS, cornerRadiusM:8,cornerRadiusL:12, buttonHeight:48,buttonPaddingHorizontal:24 };
+
+      const DEFAULT_TYPOGRAPHY = {
+        dataHero:{size:44,weight:500,mono:true,letterSpacing:'-0.03em',lineHeight:1},
+        dataLarge:{size:28,weight:500,mono:true,letterSpacing:'-0.02em',lineHeight:1},
+        dataMedium:{size:18,weight:500,mono:true,letterSpacing:'-0.01em',lineHeight:1},
+        dataSmall:{size:14,weight:500,mono:true,lineHeight:1.2},
+        title:{size:20,weight:700},subtitle:{size:16,weight:600,letterSpacing:'0.015em'},
+        bodyLarge:{size:16,weight:500},body:{size:14,weight:400},bodyMedium:{size:14,weight:500},
+        bodySmall:{size:13,weight:400},caption:{size:12,weight:400},
+        label:{size:13,weight:500,letterSpacing:'0.05em'},
+        status:{size:13,weight:500,letterSpacing:'0.05em'},
+        eyebrow:{size:10,weight:500,mono:true,letterSpacing:'0.14em'},
+      };
+      const APP_PARITY_TYPOGRAPHY = {
+        ...DEFAULT_TYPOGRAPHY,
+        dataHero:{size:96,weight:700,mono:true,letterSpacing:'-0.02em',lineHeight:1},
+        dataLarge:{size:48,weight:600,mono:true,letterSpacing:'-0.01em',lineHeight:1},
+        dataMedium:{size:32,weight:500,mono:true,lineHeight:1},
+        dataSmall:{size:20,weight:500,mono:true,lineHeight:1.1},
+      };
+
+      const DEFAULT_THEME = {
+        id:'default', label:'기본', dimens:DEFAULT_DIMENS, typography:DEFAULT_TYPOGRAPHY,
+        scheme:{
+          light:{ colors:{
+            background:'oklch(0.985 0.003 90)',surface:'oklch(1.000 0.000 0)',surfaceVariant:'oklch(0.965 0.004 90)',surfaceElevated:'oklch(0.935 0.005 90)',surfaceHigh:'oklch(0.895 0.006 90)',
+            divider:'oklch(0.915 0.005 90)',border:'oklch(0.860 0.006 90)',
+            textPrimary:'oklch(0.18 0.010 240)',textSecondary:'oklch(0.28 0.010 240)',textTertiary:'oklch(0.45 0.010 240)',textQuaternary:'oklch(0.55 0.009 240)',textDisabled:'oklch(0.65 0.008 240)',
+            accent:'oklch(0.62 0.17 130)',accentDark:'oklch(0.55 0.15 130)',accentLight:'oklch(0.78 0.13 130)',
+            accentSoftBg:'color-mix(in oklch, oklch(0.62 0.17 130) 8%, oklch(0.965 0.004 90))',
+            accentSoftBorder:'color-mix(in oklch, oklch(0.62 0.17 130) 25%, oklch(0.915 0.005 90))',
+            primary:'oklch(0.62 0.17 130)',primaryDark:'oklch(0.55 0.15 130)',primaryFg:'oklch(0.99 0.005 90)',
+            success:'oklch(0.62 0.17 130)',warning:'oklch(0.66 0.15 75)',error:'oklch(0.58 0.17 20)',info:'oklch(0.55 0.13 210)',
+            radarSafe:'oklch(0.62 0.17 130)',radarCaution:'oklch(0.66 0.15 75)',radarDanger:'oklch(0.58 0.17 20)',
+            brandBike:'oklch(0.55 0.13 210)',brandRun:'oklch(0.66 0.15 75)',brandSwim:'oklch(0.62 0.17 130)',
+            zone1:'oklch(0.62 0.07 230)',zone2:'oklch(0.62 0.12 170)',zone3:'oklch(0.65 0.16 130)',zone4:'oklch(0.66 0.15 75)',zone5:'oklch(0.58 0.17 20)',
+          }, chartColors:{
+            speed:'oklch(0.62 0.17 130)',altitude:'oklch(0.66 0.15 75)',cadence:'oklch(0.55 0.13 210)',
+            heartRate:'oklch(0.58 0.17 20)',power:'oklch(0.55 0.16 285)',
+            grid:'rgba(0,0,0,0.05)',gridAxis:'rgba(0,0,0,0.18)',gridLabel:'oklch(0.45 0.010 240)',
+          }},
+          dark:{ colors:{
+            background:'oklch(0.15 0.006 240)',surface:'oklch(0.185 0.007 240)',surfaceVariant:'oklch(0.215 0.008 240)',surfaceElevated:'oklch(0.255 0.009 240)',surfaceHigh:'oklch(0.30 0.010 240)',
+            divider:'oklch(0.26 0.009 240)',border:'oklch(0.32 0.010 240)',
+            textPrimary:'oklch(0.97 0.005 90)',textSecondary:'oklch(0.88 0.006 90)',textTertiary:'oklch(0.70 0.008 90)',textQuaternary:'oklch(0.55 0.009 90)',textDisabled:'oklch(0.42 0.009 90)',
+            accent:'oklch(0.86 0.18 130)',accentDark:'oklch(0.60 0.13 130)',accentLight:'oklch(0.86 0.18 130)',
+            accentSoftBg:'color-mix(in oklch, oklch(0.86 0.18 130) 8%, oklch(0.215 0.008 240))',
+            accentSoftBorder:'color-mix(in oklch, oklch(0.86 0.18 130) 25%, oklch(0.26 0.009 240))',
+            primary:'oklch(0.86 0.18 130)',primaryDark:'oklch(0.60 0.13 130)',primaryFg:'oklch(0.15 0.05 130)',
+            success:'oklch(0.86 0.18 130)',warning:'oklch(0.80 0.14 75)',error:'oklch(0.72 0.16 20)',info:'oklch(0.78 0.13 210)',
+            radarSafe:'oklch(0.86 0.18 130)',radarCaution:'oklch(0.80 0.14 75)',radarDanger:'oklch(0.72 0.16 20)',
+            brandBike:'oklch(0.78 0.13 210)',brandRun:'oklch(0.80 0.14 75)',brandSwim:'oklch(0.86 0.18 130)',
+            zone1:'oklch(0.72 0.05 230)',zone2:'oklch(0.74 0.10 170)',zone3:'oklch(0.80 0.14 130)',zone4:'oklch(0.80 0.14 75)',zone5:'oklch(0.72 0.16 20)',
+          }, chartColors:{
+            speed:'oklch(0.86 0.18 130)',altitude:'oklch(0.80 0.14 75)',cadence:'oklch(0.78 0.13 210)',
+            heartRate:'oklch(0.72 0.16 20)',power:'oklch(0.70 0.14 285)',
+            grid:'rgba(255,255,255,0.06)',gridAxis:'rgba(255,255,255,0.14)',gridLabel:'oklch(0.70 0.008 90)',
+          }},
+        },
+      };
+
+      const APP_PARITY_THEME = {
+        id:'app-parity', label:'앱 패리티', dimens:APP_PARITY_DIMENS, typography:APP_PARITY_TYPOGRAPHY,
+        scheme:{
+          dark:{ colors:{
+            background:'#121212',surface:'#1A1A1A',surfaceVariant:'#242424',surfaceElevated:'#2A2A2A',surfaceHigh:'#333333',
+            divider:'#2A2A2A',border:'#333333',
+            textPrimary:'#FFFFFF',textSecondary:'#B0B0B0',textTertiary:'#9E9E9E',textQuaternary:'#888888',textDisabled:'#666666',
+            accent:'#FC5200',accentDark:'#CC4200',accentLight:'#FF7043',
+            accentSoftBg:'color-mix(in oklab, #FC5200 12%, #1A1A1A)',
+            accentSoftBorder:'color-mix(in oklab, #FC5200 30%, transparent)',
+            primary:'#4A90E2',primaryDark:'#1565C0',primaryFg:'#FFFFFF',
+            success:'#4CAF50',warning:'#FFA726',error:'#EF5350',info:'#4A90E2',
+            radarSafe:'#2E7D32',radarCaution:'#F9A825',radarDanger:'#B71C1C',
+            brandBike:'#4A90E2',brandRun:'#FFA726',brandSwim:'#4CAF50',
+            zone1:'#4A90E2',zone2:'#26A69A',zone3:'#9CCC65',zone4:'#FFA726',zone5:'#EF5350',
+          }, chartColors:{
+            speed:'#00E676',altitude:'#FF6D00',cadence:'#29B6F6',
+            heartRate:'#EF5350',power:'#AB47BC',
+            grid:'#2A2A2A',gridAxis:'#3A3A3A',gridLabel:'#9E9E9E',
+          }},
+          light:{ colors:{
+            background:'#FAFAFA',surface:'#FFFFFF',surfaceVariant:'#F5F5F5',surfaceElevated:'#EEEEEE',surfaceHigh:'#E0E0E0',
+            divider:'#E0E0E0',border:'#CCCCCC',
+            textPrimary:'#121212',textSecondary:'#333333',textTertiary:'#555555',textQuaternary:'#777777',textDisabled:'#AAAAAA',
+            accent:'#FC5200',accentDark:'#CC4200',accentLight:'#FF7043',
+            accentSoftBg:'color-mix(in oklab, #FC5200 8%, #FFFFFF)',
+            accentSoftBorder:'color-mix(in oklab, #FC5200 25%, #E0E0E0)',
+            primary:'#1565C0',primaryDark:'#0D47A1',primaryFg:'#FFFFFF',
+            success:'#2E7D32',warning:'#E65100',error:'#B71C1C',info:'#1565C0',
+            radarSafe:'#2E7D32',radarCaution:'#F9A825',radarDanger:'#B71C1C',
+            brandBike:'#1565C0',brandRun:'#E65100',brandSwim:'#2E7D32',
+            zone1:'#1565C0',zone2:'#00897B',zone3:'#689F38',zone4:'#E65100',zone5:'#B71C1C',
+          }, chartColors:{
+            speed:'#00C853',altitude:'#E65100',cadence:'#0277BD',
+            heartRate:'#C62828',power:'#6A1B9A',
+            grid:'rgba(0,0,0,0.05)',gridAxis:'rgba(0,0,0,0.18)',gridLabel:'#555555',
+          }},
+        },
+      };
+
+      const THEMES = { default: DEFAULT_THEME, 'app-parity': APP_PARITY_THEME };
+      const state = { design: 'default', mode: 'dark' };
+
+      function applyTheme() {
+        const theme = THEMES[state.design];
+        const variant = theme.scheme[state.mode];
+        const root = document.documentElement;
+        const c = variant.colors, d = theme.dimens, t = theme.typography;
+
+        const map = {
+          '--bg-0':c.background,'--bg-1':c.surface,'--bg-2':c.surfaceVariant,'--bg-3':c.surfaceElevated,'--bg-4':c.surfaceHigh,
+          '--line':c.border,'--line-soft':c.divider,
+          '--ink-0':c.textPrimary,'--ink-1':c.textSecondary,'--ink-2':c.textTertiary,'--ink-3':c.textQuaternary,'--ink-4':c.textDisabled,
+          '--accent':c.accent,'--primary-fg':c.primaryFg,
+          '--accent-soft-bg':c.accentSoftBg,'--accent-soft-border':c.accentSoftBorder,
+          '--color-success':c.success,'--color-warning':c.warning,'--color-error':c.error,
+          '--color-brand-bike':c.brandBike,'--color-brand-run':c.brandRun,'--color-brand-swim':c.brandSwim,
+          '--dim-button-height':d.buttonHeight+'px','--dim-button-padding-h':d.buttonPaddingHorizontal+'px',
+          '--r-sm':d.cornerRadiusS+'px','--r-md':d.cornerRadiusM+'px','--r-lg':d.cornerRadiusL+'px','--r-xl':d.cornerRadiusXl+'px',
+          '--fs-data-hero':t.dataHero.size+'px','--fs-data-large':t.dataLarge.size+'px',
+          '--fs-data-medium':t.dataMedium.size+'px','--fs-data-small':t.dataSmall.size+'px',
+        };
+        for (const [k, v] of Object.entries(map)) root.style.setProperty(k, v);
+        root.setAttribute('data-theme', state.mode);
+        root.setAttribute('data-design', state.design);
+
+        document.getElementById('active-token').textContent = `// scheme.${state.mode} · ${state.design}`;
+
+        renderColors(variant);
+        renderType(theme);
+        renderDimens(theme);
+        renderZones(variant);
+        renderCharts(variant);
+        renderSparklines(variant);
+        renderHeatmap();
+      }
+
+      function renderSparklines(variant) {
+        const container = document.getElementById('spark-list');
+        if (!container) return;
+        const ch = variant.chartColors;
+        const rows = [
+          { name: '평균 속도', val: '29.4 km/h', delta: '+1.2', up: true, color: ch.speed,
+            pts: [22,24,26,23,28,27,30,29,28,30,29,32] },
+          { name: '평균 출력', val: '232 W', delta: '-3', up: false, color: ch.power,
+            pts: [240,245,238,242,235,230,228,232,236,230,228,232] },
+          { name: '평균 케이던스', val: '88 rpm', delta: '+2', up: true, color: ch.cadence,
+            pts: [85,86,84,88,87,89,86,88,90,87,89,90] },
+          { name: '평균 심박', val: '142 bpm', delta: '+4', up: false, color: ch.heartRate,
+            pts: [136,138,140,138,142,144,141,143,145,142,144,146] },
+          { name: '상승 고도', val: '580 m', delta: '+12%', up: true, color: ch.altitude,
+            pts: [380,420,500,460,520,540,500,580,560,540,600,580] },
+        ];
+        container.innerHTML = rows.map(r => {
+          const W = 180, H = 36;
+          const min = Math.min(...r.pts), max = Math.max(...r.pts);
+          const norm = (v) => H - 2 - ((v - min) / (max - min || 1)) * (H - 4);
+          const pts = r.pts.map((v, i) => [i/(r.pts.length-1)*W, norm(v)]);
+          const d = `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ');
+          const area = d + ` L ${W} ${H} L 0 ${H} Z`;
+          const last = pts[pts.length-1];
+          const deltaCls = r.up ? 'stat-card__delta--up' : 'stat-card__delta--down';
+          const arrow = r.up ? '▲' : '▼';
+          return `<div class="spark-row">
+            <div class="spark-row__name">${r.name}</div>
+            <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+              <path d="${area}" fill="${r.color}" fill-opacity=".2"/>
+              <path d="${d}" stroke="${r.color}" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+              <circle cx="${last[0]}" cy="${last[1]}" r="2.5" fill="${r.color}"/>
+            </svg>
+            <div class="spark-row__val">${r.val}</div>
+            <div class="spark-row__delta ${deltaCls}">${arrow} ${r.delta}</div>
+          </div>`;
+        }).join('');
+      }
+
+      function renderHeatmap() {
+        const el = document.getElementById('heatmap');
+        if (!el) return;
+        // 26 weeks × 7 days = 182 cells
+        const cells = [];
+        let seed = 0.42;
+        for (let i = 0; i < 26 * 7; i++) {
+          seed = (seed * 9301 + 49297) % 233280; // LCG for determinism
+          const r = seed / 233280;
+          // weekday/weekend bias
+          const dow = i % 7;
+          const bias = (dow === 5 || dow === 6) ? 0.6 : 0.3;
+          const v = r < 0.4 ? 0 : Math.min(4, Math.floor((r - 0.4) * 5 / 0.6 + bias * 1));
+          cells.push(v);
+        }
+        el.innerHTML = cells.map(v => {
+          const opacity = v === 0 ? 0 : 0.2 + v * 0.2;
+          const bg = v === 0 ? 'var(--bg-3)' :
+            `color-mix(in oklab, var(--accent) ${opacity*100}%, var(--bg-3))`;
+          return `<div class="heatmap__cell" style="background:${bg}"></div>`;
+        }).join('');
+      }
+
+      /* ===== Color grid ===== */
+      function renderColors(variant) {
+        const groups = [
+          ['Surface 5단계', ['background','surface','surfaceVariant','surfaceElevated','surfaceHigh']],
+          ['Line', ['divider','border']],
+          ['Text 5단계', ['textPrimary','textSecondary','textTertiary','textQuaternary','textDisabled']],
+          ['Accent / Primary', ['accent','accentDark','accentLight','primary','primaryDark','primaryFg']],
+          ['Status', ['success','warning','error','info']],
+          ['Radar', ['radarSafe','radarCaution','radarDanger']],
+          ['Brand · Discipline', ['brandBike','brandRun','brandSwim']],
+          ['Training Zones', ['zone1','zone2','zone3','zone4','zone5']],
+        ];
+        const root = document.getElementById('grid-colors');
+        root.innerHTML = groups.map(([title, keys]) => `
+          <div class="subgroup">
+            <span class="subgroup__label">${title}</span>
+            <div class="grid grid--colors">
+              ${keys.map(k => `
+                <div class="swatch">
+                  <div class="swatch__box" style="background:${variant.colors[k]}"></div>
+                  <div class="swatch__meta"><div class="swatch__name">${k}</div><span class="swatch__val">${variant.colors[k]}</span></div>
+                </div>`).join('')}
+            </div>
+          </div>`).join('');
+      }
+
+      /* ===== Typography ===== */
+      const TYPE_DATA = [
+        ['dataHero','Speed 32'],
+        ['dataLarge','Power 245'],
+        ['dataMedium','Cadence 92'],
+        ['dataSmall','HR 142 bpm'],
+      ];
+      const TYPE_UI = [
+        ['title','오늘의 라이드 분석'],
+        ['subtitle','한강 새벽 페이스 라이드'],
+        ['bodyLarge','이번 주 평균 출력이 5W 증가했습니다.'],
+        ['body','본문 — Pretendard Variable · 14px · Regular'],
+        ['bodyMedium','강조 본문 — 같은 크기 · Medium'],
+        ['caption','캡션 · 작은 보조 텍스트'],
+        ['label','LABEL · 등급 표시'],
+        ['eyebrow','EYEBROW · MONO TRACK'],
+      ];
+      function renderType(theme) {
+        const renderRows = (list) => list.map(([k, sample]) => {
+          const tk = theme.typography[k];
+          const style = [
+            `font-size:${tk.size}px`,`font-weight:${tk.weight}`,
+            tk.letterSpacing ? `letter-spacing:${tk.letterSpacing}` : '',
+            tk.lineHeight ? `line-height:${tk.lineHeight}` : '',
+            tk.mono ? `font-family:var(--font-mono)` : '',
+          ].filter(Boolean).join(';');
+          return `<div class="type-row">
+            <span class="type-row__name">${k}</span>
+            <span class="type-row__meta">${tk.size}/${tk.weight}${tk.mono ? ' · mono' : ''}</span>
+            <span class="type-row__sample" style="${style}">${sample}</span>
+          </div>`;
+        }).join('');
+        document.getElementById('grid-type-data').innerHTML = renderRows(TYPE_DATA);
+        document.getElementById('grid-type-ui').innerHTML = renderRows(TYPE_UI);
+      }
+
+      /* ===== Dimens ===== */
+      function renderDimens(theme) {
+        const d = theme.dimens;
+        const spacings = [
+          ['paddingXs', d.paddingXs],['paddingS', d.paddingS],['itemGap', d.itemGap],
+          ['itemInner', d.itemInner],['paddingM', d.paddingM],['sectionGap', d.sectionGap],
+          ['paddingL', d.paddingL],['paddingXl', d.paddingXl],
+          ['buttonHeight', d.buttonHeight],['listItemHeight', d.listItemHeight],
+        ];
+        document.getElementById('grid-dimens').innerHTML = spacings.map(([n, v]) => `
+          <div class="dimen-card">
+            <div class="dimen-card__name">${n}</div>
+            <div class="dimen-card__bar" style="width:${v*4}px"></div>
+            <div class="dimen-card__val">${v}px</div>
+          </div>`).join('');
+        const radii = [['cornerRadiusS', d.cornerRadiusS],['cornerRadiusM', d.cornerRadiusM],['cornerRadiusL', d.cornerRadiusL],['cornerRadiusXl', d.cornerRadiusXl]];
+        document.getElementById('grid-radius').innerHTML = radii.map(([n, v]) => `
+          <div class="radius-sample" style="border-radius:${v}px">${v}px</div>`).join('');
+      }
+
+      /* ===== Zones ===== */
+      function renderZones(variant) {
+        const labels = ['Z1 회복','Z2 지구력','Z3 템포','Z4 역치','Z5 VO2+'];
+        document.getElementById('zone-strip').innerHTML = labels.map((label, i) =>
+          `<div class="zone-strip__cell" style="background:${variant.colors['zone'+(i+1)]}">${label}</div>`).join('');
+      }
+
+      /* =========================
+       * CHARTS — pure SVG
+       * ========================= */
+      function renderCharts(variant) {
+        const ch = variant.chartColors;
+        document.getElementById('leg-speed').style.background = ch.speed;
+        document.getElementById('leg-alt').style.background = ch.altitude;
+        document.getElementById('leg-hr').style.background = ch.heartRate;
+
+        renderMultiLine(ch);
+        renderAltitude(ch);
+        renderWeeklyBar(variant);
+        renderDonut(variant);
+        renderPowerCurve(ch);
+        renderGauges(variant);
+        renderDashPower(ch);
+      }
+
+      function gridLines(svg, w, h, cols, rows, color) {
+        const ns = 'http://www.w3.org/2000/svg';
+        for (let i = 1; i < cols; i++) {
+          const x = (w / cols) * i;
+          const l = document.createElementNS(ns, 'line');
+          l.setAttribute('x1', x); l.setAttribute('y1', 0);
+          l.setAttribute('x2', x); l.setAttribute('y2', h);
+          l.setAttribute('stroke', color); l.setAttribute('stroke-width', 1);
+          svg.appendChild(l);
+        }
+        for (let i = 1; i < rows; i++) {
+          const y = (h / rows) * i;
+          const l = document.createElementNS(ns, 'line');
+          l.setAttribute('x1', 0); l.setAttribute('y1', y);
+          l.setAttribute('x2', w); l.setAttribute('y2', y);
+          l.setAttribute('stroke', color); l.setAttribute('stroke-width', 1);
+          svg.appendChild(l);
+        }
+      }
+
+      function pathFromPoints(points, mode='line') {
+        if (!points.length) return '';
+        let d = `M ${points[0][0]} ${points[0][1]}`;
+        for (let i = 1; i < points.length; i++) {
+          const [x, y] = points[i];
+          const [px, py] = points[i-1];
+          if (mode === 'smooth') {
+            const cx = (px + x) / 2;
+            d += ` Q ${cx} ${py} ${(cx+x)/2} ${(py+y)/2} T ${x} ${y}`;
+          } else {
+            d += ` L ${x} ${y}`;
+          }
+        }
+        return d;
+      }
+
+      function sample(n, fn) {
+        const out = [];
+        for (let i = 0; i < n; i++) out.push(fn(i, n));
+        return out;
+      }
+
+      function renderMultiLine(ch) {
+        const svg = document.getElementById('chart-multi');
+        const W = 600, H = 200;
+        svg.innerHTML = '';
+        const g = (s) => { svg.insertAdjacentHTML('beforeend', s); };
+
+        // grid
+        for (let i = 1; i < 6; i++) {
+          const y = (H / 6) * i;
+          g(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ch.grid}" stroke-width="1"/>`);
+        }
+        // axis bottom
+        g(`<line x1="0" y1="${H-1}" x2="${W}" y2="${H-1}" stroke="${ch.gridAxis}" stroke-width="1"/>`);
+
+        const N = 80;
+        const speedPts = sample(N, (i) => [i/(N-1)*W, H - 40 - Math.sin(i*0.18)*45 - Math.sin(i*0.05)*30 - (i*0.2)]);
+        const altPts = sample(N, (i) => [i/(N-1)*W, H - 30 - i*0.6 - Math.sin(i*0.1)*15]);
+        const hrPts = sample(N, (i) => [i/(N-1)*W, H - 80 - Math.sin(i*0.12)*30 + Math.cos(i*0.04)*10]);
+
+        // altitude as area
+        const altArea = pathFromPoints(altPts) + ` L ${W} ${H} L 0 ${H} Z`;
+        g(`<path d="${altArea}" fill="${ch.altitude}" fill-opacity="0.18"/>`);
+        g(`<path d="${pathFromPoints(altPts)}" stroke="${ch.altitude}" stroke-width="1.5" fill="none"/>`);
+
+        g(`<path d="${pathFromPoints(speedPts)}" stroke="${ch.speed}" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`);
+        g(`<path d="${pathFromPoints(hrPts)}" stroke="${ch.heartRate}" stroke-width="2" fill="none" stroke-dasharray="0" stroke-linecap="round"/>`);
+
+        // labels
+        g(`<text x="6" y="14" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10">40 km/h</text>`);
+        g(`<text x="6" y="${H-4}" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10">0</text>`);
+      }
+
+      function renderAltitude(ch) {
+        const svg = document.getElementById('chart-alt');
+        const W = 360, H = 160;
+        svg.innerHTML = '';
+        // realistic profile
+        const profile = [40,60,75,95,110,90,80,75,90,120,140,135,115,95,85,90,100,110,90,70,55,45,30];
+        const xs = profile.map((_, i) => i/(profile.length-1)*W);
+        const ys = profile.map(v => H - 20 - v);
+        const pts = xs.map((x, i) => [x, ys[i]]);
+        const area = pathFromPoints(pts) + ` L ${W} ${H} L 0 ${H} Z`;
+        const g = (s) => svg.insertAdjacentHTML('beforeend', s);
+        for (let i = 1; i < 4; i++) {
+          const y = (H / 4) * i;
+          g(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ch.grid}" stroke-width="1"/>`);
+        }
+        const grad = `<defs><linearGradient id="altGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="${ch.altitude}" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="${ch.altitude}" stop-opacity="0.05"/>
+        </linearGradient></defs>`;
+        g(grad);
+        g(`<path d="${area}" fill="url(#altGrad)"/>`);
+        g(`<path d="${pathFromPoints(pts)}" stroke="${ch.altitude}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`);
+        g(`<text x="6" y="14" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10">140m</text>`);
+        g(`<text x="${W-44}" y="${H-4}" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10">82km</text>`);
+      }
+
+      function renderWeeklyBar(variant) {
+        const svg = document.getElementById('chart-bar');
+        const ch = variant.chartColors;
+        const W = 360, H = 160;
+        const PAD = 24;
+        const days = ['월','화','수','목','금','토','일'];
+        const values = [22, 0, 35, 0, 48, 82, 18];
+        const goal = 80;
+        const max = Math.max(...values, goal) * 1.1;
+        svg.innerHTML = '';
+        const g = (s) => svg.insertAdjacentHTML('beforeend', s);
+        // grid
+        for (let i = 1; i < 4; i++) {
+          const y = PAD + ((H - PAD*2) / 4) * i;
+          g(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ch.grid}" stroke-width="1"/>`);
+        }
+        // goal line
+        const gy = H - PAD - (goal / max) * (H - PAD*2);
+        g(`<line x1="0" y1="${gy}" x2="${W}" y2="${gy}" stroke="${ch.gridAxis}" stroke-width="1" stroke-dasharray="3 3"/>`);
+        g(`<text x="${W-6}" y="${gy-4}" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10" text-anchor="end">목표 ${goal}km</text>`);
+
+        const barW = (W - PAD) / days.length - 8;
+        values.forEach((v, i) => {
+          const x = PAD/2 + i * ((W - PAD) / days.length) + 4;
+          const h = (v / max) * (H - PAD*2);
+          const y = H - PAD - h;
+          const color = v >= goal ? variant.colors.success : (v > 0 ? variant.colors.accent : variant.colors.surfaceElevated);
+          g(`<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="${color}" rx="3"/>`);
+          g(`<text x="${x + barW/2}" y="${H-6}" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10" text-anchor="middle">${days[i]}</text>`);
+          if (v > 0) g(`<text x="${x + barW/2}" y="${y-4}" fill="var(--ink-1)" font-family="var(--font-mono)" font-size="10" text-anchor="middle">${v}</text>`);
+        });
+      }
+
+      function renderDonut(variant) {
+        const svg = document.getElementById('chart-donut');
+        svg.innerHTML = '';
+        const colors = [variant.colors.zone1, variant.colors.zone2, variant.colors.zone3, variant.colors.zone4, variant.colors.zone5];
+        const values = [12, 28, 35, 18, 7];
+        const total = values.reduce((a, b) => a + b, 0);
+        const cx = 80, cy = 80, r = 60, innerR = 38;
+        let angle = -Math.PI / 2;
+        const g = (s) => svg.insertAdjacentHTML('beforeend', s);
+        values.forEach((v, i) => {
+          const a1 = angle;
+          const a2 = angle + (v / total) * Math.PI * 2;
+          const large = (a2 - a1) > Math.PI ? 1 : 0;
+          const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+          const x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+          const x3 = cx + innerR * Math.cos(a2), y3 = cy + innerR * Math.sin(a2);
+          const x4 = cx + innerR * Math.cos(a1), y4 = cy + innerR * Math.sin(a1);
+          g(`<path d="M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerR} ${innerR} 0 ${large} 0 ${x4} ${y4} Z" fill="${colors[i]}"/>`);
+          angle = a2;
+        });
+        g(`<text x="${cx}" y="${cy-2}" text-anchor="middle" fill="var(--ink-0)" font-family="var(--font-mono)" font-weight="600" font-size="22">${total}min</text>`);
+        g(`<text x="${cx}" y="${cy+14}" text-anchor="middle" fill="var(--ink-3)" font-family="var(--font-mono)" font-size="9" letter-spacing="2">RIDE TIME</text>`);
+
+        const legend = document.getElementById('chart-donut-legend');
+        legend.innerHTML = ['Z1 회복','Z2 지구력','Z3 템포','Z4 역치','Z5 VO2+'].map((l, i) => `
+          <span class="chart-legend__item"><span class="chart-legend__dot" style="background:${colors[i]}"></span>${l} <span style="color:var(--ink-3);margin-left:auto;font-weight:500">${Math.round(values[i]/total*100)}%</span></span>
+        `).join('');
+      }
+
+      function renderPowerCurve(ch) {
+        const svg = document.getElementById('chart-pc');
+        const W = 360, H = 160;
+        svg.innerHTML = '';
+        const g = (s) => svg.insertAdjacentHTML('beforeend', s);
+        // log-ish power curve
+        const durations = [5,10,30,60,120,300,600,1200,3600];
+        const powers = [950, 820, 620, 480, 380, 290, 245, 220, 200];
+        const max = 1000;
+        const xLog = (i) => Math.log(durations[i]) / Math.log(durations[durations.length-1]) * (W-30) + 20;
+        const yVal = (p) => H - 20 - (p / max) * (H - 30);
+        const pts = powers.map((p, i) => [xLog(i), yVal(p)]);
+        for (let i = 1; i < 4; i++) {
+          const y = 10 + ((H - 30) / 4) * i;
+          g(`<line x1="20" y1="${y}" x2="${W}" y2="${y}" stroke="${ch.grid}" stroke-width="1"/>`);
+        }
+        // CP line at 245
+        const cpY = yVal(245);
+        g(`<line x1="20" y1="${cpY}" x2="${W}" y2="${cpY}" stroke="${ch.gridAxis}" stroke-width="1" stroke-dasharray="3 3"/>`);
+        g(`<text x="${W-6}" y="${cpY-4}" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10" text-anchor="end">CP 245W</text>`);
+
+        const area = pathFromPoints(pts) + ` L ${pts[pts.length-1][0]} ${H-20} L ${pts[0][0]} ${H-20} Z`;
+        g(`<path d="${area}" fill="${ch.power}" fill-opacity="0.15"/>`);
+        g(`<path d="${pathFromPoints(pts)}" stroke="${ch.power}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`);
+        pts.forEach(([x, y]) => g(`<circle cx="${x}" cy="${y}" r="3" fill="${ch.power}"/>`));
+        ['5s','1m','5m','10m','1h'].forEach((lbl, i) => {
+          const xs = [0, 3, 5, 6, 8];
+          const x = xLog(xs[i]);
+          g(`<text x="${x}" y="${H-4}" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10" text-anchor="middle">${lbl}</text>`);
+        });
+      }
+
+      function renderGauges(variant) {
+        const grid = document.getElementById('gauge-grid');
+        const metrics = [
+          { name: 'SPEED', value: 32, unit: 'km/h', max: 60, color: variant.chartColors.speed },
+          { name: 'POWER', value: 245, unit: 'W', max: 500, color: variant.chartColors.power },
+          { name: 'CADENCE', value: 92, unit: 'rpm', max: 120, color: variant.chartColors.cadence },
+          { name: 'HEART', value: 142, unit: 'bpm', max: 200, color: variant.chartColors.heartRate },
+        ];
+        grid.innerHTML = metrics.map(m => {
+          const pct = m.value / m.max;
+          const ANGLE = Math.PI * 1.3; // 234°
+          const START = Math.PI * 0.85;
+          const r = 50;
+          const cx = 70, cy = 65;
+          const endA = START + ANGLE * pct;
+          const x1 = cx + r * Math.cos(START), y1 = cy + r * Math.sin(START);
+          const x2 = cx + r * Math.cos(endA), y2 = cy + r * Math.sin(endA);
+          const xEnd = cx + r * Math.cos(START + ANGLE), yEnd = cy + r * Math.sin(START + ANGLE);
+          const large = ANGLE * pct > Math.PI ? 1 : 0;
+          const largeFull = ANGLE > Math.PI ? 1 : 0;
+          return `
+            <div style="background:var(--bg-1);border:1px solid var(--line-soft);border-radius:8px;padding:8px;text-align:center">
+              <svg viewBox="0 0 140 100" width="100%" height="92">
+                <path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeFull} 1 ${xEnd} ${yEnd}" stroke="var(--bg-3)" stroke-width="8" fill="none" stroke-linecap="round"/>
+                <path d="M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}" stroke="${m.color}" stroke-width="8" fill="none" stroke-linecap="round"/>
+                <text x="${cx}" y="${cy+2}" text-anchor="middle" font-family="var(--font-mono)" font-weight="600" font-size="22" fill="var(--ink-0)">${m.value}</text>
+                <text x="${cx}" y="${cy+18}" text-anchor="middle" font-family="var(--font-mono)" font-size="9" fill="var(--ink-3)" letter-spacing="2">${m.unit}</text>
+              </svg>
+              <div style="font-family:var(--font-mono);font-size:10px;color:var(--ink-3);letter-spacing:.14em">${m.name}</div>
+            </div>`;
+        }).join('');
+      }
+
+      function renderDashPower(ch) {
+        const svg = document.getElementById('dash-power');
+        const W = 600, H = 160;
+        svg.innerHTML = '';
+        const g = (s) => svg.insertAdjacentHTML('beforeend', s);
+        const N = 120;
+        const pts = sample(N, (i) => {
+          // simulate intervals
+          const base = 200;
+          const surge = i > 30 && i < 50 ? 220 : 0;
+          const surge2 = i > 70 && i < 90 ? 180 : 0;
+          const noise = Math.sin(i * 0.5) * 25 + Math.cos(i * 0.2) * 15;
+          const v = base + surge + surge2 + noise;
+          return [i/(N-1)*W, H - 20 - (v / 500) * (H - 30)];
+        });
+        for (let i = 1; i < 4; i++) {
+          const y = (H / 4) * i;
+          g(`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${ch.grid}" stroke-width="1"/>`);
+        }
+        const grad = `<defs><linearGradient id="pwGrad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="${ch.power}" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="${ch.power}" stop-opacity="0.02"/>
+        </linearGradient></defs>`;
+        g(grad);
+        const area = pathFromPoints(pts) + ` L ${W} ${H} L 0 ${H} Z`;
+        g(`<path d="${area}" fill="url(#pwGrad)"/>`);
+        g(`<path d="${pathFromPoints(pts)}" stroke="${ch.power}" stroke-width="1.5" fill="none"/>`);
+        // CP line
+        const cpY = H - 20 - (245 / 500) * (H - 30);
+        g(`<line x1="0" y1="${cpY}" x2="${W}" y2="${cpY}" stroke="${ch.gridAxis}" stroke-dasharray="3 3"/>`);
+        g(`<text x="6" y="${cpY-4}" fill="${ch.gridLabel}" font-family="var(--font-mono)" font-size="10">CP 245W</text>`);
+      }
+
+      /* ===== Bind controls ===== */
+      function bindSeg(id, key) {
+        const root = document.getElementById(id);
+        root.addEventListener('click', (e) => {
+          const btn = e.target.closest('button');
+          if (!btn) return;
+          state[key] = btn.dataset[key];
+          root.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset[key] === state[key])));
+          applyTheme();
+        });
+      }
+      bindSeg('seg-design', 'design');
+      bindSeg('seg-mode', 'mode');
+
+      // Side nav highlight on scroll
+      const links = [...document.querySelectorAll('.sidenav__link')];
+      const sections = links.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(en => {
+          if (en.isIntersecting) {
+            const id = '#' + en.target.id;
+            links.forEach(l => l.classList.toggle('is-active', l.getAttribute('href') === id));
+          }
+        });
+      }, { rootMargin: '-30% 0px -65% 0px' });
+      sections.forEach(s => io.observe(s));
+
+      applyTheme();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,433 @@
+/* =============================================================
+ * 디자인 시스템 프리미티브 컴포넌트 스타일.
+ *
+ * 모든 색·치수·반경·타이포는 `--bg-*`, `--ink-*`, `--accent`, `--r-*` 토큰만 소비.
+ * 클래스 prefix `ds-` — 레거시 `rd-` / `rd2-` 와 구분.
+ *
+ * 컴포넌트 외부에서 이 클래스를 직접 사용하지 말 것. <Button>, <Card>, ... 컴포넌트만 사용.
+ * (ESLint design-system 룰이 클래스 직접 사용을 차단하진 않지만, 호출 위치에서 의도 흐림.)
+ * ============================================================= */
+
+/* ===== Button ===== */
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--dim-button-height, 40px);
+  padding: 0 var(--dim-button-padding-h, 14px);
+  border-radius: var(--r-md, 6px);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  font-family: inherit;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--ink-1);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s, transform .04s;
+  white-space: nowrap;
+  user-select: none;
+}
+.ds-btn:hover:not(:disabled) { background: var(--bg-3); border-color: var(--bg-4); }
+.ds-btn:active:not(:disabled) { transform: translateY(1px); }
+.ds-btn:disabled, .ds-btn[aria-disabled="true"] {
+  opacity: .5; cursor: not-allowed;
+}
+.ds-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ds-btn--primary {
+  background: var(--accent);
+  color: var(--primary-fg);
+  /* 라이트 테마처럼 accent 가 흰 배경에 가까운 lightness 일 때 button 이 페이지와
+     섞이는 사고 방지 — accent-dark 로 외곽선 강제. */
+  border-color: var(--accent-dark, var(--accent));
+  font-weight: 600;
+}
+.ds-btn--primary:hover:not(:disabled) {
+  /* 85% → 92% — hover 시 너무 밝아져 흰색에 묻히던 회귀 방지. */
+  background: color-mix(in oklab, var(--accent) 92%, white);
+  border-color: var(--accent-dark, var(--accent));
+}
+.ds-btn--secondary {
+  background: var(--bg-2);
+  color: var(--ink-0);
+  border-color: var(--line);
+}
+.ds-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+}
+.ds-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-2);
+  color: var(--ink-0);
+  border-color: transparent;
+}
+.ds-btn--outline {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.ds-btn--outline:hover:not(:disabled) {
+  background: var(--accent-soft-bg);
+}
+.ds-btn--danger {
+  background: var(--color-error);
+  color: white;
+  border-color: var(--color-error);
+}
+.ds-btn--danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--color-error) 85%, white);
+}
+
+.ds-btn--sm { height: 28px; padding: 0 10px; font-size: 12px; gap: 4px; }
+.ds-btn--md { /* default — 위 .ds-btn 정의 사용 */ }
+.ds-btn--lg { height: 48px; padding: 0 20px; font-size: 14px; }
+
+.ds-btn--block { width: 100%; }
+.ds-btn--icon-only { padding: 0; aspect-ratio: 1; width: var(--dim-button-height, 40px); }
+.ds-btn--icon-only.ds-btn--sm { width: 28px; }
+.ds-btn--icon-only.ds-btn--lg { width: 48px; }
+
+.ds-btn__icon { display: inline-flex; align-items: center; }
+.ds-btn__icon svg { width: 1em; height: 1em; }
+.ds-btn__label { display: inline-flex; }
+.ds-btn__spinner {
+  width: 12px; height: 12px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ds-spin .7s linear infinite;
+}
+@keyframes ds-spin { to { transform: rotate(360deg); } }
+
+/* ===== Card ===== */
+.ds-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg, 10px);
+  padding: var(--dim-card-padding, 16px);
+  color: var(--ink-1);
+  box-shadow: var(--shadow-sm, none);
+}
+.ds-card--flat { border-color: transparent; background: var(--bg-2); box-shadow: none; }
+.ds-card--inset { background: var(--bg-2); }
+.ds-card--bare { padding: 0; }
+.ds-card--clickable {
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.ds-card--clickable { transition: background .12s, border-color .12s, box-shadow .12s; }
+.ds-card--clickable:hover { background: var(--bg-2); border-color: var(--line); box-shadow: var(--shadow-md, none); }
+.ds-card__header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ds-card__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink-0); }
+.ds-card__sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
+/* ===== Chip ===== */
+.ds-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--r-sm, 4px);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: .02em;
+  background: var(--bg-3);
+  color: var(--ink-2);
+  border: 1px solid var(--line-soft);
+  line-height: 1.4;
+}
+.ds-chip--accent {
+  background: var(--accent-soft-bg);
+  color: var(--accent);
+  border-color: var(--accent-soft-border);
+}
+.ds-chip--success {
+  background: color-mix(in oklab, var(--color-success) 14%, var(--bg-2));
+  color: var(--color-success);
+  border-color: color-mix(in oklab, var(--color-success) 30%, transparent);
+}
+.ds-chip--warning {
+  background: color-mix(in oklab, var(--color-warning) 14%, var(--bg-2));
+  color: var(--color-warning);
+  border-color: color-mix(in oklab, var(--color-warning) 30%, transparent);
+}
+.ds-chip--danger {
+  background: color-mix(in oklab, var(--color-error) 14%, var(--bg-2));
+  color: var(--color-error);
+  border-color: color-mix(in oklab, var(--color-error) 30%, transparent);
+}
+.ds-chip__dot {
+  width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  display: inline-block; flex-shrink: 0;
+}
+
+/* ===== Input ===== */
+.ds-input {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--r-md, 6px);
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  color: var(--ink-0);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .12s;
+  width: 100%;
+}
+.ds-input:focus { border-color: var(--accent); }
+.ds-input:disabled { opacity: .6; cursor: not-allowed; }
+.ds-input--invalid { border-color: var(--color-error); }
+.ds-input--mono { font-family: var(--font-mono); }
+
+textarea.ds-input { min-height: 80px; padding: 8px 12px; resize: vertical; line-height: 1.5; height: auto; }
+
+select.ds-input {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-2) 50%),
+    linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+/* ===== Field (label + input + hint/error) ===== */
+.ds-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ds-field__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-1);
+}
+.ds-field__hint {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+}
+.ds-field__error {
+  font-size: 11px;
+  color: var(--color-error);
+}
+
+/* ===== Switch ===== */
+.ds-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.ds-switch input { opacity: 0; width: 0; height: 0; }
+.ds-switch__slider {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  transition: background .15s, border-color .15s;
+  cursor: pointer;
+}
+.ds-switch__slider::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: transform .15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.ds-switch input:checked + .ds-switch__slider {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ds-switch input:checked + .ds-switch__slider::before { transform: translateX(16px); }
+.ds-switch input:disabled + .ds-switch__slider { opacity: .5; cursor: not-allowed; }
+
+/* ===== Stack (layout) ===== */
+.ds-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-stack-gap, var(--dim-item-gap, 8px));
+}
+.ds-stack--row { flex-direction: row; align-items: center; }
+.ds-stack--wrap { flex-wrap: wrap; }
+
+/* ===== Stat (label + value + delta) ===== */
+.ds-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ds-stat__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ds-stat__value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--ink-0);
+  letter-spacing: -0.02em;
+}
+.ds-stat__value-unit {
+  font-size: 14px;
+  color: var(--ink-3);
+  margin-left: 4px;
+  font-weight: 500;
+}
+.ds-stat__delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.ds-stat__delta--up { color: var(--color-success); }
+.ds-stat__delta--down { color: var(--color-error); }
+.ds-stat__delta--neutral { color: var(--ink-3); }
+
+.ds-stat--card {
+  background: var(--bg-1);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg, 10px);
+  padding: 16px;
+}
+.ds-stat--compact .ds-stat__value { font-size: 18px; }
+
+/* ===== Alert ===== */
+.ds-alert {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md, 6px);
+  border: 1px solid;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ds-alert__icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.ds-alert__body { color: var(--ink-1); flex: 1; min-width: 0; }
+.ds-alert__title { font-weight: 600; color: var(--ink-0); display: block; margin-bottom: 2px; }
+.ds-alert--info {
+  background: color-mix(in oklab, var(--color-brand-bike) 8%, transparent);
+  border-color: color-mix(in oklab, var(--color-brand-bike) 30%, var(--line-soft));
+}
+.ds-alert--info .ds-alert__icon, .ds-alert--info .ds-alert__title { color: var(--color-brand-bike); }
+.ds-alert--success {
+  background: color-mix(in oklab, var(--color-success) 8%, transparent);
+  border-color: color-mix(in oklab, var(--color-success) 30%, var(--line-soft));
+}
+.ds-alert--success .ds-alert__icon, .ds-alert--success .ds-alert__title { color: var(--color-success); }
+.ds-alert--warning {
+  background: color-mix(in oklab, var(--color-warning) 8%, transparent);
+  border-color: color-mix(in oklab, var(--color-warning) 30%, var(--line-soft));
+}
+.ds-alert--warning .ds-alert__icon, .ds-alert--warning .ds-alert__title { color: var(--color-warning); }
+.ds-alert--danger {
+  background: color-mix(in oklab, var(--color-error) 8%, transparent);
+  border-color: color-mix(in oklab, var(--color-error) 30%, var(--line-soft));
+}
+.ds-alert--danger .ds-alert__icon, .ds-alert--danger .ds-alert__title { color: var(--color-error); }
+
+/* ===== Progress ===== */
+.ds-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.ds-progress__fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width .3s ease-out;
+}
+.ds-progress--success .ds-progress__fill { background: var(--color-success); }
+.ds-progress--warning .ds-progress__fill { background: var(--color-warning); }
+.ds-progress--danger .ds-progress__fill { background: var(--color-error); }
+.ds-progress--lg { height: 10px; }
+.ds-progress--sm { height: 4px; }
+
+/* ===== Text — 의미 단위 타이포 ===== */
+.ds-text { color: inherit; }
+
+/* Data hierarchy (앱 RideData 위계) — 토큰 직접 참조 */
+.ds-text--data-hero    { font-family: var(--font-mono); font-size: var(--fs-data-hero, 44px); font-weight: 700; line-height: 1; letter-spacing: -0.03em; color: var(--ink-0); }
+.ds-text--data-large   { font-family: var(--font-mono); font-size: var(--fs-data-large, 28px); font-weight: 600; line-height: 1; letter-spacing: -0.02em; color: var(--ink-0); }
+.ds-text--data-medium  { font-family: var(--font-mono); font-size: var(--fs-data-medium, 18px); font-weight: 500; line-height: 1; letter-spacing: -0.01em; color: var(--ink-0); }
+.ds-text--data-small   { font-family: var(--font-mono); font-size: var(--fs-data-small, 14px); font-weight: 500; line-height: 1.2; color: var(--ink-0); }
+
+/* UI text */
+.ds-text--title        { font-size: 20px; font-weight: 700; line-height: 1.3; color: var(--ink-0); }
+.ds-text--subtitle     { font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: 0.015em; color: var(--ink-0); }
+.ds-text--body-large   { font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--ink-1); }
+.ds-text--body         { font-size: 14px; font-weight: 400; line-height: 1.5; color: var(--ink-1); }
+.ds-text--body-medium  { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--ink-1); }
+.ds-text--body-small   { font-size: 13px; font-weight: 400; line-height: 1.5; color: var(--ink-1); }
+.ds-text--caption      { font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink-2); }
+.ds-text--label        { font-size: 13px; font-weight: 500; line-height: 1.3; letter-spacing: 0.05em; color: var(--ink-1); }
+.ds-text--eyebrow      { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+.ds-text--mono         { font-family: var(--font-mono); font-feature-settings: 'tnum' 1, 'zero' 1; }
+/* 옛 .num — 인라인 수치 (size 미지정, mono + tnum + medium weight + tight letter-spacing) */
+.ds-text--num          { font-family: var(--font-mono); font-feature-settings: 'tnum' 1; font-weight: 500; letter-spacing: -0.01em; }
+/* 옛 .unit — 수치 옆 작은 단위 표시 (km, W, bpm 등) */
+.ds-text--unit         { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-left: 2px; font-weight: 400; }
+
+/* Raw size — 토큰 기반 (테마 교체 시 자동 반영) */
+.ds-text--size-xs   { font-size: var(--fs-xs, 11px); }
+.ds-text--size-sm   { font-size: var(--fs-sm, 12px); }
+.ds-text--size-base { font-size: var(--fs-base, 13px); }
+.ds-text--size-md   { font-size: var(--fs-md, 14px); }
+.ds-text--size-lg   { font-size: var(--fs-lg, 16px); }
+.ds-text--size-xl   { font-size: var(--fs-xl, 20px); }
+.ds-text--size-2xl  { font-size: var(--fs-2xl, 24px); }
+.ds-text--size-3xl  { font-size: var(--fs-3xl, 30px); }
+.ds-text--size-4xl  { font-size: 36px; }
+.ds-text--size-5xl  { font-size: 48px; }
+
+/* Tone — 잉크 토큰 단계 */
+.ds-text--tone-0       { color: var(--ink-0); }
+.ds-text--tone-1       { color: var(--ink-1); }
+.ds-text--tone-2       { color: var(--ink-2); }
+.ds-text--tone-3       { color: var(--ink-3); }
+.ds-text--tone-4       { color: var(--ink-4); }
+.ds-text--tone-accent  { color: var(--accent); }
+.ds-text--tone-success { color: var(--color-success); }
+.ds-text--tone-warning { color: var(--color-warning); }
+.ds-text--tone-danger  { color: var(--color-error); }
+
+.ds-text--truncate     { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+/* AI narrative phase indicator pulse — preparing/calling 상태에서 dot 점멸. */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.85); }
+}

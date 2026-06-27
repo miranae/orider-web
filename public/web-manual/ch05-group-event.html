@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5. 그룹·이벤트 - O-Rider 웹 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="gitbook.css">
+</head>
+<body>
+<div class="gb">
+    <aside class="gb-sidebar" id="sidebar">
+      <a class="gb-brand" href="index.html">O·RIDER <span>웹 매뉴얼</span></a>
+      <div class="gb-search"><input id="q" type="search" placeholder="검색…" autocomplete="off"><div id="results" class="gb-results"></div></div>
+      <nav class="gb-nav">
+      <div class="gb-group"><div class="gb-group-title">시작하기</div>
+        <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">기록 보기</div>
+        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
+        <a class="gb-link" href="ch04-compare.html">4. 데이터 비교·이해 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link active" href="ch05-group-event.html">5. 그룹·이벤트 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">심화</div>
+        <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
+        <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">연동·설정</div>
+        <a class="gb-link" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch10-settings.html">10. 설정 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">참고</div>
+        <a class="gb-link" href="glossary.html">부록. 용어집</a>
+      </div>
+      </nav>
+    </aside>
+  <div class="gb-backdrop" id="backdrop"></div>
+  <div class="gb-main">
+    <header class="gb-topbar">
+      <button class="gb-menu" id="menuBtn" aria-label="메뉴">☰</button>
+      <div class="gb-crumb"><b>비교와 이해</b> · 5. 그룹·이벤트</div>
+      <a class="gb-applink" href="https://orider.co.kr" target="_blank" rel="noopener">앱 열기 ↗</a>
+    </header>
+    <main class="gb-content">
+      <section id="s5">
+        <h2>5. 그룹 및 이벤트 관리</h2>
+      
+        <div class="purpose">
+          <h4>이 섹션의 목적</h4>
+          <p>개인 데이터 분석에서 한 걸음 나아가, <strong>그룹 단위의 데이터를 읽고 운영 판단을 내리는 것</strong>. "그룹을 만드는 방법"이 아니라 "그룹 데이터를 보고 무엇을 결정하는가"가 핵심입니다.</p>
+        </div>
+      
+        <h3 id="s5-1">5.1 그룹 주간 통계 읽기 — "우리 그룹은 활발한가"</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>그룹 대시보드의 이번 주 요약에서 그룹 전체의 활동 현황을 봅니다.</p>
+      
+          <table>
+            <tr><th>데이터</th><th>해석</th><th>운영 판단</th></tr>
+            <tr><td><strong>총 거리</strong></td><td>그룹 합산 주행 거리</td><td>지난주 대비 감소하면 동기 부여 이벤트 필요</td></tr>
+            <tr><td><strong>활동 멤버 / 전체 멤버</strong></td><td>이번 주 실제 라이딩한 비율</td><td>참여율 50% 이하면 그룹 활동이 정체 중 — 그룹 라이드 공지 필요</td></tr>
+            <tr><td><strong>라이드 수 · 총 시간 · 총 상승고도</strong></td><td>그룹 합산 라이딩 횟수와 누적 부하</td><td>멤버당 1회 미만이면 전체적으로 비활동 주간</td></tr>
+            <tr><td><strong>멤버 랭킹</strong></td><td>거리·고도·시간·TSS 기준으로 정렬되는 멤버별 순위</td><td>상위 멤버가 편중되어 있으면 초급 멤버 참여 유도 방안 고려</td></tr>
+          </table>
+      
+          <h4>결과</h4>
+          <p>"이번 주 참여율이 40%로 떨어졌으니, 다음 주에 그룹 라이드를 공지하자" 같은 데이터 기반 운영 결정을 내립니다.</p>
+        </div>
+      
+        <h3 id="s5-2">5.2 그룹 라이드 데이터 — "멤버 간 차이 파악"</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>그룹 "라이드" 탭에서 같은 날 함께 탄 라이딩의 멤버별 기록을 비교합니다.</p>
+      
+          <h4>해석 기준</h4>
+          <table>
+            <tr><th>패턴</th><th>의미</th><th>대응</th></tr>
+            <tr><td>멤버 간 거리/시간이 비슷</td><td>그룹이 함께 잘 달리고 있음</td><td>현재 코스 난이도 유지</td></tr>
+            <tr><td>특정 멤버만 거리/시간이 짧음</td><td>체력 차이로 중도 이탈 가능성</td><td>초급 코스 병행 또는 페이스 그룹 분리 검토</td></tr>
+            <tr><td>참가자 수가 점점 줄어듦</td><td>코스 난이도가 높거나 일정이 맞지 않음</td><td>난이도/시간대 변경 고려</td></tr>
+            <tr><td>참가자 수가 꾸준히 유지</td><td>그룹 운영이 잘 되고 있음</td><td>현재 패턴 유지</td></tr>
+          </table>
+      
+          <h4>결과</h4>
+          <p>"초급 멤버 3명이 최근 3주 연속 불참 — 다음 그룹 라이드는 평지 코스로 변경하자" 같은 판단이 가능합니다.</p>
+        </div>
+      
+        <h3 id="s5-3">5.3 친구 데이터 활용 — "함께 타는 동료의 기록"</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>친구를 추가하면 대시보드 피드에 친구의 활동이 함께 표시됩니다.</p>
+      
+          <h4>해석 기준</h4>
+          <table>
+            <tr><th>친구 데이터</th><th>활용</th></tr>
+            <tr><td><strong>친구의 최근 활동</strong></td><td>비슷한 코스를 달렸다면 기록 비교 — 서로의 페이스 차이 파악</td></tr>
+            <tr><td><strong>친구의 세그먼트 기록</strong></td><td>같은 세그먼트에서의 순위 비교 — 가까운 라이벌 관계 형성</td></tr>
+            <tr><td><strong>친구 프로필의 총 통계</strong></td><td>비슷한 경력의 라이더인지 확인 — 현실적인 벤치마크</td></tr>
+          </table>
+          <div class="info">친구 코드(6자리)를 교환하거나 초대 링크(<kbd>orider.co.kr/friend/코드</kbd>)로 추가합니다. 앱에서 추가한 친구는 웹에서도 자동 동기화됩니다.</div>
+      
+          <h4>결과</h4>
+          <p>"비슷한 수준의 친구가 이번 주 200km를 탔는데 나는 120km — 다음 주엔 더 타자" 같은 건전한 동기 부여를 얻습니다.</p>
+        </div>
+      
+        <h3 id="s5-4">5.4 이벤트 데이터 — "행사 전후의 데이터 활용"</h3>
+        <div class="card">
+          <h4>이벤트 참가 전 — 데이터로 준비하기</h4>
+          <table>
+            <tr><th>확인할 데이터</th><th>판단</th></tr>
+            <tr><td><strong>코스 거리</strong></td><td>내 최근 최장 거리와 비교 — 코스 거리가 1.5배 이상이면 완주 훈련 필요</td></tr>
+            <tr><td><strong>코스 고도 프로필</strong></td><td>최대 오르막의 카테고리 확인 — 그 카테고리를 오른 경험이 있는지 자문</td></tr>
+            <tr><td><strong>거리당 고도 (m/km)</strong></td><td>내 평소 코스와 비교하여 난이도 격차 파악</td></tr>
+          </table>
+      
+          <h4>이벤트 종료 후 — 결과 해석</h4>
+          <table>
+            <tr><th>결과 데이터</th><th>해석</th></tr>
+            <tr><td><strong>최종 순위 / 참가자 수</strong></td><td>객관적 실력 위치 — 세그먼트보다 모집단이 크므로 더 신뢰할 수 있는 지표</td></tr>
+            <tr><td><strong>완주 시간</strong></td><td>같은 이벤트에 다시 참가할 때의 기준선</td></tr>
+            <tr><td><strong>상위 라이더와의 차이</strong></td><td>구간별로 어디서 시간을 잃었는지 분석 — 약점 구간 식별</td></tr>
+          </table>
+      
+          <div class="tip">이벤트 결과는 "레이스 환경에서의 실력"을 보여줍니다. 평소 혼자 달릴 때보다 빠르거나 느릴 수 있는데, 이 차이가 레이스 경험과 멘탈 관리의 영향입니다.</div>
+      
+          <h4>결과</h4>
+          <p>이벤트 데이터는 "통제된 조건에서의 내 실력"을 보여주는 가장 객관적인 지표입니다. 다음 이벤트의 목표 시간을 설정하는 근거로 활용합니다.</p>
+        </div>
+      
+        <h3 id="s5-5">5.5 그룹/이벤트 만들기 참고</h3>
+        <div class="card">
+          <p>그룹이나 이벤트를 직접 만들려면 다음을 참고하세요.</p>
+          <table>
+            <tr><th>기능</th><th>핵심 선택</th></tr>
+            <tr><td><strong>그룹 만들기</strong></td><td>3단계 위저드(기본 정보 → 규칙·공개 → 멤버 초대). 공개(검색·디렉터리 노출) vs 비공개(초대 코드 필요) 결정 + 가입 승인 방식(자동 승인 / 수동 승인) 선택 — 운영 방식이 달라짐</td></tr>
+            <tr><td><strong>이벤트 만들기</strong></td><td>3단계 위저드(기본 정보 → 코스·일정 → 참가 설정). 등록된 코스 선택이 핵심 — 코스 없이는 결과 비교가 어려움. 새 코스는 "새 코스 만들기"로 먼저 등록합니다.</td></tr>
+          </table>
+          <div class="info">그룹 생성자는 설정 탭에서 멤버 초대, 초대 코드 발급, 가입 승인 방식 변경, 그룹 정보 수정을 관리합니다. 이벤트 주최자는 이벤트 대시보드에서 참가자 관리와 상태 변경(모집 중→진행 중→종료)을 수행합니다.</div>
+        </div>
+      
+        <h3 id="s5-6">5.6 친구와 팔로우 — 라이더와 이어지기</h3>
+        <div class="card">
+          <p>다른 라이더와 이어지는 방법은 팔로우와 친구 두 가지입니다. 팔로우는 한 방향 구독(상대 승인 불필요)으로 관심 라이더의 활동을 피드에서 보고, 친구는 양방향 연결로 가까운 지인과 서로 연결합니다.</p>
+      
+          <table>
+            <tr><th>구분</th><th>팔로우</th><th>친구</th></tr>
+            <tr><td>맺는 방식</td><td>상대 프로필에서 한 번에 (승인 불필요)</td><td>친구코드 입력 또는 초대 링크</td></tr>
+            <tr><td>방향</td><td>한 방향 (내가 상대를 구독)</td><td>양방향 (서로의 친구)</td></tr>
+            <tr><td>화면</td><td>소셜(/social) 친구 탭</td><td>친구(/friends) 페이지</td></tr>
+          </table>
+      
+          <p><strong>친구 추가:</strong> 친구 페이지(/friends) 맨 위의 <strong>내 친구코드</strong>(6자리)를 상대에게 공유하거나, 상대 코드를 입력란에 넣고 "추가"를 누르면 친구 목록에 즉시 반영됩니다. 받은 요청은 "요청" 탭에서 수락·거절할 수 있고, 새 요청이 있으면 탭에 숫자 배지가 표시됩니다.</p>
+      
+          <div class="tip">친구코드가 포함된 초대 링크(/friend/{코드})를 받으면 링크만 열어도 친구로 추가됩니다(로그인 전이면 로그인 후 자동 진행).</div>
+      
+          <h4>결과</h4>
+          <p>소셜(/social) 페이지에서 친구 목록과 가입한 그룹을 함께 보고, 친구 항목을 눌러 상대 프로필로 이동할 수 있습니다.</p>
+        </div>
+      
+        <h3 id="s5-7">5.7 라이브 이벤트 — 실시간 관전</h3>
+        <div class="card">
+          <p>대회·이벤트가 진행되는 동안 참가자들의 위치와 진행 상황을 웹에서 실시간으로 지켜봅니다. 이 화면은 관전자 뷰로, 응원할 선수를 골라 따라가는 데 초점이 맞춰져 있습니다. 데이터는 약 10초마다 자동 새로고침됩니다.</p>
+      
+          <p><strong>해야 할 것:</strong> "내가 응원하는 선수" 입력창에 <strong>배번(배번호)</strong>을 입력하고 "선수 추가"를 누르면, 그 선수가 팔로우 목록과 지도에 표시됩니다. (주소에 ?bib=배번을 붙인 링크로 들어와도 자동 팔로우됩니다.)</p>
+      
+          <table>
+            <tr><th>선수 카드 항목</th><th>의미</th></tr>
+            <tr><td>순위 · 진행률</td><td>종합 순위, 코스 전체 거리 대비 현재 거리(%)</td></tr>
+            <tr><td>속도 · 시간</td><td>현재 속도(km/h), 운동 시간(앱이 전송한 경우)</td></tr>
+            <tr><td>HR · CP</td><td>심박(심박 공유 ON인 선수만), 마지막 통과 체크포인트</td></tr>
+            <tr><td>상태</td><td>주행중 / 완주 / DNF / SOS</td></tr>
+          </table>
+      
+          <div class="info">지도에는 팔로우한 선수(없으면 전체 참가자)의 위치가 실시간 표시되고, "최근 하이라이트"에 팔로우 선수의 완주·DNF·체크포인트 통과가 시간순으로 쌓입니다. 상단 "공유"로 라이브 링크를 복사할 수 있습니다.</div>
+      
+          <div class="tip">이벤트가 시작 전이면 "아직 시작되지 않았어요" 안내가 표시되고, 출발 직후 자동으로 라이브 화면으로 전환됩니다. 심박·운동 시간은 참가자 단말(앱)이 전송할 때만 채워지며, 없으면 "—"로 표시됩니다.</div>
+        </div>
+      </section>
+      <nav class="gb-prevnext"><a class="pn-prev" href="ch04-compare.html"><div class="pn-label">← 이전</div><div class="pn-title">4. 데이터 비교·이해</div></a><a class="pn-next" href="ch06-advanced.html"><div class="pn-label">다음 →</div><div class="pn-title">6. 고급 데이터 활용</div></a></nav>
+    </main>
+  </div>
+</div>
+<script src="manual.js"></script>
+</body>
+</html>

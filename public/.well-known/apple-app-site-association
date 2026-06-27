@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "44UCACQVM5.com.miranae.orider",
+        "paths": ["/course/*", "/friend/*", "/group/*"]
+      }
+    ]
+  }
+}

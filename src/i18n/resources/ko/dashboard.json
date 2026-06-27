@@ -1,0 +1,308 @@
+{
+  "header": {
+    "greetingPrefix": "안녕하세요, ",
+    "greetingSuffix": "님.",
+    "subtitleSuffix": " 탔어요.",
+    "subtitleRecent": "최근 7일 ",
+    "defaultName": "라이더",
+    "anonTitle": "라이더의 모든 데이터를 한곳에",
+    "anonSubtitle": "Strava 연동으로 PMC · AI 코칭 · 세그먼트 KOM 까지 — 무료로.",
+    "anonCta": "Google로 시작하기"
+  },
+  "kpi": {
+    "weekDistance": "최근 7일 거리",
+    "rides": "라이드 수",
+    "movingTime": "이동 시간",
+    "elevation": "획득 고도",
+    "fitness": "피트니스",
+    "subRecent7d": "최근 7일",
+    "subAtl": "ATL {{value}}",
+    "subInsufficient": "데이터 부족",
+    "thresholdRunLabel": "역치 페이스",
+    "thresholdRunSub": "러닝 임계 페이스",
+    "thresholdRunUnit": "/km",
+    "thresholdSwimLabel": "CSS",
+    "thresholdSwimSub": "임계 수영 속도",
+    "thresholdSwimUnit": "/100m",
+    "thresholdBikeLabel": "FTP",
+    "thresholdBikeSub": "기능적 임계 파워",
+    "thresholdBikeUnit": "W"
+  },
+  "feed": {
+    "title": "최근 활동",
+    "countTooltip": "전체 공개 활동 + 내 활동 합계",
+    "feedScope": "· 전체 피드",
+    "countSuffix": "{{value}}건",
+    "filter": {
+      "all": "전체",
+      "friends": "친구",
+      "self": "본인"
+    },
+    "search": {
+      "placeholder": "활동 검색...",
+      "submit": "검색",
+      "resultsCount": "{{count}}건",
+      "emptyTitle": "검색 결과가 없어요",
+      "emptyDescription": "다른 키워드나 기간을 시도해 보세요.",
+      "resultsCount_one": "{{count}}건",
+      "resultsCount_other": "{{count}}건"
+    },
+    "datePreset": {
+      "all": "전체",
+      "7d": "7일",
+      "30d": "30일",
+      "90d": "90일",
+      "year": "올해"
+    },
+    "loadMore": "더보기",
+    "loading": "불러오는 중...",
+    "empty": {
+      "title": "아직 활동이 없어요",
+      "description": "Strava를 연동하거나 활동을 업로드해 보세요.",
+      "ctaConnectStrava": "Strava 연결"
+    }
+  },
+  "sidebar": {
+    "weeklyTss": {
+      "title": "주간 TSS",
+      "sub": "최근 12주",
+      "barTooltip": "{{week}}: {{tss}} TSS",
+      "avgPerWeek": "평균/주",
+      "peakWeek": "최고주",
+      "trend": "추세",
+      "trendUp": "↑ 상승",
+      "trendDown": "↓ 하락"
+    },
+    "monthlyGoal": {
+      "title": "{{month}}월 목표",
+      "subPrefix": "목표 ",
+      "setupTitle": "월간 목표 설정",
+      "setupHint": "운동 계획을 세우면 자동으로 생성됩니다",
+      "remainingPrefix": "달성까지 ",
+      "remainingSuffix": " · 남은 {{days}}일"
+    },
+    "fitness": {
+      "title": "피트니스 스냅샷",
+      "sub": "CTL 기준",
+      "insufficient": "데이터 부족",
+      "ctl": "체력(CTL)",
+      "atl": "피로(ATL)",
+      "tsb": "폼(TSB)",
+      "recommend": "권장",
+      "recoMaintain": "지구력 유지",
+      "recoRecovery": "회복 권장",
+      "recoModerate": "적정 운동"
+    },
+    "community": {
+      "title": "한국 자전거 커뮤니티"
+    },
+    "app": {
+      "manualWebTitle": "웹 사용 매뉴얼",
+      "manualWebDesc": "기록 분석 · 데이터 활용 · 그룹/이벤트 관리",
+      "storeIos": "App Store",
+      "storeAos": "Google Play",
+      "manualIos": "iOS 매뉴얼",
+      "manualAos": "Android 매뉴얼"
+    }
+  },
+  "home": {
+    "hero": {
+      "title": "한국 라이더들의 기록을 안전하게",
+      "descLoggedIn": "Strava를 연동하면 라이딩 기록을 자동으로 가져옵니다.",
+      "descAnon": "소중한 라이딩 기록을 O-Rider에 보관하고, 한국의 자전거 커뮤니티와 함께하세요.",
+      "statsActivities": "활동",
+      "statsSegments": "세그먼트",
+      "statsCourses": "코스",
+      "statsKm": "km",
+      "ctaStart": "시작하기",
+      "ctaStrava": "Strava 연동하기"
+    },
+    "feed": {
+      "titleMine": "활동 피드",
+      "titlePublic": "최근 공개 활동",
+      "countSuffix": "{{count}}개",
+      "searchResults": "검색 결과 {{count}}개",
+      "searchPlaceholder": "활동 검색... (Enter)",
+      "searchSubmit": "검색",
+      "searchClearTitle": "검색 초기화",
+      "searchEmptyMessage": "검색 결과가 없습니다.",
+      "searchReset": "검색 초기화",
+      "loadMoreRemaining": "더 보기 ({{remaining}}개 남음)",
+      "loadMore": "더 보기",
+      "loadingMore": "로딩 중...",
+      "filterAll": "전체",
+      "filterFriends": "친구",
+      "filterMe": "본인",
+      "filterCaption": "결과 내 필터",
+      "emptyTitle": "아직 활동이 없습니다.",
+      "emptyConnectStrava": "Strava를 연동하여 활동을 가져오세요 →",
+      "emptyPublic": "아직 공개된 활동이 없습니다."
+    },
+    "datePreset": {
+      "all": "전체",
+      "7d": "최근 7일",
+      "30d": "최근 30일",
+      "90d": "최근 90일",
+      "year": "올해"
+    },
+    "communities": {
+      "lara": "WE ARE GREATER THAN I",
+      "jachulsa": "자전거로 출퇴근하는 사람들",
+      "dossa": "도로자전거싸롱",
+      "clien": "클리앙 자전거 게시판",
+      "bikesell": "자전거 중고거래",
+      "thebike": "자전거 전문 매거진"
+    },
+    "sidebarMy": {
+      "stravaConnected": "Strava 연동됨",
+      "weekSummary": "이번 주 요약",
+      "rides": "라이딩",
+      "ridesUnit": "{{count}}회",
+      "distance": "거리",
+      "time": "시간",
+      "elev": "획득고도",
+      "weeklyDistance": "주간 거리 (최근 12주)"
+    },
+    "sidebarAnon": {
+      "welcome": "O-Rider에 오신 것을 환영합니다",
+      "welcomeDesc": "로그인하고 Strava를 연동하면 나의 라이딩 기록을 관리할 수 있습니다.",
+      "signInGoogle": "Google로 로그인"
+    }
+  },
+  "mobileFeed": {
+    "defaultRider": "라이더",
+    "defaultActivity": "라이딩",
+    "statDistance": "거리",
+    "statTime": "시간",
+    "statElev": "획득고도",
+    "statSpeed": "평균속도",
+    "weekSummary": "이번 주 요약",
+    "viewAll": "전체보기",
+    "weeklyDistance": "주간 거리",
+    "loading": "불러오는 중…",
+    "loadingMore": "불러오는 중…",
+    "loadMore": "더 보기",
+    "emptyTitle": "아직 활동이 없어요",
+    "emptyDesc": "Strava를 연동하거나 라이딩을 기록해 보세요.",
+    "dataWarningBadge": "⚠ 데이터 이상",
+    "dataWarningTooltip": "GPS noise 또는 짧은 활동으로 일부 지표가 비현실적입니다."
+  },
+  "weeklySummary": {
+    "title": "이번 주 요약",
+    "load": "부하",
+    "activities": "활동",
+    "activitiesCount": "{{count}}회",
+    "activitiesPrev": "지난 주 {{count}}회",
+    "time": "시간",
+    "distance": "거리",
+    "vsLastWeek": "지난 주 대비 {{delta}}",
+    "newThisWeek": "신규",
+    "viewAll": "전체 보기",
+    "weeklyDistanceKm": "주간 거리 (km)",
+    "ridesUnit": "회",
+    "durationHourMin": "{{h}}시간 {{m}}분",
+    "durationMin": "{{m}}분",
+    "dateMonthDay": "{{month}}월 {{day}}"
+  },
+  "fitnessSummary": {
+    "ctl": "체력 (CTL)",
+    "atl": "피로 (ATL)",
+    "tsb": "폼 (TSB)",
+    "status": "상태",
+    "vsWeekAgo": "7일 전 대비 {{delta}}",
+    "tsbOptimal": "TSB -10~+5 = 최적",
+    "statusWellRested": "충분한 휴식",
+    "statusRecovered": "회복됨",
+    "statusOptimal": "최적 폼",
+    "statusFatigued": "피로 누적",
+    "statusOverreaching": "과운동 위험"
+  },
+  "charts": {
+    "fitness": {
+      "noData": "데이터가 없습니다",
+      "today": "오늘",
+      "goalDay": "목표일",
+      "forecast": "예측",
+      "legendFitness": "피트니스",
+      "legendFatigue": "피로",
+      "legendForm": "폼"
+    },
+    "powerCurve": {
+      "noData": "파워 데이터가 없습니다",
+      "noDataProgression": "파워 데이터가 있는 활동이 없습니다",
+      "datasetLabel": "최대 평균 파워",
+      "peakPower": "최대 {{power}}W (1초)",
+      "unitSec": "{{n}}초",
+      "unitMin": "{{n}}분",
+      "unitHour": "{{n}}시간"
+    },
+    "weeklyChart": {
+      "distance": "거리 (km)",
+      "time": "시간 (h)",
+      "elevation": "고도 (m)"
+    },
+    "dailyLoad": {
+      "datasetLabel": "일별 부하",
+      "tooltipLabel": "부하 {{value}}"
+    },
+    "zoneDistribution": {
+      "dominant": "주요: Z{{zone}} {{name}} ({{pct}}%)"
+    },
+    "criticalPace": {
+      "half": "하프"
+    }
+  },
+  "leaderboard": {
+    "colRank": "순위",
+    "colRider": "라이더",
+    "colTime": "시간",
+    "colSpeed": "평속",
+    "colHr": "심박",
+    "colPower": "파워",
+    "colDate": "날짜"
+  },
+  "mobileFitness": {
+    "title": "피트니스",
+    "tabOverview": "개요",
+    "tabZones": "파워존",
+    "tabZonesBike": "파워존",
+    "tabZonesRun": "심박존",
+    "tabZonesSwim": "수영",
+    "metricCtl": "CTL (체력)",
+    "metricAtl": "ATL (피로)",
+    "metricTsb": "TSB (상태)",
+    "ftpBasis": "최근 90일 베스트 파워 기반",
+    "zoneDist": "파워 존 분포 (최근 4주)",
+    "zoneDefTitle": "존 정의",
+    "disciplineLoading": "{{discipline}} 피트니스 데이터 준비 중",
+    "kpiCtlLabel": "CTL 체력",
+    "kpiAtlLabel": "ATL 피로",
+    "kpiTsbLabel": "TSB 상태",
+    "vo2maxDesc": "추정치",
+    "vo2maxNoFtp": "FTP 필요",
+    "tsbOverRested": "휴식 과다",
+    "tsbOptimalForm": "폼 최적",
+    "tsbTrainingOk": "트레이닝 적정",
+    "tsbFatigue": "피로 누적",
+    "tsbOverload": "과부하",
+    "pmcTitle": "PMC 추이 · {{n}}일",
+    "pmcSub": "CTL 체력 · ATL 피로 · TSB 상태",
+    "weeklyLoadTitle": "주간 부하 · 최근 4주",
+    "weeklyLoadSub": "이번 주 {{thisWeek}} · 평균 {{avg}} · 연속 휴식 {{restDays}}일",
+    "recentActivities": "최근 활동",
+    "zonePowerTitle": "파워 존 분포 · 최근 4주",
+    "zoneHrTitle": "심박 존 분포 · 최근 4주",
+    "zoneSourcePower": "파워 스트림 기반",
+    "zoneSourceHrBike": "심박 추정 (HR Z1~Z5 → 파워존 매핑, Z6 무산소 분리 불가)",
+    "zoneSourceHrRun": "심박 스트림 기반",
+    "zoneSourceNone": "스트림 데이터 없음 — 라이딩 동기화 후 채워집니다",
+    "powerCurveTitle": "파워 커브 · 최근 28일",
+    "powerCurveSub": "최대 {{maxW}} W · 5s~60m",
+    "zoneDefsSectionTitle": "존 정의",
+    "analysisInsufficient": "분석 데이터가 충분하지 않습니다.",
+    "pmcNoData": "데이터 부족 — 최소 2일 필요",
+    "pmcLabelToday": " · 오늘",
+    "pmcLabelForecast": " · 예측",
+    "weeklyTssThisWeek": "이번 주"
+  }
+}

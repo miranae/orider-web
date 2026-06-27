@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10. 설정 - O-Rider 웹 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="gitbook.css">
+</head>
+<body>
+<div class="gb">
+    <aside class="gb-sidebar" id="sidebar">
+      <a class="gb-brand" href="index.html">O·RIDER <span>웹 매뉴얼</span></a>
+      <div class="gb-search"><input id="q" type="search" placeholder="검색…" autocomplete="off"><div id="results" class="gb-results"></div></div>
+      <nav class="gb-nav">
+      <div class="gb-group"><div class="gb-group-title">시작하기</div>
+        <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">기록 보기</div>
+        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
+        <a class="gb-link" href="ch04-compare.html">4. 데이터 비교·이해 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch05-group-event.html">5. 그룹·이벤트 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">심화</div>
+        <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
+        <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">연동·설정</div>
+        <a class="gb-link" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link active" href="ch10-settings.html">10. 설정 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">참고</div>
+        <a class="gb-link" href="glossary.html">부록. 용어집</a>
+      </div>
+      </nav>
+    </aside>
+  <div class="gb-backdrop" id="backdrop"></div>
+  <div class="gb-main">
+    <header class="gb-topbar">
+      <button class="gb-menu" id="menuBtn" aria-label="메뉴">☰</button>
+      <div class="gb-crumb"><b>연동·설정</b> · 10. 설정</div>
+      <a class="gb-applink" href="https://orider.co.kr" target="_blank" rel="noopener">앱 열기 ↗</a>
+    </header>
+    <main class="gb-content">
+      <section id="s10">
+        <h2>10. 설정</h2>
+      
+        <div class="purpose">
+          <h4>이 섹션의 목적</h4>
+          <p>프로필, 운동 프로필, 장비, 연결, 데이터 관리 등 계정 전반을 조정하는 것. 설정 페이지는 왼쪽 사이드바의 탭으로 영역이 나뉘며, 크게 <strong>나 / 연결 / 앱</strong> 세 그룹으로 묶여 있습니다.</p>
+        </div>
+      
+        
+        <figure class="gb-fig"><img src="screenshots/07-settings.png" alt="설정 — 계정 · 운동 프로필 · 연동 · 앱." loading="lazy"><figcaption>설정 — 계정 · 운동 프로필 · 연동 · 앱.</figcaption></figure>
+        <h3 id="s10-0">설정 화면 구조</h3>
+        <div class="card">
+          <h4>탭 구성</h4>
+          <table>
+            <tr><th>그룹</th><th>탭</th><th>설명</th></tr>
+            <tr><td rowspan="3"><strong>나</strong></td><td><strong>계정 &amp; 프로필</strong></td><td>프로필, 공개 범위, 테마</td></tr>
+            <tr><td><strong>운동 프로필</strong></td><td>체격, FTP, 심박 존</td></tr>
+            <tr><td><strong>장비</strong></td><td>자전거, 가상 파워</td></tr>
+            <tr><td rowspan="3"><strong>연결</strong></td><td><strong>연결된 앱</strong></td><td>Strava, Garmin 등</td></tr>
+            <tr><td><strong>헬스 소스</strong></td><td>Apple Health, Health Connect, 주 소스</td></tr>
+            <tr><td><strong>디바이스</strong></td><td>모바일 앱 동기화</td></tr>
+            <tr><td><strong>앱</strong></td><td><strong>앱 &amp; 데이터</strong></td><td>언어, 단위, 내보내기</td></tr>
+          </table>
+          <div class="info">Strava 연결/해제·자동 업로드·과거 활동 가져오기는 <strong>연결된 앱</strong> 탭에 있습니다. 자세한 흐름은 <a href="ch09-strava.html">9. Strava 연동</a>을 참고하세요.</div>
+        </div>
+      
+        <h3 id="s10-1">10.1 계정 &amp; 프로필</h3>
+        <div class="card">
+          <h4>프로필</h4>
+          <table>
+            <tr><th>항목</th><th>방법</th><th>반영 범위</th></tr>
+            <tr><td><strong>닉네임 변경</strong></td><td>프로필 카드 상단 닉네임 옆 변경</td><td>피드, 리더보드, 댓글 등 모든 곳에 반영</td></tr>
+            <tr><td><strong>프로필 사진</strong></td><td>사진 변경 클릭하여 이미지 업로드</td><td>모든 프로필 표시 영역에 반영</td></tr>
+            <tr><td><strong>친구 코드 복사</strong></td><td>코드 복사 클릭</td><td>다른 라이더에게 공유하면 친구 추가 가능. 앱·웹 공통</td></tr>
+            <tr><td><strong>자기소개</strong></td><td>자기소개 입력 (포커스 해제 시 저장)</td><td>프로필 페이지에 표시</td></tr>
+          </table>
+      
+          <h4>공개 범위</h4>
+          <p>새 활동의 기본 공개 범위를 선택합니다.</p>
+          <table>
+            <tr><th>설정</th><th>의미</th></tr>
+            <tr><td><strong>모두에게 공개</strong></td><td>모든 사용자가 볼 수 있음. 리더보드 참여 가능</td></tr>
+            <tr><td><strong>친구에게만</strong></td><td>친구만 볼 수 있음</td></tr>
+            <tr><td><strong>비공개</strong></td><td>본인만 볼 수 있음</td></tr>
+          </table>
+          <p>아래 토글로 세부 공개 설정을 조정합니다:</p>
+          <ul>
+            <li><strong>공개 프로필</strong> — 다른 라이더가 검색하고 볼 수 있습니다.</li>
+            <li><strong>리더보드 참여</strong> — 세그먼트 순위표에 본인 기록이 표시됩니다.</li>
+            <li><strong>친구 요청 허용</strong> — 친구 코드로 다른 라이더가 요청할 수 있습니다.</li>
+          </ul>
+      
+          <h4>앱 모양새</h4>
+          <p><strong>테마</strong>를 시스템 · 라이트 · 다크 중에서 선택합니다(즉시 반영).</p>
+      
+          <h4>위험 영역</h4>
+          <ul>
+            <li><strong>로그아웃</strong> — 이 브라우저에서 로그아웃합니다.</li>
+            <li><strong>모든 활동 데이터 삭제</strong> — 활동·스트림·사진·세그먼트가 영구 삭제됩니다.</li>
+          </ul>
+          <div class="tip">기본 공개 범위와 별개로, 개별 활동의 공개 범위는 활동 상세 페이지에서 따로 변경할 수 있습니다.</div>
+        </div>
+      
+        <h3 id="s10-2">10.2 운동 프로필</h3>
+        <div class="card">
+          <h4>해야 할 것</h4>
+          <p>분석과 존 계산의 기준이 되는 임계치·신체 정보를 설정합니다. 종목(자전거 · 달리기 · 수영)별로 전환할 수 있습니다.</p>
+          <ul>
+            <li><strong>체격</strong> — 체중(W/kg 계산), 신장</li>
+            <li><strong>운동 임계치</strong> — FTP, 최대 심박, LTHR, 임계 페이스, CSS 등 (종목별)</li>
+            <li><strong>심박 존</strong> — 최대 심박 기준 존 경계값 (실측 LTHR가 있으면 자동 보정)</li>
+            <li><strong>의료 정보</strong> — 혈액형, 복용 중인 약, 알레르기/특이사항 (응급 시 구조대에 공유될 수 있음)</li>
+            <li><strong>비상 연락처</strong> — 이름, 전화번호, 관계</li>
+          </ul>
+          <div class="info">사용자가 임계값을 수정하면 과거 활동 분석에도 즉시 반영됩니다. 최근 활동에서 갱신 제안이 뜨면 한 번에 적용할 수도 있습니다.</div>
+        </div>
+      
+        <h3 id="s10-3">10.3 장비</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>모바일 앱에서 만든 자전거 프로필을 관리합니다.</p>
+          <ul>
+            <li><strong>자전거 프로필</strong> — 활성 설정, 이름 변경, 삭제, 휠 둘레</li>
+            <li><strong>연결된 센서</strong> — 스피드·케이던스·심박·파워·Di2·AXS·레이더·액션캠 (페어링은 모바일 앱에서)</li>
+            <li><strong>가상 파워</strong> — 파워미터 없이 속도·경사·체중·자전거 무게로 추정 파워 계산. 자전거 무게 · Crr · CdA 프리셋 조정</li>
+            <li><strong>기존 활동 백필</strong> — 파워미터가 없는 과거 활동에 가상 파워를 채움 (신규만 / 전체 재계산)</li>
+          </ul>
+          <div class="info">자전거 프로필이 없으면 모바일 앱에서 먼저 만들어야 표시됩니다.</div>
+        </div>
+      
+        <h3 id="s10-4">10.4 연결된 앱</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>Strava · Garmin Connect · Wahoo SYSTM · Apple Health 등 외부 서비스 연결을 관리합니다(현재 Strava만 연결 가능, 나머지는 준비 중). 카드 상단에 연결된 개수가 표시됩니다.</p>
+          <p>Strava 연결 시 <strong>Strava 동기화 옵션</strong> 카드가 나타나며, <strong>자동 업로드</strong> 토글과 <strong>과거 활동 가져오기</strong> 버튼을 제공합니다.</p>
+          <div class="info">Strava 연결/해제·자동 업로드·과거 활동 가져오기의 자세한 흐름은 <a href="ch09-strava.html">9. Strava 연동</a>을 참고하세요.</div>
+        </div>
+      
+        <h3 id="s10-5">10.5 헬스 소스</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>외부 워치·앱의 운동·수면·HRV 데이터를 O-Rider로 통합합니다. 연결된 소스가 많을수록 회복 점수·트렌드 분석이 정확해집니다.</p>
+          <ul>
+            <li><strong>Apple Health / Health Connect</strong> — 연결은 모바일 앱(iOS/Android)에서 권한을 부여해야 활성화됩니다.</li>
+            <li><strong>종목별 주 소스</strong> — 같은 운동이 두 소스에 있을 때 피드에 표시할 기본 소스를 종목별로 선택 ("자동"은 첫 연결 소스 사용).</li>
+            <li><strong>데이터 보존</strong> — 기본은 원본 헬스 sample 365일 보관 후 자동 삭제. 영구 보존을 켜면 무기한 유지.</li>
+          </ul>
+          <div class="info">Strava 자체 연결/해제는 헬스 소스가 아니라 <strong>연결된 앱</strong> 탭에서 관리합니다.</div>
+        </div>
+      
+        <h3 id="s10-6">10.6 디바이스</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>모바일 앱(Android / iOS)의 동작 설정을 웹에서 확인·편집하고, 여러 기기에 일괄 적용합니다. 동기화된 기기가 없으면 모바일 앱에서 설정을 한 번 변경하면 표시됩니다.</p>
+          <ul>
+            <li>라이더 임계값, 자동 일시정지/자동 랩, 알림 임계치</li>
+            <li>화면/사운드, 배터리/GPS, 네트워크</li>
+            <li>센서 페어링·사운드 파일은 읽기 전용 (변경은 모바일 앱에서)</li>
+            <li><strong>내 모든 디바이스에 적용</strong> — 공유 가능한 필드를 다른 기기에도 전파</li>
+          </ul>
+        </div>
+      
+        <h3 id="s10-7">10.7 앱 &amp; 데이터</h3>
+        <div class="card">
+          <h4>언어 및 단위</h4>
+          <p>인터페이스 <strong>언어</strong>(한국어 / English)와 <strong>단위</strong>(km/kg · mi/lb)를 선택합니다.</p>
+      
+          <h4>디자인 테마</h4>
+          <p>색상 · 모서리 · 타이포를 한 번에 교체하는 디자인 테마(기본 / 앱패리티 등)를 선택합니다(즉시 반영).</p>
+      
+          <h4>데이터 내보내기</h4>
+          <ul>
+            <li><strong>기본 형식</strong> — GPX · TCX · FIT · JSON 중 선택</li>
+            <li><strong>전체 활동 다운로드</strong> — 모든 활동을 ZIP으로 받습니다 (활동 기록·GPX 포함). 진행률이 표시됩니다.</li>
+            <li><strong>캐시 비우기</strong> — 지도 타일·차트 캐시를 비웁니다.</li>
+          </ul>
+      
+          <h4>모든 활동 데이터 삭제</h4>
+          <p><strong>모든 활동 데이터 삭제</strong> 버튼을 누르면 확인 대화상자가 표시되고, 확인 후 활동·스트림·사진·세그먼트가 영구 삭제됩니다(계정 자체는 유지).</p>
+          <div class="warn">삭제는 되돌릴 수 없습니다. 삭제 전에 반드시 전체 활동 다운로드를 먼저 수행하세요.</div>
+        </div>
+      </section>
+      <nav class="gb-prevnext"><a class="pn-prev" href="ch09-strava.html"><div class="pn-label">← 이전</div><div class="pn-title">9. Strava 연동</div></a><a class="pn-next" href="glossary.html"><div class="pn-label">다음 →</div><div class="pn-title">부록. 용어집</div></a></nav>
+    </main>
+  </div>
+</div>
+<script src="manual.js"></script>
+</body>
+</html>

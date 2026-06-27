@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2. 주행 화면 - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">2. 주행 화면</div>
+  <div class="nav-right"><a href="ch01-start.html">이전</a><span class="nav-sep">|</span><a href="ch03-fields.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s2">
+  <h2>2. 주행 화면</h2>
+  <p>O-Rider의 메인 화면은 좌우 스와이프로 전환하는 페이지들로 구성됩니다. 평소에는 <strong>데이터 화면</strong>과 <strong>지도 화면</strong> 2개 페이지가 있으며, 경로를 불러온 뒤 오르막이 감지되면 <strong>ClimbPro 화면</strong>이 추가됩니다.</p>
+
+  <h3 id="s2-1">2.1 데이터 화면 (DATA 탭)</h3>
+  <img src="screenshots/01_ride_data.png" alt="데이터 화면" class="screenshot">
+  <div class="card">
+    <p>라이딩의 핵심 정보 — 속도, 케이던스, 심박수, 파워 등을 실시간으로 보여주는 메인 화면입니다.</p>
+    <ul>
+      <li>상단에 속도 필드가 크게 표시됩니다 (기본 2행 차지)</li>
+      <li>4열 그리드 레이아웃으로 자유롭게 배치 가능</li>
+      <li>최대 <strong>5개의 데이터 페이지</strong>를 구성할 수 있으며, 속도 필드(최상단) 영역에서 좌우 스와이프하면 페이지 간 전환됩니다</li>
+    </ul>
+    <div class="tip">예를 들어 페이지 1에는 속도/심박/케이던스, 페이지 2에는 파워/기어/경사 같은 식으로 목적별로 나누면 편리합니다.</div>
+  </div>
+
+  <h3 id="s2-2">2.2 지도 화면 (MAP 탭)</h3>
+  <img src="screenshots/02_ride_map.png" alt="지도 화면" class="screenshot">
+  <div class="card">
+    <p>데이터 화면에서 오른쪽으로 스와이프하면 나타나는 지도 화면입니다. 현재 위치와 이동 경로를 실시간으로 확인할 수 있어 낯선 코스에서 유용합니다.</p>
+    <ul>
+      <li>현재 위치 마커 + 이동 경로 폴리라인</li>
+      <li>로드한 경로 오버레이 (녹색 선)</li>
+      <li>바람 방향/세기 인디케이터</li>
+      <li>나침반/헤딩 표시</li>
+    </ul>
+    <div class="tip">경로를 불러오면 지도에 녹색 선으로 표시되어, 실시간 내비게이션처럼 활용할 수 있습니다.</div>
+  </div>
+
+  <h3 id="s2-3">2.3 ClimbPro 화면</h3>
+  <img src="screenshots/climbpro.jpg" alt="ClimbPro 화면" class="screenshot">
+  <div class="card">
+    <p>언덕 구간에서 "얼마나 남았지?"라는 궁금증을 해결해 주는 화면입니다. 경로에 오르막이 감지된 경우에만 접근 가능하며, 현재 오르막의 진행률, 남은 거리/고도, 경사도 프로필을 실시간으로 보여줍니다.</p>
+    <div class="info">경로를 불러오지 않았거나 경로에 오르막이 없으면 이 페이지는 자동으로 숨겨집니다.</div>
+  </div>
+
+  <h3 id="s2-4">2.4 주행 제어</h3>
+  <div class="card">
+    <h4>시작 / 정지 / 일시정지</h4>
+    <p>화면 하단의 버튼으로 주행을 제어합니다. 주행 흐름은 아래와 같습니다.</p>
+    <table>
+      <tr><th>동작</th><th>방법</th></tr>
+      <tr><td><strong>시작</strong></td><td>하단 시작 버튼을 탭</td></tr>
+      <tr><td><strong>일시정지</strong></td><td>하단 정지 버튼을 탭 (또는 자동 일시정지)</td></tr>
+      <tr><td><strong>재개</strong></td><td>일시정지 상태에서 시작 버튼을 다시 탭</td></tr>
+      <tr><td><strong>종료</strong></td><td>일시정지 상태에서 정지 버튼을 탭하면 주행 종료</td></tr>
+    </table>
+    <div class="tip">신호 대기 중 매번 일시정지 버튼을 누르기 번거롭다면 <a href="#s2-5" style="color:var(--primary)">자동 일시정지</a>를 활성화하세요.</div>
+
+    <h4>랩 (Lap)</h4>
+    <p>주행 중 랩 버튼을 탭하면 수동으로 랩을 기록합니다. 구간 시간, 평균 속도를 나눠서 비교하고 싶을 때 유용합니다. 자동 랩 설정 시 거리 또는 시간 기준으로 자동 기록됩니다.</p>
+  </div>
+
+  <h3 id="s2-5">2.5 자동 일시정지 · 자동 랩</h3>
+  <div class="card">
+    <p>신호 대기나 잠시 멈출 때 자동으로 기록을 일시정지하여 평균 속도가 왜곡되지 않도록 합니다.</p>
+    <table>
+      <tr><th>설정</th><th>기본값</th><th>설명</th></tr>
+      <tr><td>자동 일시정지 속도</td><td>3.0 km/h</td><td>이 속도 이하로 떨어지면 일시정지</td></tr>
+      <tr><td>자동 일시정지 지연</td><td>3초</td><td>임계값 이하 유지 시간 후 일시정지 발동</td></tr>
+      <tr><td>자동 랩 (거리)</td><td>끔</td><td>설정 거리마다 자동 랩 기록 (예: 5km마다)</td></tr>
+      <tr><td>자동 랩 (시간)</td><td>끔</td><td>설정 시간마다 자동 랩 기록 (예: 10분마다)</td></tr>
+    </table>
+    <div class="tip">인터벌 훈련에는 시간 기준 자동 랩을, 장거리 라이딩에는 거리 기준(예: 10km)을 설정하면 구간별 페이스를 비교하기 좋습니다.</div>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch01-start.html">&larr; 이전</a></div>
+    <div class="nav-title">2. 주행 화면</div>
+    <div><a href="ch03-fields.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

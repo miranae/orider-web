@@ -1,0 +1,66 @@
+name: CI
+
+# PR 검증 — lint·test·build. 시크릿 미사용(포크 PR 안전), 배포 없음.
+# 브랜치 push 이벤트는 열려 있는 PR에서 pull_request 이벤트와 중복 실행되므로 사용하지 않는다.
+# 문서-only PR은 required check 를 pending 으로 남기지 않기 위해 job 은 실행하되 무거운 npm 단계를 건너뛴다.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Detect docs-only change
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" > /tmp/changed-files
+          if [ ! -s /tmp/changed-files ]; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          docs_only=true
+          while IFS= read -r file; do
+            case "$file" in
+              *.md|docs/*|.github/ISSUE_TEMPLATE/*|.github/PULL_REQUEST_TEMPLATE.md)
+                ;;
+              *)
+                docs_only=false
+                break
+                ;;
+            esac
+          done < /tmp/changed-files
+
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "Changed files:"
+          cat /tmp/changed-files
+          echo "docs_only=$docs_only"
+      - uses: actions/setup-node@v6
+        if: steps.changes.outputs.docs_only != 'true'
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+        if: steps.changes.outputs.docs_only != 'true'
+      - run: npm run lint
+        if: steps.changes.outputs.docs_only != 'true'
+      - run: npm test
+        if: steps.changes.outputs.docs_only != 'true'
+      - name: Build (placeholder env — 시크릿 없음, 포크 안전)
+        if: steps.changes.outputs.docs_only != 'true'
+        env:
+          # check-env.mjs 가 존재만 검증하는 4개 키. 실연결 안 함(빌드 컴파일용 더미).
+          VITE_FIREBASE_API_KEY: ci-placeholder
+          VITE_FIREBASE_AUTH_DOMAIN: example.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-placeholder
+          VITE_FIREBASE_APP_ID: "1:0:web:ci"
+          VITE_FIREBASE_FUNCTIONS_REGION: asia-northeast3
+        run: npm run build

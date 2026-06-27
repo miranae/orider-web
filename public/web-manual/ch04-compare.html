@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4. 데이터 비교·이해 - O-Rider 웹 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="gitbook.css">
+</head>
+<body>
+<div class="gb">
+    <aside class="gb-sidebar" id="sidebar">
+      <a class="gb-brand" href="index.html">O·RIDER <span>웹 매뉴얼</span></a>
+      <div class="gb-search"><input id="q" type="search" placeholder="검색…" autocomplete="off"><div id="results" class="gb-results"></div></div>
+      <nav class="gb-nav">
+      <div class="gb-group"><div class="gb-group-title">시작하기</div>
+        <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">기록 보기</div>
+        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
+        <a class="gb-link active" href="ch04-compare.html">4. 데이터 비교·이해 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch05-group-event.html">5. 그룹·이벤트 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">심화</div>
+        <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
+        <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">연동·설정</div>
+        <a class="gb-link" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch10-settings.html">10. 설정 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">참고</div>
+        <a class="gb-link" href="glossary.html">부록. 용어집</a>
+      </div>
+      </nav>
+    </aside>
+  <div class="gb-backdrop" id="backdrop"></div>
+  <div class="gb-main">
+    <header class="gb-topbar">
+      <button class="gb-menu" id="menuBtn" aria-label="메뉴">☰</button>
+      <div class="gb-crumb"><b>비교와 이해</b> · 4. 데이터 비교·이해</div>
+      <a class="gb-applink" href="https://orider.co.kr" target="_blank" rel="noopener">앱 열기 ↗</a>
+    </header>
+    <main class="gb-content">
+      <section id="s4">
+        <h2>4. 데이터 비교 및 이해</h2>
+      
+        <div class="purpose">
+          <h4>이 섹션의 목적</h4>
+          <p>3장까지는 내 기록을 혼자 분석했습니다. 이 장에서는 <strong>"같은 구간을 다른 사람은 어떻게 달렸는가"</strong>를 비교하여, 자신의 수준을 객관적으로 파악하고 개선 목표를 세우는 것이 목적입니다.</p>
+        </div>
+      
+        
+        <figure class="gb-fig"><img src="screenshots/06-explore-leaderboard.png" alt="리더보드 — 세그먼트 순위·KOM." loading="lazy"><figcaption>리더보드 — 세그먼트 순위·KOM.</figcaption></figure>
+        <h3 id="s4-1">4.1 세그먼트 리더보드 — "같은 구간, 다른 기록"</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>상단 메뉴 <strong>리더보드</strong>를 열면 세그먼트(특정 도로 구간)가 지도에 표시됩니다. <strong>전체 / 힐클라임 / 평지</strong> 카테고리로 필터링하거나 이름·지역으로 검색할 수 있고, 지도나 목록에서 세그먼트를 선택하면 해당 <strong>세그먼트 상세 페이지</strong>가 열립니다. 상세 페이지에는 KOM(1위 기록), 내 베스트 기록·순위, 그리고 전체 순위표가 함께 표시됩니다.</p>
+      
+          <h4>순위표에서 읽는 법</h4>
+          <table>
+            <tr><th>데이터</th><th>해석</th><th>활용</th></tr>
+            <tr><td><strong>내 순위 / 총 참가자</strong></td><td>전체 라이더 중 나의 위치</td><td>상위 20%면 양호, 50% 이상이면 개선 여지 큼</td></tr>
+            <tr><td><strong>KOM과의 시간 차이</strong></td><td>1위 기록 대비 내 격차</td><td>30초 이내면 충분히 도전 가능, 수 분 차이면 장기 목표</td></tr>
+            <tr><td><strong>같은 세그먼트의 내 여러 기록</strong></td><td>같은 구간의 시간 변화</td><td>기록이 줄고 있으면 체력/기술 향상 중, 정체면 접근 방식 변경</td></tr>
+            <tr><td><strong>상위 라이더의 파워/심박</strong></td><td>빠른 라이더가 어떤 강도로 달렸는지</td><td>"더 빠르려면 어느 정도 출력이 필요한가"를 가늠</td></tr>
+          </table>
+      
+          <div class="tip">처음에는 순위보다 <strong>같은 세그먼트에서 내 기록이 줄고 있는지</strong>에 집중하세요. 남과의 비교보다 과거의 나와의 비교가 더 유의미합니다.</div>
+      
+          <h4>결과</h4>
+          <p>"이 구간에서 나는 지난달보다 15초 빨라졌고, 1위와는 아직 2분 차이"처럼 구체적인 목표가 생깁니다.</p>
+        </div>
+      
+        <h3 id="s4-2">4.2 오르막 난이도 읽기 — "이 언덕이 얼마나 힘든가"</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>오르막 세그먼트에는 거리와 경사에 따라 카테고리가 부여됩니다. 카테고리를 이해하면 코스 난이도를 사전에 예측할 수 있습니다.</p>
+      
+          <table>
+            <tr><th>카테고리</th><th>체감</th><th>대응 전략</th></tr>
+            <tr><td style="color:#4CAF50"><strong>Cat 4</strong></td><td>짧은 언덕 — 기어를 내리면 넘김</td><td>별도 준비 불필요, 리듬 유지하며 통과</td></tr>
+            <tr><td style="color:#FFC107"><strong>Cat 3</strong></td><td>제법 긴 오르막 — 호흡이 올라감</td><td>초반 오버페이스 주의, 후반까지 체력 배분</td></tr>
+            <tr><td style="color:#FF9800"><strong>Cat 2</strong></td><td>본격 클라이밍 — 후반에 무너질 수 있음</td><td>진입 전 페이스 계획 필수, 심박 존 3~4 유지 목표</td></tr>
+            <tr><td style="color:#FF5722"><strong>Cat 1</strong></td><td>장거리 고강도 — 경험자에게도 도전</td><td>보급 계획, 기어비 사전 확인, 정신력 관리</td></tr>
+            <tr><td style="color:#F44336"><strong>HC</strong></td><td>프로 레이스급 고개</td><td>충분한 훈련 후 도전, 체력 배분이 핵심</td></tr>
+          </table>
+      
+          <h4>결과</h4>
+          <p>"Cat 3까지는 자신 있으니, 다음 목표는 Cat 2 오르막을 완등하는 것"처럼 단계적 목표를 세울 수 있습니다.</p>
+        </div>
+      
+        <h3 id="s4-3">4.3 코스 데이터 읽기 — "다음 라이딩 고르기"</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>코스 페이지에서 다른 라이더가 공유한 경로의 데이터를 읽고 나에게 맞는지 판단합니다.</p>
+      
+          <h4>코스 선택 기준</h4>
+          <table>
+            <tr><th>데이터</th><th>판단 방법</th></tr>
+            <tr><td><strong>거리</strong></td><td>내 평소 라이딩 거리의 80~120%가 적정. 너무 길면 완주 부담, 너무 짧으면 새 경험이 적음</td></tr>
+            <tr><td><strong>획득 고도</strong></td><td><strong>거리당 고도(m/km)</strong>로 비교. 10m/km 이하면 평탄, 15 이상이면 본격적인 산악 코스</td></tr>
+            <tr><td><strong>고도 프로필 형태</strong></td><td>오르막이 전반부에 집중되면 후반은 편함. 후반부 집중이면 체력 배분이 핵심</td></tr>
+            <tr><td><strong>코스 내 오르막 카테고리</strong></td><td>Cat 2 이상이 포함되면 해당 오르막을 오를 준비가 되었는지 자문</td></tr>
+            <tr><td><strong>좋아요 수</strong></td><td>많을수록 검증된 코스 — 도로 상태, 풍경 등이 좋을 확률 높음</td></tr>
+          </table>
+      
+          <div class="tip"><strong>거리당 고도</strong>는 코스 난이도를 빠르게 비교하는 실용적인 지표입니다. 예: 100km에 1,500m 상승 = 15m/km → 상당한 산악 코스.</div>
+      
+          <h4>결과</h4>
+          <p>감이 아닌 숫자를 기준으로 "이 코스는 내 수준에 맞다/아직 이르다"를 판단하여, 무리 없이 새 코스에 도전합니다.</p>
+        </div>
+      
+        <h3 id="s4-4">4.4 다른 라이더 프로필 읽기 — "벤치마크 찾기"</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>리더보드나 활동 피드에서 라이더 이름을 클릭하면 프로필 페이지가 열립니다.</p>
+      
+          <h4>프로필에서 읽는 법</h4>
+          <table>
+            <tr><th>데이터</th><th>활용</th></tr>
+            <tr><td><strong>총 거리/획득 고도</strong></td><td>누적 경력 — 나와 비슷한 수준의 라이더를 찾아 벤치마크로 삼음</td></tr>
+            <tr><td><strong>즐겨 타는 코스</strong></td><td>공개 활동 목록에서 자주 달리는 코스 발견 — 코스 추천 효과</td></tr>
+            <tr><td><strong>세그먼트 기록</strong></td><td>같은 세그먼트에서의 기록 비교 — "이 사람을 이기려면 얼마나 빨라져야 하나"</td></tr>
+          </table>
+      
+          <h4>결과</h4>
+          <p>비슷한 수준의 라이더를 벤치마크로 설정하면, "저 사람이 Cat 2를 20분에 올랐으니 나도 목표를 22분으로 잡자"와 같은 현실적 목표가 가능합니다.</p>
+        </div>
+      
+        <h3 id="s4-5">4.5 커뮤니티 — "데이터 너머의 정보"</h3>
+        <div class="card">
+          <h4>확인할 것</h4>
+          <p>숫자만으로는 알 수 없는 정보(도로 상태, 보급 포인트, 바람 방향 등)를 커뮤니티에서 얻습니다.</p>
+      
+          <table>
+            <tr><th>알고 싶은 것</th><th>찾는 곳</th></tr>
+            <tr><td>"이 코스의 도로 상태는?"</td><td>코스 추천 게시판 — 실제 달린 후기</td></tr>
+            <tr><td>"타이어/부품 뭘 쓰지?"</td><td>장비 정보/리뷰 게시판 — 실사용 경험</td></tr>
+            <tr><td>"이 세그먼트 어떻게 공략하지?"</td><td>자유게시판 — 라이더들의 구간 공략 팁</td></tr>
+          </table>
+      
+          <h4>결과</h4>
+          <p>데이터 분석으로 "어떤 구간이 약한지"를 파악했다면, 커뮤니티에서 "그 구간을 어떻게 개선하는지" 경험 정보를 얻습니다. 세그먼트를 직접 생성하여 자주 달리는 구간의 기록 변화를 추적할 수도 있습니다.</p>
+        </div>
+      
+        <h3 id="s4-6">4.6 세그먼트 만들기</h3>
+        <div class="card">
+          <p>자주 달리는 오르막이나 구간을 세그먼트로 만들어 기록을 겨룹니다. 세그먼트는 내 활동에서 만듭니다 — 활동 상세 화면의 "세그먼트 만들기"로 들어가면 해당 활동의 경로가 지도와 고도 그래프로 표시됩니다.</p>
+      
+          <div class="flow">
+            <div class="flow-step">활동 선택</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">구간 지정</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">이름·분류 입력</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">제안 제출</div>
+          </div>
+      
+          <table>
+            <tr><th>항목</th><th>내용</th></tr>
+            <tr><td>구간 지정</td><td>지도·고도 그래프를 드래그하거나 &larr;&rarr; 방향키(Shift=끝점)로 시작·끝 지점 미세 조정</td></tr>
+            <tr><td>분류</td><td>등반 · 스프린트 · 평지 — 경사도에 따라 자동 추천</td></tr>
+            <tr><td>이름</td><td>2~50자</td></tr>
+            <tr><td>최소 조건</td><td>구간 내 30포인트 이상 · 300m 이상</td></tr>
+          </table>
+      
+          <div class="info">만든 세그먼트는 곧바로 공개되지 않고 제안으로 제출되어, 검토 후 등록됩니다.</div>
+        </div>
+      
+        <h3 id="s4-7">4.7 코스 만들기</h3>
+        <div class="card">
+          <p>라이딩 경로 전체를 코스로 저장하거나, 외부 GPX 경로를 등록합니다. 코스는 세 가지 방식으로 만들 수 있으며, 상단 탭에서 방식을 고릅니다.</p>
+      
+          <table>
+            <tr><th>방식</th><th>설명</th></tr>
+            <tr><td><strong>활동 전체</strong></td><td>선택한 활동의 경로 전체를 코스로</td></tr>
+            <tr><td><strong>구간 지정</strong></td><td>활동에서 원하는 구간만 잘라 코스로 (&larr;&rarr; 방향키 미세 조정)</td></tr>
+            <tr><td><strong>GPX 업로드</strong></td><td>외부 .gpx 파일을 끌어다 놓거나 선택 — 활동 없이도 코스 생성 가능</td></tr>
+          </table>
+      
+          <div class="info">"활동 전체"와 "구간 지정" 탭은 활동에서 들어왔을 때만 보입니다. GPX 업로드는 코스 목록에서 바로 시작할 수 있습니다. 이름은 2~50자, 구간 지정은 10포인트·100m 이상이 필요합니다. (세그먼트와 달리 별도 승인 없이 바로 등록됩니다.)</div>
+        </div>
+      
+        <h3 id="s4-8">4.8 커뮤니티 게시판</h3>
+        <div class="card">
+          <p>상단 메뉴 <strong>커뮤니티</strong>(/board)는 라이더들이 자유롭게 글을 주고받는 공간입니다. 상단 탭으로 글 종류(전체 · 작업일지 · 문의/신고 · 이맘쯤 우리는)를 골라 보고, 검색·태그 필터로 원하는 글을 찾습니다. 각 글 카드에는 조회·좋아요·댓글 수가 표시됩니다.</p>
+      
+          <p><strong>글쓰기:</strong> 오른쪽 위 "글쓰기"로 작성 화면에 들어갑니다(로그인 필요). 본문 편집기는 사진(최대 5장, 붙여넣기·드래그 지원)·소제목·목록·인용·코드·표·굵게/기울임 등 서식을 지원하고, 사이드바에서 태그를 쉼표로 구분해 입력합니다. "문의/신고" 글은 유형(버그·기능요청·문의·기타)을 고르고 "비공개로 제출"(본인과 검토 담당자만 열람)을 선택할 수 있습니다.</p>
+      
+          <div class="info">글 상세에서는 좋아요(👍)·댓글을 남길 수 있고, 내 글·댓글은 직접 삭제할 수 있습니다(확인 창 표시). 글을 열 때마다 조회수가 올라갑니다.</div>
+        </div>
+      </section>
+      <nav class="gb-prevnext"><a class="pn-prev" href="ch03-analysis.html"><div class="pn-label">← 이전</div><div class="pn-title">3. 활동 상세 분석</div></a><a class="pn-next" href="ch05-group-event.html"><div class="pn-label">다음 →</div><div class="pn-title">5. 그룹·이벤트</div></a></nav>
+    </main>
+  </div>
+</div>
+<script src="manual.js"></script>
+</body>
+</html>

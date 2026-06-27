@@ -1,0 +1,230 @@
+{
+  "button": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "loading": "Loading...",
+    "retry": "Try again",
+    "close": "Close",
+    "more": "More",
+    "less": "Less",
+    "login": "Sign in",
+    "logout": "Sign out",
+    "loginGoogle": "Sign in with Google",
+    "markAllRead": "Mark all read"
+  },
+  "error": {
+    "generic": "Something went wrong.",
+    "network": "Network error.",
+    "permission": "You don't have permission.",
+    "notFound": "Not found.",
+    "title": "Something went wrong",
+    "description": "Please try again in a moment.",
+    "boundaryTitle": "Something went wrong",
+    "unknownError": "Unknown error",
+    "reload": "Reload",
+    "reloadAriaLabel": "Reload page",
+    "appLoadFailed": "Failed to load app",
+    "appLoadFailedReload": "Reload"
+  },
+  "label": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This week",
+    "thisMonth": "This month",
+    "all": "All",
+    "language": "Language",
+    "profile": "Profile",
+    "settings": "Settings",
+    "rider": "Rider",
+    "ride": "Ride",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications",
+    "search": "Search",
+    "searchEmpty": "No results for \"{{query}}\"",
+    "loadingHint": "Loading"
+  },
+  "auth": {
+    "loginRequiredTitle": "Sign in required",
+    "loginRequiredDescription": "Sign in to use this feature."
+  },
+  "footer": {
+    "feedback": "Feedback",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "community": "Community guidelines",
+    "contact": "Contact",
+    "more": "More",
+    "collapse": "Collapse"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "fitness": "Fitness",
+    "plan": "Plan",
+    "log": "Log",
+    "courses": "Courses",
+    "leaderboard": "Leaderboard",
+    "groups": "Groups",
+    "events": "Events",
+    "communityBoard": "Community",
+    "social": "Social",
+    "my": "My",
+    "home": "Home",
+    "train": "Training",
+    "explore": "Explore",
+    "community": "Community",
+    "settings": "Settings",
+    "segments": "Segments",
+    "discover": "Discover",
+    "board": "Board",
+    "creator": "Creator",
+    "friends": "Friends",
+    "profile": "Profile",
+    "account": "Account",
+    "mainNavAria": "Main navigation"
+  },
+  "search": {
+    "activities": "Activities",
+    "courses": "Courses"
+  },
+  "time": {
+    "justNow": "just now",
+    "minsAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago",
+    "am": "AM",
+    "pm": "PM",
+    "hour": "Hour",
+    "minute": "Min",
+    "yesterday": "Yesterday"
+  },
+  "field": {
+    "datePlaceholder": "Select date",
+    "timePlaceholder": "Select time",
+    "selectDateAria": "Select date",
+    "selectTimeAria": "Select time",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "now": "Now",
+    "clear": "Clear",
+    "presetWeek": "+1 week",
+    "presetMonth": "+1 month",
+    "preset3Months": "+3 months",
+    "yearMonth": "{{month}} {{year}}",
+    "dateLabel": "{{weekday}}, {{month}}/{{day}}/{{year}}"
+  },
+  "discipline": {
+    "selectAria": "Select discipline",
+    "tri": "Multi",
+    "bike": "Cycling",
+    "run": "Running",
+    "swim": "Swimming"
+  },
+  "unit": {
+    "km": "km",
+    "mi": "mi",
+    "m": "m",
+    "ft": "ft",
+    "h": "h",
+    "min": "min",
+    "sec": "sec"
+  },
+  "difficulty": {
+    "easy": "Easy",
+    "mid": "Medium",
+    "hard": "Hard",
+    "hc": "HC"
+  },
+  "weekday": {
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun"
+  },
+  "topnav": {
+    "searchPlaceholder": "Search",
+    "notifications": "Notifications",
+    "activities": "Activities",
+    "language": "Language"
+  },
+  "notif": {
+    "fromUser": "Notification from {{fromNickname}}"
+  },
+  "sportFilter": {
+    "bike": "🚴 Cycling",
+    "run": "🏃 Running",
+    "swim": "🏊 Swimming"
+  },
+  "social": {
+    "tabFriends": "Friends",
+    "tabGroups": "Groups",
+    "searchFriendsPlaceholder": "Search friends",
+    "friendCodeCopied": "Friend code copied",
+    "invite": "Invite",
+    "followingCount": "Following {{count}}",
+    "following": "Following",
+    "searchEmpty": "No results found",
+    "noFriends": "No friends yet",
+    "newGroup": "+ Create new group",
+    "myGroupCount": "My groups ({{count}})",
+    "memberCount": "{{count}} members",
+    "noGroups": "No groups joined"
+  },
+  "sport": {
+    "ride": "Ride",
+    "mtb": "MTB",
+    "gravel": "Gravel",
+    "ebike": "E-Bike",
+    "velolift": "Velolift",
+    "virtualRide": "Virtual Ride",
+    "run": "Run",
+    "trailRun": "Trail Run",
+    "virtualRun": "Virtual Run",
+    "walk": "Walk",
+    "hike": "Hike",
+    "swim": "Swim",
+    "workout": "Workout",
+    "weightTraining": "Weight Training",
+    "yoga": "Yoga",
+    "tennis": "Tennis",
+    "soccer": "Soccer",
+    "golf": "Golf",
+    "ski": "Ski",
+    "snowboard": "Snowboard",
+    "activity": "Activity"
+  },
+  "map": {
+    "placeholder": "Map",
+    "noRouteData": "No route data"
+  },
+  "designTheme": {
+    "default": "Default",
+    "appParity": "App Parity"
+  },
+  "discover": {
+    "title": "Discover",
+    "subtitle": "Courses, segments, and leaderboards in one place",
+    "searchPlaceholder": "Search courses & segments…",
+    "searching": "Searching…",
+    "noResults": "No results",
+    "viewAll": "View all",
+    "entrySegmentsDesc": "Browse nearby segments on the map",
+    "entryLeaderboardDesc": "See KOM & cohort rankings",
+    "entryCoursesDesc": "Find riding courses",
+    "challenge": {
+      "beatPr": "Beat my time",
+      "strength": "Play to your strengths",
+      "newPlace": "New places",
+      "popularCourses": "Popular courses",
+      "notable": "Notable segments",
+      "predicted": "Est. {{time}}",
+      "faster": "−{{sec}}s faster"
+    }
+  }
+}

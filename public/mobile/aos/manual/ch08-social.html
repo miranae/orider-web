@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8. 소셜 기능 - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">8. 소셜 기능</div>
+  <div class="nav-right"><a href="ch07-climb.html">이전</a><span class="nav-sep">|</span><a href="ch09-strava.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s8">
+  <h2>8. 소셜 기능</h2>
+  <p>함께 타는 즐거움을 더해 주는 소셜 기능입니다. 친구를 추가하고, 그룹을 만들어 함께 라이딩하세요.</p>
+  <img src="screenshots/15_social.png" alt="소셜 설정" class="screenshot">
+  <div class="info">소셜 기능을 이용하려면 Google 계정으로 로그인해야 합니다.</div>
+
+  <h3 id="s8-1">8.1 친구 관리</h3>
+  <div class="card">
+    <p>설정 → 소셜 → 친구 관리에서 친구를 추가하고 관리합니다.</p>
+
+    <h4>내 친구 코드</h4>
+    <p>6자리 영문 대문자 코드가 자동 생성됩니다. 이 코드를 친구에게 공유하세요.</p>
+
+    <h4>친구 추가 방법</h4>
+    <ol>
+      <li><strong>친구 추가</strong> 버튼을 탭합니다</li>
+      <li>상대방의 6자리 친구 코드를 입력합니다</li>
+      <li>친구 요청이 전송됩니다</li>
+      <li>상대방이 수락하면 친구 목록에 추가됩니다</li>
+    </ol>
+    <div class="tip">딥링크(<kbd>orider://friend/코드</kbd>)를 메신저로 보내면 상대방이 앱을 열자마자 바로 친구 추가 화면으로 이동합니다.</div>
+
+    <h4>친구 상태</h4>
+    <table>
+      <tr><th>상태</th><th>표시</th><th>의미</th></tr>
+      <tr><td style="color:#FF9800">라이딩 중</td><td>주황 점</td><td>현재 주행 중</td></tr>
+      <tr><td style="color:#4CAF50">온라인</td><td>초록 점</td><td>앱 실행 중</td></tr>
+      <tr><td style="color:#9E9E9E">오프라인</td><td>회색 점</td><td>앱 미실행</td></tr>
+    </table>
+  </div>
+
+  <h3 id="s8-2">8.2 그룹 라이딩</h3>
+  <div class="card">
+    <p>여럿이서 함께 타는 라이딩에서 그룹을 만들면 멤버 관리와 경로 공유가 편리합니다.</p>
+
+    <h4>그룹 만들기</h4>
+    <ol>
+      <li>설정 → 소셜 → 그룹에서 <strong>그룹 만들기</strong>를 탭합니다</li>
+      <li>그룹 이름을 입력합니다 (예: "오늘 한강 라이딩")</li>
+      <li>그룹이 생성되면 초대 코드가 발급됩니다</li>
+      <li>초대 코드를 친구에게 공유하여 참가를 유도합니다</li>
+    </ol>
+
+    <h4>그룹 참여하기</h4>
+    <p>초대 코드를 입력하거나, 공유 받은 딥링크를 탭하여 그룹에 참가합니다.</p>
+
+    <h4>그룹 기능</h4>
+    <ul>
+      <li><strong>멤버 목록</strong> — 참가자 닉네임, 친구 코드, 상태(라이딩/온라인/오프라인) 표시</li>
+      <li><strong>멤버 추가</strong> — 친구 목록에서 추가 (그룹 생성자)</li>
+      <li><strong>멤버 제거</strong> — 그룹 생성자만 가능</li>
+      <li><strong>경로 공유</strong> — 현재 로드된 경로를 그룹 전원에게 공유</li>
+      <li><strong>그룹 탈퇴</strong> — 하단의 탈퇴 버튼</li>
+    </ul>
+    <div class="info">그룹 초대를 받으면 "받은 초대" 섹션에 표시됩니다. 수락 또는 거절할 수 있습니다.</div>
+    <div class="tip">그룹에 참여한 상태에서 <a href="ch13-lightweight.html" style="color:var(--primary)">경량 모드</a>를 활성화하면 배터리를 절약하면서 SOS/핑/프리셋 메시지로 소통할 수 있습니다.</div>
+  </div>
+
+  <h3 id="s8-3">8.3 위치 공유</h3>
+  <div class="card">
+    <p>설정 → 계정 → 위치 공유 범위에서 내 위치를 누구에게 보여줄지 설정합니다.</p>
+    <table>
+      <tr><th>설정</th><th>설명</th></tr>
+      <tr><td><strong>전체공개</strong></td><td>모든 사용자에게 위치 표시</td></tr>
+      <tr><td><strong>친구만</strong></td><td>친구 목록의 사용자에게만 표시</td></tr>
+      <tr><td><strong>비공개</strong></td><td>위치 공유 안 함</td></tr>
+    </table>
+  </div>
+
+  <h3 id="s8-4">8.4 그룹 라이딩 실시간 데이터</h3>
+  <div class="card">
+    <p>같은 그룹 멤버와 함께 달릴 때, 주행 화면(데이터 페이지)에 <strong>그룹 전용 데이터 페이지</strong>가 추가됩니다. 멤버들의 최근 위치가 수신되면 나타나며, 좌우 스와이프로 일반 데이터 페이지와 함께 전환합니다.</p>
+    <table>
+      <tr><th>항목</th><th>설명</th></tr>
+      <tr><td>가장 가까운 / 가장 먼 멤버</td><td>나로부터의 거리와 해당 멤버 이름</td></tr>
+      <tr><td>그룹 산개</td><td>가장 먼 멤버와 가장 가까운 멤버 간 거리 차 (그룹이 얼마나 늘어졌는지)</td></tr>
+      <tr><td>그룹 평균 심박</td><td>심박을 공유 중인 멤버들의 평균 (bpm)</td></tr>
+      <tr><td>멤버 목록</td><td>멤버별 이름·운동 시간·이동 거리·심박·나로부터 거리, 상태 점(주행/정지/SOS 등). 본인은 "나"로 강조</td></tr>
+    </table>
+    <div class="info">최근 30초 이상 위치 갱신이 없는 멤버는 "오프라인"으로 표시됩니다. 심박은 상대가 심박 공유를 켠 경우에만 보입니다.</div>
+    <div class="tip">선두와 후미 간 산개가 커지면 페이스를 조절해 그룹을 모을 수 있습니다.</div>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch07-climb.html">&larr; 이전</a></div>
+    <div class="nav-title">8. 소셜 기능</div>
+    <div><a href="ch09-strava.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

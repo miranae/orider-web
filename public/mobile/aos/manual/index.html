@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>O-Rider 사용 매뉴얼 (Android)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>O-Rider 사용 매뉴얼</h1>
+  <p class="subtitle">사이클링 컴퓨터 앱 · Android</p>
+  <span class="version">v1.2 · 2026-06-02</span>
+</header>
+
+<div class="container">
+
+<div class="quick-start" id="quick-start">
+  <h2>처음 사용자를 위한 빠른 시작</h2>
+  <p>O-Rider를 처음 설치하셨나요? 아래 5단계만 따라하면 바로 라이딩을 시작할 수 있습니다.</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <strong>앱 설치 후 권한 허용</strong><br>
+      첫 실행 시 <strong>위치</strong>와 <strong>블루투스</strong> 권한을 허용하세요. 백그라운드 위치도 허용하면 화면이 꺼져도 기록이 이어집니다.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <strong>센서 연결 (선택사항)</strong><br>
+      속도/케이던스/심박 센서가 있다면 <strong>설정 → 센서</strong>에서 페어링합니다. 센서가 없어도 GPS만으로 속도와 거리를 측정할 수 있습니다.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <strong>데이터 화면 꾸미기 (선택사항)</strong><br>
+      <strong>설정 → 데이터 필드</strong>에서 화면에 표시할 데이터를 선택합니다. 기본 구성 그대로 사용해도 좋습니다.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <strong>주행 시작</strong><br>
+      메인 화면 하단의 <strong>시작 버튼</strong>을 탭하면 기록이 시작됩니다. 좌우 스와이프로 데이터/지도 화면을 전환하세요.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-content">
+      <strong>주행 종료 후 확인</strong><br>
+      일시정지 버튼을 탭하면 재개/정지 버튼이 나타납니다. 정지 버튼을 탭하면 주행이 종료되고, 거리·시간·속도 등 요약이 표시됩니다. Strava 연동 시 자동 업로드됩니다.
+    </div>
+  </div>
+
+  <div class="tip">더 자세한 내용은 아래 각 섹션에서 확인하세요. 센서 연결은 <a href="ch04-sensors.html" style="color:var(--primary)">4. 센서 연결</a>, 화면 꾸미기는 <a href="ch03-fields.html#s3-2" style="color:var(--primary)">3.2 레이아웃 에디터</a>를 참고하세요.</div>
+</div>
+
+<h2 style="font-size:1.4rem; color:var(--primary); margin: 30px 0 20px;">목차</h2>
+
+<div class="toc-cards">
+  <a href="ch01-start.html" class="toc-card">
+    <div class="ch-num">1</div>
+    <div class="ch-info">
+      <div class="ch-title">시작하기</div>
+      <div class="ch-desc">앱 설치, 권한 설정, 계정 및 로그인</div>
+    </div>
+  </a>
+  <a href="ch02-ride.html" class="toc-card">
+    <div class="ch-num">2</div>
+    <div class="ch-info">
+      <div class="ch-title">주행 화면</div>
+      <div class="ch-desc">데이터/지도/ClimbPro 화면, 주행 제어, 자동 일시정지/랩</div>
+    </div>
+  </a>
+  <a href="ch03-fields.html" class="toc-card">
+    <div class="ch-num">3</div>
+    <div class="ch-info">
+      <div class="ch-title">데이터 필드</div>
+      <div class="ch-desc">80개 이상의 데이터 필드 목록, 레이아웃 에디터</div>
+    </div>
+  </a>
+  <a href="ch04-sensors.html" class="toc-card">
+    <div class="ch-num">4</div>
+    <div class="ch-info">
+      <div class="ch-title">센서 연결</div>
+      <div class="ch-desc">BLE 센서 종류, 페어링, 휠 둘레 설정</div>
+    </div>
+  </a>
+  <a href="ch05-map.html" class="toc-card">
+    <div class="ch-num">5</div>
+    <div class="ch-info">
+      <div class="ch-title">지도</div>
+      <div class="ch-desc">지도 유형, 오프라인 지도, 헤딩 잠금</div>
+    </div>
+  </a>
+  <a href="ch06-routes.html" class="toc-card">
+    <div class="ch-num">6</div>
+    <div class="ch-info">
+      <div class="ch-title">경로 (루트)</div>
+      <div class="ch-desc">GPX 가져오기, 경로 상세, 경로 공유</div>
+    </div>
+  </a>
+  <a href="ch07-climb.html" class="toc-card">
+    <div class="ch-num">7</div>
+    <div class="ch-info">
+      <div class="ch-title">ClimbPro · PreClimb</div>
+      <div class="ch-desc">오르막 감지, 카테고리, 자동 오르막 감지</div>
+    </div>
+  </a>
+  <a href="ch08-social.html" class="toc-card">
+    <div class="ch-num">8</div>
+    <div class="ch-info">
+      <div class="ch-title">소셜 기능</div>
+      <div class="ch-desc">친구 관리, 그룹 라이딩, 위치 공유</div>
+    </div>
+  </a>
+  <a href="ch09-strava.html" class="toc-card">
+    <div class="ch-num">9</div>
+    <div class="ch-info">
+      <div class="ch-title">Strava 연동</div>
+      <div class="ch-desc">연결, 자동 업로드, 활동 가져오기</div>
+    </div>
+  </a>
+  <a href="ch10-history.html" class="toc-card">
+    <div class="ch-num">10</div>
+    <div class="ch-info">
+      <div class="ch-title">라이딩 기록</div>
+      <div class="ch-desc">기록 목록, 세션 상세, GPX 내보내기</div>
+    </div>
+  </a>
+  <a href="ch11-weather.html" class="toc-card">
+    <div class="ch-num">11</div>
+    <div class="ch-info">
+      <div class="ch-title">날씨 정보</div>
+      <div class="ch-desc">기온, 풍속, 풍향, 강수량, 습도</div>
+    </div>
+  </a>
+  <a href="ch12-actioncam.html" class="toc-card">
+    <div class="ch-num">12</div>
+    <div class="ch-info">
+      <div class="ch-title">액션캠 제어</div>
+      <div class="ch-desc">GoPro/DJI 연결, 녹화 제어, 사진 촬영</div>
+    </div>
+  </a>
+  <a href="ch13-lightweight.html" class="toc-card">
+    <div class="ch-num">13</div>
+    <div class="ch-info">
+      <div class="ch-title">경량 모드</div>
+      <div class="ch-desc">그룹 전용 배터리 절약, GPS 간격 조절, 그룹 메시징</div>
+    </div>
+  </a>
+  <a href="ch14-alerts.html" class="toc-card">
+    <div class="ch-num">14</div>
+    <div class="ch-info">
+      <div class="ch-title">알림 및 경고</div>
+      <div class="ch-desc">수치 알림, 소리 알림, 소셜 알림</div>
+    </div>
+  </a>
+  <a href="ch15-settings.html" class="toc-card">
+    <div class="ch-num">15</div>
+    <div class="ch-info">
+      <div class="ch-title">설정</div>
+      <div class="ch-desc">주행, 사운드, 배터리/데이터 절약, 계정, 고급</div>
+    </div>
+  </a>
+  <a href="ch16-deeplink.html" class="toc-card">
+    <div class="ch-num">16</div>
+    <div class="ch-info">
+      <div class="ch-title">딥링크</div>
+      <div class="ch-desc">경로 공유, 친구 초대, 그룹 초대 링크</div>
+    </div>
+  </a>
+  <a href="ch17-faq.html" class="toc-card">
+    <div class="ch-num">17</div>
+    <div class="ch-info">
+      <div class="ch-title">문제 해결 (FAQ)</div>
+      <div class="ch-desc">센서, GPS, Strava, ClimbPro 등 자주 묻는 질문</div>
+    </div>
+  </a>
+  <a href="ch18-events.html" class="toc-card">
+    <div class="ch-num">18</div>
+    <div class="ch-info">
+      <div class="ch-title">이벤트 (대회 모드)</div>
+      <div class="ch-desc">리더보드, 리더 대시보드, DNF, QR 체크인</div>
+    </div>
+  </a>
+</div>
+
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

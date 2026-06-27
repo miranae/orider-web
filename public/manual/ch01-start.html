@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1. 시작하기 - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">1. 시작하기</div>
+  <div class="nav-right"><a href="ch02-ride.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s1">
+  <h2>1. 시작하기</h2>
+  <p>O-Rider는 스마트폰을 본격적인 사이클링 컴퓨터로 변신시켜 주는 앱입니다. GPS 속도/거리는 물론이고, BLE 센서를 연결하면 심박, 파워, 케이던스, 전자변속기 기어 위치까지 한눈에 확인할 수 있습니다.</p>
+
+  <h3 id="s1-1">1.1 앱 설치 및 권한</h3>
+  <p>O-Rider는 <strong>Android 8.0 (API 26)</strong> 이상에서 동작합니다. 설치 후 첫 실행 시 다음 권한을 요청합니다.</p>
+  <table>
+    <tr><th>권한</th><th>용도</th><th>필수 여부</th></tr>
+    <tr><td>위치 (정확한 위치)</td><td>GPS 트래킹, 지도 표시</td><td>필수</td></tr>
+    <tr><td>백그라운드 위치</td><td>화면 꺼짐 시에도 주행 기록</td><td>권장</td></tr>
+    <tr><td>블루투스</td><td>BLE 센서 연결</td><td>센서 사용 시</td></tr>
+    <tr><td>알림</td><td>주행 서비스 알림, 소셜 알림</td><td>권장</td></tr>
+    <tr><td>저장소</td><td>GPX 파일 가져오기/내보내기</td><td>해당 기능 사용 시</td></tr>
+  </table>
+  <div class="tip">백그라운드 위치 권한을 허용하지 않으면 화면이 꺼질 때 GPS 기록이 멈출 수 있습니다. 라이딩 기록의 정확성을 위해 허용을 권장합니다.</div>
+
+  <h3 id="s1-2">1.2 계정 및 로그인</h3>
+  <p>앱을 처음 시작하면 <strong>익명 로그인</strong>으로 자동 접속됩니다. 혼자 라이딩한다면 익명 계정으로도 충분하지만, 친구와 함께 타거나 Strava를 연동하려면 Google 로그인이 필요합니다.</p>
+  <ul>
+    <li><strong>익명 계정</strong> — 주행 기록, 센서 연결, 경로 관리 등 기본 기능 사용 가능</li>
+    <li><strong>Google 로그인</strong> — 친구 추가, 그룹 라이딩, 위치 공유, Strava 연동 등 모든 기능 사용 가능</li>
+  </ul>
+  <div class="info">설정 → 계정에서 언제든 Google 계정으로 전환할 수 있습니다. 기존 라이딩 기록도 그대로 유지됩니다.</div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="index.html">&larr; 목차</a></div>
+    <div class="nav-title">1. 시작하기</div>
+    <div><a href="ch02-ride.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

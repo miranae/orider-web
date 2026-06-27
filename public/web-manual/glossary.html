@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>부록. 용어집 - O-Rider 웹 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="gitbook.css">
+</head>
+<body>
+<div class="gb">
+    <aside class="gb-sidebar" id="sidebar">
+      <a class="gb-brand" href="index.html">O·RIDER <span>웹 매뉴얼</span></a>
+      <div class="gb-search"><input id="q" type="search" placeholder="검색…" autocomplete="off"><div id="results" class="gb-results"></div></div>
+      <nav class="gb-nav">
+      <div class="gb-group"><div class="gb-group-title">시작하기</div>
+        <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">기록 보기</div>
+        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
+        <a class="gb-link" href="ch04-compare.html">4. 데이터 비교·이해 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch05-group-event.html">5. 그룹·이벤트 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">심화</div>
+        <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
+        <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">연동·설정</div>
+        <a class="gb-link" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch10-settings.html">10. 설정 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">참고</div>
+        <a class="gb-link active" href="glossary.html">부록. 용어집</a>
+      </div>
+      </nav>
+    </aside>
+  <div class="gb-backdrop" id="backdrop"></div>
+  <div class="gb-main">
+    <header class="gb-topbar">
+      <button class="gb-menu" id="menuBtn" aria-label="메뉴">☰</button>
+      <div class="gb-crumb"><b>참고</b> · 부록. 용어집</div>
+      <a class="gb-applink" href="https://orider.co.kr" target="_blank" rel="noopener">앱 열기 ↗</a>
+    </header>
+    <main class="gb-content">
+      <section id="glossary">
+        <h2>부록. 용어집</h2>
+        <div class="purpose"><h4>이 페이지의 목적</h4><p>분석 탭의 영문 지표 용어를 한곳에서 찾아봅니다. 각 지표 카드의 <strong>ⓘ</strong>에 마우스를 올리면 같은 설명이 툴팁으로도 표시됩니다.</p></div>
+        <div class="tip">이 용어집은 분석 탭 ⓘ 툴팁과 <strong>동일한 i18n 소스(<code>analysis.glossary</code>)</strong>에서 자동 생성됩니다.</div>
+          <h3>훈련 부하 · 강도</h3>
+          <div class="card"><table>
+              <tr><th>용어</th><th>영문</th><th>설명</th></tr>
+              <tr><td><strong>훈련 부하 점수</strong></td><td>Training Stress Score</td><td>강도와 시간을 합친 총 훈련 부하. 100 = FTP로 1시간.</td></tr>
+              <tr><td><strong>강도 계수</strong></td><td>Intensity Factor</td><td>NP ÷ FTP. 1.0이면 FTP 강도.</td></tr>
+              <tr><td><strong>일량</strong></td><td>Work</td><td>이번 운동에서 한 총 일(kJ). 대략 소비 kcal와 비슷.</td></tr>
+              <tr><td><strong>시간당 일량</strong></td><td>kJ/h</td><td>평균 파워 출력 강도를 나타내는 지표.</td></tr>
+              <tr><td><strong>훈련 자극량</strong></td><td>TRIMP</td><td>심박과 시간 기반의 훈련 부하.</td></tr>
+              <tr><td><strong>시간</strong></td><td></td><td>운동 시작부터 종료까지 총 경과 시간(정지 포함).</td></tr>
+            </table></div>
+          <h3>파워</h3>
+          <div class="card"><table>
+              <tr><th>용어</th><th>영문</th><th>설명</th></tr>
+              <tr><td><strong>평균 파워</strong></td><td></td><td>전체 구간 평균 출력(0W 포함).</td></tr>
+              <tr><td><strong>최대 파워</strong></td><td></td><td>3초 평활 최고 출력. 단발 스파이크는 제거.</td></tr>
+              <tr><td><strong>정규화 파워</strong></td><td>Normalized Power</td><td>변동을 보정한 '체감' 평균 파워.</td></tr>
+              <tr><td><strong>xPower</strong></td><td>Skiba</td><td>NP와 유사한 변동 보정 파워(25초 가중).</td></tr>
+              <tr><td><strong>변동 지수</strong></td><td>Variability Index</td><td>NP ÷ 평균 파워. 1에 가까울수록 균일한 페이싱.</td></tr>
+              <tr><td><strong>체중당 평균 파워</strong></td><td></td><td>평균 파워 ÷ 체중. 등반·체력 비교 지표(W/kg).</td></tr>
+              <tr><td><strong>체중당 정규화 파워</strong></td><td></td><td>NP ÷ 체중. 체감 강도의 체중 대비 값(W/kg).</td></tr>
+              <tr><td><strong>임계 파워</strong></td><td>Critical Power</td><td>오래 지속 가능한 최대 파워(≈FTP).</td></tr>
+              <tr><td><strong>W′</strong></td><td>W프라임</td><td>임계 파워를 넘겨 쓸 수 있는 무산소 에너지 용량.</td></tr>
+              <tr><td><strong>매치</strong></td><td>Match</td><td>FTP를 크게 넘긴 고강도 구간. 성냥처럼 소모돼 한정적.</td></tr>
+              <tr><td><strong>매치 시간</strong></td><td></td><td>FTP를 크게 넘긴 고강도 구간들의 총 시간.</td></tr>
+              <tr><td><strong>최장 매치</strong></td><td></td><td>가장 길게 이어진 단일 고강도 구간.</td></tr>
+            </table></div>
+          <h3>심박 · 효율</h3>
+          <div class="card"><table>
+              <tr><th>용어</th><th>영문</th><th>설명</th></tr>
+              <tr><td><strong>평균 심박</strong></td><td></td><td>전체 구간 평균 심박수(bpm).</td></tr>
+              <tr><td><strong>최대 심박</strong></td><td></td><td>기록된 최고 심박수(bpm).</td></tr>
+              <tr><td><strong>심박 드리프트</strong></td><td></td><td>후반 심박이 전반 대비 오른 비율. 피로·탈수·더위 신호.</td></tr>
+              <tr><td><strong>효율 계수</strong></td><td>Efficiency Factor</td><td>NP ÷ 평균 심박. 높을수록 유산소 효율↑.</td></tr>
+              <tr><td><strong>디커플링</strong></td><td>Decoupling</td><td>후반 파워:심박 효율 저하율. 낮을수록 내구성↑.</td></tr>
+            </table></div>
+          <h3>임계 영역 · 존</h3>
+          <div class="card"><table>
+              <tr><th>용어</th><th>영문</th><th>설명</th></tr>
+              <tr><td><strong>스위트 스팟</strong></td><td>Sweet Spot</td><td>FTP 83~94%. 피로 대비 효율이 좋은 체력 향상 구간.</td></tr>
+              <tr><td><strong>역치</strong></td><td>Threshold</td><td>FTP 95~105%. 약 1시간 지속 한계 부근 강도.</td></tr>
+              <tr><td><strong>최대산소섭취</strong></td><td>VO2max</td><td>FTP 106~120%. 심폐 능력을 자극하는 고강도.</td></tr>
+              <tr><td><strong>무산소</strong></td><td>Anaerobic</td><td>FTP 120% 초과. 단시간 전력 구간.</td></tr>
+              <tr><td><strong>강도 존</strong></td><td></td><td>파워/심박을 강도 구간으로 나눈 분포. 존마다 다른 생리적 자극을 줍니다.</td></tr>
+            </table></div>
+          <h3>에너지 대사</h3>
+          <div class="card"><table>
+              <tr><th>용어</th><th>영문</th><th>설명</th></tr>
+              <tr><td><strong>FATMAX</strong></td><td></td><td>지방 산화 속도가 최대가 되는 강도.</td></tr>
+              <tr><td><strong>에너지 대사</strong></td><td></td><td>운동 중 지방·탄수 연소 비율 추정. RER(호흡교환율) 기반 집단 평균값.</td></tr>
+            </table></div>
+          <h3>운동 데이터</h3>
+          <div class="card"><table>
+              <tr><th>용어</th><th>영문</th><th>설명</th></tr>
+              <tr><td><strong>거리</strong></td><td></td><td>총 이동 거리.</td></tr>
+              <tr><td><strong>고도 상승</strong></td><td></td><td>누적 상승 고도의 합.</td></tr>
+              <tr><td><strong>평균 속도</strong></td><td></td><td>전체 평균 이동 속도.</td></tr>
+              <tr><td><strong>최대 속도</strong></td><td></td><td>기록된 최고 속도.</td></tr>
+              <tr><td><strong>평균 케이던스</strong></td><td></td><td>분당 평균 페달 회전수(rpm).</td></tr>
+              <tr><td><strong>최대 케이던스</strong></td><td></td><td>분당 최고 페달 회전수(rpm).</td></tr>
+              <tr><td><strong>칼로리</strong></td><td></td><td>추정 소비 열량(kcal).</td></tr>
+            </table></div>
+      </section>
+      <nav class="gb-prevnext"><a class="pn-prev" href="ch10-settings.html"><div class="pn-label">← 이전</div><div class="pn-title">10. 설정</div></a><a class="pn-next" href="index.html"><div class="pn-label">→</div><div class="pn-title">목차로</div></a></nav>
+    </main>
+  </div>
+</div>
+<script src="manual.js"></script>
+</body>
+</html>

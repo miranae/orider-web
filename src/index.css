@@ -1,0 +1,310 @@
+/* Pretendard / JetBrains Mono 는 web/index.html 의 <link> 로 직접 로드.
+ * CSS @import 는 부모 CSS 파싱을 차단하는 직렬 요청 — index.html link 가 빠름. */
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@theme {
+  --color-bg-0: var(--bg-0);
+  --color-bg-1: var(--bg-1);
+  --color-bg-2: var(--bg-2);
+  --color-bg-3: var(--bg-3);
+  --color-bg-4: var(--bg-4);
+  --color-ink-0: var(--ink-0);
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-primary: var(--lime);
+  --color-accent: var(--aqua);
+  --color-warning: var(--amber);
+  --color-danger: var(--rose);
+  --color-brand-bike: var(--aqua);
+  --color-brand-run: var(--amber);
+  --color-brand-swim: var(--lime);
+
+  /* 폰트 크기 ramp — OriderThemeProvider 가 <html> 에 주입하는 --fs-* 토큰에 매핑.
+   * 표준 text-xs/sm/... 유틸이 디자인 시스템 토큰을 쓰도록 등록 (런타임 테마 교체 추종). */
+  --text-xs: var(--fs-xs);
+  --text-sm: var(--fs-sm);
+  --text-base: var(--fs-base);
+  --text-md: var(--fs-md);
+  --text-lg: var(--fs-lg);
+  --text-xl: var(--fs-xl);
+  --text-2xl: var(--fs-2xl);
+  --text-3xl: var(--fs-3xl);
+}
+
+body {
+  margin: 0;
+  font-family:
+    "Pretendard Variable", Pretendard,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-0);
+  color: var(--ink-1);
+}
+
+/* Page transition */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-in {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* Toast animation */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.25s ease-out;
+}
+
+.animate-toast-out {
+  animation: toast-out 0.2s ease-in forwards;
+}
+
+/* O-Rider Redesign — Light tokens (default) */
+:root {
+  --bg-0: oklch(0.985 0.003 90);
+  --bg-1: oklch(1.000 0.000 0);
+  --bg-2: oklch(0.965 0.004 90);
+  --bg-3: oklch(0.935 0.005 90);
+  --bg-4: oklch(0.895 0.006 90);
+  --line: oklch(0.860 0.006 90);
+  --line-soft: oklch(0.915 0.005 90);
+  --ink-0: oklch(0.18 0.010 240);
+  --ink-1: oklch(0.28 0.010 240);
+  --ink-2: oklch(0.45 0.010 240);
+  --ink-3: oklch(0.55 0.009 240);
+  --ink-4: oklch(0.65 0.008 240);
+  /* 브랜드 accent(청록) 정본 토큰. --lime 은 deprecated 별칭 — 신규 코드는 --accent 사용. */
+  --accent: oklch(0.56 0.115 192);
+  --lime: var(--accent);
+  --lime-dim: oklch(0.70 0.10 192);
+  --strava: #FC4C02; /* Strava 공식 오렌지 — 브랜드 청록과 무관, 모드 공통 */
+  --aqua: oklch(0.55 0.13 210);
+  --aqua-dim: oklch(0.72 0.10 210);
+  --amber: oklch(0.66 0.15 75);
+  --rose: oklch(0.58 0.17 20);
+  --violet: oklch(0.55 0.16 285);
+  --primary-fg: oklch(0.99 0.005 90);
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* 운동 목표 — 피드백 상태 */
+  --feas-easy: var(--lime);
+  --feas-on-track: var(--lime);
+  --feas-stretch: var(--amber);
+  --feas-risky: var(--rose);
+  --accent-soft-bg: color-mix(in oklch, var(--lime) 8%, var(--bg-2));
+  --accent-soft-border: color-mix(in oklch, var(--lime) 25%, var(--line-soft));
+
+  /* SVG/Chart 그리드 색 — 라이트는 검정 알파, 다크는 흰색 알파로 오버라이드 */
+  --grid-soft: rgba(0, 0, 0, 0.05);
+  --grid-axis: rgba(0, 0, 0, 0.18);
+  --shadow-sm: 0 1px 2px rgba(20,40,40,.05);
+  --shadow-md: 0 3px 12px rgba(20,40,40,.08);
+  --shadow-lg: 0 10px 28px rgba(20,40,40,.12);
+
+  /* 간격 스케일 — 4/8/12/16/20/24/32. 인라인 style 대신 점진 치환 대상. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* 피드 지도 썸네일 가로세로비 — 데스크톱(ActivityCard)·모바일(MobileFeedPage) 단일 진실원.
+     비율 조정은 여기 한 줄만 수정. (이력: 2:1 → 2.5:1 → 2.8:1) */
+  --feed-thumb-aspect: 14 / 5;
+
+  /* 타이포 스케일 */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 30px;
+
+  /* 운동존 컬러 — 사이클 존, 러닝/수영에도 공통 매핑 */
+  --zone-1: oklch(0.62 0.07 230);  /* 회복 */
+  --zone-2: oklch(0.62 0.12 170);  /* 지구력 */
+  --zone-3: oklch(0.65 0.16 130);  /* 템포 */
+  --zone-4: oklch(0.66 0.15 75);   /* 역치 */
+  --zone-5: oklch(0.58 0.17 20);   /* VO2+ */
+}
+
+/* O-Rider Redesign — Dark Professional tokens (override).
+ * 주의: 아래 두 블록(`:root[data-theme="dark"]`, `@media prefers-color-scheme: dark`)은
+ * 동일한 토큰 세트를 공유한다. 한쪽 수정 시 반드시 다른 쪽도 동기화할 것. */
+:root[data-theme="dark"] {
+  --bg-0: oklch(0.15 0.006 240);
+  --bg-1: oklch(0.185 0.007 240);
+  --bg-2: oklch(0.215 0.008 240);
+  --bg-3: oklch(0.255 0.009 240);
+  --bg-4: oklch(0.30 0.010 240);
+  --line: oklch(0.32 0.010 240);
+  --line-soft: oklch(0.26 0.009 240);
+  --ink-0: oklch(0.97 0.005 90);
+  --ink-1: oklch(0.88 0.006 90);
+  --ink-2: oklch(0.70 0.008 90);
+  --ink-3: oklch(0.55 0.009 90);
+  --ink-4: oklch(0.42 0.009 90);
+  --accent: oklch(0.80 0.115 192);
+  --lime: var(--accent);
+  --lime-dim: oklch(0.60 0.10 192);
+  --aqua: oklch(0.78 0.13 210);
+  --aqua-dim: oklch(0.55 0.10 210);
+  --amber: oklch(0.80 0.14 75);
+  --rose: oklch(0.72 0.16 20);
+  --violet: oklch(0.70 0.14 285);
+  --primary-fg: oklch(0.18 0.03 192);
+
+  --feas-easy: var(--lime);
+  --feas-on-track: var(--lime);
+  --feas-stretch: var(--amber);
+  --feas-risky: var(--rose);
+  --accent-soft-bg: color-mix(in oklch, var(--lime) 8%, var(--bg-2));
+  --accent-soft-border: color-mix(in oklch, var(--lime) 25%, var(--line-soft));
+
+  --grid-soft: rgba(255, 255, 255, 0.06);
+  --grid-axis: rgba(255, 255, 255, 0.14);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 4px 14px rgba(0,0,0,.4);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,.5);
+
+  --zone-1: oklch(0.72 0.05 230);
+  --zone-2: oklch(0.74 0.10 170);
+  --zone-3: oklch(0.80 0.14 130);
+  --zone-4: oklch(0.80 0.14 75);
+  --zone-5: oklch(0.72 0.16 20);
+}
+
+/* OS 다크 모드 — 사용자가 명시적 라이트 선택을 안 한 경우만 적용.
+ * 위 :root[data-theme="dark"] 블록과 토큰을 동기화 유지. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg-0: oklch(0.15 0.006 240);
+    --bg-1: oklch(0.185 0.007 240);
+    --bg-2: oklch(0.215 0.008 240);
+    --bg-3: oklch(0.255 0.009 240);
+    --bg-4: oklch(0.30 0.010 240);
+    --line: oklch(0.32 0.010 240);
+    --line-soft: oklch(0.26 0.009 240);
+    --ink-0: oklch(0.97 0.005 90);
+    --ink-1: oklch(0.88 0.006 90);
+    --ink-2: oklch(0.70 0.008 90);
+    --ink-3: oklch(0.55 0.009 90);
+    --ink-4: oklch(0.42 0.009 90);
+    --accent: oklch(0.80 0.115 192);
+    --lime: var(--accent);
+    --lime-dim: oklch(0.60 0.10 192);
+    --aqua: oklch(0.78 0.13 210);
+    --aqua-dim: oklch(0.55 0.10 210);
+    --amber: oklch(0.80 0.14 75);
+    --rose: oklch(0.72 0.16 20);
+    --violet: oklch(0.70 0.14 285);
+    --primary-fg: oklch(0.18 0.03 192);
+
+    --feas-easy: var(--lime);
+    --feas-on-track: var(--lime);
+    --feas-stretch: var(--amber);
+    --feas-risky: var(--rose);
+    --accent-soft-bg: color-mix(in oklch, var(--lime) 8%, var(--bg-2));
+    --accent-soft-border: color-mix(in oklch, var(--lime) 25%, var(--line-soft));
+
+    --grid-soft: rgba(255, 255, 255, 0.06);
+    --grid-axis: rgba(255, 255, 255, 0.14);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow-md: 0 4px 14px rgba(0,0,0,.4);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,.5);
+
+    --zone-1: oklch(0.72 0.05 230);
+    --zone-2: oklch(0.74 0.10 170);
+    --zone-3: oklch(0.80 0.14 130);
+    --zone-4: oklch(0.80 0.14 75);
+    --zone-5: oklch(0.72 0.16 20);
+  }
+}
+
+/* 레거시 타이포 유틸 (.mono / .eyebrow / .num / .num-md / .num-lg / .num-xl / .unit) —
+ * 폐기됨 (2026-05-25). 모든 사용처가 <Text variant="..."> 로 마이그레이션 완료.
+ * 정의는 src/theme/components/components.css 의 .ds-text--* 에서 관리. */
+
+/* rd-btn / rd-card / rd-chip — 폐기됨 (2026-05-25).
+ * 모든 사용처가 디자인 시스템 컴포넌트(<Button>, <Card>, <Chip>) 또는
+ * ds-* 클래스 (buttonClass() 헬퍼 경유) 로 마이그레이션 완료.
+ * 정의는 src/theme/components/components.css 의 ds-* 로 이전. */
+
+@keyframes rd-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes rd-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes rd-fade-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 키보드 포커스 링 — 마우스 포커스에는 표시되지 않고 Tab/화살표 키에만 노출 */
+:where(button, a, [role="tab"], [role="button"], input, textarea, select):focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* Mapbox 로고 숨김 */
+.mapboxgl-ctrl-logo { display: none !important; }
+
+/* 전역 스크롤바 — 토큰 기반, 라이트/다크 자동 적응 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-0); }
+::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 10px; border: 2px solid var(--bg-0); }
+::-webkit-scrollbar-thumb:hover { background: var(--bg-4); }
+:root { scrollbar-color: var(--bg-3) var(--bg-0); scrollbar-width: thin; }
+
+/* Redesign bar chart */
+.bar-track { display: flex; align-items: flex-end; gap: 3px; }
+.bar { flex: 1; background: var(--lime-dim); border-radius: 1px; transition: background .15s; min-width: 4px; }
+.bar--current { background: var(--lime); }
+.bar:hover { background: var(--lime); }

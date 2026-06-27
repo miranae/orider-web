@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>18. 이벤트 (대회 모드) - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">18. 이벤트 (대회 모드)</div>
+  <div class="nav-right"><a href="ch17-faq.html">이전</a></div>
+</nav>
+
+<div class="container">
+<section id="s18">
+  <h2>18. 이벤트 (대회 모드)</h2>
+  <p>그룹 단위로 진행하는 조직 라이딩(대회·번개·브레베)을 위한 기능입니다. 그룹에 진행 중인 이벤트가 있으면 라이딩을 시작할 때 자동으로 참가되며, 실시간 순위와 참가자 현황을 함께 볼 수 있습니다.</p>
+
+  <div class="card">
+    <h3 id="s18-1">18.1 이벤트 참가</h3>
+    <ul>
+      <li>이벤트는 그룹 단위로 진행됩니다. 내가 속한 그룹에 <strong>진행 중(LIVE) 이벤트</strong>가 있으면, 라이딩을 시작할 때 자동으로 참가됩니다.</li>
+      <li>별도 참가 버튼은 없습니다 — 그룹 멤버이고 이벤트가 활성화되어 있으면 주행 화면에 이벤트 UI가 나타납니다.</li>
+      <li>그룹에 들어가는 방법은 <a href="ch08-social.html#s8-2" style="color:var(--primary)">8.2 그룹 라이딩</a>을 참고하세요.</li>
+    </ul>
+    <div class="info">이벤트가 없을 때는 평소처럼 일반 주행으로 동작합니다. 이벤트 UI는 활성 이벤트가 있을 때만 표시됩니다.</div>
+  </div>
+
+  <div class="card">
+    <h3 id="s18-2">18.2 리더보드 (실시간 순위)</h3>
+    <p>참가자 전원이 실시간 순위를 볼 수 있습니다.</p>
+    <ul>
+      <li><strong>순위</strong> — 주행 거리가 많은 순으로 정렬됩니다. 1~3위는 금/은/동 색으로 강조됩니다.</li>
+      <li><strong>이름 · 거리 · 속도</strong> — 각 참가자의 실시간 거리(km)와 속도(km/h)가 표시됩니다.</li>
+      <li><strong>상태 표시 점</strong> — 참가자별 상태를 색으로 나타냅니다.
+        <table>
+          <tr><th>색</th><th>상태</th></tr>
+          <tr><td>파랑</td><td>주행 중</td></tr>
+          <tr><td>회색</td><td>정지</td></tr>
+          <tr><td>빨강</td><td>SOS (도움 요청)</td></tr>
+          <tr><td>주황</td><td>경로 이탈</td></tr>
+          <tr><td>보라</td><td>신호 끊김</td></tr>
+        </table>
+      </li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3 id="s18-3">18.3 리더 · 스탭 대시보드</h3>
+    <p>이벤트 주최자(리더) 또는 운영진(스탭)에게만 제공되는 관리 화면입니다. 주행 화면 상단의 <strong>참가자 현황 버튼</strong>(사람 아이콘)으로 엽니다.</p>
+    <ul>
+      <li><strong>상태별 인원 집계</strong> — 주행 중 / 정지 / SOS / 경로 이탈 / 신호 끊김 인원을 한눈에 표시.</li>
+      <li><strong>주의 필요 멤버 강조</strong> — SOS·경로 이탈·신호 끊김 상태의 참가자를 목록 맨 위에 빨갛게 강조해 즉시 대응할 수 있습니다.</li>
+      <li><strong>전체 참가자 목록</strong> — 각 참가자의 상태·속도·거리.</li>
+      <li><strong>이벤트 종료</strong> — 리더가 이벤트를 마치면 모든 참가자에게 요약이 표시됩니다.</li>
+    </ul>
+    <div class="tip">리더는 위급 상태(SOS 등) 참가자에게 빠르게 대응할 수 있도록 이 화면을 수시로 확인하세요.</div>
+  </div>
+
+  <div class="card">
+    <h3 id="s18-4">18.4 중도 포기 (DNF)</h3>
+    <p>이벤트 도중 라이딩을 종료(정지)하면 미완주(DNF)로 처리됩니다. 주행 화면의 <strong>DNF 버튼</strong>(깃발 아이콘)으로 명시적으로 중도 포기를 선언할 수도 있습니다. DNF 인원은 이벤트 요약에 별도로 집계됩니다.</p>
+  </div>
+
+  <div class="card">
+    <h3 id="s18-5">18.5 QR 체크인 (운영진)</h3>
+    <p>운영진이 출발 전·도착 후 참가자 신원을 확인하는 기능입니다.</p>
+    <ul>
+      <li>카메라로 참가자의 <strong>QR 코드</strong>를 스캔하거나, <strong>배번(번호)을 직접 입력</strong>해 체크인합니다.</li>
+      <li>체크인 결과(이름·배번·카테고리)와 성공/실패(이미 체크인됨, 참가자 없음 등)가 즉시 표시됩니다.</li>
+      <li>상단에 누적 체크인 인원이 실시간으로 카운트됩니다.</li>
+    </ul>
+    <div class="info">QR 체크인은 카메라 권한이 필요합니다.</div>
+  </div>
+
+  <div class="card">
+    <h3 id="s18-6">18.6 이벤트 요약</h3>
+    <p>이벤트가 종료되면 요약 화면이 표시됩니다.</p>
+    <ul>
+      <li>총 참가자 수 · 완주 수 · 미완주(DNF) 수</li>
+      <li>완주자 기준 최단 / 최장 시간</li>
+    </ul>
+  </div>
+
+  <h3 id="s18-7">18.7 참가자 vs 리더/스탭</h3>
+  <div class="card">
+    <table>
+      <tr><th>기능</th><th>일반 참가자</th><th>리더/스탭</th></tr>
+      <tr><td>리더보드 보기</td><td>○</td><td>○</td></tr>
+      <tr><td>참가자 현황 대시보드</td><td>—</td><td>○</td></tr>
+      <tr><td>이벤트 종료</td><td>—</td><td>○</td></tr>
+      <tr><td>QR 체크인</td><td>—</td><td>○</td></tr>
+    </table>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch17-faq.html">&larr; 이전</a></div>
+    <div class="nav-title">18. 이벤트 (대회 모드)</div>
+    <div><a href="index.html">목차 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3. 데이터 필드 - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">3. 데이터 필드</div>
+  <div class="nav-right"><a href="ch02-ride.html">이전</a><span class="nav-sep">|</span><a href="ch04-sensors.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s3">
+  <h2>3. 데이터 필드</h2>
+  <p>O-Rider는 <strong>80개 이상</strong>의 데이터 필드를 제공합니다. 연결된 센서와 라이딩 스타일에 맞는 필드를 골라 화면에 배치하세요. 아래에서 카테고리별로 어떤 필드가 있는지, 그리고 어떤 상황에서 유용한지 소개합니다.</p>
+
+  <h3 id="s3-1">3.1 전체 데이터 필드 목록</h3>
+
+  <h4>속도 — 현재 페이스와 라이딩 강도 파악</h4>
+  <p>가장 기본적인 정보입니다. "평균 속도"로 오늘의 전체 페이스를 확인하고, "속도 vs 평균"으로 지금 평균보다 빠른지 느린지 한눈에 알 수 있습니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>속도</td><td>km/h</td><td>현재 속도</td></tr>
+    <tr><td>평균 속도</td><td>km/h</td><td>전체 평균 속도</td></tr>
+    <tr><td>최고 속도</td><td>km/h</td><td>최고 기록 속도</td></tr>
+    <tr><td>5분 평균 속도</td><td>km/h</td><td>최근 5분간 평균 속도</td></tr>
+    <tr><td>속도 vs 평균</td><td>km/h</td><td>현재 속도와 평균 속도의 차이</td></tr>
+    <tr><td>마지막 랩 평균 속도</td><td>km/h</td><td>직전 랩의 평균 속도</td></tr>
+  </table>
+
+  <h4>심박수 — 운동 강도 관리 <span class="tag tag-sensor">센서 필요</span></h4>
+  <p>심박 센서를 연결하면 실시간 심박수와 심박 존을 확인할 수 있습니다. 지구력 훈련이나 장거리 라이딩에서 오버페이스를 방지하는 데 핵심적인 지표입니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>심박수</td><td>bpm</td><td>현재 심박수</td></tr>
+    <tr><td>평균 심박수</td><td>bpm</td><td>전체 평균</td></tr>
+    <tr><td>최고 심박수</td><td>bpm</td><td>최고 기록</td></tr>
+    <tr><td>심박 존</td><td>--</td><td>현재 심박 존 (1~5)</td></tr>
+  </table>
+
+  <h4>케이던스 — 효율적인 페달링 <span class="tag tag-sensor">센서 필요</span></h4>
+  <p>케이던스(분당 회전수)는 페달링 효율의 핵심 지표입니다. 일반적으로 80~100rpm을 유지하면 무릎 부담이 적고 효율적입니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>케이던스</td><td>rpm</td><td>현재 케이던스</td></tr>
+    <tr><td>평균 케이던스</td><td>rpm</td><td>전체 평균</td></tr>
+    <tr><td>최고 케이던스</td><td>rpm</td><td>최고 기록</td></tr>
+    <tr><td>케이던스 존</td><td>--</td><td>현재 케이던스 존</td></tr>
+    <tr><td>크랭크 케이던스</td><td>rpm</td><td>파워미터 크랭크 기반 케이던스</td></tr>
+  </table>
+
+  <h4>파워 — 정밀한 훈련 관리 <span class="tag tag-power">파워미터 필요</span></h4>
+  <p>파워미터가 있다면 가장 객관적인 운동 강도 지표를 활용할 수 있습니다. NP, IF, TSS는 훈련 계획에, W'bal은 레이스 전략에 유용합니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>파워</td><td>W</td><td>현재 파워</td></tr>
+    <tr><td>평균 파워</td><td>W</td><td>전체 평균</td></tr>
+    <tr><td>최고 파워</td><td>W</td><td>최고 기록</td></tr>
+    <tr><td>가상 파워</td><td>W</td><td>속도/경사 기반 추정 파워 (파워미터 없어도 가능)</td></tr>
+    <tr><td>3초 파워</td><td>W</td><td>3초 평균 파워</td></tr>
+    <tr><td>10초 파워</td><td>W</td><td>10초 평균 파워</td></tr>
+    <tr><td>30초 파워</td><td>W</td><td>30초 평균 파워</td></tr>
+    <tr><td>NP (Normalized Power)</td><td>W</td><td>정규화 파워</td></tr>
+    <tr><td>IF (Intensity Factor)</td><td>--</td><td>강도 계수 (NP/FTP)</td></tr>
+    <tr><td>TSS (Training Stress)</td><td>--</td><td>훈련 스트레스 점수</td></tr>
+    <tr><td>총 에너지</td><td>kJ</td><td>누적 에너지 소비</td></tr>
+    <tr><td>W'bal</td><td>kJ</td><td>남은 무산소 에너지</td></tr>
+    <tr><td>W'bal %</td><td>%</td><td>남은 무산소 에너지 비율</td></tr>
+    <tr><td>페달 밸런스</td><td>%</td><td>좌/우 페달 파워 비율</td></tr>
+    <tr><td>파워 존</td><td>--</td><td>현재 파워 존</td></tr>
+    <tr><td>피크 토크 각도</td><td>deg</td><td>최대 토크 발생 각도</td></tr>
+    <tr><td>파워 페이즈</td><td>deg</td><td>파워 발생 구간 (시작~끝)</td></tr>
+    <tr><td>파워 페이즈 아크</td><td>deg</td><td>파워 페이즈 아크 표시</td></tr>
+    <tr><td>토크 효율</td><td>%</td><td>페달링 효율</td></tr>
+    <tr><td>최대 힘</td><td>N</td><td>최대 페달 힘</td></tr>
+  </table>
+  <div class="tip">"가상 파워"는 파워미터가 없어도 속도와 경사로부터 추정합니다. 정확도는 떨어지지만 훈련 강도의 참고 지표로 충분합니다. 설정 → 주행에서 라이더 체중/자전거 무게를 정확히 입력하면 더 정확해집니다.</div>
+
+  <h4>거리 · 시간 — 기본 주행 정보</h4>
+  <p>라이딩의 가장 기본적인 정보인 거리와 시간입니다. ETA는 경로를 불러온 경우 도착 예상 시각을 보여줍니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>거리</td><td>km</td><td>총 주행 거리</td></tr>
+    <tr><td>시간</td><td>hh:mm:ss</td><td>주행 시간 (일시정지 제외)</td></tr>
+    <tr><td>경과 시간</td><td>hh:mm:ss</td><td>전체 경과 시간 (일시정지 포함)</td></tr>
+    <tr><td>정지 시간</td><td>hh:mm:ss</td><td>정지/일시정지 누적 시간</td></tr>
+    <tr><td>시계</td><td>--</td><td>현재 시각</td></tr>
+    <tr><td>칼로리</td><td>kcal</td><td>소비 칼로리 추정치</td></tr>
+    <tr><td>ETA</td><td>--</td><td>경로 도착 예상 시각 (경로 로드 시)</td></tr>
+  </table>
+
+  <h4>랩 — 구간별 비교</h4>
+  <p>랩을 사용하면 구간별 성과를 비교할 수 있습니다. 같은 코스를 반복해서 탈 때 구간 시간의 변화를 추적하는 데 유용합니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>랩 번호</td><td>--</td><td>현재 랩 번호</td></tr>
+    <tr><td>랩 거리</td><td>km</td><td>현재 랩 주행 거리</td></tr>
+    <tr><td>랩 시간</td><td>hh:mm:ss</td><td>현재 랩 경과 시간</td></tr>
+    <tr><td>마지막 랩 시간</td><td>hh:mm:ss</td><td>직전 랩 시간</td></tr>
+  </table>
+
+  <h4>고도 · 경사 — 업힐 라이딩의 동반자</h4>
+  <p>오르막이 많은 코스를 달린다면 경사도와 고도 정보가 페이스 조절에 큰 도움이 됩니다. VAM(시간당 수직 상승 속도)은 클라이밍 능력의 척도입니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>고도</td><td>m</td><td>현재 해발 고도</td></tr>
+    <tr><td>경사도</td><td>%</td><td>현재 도로 경사</td></tr>
+    <tr><td>총 상승</td><td>m</td><td>누적 상승 고도</td></tr>
+    <tr><td>총 하강</td><td>m</td><td>누적 하강 고도</td></tr>
+    <tr><td>VAM</td><td>m/h</td><td>수직 상승 속도</td></tr>
+  </table>
+
+  <h4>ClimbPro (오르막) <span class="tag tag-climb">경로 필요</span></h4>
+  <p>경로를 불러온 상태에서 오르막에 진입하면 활성화되는 필드들입니다. 남은 거리와 경사를 실시간으로 확인하며 페이스를 조절하세요.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>오르막 이름</td><td>--</td><td>현재 오르막 이름</td></tr>
+    <tr><td>오르막 카테고리</td><td>--</td><td>HC, Cat 1~4</td></tr>
+    <tr><td>오르막 진행률</td><td>%</td><td>현재 오르막 진행 비율</td></tr>
+    <tr><td>남은 거리</td><td>m</td><td>오르막 남은 거리</td></tr>
+    <tr><td>남은 고도</td><td>m</td><td>오르막 남은 상승 고도</td></tr>
+    <tr><td>오르막 경사</td><td>%</td><td>현재 구간 경사도</td></tr>
+    <tr><td>다음 오르막 거리</td><td>km</td><td>다음 오르막까지 거리</td></tr>
+    <tr><td>다음 오르막 이름</td><td>--</td><td>다음 오르막 이름</td></tr>
+  </table>
+
+  <h4>경로 — 남은 거리 파악</h4>
+  <p>경로를 불러온 상태에서 목적지까지 얼마나 남았는지 확인할 수 있습니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>남은 거리</td><td>km</td><td>경로 남은 거리</td></tr>
+    <tr><td>남은 상승</td><td>m</td><td>경로 남은 상승 고도</td></tr>
+  </table>
+
+  <h4>기어 (전자변속기) <span class="tag tag-sensor">Di2/AXS 필요</span></h4>
+  <p>Shimano Di2 또는 SRAM AXS 전자변속기를 사용한다면 현재 기어 위치와 배터리를 실시간으로 확인할 수 있습니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>기어</td><td>--</td><td>현재 기어 위치 (앞/뒤)</td></tr>
+    <tr><td>기어 비</td><td>--</td><td>앞/뒤 기어 치수 비율</td></tr>
+    <tr><td>기어 배터리</td><td>%</td><td>전자변속기 배터리 잔량</td></tr>
+    <tr><td>변속 횟수</td><td>--</td><td>누적 변속 횟수</td></tr>
+    <tr><td>크로스 체인</td><td>--</td><td>크로스 체인 경고 표시</td></tr>
+  </table>
+
+  <h4>레이더 — 후방 안전 확보 <span class="tag tag-sensor">레이더 필요</span></h4>
+  <p>Garmin Varia 같은 후방 레이더를 연결하면 뒤에서 접근하는 차량을 감지하여 알려줍니다. 도로 위의 안전을 위한 필수 장비입니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>레이더</td><td>--</td><td>레이더 종합 표시</td></tr>
+    <tr><td>위협 수준</td><td>--</td><td>현재 위협 수준</td></tr>
+    <tr><td>차량 수</td><td>--</td><td>감지된 차량 수</td></tr>
+    <tr><td>최근접 거리</td><td>m</td><td>가장 가까운 차량 거리</td></tr>
+    <tr><td>접근 속도</td><td>km/h</td><td>접근 차량 속도</td></tr>
+    <tr><td>총 차량 수</td><td>--</td><td>누적 감지 차량 수</td></tr>
+  </table>
+
+  <h4>액션캠 <span class="tag tag-actioncam">액션캠 필요</span></h4>
+  <p>GoPro나 DJI 액션캠을 연결하면 라이딩 중 녹화 제어와 사진 촬영이 가능합니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>배터리</td><td>%</td><td>액션캠 배터리 잔량</td></tr>
+    <tr><td>녹화 상태</td><td>--</td><td>현재 녹화 중 여부</td></tr>
+    <tr><td>모드</td><td>--</td><td>현재 촬영 모드</td></tr>
+    <tr><td>사진 촬영</td><td>--</td><td>사진 촬영 버튼</td></tr>
+    <tr><td>녹화 제어</td><td>--</td><td>녹화 시작/정지 버튼</td></tr>
+  </table>
+
+  <h4>날씨 — 라이딩 조건 파악 <span class="tag tag-weather">네트워크 필요</span></h4>
+  <p>현재 위치의 기상 정보를 자동으로 가져옵니다. 특히 풍향/풍속은 라이딩 전략에 직접적인 영향을 미칩니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>온도</td><td>deg C</td><td>현재 기온</td></tr>
+    <tr><td>풍속</td><td>m/s</td><td>현재 바람 속도</td></tr>
+    <tr><td>풍향</td><td>--</td><td>바람 방향 (N, NE, E, ...)</td></tr>
+    <tr><td>강수량</td><td>mm</td><td>현재 강수량</td></tr>
+    <tr><td>습도</td><td>%</td><td>상대 습도</td></tr>
+    <tr><td>날씨 코드</td><td>--</td><td>WMO 날씨 코드</td></tr>
+    <tr><td>일출</td><td>--</td><td>오늘 일출 시각</td></tr>
+    <tr><td>일몰</td><td>--</td><td>오늘 일몰 시각</td></tr>
+  </table>
+
+  <h4>시스템</h4>
+  <p>스마트폰 자체의 상태와 GPS 정보입니다.</p>
+  <table>
+    <tr><th>필드</th><th>단위</th><th>설명</th></tr>
+    <tr><td>폰 배터리</td><td>%</td><td>스마트폰 배터리 잔량</td></tr>
+    <tr><td>GPS 정확도</td><td>m</td><td>현재 GPS 오차 범위</td></tr>
+    <tr><td>방향</td><td>deg</td><td>현재 이동 방향 (0~360)</td></tr>
+  </table>
+
+  <h3 id="s3-2">3.2 레이아웃 에디터</h3>
+  <img src="screenshots/06_settings_layout.png" alt="레이아웃 에디터" class="screenshot">
+  <div class="card">
+    <p>설정 → 데이터 필드에서 데이터 화면의 레이아웃을 자유롭게 구성할 수 있습니다. 원하는 필드를 원하는 크기로 배치하여 나만의 사이클링 컴퓨터를 만드세요.</p>
+
+    <h4>레이아웃 편집 방법</h4>
+    <ol>
+      <li>설정 → 데이터 필드로 이동합니다</li>
+      <li>편집할 셀을 탭하면 필드 선택 화면이 표시됩니다 (3열, 카테고리별 그룹핑, 가나다순 정렬)</li>
+      <li>원하는 필드를 선택합니다</li>
+      <li>셀 크기(colSpan/rowSpan)를 조절하여 중요한 데이터를 크게 표시할 수 있습니다</li>
+      <li>필드 교체 시 기존 셀 크기가 유지됩니다</li>
+    </ol>
+
+    <h4>주요 사양</h4>
+    <ul>
+      <li><strong>4열 그리드</strong> 기반, 최대 12행까지 확장 가능</li>
+      <li>최대 <strong>5개 데이터 페이지</strong> 구성 가능</li>
+    </ul>
+    <div class="tip">기본 프리셋은 투어링용 3페이지 구성입니다. 처음에는 그대로 사용하다가 필요에 따라 조금씩 조정해 보세요.</div>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch02-ride.html">&larr; 이전</a></div>
+    <div class="nav-title">3. 데이터 필드</div>
+    <div><a href="ch04-sensors.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>O-Rider</title>
+
+    <!-- Firebase Auth/Firestore 오리진 조기 연결 (perf, 2026-06) — 첫 로드의 auth 복원 체인
+         (securetoken/identitytoolkit) + Firestore listen 이 critical path 라 DNS/TLS 핸드셰이크를
+         미리 따 ~200ms 단축. crossorigin 필수(인증 fetch 는 CORS). -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="https://securetoken.googleapis.com" />
+    <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
+
+    <!-- 폰트는 same-origin self-host (web/src/main.tsx 가 pretendard + @fontsource/jetbrains-mono
+         CSS 를 번들). 옛 jsdelivr/Google Fonts <link>(3rd-party, 렌더차단)는 제거 — 모바일
+         Slow 4G 에서 교차출처 DNS/TLS 연결 비용(FCP/LCP)을 없앤다. -->
+
+    <!-- 로딩 셸 스타일 (perf, 2026-06): JS 번들 다운로드+파싱(+i18n)이 끝나기 전 빈 화면
+         대신 앱 구조와 비슷한 스켈레톤을 첫 페인트(FCP)에 노출. React 마운트 시 #root
+         내용이 교체되며 사라진다. 외부 CSS 변수에 의존하지 않도록 색을 직접 지정. -->
+    <style>
+      #app-loading-shell {
+        min-height: 100vh;
+        background: #ffffff;
+        color: #1f2937;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      html[data-theme="dark"] #app-loading-shell { background: #0b0d10; color: #e5e7eb; }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) #app-loading-shell { background: #0b0d10; color: #e5e7eb; }
+      }
+      #app-loading-shell .shell-top {
+        height: 56px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 16px;
+      }
+      #app-loading-shell .shell-brand {
+        width: 132px;
+        height: 18px;
+        border-radius: 6px;
+        background: linear-gradient(90deg, rgba(249,115,22,.25), rgba(132,204,22,.25));
+      }
+      #app-loading-shell .shell-nav {
+        display: flex;
+        gap: 10px;
+        flex: 1;
+      }
+      #app-loading-shell .shell-pill,
+      #app-loading-shell .shell-block {
+        background: rgba(148, 163, 184, 0.18);
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+      }
+      html[data-theme="dark"] #app-loading-shell .shell-pill,
+      html[data-theme="dark"] #app-loading-shell .shell-block { background: rgba(148, 163, 184, 0.14); }
+      #app-loading-shell .shell-pill { width: 72px; height: 12px; }
+      #app-loading-shell .shell-main {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 18px 16px 80px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 18px;
+      }
+      #app-loading-shell .shell-hero { height: 112px; }
+      #app-loading-shell .shell-kpis {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+      }
+      #app-loading-shell .shell-kpi { height: 96px; }
+      #app-loading-shell .shell-feed { height: 360px; }
+      #app-loading-shell .shell-side-a { height: 168px; margin-bottom: 14px; }
+      #app-loading-shell .shell-side-b { height: 280px; }
+      #app-loading-shell .shell-block::after,
+      #app-loading-shell .shell-pill::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+        animation: app-shell-shimmer 1.4s ease-in-out infinite;
+      }
+      html[data-theme="dark"] #app-loading-shell .shell-block::after,
+      html[data-theme="dark"] #app-loading-shell .shell-pill::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent); }
+      @keyframes app-shell-shimmer { to { transform: translateX(100%); } }
+      @media (max-width: 900px) {
+        #app-loading-shell .shell-nav { display: none; }
+        #app-loading-shell .shell-main { grid-template-columns: 1fr; padding: 12px 12px 70px; }
+        #app-loading-shell .shell-side { display: none; }
+        #app-loading-shell .shell-kpis { grid-template-columns: 1fr 1fr; }
+        #app-loading-shell .shell-feed { height: 420px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-loading-shell .shell-block::after,
+        #app-loading-shell .shell-pill::after { animation: none; }
+      }
+    </style>
+
+    <script>
+      // FOUC 방지: 저장된 테마(있으면) 또는 OS prefers-color-scheme을 즉시 html[data-theme]로 적용
+      (function () {
+        try {
+          var t = localStorage.getItem("orider.theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.setAttribute("data-theme", t);
+          } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            document.documentElement.setAttribute("data-theme", "dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <!-- 로딩 셸 — React createRoot().render() 가 #root 를 덮어쓰면 자동 제거된다. -->
+      <div id="app-loading-shell" role="status" aria-label="로딩 중">
+        <div class="shell-top">
+          <div class="shell-brand"></div>
+          <div class="shell-nav" aria-hidden="true">
+            <div class="shell-pill"></div>
+            <div class="shell-pill"></div>
+            <div class="shell-pill"></div>
+            <div class="shell-pill"></div>
+          </div>
+        </div>
+        <div class="shell-main" aria-hidden="true">
+          <section>
+            <div class="shell-block shell-hero"></div>
+            <div class="shell-kpis">
+              <div class="shell-block shell-kpi"></div>
+              <div class="shell-block shell-kpi"></div>
+              <div class="shell-block shell-kpi"></div>
+            </div>
+            <div class="shell-block shell-feed"></div>
+          </section>
+          <aside class="shell-side">
+            <div class="shell-block shell-side-a"></div>
+            <div class="shell-block shell-side-b"></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

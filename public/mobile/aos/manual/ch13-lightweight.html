@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13. 경량 모드 - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">13. 경량 모드</div>
+  <div class="nav-right"><a href="ch12-actioncam.html">이전</a><span class="nav-sep">|</span><a href="ch14-alerts.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s13">
+  <h2>13. 경량 모드 (그룹 전용)</h2>
+  <p>장거리 그룹 라이딩에서 배터리가 걱정될 때 사용하는 모드입니다. 화면에 최소한의 정보(지도와 커뮤니케이션 바)만 표시하고, GPS 업데이트 빈도를 줄여 배터리와 데이터를 절약합니다. 동시에 SOS, 핑, 프리셋 메시지로 그룹 멤버와 소통할 수 있습니다.</p>
+  <div class="card">
+    <h4>활성화 방법</h4>
+    <ol>
+      <li>먼저 그룹에 참여합니다 (<a href="ch08-social.html#s8-2" style="color:var(--primary)">8.2 그룹 라이딩</a> 참고)</li>
+      <li>설정 → 고급 → 경량 모드에서 토글을 켭니다</li>
+      <li>주행 화면이 최소 UI로 전환됩니다</li>
+    </ol>
+    <div class="info">그룹에 참여하지 않은 상태에서는 경량 모드를 활성화할 수 없습니다.</div>
+
+    <h4>GPS 간격 자동 조절</h4>
+    <p>배터리를 절약하기 위해 상황에 따라 GPS 업데이트 간격이 자동 조절됩니다.</p>
+    <table>
+      <tr><th>상태</th><th>GPS 간격</th></tr>
+      <tr><td>화면 꺼짐 + 뷰어 없음</td><td>10초 (배터리 절약)</td></tr>
+      <tr><td>화면 켜짐 또는 뷰어 있음</td><td>2초 (높은 정확도)</td></tr>
+    </table>
+
+    <h4>경량 모드에서 표시되는 화면</h4>
+    <ul>
+      <li><strong>최소 UI</strong> — 지도와 커뮤니케이션 바만 표시</li>
+      <li><strong>커뮤니케이션 바</strong> — SOS, 핑, 프리셋 메시지 전송 가능</li>
+    </ul>
+
+    <div class="warn">그룹을 탈퇴하면 경량 모드가 자동으로 비활성화됩니다.</div>
+  </div>
+
+  <h3 id="s13-1">13.1 그룹 메시징</h3>
+  <div class="card">
+    <p>경량 모드가 활성화된 상태에서 화면 하단의 커뮤니케이션 바를 통해 사전 정의된 메시지를 그룹 멤버에게 전송할 수 있습니다. 라이딩 중 긴 문자를 타이핑할 필요 없이, 한 번의 탭으로 상황을 알릴 수 있습니다.</p>
+    <table>
+      <tr><th>유형</th><th>메시지</th><th>용도</th></tr>
+      <tr><td style="color:#FF5252"><strong>SOS</strong></td><td>긴급 구조 요청</td><td>2초 길게 누르기로 전송, 전원에게 경고 표시</td></tr>
+      <tr><td><strong>SOS 해제</strong></td><td>구조 요청 취소</td><td>SOS 전송 후 즉시 취소 가능</td></tr>
+      <tr><td><strong>핑</strong></td><td>위치 알림</td><td>현재 위치를 그룹에 알림</td></tr>
+      <tr><td><strong>정지</strong></td><td>멈춤 상태</td><td>잠시 정차 알림</td></tr>
+      <tr><td><strong>펑크</strong></td><td>타이어 펑크</td><td>펑크 수리 중 알림</td></tr>
+      <tr><td><strong>카페 대기</strong></td><td>카페에서 대기</td><td>휴식 장소 알림</td></tr>
+      <tr><td><strong>먼저 출발</strong></td><td>먼저 갈게요</td><td>선행 출발 알림</td></tr>
+    </table>
+    <div class="warn">쿨다운: SOS 10초, 핑/프리셋 5초. SOS 해제는 쿨다운 없이 즉시 전송 가능합니다.</div>
+    <div class="tip">긴 그룹 라이딩에서는 뒤처진 멤버가 "정지" 또는 "카페 대기"를 보내면 선두 그룹이 속도를 조절할 수 있어 편리합니다.</div>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch12-actioncam.html">&larr; 이전</a></div>
+    <div class="nav-title">13. 경량 모드</div>
+    <div><a href="ch14-alerts.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7. ClimbPro · PreClimb - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">7. ClimbPro · PreClimb</div>
+  <div class="nav-right"><a href="ch06-routes.html">이전</a><span class="nav-sep">|</span><a href="ch08-social.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s7">
+  <h2>7. ClimbPro (오르막 감지)</h2>
+  <p>긴 오르막에서 "정상까지 얼마나 남았지?"는 가장 절실한 궁금증입니다. ClimbPro는 경로 데이터를 분석하여 각 오르막의 진행 상황을 실시간으로 알려줍니다.</p>
+  <div class="card">
+    <h4>사용 방법</h4>
+    <ol>
+      <li>GPX 경로를 불러옵니다 (<a href="ch06-routes.html" style="color:var(--primary)">6. 경로</a> 참고)</li>
+      <li>경로에 오르막이 감지되면 주행 화면에 ClimbPro 페이지가 자동으로 추가됩니다</li>
+      <li>오르막에 진입하면 ClimbPro 페이지로 자동 전환되며, 자세한 정보가 표시됩니다</li>
+    </ol>
+
+    <h4>오르막 카테고리</h4>
+    <p>오르막은 거리와 경사에 따라 자동으로 분류됩니다. (점수 = 거리(m) x 평균경사(%))</p>
+    <table>
+      <tr><th>카테고리</th><th>점수</th><th>예시</th></tr>
+      <tr><td><strong>HC</strong> (Hors Categorie)</td><td>80,000 이상</td><td>극한 난이도 고개</td></tr>
+      <tr><td><strong>Cat 1</strong></td><td>64,000 ~ 80,000</td><td>장거리 급경사</td></tr>
+      <tr><td><strong>Cat 2</strong></td><td>32,000 ~ 64,000</td><td>중급 오르막</td></tr>
+      <tr><td><strong>Cat 3</strong></td><td>16,000 ~ 32,000</td><td>중간 오르막</td></tr>
+      <tr><td><strong>Cat 4</strong></td><td>8,000 ~ 16,000</td><td>짧은 오르막</td></tr>
+    </table>
+
+    <h4>ClimbPro 화면에 표시되는 정보</h4>
+    <ul>
+      <li>현재 오르막 이름 및 카테고리 (색상 구분)</li>
+      <li>진행률 (%) 및 남은 거리/고도</li>
+      <li>실시간 경사도 프로필 그래프</li>
+      <li>경사 구간별 색상 표시</li>
+      <li>다음 오르막까지의 거리</li>
+    </ul>
+    <div class="tip">데이터 화면에도 ClimbPro 필드를 배치할 수 있어서, 지도 화면을 보면서도 오르막 정보를 동시에 확인할 수 있습니다.</div>
+  </div>
+
+  <h3>7.2 PreClimb (자동 오르막 감지)</h3>
+  <div class="card">
+    <p>경로를 불러오지 않아도 괜찮습니다. <strong>PreClimb</strong>은 현재 위치와 이동 방향을 기반으로 서버에서 고도 데이터를 조회하여 전방의 오르막을 자동으로 감지합니다.</p>
+
+    <h4>ClimbPro vs PreClimb</h4>
+    <table>
+      <tr><th></th><th>ClimbPro</th><th>PreClimb</th></tr>
+      <tr><td><strong>경로 필요</strong></td><td>필수 (GPX)</td><td>불필요</td></tr>
+      <tr><td><strong>데이터 소스</strong></td><td>GPX 파일의 고도 데이터</td><td>서버 고도 API 실시간 조회</td></tr>
+      <tr><td><strong>감지 범위</strong></td><td>전체 경로</td><td>전방 약 5km</td></tr>
+      <tr><td><strong>오프라인</strong></td><td>가능</td><td>불가 (네트워크 필요)</td></tr>
+      <tr><td><strong>활성화 조건</strong></td><td>경로 불러오기</td><td>경로 없음 + 네트워크 연결</td></tr>
+    </table>
+
+    <h4>작동 방식</h4>
+    <ul>
+      <li>경로를 불러오지 않은 상태에서 주행을 시작하면 자동으로 활성화됩니다</li>
+      <li>주행 중 일정 거리(200~1,000m)마다 서버에 고도 프로필을 조회합니다</li>
+      <li>오르막이 감지되면 조회 간격이 짧아지고(200m), 평지에서는 간격이 넓어집니다(1,000m)</li>
+      <li>전방 최대 3개의 오르막 정보가 표시됩니다</li>
+      <li>오르막 시작 지점 200m 이내에 도달하면 자동으로 진행 상태가 표시됩니다</li>
+    </ul>
+
+    <div class="tip">계획 없이 자유롭게 달리더라도 PreClimb 덕분에 갑작스러운 오르막에 당황하지 않습니다. 네트워크만 연결되어 있으면 별도 설정 없이 자동으로 작동합니다.</div>
+    <div class="info">PreClimb은 네트워크가 필요합니다. 데이터 절약 설정에서 네트워크를 차단하면 작동하지 않습니다.</div>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch06-routes.html">&larr; 이전</a></div>
+    <div class="nav-title">7. ClimbPro · PreClimb</div>
+    <div><a href="ch08-social.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

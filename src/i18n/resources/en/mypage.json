@@ -1,0 +1,21 @@
+{
+  "loginRequired": "Sign in required.",
+  "defaultNickname": "Rider",
+  "stravaConnected": "Strava connected",
+  "edit": "Edit",
+  "stats.followers": "Followers",
+  "stats.following": "Following",
+  "stats.activities": "Activities",
+  "section.training": "Training",
+  "section.account": "Account",
+  "menu.fitness.label": "Fitness Analytics",
+  "menu.fitness.sub": "CTL · ATL · TSB · Power Zones",
+  "menu.plan.label": "Training Plan",
+  "menu.plan.sub": "Weekly goals · Plan generator",
+  "menu.log.label": "Training Log",
+  "menu.log.sub": "Monthly summary · Activity log",
+  "menu.settings": "Settings",
+  "menu.strava": "Strava Integration",
+  "menu.manual": "App Guide",
+  "menu.logout": "Sign out"
+}

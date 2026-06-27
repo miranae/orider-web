@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>15. 설정 - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">15. 설정</div>
+  <div class="nav-right"><a href="ch14-alerts.html">이전</a><span class="nav-sep">|</span><a href="ch16-deeplink.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s15">
+  <h2>15. 설정</h2>
+  <img src="screenshots/03_settings.png" alt="설정 메인" class="screenshot">
+  <p>O-Rider의 모든 설정은 카테고리별로 정리되어 있습니다. 처음에는 기본값 그대로 사용하다가, 필요한 부분만 조금씩 조정해 보세요.</p>
+
+  <table>
+    <tr><th>그룹</th><th>항목</th></tr>
+    <tr><td rowspan="4"><strong>주행/화면</strong></td><td>주행 (자동일시정지, 자동랩, FTP, 최대심박, 수치 알림)</td></tr>
+    <tr><td>사운드</td></tr>
+    <tr><td>데이터 필드 (레이아웃 에디터)</td></tr>
+    <tr><td>지도</td></tr>
+    <tr><td rowspan="2"><strong>기록/경로</strong></td><td>기록 (라이딩 히스토리)</td></tr>
+    <tr><td>경로 (루트 관리)</td></tr>
+    <tr><td><strong>소셜</strong></td><td>친구 관리, 그룹</td></tr>
+    <tr><td><strong>계정</strong></td><td>로그인, Strava, 위치 공유, 웹 대시보드</td></tr>
+    <tr><td rowspan="4"><strong>장치/시스템</strong></td><td>센서</td></tr>
+    <tr><td>배터리 절약</td></tr>
+    <tr><td>데이터 절약</td></tr>
+    <tr><td>고급 (경량 모드, 시뮬레이션, 언어, 분석)</td></tr>
+  </table>
+
+  <h3 id="s15-1">15.1 주행 설정</h3>
+  <img src="screenshots/05_settings_ride.png" alt="주행 설정" class="screenshot">
+  <div class="card">
+    <p>주행의 기본 파라미터를 설정합니다. 파워 존과 심박 존을 정확하게 활용하려면 FTP와 최대 심박수를 꼭 입력하세요.</p>
+    <table>
+      <tr><th>항목</th><th>기본값</th><th>설명</th></tr>
+      <tr><td>FTP</td><td>200 W</td><td>기능적 역치 파워. 파워 존 계산에 사용</td></tr>
+      <tr><td>최대 심박수</td><td>190 bpm</td><td>심박 존 계산에 사용</td></tr>
+      <tr><td>라이더 체중</td><td>70 kg</td><td>가상 파워 계산에 사용</td></tr>
+      <tr><td>자전거 무게</td><td>9 kg</td><td>가상 파워 계산에 사용</td></tr>
+      <tr><td>자동 일시정지</td><td>3.0 km/h / 3초</td><td>속도 임계값과 지연 시간</td></tr>
+      <tr><td>자동 랩</td><td>끔</td><td>거리 또는 시간 기준</td></tr>
+      <tr><td>수치 알림</td><td>끔</td><td>심박/파워/케이던스/속도 임계값 설정</td></tr>
+    </table>
+    <div class="tip">FTP를 모르겠다면 20분 전력 테스트의 평균 파워에 0.95를 곱한 값을 입력하세요. 최대 심박수는 "220 - 나이"가 간편한 추정치입니다.</div>
+  </div>
+
+  <h3 id="s15-2">15.2 사운드 설정</h3>
+  <img src="screenshots/08_settings_sound.png" alt="사운드 설정" class="screenshot">
+  <div class="card">
+    <p>라이딩 중 화면을 보지 않아도 중요한 이벤트를 소리로 알 수 있습니다.</p>
+    <table>
+      <tr><th>항목</th><th>기본값</th><th>설명</th></tr>
+      <tr><td>사운드 사용</td><td>켬</td><td>전체 사운드 켜기/끄기</td></tr>
+      <tr><td>볼륨</td><td>80%</td><td>알림음 볼륨 (0~100%)</td></tr>
+      <tr><td>시작 소리</td><td>글로켄슈필 C-G</td><td>주행 시작 알림음</td></tr>
+      <tr><td>종료 소리</td><td>글로켄슈필 G-C</td><td>주행 종료 알림음</td></tr>
+      <tr><td>랩 소리</td><td>글로켄슈필 E</td><td>랩 완료 알림음</td></tr>
+      <tr><td>오르막 시작</td><td>글로켄슈필 E-A</td><td>오르막 진입 알림음</td></tr>
+      <tr><td>오르막 종료</td><td>글로켄슈필 C-E-C</td><td>오르막 완료 알림음</td></tr>
+      <tr><td>레이더 알림</td><td>경고 벨</td><td>후방 차량 접근 알림음</td></tr>
+    </table>
+    <div class="tip">블루투스 이어폰을 사용하면 바람 소리 속에서도 알림음을 놓치지 않습니다. 특히 레이더 알림은 안전을 위해 꼭 켜두세요.</div>
+  </div>
+
+  <h3 id="s15-3">15.3 배터리 절약</h3>
+  <img src="screenshots/09_settings_battery.png" alt="배터리 절약 설정" class="screenshot">
+  <div class="card">
+    <p>장거리 라이딩에서 배터리가 부족해지는 것을 방지하기 위한 설정입니다. 상황에 맞는 프리셋을 선택하거나 개별 항목을 직접 조정할 수 있습니다.</p>
+    <h4>프리셋</h4>
+    <p>프리셋을 선택하면 아래 항목이 자동으로 설정됩니다. 개별 항목을 직접 변경하면 자동으로 "사용자 정의"로 전환됩니다.</p>
+    <table>
+      <tr><th>프리셋</th><th>GPS</th><th>밝기</th><th>화면</th><th>위치공유</th><th>날씨</th><th>추천 상황</th></tr>
+      <tr><td><strong>표준</strong></td><td>고정밀</td><td>시스템</td><td>항상 켜짐</td><td>모든 네트워크</td><td>모든 네트워크</td><td>일반 주행</td></tr>
+      <tr><td><strong>절약</strong></td><td>균형</td><td>50%</td><td>시스템 기본</td><td>끔</td><td>끔</td><td>장거리 (100km+)</td></tr>
+      <tr><td><strong>대시보드</strong></td><td>끄기</td><td>50%</td><td>시스템 기본</td><td>끔</td><td>끔</td><td>실내 트레이너, 최대 절전</td></tr>
+      <tr><td><strong>사용자 정의</strong></td><td>직접 선택</td><td>직접 선택</td><td>직접 선택</td><td>직접 선택</td><td>직접 선택</td><td>세밀한 조정 필요 시</td></tr>
+    </table>
+
+    <h4>개별 설정</h4>
+    <table>
+      <tr><th>항목</th><th>옵션</th><th>설명</th></tr>
+      <tr><td><strong>GPS 모드</strong></td><td>고정밀 / 균형 / 끄기</td><td></td></tr>
+      <tr><td>  고정밀</td><td></td><td>최고 정확도, 배터리 소모 높음. 정확한 경로 기록이 필요한 일반 주행에 추천</td></tr>
+      <tr><td>  균형</td><td></td><td>적당한 정확도, 배터리 절약. 장거리에서 배터리가 걱정될 때</td></tr>
+      <tr><td>  끄기</td><td></td><td>GPS 비활성화. 속도/거리는 휠 센서로만 측정. 지도·경로 기록 불가</td></tr>
+      <tr><td><strong>화면 밝기</strong></td><td>시스템 / 80% / 50%</td><td></td></tr>
+      <tr><td>  시스템</td><td></td><td>기기 자동 밝기에 맡김</td></tr>
+      <tr><td>  80%</td><td></td><td>야외에서 잘 보이는 밝기, 거치대 사용 시 추천</td></tr>
+      <tr><td>  50%</td><td></td><td>배터리 절약용. 직사광선 아래에서는 보기 어려울 수 있음</td></tr>
+      <tr><td><strong>화면 자동꺼짐</strong></td><td>항상 켜짐 / 시스템 기본</td><td></td></tr>
+      <tr><td>  항상 켜짐</td><td></td><td>주행 중 화면이 꺼지지 않음. 거치대 사용 시 추천</td></tr>
+      <tr><td>  시스템 기본</td><td></td><td>기기 설정에 따라 자동 꺼짐. 주머니에 넣고 달릴 때 추천</td></tr>
+    </table>
+    <div class="warn">GPS 모드를 끄면 속도·거리 기록과 지도 트래킹이 모두 비활성화됩니다. 휠 센서가 연결된 실내 트레이닝에서만 사용하세요.</div>
+    <div class="tip">200km 이상 장거리 브레베에서는 "절약" 프리셋으로 시작하고, 보조 배터리를 챙기세요. 50% 밝기 + 균형 GPS로 약 2배의 배터리 지속 시간을 기대할 수 있습니다.</div>
+  </div>
+
+  <h3 id="s15-4">15.4 데이터 절약</h3>
+  <img src="screenshots/10_settings_data.png" alt="데이터 절약 설정" class="screenshot">
+  <div class="card">
+    <p>모바일 데이터 사용량이 걱정될 때, 항목별로 네트워크 정책을 개별 설정할 수 있습니다. 화면 상단에 현재 네트워크 상태(Wi-Fi / 셀룰러 / 없음)가 색상으로 표시됩니다.</p>
+
+    <h4>네트워크 모드</h4>
+    <table>
+      <tr><th>모드</th><th>설명</th></tr>
+      <tr><td><strong>모든 네트워크</strong></td><td>Wi-Fi와 셀룰러 모두 허용 (기본값)</td></tr>
+      <tr><td><strong>Wi-Fi만</strong></td><td>Wi-Fi 연결 시에만 데이터 전송</td></tr>
+      <tr><td><strong>오프라인</strong></td><td>해당 항목의 네트워크 사용 완전 차단</td></tr>
+    </table>
+
+    <h4>항목별 설정</h4>
+    <table>
+      <tr><th>항목</th><th>용도</th><th>기본값</th><th>추천 설정</th></tr>
+      <tr><td><strong>지도 타일</strong></td><td>지도 이미지 다운로드</td><td>모든 네트워크</td><td>오프라인 지도를 미리 받아두면 "오프라인"으로 설정 가능</td></tr>
+      <tr><td><strong>날씨 정보</strong></td><td>기온, 바람, 강수량 조회</td><td>모든 네트워크</td><td>데이터 소모 적음(시간당 ~1MB). "모든 네트워크" 유지 추천</td></tr>
+      <tr><td><strong>위치 공유</strong></td><td>친구/그룹에 실시간 위치 전송</td><td>모든 네트워크</td><td>그룹 라이딩 시 "모든 네트워크", 솔로 라이딩 시 "오프라인"</td></tr>
+      <tr><td><strong>Strava 업로드</strong></td><td>주행 기록 업로드</td><td>Wi-Fi만</td><td>기본값 유지 추천. 데이터 요금제 여유 시 "모든 네트워크"</td></tr>
+    </table>
+    <div class="tip">오프라인 지도를 미리 다운로드해 두고 지도 타일을 "오프라인"으로 설정하면 라이딩 중 데이터를 크게 절약할 수 있습니다. <a href="ch05-map.html#s5-2" style="color:var(--primary)">5.2 오프라인 지도</a>를 참고하세요.</div>
+    <div class="info">"오프라인"으로 설정한 항목은 네트워크가 연결되어 있어도 데이터를 주고받지 않습니다. PreClimb(자동 오르막 감지)은 날씨와 별개로 네트워크가 필요합니다.</div>
+  </div>
+
+  <h3 id="s15-5">15.5 계정 (연결) 설정</h3>
+  <img src="screenshots/11_settings_connection.png" alt="계정 설정" class="screenshot">
+  <div class="card">
+    <h4>계정</h4>
+    <ul>
+      <li>Google 로그인/로그아웃</li>
+      <li>프로필 사진, 이름, 이메일 표시</li>
+      <li>닉네임 수정</li>
+      <li>친구 코드 표시 및 공유</li>
+      <li>위치 공유 범위 설정 (전체공개 / 친구만 / 비공개)</li>
+    </ul>
+
+    <h4>Strava</h4>
+    <ul>
+      <li>Strava 연결/연결 해제</li>
+      <li>연결된 계정 정보 표시</li>
+      <li>자동 업로드 켜기/끄기</li>
+      <li>Strava에서 가져오기 (기존 활동 임포트)</li>
+    </ul>
+
+    <h4>웹 대시보드</h4>
+    <p><a href="https://orider.co.kr" style="color:var(--primary)">orider.co.kr</a>에서 더 큰 화면으로 라이딩 데이터를 분석할 수 있습니다.</p>
+  </div>
+
+  <h3 id="s15-6">15.6 고급 설정</h3>
+  <img src="screenshots/12_settings_advanced.png" alt="고급 설정" class="screenshot">
+  <div class="card">
+    <h4>다국어 (언어 설정)</h4>
+    <p>O-Rider는 한국어와 영어를 지원합니다. 모든 UI 텍스트, 데이터 필드 이름, 설정 메뉴가 선택한 언어로 표시됩니다.</p>
+    <table>
+      <tr><th>옵션</th><th>설명</th></tr>
+      <tr><td><strong>Auto (시스템)</strong></td><td>기기의 시스템 언어를 따름. 한국어/영어가 아닌 경우 영어로 표시</td></tr>
+      <tr><td><strong>한국어</strong></td><td>모든 UI를 한국어로 표시</td></tr>
+      <tr><td><strong>EN (English)</strong></td><td>모든 UI를 영어로 표시</td></tr>
+    </table>
+    <p>언어를 변경하면 즉시 적용되며, 앱을 재시작할 필요 없습니다.</p>
+
+    <h4>기타 고급 설정</h4>
+    <table>
+      <tr><th>항목</th><th>설명</th></tr>
+      <tr><td><strong>경량 모드</strong></td><td>배터리/데이터 절약 모드 (그룹 참여 시 활성화 가능, <a href="ch13-lightweight.html" style="color:var(--primary)">상세 안내</a>)</td></tr>
+      <tr><td><strong>시뮬레이션 모드</strong></td><td>센서 없이 가상 데이터로 앱 기능 테스트</td></tr>
+      <tr><td><strong>분석</strong></td><td>앱 사용 분석 데이터 수집 설정 (켜기/끄기)</td></tr>
+      <tr><td><strong>크래시 로그</strong></td><td>앱 오류 로그 확인. 문제 발생 시 개발자에게 공유할 수 있습니다</td></tr>
+      <tr><td><strong>앱 정보</strong></td><td>현재 버전, 이용약관, 개인정보처리방침, 오픈소스 라이선스</td></tr>
+    </table>
+    <div class="tip">시뮬레이션 모드를 켜면 실내에서도 모든 센서 데이터가 가상으로 표시되어, 화면 레이아웃을 구성하거나 기능을 미리 체험해 볼 수 있습니다.</div>
+    <div class="tip">해외 라이딩 중 현지 동행자에게 앱을 보여줄 때 English로 전환하면 편리합니다.</div>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch14-alerts.html">&larr; 이전</a></div>
+    <div class="nav-title">15. 설정</div>
+    <div><a href="ch16-deeplink.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

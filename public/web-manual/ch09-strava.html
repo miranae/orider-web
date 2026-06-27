@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>9. Strava 연동 - O-Rider 웹 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="gitbook.css">
+</head>
+<body>
+<div class="gb">
+    <aside class="gb-sidebar" id="sidebar">
+      <a class="gb-brand" href="index.html">O·RIDER <span>웹 매뉴얼</span></a>
+      <div class="gb-search"><input id="q" type="search" placeholder="검색…" autocomplete="off"><div id="results" class="gb-results"></div></div>
+      <nav class="gb-nav">
+      <div class="gb-group"><div class="gb-group-title">시작하기</div>
+        <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">기록 보기</div>
+        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
+        <a class="gb-link" href="ch04-compare.html">4. 데이터 비교·이해 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch05-group-event.html">5. 그룹·이벤트 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">심화</div>
+        <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
+        <a class="gb-link" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">연동·설정</div>
+        <a class="gb-link active" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch10-settings.html">10. 설정 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">참고</div>
+        <a class="gb-link" href="glossary.html">부록. 용어집</a>
+      </div>
+      </nav>
+    </aside>
+  <div class="gb-backdrop" id="backdrop"></div>
+  <div class="gb-main">
+    <header class="gb-topbar">
+      <button class="gb-menu" id="menuBtn" aria-label="메뉴">☰</button>
+      <div class="gb-crumb"><b>연동·설정</b> · 9. Strava 연동</div>
+      <a class="gb-applink" href="https://orider.co.kr" target="_blank" rel="noopener">앱 열기 ↗</a>
+    </header>
+    <main class="gb-content">
+      <section id="s9">
+        <h2>9. Strava 연동</h2>
+      
+        <div class="purpose">
+          <h4>이 섹션의 목적</h4>
+          <p>Strava에 쌓인 기존 라이딩 데이터를 O-Rider로 가져와서 통합 분석하는 것. Strava에서 기록한 활동도 세그먼트 매칭, 피트니스 분석 등 O-Rider 웹의 모든 기능을 활용할 수 있게 됩니다.</p>
+        </div>
+      
+        <h3 id="s9-1">9.1 Strava 연결하기</h3>
+        <div class="card">
+          <h4>해야 할 것</h4>
+          <div class="flow">
+            <div class="flow-step">설정 &rarr; 연결된 앱</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">Strava 카드의 연결 클릭</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">Strava 인증 페이지에서 승인</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">연결 완료</div>
+          </div>
+      
+          <h4>확인할 것</h4>
+          <p>연결이 완료되면 <strong>연결된 앱</strong> 탭의 Strava 카드에 초록색 점과 함께 <strong>연결됨</strong> 표시가 나타나고, 상단에 <strong>"N개 연결됨"</strong> 개수가 갱신됩니다. <strong>계정 &amp; 프로필</strong> 탭 상단 프로필 카드에도 <strong>Strava 연결됨</strong> 배지가 표시됩니다.</p>
+      
+          <h4>결과</h4>
+          <p>Strava 계정이 연결되어, 과거 활동 가져오기와 자동 업로드가 가능한 상태가 됩니다.</p>
+      
+          <div class="info">앱과 웹의 Strava 연동은 자동 동기화됩니다. 웹에서 연결하면 앱에서도 연결 상태가 반영됩니다.</div>
+        </div>
+      
+        <h3 id="s9-2">9.2 과거 활동 가져오기</h3>
+        <div class="card">
+          <h4>해야 할 것</h4>
+          <p>연결 후 <strong>연결된 앱</strong> 탭에 나타나는 <strong>Strava 동기화 옵션</strong> 카드에서, <strong>과거 활동 가져오기</strong> 행의 <strong>가져오기</strong> 버튼을 누릅니다. 이동한 페이지에서 가져오기를 시작하면 Strava에 쌓인 기존 활동을 한꺼번에 불러옵니다.</p>
+      
+          <h4>확인할 것</h4>
+          <ul>
+            <li>단계 표시(시작 &rarr; 진행 &rarr; 리포트)와 진행 상황</li>
+            <li>가져온 활동 수 / Strava 전체 활동 수</li>
+            <li>가져온 활동이 대시보드 피드에 추가됨</li>
+          </ul>
+      
+          <h4>해석 기준</h4>
+          <p>가져온 활동은 일반 활동과 동일하게 취급됩니다:</p>
+          <ul>
+            <li>세그먼트 자동 매칭 대상</li>
+            <li>피트니스 분석에 반영 (파워/심박 데이터 포함 시)</li>
+            <li>주간 통계에 합산</li>
+          </ul>
+      
+          <h4>결과</h4>
+          <p>Strava에만 있던 과거 기록이 O-Rider에 통합되어, 전체 라이딩 역사를 하나의 플랫폼에서 관리합니다. 가져오기를 한 번 완료하면 같은 버튼이 <strong>리포트 보기</strong>로 바뀌어 결과를 다시 확인할 수 있습니다.</p>
+        </div>
+      
+        <h3 id="s9-3">9.3 자동 업로드</h3>
+        <div class="card">
+          <h4>해야 할 것</h4>
+          <p><strong>연결된 앱 &rarr; Strava 동기화 옵션</strong> 카드에서 <strong>자동 업로드</strong> 스위치를 켭니다.</p>
+      
+          <h4>결과</h4>
+          <p>활동 종료 시 새 활동이 Strava에 자동으로 업로드됩니다.</p>
+        </div>
+      
+        <h3 id="s9-4">9.4 연결 해제</h3>
+        <div class="card">
+          <h4>해야 할 것</h4>
+          <p>설정 &rarr; <strong>연결된 앱</strong> &rarr; Strava 카드의 <strong>연결 해제</strong>를 클릭하고, 확인 대화상자에서 승인합니다.</p>
+      
+          <h4>결과</h4>
+          <p>Strava 연동이 해제됩니다. 이미 가져온 활동 데이터는 그대로 유지됩니다.</p>
+      
+          <div class="warn">연결 해제 후에는 새로운 Strava 활동이 자동으로 동기화되지 않습니다.</div>
+        </div>
+      </section>
+      <nav class="gb-prevnext"><a class="pn-prev" href="ch08-multisport.html"><div class="pn-label">← 이전</div><div class="pn-title">8. 멀티스포츠</div></a><a class="pn-next" href="ch10-settings.html"><div class="pn-label">다음 →</div><div class="pn-title">10. 설정</div></a></nav>
+    </main>
+  </div>
+</div>
+<script src="manual.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "loginRequired": "로그인이 필요합니다.",
+  "defaultNickname": "라이더",
+  "stravaConnected": "Strava 연동됨",
+  "edit": "편집",
+  "stats.followers": "팔로워",
+  "stats.following": "팔로잉",
+  "stats.activities": "활동",
+  "section.training": "운동",
+  "section.account": "계정",
+  "menu.fitness.label": "피트니스 분석",
+  "menu.fitness.sub": "CTL · ATL · TSB · 파워존",
+  "menu.plan.label": "운동 계획",
+  "menu.plan.sub": "주간 목표 · 플랜 생성",
+  "menu.log.label": "운동 기록",
+  "menu.log.sub": "월별 요약 · 활동 기록",
+  "menu.settings": "설정",
+  "menu.strava": "Strava 연동",
+  "menu.manual": "앱 매뉴얼",
+  "menu.logout": "로그아웃"
+}

@@ -1,0 +1,308 @@
+{
+  "header": {
+    "greetingPrefix": "Hi, ",
+    "greetingSuffix": ".",
+    "subtitleSuffix": " in the last 7 days.",
+    "subtitleRecent": "You logged ",
+    "defaultName": "Rider",
+    "anonTitle": "All your riding data in one place",
+    "anonSubtitle": "Connect Strava for PMC, AI coaching, segments and KOMs — free.",
+    "anonCta": "Start with Google"
+  },
+  "kpi": {
+    "weekDistance": "7-Day Distance",
+    "rides": "Rides",
+    "movingTime": "Moving Time",
+    "elevation": "Elevation Gain",
+    "fitness": "Fitness",
+    "subRecent7d": "Last 7 days",
+    "subAtl": "ATL {{value}}",
+    "subInsufficient": "Insufficient data",
+    "thresholdRunLabel": "Threshold Pace",
+    "thresholdRunSub": "Running threshold pace",
+    "thresholdRunUnit": "/km",
+    "thresholdSwimLabel": "CSS",
+    "thresholdSwimSub": "Critical Swim Speed",
+    "thresholdSwimUnit": "/100m",
+    "thresholdBikeLabel": "FTP",
+    "thresholdBikeSub": "Functional Threshold Power",
+    "thresholdBikeUnit": "W"
+  },
+  "feed": {
+    "title": "Recent Activities",
+    "countTooltip": "All public activities + your own activities",
+    "feedScope": "· Full feed",
+    "countSuffix": "{{value}}",
+    "filter": {
+      "all": "All",
+      "friends": "Friends",
+      "self": "Mine"
+    },
+    "search": {
+      "placeholder": "Search activities...",
+      "submit": "Search",
+      "resultsCount": "{{count}} results",
+      "resultsCount_one": "{{count}} result",
+      "resultsCount_other": "{{count}} results",
+      "emptyTitle": "No results found",
+      "emptyDescription": "Try a different keyword or date range."
+    },
+    "datePreset": {
+      "all": "All",
+      "7d": "7d",
+      "30d": "30d",
+      "90d": "90d",
+      "year": "Year"
+    },
+    "loadMore": "Load more",
+    "loading": "Loading...",
+    "empty": {
+      "title": "No activities yet",
+      "description": "Connect Strava or upload an activity to get started.",
+      "ctaConnectStrava": "Connect Strava"
+    }
+  },
+  "sidebar": {
+    "weeklyTss": {
+      "title": "Weekly TSS",
+      "sub": "Last 12 weeks",
+      "barTooltip": "{{week}}: {{tss}} TSS",
+      "avgPerWeek": "Avg / week",
+      "peakWeek": "Peak week",
+      "trend": "Trend",
+      "trendUp": "↑ Rising",
+      "trendDown": "↓ Falling"
+    },
+    "monthlyGoal": {
+      "title": "{{month}} Goal",
+      "subPrefix": "Goal ",
+      "setupTitle": "Set Monthly Goal",
+      "setupHint": "Generated automatically once you create a training plan",
+      "remainingPrefix": "",
+      "remainingSuffix": " to go · {{days}} days left"
+    },
+    "fitness": {
+      "title": "Fitness Snapshot",
+      "sub": "Based on CTL",
+      "insufficient": "Insufficient data",
+      "ctl": "Fitness (CTL)",
+      "atl": "Fatigue (ATL)",
+      "tsb": "Form (TSB)",
+      "recommend": "Recommendation",
+      "recoMaintain": "Maintain endurance",
+      "recoRecovery": "Recovery suggested",
+      "recoModerate": "Moderate training"
+    },
+    "community": {
+      "title": "Korean Cycling Community"
+    },
+    "app": {
+      "manualWebTitle": "Web User Guide",
+      "manualWebDesc": "Analysis · Data · Groups & Events",
+      "storeIos": "App Store",
+      "storeAos": "Google Play",
+      "manualIos": "iOS Guide",
+      "manualAos": "Android Guide"
+    }
+  },
+  "home": {
+    "hero": {
+      "title": "Keep Korean riders' records safe",
+      "descLoggedIn": "Connect Strava to import your rides automatically.",
+      "descAnon": "Save your rides on O-Rider and join the Korean cycling community.",
+      "statsActivities": "activities",
+      "statsSegments": "segments",
+      "statsCourses": "courses",
+      "statsKm": "km",
+      "ctaStart": "Get started",
+      "ctaStrava": "Connect Strava"
+    },
+    "feed": {
+      "titleMine": "Activity feed",
+      "titlePublic": "Recent public activities",
+      "countSuffix": "{{count}}",
+      "searchResults": "{{count}} results",
+      "searchPlaceholder": "Search activities... (Enter)",
+      "searchSubmit": "Search",
+      "searchClearTitle": "Clear search",
+      "searchEmptyMessage": "No results found.",
+      "searchReset": "Clear search",
+      "loadMoreRemaining": "Load more ({{remaining}} remaining)",
+      "loadMore": "Load more",
+      "loadingMore": "Loading...",
+      "filterAll": "All",
+      "filterFriends": "Friends",
+      "filterMe": "Mine",
+      "filterCaption": "Filter results",
+      "emptyTitle": "No activities yet.",
+      "emptyConnectStrava": "Connect Strava to import activities →",
+      "emptyPublic": "No public activities yet."
+    },
+    "datePreset": {
+      "all": "All",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "year": "This year"
+    },
+    "communities": {
+      "lara": "WE ARE GREATER THAN I",
+      "jachulsa": "Bike commuters community",
+      "dossa": "Road bike salon",
+      "clien": "Clien cycling board",
+      "bikesell": "Bike marketplace",
+      "thebike": "Cycling magazine"
+    },
+    "sidebarMy": {
+      "stravaConnected": "Strava connected",
+      "weekSummary": "This week",
+      "rides": "Rides",
+      "ridesUnit": "{{count}}",
+      "distance": "Distance",
+      "time": "Time",
+      "elev": "Elev gain",
+      "weeklyDistance": "Weekly distance (last 12 weeks)"
+    },
+    "sidebarAnon": {
+      "welcome": "Welcome to O-Rider",
+      "welcomeDesc": "Sign in and connect Strava to manage your rides.",
+      "signInGoogle": "Sign in with Google"
+    }
+  },
+  "mobileFeed": {
+    "defaultRider": "Rider",
+    "defaultActivity": "Ride",
+    "statDistance": "Distance",
+    "statTime": "Time",
+    "statElev": "Elev gain",
+    "statSpeed": "Avg speed",
+    "weekSummary": "This week",
+    "viewAll": "View all",
+    "weeklyDistance": "Weekly distance",
+    "loading": "Loading…",
+    "loadingMore": "Loading…",
+    "loadMore": "Load more",
+    "emptyTitle": "No activities yet",
+    "emptyDesc": "Connect Strava or record a ride to get started.",
+    "dataWarningBadge": "⚠ Data anomaly",
+    "dataWarningTooltip": "Some metrics may be unrealistic due to GPS noise or a very short activity."
+  },
+  "weeklySummary": {
+    "title": "This week",
+    "load": "Load",
+    "activities": "Activities",
+    "activitiesCount": "{{count}}",
+    "activitiesPrev": "Last week {{count}}",
+    "time": "Time",
+    "distance": "Distance",
+    "vsLastWeek": "vs last week {{delta}}",
+    "newThisWeek": "New",
+    "viewAll": "View all",
+    "weeklyDistanceKm": "Weekly distance (km)",
+    "ridesUnit": "",
+    "durationHourMin": "{{h}}h {{m}}m",
+    "durationMin": "{{m}}m",
+    "dateMonthDay": "{{month}}/{{day}}"
+  },
+  "fitnessSummary": {
+    "ctl": "Fitness (CTL)",
+    "atl": "Fatigue (ATL)",
+    "tsb": "Form (TSB)",
+    "status": "Status",
+    "vsWeekAgo": "vs 7 days ago {{delta}}",
+    "tsbOptimal": "TSB -10~+5 = optimal",
+    "statusWellRested": "Well rested",
+    "statusRecovered": "Recovered",
+    "statusOptimal": "Optimal form",
+    "statusFatigued": "Accumulated fatigue",
+    "statusOverreaching": "Overreaching risk"
+  },
+  "charts": {
+    "fitness": {
+      "noData": "No data",
+      "today": "Today",
+      "goalDay": "Goal day",
+      "forecast": "Forecast",
+      "legendFitness": "Fitness",
+      "legendFatigue": "Fatigue",
+      "legendForm": "Form"
+    },
+    "powerCurve": {
+      "noData": "No power data",
+      "noDataProgression": "No activities with power data",
+      "datasetLabel": "Peak average power",
+      "peakPower": "Peak {{power}}W (1s)",
+      "unitSec": "{{n}}s",
+      "unitMin": "{{n}}m",
+      "unitHour": "{{n}}h"
+    },
+    "weeklyChart": {
+      "distance": "Distance (km)",
+      "time": "Time (h)",
+      "elevation": "Elevation (m)"
+    },
+    "dailyLoad": {
+      "datasetLabel": "Daily load",
+      "tooltipLabel": "Load {{value}}"
+    },
+    "zoneDistribution": {
+      "dominant": "Top: Z{{zone}} {{name}} ({{pct}}%)"
+    },
+    "criticalPace": {
+      "half": "Half"
+    }
+  },
+  "leaderboard": {
+    "colRank": "Rank",
+    "colRider": "Rider",
+    "colTime": "Time",
+    "colSpeed": "Speed",
+    "colHr": "HR",
+    "colPower": "Power",
+    "colDate": "Date"
+  },
+  "mobileFitness": {
+    "title": "Fitness",
+    "tabOverview": "Overview",
+    "tabZones": "Power Zones",
+    "tabZonesBike": "Power Zones",
+    "tabZonesRun": "HR Zones",
+    "tabZonesSwim": "Swim",
+    "metricCtl": "CTL (Fitness)",
+    "metricAtl": "ATL (Fatigue)",
+    "metricTsb": "TSB (Form)",
+    "ftpBasis": "Based on 90-day best power",
+    "zoneDist": "Power zone distribution (last 4 weeks)",
+    "zoneDefTitle": "Zone definitions",
+    "disciplineLoading": "{{discipline}} fitness data coming soon",
+    "kpiCtlLabel": "CTL Fitness",
+    "kpiAtlLabel": "ATL Fatigue",
+    "kpiTsbLabel": "TSB Form",
+    "vo2maxDesc": "Estimated",
+    "vo2maxNoFtp": "FTP required",
+    "tsbOverRested": "Over-rested",
+    "tsbOptimalForm": "Optimal form",
+    "tsbTrainingOk": "Training load OK",
+    "tsbFatigue": "Fatigue accumulating",
+    "tsbOverload": "Overload",
+    "pmcTitle": "PMC trend · {{n}} days",
+    "pmcSub": "CTL Fitness · ATL Fatigue · TSB Form",
+    "weeklyLoadTitle": "Weekly load · last 4 weeks",
+    "weeklyLoadSub": "This week {{thisWeek}} · avg {{avg}} · {{restDays}} rest days",
+    "recentActivities": "Recent activities",
+    "zonePowerTitle": "Power zone distribution · last 4 weeks",
+    "zoneHrTitle": "HR zone distribution · last 4 weeks",
+    "zoneSourcePower": "Based on power stream",
+    "zoneSourceHrBike": "HR estimate (HR Z1–Z5 → power zone mapping, Z6 anaerobic not separable)",
+    "zoneSourceHrRun": "Based on HR stream",
+    "zoneSourceNone": "No stream data — will fill in after syncing a ride",
+    "powerCurveTitle": "Power curve · last 28 days",
+    "powerCurveSub": "Peak {{maxW}} W · 5s–60m",
+    "zoneDefsSectionTitle": "Zone definitions",
+    "analysisInsufficient": "Not enough analysis data.",
+    "pmcNoData": "Not enough data — need at least 2 days",
+    "pmcLabelToday": " · Today",
+    "pmcLabelForecast": " · Forecast",
+    "weeklyTssThisWeek": "This week"
+  }
+}

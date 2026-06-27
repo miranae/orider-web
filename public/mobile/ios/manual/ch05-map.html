@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5. 지도 - O-Rider 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; 목차</a></div>
+  <div class="nav-title">5. 지도</div>
+  <div class="nav-right"><a href="ch04-sensors.html">이전</a><span class="nav-sep">|</span><a href="ch06-routes.html">다음 &rarr;</a></div>
+</nav>
+
+<div class="container">
+<section id="s5">
+  <h2>5. 지도</h2>
+  <p>O-Rider iOS는 Apple 지도(MapKit)를 사용합니다. 라이딩 중 지도 페이지에서 현재 위치, 진행 경로, 불러온 코스를 확인할 수 있습니다.</p>
+  <img src="screenshots/07_settings_map.png" alt="지도 스타일 설정" class="screenshot">
+
+  <h3 id="s5-1">5.1 지도 유형</h3>
+  <p>라이딩 환경에 맞는 지도 스타일을 선택하세요. <strong>설정 → 디스플레이</strong>의 "지도 스타일"에서 변경할 수 있습니다.</p>
+  <table>
+    <tr><th>유형</th><th>설명</th><th>추천 상황</th></tr>
+    <tr><td><strong>Standard (표준)</strong></td><td>Apple 표준 도로 지도</td><td>일반 주행</td></tr>
+    <tr><td><strong>Satellite (위성)</strong></td><td>위성 항공 사진</td><td>지형·주변 확인</td></tr>
+    <tr><td><strong>Hybrid (하이브리드)</strong></td><td>위성 사진 + 도로/지명 라벨</td><td>위성 영상에 도로명까지</td></tr>
+  </table>
+  <div class="info">iOS는 Android와 달리 Apple 지도(MapKit) 기반이라 지도 스타일 구성이 다릅니다. CyclOSM·OpenTopoMap 같은 OpenStreetMap 자전거 전용 타일은 Android 버전에서만 제공됩니다.</div>
+
+  <h3 id="s5-2">5.2 지도 회전 및 표시 옵션</h3>
+  <p>설정 → 디스플레이의 지도 영역에서 다음 옵션을 조정할 수 있습니다.</p>
+  <table>
+    <tr><th>옵션</th><th>설명</th></tr>
+    <tr><td><strong>지도 회전 (Heading Up / North Up)</strong></td><td>Heading Up: 지도가 항상 이동 방향을 위로 향하도록 회전 — 내비게이션처럼 사용하기 편리. North Up: 북쪽이 항상 위.</td></tr>
+    <tr><td><strong>교통 정보 표시 (Show Traffic)</strong></td><td>지도에 실시간 교통량 레이어를 표시합니다.</td></tr>
+    <tr><td><strong>트랙 색상 (Track Color)</strong></td><td>주행 트랙(지나온 경로) 선의 색상.</td></tr>
+    <tr><td><strong>트랙 두께 (Track Width)</strong></td><td>주행 트랙 선의 굵기(pt).</td></tr>
+  </table>
+  <div class="tip">경로를 따라 주행할 때는 "Heading Up"이 직관적입니다. 전체 경로를 조망하고 싶을 때는 "North Up"으로 두세요.</div>
+
+  <h3 id="s5-3">5.3 오프라인 지도</h3>
+  <div class="card">
+    <p>지정한 지역의 지도를 미리 내려받아 데이터 없이 사용하는 <strong>오프라인 지도</strong>는 iOS에서 <strong>준비 중</strong>입니다. 설정 → 디스플레이 → 오프라인 지도(Offline Maps)에 들어가면 향후 제공 예정 안내가 표시됩니다.</p>
+    <div class="tip">그 전까지는 셀룰러 데이터 또는 Wi-Fi 연결 상태에서 지도가 표시됩니다. 신호가 약한 산간 코스는 미리 한 번 지도를 열어두면 일부 영역이 캐시되어 도움이 됩니다.</div>
+  </div>
+</section>
+</div>
+
+<div class="container">
+  <div class="bottom-nav">
+    <div><a href="ch04-sensors.html">&larr; 이전</a></div>
+    <div class="nav-title">5. 지도</div>
+    <div><a href="ch06-routes.html">다음 &rarr;</a></div>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="index.html">O-Rider</a></p>
+</footer>
+
+</body>
+</html>

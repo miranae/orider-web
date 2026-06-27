@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7. 훈련 계획·기록 - O-Rider 웹 매뉴얼</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="gitbook.css">
+</head>
+<body>
+<div class="gb">
+    <aside class="gb-sidebar" id="sidebar">
+      <a class="gb-brand" href="index.html">O·RIDER <span>웹 매뉴얼</span></a>
+      <div class="gb-search"><input id="q" type="search" placeholder="검색…" autocomplete="off"><div id="results" class="gb-results"></div></div>
+      <nav class="gb-nav">
+      <div class="gb-group"><div class="gb-group-title">시작하기</div>
+        <a class="gb-link" href="ch01-start.html">1. 웹 시작하기 <span class="lvl level-beginner">초급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">기록 보기</div>
+        <a class="gb-link" href="ch02-records.html">2. 라이딩 기록 확인 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch03-analysis.html">3. 활동 상세 분석 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">비교와 이해</div>
+        <a class="gb-link" href="ch04-compare.html">4. 데이터 비교·이해 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch05-group-event.html">5. 그룹·이벤트 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">심화</div>
+        <a class="gb-link" href="ch06-advanced.html">6. 고급 데이터 활용 <span class="lvl level-advanced">고급</span></a>
+        <a class="gb-link active" href="ch07-training.html">7. 훈련 계획·기록 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link" href="ch08-multisport.html">8. 멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">연동·설정</div>
+        <a class="gb-link" href="ch09-strava.html">9. Strava 연동 <span class="lvl level-beginner">초급</span></a>
+        <a class="gb-link" href="ch10-settings.html">10. 설정 <span class="lvl level-intermediate">중급</span></a>
+      </div>
+      <div class="gb-group"><div class="gb-group-title">참고</div>
+        <a class="gb-link" href="glossary.html">부록. 용어집</a>
+      </div>
+      </nav>
+    </aside>
+  <div class="gb-backdrop" id="backdrop"></div>
+  <div class="gb-main">
+    <header class="gb-topbar">
+      <button class="gb-menu" id="menuBtn" aria-label="메뉴">☰</button>
+      <div class="gb-crumb"><b>심화</b> · 7. 훈련 계획·기록</div>
+      <a class="gb-applink" href="https://orider.co.kr" target="_blank" rel="noopener">앱 열기 ↗</a>
+    </header>
+    <main class="gb-content">
+      <section id="s7">
+        <h2>7. 운동 계획과 훈련 기록</h2>
+      
+        <div class="purpose">
+          <h4>이 섹션의 목적</h4>
+          <p>목표 대회나 거리를 정하면 O-Rider가 남은 기간에 맞춰 주간 운동 계획을 자동으로 만들어 줍니다. 매일의 운동은 실제 라이딩 기록과 피로도에 따라 자동으로 조정되고, 월 캘린더에서 그동안의 훈련을 되짚어 볼 수 있습니다. 이 장은 "목표 설정 → 계획 따라가기 → 기록 확인"의 흐름을 다룹니다.</p>
+        </div>
+      
+        
+        <figure class="gb-fig"><img src="screenshots/08-training-plan.png" alt="운동 계획 — 주차별 캘린더와 일일 TSS 목표." loading="lazy"><figcaption>운동 계획 — 주차별 캘린더와 일일 TSS 목표.</figcaption></figure>
+        <h3 id="s7-1">7.1 운동 목표 설정 — "3단계로 나만의 계획 만들기"</h3>
+        <div class="card">
+          <h4>해야 할 것</h4>
+          <p>상단 메뉴에서 <strong>운동 계획</strong>으로 들어가 목표가 없으면 "목표 설정하기"를 누르거나, 직접 <a href="https://orider.co.kr/goal-setup" style="color:var(--primary)">목표 설정</a> 페이지로 이동합니다. 종목 탭(사이클·러닝·수영)을 먼저 고른 뒤, 3단계 위저드를 따라갑니다.</p>
+      
+          <div class="flow">
+            <div class="flow-step">코스/이벤트 선택</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">목표일·목표 시간·주당 횟수 입력</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">계획 미리보기 확인 후 시작</div>
+          </div>
+      
+          <h4>확인할 것</h4>
+          <p>종목마다 1단계가 다릅니다. 사이클은 내가 등록한 <strong>코스</strong>를 고르고(없으면 GPX 업로드/활동에서 코스 생성), 러닝은 5K·10K·하프·풀·서울마라톤·트레일 24K 중 <strong>이벤트</strong>를, 수영은 1500m 테스트·오픈워터·트라이애슬론 등 <strong>이벤트</strong>를 고릅니다.</p>
+      
+          <table>
+            <tr><th>입력 항목</th><th>설명</th></tr>
+            <tr><td>목표 유형</td><td>완주 / 목표 시간 / 레이스 (수영은 완주 / 목표 시간 / 기술 향상). 유형에 따라 운동 구성이 달라집니다.</td></tr>
+            <tr><td>목표일</td><td>대회 날짜. 최소 4주 뒤부터 선택 가능하며, 남은 주수가 자동 계산됩니다.</td></tr>
+            <tr><td>목표 시간</td><td>완주 유형이 아니면 입력. 필요 평균 파워(사이클)·페이스(러닝/수영)가 실시간으로 계산됩니다.</td></tr>
+            <tr><td>주당 운동 횟수</td><td>사이클·러닝은 1~6회, 수영은 1~5회 중 선택.</td></tr>
+          </table>
+      
+          <p>2단계에서는 <strong>목표 달성 가능성</strong>이 함께 표시됩니다. 내 현재 수준(사이클 FTP, 러닝 임계 페이스 LTHR, 수영 CSS)과 목표를 비교해 <strong>여유 있음 · 적정 · 도전적 · 무리</strong> 4단계로 판정하고, 현재 피로도(TSB)도 반영합니다.</p>
+      
+          <div class="tip">목표 시간이 "무리"로 나오면 목표 시간을 늘리거나 운동 기간을 더 확보하라는 안내가 표시됩니다. 색으로도 구분되니(여유 있음/적정은 초록·청록, 도전적은 노랑, 무리는 빨강) 한눈에 파악할 수 있습니다.</div>
+      
+          <div class="info">사이클·러닝·수영 부하는 하나의 체력 지표(CTL)로 합산됩니다. 러닝은 페이스·고도 기반(rTSS), 수영은 CSS 기반(sTSS)으로 계산되어 사이클 TSS와 더해지며, 피트니스 페이지에서 종목별로 나눠 볼 수 있습니다.</div>
+      
+          <h4>결과</h4>
+          <p>"계획 시작하기"를 누르면 서버가 남은 주수에 맞춰 <strong>빌드업 → 피크 → 테이퍼</strong> 구성의 주간 계획을 자동 생성하고, 운동 계획 페이지로 이동합니다.</p>
+        </div>
+      
+        
+        <figure class="gb-fig"><img src="screenshots/04-log-calendar.png" alt="운동 기록 — 월간 캘린더로 보는 활동." loading="lazy"><figcaption>운동 기록 — 월간 캘린더로 보는 활동.</figcaption></figure>
+        <h3 id="s7-2">7.2 운동 계획 — "주간 TSS 계획과 자동 적응"</h3>
+        <div class="card">
+          <p>생성된 계획을 12주 캘린더로 펼쳐 보고, 매일 어떤 운동을 얼마만큼 해야 하는지 확인하는 화면입니다.</p>
+      
+          <h4>확인할 것</h4>
+          <p>상단에 목표 코스명·목표일·<strong>D-day</strong>·거리·목표 시간이 표시되고, 그 옆에 4개 지표 — <strong>진행률, 완료 TSS / 전체 TSS, 남은 주수, 목표일 예상 CTL</strong> — 가 나옵니다. 그 아래 페이즈 막대(빌드 · 피크 · 테이퍼 각 주수)가 보입니다.</p>
+      
+          <p>달력은 주(週)별 행으로 구성되고, 각 칸에는 그날의 <strong>운동 종류·예상 거리/시간·TSS</strong>가 들어갑니다. 칸 색상 막대는 강도 존을 뜻합니다.</p>
+      
+          <table>
+            <tr><th>표시</th><th>의미</th></tr>
+            <tr><td>색 막대 (왼쪽)</td><td>Z1 회복 · Z2 지구력 · Z3 템포 · Z4 역치 · Z5 VO2 · 시뮬/목표일 (하단 범례 참고)</td></tr>
+            <tr><td>오늘 칸</td><td>초록 테두리 + "TODAY" 표시로 강조</td></tr>
+            <tr><td>✓ + 달성률</td><td>완료한 운동. 실제 기록 TSS ÷ 계획 TSS를 %로 표시 (80% 이상은 초록, 미만은 노랑)</td></tr>
+            <tr><td>— (빨간 대시)</td><td>지난 날인데 완료·건너뛰기 표시 없이 지나간 "결근"</td></tr>
+            <tr><td>취소선 + 흐림</td><td>건너뛴(skip) 운동</td></tr>
+            <tr><td>휴식일</td><td>흐리게 표시. 우측 끝 열에는 그 주의 합계 TSS</td></tr>
+          </table>
+      
+          <h4>해야 할 것</h4>
+          <p>칸을 클릭하면 그날의 운동을 <strong>완료 표시·건너뛰기·운동 변경·앞뒤 날짜와 교환</strong>할 수 있고, 연결된 활동 기록도 바로 열 수 있습니다.</p>
+      
+          <p>상단 버튼으로 계획 전체를 관리합니다.</p>
+      
+          <table>
+            <tr><th>버튼</th><th>동작</th></tr>
+            <tr><td>ICS 내보내기</td><td>계획을 캘린더 파일(.ics)로 내보내 외부 일정 앱에 등록</td></tr>
+            <tr><td>재생성</td><td>미래 일정을 다시 생성 (완료된 운동은 그대로 유지)</td></tr>
+            <tr><td>목표 재설정</td><td>목표 설정 위저드로 이동</td></tr>
+            <tr><td>목표 포기</td><td>현재 목표를 종료 (기록은 유지)</td></tr>
+          </table>
+      
+          <p><strong>자동 적응:</strong> O-Rider는 최근 활동 기록을 반영해 계획을 스스로 다듬습니다. 지난 주 부하가 부족하면 다음 주 강도를 낮추고, 초과 수행했으면 올립니다. 조정된 날의 칸에는 <strong>"조정" 칩</strong>(−10%, +5% 처럼 변동폭 표시)이 붙고, 마우스를 올리면 "지난 주 부하가 부족해 다음 주 강도를 ○○%로 낮췄습니다" 같은 설명이 나옵니다.</p>
+      
+          <div class="warn">최근 4주 실행률이 크게 떨어지거나 여러 주 연속 운동을 이탈하면, 계획 페이지 상단에 적응 배너가 뜹니다. "지금 재생성"으로 남은 일정을 현재 상태에 맞게 다시 짜거나, "1주 동안 보지 않기"로 미룰 수 있습니다.</div>
+      
+          <h4>결과</h4>
+          <p>매일 무엇을 얼마나 할지 고민할 필요 없이, 계획을 따라가기만 하면 목표일에 맞춰 체력이 오르도록 부하가 자동 배분·조정됩니다. 운동을 건너뛰어도 자동으로 재계산됩니다.</p>
+        </div>
+      
+        <h3 id="s7-3">7.3 훈련 기록 — "월 캘린더로 보는 일별 부하"</h3>
+        <div class="card">
+          <p>계획이 "앞으로 할 운동"이라면, 운동 기록은 "지금까지 한 운동"을 월 단위로 되짚어 보는 화면입니다.</p>
+      
+          <h4>확인할 것</h4>
+          <p>상단 메뉴 <strong>운동 기록</strong>으로 들어가면, 그 달의 활동 수와 함께 5개 월간 요약 — <strong>총 거리, 총 시간, 총 고도, 총 TSS, 활동 수</strong> — 가 표시됩니다. &larr; 이전 달 / 다음 달 &rarr; 버튼으로 달을 넘기고, "이번 달"로 빠르게 돌아올 수 있습니다(다음 달로는 갈 수 없습니다).</p>
+      
+          <p>월 캘린더의 각 날짜 칸에는 그날의 활동이 종목 아이콘과 함께 들어가고, <strong>거리</strong>(수영은 m, 그 외는 km)와 <strong>TSS</strong>가 표시됩니다. 칸 색은 종목별(사이클 청록 · 러닝 노랑 · 수영 초록)로 구분됩니다.</p>
+      
+          <table>
+            <tr><th>표시</th><th>의미</th></tr>
+            <tr><td>날짜 칸 클릭</td><td>그날 활동이 하나면 활동 상세로 바로 이동</td></tr>
+            <tr><td>×2 같은 배지</td><td>하루에 활동이 여러 개일 때 개수 표시 (각 줄을 따로 클릭해 이동)</td></tr>
+            <tr><td>오늘 칸</td><td>초록 테두리로 강조</td></tr>
+            <tr><td>우측 끝 열</td><td>그 주의 합계 TSS</td></tr>
+          </table>
+      
+          <p>캘린더 아래에는 <strong>월간 일별 거리 막대 차트</strong>가 있어, 그 달에 어느 날 많이/적게 탔는지 한눈에 볼 수 있습니다(거리에 따라 막대 색이 달라집니다).</p>
+      
+          <div class="tip">월 요약의 TSS는 활동마다 추정한 훈련 부하의 합입니다. 운동 기록 화면에서 "임포트" 버튼으로 외부 활동 파일을 직접 불러올 수도 있습니다.</div>
+      
+          <h4>결과</h4>
+          <p>"이번 달 얼마나 훈련했는가"를 거리·시간·고도·부하로 한눈에 확인하고, 계획(7.2)과 비교해 꾸준함을 점검할 수 있습니다.</p>
+        </div>
+      </section>
+      <nav class="gb-prevnext"><a class="pn-prev" href="ch06-advanced.html"><div class="pn-label">← 이전</div><div class="pn-title">6. 고급 데이터 활용</div></a><a class="pn-next" href="ch08-multisport.html"><div class="pn-label">다음 →</div><div class="pn-title">8. 멀티스포츠</div></a></nav>
+    </main>
+  </div>
+</div>
+<script src="manual.js"></script>
+</body>
+</html>
