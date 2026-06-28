@@ -6,6 +6,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
@@ -79,7 +80,7 @@ function StatusChip({ status }: { status: ParticipantStatus }) {
         background: m.bg,
         color: m.color,
         borderColor: `color-mix(in oklch, ${m.color} 30%, transparent)`,
-        fontSize: 10,
+        fontSize: "var(--fs-xs)",
         padding: "2px 8px",
       }}
     >
@@ -103,7 +104,7 @@ function CpProgress({ progress, total }: { progress: number; total: number }) {
           }}
         />
       ))}
-      <span style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginLeft: 'var(--space-1)' }}>
+      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginLeft: 'var(--space-1)' }}>
         {progress}/{total}
       </span>
     </div>
@@ -115,7 +116,7 @@ function StatCard({ label, value, sub, tone }: { label: string; value: string | 
     <Card padding="none" style={{ padding: "14px 16px" }}>
       <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{label}</Text>
       <Text as="div" variant="dataMedium" style={{ color: tone || "var(--ink-0)" }}>{value}</Text>
-      {sub && <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 'var(--space-1)', fontFamily: "var(--font-mono)" }}>{sub}</div>}
+      {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)', fontFamily: "var(--font-mono)" }}>{sub}</div>}
     </Card>
   );
 }
@@ -253,7 +254,7 @@ export default function EventParticipantsPage() {
       });
       setParticipants(rows);
     } catch (err) {
-      console.error("참가자 조회 실패:", err);
+      logClientError("EventParticipantsPage.load", err, { eventId });
       setLoadError(err instanceof Error ? err.message : t("participantsView.loadError"));
     } finally {
       setLoading(false);
@@ -331,7 +332,7 @@ export default function EventParticipantsPage() {
       showToast("ok", t("participantsView.bibAssigned", { count: res.data.assigned }));
       await load();
     } catch (err) {
-      console.error("배번 부여 실패:", err);
+      logClientError("EventParticipantsPage.handleAssignBibs", err, { eventId, mode });
       showToast("err", err instanceof Error ? err.message : t("participantsView.bibAssignError"));
     } finally {
       setBusy(false);
@@ -365,7 +366,7 @@ export default function EventParticipantsPage() {
       setSelected(new Set());
       if (action !== "sms") await load();
     } catch (err) {
-      console.error("일괄 처리 실패:", err);
+      logClientError("EventParticipantsPage.applyBulkAction", err, { eventId, action, count: ids.length });
       showToast("err", err instanceof Error ? err.message : t("participantsView.bulkError"));
     } finally {
       setBusy(false);
@@ -430,7 +431,7 @@ export default function EventParticipantsPage() {
     <div>
       {/* 헤더 */}
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "var(--space-5) var(--space-6) var(--space-4)" }}>
-        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
+        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
           <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
           <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
@@ -448,7 +449,7 @@ export default function EventParticipantsPage() {
                   style={{
                     color: "var(--lime)",
                     borderColor: "color-mix(in oklch, var(--lime) 40%, transparent)",
-                    fontSize: 10,
+                    fontSize: "var(--fs-xs)",
                   }}
                 >
                   <span
@@ -466,11 +467,11 @@ export default function EventParticipantsPage() {
                   LIVE
                 </Chip>
               ) : (
-                <Chip style={{ fontSize: 10 }}>{event.status}</Chip>
+                <Chip style={{ fontSize: "var(--fs-xs)" }}>{event.status}</Chip>
               )}
-              {fmtStart && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{t("participantsView.startSuffix", { time: fmtStart })}</span>}
+              {fmtStart && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("participantsView.startSuffix", { time: fmtStart })}</span>}
             </div>
-            <h1 style={{ fontSize: 24, letterSpacing: "-0.02em", color: "var(--ink-0)", margin: 0 }}>
+            <h1 style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)", margin: 0 }}>
               {t("participantsTitle")}
             </h1>
           </div>
@@ -511,13 +512,13 @@ export default function EventParticipantsPage() {
               padding: "var(--space-3) var(--space-4)",
               background: "color-mix(in oklch, var(--amber) 6%, var(--bg-2))",
               border: "1px solid color-mix(in oklch, var(--amber) 30%, var(--line-soft))",
-              borderRadius: 5,
+              borderRadius: "var(--r-sm)",
               marginBottom: 'var(--space-4)',
               gap: 'var(--space-3)',
             }}
           >
             <span aria-hidden="true" style={{ color: "var(--amber)", flexShrink: 0 }}>⚠</span>
-            <div style={{ flex: 1, fontSize: 12, color: "var(--ink-1)" }}>
+            <div style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>
               {t("participantsView.noBibWarning", { count: stats.noBib })}
             </div>
             <Button
@@ -562,7 +563,7 @@ export default function EventParticipantsPage() {
                   top: "50%",
                   transform: "translateY(-50%)",
                   color: "var(--ink-3)",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                 }}
               >
                 🔍
@@ -575,10 +576,10 @@ export default function EventParticipantsPage() {
                 style={{
                   width: "100%",
                   padding: "var(--space-2) var(--space-3) var(--space-2) var(--space-7)",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   background: "var(--bg-2)",
                   border: "1px solid var(--line-soft)",
-                  borderRadius: 5,
+                  borderRadius: "var(--r-sm)",
                   color: "var(--ink-0)",
                 }}
               />
@@ -589,7 +590,7 @@ export default function EventParticipantsPage() {
                 type="button"
                 onClick={() => setCategoryFilter("ALL")}
                 aria-pressed={categoryFilter === "ALL"} variant="secondary" size="sm"
-                style={{ background: categoryFilter === "ALL" ? "var(--bg-3)" : "var(--bg-2)", fontSize: 11 }}
+                style={{ background: categoryFilter === "ALL" ? "var(--bg-3)" : "var(--bg-2)", fontSize: "var(--fs-xs)" }}
               >
                 {t("filter.all")}
               </Button>
@@ -601,7 +602,7 @@ export default function EventParticipantsPage() {
                     type="button"
                     onClick={() => setCategoryFilter(c.id)}
                     aria-pressed={active} variant="secondary" size="sm"
-                    style={{ background: active ? "var(--bg-3)" : "var(--bg-2)", fontSize: 11 }}
+                    style={{ background: active ? "var(--bg-3)" : "var(--bg-2)", fontSize: "var(--fs-xs)" }}
                   >
                     {c.name}
                   </Button>
@@ -614,10 +615,10 @@ export default function EventParticipantsPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               style={{
                 padding: "7px 10px",
-                fontSize: 11,
+                fontSize: "var(--fs-xs)",
                 background: "var(--bg-2)",
                 border: "1px solid var(--line-soft)",
-                borderRadius: 5,
+                borderRadius: "var(--r-sm)",
                 color: "var(--ink-1)",
               }}
             >
@@ -632,7 +633,7 @@ export default function EventParticipantsPage() {
             </select>
 
             <div style={{ flex: 1 }} />
-            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               {t("participantsView.countDisplay", { count: filtered.length })}
               {selected.size > 0 && ` · ${t("participantsView.selectedCount", { count: selected.size })}`}
             </div>
@@ -649,7 +650,7 @@ export default function EventParticipantsPage() {
                 gap: 'var(--space-2)',
               }}
             >
-              <span style={{ fontSize: 12, color: "var(--ink-1)" }}>{t("participantsView.bulkPrefix", { count: selected.size })}</span>
+              <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>{t("participantsView.bulkPrefix", { count: selected.size })}</span>
               <div style={{ flex: 1 }} />
               <Button
                 type="button"
@@ -689,13 +690,13 @@ export default function EventParticipantsPage() {
 
           {/* 테이블 */}
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
               <thead>
                 <tr
                   style={{
                     background: "var(--bg-2)",
                     color: "var(--ink-3)",
-                    fontSize: 10,
+                    fontSize: "var(--fs-xs)",
                     fontFamily: "var(--font-mono)",
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
@@ -781,7 +782,7 @@ export default function EventParticipantsPage() {
                           {p.bib ? (
                             <span style={{ fontWeight: 600 }}>#{String(p.bib).padStart(3, "0")}</span>
                           ) : (
-                            <span style={{ fontSize: 10 }}>{t("participantsView.bibNone")}</span>
+                            <span style={{ fontSize: "var(--fs-xs)" }}>{t("participantsView.bibNone")}</span>
                           )}
                         </td>
                         <td style={{ padding: "var(--space-3) var(--space-2)" }}>
@@ -802,7 +803,7 @@ export default function EventParticipantsPage() {
                           </button>
                           <div
                             style={{
-                              fontSize: 10,
+                              fontSize: "var(--fs-xs)",
                               color: "var(--ink-3)",
                               fontFamily: "var(--font-mono)",
                               marginTop: 1,
@@ -815,7 +816,7 @@ export default function EventParticipantsPage() {
                           {cat ? (
                             <Chip
                               style={{
-                                fontSize: 10,
+                                fontSize: "var(--fs-xs)",
                                 color: `var(--${cat.color})`,
                                 borderColor: `color-mix(in oklch, var(--${cat.color}) 30%, transparent)`,
                                 padding: "2px 7px",
@@ -824,13 +825,13 @@ export default function EventParticipantsPage() {
                               {cat.name}
                             </Chip>
                           ) : (
-                            <span style={{ fontSize: 10, color: "var(--ink-3)" }}>—</span>
+                            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>—</span>
                           )}
                         </td>
                         <td
                           style={{
                             padding: "var(--space-3) var(--space-2)",
-                            fontSize: 11,
+                            fontSize: "var(--fs-xs)",
                             color: "var(--ink-2)",
                             fontFamily: "var(--font-mono)",
                           }}
@@ -849,12 +850,12 @@ export default function EventParticipantsPage() {
                             fontFamily: "var(--font-mono)",
                             color: "var(--ink-1)",
                             textAlign: "right",
-                            fontSize: 11,
+                            fontSize: "var(--fs-xs)",
                           }}
                         >
                           {p.bestTime}
                         </td>
-                        <td style={{ padding: "var(--space-3) var(--space-2)", fontSize: 11, color: "var(--ink-3)" }}>{p.team}</td>
+                        <td style={{ padding: "var(--space-3) var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{p.team}</td>
                         <td style={{ padding: "var(--space-3) var(--space-4)", textAlign: "right" }}>
                           <button
                             type="button"
@@ -910,10 +911,10 @@ export default function EventParticipantsPage() {
               style={{ padding: "18px 20px", borderBottom: "1px solid var(--line-soft)" }}
             >
               <div>
-                <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 2 }}>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 2 }}>
                   {drawer.bib ? `#${String(drawer.bib).padStart(3, "0")}` : t("participantsView.bibNone")}
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 600, color: "var(--ink-0)" }}>{drawer.realName}</div>
+                <div style={{ fontSize: "var(--fs-lg)", fontWeight: 600, color: "var(--ink-0)" }}>{drawer.realName}</div>
               </div>
               <Button
                 type="button"
@@ -933,8 +934,8 @@ export default function EventParticipantsPage() {
                     marginTop: 10,
                     padding: "8px 10px",
                     background: "color-mix(in oklch, var(--amber) 8%, var(--bg-2))",
-                    borderRadius: 4,
-                    fontSize: 11,
+                    borderRadius: "var(--r-sm)",
+                    fontSize: "var(--fs-xs)",
                     color: "var(--ink-1)",
                   }}
                 >
@@ -953,7 +954,7 @@ export default function EventParticipantsPage() {
                   [t("bestTime"), drawer.bestTime],
                   [t("label.registration"), drawer.registrationNumber || "—"],
                 ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between" style={{ fontSize: 12 }}>
+                  <div key={k} className="flex justify-between" style={{ fontSize: "var(--fs-xs)" }}>
                     <span style={{ color: "var(--ink-3)" }}>{k}</span>
                     <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>{v}</span>
                   </div>
@@ -979,7 +980,7 @@ export default function EventParticipantsPage() {
                               color: passed ? "var(--primary-fg)" : "var(--ink-3)",
                               display: "grid",
                               placeItems: "center",
-                              fontSize: 10,
+                              fontSize: "var(--fs-xs)",
                               fontFamily: "var(--font-mono)",
                               fontWeight: 600,
                             }}
@@ -990,7 +991,7 @@ export default function EventParticipantsPage() {
                           <div className="flex-1 min-w-0">
                             <div
                               style={{
-                                fontSize: 12,
+                                fontSize: "var(--fs-xs)",
                                 color: passed ? "var(--ink-0)" : "var(--ink-3)",
                               }}
                             >
@@ -998,7 +999,7 @@ export default function EventParticipantsPage() {
                             </div>
                             {cp.distanceFromStart != null && (
                               <div
-                                style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
+                                style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
                               >
                                 {(cp.distanceFromStart / 1000).toFixed(1)} km
                               </div>
@@ -1101,8 +1102,8 @@ export default function EventParticipantsPage() {
                 ? "color-mix(in oklch, var(--amber) 12%, var(--bg-2))"
                 : "color-mix(in oklch, var(--rose) 12%, var(--bg-2))",
             border: `1px solid ${toast.type === "ok" ? "var(--lime)" : toast.type === "warn" ? "var(--amber)" : "var(--rose)"}`,
-            borderRadius: 5,
-            fontSize: 12,
+            borderRadius: "var(--r-sm)",
+            fontSize: "var(--fs-xs)",
             color: "var(--ink-0)",
             display: "flex",
             gap: 10,

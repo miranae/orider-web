@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import type { ConnectionDoc, ProviderId } from "@shared/types";
 
 /**
@@ -43,7 +44,7 @@ export function useHealthConnections(uid: string | null) {
         setLoading(false);
       },
       (err) => {
-        console.warn("[useHealthConnections] onSnapshot 실패:", err);
+        logClientError("useHealthConnections.subscribe", err, { uid });
         setLoading(false);
       },
     );

@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { TrainingSummary } from "@shared/types/training-summary";
 import type { Discipline } from "../utils/disciplineFilter";
@@ -30,7 +31,7 @@ export function useTrainingSummary(discipline: Discipline): TrainingSummary | nu
         setSummary(snap.data() as TrainingSummary);
       },
       (err) => {
-        console.warn("[useTrainingSummary] subscribe fail:", err);
+        logClientError("useTrainingSummary.subscribe", err, { discipline });
       },
     );
     return () => unsub();

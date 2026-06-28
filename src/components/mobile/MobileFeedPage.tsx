@@ -45,18 +45,18 @@ function MobileFeedSkeleton() {
           <div className="flex items-center gap-2.5" style={{ marginBottom: 12 }}>
             <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--bg-3)" }} />
             <div style={{ flex: 1 }}>
-              <div style={{ width: 92, height: 12, borderRadius: 4, background: "var(--bg-3)", marginBottom: 6 }} />
-              <div style={{ width: 54, height: 10, borderRadius: 4, background: "var(--bg-2)" }} />
+              <div style={{ width: 92, height: 12, borderRadius: "var(--r-sm)", background: "var(--bg-3)", marginBottom: 6 }} />
+              <div style={{ width: 54, height: 10, borderRadius: "var(--r-sm)", background: "var(--bg-2)" }} />
             </div>
-            <div style={{ width: 52, height: 22, borderRadius: 4, background: "var(--bg-2)" }} />
+            <div style={{ width: 52, height: 22, borderRadius: "var(--r-sm)", background: "var(--bg-2)" }} />
           </div>
-          <div style={{ width: "68%", height: 16, borderRadius: 4, background: "var(--bg-3)", marginBottom: 12 }} />
+          <div style={{ width: "68%", height: 16, borderRadius: "var(--r-sm)", background: "var(--bg-3)", marginBottom: 12 }} />
           <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 12px", background: "var(--bg-2)" }} />
           <div className="grid grid-cols-4 gap-3">
             {[0, 1, 2, 3].map((i) => (
               <div key={i}>
-                <div style={{ width: 36, height: 9, borderRadius: 4, background: "var(--bg-2)", marginBottom: 6 }} />
-                <div style={{ width: 44, height: 14, borderRadius: 4, background: "var(--bg-3)" }} />
+                <div style={{ width: 36, height: 9, borderRadius: "var(--r-sm)", background: "var(--bg-2)", marginBottom: 6 }} />
+                <div style={{ width: 44, height: 14, borderRadius: "var(--r-sm)", background: "var(--bg-3)" }} />
               </div>
             ))}
           </div>
@@ -107,11 +107,11 @@ function CompactActivityCard({ activity }: { activity: Activity }) {
       <div className="flex items-center gap-2.5" style={{ marginBottom: 10 }}>
         <Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size="sm" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-0)" }}>{nickname}</div>
-          <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>{timeAgo(activity.startTime, t)}</div>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{nickname}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>{timeAgo(activity.startTime, t)}</div>
         </div>
         <span style={{
-          padding: "3px 7px", borderRadius: 4, fontSize: 10,
+          padding: "3px 7px", borderRadius: "var(--r-sm)", fontSize: "var(--fs-xs)",
           fontFamily: "var(--font-mono)", letterSpacing: "0.05em",
           display: "flex", alignItems: "center", gap: 3,
           background: `color-mix(in oklch, ${sColor} 14%, var(--bg-2))`,
@@ -136,7 +136,7 @@ function CompactActivityCard({ activity }: { activity: Activity }) {
       </div>
 
       {/* Title */}
-      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)", marginBottom: 10, lineHeight: 1.3, letterSpacing: "-0.01em" }}>
+      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 10, lineHeight: 1.3, letterSpacing: "-0.01em" }}>
         {activity.description || t("mobileFeed.defaultActivity")}
       </div>
 
@@ -168,10 +168,10 @@ function CompactActivityCard({ activity }: { activity: Activity }) {
         ].map((stat, i) => (
           <div key={stat.l} style={{ flex: 1, borderLeft: i > 0 ? "1px solid var(--line-soft)" : "none", paddingLeft: i > 0 ? 12 : 0 }}>
             {/* 라벨 위 / 값 아래 — ActivityCard 와 동일 세로 스택 (가독성) */}
-            <div style={{ fontSize: 10, color: "var(--ink-3)", marginBottom: 2 }}>{stat.l}</div>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 2 }}>{stat.l}</div>
             <div>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.02em", lineHeight: 1 }}>{stat.v}</span>
-              {stat.u && <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-4)" }}> {stat.u}</span>}
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.02em", lineHeight: 1 }}>{stat.v}</span>
+              {stat.u && <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}> {stat.u}</span>}
             </div>
           </div>
         ))}
@@ -216,7 +216,7 @@ export default function MobileFeedPage({
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
           <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-3)' }}>
             <Text variant="eyebrow">{t("mobileFeed.weekSummary")}</Text>
-            <Link to="/my" style={{ fontSize: 11, color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
+            <Link to="/my" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
               {t("mobileFeed.viewAll")}
             </Link>
           </div>
@@ -225,11 +225,11 @@ export default function MobileFeedPage({
           <Card padding="none" className="grid grid-cols-3 overflow-hidden" style={{ margin: "0 -16px var(--space-3)", padding: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
             {sportBreakdown.map((s, i) => (
               <div key={s.label} style={{ padding: "10px 0", textAlign: "center", borderRight: i < 2 ? "1px solid var(--line-soft)" : "none" }}>
-                <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--ink-4)", marginBottom: 'var(--space-1)', display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-4)", marginBottom: 'var(--space-1)', display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
                   <span>{s.icon}</span> {s.label}
                 </div>
-                <Text as="div" variant="num" style={{ fontSize: 18, color: s.color, lineHeight: 1 }}>
-                  {s.value}<span style={{ fontSize: 10, color: "var(--ink-4)", marginLeft: 2 }}>{s.unit}</span>
+                <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: s.color, lineHeight: 1 }}>
+                  {s.value}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: 2 }}>{s.unit}</span>
                 </Text>
               </div>
             ))}
@@ -261,9 +261,9 @@ export default function MobileFeedPage({
 
       {!loading && filteredBySprt.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 'var(--space-3)' }}>🚴</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("mobileFeed.emptyTitle")}</div>
-          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{t("mobileFeed.emptyDesc")}</div>
+          <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("mobileFeed.emptyTitle")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("mobileFeed.emptyDesc")}</div>
         </div>
       )}
 

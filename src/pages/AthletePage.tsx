@@ -115,7 +115,7 @@ export default function AthletePage() {
         setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
         setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
       } catch (err) {
-        console.error("Failed to fetch activities:", err);
+        logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile });
       } finally {
         if (!cancelled) setActivitiesLoading(false);
       }
@@ -151,7 +151,7 @@ export default function AthletePage() {
     getDocs(query(collection(firestore, "activities"), ...constraints))
       .then((snap) => {
         setChartActivities(docsToActivities(snap.docs));
-      }).catch((err) => console.error("Failed to fetch chart activities:", err));
+      }).catch((err) => logClientError("AthletePage.loadChartActivities", err, { userId, isOwnProfile }));
   }, [userId, isOwnProfile]);
 
   // 4. 서버 검색: keywords array-contains 쿼리
@@ -193,7 +193,7 @@ export default function AthletePage() {
       // 비공개 필터 (본인이 아닌 경우)
       setSearchResults(isOwnProfile ? items : items.filter((a) => a.visibility === "everyone"));
     }).catch((err) => {
-      console.error("Failed to search activities:", err);
+      logClientError("AthletePage.searchActivities", err, { userId, token });
       if (!cancelled) setSearchResults([]);
     }).finally(() => {
       if (!cancelled) setSearchLoading(false);
@@ -225,7 +225,7 @@ export default function AthletePage() {
       setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
       setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
     } catch (err) {
-      console.error("Failed to load more activities:", err);
+      logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile });
     } finally {
       setLoadingMore(false);
     }
@@ -322,7 +322,7 @@ export default function AthletePage() {
       });
       setFriendStatus("request_sent");
     } catch (err) {
-      console.error("Friend request failed:", err);
+      logClientError("AthletePage.handleSendFriendRequest", err, { targetUserId: userId });
     } finally {
       setFriendLoading(false);
     }
@@ -335,7 +335,7 @@ export default function AthletePage() {
       await deleteDoc(doc(firestore, "friend_requests", userId, "items", currentUser.uid));
       setFriendStatus("none");
     } catch (err) {
-      console.error("Cancel request failed:", err);
+      logClientError("AthletePage.handleCancelRequest", err, { targetUserId: userId });
     } finally {
       setFriendLoading(false);
     }
@@ -350,7 +350,7 @@ export default function AthletePage() {
       setFriendStatus("friends");
       setFriendCount((c) => c + 1);
     } catch (err) {
-      console.error("Accept request failed:", err);
+      logClientError("AthletePage.handleAcceptRequest", err, { requesterId: userId });
     } finally {
       setFriendLoading(false);
     }
@@ -368,7 +368,7 @@ export default function AthletePage() {
       setFriendCount((c) => Math.max(0, c - 1));
       setFriends((prev) => prev.filter((f) => f.userId !== removeId));
     } catch (err) {
-      console.error("Remove friend failed:", err);
+      logClientError("AthletePage.handleRemoveFriend", err, { targetUserId: removeId });
     } finally {
       setFriendLoading(false);
     }

@@ -19,7 +19,7 @@ export default function SocialPage() {
 
   if (!user) {
     return (
-      <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: 14 }}>
+      <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
         {t("auth.loginRequiredTitle")}
       </div>
     );
@@ -35,7 +35,7 @@ export default function SocialPage() {
           padding: "0 16px",
         }}
       >
-        <span style={{ fontSize: 17, fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>
+        <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>
           {t("nav.social")}
         </span>
       </div>
@@ -57,7 +57,7 @@ export default function SocialPage() {
               aria-selected={active}
               className="flex-1 flex items-center justify-center relative"
               style={{
-                padding: "12px 0", fontSize: 13, fontWeight: 500, minHeight: 44,
+                padding: "12px 0", fontSize: "var(--fs-sm)", fontWeight: 500, minHeight: 44,
                 color: active ? "var(--ink-0)" : "var(--ink-3)",
                 background: "none", border: "none", cursor: "pointer",
               }}
@@ -116,7 +116,7 @@ function FriendsTab() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
               background: "none", border: "none", outline: "none", flex: 1,
-              fontSize: 13, color: "var(--ink-1)", fontFamily: "inherit",
+              fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontFamily: "inherit",
             }}
           />
         </div>
@@ -129,7 +129,7 @@ function FriendsTab() {
           }}
           style={{
             padding: "8px 14px", background: "var(--lime)", border: "none",
-            borderRadius: "var(--r-md)", fontSize: 12, fontWeight: 600,
+            borderRadius: "var(--r-md)", fontSize: "var(--fs-xs)", fontWeight: 600,
             color: "var(--primary-fg)", cursor: "pointer", whiteSpace: "nowrap",
             display: "flex", alignItems: "center", gap: 'var(--space-1)',
           }}
@@ -144,7 +144,7 @@ function FriendsTab() {
       </div>
 
       {loading && (
-        <div style={{ padding: "var(--space-6) var(--space-4)", textAlign: "center", color: "var(--ink-4)", fontSize: 13 }}>
+        <div style={{ padding: "var(--space-6) var(--space-4)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
           {t("button.loading")}
         </div>
       )}
@@ -158,15 +158,15 @@ function FriendsTab() {
         >
           <Avatar userId={f.userId} name={f.nickname || t("label.rider")} imageUrl={f.profileImage} size="md" />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>{f.nickname || t("label.rider")}</div>
-            <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>{t("social.following")}</div>
+            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{f.nickname || t("label.rider")}</div>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>{t("social.following")}</div>
           </div>
           <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
         </Link>
       ))}
 
       {!loading && filtered.length === 0 && (
-        <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: 14, lineHeight: 1.5 }}>
+        <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)", lineHeight: 1.5 }}>
           {searchQuery ? t("social.searchEmpty") : t("social.noFriends")}
         </div>
       )}
@@ -192,7 +192,7 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
           style={{
             display: "block", width: "100%", padding: 11, textAlign: "center",
             background: "var(--bg-2)", border: "1px dashed var(--line)",
-            borderRadius: "var(--r-lg)", fontSize: 13, color: "var(--ink-3)",
+            borderRadius: "var(--r-lg)", fontSize: "var(--fs-sm)", color: "var(--ink-3)",
             textDecoration: "none", fontWeight: 500,
           }}
         >
@@ -205,7 +205,7 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
       </div>
 
       {loading && (
-        <div style={{ padding: "var(--space-6) var(--space-4)", textAlign: "center", color: "var(--ink-4)", fontSize: 13 }}>
+        <div style={{ padding: "var(--space-6) var(--space-4)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
           {t("button.loading")}
         </div>
       )}
@@ -220,7 +220,7 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
           <div
             className="flex items-center justify-center"
             style={{
-              width: 42, height: 42, borderRadius: 10, flexShrink: 0,
+              width: 42, height: 42, borderRadius: "var(--r-xl)", flexShrink: 0,
               background: "color-mix(in oklch, var(--lime) 14%, var(--bg-2))",
               border: "1px solid color-mix(in oklch, var(--lime) 30%, transparent)",
             }}
@@ -231,8 +231,8 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
             </svg>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>{g.name}</div>
-            <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>
+            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{g.name}</div>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
               {t("social.memberCount", { count: g.memberCount || 0 })}
             </div>
           </div>
@@ -241,7 +241,7 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
       ))}
 
       {!loading && groups.length === 0 && (
-        <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: 14 }}>
+        <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
           {t("social.noGroups")}
         </div>
       )}

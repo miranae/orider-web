@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import Avatar from "../Avatar";
 import Modal from "../Modal";
 import type { UserProfile } from "@shared/types";
@@ -53,7 +54,7 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode }
       await inviteFn({ groupId, targetUserId });
       setInvitedIds((prev) => new Set(prev).add(targetUserId));
     } catch (err) {
-      console.error("Invite failed:", err);
+      logClientError("InviteMemberModal.handleInvite", err, { groupId, targetUserId });
     }
     setInviting(null);
   };

@@ -113,8 +113,8 @@ export function reportRouteReady(route: string): void {
         if (durationMs >= SLOW_ROUTE_MS) {
           reportSlowPage("route_load", durationMs, navPath);
         }
-      } catch (e) {
-        if (import.meta.env.DEV) console.warn("route_load track failed", e);
+      } catch {
+        // RUM tracking must never break navigation.
       }
     });
   });

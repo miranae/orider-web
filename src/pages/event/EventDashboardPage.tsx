@@ -5,6 +5,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { doc, getDoc, getDocs, collection, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore as db, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { decodePolyline } from "../../utils/polyline";
@@ -59,7 +60,7 @@ function parseGpxString(xml: string, idPrefix: string): { latlngs: Array<[number
     });
     return { latlngs, waypoints };
   } catch (err) {
-    console.warn(`[EventDashboard] GPX 파싱 실패 (${idPrefix}):`, err);
+    logClientError("EventDashboard.parseGpxString", err, { idPrefix });
     return { latlngs: [], waypoints: [] };
   }
 }
@@ -198,7 +199,7 @@ export default function EventDashboardPage() {
               const partsSnap = await getDocs(collection(db, `events/${eventId}/participants`));
               setRegisteredCount(partsSnap.size);
             } catch (err) {
-              console.warn("[EventDashboard] 참가자 수 집계 실패:", err);
+              logClientError("EventDashboard.countParticipants", err, { eventId });
             }
           })();
         }
@@ -259,12 +260,12 @@ export default function EventDashboardPage() {
             setCourseLatlngs(latlngsAcc);
             setCourseWaypoints(wpsAcc);
           } catch (err) {
-            console.warn("[EventDashboard] 코스 로드 실패:", err);
+            logClientError("EventDashboard.loadCourse", err, { eventId });
           }
         })();
       },
       (err) => {
-        console.error("[EventDashboard] event 구독 실패:", err);
+        logClientError("EventDashboard.eventSnapshot", err, { eventId });
         setLoadError(err.message ?? t("dashboard.errorLoadEvent"));
       }
     );
@@ -358,7 +359,7 @@ export default function EventDashboardPage() {
         setLoading(false);
       },
       (err) => {
-        console.error("[EventDashboard] snapshot 구독 실패:", err);
+        logClientError("EventDashboard.liveSnapshot", err, { eventId });
         setLoadError(err.message ?? t("dashboard.errorLoadSnapshot"));
         setLoading(false);
       }
@@ -375,7 +376,7 @@ export default function EventDashboardPage() {
       await finishEvent({ eventId });
       navigate(`/event/${eventId}/results`);
     } catch (err) {
-      console.error("Failed to finish event:", err);
+      logClientError("EventDashboard.handleFinishEvent", err, { eventId });
       alert(t("dashboard.error.finish"));
       setFinishing(false);
     }
@@ -390,7 +391,7 @@ export default function EventDashboardPage() {
       await sendEventAlert({ eventId, message: message.trim(), severity: "info" });
       alert(t("dashboard.success.alertSent"));
     } catch (err) {
-      console.error("Failed to send alert:", err);
+      logClientError("EventDashboard.handleSendAlert", err, { eventId });
       alert(t("dashboard.error.alertFailed"));
     }
   }, [eventId, t]);
@@ -483,7 +484,7 @@ export default function EventDashboardPage() {
             background: "none",
             border: "none",
             color: "var(--ink-3)",
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             display: "inline-flex",
             alignItems: "center",
             gap: 'var(--space-1)',
@@ -502,10 +503,10 @@ export default function EventDashboardPage() {
             >
               {STATUS_LABELS[eventInfo.status] ?? eventInfo.status}
             </Chip>
-            <h1 className="text-[length:var(--fs-base)] font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: 15 }}>
+            <h1 className="text-[length:var(--fs-base)] font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: "var(--fs-sm)" }}>
               {eventInfo.name}
             </h1>
-            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>· {t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>
+            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>· {t("dashboard.lastUpdated", { time: timeAgo(snapshot?.timestamp, t) })}</span>
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
@@ -606,12 +607,12 @@ export default function EventDashboardPage() {
               padding: "10px 14px",
               background: "color-mix(in oklch, var(--lime) 6%, var(--bg-2))",
               border: "1px solid color-mix(in oklch, var(--lime) 30%, var(--line-soft))",
-              borderRadius: 5,
+              borderRadius: "var(--r-sm)",
             }}
           >
             <div className="flex items-center">
-              <span style={{ flex: 1, fontSize: 12, color: "var(--ink-1)", fontWeight: 500 }}>{t("label.totalParticipants")}</span>
-              <Text variant="num" style={{ fontSize: 22, fontWeight: 600, color: "var(--ink-0)" }}>
+              <span style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--ink-1)", fontWeight: 500 }}>{t("label.totalParticipants")}</span>
+              <Text variant="num" style={{ fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>
                 {categoryFilter === "ALL" ? registeredCount : filteredCounts.total}
               </Text>
             </div>
@@ -624,10 +625,10 @@ export default function EventDashboardPage() {
               const pct = Math.round((cp.passedCount / total) * 100);
               return (
                 <div key={cp.cpId} style={{ padding: "8px 0", borderTop: "1px solid var(--line-soft)" }}>
-                  <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: 11 }}>
+                  <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
                     <span className="truncate" style={{ flex: 1, color: "var(--ink-2)" }}>{cp.name}</span>
                     <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-0)" }}>{cp.passedCount}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)", fontSize: 10, width: 30, textAlign: "right" }}>
+                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)", fontSize: "var(--fs-xs)", width: 30, textAlign: "right" }}>
                       {pct}%
                     </span>
                   </div>
@@ -638,7 +639,7 @@ export default function EventDashboardPage() {
               );
             })
           ) : (
-            <p style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("dashboard.noCheckpointData")}</p>
+            <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("dashboard.noCheckpointData")}</p>
           )}
         </aside>
 
@@ -667,8 +668,8 @@ export default function EventDashboardPage() {
                 gap: 6,
                 background: "rgba(10,26,5,0.7)",
                 padding: "4px 10px",
-                borderRadius: 4,
-                fontSize: 10,
+                borderRadius: "var(--r-sm)",
+                fontSize: "var(--fs-xs)",
                 color: "var(--lime)",
                 fontWeight: 600,
                 letterSpacing: "0.06em",
@@ -683,12 +684,12 @@ export default function EventDashboardPage() {
                 position: "absolute",
                 top: 12,
                 right: 12,
-                fontSize: 10,
+                fontSize: "var(--fs-xs)",
                 color: "var(--ink-3)",
                 fontFamily: "var(--font-mono)",
                 background: "rgba(10,26,5,0.6)",
                 padding: "4px 10px",
-                borderRadius: 4,
+                borderRadius: "var(--r-sm)",
                 pointerEvents: "none",
               }}
             >
@@ -714,7 +715,7 @@ export default function EventDashboardPage() {
         <aside style={{ borderLeft: "1px solid var(--line-soft)", padding: 18, overflowY: "auto" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("dashboard.liveAlerts")}</Text>
           {alerts.length === 0 ? (
-            <p style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("dashboard.noAlertsYet")}</p>
+            <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("dashboard.noAlertsYet")}</p>
           ) : (
             <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {alerts.map((a) => (
@@ -732,23 +733,23 @@ export default function EventDashboardPage() {
                     style={{
                       width: 22,
                       height: 22,
-                      borderRadius: 4,
+                      borderRadius: "var(--r-sm)",
                       background: `color-mix(in oklch, ${a.color} 14%, var(--bg-2))`,
                       color: a.color,
                       display: "grid",
                       placeItems: "center",
                       flexShrink: 0,
                       marginTop: 2,
-                      fontSize: 11,
+                      fontSize: "var(--fs-xs)",
                     }}
                   >
                     {a.emoji}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, color: "var(--ink-0)", marginBottom: 2 }}>{a.message}</div>
-                    {a.sub && <div style={{ fontSize: 10, color: "var(--ink-3)" }}>{a.sub}</div>}
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", marginBottom: 2 }}>{a.message}</div>
+                    {a.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{a.sub}</div>}
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
                     {formatHHMM(a.ts)}
                   </div>
                 </li>
@@ -792,7 +793,7 @@ function StatusRow({
     <div
       style={{
         padding: "10px 14px",
-        borderRadius: 5,
+        borderRadius: "var(--r-sm)",
         background: "var(--bg-2)",
         border: "1px solid var(--line-soft)",
         marginBottom: 6,
@@ -800,8 +801,8 @@ function StatusRow({
     >
       <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 6 }}>
         <span aria-hidden="true" style={{ color: m.color }}>{m.emoji}</span>
-        <span style={{ flex: 1, fontSize: 12, color: "var(--ink-1)" }}>{m.label}</span>
-        <Text variant="num" style={{ fontSize: 18, color: "var(--ink-0)", fontWeight: 600 }}>{count}</Text>
+        <span style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>{m.label}</span>
+        <Text variant="num" style={{ fontSize: "var(--fs-lg)", color: "var(--ink-0)", fontWeight: 600 }}>{count}</Text>
       </div>
       <div style={{ height: 2, background: "var(--bg-3)", borderRadius: 1, overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: m.color }} />

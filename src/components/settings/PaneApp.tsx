@@ -59,7 +59,7 @@ export function PaneApp() {
                 gap: 'var(--space-1)',
                 padding: 2,
                 background: "var(--bg-2)",
-                borderRadius: 8,
+                borderRadius: "var(--r-lg)",
               }}
             >
               {SUPPORTED_LANGS.map((lang) => (
@@ -69,9 +69,9 @@ export function PaneApp() {
                   style={{
                     flex: 1,
                     padding: "7px 10px",
-                    fontSize: 12,
+                    fontSize: "var(--fs-xs)",
                     fontWeight: 500,
-                    borderRadius: 6,
+                    borderRadius: "var(--r-md)",
                     cursor: "pointer",
                     border: "none",
                     background: locale === lang ? "var(--bg-1)" : "transparent",
@@ -92,7 +92,7 @@ export function PaneApp() {
                 gap: 'var(--space-1)',
                 padding: 2,
                 background: "var(--bg-2)",
-                borderRadius: 8,
+                borderRadius: "var(--r-lg)",
               }}
             >
               {(
@@ -107,9 +107,9 @@ export function PaneApp() {
                   style={{
                     flex: 1,
                     padding: "7px 10px",
-                    fontSize: 12,
+                    fontSize: "var(--fs-xs)",
                     fontWeight: 500,
-                    borderRadius: 6,
+                    borderRadius: "var(--r-md)",
                     cursor: "pointer",
                     border: "none",
                     background: units === id ? "var(--bg-1)" : "transparent",
@@ -133,7 +133,7 @@ export function PaneApp() {
               gap: 'var(--space-1)',
               padding: 2,
               background: "var(--bg-2)",
-              borderRadius: 8,
+              borderRadius: "var(--r-lg)",
             }}
           >
             {availableThemes.map((thm) => {
@@ -146,9 +146,9 @@ export function PaneApp() {
                   style={{
                     flex: 1,
                     padding: "7px 10px",
-                    fontSize: 12,
+                    fontSize: "var(--fs-xs)",
                     fontWeight: 500,
-                    borderRadius: 6,
+                    borderRadius: "var(--r-md)",
                     cursor: "pointer",
                     border: "none",
                     background: active ? "var(--bg-1)" : "transparent",
@@ -176,14 +176,14 @@ export function PaneApp() {
                 onClick={() => setExportFormat(f)}
                 style={{
                   padding: "6px 14px",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   fontFamily: "var(--font-mono)",
                   background: exportFormat === f ? "var(--bg-3)" : "var(--bg-2)",
                   color: exportFormat === f ? "var(--ink-0)" : "var(--ink-3)",
                   border: `1px solid ${
                     exportFormat === f ? "var(--ink-3)" : "var(--line-soft)"
                   }`,
-                  borderRadius: 4,
+                  borderRadius: "var(--r-sm)",
                   cursor: "pointer",
                 }}
               >
@@ -200,12 +200,12 @@ export function PaneApp() {
         </InlineRow>
         {exportProgress && (
           <div style={{ padding: "12px 0" }}>
-            <div style={{ padding: 'var(--space-3)', background: "var(--bg-2)", borderRadius: 8 }}>
+            <div style={{ padding: 'var(--space-3)', background: "var(--bg-2)", borderRadius: "var(--r-lg)" }}>
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  fontSize: 11,
+                  fontSize: "var(--fs-xs)",
                   color: "var(--ink-2)",
                   marginBottom: 6,
                 }}
@@ -221,7 +221,7 @@ export function PaneApp() {
               <div
                 style={{
                   width: "100%",
-                  borderRadius: 999,
+                  borderRadius: "9999px",
                   height: 6,
                   overflow: "hidden",
                   background: "var(--bg-3)",
@@ -254,7 +254,7 @@ export function PaneApp() {
       <SettingsCard title={t("pane.app.cardDeleteAll")} danger dense>
         <div
           style={{
-            fontSize: 12,
+            fontSize: "var(--fs-xs)",
             color: "var(--ink-3)",
             marginBottom: 'var(--space-3)',
             lineHeight: 1.5,

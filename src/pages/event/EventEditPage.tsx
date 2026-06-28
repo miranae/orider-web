@@ -446,7 +446,7 @@ export default function EventEditPage() {
     <div style={{ paddingBottom: dirty ? 80 : 24 }}>
       {/* 상단 */}
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6) var(--space-3)" }}>
-        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
+        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
           <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
           <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
@@ -463,17 +463,17 @@ export default function EventEditPage() {
                 style={{
                   color: statusColor,
                   borderColor: `color-mix(in oklch, ${statusColor} 40%, var(--line-soft))`,
-                  fontSize: 10,
+                  fontSize: "var(--fs-xs)",
                 }}
               >
                 {event.status}
               </Chip>
-              <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{event.id}</span>
+              <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{event.id}</span>
             </div>
-            <h1 className="truncate" style={{ fontSize: 26, letterSpacing: "-0.02em", color: "var(--ink-0)" }}>
+            <h1 className="truncate" style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)" }}>
               {data.name}
             </h1>
-            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>
               {t("edit.participantSummary", { filled: totalFilled, total: totalSlots, date: data.date, time: data.startTime })}
             </div>
           </div>
@@ -520,8 +520,8 @@ export default function EventEditPage() {
                   }}
                   style={{
                     padding: "8px 10px",
-                    fontSize: 12,
-                    borderRadius: 4,
+                    fontSize: "var(--fs-xs)",
+                    borderRadius: "var(--r-sm)",
                     textDecoration: "none",
                     color: active ? "var(--ink-0)" : "var(--ink-3)",
                     background: active ? "var(--bg-2)" : "transparent",
@@ -541,8 +541,8 @@ export default function EventEditPage() {
                 padding: 'var(--space-3)',
                 background: "color-mix(in oklch, var(--amber) 8%, var(--bg-2))",
                 border: "1px solid color-mix(in oklch, var(--amber) 30%, var(--line-soft))",
-                borderRadius: 5,
-                fontSize: 11,
+                borderRadius: "var(--r-sm)",
+                fontSize: "var(--fs-xs)",
                 color: "var(--ink-1)",
                 lineHeight: 1.5,
               }}
@@ -610,7 +610,7 @@ export default function EventEditPage() {
                   padding: 14,
                   background: "var(--bg-2)",
                   border: "1px solid var(--line-soft)",
-                  borderRadius: 5,
+                  borderRadius: "var(--r-sm)",
                   gap: 14,
                 }}
               >
@@ -618,12 +618,12 @@ export default function EventEditPage() {
                   style={{
                     width: 80,
                     height: 50,
-                    borderRadius: 4,
+                    borderRadius: "var(--r-sm)",
                     background: "var(--bg-3)",
                     display: "grid",
                     placeItems: "center",
                     flexShrink: 0,
-                    fontSize: 18,
+                    fontSize: "var(--fs-lg)",
                     color: "var(--ink-3)",
                   }}
                   aria-hidden="true"
@@ -635,7 +635,7 @@ export default function EventEditPage() {
                     {course?.name ?? t("edit.courseNotLinked")}
                   </div>
                   {course && (
-                    <div className="flex flex-wrap" style={{ gap: 14, fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                    <div className="flex flex-wrap" style={{ gap: 14, fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                       {course.region && <span>{course.region}</span>}
                       {course.distance != null && <span>{(course.distance / 1000).toFixed(1)} km</span>}
                       {course.elevationGain != null && <span>↑ {Math.round(course.elevationGain).toLocaleString()} m</span>}
@@ -704,8 +704,8 @@ export default function EventEditPage() {
                   aria-pressed={data.feeType === "FREE"}
                   style={{
                     padding: "10px 18px",
-                    fontSize: 12,
-                    borderRadius: 5,
+                    fontSize: "var(--fs-xs)",
+                    borderRadius: "var(--r-sm)",
                     background: data.feeType === "FREE" ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                     border: `1px solid ${data.feeType === "FREE" ? "var(--lime)" : "var(--line-soft)"}`,
                     color: data.feeType === "FREE" ? "var(--ink-0)" : "var(--ink-2)",
@@ -720,8 +720,8 @@ export default function EventEditPage() {
                   aria-pressed={data.feeType === "PAID"}
                   style={{
                     padding: "10px 18px",
-                    fontSize: 12,
-                    borderRadius: 5,
+                    fontSize: "var(--fs-xs)",
+                    borderRadius: "var(--r-sm)",
                     background: data.feeType === "PAID" ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                     border: `1px solid ${data.feeType === "PAID" ? "var(--lime)" : "var(--line-soft)"}`,
                     color: data.feeType === "PAID" ? "var(--ink-0)" : "var(--ink-2)",
@@ -738,14 +738,14 @@ export default function EventEditPage() {
                       onChange={(e) => patch({ fee: Number(e.target.value) || 0 })}
                       style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
                     />
-                    <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("create.feeUnit")}</span>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("create.feeUnit")}</span>
                   </div>
                 )}
               </div>
               {data.fee !== initialData.fee && event.status === "OPEN" && totalFilled > 0 && (
                 <div
                   className="flex items-center"
-                  style={{ marginTop: 'var(--space-2)', fontSize: 11, color: "var(--amber)", gap: 6 }}
+                  style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--amber)", gap: 6 }}
                 >
                   ⚠ {t("edit.feeChangeNotice", { count: totalFilled })}
                 </div>
@@ -764,7 +764,7 @@ export default function EventEditPage() {
                         padding: 10,
                         background: "var(--bg-2)",
                         border: "1px solid var(--line-soft)",
-                        borderRadius: 5,
+                        borderRadius: "var(--r-sm)",
                       }}
                     >
                       <div
@@ -804,7 +804,7 @@ export default function EventEditPage() {
                           style={{
                             width: 32,
                             height: 34,
-                            borderRadius: 5,
+                            borderRadius: "var(--r-sm)",
                             background: "var(--bg-3)",
                             border: "1px solid var(--line-soft)",
                             color: "var(--ink-3)",
@@ -818,7 +818,7 @@ export default function EventEditPage() {
                         </button>
                       </div>
                       <div className="flex items-center" style={{ gap: 10, marginTop: 'var(--space-2)' }}>
-                        <div style={{ flex: 1, height: 3, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ flex: 1, height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                           <div
                             style={{
                               width: `${pct}%`,
@@ -827,7 +827,7 @@ export default function EventEditPage() {
                             }}
                           />
                         </div>
-                        <span style={{ fontSize: 10, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                        <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                           {c.filled}/{c.slots} ({pct}%)
                         </span>
                       </div>
@@ -886,22 +886,22 @@ export default function EventEditPage() {
                   padding: "10px 12px",
                   background: "var(--bg-2)",
                   border: "1px solid var(--line-soft)",
-                  borderRadius: 5,
+                  borderRadius: "var(--r-sm)",
                 }}
               >
                 <Toggle on={data.cutoffEnabled} onChange={(v) => patch({ cutoffEnabled: v })} />
-                <span style={{ fontSize: 12, color: "var(--ink-1)" }}>{t("edit.cutoffApply")}</span>
+                <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>{t("edit.cutoffApply")}</span>
                 {data.cutoffEnabled && (
                   <>
                     <div style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{t("edit.cutoffBuffer")}</span>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("edit.cutoffBuffer")}</span>
                     <input
                       type="number"
                       value={data.cutoffBuffer}
                       onChange={(e) => patch({ cutoffBuffer: Number(e.target.value) || 0 })}
                       style={{ ...fieldStyle, width: 70, fontFamily: "var(--font-mono)" }}
                     />
-                    <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{t("edit.cutoffMin")}</span>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("edit.cutoffMin")}</span>
                   </>
                 )}
               </div>
@@ -933,8 +933,8 @@ export default function EventEditPage() {
               >
                 <Toggle on={data[opt.id]} onChange={(v) => patch({ [opt.id]: v } as Partial<FormData>)} />
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: 12, color: "var(--ink-0)", marginBottom: 2 }}>{opt.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{opt.desc}</div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", marginBottom: 2 }}>{opt.label}</div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{opt.desc}</div>
                 </div>
               </div>
             ))}
@@ -946,15 +946,15 @@ export default function EventEditPage() {
                 padding: 'var(--space-4)',
                 background: "color-mix(in oklch, var(--rose) 5%, var(--bg-2))",
                 border: "1px solid color-mix(in oklch, var(--rose) 30%, var(--line-soft))",
-                borderRadius: 5,
+                borderRadius: "var(--r-sm)",
               }}
             >
               <div className="flex items-start" style={{ gap: 14 }}>
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
+                  <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
                     {t("edit.cancelEventTitle")}
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)", lineHeight: 1.6 }}>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.6 }}>
                     {t("edit.cancelEventDesc", { count: totalFilled })}
                   </div>
                 </div>
@@ -1001,7 +1001,7 @@ export default function EventEditPage() {
             className="flex items-center justify-between"
             style={{ maxWidth: 1160, width: "100%" }}
           >
-            <div className="flex items-center" style={{ gap: 10, fontSize: 12, color: "var(--ink-1)" }}>
+            <div className="flex items-center" style={{ gap: 10, fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--amber)" }} aria-hidden="true" />
               {notifyDirty ? t("edit.unsavedWithNotice") : t("edit.unsaved")}
             </div>
@@ -1038,8 +1038,8 @@ export default function EventEditPage() {
                 ? "color-mix(in oklch, var(--amber) 12%, var(--bg-2))"
                 : "color-mix(in oklch, var(--rose) 12%, var(--bg-2))",
             border: `1px solid ${toast.type === "ok" ? "var(--lime)" : toast.type === "warn" ? "var(--amber)" : "var(--rose)"}`,
-            borderRadius: 5,
-            fontSize: 12,
+            borderRadius: "var(--r-sm)",
+            fontSize: "var(--fs-xs)",
             color: "var(--ink-0)",
             display: "flex",
             gap: 10,
@@ -1082,17 +1082,17 @@ export default function EventEditPage() {
                   display: "grid",
                   placeItems: "center",
                   flexShrink: 0,
-                  fontSize: 18,
+                  fontSize: "var(--fs-lg)",
                   color: "var(--rose)",
                 }}
               >
                 ⚠
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-0)", marginBottom: 6 }}>
+                <div style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 6 }}>
                   {t("edit.confirmCancelTitle")}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--ink-3)", lineHeight: 1.5 }}>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.5 }}>
                   {t("edit.confirmCancelDesc", { name: data.name, count: totalFilled })}
                 </div>
               </div>
@@ -1116,7 +1116,7 @@ export default function EventEditPage() {
                 disabled={deleteConfirmText.trim() !== data.name} variant="secondary" size="sm" className="disabled:opacity-50"
                 style={{
                   background: deleteConfirmText.trim() === data.name ? "var(--rose)" : "var(--bg-3)",
-                  color: deleteConfirmText.trim() === data.name ? "#fff" : "var(--ink-3)",
+                  color: deleteConfirmText.trim() === data.name ? "var(--ink-0)" : "var(--ink-3)",
                   border: "none",
                 }}
               >

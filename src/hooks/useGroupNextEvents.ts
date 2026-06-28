@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 
 interface NextEventInfo {
   id: string;
@@ -76,7 +77,7 @@ export function useGroupNextEvents(groupIds: string[]) {
         setByGroup(labels);
       } catch (err) {
         // 인덱스/규칙 문제 시 조용히 실패
-        console.warn("[useGroupNextEvents]", err);
+        logClientError("useGroupNextEvents.load", err, { count: groupIds.length });
         if (!cancelled) setByGroup(new Map());
       } finally {
         if (!cancelled) setLoading(false);

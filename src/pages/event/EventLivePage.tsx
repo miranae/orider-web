@@ -6,6 +6,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { doc, getDoc } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Text } from "../../theme/components";
@@ -124,7 +125,7 @@ function RiderCard({
             background: "var(--bg-3)",
             display: "grid",
             placeItems: "center",
-            fontSize: 15,
+            fontSize: "var(--fs-sm)",
             fontWeight: 600,
             color: "var(--ink-0)",
             flexShrink: 0,
@@ -133,17 +134,17 @@ function RiderCard({
           {initial}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)", fontSize: 15 }}>
+          <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)", fontSize: "var(--fs-sm)" }}>
             {loc.displayName}
           </div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
             {loc.bib != null ? `#${String(loc.bib).padStart(3, "0")}` : "—"}
             {loc.category ? ` · ${loc.category}` : ""}
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", letterSpacing: "0.05em" }}>{t("liveView.rankLabel")}</div>
-          <div style={{ fontSize: 20, fontFamily: "var(--font-mono)", color, fontWeight: 600 }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", letterSpacing: "0.05em" }}>{t("liveView.rankLabel")}</div>
+          <div style={{ fontSize: "var(--fs-xl)", fontFamily: "var(--font-mono)", color, fontWeight: 600 }}>
             {loc.overallRank ?? "—"}
           </div>
         </div>
@@ -151,14 +152,14 @@ function RiderCard({
           type="button"
           onClick={onUnfollow}
           aria-label={t("action.unfollowAthlete")} variant="secondary" size="sm"
-          style={{ padding: "var(--space-1) var(--space-2)", fontSize: 11 }}
+          style={{ padding: "var(--space-1) var(--space-2)", fontSize: "var(--fs-xs)" }}
         >
           ×
         </Button>
       </div>
 
       <div style={{ marginBottom: 14 }}>
-        <div className="flex justify-between" style={{ fontSize: 11, marginBottom: 6 }}>
+        <div className="flex justify-between" style={{ fontSize: "var(--fs-xs)", marginBottom: 6 }}>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
             {distKm.toFixed(1)} km
           </span>
@@ -170,7 +171,7 @@ function RiderCard({
           style={{
             height: 6,
             background: "var(--bg-3)",
-            borderRadius: 3,
+            borderRadius: "var(--r-xs)",
             overflow: "hidden",
             position: "relative",
           }}
@@ -200,7 +201,7 @@ function RiderCard({
         </div>
         <div
           style={{
-            fontSize: 10,
+            fontSize: "var(--fs-xs)",
             color: "var(--ink-3)",
             fontFamily: "var(--font-mono)",
             marginTop: 'var(--space-1)',
@@ -218,7 +219,7 @@ function RiderCard({
           gap: 1,
           background: "var(--line-soft)",
           border: "1px solid var(--line-soft)",
-          borderRadius: 5,
+          borderRadius: "var(--r-sm)",
           overflow: "hidden",
         }}
       >
@@ -230,15 +231,15 @@ function RiderCard({
           [t("liveView.statusLabel"), statusText, ""],
         ].map(([k, v, u]) => (
           <div key={k} style={{ padding: "10px 12px", background: "var(--bg-1)" }}>
-            <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 'var(--space-1)' }}>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 'var(--space-1)' }}>
               {k}
             </Text>
             <div className="flex items-baseline" style={{ gap: 3 }}>
-              <Text variant="dataMedium" style={{ fontSize: 15 }}>
+              <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>
                 {v}
               </Text>
               {u && (
-                <Text variant="unit" style={{ fontSize: 10 }}>
+                <Text variant="unit" style={{ fontSize: "var(--fs-xs)" }}>
                   {u}
                 </Text>
               )}
@@ -315,7 +316,7 @@ export default function EventLivePage() {
           }
         }
       } catch (err) {
-        console.error("이벤트 로드 실패:", err);
+        logClientError("EventLivePage.loadEvent", err, { eventId });
       }
     })();
   }, [eventId]);
@@ -391,7 +392,7 @@ export default function EventLivePage() {
         setSnapshot(null);
         setLoadError(null);
       } else {
-        console.error("Failed to fetch snapshot:", err);
+        logClientError("EventLivePage.fetchSnapshot", err, { eventId });
         if (!snapshot) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
       }
     } finally {
@@ -509,7 +510,7 @@ export default function EventLivePage() {
           to={`/event/${eventId}`}
           style={{
             color: "var(--ink-3)",
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             display: "inline-flex",
             alignItems: "center",
             gap: 'var(--space-1)',
@@ -533,7 +534,7 @@ export default function EventLivePage() {
             />
             <span
               style={{
-                fontSize: 10,
+                fontSize: "var(--fs-xs)",
                 letterSpacing: "0.08em",
                 color: "var(--lime)",
                 textTransform: "uppercase",
@@ -543,18 +544,18 @@ export default function EventLivePage() {
               LIVE · {t("label.spectatorView")}
             </span>
           </div>
-          <div className="truncate" style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)" }}>
+          <div className="truncate" style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
             {eventName}
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-3)', marginLeft: "auto" }}>
           {elapsedLabel && (
-            <div style={{ textAlign: "right", fontSize: 10, color: "var(--ink-3)" }}>
+            <div style={{ textAlign: "right", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               <div style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>{t("label.elapsed")}</div>
               <div
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 15,
+                  fontSize: "var(--fs-sm)",
                   color: "var(--ink-0)",
                   fontWeight: 500,
                 }}
@@ -583,7 +584,7 @@ export default function EventLivePage() {
             <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>
               {t("liveView.followingCount", { count: followedParticipants.length })}
             </Text>
-            <h2 style={{ fontSize: 22, letterSpacing: "-0.02em", margin: 0, color: "var(--ink-0)" }}>
+            <h2 style={{ fontSize: "var(--fs-xl)", letterSpacing: "-0.02em", margin: 0, color: "var(--ink-0)" }}>
               {t("label.followedAthletes")}
             </h2>
           </div>
@@ -599,10 +600,10 @@ export default function EventLivePage() {
               aria-label={t("liveView.bibSearchLabel")}
               style={{
                 padding: "7px 12px",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 background: "var(--bg-2)",
                 border: "1px solid var(--line-soft)",
-                borderRadius: 5,
+                borderRadius: "var(--r-sm)",
                 color: "var(--ink-0)",
                 width: 140,
               }}
@@ -631,7 +632,7 @@ export default function EventLivePage() {
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
                 #{String(searchedParticipant.bib).padStart(3, "0")} {searchedParticipant.displayName}
                 {searchedParticipant.category && (
-                  <span className="font-normal" style={{ color: "var(--ink-3)", marginLeft: 6, fontSize: 12 }}>
+                  <span className="font-normal" style={{ color: "var(--ink-3)", marginLeft: 6, fontSize: "var(--fs-xs)" }}>
                     ({searchedParticipant.category})
                   </span>
                 )}
@@ -652,8 +653,8 @@ export default function EventLivePage() {
           <Card padding="none"
             style={{ padding: 'var(--space-7)', textAlign: "center", marginBottom: 28, color: "var(--ink-3)" }}
           >
-            <div style={{ fontSize: 14, color: "var(--ink-2)", marginBottom: 6 }}>{t("liveView.noFollowing")}</div>
-            <div style={{ fontSize: 12 }}>{t("liveView.noFollowingHint")}</div>
+            <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: 6 }}>{t("liveView.noFollowing")}</div>
+            <div style={{ fontSize: "var(--fs-xs)" }}>{t("liveView.noFollowingHint")}</div>
           </Card>
         ) : (
           <div
@@ -679,15 +680,15 @@ export default function EventLivePage() {
             style={{ padding: "14px 20px", borderBottom: "1px solid var(--line-soft)", gap: 'var(--space-3)' }}
           >
             <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-0)", marginBottom: 2 }}>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", marginBottom: 2 }}>
                 {t("label.courseLocation")}
               </div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
                 {followedParticipants.length > 0 ? t("liveView.followingLiveLocation") : t("liveView.allLiveLocation")}
               </div>
             </div>
             {followedParticipants.length > 0 && (
-              <div className="flex flex-wrap" style={{ gap: 'var(--space-3)', fontSize: 10 }}>
+              <div className="flex flex-wrap" style={{ gap: 'var(--space-3)', fontSize: "var(--fs-xs)" }}>
                 {followedParticipants.map((p) => (
                   <span key={p.uid} className="inline-flex items-center" style={{ gap: 5 }}>
                     <span
@@ -748,7 +749,7 @@ export default function EventLivePage() {
                         background: "var(--bg-3)",
                         display: "grid",
                         placeItems: "center",
-                        fontSize: 13,
+                        fontSize: "var(--fs-sm)",
                         fontWeight: 600,
                         color: "var(--ink-0)",
                         borderLeft: `3px solid ${h.color}`,
@@ -758,14 +759,14 @@ export default function EventLivePage() {
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div style={{ fontSize: 13, color: "var(--ink-0)", marginBottom: 2 }}>
+                      <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", marginBottom: 2 }}>
                         {h.message}
                       </div>
-                      {h.sub && <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{h.sub}</div>}
+                      {h.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{h.sub}</div>}
                     </div>
                     <div
                       style={{
-                        fontSize: 11,
+                        fontSize: "var(--fs-xs)",
                         color: "var(--ink-3)",
                         fontFamily: "var(--font-mono)",
                         flexShrink: 0,

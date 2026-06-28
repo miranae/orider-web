@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { doc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import type { AdaptationFlag } from "@shared/types/goal";
 import { Button } from "../../theme/components";
 
@@ -55,7 +56,7 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
       await reroll({ goalId });
       onChange();
     } catch (err) {
-      console.error(t("errors.rerollFailed"), err);
+      logClientError("AdaptationBanner.onReroll", err, { goalId });
       alert(t("errors.rerollError"));
     } finally {
       setBusy(false);
@@ -74,7 +75,7 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
       setLocallySnoozedUntil(snoozedUntil);
       onChange();
     } catch (err) {
-      console.error("[adaptation] snooze failed:", err);
+      logClientError("AdaptationBanner.onSnooze", err, { goalId });
       alert(t("adaptation.snoozeError"));
     } finally {
       setBusy(false);

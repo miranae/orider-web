@@ -100,7 +100,6 @@ function mountApp() {
 initFirebase()
   .then(mountApp)
   .catch((err) => {
-    console.error("Firebase init failed:", err);
     captureError(err, { tags: { source: "firebase-init" } });
     const root = document.getElementById("root")!;
     const container = document.createElement("div");

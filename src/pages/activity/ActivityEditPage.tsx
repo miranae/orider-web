@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { DateField, TimeField, EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
@@ -147,7 +148,7 @@ export default function ActivityEditPage() {
       setStartDate(tsToDateStr(parsed.startTime));
       setStartTimeOfDay(tsToTimeStr(parsed.startTime));
     } catch (err) {
-      console.error("활동 조회 실패:", err);
+      logClientError("ActivityEditPage.loadActivity", err, { activityId });
       setLoadError(err instanceof Error ? err.message : t("edit.loadErrorFallback"));
     } finally {
       setLoading(false);
@@ -180,7 +181,7 @@ export default function ActivityEditPage() {
       showToast(t("edit.toastSaved"));
       navigate(`/activity/${activityId}`);
     } catch (err) {
-      console.error("활동 저장 실패:", err);
+      logClientError("ActivityEditPage.handleSave", err, { activityId, visibility, workoutType });
       showToast(err instanceof Error ? err.message : t("edit.toastSaveFailed"));
     } finally {
       setSaving(false);
@@ -196,7 +197,7 @@ export default function ActivityEditPage() {
       showToast(t("edit.toastDeleted"));
       navigate("/log");
     } catch (err) {
-      console.error("활동 삭제 실패:", err);
+      logClientError("ActivityEditPage.handleDelete", err, { activityId });
       showToast(t("edit.toastDeleteFailed"));
       setSaving(false);
     }

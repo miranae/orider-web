@@ -21,6 +21,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { auth, firestore, functions, googleProvider } from "../services/firebase";
 import { track } from "../services/analytics";
+import { logClientError } from "../services/errorLogger";
 import type { UserProfile } from "@shared/types";
 
 /**
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await callWithRetry(() => ensureProfile());
         } catch (err) {
-          console.error("[AuthContext] ensureUserProfile 실패:", err);
+          logClientError("AuthContext.ensureUserProfile", err, { uid: firebaseUser.uid });
           if (!cancelled) setProfile(null);
         }
       } else {

@@ -5,6 +5,7 @@ import { LocalizedLink as Link } from "./LocalizedLink";
 import { doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { firestore, storage } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance, formatSpeed, formatElev } from "../utils/units";
@@ -107,7 +108,7 @@ function CaptureMap({ activityId, userId, polyline, mapImageUrl, priority = fals
       await updateDoc(doc(firestore, "activities", activityId), { mapImageUrl: url });
       setImageUrl(url);
     } catch (err) {
-      console.warn("[ActivityCard] map capture failed:", err);
+      logClientError("ActivityCard.captureMap", err, { activityId });
     }
   }, [activityId, userId, needsCapture]);
 

@@ -116,7 +116,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
 
   const dropdownItemStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-    padding: '8px 10px', fontSize: 12, color: 'var(--ink-1)',
+    padding: '8px 10px', fontSize: "var(--fs-xs)", color: 'var(--ink-1)',
     borderRadius: 'var(--r-md)', textDecoration: 'none',
   };
 
@@ -142,11 +142,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
           className="flex items-center gap-2"
           style={{ textDecoration: 'none', flexShrink: 0 }}
         >
-          <img src={iconSvg} alt="O-Rider" style={{ width: 24, height: 24, borderRadius: 4, flexShrink: 0 }} />
+          <img src={iconSvg} alt="O-Rider" style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", flexShrink: 0 }} />
           <span
             style={{
               fontWeight: 700,
-              fontSize: 14,
+              fontSize: "var(--fs-sm)",
               letterSpacing: '0.04em',
               color: 'var(--ink-0)',
             }}
@@ -170,7 +170,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   height: 52,
                   display: 'flex',
                   alignItems: 'center',
-                  fontSize: 13,
+                  fontSize: "var(--fs-sm)",
                   fontWeight: isActive ? 600 : 400,
                   color: isActive ? 'var(--ink-0)' : 'var(--ink-3)',
                   textDecoration: 'none',
@@ -212,7 +212,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 display: 'flex',
                 alignItems: 'center',
                 height: 30,
-                borderRadius: 6,
+                borderRadius: "var(--r-md)",
                 border: '1px solid var(--line-soft)',
                 backgroundColor: 'var(--bg-2)',
                 paddingInline: 10,
@@ -238,7 +238,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   background: 'transparent',
                   border: 'none',
                   outline: 'none',
-                  fontSize: 13,
+                  fontSize: "var(--fs-sm)",
                   color: 'var(--ink-0)',
                 }}
               />
@@ -258,14 +258,14 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     {results.activities.map(a => (
                       <Link key={a.id} to={`/activity/${a.id}`}
                         onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: 12, color: 'var(--ink-1)' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
                         <span>📍</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 500, color: 'var(--ink-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.description || t('label.ride')}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{(a.summary.distance / 1000).toFixed(1)} km</div>
+                          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{(a.summary.distance / 1000).toFixed(1)} km</div>
                         </div>
                       </Link>
                     ))}
@@ -278,14 +278,14 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     {results.courses.map(c => (
                       <Link key={c.id} to={`/course/${c.id}`}
                         onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: 12, color: 'var(--ink-1)' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
                         <span>🗺️</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 500, color: 'var(--ink-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{(c.distance / 1000).toFixed(1)} km · {c.regions?.join(', ') || ''}</div>
+                          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{(c.distance / 1000).toFixed(1)} km · {c.regions?.join(', ') || ''}</div>
                         </div>
                       </Link>
                     ))}
@@ -293,7 +293,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 )}
                 {/* 결과 없음 */}
                 {results.activities.length === 0 && results.courses.length === 0 && (
-                  <div style={{ padding: '16px 10px', textAlign: 'center', fontSize: 12, color: 'var(--ink-3)' }}>
+                  <div style={{ padding: '16px 10px', textAlign: 'center', fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>
                     {t('label.searchEmpty', { query: searchQuery })}
                   </div>
                 )}
@@ -309,7 +309,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   className="flex md:hidden items-center justify-center"
                   aria-label={t('topnav.notifications')}
                   onClick={onMobileNotifClick}
-                  style={{ width: 30, height: 30, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
+                  style={{ width: 30, height: 30, borderRadius: "var(--r-md)", border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
                 >
                   <Bell size={16} />
                   {unreadCount > 0 && (
@@ -325,7 +325,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   style={{
                     width: 30, height: 30,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    borderRadius: 6, border: 'none', background: 'transparent',
+                    borderRadius: "var(--r-md)", border: 'none', background: 'transparent',
                     cursor: 'pointer', color: 'var(--ink-3)', position: 'relative',
                   }}
                 >
@@ -338,10 +338,10 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                         right: 4,
                         minWidth: 14,
                         height: 14,
-                        borderRadius: 999,
+                        borderRadius: "9999px",
                         backgroundColor: 'var(--color-error)',
                         color: 'var(--ink-0)',
-                        fontSize: 9,
+                        fontSize: "var(--fs-xs)",
                         fontWeight: 700,
                         display: 'flex',
                         alignItems: 'center',
@@ -370,12 +370,12 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                         padding: '10px 12px', borderBottom: '1px solid var(--line-soft)',
                       }}
                     >
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-0)' }}>{t('topnav.notifications')}</span>
+                      <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>{t('topnav.notifications')}</span>
                       {onMarkAllRead && unreadCount > 0 && (
                         <button
                           onClick={() => { onMarkAllRead(); }}
                           style={{
-                            fontSize: 11, color: 'var(--ink-3)', background: 'none',
+                            fontSize: "var(--fs-xs)", color: 'var(--ink-3)', background: 'none',
                             border: 'none', cursor: 'pointer', padding: 0,
                           }}
                         >
@@ -387,7 +387,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     {/* 알림 목록 */}
                     <div style={{ maxHeight: 360, overflowY: 'auto' }}>
                       {notifications.length === 0 ? (
-                        <div style={{ padding: 'var(--space-6) var(--space-3)', textAlign: 'center', fontSize: 13, color: 'var(--ink-4)' }}>
+                        <div style={{ padding: 'var(--space-6) var(--space-3)', textAlign: 'center', fontSize: "var(--fs-sm)", color: 'var(--ink-4)' }}>
                           {t('label.noNotifications')}
                         </div>
                       ) : (
@@ -420,8 +420,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                               )}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-1)', lineHeight: 1.4 }}>{n.message}</p>
-                              <p style={{ margin: '3px 0 0', fontSize: 11, color: 'var(--ink-4)' }}>{timeAgo(n.createdAt, t)}</p>
+                              <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: 'var(--ink-1)', lineHeight: 1.4 }}>{n.message}</p>
+                              <p style={{ margin: '3px 0 0', fontSize: "var(--fs-xs)", color: 'var(--ink-4)' }}>{timeAgo(n.createdAt, t)}</p>
                             </div>
                             {!n.read && (
                               <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--color-brand-bike)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
@@ -446,7 +446,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 style={{
                   width: 30, height: 30,
                   alignItems: 'center', justifyContent: 'center',
-                  borderRadius: 6, color: 'var(--ink-3)',
+                  borderRadius: "var(--r-md)", color: 'var(--ink-3)',
                 }}
               >
                 <Settings size={16} />
@@ -462,7 +462,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     background: 'var(--bg-3)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer', overflow: 'hidden', padding: 0,
-                    fontSize: 11, fontWeight: 600, color: 'var(--ink-0)',
+                    fontSize: "var(--fs-xs)", fontWeight: 600, color: 'var(--ink-0)',
                   }}
                 >
                   {photoURL ? (
@@ -480,7 +480,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                       borderRadius: 'var(--r-lg)', padding: 6, zIndex: 100,
                     }}
                   >
-                    <div style={{ padding: '8px 10px', fontSize: 13, fontWeight: 600, color: 'var(--ink-0)', borderBottom: '1px solid var(--line-soft)', marginBottom: 'var(--space-1)' }}>
+                    <div style={{ padding: '8px 10px', fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', borderBottom: '1px solid var(--line-soft)', marginBottom: 'var(--space-1)' }}>
                       {nickname || t('label.rider')}
                     </div>
                     <Link
@@ -505,7 +505,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                       onClick={() => { logout(); setMenuOpen(false); }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%',
-                        padding: '8px 10px', fontSize: 12, color: 'var(--rose)',
+                        padding: '8px 10px', fontSize: "var(--fs-xs)", color: 'var(--rose)',
                         borderRadius: 'var(--r-md)', background: 'none', border: 'none', cursor: 'pointer',
                       }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
@@ -524,7 +524,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 style={{
                   width: 30, height: 30,
                   alignItems: 'center', justifyContent: 'center',
-                  borderRadius: 6, border: 'none', background: 'transparent',
+                  borderRadius: "var(--r-md)", border: 'none', background: 'transparent',
                   cursor: 'pointer', color: 'var(--ink-3)',
                 }}
               >
@@ -553,7 +553,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 style={{
                   width: 30, height: 30,
                   alignItems: 'center', justifyContent: 'center',
-                  borderRadius: 6, border: 'none', background: 'transparent',
+                  borderRadius: "var(--r-md)", border: 'none', background: 'transparent',
                   cursor: 'pointer', color: 'var(--ink-3)',
                 }}
               >
@@ -574,7 +574,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
           onClick={() => setMobileOpen(false)}
         >
           {/* backdrop */}
-          <div style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} />
+          <div style={{ flex: 1, backgroundColor: 'color-mix(in oklch, var(--ink-1) 50%, transparent)' }} />
 
           {/* 슬라이드 패널 */}
           <div
@@ -596,14 +596,14 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 padding: '14px 16px', borderBottom: '1px solid var(--line-soft)',
               }}
             >
-              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink-0)', letterSpacing: '0.04em' }}>
+              <span style={{ fontWeight: 700, fontSize: "var(--fs-sm)", color: 'var(--ink-0)', letterSpacing: '0.04em' }}>
                 O<span style={{ color: 'var(--ink-3)' }}>·</span>RIDER
               </span>
               <button
                 onClick={() => setMobileOpen(false)}
                 style={{
                   width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer',
+                  borderRadius: "var(--r-md)", border: 'none', background: 'transparent', cursor: 'pointer',
                   color: 'var(--ink-3)',
                 }}
               >
@@ -620,7 +620,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     border: '1px solid var(--line)',
                     background: 'var(--bg-3)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    overflow: 'hidden', fontSize: 13, fontWeight: 600, color: 'var(--ink-0)', flexShrink: 0,
+                    overflow: 'hidden', fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', flexShrink: 0,
                   }}
                 >
                   {photoURL ? (
@@ -630,8 +630,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   )}
                 </div>
                 <div>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--ink-0)' }}>{nickname || t('label.rider')}</p>
-                  <p style={{ margin: 0, fontSize: 11, color: 'var(--ink-4)' }}>{user.email}</p>
+                  <p style={{ margin: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>{nickname || t('label.rider')}</p>
+                  <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: 'var(--ink-4)' }}>{user.email}</p>
                 </div>
               </div>
             )}
@@ -650,7 +650,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                       aria-current={hubActive ? 'page' : undefined}
                       style={{
                         display: 'flex', alignItems: 'center',
-                        padding: '10px 12px', fontSize: 13,
+                        padding: '10px 12px', fontSize: "var(--fs-sm)",
                         fontWeight: hubActive ? 600 : 400,
                         color: hubActive ? 'var(--lime)' : 'var(--ink-1)',
                         borderRadius: 'var(--r-md)', textDecoration: 'none',
@@ -666,7 +666,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 return (
                   <div key={hub.key} style={{ marginBottom: 'var(--space-1)' }}>
                     <div style={{
-                      padding: '10px 12px 4px', fontSize: 11, fontWeight: 600,
+                      padding: '10px 12px 4px', fontSize: "var(--fs-xs)", fontWeight: 600,
                       letterSpacing: '0.04em',
                       color: hubActive ? 'var(--lime)' : 'var(--ink-3)',
                     }}>
@@ -679,7 +679,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                         onClick={() => setMobileOpen(false)}
                         style={{
                           display: 'flex', alignItems: 'center',
-                          padding: '9px 12px 9px 22px', fontSize: 13,
+                          padding: '9px 12px 9px 22px', fontSize: "var(--fs-sm)",
                           color: 'var(--ink-1)', borderRadius: 'var(--r-md)', textDecoration: 'none',
                         }}
                         onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
@@ -702,7 +702,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     onClick={() => setMobileOpen(false)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                      padding: '10px 12px', fontSize: 13, color: 'var(--ink-1)',
+                      padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--ink-1)',
                       borderRadius: 'var(--r-md)', textDecoration: 'none',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
@@ -715,7 +715,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     onClick={() => setMobileOpen(false)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                      padding: '10px 12px', fontSize: 13, color: 'var(--ink-1)',
+                      padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--ink-1)',
                       borderRadius: 'var(--r-md)', textDecoration: 'none',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
@@ -727,7 +727,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     onClick={() => { logout(); setMobileOpen(false); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%',
-                      padding: '10px 12px', fontSize: 13, color: 'var(--rose)',
+                      padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--rose)',
                       borderRadius: 'var(--r-md)', background: 'none', border: 'none', cursor: 'pointer',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
@@ -741,7 +741,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   onClick={() => { signInWithGoogle(); setMobileOpen(false); }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
-                    width: '100%', padding: '10px 12px', fontSize: 13,
+                    width: '100%', padding: '10px 12px', fontSize: "var(--fs-sm)",
                     backgroundColor: 'var(--lime)', color: 'var(--primary-fg)',
                     borderRadius: 'var(--r-md)', border: 'none', cursor: 'pointer', fontWeight: 600,
                   }}
@@ -753,18 +753,18 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
 
             {/* 언어 선택 */}
             <div style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--line-soft)' }}>
-              <div style={{ fontSize: 11, color: 'var(--ink-3)', marginBottom: 'var(--space-2)', fontWeight: 500 }}>{t('topnav.language')}</div>
+              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginBottom: 'var(--space-2)', fontWeight: 500 }}>{t('topnav.language')}</div>
               <LanguageToggle variant="menu" />
             </div>
 
             {/* 법적 링크 (모바일 — 데스크톱 푸터 대체. 약관/개인정보 접근성 보장) */}
             <div style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--line-soft)', display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
-              <Link to="/terms" onClick={() => setMobileOpen(false)} style={{ fontSize: 11, color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.terms')}</Link>
-              <Link to="/privacy" onClick={() => setMobileOpen(false)} style={{ fontSize: 11, color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.privacy')}</Link>
-              <Link to="/community" onClick={() => setMobileOpen(false)} style={{ fontSize: 11, color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
-              <Link to="/feedback" onClick={() => setMobileOpen(false)} style={{ fontSize: 11, color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.feedback')}</Link>
-              <a href="mailto:orider.app@gmail.com" style={{ fontSize: 11, color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</a>
-              <span style={{ fontSize: 10, color: 'var(--ink-4)', width: '100%', marginTop: 'var(--space-1)' }}>&copy; 2026 O-Rider</span>
+              <Link to="/terms" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.terms')}</Link>
+              <Link to="/privacy" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.privacy')}</Link>
+              <Link to="/community" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
+              <Link to="/feedback" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.feedback')}</Link>
+              <a href="mailto:orider.app@gmail.com" style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</a>
+              <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', width: '100%', marginTop: 'var(--space-1)' }}>&copy; 2026 O-Rider</span>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { collection, collectionGroup, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
@@ -90,11 +91,11 @@ export default function LeaderboardPage() {
             });
             setMyBest(best);
           } catch (err) {
-            console.warn("내 기록 조회 실패:", err);
+            logClientError("LeaderboardPage.loadMyBest", err);
           }
         }
       } catch (err) {
-        console.error("세그먼트 로딩 실패:", err);
+        logClientError("LeaderboardPage.loadSegments", err);
       } finally {
         setLoading(false);
       }

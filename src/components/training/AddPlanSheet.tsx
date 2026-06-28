@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, runTransaction } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
 import { Bike, Footprints, Waves, Moon } from "lucide-react";
 
@@ -114,7 +115,7 @@ export default function AddPlanSheet({
       onUpdate();
       onClose();
     } catch (err) {
-      console.error(t('add.addFailed'), err);
+      logClientError("AddPlanSheet.handleAdd", err, { goalId, weekId, selectedDay, workout: template.kind });
       alert(t('add.addFailedAlert'));
     } finally {
       setLoading(false);
@@ -144,7 +145,7 @@ export default function AddPlanSheet({
       onUpdate();
       onClose();
     } catch (err) {
-      console.error(t('add.restFailed'), err);
+      logClientError("AddPlanSheet.handleSetRest", err, { goalId, weekId, selectedDay });
     } finally {
       setLoading(false);
     }
@@ -180,18 +181,18 @@ export default function AddPlanSheet({
       >
         {/* Handle */}
         <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
-          <div style={{ width: 36, height: 4, background: "var(--line)", borderRadius: 2 }} />
+          <div style={{ width: 36, height: 4, background: "var(--line)", borderRadius: "var(--r-xs)" }} />
         </div>
 
         {/* Header */}
         <div style={{ padding: "var(--space-2) var(--space-5) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
+            <h3 style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
               {t('add.title')}
             </h3>
             <button
               onClick={onClose}
-              style={{ background: "none", border: "none", color: "var(--ink-3)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 'var(--space-1)' }}
+              style={{ background: "none", border: "none", color: "var(--ink-3)", cursor: "pointer", fontSize: "var(--fs-lg)", lineHeight: 1, padding: 'var(--space-1)' }}
             >
               ✕
             </button>
@@ -201,7 +202,7 @@ export default function AddPlanSheet({
         <div style={{ overflow: "auto", flex: 1, padding: "var(--space-4) var(--space-5) var(--space-6)" }}>
           {/* Step 1: 요일 선택 */}
           <div style={{ marginBottom: 'var(--space-5)' }}>
-            <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+            <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
               {t('add.selectDay')}
             </div>
             <div style={{ display: "flex", gap: 6 }}>
@@ -210,7 +211,7 @@ export default function AddPlanSheet({
                   key={index}
                   onClick={() => setSelectedDay(index)}
                   style={{
-                    flex: 1, padding: "10px 0", borderRadius: 6, fontSize: 13, fontWeight: 500,
+                    flex: 1, padding: "10px 0", borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)", fontWeight: 500,
                     background: selectedDay === index ? "var(--accent-soft-bg)" : "var(--bg-2)",
                     color: selectedDay === index ? "var(--lime)" : isRest ? "var(--ink-3)" : "var(--ink-1)",
                     border: `1px solid ${selectedDay === index ? "var(--accent-soft-border)" : "var(--line-soft)"}`,
@@ -228,7 +229,7 @@ export default function AddPlanSheet({
           {/* Step 2: 종목 선택 */}
           {selectedDay >= 0 && (
             <div style={{ marginBottom: 'var(--space-5)' }}>
-              <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
                 {t('add.discipline')}
               </div>
               <div style={{ display: "flex", gap: 'var(--space-2)' }}>
@@ -248,7 +249,7 @@ export default function AddPlanSheet({
                       }
                     }}
                     style={{
-                      flex: 1, padding: "var(--space-3) var(--space-2)", borderRadius: 8, fontSize: 12, fontWeight: 500,
+                      flex: 1, padding: "var(--space-3) var(--space-2)", borderRadius: "var(--r-lg)", fontSize: "var(--fs-xs)", fontWeight: 500,
                       background: discipline === key ? `color-mix(in oklch, ${color} 12%, var(--bg-2))` : "var(--bg-2)",
                       border: `1px solid ${discipline === key ? color : "var(--line-soft)"}`,
                       color: discipline === key ? color : "var(--ink-2)",
@@ -267,7 +268,7 @@ export default function AddPlanSheet({
           {/* Step 3: 템플릿 선택 */}
           {discipline && discipline !== "rest" && templates.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
                 {t('add.selectWorkout')}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
@@ -278,22 +279,22 @@ export default function AddPlanSheet({
                     disabled={loading || selectedDay < 0}
                     style={{
                       display: "flex", alignItems: "center", gap: 'var(--space-3)',
-                      padding: "12px 14px", borderRadius: 8,
+                      padding: "12px 14px", borderRadius: "var(--r-lg)",
                       background: "var(--bg-2)", border: "1px solid var(--line-soft)",
                       cursor: loading ? "not-allowed" : "pointer",
                       textAlign: "left", opacity: loading ? 0.5 : 1,
                     }}
                   >
-                    <div style={{ width: 4, height: 32, background: t.color, borderRadius: 2, flexShrink: 0 }} />
+                    <div style={{ width: 4, height: 32, background: t.color, borderRadius: "var(--r-xs)", flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-0)" }}>{t.label}</div>
-                      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{t.desc}</div>
+                      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t.label}</div>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 2 }}>{t.desc}</div>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: t.color, fontWeight: 600 }}>
+                      <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: t.color, fontWeight: 600 }}>
                         {t.tss} TSS
                       </div>
-                      <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--ink-4)" }}>
+                      <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-4)" }}>
                         {t.durationMin}{tCommon('unit.min')}
                       </div>
                     </div>
@@ -304,7 +305,7 @@ export default function AddPlanSheet({
           )}
 
           {loading && (
-            <div style={{ textAlign: "center", padding: "16px 0", fontSize: 13, color: "var(--ink-3)" }}>
+            <div style={{ textAlign: "center", padding: "16px 0", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
               {t('add.saving')}
             </div>
           )}

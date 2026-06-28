@@ -8,9 +8,9 @@ import { Card, Text } from "../../theme/components";
 const inputBox: CSSProperties = {
   background: "var(--bg-2)",
   border: "1px solid var(--line)",
-  borderRadius: 6,
+  borderRadius: "var(--r-md)",
   padding: "8px 10px",
-  fontSize: 13,
+  fontSize: "var(--fs-sm)",
   color: "var(--ink-0)",
   outline: "none",
 };
@@ -62,7 +62,7 @@ export function SettingsCard({ title, action, children, dense, danger }: Setting
             <h3
               style={{
                 margin: 0,
-                fontSize: 16,
+                fontSize: "var(--fs-base)",
                 fontWeight: 600,
                 color: "var(--ink-0)",
                 letterSpacing: "-0.005em",
@@ -108,7 +108,7 @@ export function Field({
     <label style={{ display: "block", gridColumn: full ? "1/-1" : undefined }}>
       <div
         style={{
-          fontSize: 11,
+          fontSize: "var(--fs-xs)",
           color: "var(--ink-3)",
           marginBottom: 5,
           textTransform: "uppercase",
@@ -120,7 +120,7 @@ export function Field({
       </div>
       {children}
       {hint && (
-        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{hint}</div>
+        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{hint}</div>
       )}
     </label>
   );
@@ -147,9 +147,9 @@ export function InlineRow({
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: "var(--ink-0)" }}>{label}</div>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)" }}>{label}</div>
         {hint && (
-          <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>
         )}
       </div>
       <div>{children}</div>
@@ -274,7 +274,7 @@ export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZ
         style={{
           display: "flex",
           height: 36,
-          borderRadius: 6,
+          borderRadius: "var(--r-md)",
           overflow: "hidden",
           border: "1px solid var(--line-soft)",
         }}
@@ -292,7 +292,7 @@ export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZ
                 display: "grid",
                 placeItems: "center",
                 color: "white",
-                fontSize: 11,
+                fontSize: "var(--fs-xs)",
                 fontWeight: 600,
                 fontFamily: "var(--font-mono)",
                 letterSpacing: "0.04em",
@@ -319,13 +319,13 @@ export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZ
           return (
             <div
               key={z.name}
-              style={{ fontSize: 10, color: "var(--ink-3)", textAlign: "center" }}
+              style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", textAlign: "center" }}
             >
               <div
                 style={{
                   color: "var(--ink-1)",
                   fontFamily: "var(--font-mono)",
-                  fontSize: 11,
+                  fontSize: "var(--fs-xs)",
                 }}
               >
                 {hi === null ? `${lo}+` : z.minPct === 0 ? `<${hi}` : `${lo}–${hi}`}

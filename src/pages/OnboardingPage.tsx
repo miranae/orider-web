@@ -5,6 +5,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { track } from "../services/analytics";
+import { logClientError } from "../services/errorLogger";
 import { Bike, Footprints, Triangle, Waves } from "lucide-react";
 
 type Step = "discipline" | "strava" | "goal";
@@ -66,7 +67,7 @@ export default function OnboardingPage() {
       await updateDoc(userRef, { primaryDiscipline: selected, onboardingStep: "strava" });
       setStep("strava");
     } catch (err) {
-      console.error("온보딩 저장 실패:", err);
+      logClientError("OnboardingPage.handleDisciplineNext", err, { selected });
       setError(t("saveFailed"));
     } finally {
       setSaving(false);
@@ -79,7 +80,7 @@ export default function OnboardingPage() {
       await updateDoc(userRef, { onboardingStep: "goal" });
       navigate("/settings", { replace: true });
     } catch (err) {
-      console.error("온보딩 저장 실패:", err);
+      logClientError("OnboardingPage.handleStravaConnect", err);
       setError(t("saveFailed"));
     }
   };
@@ -91,7 +92,7 @@ export default function OnboardingPage() {
       await updateDoc(userRef, { onboardingStep: "goal" });
       setStep("goal");
     } catch (err) {
-      console.error("온보딩 저장 실패:", err);
+      logClientError("OnboardingPage.handleStravaSkip", err);
       setError(t("saveFailed"));
     }
   };
@@ -103,7 +104,7 @@ export default function OnboardingPage() {
       await updateDoc(userRef, { onboardingStep: "done" });
       navigate("/", { replace: true });
     } catch (err) {
-      console.error("온보딩 저장 실패:", err);
+      logClientError("OnboardingPage.handleGoalSkip", err);
       setError(t("saveFailed"));
     }
   };
@@ -115,7 +116,7 @@ export default function OnboardingPage() {
       await updateDoc(userRef, { onboardingStep: "done" });
       navigate("/goal-setup", { replace: true });
     } catch (err) {
-      console.error("온보딩 저장 실패:", err);
+      logClientError("OnboardingPage.handleGoalSetup", err);
       setError(t("saveFailed"));
     }
   };

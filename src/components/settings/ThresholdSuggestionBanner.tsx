@@ -10,6 +10,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import type { ThresholdSuggestionDoc } from "@shared/types/threshold";
@@ -55,7 +56,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
         setSugg(next);
       },
       (err) => {
-        console.warn("[ThresholdSuggestionBanner] onSnapshot fail:", err);
+        logClientError("ThresholdSuggestionBanner.onSnapshot", err);
         setSugg(null);
       },
     );
@@ -98,7 +99,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
       showToast(t("threshold.acceptSuccess"));
       onAccepted?.(result.data.applied);
     } catch (err) {
-      console.error(err);
+      logClientError("ThresholdSuggestionBanner.handleAccept", err, { activityId });
       showToast(t("threshold.acceptFailed"));
     } finally {
       releaseBusy();
@@ -114,7 +115,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
       const fn = httpsCallable(functions, "dismissThresholdSuggestion");
       await fn({ activityId });
     } catch (err) {
-      console.error(err);
+      logClientError("ThresholdSuggestionBanner.handleDismiss", err, { activityId });
     } finally {
       releaseBusy();
     }

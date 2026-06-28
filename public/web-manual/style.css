@@ -1,7 +1,7 @@
 :root {
   /* accent (테마 공통) */
-  --primary: #F97316;
-  --primary-dark: #EA580C;
+  --primary: #008986;
+  --primary-dark: #006f6c;
   --success: #4CAF50;
   --warning: #FF9800;
   --error: #FF5252;
@@ -44,7 +44,7 @@ body {
 
 /* -- Header -- */
 header {
-  background: linear-gradient(135deg, #7c2d12 0%, #9a3412 50%, #c2410c 100%);
+  background: linear-gradient(135deg, #063f43 0%, #006f6c 52%, #008986 100%);
   padding: 60px 20px 40px;
   text-align: center;
   position: relative;
@@ -185,7 +185,7 @@ th {
   white-space: nowrap;
 }
 td { color: var(--text); }
-tr:hover td { background: rgba(249,115,22,0.05); }
+tr:hover td { background: color-mix(in oklab, var(--primary) 5%, transparent); }
 
 /* -- Lists -- */
 ul, ol { padding-left: 24px; margin-bottom: 12px; }
@@ -200,7 +200,7 @@ li { margin-bottom: 4px; }
   font-weight: 600;
   vertical-align: middle;
 }
-.tag-login    { background: #7c2d12; color: #fed7aa; }
+.tag-login    { background: #064e3b; color: #a7f3d0; }
 .tag-strava   { background: #bf360c; color: #ffab91; }
 .tag-map      { background: #01579b; color: #81d4fa; }
 .tag-power    { background: #4a148c; color: #ce93d8; }
@@ -232,13 +232,13 @@ kbd {
   border-left: 4px solid var(--warning);
 }
 .info {
-  background: rgba(249,115,22,0.1);
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
   border-left: 4px solid var(--primary);
 }
 
 /* -- Quick Start -- */
 .quick-start {
-  background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(76,175,80,0.08));
+  background: linear-gradient(135deg, color-mix(in oklab, var(--primary) 8%, transparent), rgba(76,175,80,0.08));
   border: 1px solid var(--primary);
   border-radius: 12px;
   padding: 28px 32px;
@@ -396,7 +396,7 @@ footer a {
 }
 .toc-card:hover {
   border-color: var(--primary);
-  background: rgba(249,115,22,0.05);
+  background: color-mix(in oklab, var(--primary) 5%, transparent);
 }
 .toc-card .ch-num {
   flex-shrink: 0;
@@ -442,8 +442,8 @@ footer a {
 
 /* -- Purpose block -- */
 .purpose {
-  background: linear-gradient(135deg, rgba(249,115,22,0.06), rgba(249,115,22,0.02));
-  border: 1px solid rgba(249,115,22,0.3);
+  background: linear-gradient(135deg, color-mix(in oklab, var(--primary) 6%, transparent), color-mix(in oklab, var(--primary) 2%, transparent));
+  border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
   border-radius: 10px;
   padding: 20px 24px;
   margin: 16px 0 24px;

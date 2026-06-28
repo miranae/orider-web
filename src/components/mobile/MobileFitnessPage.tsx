@@ -129,7 +129,7 @@ function PmcMiniChart({ history, projection, today, color, t }: {
 
   if (history.length < 2) {
     return (
-      <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-4)", fontSize: 12 }}>
+      <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-4)", fontSize: "var(--fs-xs)" }}>
         {t("mobileFitness.pmcNoData")}
       </div>
     );
@@ -398,7 +398,7 @@ function SectionCard({ children, title, sub }: { children: React.ReactNode; titl
       {(title || sub) && (
         <div style={{ marginBottom: 10 }}>
           {title && <Text variant="eyebrow">{title}</Text>}
-          {sub && <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 3 }}>{sub}</div>}
+          {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 3 }}>{sub}</div>}
         </div>
       )}
       {children}
@@ -458,7 +458,7 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
           onClick={() => navigate("/my")}>
           <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
         </div>
-        <span style={{ fontSize: 17, fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
+        <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
       </div>
 
       <SportFilterTabs value={sportSegment} onChange={setSportSegment} />
@@ -473,7 +473,7 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
               role="tab"
               aria-selected={active}
               className="flex-1 flex items-center justify-center relative"
-              style={{ padding: "12px 0", fontSize: 13, fontWeight: 500, minHeight: 44,
+              style={{ padding: "12px 0", fontSize: "var(--fs-sm)", fontWeight: 500, minHeight: 44,
                 color: active ? "var(--ink-0)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer" }}>
               {label}
               {active && <div style={{ position: "absolute", bottom: 0, left: 16, right: 16, height: 2, background: "var(--lime)", borderRadius: "2px 2px 0 0" }} />}
@@ -503,13 +503,13 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
                 >
                   <div className="flex items-center" style={{ gap: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
                     <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
-                    <Text variant="eyebrow" as="span" style={{ fontSize: 10, letterSpacing: "0.04em" }}>{s.shortLabel}</Text>
+                    <Text variant="eyebrow" as="span" style={{ fontSize: "var(--fs-xs)", letterSpacing: "0.04em" }}>{s.shortLabel}</Text>
                   </div>
                   <div className="flex items-baseline" style={{ gap: 'var(--space-1)', marginBottom: 'var(--space-1)' }}>
-                    <Text as="span" style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 600, lineHeight: 1.1, color: s.color }}>{s.value}</Text>
+                    <Text as="span" style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-lg)", fontWeight: 600, lineHeight: 1.1, color: s.color }}>{s.value}</Text>
                   </div>
-                  {s.unit && <Text size="xs" tone="quaternary" as="div" style={{ fontSize: 10, lineHeight: 1.2 }}>{s.unit}</Text>}
-                  <Text size="xs" tone="tertiary" as="div" style={{ fontSize: 10, lineHeight: 1.3, marginTop: 'var(--space-1)' }}>{s.desc}</Text>
+                  {s.unit && <Text size="xs" tone="quaternary" as="div" style={{ fontSize: "var(--fs-xs)", lineHeight: 1.2 }}>{s.unit}</Text>}
+                  <Text size="xs" tone="tertiary" as="div" style={{ fontSize: "var(--fs-xs)", lineHeight: 1.3, marginTop: 'var(--space-1)' }}>{s.desc}</Text>
                 </div>
               ))}
             </div>
@@ -522,7 +522,7 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
             <div style={{ margin: "0 -16px" }}>
               <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} color={ringColor} t={t} />
             </div>
-            <div style={{ marginTop: 6, fontSize: 10, color: "var(--ink-4)", display: "flex", gap: 12 }}>
+            <div style={{ marginTop: 6, fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: 12 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <span style={{ display: "inline-block", width: 10, height: 2, background: ringColor }} />CTL
               </span>
@@ -550,16 +550,16 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
                   <Link key={a.id} to={`/activity/${a.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                     <div className="flex items-center justify-between" style={{ padding: "10px 0", borderBottom: i < data.recentActivities.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-0)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
-                        <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 2 }}>
+                        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
+                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 2 }}>
                           {a.dateLabel}
                           {a.distanceKm != null && ` · ${a.distanceKm.toFixed(1)} km`}
                           {a.durationMin != null && ` · ${Math.floor(a.durationMin / 60)}:${String(Math.floor(a.durationMin % 60)).padStart(2, "0")}`}
                         </div>
                       </div>
                       {a.tss != null && (
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--ink-1)", fontWeight: 600, marginLeft: 12 }}>
-                          {a.tss}<span style={{ fontSize: 10, color: "var(--ink-4)", marginLeft: 3 }}>TSS</span>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 600, marginLeft: 12 }}>
+                          {a.tss}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: 3 }}>TSS</span>
                         </div>
                       )}
                     </div>
@@ -569,8 +569,8 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
             </SectionCard>
           ) : (
             <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
-              <div style={{ fontSize: 36, marginBottom: "var(--space-3)" }}>{getDisciplineIcon(data.discipline as Discipline)}</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-3)" }}>
+              <div style={{ fontSize: "var(--fs-4xl)", marginBottom: "var(--space-3)" }}>{getDisciplineIcon(data.discipline as Discipline)}</div>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-3)" }}>
                 {t("mobileFitness.disciplineLoading", { discipline: t(getDisciplineLabelKey(data.discipline as Discipline)) })}
               </div>
             </div>
@@ -584,11 +584,11 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
           {data.threshold && (
             <SectionCard>
               <Text variant="eyebrow">{data.threshold.label}</Text>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 28, fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em", marginTop: 4 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em", marginTop: 4 }}>
                 {data.threshold.value || "—"}
-                {data.threshold.unit && <span style={{ fontSize: 13, color: "var(--ink-3)", marginLeft: 4 }}>{data.threshold.unit}</span>}
+                {data.threshold.unit && <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginLeft: 4 }}>{data.threshold.unit}</span>}
               </div>
-              <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 3 }}>{data.threshold.sub}</div>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 3 }}>{data.threshold.sub}</div>
             </SectionCard>
           )}
 
@@ -603,12 +603,12 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
               }>
               {data.zones.map((z, i) => (
                 <div key={i} className="flex items-center gap-2" style={{ padding: "6px 0" }}>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-4)", width: 18, textAlign: "right" }}>Z{i + 1}</div>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)", width: 60 }}>{z.name}</div>
-                  <div style={{ flex: 1, height: 18, background: "var(--bg-3)", borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ width: `${z.pct}%`, height: "100%", background: z.color, borderRadius: 3 }} />
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", width: 18, textAlign: "right" }}>Z{i + 1}</div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", width: 60 }}>{z.name}</div>
+                  <div style={{ flex: 1, height: 18, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
+                    <div style={{ width: `${z.pct}%`, height: "100%", background: z.color, borderRadius: "var(--r-xs)" }} />
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-2)", width: 36, textAlign: "right" }}>{z.pct}%</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-2)", width: 36, textAlign: "right" }}>{z.pct}%</div>
                 </div>
               ))}
             </SectionCard>
@@ -629,17 +629,17 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
             <SectionCard title={t("mobileFitness.zoneDefsSectionTitle")}>
               {data.zones.map((z, i) => (
                 <div key={i} className="flex items-center" style={{ padding: "8px 0", borderBottom: i < data.zones.length - 1 ? "1px solid var(--line-soft)" : "none", gap: "var(--space-3)" }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)", width: 20 }}>Z{i + 1}</span>
-                  <span style={{ fontSize: 13, color: "var(--ink-0)", flex: 1 }}>{z.name}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-2)" }}>{z.rangeLabel}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-4)", width: 60, textAlign: "right" }}>{z.percentLabel}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", width: 20 }}>Z{i + 1}</span>
+                  <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", flex: 1 }}>{z.name}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{z.rangeLabel}</span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", width: 60, textAlign: "right" }}>{z.percentLabel}</span>
                 </div>
               ))}
             </SectionCard>
           )}
 
           {!showZones && !data.threshold && (
-            <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center", fontSize: 13, color: "var(--ink-3)" }}>
+            <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
               {t("mobileFitness.analysisInsufficient")}
             </div>
           )}

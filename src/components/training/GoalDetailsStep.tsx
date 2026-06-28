@@ -159,7 +159,7 @@ export default function GoalDetailsStep({
           style={{
             display: 'block',
             fontFamily: 'var(--font-mono)',
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: 'var(--ink-2)',
@@ -177,7 +177,7 @@ export default function GoalDetailsStep({
               key={v}
               style={{
                 padding: 14,
-                borderRadius: 6,
+                borderRadius: "var(--r-md)",
                 cursor: 'pointer',
                 background:
                   eventType === v
@@ -208,8 +208,8 @@ export default function GoalDetailsStep({
                 onClick={() => handleEventTypeChange(v)}
               />
               <div onClick={() => handleEventTypeChange(v)} style={{ cursor: 'pointer' }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-0)' }}>{t(`goalDetails.eventType.${v}`)}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{t(`goalDetails.eventTypeDesc.${v}`)}</div>
+                <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: 'var(--ink-0)' }}>{t(`goalDetails.eventType.${v}`)}</div>
+                <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: 2 }}>{t(`goalDetails.eventTypeDesc.${v}`)}</div>
               </div>
             </label>
           ))}
@@ -220,7 +220,7 @@ export default function GoalDetailsStep({
           style={{
             display: 'block',
             fontFamily: 'var(--font-mono)',
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: 'var(--ink-2)',
@@ -239,7 +239,7 @@ export default function GoalDetailsStep({
         />
         <div
           style={{
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             color: 'var(--ink-3)',
             marginTop: 6,
             fontFamily: 'var(--font-mono)',
@@ -255,7 +255,7 @@ export default function GoalDetailsStep({
               style={{
                 display: 'block',
                 fontFamily: 'var(--font-mono)',
-                fontSize: 11,
+                fontSize: "var(--fs-xs)",
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 color: 'var(--ink-2)',
@@ -278,14 +278,14 @@ export default function GoalDetailsStep({
                   padding: '10px 12px',
                   background: 'var(--bg-2)',
                   border: '1px solid var(--line)',
-                  borderRadius: 6,
-                  fontSize: 16,
+                  borderRadius: "var(--r-md)",
+                  fontSize: "var(--fs-base)",
                   color: 'var(--ink-0)',
                   fontFamily: 'var(--font-mono)',
                   textAlign: 'center',
                 }}
               />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-2)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
                 {t('goalDetails.hourUnit')}
               </span>
               <input
@@ -300,21 +300,21 @@ export default function GoalDetailsStep({
                   padding: '10px 12px',
                   background: 'var(--bg-2)',
                   border: '1px solid var(--line)',
-                  borderRadius: 6,
-                  fontSize: 16,
+                  borderRadius: "var(--r-md)",
+                  fontSize: "var(--fs-base)",
                   color: 'var(--ink-0)',
                   fontFamily: 'var(--font-mono)',
                   textAlign: 'center',
                 }}
               />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--ink-2)' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
                 {t('goalDetails.minUnit')}
               </span>
               {avgSpeed && (
                 <span
                   style={{
                     marginLeft: 'auto',
-                    fontSize: 11,
+                    fontSize: "var(--fs-xs)",
                     color: 'var(--ink-3)',
                     fontFamily: 'var(--font-mono)',
                   }}
@@ -331,7 +331,7 @@ export default function GoalDetailsStep({
           style={{
             display: 'block',
             fontFamily: 'var(--font-mono)',
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: 'var(--ink-2)',
@@ -351,8 +351,8 @@ export default function GoalDetailsStep({
               style={{
                 flex: 1,
                 padding: '12px 0',
-                borderRadius: 6,
-                fontSize: 14,
+                borderRadius: "var(--r-md)",
+                fontSize: "var(--fs-sm)",
                 fontFamily: 'var(--font-mono)',
                 background:
                   weeklySessions === n ? 'var(--lime)' : 'var(--bg-2)',
@@ -376,7 +376,7 @@ export default function GoalDetailsStep({
         style={{
           padding: 'var(--space-5)',
           background: 'var(--bg-2)',
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           border: '1px solid var(--line-soft)',
           borderLeft: `3px solid ${feasColor}`,
           alignSelf: 'start',
@@ -385,7 +385,7 @@ export default function GoalDetailsStep({
         <div
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: 'var(--ink-2)',
@@ -399,7 +399,7 @@ export default function GoalDetailsStep({
         {/* 큰 레이블 */}
         <div
           style={{
-            fontSize: 36,
+            fontSize: "var(--fs-4xl)",
             fontWeight: 700,
             color: feasColor,
             letterSpacing: '-0.02em',
@@ -412,7 +412,7 @@ export default function GoalDetailsStep({
 
         <div
           style={{
-            fontSize: 12,
+            fontSize: "var(--fs-xs)",
             color: 'var(--ink-3)',
             marginBottom: 'var(--space-5)',
             lineHeight: 1.5,
@@ -431,7 +431,7 @@ export default function GoalDetailsStep({
                 display: 'flex',
                 justifyContent: 'space-between',
                 padding: '8px 0',
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
               }}
             >
               <span style={{ color: 'var(--ink-3)' }}>{t('goalDetails.requiredPower')}</span>
@@ -450,7 +450,7 @@ export default function GoalDetailsStep({
                 display: 'flex',
                 justifyContent: 'space-between',
                 padding: '8px 0',
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
               }}
             >
               <span style={{ color: 'var(--ink-3)' }}>
@@ -461,8 +461,8 @@ export default function GoalDetailsStep({
                     style={{
                       marginLeft: 6,
                       padding: '1px 6px',
-                      fontSize: 10,
-                      borderRadius: 4,
+                      fontSize: "var(--fs-xs)",
+                      borderRadius: "var(--r-sm)",
                       // 기존 디자인 시스템 토큰 활용 — risky=피로 하향, easy=신선 상향
                       background: feas.fatigueAdjustmentPct < 0
                         ? 'color-mix(in oklch, var(--rose) 18%, transparent)'
@@ -485,7 +485,7 @@ export default function GoalDetailsStep({
                 display: 'flex',
                 justifyContent: 'space-between',
                 padding: '12px 0 8px',
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 borderTop: '1px dashed var(--line-soft)',
                 marginTop: 6,
               }}
@@ -511,7 +511,7 @@ export default function GoalDetailsStep({
             display: 'flex',
             justifyContent: 'space-between',
             padding: '8px 0',
-            fontSize: 12,
+            fontSize: "var(--fs-xs)",
             borderTop: eventType !== 'completion' ? '1px solid var(--line-soft)' : 'none',
             marginTop: eventType !== 'completion' ? 12 : 0,
             paddingTop: 'var(--space-3)',

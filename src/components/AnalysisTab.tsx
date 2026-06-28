@@ -73,23 +73,23 @@ function MetricCard({ label, value, unit, description, color = "ink", tone, tool
   return (
     <div style={{
       padding: "14px 16px",
-      borderRadius: 10,
+      borderRadius: "var(--r-xl)",
       background: "var(--bg-2)",
       border: "1px solid var(--line-soft)",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: accent, flexShrink: 0 }} />
-        <Text variant="eyebrow" style={{ fontSize: 9 }}>{label}</Text>
+        <Text variant="eyebrow" style={{ fontSize: "var(--fs-xs)" }}>{label}</Text>
         {tooltip && <InfoTip content={tooltip} label={label} />}
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 3, lineHeight: 1 }}>
-        <Text variant="dataHero" style={{ fontSize: 22, color: value != null ? accent : "var(--ink-3)" }}>
+        <Text variant="dataHero" style={{ fontSize: "var(--fs-xl)", color: value != null ? accent : "var(--ink-3)" }}>
           {value ?? "—"}
         </Text>
         {value != null && unit && <Text variant="unit">{unit}</Text>}
       </div>
       {description && (
-        <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{description}</div>
+        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{description}</div>
       )}
     </div>
   );
@@ -487,21 +487,21 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
             {criticalBands.map((b) => (
               <div key={b.label} style={{
                 padding: "14px 16px",
-                borderRadius: 10,
+                borderRadius: "var(--r-xl)",
                 background: "var(--bg-2)",
                 border: "1px solid var(--line-soft)",
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: b.color, flexShrink: 0 }} />
-                  <Text variant="eyebrow" style={{ fontSize: 9 }}>{b.label}</Text>
+                  <Text variant="eyebrow" style={{ fontSize: "var(--fs-xs)" }}>{b.label}</Text>
                   {BAND_GLOSSARY_KEY[b.label] && (
                     <InfoTip content={t(`analysis.glossary.${BAND_GLOSSARY_KEY[b.label]}`)} label={b.label} />
                   )}
                 </div>
-                <Text as="div" variant="dataHero" style={{ fontSize: 22, color: b.seconds > 0 ? b.color : "var(--ink-3)", lineHeight: 1 }}>
+                <Text as="div" variant="dataHero" style={{ fontSize: "var(--fs-xl)", color: b.seconds > 0 ? b.color : "var(--ink-3)", lineHeight: 1 }}>
                   {b.seconds > 0 ? formatDuration(b.seconds) : "—"}
                 </Text>
-                <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{b.range}</div>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{b.range}</div>
               </div>
             ))}
           </div>
@@ -727,7 +727,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{elevValRound(c.elevationGain)} {elevUnit}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--amber)' }}>{c.avgGrade.toFixed(1)} %</td>
                       <td className="px-3 py-2 pl-4">
-                        <Chip style={{ background: gradeColor, color: 'var(--ink-0)', fontSize: 10, padding: '2px 8px', borderRadius: 999 }}>
+                        <Chip style={{ background: gradeColor, color: 'var(--ink-0)', fontSize: "var(--fs-xs)", padding: '2px 8px', borderRadius: "9999px" }}>
                           {grade === "HC" ? "HC" : t("analysis.climbs.category", { grade })}
                         </Chip>
                       </td>

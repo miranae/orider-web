@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { deleteField, doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import type { HealthPreferences, HealthSport, ProviderId } from "@shared/types";
 
 /**
@@ -31,7 +32,7 @@ export function useHealthPreferences(uid: string | null) {
         setLoading(false);
       },
       (err) => {
-        console.warn("[useHealthPreferences] onSnapshot 실패:", err);
+        logClientError("useHealthPreferences.subscribe", err, { uid });
         setLoading(false);
       },
     );

@@ -3,6 +3,7 @@ import {
   doc, collection, query, onSnapshot, getDocs, getDoc, where, limit as firestoreLimit,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import type { Group, GroupMember, UserProfile } from "@shared/types";
 
 export interface GroupMemberWithProfile extends GroupMember {
@@ -110,7 +111,7 @@ export function useMyGroups(userId: string | undefined) {
       setGroups(groupDocs);
       setLoading(false);
     }).catch((err) => {
-      console.error("[useMyGroups] failed:", err);
+      logClientError("useMyGroups.load", err, { userId });
       setLoading(false);
     });
   }, [userId]);

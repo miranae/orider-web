@@ -6,6 +6,7 @@ import {
   collection, query, where, getDocs, doc, getDoc,
 } from "firebase/firestore";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Activity, ActivityStreams } from "@shared/types";
@@ -78,7 +79,7 @@ export default function GroupRidePage() {
         setActivities(acts);
         setVisibleRiders(new Set(acts.map((a) => a.id)));
       } catch (err) {
-        console.error("[GroupRidePage] fetch activities failed:", err);
+        logClientError("GroupRidePage.fetchActivities", err, { rideId });
       }
       setLoading(false);
     };
@@ -111,7 +112,7 @@ export default function GroupRidePage() {
           }
         }
       } catch (err) {
-        console.error(`[GroupRidePage] stream load failed for ${a.id}:`, err);
+        logClientError("GroupRidePage.loadStream", err, { activityId: a.id, rideId });
       }
     });
   }, [activities]);

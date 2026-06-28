@@ -473,7 +473,7 @@ export default function ExplorePage() {
         setLoading(false);
       })
       .catch(err => {
-        console.error("Failed to load segment overview:", err);
+        logClientError("ExplorePage.loadSegmentOverview", err);
         setLoading(false);
       })
       .finally(() => {
@@ -588,7 +588,6 @@ export default function ExplorePage() {
     const cat = sp.get("cat");
     if (cat === "all" || cat === "climb" || cat === "flat") setCategory(cat);
     urlReadyRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // URL 상태 직렬화(#488) — 변경 시 디바운스로 q/cat/c/z 기록(replace, 히스토리 오염 방지).
