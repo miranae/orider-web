@@ -12,6 +12,7 @@
     "build:dev": "MODE=dev node scripts/check-env.mjs && node scripts/gen-manual.mjs && tsc -b && vite build --mode dev",
     "preview": "vite preview",
     "lint": "eslint src",
+    "lint:budget": "eslint src --max-warnings 1560",
     "lint:report": "eslint src --format=stylish || true",
     "test": "vitest run",
     "test:watch": "vitest",
