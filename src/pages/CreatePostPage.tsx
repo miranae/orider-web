@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Button, Card } from "../theme/components";
+import { normalizeUserContentUrl } from "../utils/userContentUrl";
 const MAX_IMAGES = 5;
 
 /** Try to download an external image as a File (same-origin or CORS-enabled only). */
@@ -348,6 +349,15 @@ const CreatePostPage: React.FC = () => {
       el.removeAttribute('id');
     });
 
+    temp.querySelectorAll('a').forEach(anchor => {
+      const href = normalizeUserContentUrl(anchor.getAttribute('href'));
+      if (href) {
+        anchor.setAttribute('href', href);
+      } else {
+        anchor.removeAttribute('href');
+      }
+    });
+
     // Fix lazy-loaded images + enable cross-origin display
     temp.querySelectorAll('img').forEach(img => {
       const realSrc = img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('src');
@@ -538,7 +548,13 @@ const CreatePostPage: React.FC = () => {
         imageUrls.push(realUrl);
         img.setAttribute('src', realUrl);
       } else if (src && !src.startsWith('blob:')) {
-        imageUrls.push(src);
+        const safeSrc = normalizeUserContentUrl(src);
+        if (safeSrc) {
+          imageUrls.push(safeSrc);
+          img.setAttribute('src', safeSrc);
+        } else {
+          img.remove();
+        }
       }
     });
 
@@ -659,10 +675,14 @@ const CreatePostPage: React.FC = () => {
 
         // 링크
         } else if (tag === 'a') {
-          const href = el.getAttribute('href') || '';
-          content += '[';
-          el.childNodes.forEach(walk);
-          content += `](${href})`;
+          const href = normalizeUserContentUrl(el.getAttribute('href'));
+          if (href) {
+            content += '[';
+            el.childNodes.forEach(walk);
+            content += `](${href})`;
+          } else {
+            el.childNodes.forEach(walk);
+          }
 
         // 구분선
         } else if (tag === 'hr') {
@@ -808,7 +828,7 @@ const CreatePostPage: React.FC = () => {
                 <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14" /></svg>
                 <span className="text-[10px]">{t('toolbar.divider')}</span>
               </ToolBtn>
-              <ToolBtn onClick={() => { const url = prompt(t('toolbar.linkPrompt')); if (url) { editorRef.current?.focus(); document.execCommand('createLink', false, url); } }} title={t('toolbar.link')}>
+              <ToolBtn onClick={() => { const url = normalizeUserContentUrl(prompt(t('toolbar.linkPrompt'))); if (url) { editorRef.current?.focus(); document.execCommand('createLink', false, url); } }} title={t('toolbar.link')}>
                 <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.02a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.336 9.12" /></svg>
                 <span className="text-[10px]">{t('toolbar.link')}</span>
               </ToolBtn>
