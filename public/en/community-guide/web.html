@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="O-Rider Web guide. Review activity details, fitness trends, routes, groups, and event records after the ride.">
+<link rel="canonical" href="https://orider.co.kr/en/community-guide/web.html">
+<link rel="alternate" hreflang="ko" href="https://orider.co.kr/ko/community-guide/web.html">
+<link rel="alternate" hreflang="en" href="https://orider.co.kr/en/community-guide/web.html">
+<title>O-Rider Web</title>
+<link rel="stylesheet" href="/web-manual/style.css">
+<link rel="stylesheet" href="/community-guide/intro.css">
+</head>
+<body>
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="index.html">&larr; Home</a></div>
+  <h1 class="nav-title">O-Rider Web</h1>
+  <div class="nav-right"><a href="app.html">App</a> · <a href="/ko/community-guide/web.html">KO</a></div>
+</nav>
+
+<div class="container">
+  <section class="split">
+    <div>
+      <div class="section-kicker">Web</div>
+      <h2>A place to read your ride slowly after it ends</h2>
+      <div class="lead-block">
+        <p>O-Rider Web is less of a fast feed and more of a place to unfold a ride again.</p>
+        <p>Screen density, explanations, mobile fit, and error handling still need work. The direction is to make maps, elevation, heart rate, power, and fitness changes easier to read calmly.</p>
+      </div>
+      <div class="metric-row">
+        <div class="metric"><strong>Read</strong><span>Review activity details</span></div>
+        <div class="metric"><strong>Care</strong><span>Training load and recovery</span></div>
+        <div class="metric"><strong>Together</strong><span>Groups and events</span></div>
+      </div>
+    </div>
+    <img class="hero-shot" src="/web-manual/screenshots/03-activity-analysis.png" alt="O-Rider activity analysis screen">
+  </section>
+
+  <section>
+    <div class="section-kicker">Core surfaces</div>
+    <h2>What the web experience contains</h2>
+    <div class="card">
+      <table>
+        <tr><th>Area</th><th>What you see</th><th>Why it helps</th></tr>
+        <tr><td>Dashboard</td><td>Recent activities, weekly summary, key metrics</td><td>Understand your personal record and recent riding flow</td></tr>
+        <tr><td>Activity detail</td><td>Map, elevation, speed, power, heart rate, laps, segments</td><td>Review where the ride felt good or hard</td></tr>
+        <tr><td>Fitness</td><td>Training load, recovery, power curve, discipline status</td><td>Ride steadily without overreaching</td></tr>
+        <tr><td>Routes and segments</td><td>Courses, elevation, leaderboards, exploration</td><td>Share routes and compare meaningful sections</td></tr>
+        <tr><td>Groups and events</td><td>Group activity, participants, operation dashboard</td><td>Prepare and review days when people ride together</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Built from rides</div>
+    <h2>The repeated questions from the development log</h2>
+    <div class="card prose">
+      <p>The web did not start as a polished display. It grew by fixing places where real ride records were wrong, confusing, or slow.</p>
+      <p>Filtering unrealistic speed and power, aligning moving time, calculating analysis metrics reliably on the server, and logging errors to fix slow screens have all been repeated work.</p>
+      <p>That work is still not finished.</p>
+      <div class="pill-row">
+        <span class="pill">Activity summary</span>
+        <span class="pill">Map and elevation</span>
+        <span class="pill">Power and heart rate</span>
+        <span class="pill">Training load</span>
+        <span class="pill">Routes and segments</span>
+        <span class="pill">Observability and quality</span>
+      </div>
+      <ul>
+        <li>When a record looks wrong, the correction or filtering rule should be clear.</li>
+        <li>Metrics such as power, heart rate, and training load should be readable as a flow, not isolated numbers.</li>
+        <li>Groups and events should respect location and visibility before convenience.</li>
+        <li>Manuals and terms should keep improving so new users can follow along.</li>
+        <li>Bug reports and small usability fixes are important parts of the product.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">For community</div>
+    <h2>How I hope cycling communities can use it</h2>
+    <div class="intro-grid">
+      <div class="intro-card"><h3>Ride review</h3><p>Look back at a shared course or section and prepare the next ride better.</p></div>
+      <div class="intro-card"><h3>Member activity</h3><p>Create context for understanding and encouraging each other's riding.</p></div>
+      <div class="intro-card"><h3>Event operation</h3><p>Keep participants, rankings, check-ins, and results in one coherent flow.</p></div>
+      <div class="intro-card"><h3>Language of records</h3><p>Tell the story of a ride with more context than a simple proof photo.</p></div>
+    </div>
+  </section>
+
+  <div class="page-links">
+    <a href="index.html">&larr; Home</a>
+    <a href="app.html">Next: App &rarr;</a>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr/en">O-Rider</a></p>
+</footer>
+</body>
+</html>

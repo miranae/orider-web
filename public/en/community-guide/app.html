@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="O-Rider App guide. The app records rides, sensors, maps, route guidance, and group location sharing while riding.">
+<link rel="canonical" href="https://orider.co.kr/en/community-guide/app.html">
+<link rel="alternate" hreflang="ko" href="https://orider.co.kr/ko/community-guide/app.html">
+<link rel="alternate" hreflang="en" href="https://orider.co.kr/en/community-guide/app.html">
+<title>O-Rider App</title>
+<link rel="stylesheet" href="/web-manual/style.css">
+<link rel="stylesheet" href="/community-guide/intro.css">
+</head>
+<body>
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="web.html">&larr; Web</a></div>
+  <h1 class="nav-title">O-Rider App</h1>
+  <div class="nav-right"><a href="roadmap.html">Direction</a> · <a href="/ko/community-guide/app.html">KO</a></div>
+</nav>
+
+<div class="container">
+  <section class="split">
+    <div>
+      <div class="section-kicker">App</div>
+      <h2>The app should be a screen you can trust while riding</h2>
+      <div class="lead-block">
+        <p>During a ride, one number, one warning, or one map position can matter more than a long explanation.</p>
+        <p>O-Rider App is a cycling computer that keeps improving GPS recording, BLE sensors, route guidance, and group location sharing.</p>
+        <p>Real rides are full of variables, so there are still device-specific bugs and stability work left.</p>
+      </div>
+      <div class="metric-row">
+        <div class="metric"><strong>Stable</strong><span>Records that keep going</span></div>
+        <div class="metric"><strong>Sensor</strong><span>BLE device connection</span></div>
+        <div class="metric"><strong>Route</strong><span>Maps, routes, and climbs</span></div>
+      </div>
+    </div>
+    <img class="hero-shot" src="/manual/screenshots/01_ride_data.png" alt="O-Rider app ride data screen">
+  </section>
+
+  <section>
+    <div class="section-kicker">Rider workflow</div>
+    <h2>What the app does</h2>
+    <div class="card">
+      <table>
+        <tr><th>Feature</th><th>Description</th></tr>
+        <tr><td>Ride recording</td><td>Stores GPS-based distance, speed, time, and route, with retry paths for interrupted records.</td></tr>
+        <tr><td>Data fields</td><td>Places speed, cadence, heart rate, power, time, and targets where riders can read them quickly.</td></tr>
+        <tr><td>Sensor connection</td><td>Handles heart rate, cadence, speed, power, Di2/AXS, radar, and other connected devices.</td></tr>
+        <tr><td>Maps and routes</td><td>Shows route guidance, off-route detection, rerouting, climb information, and segment progress.</td></tr>
+        <tr><td>Group riding</td><td>Supports friend and group location, SOS, pings, preset messages, and event participation flow.</td></tr>
+        <tr><td>Sync and upload</td><td>Connects completed rides safely to web analysis and external services.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Role split</div>
+    <h2>The app and web read the same record at different moments</h2>
+    <div class="card">
+      <table>
+        <tr><th></th><th>App</th><th>Web</th></tr>
+        <tr><td>Moment</td><td>During the ride</td><td>After the ride</td></tr>
+        <tr><td>Main screens</td><td>Data fields, map, route, sensors, group location</td><td>Dashboard, analysis, fitness, groups and events</td></tr>
+        <tr><td>Main question</td><td>Am I safe, and is this being recorded correctly?</td><td>How was the ride, and what should change next time?</td></tr>
+        <tr><td>Relationship</td><td>The starting point of the record</td><td>The expanded view for review</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Privacy and trust</div>
+    <h2>Location and fitness records should be handled carefully</h2>
+    <div class="info prose">
+      <p>A cycling app can reveal home-area starts, repeated routes, body condition, and people you ride with.</p>
+      <p>That is why O-Rider spends time on permissions, visibility, location sharing, upload recovery, and logging before simply adding more features.</p>
+    </div>
+    <ul class="status-list">
+      <li><strong>Location:</strong> Needed for ride records and routes, but visibility and group sharing should be separate choices.</li>
+      <li><strong>Sensors:</strong> Heart rate, cadence, and power from rider-connected devices should be recorded reliably.</li>
+      <li><strong>Recovery:</strong> Upload retry and logging should reduce record loss when network or auth fails.</li>
+      <li><strong>Parity:</strong> Shared logic and tests should reduce differences between Android and iOS.</li>
+      <li><strong>Unfinished:</strong> Sensors, background location, upload, and route guidance still need real-ride validation.</li>
+    </ul>
+  </section>
+
+  <div class="page-links">
+    <a href="web.html">&larr; Web</a>
+    <a href="roadmap.html">Last: Direction &rarr;</a>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr/en">O-Rider</a></p>
+</footer>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="O-Rider direction. Open source, community hub, governance, and contributor participation for Our Rider and Open Rider.">
+<link rel="canonical" href="https://orider.co.kr/en/community-guide/roadmap.html">
+<link rel="alternate" hreflang="ko" href="https://orider.co.kr/ko/community-guide/roadmap.html">
+<link rel="alternate" hreflang="en" href="https://orider.co.kr/en/community-guide/roadmap.html">
+<title>O-Rider Direction</title>
+<link rel="stylesheet" href="/web-manual/style.css">
+<link rel="stylesheet" href="/community-guide/intro.css">
+</head>
+<body>
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="app.html">&larr; App</a></div>
+  <h1 class="nav-title">Direction</h1>
+  <div class="nav-right"><a href="index.html">Home</a> · <a href="/ko/community-guide/roadmap.html">KO</a></div>
+</nav>
+
+<div class="container">
+  <section>
+    <div class="section-kicker">Next step</div>
+    <h2>I hope O-Rider grows into Our Rider and Open Rider</h2>
+    <div class="lead-block">
+      <p>O-Rider began as a small gift from a 20-year cycling enthusiast to people who love bikes.</p>
+      <p>For now, the focus is not a business model or cost calculation. It is about what this platform can leave for the cycling community.</p>
+      <p>I also do not want to overstate its current state. There is much to improve, many bugs remain, and more real-ride validation is needed.</p>
+      <p>That is why I want to open it. It is not enough yet. Please help fix it, suggest what is missing, and grow it into our rider platform.</p>
+    </div>
+    <div class="info prose">
+      <p><strong>Opening the project is part of improving quality.</strong></p>
+      <p>The public repository, community hub, developer API, and personal data recipes are the beginning.</p>
+      <p>People who write code, people who find gaps in the docs, and people who suggest workflows for local clubs are all contributors to O-Rider.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Open source direction</div>
+    <h2>The direction is simple</h2>
+    <div class="info prose">
+      <p>The web pages have started opening first.</p>
+      <p>Except for personal user data and operational secrets, the rest will be reviewed and opened step by step.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Community first</div>
+    <h2>Why community comes before private business</h2>
+    <div class="card prose">
+      <p>Ride records, sensors, routes, and group riding problems do not belong to one person alone.</p>
+      <p>Every cyclist has different devices, courses, abilities, and goals. A solution made by one person can become narrow quickly.</p>
+      <p>That is why O-Rider should be verified and improved by more riders and developers instead of being closed as a private product.</p>
+      <p>Trust matters especially when a tool handles location and fitness records.</p>
+      <p>It fits the community better to explain what is recorded, how it is shown, and what can be public as transparently as possible.</p>
+      <p>As O-Rider grows, I would rather grow trust than ownership.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Trust by design</div>
+    <h2>Not only good intent, but structure</h2>
+    <div class="card prose">
+      <p>Good intent is not enough.</p>
+      <p>O-Rider keeps public licensing, contribution rules, governance documents, funding principles, and trademark policy together.</p>
+      <p>These structures make it harder to turn community-built core work into a closed private asset, and they help contributors participate with confidence.</p>
+      <div class="intro-grid">
+        <div class="intro-card"><h3>AGPL license</h3><p>Modified web-operated versions also carry source-sharing responsibilities, making closed service forks harder.</p></div>
+        <div class="intro-card"><h3>DCO contribution</h3><p>Contributors do not hand over copyright. They confirm they have the right to contribute under the same license.</p></div>
+        <div class="intro-card"><h3>Governance and funding</h3><p>Decisions that can change direction, such as relicensing or funding conditions, should be handled openly.</p></div>
+        <div class="intro-card"><h3>Trademark protection</h3><p>The code can be open while the official O-Rider name and logo remain protected to avoid confusion.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Community hub</div>
+    <h2>The community hub is an entrance for participation</h2>
+    <div class="card prose">
+      <p>GitHub is where developers propose code and receive review.</p>
+      <p>But not every rider needs to open a pull request.</p>
+      <p>The community hub inside O-Rider can become a place to discover and discuss ideas, personal data recipes, safe sharing cards, and club operation workflows.</p>
+      <ul>
+        <li>Riders can suggest needed features, awkward terms, and hard-to-read screens.</li>
+        <li>Developers can build dashboards, alerts, reports, and automation with the personal data API.</li>
+        <li>Good recipes and workflows can be shared so more riders can discover them.</li>
+        <li>Personal location and sensitive records should stay private; ideas and outputs should be shared safely.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Developer participation</div>
+    <h2>How developers can participate directly</h2>
+    <div class="intro-grid">
+      <div class="intro-card"><h3>PRs and review</h3><p>Small bug fixes, documentation, UI improvements, and tests can be proposed through pull requests. Main is protected by review and CI.</p></div>
+      <div class="intro-card"><h3>Personal data API</h3><p>Scoped keys and owner-only read flows help riders use their own O-Rider data directly.</p></div>
+      <div class="intro-card"><h3>Recipes</h3><p>Weekly training reports, hard-day alerts, long-ride packages, and monthly badges are examples to grow.</p></div>
+      <div class="intro-card"><h3>Our platform</h3><p>O-Rider should become a base that cyclists improve and use together, not a finished product owned by one person forever.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Current limits</div>
+    <h2>What is honestly still lacking</h2>
+    <div class="card">
+      <ul>
+        <li>Because features grew quickly, polish and explanations are uneven across screens.</li>
+        <li>Real rides, sensors, background location, and upload retry still have environment-dependent bugs.</li>
+        <li>More parity checks are needed across web and app, Android and iOS.</li>
+        <li>The structure and specs are not yet clear enough for every external contributor to follow immediately.</li>
+        <li>Because it handles location and fitness records, visibility and security boundaries must remain conservative.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="page-links">
+    <a href="app.html">&larr; App</a>
+    <a href="index.html">Back to home &rarr;</a>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr/en">O-Rider</a></p>
+</footer>
+</body>
+</html>
