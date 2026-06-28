@@ -276,12 +276,13 @@ npm run e2e
 
 ## 공개 준비 상태
 
-이 저장소는 공개 릴리스 게이트가 닫혀 있는 동안 아직 private 상태입니다.
+이 저장소는 공개 릴리스를 준비 중이며, 공개 릴리스 게이트가 검증될 때까지 private 상태를 유지합니다.
 
 추적 중인 차단 조건:
 
-- H-5: GitHub hidden `refs/pull/*`에 과거 webhook token snapshot이 남아 있어 GitHub Support purge 또는 저장소 재생성이 필요합니다.
-- visibility 변경 전 보안 리뷰를 다시 실행해야 합니다.
+- 백엔드 보안 게이트 H-2/H-3/H-4/H-1은 private 백엔드 저장소에서 종료되고 live 검증되어야 합니다.
+- 현재 제품 기준 스크린샷을 다시 생성하고 검증해야 합니다.
+- visibility 변경 전 프론트엔드/백엔드 최종 보안 리뷰를 다시 실행해야 합니다.
 
 자세한 내용은 [Public Release Checklist](docs/PUBLIC_RELEASE_CHECKLIST.md)를 참고하세요.
 

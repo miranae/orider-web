@@ -11,12 +11,13 @@ This is the refreshed pre-publication re-audit of the clean production-source fr
 | Admin/private feature traces | Pass | No source or public docs matches for admin routes, impersonation pages, admin origin env, admin claims, or admin-only UI. |
 | Secret-like strings | Pass with expected false positives | No Strava webhook token, client secret, private key, service account, Firebase real API key, or Mapbox token was found. Matches are public docs, test fixture passwords, runtime ID-token variables, export helpers, and design-token wording. |
 | Tracked env files | Pass | `.env.e2e` contains fake emulator values only. `.env.example` contains placeholders only. `.env` and local variants are ignored. |
-| Tests | Pass | `npm test`: 63 files, 554 tests passed after public-surface hardening. Existing jsdom Mapbox/WebGL warnings only. |
-| Lint | Pass with warnings | `npm run lint`: 0 errors, existing design-system/no-console warnings only. |
-| Build | Pass | `npm run build` passed with dummy public Firebase config. Existing CSS wildcard/chunk-size warnings only. |
+| Tests | Pass | `npm test`: 71 files, 577 tests passed with Node/jsdom warning output cleaned up. |
+| Lint | Pass | `npm run lint:budget`: 0 warnings. |
+| Build | Pass | `npm run build` passed with dummy public Firebase config and no Vite/manual-generation warnings. |
 | Runtime dependency audit | Pass | `npm audit --omit=dev`: 0 vulnerabilities after public dependency audit cleanup. |
 | Firestore rules tests | Pass | Backend Firestore emulator rules test suite passed: 18 tests. |
-| H-2 gate | Pass | Production backend migration/backfill/scrub completed outside this repo; public checklist reflects completion. |
+| Backend gates | Blocked pending private-backend verification | Frontend cleanup is not sufficient for public visibility. H-2/H-3/H-4/H-1 must be closed and live-verified in `miranae/orider-g1-web` before visibility changes. |
+| H-2 gate | Needs backend verification | Root user PII closure and live verification are tracked in `miranae/orider-g1-web#743`; the public checklist no longer marks this done from the frontend side. |
 | H-5 gate | Pass | Runtime token rotated and the production-source repository was recreated from a clean working tree instead of mirror-pushing old private history. |
 | Browser security headers | Pass | Firebase Hosting now applies CSP, `X-Content-Type-Options`, `Referrer-Policy`, and COOP while preserving Firebase, App Check, Mapbox, Storage, and Sentry runtime endpoints. |
 | User content URLs | Pass | User-authored post links/images and post source URLs are restricted to `http:`, `https:`, and internal relative URLs at save/render boundaries. |
