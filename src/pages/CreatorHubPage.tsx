@@ -79,6 +79,8 @@ const kindTone: Record<CreatorRecipeKind, string> = {
 
 const RECIPE_PR_URL = "https://github.com/miranae/orider-web/compare/main...recipe/my-orider-data?quick_pull=1";
 const REQUEST_RECIPE_URL = "https://github.com/miranae/orider-web/issues/new?template=feature_request.md&title=%5BCreator%5D%20Recipe%20request%3A%20";
+const recipeActionClass = "w-full justify-center min-[420px]:w-auto";
+const metadataCodeClass = "max-w-full break-all rounded-[var(--r-sm)] px-1.5 py-0.5";
 
 function buildCopy(language: string) {
   const ko = language.startsWith("ko");
@@ -363,23 +365,23 @@ export default function CreatorHubPage() {
           <p className="mt-2 max-w-3xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>
             {copy.subtitle}
           </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Link to="/board/write" className={buttonClass({ variant: "primary", size: "sm" })}>
+          <div className="mt-5 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
+            <Link to="/board/write" className={buttonClass({ variant: "primary", size: "sm", className: recipeActionClass })}>
                 <MessageSquareText size={15} aria-hidden />
                 {copy.actions.post}
             </Link>
-            <Button size="sm" variant="secondary" onClick={() => setTab("recipes")}>
+            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={() => setTab("recipes")}>
                 <BookOpen size={15} />
                 {copy.actions.recipe}
             </Button>
-            <Button size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating}>
+            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating}>
               <Bot size={15} />
               {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
+        <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-3 lg:grid-cols-1">
           {copy.stats.map((stat) => (
             <div key={stat.label} className="rounded-[var(--r-lg)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
               <Text as="div" variant="eyebrow">{stat.label}</Text>
@@ -417,19 +419,17 @@ export default function CreatorHubPage() {
             const Icon = item.icon;
             return (
               <Card key={item.id} padding="none" className="self-start p-4!">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
+                <div className="flex min-w-0 items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--r-md)]" style={{ background: "var(--bg-2)", color: kindTone[item.kind] }}>
                       <Icon size={20} />
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{item.title}</h2>
+                        <h2 className="min-w-0 break-words text-[length:var(--fs-base)] font-semibold leading-5" style={{ color: "var(--ink-0)" }}>{item.title}</h2>
                         <Chip>{item.status}</Chip>
                       </div>
-                      <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{item.summary}</p>
+                      <p className="mt-1 break-words text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{item.summary}</p>
                     </div>
-                  </div>
                 </div>
 
                 <div className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
@@ -445,33 +445,33 @@ export default function CreatorHubPage() {
                   ))}
                 </div>
 
-                <div className="mt-4 grid gap-3 text-[length:var(--fs-xs)] sm:grid-cols-2" style={{ color: "var(--ink-3)" }}>
+                <div className="mt-4 grid gap-3 text-[length:var(--fs-xs)] min-[420px]:grid-cols-2" style={{ color: "var(--ink-3)" }}>
                   <div>
                     <Text as="div" variant="eyebrow">Scopes</Text>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {item.scopes.map((scope) => <code key={scope} className="rounded-[var(--r-sm)] px-1.5 py-0.5" style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>{scope}</code>)}
+                      {item.scopes.map((scope) => <code key={scope} className={metadataCodeClass} style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>{scope}</code>)}
                     </div>
                   </div>
                   <div>
                     <Text as="div" variant="eyebrow">Share</Text>
-                    <div className="mt-1" style={{ color: "var(--ink-2)" }}>{item.shareMode}</div>
+                    <div className="mt-1 break-words" style={{ color: "var(--ink-2)" }}>{item.shareMode}</div>
                   </div>
                 </div>
                 <div className="mt-3 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
                   <Text as="div" variant="eyebrow">{copy.card.delivery}</Text>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {item.channels.map((channel) => (
-                      <code key={channel} className="rounded-[var(--r-sm)] px-1.5 py-0.5" style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>{channel}</code>
+                      <code key={channel} className={metadataCodeClass} style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>{channel}</code>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button size="sm" variant={item.id === "ai-diary" ? "primary" : "secondary"} onClick={() => setTab("share")}>
+                <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
+                  <Button className={recipeActionClass} size="sm" variant={item.id === "ai-diary" ? "primary" : "secondary"} onClick={() => setTab("share")}>
                     <ShieldCheck size={15} />
                     {copy.actions.preview}
                   </Button>
-                  <Button size="sm" variant="secondary" loading={emailSendingId === item.id} onClick={() => void handleEmailRecipe(item.id)}>
+                  <Button className={recipeActionClass} size="sm" variant="secondary" loading={emailSendingId === item.id} onClick={() => void handleEmailRecipe(item.id)}>
                     <Send size={15} />
                     {emailSendingId === item.id
                       ? copy.actions.emailing
@@ -481,11 +481,11 @@ export default function CreatorHubPage() {
                           ? copy.actions.emailFailed
                           : copy.actions.emailRecipe}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setTab("recipes")}>
+                  <Button className={recipeActionClass} size="sm" variant="ghost" onClick={() => setTab("recipes")}>
                       <BookOpen size={15} />
                       {copy.actions.recipe}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void handleReportItem(item.id)}>
+                  <Button className={recipeActionClass} size="sm" variant="ghost" onClick={() => void handleReportItem(item.id)}>
                     <Flag size={15} />
                     {reportedItemIds.has(item.id)
                       ? copy.actions.reported
