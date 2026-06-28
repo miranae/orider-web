@@ -7,6 +7,7 @@ import { doc, getDoc, collection, getDocs, query, orderBy, limit } from "firebas
 import { httpsCallable } from "firebase/functions";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { Course } from "@shared/types";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
@@ -24,172 +25,11 @@ import {
   Legend,
 } from "chart.js";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { haversine, parseGpxFull, type CourseData } from "../../features/event/detail/courseGpx";
+import type { EventDetail, RecentParticipant } from "../../features/event/detail/eventDetailTypes";
+import { classifyLane, LANE_DEFS, LANE_ORDER, type WpLane } from "../../features/event/detail/waypointLanes";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-interface CourseInfo {
-  name: string;
-  gpxUrl: string;
-  storagePath: string;
-}
-
-interface EventDetail {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  startTime: number;
-  creatorId: string;
-  groupId?: string;
-  maxParticipants?: number;
-  courseGpx?: string;
-  courses?: CourseInfo[];
-  courseIds?: string[];  // courses 컬렉션 참조
-  description?: string;
-  region?: string;
-  creatorName?: string;
-  categories?: Array<{ id: string; name: string; capacity?: number }>;
-  entryFee?: number;
-  cutoffMs?: number;
-  bibStartTime?: string;
-}
-
-interface RecentParticipant {
-  uid: string;
-  nickname: string;
-  category: string | null;
-  joinedAt: number;
-}
-
-interface GpxPoint {
-  lat: number;
-  lon: number;
-  ele: number;
-}
-
-interface GpxWaypoint {
-  lat: number;
-  lon: number;
-  ele: number;
-  name: string;
-  type: string;
-}
-
-interface CourseData {
-  points: GpxPoint[];
-  waypoints: GpxWaypoint[];
-  latlng: [number, number][];
-  distance: number;
-  elevationGain: number;
-  elevationLoss: number;
-  maxElevation: number;
-  minElevation: number;
-}
-
-// ── GPX Parsing ──────────────────────────────────────────────────────────────
-
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function parseGpxFull(gpxXml: string): CourseData {
-  const parser = new DOMParser();
-  const gpxDoc = parser.parseFromString(gpxXml, "text/xml");
-
-  // querySelector는 XML 네임스페이스 처리에서 일관되지 않을 수 있어 getElementsByTagName 사용
-  const childText = (parent: Element, tag: string): string | null => {
-    const els = parent.getElementsByTagName(tag);
-    if (!els.length) return null;
-    return els[0]?.textContent?.trim() ?? null;
-  };
-
-  const points: GpxPoint[] = [];
-  const trkpts = gpxDoc.getElementsByTagName("trkpt");
-  for (let i = 0; i < trkpts.length; i++) {
-    const pt = trkpts[i]!;
-    const lat = parseFloat(pt.getAttribute("lat") || "");
-    const lon = parseFloat(pt.getAttribute("lon") || "");
-    const eleStr = childText(pt, "ele");
-    const ele = eleStr != null ? parseFloat(eleStr) : 0;
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      points.push({ lat, lon, ele: Number.isFinite(ele) ? ele : 0 });
-    }
-  }
-
-  const waypoints: GpxWaypoint[] = [];
-  const wpts = gpxDoc.getElementsByTagName("wpt");
-  for (let i = 0; i < wpts.length; i++) {
-    const wpt = wpts[i]!;
-    const lat = parseFloat(wpt.getAttribute("lat") || "");
-    const lon = parseFloat(wpt.getAttribute("lon") || "");
-    const eleStr = childText(wpt, "ele");
-    const ele = eleStr != null ? parseFloat(eleStr) : 0;
-    const name = childText(wpt, "name") || "";
-    const type = childText(wpt, "type") || "GENERIC";
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      waypoints.push({ lat, lon, ele: Number.isFinite(ele) ? ele : 0, name, type });
-    }
-  }
-
-  let distance = 0;
-  let elevationGain = 0;
-  let elevationLoss = 0;
-  let maxElevation = -Infinity;
-  let minElevation = Infinity;
-
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i]!;
-    if (p.ele > maxElevation) maxElevation = p.ele;
-    if (p.ele < minElevation) minElevation = p.ele;
-    if (i > 0) {
-      const prev = points[i - 1]!;
-      distance += haversine(prev.lat, prev.lon, p.lat, p.lon);
-      const diff = p.ele - prev.ele;
-      if (diff > 0) elevationGain += diff;
-      else elevationLoss += Math.abs(diff);
-    }
-  }
-
-  return {
-    points,
-    waypoints,
-    latlng: points.map((p) => [p.lat, p.lon]),
-    distance,
-    elevationGain,
-    elevationLoss,
-    maxElevation: maxElevation === -Infinity ? 0 : maxElevation,
-    minElevation: minElevation === Infinity ? 0 : minElevation,
-  };
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-type WpLane = "KOM" | "AID" | "CUT" | "SEG";
-
-const LANE_DEFS: Record<WpLane, { labelKey: string; color: string; icon: string }> = {
-  KOM: { labelKey: "detail.lane.kom",    color: "var(--lime)",  icon: "⛰️" },
-  AID: { labelKey: "detail.lane.aid",    color: "var(--aqua)",  icon: "🍌" },
-  CUT: { labelKey: "detail.lane.cut",    color: "var(--rose)",  icon: "⏱️" },
-  SEG: { labelKey: "detail.lane.seg",    color: "var(--amber)", icon: "🏁" },
-};
-
-const LANE_ORDER: WpLane[] = ["KOM", "AID", "CUT", "SEG"];
-
-function classifyLane(wp: { type: string; name: string }): WpLane {
-  const t = (wp.type || "").toUpperCase();
-  if (t === "FOOD" || wp.name.includes("보급")) return "AID";
-  if (wp.name.includes("정상") || wp.name.includes("KOM") || t === "KOM") return "KOM";
-  if (wp.name.includes("컷") || wp.name.includes("CUT") || t === "CUT") return "CUT";
-  return "SEG";
-}
-
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -214,6 +54,12 @@ export default function EventDetailPage() {
   const [sending, setSending] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [recentParticipants, setRecentParticipants] = useState<RecentParticipant[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }, []);
 
   const handleStartEvent = useCallback(async () => {
     if (!eventId || !event) return;
@@ -224,22 +70,21 @@ export default function EventDetailPage() {
       await startEvent({ eventId });
       navigate(`/event/${eventId}/dashboard`);
     } catch (err: unknown) {
-      console.error("이벤트 시작 실패:", err);
+      logClientError("EventDetailPage.startEvent", err, { eventId });
       const fbErr = err as { code?: string };
       const msg = fbErr?.code === "functions/failed-precondition"
         ? t("detail.error.alreadyStarted")
         : t("detail.error.startFailed");
-      alert(msg);
+      showToast(msg);
       setStarting(false);
     }
-  }, [eventId, event, navigate]);
+  }, [eventId, event, navigate, showToast, t]);
   const [linkedCourses, setLinkedCourses] = useState<Course[]>([]);
   const [selectedCourseIdx, setSelectedCourseIdx] = useState(0);
   const [courseDataMap, setCourseDataMap] = useState<Record<number, CourseData>>({});
   const [hoveredWpIdx, setHoveredWpIdx] = useState<number | null>(null);
   const [selectedWpIdx, setSelectedWpIdx] = useState<number | null>(null);
   const [flyToPos, setFlyToPos] = useState<[number, number] | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
    
   const chartRef = useRef<any>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -294,7 +139,7 @@ export default function EventDetailPage() {
           setIsLeader(myDoc?.data()?.role === "LEADER");
         }
       } catch (err) {
-        console.error("이벤트 상세 조회 실패:", err);
+        logClientError("EventDetailPage.loadEvent", err, { eventId });
       } finally {
         setLoading(false);
       }
@@ -329,9 +174,9 @@ export default function EventDetailPage() {
       const data = parseGpxFull(gpxXml);
       setCourseDataMap((prev) => ({ ...prev, [idx]: data }));
     } catch (err) {
-      console.error("GPX 로드 실패:", err);
+      logClientError("EventDetailPage.loadGpx", err, { eventId, idx });
     }
-  }, [courseDataMap]);
+  }, [courseDataMap, eventId]);
 
   useEffect(() => {
     if (!event) return;
@@ -393,17 +238,11 @@ export default function EventDetailPage() {
         }
         if (!cancelled) setRecentParticipants(items);
       } catch (err) {
-        // 인덱스 미생성 또는 권한 문제 시 무시
-        console.warn("최근 참가자 조회 실패:", err);
+        logClientError("EventDetailPage.loadRecentParticipants", err, { eventId });
       }
     })();
     return () => { cancelled = true; };
   }, [eventId]);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const handleSendCourseToParticipants = async (course: Course) => {
     if (!user || sending) return;
@@ -414,7 +253,7 @@ export default function EventDetailPage() {
       await fn({ courseId: course.id, eventId: event?.id });
       showToast(t("detail.toast.courseSent"));
     } catch (err) {
-      console.error("[sendCourseToApp]", err);
+      logClientError("EventDetailPage.sendCourseToApp", err, { eventId: event?.id, courseId: course.id });
       showToast(t("detail.toast.sendFailed"));
     } finally {
       setSending(false);

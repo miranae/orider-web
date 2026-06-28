@@ -9,6 +9,7 @@ import { useCreateComment } from '../features/board/useComment';
 import { useBoardLike } from '../features/board/useBoardLike';
 import { useDeletePost } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { firestore } from '../services/firebase';
 import ActivityCard from '../components/ActivityCard';
 import { EmptyState, LoadingSkeleton } from '../components/redesign';
@@ -22,6 +23,7 @@ const PostDetailPage: React.FC = () => {
   const { t } = useTranslation("board");
   const [commentText, setCommentText] = useState('');
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { deletePost, deleting: postDeleting } = useDeletePost();
   const { data: post, loading: postLoading } = useDocument<BoardPost>('board_posts', postId);
   const { data: linkedActivity } = useDocument<Activity>('activities', post?.activityId || undefined);
@@ -60,7 +62,7 @@ const PostDetailPage: React.FC = () => {
       // 댓글 목록 새로고침을 위해 snapshot이 동작하겠지만,
       // commentCount는 onSnapshot이 post에도 걸려있어 자동 갱신됩니다.
     } catch {
-      alert(t('message.commentSubmitFailed'));
+      showToast(t('message.commentSubmitFailed'), "error");
     }
   };
 
@@ -75,7 +77,7 @@ const PostDetailPage: React.FC = () => {
         commentCount: increment(-1)
       });
     } catch {
-      alert(t('message.commentDeleteFailed'));
+      showToast(t('message.commentDeleteFailed'), "error");
     }
   };
 
@@ -83,7 +85,7 @@ const PostDetailPage: React.FC = () => {
     try {
       await toggleLike();
     } catch {
-      alert(t('message.likeError'));
+      showToast(t('message.likeError'), "error");
     }
   };
 
@@ -95,7 +97,7 @@ const PostDetailPage: React.FC = () => {
       await deletePost(postId);
       navigate('/board', { replace: true });
     } catch {
-      alert(t('message.postDeleteFailed'));
+      showToast(t('message.postDeleteFailed'), "error");
     }
   };
 
