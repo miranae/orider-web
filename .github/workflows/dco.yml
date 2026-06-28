@@ -1,0 +1,33 @@
+name: DCO
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    name: DCO
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify commit sign-offs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          failed=0
+
+          while IFS= read -r commit; do
+            if ! git log -1 --format=%B "$commit" | grep -qiE '^Signed-off-by: .+ <.+@.+>$'; then
+              echo "::error::Commit $commit is missing a DCO Signed-off-by line. Recommit or amend with: git commit -s"
+              failed=1
+            fi
+          done < <(git rev-list --no-merges "$base..$head")
+
+          exit "$failed"

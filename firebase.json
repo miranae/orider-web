@@ -29,6 +29,11 @@
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       }
     ],
+    "redirects": [
+      { "source": "/community-guide", "destination": "/community-guide/", "type": 301 },
+      { "source": "/community", "destination": "/community-guide/", "type": 302 },
+      { "source": "/platform", "destination": "/community-guide/", "type": 302 }
+    ],
     "rewrites": [
       { "source": "/api/v1/**", "function": { "functionId": "api", "region": "asia-northeast3" } },
       { "source": "/api/strava/webhook", "function": { "functionId": "stravaWebhook", "region": "asia-northeast3" } },

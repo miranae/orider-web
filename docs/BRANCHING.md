@@ -29,8 +29,9 @@ Keep branch names lowercase and descriptive. Prefer hyphens over underscores.
 1. Branch from latest `main`.
 2. Keep the change focused.
 3. Open a PR early if backend, privacy, or design scope is uncertain.
-4. Wait for CI.
-5. Merge only after required checks pass.
+4. Sign commits with `git commit -s` for DCO.
+5. Wait for CI.
+6. Merge only after required checks pass.
 
 `main` is protected with required Pull Requests and admin enforcement. Direct pushes, force pushes, and deletion are disabled.
 

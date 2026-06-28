@@ -14,6 +14,7 @@
 
 ## Checks
 
+- [ ] Commits are signed off with DCO (`git commit -s` / `Signed-off-by:`).
 - [ ] No secrets, credentials, production exports, or private user data are included.
 - [ ] Personal-data examples use only owned-data, demo data, or mocked responses.
 - [ ] Required scopes and privacy notes are documented when the PR touches personal-data recipes.
