@@ -43,7 +43,7 @@
   "button.cancel": "Cancel",
   "button.selectAgain": "Choose Again",
   "button.addPhoto": "Add Photo",
-  "button.uploadingPhoto": "Uploading...",
+  "button.uploadingPhoto": "Uploading…",
   "status.pending": "Pending Approval",
   "status.approved": "Approved",
   "status.rejected": "Rejected",

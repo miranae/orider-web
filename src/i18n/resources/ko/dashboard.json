@@ -55,7 +55,7 @@
       "year": "올해"
     },
     "loadMore": "더보기",
-    "loading": "불러오는 중...",
+    "loading": "활동을 불러오는 중…",
     "empty": {
       "title": "아직 활동이 없어요",
       "description": "Strava를 연동하거나 활동을 업로드해 보세요.",
@@ -125,18 +125,18 @@
       "searchPlaceholder": "활동 검색... (Enter)",
       "searchSubmit": "검색",
       "searchClearTitle": "검색 초기화",
-      "searchEmptyMessage": "검색 결과가 없습니다.",
+      "searchEmptyMessage": "조건에 맞는 활동이 없어요.",
       "searchReset": "검색 초기화",
       "loadMoreRemaining": "더 보기 ({{remaining}}개 남음)",
       "loadMore": "더 보기",
-      "loadingMore": "로딩 중...",
+      "loadingMore": "활동을 더 불러오는 중…",
       "filterAll": "전체",
       "filterFriends": "친구",
       "filterMe": "본인",
       "filterCaption": "결과 내 필터",
-      "emptyTitle": "아직 활동이 없습니다.",
-      "emptyConnectStrava": "Strava를 연동하여 활동을 가져오세요 →",
-      "emptyPublic": "아직 공개된 활동이 없습니다."
+      "emptyTitle": "아직 활동이 없어요",
+      "emptyConnectStrava": "Strava를 연결해 활동을 가져오세요 →",
+      "emptyPublic": "아직 공개된 활동이 없어요."
     },
     "datePreset": {
       "all": "전체",
@@ -219,7 +219,7 @@
   },
   "charts": {
     "fitness": {
-      "noData": "데이터가 없습니다",
+      "noData": "아직 표시할 데이터가 없어요",
       "today": "오늘",
       "goalDay": "목표일",
       "forecast": "예측",
@@ -228,8 +228,8 @@
       "legendForm": "폼"
     },
     "powerCurve": {
-      "noData": "파워 데이터가 없습니다",
-      "noDataProgression": "파워 데이터가 있는 활동이 없습니다",
+      "noData": "아직 파워 데이터가 없어요",
+      "noDataProgression": "파워 데이터가 있는 활동이 아직 없어요",
       "emptyTitle": "파워 커브를 만들 수 없어요",
       "emptyDescription": "파워미터나 가상 파워가 포함된 활동이 쌓이면 5초부터 60분까지 최고 평균 파워가 표시됩니다.",
       "datasetLabel": "최대 평균 파워",
@@ -278,7 +278,7 @@
     "ftpBasis": "최근 90일 베스트 파워 기반",
     "zoneDist": "파워 존 분포 (최근 4주)",
     "zoneDefTitle": "존 정의",
-    "disciplineLoading": "{{discipline}} 피트니스 데이터 준비 중",
+    "disciplineLoading": "{{discipline}} 피트니스 데이터를 준비하고 있어요",
     "kpiCtlLabel": "CTL 체력",
     "kpiAtlLabel": "ATL 피로",
     "kpiTsbLabel": "TSB 상태",
@@ -303,7 +303,7 @@
     "powerCurveTitle": "파워 커브 · 최근 28일",
     "powerCurveSub": "최대 {{maxW}} W · 5s~60m",
     "zoneDefsSectionTitle": "존 정의",
-    "analysisInsufficient": "분석 데이터가 충분하지 않습니다.",
+    "analysisInsufficient": "분석할 데이터가 아직 충분하지 않아요.",
     "pmcNoData": "데이터 부족 — 최소 2일 필요",
     "pmcLabelToday": " · 오늘",
     "pmcLabelForecast": " · 예측",

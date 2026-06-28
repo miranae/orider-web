@@ -37,10 +37,10 @@
   "activities.searchPlaceholder": "활동 검색... (Enter)",
   "activities.search": "검색",
   "activities.resetSearch": "검색 초기화",
-  "activities.emptySearch": "검색 결과가 없습니다.",
-  "activities.empty": "활동 내역이 없습니다.",
+  "activities.emptySearch": "조건에 맞는 활동이 없어요.",
+  "activities.empty": "아직 활동 내역이 없어요.",
   "activities.addSegment": "+ 세그먼트",
-  "activities.loading": "로딩 중...",
+  "activities.loading": "활동을 불러오는 중…",
   "activities.loadMore": "더 보기",
   "activities.loadMoreRemaining": "더 보기 ({{count}}개 남음)"
 }

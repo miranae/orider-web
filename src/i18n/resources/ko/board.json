@@ -93,7 +93,7 @@
   "message.imageLimitWarning": "이미지는 최대 {{max}}장까지 첨부할 수 있습니다.",
   "button.submit": "등록",
   "button.submitLoading": "등록 중...",
-  "button.uploading": "업로드 중...",
+  "button.uploading": "업로드 중…",
   "button.search": "검색",
   "button.searchReset": "검색 초기화",
   "toolbar.photo": "사진",
