@@ -1,5 +1,7 @@
 # Orider Web
 
+[한국어](README-ko.md) | [English](README.md)
+
 Ride analysis, group events, route discovery, and training dashboards for **Orider**, a cycling computer platform.
 
 [Live app](https://orider.co.kr) · [Mission](MISSION.md) · [Contributing](CONTRIBUTING.md) · [Governance](GOVERNANCE.md) · [Development](docs/DEVELOPMENT.md) · [API and integrations](docs/API_AND_INTEGRATIONS.md) · [Personal Data API](docs/PERSONAL_DATA_API.md) · [Creator Showcase](docs/CREATOR_SHOWCASE.md) · [Security](SECURITY.md)
