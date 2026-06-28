@@ -6,7 +6,7 @@
     "delete": "Delete",
     "edit": "Edit",
     "back": "Back",
-    "loading": "Loading...",
+    "loading": "Loading…",
     "retry": "Try again",
     "close": "Close",
     "more": "More",
@@ -27,7 +27,7 @@
     "unknownError": "Unknown error",
     "reload": "Reload",
     "reloadAriaLabel": "Reload page",
-    "appLoadFailed": "Failed to load app",
+    "appLoadFailed": "Could not load the app",
     "appLoadFailedReload": "Reload"
   },
   "label": {

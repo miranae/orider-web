@@ -99,7 +99,7 @@ function buildCopy(language: string) {
       preview: ko ? "공유 카드 보기" : "Preview share card",
       recipe: ko ? "레시피 보기" : "View recipe",
       generate: ko ? "AI 일기 생성" : "Generate diary",
-      generating: ko ? "생성 중" : "Generating",
+      generating: ko ? "AI 일기 생성 중" : "Generating diary",
       post: ko ? "게시글로 공유" : "Share as post",
       copy: ko ? "카드 문구 복사" : "Copy card text",
       copied: ko ? "복사됨" : "Copied",
@@ -108,13 +108,13 @@ function buildCopy(language: string) {
       requestRecipe: ko ? "활용법 요청" : "Request recipe",
       manageApiKeys: ko ? "API key 만들기" : "Create API key",
       emailRecipe: ko ? "내 이메일로 받기" : "Email me this",
-      emailing: ko ? "발송 중" : "Sending",
+      emailing: ko ? "이메일 발송 중" : "Sending email",
       emailed: ko ? "발송 완료" : "Sent",
-      emailFailed: ko ? "이메일 발송 실패" : "Email failed",
+      emailFailed: ko ? "이메일을 보내지 못했습니다" : "Could not send email",
       copyChart: ko ? "차트 카드 복사" : "Copy chart card",
       report: ko ? "신고" : "Report",
       reported: ko ? "검토 대기" : "Under review",
-      reportFailed: ko ? "신고 접수 실패" : "Report failed",
+      reportFailed: ko ? "신고를 접수하지 못했습니다" : "Could not submit report",
     },
     credit: {
       title: ko ? "오라이더 AI 크레딧 예시" : "Orider AI credits example",
@@ -124,7 +124,9 @@ function buildCopy(language: string) {
       quotaUnknown: ko ? "남은 횟수는 생성 후 표시됩니다." : "Remaining credits appear after generation.",
       remaining: ko ? "오늘 남은 생성 {{remaining}}/{{limit}}회" : "{{remaining}}/{{limit}} generations left today",
       cache: ko ? "오늘 이미 만든 초안을 다시 불러왔습니다." : "Loaded today's existing draft.",
-      failed: ko ? "AI 일기 생성에 실패했습니다. 활동 데이터 또는 일일 제한을 확인해 주세요." : "Failed to generate the diary. Check activity data or daily quota.",
+      failed: ko
+        ? "AI 일기를 생성하지 못했습니다. 활동 데이터가 있는지 확인하거나 일일 제한이 초기화된 뒤 다시 시도해 주세요."
+        : "Could not generate the diary. Check that activity data is available, or try again after the daily limit resets.",
     },
     stats: [
       { label: ko ? "대표 레시피" : "Flagship recipes", value: "5" },
@@ -184,7 +186,7 @@ function buildCopy(language: string) {
       body: ko
         ? "로그인하면 최근 12주 활동으로 실제 차트를 계산합니다. 비로그인 상태에서는 데모 데이터로 레시피 결과물을 미리 봅니다."
         : "When signed in, this chart uses your latest 12 weeks of activities. Signed-out riders see demo data that shows the recipe output.",
-      empty: ko ? "아직 표시할 활동이 없습니다." : "No activities to chart yet.",
+      empty: ko ? "아직 차트로 표시할 활동이 없습니다." : "No activities to chart yet.",
       demo: ko ? "데모 데이터" : "Demo data",
       own: ko ? "내 데이터" : "My data",
       distance: ko ? "거리" : "Distance",

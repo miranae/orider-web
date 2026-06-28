@@ -55,7 +55,7 @@
       "year": "Year"
     },
     "loadMore": "Load more",
-    "loading": "Loading...",
+    "loading": "Loading activities…",
     "empty": {
       "title": "No activities yet",
       "description": "Connect Strava or upload an activity to get started.",
@@ -125,16 +125,16 @@
       "searchPlaceholder": "Search activities... (Enter)",
       "searchSubmit": "Search",
       "searchClearTitle": "Clear search",
-      "searchEmptyMessage": "No results found.",
+      "searchEmptyMessage": "No matching activities.",
       "searchReset": "Clear search",
       "loadMoreRemaining": "Load more ({{remaining}} remaining)",
       "loadMore": "Load more",
-      "loadingMore": "Loading...",
+      "loadingMore": "Loading more activities…",
       "filterAll": "All",
       "filterFriends": "Friends",
       "filterMe": "Mine",
       "filterCaption": "Filter results",
-      "emptyTitle": "No activities yet.",
+      "emptyTitle": "No activities yet",
       "emptyConnectStrava": "Connect Strava to import activities →",
       "emptyPublic": "No public activities yet."
     },
@@ -219,7 +219,7 @@
   },
   "charts": {
     "fitness": {
-      "noData": "No data",
+      "noData": "No data to show yet",
       "today": "Today",
       "goalDay": "Goal day",
       "forecast": "Forecast",
@@ -228,8 +228,8 @@
       "legendForm": "Form"
     },
     "powerCurve": {
-      "noData": "No power data",
-      "noDataProgression": "No activities with power data",
+      "noData": "No power data yet",
+      "noDataProgression": "No activities with power data yet",
       "emptyTitle": "Power curve is not ready yet",
       "emptyDescription": "Once activities include power meter or virtual power data, peak average power from 5 seconds to 60 minutes will appear here.",
       "datasetLabel": "Peak average power",
@@ -278,7 +278,7 @@
     "ftpBasis": "Based on 90-day best power",
     "zoneDist": "Power zone distribution (last 4 weeks)",
     "zoneDefTitle": "Zone definitions",
-    "disciplineLoading": "{{discipline}} fitness data coming soon",
+    "disciplineLoading": "{{discipline}} fitness data is being prepared",
     "kpiCtlLabel": "CTL Fitness",
     "kpiAtlLabel": "ATL Fatigue",
     "kpiTsbLabel": "TSB Form",
@@ -303,7 +303,7 @@
     "powerCurveTitle": "Power curve · last 28 days",
     "powerCurveSub": "Peak {{maxW}} W · 5s–60m",
     "zoneDefsSectionTitle": "Zone definitions",
-    "analysisInsufficient": "Not enough analysis data.",
+    "analysisInsufficient": "Not enough data to analyze yet.",
     "pmcNoData": "Not enough data — need at least 2 days",
     "pmcLabelToday": " · Today",
     "pmcLabelForecast": " · Forecast",

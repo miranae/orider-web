@@ -37,10 +37,10 @@
   "activities.searchPlaceholder": "Search activities... (Enter)",
   "activities.search": "Search",
   "activities.resetSearch": "Clear search",
-  "activities.emptySearch": "No search results.",
+  "activities.emptySearch": "No matching activities.",
   "activities.empty": "No activities yet.",
   "activities.addSegment": "+ Segment",
-  "activities.loading": "Loading...",
+  "activities.loading": "Loading activities…",
   "activities.loadMore": "Load more",
   "activities.loadMoreRemaining": "Load more ({{count}} remaining)"
 }

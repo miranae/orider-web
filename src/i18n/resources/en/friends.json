@@ -29,7 +29,7 @@
   "toast.removeFailed": "Remove failed",
   "confirm.remove": "Remove {{nickname}} from friends?",
   "defaultNickname": "Friend",
-  "invite.loading": "Loading...",
+  "invite.loading": "Processing friend invite…",
   "invite.adding": "Adding friend...",
   "invite.title": "A friend invited you to O-Rider",
   "invite.loginPrompt": "Sign in to add this friend",

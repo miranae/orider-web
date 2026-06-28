@@ -93,7 +93,7 @@
   "message.imageLimitWarning": "Maximum {{max}} images allowed.",
   "button.submit": "Submit",
   "button.submitLoading": "Submitting...",
-  "button.uploading": "Uploading...",
+  "button.uploading": "Uploading…",
   "button.search": "Search",
   "button.searchReset": "Clear Search",
   "toolbar.photo": "Photo",
