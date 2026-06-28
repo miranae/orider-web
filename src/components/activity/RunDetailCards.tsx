@@ -5,7 +5,7 @@
 import { useTranslation } from "react-i18next";
 import type { Activity, ActivitySummary } from "@shared/types";
 import type { ActivityStreams } from "@shared/types";
-import { Card } from "../../theme/components";
+import { Card, Text } from "../../theme/components";
 
 // ── 유틸리티 ─────────────────────────────────────────────────────────────────
 
@@ -43,10 +43,10 @@ function PaceChart({ laps }: { laps?: ActivityStreams["laps"] }) {
   return (
     <Card padding="none" style={{ padding: 18 }}>
       <div style={{ marginBottom: 'var(--space-3)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 2 }}>{t("runCards.paceProfile")}</div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+        <Text as="div" variant="label" tone="primary" style={{ marginBottom: 2 }}>{t("runCards.paceProfile")}</Text>
+        <Text as="div" variant="bodySmall" tone="tertiary">
           {t("runCards.paceProfileDesc", { count: laps.length })}
-        </div>
+        </Text>
       </div>
       <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 160, display: 'block' }} preserveAspectRatio="none">
         <defs>
@@ -61,7 +61,7 @@ function PaceChart({ laps }: { laps?: ActivityStreams["laps"] }) {
         <path d={fill} fill="url(#paceFill)" />
         <path d={path} stroke="var(--amber)" strokeWidth="1.8" fill="none" />
       </svg>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-2)', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
+      <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-2)', fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
         {laps.map((_, i) => i === 0 || i === laps.length - 1 || i === Math.floor(laps.length / 2) ? (
           <span key={i}>{i + 1} km</span>
         ) : null).filter(Boolean)}
@@ -95,14 +95,14 @@ function SplitTable({ laps }: { laps?: ActivityStreams["laps"] }) {
     <Card padding="none" style={{ padding: 0 }}>
       <div style={{ padding: '16px 18px 14px', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center' }}>
         <div>
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', margin: 0, marginBottom: 3 }}>{t("runCards.kmSplit")}</h3>
-          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{t("runCards.lapCount", { count: laps.length })}</div>
+          <Text as="h3" variant="label" tone="primary" style={{ margin: 0, marginBottom: 3 }}>{t("runCards.kmSplit")}</Text>
+          <Text as="div" variant="bodySmall" tone="tertiary">{t("runCards.lapCount", { count: laps.length })}</Text>
         </div>
       </div>
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <table className="text-[length:var(--fs-xs)]" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em' }}>
+            <tr className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
               <th style={{ textAlign: 'left', padding: '10px 18px', fontWeight: 500 }}>km</th>
               <th style={{ textAlign: 'right', padding: '10px 10px', fontWeight: 500 }}>{t("runCards.colPace")}</th>
               <th style={{ textAlign: 'left', padding: '10px 10px', fontWeight: 500, width: '25%' }}></th>
@@ -119,17 +119,17 @@ function SplitTable({ laps }: { laps?: ActivityStreams["laps"] }) {
                 <tr key={r.km} style={{ borderTop: '1px solid var(--line-soft)', opacity: r.partial ? 0.7 : 1 }}>
                   <td style={{ padding: '10px 18px', color: 'var(--ink-0)', fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{r.km}</td>
                   <td style={{ textAlign: 'right', padding: '10px 10px', color: isBest ? 'var(--lime)' : 'var(--ink-0)', fontWeight: isBest ? 600 : 400, fontFamily: 'var(--font-mono)' }}>
-                    {r.pace}{isBest && <span style={{ fontSize: 9, color: 'var(--lime)', marginLeft: 'var(--space-1)' }}>★</span>}
+                    {r.pace}{isBest && <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--lime)', marginLeft: 'var(--space-1)' }}>★</span>}
                   </td>
                   <td style={{ padding: '10px 10px' }}>
-                    <div style={{ height: 6, background: 'var(--bg-3)', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ height: 6, background: 'var(--bg-3)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
                       <div style={{ width: `${barPct}%`, height: '100%', background: r.zoneColor }} />
                     </div>
                   </td>
                   <td style={{ textAlign: 'right', padding: '10px 10px', color: 'var(--ink-1)', fontFamily: 'var(--font-mono)' }}>{r.hr ?? '-'}</td>
                   <td style={{ textAlign: 'right', padding: '10px 10px', color: 'var(--ink-2)', fontFamily: 'var(--font-mono)' }}>{r.cad ?? '-'}</td>
                   <td style={{ textAlign: 'right', padding: '10px 18px' }}>
-                    <span style={{ fontSize: 9, padding: '2px 5px', borderRadius: 3, border: `1px solid ${r.zoneColor}`, color: r.zoneColor, fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{r.zone}</span>
+                    <span className="text-[length:var(--fs-xs)]" style={{ padding: '2px 5px', borderRadius: 'var(--r-sm)', border: `1px solid ${r.zoneColor}`, color: r.zoneColor, fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{r.zone}</span>
                   </td>
                 </tr>
               );
@@ -178,10 +178,10 @@ function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
   return (
     <Card padding="none" style={{ padding: 18 }}>
       <div style={{ marginBottom: 'var(--space-3)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 2 }}>{t("runCards.hrTitle")}</div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+        <Text as="div" variant="label" tone="primary" style={{ marginBottom: 2 }}>{t("runCards.hrTitle")}</Text>
+        <Text as="div" variant="bodySmall" tone="tertiary">
           {t("runCards.hrDesc", { count: hrs.length })}
-        </div>
+        </Text>
       </div>
 
       {/* 심박 꺾은선 차트 */}
@@ -203,11 +203,11 @@ function HRCard({ laps }: { laps?: ActivityStreams["laps"] }) {
       <div style={{ marginTop: 14, display: 'flex', gap: 6, alignItems: 'flex-end', height: 56 }}>
         {zones.map(z => (
           <div key={z.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
+            <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
               {z.pct > 0 ? `${Math.round(z.pct)}%` : ''}
             </div>
             <div style={{ width: '100%', height: `${z.pct * 1.6}%`, minHeight: z.pct > 0 ? 2 : 0, background: z.color, borderRadius: '2px 2px 0 0' }} />
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', marginTop: 2 }}>{z.label}</div>
+            <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', marginTop: 2 }}>{z.label}</div>
           </div>
         ))}
       </div>
@@ -258,10 +258,10 @@ function CadenceCard({ laps }: { laps?: ActivityStreams["laps"] }) {
   return (
     <Card padding="none" style={{ padding: 18 }}>
       <div style={{ marginBottom: 'var(--space-3)' }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 2 }}>{t("runCards.cadenceTitle")}</div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+        <Text as="div" variant="label" tone="primary" style={{ marginBottom: 2 }}>{t("runCards.cadenceTitle")}</Text>
+        <Text as="div" variant="bodySmall" tone="tertiary">
           {t("runCards.cadenceDesc", { avg })}
-        </div>
+        </Text>
       </div>
 
       {/* 수직 바 차트 */}
@@ -298,12 +298,12 @@ function CadenceCard({ laps }: { laps?: ActivityStreams["laps"] }) {
       {/* 4칸 stat grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 'var(--space-2)', marginTop: 14 }}>
         {stats.map(stat => (
-          <div key={stat.label} style={{ background: 'var(--bg-3)', borderRadius: 6, padding: '8px 10px' }}>
-            <div style={{ fontSize: 10, color: 'var(--ink-4)', marginBottom: 'var(--space-1)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{stat.label}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--ink-0)' }}>
+          <div key={stat.label} style={{ background: 'var(--bg-3)', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
+            <Text as="div" variant="caption" tone="quaternary" mono style={{ marginBottom: 'var(--space-1)', letterSpacing: '0.05em' }}>{stat.label}</Text>
+            <Text as="div" variant="dataSmall" tone="primary" mono>
               {stat.value}
-              {stat.unit && <span style={{ fontSize: 10, color: 'var(--ink-3)', marginLeft: 2 }}>{stat.unit}</span>}
-            </div>
+              {stat.unit && <Text variant="unit" tone="tertiary" style={{ marginLeft: 2 }}>{stat.unit}</Text>}
+            </Text>
           </div>
         ))}
       </div>
@@ -326,9 +326,9 @@ function GapCard({ summary }: { summary: ActivitySummary }) {
 
   return (
     <Card padding="none" style={{ padding: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 3 }}>{t("runCards.gapTitle")}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 'var(--space-3)' }}>{t("runCards.gapDesc")}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 3 }}>{t("runCards.gapTitle")}</Text>
+      <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: 'var(--space-3)' }}>{t("runCards.gapDesc")}</Text>
+      <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: 'var(--ink-3)' }}>{t("runCards.avgPace")}</span>
           <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>{avgPace}/km</span>
@@ -352,19 +352,19 @@ function RunLoadCard({ tss }: { tss: number | null }) {
 
   return (
     <Card padding="none" style={{ padding: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 3 }}>{t("runCards.runLoadTitle")}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 'var(--space-3)' }}>{t("runCards.runLoadDesc")}</div>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 3 }}>{t("runCards.runLoadTitle")}</Text>
+      <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: 'var(--space-3)' }}>{t("runCards.runLoadDesc")}</Text>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 'var(--space-3)' }}>
-        <span style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-mono)', color }}>{Math.round(tss)}</span>
-        <span style={{ fontSize: 13, color: 'var(--ink-2)', fontFamily: 'var(--font-mono)' }}>rTSS</span>
+        <Text variant="dataHero" mono style={{ color }}>{Math.round(tss)}</Text>
+        <Text variant="unit" tone="secondary" mono>rTSS</Text>
       </div>
-      <div style={{ height: 4, background: 'var(--bg-3)', borderRadius: 2, marginBottom: 'var(--space-2)', position: 'relative' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, var(--lime), ${color})`, borderRadius: 2 }} />
+      <div style={{ height: 4, background: 'var(--bg-3)', borderRadius: 'var(--r-sm)', marginBottom: 'var(--space-2)', position: 'relative' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, var(--lime), ${color})`, borderRadius: 'var(--r-sm)' }} />
         {[40, 100, 150].map(n => (
           <div key={n} style={{ position: 'absolute', left: `${(n / 200) * 100}%`, top: -2, bottom: -2, width: 1, background: 'var(--bg-0)' }} />
         ))}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
+      <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
         <span>{t("runCards.runLoadLight")}</span>
         <span>{t("runCards.runLoadModerate")}</span>
         <span>{t("runCards.runLoadLong")}</span>
@@ -409,8 +409,8 @@ function WeatherCard({ weather }: { weather?: Activity["weather"] }) {
 
   return (
     <Card padding="none" style={{ padding: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 'var(--space-3)' }}>{t("runCards.weatherTitle")}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12 }}>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 'var(--space-3)' }}>{t("runCards.weatherTitle")}</Text>
+      <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {rows.map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--ink-3)' }}>{k}</span>
@@ -432,15 +432,15 @@ function GearCard({ gear }: { gear?: Activity["gear"] }) {
 
   return (
     <Card padding="none" style={{ padding: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 'var(--space-3)' }}>{t("runCards.gearTitle")}</div>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 'var(--space-3)' }}>{t("runCards.gearTitle")}</Text>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 4, background: 'var(--bg-2)', display: 'grid', placeItems: 'center', fontSize: 16 }}>{icon}</div>
+        <div className="text-[length:var(--fs-base)]" style={{ width: 28, height: 28, borderRadius: 'var(--r-sm)', background: 'var(--bg-2)', display: 'grid', placeItems: 'center' }}>{icon}</div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-0)' }}>{gear.name}</div>
-          <div style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+          <Text as="div" variant="bodySmall" tone="primary" weight={500}>{gear.name}</Text>
+          <Text as="div" variant="caption" tone="tertiary" mono>
             {t("runCards.gearTotalDist", { dist: Math.round(gear.totalDistanceKm) })}
             {remaining != null && ` · ${t("runCards.gearRemaining", { dist: Math.round(remaining) })}`}
-          </div>
+          </Text>
         </div>
       </div>
     </Card>
