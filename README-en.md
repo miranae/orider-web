@@ -274,16 +274,17 @@ External contributors can open PRs after the repository is public. Maintainers r
 
 ## Public Release Status
 
-The repository is still private while public-release gates are closed.
+This repository is preparing for public release and remains private while public-release gates are verified.
 
 Tracked blockers:
 
-- H-5: GitHub hidden `refs/pull/*` still retain old webhook-token snapshots and require GitHub Support purge or repository recreation.
-- Re-run security review before changing visibility.
+- Backend security gates H-2/H-3/H-4/H-1 must be closed and live-verified in the private backend repository.
+- Current-product screenshots must be regenerated and verified.
+- Re-run the final frontend/backend security review before changing visibility.
 
 See [Public Release Checklist](docs/PUBLIC_RELEASE_CHECKLIST-en.md).
 
-The intended final switch is a clean repository recreation from the reviewed working tree, not a mirror push of the private history. See [Public Repository Cutover](docs/PUBLIC_REPOSITORY_CUTOVER-en.md).
+The intended final switch is a clean repository recreation from the reviewed working tree, not a mirror push of private history. See [Public Repository Cutover](docs/PUBLIC_REPOSITORY_CUTOVER-en.md).
 
 ## License and Trademark
 
