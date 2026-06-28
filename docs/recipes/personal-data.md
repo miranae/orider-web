@@ -99,13 +99,19 @@ These five recipes are the first polished examples for Creator Hub:
 
 Email delivery is supported as an explicit, user-triggered action from Creator Hub. Recurring email delivery needs a separate opt-in, unsubscribe path, quiet-hours/frequency settings, and abuse monitoring.
 
+## Additional Recipe Docs
+
+| Recipe | Result | Notes |
+|---|---|---|
+| [Z2 Target Reminder](z2-target-reminder.md) | Private reminder when weekly aerobic-base minutes are behind target. | Uses demo data and aggregate zone minutes only. |
+
 ## Starter Recipe Ideas
 
 | Idea | Uses | Why riders may care |
 |---|---|---|
 | Weekly load chart | `activities:read`, `fitness:read` | See whether training is building, flat, or too aggressive. |
 | High-intensity streak alert | `activities:read` | Avoid stacking too many hard days without recovery. |
-| Z2 target tracker | `activities:read` | Track aerobic base work against a weekly target. |
+| [Z2 target tracker](z2-target-reminder.md) | `activities:read` | Track aerobic base work against a weekly target. |
 | Long-ride Notion log | `activities:read` | Keep a narrative archive of endurance rides. |
 | GPX export helper | `activities:read`, `streams:read`, `exports:read` | Move owned activity data into another personal tool. |
 | Discord recovery reminder | `fitness:read` | Share a private reminder to rest or lower intensity. |
