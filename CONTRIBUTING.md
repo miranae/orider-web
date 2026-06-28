@@ -47,6 +47,7 @@ Run the relevant checks:
 
 ```bash
 npm run lint:budget
+npm run quality:budget
 npm test
 npm run build
 ```
@@ -72,6 +73,7 @@ npm run e2e
 - [ ] No secrets, credentials, production exports, or private user data are included.
 - [ ] Personal-data recipes use only owned-data examples, minimal planned scopes, and demo/mock data.
 - [ ] `npm run lint:budget` passes without increasing the warning baseline.
+- [ ] `npm run quality:budget` passes without increasing large-file, console, or alert baselines.
 - [ ] `npm test` passes.
 - [ ] `npm run build` passes.
 - [ ] Docs or translations were updated when needed.

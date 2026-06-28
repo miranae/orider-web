@@ -95,13 +95,20 @@ try {
 
 The repository currently has legacy lint warnings, mostly design-system and direct-console warnings. CI uses `npm run lint:budget`, which allows the current baseline but fails if a PR increases the warning count.
 
+CI also runs `npm run quality:budget`, which blocks new growth in:
+
+- largest TS/TSX file size,
+- direct `console.*` calls,
+- direct `alert()` calls.
+
 For contributors:
 
 - Do not add new lint warnings.
+- Do not increase the large-file, `console.*`, or `alert()` baselines.
 - Prefer reducing nearby warnings when touching a file.
 - Keep `npm run lint:budget` passing before opening a PR.
 
-When the baseline improves, lower the budget in `package.json`.
+When a baseline improves, lower the matching budget in `package.json` or `scripts/check-quality-budget.mjs`.
 
 ## Large File Refactor Strategy
 

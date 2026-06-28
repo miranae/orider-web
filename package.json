@@ -14,6 +14,7 @@
     "lint": "eslint src",
     "lint:budget": "eslint src --max-warnings 1560",
     "lint:report": "eslint src --format=stylish || true",
+    "quality:budget": "node scripts/check-quality-budget.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "JAVA_HOME=/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home PATH=$JAVA_HOME/bin:$PATH firebase emulators:exec --project orider-g1 --only auth,firestore 'npx playwright test'",

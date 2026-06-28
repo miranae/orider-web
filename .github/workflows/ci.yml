@@ -52,6 +52,8 @@ jobs:
         if: steps.changes.outputs.docs_only != 'true'
       - run: npm run lint:budget
         if: steps.changes.outputs.docs_only != 'true'
+      - run: npm run quality:budget
+        if: steps.changes.outputs.docs_only != 'true'
       - run: npm test
         if: steps.changes.outputs.docs_only != 'true'
       - name: Build (placeholder env — 시크릿 없음, 포크 안전)
