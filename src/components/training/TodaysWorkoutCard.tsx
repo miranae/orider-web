@@ -38,7 +38,7 @@ import {
 export default function TodaysWorkoutCard() {
   const { t } = useTranslation('training');
   const WORKOUT_LABELS = useMemo(() => buildWorkoutLabels(t), [t]);
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [data, setData] = useState<WorkoutDetail | null>(null);
   const [loading, setLoading] = useState(true);
   /** 사용자가 "AI 분석 받기" 버튼을 눌렀을 때 true → full LLM 호출 허용. */
@@ -204,11 +204,19 @@ export default function TodaysWorkoutCard() {
 
   useEffect(() => {
     let cancelled = false;
+    if (authLoading) return () => { cancelled = true; };
+    if (!user) {
+      setData(null);
+      setLoading(false);
+      setCfDone(true);
+      return () => { cancelled = true; };
+    }
     const fn = httpsCallable<Record<string, never>, TodaysWorkoutCFResponse>(
       functions,
       "getTodaysWorkout"
     );
     const refetch = () => {
+      setLoading(true);
       fn({})
         .then((res) => {
           if (cancelled) return;
@@ -232,12 +240,12 @@ export default function TodaysWorkoutCard() {
     };
     // goalsKey 변화 시 자동 refetch — 사용자가 goal 추가/삭제 후 카드 즉시 갱신.
      
-  }, [goalsKey]);
+  }, [authLoading, goalsKey, user]);
 
   // revalidating이 true→false로 떨어지면 plan/adaptationFlag가 갱신됐을 수 있으니 refetch
   const prevRevalidating = useRef(false);
   useEffect(() => {
-    if (prevRevalidating.current && !revalidating) {
+    if (prevRevalidating.current && !revalidating && user) {
       const fn = httpsCallable<Record<string, never>, TodaysWorkoutCFResponse>(
         functions,
         "getTodaysWorkout"
