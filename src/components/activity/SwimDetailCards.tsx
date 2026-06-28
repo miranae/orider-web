@@ -34,13 +34,13 @@ function SwimLaneTimeline({ laps }: { laps?: ActivityStreams["laps"] }) {
 
   return (
     <Card padding="none" style={{ padding: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 'var(--space-3)' }}>{t("swimCards.laneTimeline")}</div>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 'var(--space-3)' }}>{t("swimCards.laneTimeline")}</Text>
       <div
         style={{
           height: 180,
-          borderRadius: 8,
+          borderRadius: 'var(--r-lg)',
           overflow: 'hidden',
-          background: 'linear-gradient(180deg, oklch(0.22 0.05 220), oklch(0.16 0.04 220))',
+          background: 'linear-gradient(180deg, color-mix(in oklch, var(--aqua) 12%, var(--bg-2)), var(--bg-2))',
           position: 'relative',
         }}
       >
@@ -54,7 +54,7 @@ function SwimLaneTimeline({ laps }: { laps?: ActivityStreams["laps"] }) {
               bottom: 24,
               left: `${pos * 100}%`,
               width: 1,
-              borderLeft: '1px dashed oklch(0.40 0.04 220)',
+              borderLeft: '1px dashed color-mix(in oklch, var(--aqua) 22%, var(--line-soft))',
             }}
           />
         ))}
@@ -70,7 +70,7 @@ function SwimLaneTimeline({ laps }: { laps?: ActivityStreams["laps"] }) {
             const heightPct = isMain
               ? mainHeightVariant[i % mainHeightVariant.length]
               : 40;
-            const color = isMain ? 'var(--aqua)' : 'oklch(0.70 0.09 220)';
+            const color = isMain ? 'var(--aqua)' : 'color-mix(in oklch, var(--aqua) 55%, var(--ink-3))';
             return (
               <div
                 key={i}
@@ -87,12 +87,11 @@ function SwimLaneTimeline({ laps }: { laps?: ActivityStreams["laps"] }) {
                 title={`${lap.type} · ${Math.round(distM)}m`}
               >
                 {widthPct > 5 && (
-                  <span style={{
+                  <span className="text-[length:var(--fs-xs)]" style={{
                     position: 'absolute',
                     top: -18,
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    fontSize: 9,
                     color: color,
                     fontFamily: 'var(--font-mono)',
                     whiteSpace: 'nowrap',
@@ -108,7 +107,7 @@ function SwimLaneTimeline({ laps }: { laps?: ActivityStreams["laps"] }) {
         {/* 하단 거리 눈금 */}
         <div style={{ position: 'absolute', bottom: 0, left: 8, right: 8, height: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {ticks.map((tk, i) => (
-            <span key={i} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'oklch(0.55 0.05 220)' }}>
+            <span key={i} className="text-[length:var(--fs-xs)]" style={{ fontFamily: 'var(--font-mono)', color: 'color-mix(in oklch, var(--aqua) 42%, var(--ink-3))' }}>
               {tk}m
             </span>
           ))}
@@ -150,9 +149,9 @@ function SwimLaneTimeline({ laps }: { laps?: ActivityStreams["laps"] }) {
 
         return (
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line-soft)' }}>
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-4)', letterSpacing: '0.08em', marginBottom: 'var(--space-2)' }}>
+            <Text as="div" variant="caption" tone="quaternary" mono style={{ letterSpacing: '0.08em', marginBottom: 'var(--space-2)' }}>
               {t("swimCards.sessionHrTrend")}
-            </div>
+            </Text>
             <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: '100%', height: 80, display: 'block' }} preserveAspectRatio="none">
               <defs>
                 <linearGradient id="swimHrFill" x1="0" x2="0" y1="0" y2="1">
@@ -163,7 +162,7 @@ function SwimLaneTimeline({ laps }: { laps?: ActivityStreams["laps"] }) {
               <path d={fillPath} fill="url(#swimHrFill)" />
               <path d={linePath} stroke="var(--rose)" strokeWidth="1.8" fill="none" />
             </svg>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-1)', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
+            <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-1)', fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
               {timeLabels.map((tl, i) => <span key={i}>{tl}</span>)}
             </div>
           </div>
@@ -203,8 +202,8 @@ function PaceDecayChart({ laps }: { laps?: ActivityStreams["laps"] }) {
 
   return (
     <Card padding="none" style={{ padding: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 3 }}>{t("swimCards.paceDecayTitle")}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 14 }}>{t("swimCards.paceDecayDesc")}</div>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 3 }}>{t("swimCards.paceDecayTitle")}</Text>
+      <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: 14 }}>{t("swimCards.paceDecayDesc")}</Text>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         {paces.map((pace, i) => {
@@ -212,21 +211,21 @@ function PaceDecayChart({ laps }: { laps?: ActivityStreams["laps"] }) {
           const opacity = 1 - (i / Math.max(paces.length - 1, 1)) * 0.5;
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', width: 28, flexShrink: 0 }}>
+              <span className="text-[length:var(--fs-xs)]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-3)', width: 28, flexShrink: 0 }}>
                 #{i + 1}
               </span>
-              <div style={{ flex: 1, height: 8, background: 'var(--bg-3)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ flex: 1, height: 8, background: 'var(--bg-3)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
                 <div
                   style={{
                     width: `${barWidth}%`,
                     height: '100%',
                     background: 'var(--aqua)',
                     opacity,
-                    borderRadius: 4,
+                    borderRadius: 'var(--r-sm)',
                   }}
                 />
               </div>
-              <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-1)', width: 42, textAlign: 'right', flexShrink: 0 }}>
+              <span className="text-[length:var(--fs-xs)]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)', width: 42, textAlign: 'right', flexShrink: 0 }}>
                 {formatPace(pace)}
               </span>
             </div>
@@ -236,13 +235,13 @@ function PaceDecayChart({ laps }: { laps?: ActivityStreams["laps"] }) {
 
       {paces.length >= 2 && (
         <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{t("swimCards.decayLabel")}</span>
-          <span style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: decayColor }}>
+          <Text variant="bodySmall" tone="tertiary">{t("swimCards.decayLabel")}</Text>
+          <Text variant="dataMedium" mono style={{ color: decayColor }}>
             {decaySign}{Math.round(Math.abs(decay))}s
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>
+          </Text>
+          <Text variant="caption" tone="quaternary">
             {decay <= 0 ? t("swimCards.decayStable") : t("swimCards.decayFading")}
-          </span>
+          </Text>
         </div>
       )}
     </Card>
@@ -271,15 +270,15 @@ function CssUpdateCard({ summary }: { summary: ActivitySummary }) {
         border: '1px solid color-mix(in oklch, var(--aqua) 20%, transparent)',
       }}
     >
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 3 }}>{t("swimCards.cssUpdateTitle")}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 14 }}>{t("swimCards.cssUpdateDesc")}</div>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 3 }}>{t("swimCards.cssUpdateTitle")}</Text>
+      <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: 14 }}>{t("swimCards.cssUpdateDesc")}</Text>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <Text variant="dataLarge" style={{ color: 'var(--aqua)' }}>{paceStr}</Text>
-        <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>/100m</span>
+        <Text variant="unit" tone="tertiary">/100m</Text>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 'var(--space-2)' }}>
+      <Text as="div" variant="bodySmall" tone="secondary" style={{ marginTop: 'var(--space-2)' }}>
         {t("swimCards.cssUpdateNote")}
-      </div>
+      </Text>
     </Card>
   );
 }
@@ -308,7 +307,7 @@ function SwimSplitTable({ laps }: { laps?: ActivityStreams["laps"] }) {
       : '-';
     // 세트 타입 추정: 첫 세트=WU, 마지막=CD, 나머지=MAIN
     const type = i === 0 ? 'WU' : i === laps.length - 1 ? 'CD' : 'MAIN';
-    const typeColor = type === 'MAIN' ? 'var(--aqua)' : 'oklch(0.70 0.09 220)';
+    const typeColor = type === 'MAIN' ? 'var(--aqua)' : 'color-mix(in oklch, var(--aqua) 55%, var(--ink-3))';
     const name = type === 'WU' ? t("swimCards.setWarmup") : type === 'CD' ? t("swimCards.setCooldown") : t("swimCards.setName", { index: i });
     return { no: i + 1, type, name, dist: Math.round(distM), time: timeStr, pace: paceStr, pace100, hr, cadence, typeColor, isMain: type === 'MAIN' };
   });
@@ -318,21 +317,21 @@ function SwimSplitTable({ laps }: { laps?: ActivityStreams["laps"] }) {
   return (
     <Card padding="none" style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center' }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', margin: 0 }}>{t("swimCards.splitTitle")}</h3>
+        <Text as="h3" variant="label" tone="primary" style={{ margin: 0 }}>{t("swimCards.splitTitle")}</Text>
       </div>
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <table className="text-[length:var(--fs-xs)]" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--bg-2)', color: 'var(--ink-3)' }}>
               {headers.map(h => (
-                <th key={h} style={{ padding: 'var(--space-2) var(--space-3)', textAlign: h === setHeader ? 'left' : 'right', fontWeight: 500, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.05em' }}>{h}</th>
+                <th key={h} className="text-[length:var(--fs-xs)]" style={{ padding: 'var(--space-2) var(--space-3)', textAlign: h === setHeader ? 'left' : 'right', fontWeight: 500, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {rows.map(r => (
               <tr key={r.no} style={{ borderTop: '1px solid var(--line-soft)', background: r.isMain ? 'color-mix(in oklch, var(--aqua) 3%, transparent)' : 'transparent' }}>
-                <td style={{ padding: '10px 12px', color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                <td className="text-[length:var(--fs-xs)]" style={{ padding: '10px 12px', color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
                   <span style={{ color: r.typeColor }}>●</span> {r.no}
                 </td>
                 <td style={{ padding: '10px 12px', color: 'var(--ink-0)' }}>{r.name}</td>
@@ -359,32 +358,32 @@ function StrokeAnalysisCard({ summary }: { summary: ActivitySummary }) {
 
   return (
     <Card padding="none" style={{ padding: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 3 }}>{t("swimCards.strokeTitle")}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 'var(--space-3)' }}>{t("swimCards.strokeDesc")}</div>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 3 }}>{t("swimCards.strokeTitle")}</Text>
+      <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: 'var(--space-3)' }}>{t("swimCards.strokeDesc")}</Text>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {swolf != null && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', paddingBottom: 10, borderBottom: '1px solid var(--line-soft)' }}>
-            <div style={{ flex: 1, fontSize: 12, color: 'var(--ink-1)' }}>{t("swimCards.avgSwolf")}</div>
-            <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--ink-0)' }}>{Math.round(swolf)}</span>
+            <Text as="div" variant="bodySmall" tone="secondary" style={{ flex: 1 }}>{t("swimCards.avgSwolf")}</Text>
+            <Text variant="dataMedium" tone="primary" mono>{Math.round(swolf)}</Text>
           </div>
         )}
         {cadence != null && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', paddingBottom: 10, borderBottom: '1px solid var(--line-soft)' }}>
-            <div style={{ flex: 1, fontSize: 12, color: 'var(--ink-1)' }}>{t("swimCards.strokeRate")}</div>
-            <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--ink-0)' }}>{Math.round(cadence)}</span>
-            <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>spm</span>
+            <Text as="div" variant="bodySmall" tone="secondary" style={{ flex: 1 }}>{t("swimCards.strokeRate")}</Text>
+            <Text variant="dataMedium" tone="primary" mono>{Math.round(cadence)}</Text>
+            <Text variant="unit" tone="tertiary">spm</Text>
           </div>
         )}
         {cadence != null && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', paddingBottom: 10, borderBottom: '1px solid var(--line-soft)' }}>
-            <div style={{ flex: 1, fontSize: 12, color: 'var(--ink-1)' }}>{t("swimCards.dps")}</div>
-            <span style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--aqua)' }}>
+            <Text as="div" variant="bodySmall" tone="secondary" style={{ flex: 1 }}>{t("swimCards.dps")}</Text>
+            <Text variant="dataMedium" mono style={{ color: 'var(--aqua)' }}>
               {summary.distance > 0 && cadence > 0
                 ? (summary.distance / ((summary.ridingTimeMillis / 60000) * cadence)).toFixed(2)
                 : '-'
               }
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>m</span>
+            </Text>
+            <Text variant="unit" tone="tertiary">m</Text>
           </div>
         )}
       </div>
@@ -402,19 +401,19 @@ function SwimLoadCard({ tss }: { tss: number | null }) {
 
   return (
     <Card padding="none" style={{ padding: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', marginBottom: 3 }}>{t("swimCards.swimLoadTitle")}</div>
-      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 'var(--space-3)' }}>{t("swimCards.swimLoadDesc")}</div>
+      <Text as="div" variant="label" tone="primary" style={{ marginBottom: 3 }}>{t("swimCards.swimLoadTitle")}</Text>
+      <Text as="div" variant="bodySmall" tone="tertiary" style={{ marginBottom: 'var(--space-3)' }}>{t("swimCards.swimLoadDesc")}</Text>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 'var(--space-3)' }}>
-        <span style={{ fontSize: 36, fontWeight: 700, fontFamily: 'var(--font-mono)', color }}>{Math.round(tss)}</span>
-        <span style={{ fontSize: 13, color: 'var(--ink-2)', fontFamily: 'var(--font-mono)' }}>sTSS</span>
+        <Text variant="dataHero" mono style={{ color }}>{Math.round(tss)}</Text>
+        <Text variant="unit" tone="secondary" mono>sTSS</Text>
       </div>
-      <div style={{ height: 4, background: 'var(--bg-3)', borderRadius: 2, marginBottom: 'var(--space-2)', position: 'relative' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, var(--aqua), ${color})`, borderRadius: 2 }} />
+      <div style={{ height: 4, background: 'var(--bg-3)', borderRadius: 'var(--r-sm)', marginBottom: 'var(--space-2)', position: 'relative' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(90deg, var(--aqua), ${color})`, borderRadius: 'var(--r-sm)' }} />
         {[30, 60, 100].map(n => (
           <div key={n} style={{ position: 'absolute', left: `${(n / 150) * 100}%`, top: -2, bottom: -2, width: 1, background: 'var(--bg-0)' }} />
         ))}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
+      <div className="text-[length:var(--fs-xs)]" style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', color: 'var(--ink-4)' }}>
         <span>{t("swimCards.swimLoadLight")}</span>
         <span>{t("swimCards.swimLoadDrill")}</span>
         <span>{t("swimCards.swimLoadCss")}</span>

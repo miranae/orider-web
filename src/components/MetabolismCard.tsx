@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import {
   computeRideSubstrate,
@@ -26,6 +26,28 @@ interface MetabolismCardProps {
 
 /** 강도-지방산화 종형곡선 시각화용 샘플 강도(%FTP). */
 const CURVE_PCTS = [0.3, 0.4, 0.5, 0.6, 0.68, 0.8, 0.9, 1.0, 1.15];
+
+const panelStyle: CSSProperties = {
+  padding: "var(--space-4)",
+  borderRadius: "var(--r-lg)",
+  background: "var(--bg-2)",
+  border: "1px solid var(--line-soft)",
+};
+
+const metricStyle: CSSProperties = {
+  padding: "14px var(--space-4)",
+  borderRadius: "var(--r-lg)",
+  background: "var(--bg-2)",
+  border: "1px solid var(--line-soft)",
+};
+
+function Dot({ color }: { color: string }) {
+  return (
+    <span
+      style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }}
+    />
+  );
+}
 
 export default function MetabolismCard({
   watts,
@@ -81,8 +103,8 @@ export default function MetabolismCard({
         <div
           className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)] mb-3"
           style={{
-            background: "rgba(232,176,74,0.12)",
-            border: "1px solid rgba(232,176,74,0.3)",
+            background: "color-mix(in oklch, var(--amber) 12%, transparent)",
+            border: "1px solid color-mix(in oklch, var(--amber) 30%, transparent)",
             color: "var(--amber)",
           }}
         >
@@ -92,31 +114,26 @@ export default function MetabolismCard({
 
       {/* 지방 vs 탄수 분할 */}
       <div
-        style={{
-          padding: "16px",
-          borderRadius: 10,
-          background: "var(--bg-2)",
-          border: "1px solid var(--line-soft)",
-        }}
+        style={panelStyle}
       >
         <div className="flex items-center justify-between mb-3">
           <div>
-            <Text variant="eyebrow" style={{ fontSize: 9 }}>
+            <Text variant="eyebrow" size="xs">
               {t("metabolism.fat")}
             </Text>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 4, lineHeight: 1 }}>
-              <Text variant="dataHero" style={{ fontSize: 22, color: "var(--lime)" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
+              <Text variant="dataLarge" style={{ color: "var(--lime)" }}>
                 {substrate.fatKcal}
               </Text>
               <Text variant="unit">kcal · {fatPctRound}%</Text>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <Text variant="eyebrow" style={{ fontSize: 9 }}>
+            <Text variant="eyebrow" size="xs">
               {t("metabolism.carb")}
             </Text>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 4, lineHeight: 1, justifyContent: "flex-end" }}>
-              <Text variant="dataHero" style={{ fontSize: 22, color: "var(--amber)" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1, justifyContent: "flex-end" }}>
+              <Text variant="dataLarge" style={{ color: "var(--amber)" }}>
                 {substrate.carbKcal}
               </Text>
               <Text variant="unit">kcal · {carbPctRound}%</Text>
@@ -126,99 +143,99 @@ export default function MetabolismCard({
 
         {/* 분할 바 */}
         <div
+          className="rounded-full"
           style={{
             display: "flex",
             height: 10,
-            borderRadius: 999,
             overflow: "hidden",
-            background: "var(--bg-3, rgba(255,255,255,0.06))",
+            background: "var(--bg-3)",
           }}
         >
           <div style={{ width: `${fatPctRound}%`, background: "var(--lime)" }} />
           <div style={{ width: `${carbPctRound}%`, background: "var(--amber)" }} />
         </div>
-        <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: "var(--space-2)" }}>
+        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
           {t("metabolism.totalKcal", { kcal: substrate.totalKcal })}
-        </div>
+        </Text>
       </div>
 
       {/* FATMAX 존 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
-        <div style={{ padding: "14px 16px", borderRadius: 10, background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--lime)", flexShrink: 0 }} />
-            <Text variant="eyebrow" style={{ fontSize: 9 }}>{t("metabolism.fatMaxZone")}</Text>
+        <div style={metricStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+            <Dot color="var(--lime)" />
+            <Text variant="eyebrow" size="xs">{t("metabolism.fatMaxZone")}</Text>
             <InfoTip content={t("analysis.glossary.fatmax")} label={t("metabolism.fatMaxZone")} />
           </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 3, lineHeight: 1 }}>
-            <Text variant="dataHero" style={{ fontSize: 22, color: "var(--lime)" }}>{fatMax.fatMaxWatts}</Text>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
+            <Text variant="dataLarge" style={{ color: "var(--lime)" }}>{fatMax.fatMaxWatts}</Text>
             <Text variant="unit">W</Text>
           </div>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
+          <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>
             {Math.round(fatMax.fatMaxPctFtp * 100)}% FTP
-          </div>
+          </Text>
         </div>
 
         {sustainText && (
-          <div style={{ padding: "14px 16px", borderRadius: 10, background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--aqua)", flexShrink: 0 }} />
-              <Text variant="eyebrow" style={{ fontSize: 9 }}>{t("metabolism.sustainable")}</Text>
+          <div style={metricStyle}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+              <Dot color="var(--aqua)" />
+              <Text variant="eyebrow" size="xs">{t("metabolism.sustainable")}</Text>
             </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 3, lineHeight: 1 }}>
-              <Text variant="dataHero" style={{ fontSize: 22, color: "var(--aqua)" }}>{sustainText}</Text>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
+              <Text variant="dataLarge" style={{ color: "var(--aqua)" }}>{sustainText}</Text>
             </div>
-            <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
+            <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>
               {t("metabolism.sustainableDesc")}
-            </div>
+            </Text>
           </div>
         )}
 
         {fatMax.tssAtFatMax != null && (
-          <div style={{ padding: "14px 16px", borderRadius: 10, background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--violet)", flexShrink: 0 }} />
-              <Text variant="eyebrow" style={{ fontSize: 9 }}>{t("metabolism.tssAtFatMax")}</Text>
+          <div style={metricStyle}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+              <Dot color="var(--violet)" />
+              <Text variant="eyebrow" size="xs">{t("metabolism.tssAtFatMax")}</Text>
             </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 3, lineHeight: 1 }}>
-              <Text variant="dataHero" style={{ fontSize: 22, color: "var(--violet)" }}>{fatMax.tssAtFatMax}</Text>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
+              <Text variant="dataLarge" style={{ color: "var(--violet)" }}>{fatMax.tssAtFatMax}</Text>
             </div>
-            <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
+            <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>
               {t("metabolism.tssAtFatMaxDesc")}
-            </div>
+            </Text>
           </div>
         )}
       </div>
 
       {/* 강도-지방산화 종형곡선 */}
-      <div className="mt-3" style={{ padding: "16px", borderRadius: 10, background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}>
-        <Text variant="eyebrow" style={{ fontSize: 9 }}>{t("metabolism.curveTitle")}</Text>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 90, marginTop: 10 }}>
+      <div className="mt-3" style={panelStyle}>
+        <Text variant="eyebrow" size="xs">{t("metabolism.curveTitle")}</Text>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2)", height: 90, marginTop: 10 }}>
           {curve.map((c) => (
-            <div key={c.pct} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+            <div key={c.pct} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
               <div
                 style={{
                   width: "100%",
                   height: `${Math.max(2, c.rel * 70)}px`,
-                  borderRadius: 4,
+                  borderRadius: "var(--r-sm)",
                   background: c.isPeak ? "var(--lime)" : "var(--line-soft)",
                 }}
                 title={`${Math.round(c.pct * 100)}% FTP`}
               />
-              <span style={{ fontSize: 9, color: c.isPeak ? "var(--lime)" : "var(--ink-3)" }}>
+              <Text variant="caption" style={{ color: c.isPeak ? "var(--lime)" : "var(--ink-3)" }}>
                 {Math.round(c.pct * 100)}
-              </span>
+              </Text>
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: "var(--space-2)" }}>
+        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
           {t("metabolism.curveFootnote")}
-        </div>
+        </Text>
       </div>
 
-      <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: "var(--space-2)" }}>
+      <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
         {t("metabolism.disclaimer")}
-      </div>
+      </Text>
     </div>
   );
 }
