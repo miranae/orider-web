@@ -33,7 +33,7 @@ export default function MyPage() {
             {nickname}
           </div>
           {stravaConnected && (
-            <div className="flex items-center gap-1" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 2 }}>
+            <div className="flex items-center gap-1" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-0-5)" }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="#FC4C02">
                 <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
               </svg>
@@ -69,7 +69,7 @@ export default function MyPage() {
             <Text as="div" variant="num" style={{ fontSize: "var(--fs-xl)", color: "var(--ink-0)" }}>
               {typeof s.value === "number" ? s.value.toLocaleString() : s.value}
             </Text>
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 2 }}>{s.label}</div>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>{s.label}</div>
           </div>
         ))}
       </div>

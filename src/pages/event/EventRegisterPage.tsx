@@ -98,7 +98,7 @@ function Field({
 }) {
   return (
     <div style={{ marginBottom: 'var(--space-4)' }}>
-      <label className="flex items-center" style={{ gap: 6, marginBottom: 6 }}>
+      <label className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
         <span style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
         {required && <span style={{ color: "var(--rose)", fontSize: "var(--fs-xs)" }}>*</span>}
         {sub && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
@@ -110,12 +110,12 @@ function Field({
 
 function StepBar({ steps, stepIdx }: { steps: StepInfo[]; stepIdx: number }) {
   return (
-    <div className="flex" style={{ gap: 0, marginBottom: 28 }}>
+    <div className="flex" style={{ gap: 0, marginBottom: "var(--space-7)" }}>
       {steps.map((s, i) => {
         const done = stepIdx > i;
         const cur = stepIdx === i;
         return (
-          <div key={s.key} className="flex items-center" style={{ gap: 10, flex: 1 }}>
+          <div key={s.key} className="flex items-center" style={{ gap: "var(--space-2)", flex: 1 }}>
             <div
               aria-current={cur ? "step" : undefined}
               style={{
@@ -462,10 +462,10 @@ export default function EventRegisterPage() {
         >
           ✓
         </div>
-        <h1 style={{ fontSize: "var(--fs-3xl)", letterSpacing: "-0.02em", marginBottom: 10, color: "var(--ink-0)" }}>
+        <h1 style={{ fontSize: "var(--fs-3xl)", letterSpacing: "-0.02em", marginBottom: "var(--space-2)", color: "var(--ink-0)" }}>
           {t("message.registrationComplete")}
         </h1>
-        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: 28 }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: "var(--space-7)" }}>
           {(event.fee ?? 0) > 0
             ? t("register.donePaymentDesc")
             : t("register.doneConfirmDesc")}
@@ -494,7 +494,7 @@ export default function EventRegisterPage() {
             </span>
           </div>
         </Card>
-        <div className="flex justify-center" style={{ gap: 10 }}>
+        <div className="flex justify-center" style={{ gap: "var(--space-2)" }}>
           <Button type="button" onClick={() => navigate(`/event/${eventId}`)} variant="primary">
             {t("register.goEventDetail")}
           </Button>
@@ -535,7 +535,7 @@ export default function EventRegisterPage() {
           <StepBar steps={steps} stepIdx={stepIdx} />
 
           {currentStep?.key === "category" && (
-            <div role="radiogroup" aria-label={t("message.selectCategory")} className="flex flex-col" style={{ gap: 10 }}>
+            <div role="radiogroup" aria-label={t("message.selectCategory")} className="flex flex-col" style={{ gap: "var(--space-2)" }}>
               {event.categories.map((c) => {
                 const slots = c.slots ?? c.capacity ?? 0;
                 const filled = filledByCategory[c.id] ?? 0;
@@ -562,7 +562,7 @@ export default function EventRegisterPage() {
                   >
                     <div className="flex items-start" style={{ gap: 'var(--space-4)' }}>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 6 }}>
+                        <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
                           <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
                             {c.name ?? c.label ?? c.id}
                           </span>
@@ -608,7 +608,7 @@ export default function EventRegisterPage() {
                         </div>
                       )}
                       {active && (
-                        <span aria-hidden="true" style={{ color: "var(--lime)", marginTop: 2, fontSize: "var(--fs-lg)" }}>
+                        <span aria-hidden="true" style={{ color: "var(--lime)", marginTop: "var(--space-0-5)", fontSize: "var(--fs-lg)" }}>
                           ✓
                         </span>
                       )}
@@ -629,12 +629,12 @@ export default function EventRegisterPage() {
                   border: "1px solid color-mix(in oklch, var(--aqua) 30%, var(--line-soft))",
                   borderRadius: "var(--r-sm)",
                   marginBottom: 'var(--space-5)',
-                  gap: 10,
+                  gap: "var(--space-2)",
                   fontSize: "var(--fs-xs)",
                   color: "var(--ink-1)",
                 }}
               >
-                <span aria-hidden="true" style={{ color: "var(--aqua)", flexShrink: 0, marginTop: 2 }}>⚠</span>
+                <span aria-hidden="true" style={{ color: "var(--aqua)", flexShrink: 0, marginTop: "var(--space-0-5)" }}>⚠</span>
                 <div>
                   {t("register.profileNotice")}
                 </div>
@@ -647,7 +647,7 @@ export default function EventRegisterPage() {
                 <dd style={{ color: "var(--ink-0)" }}>{user.email ?? "-"}</dd>
               </dl>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("register.fieldName")} required>
                   <input
                     type="text"
@@ -667,9 +667,9 @@ export default function EventRegisterPage() {
                 </Field>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("register.fieldGender")} required>
-                  <div className="flex" style={{ gap: 6 }}>
+                  <div className="flex" style={{ gap: "var(--space-1-5)" }}>
                     {([["M", t("register.genderM")], ["F", t("register.genderF")], ["X", t("register.genderX")]] as Array<[Gender, string]>).map(([v, l]) => {
                       const active = data.gender === v;
                       return (
@@ -715,7 +715,7 @@ export default function EventRegisterPage() {
                   return (
                     <div className="flex flex-col" style={{ gap: 'var(--space-2)' }}>
                       {/* ABO 4형 */}
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--space-1-5)" }}>
                         {ABO_TYPES.map((abo) => {
                           const active = parts.abo === abo;
                           return (
@@ -743,7 +743,7 @@ export default function EventRegisterPage() {
                         })}
                       </div>
                       {/* Rh +/- (ABO 선택 후만 활성) */}
-                      <div className="flex items-center" style={{ gap: 6 }}>
+                      <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
                         <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", minWidth: 28 }}>Rh</span>
                         {(["+", "-"] as const).map((rh) => {
                           const active = parts.rh === rh;
@@ -785,7 +785,7 @@ export default function EventRegisterPage() {
                         )}
                       </div>
                       {/* 특이 혈액형 */}
-                      <div className="flex items-center" style={{ gap: 6 }}>
+                      <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
                         <button
                           type="button"
                           onClick={() => setParts({ abo: "", rh: "", custom: isCustom ? "" : (parts.custom || " ") })}
@@ -821,7 +821,7 @@ export default function EventRegisterPage() {
               </Field>
 
               <Field label={t("register.fieldShirtSize")}>
-                <div className="flex" style={{ gap: 6 }}>
+                <div className="flex" style={{ gap: "var(--space-1-5)" }}>
                   {SHIRT_SIZES.map((s) => {
                     const active = data.shirtSize === s;
                     return (
@@ -859,8 +859,8 @@ export default function EventRegisterPage() {
                   marginBottom: 'var(--space-4)',
                 }}
               >
-                <div style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-0)", marginBottom: 10 }}>{t("register.emergencyContact")}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t("register.emergencyContact")}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "var(--space-2)" }}>
                   <input
                     type="text"
                     value={data.emName}
@@ -898,7 +898,7 @@ export default function EventRegisterPage() {
           )}
 
           {currentStep?.key === "terms" && (
-            <div className="flex flex-col" style={{ gap: 10 }}>
+            <div className="flex flex-col" style={{ gap: "var(--space-2)" }}>
               {TERM_ITEMS.map((it) => {
                 const checked = data.agreements[it.id];
                 return (
@@ -911,7 +911,7 @@ export default function EventRegisterPage() {
                       borderRadius: "var(--r-md)",
                     }}
                   >
-                    <label className="flex items-center" style={{ gap: 10, cursor: "pointer" }}>
+                    <label className="flex items-center" style={{ gap: "var(--space-2)", cursor: "pointer" }}>
                       <input
                         type="checkbox"
                         checked={checked}
@@ -973,7 +973,7 @@ export default function EventRegisterPage() {
                   <label
                     className="flex items-center"
                     style={{
-                      gap: 10,
+                      gap: "var(--space-2)",
                       padding: "12px 14px",
                       background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
                       border: "1px solid color-mix(in oklch, var(--lime) 25%, var(--line-soft))",
@@ -1023,7 +1023,7 @@ export default function EventRegisterPage() {
               >
                 <div
                   className="flex items-center justify-between"
-                  style={{ paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid var(--line-soft)" }}
+                  style={{ paddingBottom: 14, marginBottom: "var(--space-3)", borderBottom: "1px solid var(--line-soft)" }}
                 >
                   <div>
                     <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{event.name}</div>
@@ -1032,11 +1032,11 @@ export default function EventRegisterPage() {
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 2 }}>{t("label.entryFee")}</Text>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-0-5)" }}>{t("label.entryFee")}</Text>
                     <Text as="div" variant="dataMedium">₩ {(event.fee ?? 0).toLocaleString("ko-KR")}</Text>
                   </div>
                 </div>
-                <div className="flex flex-col" style={{ gap: 6, fontSize: "var(--fs-xs)" }}>
+                <div className="flex flex-col" style={{ gap: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
                   <div className="flex justify-between">
                     <span style={{ color: "var(--ink-3)" }}>{t("label.entryFee")}</span>
                     <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
@@ -1055,7 +1055,7 @@ export default function EventRegisterPage() {
                   </div>
                   <div
                     className="flex justify-between"
-                    style={{ paddingTop: 10, marginTop: 6, borderTop: "1px solid var(--line-soft)", fontSize: "var(--fs-sm)" }}
+                    style={{ paddingTop: 10, marginTop: "var(--space-1-5)", borderTop: "1px solid var(--line-soft)", fontSize: "var(--fs-sm)" }}
                   >
                     <span style={{ color: "var(--ink-0)", fontWeight: 500 }}>{t("register.totalAmount")}</span>
                     <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "var(--fs-sm)" }}>
@@ -1108,10 +1108,10 @@ export default function EventRegisterPage() {
                   borderRadius: "var(--r-sm)",
                   fontSize: "var(--fs-xs)",
                   color: "var(--ink-1)",
-                  gap: 10,
+                  gap: "var(--space-2)",
                 }}
               >
-                <span aria-hidden="true" style={{ flexShrink: 0, marginTop: 2, color: "var(--aqua)" }}>ℹ</span>
+                <span aria-hidden="true" style={{ flexShrink: 0, marginTop: "var(--space-0-5)", color: "var(--aqua)" }}>ℹ</span>
                 <div>
                   {t("register.paymentGatewayNotice")}
                 </div>
@@ -1129,7 +1129,7 @@ export default function EventRegisterPage() {
                   gap: 'var(--space-2)',
                 }}
               >
-                <span aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>ℹ</span>
+                <span aria-hidden="true" style={{ flexShrink: 0, marginTop: "var(--space-0-5)" }}>ℹ</span>
                 <span>{t("register.refundPolicy")}</span>
               </div>
             </div>
@@ -1164,10 +1164,10 @@ export default function EventRegisterPage() {
         </Card>
 
         {/* Sidebar Summary */}
-        <Card padding="none" className="event-register-aside" style={{ padding: 18, position: "sticky", top: 68 }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("register.sidebarTitle")}</Text>
+        <Card padding="none" className="event-register-aside" style={{ padding: "var(--space-4)", position: "sticky", top: 68 }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("register.sidebarTitle")}</Text>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{event.name}</div>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 14 }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: "var(--space-3)" }}>
             {fmtDateTime(event.startTime)}
           </div>
 

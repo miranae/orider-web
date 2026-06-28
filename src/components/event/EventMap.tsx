@@ -304,9 +304,9 @@ export default function EventMap({
                 border: `2px solid ${s.color}`,
                 display: "grid",
                 placeItems: "center",
-                fontSize: 9,
+                fontSize: "var(--fs-2xs)",
                 lineHeight: 1,
-                boxShadow: "0 0 0 2px rgba(0,0,0,0.45)",
+                boxShadow: "0 0 0 2px color-mix(in srgb, var(--bg-0) 45%, transparent)",
               }}
               aria-label={`${w.lane} ${w.name}`}
             >
@@ -329,11 +329,11 @@ export default function EventMap({
               border: "2px solid var(--chart-cadence)",
               display: "grid",
               placeItems: "center",
-              fontSize: 9,
+              fontSize: "var(--fs-2xs)",
               fontFamily: "var(--font-mono)",
               color: "var(--chart-cadence)",
               fontWeight: 700,
-              boxShadow: "0 0 0 2px rgba(0,0,0,0.45)",
+              boxShadow: "0 0 0 2px color-mix(in srgb, var(--bg-0) 45%, transparent)",
             }}
             aria-label={cp.name}
           >
@@ -410,8 +410,8 @@ export default function EventMap({
           closeOnClick={false}
           maxWidth="200px"
         >
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-            <div style={{ fontWeight: "bold", marginBottom: 2 }}>
+          <div style={{ fontSize: "var(--fs-xs)", lineHeight: 1.6 }}>
+            <div style={{ fontWeight: "bold", marginBottom: "var(--space-0-5)" }}>
               {popupInfo.bib != null ? `#${popupInfo.bib} ` : ""}
               {popupInfo.displayName}
             </div>

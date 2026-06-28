@@ -56,7 +56,7 @@ export default function SegmentEffortsCard({
     <Card id="segments" padding="none" className="overflow-hidden" style={{ padding: 0 }}>
       <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--line-soft)" }}>
         <div>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 3 }}>{t("segments.title")}</h3>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>{t("segments.title")}</h3>
           <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("segments.matched", { count: efforts.length })}</div>
         </div>
         <div className="flex items-center gap-1.5 text-[length:var(--fs-xs)]">
@@ -89,9 +89,9 @@ export default function SegmentEffortsCard({
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
           <thead>
-            <tr style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.08em" }}>
+            <tr style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xs)", letterSpacing: "0.08em" }}>
               <th style={{ textAlign: "left", padding: "10px 18px", fontWeight: 500 }}>{t("segments.header.name")}</th>
               <th style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.distance")}</th>
               <th style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.grade")}</th>

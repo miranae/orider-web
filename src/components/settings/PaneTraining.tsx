@@ -355,10 +355,10 @@ export function PaneTraining() {
       {/* FTP 테스트 모드 — Ramp/20분/All-out 전용 테스트에서 FTP 후보 산출 → 보수적 확인 → 적용(#307).
           적용 시 아래 FTP 필드를 채우며, 저장하면 임계 우선순위(프로필 우선)에 따라 과거 분석에 즉시 재반영. */}
       <SettingsCard title={t("training.ftpTest.title")} dense>
-        <Text as="div" variant="eyebrow" style={{ color: "var(--ink-3)", marginBottom: 8 }}>
+        <Text as="div" variant="eyebrow" style={{ color: "var(--ink-3)", marginBottom: "var(--space-2)" }}>
           {t("training.ftpTest.desc")}
         </Text>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: "var(--space-1-5)", flexWrap: "wrap", marginBottom: "var(--space-2)" }}>
           {(["ramp", "twenty_min", "all_out"] as FtpTestProtocol[]).map((p) => (
             <button
               key={p}
@@ -391,10 +391,10 @@ export function PaneTraining() {
         {ftpTestCandidate != null && (() => {
           const curFtp = ftp ? Number(ftp) : null;
           return (
-            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ marginTop: "var(--space-2)", display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
               <Text as="div" variant="num" style={{ fontSize: "var(--fs-xl)", color: "var(--ink-0)", lineHeight: 1 }}>
-                {ftpTestCandidate}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: 3 }}>W</span>
-                <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: 8 }}>
+                {ftpTestCandidate}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-1)" }}>W</span>
+                <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-2)" }}>
                   {t("training.ftpTest.candidate")}{curFtp ? ` · ${t("training.ftpTest.current")} ${curFtp}W` : ""}
                 </span>
               </Text>

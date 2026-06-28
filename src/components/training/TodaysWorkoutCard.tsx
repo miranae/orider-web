@@ -620,7 +620,7 @@ export default function TodaysWorkoutCard() {
 
   // 시간 · TSS 라인 (+ 완료 시 실제 TSS / 달성률)
   const detailLine = (duration > 0 || tss > 0) ? (
-    <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+    <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
       {duration > 0 ? t('today.minutes', { value: duration }) : ""}
       {duration > 0 && tss > 0 ? " · " : ""}
       {tss > 0 ? t('today.tssValue', { value: tss }) : ""}
@@ -640,7 +640,7 @@ export default function TodaysWorkoutCard() {
             {t('today.actualTssValue', { value: actualTSS })}
           </span>
           {completionRatioPct != null && (
-            <span style={{ marginLeft: 6, color: completionRatio! >= 0.8 ? "var(--lime)" : "var(--amber)" }}>
+            <span style={{ marginLeft: "var(--space-1-5)", color: completionRatio! >= 0.8 ? "var(--lime)" : "var(--amber)" }}>
               ({completionRatioPct}%)
             </span>
           )}

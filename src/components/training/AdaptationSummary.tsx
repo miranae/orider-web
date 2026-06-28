@@ -59,7 +59,7 @@ export default function AdaptationSummary({ flag, href = "/plan", style }: Props
         padding: "var(--space-3) var(--space-4)",
         background: tone.bg,
         border: `1px solid ${tone.border}`,
-        borderRadius: 8,
+        borderRadius: "var(--r-md)",
         textDecoration: "none",
         cursor: "pointer",
         transition: "background .12s, border-color .12s",
@@ -79,10 +79,10 @@ export default function AdaptationSummary({ flag, href = "/plan", style }: Props
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 13,
+            fontSize: "var(--fs-xs)",
             fontWeight: 600,
             color: tone.ink,
-            marginBottom: 2,
+            marginBottom: "var(--space-0-5)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -91,7 +91,7 @@ export default function AdaptationSummary({ flag, href = "/plan", style }: Props
           {tone.icon} {flag.reason}
         </div>
         {flag.recent4wRatio != null && (
-          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
             {t("adaptation.metricsLine", { pct: Math.round(flag.recent4wRatio * 100) })}
             {flag.streakWeeksOff != null && flag.streakWeeksOff > 0
               ? t("adaptation.streakSuffix", { count: flag.streakWeeksOff })
@@ -102,7 +102,7 @@ export default function AdaptationSummary({ flag, href = "/plan", style }: Props
       <span
         aria-hidden
         style={{
-          fontSize: 11,
+          fontSize: "var(--fs-xs)",
           color: tone.ink,
           fontFamily: "var(--font-mono)",
           letterSpacing: ".06em",

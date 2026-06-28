@@ -229,7 +229,7 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
           fontSize: "var(--fs-xs)",
         }}
       >
-        <div style={{ color: "var(--ink-2)", marginBottom: 3 }}>{fmtDate(dates[hi])}</div>
+        <div style={{ color: "var(--ink-2)", marginBottom: "var(--space-1)" }}>{fmtDate(dates[hi])}</div>
         {([
           [t("triView.totalCtl"), totCtl[hi], "var(--ink-0)"],
           [t("discipline.bike"), bikeCtl[hi], "oklch(0.82 0.13 195)"],
@@ -238,7 +238,7 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
           ["ATL", atl[hi], "var(--rose)"],
           ["TSB", tsb[hi], "var(--amber)"],
         ] as const).map(([label, v, color]) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
             <span style={{ color: "var(--ink-2)", minWidth: 56 }}>{label}</span>
             <span style={{ color, fontWeight: 700, marginLeft: "auto" }}>
@@ -283,7 +283,7 @@ function ContribDonut({ slices, totalCtl }: { slices: ContribSlice[]; totalCtl: 
   });
 
   return (
-    <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: "var(--space-4)", alignItems: "center" }}>
       <svg width="180" height="180" viewBox="0 0 180 180" style={{ flexShrink: 0 }}>
         {arcs.map((a, i) => (
           <path key={i} d={a.d} fill={a.color}>
@@ -299,7 +299,7 @@ function ContribDonut({ slices, totalCtl }: { slices: ContribSlice[]; totalCtl: 
       </svg>
       <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)', flex: 1 }}>
         {slices.map((s) => (
-          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <span style={{ width: 10, height: 10, background: s.color, borderRadius: "var(--r-xs)", flexShrink: 0 }} />
             <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)", minWidth: 60 }}>{s.label}</span>
             <Text variant="mono" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", minWidth: 36 }}>{s.pct}%</Text>
@@ -345,7 +345,7 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
     <Link
       to={href}
       className="ds-card ds-card--bare"
-      style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 10, textDecoration: "none", color: "inherit" }}
+      style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: "var(--space-2)", textDecoration: "none", color: "inherit" }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)' }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
@@ -353,7 +353,7 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>→</span>
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1-5)" }}>
         <Text variant="dataHero" style={{ fontSize: "var(--fs-3xl)", color, fontFamily: "var(--font-mono)" }}>
           {ctl.length > 0 ? ctl[ctl.length - 1]!.toFixed(1) : "0.0"}
         </Text>
@@ -407,7 +407,7 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
 
   if (entries.length === 0) {
     return (
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 110 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-1)", height: 110 }}>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-4)", fontSize: "var(--fs-xs)" }}>
           {t("daily.empty")}
         </div>
@@ -418,7 +418,7 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
   return (
     <div style={{ position: "relative" }}>
       <div
-        style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 110 }}
+        style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-1)", height: 110 }}
         onPointerLeave={() => setHoverIdx(null)}
       >
         {entries.map(({ bike, run, swim }, i) => {
@@ -442,7 +442,7 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
               }}
             >
               {isRest ? (
-                <div style={{ height: 4, background: "var(--bg-3)", borderRadius: 1, opacity: 0.4 }} />
+                <div style={{ height: 4, background: "var(--bg-3)", borderRadius: "var(--r-xs)", opacity: 0.4 }} />
               ) : (
                 <>
                   {/* 스택 순서: 바이크(하단), 러닝(중간), 수영(상단) */}
@@ -472,19 +472,19 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
             zIndex: 5,
           }}
         >
-          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-2)", marginBottom: 2 }}>{hover.date}</div>
+          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-2)", marginBottom: "var(--space-0-5)" }}>{hover.date}</div>
           {([
             [t("discipline.bike"), hover.bike, BIKE_COLOR],
             [t("discipline.run"), hover.run, "var(--lime)"],
             [t("discipline.swim"), hover.swim, "var(--amber)"],
           ] as const).map(([label, v, color]) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
               <span style={{ color: "var(--ink-2)", minWidth: 44 }}>{label}</span>
               <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{Math.round(v)}</span>
             </div>
           ))}
-          <div style={{ marginTop: 3, paddingTop: 3, borderTop: "1px solid var(--line-soft)", display: "flex", gap: 6, fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
+          <div style={{ marginTop: "var(--space-1)", paddingTop: 3, borderTop: "1px solid var(--line-soft)", display: "flex", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("triView.total")}</span>
             <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{Math.round(hover.bike + hover.run + hover.swim)} TSS</span>
           </div>
@@ -746,7 +746,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
       <div style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)', maxWidth: 1440, margin: "0 auto" }}>
         <div style={{ flex: 1 }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("triView.header.eyebrow")}</Text>
-          <h1 style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, color: "var(--ink-0)", marginBottom: 6 }}>
+          <h1 style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
             {t("triView.header.title")}
           </h1>
           <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
@@ -755,7 +755,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
         </div>
         <div style={{ display: "flex", gap: 'var(--space-2)', alignItems: "center" }}>
           <DisciplineTabs includeTri />
-          <div style={{ display: "flex", gap: 2, background: "var(--bg-1)", padding: 3, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
+          <div style={{ display: "flex", gap: "var(--space-0-5)", background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
             {rangeOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -800,8 +800,8 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
-                marginBottom: 10,
+                gap: "var(--space-1-5)",
+                marginBottom: "var(--space-2)",
               }}
             >
               <span
@@ -860,11 +860,11 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
           style={{
             display: "flex",
             alignItems: "flex-end",
-            marginBottom: 14,
+            marginBottom: "var(--space-3)",
           }}
         >
           <div>
-            <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
+            <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {t("triView.pmc.title")}
             </h3>
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
@@ -876,7 +876,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
           <div
             style={{
               display: "flex",
-              gap: 14,
+              gap: "var(--space-3)",
               fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               flexWrap: "wrap",
@@ -885,7 +885,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
             {LEGEND_ITEM_KEYS.map((item) => (
               <span
                 key={item.key}
-                style={{ display: "flex", alignItems: "center", gap: 6 }}
+                style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}
               >
                 {item.type === "rect" ? (
                   <span
@@ -927,7 +927,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
         <div
           style={{
             marginTop: 'var(--space-4)',
-            padding: 14,
+            padding: "var(--space-3)",
             background:
               "color-mix(in oklch, var(--aqua) 5%, var(--bg-2))",
             border:
@@ -950,13 +950,13 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
               <Text variant="mono" style={{ color: "var(--aqua)" }}>
                 62
               </Text>
-              <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: 10 }}>
+              <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>
                 {t("triView.goal.distance")}
               </span>
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>
               {t("triView.goal.currentCtl")}
             </Text>
             <div>
@@ -968,7 +968,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>
               {t("triView.goal.currentTsb")}
             </Text>
             <div>
@@ -981,7 +981,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>
               {t("triView.kpi.weeklyTss")}
             </Text>
             <div>
@@ -1056,8 +1056,8 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>
         {/* 종목별 기여도 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <div style={{ marginBottom: 14 }}>
-            <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
+          <div style={{ marginBottom: "var(--space-3)" }}>
+            <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {t("triView.contrib.title")}
             </h3>
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("triView.contrib.sub", { ctl: hasData ? totalCTL.toFixed(1) : "62.1" })}</div>
@@ -1088,17 +1088,17 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
 
         {/* 일별 운동 부하 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <div style={{ marginBottom: 14 }}>
-            <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
+          <div style={{ marginBottom: "var(--space-3)" }}>
+            <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {t("daily.title")}
             </h3>
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("triView.daily.sub")}</div>
           </div>
           <DailyLoadChart data={dailyLoadData} />
           {/* 범례 */}
-          <div style={{ marginTop: 14, display: "flex", gap: 14, fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+          <div style={{ marginTop: "var(--space-3)", display: "flex", gap: "var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
             {dailyLegendItems.map((item) => (
-              <span key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span key={item.label} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
                 <span style={{ width: 10, height: 10, background: item.color, borderRadius: "var(--r-xs)" }} />
                 {item.label}
               </span>
@@ -1112,23 +1112,23 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
               borderTop: "1px solid var(--line-soft)",
               display: "grid",
               gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 14,
+              gap: "var(--space-3)",
             }}
           >
             <div>
-              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("daily.weekTSS")}</Text>
+              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("daily.weekTSS")}</Text>
               <div><Text variant="dataMedium">{kpiTss}</Text><Text variant="unit"> {t("triView.total")}</Text></div>
             </div>
             <div>
-              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("discipline.bike")}</Text>
+              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.bike")}</Text>
               <div><Text variant="dataMedium">{Math.round(triBreakdown.bike?.weeklyTSS ?? 0)}</Text><Text variant="unit"> TSS</Text></div>
             </div>
             <div>
-              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("discipline.run")}</Text>
+              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.run")}</Text>
               <div><Text variant="dataMedium">{Math.round(triBreakdown.run?.weeklyTSS ?? 0)}</Text><Text variant="unit"> TSS</Text></div>
             </div>
             <div>
-              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("discipline.swim")}</Text>
+              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.swim")}</Text>
               <div><Text variant="dataMedium">{Math.round(triBreakdown.swim?.weeklyTSS ?? 0)}</Text><Text variant="unit"> TSS</Text></div>
             </div>
           </div>

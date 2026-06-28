@@ -117,11 +117,11 @@ export default function SettingsPage() {
           <LocalizedLink to="/settings" className="flex items-center" style={{ marginLeft: -4, padding: "4px 8px 4px 0", minHeight: 44 }}>
             <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
           </LocalizedLink>
-          <span style={{ fontSize: 17, fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>
+          <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>
             {t("nav.developerLabel")}
           </span>
         </div>
-        <main style={{ padding: "16px" }}>
+        <main style={{ padding: "var(--space-4)" }}>
           <PaneDeveloper />
         </main>
       </div>

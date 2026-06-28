@@ -33,7 +33,7 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid var(--line-soft)",
   borderRadius: "var(--r-md)",
   color: "var(--ink-0)",
-  fontSize: 14,
+  fontSize: "var(--fs-sm)",
   fontFamily: "inherit",
 };
 
@@ -185,7 +185,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
               <div
                 style={{
                   width: 24, height: 24, borderRadius: "50%",
-                  display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700,
+                  display: "grid", placeItems: "center", fontSize: "var(--fs-xs)", fontWeight: 700,
                   background: done || active ? "var(--lime)" : "var(--bg-2)",
                   color: done || active ? "var(--primary-fg)" : "var(--ink-3)",
                   border: "1px solid var(--line-soft)",
@@ -207,7 +207,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
       {step === 0 && (
         <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("create.kindLabel")}</Text>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.kindLabel")}</Text>
             <div className="grid grid-cols-2 gap-2">
               {KINDS.map((k) => {
                 const active = kind === k.id;
@@ -235,7 +235,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </div>
 
           <div className="grid gap-2" style={{ gridTemplateColumns: "1fr 100px" }}>
-            <label className="flex flex-col" style={{ gap: 6 }}>
+            <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               <Text variant="eyebrow">{t("create.nameLabel")}</Text>
               <input
                 type="text"
@@ -246,7 +246,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
                 style={inputStyle}
               />
             </label>
-            <label className="flex flex-col" style={{ gap: 6 }}>
+            <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               <Text variant="eyebrow">{t("create.badgeLabel")}</Text>
               <input
                 type="text"
@@ -259,7 +259,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
             </label>
           </div>
 
-          <label className="flex flex-col" style={{ gap: 6 }}>
+          <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
             <Text variant="eyebrow">{t("create.cityLabel")}</Text>
             <input
               type="text"
@@ -270,7 +270,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
             />
           </label>
 
-          <label className="flex flex-col" style={{ gap: 6 }}>
+          <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
             <Text variant="eyebrow">{t("create.descLabel")}</Text>
             <textarea
               value={description}
@@ -283,8 +283,8 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </label>
 
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("create.sportsLabel")}</Text>
-            <div className="flex items-center flex-wrap" style={{ gap: 6 }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.sportsLabel")}</Text>
+            <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {SPORT_OPTIONS.map((o) => {
                 const active = sports.includes(o.v);
                 return (
@@ -312,8 +312,8 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
       {step === 1 && (
         <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("create.visibilityLabel")}</Text>
-            <div role="radiogroup" aria-label={t("create.visibilityAria")} className="flex flex-col" style={{ gap: 6 }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.visibilityLabel")}</Text>
+            <div role="radiogroup" aria-label={t("create.visibilityAria")} className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               {[
                 { v: "public" as const, label: t("create.visibility.public"), desc: t("create.visibility.public.desc") },
                 { v: "private" as const, label: t("create.visibility.private"), desc: t("create.visibility.private.desc") },
@@ -345,8 +345,8 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           </div>
 
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("create.approvalLabel")}</Text>
-            <div role="radiogroup" aria-label={t("create.approvalAria")} className="flex items-center" style={{ gap: 6 }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.approvalLabel")}</Text>
+            <div role="radiogroup" aria-label={t("create.approvalAria")} className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
               {[
                 { v: "auto" as const, label: t("create.approval.auto") },
                 { v: "manual" as const, label: t("create.approval.manual") },
@@ -372,7 +372,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
             </div>
           </div>
 
-          <label className="flex flex-col" style={{ gap: 6 }}>
+          <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
             <Text variant="eyebrow">{t("create.rulesLabel")}</Text>
             <textarea
               value={rules}
@@ -399,7 +399,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
               onChange={(e) => setInvites(e.target.value)}
               rows={4}
               placeholder="rider1@example.com, rider2@example.com"
-              style={{ ...inputStyle, resize: "vertical", fontFamily: "var(--font-mono)", fontSize: 13 }}
+              style={{ ...inputStyle, resize: "vertical", fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)" }}
             />
           </div>
 

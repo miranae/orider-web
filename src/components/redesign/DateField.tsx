@@ -180,7 +180,7 @@ export default function DateField({
           background: "var(--bg-2)",
           border: "1px solid var(--line-soft)",
           borderRadius: "var(--r-md)",
-          fontSize: 14,
+          fontSize: "var(--fs-sm)",
           color: value ? "var(--ink-0)" : "var(--ink-3)",
           textAlign: "left",
           cursor: disabled ? "not-allowed" : "pointer",
@@ -192,7 +192,7 @@ export default function DateField({
         }}
       >
         <span>{labelText}</span>
-        <span aria-hidden="true" style={{ color: "var(--ink-3)", fontSize: 13 }}>📅</span>
+        <span aria-hidden="true" style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>📅</span>
       </button>
 
       {open && (
@@ -209,11 +209,11 @@ export default function DateField({
             border: "1px solid var(--line)",
             borderRadius: "var(--r-md)",
             padding: 'var(--space-3)',
-            boxShadow: "0 12px 32px rgba(0,0,0,0.45)",
+            boxShadow: "0 12px 32px color-mix(in srgb, var(--bg-0) 45%, transparent)",
             minWidth: 280,
           }}
         >
-          <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-2)" }}>
             <Button
               type="button"
               aria-label={t("field.prevMonth")}
@@ -222,7 +222,7 @@ export default function DateField({
             >
               ◀
             </Button>
-            <div className="font-semibold" style={{ color: "var(--ink-0)", fontSize: 13 }}>
+            <div className="font-semibold" style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
               {t("field.yearMonth", { year: viewMonth.getFullYear(), month: viewMonth.getMonth() + 1 })}
             </div>
             <Button
@@ -240,7 +240,7 @@ export default function DateField({
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(7, 1fr)",
-              gap: 2,
+              gap: "var(--space-0-5)",
             }}
           >
             {WEEKDAYS.map((w, i) => (
@@ -249,7 +249,7 @@ export default function DateField({
                 role="columnheader"
                 style={{
                   textAlign: "center",
-                  fontSize: 10,
+                  fontSize: "var(--fs-2xs)",
                   color: i === 0 ? "var(--rose)" : i === 6 ? "var(--aqua)" : "var(--ink-3)",
                   padding: "4px 0",
                   fontFamily: "var(--font-mono)",
@@ -277,7 +277,7 @@ export default function DateField({
                   onClick={() => pick(d)}
                   style={{
                     padding: "6px 0",
-                    fontSize: 12,
+                    fontSize: "var(--fs-xs)",
                     borderRadius: "var(--r-sm)",
                     border: isToday && !isSelected ? "1px solid var(--lime)" : "1px solid transparent",
                     background: isSelected ? "var(--lime)" : "transparent",
@@ -306,7 +306,7 @@ export default function DateField({
           {presets && (
             <div
               className="flex items-center flex-wrap"
-              style={{ gap: 'var(--space-1)', marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}
+              style={{ gap: 'var(--space-1)', marginTop: "var(--space-2)", paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}
             >
               {presetButtons.map((p) => (
                 <Button
@@ -314,7 +314,7 @@ export default function DateField({
                   type="button"
                   onClick={() => pick(p.date)}
                   disabled={isDisabled(p.date)} variant="ghost" size="sm"
-                  style={{ fontSize: 11 }}
+                  style={{ fontSize: "var(--fs-xs)" }}
                 >
                   {p.label}
                 </Button>
@@ -326,7 +326,7 @@ export default function DateField({
                     onChange("");
                     setOpen(false);
                   }} variant="ghost" size="sm"
-                  style={{ fontSize: 11, marginLeft: "auto", color: "var(--ink-3)" }}
+                  style={{ fontSize: "var(--fs-xs)", marginLeft: "auto", color: "var(--ink-3)" }}
                 >
                   {t("field.clear")}
                 </Button>

@@ -22,15 +22,15 @@ export default function AdjustedChip({ factor }: Props) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 3,
+        gap: "var(--space-1)",
         padding: "1px 6px",
-        fontSize: 9,
+        fontSize: "var(--fs-2xs)",
         fontFamily: "var(--font-mono)",
         fontWeight: 600,
         color: ink,
         background: `color-mix(in srgb, ${ink} 12%, transparent)`,
         border: `1px solid color-mix(in srgb, ${ink} 35%, transparent)`,
-        borderRadius: 3,
+        borderRadius: "var(--r-xs)",
         letterSpacing: "0.04em",
         cursor: "help",
       }}

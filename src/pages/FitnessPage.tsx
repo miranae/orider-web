@@ -694,7 +694,7 @@ export default function FitnessPage() {
             mode={revalidating ? "updating" : "success"}
           />
         </Text>
-        <h1 style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, color: "var(--ink-0)", marginBottom: 6 }}>
+        <h1 style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
           {t("header.title")}
         </h1>
         <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
@@ -703,7 +703,7 @@ export default function FitnessPage() {
       </div>
       <div style={{ display: "flex", gap: 'var(--space-2)', alignItems: "center" }}>
         <DisciplineTabs includeTri />
-          <div style={{ display: "flex", gap: 2, background: "var(--bg-1)", padding: 3, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
+          <div style={{ display: "flex", gap: "var(--space-0-5)", background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
             {getRangeOptions(t).map((opt) => (
               <button
                 key={opt.value}
@@ -843,7 +843,7 @@ export default function FitnessPage() {
               }] : []),
             ].map((s, i, arr) => (
               <div key={i} style={{ padding: "22px 24px", borderRight: i < arr.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color }} />
                   <Text variant="eyebrow">{s.label}</Text>
                 </div>
@@ -974,9 +974,9 @@ export default function FitnessPage() {
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("pacing.title")}</Text>
             <Text as="div" variant="num" style={{ fontSize: "var(--fs-xl)", color: "var(--ink-0)", lineHeight: 1.1 }}>
               {pacingGuide.lowerW}–{pacingGuide.upperW}
-              <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)", marginLeft: 4 }}>W</span>
+              <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)", marginLeft: "var(--space-1)" }}>W</span>
               {pacingGuide.lowerWkg != null && pacingGuide.upperWkg != null && (
-                <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginLeft: 8 }}>
+                <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginLeft: "var(--space-2)" }}>
                   · {pacingGuide.lowerWkg.toFixed(2)}–{pacingGuide.upperWkg.toFixed(2)} W/kg
                 </span>
               )}
@@ -1006,26 +1006,26 @@ export default function FitnessPage() {
 
         {/* PMC 차트 */}
         <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
-          <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
             <div>
-              <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("pmc.title")}</h3>
+              <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("pmc.title")}</h3>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{projection ? t("pmc.subWithProjection", { range }) : t("pmc.subActual", { range })}</div>
             </div>
             <div style={{ flex: 1 }} />
             <div style={{ display: "flex", gap: 'var(--space-4)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                 <span style={{ width: 14, height: 2, background: "var(--lime)" }} /> {t("pmc.legend.ctl")}
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                 <span style={{ width: 14, height: 2, background: "var(--rose)" }} /> {t("pmc.legend.atl")}
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                 <span style={{ width: 14, height: 2, background: "var(--amber)" }} /> {t("pmc.legend.tsb")}
               </span>
               {projection && (
                 <>
                   <span style={{ width: 1, height: 12, background: "var(--line-soft)" }} />
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                     <svg width="16" height="4">
                       <line x1="0" y1="2" x2="16" y2="2" stroke="var(--ink-2)" strokeWidth="1.5" strokeDasharray="4 2" />
                     </svg>
@@ -1065,7 +1065,7 @@ export default function FitnessPage() {
               <div
                 style={{
                   marginTop: 'var(--space-4)',
-                  padding: 14,
+                  padding: "var(--space-3)",
                   background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
                   border: "1px solid color-mix(in oklch, var(--lime) 20%, var(--line-soft))",
                   borderRadius: "var(--r-md)",
@@ -1081,7 +1081,7 @@ export default function FitnessPage() {
                   </Text>
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
                     {eventDateStr} · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text>
-                    <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: 10 }}>
+                    <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>
                       {activeGoal.courseDist.toFixed(1)} km
                       {activeGoal.targetDurationMin != null && (
                         activeGoal.targetDurationMin % 60 > 0
@@ -1092,7 +1092,7 @@ export default function FitnessPage() {
                   </div>
                 </div>
                 <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: 3 }}>{t("goal.ctl")}</Text>
+                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.ctl")}</Text>
                   {goalCTLVal != null ? (
                     <div>
                       <Text variant="dataMedium" style={{ color: "var(--lime)" }}>{Math.round(goalCTLVal)}</Text>
@@ -1103,7 +1103,7 @@ export default function FitnessPage() {
                   )}
                 </div>
                 <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: 3 }}>{t("goal.tsb")}</Text>
+                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.tsb")}</Text>
                   {goalTSBVal != null ? (
                     <div>
                       <Text variant="dataMedium" style={{ color: "var(--amber)" }}>
@@ -1118,7 +1118,7 @@ export default function FitnessPage() {
                   )}
                 </div>
                 <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: 3 }}>{t("goal.adherence")}</Text>
+                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.adherence")}</Text>
                   {adherence != null ? (
                     <div>
                       <Text variant="dataMedium">{Math.round(adherence * 100)}</Text>
@@ -1146,7 +1146,7 @@ export default function FitnessPage() {
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
               <div>
-                <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("daily.title")}</h3>
+                <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("daily.title")}</h3>
                 <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("daily.sub")}</div>
               </div>
             </div>
@@ -1157,7 +1157,7 @@ export default function FitnessPage() {
                 {t("daily.empty")}
               </div>
             )}
-            <div style={{ marginTop: 14, display: "flex", gap: 'var(--space-3)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
+            <div style={{ marginTop: "var(--space-3)", display: "flex", gap: 'var(--space-3)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
               {([
                 [t("load.rest"), "var(--bg-3)"],
                 [t("load.light"), "var(--aqua-dim, oklch(0.55 0.12 200))"],
@@ -1170,17 +1170,17 @@ export default function FitnessPage() {
                 </span>
               ))}
             </div>
-            <div style={{ marginTop: 'var(--space-4)', paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+            <div style={{ marginTop: 'var(--space-4)', paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
               <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 3 }}>{t("daily.weekTSS")}</Text>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.weekTSS")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.thisWeekTSS}</Text></div>
               </div>
               <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 3 }}>{t("daily.avgWeekTSS")}</Text>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.avgWeekTSS")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.avgWeekTSS}</Text></div>
               </div>
               <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 3 }}>{t("daily.restDays")}</Text>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("daily.restDays")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.restDays}</Text><Text variant="unit">{t("daily.daysUnit")}</Text></div>
               </div>
             </div>
@@ -1192,11 +1192,11 @@ export default function FitnessPage() {
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("paceCurve.title")}</h3>
+                    <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("paceCurve.title")}</h3>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("paceCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
-                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
@@ -1218,11 +1218,11 @@ export default function FitnessPage() {
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("cssCurve.title")}</h3>
+                    <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("cssCurve.title")}</h3>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("cssCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
-                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
@@ -1244,18 +1244,18 @@ export default function FitnessPage() {
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("powerCurve.title")}</h3>
+                    <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("powerCurve.title")}</h3>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("powerCurve.sub", { range })}</div>
                   </div>
                   <div style={{ flex: 1 }} />
                   <div style={{ display: "flex", gap: 'var(--space-4)', flexWrap: "wrap" }}>
                     {prevPowerCurve && (
-                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                         <span style={{ width: 10, height: 2, background: "var(--ink-4)", borderTop: "1px dashed var(--ink-4)" }} /> {t("powerCurve.prevSeason")}
                       </span>
                     )}
                     {expectedCurvePoints && expectedCurvePoints.length > 0 && (
-                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                         <svg width="10" height="4" aria-hidden>
                           <line x1="0" y1="2" x2="10" y2="2" stroke="var(--aqua)" strokeWidth="1.5" strokeDasharray="2 3" />
                         </svg>
@@ -1275,10 +1275,10 @@ export default function FitnessPage() {
                     {t("powerCurve.empty")}
                   </div>
                 )}
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                <div style={{ marginTop: "var(--space-3)", paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--space-2)" }}>
                   {pcKeyDurations.map((_, i) => (
                     <div key={i}>
-                      <Text as="div" variant="eyebrow" style={{ marginBottom: 3 }}>{pcKeyNames[i]} · {pcKeyLabels[i]}</Text>
+                      <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{pcKeyNames[i]} · {pcKeyLabels[i]}</Text>
                       <div>
                         <Text variant="dataMedium">{pcKeyValues[i] != null ? pcKeyValues[i]!.toLocaleString() : "—"}</Text>
                         {pcKeyValues[i] != null && <Text variant="unit">W</Text>}
@@ -1329,7 +1329,7 @@ export default function FitnessPage() {
                 <>
                   <SectionHeader title={t("zoneDist.title")} sub={subLabel} />
                   {zones.map((zone) => (
-                    <div key={zone.z} style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
+                    <div key={zone.z} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-2)" }}>
                       <div style={{ width: 60 }}>
                         <span style={{ color: zone.color, fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "var(--fs-xs)" }}>{zone.z}</span>
                         <span style={{ fontSize: "var(--fs-xs)" }}>{zone.name}</span>

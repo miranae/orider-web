@@ -93,7 +93,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 10,
+          gap: "var(--space-2)",
         }}
       >
         {(
@@ -107,7 +107,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
           <div
             key={k}
             style={{
-              padding: 14,
+              padding: "var(--space-3)",
               background: 'var(--bg-2)',
               borderRadius: "var(--r-md)",
               border: '1px solid var(--line-soft)',
@@ -121,7 +121,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
                 textTransform: 'uppercase',
                 color: 'var(--ink-2)',
                 fontWeight: 500,
-                marginBottom: 6,
+                marginBottom: "var(--space-1-5)",
               }}
             >
               {k}
@@ -164,13 +164,13 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
           border: '1px solid var(--line-soft)',
         }}
       >
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: "var(--space-3)" }}>
           <div
             style={{
               fontSize: "var(--fs-sm)",
               fontWeight: 600,
               color: 'var(--ink-0)',
-              marginBottom: 2,
+              marginBottom: "var(--space-0-5)",
             }}
           >
             {t('planPreview.phasesTitle')}
@@ -209,7 +209,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
                   display: 'flex',
                   alignItems: 'baseline',
                   gap: 'var(--space-2)',
-                  marginBottom: 6,
+                  marginBottom: "var(--space-1-5)",
                 }}
               >
                 <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>
@@ -319,7 +319,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
           height={18}
           viewBox="0 0 18 18"
           fill="none"
-          style={{ color: 'var(--lime)', flexShrink: 0, marginTop: 2 }}
+          style={{ color: 'var(--lime)', flexShrink: 0, marginTop: "var(--space-0-5)" }}
         >
           <circle cx="9" cy="9" r="8" stroke="currentColor" strokeWidth="1.5" />
           <path

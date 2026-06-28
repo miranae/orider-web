@@ -347,7 +347,7 @@ export default function EventsPage() {
                 background: "var(--bg-1)",
                 display: "flex",
                 alignItems: "center",
-                gap: 14,
+                gap: "var(--space-3)",
               }}
             >
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.dot, flexShrink: 0 }} />
@@ -366,7 +366,7 @@ export default function EventsPage() {
       {/* 필터 행 */}
       <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-5)', paddingTop: 'var(--space-1)' }}>
         {/* 상태 탭 — lime 하단 보더 */}
-        <div style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--line-soft)" }}>
+        <div style={{ display: "flex", gap: "var(--space-0-5)", borderBottom: "1px solid var(--line-soft)" }}>
           {STATUS_TABS.map((t) => {
             const active = statusFilter === t.k;
             return (
@@ -396,7 +396,7 @@ export default function EventsPage() {
         <div style={{ width: 1, height: 18, background: "var(--line-soft)" }} />
 
         {/* 유형 칩 */}
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
           {TYPE_FILTERS.map((t) => {
             const active = typeFilter === t.k;
             return (
@@ -414,7 +414,7 @@ export default function EventsPage() {
                   borderColor: active ? "var(--lime)" : "var(--line-soft)",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 5,
+                  gap: "var(--space-1)",
                 }}
               >
                 {t.icon && <span aria-hidden="true">{t.icon}</span>} {t.label}
@@ -452,7 +452,7 @@ export default function EventsPage() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(2, 1fr)",
-            gap: 14,
+            gap: "var(--space-3)",
           }}
         >
           {filtered.map((e) => (
@@ -560,7 +560,7 @@ function MapThumbnail({ polyline, accent }: { polyline: string; accent: string }
       </defs>
       <rect width={W} height={H} fill="url(#gridPat)" />
       {/* 케이싱 */}
-      <path d={d} stroke="rgba(0,0,0,0.6)" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} stroke="color-mix(in srgb, var(--bg-0) 60%, transparent)" strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       {/* 메인 */}
       <path d={d} stroke={accent} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       {/* Start/End */}
@@ -666,13 +666,13 @@ function EventCard({
           }
           return <CoverIllustration />;
         })()}
-        <div style={{ position: "absolute", top: 10, left: 10, display: "flex", gap: 6 }}>
+        <div style={{ position: "absolute", top: 10, left: 10, display: "flex", gap: "var(--space-1-5)" }}>
           <span
             style={{
               fontSize: "var(--fs-xs)",
               fontFamily: "var(--font-mono)",
               padding: "3px 7px",
-              background: "rgba(0,0,0,0.55)",
+              background: "color-mix(in srgb, var(--bg-0) 55%, transparent)",
               color: "var(--ink-0)",
               borderRadius: "var(--r-xs)",
               fontWeight: 500,
@@ -692,7 +692,7 @@ function EventCard({
               right: 10,
               display: "flex",
               alignItems: "center",
-              gap: 5,
+              gap: "var(--space-1)",
               background: "var(--lime)",
               color: "var(--primary-fg)",
               padding: "3px 7px",
@@ -713,7 +713,7 @@ function EventCard({
               left: 10,
               fontSize: "var(--fs-xs)",
               color: "var(--ink-0)",
-              background: "rgba(0,0,0,0.55)",
+              background: "color-mix(in srgb, var(--bg-0) 55%, transparent)",
               padding: "3px 7px",
               borderRadius: "var(--r-xs)",
               fontFamily: "var(--font-mono)",
@@ -725,8 +725,8 @@ function EventCard({
       </div>
 
       {/* 콘텐츠 */}
-      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: "var(--space-2)", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-2)" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               className="truncate"
@@ -736,7 +736,7 @@ function EventCard({
             </div>
             <div
               className="flex items-center"
-              style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", gap: 6 }}
+              style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", gap: "var(--space-1-5)" }}
             >
               <span aria-hidden="true">📅</span>
               <span style={{ fontFamily: "var(--font-mono)" }}>
@@ -768,19 +768,19 @@ function EventCard({
         {(event.distance != null || event.elevationGain != null || event.maxParticipants != null) && (
           <div style={{ display: "flex", gap: 'var(--space-6)', fontSize: "var(--fs-xs)", color: "var(--ink-2)", flexWrap: "wrap" }}>
             {event.distance != null && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                 <span aria-hidden="true">🚴</span>
                 <span style={{ fontFamily: "var(--font-mono)" }}>{event.distance.toFixed(1)} km</span>
               </div>
             )}
             {event.elevationGain != null && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                 <span aria-hidden="true">🏔️</span>
                 <span style={{ fontFamily: "var(--font-mono)" }}>↑ {event.elevationGain}m</span>
               </div>
             )}
             {event.maxParticipants != null && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
                 <span aria-hidden="true">👥</span>
                 <span style={{ fontFamily: "var(--font-mono)" }}>
                   {event.registered ?? 0}

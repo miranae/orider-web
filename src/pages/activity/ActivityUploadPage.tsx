@@ -175,7 +175,7 @@ export default function ActivityUploadPage() {
           transition: "border-color 0.15s",
         }}
       >
-        <div style={{ fontSize: 36, marginBottom: 'var(--space-2)' }} aria-hidden="true">⬆️</div>
+        <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-2)' }} aria-hidden="true">⬆️</div>
         <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
           {t("upload.dropZoneLabel")}
         </div>
@@ -247,7 +247,7 @@ export default function ActivityUploadPage() {
                   <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
                     {f.file.name} · {formatSize(f.file.size)}
                     {f.status === "error" && f.error && (
-                      <span style={{ color: "var(--rose)", marginLeft: 6 }}>· {f.error}</span>
+                      <span style={{ color: "var(--rose)", marginLeft: "var(--space-1-5)" }}>· {f.error}</span>
                     )}
                   </div>
                 </div>

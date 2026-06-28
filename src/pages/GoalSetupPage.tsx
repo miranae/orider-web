@@ -99,7 +99,7 @@ function Stepper({ current, steps }: StepperProps) {
         return (
           <div key={n} style={{ display: "flex", alignItems: "center", flex: isLast ? 0 : 1 }}>
             {/* Dot + label */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <div
                 style={{
                   width: 28,
@@ -185,7 +185,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
   if (loading) {
     return (
       <Card padding="none" style={{ padding: 26 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-2)" }}>
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
@@ -205,9 +205,9 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
 
   if (courses.length === 0) {
     return (
-      <Card padding="none" style={{ padding: 40, textAlign: "center" }}>
+      <Card padding="none" style={{ padding: "var(--space-8)", textAlign: "center" }}>
         <div style={{ fontSize: "var(--fs-5xl)", marginBottom: 'var(--space-3)' }}>🗺️</div>
-        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-1)", marginBottom: 6 }}>
+        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-1)", marginBottom: "var(--space-1-5)" }}>
           {t('goals.courseEmpty')}
         </div>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
@@ -252,7 +252,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
       </div>
 
       {/* Course grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, maxHeight: 400, overflowY: "auto", paddingRight: 'var(--space-1)' }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--space-2)", maxHeight: 400, overflowY: "auto", paddingRight: 'var(--space-1)' }}>
         {filtered.length === 0 && searchQuery && (
           <div style={{ gridColumn: "1 / -1", padding: 'var(--space-5)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>
             {t('goals.courseSearchEmpty', { query: searchQuery })}
@@ -279,7 +279,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
               }}
             >
               {/* Name + difficulty */}
-              <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginBottom: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
                 <span
                   style={{
                     fontSize: "var(--fs-sm)",
@@ -311,7 +311,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
               <div
                 style={{
                   display: "flex",
-                  gap: 14,
+                  gap: "var(--space-3)",
                   fontSize: "var(--fs-xs)",
                   fontFamily: "var(--font-mono)",
                 }}
@@ -334,7 +334,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
       <a
         href="/course/create"
         style={{
-          padding: 14,
+          padding: "var(--space-3)",
           background: "var(--bg-2)",
           border: "1px dashed var(--line)",
           borderRadius: "var(--r-md)",
@@ -343,7 +343,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
           color: "var(--lime)",
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: "var(--space-2)",
           cursor: "pointer",
           textDecoration: "none",
         }}
@@ -376,7 +376,7 @@ function WizardFooter({ step, canNext, onPrev, onNext, onStart }: WizardFooterPr
     <div
       style={{
         display: "flex",
-        gap: 10,
+        gap: "var(--space-2)",
         marginTop: 'var(--space-6)',
         position: "sticky",
         bottom: 0,
@@ -519,14 +519,14 @@ export default function GoalSetupPage() {
     <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 24px 48px" }}>
       {/* 공통 헤더 */}
       <div style={{ marginBottom: 'var(--space-6)', paddingTop: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', marginBottom: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', marginBottom: "var(--space-1-5)", flexWrap: "wrap" }}>
           <Text as="div" variant="eyebrow">{eyebrowLabel}</Text>
           <DisciplineTabs />
         </div>
         <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
           {pageTitle}
         </h1>
-        <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginTop: 6 }}>
+        <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginTop: "var(--space-1-5)" }}>
           {pageSubtitle}
         </p>
       </div>

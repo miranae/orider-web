@@ -52,7 +52,7 @@ export default function LoadingSkeleton({ kind = "card", count }: LoadingSkeleto
         {Array.from({ length: n }).map((_, i) => (
           <div key={i} className="flex items-center" style={{ gap: 'var(--space-3)', padding: "10px 12px", borderBottom: "1px solid var(--line-soft)" }}>
             <Shimmer height={32} style={{ width: 32, borderRadius: "50%" }} />
-            <div className="flex-1 flex flex-col" style={{ gap: 6 }}>
+            <div className="flex-1 flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               <Shimmer height={12} style={{ width: "60%" }} />
               <Shimmer height={10} style={{ width: "30%" }} />
             </div>
@@ -64,12 +64,12 @@ export default function LoadingSkeleton({ kind = "card", count }: LoadingSkeleto
 
   // feed / card — card with header + body + stats row
   return (
-    <div role="status" aria-label={loadingHint} className="flex flex-col" style={{ gap: 14 }}>
+    <div role="status" aria-label={loadingHint} className="flex flex-col" style={{ gap: "var(--space-3)" }}>
       {Array.from({ length: n }).map((_, i) => (
         <Card key={i} padding="none" style={{ padding: 'var(--space-4)' }}>
-          <div className="flex items-center" style={{ gap: 10, marginBottom: 'var(--space-3)' }}>
+          <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: 'var(--space-3)' }}>
             <Shimmer height={40} style={{ width: 40, borderRadius: "50%" }} />
-            <div className="flex-1 flex flex-col" style={{ gap: 6 }}>
+            <div className="flex-1 flex flex-col" style={{ gap: "var(--space-1-5)" }}>
               <Shimmer height={13} style={{ width: "30%" }} />
               <Shimmer height={11} style={{ width: "20%" }} />
             </div>

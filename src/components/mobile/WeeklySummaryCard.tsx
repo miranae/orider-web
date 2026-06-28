@@ -29,7 +29,7 @@ export default function WeeklySummaryCard({ distance, duration, rideCount, eleva
     <div className="md:hidden" style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
       <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-3)' }}>
         <Text variant="eyebrow">{t("weeklySummary.title")}</Text>
-        <Link to="/my" style={{ fontSize: 11, color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
+        <Link to="/my" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
           {t("weeklySummary.viewAll")}
         </Link>
       </div>
@@ -48,17 +48,17 @@ export default function WeeklySummaryCard({ distance, duration, rideCount, eleva
             }}
           >
             {/* 라벨 위 / 값 아래 — ActivityCard 와 동일 세로 스택 (가독성) */}
-            <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 3 }}>{s.label}</div>
-            <Text as="div" variant="num" style={{ fontSize: 14, color: "var(--ink-0)", lineHeight: 1 }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-1)" }}>{s.label}</div>
+            <Text as="div" variant="num" style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", lineHeight: 1 }}>
               {s.value}
-              <span style={{ fontSize: 10, color: "var(--ink-4)", marginLeft: 1 }}>{s.unit}</span>
+              <span style={{ fontSize: "var(--fs-2xs)", color: "var(--ink-4)", marginLeft: 1 }}>{s.unit}</span>
             </Text>
           </div>
         ))}
       </Card>
 
       {/* Weekly bar chart */}
-      <Card padding="none" style={{ padding: 14 }}>
+      <Card padding="none" style={{ padding: "var(--space-3)" }}>
         <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("weeklySummary.weeklyDistanceKm")}</Text>
         <WeekBars weeks={recentWeeks} />
       </Card>

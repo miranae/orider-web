@@ -69,7 +69,7 @@ export default function MobileSettingsPage() {
     <div>
       {/* Header */}
       <div className="flex items-center sticky top-0 z-10"
-        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: 10 }}>
+        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
         <div className="cursor-pointer flex items-center" style={{ marginLeft: -4, padding: "4px 8px 4px 0", minHeight: 44 }}
           onClick={() => navigate("/my")}>
           <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
@@ -153,7 +153,7 @@ export default function MobileSettingsPage() {
       </div>
       <div style={{ padding: "10px 16px 14px", borderBottom: "1px solid var(--line-soft)" }}>
         <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("theme.label")}</div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
           {([
             { id: "system", label: t("theme.system") },
             { id: "light", label: t("theme.light") },

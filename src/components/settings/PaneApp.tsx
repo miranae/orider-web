@@ -57,7 +57,7 @@ export function PaneApp() {
               style={{
                 display: "flex",
                 gap: 'var(--space-1)',
-                padding: 2,
+                padding: "var(--space-0-5)",
                 background: "var(--bg-2)",
                 borderRadius: "var(--r-lg)",
               }}
@@ -77,7 +77,7 @@ export function PaneApp() {
                     background: locale === lang ? "var(--bg-1)" : "transparent",
                     color: locale === lang ? "var(--ink-0)" : "var(--ink-3)",
                     boxShadow:
-                      locale === lang ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
+                      locale === lang ? "0 1px 3px color-mix(in srgb, var(--bg-0) 6%, transparent)" : "none",
                   }}
                 >
                   {LANG_LABELS[lang]}
@@ -90,7 +90,7 @@ export function PaneApp() {
               style={{
                 display: "flex",
                 gap: 'var(--space-1)',
-                padding: 2,
+                padding: "var(--space-0-5)",
                 background: "var(--bg-2)",
                 borderRadius: "var(--r-lg)",
               }}
@@ -114,7 +114,7 @@ export function PaneApp() {
                     border: "none",
                     background: units === id ? "var(--bg-1)" : "transparent",
                     color: units === id ? "var(--ink-0)" : "var(--ink-3)",
-                    boxShadow: units === id ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
+                    boxShadow: units === id ? "0 1px 3px color-mix(in srgb, var(--bg-0) 6%, transparent)" : "none",
                   }}
                 >
                   {label}
@@ -131,7 +131,7 @@ export function PaneApp() {
             style={{
               display: "flex",
               gap: 'var(--space-1)',
-              padding: 2,
+              padding: "var(--space-0-5)",
               background: "var(--bg-2)",
               borderRadius: "var(--r-lg)",
             }}
@@ -153,7 +153,7 @@ export function PaneApp() {
                     border: "none",
                     background: active ? "var(--bg-1)" : "transparent",
                     color: active ? "var(--ink-0)" : "var(--ink-3)",
-                    boxShadow: active ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
+                    boxShadow: active ? "0 1px 3px color-mix(in srgb, var(--bg-0) 6%, transparent)" : "none",
                   }}
                 >
                   {thm.labelKey ? tCommon(thm.labelKey) : thm.label}
@@ -165,11 +165,11 @@ export function PaneApp() {
       </SettingsCard>
 
       <SettingsCard title={t("pane.app.cardExport")}>
-        <div style={{ marginBottom: 14 }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>
+        <div style={{ marginBottom: "var(--space-3)" }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>
             {t("pane.app.exportFormatLabel")}
           </Text>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
             {(["GPX", "TCX", "FIT", "JSON"] as const).map((f) => (
               <button
                 key={f}
@@ -207,7 +207,7 @@ export function PaneApp() {
                   justifyContent: "space-between",
                   fontSize: "var(--fs-xs)",
                   color: "var(--ink-2)",
-                  marginBottom: 6,
+                  marginBottom: "var(--space-1-5)",
                 }}
               >
                 <span>{exportProgress.label}</span>

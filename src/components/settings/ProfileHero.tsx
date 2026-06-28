@@ -68,11 +68,11 @@ export function ProfileHero({
       )}
 
       <div style={{ minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-2)', marginBottom: 2 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
           <h2
             style={{
               margin: 0,
-              fontSize: 22,
+              fontSize: "var(--fs-xl)",
               fontWeight: 700,
               color: "var(--ink-0)",
               letterSpacing: "-0.015em",
@@ -83,7 +83,7 @@ export function ProfileHero({
           {onEditNickname && (
             <Button variant="ghost"
               onClick={onEditNickname}
-              style={{ padding: "3px 6px", fontSize: 11 }}
+              style={{ padding: "3px 6px", fontSize: "var(--fs-xs)" }}
               aria-label={t("profile.editNickname")}
             >
               <Pencil size={11} /> {t("profile.change")}
@@ -92,24 +92,24 @@ export function ProfileHero({
         </div>
         <div
           style={{
-            fontSize: 12,
+            fontSize: "var(--fs-xs)",
             color: "var(--ink-3)",
             display: "flex",
-            gap: 14,
+            gap: "var(--space-3)",
             alignItems: "center",
             flexWrap: "wrap",
           }}
         >
           {friendCode && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1-5)" }}>
               <Text variant="mono"
                 style={{
                   fontWeight: 600,
-                  fontSize: 14,
+                  fontSize: "var(--fs-sm)",
                   padding: "2px 8px",
                   background: "color-mix(in oklch, var(--aqua) 12%, var(--bg-1))",
                   border: "1px solid color-mix(in oklch, var(--aqua) 30%, transparent)",
-                  borderRadius: 6,
+                  borderRadius: "var(--r-sm)",
                   color: "var(--aqua)",
                   letterSpacing: "0.08em",
                 }}
@@ -128,7 +128,7 @@ export function ProfileHero({
           {stravaConnected && (
             <>
               <span>·</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
                 <span
                   style={{
                     width: 6,
@@ -144,7 +144,7 @@ export function ProfileHero({
         </div>
       </div>
 
-      {actions && <div style={{ display: "flex", gap: 6 }}>{actions}</div>}
+      {actions && <div style={{ display: "flex", gap: "var(--space-1-5)" }}>{actions}</div>}
     </Card>
   );
 }

@@ -840,7 +840,7 @@ export default function ExplorePage() {
                   offset={12}
                   className="segment-tooltip"
                 >
-                  <div style={{ color: "var(--ink-0)", fontSize: 13 }}>
+                  <div style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
                     <div style={{ fontWeight: 600 }}>{tooltipInfo.name}</div>
                     <div style={{ color: "var(--ink-3)" }}>
                       {(tooltipInfo.distance / 1000).toFixed(2)} km · {tooltipInfo.grade.toFixed(1)}%
@@ -871,8 +871,8 @@ export default function ExplorePage() {
                 const climbLabel = CLIMB_LABELS[sel.climbCategory];
                 // 모바일: 전폭 카드 (외부 컨테이너 패딩 없으므로 추가 음수마진 불필요)
                 const selectedCardStyle: CSSProperties = isMobile
-                  ? { padding: 0, overflow: "hidden", borderRadius: 0, borderLeft: "none", borderRight: "none", marginBottom: 12 }
-                  : { padding: 0, overflow: "hidden", borderRadius: 8, marginBottom: 12 };
+                  ? { padding: 0, overflow: "hidden", borderRadius: 0, borderLeft: "none", borderRight: "none", marginBottom: "var(--space-3)" }
+                  : { padding: 0, overflow: "hidden", borderRadius: "var(--r-md)", marginBottom: "var(--space-3)" };
                 return (
                   <Card padding="none" className="mb-3" style={selectedCardStyle}>
                     <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
@@ -882,8 +882,8 @@ export default function ExplorePage() {
                             {climbLabel}
                           </span>
                         )}
-                        <Chip style={{ fontSize: 9, padding: "2px 6px" }}>{distKm} km</Chip>
-                        <Chip style={{ fontSize: 9, padding: "2px 6px" }}>{t("explore.avgGradeChip", { grade: sel.averageGrade.toFixed(1) })}</Chip>
+                        <Chip style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>{distKm} km</Chip>
+                        <Chip style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>{t("explore.avgGradeChip", { grade: sel.averageGrade.toFixed(1) })}</Chip>
                       </div>
                       <h2 className="text-[length:var(--fs-lg)] font-bold" style={{ color: "var(--ink-0)" }}>{sel.name}</h2>
                       {(sel.city || sel.state) && (
@@ -910,9 +910,9 @@ export default function ExplorePage() {
                         [t("maxGrade"), sel.maximumGrade.toFixed(1), "%", undefined],
                       ] as [string, string, string, string | undefined][]).map(([k, v, u, title]) => (
                         <div key={k} title={title} style={{ padding: "10px 8px", background: "var(--bg-1)" }}>
-                          <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', fontSize: 9 }}>{k}</Text>
+                          <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', fontSize: "var(--fs-2xs)" }}>{k}</Text>
                           <div>
-                            <Text variant="dataMedium" style={{ fontSize: 15 }}>{v}</Text>
+                            <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>{v}</Text>
                             <Text variant="unit">{u}</Text>
                           </div>
                         </div>

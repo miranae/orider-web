@@ -85,7 +85,7 @@ export default function InfoTip({ content, label }: InfoTipProps) {
             background: "var(--bg-0)",
             border: "1px solid var(--line-soft)",
             color: "var(--ink-1)",
-            fontSize: 11.5,
+            fontSize: "var(--fs-xs)",
             lineHeight: 1.55,
             fontWeight: 400,
             boxShadow: "0 4px 16px color-mix(in oklch, var(--ink-0) 18%, transparent)",

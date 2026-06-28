@@ -380,7 +380,7 @@ export default function EventResultsPage() {
               [t("label.finishRate"), `${counts.finishRate}`, "%"],
             ].map(([k, v, u]) => (
               <div key={k} style={{ padding: "14px 16px", background: "var(--bg-1)" }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{k}</Text>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{k}</Text>
                 <div>
                   <Text variant="dataMedium">{v}</Text>
                   {u && <Text variant="unit">{u}</Text>}
@@ -408,9 +408,9 @@ export default function EventResultsPage() {
           {/* 포디움 */}
           {podium.length > 0 && (
             <Card padding="none" style={{ padding: 22 }}>
-              <div style={{ marginBottom: 14 }}>
+              <div style={{ marginBottom: "var(--space-3)" }}>
                 <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.podium")}</div>
-                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: 2 }}>
+                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
                   {activeCategory === "__overall__"
                     ? t("resultsView.podiumTopThreeOverall")
                     : t("resultsView.podiumTopThreeCategory", { category: activeCategory })}
@@ -452,15 +452,15 @@ export default function EventResultsPage() {
                           color: medal,
                           fontFamily: "var(--font-mono)",
                           lineHeight: 1,
-                          marginBottom: 10,
+                          marginBottom: "var(--space-2)",
                         }}
                       >
                         {p.rank}
                       </div>
-                      <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 3, fontSize: "var(--fs-sm)" }}>
+                      <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)" }}>
                         {p.displayName}
                       </div>
-                      <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: 14 }}>
+                      <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: "var(--space-3)" }}>
                         {p.category}
                       </div>
                       <div
@@ -491,10 +491,10 @@ export default function EventResultsPage() {
           <Card padding="none" style={{ padding: 0 }}>
             <div
               className="flex items-center flex-wrap"
-              style={{ padding: "14px 20px", borderBottom: "1px solid var(--line-soft)", gap: 18 }}
+              style={{ padding: "14px 20px", borderBottom: "1px solid var(--line-soft)", gap: "var(--space-4)" }}
             >
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.allResults")}</div>
-              <div className="flex" style={{ gap: 2 }}>
+              <div className="flex" style={{ gap: "var(--space-0-5)" }}>
                 {categories.map((c) => {
                   const active = activeCategory === c;
                   return (
@@ -519,7 +519,7 @@ export default function EventResultsPage() {
                   );
                 })}
               </div>
-              <div className="flex" style={{ gap: 6, marginLeft: "auto" }}>
+              <div className="flex" style={{ gap: "var(--space-1-5)", marginLeft: "auto" }}>
                 <Button
                   type="button" variant="secondary" size="sm"
                   onClick={() => alert(t("resultsView.csvComingSoon"))}
@@ -705,9 +705,9 @@ export default function EventResultsPage() {
 
           {/* KOM/QOM 세그먼트 */}
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-            <div style={{ marginBottom: 14 }}>
+            <div style={{ marginBottom: "var(--space-3)" }}>
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("resultsView.segmentKomQom")}</div>
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: 2 }}>
+              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
                 {t("resultsView.segmentKomQomDesc")}
               </div>
             </div>
@@ -730,17 +730,17 @@ export default function EventResultsPage() {
         {/* 사이드바 */}
         <aside
           className="event-results-aside flex flex-col"
-          style={{ gap: 14, alignSelf: "start", position: "sticky", top: 68 }}
+          style={{ gap: "var(--space-3)", alignSelf: "start", position: "sticky", top: 68 }}
         >
           {/* 내 결과 */}
           {myResult && (
             <Card padding="none"
               style={{
-                padding: 18,
+                padding: "var(--space-4)",
                 borderColor: "color-mix(in oklch, var(--lime) 30%, var(--line-soft))",
               }}
             >
-              <div className="flex items-center" style={{ gap: 6, marginBottom: 14 }}>
+              <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-3)" }}>
                 <span aria-hidden="true">🏆</span>
                 <span
                   style={{
@@ -754,7 +754,7 @@ export default function EventResultsPage() {
                   {t("resultsView.myResultLabel", { name: myResult.displayName })}
                 </span>
               </div>
-              <div className="flex items-baseline" style={{ gap: 6, marginBottom: 'var(--space-1)' }}>
+              <div className="flex items-baseline" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-1)' }}>
                 <Text variant="dataLarge" style={{ color: "var(--lime)", fontSize: "var(--fs-3xl)", fontWeight: 600 }}>
                   {myResult.status === "FINISHED" ? formatDuration(myResult.finishTime) : myResult.status === "DNF" ? "DNF" : "—"}
                 </Text>
@@ -768,7 +768,7 @@ export default function EventResultsPage() {
               <div
                 className="flex flex-col"
                 style={{
-                  marginTop: 14,
+                  marginTop: "var(--space-3)",
                   paddingTop: 14,
                   borderTop: "1px solid var(--line-soft)",
                   gap: 'var(--space-2)',
@@ -789,7 +789,7 @@ export default function EventResultsPage() {
                   </div>
                 ))}
               </div>
-              <div className="flex" style={{ marginTop: 14, gap: 6 }}>
+              <div className="flex" style={{ marginTop: "var(--space-3)", gap: "var(--space-1-5)" }}>
                 <Button
                   type="button"
                   onClick={() => navigate(`/athlete/${myResult.userId}`)} variant="secondary" size="sm"
@@ -806,7 +806,7 @@ export default function EventResultsPage() {
                       navigator.clipboard?.writeText(window.location.href);
                     }
                   }} variant="secondary" size="sm"
-                  style={{ padding: 6 }}
+                  style={{ padding: "var(--space-1-5)" }}
                   aria-label={t("button.share")}
                 >
                   🔗
@@ -817,7 +817,7 @@ export default function EventResultsPage() {
 
           {/* 카테고리별 분포 */}
           {categoryDistribution.length > 0 && (
-            <Card padding="none" style={{ padding: 18 }}>
+            <Card padding="none" style={{ padding: "var(--space-4)" }}>
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-3)' }}>
                 {t("resultsView.categoryDistribution")}
               </div>
@@ -830,7 +830,7 @@ export default function EventResultsPage() {
                         {t("resultsView.countPct", { count: n, pct })}
                       </span>
                     </div>
-                    <div style={{ height: 3, background: "var(--bg-3)", borderRadius: 1, overflow: "hidden" }}>
+                    <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                       <div style={{ width: `${pct}%`, height: "100%", background: color }} />
                     </div>
                   </div>
@@ -841,11 +841,11 @@ export default function EventResultsPage() {
 
           {/* 완주 시간 분포 */}
           {finishHistogram && (
-            <Card padding="none" style={{ padding: 18 }}>
+            <Card padding="none" style={{ padding: "var(--space-4)" }}>
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-3)' }}>
                 {t("resultsView.finishTimeDistribution")}
               </div>
-              <div className="flex" style={{ alignItems: "flex-end", gap: 3, height: 80 }}>
+              <div className="flex" style={{ alignItems: "flex-end", gap: "var(--space-1)", height: 80 }}>
                 {finishHistogram.counts.map((v, i) => (
                   <div
                     key={i}
@@ -854,7 +854,7 @@ export default function EventResultsPage() {
                       height: `${(v / Math.max(1, finishHistogram.peak)) * 100}%`,
                       background: i === myBinIndex ? "var(--lime)" : "var(--ink-4)",
                       opacity: i === myBinIndex ? 1 : 0.6,
-                      borderRadius: 1,
+                      borderRadius: "var(--r-xs)",
                     }}
                     aria-label={`${v}${t("resultsView.unit.persons")}`}
                   />
@@ -862,7 +862,7 @@ export default function EventResultsPage() {
               </div>
               <div
                 className="flex justify-between"
-                style={{ marginTop: 6, fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
+                style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
               >
                 <span>{formatDuration(finishHistogram.min)}</span>
                 <span>{formatDuration(finishHistogram.max)}</span>

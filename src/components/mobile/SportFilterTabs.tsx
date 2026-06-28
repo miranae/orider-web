@@ -22,8 +22,8 @@ export default function SportFilterTabs({ value, onChange }: SportFilterTabsProp
         return (
           <button key={f.key} onClick={() => onChange(f.key)}
             style={{
-              flex: 1, padding: "12px 0", fontSize: 12, fontWeight: active ? 600 : 400,
-              borderRadius: 20, cursor: "pointer",
+              flex: 1, padding: "12px 0", fontSize: "var(--fs-xs)", fontWeight: active ? 600 : 400,
+              borderRadius: "var(--r-full)", cursor: "pointer",
               border: `1px solid ${active ? (color || "var(--ink-2)") : "var(--line-soft)"}`,
               background: active ? "var(--bg-3)" : "transparent",
               color: active ? (color || "var(--ink-0)") : "var(--ink-3)",

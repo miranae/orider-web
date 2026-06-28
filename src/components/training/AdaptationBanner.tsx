@@ -90,7 +90,7 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
         padding: "var(--space-3) var(--space-4)",
         background: style.bg,
         border: `1px solid ${style.border}`,
-        borderRadius: 8,
+        borderRadius: "var(--r-md)",
         display: "flex",
         alignItems: "center",
         gap: 'var(--space-3)',
@@ -108,12 +108,12 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
         }}
       />
       <div style={{ flex: 1, minWidth: 200 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: style.ink, marginBottom: 2 }}>
+        <div style={{ fontSize: "var(--fs-xs)", fontWeight: 600, color: style.ink, marginBottom: "var(--space-0-5)" }}>
           {flag.severity === "critical" ? "⚠ " : ""}
           {flag.reason}
         </div>
         {flag.recent4wRatio != null && (
-          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
             {t("adaptation.metricsLine", { pct: Math.round(flag.recent4wRatio * 100) })}
             {flag.streakWeeksOff != null && flag.streakWeeksOff > 0
               ? t("adaptation.streakSuffix", { count: flag.streakWeeksOff })

@@ -208,7 +208,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
           maxWidth: 'calc(100% - 8px)',
           display: 'flex',
           alignItems: 'center',
-          gap: 3,
+          gap: "var(--space-1)",
           whiteSpace: 'nowrap',
           fontFamily: 'var(--font-mono)',
           fontSize: "var(--fs-xs)",
@@ -255,7 +255,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
             position: 'absolute',
             bottom: 4,
             right: 4,
-            fontSize: 8,
+            fontSize: "var(--fs-2xs)",
             color: 'var(--lime)',
             fontWeight: 700,
             letterSpacing: '0.05em',
@@ -284,7 +284,7 @@ function SkeletonGrid() {
           padding: '10px 14px',
           borderBottom: '1px solid var(--line-soft)',
           background: 'var(--bg-2)',
-          gap: 6,
+          gap: "var(--space-1-5)",
         }}
       >
         <Text as="div" variant="eyebrow">{t('page.weekHeader')}</Text>
@@ -299,7 +299,7 @@ function SkeletonGrid() {
           style={{
             display: 'grid',
             gridTemplateColumns: '80px repeat(7, 1fr) 100px',
-            gap: 6,
+            gap: "var(--space-1-5)",
             padding: '10px 14px',
             borderBottom: i < 11 ? '1px solid var(--line-soft)' : 'none',
           }}
@@ -368,7 +368,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
         marginBottom: 'var(--space-4)',
         display: 'flex',
         alignItems: 'center',
-        gap: 14,
+        gap: "var(--space-3)",
         flexWrap: 'wrap',
       }}
     >
@@ -381,7 +381,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
           height: 20,
           borderRadius: "var(--r-sm)",
           overflow: 'hidden',
-          gap: 2,
+          gap: "var(--space-0-5)",
         }}
       >
         {segments.map(({ phase, count, color }) => (
@@ -449,7 +449,7 @@ function Legend() {
       style={{
         display: 'flex',
         gap: 'var(--space-4)',
-        marginTop: 14,
+        marginTop: "var(--space-3)",
         padding: '12px 14px',
         fontSize: "var(--fs-xs)",
         background: 'var(--bg-1)',
@@ -460,7 +460,7 @@ function Legend() {
       }}
     >
       {items.map(([label, color]) => (
-        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: "var(--space-1-5)" }}>
           <span
             style={{
               width: 3,
@@ -708,7 +708,7 @@ export default function PlanPage() {
           style={{
             display: 'grid',
             gridTemplateColumns: '1.4fr 1fr',
-            gap: 40,
+            gap: "var(--space-8)",
             alignItems: 'flex-end',
           }}
         >
@@ -729,7 +729,7 @@ export default function PlanPage() {
               style={{
                 display: 'flex',
                 alignItems: 'baseline',
-                gap: 14,
+                gap: "var(--space-3)",
                 marginBottom: 'var(--space-2)',
                 flexWrap: 'wrap',
               }}
@@ -803,7 +803,7 @@ export default function PlanPage() {
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 10,
+              gap: "var(--space-2)",
             }}
           >
             {[
@@ -821,7 +821,7 @@ export default function PlanPage() {
                   border: '1px solid var(--line-soft)',
                 }}
               >
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{label}</Text>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{label}</Text>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)' }}>
                   <Text variant="dataLarge" style={{ color }}>{value}</Text>
                   {unit && (
@@ -904,7 +904,7 @@ export default function PlanPage() {
                 padding: '10px 14px',
                 borderBottom: '1px solid var(--line-soft)',
                 background: 'var(--bg-2)',
-                gap: 6,
+                gap: "var(--space-1-5)",
               }}
             >
               <Text as="div" variant="eyebrow">{t('page.weekHeader')}</Text>
@@ -946,7 +946,7 @@ export default function PlanPage() {
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '80px repeat(7, 1fr) 100px',
-                      gap: 6,
+                      gap: "var(--space-1-5)",
                       padding: '10px 14px',
                       borderBottom: wi < weeks.length - 1 ? '1px solid var(--line-soft)' : 'none',
                       background: isCurrentWeek

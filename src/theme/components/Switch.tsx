@@ -17,9 +17,9 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(function Switch(
   );
   if (!label) return input;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: "var(--space-3)" }}>
       {input}
-      <span style={{ fontSize: 13, color: 'var(--ink-1)' }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}>{label}</span>
     </div>
   );
 });

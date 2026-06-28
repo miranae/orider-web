@@ -230,9 +230,9 @@ export default function LeaderboardPage() {
                     style={{ padding: "var(--space-3) var(--space-4)", gap: 'var(--space-3)' }}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center flex-wrap" style={{ gap: 6 }}>
+                      <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
                         <span className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{s.name}</span>
-                        {s.region && <Chip style={{ fontSize: 10 }}>{s.region}</Chip>}
+                        {s.region && <Chip style={{ fontSize: "var(--fs-2xs)" }}>{s.region}</Chip>}
                       </div>
                       <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
                         {(s.distance / 1000).toFixed(1)}km
@@ -243,7 +243,7 @@ export default function LeaderboardPage() {
                     <div className="text-right flex-shrink-0">
                       {best != null ? (
                         <>
-                          <Text as="div" variant="eyebrow" style={{ marginBottom: 2 }}>{t("leaderboardPage.myBest")}</Text>
+                          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-0-5)" }}>{t("leaderboardPage.myBest")}</Text>
                           <Text as="div" variant="dataMedium" style={{ color: "var(--lime)" }}>{formatDuration(best)}</Text>
                         </>
                       ) : (

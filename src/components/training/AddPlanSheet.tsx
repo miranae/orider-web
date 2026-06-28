@@ -158,7 +158,7 @@ export default function AddPlanSheet({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 999 }}
+        style={{ position: "fixed", inset: 0, background: "color-mix(in srgb, var(--bg-0) 50%, transparent)", zIndex: 999 }}
       />
 
       {/* Bottom sheet */}
@@ -205,7 +205,7 @@ export default function AddPlanSheet({
             <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
               {t('add.selectDay')}
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
               {availableDays.map(({ index, isRest, label }) => (
                 <button
                   key={index}
@@ -220,7 +220,7 @@ export default function AddPlanSheet({
                   }}
                 >
                   {label}
-                  {!isRest && <div style={{ fontSize: 8, marginTop: 2 }}>●</div>}
+                  {!isRest && <div style={{ fontSize: "var(--fs-2xs)", marginTop: "var(--space-0-5)" }}>●</div>}
                 </button>
               ))}
             </div>
@@ -288,7 +288,7 @@ export default function AddPlanSheet({
                     <div style={{ width: 4, height: 32, background: t.color, borderRadius: "var(--r-xs)", flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t.label}</div>
-                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 2 }}>{t.desc}</div>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>{t.desc}</div>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
                       <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: t.color, fontWeight: 600 }}>

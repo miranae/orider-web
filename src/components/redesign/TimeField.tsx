@@ -168,7 +168,7 @@ export default function TimeField({
           background: "var(--bg-2)",
           border: "1px solid var(--line-soft)",
           borderRadius: "var(--r-md)",
-          fontSize: 14,
+          fontSize: "var(--fs-sm)",
           color: value ? "var(--ink-0)" : "var(--ink-3)",
           textAlign: "left",
           cursor: disabled ? "not-allowed" : "pointer",
@@ -180,7 +180,7 @@ export default function TimeField({
         }}
       >
         <span>{labelText}</span>
-        <span aria-hidden="true" style={{ color: "var(--ink-3)", fontSize: 13 }}>🕐</span>
+        <span aria-hidden="true" style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>🕐</span>
       </button>
 
       {open && (
@@ -197,14 +197,14 @@ export default function TimeField({
             border: "1px solid var(--line)",
             borderRadius: "var(--r-md)",
             padding: 'var(--space-3)',
-            boxShadow: "0 12px 32px rgba(0,0,0,0.45)",
+            boxShadow: "0 12px 32px color-mix(in srgb, var(--bg-0) 45%, transparent)",
             minWidth: 220,
           }}
         >
-          <div className="flex" style={{ gap: 10 }}>
+          <div className="flex" style={{ gap: "var(--space-2)" }}>
             {/* 시 열 */}
             <div className="flex-1">
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 6, textAlign: "center" }}>{t("time.hour")}</Text>
+              <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)", textAlign: "center" }}>{t("time.hour")}</Text>
               <div
                 ref={hourListRef}
                 role="listbox"
@@ -215,7 +215,7 @@ export default function TimeField({
                   overflowY: "auto",
                   border: "1px solid var(--line-soft)",
                   borderRadius: "var(--r-sm)",
-                  padding: 2,
+                  padding: "var(--space-0-5)",
                 }}
               >
                 {hours.map((h) => {
@@ -232,7 +232,7 @@ export default function TimeField({
                         display: "block",
                         width: "100%",
                         padding: "6px 8px",
-                        fontSize: 13,
+                        fontSize: "var(--fs-xs)",
                         fontFamily: "var(--font-mono)",
                         background: isSelected ? "var(--lime)" : "transparent",
                         color: isSelected ? "var(--primary-fg)" : "var(--ink-1)",
@@ -252,7 +252,7 @@ export default function TimeField({
 
             {/* 분 열 */}
             <div className="flex-1">
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 6, textAlign: "center" }}>{t("time.minute")}</Text>
+              <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)", textAlign: "center" }}>{t("time.minute")}</Text>
               <div
                 ref={minuteListRef}
                 role="listbox"
@@ -263,7 +263,7 @@ export default function TimeField({
                   overflowY: "auto",
                   border: "1px solid var(--line-soft)",
                   borderRadius: "var(--r-sm)",
-                  padding: 2,
+                  padding: "var(--space-0-5)",
                 }}
               >
                 {minutes.map((m) => {
@@ -280,7 +280,7 @@ export default function TimeField({
                         display: "block",
                         width: "100%",
                         padding: "6px 8px",
-                        fontSize: 13,
+                        fontSize: "var(--fs-xs)",
                         fontFamily: "var(--font-mono)",
                         background: isSelected ? "var(--lime)" : "transparent",
                         color: isSelected ? "var(--primary-fg)" : "var(--ink-1)",
@@ -302,7 +302,7 @@ export default function TimeField({
           {presets && (
             <div
               className="flex items-center flex-wrap"
-              style={{ gap: 'var(--space-1)', marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}
+              style={{ gap: 'var(--space-1)', marginTop: "var(--space-2)", paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}
             >
               {presetButtons.map((p) => (
                 <Button
@@ -312,7 +312,7 @@ export default function TimeField({
                     onChange(p.hm);
                     setOpen(false);
                   }} variant="ghost" size="sm"
-                  style={{ fontSize: 11 }}
+                  style={{ fontSize: "var(--fs-xs)" }}
                 >
                   {p.label}
                 </Button>
@@ -326,7 +326,7 @@ export default function TimeField({
                   onChange(`${pad2(now.getHours())}:${pad2(m)}`);
                   setOpen(false);
                 }} variant="ghost" size="sm"
-                style={{ fontSize: 11 }}
+                style={{ fontSize: "var(--fs-xs)" }}
               >
                 {t("field.now")}
               </Button>
@@ -337,7 +337,7 @@ export default function TimeField({
                     onChange("");
                     setOpen(false);
                   }} variant="ghost" size="sm"
-                  style={{ fontSize: 11, marginLeft: "auto", color: "var(--ink-3)" }}
+                  style={{ fontSize: "var(--fs-xs)", marginLeft: "auto", color: "var(--ink-3)" }}
                 >
                   {t("field.clear")}
                 </Button>

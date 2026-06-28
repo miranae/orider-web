@@ -58,6 +58,38 @@ Object.assign(navigator, {
   },
 });
 
+const canvasContextMock = {
+  beginPath: vi.fn(),
+  clearRect: vi.fn(),
+  closePath: vi.fn(),
+  drawImage: vi.fn(),
+  fill: vi.fn(),
+  fillRect: vi.fn(),
+  fillText: vi.fn(),
+  getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4) })),
+  lineTo: vi.fn(),
+  measureText: vi.fn(() => ({ width: 0 })),
+  moveTo: vi.fn(),
+  putImageData: vi.fn(),
+  restore: vi.fn(),
+  save: vi.fn(),
+  scale: vi.fn(),
+  stroke: vi.fn(),
+  translate: vi.fn(),
+};
+Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+  configurable: true,
+  value: vi.fn(() => canvasContextMock),
+});
+Object.defineProperty(HTMLCanvasElement.prototype, "toBlob", {
+  configurable: true,
+  value: vi.fn((callback: BlobCallback) => callback(new Blob([""], { type: "image/webp" }))),
+});
+Object.defineProperty(HTMLCanvasElement.prototype, "toDataURL", {
+  configurable: true,
+  value: vi.fn(() => "data:image/webp;base64,"),
+});
+
 // Leaflet mock (avoid jsdom canvas issues)
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => children,

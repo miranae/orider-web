@@ -161,7 +161,7 @@ export default function GroupDashboardPage() {
             {(group.badge ?? group.name ?? "").slice(0, 3).toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>
               {group.kind === "running_crew" ? t("dashboard.kind.runningCrew") : group.kind === "tri_team" ? t("dashboard.kind.triTeam") : group.kind === "corporate" ? t("dashboard.kind.corporate") : t("dashboard.kind.club")}
               {group.city ? ` · ${group.city}` : ""}
             </Text>
@@ -177,7 +177,7 @@ export default function GroupDashboardPage() {
             </div>
           </div>
           {isCreator && (
-            <div className="flex items-center" style={{ gap: 6 }}>
+            <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
               <Link to="/event/create" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.events")}</Link>
               <Link to={`/group/${groupId}/settings`} className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.manage")}</Link>
             </div>
@@ -198,7 +198,7 @@ export default function GroupDashboardPage() {
           { l: t("dashboard.stats.totalElevation"), v: `${Math.round(weekStats.totalElevation).toLocaleString()}`, u: "m", sub: t("dashboard.stats.sum") },
         ] as { l: string; v: string; u: string | null; sub: string }[]).map((s, i) => (
           <div key={i} style={{ padding: "16px 18px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{s.l}</Text>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{s.l}</Text>
             <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)', marginBottom: 'var(--space-1)' }}>
               <Text variant="dataLarge" style={{ fontSize: "var(--fs-xl)" }}>{s.v}</Text>
               {s.u && <Text variant="unit">{s.u}</Text>}
@@ -217,7 +217,7 @@ export default function GroupDashboardPage() {
                 <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.ranking.title")}</h3>
                 <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{rankKey === "distance" ? t("dashboard.ranking.distance") : rankKey === "elevation" ? t("dashboard.ranking.elevation") : rankKey === "time" ? t("dashboard.ranking.time") : t("dashboard.ranking.tss")} {t("dashboard.ranking.by")}</span>
               </div>
-              <div role="tablist" aria-label={t("dashboard.ranking.title")} className="flex items-center" style={{ gap: 2, background: "var(--bg-2)", padding: 3, borderRadius: "var(--r-md)" }}>
+              <div role="tablist" aria-label={t("dashboard.ranking.title")} className="flex items-center" style={{ gap: "var(--space-0-5)", background: "var(--bg-2)", padding: "var(--space-1)", borderRadius: "var(--r-md)" }}>
                 {([
                   ["distance", t("dashboard.ranking.distance")],
                   ["elevation", t("dashboard.ranking.elevation")],

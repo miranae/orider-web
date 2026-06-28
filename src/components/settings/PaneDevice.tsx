@@ -158,7 +158,7 @@ function EditableCard({
       }
       action={
         isEditing ? (
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
             <Button variant="secondary" size="sm"
               onClick={onCancel}
               disabled={saving}
@@ -210,7 +210,7 @@ function EditableCard({
               <span>
                 {t("device.broadcastAll")}
                 {scope === "mixed" && (
-                  <span style={{ color: "var(--ink-3)", marginLeft: 6 }}>
+                  <span style={{ color: "var(--ink-3)", marginLeft: "var(--space-1-5)" }}>
                     {t("device.broadcastMixedNote")}
                   </span>
                 )}
@@ -330,7 +330,7 @@ function AlertEdit({ draft, setDraft }: CardEditProps<AlertSettings>) {
           style={{
             display: "grid",
             gridTemplateColumns: "100px auto 1fr 1fr",
-            gap: 10,
+            gap: "var(--space-2)",
             alignItems: "center",
             padding: "8px 0",
             borderTop: "1px solid var(--line-soft)",
@@ -430,14 +430,14 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
       </Field>
       <Field label={t("device.fieldDynamicZoom")}>
         <div style={{ display: "flex", gap: 'var(--space-3)', alignItems: "center" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-xs)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
             <Toggle
               on={draft.dynamicZoomEnabled}
               onChange={(v) => setDraft({ ...draft, dynamicZoomEnabled: v })}
             />
             <span style={{ color: "var(--ink-2)" }}>{t("device.fieldDynamicZoomLabel")}</span>
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-xs)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
             <Toggle
               on={draft.headingLockEnabled}
               onChange={(v) => setDraft({ ...draft, headingLockEnabled: v })}
@@ -842,7 +842,7 @@ export function PaneDevice() {
           marginBottom: 'var(--space-4)',
           display: "flex",
           alignItems: "center",
-          gap: 14,
+          gap: "var(--space-3)",
         }}
       >
         <div
@@ -874,7 +874,7 @@ export function PaneDevice() {
                 border: "1px solid var(--line-soft)",
                 borderRadius: "var(--r-md)",
                 padding: "var(--space-1) var(--space-2)",
-                marginBottom: 2,
+                marginBottom: "var(--space-0-5)",
                 cursor: "pointer",
               }}
             >
@@ -894,7 +894,7 @@ export function PaneDevice() {
               fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               display: "flex",
-              gap: 10,
+              gap: "var(--space-2)",
               flexWrap: "wrap",
             }}
           >

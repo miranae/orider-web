@@ -259,7 +259,7 @@ export default function ActivityEditPage() {
     border: "1px solid var(--line-soft)",
     borderRadius: "var(--r-md)",
     color: "var(--ink-0)",
-    fontSize: 14,
+    fontSize: "var(--fs-sm)",
   };
 
   return (
@@ -274,7 +274,7 @@ export default function ActivityEditPage() {
       <Card padding="none" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionBasic")}</h2>
 
-        <label className="flex flex-col" style={{ gap: 6, marginBottom: 'var(--space-4)' }}>
+        <label className="flex flex-col" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-4)' }}>
           <Text variant="eyebrow">{t("edit.fieldName")}</Text>
           <input
             type="text"
@@ -285,7 +285,7 @@ export default function ActivityEditPage() {
           />
         </label>
 
-        <label className="flex flex-col" style={{ gap: 6, marginBottom: 'var(--space-4)' }}>
+        <label className="flex flex-col" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-4)' }}>
           <Text variant="eyebrow">{t("edit.fieldDesc")}</Text>
           <textarea
             value={description}
@@ -296,7 +296,7 @@ export default function ActivityEditPage() {
           />
         </label>
 
-        <label className="flex flex-col" style={{ gap: 6 }}>
+        <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
           <Text variant="eyebrow">{gearLabelFor(data.type)}</Text>
           <input
             type="text"
@@ -313,11 +313,11 @@ export default function ActivityEditPage() {
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionDateTime")}</h2>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("edit.fieldDate")}</Text>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("edit.fieldDate")}</Text>
             <DateField value={startDate} onChange={setStartDate} placeholder={t("edit.datePlaceholder")} />
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("edit.fieldTime")}</Text>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("edit.fieldTime")}</Text>
             <TimeField value={startTimeOfDay} onChange={setStartTimeOfDay} placeholder={t("edit.timePlaceholder")} />
           </div>
         </div>
@@ -326,7 +326,7 @@ export default function ActivityEditPage() {
       {/* 운동 유형 */}
       <Card padding="none" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionWorkoutType")}</h2>
-        <div role="radiogroup" aria-label={t("edit.workoutTypeAria")} className="flex items-center flex-wrap" style={{ gap: 6 }}>
+        <div role="radiogroup" aria-label={t("edit.workoutTypeAria")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
           {WORKOUT_TYPES.map((o) => {
             const active = workoutType === o.v;
             return (
@@ -389,7 +389,7 @@ export default function ActivityEditPage() {
         </label>
 
         <div>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("edit.rpeLabel")}</Text>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("edit.rpeLabel")}</Text>
           <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-1)' }}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
               const active = perceivedExertion === n;
@@ -419,7 +419,7 @@ export default function ActivityEditPage() {
         {/* 데이터 숨기기 */}
         <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: "1px solid var(--line-soft)" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("edit.sectionHideData")}</Text>
-          <label className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 6 }}>
+          <label className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
             <input type="checkbox" checked={hideHr} onChange={(e) => setHideHr(e.target.checked)} />
             <span className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-1)" }}>{t("edit.hideHr")}</span>
           </label>

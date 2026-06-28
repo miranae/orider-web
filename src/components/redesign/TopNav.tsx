@@ -216,7 +216,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 border: '1px solid var(--line-soft)',
                 backgroundColor: 'var(--bg-2)',
                 paddingInline: 10,
-                gap: 6,
+                gap: "var(--space-1-5)",
               }}
             >
               <Search size={13} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
@@ -248,7 +248,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               <div style={{
                 position: 'absolute', top: 38, left: 0, right: 0,
                 background: 'var(--bg-1)', border: '1px solid var(--line-soft)',
-                borderRadius: 'var(--r-lg)', padding: 6, zIndex: 100,
+                borderRadius: 'var(--r-lg)', padding: "var(--space-1-5)", zIndex: 100,
                 maxHeight: 400, overflowY: 'auto',
               }}>
                 {/* 활동 결과 */}
@@ -258,7 +258,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     {results.activities.map(a => (
                       <Link key={a.id} to={`/activity/${a.id}`}
                         onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: "var(--space-2)", padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
@@ -278,7 +278,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     {results.courses.map(c => (
                       <Link key={c.id} to={`/course/${c.id}`}
                         onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: "var(--space-2)", padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
@@ -395,7 +395,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                           <div
                             key={n.id}
                             style={{
-                              display: 'flex', alignItems: 'flex-start', gap: 10,
+                              display: 'flex', alignItems: 'flex-start', gap: "var(--space-2)",
                               padding: '10px 12px',
                               backgroundColor: n.read ? 'transparent' : 'var(--bg-2)',
                               borderBottom: '1px solid var(--line-soft)',
@@ -477,7 +477,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     style={{
                       position: 'absolute', top: 36, right: 0, width: 200,
                       background: 'var(--bg-1)', border: '1px solid var(--line-soft)',
-                      borderRadius: 'var(--r-lg)', padding: 6, zIndex: 100,
+                      borderRadius: 'var(--r-lg)', padding: "var(--space-1-5)", zIndex: 100,
                     }}
                   >
                     <div style={{ padding: '8px 10px', fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', borderBottom: '1px solid var(--line-soft)', marginBottom: 'var(--space-1)' }}>
@@ -541,7 +541,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               {/* 비로그인: Google 로그인 버튼 (데스크톱) */}
               <Button
                 onClick={signInWithGoogle} variant="primary" size="sm" className="hidden md:flex"
-                style={{ gap: 6 }}
+                style={{ gap: "var(--space-1-5)" }}
               >
                 <LogIn size={14} /> {t('button.loginGoogle')}
               </Button>
@@ -613,7 +613,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
 
             {/* 유저 정보 (로그인 시) */}
             {user && (
-              <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: "var(--space-2)" }}>
                 <div
                   style={{
                     width: 36, height: 36, borderRadius: '50%',

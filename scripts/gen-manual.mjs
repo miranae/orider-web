@@ -54,12 +54,12 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 // ── 용어집 본문 생성(i18n 단일 소스) ───────────────────────
 const G_GROUPS = [
-  { title: "훈련 부하 · 강도", keys: ["tss", "if", "work", "kjPerHour", "trimp", "duration"] },
-  { title: "파워", keys: ["avgPower", "maxPower", "np", "xpower", "vi", "wkgAvg", "wkgNp", "cp", "wprime", "matches", "matchesTime", "longestMatch"] },
+  { title: "훈련 부하 · 강도", keys: ["tss", "if", "work", "kjPerHour", "trimp", "sufferScore", "recovery", "duration"] },
+  { title: "파워", keys: ["avgPower", "maxPower", "np", "xpower", "vi", "wkgAvg", "wkgNp", "cp", "wprime", "wPrimeBal", "matches", "matchesTime", "longestMatch", "longestZ4", "quadrant"] },
   { title: "심박 · 효율", keys: ["avgHr", "maxHr", "hrDrift", "ef", "decoupling"] },
   { title: "임계 영역 · 존", keys: ["sweetSpot", "threshold", "vo2max", "anaerobic", "zones"] },
   { title: "에너지 대사", keys: ["fatmax", "metabolism"] },
-  { title: "운동 데이터", keys: ["distance", "elevGain", "avgSpeed", "maxSpeed", "avgRpm", "maxRpm", "calories"] },
+  { title: "운동 데이터", keys: ["distance", "elevGain", "avgSpeed", "maxSpeed", "avgRpm", "maxRpm", "cadenceConsistency", "paceConsistency", "calories"] },
 ];
 function parseEntry(content) {
   const sep = content.indexOf(" — ");

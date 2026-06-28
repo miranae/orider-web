@@ -58,17 +58,17 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, why,
         padding: 'var(--space-4)',
         display: "grid",
         gridTemplateColumns: "48px 1fr",
-        gap: 14,
+        gap: "var(--space-3)",
         transition: "border-color 0.15s",
       }}
     >
       {/* Badge */}
       <div
         style={{
-          width: 48, height: 48, borderRadius: 8,
+          width: 48, height: 48, borderRadius: "var(--r-md)",
           background: "var(--bg-2)", border: "1px solid var(--line-soft)",
           display: "grid", placeItems: "center",
-          fontSize: 16, fontWeight: 800, color: meta.color, letterSpacing: "-0.02em",
+          fontSize: "var(--fs-base)", fontWeight: 800, color: meta.color, letterSpacing: "-0.02em",
           flexShrink: 0,
         }}
       >
@@ -77,15 +77,15 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, why,
 
       {/* Body */}
       <div className="min-w-0">
-        <div className="flex items-center" style={{ gap: 6, marginBottom: 'var(--space-1)' }}>
-          <h3 className="font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: 14 }}>
+        <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-1)' }}>
+          <h3 className="font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: "var(--fs-sm)" }}>
             {group.name}
           </h3>
           {group.isLeader && (
-            <Chip style={{ color: "var(--lime)", fontSize: 10, padding: "1px 6px", whiteSpace: "nowrap" }}>{t("card.leader")}</Chip>
+            <Chip style={{ color: "var(--lime)", fontSize: "var(--fs-2xs)", padding: "1px 6px", whiteSpace: "nowrap" }}>{t("card.leader")}</Chip>
           )}
         </div>
-        <div className="flex items-center flex-wrap text-[length:var(--fs-xs)]" style={{ gap: 'var(--space-1)', color: "var(--ink-3)", marginBottom: 6 }}>
+        <div className="flex items-center flex-wrap text-[length:var(--fs-xs)]" style={{ gap: 'var(--space-1)', color: "var(--ink-3)", marginBottom: "var(--space-1-5)" }}>
           <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", color: meta.color }}>{meta.icon}</span>
           <span style={{ color: meta.color }}>{kindLabel ?? t(meta.labelKey)}</span>
           {group.city && (<><span aria-hidden="true">·</span><span>{group.city}</span></>)}
@@ -109,13 +109,13 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, why,
               <span><span style={{ color: "var(--ink-3)" }}>{t("card.next")}</span> <span style={{ color: "var(--ink-0)" }}>{nextEvent}</span></span>
             )}
             {(newPosts ?? 0) > 0 && (
-              <Chip style={{ color: "var(--lime)", fontSize: 10 }}>{t("card.newPosts", { count: newPosts })}</Chip>
+              <Chip style={{ color: "var(--lime)", fontSize: "var(--fs-2xs)" }}>{t("card.newPosts", { count: newPosts })}</Chip>
             )}
           </div>
         )}
 
         {showJoinButton && onJoin && (
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: "var(--space-2)" }}>
             <Button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoin(); }}
