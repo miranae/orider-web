@@ -230,6 +230,8 @@
     "powerCurve": {
       "noData": "No power data",
       "noDataProgression": "No activities with power data",
+      "emptyTitle": "Power curve is not ready yet",
+      "emptyDescription": "Once activities include power meter or virtual power data, peak average power from 5 seconds to 60 minutes will appear here.",
       "datasetLabel": "Peak average power",
       "peakPower": "Peak {{power}}W (1s)",
       "unitSec": "{{n}}s",
@@ -246,7 +248,9 @@
       "tooltipLabel": "Load {{value}}"
     },
     "zoneDistribution": {
-      "dominant": "Top: Z{{zone}} {{name}} ({{pct}}%)"
+      "dominant": "Top: Z{{zone}} {{name}} ({{pct}}%)",
+      "emptyTitle": "Not enough data for zone distribution",
+      "emptyDescription": "When heart-rate, power, or pace streams are recorded for enough of the activity, time in each intensity zone will appear here."
     },
     "criticalPace": {
       "half": "Half"

@@ -216,7 +216,7 @@
     "deleteConfirm": "댓글을 삭제하시겠습니까?"
   },
   "analysis": {
-    "noData": "파워 또는 심박 데이터가 없어 분석을 표시할 수 없습니다",
+    "noData": "이 활동에는 분석에 필요한 파워 또는 심박 스트림이 아직 없습니다. 센서를 연결하거나 FIT/GPX/Strava 활동을 동기화하면 차트가 채워집니다.",
     "ftpFallback": "FTP 설정이 없어 기본값 {{ftp}}W를 사용합니다. 정확한 분석을 위해 앱에서 FTP를 설정하세요.",
     "maxHrFallback": "최대 심박수 설정이 없어 기본값 {{hr}}bpm을 사용합니다.",
     "section": {
@@ -354,6 +354,15 @@
       "hr": "심박 존",
       "power": "파워 존",
       "powerKj": "존별 일량 (kJ)"
+    },
+    "empty": {
+      "noStreamsTitle": "분석 차트를 준비할 데이터가 없어요",
+      "hrZonesTitle": "심박 존을 계산할 수 없어요",
+      "hrZonesDesc": "심박 스트림이 충분히 기록되면 존별 체류 시간이 표시됩니다.",
+      "powerZonesTitle": "파워 존을 계산할 수 없어요",
+      "powerZonesDesc": "파워 스트림이 충분히 기록되면 FTP 기준 강도 분포가 표시됩니다.",
+      "powerCurveTitle": "파워 커브를 만들 수 없어요",
+      "powerCurveDesc": "파워 스트림이 충분히 길게 기록되면 5초부터 60분까지 최고 평균 파워가 표시됩니다."
     },
     "seiler": {
       "z1": "저강도",

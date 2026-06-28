@@ -230,6 +230,8 @@
     "powerCurve": {
       "noData": "파워 데이터가 없습니다",
       "noDataProgression": "파워 데이터가 있는 활동이 없습니다",
+      "emptyTitle": "파워 커브를 만들 수 없어요",
+      "emptyDescription": "파워미터나 가상 파워가 포함된 활동이 쌓이면 5초부터 60분까지 최고 평균 파워가 표시됩니다.",
       "datasetLabel": "최대 평균 파워",
       "peakPower": "최대 {{power}}W (1초)",
       "unitSec": "{{n}}초",
@@ -246,7 +248,9 @@
       "tooltipLabel": "부하 {{value}}"
     },
     "zoneDistribution": {
-      "dominant": "주요: Z{{zone}} {{name}} ({{pct}}%)"
+      "dominant": "주요: Z{{zone}} {{name}} ({{pct}}%)",
+      "emptyTitle": "존 분포를 계산할 데이터가 부족해요",
+      "emptyDescription": "심박, 파워, 페이스 스트림이 충분히 기록되면 강도별 체류 시간이 자동으로 표시됩니다."
     },
     "criticalPace": {
       "half": "하프"

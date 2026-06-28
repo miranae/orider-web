@@ -11,6 +11,7 @@ import {
 } from "chart.js";
 import type { ZoneDistribution } from "../utils/zoneAnalysis";
 import { useTheme } from "../contexts/ThemeContext";
+import ChartEmptyState from "./charts/ChartEmptyState";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
 
@@ -28,11 +29,14 @@ function formatSeconds(s: number): string {
 interface ZoneDistributionChartProps {
   title: string;
   zones: ZoneDistribution[];
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
-export default function ZoneDistributionChart({ title, zones }: ZoneDistributionChartProps) {
+export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyDescription }: ZoneDistributionChartProps) {
   const { t } = useTranslation("dashboard");
   const { resolvedTheme } = useTheme();
+  const hasZoneData = zones.some((z) => z.seconds > 0 || z.percentage > 0);
   const data = useMemo(() => ({
     labels: zones.map((z) => `Z${z.zone} ${t(z.nameKey)}`),
     datasets: [{
@@ -76,6 +80,21 @@ export default function ZoneDistributionChart({ title, zones }: ZoneDistribution
       },
     };
   }, [zones, resolvedTheme]);
+
+  if (!hasZoneData) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{title}</h4>
+        </div>
+        <ChartEmptyState
+          title={emptyTitle ?? t("charts.zoneDistribution.emptyTitle")}
+          description={emptyDescription ?? t("charts.zoneDistribution.emptyDescription")}
+          minHeight={220}
+        />
+      </div>
+    );
+  }
 
   const maxZone = zones.reduce((max, z) => (z.seconds > max.seconds ? z : max), zones[0]!);
 
