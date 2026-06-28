@@ -8,16 +8,6 @@ Ride analysis, group events, route discovery, and training dashboards for **Orid
 
 Orider connects ride records, route intelligence, training feedback, and group ride operations in one web experience. The public frontend is useful for people who care about sport analytics UI: clear charts, reliable maps, mobile-first workflows, Korean/English product copy, and accessible interaction patterns.
 
-![Orider dashboard screenshot](docs/screenshots/dashboard.png)
-
-| Activity analysis | Fitness dashboard |
-|---|---|
-| ![Activity analysis screenshot](docs/screenshots/activity-analysis.png) | ![Fitness dashboard screenshot](docs/screenshots/fitness.png) |
-
-| Group event operations |
-|---|
-| ![Group event screenshot](docs/screenshots/group-event.png) |
-
 Orider Web is not a sample app or a marketing shell. It is the production web client used by riders to review activities, inspect power and fitness trends, manage routes and segments, join communities, and run group events.
 
 Orider started as a small gift from a long-time cyclist to people who love riding. The intent is not to turn the community-built core into a closed private product, but to grow it into **Our Rider** and **Open Rider**: a platform riders can inspect, improve, and trust.
@@ -162,7 +152,7 @@ Relevant code:
 
 ## Screenshots
 
-Screenshots in `docs/screenshots/` use seeded/demo data only. They are product illustrations for the public repository and do not contain production users, private rides, precise locations, emails, tokens, or privileged data.
+README screenshots are temporarily omitted until they can be regenerated from the current product UI with demo-safe data. Public-facing screenshots must be captured from the real application, reviewed for privacy, and kept in sync with the live product.
 
 ## Architecture Boundaries
 

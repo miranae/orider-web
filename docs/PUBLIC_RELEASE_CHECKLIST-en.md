@@ -6,9 +6,9 @@ This repository is still private while the final visibility review is in progres
 
 | Gate | Status | Notes |
 |---|---|---|
-| Product README | Done | README leads with the product, live app, screenshots, contribution areas, backend boundary, and production-source model. |
+| Product README | Needs update | README leads with the product, live app, contribution areas, backend boundary, and production-source model. Verified current-product screenshots still need to be regenerated. |
 | Live demo link | Done | README and GitHub homepage point to `https://orider.co.kr`. |
-| Screenshots | Done | Demo-safe dashboard, activity analysis, fitness, and group event screenshots are committed under `docs/screenshots/`. |
+| Screenshots | Blocked | README screenshots were removed because the previous images were static demo illustrations, not verified current-product captures. Regenerate real app screenshots with demo-safe data before public release. |
 | Contributor path | Done | README, CONTRIBUTING, and DEVELOPMENT describe first contribution areas and local limits. |
 | GitHub metadata | Done | Description, website, and topics are set for cycling, fitness, React, Vite, Firebase, TypeScript, open source, and sports analytics. |
 | H-2 PII exposure | Done | Production backfill and root-field scrub completed; root user sensitive fields verified at 0. |
@@ -74,7 +74,7 @@ Still intentionally limited:
 
 Completed presentation prep:
 
-- Added README live app link and seeded screenshots.
+- Added README live app link. Removed unverified static demo screenshots; current-product screenshots still need to be regenerated with demo-safe data.
 - Added GitHub labels for frontend, docs, i18n, accessibility, security, mobile, charts, maps, testing, and public release work.
 - Seeded 7 safe starter issues for copy, accessibility, mobile layout, charts, maps, docs, and E2E coverage.
 
