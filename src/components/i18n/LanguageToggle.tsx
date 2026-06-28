@@ -4,6 +4,7 @@ import { SUPPORTED_LANGS, type Lang } from '../../i18n/detector';
 import { Chip } from "../../theme/components";
 
 const LABELS: Record<Lang, string> = { ko: 'KO', en: 'EN' };
+const languageFocusClass = "rounded-[var(--r-sm)] px-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
 
 export function LanguageToggle({ variant = 'menu' }: { variant?: 'header' | 'menu' }) {
   const { locale, setLocale } = useLocale();
@@ -29,7 +30,7 @@ export function LanguageToggle({ variant = 'menu' }: { variant?: 'header' | 'men
             type="button"
             onClick={() => onPick(l)}
             aria-pressed={locale === l}
-            className={locale === l ? 'font-bold' : 'opacity-60'}
+            className={`${languageFocusClass} ${locale === l ? 'font-bold' : 'opacity-60'}`}
           >
             {LABELS[l]}
           </button>

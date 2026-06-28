@@ -2,6 +2,7 @@ import { NavLink, useParams } from "react-router-dom";
 import { SUPPORTED_LANGS } from "../i18n/detector";
 
 const langSet = new Set<string>([...SUPPORTED_LANGS]);
+const tabFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
 
 /** RouteTab `to` 에 현재 로케일 prefix(`/ko` 등) 부여. 절대 URL·이미 prefix 된 경로는 이중화 없이 그대로. */
 function localizeTo(to: string, lang: string | undefined): string {
@@ -20,12 +21,15 @@ interface TabNavProps {
 
 export default function TabNav({ tabs, activeTab, onChange }: TabNavProps) {
   return (
-    <div className="flex border-b overflow-x-auto" style={{ borderColor: "var(--line-soft)" }}>
+    <div className="flex border-b overflow-x-auto" role="tablist" style={{ borderColor: "var(--line-soft)" }}>
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex-shrink-0 whitespace-nowrap px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${
+          className={`flex-shrink-0 whitespace-nowrap rounded-t-[var(--r-sm)] px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
             activeTab === tab.id
               ? ""
               : "border-transparent hover:border-[var(--line)]"
@@ -62,7 +66,7 @@ export function RouteTabNav({ tabs }: RouteTabNavProps) {
           to={localizeTo(tab.to, lang)}
           end={tab.end}
           className={({ isActive }) =>
-            `flex-shrink-0 whitespace-nowrap px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${
+            `flex-shrink-0 whitespace-nowrap rounded-t-[var(--r-sm)] px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
               isActive
                 ? ""
                 : "border-transparent hover:border-[var(--line)]"

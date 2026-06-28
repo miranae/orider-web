@@ -144,4 +144,21 @@ describe("Layout", () => {
     const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
     expect(within(tabBar).getAllByRole("tab")).toHaveLength(5);
   });
+
+  it("marks repeated navigation controls with visible keyboard focus styles", async () => {
+    renderWithProviders(<Layout />, { authenticated: false });
+
+    await waitFor(() => {
+      expect(screen.getByRole("tablist", { name: "메인 내비게이션" })).toBeInTheDocument();
+    });
+
+    const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
+    for (const tab of within(tabBar).getAllByRole("tab")) {
+      expect(tab.className).toContain("focus-visible:outline");
+    }
+
+    expect(screen.getByRole("button", { name: "KO" }).className).toContain("focus-visible:outline");
+    expect(screen.getByRole("button", { name: "더보기" }).className).toContain("focus-visible:outline");
+    expect(screen.getByRole("link", { name: /내 운동/ }).className).toContain("focus-visible:outline");
+  });
 });

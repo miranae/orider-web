@@ -11,6 +11,11 @@ import type { Notification } from "@shared/types";
 import { Button, Text } from "../../theme/components";
 import { HUBS, type HubKey } from "../../config/navHubs";
 
+const navFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
+const navFocusWithinClass = "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--lime)]";
+const navIconButtonClass = `flex items-center justify-center ${navFocusClass}`;
+const mobileMenuItemClass = `rounded-[var(--r-md)] ${navFocusClass}`;
+
 // 네비 IA(5 허브)는 단일 진실원 config/navHubs.ts 가 보유 (이슈 #385). 데스크톱 nav 행은
 // 허브만 노출하고, 모바일 슬라이드 메뉴는 허브+서브를 펼쳐 9개 목적지를 모두 발견 가능하게 한다.
 interface TopNavProps {
@@ -139,7 +144,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
         {/* 로고 */}
         <Link
           to="/"
-          className="flex items-center gap-2"
+          className={`flex items-center gap-2 rounded-[var(--r-sm)] ${navFocusClass}`}
           style={{ textDecoration: 'none', flexShrink: 0 }}
         >
           <img src={iconSvg} alt="O-Rider" style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", flexShrink: 0 }} />
@@ -164,6 +169,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 key={key}
                 to={to}
                 aria-current={isActive ? 'page' : undefined}
+                className={navFocusClass}
                 style={{
                   position: 'relative',
                   padding: '0 10px',
@@ -208,6 +214,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
             style={{ position: 'relative', width: 220 }}
           >
             <div
+              className={navFocusWithinClass}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -306,7 +313,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               {/* 모바일 알림 벨 → 바텀시트 */}
               {onMobileNotifClick && (
                 <button
-                  className="flex md:hidden items-center justify-center"
+                  className={`md:hidden ${navIconButtonClass}`}
                   aria-label={t('topnav.notifications')}
                   onClick={onMobileNotifClick}
                   style={{ width: 30, height: 30, borderRadius: "var(--r-md)", border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
@@ -322,6 +329,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               <div ref={notifRef} className="hidden md:block" style={{ position: 'relative' }}>
                 <button
                   onClick={() => { setNotifOpen(!notifOpen); setMenuOpen(false); }}
+                  className={navFocusClass}
+                  aria-label={t('topnav.notifications')}
                   style={{
                     width: 30, height: 30,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -442,7 +451,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               {/* 설정 (데스크톱만) */}
               <Link
                 to="/settings"
-                className="hidden md:flex"
+                className={`hidden md:flex ${navFocusClass}`}
+                aria-label={t('label.settings')}
                 style={{
                   width: 30, height: 30,
                   alignItems: 'center', justifyContent: 'center',
@@ -456,6 +466,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               <div ref={menuRef} style={{ position: 'relative' }}>
                 <button
                   onClick={() => { setMenuOpen(!menuOpen); setNotifOpen(false); }}
+                  className={navFocusClass}
+                  aria-label={t('label.profile')}
                   style={{
                     width: 28, height: 28, borderRadius: '50%',
                     border: '1px solid var(--line)',
@@ -486,6 +498,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     <Link
                       to={`/athlete/${user.uid}`}
                       onClick={() => setMenuOpen(false)}
+                      className={mobileMenuItemClass}
                       style={dropdownItemStyle}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -495,6 +508,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     <Link
                       to="/settings"
                       onClick={() => setMenuOpen(false)}
+                      className={mobileMenuItemClass}
                       style={dropdownItemStyle}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -503,6 +517,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     </Link>
                     <button
                       onClick={() => { logout(); setMenuOpen(false); }}
+                      className={mobileMenuItemClass}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%',
                         padding: '8px 10px', fontSize: "var(--fs-xs)", color: 'var(--rose)',
@@ -519,7 +534,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
 
               {/* 모바일 햄버거 버튼 */}
               <button
-                className="flex md:hidden"
+                className={`md:hidden ${navIconButtonClass}`}
+                aria-label={t('button.more')}
                 onClick={() => setMobileOpen(true)}
                 style={{
                   width: 30, height: 30,
@@ -548,7 +564,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
 
               {/* 비로그인: 모바일 햄버거 */}
               <button
-                className="flex md:hidden"
+                className={`md:hidden ${navIconButtonClass}`}
+                aria-label={t('button.more')}
                 onClick={() => setMobileOpen(true)}
                 style={{
                   width: 30, height: 30,
@@ -600,6 +617,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 O<span style={{ color: 'var(--ink-3)' }}>·</span>RIDER
               </span>
               <button
+                className={navIconButtonClass}
+                aria-label={t('button.close')}
                 onClick={() => setMobileOpen(false)}
                 style={{
                   width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -648,6 +667,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                       to={hub.to}
                       onClick={() => setMobileOpen(false)}
                       aria-current={hubActive ? 'page' : undefined}
+                      className={mobileMenuItemClass}
                       style={{
                         display: 'flex', alignItems: 'center',
                         padding: '10px 12px', fontSize: "var(--fs-sm)",
@@ -677,6 +697,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                         key={s.to}
                         to={s.to}
                         onClick={() => setMobileOpen(false)}
+                        className={mobileMenuItemClass}
                         style={{
                           display: 'flex', alignItems: 'center',
                           padding: '9px 12px 9px 22px', fontSize: "var(--fs-sm)",
@@ -700,6 +721,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   <Link
                     to={`/athlete/${user.uid}`}
                     onClick={() => setMobileOpen(false)}
+                    className={mobileMenuItemClass}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
                       padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--ink-1)',
@@ -713,6 +735,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   <Link
                     to="/settings"
                     onClick={() => setMobileOpen(false)}
+                    className={mobileMenuItemClass}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
                       padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--ink-1)',
@@ -724,6 +747,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     <Settings size={15} /> {t('label.settings')}
                   </Link>
                   <button
+                    className={mobileMenuItemClass}
                     onClick={() => { logout(); setMobileOpen(false); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%',
@@ -738,6 +762,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 </>
               ) : (
                 <button
+                  className={mobileMenuItemClass}
                   onClick={() => { signInWithGoogle(); setMobileOpen(false); }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
