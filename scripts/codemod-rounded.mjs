@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Tailwind `rounded-(sm|md|lg|xl|2xl)` → `rounded-[var(--r-*)]` codemod.
+// Tailwind rounded size utilities -> radius token codemod.
 //
 // 동기: rounded-md 같은 하드 클래스는 cornerRadius 토큰 교체(theme.dimens.cornerRadiusM 등)
 // 를 무력화. arbitrary value 문법 `rounded-[var(--r-md)]` 로 치환하면 테마 교체 즉시 반영.

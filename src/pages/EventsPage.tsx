@@ -4,6 +4,7 @@ import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { collection, doc, getDoc, getDocs, collectionGroup, query, where } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign";
 import { decodePolyline, encodePolyline } from "../utils/polyline";
@@ -268,11 +269,11 @@ export default function EventsPage() {
             });
             setMyEventIds(ids);
           } catch (err) {
-            console.warn("[EventsPage] my-events query failed:", err);
+            logClientError("EventsPage.loadMyEvents", err);
           }
         }
       } catch (err) {
-        console.error("[EventsPage] events query failed:", err);
+        logClientError("EventsPage.loadEvents", err);
       } finally {
         setLoading(false);
       }
@@ -330,7 +331,7 @@ export default function EventsPage() {
             gap: 1,
             background: "var(--line-soft)",
             border: "1px solid var(--line-soft)",
-            borderRadius: 6,
+            borderRadius: "var(--r-md)",
             overflow: "hidden",
           }}
         >
@@ -354,7 +355,7 @@ export default function EventsPage() {
                 <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{s.lbl}</Text>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-2)' }}>
                   <Text variant="dataMedium" style={{ color: "var(--ink-0)" }}>{s.val}</Text>
-                  <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{s.sub}</span>
+                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{s.sub}</span>
                 </div>
               </div>
             </div>
@@ -376,7 +377,7 @@ export default function EventsPage() {
                 aria-pressed={active}
                 style={{
                   padding: "6px 12px 10px",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   fontWeight: 500,
                   background: "transparent",
                   border: "none",
@@ -406,7 +407,7 @@ export default function EventsPage() {
                 aria-pressed={active}
                 className="ds-chip"
                 style={{
-                  fontSize: 11,
+                  fontSize: "var(--fs-xs)",
                   cursor: "pointer",
                   color: active ? "var(--ink-0)" : "var(--ink-3)",
                   background: active ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
@@ -422,7 +423,7 @@ export default function EventsPage() {
           })}
         </div>
 
-        <div style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+        <div style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
           {filtered.length} / {events.length}
         </div>
       </div>
@@ -668,12 +669,12 @@ function EventCard({
         <div style={{ position: "absolute", top: 10, left: 10, display: "flex", gap: 6 }}>
           <span
             style={{
-              fontSize: 10,
+              fontSize: "var(--fs-xs)",
               fontFamily: "var(--font-mono)",
               padding: "3px 7px",
               background: "rgba(0,0,0,0.55)",
               color: "var(--ink-0)",
-              borderRadius: 3,
+              borderRadius: "var(--r-xs)",
               fontWeight: 500,
               display: "inline-flex",
               alignItems: "center",
@@ -695,8 +696,8 @@ function EventCard({
               background: "var(--lime)",
               color: "var(--primary-fg)",
               padding: "3px 7px",
-              borderRadius: 3,
-              fontSize: 10,
+              borderRadius: "var(--r-xs)",
+              fontSize: "var(--fs-xs)",
               fontWeight: 700,
             }}
           >
@@ -710,11 +711,11 @@ function EventCard({
               position: "absolute",
               bottom: 10,
               left: 10,
-              fontSize: 10,
+              fontSize: "var(--fs-xs)",
               color: "var(--ink-0)",
               background: "rgba(0,0,0,0.55)",
               padding: "3px 7px",
-              borderRadius: 3,
+              borderRadius: "var(--r-xs)",
               fontFamily: "var(--font-mono)",
             }}
           >
@@ -729,13 +730,13 @@ function EventCard({
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               className="truncate"
-              style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.01em", marginBottom: 'var(--space-1)' }}
+              style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.01em", marginBottom: 'var(--space-1)' }}
             >
               {event.name}
             </div>
             <div
               className="flex items-center"
-              style={{ fontSize: 11, color: "var(--ink-3)", gap: 6 }}
+              style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", gap: 6 }}
             >
               <span aria-hidden="true">📅</span>
               <span style={{ fontFamily: "var(--font-mono)" }}>
@@ -747,7 +748,7 @@ function EventCard({
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <Chip
               style={{
-                fontSize: 10,
+                fontSize: "var(--fs-xs)",
                 color: meta.color,
                 borderColor: meta.chip ? `color-mix(in oklch, ${meta.color} 40%, var(--line-soft))` : "var(--line-soft)",
                 whiteSpace: "nowrap",
@@ -756,7 +757,7 @@ function EventCard({
               {meta.label}
             </Chip>
             {dDayLabel && (
-              <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink-2)", marginTop: 'var(--space-1)' }}>
+              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-2)", marginTop: 'var(--space-1)' }}>
                 {dDayLabel}
               </div>
             )}
@@ -765,7 +766,7 @@ function EventCard({
 
         {/* 메트릭 행 — 데이터 있을 때만 */}
         {(event.distance != null || event.elevationGain != null || event.maxParticipants != null) && (
-          <div style={{ display: "flex", gap: 'var(--space-6)', fontSize: 12, color: "var(--ink-2)", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 'var(--space-6)', fontSize: "var(--fs-xs)", color: "var(--ink-2)", flexWrap: "wrap" }}>
             {event.distance != null && (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span aria-hidden="true">🚴</span>
@@ -792,7 +793,7 @@ function EventCard({
 
         {fillPct != null && event.status === "OPEN" && (
           <div>
-            <div style={{ height: 3, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
               <div
                 style={{
                   width: `${Math.min(fillPct, 100)}%`,
@@ -801,7 +802,7 @@ function EventCard({
                 }}
               />
             </div>
-            <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 'var(--space-1)', fontFamily: "var(--font-mono)" }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)', fontFamily: "var(--font-mono)" }}>
               {t("fillRate", { pct: fillPct })}{fillPct > 80 ? ` · ${t("closingSoon")}` : ""}
             </div>
           </div>

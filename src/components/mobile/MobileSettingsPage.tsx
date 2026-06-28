@@ -20,7 +20,7 @@ function Toggle({ on, onToggle, disabled = false }: { on: boolean; onToggle: () 
       aria-checked={on}
       aria-disabled={disabled}
       style={{
-        width: 36, height: 20, borderRadius: 10, flexShrink: 0,
+        width: 36, height: 20, borderRadius: "var(--r-xl)", flexShrink: 0,
         background: disabled ? "var(--bg-3)" : (on ? "var(--lime)" : "var(--bg-3)"),
         border: `1px solid ${disabled ? "var(--line-soft)" : (on ? "var(--lime)" : "var(--line)")}`,
         position: "relative",
@@ -74,7 +74,7 @@ export default function MobileSettingsPage() {
           onClick={() => navigate("/my")}>
           <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
         </div>
-        <span style={{ fontSize: 17, fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("title")}</span>
+        <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("title")}</span>
       </div>
 
       {/* 계정 */}
@@ -87,9 +87,9 @@ export default function MobileSettingsPage() {
       ].map(([l, v]) => (
         <div key={l} className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-0)" }}>{l}</div>
+            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{l}</div>
           </div>
-          <span style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{v}</span>
+          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{v}</span>
           <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
         </div>
       ))}
@@ -99,16 +99,16 @@ export default function MobileSettingsPage() {
         <Text variant="eyebrow">{t("section.integrations")}</Text>
       </div>
       <div className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-        <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>
+        <span style={{ fontSize: "var(--fs-lg)", width: 28, textAlign: "center" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="#FC4C02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
         </span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-0)" }}>{t("strava.stravaShort")}</div>
-          <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{t("strava.stravaShort")}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
             {stravaConnected ? t("strava.autoSyncStatus") : t("strava.notConnected")}
           </div>
         </div>
-        <span style={{ fontSize: 11, color: stravaConnected ? "var(--strava)" : "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
+        <span style={{ fontSize: "var(--fs-xs)", color: stravaConnected ? "var(--strava)" : "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
           {stravaConnected ? t("strava.connected") : t("strava.connect")}
         </span>
       </div>
@@ -116,7 +116,7 @@ export default function MobileSettingsPage() {
       {/* 알림 */}
       <div className="flex items-center justify-between" style={{ padding: "14px 16px 8px" }}>
         <Text variant="eyebrow">{t("section.notifications")}</Text>
-        <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", padding: "2px 6px", borderRadius: 3, background: "var(--bg-3)", color: "var(--ink-4)" }}>{t("notifications.preparing")}</span>
+        <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "2px 6px", borderRadius: "var(--r-xs)", background: "var(--bg-3)", color: "var(--ink-4)" }}>{t("notifications.preparing")}</span>
       </div>
       {[
         { label: t("notifications.push"), on: pushOn, toggle: () => setPushOn(!pushOn) },
@@ -127,7 +127,7 @@ export default function MobileSettingsPage() {
       ].map((item) => (
         // 알림 섹션 전체가 "준비 중" — 토글은 시각적으로만 비활성, onClick 무시.
         <div key={item.label} className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-3)", flex: 1 }}>{item.label}</span>
+          <span style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-3)", flex: 1 }}>{item.label}</span>
           <Toggle on={item.on} onToggle={item.toggle} disabled />
         </div>
       ))}
@@ -141,8 +141,8 @@ export default function MobileSettingsPage() {
         [t("privacy.profileVisibility"), profile?.profilePublic !== false ? t("privacy.publicValue") : t("privacy.privateValue")],
       ].map(([l, v]) => (
         <div key={l} className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-0)", flex: 1 }}>{l}</span>
-          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{v}</span>
+          <span style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", flex: 1 }}>{l}</span>
+          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{v}</span>
           <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
         </div>
       ))}
@@ -152,7 +152,7 @@ export default function MobileSettingsPage() {
         <Text variant="eyebrow">{t("section.display")}</Text>
       </div>
       <div style={{ padding: "10px 16px 14px", borderBottom: "1px solid var(--line-soft)" }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("theme.label")}</div>
+        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("theme.label")}</div>
         <div style={{ display: "flex", gap: 6 }}>
           {([
             { id: "system", label: t("theme.system") },
@@ -167,9 +167,9 @@ export default function MobileSettingsPage() {
                 style={{
                   flex: 1,
                   padding: "12px 0",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   fontWeight: 500,
-                  borderRadius: 6,
+                  borderRadius: "var(--r-md)",
                   background: active ? "var(--bg-3)" : "var(--bg-2)",
                   color: active ? "var(--ink-0)" : "var(--ink-3)",
                   border: `1px solid ${active ? "var(--ink-3)" : "var(--line-soft)"}`,
@@ -188,13 +188,13 @@ export default function MobileSettingsPage() {
         <Text variant="eyebrow">{t("section.localeUnits")}</Text>
       </div>
       <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("locale.label")}</div>
+        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("locale.label")}</div>
         <LanguageToggle variant="menu" />
       </div>
       <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("units.label")}</div>
+        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("units.label")}</div>
         <div className="flex flex-col gap-2">
-          <label className="flex items-center gap-2" style={{ fontSize: 13, color: "var(--ink-1)" }}>
+          <label className="flex items-center gap-2" style={{ fontSize: "var(--fs-sm)", color: "var(--ink-1)" }}>
             <input
               type="radio"
               name="mobile-units"
@@ -204,7 +204,7 @@ export default function MobileSettingsPage() {
             />
             <span>{t("units.metric")}</span>
           </label>
-          <label className="flex items-center gap-2" style={{ fontSize: 13, color: "var(--ink-1)" }}>
+          <label className="flex items-center gap-2" style={{ fontSize: "var(--fs-sm)", color: "var(--ink-1)" }}>
             <input
               type="radio"
               name="mobile-units"
@@ -228,7 +228,7 @@ export default function MobileSettingsPage() {
       ].map((item) => (
         <Link key={item.label} to={item.to} className="flex items-center gap-3"
           style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)", textDecoration: "none" }}>
-          <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-0)", flex: 1 }}>{item.label}</span>
+          <span style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", flex: 1 }}>{item.label}</span>
           <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
         </Link>
       ))}
@@ -241,7 +241,7 @@ export default function MobileSettingsPage() {
           style={{
             width: "100%", padding: 'var(--space-3)', background: "transparent",
             border: "1px solid color-mix(in oklch, var(--rose) 40%, var(--line))",
-            borderRadius: "var(--r-md)", color: "var(--rose)", fontSize: 13, fontWeight: 500,
+            borderRadius: "var(--r-md)", color: "var(--rose)", fontSize: "var(--fs-sm)", fontWeight: 500,
             cursor: stravaLoading ? "wait" : "pointer", opacity: stravaLoading ? 0.6 : 1,
           }}
         >

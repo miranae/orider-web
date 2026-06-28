@@ -6,6 +6,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { doc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useGroup } from "../../hooks/useGroup";
 import GroupSubNav from "../../components/group/GroupSubNav";
@@ -131,7 +132,7 @@ export default function GroupSettingsPage() {
                 await leaveFn({ groupId });
                 navigate("/groups");
               } catch (err) {
-                console.error("Leave group failed:", err);
+                logClientError("GroupSettingsPage.leaveGroup", err, { groupId });
               }
               setLeaving(false);
             }}
@@ -163,7 +164,7 @@ export default function GroupSettingsPage() {
         toggles,
       });
     } catch (err) {
-      console.error("Save failed:", err);
+      logClientError("GroupSettingsPage.handleSave", err, { groupId, visibility, kind, approval });
       alert(err instanceof Error ? err.message : t("error.saveFailed"));
     }
     setSaving(false);
@@ -175,7 +176,7 @@ export default function GroupSettingsPage() {
       const newCode = generateInviteCode();
       await updateDoc(doc(firestore, "groups", groupId), { inviteCode: newCode });
     } catch (err) {
-      console.error("Regenerate code failed:", err);
+      logClientError("GroupSettingsPage.handleRegenerateCode", err, { groupId });
     }
   };
 
@@ -186,7 +187,7 @@ export default function GroupSettingsPage() {
       await updateDoc(doc(firestore, "groups", groupId), { isActive: false });
       navigate("/groups");
     } catch (err) {
-      console.error("Delete failed:", err);
+      logClientError("GroupSettingsPage.handleDelete", err, { groupId });
     }
     setDeleting(false);
   };

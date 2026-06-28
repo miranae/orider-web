@@ -90,10 +90,10 @@ function SensorRow({ sensor, onRemove }: SensorRowProps) {
         borderTop: "1px solid var(--line-soft)",
       }}
     >
-      <span style={{ fontSize: 12, color: "var(--ink-2)" }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{label}</span>
       <span
         style={{
-          fontSize: 13,
+          fontSize: "var(--fs-sm)",
           color: "var(--ink-1)",
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -104,7 +104,7 @@ function SensorRow({ sensor, onRemove }: SensorRowProps) {
       </span>
       <span
         style={{
-          fontSize: 11,
+          fontSize: "var(--fs-xs)",
           color: "var(--ink-3)",
           fontFamily: "var(--font-mono)",
         }}
@@ -221,7 +221,7 @@ function ProfileCard({
     <div
       style={{
         padding: "14px 16px",
-        borderRadius: 8,
+        borderRadius: "var(--r-lg)",
         border: `1px solid ${isActive ? "var(--lime)" : "var(--line-soft)"}`,
         background: isActive
           ? "color-mix(in oklch, var(--lime) 6%, var(--bg-1))"
@@ -240,7 +240,7 @@ function ProfileCard({
           style={{
             width: 44,
             height: 44,
-            borderRadius: 8,
+            borderRadius: "var(--r-lg)",
             background: "var(--bg-2)",
             display: "grid",
             placeItems: "center",
@@ -287,15 +287,15 @@ function ProfileCard({
               </>
             ) : (
               <>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>
+                <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
                   {profile.name}
                 </span>
                 {isActive && (
                   <span
                     style={{
-                      fontSize: 10,
+                      fontSize: "var(--fs-xs)",
                       padding: "1px 6px",
-                      borderRadius: 999,
+                      borderRadius: "9999px",
                       background: "var(--lime)",
                       color: "var(--primary-fg)",
                       fontWeight: 600,
@@ -309,7 +309,7 @@ function ProfileCard({
           </div>
           <div
             style={{
-              fontSize: 11,
+              fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               display: "flex",
               gap: 10,
@@ -374,7 +374,7 @@ function ProfileCard({
             padding: "6px 0",
           }}
         >
-          <span style={{ fontSize: 12, color: "var(--ink-2)" }}>{t("equipment.bikeWheelCircumference")}</span>
+          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{t("equipment.bikeWheelCircumference")}</span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <input
               type="number"
@@ -390,7 +390,7 @@ function ProfileCard({
               style={{ ...monoInputStyle, width: 100 }}
             />
             <Text variant="unit">mm</Text>
-            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               700×23c=2096 · 25c=2105 · 28c=2136 · 32c=2155
             </span>
           </div>
@@ -399,7 +399,7 @@ function ProfileCard({
         <div style={{ marginTop: 'var(--space-1)' }}>
           <div
             style={{
-              fontSize: 11,
+              fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               padding: "6px 0",
               textTransform: "uppercase",
@@ -410,7 +410,7 @@ function ProfileCard({
             {t("equipment.bikeSensors")} {profile.sensors.length > 0 ? `(${profile.sensors.length})` : ""}
           </div>
           {profile.sensors.length === 0 ? (
-            <div style={{ fontSize: 12, color: "var(--ink-3)", padding: "6px 0" }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", padding: "6px 0" }}>
               {t("equipment.bikeSensorsEmpty")}
             </div>
           ) : (
@@ -509,7 +509,7 @@ export function PaneEquipment() {
         dense
       >
         {profiles.length > 1 && (
-          <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
             {t("equipment.bikeProfileDuplicateHint")}
           </div>
         )}
@@ -539,7 +539,7 @@ export function PaneEquipment() {
           />
         }
       >
-        <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 14, lineHeight: 1.5 }}>
+        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 14, lineHeight: 1.5 }}>
           {t("equipment.virtualPowerDesc", { name: active.name, weight: weightDisplay })}
         </div>
         <FieldGrid cols={2}>

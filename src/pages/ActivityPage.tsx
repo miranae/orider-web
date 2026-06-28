@@ -810,7 +810,7 @@ export default function ActivityPage() {
                 >
                   <span
                     className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: activeOverlays.has(cfg.key) ? cfg.dotColor : "#9ca3af" }}
+                    style={{ backgroundColor: activeOverlays.has(cfg.key) ? cfg.dotColor : "var(--ink-4)" }}
                   />
                   {t(`overlay.${cfg.label}`)}
                 </button>

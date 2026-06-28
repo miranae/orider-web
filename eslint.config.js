@@ -166,7 +166,7 @@ const designSystem = {
 
     /**
      * JSX `style={{ fontSize: 13 }}` 같은 인라인 폰트 크기 px 차단.
-     * `<Text variant="...">` 또는 className `text-[length:var(--fs-*)]` 사용.
+     * `<Text variant="...">` 또는 font-size 토큰 유틸 사용.
      */
     'no-inline-fontsize-in-style': {
       meta: {
@@ -174,7 +174,7 @@ const designSystem = {
         docs: { description: 'JSX style 안 fontSize px → <Text variant> 또는 var(--fs-*) 토큰 사용' },
         schema: [],
         messages: {
-          fontSize: '`fontSize: {{val}}` — `<Text variant="...">` 또는 className `text-[length:var(--fs-*)]` 사용',
+          fontSize: '`fontSize: {{val}}` — `<Text variant="...">` 또는 font-size 토큰 유틸 사용',
         },
       },
       create(context) {
@@ -209,7 +209,7 @@ const designSystem = {
 
     /**
      * JSX `style={{ borderRadius: 8 }}` 같은 인라인 모서리 px 차단.
-     * `var(--r-sm|md|lg|xl)` 또는 className `rounded-[var(--r-*)]` 사용.
+     * `var(--r-sm|md|lg|xl)` 또는 radius 토큰 유틸 사용.
      */
     'no-inline-borderradius-in-style': {
       meta: {
@@ -217,7 +217,7 @@ const designSystem = {
         docs: { description: 'JSX style 안 borderRadius px → var(--r-*) 토큰 사용' },
         schema: [],
         messages: {
-          radius: '`borderRadius: {{val}}` — `var(--r-sm|md|lg|xl)` 또는 className `rounded-[var(--r-*)]` 사용',
+          radius: '`borderRadius: {{val}}` — `var(--r-sm|md|lg|xl)` 또는 radius 토큰 유틸 사용',
         },
       },
       create(context) {

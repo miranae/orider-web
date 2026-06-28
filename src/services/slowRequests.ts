@@ -133,8 +133,8 @@ export function reportSlowPage(metricName: string, valueMs: number, pagePath: st
       device_memory_gb: readDeviceMemory(),
       ...net,
     });
-  } catch (e) {
-    if (import.meta.env.DEV) console.warn("slow_page track failed", e);
+  } catch {
+    // Tracking must never break page rendering.
   }
 }
 
@@ -183,8 +183,8 @@ export function installSlowFetchTracker(): void {
               device_memory_gb: readDeviceMemory(),
               ...net,
             });
-          } catch (e) {
-            if (import.meta.env.DEV) console.warn("slow_request track failed", e);
+          } catch {
+            // Tracking must never break the original request.
           }
         }
       }

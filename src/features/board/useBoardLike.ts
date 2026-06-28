@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { track } from "../../services/analytics";
 
@@ -93,7 +94,7 @@ export function useBoardLike(postId: string) {
         post_id: postId,
         err: err instanceof Error ? err.message : String(err),
       });
-      console.error("Like toggle failed:", err);
+      logClientError("useBoardLike.toggleLike", err, { postId, action });
       throw err;
     }
   };

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Course } from "@shared/types";
 
@@ -60,7 +61,7 @@ export function useCourses() {
         cacheUid = user?.uid ?? null;
         setCourses(result);
       } catch (err) {
-        console.error("[useCourses] 로드 실패:", err);
+        logClientError("useCourses.load", err);
       } finally {
         setLoading(false);
       }

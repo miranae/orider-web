@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useGroup, useGroupMembers } from "../../hooks/useGroup";
 import { useGroupRides } from "../../hooks/useGroupRides";
@@ -62,7 +63,7 @@ export default function GroupDashboardPage() {
         setUpcomingEvents(list);
       } catch (err) {
         // 인덱스 없을 시 조용히 실패
-        console.warn("다가오는 이벤트 조회 실패:", err);
+        logClientError("GroupDashboardPage.loadUpcomingEvents", err, { groupId });
       }
     })();
   }, [groupId]);
@@ -150,12 +151,12 @@ export default function GroupDashboardPage() {
       <GroupSubNav group={group} isCreator={isCreator} />
 
       {/* Hero 영역 */}
-      <Card padding="none" className="mb-5" style={{ borderRadius: 8, padding: "24px 28px" }}>
+      <Card padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: "24px 28px" }}>
         <div className="flex items-center" style={{ gap: 'var(--space-5)' }}>
           <div style={{
-            width: 72, height: 72, borderRadius: 10, background: "var(--bg-2)",
+            width: 72, height: 72, borderRadius: "var(--r-xl)", background: "var(--bg-2)",
             border: "1px solid var(--line)", display: "grid", placeItems: "center",
-            fontSize: 26, fontWeight: 800, color: "var(--lime)", letterSpacing: "-0.02em", flexShrink: 0,
+            fontSize: "var(--fs-2xl)", fontWeight: 800, color: "var(--lime)", letterSpacing: "-0.02em", flexShrink: 0,
           }}>
             {(group.badge ?? group.name ?? "").slice(0, 3).toUpperCase()}
           </div>
@@ -188,7 +189,7 @@ export default function GroupDashboardPage() {
       </Card>
 
       {/* KPI 스트립 — 5개 (시안 정합) */}
-      <Card padding="none" className="mb-5" style={{ borderRadius: 8, padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
+      <Card padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
         {([
           { l: t("dashboard.stats.weekDistance"), v: `${(weekStats.totalDistance / 1000).toFixed(1)}`, u: "km", sub: weekStats.activeMembers > 0 ? `${t("dashboard.stats.perMember")} ${(weekStats.totalDistance / 1000 / weekStats.activeMembers).toFixed(1)}km` : "" },
           { l: t("dashboard.stats.participatingMembers"), v: `${weekStats.activeMembers}`, u: `/ ${group.memberCount}`, sub: group.memberCount > 0 ? `${t("dashboard.stats.participationRate")} ${Math.round(weekStats.activeMembers / group.memberCount * 100)}%` : "" },
@@ -199,7 +200,7 @@ export default function GroupDashboardPage() {
           <div key={i} style={{ padding: "16px 18px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{s.l}</Text>
             <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)', marginBottom: 'var(--space-1)' }}>
-              <Text variant="dataLarge" style={{ fontSize: 22 }}>{s.v}</Text>
+              <Text variant="dataLarge" style={{ fontSize: "var(--fs-xl)" }}>{s.v}</Text>
               {s.u && <Text variant="unit">{s.u}</Text>}
             </div>
             {s.sub && <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{s.sub}</div>}
@@ -210,13 +211,13 @@ export default function GroupDashboardPage() {
       <div className="flex flex-col lg:flex-row gap-5">
         {/* 멤버 랭킹 */}
         <div className="flex-1 min-w-0">
-          <Card padding="none" style={{ borderRadius: 8, padding: 0 }}>
+          <Card padding="none" style={{ borderRadius: "var(--r-lg)", padding: 0 }}>
             <div style={{ padding: "14px 18px 12px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "center" }}>
               <div style={{ flex: 1 }}>
                 <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.ranking.title")}</h3>
                 <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{rankKey === "distance" ? t("dashboard.ranking.distance") : rankKey === "elevation" ? t("dashboard.ranking.elevation") : rankKey === "time" ? t("dashboard.ranking.time") : t("dashboard.ranking.tss")} {t("dashboard.ranking.by")}</span>
               </div>
-              <div role="tablist" aria-label={t("dashboard.ranking.title")} className="flex items-center" style={{ gap: 2, background: "var(--bg-2)", padding: 3, borderRadius: 6 }}>
+              <div role="tablist" aria-label={t("dashboard.ranking.title")} className="flex items-center" style={{ gap: 2, background: "var(--bg-2)", padding: 3, borderRadius: "var(--r-md)" }}>
                 {([
                   ["distance", t("dashboard.ranking.distance")],
                   ["elevation", t("dashboard.ranking.elevation")],
@@ -232,7 +233,7 @@ export default function GroupDashboardPage() {
                       aria-selected={active}
                       onClick={() => setRankKey(k)}
                       style={{
-                        padding: "4px 10px", fontSize: 11, borderRadius: 4,
+                        padding: "4px 10px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)",
                         background: active ? "var(--bg-3)" : "transparent",
                         color: active ? "var(--ink-0)" : "var(--ink-3)",
                         fontWeight: active ? 600 : 400,
@@ -277,7 +278,7 @@ export default function GroupDashboardPage() {
                         background: isMe ? "color-mix(in oklch, var(--lime) 6%, var(--bg-1))" : "transparent",
                       }}>
                         <Text as="div" variant="mono" style={{
-                          width: 20, textAlign: "center", fontSize: 11,
+                          width: 20, textAlign: "center", fontSize: "var(--fs-xs)",
                           color: i === 0 ? "var(--amber)" : i <= 2 ? "var(--ink-1)" : "var(--ink-4)",
                           fontWeight: i === 0 ? 700 : 500,
                         }}>
@@ -291,14 +292,14 @@ export default function GroupDashboardPage() {
                             {m.profile?.nickname ?? m.id}{isMe && ` ${t("dashboard.meIndicator")}`}
                           </div>
                         </div>
-                        <div style={{ width: 120, height: 6, background: "var(--bg-2)", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: 120, height: 6, background: "var(--bg-2)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                           <div style={{
                             width: `${barPct}%`, height: "100%",
                             background: isMe ? "var(--lime)" : i < 3 ? "var(--aqua)" : "var(--lime-dim, var(--bg-3))",
                           }} />
                         </div>
                         <div style={{ width: 90, textAlign: "right" }}>
-                          <Text variant="dataMedium" style={{ fontSize: 14 }}>{fmt(v)}</Text>
+                          <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>{fmt(v)}</Text>
                           {unit && <Text variant="unit">{unit}</Text>}
                         </div>
                       </div>
@@ -332,7 +333,7 @@ export default function GroupDashboardPage() {
         {/* Sidebar */}
         <div className="lg:w-72 flex-shrink-0 space-y-5 lg:sticky lg:top-6 lg:self-start">
           {/* 멤버 미리보기 */}
-          <Card padding="none" className="p-4" style={{ borderRadius: 8 }}>
+          <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.memberPreview")}</h2>
               <Link to={`/group/${groupId}/members`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreRides")}</Link>
@@ -365,7 +366,7 @@ export default function GroupDashboardPage() {
 
           {/* 다가오는 이벤트 */}
           {upcomingEvents.length > 0 && (
-            <Card padding="none" className="p-4" style={{ borderRadius: 8 }}>
+            <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>
               <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
               <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {upcomingEvents.map((e) => (
@@ -378,7 +379,7 @@ export default function GroupDashboardPage() {
                         </div>
                       </div>
                       <Chip
-                        style={{ color: e.status === "LIVE" ? "var(--lime)" : "var(--aqua)", fontSize: 10, whiteSpace: "nowrap" }}
+                        style={{ color: e.status === "LIVE" ? "var(--lime)" : "var(--aqua)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
                       >
                         {e.status === "LIVE" ? t("dashboard.eventStatus.live") : t("dashboard.eventStatus.recruiting")}
                       </Chip>
@@ -390,7 +391,7 @@ export default function GroupDashboardPage() {
           )}
 
           {/* 그룹 정보 카드 */}
-          <Card padding="none" className="p-4" style={{ borderRadius: 8 }}>
+          <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>
             <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("dashboard.groupInfo")}</h2>
             <dl className="space-y-2 text-[length:var(--fs-sm)]">
               <div className="flex justify-between">

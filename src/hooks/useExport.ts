@@ -11,6 +11,7 @@ import {
 import { httpsCallable } from "firebase/functions";
 import JSZip from "jszip";
 import { firestore, functions } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { makeRelSecAt } from "../utils/streamTime";
 import type { Activity, ActivityStreams, Comment, Kudos, FollowRelation } from "@shared/types";
@@ -384,8 +385,8 @@ export function useExport() {
                   for (let j = 0; j < binary.length; j++) data[j] = binary.charCodeAt(j);
                 }
                 return { key: `${ref.activityId}_${ref.index}`, data, ext };
-              } catch (e) {
-                console.warn(`[export] 사진 다운로드 실패:`, url, e);
+              } catch (err) {
+                logClientError("useExport.downloadPhoto", err, { url });
                 return null;
               }
             }),

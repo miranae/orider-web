@@ -53,7 +53,7 @@ export function IntervalBar({ intervals }: { intervals: IntervalBlock[] }) {
                 flex: `0 0 ${widthPct}%`,
                 height: `${heightPct}%`,
                 background: BLOCK_COLOR[block.label] ?? "var(--bg-3)",
-                borderRadius: 2,
+                borderRadius: "var(--r-xs)",
                 minWidth: 3,
                 opacity: hoverIdx != null && hoverIdx !== i ? 0.5 : 1,
                 transition: "opacity 0.12s",
@@ -125,8 +125,8 @@ export function WeeklyLoadStrip({
             background: `color-mix(in oklch, var(--${phaseTone}) 16%, var(--bg-1))`,
             border: `1px solid color-mix(in oklch, var(--${phaseTone}) 40%, transparent)`,
             color: `var(--${phaseTone})`,
-            borderRadius: 999,
-            fontSize: 11,
+            borderRadius: "9999px",
+            fontSize: "var(--fs-xs)",
             fontFamily: "var(--font-mono)",
             fontWeight: 600,
           }}
@@ -134,7 +134,7 @@ export function WeeklyLoadStrip({
           {t(`today.balancePhase.${bg.phase}`)}
         </span>
       </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--ink-1)", fontWeight: 600 }}>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 600 }}>
         {t("today.weeklyTargetRange", { lo, hi })}
         {accumulated != null && (
           <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>
@@ -151,7 +151,7 @@ export function WeeklyLoadStrip({
           </span>
         )}
       </div>
-      <div style={{ marginTop: "var(--space-2)", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.5 }}>
+      <div style={{ marginTop: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-2)", lineHeight: 1.5 }}>
         <span style={{ fontFamily: "var(--font-mono)", color: `var(--${phaseTone})`, fontWeight: 600 }}>
           {t("today.balanceDirection", { lo: bg.lo, hi: bg.hi })}
         </span>
@@ -207,7 +207,7 @@ export function HeroCard(opts: HeroCardOpts) {
           <div style={{ flex: 1 }} />
           {opts.topRightExtras}
         </div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--ink-0)", margin: "0 0 var(--space-2)", lineHeight: 1.25, letterSpacing: "-0.01em" }}>{opts.sessionName}</h2>
+        <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, color: "var(--ink-0)", margin: "0 0 var(--space-2)", lineHeight: 1.25, letterSpacing: "-0.01em" }}>{opts.sessionName}</h2>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {opts.headerChips.map((chip, i) => (
             <span
@@ -217,8 +217,8 @@ export function HeroCard(opts: HeroCardOpts) {
                 background: i === 0 ? `color-mix(in oklch, var(--${opts.tone}) 18%, var(--bg-2))` : "var(--bg-2)",
                 border: i === 0 ? `1px solid color-mix(in oklch, var(--${opts.tone}) 40%, transparent)` : "1px solid var(--line-soft)",
                 color: i === 0 ? "var(--ink-0)" : "var(--ink-2)",
-                borderRadius: 20,
-                fontSize: 11,
+                borderRadius: "var(--r-3xl)",
+                fontSize: "var(--fs-xs)",
                 fontFamily: "var(--font-mono)",
                 fontWeight: 500,
               }}
@@ -239,8 +239,8 @@ export function HeroCard(opts: HeroCardOpts) {
                   background: c.tone ? `color-mix(in oklch, var(--${c.tone}) 10%, var(--bg-1))` : "var(--bg-1)",
                   border: `1px solid ${c.tone ? `color-mix(in oklch, var(--${c.tone}) 30%, transparent)` : "var(--line-soft)"}`,
                   color: c.tone ? `var(--${c.tone})` : "var(--ink-2)",
-                  borderRadius: 12,
-                  fontSize: 11,
+                  borderRadius: "var(--r-2xl)",
+                  fontSize: "var(--fs-xs)",
                   fontFamily: c.mono ? "var(--font-mono)" : "inherit",
                   fontWeight: 500,
                 }}
@@ -254,8 +254,8 @@ export function HeroCard(opts: HeroCardOpts) {
         {opts.intervalBar}
         {opts.llmCacheMiss && opts.onRequestAnalysis && (
           <div style={{ marginTop: "var(--space-3)", display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-            <button type="button" onClick={opts.onRequestAnalysis} style={{ padding: "var(--space-2) var(--space-4)", borderRadius: "var(--r-md)", background: `color-mix(in oklch, var(--${opts.tone}) 16%, var(--bg-2))`, border: `1px solid color-mix(in oklch, var(--${opts.tone}) 40%, transparent)`, color: `var(--${opts.tone})`, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{t("today.analyzeStart")}</button>
-            <span style={{ fontSize: 11, color: "var(--ink-4)" }}>{t("today.analyzeWaiting")}</span>
+            <button type="button" onClick={opts.onRequestAnalysis} style={{ padding: "var(--space-2) var(--space-4)", borderRadius: "var(--r-md)", background: `color-mix(in oklch, var(--${opts.tone}) 16%, var(--bg-2))`, border: `1px solid color-mix(in oklch, var(--${opts.tone}) 40%, transparent)`, color: `var(--${opts.tone})`, fontSize: "var(--fs-xs)", fontWeight: 600, cursor: "pointer" }}>{t("today.analyzeStart")}</button>
+            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("today.analyzeWaiting")}</span>
           </div>
         )}
         {opts.onReanalyze != null && !opts.llmCacheMiss && (
@@ -270,7 +270,7 @@ export function HeroCard(opts: HeroCardOpts) {
                 background: opts.reanalyzable ? `color-mix(in oklch, var(--${opts.tone}) 10%, var(--bg-2))` : "var(--bg-2)",
                 border: `1px solid ${opts.reanalyzable ? `color-mix(in oklch, var(--${opts.tone}) 35%, transparent)` : "var(--line-soft)"}`,
                 color: opts.reanalyzable ? `var(--${opts.tone})` : "var(--ink-4)",
-                fontSize: 11,
+                fontSize: "var(--fs-xs)",
                 fontWeight: 500,
                 cursor: opts.reanalyzable ? "pointer" : "default",
                 opacity: opts.reanalyzable ? 1 : 0.6,
@@ -278,16 +278,16 @@ export function HeroCard(opts: HeroCardOpts) {
             >
               {t("today.reanalyze")}
             </button>
-            {!opts.reanalyzable && <span style={{ fontSize: 11, color: "var(--ink-4)" }}>{t("today.upToDate")}</span>}
+            {!opts.reanalyzable && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("today.upToDate")}</span>}
           </div>
         )}
         {(opts.llmPhase === "preparing" || opts.llmPhase === "calling") && (
-          <div style={{ marginTop: "var(--space-3)", padding: "var(--space-2) var(--space-3)", background: `color-mix(in oklch, var(--${opts.tone}) 8%, var(--bg-2))`, border: `1px dashed color-mix(in oklch, var(--${opts.tone}) 35%, transparent)`, borderRadius: "var(--r-md)", fontSize: 12, color: "var(--ink-2)", display: "flex", alignItems: "center", gap: "var(--space-2)" }} aria-live="polite">
+          <div style={{ marginTop: "var(--space-3)", padding: "var(--space-2) var(--space-3)", background: `color-mix(in oklch, var(--${opts.tone}) 8%, var(--bg-2))`, border: `1px dashed color-mix(in oklch, var(--${opts.tone}) 35%, transparent)`, borderRadius: "var(--r-md)", fontSize: "var(--fs-xs)", color: "var(--ink-2)", display: "flex", alignItems: "center", gap: "var(--space-2)" }} aria-live="polite">
             <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: `var(--${opts.tone})`, animation: "pulse 1.2s ease-in-out infinite" }} />
             <span>{opts.llmPhase === "preparing" ? opts.llmPreparingMsg : opts.llmCallingMsg}</span>
           </div>
         )}
-        <div style={{ marginTop: "var(--space-3)", fontSize: 13, lineHeight: 1.55, color: "var(--ink-1)", transition: "opacity .3s", opacity: opts.llmLoading && !opts.isLLM ? 0.6 : 1 }}>
+        <div style={{ marginTop: "var(--space-3)", fontSize: "var(--fs-sm)", lineHeight: 1.55, color: "var(--ink-1)", transition: "opacity .3s", opacity: opts.llmLoading && !opts.isLLM ? 0.6 : 1 }}>
           {visibleParagraphs.map((p, i) => {
             const isLede = i === 0 && paragraphs.length > 1;
             return (
@@ -297,14 +297,14 @@ export function HeroCard(opts: HeroCardOpts) {
             );
           })}
           {canFold && (
-            <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} style={{ marginTop: "var(--space-2)", background: "transparent", border: 0, padding: 0, color: "var(--lime)", fontSize: 12, fontWeight: 500, cursor: "pointer", textDecoration: "none" }}>
+            <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} style={{ marginTop: "var(--space-2)", background: "transparent", border: 0, padding: 0, color: "var(--lime)", fontSize: "var(--fs-xs)", fontWeight: 500, cursor: "pointer", textDecoration: "none" }}>
               {expanded ? t("today.narrativeCollapse") : t("today.narrativeExpand", { n: paragraphs.length - 1 })}
             </button>
           )}
         </div>
         {opts.cta && (
           <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-3)" }}>
-            <a href={opts.cta.href} className={opts.cta.emphasis ? "ds-btn ds-btn--md" : "ds-btn ds-btn--md ds-btn--ghost"} style={{ fontSize: 12 }}>{opts.cta.label}</a>
+            <a href={opts.cta.href} className={opts.cta.emphasis ? "ds-btn ds-btn--md" : "ds-btn ds-btn--md ds-btn--ghost"} style={{ fontSize: "var(--fs-xs)" }}>{opts.cta.label}</a>
           </div>
         )}
       </div>
@@ -331,15 +331,15 @@ export function WorkoutCardSkeleton() {
       <div style={sh("44%", 11, { marginBottom: 14 })} />
       <div style={sh("38%", 24, { marginBottom: 14 })} />
       <div className="flex" style={{ gap: 8, marginBottom: 16 }}>
-        <div style={sh(72, 26, { borderRadius: 999 })} />
-        <div style={sh(60, 26, { borderRadius: 999 })} />
+        <div style={sh(72, 26, { borderRadius: "9999px" })} />
+        <div style={sh(60, 26, { borderRadius: "9999px" })} />
       </div>
       <div className="flex" style={{ gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
-        <div style={sh(84, 24, { borderRadius: 999 })} />
-        <div style={sh(120, 24, { borderRadius: 999 })} />
-        <div style={sh(72, 24, { borderRadius: 999 })} />
+        <div style={sh(84, 24, { borderRadius: "9999px" })} />
+        <div style={sh(120, 24, { borderRadius: "9999px" })} />
+        <div style={sh(72, 24, { borderRadius: "9999px" })} />
       </div>
-      <div style={sh("100%", 12, { marginBottom: 18, borderRadius: 999 })} />
+      <div style={sh("100%", 12, { marginBottom: 18, borderRadius: "9999px" })} />
       <div style={sh("100%", 12, { marginBottom: 8 })} />
       <div style={sh("78%", 12)} />
     </Card>

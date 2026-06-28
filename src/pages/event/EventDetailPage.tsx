@@ -497,7 +497,7 @@ export default function EventDetailPage() {
   return (
     <>
       {/* Breadcrumb */}
-      <div className="flex items-center" style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 24px 0", gap: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)" }}>
+      <div className="flex items-center" style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 24px 0", gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
         <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <span className="truncate" style={{ color: "var(--ink-2)" }}>{event.name}</span>
@@ -521,27 +521,27 @@ export default function EventDetailPage() {
           <div style={{ padding: "22px 28px" }}>
             {/* 칩 행 */}
             <div className="flex flex-wrap" style={{ gap: 6, marginBottom: 10 }}>
-              <Chip style={{ fontSize: 10, color: "var(--amber)", display: "inline-flex", alignItems: "center", gap: 'var(--space-1)' }}>
+              <Chip style={{ fontSize: "var(--fs-xs)", color: "var(--amber)", display: "inline-flex", alignItems: "center", gap: 'var(--space-1)' }}>
                 <span aria-hidden="true">🏔️</span> {isGranFondo ? t("type.granfondo") : t("type.tour")}
               </Chip>
               <Chip
                 style={{
-                  fontSize: 10,
+                  fontSize: "var(--fs-xs)",
                   color: statusMeta.color,
                   borderColor: statusMeta.color === "var(--ink-3)" ? "var(--line-soft)" : `color-mix(in oklch, ${statusMeta.color} 40%, var(--line-soft))`,
                 }}
               >
                 {statusMeta.label}
               </Chip>
-              {event.region && <Chip style={{ fontSize: 10 }}>{event.region}</Chip>}
-              {isGranFondo && <Chip style={{ fontSize: 10, fontFamily: "var(--font-mono)" }}>Cat HC</Chip>}
+              {event.region && <Chip style={{ fontSize: "var(--fs-xs)" }}>{event.region}</Chip>}
+              {isGranFondo && <Chip style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>Cat HC</Chip>}
             </div>
 
             {/* 제목 + 메타 + 액션 */}
             <div className="flex flex-wrap items-end justify-between" style={{ gap: 'var(--space-5)' }}>
               <div className="flex-1 min-w-0">
-                <h1 style={{ fontSize: 32, letterSpacing: "-0.025em", marginBottom: 6, color: "var(--ink-0)" }}>{event.name}</h1>
-                <div className="flex flex-wrap items-center" style={{ fontSize: 12, color: "var(--ink-3)", gap: 'var(--space-4)' }}>
+                <h1 style={{ fontSize: "var(--fs-4xl)", letterSpacing: "-0.025em", marginBottom: 6, color: "var(--ink-0)" }}>{event.name}</h1>
+                <div className="flex flex-wrap items-center" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", gap: 'var(--space-4)' }}>
                   <span className="inline-flex items-center" style={{ gap: 5 }}>
                     <span aria-hidden="true">📅</span>
                     <span style={{ fontFamily: "var(--font-mono)" }}>{formatDateTime(event.startTime)}</span>
@@ -619,7 +619,7 @@ export default function EventDetailPage() {
                 gap: 1,
                 background: "var(--line-soft)",
                 border: "1px solid var(--line-soft)",
-                borderRadius: 6,
+                borderRadius: "var(--r-md)",
                 overflow: "hidden",
               }}
             >
@@ -670,9 +670,9 @@ export default function EventDetailPage() {
                     aria-pressed={active}
                     style={{
                       padding: "8px 14px",
-                      fontSize: 12,
+                      fontSize: "var(--fs-xs)",
                       fontWeight: 500,
-                      borderRadius: 5,
+                      borderRadius: "var(--r-sm)",
                       background: active ? "color-mix(in oklch, var(--lime) 10%, var(--bg-2))" : "var(--bg-2)",
                       color: active ? "var(--ink-0)" : "var(--ink-2)",
                       border: `1px solid ${active ? "var(--lime)" : "var(--line-soft)"}`,
@@ -685,7 +685,7 @@ export default function EventDetailPage() {
                     <span aria-hidden="true">🛣️</span>
                     <span>{c.name}</span>
                     {cd && (
-                      <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)", fontSize: 11 }}>
+                      <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
                         {(cd.distance / 1000).toFixed(1)}km · ↑{Math.round(cd.elevationGain)}m
                       </span>
                     )}
@@ -705,7 +705,7 @@ export default function EventDetailPage() {
                     {(courses[selectedCourseIdx]?.name) ?? ""} · {courseData ? (courseData.distance / 1000).toFixed(1) : "—"}km · ↑{courseData ? Math.round(courseData.elevationGain) : "—"}m
                   </div>
                 </div>
-                <div className="flex flex-wrap" style={{ gap: 10, fontSize: 10, color: "var(--ink-3)" }}>
+                <div className="flex flex-wrap" style={{ gap: 10, fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
                   {LANE_ORDER.map((l) => (
                     <span key={l} className="inline-flex items-center" style={{ gap: 'var(--space-1)' }}>
                       <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: LANE_META[l].color, display: "inline-block" }} />
@@ -719,7 +719,7 @@ export default function EventDetailPage() {
                   className="h-52 flex items-center justify-center"
                   style={{
                     color: "var(--ink-3)",
-                    fontSize: 12,
+                    fontSize: "var(--fs-xs)",
                     background: "var(--bg-2)",
                     border: "1px solid var(--line-soft)",
                     borderRadius: "var(--r-md, 6px)",
@@ -857,7 +857,7 @@ export default function EventDetailPage() {
                 <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.waypoints")}</div>
                 <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{t("create.itemCount", { count: waypointRows.length })}</div>
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
                 <thead>
                   <tr style={{ background: "var(--bg-2)" }}>
                     {["#", t("detail.col.name"), t("detail.col.type"), t("distance"), t("detail.col.elevation")].map((h, i) => (
@@ -866,7 +866,7 @@ export default function EventDetailPage() {
                         style={{
                           textAlign: i === 0 || i >= 3 ? "right" : "left",
                           padding: "10px 16px",
-                          fontSize: 10,
+                          fontSize: "var(--fs-xs)",
                           letterSpacing: "0.06em",
                           color: "var(--ink-3)",
                           fontWeight: 500,
@@ -888,7 +888,7 @@ export default function EventDetailPage() {
                         </td>
                         <td style={{ padding: "10px 16px", color: "var(--ink-0)" }}>{w.name}</td>
                         <td style={{ padding: "10px 16px" }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: m.color, fontSize: 11, fontWeight: 500 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: m.color, fontSize: "var(--fs-xs)", fontWeight: 500 }}>
                             <span aria-hidden="true">{m.icon}</span> {m.label}
                           </span>
                         </td>
@@ -947,7 +947,7 @@ export default function EventDetailPage() {
           {event.description && (
             <Card padding="none" style={{ padding: 'var(--space-5)' }}>
               <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("label.eventGuide")}</h2>
-              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 13, color: "var(--ink-1)", lineHeight: 1.7, margin: 0 }}>
+              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "var(--fs-sm)", color: "var(--ink-1)", lineHeight: 1.7, margin: 0 }}>
                 {event.description}
               </pre>
             </Card>
@@ -960,7 +960,7 @@ export default function EventDetailPage() {
           <Card padding="none" style={{ padding: 18 }}>
             <h2 className="text-[length:var(--fs-sm)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>{t("label.myParticipation")}</h2>
             <div className="flex items-baseline" style={{ gap: 6 }}>
-              <span style={{ fontSize: 28, fontWeight: 600, color: "var(--ink-0)" }}>{participantCount}</span>
+              <span style={{ fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)" }}>{participantCount}</span>
               {event.maxParticipants ? (
                 <Text variant="unit" style={{ color: "var(--ink-3)" }}>/ {event.maxParticipants}{t("detail.unit.person")}</Text>
               ) : (
@@ -969,7 +969,7 @@ export default function EventDetailPage() {
             </div>
             {fillPct != null && event.maxParticipants && (
               <>
-                <div style={{ marginTop: 10, height: 4, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden" }}>
+                <div style={{ marginTop: 10, height: 4, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                   <div
                     style={{
                       width: `${fillPct}%`,
@@ -985,7 +985,7 @@ export default function EventDetailPage() {
             )}
             <div
               className="flex flex-col"
-              style={{ borderTop: "1px solid var(--line-soft)", marginTop: 14, paddingTop: 14, gap: 'var(--space-2)', fontSize: 12 }}
+              style={{ borderTop: "1px solid var(--line-soft)", marginTop: 14, paddingTop: 14, gap: 'var(--space-2)', fontSize: "var(--fs-xs)" }}
             >
               <div className="flex justify-between">
                 <span style={{ color: "var(--ink-3)" }}>{t("label.categories")}</span>
@@ -1021,7 +1021,7 @@ export default function EventDetailPage() {
               <button
                 type="button"
                 onClick={() => navigate(`/event/${eventId}/participants`)}
-                style={{ background: "none", border: "none", fontSize: 10, color: "var(--ink-3)", cursor: "pointer", padding: 0 }}
+                style={{ background: "none", border: "none", fontSize: "var(--fs-xs)", color: "var(--ink-3)", cursor: "pointer", padding: 0 }}
               >
                 {t("action.viewAll")}
               </button>
@@ -1040,7 +1040,7 @@ export default function EventDetailPage() {
                         background: "var(--bg-3)",
                         display: "grid",
                         placeItems: "center",
-                        fontSize: 11,
+                        fontSize: "var(--fs-xs)",
                         color: "var(--ink-2)",
                         fontWeight: 500,
                       }}
@@ -1049,7 +1049,7 @@ export default function EventDetailPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-[length:var(--fs-xs)] truncate" style={{ color: "var(--ink-1)" }}>{p.nickname}</div>
-                      {p.category && <div style={{ color: "var(--ink-3)", fontSize: 10 }}>{p.category}</div>}
+                      {p.category && <div style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{p.category}</div>}
                     </div>
                   </div>
                 ))}
@@ -1137,7 +1137,7 @@ export default function EventDetailPage() {
                   display: "grid",
                   placeItems: "center",
                   flexShrink: 0,
-                  fontSize: 18,
+                  fontSize: "var(--fs-lg)",
                   color: "var(--lime)",
                 }}
               >
@@ -1180,8 +1180,8 @@ export default function EventDetailPage() {
             padding: "var(--space-3) var(--space-4)",
             background: "color-mix(in oklch, var(--lime) 12%, var(--bg-2))",
             border: "1px solid var(--lime)",
-            borderRadius: 5,
-            fontSize: 12,
+            borderRadius: "var(--r-sm)",
+            fontSize: "var(--fs-xs)",
             color: "var(--ink-0)",
             display: "flex",
             gap: 10,

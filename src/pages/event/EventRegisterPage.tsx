@@ -77,10 +77,10 @@ interface StepInfo {
 const fieldStyle: React.CSSProperties = {
   width: "100%",
   padding: "9px 12px",
-  fontSize: 13,
+  fontSize: "var(--fs-sm)",
   background: "var(--bg-2)",
   border: "1px solid var(--line-soft)",
-  borderRadius: 5,
+  borderRadius: "var(--r-sm)",
   color: "var(--ink-0)",
   fontFamily: "inherit",
 };
@@ -99,9 +99,9 @@ function Field({
   return (
     <div style={{ marginBottom: 'var(--space-4)' }}>
       <label className="flex items-center" style={{ gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
-        {required && <span style={{ color: "var(--rose)", fontSize: 11 }}>*</span>}
-        {sub && <span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
+        <span style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
+        {required && <span style={{ color: "var(--rose)", fontSize: "var(--fs-xs)" }}>*</span>}
+        {sub && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
       </label>
       {children}
     </div>
@@ -130,7 +130,7 @@ function StepBar({ steps, stepIdx }: { steps: StepInfo[]; stepIdx: number }) {
                 color: cur ? "var(--primary-fg)" : done ? "var(--lime)" : "var(--ink-3)",
                 display: "grid",
                 placeItems: "center",
-                fontSize: 11,
+                fontSize: "var(--fs-xs)",
                 fontFamily: "var(--font-mono)",
                 fontWeight: 600,
                 border: !cur && !done ? "1px solid var(--line-soft)" : "none",
@@ -141,7 +141,7 @@ function StepBar({ steps, stepIdx }: { steps: StepInfo[]; stepIdx: number }) {
             </div>
             <span
               style={{
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 color: cur ? "var(--ink-0)" : "var(--ink-3)",
                 fontWeight: cur ? 500 : 400,
               }}
@@ -456,16 +456,16 @@ export default function EventRegisterPage() {
             display: "grid",
             placeItems: "center",
             margin: "0 auto 20px",
-            fontSize: 28,
+            fontSize: "var(--fs-3xl)",
             color: "var(--lime)",
           }}
         >
           ✓
         </div>
-        <h1 style={{ fontSize: 28, letterSpacing: "-0.02em", marginBottom: 10, color: "var(--ink-0)" }}>
+        <h1 style={{ fontSize: "var(--fs-3xl)", letterSpacing: "-0.02em", marginBottom: 10, color: "var(--ink-0)" }}>
           {t("message.registrationComplete")}
         </h1>
-        <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 28 }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: 28 }}>
           {(event.fee ?? 0) > 0
             ? t("register.donePaymentDesc")
             : t("register.doneConfirmDesc")}
@@ -473,21 +473,21 @@ export default function EventRegisterPage() {
           {t("register.doneBibNotice")}
         </div>
         <Card padding="none" style={{ padding: 'var(--space-5)', textAlign: "left", marginBottom: 'var(--space-5)' }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: 12 }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("label.registration")}</span>
             <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)" }}>{registrationNumber || "—"}</span>
           </div>
-          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: 12 }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("register.summaryEvent")}</span>
             <span style={{ color: "var(--ink-0)" }}>{event.name}</span>
           </div>
           {cat && (
-            <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: 12 }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
               <span style={{ color: "var(--ink-3)" }}>{t("label.categories")}</span>
               <span style={{ color: "var(--ink-0)" }}>{cat.name ?? cat.label ?? "-"}</span>
             </div>
           )}
-          <div className="flex items-center justify-between" style={{ fontSize: 12 }}>
+          <div className="flex items-center justify-between" style={{ fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-3)" }}>{(event.fee ?? 0) > 0 ? t("register.paymentAmount") : t("label.entryFee")}</span>
             <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
               {(event.fee ?? 0) > 0 ? `₩ ${totalAmount.toLocaleString("ko-KR")}` : t("feeType.free")}
@@ -511,7 +511,7 @@ export default function EventRegisterPage() {
   return (
     <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
       {/* Breadcrumb */}
-      <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
+      <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
         <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
@@ -521,8 +521,8 @@ export default function EventRegisterPage() {
         <span style={{ color: "var(--ink-2)" }}>{t("registerTitle")}</span>
       </div>
 
-      <h1 style={{ fontSize: 24, letterSpacing: "-0.02em", marginBottom: 'var(--space-1)', color: "var(--ink-0)" }}>{t("registerTitle")}</h1>
-      <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 'var(--space-6)' }}>
+      <h1 style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", marginBottom: 'var(--space-1)', color: "var(--ink-0)" }}>{t("registerTitle")}</h1>
+      <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: 'var(--space-6)' }}>
         {event.name}
         {event.closeAt ? ` · ${t("register.closingLabel")} ${fmtIsoLocal(event.closeAt)}` : ""}
       </div>
@@ -553,7 +553,7 @@ export default function EventRegisterPage() {
                     style={{
                       padding: "16px 18px",
                       textAlign: "left",
-                      borderRadius: 6,
+                      borderRadius: "var(--r-md)",
                       background: active ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                       border: `1px solid ${active ? "var(--lime)" : "var(--line-soft)"}`,
                       opacity: full ? 0.5 : 1,
@@ -563,13 +563,13 @@ export default function EventRegisterPage() {
                     <div className="flex items-start" style={{ gap: 'var(--space-4)' }}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 6 }}>
-                          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)" }}>
+                          <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
                             {c.name ?? c.label ?? c.id}
                           </span>
                           {full && (
                             <Chip
                               style={{
-                                fontSize: 9,
+                                fontSize: "var(--fs-xs)",
                                 color: "var(--rose)",
                                 borderColor: "color-mix(in oklch, var(--rose) 40%, transparent)",
                               }}
@@ -582,18 +582,18 @@ export default function EventRegisterPage() {
                           <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>{c.desc}</div>
                         )}
                         {c.req && (
-                          <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: 10 }}>
+                          <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)" }}>
                             {t("register.reqPrefix")} · {c.req}
                           </div>
                         )}
                       </div>
                       {slots > 0 && (
                         <div style={{ width: 140 }}>
-                          <div className="flex justify-between" style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--ink-3)", marginBottom: 'var(--space-1)' }}>
+                          <div className="flex justify-between" style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-3)", marginBottom: 'var(--space-1)' }}>
                             <span>{filled}/{slots}</span>
                             <span>{pct}%</span>
                           </div>
-                          <div style={{ height: 3, background: "var(--bg-3)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                             <div
                               style={{
                                 width: `${pct}%`,
@@ -602,13 +602,13 @@ export default function EventRegisterPage() {
                               }}
                             />
                           </div>
-                          <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 'var(--space-1)', textAlign: "right" }}>
+                          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)', textAlign: "right" }}>
                             {t("register.remaining", { count: Math.max(0, slots - filled) })}
                           </div>
                         </div>
                       )}
                       {active && (
-                        <span aria-hidden="true" style={{ color: "var(--lime)", marginTop: 2, fontSize: 18 }}>
+                        <span aria-hidden="true" style={{ color: "var(--lime)", marginTop: 2, fontSize: "var(--fs-lg)" }}>
                           ✓
                         </span>
                       )}
@@ -627,10 +627,10 @@ export default function EventRegisterPage() {
                   padding: "12px 14px",
                   background: "color-mix(in oklch, var(--aqua) 6%, var(--bg-2))",
                   border: "1px solid color-mix(in oklch, var(--aqua) 30%, var(--line-soft))",
-                  borderRadius: 5,
+                  borderRadius: "var(--r-sm)",
                   marginBottom: 'var(--space-5)',
                   gap: 10,
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   color: "var(--ink-1)",
                 }}
               >
@@ -681,8 +681,8 @@ export default function EventRegisterPage() {
                           style={{
                             flex: 1,
                             padding: "9px 10px",
-                            fontSize: 12,
-                            borderRadius: 5,
+                            fontSize: "var(--fs-xs)",
+                            borderRadius: "var(--r-sm)",
                             background: active ? "var(--bg-3)" : "var(--bg-2)",
                             color: active ? "var(--ink-0)" : "var(--ink-3)",
                             border: `1px solid ${active ? "var(--ink-3)" : "var(--line-soft)"}`,
@@ -727,8 +727,8 @@ export default function EventRegisterPage() {
                               disabled={isCustom}
                               style={{
                                 padding: "9px 10px",
-                                fontSize: 12,
-                                borderRadius: 5,
+                                fontSize: "var(--fs-xs)",
+                                borderRadius: "var(--r-sm)",
                                 fontFamily: "var(--font-mono)",
                                 background: active ? "var(--bg-3)" : "var(--bg-2)",
                                 color: active ? "var(--ink-0)" : "var(--ink-3)",
@@ -744,7 +744,7 @@ export default function EventRegisterPage() {
                       </div>
                       {/* Rh +/- (ABO 선택 후만 활성) */}
                       <div className="flex items-center" style={{ gap: 6 }}>
-                        <span style={{ fontSize: 11, color: "var(--ink-3)", minWidth: 28 }}>Rh</span>
+                        <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", minWidth: 28 }}>Rh</span>
                         {(["+", "-"] as const).map((rh) => {
                           const active = parts.rh === rh;
                           const enabled = !!parts.abo && !isCustom;
@@ -757,8 +757,8 @@ export default function EventRegisterPage() {
                               disabled={!enabled}
                               style={{
                                 padding: "7px 18px",
-                                fontSize: 12,
-                                borderRadius: 5,
+                                fontSize: "var(--fs-xs)",
+                                borderRadius: "var(--r-sm)",
                                 fontFamily: "var(--font-mono)",
                                 background: active ? "var(--bg-3)" : "var(--bg-2)",
                                 color: active ? "var(--ink-0)" : "var(--ink-3)",
@@ -775,7 +775,7 @@ export default function EventRegisterPage() {
                           <span
                             style={{
                               marginLeft: "auto",
-                              fontSize: 11,
+                              fontSize: "var(--fs-xs)",
                               color: "var(--ink-3)",
                               fontFamily: "var(--font-mono)",
                             }}
@@ -792,8 +792,8 @@ export default function EventRegisterPage() {
                           aria-pressed={isCustom}
                           style={{
                             padding: "9px 14px",
-                            fontSize: 12,
-                            borderRadius: 5,
+                            fontSize: "var(--fs-xs)",
+                            borderRadius: "var(--r-sm)",
                             background: isCustom ? "var(--bg-3)" : "var(--bg-2)",
                             color: isCustom ? "var(--ink-0)" : "var(--ink-3)",
                             border: `1px solid ${isCustom ? "var(--ink-3)" : "var(--line-soft)"}`,
@@ -833,8 +833,8 @@ export default function EventRegisterPage() {
                         style={{
                           flex: 1,
                           padding: "9px 10px",
-                          fontSize: 12,
-                          borderRadius: 5,
+                          fontSize: "var(--fs-xs)",
+                          borderRadius: "var(--r-sm)",
                           fontFamily: "var(--font-mono)",
                           background: active ? "var(--bg-3)" : "var(--bg-2)",
                           color: active ? "var(--ink-0)" : "var(--ink-3)",
@@ -854,12 +854,12 @@ export default function EventRegisterPage() {
                   padding: "14px 16px",
                   background: "var(--bg-2)",
                   border: "1px solid var(--line-soft)",
-                  borderRadius: 6,
+                  borderRadius: "var(--r-md)",
                   marginTop: 'var(--space-1)',
                   marginBottom: 'var(--space-4)',
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-0)", marginBottom: 10 }}>{t("register.emergencyContact")}</div>
+                <div style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-0)", marginBottom: 10 }}>{t("register.emergencyContact")}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                   <input
                     type="text"
@@ -908,7 +908,7 @@ export default function EventRegisterPage() {
                       padding: "12px 14px",
                       background: "var(--bg-2)",
                       border: "1px solid var(--line-soft)",
-                      borderRadius: 6,
+                      borderRadius: "var(--r-md)",
                     }}
                   >
                     <label className="flex items-center" style={{ gap: 10, cursor: "pointer" }}>
@@ -928,24 +928,24 @@ export default function EventRegisterPage() {
                         style={{
                           width: 18,
                           height: 18,
-                          borderRadius: 4,
+                          borderRadius: "var(--r-sm)",
                           background: checked ? "var(--lime)" : "var(--bg-3)",
                           border: checked ? "none" : "1px solid var(--line-soft)",
                           display: "grid",
                           placeItems: "center",
                           flexShrink: 0,
                           color: "var(--primary-fg)",
-                          fontSize: 12,
+                          fontSize: "var(--fs-xs)",
                           fontWeight: 700,
                         }}
                       >
                         {checked ? "✓" : ""}
                       </div>
                       <div className="flex-1 flex items-center" style={{ gap: 'var(--space-2)' }}>
-                        <span style={{ fontSize: 12, color: "var(--ink-0)", fontWeight: 500 }}>{it.label}</span>
+                        <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", fontWeight: 500 }}>{it.label}</span>
                         <span
                           style={{
-                            fontSize: 10,
+                            fontSize: "var(--fs-xs)",
                             color: it.required ? "var(--rose)" : "var(--ink-3)",
                           }}
                         >
@@ -954,13 +954,13 @@ export default function EventRegisterPage() {
                       </div>
                       <Button
                         type="button" variant="secondary" size="sm"
-                        style={{ padding: "var(--space-1) var(--space-2)", fontSize: 10 }}
+                        style={{ padding: "var(--space-1) var(--space-2)", fontSize: "var(--fs-xs)" }}
                         onClick={(e) => { e.preventDefault(); showToast(t("register.fullTextSoon"), "info"); }}
                       >
                         {t("register.viewFullText")}
                       </Button>
                     </label>
-                    <div style={{ fontSize: 11, color: "var(--ink-3)", lineHeight: 1.5, marginTop: 'var(--space-2)', paddingLeft: 28 }}>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.5, marginTop: 'var(--space-2)', paddingLeft: 28 }}>
                       {it.preview}
                     </div>
                   </div>
@@ -977,7 +977,7 @@ export default function EventRegisterPage() {
                       padding: "12px 14px",
                       background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
                       border: "1px solid color-mix(in oklch, var(--lime) 25%, var(--line-soft))",
-                      borderRadius: 6,
+                      borderRadius: "var(--r-md)",
                       cursor: "pointer",
                     }}
                     onClick={() => {
@@ -990,19 +990,19 @@ export default function EventRegisterPage() {
                       style={{
                         width: 18,
                         height: 18,
-                        borderRadius: 4,
+                        borderRadius: "var(--r-sm)",
                         background: allOn ? "var(--lime)" : "var(--bg-3)",
                         border: allOn ? "none" : "1px solid var(--line-soft)",
                         display: "grid",
                         placeItems: "center",
                         color: "var(--primary-fg)",
-                        fontSize: 12,
+                        fontSize: "var(--fs-xs)",
                         fontWeight: 700,
                       }}
                     >
                       {allOn ? "✓" : ""}
                     </div>
-                    <span style={{ fontSize: 12, color: "var(--ink-0)", fontWeight: 500 }}>{t("register.agreeAll")}</span>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", fontWeight: 500 }}>{t("register.agreeAll")}</span>
                   </label>
                 );
               })()}
@@ -1017,7 +1017,7 @@ export default function EventRegisterPage() {
                   padding: 'var(--space-5)',
                   background: "var(--bg-2)",
                   border: "1px solid var(--line-soft)",
-                  borderRadius: 6,
+                  borderRadius: "var(--r-md)",
                   marginBottom: 'var(--space-4)',
                 }}
               >
@@ -1026,17 +1026,17 @@ export default function EventRegisterPage() {
                   style={{ paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid var(--line-soft)" }}
                 >
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{event.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                    <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{event.name}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
                       {(selectedCat?.name ?? selectedCat?.label) || "–"} · {data.name || "–"}
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 2 }}>{t("label.entryFee")}</Text>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 2 }}>{t("label.entryFee")}</Text>
                     <Text as="div" variant="dataMedium">₩ {(event.fee ?? 0).toLocaleString("ko-KR")}</Text>
                   </div>
                 </div>
-                <div className="flex flex-col" style={{ gap: 6, fontSize: 12 }}>
+                <div className="flex flex-col" style={{ gap: 6, fontSize: "var(--fs-xs)" }}>
                   <div className="flex justify-between">
                     <span style={{ color: "var(--ink-3)" }}>{t("label.entryFee")}</span>
                     <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
@@ -1055,10 +1055,10 @@ export default function EventRegisterPage() {
                   </div>
                   <div
                     className="flex justify-between"
-                    style={{ paddingTop: 10, marginTop: 6, borderTop: "1px solid var(--line-soft)", fontSize: 13 }}
+                    style={{ paddingTop: 10, marginTop: 6, borderTop: "1px solid var(--line-soft)", fontSize: "var(--fs-sm)" }}
                   >
                     <span style={{ color: "var(--ink-0)", fontWeight: 500 }}>{t("register.totalAmount")}</span>
-                    <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 15 }}>
+                    <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "var(--fs-sm)" }}>
                       ₩ {totalAmount.toLocaleString("ko-KR")}
                     </span>
                   </div>
@@ -1082,8 +1082,8 @@ export default function EventRegisterPage() {
                         aria-pressed={active}
                         style={{
                           padding: "14px 10px",
-                          fontSize: 12,
-                          borderRadius: 5,
+                          fontSize: "var(--fs-xs)",
+                          borderRadius: "var(--r-sm)",
                           textAlign: "center",
                           background: active ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                           color: active ? "var(--ink-0)" : "var(--ink-2)",
@@ -1105,8 +1105,8 @@ export default function EventRegisterPage() {
                   padding: "12px 14px",
                   background: "color-mix(in oklch, var(--aqua) 6%, var(--bg-2))",
                   border: "1px solid color-mix(in oklch, var(--aqua) 25%, var(--line-soft))",
-                  borderRadius: 5,
-                  fontSize: 11,
+                  borderRadius: "var(--r-sm)",
+                  fontSize: "var(--fs-xs)",
                   color: "var(--ink-1)",
                   gap: 10,
                 }}
@@ -1123,8 +1123,8 @@ export default function EventRegisterPage() {
                   marginTop: 'var(--space-2)',
                   padding: "10px 14px",
                   background: "var(--bg-2)",
-                  borderRadius: 5,
-                  fontSize: 11,
+                  borderRadius: "var(--r-sm)",
+                  fontSize: "var(--fs-xs)",
                   color: "var(--ink-3)",
                   gap: 'var(--space-2)',
                 }}
@@ -1166,8 +1166,8 @@ export default function EventRegisterPage() {
         {/* Sidebar Summary */}
         <Card padding="none" className="event-register-aside" style={{ padding: 18, position: "sticky", top: 68 }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("register.sidebarTitle")}</Text>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{event.name}</div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 14 }}>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{event.name}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 14 }}>
             {fmtDateTime(event.startTime)}
           </div>
 
@@ -1175,7 +1175,7 @@ export default function EventRegisterPage() {
             className="flex flex-col"
             style={{
               gap: 'var(--space-2)',
-              fontSize: 12,
+              fontSize: "var(--fs-xs)",
               paddingTop: 14,
               borderTop: "1px solid var(--line-soft)",
               margin: 0,
@@ -1206,7 +1206,7 @@ export default function EventRegisterPage() {
                 borderTop: "1px solid var(--line-soft)",
               }}
             >
-              <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("register.paymentDue")}</span>
+              <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("register.paymentDue")}</span>
               <Text variant="dataMedium" style={{ color: "var(--lime)" }}>
                 ₩ {totalAmount.toLocaleString("ko-KR")}
               </Text>

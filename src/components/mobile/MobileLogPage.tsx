@@ -83,14 +83,14 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
           onClick={() => navigate("/my")}>
           <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
         </div>
-        <span style={{ fontSize: 17, fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileLog.headerTitle")}</span>
+        <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileLog.headerTitle")}</span>
         <div style={{ flex: 1 }} />
         <button onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")}
           style={{
             display: "flex", alignItems: "center", gap: 'var(--space-1)',
             padding: "5px 10px", background: "var(--bg-2)",
             border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)",
-            fontSize: 11, fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
+            fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
           }}>
           <Upload size={13} />
           {t("mobileLog.importBtn")}
@@ -110,7 +110,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
               role="tab"
               aria-selected={active}
               className="flex-1 flex items-center justify-center relative"
-              style={{ padding: "12px 0", fontSize: 13, fontWeight: 500, minHeight: 44,
+              style={{ padding: "12px 0", fontSize: "var(--fs-sm)", fontWeight: 500, minHeight: 44,
                 color: active ? "var(--ink-0)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer" }}>
               {label}
               {active && <div style={{ position: "absolute", bottom: 0, left: 16, right: 16, height: 2, background: "var(--lime)", borderRadius: "2px 2px 0 0" }} />}
@@ -125,16 +125,16 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
           <div style={{ padding: 'var(--space-4)' }}>
             <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-3)' }}>
               <div className="flex items-center gap-3">
-                <button onClick={() => onChangeMonth(-1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: 14 }}>◀</button>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>{monthLabel}</span>
-                <button onClick={() => onChangeMonth(1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: 14 }}>▶</button>
+                <button onClick={() => onChangeMonth(-1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>◀</button>
+                <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{monthLabel}</span>
+                <button onClick={() => onChangeMonth(1)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>▶</button>
               </div>
             </div>
 
             <div className="grid grid-cols-7 gap-1">
               {DAY_NAMES.map((d, i) => (
                 <div key={d} style={{
-                  fontSize: 10, textAlign: "center", fontFamily: "var(--font-mono)",
+                  fontSize: "var(--fs-xs)", textAlign: "center", fontFamily: "var(--font-mono)",
                   color: i === 6 ? "var(--rose)" : i === 5 ? "var(--aqua)" : "var(--ink-4)",
                 }}>{d}</div>
               ))}
@@ -161,9 +161,9 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
                     }}
                     style={{
                       aspectRatio: "1", background: "var(--bg-2)",
-                      borderRadius: 4, display: "flex", flexDirection: "column",
+                      borderRadius: "var(--r-sm)", display: "flex", flexDirection: "column",
                       alignItems: "center", justifyContent: "center",
-                      fontSize: 10, fontFamily: "var(--font-mono)", fontWeight: 500,
+                      fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", fontWeight: 500,
                       color: isCurrentMonth ? "var(--ink-3)" : "var(--ink-4)",
                       opacity: isCurrentMonth ? 1 : 0.2,
                       cursor: dayActs.length > 0 ? "pointer" : "default",
@@ -186,16 +186,16 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
 
           {/* 월간 요약 */}
           <div style={{ padding: "14px 16px 8px" }}>
-            <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t("mobileLog.monthlySummary")}</span>
+            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t("mobileLog.monthlySummary")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2.5" style={{ padding: "0 16px 12px" }}>
             <div style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 3 }}>{t("mobileLog.activeDays")}</div>
-              <div><span style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 600, color: "var(--ink-0)" }}>{activeDays}</span><span style={{ fontSize: 12, color: "var(--ink-3)", marginLeft: 2 }}>/{daysInMonth}</span></div>
+              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 3 }}>{t("mobileLog.activeDays")}</div>
+              <div><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>{activeDays}</span><span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: 2 }}>/{daysInMonth}</span></div>
             </div>
             <div style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 3 }}>{t("mobileLog.totalSessions")}</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 600, color: "var(--ink-0)" }}>{monthActs.length}</div>
+              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 3 }}>{t("mobileLog.totalSessions")}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>{monthActs.length}</div>
             </div>
           </div>
 
@@ -211,12 +211,12 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
               const dist = acts.reduce((s, a) => s + a.summary.distance / sport.divisor, 0);
               return (
                 <div key={sport.label} style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: `color-mix(in oklch, ${sport.color} 14%, var(--bg-2))`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{sport.icon}</div>
+                  <div style={{ width: 36, height: 36, borderRadius: "var(--r-lg)", background: `color-mix(in oklch, ${sport.color} 14%, var(--bg-2))`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-lg)" }}>{sport.icon}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-0)" }}>{sport.label}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-4)" }}>{t("mobileLog.sessionCount", { count: acts.length })}</div>
+                    <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{sport.label}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("mobileLog.sessionCount", { count: acts.length })}</div>
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 16, fontWeight: 600, color: sport.color }}>{dist.toFixed(sport.unit === "m" ? 0 : 1)}<span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 2 }}>{sport.unit}</span></div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-base)", fontWeight: 600, color: sport.color }}>{dist.toFixed(sport.unit === "m" ? 0 : 1)}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: 2 }}>{sport.unit}</span></div>
                 </div>
               );
             })}
@@ -238,10 +238,10 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
             return (
               <div key={a.id} onClick={() => navigate(`/activity/${a.id}`)}
                 style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-0)", marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {a.description || t("mobileLog.defaultActivity")}
                 </div>
-                <div className="flex items-center gap-3" style={{ fontSize: 11 }}>
+                <div className="flex items-center gap-3" style={{ fontSize: "var(--fs-xs)" }}>
                   <span style={{ color: "var(--ink-4)" }}>{dateStr}</span>
                   <span style={{ color: "var(--ink-3)" }}>·</span>
                   <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>{km}km</span>
@@ -252,7 +252,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
             );
           })}
           {recentActs.length === 0 && (
-            <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: 14 }}>
+            <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
               {t("mobileLog.emptyActivity")}
             </div>
           )}
@@ -285,10 +285,10 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
           >
             {/* 핸들 */}
             <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-              <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--line)" }} />
+              <div style={{ width: 40, height: 4, borderRadius: "var(--r-xs)", background: "var(--line)" }} />
             </div>
             {/* 제목 */}
-            <div style={{ padding: "var(--space-2) var(--space-4) var(--space-3)", fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>
+            <div style={{ padding: "var(--space-2) var(--space-4) var(--space-3)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {(() => {
                 const d = new Date(dayDetailActs[0]!.startTime);
                 return t("mobileLog.dayActivitiesTitle", { month: d.getMonth() + 1, day: d.getDate(), count: dayDetailActs.length });
@@ -317,16 +317,16 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
                     }}
                   >
                     <div style={{
-                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                      width: 40, height: 40, borderRadius: "var(--r-xl)", flexShrink: 0,
                       background: `color-mix(in oklch, ${color} 16%, var(--bg-2))`,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 20,
+                      fontSize: "var(--fs-xl)",
                     }}>{icon}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {a.description || t("mobileLog.defaultActivity")}
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: 2 }}>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: 2 }}>
                         {km}km · {tmStr}{tss ? ` · ${tss}` : ""}
                       </div>
                     </div>
@@ -342,9 +342,9 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
               <button
                 onClick={() => setDayDetailActs(null)}
                 style={{
-                  width: "100%", padding: "var(--space-3)", borderRadius: 10,
+                  width: "100%", padding: "var(--space-3)", borderRadius: "var(--r-xl)",
                   background: "var(--bg-2)", border: "1px solid var(--line-soft)",
-                  fontSize: 14, fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
+                  fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
                 }}
               >
                 {t("mobileLog.close")}

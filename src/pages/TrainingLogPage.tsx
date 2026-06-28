@@ -4,6 +4,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { Upload } from "lucide-react";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import { useMobile } from "../hooks/useMobile";
@@ -134,7 +135,7 @@ function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellP
       style={{
         minHeight: 66,
         padding: "5px 6px",
-        borderRadius: 4,
+        borderRadius: "var(--r-sm)",
         background: "var(--bg-2)",
         border: `1px solid ${isToday ? "var(--lime)" : "var(--line-soft)"}`,
         opacity: isCurrentMonth ? 1 : 0.2,
@@ -151,7 +152,7 @@ function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellP
       <div className="flex items-center" style={{ gap: 'var(--space-1)' }}>
         <span
           style={{
-            fontSize: 12, fontFamily: "var(--font-mono)",
+            fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)",
             color: isToday ? "var(--lime)" : "var(--ink-3)",
             fontWeight: isToday ? 700 : 400, lineHeight: 1,
           }}
@@ -163,12 +164,12 @@ function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellP
             aria-label={t("log.activitiesCount", { count: activities.length })}
             title={t("log.activitiesCountTitle", { count: activities.length })}
             style={{
-              fontSize: 9,
+              fontSize: "var(--fs-xs)",
               fontFamily: "var(--font-mono)",
               color: "var(--ink-3)",
               lineHeight: 1,
               padding: "1px 4px",
-              borderRadius: 3,
+              borderRadius: "var(--r-xs)",
               background: "var(--bg-3)",
             }}
           >
@@ -197,7 +198,7 @@ function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellP
               gap: 3,
               color,
               padding: "1px 2px",
-              borderRadius: 3,
+              borderRadius: "var(--r-xs)",
               border: "none",
               background: "transparent",
               cursor: "pointer",
@@ -210,11 +211,11 @@ function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellP
               e.currentTarget.style.background = "transparent";
             }}
           >
-            <span style={{ fontSize: 13, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-            <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink-0)", lineHeight: 1 }}>
+            <span style={{ fontSize: "var(--fs-sm)", lineHeight: 1, flexShrink: 0 }}>{icon}</span>
+            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-0)", lineHeight: 1 }}>
               {formatActivityDist(a)}
             </span>
-            <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", color: "var(--ink-3)", lineHeight: 1, marginLeft: "auto" }}>
+            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-3)", lineHeight: 1, marginLeft: "auto" }}>
               {tss}
             </span>
           </button>
@@ -359,7 +360,7 @@ export default function TrainingLogPage() {
         setLoadedMonths((prev) => new Set(prev).add(key));
       } catch (err) {
         requestedMonths.current.delete(key); // 실패 시 재시도 허용
-        console.error("[TrainingLogPage] 활동 로드 실패:", err);
+        logClientError("TrainingLogPage.loadActivities", err, { key });
       }
     },
     [user],
@@ -532,7 +533,7 @@ export default function TrainingLogPage() {
           </Button>
           <span
             style={{
-              fontSize: 14,
+              fontSize: "var(--fs-sm)",
               fontWeight: 600,
               color: "var(--ink-0)",
               fontFamily: "var(--font-mono)",
@@ -554,7 +555,7 @@ export default function TrainingLogPage() {
               display: "flex", alignItems: "center", gap: 6,
               padding: "7px 14px", background: "var(--bg-2)",
               border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)",
-              fontSize: 12, fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
+              fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
             }}>
             <Upload size={14} />
             {t("page.import")}
@@ -615,7 +616,7 @@ export default function TrainingLogPage() {
                         style={{
                           height: 56,
                           background: "var(--bg-2)",
-                          borderRadius: 4,
+                          borderRadius: "var(--r-sm)",
                           opacity: 0.3,
                         }}
                       />
@@ -655,10 +656,10 @@ export default function TrainingLogPage() {
                     {/* 주간 TSS */}
                     <div style={{
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                      fontSize: 11, fontFamily: "var(--font-mono)", color: weekTSS > 0 ? "var(--ink-1)" : "var(--ink-4)",
+                      fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: weekTSS > 0 ? "var(--ink-1)" : "var(--ink-4)",
                       borderLeft: "1px solid var(--line-soft)", paddingLeft: 6,
                     }}>
-                      <div style={{ fontSize: 9, color: "var(--ink-3)", marginBottom: 2 }}>TSS</div>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 2 }}>TSS</div>
                       <div>{Math.round(weekTSS)}</div>
                     </div>
                   </div>
@@ -676,7 +677,7 @@ export default function TrainingLogPage() {
               marginTop: 6,
               display: "flex",
               justifyContent: "space-between",
-              fontSize: 9,
+              fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               fontFamily: "var(--font-mono)",
             }}

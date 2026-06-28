@@ -7,6 +7,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useSegmentCreator } from "../hooks/useSegmentCreator";
 import RouteMap from "../components/RouteMap";
@@ -246,7 +247,7 @@ export default function CreateSegmentPage() {
       setRangeStart(0);
       setRangeEnd(data.latlng.length - 1);
     } catch (err: unknown) {
-      console.error("Failed to load streams:", err);
+      logClientError("CreateSegmentPage.loadStreams", err, { activityId: selectedActivity?.id });
       const fbErr = err as { code?: string; message?: string; details?: unknown };
       const code = fbErr.code ?? "unknown";
       const msg = fbErr.message ?? String(err);

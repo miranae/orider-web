@@ -5,7 +5,7 @@ const ROOT = process.cwd();
 const SRC = path.join(ROOT, "src");
 const BUDGETS = {
   maxFileLines: 1550,
-  maxConsoleStatements: 112,
+  maxConsoleStatements: 10,
   maxAlertCalls: 40,
 };
 

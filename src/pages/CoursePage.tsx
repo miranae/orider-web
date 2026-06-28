@@ -451,7 +451,7 @@ export default function CoursePage() {
 
       showToast(t("error.photoUploadSuccess"));
     } catch (err) {
-      console.error("Photo upload failed:", err);
+      logClientError("CoursePage.uploadPhoto", err, { courseId });
       showToast(t("error.uploadFailed"));
     } finally {
       setUploading(false);
@@ -492,7 +492,7 @@ export default function CoursePage() {
         setLiked(true);
       }
     } catch (err) {
-      console.error("Like toggle failed:", err);
+      logClientError("CoursePage.handleToggleLike", err, { courseId, liked });
     } finally {
       setLikeLoading(false);
     }
@@ -507,7 +507,7 @@ export default function CoursePage() {
       await fn({ courseId });
       navigate("/courses", { replace: true });
     } catch (err) {
-      console.error("Delete course failed:", err);
+      logClientError("CoursePage.handleDelete", err, { courseId });
       alert(t("error.deleteFailed"));
       setDeleting(false);
     }
@@ -580,7 +580,7 @@ export default function CoursePage() {
       setEditing(false);
       showToast(t("error.updateSuccess"));
     } catch (err) {
-      console.error("Update course failed:", err);
+      logClientError("CoursePage.handleSaveEdit", err, { courseId });
       alert(t("error.updateFailed"));
     } finally {
       setSaving(false);

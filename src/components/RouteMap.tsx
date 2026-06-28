@@ -341,7 +341,7 @@ export default function RouteMap({
               zIndex: wp.active ? 100 : 1,
             }}>
               <div style={{
-                fontSize: 20, lineHeight: 1,
+                fontSize: "var(--fs-xl)", lineHeight: 1,
                 filter: wp.active
                   ? "drop-shadow(0 0 6px rgba(249,115,22,0.8)) drop-shadow(0 0 12px rgba(249,115,22,0.4))"
                   : "drop-shadow(0 1px 2px rgba(0,0,0,0.5))",
@@ -349,10 +349,10 @@ export default function RouteMap({
                 {wp.icon}
               </div>
               <div style={{
-                marginTop: 2, fontSize: 10, fontWeight: 700,
-                color: wp.active ? "#fff" : "#fff",
+                marginTop: 2, fontSize: "var(--fs-xs)", fontWeight: 700,
+                color: "var(--ink-0)",
                 background: wp.active ? "rgba(249,115,22,0.9)" : "rgba(0,0,0,0.6)",
-                borderRadius: 4, padding: "1px 4px",
+                borderRadius: "var(--r-sm)", padding: "1px 4px",
                 whiteSpace: "nowrap", maxWidth: wp.active ? 200 : 100,
                 overflow: "hidden", textOverflow: "ellipsis",
                 boxShadow: wp.active ? "0 0 8px rgba(249,115,22,0.5)" : "none",
@@ -392,7 +392,7 @@ export default function RouteMap({
                   border: "none",
                   borderRadius: "50%",
                   background: "rgba(0,0,0,0.55)",
-                  color: "#ffffff",
+                  color: "var(--ink-0)",
                   cursor: "pointer",
                   backdropFilter: "blur(2px)",
                 }}
@@ -404,10 +404,10 @@ export default function RouteMap({
               <img
                 src={selectedPhoto.url}
                 alt={selectedPhoto.caption || ""}
-                style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: 4 }}
+                style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: "var(--r-sm)" }}
               />
               {selectedPhoto.caption && (
-                <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--ink-2)" }}>{selectedPhoto.caption}</p>
+                <p style={{ margin: "8px 0 0", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{selectedPhoto.caption}</p>
               )}
             </div>
           </Popup>

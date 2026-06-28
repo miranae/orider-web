@@ -2,10 +2,11 @@
   --brand: #008986;
   --brand-dark: #006f6c;
   --brand-light: #4fd5d1;
-  --hero-bg: #101418;
-  --hero-fg: #ffffff;
   --ink: #101418;
   --ink-soft: #39424e;
+  --hero-bg: #101418;
+  --hero-fg: #ffffff;
+  --hero-muted: rgba(255,255,255,0.78);
   --muted: #687383;
   --paper: #ffffff;
   --wash: #f7f8fa;
@@ -21,6 +22,9 @@
     --brand-light: #81ede8;
     --ink: #f7f8fa;
     --ink-soft: #d6dce5;
+    --hero-bg: #071315;
+    --hero-fg: #f7f8fa;
+    --hero-muted: rgba(247,248,250,0.78);
     --muted: #a5afbd;
     --paper: #15191f;
     --wash: #0f1217;
@@ -63,7 +67,7 @@ header h1 {
 }
 
 header .subtitle {
-  color: rgba(255,255,255,0.78);
+  color: var(--hero-muted);
   font-size: 1.12rem;
   line-height: 1.75;
   margin-bottom: 0;
@@ -142,6 +146,7 @@ section {
   margin: 34px auto;
 }
 
+section > h1,
 section > h2 {
   border-bottom: 0;
   color: var(--ink);
@@ -170,14 +175,6 @@ p {
   padding: 28px;
   position: relative;
   z-index: 2;
-}
-
-.intro-hero h1 {
-  color: var(--ink);
-  font-size: clamp(1.9rem, 4vw, 3.15rem);
-  letter-spacing: 0;
-  line-height: 1.08;
-  margin-bottom: 16px;
 }
 
 .intro-hero h2 {
@@ -429,10 +426,10 @@ tr:hover td {
 }
 
 .page-links a {
-  background: var(--hero-bg);
-  border: 1px solid var(--hero-bg);
+  background: var(--brand-dark);
+  border: 1px solid var(--brand-dark);
   border-radius: 8px;
-  color: #fff;
+  color: var(--hero-fg);
   font-weight: 700;
   padding: 13px 16px;
   text-decoration: none;
@@ -445,7 +442,7 @@ tr:hover td {
 
 footer {
   background: var(--hero-bg);
-  color: rgba(255,255,255,0.76);
+  color: var(--hero-muted);
 }
 
 footer a {

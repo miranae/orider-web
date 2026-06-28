@@ -128,10 +128,10 @@ export default function SegmentEffortsCard({
                         <span
                           className="text-[9px] font-bold px-1 py-0.5 rounded-[var(--r-sm)] leading-none flex-shrink-0"
                           style={
-                            cat === "HC" ? { background: "#dc2626", color: "#fff" } :
-                            cat === "1" ? { background: "#ef4444", color: "#fff" } :
-                            cat === "2" ? { background: "var(--rose)", color: "#fff" } :
-                            cat === "3" ? { background: "var(--amber)", color: "#000" } :
+                            cat === "HC" ? { background: "var(--rose)", color: "var(--ink-0)" } :
+                            cat === "1" ? { background: "color-mix(in oklch, var(--rose) 82%, var(--amber))", color: "var(--ink-0)" } :
+                            cat === "2" ? { background: "var(--rose)", color: "var(--ink-0)" } :
+                            cat === "3" ? { background: "var(--amber)", color: "var(--primary-fg)" } :
                             { background: "var(--bg-3)", color: "var(--ink-1)" }
                           }
                         >

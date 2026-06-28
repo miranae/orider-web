@@ -111,9 +111,9 @@ export default function MobilePlanPage({
           onClick={() => navigate("/my")}>
           <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
         </div>
-        <span style={{ fontSize: 17, fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
+        <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, color: "var(--lime)", cursor: "pointer", fontWeight: 500 }}
+        <span style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", cursor: "pointer", fontWeight: 500 }}
           onClick={() => currentWeek && goalId ? setShowAddSheet(true) : navigate("/goal-setup")}>{t('mobile.addAction')}</span>
       </div>
 
@@ -126,12 +126,12 @@ export default function MobilePlanPage({
 
       {/* Week navigation */}
       <div className="flex items-center justify-center" style={{ padding: "var(--space-3) var(--space-4)", gap: 'var(--space-4)' }}>
-        <button onClick={onWeekPrev} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: 18, minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
+        <button onClick={onWeekPrev} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>◀</button>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)" }}>WEEK</div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)" }}>{weekLabel}</div>
+          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)" }}>WEEK</div>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{weekLabel}</div>
         </div>
-        <button onClick={onWeekNext} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: 18, minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
+        <button onClick={onWeekNext} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>▶</button>
       </div>
 
       {/* Weekly summary */}
@@ -155,35 +155,35 @@ export default function MobilePlanPage({
           <div style={{ margin: "0 16px 12px", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", padding: 14 }}>
             <div className="flex" style={{ marginBottom: 'var(--space-3)' }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.weeklyTSS')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 26, fontWeight: 600, color: "var(--lime)", letterSpacing: "-0.03em" }}>{Math.round(totalTSS)}</div>
+                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.weeklyTSS')}</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--lime)", letterSpacing: "-0.03em" }}>{Math.round(totalTSS)}</div>
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.timeLabel')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 26, fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em" }}>{h}h {m}m</div>
+                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.timeLabel')}</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em" }}>{h}h {m}m</div>
               </div>
               <div>
-                <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.sessions')}</div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 26, fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em" }}>{sessions}</div>
+                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.sessions')}</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em" }}>{sessions}</div>
               </div>
             </div>
             {/* Sport TSS stack bar */}
-            <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 'var(--space-2)' }}>
+            <div style={{ display: "flex", height: 6, borderRadius: "var(--r-xs)", overflow: "hidden", marginBottom: 'var(--space-2)' }}>
               {bikeTSS > 0 && <div style={{ width: `${(bikeTSS/stackTotal)*100}%`, background: "var(--aqua)" }} />}
               {runTSS > 0 && <div style={{ width: `${(runTSS/stackTotal)*100}%`, background: "var(--amber)" }} />}
               {swimTSS > 0 && <div style={{ width: `${(swimTSS/stackTotal)*100}%`, background: "var(--lime)" }} />}
             </div>
-            <div className="flex" style={{ gap: 'var(--space-3)', fontSize: 11 }}>
-              {bikeTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--aqua)" }} />🚴 {Math.round(bikeTSS)}</span>}
-              {runTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--amber)" }} />🏃 {Math.round(runTSS)}</span>}
-              {swimTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--lime)" }} />🏊 {Math.round(swimTSS)}</span>}
+            <div className="flex" style={{ gap: 'var(--space-3)', fontSize: "var(--fs-xs)" }}>
+              {bikeTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--aqua)" }} />🚴 {Math.round(bikeTSS)}</span>}
+              {runTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--amber)" }} />🏃 {Math.round(runTSS)}</span>}
+              {swimTSS > 0 && <span style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}><span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: "var(--lime)" }} />🏊 {Math.round(swimTSS)}</span>}
             </div>
           </div>
         );
       })()}
 
       {/* 운동 강도 범례 */}
-      <div style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 10, fontSize: 10, color: "var(--ink-3)" }}>
+      <div style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 10, fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
         {[
           { label: t('legend.z1Recovery'), color: "var(--ink-4)" },
           { label: t('legend.z2Endurance'), color: "var(--aqua)" },
@@ -193,7 +193,7 @@ export default function MobilePlanPage({
           { label: t('legend.longSim'), color: "var(--aqua)" },
         ].map(({ label, color }) => (
           <span key={label} style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
+            <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
             {label}
           </span>
         ))}
@@ -203,7 +203,7 @@ export default function MobilePlanPage({
       <div className="flex items-center justify-between" style={{ padding: "14px 16px 8px" }}>
         <Text variant="eyebrow">{t('mobile.weeklyPlan')}</Text>
         {onEditWorkout && editTargetIdx >= 0 && (
-          <span style={{ fontSize: 12, color: "var(--lime)", fontWeight: 500, cursor: "pointer" }}
+          <span style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, cursor: "pointer" }}
             onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</span>
         )}
       </div>
@@ -231,13 +231,13 @@ export default function MobilePlanPage({
             <div key={i} style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)' }}>
                 <div style={{ width: 32, textAlign: "center" }}>
-                  <div style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{DAY_NAMES[i]}</div>
-                  <div style={{ fontSize: 15, fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>{dayDate ? dayDate.getDate() : ""}</div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{DAY_NAMES[i]}</div>
+                  <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>{dayDate ? dayDate.getDate() : ""}</div>
                 </div>
                 <div style={{ flex: 1, padding: "var(--space-3) var(--space-2)", border: "1px dashed var(--line)", borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 'var(--space-2)',
                   background: isToday ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
-                  <span style={{ fontSize: 16 }}>🌙</span>
-                  <span style={{ fontSize: 13, color: "var(--ink-4)" }}>{t('mobile.restDay')}</span>
+                  <span style={{ fontSize: "var(--fs-base)" }}>🌙</span>
+                  <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)" }}>{t('mobile.restDay')}</span>
                 </div>
               </div>
             </div>
@@ -253,8 +253,8 @@ export default function MobilePlanPage({
               cursor: onEditWorkout ? "pointer" : "default",
             }}>
             <div style={{ width: 32, textAlign: "center" }}>
-              <div style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{DAY_NAMES[i]}</div>
-              <div style={{ fontSize: 15, fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{DAY_NAMES[i]}</div>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>
                 {dayDate ? dayDate.getDate() : ""}
               </div>
             </div>
@@ -266,7 +266,7 @@ export default function MobilePlanPage({
                   const c = getDisciplineColor(d);
                   return (
                     <span style={{
-                      fontSize: 9, fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: 3,
+                      fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: "var(--r-xs)",
                       background: `color-mix(in oklch, ${c} 14%, var(--bg-2))`,
                       color: c, border: `1px solid color-mix(in oklch, ${c} 30%, transparent)`,
                       display: "flex", alignItems: "center", gap: 2,
@@ -274,7 +274,7 @@ export default function MobilePlanPage({
                   );
                 })()}
                 <span style={{
-                  fontSize: 9, fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: 3,
+                  fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: "var(--r-xs)",
                   background: "var(--bg-3)", color: intensityColor,
                 }}>{intensityLabel}</span>
                 {/* 자동 조정 chip — week 단위 canonical factor 사용 */}
@@ -282,16 +282,16 @@ export default function MobilePlanPage({
                   <AdjustedChip factor={currentWeek.adjustmentFactor} />
                 )}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-0)" }}>{label}</div>
-              <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{label}</div>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
                 {state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned')}
               </div>
             </div>
-            {state === "done" && <span style={{ color: "var(--lime)", fontSize: 16 }}>✓</span>}
+            {state === "done" && <span style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
             {state === "today" && onEditWorkout && (
               <button
                 onClick={(e) => { e.stopPropagation(); openEditFor(i); }}
-                style={{ padding: "10px 14px", background: "var(--lime)", color: "var(--primary-fg)", border: "none", borderRadius: "var(--r-sm)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                style={{ padding: "10px 14px", background: "var(--lime)", color: "var(--primary-fg)", border: "none", borderRadius: "var(--r-sm)", fontSize: "var(--fs-xs)", fontWeight: 600, cursor: "pointer" }}>
                 {t('mobile.start')}
               </button>
             )}

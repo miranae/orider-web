@@ -43,7 +43,7 @@
   text-decoration: none; font-size: 0.86rem; border-bottom: 1px solid var(--border);
 }
 .gb-results a:last-child { border-bottom: none; }
-.gb-results a:hover, .gb-results a.sel { background: rgba(249,115,22,0.12); color: var(--primary); }
+.gb-results a:hover, .gb-results a.sel { background: color-mix(in oklab, var(--primary) 12%, transparent); color: var(--primary); }
 .gb-results .r-grp { color: var(--text2); font-size: 0.72rem; }
 .gb-results .r-empty { padding: 12px 13px; color: var(--text2); font-size: 0.85rem; }
 
@@ -62,7 +62,7 @@
 }
 .gb-link:hover { background: var(--surface2); }
 .gb-link.active {
-  background: rgba(249,115,22,0.12); color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 12%, transparent); color: var(--primary);
   font-weight: 700; border-left-color: var(--primary);
 }
 .gb-link .lvl { margin-left: auto; }

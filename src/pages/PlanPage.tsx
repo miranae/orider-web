@@ -60,7 +60,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
         onClick={onClick}
         style={{
           padding: '6px 6px',
-          borderRadius: 4,
+          borderRadius: "var(--r-sm)",
           minHeight: 62,
           cursor: 'pointer',
           background: 'var(--bg-2)',
@@ -72,16 +72,16 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
           gap: 'var(--space-1)',
         }}
       >
-        <div style={{ fontSize: 11, color: 'var(--ink-3)', textDecoration: 'line-through', paddingLeft: 6 }}>
+        <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'line-through', paddingLeft: 6 }}>
           {meta.label}
         </div>
-        <div style={{ fontSize: 9, color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'var(--font-mono)' }}>
+        <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'var(--font-mono)' }}>
           {t('page.skipped')}
         </div>
         {/* 날짜 — 우상단 */}
         <div style={{
           position: 'absolute', top: 4, right: 4,
-          fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)',
+          fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: 'var(--ink-4)',
         }}>
           {formatDateLabel(day.date, day.dayOfWeek)}
         </div>
@@ -94,7 +94,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
       <div
         style={{
           padding: '6px 4px',
-          borderRadius: 4,
+          borderRadius: "var(--r-sm)",
           minHeight: 62,
           background: 'var(--lime)',
           color: 'var(--primary-fg)',
@@ -109,11 +109,11 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
-        <div style={{ fontSize: 11, fontWeight: 700, marginTop: 'var(--space-1)', letterSpacing: '0.04em' }}>{t('page.goalDay')}</div>
+        <div style={{ fontSize: "var(--fs-xs)", fontWeight: 700, marginTop: 'var(--space-1)', letterSpacing: '0.04em' }}>{t('page.goalDay')}</div>
         {/* 날짜 — 우상단 */}
         <div style={{
           position: 'absolute', top: 4, right: 4,
-          fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--primary-fg)', opacity: 0.7,
+          fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: 'var(--primary-fg)', opacity: 0.7,
         }}>
           {formatDateLabel(day.date, day.dayOfWeek)}
         </div>
@@ -126,7 +126,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
       onClick={!isGoal ? onClick : undefined}
       style={{
         padding: '6px 6px',
-        borderRadius: 4,
+        borderRadius: "var(--r-sm)",
         minHeight: 62,
         cursor: !isGoal ? 'pointer' : 'default',
         background: isToday
@@ -146,7 +146,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
           width: 3,
           height: 18,
           background: isMissed ? 'var(--rose)' : meta.color,
-          borderRadius: 2,
+          borderRadius: "var(--r-xs)",
           position: 'absolute',
           top: 6,
           left: 0,
@@ -154,7 +154,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
       />
       <div
         style={{
-          fontSize: 11,
+          fontSize: "var(--fs-xs)",
           color: 'var(--ink-0)',
           fontWeight: 500,
           paddingLeft: 6,
@@ -166,7 +166,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
       {effectiveTSS > 0 && (
         <div
           style={{
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             color: 'var(--ink-2)',
             paddingLeft: 6,
             fontFamily: 'var(--font-mono)',
@@ -211,7 +211,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
           gap: 3,
           whiteSpace: 'nowrap',
           fontFamily: 'var(--font-mono)',
-          fontSize: 10,
+          fontSize: "var(--fs-xs)",
           color: isToday ? 'var(--lime)' : isMissed ? 'var(--rose)' : 'var(--ink-3)',
           fontWeight: isToday || isMissed ? 700 : 500,
         }}
@@ -222,7 +222,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
           <>
             {completionRatio != null && (
               <span style={{
-                fontSize: 9,
+                fontSize: "var(--fs-xs)",
                 color: completionRatio >= 0.8 ? 'var(--lime)' : 'var(--amber)',
               }}>
                 {Math.min(999, Math.round(completionRatio * 100))}%
@@ -244,7 +244,7 @@ function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) 
           <span
             role="img"
             aria-label={t('page.missed')}
-            style={{ color: 'var(--rose)', fontSize: 12, lineHeight: 1 }}
+            style={{ color: 'var(--rose)', fontSize: "var(--fs-xs)", lineHeight: 1 }}
           >—</span>
         )}
       </div>
@@ -308,7 +308,7 @@ function SkeletonGrid() {
             style={{
               height: 62,
               background: 'var(--bg-2)',
-              borderRadius: 4,
+              borderRadius: "var(--r-sm)",
               opacity: 0.5,
             }}
           />
@@ -318,7 +318,7 @@ function SkeletonGrid() {
               style={{
                 height: 62,
                 background: 'var(--bg-2)',
-                borderRadius: 4,
+                borderRadius: "var(--r-sm)",
                 opacity: 0.3,
               }}
             />
@@ -327,7 +327,7 @@ function SkeletonGrid() {
             style={{
               height: 62,
               background: 'var(--bg-2)',
-              borderRadius: 4,
+              borderRadius: "var(--r-sm)",
               opacity: 0.3,
             }}
           />
@@ -379,7 +379,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
           minWidth: 160,
           display: 'flex',
           height: 20,
-          borderRadius: 4,
+          borderRadius: "var(--r-sm)",
           overflow: 'hidden',
           gap: 2,
         }}
@@ -394,7 +394,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 11,
+              fontSize: "var(--fs-xs)",
               fontFamily: 'var(--font-mono)',
               color: 'var(--primary-fg)',
               fontWeight: 600,
@@ -451,10 +451,10 @@ function Legend() {
         gap: 'var(--space-4)',
         marginTop: 14,
         padding: '12px 14px',
-        fontSize: 11,
+        fontSize: "var(--fs-xs)",
         background: 'var(--bg-1)',
         border: '1px solid var(--line-soft)',
-        borderRadius: 6,
+        borderRadius: "var(--r-md)",
         flexWrap: 'wrap',
         alignItems: 'center',
       }}
@@ -466,7 +466,7 @@ function Legend() {
               width: 3,
               height: 12,
               background: color,
-              borderRadius: 2,
+              borderRadius: "var(--r-xs)",
               display: 'inline-block',
             }}
           />
@@ -736,7 +736,7 @@ export default function PlanPage() {
             >
               <h1
                 style={{
-                  fontSize: 30,
+                  fontSize: "var(--fs-3xl)",
                   fontWeight: 700,
                   color: 'var(--ink-0)',
                   margin: 0,
@@ -746,10 +746,10 @@ export default function PlanPage() {
               </h1>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: "var(--fs-xs)",
                   fontWeight: 600,
                   padding: '2px 8px',
-                  borderRadius: 999,
+                  borderRadius: "9999px",
                   background: 'var(--bg-2)',
                   border: '1px solid var(--lime)',
                   color: 'var(--lime)',
@@ -763,7 +763,7 @@ export default function PlanPage() {
               style={{
                 display: 'flex',
                 gap: 'var(--space-5)',
-                fontSize: 13,
+                fontSize: "var(--fs-sm)",
                 color: 'var(--ink-2)',
                 fontFamily: 'var(--font-mono)',
                 flexWrap: 'wrap',
@@ -817,7 +817,7 @@ export default function PlanPage() {
                 style={{
                   padding: '18px 16px',
                   background: 'var(--bg-2)',
-                  borderRadius: 6,
+                  borderRadius: "var(--r-md)",
                   border: '1px solid var(--line-soft)',
                 }}
               >
@@ -827,7 +827,7 @@ export default function PlanPage() {
                   {unit && (
                     <span
                       style={{
-                        fontSize: 13,
+                        fontSize: "var(--fs-sm)",
                         color: 'var(--ink-2)',
                         fontFamily: 'var(--font-mono)',
                       }}
@@ -929,7 +929,7 @@ export default function PlanPage() {
                   padding: '40px 14px',
                   textAlign: 'center',
                   color: 'var(--ink-3)',
-                  fontSize: 13,
+                  fontSize: "var(--fs-sm)",
                 }}
               >
                 {t('page.planEmptyBody')}
@@ -966,7 +966,7 @@ export default function PlanPage() {
                     >
                       <div
                         style={{
-                          fontSize: 13,
+                          fontSize: "var(--fs-sm)",
                           fontWeight: 600,
                           color: 'var(--ink-0)',
                         }}
@@ -975,7 +975,7 @@ export default function PlanPage() {
                       </div>
                       <div
                         style={{
-                          fontSize: 11,
+                          fontSize: "var(--fs-xs)",
                           color: pc,
                           fontFamily: 'var(--font-mono)',
                         }}
@@ -1013,7 +1013,7 @@ export default function PlanPage() {
                       <Text variant="dataMedium">{weekTSS}</Text>
                       <div
                         style={{
-                          fontSize: 10,
+                          fontSize: "var(--fs-xs)",
                           color: 'var(--ink-3)',
                           fontFamily: 'var(--font-mono)',
                         }}

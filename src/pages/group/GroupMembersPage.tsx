@@ -5,6 +5,7 @@ import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { collection, getDocs, orderBy, query, where, limit, deleteDoc, doc as fsDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useGroup, useGroupMembers } from "../../hooks/useGroup";
 import GroupSubNav from "../../components/group/GroupSubNav";
@@ -169,7 +170,7 @@ export default function GroupMembersPage() {
         try {
           await removeFn({ groupId, targetUserId });
         } catch (err) {
-          console.warn("[bulk remove]", targetUserId, err);
+          logClientError("GroupMembersPage.handleBulkRemove", err, { groupId, targetUserId });
         }
       }
       setSelected(new Set());
@@ -187,7 +188,7 @@ export default function GroupMembersPage() {
       await fn({ groupId, userId });
       setPending((prev) => prev.filter((p) => p.userId !== userId));
     } catch (err) {
-      console.error("[approve]", err);
+      logClientError("GroupMembersPage.handleApprove", err, { groupId, userId });
       alert(err instanceof Error ? err.message : t("error.approveFailed"));
     }
   };
@@ -198,7 +199,7 @@ export default function GroupMembersPage() {
       await deleteDoc(fsDoc(firestore, "groups", groupId, "pending", userId));
       setPending((prev) => prev.filter((p) => p.userId !== userId));
     } catch (err) {
-      console.error(err);
+      logClientError("GroupMembersPage.handleReject", err, { groupId, userId });
     }
   };
 

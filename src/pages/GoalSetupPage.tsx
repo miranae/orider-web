@@ -5,6 +5,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { httpsCallable } from "firebase/functions";
 import { doc, getDoc } from "firebase/firestore";
 import { firestore, functions } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useCourses } from "../hooks/useCourses";
 import { GoalDetailsStep, PlanPreviewStep, RunGoalSetupWizard, SwimGoalSetupWizard } from "../components/training";
@@ -117,7 +118,7 @@ function Stepper({ current, steps }: StepperProps) {
                     : "var(--ink-3)",
                   display: "grid",
                   placeItems: "center",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   fontFamily: "var(--font-mono)",
                   fontWeight: 600,
                   flexShrink: 0,
@@ -132,10 +133,10 @@ function Stepper({ current, steps }: StepperProps) {
                 )}
               </div>
               <div>
-                <Text as="div" variant="eyebrow" style={{ fontSize: 9 }}>{t('goals.stepLabel')} {n}</Text>
+                <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)" }}>{t('goals.stepLabel')} {n}</Text>
                 <div
                   style={{
-                    fontSize: 13,
+                    fontSize: "var(--fs-sm)",
                     fontWeight: 500,
                     color: active || done ? "var(--ink-0)" : "var(--ink-3)",
                   }}
@@ -205,11 +206,11 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
   if (courses.length === 0) {
     return (
       <Card padding="none" style={{ padding: 40, textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 'var(--space-3)' }}>🗺️</div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-1)", marginBottom: 6 }}>
+        <div style={{ fontSize: "var(--fs-5xl)", marginBottom: 'var(--space-3)' }}>🗺️</div>
+        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-1)", marginBottom: 6 }}>
           {t('goals.courseEmpty')}
         </div>
-        <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t('goals.courseEmptyDesc')}
         </div>
       </Card>
@@ -224,10 +225,10 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
       <div style={{ marginBottom: 'var(--space-4)' }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
+            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
               {t('goals.courseSelectInstructions')}
             </div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               {t('goals.courseSelectDetail')}
             </div>
           </div>
@@ -239,7 +240,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
             style={{
               width: 200,
               padding: "6px 10px",
-              fontSize: 13,
+              fontSize: "var(--fs-sm)",
               borderRadius: "var(--r-md)",
               border: "1px solid var(--line)",
               background: "var(--bg-2)",
@@ -253,7 +254,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
       {/* Course grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, maxHeight: 400, overflowY: "auto", paddingRight: 'var(--space-1)' }}>
         {filtered.length === 0 && searchQuery && (
-          <div style={{ gridColumn: "1 / -1", padding: 'var(--space-5)', textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+          <div style={{ gridColumn: "1 / -1", padding: 'var(--space-5)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>
             {t('goals.courseSearchEmpty', { query: searchQuery })}
           </div>
         )}
@@ -281,7 +282,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginBottom: 6 }}>
                 <span
                   style={{
-                    fontSize: 13,
+                    fontSize: "var(--fs-sm)",
                     fontWeight: 600,
                     color: "var(--ink-0)",
                     flex: 1,
@@ -301,7 +302,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
 
               {/* Region */}
               {c.regions && c.regions.length > 0 && (
-                <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
                   {c.regions.join(" · ")}
                 </div>
               )}
@@ -311,7 +312,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
                 style={{
                   display: "flex",
                   gap: 14,
-                  fontSize: 11,
+                  fontSize: "var(--fs-xs)",
                   fontFamily: "var(--font-mono)",
                 }}
               >
@@ -338,7 +339,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
           border: "1px dashed var(--line)",
           borderRadius: "var(--r-md)",
           marginTop: 'var(--space-4)',
-          fontSize: 12,
+          fontSize: "var(--fs-xs)",
           color: "var(--lime)",
           display: "flex",
           alignItems: "center",
@@ -498,7 +499,13 @@ export default function GoalSetupPage() {
       const data = result.data as { goalId: string };
       navigate(`/plan?goalId=${data.goalId}`);
     } catch (err) {
-      console.error(t('errors.creationFailed'), err);
+      logClientError('GoalSetupPage.handleStart', err, {
+        courseId: selectedCourseId,
+        eventType: goalDetails.eventType,
+        eventDate: goalDetails.eventDate,
+        weeklySessions: goalDetails.weeklySessions,
+        discipline,
+      });
       setCreateError(t('errors.creationError'));
       setSubmitting(false);
     }
@@ -516,10 +523,10 @@ export default function GoalSetupPage() {
           <Text as="div" variant="eyebrow">{eyebrowLabel}</Text>
           <DisciplineTabs />
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
+        <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
           {pageTitle}
         </h1>
-        <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 6 }}>
+        <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginTop: 6 }}>
           {pageSubtitle}
         </p>
       </div>
@@ -575,7 +582,7 @@ export default function GoalSetupPage() {
                 background: "color-mix(in oklch, var(--rose) 10%, var(--bg-1))",
                 border: "1px solid var(--rose)",
                 borderRadius: "var(--r-md)",
-                fontSize: 13,
+                fontSize: "var(--fs-sm)",
                 color: "var(--rose)",
               }}
             >

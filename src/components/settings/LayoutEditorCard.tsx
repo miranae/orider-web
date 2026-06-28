@@ -203,9 +203,9 @@ export function LayoutEditorCard({ config, onSave }: Props) {
             onClick={() => setActivePage(i)}
             style={{
               padding: "5px 12px",
-              fontSize: 12,
+              fontSize: "var(--fs-xs)",
               fontFamily: "var(--font-mono)",
-              borderRadius: 6,
+              borderRadius: "var(--r-md)",
               border: "1px solid var(--line-soft)",
               background: i === activePage ? "var(--bg-3)" : "var(--bg-2)",
               color: i === activePage ? "var(--ink-0)" : "var(--ink-3)",
@@ -244,7 +244,7 @@ export function LayoutEditorCard({ config, onSave }: Props) {
           gap: 'var(--space-1)',
           background: "var(--bg-2)",
           padding: 'var(--space-2)',
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           marginBottom: picker ? 8 : 0,
         }}
       >
@@ -259,8 +259,8 @@ export function LayoutEditorCard({ config, onSave }: Props) {
               border: "1px dashed var(--line-soft)",
               background: "transparent",
               color: "var(--ink-4)",
-              fontSize: 11,
-              borderRadius: 4,
+              fontSize: "var(--fs-xs)",
+              borderRadius: "var(--r-sm)",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
@@ -286,7 +286,7 @@ export function LayoutEditorCard({ config, onSave }: Props) {
                   ? "color-mix(in oklch, var(--lime) 14%, var(--bg-1))"
                   : "var(--bg-1)",
                 border: `1px solid ${isSelected ? "var(--lime)" : "var(--line-soft)"}`,
-                borderRadius: 4,
+                borderRadius: "var(--r-sm)",
                 padding: "4px 6px",
                 cursor: "pointer",
                 display: "flex",
@@ -294,7 +294,7 @@ export function LayoutEditorCard({ config, onSave }: Props) {
                 justifyContent: "space-between",
                 alignItems: "stretch",
                 position: "relative",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 color: "var(--ink-1)",
                 overflow: "hidden",
               }}
@@ -313,7 +313,7 @@ export function LayoutEditorCard({ config, onSave }: Props) {
               {(f.colSpan > 1 || f.rowSpan > 1) && (
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: "var(--fs-xs)",
                     color: "var(--ink-3)",
                     fontFamily: "var(--font-mono)",
                   }}
@@ -393,7 +393,7 @@ function PickerPanel({
       style={{
         background: "var(--bg-1)",
         border: "1px solid var(--line-soft)",
-        borderRadius: 8,
+        borderRadius: "var(--r-lg)",
         padding: 'var(--space-3)',
         marginTop: 'var(--space-3)',
       }}
@@ -406,7 +406,7 @@ function PickerPanel({
           marginBottom: 'var(--space-3)',
         }}
       >
-        <div style={{ fontSize: 13, color: "var(--ink-1)", fontWeight: 600 }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 600 }}>
           {picker.mode === "new"
             ? t("layout.pickerAddTitle", { col: picker.col + 1, row: picker.row + 1 })
             : t("layout.pickerEditTitle", { label: editing ? t(DATA_FIELD_LABEL_KEYS[editing.type]) : "" })}
@@ -429,7 +429,7 @@ function PickerPanel({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{t("layout.spanWidth")}</span>
+            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("layout.spanWidth")}</span>
             <Button variant="ghost" size="sm"
               onClick={() => onSpan(-1, 0)}
               disabled={editing.colSpan <= 1}
@@ -439,7 +439,7 @@ function PickerPanel({
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 width: 16,
                 textAlign: "center",
               }}
@@ -453,7 +453,7 @@ function PickerPanel({
             </Button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: "var(--ink-3)" }}>{t("layout.spanHeight")}</span>
+            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("layout.spanHeight")}</span>
             <Button variant="ghost" size="sm"
               onClick={() => onSpan(0, -1)}
               disabled={editing.rowSpan <= 1}
@@ -463,7 +463,7 @@ function PickerPanel({
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 width: 16,
                 textAlign: "center",
               }}
@@ -495,9 +495,9 @@ function PickerPanel({
           width: "100%",
           padding: "6px 10px",
           marginBottom: 'var(--space-3)',
-          fontSize: 13,
+          fontSize: "var(--fs-sm)",
           border: "1px solid var(--line)",
-          borderRadius: 6,
+          borderRadius: "var(--r-md)",
           background: "var(--bg-2)",
           color: "var(--ink-0)",
         }}
@@ -515,7 +515,7 @@ function PickerPanel({
           <div key={g.titleKey}>
             <div
               style={{
-                fontSize: 10,
+                fontSize: "var(--fs-xs)",
                 color: "var(--ink-3)",
                 fontFamily: "var(--font-mono)",
                 textTransform: "uppercase",
@@ -540,8 +540,8 @@ function PickerPanel({
                     onClick={() => onSelect(f)}
                     style={{
                       padding: "5px 8px",
-                      fontSize: 11,
-                      borderRadius: 4,
+                      fontSize: "var(--fs-xs)",
+                      borderRadius: "var(--r-sm)",
                       border: `1px solid ${
                         isCurrent ? "var(--lime)" : "var(--line-soft)"
                       }`,
@@ -564,7 +564,7 @@ function PickerPanel({
           </div>
         ))}
         {filteredGroups.length === 0 && (
-          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
             {t("layout.noResults")}
           </div>
         )}

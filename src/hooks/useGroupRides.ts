@@ -3,6 +3,7 @@ import {
   collection, query, where, orderBy, getDocs, limit as firestoreLimit,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import type { Activity } from "@shared/types";
 
 export interface GroupRideSummary {
@@ -70,7 +71,7 @@ export function useGroupRides(memberIds: string[], pageSize = 20) {
 
         setRides(newRides);
       } catch (err) {
-        console.error("[useGroupRides]", err);
+        logClientError("useGroupRides.fetchRides", err, { memberCount: memberIds.length });
       }
       setLoading(false);
     };

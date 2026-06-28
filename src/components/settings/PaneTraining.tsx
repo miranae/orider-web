@@ -367,7 +367,7 @@ export function PaneTraining() {
               className="rounded-[var(--r-sm)] transition-colors"
               style={{
                 padding: "5px 10px",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 border: `1px solid ${ftpTestProtocol === p ? "var(--lime)" : "var(--line-soft)"}`,
                 background: ftpTestProtocol === p ? "color-mix(in oklch, var(--lime) 12%, transparent)" : "transparent",
                 color: ftpTestProtocol === p ? "var(--lime)" : "var(--ink-2)",
@@ -392,9 +392,9 @@ export function PaneTraining() {
           const curFtp = ftp ? Number(ftp) : null;
           return (
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <Text as="div" variant="num" style={{ fontSize: 20, color: "var(--ink-0)", lineHeight: 1 }}>
-                {ftpTestCandidate}<span style={{ fontSize: 12, color: "var(--ink-4)", marginLeft: 3 }}>W</span>
-                <span style={{ fontSize: 12, color: "var(--ink-4)", marginLeft: 8 }}>
+              <Text as="div" variant="num" style={{ fontSize: "var(--fs-xl)", color: "var(--ink-0)", lineHeight: 1 }}>
+                {ftpTestCandidate}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: 3 }}>W</span>
+                <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: 8 }}>
                   {t("training.ftpTest.candidate")}{curFtp ? ` · ${t("training.ftpTest.current")} ${curFtp}W` : ""}
                 </span>
               </Text>
@@ -405,7 +405,7 @@ export function PaneTraining() {
                   setFtp(String(ftpTestCandidate));
                   showToast(t("training.ftpTest.applied"));
                 }}
-                style={{ padding: "6px 14px", fontSize: 13 }}
+                style={{ padding: "6px 14px", fontSize: "var(--fs-sm)" }}
               >
                 {t("training.ftpTest.apply")}
               </Button>
@@ -469,7 +469,7 @@ export function PaneTraining() {
         action={<Text variant="eyebrow">{t("training.hrZonesActionBpm", { bpm: maxHrN })}</Text>}
       >
         <ZoneBar refValue={maxHrN} zones={RD_HR_ZONES} />
-        <div style={{ marginTop: 'var(--space-4)', fontSize: 11, color: "var(--ink-3)" }}>
+        <div style={{ marginTop: 'var(--space-4)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
           {t("training.hrZonesNote")}
         </div>
       </SettingsCard>

@@ -8,6 +8,7 @@ import { collection, query, where, doc, getDoc, onSnapshot, orderBy, limit } fro
 
 import { toLocalDate } from "../utils/dateUtils";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import {
   estimateActivityLoad,
@@ -169,7 +170,7 @@ export default function FitnessPage() {
         }
       },
       (err) => {
-        console.warn("[FitnessPage] activities subscribe fail:", err);
+        logClientError("FitnessPage.activitiesSubscription", err, { range });
         setError(t("error.loadFailed"));
         setLoading(false);
       },
@@ -258,13 +259,13 @@ export default function FitnessPage() {
               const projData = snap.data() as FitnessProjection;
               if (projData.goalId === goal.id) setProjection(projData);
             },
-            (err) => console.warn("[FitnessPage] projection subscribe fail:", err),
+            (err) => logClientError("FitnessPage.projectionSubscription", err, { discipline, goalId: goal.id }),
           );
           projUnsubRef.current = unsub;
         }
       },
       (err) => {
-        console.error("[FitnessPage] 목표 구독 실패:", err);
+        logClientError("FitnessPage.goalSubscription", err, { discipline });
         setGoalQueryDone(true);
       },
     );
@@ -584,7 +585,7 @@ export default function FitnessPage() {
   if (!user) {
     return (
       <div style={{ maxWidth: 1440, margin: "0 auto", textAlign: "center", padding: "64px 24px", color: "var(--ink-3)" }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 'var(--space-2)', color: "var(--ink-1)" }}>{t("login.title")}</h2>
+        <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, marginBottom: 'var(--space-2)', color: "var(--ink-1)" }}>{t("login.title")}</h2>
         <p>{t("login.hint")}</p>
       </div>
     );
@@ -650,17 +651,19 @@ export default function FitnessPage() {
       : null;
 
   // #461 VO2max 월별 트렌드 — pdc.history 의 월별 mmp("5m"|"1h"=CP 폴백)와 체중으로 파생(서버 미저장, 클라 계산).
-  const vo2maxTrend = useMemo(() => {
-    if (discipline !== "bike" || !pdc?.history?.length) return [];
-    const weightKg = profile?.weightKg ?? pdc.weightKgSnapshot ?? null;
-    if (weightKg == null) return [];
-    return pdc.history
-      .map((h) => ({
-        period: h.period,
-        v: estimateCyclingVo2max({ power5minW: h.mmp?.["5m"] ?? null, cpW: pdc.cp?.value ?? null, weightKg }),
-      }))
-      .filter((p): p is { period: string; v: number } => p.v != null);
-  }, [discipline, pdc, profile?.weightKg]);
+  const vo2maxTrend =
+    discipline !== "bike" || !pdc?.history?.length
+      ? []
+      : (() => {
+          const weightKg = profile?.weightKg ?? pdc.weightKgSnapshot ?? null;
+          if (weightKg == null) return [];
+          return pdc.history
+            .map((h) => ({
+              period: h.period,
+              v: estimateCyclingVo2max({ power5minW: h.mmp?.["5m"] ?? null, cpW: pdc.cp?.value ?? null, weightKg }),
+            }))
+            .filter((p): p is { period: string; v: number } => p.v != null);
+        })();
 
   // 강점/약점 — mmpAll(duration 별 best)과 CP 모델 기대파워 갭 분류.
   const powerGaps: GapEntry[] =
@@ -691,24 +694,24 @@ export default function FitnessPage() {
             mode={revalidating ? "updating" : "success"}
           />
         </Text>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "var(--ink-0)", marginBottom: 6 }}>
+        <h1 style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, color: "var(--ink-0)", marginBottom: 6 }}>
           {t("header.title")}
         </h1>
-        <div style={{ color: "var(--ink-2)", fontSize: 13 }}>
+        <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
           {subtitleParts.join(" ")}
         </div>
       </div>
       <div style={{ display: "flex", gap: 'var(--space-2)', alignItems: "center" }}>
         <DisciplineTabs includeTri />
-          <div style={{ display: "flex", gap: 2, background: "var(--bg-1)", padding: 3, borderRadius: 6, border: "1px solid var(--line-soft)" }}>
+          <div style={{ display: "flex", gap: 2, background: "var(--bg-1)", padding: 3, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
             {getRangeOptions(t).map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => setRange(opt.value)}
                 style={{
                   padding: "5px 12px",
-                  fontSize: 12,
-                  borderRadius: 4,
+                  fontSize: "var(--fs-xs)",
+                  borderRadius: "var(--r-sm)",
                   background: range === opt.value ? "var(--bg-3)" : "transparent",
                   color: range === opt.value ? "var(--ink-0)" : "var(--ink-3)",
                   border: "none",
@@ -845,10 +848,10 @@ export default function FitnessPage() {
                   <Text variant="eyebrow">{s.label}</Text>
                 </div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
-                  <Text variant="dataHero" style={{ fontSize: 36, color: s.color }}>{s.value}</Text>
+                  <Text variant="dataHero" style={{ fontSize: "var(--fs-4xl)", color: s.color }}>{s.value}</Text>
                   {s.unit && <Text variant="unit">{s.unit}</Text>}
                 </div>
-                <div style={{ fontSize: 10, color: "var(--ink-3)" }}>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
                   <Text variant="mono">{s.sub}</Text>
                   {s.sub && s.desc && <span style={{ color: "var(--ink-4)", margin: "0 5px" }}>·</span>}
                   {s.desc && <span>{s.desc}</span>}
@@ -969,11 +972,11 @@ export default function FitnessPage() {
         {pacingGuide && pdc?.cp != null && (
           <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("pacing.title")}</Text>
-            <Text as="div" variant="num" style={{ fontSize: 22, color: "var(--ink-0)", lineHeight: 1.1 }}>
+            <Text as="div" variant="num" style={{ fontSize: "var(--fs-xl)", color: "var(--ink-0)", lineHeight: 1.1 }}>
               {pacingGuide.lowerW}–{pacingGuide.upperW}
-              <span style={{ fontSize: 13, color: "var(--ink-4)", marginLeft: 4 }}>W</span>
+              <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)", marginLeft: 4 }}>W</span>
               {pacingGuide.lowerWkg != null && pacingGuide.upperWkg != null && (
-                <span style={{ fontSize: 13, color: "var(--ink-3)", marginLeft: 8 }}>
+                <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginLeft: 8 }}>
                   · {pacingGuide.lowerWkg.toFixed(2)}–{pacingGuide.upperWkg.toFixed(2)} W/kg
                 </span>
               )}
@@ -1005,11 +1008,11 @@ export default function FitnessPage() {
         <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
           <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 14 }}>
             <div>
-              <h3 style={{ margin: 0, marginBottom: 3, fontSize: 15, fontWeight: 600, color: "var(--ink-0)" }}>{t("pmc.title")}</h3>
-              <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{projection ? t("pmc.subWithProjection", { range }) : t("pmc.subActual", { range })}</div>
+              <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("pmc.title")}</h3>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{projection ? t("pmc.subWithProjection", { range }) : t("pmc.subActual", { range })}</div>
             </div>
             <div style={{ flex: 1 }} />
-            <div style={{ display: "flex", gap: 'var(--space-4)', fontSize: 11, color: "var(--ink-3)", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 'var(--space-4)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 14, height: 2, background: "var(--lime)" }} /> {t("pmc.legend.ctl")}
               </span>
@@ -1043,7 +1046,7 @@ export default function FitnessPage() {
               goalTSB={projection?.goalDay.tsb ?? null}
             />
           ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 280, fontSize: 14, color: "var(--ink-3)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 280, fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
               {t("pmc.empty")}
             </div>
           )}
@@ -1065,7 +1068,7 @@ export default function FitnessPage() {
                   padding: 14,
                   background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
                   border: "1px solid color-mix(in oklch, var(--lime) 20%, var(--line-soft))",
-                  borderRadius: 6,
+                  borderRadius: "var(--r-md)",
                   display: "grid",
                   gridTemplateColumns: "2fr repeat(3, 1fr) auto",
                   gap: 'var(--space-5)',
@@ -1076,9 +1079,9 @@ export default function FitnessPage() {
                   <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: 'var(--space-1)' }}>
                     {t("goal.eyebrow", { course: activeGoal.courseName })}
                   </Text>
-                  <div style={{ fontSize: 13, color: "var(--ink-0)", fontWeight: 500 }}>
+                  <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
                     {eventDateStr} · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text>
-                    <span style={{ color: "var(--ink-3)", fontSize: 11, marginLeft: 10 }}>
+                    <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: 10 }}>
                       {activeGoal.courseDist.toFixed(1)} km
                       {activeGoal.targetDurationMin != null && (
                         activeGoal.targetDurationMin % 60 > 0
@@ -1096,7 +1099,7 @@ export default function FitnessPage() {
                       <Text variant="unit">{goalCTLVal > currentCTL ? `+${(goalCTLVal - currentCTL).toFixed(1)}` : (goalCTLVal - currentCTL).toFixed(1)}</Text>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 12, color: "var(--ink-4)" }}>—</span>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
                   )}
                 </div>
                 <div>
@@ -1111,7 +1114,7 @@ export default function FitnessPage() {
                       </Text>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 12, color: "var(--ink-4)" }}>—</span>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
                   )}
                 </div>
                 <div>
@@ -1122,10 +1125,10 @@ export default function FitnessPage() {
                       <Text variant="unit">%</Text>
                     </div>
                   ) : (
-                    <span style={{ fontSize: 12, color: "var(--ink-4)" }}>—</span>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
                   )}
                 </div>
-                <a href="/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: 12 }}>
+                <a href="/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
                   {t("goal.viewPlan")}
                 </a>
               </div>
@@ -1143,18 +1146,18 @@ export default function FitnessPage() {
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
             <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
               <div>
-                <h3 style={{ margin: 0, marginBottom: 3, fontSize: 15, fontWeight: 600, color: "var(--ink-0)" }}>{t("daily.title")}</h3>
-                <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("daily.sub")}</div>
+                <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("daily.title")}</h3>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("daily.sub")}</div>
               </div>
             </div>
             {rangeData.daily.length > 0 ? (
               <DailyTSSChart data={rangeData.daily} />
             ) : (
-              <div style={{ height: 90, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "var(--ink-3)" }}>
+              <div style={{ height: 90, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
                 {t("daily.empty")}
               </div>
             )}
-            <div style={{ marginTop: 14, display: "flex", gap: 'var(--space-3)', fontSize: 11, color: "var(--ink-3)", flexWrap: "wrap" }}>
+            <div style={{ marginTop: 14, display: "flex", gap: 'var(--space-3)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
               {([
                 [t("load.rest"), "var(--bg-3)"],
                 [t("load.light"), "var(--aqua-dim, oklch(0.55 0.12 200))"],
@@ -1163,7 +1166,7 @@ export default function FitnessPage() {
                 [t("load.race"), "var(--rose)"],
               ] as const).map(([l, c]) => (
                 <span key={l} style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)' }}>
-                  <span style={{ width: 8, height: 8, background: c, borderRadius: 2 }} />{l}
+                  <span style={{ width: 8, height: 8, background: c, borderRadius: "var(--r-xs)" }} />{l}
                 </span>
               ))}
             </div>
@@ -1189,11 +1192,11 @@ export default function FitnessPage() {
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: 15, fontWeight: 600, color: "var(--ink-0)" }}>{t("paceCurve.title")}</h3>
-                    <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("paceCurve.sub")}</div>
+                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("paceCurve.title")}</h3>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("paceCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
@@ -1215,11 +1218,11 @@ export default function FitnessPage() {
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: 15, fontWeight: 600, color: "var(--ink-0)" }}>{t("cssCurve.title")}</h3>
-                    <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("cssCurve.sub")}</div>
+                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("cssCurve.title")}</h3>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("cssCurve.sub")}</div>
                   </div>
                   <div style={{ flex: 1 }} />
-                  <span style={{ fontSize: 11, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
@@ -1241,18 +1244,18 @@ export default function FitnessPage() {
               <>
                 <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 'var(--space-3)' }}>
                   <div>
-                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: 15, fontWeight: 600, color: "var(--ink-0)" }}>{t("powerCurve.title")}</h3>
-                    <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("powerCurve.sub", { range })}</div>
+                    <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("powerCurve.title")}</h3>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("powerCurve.sub", { range })}</div>
                   </div>
                   <div style={{ flex: 1 }} />
                   <div style={{ display: "flex", gap: 'var(--space-4)', flexWrap: "wrap" }}>
                     {prevPowerCurve && (
-                      <span style={{ fontSize: 11, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ width: 10, height: 2, background: "var(--ink-4)", borderTop: "1px dashed var(--ink-4)" }} /> {t("powerCurve.prevSeason")}
                       </span>
                     )}
                     {expectedCurvePoints && expectedCurvePoints.length > 0 && (
-                      <span style={{ fontSize: 11, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
                         <svg width="10" height="4" aria-hidden>
                           <line x1="0" y1="2" x2="10" y2="2" stroke="var(--aqua)" strokeWidth="1.5" strokeDasharray="2 3" />
                         </svg>
@@ -1268,7 +1271,7 @@ export default function FitnessPage() {
                     expected={expectedCurvePoints}
                   />
                 ) : (
-                  <div style={{ height: 240, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "var(--ink-3)" }}>
+                  <div style={{ height: 240, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
                     {t("powerCurve.empty")}
                   </div>
                 )}
@@ -1328,19 +1331,19 @@ export default function FitnessPage() {
                   {zones.map((zone) => (
                     <div key={zone.z} style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
                       <div style={{ width: 60 }}>
-                        <span style={{ color: zone.color, fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: 12 }}>{zone.z}</span>
-                        <span style={{ fontSize: 12 }}>{zone.name}</span>
+                        <span style={{ color: zone.color, fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "var(--fs-xs)" }}>{zone.z}</span>
+                        <span style={{ fontSize: "var(--fs-xs)" }}>{zone.name}</span>
                       </div>
-                      <div style={{ width: 90, fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{zone.range}</div>
-                      <div style={{ flex: 1, height: 18, background: "var(--bg-2)", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ width: 90, fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{zone.range}</div>
+                      <div style={{ flex: 1, height: 18, background: "var(--bg-2)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                         <div style={{ width: zone.pct != null ? `${zone.pct}%` : "0%", height: "100%", background: zone.color }} />
                       </div>
-                      <div style={{ width: 40, textAlign: "right", fontSize: 13, fontFamily: "var(--font-mono)" }}>{zone.pct != null ? `${zone.pct}%` : "—"}</div>
-                      <div style={{ width: 50, textAlign: "right", fontSize: 12, color: "var(--ink-2)", fontFamily: "var(--font-mono)" }}>{zone.time}</div>
+                      <div style={{ width: 40, textAlign: "right", fontSize: "var(--fs-sm)", fontFamily: "var(--font-mono)" }}>{zone.pct != null ? `${zone.pct}%` : "—"}</div>
+                      <div style={{ width: 50, textAlign: "right", fontSize: "var(--fs-xs)", color: "var(--ink-2)", fontFamily: "var(--font-mono)" }}>{zone.time}</div>
                     </div>
                   ))}
                   {allNullPct && (
-                    <div style={{ marginTop: 'var(--space-2)', fontSize: 11, color: "var(--ink-4)", textAlign: "center" }}>
+                    <div style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", textAlign: "center" }}>
                       {t("zoneDist.empty")}
                     </div>
                   )}
