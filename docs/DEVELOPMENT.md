@@ -2,6 +2,8 @@
 
 This repository is the **source of truth for the Orider web frontend**. It is not a mirror: development happens here, and production Hosting deploys happen from here.
 
+Project stewardship is documented in [../MISSION.md](../MISSION.md), [../GOVERNANCE.md](../GOVERNANCE.md), and [../FUNDING.md](../FUNDING.md). Contributions use the DCO process in [../DCO.md](../DCO.md).
+
 ## Deployment Model
 
 ```text
@@ -118,6 +120,7 @@ Required protections:
 - Branch protection for `main`: PR review required, CI required, direct pushes disabled.
 - GitHub Environment `production`: required reviewers enabled.
 - CODEOWNERS for sensitive paths once maintainer roster is final.
+- DCO sign-off required through `.github/workflows/dco.yml`; make the `DCO` check required in branch protection.
 
 Required Actions secrets:
 

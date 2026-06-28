@@ -2,7 +2,7 @@
 
 Ride analysis, group events, route discovery, and training dashboards for **Orider**, a cycling computer platform.
 
-[Live app](https://orider.co.kr) · [Contributing](CONTRIBUTING.md) · [Development](docs/DEVELOPMENT.md) · [API and integrations](docs/API_AND_INTEGRATIONS.md) · [Personal Data API](docs/PERSONAL_DATA_API.md) · [Creator Showcase](docs/CREATOR_SHOWCASE.md) · [Security](SECURITY.md)
+[Live app](https://orider.co.kr) · [Mission](MISSION.md) · [Contributing](CONTRIBUTING.md) · [Governance](GOVERNANCE.md) · [Development](docs/DEVELOPMENT.md) · [API and integrations](docs/API_AND_INTEGRATIONS.md) · [Personal Data API](docs/PERSONAL_DATA_API.md) · [Creator Showcase](docs/CREATOR_SHOWCASE.md) · [Security](SECURITY.md)
 
 Orider connects ride records, route intelligence, training feedback, and group ride operations in one web experience. The public frontend is useful for people who care about sport analytics UI: clear charts, reliable maps, mobile-first workflows, Korean/English product copy, and accessible interaction patterns.
 
@@ -17,6 +17,8 @@ Orider connects ride records, route intelligence, training feedback, and group r
 | ![Group event screenshot](docs/screenshots/group-event.png) |
 
 Orider Web is not a sample app or a marketing shell. It is the production web client used by riders to review activities, inspect power and fitness trends, manage routes and segments, join communities, and run group events.
+
+Orider started as a small gift from a long-time cyclist to people who love riding. The intent is not to turn the community-built core into a closed private product, but to grow it into **Our Rider** and **Open Rider**: a platform riders can inspect, improve, and trust.
 
 > This repository is the **production source of truth** for the Orider web frontend.
 > It is not a mirror: development happens here, PRs are reviewed here, and `main` deploys to Firebase Hosting through a protected workflow.
@@ -68,6 +70,8 @@ Most cycling platforms split the experience across a device app, a social networ
 - keep the web frontend open enough for translation, accessibility, UI, and test contributions.
 
 The web frontend is open-source because a large part of the product experience is UI clarity: charts, route maps, mobile flows, Korean/English copy, empty states, accessibility, and documentation.
+
+The project uses AGPL-3.0, DCO-based contributions, public governance, and a separate trademark policy to keep the core hard to privatize while protecting riders and official service identity. See [MISSION.md](MISSION.md), [GOVERNANCE.md](GOVERNANCE.md), [DCO.md](DCO.md), [FUNDING.md](FUNDING.md), and [TRADEMARK.md](TRADEMARK.md).
 
 ## What You Can Explore
 
@@ -258,6 +262,8 @@ Good first contribution areas:
 
 Branch naming and PR flow are documented in [Branching Model](docs/BRANCHING.md). Security-sensitive issues should not be filed publicly; use [SECURITY.md](SECURITY.md).
 
+Contributions use the [Developer Certificate of Origin](DCO.md). Sign commits with `git commit -s` so the contribution remains under the project license without broad copyright assignment.
+
 ### Before Opening a Pull Request
 
 1. Create a branch from `main`.
@@ -292,6 +298,8 @@ The intended final switch is a clean repository recreation from the reviewed wor
 ## License and Trademark
 
 - Code: [GNU AGPL-3.0](LICENSE)
+- Contributions: [DCO 1.1](DCO.md)
+- Governance and mission: [MISSION.md](MISSION.md), [GOVERNANCE.md](GOVERNANCE.md), [FUNDING.md](FUNDING.md)
 - Brand: "Orider", "ORIDER", and the Orider logo are trademarks and are not granted by the code license. Forks should use their own branding. See [TRADEMARK.md](TRADEMARK.md).
 
 ## Links

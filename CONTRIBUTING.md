@@ -15,6 +15,8 @@ For larger product changes, open an issue or draft PR first so we can align on s
 
 Branch naming and PR flow are documented in [docs/BRANCHING.md](docs/BRANCHING.md).
 
+Orider is guided by [MISSION.md](MISSION.md) and [GOVERNANCE.md](GOVERNANCE.md). The short version: keep the rider-facing core open, protect private ride data, and avoid turning community-built work into a closed private asset.
+
 ## Development Setup
 
 ```bash
@@ -61,6 +63,7 @@ npm run e2e
 ## Pull Request Rules
 
 - Work on a branch and submit a Pull Request.
+- Sign commits using `git commit -s`. Contributions use the [Developer Certificate of Origin](DCO.md), not broad copyright assignment.
 - Keep PRs focused. Separate refactors from behavior changes.
 - Do not commit secrets, tokens, `.env`, production exports, or user data.
 - Follow [docs/CONTRIBUTOR_ARCHITECTURE.md](docs/CONTRIBUTOR_ARCHITECTURE.md) for feature structure, logging, and Firestore write placement.
@@ -70,6 +73,7 @@ npm run e2e
 
 ## PR Checklist
 
+- [ ] Commits include a `Signed-off-by:` line (`git commit -s`).
 - [ ] No secrets, credentials, production exports, or private user data are included.
 - [ ] Personal-data recipes use only owned-data examples, minimal planned scopes, and demo/mock data.
 - [ ] `npm run lint:budget` passes within the current warning budget.
@@ -85,4 +89,4 @@ Do not report vulnerabilities in public issues or PR comments. Follow [SECURITY.
 
 ## License
 
-By contributing, you agree that your contribution is provided under this repository's license, [AGPL-3.0](LICENSE).
+By contributing, you agree that your contribution is provided under this repository's license, [AGPL-3.0](LICENSE), under the DCO process described in [DCO.md](DCO.md).
