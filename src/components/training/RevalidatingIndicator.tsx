@@ -47,8 +47,8 @@ export function RevalidatingIndicator({
         alignItems: "center",
         gap: 'var(--space-2)',
         padding: "4px 10px",
-        fontSize: 11,
-        borderRadius: 999,
+        fontSize: "var(--fs-xs)",
+        borderRadius: "var(--r-full)",
         background: isSuccess
           ? "color-mix(in oklch, var(--lime) 14%, transparent)"
           : "color-mix(in oklch, var(--aqua) 14%, transparent)",
@@ -60,7 +60,7 @@ export function RevalidatingIndicator({
       }}
     >
       {isSuccess ? (
-        <span aria-hidden style={{ fontSize: 12, lineHeight: 1, fontWeight: 700, color: accent }}>
+        <span aria-hidden style={{ fontSize: "var(--fs-xs)", lineHeight: 1, fontWeight: 700, color: accent }}>
           ✓
         </span>
       ) : (

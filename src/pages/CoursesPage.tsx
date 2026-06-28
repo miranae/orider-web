@@ -577,7 +577,7 @@ export default function CoursesPage() {
                   offset={12}
                   className="course-tooltip"
                 >
-                  <div style={{ color: "var(--ink-0)", fontSize: 13 }}>
+                  <div style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
                     <div style={{ fontWeight: 600 }}>{tooltipInfo.name}</div>
                     <div style={{ color: "var(--ink-3)" }}>{(tooltipInfo.distance / 1000).toFixed(1)} km · ▲{Math.round(tooltipInfo.elevGain)}m</div>
                   </div>
@@ -599,11 +599,11 @@ export default function CoursesPage() {
                 const maxCat = sel.climbs.length > 0 ? Math.max(...sel.climbs.map((c) => c.cat)) : 0;
                 const catLabel = maxCat > 0 ? climbCatLabel(maxCat) : "-";
                 return (
-                  <Card padding="none" className="mb-3" style={{ padding: 0, overflow: "hidden", borderRadius: 8 }}>
+                  <Card padding="none" className="mb-3" style={{ padding: 0, overflow: "hidden", borderRadius: "var(--r-md)" }}>
                     <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         {sel.regions.map((r) => (
-                          <Chip key={r} variant="accent" style={{ fontSize: 9, padding: "2px 6px" }}>{r}</Chip>
+                          <Chip key={r} variant="accent" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>{r}</Chip>
                         ))}
                         {sel.climbs.length > 0 && [...sel.climbs].sort((a, b) => b.cat - a.cat).map((climb, i) => (
                           <span key={i} className="px-1.5 py-0.5 text-[10px] font-medium rounded-[var(--r-sm)]" style={climbBadgeStyle(climb.cat)}>
@@ -628,9 +628,9 @@ export default function CoursesPage() {
                         [t("button.share"), String(sel.likeCount), null],
                       ] as [string, string, string | null][]).map(([k, v, u]) => (
                         <div key={k} style={{ padding: "10px 8px", background: "var(--bg-1)" }}>
-                          <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', fontSize: 9 }}>{k}</Text>
+                          <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', fontSize: "var(--fs-2xs)" }}>{k}</Text>
                           <div>
-                            <Text variant="dataMedium" style={{ fontSize: 15 }}>{v}</Text>
+                            <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>{v}</Text>
                             {u && <Text variant="unit">{u}</Text>}
                           </div>
                         </div>

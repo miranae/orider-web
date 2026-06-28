@@ -216,7 +216,7 @@ export default function GroupMembersPage() {
       <GroupSubNav group={group} isCreator={isCreator} />
 
       {/* Breadcrumb */}
-      <div className="text-[length:var(--fs-xs)] flex items-center" style={{ gap: 6, marginBottom: 'var(--space-3)', color: "var(--ink-3)" }}>
+      <div className="text-[length:var(--fs-xs)] flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-3)', color: "var(--ink-3)" }}>
         <Link to="/groups" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
         <span style={{ color: "var(--ink-4)" }}>/</span>
         <Link to={`/group/${groupId}`} style={{ color: "var(--ink-1)", fontWeight: 500 }}>{group.name}</Link>
@@ -225,7 +225,7 @@ export default function GroupMembersPage() {
       </div>
 
       {/* Tabs */}
-      <div role="tablist" aria-label={t("breadcrumb.memberManagement")} className="flex items-center" style={{ gap: 2, borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-4)' }}>
+      <div role="tablist" aria-label={t("breadcrumb.memberManagement")} className="flex items-center" style={{ gap: "var(--space-0-5)", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-4)' }}>
         {([
           ["members", `${t("members.tab.members")} ${members.length}`],
           ["pending", `${t("members.tab.pending")} ${pending.length}`],
@@ -240,7 +240,7 @@ export default function GroupMembersPage() {
             onClick={() => setTab(id)}
             style={{
               padding: "10px 14px",
-              fontSize: 13,
+              fontSize: "var(--fs-xs)",
               fontWeight: 500,
               color: tab === id ? "var(--ink-0)" : "var(--ink-3)",
               borderBottom: tab === id ? "2px solid var(--lime)" : "2px solid transparent",
@@ -280,7 +280,7 @@ export default function GroupMembersPage() {
               <option value="member">{t("members.role.member")}</option>
             </select>
             {selected.size > 0 && isCreator && (
-              <div className="flex items-center" style={{ gap: 6 }}>
+              <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
                 <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>{selected.size}{t("members.selectedCount")}</span>
                 <Button
                   type="button"
@@ -310,7 +310,7 @@ export default function GroupMembersPage() {
                   padding: "10px 14px",
                   borderBottom: "1px solid var(--line-soft)",
                   background: "var(--bg-1)",
-                  fontSize: 11,
+                  fontSize: "var(--fs-xs)",
                   color: "var(--ink-3)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
@@ -365,7 +365,7 @@ export default function GroupMembersPage() {
                       <span className="text-[length:var(--fs-sm)] font-medium truncate" style={{ color: "var(--ink-0)" }}>
                         {m.profile?.nickname ?? m.id}
                       </span>
-                      {isMe && <Chip style={{ fontSize: 10, color: "var(--lime)" }}>{t("members.self")}</Chip>}
+                      {isMe && <Chip style={{ fontSize: "var(--fs-2xs)", color: "var(--lime)" }}>{t("members.self")}</Chip>}
                     </Link>
                     <div className="text-[length:var(--fs-xs)]" style={{ color: role === "leader" ? "var(--lime)" : role === "co-leader" ? "var(--aqua)" : "var(--ink-2)" }}>
                       {ROLE_LABELS[role] ?? role}
@@ -407,7 +407,7 @@ export default function GroupMembersPage() {
                       </div>
                     </div>
                     {isCreator && (
-                      <div className="flex items-center" style={{ gap: 6 }}>
+                      <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
                         <Button type="button" onClick={() => handleApprove(p.userId)} variant="primary" size="sm">{t("button.approve")}</Button>
                         <Button type="button" onClick={() => handleReject(p.userId)} variant="secondary" size="sm" style={{ color: "var(--rose)" }}>{t("button.reject")}</Button>
                       </div>
@@ -447,9 +447,9 @@ export default function GroupMembersPage() {
               <h3 className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-1)", marginBottom: 'var(--space-2)' }}>{t("members.sentInvitations")}</h3>
               <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {invitations.map((inv, i) => (
-                  <li key={i} className="flex items-center justify-between" style={{ padding: "6px 0", borderBottom: "1px dashed var(--line-soft)", fontSize: 12 }}>
+                  <li key={i} className="flex items-center justify-between" style={{ padding: "6px 0", borderBottom: "1px dashed var(--line-soft)", fontSize: "var(--fs-xs)" }}>
                     <span style={{ color: "var(--ink-1)" }}>{inv.email}</span>
-                    <Chip style={{ fontSize: 10, color: inv.status === "accepted" ? "var(--lime)" : "var(--ink-3)" }}>
+                    <Chip style={{ fontSize: "var(--fs-2xs)", color: inv.status === "accepted" ? "var(--lime)" : "var(--ink-3)" }}>
                       {inv.status === "accepted" ? t("members.invitationStatus.accepted") : t("members.invitationStatus.pending")}
                     </Chip>
                   </li>

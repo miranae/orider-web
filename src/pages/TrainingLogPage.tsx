@@ -142,7 +142,7 @@ function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellP
         cursor: single ? "pointer" : "default",
         display: "flex",
         flexDirection: "column",
-        gap: 3,
+        gap: "var(--space-1)",
         position: "relative",
       }}
       onMouseEnter={(e) => { if (single) e.currentTarget.style.background = "var(--bg-3)"; }}
@@ -195,7 +195,7 @@ function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellP
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 3,
+              gap: "var(--space-1)",
               color,
               padding: "1px 2px",
               borderRadius: "var(--r-xs)",
@@ -241,7 +241,7 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
     hoverIdx != null ? Math.min(Math.max(((hoverIdx + 0.5) / values.length) * 100, 8), 92) : 0;
   return (
     <div style={{ position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 48 }} onPointerLeave={() => setHoverIdx(null)}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-0-5)", height: 48 }} onPointerLeave={() => setHoverIdx(null)}>
       {values.map((v, i) => (
         <div
           key={i}
@@ -251,7 +251,7 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: 2,
+            gap: "var(--space-0-5)",
             height: "100%",
             justifyContent: "flex-end",
             opacity: hoverIdx != null && hoverIdx !== i ? 0.5 : 1,
@@ -270,7 +270,7 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
           />
           <div
             style={{
-              fontSize: 8,
+              fontSize: "var(--fs-2xs)",
               color: "var(--ink-4)",
               fontFamily: "var(--font-mono)",
               lineHeight: 1,
@@ -496,7 +496,7 @@ export default function TrainingLogPage() {
 
       {/* ── 헤더 ───────────────────────────────────────────────── */}
       <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "20px 0 16px" }}>
-        <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("page.logTitle")} · {t("page.logActivities", { count: kpi.count })}</Text>
+        <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("page.logTitle")} · {t("page.logActivities", { count: kpi.count })}</Text>
         <Card padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
           {[
             { label: t("page.logTotalDistance"), value: `${kpi.dist.toFixed(1)}`, unit: "km", color: "var(--aqua)" },
@@ -507,7 +507,7 @@ export default function TrainingLogPage() {
           ].map(({ label, value, unit, color }, i) => (
             <div key={label} style={{ padding: "14px 16px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
               <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{label}</Text>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
                 <Text variant="dataLarge" style={{ color }}>{value}</Text>
                 {unit && <Text variant="unit">{unit}</Text>}
               </div>
@@ -525,7 +525,7 @@ export default function TrainingLogPage() {
             display: "flex",
             alignItems: "center",
             gap: 'var(--space-3)',
-            marginBottom: 14,
+            marginBottom: "var(--space-3)",
           }}
         >
           <Button variant="secondary" size="sm" onClick={goPrevMonth}>
@@ -552,7 +552,7 @@ export default function TrainingLogPage() {
           </Button>
           <button onClick={() => setImportOpen(true)}
             style={{
-              display: "flex", alignItems: "center", gap: 6,
+              display: "flex", alignItems: "center", gap: "var(--space-1-5)",
               padding: "7px 14px", background: "var(--bg-2)",
               border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)",
               fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-2)", cursor: "pointer",
@@ -581,7 +581,7 @@ export default function TrainingLogPage() {
               padding: "8px 10px",
               borderBottom: "1px solid var(--line-soft)",
               background: "var(--bg-2)",
-              gap: 3,
+              gap: "var(--space-1)",
             }}
           >
             {(t("log.dayNames", { returnObjects: true }) as string[]).map((d, i) => (
@@ -599,7 +599,7 @@ export default function TrainingLogPage() {
           </div>
 
           {/* 주별 행 */}
-          <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
             {loading
               ? Array.from({ length: 5 }).map((_, wi) => (
                   <div
@@ -607,7 +607,7 @@ export default function TrainingLogPage() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(7, 1fr)",
-                      gap: 3,
+                      gap: "var(--space-1)",
                     }}
                   >
                     {Array.from({ length: 7 }).map((__, di) => (
@@ -635,7 +635,7 @@ export default function TrainingLogPage() {
                     style={{
                       display: "grid",
                       gridTemplateColumns: "repeat(7, 1fr) 60px",
-                      gap: 3,
+                      gap: "var(--space-1)",
                       alignItems: "stretch",
                     }}
                   >
@@ -659,7 +659,7 @@ export default function TrainingLogPage() {
                       fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: weekTSS > 0 ? "var(--ink-1)" : "var(--ink-4)",
                       borderLeft: "1px solid var(--line-soft)", paddingLeft: 6,
                     }}>
-                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 2 }}>TSS</div>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}>TSS</div>
                       <div>{Math.round(weekTSS)}</div>
                     </div>
                   </div>
@@ -669,12 +669,12 @@ export default function TrainingLogPage() {
         </Card>
 
         {/* 월간 일별 거리 바 */}
-        <Card padding="none" style={{ marginTop: 14, padding: "14px 16px" }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("page.monthlyBarTitle")}</Text>
+        <Card padding="none" style={{ marginTop: "var(--space-3)", padding: "14px 16px" }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("page.monthlyBarTitle")}</Text>
           <MiniBarChart values={barValues} labels={barLabels} unit="km" />
           <div
             style={{
-              marginTop: 6,
+              marginTop: "var(--space-1-5)",
               display: "flex",
               justifyContent: "space-between",
               fontSize: "var(--fs-xs)",

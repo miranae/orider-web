@@ -285,10 +285,10 @@ export default function EventCreatePage() {
         >
           ✓
         </div>
-        <h1 style={{ fontSize: "var(--fs-3xl)", letterSpacing: "-0.02em", marginBottom: 10, color: "var(--ink-0)" }}>
+        <h1 style={{ fontSize: "var(--fs-3xl)", letterSpacing: "-0.02em", marginBottom: "var(--space-2)", color: "var(--ink-0)" }}>
           {createdAsDraft ? t("message.draftSaved") : t("message.eventCreated")}
         </h1>
-        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: 28 }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: "var(--space-7)" }}>
           {createdAsDraft
             ? t("create.draftDoneDesc")
             : t("create.publishedDesc", { name: data.name })}
@@ -309,7 +309,7 @@ export default function EventCreatePage() {
             <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)" }}>{data.closeAt || "–"}</span>
           </div>
         </Card>
-        <div className="flex justify-center" style={{ gap: 10 }}>
+        <div className="flex justify-center" style={{ gap: "var(--space-2)" }}>
           <Button
             type="button"
             onClick={() => navigate(`/event/${createdEventId}`)} variant="primary"
@@ -406,7 +406,7 @@ export default function EventCreatePage() {
                 />
               </Field>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("field.hostName")} required>
                   <input
                     type="text"
@@ -439,7 +439,7 @@ export default function EventCreatePage() {
                         key={c.id}
                         className="flex items-center"
                         style={{
-                          gap: 14,
+                          gap: "var(--space-3)",
                           padding: 'var(--space-4)',
                           background: "color-mix(in oklch, var(--lime) 6%, var(--bg-2))",
                           border: "1px solid color-mix(in oklch, var(--lime) 30%, var(--line-soft))",
@@ -466,7 +466,7 @@ export default function EventCreatePage() {
                           <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
                             {c.name}
                           </div>
-                          <div className="flex flex-wrap" style={{ gap: 14, fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                          <div className="flex flex-wrap" style={{ gap: "var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                             {c.regions && c.regions.length > 0 && <span>{c.regions.slice(0, 2).join(", ")}</span>}
                             <span>{(c.distance / 1000).toFixed(1)} km</span>
                             <span>↑ {Math.round(c.elevationGain).toLocaleString()} m</span>
@@ -491,7 +491,7 @@ export default function EventCreatePage() {
                   </div>
                 ) : (
                   <div>
-                    <div className="flex" style={{ gap: 'var(--space-2)', marginBottom: 10 }}>
+                    <div className="flex" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-2)" }}>
                       <Button
                         type="button" variant="secondary" size="sm"
                         style={{ background: "var(--bg-3)", color: "var(--ink-0)" }}
@@ -536,10 +536,10 @@ export default function EventCreatePage() {
                         <div
                           className="flex flex-col"
                           style={{
-                            gap: 6,
+                            gap: "var(--space-1-5)",
                             maxHeight: 260,
                             overflowY: "auto",
-                            padding: 2,
+                            padding: "var(--space-0-5)",
                           }}
                         >
                           {availableCourses
@@ -581,7 +581,7 @@ export default function EventCreatePage() {
                                   aria-hidden="true"
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-[length:var(--fs-xs)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 2 }}>
+                                  <div className="text-[length:var(--fs-xs)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
                                     {c.name}
                                   </div>
                                   <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)" }}>
@@ -598,7 +598,7 @@ export default function EventCreatePage() {
                 )}
               </Field>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("field.date")} required>
                   <DateField value={data.date} onChange={(v) => patch({ date: v })} min={new Date().toISOString().split("T")[0]} placeholder={t("field.date")} />
                 </Field>
@@ -617,7 +617,7 @@ export default function EventCreatePage() {
                 />
               </Field>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("field.meetTime")} sub={t("create.meetTimeHint")}>
                   <TimeField value={data.meetTime} onChange={(v) => patch({ meetTime: v })} placeholder={t("field.meetTime")} />
                 </Field>
@@ -669,7 +669,7 @@ export default function EventCreatePage() {
           {step === 2 && (
             <div>
               <Field label={t("field.fee")} required>
-                <div className="flex flex-wrap items-center" style={{ gap: 10 }}>
+                <div className="flex flex-wrap items-center" style={{ gap: "var(--space-2)" }}>
                   <button
                     type="button"
                     onClick={() => patch({ feeType: "FREE", fee: 0 })}
@@ -731,7 +731,7 @@ export default function EventCreatePage() {
                         gridTemplateColumns: "1fr 100px 1fr 32px",
                         gap: 'var(--space-2)',
                         alignItems: "center",
-                        padding: 10,
+                        padding: "var(--space-2)",
                         background: "var(--bg-2)",
                         border: "1px solid var(--line-soft)",
                         borderRadius: "var(--r-sm)",
@@ -803,7 +803,7 @@ export default function EventCreatePage() {
                 const open = splitDtLocal(data.openAt);
                 const close = splitDtLocal(data.closeAt);
                 return (
-                  <div className="flex flex-col" style={{ gap: 14 }}>
+                  <div className="flex flex-col" style={{ gap: "var(--space-3)" }}>
                     <Field label={t("field.openAt")} required>
                       <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
                         <DateField
@@ -838,7 +838,7 @@ export default function EventCreatePage() {
               })()}
 
               <Field label={t("field.cutoff")} hint={t("hint.cutoff")}>
-                <div className="flex flex-wrap items-center" style={{ gap: 10 }}>
+                <div className="flex flex-wrap items-center" style={{ gap: "var(--space-2)" }}>
                   <button
                     type="button"
                     onClick={() => patch({ cutoffEnabled: !data.cutoffEnabled })}
@@ -896,7 +896,7 @@ export default function EventCreatePage() {
                       style={{
                         gap: 'var(--space-3)',
                         padding: "10px 12px",
-                        marginBottom: 6,
+                        marginBottom: "var(--space-1-5)",
                         background: "var(--bg-2)",
                         border: "1px solid var(--line-soft)",
                         borderRadius: "var(--r-sm)",
@@ -917,7 +917,7 @@ export default function EventCreatePage() {
                           borderRadius: "var(--r-xl)",
                           position: "relative",
                           flexShrink: 0,
-                          marginTop: 2,
+                          marginTop: "var(--space-0-5)",
                           background: checked ? "var(--lime)" : "var(--bg-3)",
                           border: checked ? "none" : "1px solid var(--line-soft)",
                         }}
@@ -936,7 +936,7 @@ export default function EventCreatePage() {
                         />
                       </div>
                       <div>
-                        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-0)", marginBottom: 2 }}>{opt.label}</div>
+                        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>{opt.label}</div>
                         <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{opt.desc}</div>
                       </div>
                     </label>
@@ -1001,13 +1001,13 @@ export default function EventCreatePage() {
 
         {/* Sidebar — Summary */}
         <Card padding="none" className="event-create-aside"
-          style={{ padding: 18, position: "sticky", top: 68 }}
+          style={{ padding: "var(--space-4)", position: "sticky", top: 68 }}
         >
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("preview")}</Text>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("preview")}</Text>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)', minHeight: 20 }}>
             {data.name || <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>{t("create.ph.eventName")}</span>}
           </div>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 14 }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: "var(--space-3)" }}>
             {data.date ? `${data.date} ${data.startTime || ""}` : t("create.dateTbd")}
           </div>
 
@@ -1031,7 +1031,7 @@ export default function EventCreatePage() {
               [t("create.sum.categories"), t("create.itemCount", { count: data.categories.length })],
               [t("create.sum.fee"), data.feeType === "FREE" ? t("feeType.free") : data.fee ? `₩ ${Number(data.fee).toLocaleString("ko-KR")}` : "–"],
             ].map(([k, v]) => (
-              <div key={k} className="flex justify-between" style={{ gap: 10 }}>
+              <div key={k} className="flex justify-between" style={{ gap: "var(--space-2)" }}>
                 <dt style={{ color: "var(--ink-3)" }}>{k}</dt>
                 <dd style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)", textAlign: "right", margin: 0 }}>{v}</dd>
               </div>
@@ -1040,7 +1040,7 @@ export default function EventCreatePage() {
 
           <div
             style={{
-              marginTop: 18,
+              marginTop: "var(--space-4)",
               paddingTop: 14,
               borderTop: "1px solid var(--line-soft)",
               fontSize: "var(--fs-xs)",

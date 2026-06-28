@@ -106,7 +106,7 @@ export default function MobilePlanPage({
     <div>
       {/* Header */}
       <div className="flex items-center sticky top-0 z-10"
-        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: 10 }}>
+        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
         <div className="cursor-pointer flex items-center" style={{ marginLeft: -4, padding: "4px 8px 4px 0", minHeight: 44 }}
           onClick={() => navigate("/my")}>
           <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
@@ -152,7 +152,7 @@ export default function MobilePlanPage({
         const stackTotal = bikeTSS + runTSS + swimTSS || 1;
 
         return (
-          <div style={{ margin: "0 16px 12px", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", padding: 14 }}>
+          <div style={{ margin: "0 16px 12px", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", padding: "var(--space-3)" }}>
             <div className="flex" style={{ marginBottom: 'var(--space-3)' }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t('mobile.weeklyTSS')}</div>
@@ -183,7 +183,7 @@ export default function MobilePlanPage({
       })()}
 
       {/* 운동 강도 범례 */}
-      <div style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 10, fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+      <div style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
         {[
           { label: t('legend.z1Recovery'), color: "var(--ink-4)" },
           { label: t('legend.z2Endurance'), color: "var(--aqua)" },
@@ -258,9 +258,9 @@ export default function MobilePlanPage({
                 {dayDate ? dayDate.getDate() : ""}
               </div>
             </div>
-            <div style={{ width: 3, height: 36, background: getDisciplineColor(getWorkoutDisciplineForDisplay(day.workout)), borderRadius: 1.5, flexShrink: 0 }} />
+            <div style={{ width: 3, height: 36, background: getDisciplineColor(getWorkoutDisciplineForDisplay(day.workout)), borderRadius: "var(--r-xs)", flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginBottom: 2 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-1)', marginBottom: "var(--space-0-5)" }}>
                 {(() => {
                   const d = getWorkoutDisciplineForDisplay(day.workout);
                   const c = getDisciplineColor(d);
@@ -269,7 +269,7 @@ export default function MobilePlanPage({
                       fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "1px 5px", borderRadius: "var(--r-xs)",
                       background: `color-mix(in oklch, ${c} 14%, var(--bg-2))`,
                       color: c, border: `1px solid color-mix(in oklch, ${c} 30%, transparent)`,
-                      display: "flex", alignItems: "center", gap: 2,
+                      display: "flex", alignItems: "center", gap: "var(--space-0-5)",
                     }}>{getDisciplineIcon(d)} {getDisciplineTag(d)}</span>
                   );
                 })()}

@@ -158,8 +158,8 @@ function RiderCard({
         </Button>
       </div>
 
-      <div style={{ marginBottom: 14 }}>
-        <div className="flex justify-between" style={{ fontSize: "var(--fs-xs)", marginBottom: 6 }}>
+      <div style={{ marginBottom: "var(--space-3)" }}>
+        <div className="flex justify-between" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1-5)" }}>
           <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
             {distKm.toFixed(1)} km
           </span>
@@ -234,7 +234,7 @@ function RiderCard({
             <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 'var(--space-1)' }}>
               {k}
             </Text>
-            <div className="flex items-baseline" style={{ gap: 3 }}>
+            <div className="flex items-baseline" style={{ gap: "var(--space-1)" }}>
               <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>
                 {v}
               </Text>
@@ -520,7 +520,7 @@ export default function EventLivePage() {
         </Link>
         <div style={{ width: 1, height: 16, background: "var(--line-soft)" }} aria-hidden="true" />
         <div className="min-w-0">
-          <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 2 }}>
+          <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
             <span
               aria-hidden="true"
               style={{
@@ -581,7 +581,7 @@ export default function EventLivePage() {
         {/* 팔로우 헤더 */}
         <div className="flex items-end justify-between flex-wrap" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>
               {t("liveView.followingCount", { count: followedParticipants.length })}
             </Text>
             <h2 style={{ fontSize: "var(--fs-xl)", letterSpacing: "-0.02em", margin: 0, color: "var(--ink-0)" }}>
@@ -622,7 +622,7 @@ export default function EventLivePage() {
         {searchedParticipant && searchedParticipant.bib != null && !followBibs.includes(searchedParticipant.bib) && (
           <Card padding="none" className="flex items-center justify-between"
             style={{
-              padding: 14,
+              padding: "var(--space-3)",
               marginBottom: 'var(--space-4)',
               gap: 'var(--space-3)',
               borderColor: "color-mix(in oklch, var(--aqua) 30%, transparent)",
@@ -632,12 +632,12 @@ export default function EventLivePage() {
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
                 #{String(searchedParticipant.bib).padStart(3, "0")} {searchedParticipant.displayName}
                 {searchedParticipant.category && (
-                  <span className="font-normal" style={{ color: "var(--ink-3)", marginLeft: 6, fontSize: "var(--fs-xs)" }}>
+                  <span className="font-normal" style={{ color: "var(--ink-3)", marginLeft: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
                     ({searchedParticipant.category})
                   </span>
                 )}
               </div>
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)", marginTop: 2, fontFamily: "var(--font-mono)" }}>
+              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-0-5)", fontFamily: "var(--font-mono)" }}>
                 {searchedParticipant.overallRank != null ? `${t("liveView.highlight.overallRank", { rank: searchedParticipant.overallRank })} · ` : ""}
                 CP{searchedParticipant.lastCp ?? 0} · {(searchedParticipant.distance / 1000).toFixed(1)}km · {searchedParticipant.speed.toFixed(1)}km/h
               </div>
@@ -651,15 +651,15 @@ export default function EventLivePage() {
         {/* RiderCard 그리드 */}
         {followedParticipants.length === 0 ? (
           <Card padding="none"
-            style={{ padding: 'var(--space-7)', textAlign: "center", marginBottom: 28, color: "var(--ink-3)" }}
+            style={{ padding: 'var(--space-7)', textAlign: "center", marginBottom: "var(--space-7)", color: "var(--ink-3)" }}
           >
-            <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: 6 }}>{t("liveView.noFollowing")}</div>
+            <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: "var(--space-1-5)" }}>{t("liveView.noFollowing")}</div>
             <div style={{ fontSize: "var(--fs-xs)" }}>{t("liveView.noFollowingHint")}</div>
           </Card>
         ) : (
           <div
             className="event-live-grid"
-            style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)", marginBottom: "var(--space-7)" }}
           >
             {followedParticipants.map((loc) => (
               <RiderCard
@@ -680,7 +680,7 @@ export default function EventLivePage() {
             style={{ padding: "14px 20px", borderBottom: "1px solid var(--line-soft)", gap: 'var(--space-3)' }}
           >
             <div>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", marginBottom: 2 }}>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
                 {t("label.courseLocation")}
               </div>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
@@ -690,7 +690,7 @@ export default function EventLivePage() {
             {followedParticipants.length > 0 && (
               <div className="flex flex-wrap" style={{ gap: 'var(--space-3)', fontSize: "var(--fs-xs)" }}>
                 {followedParticipants.map((p) => (
-                  <span key={p.uid} className="inline-flex items-center" style={{ gap: 5 }}>
+                  <span key={p.uid} className="inline-flex items-center" style={{ gap: "var(--space-1)" }}>
                     <span
                       aria-hidden="true"
                       style={{
@@ -720,7 +720,7 @@ export default function EventLivePage() {
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div style={{ marginBottom: 'var(--space-3)' }}>
             <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.recentHighlights")}</div>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: 2 }}>
+            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
               {t("liveView.highlightsDesc")}
             </div>
           </div>
@@ -759,7 +759,7 @@ export default function EventLivePage() {
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", marginBottom: 2 }}>
+                      <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>
                         {h.message}
                       </div>
                       {h.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{h.sub}</div>}

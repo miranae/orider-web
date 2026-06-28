@@ -91,7 +91,7 @@ function StatusChip({ status }: { status: ParticipantStatus }) {
 
 function CpProgress({ progress, total }: { progress: number; total: number }) {
   return (
-    <div className="flex items-center" style={{ gap: 3 }}>
+    <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
       {Array.from({ length: total }).map((_, i) => (
         <div
           key={i}
@@ -99,7 +99,7 @@ function CpProgress({ progress, total }: { progress: number; total: number }) {
           style={{
             width: 16,
             height: 4,
-            borderRadius: 1,
+            borderRadius: "var(--r-xs)",
             background: i < progress ? "var(--lime)" : "var(--bg-3)",
           }}
         />
@@ -114,7 +114,7 @@ function CpProgress({ progress, total }: { progress: number; total: number }) {
 function StatCard({ label, value, sub, tone }: { label: string; value: string | number; sub?: string; tone?: string }) {
   return (
     <Card padding="none" style={{ padding: "14px 16px" }}>
-      <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{label}</Text>
+      <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{label}</Text>
       <Text as="div" variant="dataMedium" style={{ color: tone || "var(--ink-0)" }}>{value}</Text>
       {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 'var(--space-1)', fontFamily: "var(--font-mono)" }}>{sub}</div>}
     </Card>
@@ -443,7 +443,7 @@ export default function EventParticipantsPage() {
 
         <div className="flex items-end justify-between flex-wrap" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
           <div>
-            <div className="flex items-center" style={{ gap: 10, marginBottom: 6 }}>
+            <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: "var(--space-1-5)" }}>
               {isLive ? (
                 <Chip
                   style={{
@@ -461,7 +461,7 @@ export default function EventParticipantsPage() {
                       background: "var(--lime)",
                       boxShadow: "0 0 0 3px color-mix(in oklch, var(--lime) 30%, transparent)",
                       display: "inline-block",
-                      marginRight: 6,
+                      marginRight: "var(--space-1-5)",
                     }}
                   />
                   LIVE
@@ -495,7 +495,7 @@ export default function EventParticipantsPage() {
         </div>
 
         {/* 통계 카드 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 'var(--space-5)' }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "var(--space-2)", marginBottom: 'var(--space-5)' }}>
           <StatCard label={t("stats.total")} value={stats.total} sub={t("participantsView.paidSub", { count: stats.paid })} />
           <StatCard label={t("stats.racing")} value={stats.racing} tone="var(--lime)" />
           <StatCard label={t("stats.finished")} value={stats.finished} />
@@ -552,7 +552,7 @@ export default function EventParticipantsPage() {
           {/* 필터 바 */}
           <div
             className="flex items-center flex-wrap"
-            style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)", gap: 10 }}
+            style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)", gap: "var(--space-2)" }}
           >
             <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 340 }}>
               <span
@@ -887,7 +887,7 @@ export default function EventParticipantsPage() {
         <>
           <div
             onClick={() => setDrawer(null)}
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 80 }}
+            style={{ position: "fixed", inset: 0, background: "color-mix(in srgb, var(--bg-0) 40%, transparent)", zIndex: 80 }}
             aria-hidden="true"
           />
           <div
@@ -911,7 +911,7 @@ export default function EventParticipantsPage() {
               style={{ padding: "18px 20px", borderBottom: "1px solid var(--line-soft)" }}
             >
               <div>
-                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 2 }}>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: "var(--space-0-5)" }}>
                   {drawer.bib ? `#${String(drawer.bib).padStart(3, "0")}` : t("participantsView.bibNone")}
                 </div>
                 <div style={{ fontSize: "var(--fs-lg)", fontWeight: 600, color: "var(--ink-0)" }}>{drawer.realName}</div>
@@ -931,7 +931,7 @@ export default function EventParticipantsPage() {
               {drawer.dnfReason && (
                 <div
                   style={{
-                    marginTop: 10,
+                    marginTop: "var(--space-2)",
                     padding: "8px 10px",
                     background: "color-mix(in oklch, var(--amber) 8%, var(--bg-2))",
                     borderRadius: "var(--r-sm)",
@@ -943,7 +943,7 @@ export default function EventParticipantsPage() {
                 </div>
               )}
 
-              <div className="flex flex-col" style={{ marginTop: 'var(--space-5)', gap: 10 }}>
+              <div className="flex flex-col" style={{ marginTop: 'var(--space-5)', gap: "var(--space-2)" }}>
                 {[
                   [t("label.categories"), event.categories.find((c) => c.id === drawer.category)?.name ?? "—"],
                   [t("nickname"), drawer.nickname],
@@ -970,7 +970,7 @@ export default function EventParticipantsPage() {
                     event.checkpoints.map((cp, i) => {
                       const passed = i < drawer.cpProgress;
                       return (
-                        <div key={cp.cpId ?? i} className="flex items-center" style={{ gap: 10 }}>
+                        <div key={cp.cpId ?? i} className="flex items-center" style={{ gap: "var(--space-2)" }}>
                           <div
                             style={{
                               width: 22,
@@ -1018,7 +1018,7 @@ export default function EventParticipantsPage() {
                   marginTop: 'var(--space-6)',
                   paddingTop: 'var(--space-5)',
                   borderTop: "1px solid var(--line-soft)",
-                  gap: 6,
+                  gap: "var(--space-1-5)",
                 }}
               >
                 <Button
@@ -1106,7 +1106,7 @@ export default function EventParticipantsPage() {
             fontSize: "var(--fs-xs)",
             color: "var(--ink-0)",
             display: "flex",
-            gap: 10,
+            gap: "var(--space-2)",
             alignItems: "flex-start",
             boxShadow: "var(--shadow-lg)",
             zIndex: 200,

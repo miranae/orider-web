@@ -102,7 +102,7 @@ function ProviderCard({
             color: "var(--rd-text-muted)",
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: "var(--space-1-5)",
             paddingTop: 'var(--space-1)',
             borderTop: "1px solid var(--rd-border)",
           }}
@@ -307,7 +307,7 @@ export function PaneHealthSources() {
               color: "var(--rd-text-muted)",
             }}
           >
-            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: "var(--space-0-5)" }} />
             <span>
               {t("healthSources.retainForeverActiveHint")}
             </span>

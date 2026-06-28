@@ -78,7 +78,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
     <div>
       {/* Header */}
       <div className="flex items-center sticky top-0 z-10"
-        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: 10 }}>
+        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
         <div className="cursor-pointer flex items-center" style={{ marginLeft: -4, padding: "4px 8px 4px 0", minHeight: 44 }}
           onClick={() => navigate("/my")}>
           <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
@@ -172,7 +172,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
                     }}>
                     {date.getDate()}
                     {dotColors.length > 0 ? (
-                      <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 'var(--space-1)' }}>
+                      <div style={{ display: "flex", gap: "var(--space-1)", justifyContent: "center", marginTop: 'var(--space-1)' }}>
                         {dotColors.map((c, idx) => (
                           <div key={idx} style={{ width: 5, height: 5, borderRadius: "50%", background: c }} />
                         ))}
@@ -190,11 +190,11 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
           </div>
           <div className="grid grid-cols-2 gap-2.5" style={{ padding: "0 16px 12px" }}>
             <div style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 3 }}>{t("mobileLog.activeDays")}</div>
-              <div><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>{activeDays}</span><span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: 2 }}>/{daysInMonth}</span></div>
+              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: "var(--space-1)" }}>{t("mobileLog.activeDays")}</div>
+              <div><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>{activeDays}</span><span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "var(--space-0-5)" }}>/{daysInMonth}</span></div>
             </div>
             <div style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 3 }}>{t("mobileLog.totalSessions")}</div>
+              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: "var(--space-1)" }}>{t("mobileLog.totalSessions")}</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>{monthActs.length}</div>
             </div>
           </div>
@@ -216,7 +216,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
                     <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{sport.label}</div>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("mobileLog.sessionCount", { count: acts.length })}</div>
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-base)", fontWeight: 600, color: sport.color }}>{dist.toFixed(sport.unit === "m" ? 0 : 1)}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: 2 }}>{sport.unit}</span></div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-base)", fontWeight: 600, color: sport.color }}>{dist.toFixed(sport.unit === "m" ? 0 : 1)}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "var(--space-0-5)" }}>{sport.unit}</span></div>
                 </div>
               );
             })}
@@ -238,7 +238,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
             return (
               <div key={a.id} onClick={() => navigate(`/activity/${a.id}`)}
                 style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)", cursor: "pointer" }}>
-                <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-1-5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {a.description || t("mobileLog.defaultActivity")}
                 </div>
                 <div className="flex items-center gap-3" style={{ fontSize: "var(--fs-xs)" }}>
@@ -270,7 +270,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
             onClick={() => setDayDetailActs(null)}
             style={{
               position: "fixed", inset: 0, zIndex: 998,
-              background: "rgba(0,0,0,0.45)",
+              background: "color-mix(in srgb, var(--bg-0) 45%, transparent)",
             }}
           />
           {/* 시트 */}
@@ -279,7 +279,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
               position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 999,
               background: "var(--bg-1)",
               borderRadius: "16px 16px 0 0",
-              boxShadow: "0 -4px 24px rgba(0,0,0,0.3)",
+              boxShadow: "0 -4px 24px color-mix(in srgb, var(--bg-0) 30%, transparent)",
               paddingBottom: "env(safe-area-inset-bottom, 16px)",
             }}
           >
@@ -326,7 +326,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
                       <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {a.description || t("mobileLog.defaultActivity")}
                       </div>
-                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: 2 }}>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: "var(--space-0-5)" }}>
                         {km}km · {tmStr}{tss ? ` · ${tss}` : ""}
                       </div>
                     </div>

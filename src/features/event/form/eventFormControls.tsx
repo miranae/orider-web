@@ -31,8 +31,8 @@ export function Field({
 }) {
   const { t } = useTranslation("event");
   return (
-    <div style={{ marginBottom: 18 }}>
-      <label className="flex items-center" style={{ gap: 6, marginBottom: 6 }}>
+    <div style={{ marginBottom: "var(--space-4)" }}>
+      <label className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
         <span style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
         {required && <span style={{ color: "var(--rose)", fontSize: "var(--fs-xs)" }}>*</span>}
         {warn && (
@@ -61,7 +61,7 @@ export function Section({ id, title, desc, children }: { id: string; title: stri
       padding="none"
       style={{ padding: "var(--space-6)", marginBottom: "var(--space-4)", scrollMarginTop: 80 }}
     >
-      <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--line-soft)" }}>
+      <div style={{ marginBottom: "var(--space-4)", paddingBottom: 14, borderBottom: "1px solid var(--line-soft)" }}>
         <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>{title}</div>
         {desc && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{desc}</div>}
       </div>
@@ -119,7 +119,7 @@ export function PickerRow<T extends string>({
       style={{
         display: "grid",
         gridTemplateColumns: `repeat(${options.length}, 1fr)`,
-        gap: 6,
+        gap: "var(--space-1-5)",
       }}
     >
       {options.map((option) => {
@@ -164,7 +164,7 @@ export function SegmentedPicker<T extends string>({
       style={{
         display: "grid",
         gridTemplateColumns: `repeat(${columns ?? options.length}, 1fr)`,
-        gap: 6,
+        gap: "var(--space-1-5)",
       }}
     >
       {options.map((option) => {
@@ -188,7 +188,7 @@ export function SegmentedPicker<T extends string>({
             }}
           >
             <div style={{ fontWeight: 500 }}>{option.label}</div>
-            {option.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 3 }}>{option.sub}</div>}
+            {option.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{option.sub}</div>}
           </button>
         );
       })}
@@ -209,13 +209,13 @@ export function StepBar({
 }) {
   const { t } = useTranslation("event");
   return (
-    <div className="flex" style={{ gap: 0, marginBottom: 28 }}>
+    <div className="flex" style={{ gap: 0, marginBottom: "var(--space-7)" }}>
       {stepKeys.map((labelKey, i) => {
         const done = step > i;
         const cur = step === i;
         const navigable = done || i <= maxStep;
         return (
-          <div key={labelKey} className="flex items-center" style={{ gap: 10, flex: 1 }}>
+          <div key={labelKey} className="flex items-center" style={{ gap: "var(--space-2)", flex: 1 }}>
             <button
               type="button"
               onClick={() => navigable && setStep(i)}

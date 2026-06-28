@@ -16,7 +16,7 @@ export default function DisciplineBadge({ discipline }: DisciplineBadgeProps) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 'var(--space-1)',
-      padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 500,
+      padding: "2px 8px", borderRadius: "var(--r-lg)", fontSize: "var(--fs-2xs)", fontWeight: 500,
       background: `color-mix(in oklch, ${color} 10%, var(--bg-2))`,
       color, border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
     }}>

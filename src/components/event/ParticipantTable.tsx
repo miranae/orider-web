@@ -110,18 +110,18 @@ export default function ParticipantTable({
             border: "1px solid var(--line-soft)",
             borderRadius: "var(--r-sm, 4px)",
             color: "var(--ink-0)",
-            fontSize: 12,
+            fontSize: "var(--fs-xs)",
             width: 180,
           }}
         />
-        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+        <span style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
           {filtered.length} / {locations.length}{t("detail.unit.person")}
         </span>
       </div>
 
       {/* Table */}
       <div style={{ flex: 1, overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
           <thead style={{ position: "sticky", top: 0, background: "var(--bg-2)", zIndex: 1 }}>
             <tr>
               {HEADERS.map((h, i) => (
@@ -130,7 +130,7 @@ export default function ParticipantTable({
                   style={{
                     textAlign: RIGHT_ALIGN_IDX.has(i) ? "right" : "left",
                     padding: "10px 14px",
-                    fontSize: 10,
+                    fontSize: "var(--fs-2xs)",
                     letterSpacing: "0.06em",
                     color: "var(--ink-3)",
                     fontWeight: 500,
@@ -182,9 +182,9 @@ export default function ParticipantTable({
                       style={{
                         display: "inline-flex",
                         alignItems: "center",
-                        gap: 5,
+                        gap: "var(--space-1)",
                         color,
-                        fontSize: 11,
+                        fontSize: "var(--fs-xs)",
                         fontWeight: 500,
                       }}
                     >
@@ -212,7 +212,7 @@ export default function ParticipantTable({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={HEADERS.length} style={{ padding: 'var(--space-6)', textAlign: "center", color: "var(--ink-3)", fontSize: 12 }}>
+                <td colSpan={HEADERS.length} style={{ padding: 'var(--space-6)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
                   {t("empty.noParticipants")}
                 </td>
               </tr>

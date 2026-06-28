@@ -52,7 +52,7 @@ export default function LeaderboardTable({
                 key={e.id}
                 style={{
                   borderBottom: '1px solid var(--line-soft)',
-                  background: isHighlighted ? 'rgba(199,247,58,0.06)' : undefined,
+                  background: isHighlighted ? 'color-mix(in srgb, var(--lime) 6%, transparent)' : undefined,
                 }}
                 className="last:border-0"
               >

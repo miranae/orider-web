@@ -51,11 +51,11 @@ function secToMmss(s: number): string {
 
 function FeedSkeleton() {
   return (
-    <Card padding="none" style={{ overflow: "hidden", padding: 14 }}>
+    <Card padding="none" style={{ overflow: "hidden", padding: "var(--space-3)" }}>
       <div className="flex items-center gap-3" style={{ marginBottom: 'var(--space-3)' }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--bg-3)" }} />
         <div style={{ flex: 1 }}>
-          <div style={{ height: 12, width: 80, background: "var(--bg-3)", borderRadius: "var(--r-sm)", marginBottom: 6 }} />
+          <div style={{ height: 12, width: 80, background: "var(--bg-3)", borderRadius: "var(--r-sm)", marginBottom: "var(--space-1-5)" }} />
           <div style={{ height: 10, width: 60, background: "var(--bg-2)", borderRadius: "var(--r-sm)" }} />
         </div>
       </div>
@@ -414,7 +414,7 @@ export default function DashboardPage() {
           {/* 피드 */}
           <div className="flex-1 min-w-0 flex flex-col">
             {/* 헤더: 제목 + 카운트 + 필터 */}
-            <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+            <div className="flex items-center gap-2" style={{ marginBottom: "var(--space-2)" }}>
               <h2 style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)" }}>{t("feed.title")}</h2>
               {totalCount > 0 && (
                 /* 카운트 옆에 "건 · 전체 피드" 컨텍스트 부연 — 이전엔 "1,573" 만 떠 본인/전체 모호.
@@ -428,7 +428,7 @@ export default function DashboardPage() {
                 </span>
               )}
               <div className="flex-1" />
-              <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: 3, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
+              <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
                 {[t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")].map((label, i) => (
                   <button
                     key={i}
@@ -446,7 +446,7 @@ export default function DashboardPage() {
             </div>
 
             {/* 검색 입력 */}
-            <form onSubmit={handleSearch} style={{ marginBottom: 14 }}>
+            <form onSubmit={handleSearch} style={{ marginBottom: "var(--space-3)" }}>
               <div className="flex gap-2 items-center">
                 <div style={{ flex: 1, position: "relative" }}>
                   <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)", pointerEvents: "none" }} />
@@ -517,7 +517,7 @@ export default function DashboardPage() {
                   </div>
                 )}
                 {!activitySearch.loading && activitySearch.results.length === 0 && (
-                  <Card padding="none" style={{ padding: 40, textAlign: "center" }}>
+                  <Card padding="none" style={{ padding: "var(--space-8)", textAlign: "center" }}>
                     <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("feed.search.emptyTitle")}</div>
                     <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("feed.search.emptyDescription")}</div>
                   </Card>
@@ -571,7 +571,7 @@ export default function DashboardPage() {
                         style={{ width: "100%" }}
                       >
                         {loadingMore ? (
-                          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1-5)" }}>
                             <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--line)", borderTopColor: "var(--lime)", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
                             {t("feed.loading")}
                           </span>
@@ -596,7 +596,7 @@ export default function DashboardPage() {
               const lastTwo = weeklyStats.slice(-2);
               const trendUp = lastTwo.length === 2 && lastTwo[1]!.tss >= lastTwo[0]!.tss;
               return (
-                <Card padding="none" style={{ padding: 18 }}>
+                <Card padding="none" style={{ padding: "var(--space-4)" }}>
                   <SectionHeader title={t("sidebar.weeklyTss.title")} sub={t("sidebar.weeklyTss.sub")} right={<Chip>TSS</Chip>} />
                   <WeeklyTssBars
                     weeks={weeklyStats}
@@ -613,15 +613,15 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex justify-between" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: "1px solid var(--line-soft)" }}>
                     <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.weeklyTss.avgPerWeek")}</Text>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.avgPerWeek")}</Text>
                       <div><Text variant="dataMedium">{avgTSS}</Text><Text variant="unit">TSS</Text></div>
                     </div>
                     <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.weeklyTss.peakWeek")}</Text>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.peakWeek")}</Text>
                       <div><Text variant="dataMedium">{peakTSS}</Text><Text variant="unit">TSS</Text></div>
                     </div>
                     <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.weeklyTss.trend")}</Text>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.weeklyTss.trend")}</Text>
                       <div style={{ color: trendUp ? "var(--lime)" : "var(--rose)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
                         {trendUp ? t("sidebar.weeklyTss.trendUp") : t("sidebar.weeklyTss.trendDown")}
                       </div>
@@ -651,7 +651,7 @@ export default function DashboardPage() {
               if (goalKm === 0) {
                 return (
                   <a href="/goal-setup" style={{ textDecoration: "none" }}>
-                    <Card padding="none" style={{ padding: 18, textAlign: "center" }}>
+                    <Card padding="none" style={{ padding: "var(--space-4)", textAlign: "center" }}>
                       <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{t("sidebar.monthlyGoal.setupTitle")}</div>
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("sidebar.monthlyGoal.setupHint")}</div>
                     </Card>
@@ -664,15 +664,15 @@ export default function DashboardPage() {
               const goalDistFormatted = formatDistance(goalKm * 1000, units);
               const actualDispNum = units === 'imperial' ? Math.round(actualKm * 1000 / M_PER_MI) : actualKm;
               return (
-                <Card padding="none" style={{ padding: 18 }}>
+                <Card padding="none" style={{ padding: "var(--space-4)" }}>
                   {/* sub 에 "목표 N" 명시 — 이전엔 "N km" 만 있어 진행 N 과 목표 N 의 위계 혼동.
                       "목표" 접두사는 i18n 키화 (#235, 영어 로케일 한글 노출 방지). */}
                   <SectionHeader title={monthLabel} sub={`${t("sidebar.monthlyGoal.subPrefix")}${goalDistFormatted}`} />
-                  <div className="flex items-baseline gap-1.5" style={{ marginBottom: 10 }}>
-                    <Text variant="dataHero" style={{ fontSize: 34 }}>{actualDispNum}</Text>
+                  <div className="flex items-baseline gap-1.5" style={{ marginBottom: "var(--space-2)" }}>
+                    <Text variant="dataHero" style={{ fontSize: "var(--fs-3xl)" }}>{actualDispNum}</Text>
                     <Text variant="unit" style={{ fontSize: "var(--fs-sm)" }}>/ {goalDistFormatted} · {pct}%</Text>
                   </div>
-                  <div style={{ height: 6, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden", marginBottom: 10 }}>
+                  <div style={{ height: 6, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden", marginBottom: "var(--space-2)" }}>
                     <div style={{ width: `${pct}%`, height: "100%", background: "var(--lime)" }} />
                   </div>
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
@@ -683,22 +683,22 @@ export default function DashboardPage() {
             })()}
 
             {/* 피트니스 스냅샷 */}
-            <Card padding="none" style={{ padding: 18 }}>
+            <Card padding="none" style={{ padding: "var(--space-4)" }}>
               <SectionHeader title={t("sidebar.fitness.title")} sub={t("sidebar.fitness.sub")} />
               {fitness.ctl === 0 ? (
                 <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", padding: "8px 0" }}>{t("sidebar.fitness.insufficient")}</div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.fitness.ctl")}</Text>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.ctl")}</Text>
                     <div><Text variant="dataMedium">{fitness.ctl.toFixed(1)}</Text></div>
                   </div>
                   <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.fitness.atl")}</Text>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.atl")}</Text>
                     <div><Text variant="dataMedium">{fitness.atl.toFixed(1)}</Text></div>
                   </div>
                   <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.fitness.tsb")}</Text>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.tsb")}</Text>
                     <div>
                       <Text variant="dataMedium" style={{ color: fitness.tsb >= 5 ? "var(--lime)" : fitness.tsb <= -10 ? "var(--rose)" : "var(--amber)" }}>
                         {fitness.tsb >= 0 ? `+${fitness.tsb.toFixed(1)}` : fitness.tsb.toFixed(1)}
@@ -706,8 +706,8 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.fitness.recommend")}</Text>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", fontWeight: 500, marginTop: 3 }}>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.recommend")}</Text>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", fontWeight: 500, marginTop: "var(--space-1)" }}>
                       {fitness.tsb >= 5 ? t("sidebar.fitness.recoMaintain") : fitness.tsb <= -10 ? t("sidebar.fitness.recoRecovery") : t("sidebar.fitness.recoModerate")}
                     </div>
                   </div>
@@ -717,7 +717,7 @@ export default function DashboardPage() {
 
             {/* 한국 자전거 커뮤니티 */}
             <Card padding="none" style={{ padding: 'var(--space-4)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("sidebar.community.title")}</Text>
+              <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("sidebar.community.title")}</Text>
               <div className="flex flex-col gap-2">
                 {[
                   { name: "RIDING CLUB LARA", descKey: "lara", url: "https://cafe.naver.com/clublara", logo: "https://cafeptthumb-phinf.pstatic.net/MjAyNTEyMDVfMjU1/MDAxNzY0OTQwMjUyMTY1.2Q6mw5UnFu97-YuUfQlZUhvWFowAmYnlmIfw0tlFad0g.x7s1AKzSkzc_QoY7MXbFkCksbVDh-_UmTvvrtJjbIh8g.PNG/externalFile.png" },

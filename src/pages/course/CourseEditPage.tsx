@@ -191,7 +191,7 @@ export default function CourseEditPage() {
     border: "1px solid var(--line-soft)",
     borderRadius: "var(--r-md)",
     color: "var(--ink-0)",
-    fontSize: 14,
+    fontSize: "var(--fs-sm)",
   };
 
   return (
@@ -205,7 +205,7 @@ export default function CourseEditPage() {
       <Card padding="none" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-4)' }}>
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionBasic")}</h2>
 
-        <label className="flex flex-col" style={{ gap: 6, marginBottom: 'var(--space-4)' }}>
+        <label className="flex flex-col" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-4)' }}>
           <Text variant="eyebrow">{t("form.courseName")} <span style={{ color: "var(--rose)" }}>*</span></Text>
           <input
             type="text"
@@ -217,7 +217,7 @@ export default function CourseEditPage() {
           <span className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-4)" }}>{name.length}/50</span>
         </label>
 
-        <label className="flex flex-col" style={{ gap: 6 }}>
+        <label className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
           <Text variant="eyebrow">{t("edit.descriptionLabel")}</Text>
           <textarea
             value={description}
@@ -236,8 +236,8 @@ export default function CourseEditPage() {
         <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("edit.sectionCharacteristics")}</h2>
 
         <div style={{ marginBottom: 'var(--space-4)' }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("edit.surface")}</Text>
-          <div role="radiogroup" aria-label={t("edit.surface")} className="flex items-center flex-wrap" style={{ gap: 6 }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("edit.surface")}</Text>
+          <div role="radiogroup" aria-label={t("edit.surface")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
             {SURFACE_OPTIONS.map((o) => {
               const active = surface === o.v;
               return (
@@ -261,7 +261,7 @@ export default function CourseEditPage() {
         </div>
 
         <div>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("edit.difficultyLabel")}</Text>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("edit.difficultyLabel")}</Text>
           <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-1)' }}>
             {[1, 2, 3, 4, 5].map((n) => {
               const active = difficulty === n;

@@ -546,7 +546,7 @@ export default function EventDashboardPage() {
       {categories.length > 0 && (
         <div
           className="flex items-center flex-wrap"
-          style={{ gap: 6, padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)", flexShrink: 0 }}
+          style={{ gap: "var(--space-1-5)", padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)", flexShrink: 0 }}
         >
           <Text variant="eyebrow">{t("label.categories")}</Text>
           <Button
@@ -590,8 +590,8 @@ export default function EventDashboardPage() {
         }}
       >
         {/* Left: status + checkpoints */}
-        <aside style={{ borderRight: "1px solid var(--line-soft)", padding: 18, overflowY: "auto" }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>
+        <aside style={{ borderRight: "1px solid var(--line-soft)", padding: "var(--space-4)", overflowY: "auto" }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>
             {t("dashboard.statusTitle", { category: categoryFilter === "ALL" ? t("filter.all") : categoryFilter })}
           </Text>
           <StatusRow kind="RIDING" count={filteredCounts.riding} total={filteredCounts.total} statusMeta={STATUS_META} />
@@ -603,7 +603,7 @@ export default function EventDashboardPage() {
           {/* 전체 강조 */}
           <div
             style={{
-              marginTop: 14,
+              marginTop: "var(--space-3)",
               padding: "10px 14px",
               background: "color-mix(in oklch, var(--lime) 6%, var(--bg-2))",
               border: "1px solid color-mix(in oklch, var(--lime) 30%, var(--line-soft))",
@@ -618,7 +618,7 @@ export default function EventDashboardPage() {
             </div>
           </div>
 
-          <Text as="div" variant="eyebrow" style={{ marginTop: 22, marginBottom: 10 }}>{t("checkpoints")}</Text>
+          <Text as="div" variant="eyebrow" style={{ marginTop: 22, marginBottom: "var(--space-2)" }}>{t("checkpoints")}</Text>
           {snapshot?.checkpoints.length ? (
             snapshot.checkpoints.map((cp) => {
               const total = filteredCounts.total || snapshot.counts?.total || 1;
@@ -632,7 +632,7 @@ export default function EventDashboardPage() {
                       {pct}%
                     </span>
                   </div>
-                  <div style={{ height: 2, background: "var(--bg-3)", borderRadius: 1, overflow: "hidden", marginTop: 'var(--space-1)' }}>
+                  <div style={{ height: 2, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden", marginTop: 'var(--space-1)' }}>
                     <div style={{ width: `${pct}%`, height: "100%", background: "var(--aqua)" }} />
                   </div>
                 </div>
@@ -665,8 +665,8 @@ export default function EventDashboardPage() {
                 left: 12,
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
-                background: "rgba(10,26,5,0.7)",
+                gap: "var(--space-1-5)",
+                background: "color-mix(in srgb, var(--bg-0) 70%, var(--lime) 8%)",
                 padding: "4px 10px",
                 borderRadius: "var(--r-sm)",
                 fontSize: "var(--fs-xs)",
@@ -687,7 +687,7 @@ export default function EventDashboardPage() {
                 fontSize: "var(--fs-xs)",
                 color: "var(--ink-3)",
                 fontFamily: "var(--font-mono)",
-                background: "rgba(10,26,5,0.6)",
+                background: "color-mix(in srgb, var(--bg-0) 60%, var(--lime) 8%)",
                 padding: "4px 10px",
                 borderRadius: "var(--r-sm)",
                 pointerEvents: "none",
@@ -712,8 +712,8 @@ export default function EventDashboardPage() {
         </section>
 
         {/* Right: alert feed */}
-        <aside style={{ borderLeft: "1px solid var(--line-soft)", padding: 18, overflowY: "auto" }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("dashboard.liveAlerts")}</Text>
+        <aside style={{ borderLeft: "1px solid var(--line-soft)", padding: "var(--space-4)", overflowY: "auto" }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("dashboard.liveAlerts")}</Text>
           {alerts.length === 0 ? (
             <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("dashboard.noAlertsYet")}</p>
           ) : (
@@ -723,7 +723,7 @@ export default function EventDashboardPage() {
                   key={a.key}
                   style={{
                     display: "flex",
-                    gap: 10,
+                    gap: "var(--space-2)",
                     padding: "10px 0",
                     borderBottom: "1px solid var(--line-soft)",
                   }}
@@ -739,14 +739,14 @@ export default function EventDashboardPage() {
                       display: "grid",
                       placeItems: "center",
                       flexShrink: 0,
-                      marginTop: 2,
+                      marginTop: "var(--space-0-5)",
                       fontSize: "var(--fs-xs)",
                     }}
                   >
                     {a.emoji}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", marginBottom: 2 }}>{a.message}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>{a.message}</div>
                     {a.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{a.sub}</div>}
                   </div>
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
@@ -796,15 +796,15 @@ function StatusRow({
         borderRadius: "var(--r-sm)",
         background: "var(--bg-2)",
         border: "1px solid var(--line-soft)",
-        marginBottom: 6,
+        marginBottom: "var(--space-1-5)",
       }}
     >
-      <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 6 }}>
+      <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
         <span aria-hidden="true" style={{ color: m.color }}>{m.emoji}</span>
         <span style={{ flex: 1, fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>{m.label}</span>
         <Text variant="num" style={{ fontSize: "var(--fs-lg)", color: "var(--ink-0)", fontWeight: 600 }}>{count}</Text>
       </div>
-      <div style={{ height: 2, background: "var(--bg-3)", borderRadius: 1, overflow: "hidden" }}>
+      <div style={{ height: 2, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: m.color }} />
       </div>
     </div>

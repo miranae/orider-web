@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
-import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
 import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
@@ -40,12 +39,12 @@ import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text } from "../theme/components";
 import {
   formatDuration,
-  formatPace,
-  formatSwimPace,
   formatTime,
   getSportCategory,
   type SegmentEffortData,
 } from "../features/activity/detail/activityDetailUtils";
+import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid";
+import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import {
   buildChartOverlays,
   buildSampledData,
@@ -597,87 +596,19 @@ export default function ActivityPage() {
       </Card>
 
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
-      {hasTrack ? (
-        <div className="-mx-6 sm:-mx-8 lg:mx-[calc((100vw-1440px)/-2-24px)] xl:mx-0" style={{ marginTop: -24 }}>
-          <RouteMap
-            polyline={activity.thumbnailTrack}
-            latlng={streams?.latlng}
-            height="h-[360px]"
-            interactive
-            markerPosition={markerPosition}
-            highlightRange={hoveredSegment ? {
-              startIndex: hoveredSegment.startIndex,
-              endIndex: hoveredSegment.endIndex,
-            } : undefined}
-            photos={[
-              ...photos
-                .filter((p) => p.url && p.location)
-                .map((p) => ({ id: p.id, url: p.url!, location: p.location!, caption: p.caption })),
-              ...uploadedPhotos
-                .filter((p) => p.location)
-                .map((p) => ({ id: `upload-${p.id}`, url: p.url, location: p.location!, caption: null as string | null })),
-            ]}
-            flyToPosition={flyToPosition}
-          />
-        </div>
-      ) : sport === "swim" ? (
-        /* 수영 풀 레인 시각화 */
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("page.swim.setTimeline")}</h3>
-          <div style={{
-            position: 'relative', height: 160,
-            background: 'linear-gradient(180deg, oklch(0.22 0.05 220), oklch(0.16 0.04 220))',
-            borderRadius: 8, overflow: 'hidden', border: '1px solid var(--line-soft)',
-          }}>
-            {/* 레인 라인 */}
-            {[0.25, 0.5, 0.75].map((p) => (
-              <div key={p} style={{
-                position: 'absolute', left: 0, right: 0, top: `${p * 100}%`, height: 1,
-                background: 'repeating-linear-gradient(90deg, rgba(160,200,220,0.3) 0 10px, transparent 10px 16px)',
-              }} />
-            ))}
-            {/* 거리 바 (총 거리를 채우는 단일 바) */}
-            <div style={{ position: 'absolute', inset: '20px 20px 30px', display: 'flex', alignItems: 'flex-end' }}>
-              <div style={{
-                width: '100%', height: '80%',
-                background: 'var(--aqua)', opacity: 0.7, borderRadius: '3px 3px 0 0',
-                border: '1px solid var(--aqua)',
-              }} />
-            </div>
-            {/* 거리 눈금 */}
-            <div style={{
-              position: 'absolute', left: 20, right: 20, bottom: 8,
-              display: 'flex', justifyContent: 'space-between',
-              fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--ink-4)',
-            }}>
-              <span>0m</span>
-              <span>{Math.round(s.distance / 2).toLocaleString()}m</span>
-              <span>{Math.round(s.distance).toLocaleString()}m</span>
-            </div>
-          </div>
-          <div className="text-[length:var(--fs-xs)] mt-2" style={{ color: 'var(--ink-3)' }}>
-            {t("page.swim.totalSummary", { distance: Math.round(s.distance).toLocaleString(), time: formatDuration(s.ridingTimeMillis) })}
-          </div>
-        </Card>
-      ) : (
-        <Card padding="none" className="px-6 py-8 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)' }}>
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--lime)' }}>
-              <rect x="4" y="2" width="16" height="20" rx="2" />
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 8v1m0 6v1m-4-4h1m6 0h1" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>
-              {activity.type?.toLowerCase().includes('virtual') ? t("page.indoor") : t("page.noGps")}
-            </p>
-            <p className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: 'var(--ink-2)' }}>
-              {t("page.noGpsDesc")}
-            </p>
-          </div>
-        </Card>
-      )}
+      <ActivityMediaPanel
+        activity={activity}
+        streams={streams}
+        sport={sport}
+        hasTrack={hasTrack}
+        summary={s}
+        markerPosition={markerPosition}
+        hoveredSegment={hoveredSegment}
+        photos={photos}
+        uploadedPhotos={uploadedPhotos}
+        flyToPosition={flyToPosition}
+        t={t}
+      />
 
       {/* ── 탭 네비게이션 ── */}
       {streams && (
@@ -897,253 +828,26 @@ export default function ActivityPage() {
 
       {/* 스탯 — 6-metric strip (프로토타입 매칭) */}
       <Card padding="none" style={{ padding: 0 }}>
-        <div className="grid grid-cols-3 sm:grid-cols-6" style={{ borderBottom: 'none' }}>
-          {/* 거리 */}
-          {sport !== "other" && (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.distance")}</Text>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                {sport === "swim" ? (
-                  <><Text variant="dataLarge">{Math.round(s.distance)}</Text><Text variant="unit">m</Text></>
-                ) : (
-                  <><Text variant="dataLarge">{distVal(s.distance)}</Text><Text variant="unit">{distUnit}</Text></>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 이동 시간 — server metrics 의 movingTimeSec 가 있으면 우선 사용.
-           *  ridingTimeMillis(elapsed) 만 노출하던 이전엔 "9h 57m / 3.3km" 처럼 정지 시간
-           *  포함된 값이 그대로 보여 "정지 6h 가 라이딩으로?" 같은 오해. movingTime 우선,
-           *  pause 가 유의미(60s+)하면 sub 에 전체/정지 시간 부연. */}
-          {(() => {
-            // 표시 정책은 resolveDuration 으로 일원화 (피드 카드와 동일). 단 ActivityPage 는 live
-            //  metrics doc(serverMetrics) 을 소스로 — summary 비정규화본보다 신선. pause 유의미하면
-            //  sub 에 전체/정지 부연 (카드엔 공간이 없어 hover title 로만 노출).
-            const m = serverMetrics.metrics;
-            const d = resolveDuration({
-              ridingTimeMillis: s.ridingTimeMillis,
-              movingTimeSec: m?.movingTimeSec,
-              pauseTimeSec: m?.pauseTimeSec,
-            });
-            return (
-              <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.movingTime")}</Text>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                  <Text variant="dataLarge">{formatDuration(d.displayMs)}</Text>
-                </div>
-                {d.usingMoving && (
-                  <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: 'var(--ink-3)' }}>
-                    {t("stat.movingTimeTotal", { elapsed: formatDuration(d.elapsedMs), pause: formatDuration(d.pauseMs!) })}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* 평균 속도/페이스 — sanity 가드: 80 km/h 초과 시 "—" 로 표시, 원본값은 title 에 노출. */}
-          {sport === "ride" && (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.avgSpeed")}</Text>
-              <div
-                style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}
-                title={displayAvgImplausible
-                  ? t("stat.dataWarningRaw", { value: displayAvgKph.toFixed(1) })
-                  : (speedDur.usingMoving ? t("stat.movingAvgTotal", { total: s.averageSpeed.toFixed(1) }) : undefined)}
-              >
-                {displayAvgImplausible ? (
-                  <Text variant="dataLarge">—</Text>
-                ) : (
-                  <><Text variant="dataLarge">{speedVal(displayAvgKph)}</Text><Text variant="unit">{speedUnit}</Text></>
-                )}
-              </div>
-            </div>
-          )}
-          {sport === "run" && s.averageSpeed > 0 && (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.avgPace")}</Text>
-              <div
-                style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}
-                title={avgSpeedImplausible ? t("stat.dataWarningRaw", { value: s.averageSpeed.toFixed(1) }) : undefined}
-              >
-                {avgSpeedImplausible ? (
-                  <Text variant="dataLarge">—</Text>
-                ) : (
-                  <><Text variant="dataLarge">{formatPace(s.averageSpeed)}</Text><Text variant="unit">/km</Text></>
-                )}
-              </div>
-            </div>
-          )}
-          {sport === "swim" && s.averageSpeed > 0 && (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.avgPace")}</Text>
-              <div
-                style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}
-                title={avgSpeedImplausible ? t("stat.dataWarningRaw", { value: s.averageSpeed.toFixed(1) }) : undefined}
-              >
-                {avgSpeedImplausible ? (
-                  <Text variant="dataLarge">—</Text>
-                ) : (
-                  <><Text variant="dataLarge">{formatSwimPace(s.averageSpeed)}</Text><Text variant="unit">/100m</Text></>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 획득고도 */}
-          {showElevation && s.elevationGain > 0 && (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.elev")}</Text>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <Text variant="dataLarge">{elevVal(s.elevationGain)}</Text><Text variant="unit">{elevUnit}</Text>
-              </div>
-            </div>
-          )}
-
-          {/* 평균 심박 또는 평균 파워 (5번째 슬롯) */}
-          {s.averageHeartRate != null ? (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.avgHr")}</Text>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <Text variant="dataLarge">{Math.round(s.averageHeartRate)}</Text><Text variant="unit">bpm</Text>
-              </div>
-              {s.maxHeartRate != null && <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: 'var(--ink-3)' }}>{t("page.max")} {Math.round(s.maxHeartRate)}</div>}
-            </div>
-          ) : avgPowerValue != null && (sport === "ride" || sport === "run") ? (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.avgPower")}</Text>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <Text variant="dataLarge">{Math.round(avgPowerValue)}</Text><Text variant="unit">W</Text>
-              </div>
-              {normalizedPowerValue != null && <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: 'var(--ink-3)' }}>NP {Math.round(normalizedPowerValue)}</div>}
-            </div>
-          ) : null}
-
-          {/* TSS (종목별 라벨) */}
-          {s.tss != null && (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>
-                {sport === "run" ? "rTSS" : sport === "swim" ? "sTSS" : "TSS"}
-              </Text>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <Text variant="dataLarge">{Math.round(s.tss)}</Text>
-              </div>
-            </div>
-          )}
-
-          {/* SWOLF (수영) */}
-          {s.swolf != null && sport === "swim" && (
-            <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>SWOLF</Text>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <Text variant="dataLarge">{Math.round(s.swolf)}</Text>
-              </div>
-            </div>
-          )}
-
-          {/* 칼로리 */}
-          {s.calories != null && (
-            <div className="p-4 sm:p-5" style={{ borderBottom: '1px solid var(--line-soft)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.calories")}</Text>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                <Text variant="dataLarge">{Math.round(s.calories).toLocaleString()}</Text><Text variant="unit">kcal</Text>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 추가 스탯 행 (심박+파워 모두 있거나 케이던스/최고속도 등) */}
-        {(
-          (s.averageHeartRate != null && avgPowerValue != null && (sport === "ride" || sport === "run")) ||
-          s.maxSpeed > 0 ||
-          s.averageCadence != null
-        ) && (
-          <div className="grid grid-cols-3 sm:grid-cols-6" style={{ borderTop: '1px solid var(--line-soft)' }}>
-            {/* 심박이 5번째에 표시된 경우, 파워를 여기에 */}
-            {s.averageHeartRate != null && avgPowerValue != null && (sport === "ride" || sport === "run") && (
-              <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)' }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.avgPower")}</Text>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                  <Text variant="dataMedium">{Math.round(avgPowerValue)}</Text><Text variant="unit">W</Text>
-                </div>
-                {normalizedPowerValue != null && <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: 'var(--ink-3)' }}>NP {Math.round(normalizedPowerValue)}</div>}
-              </div>
-            )}
-
-            {/* 최고 속도/페이스 — sanity 가드: 140 km/h 초과 시 "—". */}
-            {sport === "ride" && s.maxSpeed > 0 && (
-              <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)' }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.maxSpeed")}</Text>
-                <div
-                  style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}
-                  title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
-                >
-                  {maxSpeedImplausible ? (
-                    <Text variant="dataMedium">—</Text>
-                  ) : (
-                    <><Text variant="dataMedium">{speedVal(s.maxSpeed)}</Text><Text variant="unit">{speedUnit}</Text></>
-                  )}
-                </div>
-              </div>
-            )}
-            {sport === "run" && s.maxSpeed > 0 && (
-              <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)' }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.maxPace")}</Text>
-                <div
-                  style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}
-                  title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
-                >
-                  {maxSpeedImplausible ? (
-                    <Text variant="dataMedium">—</Text>
-                  ) : (
-                    <><Text variant="dataMedium">{formatPace(s.maxSpeed)}</Text><Text variant="unit">/km</Text></>
-                  )}
-                </div>
-              </div>
-            )}
-            {sport === "swim" && s.maxSpeed > 0 && (
-              <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)' }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.maxPace")}</Text>
-                <div
-                  style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}
-                  title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
-                >
-                  {maxSpeedImplausible ? (
-                    <Text variant="dataMedium">—</Text>
-                  ) : (
-                    <><Text variant="dataMedium">{formatSwimPace(s.maxSpeed)}</Text><Text variant="unit">/100m</Text></>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 케이던스 */}
-            {s.averageCadence != null && sport === "ride" && (
-              <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)' }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.avgCadence")}</Text>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                  <Text variant="dataMedium">{Math.round(s.averageCadence)}</Text><Text variant="unit">rpm</Text>
-                </div>
-              </div>
-            )}
-            {s.averageCadence != null && sport === "run" && (
-              <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)' }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.cadence")}</Text>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                  <Text variant="dataMedium">{Math.round(s.averageCadence)}</Text><Text variant="unit">spm</Text>
-                </div>
-              </div>
-            )}
-            {s.averageCadence != null && sport === "swim" && (
-              <div className="p-4 sm:p-5" style={{ borderRight: '1px solid var(--line-soft)' }}>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("stat.avgStroke")}</Text>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
-                  <Text variant="dataMedium">{Math.round(s.averageCadence)}</Text><Text variant="unit">spm</Text>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        <ActivityStatsGrid
+          summary={s}
+          sport={sport}
+          avgPowerValue={avgPowerValue}
+          normalizedPowerValue={normalizedPowerValue}
+          movingTimeSec={serverMetrics.metrics?.movingTimeSec}
+          pauseTimeSec={serverMetrics.metrics?.pauseTimeSec}
+          displayAvgKph={displayAvgKph}
+          displayAvgImplausible={displayAvgImplausible}
+          avgSpeedImplausible={avgSpeedImplausible}
+          maxSpeedImplausible={maxSpeedImplausible}
+          showElevation={showElevation}
+          distVal={distVal}
+          distUnit={distUnit}
+          speedVal={speedVal}
+          speedUnit={speedUnit}
+          elevVal={elevVal}
+          elevUnit={elevUnit}
+          t={t}
+        />
       </Card>
 
       {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}

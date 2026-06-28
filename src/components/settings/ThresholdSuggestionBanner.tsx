@@ -127,22 +127,22 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
         margin: "8px 0 16px",
         padding: "12px 14px",
         border: "1px solid color-mix(in oklch, var(--amber) 35%, transparent)",
-        borderRadius: 10,
+        borderRadius: "var(--r-lg)",
         background: "color-mix(in oklch, var(--amber) 8%, transparent)",
         display: "flex",
         flexDirection: "column",
-        gap: 10,
+        gap: "var(--space-2)",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-1)" }}>
+      <div style={{ fontSize: "var(--fs-xs)", fontWeight: 600, color: "var(--ink-1)" }}>
         {t("threshold.suggestionTitle")}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
         {items.map((it) => (
-          <div key={it.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 12 }}>
+          <div key={it.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-2)" }}>
               {it.label}
-              <span style={{ marginLeft: 'var(--space-2)', color: "var(--ink-3)", fontSize: 11 }}>{it.sub}</span>
+              <span style={{ marginLeft: 'var(--space-2)', color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{it.sub}</span>
             </span>
             <span style={{ fontFamily: "var(--font-mono)" }}>
               <span style={{ color: "var(--ink-3)" }}>{it.cur ?? "—"}</span>
@@ -159,8 +159,8 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
           disabled={busy}
           style={{
             padding: "6px 12px",
-            fontSize: 12,
-            borderRadius: 6,
+            fontSize: "var(--fs-xs)",
+            borderRadius: "var(--r-sm)",
             border: "1px solid var(--line-soft)",
             background: "transparent",
             cursor: busy ? "default" : "pointer",
@@ -175,8 +175,8 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
           disabled={busy}
           style={{
             padding: "6px 12px",
-            fontSize: 12,
-            borderRadius: 6,
+            fontSize: "var(--fs-xs)",
+            borderRadius: "var(--r-sm)",
             border: "none",
             background: "var(--amber)",
             color: "white",

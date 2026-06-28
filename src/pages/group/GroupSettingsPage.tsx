@@ -119,7 +119,7 @@ export default function GroupSettingsPage() {
     return (
       <div>
         <GroupSubNav group={group} isCreator={false} />
-        <Card padding="none" className="p-6" style={{ borderRadius: 8 }}>
+        <Card padding="none" className="p-6" style={{ borderRadius: "var(--r-md)" }}>
           <h2 className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("button.leave")}</h2>
           <p className="text-[length:var(--fs-sm)] mb-4" style={{ color: "var(--ink-2)" }}>
             {t("settings.leaveDescription")}
@@ -197,7 +197,7 @@ export default function GroupSettingsPage() {
       <GroupSubNav group={group} isCreator={isCreator} />
 
       {/* Breadcrumb */}
-      <div className="text-[length:var(--fs-xs)] flex items-center mb-3" style={{ gap: 6, color: "var(--ink-3)" }}>
+      <div className="text-[length:var(--fs-xs)] flex items-center mb-3" style={{ gap: "var(--space-1-5)", color: "var(--ink-3)" }}>
         <Link to="/groups" style={{ color: "var(--ink-3)" }}>{t("breadcrumb.groups")}</Link>
         <span style={{ color: "var(--ink-4)" }}>/</span>
         <Link to={`/group/${groupId}`} style={{ color: "var(--ink-1)", fontWeight: 500 }}>{group.name}</Link>
@@ -211,7 +211,7 @@ export default function GroupSettingsPage() {
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.profile")}</h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: "100px 1fr", marginBottom: 'var(--space-4)' }}>
             <div>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("settings.badge")}</Text>
+              <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.badge")}</Text>
               <input
                 type="text"
                 value={badge}
@@ -223,7 +223,7 @@ export default function GroupSettingsPage() {
               />
             </div>
             <div>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("settings.name")}</Text>
+              <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.name")}</Text>
               <input
                 type="text"
                 value={name}
@@ -235,7 +235,7 @@ export default function GroupSettingsPage() {
             </div>
           </div>
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("settings.location")}</Text>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.location")}</Text>
             <input
               type="text"
               value={city}
@@ -246,8 +246,8 @@ export default function GroupSettingsPage() {
             />
           </div>
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("settings.kind")}</Text>
-            <div role="radiogroup" aria-label={t("settings.kind")} className="flex items-center flex-wrap" style={{ gap: 6 }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.kind")}</Text>
+            <div role="radiogroup" aria-label={t("settings.kind")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {(Object.keys(KIND_LABELS) as GroupKind[]).map((k) => {
                 const active = kind === k;
                 return (
@@ -266,8 +266,8 @@ export default function GroupSettingsPage() {
             </div>
           </div>
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("settings.sports")}</Text>
-            <div className="flex items-center flex-wrap" style={{ gap: 6 }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.sports")}</Text>
+            <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {SPORT_OPTIONS.map((o) => {
                 const active = sports.includes(o.v);
                 return (
@@ -285,7 +285,7 @@ export default function GroupSettingsPage() {
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("settings.description")}</Text>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.description")}</Text>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -301,12 +301,12 @@ export default function GroupSettingsPage() {
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.visibility")}</h2>
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("settings.visibilityLabel")}</Text>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.visibilityLabel")}</Text>
             <VisibilityToggle value={visibility} onChange={setVisibility} />
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 6 }}>{t("settings.approval")}</Text>
-            <div role="radiogroup" aria-label={t("settings.approval")} className="flex items-center" style={{ gap: 6 }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.approval")}</Text>
+            <div role="radiogroup" aria-label={t("settings.approval")} className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
               {[
                 { v: "auto" as const, label: t("settings.approvalAuto") },
                 { v: "manual" as const, label: t("settings.approvalManual") },
@@ -332,13 +332,13 @@ export default function GroupSettingsPage() {
         {/* 권한 토글 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.permissions")}</h2>
-          <div className="flex flex-col" style={{ gap: 10 }}>
+          <div className="flex flex-col" style={{ gap: "var(--space-2)" }}>
             {(Object.keys(TOGGLE_LABELS) as (keyof GroupToggles)[]).map((k) => {
               const meta = TOGGLE_LABELS[k];
               const on = toggles[k];
               return (
-                <label key={k} className="flex items-start cursor-pointer" style={{ gap: 10 }}>
-                  <input type="checkbox" checked={on} onChange={() => toggleFlag(k)} style={{ marginTop: 3 }} />
+                <label key={k} className="flex items-start cursor-pointer" style={{ gap: "var(--space-2)" }}>
+                  <input type="checkbox" checked={on} onChange={() => toggleFlag(k)} style={{ marginTop: "var(--space-1)" }} />
                   <div>
                     <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-1)" }}>{meta.label}</div>
                     <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{meta.desc}</div>
@@ -375,7 +375,7 @@ export default function GroupSettingsPage() {
         </div>
 
         {/* 초대 코드 */}
-        <Card padding="none" className="p-6" style={{ borderRadius: 8 }}>
+        <Card padding="none" className="p-6" style={{ borderRadius: "var(--r-md)" }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.inviteCode")}</h2>
           <div className="flex items-center gap-2 mb-3">
             <code
@@ -403,7 +403,7 @@ export default function GroupSettingsPage() {
 
         {/* 그룹 삭제 */}
         <Card padding="none" className="p-6"
-          style={{ borderRadius: 8, borderColor: "rgba(239,68,68,0.3)" }}
+          style={{ borderRadius: "var(--r-md)", borderColor: "color-mix(in srgb, var(--rose) 30%, transparent)" }}
         >
           <h2 className="text-[length:var(--fs-sm)] font-semibold text-red-500 mb-2">{t("settings.dangerZone")}</h2>
           <p className="text-[length:var(--fs-xs)] mb-4" style={{ color: "var(--ink-2)" }}>

@@ -15,7 +15,7 @@ export default function DailyTSSChart({ data }: { data: DailyLoad[] }) {
   return (
     <div style={{ position: "relative" }}>
       <div
-        style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 90 }}
+        style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-1)", height: 90 }}
         onPointerLeave={() => setHoverIdx(null)}
       >
         {recent.map((d, i) => {
@@ -34,7 +34,7 @@ export default function DailyTSSChart({ data }: { data: DailyLoad[] }) {
                 flex: 1,
                 height: `${Math.max((v / maxLoad) * 100, v === 0 ? 4 : 0)}%`,
                 background: c,
-                borderRadius: 1,
+                borderRadius: "var(--r-xs)",
                 minWidth: 3,
                 opacity: op,
                 transition: "opacity 0.12s",

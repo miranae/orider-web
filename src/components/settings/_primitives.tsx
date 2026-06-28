@@ -85,7 +85,7 @@ export function FieldGrid({ cols = 2, children }: { cols?: number; children: Rea
       style={{
         display: "grid",
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: 14,
+        gap: "var(--space-3)",
       }}
     >
       {children}
@@ -110,7 +110,7 @@ export function Field({
         style={{
           fontSize: "var(--fs-xs)",
           color: "var(--ink-3)",
-          marginBottom: 5,
+          marginBottom: "var(--space-1)",
           textTransform: "uppercase",
           letterSpacing: "0.06em",
           fontFamily: "var(--font-mono)",
@@ -149,7 +149,7 @@ export function InlineRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)" }}>{label}</div>
         {hint && (
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 2 }}>{hint}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>{hint}</div>
         )}
       </div>
       <div>{children}</div>
@@ -176,7 +176,7 @@ export function Toggle({
       style={{
         width: 40,
         height: 22,
-        borderRadius: 11,
+        borderRadius: "var(--r-lg)",
         background: on ? "var(--lime)" : "var(--bg-3)",
         position: "relative",
         border: `1px solid ${on ? "var(--lime)" : "var(--line)"}`,
@@ -308,7 +308,7 @@ export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZ
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${zones.length}, 1fr)`,
-          marginTop: 6,
+          marginTop: "var(--space-1-5)",
           gap: 'var(--space-1)',
         }}
       >

@@ -149,7 +149,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
               {t('runWizard.selectSubtitle')}
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: "var(--space-2)" }}>
             {EVENTS.map(e => {
               const sel = e.id === eventId;
               const diffColor = e.dist >= 30 ? 'var(--rose)' : e.dist >= 15 ? 'var(--amber)' : 'var(--lime)';
@@ -168,8 +168,8 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                     <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', flex: 1 }}>{t(`runWizard.event.${e.id}.name`)}</span>
                     <Chip style={{ color: diffColor, borderColor: diffColor }}>{e.cat}</Chip>
                   </div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginBottom: 10 }}>{t(`runWizard.event.${e.id}.kind`)}</div>
-                  <div style={{ display: 'flex', gap: 14, fontSize: "var(--fs-xs)", fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginBottom: "var(--space-2)" }}>{t(`runWizard.event.${e.id}.kind`)}</div>
+                  <div style={{ display: 'flex', gap: "var(--space-3)", fontSize: "var(--fs-xs)", fontFamily: 'var(--font-mono)' }}>
                     <span><span style={{ color: 'var(--ink-3)' }}>{t('runWizard.distanceLabel')} </span><span style={{ color: 'var(--ink-0)' }}>{e.dist} km</span></span>
                     <span><span style={{ color: 'var(--ink-3)' }}>↑ </span><span style={{ color: 'var(--ink-0)' }}>{e.elev} m</span></span>
                     <span style={{ marginLeft: 'auto', color: 'var(--ink-3)' }}>{t(`runWizard.event.${e.id}.tag`)}</span>
@@ -187,20 +187,20 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
           <div>
             {/* 목표 유형 */}
             <Text as="label" variant="eyebrow" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>{t('runWizard.goalTypeLabel')}</Text>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: "var(--space-1-5)" }}>
               {(['completion', 'time', 'race'] as const).map((v) => (
                 <label
                   key={v}
                   style={{
-                    padding: 14, borderRadius: "var(--r-md)", cursor: 'pointer',
+                    padding: "var(--space-3)", borderRadius: "var(--r-md)", cursor: 'pointer',
                     background: goalType === v ? 'color-mix(in oklch, var(--lime) 6%, var(--bg-2))' : 'var(--bg-2)',
                     border: '1px solid ' + (goalType === v ? 'var(--lime)' : 'var(--line-soft)'),
-                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                    display: 'flex', alignItems: 'flex-start', gap: "var(--space-2)",
                   }}
                 >
                   <div
                     style={{
-                      marginTop: 3, width: 16, height: 16, borderRadius: '50%',
+                      marginTop: "var(--space-1)", width: 16, height: 16, borderRadius: '50%',
                       border: '2px solid ' + (goalType === v ? 'var(--lime)' : 'var(--line)'),
                       background: goalType === v ? 'var(--lime)' : 'transparent',
                       flexShrink: 0, cursor: 'pointer',
@@ -209,7 +209,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                   />
                   <div onClick={() => setGoalType(v)} style={{ cursor: 'pointer' }}>
                     <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: 'var(--ink-0)' }}>{t(`runWizard.goalType.${v}`)}</div>
-                    <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: 2 }}>{t(`runWizard.goalTypeDesc.${v}`)}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: "var(--space-0-5)" }}>{t(`runWizard.goalTypeDesc.${v}`)}</div>
                   </div>
                 </label>
               ))}
@@ -224,7 +224,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
               placeholder={t('runWizard.targetDatePlaceholder')}
             />
             {eventDate && (
-              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: "var(--space-1-5)", fontFamily: 'var(--font-mono)' }}>
                 {t('runWizard.daysLeft', { days: weeksLeft * 7, weeks: weeksLeft })}
               </div>
             )}
@@ -233,7 +233,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
             {goalType !== 'completion' && (
               <>
                 <Text as="label" variant="eyebrow" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}>{t('runWizard.targetTime')}</Text>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: "var(--space-2)", alignItems: 'center' }}>
                   <input type="number" value={goalHour} onChange={e => setGoalHour(+e.target.value)} min={0} max={12}
                     style={{ width: 64, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: "var(--r-md)", fontSize: "var(--fs-base)", color: 'var(--ink-0)', fontFamily: 'var(--font-mono)', textAlign: 'center' }} />
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>{t('runWizard.hourUnit')}</span>
@@ -244,7 +244,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                     style={{ width: 64, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--line)', borderRadius: "var(--r-md)", fontSize: "var(--fs-base)", color: 'var(--ink-0)', fontFamily: 'var(--font-mono)', textAlign: 'center' }} />
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>{t('runWizard.secUnit')}</span>
                 </div>
-                <div style={{ marginTop: 10, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: "var(--r-md)", border: '1px solid var(--line-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ marginTop: "var(--space-2)", padding: '10px 12px', background: 'var(--bg-2)', borderRadius: "var(--r-md)", border: '1px solid var(--line-soft)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('runWizard.requiredPace')}</span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: feasColor, fontWeight: 600 }}>
                     {secToMmss(feas.targetPaceSec)}/km
@@ -255,7 +255,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
             {/* 주당 운동 횟수 */}
             <Text as="label" variant="eyebrow" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}>{t('runWizard.weeklySessions')}</Text>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: "var(--space-1-5)" }}>
               {([1, 2, 3, 4, 5, 6] as const).map(n => (
                 <button
                   key={n} type="button"
@@ -272,7 +272,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                 </button>
               ))}
             </div>
-            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: 6 }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: "var(--space-1-5)" }}>
               {t('runWizard.sessionsHint')}
             </div>
           </div>
@@ -282,7 +282,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: 'var(--space-3)' }}>
               {t('runWizard.feasibilityLabel')}
             </div>
-            <div style={{ fontSize: 36, fontWeight: 700, color: feasColor, letterSpacing: '-0.02em', marginBottom: 'var(--space-1)' }}>
+            <div style={{ fontSize: "var(--fs-4xl)", fontWeight: 700, color: feasColor, letterSpacing: '-0.02em', marginBottom: 'var(--space-1)' }}>
               {t(FEAS_LABEL_KEYS[feas.label] ?? 'feasLabels.on_track')}
             </div>
             <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
@@ -305,7 +305,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                   <span style={{ color: 'var(--ink-3)' }}>{t('runWizard.feasPb5k')}</span>
                   <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-1)' }}>{secToMmss(lthrPaceSec - 30)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-xs)", borderTop: '1px dashed var(--line-soft)', marginTop: 6, paddingTop: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: "var(--fs-xs)", borderTop: '1px dashed var(--line-soft)', marginTop: "var(--space-1-5)", paddingTop: 'var(--space-3)' }}>
                   <span style={{ color: 'var(--ink-3)' }}>{t('runWizard.feasGap')}</span>
                   <span style={{ fontFamily: 'var(--font-mono)', color: feasColor, fontWeight: 600 }}>
                     {feas.gapSec >= 0 ? '+' : '−'}{secToMmss(Math.abs(feas.gapSec))}/km
@@ -335,15 +335,15 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
       {step === 3 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
           {/* KPI */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: "var(--space-2)" }}>
             {([
               [t('runWizard.kpi.totalWeeks'), String(weeksLeft), t('phase.weeksUnit')],
               [t('runWizard.kpi.totalSessions'), String(weeksLeft * weeklySessions), null],
               [t('runWizard.kpi.totalDist'), String(Math.round(weeksLeft * ev.dist * 2.2).toLocaleString()), 'km'],
               [t('runWizard.kpi.tsbGoal'), '+12', null],
             ] as const).map(([k, v, u]) => (
-              <div key={k} style={{ padding: 14, background: 'var(--bg-2)', borderRadius: "var(--r-md)", border: '1px solid var(--line-soft)' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: 6 }}>{k}</div>
+              <div key={k} style={{ padding: "var(--space-3)", background: 'var(--bg-2)', borderRadius: "var(--r-md)", border: '1px solid var(--line-soft)' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: "var(--space-1-5)" }}>{k}</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)' }}>
                   <span style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--ink-0)', letterSpacing: '-0.02em' }}>{v}</span>
                   {u && <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>{u}</span>}
@@ -354,8 +354,8 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
           {/* 기간별 구성 */}
           <div style={{ padding: 22, background: 'var(--bg-1)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)' }}>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: 2 }}>{t('runWizard.phasesTitle')}</div>
+            <div style={{ marginBottom: "var(--space-3)" }}>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: "var(--space-0-5)" }}>{t('runWizard.phasesTitle')}</div>
               <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('runWizard.phasesSubtitle')}</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: `${buildW}fr ${peakW}fr ${taperW}fr`, gap: 1, border: '1px solid var(--line-soft)', borderRadius: "var(--r-md)", overflow: 'hidden' }}>
@@ -365,7 +365,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                 ['taper', taperW, 'var(--amber)'],
               ] as const).map(([key, weeks, color]) => (
                 <div key={key} style={{ padding: 'var(--space-4)', background: 'var(--bg-2)', borderLeft: `3px solid ${color}` }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', marginBottom: "var(--space-1-5)" }}>
                     <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>{t(`runWizard.phase.${key}`)}</span>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{weeks}{t('phase.weeksUnit')}</span>
                   </div>
@@ -378,7 +378,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
           {/* 페이스 존 */}
           <div style={{ padding: 22, background: 'var(--bg-1)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)' }}>
             <div style={{ marginBottom: 'var(--space-3)' }}>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: 2 }}>{t('runWizard.paceZonesTitle')}</div>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: "var(--space-0-5)" }}>{t('runWizard.paceZonesTitle')}</div>
               <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('runWizard.paceZonesSubtitle', { pace: secToMmss(lthrPaceSec) })}</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'var(--space-2)' }}>
@@ -390,11 +390,11 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
                 ['z5', lthrPaceSec - 25, lthrPaceSec - 10, 'var(--rose)'],
               ] as const).map(([key, fast, slow, color]) => (
                 <div key={key} style={{ padding: 'var(--space-3)', background: 'var(--bg-2)', borderRadius: "var(--r-md)", borderLeft: `3px solid ${color}` }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.06em', color, marginBottom: 6, fontWeight: 600 }}>{t(`runWizard.paceZone.${key}`)}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.06em', color, marginBottom: "var(--space-1-5)", fontWeight: 600 }}>{t(`runWizard.paceZone.${key}`)}</div>
                   <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-0)', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
                     {secToMmss(fast)} – {secToMmss(slow)}
                   </div>
-                  <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>/km</div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: "var(--space-1)" }}>/km</div>
                 </div>
               ))}
             </div>
@@ -403,7 +403,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
           {/* TSB 곡선 */}
           <div style={{ padding: 22, background: 'var(--bg-1)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)' }}>
             <div style={{ marginBottom: 'var(--space-3)' }}>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: 2 }}>{t('runWizard.tsbTitle')}</div>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', marginBottom: "var(--space-0-5)" }}>{t('runWizard.tsbTitle')}</div>
               <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('runWizard.tsbSubtitle')}</div>
             </div>
             <svg viewBox="0 0 800 160" style={{ width: '100%', height: 160 }} preserveAspectRatio="none">
@@ -441,7 +441,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
           {/* 안내 */}
           <div style={{ padding: 'var(--space-4)', background: 'color-mix(in oklch, var(--lime) 6%, var(--bg-1))', border: '1px solid color-mix(in oklch, var(--lime) 25%, var(--line-soft))', borderRadius: "var(--r-lg)", fontSize: "var(--fs-xs)", color: 'var(--ink-1)', lineHeight: 1.6, display: 'flex', gap: 'var(--space-3)' }}>
-            <svg width={18} height={18} viewBox="0 0 18 18" fill="none" style={{ color: 'var(--lime)', flexShrink: 0, marginTop: 2 }}>
+            <svg width={18} height={18} viewBox="0 0 18 18" fill="none" style={{ color: 'var(--lime)', flexShrink: 0, marginTop: "var(--space-0-5)" }}>
               <circle cx="9" cy="9" r="8" stroke="currentColor" strokeWidth="1.5" />
               <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -464,7 +464,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
       <div
         style={{
           display: 'flex',
-          gap: 10,
+          gap: "var(--space-2)",
           marginTop: 'var(--space-6)',
           position: 'sticky',
           bottom: 0,

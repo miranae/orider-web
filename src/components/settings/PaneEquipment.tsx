@@ -84,7 +84,7 @@ function SensorRow({ sensor, onRemove }: SensorRowProps) {
       style={{
         display: "grid",
         gridTemplateColumns: "90px 1fr auto auto",
-        gap: 10,
+        gap: "var(--space-2)",
         alignItems: "center",
         padding: "8px 0",
         borderTop: "1px solid var(--line-soft)",
@@ -232,7 +232,7 @@ function ProfileCard({
         style={{
           display: "grid",
           gridTemplateColumns: "auto 1fr auto",
-          gap: 14,
+          gap: "var(--space-3)",
           alignItems: "center",
         }}
       >
@@ -250,7 +250,7 @@ function ProfileCard({
           <BikeIcon size={20} />
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginBottom: 2 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', marginBottom: "var(--space-0-5)" }}>
             {editing ? (
               <>
                 <input
@@ -312,7 +312,7 @@ function ProfileCard({
               fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               display: "flex",
-              gap: 10,
+              gap: "var(--space-2)",
               fontFamily: "var(--font-mono)",
               flexWrap: "wrap",
             }}
@@ -369,13 +369,13 @@ function ProfileCard({
           style={{
             display: "grid",
             gridTemplateColumns: "120px 1fr",
-            gap: 10,
+            gap: "var(--space-2)",
             alignItems: "center",
             padding: "6px 0",
           }}
         >
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{t("equipment.bikeWheelCircumference")}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
             <input
               type="number"
               value={wheelInput}
@@ -513,7 +513,7 @@ export function PaneEquipment() {
             {t("equipment.bikeProfileDuplicateHint")}
           </div>
         )}
-        <div style={{ display: "grid", gap: 10 }}>
+        <div style={{ display: "grid", gap: "var(--space-2)" }}>
           {sortedProfiles.map((p) => (
             <ProfileCard
               key={p.id}
@@ -539,7 +539,7 @@ export function PaneEquipment() {
           />
         }
       >
-        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 14, lineHeight: 1.5 }}>
+        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-3)", lineHeight: 1.5 }}>
           {t("equipment.virtualPowerDesc", { name: active.name, weight: weightDisplay })}
         </div>
         <FieldGrid cols={2}>

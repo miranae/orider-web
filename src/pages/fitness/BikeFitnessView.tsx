@@ -124,14 +124,14 @@ export default function BikeFitnessView() {
     <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 24px 48px" }}>
       {/* 헤더 */}
       <div style={{ marginBottom: 'var(--space-6)', paddingTop: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', marginBottom: "var(--space-1-5)" }}>
           <Text as="div" variant="eyebrow">{t("bikeView.header.eyebrow")}</Text>
           <DisciplineTabs includeTri />
         </div>
         <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
           {t("bikeView.header.title")}
         </h1>
-        <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginTop: 6 }}>
+        <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginTop: "var(--space-1-5)" }}>
           {t("bikeView.header.subtitle")}
         </p>
       </div>
@@ -148,7 +148,7 @@ export default function BikeFitnessView() {
               borderRight: i < 4 ? "1px solid var(--line-soft)" : "none",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
               <Text variant="eyebrow">{t(s.labelKey)}</Text>
             </div>
@@ -167,25 +167,25 @@ export default function BikeFitnessView() {
 
       {/* PMC 카드 */}
       <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
-        <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
           <div>
-            <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
+            <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {t("bikeView.pmc.title")}
             </h3>
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("bikeView.pmc.sub")}</div>
           </div>
           <div style={{ flex: 1 }} />
           {/* 범례 */}
-          <div style={{ display: "flex", gap: 14, fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", gap: "var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
               <span style={{ width: 14, height: 8, background: BIKE, opacity: 0.45, borderRadius: "var(--r-xs)", flexShrink: 0 }} />
               {t("bikeView.pmc.legend.ctl")}
             </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
               <span style={{ width: 14, height: 2, background: "var(--rose)", flexShrink: 0 }} />
               {t("bikeView.pmc.legend.atl")}
             </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
               <span style={{ width: 14, height: 2, background: "var(--amber)", flexShrink: 0 }} />
               {t("bikeView.pmc.legend.tsb")}
             </span>
@@ -212,7 +212,7 @@ export default function BikeFitnessView() {
         {/* 목표 배너 */}
         <div
           style={{
-            marginTop: 'var(--space-4)', padding: 14,
+            marginTop: 'var(--space-4)', padding: "var(--space-3)",
             background: `color-mix(in oklch, ${BIKE} 5%, var(--bg-2))`,
             border: `1px solid color-mix(in oklch, ${BIKE} 22%, var(--line-soft))`,
             borderRadius: "var(--r-md)",
@@ -228,25 +228,25 @@ export default function BikeFitnessView() {
             </Text>
             <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
               2026-07-05 · D-<Text variant="mono" style={{ color: BIKE }}>67</Text>
-              <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: 10 }}>160 km · 상승 1,850 m</span>
+              <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>160 km · 상승 1,850 m</span>
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("goal.ctl")}</Text>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("goal.ctl")}</Text>
             <div>
               <Text variant="dataLarge" style={{ color: BIKE }}>76</Text>
               <Text variant="unit">+12</Text>
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("goal.tsb")}</Text>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("goal.tsb")}</Text>
             <div>
               <Text variant="dataLarge" style={{ color: "var(--amber)" }}>+12</Text>
               <Text variant="unit">{t("goal.tsbStatus.optimal")}</Text>
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("goal.adherence")}</Text>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("goal.adherence")}</Text>
             <div>
               <Text variant="dataLarge">92</Text>
               <Text variant="unit">%</Text>

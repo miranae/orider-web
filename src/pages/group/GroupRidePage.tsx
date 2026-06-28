@@ -451,7 +451,7 @@ export default function GroupRidePage() {
                         borderRadius: "50%",
                         background: "var(--accent)",
                         border: "2px solid white",
-                        boxShadow: "0 0 4px rgba(0,0,0,0.3)",
+                        boxShadow: "0 0 4px color-mix(in srgb, var(--bg-0) 30%, transparent)",
                       }}
                     />
                   </Marker>
@@ -462,7 +462,7 @@ export default function GroupRidePage() {
 
           {/* 고도 & 성능 차트 */}
           {elevationChartData && (
-            <Card padding="none" className="p-5 mb-8" style={{ borderRadius: 8 }}>
+            <Card padding="none" className="p-5 mb-8" style={{ borderRadius: "var(--r-md)" }}>
               <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>
                 {t("ridePage.elevation")} {availablePerfOverlays.length > 0 ? t("ridePage.elevationAndPerf") : t("ridePage.elevationProfile")}
               </h3>
@@ -473,9 +473,9 @@ export default function GroupRidePage() {
                   <span
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full cursor-default"
                     style={{
-                      background: "rgba(34,197,94,0.15)",
+                      background: "color-mix(in srgb, var(--color-success) 15%, transparent)",
                       color: "var(--color-success)",
-                      border: "1px solid rgba(34,197,94,0.3)",
+                      border: "1px solid color-mix(in srgb, var(--color-success) 30%, transparent)",
                     }}
                   >
                     <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
@@ -520,7 +520,7 @@ export default function GroupRidePage() {
             <div className="space-y-4 mb-8">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {comparisonCharts.map((chart) => (
-                  <Card key={chart.title} padding="none" className="p-4" style={{ borderRadius: 8 }}>
+                  <Card key={chart.title} padding="none" className="p-4" style={{ borderRadius: "var(--r-md)" }}>
                     <h3 className="text-[length:var(--fs-xs)] font-medium mb-2" style={{ color: "var(--ink-2)" }}>{chart.title}</h3>
                     <ComparisonChart
                       labels={chart.labels}
@@ -538,7 +538,7 @@ export default function GroupRidePage() {
         {/* Sidebar */}
         <div className="lg:w-80 flex-shrink-0 lg:sticky lg:top-6 lg:self-start space-y-6">
           {/* 참가자 토글 */}
-          <Card padding="none" className="p-4" style={{ borderRadius: 8 }}>
+          <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-md)" }}>
             <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("ridePage.riders")}</h3>
             <div className="flex flex-wrap gap-2">
               {activities.map((a, i) => (
@@ -565,7 +565,7 @@ export default function GroupRidePage() {
           </Card>
 
           {/* 비교 테이블 */}
-          <Card padding="none" className="p-4" style={{ borderRadius: 8 }}>
+          <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-md)" }}>
             <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("ridePage.comparison")}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-[length:var(--fs-sm)]">

@@ -84,7 +84,7 @@ export default function DisciplineTabs({ value, onChange, includeTri }: Discipli
       role="tablist"
       aria-label={t("discipline.selectAria")}
       className="flex items-center gap-1"
-      style={{ background: "var(--bg-2)", padding: 3, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}
+      style={{ background: "var(--bg-2)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}
     >
       {tabs.map(({ key, label, icon, color }, idx) => {
         const isActive = active === key;
@@ -102,8 +102,8 @@ export default function DisciplineTabs({ value, onChange, includeTri }: Discipli
             tabIndex={isActive ? 0 : -1}
             style={{
               display: "flex", alignItems: "center", gap: 'var(--space-1)',
-              padding: "4px 10px", borderRadius: 4, border: "none", cursor: "pointer",
-              fontSize: 12, fontWeight: isActive ? 600 : 400,
+              padding: "4px 10px", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
+              fontSize: "var(--fs-xs)", fontWeight: isActive ? 600 : 400,
               background: isActive ? "var(--bg-3)" : "transparent",
               color: isActive ? color : "var(--ink-3)",
             }}

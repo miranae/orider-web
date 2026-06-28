@@ -52,7 +52,7 @@ export default function StatBlock({
       {/* 델타 */}
       {delta != null && (
         <Text as="div" variant="mono" className="flex items-center"
-          style={{ gap: 2, fontSize: 'var(--fs-base)', color: deltaColor, fontWeight: 500 }}
+          style={{ gap: "var(--space-0-5)", fontSize: 'var(--fs-base)', color: deltaColor, fontWeight: 500 }}
         >
           {deltaKind === 'up' && <ArrowUp size={12} strokeWidth={2.5} />}
           {deltaKind === 'down' && <ArrowDown size={12} strokeWidth={2.5} />}

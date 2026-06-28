@@ -109,7 +109,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col" role="dialog" aria-modal="true" aria-label={t("import.modalTitle")}>
-      <div className="flex-1" style={{ background: "rgba(0,0,0,0.5)" }} onClick={handleClose} />
+      <div className="flex-1" style={{ background: "color-mix(in srgb, var(--bg-0) 50%, transparent)" }} onClick={handleClose} />
       <div
         className="overflow-y-auto"
         style={{
@@ -119,7 +119,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
       >
         <div className="flex items-center justify-between" style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
           <span style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)" }}>{t("import.modalTitle")}</span>
-          <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 10, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", padding: "var(--space-2)", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={20} style={{ color: "var(--ink-3)" }} />
           </button>
         </div>
@@ -154,7 +154,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
                 </div>
               ) : (
                 <>
-                  <Upload size={24} style={{ color: "var(--ink-4)", marginBottom: 6 }} />
+                  <Upload size={24} style={{ color: "var(--ink-4)", marginBottom: "var(--space-1-5)" }} />
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("import.fileHint")}</div>
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 'var(--space-1)' }}>{t("import.fileFormatNote")}</div>
                 </>

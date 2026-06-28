@@ -14,6 +14,9 @@ export default defineConfig({
   },
   build: {
     sourcemap: process.env.NODE_ENV === "production" ? "hidden" : true,
+    // Mapbox/Firebase are intentionally isolated as vendor chunks; warn only if
+    // future dependency growth exceeds the current public-app bundle profile.
+    chunkSizeWarningLimit: 1800,
     rollupOptions: {
       output: {
         manualChunks(id) {

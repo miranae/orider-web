@@ -41,7 +41,7 @@ export function IntervalBar({ intervals }: { intervals: IntervalBlock[] }) {
   }
   return (
     <div style={{ position: "relative", margin: "10px 0 4px" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 32 }} onPointerLeave={() => setHoverIdx(null)}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-0-5)", height: 32 }} onPointerLeave={() => setHoverIdx(null)}>
         {intervals.map((block, i) => {
           const widthPct = (block.durationMin / totalMin) * 100;
           const heightPct = BLOCK_HEIGHT_PCT[block.label] ?? 50;
@@ -197,7 +197,7 @@ export function HeroCard(opts: HeroCardOpts) {
   return (
     <Card padding="none" style={{ padding: 0, borderLeft: `3px solid var(--${opts.tone})`, overflow: "hidden" }}>
       <div style={{ padding: "16px 18px 14px", background: `linear-gradient(180deg, color-mix(in oklch, var(--${opts.tone}) 6%, var(--bg-1)) 0%, var(--bg-1) 100%)` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1-5)", flexWrap: "wrap" }}>
           <Text as="div" variant="eyebrow" style={{ color: `var(--${opts.tone})`, flexShrink: 0 }}>{opts.eyebrow}</Text>
           <RevalidatingIndicator
             visible={opts.revalidating || opts.justRecomputed}
@@ -208,7 +208,7 @@ export function HeroCard(opts: HeroCardOpts) {
           {opts.topRightExtras}
         </div>
         <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, color: "var(--ink-0)", margin: "0 0 var(--space-2)", lineHeight: 1.25, letterSpacing: "-0.01em" }}>{opts.sessionName}</h2>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "var(--space-1-5)", flexWrap: "wrap" }}>
           {opts.headerChips.map((chip, i) => (
             <span
               key={chip + i}
@@ -230,7 +230,7 @@ export function HeroCard(opts: HeroCardOpts) {
       </div>
       <div style={{ padding: "16px 18px" }}>
         {opts.factChips.length > 0 && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
+          <div style={{ display: "flex", gap: "var(--space-1-5)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
             {opts.factChips.map((c, i) => (
               <span
                 key={c.label + i}
@@ -327,20 +327,20 @@ export function WorkoutCardSkeleton() {
     ...extra,
   });
   return (
-    <Card padding="none" role="status" aria-busy="true" aria-label={t("label.loadingHint")} style={{ padding: 18, minHeight: 300, background: "var(--bg-1)" }}>
-      <div style={sh("44%", 11, { marginBottom: 14 })} />
-      <div style={sh("38%", 24, { marginBottom: 14 })} />
-      <div className="flex" style={{ gap: 8, marginBottom: 16 }}>
+    <Card padding="none" role="status" aria-busy="true" aria-label={t("label.loadingHint")} style={{ padding: "var(--space-4)", minHeight: 300, background: "var(--bg-1)" }}>
+      <div style={sh("44%", 11, { marginBottom: "var(--space-3)" })} />
+      <div style={sh("38%", 24, { marginBottom: "var(--space-3)" })} />
+      <div className="flex" style={{ gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
         <div style={sh(72, 26, { borderRadius: "9999px" })} />
         <div style={sh(60, 26, { borderRadius: "9999px" })} />
       </div>
-      <div className="flex" style={{ gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+      <div className="flex" style={{ gap: "var(--space-2)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
         <div style={sh(84, 24, { borderRadius: "9999px" })} />
         <div style={sh(120, 24, { borderRadius: "9999px" })} />
         <div style={sh(72, 24, { borderRadius: "9999px" })} />
       </div>
-      <div style={sh("100%", 12, { marginBottom: 18, borderRadius: "9999px" })} />
-      <div style={sh("100%", 12, { marginBottom: 8 })} />
+      <div style={sh("100%", 12, { marginBottom: "var(--space-4)", borderRadius: "9999px" })} />
+      <div style={sh("100%", 12, { marginBottom: "var(--space-2)" })} />
       <div style={sh("78%", 12)} />
     </Card>
   );

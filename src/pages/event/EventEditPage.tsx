@@ -458,7 +458,7 @@ export default function EventEditPage() {
 
         <div className="flex items-end justify-between flex-wrap" style={{ gap: 'var(--space-3)' }}>
           <div className="min-w-0">
-            <div className="flex items-center" style={{ gap: 10, marginBottom: 6 }}>
+            <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: "var(--space-1-5)" }}>
               <Chip
                 style={{
                   color: statusColor,
@@ -506,8 +506,8 @@ export default function EventEditPage() {
       >
         {/* 좌측 anchor nav */}
         <nav className="event-edit-nav" style={{ position: "sticky", top: 68 }}>
-          <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("edit.navSections")}</Text>
-          <div className="flex flex-col" style={{ gap: 2 }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("edit.navSections")}</Text>
+          <div className="flex flex-col" style={{ gap: "var(--space-0-5)" }}>
             {SECTIONS.map((s) => {
               const active = activeSection === s.id;
               return (
@@ -547,7 +547,7 @@ export default function EventEditPage() {
                 lineHeight: 1.5,
               }}
             >
-              <div className="flex items-center" style={{ gap: 6, marginBottom: 6, color: "var(--amber)", fontWeight: 500 }}>
+              <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)", color: "var(--amber)", fontWeight: 500 }}>
                 ⚠ {t("edit.noticeRequired")}
               </div>
               {t("edit.noticeWillSend", { count: totalFilled })}
@@ -567,7 +567,7 @@ export default function EventEditPage() {
                 style={fieldStyle}
               />
             </Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.eventType")} required>
                 <PickerRow value={data.type} onChange={(v) => patch({ type: v })} options={TYPE_OPTIONS} />
               </Field>
@@ -582,7 +582,7 @@ export default function EventEditPage() {
                 style={{ ...fieldStyle, minHeight: 90, resize: "vertical", lineHeight: 1.5 }}
               />
             </Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.hostName")} required>
                 <input
                   type="text"
@@ -607,11 +607,11 @@ export default function EventEditPage() {
               <div
                 className="flex items-center"
                 style={{
-                  padding: 14,
+                  padding: "var(--space-3)",
                   background: "var(--bg-2)",
                   border: "1px solid var(--line-soft)",
                   borderRadius: "var(--r-sm)",
-                  gap: 14,
+                  gap: "var(--space-3)",
                 }}
               >
                 <div
@@ -635,7 +635,7 @@ export default function EventEditPage() {
                     {course?.name ?? t("edit.courseNotLinked")}
                   </div>
                   {course && (
-                    <div className="flex flex-wrap" style={{ gap: 14, fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                    <div className="flex flex-wrap" style={{ gap: "var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                       {course.region && <span>{course.region}</span>}
                       {course.distance != null && <span>{(course.distance / 1000).toFixed(1)} km</span>}
                       {course.elevationGain != null && <span>↑ {Math.round(course.elevationGain).toLocaleString()} m</span>}
@@ -651,7 +651,7 @@ export default function EventEditPage() {
               </div>
             </Field>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.date")} required warn={data.date !== initialData.date}>
                 <DateField
                   value={data.date}
@@ -677,7 +677,7 @@ export default function EventEditPage() {
               />
             </Field>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.meetTime")} warn={data.meetTime !== initialData.meetTime}>
                 <TimeField
                   value={data.meetTime}
@@ -697,7 +697,7 @@ export default function EventEditPage() {
 
           <Section id="register" title={t("edit.section.register")} desc={t("edit.sectionDesc.register")}>
             <Field label={t("field.fee")} required>
-              <div className="flex flex-wrap items-center" style={{ gap: 10 }}>
+              <div className="flex flex-wrap items-center" style={{ gap: "var(--space-2)" }}>
                 <button
                   type="button"
                   onClick={() => patch({ feeType: "FREE", fee: 0 })}
@@ -745,7 +745,7 @@ export default function EventEditPage() {
               {data.fee !== initialData.fee && event.status === "OPEN" && totalFilled > 0 && (
                 <div
                   className="flex items-center"
-                  style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--amber)", gap: 6 }}
+                  style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--amber)", gap: "var(--space-1-5)" }}
                 >
                   ⚠ {t("edit.feeChangeNotice", { count: totalFilled })}
                 </div>
@@ -761,7 +761,7 @@ export default function EventEditPage() {
                     <div
                       key={c.id}
                       style={{
-                        padding: 10,
+                        padding: "var(--space-2)",
                         background: "var(--bg-2)",
                         border: "1px solid var(--line-soft)",
                         borderRadius: "var(--r-sm)",
@@ -817,7 +817,7 @@ export default function EventEditPage() {
                           ×
                         </button>
                       </div>
-                      <div className="flex items-center" style={{ gap: 10, marginTop: 'var(--space-2)' }}>
+                      <div className="flex items-center" style={{ gap: "var(--space-2)", marginTop: 'var(--space-2)' }}>
                         <div style={{ flex: 1, height: 3, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                           <div
                             style={{
@@ -844,7 +844,7 @@ export default function EventEditPage() {
               const open = splitDtLocal(data.openAt);
               const close = splitDtLocal(data.closeAt);
               return (
-                <div className="flex flex-col" style={{ gap: 14 }}>
+                <div className="flex flex-col" style={{ gap: "var(--space-3)" }}>
                   <Field label={t("field.openAt")} required>
                     <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
                       <DateField
@@ -882,7 +882,7 @@ export default function EventEditPage() {
               <div
                 className="flex items-center flex-wrap"
                 style={{
-                  gap: 14,
+                  gap: "var(--space-3)",
                   padding: "10px 12px",
                   background: "var(--bg-2)",
                   border: "1px solid var(--line-soft)",
@@ -929,11 +929,11 @@ export default function EventEditPage() {
               <div
                 key={opt.id}
                 className="flex items-start"
-                style={{ gap: 14, padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}
+                style={{ gap: "var(--space-3)", padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}
               >
                 <Toggle on={data[opt.id]} onChange={(v) => patch({ [opt.id]: v } as Partial<FormData>)} />
                 <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", marginBottom: 2 }}>{opt.label}</div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", marginBottom: "var(--space-0-5)" }}>{opt.label}</div>
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{opt.desc}</div>
                 </div>
               </div>
@@ -949,7 +949,7 @@ export default function EventEditPage() {
                 borderRadius: "var(--r-sm)",
               }}
             >
-              <div className="flex items-start" style={{ gap: 14 }}>
+              <div className="flex items-start" style={{ gap: "var(--space-3)" }}>
                 <div className="flex-1 min-w-0">
                   <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
                     {t("edit.cancelEventTitle")}
@@ -1001,7 +1001,7 @@ export default function EventEditPage() {
             className="flex items-center justify-between"
             style={{ maxWidth: 1160, width: "100%" }}
           >
-            <div className="flex items-center" style={{ gap: 10, fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>
+            <div className="flex items-center" style={{ gap: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-1)" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--amber)" }} aria-hidden="true" />
               {notifyDirty ? t("edit.unsavedWithNotice") : t("edit.unsaved")}
             </div>
@@ -1042,7 +1042,7 @@ export default function EventEditPage() {
             fontSize: "var(--fs-xs)",
             color: "var(--ink-0)",
             display: "flex",
-            gap: 10,
+            gap: "var(--space-2)",
             alignItems: "flex-start",
             boxShadow: "var(--shadow-lg)",
             zIndex: 60,
@@ -1061,7 +1061,7 @@ export default function EventEditPage() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.6)",
+            background: "color-mix(in srgb, var(--bg-0) 60%, transparent)",
             display: "grid",
             placeItems: "center",
             zIndex: 100,
@@ -1072,7 +1072,7 @@ export default function EventEditPage() {
             style={{ padding: 'var(--space-6)', maxWidth: 440, width: "90%" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex" style={{ gap: 14, marginBottom: 14 }}>
+            <div className="flex" style={{ gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
               <div
                 style={{
                   width: 40,
@@ -1089,7 +1089,7 @@ export default function EventEditPage() {
                 ⚠
               </div>
               <div>
-                <div style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 6 }}>
+                <div style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
                   {t("edit.confirmCancelTitle")}
                 </div>
                 <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.5 }}>

@@ -77,12 +77,12 @@ function MetricCard({ label, value, unit, description, color = "ink", tone, tool
       background: "var(--bg-2)",
       border: "1px solid var(--line-soft)",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: accent, flexShrink: 0 }} />
         <Text variant="eyebrow" style={{ fontSize: "var(--fs-xs)" }}>{label}</Text>
         {tooltip && <InfoTip content={tooltip} label={label} />}
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 3, lineHeight: 1 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
         <Text variant="dataHero" style={{ fontSize: "var(--fs-xl)", color: value != null ? accent : "var(--ink-3)" }}>
           {value ?? "—"}
         </Text>
@@ -330,12 +330,12 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
 
       {/* FTP/maxHR 기본값 경고 */}
       {hasPower && !hasFtp && (
-        <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'rgba(232,176,74,0.12)', border: '1px solid rgba(232,176,74,0.3)', color: 'var(--amber)' }}>
+        <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
           {t("analysis.ftpFallback", { ftp })}
         </div>
       )}
       {hasHr && !hasMaxHr && (
-        <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'rgba(232,176,74,0.12)', border: '1px solid rgba(232,176,74,0.3)', color: 'var(--amber)' }}>
+        <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
           {t("analysis.maxHrFallback", { hr: maxHr })}
         </div>
       )}
@@ -491,7 +491,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                 background: "var(--bg-2)",
                 border: "1px solid var(--line-soft)",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: b.color, flexShrink: 0 }} />
                   <Text variant="eyebrow" style={{ fontSize: "var(--fs-xs)" }}>{b.label}</Text>
                   {BAND_GLOSSARY_KEY[b.label] && (
@@ -556,7 +556,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                   onClick={() => setPowerZoneView("coggan")}
                   className="px-2.5 py-1 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-medium transition-colors"
                   style={powerZoneView === "coggan"
-                    ? { background: 'var(--bg-0)', color: 'var(--ink-0)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
+                    ? { background: 'var(--bg-0)', color: 'var(--ink-0)', boxShadow: '0 1px 2px color-mix(in srgb, var(--bg-0) 15%, transparent)' }
                     : { color: 'var(--ink-3)' }}
                   aria-pressed={powerZoneView === "coggan"}
                 >
@@ -566,7 +566,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                   onClick={() => setPowerZoneView("seiler")}
                   className="px-2.5 py-1 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-medium transition-colors"
                   style={powerZoneView === "seiler"
-                    ? { background: 'var(--bg-0)', color: 'var(--ink-0)', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }
+                    ? { background: 'var(--bg-0)', color: 'var(--ink-0)', boxShadow: '0 1px 2px color-mix(in srgb, var(--bg-0) 15%, transparent)' }
                     : { color: 'var(--ink-3)' }}
                   aria-pressed={powerZoneView === "seiler"}
                 >
@@ -667,7 +667,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
               </thead>
               <tbody>
                 {peakRows.filter((r) => r.watts != null).map((r) => (
-                  <tr key={r.duration} className="border-t" style={{ borderColor: 'var(--bg-3, rgba(255,255,255,0.06))' }}>
+                  <tr key={r.duration} className="border-t" style={{ borderColor: 'var(--bg-3)' }}>
                     <td className="px-4 py-2" style={{ color: 'var(--ink-1)' }}>
                       {r.duration < 60 ? t("analysis.bestEfforts.seconds", { count: r.duration })
                         : r.duration < 3600 ? t("analysis.bestEfforts.minutes", { count: r.duration / 60 })
@@ -834,7 +834,7 @@ function LapTable({ laps, ftp }: { laps: LapData[]; ftp: number }) {
               const sec = l.durationMs / 1000;
               const pacePerKm = l.distanceKm > 0 ? sec / l.distanceKm : 0;
               return (
-                <tr key={l.number} className="border-t" style={{ borderColor: 'var(--bg-3, rgba(255,255,255,0.06))' }}>
+                <tr key={l.number} className="border-t" style={{ borderColor: 'var(--bg-3)' }}>
                   <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{l.number}</td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{formatDuration(sec)}</td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-2)' }}>{distVal(l.distanceKm)} {distUnit}</td>

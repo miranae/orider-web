@@ -210,7 +210,7 @@ export default function MetabolismCard({
       {/* 강도-지방산화 종형곡선 */}
       <div className="mt-3" style={panelStyle}>
         <Text variant="eyebrow" size="xs">{t("metabolism.curveTitle")}</Text>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2)", height: 90, marginTop: 10 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2)", height: 90, marginTop: "var(--space-2)" }}>
           {curve.map((c) => (
             <div key={c.pct} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
               <div

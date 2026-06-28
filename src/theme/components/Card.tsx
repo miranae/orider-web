@@ -34,7 +34,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     : padding === 'none'
     ? { padding: 0 }
     : padding === 'compact'
-    ? { padding: 12 }
+    ? { padding: "var(--space-3)" }
     : { padding };
   const hasHeader = header || title || sub || actions;
   return (
@@ -55,7 +55,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
             <>
               {title && <h3 className="ds-card__title">{title}</h3>}
               {(sub || actions) && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: "var(--space-2)" }}>
                   {sub && <span className="ds-card__sub">{sub}</span>}
                   {actions}
                 </div>

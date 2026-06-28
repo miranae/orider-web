@@ -49,7 +49,7 @@ export default function Leaderboard({ locations, highlightBib }: LeaderboardProp
 
   return (
     <div>
-      <h2 style={{ fontSize: "18px", marginBottom: "var(--space-3)" }}>{t("leaderboard.title")}</h2>
+      <h2 style={{ fontSize: "var(--fs-lg)", marginBottom: "var(--space-3)" }}>{t("leaderboard.title")}</h2>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: "var(--space-1)", marginBottom: "var(--space-3)" }}>
@@ -60,9 +60,9 @@ export default function Leaderboard({ locations, highlightBib }: LeaderboardProp
             style={{
               padding: "6px 16px",
               border: "none",
-              borderRadius: "20px",
+              borderRadius: "var(--r-full)",
               cursor: "pointer",
-              fontSize: "13px",
+              fontSize: "var(--fs-xs)",
               fontWeight: activeTab === cat ? "bold" : "normal",
               background: activeTab === cat ? "var(--lime)" : "var(--bg-2)",
               color: activeTab === cat ? "var(--primary-fg)" : "var(--ink-2)",
@@ -74,7 +74,7 @@ export default function Leaderboard({ locations, highlightBib }: LeaderboardProp
       </div>
 
       {/* Table */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
         <thead>
           <tr style={{ borderBottom: "2px solid var(--bg-3)" }}>
             <th style={{ textAlign: "center", padding: "var(--space-2)", width: "50px" }}>{t("rank")}</th>

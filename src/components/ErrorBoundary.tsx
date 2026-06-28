@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback({ error: this.state.error, reset: this.reset });
       return (
-        <div role="alert" aria-live="assertive" style={{ padding: 32, textAlign: "center" }}>
+        <div role="alert" aria-live="assertive" style={{ padding: "var(--space-7)", textAlign: "center" }}>
           {this.props.defaultFallbackMessage ?? "Something went wrong"}: {this.state.error.message}
         </div>
       );

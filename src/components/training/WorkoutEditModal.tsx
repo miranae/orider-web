@@ -330,7 +330,7 @@ export default function WorkoutEditModal({
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.45)',
+          background: 'color-mix(in srgb, var(--bg-0) 45%, transparent)',
           zIndex: 49,
         }}
       />
@@ -347,7 +347,7 @@ export default function WorkoutEditModal({
           padding: 'var(--space-5)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: "var(--space-3)",
         }}
       >
         {/* Header */}
@@ -461,7 +461,7 @@ export default function WorkoutEditModal({
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: 6,
+                gap: "var(--space-1-5)",
                 padding: '10px 0 4px',
               }}
             >

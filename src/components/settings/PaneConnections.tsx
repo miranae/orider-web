@@ -47,14 +47,14 @@ function ServiceCard({
     <div
       style={{
         padding: "12px 14px",
-        borderRadius: 8,
+        borderRadius: "var(--r-md)",
         border: "1px solid var(--line-soft)",
         background: connected
           ? "var(--bg-1)"
           : "color-mix(in oklch, var(--bg-2) 60%, var(--bg-1))",
         display: "grid",
         gridTemplateColumns: "auto 1fr auto",
-        gap: 14,
+        gap: "var(--space-3)",
         alignItems: "center",
       }}
     >
@@ -62,7 +62,7 @@ function ServiceCard({
         style={{
           width: 40,
           height: 40,
-          borderRadius: 8,
+          borderRadius: "var(--r-md)",
           background: brand,
           display: "grid",
           placeItems: "center",
@@ -74,7 +74,7 @@ function ServiceCard({
       <div>
         <div
           style={{
-            fontSize: 14,
+            fontSize: "var(--fs-sm)",
             fontWeight: 600,
             color: "var(--ink-0)",
             display: "flex",
@@ -94,7 +94,7 @@ function ServiceCard({
             />
           )}
         </div>
-        <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{desc}</div>
+        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{desc}</div>
       </div>
       {comingSoon ? (
         <Text variant="eyebrow" style={{ color: "var(--ink-3)" }}>
@@ -162,7 +162,7 @@ export function PaneConnections() {
       name: "Garmin Connect",
       desc: t("pane.connections.garminDesc"),
       brand: "oklch(0.45 0.05 240)",
-      icon: <span style={{ fontWeight: 700, fontSize: 14, color: "white" }}>G</span>,
+      icon: <span style={{ fontWeight: 700, fontSize: "var(--fs-sm)", color: "white" }}>G</span>,
       connected: false,
       comingSoon: true,
       onConnect: () => {},
@@ -173,7 +173,7 @@ export function PaneConnections() {
       name: "Wahoo SYSTM",
       desc: t("pane.connections.wahooDesc"),
       brand: "oklch(0.55 0.12 30)",
-      icon: <span style={{ fontWeight: 700, fontSize: 14, color: "white" }}>W</span>,
+      icon: <span style={{ fontWeight: 700, fontSize: "var(--fs-sm)", color: "white" }}>W</span>,
       connected: false,
       comingSoon: true,
       onConnect: () => {},
@@ -184,7 +184,7 @@ export function PaneConnections() {
       name: "Apple Health",
       desc: t("pane.connections.appleHealthDesc"),
       brand: "oklch(0.18 0.005 240)",
-      icon: <span style={{ color: "white", fontSize: 14 }}>♥</span>,
+      icon: <span style={{ color: "white", fontSize: "var(--fs-sm)" }}>♥</span>,
       connected: false,
       comingSoon: true,
       onConnect: () => {},

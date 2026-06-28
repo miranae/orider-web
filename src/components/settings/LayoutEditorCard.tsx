@@ -169,7 +169,7 @@ export function LayoutEditorCard({ config, onSave }: Props) {
     <SettingsCard
       title={t("layout.cardTitle")}
       action={
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
           <Button variant="ghost" size="sm"
             onClick={handleReset}
             disabled={!dirty || saving}
@@ -428,7 +428,7 @@ function PickerPanel({
             flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
             <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("layout.spanWidth")}</span>
             <Button variant="ghost" size="sm"
               onClick={() => onSpan(-1, 0)}
@@ -452,7 +452,7 @@ function PickerPanel({
               +
             </Button>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
             <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("layout.spanHeight")}</span>
             <Button variant="ghost" size="sm"
               onClick={() => onSpan(0, -1)}

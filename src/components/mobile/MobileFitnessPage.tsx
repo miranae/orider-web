@@ -333,7 +333,7 @@ function WeeklyTssBars({ values, color, t }: { values: number[]; color: string; 
             <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: isActive ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isActive ? 600 : 400 }}>{Math.round(v)}</div>
             <div style={{ width: "100%", height: 70, display: "flex", alignItems: "end" }}>
               {/* borderRadius 3px: --r-sm(4px) 보다 작은 미니 막대 전용 — 토큰 없음, 시각 동일 위해 리터럴 유지 */}
-              <div style={{ width: "100%", height: `${h}px`, minHeight: v > 0 ? 4 : 0, background: isActive ? color : "var(--bg-3)", borderRadius: "3px", transition: "background 0.15s, height 0.2s" }} />
+              <div style={{ width: "100%", height: `${h}px`, minHeight: v > 0 ? 4 : 0, background: isActive ? color : "var(--bg-3)", borderRadius: "var(--r-xs)", transition: "background 0.15s, height 0.2s" }} />
             </div>
             <div className="text-[10px]" style={{ color: isActive ? "var(--ink-2)" : "var(--ink-4)", fontWeight: isActive ? 600 : 400 }}>{labels[i] ?? ""}</div>
           </button>
@@ -396,9 +396,9 @@ function SectionCard({ children, title, sub }: { children: React.ReactNode; titl
       padding: "12px 16px",
     }}>
       {(title || sub) && (
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: "var(--space-2)" }}>
           {title && <Text variant="eyebrow">{title}</Text>}
-          {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 3 }}>{sub}</div>}
+          {sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{sub}</div>}
         </div>
       )}
       {children}
@@ -453,7 +453,7 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
     <div>
       {/* Header */}
       <div className="flex items-center sticky top-0 z-10"
-        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: 10 }}>
+        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
         <div className="cursor-pointer flex items-center" style={{ marginLeft: -4, padding: "4px 8px 4px 0", minHeight: 44 }}
           onClick={() => navigate("/my")}>
           <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
@@ -522,14 +522,14 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
             <div style={{ margin: "0 -16px" }}>
               <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} color={ringColor} t={t} />
             </div>
-            <div style={{ marginTop: 6, fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: 12 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: "var(--space-3)" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
                 <span style={{ display: "inline-block", width: 10, height: 2, background: ringColor }} />CTL
               </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
                 <span style={{ display: "inline-block", width: 10, height: 2, background: "var(--rose)" }} />ATL
               </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
                 <span style={{ display: "inline-block", width: 10, height: 2, background: "var(--amber)" }} />TSB
               </span>
             </div>
@@ -551,15 +551,15 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
                     <div className="flex items-center justify-between" style={{ padding: "10px 0", borderBottom: i < data.recentActivities.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
-                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 2 }}>
+                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-0-5)" }}>
                           {a.dateLabel}
                           {a.distanceKm != null && ` · ${a.distanceKm.toFixed(1)} km`}
                           {a.durationMin != null && ` · ${Math.floor(a.durationMin / 60)}:${String(Math.floor(a.durationMin % 60)).padStart(2, "0")}`}
                         </div>
                       </div>
                       {a.tss != null && (
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 600, marginLeft: 12 }}>
-                          {a.tss}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: 3 }}>TSS</span>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 600, marginLeft: "var(--space-3)" }}>
+                          {a.tss}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-1)" }}>TSS</span>
                         </div>
                       )}
                     </div>
@@ -584,11 +584,11 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
           {data.threshold && (
             <SectionCard>
               <Text variant="eyebrow">{data.threshold.label}</Text>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em", marginTop: 4 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em", marginTop: "var(--space-1)" }}>
                 {data.threshold.value || "—"}
-                {data.threshold.unit && <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginLeft: 4 }}>{data.threshold.unit}</span>}
+                {data.threshold.unit && <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginLeft: "var(--space-1)" }}>{data.threshold.unit}</span>}
               </div>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 3 }}>{data.threshold.sub}</div>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{data.threshold.sub}</div>
             </SectionCard>
           )}
 

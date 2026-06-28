@@ -169,14 +169,14 @@ export default function GoalDetailsStep({
         >
           {t('goalDetails.eventTypeLabel')}
         </label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: "var(--space-1-5)" }}>
           {(
             ['completion', 'time', 'race'] as const
           ).map((v) => (
             <label
               key={v}
               style={{
-                padding: 14,
+                padding: "var(--space-3)",
                 borderRadius: "var(--r-md)",
                 cursor: 'pointer',
                 background:
@@ -188,12 +188,12 @@ export default function GoalDetailsStep({
                   (eventType === v ? 'var(--lime)' : 'var(--line-soft)'),
                 display: 'flex',
                 alignItems: 'flex-start',
-                gap: 10,
+                gap: "var(--space-2)",
               }}
             >
               <div
                 style={{
-                  marginTop: 3,
+                  marginTop: "var(--space-1)",
                   width: 16,
                   height: 16,
                   borderRadius: '50%',
@@ -209,7 +209,7 @@ export default function GoalDetailsStep({
               />
               <div onClick={() => handleEventTypeChange(v)} style={{ cursor: 'pointer' }}>
                 <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: 'var(--ink-0)' }}>{t(`goalDetails.eventType.${v}`)}</div>
-                <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: 2 }}>{t(`goalDetails.eventTypeDesc.${v}`)}</div>
+                <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginTop: "var(--space-0-5)" }}>{t(`goalDetails.eventTypeDesc.${v}`)}</div>
               </div>
             </label>
           ))}
@@ -241,7 +241,7 @@ export default function GoalDetailsStep({
           style={{
             fontSize: "var(--fs-xs)",
             color: 'var(--ink-3)',
-            marginTop: 6,
+            marginTop: "var(--space-1-5)",
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -266,7 +266,7 @@ export default function GoalDetailsStep({
             >
               {t('goalDetails.targetDuration')}
             </label>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: "var(--space-2)", alignItems: 'center' }}>
               <input
                 type="number"
                 value={targetH}
@@ -342,7 +342,7 @@ export default function GoalDetailsStep({
         >
           {t('goalDetails.weeklySessions')}
         </label>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: "var(--space-1-5)" }}>
           {([1, 2, 3, 4, 5, 6] as const).map((n) => (
             <button
               key={n}
@@ -459,7 +459,7 @@ export default function GoalDetailsStep({
                   <span
                     title={t('goalDetails.fatigueTsbHint', { tsb: userTsb?.toFixed?.(0) ?? '?' })}
                     style={{
-                      marginLeft: 6,
+                      marginLeft: "var(--space-1-5)",
                       padding: '1px 6px',
                       fontSize: "var(--fs-xs)",
                       borderRadius: "var(--r-sm)",
@@ -487,7 +487,7 @@ export default function GoalDetailsStep({
                 padding: '12px 0 8px',
                 fontSize: "var(--fs-xs)",
                 borderTop: '1px dashed var(--line-soft)',
-                marginTop: 6,
+                marginTop: "var(--space-1-5)",
               }}
             >
               <span style={{ color: 'var(--ink-3)' }}>{t('goalDetails.gap')}</span>

@@ -275,7 +275,7 @@ export default function RouteMap({
                 onDragEnd={handleStartDrag}
                 anchor="center"
               >
-                <div style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--color-success)", border: "3px solid white", boxShadow: "0 2px 6px rgba(0,0,0,0.3)", cursor: onHighlightRangeChange ? "grab" : "default" }} />
+                <div style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--color-success)", border: "3px solid white", boxShadow: "0 2px 6px color-mix(in srgb, var(--bg-0) 30%, transparent)", cursor: onHighlightRangeChange ? "grab" : "default" }} />
               </Marker>
             )}
             {/* End marker */}
@@ -287,7 +287,7 @@ export default function RouteMap({
                 onDragEnd={handleEndDrag}
                 anchor="center"
               >
-                <div style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--color-error)", border: "3px solid white", boxShadow: "0 2px 6px rgba(0,0,0,0.3)", cursor: onHighlightRangeChange ? "grab" : "default" }} />
+                <div style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--color-error)", border: "3px solid white", boxShadow: "0 2px 6px color-mix(in srgb, var(--bg-0) 30%, transparent)", cursor: onHighlightRangeChange ? "grab" : "default" }} />
               </Marker>
             )}
           </>
@@ -320,7 +320,7 @@ export default function RouteMap({
           >
             <div style={{
               width: 36, height: 36, borderRadius: "50%", border: "3px solid var(--ink-0)",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.3)", overflow: "hidden", background: "var(--bg-3)", cursor: "pointer",
+              boxShadow: "0 2px 6px color-mix(in srgb, var(--bg-0) 30%, transparent)", overflow: "hidden", background: "var(--bg-3)", cursor: "pointer",
             }}>
               <img src={photo.url} alt={photo.caption || ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
@@ -343,19 +343,19 @@ export default function RouteMap({
               <div style={{
                 fontSize: "var(--fs-xl)", lineHeight: 1,
                 filter: wp.active
-                  ? "drop-shadow(0 0 6px rgba(249,115,22,0.8)) drop-shadow(0 0 12px rgba(249,115,22,0.4))"
-                  : "drop-shadow(0 1px 2px rgba(0,0,0,0.5))",
+                  ? "drop-shadow(0 0 6px color-mix(in srgb, var(--amber) 80%, transparent)) drop-shadow(0 0 12px color-mix(in srgb, var(--amber) 40%, transparent))"
+                  : "drop-shadow(0 1px 2px color-mix(in srgb, var(--bg-0) 50%, transparent))",
               }}>
                 {wp.icon}
               </div>
               <div style={{
-                marginTop: 2, fontSize: "var(--fs-xs)", fontWeight: 700,
+                marginTop: "var(--space-0-5)", fontSize: "var(--fs-xs)", fontWeight: 700,
                 color: "var(--ink-0)",
-                background: wp.active ? "rgba(249,115,22,0.9)" : "rgba(0,0,0,0.6)",
+                background: wp.active ? "color-mix(in srgb, var(--amber) 90%, transparent)" : "color-mix(in srgb, var(--bg-0) 60%, transparent)",
                 borderRadius: "var(--r-sm)", padding: "1px 4px",
                 whiteSpace: "nowrap", maxWidth: wp.active ? 200 : 100,
                 overflow: "hidden", textOverflow: "ellipsis",
-                boxShadow: wp.active ? "0 0 8px rgba(249,115,22,0.5)" : "none",
+                boxShadow: wp.active ? "0 0 8px color-mix(in srgb, var(--amber) 50%, transparent)" : "none",
               }}>
                 {wp.name}
               </div>
@@ -391,7 +391,7 @@ export default function RouteMap({
                   padding: 0,
                   border: "none",
                   borderRadius: "50%",
-                  background: "rgba(0,0,0,0.55)",
+                  background: "color-mix(in srgb, var(--bg-0) 55%, transparent)",
                   color: "var(--ink-0)",
                   cursor: "pointer",
                   backdropFilter: "blur(2px)",

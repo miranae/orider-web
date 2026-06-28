@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { collection, getCountFromServer, query, where } from "firebase/firestore";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { lazyTimed, beginNavigation } from "./services/routeTiming";
 
@@ -20,6 +21,7 @@ import { LocaleProvider } from "./contexts/LocaleContext";
 import { useAuth } from "./contexts/AuthContext";
 import { LocaleRoot } from "./components/i18n/LocaleRoot";
 import { LocaleRedirect } from "./components/i18n/LocaleRedirect";
+import { firestore } from "./services/firebase";
 
 const ActivityPage = lazyTimed("ActivityPage", () => import("./pages/ActivityPage"));
 const ActivityUploadPage = lazyTimed("ActivityUploadPage", () => import("./pages/activity/ActivityUploadPage"));
@@ -208,10 +210,6 @@ export default function App() {
 
     const run = async () => {
       try {
-        const [{ collection, query, where, getCountFromServer }, { firestore }] = await Promise.all([
-          import("firebase/firestore"),
-          import("./services/firebase"),
-        ]);
         if (cancelled) return;
         const DAY_MS = 24 * 60 * 60 * 1000;
         const since = Math.floor((Date.now() - 30 * DAY_MS) / DAY_MS) * DAY_MS;

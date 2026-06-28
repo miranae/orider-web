@@ -15,7 +15,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import type { Visibility } from "@shared/types";
-import { firestore, functions, storage } from "../../services/firebase";
+import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
@@ -202,7 +202,6 @@ export function PaneAccount() {
 
   async function handleLogout() {
     if (!window.confirm(t("pane.account.logoutConfirm"))) return;
-    const { auth } = await import("../../services/firebase");
     await auth.signOut();
   }
 
@@ -284,7 +283,7 @@ export function PaneAccount() {
                 disabled={visibilitySaving}
                 style={{
                   padding: "14px 12px",
-                  borderRadius: 8,
+                  borderRadius: "var(--r-md)",
                   background: active
                     ? "color-mix(in oklch, var(--lime) 8%, var(--bg-1))"
                     : "var(--bg-1)",
@@ -293,13 +292,13 @@ export function PaneAccount() {
                   textAlign: "left",
                   display: "flex",
                   flexDirection: "column",
-                  gap: 6,
+                  gap: "var(--space-1-5)",
                   color: active ? "var(--ink-0)" : "var(--ink-1)",
                 }}
               >
                 <Ic size={16} />
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{t(o.labelKey)}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{t("privacy.newActivityDefault")}</div>
+                <div style={{ fontSize: "var(--fs-xs)", fontWeight: 500 }}>{t(o.labelKey)}</div>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("privacy.newActivityDefault")}</div>
               </button>
             );
           })}
@@ -332,9 +331,9 @@ export function PaneAccount() {
             style={{
               display: "flex",
               gap: 'var(--space-1)',
-              padding: 2,
+              padding: "var(--space-0-5)",
               background: "var(--bg-2)",
-              borderRadius: 8,
+              borderRadius: "var(--r-md)",
             }}
           >
             {(
@@ -349,14 +348,14 @@ export function PaneAccount() {
                 onClick={() => setTheme(id as ThemePreference)}
                 style={{
                   padding: "6px 14px",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   fontWeight: 500,
-                  borderRadius: 6,
+                  borderRadius: "var(--r-sm)",
                   cursor: "pointer",
                   border: "none",
                   background: theme === id ? "var(--bg-1)" : "transparent",
                   color: theme === id ? "var(--ink-0)" : "var(--ink-3)",
-                  boxShadow: theme === id ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
+                  boxShadow: theme === id ? "0 1px 3px color-mix(in srgb, var(--bg-0) 6%, transparent)" : "none",
                 }}
               >
                 {label}
