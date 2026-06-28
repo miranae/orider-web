@@ -42,7 +42,7 @@ The public repository should include:
 - `.github/` issue, PR, CI, and deploy templates
 - `src/`, `shared/`, `public/`, `docs/`, `manual-src/`, `e2e/`, `scripts/`
 - Vite, TypeScript, ESLint, Vitest, Playwright, Firebase Hosting, and package metadata
-- demo-safe screenshots under `docs/screenshots/`
+- verified current-product screenshots under `docs/screenshots/`, if available
 
 The public repository should not include:
 
@@ -55,7 +55,7 @@ The public repository should not include:
 - production data exports,
 - private backend deploy scripts,
 - local debug tokens,
-- real user data or production screenshots.
+- real user data, production screenshots, or static demo illustrations presented as product screenshots.
 
 ## Final Scans
 
