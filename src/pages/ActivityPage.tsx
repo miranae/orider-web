@@ -44,7 +44,6 @@ import {
   formatSwimPace,
   formatTime,
   getSportCategory,
-  isStreamNotCachedError,
   type SegmentEffortData,
 } from "../features/activity/detail/activityDetailUtils";
 import {
@@ -59,6 +58,7 @@ import {
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
+import { useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
 
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
@@ -73,9 +73,7 @@ export default function ActivityPage() {
   const { showToast } = useToast();
   const { getStreams } = useStrava();
   const [activity, setActivity] = useState<Activity | null>(null);
-  const [streams, setStreams] = useState<ActivityStreams | null>(null);
   const [loadingActivity, setLoadingActivity] = useState(true);
-  const [showStreamSpinner, setShowStreamSpinner] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [coRiders, setCoRiders] = useState<Activity[]>([]);
   const [liked, setLiked] = useState(false);
@@ -89,8 +87,16 @@ export default function ActivityPage() {
   const [hoveredSegment, setHoveredSegment] = useState<SegmentEffortData | null>(null);
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set());
-  const [streamsError, setStreamsError] = useState<string | null>(null);
-  const [loadingStreams, setLoadingStreams] = useState(false);
+  const {
+    streams,
+    setStreams,
+    showStreamSpinner,
+    setShowStreamSpinner,
+    streamsError,
+    setStreamsError,
+    loadingStreams,
+    setLoadingStreams,
+  } = useActivityStreamsLoader({ activityId, activity, userId: user?.uid, getStreams, t });
   // server-side activity metrics 구독 — movingTimeSec 등 ridingTimeMillis 보완 필드 제공.
   // activity_metrics 는 rules 상 활동 owner 만 read 가능 → 타인의 공개 활동을 볼 땐
   // 구독을 막아 permission-denied 알림 노이즈(client:useActivityMetrics)를 없앤다.
@@ -136,7 +142,6 @@ export default function ActivityPage() {
     // 안 하면 streams effect 가드(`!activity || streams`)가 옛 streams 를 truthy 로 보고
     // 새 활동의 스트림 로드를 영영 막아 이전 활동의 GPS/파워 차트가 고착된다(#534).
     setActivity(null);
-    setStreams(null);
     setLoadingActivity(true);
 
     getDoc(doc(firestore, "activities", activityId)).then((snap) => {
@@ -153,84 +158,6 @@ export default function ActivityPage() {
     if (!user || !activity) return;
     trackActivationStep(user.uid, "first_activity_open", { activity_id: activity.id });
   }, [user?.uid, activity?.id]);
-
-  useEffect(() => {
-    if (!activity || streams) return;
-
-    const source = (activity as Activity & { source?: string }).source;
-    const stravaId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
-
-    // O-Rider 소스: activity_streams/{activityId}에서 JSON 파싱
-    if (source === "orider" && activityId) {
-      setLoadingStreams(true);
-      setStreamsError(null);
-      const timer = setTimeout(() => setShowStreamSpinner(true), 500);
-      getDoc(doc(firestore, "activity_streams", activityId)).then((snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          const jsonStr = data.json as string | undefined;
-          if (jsonStr) {
-            const parsed = JSON.parse(jsonStr) as ActivityStreams;
-            parsed.userId = data.userId;
-            setStreams(parsed);
-          }
-        }
-      }).catch((err) => {
-        // 활동 doc 이 이미 로드됐다는 건 viewer 가 owner/공개/친구 라는 뜻(activities·streams
-        // read 규칙이 동일 가시성 기준). 그런데 streams 가 거부되면 데이터 드리프트(stream doc
-        // userId 누락, streamId≠activityId 로 규칙 get() 실패 등)일 가능성이 높다. 기존엔
-        // console.error 만 찍어 서버에 흔적이 없어(2026-06-03 사각지대) 어느 활동인지 추적
-        // 불가였다 → 컨텍스트와 함께 캡처. (동일 메시지는 알림 dedup 으로 시간당 1통만.)
-        logClientError("ActivityPage.streams", err, {
-          activityId,
-          source: "orider",
-          visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
-          isOwn: !!user && activity.userId === user.uid,
-        });
-        console.error("O-Rider streams load failed:", err);
-        setStreamsError(err instanceof Error ? err.message : t("page.streamsErrorFallback"));
-      }).finally(() => {
-        clearTimeout(timer);
-        setShowStreamSpinner(false);
-        setLoadingStreams(false);
-      });
-      return;
-    }
-
-    // Strava 소스: Cloud Function 경유
-    if (!stravaId) return;
-
-    setLoadingStreams(true);
-    setStreamsError(null);
-    // Delay showing spinner to avoid flash when cached data returns quickly
-    const timer = setTimeout(() => setShowStreamSpinner(true), 500);
-    getStreams(stravaId).then((data) => {
-      setStreams(data as unknown as ActivityStreams);
-    }).catch((err) => {
-      // not-found("아직 캐시 없음")는 정상 신호 — 비로그인 방문자가 미캐시 공개 활동을 열면
-      // CF 가 Strava 재호출 불가로 not-found 를 던진다. 진짜 에러(권한/토큰)와 달리 🔴 보고하지
-      // 않고 부드러운 안내만 표시한다(모니터링 노이즈 차단, #364).
-      if (isStreamNotCachedError(err)) {
-        setStreamsError(t("page.streamsNotCached"));
-      } else {
-        // permission 류 등 진짜 에러만 캡처. 컨텍스트와 함께.
-        logClientError("ActivityPage.streams", err, {
-          activityId,
-          source: "strava",
-          stravaId,
-          visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
-          isOwn: !!user && activity.userId === user.uid,
-        });
-        console.error("Streams load failed:", err);
-        setStreamsError(err instanceof Error ? err.message : t("page.streamsErrorFallback"));
-      }
-    }).finally(() => {
-      clearTimeout(timer);
-      setShowStreamSpinner(false);
-      setLoadingStreams(false);
-    });
-     
-  }, [activity]);
 
   // Fetch co-riders: activities with the same groupRideId
   useEffect(() => {

@@ -4,9 +4,9 @@ import path from "node:path";
 const ROOT = process.cwd();
 const SRC = path.join(ROOT, "src");
 const BUDGETS = {
-  maxFileLines: 1620,
-  maxConsoleStatements: 125,
-  maxAlertCalls: 48,
+  maxFileLines: 1550,
+  maxConsoleStatements: 112,
+  maxAlertCalls: 40,
 };
 
 function listSourceFiles(dir) {
