@@ -6,10 +6,22 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField } from "../../components/redesign";
 import { fmtIsoLocal, isClosed, normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import {
+  ABO_TYPES,
+  SHIRT_SIZES,
+  composeBloodType,
+  parseBloodType,
+  type BloodComponents,
+  type BloodType,
+  type Gender,
+  type ShirtSize,
+} from "../../features/event/register/eventRegistrationUtils";
 
 interface EventCategory {
   id: string;
@@ -34,35 +46,6 @@ interface EventSummary {
   maxParticipants?: number;
   distance?: number;
   insuranceFee?: number;
-}
-
-const SHIRT_SIZES = ["XS", "S", "M", "L", "XL", "2XL"] as const;
-type ShirtSize = (typeof SHIRT_SIZES)[number] | "";
-
-type Gender = "M" | "F" | "X" | "";
-/** 표준 4형(A/B/O/AB) × Rh(+/-) 조합 또는 자유 입력 (Rh-Null·Bombay 등 특이 혈액형) */
-type BloodType = string;
-const ABO_TYPES = ["A", "B", "O", "AB"] as const;
-type Abo = (typeof ABO_TYPES)[number];
-
-interface BloodComponents {
-  abo: Abo | "";
-  rh: "+" | "-" | "";
-  custom: string;
-}
-
-function parseBloodType(v: string): BloodComponents {
-  const t = v.trim();
-  if (!t) return { abo: "", rh: "", custom: "" };
-  const m = t.match(/^(AB|A|B|O)([+-])?$/);
-  if (m) return { abo: m[1] as Abo, rh: (m[2] as "+" | "-" | undefined) ?? "", custom: "" };
-  return { abo: "", rh: "", custom: t };
-}
-
-function composeBloodType(c: BloodComponents): string {
-  if (c.custom.trim()) return c.custom.trim().slice(0, 32);
-  if (!c.abo) return "";
-  return `${c.abo}${c.rh}`;
 }
 
 interface FormData {
@@ -195,6 +178,7 @@ export default function EventRegisterPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const { showToast } = useToast();
 
   const [event, setEvent] = useState<EventSummary | null>(null);
   const [filledByCategory, setFilledByCategory] = useState<Record<string, number>>({});
@@ -289,10 +273,10 @@ export default function EventRegisterPage() {
         });
         setFilledByCategory(counts);
       } catch (err) {
-        console.warn("카테고리 신청 수 조회 실패:", err);
+        logClientError("EventRegisterPage.loadCategoryCounts", err, { eventId });
       }
     } catch (err) {
-      console.error("이벤트 조회 실패:", err);
+      logClientError("EventRegisterPage.loadEvent", err, { eventId });
       setLoadError(err instanceof Error ? err.message : t("register.errLoad"));
     } finally {
       setLoading(false);
@@ -367,7 +351,7 @@ export default function EventRegisterPage() {
       });
       setRegistrationNumber(result.data.registrationNumber ?? null);
     } catch (err: unknown) {
-      console.error("참가 신청 실패:", err);
+      logClientError("EventRegisterPage.submit", err, { eventId });
       const fbErr = err as { code?: string; message?: string };
       const msg = fbErr?.code === "functions/already-exists"
         ? t("register.errAlreadyRegistered")
@@ -376,7 +360,7 @@ export default function EventRegisterPage() {
           : fbErr?.code === "functions/failed-precondition"
             ? t("register.errNotOpen")
             : fbErr?.message || t("register.errSubmit");
-      alert(msg);
+      showToast(msg, "error");
     } finally {
       setSubmitting(false);
     }
@@ -971,7 +955,7 @@ export default function EventRegisterPage() {
                       <Button
                         type="button" variant="secondary" size="sm"
                         style={{ padding: "var(--space-1) var(--space-2)", fontSize: 10 }}
-                        onClick={(e) => { e.preventDefault(); alert(t("register.fullTextSoon")); }}
+                        onClick={(e) => { e.preventDefault(); showToast(t("register.fullTextSoon"), "info"); }}
                       >
                         {t("register.viewFullText")}
                       </Button>

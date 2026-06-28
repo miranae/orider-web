@@ -6,23 +6,20 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField, TimeField } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { Field, PickerRow, Section, Toggle, fieldStyle } from "../../features/event/form/eventFormControls";
+import { joinDtLocal, newEditableCategory, splitDtLocal, splitStartTime, type EditableCategoryRow } from "../../features/event/form/eventFormUtils";
 
 type EventType = "GRANFONDO" | "TOUR" | "TT" | "TRAINING";
 type Visibility = "PUBLIC" | "GROUP" | "PRIVATE";
 type FeeType = "FREE" | "PAID";
 type Status = "DRAFT" | "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "UNKNOWN";
 
-interface CategoryRow {
-  id: string;
-  label: string;
-  slots: number;
-  filled: number;
-  req: string;
-}
+type CategoryRow = EditableCategoryRow;
 
 interface CourseInfo {
   id: string;
@@ -78,177 +75,6 @@ const VISIBILITY_DEFS: Array<{ value: Visibility; labelKey: string }> = [
   { value: "PRIVATE", labelKey: "visibility.private" },
 ];
 
-const fieldStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 12px",
-  fontSize: 13,
-  background: "var(--bg-2)",
-  border: "1px solid var(--line-soft)",
-  borderRadius: 5,
-  color: "var(--ink-0)",
-  fontFamily: "inherit",
-};
-
-function Field({
-  label,
-  required,
-  sub,
-  hint,
-  warn,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  sub?: string;
-  hint?: string;
-  warn?: boolean;
-  children: React.ReactNode;
-}) {
-  const { t } = useTranslation("event");
-  return (
-    <div style={{ marginBottom: 18 }}>
-      <label className="flex items-center" style={{ gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
-        {required && <span style={{ color: "var(--rose)", fontSize: 11 }}>*</span>}
-        {warn && (
-          <Chip
-            style={{
-              fontSize: 9,
-              color: "var(--amber)",
-              borderColor: "color-mix(in oklch, var(--amber) 40%, transparent)",
-            }}
-          >
-            {t("warn.participantNotice")}
-          </Chip>
-        )}
-        {sub && <span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
-      </label>
-      {children}
-      {hint && <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{hint}</div>}
-    </div>
-  );
-}
-
-function Section({ id, title, desc, children }: { id: string; title: string; desc?: string; children: React.ReactNode }) {
-  return (
-    <Card
-      id={id} padding="none"
-      style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-4)', scrollMarginTop: 80 }}
-    >
-      <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--line-soft)" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{title}</div>
-        {desc && <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{desc}</div>}
-      </div>
-      {children}
-    </Card>
-  );
-}
-
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!on)}
-      aria-pressed={on}
-      style={{
-        width: 32,
-        height: 18,
-        borderRadius: 10,
-        position: "relative",
-        flexShrink: 0,
-        cursor: "pointer",
-        background: on ? "var(--lime)" : "var(--bg-3)",
-        border: on ? "none" : "1px solid var(--line-soft)",
-        padding: 0,
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          top: 2,
-          left: on ? 16 : 2,
-          width: 12,
-          height: 12,
-          borderRadius: "50%",
-          background: on ? "var(--primary-fg)" : "var(--ink-2)",
-          transition: "left 120ms",
-        }}
-      />
-    </button>
-  );
-}
-
-function PickerRow<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: Array<{ value: T; label: string }>;
-}) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${options.length}, 1fr)`,
-        gap: 6,
-      }}
-    >
-      {options.map((o) => {
-        const active = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(o.value)}
-            aria-pressed={active}
-            style={{
-              padding: "10px 10px",
-              fontSize: 12,
-              borderRadius: 5,
-              background: active ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
-              color: active ? "var(--ink-0)" : "var(--ink-2)",
-              border: `1px solid ${active ? "var(--lime)" : "var(--line-soft)"}`,
-              cursor: "pointer",
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function newCategory(): CategoryRow {
-  return { id: `c${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, label: "", slots: 50, filled: 0, req: "" };
-}
-
-function splitDtLocal(s: string): { date: string; time: string } {
-  if (!s) return { date: "", time: "" };
-  const i = s.indexOf("T");
-  if (i < 0) return { date: s, time: "" };
-  return { date: s.slice(0, i), time: s.slice(i + 1, i + 6) };
-}
-
-function joinDtLocal(date: string, time: string): string {
-  if (!date) return "";
-  return `${date}T${time || "00:00"}`;
-}
-
-function splitStartTime(ms: number): { date: string; time: string } {
-  if (!ms) return { date: "", time: "06:00" };
-  const d = new Date(ms);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${mi}` };
-}
-
 export default function EventEditPage() {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
@@ -298,7 +124,7 @@ export default function EventEditPage() {
           if (cat) counts[cat] = (counts[cat] ?? 0) + 1;
         });
       } catch (err) {
-        console.warn("참가자 집계 실패:", err);
+        logClientError("EventEditPage.loadParticipantCounts", err, { eventId });
       }
 
       const categories: CategoryRow[] = rawCategories.length
@@ -360,11 +186,11 @@ export default function EventEditPage() {
             });
           }
         } catch (err) {
-          console.warn("코스 로드 실패:", err);
+          logClientError("EventEditPage.loadCourse", err, { eventId, courseId: firstCourseId });
         }
       }
     } catch (err) {
-      console.error("이벤트 조회 실패:", err);
+      logClientError("EventEditPage.loadEvent", err, { eventId });
       setLoadError(err instanceof Error ? err.message : t("edit.errLoad"));
     } finally {
       setLoading(false);
@@ -463,7 +289,7 @@ export default function EventEditPage() {
 
   function addCategory() {
     if (!data) return;
-    setData({ ...data, categories: [...data.categories, newCategory()] });
+    setData({ ...data, categories: [...data.categories, newEditableCategory()] });
   }
 
   function reset() {
@@ -519,7 +345,7 @@ export default function EventEditPage() {
           : t("edit.saved"),
       });
     } catch (err) {
-      console.error("이벤트 저장 실패:", err);
+      logClientError("EventEditPage.save", err, { eventId });
       const fbErr = err as { code?: string; message?: string };
       const msg =
         fbErr?.code === "functions/permission-denied"
@@ -545,7 +371,7 @@ export default function EventEditPage() {
       });
       setTimeout(() => navigate(`/event/${eventId}`), 1500);
     } catch (err) {
-      console.error("이벤트 취소 실패:", err);
+      logClientError("EventEditPage.cancel", err, { eventId });
       setToast({ type: "err", msg: t("edit.errCancel") });
     }
   }
@@ -818,7 +644,7 @@ export default function EventEditPage() {
                 </div>
                 <Button
                   type="button"
-                  onClick={() => alert(t("edit.courseChangeSoon"))} variant="secondary" size="sm"
+                  onClick={() => setToast({ type: "warn", msg: t("edit.courseChangeSoon") })} variant="secondary" size="sm"
                 >
                   {t("button.edit")}
                 </Button>

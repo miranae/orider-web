@@ -6,10 +6,14 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { httpsCallable } from "firebase/functions";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { functions, firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { DateField, TimeField, EmptyState } from "../components/redesign";
 import { useCourses } from "../hooks/useCourses";
 import { Button, Card, Text } from "../theme/components";
+import { Field, SegmentedPicker, StepBar, fieldStyle } from "../features/event/form/eventFormControls";
+import { joinDtLocal, newCategory, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
 
 interface GroupInfo {
   id: string;
@@ -20,13 +24,6 @@ interface GroupInfo {
 type EventType = "GRANFONDO" | "TOUR" | "TT" | "TRAINING";
 type Visibility = "PUBLIC" | "GROUP" | "PRIVATE";
 type FeeType = "FREE" | "PAID";
-
-interface CategoryRow {
-  id: string;
-  label: string;
-  slots: number;
-  req: string;
-}
 
 interface FormData {
   // step 1
@@ -77,177 +74,11 @@ const VISIBILITY_DEFS: Array<{ value: Visibility; labelKey: string; subKey: stri
 
 const STEP_KEYS = ["create.step.basic", "create.step.course", "create.step.entry"] as const;
 
-function newCategory(label = "", slots = 50, req = ""): CategoryRow {
-  return { id: `c${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, label, slots, req };
-}
-
-function splitDtLocal(s: string): { date: string; time: string } {
-  if (!s) return { date: "", time: "" };
-  const i = s.indexOf("T");
-  if (i < 0) return { date: s, time: "" };
-  return { date: s.slice(0, i), time: s.slice(i + 1, i + 6) };
-}
-
-function joinDtLocal(date: string, time: string): string {
-  if (!date) return "";
-  return `${date}T${time || "00:00"}`;
-}
-
-const fieldStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "9px 12px",
-  fontSize: 13,
-  background: "var(--bg-2)",
-  border: "1px solid var(--line-soft)",
-  borderRadius: 5,
-  color: "var(--ink-0)",
-  fontFamily: "inherit",
-};
-
-function Field({
-  label,
-  required,
-  sub,
-  hint,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  sub?: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={{ marginBottom: 18 }}>
-      <label className="flex items-center" style={{ gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
-        {required && <span style={{ color: "var(--rose)", fontSize: 11 }}>*</span>}
-        {sub && <span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
-      </label>
-      {children}
-      {hint && <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>{hint}</div>}
-    </div>
-  );
-}
-
-function SegmentedPicker<T extends string>({
-  options,
-  value,
-  onChange,
-  columns,
-}: {
-  options: Array<{ value: T; label: string; sub?: string }>;
-  value: T;
-  onChange: (v: T) => void;
-  columns?: number;
-}) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${columns ?? options.length}, 1fr)`,
-        gap: 6,
-      }}
-    >
-      {options.map((o) => {
-        const active = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(o.value)}
-            aria-pressed={active}
-            style={{
-              padding: "12px 10px",
-              fontSize: 12,
-              borderRadius: 5,
-              textAlign: "center",
-              lineHeight: 1.4,
-              background: active ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
-              color: active ? "var(--ink-0)" : "var(--ink-2)",
-              border: `1px solid ${active ? "var(--lime)" : "var(--line-soft)"}`,
-              cursor: "pointer",
-            }}
-          >
-            <div style={{ fontWeight: 500 }}>{o.label}</div>
-            {o.sub && <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 3 }}>{o.sub}</div>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function StepBar({ step, setStep, maxStep }: { step: number; setStep: (n: number) => void; maxStep: number }) {
-  const { t } = useTranslation("event");
-  return (
-    <div className="flex" style={{ gap: 0, marginBottom: 28 }}>
-      {STEP_KEYS.map((labelKey, i) => {
-        const id = i;
-        const label = t(labelKey);
-        const done = step > id;
-        const cur = step === id;
-        const navigable = done || id <= maxStep;
-        return (
-          <div key={labelKey} className="flex items-center" style={{ gap: 10, flex: 1 }}>
-            <button
-              type="button"
-              onClick={() => navigable && setStep(id)}
-              disabled={!navigable}
-              aria-current={cur ? "step" : undefined}
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: "50%",
-                background: cur
-                  ? "var(--lime)"
-                  : done
-                  ? "color-mix(in oklch, var(--lime) 20%, var(--bg-2))"
-                  : "var(--bg-2)",
-                color: cur ? "var(--primary-fg)" : done ? "var(--lime)" : "var(--ink-3)",
-                display: "grid",
-                placeItems: "center",
-                fontSize: 11,
-                fontFamily: "var(--font-mono)",
-                fontWeight: 600,
-                border: !cur && !done ? "1px solid var(--line-soft)" : "none",
-                flexShrink: 0,
-                cursor: navigable ? "pointer" : "default",
-              }}
-            >
-              {done ? "✓" : id + 1}
-            </button>
-            <span
-              style={{
-                fontSize: 12,
-                color: cur ? "var(--ink-0)" : "var(--ink-3)",
-                fontWeight: cur ? 500 : 400,
-              }}
-            >
-              {label}
-            </span>
-            {i < STEP_KEYS.length - 1 && (
-              <div
-                style={{
-                  flex: 1,
-                  height: 1,
-                  background: done
-                    ? "color-mix(in oklch, var(--lime) 30%, transparent)"
-                    : "var(--line-soft)",
-                }}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function EventCreatePage() {
   const { t } = useTranslation("event");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
 
   const TYPE_OPTIONS = TYPE_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey), sub: t(d.subKey) }));
   const VISIBILITY_OPTIONS = VISIBILITY_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey), sub: t(d.subKey) }));
@@ -313,7 +144,7 @@ export default function EventCreatePage() {
         });
         setGroups(results);
       } catch (err) {
-        console.error("그룹 조회 실패:", err);
+        logClientError("EventCreatePage.loadGroups", err, { userId: user.uid });
       } finally {
         setLoadingGroups(false);
       }
@@ -538,6 +369,7 @@ export default function EventCreatePage() {
               if (n <= maxVisitedStep) setStep(n);
             }}
             maxStep={maxVisitedStep}
+            stepKeys={STEP_KEYS}
           />
 
           {step === 0 && (
@@ -668,7 +500,7 @@ export default function EventCreatePage() {
                       </Button>
                       <Button
                         type="button"
-                        onClick={() => alert(t("create.gpxSoon"))} variant="secondary" size="sm"
+                        onClick={() => showToast(t("create.gpxSoon"), "info")} variant="secondary" size="sm"
                       >
                         {t("action.uploadGPX")}
                       </Button>
