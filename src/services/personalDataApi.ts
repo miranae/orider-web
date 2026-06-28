@@ -48,18 +48,21 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function listPersonalApiKeys(): Promise<PersonalApiKeySummary[]> {
-  const payload = await apiFetch<{ data: PersonalApiKeySummary[] }>("/developer/api-keys");
-  return payload.data;
+  const payload = await apiFetch<{ data?: PersonalApiKeySummary[] }>("/developer/api-keys");
+  return Array.isArray(payload.data) ? payload.data : [];
 }
 
 export async function createPersonalApiKey(input: {
   name: string;
   scopes: PersonalApiScope[];
 }): Promise<CreatedPersonalApiKey> {
-  const payload = await apiFetch<{ data: CreatedPersonalApiKey }>("/developer/api-keys", {
+  const payload = await apiFetch<{ data?: CreatedPersonalApiKey }>("/developer/api-keys", {
     method: "POST",
     body: JSON.stringify(input),
   });
+  if (!payload.data?.key || !payload.data.prefix) {
+    throw new Error("INVALID_PERSONAL_API_RESPONSE");
+  }
   return payload.data;
 }
 
