@@ -5,7 +5,6 @@ import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
-import type { OverlayDataset } from "../components/ElevationChart";
 import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
 import AnalysisTab from "../components/AnalysisTab";
@@ -39,64 +38,26 @@ import { useActiveBikeProfile } from "../hooks/useActiveBikeProfile";
 import { calcVirtualPowerStream } from "../utils/virtualPower";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text } from "../theme/components";
-
-type SportCategory = "ride" | "run" | "swim" | "other";
-
-function getSportCategory(type?: string | null): SportCategory {
-  if (!type) return "other";
-  const t = type.toLowerCase();
-  if (t.includes("ride") || t.includes("cycling") || t === "velolift") return "ride";
-  if (t.includes("run") || t === "walk" || t === "hike") return "run";
-  if (t.includes("swim")) return "swim";
-  return "other";
-}
-
-/** km/h → min/km 페이스 문자열 */
-function formatPace(kmh: number): string {
-  if (kmh <= 0) return "-";
-  const minPerKm = 60 / kmh;
-  const mins = Math.floor(minPerKm);
-  const secs = Math.round((minPerKm - mins) * 60);
-  return `${mins}'${secs.toString().padStart(2, "0")}"`;
-}
-
-/** km/h → min/100m 수영 페이스 문자열 */
-function formatSwimPace(kmh: number): string {
-  if (kmh <= 0) return "-";
-  const minPer100m = 60 / kmh / 10; // 60 / kmh = min/km, /10 = min/100m
-  const mins = Math.floor(minPer100m);
-  const secs = Math.round((minPer100m - mins) * 60);
-  return `${mins}'${secs.toString().padStart(2, "0")}"`;
-}
-
-function formatDuration(ms: number): string {
-  const hours = Math.floor(ms / 3600000);
-  const minutes = Math.floor((ms % 3600000) / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m ${seconds}s`;
-}
-
-function formatTime(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-/**
- * 스트림이 "아직 캐시되지 않음" 신호인지(진짜 에러 아님). 비로그인 방문자가 미캐시 공개 Strava
- * 활동을 열면 CF 가 `functions/not-found`("Stream data not yet available")를 던진다 — 정상.
- * 권한/토큰 등 진짜 에러와 구분해 🔴 보고를 면제한다(#364).
- */
-function isStreamNotCachedError(err: unknown): boolean {
-  const code = (err as { code?: string } | null)?.code;
-  if (code === "functions/not-found") return true;
-  // 코드가 없을 때만 메시지 폴백. CF 의 정확한 문구로 한정 — "not found" 일반 매칭은 진짜
-  // 에러("Activity not found" 등)까지 면제해버리므로 쓰지 않는다(관측성 보존).
-  const msg = err instanceof Error ? err.message : "";
-  return /not yet available/i.test(msg);
-}
+import {
+  formatDuration,
+  formatPace,
+  formatSwimPace,
+  formatTime,
+  getSportCategory,
+  isStreamNotCachedError,
+  type SegmentEffortData,
+} from "../features/activity/detail/activityDetailUtils";
+import {
+  buildChartOverlays,
+  buildSampledData,
+  buildSummaryStats,
+  getAvailableOverlays,
+  getChartHighlightRange,
+  getSegmentEfforts,
+  getStreamPhotos,
+} from "../features/activity/detail/activityDetailDerived";
+import { extractGpsFromFile } from "../features/activity/detail/photoGps";
+import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 
 function useTimeAgo() {
   const { t, i18n } = useTranslation("activity");
@@ -126,134 +87,6 @@ function useFormatFullDate() {
       hour: "2-digit",
       minute: "2-digit",
     });
-}
-
-interface SegmentEffortData {
-  id: number;
-  name: string;
-  elapsedTime: number;
-  movingTime: number;
-  distance: number;
-  startIndex: number;
-  endIndex: number;
-  averageWatts: number | null;
-  averageHeartrate: number | null;
-  maxHeartrate: number | null;
-  averageCadence: number | null;
-  prRank: number | null;
-  komRank: number | null;
-  achievements: { type_id: number; type: string; rank: number }[];
-  segment: {
-    id: number;
-    name: string;
-    distance: number;
-    averageGrade: number;
-    maximumGrade: number;
-    elevationHigh: number;
-    elevationLow: number;
-    climbCategory: number;
-    starred: boolean;
-  };
-}
-
-interface SampledPoint {
-  latlng: [number, number] | null;
-  distance: number;
-  altitude: number;
-  speed: number;
-  heartRate: number;
-  power: number;
-  cadence: number;
-}
-
-interface OverlayConfig {
-  key: string;
-  label: string;
-  unit: string;
-  color: string;
-  dotColor: string;
-  yAxisID: string;
-  getValue: (d: SampledPoint) => number;
-}
-
-const OVERLAY_CONFIGS: OverlayConfig[] = [
-  { key: "speed", label: "speed", unit: "km/h", color: "rgba(59, 130, 246, 0.7)", dotColor: "#3b82f6", yAxisID: "ySpeed", getValue: (d) => d.speed },
-  { key: "hr", label: "hr", unit: "bpm", color: "rgba(239, 68, 68, 0.7)", dotColor: "#ef4444", yAxisID: "yHR", getValue: (d) => d.heartRate },
-  { key: "power", label: "power", unit: "W", color: "rgba(168, 85, 247, 0.7)", dotColor: "#a855f7", yAxisID: "yPower", getValue: (d) => d.power },
-  { key: "cadence", label: "cadence", unit: "rpm", color: "rgba(6, 182, 212, 0.7)", dotColor: "#06b6d4", yAxisID: "yCadence", getValue: (d) => d.cadence },
-];
-
-/** Extract GPS coordinates from JPEG EXIF data. Returns [lat, lng] or null. */
-async function extractGpsFromFile(file: File): Promise<[number, number] | null> {
-  try {
-    const buf = await file.slice(0, 128 * 1024).arrayBuffer(); // first 128KB is enough for EXIF
-    const view = new DataView(buf);
-    if (view.getUint16(0) !== 0xFFD8) return null; // not JPEG
-
-    let offset = 2;
-    while (offset < view.byteLength - 4) {
-      const marker = view.getUint16(offset);
-      if (marker === 0xFFE1) { // APP1 (EXIF)
-        const exifOffset = offset + 4;
-        if (view.getUint32(exifOffset) !== 0x45786966) break; // "Exif"
-        const tiffStart = exifOffset + 6;
-        const le = view.getUint16(tiffStart) === 0x4949; // little-endian?
-        const g16 = (o: number) => view.getUint16(o, le);
-        const g32 = (o: number) => view.getUint32(o, le);
-
-        const readRational = (o: number) => g32(o) / g32(o + 4);
-
-        // Find GPS IFD pointer from IFD0
-        const ifd0Count = g16(tiffStart + g32(tiffStart + 4));
-        let gpsOffset = 0;
-        for (let i = 0; i < ifd0Count; i++) {
-          const entry = tiffStart + g32(tiffStart + 4) + 2 + i * 12;
-          if (entry + 12 > view.byteLength) break;
-          if (g16(entry) === 0x8825) { gpsOffset = tiffStart + g32(entry + 8); break; }
-        }
-        if (!gpsOffset || gpsOffset + 2 > view.byteLength) return null;
-
-        const gpsCount = g16(gpsOffset);
-        const tags: Record<number, { type: number; count: number; valueOffset: number }> = {};
-        for (let i = 0; i < gpsCount; i++) {
-          const e = gpsOffset + 2 + i * 12;
-          if (e + 12 > view.byteLength) break;
-          tags[g16(e)] = { type: g16(e + 2), count: g32(e + 4), valueOffset: tiffStart + g32(e + 8) };
-        }
-
-        const toDeg = (tag: { valueOffset: number }) => {
-          const o = tag.valueOffset;
-          return readRational(o) + readRational(o + 8) / 60 + readRational(o + 16) / 3600;
-        };
-
-        if (!tags[2] || !tags[4]) return null; // GPSLatitude(2), GPSLongitude(4)
-        let lat = toDeg(tags[2]);
-        let lng = toDeg(tags[4]);
-
-        // GPSLatitudeRef(1), GPSLongitudeRef(3) — inline ASCII byte
-        const latRef = tags[1] ? String.fromCharCode(view.getUint8(gpsOffset + 2 + (() => {
-          for (let i = 0; i < gpsCount; i++) { if (g16(gpsOffset + 2 + i * 12) === 1) return i * 12 + 8; }
-          return 0;
-        })())) : "N";
-        const lngRef = tags[3] ? String.fromCharCode(view.getUint8(gpsOffset + 2 + (() => {
-          for (let i = 0; i < gpsCount; i++) { if (g16(gpsOffset + 2 + i * 12) === 3) return i * 12 + 8; }
-          return 0;
-        })())) : "E";
-
-        if (latRef === "S") lat = -lat;
-        if (lngRef === "W") lng = -lng;
-
-        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 && (lat !== 0 || lng !== 0)) {
-          return [lat, lng];
-        }
-        return null;
-      }
-      // skip to next marker
-      const len = view.getUint16(offset + 2);
-      offset += 2 + len;
-    }
-  } catch { /* ignore parse errors */ }
-  return null;
 }
 
 export default function ActivityPage() {
@@ -601,24 +434,7 @@ export default function ActivityPage() {
     try {
       // Extract GPS from EXIF before canvas destroys it
       const location = await extractGpsFromFile(file);
-      // Resize: max 1920px on longest side, keep aspect ratio
-      const bitmap = await createImageBitmap(file);
-      const maxDim = 1920;
-      let w = bitmap.width;
-      let h = bitmap.height;
-      if (w > maxDim || h > maxDim) {
-        if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
-        else { w = Math.round(w * maxDim / h); h = maxDim; }
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(bitmap, 0, 0, w, h);
-      bitmap.close();
-      const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/webp", 0.8)
-      );
+      const blob = await resizeImageToWebp(file);
       if (blob.size > 5 * 1024 * 1024) {
         showToast(t("page.photoToast.tooLarge"));
         return;
@@ -666,53 +482,12 @@ export default function ActivityPage() {
     });
   }, []);
 
-  // Build sampled data from streams
-  const sampledData: SampledPoint[] = useMemo(() => {
-    if (!streams?.distance) return [];
-    const dist = streams.distance;
-    const len = dist.length;
-    const interval = Math.max(1, Math.floor(len / 300));
-    const points: SampledPoint[] = [];
-    for (let i = 0; i < len; i += interval) {
-      points.push({
-        latlng: streams.latlng?.[i] as [number, number] ?? null,
-        distance: dist[i] ?? 0,
-        altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
-        speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
-        heartRate: streams.heartrate?.[i] ?? 0,
-        power: (streams.watts?.[i] ?? streams.watts_calc?.[i]) ?? 0,
-        cadence: streams.cadence?.[i] ?? 0,
-      });
-    }
-    return points;
-  }, [streams]);
+  const sampledData = useMemo(() => buildSampledData(streams), [streams]);
 
-  const availableOverlays = useMemo(() => {
-    if (sampledData.length === 0) return [] as OverlayConfig[];
-    return OVERLAY_CONFIGS.filter((cfg) => sampledData.some((d) => cfg.getValue(d) > 0));
-  }, [sampledData]);
+  const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
 
   const summaryStats = useMemo(() => {
-    if (sampledData.length === 0) return null;
-    const minElev = Math.min(...sampledData.map((d) => d.altitude));
-    const maxElev = Math.max(...sampledData.map((d) => d.altitude));
-    const stats: Record<string, { avg: number; max: number }> = {};
-    for (const cfg of OVERLAY_CONFIGS) {
-      const values = sampledData.map((d) => cfg.getValue(d)).filter((v) => v > 0);
-      if (values.length > 0) {
-        // 파워는 사이클링 관습상 "전체 시간(코스팅 포함) 평균"이 표준 — 활동 문서의 표준 평균값 우선 사용.
-        // 다른 오버레이는 비제로 이동 평균(speed/HR/cadence) 유지.
-        const canonicalAvg =
-          cfg.key === "power"
-            ? activity?.summary.averagePower ?? activity?.avgPower ?? null
-            : null;
-        stats[cfg.key] = {
-          avg: canonicalAvg ?? values.reduce((a, b) => a + b, 0) / values.length,
-          max: Math.max(...values),
-        };
-      }
-    }
-    return { minElev, maxElev, overlays: stats };
+    return buildSummaryStats(sampledData, activity?.summary.averagePower ?? activity?.avgPower);
   }, [sampledData, activity?.summary.averagePower, activity?.avgPower]);
 
   const markerPosition = useMemo(() => {
@@ -720,30 +495,13 @@ export default function ActivityPage() {
     return sampledData[hoverIndex].latlng;
   }, [hoverIndex, sampledData]);
 
-  // Segment efforts from streams response — sorted by startIndex (route order)
-  const segmentEfforts: SegmentEffortData[] = useMemo(() => {
-    const raw = (streams as Record<string, unknown> | null)?.segment_efforts;
-    if (!Array.isArray(raw)) return [];
-    return (raw as SegmentEffortData[]).slice().sort((a, b) => a.startIndex - b.startIndex);
-  }, [streams]);
+  const segmentEfforts: SegmentEffortData[] = useMemo(() => getSegmentEfforts(streams), [streams]);
 
-  // Convert hovered segment GPS indices → chart (sampled) indices
   const chartHighlightRange: [number, number] | undefined = useMemo(() => {
-    if (!hoveredSegment || !streams?.distance) return undefined;
-    const len = streams.distance.length;
-    const interval = Math.max(1, Math.floor(len / 300));
-    const start = Math.round(hoveredSegment.startIndex / interval);
-    const end = Math.round(hoveredSegment.endIndex / interval);
-    return [start, end];
-  }, [hoveredSegment, streams?.distance]);
+    return getChartHighlightRange(hoveredSegment, streams);
+  }, [hoveredSegment, streams]);
 
-  // Photos from streams response
-  interface PhotoData { id: string; url: string | null; caption: string | null; location: [number, number] | null; }
-  const photos: PhotoData[] = useMemo(() => {
-    const raw = (streams as Record<string, unknown> | null)?.photos;
-    if (!Array.isArray(raw)) return [];
-    return raw as PhotoData[];
-  }, [streams]);
+  const photos = useMemo(() => getStreamPhotos(streams), [streams]);
 
   if (loadingActivity) {
     return (
@@ -811,15 +569,7 @@ export default function ActivityPage() {
     : [];
 
   // Build chart overlays from active toggles
-  const chartOverlays: OverlayDataset[] = availableOverlays
-    .filter((cfg) => activeOverlays.has(cfg.key))
-    .map((cfg) => ({
-      label: `${t(`overlay.${cfg.label}`)} (${cfg.unit})`,
-      data: sampledData.map((d) => cfg.getValue(d)),
-      color: cfg.color,
-      yAxisID: cfg.yAxisID,
-      unit: cfg.unit,
-    }));
+  const chartOverlays = buildChartOverlays(availableOverlays, activeOverlays, sampledData, (label) => t(`overlay.${label}`));
 
   const hoverPoint = hoverIndex != null ? sampledData[hoverIndex] ?? null : null;
 
@@ -1871,4 +1621,3 @@ export default function ActivityPage() {
     </div>
   );
 }
-
