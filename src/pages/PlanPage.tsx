@@ -7,8 +7,9 @@ import {
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
-import type { Goal, PlanWeek, PlanDay, WorkoutKind } from "@shared/types/goal";
+import type { Goal, PlanWeek, PlanDay } from "@shared/types/goal";
 import { computePlanProgress } from "@shared/training/planMetrics";
 import { generateICS, downloadICS } from "../utils/icsExport";
 import WorkoutEditModal from "../components/training/WorkoutEditModal";
@@ -16,115 +17,13 @@ import AdaptationBanner from "../components/training/AdaptationBanner";
 import AdjustedChip from "../components/training/AdjustedChip";
 import { useMobile } from "../hooks/useMobile";
 import { useFreshTraining } from "../hooks/useFreshTraining";
+import { useToast } from "../contexts/ToastContext";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import MobilePlanPage from "../components/mobile/MobilePlanPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { EmptyState } from "../components/redesign";
 import { Button, Card, Text } from "../theme/components";
-
-// ── 워크아웃 메타 ─────────────────────────────────────────────────────
-
-interface WorkoutMeta {
-  label: string;
-  color: string;
-}
-
-const WORKOUT_COLORS: Record<WorkoutKind, string> = {
-  rest: 'transparent',
-  rec: 'var(--ink-4)',
-  z2: 'var(--aqua)',
-  z2Long: 'var(--aqua)',
-  tempo: 'var(--amber)',
-  ftp: 'var(--rose)',
-  vo2: 'var(--rose)',
-  sim: 'var(--lime)',
-  goal: 'var(--lime)',
-  easyRun: 'var(--aqua)',
-  tempoRun: 'var(--amber)',
-  intervalRun: 'var(--rose)',
-  longRun: 'var(--aqua)',
-  recoveryRun: 'var(--ink-4)',
-  easySwim: 'var(--aqua)',
-  drillSwim: 'var(--amber)',
-  intervalSwim: 'var(--rose)',
-  longSwim: 'var(--aqua)',
-  recoverySwim: 'var(--ink-4)',
-  stridesRun: 'var(--aqua)',
-  progressRun: 'var(--amber)',
-  threshRun: 'var(--lime)',
-  raceRun: 'var(--lime)',
-  kickSwim: 'oklch(0.72 0.10 260)',
-  enduranceSwim: 'var(--aqua)',
-  cssSwim: 'var(--aqua)',
-  racepaceSwim: 'var(--rose)',
-  sprintSwim: 'var(--rose)',
-  owSwim: 'oklch(0.70 0.09 220)',
-  brickSwim: 'var(--amber)',
-};
-
-function buildWorkoutMeta(t: (key: string) => string): Record<WorkoutKind, WorkoutMeta> {
-  const labels: Record<WorkoutKind, string> = {
-    rest: t('workouts.rest'),
-    rec: t('workouts.rec'),
-    z2: t('workouts.z2'),
-    z2Long: t('workouts.z2Long'),
-    tempo: t('workouts.tempo'),
-    ftp: t('workouts.ftp'),
-    vo2: t('workouts.vo2'),
-    sim: t('workouts.sim'),
-    goal: t('workouts.goal'),
-    easyRun: t('workouts.easyRun'),
-    tempoRun: t('workouts.tempoRun'),
-    intervalRun: t('workouts.intervalRun'),
-    longRun: t('workouts.longRun'),
-    recoveryRun: t('workouts.recoveryRun'),
-    easySwim: t('workouts.easySwim'),
-    drillSwim: t('workouts.drillSwim'),
-    intervalSwim: t('workouts.intervalSwim'),
-    longSwim: t('workouts.longSwim'),
-    recoverySwim: t('workouts.recoverySwim'),
-    stridesRun: t('workouts.stridesRun'),
-    progressRun: t('workouts.progressRun'),
-    threshRun: t('workouts.threshRun'),
-    raceRun: t('workouts.raceRun'),
-    kickSwim: t('workouts.kickSwim'),
-    enduranceSwim: t('workouts.enduranceSwim'),
-    cssSwim: t('workouts.cssSwim'),
-    racepaceSwim: t('workouts.racepaceSwim'),
-    sprintSwim: t('workouts.sprintSwim'),
-    owSwim: t('workouts.owSwim'),
-    brickSwim: t('workouts.brickSwim'),
-  };
-  const out = {} as Record<WorkoutKind, WorkoutMeta>;
-  (Object.keys(labels) as WorkoutKind[]).forEach((k) => {
-    out[k] = { label: labels[k], color: WORKOUT_COLORS[k] };
-  });
-  return out;
-}
-
-function buildDayNames(tCommon: (key: string) => string): string[] {
-  return [
-    tCommon('weekday.mon'),
-    tCommon('weekday.tue'),
-    tCommon('weekday.wed'),
-    tCommon('weekday.thu'),
-    tCommon('weekday.fri'),
-    tCommon('weekday.sat'),
-    tCommon('weekday.sun'),
-  ];
-}
-
-// ── DayCell ───────────────────────────────────────────────────────────
-
-/** KST 기준으로 day.date를 포맷. 월요일 또는 매월 1일이면 M/D, 그 외엔 D. */
-function formatDateLabel(ms: number, dayOfWeek: number): string {
-  const KST_OFFSET = 9 * 60 * 60 * 1000;
-  const d = new Date(ms + KST_OFFSET);
-  const dom = d.getUTCDate();
-  const month = d.getUTCMonth() + 1;
-  if (dayOfWeek === 0 || dom === 1) return `${month}/${dom}`;
-  return String(dom);
-}
+import { buildDayNames, buildWorkoutMeta, formatDateLabel, phaseColor, phaseLabel } from "../features/training/plan/planDisplay";
 
 interface DayCellProps {
   day: PlanDay;
@@ -588,6 +487,7 @@ export default function PlanPage() {
   const { t: tCommon } = useTranslation('common');
   const { t: tActivity } = useTranslation('activity');
   const DAY_NAMES = useMemo(() => buildDayNames(tCommon), [tCommon]);
+  const { showToast } = useToast();
   const { user } = useAuth();
   const navigate  = useNavigate();
   const [searchParams] = useSearchParams();
@@ -648,7 +548,7 @@ export default function PlanPage() {
         );
         setWeeks(planSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as PlanWeek));
       } catch (err) {
-        console.error(t('errors.loadingFailed'), err);
+        logClientError("PlanPage.load", err, { discipline });
       } finally {
         setLoading(false);
       }
@@ -691,16 +591,6 @@ export default function PlanPage() {
     d.setHours(0, 0, 0, 0);
     return d.getTime() === todayMs;
   }
-
-  const phaseColor = (phase: string) =>
-    phase === 'build' ? 'var(--aqua)' :
-    phase === 'peak'  ? 'var(--lime)' :
-    'var(--amber)';
-
-  const phaseLabel = (phase: string) =>
-    phase === 'build' ? t('phase.build') :
-    phase === 'peak'  ? t('phase.peak') :
-    t('phase.taper');
 
   // ── Render ─────────────────────────────────────────────────────────
   const isMobile = useMobile();
@@ -982,8 +872,8 @@ export default function PlanPage() {
                 await reroll({ goalId: goal.id });
                 window.location.reload();
               } catch (err) {
-                console.error(t('errors.rerollFailed'), err);
-                alert(t('errors.rerollError'));
+                logClientError("PlanPage.rerollPlan", err, { goalId: goal.id });
+                showToast(t('errors.rerollError'), "error");
               }
             }}
             onGoalReset={() => navigate("/goal-setup")}
@@ -994,8 +884,8 @@ export default function PlanPage() {
                 await updateDoc(doc(firestore, "goals", goal.id), { status: "abandoned", updatedAt: Date.now() });
                 navigate("/");
               } catch (err) {
-                console.error(t('errors.abandonFailed'), err);
-                alert(t('errors.abandonError'));
+                logClientError("PlanPage.abandonGoal", err, { goalId: goal.id });
+                showToast(t('errors.abandonError'), "error");
               }
             }}
           />
@@ -1090,7 +980,7 @@ export default function PlanPage() {
                           fontFamily: 'var(--font-mono)',
                         }}
                       >
-                        {phaseLabel(wk.phase)}
+                        {phaseLabel(wk.phase, t)}
                       </div>
                     </div>
 
