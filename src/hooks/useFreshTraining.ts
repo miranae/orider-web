@@ -46,12 +46,15 @@ interface RevalidateResponse {
 const SUCCESS_DURATION_MS = 1500;
 
 export function useFreshTraining(discipline?: string): FreshTrainingState {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [revalidating, setRevalidating] = useState(false);
   const [justRecomputed, setJustRecomputed] = useState(false);
   const [lastStatus, setLastStatus] = useState<FreshTrainingState["lastStatus"]>(null);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
     if (!user) {
       setLastStatus(null);
       return;
@@ -105,7 +108,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
     })();
 
     return () => { cancelled = true; };
-  }, [user, discipline]);
+  }, [authLoading, user, discipline]);
 
   // justRecomputed가 켜지면 1.5초 후 자동 해제 — "✓ 업데이트 완료" 트랜지언트 표시
   useEffect(() => {
