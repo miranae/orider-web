@@ -30,8 +30,12 @@
       }
     ],
     "redirects": [
-      { "source": "/community", "destination": "/community-guide/", "type": 302 },
-      { "source": "/platform", "destination": "/community-guide/", "type": 302 }
+      { "source": "/community", "destination": "/ko/community-guide/", "type": 302 },
+      { "source": "/platform", "destination": "/ko/community-guide/", "type": 302 },
+      { "source": "/ko/community", "destination": "/ko/community-guide/", "type": 302 },
+      { "source": "/ko/platform", "destination": "/ko/community-guide/", "type": 302 },
+      { "source": "/en/community", "destination": "/en/community-guide/", "type": 302 },
+      { "source": "/en/platform", "destination": "/en/community-guide/", "type": 302 }
     ],
     "rewrites": [
       { "source": "/api/v1/**", "function": { "functionId": "api", "region": "asia-northeast3" } },

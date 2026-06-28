@@ -2,6 +2,8 @@
   --brand: #008986;
   --brand-dark: #006f6c;
   --brand-light: #4fd5d1;
+  --hero-bg: #101418;
+  --hero-fg: #ffffff;
   --ink: #101418;
   --ink-soft: #39424e;
   --muted: #687383;
@@ -32,8 +34,8 @@ body {
 }
 
 header {
-  background: var(--ink);
-  color: #fff;
+  background: var(--hero-bg);
+  color: var(--hero-fg);
   min-height: 420px;
   padding: 28px 20px 54px;
   text-align: left;
@@ -87,6 +89,44 @@ header .version {
   box-shadow: 0 10px 26px rgba(15,23,42,0.06);
 }
 
+.chapter-nav a {
+  color: var(--brand);
+}
+
+.chapter-nav a:hover {
+  color: var(--brand-dark);
+}
+
+.chapter-nav .nav-title {
+  color: var(--ink);
+}
+
+.lang-links {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+  font-weight: 700;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.lang-links a {
+  color: var(--brand-light);
+  text-decoration: none;
+}
+
+.sr-only {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 @media (prefers-color-scheme: dark) {
   .chapter-nav {
     background: rgba(15,18,23,0.94);
@@ -133,6 +173,14 @@ p {
 }
 
 .intro-hero h1 {
+  color: var(--ink);
+  font-size: clamp(1.9rem, 4vw, 3.15rem);
+  letter-spacing: 0;
+  line-height: 1.08;
+  margin-bottom: 16px;
+}
+
+.intro-hero h2 {
   color: var(--ink);
   font-size: clamp(1.9rem, 4vw, 3.15rem);
   letter-spacing: 0;
@@ -307,6 +355,10 @@ td {
   color: var(--ink-soft);
 }
 
+tr:hover td {
+  background: color-mix(in oklab, var(--brand) 5%, transparent);
+}
+
 .status-list {
   background: var(--paper);
   border: 1px solid var(--line);
@@ -359,8 +411,8 @@ td {
 }
 
 .warn {
-  background: rgba(37,99,235,0.08);
-  border-left-color: var(--blue);
+  background: rgba(245,158,11,0.1);
+  border-left-color: #f59e0b;
 }
 
 .tip {
@@ -377,8 +429,8 @@ td {
 }
 
 .page-links a {
-  background: var(--ink);
-  border: 1px solid var(--ink);
+  background: var(--hero-bg);
+  border: 1px solid var(--hero-bg);
   border-radius: 8px;
   color: #fff;
   font-weight: 700;
@@ -392,7 +444,7 @@ td {
 }
 
 footer {
-  background: var(--ink);
+  background: var(--hero-bg);
   color: rgba(255,255,255,0.76);
 }
 

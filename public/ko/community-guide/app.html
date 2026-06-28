@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="오라이더 App 소개. 라이딩 중 기록, 센서, 지도, 경로 안내, 그룹 위치 공유를 담당하는 앱의 역할을 설명합니다.">
+<link rel="canonical" href="https://orider.co.kr/ko/community-guide/app.html">
+<link rel="alternate" hreflang="ko" href="https://orider.co.kr/ko/community-guide/app.html">
+<link rel="alternate" hreflang="en" href="https://orider.co.kr/en/community-guide/app.html">
+<title>오라이더 App 소개</title>
+<link rel="stylesheet" href="/web-manual/style.css">
+<link rel="stylesheet" href="/community-guide/intro.css">
+</head>
+<body>
+<nav class="chapter-nav">
+  <div class="nav-left"><a href="web.html">&larr; Web 소개</a></div>
+  <h1 class="nav-title">오라이더 App</h1>
+  <div class="nav-right"><a href="roadmap.html">앞으로의 방향</a> · <a href="/en/community-guide/app.html">EN</a></div>
+</nav>
+
+<div class="container">
+  <section class="split">
+    <div>
+      <div class="section-kicker">App</div>
+      <h2>앱은 라이딩 중 믿고 볼 수 있는 화면이어야 합니다</h2>
+      <div class="lead-block">
+        <p>달리는 중에는 설명보다 숫자 하나, 경고 하나, 지도 위치 하나가 중요합니다.</p>
+        <p>오라이더 앱은 GPS, BLE 센서, 경로 안내, 그룹 위치 공유가 흔들리지 않도록 계속 고쳐 온 사이클링 컴퓨터입니다.</p>
+        <p>다만 실주행 환경은 늘 변수가 많아서, 아직 안정화해야 할 버그와 기기별 차이가 남아 있습니다.</p>
+      </div>
+      <div class="metric-row">
+        <div class="metric"><strong>Stable</strong><span>끊기지 않는 기록</span></div>
+        <div class="metric"><strong>Sensor</strong><span>BLE 장비 연결</span></div>
+        <div class="metric"><strong>Route</strong><span>지도·경로·오르막</span></div>
+      </div>
+    </div>
+    <img class="hero-shot" src="/manual/screenshots/01_ride_data.png" alt="오라이더 앱 주행 데이터 화면">
+  </section>
+
+  <section>
+    <div class="section-kicker">Rider workflow</div>
+    <h2>앱에서 맡는 일</h2>
+    <div class="card">
+      <table>
+        <tr><th>기능</th><th>설명</th></tr>
+        <tr><td>주행 기록</td><td>GPS 기반 거리, 속도, 시간, 경로를 남기고 끊긴 기록은 재시도합니다.</td></tr>
+        <tr><td>데이터 필드</td><td>속도, 케이던스, 심박, 파워, 시간, 목표값을 라이더가 읽기 좋은 화면에 배치합니다.</td></tr>
+        <tr><td>센서 연결</td><td>심박계, 케이던스, 속도, 파워, Di2/AXS, 레이더 같은 장비를 라이딩 흐름에 맞춰 다룹니다.</td></tr>
+        <tr><td>지도와 경로</td><td>경로 안내, 이탈 감지, 재탐색, 오르막 정보, 세그먼트 진행을 주행 중에 보여줍니다.</td></tr>
+        <tr><td>그룹 라이딩</td><td>친구와 그룹 위치, SOS·핑·프리셋 메시지, 이벤트 참가 흐름을 지원합니다.</td></tr>
+        <tr><td>연동과 업로드</td><td>라이딩이 끝난 뒤 웹 분석과 외부 서비스로 기록이 안전하게 이어지도록 합니다.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Role split</div>
+    <h2>앱과 웹은 같은 기록을 다른 순간에 봅니다</h2>
+    <div class="card">
+      <table>
+        <tr><th></th><th>App</th><th>Web</th></tr>
+        <tr><td>사용 시점</td><td>라이딩 중</td><td>라이딩 이후</td></tr>
+        <tr><td>주요 화면</td><td>데이터 필드, 지도, 경로, 센서, 그룹 위치</td><td>대시보드, 상세 분석, 피트니스, 그룹·이벤트 운영</td></tr>
+        <tr><td>핵심 질문</td><td>지금 안전하게, 제대로 기록되고 있는가?</td><td>오늘의 라이딩은 어땠고, 다음에는 무엇을 바꿀까?</td></tr>
+        <tr><td>서로의 관계</td><td>기록을 남기는 시작점</td><td>기록을 돌아보는 확장 화면</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-kicker">Privacy and trust</div>
+    <h2>위치와 운동 기록은 끝까지 조심스럽게 다뤄야 합니다</h2>
+    <div class="info prose">
+      <p>자전거 앱은 집 근처 출발지, 자주 타는 길, 몸 상태, 함께 타는 사람까지 드러낼 수 있습니다.</p>
+      <p>그래서 오라이더는 기능을 빨리 늘리는 것보다 권한, 공개 범위, 위치 공유, 업로드 실패 복구를 더 오래 붙잡고 다듬어 왔습니다.</p>
+    </div>
+    <ul class="status-list">
+      <li><strong>위치:</strong> 주행 기록과 경로 확인에 필요하지만, 공개 범위와 그룹 공유는 분리해서 다룹니다.</li>
+      <li><strong>센서:</strong> 심박, 케이던스, 파워처럼 라이더가 연결한 장비의 값을 안정적으로 기록합니다.</li>
+      <li><strong>복구:</strong> 네트워크나 인증이 흔들려도 업로드 재시도와 로깅으로 기록 손실을 줄입니다.</li>
+      <li><strong>패리티:</strong> Android와 iOS가 다른 행동을 하지 않도록 공용 로직과 테스트를 계속 늘립니다.</li>
+      <li><strong>미완성:</strong> 센서, 백그라운드 위치, 업로드, 경로 안내는 실제 라이딩에서 계속 검증하고 고쳐야 합니다.</li>
+    </ul>
+  </section>
+
+  <div class="page-links">
+    <a href="web.html">&larr; Web 소개</a>
+    <a href="roadmap.html">마지막: 앞으로의 방향 &rarr;</a>
+  </div>
+</div>
+
+<footer>
+  <p>&copy; 2026 Miranae · <a href="https://orider.co.kr">O-Rider</a></p>
+</footer>
+</body>
+</html>
