@@ -44,6 +44,8 @@
     "waitHint": "Awaiting analysis — press the button to start AI segment analysis.",
     "loginHint": "Sign in to use AI segment analysis.",
     "analyzing": "Analyzing segments… (approx. 15–30 s)",
+    "errorPrefix": "Analysis failed: {{error}}",
+    "retryBtn": "Retry",
     "prescription": "🩺 Coach Prescription",
     "thisWeek": "This week",
     "virtualPower": "· Virtual power",
