@@ -63,7 +63,9 @@ header h1 {
 header .subtitle {
   color: rgba(255,255,255,0.78);
   font-size: 1.12rem;
-  margin-top: 18px;
+  line-height: 1.75;
+  margin-bottom: 0;
+  margin-top: 14px;
   max-width: 720px;
 }
 
@@ -112,6 +114,7 @@ section > h2 {
 p {
   color: var(--ink-soft);
   font-size: 1rem;
+  line-height: 1.78;
 }
 
 .intro-hero {
@@ -140,6 +143,24 @@ p {
 .intro-hero p {
   color: var(--ink-soft);
   font-size: 1.06rem;
+}
+
+.copy-block,
+.lead-block,
+.prose {
+  max-width: 760px;
+}
+
+.copy-block p,
+.lead-block p,
+.prose p {
+  margin: 0 0 0.9rem;
+}
+
+.copy-block p:last-child,
+.lead-block p:last-child,
+.prose p:last-child {
+  margin-bottom: 0;
 }
 
 .eyebrow {
@@ -253,6 +274,11 @@ p {
   max-width: 820px;
 }
 
+.lead-block p {
+  color: var(--ink-soft);
+  font-size: 1.12rem;
+}
+
 .section-kicker {
   color: var(--brand);
   font-size: 0.78rem;
@@ -311,11 +337,20 @@ td {
   padding: 4px 10px;
 }
 
+.pill-row {
+  margin: 18px 0 14px;
+}
+
+.prose ul {
+  margin-top: 16px;
+}
+
 .info,
 .warn,
 .tip {
   border-radius: 8px;
   color: var(--ink-soft);
+  line-height: 1.78;
 }
 
 .info {
