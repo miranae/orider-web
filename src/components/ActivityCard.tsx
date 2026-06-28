@@ -102,7 +102,7 @@ function CaptureMap({ activityId, userId, polyline, mapImageUrl, priority = fals
       if (!blob) return;
 
       const storageRef = ref(storage, `map_thumbnails/${userId}/${activityId}.webp`);
-      await uploadBytes(storageRef, blob);
+      await uploadBytes(storageRef, blob, { contentType: "image/webp" });
       const url = await getDownloadURL(storageRef);
 
       await updateDoc(doc(firestore, "activities", activityId), { mapImageUrl: url });
