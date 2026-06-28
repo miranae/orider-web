@@ -106,9 +106,9 @@ export function useTodaysNarrativePeek(
         setState(next);
       })
       .catch(() => {
-        // peek 실패는 조용히 miss 처리 (best-effort — 사용자는 버튼으로 진행 가능)
+        // peek 실패는 조용히 miss 처리하되 세션 캐시에 저장하지 않는다. 일시적 인증/네트워크
+        // 오류를 miss 로 고정하면 서버 복구 후에도 같은 탭에서 AI 카드가 계속 비어 보인다.
         const next: PeekState = { narrative: null, loading: false, cacheMiss: true, stale: false };
-        peekDone.set(key, next);
         setState(next);
       })
       .finally(() => {

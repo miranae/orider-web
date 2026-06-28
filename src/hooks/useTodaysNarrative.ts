@@ -210,7 +210,7 @@ export function useTodaysNarrative(
       })
       .catch((err) => {
         logClientError("useTodaysNarrative", err, { fingerprint: fp1 });
-        setState({ narrative: null, source: null, loading: false, phase: "idle", lastFingerprint: fp1 });
+        setState({ narrative: null, source: null, loading: false, phase: "idle", lastFingerprint: null });
       })
       .finally(() => {
         if (inFlightRef.current === fp1) inFlightRef.current = null;
