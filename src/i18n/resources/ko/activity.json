@@ -44,6 +44,8 @@
     "waitHint": "분석 대기 — 버튼을 눌러 AI 구간 분석을 시작하세요.",
     "loginHint": "로그인하면 AI 구간 분석을 이용할 수 있어요.",
     "analyzing": "구간을 분석하고 있어요… (약 15~30초)",
+    "errorPrefix": "분석 실패: {{error}}",
+    "retryBtn": "다시 시도",
     "prescription": "🩺 코치 처방",
     "thisWeek": "이번 주",
     "virtualPower": "· 가상파워",

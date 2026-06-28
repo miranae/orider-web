@@ -184,6 +184,11 @@ export default function AiRideAnalysisCard({ activityId, enabled }: Props) {
   const [triggerFull, setTriggerFull] = useState(false);
   const full = useActivityNarrative(activityId, enabled && triggerFull && !!user, lang);
   const [expanded, setExpanded] = useState(true);
+  const retryFullAnalysis = () => {
+    if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
+    setTriggerFull(false);
+    window.setTimeout(() => setTriggerFull(true), 0);
+  };
 
   if (!enabled) return null;
 
@@ -260,8 +265,24 @@ export default function AiRideAnalysisCard({ activityId, enabled }: Props) {
   const data = peek.data ?? full.data;
   const error = full.error;
 
-  // 코칭은 부가 기능 — 실패/미생성 시 조용히 숨김 (개요 다른 카드 정상 노출)
-  if (error || !data || data.segments.length === 0) return null;
+  if (error) {
+    return (
+      <Card padding="none" style={{ padding: "var(--space-5)" }}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+          <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
+            {t("ai.retryBtn")}
+          </Button>
+        </div>
+        <Text variant="caption" tone="danger" as="p" className="mt-2">
+          {t("ai.errorPrefix", { error })}
+        </Text>
+      </Card>
+    );
+  }
+
+  // 코칭은 부가 기능 — 미생성/빈 결과는 조용히 숨김 (개요 다른 카드 정상 노출)
+  if (!data || data.segments.length === 0) return null;
 
   const { overall } = data;
   const tempBadge =
