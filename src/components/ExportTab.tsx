@@ -5,6 +5,8 @@ import { generateTcx } from "../utils/exportTcx";
 import { generateCsv } from "../utils/exportCsv";
 import { generateFit } from "../utils/exportFit";
 import { generateGpx } from "../utils/exportGpx";
+import { useToast } from "../contexts/ToastContext";
+import { logClientError } from "../services/errorLogger";
 
 interface ExportTabProps {
   activity: Activity;
@@ -38,6 +40,7 @@ const FORMATS = [
 
 export default function ExportTab({ activity, streams }: ExportTabProps) {
   const { t } = useTranslation("activity");
+  const { showToast } = useToast();
 
   const handleExport = useCallback((format: string) => {
     try {
@@ -68,10 +71,10 @@ export default function ExportTab({ activity, streams }: ExportTabProps) {
         }
       }
     } catch (err) {
-      console.error("export failed:", err);
-      alert(t("export.errorAlert"));
+      logClientError("ExportTab.export", err, { activityId: activity.id, format });
+      showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, t]);
+  }, [activity, streams, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

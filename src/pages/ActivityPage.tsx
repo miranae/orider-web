@@ -58,36 +58,7 @@ import {
 } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
-
-function useTimeAgo() {
-  const { t, i18n } = useTranslation("activity");
-  return (timestamp: number): string => {
-    const diff = Date.now() - timestamp;
-    const hours = Math.floor(diff / 3600000);
-    if (hours < 1) return t("card.timeAgo.justNow");
-    if (hours < 24) return t("card.timeAgo.hoursAgo", { count: hours });
-    const days = Math.floor(hours / 24);
-    if (days < 7) return t("card.timeAgo.daysAgo", { count: days });
-    return new Date(timestamp).toLocaleDateString(i18n.language === "en" ? "en-US" : "ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-}
-
-function useFormatFullDate() {
-  const { i18n } = useTranslation();
-  return (timestamp: number): string =>
-    new Date(timestamp).toLocaleDateString(i18n.language === "en" ? "en-US" : "ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-}
+import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
 
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
@@ -98,14 +69,7 @@ export default function ActivityPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { units } = useLocale();
-  const M_PER_MI = 1609.344;
-  const M_PER_FT = 0.3048;
-  const distVal = (m: number) => units === 'imperial' ? (m / M_PER_MI).toFixed(1) : (m / 1000).toFixed(1);
-  const distUnit = units === 'imperial' ? 'mi' : 'km';
-  const speedVal = (kmh: number) => units === 'imperial' ? (kmh * 1000 / M_PER_MI).toFixed(1) : kmh.toFixed(1);
-  const speedUnit = units === 'imperial' ? 'mph' : 'km/h';
-  const elevVal = (m: number) => units === 'imperial' ? Math.round(m / M_PER_FT) : Math.round(m);
-  const elevUnit = units === 'imperial' ? 'ft' : 'm';
+  const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
   const { getStreams } = useStrava();
   const [activity, setActivity] = useState<Activity | null>(null);
@@ -158,7 +122,6 @@ export default function ActivityPage() {
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionText, setDescriptionText] = useState("");
   // Photo upload/delete
-  interface UploadedPhoto { id: string; url: string; storagePath: string; userId: string; createdAt: number; location?: [number, number] | null; }
   const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
