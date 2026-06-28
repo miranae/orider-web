@@ -1,6 +1,6 @@
 # Public Release Checklist
 
-This repository is still private. Public release is blocked until the security and presentation gates below are closed.
+This repository is still private while the final visibility review is in progress. The historical repository was replaced by a clean production-source repository so old private commits and hidden PR snapshots do not carry into the public release candidate.
 
 ## Current Status
 
@@ -12,11 +12,11 @@ This repository is still private. Public release is blocked until the security a
 | Contributor path | Done | README, CONTRIBUTING, and DEVELOPMENT describe first contribution areas and local limits. |
 | GitHub metadata | Done | Description, website, and topics are set for cycling, fitness, React, Vite, Firebase, TypeScript, open source, and sports analytics. |
 | H-2 PII exposure | Done | Production backfill and root-field scrub completed; root user sensitive fields verified at 0. |
-| H-5 webhook secret history | Partial blocker | Token rotated, deployed secrets updated, tracked env removed, and remote heads/tags purged. GitHub hidden `refs/pull/*` still require Support purge or repository recreation. |
-| Security re-audit | Partial | Frontend public-surface re-audit completed in `docs/SECURITY_REAUDIT_2026-06-27.md`. Re-run after creating the clean public repo. |
+| H-5 webhook secret history | Done | Token rotated, deployed secrets updated, tracked env removed, and the production-source repository was recreated from a clean working tree instead of mirror-pushing old history. |
+| Security re-audit | Done | Frontend public-surface re-audit completed in `docs/SECURITY_REAUDIT_2026-06-28.md` and refreshed after clean repository cutover. |
 | API/integration clarity | Done | `docs/API_AND_INTEGRATIONS.md` explains public browser config, private backend boundaries, App Check, rate limits, and local development limits. |
 | Creator/API product loop | Done | Creator Hub, flagship recipes, owner-only API docs, and email-to-self delivery are documented; production E2E verified callable delivery and quota logging on 2026-06-28. |
-| Public visibility switch | Blocked | Only after all blockers are closed. |
+| Public visibility switch | Pending | Security and product gates are closed; flip visibility only after final owner approval. |
 
 ## H-2: User Root PII Exposure
 
@@ -41,12 +41,12 @@ Completed:
 - Confirm `.env` and local backup files are not committed or published.
 - Purge or rewrite repository heads/tags containing the exposed token.
 
-Remaining:
+Final state:
 
-- Remove GitHub hidden `refs/pull/*` snapshots through GitHub Support or repository recreation.
-- Re-clone and verify the token is absent from all remotely advertised refs, including hidden PR refs.
-
-If repository recreation is chosen, do not mirror-push this repository. Create the public repository from a clean working tree export so old commits, PR refs, release refs, and deleted refs cannot follow it. See [Public Repository Cutover](PUBLIC_REPOSITORY_CUTOVER.md).
+- The old history-bearing repository was renamed and kept private.
+- The production-source repository was recreated from a clean working tree export, not mirror-pushed.
+- The clean repository starts at the public frontend release candidate commit and avoids old commits, PR refs, release refs, and deleted refs.
+- Before changing visibility, re-check remote refs from a fresh clone and confirm the old token is absent from advertised history.
 
 ## Creator/API Release Gate
 
@@ -81,9 +81,9 @@ Completed presentation prep:
 ## Final Public Switch
 
 - H-2 closed and tested.
-- H-5 hidden PR refs removed or avoided by clean repository recreation, then verified against full remotely advertised history.
+- H-5 hidden PR refs avoided by clean repository recreation, then verified against the final repository surface.
 - Security re-audit clean on the final clean repository.
 - Public API and integration docs still accurate after final repo recreation.
 - Creator/API docs still match the deployed product after final repo recreation.
-- Branch protection and `production` environment reviewer gate enabled.
+- Branch protection and `production` environment protection enabled.
 - Repository visibility changed to public.

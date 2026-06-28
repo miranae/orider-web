@@ -14,6 +14,7 @@ import ActivityCard from '../components/ActivityCard';
 import { EmptyState, LoadingSkeleton } from '../components/redesign';
 import type { BoardPost, BoardComment, Activity } from '@shared/types';
 import { Button, Card, Chip } from "../theme/components";
+import { normalizeUserContentUrl } from "../utils/userContentUrl";
 
 const PostDetailPage: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
@@ -30,6 +31,7 @@ const PostDetailPage: React.FC = () => {
   );
   const { createComment, submitting: commentSubmitting } = useCreateComment(postId || '');
   const { isLiked, toggleLike } = useBoardLike(postId || '');
+  const safeSourceUrl = normalizeUserContentUrl(post?.sourceUrl);
 
   useEffect(() => {
     if (!postId || postLoading || !post) return;
@@ -183,7 +185,7 @@ const PostDetailPage: React.FC = () => {
         )}
 
         {(() => {
-          const standAlone = (post.imageUrls || []).filter(url => !post.content.includes(url));
+          const standAlone = (post.imageUrls || []).filter(url => normalizeUserContentUrl(url) && !post.content.includes(url));
           return standAlone.length > 0 ? (
             <div className="flex flex-wrap gap-3 mb-6">
               {standAlone.map((url, i) => (
@@ -202,7 +204,16 @@ const PostDetailPage: React.FC = () => {
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              img: ({ node: _node, ...props }) => <img {...props} referrerPolicy="no-referrer" />,
+              a: ({ node: _node, href, children, ...props }) => {
+                const safeHref = normalizeUserContentUrl(href);
+                if (!safeHref) return <>{children}</>;
+                return <a {...props} href={safeHref} target="_blank" rel="noopener noreferrer">{children}</a>;
+              },
+              img: ({ node: _node, src, ...props }) => {
+                const safeSrc = normalizeUserContentUrl(src);
+                if (!safeSrc) return null;
+                return <img {...props} src={safeSrc} referrerPolicy="no-referrer" />;
+              },
             }}
           >
             {post.content}
@@ -235,13 +246,13 @@ const PostDetailPage: React.FC = () => {
           </div>
         )}
 
-        {post.sourceUrl && (
+        {safeSourceUrl && (
           <div className="mb-4 flex items-center gap-2 text-[length:var(--fs-xs)] text-[var(--ink-3)]">
             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.02a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.336 9.12" />
             </svg>
             <span>{t('label.source')}</span>
-            <a href={post.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--lime)] hover:underline truncate">
+            <a href={safeSourceUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--lime)] hover:underline truncate">
               {post.sourceSite ? `${post.sourceSite} ${t('label.sourceView')}` : post.sourceUrl}
             </a>
           </div>
