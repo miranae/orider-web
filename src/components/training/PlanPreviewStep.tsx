@@ -60,7 +60,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
           gap: 'var(--space-4)',
           padding: '60px 24px',
           background: 'var(--bg-1)',
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           border: '1px solid var(--line-soft)',
         }}
       >
@@ -75,10 +75,10 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
             animation: 'spin 0.8s linear infinite',
           }}
         />
-        <div style={{ fontSize: 14, color: 'var(--ink-2)' }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>
           {t('planPreview.loading')}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+        <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>
           {t('planPreview.loadingDetail', { courseName, weeks: weeksLeft })}
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -109,14 +109,14 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
             style={{
               padding: 14,
               background: 'var(--bg-2)',
-              borderRadius: 6,
+              borderRadius: "var(--r-md)",
               border: '1px solid var(--line-soft)',
             }}
           >
             <div
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: 11,
+                fontSize: "var(--fs-xs)",
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 color: 'var(--ink-2)',
@@ -129,7 +129,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)' }}>
               <span
                 style={{
-                  fontSize: 28,
+                  fontSize: "var(--fs-3xl)",
                   fontWeight: 700,
                   fontFamily: 'var(--font-mono)',
                   color: 'var(--ink-0)',
@@ -142,7 +142,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
-                    fontSize: 13,
+                    fontSize: "var(--fs-sm)",
                     color: 'var(--ink-2)',
                     fontWeight: 400,
                   }}
@@ -160,14 +160,14 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
         style={{
           padding: 22,
           background: 'var(--bg-1)',
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           border: '1px solid var(--line-soft)',
         }}
       >
         <div style={{ marginBottom: 14 }}>
           <div
             style={{
-              fontSize: 14,
+              fontSize: "var(--fs-sm)",
               fontWeight: 600,
               color: 'var(--ink-0)',
               marginBottom: 2,
@@ -175,7 +175,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
           >
             {t('planPreview.phasesTitle')}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{t('planPreview.phasesSubtitle')}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{t('planPreview.phasesSubtitle')}</div>
         </div>
 
         {/* 분배 바 */}
@@ -185,7 +185,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
             gridTemplateColumns: `${buildW}fr ${peakW}fr ${taperW}fr`,
             gap: 1,
             border: '1px solid var(--line-soft)',
-            borderRadius: 6,
+            borderRadius: "var(--r-md)",
             overflow: 'hidden',
           }}
         >
@@ -212,20 +212,20 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
                   marginBottom: 6,
                 }}
               >
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-0)' }}>
+                <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>
                   {t(`planPreview.phase.${key}`)}
                 </span>
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
-                    fontSize: 11,
+                    fontSize: "var(--fs-xs)",
                     color: 'var(--ink-3)',
                   }}
                 >
                   {weeks}{t('phase.weeksUnit')}
                 </span>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--ink-2)', lineHeight: 1.5 }}>{t(`planPreview.phaseDesc.${key}`)}</div>
+              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-2)', lineHeight: 1.5 }}>{t(`planPreview.phaseDesc.${key}`)}</div>
             </div>
           ))}
         </div>
@@ -236,7 +236,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
         style={{
           padding: 'var(--space-4)',
           background: 'var(--bg-1)',
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           border: '1px solid var(--line-soft)',
           borderLeft: `3px solid ${feasColor}`,
           display: 'flex',
@@ -249,7 +249,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
           <div
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: 11,
+              fontSize: "var(--fs-xs)",
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               color: 'var(--ink-2)',
@@ -259,7 +259,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
           >
             {t('planPreview.feasibilityLabel')}
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: feasColor }}>
+          <div style={{ fontSize: "var(--fs-xl)", fontWeight: 700, color: feasColor }}>
             {t(FEAS_LABEL_KEYS[feasibility.label] ?? 'feasLabels.on_track')}
           </div>
         </div>
@@ -269,7 +269,7 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
               display: 'flex',
               flexDirection: 'column',
               gap: 'var(--space-1)',
-              fontSize: 12,
+              fontSize: "var(--fs-xs)",
               fontFamily: 'var(--font-mono)',
               textAlign: 'right',
             }}
@@ -305,8 +305,8 @@ export default function PlanPreviewStep({ goal, feasibility, loading, projectedC
           padding: 'var(--space-4)',
           background: 'color-mix(in oklch, var(--lime) 6%, var(--bg-1))',
           border: '1px solid color-mix(in oklch, var(--lime) 25%, var(--line-soft))',
-          borderRadius: 8,
-          fontSize: 12,
+          borderRadius: "var(--r-lg)",
+          fontSize: "var(--fs-xs)",
           color: 'var(--ink-1)',
           lineHeight: 1.6,
           display: 'flex',

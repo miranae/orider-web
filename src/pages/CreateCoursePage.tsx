@@ -8,6 +8,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../services/firebase";
 import { track, trackActivationStep } from "../services/analytics";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
@@ -198,7 +199,7 @@ export default function CreateCoursePage() {
       setRangeStart(0);
       setRangeEnd(data.latlng.length - 1);
     } catch (err: unknown) {
-      console.error("Failed to load streams:", err);
+      logClientError("CreateCoursePage.loadStreams", err, { activityId: selectedActivity?.id });
       const fbErr = err as { code?: string; message?: string };
       setStreamError(t("error.streamLoadFailed", { message: fbErr.message ?? String(err) }));
     } finally {

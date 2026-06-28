@@ -6,10 +6,10 @@ import { Card, Chip } from "../../../theme/components";
 export const fieldStyle: CSSProperties = {
   width: "100%",
   padding: "9px 12px",
-  fontSize: 13,
+  fontSize: "var(--fs-sm)",
   background: "var(--bg-2)",
   border: "1px solid var(--line-soft)",
-  borderRadius: 5,
+  borderRadius: "var(--r-sm)",
   color: "var(--ink-0)",
   fontFamily: "inherit",
 };
@@ -33,12 +33,12 @@ export function Field({
   return (
     <div style={{ marginBottom: 18 }}>
       <label className="flex items-center" style={{ gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
-        {required && <span style={{ color: "var(--rose)", fontSize: 11 }}>*</span>}
+        <span style={{ fontSize: "var(--fs-xs)", fontWeight: 500, color: "var(--ink-1)" }}>{label}</span>
+        {required && <span style={{ color: "var(--rose)", fontSize: "var(--fs-xs)" }}>*</span>}
         {warn && (
           <Chip
             style={{
-              fontSize: 9,
+              fontSize: "var(--fs-xs)",
               color: "var(--amber)",
               borderColor: "color-mix(in oklch, var(--amber) 40%, transparent)",
             }}
@@ -46,10 +46,10 @@ export function Field({
             {t("warn.participantNotice")}
           </Chip>
         )}
-        {sub && <span style={{ fontSize: 10, color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
+        {sub && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}
       </label>
       {children}
-      {hint && <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{hint}</div>}
+      {hint && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{hint}</div>}
     </div>
   );
 }
@@ -62,8 +62,8 @@ export function Section({ id, title, desc, children }: { id: string; title: stri
       style={{ padding: "var(--space-6)", marginBottom: "var(--space-4)", scrollMarginTop: 80 }}
     >
       <div style={{ marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--line-soft)" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>{title}</div>
-        {desc && <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{desc}</div>}
+        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>{title}</div>
+        {desc && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{desc}</div>}
       </div>
       {children}
     </Card>
@@ -79,7 +79,7 @@ export function Toggle({ on, onChange }: { on: boolean; onChange: (value: boolea
       style={{
         width: 32,
         height: 18,
-        borderRadius: 10,
+        borderRadius: "var(--r-xl)",
         position: "relative",
         flexShrink: 0,
         cursor: "pointer",
@@ -132,8 +132,8 @@ export function PickerRow<T extends string>({
             aria-pressed={active}
             style={{
               padding: "10px 10px",
-              fontSize: 12,
-              borderRadius: 5,
+              fontSize: "var(--fs-xs)",
+              borderRadius: "var(--r-sm)",
               background: active ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
               color: active ? "var(--ink-0)" : "var(--ink-2)",
               border: `1px solid ${active ? "var(--lime)" : "var(--line-soft)"}`,
@@ -177,8 +177,8 @@ export function SegmentedPicker<T extends string>({
             aria-pressed={active}
             style={{
               padding: "12px 10px",
-              fontSize: 12,
-              borderRadius: 5,
+              fontSize: "var(--fs-xs)",
+              borderRadius: "var(--r-sm)",
               textAlign: "center",
               lineHeight: 1.4,
               background: active ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
@@ -188,7 +188,7 @@ export function SegmentedPicker<T extends string>({
             }}
           >
             <div style={{ fontWeight: 500 }}>{option.label}</div>
-            {option.sub && <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 3 }}>{option.sub}</div>}
+            {option.sub && <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: 3 }}>{option.sub}</div>}
           </button>
         );
       })}
@@ -233,7 +233,7 @@ export function StepBar({
                 color: cur ? "var(--primary-fg)" : done ? "var(--lime)" : "var(--ink-3)",
                 display: "grid",
                 placeItems: "center",
-                fontSize: 11,
+                fontSize: "var(--fs-xs)",
                 fontFamily: "var(--font-mono)",
                 fontWeight: 600,
                 border: !cur && !done ? "1px solid var(--line-soft)" : "none",
@@ -245,7 +245,7 @@ export function StepBar({
             </button>
             <span
               style={{
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 color: cur ? "var(--ink-0)" : "var(--ink-3)",
                 fontWeight: cur ? 500 : 400,
               }}

@@ -116,7 +116,7 @@ export function useActivities() {
         setLastDoc(rest.last ?? first.last);
         setHasMore(rest.hasMore);
       } catch (err) {
-        console.error("[useActivities] Firestore error:", err);
+        logClientError("useActivities.initialLoad", err);
       } finally {
         if (!cancelled) setLoading(false);
         if (!cancelled) setLoadingMore(false);
@@ -136,7 +136,7 @@ export function useActivities() {
       setLastDoc(result.last);
       setHasMore(result.hasMore);
     } catch (err) {
-      console.error("[useActivities] Failed to load more:", err);
+      logClientError("useActivities.loadMore", err);
     } finally {
       setLoadingMore(false);
     }
@@ -185,7 +185,7 @@ export function useWeeklyStats() {
             .filter((a) => a.summary != null),
         );
       } catch (err) {
-        console.error("[useWeeklyStats] Firestore error:", err);
+        logClientError("useWeeklyStats.load", err);
       }
     };
 
@@ -399,7 +399,7 @@ export function useActivitySearch() {
         if (!cancelled) setSearchResults(results);
       })
       .catch((err) => {
-        console.error("[useActivitySearch] search error:", err);
+        logClientError("useActivitySearch.search", err, { datePreset });
         if (!cancelled) setSearchResults([]);
       })
       .finally(() => {

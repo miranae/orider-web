@@ -87,7 +87,7 @@ function ProviderCard({
         <div style={{ color: "var(--rd-text-muted)" }}>{meta.icon}</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600 }}>{meta.label}</div>
-          <div style={{ fontSize: 12, color: "var(--rd-text-muted)" }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--rd-text-muted)" }}>
             {status === "active" && conn?.lastSyncAt
               ? t("healthSources.lastSync", { time: formatRelativeTime(conn.lastSyncAt, t) })
               : t(meta.hintKey)}
@@ -98,7 +98,7 @@ function ProviderCard({
       {!meta.webConnectable && status === "not_connected" && (
         <div
           style={{
-            fontSize: 12,
+            fontSize: "var(--fs-xs)",
             color: "var(--rd-text-muted)",
             display: "flex",
             alignItems: "center",
@@ -112,7 +112,7 @@ function ProviderCard({
         </div>
       )}
       {conn?.scopes && conn.scopes.length > 0 && status === "active" && (
-        <details style={{ fontSize: 12 }}>
+        <details style={{ fontSize: "var(--fs-xs)" }}>
           <summary style={{ cursor: "pointer", color: "var(--rd-text-muted)" }}>
             {t("healthSources.scopesTitle", { count: conn.scopes.length })}
           </summary>
@@ -157,14 +157,14 @@ function PrimarySourceSelector({
   const current = prefs?.primarySource[sport] ?? null;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
-      <span style={{ minWidth: 60, fontSize: 14 }}>{t(SPORT_LABEL_KEYS[sport])}</span>
+      <span style={{ minWidth: 60, fontSize: "var(--fs-sm)" }}>{t(SPORT_LABEL_KEYS[sport])}</span>
       <select
         value={current ?? ""}
         onChange={(e) => onChange(sport, e.target.value === "" ? null : (e.target.value as ProviderId))}
         style={{
           flex: 1,
           padding: "6px 8px",
-          borderRadius: 6,
+          borderRadius: "var(--r-md)",
           border: "1px solid var(--rd-border)",
           background: "var(--rd-bg-elevated)",
           color: "var(--rd-text)",
@@ -240,8 +240,8 @@ export function PaneHealthSources() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-4)' }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
-        <h2 style={{ fontSize: 18, fontWeight: 600 }}>{t("healthSources.title")}</h2>
-        <p style={{ fontSize: 13, color: "var(--rd-text-muted)" }}>
+        <h2 style={{ fontSize: "var(--fs-lg)", fontWeight: 600 }}>{t("healthSources.title")}</h2>
+        <p style={{ fontSize: "var(--fs-sm)", color: "var(--rd-text-muted)" }}>
           {t("healthSources.desc")}
         </p>
       </section>
@@ -257,8 +257,8 @@ export function PaneHealthSources() {
           style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}
         >
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 600 }}>{t("healthSources.primarySourceTitle")}</h3>
-            <p style={{ fontSize: 12, color: "var(--rd-text-muted)", marginTop: 'var(--space-1)' }}>
+            <h3 style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>{t("healthSources.primarySourceTitle")}</h3>
+            <p style={{ fontSize: "var(--fs-xs)", color: "var(--rd-text-muted)", marginTop: 'var(--space-1)' }}>
               {t("healthSources.primarySourceDesc")}
             </p>
           </div>
@@ -280,8 +280,8 @@ export function PaneHealthSources() {
         style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}
       >
         <div>
-          <h3 style={{ fontSize: 15, fontWeight: 600 }}>{t("healthSources.retentionTitle")}</h3>
-          <p style={{ fontSize: 12, color: "var(--rd-text-muted)", marginTop: 'var(--space-1)' }}>
+          <h3 style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>{t("healthSources.retentionTitle")}</h3>
+          <p style={{ fontSize: "var(--fs-xs)", color: "var(--rd-text-muted)", marginTop: 'var(--space-1)' }}>
             {t("healthSources.retentionDesc")}
           </p>
         </div>
@@ -292,7 +292,7 @@ export function PaneHealthSources() {
             disabled={retainSaving}
             onChange={handleRetainToggle}
           />
-          <span style={{ fontSize: 14 }}>{t("healthSources.retainForever")}</span>
+          <span style={{ fontSize: "var(--fs-sm)" }}>{t("healthSources.retainForever")}</span>
         </label>
         {prefs?.retainSamplesForever && (
           <div
@@ -301,9 +301,9 @@ export function PaneHealthSources() {
               alignItems: "flex-start",
               gap: 'var(--space-2)',
               padding: 'var(--space-2)',
-              borderRadius: 6,
+              borderRadius: "var(--r-md)",
               background: "var(--rd-bg-muted)",
-              fontSize: 12,
+              fontSize: "var(--fs-xs)",
               color: "var(--rd-text-muted)",
             }}
           >

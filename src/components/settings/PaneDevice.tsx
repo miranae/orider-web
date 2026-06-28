@@ -57,7 +57,7 @@ function KVList({ rows }: { rows: RowKV[] }) {
             justifyContent: "space-between",
             padding: "9px 0",
             borderTop: i === 0 ? "none" : "1px solid var(--line-soft)",
-            fontSize: 13,
+            fontSize: "var(--fs-sm)",
           }}
         >
           <span style={{ color: "var(--ink-2)" }}>{r.k}</span>
@@ -65,7 +65,7 @@ function KVList({ rows }: { rows: RowKV[] }) {
             style={{
               color: "var(--ink-1)",
               fontFamily: "var(--font-mono)",
-              fontSize: 12,
+              fontSize: "var(--fs-xs)",
             }}
           >
             {r.v}
@@ -90,10 +90,10 @@ function ScopeBadge({ scope }: { scope: Scope }) {
         display: "inline-flex",
         alignItems: "center",
         gap: "var(--space-1)",
-        fontSize: 10,
+        fontSize: "var(--fs-xs)",
         fontWeight: 500,
         padding: "var(--space-0p5, 2px) var(--space-2)",
-        borderRadius: 999,
+        borderRadius: "9999px",
         background: isUser
           ? "color-mix(in oklch, var(--lime) 18%, transparent)"
           : "color-mix(in oklch, var(--ink-3) 14%, transparent)",
@@ -194,10 +194,10 @@ function EditableCard({
                 gap: "var(--space-2)",
                 marginTop: "var(--space-3)",
                 padding: "var(--space-2) var(--space-3)",
-                borderRadius: 8,
+                borderRadius: "var(--r-lg)",
                 background: "color-mix(in oklch, var(--lime) 6%, transparent)",
                 border: "1px solid var(--line-soft)",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 color: "var(--ink-1)",
                 cursor: "pointer",
               }}
@@ -336,7 +336,7 @@ function AlertEdit({ draft, setDraft }: CardEditProps<AlertSettings>) {
             borderTop: "1px solid var(--line-soft)",
           }}
         >
-          <span style={{ fontSize: 13, color: "var(--ink-1)" }}>
+          <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-1)" }}>
             {t(ALERT_METRIC_KEY[th.metric])}
           </span>
           <Toggle
@@ -430,14 +430,14 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
       </Field>
       <Field label={t("device.fieldDynamicZoom")}>
         <div style={{ display: "flex", gap: 'var(--space-3)', alignItems: "center" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-xs)" }}>
             <Toggle
               on={draft.dynamicZoomEnabled}
               onChange={(v) => setDraft({ ...draft, dynamicZoomEnabled: v })}
             />
             <span style={{ color: "var(--ink-2)" }}>{t("device.fieldDynamicZoomLabel")}</span>
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-xs)" }}>
             <Toggle
               on={draft.headingLockEnabled}
               onChange={(v) => setDraft({ ...draft, headingLockEnabled: v })}
@@ -740,7 +740,7 @@ export function PaneDevice() {
   if (!uid) {
     return (
       <SettingsCard title={t("device.mobileSync")}>
-        <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.loginRequired")}
         </div>
       </SettingsCard>
@@ -749,7 +749,7 @@ export function PaneDevice() {
   if (loading) {
     return (
       <SettingsCard title={t("device.mobileSync")}>
-        <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.loading")}
         </div>
       </SettingsCard>
@@ -758,7 +758,7 @@ export function PaneDevice() {
   if (error) {
     return (
       <SettingsCard title={t("device.mobileSync")} danger>
-        <div style={{ fontSize: 13, color: "var(--rose)" }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--rose)" }}>
           {t("device.loadFailed", { message: error.message })}
         </div>
       </SettingsCard>
@@ -767,7 +767,7 @@ export function PaneDevice() {
   if (!record) {
     return (
       <SettingsCard title={t("device.mobileSync")}>
-        <div style={{ fontSize: 13, color: "var(--ink-3)" }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t("device.noDevice")}
         </div>
       </SettingsCard>
@@ -849,7 +849,7 @@ export function PaneDevice() {
           style={{
             width: 44,
             height: 44,
-            borderRadius: 10,
+            borderRadius: "var(--r-xl)",
             background: "color-mix(in oklch, var(--lime) 14%, var(--bg-2))",
             display: "grid",
             placeItems: "center",
@@ -867,12 +867,12 @@ export function PaneDevice() {
                 setSelectedDeviceId(e.target.value);
               }}
               style={{
-                fontSize: 14,
+                fontSize: "var(--fs-sm)",
                 fontWeight: 600,
                 color: "var(--ink-0)",
                 background: "transparent",
                 border: "1px solid var(--line-soft)",
-                borderRadius: 6,
+                borderRadius: "var(--r-md)",
                 padding: "var(--space-1) var(--space-2)",
                 marginBottom: 2,
                 cursor: "pointer",
@@ -885,13 +885,13 @@ export function PaneDevice() {
               ))}
             </select>
           ) : (
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>
+            <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {record.deviceName || record.deviceId}
             </div>
           )}
           <div
             style={{
-              fontSize: 11,
+              fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               display: "flex",
               gap: 10,
@@ -965,7 +965,7 @@ export function PaneDevice() {
         </Button>
       </Card>
 
-      <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "0 4px 12px" }}>
+      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", padding: "0 4px 12px" }}>
         {t("device.deviceIntroHint")} {" "}
         <ScopeBadge scope="user" /> {t("device.broadcastAll")},{" "}
         <ScopeBadge scope="device" />
@@ -1254,7 +1254,7 @@ function SensorPairingCard({ settings }: { settings: AppSettings }) {
       dense
     >
       <KVList rows={rows} />
-      <div style={{ marginTop: "var(--space-2)", fontSize: 11, color: "var(--ink-3)" }}>
+      <div style={{ marginTop: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
         {t("device.sensorPairingHint")}
       </div>
     </SettingsCard>
@@ -1291,7 +1291,7 @@ function SoundPathsCard({ settings }: { settings: AppSettings }) {
       dense
     >
       <KVList rows={rows} />
-      <div style={{ marginTop: "var(--space-2)", fontSize: 11, color: "var(--ink-3)" }}>
+      <div style={{ marginTop: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
         {t("device.soundFilesHint")}
       </div>
     </SettingsCard>

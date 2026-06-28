@@ -277,7 +277,7 @@ export default function CoursesPage() {
       setAllCourses(Array.from(map.values()));
       setLoading(false);
     }, (err) => {
-      console.error(t("listener.error"), err);
+      logClientError("CoursesPage.courseSubscription", err);
       setLoading(false);
     });
 

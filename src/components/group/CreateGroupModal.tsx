@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import Modal from "../Modal";
 import { generateInviteCode } from "../../utils/inviteCode";
@@ -166,7 +167,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
       reset();
       onCreated(groupId, createdName);
     } catch (err) {
-      console.error("Create group failed:", err);
+      logClientError("CreateGroupModal.createGroup", err, { kind, approval });
       alert(err instanceof Error ? err.message : t("create.failed"));
     }
     setCreating(false);

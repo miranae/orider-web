@@ -319,7 +319,7 @@ export default function SwimFitnessView() {
         </div>
         <h1
           style={{
-            fontSize: 22,
+            fontSize: "var(--fs-xl)",
             fontWeight: 700,
             color: "var(--ink-0)",
             margin: 0,
@@ -327,7 +327,7 @@ export default function SwimFitnessView() {
         >
           {t("swimView.header.title")}
         </h1>
-        <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 6 }}>
+        <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginTop: 6 }}>
           {t("swimView.header.subtitle")}
         </p>
       </div>
@@ -376,7 +376,7 @@ export default function SwimFitnessView() {
             >
               <Text variant="dataHero"
                 style={{
-                  fontSize: 40,
+                  fontSize: "var(--fs-5xl)",
                   color: s.color,
                   fontFamily: "var(--font-mono)",
                 }}
@@ -390,7 +390,7 @@ export default function SwimFitnessView() {
                 display: "flex",
                 alignItems: "center",
                 gap: 'var(--space-2)',
-                fontSize: 11,
+                fontSize: "var(--fs-xs)",
                 color: "var(--ink-3)",
               }}
             >
@@ -412,10 +412,10 @@ export default function SwimFitnessView() {
           }}
         >
           <div>
-            <h3 style={{ margin: 0, marginBottom: 3, fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>
+            <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {t("swimView.pmc.title")}
             </h3>
-            <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               {t("swimView.pmc.sub")}
             </div>
           </div>
@@ -425,7 +425,7 @@ export default function SwimFitnessView() {
             style={{
               display: "flex",
               gap: 14,
-              fontSize: 11,
+              fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               flexWrap: "wrap",
             }}
@@ -437,7 +437,7 @@ export default function SwimFitnessView() {
                   height: 8,
                   background: "var(--aqua)",
                   opacity: 0.45,
-                  borderRadius: 2,
+                  borderRadius: "var(--r-xs)",
                 }}
               />
               {t("pmc.legend.ctl")}
@@ -465,7 +465,7 @@ export default function SwimFitnessView() {
             display: "flex",
             justifyContent: "space-between",
             marginTop: 'var(--space-2)',
-            fontSize: 10,
+            fontSize: "var(--fs-xs)",
             fontFamily: "var(--font-mono)",
             color: "var(--ink-4)",
           }}
@@ -486,7 +486,7 @@ export default function SwimFitnessView() {
               "color-mix(in oklch, var(--aqua) 5%, var(--bg-2))",
             border:
               "1px solid color-mix(in oklch, var(--aqua) 22%, var(--line-soft))",
-            borderRadius: 6,
+            borderRadius: "var(--r-md)",
             display: "grid",
             gridTemplateColumns: "2fr repeat(3, 1fr)",
             gap: 'var(--space-5)',
@@ -500,7 +500,7 @@ export default function SwimFitnessView() {
               {t("swimView.goal.eyebrow")}
             </Text>
             <div
-              style={{ fontSize: 13, color: "var(--ink-0)", fontWeight: 500 }}
+              style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}
             >
               2026-07-12 · D-
               <Text variant="mono" style={{ color: "var(--aqua)" }}>
@@ -509,7 +509,7 @@ export default function SwimFitnessView() {
               <span
                 style={{
                   color: "var(--ink-3)",
-                  fontSize: 11,
+                  fontSize: "var(--fs-xs)",
                   marginLeft: 10,
                 }}
               >
@@ -518,7 +518,7 @@ export default function SwimFitnessView() {
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>
               {t("goal.ctl")}
             </Text>
             <div>
@@ -534,7 +534,7 @@ export default function SwimFitnessView() {
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>
               {t("swimView.goal.cssLabel")}
             </Text>
             <div>
@@ -550,7 +550,7 @@ export default function SwimFitnessView() {
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>
               {t("goal.adherence")}
             </Text>
             <div>
@@ -568,10 +568,10 @@ export default function SwimFitnessView() {
       {/* 수영 존 분포 */}
       <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
         <div style={{ marginBottom: 'var(--space-4)' }}>
-          <h3 style={{ margin: 0, marginBottom: 3, fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>
+          <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
             {t("swimView.zoneDist.title")}
           </h3>
-          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
             {t("swimView.zoneDist.sub")}
           </div>
         </div>
@@ -594,17 +594,17 @@ export default function SwimFitnessView() {
                     color: zone.color,
                     fontFamily: "var(--font-mono)",
                     fontWeight: 600,
-                    fontSize: 12,
+                    fontSize: "var(--fs-xs)",
                   }}
                 >
                   {zone.z}
                 </span>
-                <span style={{ fontSize: 12 }}>{t(zone.nameKey)}</span>
+                <span style={{ fontSize: "var(--fs-xs)" }}>{t(zone.nameKey)}</span>
               </div>
               <div
                 style={{
                   width: 100,
-                  fontSize: 10,
+                  fontSize: "var(--fs-xs)",
                   color: "var(--ink-4)",
                   fontFamily: "var(--font-mono)",
                 }}
@@ -616,7 +616,7 @@ export default function SwimFitnessView() {
                   flex: 1,
                   height: 18,
                   background: "var(--bg-2)",
-                  borderRadius: 3,
+                  borderRadius: "var(--r-xs)",
                   overflow: "hidden",
                 }}
               >
@@ -632,7 +632,7 @@ export default function SwimFitnessView() {
                 style={{
                   width: 40,
                   textAlign: "right",
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                   color: "var(--ink-1)",
                   fontFamily: "var(--font-mono)",
                 }}
@@ -643,7 +643,7 @@ export default function SwimFitnessView() {
                 style={{
                   width: 56,
                   textAlign: "right",
-                  fontSize: 11,
+                  fontSize: "var(--fs-xs)",
                   color: "var(--ink-3)",
                   fontFamily: "var(--font-mono)",
                 }}
@@ -658,7 +658,7 @@ export default function SwimFitnessView() {
             marginTop: 14,
             paddingTop: 'var(--space-3)',
             borderTop: "1px solid var(--line-soft)",
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             color: "var(--ink-3)",
             display: "flex",
             gap: 'var(--space-4)',
@@ -694,7 +694,7 @@ export default function SwimFitnessView() {
 
       {/* 주간 통계 요약 */}
       <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
-        <h3 style={{ margin: 0, marginBottom: 'var(--space-4)', fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>
+        <h3 style={{ margin: 0, marginBottom: 'var(--space-4)', fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
           {t("swimView.weekly.title")}
         </h3>
         <div
@@ -706,7 +706,7 @@ export default function SwimFitnessView() {
         >
           {WEEKLY_STATS.map((item) => (
             <div key={item.labelKey}>
-              <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>
+              <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>
                 {t(item.labelKey)}
               </Text>
               <div>
@@ -728,7 +728,7 @@ export default function SwimFitnessView() {
             marginTop: 'var(--space-4)',
             paddingTop: 14,
             borderTop: "1px solid var(--line-soft)",
-            fontSize: 11,
+            fontSize: "var(--fs-xs)",
             color: "var(--ink-3)",
             lineHeight: 1.6,
           }}

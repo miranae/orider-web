@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 
@@ -96,7 +97,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         }
       } catch (err) {
         if (cancelled) return;
-        console.warn("[useFreshTraining] revalidate fail:", err);
+        logClientError("useFreshTraining.revalidate", err, { discipline });
         setLastStatus("error");
       } finally {
         if (!cancelled) setRevalidating(false);

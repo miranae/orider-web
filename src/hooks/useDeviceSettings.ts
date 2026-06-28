@@ -187,15 +187,6 @@ export function useAllDeviceSettings(uid: string | null) {
         return { updated: 0, failures: [] };
       }
       const targets = records.filter((r) => r.deviceId !== opts?.excludeDeviceId);
-      console.info(
-        "[deviceSettings] broadcastUserScoped:",
-        "targets=",
-        targets.length,
-        "excluded=",
-        opts?.excludeDeviceId,
-        "keys=",
-        Object.keys(userPatch),
-      );
       const settled = await Promise.allSettled(
         targets.map(async (r) => {
           // 최신 doc 을 다시 읽어 lost-update 윈도우 축소.

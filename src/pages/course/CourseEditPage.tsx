@@ -5,6 +5,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
@@ -75,7 +76,7 @@ export default function CourseEditPage() {
       setSurface(parsed.surface);
       setDifficulty(parsed.difficulty);
     } catch (err) {
-      console.error("코스 조회 실패:", err);
+      logClientError("CourseEditPage.loadCourse", err, { courseId });
       setLoadError(err instanceof Error ? err.message : t("error.loadFailed"));
     } finally {
       setLoading(false);
@@ -110,7 +111,7 @@ export default function CourseEditPage() {
       showToast(t("edit.saveSuccess"));
       navigate(`/course/${courseId}`);
     } catch (err) {
-      console.error("코스 저장 실패:", err);
+      logClientError("CourseEditPage.handleSave", err, { courseId, surface, difficulty });
       const fbErr = err as { message?: string };
       showToast(fbErr?.message ?? t("error.updateFailed"));
     } finally {
@@ -128,7 +129,7 @@ export default function CourseEditPage() {
       showToast(t("edit.deleteSuccess"));
       navigate("/courses");
     } catch (err) {
-      console.error("코스 삭제 실패:", err);
+      logClientError("CourseEditPage.handleDelete", err, { courseId });
       showToast(err instanceof Error ? err.message : t("error.deleteFailed"));
       setDeleting(false);
     }

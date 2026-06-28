@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
 import { parseWorkoutFile, toIntervalBlocks, estimateWorkoutLoad } from "@shared/training/workoutImport";
 import { Check, SkipForward, RefreshCw, ArrowUpDown, Undo2, Upload } from "lucide-react";
@@ -160,7 +161,7 @@ export default function WorkoutEditModal({
       onUpdate();
       onClose();
     } catch (err) {
-      console.error(t('edit.saveFailed'), err);
+      logClientError("WorkoutEditModal.run", err, { goalId, weekId, dayIndex });
       alert(t('edit.saveFailedAlert'));
     } finally {
       setLoading(false);
@@ -224,7 +225,7 @@ export default function WorkoutEditModal({
         };
       });
     } catch (err) {
-      console.error(t('edit.importFailed'), err);
+      logClientError("WorkoutEditModal.handleImportFile", err, { goalId, weekId, dayIndex, fileName: file.name });
       alert(t('edit.importFailedAlert'));
       setLoading(false);
     }
@@ -265,7 +266,7 @@ export default function WorkoutEditModal({
       onUpdate();
       onClose();
     } catch (err) {
-      console.error(t('edit.swapFailed'), err);
+      logClientError("WorkoutEditModal.handleSwapNext", err, { goalId, weekId, dayIndex });
       alert(t('edit.swapFailedAlert'));
     } finally {
       setLoading(false);
@@ -312,7 +313,7 @@ export default function WorkoutEditModal({
       onUpdate();
       onClose();
     } catch (err) {
-      console.error(t('edit.swapFailed'), err);
+      logClientError("WorkoutEditModal.handleSwapPrev", err, { goalId, weekId, dayIndex });
       alert(t('edit.swapFailedAlert'));
     } finally {
       setLoading(false);
@@ -357,17 +358,17 @@ export default function WorkoutEditModal({
                 width: 4,
                 height: 20,
                 background: meta.color,
-                borderRadius: 2,
+                borderRadius: "var(--r-xs)",
                 display: 'inline-block',
                 flexShrink: 0,
               }}
             />
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)' }}>
+              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>
                 {meta.label}
               </div>
               {day.plannedTSS > 0 && (
-                <div style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
                   {t('edit.minutesAndTss', { tss: day.plannedTSS, minutes: day.plannedDurationMin })}
                 </div>
               )}
@@ -381,7 +382,7 @@ export default function WorkoutEditModal({
               color: 'var(--ink-3)',
               cursor: 'pointer',
               padding: 'var(--space-1)',
-              fontSize: 16,
+              fontSize: "var(--fs-base)",
               lineHeight: 1,
             }}
             aria-label={t('edit.closeAria')}
@@ -395,7 +396,7 @@ export default function WorkoutEditModal({
           <a
             href={`/activity/${day.actualActivityId}`}
             style={{
-              fontSize: 12,
+              fontSize: "var(--fs-xs)",
               color: 'var(--lime)',
               textDecoration: 'none',
               display: 'flex',
@@ -414,7 +415,7 @@ export default function WorkoutEditModal({
 
         {/* #476 임포트된 구조화 워크아웃 요약 */}
         {day.intervals && day.intervals.length > 0 && (
-          <div style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <Upload size={12} style={{ color: 'var(--aqua)', flexShrink: 0 }} />
             <span>
               {day.workoutName ? `${day.workoutName} · ` : ''}
@@ -474,8 +475,8 @@ export default function WorkoutEditModal({
                     disabled={loading || isSelected}
                     style={{
                       padding: '4px 10px',
-                      borderRadius: 999,
-                      fontSize: 11,
+                      borderRadius: "9999px",
+                      fontSize: "var(--fs-xs)",
                       fontWeight: 600,
                       cursor: isSelected ? 'default' : 'pointer',
                       border: `1px solid ${m.color === 'transparent' ? 'var(--line-soft)' : m.color}`,
@@ -531,7 +532,7 @@ export default function WorkoutEditModal({
         </div>
 
         {loading && (
-          <div style={{ fontSize: 12, color: 'var(--ink-3)', textAlign: 'center' }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textAlign: 'center' }}>
             {t('edit.saving')}
           </div>
         )}

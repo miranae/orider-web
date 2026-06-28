@@ -64,8 +64,8 @@ export default function Leaderboard({ locations, highlightBib }: LeaderboardProp
               cursor: "pointer",
               fontSize: "13px",
               fontWeight: activeTab === cat ? "bold" : "normal",
-              background: activeTab === cat ? "#1976d2" : "#f0f0f0",
-              color: activeTab === cat ? "white" : "#333",
+              background: activeTab === cat ? "var(--lime)" : "var(--bg-2)",
+              color: activeTab === cat ? "var(--primary-fg)" : "var(--ink-2)",
             }}
           >
             {tabLabel(cat)}
@@ -93,7 +93,7 @@ export default function Leaderboard({ locations, highlightBib }: LeaderboardProp
                 key={loc.uid}
                 style={{
                   borderBottom: "1px solid var(--bg-3)",
-                  backgroundColor: isHighlighted ? "#fff3e0" : "transparent",
+                  backgroundColor: isHighlighted ? "color-mix(in oklch, var(--amber) 14%, var(--bg-1))" : "transparent",
                   fontWeight: isHighlighted ? "bold" : "normal",
                 }}
               >

@@ -5,6 +5,7 @@ import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { firestore as db } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
@@ -77,7 +78,7 @@ function CategoryChip({ category }: { category: string }) {
   return (
     <span
       style={{
-        fontSize: 10,
+        fontSize: "var(--fs-xs)",
         color,
         fontWeight: 500,
       }}
@@ -206,7 +207,7 @@ export default function EventResultsPage() {
         }
         setResults(entries);
       } catch (err) {
-        console.error("Failed to fetch results:", err);
+        logClientError("EventResultsPage.loadResults", err, { eventId });
         setLoadError(err instanceof Error ? err.message : t("resultsView.loadError"));
       } finally {
         setLoading(false);
@@ -326,7 +327,7 @@ export default function EventResultsPage() {
         }}
       >
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 24px 0" }}>
-          <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
+          <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
             <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
             <span style={{ color: "var(--ink-4)" }}>›</span>
             <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
@@ -341,7 +342,7 @@ export default function EventResultsPage() {
           <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
             <Chip
               style={{
-                fontSize: 10,
+                fontSize: "var(--fs-xs)",
                 color: "var(--aqua)",
                 borderColor: "color-mix(in oklch, var(--aqua) 40%, transparent)",
               }}
@@ -349,15 +350,15 @@ export default function EventResultsPage() {
               🏁 {eventHead.status === "FINISHED" ? t("finished") : eventHead.status}
             </Chip>
             {eventDateStr && (
-              <Chip style={{ fontSize: 10, fontFamily: "var(--font-mono)" }}>
+              <Chip style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
                 {eventDateStr}
               </Chip>
             )}
           </div>
-          <h1 style={{ fontSize: 32, letterSpacing: "-0.025em", marginBottom: 'var(--space-1)', color: "var(--ink-0)" }}>
+          <h1 style={{ fontSize: "var(--fs-4xl)", letterSpacing: "-0.025em", marginBottom: 'var(--space-1)', color: "var(--ink-0)" }}>
             {eventHead.name}
           </h1>
-          <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{t("resultsTitle")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("resultsTitle")}</div>
 
           <div
             style={{
@@ -367,7 +368,7 @@ export default function EventResultsPage() {
               gap: 1,
               background: "var(--line-soft)",
               border: "1px solid var(--line-soft)",
-              borderRadius: 6,
+              borderRadius: "var(--r-md)",
               overflow: "hidden",
             }}
           >
@@ -428,7 +429,7 @@ export default function EventResultsPage() {
                         padding: "18px 16px",
                         background: `color-mix(in oklch, ${medal} ${i === 0 ? 10 : 5}%, var(--bg-2))`,
                         border: `1px solid color-mix(in oklch, ${medal} ${i === 0 ? 50 : 25}%, var(--line-soft))`,
-                        borderRadius: 6,
+                        borderRadius: "var(--r-md)",
                         position: "relative",
                       }}
                     >
@@ -437,7 +438,7 @@ export default function EventResultsPage() {
                           position: "absolute",
                           top: 12,
                           right: 14,
-                          fontSize: 10,
+                          fontSize: "var(--fs-xs)",
                           fontFamily: "var(--font-mono)",
                           color: "var(--ink-3)",
                         }}
@@ -446,7 +447,7 @@ export default function EventResultsPage() {
                       </div>
                       <div
                         style={{
-                          fontSize: 32,
+                          fontSize: "var(--fs-4xl)",
                           fontWeight: 700,
                           color: medal,
                           fontFamily: "var(--font-mono)",
@@ -456,7 +457,7 @@ export default function EventResultsPage() {
                       >
                         {p.rank}
                       </div>
-                      <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 3, fontSize: 15 }}>
+                      <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 3, fontSize: "var(--fs-sm)" }}>
                         {p.displayName}
                       </div>
                       <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: 14 }}>
@@ -470,11 +471,11 @@ export default function EventResultsPage() {
                           borderTop: `1px solid color-mix(in oklch, ${medal} 20%, var(--line-soft))`,
                         }}
                       >
-                        <Text variant="dataMedium" style={{ fontSize: 18, color: medal }}>
+                        <Text variant="dataMedium" style={{ fontSize: "var(--fs-lg)", color: medal }}>
                           {formatDuration(p.finishTime)}
                         </Text>
                         {p.avgSpeed != null && (
-                          <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                             {p.avgSpeed.toFixed(1)}km/h
                           </span>
                         )}
@@ -504,9 +505,9 @@ export default function EventResultsPage() {
                       aria-pressed={active}
                       style={{
                         padding: "5px 12px",
-                        fontSize: 11,
+                        fontSize: "var(--fs-xs)",
                         fontWeight: 500,
-                        borderRadius: 4,
+                        borderRadius: "var(--r-sm)",
                         background: active ? "var(--bg-3)" : "transparent",
                         color: active ? "var(--ink-0)" : "var(--ink-3)",
                         border: "1px solid transparent",
@@ -542,12 +543,12 @@ export default function EventResultsPage() {
             </div>
 
             {filtered.length === 0 ? (
-              <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: 12 }}>
+              <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
                 {t("resultsView.noFilteredResults")}
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
                   <thead>
                     <tr style={{ background: "var(--bg-2)" }}>
                       {[
@@ -565,7 +566,7 @@ export default function EventResultsPage() {
                           style={{
                             textAlign: [0, 1, 4, 5, 6, 7].includes(i) ? "right" : "left",
                             padding: "10px 16px",
-                            fontSize: 10,
+                            fontSize: "var(--fs-xs)",
                             letterSpacing: "0.06em",
                             color: "var(--ink-3)",
                             fontWeight: 500,
@@ -634,7 +635,7 @@ export default function EventResultsPage() {
                               <Chip
                                 style={{
                                   marginLeft: 'var(--space-2)',
-                                  fontSize: 9,
+                                  fontSize: "var(--fs-xs)",
                                   color: "var(--lime)",
                                   borderColor: "color-mix(in oklch, var(--lime) 40%, transparent)",
                                 }}
@@ -714,11 +715,11 @@ export default function EventResultsPage() {
               style={{
                 padding: 'var(--space-6)',
                 textAlign: "center",
-                fontSize: 12,
+                fontSize: "var(--fs-xs)",
                 color: "var(--ink-3)",
                 background: "var(--bg-2)",
                 border: "1px solid var(--line-soft)",
-                borderRadius: 5,
+                borderRadius: "var(--r-sm)",
               }}
             >
               {t("resultsView.segmentDataPending")}
@@ -743,7 +744,7 @@ export default function EventResultsPage() {
                 <span aria-hidden="true">🏆</span>
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: "var(--fs-xs)",
                     letterSpacing: "0.08em",
                     color: "var(--lime)",
                     fontWeight: 500,
@@ -754,11 +755,11 @@ export default function EventResultsPage() {
                 </span>
               </div>
               <div className="flex items-baseline" style={{ gap: 6, marginBottom: 'var(--space-1)' }}>
-                <Text variant="dataLarge" style={{ color: "var(--lime)", fontSize: 28, fontWeight: 600 }}>
+                <Text variant="dataLarge" style={{ color: "var(--lime)", fontSize: "var(--fs-3xl)", fontWeight: 600 }}>
                   {myResult.status === "FINISHED" ? formatDuration(myResult.finishTime) : myResult.status === "DNF" ? "DNF" : "—"}
                 </Text>
               </div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
                 {myResult.status === "FINISHED"
                   ? t("resultsView.myRankDetail", { rank1: myResult.overallRank, cat: myResult.category, rank2: myResult.rank })
                   : t("resultsView.resultNotTabulated")}
@@ -771,7 +772,7 @@ export default function EventResultsPage() {
                   paddingTop: 14,
                   borderTop: "1px solid var(--line-soft)",
                   gap: 'var(--space-2)',
-                  fontSize: 12,
+                  fontSize: "var(--fs-xs)",
                 }}
               >
                 {[
@@ -820,7 +821,7 @@ export default function EventResultsPage() {
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-3)' }}>
                 {t("resultsView.categoryDistribution")}
               </div>
-              <div className="flex flex-col" style={{ gap: 'var(--space-2)', fontSize: 12 }}>
+              <div className="flex flex-col" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
                 {categoryDistribution.map(({ cat, n, color, pct }) => (
                   <div key={cat}>
                     <div className="flex justify-between" style={{ marginBottom: 'var(--space-1)' }}>
@@ -861,12 +862,12 @@ export default function EventResultsPage() {
               </div>
               <div
                 className="flex justify-between"
-                style={{ marginTop: 6, fontSize: 9, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
+                style={{ marginTop: 6, fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
               >
                 <span>{formatDuration(finishHistogram.min)}</span>
                 <span>{formatDuration(finishHistogram.max)}</span>
               </div>
-              <div style={{ marginTop: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)" }}>
+              <div style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
                 {t("resultsView.median")}{" "}
                 <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
                   {formatDuration(finishHistogram.median ?? null)}

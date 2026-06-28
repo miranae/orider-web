@@ -307,7 +307,7 @@ export default function SegmentPage() {
 
       showToast(t("error.photoUploadSuccess"));
     } catch (err) {
-      console.error("Photo upload failed:", err);
+      logClientError("SegmentPage.uploadPhoto", err, { segmentId });
       showToast(t("error.uploadFailed"));
     } finally {
       setUploading(false);
@@ -375,7 +375,7 @@ export default function SegmentPage() {
         setMyOutsideEffort(null);
         setEfforts(sorted);
       } catch (err) {
-        console.error("Failed to fetch efforts:", err);
+        logClientError("SegmentPage.fetchEfforts", err, { segmentId });
       } finally {
         setLoadingEfforts(false);
       }
@@ -435,7 +435,7 @@ export default function SegmentPage() {
           snap.docs.map((d) => ({ id: d.id, ...d.data() }) as EffortData),
         );
       } catch (err) {
-        console.error("Failed to fetch all efforts:", err);
+        logClientError("SegmentPage.fetchMyEfforts", err, { segmentId });
       }
     };
 

@@ -118,7 +118,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
         }}
       >
         <div className="flex items-center justify-between" style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--ink-0)" }}>{t("import.modalTitle")}</span>
+          <span style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)" }}>{t("import.modalTitle")}</span>
           <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 10, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={20} style={{ color: "var(--ink-3)" }} />
           </button>
@@ -142,8 +142,8 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
                 <div className="flex items-center gap-3">
                   <CheckCircle size={18} style={{ color: "var(--lime)", flexShrink: 0 }} />
                   <div style={{ flex: 1, textAlign: "left" }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-0)" }}>{file.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-4)" }}>
+                    <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{file.name}</div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>
                       {fileSizeStr(file)} · {fileExt?.toUpperCase()}
                     </div>
                   </div>
@@ -155,8 +155,8 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
               ) : (
                 <>
                   <Upload size={24} style={{ color: "var(--ink-4)", marginBottom: 6 }} />
-                  <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{t("import.fileHint")}</div>
-                  <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 'var(--space-1)' }}>{t("import.fileFormatNote")}</div>
+                  <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("import.fileHint")}</div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 'var(--space-1)' }}>{t("import.fileFormatNote")}</div>
                 </>
               )}
             </div>
@@ -172,7 +172,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
                 style={{
                   width: "100%", padding: "10px 12px",
                   background: "var(--bg-2)", border: "1px solid var(--line-soft)",
-                  borderRadius: "var(--r-md)", fontSize: 13, color: "var(--ink-1)",
+                  borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)", color: "var(--ink-1)",
                   outline: "none", fontFamily: "inherit",
                 }} />
             </div>
@@ -184,7 +184,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
               {([["everyone", t("import.visibilityEveryone")], ["friends", t("import.visibilityFriends")], ["private", t("import.visibilityPrivate")]] as const).map(([v, label]) => (
                 <button key={v} onClick={() => setVisibility(v)}
                   style={{
-                    flex: 1, padding: "12px 0", fontSize: 12, fontWeight: 500,
+                    flex: 1, padding: "12px 0", fontSize: "var(--fs-xs)", fontWeight: 500,
                     borderRadius: "var(--r-md)", cursor: "pointer",
                     background: visibility === v ? "var(--bg-3)" : "transparent",
                     border: `1px solid ${visibility === v ? "var(--lime)" : "var(--line-soft)"}`,
@@ -198,7 +198,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
 
           <button onClick={handleSubmit} disabled={!file || !isValidExt || uploading}
             style={{
-              width: "100%", padding: "14px 0", fontSize: 14, fontWeight: 600,
+              width: "100%", padding: "14px 0", fontSize: "var(--fs-sm)", fontWeight: 600,
               borderRadius: "var(--r-md)",
               cursor: file && isValidExt && !uploading ? "pointer" : "default",
               background: file && isValidExt && !uploading ? "var(--lime)" : "var(--bg-3)",

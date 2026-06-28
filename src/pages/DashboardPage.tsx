@@ -18,6 +18,7 @@ import { estimateActivityLoad, aggregateDailyLoad, calculateFitness } from "../u
 import type { ActivityLoadEntry } from "../utils/fitnessMetrics";
 import { toLocalDate } from "../utils/dateUtils";
 import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
 import type { FitnessProjection } from "@shared/types/goal";
 import TodaysWorkoutCard from "../components/training/TodaysWorkoutCard";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
@@ -54,12 +55,12 @@ function FeedSkeleton() {
       <div className="flex items-center gap-3" style={{ marginBottom: 'var(--space-3)' }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--bg-3)" }} />
         <div style={{ flex: 1 }}>
-          <div style={{ height: 12, width: 80, background: "var(--bg-3)", borderRadius: 4, marginBottom: 6 }} />
-          <div style={{ height: 10, width: 60, background: "var(--bg-2)", borderRadius: 4 }} />
+          <div style={{ height: 12, width: 80, background: "var(--bg-3)", borderRadius: "var(--r-sm)", marginBottom: 6 }} />
+          <div style={{ height: 10, width: 60, background: "var(--bg-2)", borderRadius: "var(--r-sm)" }} />
         </div>
       </div>
-      <div style={{ height: 16, width: "70%", background: "var(--bg-3)", borderRadius: 4, marginBottom: 'var(--space-3)' }} />
-      <div style={{ height: 160, background: "var(--bg-2)", borderRadius: 4 }} />
+      <div style={{ height: 16, width: "70%", background: "var(--bg-3)", borderRadius: "var(--r-sm)", marginBottom: 'var(--space-3)' }} />
+      <div style={{ height: 160, background: "var(--bg-2)", borderRadius: "var(--r-sm)" }} />
     </Card>
   );
 }
@@ -241,7 +242,7 @@ export default function DashboardPage() {
         if (p.date <= now) cur = p; else break;
       }
       setProjFitness(cur && Number.isFinite(cur.ctl) ? { ctl: cur.ctl, atl: cur.atl, tsb: cur.tsb } : null);
-    }, (err) => console.warn("[Dashboard] projection 구독 실패:", err));
+    }, (err) => logClientError("DashboardPage.projectionSubscription", err, { discipline }));
     return () => unsub();
   }, [user, discipline]);
 
@@ -414,12 +415,12 @@ export default function DashboardPage() {
           <div className="flex-1 min-w-0 flex flex-col">
             {/* 헤더: 제목 + 카운트 + 필터 */}
             <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-0)" }}>{t("feed.title")}</h2>
+              <h2 style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)" }}>{t("feed.title")}</h2>
               {totalCount > 0 && (
                 /* 카운트 옆에 "건 · 전체 피드" 컨텍스트 부연 — 이전엔 "1,573" 만 떠 본인/전체 모호.
                    tooltip 은 실제 쿼리(본인 OR visibility==everyone)와 일치하게 "전체 공개 + 내 활동" 으로 표기 (#231). */
                 <span
-                  style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}
+                  style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}
                   title={t("feed.countTooltip")}
                 >
                   {t("feed.countSuffix", { value: formatNum(totalCount) })}
@@ -427,13 +428,13 @@ export default function DashboardPage() {
                 </span>
               )}
               <div className="flex-1" />
-              <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: 3, borderRadius: 6, border: "1px solid var(--line-soft)" }}>
+              <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: 3, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
                 {[t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")].map((label, i) => (
                   <button
                     key={i}
                     onClick={() => setFeedFilter(i)}
                     style={{
-                      padding: "5px 10px", fontSize: 12, borderRadius: 4, border: "none", cursor: "pointer",
+                      padding: "5px 10px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
                       background: feedFilter === i ? "var(--bg-3)" : "transparent",
                       color: feedFilter === i ? "var(--ink-0)" : "var(--ink-3)",
                     }}
@@ -458,7 +459,7 @@ export default function DashboardPage() {
                     style={{
                       width: "100%", padding: "7px 10px 7px 30px",
                       background: "var(--bg-2)", border: "1px solid var(--line)",
-                      borderRadius: 6, fontSize: 13, color: "var(--ink-1)",
+                      borderRadius: "var(--r-md)", fontSize: "var(--fs-sm)", color: "var(--ink-1)",
                       outline: "none", boxSizing: "border-box",
                     }}
                     onFocus={(e) => { e.currentTarget.style.borderColor = "var(--lime)"; }}
@@ -486,7 +487,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={() => activitySearch.setDatePreset(p.value)}
                       style={{
-                        padding: "3px 9px", fontSize: 11, borderRadius: 4, cursor: "pointer",
+                        padding: "3px 9px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", cursor: "pointer",
                         border: "1px solid " + (activitySearch.datePreset === p.value ? "var(--accent-soft-border)" : "var(--line-soft)"),
                         background: activitySearch.datePreset === p.value ? "var(--accent-soft-bg)" : "var(--bg-2)",
                         color: activitySearch.datePreset === p.value ? "var(--lime)" : "var(--ink-3)",
@@ -496,7 +497,7 @@ export default function DashboardPage() {
                     </button>
                   ))}
                   {activitySearch.totalResults > 0 && (
-                    <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-4)", fontFamily: "var(--font-mono)", alignSelf: "center" }}>
+                    <span style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)", alignSelf: "center" }}>
                       {t("feed.search.resultsCount", { count: activitySearch.totalResults })}
                     </span>
                   )}
@@ -517,8 +518,8 @@ export default function DashboardPage() {
                 )}
                 {!activitySearch.loading && activitySearch.results.length === 0 && (
                   <Card padding="none" style={{ padding: 40, textAlign: "center" }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("feed.search.emptyTitle")}</div>
-                    <div style={{ fontSize: 13, color: "var(--ink-3)" }}>{t("feed.search.emptyDescription")}</div>
+                    <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("feed.search.emptyTitle")}</div>
+                    <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("feed.search.emptyDescription")}</div>
                   </Card>
                 )}
                 {!activitySearch.loading && activitySearch.results.length > 0 && (
@@ -601,7 +602,7 @@ export default function DashboardPage() {
                     weeks={weeklyStats}
                     tooltipFor={(w) => t("sidebar.weeklyTss.barTooltip", { week: w.week, tss: w.tss })}
                   />
-                  <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: 10, color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
+                  <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
                     {weeklyStats.length > 0 && (
                       <>
                         <span>{weeklyStats[0]!.week}</span>
@@ -612,16 +613,16 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex justify-between" style={{ marginTop: 'var(--space-3)', paddingTop: 'var(--space-3)', borderTop: "1px solid var(--line-soft)" }}>
                     <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("sidebar.weeklyTss.avgPerWeek")}</Text>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.weeklyTss.avgPerWeek")}</Text>
                       <div><Text variant="dataMedium">{avgTSS}</Text><Text variant="unit">TSS</Text></div>
                     </div>
                     <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("sidebar.weeklyTss.peakWeek")}</Text>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.weeklyTss.peakWeek")}</Text>
                       <div><Text variant="dataMedium">{peakTSS}</Text><Text variant="unit">TSS</Text></div>
                     </div>
                     <div>
-                      <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("sidebar.weeklyTss.trend")}</Text>
-                      <div style={{ color: trendUp ? "var(--lime)" : "var(--rose)", fontSize: 14, fontWeight: 600 }}>
+                      <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.weeklyTss.trend")}</Text>
+                      <div style={{ color: trendUp ? "var(--lime)" : "var(--rose)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
                         {trendUp ? t("sidebar.weeklyTss.trendUp") : t("sidebar.weeklyTss.trendDown")}
                       </div>
                     </div>
@@ -651,8 +652,8 @@ export default function DashboardPage() {
                 return (
                   <a href="/goal-setup" style={{ textDecoration: "none" }}>
                     <Card padding="none" style={{ padding: 18, textAlign: "center" }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{t("sidebar.monthlyGoal.setupTitle")}</div>
-                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("sidebar.monthlyGoal.setupHint")}</div>
+                      <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>{t("sidebar.monthlyGoal.setupTitle")}</div>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("sidebar.monthlyGoal.setupHint")}</div>
                     </Card>
                   </a>
                 );
@@ -669,12 +670,12 @@ export default function DashboardPage() {
                   <SectionHeader title={monthLabel} sub={`${t("sidebar.monthlyGoal.subPrefix")}${goalDistFormatted}`} />
                   <div className="flex items-baseline gap-1.5" style={{ marginBottom: 10 }}>
                     <Text variant="dataHero" style={{ fontSize: 34 }}>{actualDispNum}</Text>
-                    <Text variant="unit" style={{ fontSize: 13 }}>/ {goalDistFormatted} · {pct}%</Text>
+                    <Text variant="unit" style={{ fontSize: "var(--fs-sm)" }}>/ {goalDistFormatted} · {pct}%</Text>
                   </div>
-                  <div style={{ height: 6, background: "var(--bg-3)", borderRadius: 3, overflow: "hidden", marginBottom: 10 }}>
+                  <div style={{ height: 6, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden", marginBottom: 10 }}>
                     <div style={{ width: `${pct}%`, height: "100%", background: "var(--lime)" }} />
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
                     {t("sidebar.monthlyGoal.remainingPrefix")}<Text variant="mono" style={{ color: "var(--ink-1)" }}>{formatDistance(remaining * 1000, units)}</Text>{t("sidebar.monthlyGoal.remainingSuffix", { days: daysLeft })}
                   </div>
                 </Card>
@@ -685,19 +686,19 @@ export default function DashboardPage() {
             <Card padding="none" style={{ padding: 18 }}>
               <SectionHeader title={t("sidebar.fitness.title")} sub={t("sidebar.fitness.sub")} />
               {fitness.ctl === 0 ? (
-                <div style={{ fontSize: 12, color: "var(--ink-3)", padding: "8px 0" }}>{t("sidebar.fitness.insufficient")}</div>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", padding: "8px 0" }}>{t("sidebar.fitness.insufficient")}</div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("sidebar.fitness.ctl")}</Text>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.fitness.ctl")}</Text>
                     <div><Text variant="dataMedium">{fitness.ctl.toFixed(1)}</Text></div>
                   </div>
                   <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("sidebar.fitness.atl")}</Text>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.fitness.atl")}</Text>
                     <div><Text variant="dataMedium">{fitness.atl.toFixed(1)}</Text></div>
                   </div>
                   <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("sidebar.fitness.tsb")}</Text>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.fitness.tsb")}</Text>
                     <div>
                       <Text variant="dataMedium" style={{ color: fitness.tsb >= 5 ? "var(--lime)" : fitness.tsb <= -10 ? "var(--rose)" : "var(--amber)" }}>
                         {fitness.tsb >= 0 ? `+${fitness.tsb.toFixed(1)}` : fitness.tsb.toFixed(1)}
@@ -705,8 +706,8 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("sidebar.fitness.recommend")}</Text>
-                    <div style={{ fontSize: 12, color: "var(--ink-0)", fontWeight: 500, marginTop: 3 }}>
+                    <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("sidebar.fitness.recommend")}</Text>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-0)", fontWeight: 500, marginTop: 3 }}>
                       {fitness.tsb >= 5 ? t("sidebar.fitness.recoMaintain") : fitness.tsb <= -10 ? t("sidebar.fitness.recoRecovery") : t("sidebar.fitness.recoModerate")}
                     </div>
                   </div>
@@ -740,8 +741,8 @@ export default function DashboardPage() {
                       <img src={c.logo} alt={c.name} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: c.logoBg ? "contain" : "cover", padding: c.logoBg ? 2 : 0 }} />
                     </div>
                     <div className="min-w-0">
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-0)" }}>{c.name}</div>
-                      <div style={{ fontSize: 10, color: "var(--ink-3)" }}>{t(`home.communities.${c.descKey}`)}</div>
+                      <div style={{ fontSize: "var(--fs-xs)", fontWeight: 600, color: "var(--ink-0)" }}>{c.name}</div>
+                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t(`home.communities.${c.descKey}`)}</div>
                     </div>
                   </a>
                 ))}

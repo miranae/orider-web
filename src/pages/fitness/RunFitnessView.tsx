@@ -131,10 +131,10 @@ export default function RunFitnessView() {
           <Text as="div" variant="eyebrow">{t("runView.header.eyebrow")}</Text>
           <DisciplineTabs includeTri />
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
+        <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, color: "var(--ink-0)", margin: 0 }}>
           {t("runView.header.title")}
         </h1>
-        <p style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 6 }}>
+        <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginTop: 6 }}>
           {t("runView.header.subtitle")}
         </p>
       </div>
@@ -159,7 +159,7 @@ export default function RunFitnessView() {
               <Text variant="dataHero" style={{ color: s.color }}>{s.value}</Text>
               {s.unit && <Text variant="unit">{s.unit}</Text>}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               <Text variant="mono">{s.sub}</Text>
               <span style={{ color: "var(--ink-4)" }}>·</span>
               <span>{s.desc}</span>
@@ -172,14 +172,14 @@ export default function RunFitnessView() {
       <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
         <div style={{ display: "flex", alignItems: "flex-end", marginBottom: 14 }}>
           <div>
-            <h3 style={{ margin: 0, marginBottom: 3, fontSize: 14, fontWeight: 600, color: "var(--ink-0)" }}>
+            <h3 style={{ margin: 0, marginBottom: 3, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
               {t("runView.pmc.title")}
             </h3>
-            <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("runView.pmc.sub")}</div>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("runView.pmc.sub")}</div>
           </div>
           <div style={{ flex: 1 }} />
           {/* 범례 */}
-          <div style={{ display: "flex", gap: 14, fontSize: 11, color: "var(--ink-3)", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 14, fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 14, height: 2, background: "var(--amber)", flexShrink: 0 }} />
               CTL
@@ -201,7 +201,7 @@ export default function RunFitnessView() {
         <div
           style={{
             display: "flex", justifyContent: "space-between",
-            marginTop: 'var(--space-2)', fontSize: 10,
+            marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)",
             fontFamily: "var(--font-mono)", color: "var(--ink-4)",
           }}
         >
@@ -218,7 +218,7 @@ export default function RunFitnessView() {
             marginTop: 'var(--space-4)', padding: 14,
             background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
             border: "1px solid color-mix(in oklch, var(--lime) 20%, var(--line-soft))",
-            borderRadius: 6,
+            borderRadius: "var(--r-md)",
             display: "grid",
             gridTemplateColumns: "2fr repeat(3, 1fr)",
             gap: 'var(--space-5)',
@@ -229,27 +229,27 @@ export default function RunFitnessView() {
             <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: 'var(--space-1)' }}>
               {t("runView.goal.eyebrow")}
             </Text>
-            <div style={{ fontSize: 13, color: "var(--ink-0)", fontWeight: 500 }}>
+            <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
               2026-07-18 · D-<Text variant="mono" style={{ color: "var(--lime)" }}>80</Text>
-              <span style={{ color: "var(--ink-3)", fontSize: 11, marginLeft: 10 }}>{t("runView.goal.distancePace")}</span>
+              <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: 10 }}>{t("runView.goal.distancePace")}</span>
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("runView.goal.runCtlLabel")}</Text>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("runView.goal.runCtlLabel")}</Text>
             <div>
               <Text variant="dataLarge" style={{ color: "var(--amber)" }}>62</Text>
               <Text variant="unit">+20</Text>
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("goal.tsb")}</Text>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("goal.tsb")}</Text>
             <div>
               <Text variant="dataLarge" style={{ color: "var(--amber)" }}>+12</Text>
               <Text variant="unit">{t("goal.tsbStatus.optimal")}</Text>
             </div>
           </div>
           <div>
-            <Text as="div" variant="eyebrow" style={{ fontSize: 9, marginBottom: 3 }}>{t("goal.adherence")}</Text>
+            <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: 3 }}>{t("goal.adherence")}</Text>
             <div>
               <Text variant="dataLarge">91</Text>
               <Text variant="unit">%</Text>

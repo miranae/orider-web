@@ -279,32 +279,32 @@ export default function EventCreatePage() {
             display: "grid",
             placeItems: "center",
             margin: "0 auto 20px",
-            fontSize: 28,
+            fontSize: "var(--fs-3xl)",
             color: "var(--lime)",
           }}
         >
           ✓
         </div>
-        <h1 style={{ fontSize: 28, letterSpacing: "-0.02em", marginBottom: 10, color: "var(--ink-0)" }}>
+        <h1 style={{ fontSize: "var(--fs-3xl)", letterSpacing: "-0.02em", marginBottom: 10, color: "var(--ink-0)" }}>
           {createdAsDraft ? t("message.draftSaved") : t("message.eventCreated")}
         </h1>
-        <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 28 }}>
+        <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: 28 }}>
           {createdAsDraft
             ? t("create.draftDoneDesc")
             : t("create.publishedDesc", { name: data.name })}
         </div>
         <Card padding="none" style={{ padding: 'var(--space-5)', textAlign: "left", marginBottom: 'var(--space-5)' }}>
-          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: 12 }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("label.eventId")}</span>
             <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)" }}>{createdEventId}</span>
           </div>
-          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: 12 }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("create.statusLabel")}</span>
             <span style={{ color: createdAsDraft ? "var(--amber)" : "var(--aqua)", fontFamily: "var(--font-mono)" }}>
               {createdAsDraft ? "DRAFT" : "OPEN"}
             </span>
           </div>
-          <div className="flex items-center justify-between" style={{ fontSize: 12 }}>
+          <div className="flex items-center justify-between" style={{ fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("field.closeAt")}</span>
             <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)" }}>{data.closeAt || "–"}</span>
           </div>
@@ -332,7 +332,7 @@ export default function EventCreatePage() {
   return (
     <div style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
       {/* Breadcrumb */}
-      <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
+      <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
         <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <span style={{ color: "var(--ink-2)" }}>{t("createTitle")}</span>
@@ -341,10 +341,10 @@ export default function EventCreatePage() {
       {/* 헤더 */}
       <div className="flex items-end justify-between flex-wrap" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
         <div>
-          <h1 style={{ fontSize: 26, letterSpacing: "-0.02em", marginBottom: 'var(--space-1)', color: "var(--ink-0)" }}>
+          <h1 style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", marginBottom: 'var(--space-1)', color: "var(--ink-0)" }}>
             {t("createTitle")}
           </h1>
-          <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
             {t("create.headerDesc")}
           </div>
         </div>
@@ -443,19 +443,19 @@ export default function EventCreatePage() {
                           padding: 'var(--space-4)',
                           background: "color-mix(in oklch, var(--lime) 6%, var(--bg-2))",
                           border: "1px solid color-mix(in oklch, var(--lime) 30%, var(--line-soft))",
-                          borderRadius: 6,
+                          borderRadius: "var(--r-md)",
                         }}
                       >
                         <div
                           style={{
                             width: 80,
                             height: 50,
-                            borderRadius: 4,
+                            borderRadius: "var(--r-sm)",
                             background: "var(--bg-3)",
                             display: "grid",
                             placeItems: "center",
                             flexShrink: 0,
-                            fontSize: 18,
+                            fontSize: "var(--fs-lg)",
                             color: "var(--ink-3)",
                           }}
                           aria-hidden="true"
@@ -466,7 +466,7 @@ export default function EventCreatePage() {
                           <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
                             {c.name}
                           </div>
-                          <div className="flex flex-wrap" style={{ gap: 14, fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                          <div className="flex flex-wrap" style={{ gap: 14, fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                             {c.regions && c.regions.length > 0 && <span>{c.regions.slice(0, 2).join(", ")}</span>}
                             <span>{(c.distance / 1000).toFixed(1)} km</span>
                             <span>↑ {Math.round(c.elevationGain).toLocaleString()} m</span>
@@ -512,7 +512,7 @@ export default function EventCreatePage() {
                       </Button>
                     </div>
                     {loadingCourses ? (
-                      <div className="flex items-center" style={{ gap: 'var(--space-2)', padding: "8px 0", fontSize: 13, color: "var(--ink-3)" }}>
+                      <div className="flex items-center" style={{ gap: 'var(--space-2)', padding: "8px 0", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
                         <div className="w-4 h-4 border-2 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
                         {t("message.loadingCourses")}
                       </div>
@@ -563,7 +563,7 @@ export default function EventCreatePage() {
                                 style={{
                                   padding: "10px 12px",
                                   textAlign: "left",
-                                  borderRadius: 5,
+                                  borderRadius: "var(--r-sm)",
                                   background: "var(--bg-2)",
                                   border: "1px solid var(--line-soft)",
                                   gap: 'var(--space-3)',
@@ -575,7 +575,7 @@ export default function EventCreatePage() {
                                     width: 40,
                                     height: 28,
                                     background: "var(--bg-3)",
-                                    borderRadius: 3,
+                                    borderRadius: "var(--r-xs)",
                                     flexShrink: 0,
                                   }}
                                   aria-hidden="true"
@@ -584,7 +584,7 @@ export default function EventCreatePage() {
                                   <div className="text-[length:var(--fs-xs)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 2 }}>
                                     {c.name}
                                   </div>
-                                  <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: 10 }}>
+                                  <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)" }}>
                                     {c.regions && c.regions.length > 0 ? `${c.regions.slice(0, 2).join(", ")} · ` : ""}
                                     {(c.distance / 1000).toFixed(1)} km · ↑{Math.round(c.elevationGain).toLocaleString()} m
                                   </div>
@@ -676,8 +676,8 @@ export default function EventCreatePage() {
                     aria-pressed={data.feeType === "FREE"}
                     style={{
                       padding: "12px 18px",
-                      fontSize: 12,
-                      borderRadius: 5,
+                      fontSize: "var(--fs-xs)",
+                      borderRadius: "var(--r-sm)",
                       background: data.feeType === "FREE" ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                       border: `1px solid ${data.feeType === "FREE" ? "var(--lime)" : "var(--line-soft)"}`,
                       color: data.feeType === "FREE" ? "var(--ink-0)" : "var(--ink-2)",
@@ -692,8 +692,8 @@ export default function EventCreatePage() {
                     aria-pressed={data.feeType === "PAID"}
                     style={{
                       padding: "12px 18px",
-                      fontSize: 12,
-                      borderRadius: 5,
+                      fontSize: "var(--fs-xs)",
+                      borderRadius: "var(--r-sm)",
                       background: data.feeType === "PAID" ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                       border: `1px solid ${data.feeType === "PAID" ? "var(--lime)" : "var(--line-soft)"}`,
                       color: data.feeType === "PAID" ? "var(--ink-0)" : "var(--ink-2)",
@@ -711,7 +711,7 @@ export default function EventCreatePage() {
                         placeholder={t("create.ph.fee")}
                         style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
                       />
-                      <span style={{ fontSize: 12, color: "var(--ink-3)" }}>{t("create.feeUnit")}</span>
+                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("create.feeUnit")}</span>
                     </div>
                   )}
                 </div>
@@ -734,7 +734,7 @@ export default function EventCreatePage() {
                         padding: 10,
                         background: "var(--bg-2)",
                         border: "1px solid var(--line-soft)",
-                        borderRadius: 5,
+                        borderRadius: "var(--r-sm)",
                       }}
                     >
                       <input
@@ -766,7 +766,7 @@ export default function EventCreatePage() {
                         style={{
                           width: 32,
                           height: 34,
-                          borderRadius: 5,
+                          borderRadius: "var(--r-sm)",
                           background: "var(--bg-3)",
                           border: "1px solid var(--line-soft)",
                           color: "var(--ink-3)",
@@ -793,7 +793,7 @@ export default function EventCreatePage() {
                     + {t("message.addCategory")}
                   </Button>
                 </div>
-                <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
+                <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
                   <span>{t("create.totalSlots", { count: totalSlots })}</span>
                   <span>{t("create.categoryCount", { count: data.categories.length })}</span>
                 </div>
@@ -845,8 +845,8 @@ export default function EventCreatePage() {
                     aria-pressed={data.cutoffEnabled}
                     style={{
                       padding: "8px 14px",
-                      fontSize: 12,
-                      borderRadius: 5,
+                      fontSize: "var(--fs-xs)",
+                      borderRadius: "var(--r-sm)",
                       background: data.cutoffEnabled ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
                       border: `1px solid ${data.cutoffEnabled ? "var(--lime)" : "var(--line-soft)"}`,
                       color: data.cutoffEnabled ? "var(--ink-0)" : "var(--ink-2)",
@@ -856,7 +856,7 @@ export default function EventCreatePage() {
                     {data.cutoffEnabled ? t("create.cutoffOn") : t("create.cutoffOff")}
                   </button>
                   {data.cutoffEnabled && (
-                    <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
                       {t("create.cutoffBufferPre")}
                       <input
                         type="number"
@@ -899,7 +899,7 @@ export default function EventCreatePage() {
                         marginBottom: 6,
                         background: "var(--bg-2)",
                         border: "1px solid var(--line-soft)",
-                        borderRadius: 5,
+                        borderRadius: "var(--r-sm)",
                         cursor: "pointer",
                       }}
                     >
@@ -914,7 +914,7 @@ export default function EventCreatePage() {
                         style={{
                           width: 32,
                           height: 18,
-                          borderRadius: 10,
+                          borderRadius: "var(--r-xl)",
                           position: "relative",
                           flexShrink: 0,
                           marginTop: 2,
@@ -955,7 +955,7 @@ export default function EventCreatePage() {
                 padding: 'var(--space-3)',
                 background: "color-mix(in oklch, var(--rose) 12%, var(--bg-2))",
                 border: "1px solid color-mix(in oklch, var(--rose) 30%, transparent)",
-                borderRadius: 5,
+                borderRadius: "var(--r-sm)",
               }}
             >
               <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--rose)", margin: 0 }}>{submitError}</p>
@@ -1004,10 +1004,10 @@ export default function EventCreatePage() {
           style={{ padding: 18, position: "sticky", top: 68 }}
         >
           <Text as="div" variant="eyebrow" style={{ marginBottom: 10 }}>{t("preview")}</Text>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)', minHeight: 20 }}>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-1)', minHeight: 20 }}>
             {data.name || <span style={{ color: "var(--ink-3)", fontWeight: 400 }}>{t("create.ph.eventName")}</span>}
           </div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 14 }}>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginBottom: 14 }}>
             {data.date ? `${data.date} ${data.startTime || ""}` : t("create.dateTbd")}
           </div>
 
@@ -1015,7 +1015,7 @@ export default function EventCreatePage() {
             className="flex flex-col"
             style={{
               gap: 'var(--space-2)',
-              fontSize: 11,
+              fontSize: "var(--fs-xs)",
               paddingTop: 14,
               borderTop: "1px solid var(--line-soft)",
               margin: 0,
@@ -1043,7 +1043,7 @@ export default function EventCreatePage() {
               marginTop: 18,
               paddingTop: 14,
               borderTop: "1px solid var(--line-soft)",
-              fontSize: 10,
+              fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               lineHeight: 1.5,
             }}

@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { firestore } from '../services/firebase';
+import { logClientError } from '../services/errorLogger';
 import i18n from '../i18n';
 import { SUPPORTED_LANGS, type Lang } from '../i18n/detector';
 import type { Units } from '../utils/units';
@@ -61,8 +62,8 @@ export function LocaleProvider({
       if (!userId) return;
       try {
         await setDoc(doc(firestore, 'users', userId), patch, { merge: true });
-      } catch (e) {
-        console.warn('[locale] Firestore persist failed', e);
+      } catch (err) {
+        logClientError('LocaleContext.persist', err, { patch: Object.keys(patch) });
       }
     },
     [userId]
