@@ -17,9 +17,13 @@ export function serializePostEditorContent(
   clone.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src") || "";
     if (urlMap.has(src)) {
-      const realUrl = urlMap.get(src)!;
-      imageUrls.push(realUrl);
-      img.setAttribute("src", realUrl);
+      const safeUploadedUrl = normalizeUserContentUrl(urlMap.get(src));
+      if (safeUploadedUrl) {
+        imageUrls.push(safeUploadedUrl);
+        img.setAttribute("src", safeUploadedUrl);
+      } else {
+        img.remove();
+      }
     } else if (src && !src.startsWith("blob:")) {
       const safeSrc = normalizeUserContentUrl(src);
       if (safeSrc) {

@@ -30,6 +30,14 @@ describe("serializePostEditorContent", () => {
     expect(result.content).toContain(`![image](${uploaded})`);
   });
 
+  it("drops unsafe upload URL mappings", () => {
+    const editor = editorFrom('<p>photo</p><img src="blob:local">');
+    const result = serializePostEditorContent(editor, new Map([["blob:local", "javascript:evil(1)"]]));
+
+    expect(result.imageUrls).toEqual([]);
+    expect(result.content).toBe("photo");
+  });
+
   it("drops unsafe links and images while preserving text", () => {
     const editor = editorFrom(
       '<p><a href="javascript:alert(1)">click me</a></p><img src="data:text/html,<svg onload=alert(1)>">',
