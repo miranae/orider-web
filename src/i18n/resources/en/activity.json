@@ -210,7 +210,7 @@
     "deleteConfirm": "Delete this comment?"
   },
   "analysis": {
-    "noData": "No power or heart rate data available for analysis",
+    "noData": "This activity does not include the power or heart-rate streams needed for analysis yet. Connect sensors or sync a FIT/GPX/Strava activity to populate these charts.",
     "ftpFallback": "FTP not configured — using default {{ftp}}W. Set FTP in the app for accurate analysis.",
     "maxHrFallback": "Max HR not configured — using default {{hr}}bpm.",
     "section": {
@@ -348,6 +348,15 @@
       "hr": "HR Zones",
       "power": "Power Zones",
       "powerKj": "Work per zone (kJ)"
+    },
+    "empty": {
+      "noStreamsTitle": "No analysis streams yet",
+      "hrZonesTitle": "Heart-rate zones are not ready",
+      "hrZonesDesc": "When enough heart-rate stream data is recorded, time in each zone will appear here.",
+      "powerZonesTitle": "Power zones are not ready",
+      "powerZonesDesc": "When enough power stream data is recorded, FTP-based intensity distribution will appear here.",
+      "powerCurveTitle": "Power curve is not ready yet",
+      "powerCurveDesc": "When the power stream is long enough, peak average power from 5 seconds to 60 minutes will appear here."
     },
     "seiler": {
       "z1": "Low Intensity",

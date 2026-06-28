@@ -119,6 +119,7 @@ vi.mock("chart.js", () => ({
   Chart: { register: vi.fn() },
   CategoryScale: class {},
   LinearScale: class {},
+  LogarithmicScale: class {},
   BarElement: class {},
   LineElement: class {},
   PointElement: class {},

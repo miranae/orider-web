@@ -313,8 +313,13 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
 
   if (!hasPower && !hasHr) {
     return (
-      <div className="text-center py-12 text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-3)' }}>
-        {t("analysis.noData")}
+      <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}>
+        <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>
+          {t("analysis.empty.noStreamsTitle")}
+        </div>
+        <div className="mx-auto mt-1 max-w-[420px] text-[length:var(--fs-xs)] leading-relaxed" style={{ color: 'var(--ink-3)' }}>
+          {t("analysis.noData")}
+        </div>
       </div>
     );
   }
@@ -542,7 +547,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
       )}
 
       {/* 존 분포 */}
-      {(hrZones || powerZones) && (
+      {(hasHr || hasPower) && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5">
@@ -576,10 +581,22 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {hrZones && <ZoneDistributionChart title={t("analysis.zones.hr")} zones={hrZones} />}
+            {hasHr && (
+              <ZoneDistributionChart
+                title={t("analysis.zones.hr")}
+                zones={hrZones ?? []}
+                emptyTitle={t("analysis.empty.hrZonesTitle")}
+                emptyDescription={t("analysis.empty.hrZonesDesc")}
+              />
+            )}
             {powerZoneView === "coggan" && powerZones && (
               <div>
-                <ZoneDistributionChart title={t("analysis.zones.power")} zones={powerZones} />
+                <ZoneDistributionChart
+                  title={t("analysis.zones.power")}
+                  zones={powerZones}
+                  emptyTitle={t("analysis.empty.powerZonesTitle")}
+                  emptyDescription={t("analysis.empty.powerZonesDesc")}
+                />
                 {/* #460 존별 일량(kJ) — 서버 사전계산 zoneKj 노출(시간 분포 보완) */}
                 {sm?.zoneKj && (
                   <div className="mt-3">
@@ -691,10 +708,15 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
       )}
 
       {/* 파워 커브 */}
-      {powerCurve.length > 0 && (
+      {hasPower && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.powerCurve")}</h3>
-          <PowerCurveChart points={powerCurve} ftp={streams.ftp} />
+          <PowerCurveChart
+            points={powerCurve}
+            ftp={streams.ftp}
+            emptyTitle={t("analysis.empty.powerCurveTitle")}
+            emptyDescription={t("analysis.empty.powerCurveDesc")}
+          />
         </div>
       )}
 

@@ -15,15 +15,18 @@ import {
 import type { PowerCurvePoint } from "../utils/powerCurve";
 import { formatNum } from "../utils/units";
 import { useTheme } from "../contexts/ThemeContext";
+import ChartEmptyState from "./charts/ChartEmptyState";
 
 ChartJS.register(CategoryScale, LinearScale, LogarithmicScale, PointElement, LineElement, Filler, Tooltip);
 
 interface PowerCurveChartProps {
   points: PowerCurvePoint[];
   ftp?: number;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
-export default function PowerCurveChart({ points, ftp }: PowerCurveChartProps) {
+export default function PowerCurveChart({ points, ftp, emptyTitle, emptyDescription }: PowerCurveChartProps) {
   const { t } = useTranslation("dashboard");
   const { resolvedTheme } = useTheme();
 
@@ -94,9 +97,11 @@ export default function PowerCurveChart({ points, ftp }: PowerCurveChartProps) {
 
   if (points.length === 0) {
     return (
-      <div className="text-center py-8 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
-        {t("charts.powerCurve.noData")}
-      </div>
+      <ChartEmptyState
+        title={emptyTitle ?? t("charts.powerCurve.emptyTitle")}
+        description={emptyDescription ?? t("charts.powerCurve.emptyDescription")}
+        minHeight={200}
+      />
     );
   }
 
