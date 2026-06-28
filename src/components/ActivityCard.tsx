@@ -108,7 +108,9 @@ function CaptureMap({ activityId, userId, polyline, mapImageUrl, priority = fals
       await updateDoc(doc(firestore, "activities", activityId), { mapImageUrl: url });
       setImageUrl(url);
     } catch (err) {
-      logClientError("ActivityCard.captureMap", err, { activityId });
+      if (shouldReportMapCaptureError(err)) {
+        logClientError("ActivityCard.captureMap", err, { activityId });
+      }
     }
   }, [activityId, userId, needsCapture]);
 
@@ -175,6 +177,24 @@ function CaptureMap({ activityId, userId, polyline, mapImageUrl, priority = fals
 function isClientCapturedUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   return url.includes("firebasestorage.googleapis.com");
+}
+
+export function shouldReportMapCaptureError(error: unknown): boolean {
+  const code = getErrorCode(error);
+  if (code === "storage/unauthorized" || code === "permission-denied") return false;
+
+  const message = error instanceof Error ? error.message : String(error);
+  return !(
+    message.includes("storage/unauthorized") ||
+    message.includes("does not have permission") ||
+    message.includes("Missing or insufficient permissions")
+  );
+}
+
+function getErrorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
 }
 
 function formatDuration(ms: number): string {

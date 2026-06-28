@@ -1,5 +1,5 @@
 import { screen, waitFor, fireEvent } from "@testing-library/react";
-import ActivityCard from "./ActivityCard";
+import ActivityCard, { shouldReportMapCaptureError } from "./ActivityCard";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 
@@ -9,6 +9,17 @@ vi.mock("./RouteMap", () => ({
 }));
 
 describe("ActivityCard", () => {
+  it("does not report optional map thumbnail permission failures as client errors", () => {
+    expect(shouldReportMapCaptureError({ code: "storage/unauthorized" })).toBe(false);
+    expect(shouldReportMapCaptureError({ code: "permission-denied" })).toBe(false);
+    expect(
+      shouldReportMapCaptureError(
+        new Error("Firebase Storage: User does not have permission to access the object. (storage/unauthorized)")
+      )
+    ).toBe(false);
+    expect(shouldReportMapCaptureError(new Error("canvas capture failed"))).toBe(true);
+  });
+
   it("renders activity nickname and description", () => {
     const activity = createMockActivity({
       nickname: "한강 라이더",
