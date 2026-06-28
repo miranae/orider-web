@@ -245,15 +245,27 @@ export default function TodaysWorkoutCard() {
   // revalidating이 true→false로 떨어지면 plan/adaptationFlag가 갱신됐을 수 있으니 refetch
   const prevRevalidating = useRef(false);
   useEffect(() => {
-    if (prevRevalidating.current && !revalidating && user) {
+    let cancelled = false;
+    if (authLoading || !user) {
+      prevRevalidating.current = revalidating;
+      return () => { cancelled = true; };
+    }
+    if (prevRevalidating.current && !revalidating) {
       const fn = httpsCallable<Record<string, never>, TodaysWorkoutCFResponse>(
         functions,
         "getTodaysWorkout"
       );
-      fn({}).then((res) => setData(res.data.todaysWorkout)).catch((err) => logClientError("TodaysWorkoutCard.todaysWorkout", err, {}));
+      fn({})
+        .then((res) => {
+          if (!cancelled) setData(res.data.todaysWorkout);
+        })
+        .catch((err) => {
+          if (!cancelled) logClientError("TodaysWorkoutCard.todaysWorkout", err, {});
+        });
     }
     prevRevalidating.current = revalidating;
-  }, [revalidating]);
+    return () => { cancelled = true; };
+  }, [authLoading, revalidating, user]);
 
   // ── 통합 facts/narrative 컴퓨테이션 (early return 이전, hooks 안정) ───────────
   const lastActivityAt = summary?.meta.lastActivityAt ?? lastActFallbackTs;
