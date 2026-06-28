@@ -46,7 +46,8 @@ Do not include access tokens, real user IDs, emails, precise private routes, pro
 Run the relevant checks:
 
 ```bash
-npm run lint
+npm run lint:budget
+npm run quality:budget
 npm test
 npm run build
 ```
@@ -62,6 +63,7 @@ npm run e2e
 - Work on a branch and submit a Pull Request.
 - Keep PRs focused. Separate refactors from behavior changes.
 - Do not commit secrets, tokens, `.env`, production exports, or user data.
+- Follow [docs/CONTRIBUTOR_ARCHITECTURE.md](docs/CONTRIBUTOR_ARCHITECTURE.md) for feature structure, logging, and Firestore write placement.
 - Use Korean for project-facing prose when matching existing product copy; English is fine for general contributor docs.
 - Use Conventional Commit-style titles when possible: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`.
 - Explain UI token/design-system changes in the PR body.
@@ -70,7 +72,8 @@ npm run e2e
 
 - [ ] No secrets, credentials, production exports, or private user data are included.
 - [ ] Personal-data recipes use only owned-data examples, minimal planned scopes, and demo/mock data.
-- [ ] `npm run lint` passes.
+- [ ] `npm run lint:budget` passes without increasing the warning baseline.
+- [ ] `npm run quality:budget` passes without increasing large-file, console, or alert baselines.
 - [ ] `npm test` passes.
 - [ ] `npm run build` passes.
 - [ ] Docs or translations were updated when needed.
