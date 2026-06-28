@@ -30,7 +30,6 @@
       }
     ],
     "redirects": [
-      { "source": "/community-guide", "destination": "/community-guide/", "type": 301 },
       { "source": "/community", "destination": "/community-guide/", "type": 302 },
       { "source": "/platform", "destination": "/community-guide/", "type": 302 }
     ],
