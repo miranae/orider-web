@@ -7,6 +7,8 @@ import { firestore } from "../services/firebase";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { Card, Text } from "../theme/components";
 import ChallengeFeed from "../components/discover/ChallengeFeed";
+import { fetchStaticJson } from "../utils/staticJson";
+import { segmentTileUrl } from "../utils/segmentTiles";
 
 /**
  * 탐색 허브 랜딩(/discover) — '발견→처방→도전' 진입점 (이슈 #486).
@@ -16,8 +18,6 @@ import ChallengeFeed from "../components/discover/ChallengeFeed";
  * 맞춤 챌린지 피드(PDC 결정적 카드)는 #491(P1)에서 이 페이지에 얹는다.
  * mapbox 미사용 — 경량 일반 라우트.
  */
-
-const TILES_BASE = import.meta.env.VITE_SEGMENT_TILES_BASE;
 
 interface SegHit { id: string; name: string; city?: string; state?: string; distance: number; averageGrade: number; climbCategory: number }
 interface CourseHit { id: string; name: string; distance: number; elevationGain: number }
@@ -48,8 +48,7 @@ export default function DiscoverPage() {
   useEffect(() => {
     if (!q || loadedRef.current) return;
     loadedRef.current = true;
-    fetch(`${TILES_BASE}/overview.json`)
-      .then((r) => r.json())
+    fetchStaticJson<{ segments: SegHit[] }>(segmentTileUrl("overview.json"))
       .then((d: { segments: SegHit[] }) =>
         setSegs(d.segments.map((s) => ({ id: s.id, name: s.name, city: s.city, state: s.state, distance: s.distance, averageGrade: s.averageGrade, climbCategory: s.climbCategory }))),
       )
