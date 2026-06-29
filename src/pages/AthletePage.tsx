@@ -37,8 +37,24 @@ export default function AthletePage() {
   const { showToast } = useToast();
   const { t } = useTranslation("athlete");
   const [searchParams] = useSearchParams();
+  const isOwnProfile = currentUser?.uid === userId;
 
   const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
+  const ownProfileFallback: PublicUserProfile | null = useMemo(() => (
+    isOwnProfile && currentProfile && userId
+      ? {
+          id: userId,
+          nickname: currentProfile.nickname,
+          photoURL: currentProfile.photoURL ?? null,
+          ...(currentProfile.bio ? { bio: currentProfile.bio } : {}),
+          ...(currentProfile.stats ? { stats: currentProfile.stats } : {}),
+          ...(currentProfile.profilePublic != null ? { profilePublic: currentProfile.profilePublic } : {}),
+          ...(currentProfile.friendRequestsAllowed != null ? { friendRequestsAllowed: currentProfile.friendRequestsAllowed } : {}),
+          ...(currentProfile.primaryDiscipline ? { primaryDiscipline: currentProfile.primaryDiscipline } : {}),
+        }
+      : null
+  ), [currentProfile, isOwnProfile, userId]);
+  const profileForPage = useMemo(() => firestoreProfile ?? ownProfileFallback, [firestoreProfile, ownProfileFallback]);
 
   const ACTIVITIES_PAGE_SIZE = 20;
   const [displayActivities, setDisplayActivities] = useState<Activity[]>([]);
@@ -67,9 +83,6 @@ export default function AthletePage() {
   const [searchResults, setSearchResults] = useState<Activity[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const isSearchActive = searchQuery.length > 0;
-
-  // 1. 활동 목록: 빠른 첫 화면 (limit 20 + cursor 페이지네이션)
-  const isOwnProfile = currentUser?.uid === userId;
 
   // summary 필드가 없는 비정상 문서는 다운스트림 통계 계산에서 크래시를 유발하므로 제외.
   const docsToActivities = (
@@ -116,15 +129,15 @@ export default function AthletePage() {
 
   // 2. 통계 카드: 프로필의 사전 집계 stats 사용
   useEffect(() => {
-    if (!firestoreProfile?.stats) return;
-    const s = firestoreProfile.stats;
+    if (!profileForPage?.stats) return;
+    const s = profileForPage.stats;
     setStats({
       count: s.activityCount ?? 0,
       distance: s.totalDistance ?? 0,
       time: s.totalRidingTime ?? 0,
       elevation: s.totalElevationGain ?? 0,
     });
-  }, [firestoreProfile]);
+  }, [profileForPage]);
 
   // 3. 월간 차트: 백그라운드 (limit 200)
   useEffect(() => {
@@ -376,8 +389,8 @@ export default function AthletePage() {
     }
   };
 
-  const nickname = firestoreProfile?.nickname;
-  const photoURL = firestoreProfile?.photoURL ?? null;
+  const nickname = profileForPage?.nickname;
+  const photoURL = profileForPage?.photoURL ?? null;
   const activities = displayActivities.map((a) =>
     !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
   );
@@ -420,7 +433,7 @@ export default function AthletePage() {
     return filterType === "strava" ? isStrava : !isStrava;
   });
 
-  if (profileLoading) {
+  if (profileLoading && !ownProfileFallback) {
     return (
       <div className="space-y-6">
         <div className="relative">
