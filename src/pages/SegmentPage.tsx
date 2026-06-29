@@ -10,8 +10,6 @@ import { firestore, storage } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
-import { usePdc } from "../hooks/usePdc";
-import { predictSegmentTimeSec, predictedRank } from "@shared/training/segmentPrediction";
 import { useStrava } from "../hooks/useStrava";
 import RouteMap from "../components/RouteMap";
 import Avatar from "../components/Avatar";
@@ -487,22 +485,6 @@ export default function SegmentPage() {
     typeof legend.computedAt === "number" &&
     Date.now() - legend.computedAt < LEGEND_STALE_MS;
 
-  // 내가 달리면? — PDC(CP/W') × 세그먼트 물리로 결정적 예상기록 + 도달 순위(#487).
-  const { pdc } = usePdc(user?.uid);
-  const prediction = useMemo(() => {
-    if (!segment || !pdc?.cp || !profile?.weightKg) return null;
-    const sec = predictSegmentTimeSec({
-      distanceM: segment.distance,
-      avgGradePct: segment.averageGrade,
-      cp: pdc.cp.value,
-      wPrime: pdc.cp.wPrime,
-      riderWeightKg: profile.weightKg,
-    });
-    if (sec == null) return null;
-    // sec 는 초, effort.elapsedTime 은 ms → 초로 환산해 비교. 유효 effort 만(무결성).
-    return { sec, rank: predictedRank(sec, validEfforts.map((e) => e.elapsedTime / 1000)) };
-  }, [segment, pdc, profile?.weightKg, validEfforts]);
-
   const myBestEffort = useMemo(
     () => {
       if (!user) return null;
@@ -814,27 +796,6 @@ export default function SegmentPage() {
           </div>
         ) : (
           <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("legend.empty")}</div>
-        )}
-      </Card>
-
-      {/* 내가 달리면? — PDC 기반 결정적 예상기록(#487) */}
-      <Card padding="none" className="p-4!">
-        <Text as="div" variant="eyebrow" className="mb-2">{t("predict.title")}</Text>
-        {prediction ? (
-          <div className="flex items-center gap-3 flex-wrap">
-            <Text as="div" variant="dataLarge" style={{ color: "var(--lime)" }}>{formatTime(prediction.sec * 1000)}</Text>
-            <span
-              className="text-[length:var(--fs-xs)] font-bold px-2 py-0.5 rounded-[var(--r-sm)]"
-              style={prediction.rank <= 3 ? rankStyle(prediction.rank) : { background: "var(--bg-3)", color: "var(--ink-2)", border: "1px solid var(--line-soft)" }}
-            >
-              {t("predict.rank", { rank: prediction.rank })}
-            </span>
-            <Text variant="caption" tone="tertiary">{t("predict.note")}</Text>
-          </div>
-        ) : user ? (
-          <Text variant="body" tone="tertiary" as="p">{t("predict.needData")}</Text>
-        ) : (
-          <Text variant="body" tone="tertiary" as="p">{t("empty.loginRequired")}</Text>
         )}
       </Card>
 

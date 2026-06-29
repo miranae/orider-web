@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../../services/firebase";
+import { functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { searchPublicUserProfilesByNickname, type PublicUserProfile } from "../../services/publicProfiles";
 import Avatar from "../Avatar";
 import Modal from "../Modal";
-import type { UserProfile } from "@shared/types";
 
 interface InviteMemberModalProps {
   open: boolean;
@@ -17,7 +16,7 @@ interface InviteMemberModalProps {
 
 interface SearchResult {
   id: string;
-  profile: UserProfile;
+  profile: PublicUserProfile;
 }
 
 export default function InviteMemberModal({ open, onClose, groupId, inviteCode }: InviteMemberModalProps) {
@@ -33,14 +32,8 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode }
     if (!searchQuery.trim()) return;
     setSearching(true);
     try {
-      const q = query(
-        collection(firestore, "users"),
-        where("nickname", ">=", searchQuery.trim()),
-        where("nickname", "<=", searchQuery.trim() + "\uf8ff"),
-        limit(10),
-      );
-      const snap = await getDocs(q);
-      setResults(snap.docs.map((d) => ({ id: d.id, profile: d.data() as UserProfile })));
+      const profiles = await searchPublicUserProfilesByNickname(searchQuery, 10);
+      setResults(profiles.map((profile) => ({ id: profile.id, profile })));
     } catch {
       setResults([]);
     }

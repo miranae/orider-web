@@ -24,9 +24,9 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 describe("AthletePage", () => {
   beforeEach(() => {
-    setDocData("users/athlete-1", {
-      ...createMockProfile({ nickname: "한강 라이더" }),
-    });
+    const profile = createMockProfile({ nickname: "한강 라이더" });
+    setDocData("users/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { ...profile });
   });
 
   it("shows profile nickname", async () => {
@@ -37,9 +37,9 @@ describe("AthletePage", () => {
   });
 
   it("shows avatar for the athlete", async () => {
-    setDocData("users/athlete-1", {
-      ...createMockProfile({ nickname: "라이더", photoURL: "https://example.com/p.jpg" }),
-    });
+    const profile = createMockProfile({ nickname: "라이더", photoURL: "https://example.com/p.jpg" });
+    setDocData("users/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { ...profile });
     renderWithProviders(<AthletePage />);
     await waitFor(() => {
       expect(screen.getByText("라이더")).toBeInTheDocument();

@@ -7,6 +7,7 @@ import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
@@ -211,11 +212,10 @@ export default function EventParticipantsPage() {
       await Promise.all(
         userIds.map(async (uid) => {
           try {
-            const us = await getDoc(doc(firestore, "users", uid));
-            const ud = us.exists() ? us.data() : {};
+            const profile = await getPublicUserProfile(uid);
             userMap.set(uid, {
-              nickname: ud.nickname || ud.displayName || t("participantsView.defaultRider"),
-              team: ud.team || "—",
+              nickname: profile?.nickname || t("participantsView.defaultRider"),
+              team: profile?.team || "—",
             });
           } catch {
             userMap.set(uid, { nickname: t("participantsView.defaultRider"), team: "—" });

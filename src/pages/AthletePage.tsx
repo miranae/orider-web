@@ -20,7 +20,8 @@ import { isTrivialActivity } from "../utils/activityFilter";
 import { estimateTSS } from "../utils/estimateTSS";
 import Avatar from "../components/Avatar";
 import WeeklyChart from "../components/WeeklyChart";
-import type { Activity, UserProfile } from "@shared/types";
+import type { Activity } from "@shared/types";
+import type { PublicUserProfile } from "../services/publicProfiles";
 import { Button, Card } from "../theme/components";
 
 function formatHours(ms: number): string {
@@ -37,7 +38,7 @@ export default function AthletePage() {
   const { t } = useTranslation("athlete");
   const [searchParams] = useSearchParams();
 
-  const { data: firestoreProfile, loading: profileLoading } = useDocument<UserProfile>("users", userId);
+  const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
 
   const ACTIVITIES_PAGE_SIZE = 20;
   const [displayActivities, setDisplayActivities] = useState<Activity[]>([]);
@@ -50,8 +51,6 @@ export default function AthletePage() {
 
   // My segments
   const [mySegments, setMySegments] = useState<{ id: string; name: string; distance: number; status: string; createdAt: number }[]>([]);
-
-  const [friendCode, setFriendCode] = useState<string | null>(null);
 
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
@@ -68,16 +67,6 @@ export default function AthletePage() {
   const [searchResults, setSearchResults] = useState<Activity[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const isSearchActive = searchQuery.length > 0;
-
-  useEffect(() => {
-    if (!userId) return;
-    getDoc(doc(firestore, "users", userId)).then((snap) => {
-      if (snap.exists()) {
-        const code = snap.data()?.friendCode;
-        if (code) setFriendCode(code);
-      }
-    });
-  }, [userId]);
 
   // 1. 활동 목록: 빠른 첫 화면 (limit 20 + cursor 페이지네이션)
   const isOwnProfile = currentUser?.uid === userId;
@@ -497,7 +486,6 @@ export default function AthletePage() {
         <div>
           <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">
             {nickname}
-            {friendCode && <span className="text-[length:var(--fs-sm)] font-normal text-[var(--aqua)] ml-2">({friendCode})</span>}
           </h1>
           <div className="flex gap-4 mt-2 text-[length:var(--fs-sm)] text-[var(--ink-2)]">
             {/* Friend count removed */}
