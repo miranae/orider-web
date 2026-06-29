@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import {
-  doc, collection, query, onSnapshot, getDocs, getDoc, where, limit as firestoreLimit,
+  doc, collection, query, onSnapshot, getDocs, where, limit as firestoreLimit,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
-import type { Group, GroupMember, UserProfile } from "@shared/types";
+import { getPublicUserProfile, type PublicUserProfile } from "../services/publicProfiles";
+import type { Group, GroupMember } from "@shared/types";
 
 export interface GroupMemberWithProfile extends GroupMember {
   id: string;
-  profile: UserProfile | null;
+  profile: PublicUserProfile | null;
 }
 
 // 그룹 메타데이터 실시간 구독
@@ -50,13 +51,12 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number) 
       const memberDocs = snap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
-        profile: null as UserProfile | null,
+        profile: null as PublicUserProfile | null,
       })) as GroupMemberWithProfile[];
 
       // 프로필 병렬 조회
       const profilePromises = memberDocs.map(async (m) => {
-        const profileSnap = await getDoc(doc(firestore, "users", m.id));
-        m.profile = profileSnap.exists() ? (profileSnap.data() as UserProfile) : null;
+        m.profile = await getPublicUserProfile(m.id);
         return m;
       });
 

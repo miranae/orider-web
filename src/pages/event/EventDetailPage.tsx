@@ -8,6 +8,7 @@ import { httpsCallable } from "firebase/functions";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
 import { Course } from "@shared/types";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
@@ -104,8 +105,8 @@ export default function EventDetailPage() {
           let creatorName = "";
           if (creatorId) {
             try {
-              const cu = await getDoc(doc(firestore, "users", creatorId));
-              creatorName = cu.exists() ? (cu.data().nickname || cu.data().displayName || "") : "";
+              const creator = await getPublicUserProfile(creatorId);
+              creatorName = creator?.nickname ?? "";
             } catch {
               creatorName = "";
             }
@@ -229,8 +230,8 @@ export default function EventDetailPage() {
                 : 0;
           let nickname = t("detail.defaultNickname");
           try {
-            const us = await getDoc(doc(firestore, "users", uid));
-            if (us.exists()) nickname = us.data().nickname || us.data().displayName || t("detail.defaultNickname");
+            const profile = await getPublicUserProfile(uid);
+            nickname = profile?.nickname ?? t("detail.defaultNickname");
           } catch {
             // ignore
           }
