@@ -59,6 +59,10 @@ import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
 import { useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
 
+function isPermissionDeniedError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "permission-denied";
+}
+
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -174,7 +178,13 @@ export default function ActivityPage() {
           .map((d) => ({ id: d.id, ...d.data() }) as Activity)
           .filter((a) => a.summary != null),
       );
-    }).catch((err) => logClientError("ActivityPage.bg", err, {}));
+    }).catch((err) => {
+      if (isPermissionDeniedError(err)) {
+        setCoRiders([]);
+        return;
+      }
+      logClientError("ActivityPage.bg", err, {});
+    });
   }, [activity?.groupRideId, activity?.id]);
 
   // Real-time kudos subscription

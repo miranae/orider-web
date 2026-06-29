@@ -27,6 +27,7 @@ function mockOverviewFetch(segments: OverviewSeg[]) {
   global.fetch = vi.fn(() =>
     Promise.resolve({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () => Promise.resolve(overview),
     } as Response),
   );

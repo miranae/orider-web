@@ -23,8 +23,8 @@ import { LocalizedLink as Link } from "../LocalizedLink";
 import { Card, Text } from "../../theme/components";
 import RiderTypeCard from "../RiderTypeCard";
 import { buildChallengeFeed, type FeedSegment, type ChallengeCard } from "@shared/training/challengeFeed";
-
-const TILES_BASE = import.meta.env.VITE_SEGMENT_TILES_BASE;
+import { fetchStaticJson } from "../../utils/staticJson";
+import { segmentTileUrl } from "../../utils/segmentTiles";
 
 interface OverviewSeg {
   id: string; name: string; distance: number; averageGrade: number; climbCategory: number; city?: string;
@@ -61,8 +61,7 @@ export default function ChallengeFeed() {
   useEffect(() => {
     if (!hasPdc) { setSegs(null); return; }
     let cancelled = false;
-    fetch(`${TILES_BASE}/overview.json`)
-      .then((r) => r.json())
+    fetchStaticJson<{ segments: OverviewSeg[] }>(segmentTileUrl("overview.json"))
       .then((d: { segments: OverviewSeg[] }) => { if (!cancelled) setSegs(d.segments); })
       .catch((err) => { logClientError("ChallengeFeed.overview", err, {}); if (!cancelled) setSegs([]); });
     return () => { cancelled = true; };
@@ -118,8 +117,7 @@ export default function ChallengeFeed() {
   useEffect(() => {
     if (hasPdc) return; // PDC 있으면 segs 재사용 — 별도 fetch 불필요
     let cancelled = false;
-    fetch(`${TILES_BASE}/overview.json`)
-      .then((r) => r.json())
+    fetchStaticJson<{ segments: OverviewSeg[] }>(segmentTileUrl("overview.json"))
       .then((d: { segments: OverviewSeg[] }) => { if (!cancelled) setFallbackRaw(d.segments); })
       .catch((err) => { logClientError("ChallengeFeed.fallbackOverview", err, {}); if (!cancelled) setFallbackRaw([]); });
     return () => { cancelled = true; };

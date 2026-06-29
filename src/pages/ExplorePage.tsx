@@ -10,6 +10,8 @@ import { logClientError } from "../services/errorLogger";
 import { MAPBOX_TOKEN, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { decodePolyline } from "../utils/polyline";
 import { isImplausibleSegmentElevation } from "../utils/activitySanity";
+import { fetchStaticJson } from "../utils/staticJson";
+import { segmentTileUrl } from "../utils/segmentTiles";
 import { Button, Card, Chip, Text } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 
@@ -33,8 +35,6 @@ interface SegmentData {
 
 type Category = "all" | "climb" | "flat";
 type LatLngTuple = [number, number];
-
-const TILES_BASE = import.meta.env.VITE_SEGMENT_TILES_BASE;
 
 interface TileOverview {
   v: number;
@@ -442,8 +442,7 @@ export default function ExplorePage() {
     if (moduleCache.loading) return;
     moduleCache.loading = true;
 
-    fetch(`${TILES_BASE}/overview.json?v=${Date.now()}`)
-      .then(res => res.json())
+    fetchStaticJson<TileOverview>(segmentTileUrl(`overview.json?v=${Date.now()}`))
       .then((data: TileOverview) => {
         moduleCache.overview = data;
         // Populate polylineCache with simplified lines from overview
@@ -495,11 +494,8 @@ export default function ExplorePage() {
 
     Promise.all(
       toLoad.map(gh =>
-        fetch(`${TILES_BASE}/regions/${gh}.json`)
-          .then(res => {
-            if (!res.ok) return null;
-            return res.json() as Promise<TileRegion>;
-          })
+        fetchStaticJson<TileRegion>(segmentTileUrl(`regions/${gh}.json`))
+          .catch(() => null)
           .then(data => {
             if (!data) return;
             const regionMap = new Map<string, LatLngTuple[]>();
