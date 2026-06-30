@@ -120,6 +120,42 @@ header .version {
   text-decoration: none;
 }
 
+.entry-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px auto 0;
+  max-width: 1120px;
+}
+
+.entry-links a {
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.24);
+  border-radius: 8px;
+  color: var(--hero-fg);
+  display: inline-flex;
+  font-size: 0.94rem;
+  font-weight: 800;
+  min-height: 42px;
+  padding: 10px 14px;
+  text-decoration: none;
+}
+
+.entry-links a:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.entry-links .entry-primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #ffffff;
+}
+
+.entry-links .entry-primary:hover {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+}
+
 .sr-only {
   height: 1px;
   margin: -1px;

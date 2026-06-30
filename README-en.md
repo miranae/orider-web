@@ -82,11 +82,13 @@ Orider Web uses a simple open-source trunk-based flow.
 
 ```text
 fork/topic branch ──┐
-                    ├─ pull request ── CI/review ── squash/merge ── main ── protected deploy
+                    ├─ pull request ── CI/review ── squash/merge ── main ── tag v* ── protected deploy
 maintainer/topic ───┘
 ```
 
 - `main` is the protected production branch.
+- Merging to `main` does not deploy production automatically.
+- Version tags matching `v*` deploy Hosting through a protected GitHub Environment and create GitHub Release notes.
 - Long-lived `develop` branches are not used.
 - Every change goes through a short-lived topic branch and Pull Request.
 - Branch names use one of `feat/`, `fix/`, `docs/`, `test/`, `refactor/`, `ci/`, `chore/`, `security/`, `style/`, `perf/`, or `build/`.

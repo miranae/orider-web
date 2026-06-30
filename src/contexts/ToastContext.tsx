@@ -46,6 +46,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           {toasts.map((toast) => (
             <div
               key={toast.id}
+              role="status"
+              aria-live="polite"
               className={`${
                 toast.removing ? "animate-toast-out" : "animate-toast-in"
               } pointer-events-auto px-4 py-2.5 rounded-[var(--r-lg)] shadow-lg text-[length:var(--fs-sm)] font-medium flex items-center gap-2 ${

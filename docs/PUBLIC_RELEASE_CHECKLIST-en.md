@@ -9,7 +9,7 @@ This document records the public-release posture for Orider Web after the clean 
 | Public repository | Done | Public work happens in `miranae/orider-web`; old private history was not mirror-pushed. |
 | README and contributor path | Done | README, CONTRIBUTING, BRANCHING, PR templates, and CI gates describe public contribution flow. |
 | PR gates | Done | `PR metadata`, `DCO`, and `CI / check` run on fork-safe `pull_request` workflows without secrets. |
-| Deployment | Done | `main` deploys Firebase Hosting through a protected production environment. |
+| Deployment | Done | Version tags matching `v*` deploy Firebase Hosting through a protected production environment and create GitHub Release notes. |
 | Backend boundary | Ongoing | Functions, Firestore/Storage rules, private jobs, and production data remain outside this repository. |
 | Screenshots | Pending | README screenshots are omitted until current-product captures can be regenerated with demo-safe data. |
 | Personal Data API docs | Active | Owner-only Personal Data API docs and recipe examples are public; broad third-party app registration is not offered. |

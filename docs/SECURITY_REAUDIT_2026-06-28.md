@@ -21,7 +21,7 @@ This is the refreshed pre-publication re-audit of the clean production-source fr
 | H-5 gate | Pass | Runtime token rotated and the production-source repository was recreated from a clean working tree instead of mirror-pushing old private history. |
 | Browser security headers | Pass | Firebase Hosting now applies CSP, `X-Content-Type-Options`, `Referrer-Policy`, and COOP while preserving Firebase, App Check, Mapbox, Storage, and Sentry runtime endpoints. |
 | User content URLs | Pass | User-authored post links/images and post source URLs are restricted to `http:`, `https:`, and internal relative URLs at save/render boundaries. |
-| Deploy dispatch guard | Pass | Manual production deploys are job-gated to `refs/heads/main`, matching the production-source branch. |
+| Deploy dispatch guard | Pass | Production deploys are job-gated to `v*` version tags and protected by the `production` environment. |
 | Creator email E2E | Pass | 2026-06-28 production E2E verified authenticated Creator Hub email-to-self delivery, callable HTTP 200, UI success state, sent-log creation, and quota decrement. Temporary App Check debug token was deleted after the test. |
 
 ## Commands
