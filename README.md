@@ -17,7 +17,7 @@
 
 ## 빠른 시작
 
-요구사항: Node.js 20 이상
+요구사항: Node.js 24 이상
 
 ```bash
 cp .env.example .env

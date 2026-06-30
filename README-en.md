@@ -17,7 +17,7 @@ Frontend code is not a security boundary. Authorization and privacy guarantees m
 
 ## Quick Start
 
-Requirement: Node.js 20+
+Requirement: Node.js 24+
 
 ```bash
 cp .env.example .env

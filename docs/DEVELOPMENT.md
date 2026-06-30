@@ -46,7 +46,7 @@ The frontend talks to the backend through Firebase SDK calls and Firebase Hostin
 
 ## Local Development
 
-Requirements: Node.js 20+.
+Requirements: Node.js 24+.
 
 ```bash
 cp .env.example .env
