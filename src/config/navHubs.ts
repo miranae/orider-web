@@ -91,7 +91,7 @@ export const HUBS: Hub[] = [
       { labelKey: "nav.groups", to: "/groups" },
       { labelKey: "nav.events", to: "/events" },
       { labelKey: "nav.friends", to: "/friends" },
-      { labelKey: "nav.communityGuide", to: "/community-guide" },
+      { labelKey: "nav.aboutOrider", to: "/about" },
     ],
     match: (p) =>
       p === "/board" ||
@@ -103,7 +103,7 @@ export const HUBS: Hub[] = [
       p.startsWith("/event/") ||
       p === "/friends" ||
       p === "/community" ||
-      p === "/community-guide" ||
+      p === "/about" ||
       p === "/social",
   },
   {
