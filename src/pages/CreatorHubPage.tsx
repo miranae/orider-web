@@ -123,7 +123,6 @@ function buildCopy(language: string) {
       reported: ko ? "검토 대기" : "Under review",
       reportFailed: ko ? "신고를 접수하지 못했습니다" : "Could not submit report",
       previewOpened: ko ? "공유 카드 예시로 이동했습니다." : "Opened the share card preview.",
-      recipeOpened: ko ? "레시피와 연결 방법을 보여드릴게요." : "Showing recipes and connection steps.",
       loginPrompt: ko ? "로그인하면 내 활동 데이터로 생성할 수 있습니다." : "Sign in to generate this from your activity data.",
       emailLogin: ko ? "로그인하면 본인 확인 이메일로만 받아볼 수 있습니다." : "Sign in to send this only to your verified account email.",
       reportLogin: ko ? "로그인하면 레시피 신고를 접수할 수 있습니다." : "Sign in to report this recipe.",
@@ -538,7 +537,6 @@ export default function CreatorHubPage() {
               variant="secondary"
               onClick={() => {
                 setTab("recipes");
-                showToast(copy.actions.recipeOpened, "info");
               }}
             >
                 <BookOpen size={15} />
@@ -580,7 +578,9 @@ export default function CreatorHubPage() {
                   variant={path.tab === "share" ? "primary" : "secondary"}
                   onClick={() => {
                     setTab(path.tab);
-                    showToast(path.tab === "share" ? copy.actions.previewOpened : copy.actions.recipeOpened, "info");
+                    if (path.tab === "share") {
+                      showToast(copy.actions.previewOpened, "info");
+                    }
                   }}
                 >
                   {path.tab === "share" ? <ShieldCheck size={15} /> : <BookOpen size={15} />}
@@ -755,7 +755,6 @@ export default function CreatorHubPage() {
                     variant="ghost"
                     onClick={() => {
                       setTab("recipes");
-                      showToast(copy.actions.recipeOpened, "info");
                     }}
                   >
                       <BookOpen size={15} />
