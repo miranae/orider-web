@@ -100,7 +100,7 @@ export default function GroupRidePage() {
             setStreams((prev) => ({ ...prev, [a.id]: result.data as unknown as ActivityStreams }));
           }
         } else if (a.source === "orider") {
-          // O-Rider 활동은 activity_streams/{activityId}에서 직접 읽기 (본인 데이터)
+          // Orider 활동은 activity_streams/{activityId}에서 직접 읽기 (본인 데이터)
           const streamSnap = await getDoc(doc(firestore, "activity_streams", a.id));
           if (streamSnap.exists()) {
             const data = streamSnap.data();

@@ -749,7 +749,7 @@ export default function DashboardPage() {
               </div>
             </Card>
 
-            {/* O-Rider 앱: 설치 버튼(App Store/Google Play)만 노출, 매뉴얼·약관은 더보기로 */}
+            {/* Orider 앱: 설치 버튼(App Store/Google Play)만 노출, 매뉴얼·약관은 더보기로 */}
             <Card padding="none" style={{ padding: 'var(--space-4)' }}>
               {/* 상단: 앱 설치 좌우 반반 (항상 노출) */}
               <div className="grid grid-cols-2 gap-2">
@@ -808,7 +808,7 @@ export default function DashboardPage() {
                     <Link to="/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
                     <a href="mailto:orider.app@gmail.com" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</a>
                     <div className="flex items-center gap-1.5 pt-1.5 text-[10px]" style={{ color: "var(--ink-4)" }}>
-                      <span>&copy; 2026 O-Rider</span>
+                      <span>&copy; 2026 Orider</span>
                       <span className="flex items-center gap-1">
                         <svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>
                         Powered by Strava

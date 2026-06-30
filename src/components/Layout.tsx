@@ -195,7 +195,7 @@ export default function Layout() {
         style={{ borderColor: 'var(--line)', background: 'var(--bg-1)' }}
       >
         <div className="max-w-[1440px] mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
-          <span className="flex items-center gap-2">&copy; 2026 O-Rider <span className="inline-block px-1.5 py-0.5 text-[10px] rounded-[var(--r-sm)] font-medium" style={{ background: 'var(--amber)', color: 'var(--bg-0)', opacity: 0.85 }}>Beta</span><span className="flex items-center gap-1" style={{ color: 'var(--ink-3)' }}><svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>Powered by Strava</span></span>
+          <span className="flex items-center gap-2">&copy; 2026 Orider <span className="inline-block px-1.5 py-0.5 text-[10px] rounded-[var(--r-sm)] font-medium" style={{ background: 'var(--amber)', color: 'var(--bg-0)', opacity: 0.85 }}>Beta</span><span className="flex items-center gap-1" style={{ color: 'var(--ink-3)' }}><svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>Powered by Strava</span></span>
           <div className="flex items-center gap-4">
             <Link to="/feedback" className="transition-colors hover:opacity-80">{tCommon("footer.feedback")}</Link>
             <Link to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>

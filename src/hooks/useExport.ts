@@ -63,7 +63,7 @@ function generateGpx(activity: Activity, streams: ParsedStream): string {
 
   const startTime = activity.startTime;
   const timeArr = streams.time;
-  // streams.time 단위 정규화(상대 초). 절대 epoch 스트림(O-Rider) 백업 시 <time> 이
+  // streams.time 단위 정규화(상대 초). 절대 epoch 스트림(Orider) 백업 시 <time> 이
   // 서기 5만년대로 오버플로우하던 버그 방지 — ExportTab 의 정본 exporter 와 동일 헬퍼.
   const relSecAt = makeRelSecAt(timeArr);
   const altArr = streams.altitude;
@@ -74,7 +74,7 @@ function generateGpx(activity: Activity, streams: ParsedStream): string {
   const lines: string[] = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
   lines.push(
-    '<gpx creator="O-Rider" version="1.1" ' +
+    '<gpx creator="Orider" version="1.1" ' +
     'xmlns="http://www.topografix.com/GPX/1/1" ' +
     'xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" ' +
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
@@ -416,7 +416,7 @@ export function useExport() {
       // metadata.json
       zip.file("metadata.json", JSON.stringify({
         exportedAt: now.toISOString(),
-        platform: "O-Rider Web",
+        platform: "Orider Web",
         version: "1.0",
         activityCount: activities.length,
         streamCount: streamMap.size,

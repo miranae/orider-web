@@ -337,7 +337,7 @@ export default function ActivityCard({
                       <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
                     </svg>
                   ) : (
-                    <img src="/favicon.svg" alt="O-Rider" className="w-3.5 h-3.5" />
+                    <img src="/favicon.svg" alt="Orider" className="w-3.5 h-3.5" />
                   )}
                   {/* DisciplineBadge 가 [Bike 아이콘 + "사이클"] 자체 포함 → 옆에 🚴 emoji 추가
                    *  하면 중복이라 생략. */}

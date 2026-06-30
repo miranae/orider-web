@@ -33,7 +33,7 @@ export const DEFAULT_THEME: OriderTheme = {
         textTertiary: 'oklch(0.45 0.010 240)',
         textQuaternary: 'oklch(0.55 0.009 240)',
         textDisabled: 'oklch(0.65 0.008 240)',
-        accent: 'oklch(0.56 0.115 192)',          // teal (O-Rider 브랜드)
+        accent: 'oklch(0.56 0.115 192)',          // teal (Orider 브랜드)
         accentDark: 'oklch(0.48 0.10 192)',
         accentLight: 'oklch(0.70 0.10 192)',
         accentSoftBg: 'color-mix(in oklch, oklch(0.56 0.115 192) 8%, oklch(0.965 0.004 90))',

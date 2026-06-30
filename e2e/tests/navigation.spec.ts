@@ -31,7 +31,7 @@ test.describe('Navigation', () => {
   test('logo navigates to localized home', async ({ page }) => {
     await page.goto('/en/explore', { waitUntil: 'domcontentloaded' });
 
-    await page.getByRole('link', { name: /O-Rider|O·RIDER/i }).first().click();
+    await page.getByRole('link', { name: /Orider|O·RIDER/i }).first().click();
     await expect(page).toHaveURL(/\/en\/$/);
   });
 

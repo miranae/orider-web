@@ -92,7 +92,7 @@ body {
   animation: toast-out 0.2s ease-in forwards;
 }
 
-/* O-Rider Redesign — Light tokens (default) */
+/* Orider Redesign — Light tokens (default) */
 :root {
   --bg-0: oklch(0.985 0.003 90);
   --bg-1: oklch(1.000 0.000 0);
@@ -169,7 +169,7 @@ body {
   --zone-5: oklch(0.58 0.17 20);   /* VO2+ */
 }
 
-/* O-Rider Redesign — Dark Professional tokens (override).
+/* Orider Redesign — Dark Professional tokens (override).
  * 주의: 아래 두 블록(`:root[data-theme="dark"]`, `@media prefers-color-scheme: dark`)은
  * 동일한 토큰 세트를 공유한다. 한쪽 수정 시 반드시 다른 쪽도 동기화할 것. */
 :root[data-theme="dark"] {

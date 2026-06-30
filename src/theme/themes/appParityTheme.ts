@@ -32,7 +32,7 @@ export const APP_PARITY_THEME: OriderTheme = {
         textTertiary: '#9E9E9E',
         textQuaternary: '#888888',
         textDisabled: '#666666',
-        accent: '#4FD5D1',           // O-Rider Teal (앱 미러)
+        accent: '#4FD5D1',           // Orider Teal (앱 미러)
         accentDark: '#129390',
         accentLight: '#81EDE8',
         accentSoftBg: 'color-mix(in oklab, #4FD5D1 12%, #1A1A1A)',

@@ -13,10 +13,10 @@ import { createMockNotification } from "../__tests__/fixtures/mockData";
 vi.mock("../assets/icon.svg", () => ({ default: "/icon.svg" }));
 
 describe("Layout", () => {
-  it("renders O-Rider logo", async () => {
+  it("renders Orider logo", async () => {
     renderWithProviders(<Layout />);
     await waitFor(() => {
-      const logo = screen.getByAltText("O-Rider");
+      const logo = screen.getByAltText("Orider");
       expect(logo).toBeInTheDocument();
     });
   });
@@ -114,7 +114,7 @@ describe("Layout", () => {
   it("shows footer with copyright", async () => {
     renderWithProviders(<Layout />, { route: "/explore" });
     await waitFor(() => {
-      expect(screen.getByText(/2026 O-Rider/)).toBeInTheDocument();
+      expect(screen.getByText(/2026 Orider/)).toBeInTheDocument();
     });
     // 비-대시보드 경로의 푸터는 lg 에서 숨기지 않는다 (md+ 항상 노출)
     expect(screen.getByRole("contentinfo").className).not.toContain("lg:hidden");
@@ -126,7 +126,7 @@ describe("Layout", () => {
     // jsdom 은 CSS 를 적용하지 않으므로 가시성 대신 반응형 클래스(lg:hidden)로 단언한다.
     renderWithProviders(<Layout />, { route: "/" });
     await waitFor(() => {
-      expect(screen.getByAltText("O-Rider")).toBeInTheDocument();
+      expect(screen.getByAltText("Orider")).toBeInTheDocument();
     });
     const footer = screen.getByRole("contentinfo");
     expect(footer.className).toContain("md:block");

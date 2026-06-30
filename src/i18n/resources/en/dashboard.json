@@ -109,7 +109,7 @@
     "hero": {
       "title": "Keep Korean riders' records safe",
       "descLoggedIn": "Connect Strava to import your rides automatically.",
-      "descAnon": "Save your rides on O-Rider and join the Korean cycling community.",
+      "descAnon": "Save your rides on Orider and join the Korean cycling community.",
       "statsActivities": "activities",
       "statsSegments": "segments",
       "statsCourses": "courses",
@@ -164,7 +164,7 @@
       "weeklyDistance": "Weekly distance (last 12 weeks)"
     },
     "sidebarAnon": {
-      "welcome": "Welcome to O-Rider",
+      "welcome": "Welcome to Orider",
       "welcomeDesc": "Sign in and connect Strava to manage your rides.",
       "signInGoogle": "Sign in with Google"
     }

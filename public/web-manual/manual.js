@@ -1,4 +1,4 @@
-// O-Rider 웹 매뉴얼 — 사이드바 토글 + 클라이언트 검색
+// Orider 웹 매뉴얼 — 사이드바 토글 + 클라이언트 검색
 (function () {
   // ── 모바일 사이드바 토글 ───────────────────────────────
   var sidebar = document.getElementById("sidebar");

@@ -1,13 +1,13 @@
 {
   "terms": {
-    "title": "O-Rider Terms of Service",
+    "title": "Orider Terms of Service",
     "lastUpdated": "Last updated: February 18, 2026",
     "stravaTermsLink": "Strava Migration Addendum",
     "sections": [
       {
         "title": "Article 1 (Purpose)",
         "paragraphs": [
-          "These Terms govern the use of the ride-tracking and social platform service (including the website and mobile applications) provided by O-Rider (\"Company\"), and define the rights, obligations, and responsibilities between the Company and Users, as well as other necessary matters."
+          "These Terms govern the use of the ride-tracking and social platform service (including the website and mobile applications) provided by Orider (\"Company\"), and define the rights, obligations, and responsibilities between the Company and Users, as well as other necessary matters."
         ]
       },
       {
@@ -147,10 +147,10 @@
   },
   "stravaTerms": {
     "pageTitle": "Strava Data Migration & Integration Addendum",
-    "pageSubtitle": "This Addendum forms part of the O-Rider Terms of Service.",
+    "pageSubtitle": "This Addendum forms part of the Orider Terms of Service.",
     "article1": {
       "title": "Article 1 (Purpose)",
-      "body": "This Addendum governs the rights and responsibilities related to the feature that allows Users to import Strava data into O-Rider."
+      "body": "This Addendum governs the rights and responsibilities related to the feature that allows Users to import Strava data into Orider."
     },
     "article2": {
       "title": "Article 2 (Integration Method)",
@@ -180,12 +180,12 @@
     },
     "article6": {
       "title": "Article 6 (Relationship with Strava)",
-      "body": "O-Rider is not affiliated with or an official partner of Strava, and Strava is not the operator of this Service."
+      "body": "Orider is not affiliated with or an official partner of Strava, and Strava is not the operator of this Service."
     }
   },
   "guidelines": {
-    "pageTitle": "O-Rider Community Guidelines",
-    "intro": "O-Rider is a platform for a healthy riding culture. All Users must comply with the following standards.",
+    "pageTitle": "Orider Community Guidelines",
+    "intro": "Orider is a platform for a healthy riding culture. All Users must comply with the following standards.",
     "section1": {
       "title": "1. Respect and Consideration",
       "item1": "No defamation, insults, or hate speech toward others",
@@ -217,9 +217,9 @@
     }
   },
   "privacy": {
-    "title": "O-Rider Privacy Policy",
+    "title": "Orider Privacy Policy",
     "lastUpdated": "Last updated: February 18, 2026",
-    "intro": "O-Rider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
+    "intro": "Orider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
     "stravaPrivacyLink": "Strava Privacy Policy",
     "sections": [
       {

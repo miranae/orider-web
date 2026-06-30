@@ -1,7 +1,7 @@
 /**
  * 구조화 워크아웃 파일 임포트 (#476) — Zwift `.zwo` / ERG `.erg` / MRC `.mrc`.
  *
- * 외부 트레이너 워크아웃을 O-Rider 플랜의 IntervalBlock[] 로 변환한다.
+ * 외부 트레이너 워크아웃을 Orider 플랜의 IntervalBlock[] 로 변환한다.
  *  - `.zwo` : XML. Power 는 FTP 분율(0.88 = 88%FTP). Warmup/Cooldown/Ramp 는 구간 ramp.
  *  - `.erg` : 텍스트. [COURSE DATA] 의 (분, 와트) breakpoint. 헤더 FTP= 로 %FTP 환산.
  *  - `.mrc` : `.erg` 와 동일 포맷이나 값이 이미 %FTP.
