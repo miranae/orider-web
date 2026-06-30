@@ -46,7 +46,7 @@ The frontend talks to the backend through Firebase SDK calls and Firebase Hostin
 
 ## Local Development
 
-Requirements: Node.js 20+.
+Requirements: Node.js 24+.
 
 ```bash
 cp .env.example .env
@@ -121,7 +121,7 @@ See [Personal Data API](PERSONAL_DATA_API-en.md), [Creator Showcase](CREATOR_SHO
 
 ## GitHub Settings for Maintainers
 
-Set repository metadata before public release:
+Keep repository metadata aligned with the public project:
 
 - Description: `Open-source React frontend for Orider, a cycling computer platform for ride analysis, group events, routes, and training dashboards.`
 - Website: `https://orider.co.kr`
@@ -129,7 +129,7 @@ Set repository metadata before public release:
 
 Required protections:
 
-- Branch protection for `main`: PR review required, CI required, direct pushes disabled.
+- Branch protection for `main`: PR review required, `PR metadata`, `DCO`, and `CI / check` required, direct pushes disabled.
 - GitHub Environment `production`: required reviewers enabled.
 - Version tags matching `v*` trigger production deploys and release notes.
 - CODEOWNERS for sensitive paths once maintainer roster is final.

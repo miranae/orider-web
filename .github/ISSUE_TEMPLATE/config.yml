@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
+  - name: Questions and setup help
+    url: https://github.com/miranae/orider-web/discussions
+    about: Use Discussions for open-ended questions, setup help, and early ideas.
   - name: Security report
     url: mailto:security@orider.co.kr
     about: Please report vulnerabilities privately instead of opening a public issue.

@@ -1,8 +1,8 @@
 name: CI
 
-# PR 검증 — lint·test·build. 시크릿 미사용(포크 PR 안전), 배포 없음.
-# 브랜치 push 이벤트는 열려 있는 PR에서 pull_request 이벤트와 중복 실행되므로 사용하지 않는다.
-# 문서-only PR은 required check 를 pending 으로 남기지 않기 위해 job 은 실행하되 무거운 npm 단계를 건너뛴다.
+# PR 검증 — lint·quality·test·build. 시크릿 미사용(포크 PR 안전), 배포 없음.
+# 브랜치 push 이벤트는 열린 PR에서 pull_request 이벤트와 중복 실행되므로 사용하지 않는다.
+# docs-only PR도 required check를 success로 남기기 위해 job은 실행하되 무거운 npm 단계를 건너뛴다.
 on:
   pull_request:
 
@@ -30,7 +30,7 @@ jobs:
           docs_only=true
           while IFS= read -r file; do
             case "$file" in
-              *.md|docs/*|.github/ISSUE_TEMPLATE/*|.github/PULL_REQUEST_TEMPLATE.md)
+              *.md|docs/*|.github/ISSUE_TEMPLATE/*|.github/PULL_REQUEST_TEMPLATE*.md)
                 ;;
               *)
                 docs_only=false

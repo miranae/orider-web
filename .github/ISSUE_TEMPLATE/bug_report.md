@@ -1,29 +1,44 @@
 ---
 name: Bug report
-about: Report a frontend bug in Orider Web
+about: Report a reproducible frontend problem in Orider Web
 title: "fix: "
 labels: bug
 assignees: ""
 ---
 
-## What happened?
+## Summary
 
 
-## Expected behavior
-
-
-## Steps to reproduce
+## Steps to Reproduce
 
 1.
 2.
 3.
 
+## Expected Behavior
+
+
+## Actual Behavior
+
+
 ## Environment
 
+- Route/page:
 - Browser:
 - Device:
-- Route/page:
+- Locale:
+- Signed in: yes / no
+- Firebase emulator, placeholder config, or production:
 
-## Notes
+## Evidence
 
-Do not include private user data, access tokens, or security-sensitive details. For vulnerabilities, use `SECURITY.md` instead of a public issue.
+Screenshots, short recordings, console errors, or failing test output help. Redact private ride details, names, emails, exact routes, access tokens, and user IDs.
+
+## Scope
+
+- [ ] I can reproduce this without private production data.
+- [ ] This seems frontend-only.
+- [ ] This may need backend/rules/functions support.
+- [ ] This may be security-sensitive.
+
+Security-sensitive details should not be posted publicly. Use `SECURITY.md` instead.

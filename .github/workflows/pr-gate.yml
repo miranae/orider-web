@@ -1,0 +1,74 @@
+name: PR Gate
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  metadata:
+    name: PR metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate PR title and branch
+        shell: bash
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+        run: |
+          set -euo pipefail
+
+          title_re='^(feat|fix|docs|test|refactor|ci|chore|security|style|perf|build)(\([^)]+\))?: .+'
+          if ! [[ "$TITLE" =~ $title_re ]]; then
+            echo "::error::PR title should use Conventional Commit style, for example: docs: simplify README"
+            exit 1
+          fi
+
+          if [ "$HEAD_REPO" = "$BASE_REPO" ]; then
+            branch_re='^(feat|fix|docs|test|refactor|ci|chore|security|style|perf|build)/[a-z0-9][a-z0-9-]*$'
+            if ! [[ "$HEAD_REF" =~ $branch_re ]]; then
+              echo "::error::Maintainer branch '$HEAD_REF' should use a topic prefix such as docs/readme-structure"
+              exit 1
+            fi
+          else
+            echo "Fork PR branch names are accepted: $HEAD_REPO:$HEAD_REF"
+          fi
+
+      - name: Check changed-file risk
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          git diff --name-only "$base" "$head" > /tmp/changed-files
+
+          changed_count=$(wc -l < /tmp/changed-files | tr -d ' ')
+          echo "Changed files: $changed_count"
+          cat /tmp/changed-files
+
+          if [ "$changed_count" -gt 40 ]; then
+            echo "::warning::Large PR: $changed_count files changed. Consider splitting unless the change is mechanical."
+          fi
+
+          if grep -Eq '(^|/)(\.env|.*\.pem|.*\.key|service-account.*\.json)$' /tmp/changed-files; then
+            echo "::error::Possible secret or environment file included. Remove it from the PR."
+            exit 1
+          fi
+
+          if grep -Eq '(^|/)(dist|node_modules)/' /tmp/changed-files; then
+            echo "::error::Generated dependency/build output should not be committed."
+            exit 1
+          fi
+
+          if grep -Eq '^(src/services/firebase\.ts|src/services/personalDataApi\.ts|src/pages/CreatorHubPage\.tsx|src/data/creatorRecipes\.ts|docs/recipes/|docs/PERSONAL_DATA_API)' /tmp/changed-files; then
+            echo "::notice::This PR touches API, privacy, Creator Hub, or recipe surfaces. Review privacy notes carefully."
+          fi

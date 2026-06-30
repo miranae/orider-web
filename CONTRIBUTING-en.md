@@ -1,21 +1,17 @@
 # Contributing
 
-Thanks for contributing to Orider Web. This repository is the production frontend, so we optimize for small, reviewable changes that can safely reach real users.
+Thanks for contributing to Orider Web. This repository is the production frontend, so we keep changes small, reviewable, and safe for real rider data.
 
 ## Good First Areas
 
-- Translation and copy polish in `src/i18n/resources/`.
-- Accessibility fixes: labels, focus order, keyboard navigation, semantic HTML, and contrast.
-- Mobile web layout bugs and responsive polish.
-- UI tests around existing flows.
-- Personal-data recipe drafts under `docs/recipes/`: owned-data charts, reports, alerts, exports, and automation ideas.
-- Documentation improvements, screenshots, and setup notes.
+- Korean/English translation and product copy in `src/i18n/resources/`
+- Accessibility labels, keyboard flow, focus order, semantic markup, and contrast
+- Mobile web layout, empty states, loading states, and error states
+- Chart readability, map fallbacks, and focused tests
+- Documentation, setup notes, and demo-safe screenshots
+- Personal-data recipe drafts under `docs/recipes/` using only owned, demo, or mocked data
 
-For larger product changes, open an issue or draft PR first so we can align on scope, backend dependencies, and privacy implications.
-
-Branch naming and PR flow are documented in [docs/BRANCHING.md](docs/BRANCHING-en.md).
-
-Orider is guided by [MISSION.md](MISSION-en.md) and [GOVERNANCE.md](GOVERNANCE-en.md). The short version: keep the rider-facing core open, protect private ride data, and avoid turning community-built work into a closed private asset.
+For larger product changes, open an issue or draft PR first so maintainers can align on scope, backend dependency, privacy impact, and design direction.
 
 ## Development Setup
 
@@ -25,68 +21,70 @@ npm ci
 npm run dev
 ```
 
-Some flows need Firebase services or emulator data. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT-en.md) for what can run locally and what requires maintainer configuration.
+Some flows need Firebase services or emulator data. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT-en.md) for local modes and maintainer-only integration limits.
 
-## Personal Data Recipes
+## Branch and PR Flow
 
-Recipes help riders use their own Orider data in personal tools. They can use mocked responses, sample JSON, or exported data until the Personal Data API is stable. GitHub is the authoring workflow; the intended rider-facing surface is Orider Creator Hub.
+Use a short-lived topic branch and open a Pull Request. External contributors should branch from a fork; maintainers still do not push directly to `main`.
 
-Recipe PRs should include:
+Branch naming and PR gates are documented in [docs/BRANCHING.md](docs/BRANCHING-en.md). Required checks are:
 
-- the rider benefit,
-- a short Creator Hub showcase summary,
-- planned required scopes,
-- privacy notes,
-- shareable result type and safe default visibility,
-- safe polling or rate assumptions,
-- sample input/output or a screenshot with demo data only.
+- `PR metadata`
+- `DCO`
+- `CI / check`
 
-Do not include access tokens, real user IDs, emails, precise private routes, production exports, provider secrets, or screenshots containing private data. See [docs/PERSONAL_DATA_API.md](docs/PERSONAL_DATA_API-en.md), [docs/CREATOR_SHOWCASE.md](docs/CREATOR_SHOWCASE-en.md), and [docs/recipes/personal-data.md](docs/recipes/personal-data-en.md).
+Use Conventional Commit-style PR titles such as `fix: handle mobile tab overflow` or `docs: simplify README`.
 
 ## Before Opening a PR
 
-Run the relevant checks:
+Run the checks that match your change:
 
 ```bash
 npm run lint:budget
 npm run quality:budget
 npm test
 npm run build
-```
-
-For user-visible flow changes, add or update Playwright coverage when practical:
-
-```bash
 npm run e2e
 ```
 
-## Pull Request Rules
+Docs-only PRs do not need a local build unless the docs describe behavior you changed. User-visible flow changes should include screenshots, recordings, or Playwright coverage when practical.
 
-- Work on a branch and submit a Pull Request.
-- Sign commits using `git commit -s`. Contributions use the [Developer Certificate of Origin](DCO-en.md), not broad copyright assignment.
-- Keep PRs focused. Separate refactors from behavior changes.
-- Do not commit secrets, tokens, `.env`, production exports, or user data.
-- Follow [docs/CONTRIBUTOR_ARCHITECTURE.md](docs/CONTRIBUTOR_ARCHITECTURE-en.md) for feature structure, logging, and Firestore write placement.
-- Use Korean for project-facing prose when matching existing product copy; English is fine for general contributor docs.
-- Use Conventional Commit-style titles when possible: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`.
-- Explain UI token/design-system changes in the PR body.
+## Code Shape
 
-## PR Checklist
+Prefer existing project boundaries:
 
-- [ ] Commits include a `Signed-off-by:` line (`git commit -s`).
-- [ ] No secrets, credentials, production exports, or private user data are included.
-- [ ] Personal-data recipes use only owned-data examples, minimal planned scopes, and demo/mock data.
-- [ ] `npm run lint:budget` passes within the current warning budget.
-- [ ] `npm run quality:budget` passes within the large-file, console, and alert budgets.
-- [ ] `npm test` passes.
-- [ ] `npm run build` passes.
-- [ ] Docs or translations were updated when needed.
-- [ ] Security-sensitive behavior was reviewed against [SECURITY.md](SECURITY-en.md).
+- route composition in `src/pages/`
+- reusable UI in `src/components/`
+- feature logic in `src/features/<domain>/`
+- reusable data loading in `src/hooks/`
+- Firebase/API wrappers in `src/services/`
+- pure calculations in `shared/`
+
+For new writes, API calls, logging, or feature extraction, follow [docs/CONTRIBUTOR_ARCHITECTURE.md](docs/CONTRIBUTOR_ARCHITECTURE-en.md).
+
+## Personal Data and Recipes
+
+Recipe PRs should document:
+
+- rider benefit
+- required scopes
+- privacy notes
+- safe default visibility
+- shareable result type
+- demo input/output or screenshots
+
+Do not include access tokens, real user IDs, emails, precise private routes, production exports, provider secrets, or screenshots containing private data. See [docs/PERSONAL_DATA_API.md](docs/PERSONAL_DATA_API-en.md), [docs/CREATOR_SHOWCASE.md](docs/CREATOR_SHOWCASE-en.md), and [docs/recipes/personal-data.md](docs/recipes/personal-data-en.md).
+
+## DCO and License
+
+Sign commits with:
+
+```bash
+git commit -s
+```
+
+Contributions use the [Developer Certificate of Origin](DCO-en.md), not broad copyright assignment. By contributing, you agree that your contribution is provided under [AGPL-3.0](LICENSE).
 
 ## Security
 
 Do not report vulnerabilities in public issues or PR comments. Follow [SECURITY.md](SECURITY-en.md).
-
-## License
-
-By contributing, you agree that your contribution is provided under this repository's license, [AGPL-3.0](LICENSE), under the DCO process described in [DCO.md](DCO-en.md).
