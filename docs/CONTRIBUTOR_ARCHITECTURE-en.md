@@ -1,6 +1,6 @@
 # Contributor Architecture Guide
 
-O-Rider is a production frontend with a private Firebase backend. The public repository is open for frontend, UX, documentation, i18n, accessibility, and test contributions, but new code should keep domain logic easy to review.
+Orider is a production frontend with a private Firebase backend. The public repository is open for frontend, UX, documentation, i18n, accessibility, and test contributions, but new code should keep domain logic easy to review.
 
 ## Current State
 

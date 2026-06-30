@@ -18,7 +18,7 @@ export function generateICS(weeks: PlanWeek[], goalName: string, t: TFunction): 
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//O-Rider//Training Plan//KO',
+    'PRODID:-//Orider//Training Plan//KO',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${t('export.icsCalName', { goalName })}`,
@@ -30,7 +30,7 @@ export function generateICS(weeks: PlanWeek[], goalName: string, t: TFunction): 
 
       const labelKey = WORKOUT_KEY_MAP[day.workout];
       const label = labelKey ? t(labelKey) : day.workout;
-      const summary = `[O-Rider] ${label} · ${day.plannedDurationMin}min · ${day.plannedTSS} TSS`;
+      const summary = `[Orider] ${label} · ${day.plannedDurationMin}min · ${day.plannedTSS} TSS`;
 
       // KST 자정 타임스탬프를 날짜 문자열로 변환
       const d = new Date(day.date + 9 * 3600000); // KST 오프셋 적용

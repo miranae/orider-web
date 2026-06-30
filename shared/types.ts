@@ -1,5 +1,5 @@
 // ── ActivityType ────────────────────────────────────────────────────
-/** Strava 및 O-Rider 내부에서 사용하는 활동 종목 문자열. Activity.type은 하위 호환을 위해 string 유지. */
+/** Strava 및 Orider 내부에서 사용하는 활동 종목 문자열. Activity.type은 하위 호환을 위해 string 유지. */
 export type ActivityType = 'Ride' | 'Run' | 'Swim' | 'Walk' | 'Hike' | 'VirtualRide' | 'VirtualRun' | 'cycling' | 'running' | 'swimming' | 'transition' | 'brick';
 
 // ── Activity ────────────────────────────────────────────────────────
@@ -657,7 +657,7 @@ export interface ActivityStreams {
   /** 기록 기기(Garmin/Wahoo 등) 온도센서 실측값 °C. Strava temp 스트림 패스스루.
    *  키 이름은 Strava 스트림 타입(temp)을 그대로 사용 — Activity.weather.temperature(API 표시값)와 구분 */
   temp?: number[];
-  // O-Rider 확장 필드 (앱에서 업로드)
+  // Orider 확장 필드 (앱에서 업로드)
   laps?: LapData[];
   calories?: number;
   ftp?: number;

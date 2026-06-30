@@ -147,7 +147,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
           className={`flex items-center gap-2 rounded-[var(--r-sm)] ${navFocusClass}`}
           style={{ textDecoration: 'none', flexShrink: 0 }}
         >
-          <img src={iconSvg} alt="O-Rider" style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", flexShrink: 0 }} />
+          <img src={iconSvg} alt="Orider" style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", flexShrink: 0 }} />
           <span
             style={{
               fontWeight: 700,
@@ -789,7 +789,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               <Link to="/community" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
               <Link to="/feedback" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.feedback')}</Link>
               <a href="mailto:orider.app@gmail.com" style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</a>
-              <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', width: '100%', marginTop: 'var(--space-1)' }}>&copy; 2026 O-Rider</span>
+              <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', width: '100%', marginTop: 'var(--space-1)' }}>&copy; 2026 Orider</span>
             </div>
           </div>
         </div>

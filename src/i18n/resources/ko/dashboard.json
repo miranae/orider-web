@@ -109,7 +109,7 @@
     "hero": {
       "title": "한국 라이더들의 기록을 안전하게",
       "descLoggedIn": "Strava를 연동하면 라이딩 기록을 자동으로 가져옵니다.",
-      "descAnon": "소중한 라이딩 기록을 O-Rider에 보관하고, 한국의 자전거 커뮤니티와 함께하세요.",
+      "descAnon": "소중한 라이딩 기록을 오라이더에 보관하고, 한국의 자전거 커뮤니티와 함께하세요.",
       "statsActivities": "활동",
       "statsSegments": "세그먼트",
       "statsCourses": "코스",
@@ -164,7 +164,7 @@
       "weeklyDistance": "주간 거리 (최근 12주)"
     },
     "sidebarAnon": {
-      "welcome": "O-Rider에 오신 것을 환영합니다",
+      "welcome": "오라이더에 오신 것을 환영합니다",
       "welcomeDesc": "로그인하고 Strava를 연동하면 나의 라이딩 기록을 관리할 수 있습니다.",
       "signInGoogle": "Google로 로그인"
     }

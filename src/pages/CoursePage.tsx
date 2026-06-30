@@ -109,7 +109,7 @@ function generateCourseGpx(course: CourseData): string {
   const lines: string[] = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
   lines.push(
-    '<gpx creator="O-Rider" version="1.1" ' +
+    '<gpx creator="Orider" version="1.1" ' +
     'xmlns="http://www.topografix.com/GPX/1/1" ' +
     'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
     'xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">'
