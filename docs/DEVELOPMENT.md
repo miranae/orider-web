@@ -7,19 +7,31 @@ Project stewardship is documented in [../MISSION.md](../MISSION.md), [../GOVERNA
 ## Deployment Model
 
 ```text
-contributor PR -> CI(lint/test/build) -> review -> main
-                                                     |
-                                                     v
-                                  GitHub Actions deploy.yml
-                                                     |
-                                  firebase deploy --only hosting
-                                                     |
-                                        Firebase Hosting production
+contributor PR -> CI(lint/test/build) -> review -> main -> tag vX.Y.Z
+                                                                  |
+                                                                  v
+                                               GitHub Actions deploy.yml
+                                                                  |
+                                               firebase deploy --only hosting
+                                                                  |
+                                                     Firebase Hosting production
+                                                                  |
+                                               GitHub Release notes
 ```
 
 - Pull requests run `ci.yml`: lint, unit tests, and build with placeholder public config. No production secrets are exposed to PRs.
-- `main` runs `deploy.yml`: build, keyless Google auth through Workload Identity Federation, and Hosting-only deploy.
+- Merging to `main` does not deploy production by itself.
+- Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: build, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
 - Production deploys are protected by the `production` GitHub Environment.
+
+Maintainer release flow:
+
+```bash
+git checkout main
+git pull public main
+git tag v2026.07.01
+git push public v2026.07.01
+```
 
 ## Backend Boundary
 
@@ -119,6 +131,7 @@ Required protections:
 
 - Branch protection for `main`: PR review required, CI required, direct pushes disabled.
 - GitHub Environment `production`: required reviewers enabled.
+- Version tags matching `v*` trigger production deploys and release notes.
 - CODEOWNERS for sensitive paths once maintainer roster is final.
 - DCO sign-off required through `.github/workflows/dco.yml`; make the `DCO` check required in branch protection.
 
