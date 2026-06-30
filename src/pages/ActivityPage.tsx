@@ -703,7 +703,12 @@ export default function ActivityPage() {
 
       {/* AI 라이딩 분석 — 사이클 활동 + 스트림 준비 시. 비용 가치를 개요 최상단에 노출. */}
       {sport === "ride" && hasStreams && (
-        <AiRideAnalysisCard activityId={activityId ?? null} enabled={sport === "ride" && hasStreams} />
+        <AiRideAnalysisCard
+          activityId={activityId ?? null}
+          enabled={sport === "ride" && hasStreams}
+          summaryPreview={activity.aiSummaryPreview}
+          summaryPreviewEn={activity.aiSummaryPreview_en}
+        />
       )}
 
       {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}

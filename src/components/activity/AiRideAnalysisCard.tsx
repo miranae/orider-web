@@ -168,11 +168,15 @@ interface Props {
   activityId: string | null;
   /** 사이클 활동 + 스트림 준비 시에만 호출 */
   enabled: boolean;
+  /** 활동 문서에 비정규화된 AI 요약. 상세 캐시 miss 시 fallback으로 보여준다. */
+  summaryPreview?: string | null;
+  summaryPreviewEn?: string | null;
 }
 
-export default function AiRideAnalysisCard({ activityId, enabled }: Props) {
+export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview, summaryPreviewEn }: Props) {
   const { t, i18n } = useTranslation("activity");
   const lang = narrativeLangFrom(i18n.language);
+  const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
   const { user, signInWithGoogle } = useAuth();
   // 1단계: 캐시 peek (LLM 호출 없이 빠른 확인).
   //   공개(everyone) 활동의 캐시 조회는 비로그인도 허용(CF getActivityNarrative cacheOnly) →
@@ -213,6 +217,31 @@ export default function AiRideAnalysisCard({ activityId, enabled }: Props) {
   // peek miss: 아직 분석 없음 → "분석시작" 버튼 또는 생성 중 스피너.
   // 비로그인: AI 분석 CF 는 인증 필수라 호출하면 카드가 사라진다 → 버튼 대신 로그인 CTA.
   if (peek.cacheMiss && !triggerFull && !full.data) {
+    if (previewSummary) {
+      return (
+        <Card padding="none" style={{ padding: "var(--space-5)" }}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+            {user ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
+                  setTriggerFull(true);
+                }}
+              >
+                {t("ai.refreshDetailBtn")}
+              </Button>
+            ) : null}
+          </div>
+          <Text variant="body" tone="primary" as="p" className="mt-3">{previewSummary}</Text>
+          <Text variant="caption" tone="tertiary" as="p" className="mt-2">
+            {t("ai.previewOnlyHint")}
+          </Text>
+        </Card>
+      );
+    }
     return (
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
