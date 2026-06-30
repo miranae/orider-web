@@ -1,4 +1,4 @@
-// Orider 웹 매뉴얼 생성기 — GitBook 스타일 셸(사이드바·검색·prev/next)로 전 챕터 재조합.
+// 오라이더 웹 매뉴얼 생성기 — GitBook 스타일 셸(사이드바·검색·prev/next)로 전 챕터 재조합.
 // 콘텐츠 소스: manual-src/ch*.html (본문 <section>), 용어집은 i18n analysis.glossary 에서 생성.
 // 산출물: public/web-manual/{ch*,glossary,index}.html + search-index.json
 //
@@ -139,7 +139,7 @@ function page({ file, title, group, contentInner, prev, next }) {
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${esc(title)} - Orider 웹 매뉴얼</title>
+<title>${esc(title)} - 오라이더 웹 매뉴얼</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="gitbook.css">
 </head>
@@ -193,7 +193,7 @@ const landing = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Orider 웹 매뉴얼</title>
+<title>오라이더 웹 매뉴얼</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="gitbook.css">
 </head>
@@ -204,12 +204,12 @@ ${sidebar("index.html")}
   <div class="gb-main">
     <header class="gb-topbar">
       <button class="gb-menu" id="menuBtn" aria-label="메뉴">☰</button>
-      <div class="gb-crumb"><b>Orider 웹 매뉴얼</b></div>
+      <div class="gb-crumb"><b>오라이더 웹 매뉴얼</b></div>
       <a class="gb-applink" href="https://orider.co.kr" target="_blank" rel="noopener">앱 열기 ↗</a>
     </header>
     <main class="gb-content">
       <div class="gb-hero">
-        <h1>Orider 웹 매뉴얼</h1>
+        <h1>오라이더 웹 매뉴얼</h1>
         <p>라이딩 이후 데이터를 분석하고 훈련을 관리하는 웹 플랫폼 사용 가이드. <strong>앱은 기록, 웹은 분석.</strong></p>
       </div>
       <div class="info">왼쪽 사이드바에서 장을 고르거나, 상단 <strong>검색</strong>으로 용어·기능을 바로 찾을 수 있습니다.</div>
