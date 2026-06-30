@@ -61,6 +61,7 @@ export function ActivityMediaPanel({
               .map((p) => ({ id: `upload-${p.id}`, url: p.url, location: p.location!, caption: null as string | null })),
           ]}
           flyToPosition={flyToPosition}
+          fallbackImageUrl={activity.mapImageUrl}
         />
       </div>
     );

@@ -202,7 +202,8 @@
   },
   "map": {
     "placeholder": "지도",
-    "noRouteData": "경로 데이터 없음"
+    "noRouteData": "경로 데이터 없음",
+    "routeImageAlt": "활동 경로 지도"
   },
   "designTheme": {
     "default": "기본",
