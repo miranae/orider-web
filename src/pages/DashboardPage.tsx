@@ -806,7 +806,7 @@ export default function DashboardPage() {
                     <Link to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
                     <Link to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
                     <Link to="/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
-                    <a href="mailto:orider.app@gmail.com" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</a>
+                    <Link to="/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
                     <div className="flex items-center gap-1.5 pt-1.5 text-[10px]" style={{ color: "var(--ink-4)" }}>
                       <span>&copy; 2026 Orider</span>
                       <span className="flex items-center gap-1">

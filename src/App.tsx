@@ -137,7 +137,8 @@ function AppRoutes() {
           <Route path="creator" element={<CreatorHubPage />} />
           <Route path="creator/:section" element={<CreatorHubPage />} />
           {/* 상대 경로 — /:lang 프리픽스 보존 */}
-          <Route path="feedback" element={<Navigate to="board?type=inquiry" replace />} />
+          <Route path="feedback" element={<Navigate to="../board?type=inquiry" replace />} />
+          <Route path="feedback/board" element={<Navigate to="../board?type=inquiry" replace />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="community" element={<CommunityGuidelinesPage />} />
