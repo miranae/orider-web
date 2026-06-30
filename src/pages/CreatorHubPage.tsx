@@ -86,10 +86,10 @@ function buildCopy(language: string) {
   const ko = language.startsWith("ko");
   return {
     title: ko ? "Creator Hub" : "Creator Hub",
-    eyebrow: ko ? "내 데이터로 만드는 오라이더 활용 사례" : "Build with your own Orider data",
+    eyebrow: ko ? "내 데이터로 써보고, 필요한 만큼 확장하는 공간" : "Try Orider data ideas, then extend them when needed",
     subtitle: ko
-      ? "라이더가 본인 데이터로 만든 차트, AI 일기, 알림, 리포트, 위젯을 발견하고 개인정보를 보호한 결과 카드로 공유하는 공간입니다."
-      : "Discover charts, AI diaries, alerts, reports, and widgets built from a rider's own data, then share privacy-safe result cards.",
+      ? "여기에는 오라이더 안에서 바로 써볼 수 있는 기능과, Personal Data API로 직접 만들어볼 수 있는 레시피가 함께 있습니다. 완성 앱 마켓이 아니라, 라이더의 데이터를 안전하게 활용하는 예시와 시작점입니다."
+      : "This hub mixes features you can try inside Orider with recipes you can build using the Personal Data API. It is a safe starting point and showcase, not a finished app marketplace.",
     tabs: {
       featured: ko ? "추천" : "Featured",
       recipes: ko ? "레시피" : "Recipes",
@@ -97,7 +97,7 @@ function buildCopy(language: string) {
     },
     actions: {
       preview: ko ? "공유 카드 보기" : "Preview share card",
-      recipe: ko ? "레시피 보기" : "View recipe",
+      recipe: ko ? "레시피 설명 보기" : "View recipe guide",
       generate: ko ? "AI 일기 생성" : "Generate diary",
       generating: ko ? "AI 일기 생성 중" : "Generating diary",
       post: ko ? "게시글로 공유" : "Share as post",
@@ -129,8 +129,8 @@ function buildCopy(language: string) {
         : "Could not generate the diary. Check that activity data is available, or try again after the daily limit resets.",
     },
     stats: [
-      { label: ko ? "대표 레시피" : "Flagship recipes", value: "5" },
-      { label: ko ? "기본 공개범위" : "Default visibility", value: ko ? "비공개" : "Private" },
+      { label: ko ? "바로 써보기" : "Try now", value: ko ? "일부" : "Some" },
+      { label: ko ? "확장 방식" : "Build path", value: ko ? "API/레시피" : "API/recipes" },
       { label: ko ? "데이터 접근" : "Data access", value: ko ? "본인만" : "Own data" },
     ],
     card: {
@@ -168,24 +168,72 @@ function buildCopy(language: string) {
     },
     builderTitle: ko ? "만들고 싶은 활용법을 제안하세요" : "Propose what you want to build",
     builderBody: ko
-      ? "개발자는 레시피를 PR로 제출하고, 일반 사용자는 기능 제안으로 활용 사례를 남길 수 있습니다. 오라이더 안에서는 검토된 레시피와 결과 카드가 Creator Hub에 노출됩니다."
-      : "Developers can submit recipes by PR, while riders can propose use cases. Reviewed recipes and result cards surface here in Orider.",
+      ? "개발자가 아니어도 괜찮습니다. 노션에 주간 리포트를 남기고 싶다, Slack으로 회복 알림을 받고 싶다, n8n으로 월간 배지를 자동 생성하고 싶다처럼 실제로 필요한 장면을 남겨 주세요. 개발자는 그 아이디어를 Personal Data API 레시피로 구체화해 PR로 보낼 수 있습니다."
+      : "You do not need to be a developer to contribute. Ask for real workflows such as a Notion weekly report, Slack recovery reminder, or n8n monthly badge automation. Developers can turn those ideas into Personal Data API recipes and submit PRs.",
+    useModesTitle: ko ? "어떻게 쓰면 되나요?" : "How can I use this?",
+    useModes: [
+      {
+        title: ko ? "오라이더 안에서 바로 써보기" : "Try it inside Orider",
+        body: ko
+          ? "AI 일기 생성, 주간 부하 차트 미리보기, 공유 카드 복사처럼 화면 안에서 끝나는 기능입니다. 로그인하면 내 활동 데이터로 계산되고, 비로그인 상태에서는 데모 데이터가 보입니다."
+          : "Use in-product actions such as AI diary generation, weekly load preview, and share-card copy. Signed-in riders use their own data; signed-out visitors see demo data.",
+      },
+      {
+        title: ko ? "내 도구에 직접 연결하기" : "Connect it to your own tools",
+        body: ko
+          ? "설정의 Developer API에서 개인 API key를 만들고, 필요한 scope만 골라 Notion, Slack, n8n, 개인 대시보드 같은 도구에서 본인 데이터를 읽어갑니다. 이 단계는 간단한 자동화나 개발 지식이 필요합니다."
+          : "Create a personal API key in Developer API settings, choose only the scopes you need, and read your own data from tools like Notion, Slack, n8n, or a personal dashboard. This path needs basic automation or development knowledge.",
+      },
+      {
+        title: ko ? "아이디어만 제안하기" : "Request an idea",
+        body: ko
+          ? "코드를 몰라도 됩니다. 동호회에서 필요한 리포트, 훈련 알림, 월간 배지, 공유 카드 같은 활용 장면을 요청하면 레시피 후보가 됩니다."
+          : "No code is required. Requests for club reports, training alerts, monthly badges, or share cards can become future recipe candidates.",
+      },
+    ],
+    integrationsTitle: ko ? "활용 예시" : "Example integrations",
+    integrations: [
+      {
+        name: "Notion",
+        text: ko
+          ? "주간 거리, 시간, TSS를 월요일마다 개인 훈련 일지 데이터베이스에 기록합니다."
+          : "Write weekly distance, time, and load into a personal training journal database every Monday.",
+      },
+      {
+        name: "Slack",
+        text: ko
+          ? "팀 채널이나 개인 DM으로 회복 우선 알림, 주간 요약, 목표 대비 진행률을 보냅니다."
+          : "Send recovery reminders, weekly summaries, or goal progress to a team channel or private DM.",
+      },
+      {
+        name: "n8n",
+        text: ko
+          ? "API 호출, 조건 분기, 이메일/노션/슬랙 전송을 묶어 노코드에 가까운 자동화를 만듭니다."
+          : "Chain API calls, conditions, and email/Notion/Slack delivery into low-code automation.",
+      },
+      {
+        name: ko ? "개인 웹사이트" : "Personal site",
+        text: ko
+          ? "정확한 경로 없이 월간 거리, 상승고도, 최장 라이딩만 공개 배지로 보여줍니다."
+          : "Show a public monthly badge with distance, elevation, and longest ride without exact routes.",
+      },
+    ],
     apiPath: {
-      title: ko ? "개발자가 시작하는 가장 짧은 경로" : "Shortest path for builders",
+      title: ko ? "직접 연결해서 쓰는 가장 짧은 경로" : "Shortest path to connect your own tools",
       body: ko
-        ? "현재는 본인 데이터 읽기용 최소 Personal Data API가 열려 있습니다. 먼저 레시피를 만들고, 필요한 scope와 공개 안전 출력을 Creator Hub에 제안하세요. 승인된 레시피는 오라이더 안에서 발견되고, 서버-side AI credit 같은 보호된 실행 경로를 붙일 수 있습니다."
-        : "The minimum owner-only Personal Data API is live. Start with a recipe, required scopes, and public-safe output. Reviewed recipes can surface inside Orider and receive protected execution paths such as server-side AI credits.",
+        ? "외부 도구에서 쓰려면 완성 기능을 복사하는 것이 아니라, Personal Data API로 본인 데이터를 읽어 직접 연결합니다. API key는 본인 계정에서 만들고 언제든 폐기할 수 있으며, 필요한 scope만 선택해야 합니다."
+        : "External tools do not copy a finished feature from this page. They connect to your own data through the Personal Data API. Create and revoke keys from your account, and choose only the scopes each workflow needs.",
       steps: [
-        ko ? "1. API key 또는 샘플 데이터로 결과물을 정의" : "1. Define the output using an API key or sample data",
-        ko ? "2. 필요한 scope와 공개 안전 출력을 명시" : "2. Declare required scopes and public-safe output",
-        ko ? "3. PR 또는 요청으로 Creator Hub에 제안" : "3. Submit a PR or request it for Creator Hub",
+        ko ? "1. 설정 → Developer API에서 개인 API key 생성" : "1. Create a personal API key in Settings → Developer API",
+        ko ? "2. Notion, Slack, n8n, 개인 서버 등에서 문서화된 API 호출" : "2. Call the documented API from Notion, Slack, n8n, or your own server",
+        ko ? "3. 공유 전 위치·민감 지표를 집계하거나 제거" : "3. Aggregate or remove location and sensitive metrics before sharing",
       ],
     },
     weekly: {
-      title: ko ? "실제 예시: 주간 부하 차트" : "Live example: weekly load chart",
+      title: ko ? "바로 써보기: 주간 부하 차트" : "Try now: weekly load chart",
       body: ko
-        ? "로그인하면 최근 12주 활동으로 실제 차트를 계산합니다. 비로그인 상태에서는 데모 데이터로 레시피 결과물을 미리 봅니다."
-        : "When signed in, this chart uses your latest 12 weeks of activities. Signed-out riders see demo data that shows the recipe output.",
+        ? "오라이더 안에서는 로그인만 하면 최근 주간 활동으로 차트를 바로 볼 수 있습니다. Notion, Slack, n8n 등에 붙여 쓰려면 Personal Data API로 같은 데이터를 읽어 직접 자동화를 만들어야 합니다."
+        : "Inside Orider, signed-in riders can view this chart from their recent weekly activity data. To use it in Notion, Slack, n8n, or another tool, connect through the Personal Data API and build the automation yourself.",
       empty: ko ? "아직 차트로 표시할 활동이 없습니다." : "No activities to chart yet.",
       demo: ko ? "데모 데이터" : "Demo data",
       own: ko ? "내 데이터" : "My data",
@@ -390,6 +438,32 @@ export default function CreatorHubPage() {
               <div className="mt-1 text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{stat.value}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+          <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.useModesTitle}</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {copy.useModes.map((mode) => (
+              <div key={mode.title} className="rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
+                <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+          <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.integrationsTitle}</h2>
+          <div className="mt-4 space-y-3">
+            {copy.integrations.map((item) => (
+              <div key={item.name} className="flex gap-3">
+                <div className="w-20 shrink-0 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
+                <p className="text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.text}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

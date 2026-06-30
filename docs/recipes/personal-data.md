@@ -2,6 +2,8 @@
 
 Personal data recipes show how a rider could use their own Orider data for charts, reports, alerts, exports, or automation.
 
+They are not one-click installable apps. Some ideas are already available inside Orider as previews or protected server-side features, while external tools such as Notion, Slack, n8n, spreadsheets, or personal dashboards need a rider-created Personal Data API key and a small amount of setup.
+
 The Personal Data API now has a small owner-only read foundation. Recipes in this directory should use live endpoints when possible, and fall back to sample JSON, exported data, or mocked responses when a needed scope is not available yet.
 
 GitHub is the authoring and review workflow. The intended rider-facing surface is Orider Creator Hub, where recipes can be browsed, tried, saved, and paired with privacy-safe result cards. See [Creator Showcase](../CREATOR_SHOWCASE.md).
@@ -17,6 +19,8 @@ You can use a scoped Personal Data API key for the live owner-only endpoints, bu
 5. Open a PR, or ask for the recipe from the Creator Hub request link.
 
 The first in-product examples are AI ride diary generation and a weekly load chart preview. AI diary uses a protected server-side Orider AI credit. Weekly load can run from the signed-in rider's own activity summaries, with demo data shown to signed-out visitors.
+
+If a rider wants to use the same weekly load idea outside Orider, the flow is different: create a Personal Data API key, read the documented endpoints, aggregate the data, and send the result to the chosen tool.
 
 ## Recipe Principles
 
@@ -120,6 +124,18 @@ Email delivery is supported as an explicit, user-triggered action from Creator H
 
 AI recipes should use Orider AI credits when running inside Orider: provider API keys stay server-side, each approved recipe gets a small per-rider quota, and recipes must not ask users to paste provider API keys into browser code. The first reference recipe is AI ride diary generation with 5 generations per rider per day.
 
+## Example Integrations
+
+These are realistic ways riders could apply the recipes. They require setup outside Orider and should be documented honestly as integrations, not built-in features.
+
+| Tool | Example use | Notes |
+|---|---|---|
+| Notion | Append weekly distance, time, elevation, and TSS to a training journal database every Monday. | Use aggregate fields. Avoid storing exact route geometry unless the rider explicitly wants it. |
+| Slack | Send a private recovery reminder or weekly training summary to a DM or small team channel. | Mention that data leaves Orider and is governed by the Slack workspace. |
+| n8n | Schedule API calls, branch on fatigue/load conditions, then send email, Notion, or Slack updates. | Prefer daily or weekly polling, not per-page-load automation. |
+| Google Sheets | Keep a simple training log table for charts and formulas. | Good first non-developer-friendly target if a template is provided. |
+| Personal website | Publish a monthly badge with distance, elevation, longest ride, or consistency. | Use public-safe aggregates and hide exact start/end locations. |
+
 ## Example: Weekly Load Summary
 
 Planned scopes:
@@ -136,9 +152,12 @@ Privacy notes:
 Pseudo-flow:
 
 ```ts
-const activities = await fetchOwnActivities({ after: "2026-06-01" });
-const dailyLoad = activities.map((activity) => ({
-  date: activity.startTime.slice(0, 10),
+const response = await fetch("https://orider.co.kr/api/v1/activities?limit=100", {
+  headers: { "X-API-Key": process.env.ORIDER_PERSONAL_API_KEY },
+}).then((res) => res.json());
+
+const dailyLoad = response.data.map((activity) => ({
+  date: new Date(activity.startTime).toISOString().slice(0, 10),
   load: activity.tss ?? estimateLoad(activity),
 }));
 
