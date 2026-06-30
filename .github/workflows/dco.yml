@@ -21,13 +21,30 @@ jobs:
 
           base="${{ github.event.pull_request.base.sha }}"
           head="${{ github.event.pull_request.head.sha }}"
+          missing=()
           failed=0
 
           while IFS= read -r commit; do
             if ! git log -1 --format=%B "$commit" | grep -qiE '^Signed-off-by: .+ <.+@.+>$'; then
-              echo "::error::Commit $commit is missing a DCO Signed-off-by line. Recommit or amend with: git commit -s"
+              missing+=("$commit")
               failed=1
             fi
           done < <(git rev-list --no-merges "$base..$head")
+
+          for commit in "${missing[@]}"; do
+            echo "::error::Commit $commit is missing a DCO Signed-off-by line."
+          done
+
+          if [ "$failed" -ne 0 ]; then
+            printf '%s\n' \
+              "" \
+              "To fix your latest commit:" \
+              "  git commit --amend -s --no-edit" \
+              "  git push --force-with-lease" \
+              "" \
+              "To fix several commits, rebase and amend each missing commit:" \
+              "  git rebase -i origin/main" \
+              "  git commit --amend -s --no-edit"
+          fi
 
           exit "$failed"

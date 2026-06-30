@@ -124,7 +124,8 @@ The most reusable parts of this repository are frontend and pure TypeScript surf
 
 | Area | Useful for |
 |---|---|
-| `shared/training/` | Fitness/readiness calculations, workout import, weekly load, client-side segment prediction/challenge feed estimates, and tests. |
+| `shared/training/` | Fitness/readiness calculations, workout import, weekly load, recovery, metabolism, VO2max, and tests. |
+| `shared/sim/courseSim.ts` | Pure course/segment simulation based on power, mass, CdA, Crr, and grade segments. |
 | `src/utils/export*.ts` | GPX, TCX, FIT, CSV, and calendar export behavior. |
 | `src/components/` and `src/pages/` | Sports analytics UI, map fallback patterns, chart states, and mobile workflows. |
 | `src/i18n/resources/` | Korean/English cycling, training, event, and settings terminology. |
@@ -132,11 +133,11 @@ The most reusable parts of this repository are frontend and pure TypeScript surf
 
 ## Practical Recipes
 
-## Client-Side Training Estimates
+## Client-Side Training and Simulation
 
-`shared/training/segmentPrediction.ts` and `shared/training/challengeFeed.ts` are intentionally part of the public frontend surface.
+`shared/training/` and `shared/sim/courseSim.ts` are intentionally part of the public frontend surface.
 
-They are reusable pure TypeScript estimates for UI support and contributor review. They are not authoritative server analysis, backend ranking truth, security controls, or abuse controls. Inputs come from client-visible rider and segment data, and sensitive training intelligence, private data access, provider secrets, and privileged aggregation remain outside this repository.
+They are reusable pure TypeScript modules for UI support and contributor review. They are not authoritative server analysis, backend ranking truth, security controls, or abuse controls. Inputs should come from client-visible or demo data, and sensitive training intelligence, private data access, provider secrets, and privileged aggregation remain outside this repository.
 
 Keep tests with these modules. If a future algorithm becomes proprietary or security-sensitive, move it behind a documented backend/API contract and leave only typed client boundaries in this repository.
 
