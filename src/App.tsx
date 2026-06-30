@@ -79,6 +79,16 @@ const LoadingSpinner = () => (
   </div>
 );
 
+function StaticAboutRedirect() {
+  const { i18n } = useTranslation();
+  useEffect(() => {
+    const lang = i18n.language.startsWith("en") ? "en" : "ko";
+    window.location.assign(`/${lang}/about/index.html`);
+  }, [i18n.language]);
+
+  return <LoadingSpinner />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -130,6 +140,7 @@ function AppRoutes() {
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="community" element={<CommunityGuidelinesPage />} />
+          <Route path="about" element={<StaticAboutRedirect />} />
           <Route path="strava-terms" element={<StravaTermsPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="event/create" element={<EventCreatePage />} />

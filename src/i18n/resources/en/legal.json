@@ -184,8 +184,112 @@
     }
   },
   "guidelines": {
+    "eyebrow": "Standards for a safer community",
     "pageTitle": "Orider Community Guidelines",
     "intro": "Orider is a platform for a healthy riding culture. All Users must comply with the following standards.",
+    "highlights": [
+      "Share ride records and opinions based on facts.",
+      "Do not post another person's location, contact details, face, or other personal information without permission.",
+      "Record manipulation, ranking manipulation, and hate speech damage community trust."
+    ],
+    "actions": {
+      "home": "Go to Orider home",
+      "board": "Back to community",
+      "write": "Write a post",
+      "feedback": "Contact or report"
+    },
+    "next": {
+      "title": "After reviewing the guide",
+      "body": "Return home to check your rides, or join the community to share riding experiences. Use contact or report when you see a problematic post or have feedback."
+    },
+    "sections": [
+      {
+        "title": "1. Respect and Consideration",
+        "items": [
+          "Do not defame, insult, mock, threaten, or use hate speech toward others.",
+          "Do not discriminate or exclude people based on race, gender, age, region, disability, physical condition, ability, or equipment level.",
+          "Do not make fun of riding ability or records. Give specific and respectful advice when it is welcome.",
+          "Prioritize safety and consideration in group rides, events, posts, and comments."
+        ]
+      },
+      {
+        "title": "2. Ride Records and Location Privacy",
+        "intro": "Because Orider handles movement routes and activity data, location privacy matters more than in a general community.",
+        "items": [
+          "Do not disclose another person's home, workplace, frequent start point, live location, or contact details without permission.",
+          "When sharing a group ride route, hide exact start and finish points or places that can identify a participant.",
+          "Do not share sensitive data such as heart rate, power, fatigue, injuries, or health status without the rider's consent.",
+          "Before posting screenshots, check and hide names, profiles, map coordinates, invite links, API keys, and other identifiers."
+        ]
+      },
+      {
+        "title": "3. Safe Content and Riding Culture",
+        "items": [
+          "Do not post violent, obscene, or illegal content.",
+          "Do not glorify or encourage dangerous riding, traffic law violations, chasing, threatening riding, or harassment.",
+          "When discussing crashes, injuries, or rescue situations, protect the privacy and dignity of the people involved.",
+          "Frame training or health comments as personal experience, not as medical diagnosis."
+        ]
+      },
+      {
+        "title": "4. Photos, Videos, Portrait Rights, and Copyright",
+        "items": [
+          "Do not post or redistribute another person's photos, videos, ride records, course files, or writing without permission.",
+          "Before posting group ride photos, make sure the people shown are comfortable with public sharing.",
+          "Commercial promotion, paid coaching, event promotion, and copied external content must make source and permission clear.",
+          "Images or records under dispute may be hidden or removed while they are reviewed."
+        ]
+      },
+      {
+        "title": "5. Fair Leaderboards and Record Trust",
+        "items": [
+          "Do not manipulate GPS data, falsify records, upload vehicle-assisted activities, or submit abnormal data.",
+          "Do not use automation, multiple accounts, or false activities to manipulate rankings or badges.",
+          "If you find sensor or recording errors, correct them where possible or avoid using them in public competition.",
+          "Repeated suspicious records may be hidden, excluded from leaderboards, or lead to account restrictions."
+        ]
+      },
+      {
+        "title": "6. Groups, Events, and Friends",
+        "items": [
+          "Operate groups and events in a way that respects participant safety, time, and privacy.",
+          "Do not repeatedly invite people to unwanted groups, events, messages, or friend requests.",
+          "For events that include offline meetups, clearly describe difficulty, distance, expected time, equipment, and risks where possible.",
+          "Do not use organizer or moderator privileges to unfairly exclude or harass users."
+        ]
+      },
+      {
+        "title": "7. Creator, Recipes, and Share Cards",
+        "intro": "Content built with Creator Hub or the Personal Data API must be especially clear about data exposure.",
+        "items": [
+          "Recipes, automations, and share cards should clearly explain required scopes and what data is made visible.",
+          "Do not post API keys, auth tokens, webhook URLs, personal emails, or raw private activity data in posts or comments.",
+          "Prefer aggregate values and safe summaries in share cards. Hide precise routes, start locations, and sensitive metrics by default.",
+          "Recipes that fetch or send another person's data without permission are not allowed."
+        ]
+      },
+      {
+        "title": "8. Reports, Review, and Appeals",
+        "items": [
+          "Use contact or report for privacy exposure, harassment, record manipulation, illegal content, or safety threats.",
+          "When reporting, include the relevant post, comment, record, user, and situation as specifically as possible.",
+          "Orider may temporarily hide content or request more information while reviewing a report.",
+          "If you believe an enforcement action was incorrect, you may appeal through the contact channel."
+        ]
+      },
+      {
+        "title": "9. Enforcement Policy",
+        "intro": "Depending on severity, repetition, and potential harm, violations may result in:",
+        "items": [
+          "Guidance or warning",
+          "Content hiding or removal",
+          "Leaderboard exclusion or record invalidation",
+          "Temporary suspension or feature restriction",
+          "Permanent suspension for serious or repeated violations"
+        ],
+        "footer": "Serious violations that threaten safety or expose private information may be restricted immediately without prior warning."
+      }
+    ],
     "section1": {
       "title": "1. Respect and Consideration",
       "item1": "No defamation, insults, or hate speech toward others",
