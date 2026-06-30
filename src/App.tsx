@@ -130,6 +130,7 @@ function AppRoutes() {
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="community" element={<CommunityGuidelinesPage />} />
+          <Route path="community-guide" element={<CommunityGuidelinesPage />} />
           <Route path="strava-terms" element={<StravaTermsPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="event/create" element={<EventCreatePage />} />

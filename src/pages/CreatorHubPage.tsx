@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import {
   Bell,
@@ -22,6 +23,7 @@ import {
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { useWeeklyStats } from "../hooks/useActivities";
 import { creatorRecipes, type CreatorRecipeIcon, type CreatorRecipeKind } from "../data/creatorRecipes";
 import { functions } from "../services/firebase";
@@ -40,6 +42,7 @@ interface CreatorItem {
   channels: string[];
   labels: string[];
   shareMode: string;
+  deployMode: string;
   status: string;
 }
 
@@ -82,6 +85,10 @@ const REQUEST_RECIPE_URL = "https://github.com/miranae/orider-web/issues/new?tem
 const recipeActionClass = "w-full justify-center min-[420px]:w-auto";
 const metadataCodeClass = "max-w-full break-all rounded-[var(--r-sm)] px-1.5 py-0.5";
 
+function parseCreatorTab(value: string | null): CreatorTab {
+  return value === "recipes" || value === "share" ? value : "featured";
+}
+
 function buildCopy(language: string) {
   const ko = language.startsWith("ko");
   return {
@@ -115,7 +122,72 @@ function buildCopy(language: string) {
       report: ko ? "신고" : "Report",
       reported: ko ? "검토 대기" : "Under review",
       reportFailed: ko ? "신고를 접수하지 못했습니다" : "Could not submit report",
+      previewOpened: ko ? "공유 카드 예시로 이동했습니다." : "Opened the share card preview.",
+      recipeOpened: ko ? "레시피와 연결 방법을 보여드릴게요." : "Showing recipes and connection steps.",
+      loginPrompt: ko ? "로그인하면 내 활동 데이터로 생성할 수 있습니다." : "Sign in to generate this from your activity data.",
+      emailLogin: ko ? "로그인하면 본인 확인 이메일로만 받아볼 수 있습니다." : "Sign in to send this only to your verified account email.",
+      reportLogin: ko ? "로그인하면 레시피 신고를 접수할 수 있습니다." : "Sign in to report this recipe.",
+      copyFailed: ko ? "복사 권한을 확인한 뒤 다시 시도해 주세요." : "Check clipboard permission and try again.",
+      deploy: ko ? "배치 방법 보기" : "View deployment path",
+      deployOpened: ko ? "레시피 배치 흐름을 보여드릴게요." : "Showing the recipe deployment flow.",
     },
+    pathsTitle: ko ? "무엇부터 하면 될까요?" : "Where should I start?",
+    paths: [
+      {
+        title: ko ? "라이더로 바로 써보기" : "Try as a rider",
+        body: ko
+          ? "로그인하지 않아도 데모 카드와 주간 차트를 먼저 볼 수 있습니다. 로그인하면 같은 버튼이 내 활동 데이터 기반 생성으로 바뀝니다."
+          : "Preview the demo card and weekly chart without signing in. After sign-in, the same actions use your own activity data.",
+        action: ko ? "데모 카드 보기" : "View demo card",
+        tab: "share" as CreatorTab,
+      },
+      {
+        title: ko ? "자동화로 연결하기" : "Connect automation",
+        body: ko
+          ? "Developer API에서 key를 만들고 필요한 scope만 선택합니다. Notion, Slack, n8n, 개인 서버에서 같은 데이터를 읽어갑니다."
+          : "Create a Developer API key, choose only the needed scopes, and read the same data from Notion, Slack, n8n, or your server.",
+        action: ko ? "연결 순서 보기" : "See connection steps",
+        tab: "recipes" as CreatorTab,
+      },
+      {
+        title: ko ? "아이디어만 남기기" : "Request an idea",
+        body: ko
+          ? "개발 지식이 없어도 됩니다. 동호회 리포트, 회복 알림, 월간 배지처럼 실제로 필요한 장면을 요청하면 됩니다."
+          : "No development knowledge is required. Request real workflows such as club reports, recovery alerts, or monthly badges.",
+        action: ko ? "활용법 요청" : "Request recipe",
+        tab: "featured" as CreatorTab,
+      },
+    ],
+    deployTitle: ko ? "레시피는 이렇게 배치합니다" : "How recipes get deployed",
+    deployBody: ko
+      ? "레시피가 많아져도 실제 사용으로 이어지려면 카드 선택에서 끝나면 안 됩니다. 실행 위치, 권한, 트리거, 중지 방법까지 정해야 배치된 레시피가 됩니다."
+      : "As the recipe list grows, picking a card is not enough. A deployed recipe needs a runtime, scopes, trigger, and a clear way to stop it.",
+    deploySteps: [
+      {
+        title: ko ? "1. 실행 위치 고르기" : "1. Choose runtime",
+        body: ko
+          ? "오라이더 안에서 바로 실행할지, n8n·Slack·Notion·개인 서버 같은 외부 도구에서 돌릴지 먼저 고릅니다."
+          : "Decide whether it runs inside Orider or in an external tool such as n8n, Slack, Notion, or a personal server.",
+      },
+      {
+        title: ko ? "2. 권한과 공개 범위 설정" : "2. Set scopes and visibility",
+        body: ko
+          ? "필요한 scope만 선택하고, 위치·심박·파워·피로도 같은 민감 데이터가 외부로 나가는지 확인합니다."
+          : "Choose only the required scopes and check whether location, heart rate, power, or fatigue data leaves Orider.",
+      },
+      {
+        title: ko ? "3. 트리거 배치" : "3. Deploy trigger",
+        body: ko
+          ? "월요일 오전, 매일 1회, 라이딩 완료 후, 수동 실행처럼 언제 실행될지 정합니다. 이 단계가 실제 배치입니다."
+          : "Set when it runs: Monday morning, once daily, after a ride, or manually. This is the actual deployment step.",
+      },
+      {
+        title: ko ? "4. 운영과 중지" : "4. Operate and stop",
+        body: ko
+          ? "마지막 실행 결과, 오류, 남은 횟수, 연결된 API key를 확인하고 언제든 알림·webhook·key를 끌 수 있어야 합니다."
+          : "Track the last run, errors, remaining quota, and connected API key. Riders must be able to turn off alerts, webhooks, or keys.",
+      },
+    ],
     credit: {
       title: ko ? "오라이더 AI 크레딧 예시" : "Orider AI credits example",
       body: ko
@@ -137,6 +209,7 @@ function buildCopy(language: string) {
       outcome: ko ? "나오는 결과" : "Output",
       delivery: ko ? "전달 채널" : "Delivery",
       why: ko ? "왜 유용한가" : "Why it helps",
+      deploy: ko ? "배치 방식" : "Deployment",
     },
     email: {
       title: ko ? "이메일 알림까지 지원" : "Email delivery included",
@@ -195,38 +268,47 @@ function buildCopy(language: string) {
     integrations: [
       {
         name: "Notion",
-        text: ko
-          ? "주간 거리, 시간, TSS를 월요일마다 개인 훈련 일지 데이터베이스에 기록합니다."
-          : "Write weekly distance, time, and load into a personal training journal database every Monday.",
+        goal: ko ? "월요일 아침마다 훈련 일지가 자동으로 쌓이게 하기" : "Build a training journal automatically every Monday morning",
+        steps: ko
+          ? ["activities:read와 fitness:read scope로 API key를 만듭니다.", "Notion 데이터베이스에 주간 거리, 시간, 부하, 코멘트 칼럼을 준비합니다.", "n8n이나 개인 스크립트가 매주 월요일 API를 읽고 한 줄 회고까지 적습니다."]
+          : ["Create an API key with activities:read and fitness:read scopes.", "Prepare distance, time, load, and note columns in a Notion database.", "Let n8n or a small script read the API every Monday and write a short review."],
+        result: ko ? "라이딩을 끝낸 뒤 따로 정리하지 않아도 주간 훈련 로그가 남습니다." : "Weekly training logs appear without manual cleanup after rides.",
       },
       {
         name: "Slack",
-        text: ko
-          ? "팀 채널이나 개인 DM으로 회복 우선 알림, 주간 요약, 목표 대비 진행률을 보냅니다."
-          : "Send recovery reminders, weekly summaries, or goal progress to a team channel or private DM.",
+        goal: ko ? "무리한 연속 훈련 전에 회복 알림 받기" : "Get a recovery nudge before hard days stack up",
+        steps: ko
+          ? ["최근 7일 활동 시간과 부하만 읽습니다.", "고강도 운동이 이어지면 개인 DM으로 먼저 보냅니다.", "팀 채널 공유는 거리/시간 같은 집계값만 선택합니다."]
+          : ["Read only the last 7 days of duration and load.", "Send the first alert as a private DM when hard sessions stack up.", "Share only aggregate distance/time if posting to a team channel."],
+        result: ko ? "코치나 팀원에게 민감한 위치·심박 데이터를 공개하지 않고 회복 신호만 공유할 수 있습니다." : "Recovery signals can be shared without exposing sensitive location or heart-rate data.",
       },
       {
         name: "n8n",
-        text: ko
-          ? "API 호출, 조건 분기, 이메일/노션/슬랙 전송을 묶어 노코드에 가까운 자동화를 만듭니다."
-          : "Chain API calls, conditions, and email/Notion/Slack delivery into low-code automation.",
+        goal: ko ? "코드 없이 월간 배지와 이메일 요약 만들기" : "Create a monthly badge and email summary without much code",
+        steps: ko
+          ? ["매월 1일 API에서 지난달 집계 데이터를 가져옵니다.", "거리, 상승고도, 최장 라이딩만 공개 항목으로 고릅니다.", "배지 문구는 이메일로 받고, 공개용 JSON은 개인 사이트에 붙입니다."]
+          : ["On the first day of each month, fetch last month's aggregate data.", "Choose only distance, elevation, and longest ride as public fields.", "Email the badge copy and publish a public JSON snippet to a personal site."],
+        result: ko ? "정확한 경로 없이도 꾸준함을 자랑할 수 있는 월간 리포트가 생깁니다." : "You get a monthly report that celebrates consistency without exact routes.",
       },
       {
         name: ko ? "개인 웹사이트" : "Personal site",
-        text: ko
-          ? "정확한 경로 없이 월간 거리, 상승고도, 최장 라이딩만 공개 배지로 보여줍니다."
-          : "Show a public monthly badge with distance, elevation, and longest ride without exact routes.",
+        goal: ko ? "블로그나 프로필에 라이딩 현황 배지 달기" : "Add a ride-status badge to a blog or profile",
+        steps: ko
+          ? ["public-safe widget 레시피처럼 월간 집계만 읽습니다.", "출발지, 도착지, 지도 좌표는 응답에서 제외합니다.", "방문자에게는 거리, 상승고도, 활동 수, 최근 갱신일만 보여줍니다."]
+          : ["Read only monthly aggregates like the public-safe widget recipe.", "Exclude starts, finishes, and map coordinates from the response.", "Show visitors distance, elevation, activity count, and last updated date."],
+        result: ko ? "개인정보 노출 없이 프로필에 라이더 정체성을 보여줄 수 있습니다." : "Your profile shows rider identity without leaking private ride details.",
       },
     ],
     apiPath: {
       title: ko ? "직접 연결해서 쓰는 가장 짧은 경로" : "Shortest path to connect your own tools",
       body: ko
-        ? "외부 도구에서 쓰려면 완성 기능을 복사하는 것이 아니라, Personal Data API로 본인 데이터를 읽어 직접 연결합니다. API key는 본인 계정에서 만들고 언제든 폐기할 수 있으며, 필요한 scope만 선택해야 합니다."
-        : "External tools do not copy a finished feature from this page. They connect to your own data through the Personal Data API. Create and revoke keys from your account, and choose only the scopes each workflow needs.",
+        ? "외부 도구에서 쓰려면 완성 기능을 복사하는 것이 아니라, Personal Data API로 본인 데이터를 읽어 직접 연결합니다. API key는 본인 계정에서 만들고 언제든 폐기할 수 있으며, 배치할 때 필요한 scope와 실행 주기만 선택해야 합니다."
+        : "External tools do not copy a finished feature from this page. They connect to your own data through the Personal Data API. Create and revoke keys from your account, then choose only the scopes and schedule each deployment needs.",
       steps: [
         ko ? "1. 설정 → Developer API에서 개인 API key 생성" : "1. Create a personal API key in Settings → Developer API",
         ko ? "2. Notion, Slack, n8n, 개인 서버 등에서 문서화된 API 호출" : "2. Call the documented API from Notion, Slack, n8n, or your own server",
-        ko ? "3. 공유 전 위치·민감 지표를 집계하거나 제거" : "3. Aggregate or remove location and sensitive metrics before sharing",
+        ko ? "3. 실행 주기 선택: 수동, 매일 1회, 매주 월요일, 라이딩 완료 후" : "3. Choose a trigger: manual, daily, Monday morning, or after a ride",
+        ko ? "4. 공유 전 위치·민감 지표를 집계하거나 제거하고, 필요하면 API key를 폐기" : "4. Aggregate or remove sensitive data before sharing, and revoke the key when needed",
       ],
     },
     weekly: {
@@ -260,9 +342,11 @@ function demoWeeklyStats() {
 export default function CreatorHubPage() {
   const { i18n } = useTranslation();
   const { user, signInWithGoogle } = useAuth();
+  const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { weeklyStats } = useWeeklyStats();
   const copy = useMemo(() => buildCopy(i18n.language), [i18n.language]);
-  const [tab, setTab] = useState<CreatorTab>("featured");
+  const [tab, setTabState] = useState<CreatorTab>(() => parseCreatorTab(searchParams.get("tab")));
   const [copied, setCopied] = useState(false);
   const [chartCopied, setChartCopied] = useState(false);
   const [reportedItemIds, setReportedItemIds] = useState<Set<string>>(() => new Set());
@@ -290,6 +374,7 @@ export default function CreatorHubPage() {
         channels: recipe.channels,
         labels: localized.labels,
         shareMode: localized.shareMode,
+        deployMode: localized.deployMode,
         status: localized.status,
       };
     });
@@ -297,7 +382,7 @@ export default function CreatorHubPage() {
 
   const visibleItems = items.filter((item) => {
     if (tab === "featured") return true;
-    if (tab === "recipes") return true;
+    if (tab === "recipes") return item.id !== "ai-diary";
     return item.id === "ai-diary" || item.id === "ride-widget";
   });
 
@@ -320,20 +405,39 @@ export default function CreatorHubPage() {
   const shareText = `${shareCard.title}\n${shareCard.body}\n${shareCard.footer}`;
   const weeklyShareText = `${copy.weekly.shareTitle}\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${copy.weekly.tss}: ${chartTotal.tss}\n${chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}`;
 
+  const setTab = (nextTab: CreatorTab) => {
+    setTabState(nextTab);
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === "featured") nextParams.delete("tab");
+    else nextParams.set("tab", nextTab);
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const handleCopy = async () => {
-    await navigator.clipboard?.writeText(shareText);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+    try {
+      await navigator.clipboard?.writeText(shareText);
+      setCopied(true);
+      showToast(copy.actions.copied);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      showToast(copy.actions.copyFailed, "error");
+    }
   };
 
   const handleCopyChart = async () => {
-    await navigator.clipboard?.writeText(weeklyShareText);
-    setChartCopied(true);
-    window.setTimeout(() => setChartCopied(false), 1600);
+    try {
+      await navigator.clipboard?.writeText(weeklyShareText);
+      setChartCopied(true);
+      showToast(copy.actions.copied);
+      window.setTimeout(() => setChartCopied(false), 1600);
+    } catch {
+      showToast(copy.actions.copyFailed, "error");
+    }
   };
 
   const handleEmailRecipe = async (itemId: string) => {
     if (!user) {
+      showToast(copy.actions.emailLogin, "info");
       await signInWithGoogle();
       return;
     }
@@ -351,8 +455,10 @@ export default function CreatorHubPage() {
         return next;
       });
       setEmailSentItemIds((prev) => new Set(prev).add(itemId));
+      showToast(copy.actions.emailed);
     } catch {
       setEmailFailedItemIds((prev) => new Set(prev).add(itemId));
+      showToast(copy.actions.emailFailed, "error");
     } finally {
       setEmailSendingId(null);
     }
@@ -360,6 +466,7 @@ export default function CreatorHubPage() {
 
   const handleGenerateDiary = async () => {
     if (!user) {
+      showToast(copy.actions.loginPrompt, "info");
       await signInWithGoogle();
       return;
     }
@@ -374,8 +481,10 @@ export default function CreatorHubPage() {
       const result = await fn({ lang: i18n.language.startsWith("en") ? "en" : "ko", period: "week" });
       setDiary(result.data);
       setTab("share");
+      showToast(result.data.source === "cache" ? copy.credit.cache : copy.actions.previewOpened);
     } catch {
       setDiaryError(copy.credit.failed);
+      showToast(copy.credit.failed, "error");
     } finally {
       setGenerating(false);
     }
@@ -383,6 +492,7 @@ export default function CreatorHubPage() {
 
   const handleReportItem = async (itemId: string) => {
     if (!user) {
+      showToast(copy.actions.reportLogin, "info");
       await signInWithGoogle();
       return;
     }
@@ -398,8 +508,10 @@ export default function CreatorHubPage() {
         return next;
       });
       setReportedItemIds((prev) => new Set(prev).add(itemId));
+      showToast(copy.actions.reported);
     } catch {
       setReportFailedItemIds((prev) => new Set(prev).add(itemId));
+      showToast(copy.actions.reportFailed, "error");
     }
   };
 
@@ -420,7 +532,15 @@ export default function CreatorHubPage() {
                 <MessageSquareText size={15} aria-hidden />
                 {copy.actions.post}
             </Link>
-            <Button className={recipeActionClass} size="sm" variant="secondary" onClick={() => setTab("recipes")}>
+            <Button
+              className={recipeActionClass}
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setTab("recipes");
+                showToast(copy.actions.recipeOpened, "info");
+              }}
+            >
                 <BookOpen size={15} />
                 {copy.actions.recipe}
             </Button>
@@ -441,6 +561,58 @@ export default function CreatorHubPage() {
         </div>
       </section>
 
+      <section className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+        <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.pathsTitle}</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {copy.paths.map((path) => (
+            <div key={path.title} className="flex flex-col rounded-[var(--r-md)] border p-4 md:min-h-44" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{path.title}</div>
+              <p className="mt-2 text-[length:var(--fs-xs)] leading-5 md:flex-1" style={{ color: "var(--ink-3)" }}>{path.body}</p>
+              {path.action === copy.actions.requestRecipe ? (
+                <a href={REQUEST_RECIPE_URL} className={buttonClass({ variant: "secondary", size: "sm", className: "mt-3 w-full justify-center" })}>
+                  <MessageSquareText size={15} aria-hidden />
+                  {path.action}
+                </a>
+              ) : (
+                <Button
+                  className="mt-3 w-full justify-center"
+                  size="sm"
+                  variant={path.tab === "share" ? "primary" : "secondary"}
+                  onClick={() => {
+                    setTab(path.tab);
+                    showToast(path.tab === "share" ? copy.actions.previewOpened : copy.actions.recipeOpened, "info");
+                  }}
+                >
+                  {path.tab === "share" ? <ShieldCheck size={15} /> : <BookOpen size={15} />}
+                  {path.action}
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.deployTitle}</h2>
+            <p className="mt-1 max-w-4xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.deployBody}</p>
+          </div>
+          <Link to="/settings?section=developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
+            <KeyRound size={15} aria-hidden />
+            {copy.actions.manageApiKeys}
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          {copy.deploySteps.map((step) => (
+            <div key={step.title} className="rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{step.title}</div>
+              <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{step.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
         <div className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.useModesTitle}</h2>
@@ -456,11 +628,19 @@ export default function CreatorHubPage() {
 
         <div className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.integrationsTitle}</h2>
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 grid gap-3">
             {copy.integrations.map((item) => (
-              <div key={item.name} className="flex gap-3">
-                <div className="w-20 shrink-0 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
-                <p className="text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.text}</p>
+              <div key={item.name} className="rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <div className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
+                  <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{item.goal}</div>
+                </div>
+                <ol className="mt-2 space-y-1.5">
+                  {item.steps.map((step) => (
+                    <li key={step} className="text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{step}</li>
+                  ))}
+                </ol>
+                <p className="mt-2 text-[length:var(--fs-xs)] font-medium leading-5" style={{ color: "var(--ink-2)" }}>{item.result}</p>
               </div>
             ))}
           </div>
@@ -541,9 +721,21 @@ export default function CreatorHubPage() {
                     ))}
                   </div>
                 </div>
+                <div className="mt-3 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                  <Text as="div" variant="eyebrow">{copy.card.deploy}</Text>
+                  <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.deployMode}</p>
+                </div>
 
                 <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
-                  <Button className={recipeActionClass} size="sm" variant={item.id === "ai-diary" ? "primary" : "secondary"} onClick={() => setTab("share")}>
+                  <Button
+                    className={recipeActionClass}
+                    size="sm"
+                    variant={item.id === "ai-diary" ? "primary" : "secondary"}
+                    onClick={() => {
+                      setTab("share");
+                      showToast(copy.actions.previewOpened, "info");
+                    }}
+                  >
                     <ShieldCheck size={15} />
                     {copy.actions.preview}
                   </Button>
@@ -557,9 +749,29 @@ export default function CreatorHubPage() {
                           ? copy.actions.emailFailed
                           : copy.actions.emailRecipe}
                   </Button>
-                  <Button className={recipeActionClass} size="sm" variant="ghost" onClick={() => setTab("recipes")}>
+                  <Button
+                    className={recipeActionClass}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setTab("recipes");
+                      showToast(copy.actions.recipeOpened, "info");
+                    }}
+                  >
                       <BookOpen size={15} />
                       {copy.actions.recipe}
+                  </Button>
+                  <Button
+                    className={recipeActionClass}
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setTab("recipes");
+                      showToast(copy.actions.deployOpened, "info");
+                    }}
+                  >
+                    <KeyRound size={15} />
+                    {copy.actions.deploy}
                   </Button>
                   <Button className={recipeActionClass} size="sm" variant="ghost" onClick={() => void handleReportItem(item.id)}>
                     <Flag size={15} />
