@@ -1,133 +1,71 @@
-# Personal Data API
+# Personal Data API 안내
 
-Orider's public developer direction is personal data access: riders should be able to use their own Orider data in their own dashboards, notebooks, alerts, and automation.
+Orider의 공개 개발 방향은 personal data access입니다. 라이더가 자신의 Orider 데이터를 dashboard, notebook, alert, report, automation에 안전하게 사용할 수 있어야 합니다.
 
-This is a product direction with a small live foundation. The current API supports owner-only read access for selected personal data and scoped developer API keys, while the broader third-party app platform remains early.
+영문 문서는 [PERSONAL_DATA_API-en.md](PERSONAL_DATA_API-en.md)를 참고하세요.
 
-## Why This Matters
+## 방향
 
-Riders already build personal systems around training data: spreadsheets, Notion pages, Discord alerts, custom dashboards, coach reports, and AI summaries. Orider should make that easier without exposing other users' data or turning internal Firebase callables into an unsupported scraping surface.
+현재 API는 작은 live foundation입니다. 선택된 개인 데이터에 대해 owner-only read access와 scoped developer API key를 제공합니다. 더 넓은 third-party app platform은 아직 초기 단계입니다.
 
-The intended model is:
+의도한 모델:
 
-> A signed-in rider can grant a token limited to their own Orider data, then use that data in personal tools and share recipes with the community.
+> 로그인한 라이더가 자신의 Orider 데이터에만 제한된 token을 발급하고, 그 데이터를 개인 도구와 community recipe에 사용한다.
 
-GitHub is only the developer contribution channel. The rider-facing discovery and sharing surface should be Orider's Creator Showcase: a place to browse personal-data recipes, try reviewed ideas, and share privacy-safe result cards. See [Creator Showcase](CREATOR_SHOWCASE.md).
+GitHub는 개발자 기여 채널입니다. 라이더가 recipe를 발견하고 시도하는 표면은 Orider의 Creator Showcase가 담당합니다. [CREATOR_SHOWCASE.md](CREATOR_SHOWCASE.md)를 보세요.
 
-## What Developers Could Build
+## 만들 수 있는 것
 
-| Use case | Example |
+| 용도 | 예시 |
 |---|---|
-| Personal dashboards | Weekly load, FTP trend, zone time, monthly distance, elevation, and recovery state. |
-| Alerts and automation | Rest-day warnings, missed Z2 targets, high-intensity streak alerts, event-prep reminders. |
-| Reports | Weekly training reports, monthly progress summaries, race-prep notes, coach-ready exports. |
-| External sync | Google Sheets, Notion, personal websites, Slack, Discord, or internal club tools. |
-| AI workflows | Summarize the last 4 weeks, explain fatigue signals, draft next-week training notes. |
+| 개인 dashboard | weekly load, FTP trend, zone time, monthly distance, elevation, recovery |
+| alert/automation | rest-day warning, missed Z2 target, hard-day streak, event prep reminder |
+| report | weekly training report, monthly progress summary, coach export |
+| external sync | Google Sheets, Notion, personal website, Slack, Discord |
+| AI workflow | 최근 4주 요약, fatigue 설명, 다음 주 훈련 메모 초안 |
 
-## Orider-Managed Email Delivery
+## 최소 live API
 
-Representative Creator Hub recipes can send an immediate result email to the signed-in rider's own verified account email. This is meant for personal digests and alerts, not arbitrary outbound messaging.
-
-Current safety model:
-
-- no custom recipient address,
-- explicit user action from Creator Hub,
-- server-side Gmail/nodemailer secrets only,
-- App Check and Firebase Auth required,
-- 5 creator recipe emails per rider per day,
-- audit logs for sent recipe emails,
-- exact route geometry and raw sensitive streams excluded from email bodies.
-
-Production E2E on 2026-06-28 verified the email-to-self path with an authenticated maintainer-controlled session: App Check token exchange, callable HTTP 200, Creator Hub success state, Firestore sent-log creation, and per-rider quota decrement.
-
-Recurring email alerts are intentionally separate from immediate email-to-self. A recurring digest or alert needs explicit opt-in, unsubscribe controls, quiet hours or frequency settings, and abuse monitoring.
-
-## Minimum Live API
-
-The first live surface is intentionally small:
-
-| Endpoint | Scope | Status |
+| Endpoint | Scope | 상태 |
 |---|---|---|
-| `POST /api/v1/developer/api-keys` | Firebase Auth bearer | Live key issuance |
-| `GET /api/v1/developer/api-keys` | Firebase Auth bearer | Live key list |
-| `DELETE /api/v1/developer/api-keys/{keyId}` | Firebase Auth bearer | Live key revocation |
-| `GET /api/v1/me` | `profile:read` | Live owner-only read |
-| `GET /api/v1/activities` | `activities:read` | Live owner-only read |
-| `GET /api/v1/activities/{activityId}` | `activities:read` | Live owner-only read |
-| `GET /api/v1/activities/{activityId}/streams` | `streams:read` | Live owner-only read |
-| `GET /api/v1/fitness/summary` | `fitness:read` | Live owner-only read |
+| `POST /api/v1/developer/api-keys` | Firebase Auth bearer | key 발급 |
+| `GET /api/v1/developer/api-keys` | Firebase Auth bearer | key 목록 |
+| `DELETE /api/v1/developer/api-keys/{keyId}` | Firebase Auth bearer | key 폐기 |
+| `GET /api/v1/me` | `profile:read` | owner-only read |
+| `GET /api/v1/activities` | `activities:read` | owner-only read |
+| `GET /api/v1/activities/{activityId}` | `activities:read` | owner-only read |
+| `GET /api/v1/activities/{activityId}/streams` | `streams:read` | owner-only read |
+| `GET /api/v1/fitness/summary` | `fitness:read` | owner-only read |
 
-Use `X-API-Key: orid_...` for personal API keys. Keys are created from an authenticated Orider account, scoped, rate-limited, and revocable. In the product, go to **Settings → Developer API** to create, copy, and revoke keys.
+개인 API key는 `X-API-Key: orid_...` 헤더로 사용합니다. 제품에서는 **Settings -> Developer API**에서 생성, 복사, 폐기합니다.
 
-## Builder Path
+## 첫 공개 scope
 
-Use this path:
+첫 버전은 read-only이고 인증된 라이더 자신의 데이터로 제한합니다.
 
-1. Start with a recipe that uses live owner-only endpoints, sample JSON, exported files, or mocked responses.
-2. State the required scopes, privacy notes, polling interval, and shareable output.
-3. Submit the recipe through GitHub or request it from Creator Hub.
-4. Maintainers review the recipe for privacy, product fit, and abuse risk.
-5. Reviewed recipes can appear in Creator Hub as cards, demo outputs, or in-product examples.
-6. If an endpoint is not live yet, keep the recipe mock-backed until the required scope is added.
-
-This keeps the public release useful without encouraging developers to scrape internal Firebase callable endpoints.
-
-## Orider AI Credits
-
-Orider can provide AI-powered personal-data features without exposing provider API keys.
-
-The intended model:
-
-- Orider keeps AI provider keys server-side in Secret Manager.
-- Riders call authenticated Orider endpoints for approved recipes.
-- The server redacts sensitive inputs before model calls.
-- Each recipe gets a small per-rider quota and returns private-first results.
-- The current reference implementation is `generateAiDiary`, which provides **5 AI diary generations per rider per day**.
-- The full AI diary is private by default.
-- The share card is redacted by default.
-- Advanced external automation can still use a rider's own AI provider key outside Orider.
-
-Do not put OpenAI, Anthropic, Gemini, or other provider API keys in browser code, recipes, screenshots, or public repositories.
-
-## First Public Scope
-
-The first version should be read-only and limited to the authenticated rider's own data.
-
-Candidate scopes:
-
-| Scope | Allows |
+| Scope | 허용 |
 |---|---|
-| `profile:read` | Read the rider's basic profile and public-safe account metadata. |
-| `activities:read` | List and read the rider's own activities. |
-| `streams:read` | Read stream data for activities the rider owns. |
-| `fitness:read` | Read the rider's training load, fitness, readiness, and summary snapshots. |
-| `exports:read` | Generate or retrieve export formats for owned activities. |
+| `profile:read` | 기본 profile과 public-safe account metadata 읽기 |
+| `activities:read` | 본인 activity 목록/상세 읽기 |
+| `streams:read` | 본인 activity stream 읽기 |
+| `fitness:read` | training load, fitness, readiness, summary snapshot 읽기 |
+| `exports:read` | 본인 activity export format 생성/조회 |
 
-Not in the first version:
+첫 버전에 포함하지 않는 것:
 
-- write access,
-- deleting or editing activities,
-- reading friends' private activities,
-- club/member administration,
-- raw provider tokens,
-- backend job control,
-- service account access.
+- write access
+- activity 삭제/수정
+- 친구의 private activity 읽기
+- club/member administration
+- raw provider token
+- backend job control
+- service account access
 
-## API Endpoints
+## 응답 원칙
 
-These endpoint shapes are intentionally small. They are the first public contract; Firebase callable names and Firestore documents remain internal implementation details.
+Activity 응답은 raw Firestore document가 아니라 public-safe DTO를 사용해야 합니다. 내부 field, 비정규화 cache, provider token, raw OAuth refresh token은 응답하지 않습니다.
 
-| Endpoint | Scope | Purpose |
-|---|---|---|
-| `GET /api/v1/me` | `profile:read` | Basic signed-in rider profile. |
-| `GET /api/v1/activities` | `activities:read` | Activity list for the token owner. |
-| `GET /api/v1/activities/{activityId}` | `activities:read` | Activity detail if owned by the token owner. |
-| `GET /api/v1/activities/{activityId}/streams` | `streams:read` | Stream arrays for an owned activity. |
-| `GET /api/v1/fitness/summary` | `fitness:read` | Current training load and summary metrics. |
-
-## Response Shapes
-
-Activity responses should prefer public-safe, documented fields over raw Firestore documents.
+예시:
 
 ```json
 {
@@ -146,7 +84,7 @@ Activity responses should prefer public-safe, documented fields over raw Firesto
 }
 ```
 
-Stream responses should be explicit about units and array alignment.
+Stream 응답은 단위와 array alignment를 명확히 해야 합니다.
 
 ```json
 {
@@ -160,57 +98,50 @@ Stream responses should be explicit about units and array alignment.
 }
 ```
 
-## Security Requirements
+## 보안 요구사항
 
-A Personal Data API must have server-side enforcement. Frontend checks are only user experience, not authorization.
+Personal Data API는 server-side enforcement가 필수입니다. 프론트엔드 체크는 UX일 뿐 권한 검사가 아닙니다.
 
-Minimum requirements:
+최소 요구사항:
 
-- token issuance from an authenticated Orider account,
-- explicit scopes and token revocation,
-- owner-only access checks on every request,
-- rate limits per token and per user,
-- audit logs for token creation, use, and revocation,
-- no provider secrets or raw OAuth refresh tokens in responses,
-- private activity visibility respected by default,
-- safe error responses that do not reveal whether another user's resource exists.
+- 인증된 Orider account에서 token 발급
+- 명시적 scope와 token revocation
+- 모든 요청에서 owner-only access check
+- token/user별 rate limit
+- token 생성/사용/폐기 audit log
+- provider secret과 raw OAuth refresh token 미노출
+- private activity visibility 존중
+- 다른 사용자의 resource 존재 여부를 노출하지 않는 safe error
 
-## Recipe Sharing
+## Recipe 공유
 
-The public repository should make personal-data recipes easy to propose even before the stable API exists. Orider should make those recipes discoverable inside the product through Creator Hub or a similar showcase surface.
+좋은 recipe는 다음을 포함합니다.
 
-Good recipes:
+- signed-in rider 본인 데이터만 사용
+- 필요한 scope
+- frontend code에 long-lived secret 없음
+- expected rate와 polling interval
+- privacy note
+- screenshot, chart, example output
 
-- use only the signed-in rider's own data,
-- include required scopes,
-- avoid long-lived secrets in frontend code,
-- describe expected rate and polling interval,
-- include privacy notes,
-- include a screenshot, chart, or example output when possible.
+추천 recipe:
 
-Recommended recipe ideas:
+- weekly load summary를 Discord로 보내기
+- 개인 CTL/ATL/TSB chart 만들기
+- 최신 ride를 GPX로 export해서 training log에 첨부하기
+- long ride마다 Notion page 만들기
+- hard day가 3일 연속이면 경고하기
 
-- "Send my weekly load summary to Discord."
-- "Build a personal CTL/ATL/TSB chart."
-- "Export my latest ride to GPX and attach it to a training log."
-- "Create a Notion page for every long ride."
-- "Warn me when three hard days happen back to back."
-- "Email my weekly load report to myself every Monday after I opt in."
+템플릿은 [recipes/personal-data.md](recipes/personal-data.md)를 보세요.
 
-See [Personal Data Recipes](recipes/personal-data.md) for a contributor-facing template.
+## 결과 공유
 
-## Result Sharing
+결과 공유는 명시적 visibility와 redaction control을 가져야 합니다.
 
-Recipes explain how something was built. Result sharing lets a rider show what they made.
-
-Supported result-sharing direction:
-
-| Result | Safe default |
+| 결과 | 안전한 기본값 |
 |---|---|
-| AI ride diary | Private draft, then optional redacted card or link-only page. |
-| Weekly load chart | Aggregate chart with no precise route or start location. |
-| Recovery alert | Private notification preview or anonymized recipe screenshot. |
-| Personal website widget | Public-safe recent ride summary chosen by the rider. |
-| Coach report | Exportable private report, not public by default. |
-
-Every shared result should have explicit visibility and redaction controls before publication.
+| AI ride diary | private draft, 선택적 redacted card |
+| Weekly load chart | 정확한 route/start location 없는 aggregate chart |
+| Recovery alert | private notification preview 또는 anonymized screenshot |
+| Personal website widget | 라이더가 선택한 public-safe recent ride summary |
+| Coach report | 기본 private export |

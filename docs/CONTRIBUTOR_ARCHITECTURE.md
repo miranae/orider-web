@@ -1,128 +1,68 @@
-# Contributor Architecture Guide
+# 기여자 아키텍처 가이드
 
-Orider is a production frontend with a private Firebase backend. The public repository is open for frontend, UX, documentation, i18n, accessibility, and test contributions, but new code should keep domain logic easy to review.
+이 문서는 Orider Web에서 변경을 어디에 두어야 하는지 설명합니다. 영문 문서는 [CONTRIBUTOR_ARCHITECTURE-en.md](CONTRIBUTOR_ARCHITECTURE-en.md)를 참고하세요.
 
-## Current State
+## 기본 구조
 
-The app already has useful layers:
+| 위치 | 역할 |
+|---|---|
+| `src/pages/` | route 단위 화면 조립 |
+| `src/components/` | 재사용 UI와 domain component |
+| `src/hooks/` | data loading, subscription, UI state hook |
+| `src/services/` | Firebase, API, analytics, provider wrapper |
+| `src/utils/` | browser-side utility와 export helper |
+| `shared/` | frontend/backend 양쪽에서 재사용 가능한 pure TypeScript |
+| `docs/` | contribution, API, recipe, release 문서 |
 
-- `src/services/`: Firebase, analytics, error logging, API clients.
-- `src/hooks/`: reusable data loading and derived state.
-- `src/features/board/`: the first feature-slice example.
-- `src/shared/`: cross-platform types and calculation logic.
-- `src/theme/`: design-system primitives and tokens.
+## 변경 위치 선택
 
-The main limitation is that older domains still keep too much logic in large pages and components. Treat the large files below as refactor targets, not examples to copy:
+- route 전체 흐름은 `src/pages/`에 둡니다.
+- 여러 화면에서 쓰는 UI는 `src/components/`로 분리합니다.
+- Firestore나 API 호출은 component에 직접 흩뿌리지 말고 `src/services/`나 hook에 둡니다.
+- 계산 로직은 가능하면 pure function으로 두고 테스트를 붙입니다.
+- provider secret이나 privileged call은 프론트엔드에 넣지 않습니다.
 
-- `src/pages/ActivityPage.tsx`
-- `src/pages/FitnessPage.tsx`
-- `src/components/training/TodaysWorkoutCard.tsx`
-- `src/pages/event/EventDetailPage.tsx`
-- `src/pages/event/EventEditPage.tsx`
-- `src/pages/CreatePostPage.tsx`
+## 데이터 접근
 
-## Preferred Feature Shape
+프론트엔드는 Firebase client SDK와 public API만 사용합니다. 보안은 UI 조건문이 아니라 server-side authorization, Firestore/Storage rules, App Check, Cloud Functions에서 강제되어야 합니다.
 
-When adding or significantly changing a domain, prefer this shape:
+개인 데이터 API나 recipe를 다룰 때는 다음을 명시하세요.
 
-```text
-src/features/<domain>/
-  components/
-  hooks/
-  mutations.ts
-  queries.ts
-  types.ts
-  utils.ts
+- 필요한 scope
+- owner-only 접근 여부
+- public-safe output인지 여부
+- 민감 데이터 redaction 방식
+- 실패/권한 부족 상태
+
+## UI 기준
+
+- 반복 사용 화면은 조밀하지만 읽기 쉽게 만듭니다.
+- loading, empty, error, permission state를 함께 구현합니다.
+- 모바일에서 텍스트가 겹치거나 버튼이 잘리지 않게 확인합니다.
+- chart/map은 provider가 없을 때도 fallback을 보여야 합니다.
+
+## 테스트 기준
+
+변경 위험에 맞게 테스트를 선택합니다.
+
+- pure utility: unit test
+- hook/service: mock 기반 test
+- route/page: React Testing Library
+- 주요 사용자 흐름: Playwright 또는 screenshot/recording
+
+최소 확인:
+
+```bash
+npm run lint:budget
+npm run quality:budget
+npm test
+npm run build
 ```
 
-Pages should mostly compose feature components and route-level state:
+## 피해야 할 것
 
-```text
-src/pages/<DomainPage>.tsx
-  route params
-  layout composition
-  permission/loading/error states
-  feature component wiring
-```
-
-Keep these out of page files when possible:
-
-- Firestore writes and callable invocations.
-- Complex query assembly.
-- Business calculations.
-- Chart/data transforms.
-- Toast/error mapping reused by more than one component.
-
-## Firestore Writes
-
-New Firestore writes should live in `features/<domain>/mutations.ts` or a service module. This makes it easier to compare frontend write intent with Firestore Rules.
-
-For each new write path, document or test:
-
-- collection/document path
-- required owner or role condition
-- fields the client is allowed to set
-- counter fields that must not be client-mutated
-- corresponding Rules coverage, when applicable
-
-## Logging And User Feedback
-
-Use the existing wrappers instead of ad hoc logging:
-
-- `logClientError(source, err, context)` for unexpected operational failures.
-- `track(...)` or existing analytics helpers for product events.
-- Toast/modal UI for user-facing feedback.
-
-Avoid in new product code:
-
-- `console.*` outside explicit development-only diagnostics.
-- `alert()` for errors or normal workflows.
-- Silent catches unless the failure is truly non-actionable and documented in a short comment.
-
-Recommended pattern:
-
-```ts
-try {
-  await saveThing(input);
-  showToast({ type: "success", message: t("saved") });
-} catch (err) {
-  logClientError("feature.saveThing", err, { thingId });
-  showToast({ type: "error", message: t("saveFailed") });
-}
-```
-
-## Lint Warning Budget
-
-The repository currently has legacy lint warnings, mostly design-system and direct-console warnings. CI uses `npm run lint:budget`, which keeps a small buffer above the current baseline so minor unrelated edits do not fail unexpectedly.
-
-CI also runs `npm run quality:budget`, which blocks new growth in:
-
-- largest TS/TSX file size,
-- direct `console.*` calls,
-- direct `alert()` calls.
-
-For contributors:
-
-- Avoid adding new lint warnings.
-- Avoid increasing the large-file, `console.*`, or `alert()` debt.
-- Prefer reducing nearby warnings when touching a file.
-- Keep `npm run lint:budget` passing before opening a PR.
-
-When a baseline improves, lower the matching budget in `package.json` or `scripts/check-quality-budget.mjs` in a dedicated cleanup PR.
-
-## Large File Refactor Strategy
-
-Do not rewrite a large page in one PR. Prefer small extraction PRs:
-
-1. Move pure helpers into `features/<domain>/utils.ts` with tests.
-2. Move Firestore/callable writes into `mutations.ts`.
-3. Move subscriptions and derived data into feature hooks.
-4. Extract repeated UI into feature components.
-5. Add a route smoke test or focused component test.
-
-Good first refactor targets:
-
-- `ActivityPage`: stream loading, photo/social mutations, visibility/delete actions.
-- `FitnessPage`: projection subscriptions, chart transforms, goal state.
-- `EventDetailPage`: registration/event action mutations and chart data.
-- `CreatePostPage`: editor serialization and upload pipeline.
+- production data나 secret을 fixture로 사용
+- Firebase callable을 공개 API처럼 문서화
+- UI component 안에 복잡한 Firestore query와 변환 로직을 직접 작성
+- unrelated refactor를 기능 PR에 섞기
+- `*-en.md`가 있는데 기본 문서를 영어로만 유지하기

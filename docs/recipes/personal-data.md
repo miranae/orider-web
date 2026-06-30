@@ -1,207 +1,61 @@
-# Personal Data Recipes
+# Personal Data Recipe 안내
 
-Personal data recipes show how a rider could use their own Orider data for charts, reports, alerts, exports, or automation.
+이 디렉터리는 라이더가 자신의 Orider 데이터를 개인 도구에 활용하는 recipe를 모읍니다. 영문 문서는 [personal-data-en.md](personal-data-en.md)를 참고하세요.
 
-They are not one-click installable apps. Some ideas are already available inside Orider as previews or protected server-side features, while external tools such as Notion, Slack, n8n, spreadsheets, or personal dashboards need a rider-created Personal Data API key and a small amount of setup.
+## Recipe 기준
 
-The Personal Data API now has a small owner-only read foundation. Recipes in this directory should use live endpoints when possible, and fall back to sample JSON, exported data, or mocked responses when a needed scope is not available yet.
+좋은 recipe는 다음을 명확히 설명합니다.
 
-GitHub is the authoring and review workflow. The intended rider-facing surface is Orider Creator Hub, where recipes can be browsed, tried, saved, and paired with privacy-safe result cards. See [Creator Showcase](../CREATOR_SHOWCASE.md).
+- 어떤 문제를 해결하는지
+- 필요한 Personal Data API scope
+- 어떤 데이터가 Orider 밖으로 나가는지
+- 기본 visibility와 redaction 방식
+- 실행 빈도와 rate limit 고려
+- demo input/output 또는 screenshot
 
-## Fastest Way To Start
+실제 access token, user ID, 이메일, private route, production export, provider secret은 포함하지 마세요.
 
-You can use a scoped Personal Data API key for the live owner-only endpoints, but you do not need one to propose a useful recipe.
-
-1. Pick a rider outcome: chart, alert, report, export, AI summary, widget, or automation.
-2. Use demo JSON, exported files, or mocked responses.
-3. Document the scopes and privacy behavior.
-4. Include a result card or screenshot that can be shown in Creator Hub.
-5. Open a PR, or ask for the recipe from the Creator Hub request link.
-
-The first in-product examples are AI ride diary generation and a weekly load chart preview. AI diary uses a protected server-side Orider AI credit. Weekly load can run from the signed-in rider's own activity summaries, with demo data shown to signed-out visitors.
-
-If a rider wants to use the same weekly load idea outside Orider, the flow is different: create a Personal Data API key, read the documented endpoints, aggregate the data, and send the result to the chosen tool.
-
-## Recipe Principles
-
-- Use only the rider's own data.
-- Prefer read-only flows.
-- State required scopes up front.
-- Keep tokens out of frontend bundles and screenshots.
-- Include safe polling intervals for automation.
-- Make privacy tradeoffs explicit.
-- Share the useful idea even if the API integration is still mocked.
-
-## Recipe Template
+## 템플릿
 
 ```md
-# Recipe: <short title>
+# Recipe: 제목
 
-## Showcase Summary
+## 목적
 
-One sentence for an Orider Creator Hub card.
+라이더에게 어떤 가치를 주는지 설명합니다.
 
-## What It Builds
-
-One or two sentences describing the chart, alert, report, export, or automation.
-
-## Required Data
-
-| Data | Planned scope | Notes |
-|---|---|---|
-| Activities | `activities:read` | e.g. last 30 days. |
-| Streams | `streams:read` | Only if point-by-point analysis is needed. |
-| Fitness summary | `fitness:read` | Only if load/readiness metrics are needed. |
-
-## Privacy Notes
-
-- Uses only the signed-in rider's own data.
-- Does not publish precise location unless the rider chooses to.
-- Does not store access tokens in browser code.
-
-## Example Flow
-
-1. Fetch or mock the required data.
-2. Normalize units.
-3. Run the calculation or transformation.
-4. Render the chart, send the alert, or write the report.
-
-## Example Output
-
-Add a screenshot, chart image, table, or short sample payload.
-
-## Shareable Result
-
-Describe what a rider can safely share inside Orider:
-
-- private only,
-- redacted card,
-- link-only page,
-- community post,
-- public-safe widget.
-
-## Review Checklist
-
-- [ ] No secrets in code, logs, screenshots, or docs.
-- [ ] Required scopes are minimal.
-- [ ] Rate or polling interval is documented.
-- [ ] Private activities stay private by default.
-- [ ] Failure states are handled.
-```
-
-## Flagship Recipes
-
-These five recipes are the first polished examples for Creator Hub:
-
-| Recipe | Result | Email support |
-|---|---|---|
-| [AI Ride Diary](ai-ride-diary.md) | Private diary draft plus redacted share card. | Sends the private-safe summary to the signed-in rider. |
-| [Weekly Load Report](weekly-load-report.md) | Weekly training load digest and chart card. | Sends aggregate weekly report. |
-| [Hard-Day Streak Alert](hard-day-streak-alert.md) | Recovery warning when hard days stack up. | Sends explicit email-to-self alert. |
-| [Long-Ride Log Package](long-ride-log-package.md) | GPX/private export path plus coach-ready notes. | Sends summary/checklist, not route files. |
-| [Monthly Ride Badge](monthly-ride-badge.md) | Public-safe progress badge and post draft. | Sends badge preview. |
-
-Email delivery is supported as an explicit, user-triggered action from Creator Hub. Recurring email delivery needs a separate opt-in, unsubscribe path, quiet-hours/frequency settings, and abuse monitoring.
-
-## Additional Recipe Docs
-
-| Recipe | Result | Notes |
-|---|---|---|
-| [Z2 Target Reminder](z2-target-reminder.md) | Private reminder when weekly aerobic-base minutes are behind target. | Uses demo data and aggregate zone minutes only. |
-
-## Starter Recipe Ideas
-
-| Idea | Uses | Why riders may care |
-|---|---|---|
-| Weekly load chart | `activities:read`, `fitness:read` | See whether training is building, flat, or too aggressive. |
-| High-intensity streak alert | `activities:read` | Avoid stacking too many hard days without recovery. |
-| [Z2 target tracker](z2-target-reminder.md) | `activities:read` | Track aerobic base work against a weekly target. |
-| Long-ride Notion log | `activities:read` | Keep a narrative archive of endurance rides. |
-| GPX export helper | `activities:read`, `streams:read`, `exports:read` | Move owned activity data into another personal tool. |
-| Discord recovery reminder | `fitness:read` | Share a private reminder to rest or lower intensity. |
-| Personal website ride widget | `activities:read` | Publish selected public-safe summaries without exposing private routes. |
-| AI ride diary | `activities:read`, `streams:read`, `fitness:read` | Turn owned ride history into a private diary, then share a redacted card if desired. |
-
-AI recipes should use Orider AI credits when running inside Orider: provider API keys stay server-side, each approved recipe gets a small per-rider quota, and recipes must not ask users to paste provider API keys into browser code. The first reference recipe is AI ride diary generation with 5 generations per rider per day.
-
-## Example Integrations
-
-These are realistic ways riders could apply the recipes. They require setup outside Orider and should be documented honestly as integrations, not built-in features.
-
-| Tool | Example use | Notes |
-|---|---|---|
-| Notion | Append weekly distance, time, elevation, and TSS to a training journal database every Monday. | Use aggregate fields. Avoid storing exact route geometry unless the rider explicitly wants it. |
-| Slack | Send a private recovery reminder or weekly training summary to a DM or small team channel. | Mention that data leaves Orider and is governed by the Slack workspace. |
-| n8n | Schedule API calls, branch on fatigue/load conditions, then send email, Notion, or Slack updates. | Prefer daily or weekly polling, not per-page-load automation. |
-| Google Sheets | Keep a simple training log table for charts and formulas. | Good first non-developer-friendly target if a template is provided. |
-| Personal website | Publish a monthly badge with distance, elevation, longest ride, or consistency. | Use public-safe aggregates and hide exact start/end locations. |
-
-## Example: Weekly Load Summary
-
-Planned scopes:
+## 필요한 scope
 
 - `activities:read`
+- `streams:read`
 - `fitness:read`
 
-Privacy notes:
+## 데이터 흐름
 
-- Aggregate by day or week before sharing.
-- Avoid publishing route geometry or exact start locations by default.
-- If sending to Discord, Slack, or Notion, mention that data leaves Orider and is governed by that service too.
+1. Personal Data API에서 본인 데이터를 읽습니다.
+2. 필요한 aggregate만 계산합니다.
+3. public-safe output만 저장하거나 공유합니다.
 
-Pseudo-flow:
+## 개인정보
 
-```ts
-const response = await fetch("https://orider.co.kr/api/v1/activities?limit=100", {
-  headers: { "X-API-Key": process.env.ORIDER_PERSONAL_API_KEY },
-}).then((res) => res.json());
+- 정확한 route와 start location은 공유하지 않습니다.
+- health metric은 기본 private입니다.
+- 외부 서비스로 보내는 데이터가 있으면 명시합니다.
 
-const dailyLoad = response.data.map((activity) => ({
-  date: new Date(activity.startTime).toISOString().slice(0, 10),
-  load: activity.tss ?? estimateLoad(activity),
-}));
+## 예시 출력
 
-const weekly = groupByWeek(dailyLoad);
-renderWeeklyLoadChart(weekly);
+demo/mock data 기반 결과를 넣습니다.
 ```
 
-## Example: Three Hard Days Alert
+## 현재 recipe
 
-Planned scopes:
+- [AI Ride Diary](ai-ride-diary.md)
+- [Weekly Load Report](weekly-load-report.md)
+- [Hard-Day Streak Alert](hard-day-streak-alert.md)
+- [Long-Ride Log Package](long-ride-log-package.md)
+- [Monthly Ride Badge](monthly-ride-badge.md)
+- [Z2 Target Reminder](z2-target-reminder.md)
 
-- `activities:read`
+## 검토 기준
 
-Suggested polling:
-
-- once per day after the usual sync window,
-- not after every page load.
-
-Pseudo-flow:
-
-```ts
-const recent = await fetchOwnActivities({ limit: 7 });
-const hardDays = recent
-  .filter((activity) => (activity.tss ?? 0) >= 80)
-  .map((activity) => activity.startTime.slice(0, 10));
-
-if (hasThreeConsecutiveDays(hardDays)) {
-  sendPrivateAlert("Three hard training days in a row. Consider recovery.");
-}
-```
-
-## How To Contribute A Recipe
-
-Open a pull request that adds a markdown file under `docs/recipes/`.
-
-Good recipe PRs include:
-
-- a clear rider benefit,
-- a short showcase summary,
-- required scopes,
-- mocked or sample data if a needed endpoint is not live yet,
-- privacy notes,
-- shareable result mode,
-- expected output,
-- small, focused code snippets.
-
-Do not include personal access tokens, precise private routes, real user IDs, emails, provider secrets, or screenshots containing private data.
+Maintainer는 privacy, product fit, abuse risk, scope 최소화, 사용자-facing 설명을 기준으로 검토합니다. 아직 live API가 없는 recipe는 mock-backed 상태로 유지합니다.

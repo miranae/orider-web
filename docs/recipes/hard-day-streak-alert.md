@@ -1,62 +1,29 @@
-# Recipe: Hard-Day Streak Alert
+# Recipe: Hard-Day Streak Alert 만들기
 
-## Showcase Summary
+영문 문서는 [hard-day-streak-alert-en.md](hard-day-streak-alert-en.md)를 참고하세요.
 
-Warn a rider when hard training days stack up and suggest recovery before fatigue compounds.
+## 목적
 
-## What It Builds
+고강도 또는 높은 부하의 날이 연속될 때 회복 경고를 보여 줍니다.
 
-This recipe checks the last 7 days of owned activities and looks for three consecutive hard days. A hard day can be defined by TSS/load, long duration, or high-intensity zone time.
+## 필요한 scope
 
-The first production-friendly delivery path is an explicit email-to-self from Creator Hub. A recurring alert should require separate opt-in, frequency controls, and unsubscribe handling.
+- `activities:read`
+- `fitness:read`
 
-## Required Data
+## 로직 예시
 
-| Data | Scope | Notes |
-|---|---|---|
-| Activity summaries | `activities:read` | TSS/load, duration, date. |
-| Streams | `streams:read` | Optional; only needed for zone-time based rules. |
+1. 최근 7~14일 활동을 읽습니다.
+2. TSS, intensity, HR zone, hard-day 기준을 계산합니다.
+3. hard day가 3일 이상 이어지면 recovery warning을 만듭니다.
+4. 결과는 private alert로 표시합니다.
 
-## Email Result
+## 개인정보
 
-The email tells the rider whether a three-day hard streak was detected and gives one concrete next-session suggestion.
+- 정확한 route나 시작 위치는 필요하지 않습니다.
+- 외부 알림으로 보낼 경우 aggregate 수치만 포함합니다.
+- 반복 알림은 별도 opt-in, frequency, unsubscribe가 필요합니다.
 
-Safe defaults:
+## 예시 출력
 
-- sent only to the signed-in rider's verified email,
-- no arbitrary recipient field,
-- once requested manually unless recurring opt-in exists,
-- no raw health streams in the email.
-
-## Example Rule
-
-```ts
-const hardDays = recentActivities
-  .filter((activity) => activity.tss >= 80 || activity.movingTimeSeconds >= 7200)
-  .map((activity) => activity.startTime.slice(0, 10));
-
-if (hasThreeConsecutiveDays(hardDays)) {
-  return "Break the fatigue chain with recovery or 45-60 minutes in Z1/Z2.";
-}
-```
-
-## Example Output
-
-```txt
-A three-day hard-training streak was detected in the last 7 days.
-
-Suggestion: Break the fatigue chain with recovery or 45-60 minutes in Z1/Z2.
-```
-
-## Shareable Result
-
-- Private notification preview.
-- Anonymized screenshot of the rule.
-- No public route or health stream data.
-
-## Review Checklist
-
-- [x] Uses owned activity data only.
-- [x] Provides a clear recovery suggestion.
-- [x] Supports email-to-self.
-- [ ] Recurring alert needs opt-in, unsubscribe, and quiet hours.
+> 최근 3일 연속 고강도 부하가 누적됐습니다. 오늘은 Z2 45분 이하 또는 휴식을 권장합니다.

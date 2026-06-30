@@ -1,43 +1,38 @@
-## Summary
+## 요약
 
--
+- 변경한 내용을 짧게 설명해 주세요.
+- 관련 이슈가 있으면 연결해 주세요. 예: `Closes #123`
 
-## Change Type
+## 변경 범위
 
-- [ ] Fix
-- [ ] Feature
-- [ ] Documentation
-- [ ] Test
-- [ ] Refactor
-- [ ] Translation/copy
-- [ ] Personal-data recipe
+- [ ] UI/UX
+- [ ] 문서
+- [ ] 테스트
+- [ ] 빌드/CI
+- [ ] API/연동
+- [ ] 기타
 
-## Review Notes
+## 확인
 
-- Routes/screens affected:
-- Locale(s) checked:
-- Screenshots or recording, if UI changed:
-- Linked issue, if any:
+실행한 항목을 체크하거나 결과를 적어 주세요.
 
-## Contributor Checklist
+- [ ] `npm run lint:budget`
+- [ ] `npm run quality:budget`
+- [ ] `npm test`
+- [ ] `npm run build`
+- [ ] `npm run e2e`
+- [ ] 문서만 변경해서 로컬 빌드는 생략함
 
-- [ ] I used a focused topic branch, not `main`.
-- [ ] Commits are signed off for DCO (`git commit -s` / `Signed-off-by:`).
-- [ ] No secrets, credentials, `.env`, production exports, or private user data are included.
-- [ ] Docs or translations are updated where needed.
-- [ ] I ran the checks that match this change, or explained why they are not needed:
-  - [ ] `npm run lint:budget`
-  - [ ] `npm run quality:budget`
-  - [ ] `npm test`
-  - [ ] `npm run build`
-  - [ ] `npm run e2e`
+## 스크린샷 / 녹화
 
-## Privacy / Data Notes
+사용자에게 보이는 변경이면 데스크톱/모바일 화면을 첨부해 주세요.
 
-- [ ] This PR does not touch personal-data recipes, Creator Hub entries, auth, privacy, or data export.
-- [ ] If it does, examples use only owned-data, demo data, or mocked responses.
-- [ ] If it does, required scopes, privacy notes, shareable result type, and safe default visibility are documented.
+## 개인정보 / 보안
 
-## Security
+- [ ] 토큰, 실제 사용자 ID, 이메일, 비공개 경로, 운영 export, provider secret을 포함하지 않았습니다.
+- [ ] 개인 데이터 recipe라면 필요한 scope와 privacy note를 문서화했습니다.
+- [ ] 새 외부 호출이나 데이터 노출이 있다면 권한/소유자 검사를 확인했습니다.
 
-Security-sensitive details should not be discussed in public PR text. Use the process in `SECURITY.md`.
+## 릴리스 메모
+
+사용자에게 알려야 할 변경이 있으면 적어 주세요. 없으면 `없음`.

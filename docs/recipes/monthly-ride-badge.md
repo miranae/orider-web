@@ -1,54 +1,29 @@
-# Recipe: Monthly Ride Badge
+# Recipe: Monthly Ride Badge 만들기
 
-## Showcase Summary
+영문 문서는 [monthly-ride-badge-en.md](monthly-ride-badge-en.md)를 참고하세요.
 
-Create a public-safe monthly badge from distance, elevation, active days, and longest ride.
+## 목적
 
-## What It Builds
+한 달의 라이딩 진행 상황을 public-safe badge로 요약합니다.
 
-This recipe gives riders a reason to share progress without revealing private routes. It aggregates the current month into a badge suitable for a personal website, Orider community post, or screenshot.
+## 필요한 scope
 
-The badge is intentionally simple: no raw streams, no exact location, no private activity titles.
+- `activities:read`
 
-## Required Data
+## 표시 항목
 
-| Data | Scope | Notes |
-|---|---|---|
-| Activity summaries | `activities:read` | Monthly distance, elevation, active days, longest ride. |
+- 총 거리
+- 총 elevation
+- ride count
+- 가장 긴 ride의 aggregate summary
+- 선택적 월간 목표 달성률
 
-## Email Result
+## 개인정보
 
-The email sends a badge preview to the rider's own account email. It can be used as a self-check before copying the result into a public profile or community post.
+- exact route, start location, riding routine은 표시하지 않습니다.
+- public badge는 aggregate만 포함합니다.
+- 라이더가 직접 public/share 여부를 선택해야 합니다.
 
-## Example Output
+## 예시 출력
 
-```json
-{
-  "month": "2026-06",
-  "distanceKm": 612,
-  "elevationGainM": 8420,
-  "activeDays": 14,
-  "longestRideKm": 142,
-  "privacy": "route_hidden"
-}
-```
-
-Share card:
-
-```txt
-June ride badge: 612 km, 8,420 m climbed, 14 active days, longest ride 142 km.
-Routes hidden by default.
-```
-
-## Shareable Result
-
-- Public-safe badge image/card.
-- Embeddable JSON.
-- Orider post draft.
-
-## Review Checklist
-
-- [x] Uses monthly aggregates only.
-- [x] Hides routes by default.
-- [x] Lets the rider choose which fields become public.
-- [x] Works as an email-to-self preview.
+> 2026년 6월: 612 km, 7,420 m 상승, 18 rides. 목표의 104% 달성.

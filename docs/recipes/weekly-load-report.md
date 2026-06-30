@@ -1,67 +1,30 @@
-# Recipe: Weekly Load Report
+# Recipe: Weekly Load Report 만들기
 
-## Showcase Summary
+영문 문서는 [weekly-load-report-en.md](weekly-load-report-en.md)를 참고하세요.
 
-Send a Monday-ready training load digest with distance, time, activity count, and load trend.
+## 목적
 
-## What It Builds
+최근 7일과 12주 흐름을 바탕으로 훈련 부하를 요약합니다.
 
-This recipe turns recent Orider activities into a weekly training report. It helps riders see whether the current week is building, flat, or too aggressive without exposing individual activity routes.
+## 필요한 scope
 
-The result can be shown in Creator Hub, copied as a share card, or emailed to the rider's own account email.
+- `activities:read`
+- `fitness:read`
 
-## Required Data
+## 출력
 
-| Data | Scope | Notes |
-|---|---|---|
-| Activity summaries | `activities:read` | Distance, moving time, elevation, TSS/load. |
-| Fitness summary | `fitness:read` | Optional; useful for CTL/ATL/readiness framing. |
+- 이번 주 TSS 또는 load
+- CTL/ATL/TSB 경향
+- ride count와 total time
+- 다음 주 주의점
+- public-safe chart 또는 private email-to-self
 
-## Email Result
+## 개인정보
 
-The email contains only aggregate values:
+- chart는 aggregate만 표시합니다.
+- route와 start location은 제외합니다.
+- email은 로그인한 라이더 본인의 verified email로만 보냅니다.
 
-- number of sessions,
-- total distance,
-- total moving time,
-- total load,
-- a simple next-action suggestion.
+## 예시 출력
 
-It does not include route geometry, exact start locations, activity titles, or raw streams.
-
-## Example Flow
-
-```ts
-const activities = await fetch("/api/v1/activities?after=2026-06-01", {
-  headers: { "X-API-Key": personalApiKey },
-}).then((res) => res.json());
-
-const week = summarizeWeek(activities.data);
-const state = week.tss >= 450 ? "high load" : week.tss >= 220 ? "building" : "light";
-```
-
-## Example Output
-
-```txt
-This week looks like a building week.
-
-- 4 sessions
-- 188 km
-- 7 h
-- 344 load
-
-Next action: keep the rhythm, but check recovery before the next hard session.
-```
-
-## Shareable Result
-
-- Public-safe chart card.
-- Email digest to self.
-- Community post with aggregate stats only.
-
-## Review Checklist
-
-- [x] Aggregates before sharing.
-- [x] Avoids precise route and start location.
-- [x] Can run as a manual email send.
-- [ ] Recurring email requires opt-in and unsubscribe.
+> 이번 주 load는 420 TSS로 지난 4주 평균보다 18% 높습니다. TSB가 낮아졌으므로 다음 48시간은 회복을 우선하세요.
