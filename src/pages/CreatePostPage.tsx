@@ -67,23 +67,28 @@ function findParentBlock(editor: HTMLElement): { blockType: string; listType: st
 
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation("board");
+  const { t, i18n } = useTranslation("board");
   const { user } = useAuth();
   const { createPost, submitting } = useCreatePost();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const tablePickerRef = useRef<HTMLDivElement>(null);
 
-  const [title, setTitle] = useState('');
+  const [searchParams] = useSearchParams();
+  const isInquiry = searchParams.get('type') === 'inquiry';
+  const isDevlog = searchParams.get('type') === 'devlog';
+  const isCreatorRecipeTemplate = isInquiry && searchParams.get('template') === 'creator-recipe';
+
+  const [title, setTitle] = useState(() => {
+    if (!isCreatorRecipeTemplate) return '';
+    return i18n.language.startsWith('ko') ? '[Creator] 이런 활용법이 필요해요' : '[Creator] I need this recipe';
+  });
   const [tags, setTags] = useState('');
   const [uploading, setUploading] = useState(false);
   const [imageCount, setImageCount] = useState(0);
   const [editorEmpty, setEditorEmpty] = useState(true);
 
-  const [searchParams] = useSearchParams();
-  const isInquiry = searchParams.get('type') === 'inquiry';
-  const isDevlog = searchParams.get('type') === 'devlog';
-  const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'question' | 'other'>('bug');
+  const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'question' | 'other'>(isCreatorRecipeTemplate ? 'feature' : 'bug');
   const [isPrivate, setIsPrivate] = useState(false);
 
   // 서식 상태
@@ -106,6 +111,49 @@ const CreatePostPage: React.FC = () => {
     const hasImages = editor.querySelectorAll('img').length > 0;
     setEditorEmpty(!hasText && !hasImages);
   };
+
+  useEffect(() => {
+    if (!isCreatorRecipeTemplate) return;
+    const editor = editorRef.current;
+    if (!editor || (editor.textContent || '').trim()) return;
+
+    const lines = i18n.language.startsWith('ko')
+      ? [
+        '원하는 활용법',
+        '- 예: 매주 월요일 아침 Notion에 주간 훈련 일지를 자동으로 만들고 싶어요.',
+        '',
+        '사용하고 싶은 데이터',
+        '- 예: 최근 7일 거리, 시간, 상승고도, 훈련 부하',
+        '',
+        '결과가 도착했으면 하는 곳',
+        '- 예: 오라이더 화면 안, Notion, Slack DM, n8n, 이메일, 개인 웹사이트',
+        '',
+        '공개되면 안 되는 정보',
+        '- 예: 집 근처 출발지, 상세 경로, 심박 상세값',
+        '',
+        '언제 실행되면 좋나요?',
+        '- 예: 매일 오전 8시, 매주 월요일, 라이딩 완료 후, 수동 실행',
+      ]
+      : [
+        'Recipe I want',
+        '- Example: create a weekly training journal in Notion every Monday morning.',
+        '',
+        'Data I want to use',
+        '- Example: last 7 days of distance, duration, elevation, and training load',
+        '',
+        'Where the result should go',
+        '- Example: inside Orider, Notion, Slack DM, n8n, email, personal website',
+        '',
+        'Information that must stay private',
+        '- Example: home-area starts, detailed routes, detailed heart-rate values',
+        '',
+        'When should it run?',
+        '- Example: daily at 8 AM, every Monday, after a ride, manually',
+      ];
+
+    editor.innerHTML = lines.map((line) => line ? `<p>${line}</p>` : '<p><br></p>').join('');
+    setEditorEmpty(false);
+  }, [i18n.language, isCreatorRecipeTemplate]);
 
   // 서식 상태 감지
   const updateFormatState = useCallback(() => {
