@@ -13,7 +13,7 @@ Orider Web is not a sample app or a marketing shell. It is the production web cl
 Orider started as a small gift from a long-time cyclist to people who love riding. The intent is not to turn the community-built core into a closed private product, but to grow it into **Our Rider** and **Open Rider**: a platform riders can inspect, improve, and trust.
 
 > This repository is the **production source of truth** for the Orider web frontend.
-> It is not a mirror: development happens here, PRs are reviewed here, and `main` deploys to Firebase Hosting through a protected workflow.
+> It is not a mirror: development happens here, PRs are reviewed here, and version tags deploy to Firebase Hosting through a protected workflow.
 >
 > Backend services, security rules, analysis pipelines, and operational tooling are maintained separately.
 
@@ -271,7 +271,8 @@ External contributors can open PRs after the repository is public. Maintainers r
 - `main` is protected.
 - All changes go through Pull Requests.
 - CI runs on PRs.
-- `main` deploys Hosting through a protected GitHub Environment.
+- Merging to `main` does not deploy production automatically.
+- Version tags matching `v*` deploy Hosting through a protected GitHub Environment and create GitHub Release notes.
 - Backend repositories deploy functions, database rules, storage rules, and private jobs.
 
 ## Public Release Status
