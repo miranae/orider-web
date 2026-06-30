@@ -1,44 +1,24 @@
-# API and Integration Boundaries
+# API와 연동 경계
 
-Orider Web is a production frontend. Its Firebase, Mapbox, Strava, and App Check browser configuration is intentionally shipped to the client bundle and should be treated as public configuration, not as a secret.
+Orider Web은 프로덕션 프론트엔드입니다. Firebase, Mapbox, Strava, App Check의 브라우저 설정은 클라이언트 번들에 포함되는 공개 설정이며 secret이 아닙니다. 영문 문서는 [API_AND_INTEGRATIONS-en.md](API_AND_INTEGRATIONS-en.md)를 참고하세요.
 
-This document describes the integration model for the web client. It is not a stable third-party API contract.
+이 문서는 웹 클라이언트의 연동 모델을 설명합니다. 안정적인 third-party API 계약은 [PERSONAL_DATA_API.md](PERSONAL_DATA_API.md)를 기준으로 합니다.
 
-Security-sensitive controls live outside this repository:
+## 빠른 기준
 
-- Firebase Auth identity checks,
-- Firestore and Storage security rules,
-- Cloud Functions authorization,
-- callable App Check enforcement,
-- server-side rate limits and abuse caps,
-- provider-side domain, redirect URI, and API-token restrictions.
-
-## Quick Reference
-
-| Need | Use | Stability |
+| 필요 | 사용할 것 | 안정성 |
 |---|---|---|
-| Build or test frontend UI | Vite app, React pages, mocked/emulator data | Supported contribution path |
-| Reuse sport calculations | `shared/training/*`, `src/utils/*` pure functions | Reasonably stable, covered by tests |
-| Reuse export behavior | `src/utils/exportGpx.ts`, `exportTcx.ts`, `exportFit.ts`, `exportCsv.ts` | Reasonably stable, covered by tests |
-| Study Firebase client wiring | `src/services/firebase.ts`, hooks, settings panes | Reference only |
-| Build with your own Orider data | Settings → Developer API, Personal Data API docs, recipe docs | Live owner-only read foundation; broader platform still early |
-| Call Orider callable functions directly | Firebase callable endpoints | Not a supported public API |
-| Self-host Orider backend | Cloud Functions/rules/pipelines | Not available from this repository |
+| 프론트 UI 개발/테스트 | Vite, React page, mock/emulator data | 지원되는 기여 경로 |
+| 스포츠 계산 재사용 | `shared/training/*`, `src/utils/*` | 테스트가 있는 비교적 안정적인 pure function |
+| export 동작 재사용 | `src/utils/exportGpx.ts`, `exportTcx.ts`, `exportFit.ts`, `exportCsv.ts` | 테스트가 있는 reference behavior |
+| Firebase wiring 이해 | `src/services/firebase.ts`, hooks, settings panes | 참고용 |
+| 본인 Orider 데이터로 도구 만들기 | Settings -> Developer API, Personal Data API, recipe docs | owner-only read 기반은 live, broader platform은 초기 단계 |
+| callable function 직접 호출 | Firebase callable endpoint | 공개 API 아님 |
+| Orider backend self-host | Cloud Functions/rules/pipelines | 이 저장소에서 제공하지 않음 |
 
-## Fastest Useful Paths
+## 개발 경로
 
-Choose the path that matches what you want to build:
-
-| Goal | Start here | Expected result |
-|---|---|---|
-| Improve the product UI | `npm install`, placeholder env, `npm run dev` | Local app shell, routes, empty states, and reviewable UI. |
-| Reuse calculation logic | Import from `shared/training/*` | Pure TypeScript functions with no Firebase dependency. |
-| Reuse export logic | Import from `src/utils/export*.ts` | GPX, TCX, FIT, CSV, and calendar export reference behavior. |
-| Build integration UI | Mock Firebase/Mapbox/Strava responses at the component boundary | Reviewable provider states without production access. |
-| Plan personal data tools | Create a key in Settings → Developer API, then read `docs/PERSONAL_DATA_API.md` and `docs/recipes/personal-data.md` | Draft charts, alerts, reports, and automation using owned data only. |
-| Study production wiring | Read `src/services/firebase.ts` and settings/integration pages | Understand browser-safe config and client SDK initialization. |
-
-Frontend-only setup:
+프론트만 확인할 때:
 
 ```bash
 npm install
@@ -46,7 +26,7 @@ cp .env.example .env
 npm run dev
 ```
 
-For compile-only checks, placeholder Firebase values are enough:
+빌드만 확인할 때는 placeholder Firebase 값으로 충분합니다.
 
 ```bash
 VITE_FIREBASE_API_KEY=dummy \
@@ -56,13 +36,13 @@ VITE_FIREBASE_APP_ID=dummy \
 npm run build
 ```
 
-For provider-backed local development, add only browser-safe public values such as `VITE_MAPBOX_TOKEN`, `VITE_STRAVA_CLIENT_ID`, and `VITE_APPCHECK_RECAPTCHA_SITE_KEY`. Production secrets, service accounts, private rules, and backend jobs are not required for UI contribution work and are not included in this repository.
+provider-backed 로컬 개발에는 `VITE_MAPBOX_TOKEN`, `VITE_STRAVA_CLIENT_ID`, `VITE_APPCHECK_RECAPTCHA_SITE_KEY` 같은 browser-safe 값만 사용합니다. production secret, service account, private rule, backend job은 UI 기여에 필요하지 않고 이 저장소에도 포함하지 않습니다.
 
-Do not commit App Check debug tokens. They are test-only bypass credentials and must never be built into production bundles or public documentation.
+App Check debug token은 commit하지 마세요. 테스트 전용 우회 자격증명이며 production bundle이나 공개 문서에 들어가면 안 됩니다.
 
-## Public Client Configuration
+## 공개 클라이언트 설정
 
-The following Vite variables are browser-safe configuration values:
+다음 Vite 변수는 browser-safe config입니다.
 
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
@@ -75,174 +55,58 @@ The following Vite variables are browser-safe configuration values:
 - `VITE_STRAVA_CLIENT_ID`
 - `VITE_STRAVA_REDIRECT_URI`
 
-They allow the web app to find the correct Firebase project and third-party integrations. They do not grant backend admin access by themselves.
+이 값들은 웹 앱이 provider project를 찾게 해 줄 뿐 backend admin 권한을 주지 않습니다. 실제 접근은 Firebase Auth, App Check, backend authorization, Firestore/Storage rules, provider 설정으로 제한됩니다.
 
-Those values make the browser client point at provider projects; access is still limited by provider configuration, Firebase Auth, App Check, backend authorization, and rules.
+## Firebase 접근 모델
 
-## Firebase Access Model
+- 로그아웃 사용자는 public surface만 사용할 수 있습니다.
+- 로그인 사용자는 자신의 private data에 접근할 수 있습니다.
+- public document와 public media는 의도적으로 읽을 수 있습니다.
+- root user document는 public-safe 필드만 두고, 민감한 사용자 필드는 owner-only private subdocument로 분리합니다.
+- 비용이 큰 callable은 Firebase App Check와 인증을 요구합니다.
 
-Local frontend development can run against the production Firebase project when `.env` contains the public config values, but write and read access still depends on the signed-in Firebase user and backend rules.
+이 저장소는 production Cloud Functions source, Firestore rules, Storage rules, service account, 운영 export를 포함하지 않습니다.
 
-Expected behavior:
+## Cloud Functions와 공개 API
 
-- Signed-out users can only use public surfaces.
-- Signed-in users can access their own private data.
-- Public documents and public media are readable by design.
-- Root user documents are kept public-safe; sensitive user fields belong in owner-only private subdocuments.
-- Expensive callable functions require Firebase App Check and authenticated users.
+웹 앱은 Firebase client SDK로 callable function을 호출합니다. 이 callable들은 Orider 제품 내부 surface이며 automation이나 scraping을 위한 공개 API가 아닙니다.
 
-This repository does not include the production Cloud Functions source, Firestore rules, Storage rules, service accounts, or operational exports.
+외부 개발자는 다음 경계를 지켜야 합니다.
 
-## Cloud Functions and API Surface
+1. 공개 브라우저 설정은 `VITE_*` 변수에 둡니다.
+2. secret과 privileged provider call은 프론트엔드에 넣지 않습니다.
+3. provider가 없거나 차단된 상태도 UI에서 확인 가능해야 합니다.
+4. 별도 공개 API 문서가 없는 callable payload/response는 내부 계약으로 봅니다.
+5. provider data에 연결하기 전에 pure transformation logic을 테스트합니다.
 
-The web app calls Firebase callable functions through the Firebase client SDK. Those callable endpoints are part of the Orider product surface, not a general-purpose public API for automation or scraping.
+공개 개발자 경로는 Personal Data API입니다. 라이더는 **Settings -> Developer API**에서 scoped key를 만들고, 자신의 profile, activities, streams, fitness summary를 읽을 수 있습니다. 자세한 내용은 [PERSONAL_DATA_API.md](PERSONAL_DATA_API.md)와 [recipes/personal-data.md](recipes/personal-data.md)를 보세요.
 
-External developers should treat this repository as a reference for the frontend integration shape:
+## 재사용 가능한 영역
 
-- how the web client initializes Firebase services,
-- where Mapbox and Strava browser configuration enters the app,
-- how UI code separates public config from server-side secrets,
-- which screens can degrade when a provider is unavailable.
-
-Do not assume callable function names, request payloads, or response shapes are stable unless a separate public API document explicitly says so.
-
-The intended public developer path is different: the Personal Data API provides a small owner-only read foundation for a rider's own profile, activities, streams, and fitness summary. Riders can create scoped keys in **Settings → Developer API**. See [Personal Data API](PERSONAL_DATA_API.md) for live endpoints, scopes, and [Personal Data Recipes](recipes/personal-data.md) for community recipe ideas.
-
-Callable protections used in production:
-
-- Firebase Auth for user identity,
-- App Check for browser/app attestation,
-- per-user rate limits on costly or external-provider functions,
-- server-side provider secrets held in Secret Manager,
-- strict ownership checks before private data reads or writes.
-
-Maintainer-only production E2E may use a temporary App Check debug token registered in Firebase App Check for the duration of a test. The token must be deleted after verification and must not be stored in git, GitHub secrets for public builds, screenshots, logs, or docs.
-
-## What External Developers Can Use
-
-The most reusable parts of this repository are frontend and pure TypeScript surfaces:
-
-| Area | Useful for |
+| 영역 | 용도 |
 |---|---|
-| `shared/training/` | Fitness/readiness calculations, workout import, weekly load, recovery, metabolism, VO2max, and tests. |
-| `shared/sim/courseSim.ts` | Pure course/segment simulation based on power, mass, CdA, Crr, and grade segments. |
-| `src/utils/export*.ts` | GPX, TCX, FIT, CSV, and calendar export behavior. |
-| `src/components/` and `src/pages/` | Sports analytics UI, map fallback patterns, chart states, and mobile workflows. |
-| `src/i18n/resources/` | Korean/English cycling, training, event, and settings terminology. |
-| `.github/workflows/` | CI/deploy pattern for a Firebase Hosting frontend without exposing production secrets to PRs. |
+| `shared/training/` | fitness/readiness, workout import, weekly load, recovery, metabolism, VO2max |
+| `shared/sim/courseSim.ts` | power, mass, CdA, Crr, grade 기반 course simulation |
+| `src/utils/export*.ts` | GPX, TCX, FIT, CSV, calendar export 참고 구현 |
+| `src/components/`, `src/pages/` | sports analytics UI, map fallback, chart state, mobile workflow |
+| `src/i18n/resources/` | 한국어/영어 cycling, training, event, settings 용어 |
+| `.github/workflows/` | Firebase Hosting frontend CI/deploy 패턴 |
 
-## Practical Recipes
+## 안정성 기대치
 
-## Client-Side Training and Simulation
-
-`shared/training/` and `shared/sim/courseSim.ts` are intentionally part of the public frontend surface.
-
-They are reusable pure TypeScript modules for UI support and contributor review. They are not authoritative server analysis, backend ranking truth, security controls, or abuse controls. Inputs should come from client-visible or demo data, and sensitive training intelligence, private data access, provider secrets, and privileged aggregation remain outside this repository.
-
-Keep tests with these modules. If a future algorithm becomes proprietary or security-sensitive, move it behind a documented backend/API contract and leave only typed client boundaries in this repository.
-
-Use these as starting points for contribution or reuse.
-
-### Example: Readiness Calculation
-
-`shared/training/readiness.ts` is a pure function: no Firebase, no network, no production data.
-
-```ts
-import { estimateReadiness } from "./shared/training/readiness";
-
-const readiness = estimateReadiness({
-  hrvRmssd: 62,
-  hrvBaselineMean: 55,
-  restingHr: 48,
-  rhrBaselineMean: 51,
-  sleepHours: 7.5,
-});
-
-// { score, band, factors } or null when no usable input exists.
-```
-
-### Example: GPX Export
-
-`src/utils/exportGpx.ts` turns an activity and stream arrays into GPX XML. It is useful as a reference for sport-data export behavior and edge cases such as stream time normalization.
-
-```ts
-import { generateGpx } from "./src/utils/exportGpx";
-
-const gpx = generateGpx(activity, {
-  latlng: [[37.5665, 126.9780]],
-  time: [0],
-  altitude: [35],
-  heartrate: [145],
-  watts: [210],
-  cadence: [88],
-});
-```
-
-### Example: Provider Fallback UI
-
-Mapbox and Firebase-backed screens should remain reviewable when provider config is missing or blocked. For contribution work, prefer:
-
-- stable containers for chart/map placeholders,
-- explicit empty/loading/error states,
-- mocked inputs for pure utilities,
-- emulator data for Auth/Firestore-oriented UI,
-- no dependency on production users, routes, or tokens.
-
-### Example: Integration Boundary
-
-When adding a feature that touches Firebase, Mapbox, Strava, or App Check:
-
-1. Keep public browser configuration in `VITE_*` env variables.
-2. Keep secrets and privileged provider calls out of frontend code.
-3. Make missing-provider states visible and testable.
-4. Treat Firebase callable payloads as internal product contracts unless a public API document exists.
-5. Add tests around pure transformation logic before wiring it to provider data.
-
-## Stability Expectations
-
-| Surface | Expected compatibility |
+| Surface | 기대 |
 |---|---|
-| Pure utilities with tests | Changes should be reviewed like public library code. Prefer backwards-compatible signatures. |
-| React components/pages | Product UI may change, but states should remain testable with placeholder or mocked data. |
-| Vite env names | Public browser config names should stay stable unless documented in release notes. |
-| Firebase callable names/payloads | Internal product API. May change without public deprecation policy. |
-| Firestore document shape | Product data model. Not a public contract from this repository. |
+| 테스트가 있는 pure utility | public library code처럼 검토하고 backward-compatible signature를 선호 |
+| React component/page | 제품 UI는 바뀔 수 있지만 placeholder/mock data로 테스트 가능해야 함 |
+| Vite env name | release note 없이 자주 바꾸지 않음 |
+| Firebase callable name/payload | 내부 제품 API이며 공개 deprecation 정책 대상 아님 |
+| Firestore document shape | 제품 데이터 모델이며 이 저장소의 공개 계약 아님 |
 
-## Not Currently Offered
+## 현재 제공하지 않는 것
 
-This repository does not currently provide:
-
-- broad third-party app registration,
-- OAuth app consent for external developers,
-- webhook subscriptions for external apps,
-- service-level guarantees for callable endpoints,
-- self-hostable backend services,
-- production Firestore/Storage rules.
-
-Before the Personal Data API expands beyond the current owner-only read foundation, additional endpoints should be documented with authentication, scopes, rate limits, sample requests/responses, versioning, and deprecation policy.
-
-## Strava
-
-The Strava client ID and redirect URI are public OAuth configuration. The Strava client secret, webhook verify token, and webhook subscription metadata are server-side secrets.
-
-Public clients can start OAuth, but token exchange and token storage are handled by Cloud Functions. Redirect URIs must remain restricted in the Strava app settings.
-
-## Mapbox
-
-The Mapbox token used by the frontend must be a public token with URL/domain restrictions. It should not have secret scopes or management permissions.
-
-Map surfaces should degrade with fallback UI when Mapbox is unavailable, blocked, or rate-limited.
-
-## Local Development Limits
-
-Without access to the private backend and production secrets, contributors can still work on:
-
-- React pages and components,
-- charts and map UI states,
-- i18n resources,
-- accessibility fixes,
-- unit tests,
-- Playwright tests using mocked or seeded data,
-- local emulator-oriented flows documented in `docs/DEVELOPMENT.md`.
-
-Provider integrations that require production secrets or privileged backend jobs are not self-hostable from this repository alone.
+- 광범위한 third-party app registration
+- 외부 개발자용 OAuth app consent 일반 공개
+- 외부 app webhook subscription
+- callable endpoint에 대한 서비스 수준 보장
+- self-hostable backend service
+- production Firestore/Storage rules

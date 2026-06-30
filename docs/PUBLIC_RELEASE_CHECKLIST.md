@@ -1,54 +1,45 @@
-# Public Repository Notes
+# 공개 저장소 체크리스트
 
-This document records the public-release posture for Orider Web after the clean repository cutover. It is no longer a pre-release blocker checklist; the public source-of-truth repository is [`miranae/orider-web`](https://github.com/miranae/orider-web).
+이 문서는 Orider Web을 공개 저장소로 운영할 때 확인할 항목입니다. 영문 문서는 [PUBLIC_RELEASE_CHECKLIST-en.md](PUBLIC_RELEASE_CHECKLIST-en.md)를 참고하세요.
 
-## Current Status
+## 공개 전 확인
 
-| Area | Status | Notes |
-|---|---|---|
-| Public repository | Done | Public work happens in `miranae/orider-web`; old private history was not mirror-pushed. |
-| README and contributor path | Done | README, CONTRIBUTING, BRANCHING, PR templates, and CI gates describe public contribution flow. |
-| PR gates | Done | `PR metadata`, `DCO`, and `CI / check` run on fork-safe `pull_request` workflows without secrets. |
-| Deployment | Done | Version tags matching `v*` deploy Firebase Hosting through a protected production environment and create GitHub Release notes. |
-| Backend boundary | Ongoing | Functions, Firestore/Storage rules, private jobs, and production data remain outside this repository. |
-| Screenshots | Pending | README screenshots are omitted until current-product captures can be regenerated with demo-safe data. |
-| Personal Data API docs | Active | Owner-only Personal Data API docs and recipe examples are public; broad third-party app registration is not offered. |
+- [ ] secret, token, service account, private key가 없음
+- [ ] `.env`, dump, backup, production export가 없음
+- [ ] 실제 사용자 ID, 이메일, private route, screenshot이 없음
+- [ ] README, CONTRIBUTING, SECURITY, LICENSE가 최신
+- [ ] `*-en.md`가 있으면 기본 문서는 한국어
+- [ ] docs link가 깨지지 않음
+- [ ] CI가 fork PR에서 secret 없이 동작
+- [ ] deploy workflow가 PR에서 production secret을 쓰지 않음
 
-## Public Repository Principles
+## 코드 확인
 
-- Keep the public repo useful without implying that the private backend is included.
-- Do not rely on security-through-obscurity for frontend paths, callable names, or Firebase config.
-- Do not commit secrets, production exports, service accounts, private user data, or sensitive screenshots.
-- Keep public issues and PRs safe for external contributors; route vulnerabilities through [SECURITY.md](../SECURITY.md).
-- Prefer small PRs with clear review routes, locales, viewport notes, and screenshots when UI changes.
+- [ ] `npm run lint:budget`
+- [ ] `npm run quality:budget`
+- [ ] `npm test`
+- [ ] `npm run build`
+- [ ] 필요한 경우 `npm run e2e`
 
-## Backend Boundary
+## 개인정보
 
-This repository may expose browser-visible integration points, but authorization and privacy guarantees belong to backend services and Firebase rules maintained separately.
+- [ ] fixture는 demo/mock data만 사용
+- [ ] screenshot은 demo-safe 또는 redacted
+- [ ] Personal Data API 문서는 owner-only scope를 명확히 설명
+- [ ] recipe는 required scopes와 privacy note를 포함
 
-Frontend contributors can work on:
+## 배포와 릴리스
 
-- UI, layout, states, accessibility, i18n, tests, and docs
-- pure utilities in `shared/`
-- public Personal Data API documentation and demo-safe recipes
+- [ ] `main` merge와 production deploy trigger가 의도대로 분리되어 있음
+- [ ] release tag 정책이 문서화되어 있음
+- [ ] environment approval 권한이 관리됨
+- [ ] release note 작성 경로가 있음
+- [ ] rollback 경로를 maintainer가 알고 있음
 
-Frontend contributors should not expect to change from this repository:
+## 운영 후 확인
 
-- Cloud Functions implementations
-- production Firestore or Storage rules
-- provider secrets or token exchange logic
-- private analysis pipelines
-- production datasets or exports
-
-## Remaining Public Polish
-
-- Regenerate README screenshots from the live product using demo-safe data.
-- Keep starter issues labeled for `good first issue`, `accessibility`, `i18n`, `docs`, `frontend`, `testing`, `charts`, and `maps`.
-- Periodically check that README, CONTRIBUTING, BRANCHING, and PR gates still match the actual workflow.
-- Keep Personal Data API and Creator Hub docs aligned with deployed behavior.
-
-## Historical Cutover Notes
-
-The public repository was created from a reviewed working tree rather than a mirror push. That avoided carrying old private commits, hidden PR refs, deleted refs, and local history into the public release surface.
-
-For the cutover runbook and scan commands, see [Public Repository Cutover](PUBLIC_REPOSITORY_CUTOVER.md).
+- [ ] GitHub repository description/topic/license 확인
+- [ ] issue/PR template 동작 확인
+- [ ] DCO/CI/pr-gate 동작 확인
+- [ ] 공개 README 링크 확인
+- [ ] 보안 신고 경로 확인

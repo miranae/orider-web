@@ -1,27 +1,31 @@
-# Developer Certificate of Origin
+# Developer Certificate of Origin 안내
 
-Orider uses the Developer Certificate of Origin (DCO) instead of a broad copyright assignment.
+이 프로젝트는 기여자에게 DCO sign-off를 요구합니다. 영문 원문은 [DCO-en.md](DCO-en.md)를 참고하세요.
 
-By adding a `Signed-off-by` line to a commit, you certify that you have the right to submit the contribution under this repository's license.
+## 의미
 
-## Sign-off Format
+커밋에 `Signed-off-by`를 추가하면 다음을 확인하는 것입니다.
 
-```text
-Signed-off-by: Your Name <you@example.com>
-```
+- 직접 작성했거나, 제출할 권리가 있는 작업입니다.
+- 프로젝트 라이선스에 따라 배포될 수 있음을 이해합니다.
+- 다른 사람의 저작물, 비공개 코드, 운영 데이터, secret을 무단으로 포함하지 않았습니다.
 
-You can add it automatically when committing:
+## 사용 방법
+
+커밋할 때 `-s`를 붙입니다.
 
 ```bash
-git commit -s
+git commit -s -m "fix: handle mobile tab overflow"
 ```
 
-## DCO 1.1
+이미 만든 마지막 커밋에 sign-off를 추가하려면:
 
-By making a contribution to this project, I certify that:
+```bash
+git commit --amend -s --no-edit
+```
 
-1. The contribution was created in whole or in part by me and I have the right to submit it under the open source license indicated in the file; or
-2. The contribution is based upon previous work that, to the best of my knowledge, is covered under an appropriate open source license and I have the right under that license to submit that work with modifications, whether created in whole or in part by me, under the same open source license, unless I am permitted to submit under a different license, as indicated in the file; or
-3. The contribution was provided directly to me by some other person who certified 1, 2, or 3 and I have not modified it.
+여러 커밋에 빠졌다면 interactive rebase나 새 커밋으로 정리한 뒤 push하세요.
 
-I understand and agree that this project and the contribution are public and that a record of the contribution, including all personal information I submit with it, is maintained indefinitely and may be redistributed consistent with this project or the open source license involved.
+## PR 체크
+
+`DCO` GitHub Action이 모든 커밋에 sign-off가 있는지 확인합니다. 실패하면 누락된 커밋을 수정하고 다시 push하면 됩니다.

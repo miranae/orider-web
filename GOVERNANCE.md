@@ -1,59 +1,35 @@
-# Governance
+# 거버넌스
 
-This repository is maintained as the public frontend source of truth for Orider Web.
+이 문서는 Orider Web 저장소의 의사결정 방식과 maintainer 책임을 설명합니다. 영문 문서는 [GOVERNANCE-en.md](GOVERNANCE-en.md)를 참고하세요.
 
-The governance goal is simple: keep Orider useful to riders, hard to privatize into a closed product, and careful with personal ride data.
+## 역할
 
-## Project Stewardship
+- **Maintainer**: issue triage, PR review, release, 보안 대응, 운영 배포 권한을 관리합니다.
+- **Contributor**: issue, 문서, 테스트, UI 개선, recipe를 제안하고 PR로 제출합니다.
+- **Reviewer**: 변경의 정확성, 개인정보 영향, 테스트, 사용자 경험을 검토합니다.
 
-Maintainers are stewards, not private owners of the community-built core. Maintainers review PRs, protect production deploys, and keep the project aligned with [MISSION.md](MISSION.md).
+## 의사결정 원칙
 
-Current protected assets:
+1. 실제 라이더 데이터 보호를 우선합니다.
+2. 작은 PR과 명확한 범위를 선호합니다.
+3. 공개 API와 내부 Firebase callable을 구분합니다.
+4. 제품 UI는 실제 사용 흐름을 기준으로 검토합니다.
+5. 변경이 운영 배포에 영향을 주면 rollback과 release note를 함께 고려합니다.
 
-- The AGPL-licensed source code in this repository.
-- The public contribution history.
-- The Orider name and logo, managed separately under [TRADEMARK.md](TRADEMARK.md).
-- Production infrastructure, credentials, and private user data, which are not part of the public repository.
+## PR 승인
 
-## Decisions That Need Public Review
+일반 PR은 최소 1명의 maintainer review와 필수 체크 통과가 필요합니다. 개인정보, 인증, API, 배포, 보안 관련 변경은 더 엄격하게 봅니다.
 
-The following changes require a public proposal before they can be accepted:
+Maintainer도 자신의 변경을 스스로만 승인하지 않습니다. 가능한 경우 별도 reviewer가 확인합니다.
 
-- Changing the repository license.
-- Moving the public repository to a more restrictive model.
-- Removing AGPL/copyleft protections from core code.
-- Changing DCO-based contribution rules.
-- Changing the trademark policy in a way that could mislead users about official Orider services.
-- Introducing funding or sponsorship terms that restrict community access to the open core.
+## 브랜치와 릴리스
 
-For these changes, maintainers should open an issue or discussion-style PR, leave it open for at least 14 days when practical, and document the final decision in the repository.
+브랜치 정책은 [docs/BRANCHING.md](docs/BRANCHING.md)를 따릅니다. `main`은 보호되며 직접 push하지 않습니다. 배포와 release tag 정책은 repository workflow와 release checklist에 맞춥니다.
 
-## License Changes
+## 보안과 비공개 신고
 
-Orider Web is licensed under GNU AGPL-3.0. The license is intentionally chosen to discourage closed SaaS forks of the web frontend.
+보안 취약점은 공개 issue로 다루지 않습니다. [SECURITY.md](SECURITY.md)를 따르세요.
 
-Future relicensing should require broad maintainer agreement and should not remove rights from existing contributors. Contributions are accepted under the repository license using the DCO process, not through a broad copyright assignment.
+## 변경 제안
 
-## Maintainer Rules
-
-- `main` stays protected.
-- Direct pushes to `main` stay disabled.
-- Production deploys stay behind protected GitHub Environments.
-- Security-sensitive details are handled through [SECURITY.md](SECURITY.md), not public issues.
-- Maintainers should avoid merging large, unrelated changes.
-
-## Community Participation
-
-Not every contribution needs code. Useful participation includes:
-
-- Bug reports with safe reproduction details.
-- Copy, terminology, and manual improvements.
-- Accessibility and mobile layout fixes.
-- Personal-data recipes using owned or demo data.
-- Review of confusing screens and rider workflows.
-
-## Private Data Boundary
-
-The public project can explain, test, and improve the user experience around ride data. It must not expose production user data, precise private routes, credentials, service accounts, or operational logs.
-
-This boundary exists to protect riders while keeping the product experience open to improvement.
+거버넌스 변경은 issue나 PR로 제안할 수 있습니다. Maintainer는 영향 범위와 기존 contribution flow와의 일관성을 검토합니다.

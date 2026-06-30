@@ -1,137 +1,54 @@
-# Public Repository Cutover
+# 공개 저장소 전환
 
-This runbook is for the final move from the private release-candidate repository to a public repository with clean history.
+이 문서는 private 작업 저장소에서 public repository 운영으로 전환할 때의 절차입니다. 영문 문서는 [PUBLIC_REPOSITORY_CUTOVER-en.md](PUBLIC_REPOSITORY_CUTOVER-en.md)를 참고하세요.
 
-The goal is not only to remove sensitive history. The public repository should also open with a coherent product story, safe contributor paths, and no misleading promise that the private backend is included.
+## 목표
 
-## Preferred Approach
+- 운영 secret과 private data를 공개 history에 포함하지 않음
+- 공개 기여자가 이해할 수 있는 README/docs/CONTRIBUTING 제공
+- fork PR에서도 안전하게 CI 실행
+- production deploy 권한과 public PR 실행 권한 분리
 
-Use a clean working tree export, not a git mirror.
+## 원칙
 
-A mirror push preserves commits, tags, deleted refs, and hidden pull-request snapshots that may contain old private material. A clean export starts the public repository with one initial commit containing only the intended files.
+1. private repo를 mirror-push하지 않습니다.
+2. 공개 저장소는 clean export 또는 검증된 branch만 사용합니다.
+3. GitHub hidden refs, 오래된 PR refs, 삭제된 secret history가 public repo로 넘어가지 않게 합니다.
+4. production secret은 public PR에서 접근할 수 없어야 합니다.
+5. 공개 기본 문서는 한국어, `*-en.md`는 영어 문서로 유지합니다.
 
-Recommended flow:
+## 전환 절차
 
-1. Start from a fresh clone of the private source repository.
-2. Check out the exact reviewed commit.
-3. Confirm the worktree is clean.
-4. Export tracked files from that commit.
-5. Copy only intended public files into a new empty repository.
-6. Run the final scans in the new repository.
-7. Create the first public commit.
-8. Push to the new public repository.
-9. Enable branch protection, required CI, and the protected `production` environment before accepting external PRs.
+1. secret scan과 파일명 scan을 실행합니다.
+2. `.env`, credential, dump, backup, export, service account 파일이 없는지 확인합니다.
+3. README, CONTRIBUTING, SECURITY, LICENSE, DCO를 정리합니다.
+4. docs link와 언어 쌍을 확인합니다.
+5. CI가 secret 없이 동작하도록 placeholder env를 사용합니다.
+6. deploy workflow는 tag/environment approval 기반으로 제한합니다.
+7. public repo를 만든 뒤 branch protection과 repository settings를 설정합니다.
 
-Example export:
-
-```bash
-git archive --format=tar HEAD | tar -x -C ../orider-web-public
-```
-
-Do not copy `.git/`, local `.env` files, build caches, local screenshots, production exports, service-account files, or any temporary E2E/debug-token artifacts.
-
-## Files That Should Be Present
-
-The public repository should include:
-
-- `README.md`
-- `CONTRIBUTING.md`
-- `SECURITY.md`
-- `LICENSE`
-- `TRADEMARK.md`
-- `.github/` issue, PR, CI, and deploy templates
-- `src/`, `shared/`, `public/`, `docs/`, `manual-src/`, `e2e/`, `scripts/`
-- Vite, TypeScript, ESLint, Vitest, Playwright, Firebase Hosting, and package metadata
-- verified current-product screenshots under `docs/screenshots/`, if available
-
-The public repository should not include:
-
-- old git history,
-- hidden `refs/pull/*` snapshots,
-- Cloud Functions source,
-- production Firestore or Storage rules,
-- service accounts,
-- provider secrets,
-- production data exports,
-- private backend deploy scripts,
-- local debug tokens,
-- real user data, production screenshots, or static demo illustrations presented as product screenshots.
-
-## Final Scans
-
-Run these from the new repository before changing visibility:
-
-```bash
-rg -n "AdminPage|Admin[A-Za-z]+Page|isAdmin|adminOnly|customClaims|claims\\.admin|VITE_ADMIN_ORIGIN|admin\\.orider|/admin|관리자" src shared public docs README.md CONTRIBUTING.md SECURITY.md .github -S \
-  --glob '!docs/SECURITY_REAUDIT_*.md' \
-  --glob '!docs/PUBLIC_REPOSITORY_CUTOVER.md'
-```
-
-```bash
-rg -n "orider-strava-webhook|STRAVA_WEBHOOK_VERIFY_TOKEN|STRAVA_CLIENT_SECRET|client_secret|refresh_token|serviceAccount|private_key|-----BEGIN|AIza[0-9A-Za-z_-]{35}|pk\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+" . -S \
-  --glob '!node_modules/**' \
-  --glob '!dist/**' \
-  --glob '!package-lock.json' \
-  --glob '!docs/screenshots/*.png' \
-  --glob '!docs/SECURITY_REAUDIT_*.md' \
-  --glob '!docs/PUBLIC_REPOSITORY_CUTOVER.md'
-```
+## 권장 검사
 
 ```bash
 git ls-files | rg -i '(^|/)(\\.env|.*\\.env.*|.*secret.*|.*credential.*|.*service.*account.*|.*backup.*|.*dump.*|.*export.*)'
-```
-
-Expected tracked-env result:
-
-- `.env.example`
-- `.env.e2e`
-
-Both must contain placeholders or emulator-only values.
-
-## Build Checks
-
-Run at least:
-
-```bash
-npm ci
-npm run lint
+rg -i 'private_key|client_secret|refresh_token|service account|BEGIN .*PRIVATE KEY'
 npm test
-VITE_FIREBASE_API_KEY=dummy \
-VITE_FIREBASE_AUTH_DOMAIN=dummy.firebaseapp.com \
-VITE_FIREBASE_PROJECT_ID=dummy \
-VITE_FIREBASE_APP_ID=dummy \
 npm run build
 ```
 
-Then run a smoke check against the live product:
+## 전환 후 작업
 
-```bash
-curl -I https://orider.co.kr/ko/creator
-```
+- issue/PR template 확인
+- DCO와 PR gate 확인
+- README badge/link 확인
+- security policy 확인
+- public release checklist 수행
+- maintainer에게 deploy approval과 tag 생성 권한 안내
 
-## Public Repository Settings
+## 금지
 
-Set or verify repository metadata:
-
-- description: `Ride analysis, group events, route discovery, and training dashboards for Orider`
-- website: `https://orider.co.kr`
-- topics: `cycling`, `fitness`, `react`, `vite`, `firebase`, `typescript`, `open-source`, `sports-analytics`
-
-Enable:
-
-- branch protection for `main`,
-- required PR reviews,
-- required CI checks,
-- blocked force pushes and branch deletion,
-- protected `production` environment with maintainer approval.
-
-## Final Human Review Before Visibility Changes
-
-Before flipping visibility:
-
-- README first screen shows product value, live app, screenshots, and contribution paths.
-- API docs state the owner-only Personal Data API clearly.
-- Creator docs explain recipes, email-to-self, privacy defaults, and remaining limits.
-- Development docs are honest about private backend limits.
-- Security docs tell people not to file vulnerabilities publicly.
-- Public release checklist has no open blocker except items intentionally handled after the new repository exists.
+- private repo 전체 mirror push
+- production export를 sample data로 사용
+- 실제 사용자 screenshot을 redaction 없이 사용
+- provider secret을 GitHub Actions public context에 저장
+- Firebase callable을 public API처럼 안내

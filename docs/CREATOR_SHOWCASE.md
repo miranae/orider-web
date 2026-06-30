@@ -1,179 +1,104 @@
-# Creator Showcase
+# Creator Showcase 방향
 
-GitHub is only the contribution pipe. The rider-facing value needs to live inside Orider: people should be able to discover what others built with their own data, try safe recipes, and share privacy-safe results.
+GitHub는 기여 통로이고, 라이더가 실제로 발견하고 사용하는 표면은 Orider 제품 안에 있어야 합니다. Creator Showcase는 라이더가 자신의 데이터로 만든 recipe, chart, AI diary, report, alert, widget을 안전하게 발견하고 공유하는 방향입니다.
 
-This document defines the product direction for an Orider Creator Showcase.
+영문 문서는 [CREATOR_SHOWCASE-en.md](CREATOR_SHOWCASE-en.md)를 참고하세요.
 
-## Product Goal
+## 제품 목표
 
-Make personal-data creations visible and reusable without exposing private activity data.
+개인 활동 데이터를 노출하지 않으면서 personal-data creation을 재사용 가능하게 만듭니다.
 
-The intended loop:
+의도한 흐름:
 
-1. A rider connects or exports their own Orider data.
-2. They build a chart, AI diary, report, alert, widget, or automation.
-3. They publish a recipe, showcase card, or share link.
-4. Other riders can understand what it does, what data it needs, and how to try it safely.
+1. 라이더가 자신의 Orider 데이터를 연결하거나 export합니다.
+2. chart, AI diary, report, alert, widget, automation을 만듭니다.
+3. recipe, showcase card, share link로 게시합니다.
+4. 다른 라이더는 필요한 데이터, scope, privacy note를 이해하고 안전하게 시도합니다.
 
-## Surfaces
+## 주요 표면
 
-| Surface | Audience | Purpose |
+| Surface | 대상 | 목적 |
 |---|---|---|
-| Creator Hub | Riders and developers | Discover recipes, apps, cards, and examples built with personal Orider data. |
-| Recipe Page | Builders | Explain how a creation works, required scopes, setup, privacy notes, and example output. |
-| Showcase Card | Riders | Share a result without exposing raw private data. |
-| Public Share Link | Riders | Optional link-only or public page for selected outputs. |
-| Community Post Composer | Riders | Turn an output into an editable Orider post. |
-| Email-to-self | Riders | Send reviewed recipe results to the signed-in rider's own verified email. |
-| Developer Profile | Builders | Show who built the recipe/app and where to follow or report issues. |
+| Creator Hub | 라이더와 개발자 | recipe, app, card, example 발견 |
+| Recipe Page | builder | 작동 방식, scope, setup, privacy, output 설명 |
+| Showcase Card | 라이더 | raw private data 없이 결과 공유 |
+| Public Share Link | 라이더 | 선택한 output을 link-only/public으로 공유 |
+| Community Post Composer | 라이더 | output을 편집 가능한 Orider post로 변환 |
+| Email-to-self | 라이더 | 검토된 recipe 결과를 본인 인증 이메일로 전송 |
+| Developer Profile | builder | 만든 사람, follow/report 경로 표시 |
 
-## Creation Types
+## Creation 유형
 
-| Type | Example | Sharing mode |
+| 유형 | 예시 | 공유 방식 |
 |---|---|---|
-| Chart | Weekly load, FTP trend, zone-time tracker | Screenshot/card, public-safe chart, recipe |
-| AI diary | Weekly ride diary, race-prep reflection, recovery note | Private by default, optional redacted share card |
-| Alert | Hard-day streak warning, missed Z2 target, event-prep reminder | Recipe, notification preview |
-| Report | Monthly training summary, coach-ready recap | PDF/markdown export, link-only page |
-| Widget | Recent ride card for a personal site | Embeddable public-safe card |
-| Automation | Notion log, Google Sheets sync, Discord reminder | Recipe plus setup checklist |
+| Chart | weekly load, FTP trend, zone-time tracker | screenshot/card, public-safe chart, recipe |
+| AI diary | weekly ride diary, recovery note | 기본 private, 선택적 redacted share card |
+| Alert | hard-day streak, missed Z2 target | recipe, notification preview |
+| Report | monthly summary, coach recap | PDF/markdown export, link-only page |
+| Widget | personal site recent ride card | public-safe embeddable card |
+| Automation | Notion log, Google Sheets sync, Discord reminder | recipe와 setup checklist |
 
-## Flagship Recipes
+## 대표 recipe
 
-Creator Hub should lead with five complete recipes:
+Creator Hub는 maintainer-reviewed flagship recipe로 시작합니다.
 
-| Recipe | Result | Delivery |
+| Recipe | 결과 | 전달 방식 |
 |---|---|---|
-| AI ride diary | Private diary draft and redacted card. | Orider AI credit, share card, email-to-self. |
-| Weekly load report | 12-week load chart and weekly training digest. | Dashboard card, share card, email-to-self. |
-| Hard-day streak alert | Recovery warning when hard days stack up. | In-app alert direction, email-to-self, future opt-in recurring alert. |
-| Long-ride log package | GPX/private export path and coach-ready markdown checklist. | Private download, Notion-ready notes, email-to-self summary. |
-| Monthly ride badge | Public-safe monthly progress badge. | Public-safe widget/card, email-to-self preview. |
+| AI ride diary | private diary draft와 redacted card | Orider AI credit, share card, email-to-self |
+| Weekly load report | 12주 load chart와 weekly digest | dashboard card, share card, email-to-self |
+| Hard-day streak alert | hard day 누적 시 recovery warning | in-app 방향, email-to-self, 향후 recurring alert |
+| Long-ride log package | GPX/private export와 coach-ready checklist | private download, Notion-ready notes, email-to-self |
+| Monthly ride badge | public-safe monthly progress badge | widget/card, email-to-self preview |
 
-Email delivery is limited to the signed-in rider's own verified email and should not support arbitrary recipients.
+Email delivery는 로그인한 라이더 본인의 verified email로만 보냅니다. 임의 recipient는 지원하지 않습니다.
 
-Production status:
+## 현재 상태
 
-- Creator Hub renders the five flagship recipes from metadata.
-- Reviewed flagship recipes can trigger email-to-self delivery.
-- The email callable requires Firebase Auth and App Check.
-- Delivery is rate-limited to 5 creator recipe emails per rider per day.
-- Sent-email logs record recipe, masked recipient, language, timestamp, and quota state.
-- Production E2E on 2026-06-28 verified authenticated UI delivery, callable success, success-state rendering, sent-log creation, and quota decrement.
+- Creator Hub는 metadata 기반 flagship recipe card를 렌더링합니다.
+- 검토된 flagship recipe는 email-to-self delivery를 실행할 수 있습니다.
+- email callable은 Firebase Auth와 App Check를 요구합니다.
+- rider별 하루 5회로 rate limit합니다.
+- sent-email log는 recipe, masked recipient, language, timestamp, quota state를 기록합니다.
+- 2026-06-28 production E2E에서 인증 UI delivery, callable success, success state, sent-log creation, quota decrement를 확인했습니다.
 
-## AI Ride Diary Example
+## AI Ride Diary 기준
 
-An AI ride diary should be private by default because it can reveal location, routine, fitness, fatigue, injury risk, and social patterns.
+AI ride diary는 위치, 루틴, fitness, fatigue, injury risk, social pattern을 드러낼 수 있으므로 기본 private이어야 합니다.
 
-Orider should provide a built-in generation path:
+내장 generation path는 다음을 지켜야 합니다.
 
-- no provider API key is exposed to the browser or to plugins,
-- Orider calls the AI provider server-side,
-- each rider gets **5 diary generations per day**,
-- App Check, Auth, server-side rate limits, and audit logs protect the endpoint,
-- generated drafts are private until the rider chooses a share mode.
+- provider API key를 browser나 plugin에 노출하지 않음
+- Orider가 server-side에서 AI provider 호출
+- rider별 하루 5회 generation
+- App Check, Auth, server-side rate limit, audit log
+- rider가 share mode를 고르기 전까지 private draft
 
-Safe sharing options:
+공유 옵션:
 
-| Mode | What gets shared |
+| 모드 | 공유 내용 |
 |---|---|
-| Private draft | Full diary visible only to the rider. |
-| Redacted card | Summary, aggregate stats, selected sentence, no exact route or start location. |
-| Link-only diary | Rider-selected text and charts behind an unlisted URL. |
-| Community post | Editable copy that the rider explicitly posts to Orider community. |
-| Recipe | How the diary was generated, with demo data only. |
+| Private draft | 라이더만 보는 전체 diary |
+| Redacted card | 요약, aggregate stat, 선택 문장, 정확한 경로/시작 위치 제외 |
+| Link-only diary | 라이더가 선택한 텍스트와 chart |
+| Community post | 라이더가 명시적으로 게시하는 편집 가능한 copy |
+| Recipe | demo data만 포함한 생성 방법 |
 
-Minimum controls:
+## 공개 저장소 역할
 
-- before/after redaction preview,
-- remove exact location toggle,
-- remove health metrics toggle,
-- remove names/group references toggle,
-- visibility selector: `private`, `link-only`, `public`, `community post`,
-- report/abuse path for public outputs.
+이 저장소는 다음의 source of truth입니다.
 
-## Discovery Model
+- recipe markdown
+- sample/demo output
+- public API contract와 sample response
+- reusable utility
+- review checklist
+- showcase contribution template
 
-Creator Hub should not be a free-for-all plugin marketplace at first. Start with a curated showcase:
+제품 안의 Orider는 사용자-facing distribution surface입니다: browse, try, save, share, report, revoke.
 
-1. **Featured**: maintainer-reviewed recipes and cards.
-2. **Community Recipes**: markdown-backed recipes from the public repository.
-3. **Built by Riders**: user-submitted examples with screenshots or demo outputs.
-4. **API-backed Recipes**: examples that use the owner-only Personal Data API or wait for additional scopes.
+## 남은 작업
 
-This keeps quality high while the API and consent model mature.
-
-## App And Plugin Direction
-
-Long term, Orider can support connected apps or plugins. The first version should be conservative:
-
-| Stage | Capability |
-|---|---|
-| Recipe | Static instructions, demo data, no token exchange. |
-| Local tool | User runs or hosts it themselves with their own token. |
-| Registered app | App has a developer profile, redirect URI, scopes, rate limits, and review status. |
-| In-product plugin | Runs inside Orider with strict sandboxing, reviewed permissions, and revocation. |
-
-Do not let arbitrary third-party code run inside Orider until sandboxing, review, permission prompts, abuse handling, and token isolation are designed.
-
-## Data And Consent
-
-Every showcase item should state:
-
-- what data it uses,
-- required scopes,
-- whether data leaves Orider,
-- whether output can reveal location, health, routine, or social relationships,
-- default visibility,
-- deletion/revocation path.
-
-Recommended labels:
-
-- `Own data only`
-- `Read-only`
-- `Uses location`
-- `Uses health metrics`
-- `Sends data outside Orider`
-- `Public-safe output`
-- `Maintainer reviewed`
-
-## Public Repository Role
-
-The repository should be the source for:
-
-- recipe markdown,
-- sample/demo outputs,
-- public API contracts and sample responses,
-- reusable utilities,
-- review checklist,
-- showcase contribution templates.
-
-The Orider product should be the user-facing distribution surface:
-
-- browse,
-- try,
-- save,
-- share,
-- report,
-- revoke.
-
-## MVP Checklist
-
-- [x] Add Creator Hub route in Orider.
-- [x] Show curated recipe cards sourced from recipe metadata.
-- [x] Add an AI ride diary showcase example with demo data and a protected callable path.
-- [x] Add a weekly load chart example that uses owned activity data when signed in and demo data otherwise.
-- [x] Add privacy labels to every card.
-- [x] Add "Submit a recipe" link to GitHub for developers.
-- [x] Add "Request this integration" issue link for non-developers.
-- [x] Add share-card spec for redacted rider outputs.
-- [x] Add a report path for showcase cards.
-- [x] Add moderation intake and admin review queue for showcase reports.
-- [x] Add email-to-self delivery for reviewed flagship recipes.
-- [x] Verify production email-to-self delivery through authenticated Creator Hub E2E.
-
-Remaining product work:
-
-- Add recurring opt-in scheduling for email digests and alerts.
-- Add developer profiles, featured creator placement, and install/use counts.
-- Expand the Personal Data API beyond the current owner-only read foundation before advertising third-party automation as broadly live.
+- recurring email digest/alert opt-in
+- developer profile, featured creator placement, usage count
+- Personal Data API scope 확장
+- public output report/abuse handling 고도화

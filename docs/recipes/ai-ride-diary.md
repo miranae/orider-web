@@ -1,69 +1,36 @@
-# Recipe: AI Ride Diary
+# Recipe: AI Ride Diary 만들기
 
-## Showcase Summary
+영문 문서는 [ai-ride-diary-en.md](ai-ride-diary-en.md)를 참고하세요.
 
-Turn a week of owned Orider activity data into a private training diary, then share only a redacted card.
+## 목적
 
-## What It Builds
+라이더의 최근 활동을 바탕으로 private diary 초안을 만들고, 원하면 redacted share card로 공유합니다.
 
-This recipe creates a private diary draft from the rider's recent activities, training load, and recovery context. The full diary stays private. The shareable result is a short card that removes exact locations, route geometry, names, IDs, and sensitive health details.
+## 필요한 scope
 
-Inside Orider, the AI call runs server-side through Orider AI credits. Provider API keys are never placed in browser code or recipe files.
+- `activities:read`
+- `streams:read`
+- `fitness:read`
 
-## Required Data
+## 데이터 흐름
 
-| Data | Scope | Notes |
-|---|---|---|
-| Activity summaries | `activities:read` | Last 7 or 30 days. |
-| Streams | `streams:read` | Optional; only for richer ride context. |
-| Fitness summary | `fitness:read` | Used for fatigue/load framing. |
+1. 최근 활동과 필요한 stream/fitness summary를 읽습니다.
+2. 정확한 route, 시작 위치, 민감한 health/social 정보를 redaction합니다.
+3. Orider server-side AI credit으로 diary draft를 생성합니다.
+4. 기본값은 private draft입니다.
+5. 라이더가 선택하면 public-safe card만 공유합니다.
 
-## Email Result
+## 개인정보
 
-Creator Hub can send a diary result email to the signed-in rider's own verified account email.
+- provider API key를 browser나 recipe에 넣지 않습니다.
+- exact route geometry는 공유 카드에서 제외합니다.
+- fatigue, injury risk, health metric은 기본 private입니다.
+- share 전 redaction preview가 필요합니다.
 
-Email constraints:
+## 예시 출력
 
-- no arbitrary recipient address,
-- explicit user action required,
-- 5 creator recipe emails per rider per day,
-- exact route and location data excluded,
-- recurring delivery requires a separate opt-in flow.
+> 이번 주는 긴 endurance ride와 짧은 고강도 구간이 섞였습니다. 부하는 올라갔지만 회복 여지가 줄었으니 다음 세션은 Z2 중심으로 두는 것이 안전합니다.
 
-## Example Flow
+## 상태
 
-1. Fetch recent owned activities.
-2. Summarize aggregate distance, time, elevation, and load.
-3. Generate a private diary draft through server-side AI credits.
-4. Render a redacted share card.
-5. Optionally email the result to the rider's account email.
-
-## Example Output
-
-Private diary title:
-
-```txt
-A steady week that held through the climbs
-```
-
-Share card:
-
-```txt
-182 km total with 2,140 m climbed. After a hard Wednesday, Friday shifted to recovery and the weekend long ride settled back into a steady pace.
-
-Exact location and sensitive metrics hidden.
-```
-
-## Shareable Result
-
-- Private draft: full diary, rider only.
-- Redacted card: aggregate stats and selected sentence.
-- Community post: editable text before publishing.
-
-## Review Checklist
-
-- [x] Uses only owned data.
-- [x] Keeps provider keys server-side.
-- [x] Makes full diary private by default.
-- [x] Removes exact locations from shared output.
-- [x] Supports email only to the signed-in rider.
+Creator Hub flagship recipe로 관리합니다. Email-to-self는 본인 verified email로만 보냅니다.

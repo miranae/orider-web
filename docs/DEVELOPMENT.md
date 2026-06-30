@@ -1,52 +1,14 @@
-# Development and Deployment
+# 개발과 배포
 
-This repository is the **source of truth for the Orider web frontend**. It is not a mirror: development happens here, and production Hosting deploys happen from here.
+이 문서는 Orider Web을 로컬에서 실행하고 검증하는 방법을 설명합니다. 영문 문서는 [DEVELOPMENT-en.md](DEVELOPMENT-en.md)를 참고하세요.
 
-Project stewardship is documented in [../MISSION.md](../MISSION.md), [../GOVERNANCE.md](../GOVERNANCE.md), and [../FUNDING.md](../FUNDING.md). Contributions use the DCO process in [../DCO.md](../DCO.md).
+## 요구 사항
 
-## Deployment Model
+- Node.js 24 계열
+- npm
+- Firebase CLI는 배포/에뮬레이터 작업이 필요할 때만 사용
 
-```text
-contributor PR -> CI(lint/test/build) -> review -> main -> tag vX.Y.Z
-                                                                  |
-                                                                  v
-                                               GitHub Actions deploy.yml
-                                                                  |
-                                               firebase deploy --only hosting
-                                                                  |
-                                                     Firebase Hosting production
-                                                                  |
-                                               GitHub Release notes
-```
-
-- Pull requests run `ci.yml`: lint, unit tests, and build with placeholder public config. No production secrets are exposed to PRs.
-- Merging to `main` does not deploy production by itself.
-- Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: build, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
-- Production deploys are protected by the `production` GitHub Environment.
-
-Maintainer release flow:
-
-```bash
-git checkout main
-git pull public main
-git tag v2026.07.01
-git push public v2026.07.01
-```
-
-## Backend Boundary
-
-This repository contains the frontend only. The following stay private and are deployed elsewhere:
-
-- Cloud Functions and callable API implementations.
-- Firestore and Storage security rules.
-- Analysis engines, batch jobs, AI/training logic, and data pipelines.
-- Production datasets, exports, service accounts, and secrets.
-
-The frontend talks to the backend through Firebase SDK calls and Firebase Hosting rewrites. Client code is not a security boundary; authorization must be enforced by backend code and Firestore/Storage rules.
-
-## Local Development
-
-Requirements: Node.js 24+.
+## 빠른 시작
 
 ```bash
 cp .env.example .env
@@ -54,121 +16,74 @@ npm ci
 npm run dev
 ```
 
-Use one of these modes:
+로컬 앱은 Vite dev server로 실행됩니다. production Firebase 프로젝트 접근이 없어도 UI shell, routing, 다수의 component/test 작업은 가능합니다.
 
-| Mode | Best for | Notes |
-|---|---|---|
-| Maintainer Firebase project | Full integration work | Requires real Firebase web config and permissions. |
-| Firebase emulators | Auth/Firestore-oriented UI and E2E | `npm run e2e` starts auth/firestore emulators for Playwright. |
-| Placeholder config | Static UI/build checks | Good for copy, layout, isolated components, tests, and build validation. |
+## 빌드 확인
 
-Some routes will show empty, loading, or permission states without backend data. That is expected for a frontend-only public repo.
-
-## Frontend-Only Review Routes
-
-These routes are useful when working with placeholder config, emulator data, or mocked component state. They do not require private backend source code.
-
-| Route | Review focus | Local expectation |
-|---|---|---|
-| `/` | App shell, navigation, dashboard cards, loading/empty states | Signed-in production data is not available. |
-| `/fitness` | Fitness tabs, chart containers, training copy, responsive layout | Full charts need seeded or mocked activity data. |
-| `/courses` | Course list, empty states, route card layout | Production course data may be absent. |
-| `/explore` | Map fallback, segment discovery, filter UI | Mapbox/WebGL may degrade in local/test environments. |
-| `/events` | Event cards, registration entry points, organizer-oriented UI | Production event data may be absent. |
-| `/settings` | Integration panels, training/device settings, form layouts | Auth-dependent panes need emulator or maintainer config. |
-| `/board` | Community feed layout, post states, copy | Firestore-backed content needs emulator or mock data. |
-
-For component-level work, prefer isolated states, tests, or seeded fixtures over production data assumptions.
-
-## Common Commands
+placeholder Firebase 값으로 compile-only build를 확인할 수 있습니다.
 
 ```bash
-npm run dev
-npm run lint
-npm test
+VITE_FIREBASE_API_KEY=dummy \
+VITE_FIREBASE_AUTH_DOMAIN=dummy.firebaseapp.com \
+VITE_FIREBASE_PROJECT_ID=dummy \
+VITE_FIREBASE_APP_ID=dummy \
 npm run build
-npm run e2e
 ```
 
-`npm run build` runs environment validation, manual generation, TypeScript, and Vite build.
+## 주요 명령
 
-## Environment Variables
-
-`.env.example` lists the public browser configuration needed by Vite. `VITE_FIREBASE_*` values are browser-exposed Firebase web config and are not secrets. Access control still depends on backend validation and Firebase security rules.
-
-Optional integrations such as Mapbox, Strava OAuth, App Check, and Sentry need additional project configuration before the full production surface works locally.
-
-`VITE_ORIDER_PERSONAL_API_BASE` is reserved for local personal-data recipe experiments. The Personal Data API has a small owner-only read surface; do not point public frontend code at private endpoints or treat Firebase callable names as a public contract.
-
-## Personal Data Recipe Work
-
-Personal-data recipes are for riders who want to use their own Orider data in charts, reports, alerts, exports, or automation. They can use the live owner-only Personal Data API where available, and fall back to mocked responses, sample JSON, or exported data for endpoints that are not available yet.
-
-GitHub is only the authoring and review path. The product direction is to surface reviewed recipes and privacy-safe outputs in Orider Creator Hub, so non-developer riders can discover, try, and share them without browsing pull requests.
-
-Good recipe work usually lives in `docs/recipes/` and should document:
-
-- the rider benefit,
-- Creator Hub summary,
-- required scopes,
-- privacy notes,
-- shareable result type and default visibility,
-- safe polling or rate assumptions,
-- sample input/output,
-- failure states.
-
-See [Personal Data API](PERSONAL_DATA_API.md), [Creator Showcase](CREATOR_SHOWCASE.md), and [Personal Data Recipes](recipes/personal-data.md).
-
-## GitHub Settings for Maintainers
-
-Keep repository metadata aligned with the public project:
-
-- Description: `Open-source React frontend for Orider, a cycling computer platform for ride analysis, group events, routes, and training dashboards.`
-- Website: `https://orider.co.kr`
-- Topics: `cycling`, `fitness`, `react`, `vite`, `firebase`, `typescript`, `sports-analytics`
-
-Required protections:
-
-- Branch protection for `main`: PR review required, `PR metadata`, `DCO`, and `CI / check` required, direct pushes disabled.
-- GitHub Environment `production`: required reviewers enabled.
-- Version tags matching `v*` trigger production deploys and release notes.
-- CODEOWNERS for sensitive paths once maintainer roster is final.
-- DCO sign-off required through `.github/workflows/dco.yml`; make the `DCO` check required in branch protection.
-
-Required Actions secrets:
-
-| Name | Use |
+| 명령 | 설명 |
 |---|---|
-| `VITE_FIREBASE_API_KEY` | Firebase web config |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase web config |
-| `VITE_FIREBASE_APP_ID` | Firebase web config |
-| `VITE_STRAVA_CLIENT_ID` | Strava OAuth client id |
-| `VITE_MAPBOX_TOKEN` | Mapbox public token |
-| `VITE_APPCHECK_RECAPTCHA_SITE_KEY` | Firebase App Check reCAPTCHA Enterprise site key |
+| `npm run dev` | 로컬 개발 서버 |
+| `npm test` | Vitest test |
+| `npm run lint:budget` | lint budget 검사 |
+| `npm run quality:budget` | 품질 budget 검사 |
+| `npm run build` | production build |
+| `npm run e2e` | Playwright E2E |
 
-Required Actions variables:
+변경 범위가 작아도 최소한 관련 테스트는 실행하세요. UI 변경은 screenshot이나 Playwright 확인이 있으면 좋습니다.
 
-| Name | Use |
-|---|---|
-| `FIREBASE_PROJECT_ID` | Firebase Hosting deploy target |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | GitHub Actions WIF provider resource name |
-| `GCP_SERVICE_ACCOUNT` | Hosting deploy service account |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | Firebase web project id |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase Storage bucket |
-| `VITE_FIREBASE_FUNCTIONS_REGION` | Functions region |
-| `VITE_STRAVA_REDIRECT_URI` | Strava OAuth callback URI |
-| `VITE_SEGMENT_TILES_BASE` | Static segment tile base URL |
-| `VITE_HEATMAP_BASE` | Static heatmap data base URL |
+## 환경 변수
 
-Deployment auth uses Workload Identity Federation in `.github/workflows/deploy.yml`, not a long-lived service-account JSON. Public browser config and infrastructure resource names are managed as Actions variables so they are not repeated inline in the workflow.
+대표적인 browser-safe 변수:
 
-## Monorepo Split Note
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_APPCHECK_RECAPTCHA_SITE_KEY`
+- `VITE_MAPBOX_TOKEN`
+- `VITE_STRAVA_CLIENT_ID`
+- `VITE_STRAVA_REDIRECT_URI`
 
-This repository deploys Hosting only:
+secret, service account, private key, production export는 `.env`나 git에 넣지 않습니다.
 
-```bash
-firebase deploy --only hosting --project "$FIREBASE_PROJECT_ID"
-```
+## 로컬 데이터와 provider
 
-Private backend repositories deploy functions, Firestore rules, and Storage rules. Do not deploy Hosting from backend repositories after the cutover, or the public frontend deploy can be overwritten.
+일부 기능은 Firebase Auth, Firestore, Mapbox, Strava, App Check 설정이 있어야 완전히 동작합니다. provider가 없어도 UI는 empty/loading/error state로 검토 가능해야 합니다.
+
+App Check debug token은 maintainer-only 테스트에서만 사용하고, 사용 후 Firebase App Check에서 삭제합니다. 공개 repository, screenshot, log, GitHub secret에 저장하지 않습니다.
+
+## Personal Data API와 recipe
+
+개인 데이터 recipe는 라이더가 자신의 Orider 데이터를 chart, report, alert, export, automation에 쓰는 흐름입니다. live owner-only endpoint가 있으면 Personal Data API를 사용하고, 아직 없는 endpoint는 mock response, sample JSON, exported file로 시작합니다.
+
+관련 문서:
+
+- [PERSONAL_DATA_API.md](PERSONAL_DATA_API.md)
+- [CREATOR_SHOWCASE.md](CREATOR_SHOWCASE.md)
+- [recipes/personal-data.md](recipes/personal-data.md)
+
+## 배포
+
+배포는 GitHub Actions와 Firebase Hosting workflow가 관리합니다. `main` merge가 곧바로 production 배포를 의미하지 않을 수 있습니다. 현재 repository의 release/tag 정책과 environment approval을 확인하세요.
+
+배포 관련 변경은 다음을 함께 확인합니다.
+
+- workflow trigger
+- required secret/variable
+- environment approval
+- rollback 경로
+- release note 필요 여부

@@ -1,101 +1,69 @@
-# Branching Model
+# 브랜치 모델
 
-Orider Web uses a simple open-source, trunk-based model. `main` is always protected, every change enters through a Pull Request, and production deploys are cut from version tags.
+이 문서는 Orider Web의 브랜치와 PR 흐름을 설명합니다. 영문 문서는 [BRANCHING-en.md](BRANCHING-en.md)를 참고하세요.
 
-```text
-fork/topic branch ──┐
-                    ├─ pull request ── CI/review ── squash/merge ── main ── tag v* ── protected deploy
-maintainer/topic ───┘
-```
+## 기본 원칙
 
-## Rules
+- `main`은 보호 브랜치입니다.
+- 기능/수정은 짧게 사는 topic branch에서 작업합니다.
+- 외부 기여자는 fork에서 PR을 엽니다.
+- maintainer도 `main`에 직접 push하지 않습니다.
+- 배포는 release workflow와 tag 정책을 따릅니다.
 
-- `main` is protected; merging to `main` does not deploy production automatically.
-- Version tags matching `v*` deploy Firebase Hosting through a protected GitHub Environment and create GitHub Release notes.
-- Direct pushes, force pushes, and branch deletion are disabled on `main`.
-- Long-lived `develop`, release train, or personal integration branches are not used.
-- Keep topic branches short-lived and scoped to one feature, bug, documentation update, or refactor.
-- External contributors should branch from a fork. Maintainers may branch in the main repository, but still open PRs.
-- Prefer squash merge for normal PRs so public history stays readable.
+## 브랜치 이름
 
-## Branch Names
+권장 패턴:
 
-Use lowercase, hyphen-separated names:
+| 유형 | 예시 |
+|---|---|
+| 기능 | `feat/creator-hub-card` |
+| 버그 수정 | `fix/mobile-tab-overflow` |
+| 문서 | `docs/personal-data-recipe` |
+| CI/빌드 | `ci/pr-gate-node-version` |
+| 리팩터 | `refactor/settings-pane-boundary` |
 
-| Prefix | Use for | Example |
-|---|---|---|
-| `feat/` | User-facing features | `feat/activity-splits-chart` |
-| `fix/` | Bugs and regressions | `fix/mobile-tab-overflow` |
-| `docs/` | Documentation and contributor setup | `docs/readme-structure` |
-| `test/` | Test-only changes | `test/activity-detail-e2e` |
-| `refactor/` | Internal cleanup without behavior changes | `refactor/route-hooks` |
-| `ci/` | GitHub Actions and release automation | `ci/pr-only-checks` |
-| `chore/` | Maintenance | `chore/update-deps` |
-| `security/` | Private or coordinated security fixes | `security/harden-profile-reads` |
-| `style/` | Formatting, copy style, or non-functional UI polish | `style/readme-language` |
-| `perf/` | Performance-only changes | `perf/lazy-route-chunks` |
-| `build/` | Build tooling and dependency plumbing | `build/vite-config` |
+브랜치 이름은 짧고 변경 의도를 드러내야 합니다.
 
-Good branch names describe the user or maintenance goal, not the implementation detail only.
+## PR 대상
 
-## Contributor Flow
+일반 PR은 repository의 현재 contribution branch 정책을 따릅니다. `main` 승격이 별도 gate로 관리되는 경우 feature branch는 `dev`나 지정된 integration branch로 PR을 보내고, `main`은 승격 PR만 받습니다.
 
-1. Sync with `main`.
-2. Create a topic branch, for example `docs/readme-structure`.
-3. Keep the PR focused and explain the review route, locale, viewport, or data state when relevant.
-4. Sign commits with `git commit -s` for DCO.
-5. Run the smallest relevant checks before requesting review.
-6. Let CI and review finish before merge.
-
-## Required PR Gates
-
-Public PRs are expected to pass these required checks:
-
-| Check | What it enforces | Notes |
-|---|---|---|
-| `PR metadata` | Conventional Commit-style title, maintainer branch prefix, no committed env/secret/build-output files | Fork branch names are not rejected. |
-| `DCO` | Every commit has a `Signed-off-by:` line | Use `git commit -s`. |
-| `CI / check` | `lint:budget`, `quality:budget`, Vitest, and production build with placeholder public config | Docs-only PRs skip npm work but still report success. |
-
-These gates are intentionally fork-safe: they do not use repository secrets, deploy, or run privileged `pull_request_target` code.
-
-For forks:
+PR을 열기 전에 최신 base를 가져오세요.
 
 ```bash
-git checkout main
-git pull upstream main
-git checkout -b fix/mobile-tab-overflow
+git fetch origin
+git rebase origin/main
 ```
 
-For maintainer branches in this repository:
+또는 프로젝트가 `dev`를 사용하면:
 
 ```bash
-git checkout main
-git pull public main
-git checkout -b docs/readme-structure
+git fetch origin
+git rebase origin/dev
 ```
 
-## Keeping Branches Current
+## PR gate
 
-For small contributor PRs, prefer rebasing onto current `main` before review if the branch diverges:
+주요 gate:
 
-```bash
-git fetch upstream
-git rebase upstream/main
-```
+- PR 제목/본문 metadata
+- DCO sign-off
+- lint/quality/test/build
+- 문서 변경 시 링크와 언어 쌍 확인
+- 사용자-facing 변경 시 screenshot 또는 테스트
 
-Use a merge commit only when the branch is large enough that preserving an integration point is clearer than rewriting local commits. Never force-push another contributor's branch without agreement.
+문서만 변경한 PR은 빌드가 필요하지 않을 수 있지만, 문서가 실제 동작을 설명한다면 관련 테스트나 코드 확인을 함께 해야 합니다.
 
-## Releases and Hotfixes
+## 머지
 
-Production deploys come from version tags on `main`; there are no separate release branches for routine web releases. Urgent production fixes still use a PR and a follow-up tag:
+머지는 maintainer가 수행합니다. squash merge를 기본으로 하며, commit title은 Conventional Commit 스타일을 유지합니다.
 
-```text
-fix/production-issue -> PR -> required checks -> main -> tag v* -> deploy
-```
+예:
 
-If a rollback is needed, prefer a revert PR against `main` so the public history records the decision.
+- `fix: show saved ai summary on cache miss`
+- `docs: restore korean default docs`
+- `ci: deploy production from release tags`
 
-## Security Branches
+## 릴리스
 
-Use `security/` only for coordinated fixes that should not expose vulnerability details in public PR text. Do not include secrets, exploit steps, private user data, or sensitive backend paths in public discussion. Report vulnerabilities through [SECURITY.md](../SECURITY.md).
+`main`에 머지하는 것과 production 배포는 동일하지 않을 수 있습니다. release tag가 배포를 트리거하는 경우 tag 생성, release note, environment approval을 별도로 관리합니다.

@@ -1,34 +1,18 @@
-# Funding
+# 후원
 
-Orider is community-first, but reliable services still cost money to run.
+Orider Web은 실제 라이더가 사용하는 AGPL-3.0 오픈소스 프론트엔드입니다. 영문 문서는 [FUNDING-en.md](FUNDING-en.md)를 참고하세요.
 
-Funding is allowed when it supports the mission in [MISSION.md](MISSION.md):
+## 현재 상태
 
-- Hosting, storage, maps, monitoring, and other infrastructure costs.
-- Security work and maintenance.
-- Documentation, accessibility, translation, and testing.
-- Community features that help riders understand and use their own data.
+현재 이 저장소에는 공식 후원 채널을 연결하지 않았습니다. 후원 링크나 commercial support 채널이 생기면 이 문서와 GitHub repository metadata를 함께 업데이트합니다.
 
-Funding should not be used to turn the community-built core into a closed private asset.
+## 기여로 돕기
 
-## Acceptable Funding Direction
+지금 가장 도움이 되는 방식은 다음입니다.
 
-- Donations or sponsorships for infrastructure and maintenance.
-- Paid work for clearly scoped improvements that remain part of the open project when they touch the open core.
-- Grants or partnerships that do not require closing the source, restricting community access, or weakening user privacy.
+- 버그 재현과 명확한 issue 작성
+- 접근성, 모바일 레이아웃, 문서 개선
+- 안전한 demo data 기반 screenshot과 recipe 작성
+- 테스트 보강과 작은 PR
 
-## Not Acceptable
-
-- Closing AGPL-licensed core improvements after community contribution.
-- Selling exclusive access to community-built open-core features.
-- Requiring contributors to assign broad copyright ownership for future closed relicensing.
-- Using funding terms that conflict with privacy commitments or rider trust.
-
-## Transparency
-
-If funding becomes material to the project, maintainers should document:
-
-- who funds the work,
-- what the funding supports,
-- whether the work affects the public repository,
-- and whether any privacy, branding, or governance implications exist.
+운영 secret, 실제 사용자 데이터, 비공개 export를 후원/홍보 자료로 공유하지 마세요.
