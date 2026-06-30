@@ -41,7 +41,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
       detail: "서버-side AI credit으로 실행되며 provider key는 브라우저에 노출되지 않습니다. 주간 하이라이트, 주의할 피로 신호, 다음 주 한 줄 메모를 생성합니다.",
       labels: ["본인 데이터만", "비공개 초안", "AI 5회/일", "위치 제거"],
       shareMode: "redacted card / link-only",
-      status: "추천",
+      status: "바로 사용 가능",
     },
     en: {
       title: "AI ride diary",
@@ -50,7 +50,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
       detail: "Runs through server-side Orider AI credits, so provider keys never reach the browser. It produces weekly highlights, fatigue cautions, and a next-week note.",
       labels: ["Own data only", "Private draft", "5 AI/day", "Location redacted"],
       shareMode: "redacted card / link-only",
-      status: "Featured",
+      status: "Try now",
     },
   },
   {
@@ -66,7 +66,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
       detail: "라이더가 매주 월요일 확인하거나 이메일 digest로 받을 수 있는 형식입니다. 위치와 개별 활동명 없이 거리, 시간, 부하, 활동 수만 집계합니다.",
       labels: ["집계 데이터", "차트 공유", "이메일 준비", "읽기 전용"],
       shareMode: "public-safe chart",
-      status: "레시피",
+      status: "바로 보기 + 직접 연결",
     },
     en: {
       title: "Weekly load report",
@@ -75,7 +75,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
       detail: "Designed for a Monday check-in or an email digest. It aggregates distance, time, load, and activity count without route geometry or activity names.",
       labels: ["Aggregated", "Chart card", "Email-ready", "Read-only"],
       shareMode: "public-safe chart",
-      status: "Recipe",
+      status: "Preview + build",
     },
   },
   {
@@ -91,7 +91,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
       detail: "TSS, 시간, 심박/파워 zone을 기준으로 최근 7일을 점검합니다. 오라이더 내부 알림이 기본이고, 이메일은 동의한 사용자에게만 보낼 수 있습니다.",
       labels: ["개인 알림", "하루 1회", "이메일 opt-in", "외부 전송 선택"],
       shareMode: "notification preview",
-      status: "레시피",
+      status: "직접 만들기",
     },
     en: {
       title: "Hard-day streak alert",
@@ -100,7 +100,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
       detail: "Looks at the last 7 days using TSS, duration, and HR/power zones. In-app alert is the default; email can be sent only after explicit opt-in.",
       labels: ["Private alert", "Daily polling", "Email opt-in", "External send opt-in"],
       shareMode: "notification preview",
-      status: "Recipe",
+      status: "Build recipe",
     },
   },
   {
@@ -116,7 +116,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
       detail: "위치 데이터가 포함되므로 기본 결과는 비공개 다운로드입니다. 공유할 때는 출발/도착 반경을 숨긴 요약 카드만 사용합니다.",
       labels: ["파일 생성", "Notion-ready", "본인 활동만", "위치 포함"],
       shareMode: "private export",
-      status: "유틸",
+      status: "직접 만들기",
     },
     en: {
       title: "Long-ride log package",
@@ -125,7 +125,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
       detail: "Because route data is included, the default output is a private download. Shared cards should hide start/end areas and use aggregate stats.",
       labels: ["File output", "Notion-ready", "Owned activities", "Uses location"],
       shareMode: "private export",
-      status: "Utility",
+      status: "Build recipe",
     },
   },
   {
