@@ -1,23 +1,23 @@
 name: Deploy (Hosting → production)
 
-# main 머지 시에만 프로덕션 Hosting 배포. PR/포크에서는 절대 실행되지 않음(시크릿 노출 차단).
+# version tag push 시에만 프로덕션 Hosting 배포. PR/포크/main push에서는 실행되지 않음(시크릿 노출 차단).
 # 함수(functions)는 별도 비공개 백엔드 레포에서 배포 — 이 레포는 hosting만 배포한다.
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags:
+      - "v*"
 
 permissions:
-  contents: read
+  contents: write # GitHub Release notes 생성용
   id-token: write # Workload Identity Federation OIDC 토큰 발급용(키리스 인증)
 
 concurrency:
-  group: deploy-hosting-production
+  group: deploy-hosting-production-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment: production # GitHub Environment 보호(필수 리뷰어)로 게이트
     env:
@@ -90,3 +90,18 @@ jobs:
             exit 1
           fi
           echo "✓ 라이브가 최신 번들 + 자산 immutable 확인"
+
+      - name: Create GitHub Release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG_NAME already exists; keeping existing release notes."
+            exit 0
+          fi
+          gh release create "$TAG_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG_NAME" \
+            --generate-notes

@@ -1,16 +1,17 @@
 # Branching Model
 
-Orider Web uses a simple open-source, trunk-based model. `main` is always the protected production branch, and every change enters through a Pull Request.
+Orider Web uses a simple open-source, trunk-based model. `main` is always protected, every change enters through a Pull Request, and production deploys are cut from version tags.
 
 ```text
 fork/topic branch ──┐
-                    ├─ pull request ── CI/review ── squash/merge ── main ── protected deploy
+                    ├─ pull request ── CI/review ── squash/merge ── main ── tag v* ── protected deploy
 maintainer/topic ───┘
 ```
 
 ## Rules
 
-- `main` is protected and deploys Firebase Hosting through a protected GitHub Environment.
+- `main` is protected; merging to `main` does not deploy production automatically.
+- Version tags matching `v*` deploy Firebase Hosting through a protected GitHub Environment and create GitHub Release notes.
 - Direct pushes, force pushes, and branch deletion are disabled on `main`.
 - Long-lived `develop`, release train, or personal integration branches are not used.
 - Keep topic branches short-lived and scoped to one feature, bug, documentation update, or refactor.
@@ -87,10 +88,10 @@ Use a merge commit only when the branch is large enough that preserving an integ
 
 ## Releases and Hotfixes
 
-Production deploys come from `main`; there are no separate release branches for routine web releases. Urgent production fixes still use a PR:
+Production deploys come from version tags on `main`; there are no separate release branches for routine web releases. Urgent production fixes still use a PR and a follow-up tag:
 
 ```text
-fix/production-issue -> PR -> required checks -> main -> deploy
+fix/production-issue -> PR -> required checks -> main -> tag v* -> deploy
 ```
 
 If a rollback is needed, prefer a revert PR against `main` so the public history records the decision.
