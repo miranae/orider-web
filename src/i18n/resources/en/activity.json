@@ -44,6 +44,7 @@
     "loginBtn": "Log in",
     "waitHint": "Awaiting analysis — press the button to start AI segment analysis.",
     "previewOnlyHint": "Showing the saved AI summary. Detailed segment cache is missing or has not synced yet.",
+    "previewAuthHint": "Showing the saved AI summary. Check your sign-in state to reload detailed segment analysis.",
     "loginHint": "Sign in to use AI segment analysis.",
     "analyzing": "Analyzing segments… (approx. 15–30 s)",
     "errorPrefix": "Analysis failed: {{error}}",

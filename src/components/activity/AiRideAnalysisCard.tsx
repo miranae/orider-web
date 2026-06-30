@@ -32,6 +32,10 @@ function zoneVar(zone: string | null): string {
   return n >= 1 && n <= 5 ? `var(--zone-${n})` : "var(--line-soft)";
 }
 
+function isAuthenticationError(error: string | null): boolean {
+  return error != null && /unauthenticated|auth/i.test(error);
+}
+
 function FlagChip({ flag, t }: { flag: string; t: (key: string) => string }) {
   return (
     <span
@@ -293,8 +297,37 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
   // 사용할 데이터: peek hit 결과 또는 full 생성 결과
   const data = peek.data ?? full.data;
   const error = full.error;
+  const authError = isAuthenticationError(error);
 
   if (error) {
+    if (previewSummary) {
+      return (
+        <Card padding="none" style={{ padding: "var(--space-5)" }}>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+            {authError ? (
+              <Button size="sm" variant="secondary" onClick={() => signInWithGoogle()}>
+                {t("ai.loginBtn")}
+              </Button>
+            ) : (
+              <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
+                {t("ai.retryBtn")}
+              </Button>
+            )}
+          </div>
+          {!authError && (
+            <Text variant="caption" tone="danger" as="p" className="mt-2">
+              {t("ai.errorPrefix", { error })}
+            </Text>
+          )}
+          <Text variant="body" tone="primary" as="p" className="mt-3">{previewSummary}</Text>
+          <Text variant="caption" tone="tertiary" as="p" className="mt-2">
+            {authError ? t("ai.previewAuthHint") : t("ai.previewOnlyHint")}
+          </Text>
+        </Card>
+      );
+    }
+
     return (
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
