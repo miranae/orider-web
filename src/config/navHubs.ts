@@ -97,6 +97,7 @@ export const HUBS: Hub[] = [
       p === "/board" ||
       p.startsWith("/board/") ||
       p === "/creator" ||
+      p.startsWith("/creator/") ||
       p === "/groups" ||
       p.startsWith("/group/") ||
       p === "/events" ||

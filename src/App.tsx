@@ -135,6 +135,7 @@ function AppRoutes() {
           <Route path="board/write" element={<CreatePostPage />} />
           <Route path="board/:postId" element={<PostDetailPage />} />
           <Route path="creator" element={<CreatorHubPage />} />
+          <Route path="creator/:section" element={<CreatorHubPage />} />
           {/* 상대 경로 — /:lang 프리픽스 보존 */}
           <Route path="feedback" element={<Navigate to="board?type=inquiry" replace />} />
           <Route path="terms" element={<TermsPage />} />

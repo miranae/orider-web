@@ -109,7 +109,7 @@ See [Personal Data API](PERSONAL_DATA_API.md), [Creator Showcase](CREATOR_SHOWCA
 
 ## GitHub Settings for Maintainers
 
-Set repository metadata before public release:
+Keep repository metadata aligned with the public project:
 
 - Description: `Open-source React frontend for Orider, a cycling computer platform for ride analysis, group events, routes, and training dashboards.`
 - Website: `https://orider.co.kr`
@@ -117,7 +117,7 @@ Set repository metadata before public release:
 
 Required protections:
 
-- Branch protection for `main`: PR review required, CI required, direct pushes disabled.
+- Branch protection for `main`: PR review required, `PR metadata`, `DCO`, and `CI / check` required, direct pushes disabled.
 - GitHub Environment `production`: required reviewers enabled.
 - CODEOWNERS for sensitive paths once maintainer roster is final.
 - DCO sign-off required through `.github/workflows/dco.yml`; make the `DCO` check required in branch protection.

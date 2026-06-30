@@ -109,9 +109,9 @@ Then run a smoke check against the live product:
 curl -I https://orider.co.kr/ko/creator
 ```
 
-## GitHub Surface
+## Public Repository Settings
 
-Set repository metadata before public release:
+Set or verify repository metadata:
 
 - description: `Ride analysis, group events, route discovery, and training dashboards for Orider`
 - website: `https://orider.co.kr`
@@ -125,7 +125,7 @@ Enable:
 - blocked force pushes and branch deletion,
 - protected `production` environment with maintainer approval.
 
-## Final Human Review
+## Final Human Review Before Visibility Changes
 
 Before flipping visibility:
 

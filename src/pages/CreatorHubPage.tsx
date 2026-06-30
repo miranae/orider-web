@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import {
   Bell,
@@ -27,8 +27,11 @@ import { useToast } from "../contexts/ToastContext";
 import { useWeeklyStats } from "../hooks/useActivities";
 import { creatorRecipes, type CreatorRecipeIcon, type CreatorRecipeKind } from "../data/creatorRecipes";
 import { functions } from "../services/firebase";
+import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 
 type CreatorTab = "featured" | "recipes" | "share";
+type CreatorSection = "overview" | "deploy" | "examples" | "recipes" | "share";
+type CreatorScrollTarget = "deploy" | "recipes" | "share";
 
 interface CreatorItem {
   id: string;
@@ -80,8 +83,13 @@ const kindTone: Record<CreatorRecipeKind, string> = {
   widget: "var(--rose)",
 };
 
-const RECIPE_PR_URL = "https://github.com/miranae/orider-web/compare/main...recipe/my-orider-data?quick_pull=1";
-const REQUEST_RECIPE_URL = "https://github.com/miranae/orider-web/issues/new?template=feature_request.md&title=%5BCreator%5D%20Recipe%20request%3A%20";
+const marketStageIcons: LucideIcon[] = [BookOpen, ShieldCheck, KeyRound, LineChart];
+
+const PUBLIC_REPOSITORY_URL = "https://github.com/miranae/orider-web";
+const CREATOR_RECIPE_REQUEST_LINK = {
+  pathname: "/board/write",
+  search: "?type=inquiry&template=creator-recipe",
+};
 const recipeActionClass = "w-full justify-center min-[420px]:w-auto";
 const metadataCodeClass = "max-w-full break-all rounded-[var(--r-sm)] px-1.5 py-0.5";
 
@@ -89,14 +97,26 @@ function parseCreatorTab(value: string | null): CreatorTab {
   return value === "recipes" || value === "share" ? value : "featured";
 }
 
+function parseCreatorSection(value: string | undefined): CreatorSection {
+  if (value === "deploy" || value === "examples" || value === "recipes" || value === "share") return value;
+  return "overview";
+}
+
+function sectionDefaultTab(section: CreatorSection, value: string | null): CreatorTab {
+  if (section === "recipes") return "recipes";
+  if (section === "share") return "share";
+  return parseCreatorTab(value);
+}
+
 function buildCopy(language: string) {
   const ko = language.startsWith("ko");
   return {
     title: ko ? "Creator Hub" : "Creator Hub",
-    eyebrow: ko ? "내 데이터로 써보고, 필요한 만큼 확장하는 공간" : "Try Orider data ideas, then extend them when needed",
+    headline: ko ? "안전한 라이딩 데이터 레시피 허브" : "A safe recipe hub for ride data",
+    eyebrow: ko ? "외부로 유출되지 않게, 권한을 정해 실행하는 활용 레시피" : "Rider-approved recipes designed to avoid unintended data exposure",
     subtitle: ko
-      ? "여기에는 오라이더 안에서 바로 써볼 수 있는 기능과, Personal Data API로 직접 만들어볼 수 있는 레시피가 함께 있습니다. 완성 앱 마켓이 아니라, 라이더의 데이터를 안전하게 활용하는 예시와 시작점입니다."
-      : "This hub mixes features you can try inside Orider with recipes you can build using the Personal Data API. It is a safe starting point and showcase, not a finished app marketplace.",
+      ? "Creator Hub는 라이더가 자신의 기록을 더 오래, 더 안전하게 활용할 수 있도록 레시피를 고르고 배치하는 공간입니다. 오픈소스 프로젝트의 방향에 맞게 Notion 리포트, Slack 알림, n8n 자동화, 공개 배지 같은 활용법을 함께 제안하고 검토하는 카탈로그로 키워갑니다."
+      : "Creator Hub is where riders choose and deploy recipes that help their records stay useful for longer, with safer defaults. In the spirit of an open-source project, it can grow into a reviewed catalog of Notion reports, Slack alerts, n8n automations, public badges, and other data recipes.",
     tabs: {
       featured: ko ? "추천" : "Featured",
       recipes: ko ? "레시피" : "Recipes",
@@ -110,8 +130,10 @@ function buildCopy(language: string) {
       post: ko ? "게시글로 공유" : "Share as post",
       copy: ko ? "카드 문구 복사" : "Copy card text",
       copied: ko ? "복사됨" : "Copied",
+      copyPrompt: ko ? "작업 지시 복사" : "Copy prompt",
+      promptCopied: ko ? "작업 지시 복사됨" : "Prompt copied",
       loginNeeded: ko ? "로그인 후 생성 가능" : "Sign in to generate",
-      submitRecipe: ko ? "레시피 제출" : "Submit recipe",
+      submitRecipe: ko ? "오라이더 공개 저장소" : "Orider public repository",
       requestRecipe: ko ? "활용법 요청" : "Request recipe",
       manageApiKeys: ko ? "API key 만들기" : "Create API key",
       emailRecipe: ko ? "내 이메일로 받기" : "Email me this",
@@ -130,28 +152,28 @@ function buildCopy(language: string) {
       deploy: ko ? "배치 방법 보기" : "View deployment path",
       deployOpened: ko ? "레시피 배치 흐름을 보여드릴게요." : "Showing the recipe deployment flow.",
     },
-    pathsTitle: ko ? "무엇부터 하면 될까요?" : "Where should I start?",
+    pathsTitle: ko ? "원하는 역할을 고르세요" : "Choose your role",
     paths: [
       {
-        title: ko ? "라이더로 바로 써보기" : "Try as a rider",
+        title: ko ? "라이더: 바로 써보기" : "Rider: try first",
         body: ko
-          ? "로그인하지 않아도 데모 카드와 주간 차트를 먼저 볼 수 있습니다. 로그인하면 같은 버튼이 내 활동 데이터 기반 생성으로 바뀝니다."
-          : "Preview the demo card and weekly chart without signing in. After sign-in, the same actions use your own activity data.",
+          ? "레시피를 배치하기 전, 어떤 결과가 나오는지 데모 카드와 주간 차트로 먼저 확인합니다. 로그인하면 같은 화면이 내 활동 데이터 기반 결과로 바뀝니다."
+          : "Before deploying a recipe, preview the output through demo cards and weekly charts. After sign-in, the same surfaces use your own activity data.",
         action: ko ? "데모 카드 보기" : "View demo card",
         tab: "share" as CreatorTab,
       },
       {
-        title: ko ? "자동화로 연결하기" : "Connect automation",
+        title: ko ? "운영자: 레시피 배치하기" : "Operator: deploy a recipe",
         body: ko
-          ? "Developer API에서 key를 만들고 필요한 scope만 선택합니다. Notion, Slack, n8n, 개인 서버에서 같은 데이터를 읽어갑니다."
-          : "Create a Developer API key, choose only the needed scopes, and read the same data from Notion, Slack, n8n, or your server.",
+          ? "Developer API에서 key를 만들고 필요한 scope만 고른 뒤, Notion, Slack, n8n, 개인 서버 중 어디에서 실행할지 정합니다. 핵심은 선택, 권한, 트리거, 중지 방법입니다."
+          : "Create a Developer API key, choose only the needed scopes, and decide where it runs: Notion, Slack, n8n, or your own server. The key decisions are selection, scopes, triggers, and stop controls.",
         action: ko ? "연결 순서 보기" : "See connection steps",
         tab: "recipes" as CreatorTab,
       },
       {
-        title: ko ? "아이디어만 남기기" : "Request an idea",
+        title: ko ? "메이커: 새 활용법 제안하기" : "Maker: propose a workflow",
         body: ko
-          ? "개발 지식이 없어도 됩니다. 동호회 리포트, 회복 알림, 월간 배지처럼 실제로 필요한 장면을 요청하면 됩니다."
+          ? "개발 지식이 없어도 됩니다. 동호회 리포트, 회복 알림, 월간 배지처럼 실제로 필요한 장면을 요청하면 레시피 후보가 됩니다."
           : "No development knowledge is required. Request real workflows such as club reports, recovery alerts, or monthly badges.",
         action: ko ? "활용법 요청" : "Request recipe",
         tab: "featured" as CreatorTab,
@@ -188,21 +210,63 @@ function buildCopy(language: string) {
       },
     ],
     credit: {
-      title: ko ? "오라이더 AI 크레딧 예시" : "Orider AI credits example",
+      title: ko ? "AI 레시피 공용 일일 크레딧" : "Shared daily credits for AI recipes",
       body: ko
-        ? "AI 일기는 대표 레시피입니다. API key는 공개하지 않고 오라이더 서버가 Secret Manager의 키로 대신 호출하며, 이 예시는 사용자당 하루 5회까지 제공합니다."
-        : "The AI diary is a reference recipe. Provider API keys are never exposed; Orider calls the model server-side with keys in Secret Manager, and this example provides 5 generations per rider per day.",
-      quotaUnknown: ko ? "남은 횟수는 생성 후 표시됩니다." : "Remaining credits appear after generation.",
-      remaining: ko ? "오늘 남은 생성 {{remaining}}/{{limit}}회" : "{{remaining}}/{{limit}} generations left today",
+        ? "AI 일기처럼 모델을 호출하는 레시피는 모두 사용자별 공용 일일 크레딧을 사용합니다. 레시피가 늘어나도 기본 한도는 한곳에서 관리되며, AI provider key는 브라우저에 공개하지 않고 오라이더 서버가 대신 호출합니다."
+        : "Recipes that call a model, such as the AI diary, all use the rider's shared daily AI credit pool. As more recipes are added, the default limit is managed in one place, and provider keys stay server-side.",
+      rules: [
+        ko ? "AI 레시피는 공용 일일 한도 안에서 실행됩니다." : "AI recipes run against the shared daily limit.",
+        ko ? "비AI 레시피와 일반 API 조회는 이 AI 크레딧을 쓰지 않습니다." : "Non-AI recipes and normal API reads do not spend AI credits.",
+        ko ? "자동 배치 AI 레시피는 실행 전 크레딧 사용량과 주기를 표시해야 합니다." : "Scheduled AI recipes must show credit usage and frequency before deployment.",
+      ],
+      quotaUnknown: ko ? "남은 AI 크레딧은 생성 후 표시됩니다." : "Remaining AI credits appear after generation.",
+      remaining: ko ? "오늘 남은 AI 크레딧 {{remaining}}/{{limit}}회" : "{{remaining}}/{{limit}} AI credits left today",
       cache: ko ? "오늘 이미 만든 초안을 다시 불러왔습니다." : "Loaded today's existing draft.",
       failed: ko
-        ? "AI 일기를 생성하지 못했습니다. 활동 데이터가 있는지 확인하거나 일일 제한이 초기화된 뒤 다시 시도해 주세요."
-        : "Could not generate the diary. Check that activity data is available, or try again after the daily limit resets.",
+        ? "AI 일기를 생성하지 못했습니다. 활동 데이터가 있는지 확인하거나 공용 일일 크레딧이 초기화된 뒤 다시 시도해 주세요."
+        : "Could not generate the diary. Check that activity data is available, or try again after the shared daily credits reset.",
     },
     stats: [
-      { label: ko ? "바로 써보기" : "Try now", value: ko ? "일부" : "Some" },
-      { label: ko ? "확장 방식" : "Build path", value: ko ? "API/레시피" : "API/recipes" },
-      { label: ko ? "데이터 접근" : "Data access", value: ko ? "본인만" : "Own data" },
+      { label: ko ? "카탈로그 단위" : "Catalog unit", value: ko ? "레시피" : "Recipe" },
+      { label: ko ? "배치 방식" : "Deployment", value: ko ? "API/자동화" : "API/automation" },
+      { label: ko ? "데이터 접근" : "Data access", value: ko ? "본인 승인" : "Rider approved" },
+    ],
+    marketTitle: ko ? "레시피 허브로 키우려면 구조가 먼저 필요합니다" : "A recipe hub needs structure before scale",
+    marketBody: ko
+      ? "Creator Hub가 커지려면 레시피 카드가 많아지는 것만으로는 부족합니다. 사용자는 검색하고, 고르고, 권한을 확인하고, 배치하고, 결과를 보고, 언제든 중지할 수 있어야 합니다. 오라이더의 방향은 데이터를 밖으로 내보내는 일이 아니라, 본인 기록을 안전한 방식으로 오래 활용하게 돕는 것입니다."
+      : "For Creator Hub to scale, more cards are not enough. Riders need to search, choose, inspect permissions, deploy, review outputs, and stop recipes at any time. Orider's direction is not to push data outward, but to help each rider keep using their own records safely over time.",
+    marketStages: [
+      {
+        title: ko ? "1. 발견" : "1. Discover",
+        body: ko
+          ? "Notion 리포트, 회복 알림, 월간 배지처럼 결과가 분명한 레시피를 카탈로그에서 찾습니다."
+          : "Find recipes with clear outcomes, such as Notion reports, recovery alerts, or monthly badges.",
+      },
+      {
+        title: ko ? "2. 검토" : "2. Inspect",
+        body: ko
+          ? "필요한 scope, 외부 전송 여부, 공개되는 필드, 실행 주기를 설치 전에 확인합니다."
+          : "Review scopes, external delivery, public fields, and run schedule before installation.",
+      },
+      {
+        title: ko ? "3. 배치" : "3. Deploy",
+        body: ko
+          ? "오라이더 안에서 실행하거나, n8n·Slack·Notion·개인 서버에 연결해 실제로 돌립니다."
+          : "Run inside Orider or connect to n8n, Slack, Notion, or your own server.",
+      },
+      {
+        title: ko ? "4. 운영" : "4. Operate",
+        body: ko
+          ? "마지막 실행 결과, 오류, 남은 횟수, 연결된 API key를 보고 언제든 끄거나 삭제합니다."
+          : "Track last run, errors, quota, and connected API keys, then pause or delete when needed.",
+      },
+    ],
+    marketRulesTitle: ko ? "허브 원칙" : "Hub principles",
+    marketRules: [
+      ko ? "원본 데이터가 의도치 않게 외부로 유출되지 않도록, 사용자가 승인한 레시피만 실행합니다." : "Run only rider-approved recipes so raw data is not exposed unintentionally.",
+      ko ? "레시피마다 필요한 scope를 작게 유지하고, 민감 필드는 기본 비공개로 둡니다." : "Keep scopes minimal and sensitive fields private by default.",
+      ko ? "검색·추가·삭제보다 더 중요한 것은 배치 후 중지와 key 폐기입니다." : "Stopping deployments and revoking keys matter more than simple add/delete.",
+      ko ? "공개 결과물은 경로 좌표가 아니라 집계값, 카드, 리포트 중심으로 설계합니다." : "Public outputs should be aggregates, cards, and reports, not route geometry.",
     ],
     card: {
       outcome: ko ? "나오는 결과" : "Output",
@@ -213,8 +277,8 @@ function buildCopy(language: string) {
     email: {
       title: ko ? "이메일 알림까지 지원" : "Email delivery included",
       body: ko
-        ? "대표 레시피는 본인 계정 이메일로 결과를 보내볼 수 있습니다. 정기 발송은 별도 opt-in이 필요하며, 현재 즉시 발송은 사용자당 하루 5회로 제한됩니다."
-        : "Flagship recipes can send a result to your account email. Recurring delivery needs a separate opt-in; instant sends are limited to 5 per rider per day.",
+        ? "대표 레시피는 본인 계정 이메일로 결과를 보내볼 수 있습니다. 정기 발송은 별도 opt-in이 필요하며, 즉시 이메일 발송 제한은 AI 크레딧과 별도로 관리됩니다."
+        : "Flagship recipes can send a result to your account email. Recurring delivery needs a separate opt-in; instant email limits are managed separately from AI credits.",
       safety: ko
         ? "임의 주소 입력은 허용하지 않고, 로그인한 본인의 확인된 이메일로만 보냅니다."
         : "No arbitrary recipient entry: Orider sends only to the signed-in rider's verified account email.",
@@ -249,53 +313,91 @@ function buildCopy(language: string) {
         body: ko
           ? "AI 일기 생성, 주간 부하 차트 미리보기, 공유 카드 복사처럼 화면 안에서 끝나는 기능입니다. 로그인하면 내 활동 데이터로 계산되고, 비로그인 상태에서는 데모 데이터가 보입니다."
           : "Use in-product actions such as AI diary generation, weekly load preview, and share-card copy. Signed-in riders use their own data; signed-out visitors see demo data.",
+        action: ko ? "자랑 카드 보기" : "View share cards",
+        to: "/creator/share",
       },
       {
         title: ko ? "내 도구에 직접 연결하기" : "Connect it to your own tools",
         body: ko
           ? "설정의 Developer API에서 개인 API key를 만들고, 필요한 scope만 골라 Notion, Slack, n8n, 개인 대시보드 같은 도구에서 본인 데이터를 읽어갑니다. 이 단계는 간단한 자동화나 개발 지식이 필요합니다."
           : "Create a personal API key in Developer API settings, choose only the scopes you need, and read your own data from tools like Notion, Slack, n8n, or a personal dashboard. This path needs basic automation or development knowledge.",
+        action: ko ? "활용 예시 보기" : "View examples",
+        to: "/creator/examples",
       },
       {
         title: ko ? "아이디어만 제안하기" : "Request an idea",
         body: ko
           ? "코드를 몰라도 됩니다. 동호회에서 필요한 리포트, 훈련 알림, 월간 배지, 공유 카드 같은 활용 장면을 요청하면 레시피 후보가 됩니다."
           : "No code is required. Requests for club reports, training alerts, monthly badges, or share cards can become future recipe candidates.",
+        action: ko ? "활용법 요청" : "Request recipe",
+        to: CREATOR_RECIPE_REQUEST_LINK,
       },
     ],
     integrationsTitle: ko ? "활용 예시" : "Example integrations",
     integrations: [
       {
         name: "Notion",
-        goal: ko ? "월요일 아침마다 훈련 일지가 자동으로 쌓이게 하기" : "Build a training journal automatically every Monday morning",
+        label: ko ? "주간 훈련 일지" : "Weekly training journal",
+        goal: ko ? "월요일 아침마다 지난주 훈련 일지가 Notion에 자동으로 쌓이게 하기" : "Build a training journal automatically in Notion every Monday morning",
+        prepare: ko
+          ? ["Notion에 데이터베이스를 하나 만들고 날짜, 거리, 시간, 상승고도, 부하, 한 줄 회고 칼럼을 둡니다.", "오라이더 설정 → Developer API에서 activities:read, fitness:read scope만 포함한 key를 만듭니다.", "n8n, GitHub Actions, 개인 서버 중 하나를 월요일 오전에 실행되도록 준비합니다."]
+          : ["Create a Notion database with date, distance, time, elevation, load, and note columns.", "Create an Orider Developer API key with only activities:read and fitness:read scopes.", "Prepare n8n, GitHub Actions, or your own server to run on Monday morning."],
         steps: ko
-          ? ["activities:read와 fitness:read scope로 API key를 만듭니다.", "Notion 데이터베이스에 주간 거리, 시간, 부하, 코멘트 칼럼을 준비합니다.", "n8n이나 개인 스크립트가 매주 월요일 API를 읽고 한 줄 회고까지 적습니다."]
-          : ["Create an API key with activities:read and fitness:read scopes.", "Prepare distance, time, load, and note columns in a Notion database.", "Let n8n or a small script read the API every Monday and write a short review."],
-        result: ko ? "라이딩을 끝낸 뒤 따로 정리하지 않아도 주간 훈련 로그가 남습니다." : "Weekly training logs appear without manual cleanup after rides.",
+          ? ["지난 7일 활동 목록을 읽고 총 거리, 총 시간, 상승고도, 활동 수를 합산합니다.", "피트니스 요약에서 주간 부하와 전주 대비 변화를 가져옵니다.", "Notion API로 한 행을 만들고, 회고 칼럼에는 '빌드업', '회복 필요', '유지' 중 하나를 적습니다.", "위치, 경로 좌표, 활동 상세 이름은 Notion에 쓰지 않습니다."]
+          : ["Read the last 7 days of activities and total distance, duration, elevation, and count.", "Fetch weekly load and week-over-week change from the fitness summary.", "Create one Notion row and write a short note such as build, recover, or steady.", "Do not write location, route geometry, or detailed activity names to Notion."],
+        result: ko ? "월요일 아침 Notion에 '지난주 182km · 7.1h · 부하 344 · 회복 필요' 같은 행이 자동으로 생깁니다." : "On Monday morning, Notion gets a row such as '182 km · 7.1 h · load 344 · recovery needed.'",
+        safety: ko ? "Notion에는 집 근처 출발지나 상세 경로를 남기지 말고, 집계값과 회고만 저장하세요." : "Keep home-area starts and detailed routes out of Notion; store only aggregates and notes.",
+        aiPrompt: ko
+          ? "너는 자동화 구현 담당자야. 오라이더 Personal Data API와 Notion API를 연결해 주간 훈련 일지 자동화를 바로 만들 수 있게 구현안을 작성해줘.\n\n목표: 매주 월요일 오전, 지난 7일 라이딩 집계를 Notion 데이터베이스에 한 행으로 추가한다.\n참고 경로: API key 생성 화면은 /ko/settings?section=developer, 저장소 문서는 docs/PERSONAL_DATA_API.md다.\n현재 API 계약: X-API-Key 헤더를 사용한다. 사용 가능한 읽기 endpoint는 GET /api/v1/me, GET /api/v1/activities, GET /api/v1/activities/{activityId}, GET /api/v1/activities/{activityId}/streams, GET /api/v1/fitness/summary다.\n필요 권한: Orider activities:read, fitness:read만 사용한다. Notion은 대상 데이터베이스에 page를 생성할 권한만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, NOTION_TOKEN, NOTION_DATABASE_ID, 실행 시간대, 월요일 실행 시각.\n데이터 범위: 지난 7일 총 거리, 총 시간, 상승고도, 활동 수, 주간 부하, 전주 대비 부하 변화율.\n저장 금지: 위치, 경로 좌표, 출발/도착 지점, 활동 상세 이름, 심박 상세값.\n출력 형식: Notion 속성 설계, API 호출 순서, n8n 워크플로와 GitHub Actions 중 하나로 실행하는 예시, 환경변수 목록, 오류 처리, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: 문서에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
+          : "You are the automation implementer. Write an implementation-ready plan that connects the Orider Personal Data API to the Notion API for a weekly training journal.\n\nGoal: every Monday morning, add one Notion database row with the last 7 days of riding aggregates.\nReference paths: create API keys at /en/settings?section=developer; repository docs are in docs/PERSONAL_DATA_API-en.md.\nCurrent API contract: use the X-API-Key header. Available read endpoints are GET /api/v1/me, GET /api/v1/activities, GET /api/v1/activities/{activityId}, GET /api/v1/activities/{activityId}/streams, and GET /api/v1/fitness/summary.\nRequired scopes: use only Orider activities:read and fitness:read. Notion should only be allowed to create pages in the target database.\nValues the user must provide: ORIDER_API_KEY, NOTION_TOKEN, NOTION_DATABASE_ID, timezone, Monday run time.\nData range: last 7 days total distance, duration, elevation, ride count, weekly load, and week-over-week load change.\nNever store: location, route geometry, start/end areas, detailed activity names, detailed heart-rate values.\nOutput format: Notion property schema, API call order, either n8n workflow or GitHub Actions example, environment variables, error handling, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented, mark it as needs confirmation instead of inventing it.",
       },
       {
         name: "Slack",
-        goal: ko ? "무리한 연속 훈련 전에 회복 알림 받기" : "Get a recovery nudge before hard days stack up",
+        label: ko ? "개인 회복 알림" : "Private recovery alert",
+        goal: ko ? "고강도 훈련이 연속될 때 팀 채널이 아니라 나에게 먼저 회복 알림 보내기" : "Send yourself a recovery nudge before hard days stack up",
+        prepare: ko
+          ? ["Slack Incoming Webhook 또는 개인 DM bot token을 준비합니다.", "오라이더 API key는 activities:read만 허용합니다.", "알림 기준을 정합니다. 예: 3일 중 2일 이상 고강도, 또는 7일 부하가 평소보다 30% 이상 증가."]
+          : ["Prepare a Slack Incoming Webhook or a private DM bot token.", "Allow only activities:read on the Orider API key.", "Define the alert rule, such as two hard days in three days or 30% higher weekly load."],
         steps: ko
-          ? ["최근 7일 활동 시간과 부하만 읽습니다.", "고강도 운동이 이어지면 개인 DM으로 먼저 보냅니다.", "팀 채널 공유는 거리/시간 같은 집계값만 선택합니다."]
-          : ["Read only the last 7 days of duration and load.", "Send the first alert as a private DM when hard sessions stack up.", "Share only aggregate distance/time if posting to a team channel."],
-        result: ko ? "코치나 팀원에게 민감한 위치·심박 데이터를 공개하지 않고 회복 신호만 공유할 수 있습니다." : "Recovery signals can be shared without exposing sensitive location or heart-rate data.",
+          ? ["매일 오전 최근 7일 활동 시간, 강도, 부하만 읽습니다.", "정한 기준을 넘으면 개인 DM으로 '오늘은 Z1/Z2 회복주 권장' 메시지를 보냅니다.", "메시지에는 이유를 한 줄로 씁니다. 예: '최근 3일 중 2일이 고강도였습니다.'", "팀 채널에 보내야 한다면 총 시간, 총 거리 같은 집계값만 따로 선택합니다."]
+          : ["Every morning, read only the last 7 days of duration, intensity, and load.", "When the rule matches, send a private DM recommending a Z1/Z2 recovery ride.", "Include one short reason, such as '2 of the last 3 days were hard.'", "If posting to a team channel, choose only aggregate duration or distance."],
+        result: ko ? "아침에 Slack DM으로 '오늘은 회복주 추천' 알림을 받고, 민감한 위치·심박 데이터는 공개하지 않습니다." : "You receive a private Slack DM recommending recovery without exposing sensitive location or heart-rate data.",
+        safety: ko ? "팀 채널에 자동 전송하기 전에는 반드시 본인 DM으로 며칠 테스트하세요." : "Test in a private DM for several days before sending anything to a team channel.",
+        aiPrompt: ko
+          ? "너는 자동화 구현 담당자야. 오라이더 Personal Data API와 Slack DM을 연결해 개인 회복 알림 자동화를 바로 만들 수 있게 구현안을 작성해줘.\n\n목표: 매일 오전 최근 훈련 부하를 확인하고, 과부하 조건이면 내 Slack DM으로만 회복 알림을 보낸다.\n참고 경로: API key 생성 화면은 /ko/settings?section=developer, 저장소 문서는 docs/PERSONAL_DATA_API.md다.\n현재 API 계약: X-API-Key 헤더를 사용한다. 사용 가능한 읽기 endpoint는 GET /api/v1/activities, GET /api/v1/activities/{activityId}, GET /api/v1/fitness/summary다.\n필요 권한: Orider activities:read만 사용한다. Slack은 개인 DM 또는 Incoming Webhook 전송 권한만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, SLACK_WEBHOOK_URL 또는 SLACK_BOT_TOKEN, SLACK_USER_ID, 실행 시간대, 매일 실행 시각.\n판정 규칙: 최근 3일 중 2일 이상 고강도이거나, 최근 7일 부하가 평소 기준보다 30% 이상 증가하면 알림을 보낸다. 평소 기준이 없으면 첫 2주 동안은 알림 대신 기준값을 쌓는다.\n메시지 내용: 오늘 권장 강도, 판단 이유 한 줄, 최근 7일 요약만 포함한다.\n전송 금지: 위치, 경로, 활동명, 심박 상세값, 팀 채널 자동 전송.\n출력 형식: 실행 흐름, Slack 설정 방법, API 호출 순서, 의사코드 또는 n8n 노드 구성, 중복 알림 방지, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: 문서에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
+          : "You are the automation implementer. Write an implementation-ready plan that connects the Orider Personal Data API to a private Slack recovery alert.\n\nGoal: every morning, check recent training load and send a Slack DM only when overload conditions match.\nReference paths: create API keys at /en/settings?section=developer; repository docs are in docs/PERSONAL_DATA_API-en.md.\nCurrent API contract: use the X-API-Key header. Available read endpoints are GET /api/v1/activities, GET /api/v1/activities/{activityId}, and GET /api/v1/fitness/summary.\nRequired scopes: use only Orider activities:read. Slack should only be able to send a private DM or webhook message.\nValues the user must provide: ORIDER_API_KEY, SLACK_WEBHOOK_URL or SLACK_BOT_TOKEN, SLACK_USER_ID, timezone, daily run time.\nRules: alert when 2 of the last 3 days were hard or the last 7 days of load are 30% above the rider's normal baseline. If no baseline exists, collect baseline data for the first 2 weeks instead of alerting.\nMessage content: today's suggested intensity, one-line reason, and a 7-day aggregate summary only.\nNever send: location, routes, activity names, detailed heart-rate values, or automatic team-channel posts.\nOutput format: execution flow, Slack setup, API call order, pseudocode or n8n nodes, duplicate-alert prevention, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented, mark it as needs confirmation instead of inventing it.",
       },
       {
         name: "n8n",
-        goal: ko ? "코드 없이 월간 배지와 이메일 요약 만들기" : "Create a monthly badge and email summary without much code",
+        label: ko ? "월간 배지 자동화" : "Monthly badge automation",
+        goal: ko ? "코드를 거의 쓰지 않고 월간 라이딩 배지와 이메일 요약 만들기" : "Create a monthly badge and email summary with little code",
+        prepare: ko
+          ? ["n8n에 Cron, HTTP Request, Set, Email 노드를 만듭니다.", "오라이더 API key는 activities:read만 허용합니다.", "공개할 항목을 미리 정합니다. 추천: 총 거리, 상승고도, 활동 수, 최장 라이딩 거리."]
+          : ["Create Cron, HTTP Request, Set, and Email nodes in n8n.", "Allow only activities:read on the Orider API key.", "Pick public fields first: total distance, elevation, activity count, and longest ride."],
         steps: ko
-          ? ["매월 1일 API에서 지난달 집계 데이터를 가져옵니다.", "거리, 상승고도, 최장 라이딩만 공개 항목으로 고릅니다.", "배지 문구는 이메일로 받고, 공개용 JSON은 개인 사이트에 붙입니다."]
-          : ["On the first day of each month, fetch last month's aggregate data.", "Choose only distance, elevation, and longest ride as public fields.", "Email the badge copy and publish a public JSON snippet to a personal site."],
-        result: ko ? "정확한 경로 없이도 꾸준함을 자랑할 수 있는 월간 리포트가 생깁니다." : "You get a monthly report that celebrates consistency without exact routes.",
+          ? ["Cron을 매월 1일 오전 9시로 설정합니다.", "HTTP Request 노드가 지난달 활동 집계를 가져옵니다.", "Set 노드에서 공개 문구를 만듭니다. 예: '6월 18회 · 642km · 7,820m 상승'.", "Email 노드로 본인에게 먼저 보내고, 확인 후 블로그나 프로필에 붙입니다."]
+          : ["Set Cron to 9 AM on the first day of each month.", "Use HTTP Request to fetch last month's aggregate activity data.", "Use Set to create public copy, such as 'June: 18 rides · 642 km · 7,820 m climbed.'", "Email it to yourself first, then paste it into a blog or profile after review."],
+        result: ko ? "매월 초 본인 이메일로 공개 가능한 배지 문구가 오고, 확인한 뒤 개인 사이트에 붙일 수 있습니다." : "At the start of each month, you receive safe badge copy by email and can paste it into your site.",
+        safety: ko ? "자동 공개보다 '이메일로 먼저 받기 → 확인 후 게시' 흐름을 권장합니다." : "Prefer 'email to myself first → review → publish' over automatic public posting.",
+        aiPrompt: ko
+          ? "너는 n8n 자동화 구현 담당자야. 오라이더 Personal Data API로 월간 라이딩 배지 초안을 만들고 이메일로 먼저 보내는 n8n 워크플로를 바로 만들 수 있게 작성해줘.\n\n목표: 매월 1일 오전 9시, 지난달 라이딩 집계로 공개 가능한 배지 문구를 만들고 내 이메일로 보낸다.\n참고 경로: API key 생성 화면은 /ko/settings?section=developer, 저장소 문서는 docs/PERSONAL_DATA_API.md다.\n현재 API 계약: X-API-Key 헤더를 사용한다. 사용 가능한 읽기 endpoint는 GET /api/v1/activities, GET /api/v1/activities/{activityId}다.\n필요 권한: Orider activities:read만 사용한다. 이메일 노드는 본인 주소로만 발송한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, 이메일 발송 계정 또는 SMTP 설정, 받는 이메일, 실행 시간대.\n계산 항목: 지난달 총 거리, 상승고도, 활동 수, 최장 라이딩 거리.\n공개 문구 예시: '6월 18회 · 642km · 7,820m 상승 · 최장 112km'.\n자동 공개 금지: 블로그, 프로필, SNS에는 자동 게시하지 않고 이메일 확인 후 사용자가 직접 게시한다.\n출력 형식: n8n Cron, HTTP Request, Set, Email 노드별 설정값, 각 노드 입력/출력, 실패 시 재시도, 샘플 JSON, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: 문서에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
+          : "You are the n8n automation implementer. Write an implementation-ready n8n workflow that uses the Orider Personal Data API to draft a monthly riding badge and email it to me first.\n\nGoal: at 9 AM on the first day of each month, create public-safe badge copy from last month's riding aggregates and email it to me.\nReference paths: create API keys at /en/settings?section=developer; repository docs are in docs/PERSONAL_DATA_API-en.md.\nCurrent API contract: use the X-API-Key header. Available read endpoints are GET /api/v1/activities and GET /api/v1/activities/{activityId}.\nRequired scopes: use only Orider activities:read. The email node sends only to my address.\nValues the user must provide: ORIDER_API_KEY, email/SMTP account settings, recipient email, timezone.\nCalculated fields: last month's total distance, elevation, ride count, and longest ride distance.\nExample public copy: 'June: 18 rides · 642 km · 7,820 m climbed · longest 112 km'.\nDo not auto-publish: do not post to a blog, profile, or social channel automatically; the user reviews the email and posts manually.\nOutput format: n8n Cron, HTTP Request, Set, and Email node settings, each node's input/output, retry behavior, sample JSON, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented, mark it as needs confirmation instead of inventing it.",
       },
       {
         name: ko ? "개인 웹사이트" : "Personal site",
-        goal: ko ? "블로그나 프로필에 라이딩 현황 배지 달기" : "Add a ride-status badge to a blog or profile",
+        label: ko ? "공개 프로필 배지" : "Public profile badge",
+        goal: ko ? "블로그나 프로필에 현재 라이딩 현황 배지 달기" : "Add a current ride-status badge to a blog or profile",
+        prepare: ko
+          ? ["개인 사이트에서 읽을 수 있는 작은 JSON 파일 또는 API endpoint를 준비합니다.", "오라이더 API key는 월간 집계만 읽도록 제한합니다.", "방문자에게 보여줄 항목을 3~4개로 제한합니다."]
+          : ["Prepare a small JSON file or endpoint that your personal site can read.", "Limit the Orider API key to monthly aggregates.", "Limit public fields to three or four items."],
         steps: ko
-          ? ["public-safe widget 레시피처럼 월간 집계만 읽습니다.", "출발지, 도착지, 지도 좌표는 응답에서 제외합니다.", "방문자에게는 거리, 상승고도, 활동 수, 최근 갱신일만 보여줍니다."]
-          : ["Read only monthly aggregates like the public-safe widget recipe.", "Exclude starts, finishes, and map coordinates from the response.", "Show visitors distance, elevation, activity count, and last updated date."],
-        result: ko ? "개인정보 노출 없이 프로필에 라이더 정체성을 보여줄 수 있습니다." : "Your profile shows rider identity without leaking private ride details.",
+          ? ["하루 1회 또는 월 1회 집계 데이터를 읽습니다.", "JSON에는 month, distanceKm, elevationM, rideCount, updatedAt만 남깁니다.", "사이트에서는 이 JSON을 읽어 '이번 달 642km 라이딩' 같은 작은 배지로 보여줍니다.", "API key가 노출되지 않도록 브라우저가 오라이더 API를 직접 호출하지 않게 합니다."]
+          : ["Read aggregate data daily or monthly.", "Keep only month, distanceKm, elevationM, rideCount, and updatedAt in the JSON.", "Render a small badge such as '642 km ridden this month.'", "Do not let the browser call the Orider API directly with your API key."],
+        result: ko ? "정확한 경로나 시작 위치 없이도 프로필에 라이더 정체성을 보여줄 수 있습니다." : "Your profile shows rider identity without exposing exact routes or start areas.",
+        safety: ko ? "API key는 서버나 자동화 도구에만 두고, 공개 HTML/JS에는 절대 넣지 마세요." : "Keep API keys on a server or automation tool; never put them in public HTML or JavaScript.",
+        aiPrompt: ko
+          ? "너는 웹 자동화 구현 담당자야. 개인 웹사이트에 붙일 오라이더 공개 프로필 배지를 바로 만들 수 있게 서버/자동화 구조와 프론트엔드 코드를 작성해줘.\n\n목표: 브라우저에 API key를 노출하지 않고, 하루 1회 오라이더 월간 집계를 읽어 공개 JSON을 갱신한 뒤 개인 사이트에서 배지로 보여준다.\n참고 경로: API key 생성 화면은 /ko/settings?section=developer, 저장소 문서는 docs/PERSONAL_DATA_API.md다.\n현재 API 계약: X-API-Key 헤더를 사용한다. 사용 가능한 읽기 endpoint는 GET /api/v1/me, GET /api/v1/activities다.\n필요 권한: Orider activities:read 또는 문서에 월간 집계 전용 scope가 있으면 그 최소 scope만 사용한다.\n사용자가 준비해야 할 값: ORIDER_API_KEY, 공개 JSON을 저장할 위치, 배지를 붙일 사이트 경로, 실행 시간대.\n공개 JSON 스키마: month, distanceKm, elevationM, rideCount, updatedAt만 포함한다.\n제외 항목: 경로, 출발지, 도착지, 활동명, 심박/파워 상세값, API key.\n출력 형식: 권장 아키텍처, GitHub Actions 또는 서버 함수 예시, 환경변수 목록, public JSON 예시, 프론트엔드 배지 컴포넌트, 캐시/오류 처리, 테스트 순서, 완료 조건을 순서대로 써줘.\n중요: 문서에 없는 endpoint나 응답 필드는 임의로 만들지 말고 확인 필요 항목으로 표시해줘."
+          : "You are the web automation implementer. Write an implementation-ready server/automation design and frontend code for a public Orider profile badge on a personal website.\n\nGoal: never expose the API key in the browser. Once per day, read Orider monthly aggregates, update public JSON, and render that JSON as a small badge on the site.\nReference paths: create API keys at /en/settings?section=developer; repository docs are in docs/PERSONAL_DATA_API-en.md.\nCurrent API contract: use the X-API-Key header. Available read endpoints are GET /api/v1/me and GET /api/v1/activities.\nRequired scopes: use Orider activities:read, or a more limited monthly aggregate scope if the docs provide one.\nValues the user must provide: ORIDER_API_KEY, public JSON storage location, site path for the badge, timezone.\nPublic JSON schema: include only month, distanceKm, elevationM, rideCount, and updatedAt.\nExclude: routes, start/end areas, activity names, detailed heart-rate/power values, and API keys.\nOutput format: recommended architecture, GitHub Actions or server-function example, environment variables, public JSON example, frontend badge component, cache/error handling, test steps, and done criteria.\nImportant: if an endpoint or response field is not documented, mark it as needs confirmation instead of inventing it.",
       },
     ],
     apiPath: {
@@ -304,8 +406,8 @@ function buildCopy(language: string) {
         ? "외부 도구에서 쓰려면 완성 기능을 복사하는 것이 아니라, Personal Data API로 본인 데이터를 읽어 직접 연결합니다. API key는 본인 계정에서 만들고 언제든 폐기할 수 있으며, 배치할 때 필요한 scope와 실행 주기만 선택해야 합니다."
         : "External tools do not copy a finished feature from this page. They connect to your own data through the Personal Data API. Create and revoke keys from your account, then choose only the scopes and schedule each deployment needs.",
       steps: [
-        ko ? "1. 설정 → Developer API에서 개인 API key 생성" : "1. Create a personal API key in Settings → Developer API",
-        ko ? "2. Notion, Slack, n8n, 개인 서버 등에서 문서화된 API 호출" : "2. Call the documented API from Notion, Slack, n8n, or your own server",
+        ko ? "1. /ko/settings?section=developer에서 개인 API key 생성" : "1. Create a personal API key at /en/settings?section=developer",
+        ko ? "2. docs/PERSONAL_DATA_API.md의 endpoint 계약에 맞춰 Notion, Slack, n8n, 개인 서버에서 호출" : "2. Call endpoints from docs/PERSONAL_DATA_API-en.md in Notion, Slack, n8n, or your own server",
         ko ? "3. 실행 주기 선택: 수동, 매일 1회, 매주 월요일, 라이딩 완료 후" : "3. Choose a trigger: manual, daily, Monday morning, or after a ride",
         ko ? "4. 공유 전 위치·민감 지표를 집계하거나 제거하고, 필요하면 API key를 폐기" : "4. Aggregate or remove sensitive data before sharing, and revoke the key when needed",
       ],
@@ -342,12 +444,17 @@ export default function CreatorHubPage() {
   const { i18n } = useTranslation();
   const { user, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
+  const { section: sectionParam } = useParams<{ section?: string }>();
+  const navigate = useLocalizedNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { weeklyStats } = useWeeklyStats();
   const copy = useMemo(() => buildCopy(i18n.language), [i18n.language]);
-  const [tab, setTabState] = useState<CreatorTab>(() => parseCreatorTab(searchParams.get("tab")));
+  const section = parseCreatorSection(sectionParam);
+  const tabParam = searchParams.get("tab");
+  const [tab, setTabState] = useState<CreatorTab>(() => sectionDefaultTab(section, tabParam));
   const [copied, setCopied] = useState(false);
   const [chartCopied, setChartCopied] = useState(false);
+  const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
   const [reportedItemIds, setReportedItemIds] = useState<Set<string>>(() => new Set());
   const [reportFailedItemIds, setReportFailedItemIds] = useState<Set<string>>(() => new Set());
   const [diary, setDiary] = useState<AiDiaryResponse | null>(null);
@@ -356,6 +463,9 @@ export default function CreatorHubPage() {
   const [emailSendingId, setEmailSendingId] = useState<string | null>(null);
   const [emailSentItemIds, setEmailSentItemIds] = useState<Set<string>>(() => new Set());
   const [emailFailedItemIds, setEmailFailedItemIds] = useState<Set<string>>(() => new Set());
+  const deploySectionRef = useRef<HTMLElement | null>(null);
+  const recipesSectionRef = useRef<HTMLDivElement | null>(null);
+  const shareSectionRef = useRef<HTMLDivElement | null>(null);
 
   const items: CreatorItem[] = useMemo(() => {
     const locale = i18n.language.startsWith("ko") ? "ko" : "en";
@@ -404,12 +514,59 @@ export default function CreatorHubPage() {
   const shareText = `${shareCard.title}\n${shareCard.body}\n${shareCard.footer}`;
   const weeklyShareText = `${copy.weekly.shareTitle}\n${copy.weekly.distance}: ${Math.round(chartTotal.distance)}km · ${copy.weekly.time}: ${chartTotal.time.toFixed(1)}h · ${copy.weekly.rides}: ${chartTotal.rides} · ${copy.weekly.tss}: ${chartTotal.tss}\n${chartUsesOwnData ? copy.weekly.own : copy.weekly.demo}`;
 
-  const setTab = (nextTab: CreatorTab) => {
+  useEffect(() => {
+    setTabState(sectionDefaultTab(section, tabParam));
+  }, [section, tabParam]);
+
+  useEffect(() => {
+    const scroller = document.querySelector("main");
+    if (scroller instanceof HTMLElement) {
+      scroller.scrollTo({ top: 0 });
+    }
+  }, [section]);
+
+  const scrollToTarget = (target: CreatorScrollTarget) => {
+    window.requestAnimationFrame(() => {
+      const element =
+        target === "deploy"
+          ? deploySectionRef.current
+          : target === "share"
+            ? shareSectionRef.current
+            : recipesSectionRef.current;
+      if (!element) return;
+      const scroller = element.closest("main");
+      if (scroller instanceof HTMLElement) {
+        const elementRect = element.getBoundingClientRect();
+        const scrollerRect = scroller.getBoundingClientRect();
+        scroller.scrollTo({
+          top: scroller.scrollTop + elementRect.top - scrollerRect.top - 18,
+          behavior: "smooth",
+        });
+        return;
+      }
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const setTab = (nextTab: CreatorTab, scrollTarget?: CreatorScrollTarget) => {
+    if (scrollTarget === "deploy") {
+      navigate("/creator/deploy");
+      return;
+    }
+    if (scrollTarget === "share" || nextTab === "share") {
+      navigate("/creator/share");
+      return;
+    }
+    if (scrollTarget === "recipes" || nextTab === "recipes") {
+      navigate("/creator/recipes");
+      return;
+    }
     setTabState(nextTab);
     const nextParams = new URLSearchParams(searchParams);
     if (nextTab === "featured") nextParams.delete("tab");
     else nextParams.set("tab", nextTab);
     setSearchParams(nextParams, { replace: true });
+    if (scrollTarget) scrollToTarget(scrollTarget);
   };
 
   const handleCopy = async () => {
@@ -429,6 +586,17 @@ export default function CreatorHubPage() {
       setChartCopied(true);
       showToast(copy.actions.copied);
       window.setTimeout(() => setChartCopied(false), 1600);
+    } catch {
+      showToast(copy.actions.copyFailed, "error");
+    }
+  };
+
+  const handleCopyPrompt = async (promptId: string, prompt: string) => {
+    try {
+      await navigator.clipboard?.writeText(prompt);
+      setCopiedPromptId(promptId);
+      showToast(copy.actions.promptCopied);
+      window.setTimeout(() => setCopiedPromptId((current) => (current === promptId ? null : current)), 1600);
     } catch {
       showToast(copy.actions.copyFailed, "error");
     }
@@ -479,7 +647,7 @@ export default function CreatorHubPage() {
       );
       const result = await fn({ lang: i18n.language.startsWith("en") ? "en" : "ko", period: "week" });
       setDiary(result.data);
-      setTab("share");
+      setTab("share", "share");
       showToast(result.data.source === "cache" ? copy.credit.cache : copy.actions.previewOpened);
     } catch {
       setDiaryError(copy.credit.failed);
@@ -514,89 +682,162 @@ export default function CreatorHubPage() {
     }
   };
 
+  const detailLinks = [
+    {
+      to: "/creator/recipes",
+      title: i18n.language.startsWith("ko") ? "레시피 목록" : "Recipe catalog",
+      body: i18n.language.startsWith("ko") ? "어떤 레시피가 있고 어떤 권한이 필요한지 봅니다." : "See available recipes and the scopes they need.",
+      icon: BookOpen,
+    },
+    {
+      to: "/creator/deploy",
+      title: i18n.language.startsWith("ko") ? "내 도구에 직접 연결하기" : "Connect your own tools",
+      body: i18n.language.startsWith("ko")
+        ? "Developer API key와 필요한 scope를 골라 Notion, Slack, n8n, 개인 대시보드에 연결합니다."
+        : "Create a Developer API key, choose scopes, and connect Notion, Slack, n8n, or your own dashboard.",
+      icon: KeyRound,
+    },
+    {
+      to: "/creator/examples",
+      title: i18n.language.startsWith("ko") ? "활용 예시" : "Examples",
+      body: i18n.language.startsWith("ko") ? "Notion, Slack, n8n, 개인 사이트에 바로 따라 붙일 수 있는 순서입니다." : "Follow practical Notion, Slack, n8n, and personal-site playbooks.",
+      icon: FileText,
+    },
+    {
+      to: "/creator/share",
+      title: i18n.language.startsWith("ko") ? "자랑 카드" : "Share cards",
+      body: i18n.language.startsWith("ko") ? "공개 전 숨김 처리된 카드와 주간 차트를 미리 봅니다." : "Preview redacted cards and weekly charts before sharing.",
+      icon: ShieldCheck,
+    },
+  ];
+  const activeDetail = detailLinks.find((link) => link.to.endsWith(`/${section}`));
+
   return (
-    <div className="space-y-6">
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+    <div className="space-y-8">
+      <section className="grid gap-4">
+        <div className="min-w-0 rounded-[var(--r-lg)] border p-6 md:p-8" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+          {section === "overview" ? (
+          <>
           <div className="mb-3 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--lime)" }}>
             <Sparkles size={14} />
             {copy.eyebrow}
           </div>
-          <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{copy.title}</h1>
-          <p className="mt-2 max-w-3xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>
+          <Text as="div" variant="eyebrow">{copy.title}</Text>
+          <h1 className="mt-2 max-w-4xl text-[length:var(--fs-3xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{copy.headline}</h1>
+          <p className="mt-3 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}>
             {copy.subtitle}
           </p>
-          <div className="mt-5 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
+          <div className="mt-6 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
             <Link to="/board/write" className={buttonClass({ variant: "primary", size: "sm", className: recipeActionClass })}>
                 <MessageSquareText size={15} aria-hidden />
                 {copy.actions.post}
             </Link>
-            <Button
-              className={recipeActionClass}
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setTab("recipes");
-              }}
-            >
+            <Link to="/creator/recipes" className={buttonClass({ variant: "secondary", size: "sm", className: recipeActionClass })}>
                 <BookOpen size={15} />
                 {copy.actions.recipe}
-            </Button>
+            </Link>
             <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating}>
               <Bot size={15} />
               {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
             </Button>
           </div>
+          </>
+          ) : (
+          <>
+            <Link to="/creator" className="inline-flex items-center gap-2 text-[length:var(--fs-sm)] font-medium no-underline" style={{ color: "var(--lime)" }}>
+              <BookOpen size={15} />
+              Creator Hub
+            </Link>
+            <h1 className="mt-3 max-w-3xl text-[length:var(--fs-2xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{activeDetail?.title ?? copy.title}</h1>
+            <p className="mt-2 max-w-3xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{activeDetail?.body ?? copy.subtitle}</p>
+          </>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-3 lg:grid-cols-1">
+        {section === "overview" && (
+        <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-3">
           {copy.stats.map((stat) => (
-            <div key={stat.label} className="rounded-[var(--r-lg)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+            <div key={stat.label} className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
               <Text as="div" variant="eyebrow">{stat.label}</Text>
               <div className="mt-1 text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{stat.value}</div>
             </div>
           ))}
         </div>
+        )}
       </section>
 
-      <section className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-        <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.pathsTitle}</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {copy.paths.map((path) => (
-            <div key={path.title} className="flex flex-col rounded-[var(--r-md)] border p-4 md:min-h-44" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{path.title}</div>
-              <p className="mt-2 text-[length:var(--fs-xs)] leading-5 md:flex-1" style={{ color: "var(--ink-3)" }}>{path.body}</p>
-              {path.action === copy.actions.requestRecipe ? (
-                <a href={REQUEST_RECIPE_URL} className={buttonClass({ variant: "secondary", size: "sm", className: "mt-3 w-full justify-center" })}>
-                  <MessageSquareText size={15} aria-hidden />
-                  {path.action}
-                </a>
-              ) : (
-                <Button
-                  className="mt-3 w-full justify-center"
-                  size="sm"
-                  variant={path.tab === "share" ? "primary" : "secondary"}
-                  onClick={() => {
-                    setTab(path.tab);
-                    if (path.tab === "share") {
-                      showToast(copy.actions.previewOpened, "info");
-                    }
-                  }}
-                >
-                  {path.tab === "share" ? <ShieldCheck size={15} /> : <BookOpen size={15} />}
-                  {path.action}
-                </Button>
-              )}
-            </div>
-          ))}
+      {(section === "deploy" || section === "recipes") && (
+      <section className="grid gap-4 rounded-[var(--r-lg)] border p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--aqua)" }}>
+            <BookOpen size={14} />
+            {copy.tabs.recipes}
+          </div>
+          <h2 className="mt-3 max-w-3xl text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}>{copy.marketTitle}</h2>
+          <p className="mt-2 max-w-4xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.marketBody}</p>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {copy.marketStages.map((stage, index) => {
+              const StageIcon = marketStageIcons[index] ?? Sparkles;
+              return (
+                <div key={stage.title} className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--r-sm)]" style={{ background: "var(--bg-1)", color: index === 0 ? "var(--aqua)" : index === 1 ? "var(--lime)" : index === 2 ? "var(--amber)" : "var(--violet)" }}>
+                      <StageIcon size={16} />
+                    </span>
+                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{stage.title}</div>
+                  </div>
+                  <p className="mt-3 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{stage.body}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <aside className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={18} style={{ color: "var(--lime)" }} />
+            <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.marketRulesTitle}</h2>
+          </div>
+          <ul className="mt-4 space-y-3">
+            {copy.marketRules.map((rule) => (
+              <li key={rule} className="flex gap-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>
+                <ShieldCheck size={15} className="mt-1 shrink-0" style={{ color: "var(--lime)" }} />
+                <span>{rule}</span>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </section>
+      )}
+
+      {section === "overview" && (
+      <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+        <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>
+          {i18n.language.startsWith("ko") ? "필요한 화면으로 바로 들어가세요" : "Jump into the screen you need"}
+        </h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          {detailLinks.map((link) => {
+            const DetailIcon = link.icon;
+            return (
+              <Link key={link.to} to={link.to} className="rounded-[var(--r-md)] border p-4 no-underline" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
+                <div className="flex items-center gap-2 text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
+                  <DetailIcon size={16} style={{ color: "var(--lime)" }} />
+                  {link.title}
+                </div>
+                <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{link.body}</p>
+              </Link>
+            );
+          })}
         </div>
       </section>
+      )}
 
-      <section className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+      {section === "deploy" && (
+      <section ref={deploySectionRef} className="scroll-mt-28 rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.deployTitle}</h2>
-            <p className="mt-1 max-w-4xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.deployBody}</p>
+            <p className="mt-2 max-w-4xl text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.deployBody}</p>
           </div>
           <Link to="/settings?section=developer" className={buttonClass({ variant: "secondary", size: "sm" })}>
             <KeyRound size={15} aria-hidden />
@@ -605,49 +846,103 @@ export default function CreatorHubPage() {
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           {copy.deploySteps.map((step) => (
-            <div key={step.title} className="rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+            <div key={step.title} className="rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{step.title}</div>
-              <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{step.body}</p>
+              <p className="mt-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{step.body}</p>
             </div>
           ))}
         </div>
       </section>
+      )}
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+      {section === "deploy" && (
+      <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.useModesTitle}</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            {copy.useModes.map((mode) => (
-              <div key={mode.title} className="rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
-                <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-[var(--r-lg)] border p-4 md:p-5" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
-          <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.integrationsTitle}</h2>
-          <div className="mt-4 grid gap-3">
-            {copy.integrations.map((item) => (
-              <div key={item.name} className="rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <div className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
-                  <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{item.goal}</div>
+            {copy.useModes.map((mode) => {
+              const toPath = typeof mode.to === "string" ? mode.to : mode.to.pathname ?? "";
+              if (typeof mode.to === "string" && mode.to.startsWith("http")) {
+                return (
+                  <div key={mode.title} className="flex flex-col rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
+                    <p className="mt-2 text-[length:var(--fs-sm)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
+                    <a href={mode.to} className={buttonClass({ variant: "secondary", size: "sm", className: "mt-4 w-full justify-center" })}>
+                      <MessageSquareText size={15} aria-hidden />
+                      {mode.action}
+                    </a>
+                  </div>
+                );
+              }
+              return (
+                <div key={mode.title} className="flex flex-col rounded-[var(--r-md)] border p-4" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                  <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{mode.title}</div>
+                  <p className="mt-2 text-[length:var(--fs-sm)] leading-6 md:flex-1" style={{ color: "var(--ink-3)" }}>{mode.body}</p>
+                  <Link to={mode.to} className={buttonClass({ variant: toPath.endsWith("/share") ? "primary" : "secondary", size: "sm", className: "mt-4 w-full justify-center" })}>
+                    {toPath.endsWith("/examples") ? <FileText size={15} aria-hidden /> : <ShieldCheck size={15} aria-hidden />}
+                    {mode.action}
+                  </Link>
                 </div>
-                <ol className="mt-2 space-y-1.5">
+              );
+            })}
+          </div>
+      </section>
+      )}
+
+      {section === "examples" && (
+      <section className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+          <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.integrationsTitle}</h2>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {copy.integrations.map((item) => (
+              <div key={item.name} className="rounded-[var(--r-md)] border p-4 md:p-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>{item.name}</div>
+                    <div className="mt-1 text-[length:var(--fs-base)] font-semibold leading-6" style={{ color: "var(--ink-0)" }}>{item.goal}</div>
+                  </div>
+                  <Chip>{item.label}</Chip>
+                </div>
+                <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
+                  <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "준비" : "Prepare"}</Text>
+                  <ul className="mt-2 space-y-1.5">
+                    {item.prepare.map((step) => (
+                      <li key={step} className="text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>{step}</li>
+                    ))}
+                  </ul>
+                </div>
+                <Text as="div" variant="eyebrow" className="mt-4">{i18n.language.startsWith("ko") ? "따라하기" : "Steps"}</Text>
+                <ol className="mt-2 space-y-2">
                   {item.steps.map((step) => (
-                    <li key={step} className="text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{step}</li>
+                    <li key={step} className="text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{step}</li>
                   ))}
                 </ol>
-                <p className="mt-2 text-[length:var(--fs-xs)] font-medium leading-5" style={{ color: "var(--ink-2)" }}>{item.result}</p>
+                <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
+                  <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "결과" : "Result"}</Text>
+                  <p className="mt-1 text-[length:var(--fs-sm)] font-medium leading-6" style={{ color: "var(--ink-1)" }}>{item.result}</p>
+                  <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{item.safety}</p>
+                </div>
+                <div className="mt-4 rounded-[var(--r-sm)] border p-3" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <FileText size={14} style={{ color: "var(--lime)" }} />
+                      <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "AI에게 전달할 작업 지시" : "Prompt for your AI assistant"}</Text>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => void handleCopyPrompt(item.name, item.aiPrompt)}>
+                      <Clipboard size={14} aria-hidden />
+                      {copiedPromptId === item.name ? copy.actions.promptCopied : copy.actions.copyPrompt}
+                    </Button>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap break-words rounded-[var(--r-sm)] p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>
+                    {item.aiPrompt}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
-        </div>
       </section>
+      )}
 
-      <div className="flex gap-1 overflow-x-auto rounded-[var(--r-lg)] border p-1" role="tablist" aria-label="Creator Hub views" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+      {(section === "recipes" || section === "share") && (
+      <div ref={recipesSectionRef} className="scroll-mt-28 flex gap-1 overflow-x-auto rounded-[var(--r-lg)] border p-1" role="tablist" aria-label="Creator Hub views" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         {(["featured", "recipes", "share"] as CreatorTab[]).map((nextTab) => {
           const active = tab === nextTab;
           return (
@@ -668,7 +963,9 @@ export default function CreatorHubPage() {
           );
         })}
       </div>
+      )}
 
+      {section === "recipes" && (
       <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="grid items-start gap-3 md:grid-cols-2">
           {visibleItems.map((item) => {
@@ -732,7 +1029,7 @@ export default function CreatorHubPage() {
                     size="sm"
                     variant={item.id === "ai-diary" ? "primary" : "secondary"}
                     onClick={() => {
-                      setTab("share");
+                      setTab("share", "share");
                       showToast(copy.actions.previewOpened, "info");
                     }}
                   >
@@ -754,7 +1051,7 @@ export default function CreatorHubPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      setTab("recipes");
+                      setTab("recipes", "recipes");
                     }}
                   >
                       <BookOpen size={15} />
@@ -765,7 +1062,7 @@ export default function CreatorHubPage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => {
-                      setTab("recipes");
+                      setTab("recipes", "deploy");
                       showToast(copy.actions.deployOpened, "info");
                     }}
                   >
@@ -787,7 +1084,7 @@ export default function CreatorHubPage() {
         </div>
 
         <aside className="space-y-4">
-          <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+          <div ref={shareSectionRef} className="scroll-mt-28 rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Bell size={18} style={{ color: "var(--amber)" }} />
               <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.email.title}</h2>
@@ -820,6 +1117,14 @@ export default function CreatorHubPage() {
                 <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.credit.title}</div>
               </div>
               <p className="mt-1 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.credit.body}</p>
+              <ul className="mt-2 space-y-1.5">
+                {copy.credit.rules.map((rule) => (
+                  <li key={rule} className="flex gap-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-2)" }}>
+                    <ShieldCheck size={13} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
+                    <span>{rule}</span>
+                  </li>
+                ))}
+              </ul>
               <div className="mt-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>
                 {diary?.quota
                   ? copy.credit.remaining.replace("{{remaining}}", String(diary.quota.remaining)).replace("{{limit}}", String(diary.quota.limit))
@@ -869,7 +1174,88 @@ export default function CreatorHubPage() {
           </div>
         </aside>
       </section>
+      )}
 
+      {section === "share" && (
+      <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-[var(--r-lg)] border p-5 md:p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+          <div className="flex items-center gap-2">
+            <Sparkles size={18} style={{ color: "var(--lime)" }} />
+            <h2 className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.shareTitle}</h2>
+          </div>
+          <p className="mt-2 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{copy.shareSubtitle}</p>
+          <div ref={shareSectionRef} className="mt-5 rounded-[var(--r-lg)] border p-5" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+            <div className="mb-3 flex items-center gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--lime)" }}>
+              <Sparkles size={14} />
+              {copy.shareCard.label}
+            </div>
+            <div className="text-[length:var(--fs-xl)] font-semibold leading-7" style={{ color: "var(--ink-0)" }}>{shareCard.title}</div>
+            <p className="mt-3 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-2)" }}>{shareCard.body}</p>
+            <div className="mt-4 inline-flex items-center gap-1 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--fs-xs)]" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
+              <Lock size={13} />
+              {shareCard.footer}
+            </div>
+          </div>
+          {diary && (
+            <div className="mt-4 rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
+              <Text as="div" variant="eyebrow">{diary.diary.title}</Text>
+              <p className="mt-1 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>{diary.diary.body}</p>
+            </div>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={handleCopy}>
+              <Clipboard size={15} />
+              {copied ? copy.actions.copied : copy.actions.copy}
+            </Button>
+            <Link to="/board/write" className={buttonClass({ variant: "primary", size: "sm" })}>
+              <MessageSquareText size={15} aria-hidden />
+              {copy.actions.post}
+            </Link>
+          </div>
+        </div>
+
+        <aside className="space-y-4">
+          <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+            <div className="flex items-center gap-2">
+              <Bot size={16} style={{ color: "var(--lime)" }} />
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.credit.title}</h2>
+            </div>
+            <p className="mt-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.credit.body}</p>
+            <ul className="mt-3 space-y-1.5">
+              {copy.credit.rules.map((rule) => (
+                <li key={rule} className="flex gap-2 text-[length:var(--fs-xs)] leading-5" style={{ color: "var(--ink-2)" }}>
+                  <ShieldCheck size={13} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
+                  <span>{rule}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3">
+              <Button size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating}>
+                <Sparkles size={15} />
+                {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+            <div className="flex items-center gap-2">
+              <Lock size={18} style={{ color: "var(--lime)" }} />
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.privacyTitle}</h2>
+            </div>
+            <ul className="mt-3 space-y-2">
+              {copy.privacy.map((item) => (
+                <li key={item} className="flex gap-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-2)" }}>
+                  <ShieldCheck size={15} className="mt-0.5 shrink-0" style={{ color: "var(--lime)" }} />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+      </section>
+      )}
+
+      {section === "share" && (
       <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -937,19 +1323,21 @@ export default function CreatorHubPage() {
                 <KeyRound size={15} aria-hidden />
                 {copy.actions.manageApiKeys}
               </Link>
-              <a href={RECIPE_PR_URL} className={buttonClass({ variant: "primary", size: "sm" })}>
+              <a href={PUBLIC_REPOSITORY_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
                 <GitPullRequest size={15} aria-hidden />
                 {copy.actions.submitRecipe}
               </a>
-              <a href={REQUEST_RECIPE_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
+              <Link to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
                 <MessageSquareText size={15} aria-hidden />
                 {copy.actions.requestRecipe}
-              </a>
+              </Link>
             </div>
           </div>
         </aside>
       </section>
+      )}
 
+      {section !== "overview" && (
       <section className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
         <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.builderTitle}</h2>
         <p className="mt-1 max-w-4xl text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.builderBody}</p>
@@ -958,16 +1346,17 @@ export default function CreatorHubPage() {
             <KeyRound size={15} aria-hidden />
             {copy.actions.manageApiKeys}
           </Link>
-          <a href={RECIPE_PR_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
+          <a href={PUBLIC_REPOSITORY_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
             <GitPullRequest size={15} aria-hidden />
             {copy.actions.submitRecipe}
           </a>
-          <a href={REQUEST_RECIPE_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
+          <Link to={CREATOR_RECIPE_REQUEST_LINK} className={buttonClass({ variant: "primary", size: "sm" })}>
             <MessageSquareText size={15} aria-hidden />
             {copy.actions.requestRecipe}
-          </a>
+          </Link>
         </div>
       </section>
+      )}
     </div>
   );
 }
