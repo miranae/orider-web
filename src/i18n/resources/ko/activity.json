@@ -44,6 +44,7 @@
     "loginBtn": "로그인",
     "waitHint": "분석 대기 — 버튼을 눌러 AI 구간 분석을 시작하세요.",
     "previewOnlyHint": "저장된 AI 요약을 표시 중입니다. 상세 구간 캐시가 없거나 아직 동기화되지 않았어요.",
+    "previewAuthHint": "저장된 AI 요약을 표시 중입니다. 상세 구간 분석을 다시 불러오려면 로그인 상태를 확인해 주세요.",
     "loginHint": "로그인하면 AI 구간 분석을 이용할 수 있어요.",
     "analyzing": "구간을 분석하고 있어요… (약 15~30초)",
     "errorPrefix": "분석 실패: {{error}}",
