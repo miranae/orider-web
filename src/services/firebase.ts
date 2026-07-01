@@ -4,6 +4,7 @@ import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
+import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 
 let app: FirebaseApp;
 let _auth: Auth;
@@ -11,15 +12,16 @@ let _firestore: Firestore;
 let _storage: FirebaseStorage;
 let _functions: Functions;
 
-/** main.tsx에서 렌더링 전 호출. .env 기반 config 사용 (호스팅과 백엔드가 다른 프로젝트이므로 init.json 미사용) */
+/** main.tsx에서 렌더링 전 호출. Hosting site별 runtime-config.json 기반 config 사용. */
 export async function initFirebase() {
+  const runtimeConfig = getRuntimeConfig();
   const config = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    apiKey: runtimeConfig.firebaseApiKey,
+    authDomain: runtimeConfig.firebaseAuthDomain,
+    projectId: runtimeConfig.firebaseProjectId,
+    storageBucket: runtimeConfig.firebaseStorageBucket,
+    messagingSenderId: runtimeConfig.firebaseMessagingSenderId,
+    appId: runtimeConfig.firebaseAppId,
   };
 
   // env 누락 시 SDK 의 모호한 "auth/invalid-api-key" 대신 명확한 에러로 즉시 실패.
@@ -30,13 +32,13 @@ export async function initFirebase() {
   if (missing.length > 0) {
     throw new Error(
       `Firebase config 누락: ${missing.join(", ")}. ` +
-        `VITE_FIREBASE_* 환경 변수가 빌드 시점에 주입되었는지 확인하세요.`,
+        `runtime-config.json 또는 VITE_FIREBASE_* fallback 주입을 확인하세요.`,
     );
   }
 
   app = initializeApp(config);
-  const appCheckSiteKey = import.meta.env.VITE_APPCHECK_RECAPTCHA_SITE_KEY;
-  if (appCheckSiteKey && import.meta.env.VITE_USE_EMULATORS !== 'true') {
+  const appCheckSiteKey = runtimeConfig.appCheckRecaptchaSiteKey;
+  if (appCheckSiteKey && !isEmulatorRuntime()) {
     initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
       isTokenAutoRefreshEnabled: true,
@@ -47,13 +49,13 @@ export async function initFirebase() {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
   _storage = getStorage(app);
-  _functions = getFunctions(app, import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION || "us-central1");
+  _functions = getFunctions(app, runtimeConfig.firebaseFunctionsRegion || "us-central1");
 
   // Analytics(gtag.js ~421kB)는 더 이상 init 경로에서 로드하지 않는다 — 콜드 첫 로드 대역을
   // LCP/폰트 등 임계 리소스에 양보하기 위해 main.tsx 가 idle 시점에 initAnalytics() 로 지연
   // 초기화한다. init 전 발생한 이벤트는 analytics.ts 의 큐가 보관 → init 시 flush(드롭 0).
 
-  if (import.meta.env.VITE_USE_EMULATORS === 'true') {
+  if (isEmulatorRuntime()) {
     connectAuthEmulator(_auth, 'http://localhost:9099', { disableWarnings: true });
     connectFirestoreEmulator(_firestore, 'localhost', 8080);
     connectFunctionsEmulator(_functions, 'localhost', 5001);
@@ -70,4 +72,3 @@ export const googleProvider = new GoogleAuthProvider();
 export function getFirebaseApp(): FirebaseApp | undefined {
   return app;
 }
-

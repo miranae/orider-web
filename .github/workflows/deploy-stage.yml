@@ -46,6 +46,8 @@ jobs:
         run: npm run check:deploy-config
       - name: Build
         run: npm run build
+      - name: Write stage runtime config
+        run: npm run write:runtime-config
       - name: Auth (Workload Identity Federation)
         id: auth
         uses: google-github-actions/auth@v3
@@ -83,3 +85,11 @@ jobs:
             echo "::error::stage가 방금 빌드한 번들을 서빙하지 않음"
             exit 1
           fi
+      - name: Package verified dist for production promotion
+        run: tar -czf "web-dist-${GITHUB_SHA}.tar.gz" dist
+      - name: Upload verified dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist-${{ github.sha }}
+          path: web-dist-${{ github.sha }}.tar.gz
+          retention-days: 90

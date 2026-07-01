@@ -12,6 +12,7 @@
  *   - main.tsx 에서 requestIdleCallback 으로 loadSentry() 호출
  *   - 어디서든 captureError(err) 호출 — 타이밍 무관
  */
+import { getRuntimeConfig } from "./runtimeConfig";
 
 type SentryModule = typeof import("@sentry/react");
 
@@ -20,8 +21,9 @@ let loadingPromise: Promise<SentryModule> | null = null;
 const pendingErrors: Array<{ error: unknown; tags?: Record<string, string>; extra?: Record<string, unknown> }> = [];
 
 function getInitOptions(Sentry: SentryModule) {
+  const config = getRuntimeConfig();
   return {
-    dsn: import.meta.env.VITE_SENTRY_DSN,
+    dsn: config.sentryDsn,
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration(),
@@ -29,8 +31,8 @@ function getInitOptions(Sentry: SentryModule) {
     tracesSampleRate: 0.1,
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 1.0,
-    environment: import.meta.env.MODE,
-    enabled: !!import.meta.env.VITE_SENTRY_DSN,
+    environment: config.appEnvironment,
+    enabled: !!config.sentryDsn,
   };
 }
 

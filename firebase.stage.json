@@ -2,7 +2,7 @@
   "hosting": {
     "site": "miranae-orider-g1-stage",
     "public": "dist",
-    "predeploy": "node scripts/predeploy-guard.mjs && node scripts/check-env.mjs",
+    "predeploy": "node scripts/predeploy-guard.mjs && node scripts/check-env.mjs && node scripts/write-runtime-config.mjs",
     "ignore": ["firebase.stage.json", "**/node_modules/**"],
     "headers": [
       {

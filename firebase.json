@@ -1,7 +1,7 @@
 {
   "hosting": {
     "public": "dist",
-    "predeploy": "node scripts/predeploy-guard.mjs && node scripts/check-env.mjs",
+    "predeploy": "node scripts/predeploy-guard.mjs && node scripts/check-env.mjs && node scripts/write-runtime-config.mjs",
     "ignore": ["firebase.json", "**/node_modules/**"],
     "headers": [
       {

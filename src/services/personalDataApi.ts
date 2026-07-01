@@ -1,6 +1,5 @@
 import { auth } from "./firebase";
-
-const API_BASE = (import.meta.env.VITE_ORIDER_PERSONAL_API_BASE || "").replace(/\/$/, "");
+import { getRuntimeConfig } from "./runtimeConfig";
 
 export type PersonalApiScope =
   | "profile:read"
@@ -29,8 +28,9 @@ export interface CreatedPersonalApiKey {
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await auth.currentUser?.getIdToken();
   if (!token) throw new Error("SIGN_IN_REQUIRED");
+  const apiBase = (getRuntimeConfig().personalApiBase || "").replace(/\/$/, "");
 
-  const response = await fetch(`${API_BASE}/api/v1${path}`, {
+  const response = await fetch(`${apiBase}/api/v1${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",

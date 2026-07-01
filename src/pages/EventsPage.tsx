@@ -8,7 +8,7 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign";
 import { decodePolyline, encodePolyline } from "../utils/polyline";
-import { MAPBOX_TOKEN } from "../utils/mapbox";
+import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { Chip, Text, buttonClass } from "../theme/components";
 
@@ -489,13 +489,14 @@ const COVER_BG: Record<EventStatus | "DEFAULT", string> = {
 
 /** Mapbox Static Images API URL — CF가 생성하는 mapImageUrl과 동일 스타일 */
 function buildMapboxStaticUrl(polyline: string): string | null {
-  if (!MAPBOX_TOKEN || !polyline) return null;
+  const mapboxToken = getMapboxToken();
+  if (!mapboxToken || !polyline) return null;
   try {
     const encoded = encodeURIComponent(polyline);
     return (
       `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/` +
       `path-3+FC5200-0.8(${encoded})/auto/400x288@2x` +
-      `?access_token=${MAPBOX_TOKEN}&padding=40`
+      `?access_token=${mapboxToken}&padding=40`
     );
   } catch {
     return null;

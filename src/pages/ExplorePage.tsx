@@ -7,7 +7,7 @@ import MapGL, { Source, Layer, Popup, useMap } from "react-map-gl/mapbox";
 import HeatmapLayer, { type HeatMode } from "../components/explore/HeatmapLayer";
 import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
-import { MAPBOX_TOKEN, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
+import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { decodePolyline } from "../utils/polyline";
 import { isImplausibleSegmentElevation } from "../utils/activitySanity";
 import { fetchStaticJson } from "../utils/staticJson";
@@ -372,6 +372,7 @@ const moduleCache = {
 };
 
 export default function ExplorePage() {
+  const mapboxToken = getMapboxToken();
   const { t } = useTranslation("segment");
   const navigate = useNavigate();
   const isMobile = useMobile();
@@ -772,7 +773,7 @@ export default function ExplorePage() {
               ))}
             </div>
             <MapGL
-              mapboxAccessToken={MAPBOX_TOKEN}
+              mapboxAccessToken={mapboxToken}
               mapStyle={MAP_STYLE}
               initialViewState={initialView}
               onLoad={(e) => applyKoreaCyclingStyle(e.target)}

@@ -7,6 +7,7 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { OriderThemeProvider } from "./theme";
 import { initFirebase } from "./services/firebase";
+import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
 import { captureError, loadSentry } from "./services/sentry";
@@ -63,12 +64,6 @@ if (typeof window !== "undefined") {
   });
 }
 
-if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-  (window as Window).requestIdleCallback?.(() => { void loadSentry(); }, { timeout: 2000 });
-} else {
-  setTimeout(() => { void loadSentry(); }, 0);
-}
-
 function mountApp() {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
@@ -88,6 +83,12 @@ function mountApp() {
   // Core Web Vitals 측정 시작 — 라이브러리가 페이지 lifecycle 보고 시점 자체 관리.
   // web_vitals 이벤트는 track() 큐를 거치므로 analytics 지연 init 전이어도 유실 없음.
   reportWebVitals();
+  // runtime-config.json 로드 이후 Sentry 를 초기화해야 stage/prod 별 DSN 이 정확히 반영된다.
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    (window as Window).requestIdleCallback?.(() => { void loadSentry(); }, { timeout: 2000 });
+  } else {
+    setTimeout(() => { void loadSentry(); }, 0);
+  }
   // Analytics(gtag.js ~421kB) 지연 초기화 — initFirebase 완료 후 idle 시점에 켜서 콜드
   // 첫 로드 대역을 LCP/폰트 등 임계 리소스에 양보. init 전 이벤트는 큐에서 flush.
   if (typeof window !== "undefined" && "requestIdleCallback" in window) {
@@ -97,7 +98,8 @@ function mountApp() {
   }
 }
 
-initFirebase()
+loadRuntimeConfig()
+  .then(initFirebase)
   .then(mountApp)
   .catch((err) => {
     captureError(err, { tags: { source: "firebase-init" } });

@@ -13,7 +13,7 @@ import type { Activity, ActivityStreams } from "@shared/types";
 
 import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
 import type { LngLatBoundsLike } from "mapbox-gl";
-import { MAPBOX_TOKEN, MAP_STYLE, applyKoreaCyclingStyle } from "../../utils/mapbox";
+import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../../utils/mapbox";
 import { decodeTrack } from "../../utils/polyline";
 import { getBounds } from "../../components/RouteMap";
 
@@ -29,6 +29,7 @@ const RIDER_COLORS = [
 ];
 
 export default function GroupRidePage() {
+  const mapboxToken = getMapboxToken();
   const { t } = useTranslation("group");
   const { groupId, rideId } = useParams();
   const { user } = useAuth();
@@ -401,7 +402,7 @@ export default function GroupRidePage() {
           {mapBounds && (
             <div className="mb-8 rounded-[var(--r-lg)] overflow-hidden h-80 sm:h-96">
               <Map
-                mapboxAccessToken={MAPBOX_TOKEN}
+                mapboxAccessToken={mapboxToken}
                 mapStyle={MAP_STYLE}
                 initialViewState={{ bounds: mapBounds, fitBoundsOptions: { padding: 30 } }}
                 onLoad={(e) => applyKoreaCyclingStyle(e.target)}

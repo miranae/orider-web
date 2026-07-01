@@ -9,6 +9,26 @@ tagged production release.
 - Deploy workflow: `.github/workflows/deploy-stage.yml`
 - Firebase config: `firebase.stage.json`
 
+## Promotion Model
+
+The stage workflow is the only workflow that builds the Vite bundle for a
+release commit. After the stage deploy is verified, it uploads the verified
+`dist` directory as a GitHub Actions artifact named `web-dist-<commit-sha>`.
+
+Production deploys do not run `npm run build`. A production tag must point at a
+commit that already has a successful stage deployment. The production workflow
+downloads that verified artifact, rewrites only `dist/runtime-config.json` with
+production browser-safe config, and deploys the same hashed JS/CSS assets to
+Firebase Hosting production.
+
+This keeps rollbacks and releases fast while preserving the stage gate:
+
+- Code and hashed assets are promoted from the exact stage-verified artifact.
+- Stage and production can still use different Firebase, Strava, Mapbox, App
+  Check, and endpoint settings through `runtime-config.json`.
+- If no successful stage artifact exists for the tag commit, production deploy
+  fails before touching Firebase Hosting.
+
 ## GitHub Environment Values
 
 The stage workflow must use `STAGE_*` values only. Do not point the stage
@@ -74,7 +94,7 @@ Mapbox:
 
 ## Current Scope
 
-The current stage environment separates frontend Hosting and GitHub deployment
-configuration. It still targets the same Firebase project and backend services
+Stage separates frontend Hosting, GitHub deployment configuration, and runtime
+browser config. It still targets the same Firebase project and backend services
 unless the `STAGE_*` values are changed to a separate Firebase project and
 separate integration apps.
