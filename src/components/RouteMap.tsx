@@ -41,6 +41,9 @@ interface RouteMapProps {
   pixelRatio?: number;
   /** 초기 fitBounds 패딩(px). 기본 20. 피드 썸네일은 라인이 가장자리에 붙지 않게 더 키운다. */
   fitPadding?: number;
+  /** Mapbox 렌더링이 실패했을 때 보여줄 저장된 정적 지도 이미지 */
+  fallbackImageUrl?: string | null;
+  fallbackImageAlt?: string;
 }
 
 function toGeoJSON(positions: [number, number][]): GeoJSON.Feature<GeoJSON.LineString> {
@@ -169,15 +172,22 @@ export default function RouteMap({
   preserveDrawingBuffer,
   pixelRatio,
   fitPadding = 20,
+  fallbackImageUrl,
+  fallbackImageAlt,
 }: RouteMapProps) {
   const { t } = useTranslation("common");
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoMarker | null>(null);
+  const [mapFailed, setMapFailed] = useState(false);
 
   const positions: [number, number][] = useMemo(() => {
     if (latlng && latlng.length > 0) return latlng;
     if (polyline && polyline.length > 0) return decodeTrack(polyline) as [number, number][];
     return [];
   }, [polyline, latlng]);
+
+  useEffect(() => {
+    setMapFailed(false);
+  }, [polyline, latlng, fallbackImageUrl]);
 
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
@@ -216,9 +226,23 @@ export default function RouteMap({
   }
 
   const bounds = getBounds(positions);
+  const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
+
+  if (fallbackImageUrl && (!MAPBOX_TOKEN || mapFailed)) {
+    return (
+      <div className={containerClass} style={{ background: "var(--bg-1)" }}>
+        <img
+          src={fallbackImageUrl}
+          alt={fallbackImageAlt ?? t("map.routeImageAlt")}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className={`${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`}>
+    <div className={containerClass}>
       <Map
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={MAP_STYLE}
@@ -232,6 +256,7 @@ export default function RouteMap({
           }
           if (onLoad) { e.target.once("idle", onLoad); }
         }}
+        onError={() => setMapFailed(true)}
         interactive={interactive}
         scrollZoom={interactive}
         dragPan={interactive}

@@ -202,7 +202,8 @@
   },
   "map": {
     "placeholder": "Map",
-    "noRouteData": "No route data"
+    "noRouteData": "No route data",
+    "routeImageAlt": "Activity route map"
   },
   "designTheme": {
     "default": "Default",
