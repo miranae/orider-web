@@ -59,6 +59,22 @@ Public PRs are expected to pass these required checks:
 
 These gates are intentionally fork-safe: they do not use repository secrets, deploy, or run privileged `pull_request_target` code.
 
+## Maintainer Merge Flow
+
+Maintainers should use the local merge gate instead of calling `gh pr merge` directly:
+
+```bash
+scripts/merge-pr.sh <PR_NUMBER>
+```
+
+The script runs local lint/quality/test/build checks, local AI code review, GitHub checks, and GitHub `reviewDecision` inspection before squash merging. Use explicit options for dry runs or exceptional bypasses:
+
+```bash
+scripts/merge-pr.sh <PR_NUMBER> --no-merge
+scripts/merge-pr.sh <PR_NUMBER> --no-review
+scripts/merge-pr.sh <PR_NUMBER> --require-github-review
+```
+
 For forks:
 
 ```bash
