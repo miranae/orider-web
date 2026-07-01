@@ -503,7 +503,7 @@ export default function CreatorHubPage() {
   const visibleItems = items.filter((item) => {
     if (tab === "featured") return true;
     if (tab === "recipes") return item.id !== "ai-diary";
-    return item.id === "ai-diary" || item.id === "ride-widget";
+    return item.id === "ai-diary" || item.id === "ride-story" || item.id === "ride-widget";
   });
 
   const chartWeeks = useMemo(() => {
