@@ -1,67 +1,143 @@
 # Recipe: Weekly Load Report
 
-## Showcase Summary
+## Creator Hub Summary
 
-Send a Monday-ready training load digest with distance, time, activity count, and load trend.
+Turn the last 7 days of training into a premium-style workout report with KPI cards, a load chart, week-over-week change, key sessions, and next actions.
 
-## What It Builds
+## What External Developers Build
 
-This recipe turns recent Orider activities into a weekly training report. It helps riders see whether the current week is building, flat, or too aggressive without exposing individual activity routes.
+This recipe is personal automation that runs with a rider-created Personal Data API key. It is not a server job hosted by Orider unless Orider explicitly ships an in-product version.
 
-The result can be shown in Creator Hub, copied as a share card, or emailed to the rider's own account email.
+Recommended outputs:
 
-## Required Data
+- `weekly-load-report.html`: private report for the rider,
+- `weekly-load-summary.json`: aggregate data for Notion, Slack, n8n, or a personal dashboard,
+- `weekly-load-public-summary.txt`: public-safe summary with routes and activity names removed.
 
-| Data | Scope | Notes |
-|---|---|---|
-| Activity summaries | `activities:read` | Distance, moving time, elevation, TSS/load. |
-| Fitness summary | `fitness:read` | Optional; useful for CTL/ATL/readiness framing. |
+## Required Scopes
 
-## Email Result
+| Scope | Required | Purpose |
+|---|---:|---|
+| `activities:read` | Required | Recent activity list, distance, time, elevation, and TSS/load aggregation. |
+| `fitness:read` | Recommended | CTL/ATL/TSB and readiness context. |
+| `streams:read` | Optional | Private mini-route/elevation thumbnails in the rider's own HTML report. |
 
-The email contains only aggregate values:
+The default report should use only `activities:read` and `fitness:read`. Route/map visuals should be added only when the rider explicitly enables them.
 
-- number of sessions,
-- total distance,
-- total moving time,
-- total load,
-- a simple next-action suggestion.
+## Report Sections
 
-It does not include route geometry, exact start locations, activity titles, or raw streams.
+1. Top readout
+   - weekly state: `light week`, `building`, or `high load`,
+   - next action: recover, hold Z2, add one focused stimulus, and so on.
 
-## Example Flow
+2. KPI cards
+   - last 7 days load,
+   - load change versus the previous 7 days,
+   - total distance,
+   - total moving time,
+   - session count and active days.
 
-```ts
-const activities = await fetch("/api/v1/activities?after=2026-06-01", {
-  headers: { "X-API-Key": personalApiKey },
-}).then((res) => res.json());
+3. Charts
+   - 7-day daily load bar chart,
+   - distance/time/load comparison versus the previous 7 days,
+   - optional CTL/ATL/TSB snapshot.
 
-const week = summarizeWeek(activities.data);
-const state = week.tss >= 450 ? "high load" : week.tss >= 220 ? "building" : "light";
+4. Key sessions
+   - longest session,
+   - highest-load session,
+   - optional private-only map/elevation thumbnail.
+
+5. Shareable summary
+   - no exact start/end location, route geometry, activity title, or raw heart-rate/power stream,
+   - example: `3 sessions · 125 km · 5 h · load 97. Check recovery before the next hard session.`
+
+## Run The Starter Example
+
+The starter script lives at [examples/recipes/weekly-load-report/weekly-load-report.mjs](../../examples/recipes/weekly-load-report/weekly-load-report.mjs).
+
+```bash
+ORIDER_API_KEY=orid_xxx \
+ORIDER_API_BASE=https://orider.co.kr/api/v1 \
+node examples/recipes/weekly-load-report/weekly-load-report.mjs
 ```
 
-## Example Output
+Outputs:
 
-```txt
-This week looks like a building week.
+- `weekly-load-report.html`
+- `weekly-load-summary.json`
+- `weekly-load-public-summary.txt`
 
-- 4 sessions
-- 188 km
-- 7 h
-- 344 load
+To include private mini-route visuals, create a key with `streams:read` and opt in explicitly:
 
-Next action: keep the rhythm, but check recovery before the next hard session.
+```bash
+ORIDER_INCLUDE_PRIVATE_MAPS=true \
+ORIDER_API_KEY=orid_xxx \
+node examples/recipes/weekly-load-report/weekly-load-report.mjs
 ```
 
-## Shareable Result
+Use that option only for local/private HTML reports. Do not use it for community posts, team Slack channels, or public Notion pages.
 
-- Public-safe chart card.
-- Email digest to self.
-- Community post with aggregate stats only.
+## n8n Shape
+
+1. Cron node: Monday 08:00.
+2. HTTP Request node: `GET /api/v1/activities?limit=100`.
+3. HTTP Request node: `GET /api/v1/fitness/summary`.
+4. Function node: aggregate last 7 days and previous 7 days, then build load chart data.
+5. HTML or Markdown node: fill the report template.
+6. Email/Notion/Slack node:
+   - Email to self: private report allowed,
+   - Notion: aggregate values and reflection only,
+   - Slack DM: summary and next action only.
+
+## GitHub Actions Shape
+
+Use this only in a private repository. Never put `ORIDER_API_KEY` in a public repository.
+
+```yaml
+name: Weekly Load Report
+
+on:
+  schedule:
+    - cron: "0 23 * * 0" # Monday 08:00 KST
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node examples/recipes/weekly-load-report/weekly-load-report.mjs
+        env:
+          ORIDER_API_KEY: ${{ secrets.ORIDER_API_KEY }}
+          ORIDER_API_BASE: https://orider.co.kr/api/v1
+```
+
+## Privacy Defaults
+
+- Send aggregates first.
+- Exclude activity names by default because they can reveal routines.
+- Do not include route geometry, stream lat/lng, or start/end locations in public outputs.
+- Use map/route thumbnails only in private reports, and remove them before sharing.
+- Recurring email requires a separate opt-in, unsubscribe path, and frequency controls.
+
+## Needs Confirmation
+
+The documented public Personal Data API activity DTO does not currently guarantee a stable `mapImageUrl` or finished thumbnail URL. External developers should choose one of these paths:
+
+- default: aggregate charts only,
+- private option: read owned streams with `streams:read` and draw a local mini-route in the private HTML report,
+- future API: use a documented redacted field such as `publicSafeMapThumbnailUrl` if Orider adds it later.
+
+Do not invent fields that are not documented.
 
 ## Review Checklist
 
-- [x] Aggregates before sharing.
-- [x] Avoids precise route and start location.
-- [x] Can run as a manual email send.
-- [ ] Recurring email requires opt-in and unsubscribe.
+- [ ] Required scopes are minimal.
+- [ ] Public output has no route geometry or start/end location.
+- [ ] API keys are absent from code, logs, screenshots, and PRs.
+- [ ] Automation frequency and retry behavior are documented.
+- [ ] Private report and public summary are separated.
+- [ ] Map/thumbnail usage explains `streams:read` and public-sharing limits.

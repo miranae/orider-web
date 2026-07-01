@@ -197,7 +197,7 @@ Recommended recipe ideas:
 - "Warn me when three hard days happen back to back."
 - "Email my weekly load report to myself every Monday after I opt in."
 
-See [Personal Data Recipes](recipes/personal-data-en.md) for a contributor-facing template.
+See [Personal Data Recipes](recipes/personal-data-en.md) for contributor-facing templates. Use [Report Recipe Template](recipes/report-template-en.md) for premium-style analysis reports, and see the runnable [Weekly Load Report example](../examples/recipes/weekly-load-report).
 
 ## Result Sharing
 

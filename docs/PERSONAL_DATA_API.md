@@ -132,7 +132,7 @@ Personal Data API는 server-side enforcement가 필수입니다. 프론트엔드
 - long ride마다 Notion page 만들기
 - hard day가 3일 연속이면 경고하기
 
-템플릿은 [recipes/personal-data.md](recipes/personal-data.md)를 보세요.
+템플릿은 [recipes/personal-data.md](recipes/personal-data.md)를 보세요. 리포트형 recipe는 [recipes/report-template.md](recipes/report-template.md)를 기준으로 작성하고, 실행 가능한 예제는 [examples/recipes/weekly-load-report](../examples/recipes/weekly-load-report)를 참고하세요.
 
 ## 결과 공유
 
