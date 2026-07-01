@@ -37,6 +37,17 @@ async function apiGet(path) {
   return payload.data;
 }
 
+async function apiText(path) {
+  const res = await fetch(`${apiBase}${path}`, {
+    headers: { "X-API-Key": apiKey },
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(text || `HTTP ${res.status} ${path}`);
+  }
+  return text;
+}
+
 function readActivityTimeMs(activity) {
   const start = typeof activity.startTime === "number" ? activity.startTime : Date.parse(activity.startTime);
   return Number.isFinite(start) ? start : 0;
@@ -152,38 +163,6 @@ function renderBarChart(bars) {
   return `<svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Daily load chart">${rects}</svg>`;
 }
 
-function normalizePoint(lat, lon, bounds, width, height) {
-  const x = ((lon - bounds.minLon) / Math.max(bounds.maxLon - bounds.minLon, 0.000001)) * width;
-  const y = height - ((lat - bounds.minLat) / Math.max(bounds.maxLat - bounds.minLat, 0.000001)) * height;
-  return [Number.isFinite(x) ? x : width / 2, Number.isFinite(y) ? y : height / 2];
-}
-
-function renderPrivateRouteSvg(latlng) {
-  if (!Array.isArray(latlng) || latlng.length < 2) return "";
-  const points = latlng
-    .filter((pair) => Array.isArray(pair) && Number.isFinite(pair[0]) && Number.isFinite(pair[1]))
-    .slice(0, 500);
-  if (points.length < 2) return "";
-  const bounds = points.reduce((acc, [lat, lon]) => ({
-    minLat: Math.min(acc.minLat, lat),
-    maxLat: Math.max(acc.maxLat, lat),
-    minLon: Math.min(acc.minLon, lon),
-    maxLon: Math.max(acc.maxLon, lon),
-  }), { minLat: Infinity, maxLat: -Infinity, minLon: Infinity, maxLon: -Infinity });
-  const width = 420;
-  const height = 180;
-  const d = points.map(([lat, lon], index) => {
-    const [x, y] = normalizePoint(lat, lon, bounds, width, height);
-    return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-  }).join(" ");
-  return `
-    <svg viewBox="0 0 ${width} ${height}" width="100%" role="img" aria-label="Private route thumbnail">
-      <rect width="${width}" height="${height}" rx="16" fill="#f3f4f6" />
-      <path d="${d}" fill="none" stroke="#65a30d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-    </svg>
-  `;
-}
-
 async function loadPrivateThumbnails(activities) {
   if (!includePrivateMaps) return [];
   const keySessions = [...activities]
@@ -192,8 +171,7 @@ async function loadPrivateThumbnails(activities) {
   const result = [];
   for (const activity of keySessions) {
     try {
-      const streams = await apiGet(`/activities/${encodeURIComponent(activity.id)}/streams`);
-      const svg = renderPrivateRouteSvg(streams?.latlng);
+      const svg = await apiText(`/activities/${encodeURIComponent(activity.id)}/thumbnail.svg`);
       if (svg) result.push({ activity, svg });
     } catch (err) {
       console.warn(`Skipping private thumbnail for ${activity.id}: ${err.message}`);

@@ -34,6 +34,7 @@ GitHub는 개발자 기여 채널입니다. 라이더가 recipe를 발견하고 
 | `GET /api/v1/me` | `profile:read` | owner-only read |
 | `GET /api/v1/activities` | `activities:read` | owner-only read |
 | `GET /api/v1/activities/{activityId}` | `activities:read` | owner-only read |
+| `GET /api/v1/activities/{activityId}/thumbnail.svg` | `streams:read` | owner-only route thumbnail SVG |
 | `GET /api/v1/activities/{activityId}/streams` | `streams:read` | owner-only read |
 | `GET /api/v1/fitness/summary` | `fitness:read` | owner-only read |
 

@@ -54,6 +54,7 @@ The first live surface is intentionally small:
 | `GET /api/v1/me` | `profile:read` | Live owner-only read |
 | `GET /api/v1/activities` | `activities:read` | Live owner-only read |
 | `GET /api/v1/activities/{activityId}` | `activities:read` | Live owner-only read |
+| `GET /api/v1/activities/{activityId}/thumbnail.svg` | `streams:read` | Live owner-only route thumbnail SVG |
 | `GET /api/v1/activities/{activityId}/streams` | `streams:read` | Live owner-only read |
 | `GET /api/v1/fitness/summary` | `fitness:read` | Live owner-only read |
 
@@ -122,6 +123,7 @@ These endpoint shapes are intentionally small. They are the first public contrac
 | `GET /api/v1/me` | `profile:read` | Basic signed-in rider profile. |
 | `GET /api/v1/activities` | `activities:read` | Activity list for the token owner. |
 | `GET /api/v1/activities/{activityId}` | `activities:read` | Activity detail if owned by the token owner. |
+| `GET /api/v1/activities/{activityId}/thumbnail.svg` | `streams:read` | Normalized route thumbnail SVG for private reports. |
 | `GET /api/v1/activities/{activityId}/streams` | `streams:read` | Stream arrays for an owned activity. |
 | `GET /api/v1/fitness/summary` | `fitness:read` | Current training load and summary metrics. |
 

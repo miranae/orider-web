@@ -20,7 +20,7 @@ Recommended outputs:
 |---|---:|---|
 | `activities:read` | Required | Recent activity list, distance, time, elevation, and TSS/load aggregation. |
 | `fitness:read` | Recommended | CTL/ATL/TSB and readiness context. |
-| `streams:read` | Optional | Private mini-route/elevation thumbnails in the rider's own HTML report. |
+| `streams:read` | Optional | Add `GET /api/v1/activities/{activityId}/thumbnail.svg` route thumbnails to the rider's private HTML report. |
 
 The default report should use only `activities:read` and `fitness:read`. Route/map visuals should be added only when the rider explicitly enables them.
 
@@ -67,7 +67,7 @@ Outputs:
 - `weekly-load-summary.json`
 - `weekly-load-public-summary.txt`
 
-To include private mini-route visuals, create a key with `streams:read` and opt in explicitly:
+To include private mini-route visuals, create a key with `streams:read` and opt in explicitly. The example calls `GET /api/v1/activities/{activityId}/thumbnail.svg` and embeds the normalized SVG, not raw coordinates:
 
 ```bash
 ORIDER_INCLUDE_PRIVATE_MAPS=true \
@@ -125,10 +125,10 @@ jobs:
 
 ## Needs Confirmation
 
-The documented public Personal Data API activity DTO does not currently guarantee a stable `mapImageUrl` or finished thumbnail URL. External developers should choose one of these paths:
+The documented public Personal Data API activity DTO does not currently guarantee a stable `mapImageUrl` or finished map image URL. External developers should choose one of these paths:
 
 - default: aggregate charts only,
-- private option: read owned streams with `streams:read` and draw a local mini-route in the private HTML report,
+- private option: call `GET /api/v1/activities/{activityId}/thumbnail.svg` with `streams:read` and embed the normalized SVG thumbnail,
 - future API: use a documented redacted field such as `publicSafeMapThumbnailUrl` if Orider adds it later.
 
 Do not invent fields that are not documented.
