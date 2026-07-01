@@ -24,6 +24,7 @@ interface RideStoryActivityOption {
   distanceKm: number;
   durationMin: number;
   elevationGainM: number;
+  startTime: number;
   mapImageUrl: string | null;
   thumbnailTrack: string | null;
   photos: RideStoryPhotoOption[];
@@ -104,12 +105,22 @@ function formatDuration(minutes: number) {
 }
 
 async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
-  const activitySnap = await getDocs(query(
-    collection(firestore, "activities"),
-    where("userId", "==", userId),
-    orderBy("startTime", "desc"),
-    firestoreLimit(12),
-  ));
+  const activitiesRef = collection(firestore, "activities");
+  let activitySnap;
+  try {
+    activitySnap = await getDocs(query(
+      activitiesRef,
+      where("userId", "==", userId),
+      orderBy("startTime", "desc"),
+      firestoreLimit(12),
+    ));
+  } catch {
+    activitySnap = await getDocs(query(
+      activitiesRef,
+      where("userId", "==", userId),
+      firestoreLimit(12),
+    ));
+  }
   const activities = await Promise.all(activitySnap.docs.map(async (activityDoc) => {
     const data = activityDoc.data() as Record<string, unknown>;
     if (data.deletedAt) return null;
@@ -134,6 +145,7 @@ async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
       distanceKm: Math.round((safeNumber(summary.distance) || safeNumber(data.distance)) / 100) / 10,
       durationMin: activityDurationMin(data),
       elevationGainM: Math.round(safeNumber(summary.elevationGain) || safeNumber(data.elevationGain)),
+      startTime: safeNumber(data.startTime),
       mapImageUrl: safeString(data.mapImageUrl) || null,
       thumbnailTrack: safeString(data.thumbnailTrack) || null,
       photos,
@@ -141,6 +153,7 @@ async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
   }));
   return activities
     .filter((activity): activity is RideStoryActivityOption => Boolean(activity))
+    .sort((a, b) => b.startTime - a.startTime)
     .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0));
 }
 
