@@ -1,0 +1,49 @@
+{
+  "hosting": {
+    "site": "miranae-orider-g1-stage",
+    "public": "dist",
+    "predeploy": "node scripts/predeploy-guard.mjs && node scripts/check-env.mjs",
+    "ignore": ["firebase.stage.json", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "/.well-known/apple-app-site-association",
+        "headers": [{ "key": "Content-Type", "value": "application/json" }]
+      },
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Cross-Origin-Opener-Policy", "value": "unsafe-none" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self' https://www.googletagmanager.com https://apis.google.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.cloudfunctions.net https://*.google.com https://*.gstatic.com https://firebasestorage.googleapis.com https://storage.googleapis.com https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com https://*.sentry.io https://www.google-analytics.com https://region1.google-analytics.com; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' https://*.firebaseapp.com https://www.google.com https://www.recaptcha.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+          }
+        ]
+      },
+      {
+        "source": "**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "source": "**/*.@(js|css|woff2|woff|ttf|otf|png|jpg|jpeg|gif|svg|webp|avif|ico)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      }
+    ],
+    "redirects": [
+      { "source": "/community", "destination": "/ko/community-guide/", "type": 302 },
+      { "source": "/platform", "destination": "/ko/community-guide/", "type": 302 },
+      { "source": "/ko/community", "destination": "/ko/community-guide/", "type": 302 },
+      { "source": "/ko/platform", "destination": "/ko/community-guide/", "type": 302 },
+      { "source": "/en/community", "destination": "/en/community-guide/", "type": 302 },
+      { "source": "/en/platform", "destination": "/en/community-guide/", "type": 302 }
+    ],
+    "rewrites": [
+      { "source": "/api/v1/**", "function": { "functionId": "api", "region": "asia-northeast3" } },
+      { "source": "/api/strava/webhook", "function": { "functionId": "stravaWebhook", "region": "asia-northeast3" } },
+      { "source": "/og-thumbnail/**", "function": { "functionId": "ogThumbnail", "region": "asia-northeast3" } },
+      { "source": "/:lang/design-system.html", "destination": "/design-system.html" },
+      { "source": "**", "destination": "/index.html" }
+    ]
+  }
+}
