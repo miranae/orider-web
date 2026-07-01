@@ -201,7 +201,7 @@ export default function Layout() {
             <Link to="/terms" className="transition-colors hover:opacity-80">{tCommon("footer.terms")}</Link>
             <Link to="/privacy" className="transition-colors hover:opacity-80">{tCommon("footer.privacy")}</Link>
             <Link to="/community" className="transition-colors hover:opacity-80">{tCommon("footer.community")}</Link>
-            <a href="mailto:orider.app@gmail.com" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</a>
+            <Link to="/board?type=inquiry" className="transition-colors hover:opacity-80">{tCommon("footer.contact")}</Link>
           </div>
         </div>
       </footer>
