@@ -7,6 +7,7 @@ import {
   BookOpen,
   Bot,
   Clipboard,
+  ExternalLink,
   FileText,
   Flag,
   GitPullRequest,
@@ -86,6 +87,8 @@ const kindTone: Record<CreatorRecipeKind, string> = {
 const marketStageIcons: LucideIcon[] = [BookOpen, ShieldCheck, KeyRound, LineChart];
 
 const PUBLIC_REPOSITORY_URL = "https://github.com/miranae/orider-web";
+const API_DOCS_URL = "/api/v1/docs";
+const OPENAPI_YAML_URL = "/api/v1/docs/openapi.yaml";
 const CREATOR_RECIPE_REQUEST_LINK = {
   pathname: "/board/write",
   search: "?type=inquiry&template=creator-recipe",
@@ -411,6 +414,14 @@ function buildCopy(language: string) {
         ko ? "3. 실행 주기 선택: 수동, 매일 1회, 매주 월요일, 라이딩 완료 후" : "3. Choose a trigger: manual, daily, Monday morning, or after a ride",
         ko ? "4. 공유 전 위치·민감 지표를 집계하거나 제거하고, 필요하면 API key를 폐기" : "4. Aggregate or remove sensitive data before sharing, and revoke the key when needed",
       ],
+    },
+    apiDocs: {
+      title: ko ? "API 계약 바로 확인" : "API contract",
+      body: ko
+        ? "레시피를 구현할 때 endpoint path, request/response schema, content type, error code는 md 문서가 아니라 Swagger/OpenAPI에서 확인하세요."
+        : "When implementing recipes, confirm endpoint paths, request/response schemas, content types, and error codes in Swagger/OpenAPI instead of markdown docs.",
+      swagger: ko ? "Swagger UI 열기" : "Open Swagger UI",
+      yaml: ko ? "OpenAPI YAML 보기" : "View OpenAPI YAML",
     },
     weekly: {
       title: ko ? "바로 써보기: 주간 부하 차트" : "Try now: weekly load chart",
@@ -1084,6 +1095,23 @@ export default function CreatorHubPage() {
         </div>
 
         <aside className="space-y-4">
+          <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+            <div className="flex items-center gap-2">
+              <FileText size={18} style={{ color: "var(--aqua)" }} />
+              <h2 className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.apiDocs.title}</h2>
+            </div>
+            <p className="mt-2 text-[length:var(--fs-sm)] leading-5" style={{ color: "var(--ink-3)" }}>{copy.apiDocs.body}</p>
+            <div className="mt-4 grid gap-2 min-[420px]:grid-cols-2 lg:grid-cols-1">
+              <a href={API_DOCS_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
+                <ExternalLink size={15} aria-hidden />
+                {copy.apiDocs.swagger}
+              </a>
+              <a href={OPENAPI_YAML_URL} className={buttonClass({ variant: "secondary", size: "sm" })}>
+                <FileText size={15} aria-hidden />
+                {copy.apiDocs.yaml}
+              </a>
+            </div>
+          </div>
           <div ref={shareSectionRef} className="scroll-mt-28 rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
             <div className="flex items-center gap-2">
               <Bell size={18} style={{ color: "var(--amber)" }} />
