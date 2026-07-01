@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
@@ -30,6 +31,25 @@ const FEED_PAGE_SIZE = 10;
 // 첫 카드 노출을 앞당기기 위해 첫 쿼리는 접힘 영역에 필요한 카드만 가져오고,
 // 나머지 첫 페이지는 백그라운드에서 이어 붙인다.
 const FIRST_FEED_CHUNK_SIZE = 3;
+
+async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity[]> {
+  const missingProfileImageUserIds = Array.from(
+    new Set(items.filter((activity) => !activity.profileImage).map((activity) => activity.userId)),
+  );
+  if (missingProfileImageUserIds.length === 0) return items;
+
+  try {
+    const profiles = await getPublicUserProfiles(missingProfileImageUserIds);
+    return items.map((activity) => {
+      if (activity.profileImage) return activity;
+      const photoURL = profiles.get(activity.userId)?.photoURL;
+      return photoURL ? { ...activity, profileImage: photoURL } : activity;
+    });
+  } catch (err) {
+    logClientError("useActivities.profileImages", err, { userCount: missingProfileImageUserIds.length });
+    return items;
+  }
+}
 
 export function useActivities() {
   const { user } = useAuth();
@@ -96,9 +116,10 @@ export function useActivities() {
     const items = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Activity)
       .filter((a) => a.summary != null);
+    const hydratedItems = await hydrateActivityProfileImages(items);
 
     return {
-      items,
+      items: hydratedItems,
       last: snap.docs[snap.docs.length - 1] ?? null,
       hasMore: snap.docs.length === pageSize,
     };
@@ -375,7 +396,7 @@ async function fetchActivitySearchResults(
     }
   }
 
-  return merged;
+  return hydrateActivityProfileImages(merged);
 }
 
 export function useActivitySearch() {
