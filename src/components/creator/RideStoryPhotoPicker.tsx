@@ -51,8 +51,8 @@ function copyFor(language: string) {
   return {
     title: ko ? "Ride Story 사진 선택" : "Choose a Ride Story photo",
     body: ko
-      ? "포스터에 담을 활동과 사진을 고르세요. 사진이 없거나 사진을 쓰고 싶지 않으면 경로가 중심인 포스터로 보낼 수 있습니다."
-      : "Choose the activity and photo for the poster. If there is no photo, or you prefer not to use one, send a route-focused poster.",
+      ? "포스터에 담을 활동과 사진을 고르세요. 사진을 쓰면 우측 하단에 경로를 함께 얹고, 사진이 없으면 경로가 중심인 포스터로 보낼 수 있습니다."
+      : "Choose the activity and photo for the poster. Photo posters include the route in the bottom-right corner; without a photo, send a route-focused poster.",
     loading: ko ? "최근 활동과 사진을 불러오는 중" : "Loading recent rides and photos",
     noOptions: ko ? "최근 활동을 찾지 못했습니다." : "No recent activities found.",
     noPhotos: ko ? "경로 포스터 선택" : "Use route poster",
@@ -391,7 +391,7 @@ function RideStoryActivityRow({
                   className="aspect-square overflow-hidden rounded-[var(--r-md)] border-2"
                   style={{ borderColor: selected ? "var(--lime)" : "var(--line-soft)", background: "var(--bg-1)" }}
                 >
-                  <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <PhotoPosterPreview photo={photo} activity={activity} routeLabel={copy.routePreview} />
                 </button>
               );
             })}
@@ -417,6 +417,28 @@ function RideStoryActivityRow({
         </div>
       </div>
     </section>
+  );
+}
+
+function PhotoPosterPreview({ photo, activity, routeLabel }: { photo: RideStoryPhotoOption; activity: RideStoryActivityOption; routeLabel: string }) {
+  const routePath = buildRouteSvgPath(activity.thumbnailTrack);
+  return (
+    <span className="relative block h-full w-full">
+      <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+      {routePath && (
+        <span
+          data-testid="ride-story-photo-route-inset"
+          className="absolute bottom-1.5 right-1.5 block h-[38%] w-[46%] overflow-hidden rounded-[var(--r-sm)] border shadow-lg"
+          style={{ background: "color-mix(in srgb, var(--bg-0) 78%, transparent)", borderColor: "color-mix(in srgb, var(--lime) 45%, transparent)" }}
+        >
+          <svg viewBox="0 0 240 180" className="block h-full w-full" aria-hidden="true" aria-label={routeLabel}>
+            <rect width="240" height="180" fill="transparent" />
+            <path d={routePath} fill="none" stroke="color-mix(in srgb, var(--lime) 24%, transparent)" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={routePath} fill="none" stroke="var(--lime)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      )}
+    </span>
   );
 }
 

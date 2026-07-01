@@ -40,6 +40,7 @@ describe("RideStoryPhotoPicker", () => {
     expect(await screen.findByText("한강 야간 라이딩")).toBeInTheDocument();
     expect(screen.getByText("경로 미리보기")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "경로 미리보기" })).toBeInTheDocument();
+    expect(screen.getByTestId("ride-story-photo-route-inset")).toBeInTheDocument();
 
     const routePosterButton = screen.getByRole("button", { name: /경로 포스터 선택/ });
     const photoButton = screen.getByRole("button", { name: /한강 야간 라이딩 사진 1/ });
@@ -88,6 +89,7 @@ describe("RideStoryPhotoPicker", () => {
 
     const uploadedPhoto = await screen.findByRole("button", { name: /남산 업힐 사진 1/ });
     expect(uploadedPhoto).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("ride-story-photo-route-inset")).toBeInTheDocument();
     expect(mockSetDoc).toHaveBeenCalledWith(
       expect.objectContaining({ path: expect.stringMatching(/^activity_photos\/ride-2\/photos\//) }),
       expect.objectContaining({
