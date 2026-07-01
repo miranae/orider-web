@@ -5,23 +5,52 @@
  * 2026-05-13: env 누락된 채 빌드되어 `apiKey:void 0` 가 번들에 박혀 프로덕션이 다운된
  * 사고 (Firebase: auth/invalid-api-key) 가 있었음. 빌드 시 침묵으로 통과하지 않도록 가드.
  *
- * Vite 의 loadEnv 를 그대로 사용해 빌드 단계와 동일한 우선순위로 (.env, .env.<mode>,
- * process.env) 검사. 누락 시 명확한 메시지와 함께 비-제로 종료.
+ * Vite 와 같은 우선순위로 (.env, .env.<mode>, process.env) 검사. 누락 시
+ * 명확한 메시지와 함께 비-제로 종료. Firebase Hosting predeploy에서도 의존성
+ * 설치 없이 실행될 수 있도록 Node 기본 모듈만 사용한다.
  *
  * 호출 위치:
  *   - web/package.json `build` 스크립트
  *   - firebase.json hosting `predeploy`
  */
 
-import { loadEnv } from "vite";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envDir = resolve(__dirname, "..");
 const mode = process.env.VITE_MODE || process.env.MODE || "production";
 
-const env = loadEnv(mode, envDir, "");
+function parseEnvFile(path) {
+  if (!existsSync(path)) return {};
+  const result = {};
+  const body = readFileSync(path, "utf8");
+  for (const rawLine of body.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const match = line.match(/^([\w.-]+)\s*=\s*(.*)$/);
+    if (!match) continue;
+    const [, key, rawValue] = match;
+    let value = rawValue.trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    result[key] = value;
+  }
+  return result;
+}
+
+const env = {
+  ...parseEnvFile(resolve(envDir, ".env")),
+  ...parseEnvFile(resolve(envDir, ".env.local")),
+  ...parseEnvFile(resolve(envDir, `.env.${mode}`)),
+  ...parseEnvFile(resolve(envDir, `.env.${mode}.local`)),
+  ...process.env,
+};
 
 const isProductionMode = mode === "production" || mode === "prod";
 

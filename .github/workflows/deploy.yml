@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write # GitHub Release notes 생성용
+  actions: read # stage 검증 산출물 다운로드용
   id-token: write # Workload Identity Federation OIDC 토큰 발급용(키리스 인증)
 
 concurrency:
@@ -40,12 +41,36 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
       - name: Check deploy config
-        run: npm run check:deploy-config
-      - name: Build
-        run: npm run build
+        run: node scripts/check-deploy-config.mjs
+      - name: Resolve release commit
+        id: release
+        run: echo "sha=$(git rev-list -n 1 "$GITHUB_REF_NAME")" >> "$GITHUB_OUTPUT"
+      - name: Download verified stage artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          run_id=$(gh run list \
+            --workflow deploy-stage.yml \
+            --branch main \
+            --commit "$RELEASE_SHA" \
+            --status success \
+            --json databaseId \
+            -q '.[0].databaseId')
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then
+            echo "::error::검증된 stage artifact를 찾지 못함: commit=$RELEASE_SHA"
+            echo "::error::먼저 main에서 Deploy (Hosting → stage)가 성공해야 production 승격 가능"
+            exit 1
+          fi
+          mkdir -p .artifacts
+          gh run download "$run_id" --name "web-dist-$RELEASE_SHA" --dir .artifacts
+          tar -xzf ".artifacts/web-dist-$RELEASE_SHA.tar.gz"
+          test -f dist/index.html
+          echo "Promoting stage artifact from run $run_id for commit $RELEASE_SHA"
+      - name: Write production runtime config
+        run: node scripts/write-runtime-config.mjs
       - name: Auth (Workload Identity Federation — 키리스)
         id: auth
         uses: google-github-actions/auth@v3

@@ -8,20 +8,20 @@ Project stewardship is documented in [../MISSION.md](../MISSION-en.md), [../GOVE
 
 ```text
 contributor PR -> CI(lint/test/build) -> review -> main -> tag vX.Y.Z
-                                                                  |
-                                                                  v
-                                               GitHub Actions deploy.yml
-                                                                  |
-                                               firebase deploy --only hosting
-                                                                  |
-                                                     Firebase Hosting production
-                                                                  |
-                                               GitHub Release notes
+                                            |                 |
+                                            v                 v
+                         deploy-stage.yml builds+verifies   deploy.yml downloads
+                         stage and uploads dist artifact     verified artifact
+                                            |                 |
+                                            v                 v
+                         Firebase Hosting stage              Firebase Hosting production
+                                                              + GitHub Release notes
 ```
 
 - Pull requests run `ci.yml`: lint, unit tests, and build with placeholder public config. No production secrets are exposed to PRs.
-- Merging to `main` does not deploy production by itself.
-- Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: build, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
+- Merging to `main` deploys the stage Hosting site and uploads the verified `dist` artifact for that commit.
+- Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: download the verified stage artifact for the tag commit, write production `runtime-config.json`, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
+- Production deploys do not run `npm run build`; the hashed JS/CSS assets are promoted from the stage-verified artifact.
 - Production deploys are protected by the `production` GitHub Environment.
 
 Maintainer release flow:

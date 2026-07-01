@@ -1,16 +1,15 @@
 import { useState, useCallback } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../services/firebase";
-
-const STRAVA_CLIENT_ID = import.meta.env.VITE_STRAVA_CLIENT_ID;
-const STRAVA_PROXY_REDIRECT_URI = import.meta.env.VITE_STRAVA_REDIRECT_URI;
+import { getRuntimeConfig } from "../services/runtimeConfig";
 
 export function useStrava() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const connectStrava = (returnTo?: string) => {
-    if (!STRAVA_CLIENT_ID || !STRAVA_PROXY_REDIRECT_URI) {
+    const { stravaClientId, stravaRedirectUri } = getRuntimeConfig();
+    if (!stravaClientId || !stravaRedirectUri) {
       setError("Strava configuration is missing");
       throw new Error("Strava configuration is missing");
     }
@@ -24,8 +23,8 @@ export function useStrava() {
     const state = `${returnOrigin}|${nonce}`;
 
     const params = new URLSearchParams({
-      client_id: STRAVA_CLIENT_ID,
-      redirect_uri: STRAVA_PROXY_REDIRECT_URI,
+      client_id: stravaClientId,
+      redirect_uri: stravaRedirectUri,
       response_type: "code",
       scope: "read,activity:read_all",
       state,

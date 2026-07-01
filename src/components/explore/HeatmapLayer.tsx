@@ -10,8 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Source, Layer } from "react-map-gl/mapbox";
 import { logClientError } from "../../services/errorLogger";
-
-const HEAT_BASE = import.meta.env.VITE_HEATMAP_BASE;
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 
 export type HeatMode = "off" | "global" | "recent30";
 
@@ -24,7 +23,12 @@ export default function HeatmapLayer({ mode }: { mode: HeatMode }) {
     if (mode === "off" || pointsByMode[mode]) return;
     let cancelled = false;
     const file = mode === "recent30" ? "recent30" : "global";
-    fetch(`${HEAT_BASE}/${file}.json`)
+    const heatBase = getRuntimeConfig().heatmapBase;
+    if (!heatBase) {
+      setPointsByMode((prev) => ({ ...prev, [mode]: [] }));
+      return;
+    }
+    fetch(`${heatBase.replace(/\/+$/, "")}/${file}.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`heat ${r.status}`))))
       .then((d: { points?: HeatPoint[] }) => {
         if (!cancelled) setPointsByMode((prev) => ({ ...prev, [mode]: d.points ?? [] }));

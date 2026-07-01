@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, useMemo } from "react";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MAPBOX_TOKEN, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../../utils/mapbox";
+import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../../utils/mapbox";
 import { decodePolyline } from "../../utils/polyline";
 
 export interface LocationData {
@@ -215,6 +215,7 @@ export default function EventMap({
   waypoints = [],
   fitToCourse = true,
 }: EventMapProps) {
+  const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
   const [popupInfo, setPopupInfo] = useState<LocationData | null>(null);
 
@@ -253,7 +254,7 @@ export default function EventMap({
 
   return (
     <Map
-      mapboxAccessToken={MAPBOX_TOKEN}
+      mapboxAccessToken={mapboxToken}
       mapStyle={MAP_STYLE}
       initialViewState={DEFAULT_VIEW}
       onLoad={(e) => applyKoreaCyclingStyle(e.target)}

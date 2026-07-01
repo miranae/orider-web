@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "check-env": "node scripts/check-env.mjs",
+    "write:runtime-config": "node scripts/write-runtime-config.mjs",
     "check:deploy-config": "node scripts/check-deploy-config.mjs",
     "gen:manual": "node scripts/gen-manual.mjs",
     "build": "node scripts/check-env.mjs && node scripts/gen-manual.mjs && tsc -b && vite build",

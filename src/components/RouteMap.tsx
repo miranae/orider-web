@@ -5,7 +5,7 @@ import type { LngLatBoundsLike } from "mapbox-gl";
 // 컨트롤/팝업 스타일. 메인 entry 가 아닌 RouteMap chunk 와 함께 로드 (홈 진입 시 1.6MB 절약).
 import "mapbox-gl/dist/mapbox-gl.css";
 import { decodeTrack } from "../utils/polyline";
-import { MAPBOX_TOKEN, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
+import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 
 export interface PhotoMarker {
   id: string;
@@ -227,8 +227,9 @@ export default function RouteMap({
 
   const bounds = getBounds(positions);
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
+  const mapboxToken = getMapboxToken();
 
-  if (fallbackImageUrl && (!MAPBOX_TOKEN || mapFailed)) {
+  if (fallbackImageUrl && (!mapboxToken || mapFailed)) {
     return (
       <div className={containerClass} style={{ background: "var(--bg-1)" }}>
         <img
@@ -244,7 +245,7 @@ export default function RouteMap({
   return (
     <div className={containerClass}>
       <Map
-        mapboxAccessToken={MAPBOX_TOKEN}
+        mapboxAccessToken={mapboxToken}
         mapStyle={MAP_STYLE}
         preserveDrawingBuffer={preserveDrawingBuffer}
         initialViewState={{ bounds, fitBoundsOptions: { padding: fitPadding } }}

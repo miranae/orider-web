@@ -21,6 +21,7 @@ import {
   type Analytics,
 } from "firebase/analytics";
 import { getFirebaseApp } from "./firebase";
+import { isEmulatorRuntime } from "./runtimeConfig";
 
 let analytics: Analytics | null = null;
 
@@ -35,7 +36,7 @@ let pendingUserProps: Record<string, string> | null = null;
  */
 export function initAnalytics(): void {
   if (analytics) return;
-  if (import.meta.env.VITE_USE_EMULATORS === "true") {
+  if (isEmulatorRuntime()) {
     // 에뮬레이터: analytics 영구 비활성 → 큐 폐기(메모리 누수 방지).
     pendingEvents.length = 0;
     pendingUserId = undefined;
@@ -59,7 +60,7 @@ export function initAnalytics(): void {
 export function track(eventName: string, params?: Record<string, unknown>): void {
   if (analytics) {
     fbLogEvent(analytics, eventName, params);
-  } else if (import.meta.env.VITE_USE_EMULATORS !== "true") {
+  } else if (!isEmulatorRuntime()) {
     pendingEvents.push({ name: eventName, params });
   }
 }
@@ -67,7 +68,7 @@ export function track(eventName: string, params?: Record<string, unknown>): void
 export function setAnalyticsUserId(uid: string | null): void {
   if (analytics) {
     fbSetUserId(analytics, uid);
-  } else if (import.meta.env.VITE_USE_EMULATORS !== "true") {
+  } else if (!isEmulatorRuntime()) {
     pendingUserId = uid; // 최신값만 유지 (init 시 1회 반영).
   }
 }
@@ -76,7 +77,7 @@ export function setAnalyticsUserId(uid: string | null): void {
 export function setAnalyticsUserProperties(props: Record<string, string>): void {
   if (analytics) {
     fbSetUserProperties(analytics, props);
-  } else if (import.meta.env.VITE_USE_EMULATORS !== "true") {
+  } else if (!isEmulatorRuntime()) {
     pendingUserProps = { ...(pendingUserProps ?? {}), ...props };
   }
 }

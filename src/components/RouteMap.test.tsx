@@ -4,7 +4,7 @@ import RouteMap from "./RouteMap";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
 vi.mock("../utils/mapbox", () => ({
-  MAPBOX_TOKEN: "test-token",
+  getMapboxToken: () => "test-token",
   MAP_STYLE: "mapbox://styles/mapbox/outdoors-v12",
   applyKoreaCyclingStyle: vi.fn(),
 }));

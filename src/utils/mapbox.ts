@@ -1,4 +1,8 @@
-export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+import { getRuntimeConfig } from "../services/runtimeConfig";
+
+export function getMapboxToken(): string | undefined {
+  return getRuntimeConfig().mapboxToken;
+}
 // outdoors-v12 — 등고선·진녹·진청록 강한 톤. PR #80 가 일시적으로 streets-v12 fork
 // (orider/cmp9...) 로 교체했으나 그 이유 (Mapbox Static Images API 의 한글 라벨
 // 미지원) 가 PR #87 클라 캡처 전환으로 사라져 복원. OG 봇 endpoint 만 여전히

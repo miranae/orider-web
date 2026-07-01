@@ -32,6 +32,7 @@ function checkHostingConfig(hosting, label) {
   const predeploy = Array.isArray(hosting.predeploy) ? hosting.predeploy.join(" && ") : String(hosting.predeploy ?? "");
   requireIncludes(predeploy, "scripts/predeploy-guard.mjs", `${label} hosting.predeploy`);
   requireIncludes(predeploy, "scripts/check-env.mjs", `${label} hosting.predeploy`);
+  requireIncludes(predeploy, "scripts/write-runtime-config.mjs", `${label} hosting.predeploy`);
 
   const globalHeaderRule = hosting.headers?.find((rule) => rule.source === "**");
   if (!globalHeaderRule) {
@@ -65,12 +66,20 @@ requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
 requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
+requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
+requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
+if (deployWorkflow.includes("npm run build")) {
+  fail("deploy.yml must promote the verified stage artifact without npm run build");
+}
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
 requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
+requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
+requireIncludes(stageDeployWorkflow, "actions/upload-artifact", "deploy-stage.yml verified artifact upload");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");

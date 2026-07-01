@@ -16,7 +16,7 @@ import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { decodeTrack } from "../utils/polyline";
-import { MAPBOX_TOKEN, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
+import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 
 type LatLngTuple = [number, number];
@@ -195,6 +195,7 @@ function surfaceChipStyle(surface: string): React.CSSProperties {
 }
 
 export default function CoursesPage() {
+  const mapboxToken = getMapboxToken();
   const { t } = useTranslation("course");
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -532,7 +533,7 @@ export default function CoursesPage() {
           {/* 지도 */}
           <div className="h-64 lg:h-auto lg:flex-[2] relative">
             <MapGL
-              mapboxAccessToken={MAPBOX_TOKEN}
+              mapboxAccessToken={mapboxToken}
               mapStyle={MAP_STYLE}
               initialViewState={DEFAULT_VIEW}
               onLoad={(e) => applyKoreaCyclingStyle(e.target)}
