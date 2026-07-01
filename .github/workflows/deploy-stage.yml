@@ -55,12 +55,20 @@ jobs:
         run: |
           set -euo pipefail
           npm install -g firebase-tools
+          set +e
           firebase deploy \
             --config firebase.stage.json \
             --only hosting \
             --project "${{ vars.FIREBASE_PROJECT_ID }}" \
             --non-interactive \
-            --token "${{ steps.auth.outputs.access_token }}"
+            --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-stage-deploy.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-stage-deploy.log; then
+            echo "Firebase Hosting stage version is already active; treating deploy as idempotent success."
+            exit 0
+          fi
+          exit "$status"
       - name: Verify stage deploy
         run: |
           set -euo pipefail
