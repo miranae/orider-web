@@ -41,15 +41,34 @@ export function useActivities() {
   const [hasMore, setHasMore] = useState(true);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
 
-  // Total count (경량 메타데이터 쿼리, 문서 데이터 전송 없음)
+  // Total count (경량 메타데이터 쿼리, 문서 데이터 전송 없음).
+  // 첫 피드/LCP 경로와 같은 Firestore 연결을 두고 경쟁하지 않도록 idle 이후로 미룬다.
+  // 카운트는 보조 표시라 첫 화면 렌더 완료 뒤 갱신돼도 사용자 흐름에 영향이 없다.
   useEffect(() => {
+    let cancelled = false;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    const run = () => {
+      if (cancelled) return;
+      setTotalCount(0);
+
     const col = collection(firestore, "activities");
     const q = user
       ? query(col, and(where("deletedAt", "==", null), or(where("userId", "==", user.uid), where("visibility", "==", "everyone"))))
       : query(col, where("deletedAt", "==", null), where("visibility", "==", "everyone"));
     getCountFromServer(q).then((snap) => {
-      setTotalCount(snap.data().count);
+        if (!cancelled) setTotalCount(snap.data().count);
     }).catch((err) => logClientError("useActivities.count", err, {}));
+    };
+
+    // requestIdleCallback 은 Firebase/App Check 준비 중에도 너무 일찍 실행될 수 있어
+    // 첫 피드 쿼리와 다시 경쟁한다. 보조 카운트는 LCP 이후에 확실히 보낸다.
+    timerId = setTimeout(run, 4500);
+
+    return () => {
+      cancelled = true;
+      if (timerId != null) clearTimeout(timerId);
+    };
   }, [user]);
 
   const fetchPage = useCallback(async (

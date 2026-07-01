@@ -104,7 +104,7 @@ describe("ActivityCard", () => {
       segmentEffortCount: 2,
       topAchievements: [],
     });
-    renderWithProviders(<ActivityCard activity={activity} showMap={false} />, { authenticated: true });
+    renderWithProviders(<ActivityCard activity={activity} showMap={false} hideAuthor />, { authenticated: true });
 
     await waitFor(() => {
       expect(screen.getByText("문고개")).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe("ActivityCard", () => {
     expect(screen.queryByText("구간 기록 없음")).not.toBeInTheDocument();
   });
 
-  it("recovers PR achievements from cached Strava streams for another rider's public card", async () => {
+  it("does not fetch cached Strava streams for another rider's public card", async () => {
     setCallableResult("stravaGetActivityStreams", {
       data: {
         segment_efforts: [
@@ -138,11 +138,8 @@ describe("ActivityCard", () => {
     });
     renderWithProviders(<ActivityCard activity={activity} showMap={false} />, { authenticated: true });
 
-    await waitFor(() => {
-      expect(screen.getByText("황새울공원 -> 양현교")).toBeInTheDocument();
-      expect(screen.getByText("1:30")).toBeInTheDocument();
-    });
-    expect(screen.queryByText("70개 세그먼트")).not.toBeInTheDocument();
+    expect(screen.getByText("70개 세그먼트")).toBeInTheDocument();
+    expect(screen.queryByText("황새울공원 -> 양현교")).not.toBeInTheDocument();
   });
 
   it("shows route map by default", async () => {
