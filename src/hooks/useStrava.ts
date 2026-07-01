@@ -80,7 +80,7 @@ export function useStrava() {
     }
   }, []);
 
-  const getStreams = async (stravaActivityId: number) => {
+  const getStreams = useCallback(async (stravaActivityId: number) => {
     setLoading(true);
     setError(null);
     try {
@@ -94,7 +94,7 @@ export function useStrava() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const disconnectStrava = async () => {
     setLoading(true);
