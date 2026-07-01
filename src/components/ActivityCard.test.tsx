@@ -113,6 +113,38 @@ describe("ActivityCard", () => {
     expect(screen.queryByText("구간 기록 없음")).not.toBeInTheDocument();
   });
 
+  it("recovers PR achievements from cached Strava streams for another rider's public card", async () => {
+    setCallableResult("stravaGetActivityStreams", {
+      data: {
+        segment_efforts: [
+          {
+            id: 2001,
+            name: "황새울공원 -> 양현교",
+            elapsedTime: 90000,
+            prRank: 1,
+            komRank: null,
+            segment: { id: 2001, name: "황새울공원 -> 양현교" },
+          },
+        ],
+      },
+    });
+
+    const activity = createMockActivity({
+      userId: "other-rider",
+      source: "strava",
+      stravaActivityId: 19095768147,
+      segmentEffortCount: 70,
+      topAchievements: [],
+    });
+    renderWithProviders(<ActivityCard activity={activity} showMap={false} />, { authenticated: true });
+
+    await waitFor(() => {
+      expect(screen.getByText("황새울공원 -> 양현교")).toBeInTheDocument();
+      expect(screen.getByText("1:30")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("70개 세그먼트")).not.toBeInTheDocument();
+  });
+
   it("shows route map by default", async () => {
     const activity = createMockActivity();
     renderWithProviders(<ActivityCard activity={activity} />);
