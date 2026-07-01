@@ -49,12 +49,17 @@ demo/mock data 기반 결과를 넣습니다.
 
 ## 현재 recipe
 
+- [리포트형 레시피 템플릿](report-template.md)
 - [AI Ride Diary](ai-ride-diary.md)
 - [Weekly Load Report](weekly-load-report.md)
 - [Hard-Day Streak Alert](hard-day-streak-alert.md)
 - [Long-Ride Log Package](long-ride-log-package.md)
 - [Monthly Ride Badge](monthly-ride-badge.md)
 - [Z2 Target Reminder](z2-target-reminder.md)
+
+## 실행 가능한 예제
+
+- [Weekly Load Report Node 예제](../../examples/recipes/weekly-load-report/README.md): Personal Data API key로 HTML 리포트, JSON 요약, 공개용 텍스트를 생성합니다.
 
 ## 검토 기준
 

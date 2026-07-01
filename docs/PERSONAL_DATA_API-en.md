@@ -42,20 +42,14 @@ Production E2E on 2026-06-28 verified the email-to-self path with an authenticat
 
 Recurring email alerts are intentionally separate from immediate email-to-self. A recurring digest or alert needs explicit opt-in, unsubscribe controls, quiet hours or frequency settings, and abuse monitoring.
 
-## Minimum Live API
+## API Contract
 
-The first live surface is intentionally small:
+The formal endpoint contract lives in OpenAPI as the single source of truth.
 
-| Endpoint | Scope | Status |
-|---|---|---|
-| `POST /api/v1/developer/api-keys` | Firebase Auth bearer | Live key issuance |
-| `GET /api/v1/developer/api-keys` | Firebase Auth bearer | Live key list |
-| `DELETE /api/v1/developer/api-keys/{keyId}` | Firebase Auth bearer | Live key revocation |
-| `GET /api/v1/me` | `profile:read` | Live owner-only read |
-| `GET /api/v1/activities` | `activities:read` | Live owner-only read |
-| `GET /api/v1/activities/{activityId}` | `activities:read` | Live owner-only read |
-| `GET /api/v1/activities/{activityId}/streams` | `streams:read` | Live owner-only read |
-| `GET /api/v1/fitness/summary` | `fitness:read` | Live owner-only read |
+- Swagger UI: `/api/v1/docs`
+- OpenAPI YAML: `/api/v1/docs/openapi.yaml`
+
+This document explains direction, scope meaning, privacy principles, and recipe authoring. Check Swagger/OpenAPI for endpoint paths, request/response schemas, content types, and error codes.
 
 Use `X-API-Key: orid_...` for personal API keys. Keys are created from an authenticated Orider account, scoped, rate-limited, and revocable. In the product, go to **Settings → Developer API** to create, copy, and revoke keys.
 
@@ -113,19 +107,7 @@ Not in the first version:
 - backend job control,
 - service account access.
 
-## API Endpoints
-
-These endpoint shapes are intentionally small. They are the first public contract; Firebase callable names and Firestore documents remain internal implementation details.
-
-| Endpoint | Scope | Purpose |
-|---|---|---|
-| `GET /api/v1/me` | `profile:read` | Basic signed-in rider profile. |
-| `GET /api/v1/activities` | `activities:read` | Activity list for the token owner. |
-| `GET /api/v1/activities/{activityId}` | `activities:read` | Activity detail if owned by the token owner. |
-| `GET /api/v1/activities/{activityId}/streams` | `streams:read` | Stream arrays for an owned activity. |
-| `GET /api/v1/fitness/summary` | `fitness:read` | Current training load and summary metrics. |
-
-## Response Shapes
+## Response Shape Notes
 
 Activity responses should prefer public-safe, documented fields over raw Firestore documents.
 
@@ -197,7 +179,7 @@ Recommended recipe ideas:
 - "Warn me when three hard days happen back to back."
 - "Email my weekly load report to myself every Monday after I opt in."
 
-See [Personal Data Recipes](recipes/personal-data-en.md) for a contributor-facing template.
+See [Personal Data Recipes](recipes/personal-data-en.md) for contributor-facing templates. Use [Report Recipe Template](recipes/report-template-en.md) for premium-style analysis reports, and see the runnable [Weekly Load Report example](../examples/recipes/weekly-load-report). Check Swagger/OpenAPI for endpoint details.
 
 ## Result Sharing
 

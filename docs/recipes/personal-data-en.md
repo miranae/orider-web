@@ -2,13 +2,13 @@
 
 Personal data recipes show how a rider could use their own Orider data for charts, reports, alerts, exports, or automation.
 
-The Personal Data API now has a small owner-only read foundation. Recipes in this directory should use live endpoints when possible, and fall back to sample JSON, exported data, or mocked responses when a needed scope is not available yet.
+The Personal Data API now has a small owner-only read foundation. Recipes in this directory should use endpoints documented in Swagger/OpenAPI when possible, and fall back to sample JSON, exported data, or mocked responses when a needed scope is not available yet.
 
 GitHub is the authoring and review workflow. The intended rider-facing surface is Orider Creator Hub, where recipes can be browsed, tried, saved, and paired with privacy-safe result cards. See [Creator Showcase](../CREATOR_SHOWCASE-en.md).
 
 ## Fastest Way To Start
 
-You can use a scoped Personal Data API key for the live owner-only endpoints, but you do not need one to propose a useful recipe.
+You can use a scoped Personal Data API key for documented owner-only endpoints, but you do not need one to propose a useful recipe.
 
 1. Pick a rider outcome: chart, alert, report, export, AI summary, widget, or automation.
 2. Use demo JSON, exported files, or mocked responses.
@@ -87,6 +87,8 @@ Describe what a rider can safely share inside Orider:
 
 ## Flagship Recipes
 
+Use [Report Recipe Template](report-template-en.md) when a recipe should produce a polished analysis report rather than a simple alert.
+
 These five recipes are the first polished examples for Creator Hub:
 
 | Recipe | Result | Email support |
@@ -103,7 +105,14 @@ Email delivery is supported as an explicit, user-triggered action from Creator H
 
 | Recipe | Result | Notes |
 |---|---|---|
+| [Report Recipe Template](report-template-en.md) | Structure for premium-style analysis reports. | Use for KPI cards, charts, key sessions, and share-safe summaries. |
 | [Z2 Target Reminder](z2-target-reminder-en.md) | Private reminder when weekly aerobic-base minutes are behind target. | Uses demo data and aggregate zone minutes only. |
+
+## Runnable Examples
+
+| Example | Output | Notes |
+|---|---|---|
+| [Weekly Load Report Node example](../../examples/recipes/weekly-load-report/README.md) | HTML report, JSON summary, public-safe text summary. | Uses `activities:read` and optional `streams:read` for private route thumbnails. |
 
 ## Starter Recipe Ideas
 

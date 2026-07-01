@@ -24,18 +24,14 @@ GitHub는 개발자 기여 채널입니다. 라이더가 recipe를 발견하고 
 | external sync | Google Sheets, Notion, personal website, Slack, Discord |
 | AI workflow | 최근 4주 요약, fatigue 설명, 다음 주 훈련 메모 초안 |
 
-## 최소 live API
+## API 계약
 
-| Endpoint | Scope | 상태 |
-|---|---|---|
-| `POST /api/v1/developer/api-keys` | Firebase Auth bearer | key 발급 |
-| `GET /api/v1/developer/api-keys` | Firebase Auth bearer | key 목록 |
-| `DELETE /api/v1/developer/api-keys/{keyId}` | Firebase Auth bearer | key 폐기 |
-| `GET /api/v1/me` | `profile:read` | owner-only read |
-| `GET /api/v1/activities` | `activities:read` | owner-only read |
-| `GET /api/v1/activities/{activityId}` | `activities:read` | owner-only read |
-| `GET /api/v1/activities/{activityId}/streams` | `streams:read` | owner-only read |
-| `GET /api/v1/fitness/summary` | `fitness:read` | owner-only read |
+정식 endpoint 계약은 OpenAPI 문서를 단일 진실원으로 사용합니다.
+
+- Swagger UI: `/api/v1/docs`
+- OpenAPI YAML: `/api/v1/docs/openapi.yaml`
+
+이 문서는 방향, scope 의미, 개인정보 원칙, recipe 작성법을 설명합니다. endpoint path, request/response schema, content type, error code는 Swagger/OpenAPI에서 확인하세요.
 
 개인 API key는 `X-API-Key: orid_...` 헤더로 사용합니다. 제품에서는 **Settings -> Developer API**에서 생성, 복사, 폐기합니다.
 
@@ -132,7 +128,7 @@ Personal Data API는 server-side enforcement가 필수입니다. 프론트엔드
 - long ride마다 Notion page 만들기
 - hard day가 3일 연속이면 경고하기
 
-템플릿은 [recipes/personal-data.md](recipes/personal-data.md)를 보세요.
+템플릿은 [recipes/personal-data.md](recipes/personal-data.md)를 보세요. 리포트형 recipe는 [recipes/report-template.md](recipes/report-template.md)를 기준으로 작성하고, 실행 가능한 예제는 [examples/recipes/weekly-load-report](../examples/recipes/weekly-load-report)를 참고하세요. endpoint 세부 계약은 Swagger/OpenAPI를 참조하세요.
 
 ## 결과 공유
 

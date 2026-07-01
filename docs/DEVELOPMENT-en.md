@@ -102,7 +102,7 @@ Optional integrations such as Mapbox, Strava OAuth, App Check, and Sentry need a
 
 ## Personal Data Recipe Work
 
-Personal-data recipes are for riders who want to use their own Orider data in charts, reports, alerts, exports, or automation. They can use the live owner-only Personal Data API where available, and fall back to mocked responses, sample JSON, or exported data for endpoints that are not available yet.
+Personal-data recipes are for riders who want to use their own Orider data in charts, reports, alerts, exports, or automation. They can use owner-only Personal Data API endpoints documented in Swagger/OpenAPI where available, and fall back to mocked responses, sample JSON, or exported data for endpoints that are not available yet.
 
 GitHub is only the authoring and review path. The product direction is to surface reviewed recipes and privacy-safe outputs in Orider Creator Hub, so non-developer riders can discover, try, and share them without browsing pull requests.
 
