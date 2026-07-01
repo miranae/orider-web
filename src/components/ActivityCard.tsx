@@ -347,7 +347,6 @@ export default function ActivityCard({
   const s = activity.summary;
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const { units } = useLocale();
-  const { user } = useAuth();
   const { getStreams } = useStrava();
   const [streamAchievements, setStreamAchievements] = useState<ActivityCardAchievement[]>([]);
 
@@ -361,7 +360,6 @@ export default function ActivityCard({
     setStreamAchievements([]);
     if (activity.topAchievements?.length) return;
     if (!activity.segmentEffortCount || activity.segmentEffortCount <= 0) return;
-    if (!user || user.uid !== activity.userId) return;
     if ((activity as Activity & { source?: string }).source !== "strava") return;
     const stravaActivityId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
     if (!stravaActivityId) return;
@@ -376,7 +374,7 @@ export default function ActivityCard({
         logClientError("ActivityCard.streamAchievements", err, { activityId: activity.id });
       });
     return () => { cancelled = true; };
-  }, [activity, getStreams, user]);
+  }, [activity, getStreams]);
 
   return (
     <Card padding="none" className="overflow-hidden">
