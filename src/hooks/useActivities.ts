@@ -31,6 +31,7 @@ const FEED_PAGE_SIZE = 10;
 // 첫 카드 노출을 앞당기기 위해 첫 쿼리는 접힘 영역에 필요한 카드만 가져오고,
 // 나머지 첫 페이지는 백그라운드에서 이어 붙인다.
 const FIRST_FEED_CHUNK_SIZE = 3;
+const FEED_LOAD_RETRY_DELAYS_MS = [600, 1600] as const;
 
 async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity[]> {
   const missingProfileImageUserIds = Array.from(
@@ -52,7 +53,7 @@ async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity
 }
 
 export function useActivities() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -65,6 +66,8 @@ export function useActivities() {
   // 첫 피드/LCP 경로와 같은 Firestore 연결을 두고 경쟁하지 않도록 idle 이후로 미룬다.
   // 카운트는 보조 표시라 첫 화면 렌더 완료 뒤 갱신돼도 사용자 흐름에 영향이 없다.
   useEffect(() => {
+    if (authLoading) return;
+
     let cancelled = false;
     let timerId: ReturnType<typeof setTimeout> | null = null;
 
@@ -89,7 +92,7 @@ export function useActivities() {
       cancelled = true;
       if (timerId != null) clearTimeout(timerId);
     };
-  }, [user]);
+  }, [authLoading, user]);
 
   const fetchPage = useCallback(async (
     uid: string | null,
@@ -127,6 +130,8 @@ export function useActivities() {
 
   // 초기 로드 + 유저 변경 시 리셋
   useEffect(() => {
+    if (authLoading) return;
+
     let cancelled = false;
 
     const load = async () => {
@@ -157,6 +162,21 @@ export function useActivities() {
         setHasMore(rest.hasMore);
       } catch (err) {
         logClientError("useActivities.initialLoad", err);
+        for (const delayMs of FEED_LOAD_RETRY_DELAYS_MS) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          if (cancelled) return;
+
+          try {
+            const retry = await fetchPage(user?.uid ?? null, null, FEED_PAGE_SIZE);
+            if (cancelled) return;
+            setActivities(retry.items);
+            setLastDoc(retry.last);
+            setHasMore(retry.hasMore);
+            return;
+          } catch (retryErr) {
+            logClientError("useActivities.initialLoad.retry", retryErr, { delayMs });
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
         if (!cancelled) setLoadingMore(false);
@@ -165,7 +185,7 @@ export function useActivities() {
 
     load();
     return () => { cancelled = true; };
-  }, [user, fetchPage]);
+  }, [authLoading, user, fetchPage]);
 
   const loadMore = useCallback(async () => {
     if (!lastDoc || loadingMore) return;
