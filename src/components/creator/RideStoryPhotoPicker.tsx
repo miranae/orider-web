@@ -1,11 +1,15 @@
-import { useEffect, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { collection, getDocs, limit as firestoreLimit, orderBy, query, where } from "firebase/firestore";
+import { collection, doc, getDocs, limit as firestoreLimit, orderBy, query, setDoc, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { Send } from "lucide-react";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { CloudUpload, Loader2, MapPinned, Send } from "lucide-react";
 import { useToast } from "../../contexts/ToastContext";
-import { firestore, functions } from "../../services/firebase";
+import { firestore, functions, storage } from "../../services/firebase";
+import { extractGpsFromFile } from "../../features/activity/detail/photoGps";
+import { resizeImageToWebp } from "../../features/activity/detail/imageResize";
 import { Button, Chip } from "../../theme/components";
+import { decodeTrack } from "../../utils/polyline";
 
 interface RideStoryPhotoOption {
   id: string;
@@ -20,6 +24,9 @@ interface RideStoryActivityOption {
   distanceKm: number;
   durationMin: number;
   elevationGainM: number;
+  startTime: number;
+  mapImageUrl: string | null;
+  thumbnailTrack: string | null;
   photos: RideStoryPhotoOption[];
 }
 
@@ -36,16 +43,31 @@ interface RideStoryPhotoPickerProps {
   onFailed: () => void;
 }
 
+const MAX_PHOTOS_PER_ACTIVITY = 10;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
 function copyFor(language: string) {
   const ko = language.startsWith("ko");
   return {
     title: ko ? "Ride Story 사진 선택" : "Choose a Ride Story photo",
     body: ko
-      ? "포스터 배경으로 쓸 활동 사진을 고르세요. 사진이 없으면 경로 실루엣 중심 포스터로 보낼 수 있습니다."
-      : "Choose the activity photo for the poster background. If there is no photo, send a route-silhouette poster.",
+      ? "포스터에 담을 활동과 사진을 고르세요. 사진이 없거나 사진을 쓰고 싶지 않으면 경로가 중심인 포스터로 보낼 수 있습니다."
+      : "Choose the activity and photo for the poster. If there is no photo, or you prefer not to use one, send a route-focused poster.",
     loading: ko ? "최근 활동과 사진을 불러오는 중" : "Loading recent rides and photos",
     noOptions: ko ? "최근 활동을 찾지 못했습니다." : "No recent activities found.",
-    noPhotos: ko ? "사진 없이 경로 포스터" : "Route poster without photo",
+    noPhotos: ko ? "경로 포스터 선택" : "Use route poster",
+    noPhotoItems: ko ? "업로드된 활동 사진이 없습니다. 왼쪽 경로 포스터를 선택하세요." : "No uploaded activity photos. Choose the route poster on the left.",
+    routePreview: ko ? "경로 미리보기" : "Route preview",
+    noRoute: ko ? "경로 썸네일 없음" : "No route preview",
+    photos: ko ? "사진" : "Photos",
+    uploadPhoto: ko ? "사진 업로드" : "Upload photo",
+    uploadingPhoto: ko ? "업로드 중" : "Uploading",
+    uploadHelp: ko ? "포스터 배경으로 쓸 사진을 추가합니다." : "Add a poster background photo.",
+    imageOnly: ko ? "이미지 파일만 업로드할 수 있습니다." : "Only image files can be uploaded.",
+    tooManyPhotos: ko ? `활동당 사진은 최대 ${MAX_PHOTOS_PER_ACTIVITY}장까지 업로드할 수 있습니다.` : `You can upload up to ${MAX_PHOTOS_PER_ACTIVITY} photos per activity.`,
+    photoTooLarge: ko ? "사진 용량이 너무 큽니다. 다른 사진을 선택하세요." : "The photo is too large. Choose another photo.",
+    uploadFailed: ko ? "사진을 업로드하지 못했습니다." : "Could not upload the photo.",
+    uploaded: ko ? "사진을 업로드했습니다." : "Photo uploaded.",
     send: ko ? "선택한 사진으로 받기" : "Send selected",
     cancel: ko ? "취소" : "Cancel",
     loadFailed: ko ? "사진 목록을 불러오지 못했습니다" : "Could not load photos",
@@ -83,12 +105,22 @@ function formatDuration(minutes: number) {
 }
 
 async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
-  const activitySnap = await getDocs(query(
-    collection(firestore, "activities"),
-    where("userId", "==", userId),
-    orderBy("startTime", "desc"),
-    firestoreLimit(12),
-  ));
+  const activitiesRef = collection(firestore, "activities");
+  let activitySnap;
+  try {
+    activitySnap = await getDocs(query(
+      activitiesRef,
+      where("userId", "==", userId),
+      orderBy("startTime", "desc"),
+      firestoreLimit(12),
+    ));
+  } catch {
+    activitySnap = await getDocs(query(
+      activitiesRef,
+      where("userId", "==", userId),
+      firestoreLimit(12),
+    ));
+  }
   const activities = await Promise.all(activitySnap.docs.map(async (activityDoc) => {
     const data = activityDoc.data() as Record<string, unknown>;
     if (data.deletedAt) return null;
@@ -113,11 +145,15 @@ async function loadOptions(userId: string): Promise<RideStoryActivityOption[]> {
       distanceKm: Math.round((safeNumber(summary.distance) || safeNumber(data.distance)) / 100) / 10,
       durationMin: activityDurationMin(data),
       elevationGainM: Math.round(safeNumber(summary.elevationGain) || safeNumber(data.elevationGain)),
+      startTime: safeNumber(data.startTime),
+      mapImageUrl: safeString(data.mapImageUrl) || null,
+      thumbnailTrack: safeString(data.thumbnailTrack) || null,
       photos,
     };
   }));
   return activities
     .filter((activity): activity is RideStoryActivityOption => Boolean(activity))
+    .sort((a, b) => b.startTime - a.startTime)
     .sort((a, b) => Number(b.photos.length > 0) - Number(a.photos.length > 0));
 }
 
@@ -130,6 +166,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
   const [options, setOptions] = useState<RideStoryActivityOption[]>([]);
   const [selection, setSelection] = useState<RideStorySelection | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingActivityId, setUploadingActivityId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !userId) return;
@@ -149,6 +186,50 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
   }, [copy.loadFailed, open, showToast, userId]);
 
   if (!open) return null;
+
+  const uploadPhoto = async (activity: RideStoryActivityOption, file: File) => {
+    if (!userId) return;
+    if (!file.type.startsWith("image/")) {
+      showToast(copy.imageOnly, "error");
+      return;
+    }
+    if (activity.photos.length >= MAX_PHOTOS_PER_ACTIVITY) {
+      showToast(copy.tooManyPhotos, "error");
+      return;
+    }
+    setUploadingActivityId(activity.id);
+    try {
+      const location = await extractGpsFromFile(file);
+      const blob = await resizeImageToWebp(file);
+      if (blob.size > MAX_UPLOAD_BYTES) {
+        showToast(copy.photoTooLarge, "error");
+        return;
+      }
+      const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const storagePath = `activity_photos/${userId}/${activity.id}/${photoId}.webp`;
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, blob, { contentType: "image/webp" });
+      const url = await getDownloadURL(storageRef);
+      await setDoc(doc(firestore, "activity_photos", activity.id, "photos", photoId), {
+        storagePath,
+        url,
+        userId,
+        createdAt: Date.now(),
+        deletedAt: null,
+        ...(location ? { location } : {}),
+      });
+      const nextPhoto = { id: photoId, url };
+      setOptions((prev) => prev.map((item) => (
+        item.id === activity.id ? { ...item, photos: [...item.photos, nextPhoto] } : item
+      )));
+      setSelection({ activityId: activity.id, photoId });
+      showToast(copy.uploaded);
+    } catch {
+      showToast(copy.uploadFailed, "error");
+    } finally {
+      setUploadingActivityId(null);
+    }
+  };
 
   const send = async () => {
     if (!selection) return;
@@ -191,7 +272,24 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
           ) : (
             <div className="space-y-4">
               {options.map((activity) => (
-                <RideStoryActivityRow key={activity.id} activity={activity} selection={selection} noPhotoLabel={copy.noPhotos} onSelect={setSelection} />
+                <RideStoryActivityRow
+                  key={activity.id}
+                  activity={activity}
+                  selection={selection}
+                  copy={{
+                    noPhotoLabel: copy.noPhotos,
+                    noRoute: copy.noRoute,
+                    noPhotoItems: copy.noPhotoItems,
+                    photos: copy.photos,
+                    routePreview: copy.routePreview,
+                    uploadPhoto: copy.uploadPhoto,
+                    uploadingPhoto: copy.uploadingPhoto,
+                    uploadHelp: copy.uploadHelp,
+                  }}
+                  uploading={uploadingActivityId === activity.id}
+                  onSelect={setSelection}
+                  onUpload={(file) => void uploadPhoto(activity, file)}
+                />
               ))}
             </div>
           )}
@@ -220,15 +318,26 @@ function PickerMessage({ children }: { children: string }) {
 function RideStoryActivityRow({
   activity,
   selection,
-  noPhotoLabel,
+  copy,
+  uploading,
   onSelect,
+  onUpload,
 }: {
   activity: RideStoryActivityOption;
   selection: RideStorySelection | null;
-  noPhotoLabel: string;
+  copy: { noPhotoLabel: string; noPhotoItems: string; noRoute: string; photos: string; routePreview: string; uploadPhoto: string; uploadingPhoto: string; uploadHelp: string };
+  uploading: boolean;
   onSelect: (selection: RideStorySelection) => void;
+  onUpload: (file: File) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activitySelected = selection?.activityId === activity.id;
+  const uploadDisabled = uploading || activity.photos.length >= MAX_PHOTOS_PER_ACTIVITY;
+  const handleUploadChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) onUpload(file);
+  };
   return (
     <section className="rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: activitySelected ? "var(--lime)" : "var(--line-soft)" }}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -241,36 +350,117 @@ function RideStoryActivityRow({
         <Chip>{activity.photos.length > 0 ? `${activity.photos.length}` : "0"}</Chip>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
-        {activity.photos.map((photo) => {
-          const selected = selection?.activityId === activity.id && selection.photoId === photo.id;
-          return (
+      <div className="mt-3 grid gap-3 md:grid-cols-[minmax(180px,240px)_1fr]">
+        <div>
+          <div className="mb-1 flex items-center gap-1 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-3)" }}>
+            <MapPinned size={13} />
+            {copy.routePreview}
+          </div>
+          <button
+            type="button"
+            aria-pressed={selection?.activityId === activity.id && selection.photoId === null}
+            onClick={() => onSelect({ activityId: activity.id, photoId: null })}
+            className="block w-full overflow-hidden rounded-[var(--r-md)] border-2 text-left"
+            style={{
+              borderColor: selection?.activityId === activity.id && selection.photoId === null ? "var(--lime)" : "var(--line-soft)",
+              background: "var(--bg-1)",
+            }}
+          >
+            <RoutePosterPreview activity={activity} routeLabel={copy.routePreview} fallbackLabel={copy.noRoute} />
+            <div className="border-t px-3 py-2 text-[length:var(--fs-xs)] font-semibold" style={{ borderColor: "var(--line-soft)", color: "var(--ink-1)" }}>
+              {copy.noPhotoLabel}
+            </div>
+          </button>
+        </div>
+
+        <div>
+          <div className="mb-1 flex items-center justify-between gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-3)" }}>
+            <span>{copy.photos}</span>
+            <span className="tabular-nums">{activity.photos.length}/{MAX_PHOTOS_PER_ACTIVITY}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {activity.photos.map((photo, index) => {
+              const selected = selection?.activityId === activity.id && selection.photoId === photo.id;
+              return (
+                <button
+                  key={photo.id}
+                  type="button"
+                  aria-label={`${activity.name} ${copy.photos} ${index + 1}`}
+                  aria-pressed={selected}
+                  onClick={() => onSelect({ activityId: activity.id, photoId: photo.id })}
+                  className="aspect-square overflow-hidden rounded-[var(--r-md)] border-2"
+                  style={{ borderColor: selected ? "var(--lime)" : "var(--line-soft)", background: "var(--bg-1)" }}
+                >
+                  <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                </button>
+              );
+            })}
             <button
-              key={photo.id}
               type="button"
-              aria-pressed={selected}
-              onClick={() => onSelect({ activityId: activity.id, photoId: photo.id })}
-              className="aspect-square overflow-hidden rounded-[var(--r-md)] border-2"
-              style={{ borderColor: selected ? "var(--lime)" : "var(--line-soft)", background: "var(--bg-1)" }}
+              disabled={uploadDisabled}
+              onClick={() => fileInputRef.current?.click()}
+              className="aspect-square rounded-[var(--r-md)] border-2 border-dashed p-2 text-center text-[length:var(--fs-xs)] font-semibold leading-4 disabled:opacity-50"
+              style={{ borderColor: "var(--line-soft)", background: "var(--bg-1)", color: "var(--ink-2)" }}
             >
-              <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+              <span className="flex h-full flex-col items-center justify-center gap-1">
+                {uploading ? <Loader2 size={18} className="animate-spin" /> : <CloudUpload size={18} />}
+                {uploading ? copy.uploadingPhoto : copy.uploadPhoto}
+              </span>
             </button>
-          );
-        })}
-        <button
-          type="button"
-          aria-pressed={selection?.activityId === activity.id && selection.photoId === null}
-          onClick={() => onSelect({ activityId: activity.id, photoId: null })}
-          className="aspect-square rounded-[var(--r-md)] border-2 p-2 text-left text-[length:var(--fs-xs)] font-semibold leading-4"
-          style={{
-            borderColor: selection?.activityId === activity.id && selection.photoId === null ? "var(--lime)" : "var(--line-soft)",
-            background: "var(--bg-1)",
-            color: "var(--ink-1)",
-          }}
-        >
-          {noPhotoLabel}
-        </button>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadChange} />
+          {activity.photos.length === 0 && (
+            <div className="mt-2 rounded-[var(--r-md)] border p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)", color: "var(--ink-3)" }}>
+              {copy.noPhotoItems} {copy.uploadHelp}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
+}
+
+function RoutePosterPreview({ activity, routeLabel, fallbackLabel }: { activity: RideStoryActivityOption; routeLabel: string; fallbackLabel: string }) {
+  if (activity.mapImageUrl) {
+    return <img src={activity.mapImageUrl} alt={routeLabel} className="aspect-[4/3] w-full object-cover" loading="lazy" />;
+  }
+  const path = buildRouteSvgPath(activity.thumbnailTrack);
+  if (!path) {
+    return (
+      <div className="flex aspect-[4/3] items-center justify-center text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+        {fallbackLabel}
+      </div>
+    );
+  }
+  return (
+    <svg viewBox="0 0 240 180" className="block aspect-[4/3] w-full" role="img" aria-label={routeLabel}>
+      <rect width="240" height="180" rx="16" fill="var(--bg-1)" />
+      <path d={path} fill="none" stroke="color-mix(in srgb, var(--lime) 28%, transparent)" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={path} fill="none" stroke="var(--lime)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function buildRouteSvgPath(polyline: string | null) {
+  if (!polyline) return null;
+  const points = decodeTrack(polyline) as [number, number][];
+  if (points.length < 2) return null;
+  const width = 240;
+  const height = 180;
+  const padding = 24;
+  const lats = points.map((point) => point[0]);
+  const lngs = points.map((point) => point[1]);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latSpan = Math.max(maxLat - minLat, 0.000001);
+  const lngSpan = Math.max(maxLng - minLng, 0.000001);
+  return points
+    .map(([lat, lng], index) => {
+      const x = padding + ((lng - minLng) / lngSpan) * (width - padding * 2);
+      const y = padding + (1 - (lat - minLat) / latSpan) * (height - padding * 2);
+      return `${index === 0 ? "M" : "L"} ${Math.round(x * 10) / 10} ${Math.round(y * 10) / 10}`;
+    })
+    .join(" ");
 }

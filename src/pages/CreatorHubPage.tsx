@@ -142,6 +142,7 @@ function buildCopy(language: string) {
       requestRecipe: ko ? "활용법 요청" : "Request recipe",
       manageApiKeys: ko ? "API key 만들기" : "Create API key",
       emailRecipe: ko ? "내 이메일로 받기" : "Email me this",
+      chooseRideStory: ko ? "사진/경로 선택" : "Choose photo/route",
       emailing: ko ? "이메일 발송 중" : "Sending email",
       emailed: ko ? "발송 완료" : "Sent",
       emailFailed: ko ? "이메일을 보내지 못했습니다" : "Could not send email",
@@ -1042,9 +1043,11 @@ export default function CreatorHubPage() {
                       ? copy.actions.emailing
                       : emailSentItemIds.has(item.id)
                         ? copy.actions.emailed
-                        : emailFailedItemIds.has(item.id)
-                          ? copy.actions.emailFailed
-                          : copy.actions.emailRecipe}
+                          : emailFailedItemIds.has(item.id)
+                            ? copy.actions.emailFailed
+                            : item.id === "ride-story"
+                              ? copy.actions.chooseRideStory
+                              : copy.actions.emailRecipe}
                   </Button>
                   <Button
                     className={recipeActionClass}
