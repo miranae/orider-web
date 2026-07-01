@@ -20,7 +20,7 @@ Recommended outputs:
 |---|---:|---|
 | `activities:read` | Required | Recent activity list, distance, time, elevation, and TSS/load aggregation. |
 | `fitness:read` | Recommended | CTL/ATL/TSB and readiness context. |
-| `streams:read` | Optional | Add `GET /api/v1/activities/{activityId}/thumbnail.svg` route thumbnails to the rider's private HTML report. |
+| `streams:read` | Optional | Add route thumbnails to the rider's private HTML report. |
 
 The default report should use only `activities:read` and `fitness:read`. Route/map visuals should be added only when the rider explicitly enables them.
 
@@ -67,7 +67,7 @@ Outputs:
 - `weekly-load-summary.json`
 - `weekly-load-public-summary.txt`
 
-To include private mini-route visuals, create a key with `streams:read` and opt in explicitly. The example calls `GET /api/v1/activities/{activityId}/thumbnail.svg` and embeds the normalized SVG, not raw coordinates:
+To include private mini-route visuals, create a key with `streams:read` and opt in explicitly. The example calls the route thumbnail endpoint documented in Swagger/OpenAPI and embeds the normalized SVG, not raw coordinates:
 
 ```bash
 ORIDER_INCLUDE_PRIVATE_MAPS=true \
@@ -80,8 +80,8 @@ Use that option only for local/private HTML reports. Do not use it for community
 ## n8n Shape
 
 1. Cron node: Monday 08:00.
-2. HTTP Request node: `GET /api/v1/activities?limit=100`.
-3. HTTP Request node: `GET /api/v1/fitness/summary`.
+2. HTTP Request node: call the activities list endpoint from Swagger/OpenAPI.
+3. HTTP Request node: call the fitness summary endpoint from Swagger/OpenAPI.
 4. Function node: aggregate last 7 days and previous 7 days, then build load chart data.
 5. HTML or Markdown node: fill the report template.
 6. Email/Notion/Slack node:
@@ -125,13 +125,13 @@ jobs:
 
 ## Needs Confirmation
 
-The documented public Personal Data API activity DTO does not currently guarantee a stable `mapImageUrl` or finished map image URL. External developers should choose one of these paths:
+The OpenAPI contract does not currently guarantee a stable `mapImageUrl` or finished map image URL on the activity DTO. External developers should choose one of these paths:
 
 - default: aggregate charts only,
-- private option: call `GET /api/v1/activities/{activityId}/thumbnail.svg` with `streams:read` and embed the normalized SVG thumbnail,
+- private option: call the route thumbnail endpoint documented in Swagger/OpenAPI with `streams:read` and embed the normalized SVG thumbnail,
 - future API: use a documented redacted field such as `publicSafeMapThumbnailUrl` if Orider adds it later.
 
-Do not invent fields that are not documented.
+Do not invent endpoints or fields that are not documented in Swagger/OpenAPI.
 
 ## Review Checklist
 

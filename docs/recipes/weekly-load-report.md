@@ -22,7 +22,7 @@
 |---|---:|---|
 | `activities:read` | 필수 | 최근 활동 목록, 거리, 시간, 상승고도, TSS/load 집계 |
 | `fitness:read` | 권장 | CTL/ATL/TSB, readiness 같은 훈련 상태 해석 |
-| `streams:read` | 선택 | 본인만 보는 private 리포트에 `GET /api/v1/activities/{activityId}/thumbnail.svg` 경로 썸네일 추가 |
+| `streams:read` | 선택 | 본인만 보는 private 리포트에 경로 썸네일 추가 |
 
 기본 리포트는 `activities:read`, `fitness:read`만으로 만들고, 지도/경로 시각화는 사용자가 명시적으로 켠 경우에만 추가하세요.
 
@@ -69,7 +69,7 @@ node examples/recipes/weekly-load-report/weekly-load-report.mjs
 - `weekly-load-summary.json`
 - `weekly-load-public-summary.txt`
 
-private 지도 썸네일을 넣고 싶다면 `streams:read` scope가 있는 key를 만들고 아래 옵션을 켭니다. 예제는 `GET /api/v1/activities/{activityId}/thumbnail.svg`를 호출해 원본 좌표가 아닌 정규화 SVG를 HTML에 넣습니다.
+private 지도 썸네일을 넣고 싶다면 `streams:read` scope가 있는 key를 만들고 아래 옵션을 켭니다. 예제는 Swagger/OpenAPI에 문서화된 route thumbnail endpoint를 호출해 원본 좌표가 아닌 정규화 SVG를 HTML에 넣습니다.
 
 ```bash
 ORIDER_INCLUDE_PRIVATE_MAPS=true \
@@ -82,8 +82,8 @@ node examples/recipes/weekly-load-report/weekly-load-report.mjs
 ## n8n 구성
 
 1. Cron 노드: 매주 월요일 08:00
-2. HTTP Request 노드: `GET /api/v1/activities?limit=100`
-3. HTTP Request 노드: `GET /api/v1/fitness/summary`
+2. HTTP Request 노드: Swagger/OpenAPI의 activities list endpoint 호출
+3. HTTP Request 노드: Swagger/OpenAPI의 fitness summary endpoint 호출
 4. Function 노드: 최근 7일/직전 7일 집계와 load 차트 데이터 생성
 5. HTML 또는 Markdown 노드: 리포트 템플릿에 값 채우기
 6. Email/Notion/Slack 노드:
@@ -127,13 +127,13 @@ jobs:
 
 ## 확인 필요 항목
 
-현재 공개 Personal Data API 문서의 활동 DTO에는 `mapImageUrl` 같은 완성 지도 이미지 URL이 안정 계약으로 포함되어 있지 않습니다. 외부 개발자는 다음 중 하나를 선택해야 합니다.
+현재 OpenAPI 계약의 활동 DTO에는 `mapImageUrl` 같은 완성 지도 이미지 URL이 안정 계약으로 포함되어 있지 않습니다. 외부 개발자는 다음 중 하나를 선택해야 합니다.
 
 - 기본값: 지도 없이 집계 차트만 생성
-- private 옵션: `streams:read`로 `GET /api/v1/activities/{activityId}/thumbnail.svg`를 호출해 정규화 SVG 썸네일을 받음
+- private 옵션: `streams:read`로 Swagger/OpenAPI의 route thumbnail endpoint를 호출해 정규화 SVG 썸네일을 받음
 - 향후 API 확장: `publicSafeMapThumbnailUrl` 같은 redacted thumbnail 필드가 문서화되면 사용
 
-문서에 없는 필드는 레시피에서 임의로 가정하지 마세요.
+Swagger/OpenAPI에 없는 endpoint나 필드는 레시피에서 임의로 가정하지 마세요.
 
 ## Review Checklist
 

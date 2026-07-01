@@ -68,7 +68,7 @@ App Check debug token은 maintainer-only 테스트에서만 사용하고, 사용
 
 ## Personal Data API와 recipe
 
-개인 데이터 recipe는 라이더가 자신의 Orider 데이터를 chart, report, alert, export, automation에 쓰는 흐름입니다. live owner-only endpoint가 있으면 Personal Data API를 사용하고, 아직 없는 endpoint는 mock response, sample JSON, exported file로 시작합니다.
+개인 데이터 recipe는 라이더가 자신의 Orider 데이터를 chart, report, alert, export, automation에 쓰는 흐름입니다. Swagger/OpenAPI에 문서화된 owner-only endpoint가 있으면 Personal Data API를 사용하고, 아직 없는 endpoint는 mock response, sample JSON, exported file로 시작합니다.
 
 관련 문서:
 

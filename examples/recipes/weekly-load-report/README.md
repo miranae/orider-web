@@ -22,4 +22,9 @@ ORIDER_API_KEY=orid_xxx \
 node examples/recipes/weekly-load-report/weekly-load-report.mjs
 ```
 
-`ORIDER_INCLUDE_PRIVATE_MAPS=true` requires `streams:read` and calls `GET /api/v1/activities/{activityId}/thumbnail.svg` to embed normalized route thumbnails into the local private HTML report. Do not publish that HTML without removing private route visuals.
+`ORIDER_INCLUDE_PRIVATE_MAPS=true` requires `streams:read` and calls the route thumbnail endpoint documented in Swagger/OpenAPI to embed normalized route thumbnails into the local private HTML report. Do not publish that HTML without removing private route visuals.
+
+API contract:
+
+- Swagger UI: `/api/v1/docs`
+- OpenAPI YAML: `/api/v1/docs/openapi.yaml`

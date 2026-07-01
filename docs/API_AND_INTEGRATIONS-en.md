@@ -106,7 +106,7 @@ External developers should treat this repository as a reference for the frontend
 
 Do not assume callable function names, request payloads, or response shapes are stable unless a separate public API document explicitly says so.
 
-The intended public developer path is different: the Personal Data API provides a small owner-only read foundation for a rider's own profile, activities, streams, and fitness summary. Riders can create scoped keys in **Settings → Developer API**. See [Personal Data API](PERSONAL_DATA_API-en.md) for live endpoints, scopes, and [Personal Data Recipes](recipes/personal-data-en.md) for community recipe ideas.
+The intended public developer path is different: the Personal Data API provides a small owner-only read foundation for a rider's own profile, activities, streams, and fitness summary. Riders can create scoped keys in **Settings → Developer API**. Use Swagger/OpenAPI for endpoint contracts, and see [Personal Data API](PERSONAL_DATA_API-en.md) for scopes and usage principles plus [Personal Data Recipes](recipes/personal-data-en.md) for community recipe ideas.
 
 Callable protections used in production:
 
@@ -219,7 +219,7 @@ This repository does not currently provide:
 - self-hostable backend services,
 - production Firestore/Storage rules.
 
-Before the Personal Data API expands beyond the current owner-only read foundation, additional endpoints should be documented with authentication, scopes, rate limits, sample requests/responses, versioning, and deprecation policy.
+Before the Personal Data API expands beyond the current owner-only read foundation, additional endpoints should be added to OpenAPI with authentication, scopes, rate limits, sample requests/responses, versioning, and deprecation policy.
 
 ## Strava
 
