@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { collection, getDocs, limit as firestoreLimit, orderBy, query, where } from "firebase/firestore";
+import { collection, doc, getDocs, limit as firestoreLimit, orderBy, query, setDoc, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { MapPinned, Send } from "lucide-react";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { CloudUpload, Loader2, MapPinned, Send } from "lucide-react";
 import { useToast } from "../../contexts/ToastContext";
-import { firestore, functions } from "../../services/firebase";
+import { firestore, functions, storage } from "../../services/firebase";
+import { extractGpsFromFile } from "../../features/activity/detail/photoGps";
+import { resizeImageToWebp } from "../../features/activity/detail/imageResize";
 import { Button, Chip } from "../../theme/components";
 import { decodeTrack } from "../../utils/polyline";
 
@@ -39,6 +42,9 @@ interface RideStoryPhotoPickerProps {
   onFailed: () => void;
 }
 
+const MAX_PHOTOS_PER_ACTIVITY = 10;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
 function copyFor(language: string) {
   const ko = language.startsWith("ko");
   return {
@@ -53,6 +59,14 @@ function copyFor(language: string) {
     routePreview: ko ? "경로 미리보기" : "Route preview",
     noRoute: ko ? "경로 썸네일 없음" : "No route preview",
     photos: ko ? "사진" : "Photos",
+    uploadPhoto: ko ? "사진 업로드" : "Upload photo",
+    uploadingPhoto: ko ? "업로드 중" : "Uploading",
+    uploadHelp: ko ? "포스터 배경으로 쓸 사진을 추가합니다." : "Add a poster background photo.",
+    imageOnly: ko ? "이미지 파일만 업로드할 수 있습니다." : "Only image files can be uploaded.",
+    tooManyPhotos: ko ? `활동당 사진은 최대 ${MAX_PHOTOS_PER_ACTIVITY}장까지 업로드할 수 있습니다.` : `You can upload up to ${MAX_PHOTOS_PER_ACTIVITY} photos per activity.`,
+    photoTooLarge: ko ? "사진 용량이 너무 큽니다. 다른 사진을 선택하세요." : "The photo is too large. Choose another photo.",
+    uploadFailed: ko ? "사진을 업로드하지 못했습니다." : "Could not upload the photo.",
+    uploaded: ko ? "사진을 업로드했습니다." : "Photo uploaded.",
     send: ko ? "선택한 사진으로 받기" : "Send selected",
     cancel: ko ? "취소" : "Cancel",
     loadFailed: ko ? "사진 목록을 불러오지 못했습니다" : "Could not load photos",
@@ -139,6 +153,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
   const [options, setOptions] = useState<RideStoryActivityOption[]>([]);
   const [selection, setSelection] = useState<RideStorySelection | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingActivityId, setUploadingActivityId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !userId) return;
@@ -158,6 +173,50 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
   }, [copy.loadFailed, open, showToast, userId]);
 
   if (!open) return null;
+
+  const uploadPhoto = async (activity: RideStoryActivityOption, file: File) => {
+    if (!userId) return;
+    if (!file.type.startsWith("image/")) {
+      showToast(copy.imageOnly, "error");
+      return;
+    }
+    if (activity.photos.length >= MAX_PHOTOS_PER_ACTIVITY) {
+      showToast(copy.tooManyPhotos, "error");
+      return;
+    }
+    setUploadingActivityId(activity.id);
+    try {
+      const location = await extractGpsFromFile(file);
+      const blob = await resizeImageToWebp(file);
+      if (blob.size > MAX_UPLOAD_BYTES) {
+        showToast(copy.photoTooLarge, "error");
+        return;
+      }
+      const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const storagePath = `activity_photos/${userId}/${activity.id}/${photoId}.webp`;
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, blob, { contentType: "image/webp" });
+      const url = await getDownloadURL(storageRef);
+      await setDoc(doc(firestore, "activity_photos", activity.id, "photos", photoId), {
+        storagePath,
+        url,
+        userId,
+        createdAt: Date.now(),
+        deletedAt: null,
+        ...(location ? { location } : {}),
+      });
+      const nextPhoto = { id: photoId, url };
+      setOptions((prev) => prev.map((item) => (
+        item.id === activity.id ? { ...item, photos: [...item.photos, nextPhoto] } : item
+      )));
+      setSelection({ activityId: activity.id, photoId });
+      showToast(copy.uploaded);
+    } catch {
+      showToast(copy.uploadFailed, "error");
+    } finally {
+      setUploadingActivityId(null);
+    }
+  };
 
   const send = async () => {
     if (!selection) return;
@@ -210,8 +269,13 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
                     noPhotoItems: copy.noPhotoItems,
                     photos: copy.photos,
                     routePreview: copy.routePreview,
+                    uploadPhoto: copy.uploadPhoto,
+                    uploadingPhoto: copy.uploadingPhoto,
+                    uploadHelp: copy.uploadHelp,
                   }}
+                  uploading={uploadingActivityId === activity.id}
                   onSelect={setSelection}
+                  onUpload={(file) => void uploadPhoto(activity, file)}
                 />
               ))}
             </div>
@@ -242,14 +306,25 @@ function RideStoryActivityRow({
   activity,
   selection,
   copy,
+  uploading,
   onSelect,
+  onUpload,
 }: {
   activity: RideStoryActivityOption;
   selection: RideStorySelection | null;
-  copy: { noPhotoLabel: string; noPhotoItems: string; noRoute: string; photos: string; routePreview: string };
+  copy: { noPhotoLabel: string; noPhotoItems: string; noRoute: string; photos: string; routePreview: string; uploadPhoto: string; uploadingPhoto: string; uploadHelp: string };
+  uploading: boolean;
   onSelect: (selection: RideStorySelection) => void;
+  onUpload: (file: File) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activitySelected = selection?.activityId === activity.id;
+  const uploadDisabled = uploading || activity.photos.length >= MAX_PHOTOS_PER_ACTIVITY;
+  const handleUploadChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) onUpload(file);
+  };
   return (
     <section className="rounded-[var(--r-md)] border p-3" style={{ background: "var(--bg-2)", borderColor: activitySelected ? "var(--lime)" : "var(--line-soft)" }}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -286,8 +361,9 @@ function RideStoryActivityRow({
         </div>
 
         <div>
-          <div className="mb-1 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-3)" }}>
-            {copy.photos}
+          <div className="mb-1 flex items-center justify-between gap-2 text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-3)" }}>
+            <span>{copy.photos}</span>
+            <span className="tabular-nums">{activity.photos.length}/{MAX_PHOTOS_PER_ACTIVITY}</span>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {activity.photos.map((photo, index) => {
@@ -306,10 +382,23 @@ function RideStoryActivityRow({
                 </button>
               );
             })}
+            <button
+              type="button"
+              disabled={uploadDisabled}
+              onClick={() => fileInputRef.current?.click()}
+              className="aspect-square rounded-[var(--r-md)] border-2 border-dashed p-2 text-center text-[length:var(--fs-xs)] font-semibold leading-4 disabled:opacity-50"
+              style={{ borderColor: "var(--line-soft)", background: "var(--bg-1)", color: "var(--ink-2)" }}
+            >
+              <span className="flex h-full flex-col items-center justify-center gap-1">
+                {uploading ? <Loader2 size={18} className="animate-spin" /> : <CloudUpload size={18} />}
+                {uploading ? copy.uploadingPhoto : copy.uploadPhoto}
+              </span>
+            </button>
           </div>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadChange} />
           {activity.photos.length === 0 && (
-            <div className="rounded-[var(--r-md)] border p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)", color: "var(--ink-3)" }}>
-              {copy.noPhotoItems}
+            <div className="mt-2 rounded-[var(--r-md)] border p-3 text-[length:var(--fs-xs)] leading-5" style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)", color: "var(--ink-3)" }}>
+              {copy.noPhotoItems} {copy.uploadHelp}
             </div>
           )}
         </div>

@@ -1,7 +1,15 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { RideStoryPhotoPicker } from "./RideStoryPhotoPicker";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { setCollectionDocs } from "../../__tests__/mocks/firebase";
+import { mockSetDoc, setCollectionDocs } from "../../__tests__/mocks/firebase";
+
+vi.mock("../../features/activity/detail/photoGps", () => ({
+  extractGpsFromFile: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("../../features/activity/detail/imageResize", () => ({
+  resizeImageToWebp: vi.fn().mockResolvedValue(new Blob(["webp"], { type: "image/webp" })),
+}));
 
 describe("RideStoryPhotoPicker", () => {
   it("lets riders choose either the route poster or an uploaded activity photo", async () => {
@@ -42,5 +50,51 @@ describe("RideStoryPhotoPicker", () => {
 
     fireEvent.click(photoButton);
     await waitFor(() => expect(photoButton).toHaveAttribute("aria-pressed", "true"));
+  });
+
+  it("uploads a new photo from the picker and selects it for the story", async () => {
+    setCollectionDocs("activities", [
+      {
+        id: "ride-2",
+        userId: "test-uid",
+        name: "남산 업힐",
+        type: "Ride",
+        startTime: new Date("2026-07-02T10:00:00Z").getTime(),
+        summary: {
+          distance: 18000,
+          elevationGain: 540,
+          ridingTimeMillis: 3_600_000,
+        },
+        thumbnailTrack: "37.54,126.98;37.55,126.99;37.56,127",
+      },
+    ]);
+    setCollectionDocs("activity_photos/ride-2/photos", []);
+
+    const { container } = renderWithProviders(
+      <RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />,
+      { authenticated: true },
+    );
+
+    expect(await screen.findByText("남산 업힐")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /사진 업로드/ })).toBeInTheDocument();
+
+    const input = container.querySelector('input[type="file"]');
+    expect(input).toBeTruthy();
+    fireEvent.change(input!, {
+      target: {
+        files: [new File(["photo"], "ride.jpg", { type: "image/jpeg" })],
+      },
+    });
+
+    const uploadedPhoto = await screen.findByRole("button", { name: /남산 업힐 사진 1/ });
+    expect(uploadedPhoto).toHaveAttribute("aria-pressed", "true");
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ path: expect.stringMatching(/^activity_photos\/ride-2\/photos\//) }),
+      expect.objectContaining({
+        url: "https://mock-storage.example.com/file",
+        userId: "test-uid",
+        deletedAt: null,
+      }),
+    );
   });
 });
