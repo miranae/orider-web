@@ -11,6 +11,7 @@ let _auth: Auth;
 let _firestore: Firestore;
 let _storage: FirebaseStorage;
 let _functions: Functions;
+let appCheckPromise: Promise<void> | null = null;
 
 /** main.tsx에서 렌더링 전 호출. Hosting site별 runtime-config.json 기반 config 사용. */
 export async function initFirebase() {
@@ -37,13 +38,6 @@ export async function initFirebase() {
   }
 
   app = initializeApp(config);
-  const appCheckSiteKey = runtimeConfig.appCheckRecaptchaSiteKey;
-  if (appCheckSiteKey && !isEmulatorRuntime()) {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
-      isTokenAutoRefreshEnabled: true,
-    });
-  }
   _auth = getAuth(app);
   _firestore = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
@@ -71,4 +65,27 @@ export const googleProvider = new GoogleAuthProvider();
 /** 초기화된 FirebaseApp 반환 (initFirebase 전이면 undefined). analytics 지연 init 용. */
 export function getFirebaseApp(): FirebaseApp | undefined {
   return app;
+}
+
+/**
+ * App Check 초기화는 첫 공개 피드 로딩 이후로 분리한다.
+ * Firestore 첫 read/LCP 경로에서 reCAPTCHA Enterprise + installations round-trip 이
+ * 먼저 실행되면 피드 이미지 discovery 가 밀린다. Callable Functions 는 호출 전에
+ * 이 promise 를 await 해서 enforceAppCheck 보안 경로를 유지한다.
+ */
+export function ensureAppCheckReady(): Promise<void> {
+  if (appCheckPromise) return appCheckPromise;
+  appCheckPromise = Promise.resolve().then(() => {
+    const runtimeConfig = getRuntimeConfig();
+    const appCheckSiteKey = runtimeConfig.appCheckRecaptchaSiteKey;
+    if (!app || !appCheckSiteKey || isEmulatorRuntime()) return;
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }).catch((err) => {
+    appCheckPromise = null;
+    throw err;
+  });
+  return appCheckPromise;
 }

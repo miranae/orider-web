@@ -2,14 +2,13 @@
  * Sentry 래퍼 — `@sentry/react` 를 동적 import 로 분리.
  *
  * 목적: vendor-sentry (85KB gz) 가 entry chunk 의존성에서 제외되어 modulepreload 안 됨.
- * Sentry 자체는 첫 페인트 이후 idle 시점에 load + init.
+ * Sentry 자체는 초기 로딩 대역에서는 받지 않고, 첫 에러 발생 시 load + init.
  *
  * 동작:
  *   - `loadSentry()`: 모듈 import + init 수행. 한 번만 실행 (idempotent).
- *   - `captureError(err)`: load 완료면 즉시 전송, 미완료면 큐에 저장 → load 시 flush.
+ *   - `captureError(err)`: load 완료면 즉시 전송, 미완료면 큐에 저장하고 lazy-load → load 시 flush.
  *
  * 사용:
- *   - main.tsx 에서 requestIdleCallback 으로 loadSentry() 호출
  *   - 어디서든 captureError(err) 호출 — 타이밍 무관
  */
 import { getRuntimeConfig } from "./runtimeConfig";
@@ -52,6 +51,7 @@ export function loadSentry(): Promise<SentryModule> {
     return S;
   }).catch((err) => {
     console.warn("[sentry] load failed:", err);
+    loadingPromise = null;
     throw err;
   });
   return loadingPromise;
@@ -68,5 +68,8 @@ export function captureError(
     sentry.captureException(error, options);
   } else {
     pendingErrors.push({ error, tags: options?.tags, extra: options?.extra });
+    void loadSentry().catch(() => {
+      // loadSentry 에서 이미 경고를 남긴다. 다음 에러에서 재시도.
+    });
   }
 }

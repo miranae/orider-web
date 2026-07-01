@@ -14,7 +14,7 @@
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../services/firebase";
+import { ensureAppCheckReady, firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
@@ -86,6 +86,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
 
         // 2. Stale → 서버 revalidate 호출 (서버가 다시 한 번 확인 + dedup + sentinel write)
         setRevalidating(true);
+        await ensureAppCheckReady();
         const fn = httpsCallable<{ discipline?: string }, RevalidateResponse>(
           functions,
           "revalidateTraining",

@@ -19,7 +19,7 @@ import {
 } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { auth, firestore, functions, googleProvider } from "../services/firebase";
+import { auth, ensureAppCheckReady, firestore, functions, googleProvider } from "../services/firebase";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import type { UserProfile } from "@shared/types";
@@ -78,9 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
       if (firebaseUser) {
         // 프로필 생성 — 3회 지수 백오프 retry
-        const ensureProfile = httpsCallable(functions, "ensureUserProfile");
         try {
-          await callWithRetry(() => ensureProfile());
+          await callWithRetry(async () => {
+            await ensureAppCheckReady();
+            const ensureProfile = httpsCallable(functions, "ensureUserProfile");
+            return ensureProfile();
+          });
         } catch (err) {
           logClientError("AuthContext.ensureUserProfile", err, { uid: firebaseUser.uid });
           if (!cancelled) setProfile(null);

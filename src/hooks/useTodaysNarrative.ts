@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../services/firebase";
+import { ensureAppCheckReady, functions } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import type { RecommendationFacts } from "../utils/todaysRecommendation";
 import { logClientError } from "../services/errorLogger";
@@ -166,9 +166,18 @@ export function useTodaysNarrative(
     const timer = setTimeout(() => { doFetch(); }, debounceMs);
     return () => clearTimeout(timer);
 
-    function doFetch() {
+    async function doFetch() {
     inFlightRef.current = fp1;
     setState((s) => ({ ...s, phase: "calling", loading: true }));
+
+    try {
+      await ensureAppCheckReady();
+    } catch (err) {
+      logClientError("useTodaysNarrative.appCheck", err, { fingerprint: fp1 });
+      setState({ narrative: null, source: null, loading: false, phase: "idle", lastFingerprint: null });
+      if (inFlightRef.current === fp1) inFlightRef.current = null;
+      return;
+    }
 
     const fn = httpsCallable<
       {

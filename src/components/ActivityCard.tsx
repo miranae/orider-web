@@ -359,6 +359,10 @@ export default function ActivityCard({
   useEffect(() => {
     setStreamAchievements([]);
     if (activity.topAchievements?.length) return;
+    // 공개 피드 첫 화면에서 카드마다 Strava stream Callable 을 자동 호출하면 LCP 이후
+    // Sentry/Functions 청크까지 깨운다. 서버 집계가 없는 레거시 fallback 은 본인 컨텍스트
+    // 카드에서만 보수적으로 허용한다.
+    if (!hideAuthor) return;
     if (!activity.segmentEffortCount || activity.segmentEffortCount <= 0) return;
     if ((activity as Activity & { source?: string }).source !== "strava") return;
     const stravaActivityId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
@@ -374,7 +378,7 @@ export default function ActivityCard({
         logClientError("ActivityCard.streamAchievements", err, { activityId: activity.id });
       });
     return () => { cancelled = true; };
-  }, [activity, getStreams]);
+  }, [activity, getStreams, hideAuthor]);
 
   return (
     <Card padding="none" className="overflow-hidden">
