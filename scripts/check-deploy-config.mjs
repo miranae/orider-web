@@ -71,7 +71,38 @@ requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");
+requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_API_KEY", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_AUTH_DOMAIN", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_MESSAGING_SENDER_ID", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_APP_ID", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_STRAVA_CLIENT_ID", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_STRAVA_REDIRECT_URI", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE_KEY", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-stage.yml verification");
+
+const forbiddenStageFallbacks = [
+  "secrets.VITE_FIREBASE_API_KEY",
+  "vars.VITE_FIREBASE_AUTH_DOMAIN",
+  "vars.VITE_FIREBASE_PROJECT_ID",
+  "secrets.VITE_FIREBASE_MESSAGING_SENDER_ID",
+  "secrets.VITE_FIREBASE_APP_ID",
+  "secrets.VITE_STRAVA_CLIENT_ID",
+  "vars.VITE_STRAVA_REDIRECT_URI",
+  "secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY",
+  "vars.FIREBASE_PROJECT_ID",
+  "vars.GCP_WORKLOAD_IDENTITY_PROVIDER",
+  "vars.GCP_SERVICE_ACCOUNT",
+];
+
+for (const forbidden of forbiddenStageFallbacks) {
+  if (stageDeployWorkflow.includes(forbidden)) {
+    fail(`deploy-stage.yml must use STAGE_* values only; remove ${forbidden}`);
+  }
+}
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log("[check-deploy-config] OK");
