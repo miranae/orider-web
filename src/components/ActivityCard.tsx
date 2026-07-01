@@ -261,7 +261,7 @@ function AchievementBadge({ type }: { type: AchievementType }) {
       : { background: 'var(--bg-3)', color: 'var(--ink-2)', borderColor: 'var(--line-soft)' };
 
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[10px] font-bold border" style={badgeStyle}>
+    <span className="inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded-[var(--r-sm)] text-[10px] font-bold border" style={badgeStyle}>
       {icons[type]}
     </span>
   );
@@ -347,7 +347,6 @@ export default function ActivityCard({
   const s = activity.summary;
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const { units } = useLocale();
-  const { user } = useAuth();
   const { getStreams } = useStrava();
   const [streamAchievements, setStreamAchievements] = useState<ActivityCardAchievement[]>([]);
 
@@ -361,7 +360,6 @@ export default function ActivityCard({
     setStreamAchievements([]);
     if (activity.topAchievements?.length) return;
     if (!activity.segmentEffortCount || activity.segmentEffortCount <= 0) return;
-    if (!user || user.uid !== activity.userId) return;
     if ((activity as Activity & { source?: string }).source !== "strava") return;
     const stravaActivityId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
     if (!stravaActivityId) return;
@@ -376,7 +374,7 @@ export default function ActivityCard({
         logClientError("ActivityCard.streamAchievements", err, { activityId: activity.id });
       });
     return () => { cancelled = true; };
-  }, [activity, getStreams, user]);
+  }, [activity, getStreams]);
 
   return (
     <Card padding="none" className="overflow-hidden">
@@ -529,12 +527,14 @@ export default function ActivityCard({
           {achievements.length > 0 ? (
             <div className="space-y-0.5">
               {achievements.map((ach, idx) => (
-                <div key={idx} className="flex items-center justify-between text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-2)' }}>
-                  <div className="flex items-center gap-1.5 overflow-hidden">
-                    <AchievementBadge type={ach.type} />
-                    <span className="truncate">{ach.segmentName}</span>
-                  </div>
-                  <span className="font-mono opacity-80">{ach.time}</span>
+                <div
+                  key={idx}
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 text-[length:var(--fs-xs)]"
+                  style={{ color: 'var(--ink-2)' }}
+                >
+                  <AchievementBadge type={ach.type} />
+                  <span className="min-w-0 truncate">{ach.segmentName}</span>
+                  <span className="font-mono opacity-80 whitespace-nowrap">{ach.time}</span>
                 </div>
               ))}
             </div>
