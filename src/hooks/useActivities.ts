@@ -33,6 +33,12 @@ const FEED_PAGE_SIZE = 10;
 const FIRST_FEED_CHUNK_SIZE = 3;
 const FEED_LOAD_RETRY_DELAYS_MS = [600, 1600] as const;
 
+type ActivityPage = {
+  items: Activity[];
+  last: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+};
+
 async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity[]> {
   const missingProfileImageUserIds = Array.from(
     new Set(items.filter((activity) => !activity.profileImage).map((activity) => activity.userId)),
@@ -98,7 +104,7 @@ export function useActivities() {
     uid: string | null,
     cursor: QueryDocumentSnapshot<DocumentData> | null,
     pageSize = FEED_PAGE_SIZE,
-  ) => {
+  ): Promise<ActivityPage> => {
     const col = collection(firestore, "activities");
     let q;
 
@@ -134,6 +140,26 @@ export function useActivities() {
 
     let cancelled = false;
 
+    const retryFetchPage = async (
+      cursor: QueryDocumentSnapshot<DocumentData> | null,
+      pageSize: number,
+      context: "first" | "rest",
+    ): Promise<ActivityPage | null> => {
+      for (const delayMs of FEED_LOAD_RETRY_DELAYS_MS) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        if (cancelled) return null;
+
+        try {
+          return await fetchPage(user?.uid ?? null, cursor, pageSize);
+        } catch (retryErr) {
+          logClientError("useActivities.initialLoad.retry", retryErr, { context, delayMs });
+        }
+      }
+
+      logClientError("useActivities.initialLoad.retryExhausted", new Error("activity feed retry exhausted"), { context });
+      return null;
+    };
+
     const load = async () => {
       setLoading(true);
       setActivities([]);
@@ -141,8 +167,16 @@ export function useActivities() {
       setHasMore(true);
       setLoadingMore(false);
 
+      let first: ActivityPage | null = null;
       try {
-        const first = await fetchPage(user?.uid ?? null, null, FIRST_FEED_CHUNK_SIZE);
+        first = await fetchPage(user?.uid ?? null, null, FIRST_FEED_CHUNK_SIZE);
+      } catch (err) {
+        logClientError("useActivities.initialLoad.first", err);
+        first = await retryFetchPage(null, FIRST_FEED_CHUNK_SIZE, "first");
+      }
+
+      try {
+        if (!first) return;
         if (cancelled) return;
         setActivities(first.items);
         setLastDoc(first.last);
@@ -152,7 +186,14 @@ export function useActivities() {
         if (!first.last || !first.hasMore) return;
 
         setLoadingMore(true);
-        const rest = await fetchPage(user?.uid ?? null, first.last, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE);
+        let rest: ActivityPage | null = null;
+        try {
+          rest = await fetchPage(user?.uid ?? null, first.last, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE);
+        } catch (err) {
+          logClientError("useActivities.initialLoad.rest", err);
+          rest = await retryFetchPage(first.last, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE, "rest");
+        }
+        if (!rest) return;
         if (cancelled) return;
         setActivities((prev) => {
           const seen = new Set(prev.map((activity) => activity.id));
@@ -160,23 +201,6 @@ export function useActivities() {
         });
         setLastDoc(rest.last ?? first.last);
         setHasMore(rest.hasMore);
-      } catch (err) {
-        logClientError("useActivities.initialLoad", err);
-        for (const delayMs of FEED_LOAD_RETRY_DELAYS_MS) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-          if (cancelled) return;
-
-          try {
-            const retry = await fetchPage(user?.uid ?? null, null, FEED_PAGE_SIZE);
-            if (cancelled) return;
-            setActivities(retry.items);
-            setLastDoc(retry.last);
-            setHasMore(retry.hasMore);
-            return;
-          } catch (retryErr) {
-            logClientError("useActivities.initialLoad.retry", retryErr, { delayMs });
-          }
-        }
       } finally {
         if (!cancelled) setLoading(false);
         if (!cancelled) setLoadingMore(false);
