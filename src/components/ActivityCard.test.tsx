@@ -2,6 +2,7 @@ import { screen, waitFor, fireEvent } from "@testing-library/react";
 import ActivityCard, { shouldReportMapCaptureError } from "./ActivityCard";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
+import { setCallableResult } from "../__tests__/mocks/firebase";
 
 // Mock RouteMap to avoid Leaflet issues
 vi.mock("./RouteMap", () => ({
@@ -60,6 +61,56 @@ describe("ActivityCard", () => {
     renderWithProviders(<ActivityCard activity={activity} />);
     expect(screen.getByText("200 W")).toBeInTheDocument();
     expect(screen.getByText("145 bpm")).toBeInTheDocument();
+  });
+
+  it("shows matched segment count when there are no PR/KOM achievements", () => {
+    const activity = createMockActivity({
+      segmentEffortCount: 3,
+      topAchievements: [],
+    });
+    renderWithProviders(<ActivityCard activity={activity} showMap={false} />);
+    expect(screen.getByText("3개 세그먼트")).toBeInTheDocument();
+    expect(screen.queryByText("구간 기록 없음")).not.toBeInTheDocument();
+  });
+
+  it("recovers PR achievements from cached Strava streams for the owner's card", async () => {
+    setCallableResult("stravaGetActivityStreams", {
+      data: {
+        segment_efforts: [
+          {
+            id: 1001,
+            name: "문고개",
+            elapsedTime: 185000,
+            prRank: 1,
+            komRank: null,
+            segment: { id: 1001, name: "문고개" },
+          },
+          {
+            id: 1002,
+            name: "경남 문",
+            elapsedTime: 242000,
+            prRank: 2,
+            komRank: null,
+            segment: { id: 1002, name: "경남 문" },
+          },
+        ],
+      },
+    });
+
+    const activity = createMockActivity({
+      userId: "test-uid",
+      source: "strava",
+      stravaActivityId: 123456,
+      segmentEffortCount: 2,
+      topAchievements: [],
+    });
+    renderWithProviders(<ActivityCard activity={activity} showMap={false} />, { authenticated: true });
+
+    await waitFor(() => {
+      expect(screen.getByText("문고개")).toBeInTheDocument();
+      expect(screen.getByText("3:05")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("구간 기록 없음")).not.toBeInTheDocument();
   });
 
   it("shows route map by default", async () => {

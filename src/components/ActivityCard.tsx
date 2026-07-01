@@ -8,6 +8,7 @@ import { firestore, storage } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
+import { useStrava } from "../hooks/useStrava";
 import { formatDistance, formatSpeed, formatElev } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
 import type { Activity } from "@shared/types";
@@ -230,6 +231,19 @@ function formatDate(timestamp: number): string {
 
 // Achievement Types — 서버에서 사전 집계된 activity.topAchievements를 그대로 사용
 type AchievementType = "PR" | "KOM" | "2nd" | "3rd";
+type ActivityCardAchievement = NonNullable<Activity["topAchievements"]>[number];
+
+interface StreamSegmentEffortForCard {
+  id?: number | string;
+  name?: string;
+  elapsedTime?: number;
+  prRank?: number | null;
+  komRank?: number | null;
+  segment?: {
+    id?: number | string;
+    name?: string;
+  };
+}
 
 function AchievementBadge({ type }: { type: AchievementType }) {
   const icons = {
@@ -251,6 +265,49 @@ function AchievementBadge({ type }: { type: AchievementType }) {
       {icons[type]}
     </span>
   );
+}
+
+function formatAchievementTime(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+export function buildTopAchievementsFromStreams(streams: unknown): ActivityCardAchievement[] {
+  const raw = (streams as { segment_efforts?: unknown } | null)?.segment_efforts;
+  if (!Array.isArray(raw)) return [];
+
+  return (raw as StreamSegmentEffortForCard[])
+    .map((effort) => {
+      const prRank = effort.prRank ?? null;
+      const komRank = effort.komRank ?? null;
+      const elapsedTime = effort.elapsedTime ?? 0;
+      if (elapsedTime <= 0) return null;
+
+      let type: AchievementType | null = null;
+      if (komRank != null && komRank >= 1 && komRank <= 10) type = "KOM";
+      else if (prRank === 1) type = "PR";
+      else if (prRank === 2) type = "2nd";
+      else if (prRank === 3) type = "3rd";
+      if (!type) return null;
+
+      const segmentId = effort.segment?.id ?? effort.id;
+      const segmentName = effort.name ?? effort.segment?.name;
+      if (segmentId == null || !segmentName) return null;
+
+      return {
+        type,
+        segmentId: String(segmentId),
+        segmentName,
+        time: formatAchievementTime(elapsedTime),
+        sortRank: type === "KOM" ? 0 : type === "PR" ? 1 : type === "2nd" ? 2 : 3,
+      };
+    })
+    .filter((achievement): achievement is ActivityCardAchievement & { sortRank: number } => achievement != null)
+    .sort((a, b) => a.sortRank - b.sortRank)
+    .slice(0, 3)
+    .map(({ sortRank: _sortRank, ...achievement }) => achievement);
 }
 
 /**
@@ -290,11 +347,36 @@ export default function ActivityCard({
   const s = activity.summary;
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const { units } = useLocale();
+  const { user } = useAuth();
+  const { getStreams } = useStrava();
+  const [streamAchievements, setStreamAchievements] = useState<ActivityCardAchievement[]>([]);
 
   // 서버가 사전 집계한 topAchievements 사용 (segment-match 후 활동 doc에 기록)
-  const achievements = activity.topAchievements ?? [];
+  const achievements = (activity.topAchievements?.length ? activity.topAchievements : streamAchievements) ?? [];
   const prCount = achievements.filter(a => a.type === "PR").length;
   const komCount = achievements.filter(a => a.type === "KOM").length;
+  const segmentEffortCount = Math.max(activity.segmentEffortCount ?? 0, achievements.length);
+
+  useEffect(() => {
+    setStreamAchievements([]);
+    if (activity.topAchievements?.length) return;
+    if (!activity.segmentEffortCount || activity.segmentEffortCount <= 0) return;
+    if (!user || user.uid !== activity.userId) return;
+    if ((activity as Activity & { source?: string }).source !== "strava") return;
+    const stravaActivityId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
+    if (!stravaActivityId) return;
+
+    let cancelled = false;
+    getStreams(stravaActivityId)
+      .then((streams) => {
+        if (cancelled) return;
+        setStreamAchievements(buildTopAchievementsFromStreams(streams));
+      })
+      .catch((err) => {
+        logClientError("ActivityCard.streamAchievements", err, { activityId: activity.id });
+      });
+    return () => { cancelled = true; };
+  }, [activity, getStreams, user]);
 
   return (
     <Card padding="none" className="overflow-hidden">
@@ -455,6 +537,10 @@ export default function ActivityCard({
                   <span className="font-mono opacity-80">{ach.time}</span>
                 </div>
               ))}
+            </div>
+          ) : segmentEffortCount > 0 ? (
+            <div className="text-[length:var(--fs-xs)] text-center font-medium" style={{ color: 'var(--ink-2)' }}>
+              {t("card.segmentCount", { count: segmentEffortCount })}
             </div>
           ) : (
             <div className="text-[length:var(--fs-xs)] text-center" style={{ color: 'var(--ink-4)' }}>
