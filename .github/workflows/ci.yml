@@ -54,15 +54,19 @@ jobs:
         if: steps.changes.outputs.docs_only != 'true'
       - run: npm run quality:budget
         if: steps.changes.outputs.docs_only != 'true'
+      - run: npm run check:deploy-config
+        if: steps.changes.outputs.docs_only != 'true'
       - run: npm test
         if: steps.changes.outputs.docs_only != 'true'
       - name: Build (placeholder env — 시크릿 없음, 포크 안전)
         if: steps.changes.outputs.docs_only != 'true'
         env:
-          # check-env.mjs 가 존재만 검증하는 4개 키. 실연결 안 함(빌드 컴파일용 더미).
+          # check-env.mjs 가 존재만 검증하는 키. 실연결 안 함(빌드 컴파일용 더미).
           VITE_FIREBASE_API_KEY: ci-placeholder
           VITE_FIREBASE_AUTH_DOMAIN: example.firebaseapp.com
           VITE_FIREBASE_PROJECT_ID: ci-placeholder
           VITE_FIREBASE_APP_ID: "1:0:web:ci"
           VITE_FIREBASE_FUNCTIONS_REGION: asia-northeast3
+          VITE_STRAVA_CLIENT_ID: ci-placeholder
+          VITE_STRAVA_REDIRECT_URI: https://example.com/strava/callback
         run: npm run build

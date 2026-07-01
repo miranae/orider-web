@@ -23,13 +23,25 @@ const mode = process.env.VITE_MODE || process.env.MODE || "production";
 
 const env = loadEnv(mode, envDir, "");
 
+const isProductionMode = mode === "production" || mode === "prod";
+
 // 누락 시 앱이 절대 부팅 못하는 핵심 키. Sentry / Mapbox 등 부수 키는 선택.
-const REQUIRED = [
+const CORE_REQUIRED = [
   "VITE_FIREBASE_API_KEY",
   "VITE_FIREBASE_AUTH_DOMAIN",
   "VITE_FIREBASE_PROJECT_ID",
   "VITE_FIREBASE_APP_ID",
 ];
+
+// 운영에서 사용자에게 노출되는 연결 기능. 값이 빠지면 버튼 클릭 시 런타임 장애가 난다.
+const PRODUCTION_REQUIRED = [
+  "VITE_STRAVA_CLIENT_ID",
+  "VITE_STRAVA_REDIRECT_URI",
+];
+
+const REQUIRED = isProductionMode
+  ? [...CORE_REQUIRED, ...PRODUCTION_REQUIRED]
+  : CORE_REQUIRED;
 
 const missing = REQUIRED.filter((k) => !env[k] || env[k].trim() === "");
 if (missing.length > 0) {
@@ -42,6 +54,11 @@ if (missing.length > 0) {
   console.error("");
   console.error("  로컬: web/.env 확인 (web/.env.example 참조)");
   console.error("  CI:   workflow secrets 확인 (.github/workflows/deploy.yml env: 블록)");
+  if (missing.some((k) => PRODUCTION_REQUIRED.includes(k))) {
+    console.error("");
+    console.error("  운영 배포에서 Strava env 가 비면 연결 버튼이 런타임 오류를 냅니다.");
+    console.error("  로컬 수동 배포 대신 GitHub Actions 태그 배포를 사용하세요.");
+  }
   console.error("");
   process.exit(1);
 }
