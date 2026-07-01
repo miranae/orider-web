@@ -42,6 +42,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Check deploy config
+        run: npm run check:deploy-config
       - name: Build
         run: npm run build
       - name: Auth (Workload Identity Federation — 키리스)
