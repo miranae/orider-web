@@ -9,10 +9,6 @@ vi.mock('../services/firebase', () => ({
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(),
   setDoc: vi.fn().mockResolvedValue(undefined),
-  onSnapshot: vi.fn((_doc, cb) => {
-    cb({ exists: () => false });
-    return () => {};
-  }),
 }));
 
 function Probe() {
@@ -44,5 +40,14 @@ describe('LocaleContext', () => {
     expect(btn).toHaveTextContent('metric');
     await act(async () => { btn.click(); });
     expect(btn).toHaveTextContent('imperial');
+  });
+
+  it('uses locale and units from the auth profile without a second Firestore listener', () => {
+    render(
+      <LocaleProvider userId="test-uid" profile={{ locale: 'en', units: 'imperial' }}>
+        <Probe />
+      </LocaleProvider>
+    );
+    expect(screen.getByText('en/imperial')).toBeInTheDocument();
   });
 });

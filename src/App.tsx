@@ -274,7 +274,7 @@ export default function App() {
       )}
     >
       <QueryClientProvider client={queryClient}>
-        <LocaleProvider userId={user?.uid ?? null}>
+        <LocaleProvider userId={user?.uid ?? null} profile={profile}>
           <Suspense fallback={<LoadingSpinner />}>
             <AppRoutes />
           </Suspense>
