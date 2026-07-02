@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { firestore } from '../services/firebase';
 import { logClientError } from '../services/errorLogger';
 import i18n from '../i18n';
@@ -32,30 +32,27 @@ function initialLocale(): Lang {
 
 export function LocaleProvider({
   userId,
+  profile,
   children,
 }: {
   userId: string | null;
+  profile?: Partial<{ locale: Lang; units: Units }> | null;
   children: ReactNode;
 }) {
   const [locale, setLocaleState] = useState<Lang>(initialLocale);
   const [units, setUnitsState] = useState<Units>('metric');
 
   useEffect(() => {
-    if (!userId) return;
-    const ref = doc(firestore, 'users', userId);
-    return onSnapshot(ref, (snap) => {
-      const data = snap.exists() ? snap.data() : null;
-      const fsLocale = data?.locale as Lang | undefined;
-      const fsUnits = data?.units as Units | undefined;
-      const pathLang = window.location.pathname.split('/')[1] ?? '';
-      const urlHasLang = (SUPPORTED_LANGS as readonly string[]).includes(pathLang);
-      if (fsLocale && !urlHasLang && fsLocale !== locale) {
-        setLocaleState(fsLocale);
-        void i18n.changeLanguage(fsLocale);
-      }
-      if (fsUnits && fsUnits !== units) setUnitsState(fsUnits);
-    });
-  }, [userId]);  
+    const fsLocale = profile?.locale;
+    const fsUnits = profile?.units;
+    const pathLang = window.location.pathname.split('/')[1] ?? '';
+    const urlHasLang = (SUPPORTED_LANGS as readonly string[]).includes(pathLang);
+    if (fsLocale && !urlHasLang && fsLocale !== locale) {
+      setLocaleState(fsLocale);
+      void i18n.changeLanguage(fsLocale);
+    }
+    if (fsUnits && fsUnits !== units) setUnitsState(fsUnits);
+  }, [locale, profile?.locale, profile?.units, units]);
 
   const persist = useCallback(
     async (patch: Partial<{ locale: Lang; units: Units }>) => {
