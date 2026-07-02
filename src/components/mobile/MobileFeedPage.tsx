@@ -17,6 +17,7 @@ import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
 import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activitySanity";
 
 const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
+const RouteMap = lazy(() => import("../RouteMap"));
 
 interface WeekEntry {
   label: string;
@@ -63,6 +64,38 @@ function MobileFeedSkeleton() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function MobileRouteThumbnail({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
+  if (activity.mapImageUrl) {
+    return (
+      <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 10px", overflow: "hidden" }}>
+        <img
+          src={activity.mapImageUrl}
+          alt=""
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : undefined}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
+    );
+  }
+
+  if (!activity.thumbnailTrack) return null;
+
+  return (
+    <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 10px", overflow: "hidden", background: "var(--bg-2)" }}>
+      <Suspense fallback={<div style={{ width: "100%", height: "100%", background: "var(--bg-2)" }} />}>
+        <RouteMap
+          polyline={activity.thumbnailTrack}
+          height="w-full h-full"
+          interactive={false}
+          rounded={false}
+          fitPadding={16}
+        />
+      </Suspense>
     </div>
   );
 }
@@ -149,17 +182,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
           비율은 데스크톱(ActivityCard)과 동일하게 토큰 --feed-thumb-aspect(index.css 단일
           진실원, 현재 2.8:1) 사용 — 옛 고정높이(156px)는 기기 폭에 따라 비율이 들쭉날쭉
           (2.3~3:1)했다. aspectRatio 로 모든 기기에서 데스크톱과 동일 프레임 보장. */}
-      {activity.mapImageUrl && (
-        <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 10px", overflow: "hidden" }}>
-          <img
-            src={activity.mapImageUrl}
-            alt=""
-            loading={priority ? "eager" : "lazy"}
-            fetchPriority={priority ? "high" : undefined}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        </div>
-      )}
+      <MobileRouteThumbnail activity={activity} priority={priority} />
 
       {/* 4-col stats */}
       <div className="flex">
