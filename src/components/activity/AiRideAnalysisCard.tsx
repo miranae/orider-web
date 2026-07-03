@@ -49,6 +49,35 @@ function sportHeaderKey(sport: AnalysisSport): string {
   return sport === "run" ? "ai.headerRun" : "ai.header";
 }
 
+function RunAnalysisPreview({ t }: { t: (key: string) => string }) {
+  const items = [
+    { key: "pace", tone: "var(--aqua)" },
+    { key: "drift", tone: "var(--rose)" },
+    { key: "terrain", tone: "var(--lime)" },
+  ];
+  return (
+    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      {items.map((item) => (
+        <div
+          key={item.key}
+          className="rounded-[var(--r-md)] p-3"
+          style={{
+            background: `color-mix(in srgb, ${item.tone} 8%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${item.tone} 28%, var(--line-soft))`,
+          }}
+        >
+          <div className="text-[length:var(--fs-xs)] font-semibold" style={{ color: item.tone }}>
+            {t(`ai.runPreview.${item.key}.title`)}
+          </div>
+          <Text variant="caption" tone="secondary" as="p" className="mt-1">
+            {t(`ai.runPreview.${item.key}.desc`)}
+          </Text>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function FlagChip({ flag, t }: { flag: string; t: (key: string) => string }) {
   return (
     <span
@@ -266,6 +295,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
           <Text variant="caption" tone="tertiary" as="p" className="mt-2">
             {t("ai.previewOnlyHint")}
           </Text>
+          {sport === "run" && <RunAnalysisPreview t={t} />}
         </Card>
       );
     }
@@ -295,6 +325,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
             ? t(sport === "run" ? "ai.waitHintRun" : "ai.waitHint")
             : t("ai.loginHint")}
         </Text>
+        {sport === "run" && <RunAnalysisPreview t={t} />}
       </Card>
     );
   }
