@@ -12,7 +12,7 @@ import { Card, Text, Button } from "../../theme/components";
 
 /** 구간당 메달(🏅/🏆) 기본 노출 상한 — 한 구간이 수십 개 세그먼트에 매칭되면 메달 벽이 생겨 가독성 저하. */
 const MEDAL_LIMIT = 5;
-import { useActivityNarrative, type NarrativeSegment, type Prescription, type NarrativeLang } from "../../hooks/useActivityNarrative";
+import { useActivityNarrativeWithOptions, type NarrativeSegment, type Prescription, type NarrativeLang } from "../../hooks/useActivityNarrative";
 import { useActivityNarrativePeek, invalidateActivityNarrativePeekCache } from "../../hooks/useActivityNarrativePeek";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -242,10 +242,14 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   //   생성(LLM)은 인증 필수 → 비로그인은 호출 금지. cacheMiss 분기에서 비로그인엔 로그인 CTA 노출
   //   (= 결과는 공개로 보되, 새 생성은 로그인 필요).
   const [triggerFull, setTriggerFull] = useState(false);
-  const full = useActivityNarrative(activityId, enabled && triggerFull && !!user, lang);
+  const [forceRefresh, setForceRefresh] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const full = useActivityNarrativeWithOptions(activityId, enabled && triggerFull && !!user, lang, forceRefresh, refreshKey);
   const [expanded, setExpanded] = useState(true);
   const retryFullAnalysis = () => {
     if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
+    setForceRefresh(true);
+    setRefreshKey((v) => v + 1);
     setTriggerFull(false);
     window.setTimeout(() => setTriggerFull(true), 0);
   };
@@ -284,6 +288,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
                 variant="secondary"
                 onClick={() => {
                   if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
+                  setForceRefresh(false);
                   setTriggerFull(true);
                 }}
               >
@@ -309,6 +314,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
               variant="secondary"
               onClick={() => {
                 if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
+                setForceRefresh(false);
                 setTriggerFull(true);
               }}
             >
@@ -349,7 +355,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   }
 
   // 사용할 데이터: peek hit 결과 또는 full 생성 결과
-  const data = peek.data ?? full.data;
+  const data = full.data ?? peek.data;
   const error = full.error;
   const authError = isAuthenticationError(error);
 
@@ -414,10 +420,20 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
+        {data.stale && user && (
+          <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
+            {t("ai.refreshAnalysisBtn")}
+          </Button>
+        )}
       </div>
 
       {/* 요약 (항상 노출) */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
+      {data.stale && (
+        <Text variant="caption" tone="tertiary" as="p" className="mt-2">
+          {user ? t("ai.staleHint") : t("ai.staleLoginHint")}
+        </Text>
+      )}
 
       {/* 전체 플래그 */}
       {overall.flags.length > 0 && (

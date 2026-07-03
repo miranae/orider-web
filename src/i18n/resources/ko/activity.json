@@ -42,11 +42,14 @@
     "checking": "확인 중…",
     "startBtn": "분석시작",
     "refreshDetailBtn": "상세 분석 다시 불러오기",
+    "refreshAnalysisBtn": "변경사항 반영해 다시 분석",
     "loginBtn": "로그인",
     "waitHint": "분석 대기 — 버튼을 눌러 AI 구간 분석을 시작하세요.",
     "waitHintRun": "분석 대기 — 버튼을 눌러 AI 러닝 구간 코칭을 시작하세요.",
     "previewOnlyHint": "저장된 AI 요약을 표시 중입니다. 상세 구간 캐시가 없거나 아직 동기화되지 않았어요.",
     "previewAuthHint": "저장된 AI 요약을 표시 중입니다. 상세 구간 분석을 다시 불러오려면 로그인 상태를 확인해 주세요.",
+    "staleHint": "저장된 분석을 표시 중입니다. 활동 메트릭, 날씨, 프로필 기준이 바뀌었을 수 있어 다시 분석할 수 있습니다.",
+    "staleLoginHint": "저장된 분석을 표시 중입니다. 최신 기준으로 다시 분석하려면 로그인해 주세요.",
     "loginHint": "로그인하면 AI 구간 분석을 이용할 수 있어요.",
     "runPreview": {
       "pace": {

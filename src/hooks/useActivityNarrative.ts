@@ -65,6 +65,8 @@ export interface ActivityNarrative {
   generatedAt: number;
   isVirtualPower: boolean;
   summary: string;
+  /** 서버 입력 fingerprint가 현재 활동/메트릭/프로필과 달라 기존 분석을 표시 중인 상태. */
+  stale?: boolean;
   /** 코치 처방 (rsn-v10+). 구버전 캐시는 미포함 → 옵셔널. */
   prescriptions?: Prescription[];
   overall: {
@@ -103,14 +105,24 @@ const done = new Map<string, ActivityNarrative>();
  * @param lang       출력 언어(ko/en). 서버 언어별 슬롯에 캐시·조회.
  */
 export function useActivityNarrative(activityId: string | null, enabled: boolean, lang: NarrativeLang = "ko"): State {
+  return useActivityNarrativeWithOptions(activityId, enabled, lang, false, 0);
+}
+
+export function useActivityNarrativeWithOptions(
+  activityId: string | null,
+  enabled: boolean,
+  lang: NarrativeLang = "ko",
+  forceRefresh = false,
+  refreshKey = 0,
+): State {
   const [state, setState] = useState<State>({ data: null, loading: false, error: null });
 
   useEffect(() => {
     if (!enabled || !activityId) return;
-    const key = `${activityId}:${lang}`;
+    const key = `${activityId}:${lang}:${forceRefresh ? `force-${refreshKey}` : "cache"}`;
 
     // 완료 캐시 적중 → 즉시 표시(로딩·호출 없음)
-    const cached = done.get(key);
+    const cached = forceRefresh ? null : done.get(key);
     if (cached) {
       setState({ data: cached, loading: false, error: null });
       return;
@@ -121,12 +133,15 @@ export function useActivityNarrative(activityId: string | null, enabled: boolean
 
     let promise = inflight.get(key);
     if (!promise) {
-      const fn = httpsCallable<{ activityId: string; lang: NarrativeLang }, ActivityNarrative>(functions, "getActivityNarrative");
-      promise = fn({ activityId, lang }).then((res) => res.data);
+      const fn = httpsCallable<{ activityId: string; lang: NarrativeLang; forceRefresh?: boolean }, ActivityNarrative>(functions, "getActivityNarrative");
+      promise = fn({ activityId, lang, ...(forceRefresh ? { forceRefresh: true } : {}) }).then((res) => res.data);
       inflight.set(key, promise);
       // 성공 → done 으로 승격, 실패 → inflight 비워 후속 마운트가 재시도 가능
       promise
-        .then((data) => { done.set(key, data); })
+        .then((data) => {
+          done.set(`${activityId}:${lang}:cache`, data);
+          done.set(key, data);
+        })
         .catch((err) => logClientError("useActivityNarrative.bg", err, {}))
         .finally(() => { inflight.delete(key); });
     }
@@ -141,7 +156,7 @@ export function useActivityNarrative(activityId: string | null, enabled: boolean
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang]);
+  }, [activityId, enabled, lang, forceRefresh, refreshKey]);
 
   return state;
 }
