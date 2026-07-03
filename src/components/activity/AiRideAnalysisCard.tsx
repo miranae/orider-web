@@ -17,6 +17,7 @@ import { useActivityNarrativePeek, invalidateActivityNarrativePeekCache } from "
 import { useAuth } from "../../contexts/AuthContext";
 
 const TERRAIN_ICON: Record<string, string> = { climb: "🔼", descent: "🔽", flat: "➡️" };
+type AnalysisSport = "ride" | "run";
 
 /** i18n.language → 서버 슬롯 언어. en* → en, 그 외 → ko. */
 function narrativeLangFrom(i18nLang: string | undefined): NarrativeLang {
@@ -34,6 +35,18 @@ function zoneVar(zone: string | null): string {
 
 function isAuthenticationError(error: string | null): boolean {
   return error != null && /unauthenticated|auth/i.test(error);
+}
+
+function formatRunPace(kmh: number): string {
+  if (!Number.isFinite(kmh) || kmh <= 0) return "-";
+  const minPerKm = 60 / kmh;
+  const mins = Math.floor(minPerKm);
+  const secs = Math.round((minPerKm - mins) * 60);
+  return `${mins}'${secs.toString().padStart(2, "0")}"`;
+}
+
+function sportHeaderKey(sport: AnalysisSport): string {
+  return sport === "run" ? "ai.headerRun" : "ai.header";
 }
 
 function FlagChip({ flag, t }: { flag: string; t: (key: string) => string }) {
@@ -80,7 +93,7 @@ function PrescriptionBlock({ items, t }: { items: Prescription[]; t: (key: strin
   );
 }
 
-function SegmentRow({ seg, t }: { seg: NarrativeSegment; t: (key: string, opts?: Record<string, unknown>) => string }) {
+function SegmentRow({ seg, sport, t }: { seg: NarrativeSegment; sport: AnalysisSport; t: (key: string, opts?: Record<string, unknown>) => string }) {
   const [showAllEfforts, setShowAllEfforts] = useState(false);
   // 메달이 상한을 넘으면 의미 있는 것부터 노출되도록 우선순위 정렬:
   // PR(🏆) > KOM/PR 순위 보유 > 시도 이력 보유 > 일반 매칭. 동점은 원래 순서 유지(안정 정렬).
@@ -112,8 +125,16 @@ function SegmentRow({ seg, t }: { seg: NarrativeSegment; t: (key: string, opts?:
           </span>
         )}
         <Text variant="caption" tone="tertiary" mono>
-          {seg.avgSpeedKmh}km/h · {seg.avgPowerW}W · HR{seg.avgHr}
-          {seg.avgTempC != null ? ` · ${seg.avgTempC}°` : ""} · {t(`ai.wind.${seg.relWind}`)}
+          {sport === "run"
+            ? [
+                `${formatRunPace(seg.avgSpeedKmh)}/km`,
+                seg.avgPowerW > 0 ? `${seg.avgPowerW}W` : "",
+                `HR${seg.avgHr}`,
+                seg.avgCadence > 0 ? `${seg.avgCadence}spm` : "",
+                seg.avgTempC != null ? `${seg.avgTempC}°` : "",
+                t(`ai.wind.${seg.relWind}`),
+              ].filter(Boolean).join(" · ")
+            : `${seg.avgSpeedKmh}km/h · ${seg.avgPowerW}W · HR${seg.avgHr}${seg.avgTempC != null ? ` · ${seg.avgTempC}°` : ""} · ${t(`ai.wind.${seg.relWind}`)}`}
         </Text>
       </div>
       {seg.flags.length > 0 && (
@@ -170,16 +191,18 @@ function SegmentRow({ seg, t }: { seg: NarrativeSegment; t: (key: string, opts?:
 
 interface Props {
   activityId: string | null;
-  /** 사이클 활동 + 스트림 준비 시에만 호출 */
+  /** 지원 종목 활동 + 스트림 준비 시에만 호출 */
   enabled: boolean;
+  sport?: AnalysisSport;
   /** 활동 문서에 비정규화된 AI 요약. 상세 캐시 miss 시 fallback으로 보여준다. */
   summaryPreview?: string | null;
   summaryPreviewEn?: string | null;
 }
 
-export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview, summaryPreviewEn }: Props) {
+export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride", summaryPreview, summaryPreviewEn }: Props) {
   const { t, i18n } = useTranslation("activity");
   const lang = narrativeLangFrom(i18n.language);
+  const header = t(sportHeaderKey(sport));
   const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
   const { user, signInWithGoogle } = useAuth();
   // 1단계: 캐시 peek (LLM 호출 없이 빠른 확인).
@@ -205,7 +228,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
     return (
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <div className="flex items-center gap-2">
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
         </div>
         <div className="mt-3 flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
           <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -225,7 +248,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
       return (
         <Card padding="none" style={{ padding: "var(--space-5)" }}>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+            <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
             {user ? (
               <Button
                 size="sm"
@@ -249,7 +272,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
     return (
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
           {user ? (
             <Button
               size="sm"
@@ -269,7 +292,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
         </div>
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">
           {user
-            ? t("ai.waitHint")
+            ? t(sport === "run" ? "ai.waitHintRun" : "ai.waitHint")
             : t("ai.loginHint")}
         </Text>
       </Card>
@@ -281,7 +304,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
     return (
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <div className="flex items-center gap-2">
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
         </div>
         <div className="mt-3 flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
           <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -304,7 +327,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
       return (
         <Card padding="none" style={{ padding: "var(--space-5)" }}>
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+            <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
             {authError ? (
               <Button size="sm" variant="secondary" onClick={() => signInWithGoogle()}>
                 {t("ai.loginBtn")}
@@ -331,7 +354,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
     return (
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
             {t("ai.retryBtn")}
           </Button>
@@ -357,7 +380,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
     <Card padding="none" style={{ padding: "var(--space-5)" }}>
       {/* 헤더 */}
       <div className="flex items-center flex-wrap gap-2 mb-3">
-        <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ai.header")}</span>
+        <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
       </div>
@@ -396,7 +419,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, summaryPreview
       </div>
       {expanded && (
         <div className="mt-1">
-          {data.segments.map((s) => <SegmentRow key={`${s.fromKm}-${s.toKm}`} seg={s} t={t} />)}
+          {data.segments.map((s) => <SegmentRow key={`${s.fromKm}-${s.toKm}`} seg={s} sport={sport} t={t} />)}
         </div>
       )}
 
