@@ -48,6 +48,20 @@
     "previewOnlyHint": "Showing the saved AI summary. Detailed segment cache is missing or has not synced yet.",
     "previewAuthHint": "Showing the saved AI summary. Check your sign-in state to reload detailed segment analysis.",
     "loginHint": "Sign in to use AI segment analysis.",
+    "runPreview": {
+      "pace": {
+        "title": "Pace stability",
+        "desc": "Compares actual pace and GAP by segment to find fast starts, unstable sections, and recovery windows."
+      },
+      "drift": {
+        "title": "Heart-rate drift",
+        "desc": "Finds where heart rate rose at similar pace and turns fatigue, heat, or hydration signals into coaching."
+      },
+      "terrain": {
+        "title": "Uphill execution",
+        "desc": "Uses elevation, cadence, and running power when available to define the next run's execution cue."
+      }
+    },
     "analyzing": "Analyzing segments… (approx. 15–30 s)",
     "errorPrefix": "Analysis failed: {{error}}",
     "retryBtn": "Retry",
