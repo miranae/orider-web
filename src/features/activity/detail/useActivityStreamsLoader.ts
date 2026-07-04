@@ -39,19 +39,35 @@ export function useActivityStreamsLoader({
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
 
-    if (source === "orider" && activityId) {
+    if (activityId && (source === "orider" || activityId.startsWith("orider_"))) {
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => setShowStreamSpinner(true), 500);
       getDoc(doc(firestore, "activity_streams", activityId)).then((snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          const jsonStr = data.json as string | undefined;
-          if (jsonStr) {
-            const parsed = JSON.parse(jsonStr) as ActivityStreams;
-            parsed.userId = data.userId;
-            setStreams(parsed);
-          }
+        if (!snap.exists()) {
+          setStreamsError(t("page.streamsMissing"));
+          return;
+        }
+
+        const data = snap.data();
+        const jsonStr = data.json as string | undefined;
+        if (!jsonStr) {
+          setStreamsError(t("page.streamsMissing"));
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(jsonStr) as ActivityStreams;
+          parsed.userId = data.userId;
+          setStreams(parsed);
+        } catch (err) {
+          logClientError("ActivityPage.streams.parse", err, {
+            activityId,
+            source: "orider",
+            visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
+            isOwn: !!userId && activity.userId === userId,
+          });
+          setStreamsError(t("page.streamsMissing"));
         }
       }).catch((err) => {
         logClientError("ActivityPage.streams", err, {
