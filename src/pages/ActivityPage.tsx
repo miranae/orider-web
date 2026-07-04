@@ -90,6 +90,51 @@ function StreamUnavailableCard({
   );
 }
 
+type SummarySensorMetric = { label: string; value: string; unit?: string; sub?: string };
+
+function SummarySensorFallbackCard({
+  title,
+  description,
+  metrics,
+}: {
+  title: string;
+  description: string;
+  metrics: SummarySensorMetric[];
+}) {
+  if (metrics.length === 0) return null;
+
+  return (
+    <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+      <div className="mb-4">
+        <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{title}</h3>
+        <p className="mt-1 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{description}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {metrics.map((metric) => (
+          <div
+            key={metric.label}
+            className="rounded-[var(--r-md)] border p-4"
+            style={{ borderColor: "var(--line-soft)", background: "var(--bg-1)" }}
+          >
+            <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>
+              {metric.label}
+            </Text>
+            <div className="flex items-baseline gap-1">
+              <Text variant="dataMedium">{metric.value}</Text>
+              {metric.unit && <Text variant="unit">{metric.unit}</Text>}
+            </div>
+            {metric.sub && (
+              <div className="mt-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+                {metric.sub}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -471,6 +516,13 @@ export default function ActivityPage() {
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? user?.photoURL ?? null : null);
   const hasStreams = sampledData.length > 0;
+  const hasAnalysisStreams = !!streams && (
+    (streams.watts?.length ?? 0) > 0 ||
+    (streams.watts_calc?.length ?? 0) > 0 ||
+    (streams.heartrate?.length ?? 0) > 0 ||
+    (streams.distance?.length ?? 0) > 0 ||
+    (streams.laps?.length ?? 0) > 0
+  );
   const hasTrack = !!(activity.thumbnailTrack || streams?.latlng?.length);
   const sport = getSportCategory(activity.type || (isStrava ? undefined : "Ride"));
   const showElevation = sport === "ride" || sport === "run";
@@ -509,6 +561,45 @@ export default function ActivityPage() {
   const streamUnavailableMessage = loadingStreams || showStreamSpinner
     ? t("page.loadingGps")
     : streamsError ?? t("page.streamsMissing");
+  const summarySensorMetrics = ([
+    s.averageHeartRate != null
+      ? {
+          label: t("stat.avgHr"),
+          value: String(Math.round(s.averageHeartRate)),
+          unit: "bpm",
+          sub: s.maxHeartRate != null ? `${t("page.max")} ${Math.round(s.maxHeartRate)} bpm` : undefined,
+        }
+      : null,
+    avgPowerValue != null && (sport === "ride" || sport === "run")
+      ? {
+          label: t("stat.avgPower"),
+          value: String(Math.round(avgPowerValue)),
+          unit: "W",
+          sub: normalizedPowerValue != null ? `NP ${Math.round(normalizedPowerValue)} W` : undefined,
+        }
+      : null,
+    s.maxPower != null && (sport === "ride" || sport === "run")
+      ? {
+          label: t("stat.maxPower"),
+          value: String(Math.round(s.maxPower)),
+          unit: "W",
+        }
+      : null,
+    s.averageCadence != null
+      ? {
+          label: sport === "swim" ? t("stat.avgStroke") : t("stat.avgCadence"),
+          value: String(Math.round(s.averageCadence)),
+          unit: sport === "run" || sport === "swim" ? "spm" : "rpm",
+        }
+      : null,
+    s.calories != null
+      ? {
+          label: t("stat.calories"),
+          value: Math.round(s.calories).toLocaleString(),
+          unit: "kcal",
+        }
+      : null,
+  ] as (SummarySensorMetric | null)[]).filter((metric): metric is SummarySensorMetric => metric != null);
 
   return (
     <div className="max-w-[1440px] mx-auto space-y-6">
@@ -665,10 +756,17 @@ export default function ActivityPage() {
       />
 
       {/* ── 분석 탭 ── */}
-      {activeTab === "analysis" && !streams && (
-        <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} />
+      {activeTab === "analysis" && !hasAnalysisStreams && (
+        <div className="space-y-4">
+          <SummarySensorFallbackCard
+            title={t("page.summarySensorTitle")}
+            description={t("page.summarySensorDesc")}
+            metrics={summarySensorMetrics}
+          />
+          <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} />
+        </div>
       )}
-      {activeTab === "analysis" && streams && (
+      {activeTab === "analysis" && hasAnalysisStreams && streams && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               activeBike 는 뷰어(user.uid)의 자전거 프로필이라, 비소유자에게 보이면
