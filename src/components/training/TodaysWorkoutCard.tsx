@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
 import { collection, query, where, orderBy, limit, getDocs, doc, onSnapshot } from "firebase/firestore";
-import { functions, firestore } from "../../services/firebase";
+import { ensureAppCheckReady, functions, firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Goal, FitnessProjection } from "@shared/types/goal";
@@ -211,25 +211,26 @@ export default function TodaysWorkoutCard() {
       setCfDone(true);
       return () => { cancelled = true; };
     }
-    const fn = httpsCallable<Record<string, never>, TodaysWorkoutCFResponse>(
-      functions,
-      "getTodaysWorkout"
-    );
-    const refetch = () => {
+    const refetch = async () => {
       setLoading(true);
-      fn({})
-        .then((res) => {
-          if (cancelled) return;
-          setData(res.data.todaysWorkout);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          logClientError("TodaysWorkoutCard.todaysWorkout", err, {});
-          setData(null);
-        })
-        .finally(() => { if (!cancelled) { setLoading(false); setCfDone(true); } });
+      try {
+        await ensureAppCheckReady();
+        const fn = httpsCallable<Record<string, never>, TodaysWorkoutCFResponse>(
+          functions,
+          "getTodaysWorkout"
+        );
+        const res = await fn({});
+        if (cancelled) return;
+        setData(res.data.todaysWorkout);
+      } catch (err) {
+        if (cancelled) return;
+        logClientError("TodaysWorkoutCard.todaysWorkout", err, {});
+        setData(null);
+      } finally {
+        if (!cancelled) { setLoading(false); setCfDone(true); }
+      }
     };
-    refetch();
+    void refetch();
     const onVisible = () => {
       if (document.visibilityState === "visible") refetch();
     };
@@ -251,17 +252,19 @@ export default function TodaysWorkoutCard() {
       return () => { cancelled = true; };
     }
     if (prevRevalidating.current && !revalidating) {
-      const fn = httpsCallable<Record<string, never>, TodaysWorkoutCFResponse>(
-        functions,
-        "getTodaysWorkout"
-      );
-      fn({})
-        .then((res) => {
+      (async () => {
+        try {
+          await ensureAppCheckReady();
+          const fn = httpsCallable<Record<string, never>, TodaysWorkoutCFResponse>(
+            functions,
+            "getTodaysWorkout"
+          );
+          const res = await fn({});
           if (!cancelled) setData(res.data.todaysWorkout);
-        })
-        .catch((err) => {
+        } catch (err) {
           if (!cancelled) logClientError("TodaysWorkoutCard.todaysWorkout", err, {});
-        });
+        }
+      })();
     }
     prevRevalidating.current = revalidating;
     return () => { cancelled = true; };

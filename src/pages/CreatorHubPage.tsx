@@ -22,10 +22,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
+import { RideStoryPhotoPicker } from "../components/creator/RideStoryPhotoPicker";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useWeeklyStats } from "../hooks/useActivities";
+import { buildCreatorHubDetailLinks } from "../data/creatorHubDetailLinks";
 import { creatorRecipes, type CreatorRecipeIcon, type CreatorRecipeKind } from "../data/creatorRecipes";
 import { functions } from "../services/firebase";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
@@ -140,6 +142,7 @@ function buildCopy(language: string) {
       requestRecipe: ko ? "활용법 요청" : "Request recipe",
       manageApiKeys: ko ? "API key 만들기" : "Create API key",
       emailRecipe: ko ? "내 이메일로 받기" : "Email me this",
+      chooseRideStory: ko ? "사진/경로 선택" : "Choose photo/route",
       emailing: ko ? "이메일 발송 중" : "Sending email",
       emailed: ko ? "발송 완료" : "Sent",
       emailFailed: ko ? "이메일을 보내지 못했습니다" : "Could not send email",
@@ -474,6 +477,7 @@ export default function CreatorHubPage() {
   const [emailSendingId, setEmailSendingId] = useState<string | null>(null);
   const [emailSentItemIds, setEmailSentItemIds] = useState<Set<string>>(() => new Set());
   const [emailFailedItemIds, setEmailFailedItemIds] = useState<Set<string>>(() => new Set());
+  const [rideStoryPickerOpen, setRideStoryPickerOpen] = useState(false);
   const deploySectionRef = useRef<HTMLElement | null>(null);
   const recipesSectionRef = useRef<HTMLDivElement | null>(null);
   const shareSectionRef = useRef<HTMLDivElement | null>(null);
@@ -503,7 +507,7 @@ export default function CreatorHubPage() {
   const visibleItems = items.filter((item) => {
     if (tab === "featured") return true;
     if (tab === "recipes") return item.id !== "ai-diary";
-    return item.id === "ai-diary" || item.id === "ride-widget";
+    return item.id === "ai-diary" || item.id === "ride-story" || item.id === "ride-widget";
   });
 
   const chartWeeks = useMemo(() => {
@@ -613,12 +617,7 @@ export default function CreatorHubPage() {
     }
   };
 
-  const handleEmailRecipe = async (itemId: string) => {
-    if (!user) {
-      showToast(copy.actions.emailLogin, "info");
-      await signInWithGoogle();
-      return;
-    }
+  const sendRecipeEmail = async (itemId: string) => {
     setEmailSendingId(itemId);
     try {
       const fn = httpsCallable<{ recipeId: string; lang: string }, { sent: boolean; recipeId: string; email: string }>(
@@ -626,7 +625,10 @@ export default function CreatorHubPage() {
         "sendCreatorRecipeEmail",
         { timeout: 60_000 },
       );
-      await fn({ recipeId: itemId, lang: i18n.language.startsWith("en") ? "en" : "ko" });
+      await fn({
+        recipeId: itemId,
+        lang: i18n.language.startsWith("en") ? "en" : "ko",
+      });
       setEmailFailedItemIds((prev) => {
         const next = new Set(prev);
         next.delete(itemId);
@@ -640,6 +642,21 @@ export default function CreatorHubPage() {
     } finally {
       setEmailSendingId(null);
     }
+  };
+
+  const handleEmailRecipe = async (itemId: string) => {
+    if (!user) {
+      showToast(copy.actions.emailLogin, "info");
+      await signInWithGoogle();
+      return;
+    }
+
+    if (itemId === "ride-story") {
+      setRideStoryPickerOpen(true);
+      return;
+    }
+
+    await sendRecipeEmail(itemId);
   };
 
   const handleGenerateDiary = async () => {
@@ -693,34 +710,7 @@ export default function CreatorHubPage() {
     }
   };
 
-  const detailLinks = [
-    {
-      to: "/creator/recipes",
-      title: i18n.language.startsWith("ko") ? "레시피 목록" : "Recipe catalog",
-      body: i18n.language.startsWith("ko") ? "어떤 레시피가 있고 어떤 권한이 필요한지 봅니다." : "See available recipes and the scopes they need.",
-      icon: BookOpen,
-    },
-    {
-      to: "/creator/deploy",
-      title: i18n.language.startsWith("ko") ? "내 도구에 직접 연결하기" : "Connect your own tools",
-      body: i18n.language.startsWith("ko")
-        ? "Developer API key와 필요한 scope를 골라 Notion, Slack, n8n, 개인 대시보드에 연결합니다."
-        : "Create a Developer API key, choose scopes, and connect Notion, Slack, n8n, or your own dashboard.",
-      icon: KeyRound,
-    },
-    {
-      to: "/creator/examples",
-      title: i18n.language.startsWith("ko") ? "활용 예시" : "Examples",
-      body: i18n.language.startsWith("ko") ? "Notion, Slack, n8n, 개인 사이트에 바로 따라 붙일 수 있는 순서입니다." : "Follow practical Notion, Slack, n8n, and personal-site playbooks.",
-      icon: FileText,
-    },
-    {
-      to: "/creator/share",
-      title: i18n.language.startsWith("ko") ? "자랑 카드" : "Share cards",
-      body: i18n.language.startsWith("ko") ? "공개 전 숨김 처리된 카드와 주간 차트를 미리 봅니다." : "Preview redacted cards and weekly charts before sharing.",
-      icon: ShieldCheck,
-    },
-  ];
+  const detailLinks = useMemo(() => buildCreatorHubDetailLinks(i18n.language), [i18n.language]);
   const activeDetail = detailLinks.find((link) => link.to.endsWith(`/${section}`));
 
   return (
@@ -1053,9 +1043,11 @@ export default function CreatorHubPage() {
                       ? copy.actions.emailing
                       : emailSentItemIds.has(item.id)
                         ? copy.actions.emailed
-                        : emailFailedItemIds.has(item.id)
-                          ? copy.actions.emailFailed
-                          : copy.actions.emailRecipe}
+                          : emailFailedItemIds.has(item.id)
+                            ? copy.actions.emailFailed
+                            : item.id === "ride-story"
+                              ? copy.actions.chooseRideStory
+                              : copy.actions.emailRecipe}
                   </Button>
                   <Button
                     className={recipeActionClass}
@@ -1385,6 +1377,21 @@ export default function CreatorHubPage() {
         </div>
       </section>
       )}
+
+      <RideStoryPhotoPicker
+        open={rideStoryPickerOpen}
+        userId={user?.uid ?? null}
+        onClose={() => setRideStoryPickerOpen(false)}
+        onSent={() => {
+          setEmailFailedItemIds((prev) => {
+            const next = new Set(prev);
+            next.delete("ride-story");
+            return next;
+          });
+          setEmailSentItemIds((prev) => new Set(prev).add("ride-story"));
+        }}
+        onFailed={() => setEmailFailedItemIds((prev) => new Set(prev).add("ride-story"))}
+      />
     </div>
   );
 }

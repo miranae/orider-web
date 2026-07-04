@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { lazy, Suspense, useState, useRef, useMemo, useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Search, X, ChevronDown } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -20,10 +20,11 @@ import { toLocalDate } from "../utils/dateUtils";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import type { FitnessProjection } from "@shared/types/goal";
-import TodaysWorkoutCard from "../components/training/TodaysWorkoutCard";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text } from "../theme/components";
+
+const TodaysWorkoutCard = lazy(() => import("../components/training/TodaysWorkoutCard"));
 
 // ── 유틸리티 함수 ──
 
@@ -395,10 +396,14 @@ export default function DashboardPage() {
           }
         />
 
-        {/* 오늘의 워크아웃 — 페이지 헤더 바로 다음 우선 노출 */}
-        <div style={{ marginTop: 'var(--space-5)' }}>
-          <TodaysWorkoutCard />
-        </div>
+        {/* 오늘의 워크아웃 — 로그인 사용자에게만 지연 로드. 비로그인 첫 피드/LCP 경로에서 제외. */}
+        {user && (
+          <div style={{ marginTop: 'var(--space-5)' }}>
+            <Suspense fallback={null}>
+              <TodaysWorkoutCard />
+            </Suspense>
+          </div>
+        )}
 
         {/* KPI 스트립 */}
         <Card padding="none" style={{ marginTop: 'var(--space-4)', display: "grid", gridTemplateColumns: "repeat(6, 1fr)" }}>

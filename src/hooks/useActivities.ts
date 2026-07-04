@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
@@ -30,9 +31,35 @@ const FEED_PAGE_SIZE = 10;
 // 첫 카드 노출을 앞당기기 위해 첫 쿼리는 접힘 영역에 필요한 카드만 가져오고,
 // 나머지 첫 페이지는 백그라운드에서 이어 붙인다.
 const FIRST_FEED_CHUNK_SIZE = 3;
+const FEED_LOAD_RETRY_DELAYS_MS = [600, 1600] as const;
+
+type ActivityPage = {
+  items: Activity[];
+  last: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+};
+
+async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity[]> {
+  const missingProfileImageUserIds = Array.from(
+    new Set(items.filter((activity) => !activity.profileImage).map((activity) => activity.userId)),
+  );
+  if (missingProfileImageUserIds.length === 0) return items;
+
+  try {
+    const profiles = await getPublicUserProfiles(missingProfileImageUserIds);
+    return items.map((activity) => {
+      if (activity.profileImage) return activity;
+      const photoURL = profiles.get(activity.userId)?.photoURL;
+      return photoURL ? { ...activity, profileImage: photoURL } : activity;
+    });
+  } catch (err) {
+    logClientError("useActivities.profileImages", err, { userCount: missingProfileImageUserIds.length });
+    return items;
+  }
+}
 
 export function useActivities() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -41,22 +68,43 @@ export function useActivities() {
   const [hasMore, setHasMore] = useState(true);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
 
-  // Total count (경량 메타데이터 쿼리, 문서 데이터 전송 없음)
+  // Total count (경량 메타데이터 쿼리, 문서 데이터 전송 없음).
+  // 첫 피드/LCP 경로와 같은 Firestore 연결을 두고 경쟁하지 않도록 idle 이후로 미룬다.
+  // 카운트는 보조 표시라 첫 화면 렌더 완료 뒤 갱신돼도 사용자 흐름에 영향이 없다.
   useEffect(() => {
+    if (authLoading) return;
+
+    let cancelled = false;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    const run = () => {
+      if (cancelled) return;
+      setTotalCount(0);
+
     const col = collection(firestore, "activities");
     const q = user
       ? query(col, and(where("deletedAt", "==", null), or(where("userId", "==", user.uid), where("visibility", "==", "everyone"))))
       : query(col, where("deletedAt", "==", null), where("visibility", "==", "everyone"));
     getCountFromServer(q).then((snap) => {
-      setTotalCount(snap.data().count);
+        if (!cancelled) setTotalCount(snap.data().count);
     }).catch((err) => logClientError("useActivities.count", err, {}));
-  }, [user]);
+    };
+
+    // requestIdleCallback 은 Firebase/App Check 준비 중에도 너무 일찍 실행될 수 있어
+    // 첫 피드 쿼리와 다시 경쟁한다. 보조 카운트는 LCP 이후에 확실히 보낸다.
+    timerId = setTimeout(run, 4500);
+
+    return () => {
+      cancelled = true;
+      if (timerId != null) clearTimeout(timerId);
+    };
+  }, [authLoading, user]);
 
   const fetchPage = useCallback(async (
     uid: string | null,
     cursor: QueryDocumentSnapshot<DocumentData> | null,
     pageSize = FEED_PAGE_SIZE,
-  ) => {
+  ): Promise<ActivityPage> => {
     const col = collection(firestore, "activities");
     let q;
 
@@ -77,9 +125,10 @@ export function useActivities() {
     const items = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Activity)
       .filter((a) => a.summary != null);
+    const hydratedItems = await hydrateActivityProfileImages(items);
 
     return {
-      items,
+      items: hydratedItems,
       last: snap.docs[snap.docs.length - 1] ?? null,
       hasMore: snap.docs.length === pageSize,
     };
@@ -87,7 +136,29 @@ export function useActivities() {
 
   // 초기 로드 + 유저 변경 시 리셋
   useEffect(() => {
+    if (authLoading) return;
+
     let cancelled = false;
+
+    const retryFetchPage = async (
+      cursor: QueryDocumentSnapshot<DocumentData> | null,
+      pageSize: number,
+      context: "first" | "rest",
+    ): Promise<ActivityPage | null> => {
+      for (const delayMs of FEED_LOAD_RETRY_DELAYS_MS) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        if (cancelled) return null;
+
+        try {
+          return await fetchPage(user?.uid ?? null, cursor, pageSize);
+        } catch (retryErr) {
+          logClientError("useActivities.initialLoad.retry", retryErr, { context, delayMs });
+        }
+      }
+
+      logClientError("useActivities.initialLoad.retryExhausted", new Error("activity feed retry exhausted"), { context });
+      return null;
+    };
 
     const load = async () => {
       setLoading(true);
@@ -96,8 +167,16 @@ export function useActivities() {
       setHasMore(true);
       setLoadingMore(false);
 
+      let first: ActivityPage | null = null;
       try {
-        const first = await fetchPage(user?.uid ?? null, null, FIRST_FEED_CHUNK_SIZE);
+        first = await fetchPage(user?.uid ?? null, null, FIRST_FEED_CHUNK_SIZE);
+      } catch (err) {
+        logClientError("useActivities.initialLoad.first", err);
+        first = await retryFetchPage(null, FIRST_FEED_CHUNK_SIZE, "first");
+      }
+
+      try {
+        if (!first) return;
         if (cancelled) return;
         setActivities(first.items);
         setLastDoc(first.last);
@@ -107,7 +186,14 @@ export function useActivities() {
         if (!first.last || !first.hasMore) return;
 
         setLoadingMore(true);
-        const rest = await fetchPage(user?.uid ?? null, first.last, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE);
+        let rest: ActivityPage | null = null;
+        try {
+          rest = await fetchPage(user?.uid ?? null, first.last, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE);
+        } catch (err) {
+          logClientError("useActivities.initialLoad.rest", err);
+          rest = await retryFetchPage(first.last, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE, "rest");
+        }
+        if (!rest) return;
         if (cancelled) return;
         setActivities((prev) => {
           const seen = new Set(prev.map((activity) => activity.id));
@@ -115,8 +201,6 @@ export function useActivities() {
         });
         setLastDoc(rest.last ?? first.last);
         setHasMore(rest.hasMore);
-      } catch (err) {
-        logClientError("useActivities.initialLoad", err);
       } finally {
         if (!cancelled) setLoading(false);
         if (!cancelled) setLoadingMore(false);
@@ -125,7 +209,7 @@ export function useActivities() {
 
     load();
     return () => { cancelled = true; };
-  }, [user, fetchPage]);
+  }, [authLoading, user, fetchPage]);
 
   const loadMore = useCallback(async () => {
     if (!lastDoc || loadingMore) return;
@@ -356,7 +440,7 @@ async function fetchActivitySearchResults(
     }
   }
 
-  return merged;
+  return hydrateActivityProfileImages(merged);
 }
 
 export function useActivitySearch() {

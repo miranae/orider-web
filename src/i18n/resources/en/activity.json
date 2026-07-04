@@ -38,14 +38,33 @@
   },
   "ai": {
     "header": "🤖 AI Ride Analysis",
+    "headerRun": "🤖 AI Run Coaching",
     "checking": "Checking…",
     "startBtn": "Analyze",
     "refreshDetailBtn": "Reload details",
+    "refreshAnalysisBtn": "Reanalyze with latest data",
     "loginBtn": "Log in",
     "waitHint": "Awaiting analysis — press the button to start AI segment analysis.",
+    "waitHintRun": "Awaiting analysis — press the button to start AI run segment coaching.",
     "previewOnlyHint": "Showing the saved AI summary. Detailed segment cache is missing or has not synced yet.",
     "previewAuthHint": "Showing the saved AI summary. Check your sign-in state to reload detailed segment analysis.",
+    "staleHint": "Showing the saved analysis. Activity metrics, weather, or profile settings may have changed, so you can reanalyze it.",
+    "staleLoginHint": "Showing the saved analysis. Sign in to reanalyze it with the latest data.",
     "loginHint": "Sign in to use AI segment analysis.",
+    "runPreview": {
+      "pace": {
+        "title": "Pace stability",
+        "desc": "Compares actual pace and GAP by segment to find fast starts, unstable sections, and recovery windows."
+      },
+      "drift": {
+        "title": "Heart-rate drift",
+        "desc": "Finds where heart rate rose at similar pace and turns fatigue, heat, or hydration signals into coaching."
+      },
+      "terrain": {
+        "title": "Uphill execution",
+        "desc": "Uses elevation, cadence, and running power when available to define the next run's execution cue."
+      }
+    },
     "analyzing": "Analyzing segments… (approx. 15–30 s)",
     "errorPrefix": "Analysis failed: {{error}}",
     "retryBtn": "Retry",
