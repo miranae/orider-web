@@ -1,6 +1,6 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useActivities, useWeeklyStats, useActivitySearch } from "./useActivities";
-import { simulateLogin, simulateLogout, setCollectionDocs } from "../__tests__/mocks/firebase";
+import { simulateLogin, simulateLogout, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../contexts/AuthContext";
@@ -43,6 +43,23 @@ describe("useActivities", () => {
     // summary 가 있는 문서는 fetchPage 의 `summary != null` 필터를 통과해 노출된다.
     expect(result.current.activities).toHaveLength(2);
     expect(result.current.activities.map((a) => a.id)).toEqual(["a1", "a2"]);
+  });
+
+  it("fills missing activity avatar from the public profile photo", async () => {
+    setDocData("users_public/user-1", {
+      nickname: "테스트 라이더",
+      photoURL: "https://example.com/profile-avatar.jpg",
+    });
+    setCollectionDocs("activities", [
+      { id: "a1", ...createMockActivity({ id: "a1", userId: "user-1", profileImage: null }) },
+    ]);
+
+    const { result } = renderHook(() => useActivities(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.activities[0]?.profileImage).toBe("https://example.com/profile-avatar.jpg");
   });
 
   it("filters out documents without a summary field", async () => {

@@ -28,6 +28,7 @@ vi.mock("../../services/firebase", () => ({
   googleProvider: {},
   analytics: null,
   initFirebase: vi.fn().mockResolvedValue(undefined),
+  ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ─── firebase/analytics ───────────────────────────────────

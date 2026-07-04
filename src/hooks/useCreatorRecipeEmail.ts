@@ -133,6 +133,17 @@ export function useCreatorRecipeEmail({
     emailSendingId,
     emailSentItemIds,
     handleEmailRecipe,
+    markEmailFailed: (itemId: string) => {
+      setEmailFailedItemIds((prev) => new Set(prev).add(itemId));
+    },
+    markEmailSent: (itemId: string) => {
+      setEmailFailedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+      setEmailSentItemIds((prev) => new Set(prev).add(itemId));
+    },
     quotaNow,
   };
 }

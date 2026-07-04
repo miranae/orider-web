@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../services/firebase";
+import { ensureAppCheckReady, functions } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import type { RecommendationFacts } from "../utils/todaysRecommendation";
 
@@ -90,13 +90,15 @@ export function useTodaysNarrativePeek(
     // 충분히 막고, React 19 는 언마운트 후 setState 를 무해 무시한다.
     setState({ narrative: null, loading: true, cacheMiss: false, stale: false });
 
-    const fn = httpsCallable<CFPeekRequest, CFPeekResponse>(
-      functions,
-      "getTodaysRecommendationNarrative",
-    );
-
     // 전체 facts 를 전송 — 서버가 type/zone/tsb/ctl/atl 를 저장값과 비교해 stale 판별.
-    fn({ cacheOnly: true, facts, lang })
+    ensureAppCheckReady()
+      .then(() => {
+        const fn = httpsCallable<CFPeekRequest, CFPeekResponse>(
+          functions,
+          "getTodaysRecommendationNarrative",
+        );
+        return fn({ cacheOnly: true, facts, lang });
+      })
       .then((res) => {
         const d = res.data;
         const next: PeekState = d.hit && d.narrative

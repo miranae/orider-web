@@ -58,6 +58,20 @@ git rebase origin/dev
 
 머지는 maintainer가 수행합니다. squash merge를 기본으로 하며, commit title은 Conventional Commit 스타일을 유지합니다.
 
+maintainer는 직접 `gh pr merge`를 호출하지 않고 로컬 머지 게이트를 사용합니다.
+
+```bash
+scripts/merge-pr.sh <PR번호>
+```
+
+이 스크립트는 로컬 lint/quality/test/build, 로컬 AI 코드리뷰, GitHub checks, GitHub reviewDecision을 확인한 뒤 squash merge를 수행합니다. 리뷰 생략이나 dry-run이 필요한 경우 명시적으로 옵션을 사용합니다.
+
+```bash
+scripts/merge-pr.sh <PR번호> --no-merge
+scripts/merge-pr.sh <PR번호> --no-review
+scripts/merge-pr.sh <PR번호> --require-github-review
+```
+
 예:
 
 - `fix: show saved ai summary on cache miss`

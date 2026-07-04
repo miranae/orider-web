@@ -6,11 +6,11 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { OriderThemeProvider } from "./theme";
-import { initFirebase } from "./services/firebase";
+import { ensureAppCheckReady, initFirebase } from "./services/firebase";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
-import { captureError, loadSentry } from "./services/sentry";
+import { captureError } from "./services/sentry";
 import { initAnalytics } from "./services/analytics";
 import { isChunkLoadError } from "./utils/lazyWithRetry";
 import App from "./App";
@@ -50,13 +50,14 @@ import "@fontsource/jetbrains-mono/700.css";
 import "./index.css";
 import "./theme/components/components.css";
 
-// Sentry 모듈을 dynamic import + init — vendor-sentry(85KB gz) 가 entry chunk
-// 의존성에서 제외, modulepreload 도 안 됨. init 전 발생 에러는 captureError 가
-// 큐에 저장 → load 완료 시 자동 flush.
-// 전역 uncaught 에러·unhandled rejection 을 즉시 포착(#544) — Sentry init(≤2s 지연) 전
-// 부트스트랩 구간(가장 크래시 잦은)에 발생해도 captureError 큐에 쌓여 load 시 flush.
+// 전역 uncaught 에러·unhandled rejection 을 즉시 포착(#544).
+// Sentry 본체는 초기 화면 로딩 대역에서 받지 않고, 실제 에러가 발생했을 때만
+// captureError 가 lazy-load 후 큐를 flush 한다.
 if (typeof window !== "undefined") {
   window.addEventListener("error", (e) => {
+    // 이미지/아이콘 같은 resource load error 는 e.error 가 없고 target 이 window 가 아니다.
+    // 이런 404까지 Sentry lazy-load 를 깨우면 초기/후속 로딩 대역이 불필요하게 커진다.
+    if (!e.error && e.target && e.target !== window) return;
     captureError(e.error ?? e.message, { tags: { source: "window.onerror" } });
   });
   window.addEventListener("unhandledrejection", (e) => {
@@ -83,18 +84,23 @@ function mountApp() {
   // Core Web Vitals 측정 시작 — 라이브러리가 페이지 lifecycle 보고 시점 자체 관리.
   // web_vitals 이벤트는 track() 큐를 거치므로 analytics 지연 init 전이어도 유실 없음.
   reportWebVitals();
-  // runtime-config.json 로드 이후 Sentry 를 초기화해야 stage/prod 별 DSN 이 정확히 반영된다.
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    (window as Window).requestIdleCallback?.(() => { void loadSentry(); }, { timeout: 2000 });
-  } else {
-    setTimeout(() => { void loadSentry(); }, 0);
-  }
-  // Analytics(gtag.js ~421kB) 지연 초기화 — initFirebase 완료 후 idle 시점에 켜서 콜드
-  // 첫 로드 대역을 LCP/폰트 등 임계 리소스에 양보. init 전 이벤트는 큐에서 flush.
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    (window as Window).requestIdleCallback?.(() => { initAnalytics(); }, { timeout: 3000 });
-  } else {
-    setTimeout(() => { initAnalytics(); }, 0);
+  // Analytics는 getAnalytics() 시 Firebase Installations 왕복을 만들 수 있다. 단순 idle은
+  // 100ms대에도 실행되어 Firestore/이미지 discovery와 경쟁하므로 LCP 이후로 고정 지연.
+  const initAnalyticsAfterFirstPaint = () => {
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      (window as Window).requestIdleCallback?.(() => { initAnalytics(); }, { timeout: 2000 });
+    } else {
+      initAnalytics();
+    }
+  };
+  setTimeout(initAnalyticsAfterFirstPaint, 3500);
+  // App Check(reCAPTCHA Enterprise)는 첫 공개 피드 로딩과 경쟁하지 않도록 짧게 뒤로
+  // 미룬다. enforceAppCheck Callable 은 각 호출 직전에 ensureAppCheckReady() 를 await.
+  if (typeof window !== "undefined") {
+    setTimeout(() => {
+      // 백그라운드 warmup 실패는 다음 Callable 호출에서 재시도된다.
+      ensureAppCheckReady().catch(() => {});
+    }, 2500);
   }
 }
 

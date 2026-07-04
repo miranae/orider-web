@@ -1,9 +1,10 @@
 /**
  * 느린 케이스 자동 기록 — 재현 어려운 슬로우다운 사후 분석용.
  *
- * 두 가지 이벤트 발사:
- *  - `slow_request` — fetch 응답 >= SLOW_FETCH_MS (기본 2000ms) 인 경우
- *  - `slow_page`    — web-vitals 메트릭 rating==="poor" 인 경우 (webVitals.ts 에서 호출)
+ * 세 가지 이벤트 발사:
+ *  - `slow_request`      — fetch 응답 >= SLOW_FETCH_MS (기본 2000ms) 인 경우
+ *  - `firestore_channel` — Firestore WebChannel 이 실패/장기 대기/과다 발생인 경우
+ *  - `slow_page`         — web-vitals 메트릭 rating==="poor" 인 경우 (webVitals.ts 에서 호출)
  *
  * 공통 컨텍스트(현재 path, 네트워크 타입/RTT/다운링크, 디바이스 메모리)를 함께 기록해
  * BigQuery 에서 "특정 시각 / 특정 path / 4G 가 아닌 환경" 같은 조건부 집계 가능.
@@ -25,6 +26,12 @@ import { track } from "./analytics";
 
 const SLOW_FETCH_MS = 2000;
 const RATE_LIMIT_PER_MIN = 10;
+const FIRESTORE_CHANNEL_OBSERVE_MS = 60_000;
+const FIRESTORE_CHANNEL_RATE_LIMIT_PER_MIN = 4;
+const FIRESTORE_CHANNEL_COUNT_THRESHOLD_PER_MIN = 30;
+const FIRESTORE_HOST = "firestore.googleapis.com";
+const FIRESTORE_LISTEN_CHANNEL = "/google.firestore.v1.Firestore/Listen/channel";
+const FIRESTORE_WRITE_CHANNEL = "/google.firestore.v1.Firestore/Write/channel";
 
 export interface NetworkInfo {
   effective_type?: string;
@@ -117,6 +124,71 @@ function consumeRateLimitToken(): boolean {
   return true;
 }
 
+let firestoreChannelTokens = FIRESTORE_CHANNEL_RATE_LIMIT_PER_MIN;
+let firestoreChannelResetAt = 0;
+
+function consumeFirestoreChannelToken(): boolean {
+  const now = Date.now();
+  if (now >= firestoreChannelResetAt) {
+    firestoreChannelTokens = FIRESTORE_CHANNEL_RATE_LIMIT_PER_MIN;
+    firestoreChannelResetAt = now + 60_000;
+  }
+  if (firestoreChannelTokens <= 0) return false;
+  firestoreChannelTokens -= 1;
+  return true;
+}
+
+type FirestoreChannelKind = "listen" | "write";
+
+function firestoreChannelKind(host: string, path: string): FirestoreChannelKind | null {
+  if (host !== FIRESTORE_HOST) return null;
+  if (path === FIRESTORE_LISTEN_CHANNEL) return "listen";
+  if (path === FIRESTORE_WRITE_CHANNEL) return "write";
+  return null;
+}
+
+interface FirestoreChannelCount {
+  count: number;
+  resetAt: number;
+  lastReportedCount: number;
+}
+
+const firestoreChannelCounts = new Map<string, FirestoreChannelCount>();
+
+function incrementFirestoreChannelCount(kind: FirestoreChannelKind, pagePath: string): FirestoreChannelCount {
+  const now = Date.now();
+  const key = `${pagePath}::${kind}`;
+  const current = firestoreChannelCounts.get(key);
+  if (!current || now >= current.resetAt) {
+    const fresh = { count: 1, resetAt: now + 60_000, lastReportedCount: 0 };
+    firestoreChannelCounts.set(key, fresh);
+    return fresh;
+  }
+  current.count += 1;
+  return current;
+}
+
+function shouldReportFirestoreChannel(
+  kind: FirestoreChannelKind,
+  durationMs: number,
+  status: number,
+  ok: boolean,
+  errorName: string | undefined,
+  count: FirestoreChannelCount,
+): string | null {
+  if (errorName && errorName !== "AbortError") return "error";
+  if (status === 0 || !ok) return "failed";
+  if (durationMs >= FIRESTORE_CHANNEL_OBSERVE_MS) return "long_poll_over_60s";
+  if (
+    count.count >= FIRESTORE_CHANNEL_COUNT_THRESHOLD_PER_MIN &&
+    count.count - count.lastReportedCount >= FIRESTORE_CHANNEL_COUNT_THRESHOLD_PER_MIN
+  ) {
+    count.lastReportedCount = count.count;
+    return `${kind}_rate_over_${FIRESTORE_CHANNEL_COUNT_THRESHOLD_PER_MIN}_per_min`;
+  }
+  return null;
+}
+
 const reportedSlowPages = new Set<string>();
 
 /** 공개 헬퍼 — webVitals.ts 가 poor 메트릭일 때 호출. */
@@ -163,23 +235,62 @@ export function installSlowFetchTracker(): void {
       throw err;
     } finally {
       const duration = performance.now() - start;
-      // AbortError 는 사용자 의도 취소(라우팅·React Query) — 노이즈 제외.
-      if (duration >= SLOW_FETCH_MS && errorName !== "AbortError") {
+      const rawUrl =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const { host, path } = sanitizeUrl(rawUrl);
+      const method = resolveMethod(input, init);
+      const roundedDuration = Math.round(duration);
+      const status = res?.status ?? 0;
+      const ok = res?.ok ?? false;
+      const pagePath = window.location.pathname;
+      const firestoreKind = firestoreChannelKind(host, path);
+
+      if (firestoreKind) {
+        const count = incrementFirestoreChannelCount(firestoreKind, pagePath);
+        const reason = shouldReportFirestoreChannel(
+          firestoreKind,
+          duration,
+          status,
+          ok,
+          errorName,
+          count,
+        );
+        if (reason && consumeFirestoreChannelToken()) {
+          const net = readNetwork();
+          try {
+            track("firestore_channel", {
+              channel_kind: firestoreKind,
+              channel_reason: reason,
+              channel_count_1m: count.count,
+              url_host: host,
+              url_path: path,
+              method,
+              duration_ms: roundedDuration,
+              status,
+              ok,
+              error_name: errorName,
+              page_path: pagePath,
+              device_memory_gb: readDeviceMemory(),
+              ...net,
+            });
+          } catch {
+            // Tracking must never break the original request.
+          }
+        }
+      } else if (duration >= SLOW_FETCH_MS && errorName !== "AbortError") {
+        // AbortError 는 사용자 의도 취소(라우팅·React Query) — 노이즈 제외.
         if (consumeRateLimitToken()) {
-          const rawUrl =
-            typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-          const { host, path } = sanitizeUrl(rawUrl);
           const net = readNetwork();
           try {
             track("slow_request", {
               url_host: host,
               url_path: path,
-              method: resolveMethod(input, init),
-              duration_ms: Math.round(duration),
-              status: res?.status ?? 0,
-              ok: res?.ok ?? false,
+              method,
+              duration_ms: roundedDuration,
+              status,
+              ok,
               error_name: errorName,
-              page_path: window.location.pathname,
+              page_path: pagePath,
               device_memory_gb: readDeviceMemory(),
               ...net,
             });

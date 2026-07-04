@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { lazy, Suspense, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -10,12 +10,14 @@ import WeekBars from "./WeekBars";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
 import SportFilterTabs from "./SportFilterTabs";
-import TodaysWorkoutCard from "../training/TodaysWorkoutCard";
 import { Button, Card, Text } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
 import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
 import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activitySanity";
+
+const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
+const RouteMap = lazy(() => import("../RouteMap"));
 
 interface WeekEntry {
   label: string;
@@ -66,8 +68,40 @@ function MobileFeedSkeleton() {
   );
 }
 
+function MobileRouteThumbnail({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
+  if (activity.mapImageUrl) {
+    return (
+      <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 10px", overflow: "hidden" }}>
+        <img
+          src={activity.mapImageUrl}
+          alt=""
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : undefined}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
+    );
+  }
+
+  if (!activity.thumbnailTrack) return null;
+
+  return (
+    <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 10px", overflow: "hidden", background: "var(--bg-2)" }}>
+      <Suspense fallback={<div style={{ width: "100%", height: "100%", background: "var(--bg-2)" }} />}>
+        <RouteMap
+          polyline={activity.thumbnailTrack}
+          height="w-full h-full"
+          interactive={false}
+          rounded={false}
+          fitPadding={16}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
 /** 시안과 일치하는 컴팩트 모바일 활동 카드 */
-function CompactActivityCard({ activity }: { activity: Activity }) {
+function CompactActivityCard({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
   const navigate = useNavigate();
   const { t } = useTranslation("dashboard");
   const s = activity.summary;
@@ -148,15 +182,7 @@ function CompactActivityCard({ activity }: { activity: Activity }) {
           비율은 데스크톱(ActivityCard)과 동일하게 토큰 --feed-thumb-aspect(index.css 단일
           진실원, 현재 2.8:1) 사용 — 옛 고정높이(156px)는 기기 폭에 따라 비율이 들쭉날쭉
           (2.3~3:1)했다. aspectRatio 로 모든 기기에서 데스크톱과 동일 프레임 보장. */}
-      {activity.mapImageUrl && (
-        <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 10px", overflow: "hidden" }}>
-          <img
-            src={activity.mapImageUrl}
-            alt=""
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        </div>
-      )}
+      <MobileRouteThumbnail activity={activity} priority={priority} />
 
       {/* 4-col stats */}
       <div className="flex">
@@ -245,7 +271,9 @@ export default function MobileFeedPage({
       {/* 오늘의 워크아웃 — 로그인 사용자만 (비로그인은 훈련 컨텍스트 없음) */}
       {user && (
         <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <TodaysWorkoutCard />
+          <Suspense fallback={null}>
+            <TodaysWorkoutCard />
+          </Suspense>
         </div>
       )}
 
@@ -269,8 +297,8 @@ export default function MobileFeedPage({
 
       {!loading && filteredBySprt.length > 0 && (
         <div>
-          {filteredBySprt.map((activity) => (
-            <CompactActivityCard key={activity.id} activity={activity} />
+          {filteredBySprt.map((activity, i) => (
+            <CompactActivityCard key={activity.id} activity={activity} priority={i === 0} />
           ))}
           {hasMore && (
             <div style={{ padding: "var(--space-3) var(--space-4)" }}>
