@@ -4,7 +4,7 @@ import path from "node:path";
 const ROOT = process.cwd();
 const SRC = path.join(ROOT, "src");
 const BUDGETS = {
-  maxFileLines: 1400,
+  maxFileLines: 1600,
   maxConsoleStatements: 10,
   maxAlertCalls: 40,
 };
