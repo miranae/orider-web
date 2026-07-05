@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import {
-  collection, query, orderBy, limit, onSnapshot, writeBatch, doc, updateDoc,
+  collection, query, orderBy, limit, onSnapshot, doc, updateDoc,
 } from "firebase/firestore";
 import { firestore, auth } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -140,13 +140,15 @@ export default function Layout() {
     if (!user) return;
     const unread = notifications.filter((n) => !n.read);
     if (unread.length === 0) return;
+    setNotifications((prev) => prev.map((n) => n.read ? n : { ...n, read: true }));
     try {
-      const batch = writeBatch(firestore);
-      unread.forEach((n) => {
-        batch.update(doc(firestore, "notifications", user.uid, "items", n.id), { read: true });
-      });
-      await batch.commit();
+      await Promise.all(unread.map((n) =>
+        updateDoc(doc(firestore, "notifications", user.uid, "items", n.id), { read: true }),
+      ));
     } catch (err) {
+      setNotifications((prev) => prev.map((n) =>
+        unread.some((u) => u.id === n.id) ? { ...n, read: false } : n,
+      ));
       logClientError("Layout.notifications.markAllRead", err, { path: `notifications/${user.uid}/items` });
     }
   };
