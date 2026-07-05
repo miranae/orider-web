@@ -119,6 +119,40 @@ describe("Layout", () => {
     });
   });
 
+  it("marks every unread notification read from the mobile sheet", async () => {
+    mockUpdateDoc.mockClear();
+    const user = userEvent.setup();
+    renderWithProviders(<Layout />, {
+      authenticated: true,
+      user: { uid: "uid-1" },
+    });
+
+    setCollectionDocs("notifications/uid-1/items", [
+      { ...createMockNotification({ read: false, message: "첫 번째 알림" }), id: "n1" },
+      { ...createMockNotification({ read: false, message: "두 번째 알림" }), id: "n2" },
+      { ...createMockNotification({ read: true, message: "이미 읽은 알림" }), id: "n3" },
+    ]);
+
+    const notificationButtons = await screen.findAllByRole("button", { name: "알림" });
+    await user.click(notificationButtons[0]!);
+    await user.click(await screen.findByRole("button", { name: "모두 읽음" }));
+
+    await waitFor(() => {
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "notifications/uid-1/items/n1" }),
+        { read: true },
+      );
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "notifications/uid-1/items/n2" }),
+        { read: true },
+      );
+    });
+    expect(mockUpdateDoc).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: "notifications/uid-1/items/n3" }),
+      { read: true },
+    );
+  });
+
   it("opens profile dropdown with profile/settings/logout items", async () => {
     // NOTE: 과거 이 테스트는 드롭다운에서 "Strava 연동됨" 을 확인했으나,
     // 리디자인된 TopNav 의 프로필 드롭다운은 Strava 연동 상태를 더 이상 노출하지 않는다
