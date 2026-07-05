@@ -10,6 +10,7 @@ import { LanguageToggle } from "../i18n/LanguageToggle";
 import type { Notification } from "@shared/types";
 import { Button, Text } from "../../theme/components";
 import { HUBS, type HubKey } from "../../config/navHubs";
+import { timeAgo } from "../../utils/timeAgo";
 
 const navFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
 const navFocusWithinClass = "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--lime)]";
@@ -23,44 +24,11 @@ interface TopNavProps {
   notifications?: Notification[];
   unreadCount?: number;
   onMarkAllRead?: () => void;
+  onNotificationClick?: (notification: Notification) => void;
   onMobileNotifClick?: () => void;
 }
 
-/**
- * createdAt 을 ms(number) 로 정규화. 알림 doc 의 createdAt 은 Firestore Timestamp 로
- * 저장돼 클라에서 Timestamp 객체로 들어온다 — 이를 number 로 보고 빼면 NaN/거대값이 돼
- * "19881일 전" 같은 엉뚱한 표기가 나왔다(실제 createdAt 은 최근). Timestamp/Date/초·밀리초
- * 숫자/ISO 문자열을 모두 허용해 ms 로 변환한다.
- */
-function toMillis(ts: unknown): number {
-  if (ts == null) return NaN;
-  if (typeof ts === 'number') return ts < 1e12 ? ts * 1000 : ts; // 초 단위 방어
-  if (typeof ts === 'string') return Date.parse(ts);
-  if (typeof ts === 'object') {
-    const o = ts as { toMillis?: () => number; toDate?: () => Date; seconds?: number };
-    if (typeof o.toMillis === 'function') return o.toMillis();
-    if (typeof o.toDate === 'function') return o.toDate().getTime();
-    if (typeof o.seconds === 'number') return o.seconds * 1000;
-  }
-  return NaN;
-}
-
-function timeAgo(ts: unknown, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  const ms = toMillis(ts);
-  // 유효하지 않거나 미래 시각이면 표기 생략(엉뚱한 "N일 전" 방지).
-  if (!Number.isFinite(ms)) return '';
-  const diff = Date.now() - ms;
-  if (diff < 0) return t('time.justNow');
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return t('time.justNow');
-  if (mins < 60) return t('time.minsAgo', { count: mins });
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return t('time.hoursAgo', { count: hours });
-  const days = Math.floor(hours / 24);
-  return t('time.daysAgo', { count: days });
-}
-
-export default function TopNav({ active, notifications = [], unreadCount = 0, onMarkAllRead, onMobileNotifClick }: TopNavProps) {
+export default function TopNav({ active, notifications = [], unreadCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick }: TopNavProps) {
   const { t } = useTranslation('common');
   const { user, profile, signInWithGoogle, logout } = useAuth();
   const navigate = useNavigate();
@@ -401,14 +369,22 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                         </div>
                       ) : (
                         notifications.map((n) => (
-                          <div
+                          <button
                             key={n.id}
+                            type="button"
+                            onClick={() => {
+                              onNotificationClick?.(n);
+                              setNotifOpen(false);
+                            }}
                             style={{
                               display: 'flex', alignItems: 'flex-start', gap: "var(--space-2)",
+                              width: '100%',
                               padding: '10px 12px',
                               backgroundColor: n.read ? 'transparent' : 'var(--bg-2)',
+                              border: 'none',
                               borderBottom: '1px solid var(--line-soft)',
-                              cursor: 'default',
+                              cursor: onNotificationClick ? 'pointer' : 'default',
+                              textAlign: 'left',
                             }}
                             onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = n.read ? 'transparent' : 'var(--bg-2)')}
@@ -435,7 +411,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                             {!n.read && (
                               <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--color-brand-bike)', flexShrink: 0, marginTop: 'var(--space-1)' }} />
                             )}
-                          </div>
+                          </button>
                         ))
                       )}
                     </div>

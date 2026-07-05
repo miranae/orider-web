@@ -9,9 +9,10 @@ interface NotifSheetProps {
   onClose: () => void;
   notifications: Notification[];
   onMarkAllRead: () => void;
+  onNotificationClick: (notification: Notification) => void;
 }
 
-export default function NotifSheet({ open, onClose, notifications, onMarkAllRead }: NotifSheetProps) {
+export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick }: NotifSheetProps) {
   const { t } = useTranslation("common");
 
   useEffect(() => {
@@ -58,13 +59,22 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
           </div>
         )}
         {notifications.map((n) => (
-          <div
+          <button
             key={n.id}
+            type="button"
             className="flex items-start gap-2.5"
+            onClick={() => {
+              onNotificationClick(n);
+              onClose();
+            }}
             style={{
+              width: "100%",
               padding: "13px 16px",
+              border: "none",
               borderBottom: "1px solid var(--line-soft)",
               background: n.read ? "transparent" : "color-mix(in oklch, var(--lime) 4%, var(--bg-0))",
+              cursor: "pointer",
+              textAlign: "left",
             }}
           >
             <div
@@ -81,7 +91,7 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
                 {n.createdAt ? timeAgo(n.createdAt, t) : ""}
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
