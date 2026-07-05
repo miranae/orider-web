@@ -6,6 +6,7 @@ import {
   setCollectionDocs,
   mockSignInWithPopup,
   mockSignOut,
+  mockUpdateDoc,
 } from "../__tests__/mocks/firebase";
 import { createMockNotification } from "../__tests__/fixtures/mockData";
 
@@ -84,6 +85,40 @@ describe("Layout", () => {
     });
   });
 
+  it("opens a notification from the mobile sheet and marks it read", async () => {
+    mockUpdateDoc.mockClear();
+    const user = userEvent.setup();
+    renderWithProviders(<Layout />, {
+      authenticated: true,
+      user: { uid: "uid-1" },
+    });
+
+    setCollectionDocs("notifications/uid-1/items", [
+      {
+        ...createMockNotification({
+          activityId: "strava_123",
+          read: false,
+          createdAt: { seconds: Math.floor((Date.now() - 10 * 60 * 1000) / 1000) } as unknown as number,
+          message: "활동 알림",
+        }),
+        id: "n1",
+      },
+    ]);
+
+    const notificationButtons = await screen.findAllByRole("button", { name: "알림" });
+    await user.click(notificationButtons[0]!);
+
+    expect(await screen.findByText("10분 전")).toBeInTheDocument();
+    await user.click(screen.getByText("활동 알림"));
+
+    await waitFor(() => {
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "notifications/uid-1/items/n1" }),
+        { read: true },
+      );
+    });
+  });
+
   it("opens profile dropdown with profile/settings/logout items", async () => {
     // NOTE: 과거 이 테스트는 드롭다운에서 "Strava 연동됨" 을 확인했으나,
     // 리디자인된 TopNav 의 프로필 드롭다운은 Strava 연동 상태를 더 이상 노출하지 않는다
@@ -158,7 +193,8 @@ describe("Layout", () => {
     }
 
     expect(screen.getByRole("button", { name: "KO" }).className).toContain("focus-visible:outline");
-    expect(screen.getByRole("button", { name: "더보기" }).className).toContain("focus-visible:outline");
+    const moreButtons = screen.getAllByRole("button", { name: "더보기" });
+    expect(moreButtons.some((button) => button.className.includes("focus-visible:outline"))).toBe(true);
     expect(screen.getByRole("link", { name: /내 운동/ }).className).toContain("focus-visible:outline");
   });
 });

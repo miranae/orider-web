@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import {
-  collection, query, orderBy, limit, onSnapshot, writeBatch, doc,
+  collection, query, orderBy, limit, onSnapshot, writeBatch, doc, updateDoc,
 } from "firebase/firestore";
 import { firestore, auth } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -140,11 +140,34 @@ export default function Layout() {
     if (!user) return;
     const unread = notifications.filter((n) => !n.read);
     if (unread.length === 0) return;
-    const batch = writeBatch(firestore);
-    unread.forEach((n) => {
-      batch.update(doc(firestore, "notifications", user.uid, "items", n.id), { read: true });
-    });
-    await batch.commit();
+    try {
+      const batch = writeBatch(firestore);
+      unread.forEach((n) => {
+        batch.update(doc(firestore, "notifications", user.uid, "items", n.id), { read: true });
+      });
+      await batch.commit();
+    } catch (err) {
+      logClientError("Layout.notifications.markAllRead", err, { path: `notifications/${user.uid}/items` });
+    }
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!user) return;
+    const target =
+      notification.activityId ? `/activity/${notification.activityId}` :
+      notification.segmentId ? `/segment/${notification.segmentId}` :
+      null;
+    try {
+      if (!notification.read) {
+        await updateDoc(doc(firestore, "notifications", user.uid, "items", notification.id), { read: true });
+      }
+    } catch (err) {
+      logClientError("Layout.notifications.markOneRead", err, {
+        path: `notifications/${user.uid}/items/${notification.id}`,
+      });
+    } finally {
+      if (target) navigate(target);
+    }
   };
 
   return (
@@ -154,6 +177,7 @@ export default function Layout() {
         notifications={notifications}
         unreadCount={unreadCount}
         onMarkAllRead={handleMarkAllRead}
+        onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
         onMobileNotifClick={() => setNotifOpen(!notifOpen)}
       />
 
@@ -217,6 +241,7 @@ export default function Layout() {
             onClose={() => setNotifOpen(false)}
             notifications={notifications}
             onMarkAllRead={handleMarkAllRead}
+            onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
           />
         </Suspense>
       )}
