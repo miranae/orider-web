@@ -50,7 +50,12 @@ interface PeekState {
 }
 
 // 세션 내 중복 peek 방지 (discipline 별)
-const peekDone = new Map<string, PeekState>();
+const MISS_CACHE_TTL_MS = 60_000;
+interface PeekCacheEntry {
+  state: PeekState;
+  cachedAt: number;
+}
+const peekDone = new Map<string, PeekCacheEntry>();
 
 /**
  * @param discipline  운동 종목. null 이면 peek 보류.
@@ -74,9 +79,14 @@ export function useTodaysNarrativePeek(
     const key = `${user.uid}:${discipline}:${lang}`;
 
     // 세션 캐시 적중
-    if (peekDone.has(key)) {
-      setState(peekDone.get(key)!);
-      return;
+    const cached = peekDone.get(key);
+    if (cached) {
+      const isExpiredMiss = cached.state.cacheMiss && Date.now() - cached.cachedAt > MISS_CACHE_TTL_MS;
+      if (!isExpiredMiss) {
+        setState(cached.state);
+        return;
+      }
+      peekDone.delete(key);
     }
 
     // 이미 in-flight
@@ -104,7 +114,7 @@ export function useTodaysNarrativePeek(
         const next: PeekState = d.hit && d.narrative
           ? { narrative: d.narrative, loading: false, cacheMiss: false, stale: d.stale ?? false }
           : { narrative: null, loading: false, cacheMiss: true, stale: false };
-        peekDone.set(key, next);
+        peekDone.set(key, { state: next, cachedAt: Date.now() });
         setState(next);
       })
       .catch(() => {
