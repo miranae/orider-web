@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -12,6 +12,7 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
+import { EmptyState } from "../components/redesign";
 import { Card } from "../theme/components";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ function StatsPanel({ stats }: { stats: ReturnType<typeof computeStats> }) {
 export default function CreateCoursePage() {
   const { t } = useTranslation("course");
   const { t: tActivity } = useTranslation("activity");
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activityId = searchParams.get("activityId");
@@ -447,7 +448,21 @@ export default function CreateCoursePage() {
     );
   }
 
-  if (!user) return <Navigate to="/courses" replace />;
+  if (!user) {
+    return (
+      <div className="max-w-2xl mx-auto py-8">
+        <EmptyState
+          icon="🔒"
+          title={t("createAuth.title")}
+          description={t("createAuth.description")}
+          actions={[
+            { label: t("createAuth.login"), variant: "primary", onClick: () => { void signInWithGoogle(); } },
+            { label: t("button.courseList"), variant: "secondary", href: "/courses" },
+          ]}
+        />
+      </div>
+    );
+  }
 
   // ── Success ──
   if (createdCourseId) {
