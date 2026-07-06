@@ -323,6 +323,51 @@ export function useWeeklyStats() {
   };
 }
 
+export function useMonthlyActivityDistance(now: Date = new Date()) {
+  const { user } = useAuth();
+  const [distance, setDistance] = useState(0);
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  useEffect(() => {
+    if (!user) {
+      setDistance(0);
+      return;
+    }
+
+    let cancelled = false;
+    const start = new Date(year, month, 1).getTime();
+    const end = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
+
+    const load = async () => {
+      try {
+        const q = query(
+          collection(firestore, "activities"),
+          where("deletedAt", "==", null),
+          where("userId", "==", user.uid),
+          where("startTime", ">=", start),
+          where("startTime", "<=", end),
+          orderBy("startTime", "desc"),
+        );
+        const snap = await getDocs(q);
+        const totalDistance = snap.docs.reduce((sum, d) => {
+          const activity = { id: d.id, ...d.data() } as Activity;
+          return sum + (activity.summary?.distance ?? 0);
+        }, 0);
+        if (!cancelled) setDistance(totalDistance);
+      } catch (err) {
+        logClientError("useMonthlyActivityDistance.load", err, { userId: user.uid, start, end });
+        if (!cancelled) setDistance(0);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user, year, month]);
+
+  return distance;
+}
+
 function getDateFrom(preset: DatePreset): number | null {
   if (preset === "all") return null;
   const now = new Date();

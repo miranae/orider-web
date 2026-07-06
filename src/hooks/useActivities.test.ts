@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useActivities, useWeeklyStats, useActivitySearch } from "./useActivities";
+import { useActivities, useWeeklyStats, useActivitySearch, useMonthlyActivityDistance } from "./useActivities";
 import { simulateLogin, simulateLogout, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
-import { createMockActivity } from "../__tests__/fixtures/mockData";
+import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ToastProvider } from "../contexts/ToastContext";
@@ -84,6 +84,23 @@ describe("useWeeklyStats", () => {
     const { result } = renderHook(() => useWeeklyStats(), { wrapper });
     expect(result.current.thisWeek.rides).toBe(0);
     expect(result.current.weeklyStats).toEqual([]);
+  });
+});
+
+describe("useMonthlyActivityDistance", () => {
+  it("sums monthly activity distances and ignores summary-less documents", async () => {
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      { id: "a1", ...createMockActivity({ id: "a1", userId: "user-1", summary: createMockSummary({ distance: 12_000 }) }) },
+      { id: "broken", userId: "user-1", startTime: Date.now(), deletedAt: null },
+      { id: "a2", ...createMockActivity({ id: "a2", userId: "user-1", summary: createMockSummary({ distance: 8_000 }) }) },
+    ]);
+
+    const { result } = renderHook(() => useMonthlyActivityDistance(new Date(2026, 6, 7)), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current).toBe(20_000);
+    });
   });
 });
 
