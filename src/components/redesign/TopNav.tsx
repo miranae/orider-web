@@ -348,7 +348,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                       }}
                     >
                       <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>{t('topnav.notifications')}</span>
-                      {onMarkAllRead && unreadCount > 0 && (
+                      {onMarkAllRead && notifications.length > 0 && (
                         <button
                           onClick={() => { onMarkAllRead(); }}
                           style={{
