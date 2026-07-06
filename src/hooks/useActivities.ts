@@ -236,7 +236,7 @@ export function useActivities() {
   };
 }
 
-export function useWeeklyStats() {
+export function useWeeklyStats(now: Date = new Date()) {
   const { user } = useAuth();
 
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -284,11 +284,11 @@ export function useWeeklyStats() {
   }
 
   const all = activities;
-  const now = new Date();
   const weeks: WeeklyStat[] = [];
   for (let w = 11; w >= 0; w--) {
     const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - w * 7 - weekStart.getDay() + 1);
+    const daysSinceMonday = (weekStart.getDay() + 6) % 7;
+    weekStart.setDate(weekStart.getDate() - w * 7 - daysSinceMonday);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
 

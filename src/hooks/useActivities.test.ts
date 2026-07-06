@@ -85,6 +85,28 @@ describe("useWeeklyStats", () => {
     expect(result.current.thisWeek.rides).toBe(0);
     expect(result.current.weeklyStats).toEqual([]);
   });
+
+  it("keeps Sunday activities in the current Monday-start week bucket", async () => {
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      {
+        id: "sunday-ride",
+        ...createMockActivity({
+          id: "sunday-ride",
+          userId: "user-1",
+          startTime: new Date(2026, 6, 5, 10, 0, 0).getTime(),
+          summary: createMockSummary({ distance: 42_000 }),
+        }),
+      },
+    ]);
+
+    const { result } = renderHook(() => useWeeklyStats(new Date(2026, 6, 5, 12, 0, 0)), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.weeklyStats.at(-1)?.rides).toBe(1);
+    });
+    expect(result.current.weeklyStats.at(-1)?.week).toBe("6/29");
+  });
 });
 
 describe("useMonthlyActivityDistance", () => {
