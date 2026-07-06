@@ -365,12 +365,13 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
 interface WizardFooterProps {
   step: number;
   canNext: boolean;
+  submitting: boolean;
   onPrev: () => void;
   onNext: () => void;
   onStart: () => void;
 }
 
-function WizardFooter({ step, canNext, onPrev, onNext, onStart }: WizardFooterProps) {
+function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: WizardFooterProps) {
   const { t } = useTranslation('training');
   return (
     <div
@@ -402,7 +403,7 @@ function WizardFooter({ step, canNext, onPrev, onNext, onStart }: WizardFooterPr
           {t('footerButtons.next')}
         </Button>
       ) : (
-        <Button variant="primary" onClick={onStart}>
+        <Button variant="primary" onClick={onStart} disabled={submitting}>
           {t('footerButtons.start')}
         </Button>
       )}
@@ -594,6 +595,7 @@ export default function GoalSetupPage() {
           <WizardFooter
             step={step}
             canNext={canNext}
+            submitting={submitting}
             onPrev={handlePrev}
             onNext={handleNext}
             onStart={handleStart}
