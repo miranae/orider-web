@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { useDocument, useCollection, where, orderBy } from '../hooks/useFirestore';
 import { useCreateComment } from '../features/board/useComment';
 import { useBoardLike } from '../features/board/useBoardLike';
-import { useDeletePost } from '../features/board/useBoard';
+import { useDeletePost, useReportBoardContent } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { firestore } from '../services/firebase';
@@ -16,6 +16,12 @@ import { EmptyState, LoadingSkeleton } from '../components/redesign';
 import type { BoardPost, BoardComment, Activity } from '@shared/types';
 import { Button, Card, Chip } from "../theme/components";
 import { normalizeUserContentUrl } from "../utils/userContentUrl";
+import { ReportContentModal } from "../features/board/ReportContentModal";
+import { buildBoardReportPayload, type BoardReportReason } from "../features/board/reportPayload";
+
+type ReportTarget =
+  | { targetType: "post"; postId: string; previewTitle: string; authorNickname: string; createdAt: number }
+  | { targetType: "comment"; postId: string; commentId: string; previewTitle: string; authorNickname: string; createdAt: number };
 
 const PostDetailPage: React.FC = () => {
   const { postId } = useParams<{ postId: string }>();
@@ -25,6 +31,8 @@ const PostDetailPage: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { deletePost, deleting: postDeleting } = useDeletePost();
+  const { report, submitting: reportSubmitting } = useReportBoardContent();
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
   const { data: post, loading: postLoading } = useDocument<BoardPost>('board_posts', postId);
   const { data: linkedActivity } = useDocument<Activity>('activities', post?.activityId || undefined);
   const { data: comments } = useCollection<BoardComment>(
@@ -101,6 +109,36 @@ const PostDetailPage: React.FC = () => {
     }
   };
 
+  const openReport = (target: ReportTarget) => {
+    if (!user) {
+      showToast(t("report.loginRequired"), "info");
+      return;
+    }
+    setReportTarget(target);
+  };
+
+  const handleReportSubmit = async (reason: BoardReportReason, note: string) => {
+    if (!reportTarget) return;
+    try {
+      await report(buildBoardReportPayload({
+        targetType: reportTarget.targetType,
+        postId: reportTarget.postId,
+        commentId: reportTarget.targetType === "comment" ? reportTarget.commentId : undefined,
+        reason,
+        note,
+        targetPreview: {
+          title: reportTarget.previewTitle,
+          authorNickname: reportTarget.authorNickname,
+          createdAt: reportTarget.createdAt,
+        },
+      }));
+      setReportTarget(null);
+      showToast(t("report.success"), "success");
+    } catch {
+      showToast(t("report.failed"), "error");
+    }
+  };
+
   if (postLoading) {
     return (
       <div className="py-6 max-w-3xl mx-auto">
@@ -157,6 +195,20 @@ const PostDetailPage: React.FC = () => {
             </span>
             <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)] ml-auto flex items-center gap-2">
               {t('label.views')} {post.viewCount}
+              {user?.uid !== post.userId && (
+                <button
+                  onClick={() => openReport({
+                    targetType: "post",
+                    postId: post.id,
+                    previewTitle: post.title,
+                    authorNickname: post.nickname,
+                    createdAt: post.createdAt,
+                  })}
+                  className="text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
+                >
+                  {t("report.action")}
+                </button>
+              )}
               {user && user.uid === post.userId && (
                 <button
                   onClick={handleDeletePost}
@@ -324,12 +376,40 @@ const PostDetailPage: React.FC = () => {
                     {t('button.delete')}
                   </button>
                 )}
+                {user?.uid !== comment.userId && (
+                  <button
+                    onClick={() => openReport({
+                      targetType: "comment",
+                      postId: post.id,
+                      commentId: comment.id,
+                      previewTitle: post.title,
+                      authorNickname: comment.nickname,
+                      createdAt: comment.createdAt,
+                    })}
+                    className={`${user && user.uid === comment.userId ? "" : "ml-auto"} text-[10px] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors`}
+                  >
+                    {t("report.action")}
+                  </button>
+                )}
               </div>
               <p className="text-[length:var(--fs-sm)] text-[var(--ink-1)] leading-relaxed">{comment.text}</p>
             </Card>
           ))}
         </div>
       </section>
+      {reportTarget && (
+        <ReportContentModal
+          targetType={reportTarget.targetType}
+          preview={{
+            title: reportTarget.previewTitle,
+            authorNickname: reportTarget.authorNickname,
+            createdAt: reportTarget.createdAt,
+          }}
+          submitting={reportSubmitting}
+          onClose={() => setReportTarget(null)}
+          onSubmit={handleReportSubmit}
+        />
+      )}
     </div>
   );
 };

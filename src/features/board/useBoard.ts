@@ -21,6 +21,7 @@ import { firestore, functions } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import type { BoardPost, BoardType } from "@shared/types";
 import { logClientError } from "../../services/errorLogger";
+import type { BoardReportPayload } from "./reportPayload";
 
 interface SearchResult {
   posts: BoardPost[];
@@ -226,6 +227,78 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   return { posts, loading, error, total, page, totalPages, goToPage, refresh };
 }
 
+export function useMyInquiryPosts(limitCount = 100) {
+  const { user } = useAuth();
+  const uid = user?.uid ?? null;
+  const [posts, setPosts] = useState<BoardPost[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refresh = () => setRefreshKey((k) => k + 1);
+
+  useEffect(() => {
+    if (!uid) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    getDocs(query(
+      collection(firestore, "board_posts"),
+      where("userId", "==", uid),
+      limit(limitCount),
+    ))
+      .then((snap) => {
+        if (cancelled) return;
+        const items = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() } as BoardPost))
+          .filter((post) => post.boardType === "inquiry" && post.deletedAt == null)
+          .sort((a, b) => b.createdAt - a.createdAt);
+        setPosts(items);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        logClientError("board:my-inquiries", err, { uid });
+        setError(err as Error);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [limitCount, refreshKey, uid]);
+
+  return { posts, loading, error, refresh };
+}
+
+export function useReportBoardContent() {
+  const { t } = useTranslation("board");
+  const { user } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+
+  const report = async (payload: BoardReportPayload): Promise<{ reportId?: string; status?: string }> => {
+    if (!user) throw new Error(t("error.loginRequired"));
+    setSubmitting(true);
+    try {
+      const fn = httpsCallable<BoardReportPayload, { reportId?: string; status?: string }>(
+        functions,
+        "reportBoardContent",
+      );
+      const result = await fn(payload);
+      return result.data;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return { report, submitting };
+}
+
 /**
  * 게시글 작성을 위한 훅
  */
@@ -259,6 +332,10 @@ export function useCreatePost() {
         sourceSite: null,
         feedbackType: data.feedbackType || null,
         isPrivate: data.isPrivate || false,
+        moderationStatus: data.boardType === "inquiry" ? "new" : null,
+        inquiryStatus: data.boardType === "inquiry" ? "new" : null,
+        lastModeratorActionAt: null,
+        resolvedAt: null,
         viewCount: 0,
         likeCount: 0,
         commentCount: 0,

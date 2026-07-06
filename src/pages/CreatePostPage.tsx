@@ -606,7 +606,19 @@ const CreatePostPage: React.FC = () => {
         feedbackType: isInquiry ? feedbackType : null,
         isPrivate: isInquiry ? isPrivate : false,
       });
-      navigate(`/board/${postId}`);
+      if (isInquiry) {
+        const params = new URLSearchParams({
+          type: 'inquiry',
+          submitted: postId,
+          feedback: feedbackType,
+          private: isPrivate ? '1' : '0',
+          status: 'new',
+          view: 'my',
+        });
+        navigate(`/board?${params.toString()}`);
+      } else {
+        navigate(`/board/${postId}`);
+      }
     } catch {
       alert(t('message.submitFailed'));
     } finally {
