@@ -110,7 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (snap) => {
         if (snap.exists()) {
           setProfile(snap.data() as UserProfile);
+        } else {
+          setProfile(null);
         }
+      },
+      (err) => {
+        logClientError("AuthContext.profileSnapshot", err, { uid: user.uid });
+        setProfile(null);
       },
     );
   }, [user]);

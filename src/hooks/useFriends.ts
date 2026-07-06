@@ -8,6 +8,18 @@ import { useAuth } from "../contexts/AuthContext";
 import { track } from "../services/analytics";
 import type { FriendRelation, FriendRequest } from "@shared/types";
 
+function toMillis(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (value && typeof value === "object") {
+    const timestamp = value as { toMillis?: () => number; _seconds?: number; seconds?: number; _nanoseconds?: number; nanoseconds?: number };
+    if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
+    const seconds = timestamp._seconds ?? timestamp.seconds;
+    const nanoseconds = timestamp._nanoseconds ?? timestamp.nanoseconds ?? 0;
+    if (typeof seconds === "number") return seconds * 1000 + Math.floor(nanoseconds / 1_000_000);
+  }
+  return Date.now();
+}
+
 export function useFriends() {
   const { user, profile } = useAuth();
   const [friends, setFriends] = useState<FriendRelation[]>([]);
@@ -37,9 +49,7 @@ export function useFriends() {
               nickname: data.nickname || "",
               profileImage: data.profileImage || null,
               friendCode: data.friendCode || null,
-              createdAt: typeof data.createdAt === "number"
-                ? data.createdAt
-                : data.createdAt?.toMillis?.() ?? Date.now(),
+              createdAt: toMillis(data.createdAt),
             };
           }),
         );
@@ -65,9 +75,7 @@ export function useFriends() {
               requesterId: d.id,
               nickname: data.nickname || "",
               profileImage: data.profileImage || null,
-              createdAt: typeof data.createdAt === "number"
-                ? data.createdAt
-                : data.createdAt?.toMillis?.() ?? Date.now(),
+              createdAt: toMillis(data.createdAt),
             };
           }),
         );

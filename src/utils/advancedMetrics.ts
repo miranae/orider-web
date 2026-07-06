@@ -114,8 +114,8 @@ export interface CriticalBand {
 }
 export function calculateCriticalBands(watts: number[], ftp: number): CriticalBand[] {
   const bands = [
-    { label: "Sweet Spot", lo: 0.83, hi: 0.94, color: "#10b981" },
-    { label: "Threshold", lo: 0.95, hi: 1.05, color: "#f59e0b" },
+    { label: "Sweet Spot", lo: 0.83, hi: 0.95, color: "#10b981" },
+    { label: "Threshold", lo: 0.95, hi: 1.06, color: "#f59e0b" },
     { label: "VO2max", lo: 1.06, hi: 1.20, color: "#f97316" },
     { label: "Anaerobic", lo: 1.20, hi: Infinity, color: "#ef4444" },
   ];
@@ -135,14 +135,36 @@ export function calculateCriticalBands(watts: number[], ftp: number): CriticalBa
   }));
 }
 
-/** 거리 스트림에서 N초 윈도우 최대 속도 (m/s) — 가장 신뢰할 수 있는 방법 */
-function maxSpeedFromDistance(distance: number[], window = 10): number | null {
-  if (distance.length < window + 1) return null;
+function elapsedSeconds(time: number[] | undefined, startIdx: number, endIdx: number): number | null {
+  if (!time || time.length <= endIdx) return null;
+  const start = time[startIdx];
+  const end = time[endIdx];
+  if (start == null || end == null || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  return end - start;
+}
+
+/** 거리 스트림에서 N초 윈도우 최대 속도 (m/s) — time 스트림이 있으면 non-1Hz 샘플링 보정 */
+function maxSpeedFromDistance(distance: number[], time?: number[], window = 10): number | null {
+  if (distance.length < 2 || (!time?.length && distance.length < window + 1)) return null;
   let max = 0;
-  for (let i = window; i < distance.length; i++) {
-    const d = (distance[i] ?? 0) - (distance[i - window] ?? 0);
+  if (time?.length) {
+    for (let i = 1; i < distance.length; i++) {
+      for (let startIdx = i - 1; startIdx >= 0; startIdx--) {
+        const duration = elapsedSeconds(time, startIdx, i);
+        if (duration == null || duration < window) continue;
+        const d = (distance[i] ?? 0) - (distance[startIdx] ?? 0);
+        if (d > 0) max = Math.max(max, d / duration);
+        break;
+      }
+    }
+    return max > 0 ? max : null;
+  }
+  for (let i = 1; i < distance.length; i++) {
+    const startIdx = i - window;
+    if (startIdx < 0) continue;
+    const d = (distance[i] ?? 0) - (distance[startIdx] ?? 0);
     if (d <= 0) continue;
-    const v = d / window;
+    const v = d / (i - startIdx);
     if (v > max) max = v;
   }
   return max > 0 ? max : null;
@@ -371,12 +393,13 @@ export function calculateAvgSpeed(streams: { velocity_smooth?: number[]; distanc
   if (avgMps == null && streams.distance?.length) {
     const len = streams.distance.length;
     const totalM = streams.distance[len - 1]! - streams.distance[0]!;
-    if (len > 1 && totalM > 0) avgMps = totalM / (len - 1);
+    const durationSec = elapsedSeconds(streams.time, 0, len - 1) ?? (len - 1);
+    if (len > 1 && totalM > 0 && durationSec > 0) avgMps = totalM / durationSec;
   }
 
   // 최대: distance 10s 윈도우 (가장 안정) → velocity_smooth 10s 평활 → null
   if (streams.distance?.length) {
-    maxMps = maxSpeedFromDistance(streams.distance, 10);
+    maxMps = maxSpeedFromDistance(streams.distance, streams.time, 10);
   }
   if (maxMps == null && streams.velocity_smooth?.length) {
     maxMps = rollingMaxSmoothed(streams.velocity_smooth, 10);

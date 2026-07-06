@@ -56,6 +56,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       return;
     }
     if (!user) {
+      setRevalidating(false);
       setLastStatus(null);
       return;
     }
@@ -80,6 +81,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
           || (now - computedAt) > STALE_THRESHOLD_MS;
 
         if (!stale) {
+          setRevalidating(false);
           setLastStatus("fresh");
           return;
         }
@@ -104,7 +106,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         logClientError("useFreshTraining.revalidate", err, { discipline });
         setLastStatus("error");
       } finally {
-        if (!cancelled) setRevalidating(false);
+        setRevalidating(false);
       }
     })();
 
