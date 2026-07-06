@@ -8,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import RiderRankingPanel from "../components/leaderboard/RiderRankingPanel";
+import { formatElapsedMillis } from "../features/leaderboard/leaderboardFormat";
 
 type LeaderboardTab = "segments" | "riders";
 
@@ -25,15 +26,6 @@ interface EffortInfo {
   segmentId: string;
   elapsedTime: number;
   createdAt?: number;
-}
-
-function formatDuration(sec: number): string {
-  const s = Math.floor(sec);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const r = s % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
-  return `${m}:${String(r).padStart(2, "0")}`;
 }
 
 export default function LeaderboardPage() {
@@ -244,7 +236,7 @@ export default function LeaderboardPage() {
                       {best != null ? (
                         <>
                           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-0-5)" }}>{t("leaderboardPage.myBest")}</Text>
-                          <Text as="div" variant="dataMedium" style={{ color: "var(--lime)" }}>{formatDuration(best)}</Text>
+                          <Text as="div" variant="dataMedium" style={{ color: "var(--lime)" }}>{formatElapsedMillis(best)}</Text>
                         </>
                       ) : (
                         <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("leaderboardPage.notTried")}</div>
