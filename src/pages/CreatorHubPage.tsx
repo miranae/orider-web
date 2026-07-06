@@ -479,7 +479,9 @@ export default function CreatorHubPage() {
   const [copied, setCopied] = useState(false);
   const [chartCopied, setChartCopied] = useState(false);
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
+  const [copyingPromptId, setCopyingPromptId] = useState<string | null>(null);
   const [reportedItemIds, setReportedItemIds] = useState<Set<string>>(() => new Set());
+  const [reportingItemIds, setReportingItemIds] = useState<Set<string>>(() => new Set());
   const [reportFailedItemIds, setReportFailedItemIds] = useState<Set<string>>(() => new Set());
   const [diary, setDiary] = useState<AiDiaryResponse | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -630,6 +632,8 @@ export default function CreatorHubPage() {
   };
 
   const handleCopyPrompt = async (promptId: string, prompt: string) => {
+    if (copyingPromptId === promptId) return;
+    setCopyingPromptId(promptId);
     try {
       await navigator.clipboard?.writeText(prompt);
       setCopiedPromptId(promptId);
@@ -637,6 +641,8 @@ export default function CreatorHubPage() {
       window.setTimeout(() => setCopiedPromptId((current) => (current === promptId ? null : current)), 1600);
     } catch {
       showToast(copy.actions.copyFailed, "error");
+    } finally {
+      setCopyingPromptId((current) => (current === promptId ? null : current));
     }
   };
 
@@ -686,6 +692,8 @@ export default function CreatorHubPage() {
       await signInWithGoogle();
       return;
     }
+    if (reportedItemIds.has(itemId) || reportingItemIds.has(itemId)) return;
+    setReportingItemIds((prev) => new Set(prev).add(itemId));
     try {
       const fn = httpsCallable<{ itemId: string; reason: string }, { reportId: string; status: string }>(
         functions,
@@ -702,6 +710,12 @@ export default function CreatorHubPage() {
     } catch {
       setReportFailedItemIds((prev) => new Set(prev).add(itemId));
       showToast(copy.actions.reportFailed, "error");
+    } finally {
+      setReportingItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
     }
   };
 
@@ -922,7 +936,7 @@ export default function CreatorHubPage() {
                       <FileText size={14} style={{ color: "var(--lime)" }} />
                       <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "AI에게 전달할 작업 지시" : "Prompt for your AI assistant"}</Text>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => void handleCopyPrompt(item.name, item.aiPrompt)}>
+                    <Button size="sm" variant="ghost" loading={copyingPromptId === item.name} onClick={() => void handleCopyPrompt(item.name, item.aiPrompt)}>
                       <Clipboard size={14} aria-hidden />
                       {copiedPromptId === item.name ? copy.actions.promptCopied : copy.actions.copyPrompt}
                     </Button>
@@ -1088,7 +1102,14 @@ export default function CreatorHubPage() {
                     <KeyRound size={15} />
                     {copy.actions.deploy}
                   </Button>
-                  <Button className={recipeActionClass} size="sm" variant="ghost" onClick={() => void handleReportItem(item.id)}>
+                  <Button
+                    className={recipeActionClass}
+                    size="sm"
+                    variant="ghost"
+                    loading={reportingItemIds.has(item.id)}
+                    disabled={reportedItemIds.has(item.id)}
+                    onClick={() => void handleReportItem(item.id)}
+                  >
                     <Flag size={15} />
                     {reportedItemIds.has(item.id)
                       ? copy.actions.reported

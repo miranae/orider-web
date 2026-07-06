@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
+import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { httpsCallable } from "firebase/functions";
 import { doc, getDoc } from "firebase/firestore";
 import { firestore, functions } from "../services/firebase";
@@ -331,8 +332,8 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
       </div>
 
       {/* 새 코스 만들기 */}
-      <a
-        href="/course/create"
+      <Link
+        to="/course/create"
         style={{
           padding: "var(--space-3)",
           background: "var(--bg-2)",
@@ -354,7 +355,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
           <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
         {t('goals.courseCreateLink')}
-      </a>
+      </Link>
     </Card>
   );
 }

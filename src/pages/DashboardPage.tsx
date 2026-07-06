@@ -37,8 +37,8 @@ function formatDuration(ms: number): string {
 }
 
 /** 숫자 콤마 포맷 */
-function formatNum(n: number): string {
-  return n.toLocaleString("ko-KR");
+function formatNum(n: number, locale: string): string {
+  return n.toLocaleString(locale);
 }
 
 /** 초 → "M:SS" 형식 */
@@ -130,7 +130,7 @@ function WeeklyTssBars({
 // ── 메인 대시보드 ──
 
 export default function DashboardPage() {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common");
   const [feedFilter, setFeedFilter] = useState(0);
   // 사이드바 푸터(약관/정책 링크) 접이식 — Layout 데스크톱 푸터를 메인화면에서 흡수 (#347 후속)
@@ -327,7 +327,7 @@ export default function DashboardPage() {
     },
     {
       label: t("kpi.elevation"),
-      value: units === 'imperial' ? formatNum(Math.round(thisWeek.elevation / 0.3048)) : formatNum(thisWeek.elevation),
+      value: units === 'imperial' ? formatNum(Math.round(thisWeek.elevation / 0.3048), i18n.language) : formatNum(thisWeek.elevation, i18n.language),
       unit: units === 'imperial' ? 'ft' : 'm',
       delta: null,
       deltaKind: "up" as const,
@@ -368,7 +368,7 @@ export default function DashboardPage() {
     <div className="flex flex-col">
         {/* 페이지 헤더 */}
         <PageHeader
-          eyebrow={new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
+          eyebrow={new Date().toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
           title={heroTitle}
           subtitle={
             isAnon ? (
@@ -429,7 +429,7 @@ export default function DashboardPage() {
                   style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}
                   title={t("feed.countTooltip")}
                 >
-                  {t("feed.countSuffix", { value: formatNum(totalCount) })}
+                  {t("feed.countSuffix", { value: formatNum(totalCount, i18n.language) })}
                   <span style={{ fontFamily: "var(--font-sans)", color: "var(--ink-4)", marginLeft: 'var(--space-1)' }}>{t("feed.feedScope")}</span>
                 </span>
               )}

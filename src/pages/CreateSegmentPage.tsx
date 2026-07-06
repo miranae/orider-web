@@ -144,6 +144,7 @@ function StatsPanel({ stats, t }: { stats: ReturnType<typeof computeStats>; t: a
 
 export default function CreateSegmentPage() {
   const { t } = useTranslation("segment");
+  const { t: tActivity } = useTranslation("activity");
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -219,7 +220,7 @@ export default function CreateSegmentPage() {
         const d = actDoc.data();
         setSelectedActivity({
           id: actDoc.id,
-          description: d.description ?? "Untitled",
+          description: d.description ?? tActivity("noName"),
           startTime: d.startTime ?? d.createdAt ?? Date.now(),
           summary: d.summary ?? { distance: 0, ridingTimeMillis: 0, elevationGain: 0 },
           thumbnailTrack: d.thumbnailTrack ?? "",
@@ -251,7 +252,7 @@ export default function CreateSegmentPage() {
       setRangeEnd(data.latlng.length - 1);
       setCategory("climb");
     } catch (err: unknown) {
-      logClientError("CreateSegmentPage.loadStreams", err, { activityId: selectedActivity?.id });
+      logClientError("CreateSegmentPage.loadStreams", err, { activityId: aid });
       const fbErr = err as { code?: string; message?: string; details?: unknown };
       const code = fbErr.code ?? "unknown";
       const msg = fbErr.message ?? String(err);
@@ -259,7 +260,7 @@ export default function CreateSegmentPage() {
     } finally {
       setLoadingStreams(false);
     }
-  }, []);
+  }, [t, tActivity]);
 
   useEffect(() => {
     if (!user || !activityId) return;

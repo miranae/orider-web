@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   collection, doc, getDoc, onSnapshot, deleteDoc, setDoc,
 } from "firebase/firestore";
@@ -15,6 +15,7 @@ export function useFriends() {
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const pendingAcceptsRef = useRef<Set<string>>(new Set());
 
   // Real-time friends subscription
   useEffect(() => {
@@ -107,16 +108,16 @@ export function useFriends() {
   }, [user, actionLoading]);
 
   const acceptRequest = useCallback(async (requesterId: string) => {
-    if (!user || actionLoading) return;
-    setActionLoading(true);
+    if (!user || pendingAcceptsRef.current.has(requesterId)) return;
+    pendingAcceptsRef.current.add(requesterId);
     try {
       const fn = httpsCallable(functions, "acceptFriendRequest");
       await fn({ requesterId });
       track("friend_request_accept");
     } finally {
-      setActionLoading(false);
+      pendingAcceptsRef.current.delete(requesterId);
     }
-  }, [user, actionLoading]);
+  }, [user]);
 
   const declineRequest = useCallback(async (requesterId: string) => {
     if (!user) return;
@@ -159,4 +160,3 @@ export function useFriends() {
     sendRequest,
   };
 }
-

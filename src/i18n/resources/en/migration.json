@@ -41,6 +41,7 @@
     "reportSummaryPrefix": "A total of ",
     "reportSummaryCount": "{{count}} activities",
     "reportSummarySuffix": " were saved safely.",
+    "reportUnavailableDesc": "The import is complete, but the summary report is not ready yet. You can check your activities in the feed or verify missing items.",
     "totalDistance": "Total distance",
     "totalTime": "Total time",
     "totalElevation": "Elevation gain",

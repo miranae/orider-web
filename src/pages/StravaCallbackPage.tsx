@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -16,6 +16,7 @@ export default function StravaCallbackPage() {
   const { exchangeCode } = useStrava();
   const [step, setStep] = useState<Step>("verifying");
   const [errorMsg, setErrorMsg] = useState("");
+  const exchangeStartedRef = useRef(false);
 
   useEffect(() => {
     const code = searchParams.get("code");
@@ -48,6 +49,8 @@ export default function StravaCallbackPage() {
 
     // Wait for Firebase Auth to restore the session
     if (!user) return;
+    if (exchangeStartedRef.current) return;
+    exchangeStartedRef.current = true;
 
     sessionStorage.removeItem("strava_state");
 
@@ -69,8 +72,8 @@ export default function StravaCallbackPage() {
         setErrorMsg(t("stravaCallback.error.exchangeFailed"));
       }
     })();
-     
-  }, [user]);
+
+  }, [exchangeCode, navigate, searchParams, t, user]);
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">

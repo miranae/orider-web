@@ -11,7 +11,7 @@
  *
  * 베타: 바람/드래프팅/가감속 미반영 — 정확도 미보장 (배너 고지).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -104,6 +104,7 @@ export default function LabPage() {
   // ── 코스 목록 (내 코스) + URL courseId 직접 로드 ──────────────────────
   const [courses, setCourses] = useState<CourseLite[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
+  const appliedUrlCourseIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!uid) {
@@ -136,7 +137,10 @@ export default function LabPage() {
   const urlCourseId = searchParams.get("courseId");
   useEffect(() => {
     if (!urlCourseId) return;
-    setSelectedId(urlCourseId);
+    if (appliedUrlCourseIdRef.current !== urlCourseId) {
+      appliedUrlCourseIdRef.current = urlCourseId;
+      setSelectedId(urlCourseId);
+    }
     if (courses.some((c) => c.id === urlCourseId)) return;
     let cancelled = false;
     getDoc(doc(firestore, "courses", urlCourseId)).then((snap) => {
