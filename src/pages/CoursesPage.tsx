@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import MapGL, { Source, Layer, Popup, useMap } from "react-map-gl/mapbox";
 import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
@@ -193,9 +194,11 @@ export default function CoursesPage() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
+  const [mapFailed, setMapFailed] = useState(false);
   const [tooltipInfo, setTooltipInfo] = useState<{ lng: number; lat: number; name: string; distance: number; elevGain: number } | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const polylineCache = useRef<Map<string, LatLngTuple[]>>(new Map());
+  const mapUnavailable = !mapboxToken || mapFailed;
 
   const handleMoveEnd = useCallback((e: any) => {
     const b = e.target.getBounds();
@@ -267,9 +270,10 @@ export default function CoursesPage() {
   }, [allCourses, searchQuery, sortMode, surfaceFilter, difficultyFilter, myLoc, radiusKm]);
 
   const visibleOnMap = useMemo(() => {
+    if (mapUnavailable) return displayCourses;
     if (!mapBounds) return displayCourses;
     return displayCourses.filter((c) => isInBounds(c, mapBounds, polylineCache.current));
-  }, [displayCourses, mapBounds]);
+  }, [displayCourses, mapBounds, mapUnavailable]);
 
   const [frozenList, setFrozenList] = useState<CourseData[] | null>(null);
 
@@ -489,67 +493,88 @@ export default function CoursesPage() {
           <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--lime) transparent var(--lime) var(--lime)" }} />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col lg:flex-row min-h-0" style={{ background: "var(--bg-0)" }}>
+        <div className={mapUnavailable ? "flex-1 flex flex-col min-h-0" : "flex-1 flex flex-col lg:flex-row min-h-0"} style={{ background: "var(--bg-0)" }}>
           {/* 지도 */}
-          <div className="h-64 lg:h-auto lg:flex-[2] relative">
-            <MapGL
-              mapboxAccessToken={mapboxToken}
-              mapStyle={MAP_STYLE}
-              initialViewState={DEFAULT_VIEW}
-              onLoad={(e) => applyKoreaCyclingStyle(e.target)}
-              onMoveEnd={handleMoveEnd}
-              onClick={handleMapClick}
-              onDblClick={handleMapDblClick}
-              onMouseMove={handleMapMouseMove}
-              onMouseLeave={handleMapMouseLeave}
-              attributionControl={false}
-              dragRotate={false}
-              style={{ width: "100%", height: "100%" }}
-              interactiveLayerIds={["course-lines-hit"]}
-            >
-              <FitAllBounds courses={allCourses} polylineCache={polylineCache.current} />
-              <FlyToCourse courseId={selectedId} polylineCache={polylineCache.current} />
-
-              <Source id="course-lines" type="geojson" data={linesGeoJSON}>
-                <Layer id="course-lines-glow" type="line" paint={{
-                  "line-color": "#a3e635",
-                  "line-width": 10,
-                  "line-opacity": ["get", "glowOpacity"],
-                }} layout={{ "line-cap": "round", "line-join": "round" }} />
-                <Layer id="course-lines-visible" type="line" paint={{
-                  "line-color": ["get", "color"],
-                  "line-width": ["get", "width"],
-                  "line-opacity": ["get", "opacity"],
-                }} layout={{ "line-cap": "round", "line-join": "round" }} />
-                <Layer id="course-lines-hit" type="line" paint={{
-                  "line-color": "#000000",
-                  "line-width": 20,
-                  "line-opacity": 0,
-                }} layout={{ "line-cap": "round", "line-join": "round" }} />
-              </Source>
-
-              {tooltipInfo && (
-                <Popup
-                  longitude={tooltipInfo.lng}
-                  latitude={tooltipInfo.lat}
-                  anchor="bottom"
-                  closeButton={false}
-                  closeOnClick={false}
-                  offset={12}
-                  className="course-tooltip"
-                >
-                  <div style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
-                    <div style={{ fontWeight: 600 }}>{tooltipInfo.name}</div>
-                    <div style={{ color: "var(--ink-3)" }}>{(tooltipInfo.distance / 1000).toFixed(1)} km · ▲{Math.round(tooltipInfo.elevGain)}m</div>
+          {!mapUnavailable && (
+            <div className="h-64 lg:h-auto lg:flex-[2] relative">
+              <ErrorBoundary
+                fallback={() => (
+                  <div className="h-full w-full flex items-center justify-center px-4 text-center" role="status" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
+                    <div>
+                      <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("map.unavailableTitle")}</div>
+                      <div className="mt-1 text-[length:var(--fs-xs)]">{t("map.listPriorityDescription")}</div>
+                    </div>
                   </div>
-                </Popup>
-              )}
-            </MapGL>
-          </div>
+                )}
+                onError={() => setMapFailed(true)}
+              >
+                <MapGL
+                  mapboxAccessToken={mapboxToken}
+                  mapStyle={MAP_STYLE}
+                  initialViewState={DEFAULT_VIEW}
+                  onLoad={(e) => applyKoreaCyclingStyle(e.target)}
+                  onError={() => setMapFailed(true)}
+                  onMoveEnd={handleMoveEnd}
+                  onClick={handleMapClick}
+                  onDblClick={handleMapDblClick}
+                  onMouseMove={handleMapMouseMove}
+                  onMouseLeave={handleMapMouseLeave}
+                  attributionControl={false}
+                  dragRotate={false}
+                  style={{ width: "100%", height: "100%" }}
+                  interactiveLayerIds={["course-lines-hit"]}
+                >
+                  <FitAllBounds courses={allCourses} polylineCache={polylineCache.current} />
+                  <FlyToCourse courseId={selectedId} polylineCache={polylineCache.current} />
+
+                  <Source id="course-lines" type="geojson" data={linesGeoJSON}>
+                    <Layer id="course-lines-glow" type="line" paint={{
+                      "line-color": "#a3e635",
+                      "line-width": 10,
+                      "line-opacity": ["get", "glowOpacity"],
+                    }} layout={{ "line-cap": "round", "line-join": "round" }} />
+                    <Layer id="course-lines-visible" type="line" paint={{
+                      "line-color": ["get", "color"],
+                      "line-width": ["get", "width"],
+                      "line-opacity": ["get", "opacity"],
+                    }} layout={{ "line-cap": "round", "line-join": "round" }} />
+                    <Layer id="course-lines-hit" type="line" paint={{
+                      "line-color": "#000000",
+                      "line-width": 20,
+                      "line-opacity": 0,
+                    }} layout={{ "line-cap": "round", "line-join": "round" }} />
+                  </Source>
+
+                  {tooltipInfo && (
+                    <Popup
+                      longitude={tooltipInfo.lng}
+                      latitude={tooltipInfo.lat}
+                      anchor="bottom"
+                      closeButton={false}
+                      closeOnClick={false}
+                      offset={12}
+                      className="course-tooltip"
+                    >
+                      <div style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
+                        <div style={{ fontWeight: 600 }}>{tooltipInfo.name}</div>
+                        <div style={{ color: "var(--ink-3)" }}>{(tooltipInfo.distance / 1000).toFixed(1)} km · ▲{Math.round(tooltipInfo.elevGain)}m</div>
+                      </div>
+                    </Popup>
+                  )}
+                </MapGL>
+              </ErrorBoundary>
+            </div>
+          )}
 
           {/* 목록 + 상세 */}
-          <div className="flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto" style={{ borderTop: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
+          <div className={mapUnavailable ? "flex-1 overflow-y-auto" : "flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto"} style={{ borderTop: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
             <div className="p-3">
+              {mapUnavailable && (
+                <div className="mb-3 rounded-[var(--r-lg)] px-4 py-3" role="status" style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)" }}>
+                  <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("map.unavailableTitle")}</div>
+                  <div className="mt-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("map.listPriorityDescription")}</div>
+                </div>
+              )}
               {/* 선택된 코스 상세 패널 */}
               {selectedId && (() => {
                 const sel = allCourses.find((c) => c.id === selectedId);

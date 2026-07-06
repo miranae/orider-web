@@ -634,6 +634,7 @@ export default function CoursePage() {
         <RouteMap
           polyline={course.polyline}
           height="h-[28rem]"
+          fallbackHeight="h-40 sm:h-48"
           interactive
           rounded
           markerPosition={markerPosition}

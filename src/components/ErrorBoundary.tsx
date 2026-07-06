@@ -17,6 +17,7 @@ export interface ErrorBoundaryProps {
   fallback?: (info: { error: Error; reset: () => void }) => ReactNode;
   /** 기본 폴백 메시지 (훅 미사용 환경 대비). 미전달 시 "Something went wrong" 표시. */
   defaultFallbackMessage?: string;
+  onError?: (error: Error, info: ErrorInfo) => void;
 }
 
 interface State {
@@ -31,6 +32,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    this.props.onError?.(error, info);
     captureError(error, {
       tags: { source: "react-error-boundary" },
       extra: { componentStack: info.componentStack ?? "" },

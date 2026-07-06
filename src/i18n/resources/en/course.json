@@ -50,6 +50,8 @@
   "empty.noCoursesInArea": "No courses in this area. Try moving the map.",
   "empty.noActivity": "Select an activity to create a course.",
   "empty.noPhotos": "Add photos with GPS location information",
+  "map.unavailableTitle": "Could not prepare the map",
+  "map.listPriorityDescription": "You can keep browsing the course list.",
   "error.notFound": "Course not found",
   "error.deleted": "This course has been deleted.",
   "error.deleteFailed": "Failed to delete course",

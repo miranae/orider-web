@@ -36,4 +36,17 @@ describe("RouteMap", () => {
     const fallback = screen.getByRole("img", { name: "활동 경로 지도" });
     expect(fallback).toHaveAttribute("src", "https://example.com/map.webp");
   });
+
+  it("shows a route fallback message when no stored image is available", () => {
+    renderWithProviders(
+      <RouteMap
+        polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+      />
+    );
+
+    fireEvent.click(screen.getByTestId("mock-map"));
+
+    expect(screen.getByText("지도 표시를 준비하지 못했습니다")).toBeInTheDocument();
+    expect(screen.getByText("경로 데이터는 계속 확인할 수 있습니다.")).toBeInTheDocument();
+  });
 });
