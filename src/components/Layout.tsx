@@ -21,6 +21,7 @@ import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
 import { getActiveHub, isHubSubRoute } from "../config/navHubs";
 import { logClientError } from "../services/errorLogger";
+import { recordRouteRedirect } from "../services/routeLoopTelemetry";
 // 네비 IA(5 허브)는 단일 진실원 config/navHubs.ts 가 보유 — TopNav·MobileTabBar·HubSubNav 공유.
 const NotifSheet = lazy(() => import("./mobile/NotifSheet"));
 
@@ -74,6 +75,12 @@ export default function Layout() {
       profile.onboardingStep !== "done" &&
       !shouldBypassOnboardingRedirect(path)
     ) {
+      recordRouteRedirect({
+        fromPath: path,
+        toPath: "/onboarding",
+        reason: "onboarding_required",
+        onboardingStep: profile.onboardingStep,
+      });
       navigate("/onboarding", { replace: true });
     }
   }, [profile?.onboardingStep, path, navigate]);
