@@ -30,6 +30,11 @@ export type CourseDocChange = {
   data: Record<string, unknown>;
 };
 
+export type CourseSnapshotDoc = {
+  id: string;
+  data: Record<string, unknown>;
+};
+
 export function sampleCoursePoints(points: LatLngTuple[], maxPoints: number): LatLngTuple[] {
   if (points.length <= maxPoints) return points;
   const result: LatLngTuple[] = [];
@@ -91,4 +96,31 @@ export function applyCourseDocChanges(
   }
 
   return Array.from(map.values());
+}
+
+export function replaceCourseSnapshotDocs(
+  docs: CourseSnapshotDoc[],
+  polylineCache: Map<string, LatLngTuple[]>,
+): CourseData[] {
+  const nextCache = new Map<string, LatLngTuple[]>();
+  const courses = docs.map((item) => {
+    const course = courseFromSnapshotData(item.id, item.data);
+    if (course.polyline) {
+      const cached = polylineCache.get(course.id);
+      if (cached) {
+        nextCache.set(course.id, cached);
+      } else {
+        const decoded = decodeTrack(course.polyline) as LatLngTuple[];
+        nextCache.set(course.id, sampleCoursePoints(decoded, 200));
+      }
+    }
+    return course;
+  });
+
+  polylineCache.clear();
+  for (const [courseId, points] of nextCache) {
+    polylineCache.set(courseId, points);
+  }
+
+  return courses;
 }
