@@ -152,6 +152,7 @@ export interface Notification {
   message: string;
   read: boolean;
   createdAt: number;
+  dismissedAt?: number | null;
 }
 
 // ── Segment ──────────────────────────────────────────────────────────
