@@ -131,10 +131,11 @@ describe("routeLoopTelemetry", () => {
     expect(track).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenLastCalledWith("route_loop_detected", expect.objectContaining({
       route: "/activity/:id",
-      route_key: "/activity/strava_1",
+      route_key_hash: expect.any(String),
       occurrences: 3,
       reason: "route_revisit",
       from_paths: "/,/settings,/board/:id",
     }));
+    expect(vi.mocked(track).mock.calls[0][1]).not.toHaveProperty("route_key");
   });
 });

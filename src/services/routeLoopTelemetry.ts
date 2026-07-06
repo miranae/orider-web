@@ -40,6 +40,15 @@ function safeTrack(eventName: string, params?: Record<string, unknown>): void {
   }
 }
 
+function hashRouteKey(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function recordLoopHit(input: {
   bucket: Map<string, RouteHit[]>;
   route: string;
@@ -65,7 +74,7 @@ function recordLoopHit(input: {
     const uniqueFromPaths = [...new Set(hits.map((hit) => hit.fromPath))];
     safeTrack("route_loop_detected", {
       route: input.route,
-      route_key: detectionKey,
+      route_key_hash: hashRouteKey(detectionKey),
       occurrences: hits.length,
       window_sec: Math.round(LOOP_WINDOW_MS / 1000),
       reason: input.reason,
