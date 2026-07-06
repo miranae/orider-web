@@ -329,7 +329,7 @@ export default function CreateSegmentPage() {
 
   // ── Submit ──
   const handleSubmit = async () => {
-    if (!selectedActivity || !segmentStats || !isFormValid) return;
+    if (submitting || !selectedActivity || !segmentStats || !isFormValid) return;
     // rangeStart/rangeEnd encode direction: start > end means reversed
     // Server always expects startIndex < endIndex, so use lowIdx/highIdx
     const result = await createProposal({
