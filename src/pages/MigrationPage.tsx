@@ -5,6 +5,22 @@ import { useAuth } from "../contexts/AuthContext";
 import { useStrava } from "../hooks/useStrava";
 
 type Step = "landing" | "progress" | "report";
+type MigrationProgressLike = {
+  totalActivities?: number | null;
+  importedActivities?: number | null;
+  skippedActivities?: number | null;
+  currentPage?: number | null;
+};
+
+export function calculateMigrationProgressPercent(progress: MigrationProgressLike | null | undefined): number {
+  if (!progress) return 0;
+  const totalActivities = progress.totalActivities ?? 0;
+  if (totalActivities > 0) {
+    const completedActivities = (progress.importedActivities ?? 0) + (progress.skippedActivities ?? 0);
+    return Math.min(95, Math.round((completedActivities / totalActivities) * 95));
+  }
+  return progress.currentPage ? Math.min(90, progress.currentPage * 10) : 0;
+}
 
 function Section({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -147,14 +163,7 @@ export default function MigrationPage() {
   const progress = migration?.progress;
   const report = migration?.report;
 
-  // Calculate progress percentage (activities only)
-  const progressPercent = (() => {
-    if (!progress) return 0;
-    if (progress.totalActivities > 0) {
-      return Math.min(95, Math.round(((progress.importedActivities + progress.skippedActivities) / progress.totalActivities) * 95));
-    }
-    return progress.currentPage ? Math.min(90, progress.currentPage * 10) : 0;
-  })();
+  const progressPercent = calculateMigrationProgressPercent(progress);
 
   const waitUntil = progress?.waitUntil;
   const migrationStatus = migration?.status;
