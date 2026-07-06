@@ -85,7 +85,10 @@ export default function FitnessChart({
 
   const formatDateLabel = (dateStr: string): string => {
     const parts = dateStr.split("-");
-    return t("weeklySummary.dateMonthDay", { month: parseInt(parts[1]!), day: parseInt(parts[2]!) });
+    const month = Number.parseInt(parts[1] ?? "", 10);
+    const day = Number.parseInt(parts[2] ?? "", 10);
+    if (!Number.isFinite(month) || !Number.isFinite(day)) return dateStr || "-";
+    return t("weeklySummary.dateMonthDay", { month, day });
   };
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 

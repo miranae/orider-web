@@ -28,13 +28,14 @@ export default function LapTable({ laps }: LapTableProps) {
   }
 
   // 합계/평균 계산
-  const totalDistance = laps.reduce((s, l) => s + l.distanceKm, 0);
-  const totalDuration = laps.reduce((s, l) => s + l.durationMs, 0);
+  const finite = (value: number | null | undefined) => typeof value === "number" && Number.isFinite(value) ? value : 0;
+  const totalDistance = laps.reduce((s, l) => s + finite(l.distanceKm), 0);
+  const totalDuration = laps.reduce((s, l) => s + finite(l.durationMs), 0);
   const avgSpeed = totalDuration > 0 ? (totalDistance / (totalDuration / 3600000)) : 0;
-  const maxSpeed = Math.max(...laps.map((l) => l.maxSpeed));
-  const avgCadence = laps.length > 0 ? Math.round(laps.reduce((s, l) => s + l.avgCadence, 0) / laps.length) : 0;
-  const avgHr = laps.length > 0 ? Math.round(laps.reduce((s, l) => s + l.avgHeartRate, 0) / laps.length) : 0;
-  const avgPower = laps.length > 0 ? Math.round(laps.reduce((s, l) => s + l.avgPower, 0) / laps.length) : 0;
+  const maxSpeed = Math.max(0, ...laps.map((l) => finite(l.maxSpeed)));
+  const avgCadence = laps.length > 0 ? Math.round(laps.reduce((s, l) => s + finite(l.avgCadence), 0) / laps.length) : 0;
+  const avgHr = laps.length > 0 ? Math.round(laps.reduce((s, l) => s + finite(l.avgHeartRate), 0) / laps.length) : 0;
+  const avgPower = laps.length > 0 ? Math.round(laps.reduce((s, l) => s + finite(l.avgPower), 0) / laps.length) : 0;
 
   return (
     <div className="overflow-x-auto">
@@ -55,10 +56,10 @@ export default function LapTable({ laps }: LapTableProps) {
           {laps.map((lap) => (
             <tr key={lap.number} style={{ borderBottom: '1px solid var(--line-soft)' }} className="hover:bg-white/5">
               <td className="py-2 px-2 font-medium">{lap.number}</td>
-              <td className="py-2 px-2 text-right tabular-nums">{formatDistance(lap.distanceKm * 1000, units)}</td>
-              <td className="py-2 px-2 text-right tabular-nums font-mono">{formatDuration(lap.durationMs)}</td>
-              <td className="py-2 px-2 text-right tabular-nums">{formatSpeed(lap.avgSpeed / 3.6, units, 'bike')}</td>
-              <td className="py-2 px-2 text-right tabular-nums">{formatSpeed(lap.maxSpeed / 3.6, units, 'bike')}</td>
+              <td className="py-2 px-2 text-right tabular-nums">{formatDistance(finite(lap.distanceKm) * 1000, units)}</td>
+              <td className="py-2 px-2 text-right tabular-nums font-mono">{formatDuration(finite(lap.durationMs))}</td>
+              <td className="py-2 px-2 text-right tabular-nums">{formatSpeed(finite(lap.avgSpeed) / 3.6, units, 'bike')}</td>
+              <td className="py-2 px-2 text-right tabular-nums">{formatSpeed(finite(lap.maxSpeed) / 3.6, units, 'bike')}</td>
               <td className="py-2 px-2 text-right tabular-nums">{lap.avgCadence ? Math.round(lap.avgCadence) : "-"}</td>
               <td className="py-2 px-2 text-right tabular-nums">{lap.avgHeartRate ? Math.round(lap.avgHeartRate) : "-"}</td>
               <td className="py-2 px-2 text-right tabular-nums">{lap.avgPower ? Math.round(lap.avgPower) : "-"}</td>

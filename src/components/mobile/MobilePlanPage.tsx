@@ -52,6 +52,17 @@ function buildWorkoutLabels(t: (key: string) => string): Record<WorkoutKind, str
   };
 }
 
+function kstDateString(ms: number): string {
+  if (!Number.isFinite(ms)) return "";
+  return new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
+}
+
+function kstDayOfMonth(ms: number): number | null {
+  const dateStr = kstDateString(ms);
+  if (!dateStr) return null;
+  return Number(dateStr.slice(8, 10));
+}
+
 interface MobilePlanPageProps {
   currentWeek: PlanWeek | null;
   weekLabel: string;
@@ -81,13 +92,11 @@ export default function MobilePlanPage({
   ], [tCommon]);
   const navigate = useNavigate();
   const [showAddSheet, setShowAddSheet] = useState(false);
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+  const todayStr = kstDateString(Date.now());
   const days = currentWeek?.days ?? [];
   const todayIdx = days.findIndex(d => {
     if (!d.date) return false;
-    const dd = new Date(d.date);
-    return dd.toDateString() === new Date().toDateString();
+    return kstDateString(d.date) === todayStr;
   });
 
   /**
@@ -208,12 +217,12 @@ export default function MobilePlanPage({
         )}
       </div>
       {days.map((day, i) => {
-        const dayDate = day.date ? new Date(day.date) : null;
-        const dayStr = dayDate ? `${dayDate.getFullYear()}-${String(dayDate.getMonth()+1).padStart(2,"0")}-${String(dayDate.getDate()).padStart(2,"0")}` : "";
+        const dayStr = day.date ? kstDateString(day.date) : "";
+        const dayOfMonth = day.date ? kstDayOfMonth(day.date) : null;
         const isToday = dayStr === todayStr;
         const isRest = day.workout === "rest";
         const isDone = day.completed;
-        const isPast = day.date != null && day.date < Date.now() && !isToday;
+        const isPast = dayStr !== "" && dayStr < todayStr;
         const label = WORKOUT_LABELS[day.workout] ?? day.workout;
         const state = isDone ? "done" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
 
@@ -232,7 +241,7 @@ export default function MobilePlanPage({
               <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-2)' }}>
                 <div style={{ width: 32, textAlign: "center" }}>
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{DAY_NAMES[i]}</div>
-                  <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>{dayDate ? dayDate.getDate() : ""}</div>
+                  <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>{dayOfMonth ?? ""}</div>
                 </div>
                 <div style={{ flex: 1, padding: "var(--space-3) var(--space-2)", border: "1px dashed var(--line)", borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 'var(--space-2)',
                   background: isToday ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
@@ -255,7 +264,7 @@ export default function MobilePlanPage({
             <div style={{ width: 32, textAlign: "center" }}>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{DAY_NAMES[i]}</div>
               <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>
-                {dayDate ? dayDate.getDate() : ""}
+                {dayOfMonth ?? ""}
               </div>
             </div>
             <div style={{ width: 3, height: 36, background: getDisciplineColor(getWorkoutDisciplineForDisplay(day.workout)), borderRadius: "var(--r-xs)", flexShrink: 0 }} />

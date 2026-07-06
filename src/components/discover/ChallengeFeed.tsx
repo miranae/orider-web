@@ -136,7 +136,7 @@ function FallbackSegments({ segments }: { segments: OverviewSeg[] | null }) {
                 <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{segment.name}</span>
               </div>
               <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
-                {km(segment.distance)}km · {segment.averageGrade.toFixed(1)}%{segment.city ? ` · ${segment.city}` : ""}
+                {km(segment.distance)}km · {Number.isFinite(segment.averageGrade) ? segment.averageGrade.toFixed(1) : "0.0"}%{segment.city ? ` · ${segment.city}` : ""}
               </div>
             </Card>
           </Link>

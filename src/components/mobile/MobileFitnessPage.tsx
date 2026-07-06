@@ -150,7 +150,7 @@ function PmcMiniChart({ history, projection, today, color, t }: {
   const lastPastDate = pastDates[pastDates.length - 1] ?? "";
 
   // 예측: 오늘 이후로 필터, 첫 점이 과거 마지막과 어긋나면 평행이동.
-  const tsToDateStr = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  const tsToDateStr = (ms: number) => Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : "";
   const fut = (projection ?? []).filter(p => tsToDateStr(p.date) > lastPastDate);
   const hasFut = fut.length > 0;
   const ctlOff = hasFut ? (pastCTL[pastCTL.length - 1] ?? 0) - fut[0]!.ctl : 0;

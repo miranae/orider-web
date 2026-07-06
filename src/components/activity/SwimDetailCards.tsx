@@ -378,7 +378,7 @@ function StrokeAnalysisCard({ summary }: { summary: ActivitySummary }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', paddingBottom: 10, borderBottom: '1px solid var(--line-soft)' }}>
             <Text as="div" variant="bodySmall" tone="secondary" style={{ flex: 1 }}>{t("swimCards.dps")}</Text>
             <Text variant="dataMedium" mono style={{ color: 'var(--aqua)' }}>
-              {summary.distance > 0 && cadence > 0
+              {summary.distance > 0 && cadence > 0 && summary.ridingTimeMillis > 0
                 ? (summary.distance / ((summary.ridingTimeMillis / 60000) * cadence)).toFixed(2)
                 : '-'
               }
