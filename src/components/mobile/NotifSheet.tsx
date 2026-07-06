@@ -8,11 +8,12 @@ interface NotifSheetProps {
   open: boolean;
   onClose: () => void;
   notifications: Notification[];
+  unreadCount: number;
   onMarkAllRead: () => void;
   onNotificationClick: (notification: Notification) => void;
 }
 
-export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick }: NotifSheetProps) {
+export default function NotifSheet({ open, onClose, notifications, unreadCount, onMarkAllRead, onNotificationClick }: NotifSheetProps) {
   const { t } = useTranslation("common");
 
   useEffect(() => {
@@ -42,12 +43,15 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
         >
           <span style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)" }}>{t("label.notifications")}</span>
           <div className="flex items-center gap-3">
-            <button
-              onClick={onMarkAllRead}
-              style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: "10px 8px" }}
-            >
-              {t("button.markAllRead")}
-            </button>
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={onMarkAllRead}
+                style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: "10px 8px" }}
+              >
+                {t("button.markAllRead")}
+              </button>
+            )}
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: "var(--space-2)", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <X size={20} style={{ color: "var(--ink-3)" }} />
             </button>

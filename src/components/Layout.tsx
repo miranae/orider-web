@@ -251,6 +251,7 @@ export default function Layout() {
             open={notifOpen}
             onClose={() => setNotifOpen(false)}
             notifications={notifications}
+            unreadCount={unreadCount}
             onMarkAllRead={handleMarkAllRead}
             onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
           />

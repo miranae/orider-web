@@ -160,6 +160,9 @@ describe("Layout", () => {
       expect.objectContaining({ path: "notifications/uid-1/items/n3" }),
       { read: true },
     );
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "모두 읽음" })).not.toBeInTheDocument();
+    });
   });
 
   it("opens profile dropdown with profile/settings/logout items", async () => {
