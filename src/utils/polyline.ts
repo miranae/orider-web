@@ -6,7 +6,7 @@ export function decodeTrack(str: string): [number, number][] {
   if (!str || str.length === 0) return [];
 
   // Orider format: "lat,lon;lat,lon;..."
-  if (str.includes(";") && str.includes(",")) {
+  if (str.includes(",")) {
     const points: [number, number][] = [];
     for (const pair of str.split(";")) {
       const parts = pair.split(",");

@@ -23,10 +23,17 @@ export function useActiveBikeProfile(uid: string | null) {
       return;
     }
     const ref = doc(firestore, "users", uid, "bikeProfileMeta", "state");
-    const unsub = onSnapshot(ref, (snap) => {
-      setActiveId((snap.data()?.activeProfileId as string | undefined) ?? null);
-      setStateLoading(false);
-    });
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        setActiveId((snap.data()?.activeProfileId as string | undefined) ?? null);
+        setStateLoading(false);
+      },
+      () => {
+        setActiveId(null);
+        setStateLoading(false);
+      },
+    );
     return () => unsub();
   }, [uid]);
 

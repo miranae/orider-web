@@ -33,12 +33,19 @@ export function useGear(uid: string | null) {
       collection(firestore, "users", uid, "gear"),
       orderBy("createdAt", "asc"),
     );
-    const unsub = onSnapshot(q, (snap) => {
-      setItems(
-        snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Gear, "id">) })),
-      );
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setItems(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Gear, "id">) })),
+        );
+        setLoading(false);
+      },
+      () => {
+        setItems([]);
+        setLoading(false);
+      },
+    );
     return () => unsub();
   }, [uid]);
 

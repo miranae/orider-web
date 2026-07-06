@@ -84,7 +84,7 @@ export function useCollection<T = DocumentData>(
 
     return unsubscribe;
      
-  }, [collectionPath]);
+  }, [collectionPath, constraints]);
 
   return { data, loading, error };
 }

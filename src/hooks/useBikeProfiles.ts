@@ -24,10 +24,17 @@ export function useBikeProfiles(uid: string | null) {
       return;
     }
     const ref = collection(firestore, "users", uid, "bikeProfiles");
-    const unsub = onSnapshot(ref, (snap) => {
-      setProfiles(snap.docs.map((d) => parseBikeProfile(d.id, d.data())));
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        setProfiles(snap.docs.map((d) => parseBikeProfile(d.id, d.data())));
+        setLoading(false);
+      },
+      () => {
+        setProfiles([]);
+        setLoading(false);
+      },
+    );
     return () => unsub();
   }, [uid]);
 

@@ -15,6 +15,7 @@ const WORKOUT_KEY_MAP: Record<string, string> = {
 };
 
 export function generateICS(weeks: PlanWeek[], goalName: string, t: TFunction): string {
+  const dtstamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -45,6 +46,7 @@ export function generateICS(weeks: PlanWeek[], goalName: string, t: TFunction): 
       const uid = `orider-plan-${dateStr}-${day.workout}@orider.co.kr`;
 
       lines.push('BEGIN:VEVENT');
+      lines.push(`DTSTAMP:${dtstamp}`);
       lines.push(`DTSTART;VALUE=DATE:${dateStr}`);
       lines.push(`DURATION:${duration}`);
       lines.push(`SUMMARY:${summary}`);
@@ -65,5 +67,5 @@ export function downloadICS(content: string, filename: string) {
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }

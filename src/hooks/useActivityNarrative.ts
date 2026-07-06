@@ -137,13 +137,14 @@ export function useActivityNarrativeWithOptions(
       promise = fn({ activityId, lang, ...(forceRefresh ? { forceRefresh: true } : {}) }).then((res) => res.data);
       inflight.set(key, promise);
       // 성공 → done 으로 승격, 실패 → inflight 비워 후속 마운트가 재시도 가능
-      promise
-        .then((data) => {
-          done.set(`${activityId}:${lang}:cache`, data);
-          done.set(key, data);
-        })
-        .catch((err) => logClientError("useActivityNarrative.bg", err, {}))
-        .finally(() => { inflight.delete(key); });
+      promise.then((data) => {
+        done.set(`${activityId}:${lang}:cache`, data);
+        done.set(key, data);
+      }).finally(() => {
+        inflight.delete(key);
+      }).catch(() => {
+        // foreground catch handles user-facing state/logging; keep this chain from becoming unhandled.
+      });
     }
 
     promise
