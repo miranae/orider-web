@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { stripLangPrefix } from "../i18n/detector";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -170,6 +170,8 @@ export default function CoursesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryParam = searchParams.get("q")?.trim() ?? "";
   const isVisible = stripLangPrefix(location.pathname) === "/courses";
   const [hasRendered, setHasRendered] = useState(isVisible);
 
@@ -186,8 +188,8 @@ export default function CoursesPage() {
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [inputValue, setInputValue] = useState("");
+  const [searchQuery, setSearchQuery] = useState(queryParam);
+  const [inputValue, setInputValue] = useState(queryParam);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
@@ -226,6 +228,13 @@ export default function CoursesPage() {
     return unsub;
      
   }, []);
+
+  useEffect(() => {
+    setSearchQuery(queryParam);
+    setInputValue(queryParam);
+    setSelectedId(null);
+    setHoveredId(null);
+  }, [queryParam]);
 
   const displayCourses = useMemo(() => {
     let filtered = allCourses;
@@ -279,7 +288,17 @@ export default function CoursesPage() {
     setHoveredId(id);
   }, []);
 
-  const handleSearch = () => setSearchQuery(inputValue.trim());
+  const handleSearch = () => {
+    const nextQuery = inputValue.trim();
+    setSearchQuery(nextQuery);
+    setSelectedId(null);
+    setHoveredId(null);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextQuery) nextParams.set("q", nextQuery);
+    else nextParams.delete("q");
+    setSearchParams(nextParams, { replace: true });
+  };
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
   };
