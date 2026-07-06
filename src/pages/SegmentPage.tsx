@@ -42,6 +42,23 @@ function rankStyle(rank: number): React.CSSProperties {
   return { background: s.bg, color: s.color, border: `1px solid ${s.border}` };
 }
 
+export function parseSegmentLatlng(value: string | null | undefined): [number, number][] | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+    const latlng = parsed.filter((point): point is [number, number] =>
+      Array.isArray(point) &&
+      point.length >= 2 &&
+      typeof point[0] === "number" &&
+      typeof point[1] === "number",
+    );
+    return latlng.length > 0 ? latlng : null;
+  } catch {
+    return null;
+  }
+}
+
 interface SegmentData {
   id: string;
   name: string;
@@ -548,9 +565,7 @@ export default function SegmentPage() {
 
       {/* Map */}
       {(() => {
-        const parsed: [number, number][] | null = segment.segmentLatlng
-          ? JSON.parse(segment.segmentLatlng)
-          : null;
+        const parsed = parseSegmentLatlng(segment.segmentLatlng);
         const latlng = (parsed && parsed.length > 0)
           ? parsed
           : resolvedLatlng
