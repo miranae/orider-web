@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
@@ -13,6 +13,7 @@ import { useSegmentCreator } from "../hooks/useSegmentCreator";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
 import { Card } from "../theme/components";
+import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ interface StreamData {
   time?: number[];
 }
 
-type Category = "climb" | "sprint" | "flat";
+type Category = SegmentCategory;
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -177,6 +178,7 @@ export default function CreateSegmentPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<Category>("climb");
+  const categoryTouchedRef = useRef(false);
 
   // Success
   const [createdSegmentId, setCreatedSegmentId] = useState<string | null>(null);
@@ -209,6 +211,7 @@ export default function CreateSegmentPage() {
     setLoadingStreams(true);
     setStreams(null);
     setStreamError(null);
+    categoryTouchedRef.current = false;
 
     try {
       const actDoc = await getDoc(doc(firestore, "activities", aid));
@@ -246,6 +249,7 @@ export default function CreateSegmentPage() {
       setStreams(data);
       setRangeStart(0);
       setRangeEnd(data.latlng.length - 1);
+      setCategory("climb");
     } catch (err: unknown) {
       logClientError("CreateSegmentPage.loadStreams", err, { activityId: selectedActivity?.id });
       const fbErr = err as { code?: string; message?: string; details?: unknown };
@@ -284,10 +288,8 @@ export default function CreateSegmentPage() {
   }, [streams, lowIdx, highIdx, reversed]);
 
   useEffect(() => {
-    if (!segmentStats) return;
-    if (segmentStats.avgGrade > 3) setCategory("climb");
-    else if (segmentStats.distance < 1000 && segmentStats.avgGrade < 1) setCategory("sprint");
-    else setCategory("flat");
+    if (!segmentStats || categoryTouchedRef.current) return;
+    setCategory(deriveSegmentCategory(segmentStats));
   }, [segmentStats]);
 
   const elevationData = useMemo(() => {
@@ -538,7 +540,10 @@ export default function CreateSegmentPage() {
                   return (
                     <button
                       key={cat}
-                      onClick={() => setCategory(cat)}
+                      onClick={() => {
+                        categoryTouchedRef.current = true;
+                        setCategory(cat);
+                      }}
                       className={`flex items-center gap-2 px-3 py-2 rounded-[var(--r-lg)] border-2 transition-all text-left ${
                         isSelected
                           ? "border-[var(--lime)] bg-[var(--lime)]/10"
