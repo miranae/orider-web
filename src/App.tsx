@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { collection, getCountFromServer, query, where } from "firebase/firestore";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { lazyTimed, beginNavigation } from "./services/routeTiming";
-import { recordRouteVisit } from "./services/routeLoopTelemetry";
+import { useRouteVisitTelemetry } from "./hooks/useRouteVisitTelemetry";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -171,19 +171,12 @@ export default function App() {
   // beginNavigation 을 effect 에 두면 재방문 route_load 가 드롭된다(리뷰 #319). location.key 로
   // 멱등 가드 → StrictMode 이중 렌더·suspend 재렌더에도 1회만 적용.
   const navKeyRef = useRef<string | null>(null);
-  const previousRoutePathRef = useRef<string | null>(null);
   if (navKeyRef.current !== location.key) {
     navKeyRef.current = location.key;
     beginNavigation(location.pathname, location.key);
   }
 
-  useEffect(() => {
-    recordRouteVisit({
-      path: location.pathname,
-      fromPath: previousRoutePathRef.current,
-    });
-    previousRoutePathRef.current = location.pathname;
-  }, [location.key, location.pathname]);
+  useRouteVisitTelemetry();
 
   useEffect(() => {
     track("page_view", {
