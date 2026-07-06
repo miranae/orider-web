@@ -43,17 +43,19 @@ function safeTrack(eventName: string, params?: Record<string, unknown>): void {
 function recordLoopHit(input: {
   bucket: Map<string, RouteHit[]>;
   route: string;
+  detectionKey?: string;
   fromPath: string;
   reason: string;
   onboardingStep?: string | null;
   now: number;
 }): number {
-  const hits = (input.bucket.get(input.route) ?? [])
+  const detectionKey = input.detectionKey ?? input.route;
+  const hits = (input.bucket.get(detectionKey) ?? [])
     .filter((hit) => input.now - hit.at <= LOOP_WINDOW_MS);
   hits.push({ at: input.now, fromPath: input.fromPath, reason: input.reason });
-  input.bucket.set(input.route, hits);
+  input.bucket.set(detectionKey, hits);
 
-  const cooldownKey = `${input.reason}:${input.route}`;
+  const cooldownKey = `${input.reason}:${detectionKey}`;
   const lastEventAt = lastLoopEventAt.get(cooldownKey);
   if (
     hits.length >= LOOP_THRESHOLD &&
@@ -63,6 +65,7 @@ function recordLoopHit(input: {
     const uniqueFromPaths = [...new Set(hits.map((hit) => hit.fromPath))];
     safeTrack("route_loop_detected", {
       route: input.route,
+      route_key: detectionKey,
       occurrences: hits.length,
       window_sec: Math.round(LOOP_WINDOW_MS / 1000),
       reason: input.reason,
@@ -108,12 +111,14 @@ export function recordRouteVisit(input: {
   now?: number;
 }): number {
   const now = input.now ?? Date.now();
+  const detectionKey = stripLangPrefix(input.path);
   const route = normalizeRouteForTelemetry(input.path);
   const fromPath = input.fromPath ? normalizeRouteForTelemetry(input.fromPath) : "direct";
 
   return recordLoopHit({
     bucket: routeVisitHits,
     route,
+    detectionKey,
     fromPath,
     reason: "route_revisit",
     now,

@@ -91,7 +91,7 @@ describe("routeLoopTelemetry", () => {
     expect(track).toHaveBeenCalledTimes(1);
   });
 
-  it("detects repeated visits to the same normalized route outside redirect guards", () => {
+  it("does not treat different entities under the same route pattern as a visit loop", () => {
     recordRouteVisit({
       path: "/ko/activity/strava_1",
       fromPath: "/ko",
@@ -108,9 +108,30 @@ describe("routeLoopTelemetry", () => {
       now: 20_000,
     });
 
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it("detects repeated visits to the same concrete path outside redirect guards", () => {
+    recordRouteVisit({
+      path: "/ko/activity/strava_1",
+      fromPath: "/ko",
+      now: 1_000,
+    });
+    recordRouteVisit({
+      path: "/en/activity/strava_1",
+      fromPath: "/ko/settings",
+      now: 10_000,
+    });
+    recordRouteVisit({
+      path: "/ko/activity/strava_1",
+      fromPath: "/ko/board/post-1",
+      now: 20_000,
+    });
+
     expect(track).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenLastCalledWith("route_loop_detected", expect.objectContaining({
       route: "/activity/:id",
+      route_key: "/activity/strava_1",
       occurrences: 3,
       reason: "route_revisit",
       from_paths: "/,/settings,/board/:id",
