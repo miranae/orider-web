@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
-import { useBoardPosts, useBoardMeta, useDeletePost } from '../features/board/useBoard';
+import { useBoardPosts, useBoardMeta, useDeletePost, useMyInquiryPosts } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/redesign';
 import type { BoardType } from '@shared/types';
@@ -41,6 +41,16 @@ const BoardPage: React.FC = () => {
 
   const urlPage = Number(searchParams.get('page')) || 1;
   const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeAI, urlPage);
+  const isMyInquiryView = selectedBoard === 'inquiry' && searchParams.get('view') === 'my';
+  const submittedPostId = searchParams.get('submitted');
+  const submittedStatus = searchParams.get('status') || 'new';
+  const submittedPrivate = searchParams.get('private') === '1';
+  const submittedFeedbackType = searchParams.get('feedback');
+  const { posts: myInquiryPosts, loading: myInquiryLoading, error: myInquiryError, refresh: refreshMyInquiries } = useMyInquiryPosts(100);
+  const listPosts = isMyInquiryView ? myInquiryPosts : posts;
+  const listLoading = isMyInquiryView ? myInquiryLoading : loading;
+  const listError = isMyInquiryView ? myInquiryError : error;
+  const listTotal = isMyInquiryView ? myInquiryPosts.length : total;
 
   // 페이지 변경 시 URL에 반영
   const goToPage = (p: number) => {
@@ -48,7 +58,27 @@ const BoardPage: React.FC = () => {
     const params: Record<string, string> = {};
     const type = searchParams.get('type');
     if (type) params.type = type;
+    const view = searchParams.get('view');
+    if (view) params.view = view;
     if (p > 1) params.page = String(p);
+    setSearchParams(params, { replace: true });
+  };
+
+  const setInquiryView = (view: 'all' | 'my') => {
+    const params: Record<string, string> = { type: 'inquiry' };
+    if (view === 'my') params.view = 'my';
+    setSearchParams(params, { replace: true });
+    setSelectedBoard('inquiry');
+    setActiveTag(undefined);
+    sessionStorage.removeItem('board-scroll');
+  };
+
+  const dismissSubmitConfirmation = () => {
+    const params: Record<string, string> = {};
+    const type = searchParams.get('type');
+    const view = searchParams.get('view');
+    if (type) params.type = type;
+    if (view) params.view = view;
     setSearchParams(params, { replace: true });
   };
 
@@ -66,9 +96,9 @@ const BoardPage: React.FC = () => {
 
   // AI 외 태그는 클라이언트 사이드 제외 필터
   const clientExcluded = new Set([...uncheckedTags].filter(t => t !== 'AI'));
-  const displayedPosts = clientExcluded.size > 0
-    ? posts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))
-    : posts;
+  const displayedPosts = clientExcluded.size > 0 && !isMyInquiryView
+    ? listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))
+    : listPosts;
 
   const toggleTag = (name: string) => {
     setUncheckedTags(prev => {
@@ -256,23 +286,107 @@ const BoardPage: React.FC = () => {
 
       {/* Posts List */}
       <div className="relative z-0">
-        {loading ? (
+        {submittedPostId && selectedBoard === 'inquiry' && (
+          <Card padding="none" className="mb-4 p-4! md:p-5! rounded-[var(--r-lg)] border-[var(--lime)]/40">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[length:var(--fs-sm)] font-bold text-[var(--lime)] mb-1">
+                  {t("inquiry.confirmation.title")}
+                </div>
+                <div className="text-[length:var(--fs-sm)] text-[var(--ink-1)] leading-relaxed">
+                  {t("inquiry.confirmation.body")}
+                </div>
+                <div className="grid sm:grid-cols-4 gap-2 mt-3 text-[length:var(--fs-xs)]">
+                  <span className="rounded-[var(--r-sm)] bg-[var(--bg-2)] px-2 py-1">
+                    {t("inquiry.confirmation.type")}: {submittedFeedbackType ? t(`label.feedbackTypes.${submittedFeedbackType}` as any) : t("label.feedbackTypes.other")}
+                  </span>
+                  <span className="rounded-[var(--r-sm)] bg-[var(--bg-2)] px-2 py-1">
+                    {t("inquiry.confirmation.visibility")}: {submittedPrivate ? t("label.privatePost") : t("inquiry.public")}
+                  </span>
+                  <span className="rounded-[var(--r-sm)] bg-[var(--bg-2)] px-2 py-1">
+                    {t("inquiry.confirmation.receipt")}: {submittedPostId.slice(0, 8)}
+                  </span>
+                  <span className="rounded-[var(--r-sm)] bg-[var(--bg-2)] px-2 py-1">
+                    {t("inquiry.confirmation.status")}: {t(`inquiry.status.${submittedStatus}` as any)}
+                  </span>
+                </div>
+                {submittedPrivate && (
+                  <p className="mt-2 text-[length:var(--fs-xs)] text-[var(--ink-3)]">
+                    {t("inquiry.confirmation.privateHint")}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={dismissSubmitConfirmation}
+                className="text-[var(--ink-3)] hover:text-[var(--ink-1)]"
+                aria-label={t("button.close")}
+              >
+                ✕
+              </button>
+            </div>
+          </Card>
+        )}
+
+        {selectedBoard === 'inquiry' && (
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setInquiryView('all')}
+                className={`px-3 py-1.5 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] font-medium transition-colors ${
+                  !isMyInquiryView ? "ds-btn ds-btn--md" : "border text-[var(--ink-2)] hover:text-[var(--ink-1)] hover:bg-[var(--bg-2)]"
+                }`}
+                style={!isMyInquiryView ? {} : { background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}
+              >
+                {t("inquiry.all")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setInquiryView('my')}
+                className={`px-3 py-1.5 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] font-medium transition-colors ${
+                  isMyInquiryView ? "ds-btn ds-btn--md" : "border text-[var(--ink-2)] hover:text-[var(--ink-1)] hover:bg-[var(--bg-2)]"
+                }`}
+                style={isMyInquiryView ? {} : { background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}
+              >
+                {t("inquiry.mine")}
+              </button>
+            </div>
+            {isMyInquiryView && user && (
+              <button
+                type="button"
+                onClick={refreshMyInquiries}
+                className="text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--lime)]"
+              >
+                {t("button.refresh")}
+              </button>
+            )}
+          </div>
+        )}
+
+        {isMyInquiryView && !user ? (
+          <EmptyState
+            icon="🔒"
+            title={t("error.loginRequired")}
+            description={t("inquiry.loginDesc")}
+          />
+        ) : listLoading ? (
           <LoadingSkeleton kind="list" count={5} />
-        ) : error ? (
-          <ErrorState title={t("error.loadFailed")} description={error.message} onRetry={refresh} />
-        ) : posts.length === 0 ? (
+        ) : listError ? (
+          <ErrorState title={t("error.loadFailed")} description={listError.message} onRetry={isMyInquiryView ? refreshMyInquiries : refresh} />
+        ) : listPosts.length === 0 ? (
           <EmptyState
             icon="📝"
-            title={submittedQuery ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
-            description={submittedQuery ? undefined : t("label.firstAuthor")}
-            actions={submittedQuery || selectedBoard === "archive" ? undefined : [{ label: t("label.writingPost"), variant: "primary", onClick: () => navigate("/board/write") }]}
+            title={isMyInquiryView ? t("inquiry.emptyMine") : submittedQuery ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
+            description={isMyInquiryView ? t("inquiry.emptyMineDesc") : submittedQuery ? undefined : t("label.firstAuthor")}
+            actions={submittedQuery || selectedBoard === "archive" ? undefined : [{ label: selectedBoard === "inquiry" ? t("label.writingForm") : t("label.writingPost"), variant: "primary", onClick: () => navigate(selectedBoard === "inquiry" ? "/board/write?type=inquiry" : "/board/write") }]}
           />
         ) : (
           /* 모바일: 카드 간 gap 제거, 상하 구분선만 (전폭 섹션 스타일) */
           <div className={isMobile ? "" : "space-y-3"}>
-            {submittedQuery && (
+                {submittedQuery && (
               <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] mb-2">
-                {t("label.searchResultsCount", { count: total })}
+                {t("label.searchResultsCount", { count: listTotal })}
               </p>
             )}
             {displayedPosts.map((post) => (
@@ -320,6 +434,11 @@ const BoardPage: React.FC = () => {
                       {t("label.privatePost")}
                     </span>
                   )}
+                  {isMyInquiryView && post.inquiryStatus && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--aqua)]/10 text-[var(--aqua)] font-medium">
+                      {t(`inquiry.status.${post.inquiryStatus}` as any)}
+                    </span>
+                  )}
                   <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(post.createdAt).toLocaleDateString()}</span>
                   {post.sourceSite && (
                     <span className="text-[10px] text-[var(--ink-3)] ml-auto">{post.sourceSite}</span>
@@ -358,6 +477,9 @@ const BoardPage: React.FC = () => {
                     <span>{t("label.viewCount")} {post.viewCount}</span>
                     <span>{t("label.likeCount")} {post.likeCount}</span>
                     <span>{t("label.commentCount")} {post.commentCount}</span>
+                    {isMyInquiryView && post.resolvedAt && (
+                      <span>{t("inquiry.resolvedAt")} {new Date(post.resolvedAt).toLocaleDateString()}</span>
+                    )}
                     {user && user.uid === post.userId && (
                       <button
                         onClick={(e) => handleDeletePost(e, post.id, post.userId)}
@@ -380,7 +502,7 @@ const BoardPage: React.FC = () => {
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {!isMyInquiryView && totalPages > 1 && (
           <div className="flex items-center justify-center gap-1 pt-4">
             <button
               onClick={() => goToPage(1)}
