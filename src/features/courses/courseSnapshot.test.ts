@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCourseDocChanges, type CourseData } from "./courseSnapshot";
+import { applyCourseDocChanges, replaceCourseSnapshotDocs, type CourseData } from "./courseSnapshot";
 
 function course(id: string, overrides: Partial<CourseData> = {}): CourseData {
   return {
@@ -49,5 +49,21 @@ describe("applyCourseDocChanges", () => {
 
     expect(next).toEqual([]);
     expect(polylineCache.has("course-a")).toBe(false);
+  });
+});
+
+describe("replaceCourseSnapshotDocs", () => {
+  it("rebuilds from the current docs instead of keeping removed previous courses", () => {
+    const polylineCache = new Map([
+      ["stale-course", [[37, 127] as [number, number]]],
+    ]);
+
+    const next = replaceCourseSnapshotDocs([
+      { id: "course-a", data: { name: "course-a", createdAt: 10 } },
+      { id: "course-b", data: { name: "course-b", createdAt: 20 } },
+    ], polylineCache);
+
+    expect(next.map((item) => item.id)).toEqual(["course-a", "course-b"]);
+    expect(polylineCache.has("stale-course")).toBe(false);
   });
 });
