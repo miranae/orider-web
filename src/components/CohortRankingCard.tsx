@@ -117,7 +117,7 @@ export default function CohortRankingCard({
   // 매핑 가능한 row 가 하나도 없으면 카드 미표시.
   const mapped = rows.map((r) => {
     if (r.value == null) return { ...r, percentile: null as number | null, fellBack: false };
-    const { bp, fellBack } = resolveBreakpoints(stats.metrics[r.key].cohorts, cohort);
+    const { bp, fellBack } = resolveBreakpoints(stats.metrics[r.key]?.cohorts ?? {}, cohort);
     const percentile = bp ? percentileOf(r.value, bp) : null;
     return { ...r, percentile, fellBack };
   });
