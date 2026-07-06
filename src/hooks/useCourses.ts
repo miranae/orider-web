@@ -11,16 +11,26 @@ let cacheUid: string | null = null;
 
 export function useCourses() {
   const { user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>(cachedCourses ?? []);
-  const [loading, setLoading] = useState(cachedCourses === null);
+  const uid = user?.uid ?? null;
+  const hasUsableCache = cachedCourses !== null && cacheUid === uid;
+  const [courses, setCourses] = useState<Course[]>(() => (hasUsableCache ? cachedCourses ?? [] : []));
+  const [loading, setLoading] = useState(!hasUsableCache);
 
   useEffect(() => {
+    if (cacheUid !== uid) {
+      cachedCourses = null;
+      cacheUid = null;
+      setCourses([]);
+    }
+
     // 같은 유저의 캐시가 있으면 스킵
-    if (cachedCourses && cacheUid === (user?.uid ?? null)) {
+    if (cachedCourses && cacheUid === uid) {
       setCourses(cachedCourses);
       setLoading(false);
       return;
     }
+
+    let cancelled = false;
 
     const load = async () => {
       setLoading(true);
@@ -57,17 +67,19 @@ export function useCourses() {
         });
 
         const result = Array.from(map.values());
+        if (cancelled) return;
         cachedCourses = result;
-        cacheUid = user?.uid ?? null;
+        cacheUid = uid;
         setCourses(result);
       } catch (err) {
         logClientError("useCourses.load", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user, uid]);
 
   /** 이름+지역 텍스트 검색 */
   function search(q: string): Course[] {
