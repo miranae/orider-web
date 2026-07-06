@@ -106,6 +106,23 @@ describe('exportFit', () => {
       expect(String.fromCharCode(data[8]!, data[9]!, data[10]!, data[11]!)).toBe('.FIT');
     });
 
+    it('encodes velocity_smooth as meters per second with FIT speed scale 1000', () => {
+      const data = generateFit(makeActivity(), {
+        userId: 'u1',
+        time: [0],
+        velocity_smooth: [10],
+      });
+
+      const fileIdDefinitionSize = 1 + 1 + 1 + 2 + 1 + 5 * 3;
+      const fileIdDataSize = 1 + 1 + 2 + 2 + 4 + 4;
+      const recordDefinitionSize = 1 + 1 + 1 + 2 + 1 + 2 * 3;
+      const firstRecordOffset = 14 + fileIdDefinitionSize + fileIdDataSize + recordDefinitionSize;
+      const speedOffset = firstRecordOffset + 1 + 4;
+      const encodedSpeed = data[speedOffset]! | (data[speedOffset + 1]! << 8);
+
+      expect(encodedSpeed).toBe(10_000);
+    });
+
     it('absolute epoch-ms time normalizes — byte-identical to relative-second (regression)', () => {
       // 절대 ms 가 startTimestamp + t 로 더해지면 uint32 오버플로우로 타임스탬프가 손상됐다.
       // 정규화 후엔 상대초 입력과 완전히 동일한 바이트열이 나와야 한다.
