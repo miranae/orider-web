@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import Layout from "./Layout";
+import Layout, { shouldBypassOnboardingRedirect } from "./Layout";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import {
   setCollectionDocs,
@@ -14,6 +14,15 @@ import { createMockNotification } from "../__tests__/fixtures/mockData";
 vi.mock("../assets/icon.svg", () => ({ default: "/icon.svg" }));
 
 describe("Layout", () => {
+  it("allows Strava connection routes before onboarding is done", () => {
+    expect(shouldBypassOnboardingRedirect("/settings")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/strava/callback")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/migrate")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/onboarding")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/")).toBe(false);
+    expect(shouldBypassOnboardingRedirect("/activity/abc")).toBe(false);
+  });
+
   it("renders Orider logo", async () => {
     renderWithProviders(<Layout />);
     await waitFor(() => {

@@ -24,6 +24,15 @@ import { logClientError } from "../services/errorLogger";
 // 네비 IA(5 허브)는 단일 진실원 config/navHubs.ts 가 보유 — TopNav·MobileTabBar·HubSubNav 공유.
 const NotifSheet = lazy(() => import("./mobile/NotifSheet"));
 
+export function shouldBypassOnboardingRedirect(path: string): boolean {
+  return (
+    path === "/onboarding" ||
+    path === "/settings" ||
+    path === "/strava/callback" ||
+    path === "/migrate"
+  );
+}
+
 function DashboardShell() {
   return (
     <div className="mx-auto grid w-full max-w-[1440px] gap-4 px-4 py-4 md:grid-cols-[minmax(0,1fr)_320px] md:py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -63,11 +72,11 @@ export default function Layout() {
     if (
       profile?.onboardingStep &&
       profile.onboardingStep !== "done" &&
-      path !== "/onboarding"
+      !shouldBypassOnboardingRedirect(path)
     ) {
       navigate("/onboarding", { replace: true });
     }
-  }, [profile?.onboardingStep, location.pathname, navigate]);
+  }, [profile?.onboardingStep, path, navigate]);
 
   // 경로 변경 시 main에 포커스 (스크린리더 접근성)
   useEffect(() => {
