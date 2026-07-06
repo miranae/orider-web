@@ -11,7 +11,7 @@ import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance } from "../utils/units";
-import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
+import { useActivities, useWeeklyStats, useActivitySearch, useMonthlyActivityDistance } from "../hooks/useActivities";
 import type { DatePreset } from "../hooks/useActivities";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { estimateActivityLoad, aggregateDailyLoad, calculateFitness } from "../utils/fitnessMetrics";
@@ -141,6 +141,7 @@ export default function DashboardPage() {
   const { units } = useLocale();
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities();
   const { weeklyStats, thisWeek } = useWeeklyStats();
+  const monthlyActivityDistance = useMonthlyActivityDistance();
   const activitySearch = useActivitySearch();
 
   const [searchParams] = useSearchParams();
@@ -640,13 +641,9 @@ export default function DashboardPage() {
             {(() => {
               const now = new Date();
               const monthLabel = t("sidebar.monthlyGoal.title", { month: now.getMonth() + 1 });
-              // 이번 달 실제 거리 (useWeeklyStats의 activities 기반)
-              const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-              const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).getTime();
               const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
               const daysLeft = daysInMonth - now.getDate();
-              const userActs = user ? activities.filter(a => a.userId === user.uid && a.startTime >= monthStart && a.startTime <= monthEnd) : [];
-              const actualKm = Math.round(userActs.reduce((s, a) => s + a.summary.distance, 0) / 1000);
+              const actualKm = Math.round(monthlyActivityDistance / 1000);
               // 월간 목표: 운동 계획이 있으면 주간 평균 × 4.3, 없으면 최근 4주 평균 × 1.1
               const weeklyAvgKm = weeklyStats.length > 0
                 ? Math.round(weeklyStats.reduce((s, w) => s + w.distance, 0) / weeklyStats.length)
