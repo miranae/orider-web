@@ -835,7 +835,7 @@ export default function FitnessPage() {
                   },
               ...(discipline === "bike" ? [{
                 label: "VO2max",
-                value: profile?.ftp ? String(Math.round((profile.ftp / (profile.weightKg ?? 70)) * 15.7 + 3.5)) : "—",
+                value: profile?.ftp ? String(Math.round((profile.ftp / (profile.weightKg || 70)) * 15.7 + 3.5)) : "—",
                 unit: "ml/kg/min",
                 sub: "",
                 color: "var(--lime)",

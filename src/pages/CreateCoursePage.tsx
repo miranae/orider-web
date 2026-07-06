@@ -110,6 +110,7 @@ function StatsPanel({ stats }: { stats: ReturnType<typeof computeStats> }) {
 
 export default function CreateCoursePage() {
   const { t } = useTranslation("course");
+  const { t: tActivity } = useTranslation("activity");
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -168,7 +169,7 @@ export default function CreateCoursePage() {
         const d = actDoc.data();
         setSelectedActivity({
           id: actDoc.id,
-          description: d.description ?? "Untitled",
+          description: d.description ?? tActivity("noName"),
           startTime: d.startTime ?? d.createdAt ?? Date.now(),
           summary: d.summary ?? { distance: 0, ridingTimeMillis: 0, elevationGain: 0 },
           thumbnailTrack: d.thumbnailTrack ?? "",
@@ -199,13 +200,13 @@ export default function CreateCoursePage() {
       setRangeStart(0);
       setRangeEnd(data.latlng.length - 1);
     } catch (err: unknown) {
-      logClientError("CreateCoursePage.loadStreams", err, { activityId: selectedActivity?.id });
+      logClientError("CreateCoursePage.loadStreams", err, { activityId: aid });
       const fbErr = err as { code?: string; message?: string };
       setStreamError(t("error.streamLoadFailed", { message: fbErr.message ?? String(err) }));
     } finally {
       setLoadingStreams(false);
     }
-  }, []);
+  }, [t, tActivity]);
 
   useEffect(() => {
     if (!user || !activityId || mode === "gpx") return;

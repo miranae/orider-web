@@ -48,6 +48,25 @@
   "placeholder.tableHeader": "제목",
   "placeholder.editorHint": "내용을 입력해 주세요. 이미지는 붙여넣기(Ctrl+V)로 바로 추가할 수 있습니다.",
   "placeholder.attachmentHint": "본문에 이미지를 붙여넣기(Ctrl+V)하거나도구모음에서 사진 버튼을 클릭하세요.",
+  "creatorRecipeTemplate": {
+    "title": "[Creator] 이런 활용법이 필요해요",
+    "lines": [
+      "원하는 활용법",
+      "- 예: 매주 월요일 아침 Notion에 주간 훈련 일지를 자동으로 만들고 싶어요.",
+      "",
+      "사용하고 싶은 데이터",
+      "- 예: 최근 7일 거리, 시간, 상승고도, 훈련 부하",
+      "",
+      "결과가 도착했으면 하는 곳",
+      "- 예: 오라이더 화면 안, Notion, Slack DM, n8n, 이메일, 개인 웹사이트",
+      "",
+      "공개되면 안 되는 정보",
+      "- 예: 집 근처 출발지, 상세 경로, 심박 상세값",
+      "",
+      "언제 실행되면 좋나요?",
+      "- 예: 매일 오전 8시, 매주 월요일, 라이딩 완료 후, 수동 실행"
+    ]
+  },
   "label.writingForm": "문의하기",
   "label.writingPost": "글쓰기",
   "label.writingDevlog": "작업일지 쓰기",

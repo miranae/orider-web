@@ -131,8 +131,10 @@ function gpxToPolyline(gpxXml: string, maxPoints = 200): string | null {
     const step = points.length > maxPoints ? Math.ceil(points.length / maxPoints) : 1;
     const sampled: [number, number][] = [];
     for (let i = 0; i < points.length; i += step) sampled.push(points[i]!);
-    if (sampled[sampled.length - 1] !== points[points.length - 1]) {
-      sampled.push(points[points.length - 1]!);
+    const lastPoint = points[points.length - 1]!;
+    const lastSampledPoint = sampled[sampled.length - 1];
+    if (!lastSampledPoint || lastSampledPoint[0] !== lastPoint[0] || lastSampledPoint[1] !== lastPoint[1]) {
+      sampled.push(lastPoint);
     }
     return encodePolyline(sampled);
   } catch {
@@ -540,8 +542,10 @@ function MapThumbnail({ polyline, accent }: { polyline: string; accent: string }
   const step = points.length > 200 ? Math.ceil(points.length / 200) : 1;
   const sampled: [number, number][] = [];
   for (let i = 0; i < points.length; i += step) sampled.push(project(points[i]!));
-  if (sampled[sampled.length - 1] !== project(points[points.length - 1]!)) {
-    sampled.push(project(points[points.length - 1]!));
+  const lastProjected = project(points[points.length - 1]!);
+  const lastSampled = sampled[sampled.length - 1];
+  if (!lastSampled || lastSampled[0] !== lastProjected[0] || lastSampled[1] !== lastProjected[1]) {
+    sampled.push(lastProjected);
   }
   const d = sampled.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
   const start = sampled[0]!;

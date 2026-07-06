@@ -48,6 +48,25 @@
   "placeholder.tableHeader": "Header",
   "placeholder.editorHint": "Enter content. You can add images by pasting (Ctrl+V).",
   "placeholder.attachmentHint": "Paste images into the body (Ctrl+V) or click the photo button in the toolbar.",
+  "creatorRecipeTemplate": {
+    "title": "[Creator] I need this recipe",
+    "lines": [
+      "Recipe I want",
+      "- Example: create a weekly training journal in Notion every Monday morning.",
+      "",
+      "Data I want to use",
+      "- Example: last 7 days of distance, duration, elevation, and training load",
+      "",
+      "Where the result should go",
+      "- Example: inside Orider, Notion, Slack DM, n8n, email, personal website",
+      "",
+      "Information that must stay private",
+      "- Example: home-area starts, detailed routes, detailed heart-rate values",
+      "",
+      "When should it run?",
+      "- Example: daily at 8 AM, every Monday, after a ride, manually"
+    ]
+  },
   "label.writingForm": "Contact",
   "label.writingPost": "Write",
   "label.writingDevlog": "Write Devlog",

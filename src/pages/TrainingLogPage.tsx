@@ -360,6 +360,7 @@ export default function TrainingLogPage() {
         setLoadedMonths((prev) => new Set(prev).add(key));
       } catch (err) {
         requestedMonths.current.delete(key); // 실패 시 재시도 허용
+        setLoadedMonths((prev) => new Set(prev).add(key));
         logClientError("TrainingLogPage.loadActivities", err, { key });
       }
     },

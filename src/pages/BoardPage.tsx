@@ -99,6 +99,8 @@ const BoardPage: React.FC = () => {
   const displayedPosts = clientExcluded.size > 0 && !isMyInquiryView
     ? listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))
     : listPosts;
+  const filteredOutAllPosts = listPosts.length > 0 && displayedPosts.length === 0;
+  const effectiveListTotal = submittedQuery || clientExcluded.size > 0 ? displayedPosts.length : listTotal;
 
   const toggleTag = (name: string) => {
     setUncheckedTags(prev => {
@@ -374,11 +376,11 @@ const BoardPage: React.FC = () => {
           <LoadingSkeleton kind="list" count={5} />
         ) : listError ? (
           <ErrorState title={t("error.loadFailed")} description={listError.message} onRetry={isMyInquiryView ? refreshMyInquiries : refresh} />
-        ) : listPosts.length === 0 ? (
+        ) : listPosts.length === 0 || filteredOutAllPosts ? (
           <EmptyState
             icon="📝"
-            title={isMyInquiryView ? t("inquiry.emptyMine") : submittedQuery ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
-            description={isMyInquiryView ? t("inquiry.emptyMineDesc") : submittedQuery ? undefined : t("label.firstAuthor")}
+            title={isMyInquiryView ? t("inquiry.emptyMine") : submittedQuery || filteredOutAllPosts ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
+            description={isMyInquiryView ? t("inquiry.emptyMineDesc") : submittedQuery || filteredOutAllPosts ? undefined : t("label.firstAuthor")}
             actions={submittedQuery || selectedBoard === "archive" ? undefined : [{ label: selectedBoard === "inquiry" ? t("label.writingForm") : t("label.writingPost"), variant: "primary", onClick: () => navigate(selectedBoard === "inquiry" ? "/board/write?type=inquiry" : "/board/write") }]}
           />
         ) : (
@@ -386,7 +388,7 @@ const BoardPage: React.FC = () => {
           <div className={isMobile ? "" : "space-y-3"}>
                 {submittedQuery && (
               <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] mb-2">
-                {t("label.searchResultsCount", { count: listTotal })}
+                {t("label.searchResultsCount", { count: effectiveListTotal })}
               </p>
             )}
             {displayedPosts.map((post) => (
