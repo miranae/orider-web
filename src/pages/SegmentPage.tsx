@@ -234,6 +234,11 @@ export default function SegmentPage() {
   const [resolvedLatlng, setResolvedLatlng] = useState<[number, number][] | null>(null);
   const fetchedRef = useRef(false);
 
+  useEffect(() => {
+    fetchedRef.current = false;
+    setResolvedLatlng(null);
+  }, [segmentId]);
+
   // Subscribe to approved user photos for this segment
   useEffect(() => {
     if (!segmentId) return;
