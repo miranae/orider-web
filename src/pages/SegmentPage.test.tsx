@@ -63,6 +63,28 @@ describe("SegmentPage", () => {
     });
   });
 
+  it("falls back instead of crashing when segmentLatlng is invalid JSON", async () => {
+    setDocData("segments/seg-1", {
+      id: "seg-1",
+      name: "손상된 좌표 세그먼트",
+      distance: 3000,
+      averageGrade: 5.5,
+      maximumGrade: 10.0,
+      elevationHigh: 200,
+      elevationLow: 50,
+      climbCategory: 2,
+      segmentLatlng: "[invalid",
+      startLatlng: [37.1, 127.1],
+      endLatlng: [37.2, 127.2],
+    });
+
+    renderWithProviders(<SegmentPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("손상된 좌표 세그먼트")).toBeInTheDocument();
+    });
+  });
+
   it("shows leaderboard when efforts exist", async () => {
     setDocData("segments/seg-1", {
       id: "seg-1",
