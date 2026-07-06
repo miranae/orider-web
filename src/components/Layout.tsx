@@ -112,7 +112,9 @@ export default function Layout() {
       unsubscribe = onSnapshot(q, (snap) => {
         attempts = 0; // 정상 수신 시 재시도 카운터 리셋
         setNotifications(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Notification),
+          snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }) as Notification)
+            .filter((n) => n.dismissedAt == null),
         );
       }, (err) => {
         // 에러가 나면 이 리스너는 죽은 상태 — 정리 후 재구독 판단.
@@ -147,17 +149,16 @@ export default function Layout() {
 
   const handleMarkAllRead = async () => {
     if (!user) return;
-    const unread = notifications.filter((n) => !n.read);
-    if (unread.length === 0) return;
-    setNotifications((prev) => prev.map((n) => n.read ? n : { ...n, read: true }));
+    const visible = notifications;
+    if (visible.length === 0) return;
+    const dismissedAt = Date.now();
+    setNotifications([]);
     try {
-      await Promise.all(unread.map((n) =>
-        updateDoc(doc(firestore, "notifications", user.uid, "items", n.id), { read: true }),
+      await Promise.all(visible.map((n) =>
+        updateDoc(doc(firestore, "notifications", user.uid, "items", n.id), { read: true, dismissedAt }),
       ));
     } catch (err) {
-      setNotifications((prev) => prev.map((n) =>
-        unread.some((u) => u.id === n.id) ? { ...n, read: false } : n,
-      ));
+      setNotifications(visible);
       logClientError("Layout.notifications.markAllRead", err, { path: `notifications/${user.uid}/items` });
     }
   };
@@ -251,7 +252,6 @@ export default function Layout() {
             open={notifOpen}
             onClose={() => setNotifOpen(false)}
             notifications={notifications}
-            unreadCount={unreadCount}
             onMarkAllRead={handleMarkAllRead}
             onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
           />

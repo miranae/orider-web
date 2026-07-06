@@ -128,7 +128,7 @@ describe("Layout", () => {
     });
   });
 
-  it("marks every unread notification read from the mobile sheet", async () => {
+  it("clears every visible notification from the mobile sheet", async () => {
     mockUpdateDoc.mockClear();
     const user = userEvent.setup();
     renderWithProviders(<Layout />, {
@@ -149,20 +149,38 @@ describe("Layout", () => {
     await waitFor(() => {
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.objectContaining({ path: "notifications/uid-1/items/n1" }),
-        { read: true },
+        expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
       );
       expect(mockUpdateDoc).toHaveBeenCalledWith(
         expect.objectContaining({ path: "notifications/uid-1/items/n2" }),
-        { read: true },
+        expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
       );
     });
-    expect(mockUpdateDoc).not.toHaveBeenCalledWith(
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
       expect.objectContaining({ path: "notifications/uid-1/items/n3" }),
-      { read: true },
+      expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
     );
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "모두 읽음" })).not.toBeInTheDocument();
     });
+    expect(screen.getByText("알림이 없습니다")).toBeInTheDocument();
+  });
+
+  it("shows the mobile clear action when all notifications are already read", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Layout />, {
+      authenticated: true,
+      user: { uid: "uid-1" },
+    });
+
+    setCollectionDocs("notifications/uid-1/items", [
+      { ...createMockNotification({ read: true, message: "읽은 알림" }), id: "n1" },
+    ]);
+
+    const notificationButtons = await screen.findAllByRole("button", { name: "알림" });
+    await user.click(notificationButtons[0]!);
+
+    expect(await screen.findByRole("button", { name: "모두 읽음" })).toBeInTheDocument();
   });
 
   it("opens profile dropdown with profile/settings/logout items", async () => {

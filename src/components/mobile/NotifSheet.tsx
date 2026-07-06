@@ -8,12 +8,11 @@ interface NotifSheetProps {
   open: boolean;
   onClose: () => void;
   notifications: Notification[];
-  unreadCount: number;
   onMarkAllRead: () => void;
   onNotificationClick: (notification: Notification) => void;
 }
 
-export default function NotifSheet({ open, onClose, notifications, unreadCount, onMarkAllRead, onNotificationClick }: NotifSheetProps) {
+export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick }: NotifSheetProps) {
   const { t } = useTranslation("common");
 
   useEffect(() => {
@@ -43,7 +42,7 @@ export default function NotifSheet({ open, onClose, notifications, unreadCount, 
         >
           <span style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)" }}>{t("label.notifications")}</span>
           <div className="flex items-center gap-3">
-            {unreadCount > 0 && (
+            {notifications.length > 0 && (
               <button
                 type="button"
                 onClick={onMarkAllRead}
