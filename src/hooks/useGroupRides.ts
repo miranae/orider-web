@@ -66,7 +66,7 @@ export function useGroupRides(memberIds: string[], pageSize = 20) {
             activities: acts.sort((a, b) => a.startTime - b.startTime),
             startTime: Math.min(...acts.map((a) => a.startTime)),
             participantCount: acts.length,
-            totalDistance: acts.reduce((sum, a) => sum + a.summary.distance, 0),
+            totalDistance: acts.reduce((sum, a) => sum + (a.summary?.distance ?? 0), 0),
           })).sort((a, b) => b.startTime - a.startTime);
 
         setRides(newRides);

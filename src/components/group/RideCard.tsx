@@ -14,17 +14,20 @@ export default function RideCard({ ride }: RideCardProps) {
   const date = new Date(ride.startTime);
   const dateStr = date.toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" });
   const distanceKm = (ride.totalDistance / 1000).toFixed(1);
+  const summarizedActivities = ride.activities.filter((activity) => activity.summary != null);
 
   // Average duration across participants
-  const avgTimeMs = ride.activities.reduce((sum, a) => sum + a.summary.ridingTimeMillis, 0) / ride.activities.length;
+  const avgTimeMs = summarizedActivities.length > 0
+    ? summarizedActivities.reduce((sum, a) => sum + a.summary.ridingTimeMillis, 0) / summarizedActivities.length
+    : 0;
   const hours = Math.floor(avgTimeMs / 3600000);
   const mins = Math.floor((avgTimeMs % 3600000) / 60000);
   const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
   // Average elevation gain across participants
-  const avgElevation = Math.round(
-    ride.activities.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0) / ride.activities.length,
-  );
+  const avgElevation = summarizedActivities.length > 0
+    ? Math.round(summarizedActivities.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0) / summarizedActivities.length)
+    : 0;
 
   return (
     <Link
