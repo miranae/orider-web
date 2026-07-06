@@ -119,6 +119,7 @@ export interface CoursesMapProps {
   onScrollToCourse: (courseId: string) => void;
   onOpenCourse: (courseId: string) => void;
   onMapFailed: () => void;
+  className?: string;
 }
 
 export function CoursesMap({
@@ -133,6 +134,7 @@ export function CoursesMap({
   onScrollToCourse,
   onOpenCourse,
   onMapFailed,
+  className = "h-64 lg:h-auto lg:flex-[2] relative",
 }: CoursesMapProps) {
   const { t } = useTranslation("course");
   const mapboxToken = getMapboxToken();
@@ -192,7 +194,7 @@ export function CoursesMap({
   if (!mapboxToken) return null;
 
   return (
-    <div className="h-64 lg:h-auto lg:flex-[2] relative">
+    <div className={className}>
       <ErrorBoundary
         fallback={() => (
           <div className="h-full w-full flex items-center justify-center px-4 text-center" role="status" style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
