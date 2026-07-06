@@ -15,33 +15,13 @@ import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
-import { decodeTrack } from "../utils/polyline";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
-
-type LatLngTuple = [number, number];
-
-interface ClimbInfo {
-  gain: number;
-  dist: number;
-  cat: number;
-}
-
-interface CourseData {
-  id: string;
-  name: string;
-  polyline: string;
-  distance: number;
-  elevationGain: number;
-  climbs: ClimbInfo[];
-  regions: string[];
-  likeCount: number;
-  createdAt: number;
-  surface: string | null;
-  difficulty: number | null;
-  startLat: number;
-  startLon: number;
-}
+import {
+  applyCourseDocChanges,
+  type CourseData,
+  type LatLngTuple,
+} from "../features/courses/courseSnapshot";
 
 type SortMode = "latest" | "popular";
 
@@ -53,16 +33,6 @@ function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): num
   const a = Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function samplePoints(points: LatLngTuple[], maxPoints: number): LatLngTuple[] {
-  if (points.length <= maxPoints) return points;
-  const result: LatLngTuple[] = [];
-  const step = (points.length - 1) / (maxPoints - 1);
-  for (let i = 0; i < maxPoints; i++) {
-    result.push(points[Math.round(i * step)]!);
-  }
-  return result;
 }
 
 function isInBounds(course: CourseData, bounds: LngLatBounds, polylineCache: Map<string, LatLngTuple[]>): boolean {
@@ -241,41 +211,12 @@ export default function CoursesPage() {
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
-      const map = new Map<string, CourseData>();
-
-      for (const c of allCourses) map.set(c.id, c);
-
-      for (const change of snapshot.docChanges()) {
-        const d = change.doc;
-        const data = d.data();
-        if (change.type === "removed") {
-          map.delete(d.id);
-          polylineCache.current.delete(d.id);
-        } else {
-          const course: CourseData = {
-            id: d.id,
-            name: data.name ?? "",
-            polyline: data.polyline ?? "",
-            distance: data.distance ?? 0,
-            elevationGain: data.elevationGain ?? 0,
-            climbs: data.climbs ?? [],
-            regions: data.regions ?? [],
-            likeCount: data.likeCount ?? 0,
-            createdAt: data.createdAt ?? 0,
-            surface: data.surface ?? null,
-            difficulty: typeof data.difficulty === "number" ? data.difficulty : null,
-            startLat: typeof data.startLat === "number" ? data.startLat : 0,
-            startLon: typeof data.startLon === "number" ? data.startLon : 0,
-          };
-          map.set(d.id, course);
-          if (course.polyline) {
-            const decoded = decodeTrack(course.polyline) as LatLngTuple[];
-            polylineCache.current.set(d.id, samplePoints(decoded, 200));
-          }
-        }
-      }
-
-      setAllCourses(Array.from(map.values()));
+      const changes = snapshot.docChanges().map((change) => ({
+        type: change.type,
+        id: change.doc.id,
+        data: change.doc.data(),
+      }));
+      setAllCourses((prev) => applyCourseDocChanges(prev, changes, polylineCache.current));
       setLoading(false);
     }, (err) => {
       logClientError("CoursesPage.courseSubscription", err);
