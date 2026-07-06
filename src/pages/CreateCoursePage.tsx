@@ -209,8 +209,9 @@ export default function CreateCoursePage() {
 
   useEffect(() => {
     if (!user || !activityId || mode === "gpx") return;
+    if (selectedActivity?.id === activityId && streams?.latlng?.length) return;
     loadActivityStreams(activityId);
-  }, [user, activityId, mode, loadActivityStreams]);
+  }, [user, activityId, mode, selectedActivity?.id, streams?.latlng?.length, loadActivityStreams]);
 
   // ── Keyboard arrows for range (section mode) ──
   useEffect(() => {
