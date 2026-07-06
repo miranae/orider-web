@@ -44,6 +44,7 @@ export default function CoursesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
+  const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const mapUnavailable = !mapboxToken || mapFailed;
 
@@ -183,8 +184,8 @@ export default function CoursesPage() {
         </div>
 
         {/* 노면/난이도 다축 필터(#489) */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-x-4 gap-y-2 mt-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
+          <div className="flex shrink-0 items-center gap-1.5">
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("edit.surface")}</span>
             {([
               { v: "" as const, label: t("filter.all") },
@@ -202,7 +203,7 @@ export default function CoursesPage() {
               );
             })}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.nearMe")}</span>
             {([10, 20, 50] as const).map((km) => {
               const active = myLoc != null && radiusKm === km;
@@ -225,7 +226,7 @@ export default function CoursesPage() {
               );
             })}
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("difficulty")}</span>
             <button type="button" onClick={() => setDifficultyFilter(null)}
               className="px-2 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
@@ -244,6 +245,20 @@ export default function CoursesPage() {
             })}
           </div>
         </div>
+        {!mapUnavailable && (
+          <div className="lg:hidden">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setMobileMapOpen((open) => !open)}
+              className="w-full justify-center"
+              aria-expanded={mobileMapOpen}
+            >
+              {mobileMapOpen ? t("map.hideMobileMap") : t("map.showMobileMap")}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* 메인: 지도 + 목록 */}
@@ -266,6 +281,7 @@ export default function CoursesPage() {
               onScrollToCourse={scrollToCard}
               onOpenCourse={handleOpenCourse}
               onMapFailed={() => setMapFailed(true)}
+              className={mobileMapOpen ? "h-56 lg:h-auto lg:flex-[2] relative" : "hidden lg:block lg:h-auto lg:flex-[2] relative"}
             />
           )}
 
