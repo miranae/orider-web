@@ -2,8 +2,8 @@ import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
-import { useGroup, useGroupMembers } from "../../hooks/useGroup";
-import { useGroupRides } from "../../hooks/useGroupRides";
+import { useGroup } from "../../hooks/useGroup";
+import { useGroupRideStats } from "../../hooks/useGroupRides";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
@@ -13,9 +13,7 @@ export default function GroupRidesPage() {
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
-  const { members } = useGroupMembers(groupId);
-  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
-  const { rides, loading } = useGroupRides(memberIds);
+  const { rides, loading } = useGroupRideStats(groupId);
 
   const [minParticipants, setMinParticipants] = useState(0);
 

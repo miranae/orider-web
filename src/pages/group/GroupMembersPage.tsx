@@ -2,17 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { collection, getDocs, orderBy, query, where, limit, deleteDoc, doc as fsDoc } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc as fsDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useGroup, useGroupMembers } from "../../hooks/useGroup";
+import { useGroupRideStats } from "../../hooks/useGroupRides";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import Avatar from "../../components/Avatar";
 import InviteMemberModal from "../../components/group/InviteMemberModal";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
-import type { Activity } from "@shared/types";
 import { Button, Card, Chip, Text } from "../../theme/components";
 
 type Tab = "members" | "pending" | "invite" | "banned";
@@ -49,56 +49,13 @@ export default function GroupMembersPage() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showInvite, setShowInvite] = useState(false);
-  const [memberStats, setMemberStats] = useState<Record<string, { distance: number; rideCount: number; lastActivityAt: number }>>({});
+  const { memberStats } = useGroupRideStats(groupId);
   const [pending, setPending] = useState<PendingRequest[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [invitations, setInvitations] = useState<InvitationDoc[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  // 멤버 통계
-  useEffect(() => {
-    if (members.length === 0) return;
-    const memberIds = members.map((m) => m.id);
-    (async () => {
-      const allActivities: (Activity & { id: string })[] = [];
-      for (let i = 0; i < memberIds.length; i += 10) {
-        const chunk = memberIds.slice(i, i + 10);
-        const q = query(
-          collection(firestore, "activities"),
-          where("userId", "in", chunk),
-          orderBy("startTime", "desc"),
-          limit(200),
-        );
-        const snap = await getDocs(q);
-        snap.docs.forEach((d) => {
-          const a = d.data() as Activity;
-          if (!a.groupRideId || a.deletedAt) return;
-          allActivities.push({ ...a, id: d.id });
-        });
-      }
-      const memberIdSet = new Set(memberIds);
-      const rideMap = new Map<string, (Activity & { id: string })[]>();
-      allActivities.forEach((a) => {
-        const existing = rideMap.get(a.groupRideId!) ?? [];
-        existing.push(a);
-        rideMap.set(a.groupRideId!, existing);
-      });
-      const validRideIds = new Set<string>();
-      rideMap.forEach((acts, rideId) => {
-        const uniqueMembers = new Set(acts.map((a) => a.userId).filter((uid) => memberIdSet.has(uid)));
-        if (uniqueMembers.size >= 2) validRideIds.add(rideId);
-      });
-      const stats: Record<string, { distance: number; rideCount: number; lastActivityAt: number }> = {};
-      allActivities.forEach((a) => {
-        if (!a.groupRideId || !validRideIds.has(a.groupRideId)) return;
-        if (!stats[a.userId]) stats[a.userId] = { distance: 0, rideCount: 0, lastActivityAt: 0 };
-        stats[a.userId]!.distance += a.summary.distance;
-        stats[a.userId]!.rideCount += 1;
-        if (a.startTime > (stats[a.userId]!.lastActivityAt ?? 0)) stats[a.userId]!.lastActivityAt = a.startTime;
-      });
-      setMemberStats(stats);
-    })();
-  }, [members]);
+  // 멤버 통계는 useGroupRideStats 서버 집계에서 제공한다.
 
   // 가입 요청 (pending 컬렉션)
   useEffect(() => {
