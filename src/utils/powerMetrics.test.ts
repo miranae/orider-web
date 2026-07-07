@@ -45,4 +45,10 @@ describe("calculateTSS / calculateIF", () => {
     const tss = calculateTSS(Array(3600).fill(250), 250)!;
     expect(tss).toBeCloseTo(100, 0);
   });
+  it("2초 간격 스트림도 실제 duration으로 TSS를 계산한다", () => {
+    const watts = Array(1800).fill(250);
+    const time = watts.map((_, i) => i * 2);
+    const tss = calculateTSS(watts, 250, time)!;
+    expect(tss).toBeCloseTo(100, 0);
+  });
 });

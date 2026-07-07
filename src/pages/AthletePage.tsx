@@ -184,6 +184,7 @@ export default function AthletePage() {
     const constraints = [
       where("userId", "==", userId),
       where("deletedAt", "==", null),
+      ...(!isOwnProfile ? [where("visibility", "==", "everyone")] : []),
       where("keywords", "array-contains", token),
       orderBy("startTime", "desc"),
       limit(50),
