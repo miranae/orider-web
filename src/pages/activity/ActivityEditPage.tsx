@@ -10,8 +10,9 @@ import { useToast } from "../../contexts/ToastContext";
 import { DateField, TimeField, EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
 import { getSportLabelKey } from "../../utils/sportType";
 import { Button, Card, Text } from "../../theme/components";
+import { normalizeActivityVisibility } from "../../utils/activityVisibility";
+import type { Visibility } from "@shared/types";
 
-type Visibility = "everyone" | "followers" | "private";
 type WorkoutType = "endurance" | "tempo" | "interval" | "recovery" | "race" | "commute" | "";
 
 interface ActivityEditData {
@@ -95,7 +96,7 @@ export default function ActivityEditPage() {
 
   const VISIBILITY_OPTIONS: { v: Visibility; label: string; description: string }[] = [
     { v: "everyone", label: t("edit.visEveryone"), description: t("edit.visEveryoneDesc") },
-    { v: "followers", label: t("edit.visFollowers"), description: t("edit.visFollowersDesc") },
+    { v: "friends", label: t("edit.visFollowers"), description: t("edit.visFollowersDesc") },
     { v: "private", label: t("edit.visPrivate"), description: t("edit.visPrivateDesc") },
   ];
 
@@ -124,7 +125,7 @@ export default function ActivityEditPage() {
       const parsed: ActivityEditData = {
         name: d.name ?? d.description ?? "",
         description: d.description ?? "",
-        visibility: (d.visibility as Visibility) ?? "everyone",
+        visibility: normalizeActivityVisibility(d.visibility),
         userId: d.userId ?? "",
         type: d.type ?? "Ride",
         startTime: typeof d.startTime === "number" ? d.startTime : d.startTime?.toMillis?.() ?? 0,

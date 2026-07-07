@@ -11,7 +11,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesi
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
 
-interface ResultEntry {
+export interface ResultEntry {
   userId: string;
   displayName: string;
   bibNumber: number | null;
@@ -51,6 +51,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   women: "var(--amber)",
   여성: "var(--amber)",
 };
+
+export function displayRankFor(entry: ResultEntry, activeCategory: string): number {
+  return activeCategory === "__overall__" ? entry.overallRank : entry.rank;
+}
 
 function formatDuration(ms: number | null): string {
   if (ms == null || ms < 0) return "—";
@@ -227,8 +231,13 @@ export default function EventResultsPage() {
   }, [results, activeCategory]);
 
   const podium = useMemo(() => {
-    return filtered.filter((r) => r.status === "FINISHED" && r.rank > 0 && r.rank <= 3).slice(0, 3);
-  }, [filtered]);
+    return filtered
+      .filter((r) => {
+        const rank = displayRankFor(r, activeCategory);
+        return r.status === "FINISHED" && rank > 0 && rank <= 3;
+      })
+      .slice(0, 3);
+  }, [filtered, activeCategory]);
 
   const counts = useMemo(() => {
     const total = results.length;
@@ -421,7 +430,8 @@ export default function EventResultsPage() {
                 style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 'var(--space-3)' }}
               >
                 {podium.map((p, i) => {
-                  const medal = MEDAL_COLORS[p.rank] ?? "var(--ink-2)";
+                  const rank = displayRankFor(p, activeCategory);
+                  const medal = MEDAL_COLORS[rank] ?? "var(--ink-2)";
                   return (
                     <div
                       key={p.userId}
@@ -455,7 +465,7 @@ export default function EventResultsPage() {
                           marginBottom: "var(--space-2)",
                         }}
                       >
-                        {p.rank}
+                        {rank}
                       </div>
                       <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)" }}>
                         {p.displayName}
@@ -580,7 +590,7 @@ export default function EventResultsPage() {
                   </thead>
                   <tbody>
                     {filtered.map((r) => {
-                      const rank = r.status === "FINISHED" ? (activeCategory === "__overall__" ? r.overallRank : r.rank) : 0;
+                      const rank = r.status === "FINISHED" ? displayRankFor(r, activeCategory) : 0;
                       const isMine = !!user && r.userId === user.uid;
                       const gap =
                         r.status === "FINISHED" && r.finishTime != null && winnerTime != null

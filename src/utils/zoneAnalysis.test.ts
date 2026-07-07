@@ -57,6 +57,14 @@ describe("calculateSeilerZones", () => {
     expect(zones[2]!.seconds).toBe(70);
   });
 
+  it("2초 간격 스트림은 seconds를 실제 체류 시간으로 계산한다", () => {
+    const watts = [...makeStream(30, 100), ...makeStream(70, 250)];
+    const time = watts.map((_, i) => i * 2);
+    const zones = calculateSeilerZones(watts, FTP, time);
+    expect(zones[0]!.seconds).toBe(60);
+    expect(zones[2]!.seconds).toBe(140);
+  });
+
   it("빈 스트림 → pct 0", () => {
     const zones = calculateSeilerZones([], FTP);
     zones.forEach((z) => expect(z.pct).toBe(0));

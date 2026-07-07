@@ -12,7 +12,7 @@ import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField, Tim
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { Field, PickerRow, Section, Toggle, fieldStyle } from "../../features/event/form/eventFormControls";
-import { joinDtLocal, newEditableCategory, splitDtLocal, splitStartTime, type EditableCategoryRow } from "../../features/event/form/eventFormUtils";
+import { joinDtLocal, joinStartTimeKst, newEditableCategory, splitDtLocal, splitStartTime, type EditableCategoryRow } from "../../features/event/form/eventFormUtils";
 
 type EventType = "GRANFONDO" | "TOUR" | "TT" | "TRAINING";
 type Visibility = "PUBLIC" | "GROUP" | "PRIVATE";
@@ -304,12 +304,7 @@ export default function EventEditPage() {
     }
     setSaving(true);
     try {
-      // date+startTime 합쳐 ms (KST)
-      const KST_OFFSET = "+09:00";
-      const startTimestamp =
-        data.date && data.startTime
-          ? new Date(`${data.date}T${data.startTime}:00${KST_OFFSET}`).getTime()
-          : undefined;
+      const startTimestamp = joinStartTimeKst(data.date, data.startTime);
 
       const fn = httpsCallable(functions, "updateEvent");
       await fn({

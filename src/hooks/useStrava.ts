@@ -33,7 +33,7 @@ export function useStrava() {
     window.location.href = `https://www.strava.com/oauth/authorize?${params}`;
   };
 
-  const exchangeCode = async (code: string) => {
+  const exchangeCode = useCallback(async (code: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -47,7 +47,7 @@ export function useStrava() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const startMigration = useCallback(async () => {
     setLoading(true);

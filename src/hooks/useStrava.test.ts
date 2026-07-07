@@ -9,6 +9,13 @@ describe("useStrava", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("keeps exchangeCode stable across renders", () => {
+    const { result, rerender } = renderHook(() => useStrava());
+    const first = result.current.exchangeCode;
+    rerender();
+    expect(result.current.exchangeCode).toBe(first);
+  });
+
   it("exchangeCode calls stravaExchangeToken callable", async () => {
     setCallableResult("stravaExchangeToken", {
       data: { athleteId: 123, firstname: "Test", lastname: "User" },
