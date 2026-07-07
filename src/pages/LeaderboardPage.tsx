@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, collectionGroup, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -22,10 +22,9 @@ interface SegmentInfo {
   totalEfforts?: number;
 }
 
-interface EffortInfo {
-  segmentId: string;
-  elapsedTime: number;
-  createdAt?: number;
+interface UserPrInfo {
+  bestTime?: number;
+  elapsedTime?: number;
 }
 
 export default function LeaderboardPage() {
@@ -63,23 +62,17 @@ export default function LeaderboardPage() {
         });
         setSegments(segs);
 
-        // 내 최고 기록 (본인 effort에서 가장 짧은 elapsedTime per segmentId)
+        // 내 최고 기록은 본인 소유 PR 컬렉션에서 읽는다.
+        // collectionGroup("efforts")는 다른 efforts 하위 컬렉션 rules와 충돌할 수 있다.
         if (user) {
           try {
-            const effortSnap = await getDocs(
-              query(
-                collectionGroup(firestore, "efforts"),
-                where("userId", "==", user.uid),
-                orderBy("elapsedTime", "asc"),
-                limit(500),
-              )
-            );
+            const prSnap = await getDocs(collection(firestore, "user_prs", user.uid, "segments"));
             const best = new Map<string, number>();
-            effortSnap.forEach((eDoc) => {
-              const data = eDoc.data() as EffortInfo;
-              const segId = eDoc.ref.parent.parent?.id;
-              if (!segId) return;
-              if (!best.has(segId)) best.set(segId, data.elapsedTime);
+            prSnap.forEach((prDoc) => {
+              const data = prDoc.data() as UserPrInfo;
+              const time = typeof data.bestTime === "number" ? data.bestTime : data.elapsedTime;
+              if (typeof time !== "number" || time <= 0) return;
+              best.set(prDoc.id, time);
             });
             setMyBest(best);
           } catch (err) {
