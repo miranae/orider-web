@@ -89,6 +89,16 @@ export default function CoursesPage() {
     setHoveredId(id);
   }, []);
 
+  const handleMapSelectCourse = useCallback((id: string) => {
+    setSelectedId(id);
+    setHoveredId(id);
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedId(null);
+    setHoveredId(null);
+  }, []);
+
   const handleSearch = () => {
     const nextQuery = inputValue.trim();
     setSearchQuery(nextQuery);
@@ -279,6 +289,8 @@ export default function CoursesPage() {
               onMapInteraction={handleMapInteraction}
               onHoverCourse={setHoveredId}
               onScrollToCourse={scrollToCard}
+              onSelectCourse={handleMapSelectCourse}
+              onClearSelection={handleClearSelection}
               onOpenCourse={handleOpenCourse}
               onMapFailed={() => setMapFailed(true)}
               className={mobileMapOpen ? "h-56 lg:h-auto lg:flex-[2] relative" : "hidden lg:block lg:h-auto lg:flex-[2] relative"}
