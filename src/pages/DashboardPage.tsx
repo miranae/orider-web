@@ -13,6 +13,7 @@ import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch, useMonthlyActivityDistance } from "../hooks/useActivities";
 import type { DatePreset } from "../hooks/useActivities";
+import { useFriends } from "../hooks/useFriends";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { estimateActivityLoad, aggregateDailyLoad, calculateFitness } from "../utils/fitnessMetrics";
 import type { ActivityLoadEntry } from "../utils/fitnessMetrics";
@@ -23,8 +24,23 @@ import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text } from "../theme/components";
+import type { Activity } from "@shared/types";
 
 const TodaysWorkoutCard = lazy(() => import("../components/training/TodaysWorkoutCard"));
+
+type FeedFilterIndex = 0 | 1 | 2;
+
+export function filterFeedActivities(
+  activities: Activity[],
+  feedFilter: FeedFilterIndex,
+  userId: string | null | undefined,
+  friendIds: Set<string>,
+): Activity[] {
+  if (!userId || feedFilter === 0) return activities;
+  if (feedFilter === 1) return activities.filter((activity) => friendIds.has(activity.userId));
+  if (feedFilter === 2) return activities.filter((activity) => activity.userId === userId);
+  return activities;
+}
 
 // ── 유틸리티 함수 ──
 
@@ -132,7 +148,7 @@ function WeeklyTssBars({
 export default function DashboardPage() {
   const { t, i18n } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common");
-  const [feedFilter, setFeedFilter] = useState(0);
+  const [feedFilter, setFeedFilter] = useState<FeedFilterIndex>(0);
   // 사이드바 푸터(약관/정책 링크) 접이식 — Layout 데스크톱 푸터를 메인화면에서 흡수 (#347 후속)
   const [footerOpen, setFooterOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
@@ -140,6 +156,7 @@ export default function DashboardPage() {
   const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
   const { units } = useLocale();
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities();
+  const { friends } = useFriends();
   const { weeklyStats, thisWeek } = useWeeklyStats();
   const monthlyActivityDistance = useMonthlyActivityDistance();
   const activitySearch = useActivitySearch();
@@ -149,14 +166,13 @@ export default function DashboardPage() {
 
   // 종목 필터 적용
   const sportFiltered = useMemo(() => filterByDiscipline(activities, discipline), [activities, discipline]);
+  const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
 
   // 피드 필터 적용 (전체/친구/본인)
-  const filteredActivities = (() => {
-    if (!user || feedFilter === 0) return sportFiltered;
-    if (feedFilter === 2) return sportFiltered.filter((a) => a.userId === user.uid);
-    if (feedFilter === 1) return sportFiltered.filter((a) => a.userId !== user.uid);
-    return sportFiltered;
-  })();
+  const filteredActivities = useMemo(
+    () => filterFeedActivities(sportFiltered, feedFilter, user?.uid, friendIds),
+    [sportFiltered, feedFilter, user?.uid, friendIds],
+  );
 
   const DATE_PRESETS: { label: string; value: DatePreset }[] = [
     { label: t("feed.datePreset.all"), value: "all" },
@@ -435,10 +451,10 @@ export default function DashboardPage() {
               )}
               <div className="flex-1" />
               <div className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
-                {[t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")].map((label, i) => (
+                {([t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")] as const).map((label, i) => (
                   <button
                     key={i}
-                    onClick={() => setFeedFilter(i)}
+                    onClick={() => setFeedFilter(i as FeedFilterIndex)}
                     style={{
                       padding: "5px 10px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
                       background: feedFilter === i ? "var(--bg-3)" : "transparent",
