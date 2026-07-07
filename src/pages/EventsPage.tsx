@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, doc, getDoc, getDocs, collectionGroup, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
@@ -261,15 +261,13 @@ export default function EventsPage() {
 
         if (user) {
           try {
-            const mySnap = await getDocs(
-              query(collectionGroup(firestore, "participants"), where("userId", "==", user.uid))
+            const myParticipantDocs = await Promise.all(
+              list.map(async (event) => {
+                const participantSnap = await getDoc(doc(firestore, "events", event.id, "participants", user.uid));
+                return participantSnap.exists() ? event.id : null;
+              }),
             );
-            const ids = new Set<string>();
-            mySnap.forEach((d) => {
-              const parent = d.ref.parent.parent;
-              if (parent) ids.add(parent.id);
-            });
-            setMyEventIds(ids);
+            setMyEventIds(new Set(myParticipantDocs.filter((id): id is string => !!id)));
           } catch (err) {
             logClientError("EventsPage.loadMyEvents", err);
           }
