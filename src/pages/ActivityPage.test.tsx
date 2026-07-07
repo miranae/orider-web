@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import ActivityPage from "./ActivityPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData, mockSetDoc } from "../__tests__/mocks/firebase";
-import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
+import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
 // Mock heavy components
 vi.mock("../components/RouteMap", () => ({
@@ -10,6 +10,9 @@ vi.mock("../components/RouteMap", () => ({
 }));
 vi.mock("../components/ElevationChart", () => ({
   default: () => <div data-testid="elevation-chart">Chart</div>,
+}));
+vi.mock("../components/activity/AiRideAnalysisCard", () => ({
+  default: () => <div data-testid="ai-ride-analysis-card">AI</div>,
 }));
 
 // ActivityPage 의 분석 탭 임포트 체인(PowerCurveChart 등)이 chart.js 의
@@ -133,6 +136,44 @@ describe("ActivityPage", () => {
     expect(screen.getByText("평균 파워")).toBeInTheDocument();
     expect(screen.getByText("최대 파워")).toBeInTheDocument();
     expect(screen.getByText("NP 147 W")).toBeInTheDocument();
+  });
+
+  it("does not show AI ride analysis when streams have no route latlng", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      thumbnailTrack: "mock-polyline",
+    });
+    const { latlng: _latlng, ...streamsWithoutRoute } = createMockStreams();
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify(streamsWithoutRoute),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    await screen.findByText("한강 라이딩");
+    await waitFor(() => {
+      expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows AI ride analysis when route latlng streams are available", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      thumbnailTrack: null,
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify(createMockStreams()),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
 
   it("shows 404 message when activity not found", async () => {

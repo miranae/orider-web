@@ -532,7 +532,8 @@ export default function ActivityPage() {
     (streams.distance?.length ?? 0) > 0 ||
     (streams.laps?.length ?? 0) > 0
   );
-  const hasTrack = !!(activity.thumbnailTrack || streams?.latlng?.length);
+  const hasAnalysisRoute = !!streams?.latlng?.length;
+  const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute);
   const sport = getSportCategory(activity.type || (isStrava ? undefined : "Ride"));
   const showElevation = sport === "ride" || sport === "run";
 
@@ -842,11 +843,11 @@ export default function ActivityPage() {
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
       <div className="flex-1 min-w-0 space-y-6">
 
-      {/* AI 활동 분석 — 사이클/러닝 활동 + 스트림 준비 시. 비용 가치를 개요 최상단에 노출. */}
-      {(sport === "ride" || sport === "run") && hasStreams && (
+      {/* AI 활동 분석 — 사이클/러닝 활동 + 원본 경로 스트림 준비 시. 비용 가치를 개요 최상단에 노출. */}
+      {(sport === "ride" || sport === "run") && hasStreams && hasAnalysisRoute && (
         <AiRideAnalysisCard
           activityId={activityId ?? null}
-          enabled={(sport === "ride" || sport === "run") && hasStreams}
+          enabled={(sport === "ride" || sport === "run") && hasStreams && hasAnalysisRoute}
           sport={sport}
           summaryPreview={activity.aiSummaryPreview}
           summaryPreviewEn={activity.aiSummaryPreview_en}
