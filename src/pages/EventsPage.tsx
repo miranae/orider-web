@@ -187,7 +187,7 @@ export default function EventsPage() {
             region: info.region || undefined,
             registered: d.counters?.totalRegistered,
             maxParticipants: info.settings?.maxParticipants || info.maxParticipants,
-            distance: typeof info.distance === "number" ? info.distance : undefined,
+            distance: typeof info.distance === "number" ? info.distance / 1000 : undefined,
             elevationGain: typeof info.elevationGain === "number" ? info.elevationGain : undefined,
             courseId: Array.isArray(info.courseIds) && info.courseIds.length > 0 ? info.courseIds[0] : undefined,
             // courseIds가 없고 인라인 GPX만 있는 시드 이벤트 — 클라에서 파싱해 폴리라인 추출

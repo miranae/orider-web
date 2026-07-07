@@ -55,6 +55,10 @@ interface ParsedStream extends ActivityStreams {
   photos?: StreamPhoto[];
 }
 
+export function filterExportableActivities<T extends { summary?: unknown | null }>(activities: T[]): T[] {
+  return activities.filter((activity) => activity.summary != null);
+}
+
 // ── GPX Generation ──────────────────────────────────────────────────
 
 function generateGpx(activity: Activity, streams: ParsedStream): string {
@@ -211,7 +215,10 @@ export function useExport() {
         query(collection(firestore, "activities"), where("userId", "==", uid), where("deletedAt", "==", null)),
       );
       const activities: (Activity & { source?: string; stravaActivityId?: number })[] =
-        activitiesSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity & { source?: string; stravaActivityId?: number });
+        filterExportableActivities(
+          activitiesSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() }) as Activity & { source?: string; stravaActivityId?: number }),
+        );
 
       activities.sort((a, b) => b.startTime - a.startTime);
 

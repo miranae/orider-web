@@ -84,8 +84,8 @@ function SplitTable({ laps }: { laps?: ActivityStreams["laps"] }) {
     const paceStr = paceSec > 0 ? `${Math.floor(paceSec / 60)}:${String(Math.round(paceSec % 60)).padStart(2, '0')}` : '-';
     const hr = lap.avgHeartRate ?? null;
     const cad = lap.avgCadence ?? null;
-    const zone = paceSec < 250 ? 'Z5' : paceSec < 270 ? 'Z4' : paceSec < 295 ? 'Z3' : 'Z2';
-    const zoneColor = zone === 'Z5' ? 'var(--rose)' : zone === 'Z4' ? 'var(--lime)' : zone === 'Z3' ? 'var(--amber)' : 'var(--aqua)';
+    const zone = paceSec <= 0 ? '-' : paceSec < 250 ? 'Z5' : paceSec < 270 ? 'Z4' : paceSec < 295 ? 'Z3' : 'Z2';
+    const zoneColor = zone === '-' ? 'var(--ink-4)' : zone === 'Z5' ? 'var(--rose)' : zone === 'Z4' ? 'var(--lime)' : zone === 'Z3' ? 'var(--amber)' : 'var(--aqua)';
     return { km: i + 1, pace: paceStr, paceSec, hr, cad, zone, zoneColor, partial: distKm < 0.9 };
   });
 
@@ -278,7 +278,7 @@ function CadenceCard({ laps }: { laps?: ActivityStreams["laps"] }) {
           />
         )}
         {cadences.map((c, i) => {
-          const barH = maxC > minC ? ((c - minC) / (maxC - minC)) * h : 0;
+          const barH = c > 0 && maxC > minC ? Math.max(0, ((c - minC) / (maxC - minC)) * h) : 0;
           const x = i * (barW + 2);
           return (
             <rect

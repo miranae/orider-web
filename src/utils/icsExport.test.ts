@@ -31,6 +31,9 @@ describe("generateICS", () => {
     const ics = generateICS([makeWeek(90)], "Base", t);
 
     expect(ics).toContain("X-WR-TIMEZONE:Asia/Seoul");
+    expect(ics).toContain("BEGIN:VTIMEZONE");
+    expect(ics).toContain("TZID:Asia/Seoul");
+    expect(ics).toContain("TZOFFSETTO:+0900");
     expect(ics).toContain("DTSTART;TZID=Asia/Seoul:20260707T060000");
     expect(ics).toContain("DURATION:PT1H30M");
     expect(ics).not.toContain("DTSTART;VALUE=DATE");
@@ -45,4 +48,3 @@ describe("generateICS", () => {
     expect(fractional).not.toContain("45.6M");
   });
 });
-

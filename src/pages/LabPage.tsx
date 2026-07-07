@@ -138,6 +138,7 @@ export default function LabPage() {
   useEffect(() => {
     if (!urlCourseId) return;
     if (courses.some((c) => c.id === urlCourseId)) {
+      if (appliedUrlCourseIdRef.current === urlCourseId) return;
       appliedUrlCourseIdRef.current = urlCourseId;
       setSelectedId(urlCourseId);
       return;

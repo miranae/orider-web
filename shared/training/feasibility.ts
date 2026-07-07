@@ -91,7 +91,7 @@ export function calcFeasibility(input: FeasibilityInput): FeasibilityResult {
   const targetH = dur / 60;
   const speed = course.dist / targetH;                    // km/h
   const climbMperH = elev / targetH;                      // m/h
-  const requiredWkg = 0.12 * speed + 0.0035 * climbMperH * 3.6;
+  const requiredWkg = 0.12 * speed + 0.0035 * climbMperH;
   const myWkg = snap.ftp / snap.weightKg;
 
   // 피로도 — fitness 인자 자체가 없거나 tsb가 null이면 보정 안 함 (Pct=undefined)

@@ -192,6 +192,14 @@ function FitToBounds({
       for (const [lat, lng] of track) visit(lat, lng);
     }
     if (!hasPoint) return;
+    if (minLat === maxLat) {
+      minLat -= 0.0005;
+      maxLat += 0.0005;
+    }
+    if (minLng === maxLng) {
+      minLng -= 0.0005;
+      maxLng += 0.0005;
+    }
     map.fitBounds(
       [
         [minLng, minLat],

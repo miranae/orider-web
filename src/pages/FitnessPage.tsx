@@ -21,7 +21,7 @@ import type { Activity, ActivityStreams } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { Goal, FitnessProjection } from "@shared/types/goal";
 import FitnessChart from "../components/FitnessChart";
-import CriticalPaceCurve from "../components/charts/CriticalPaceCurve";
+import CriticalPaceCurve, { type PaceStream } from "../components/charts/CriticalPaceCurve";
 import CSSCurve from "../components/charts/CSSCurve";
 import SectionHeader from "../components/redesign/SectionHeader";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
@@ -88,6 +88,7 @@ export default function FitnessPage() {
   const { revalidating, justRecomputed } = useFreshTraining(discipline === "tri" ? undefined : discipline);
   // projection onSnapshot unsubscribe ref — discipline 전환 시 재구독을 위해
   const projUnsubRef = useRef<(() => void) | null>(null);
+  const projectionGoalIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -241,6 +242,7 @@ export default function FitnessPage() {
           setGoalQueryDone(true);
           // goal 이 없으면 기존 projection 구독도 정리
           if (projUnsubRef.current) { projUnsubRef.current(); projUnsubRef.current = null; }
+          projectionGoalIdRef.current = null;
           return;
         }
         const goalDoc = goalSnap.docs[0]!;
@@ -248,9 +250,14 @@ export default function FitnessPage() {
         setActiveGoal(goal);
         setGoalQueryDone(true);
 
-        // projection 구독 — 이미 같은 goal 로 구독 중이면 재구독 안 함.
+        // projection 구독 — goal 교체 시 stale closure 방지를 위해 goalId별로 재구독.
         // (goal 의 adaptationFlag 변경만으로 onSnapshot 재발화되므로.)
-        if (!projUnsubRef.current) {
+        if (projectionGoalIdRef.current !== goal.id) {
+          if (projUnsubRef.current) {
+            projUnsubRef.current();
+            projUnsubRef.current = null;
+          }
+          projectionGoalIdRef.current = goal.id;
           const primaryRef = doc(firestore, "users", user.uid, "fitness", `projection_${discipline}`);
           const unsub = onSnapshot(
             primaryRef,
@@ -276,6 +283,7 @@ export default function FitnessPage() {
         projUnsubRef.current();
         projUnsubRef.current = null;
       }
+      projectionGoalIdRef.current = null;
     };
   }, [user, discipline]);
 
@@ -434,13 +442,14 @@ export default function FitnessPage() {
   const runPaceStreams = useMemo(() => {
     const now = Date.now();
     const d28 = 28 * 24 * 60 * 60 * 1000;
-    const recentStreams: number[][] = [];
-    const prevStreams: number[][] = [];
+    const recentStreams: PaceStream[] = [];
+    const prevStreams: PaceStream[] = [];
     for (const a of disciplineActivities) {
       const stream = streamsMap.get(a.id);
       if (!stream?.velocity_smooth || stream.velocity_smooth.length < 30) continue;
-      if (a.startTime >= now - d28) recentStreams.push(stream.velocity_smooth);
-      else if (a.startTime >= now - d28 * 2) prevStreams.push(stream.velocity_smooth);
+      const paceStream = { velocity: stream.velocity_smooth, time: stream.time };
+      if (a.startTime >= now - d28) recentStreams.push(paceStream);
+      else if (a.startTime >= now - d28 * 2) prevStreams.push(paceStream);
     }
     return { recentStreams, prevStreams };
   }, [disciplineActivities, streamsMap]);

@@ -11,6 +11,12 @@ describe('powerMetrics', () => {
     expect(calculateNP(Array(20).fill(200))).toBeNull()
   })
 
+  it('NP: skips a single invalid sample instead of aborting the whole metric', () => {
+    const watts = Array(60).fill(200)
+    watts[10] = NaN
+    expect(calculateNP(watts)).toBeCloseTo(200, 0)
+  })
+
   it('NP: variable power higher than average', () => {
     // 60초 100W → 60초 300W 블록: 30초 롤링 윈도우가 100~300 사이로 변동
     const watts = [...Array(60).fill(100), ...Array(60).fill(300)]
