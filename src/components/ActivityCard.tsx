@@ -11,6 +11,7 @@ import { useLocale } from "../contexts/LocaleContext";
 import { useStrava } from "../hooks/useStrava";
 import { formatDistance, formatSpeed, formatElev } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
+import { getStravaActivityId } from "../utils/stravaActivity";
 import type { Activity } from "@shared/types";
 import Avatar from "./Avatar";
 import { getSportLabelKey } from "../utils/sportType";
@@ -384,7 +385,7 @@ export default function ActivityCard({
     if (!hideAuthor) return;
     if (!activity.segmentEffortCount || activity.segmentEffortCount <= 0) return;
     if ((activity as Activity & { source?: string }).source !== "strava") return;
-    const stravaActivityId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
+    const stravaActivityId = getStravaActivityId(activity);
     if (!stravaActivityId) return;
 
     let cancelled = false;
