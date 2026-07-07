@@ -59,6 +59,7 @@ import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
 import { useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
+import { selectActualCoRiders } from "../utils/coRiders";
 
 function isPermissionDeniedError(err: unknown): boolean {
   return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "permission-denied";
@@ -252,12 +253,10 @@ export default function ActivityPage() {
       where("visibility", "==", "everyone"),
     );
     getDocs(q).then((snap) => {
-      setCoRiders(
-        snap.docs
-          .filter((d) => d.id !== activity.id)
-          .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-          .filter((a) => a.summary != null && a.visibility === "everyone"),
-      );
+      const candidates = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Activity)
+        .filter((a) => a.visibility === "everyone");
+      setCoRiders(selectActualCoRiders(activity, candidates));
     }).catch((err) => {
       if (isPermissionDeniedError(err)) {
         setCoRiders([]);
