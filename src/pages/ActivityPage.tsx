@@ -523,6 +523,7 @@ export default function ActivityPage() {
   const normalizedPowerValue = s.normalizedPower ?? activity.weightedAvgPower ?? null;
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const stravaActivityId = getStravaActivityId(activity);
+  const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
   const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? user?.photoURL ?? null : null);
   const hasStreams = sampledData.length > 0;
   const hasAnalysisStreams = !!streams && (
@@ -684,11 +685,10 @@ export default function ActivityPage() {
             )}
             <div className="flex items-center gap-3 mt-1">
               <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>{formatFullDate(activity.startTime)}</span>
-              {isStrava && stravaActivityId && (
+              {isStrava && stravaActivityUrl && (
                 <a
-                  href={`https://www.strava.com/activities/${stravaActivityId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={stravaActivityUrl}
+                  referrerPolicy="no-referrer"
                   className="inline-flex items-center gap-1 text-[length:var(--fs-sm)] font-bold text-[#FC4C02] hover:underline"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
