@@ -2,7 +2,7 @@ import { screen, waitFor, fireEvent } from "@testing-library/react";
 import ActivityCard, { shouldReportMapCaptureError } from "./ActivityCard";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
-import { setCallableResult } from "../__tests__/mocks/firebase";
+import { setCallableResult, setDocData } from "../__tests__/mocks/firebase";
 
 // Mock RouteMap to avoid Leaflet issues
 vi.mock("./RouteMap", () => ({
@@ -180,6 +180,23 @@ describe("ActivityCard", () => {
     // 좋아요/댓글 버튼은 aria-label 로 식별 (count 숫자는 stats 와 중복될 수 있어 라벨로 검증)
     expect(screen.getByLabelText("좋아요")).toBeInTheDocument();
     expect(screen.getByLabelText("댓글")).toBeInTheDocument();
+  });
+
+  it("hydrates missing kudos avatars from public profiles", async () => {
+    setDocData("users_public/kudos-user", {
+      nickname: "경",
+      photoURL: "https://example.com/kudos-avatar.jpg",
+    });
+    const activity = createMockActivity({
+      kudosCount: 1,
+      recentKudos: [{ userId: "kudos-user", nickname: "경", profileImage: null }],
+    });
+
+    renderWithProviders(<ActivityCard activity={activity} showMap={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "경" })).toHaveAttribute("src", "https://example.com/kudos-avatar.jpg");
+    });
   });
 
   it("toggles an inline comment input when the comment button is clicked", () => {
