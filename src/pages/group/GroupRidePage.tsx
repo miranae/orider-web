@@ -46,6 +46,11 @@ export default function GroupRidePage() {
   // 사전 그룹 + 현장 동행을 함께 표시하는 것이 의도된 동작.
   useEffect(() => {
     if (!rideId) return;
+    let cancelled = false;
+    requestedStreams.current.clear();
+    setStreams({});
+    setActivities([]);
+    setVisibleRiders(new Set());
     setLoading(true);
 
     const everyoneQuery = query(
@@ -58,6 +63,7 @@ export default function GroupRidePage() {
     const fetchActivities = async () => {
       try {
         const everyoneSnap = await getDocs(everyoneQuery);
+        if (cancelled) return;
         const acts = everyoneSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }) as Activity)
           .filter((a) => a.summary != null);
@@ -69,6 +75,7 @@ export default function GroupRidePage() {
             where("userId", "==", user.uid),
           );
           const mySnap = await getDocs(myQuery);
+          if (cancelled) return;
           mySnap.docs.forEach((d) => {
             const a = { id: d.id, ...d.data() } as Activity;
             if (!a.deletedAt && a.summary != null && !acts.some((e) => e.id === a.id)) {
@@ -80,16 +87,19 @@ export default function GroupRidePage() {
         setActivities(acts);
         setVisibleRiders(new Set(acts.map((a) => a.id)));
       } catch (err) {
-        logClientError("GroupRidePage.fetchActivities", err, { rideId });
+        if (!cancelled) logClientError("GroupRidePage.fetchActivities", err, { rideId });
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchActivities();
-  }, [rideId, user]);
+    return () => { cancelled = true; };
+  }, [rideId, user?.uid]);
 
   // 스트림 로드: 항상 CF 경유 (다른 유저의 스트림은 클라이언트에서 직접 읽을 수 없음)
   useEffect(() => {
+    let cancelled = false;
     activities.forEach(async (a) => {
       if (requestedStreams.current.has(a.id)) return;
       requestedStreams.current.add(a.id);
@@ -97,12 +107,13 @@ export default function GroupRidePage() {
         if (a.source === "strava" && a.stravaActivityId) {
           const getStreamsFn = httpsCallable(functions, "stravaGetActivityStreams");
           const result = await getStreamsFn({ stravaActivityId: a.stravaActivityId });
-          if (result.data) {
+          if (!cancelled && result.data) {
             setStreams((prev) => ({ ...prev, [a.id]: result.data as unknown as ActivityStreams }));
           }
         } else if (a.source === "orider") {
           // Orider 활동은 activity_streams/{activityId}에서 직접 읽기 (본인 데이터)
           const streamSnap = await getDoc(doc(firestore, "activity_streams", a.id));
+          if (cancelled) return;
           if (streamSnap.exists()) {
             const data = streamSnap.data();
             if (typeof data.json === "string") {
@@ -113,10 +124,11 @@ export default function GroupRidePage() {
           }
         }
       } catch (err) {
-        logClientError("GroupRidePage.loadStream", err, { activityId: a.id, rideId });
+        if (!cancelled) logClientError("GroupRidePage.loadStream", err, { activityId: a.id, rideId });
       }
     });
-  }, [activities]);
+    return () => { cancelled = true; };
+  }, [activities, rideId]);
 
   const toggleRider = (activityId: string) => {
     setVisibleRiders((prev) => {
