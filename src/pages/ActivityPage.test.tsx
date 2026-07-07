@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import ActivityPage from "./ActivityPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData, mockSetDoc } from "../__tests__/mocks/firebase";
@@ -105,6 +105,34 @@ describe("ActivityPage", () => {
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/댓글/)).toBeInTheDocument();
     });
+  });
+
+  it("shows saved sensor summary on analysis tab when streams are missing", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "strava",
+      stravaActivityId: 19171261814,
+      summary: createMockSummary({
+        averageHeartRate: 150,
+        maxHeartRate: 160,
+        averagePower: 144,
+        maxPower: 262,
+        normalizedPower: 147,
+        averageCadence: 86,
+        calories: 905,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
+
+    expect(await screen.findByText("저장된 센서 요약")).toBeInTheDocument();
+    expect(screen.getByText("평균 심박")).toBeInTheDocument();
+    expect(screen.getByText("평균 파워")).toBeInTheDocument();
+    expect(screen.getByText("최대 파워")).toBeInTheDocument();
+    expect(screen.getByText("NP 147 W")).toBeInTheDocument();
   });
 
   it("shows 404 message when activity not found", async () => {
