@@ -842,11 +842,11 @@ export default function ActivityPage() {
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
       <div className="flex-1 min-w-0 space-y-6">
 
-      {/* AI 활동 분석 — 사이클/러닝 활동 + 원본 경로 스트림 준비 시. 비용 가치를 개요 최상단에 노출. */}
-      {(sport === "ride" || sport === "run") && hasStreams && hasAnalysisRoute && (
+      {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
+      {(sport === "ride" || sport === "run") && hasAnalysisStreams && (
         <AiRideAnalysisCard
           activityId={activityId ?? null}
-          enabled={(sport === "ride" || sport === "run") && hasStreams && hasAnalysisRoute}
+          enabled={(sport === "ride" || sport === "run") && hasAnalysisStreams}
           sport={sport}
           summaryPreview={activity.aiSummaryPreview}
           summaryPreviewEn={activity.aiSummaryPreview_en}
