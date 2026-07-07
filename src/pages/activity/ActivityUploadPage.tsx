@@ -6,8 +6,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { EmptyState, PageHeader, PermissionGate } from "../../components/redesign";
 import { Button, Card, Chip, Text } from "../../theme/components";
-
-type Visibility = "everyone" | "followers" | "private";
+import type { Visibility } from "@shared/types";
 
 type UploadStatus = "pending" | "uploading" | "done" | "error" | "skipped";
 
@@ -128,7 +127,7 @@ export default function ActivityUploadPage() {
 
   const visibilityOptions: { v: Visibility; label: string }[] = [
     { v: "everyone", label: t("upload.visEveryone") },
-    { v: "followers", label: t("upload.visFollowers") },
+    { v: "friends", label: t("upload.visFollowers") },
     { v: "private", label: t("upload.visPrivate") },
   ];
 
