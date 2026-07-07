@@ -7,7 +7,7 @@ import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useGroup, useGroupMembers } from "../../hooks/useGroup";
-import { useGroupRides } from "../../hooks/useGroupRides";
+import { useGroupRideStats } from "../../hooks/useGroupRides";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
@@ -28,8 +28,7 @@ export default function GroupDashboardPage() {
   const { group, loading: groupLoading } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId, 8);
 
-  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
-  const { rides, loading: ridesLoading } = useGroupRides(memberIds, 5);
+  const { rides, loading: ridesLoading } = useGroupRideStats(groupId);
 
   // 다가오는 그룹 이벤트
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
