@@ -36,14 +36,18 @@ const mockPrevious = [
 // 지속시간 목록 (초)
 const DURATIONS = [30, 60, 180, 300, 600, 1200, 1800, 3600, 7200];
 
-function computeBestPace(velocityArrays: number[][], durationSec: number): number | null {
+export function computeBestPace(velocityArrays: number[][], durationSec: number): number | null {
+  const window = Math.floor(durationSec);
+  if (window <= 0) return null;
   let bestAvgVelocity = 0;
   for (const vel of velocityArrays) {
-    if (vel.length < durationSec) continue;
-    for (let start = 0; start <= vel.length - durationSec; start++) {
-      let sum = 0;
-      for (let j = start; j < start + durationSec; j++) sum += vel[j]!;
-      const avg = sum / durationSec;
+    if (vel.length < window) continue;
+    let sum = 0;
+    for (let i = 0; i < window; i++) sum += vel[i] ?? 0;
+    bestAvgVelocity = Math.max(bestAvgVelocity, sum / window);
+    for (let start = 1; start <= vel.length - window; start++) {
+      sum += (vel[start + window - 1] ?? 0) - (vel[start - 1] ?? 0);
+      const avg = sum / window;
       if (avg > bestAvgVelocity) bestAvgVelocity = avg;
     }
   }

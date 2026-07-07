@@ -22,6 +22,7 @@ export function generateICS(weeks: PlanWeek[], goalName: string, t: TFunction): 
     'PRODID:-//Orider//Training Plan//KO',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+    'X-WR-TIMEZONE:Asia/Seoul',
     `X-WR-CALNAME:${t('export.icsCalName', { goalName })}`,
   ];
 
@@ -37,18 +38,18 @@ export function generateICS(weeks: PlanWeek[], goalName: string, t: TFunction): 
       const d = new Date(day.date + 9 * 3600000); // KST 오프셋 적용
       const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
 
-      // 시간/분 단위 Duration
-      const hours = Math.floor(day.plannedDurationMin / 60);
-      const mins = day.plannedDurationMin % 60;
-      const duration = `PT${hours}H${mins}M`;
+      const durationMin = Math.round(day.plannedDurationMin);
+      const hours = Math.floor(durationMin / 60);
+      const mins = durationMin % 60;
+      const duration = durationMin > 0 ? `PT${hours}H${mins}M` : null;
 
       // 고유 UID
       const uid = `orider-plan-${dateStr}-${day.workout}@orider.co.kr`;
 
       lines.push('BEGIN:VEVENT');
       lines.push(`DTSTAMP:${dtstamp}`);
-      lines.push(`DTSTART;VALUE=DATE:${dateStr}`);
-      lines.push(`DURATION:${duration}`);
+      lines.push(`DTSTART;TZID=Asia/Seoul:${dateStr}T060000`);
+      if (duration) lines.push(`DURATION:${duration}`);
       lines.push(`SUMMARY:${summary}`);
       lines.push(`DESCRIPTION:${t('export.icsDescWeek', { weekNumber: week.weekNumber, phase: week.phase, tss: day.plannedTSS })}`);
       lines.push(`UID:${uid}`);

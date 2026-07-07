@@ -149,7 +149,7 @@ export default function SegmentEffortsCard({
                               : "bg-gradient-to-r from-[var(--amber)] to-[var(--amber)] text-[var(--bg-0)]"
                           }`}
                         >
-                          {effort.prRank === 1 ? "PR" : `${effort.prRank}nd`}
+                          {effort.prRank === 1 ? "PR" : effort.prRank === 2 ? "2nd" : "3rd"}
                         </span>
                       )}
                       {isKOM && (

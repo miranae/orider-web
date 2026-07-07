@@ -137,15 +137,20 @@ export default function LabPage() {
   const urlCourseId = searchParams.get("courseId");
   useEffect(() => {
     if (!urlCourseId) return;
-    if (appliedUrlCourseIdRef.current !== urlCourseId) {
+    if (courses.some((c) => c.id === urlCourseId)) {
       appliedUrlCourseIdRef.current = urlCourseId;
       setSelectedId(urlCourseId);
+      return;
     }
-    if (courses.some((c) => c.id === urlCourseId)) return;
     let cancelled = false;
     getDoc(doc(firestore, "courses", urlCourseId)).then((snap) => {
       if (cancelled || !snap.exists()) return;
       const data = snap.data();
+      if (!isVisibleCourseDocData(data)) return;
+      if (appliedUrlCourseIdRef.current !== urlCourseId) {
+        appliedUrlCourseIdRef.current = urlCourseId;
+        setSelectedId(urlCourseId);
+      }
       setCourses((prev) =>
         prev.some((c) => c.id === urlCourseId)
           ? prev

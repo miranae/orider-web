@@ -110,7 +110,7 @@ export function subscribeLatestDeviceSettings(
   return onSnapshot(
     q,
     (snap) => {
-      const docSnap = snap.docs[0];
+      const docSnap = snap.docs.find((d) => !d.metadata.hasPendingWrites) ?? snap.docs[0];
       onChange(docSnap ? parseSettingsSnapshot(docSnap) : null);
     },
     (err) => onError?.(err),
