@@ -31,6 +31,7 @@ import { buildCreatorHubDetailLinks } from "../data/creatorHubDetailLinks";
 import { creatorRecipes, type CreatorRecipeIcon, type CreatorRecipeKind } from "../data/creatorRecipes";
 import { functions } from "../services/firebase";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
+import { formatCreatorEmailQuotaLabel, useCreatorRecipeEmail } from "../hooks/useCreatorRecipeEmail";
 
 type CreatorTab = "featured" | "recipes" | "share";
 type CreatorSection = "overview" | "deploy" | "examples" | "recipes" | "share";
@@ -146,6 +147,15 @@ function buildCopy(language: string) {
       emailing: ko ? "이메일 발송 중" : "Sending email",
       emailed: ko ? "발송 완료" : "Sent",
       emailFailed: ko ? "이메일을 보내지 못했습니다" : "Could not send email",
+      emailQuota: ko ? "오늘 {{used}}/{{limit}}회 사용" : "{{used}}/{{limit}} sent today",
+      emailQuotaExceeded: ko
+        ? "오늘의 레시피 이메일 발송 한도를 모두 사용했습니다. 내일 다시 발송할 수 있습니다."
+        : "You've used today's recipe email limit. You can send more tomorrow.",
+      emailCooldown: ko
+        ? "같은 레시피는 1분 뒤 다시 보낼 수 있습니다."
+        : "You can resend the same recipe after 1 minute.",
+      emailLimitReached: ko ? "한도 사용 완료" : "Limit reached",
+      emailCooldownShort: ko ? "잠시 후 가능" : "Wait 1 min",
       copyChart: ko ? "차트 카드 복사" : "Copy chart card",
       report: ko ? "신고" : "Report",
       reported: ko ? "검토 대기" : "Under review",
@@ -469,14 +479,29 @@ export default function CreatorHubPage() {
   const [copied, setCopied] = useState(false);
   const [chartCopied, setChartCopied] = useState(false);
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
+  const [copyingPromptId, setCopyingPromptId] = useState<string | null>(null);
   const [reportedItemIds, setReportedItemIds] = useState<Set<string>>(() => new Set());
+  const [reportingItemIds, setReportingItemIds] = useState<Set<string>>(() => new Set());
   const [reportFailedItemIds, setReportFailedItemIds] = useState<Set<string>>(() => new Set());
   const [diary, setDiary] = useState<AiDiaryResponse | null>(null);
   const [generating, setGenerating] = useState(false);
   const [diaryError, setDiaryError] = useState<string | null>(null);
-  const [emailSendingId, setEmailSendingId] = useState<string | null>(null);
-  const [emailSentItemIds, setEmailSentItemIds] = useState<Set<string>>(() => new Set());
-  const [emailFailedItemIds, setEmailFailedItemIds] = useState<Set<string>>(() => new Set());
+  const {
+    emailFailedItemIds,
+    emailQuota,
+    emailSendingId,
+    emailSentItemIds,
+    handleEmailRecipe: sendCreatorRecipeEmail,
+    markEmailFailed,
+    markEmailSent,
+    quotaNow,
+  } = useCreatorRecipeEmail({
+    user,
+    language: i18n.language,
+    actions: copy.actions,
+    showToast,
+    signInWithGoogle,
+  });
   const [rideStoryPickerOpen, setRideStoryPickerOpen] = useState(false);
   const deploySectionRef = useRef<HTMLElement | null>(null);
   const recipesSectionRef = useRef<HTMLDivElement | null>(null);
@@ -607,6 +632,8 @@ export default function CreatorHubPage() {
   };
 
   const handleCopyPrompt = async (promptId: string, prompt: string) => {
+    if (copyingPromptId === promptId) return;
+    setCopyingPromptId(promptId);
     try {
       await navigator.clipboard?.writeText(prompt);
       setCopiedPromptId(promptId);
@@ -614,33 +641,8 @@ export default function CreatorHubPage() {
       window.setTimeout(() => setCopiedPromptId((current) => (current === promptId ? null : current)), 1600);
     } catch {
       showToast(copy.actions.copyFailed, "error");
-    }
-  };
-
-  const sendRecipeEmail = async (itemId: string) => {
-    setEmailSendingId(itemId);
-    try {
-      const fn = httpsCallable<{ recipeId: string; lang: string }, { sent: boolean; recipeId: string; email: string }>(
-        functions,
-        "sendCreatorRecipeEmail",
-        { timeout: 60_000 },
-      );
-      await fn({
-        recipeId: itemId,
-        lang: i18n.language.startsWith("en") ? "en" : "ko",
-      });
-      setEmailFailedItemIds((prev) => {
-        const next = new Set(prev);
-        next.delete(itemId);
-        return next;
-      });
-      setEmailSentItemIds((prev) => new Set(prev).add(itemId));
-      showToast(copy.actions.emailed);
-    } catch {
-      setEmailFailedItemIds((prev) => new Set(prev).add(itemId));
-      showToast(copy.actions.emailFailed, "error");
     } finally {
-      setEmailSendingId(null);
+      setCopyingPromptId((current) => (current === promptId ? null : current));
     }
   };
 
@@ -656,9 +658,8 @@ export default function CreatorHubPage() {
       return;
     }
 
-    await sendRecipeEmail(itemId);
+    await sendCreatorRecipeEmail(itemId);
   };
-
   const handleGenerateDiary = async () => {
     if (!user) {
       showToast(copy.actions.loginPrompt, "info");
@@ -691,6 +692,8 @@ export default function CreatorHubPage() {
       await signInWithGoogle();
       return;
     }
+    if (reportedItemIds.has(itemId) || reportingItemIds.has(itemId)) return;
+    setReportingItemIds((prev) => new Set(prev).add(itemId));
     try {
       const fn = httpsCallable<{ itemId: string; reason: string }, { reportId: string; status: string }>(
         functions,
@@ -707,6 +710,12 @@ export default function CreatorHubPage() {
     } catch {
       setReportFailedItemIds((prev) => new Set(prev).add(itemId));
       showToast(copy.actions.reportFailed, "error");
+    } finally {
+      setReportingItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
     }
   };
 
@@ -927,7 +936,7 @@ export default function CreatorHubPage() {
                       <FileText size={14} style={{ color: "var(--lime)" }} />
                       <Text as="div" variant="eyebrow">{i18n.language.startsWith("ko") ? "AI에게 전달할 작업 지시" : "Prompt for your AI assistant"}</Text>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => void handleCopyPrompt(item.name, item.aiPrompt)}>
+                    <Button size="sm" variant="ghost" loading={copyingPromptId === item.name} onClick={() => void handleCopyPrompt(item.name, item.aiPrompt)}>
                       <Clipboard size={14} aria-hidden />
                       {copiedPromptId === item.name ? copy.actions.promptCopied : copy.actions.copyPrompt}
                     </Button>
@@ -971,6 +980,11 @@ export default function CreatorHubPage() {
         <div className="grid items-start gap-3 md:grid-cols-2">
           {visibleItems.map((item) => {
             const Icon = item.icon;
+            const quotaLabel = formatCreatorEmailQuotaLabel(copy.actions.emailQuota, emailQuota);
+            const nextAllowedAt = emailQuota?.nextAllowedAtByRecipe[item.id] ?? 0;
+            const isEmailCoolingDown = nextAllowedAt > quotaNow;
+            const isEmailLimitReached = emailQuota ? emailQuota.remaining <= 0 : false;
+            const emailDisabled = isEmailCoolingDown || isEmailLimitReached;
             return (
               <Card key={item.id} padding="none" className="self-start p-4!">
                 <div className="flex min-w-0 items-start gap-3">
@@ -1037,18 +1051,34 @@ export default function CreatorHubPage() {
                     <ShieldCheck size={15} />
                     {copy.actions.preview}
                   </Button>
-                  <Button className={recipeActionClass} size="sm" variant="secondary" loading={emailSendingId === item.id} onClick={() => void handleEmailRecipe(item.id)}>
+                  <Button
+                    className={recipeActionClass}
+                    size="sm"
+                    variant="secondary"
+                    loading={emailSendingId === item.id}
+                    disabled={emailDisabled}
+                    onClick={() => void handleEmailRecipe(item.id)}
+                  >
                     <Send size={15} />
                     {emailSendingId === item.id
                       ? copy.actions.emailing
                       : emailSentItemIds.has(item.id)
                         ? copy.actions.emailed
-                          : emailFailedItemIds.has(item.id)
-                            ? copy.actions.emailFailed
-                            : item.id === "ride-story"
-                              ? copy.actions.chooseRideStory
-                              : copy.actions.emailRecipe}
+                        : emailFailedItemIds.has(item.id)
+                          ? isEmailLimitReached
+                            ? copy.actions.emailLimitReached
+                            : isEmailCoolingDown
+                              ? copy.actions.emailCooldownShort
+                              : copy.actions.emailFailed
+                          : item.id === "ride-story"
+                            ? copy.actions.chooseRideStory
+                            : copy.actions.emailRecipe}
                   </Button>
+                  {quotaLabel && (
+                    <div className="flex min-h-9 items-center text-[length:var(--fs-xs)]" style={{ color: isEmailLimitReached ? "var(--rose)" : "var(--ink-3)" }}>
+                      {quotaLabel}
+                    </div>
+                  )}
                   <Button
                     className={recipeActionClass}
                     size="sm"
@@ -1072,7 +1102,14 @@ export default function CreatorHubPage() {
                     <KeyRound size={15} />
                     {copy.actions.deploy}
                   </Button>
-                  <Button className={recipeActionClass} size="sm" variant="ghost" onClick={() => void handleReportItem(item.id)}>
+                  <Button
+                    className={recipeActionClass}
+                    size="sm"
+                    variant="ghost"
+                    loading={reportingItemIds.has(item.id)}
+                    disabled={reportedItemIds.has(item.id)}
+                    onClick={() => void handleReportItem(item.id)}
+                  >
                     <Flag size={15} />
                     {reportedItemIds.has(item.id)
                       ? copy.actions.reported
@@ -1382,15 +1419,8 @@ export default function CreatorHubPage() {
         open={rideStoryPickerOpen}
         userId={user?.uid ?? null}
         onClose={() => setRideStoryPickerOpen(false)}
-        onSent={() => {
-          setEmailFailedItemIds((prev) => {
-            const next = new Set(prev);
-            next.delete("ride-story");
-            return next;
-          });
-          setEmailSentItemIds((prev) => new Set(prev).add("ride-story"));
-        }}
-        onFailed={() => setEmailFailedItemIds((prev) => new Set(prev).add("ride-story"))}
+        onSent={() => markEmailSent("ride-story")}
+        onFailed={() => markEmailFailed("ride-story")}
       />
     </div>
   );

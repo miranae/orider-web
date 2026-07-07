@@ -1,11 +1,12 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import Layout from "./Layout";
+import Layout, { shouldBypassOnboardingRedirect } from "./Layout";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import {
   setCollectionDocs,
   mockSignInWithPopup,
   mockSignOut,
+  mockUpdateDoc,
 } from "../__tests__/mocks/firebase";
 import { createMockNotification } from "../__tests__/fixtures/mockData";
 
@@ -13,6 +14,15 @@ import { createMockNotification } from "../__tests__/fixtures/mockData";
 vi.mock("../assets/icon.svg", () => ({ default: "/icon.svg" }));
 
 describe("Layout", () => {
+  it("allows Strava connection routes before onboarding is done", () => {
+    expect(shouldBypassOnboardingRedirect("/settings")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/strava/callback")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/migrate")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/onboarding")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/")).toBe(false);
+    expect(shouldBypassOnboardingRedirect("/activity/abc")).toBe(false);
+  });
+
   it("renders Orider logo", async () => {
     renderWithProviders(<Layout />);
     await waitFor(() => {
@@ -82,6 +92,95 @@ describe("Layout", () => {
     await waitFor(() => {
       expect(screen.getAllByText("2").length).toBeGreaterThan(0);
     });
+  });
+
+  it("opens a notification from the mobile sheet and marks it read", async () => {
+    mockUpdateDoc.mockClear();
+    const user = userEvent.setup();
+    renderWithProviders(<Layout />, {
+      authenticated: true,
+      user: { uid: "uid-1" },
+    });
+
+    setCollectionDocs("notifications/uid-1/items", [
+      {
+        ...createMockNotification({
+          activityId: "strava_123",
+          read: false,
+          createdAt: { seconds: Math.floor((Date.now() - 10 * 60 * 1000) / 1000) } as unknown as number,
+          message: "활동 알림",
+        }),
+        id: "n1",
+      },
+    ]);
+
+    const notificationButtons = await screen.findAllByRole("button", { name: "알림" });
+    await user.click(notificationButtons[0]!);
+
+    expect(await screen.findByText("10분 전")).toBeInTheDocument();
+    await user.click(screen.getByText("활동 알림"));
+
+    await waitFor(() => {
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "notifications/uid-1/items/n1" }),
+        { read: true },
+      );
+    });
+  });
+
+  it("clears every visible notification from the mobile sheet", async () => {
+    mockUpdateDoc.mockClear();
+    const user = userEvent.setup();
+    renderWithProviders(<Layout />, {
+      authenticated: true,
+      user: { uid: "uid-1" },
+    });
+
+    setCollectionDocs("notifications/uid-1/items", [
+      { ...createMockNotification({ read: false, message: "첫 번째 알림" }), id: "n1" },
+      { ...createMockNotification({ read: false, message: "두 번째 알림" }), id: "n2" },
+      { ...createMockNotification({ read: true, message: "이미 읽은 알림" }), id: "n3" },
+    ]);
+
+    const notificationButtons = await screen.findAllByRole("button", { name: "알림" });
+    await user.click(notificationButtons[0]!);
+    await user.click(await screen.findByRole("button", { name: "모두 읽음" }));
+
+    await waitFor(() => {
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "notifications/uid-1/items/n1" }),
+        expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
+      );
+      expect(mockUpdateDoc).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "notifications/uid-1/items/n2" }),
+        expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
+      );
+    });
+    expect(mockUpdateDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "notifications/uid-1/items/n3" }),
+      expect.objectContaining({ read: true, dismissedAt: expect.any(Number) }),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "모두 읽음" })).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("알림이 없습니다")).toBeInTheDocument();
+  });
+
+  it("shows the mobile clear action when all notifications are already read", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Layout />, {
+      authenticated: true,
+      user: { uid: "uid-1" },
+    });
+
+    setCollectionDocs("notifications/uid-1/items", [
+      { ...createMockNotification({ read: true, message: "읽은 알림" }), id: "n1" },
+    ]);
+
+    const notificationButtons = await screen.findAllByRole("button", { name: "알림" });
+    await user.click(notificationButtons[0]!);
+
+    expect(await screen.findByRole("button", { name: "모두 읽음" })).toBeInTheDocument();
   });
 
   it("opens profile dropdown with profile/settings/logout items", async () => {
@@ -158,7 +257,8 @@ describe("Layout", () => {
     }
 
     expect(screen.getByRole("button", { name: "KO" }).className).toContain("focus-visible:outline");
-    expect(screen.getByRole("button", { name: "더보기" }).className).toContain("focus-visible:outline");
+    const moreButtons = screen.getAllByRole("button", { name: "더보기" });
+    expect(moreButtons.some((button) => button.className.includes("focus-visible:outline"))).toBe(true);
     expect(screen.getByRole("link", { name: /내 운동/ }).className).toContain("focus-visible:outline");
   });
 });

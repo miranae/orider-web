@@ -4,6 +4,7 @@ import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
 import type { LngLatBoundsLike } from "mapbox-gl";
 // 컨트롤/팝업 스타일. 메인 entry 가 아닌 RouteMap chunk 와 함께 로드 (홈 진입 시 1.6MB 절약).
 import "mapbox-gl/dist/mapbox-gl.css";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { decodeTrack } from "../utils/polyline";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 
@@ -44,6 +45,8 @@ interface RouteMapProps {
   /** Mapbox 렌더링이 실패했을 때 보여줄 저장된 정적 지도 이미지 */
   fallbackImageUrl?: string | null;
   fallbackImageAlt?: string;
+  /** Mapbox 실패 fallback 전용 높이. 상세 화면에서 지도 실패가 본문을 밀어내지 않게 사용한다. */
+  fallbackHeight?: string;
 }
 
 function toGeoJSON(positions: [number, number][]): GeoJSON.Feature<GeoJSON.LineString> {
@@ -89,6 +92,86 @@ function findNearestIndex(positions: [number, number][], lat: number, lng: numbe
     }
   }
   return minIdx;
+}
+
+function buildStaticRoutePath(positions: [number, number][]): string | null {
+  if (positions.length < 2) return null;
+  const lats = positions.map(([lat]) => lat);
+  const lngs = positions.map(([, lng]) => lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latSpan = Math.max(maxLat - minLat, 0.000001);
+  const lngSpan = Math.max(maxLng - minLng, 0.000001);
+  const pad = 16;
+  const width = 320;
+  const height = 160;
+
+  return positions
+    .map(([lat, lng], index) => {
+      const x = pad + ((lng - minLng) / lngSpan) * (width - pad * 2);
+      const y = pad + (1 - (lat - minLat) / latSpan) * (height - pad * 2);
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function RouteMapFallback({
+  positions,
+  imageUrl,
+  imageAlt,
+  height,
+  rounded,
+  title,
+  description,
+}: {
+  positions: [number, number][];
+  imageUrl?: string | null;
+  imageAlt: string;
+  height: string;
+  rounded: boolean;
+  title: string;
+  description: string;
+}) {
+  const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
+  if (imageUrl) {
+    return (
+      <div className={containerClass} style={{ background: "var(--bg-1)" }}>
+        <img
+          src={imageUrl}
+          alt={imageAlt}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  const path = buildStaticRoutePath(positions);
+  return (
+    <div
+      className={`${containerClass} relative flex items-center justify-center`}
+      role="status"
+      aria-live="polite"
+      style={{
+        background: "linear-gradient(135deg, var(--bg-1), var(--bg-2))",
+        color: "var(--ink-2)",
+        border: "1px solid var(--line-soft)",
+      }}
+    >
+      {path && (
+        <svg viewBox="0 0 320 160" className="absolute inset-0 h-full w-full" aria-hidden="true" preserveAspectRatio="none">
+          <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={path} fill="none" stroke="var(--lime)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+      <div className="relative mx-4 max-w-sm rounded-[var(--r-md)] px-4 py-3 text-center" style={{ background: "color-mix(in srgb, var(--bg-0) 82%, transparent)", border: "1px solid var(--line-soft)" }}>
+        <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{title}</div>
+        <div className="mt-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{description}</div>
+      </div>
+    </div>
+  );
 }
 
 function FitBoundsOnLoad({ bounds }: { bounds: LngLatBoundsLike }) {
@@ -174,6 +257,7 @@ export default function RouteMap({
   fitPadding = 20,
   fallbackImageUrl,
   fallbackImageAlt,
+  fallbackHeight,
 }: RouteMapProps) {
   const { t } = useTranslation("common");
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoMarker | null>(null);
@@ -228,45 +312,48 @@ export default function RouteMap({
   const bounds = getBounds(positions);
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
   const mapboxToken = getMapboxToken();
+  const fallback = (
+    <RouteMapFallback
+      positions={positions}
+      imageUrl={fallbackImageUrl}
+      imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
+      height={fallbackHeight ?? height}
+      rounded={rounded}
+      title={t("map.unavailableTitle")}
+      description={t("map.unavailableDescription")}
+    />
+  );
 
-  if (fallbackImageUrl && (!mapboxToken || mapFailed)) {
-    return (
-      <div className={containerClass} style={{ background: "var(--bg-1)" }}>
-        <img
-          src={fallbackImageUrl}
-          alt={fallbackImageAlt ?? t("map.routeImageAlt")}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
-      </div>
-    );
+  if (!mapboxToken || mapFailed) {
+    return fallback;
   }
 
   return (
     <div className={containerClass}>
-      <Map
-        mapboxAccessToken={mapboxToken}
-        mapStyle={MAP_STYLE}
-        preserveDrawingBuffer={preserveDrawingBuffer}
-        initialViewState={{ bounds, fitBoundsOptions: { padding: fitPadding } }}
-        onLoad={(e) => {
-          applyKoreaCyclingStyle(e.target);
-          // 캡처 모드: 기기 DPR 무관하게 고정 해상도로 렌더링
-          if (pixelRatio && typeof (e.target as unknown as { setPixelRatio?: (n: number) => void }).setPixelRatio === "function") {
-            (e.target as unknown as { setPixelRatio: (n: number) => void }).setPixelRatio(pixelRatio);
-          }
-          if (onLoad) { e.target.once("idle", onLoad); }
-        }}
-        onError={() => setMapFailed(true)}
-        interactive={interactive}
-        scrollZoom={interactive}
-        dragPan={interactive}
-        dragRotate={false}
-        doubleClickZoom={interactive}
-        touchZoomRotate={interactive}
-        attributionControl={false}
-        style={{ width: "100%", height: "100%" }}
-      >
+      <ErrorBoundary fallback={() => fallback} onError={() => setMapFailed(true)}>
+        <Map
+          mapboxAccessToken={mapboxToken}
+          mapStyle={MAP_STYLE}
+          preserveDrawingBuffer={preserveDrawingBuffer}
+          initialViewState={{ bounds, fitBoundsOptions: { padding: fitPadding } }}
+          onLoad={(e) => {
+            applyKoreaCyclingStyle(e.target);
+            // 캡처 모드: 기기 DPR 무관하게 고정 해상도로 렌더링
+            if (pixelRatio && typeof (e.target as unknown as { setPixelRatio?: (n: number) => void }).setPixelRatio === "function") {
+              (e.target as unknown as { setPixelRatio: (n: number) => void }).setPixelRatio(pixelRatio);
+            }
+            if (onLoad) { e.target.once("idle", onLoad); }
+          }}
+          onError={() => setMapFailed(true)}
+          interactive={interactive}
+          scrollZoom={interactive}
+          dragPan={interactive}
+          dragRotate={false}
+          doubleClickZoom={interactive}
+          touchZoomRotate={interactive}
+          attributionControl={false}
+          style={{ width: "100%", height: "100%" }}
+        >
         {highlightRange ? (
           <>
             {/* Full route in gray */}
@@ -458,7 +545,8 @@ export default function RouteMap({
         {flyToPosition !== undefined && (
           <FlyToPositionControl position={flyToPosition} fullBounds={bounds} />
         )}
-      </Map>
+        </Map>
+      </ErrorBoundary>
     </div>
   );
 }

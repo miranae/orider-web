@@ -422,8 +422,8 @@ export default function EventMap({
             <div>
               {t("liveView.statusLabel")}: {getStatusLabel(popupInfo.status)}
             </div>
-            <div>{popupInfo.speed.toFixed(1)} km/h</div>
-            <div>{(popupInfo.distance / 1000).toFixed(1)} km</div>
+            <div>{(popupInfo.speed ?? 0).toFixed(1)} km/h</div>
+            <div>{((popupInfo.distance ?? 0) / 1000).toFixed(1)} km</div>
             {popupInfo.overallRank != null && (
               <div>{t("dashboard.alert.overallRank", { rank: popupInfo.overallRank })}</div>
             )}

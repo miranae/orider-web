@@ -11,7 +11,7 @@
  *
  * 베타: 바람/드래프팅/가감속 미반영 — 정확도 미보장 (배너 고지).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,6 +23,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { useAuth } from "../contexts/AuthContext";
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
@@ -104,6 +105,7 @@ export default function LabPage() {
   // ── 코스 목록 (내 코스) + URL courseId 직접 로드 ──────────────────────
   const [courses, setCourses] = useState<CourseLite[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
+  const appliedUrlCourseIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!uid) {
@@ -113,20 +115,19 @@ export default function LabPage() {
     const q = query(
       collection(firestore, "courses"),
       where("creatorId", "==", uid),
-      where("deletedAt", "==", null),
     );
     const unsub = onSnapshot(q, (snap) => {
       setCourses(
-        snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            name: data.name ?? "",
-            distance: data.distance ?? 0,
-            elevationGain: data.elevationGain ?? 0,
-            elevationProfile: data.elevationProfile,
-          };
-        }),
+        snap.docs
+          .map((d) => ({ id: d.id, data: d.data() }))
+          .filter((item) => isVisibleCourseDocData(item.data))
+          .map((item) => ({
+            id: item.id,
+            name: item.data.name ?? "",
+            distance: item.data.distance ?? 0,
+            elevationGain: item.data.elevationGain ?? 0,
+            elevationProfile: item.data.elevationProfile,
+          })),
       );
     });
     return () => unsub();
@@ -136,7 +137,10 @@ export default function LabPage() {
   const urlCourseId = searchParams.get("courseId");
   useEffect(() => {
     if (!urlCourseId) return;
-    setSelectedId(urlCourseId);
+    if (appliedUrlCourseIdRef.current !== urlCourseId) {
+      appliedUrlCourseIdRef.current = urlCourseId;
+      setSelectedId(urlCourseId);
+    }
     if (courses.some((c) => c.id === urlCourseId)) return;
     let cancelled = false;
     getDoc(doc(firestore, "courses", urlCourseId)).then((snap) => {

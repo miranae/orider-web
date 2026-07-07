@@ -14,6 +14,7 @@ import { useStrava } from "../hooks/useStrava";
 import RouteMap from "../components/RouteMap";
 import Avatar from "../components/Avatar";
 import { Button, Card, Text } from "../theme/components";
+import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { isImplausibleAvgSpeed } from "../utils/activitySanity";
 
 /** 비현실 평속(80 km/h 초과 등)은 "—" 로 가린다. 세그먼트 기록은 bike 기준. */
@@ -40,6 +41,23 @@ function rankStyle(rank: number): React.CSSProperties {
   const s = rank >= 1 && rank <= 3 ? RANK_STYLES[rank - 1] : undefined;
   if (!s) return { background: "var(--bg-3)", color: "var(--ink-2)", border: "1px solid var(--line-soft)" };
   return { background: s.bg, color: s.color, border: `1px solid ${s.border}` };
+}
+
+export function parseSegmentLatlng(value: string | null | undefined): [number, number][] | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+    const latlng = parsed.filter((point): point is [number, number] =>
+      Array.isArray(point) &&
+      point.length >= 2 &&
+      typeof point[0] === "number" &&
+      typeof point[1] === "number",
+    );
+    return latlng.length > 0 ? latlng : null;
+  } catch {
+    return null;
+  }
 }
 
 interface SegmentData {
@@ -216,6 +234,11 @@ export default function SegmentPage() {
   const [myOutsideEffort, setMyOutsideEffort] = useState<EffortData | null>(null);
   const [resolvedLatlng, setResolvedLatlng] = useState<[number, number][] | null>(null);
   const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    fetchedRef.current = false;
+    setResolvedLatlng(null);
+  }, [segmentId]);
 
   // Subscribe to approved user photos for this segment
   useEffect(() => {
@@ -458,17 +481,16 @@ export default function SegmentPage() {
     let cancelled = false;
     getDocs(query(
       collection(firestore, "courses"),
-      where("deletedAt", "==", null),
       where("segmentIds", "array-contains", segmentId),
       orderBy("createdAt", "desc"),
       limit(6),
     ))
       .then((snap) => {
         if (cancelled) return;
-        setUsedByCourses(snap.docs.map((d) => {
-          const x = d.data();
-          return { id: d.id, name: x.name ?? "", distance: x.distance ?? 0, elevationGain: x.elevationGain ?? 0 };
-        }));
+        setUsedByCourses(snap.docs
+          .map((d) => ({ id: d.id, data: d.data() }))
+          .filter((item) => isVisibleCourseDocData(item.data))
+          .map((item) => ({ id: item.id, name: item.data.name ?? "", distance: item.data.distance ?? 0, elevationGain: item.data.elevationGain ?? 0 })));
       })
       .catch((err) => { logClientError("SegmentPage.usedByCourses", err, { segmentId }); });
     return () => { cancelled = true; };
@@ -548,9 +570,7 @@ export default function SegmentPage() {
 
       {/* Map */}
       {(() => {
-        const parsed: [number, number][] | null = segment.segmentLatlng
-          ? JSON.parse(segment.segmentLatlng)
-          : null;
+        const parsed = parseSegmentLatlng(segment.segmentLatlng);
         const latlng = (parsed && parsed.length > 0)
           ? parsed
           : resolvedLatlng

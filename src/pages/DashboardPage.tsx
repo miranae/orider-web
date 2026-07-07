@@ -11,7 +11,7 @@ import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance } from "../utils/units";
-import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
+import { useActivities, useWeeklyStats, useActivitySearch, useMonthlyActivityDistance } from "../hooks/useActivities";
 import type { DatePreset } from "../hooks/useActivities";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { estimateActivityLoad, aggregateDailyLoad, calculateFitness } from "../utils/fitnessMetrics";
@@ -37,8 +37,8 @@ function formatDuration(ms: number): string {
 }
 
 /** 숫자 콤마 포맷 */
-function formatNum(n: number): string {
-  return n.toLocaleString("ko-KR");
+function formatNum(n: number, locale: string): string {
+  return n.toLocaleString(locale);
 }
 
 /** 초 → "M:SS" 형식 */
@@ -130,7 +130,7 @@ function WeeklyTssBars({
 // ── 메인 대시보드 ──
 
 export default function DashboardPage() {
-  const { t } = useTranslation("dashboard");
+  const { t, i18n } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common");
   const [feedFilter, setFeedFilter] = useState(0);
   // 사이드바 푸터(약관/정책 링크) 접이식 — Layout 데스크톱 푸터를 메인화면에서 흡수 (#347 후속)
@@ -141,6 +141,7 @@ export default function DashboardPage() {
   const { units } = useLocale();
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities();
   const { weeklyStats, thisWeek } = useWeeklyStats();
+  const monthlyActivityDistance = useMonthlyActivityDistance();
   const activitySearch = useActivitySearch();
 
   const [searchParams] = useSearchParams();
@@ -326,7 +327,7 @@ export default function DashboardPage() {
     },
     {
       label: t("kpi.elevation"),
-      value: units === 'imperial' ? formatNum(Math.round(thisWeek.elevation / 0.3048)) : formatNum(thisWeek.elevation),
+      value: units === 'imperial' ? formatNum(Math.round(thisWeek.elevation / 0.3048), i18n.language) : formatNum(thisWeek.elevation, i18n.language),
       unit: units === 'imperial' ? 'ft' : 'm',
       delta: null,
       deltaKind: "up" as const,
@@ -367,7 +368,7 @@ export default function DashboardPage() {
     <div className="flex flex-col">
         {/* 페이지 헤더 */}
         <PageHeader
-          eyebrow={new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
+          eyebrow={new Date().toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
           title={heroTitle}
           subtitle={
             isAnon ? (
@@ -428,7 +429,7 @@ export default function DashboardPage() {
                   style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}
                   title={t("feed.countTooltip")}
                 >
-                  {t("feed.countSuffix", { value: formatNum(totalCount) })}
+                  {t("feed.countSuffix", { value: formatNum(totalCount, i18n.language) })}
                   <span style={{ fontFamily: "var(--font-sans)", color: "var(--ink-4)", marginLeft: 'var(--space-1)' }}>{t("feed.feedScope")}</span>
                 </span>
               )}
@@ -640,13 +641,9 @@ export default function DashboardPage() {
             {(() => {
               const now = new Date();
               const monthLabel = t("sidebar.monthlyGoal.title", { month: now.getMonth() + 1 });
-              // 이번 달 실제 거리 (useWeeklyStats의 activities 기반)
-              const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-              const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).getTime();
               const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
               const daysLeft = daysInMonth - now.getDate();
-              const userActs = user ? activities.filter(a => a.userId === user.uid && a.startTime >= monthStart && a.startTime <= monthEnd) : [];
-              const actualKm = Math.round(userActs.reduce((s, a) => s + a.summary.distance, 0) / 1000);
+              const actualKm = Math.round(monthlyActivityDistance / 1000);
               // 월간 목표: 운동 계획이 있으면 주간 평균 × 4.3, 없으면 최근 4주 평균 × 1.1
               const weeklyAvgKm = weeklyStats.length > 0
                 ? Math.round(weeklyStats.reduce((s, w) => s + w.distance, 0) / weeklyStats.length)

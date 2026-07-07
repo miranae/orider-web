@@ -93,7 +93,10 @@ export default function WeeklyChart({
   );
 
   const totalActive = useMemo(
-    () => data.reduce((acc, d) => acc + d[activeKey], 0),
+    () => data.reduce((acc, d) => {
+      const value = d[activeKey];
+      return acc + (Number.isFinite(value) ? value : 0);
+    }, 0),
     [data, activeKey],
   );
 
@@ -101,7 +104,7 @@ export default function WeeklyChart({
     labels,
     datasets: [
       {
-        data: data.map((d) => d[activeKey]),
+        data: data.map((d) => Number.isFinite(d[activeKey]) ? d[activeKey] : 0),
         backgroundColor: COLOR_MAP[activeKey],
         borderRadius: 4,
         barPercentage: 0.75,

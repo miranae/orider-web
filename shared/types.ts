@@ -152,6 +152,7 @@ export interface Notification {
   message: string;
   read: boolean;
   createdAt: number;
+  dismissedAt?: number | null;
 }
 
 // ── Segment ──────────────────────────────────────────────────────────
@@ -629,6 +630,10 @@ export interface BoardPost {
   updatedAt: number;
   feedbackType?: FeedbackType | null;
   isPrivate?: boolean;
+  moderationStatus?: 'new' | 'triaged' | 'waiting_user' | 'resolved' | 'closed' | null;
+  inquiryStatus?: 'new' | 'triaged' | 'waiting_user' | 'resolved' | 'closed' | null;
+  lastModeratorActionAt?: number | null;
+  resolvedAt?: number | null;
   deletedAt?: number | null;
 }
 

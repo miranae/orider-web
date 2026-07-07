@@ -4,6 +4,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { doc, updateDoc } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
+import { useStrava } from "../hooks/useStrava";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import { Bike, Footprints, Triangle, Waves } from "lucide-react";
@@ -20,6 +21,7 @@ const DISCIPLINES = [
 export default function OnboardingPage() {
   const { t } = useTranslation("auth");
   const { user, loading } = useAuth();
+  const { connectStrava } = useStrava();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("discipline");
   // E3 or_onboarding_step_view — 모바일 앱과 동일 이벤트명으로 웹 온보딩 단계 진입 측정.
@@ -76,12 +78,15 @@ export default function OnboardingPage() {
 
   const handleStravaConnect = async () => {
     if (!userRef) return;
+    setSaving(true);
+    setError(null);
     try {
       await updateDoc(userRef, { onboardingStep: "goal" });
-      navigate("/settings", { replace: true });
+      connectStrava("/settings");
     } catch (err) {
       logClientError("OnboardingPage.handleStravaConnect", err);
       setError(t("saveFailed"));
+      setSaving(false);
     }
   };
 
@@ -202,10 +207,11 @@ export default function OnboardingPage() {
             </p>
             <button
               onClick={handleStravaConnect}
+              disabled={saving}
               className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mb-3"
-              style={{ background: "var(--accent)", color: "var(--ink-0)" }}
+              style={{ background: "var(--accent)", color: "var(--ink-0)", opacity: saving ? 0.4 : 1 }}
             >
-              {t("onboarding.strava.connect")}
+              {saving ? t("saving") : t("onboarding.strava.connect")}
             </button>
             <button
               onClick={handleStravaSkip}

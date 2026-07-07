@@ -1,8 +1,15 @@
 import { screen, waitFor } from "@testing-library/react";
-import MigrationPage from "./MigrationPage";
+import MigrationPage, { calculateMigrationProgressPercent } from "./MigrationPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
 describe("MigrationPage", () => {
+  it("calculates partial migration progress without NaN", () => {
+    expect(calculateMigrationProgressPercent({
+      totalActivities: 100,
+      currentPage: 1,
+    })).toBe(0);
+  });
+
   it("shows landing step for unauthenticated users", async () => {
     renderWithProviders(<MigrationPage />, { authenticated: false });
     await waitFor(() => {
@@ -74,6 +81,38 @@ describe("MigrationPage", () => {
       expect(
         content.includes("진행") || content.includes("50") || content.includes("활동"),
       ).toBeTruthy();
+    });
+  });
+
+  it("does not render NaN progress for partial progress documents", async () => {
+    renderWithProviders(<MigrationPage />, {
+      authenticated: true,
+      profile: {
+        stravaConnected: true,
+        migration: {
+          status: "RUNNING",
+          scope: { period: "recent_90", includePhotos: false, includeSegments: false },
+          progress: {
+            totalActivities: 100,
+            currentPage: 1,
+            totalPages: 5,
+            phase: "activities",
+            totalStreams: 0,
+            fetchedStreams: 0,
+            failedStreams: 0,
+            startedAt: Date.now() - 60000,
+            updatedAt: Date.now(),
+            queuePosition: null,
+            waitUntil: null,
+            estimatedMinutes: 5,
+          },
+          report: null,
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(document.body.textContent ?? "").not.toContain("NaN");
     });
   });
 

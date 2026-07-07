@@ -55,6 +55,11 @@ describe("steadyStateSpeed", () => {
     const v = steadyStateSpeed(-0.2, { ...baseParams, powerW: 1500 });
     expect(v * 3.6).toBeLessThanOrEqual(120 + 1e-6);
   });
+
+  it("무동력 급내리막은 중력 종단속도로 활강한다", () => {
+    const v = steadyStateSpeed(-0.08, { ...baseParams, powerW: 0 });
+    expect(v * 3.6).toBeGreaterThan(40);
+  });
 });
 
 describe("simulateCourse", () => {
@@ -84,6 +89,12 @@ describe("simulateCourse", () => {
     const res = simulateCourse([], { ...baseParams, powerW: 250 });
     expect(res.totalSec).toBe(0);
     expect(res.avgSpeedKmh).toBe(0);
+  });
+
+  it("무동력 급내리막 코스를 0.3m/s fallback으로 예측하지 않는다", () => {
+    const res = simulateCourse([{ distanceM: 5000, grade: -0.08 }], { ...baseParams, powerW: 0 });
+    expect(res.totalSec).toBeLessThan(600);
+    expect(res.avgSpeedKmh).toBeGreaterThan(30);
   });
 });
 

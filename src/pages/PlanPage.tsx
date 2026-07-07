@@ -483,7 +483,7 @@ function Legend() {
 // ── Main Page ─────────────────────────────────────────────────────────
 
 export default function PlanPage() {
-  const { t } = useTranslation('training');
+  const { t, i18n } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const { t: tActivity } = useTranslation('activity');
   const DAY_NAMES = useMemo(() => buildDayNames(tCommon), [tCommon]);
@@ -773,7 +773,7 @@ export default function PlanPage() {
                 <span>
                   {t('page.goalDateLabel')}{' '}
                   <span style={{ color: 'var(--ink-0)' }}>
-                    {goalDate.toLocaleDateString('ko-KR', {
+                    {goalDate.toLocaleDateString(i18n.language, {
                       year: 'numeric', month: '2-digit', day: '2-digit',
                     })}
                   </span>

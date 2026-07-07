@@ -170,6 +170,11 @@ describe('Card padding prop', () => {
     expect((container.firstElementChild as HTMLElement).style.padding).toBe('0px');
   });
 
+  it('padding="none" 이라도 className padding 이 있으면 inline padding 으로 막지 않음', () => {
+    const { container } = render(<Card padding="none" className="p-4 md:p-6">x</Card>);
+    expect((container.firstElementChild as HTMLElement).style.padding).toBe('');
+  });
+
   it('padding="card"(기본) 시 inline padding 미설정 → CSS 기본 16px 사용', () => {
     const { container } = render(<Card>x</Card>);
     expect((container.firstElementChild as HTMLElement).style.padding).toBe('');

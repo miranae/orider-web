@@ -113,6 +113,13 @@ export function steadyStateSpeed(grade: number, params: SimParams): number {
 
   const driveP = Math.max(0, powerW) * eta;
 
+  if (driveP <= 0) {
+    if (linForce < 0) {
+      return Math.sqrt(-linForce / aeroK);
+    }
+    return 0.3; // ≈ 1.08 km/h
+  }
+
   // f(v) = driveP − aeroK·v³ − linForce·v.
   // v 증가 시 f 단조 감소(공기·구름항 증가). f(0)=driveP.
   // 내리막(linForce<0)에서는 동력 없이도 v>0 해가 존재.

@@ -63,6 +63,33 @@ function isPermissionDeniedError(err: unknown): boolean {
   return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "permission-denied";
 }
 
+function StreamUnavailableCard({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  return (
+    <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+      <div className="flex items-start gap-3">
+        <div
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-lg)]"
+          style={{ background: "color-mix(in srgb, var(--amber) 14%, transparent)", color: "var(--amber)" }}
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 4.4 2.7 18a1.8 1.8 0 0 0 1.6 2.7h15.4a1.8 1.8 0 0 0 1.6-2.7L13.7 4.4a1.9 1.9 0 0 0-3.4 0Z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{title}</h3>
+          <p className="mt-1 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{message}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -149,7 +176,8 @@ export default function ActivityPage() {
 
     getDoc(doc(firestore, "activities", activityId)).then((snap) => {
       if (snap.exists()) {
-        setActivity({ id: snap.id, ...snap.data() } as Activity);
+        const data = snap.data();
+        setActivity(data.summary == null ? null : { id: snap.id, ...data } as Activity);
       }
       setLoadingActivity(false);
     }).catch(() => setLoadingActivity(false));
@@ -386,8 +414,8 @@ export default function ActivityPage() {
   const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
 
   const summaryStats = useMemo(() => {
-    return buildSummaryStats(sampledData, activity?.summary.averagePower ?? activity?.avgPower);
-  }, [sampledData, activity?.summary.averagePower, activity?.avgPower]);
+    return buildSummaryStats(sampledData, activity?.summary?.averagePower ?? activity?.avgPower);
+  }, [sampledData, activity?.summary?.averagePower, activity?.avgPower]);
 
   const markerPosition = useMemo(() => {
     if (hoverIndex == null || !sampledData[hoverIndex]) return null;
@@ -416,7 +444,7 @@ export default function ActivityPage() {
     );
   }
 
-  if (!activity) {
+  if (!activity?.summary) {
     return (
       <div className="text-center py-16" style={{ color: 'var(--ink-2)' }}>
         <div className="text-[48px] mb-4">🔍</div>
@@ -479,6 +507,9 @@ export default function ActivityPage() {
   const topResults = segmentEfforts.filter(
     (e) => (e.prRank != null && e.prRank >= 1 && e.prRank <= 3) || (e.komRank != null && e.komRank >= 1 && e.komRank <= 10),
   );
+  const streamUnavailableMessage = loadingStreams || showStreamSpinner
+    ? t("page.loadingGps")
+    : streamsError ?? t("page.streamsMissing");
 
   return (
     <div className="max-w-[1440px] mx-auto space-y-6">
@@ -621,22 +652,23 @@ export default function ActivityPage() {
       />
 
       {/* ── 탭 네비게이션 ── */}
-      {streams && (
-        <TabNav
-          tabs={[
-            { id: "overview", label: t("tab.overview") },
-            { id: "analysis", label: t("tab.analysis") },
-            ...(segmentEfforts.length > 0 || topResults.length > 0 ? [{ id: "segments", label: t("tab.segments"), count: segmentEfforts.length || undefined }] : []),
-            ...(sport === "run" && streams.laps?.length ? [{ id: "splits", label: t("tab.splits"), count: streams.laps.length }] : []),
-            ...(streams.laps?.length ? [{ id: "laps", label: sport === "swim" ? t("tab.sets") : t("tab.laps"), count: streams.laps.length }] : []),
-            { id: "export", label: t("tab.export") },
-          ]}
-          activeTab={activeTab}
-          onChange={setActiveTab}
-        />
-      )}
+      <TabNav
+        tabs={[
+          { id: "overview", label: t("tab.overview") },
+          { id: "analysis", label: t("tab.analysis") },
+          { id: "segments", label: t("tab.segments"), count: segmentEfforts.length || undefined },
+          ...(sport === "run" && streams?.laps?.length ? [{ id: "splits", label: t("tab.splits"), count: streams.laps.length }] : []),
+          ...(streams?.laps?.length ? [{ id: "laps", label: sport === "swim" ? t("tab.sets") : t("tab.laps"), count: streams.laps.length }] : []),
+          { id: "export", label: t("tab.export") },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* ── 분석 탭 ── */}
+      {activeTab === "analysis" && !streams && (
+        <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} />
+      )}
       {activeTab === "analysis" && streams && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
@@ -687,6 +719,9 @@ export default function ActivityPage() {
       )}
 
       {/* ── 내보내기 탭 ── */}
+      {activeTab === "export" && !streams && (
+        <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} />
+      )}
       {activeTab === "export" && streams && activity && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <ExportTab activity={activity} streams={streams} />
@@ -694,7 +729,7 @@ export default function ActivityPage() {
       )}
 
       {/* ── Two-column layout: Main | Sidebar (개요 탭) ── */}
-      {(activeTab === "overview" || !streams) && (
+      {activeTab === "overview" && (
       <div className="flex flex-col lg:flex-row gap-6">
 
 
@@ -1051,6 +1086,9 @@ export default function ActivityPage() {
       )}
 
       {/* ── 세그먼트 탭 — 주요성과 + 세그먼트/코스 등록 ── */}
+      {activeTab === "segments" && !streams && (
+        <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} />
+      )}
       {activeTab === "segments" && streams && (
       <div className="space-y-6">
 
@@ -1196,6 +1234,10 @@ export default function ActivityPage() {
           onHover={setHoveredSegment}
           formatTime={formatTime}
         />
+      )}
+
+      {segmentEfforts.length === 0 && topResults.length === 0 && (
+        <StreamUnavailableCard title={t("page.noSegmentsTitle")} message={t("page.noSegmentsDesc")} />
       )}
 
       {/* 세그먼트 & 코스 만들기 (수영은 세그먼트 없음) */}

@@ -203,7 +203,9 @@
   "map": {
     "placeholder": "Map",
     "noRouteData": "No route data",
-    "routeImageAlt": "Activity route map"
+    "routeImageAlt": "Activity route map",
+    "unavailableTitle": "Could not prepare the map",
+    "unavailableDescription": "Route data is still available."
   },
   "designTheme": {
     "default": "Default",

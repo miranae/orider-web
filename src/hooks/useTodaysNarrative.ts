@@ -127,7 +127,7 @@ export function useTodaysNarrative(
           inputSnapshot: facts.inputSnapshot,
         },
         s: summary ? {
-          computedAt: Math.floor(summary.computedAt / 86400000),
+          computedAt: new Date(summary.computedAt).toLocaleDateString("en-CA"),
           week: summary.week,
           today: summary.today,
           month: summary.month,

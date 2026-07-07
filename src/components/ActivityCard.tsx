@@ -39,6 +39,25 @@ interface ActivityCardProps {
   priority?: boolean;
 }
 
+const EMPTY_ACTIVITY_SUMMARY: Activity["summary"] = {
+  distance: 0,
+  ridingTimeMillis: 0,
+  averageSpeed: 0,
+  maxSpeed: 0,
+  averageCadence: null,
+  maxCadence: null,
+  averageHeartRate: null,
+  maxHeartRate: null,
+  averagePower: null,
+  maxPower: null,
+  normalizedPower: null,
+  elevationGain: 0,
+  calories: null,
+  relativeEffort: null,
+  tss: null,
+  swolf: null,
+};
+
 /**
  * 지도 이미지가 있으면 img, 없으면 RouteMap 라이브 렌더링 후 캡처 → Storage 업로드.
  *
@@ -344,7 +363,7 @@ export default function ActivityCard({
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
-  const s = activity.summary;
+  const s = activity.summary ?? EMPTY_ACTIVITY_SUMMARY;
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const { units } = useLocale();
   const { getStreams } = useStrava();

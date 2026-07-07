@@ -14,6 +14,7 @@ export default function FriendsPage() {
   const { showToast } = useToast();
   const [codeInput, setCodeInput] = useState("");
   const [tab, setTab] = useState<"friends" | "requests">("friends");
+  const [pendingRequests, setPendingRequests] = useState<Set<string>>(() => new Set());
 
   if (!user) {
     return (
@@ -47,20 +48,38 @@ export default function FriendsPage() {
   };
 
   const handleAccept = async (requesterId: string) => {
+    const key = `accept:${requesterId}`;
+    if (pendingRequests.has(key)) return;
+    setPendingRequests((prev) => new Set(prev).add(key));
     try {
       await acceptRequest(requesterId);
       showToast(t("toast.acceptSuccess"));
     } catch {
       showToast(t("toast.acceptFailed"));
+    } finally {
+      setPendingRequests((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
   const handleDecline = async (requesterId: string) => {
+    const key = `decline:${requesterId}`;
+    if (pendingRequests.has(key)) return;
+    setPendingRequests((prev) => new Set(prev).add(key));
     try {
       await declineRequest(requesterId);
       showToast(t("toast.declineSuccess"));
     } catch {
       showToast(t("toast.declineFailed"));
+    } finally {
+      setPendingRequests((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -115,7 +134,7 @@ export default function FriendsPage() {
           <button
             onClick={handleAddByCode}
             disabled={actionLoading || !codeInput.trim()}
-            className={`ds-btn ds-btn--md px-5 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] disabled:opacity-50${actionLoading ? 'cursor-wait' : ''}`}
+            className={`ds-btn ds-btn--md px-5 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] disabled:opacity-50 ${actionLoading ? 'cursor-wait' : ''}`}
           >
             {actionLoading ? (
               <span className="flex items-center gap-1.5">
@@ -205,8 +224,12 @@ export default function FriendsPage() {
             </div>
           ) : (
             <div className="divide-y divide-[var(--line-soft)]">
-              {requests.map((r) => (
-                <div key={r.requesterId} className="px-4 py-3 flex items-center gap-3">
+              {requests.map((r) => {
+                const accepting = pendingRequests.has(`accept:${r.requesterId}`);
+                const declining = pendingRequests.has(`decline:${r.requesterId}`);
+                const requestPending = accepting || declining;
+                return (
+                  <div key={r.requesterId} className="px-4 py-3 flex items-center gap-3">
                   <Link to={`/athlete/${r.requesterId}`} className="flex items-center gap-3 flex-1 min-w-0">
                     <Avatar name={r.nickname} imageUrl={r.profileImage} size="md" />
                     <span className="text-[length:var(--fs-sm)] font-medium text-[var(--ink-0)] truncate">{r.nickname}</span>
@@ -214,22 +237,23 @@ export default function FriendsPage() {
                   <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => handleAccept(r.requesterId)}
-                      disabled={actionLoading}
-                      className={`ds-btn ds-btn--md px-3 py-1.5 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-lg)] disabled:opacity-50${actionLoading ? 'cursor-wait' : ''}`}
+                      disabled={requestPending}
+                      className={`ds-btn ds-btn--md px-3 py-1.5 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-lg)] disabled:opacity-50 ${accepting ? 'cursor-wait' : ''}`}
                     >
-                      {actionLoading ? t("accepting") : t("accept")}
+                      {accepting ? t("accepting") : t("accept")}
                     </button>
                     <button
                       onClick={() => handleDecline(r.requesterId)}
-                      disabled={actionLoading}
-                      className={`px-3 py-1.5 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-lg)] text-[var(--ink-1)] hover:bg-[var(--bg-3)] transition-colors disabled:opacity-50 ${actionLoading ? 'cursor-wait' : ''}`}
+                      disabled={requestPending}
+                      className={`px-3 py-1.5 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-lg)] text-[var(--ink-1)] hover:bg-[var(--bg-3)] transition-colors disabled:opacity-50 ${declining ? 'cursor-wait' : ''}`}
                       style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}
                     >
-                      {actionLoading ? t("declining") : t("decline")}
+                      {declining ? t("declining") : t("decline")}
                     </button>
                   </div>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>

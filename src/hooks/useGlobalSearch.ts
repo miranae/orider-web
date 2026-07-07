@@ -9,8 +9,8 @@ interface SearchResults {
 }
 
 export function useGlobalSearch(query: string): { results: SearchResults; loading: boolean } {
-  const { activities } = useActivities();
-  const { courses } = useCourses();
+  const { activities, loading: activitiesLoading } = useActivities();
+  const { courses, loading: coursesLoading } = useCourses();
 
   const results = useMemo(() => {
     if (!query.trim()) return { activities: [], courses: [] };
@@ -25,5 +25,5 @@ export function useGlobalSearch(query: string): { results: SearchResults; loadin
     };
   }, [query, activities, courses]);
 
-  return { results, loading: false };
+  return { results, loading: activitiesLoading || coursesLoading };
 }

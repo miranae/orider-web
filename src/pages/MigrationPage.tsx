@@ -5,10 +5,26 @@ import { useAuth } from "../contexts/AuthContext";
 import { useStrava } from "../hooks/useStrava";
 
 type Step = "landing" | "progress" | "report";
+type MigrationProgressLike = {
+  totalActivities?: number | null;
+  importedActivities?: number | null;
+  skippedActivities?: number | null;
+  currentPage?: number | null;
+};
+
+export function calculateMigrationProgressPercent(progress: MigrationProgressLike | null | undefined): number {
+  if (!progress) return 0;
+  const totalActivities = progress.totalActivities ?? 0;
+  if (totalActivities > 0) {
+    const completedActivities = (progress.importedActivities ?? 0) + (progress.skippedActivities ?? 0);
+    return Math.min(95, Math.round((completedActivities / totalActivities) * 95));
+  }
+  return progress.currentPage ? Math.min(90, progress.currentPage * 10) : 0;
+}
 
 function Section({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`ds-card ds-card--bare overflow-hidden${className}`}>
+    <div className={`ds-card ds-card--bare overflow-hidden ${className}`}>
       {children}
     </div>
   );
@@ -147,14 +163,7 @@ export default function MigrationPage() {
   const progress = migration?.progress;
   const report = migration?.report;
 
-  // Calculate progress percentage (activities only)
-  const progressPercent = (() => {
-    if (!progress) return 0;
-    if (progress.totalActivities > 0) {
-      return Math.min(95, Math.round(((progress.importedActivities + progress.skippedActivities) / progress.totalActivities) * 95));
-    }
-    return progress.currentPage ? Math.min(90, progress.currentPage * 10) : 0;
-  })();
+  const progressPercent = calculateMigrationProgressPercent(progress);
 
   const waitUntil = progress?.waitUntil;
   const migrationStatus = migration?.status;
@@ -508,6 +517,39 @@ export default function MigrationPage() {
              </Section>
            )}
         </div>
+      )}
+      {step === "report" && !report && (
+        <Section className="p-8 text-center space-y-5">
+          <div className="w-20 h-20 mx-auto bg-[var(--bg-2)] rounded-full flex items-center justify-center">
+            <svg className="w-10 h-10 text-[var(--lime)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">{t("userMigration.reportTitle")}</h2>
+            <p className="text-[var(--ink-2)] mt-1">{t("userMigration.reportUnavailableDesc")}</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => navigate("/")}
+              className="px-6 py-3 bg-[var(--lime)] text-[var(--bg-0)] font-bold rounded-[var(--r-xl)] hover:opacity-90 transition-opacity"
+            >
+              {t("userMigration.viewFeed")}
+            </button>
+            <button
+              onClick={handleVerify}
+              disabled={verifying}
+              className={`px-6 py-3 border-2 border-[var(--lime)] text-[var(--lime)] font-bold rounded-[var(--r-xl)] hover:bg-[var(--lime)]/10 transition-colors disabled:opacity-60 ${verifying ? 'cursor-wait' : ''}`}
+            >
+              {verifying ? (
+                <span className="flex items-center gap-2">
+                  <Spinner />
+                  {t("userMigration.verifying")}
+                </span>
+              ) : t("userMigration.verify")}
+            </button>
+          </div>
+        </Section>
       )}
     </div>
   );
