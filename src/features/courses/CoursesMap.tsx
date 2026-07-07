@@ -17,20 +17,22 @@ function buildCourseLinesGeoJSON(
   courses: CourseData[],
   polylineCache: Map<string, LatLngTuple[]>,
   hoveredId: string | null,
+  selectedId: string | null,
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
   for (const course of courses) {
     const pts = polylineCache.get(course.id);
     if (!pts || pts.length < 2) continue;
+    const isSelected = selectedId === course.id;
     const isHovered = hoveredId === course.id;
     features.push({
       type: "Feature",
       properties: {
         id: course.id,
-        color: isHovered ? "#a3e635" : "#3B82F6",
-        width: isHovered ? 5 : 3,
-        opacity: isHovered ? 0.95 : 0.7,
-        glowOpacity: isHovered ? 0.5 : 0,
+        color: isSelected ? "#f97316" : isHovered ? "#a3e635" : "#3B82F6",
+        width: isSelected ? 6 : isHovered ? 5 : 3,
+        opacity: isSelected || isHovered ? 0.95 : 0.7,
+        glowOpacity: isSelected ? 0.62 : isHovered ? 0.5 : 0,
         name: course.name,
         distance: course.distance,
         elevationGain: course.elevationGain,
@@ -42,6 +44,14 @@ function buildCourseLinesGeoJSON(
     });
   }
   return { type: "FeatureCollection", features };
+}
+
+function getCoursePopupPosition(courseId: string | null, polylineCache: Map<string, LatLngTuple[]>): { lat: number; lng: number } | null {
+  if (!courseId) return null;
+  const pts = polylineCache.get(courseId);
+  if (!pts || pts.length === 0) return null;
+  const mid = pts[Math.floor(pts.length / 2)]!;
+  return { lat: mid[0], lng: mid[1] };
 }
 
 function FitAllBounds({ courses, polylineCache }: {
@@ -117,6 +127,8 @@ export interface CoursesMapProps {
   onMapInteraction: () => void;
   onHoverCourse: (courseId: string | null) => void;
   onScrollToCourse: (courseId: string) => void;
+  onSelectCourse: (courseId: string) => void;
+  onClearSelection: () => void;
   onOpenCourse: (courseId: string) => void;
   onMapFailed: () => void;
   className?: string;
@@ -132,6 +144,8 @@ export function CoursesMap({
   onMapInteraction,
   onHoverCourse,
   onScrollToCourse,
+  onSelectCourse,
+  onClearSelection,
   onOpenCourse,
   onMapFailed,
   className = "h-64 lg:h-auto lg:flex-[2] relative",
@@ -140,8 +154,16 @@ export function CoursesMap({
   const mapboxToken = getMapboxToken();
   const [tooltipInfo, setTooltipInfo] = useState<{ lng: number; lat: number; name: string; distance: number; elevGain: number } | null>(null);
   const linesGeoJSON = useMemo(
-    () => buildCourseLinesGeoJSON(visibleCourses, polylineCache, hoveredId),
-    [visibleCourses, polylineCache, hoveredId],
+    () => buildCourseLinesGeoJSON(visibleCourses, polylineCache, hoveredId, selectedId),
+    [visibleCourses, polylineCache, hoveredId, selectedId],
+  );
+  const selectedCourse = useMemo(
+    () => allCourses.find((course) => course.id === selectedId) ?? null,
+    [allCourses, selectedId],
+  );
+  const selectedPopupPosition = useMemo(
+    () => getCoursePopupPosition(selectedId, polylineCache),
+    [selectedId, polylineCache],
   );
   const handleMoveEnd = useCallback((e: { target: { getBounds: () => LngLatBounds | null }; originalEvent?: unknown }) => {
     const bounds = e.target.getBounds();
@@ -153,8 +175,12 @@ export function CoursesMap({
     const map = e.target;
     const features = map.queryRenderedFeatures(e.point, { layers: ["course-lines-hit"] });
     const id = features[0]?.properties?.id;
-    if (id) onScrollToCourse(String(id));
-  }, [onScrollToCourse]);
+    if (id) {
+      const courseId = String(id);
+      onSelectCourse(courseId);
+      onScrollToCourse(courseId);
+    }
+  }, [onScrollToCourse, onSelectCourse]);
 
   const handleMapDblClick = useCallback((e: MapMouseEvent) => {
     const map = e.target;
@@ -256,6 +282,32 @@ export function CoursesMap({
               <div style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)" }}>
                 <div style={{ fontWeight: 600 }}>{tooltipInfo.name}</div>
                 <div style={{ color: "var(--ink-3)" }}>{(tooltipInfo.distance / 1000).toFixed(1)} km · ▲{Math.round(tooltipInfo.elevGain)}m</div>
+              </div>
+            </Popup>
+          )}
+          {selectedCourse && selectedPopupPosition && (
+            <Popup
+              longitude={selectedPopupPosition.lng}
+              latitude={selectedPopupPosition.lat}
+              anchor="bottom"
+              closeOnClick={false}
+              onClose={onClearSelection}
+              offset={16}
+              className="course-tooltip"
+            >
+              <div style={{ color: "var(--ink-0)", fontSize: "var(--fs-xs)", minWidth: 180 }}>
+                <div style={{ fontWeight: 700 }}>{selectedCourse.name}</div>
+                <div style={{ marginTop: "var(--space-1)", color: "var(--ink-3)" }}>
+                  {(selectedCourse.distance / 1000).toFixed(1)} km · ▲{Math.round(selectedCourse.elevationGain)}m
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpenCourse(selectedCourse.id)}
+                  className="mt-2 w-full rounded-[var(--r-sm)] px-3 py-1.5 font-semibold"
+                  style={{ background: "var(--lime)", color: "var(--primary-fg)" }}
+                >
+                  {t("button.detailView")}
+                </button>
               </div>
             </Popup>
           )}
