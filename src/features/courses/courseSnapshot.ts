@@ -75,6 +75,7 @@ export function applyCourseDocChanges(
   prevCourses: CourseData[],
   changes: CourseDocChange[],
   polylineCache: Map<string, LatLngTuple[]>,
+  polylineValueCache: Map<string, string> = new Map(),
 ): CourseData[] {
   const map = new Map(prevCourses.map((course) => [course.id, course]));
 
@@ -82,16 +83,21 @@ export function applyCourseDocChanges(
     if (change.type === "removed") {
       map.delete(change.id);
       polylineCache.delete(change.id);
+      polylineValueCache.delete(change.id);
       continue;
     }
 
     const course = courseFromSnapshotData(change.id, change.data);
     map.set(change.id, course);
     if (course.polyline) {
-      const decoded = decodeTrack(course.polyline) as LatLngTuple[];
-      polylineCache.set(change.id, sampleCoursePoints(decoded, 200));
+      if (polylineValueCache.get(change.id) !== course.polyline) {
+        const decoded = decodeTrack(course.polyline) as LatLngTuple[];
+        polylineCache.set(change.id, sampleCoursePoints(decoded, 200));
+        polylineValueCache.set(change.id, course.polyline);
+      }
     } else {
       polylineCache.delete(change.id);
+      polylineValueCache.delete(change.id);
     }
   }
 
@@ -101,18 +107,21 @@ export function applyCourseDocChanges(
 export function replaceCourseSnapshotDocs(
   docs: CourseSnapshotDoc[],
   polylineCache: Map<string, LatLngTuple[]>,
+  polylineValueCache: Map<string, string> = new Map(),
 ): CourseData[] {
   const nextCache = new Map<string, LatLngTuple[]>();
+  const nextValueCache = new Map<string, string>();
   const courses = docs.map((item) => {
     const course = courseFromSnapshotData(item.id, item.data);
     if (course.polyline) {
       const cached = polylineCache.get(course.id);
-      if (cached) {
+      if (cached && polylineValueCache.get(course.id) === course.polyline) {
         nextCache.set(course.id, cached);
       } else {
         const decoded = decodeTrack(course.polyline) as LatLngTuple[];
         nextCache.set(course.id, sampleCoursePoints(decoded, 200));
       }
+      nextValueCache.set(course.id, course.polyline);
     }
     return course;
   });
@@ -120,6 +129,10 @@ export function replaceCourseSnapshotDocs(
   polylineCache.clear();
   for (const [courseId, points] of nextCache) {
     polylineCache.set(courseId, points);
+  }
+  polylineValueCache.clear();
+  for (const [courseId, polyline] of nextValueCache) {
+    polylineValueCache.set(courseId, polyline);
   }
 
   return courses;

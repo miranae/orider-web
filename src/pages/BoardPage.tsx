@@ -9,6 +9,22 @@ import type { BoardType } from '@shared/types';
 import { Button, Card } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 
+export function getEffectiveListTotal({
+  submittedQuery,
+  clientExcludedCount,
+  displayedCount,
+  listTotal,
+}: {
+  submittedQuery: string;
+  clientExcludedCount: number;
+  displayedCount: number;
+  listTotal: number;
+}): number {
+  if (submittedQuery) return listTotal;
+  if (clientExcludedCount > 0) return displayedCount;
+  return listTotal;
+}
+
 const BoardPage: React.FC = () => {
   const { t } = useTranslation("board");
   const navigate = useNavigate();
@@ -100,7 +116,12 @@ const BoardPage: React.FC = () => {
     ? listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))
     : listPosts;
   const filteredOutAllPosts = listPosts.length > 0 && displayedPosts.length === 0;
-  const effectiveListTotal = submittedQuery || clientExcluded.size > 0 ? displayedPosts.length : listTotal;
+  const effectiveListTotal = getEffectiveListTotal({
+    submittedQuery,
+    clientExcludedCount: clientExcluded.size,
+    displayedCount: displayedPosts.length,
+    listTotal,
+  });
 
   const toggleTag = (name: string) => {
     setUncheckedTags(prev => {

@@ -50,6 +50,18 @@ describe("applyCourseDocChanges", () => {
     expect(next).toEqual([]);
     expect(polylineCache.has("course-a")).toBe(false);
   });
+
+  it("refreshes cached points when a course polyline changes in place", () => {
+    const polylineCache = new Map([["course-a", [[1, 1] as [number, number]]]]);
+    const polylineValueCache = new Map([["course-a", "old-polyline"]]);
+
+    applyCourseDocChanges([course("course-a")], [
+      { type: "modified", id: "course-a", data: { name: "course-a", polyline: "_p~iF~ps|U" } },
+    ], polylineCache, polylineValueCache);
+
+    expect(polylineCache.get("course-a")).not.toEqual([[1, 1]]);
+    expect(polylineValueCache.get("course-a")).toBe("_p~iF~ps|U");
+  });
 });
 
 describe("replaceCourseSnapshotDocs", () => {
@@ -65,5 +77,24 @@ describe("replaceCourseSnapshotDocs", () => {
 
     expect(next.map((item) => item.id)).toEqual(["course-a", "course-b"]);
     expect(polylineCache.has("stale-course")).toBe(false);
+  });
+
+  it("keeps cached points only when the polyline value is unchanged", () => {
+    const cachedPoints = [[37, 127] as [number, number]];
+    const polylineCache = new Map([["course-a", cachedPoints]]);
+    const polylineValueCache = new Map([["course-a", "_p~iF~ps|U"]]);
+
+    replaceCourseSnapshotDocs([
+      { id: "course-a", data: { name: "course-a", polyline: "_p~iF~ps|U" } },
+    ], polylineCache, polylineValueCache);
+
+    expect(polylineCache.get("course-a")).toBe(cachedPoints);
+
+    replaceCourseSnapshotDocs([
+      { id: "course-a", data: { name: "course-a", polyline: "_ulLnnqC" } },
+    ], polylineCache, polylineValueCache);
+
+    expect(polylineCache.get("course-a")).not.toBe(cachedPoints);
+    expect(polylineValueCache.get("course-a")).toBe("_ulLnnqC");
   });
 });

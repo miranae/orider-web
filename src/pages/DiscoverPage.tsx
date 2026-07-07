@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, getDocs } from "firebase/firestore";
 import { Map as MapIcon, Trophy, Route as RouteIcon, Search } from "lucide-react";
 import { firestore } from "../services/firebase";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { Card, Text } from "../theme/components";
 import ChallengeFeed from "../components/discover/ChallengeFeed";
+import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { fetchStaticJson } from "../utils/staticJson";
 import { segmentTileUrl } from "../utils/segmentTiles";
 
@@ -53,12 +54,15 @@ export default function DiscoverPage() {
         setSegs(d.segments.map((s) => ({ id: s.id, name: s.name, city: s.city, state: s.state, distance: s.distance, averageGrade: s.averageGrade, climbCategory: s.climbCategory }))),
       )
       .catch(() => setSegs([]));
-    getDocs(query(collection(firestore, "courses"), where("deletedAt", "==", null)))
+    getDocs(query(collection(firestore, "courses")))
       .then((snap) =>
-        setCourses(snap.docs.map((d) => {
-          const x = d.data();
-          return { id: d.id, name: x.name ?? "", distance: x.distance ?? 0, elevationGain: x.elevationGain ?? 0 } as CourseHit;
-        })),
+        setCourses(snap.docs
+          .map((d) => ({ id: d.id, data: d.data() }))
+          .filter((item) => isVisibleCourseDocData(item.data))
+          .map((item) => {
+            const x = item.data;
+            return { id: item.id, name: x.name ?? "", distance: x.distance ?? 0, elevationGain: x.elevationGain ?? 0 } as CourseHit;
+          })),
       )
       .catch(() => setCourses([]));
   }, [q]);

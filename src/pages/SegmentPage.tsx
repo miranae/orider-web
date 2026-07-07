@@ -14,6 +14,7 @@ import { useStrava } from "../hooks/useStrava";
 import RouteMap from "../components/RouteMap";
 import Avatar from "../components/Avatar";
 import { Button, Card, Text } from "../theme/components";
+import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { isImplausibleAvgSpeed } from "../utils/activitySanity";
 
 /** 비현실 평속(80 km/h 초과 등)은 "—" 로 가린다. 세그먼트 기록은 bike 기준. */
@@ -480,17 +481,16 @@ export default function SegmentPage() {
     let cancelled = false;
     getDocs(query(
       collection(firestore, "courses"),
-      where("deletedAt", "==", null),
       where("segmentIds", "array-contains", segmentId),
       orderBy("createdAt", "desc"),
       limit(6),
     ))
       .then((snap) => {
         if (cancelled) return;
-        setUsedByCourses(snap.docs.map((d) => {
-          const x = d.data();
-          return { id: d.id, name: x.name ?? "", distance: x.distance ?? 0, elevationGain: x.elevationGain ?? 0 };
-        }));
+        setUsedByCourses(snap.docs
+          .map((d) => ({ id: d.id, data: d.data() }))
+          .filter((item) => isVisibleCourseDocData(item.data))
+          .map((item) => ({ id: item.id, name: item.data.name ?? "", distance: item.data.distance ?? 0, elevationGain: item.data.elevationGain ?? 0 })));
       })
       .catch((err) => { logClientError("SegmentPage.usedByCourses", err, { segmentId }); });
     return () => { cancelled = true; };
