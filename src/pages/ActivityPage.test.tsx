@@ -138,11 +138,11 @@ describe("ActivityPage", () => {
     expect(screen.getByText("NP 147 W")).toBeInTheDocument();
   });
 
-  it("does not show AI ride analysis when streams have no route latlng", async () => {
+  it("shows AI ride analysis for indoor-like streams without route latlng", async () => {
     const activity = createMockActivity({
       id: "test-activity",
       source: "orider",
-      thumbnailTrack: "mock-polyline",
+      thumbnailTrack: null,
     });
     const { latlng: _latlng, ...streamsWithoutRoute } = createMockStreams();
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
@@ -153,10 +153,25 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    await screen.findByText("한강 라이딩");
-    await waitFor(() => {
-      expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
+  });
+
+  it("does not show AI ride analysis when analysis streams are unavailable", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      thumbnailTrack: null,
     });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({ userId: "user-1", time: [0, 60] }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    await screen.findByText("한강 라이딩");
+    expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
   });
 
   it("shows AI ride analysis when route latlng streams are available", async () => {
