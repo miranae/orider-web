@@ -32,4 +32,11 @@ describe("calculatePowerCurve", () => {
     expect(Number.isInteger(p5.maxPower)).toBe(true);
     expect(p5.maxPower).toBe(102);
   });
+
+  it("2초 간격 스트림은 샘플 수가 아니라 실제 초 단위 윈도우를 사용한다", () => {
+    const watts = [...Array(30).fill(100), ...Array(30).fill(300)];
+    const time = watts.map((_, i) => i * 2);
+    const p60 = calculatePowerCurve(watts, time).find((p) => p.durationSeconds === 60)!;
+    expect(p60.maxPower).toBe(300);
+  });
 });
