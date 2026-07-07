@@ -4,6 +4,7 @@ import { doc, getDoc } from "firebase/firestore";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { firestore } from "../../../services/firebase";
 import { logClientError } from "../../../services/errorLogger";
+import { getStravaActivityId } from "../../../utils/stravaActivity";
 import { isStreamNotCachedError } from "./activityDetailUtils";
 
 interface UseActivityStreamsLoaderArgs {
@@ -37,7 +38,7 @@ export function useActivityStreamsLoader({
     if (!activity || streams) return;
 
     const source = (activity as Activity & { source?: string }).source;
-    const stravaId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
+    const stravaId = getStravaActivityId(activity);
 
     if (activityId && (source === "orider" || activityId.startsWith("orider_"))) {
       setLoadingStreams(true);

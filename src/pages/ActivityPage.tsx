@@ -27,6 +27,7 @@ import type { ActivityStreams } from "@shared/types";
 import { getSportIcon, getSportLabelKey } from "../utils/sportType";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { isImplausibleAvgSpeed, isImplausibleMaxSpeed } from "../utils/activitySanity";
+import { getStravaActivityId } from "../utils/stravaActivity";
 import { useActivityMetrics } from "../hooks/useActivityMetrics";
 import { RunLeftCards, RunRightCards } from "../components/activity/RunDetailCards";
 import { SwimLeftCards, SwimRightCards } from "../components/activity/SwimDetailCards";
@@ -521,6 +522,7 @@ export default function ActivityPage() {
   const avgPowerValue = s.averagePower ?? activity.avgPower ?? null;
   const normalizedPowerValue = s.normalizedPower ?? activity.weightedAvgPower ?? null;
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
+  const stravaActivityId = getStravaActivityId(activity);
   const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? user?.photoURL ?? null : null);
   const hasStreams = sampledData.length > 0;
   const hasAnalysisStreams = !!streams && (
@@ -681,9 +683,9 @@ export default function ActivityPage() {
             )}
             <div className="flex items-center gap-3 mt-1">
               <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>{formatFullDate(activity.startTime)}</span>
-              {isStrava && (activity as Activity & { stravaActivityId?: number }).stravaActivityId && (
+              {isStrava && stravaActivityId && (
                 <a
-                  href={`https://www.strava.com/activities/${(activity as Activity & { stravaActivityId?: number }).stravaActivityId}`}
+                  href={`https://www.strava.com/activities/${stravaActivityId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[length:var(--fs-sm)] font-bold text-[#FC4C02] hover:underline"
@@ -959,7 +961,7 @@ export default function ActivityPage() {
             <p>{streamsError}</p>
             <button
               onClick={() => {
-                const stravaId = (activity as Activity & { stravaActivityId?: number }).stravaActivityId;
+                const stravaId = stravaActivityId;
                 if (!stravaId) return;
                 setLoadingStreams(true);
                 setStreamsError(null);
