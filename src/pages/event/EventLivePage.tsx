@@ -11,7 +11,7 @@ import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Text } from "../../theme/components";
 
-interface SnapshotLocation {
+export interface SnapshotLocation {
   uid: string;
   lat: number;
   lng: number;
@@ -31,7 +31,7 @@ interface SnapshotLocation {
   hr?: number | null;
 }
 
-interface SnapshotData {
+export interface SnapshotData {
   timestamp: number;
   counts: {
     riding: number;
@@ -56,6 +56,24 @@ interface HighlightItem {
 }
 
 const FOLLOW_COLORS = ["var(--lime)", "var(--aqua)", "var(--amber)", "var(--rose)"] as const;
+
+export function normalizeSnapshotData(raw: Partial<SnapshotData>): SnapshotData {
+  const locations = Array.isArray(raw.locations) ? raw.locations : [];
+  const checkpoints = Array.isArray(raw.checkpoints) ? raw.checkpoints : [];
+  return {
+    timestamp: typeof raw.timestamp === "number" ? raw.timestamp : Date.now(),
+    counts: {
+      riding: raw.counts?.riding ?? 0,
+      finished: raw.counts?.finished ?? 0,
+      dnf: raw.counts?.dnf ?? 0,
+      sos: raw.counts?.sos ?? 0,
+      offCourse: raw.counts?.offCourse ?? 0,
+      total: raw.counts?.total ?? locations.length,
+    },
+    checkpoints,
+    locations,
+  };
+}
 
 /** Format duration in seconds as h:mm:ss or m:ss. Returns "—" for null/zero. */
 function formatDuration(sec: number | null | undefined): string {
@@ -328,7 +346,7 @@ export default function EventLivePage() {
       const fileRef = ref(storage, `snapshots/${eventId}/latest.json`);
       const url = await getDownloadURL(fileRef);
       const response = await fetch(url);
-      const data: SnapshotData = await response.json();
+      const data = normalizeSnapshotData(await response.json() as Partial<SnapshotData>);
       setSnapshot(data);
       setLoadError(null);
 
