@@ -10,6 +10,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { displayRankForCategory, OVERALL_CATEGORY, podiumForCategory } from "./eventResultsRanking";
 
 interface ResultEntry {
   userId: string;
@@ -96,7 +97,7 @@ export default function EventResultsPage() {
 
   const [eventHead, setEventHead] = useState<EventHead | null>(null);
   const [results, setResults] = useState<ResultEntry[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>("__overall__");
+  const [activeCategory, setActiveCategory] = useState<string>(OVERALL_CATEGORY);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [eventDateStr, setEventDateStr] = useState<string>("");
@@ -218,17 +219,17 @@ export default function EventResultsPage() {
   const categories = useMemo(() => {
     const set = new Set<string>();
     for (const r of results) if (r.category && r.category !== "—") set.add(r.category);
-    return ["__overall__", ...Array.from(set).sort()];
+    return [OVERALL_CATEGORY, ...Array.from(set).sort()];
   }, [results]);
 
   const filtered = useMemo(() => {
-    if (activeCategory === "__overall__") return results;
+    if (activeCategory === OVERALL_CATEGORY) return results;
     return results.filter((r) => r.category === activeCategory);
   }, [results, activeCategory]);
 
   const podium = useMemo(() => {
-    return filtered.filter((r) => r.status === "FINISHED" && r.rank > 0 && r.rank <= 3).slice(0, 3);
-  }, [filtered]);
+    return podiumForCategory(filtered, activeCategory);
+  }, [filtered, activeCategory]);
 
   const counts = useMemo(() => {
     const total = results.length;
@@ -411,7 +412,7 @@ export default function EventResultsPage() {
               <div style={{ marginBottom: "var(--space-3)" }}>
                 <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.podium")}</div>
                 <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
-                  {activeCategory === "__overall__"
+                  {activeCategory === OVERALL_CATEGORY
                     ? t("resultsView.podiumTopThreeOverall")
                     : t("resultsView.podiumTopThreeCategory", { category: activeCategory })}
                 </div>
@@ -421,7 +422,8 @@ export default function EventResultsPage() {
                 style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 'var(--space-3)' }}
               >
                 {podium.map((p, i) => {
-                  const medal = MEDAL_COLORS[p.rank] ?? "var(--ink-2)";
+                  const displayRank = displayRankForCategory(p, activeCategory);
+                  const medal = MEDAL_COLORS[displayRank] ?? "var(--ink-2)";
                   return (
                     <div
                       key={p.userId}
@@ -455,7 +457,7 @@ export default function EventResultsPage() {
                           marginBottom: "var(--space-2)",
                         }}
                       >
-                        {p.rank}
+                        {displayRank}
                       </div>
                       <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)" }}>
                         {p.displayName}
@@ -514,7 +516,7 @@ export default function EventResultsPage() {
                         cursor: "pointer",
                       }}
                     >
-                      {c === "__overall__" ? t("resultsView.overall") : c}
+                      {c === OVERALL_CATEGORY ? t("resultsView.overall") : c}
                     </button>
                   );
                 })}
@@ -580,7 +582,7 @@ export default function EventResultsPage() {
                   </thead>
                   <tbody>
                     {filtered.map((r) => {
-                      const rank = r.status === "FINISHED" ? (activeCategory === "__overall__" ? r.overallRank : r.rank) : 0;
+                      const rank = displayRankForCategory(r, activeCategory);
                       const isMine = !!user && r.userId === user.uid;
                       const gap =
                         r.status === "FINISHED" && r.finishTime != null && winnerTime != null
