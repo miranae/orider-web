@@ -23,6 +23,7 @@ import {
   wPrimeBalanceSeries,
 } from "../utils/advancedMetrics";
 import { calculateRunSplits, calculateOverallGap } from "../utils/runMetrics";
+import { sampleDurationsSec, totalDurationSec } from "../utils/sampleTime";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
@@ -195,12 +196,13 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
   const hr = streams.heartrate ?? [];
   const hasPower = watts.length > 0;
   const hasHr = hr.length > 0;
+  const time = streams.time;
 
   // 파워 메트릭
-  const np = useMemo(() => hasPower ? calculateNP(watts) : null, [watts, hasPower]);
-  const ifactor = useMemo(() => hasPower ? calculateIF(watts, ftp) : null, [watts, ftp, hasPower]);
-  const tss = useMemo(() => hasPower ? calculateTSS(watts, ftp) : null, [watts, ftp, hasPower]);
-  const vi = useMemo(() => hasPower ? calculateVI(watts) : null, [watts, hasPower]);
+  const np = useMemo(() => hasPower ? calculateNP(watts, time) : null, [watts, time, hasPower]);
+  const ifactor = useMemo(() => hasPower ? calculateIF(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
+  const tss = useMemo(() => hasPower ? calculateTSS(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
+  const vi = useMemo(() => hasPower ? calculateVI(watts, time) : null, [watts, time, hasPower]);
   const powerStats = useMemo(() => {
     const base = avgMax(watts, { ignoreZero: false });
     // 최대 파워는 3초 평활값으로 — 파워미터 단발 스파이크 제거
@@ -216,18 +218,13 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
     }
     return base;
   }, [watts]);
-  const workKj = useMemo(() => hasPower ? calculateWorkKj(watts) : null, [watts, hasPower]);
+  const workKj = useMemo(() => hasPower ? calculateWorkKj(watts, time) : null, [watts, time, hasPower]);
   const durationSec = useMemo(() => {
-    // 1Hz 스트림 길이를 기준으로 함 (가장 안정적)
     const sampleLen = Math.max(watts.length, hr.length, streams.cadence?.length ?? 0, streams.velocity_smooth?.length ?? 0);
-    if (sampleLen > 0) return sampleLen;
-    if (streams.time?.length) {
-      const span = streams.time[streams.time.length - 1]! - streams.time[0]!;
-      // ms로 저장된 경우 자동 보정 (샘플당 100ms 이상이면 ms로 간주)
-      return span > 100000 ? Math.round(span / 1000) : span;
-    }
+    if (sampleLen > 0) return totalDurationSec(sampleLen, time);
+    if (time?.length) return totalDurationSec(time.length, time);
     return 0;
-  }, [streams.time, watts.length, hr.length, streams.cadence?.length, streams.velocity_smooth?.length]);
+  }, [time, watts.length, hr.length, streams.cadence?.length, streams.velocity_smooth?.length]);
   const kjPerHr = useMemo(() => {
     if (workKj == null || durationSec <= 0) return null;
     return (workKj / durationSec) * 3600;
@@ -238,7 +235,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
   const hrDrift = useMemo(() => hasHr ? calculateHrDrift(hr) : null, [hr, hasHr]);
   const ef = useMemo(() => hasPower && hasHr ? calculateEF(watts, hr) : null, [watts, hr, hasPower, hasHr]);
   const decoupling = useMemo(() => hasPower && hasHr ? calculateDecoupling(watts, hr) : null, [watts, hr, hasPower, hasHr]);
-  const trimp = useMemo(() => hasHr ? calculateTRIMP(hr, maxHr, restHr) : null, [hr, maxHr, restHr, hasHr]);
+  const trimp = useMemo(() => hasHr ? calculateTRIMP(hr, maxHr, restHr, "male", time) : null, [hr, maxHr, restHr, time, hasHr]);
   // 회복시간 추정 — 세션 부하(TSS 우선, 없으면 TRIMP)를 만성 체력(CTL)에 상대화.
   // #463: owner 면 정본 CTL 주입(비개인화 DEFAULT_CTL=35 제거), 아니면 기본값 폴백.
   const recovery = useMemo(() => {
@@ -265,21 +262,21 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
   const elevGain = useMemo(() => calculateElevationGain(streams.altitude), [streams.altitude]);
 
   // 존 분포 + 임계 영역
-  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, maxHr) : null, [hr, maxHr, hasHr]);
-  const powerZones = useMemo(() => hasPower ? calculatePowerZoneDistribution(watts, ftp) : null, [watts, ftp, hasPower]);
+  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, maxHr, time) : null, [hr, maxHr, time, hasHr]);
+  const powerZones = useMemo(() => hasPower ? calculatePowerZoneDistribution(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
   // Seiler 3존 (자전거 + 파워 있을 때만)
-  const seilerZones = useMemo(() => (hasPower && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp) : null, [watts, ftp, hasPower, sport]);
+  const seilerZones = useMemo(() => (hasPower && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, time) : null, [watts, ftp, time, hasPower, sport]);
   const polarization = useMemo(() => seilerZones ? polarizationIndex(seilerZones) : null, [seilerZones]);
-  const criticalBands = useMemo(() => hasPower ? calculateCriticalBands(watts, ftp) : null, [watts, ftp, hasPower]);
-  const powerCurve = useMemo(() => hasPower ? calculatePowerCurve(watts) : [], [watts, hasPower]);
-  const xPower = useMemo(() => hasPower ? calculateXPower(watts) : null, [watts, hasPower]);
-  const matches = useMemo(() => hasPower ? analyzeMatches(watts, ftp, 30) : null, [watts, ftp, hasPower]);
+  const criticalBands = useMemo(() => hasPower ? calculateCriticalBands(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
+  const powerCurve = useMemo(() => hasPower ? calculatePowerCurve(watts, time) : [], [watts, time, hasPower]);
+  const xPower = useMemo(() => hasPower ? calculateXPower(watts, time) : null, [watts, time, hasPower]);
+  const matches = useMemo(() => hasPower ? analyzeMatches(watts, ftp, 30, time) : null, [watts, ftp, time, hasPower]);
   // 가상파워는 CP/W' fit 스킵(서버 activity-metrics 와 동일 게이트, #532) — 추정파워로 임계파워 산정 금지.
   const cp = useMemo(() => (hasPower && !isVirtualPower) ? estimateCriticalPower(powerCurve) : null, [powerCurve, hasPower, isVirtualPower]);
-  // #458 W'bal 잔량 궤적 (Skiba 2015, 클라 계산). 1Hz 가정(AnalysisTab 다른 지표와 동일).
+  // #458 W'bal 잔량 궤적 (Skiba 2015, 클라 계산). streams.time 기반 dt 보정.
   const wbal = useMemo(
-    () => (hasPower && cp ? wPrimeBalanceSeries(watts, cp.cp, cp.wPrime, 1) : null),
-    [watts, cp, hasPower],
+    () => (hasPower && cp ? wPrimeBalanceSeries(watts, cp.cp, cp.wPrime, sampleDurationsSec(watts.length, time)) : null),
+    [watts, time, cp, hasPower],
   );
 
   // 클라임 자동 탐지 (수영 제외)

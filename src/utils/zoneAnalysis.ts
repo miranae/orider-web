@@ -1,9 +1,12 @@
+import { sampleDurationsSec } from "./sampleTime";
+import type { StreamTimeArray } from "./streamTime";
+
 export interface ZoneDistribution {
   zone: number;
   name: string;
   /** 존 이름 i18n 키 (예: "fitness:zone.recovery") */
   nameKey: string;
-  /** 샘플 수 (1Hz 스트림 기준 = 초) */
+  /** 존 체류 시간(초) */
   seconds: number;
   percentage: number;
   color: string;
@@ -27,40 +30,46 @@ const POWER_ZONES = [
   { zone: 7, name: "신경근", nameKey: "fitness:zone.neurological", min: 1.50, max: Infinity, color: "#7c3aed" },
 ];
 
-export function calculateHrZoneDistribution(heartrates: number[], maxHr: number): ZoneDistribution[] {
+export function calculateHrZoneDistribution(heartrates: number[], maxHr: number, time?: StreamTimeArray): ZoneDistribution[] {
   const counts = new Array(HR_ZONES.length).fill(0);
-  for (const hr of heartrates) {
+  const durations = sampleDurationsSec(heartrates.length, time);
+  for (let sampleIdx = 0; sampleIdx < heartrates.length; sampleIdx++) {
+    const hr = heartrates[sampleIdx]!;
+    const dt = durations[sampleIdx] ?? 0;
     const ratio = hr / maxHr;
     for (let i = HR_ZONES.length - 1; i >= 0; i--) {
-      if (ratio >= HR_ZONES[i]!.min) { counts[i]++; break; }
+      if (ratio >= HR_ZONES[i]!.min) { counts[i] += dt; break; }
     }
   }
-  const total = heartrates.length || 1;
+  const total = counts.reduce((sum, v) => sum + v, 0);
   return HR_ZONES.map((z, i) => ({
     zone: z.zone,
     name: z.name,
     nameKey: z.nameKey,
     seconds: counts[i],
-    percentage: (counts[i] / total) * 100,
+    percentage: total > 0 ? (counts[i] / total) * 100 : 0,
     color: z.color,
   }));
 }
 
-export function calculatePowerZoneDistribution(watts: number[], ftp: number): ZoneDistribution[] {
+export function calculatePowerZoneDistribution(watts: number[], ftp: number, time?: StreamTimeArray): ZoneDistribution[] {
   const counts = new Array(POWER_ZONES.length).fill(0);
-  for (const w of watts) {
+  const durations = sampleDurationsSec(watts.length, time);
+  for (let sampleIdx = 0; sampleIdx < watts.length; sampleIdx++) {
+    const w = watts[sampleIdx]!;
+    const dt = durations[sampleIdx] ?? 0;
     const ratio = w / ftp;
     for (let i = POWER_ZONES.length - 1; i >= 0; i--) {
-      if (ratio >= POWER_ZONES[i]!.min) { counts[i]++; break; }
+      if (ratio >= POWER_ZONES[i]!.min) { counts[i] += dt; break; }
     }
   }
-  const total = watts.length || 1;
+  const total = counts.reduce((sum, v) => sum + v, 0);
   return POWER_ZONES.map((z, i) => ({
     zone: z.zone,
     name: z.name,
     nameKey: z.nameKey,
     seconds: counts[i],
-    percentage: (counts[i] / total) * 100,
+    percentage: total > 0 ? (counts[i] / total) * 100 : 0,
     color: z.color,
   }));
 }
@@ -87,20 +96,23 @@ export interface SeilerZoneDistribution {
   color: string;
 }
 
-export function calculateSeilerZones(watts: number[], ftp: number): SeilerZoneDistribution[] {
+export function calculateSeilerZones(watts: number[], ftp: number, time?: StreamTimeArray): SeilerZoneDistribution[] {
   const counts: [number, number, number] = [0, 0, 0];
-  for (const w of watts) {
+  const durations = sampleDurationsSec(watts.length, time);
+  for (let sampleIdx = 0; sampleIdx < watts.length; sampleIdx++) {
+    const w = watts[sampleIdx]!;
+    const dt = durations[sampleIdx] ?? 0;
     const ratio = w / ftp;
-    if (ratio < 0.75) counts[0]++;
-    else if (ratio < 1.00) counts[1]++;
-    else counts[2]++;
+    if (ratio < 0.75) counts[0] += dt;
+    else if (ratio < 1.00) counts[1] += dt;
+    else counts[2] += dt;
   }
-  const total = watts.length || 1;
+  const total = counts.reduce((sum, v) => sum + v, 0);
   return SEILER_ZONES.map((z, i) => ({
     zone: z.zone,
     label: z.name,
     seconds: counts[i] as number,
-    pct: ((counts[i] as number) / total) * 100,
+    pct: total > 0 ? ((counts[i] as number) / total) * 100 : 0,
     color: z.color,
   }));
 }

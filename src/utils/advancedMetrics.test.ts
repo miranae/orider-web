@@ -136,6 +136,12 @@ describe("calculateWorkKj", () => {
     expect(calculateWorkKj(Array(10).fill(1000))).toBe(10);
     expect(calculateWorkKj([])).toBe(0);
   });
+
+  it("2초 간격 스트림은 Σwatts×dt/1000으로 계산한다", () => {
+    const watts = Array(10).fill(1000);
+    const time = watts.map((_, i) => i * 2);
+    expect(calculateWorkKj(watts, time)).toBe(20);
+  });
 });
 
 describe("calculateXPower", () => {
@@ -159,6 +165,14 @@ describe("analyzeMatches", () => {
   it("minSeconds 미만 구간은 무시", () => {
     const watts = [...Array(20).fill(300), ...Array(60).fill(100)]; // 20s < 30
     expect(analyzeMatches(watts, 250, 30).count).toBe(0);
+  });
+
+  it("2초 간격 스트림은 지속시간을 실제 초로 집계한다", () => {
+    const watts = [...Array(20).fill(300), ...Array(60).fill(100)];
+    const time = watts.map((_, i) => i * 2);
+    const m = analyzeMatches(watts, 250, 30, time);
+    expect(m.count).toBe(1);
+    expect(m.totalSeconds).toBe(40);
   });
 });
 
