@@ -44,6 +44,7 @@ export default function GroupLeaderboardPage() {
   // 메트릭별 단일 doc 구독 (멤버 fan-out 없음)
   useEffect(() => {
     if (!groupId) return;
+    setBoards({});
     const unsubs = METRICS.map((m) =>
       onSnapshot(
         doc(firestore, "groups", groupId, "rankings", m),

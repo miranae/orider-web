@@ -431,6 +431,20 @@ export default function FitnessPage() {
     return sums.map(c => Math.round((c / total) * 100));
   }, [disciplineActivities, metricsMap]);
 
+  const runPaceStreams = useMemo(() => {
+    const now = Date.now();
+    const d28 = 28 * 24 * 60 * 60 * 1000;
+    const recentStreams: number[][] = [];
+    const prevStreams: number[][] = [];
+    for (const a of disciplineActivities) {
+      const stream = streamsMap.get(a.id);
+      if (!stream?.velocity_smooth || stream.velocity_smooth.length < 30) continue;
+      if (a.startTime >= now - d28) recentStreams.push(stream.velocity_smooth);
+      else if (a.startTime >= now - d28 * 2) prevStreams.push(stream.velocity_smooth);
+    }
+    return { recentStreams, prevStreams };
+  }, [disciplineActivities, streamsMap]);
+
   // (오늘의 권장 카드는 통합 후 홈에서만 노출. 피트니스 페이지는 분석 전용.)
 
   if (isMobile) {
@@ -1200,19 +1214,7 @@ export default function FitnessPage() {
                     <span style={{ width: 10, height: 2, borderTop: "1px dashed var(--ink-3)", display: "inline-block" }} /> {t("powerCurve.prevSeason")}
                   </span>
                 </div>
-                {(() => {
-                  const now = Date.now();
-                  const d28 = 28 * 24 * 60 * 60 * 1000;
-                  const recentStreams: number[][] = [];
-                  const prevStreams: number[][] = [];
-                  for (const a of disciplineActivities) {
-                    const stream = streamsMap.get(a.id);
-                    if (!stream?.velocity_smooth || stream.velocity_smooth.length < 30) continue;
-                    if (a.startTime >= now - d28) recentStreams.push(stream.velocity_smooth);
-                    else if (a.startTime >= now - d28 * 2) prevStreams.push(stream.velocity_smooth);
-                  }
-                  return <CriticalPaceCurve recentStreams={recentStreams} prevStreams={prevStreams} />;
-                })()}
+                <CriticalPaceCurve recentStreams={runPaceStreams.recentStreams} prevStreams={runPaceStreams.prevStreams} />
               </>
             ) : discipline === "swim" ? (
               <>

@@ -34,6 +34,8 @@ export default function GroupDashboardPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   useEffect(() => {
     if (!groupId) return;
+    let cancelled = false;
+    setUpcomingEvents([]);
     (async () => {
       try {
         const snap = await getDocs(
@@ -59,13 +61,14 @@ export default function GroupDashboardPage() {
             status: info.status ?? "UNKNOWN",
           };
         });
-        setUpcomingEvents(list);
+        if (!cancelled) setUpcomingEvents(list);
       } catch (err) {
         // 인덱스 없을 시 조용히 실패
-        logClientError("GroupDashboardPage.loadUpcomingEvents", err, { groupId });
+        if (!cancelled) logClientError("GroupDashboardPage.loadUpcomingEvents", err, { groupId });
       }
     })();
-  }, [groupId]);
+    return () => { cancelled = true; };
+  }, [groupId, t]);
 
   // 이번 주 통계 계산
   const weekStats = useMemo(() => {

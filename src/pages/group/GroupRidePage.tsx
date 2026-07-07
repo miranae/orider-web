@@ -201,11 +201,10 @@ export default function GroupRidePage() {
 
   const hoverMarkerPosition = useMemo((): [number, number] | null => {
     if (hoverIndex == null) return null;
-    const firstVisible = visibleActivities.find((a) => streams[a.id]?.latlng);
+    const firstVisible = visibleActivities.find((a) => streams[a.id]?.altitude && streams[a.id]?.distance && streams[a.id]?.latlng);
     if (!firstVisible) return null;
     const latlng = streams[firstVisible.id]?.latlng;
-    const dist = streams[firstVisible.id]?.distance;
-    if (!latlng || !dist) return null;
+    if (!latlng) return null;
     // hoverIndex is based on the elevation chart's sampled data (baseData),
     // which uses distance array indices from the first visible rider's stream.
     if (hoverIndex >= latlng.length) return null;

@@ -622,7 +622,7 @@ export default function EventDashboardPage() {
           {snapshot?.checkpoints.length ? (
             snapshot.checkpoints.map((cp) => {
               const total = filteredCounts.total || snapshot.counts?.total || 1;
-              const pct = Math.round((cp.passedCount / total) * 100);
+              const pct = Math.min(100, Math.round((cp.passedCount / total) * 100));
               return (
                 <div key={cp.cpId} style={{ padding: "8px 0", borderTop: "1px solid var(--line-soft)" }}>
                   <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>

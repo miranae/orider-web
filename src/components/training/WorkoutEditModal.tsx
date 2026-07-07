@@ -139,7 +139,7 @@ export default function WorkoutEditModal({
   const [showKindPicker, setShowKindPicker] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const meta = WORKOUT_META[day.workout];
+  const meta = WORKOUT_META[day.workout] ?? { label: String(day.workout), color: 'var(--ink-4)' };
 
   // ── Firestore 헬퍼 ─────────────────────────────────────────────────
 

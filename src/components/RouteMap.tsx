@@ -176,11 +176,12 @@ function RouteMapFallback({
 
 function FitBoundsOnLoad({ bounds }: { bounds: LngLatBoundsLike }) {
   const { current: map } = useMap();
-  const fitted = useRef(false);
+  const fittedKey = useRef<string | null>(null);
   useEffect(() => {
-    if (!fitted.current && map) {
+    const key = JSON.stringify(bounds);
+    if (fittedKey.current !== key && map) {
       map.fitBounds(bounds, { padding: 20, duration: 0 });
-      fitted.current = true;
+      fittedKey.current = key;
     }
   }, [map, bounds]);
   return null;

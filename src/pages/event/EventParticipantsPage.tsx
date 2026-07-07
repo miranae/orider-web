@@ -60,6 +60,15 @@ interface ParticipantRow {
 
 const CATEGORY_COLORS: Array<"lime" | "aqua" | "amber"> = ["lime", "aqua", "amber"];
 
+function bestTimeSortValue(value: string): number {
+  if (value === "—") return Number.POSITIVE_INFINITY;
+  const parts = value.split(":").map(Number);
+  if (parts.some((p) => !Number.isFinite(p))) return Number.POSITIVE_INFINITY;
+  if (parts.length === 3) return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
+  if (parts.length === 2) return parts[0]! * 60 + parts[1]!;
+  return Number.POSITIVE_INFINITY;
+}
+
 function StatusChip({ status }: { status: ParticipantStatus }) {
   const { t } = useTranslation("event");
   const STATUS_META: Record<ParticipantStatus, { labelKey: string; color: string; bg: string }> = {
@@ -286,9 +295,7 @@ export default function EventParticipantsPage() {
       if (sortBy === "bib") return (a.bib ?? 9999) - (b.bib ?? 9999);
       if (sortBy === "name") return a.realName.localeCompare(b.realName);
       if (sortBy === "time") {
-        const at = a.bestTime === "—" ? "99:99:99" : a.bestTime;
-        const bt = b.bestTime === "—" ? "99:99:99" : b.bestTime;
-        return at.localeCompare(bt);
+        return bestTimeSortValue(a.bestTime) - bestTimeSortValue(b.bestTime);
       }
       return a.status.localeCompare(b.status);
     });

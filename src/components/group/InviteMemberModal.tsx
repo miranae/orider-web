@@ -52,10 +52,15 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode }
     setInviting(null);
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) return;
+      await navigator.clipboard.writeText(inviteCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      logClientError("InviteMemberModal.handleCopy", err, { groupId });
+    }
   };
 
   return (

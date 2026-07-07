@@ -107,6 +107,11 @@ export default function GroupMembersPage() {
     });
   }, [members, search, roleFilter]);
 
+  const selectableMemberIds = useMemo(
+    () => filteredMembers.filter((m) => m.id !== user?.uid).map((m) => m.id),
+    [filteredMembers, user?.uid],
+  );
+
   const toggleSel = (id: string) => {
     setSelected((s) => {
       const next = new Set(s);
@@ -117,13 +122,13 @@ export default function GroupMembersPage() {
   };
 
   const handleBulkRemove = async () => {
-    if (!groupId || !isCreator || selected.size === 0) return;
-    if (!window.confirm(t("members.confirmBulkRemove", { count: selected.size }))) return;
+    const targetIds = Array.from(selected).filter((id) => id !== user?.uid);
+    if (!groupId || !isCreator || targetIds.length === 0) return;
+    if (!window.confirm(t("members.confirmBulkRemove", { count: targetIds.length }))) return;
     setBulkBusy(true);
     try {
       const removeFn = httpsCallable(functions, "removeGroupMember");
-      for (const targetUserId of selected) {
-        if (targetUserId === user?.uid) continue;
+      for (const targetUserId of targetIds) {
         try {
           await removeFn({ groupId, targetUserId });
         } catch (err) {
@@ -277,8 +282,8 @@ export default function GroupMembersPage() {
                   {isCreator && (
                     <input
                       type="checkbox"
-                      checked={selected.size > 0 && selected.size === filteredMembers.length}
-                      onChange={(e) => setSelected(e.target.checked ? new Set(filteredMembers.map((m) => m.id)) : new Set())}
+                      checked={selectableMemberIds.length > 0 && selected.size === selectableMemberIds.length}
+                      onChange={(e) => setSelected(e.target.checked ? new Set(selectableMemberIds) : new Set())}
                       aria-label={t("members.selectAll")}
                     />
                   )}

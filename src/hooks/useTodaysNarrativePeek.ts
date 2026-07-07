@@ -72,11 +72,13 @@ export function useTodaysNarrativePeek(
   const lang: "ko" | "en" = i18n.language?.startsWith("en") ? "en" : "ko";
   const [state, setState] = useState<PeekState>({ narrative: null, loading: false, cacheMiss: false, stale: false });
   const calledRef = useRef<string | null>(null);
+  const activeKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     // facts 가 null 이면 stale 판별 불가 — peek 보류 (enabled 여도 대기)
     if (!user || !discipline || !enabled || !facts) return;
     const key = `${user.uid}:${discipline}:${lang}`;
+    activeKeyRef.current = key;
 
     // 세션 캐시 적중
     const cached = peekDone.get(key);
@@ -115,13 +117,13 @@ export function useTodaysNarrativePeek(
           ? { narrative: d.narrative, loading: false, cacheMiss: false, stale: d.stale ?? false }
           : { narrative: null, loading: false, cacheMiss: true, stale: false };
         peekDone.set(key, { state: next, cachedAt: Date.now() });
-        setState(next);
+        if (activeKeyRef.current === key) setState(next);
       })
       .catch(() => {
         // peek 실패는 조용히 miss 처리하되 세션 캐시에 저장하지 않는다. 일시적 인증/네트워크
         // 오류를 miss 로 고정하면 서버 복구 후에도 같은 탭에서 AI 카드가 계속 비어 보인다.
         const next: PeekState = { narrative: null, loading: false, cacheMiss: true, stale: false };
-        setState(next);
+        if (activeKeyRef.current === key) setState(next);
       })
       .finally(() => {
         if (calledRef.current === key) calledRef.current = null;
