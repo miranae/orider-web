@@ -1,27 +1,19 @@
+import { maxWeightedAverage, sampleDurationsSec, totalDurationSec } from "./sampleTime";
+import type { StreamTimeArray } from "./streamTime";
+
 export interface PowerCurvePoint {
   durationSeconds: number;
   maxPower: number;
 }
 
-function maxRollingAverage(data: number[], window: number): number {
-  if (data.length < window) return 0;
-  let maxAvg = 0;
-  let sum = 0;
-  for (let i = 0; i < window; i++) sum += data[i]!;
-  maxAvg = sum / window;
-  for (let i = window; i < data.length; i++) {
-    sum += data[i]! - data[i - window]!;
-    maxAvg = Math.max(maxAvg, sum / window);
-  }
-  return Math.round(maxAvg);
-}
-
-export function calculatePowerCurve(watts: number[]): PowerCurvePoint[] {
+export function calculatePowerCurve(watts: number[], time?: StreamTimeArray): PowerCurvePoint[] {
   const durations = [1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800, 3600];
+  const sampleDurations = sampleDurationsSec(watts.length, time);
+  const total = totalDurationSec(watts.length, time);
   return durations
-    .filter(d => d <= watts.length)
+    .filter(d => d <= total)
     .map(d => ({
       durationSeconds: d,
-      maxPower: maxRollingAverage(watts, d),
+      maxPower: Math.round(maxWeightedAverage(watts, sampleDurations, d) ?? 0),
     }));
 }

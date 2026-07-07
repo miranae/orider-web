@@ -41,6 +41,8 @@ export default function StravaCallbackPage() {
       return;
     }
 
+    if (exchangeStartedRef.current) return;
+
     if (!code || !state || state !== storedState) {
       setStep("error");
       setErrorMsg(t("stravaCallback.error.invalidRequest"));
@@ -49,7 +51,6 @@ export default function StravaCallbackPage() {
 
     // Wait for Firebase Auth to restore the session
     if (!user) return;
-    if (exchangeStartedRef.current) return;
     exchangeStartedRef.current = true;
 
     sessionStorage.removeItem("strava_state");

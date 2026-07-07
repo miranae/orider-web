@@ -33,13 +33,22 @@ export function joinDtLocal(date: string, time: string): string {
   return `${date}T${time || "00:00"}`;
 }
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const KST_OFFSET = "+09:00";
+
 export function splitStartTime(ms: number): { date: string; time: string } {
   if (!ms) return { date: "", time: "06:00" };
-  const d = new Date(ms);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
+  const d = new Date(ms + KST_OFFSET_MS);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mi = String(d.getUTCMinutes()).padStart(2, "0");
   return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${mi}` };
+}
+
+export function joinStartTimeKst(date: string, time: string): number | undefined {
+  if (!date || !time) return undefined;
+  const ms = new Date(`${date}T${time}:00${KST_OFFSET}`).getTime();
+  return Number.isFinite(ms) ? ms : undefined;
 }

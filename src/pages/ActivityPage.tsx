@@ -243,13 +243,14 @@ export default function ActivityPage() {
       collection(firestore, "activities"),
       where("groupRideId", "==", activity.groupRideId),
       where("deletedAt", "==", null),
+      where("visibility", "==", "everyone"),
     );
     getDocs(q).then((snap) => {
       setCoRiders(
         snap.docs
           .filter((d) => d.id !== activity.id)
           .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-          .filter((a) => a.summary != null),
+          .filter((a) => a.summary != null && a.visibility === "everyone"),
       );
     }).catch((err) => {
       if (isPermissionDeniedError(err)) {
