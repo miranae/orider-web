@@ -24,6 +24,16 @@ export function generateICS(weeks: PlanWeek[], goalName: string, t: TFunction): 
     'METHOD:PUBLISH',
     'X-WR-TIMEZONE:Asia/Seoul',
     `X-WR-CALNAME:${t('export.icsCalName', { goalName })}`,
+    'BEGIN:VTIMEZONE',
+    'TZID:Asia/Seoul',
+    'X-LIC-LOCATION:Asia/Seoul',
+    'BEGIN:STANDARD',
+    'TZOFFSETFROM:+0900',
+    'TZOFFSETTO:+0900',
+    'TZNAME:KST',
+    'DTSTART:19700101T000000',
+    'END:STANDARD',
+    'END:VTIMEZONE',
   ];
 
   for (const week of weeks) {

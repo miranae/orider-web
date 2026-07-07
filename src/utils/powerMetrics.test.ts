@@ -8,10 +8,10 @@ describe("calculateNP", () => {
   it("일정 파워 → 그 값", () => {
     expect(calculateNP(Array(60).fill(200))!).toBeCloseTo(200, 5);
   });
-  it("NaN 입력 → null (전파 차단, #538)", () => {
+  it("단일 NaN 샘플은 건너뛰고 계산을 계속한다", () => {
     const watts = Array(60).fill(200);
     watts[10] = NaN;
-    expect(calculateNP(watts)).toBeNull();
+    expect(calculateNP(watts)!).toBeCloseTo(200, 5);
   });
 });
 
@@ -31,8 +31,7 @@ describe("calculateVI (#538 near-zero·NaN 가드)", () => {
   it("NaN 섞여도 폭주/ NaN 반환 안 함", () => {
     const watts = Array(60).fill(200);
     watts[5] = NaN;
-    // NP 가 null 이 되므로 VI 도 null (NaN 반환 아님)
-    expect(calculateVI(watts)).toBeNull();
+    expect(calculateVI(watts)!).toBeCloseTo(1, 2);
   });
 });
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -64,9 +64,21 @@ export default function GroupSettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const seededGroupIdRef = useRef<string | null>(null);
+  const dirtyRef = useRef(false);
+
+  const markDirty = () => {
+    dirtyRef.current = true;
+  };
 
   useEffect(() => {
-    if (group) {
+    dirtyRef.current = false;
+    seededGroupIdRef.current = null;
+  }, [groupId]);
+
+  useEffect(() => {
+    if (group && groupId && groupId !== seededGroupIdRef.current && !dirtyRef.current) {
+      seededGroupIdRef.current = groupId;
       setName(group.name);
       setBadge(group.badge ?? "");
       setCity(group.city ?? "");
@@ -84,13 +96,15 @@ export default function GroupSettingsPage() {
         ridePhotos: group.toggles?.ridePhotos ?? false,
       });
     }
-  }, [group]);
+  }, [group, groupId]);
 
   const toggleSport = (s: "bike" | "run" | "swim" | "tri") => {
+    markDirty();
     setSports((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   };
 
   const toggleFlag = (k: keyof GroupToggles) => {
+    markDirty();
     setToggles((prev) => ({ ...prev, [k]: !prev[k] }));
   };
 
@@ -215,7 +229,10 @@ export default function GroupSettingsPage() {
               <input
                 type="text"
                 value={badge}
-                onChange={(e) => setBadge(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  markDirty();
+                  setBadge(e.target.value.toUpperCase());
+                }}
                 placeholder="HRC"
                 maxLength={3}
                 className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
@@ -227,7 +244,10 @@ export default function GroupSettingsPage() {
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  markDirty();
+                  setName(e.target.value);
+                }}
                 className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
                 style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
                 maxLength={50}
@@ -239,7 +259,10 @@ export default function GroupSettingsPage() {
             <input
               type="text"
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                markDirty();
+                setCity(e.target.value);
+              }}
               placeholder={t("settings.locationPlaceholder")}
               className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
               style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
@@ -256,7 +279,10 @@ export default function GroupSettingsPage() {
                     type="button"
                     role="radio"
                     aria-checked={active}
-                    onClick={() => setKind(k)} variant="secondary" size="sm"
+                    onClick={() => {
+                      markDirty();
+                      setKind(k);
+                    }} variant="secondary" size="sm"
                     style={{ background: active ? "var(--bg-3)" : "transparent", color: active ? "var(--ink-0)" : "var(--ink-3)", fontWeight: active ? 600 : 400 }}
                   >
                     {KIND_LABELS[k]}
@@ -288,7 +314,10 @@ export default function GroupSettingsPage() {
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.description")}</Text>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                markDirty();
+                setDescription(e.target.value);
+              }}
               className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] resize-none"
               style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
               rows={3}
@@ -302,7 +331,10 @@ export default function GroupSettingsPage() {
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.visibility")}</h2>
           <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.visibilityLabel")}</Text>
-            <VisibilityToggle value={visibility} onChange={setVisibility} />
+            <VisibilityToggle value={visibility} onChange={(next) => {
+              markDirty();
+              setVisibility(next);
+            }} />
           </div>
           <div>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.approval")}</Text>
@@ -318,7 +350,10 @@ export default function GroupSettingsPage() {
                     type="button"
                     role="radio"
                     aria-checked={active}
-                    onClick={() => setApproval(o.v)} variant="secondary" size="sm"
+                    onClick={() => {
+                      markDirty();
+                      setApproval(o.v);
+                    }} variant="secondary" size="sm"
                     style={{ background: active ? "var(--bg-3)" : "transparent", color: active ? "var(--ink-0)" : "var(--ink-3)", fontWeight: active ? 600 : 400 }}
                   >
                     {o.label}
@@ -354,7 +389,10 @@ export default function GroupSettingsPage() {
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.rules")}</h2>
           <textarea
             value={rules}
-            onChange={(e) => setRules(e.target.value)}
+            onChange={(e) => {
+              markDirty();
+              setRules(e.target.value);
+            }}
             className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] resize-none"
             style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
             rows={5}

@@ -281,6 +281,7 @@ export default function EventLivePage() {
   const [totalDistanceKm, setTotalDistanceKm] = useState<number>(0);
   const [now, setNow] = useState(() => Date.now());
   const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
+  const snapshotRef = useRef<SnapshotData | null>(null);
   const [searchBib, setSearchBib] = useState(highlightBib?.toString() || "");
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -338,6 +339,10 @@ export default function EventLivePage() {
       }
     })();
   }, [eventId]);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   const fetchSnapshot = useCallback(async () => {
     if (!eventId) return;
@@ -411,12 +416,12 @@ export default function EventLivePage() {
         setLoadError(null);
       } else {
         logClientError("EventLivePage.fetchSnapshot", err, { eventId });
-        if (!snapshot) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
+        if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
       }
     } finally {
       setLoading(false);
     }
-  }, [eventId, snapshot, followBibs]);
+  }, [eventId, followBibs, t]);
 
   useEffect(() => {
     fetchSnapshot();

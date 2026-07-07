@@ -377,7 +377,10 @@ export default function ElevationChart({
       },
       ...(overlays ?? []).map((o) => ({
         label: o.label,
-        data: o.data.map((v, i) => ({ x: distancesKm[i], y: v })),
+        data: o.data
+          .map((v, i) => ({ x: distancesKm[i], y: v }))
+          .filter((point): point is { x: number; y: number } =>
+            Number.isFinite(point.x) && Number.isFinite(point.y)),
         borderColor: o.color,
         backgroundColor: "transparent",
         borderWidth: 1.5,

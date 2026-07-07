@@ -39,4 +39,13 @@ describe("calcFeasibility 입력 가드 (#539)", () => {
     expect(["easy", "on_track", "stretch", "risky"]).toContain(r.label);
     expect(Number.isFinite(r.requiredWkg!)).toBe(true);
   });
+
+  it("등반 항에 m/h 값을 중복 변환하지 않는다", () => {
+    const r = calcFeasibility({
+      course: { dist: 40, elev: 1000 },
+      target: { eventType: "time", targetDurationMin: 90 },
+      snap: { ftp: 420, weightKg: 70 },
+    });
+    expect(r.requiredWkg).toBeCloseTo(5.53, 2);
+  });
 });

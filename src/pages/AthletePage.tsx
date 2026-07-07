@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
@@ -71,6 +71,7 @@ export default function AthletePage() {
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
   const [friendLoading, setFriendLoading] = useState(false);
+  const autoInviteAttemptRef = useRef<string | null>(null);
   const [friendCount, setFriendCount] = useState(0);
 
   // Friend list
@@ -289,10 +290,16 @@ export default function AthletePage() {
       friendLoading
     ) return;
 
-    handleSendFriendRequest().then(() => {
+    const attemptKey = `${currentUser.uid}:${userId}`;
+    if (autoInviteAttemptRef.current === attemptKey) return;
+    autoInviteAttemptRef.current = attemptKey;
+
+    handleSendFriendRequest().then((sent) => {
+      if (sent) {
         showToast(t("friend.autoSent"));
+      }
     });
-  }, [currentUser, userId, friendStatus, friendLoading, searchParams]);
+  }, [currentUser, userId, friendStatus, friendLoading, searchParams, t]);
 
   // Fetch friend list + count
   useEffect(() => {
@@ -313,8 +320,8 @@ export default function AthletePage() {
       .catch((err) => logClientError("AthletePage.bg", err, {}));
   }, [userId]);
 
-  const handleSendFriendRequest = async () => {
-    if (!currentUser || !userId || friendLoading) return;
+  const handleSendFriendRequest = async (): Promise<boolean> => {
+    if (!currentUser || !userId || friendLoading) return false;
     setFriendLoading(true);
     try {
       await setDoc(doc(firestore, "friend_requests", userId, "items", currentUser.uid), {
@@ -324,8 +331,10 @@ export default function AthletePage() {
         createdAt: Date.now(),
       });
       setFriendStatus("request_sent");
+      return true;
     } catch (err) {
       logClientError("AthletePage.handleSendFriendRequest", err, { targetUserId: userId });
+      return false;
     } finally {
       setFriendLoading(false);
     }

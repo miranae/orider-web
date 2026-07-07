@@ -218,6 +218,8 @@ export default function ActivityPage() {
     // 새 활동의 스트림 로드를 영영 막아 이전 활동의 GPS/파워 차트가 고착된다(#534).
     setActivity(null);
     setLoadingActivity(true);
+    setCoRiders([]);
+    setWattsOverride(null);
 
     getDoc(doc(firestore, "activities", activityId)).then((snap) => {
       if (snap.exists()) {
@@ -237,7 +239,10 @@ export default function ActivityPage() {
 
   // Fetch co-riders: activities with the same groupRideId
   useEffect(() => {
-    if (!activity?.groupRideId) return;
+    if (!activity?.groupRideId) {
+      setCoRiders([]);
+      return;
+    }
 
     const q = query(
       collection(firestore, "activities"),

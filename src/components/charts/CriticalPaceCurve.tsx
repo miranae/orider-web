@@ -1,12 +1,19 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { maxWeightedAverage, sampleDurationsSec } from "../../utils/sampleTime";
+import type { StreamTimeArray } from "../../utils/streamTime";
+
+export interface PaceStream {
+  velocity: number[];
+  time?: StreamTimeArray;
+}
 
 interface CriticalPaceCurveProps {
   color?: string;
-  /** 활동별 velocity_smooth 배열들 (최근 28일) */
-  recentStreams?: number[][];
-  /** 활동별 velocity_smooth 배열들 (이전 28일) */
-  prevStreams?: number[][];
+  /** 활동별 velocity_smooth/time 배열들 (최근 28일) */
+  recentStreams?: PaceStream[];
+  /** 활동별 velocity_smooth/time 배열들 (이전 28일) */
+  prevStreams?: PaceStream[];
 }
 
 const mockCurrent = [
@@ -36,20 +43,14 @@ const mockPrevious = [
 // 지속시간 목록 (초)
 const DURATIONS = [30, 60, 180, 300, 600, 1200, 1800, 3600, 7200];
 
-export function computeBestPace(velocityArrays: number[][], durationSec: number): number | null {
-  const window = Math.floor(durationSec);
-  if (window <= 0) return null;
+export function computeBestPace(streams: PaceStream[], durationSec: number): number | null {
+  if (durationSec <= 0) return null;
   let bestAvgVelocity = 0;
-  for (const vel of velocityArrays) {
-    if (vel.length < window) continue;
-    let sum = 0;
-    for (let i = 0; i < window; i++) sum += vel[i] ?? 0;
-    bestAvgVelocity = Math.max(bestAvgVelocity, sum / window);
-    for (let start = 1; start <= vel.length - window; start++) {
-      sum += (vel[start + window - 1] ?? 0) - (vel[start - 1] ?? 0);
-      const avg = sum / window;
-      if (avg > bestAvgVelocity) bestAvgVelocity = avg;
-    }
+  for (const stream of streams) {
+    if (stream.velocity.length < 2) continue;
+    const durations = sampleDurationsSec(stream.velocity.length, stream.time);
+    const avg = maxWeightedAverage(stream.velocity, durations, durationSec);
+    if (avg != null) bestAvgVelocity = Math.max(bestAvgVelocity, avg);
   }
   if (bestAvgVelocity <= 0) return null;
   return 1000 / bestAvgVelocity; // m/s → sec/km

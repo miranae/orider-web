@@ -4,7 +4,6 @@ import type { StreamTimeArray } from "./streamTime";
 /** Normalized Power: 30초 롤링 평균의 4제곱 평균 → 4제곱근 */
 export function calculateNP(watts: number[], time?: StreamTimeArray): number | null {
   if (totalDurationSec(watts.length, time) < 30) return null
-  if (watts.some((w) => !Number.isFinite(w))) return null
 
   const rollingAvg: number[] = []
   const durations = sampleDurationsSec(watts.length, time)
