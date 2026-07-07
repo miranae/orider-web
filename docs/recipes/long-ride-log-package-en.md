@@ -2,11 +2,13 @@
 
 ## Showcase Summary
 
-Package a long ride into GPX, markdown notes, and a coach-ready checklist.
+Package a long ride into a coach/Notion-ready record draft, fueling review, and next-ride questions.
 
 ## What It Builds
 
-This recipe helps a rider turn a long activity into a portable training record. It identifies a long ride, prepares a GPX/private export path, and creates a markdown summary that can be pasted into Notion, a coaching log, or a personal archive.
+This recipe helps a rider turn a long activity into a portable training record. It identifies the longest recent ride, prepares a private GPX/TCX/FIT export path, and creates a markdown record that can be pasted into Notion, a coaching log, or a personal archive.
+
+The useful output is not the file link alone. The package should preserve the next-ride baseline: distance, moving time, average speed, elevation, HR/power if available, fueling prompts, pacing notes, and coach questions.
 
 Because route data is sensitive, the file output is private by default. Public sharing should use a redacted summary card.
 
@@ -20,7 +22,7 @@ Because route data is sensitive, the file output is private by default. Public s
 
 ## Email Result
 
-The email does not attach GPX files. It sends the candidate ride summary and checklist only, because attachments may contain precise location data.
+The email does not attach GPX/TCX/FIT files. It sends the candidate ride summary, record draft, ride readout, and checklist only, because route files may contain precise location data.
 
 ## Example Flow
 
@@ -29,8 +31,10 @@ The email does not attach GPX files. It sends the candidate ride summary and che
 3. Prepare private export action for GPX.
 4. Generate markdown notes:
    - distance,
-   - duration,
+   - moving time,
+   - average speed,
    - elevation,
+   - HR/power baselines where available,
    - fueling notes,
    - pacing notes,
    - recovery notes.
@@ -39,14 +43,32 @@ The email does not attach GPX files. It sends the candidate ride summary and che
 ## Example Output
 
 ```md
-## Long Ride Notes
+## Long Ride Log - 2026-06-28
 
-- Distance: 142 km
-- Moving time: 5 h 18 m
-- Elevation: 1,940 m
-- Pacing: steady endurance with late fatigue check
-- Fueling: add carbohydrate note
-- Recovery: protein + easy spin within 24-48 h
+- Activity: Afternoon Mountain Bike Ride
+- Distance: 84.0km
+- Moving time: 3h 11m
+- Average speed: 26.4km/h
+- Elevation: 193m
+- Average HR: 143bpm
+- Average power: 124W
+
+## Ride note
+- Goal: endurance / distance adaptation / route scouting
+- What worked:
+- What got hard:
+- Last 30 minutes:
+
+## Fueling log
+- Before ride:
+- Carbohydrate during ride:
+- Fluids/electrolytes:
+- Adjustment for next time:
+
+## Coach questions
+- Is this intensity appropriate for longer rides?
+- How much should fueling increase before the next long ride?
+- Where should recovery or the next hard session go?
 ```
 
 ## Shareable Result
