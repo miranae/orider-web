@@ -16,6 +16,7 @@ import {
   mockCollectionData,
   addSnapshotListener,
   getCallableResult,
+  recordCallableInvocation,
   resetAllMocks,
 } from "./firebase";
 
@@ -151,7 +152,7 @@ vi.mock("firebase/firestore", () => {
 vi.mock("firebase/functions", () => ({
   httpsCallable: vi.fn((_functions: unknown, name: string) => {
     return vi.fn(async (data?: unknown) => {
-      void data;
+      recordCallableInvocation(name, data);
       return getCallableResult(name);
     });
   }),

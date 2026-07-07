@@ -135,6 +135,13 @@ export function getCallableResult(name: string) {
   return _callableResults.get(name) ?? { data: {} };
 }
 
+export type CallableInvocation = { name: string; data: unknown };
+export const mockCallableInvocations: CallableInvocation[] = [];
+
+export function recordCallableInvocation(name: string, data: unknown) {
+  mockCallableInvocations.push({ name, data });
+}
+
 // ─── Reset ────────────────────────────────────────────────
 export function resetAllMocks() {
   _currentUser = null;
@@ -143,6 +150,7 @@ export function resetAllMocks() {
   mockCollectionData.clear();
   _snapshotListeners.clear();
   _callableResults.clear();
+  mockCallableInvocations.length = 0;
 }
 
 // ─── Exported mock functions (for assertions) ─────────────

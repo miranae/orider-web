@@ -135,7 +135,11 @@ export function useFriends() {
 
   const removeFriend = useCallback(async (friendId: string) => {
     if (!user) return;
-    await deleteDoc(doc(firestore, "friends", user.uid, "users", friendId));
+    const fn = httpsCallable<{ friendId: string }, { success?: boolean; friendId?: string }>(
+      functions,
+      "removeFriend",
+    );
+    await fn({ friendId });
     track("friend_remove");
   }, [user]);
 

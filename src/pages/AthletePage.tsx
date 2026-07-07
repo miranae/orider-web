@@ -373,7 +373,11 @@ export default function AthletePage() {
     if (!currentUser || !removeId || friendLoading) return;
     setFriendLoading(true);
     try {
-      await deleteDoc(doc(firestore, "friends", currentUser.uid, "users", removeId));
+      const remove = httpsCallable<{ friendId: string }, { success?: boolean; friendId?: string }>(
+        functions,
+        "removeFriend",
+      );
+      await remove({ friendId: removeId });
       if (!targetId || targetId === userId) {
         setFriendStatus("none");
       }

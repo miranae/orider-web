@@ -6,6 +6,7 @@ import {
   setCollectionDocs,
   setDocData,
   setCallableResult,
+  mockCallableInvocations,
   mockDeleteDoc,
   mockSetDoc,
 } from "../__tests__/mocks/firebase";
@@ -135,9 +136,10 @@ describe("useFriends", () => {
     expect(mockDeleteDoc).toHaveBeenCalled();
   });
 
-  it("removeFriend calls deleteDoc", async () => {
+  it("removeFriend calls the symmetric backend callable instead of deleting one side locally", async () => {
     simulateLogin({ uid: "uid-1" });
     setDocData("users/uid-1", { nickname: "Test" });
+    setCallableResult("removeFriend", { data: { success: true, friendId: "friend-1" } });
 
     const { result } = renderHook(() => useFriends(), { wrapper });
 
@@ -149,6 +151,12 @@ describe("useFriends", () => {
       await result.current.removeFriend("friend-1");
     });
 
-    expect(mockDeleteDoc).toHaveBeenCalled();
+    expect(mockCallableInvocations).toContainEqual({
+      name: "removeFriend",
+      data: { friendId: "friend-1" },
+    });
+    expect(mockDeleteDoc).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: "friends/uid-1/users/friend-1" }),
+    );
   });
 });
