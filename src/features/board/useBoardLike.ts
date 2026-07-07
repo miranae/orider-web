@@ -2,13 +2,10 @@ import { useState, useEffect } from "react";
 import {
   doc,
   setDoc,
-  getDoc,
   deleteDoc,
   updateDoc,
   increment,
   onSnapshot,
-  collection,
-  addDoc,
 } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../../services/firebase";
@@ -65,24 +62,6 @@ export function useBoardLike(postId: string) {
           userId: user.uid,
           createdAt: Date.now()
         });
-
-        const postSnap = await getDoc(postRef);
-        if (postSnap.exists()) {
-          const postData = postSnap.data();
-          if (postData.userId !== user.uid) {
-            await addDoc(collection(firestore, "notifications", postData.userId, "items"), {
-              type: "kudos",
-              fromUserId: user.uid,
-              fromNickname: user.displayName || "익명",
-              fromProfileImage: user.photoURL || null,
-              activityId: null,
-              postId: postId,
-              message: `[커뮤니티] ${user.displayName || "익명"}님이 내 게시글을 좋아합니다.`,
-              read: false,
-              createdAt: Date.now(), // setDoc과 통일
-            });
-          }
-        }
 
         await updateDoc(postRef, {
           likeCount: increment(1)
