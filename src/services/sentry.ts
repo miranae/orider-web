@@ -17,7 +17,10 @@ type SentryModule = typeof import("@sentry/react");
 
 let sentry: SentryModule | null = null;
 let loadingPromise: Promise<SentryModule> | null = null;
+let lastLoadFailureAt = 0;
 const pendingErrors: Array<{ error: unknown; tags?: Record<string, string>; extra?: Record<string, unknown> }> = [];
+const MAX_PENDING_ERRORS = 20;
+const LOAD_RETRY_DELAY_MS = 30_000;
 
 function getInitOptions(Sentry: SentryModule) {
   const config = getRuntimeConfig();
@@ -51,6 +54,7 @@ export function loadSentry(): Promise<SentryModule> {
     return S;
   }).catch((err) => {
     console.warn("[sentry] load failed:", err);
+    lastLoadFailureAt = Date.now();
     loadingPromise = null;
     throw err;
   });
@@ -67,7 +71,9 @@ export function captureError(
   if (sentry) {
     sentry.captureException(error, options);
   } else {
+    if (pendingErrors.length >= MAX_PENDING_ERRORS) pendingErrors.shift();
     pendingErrors.push({ error, tags: options?.tags, extra: options?.extra });
+    if (Date.now() - lastLoadFailureAt < LOAD_RETRY_DELAY_MS) return;
     void loadSentry().catch(() => {
       // loadSentry 에서 이미 경고를 남긴다. 다음 에러에서 재시도.
     });

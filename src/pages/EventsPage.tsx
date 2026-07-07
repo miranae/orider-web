@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, doc, getDoc, getDocs, collectionGroup, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
@@ -131,8 +131,10 @@ function gpxToPolyline(gpxXml: string, maxPoints = 200): string | null {
     const step = points.length > maxPoints ? Math.ceil(points.length / maxPoints) : 1;
     const sampled: [number, number][] = [];
     for (let i = 0; i < points.length; i += step) sampled.push(points[i]!);
-    if (sampled[sampled.length - 1] !== points[points.length - 1]) {
-      sampled.push(points[points.length - 1]!);
+    const lastPoint = points[points.length - 1]!;
+    const lastSampledPoint = sampled[sampled.length - 1];
+    if (!lastSampledPoint || lastSampledPoint[0] !== lastPoint[0] || lastSampledPoint[1] !== lastPoint[1]) {
+      sampled.push(lastPoint);
     }
     return encodePolyline(sampled);
   } catch {
@@ -259,15 +261,13 @@ export default function EventsPage() {
 
         if (user) {
           try {
-            const mySnap = await getDocs(
-              query(collectionGroup(firestore, "participants"), where("userId", "==", user.uid))
+            const myParticipantDocs = await Promise.all(
+              list.map(async (event) => {
+                const participantSnap = await getDoc(doc(firestore, "events", event.id, "participants", user.uid));
+                return participantSnap.exists() ? event.id : null;
+              }),
             );
-            const ids = new Set<string>();
-            mySnap.forEach((d) => {
-              const parent = d.ref.parent.parent;
-              if (parent) ids.add(parent.id);
-            });
-            setMyEventIds(ids);
+            setMyEventIds(new Set(myParticipantDocs.filter((id): id is string => !!id)));
           } catch (err) {
             logClientError("EventsPage.loadMyEvents", err);
           }
@@ -540,8 +540,10 @@ function MapThumbnail({ polyline, accent }: { polyline: string; accent: string }
   const step = points.length > 200 ? Math.ceil(points.length / 200) : 1;
   const sampled: [number, number][] = [];
   for (let i = 0; i < points.length; i += step) sampled.push(project(points[i]!));
-  if (sampled[sampled.length - 1] !== project(points[points.length - 1]!)) {
-    sampled.push(project(points[points.length - 1]!));
+  const lastProjected = project(points[points.length - 1]!);
+  const lastSampled = sampled[sampled.length - 1];
+  if (!lastSampled || lastSampled[0] !== lastProjected[0] || lastSampled[1] !== lastProjected[1]) {
+    sampled.push(lastProjected);
   }
   const d = sampled.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
   const start = sampled[0]!;

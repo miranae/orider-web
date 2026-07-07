@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, collectionGroup, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -8,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import RiderRankingPanel from "../components/leaderboard/RiderRankingPanel";
+import { formatElapsedMillis } from "../features/leaderboard/leaderboardFormat";
 
 type LeaderboardTab = "segments" | "riders";
 
@@ -21,19 +22,9 @@ interface SegmentInfo {
   totalEfforts?: number;
 }
 
-interface EffortInfo {
-  segmentId: string;
-  elapsedTime: number;
-  createdAt?: number;
-}
-
-function formatDuration(sec: number): string {
-  const s = Math.floor(sec);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const r = s % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
-  return `${m}:${String(r).padStart(2, "0")}`;
+interface UserPrInfo {
+  bestTime?: number;
+  elapsedTime?: number;
 }
 
 export default function LeaderboardPage() {
@@ -71,23 +62,17 @@ export default function LeaderboardPage() {
         });
         setSegments(segs);
 
-        // 내 최고 기록 (본인 effort에서 가장 짧은 elapsedTime per segmentId)
+        // 내 최고 기록은 본인 소유 PR 컬렉션에서 읽는다.
+        // collectionGroup("efforts")는 다른 efforts 하위 컬렉션 rules와 충돌할 수 있다.
         if (user) {
           try {
-            const effortSnap = await getDocs(
-              query(
-                collectionGroup(firestore, "efforts"),
-                where("userId", "==", user.uid),
-                orderBy("elapsedTime", "asc"),
-                limit(500),
-              )
-            );
+            const prSnap = await getDocs(collection(firestore, "user_prs", user.uid, "segments"));
             const best = new Map<string, number>();
-            effortSnap.forEach((eDoc) => {
-              const data = eDoc.data() as EffortInfo;
-              const segId = eDoc.ref.parent.parent?.id;
-              if (!segId) return;
-              if (!best.has(segId)) best.set(segId, data.elapsedTime);
+            prSnap.forEach((prDoc) => {
+              const data = prDoc.data() as UserPrInfo;
+              const time = typeof data.bestTime === "number" ? data.bestTime : data.elapsedTime;
+              if (typeof time !== "number" || time <= 0) return;
+              best.set(prDoc.id, time);
             });
             setMyBest(best);
           } catch (err) {
@@ -244,7 +229,7 @@ export default function LeaderboardPage() {
                       {best != null ? (
                         <>
                           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-0-5)" }}>{t("leaderboardPage.myBest")}</Text>
-                          <Text as="div" variant="dataMedium" style={{ color: "var(--lime)" }}>{formatDuration(best)}</Text>
+                          <Text as="div" variant="dataMedium" style={{ color: "var(--lime)" }}>{formatElapsedMillis(best)}</Text>
                         </>
                       ) : (
                         <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("leaderboardPage.notTried")}</div>

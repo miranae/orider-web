@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { collection, getCountFromServer, query, where } from "firebase/firestore";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { lazyTimed, beginNavigation } from "./services/routeTiming";
+import { useRouteVisitTelemetry } from "./hooks/useRouteVisitTelemetry";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -174,6 +175,8 @@ export default function App() {
     navKeyRef.current = location.key;
     beginNavigation(location.pathname, location.key);
   }
+
+  useRouteVisitTelemetry();
 
   useEffect(() => {
     track("page_view", {

@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, orderBy, limit } from "firebase/fire
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
+import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import type { Course } from "@shared/types";
 
 // 모듈 레벨 캐시 — 한 번 로드하면 페이지 간 공유
@@ -11,16 +12,26 @@ let cacheUid: string | null = null;
 
 export function useCourses() {
   const { user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>(cachedCourses ?? []);
-  const [loading, setLoading] = useState(cachedCourses === null);
+  const uid = user?.uid ?? null;
+  const hasUsableCache = cachedCourses !== null && cacheUid === uid;
+  const [courses, setCourses] = useState<Course[]>(() => (hasUsableCache ? cachedCourses ?? [] : []));
+  const [loading, setLoading] = useState(!hasUsableCache);
 
   useEffect(() => {
+    if (cacheUid !== uid) {
+      cachedCourses = null;
+      cacheUid = null;
+      setCourses([]);
+    }
+
     // 같은 유저의 캐시가 있으면 스킵
-    if (cachedCourses && cacheUid === (user?.uid ?? null)) {
+    if (cachedCourses && cacheUid === uid) {
       setCourses(cachedCourses);
       setLoading(false);
       return;
     }
+
+    let cancelled = false;
 
     const load = async () => {
       setLoading(true);
@@ -33,41 +44,46 @@ export function useCourses() {
             query(
               collection(firestore, "courses"),
               where("creatorId", "==", user.uid),
-              where("deletedAt", "==", null),
               orderBy("createdAt", "desc"),
               limit(50),
             ),
           );
-          mySnap.docs.forEach((d) => map.set(d.id, { id: d.id, ...d.data() } as Course));
+          mySnap.docs.forEach((d) => {
+            const data = d.data();
+            if (isVisibleCourseDocData(data)) map.set(d.id, { id: d.id, ...data } as Course);
+          });
         }
 
         // 공개 코스 (인기순)
         // NOTE: 기존 코스에 visibility 필드가 채워지지 않아 필터링 시 빈 결과 발생.
         // visibility 필드 백필 완료 전까지 deletedAt만으로 필터링.
+        // deletedAt 필드가 없는 legacy 코스도 live 로 취급해야 하므로 쿼리 조건이 아니라 클라 필터로 처리.
         const publicSnap = await getDocs(
           query(
             collection(firestore, "courses"),
-            where("deletedAt", "==", null),
             orderBy("likeCount", "desc"),
             limit(100),
           ),
         );
         publicSnap.docs.forEach((d) => {
-          if (!map.has(d.id)) map.set(d.id, { id: d.id, ...d.data() } as Course);
+          const data = d.data();
+          if (isVisibleCourseDocData(data) && !map.has(d.id)) map.set(d.id, { id: d.id, ...data } as Course);
         });
 
         const result = Array.from(map.values());
+        if (cancelled) return;
         cachedCourses = result;
-        cacheUid = user?.uid ?? null;
+        cacheUid = uid;
         setCourses(result);
       } catch (err) {
         logClientError("useCourses.load", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user, uid]);
 
   /** 이름+지역 텍스트 검색 */
   function search(q: string): Course[] {

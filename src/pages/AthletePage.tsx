@@ -792,7 +792,7 @@ export default function AthletePage() {
                     )}
                   </div>
                 ))}
-                {!isSearchActive && hasMoreActivities && filterType === "all" && (
+                {!isSearchActive && hasMoreActivities && (
                   <button
                     onClick={handleLoadMoreActivities}
                     disabled={loadingMore}

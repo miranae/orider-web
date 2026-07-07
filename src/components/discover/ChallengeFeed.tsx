@@ -5,11 +5,12 @@
  * 공개 클라이언트는 정적 overview와 공개 코스 메타데이터만 사용해 탐색용 카드를 렌더링한다.
  */
 import { useEffect, useMemo, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { Mountain, Route as RouteIcon } from "lucide-react";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { isVisibleCourseDocData } from "../../features/courses/courseVisibility";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { Card, Text } from "../../theme/components";
 import { fetchStaticJson } from "../../utils/staticJson";
@@ -53,18 +54,18 @@ export default function ChallengeFeed() {
 
   useEffect(() => {
     let cancelled = false;
-    getDocs(query(collection(firestore, "courses"), where("deletedAt", "==", null)))
+    getDocs(query(collection(firestore, "courses")))
       .then((snap) => {
-        const items = snap.docs.map((docSnap) => {
-          const data = docSnap.data();
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            distance: data.distance ?? 0,
-            elevationGain: data.elevationGain ?? 0,
-            likeCount: data.likeCount ?? 0,
-          } as CourseHit;
-        });
+        const items = snap.docs
+          .map((docSnap) => ({ id: docSnap.id, data: docSnap.data() }))
+          .filter((item) => isVisibleCourseDocData(item.data))
+          .map((item) => ({
+            id: item.id,
+            name: item.data.name ?? "",
+            distance: item.data.distance ?? 0,
+            elevationGain: item.data.elevationGain ?? 0,
+            likeCount: item.data.likeCount ?? 0,
+          } as CourseHit));
         items.sort((a, b) => b.likeCount - a.likeCount || b.distance - a.distance);
         if (!cancelled) setCourses(items.slice(0, 4));
       })
@@ -136,7 +137,7 @@ function FallbackSegments({ segments }: { segments: OverviewSeg[] | null }) {
                 <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{segment.name}</span>
               </div>
               <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
-                {km(segment.distance)}km · {segment.averageGrade.toFixed(1)}%{segment.city ? ` · ${segment.city}` : ""}
+                {km(segment.distance)}km · {Number.isFinite(segment.averageGrade) ? segment.averageGrade.toFixed(1) : "0.0"}%{segment.city ? ` · ${segment.city}` : ""}
               </div>
             </Card>
           </Link>

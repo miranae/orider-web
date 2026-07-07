@@ -71,15 +71,15 @@ export function generateFit(activity: Activity, streams: ActivityStreams): Uint8
       }
     }
     if (hasAlt) {
-      const alt = streams.altitude![i] ?? 0;
-      const encoded = Math.round((alt + 500) * 5);
+      const alt = streams.altitude![i];
+      const encoded = alt == null ? 0xFFFF : Math.round((alt + 500) * 5);
       recBytes.push(...uint16LE(encoded));
     }
     if (hasHr) recBytes.push(streams.heartrate![i] ?? 0xFF);
     if (hasCad) recBytes.push(streams.cadence![i] ?? 0xFF);
     if (hasPower) recBytes.push(...uint16LE(streams.watts![i] ?? 0xFFFF));
     if (hasSpeed) {
-      const speedMs = (streams.velocity_smooth![i] ?? 0) / 3.6; // km/h → m/s
+      const speedMs = streams.velocity_smooth![i] ?? 0;
       recBytes.push(...uint16LE(Math.round(speedMs * 1000)));
     }
 
@@ -216,7 +216,7 @@ class FitWriter {
     const dataSize = this.bytes.length;
     const header = new Uint8Array(14);
     header[0] = 14;
-    header[1] = 20;           // protocol version 2.0
+    header[1] = 0x20;         // protocol version 2.0
     header[2] = 0x08;         // profile version low
     header[3] = 0x08;         // profile version high
     header[4] = dataSize & 0xFF;

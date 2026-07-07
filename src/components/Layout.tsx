@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import {
-  collection, query, orderBy, limit, onSnapshot, writeBatch, doc,
+  collection, query, orderBy, limit, onSnapshot, doc, updateDoc,
 } from "firebase/firestore";
 import { firestore, auth } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -21,8 +21,18 @@ import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
 import { getActiveHub, isHubSubRoute } from "../config/navHubs";
 import { logClientError } from "../services/errorLogger";
+import { recordRouteRedirect } from "../services/routeLoopTelemetry";
 // 네비 IA(5 허브)는 단일 진실원 config/navHubs.ts 가 보유 — TopNav·MobileTabBar·HubSubNav 공유.
 const NotifSheet = lazy(() => import("./mobile/NotifSheet"));
+
+export function shouldBypassOnboardingRedirect(path: string): boolean {
+  return (
+    path === "/onboarding" ||
+    path === "/settings" ||
+    path === "/strava/callback" ||
+    path === "/migrate"
+  );
+}
 
 function DashboardShell() {
   return (
@@ -63,11 +73,17 @@ export default function Layout() {
     if (
       profile?.onboardingStep &&
       profile.onboardingStep !== "done" &&
-      path !== "/onboarding"
+      !shouldBypassOnboardingRedirect(path)
     ) {
+      recordRouteRedirect({
+        fromPath: path,
+        toPath: "/onboarding",
+        reason: "onboarding_required",
+        onboardingStep: profile.onboardingStep,
+      });
       navigate("/onboarding", { replace: true });
     }
-  }, [profile?.onboardingStep, location.pathname, navigate]);
+  }, [profile?.onboardingStep, path, navigate]);
 
   // 경로 변경 시 main에 포커스 (스크린리더 접근성)
   useEffect(() => {
@@ -103,7 +119,9 @@ export default function Layout() {
       unsubscribe = onSnapshot(q, (snap) => {
         attempts = 0; // 정상 수신 시 재시도 카운터 리셋
         setNotifications(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Notification),
+          snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }) as Notification)
+            .filter((n) => n.dismissedAt == null),
         );
       }, (err) => {
         // 에러가 나면 이 리스너는 죽은 상태 — 정리 후 재구독 판단.
@@ -138,13 +156,37 @@ export default function Layout() {
 
   const handleMarkAllRead = async () => {
     if (!user) return;
-    const unread = notifications.filter((n) => !n.read);
-    if (unread.length === 0) return;
-    const batch = writeBatch(firestore);
-    unread.forEach((n) => {
-      batch.update(doc(firestore, "notifications", user.uid, "items", n.id), { read: true });
-    });
-    await batch.commit();
+    const visible = notifications;
+    if (visible.length === 0) return;
+    const dismissedAt = Date.now();
+    setNotifications([]);
+    try {
+      await Promise.all(visible.map((n) =>
+        updateDoc(doc(firestore, "notifications", user.uid, "items", n.id), { read: true, dismissedAt }),
+      ));
+    } catch (err) {
+      setNotifications(visible);
+      logClientError("Layout.notifications.markAllRead", err, { path: `notifications/${user.uid}/items` });
+    }
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!user) return;
+    const target =
+      notification.activityId ? `/activity/${notification.activityId}` :
+      notification.segmentId ? `/segment/${notification.segmentId}` :
+      null;
+    try {
+      if (!notification.read) {
+        await updateDoc(doc(firestore, "notifications", user.uid, "items", notification.id), { read: true });
+      }
+    } catch (err) {
+      logClientError("Layout.notifications.markOneRead", err, {
+        path: `notifications/${user.uid}/items/${notification.id}`,
+      });
+    } finally {
+      if (target) navigate(target);
+    }
   };
 
   return (
@@ -154,6 +196,7 @@ export default function Layout() {
         notifications={notifications}
         unreadCount={unreadCount}
         onMarkAllRead={handleMarkAllRead}
+        onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
         onMobileNotifClick={() => setNotifOpen(!notifOpen)}
       />
 
@@ -217,6 +260,7 @@ export default function Layout() {
             onClose={() => setNotifOpen(false)}
             notifications={notifications}
             onMarkAllRead={handleMarkAllRead}
+            onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
           />
         </Suspense>
       )}

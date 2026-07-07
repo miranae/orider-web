@@ -10,6 +10,8 @@ import {
   calculateXPower,
   analyzeMatches,
   estimateCriticalPower,
+  calculateAvgSpeed,
+  calculateCriticalBands,
 } from "./advancedMetrics";
 
 // 서버 functions/src/analysis/activity-metrics.ts:wPrimeBalanceMin 과 동일 알고리즘(미러 검증용).
@@ -104,6 +106,28 @@ describe("avgMax", () => {
   });
   it("ignoreZero — 0 제외", () => {
     expect(avgMax([0, 0, 4], { ignoreZero: true })).toEqual({ avg: 4, max: 4, count: 1 });
+  });
+});
+
+describe("calculateCriticalBands", () => {
+  it("FTP 경계 gap 샘플을 누락하지 않는다", () => {
+    const bands = calculateCriticalBands([94.5], 100);
+    expect(bands.find((b) => b.label === "Sweet Spot")?.seconds).toBe(1);
+  });
+});
+
+describe("calculateAvgSpeed", () => {
+  it("distance fallback 평균 속도는 time 스트림 duration을 사용한다", () => {
+    const result = calculateAvgSpeed({ distance: [0, 100], time: [0, 20] });
+    expect(result.avgKph).toBeCloseTo(18);
+  });
+
+  it("distance fallback 최대 속도는 non-1Hz time window를 사용한다", () => {
+    const result = calculateAvgSpeed({
+      distance: [0, 50, 100, 150, 200, 250],
+      time: [0, 2, 4, 6, 8, 10],
+    });
+    expect(result.maxKph).toBeCloseTo(90);
   });
 });
 

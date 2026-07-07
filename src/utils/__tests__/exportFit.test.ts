@@ -66,7 +66,7 @@ describe('exportFit', () => {
 
       // 14-byte header
       expect(data[0]).toBe(14);  // header size
-      expect(data[1]).toBe(20);  // protocol version
+      expect(data[1]).toBe(0x20);  // protocol version
       // ".FIT" signature at bytes 8-11
       expect(String.fromCharCode(data[8]!, data[9]!, data[10]!, data[11]!)).toBe('.FIT');
     });
@@ -104,6 +104,40 @@ describe('exportFit', () => {
 
       expect(data[0]).toBe(14);
       expect(String.fromCharCode(data[8]!, data[9]!, data[10]!, data[11]!)).toBe('.FIT');
+    });
+
+    it('encodes velocity_smooth as meters per second with FIT speed scale 1000', () => {
+      const data = generateFit(makeActivity(), {
+        userId: 'u1',
+        time: [0],
+        velocity_smooth: [10],
+      });
+
+      const fileIdDefinitionSize = 1 + 1 + 1 + 2 + 1 + 5 * 3;
+      const fileIdDataSize = 1 + 1 + 2 + 2 + 4 + 4;
+      const recordDefinitionSize = 1 + 1 + 1 + 2 + 1 + 2 * 3;
+      const firstRecordOffset = 14 + fileIdDefinitionSize + fileIdDataSize + recordDefinitionSize;
+      const speedOffset = firstRecordOffset + 1 + 4;
+      const encodedSpeed = data[speedOffset]! | (data[speedOffset + 1]! << 8);
+
+      expect(encodedSpeed).toBe(10_000);
+    });
+
+    it('encodes missing altitude as FIT invalid value', () => {
+      const data = generateFit(makeActivity(), {
+        userId: 'u1',
+        time: [0],
+        altitude: [null as unknown as number],
+      });
+
+      const fileIdDefinitionSize = 1 + 1 + 1 + 2 + 1 + 5 * 3;
+      const fileIdDataSize = 1 + 1 + 2 + 2 + 4 + 4;
+      const recordDefinitionSize = 1 + 1 + 1 + 2 + 1 + 2 * 3;
+      const firstRecordOffset = 14 + fileIdDefinitionSize + fileIdDataSize + recordDefinitionSize;
+      const altitudeOffset = firstRecordOffset + 1 + 4;
+      const encodedAltitude = data[altitudeOffset]! | (data[altitudeOffset + 1]! << 8);
+
+      expect(encodedAltitude).toBe(0xFFFF);
     });
 
     it('absolute epoch-ms time normalizes — byte-identical to relative-second (regression)', () => {

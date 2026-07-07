@@ -221,7 +221,8 @@ export default function ActivityPage() {
 
     getDoc(doc(firestore, "activities", activityId)).then((snap) => {
       if (snap.exists()) {
-        setActivity({ id: snap.id, ...snap.data() } as Activity);
+        const data = snap.data();
+        setActivity(data.summary == null ? null : { id: snap.id, ...data } as Activity);
       }
       setLoadingActivity(false);
     }).catch(() => setLoadingActivity(false));
@@ -458,8 +459,8 @@ export default function ActivityPage() {
   const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
 
   const summaryStats = useMemo(() => {
-    return buildSummaryStats(sampledData, activity?.summary.averagePower ?? activity?.avgPower);
-  }, [sampledData, activity?.summary.averagePower, activity?.avgPower]);
+    return buildSummaryStats(sampledData, activity?.summary?.averagePower ?? activity?.avgPower);
+  }, [sampledData, activity?.summary?.averagePower, activity?.avgPower]);
 
   const markerPosition = useMemo(() => {
     if (hoverIndex == null || !sampledData[hoverIndex]) return null;
@@ -488,7 +489,7 @@ export default function ActivityPage() {
     );
   }
 
-  if (!activity) {
+  if (!activity?.summary) {
     return (
       <div className="text-center py-16" style={{ color: 'var(--ink-2)' }}>
         <div className="text-[48px] mb-4">🔍</div>

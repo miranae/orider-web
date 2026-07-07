@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   doc, collection, query, onSnapshot, getDocs, where, limit as firestoreLimit,
 } from "firebase/firestore";
@@ -37,6 +37,7 @@ export function useGroup(groupId: string | undefined) {
 export function useGroupMembers(groupId: string | undefined, maxCount?: number) {
   const [members, setMembers] = useState<GroupMemberWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const snapshotEpochRef = useRef(0);
 
   useEffect(() => {
     if (!groupId) return;
@@ -48,6 +49,7 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number) 
       : query(collection(firestore, "groups", groupId, "members"));
 
     const unsub = onSnapshot(q, async (snap) => {
+      const snapshotEpoch = ++snapshotEpochRef.current;
       const memberDocs = snap.docs.map((d) => ({
         id: d.id,
         ...d.data(),
@@ -61,7 +63,7 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number) 
       });
 
       const resolved = await Promise.all(profilePromises);
-      if (!cancelled) {
+      if (!cancelled && snapshotEpoch === snapshotEpochRef.current) {
         setMembers(resolved);
         setLoading(false);
       }

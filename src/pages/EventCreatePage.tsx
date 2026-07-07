@@ -168,7 +168,8 @@ export default function EventCreatePage() {
   // 검증
   const valid1 = data.name.trim().length >= 2 && data.hostName.trim().length > 0 && data.hostPhone.trim().length > 0;
   const valid2 = data.courseIds.length > 0 && data.date.length > 0 && data.startTime.length > 0 && data.meetLocation.trim().length > 0;
-  const valid3 = data.categories.every((c) => c.label.trim().length > 0 && Number(c.slots) > 0) && data.openAt.length > 0 && data.closeAt.length > 0;
+  const validRegistrationWindow = data.openAt.length > 0 && data.closeAt.length > 0 && new Date(data.closeAt).getTime() > new Date(data.openAt).getTime();
+  const valid3 = data.categories.every((c) => c.label.trim().length > 0 && Number(c.slots) > 0) && validRegistrationWindow;
 
   const canAdvance = step === 0 ? valid1 : step === 1 ? valid2 : valid3;
   const canSubmit = valid1 && valid2 && valid3;

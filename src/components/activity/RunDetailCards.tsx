@@ -34,7 +34,7 @@ function PaceChart({ laps }: { laps?: ActivityStreams["laps"] }) {
 
   const minP = Math.min(...paces) - 15;
   const maxP = Math.max(...paces) + 15;
-  const xScale = (i: number) => (i / (paces.length - 1)) * w;
+  const xScale = (i: number) => (i / Math.max(paces.length - 1, 1)) * w;
   const yScale = (p: number) => ((p - minP) / (maxP - minP)) * h;
 
   const path = paces.map((p, i) => `${i ? 'L' : 'M'}${xScale(i)} ${yScale(p)}`).join(' ');

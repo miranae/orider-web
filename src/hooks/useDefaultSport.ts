@@ -4,6 +4,14 @@ import type { Discipline } from "../utils/disciplineFilter";
 
 const VALID: Discipline[] = ["tri", "bike", "run", "swim"];
 
+function getStoredSport(): Discipline | null {
+  try {
+    return localStorage.getItem("lastSport") as Discipline | null;
+  } catch {
+    return null;
+  }
+}
+
 export function useDefaultSport(activities?: { type: string; startTime: number }[]): Discipline {
   const [searchParams] = useSearchParams();
   const { profile } = useAuth();
@@ -13,7 +21,7 @@ export function useDefaultSport(activities?: { type: string; startTime: number }
   if (urlSport && VALID.includes(urlSport)) return urlSport;
 
   // 2. localStorage lastSport (세션 지속)
-  const stored = localStorage.getItem("lastSport") as Discipline | null;
+  const stored = getStoredSport();
   if (stored && VALID.includes(stored)) return stored;
 
   // 3. profile.primaryDiscipline

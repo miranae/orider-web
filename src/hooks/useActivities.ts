@@ -236,7 +236,7 @@ export function useActivities() {
   };
 }
 
-export function useWeeklyStats() {
+export function useWeeklyStats(now: Date = new Date()) {
   const { user } = useAuth();
 
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -284,11 +284,11 @@ export function useWeeklyStats() {
   }
 
   const all = activities;
-  const now = new Date();
   const weeks: WeeklyStat[] = [];
   for (let w = 11; w >= 0; w--) {
     const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - w * 7 - weekStart.getDay() + 1);
+    const daysSinceMonday = (weekStart.getDay() + 6) % 7;
+    weekStart.setDate(weekStart.getDate() - w * 7 - daysSinceMonday);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
 
@@ -321,6 +321,51 @@ export function useWeeklyStats() {
       elevation: Math.round(thisWeekActivities.reduce((s, a) => s + a.summary.elevationGain, 0)),
     },
   };
+}
+
+export function useMonthlyActivityDistance(now: Date = new Date()) {
+  const { user } = useAuth();
+  const [distance, setDistance] = useState(0);
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  useEffect(() => {
+    if (!user) {
+      setDistance(0);
+      return;
+    }
+
+    let cancelled = false;
+    const start = new Date(year, month, 1).getTime();
+    const end = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
+
+    const load = async () => {
+      try {
+        const q = query(
+          collection(firestore, "activities"),
+          where("deletedAt", "==", null),
+          where("userId", "==", user.uid),
+          where("startTime", ">=", start),
+          where("startTime", "<=", end),
+          orderBy("startTime", "desc"),
+        );
+        const snap = await getDocs(q);
+        const totalDistance = snap.docs.reduce((sum, d) => {
+          const activity = { id: d.id, ...d.data() } as Activity;
+          return sum + (activity.summary?.distance ?? 0);
+        }, 0);
+        if (!cancelled) setDistance(totalDistance);
+      } catch (err) {
+        logClientError("useMonthlyActivityDistance.load", err, { userId: user.uid, start, end });
+        if (!cancelled) setDistance(0);
+      }
+    };
+
+    load();
+    return () => { cancelled = true; };
+  }, [user, year, month]);
+
+  return distance;
 }
 
 function getDateFrom(preset: DatePreset): number | null {

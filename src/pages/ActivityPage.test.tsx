@@ -81,6 +81,21 @@ describe("ActivityPage", () => {
     });
   });
 
+  it("shows 404 message instead of crashing when activity summary is missing", async () => {
+    const { summary: _summary, ...activityWithoutSummary } = createMockActivity({
+      id: "test-activity",
+      description: "수집 중 활동",
+    });
+    setDocData("activities/test-activity", activityWithoutSummary as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />);
+
+    await waitFor(() => {
+      const notFound = screen.queryByText(/찾을 수 없/) || screen.queryByText(/존재하지 않/);
+      expect(notFound).toBeInTheDocument();
+    });
+  });
+
   it("shows comment input for authenticated users", async () => {
     const activity = createMockActivity({ id: "test-activity" });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);

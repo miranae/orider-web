@@ -9,9 +9,10 @@ interface NotifSheetProps {
   onClose: () => void;
   notifications: Notification[];
   onMarkAllRead: () => void;
+  onNotificationClick: (notification: Notification) => void;
 }
 
-export default function NotifSheet({ open, onClose, notifications, onMarkAllRead }: NotifSheetProps) {
+export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick }: NotifSheetProps) {
   const { t } = useTranslation("common");
 
   useEffect(() => {
@@ -41,12 +42,15 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
         >
           <span style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)" }}>{t("label.notifications")}</span>
           <div className="flex items-center gap-3">
-            <button
-              onClick={onMarkAllRead}
-              style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: "10px 8px" }}
-            >
-              {t("button.markAllRead")}
-            </button>
+            {notifications.length > 0 && (
+              <button
+                type="button"
+                onClick={onMarkAllRead}
+                style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: "10px 8px" }}
+              >
+                {t("button.markAllRead")}
+              </button>
+            )}
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: "var(--space-2)", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <X size={20} style={{ color: "var(--ink-3)" }} />
             </button>
@@ -58,13 +62,22 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
           </div>
         )}
         {notifications.map((n) => (
-          <div
+          <button
             key={n.id}
+            type="button"
             className="flex items-start gap-2.5"
+            onClick={() => {
+              onNotificationClick(n);
+              onClose();
+            }}
             style={{
+              width: "100%",
               padding: "13px 16px",
+              border: "none",
               borderBottom: "1px solid var(--line-soft)",
               background: n.read ? "transparent" : "color-mix(in oklch, var(--lime) 4%, var(--bg-0))",
+              cursor: "pointer",
+              textAlign: "left",
             }}
           >
             <div
@@ -81,7 +94,7 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
                 {n.createdAt ? timeAgo(n.createdAt, t) : ""}
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>

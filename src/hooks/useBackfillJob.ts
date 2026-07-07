@@ -23,9 +23,15 @@ export function useBackfillJob(uid: string | null) {
       return;
     }
     const ref = doc(firestore, "users", uid, "jobs", "virtual_power_backfill");
-    const unsub = onSnapshot(ref, (snap) => {
-      setJob((snap.data() as BackfillJob | undefined) ?? null);
-    });
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        setJob((snap.data() as BackfillJob | undefined) ?? null);
+      },
+      () => {
+        setJob(null);
+      },
+    );
     return () => unsub();
   }, [uid]);
   return job;

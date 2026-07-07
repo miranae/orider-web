@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -12,6 +12,7 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
+import { EmptyState } from "../components/redesign";
 import { Card } from "../theme/components";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -110,7 +111,8 @@ function StatsPanel({ stats }: { stats: ReturnType<typeof computeStats> }) {
 
 export default function CreateCoursePage() {
   const { t } = useTranslation("course");
-  const { user, loading: authLoading } = useAuth();
+  const { t: tActivity } = useTranslation("activity");
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activityId = searchParams.get("activityId");
@@ -168,7 +170,7 @@ export default function CreateCoursePage() {
         const d = actDoc.data();
         setSelectedActivity({
           id: actDoc.id,
-          description: d.description ?? "Untitled",
+          description: d.description ?? tActivity("noName"),
           startTime: d.startTime ?? d.createdAt ?? Date.now(),
           summary: d.summary ?? { distance: 0, ridingTimeMillis: 0, elevationGain: 0 },
           thumbnailTrack: d.thumbnailTrack ?? "",
@@ -199,18 +201,19 @@ export default function CreateCoursePage() {
       setRangeStart(0);
       setRangeEnd(data.latlng.length - 1);
     } catch (err: unknown) {
-      logClientError("CreateCoursePage.loadStreams", err, { activityId: selectedActivity?.id });
+      logClientError("CreateCoursePage.loadStreams", err, { activityId: aid });
       const fbErr = err as { code?: string; message?: string };
       setStreamError(t("error.streamLoadFailed", { message: fbErr.message ?? String(err) }));
     } finally {
       setLoadingStreams(false);
     }
-  }, []);
+  }, [t, tActivity]);
 
   useEffect(() => {
     if (!user || !activityId || mode === "gpx") return;
+    if (selectedActivity?.id === activityId && streams?.latlng?.length) return;
     loadActivityStreams(activityId);
-  }, [user, activityId, mode, loadActivityStreams]);
+  }, [user, activityId, mode, selectedActivity?.id, streams?.latlng?.length, loadActivityStreams]);
 
   // ── Keyboard arrows for range (section mode) ──
   useEffect(() => {
@@ -445,7 +448,21 @@ export default function CreateCoursePage() {
     );
   }
 
-  if (!user) return <Navigate to="/courses" replace />;
+  if (!user) {
+    return (
+      <div className="max-w-2xl mx-auto py-8">
+        <EmptyState
+          icon="🔒"
+          title={t("createAuth.title")}
+          description={t("createAuth.description")}
+          actions={[
+            { label: t("createAuth.login"), variant: "primary", onClick: () => { void signInWithGoogle(); } },
+            { label: t("button.courseList"), variant: "secondary", href: "/courses" },
+          ]}
+        />
+      </div>
+    );
+  }
 
   // ── Success ──
   if (createdCourseId) {
