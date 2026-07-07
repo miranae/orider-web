@@ -13,6 +13,11 @@ import { normalizeUserContentUrl } from "../utils/userContentUrl";
 import { serializePostEditorContent } from "../features/board/editor/serializePostEditorContent";
 const MAX_IMAGES = 5;
 
+type AttachedImage = {
+  url: string;
+  name: string;
+};
+
 /** Try to download an external image as a File (same-origin or CORS-enabled only). */
 async function fetchImageAsFile(src: string): Promise<File | null> {
   const ts = Date.now();
@@ -86,6 +91,7 @@ const CreatePostPage: React.FC = () => {
   const [tags, setTags] = useState('');
   const [uploading, setUploading] = useState(false);
   const [imageCount, setImageCount] = useState(0);
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [editorEmpty, setEditorEmpty] = useState(true);
 
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'question' | 'other'>(isCreatorRecipeTemplate ? 'feature' : 'bug');
@@ -103,6 +109,17 @@ const CreatePostPage: React.FC = () => {
   const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
 
   const imageMapRef = useRef<Map<string, File>>(new Map());
+  const tagItems = tags.split(',').map(tag => tag.trim()).filter(Boolean);
+
+  const syncAttachedImages = useCallback(() => {
+    setImageCount(imageMapRef.current.size);
+    setAttachedImages(
+      Array.from(imageMapRef.current, ([url, file]) => ({
+        url,
+        name: file.name || 'image',
+      }))
+    );
+  }, []);
 
   const checkEditorEmpty = () => {
     const editor = editorRef.current;
@@ -283,7 +300,7 @@ const CreatePostPage: React.FC = () => {
 
     const blobUrl = URL.createObjectURL(file);
     imageMapRef.current.set(blobUrl, file);
-    setImageCount(imageMapRef.current.size);
+    syncAttachedImages();
 
     const editor = editorRef.current;
     if (!editor) return;
@@ -316,7 +333,7 @@ const CreatePostPage: React.FC = () => {
 
     editor.focus();
     setEditorEmpty(false);
-  }, []);
+  }, [syncAttachedImages, t]);
 
   // Find untracked <img> in editor, download & convert to tracked blobs
   const processNewImages = useCallback(async () => {
@@ -343,9 +360,33 @@ const CreatePostPage: React.FC = () => {
         img.setAttribute('referrerpolicy', 'no-referrer');
       }
     }
-    setImageCount(imageMapRef.current.size);
+    syncAttachedImages();
     checkEditorEmpty();
-  }, []);
+  }, [syncAttachedImages]);
+
+  const removeAttachedImage = useCallback((url: string) => {
+    const editor = editorRef.current;
+    if (editor) {
+      const img = Array.from(editor.querySelectorAll<HTMLImageElement>('img[data-blob]'))
+        .find(item => item.src === url || item.getAttribute('src') === url);
+
+      if (img) {
+        const parent = img.parentElement;
+        if (parent && parent.parentElement === editor && parent.childElementCount === 1) {
+          parent.remove();
+        } else {
+          img.remove();
+        }
+      }
+    }
+
+    if (imageMapRef.current.has(url)) {
+      URL.revokeObjectURL(url);
+      imageMapRef.current.delete(url);
+    }
+    syncAttachedImages();
+    checkEditorEmpty();
+  }, [syncAttachedImages]);
 
   // Manually parse clipboard HTML, sanitize, insert with images preserved
   const insertSanitizedHtml = useCallback(async (html: string) => {
@@ -524,11 +565,11 @@ const CreatePostPage: React.FC = () => {
           imageMapRef.current.delete(url);
         }
       }
-      setImageCount(imageMapRef.current.size);
+      syncAttachedImages();
     });
     observer.observe(editor, { childList: true, subtree: true });
     return () => observer.disconnect();
-  }, []);
+  }, [syncAttachedImages]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
@@ -596,6 +637,105 @@ const CreatePostPage: React.FC = () => {
 
   const isBusy = submitting || uploading;
   const canSubmit = title.trim() && !editorEmpty && !isBusy;
+  const postOptions = (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <Card
+        className="rounded-[var(--r-xl)]"
+        title={isInquiry ? t('label.private') : t('label.tags')}
+        sub={!isInquiry ? tagItems.length : undefined}
+      >
+        {isInquiry ? (
+          <label className="flex items-start gap-3 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={isPrivate}
+              onChange={e => setIsPrivate(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded-[var(--r-sm)] border-[var(--line)] text-[var(--lime)] focus:ring-[var(--lime)]"
+            />
+            <span>
+              <span className="block text-[length:var(--fs-xs)] leading-relaxed text-[var(--ink-3)]">{t('label.privateHint')}</span>
+            </span>
+          </label>
+        ) : (
+          <>
+            <input
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder={t('placeholder.tags')}
+              className="w-full px-4 py-3 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"
+              style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
+            />
+            <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mt-3">{t('placeholder.tagExample')}</p>
+            <div className="mt-4 flex min-h-14 flex-wrap content-start gap-2 rounded-[var(--r-lg)] bg-[var(--bg-2)] p-3.5">
+              {tagItems.length > 0 ? tagItems.map(tag => (
+                <span
+                  key={tag}
+                  className="inline-flex max-w-full items-center rounded-full bg-[var(--bg-3)] px-2.5 py-1 text-[length:var(--fs-xs)] font-semibold text-[var(--ink-1)]"
+                >
+                  <span className="truncate">#{tag}</span>
+                </span>
+              )) : (
+                <span className="self-center text-[length:var(--fs-xs)] text-[var(--ink-3)]">{t('placeholder.tagInputHint')}</span>
+              )}
+            </div>
+          </>
+        )}
+      </Card>
+
+      <Card
+        className="rounded-[var(--r-xl)]"
+        title={t('label.imageCount')}
+        sub={`${imageCount}/${MAX_IMAGES}`}
+      >
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={imageCount >= MAX_IMAGES}
+          className="w-full rounded-[var(--r-lg)] border border-dashed border-[var(--line)] bg-[var(--bg-2)] px-5 py-5 text-left transition-colors hover:border-[var(--lime)] hover:bg-[var(--bg-3)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span className="flex items-center gap-4">
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[var(--r-lg)] bg-[var(--lime)]/15 text-[var(--lime)]">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" /></svg>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">{t('button.selectImages')}</span>
+              <span className="mt-0.5 block text-[length:var(--fs-xs)] leading-relaxed text-[var(--ink-3)]">{t('placeholder.attachmentHint')}</span>
+            </span>
+          </span>
+        </button>
+
+        <div className="mt-4 flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-[var(--bg-3)] rounded-full overflow-hidden">
+            <div className="h-full bg-[var(--lime)] rounded-full transition-all"
+              style={{ width: `${(imageCount / MAX_IMAGES) * 100}%` }}
+            />
+          </div>
+        </div>
+        {attachedImages.length > 0 && (
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+            {attachedImages.map((image, index) => (
+              <div key={image.url} className="flex items-center gap-3 rounded-[var(--r-lg)] bg-[var(--bg-3)] p-3">
+                <img src={image.url} alt="" className="h-10 w-10 flex-shrink-0 rounded-[var(--r-md)] object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[length:var(--fs-xs)] font-semibold text-[var(--ink-1)]">{image.name}</div>
+                  <div className="text-[10px] text-[var(--ink-3)]">{index + 1}/{MAX_IMAGES}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeAttachedImage(image.url)}
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[var(--r-md)] text-[var(--ink-3)] transition-colors hover:bg-[var(--bg-4)] hover:text-[var(--ink-1)]"
+                  title={t('button.removeImage')}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
 
   // 권한 가드 — 모든 hook 호출 이후로 이동 (rules-of-hooks 준수).
   // Why: 이전엔 hook 선언 위에 early return 이 있어 user→login 전환 시 hook 순서 불일치.
@@ -626,56 +766,53 @@ const CreatePostPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Two-column layout */}
-      <div className="lg:flex lg:gap-6">
-        {/* Left: Editor */}
-        <div className="flex-1 min-w-0">
-          <Card padding="none" className="rounded-[var(--r-xl)] overflow-hidden">
-            {isInquiry && (
-              <div className="px-5 pt-5 pb-3 border-b border-[var(--line-soft)]">
-                <label className="text-[length:var(--fs-sm)] font-bold text-[var(--ink-0)] mb-2 block">{t('label.feedbackType')}</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {([
-                    { value: 'bug' as const, label: t('label.feedbackTypes.bug'), icon: t('label.feedbackIcons.bug') },
-                    { value: 'feature' as const, label: t('label.feedbackTypes.feature'), icon: t('label.feedbackIcons.feature') },
-                    { value: 'question' as const, label: t('label.feedbackTypes.question'), icon: t('label.feedbackIcons.question') },
-                    { value: 'other' as const, label: t('label.feedbackTypes.other'), icon: t('label.feedbackIcons.other') },
-                  ]).map(feedbackItem => (
-                    <button
-                      key={feedbackItem.value}
-                      type="button"
-                      onClick={() => setFeedbackType(feedbackItem.value)}
-                      className={`flex flex-col items-center gap-1 p-2.5 rounded-[var(--r-lg)] border-2 transition-all text-center ${
-                        feedbackType === feedbackItem.value
-                          ? 'border-[var(--lime)] bg-[var(--lime)]/10'
-                          : 'border-[var(--line-soft)] hover:border-[var(--line)]'
-                      }`}
-                    >
-                      <span className="text-[length:var(--fs-xl)]">{feedbackItem.icon}</span>
-                      <span className={`text-[length:var(--fs-xs)] font-bold ${feedbackType === feedbackItem.value ? 'text-[var(--lime)]' : 'text-[var(--ink-2)]'}`}>
-                        {feedbackItem.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+      <div className="space-y-4">
+        <Card padding="none" className="rounded-[var(--r-xl)] overflow-hidden">
+          {isInquiry && (
+            <div className="px-5 pt-5 pb-3 border-b border-[var(--line-soft)]">
+              <label className="text-[length:var(--fs-sm)] font-bold text-[var(--ink-0)] mb-2 block">{t('label.feedbackType')}</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {([
+                  { value: 'bug' as const, label: t('label.feedbackTypes.bug'), icon: t('label.feedbackIcons.bug') },
+                  { value: 'feature' as const, label: t('label.feedbackTypes.feature'), icon: t('label.feedbackIcons.feature') },
+                  { value: 'question' as const, label: t('label.feedbackTypes.question'), icon: t('label.feedbackIcons.question') },
+                  { value: 'other' as const, label: t('label.feedbackTypes.other'), icon: t('label.feedbackIcons.other') },
+                ]).map(feedbackItem => (
+                  <button
+                    key={feedbackItem.value}
+                    type="button"
+                    onClick={() => setFeedbackType(feedbackItem.value)}
+                    className={`flex flex-col items-center gap-1 p-2.5 rounded-[var(--r-lg)] border-2 transition-all text-center ${
+                      feedbackType === feedbackItem.value
+                        ? 'border-[var(--lime)] bg-[var(--lime)]/10'
+                        : 'border-[var(--line-soft)] hover:border-[var(--line)]'
+                    }`}
+                  >
+                    <span className="text-[length:var(--fs-xl)]">{feedbackItem.icon}</span>
+                    <span className={`text-[length:var(--fs-xs)] font-bold ${feedbackType === feedbackItem.value ? 'text-[var(--lime)]' : 'text-[var(--ink-2)]'}`}>
+                      {feedbackItem.label}
+                    </span>
+                  </button>
+                ))}
               </div>
-            )}
-
-            {/* Title */}
-            <div className="px-5 pt-5">
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                placeholder={t('placeholder.title')}
-                className="w-full px-1 pb-3 text-[length:var(--fs-lg)] font-medium bg-transparent text-[var(--ink-0)] placeholder:text-[var(--ink-3)] focus:outline-none border-b border-[var(--line-soft)]"
-              />
             </div>
+          )}
 
-            {/* Toolbar */}
-            <div className="px-3 py-1.5 border-b border-[var(--line-soft)] flex items-center gap-0.5 overflow-x-auto">
-              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" />
+          {/* Title */}
+          <div className="px-5 pt-5">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+              placeholder={t('placeholder.title')}
+              className="w-full px-1 pb-3 text-[length:var(--fs-lg)] font-medium bg-transparent text-[var(--ink-0)] placeholder:text-[var(--ink-3)] focus:outline-none border-b border-[var(--line-soft)]"
+            />
+          </div>
+
+          {/* Toolbar */}
+          <div className="px-3 py-1.5 border-b border-[var(--line-soft)] flex items-center gap-0.5 overflow-x-auto">
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" />
 
               {/* --- Insert --- */}
               <ToolBtn onClick={() => fileInputRef.current?.click()} disabled={imageCount >= MAX_IMAGES} title={t('toolbar.photo')}>
@@ -768,8 +905,7 @@ const CreatePostPage: React.FC = () => {
             </div>
 
             {/* Editor content area */}
-            <div
-              className="relative"
+            <div className="relative"
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
@@ -798,58 +934,9 @@ const CreatePostPage: React.FC = () => {
                 style={{ wordBreak: 'break-word' }}
               />
             </div>
-          </Card>
-        </div>
+        </Card>
 
-        {/* Right: Sidebar */}
-        <div className="mt-6 lg:mt-0 lg:w-64 flex-shrink-0 space-y-4">
-          {/* Tags / Private */}
-          <Card padding="none" className="rounded-[var(--r-xl)] p-4">
-            {isInquiry ? (
-              <label className="flex items-center gap-2 px-1 py-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isPrivate}
-                  onChange={e => setIsPrivate(e.target.checked)}
-                  className="w-4 h-4 rounded-[var(--r-sm)] border-[var(--line)] text-[var(--lime)] focus:ring-[var(--lime)]"
-                />
-                <span className="text-[length:var(--fs-sm)] text-[var(--ink-1)]">
-                  {t('label.private')} <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{t('label.privateHint')}</span>
-                </span>
-              </label>
-            ) : (
-              <>
-                <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)] mb-3">{t('label.tags')}</h3>
-                <input
-                  type="text"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder={t('placeholder.tags')}
-                  className="w-full px-3 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"
-                  style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
-                />
-                <p className="text-[10px] text-[var(--ink-3)] mt-1.5">{t('placeholder.tagExample')}</p>
-              </>
-            )}
-          </Card>
-
-          {/* Image count */}
-          <Card padding="none" className="rounded-[var(--r-xl)] p-4">
-            <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)] mb-2">{t('label.imageCount')}</h3>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-[var(--bg-3)] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[var(--lime)] rounded-full transition-all"
-                  style={{ width: `${(imageCount / MAX_IMAGES) * 100}%` }}
-                />
-              </div>
-              <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)] tabular-nums">{imageCount}/{MAX_IMAGES}</span>
-            </div>
-            <p className="text-[10px] text-[var(--ink-3)] mt-2">
-              {t('placeholder.attachmentHint')}
-            </p>
-          </Card>
-        </div>
+        {postOptions}
       </div>
     </form>
   );
@@ -868,8 +955,7 @@ const ToolBtn: React.FC<{
     onClick={onClick}
     onMouseDown={(e) => e.preventDefault()}
     disabled={disabled}
-    title={title}
-    className={`flex flex-col items-center justify-center w-10 h-10 rounded-[var(--r-lg)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+    title={title} className={`flex flex-col items-center justify-center w-10 h-10 rounded-[var(--r-lg)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
       active
         ? 'bg-[var(--lime)]/20 text-[var(--lime)]'
         : 'text-[var(--ink-3)] hover:bg-[var(--bg-2)] hover:text-[var(--ink-1)]'

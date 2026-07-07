@@ -44,10 +44,11 @@
   "placeholder.title": "제목을 입력해 주세요.",
   "placeholder.tags": "쉼표로 구분",
   "placeholder.tagExample": "예: 자전거, 리뷰, 코스",
+  "placeholder.tagInputHint": "입력한 태그가 여기 표시됩니다.",
   "placeholder.codeBlock": "코드를 입력하세요",
   "placeholder.tableHeader": "제목",
   "placeholder.editorHint": "내용을 입력해 주세요. 이미지는 붙여넣기(Ctrl+V)로 바로 추가할 수 있습니다.",
-  "placeholder.attachmentHint": "본문에 이미지를 붙여넣기(Ctrl+V)하거나도구모음에서 사진 버튼을 클릭하세요.",
+"placeholder.attachmentHint": "본문에 붙여넣거나 여기에서 사진을 선택하세요.",
   "creatorRecipeTemplate": {
     "title": "[Creator] 이런 활용법이 필요해요",
     "lines": [
@@ -113,6 +114,8 @@
   "button.submit": "등록",
   "button.submitLoading": "등록 중...",
   "button.uploading": "업로드 중…",
+  "button.selectImages": "이미지 선택",
+  "button.removeImage": "이미지 제거",
   "button.search": "검색",
   "button.searchReset": "검색 초기화",
   "button.cancel": "취소",

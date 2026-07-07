@@ -44,10 +44,11 @@
   "placeholder.title": "Enter title",
   "placeholder.tags": "Separate with commas",
   "placeholder.tagExample": "E.g. bike, review, course",
+  "placeholder.tagInputHint": "Entered tags will appear here.",
   "placeholder.codeBlock": "Enter code",
   "placeholder.tableHeader": "Header",
   "placeholder.editorHint": "Enter content. You can add images by pasting (Ctrl+V).",
-  "placeholder.attachmentHint": "Paste images into the body (Ctrl+V) or click the photo button in the toolbar.",
+"placeholder.attachmentHint": "Paste into the body or choose photos here.",
   "creatorRecipeTemplate": {
     "title": "[Creator] I need this recipe",
     "lines": [
@@ -113,6 +114,8 @@
   "button.submit": "Submit",
   "button.submitLoading": "Submitting...",
   "button.uploading": "Uploading…",
+  "button.selectImages": "Select images",
+  "button.removeImage": "Remove image",
   "button.search": "Search",
   "button.searchReset": "Clear Search",
   "button.cancel": "Cancel",

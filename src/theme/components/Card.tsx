@@ -29,10 +29,11 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   { variant = 'default', padding = 'card', clickable, header, title, sub, actions, className, style, children, ...rest },
   ref,
 ) {
+  const hasClassPadding = typeof className === 'string' && /(?:^|\s)(?:[a-z]+:)*p[trblxy]?-[^\s]+!?/.test(className);
   const paddingStyle: React.CSSProperties = padding === 'card'
     ? {} // CSS 기본값 사용
     : padding === 'none'
-    ? { padding: 0 }
+    ? hasClassPadding ? {} : { padding: 0 }
     : padding === 'compact'
     ? { padding: "var(--space-3)" }
     : { padding };
