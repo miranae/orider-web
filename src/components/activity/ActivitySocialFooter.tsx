@@ -11,6 +11,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { track, trackActivationStep } from "../../services/analytics";
 import { logClientError } from "../../services/errorLogger";
 import { getDiscipline } from "../../utils/disciplineFilter";
+import { useHydratedSocialProfiles } from "./useHydratedSocialProfiles";
 
 /**
  * 스트라바형 활동 카드 소셜 푸터 — 좋아요(토글 + 누른 사람 아바타 스택) + 댓글 수.
@@ -30,6 +31,8 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
   const [liked, setLiked] = useState(() => !!user && initialRecent.some((k) => k.userId === user.uid));
   const [localKudos, setLocalKudos] = useState(activity.kudosCount ?? 0);
   const [recent, setRecent] = useState(initialRecent);
+  const hydratedRecent = useHydratedSocialProfiles(recent, "ActivitySocialFooter.recentKudos");
+  const currentProfileImage = profile?.photoURL ?? user?.photoURL ?? null;
   // 댓글 인라인 작성 — 💬 클릭 시 카드 안에서 바로 입력(상세 이동 없이). 기존 댓글 "목록"은
   // 불러오지 않아 카드당 추가 read 0; 전체 보기는 카드/제목 클릭으로 상세 진입.
   const [showComment, setShowComment] = useState(false);
@@ -65,7 +68,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
       setLiked(true);
       setLocalKudos((c) => c + 1);
       setRecent((r) => [
-        { userId: user.uid, nickname: profile.nickname ?? user.displayName ?? "User", profileImage: user.photoURL ?? null },
+        { userId: user.uid, nickname: profile.nickname ?? user.displayName ?? "User", profileImage: currentProfileImage },
         ...r.filter((k) => k.userId !== user.uid),
       ].slice(0, 5));
     }
@@ -75,7 +78,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
       } else {
         await setDoc(kudosDocRef, {
           nickname: profile.nickname ?? user.displayName ?? "User",
-          profileImage: user.photoURL ?? null,
+          profileImage: currentProfileImage,
           createdAt: Date.now(),
         });
         showToast(t("card.kudosToast"));
@@ -111,7 +114,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
       await addDoc(collection(firestore, "activities", activity.id, "comments"), {
         userId: user.uid,
         nickname: profile.nickname ?? user.displayName ?? "User",
-        profileImage: user.photoURL ?? null,
+        profileImage: currentProfileImage,
         text,
         createdAt: Date.now(),
         deletedAt: null,
@@ -135,7 +138,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
     }
   };
 
-  const overflow = Math.max(0, localKudos - recent.length);
+  const overflow = Math.max(0, localKudos - hydratedRecent.length);
 
   return (
     <div className="border-t" style={{ borderColor: "var(--line-soft)" }} onClick={(e) => e.stopPropagation()}>
@@ -154,10 +157,10 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
         </button>
 
         {/* 누른 사람 아바타 스택 */}
-        {recent.length > 0 && (
+        {hydratedRecent.length > 0 && (
           <div className="flex items-center">
             <div className="flex items-center">
-              {recent.map((k, i) => (
+              {hydratedRecent.map((k, i) => (
                 <span
                   key={k.userId}
                   className="rounded-full"

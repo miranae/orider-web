@@ -300,6 +300,7 @@ export default function ActivityPage() {
   const handleToggleKudos = async () => {
     if (!user || !activityId || !profile) return;
     const kudosDocRef = doc(firestore, "activities", activityId, "kudos", user.uid);
+    const currentProfileImage = profile.photoURL ?? user.photoURL ?? null;
     if (liked) {
       setLiked(false);
       await deleteDoc(kudosDocRef);
@@ -307,7 +308,7 @@ export default function ActivityPage() {
       setLiked(true);
       await setDoc(kudosDocRef, {
         nickname: profile.nickname ?? user.displayName ?? "User",
-        profileImage: user.photoURL ?? null,
+        profileImage: currentProfileImage,
         createdAt: Date.now(),
       });
       showToast(t("card.kudosToast"));
@@ -319,11 +320,12 @@ export default function ActivityPage() {
     if (!user || !activityId || !profile || !commentText.trim() || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
+    const currentProfileImage = profile.photoURL ?? user.photoURL ?? null;
     try {
       await addDoc(collection(firestore, "activities", activityId, "comments"), {
         userId: user.uid,
         nickname: profile.nickname ?? user.displayName ?? "User",
-        profileImage: user.photoURL ?? null,
+        profileImage: currentProfileImage,
         text: commentText.trim(),
         createdAt: Date.now(),
         deletedAt: null,
@@ -523,7 +525,7 @@ export default function ActivityPage() {
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const stravaActivityId = getStravaActivityId(activity);
   const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
-  const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? user?.photoURL ?? null : null);
+  const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
   const hasStreams = sampledData.length > 0;
   const hasAnalysisStreams = !!streams && (
     (streams.watts?.length ?? 0) > 0 ||
