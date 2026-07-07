@@ -23,6 +23,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { useAuth } from "../contexts/AuthContext";
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
@@ -114,20 +115,19 @@ export default function LabPage() {
     const q = query(
       collection(firestore, "courses"),
       where("creatorId", "==", uid),
-      where("deletedAt", "==", null),
     );
     const unsub = onSnapshot(q, (snap) => {
       setCourses(
-        snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            name: data.name ?? "",
-            distance: data.distance ?? 0,
-            elevationGain: data.elevationGain ?? 0,
-            elevationProfile: data.elevationProfile,
-          };
-        }),
+        snap.docs
+          .map((d) => ({ id: d.id, data: d.data() }))
+          .filter((item) => isVisibleCourseDocData(item.data))
+          .map((item) => ({
+            id: item.id,
+            name: item.data.name ?? "",
+            distance: item.data.distance ?? 0,
+            elevationGain: item.data.elevationGain ?? 0,
+            elevationProfile: item.data.elevationProfile,
+          })),
       );
     });
     return () => unsub();

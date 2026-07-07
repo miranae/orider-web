@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   collection,
   query,
@@ -13,6 +13,24 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
+
+function stableStringify(value: unknown, seen = new WeakSet<object>()): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (seen.has(value)) return '"[Circular]"';
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item, seen)).join(",")}]`;
+  }
+
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(record[key], seen)}`).join(",")}}`;
+}
+
+function serializeQueryConstraints(constraints: QueryConstraint[]): string {
+  return constraints.map((constraint) => stableStringify(constraint)).join("|");
+}
 
 /**
  * Firestore 문서 하나 조회
@@ -64,9 +82,11 @@ export function useCollection<T = DocumentData>(
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const constraintsKey = serializeQueryConstraints(constraints);
+  const stableConstraints = useMemo(() => constraints, [constraintsKey]);
 
   useEffect(() => {
-    const q = query(collection(firestore, collectionPath), ...constraints);
+    const q = query(collection(firestore, collectionPath), ...stableConstraints);
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
@@ -84,7 +104,7 @@ export function useCollection<T = DocumentData>(
 
     return unsubscribe;
      
-  }, [collectionPath, constraints]);
+  }, [collectionPath, stableConstraints]);
 
   return { data, loading, error };
 }
