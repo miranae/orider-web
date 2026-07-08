@@ -39,6 +39,14 @@ type ActivityPage = {
   hasMore: boolean;
 };
 
+function isPermissionDeniedError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const code = "code" in err ? (err as { code?: unknown }).code : undefined;
+  if (code === "permission-denied") return true;
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("Missing or insufficient permissions");
+}
+
 async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity[]> {
   const missingProfileImageUserIds = Array.from(
     new Set(items.filter((activity) => !activity.profileImage).map((activity) => activity.userId)),
@@ -53,6 +61,7 @@ async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity
       return photoURL ? { ...activity, profileImage: photoURL } : activity;
     });
   } catch (err) {
+    if (isPermissionDeniedError(err)) return items;
     logClientError("useActivities.profileImages", err, { userCount: missingProfileImageUserIds.length });
     return items;
   }
