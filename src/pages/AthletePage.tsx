@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
   collection, query, where, orderBy, getDocs, limit, startAfter,
+  getAggregateFromServer, count, sum,
   doc, getDoc, setDoc, deleteDoc,
   type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
@@ -128,17 +129,53 @@ export default function AthletePage() {
     return () => { cancelled = true; };
   }, [userId, isOwnProfile]);
 
-  // 2. 통계 카드: 프로필의 사전 집계 stats 사용
+  // 2. 통계 카드: 내 프로필은 전체 사전 집계, 타인 프로필은 실제 표시 가능한 공개 활동만 집계.
   useEffect(() => {
-    if (!profileForPage?.stats) return;
-    const s = profileForPage.stats;
-    setStats({
-      count: s.activityCount ?? 0,
-      distance: s.totalDistance ?? 0,
-      time: s.totalRidingTime ?? 0,
-      elevation: s.totalElevationGain ?? 0,
-    });
-  }, [profileForPage]);
+    if (!userId) return;
+    let cancelled = false;
+
+    const loadPublicStats = async () => {
+      try {
+        const publicQuery = query(
+          collection(firestore, "activities"),
+          where("userId", "==", userId),
+          where("deletedAt", "==", null),
+          where("visibility", "==", "everyone"),
+        );
+        const snap = await getAggregateFromServer(publicQuery, {
+          activityCount: count(),
+          totalDistance: sum("summary.distance"),
+          totalRidingTime: sum("summary.ridingTimeMillis"),
+          totalElevationGain: sum("summary.elevationGain"),
+        });
+        if (cancelled) return;
+        const s = snap.data();
+        setStats({
+          count: s.activityCount ?? 0,
+          distance: s.totalDistance ?? 0,
+          time: s.totalRidingTime ?? 0,
+          elevation: s.totalElevationGain ?? 0,
+        });
+      } catch (err) {
+        logClientError("AthletePage.loadPublicStats", err, { userId });
+        if (!cancelled) setStats({ count: 0, distance: 0, time: 0, elevation: 0 });
+      }
+    };
+
+    if (isOwnProfile) {
+      const s = profileForPage?.stats;
+      setStats({
+        count: s?.activityCount ?? 0,
+        distance: s?.totalDistance ?? 0,
+        time: s?.totalRidingTime ?? 0,
+        elevation: s?.totalElevationGain ?? 0,
+      });
+    } else {
+      void loadPublicStats();
+    }
+
+    return () => { cancelled = true; };
+  }, [profileForPage, isOwnProfile, userId]);
 
   // 3. 월간 차트: 백그라운드 (limit 200)
   useEffect(() => {
@@ -573,7 +610,7 @@ export default function AthletePage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard
-          label={t("stats.activities")}
+          label={t(isOwnProfile ? "stats.activities" : "stats.publicActivities")}
           value={t("stats.activitiesValue", { count: stats.count })}
           icon="🚴"
         />

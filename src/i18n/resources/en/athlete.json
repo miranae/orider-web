@@ -1,6 +1,7 @@
 {
   "notFound": "User not found.",
   "stats.activities": "Activities",
+  "stats.publicActivities": "Public activities",
   "stats.activitiesValue": "{{count}}",
   "stats.distance": "Total Distance",
   "stats.time": "Total Time",
