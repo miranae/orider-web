@@ -6,6 +6,8 @@ import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import React from "react";
+import * as publicProfiles from "../services/publicProfiles";
+import * as errorLogger from "../services/errorLogger";
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(
@@ -60,6 +62,31 @@ describe("useActivities", () => {
       expect(result.current.loading).toBe(false);
     });
     expect(result.current.activities[0]?.profileImage).toBe("https://example.com/profile-avatar.jpg");
+  });
+
+  it("keeps activities and skips error logging when profile image hydration is denied", async () => {
+    const err = new Error("Missing or insufficient permissions.");
+    Object.assign(err, { code: "permission-denied" });
+    const profileSpy = vi.spyOn(publicProfiles, "getPublicUserProfiles").mockRejectedValueOnce(err);
+    const logSpy = vi.spyOn(errorLogger, "logClientError");
+    setCollectionDocs("activities", [
+      { id: "a1", ...createMockActivity({ id: "a1", userId: "user-1", profileImage: null }) },
+    ]);
+
+    const { result } = renderHook(() => useActivities(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.activities).toHaveLength(1);
+    expect(result.current.activities[0]?.profileImage).toBeNull();
+    expect(logSpy).not.toHaveBeenCalledWith(
+      "useActivities.profileImages",
+      err,
+      expect.anything(),
+    );
+    profileSpy.mockRestore();
+    logSpy.mockRestore();
   });
 
   it("filters out documents without a summary field", async () => {
