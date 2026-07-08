@@ -3,7 +3,6 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
   collection, query, where, orderBy, getDocs, limit, startAfter,
-  getAggregateFromServer, count, sum,
   doc, getDoc, setDoc, deleteDoc,
   type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
@@ -142,19 +141,14 @@ export default function AthletePage() {
           where("deletedAt", "==", null),
           where("visibility", "==", "everyone"),
         );
-        const snap = await getAggregateFromServer(publicQuery, {
-          activityCount: count(),
-          totalDistance: sum("summary.distance"),
-          totalRidingTime: sum("summary.ridingTimeMillis"),
-          totalElevationGain: sum("summary.elevationGain"),
-        });
+        const snap = await getDocs(publicQuery);
         if (cancelled) return;
-        const s = snap.data();
+        const items = docsToActivities(snap.docs);
         setStats({
-          count: s.activityCount ?? 0,
-          distance: s.totalDistance ?? 0,
-          time: s.totalRidingTime ?? 0,
-          elevation: s.totalElevationGain ?? 0,
+          count: items.length,
+          distance: items.reduce((sumDistance, a) => sumDistance + (a.summary.distance ?? 0), 0),
+          time: items.reduce((sumTime, a) => sumTime + (a.summary.ridingTimeMillis ?? 0), 0),
+          elevation: items.reduce((sumElevation, a) => sumElevation + (a.summary.elevationGain ?? 0), 0),
         });
       } catch (err) {
         logClientError("AthletePage.loadPublicStats", err, { userId });
