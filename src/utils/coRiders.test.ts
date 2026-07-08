@@ -138,4 +138,32 @@ describe("selectActualCoRiders", () => {
 
     expect(selectActualCoRiders(base, candidates).map((r) => r.id)).toEqual(["strava_19213518317"]);
   });
+
+  it("rejects time-overlapping riders when thumbnail routes are far apart", () => {
+    const base = activity({
+      id: "strava_19221688731",
+      userId: "hong",
+      nickname: "홍숙희",
+      type: "Ride",
+      startTime: 1_783_466_484_000,
+      endTime: 1_783_467_760_000,
+      thumbnailTrack: "37.5000,127.0000;37.5010,127.0010;37.5020,127.0020;37.5030,127.0030",
+      summary: createMockSummary({ distance: 7_747.4, ridingTimeMillis: 1_276_000 }),
+    });
+
+    const candidates = [
+      activity({
+        id: "strava_19221771829",
+        userId: "haju",
+        nickname: "하주대디",
+        type: "Ride",
+        startTime: 1_783_467_216_000,
+        endTime: 1_783_468_313_000,
+        thumbnailTrack: "35.1000,129.0000;35.1010,129.0010;35.1020,129.0020;35.1030,129.0030",
+        summary: createMockSummary({ distance: 4_126.7, ridingTimeMillis: 821_000 }),
+      }),
+    ];
+
+    expect(selectActualCoRiders(base, candidates)).toEqual([]);
+  });
 });
