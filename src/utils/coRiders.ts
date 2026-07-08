@@ -80,7 +80,7 @@ function distanceM(a: [number, number], b: [number, number]): number {
 function hasNearbyRouteOverlap(base: Activity, candidate: Activity): boolean {
   const basePoints = samplePoints(safeDecodeTrack(base.thumbnailTrack));
   const candidatePoints = samplePoints(safeDecodeTrack(candidate.thumbnailTrack));
-  if (basePoints.length < 2 || candidatePoints.length < 2) return true;
+  if (basePoints.length < 2 || candidatePoints.length < 2) return false;
 
   let near = 0;
   for (const point of candidatePoints) {
