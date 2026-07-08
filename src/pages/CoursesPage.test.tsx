@@ -45,6 +45,9 @@ vi.mock("../features/courses/useCourseCatalog", () => ({
   useCourseCatalog: () => ({
     courses: mockCourses,
     loading: false,
+    loadingMore: false,
+    hasMore: false,
+    loadMore: vi.fn(),
     polylineCache: { current: new Map() },
   }),
 }));

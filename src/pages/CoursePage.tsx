@@ -6,6 +6,9 @@ import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import {
+  getIdTokenResult,
+} from "firebase/auth";
+import {
   doc,
   getDoc,
   setDoc,
@@ -61,12 +64,28 @@ interface CourseData {
   segmentIds?: string[];
   visibility?: "public" | "private";
   curated?: boolean;
+  hidden?: boolean;
 }
 
 const OFFICIAL_COURSE_BOT_UID = "orider_official";
+const REPORT_REASONS = ["duplicate", "inaccurate", "inappropriate"] as const;
+type ReportReason = typeof REPORT_REASONS[number];
 
 function isOfficialCourse(course: CourseData): boolean {
   return course.curated === true || course.creatorId === OFFICIAL_COURSE_BOT_UID;
+}
+
+function profileHasAdminFlag(profile: unknown): boolean {
+  const record = profile as Record<string, unknown> | null;
+  if (!record) return false;
+  return record.admin === true ||
+    record.isAdmin === true ||
+    record.role === "admin" ||
+    (Array.isArray(record.roles) && record.roles.includes("admin"));
+}
+
+function callableCode(err: unknown): string | undefined {
+  return (err as { code?: string } | null)?.code;
 }
 
 function climbCatLabel(cat: number): string {
@@ -243,6 +262,12 @@ export default function CoursePage() {
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>("duplicate");
+  const [reporting, setReporting] = useState(false);
+  const [moderating, setModerating] = useState(false);
+  const [tokenAdmin, setTokenAdmin] = useState(false);
+  const [adminClaimsLoading, setAdminClaimsLoading] = useState(false);
   const [viewCounted, setViewCounted] = useState(false);
 
   // Edit state
@@ -359,6 +384,31 @@ export default function CoursePage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    setTokenAdmin(false);
+    if (!user) {
+      setAdminClaimsLoading(false);
+      return;
+    }
+
+    setAdminClaimsLoading(true);
+    getIdTokenResult(user)
+      .then((token) => {
+        if (!cancelled) setTokenAdmin(token.claims.admin === true);
+      })
+      .catch((err) => {
+        logClientError("CoursePage.adminClaims", err, { uid: user.uid });
+      })
+      .finally(() => {
+        if (!cancelled) setAdminClaimsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Subscribe to approved user photos for this course
   useEffect(() => {
@@ -553,6 +603,49 @@ export default function CoursePage() {
     }
   };
 
+  const handleReportCourse = async () => {
+    if (!courseId || !user || reporting) {
+      if (!user) showToast(t("error.loginRequired"));
+      return;
+    }
+
+    setReporting(true);
+    try {
+      const fn = httpsCallable(functions, "reportCourse");
+      const result = await fn({ courseId, reason: reportReason });
+      const data = result.data as { duplicate?: boolean } | null;
+      showToast(data?.duplicate ? t("report.duplicate") : t("report.success"));
+      setReportOpen(false);
+    } catch (err) {
+      const code = callableCode(err);
+      if (code === "functions/already-exists" || code === "already-exists") {
+        showToast(t("report.duplicate"));
+      } else if (code === "functions/resource-exhausted" || code === "resource-exhausted") {
+        showToast(t("report.quota"));
+      } else {
+        logClientError("CoursePage.reportCourse", err, { courseId, reason: reportReason });
+        showToast(t("report.failed"));
+      }
+    } finally {
+      setReporting(false);
+    }
+  };
+
+  const handleToggleHidden = async (hidden: boolean) => {
+    if (!courseId || moderating) return;
+    setModerating(true);
+    try {
+      const fn = httpsCallable(functions, "adminHideCourse");
+      await fn({ courseId, hidden, reason: "manual" });
+      showToast(hidden ? t("admin.hideSuccess") : t("admin.unhideSuccess"));
+    } catch (err) {
+      logClientError("CoursePage.adminHideCourse", err, { courseId, hidden });
+      showToast(t("admin.failed"));
+    } finally {
+      setModerating(false);
+    }
+  };
+
   // ── Edit ───────────────────────────────────────────────────────────
 
   const startEditing = () => {
@@ -606,8 +699,10 @@ export default function CoursePage() {
   const officialCourse = course ? isOfficialCourse(course) : false;
   const creatorName = officialCourse ? t("creator.official") : course?.creatorNickname ?? "";
   const isOwner = user?.uid === course?.creatorId && !officialCourse;
+  const isAdmin = tokenAdmin || profileHasAdminFlag(profile);
+  const courseUnavailable = !course || course.deletedAt || (course.hidden === true && !isAdmin);
 
-  if (courseLoading) {
+  if (courseLoading || (course?.hidden === true && adminClaimsLoading)) {
     return (
       <div className="max-w-4xl mx-auto space-y-4 py-4">
         <LoadingSkeleton kind="chart" />
@@ -616,13 +711,13 @@ export default function CoursePage() {
     );
   }
 
-  if (!course || course.deletedAt) {
+  if (courseUnavailable) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
           icon="🗺️"
           title={t("error.notFound")}
-          description={course?.deletedAt ? t("error.deleted") : undefined}
+          description={course?.deletedAt || course?.hidden ? t("error.deleted") : undefined}
           actions={[{ label: t("button.courseList"), variant: "primary", href: "/courses" }]}
         />
       </div>
@@ -635,6 +730,35 @@ export default function CoursePage() {
       {toast && createPortal(
         <div className="fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={{ zIndex: 10000, background: "var(--bg-4)", color: "var(--ink-0)", border: "1px solid var(--line)" }}>
           {toast}
+        </div>,
+        document.body,
+      )}
+
+      {reportOpen && createPortal(
+        <div className="fixed inset-0 flex items-center justify-center px-4" style={{ zIndex: 9999, background: "color-mix(in oklch, var(--bg-0) 72%, transparent)" }} role="dialog" aria-modal="true" aria-labelledby="course-report-title">
+          <Card padding="none" className="w-full max-w-sm p-4">
+            <Text id="course-report-title" as="h2" variant="title" className="mb-3">{t("report.title")}</Text>
+            <label className="block text-[length:var(--fs-sm)] mb-2" style={{ color: "var(--ink-2)" }} htmlFor="course-report-reason">
+              {t("report.reason")}
+            </label>
+            <select
+              id="course-report-reason"
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value as ReportReason)}
+              className="w-full px-3 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
+              style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)" }}
+            >
+              {REPORT_REASONS.map((reason) => (
+                <option key={reason} value={reason}>{t(`report.reason.${reason}`)}</option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button type="button" variant="ghost" onClick={() => setReportOpen(false)} disabled={reporting}>{t("button.cancel")}</Button>
+              <Button type="button" variant="primary" onClick={handleReportCourse} disabled={reporting}>
+                {reporting ? t("report.submitting") : t("report.submit")}
+              </Button>
+            </div>
+          </Card>
         </div>,
         document.body,
       )}
@@ -813,6 +937,9 @@ export default function CoursePage() {
               {officialCourse && (
                 <Chip variant="accent">{t("badge.official")}</Chip>
               )}
+              {isAdmin && course.hidden === true && (
+                <Chip variant="accent">{t("admin.hiddenBadge")}</Chip>
+              )}
               {course.regions.map((r) => (
                 <Chip key={r} variant="accent">{r}</Chip>
               ))}
@@ -957,6 +1084,16 @@ export default function CoursePage() {
             {t("button.share")}
           </Button>
 
+          {user && (
+            <Button onClick={() => setReportOpen(true)} variant="secondary" className="flex items-center gap-1.5">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                <path d="M4 22V15" />
+              </svg>
+              {t("report.button")}
+            </Button>
+          )}
+
           {/* 앱으로 보내기 */}
           <Button onClick={handleSendToApp} variant="primary" className="flex items-center gap-1.5">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -985,6 +1122,22 @@ export default function CoursePage() {
                 style={{ color: "var(--rose)", borderColor: "var(--rose)" }}
               >
                 {deleting ? t("error.deleteDeleting") : t("button.delete")}
+              </Button>
+            </div>
+          )}
+          {isAdmin && (
+            <div className={isOwner ? "flex items-center gap-2" : "ml-auto flex items-center gap-2"}>
+              <Button
+                onClick={() => handleToggleHidden(course.hidden !== true)}
+                disabled={moderating}
+                variant="secondary"
+                size="sm"
+                className="disabled:opacity-50"
+                style={{ color: course.hidden === true ? "var(--lime)" : "var(--rose)", borderColor: course.hidden === true ? "var(--lime)" : "var(--rose)" }}
+              >
+                {course.hidden === true
+                  ? (moderating ? t("admin.unhiding") : t("admin.unhide"))
+                  : (moderating ? t("admin.hiding") : t("admin.hide"))}
               </Button>
             </div>
           )}

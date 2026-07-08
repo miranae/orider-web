@@ -10,4 +10,8 @@ describe("isVisibleCourseDocData", () => {
   it("treats timestamp deletedAt as deleted", () => {
     expect(isVisibleCourseDocData({ name: "deleted", deletedAt: 123 })).toBe(false);
   });
+
+  it("treats hidden courses as invisible", () => {
+    expect(isVisibleCourseDocData({ name: "hidden", deletedAt: null, hidden: true })).toBe(false);
+  });
 });
