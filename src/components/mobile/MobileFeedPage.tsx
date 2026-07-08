@@ -300,17 +300,18 @@ export default function MobileFeedPage({
           {filteredBySprt.map((activity, i) => (
             <CompactActivityCard key={activity.id} activity={activity} priority={i === 0} />
           ))}
-          {hasMore && (
-            <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-              <Button variant="secondary"
-                onClick={onLoadMore}
-                disabled={loadingMore}
-                style={{ width: "100%" }}
-              >
-                {loadingMore ? t("mobileFeed.loadingMore") : t("mobileFeed.loadMore")}
-              </Button>
-            </div>
-          )}
+        </div>
+      )}
+
+      {!loading && hasMore && (
+        <div style={{ padding: "var(--space-3) var(--space-4)" }}>
+          <Button variant="secondary"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            style={{ width: "100%" }}
+          >
+            {loadingMore ? t("mobileFeed.loadingMore") : t("mobileFeed.loadMore")}
+          </Button>
         </div>
       )}
 
