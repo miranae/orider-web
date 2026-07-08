@@ -155,6 +155,8 @@ export default function ActivityPage() {
   const [coRiders, setCoRiders] = useState<Activity[]>([]);
   const [liked, setLiked] = useState(false);
   const [kudosList, setKudosList] = useState<{ userId: string; nickname: string; profileImage?: string | null }[]>([]);
+  const [kudosLoaded, setKudosLoaded] = useState(false);
+  const [kudosTouched, setKudosTouched] = useState(false);
   const [commentsList, setCommentsList] = useState<{ id: string; userId: string; nickname: string; profileImage: string | null; text: string; createdAt: number }[]>([]);
   const [commentText, setCommentText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -220,6 +222,10 @@ export default function ActivityPage() {
     // 새 활동의 스트림 로드를 영영 막아 이전 활동의 GPS/파워 차트가 고착된다(#534).
     setActivity(null);
     setLoadingActivity(true);
+    setKudosList([]);
+    setKudosLoaded(false);
+    setKudosTouched(false);
+    setLiked(false);
     setCoRiders([]);
     setWattsOverride(null);
 
@@ -269,12 +275,15 @@ export default function ActivityPage() {
   // Real-time kudos subscription
   useEffect(() => {
     if (!activityId || !user) return;
+    setKudosLoaded(false);
     const kudosRef = collection(firestore, "activities", activityId, "kudos");
     return onSnapshot(kudosRef, (snap) => {
       const list = snap.docs.map((d) => ({ userId: d.id, ...d.data() } as { userId: string; nickname: string; profileImage?: string | null }));
       setKudosList(list);
+      setKudosLoaded(true);
       setLiked(list.some((k) => k.userId === user.uid));
     }, (err) => {
+      setKudosLoaded(false);
       logClientError("ActivityPage.kudos", err, { path: `activities/${activityId}/kudos` });
     });
   }, [activityId, user]);
@@ -300,12 +309,22 @@ export default function ActivityPage() {
   const handleToggleKudos = async () => {
     if (!user || !activityId || !profile) return;
     const kudosDocRef = doc(firestore, "activities", activityId, "kudos", user.uid);
+    const fallbackLiked = !kudosTouched
+      && (!kudosLoaded || kudosList.length === 0)
+      && !!activity?.recentKudos?.some((k) => k.userId === user.uid);
+    const wasLiked = liked || fallbackLiked;
     const currentProfileImage = profile.photoURL ?? user.photoURL ?? null;
-    if (liked) {
+    setKudosTouched(true);
+    if (wasLiked) {
       setLiked(false);
+      setKudosList((list) => list.filter((k) => k.userId !== user.uid));
       await deleteDoc(kudosDocRef);
     } else {
       setLiked(true);
+      setKudosList((list) => [
+        { userId: user.uid, nickname: profile.nickname ?? user.displayName ?? "User", profileImage: currentProfileImage },
+        ...list.filter((k) => k.userId !== user.uid),
+      ]);
       await setDoc(kudosDocRef, {
         nickname: profile.nickname ?? user.displayName ?? "User",
         profileImage: currentProfileImage,
@@ -537,6 +556,8 @@ export default function ActivityPage() {
   const hasAnalysisRoute = !!streams?.latlng?.length;
   const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute);
   const sport = getSportCategory(activity.type || (isStrava ? undefined : "Ride"));
+  const hasAiSummaryPreview = !!(activity.aiSummaryPreview || activity.aiSummaryPreview_en);
+  const canShowAiAnalysis = (sport === "ride" || sport === "run") && (hasAnalysisStreams || hasAiSummaryPreview);
   const showElevation = sport === "ride" || sport === "run";
 
   // activitySanity 가드 — 비현실 속도 노출 차단용. sport "ride" → discipline "bike".
@@ -564,7 +585,12 @@ export default function ActivityPage() {
   const hoverPoint = hoverIndex != null ? sampledData[hoverIndex] ?? null : null;
 
   const activityComments = commentsList;
-  const activityKudos = kudosList;
+  const fallbackKudos = activity.recentKudos ?? [];
+  const shouldUseFallbackKudos = !kudosTouched && (!kudosLoaded || (kudosList.length === 0 && fallbackKudos.length > 0));
+  const activityKudos = shouldUseFallbackKudos ? fallbackKudos : kudosList;
+  const displayLiked = shouldUseFallbackKudos
+    ? !!user && fallbackKudos.some((k) => k.userId === user.uid)
+    : liked;
 
   // Top results: efforts with PR or KOM achievements
   const topResults = segmentEfforts.filter(
@@ -845,10 +871,10 @@ export default function ActivityPage() {
       <div className="flex-1 min-w-0 space-y-6">
 
       {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
-      {(sport === "ride" || sport === "run") && hasAnalysisStreams && (
+      {canShowAiAnalysis && (
         <AiRideAnalysisCard
           activityId={activityId ?? null}
-          enabled={(sport === "ride" || sport === "run") && hasAnalysisStreams}
+          enabled={canShowAiAnalysis}
           sport={sport}
           summaryPreview={activity.aiSummaryPreview}
           summaryPreviewEn={activity.aiSummaryPreview_en}
@@ -1163,7 +1189,7 @@ export default function ActivityPage() {
       <KudosCommentsCard
         user={user}
         profile={profile}
-        liked={liked}
+        liked={displayLiked}
         kudos={activityKudos}
         comments={activityComments}
         commentText={commentText}

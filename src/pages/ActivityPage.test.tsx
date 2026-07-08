@@ -191,6 +191,31 @@ describe("ActivityPage", () => {
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
 
+  it("shows the AI analysis card on overview when a saved preview exists without streams", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      aiSummaryPreview: "저장된 AI 분석 결과입니다.",
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />);
+
+    expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
+  });
+
+  it("falls back to recentKudos for the detail liked state before kudos subscription has data", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      kudosCount: 1,
+      recentKudos: [{ userId: "test-uid", nickname: "Test User", profileImage: null }],
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    expect(await screen.findByLabelText("좋아요 취소")).toBeInTheDocument();
+  });
+
   it("shows 404 message when activity not found", async () => {
     // Don't set any doc data for the activity ID
     renderWithProviders(<ActivityPage />);
