@@ -57,6 +57,56 @@ describe("AthletePage", () => {
     });
   });
 
+  it("uses public activity aggregates for other athletes instead of private profile totals", async () => {
+    const profile = createMockProfile({
+      nickname: "한강 라이더",
+      stats: {
+        activityCount: 3745,
+        totalDistance: 180_987_647,
+        totalRidingTime: 30_911_553_000,
+        totalElevationGain: 2_101_586,
+      },
+    });
+    setDocData("users_public/athlete-1", { ...profile });
+    setCollectionDocs("activities", [
+      {
+        id: "public-1",
+        ...createMockActivity({
+          userId: "athlete-1",
+          visibility: "everyone",
+          summary: { distance: 10_000, ridingTimeMillis: 1_000_000, elevationGain: 100 },
+        }),
+      },
+      {
+        id: "public-2",
+        ...createMockActivity({
+          userId: "athlete-1",
+          visibility: "everyone",
+          summary: { distance: 20_000, ridingTimeMillis: 2_000_000, elevationGain: 200 },
+        }),
+      },
+      {
+        id: "public-3",
+        ...createMockActivity({
+          userId: "athlete-1",
+          visibility: "everyone",
+          summary: { distance: 30_000, ridingTimeMillis: 3_000_000, elevationGain: 300 },
+        }),
+      },
+    ]);
+
+    renderWithProviders(<AthletePage />, {
+      authenticated: true,
+      user: { uid: "current-user" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("공개 활동")).toBeInTheDocument();
+      expect(screen.getByText("3회")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("3745회")).not.toBeInTheDocument();
+  });
+
   it("shows friend action button for other users", async () => {
     renderWithProviders(<AthletePage />, {
       authenticated: true,

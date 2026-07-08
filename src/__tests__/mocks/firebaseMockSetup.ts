@@ -125,6 +125,12 @@ vi.mock("firebase/firestore", () => {
     return { ...collectionRef, _collectionPath: collectionRef.path };
   });
 
+  const readPath = (obj: Record<string, unknown>, path: string) => (
+    path.split(".").reduce<unknown>((current, key) => (
+      current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined
+    ), obj)
+  );
+
   return {
     doc,
     collection,
@@ -145,6 +151,26 @@ vi.mock("firebase/firestore", () => {
     serverTimestamp: vi.fn(() => Date.now()),
     Timestamp: { now: () => ({ toMillis: () => Date.now() }) },
     getCountFromServer: vi.fn(async () => ({ data: () => ({ count: 0 }) })),
+    count: vi.fn(() => ({ type: "count" })),
+    sum: vi.fn((field: string) => ({ type: "sum", field })),
+    getAggregateFromServer: vi.fn(async (
+      q: { _collectionPath?: string },
+      spec: Record<string, { type: string; field?: string }>,
+    ) => {
+      const docs = mockCollectionData.get(q._collectionPath ?? "") ?? [];
+      const data: Record<string, number> = {};
+      for (const [alias, aggregate] of Object.entries(spec)) {
+        if (aggregate.type === "count") {
+          data[alias] = docs.length;
+        } else if (aggregate.type === "sum" && aggregate.field) {
+          data[alias] = docs.reduce((total, docData) => {
+            const value = readPath(docData, aggregate.field!);
+            return total + (typeof value === "number" ? value : 0);
+          }, 0);
+        }
+      }
+      return { data: () => data };
+    }),
   };
 });
 
