@@ -22,6 +22,9 @@ export interface CourseData {
   difficulty: number | null;
   startLat: number;
   startLon: number;
+  visibility: "public" | "private" | null;
+  curated: boolean;
+  creatorId: string | null;
 }
 
 export type CourseDocChange = {
@@ -68,6 +71,9 @@ export function courseFromSnapshotData(id: string, data: Record<string, unknown>
     difficulty: typeof data.difficulty === "number" ? data.difficulty : null,
     startLat: numberOrZero(data.startLat),
     startLon: numberOrZero(data.startLon),
+    visibility: data.visibility === "public" || data.visibility === "private" ? data.visibility : null,
+    curated: data.curated === true,
+    creatorId: typeof data.creatorId === "string" ? data.creatorId : null,
   };
 }
 

@@ -564,6 +564,8 @@ export interface Course {
   elevationLow: number;
   keywords: string[];
   regions: string[];          // 지역 배지 ("성남시", "서울특별시")
+  visibility?: 'public' | 'private';
+  curated?: boolean;
   likeCount: number;
   viewCount: number;
   createdAt: number;
