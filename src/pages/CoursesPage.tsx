@@ -30,8 +30,15 @@ export default function CoursesPage() {
     if (isVisible) setHasRendered(true);
   }, [isVisible]);
 
-  const { courses: allCourses, loading, polylineCache } = useCourseCatalog();
   const [sortMode, setSortMode] = useState<SortMode>("latest");
+  const {
+    courses: allCourses,
+    loading,
+    loadingMore,
+    hasMore,
+    loadMore,
+    polylineCache,
+  } = useCourseCatalog(sortMode);
   const [surfaceFilter, setSurfaceFilter] = useState<SurfaceFilter>("");
   const [difficultyFilter, setDifficultyFilter] = useState<number | null>(null);
   // 위치+반경 필터(#495) — 내 주변 코스. geolocation 1회 취득 후 km 반경 클라 필터.
@@ -311,6 +318,19 @@ export default function CoursesPage() {
               onSelectCourse={handleSelectCourse}
               onOpenCourse={handleOpenCourse}
             />
+            {hasMore && (
+              <div className="px-4 pb-4">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full justify-center"
+                  disabled={loadingMore}
+                  onClick={loadMore}
+                >
+                  {loadingMore ? t("button.loadingMore") : t("button.loadMore")}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
