@@ -586,21 +586,22 @@ export default function DashboardPage() {
                     {filteredActivities.map((activity, i) => (
                       <ActivityCard key={activity.id} activity={activity} priority={i === 0} />
                     ))}
-                    {hasMore && (
-                      <Button variant="secondary"
-                        onClick={loadMore}
-                        disabled={loadingMore}
-                        style={{ width: "100%" }}
-                      >
-                        {loadingMore ? (
-                          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1-5)" }}>
-                            <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--line)", borderTopColor: "var(--lime)", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
-                            {t("feed.loading")}
-                          </span>
-                        ) : t("feed.loadMore")}
-                      </Button>
-                    )}
                   </div>
+                )}
+
+                {!loading && hasMore && (
+                  <Button variant="secondary"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    style={{ width: "100%" }}
+                  >
+                    {loadingMore ? (
+                      <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1-5)" }}>
+                        <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--line)", borderTopColor: "var(--lime)", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
+                        {t("feed.loading")}
+                      </span>
+                    ) : t("feed.loadMore")}
+                  </Button>
                 )}
               </>
             )}
