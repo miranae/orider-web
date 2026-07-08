@@ -28,6 +28,15 @@ function surfaceChipStyle(surface: string): React.CSSProperties {
   }
 }
 
+function OfficialCourseChip() {
+  const { t } = useTranslation("course");
+  return (
+    <Chip variant="accent" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>
+      {t("badge.official")}
+    </Chip>
+  );
+}
+
 interface SelectedCoursePanelProps {
   course: CourseData;
   onOpenCourse: (courseId: string) => void;
@@ -45,6 +54,7 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
     <Card padding="none" className="mb-3" style={{ padding: 0, overflow: "hidden", borderRadius: "var(--r-md)" }}>
       <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
         <div className="flex items-center gap-2 mb-1 flex-wrap">
+          {course.curated && <OfficialCourseChip />}
           {course.regions.map((r) => (
             <Chip key={r} variant="accent" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>{r}</Chip>
           ))}
@@ -173,6 +183,7 @@ export function CourseList({
               >
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-[length:var(--fs-sm)] truncate flex-1" style={{ color: "var(--ink-0)" }}>{course.name}</h3>
+                  {course.curated && <OfficialCourseChip />}
                   {course.surface && (
                     <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-[var(--r-sm)]" style={surfaceChipStyle(course.surface)}>
                       {t(`edit.surface.${course.surface}`)}

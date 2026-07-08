@@ -16,6 +16,9 @@ function course(id: string, overrides: Partial<CourseData> = {}): CourseData {
     difficulty: null,
     startLat: 0,
     startLon: 0,
+    visibility: null,
+    curated: false,
+    creatorId: null,
     ...overrides,
   };
 }
@@ -61,6 +64,23 @@ describe("applyCourseDocChanges", () => {
 
     expect(polylineCache.get("course-a")).not.toEqual([[1, 1]]);
     expect(polylineValueCache.get("course-a")).toBe("_p~iF~ps|U");
+  });
+});
+
+describe("courseFromSnapshotData", () => {
+  it("parses curated and visibility fields", async () => {
+    const { courseFromSnapshotData } = await import("./courseSnapshot");
+
+    expect(courseFromSnapshotData("official", {
+      name: "추천 코스",
+      visibility: "public",
+      curated: true,
+      creatorId: "orider_official",
+    })).toMatchObject({
+      visibility: "public",
+      curated: true,
+      creatorId: "orider_official",
+    });
   });
 });
 

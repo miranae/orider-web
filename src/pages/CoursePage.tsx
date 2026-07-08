@@ -59,6 +59,14 @@ interface CourseData {
   createdAt: number;
   deletedAt: number | null;
   segmentIds?: string[];
+  visibility?: "public" | "private";
+  curated?: boolean;
+}
+
+const OFFICIAL_COURSE_BOT_UID = "orider_official";
+
+function isOfficialCourse(course: CourseData): boolean {
+  return course.curated === true || course.creatorId === OFFICIAL_COURSE_BOT_UID;
 }
 
 function climbCatLabel(cat: number): string {
@@ -595,7 +603,9 @@ export default function CoursePage() {
     showToast(t("gpx.export"));
   };
 
-  const isOwner = user?.uid === course?.creatorId;
+  const officialCourse = course ? isOfficialCourse(course) : false;
+  const creatorName = officialCourse ? t("creator.official") : course?.creatorNickname ?? "";
+  const isOwner = user?.uid === course?.creatorId && !officialCourse;
 
   if (courseLoading) {
     return (
@@ -800,6 +810,9 @@ export default function CoursePage() {
           <>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{course.name}</h1>
+              {officialCourse && (
+                <Chip variant="accent">{t("badge.official")}</Chip>
+              )}
               {course.regions.map((r) => (
                 <Chip key={r} variant="accent">{r}</Chip>
               ))}
@@ -815,19 +828,25 @@ export default function CoursePage() {
         {!editing && (
           <div className="flex items-center gap-2 mt-3">
             <Avatar
-              name={course.creatorNickname}
+              name={creatorName}
               imageUrl={course.creatorProfileImage}
               size="sm"
               userId={course.creatorId}
             />
             <div>
-              <Link
-                to={`/athlete/${course.creatorId}`}
-                className="text-[length:var(--fs-sm)] font-medium transition-colors hover:underline"
-                style={{ color: "var(--ink-1)" }}
-              >
-                {course.creatorNickname}
-              </Link>
+              {officialCourse ? (
+                <Text as="div" variant="body" style={{ fontWeight: 600, color: "var(--ink-1)" }}>
+                  {creatorName}
+                </Text>
+              ) : (
+                <Link
+                  to={`/athlete/${course.creatorId}`}
+                  className="text-[length:var(--fs-sm)] font-medium transition-colors hover:underline"
+                  style={{ color: "var(--ink-1)" }}
+                >
+                  {creatorName}
+                </Link>
+              )}
               <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>
                 {new Date(course.createdAt).toLocaleDateString(localeTag())} {t("creator.registered")}
               </div>
