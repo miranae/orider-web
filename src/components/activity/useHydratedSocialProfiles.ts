@@ -7,6 +7,14 @@ type SocialProfileItem = {
   profileImage?: string | null;
 };
 
+function isPermissionDeniedError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const code = "code" in err ? (err as { code?: unknown }).code : undefined;
+  if (code === "permission-denied") return true;
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("Missing or insufficient permissions");
+}
+
 export function useHydratedSocialProfiles<T extends SocialProfileItem>(
   items: readonly T[],
   context: string,
@@ -34,6 +42,7 @@ export function useHydratedSocialProfiles<T extends SocialProfileItem>(
         if (next.size > 0) setProfileImages(next);
       })
       .catch((err) => {
+        if (isPermissionDeniedError(err)) return;
         logClientError("useHydratedSocialProfiles", err, { context, userCount: missingUserIds.length });
       });
 
