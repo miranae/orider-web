@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import AthletePage from "./AthletePage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData, setCollectionDocs } from "../__tests__/mocks/firebase";
-import { createMockProfile, createMockActivity } from "../__tests__/fixtures/mockData";
+import { createMockProfile, createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 
 // Mock heavy components
 vi.mock("../components/RouteMap", () => ({
@@ -105,6 +105,59 @@ describe("AthletePage", () => {
       expect(screen.getByText("3회")).toBeInTheDocument();
     });
     expect(screen.queryByText("3745회")).not.toBeInTheDocument();
+  });
+
+  it("computes own profile stats from activities using display duration", async () => {
+    const profile = createMockProfile({
+      nickname: "한강 라이더",
+      stats: {
+        activityCount: 999,
+        totalDistance: 999_000_000,
+        totalRidingTime: 100 * 60 * 60 * 1000,
+        totalElevationGain: 999_000,
+      },
+    });
+    setDocData("users_public/athlete-1", { ...profile });
+    setCollectionDocs("activities", [
+      {
+        id: "own-1",
+        ...createMockActivity({
+          userId: "athlete-1",
+          visibility: "private",
+          summary: createMockSummary({
+            distance: 10_000,
+            ridingTimeMillis: 2 * 60 * 60 * 1000,
+            movingTimeSec: 60 * 60,
+            pauseTimeSec: 60 * 60,
+            elevationGain: 100,
+          }),
+        }),
+      },
+      {
+        id: "own-2",
+        ...createMockActivity({
+          userId: "athlete-1",
+          visibility: "everyone",
+          summary: createMockSummary({
+            distance: 20_000,
+            ridingTimeMillis: 30 * 60 * 1000,
+            elevationGain: 200,
+          }),
+        }),
+      },
+    ]);
+
+    renderWithProviders(<AthletePage />, {
+      authenticated: true,
+      user: { uid: "athlete-1", displayName: "한강 라이더" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("2회")).toBeInTheDocument();
+      expect(screen.getByText("1h 30m")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("999회")).not.toBeInTheDocument();
+    expect(screen.queryByText("100h 0m")).not.toBeInTheDocument();
   });
 
   it("shows friend action button for other users", async () => {

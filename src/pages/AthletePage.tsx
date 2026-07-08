@@ -17,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import StatCard from "../components/StatCard";
 import ActivityCard from "../components/ActivityCard";
 import { isTrivialActivity } from "../utils/activityFilter";
+import { resolveDuration } from "../utils/activityTime";
 import { estimateTSS } from "../utils/estimateTSS";
 import Avatar from "../components/Avatar";
 import WeeklyChart from "../components/WeeklyChart";
@@ -93,6 +94,13 @@ export default function AthletePage() {
       .map((d) => ({ id: d.id, ...d.data() }) as Activity)
       .filter((a) => a.summary != null);
 
+  const aggregateActivityStats = (items: Activity[]) => ({
+    count: items.length,
+    distance: items.reduce((sumDistance, a) => sumDistance + (a.summary.distance ?? 0), 0),
+    time: items.reduce((sumTime, a) => sumTime + resolveDuration(a.summary).displayMs, 0),
+    elevation: items.reduce((sumElevation, a) => sumElevation + (a.summary.elevationGain ?? 0), 0),
+  });
+
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
@@ -128,48 +136,36 @@ export default function AthletePage() {
     return () => { cancelled = true; };
   }, [userId, isOwnProfile]);
 
-  // 2. 통계 카드: 내 프로필은 전체 사전 집계, 타인 프로필은 실제 표시 가능한 공개 활동만 집계.
+  // 2. 통계 카드: 실제 표시 가능한 활동을 개별 활동 카드와 같은 시간 기준으로 집계.
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
 
-    const loadPublicStats = async () => {
+    const loadStats = async () => {
       try {
-        const publicQuery = query(
-          collection(firestore, "activities"),
+        const constraints = [
           where("userId", "==", userId),
           where("deletedAt", "==", null),
-          where("visibility", "==", "everyone"),
+          ...(!isOwnProfile ? [where("visibility", "==", "everyone")] : []),
+        ];
+        const statsQuery = query(
+          collection(firestore, "activities"),
+          ...constraints,
         );
-        const snap = await getDocs(publicQuery);
+        const snap = await getDocs(statsQuery);
         if (cancelled) return;
         const items = docsToActivities(snap.docs);
-        setStats({
-          count: items.length,
-          distance: items.reduce((sumDistance, a) => sumDistance + (a.summary.distance ?? 0), 0),
-          time: items.reduce((sumTime, a) => sumTime + (a.summary.ridingTimeMillis ?? 0), 0),
-          elevation: items.reduce((sumElevation, a) => sumElevation + (a.summary.elevationGain ?? 0), 0),
-        });
+        setStats(aggregateActivityStats(items));
       } catch (err) {
-        logClientError("AthletePage.loadPublicStats", err, { userId });
+        logClientError("AthletePage.loadStats", err, { userId, isOwnProfile });
         if (!cancelled) setStats({ count: 0, distance: 0, time: 0, elevation: 0 });
       }
     };
 
-    if (isOwnProfile) {
-      const s = profileForPage?.stats;
-      setStats({
-        count: s?.activityCount ?? 0,
-        distance: s?.totalDistance ?? 0,
-        time: s?.totalRidingTime ?? 0,
-        elevation: s?.totalElevationGain ?? 0,
-      });
-    } else {
-      void loadPublicStats();
-    }
+    void loadStats();
 
     return () => { cancelled = true; };
-  }, [profileForPage, isOwnProfile, userId]);
+  }, [isOwnProfile, userId]);
 
   // 3. 월간 차트: 백그라운드 (limit 200)
   useEffect(() => {
