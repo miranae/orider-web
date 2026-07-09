@@ -117,6 +117,19 @@ function buildStaticRoutePath(positions: [number, number][]): string | null {
     .join(" ");
 }
 
+function supportsWebGL(): boolean {
+  if (typeof document === "undefined") return true;
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(
+      canvas.getContext("webgl") ||
+      canvas.getContext("experimental-webgl")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function RouteMapFallback({
   positions,
   imageUrl,
@@ -263,6 +276,7 @@ export default function RouteMap({
   const { t } = useTranslation("common");
   const [selectedPhoto, setSelectedPhoto] = useState<PhotoMarker | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
+  const [webglSupported] = useState(() => supportsWebGL());
 
   const positions: [number, number][] = useMemo(() => {
     if (latlng && latlng.length > 0) return latlng;
@@ -325,7 +339,7 @@ export default function RouteMap({
     />
   );
 
-  if (!mapboxToken || mapFailed) {
+  if (!mapboxToken || mapFailed || !webglSupported) {
     return fallback;
   }
 
