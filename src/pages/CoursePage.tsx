@@ -85,8 +85,8 @@ function isOfficialCourse(course: CourseData): boolean {
 
 function courseDisplayTags(course: CourseData): string[] {
   return primaryCourseTags({
-    tags: Array.isArray(course.tags) ? course.tags : [],
-    autoTags: Array.isArray(course.autoTags) ? course.autoTags : [],
+    tags: Array.isArray(course.tags) ? course.tags.filter((tag): tag is string => typeof tag === "string") : [],
+    autoTags: Array.isArray(course.autoTags) ? course.autoTags.filter((tag): tag is string => typeof tag === "string") : [],
   }, 100);
 }
 
