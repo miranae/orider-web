@@ -43,8 +43,17 @@ const COURSE_LIST_INLINE_STYLE: React.CSSProperties = {
 };
 
 const COURSE_LIST_CHIP_STYLE: React.CSSProperties = {
-  fontSize: "var(--fs-2xs)",
-  padding: "var(--space-1) var(--space-2)",
+  fontSize: 10,
+  lineHeight: 1.2,
+  padding: "var(--space-1)",
+  letterSpacing: 0,
+};
+
+const COURSE_LIST_BADGE_STYLE: React.CSSProperties = {
+  ...COURSE_LIST_CHIP_STYLE,
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "var(--r-sm)",
 };
 
 function OfficialCourseChip() {
@@ -78,7 +87,7 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
             <Chip key={r} variant="accent" style={COURSE_LIST_CHIP_STYLE}>{r}</Chip>
           ))}
           {course.climbs.length > 0 && [...course.climbs].sort((a, b) => b.cat - a.cat).map((climb, i) => (
-            <span key={i} className="text-[10px] font-medium rounded-[var(--r-sm)]" style={{ ...climbBadgeStyle(climb.cat), padding: "var(--space-1) var(--space-2)" }}>
+            <span key={i} className="font-medium" style={{ ...COURSE_LIST_BADGE_STYLE, ...climbBadgeStyle(climb.cat) }}>
               {climbCatLabel(climb.cat)}
             </span>
           ))}
@@ -206,12 +215,12 @@ export function CourseList({
                   <h3 className="font-semibold text-[length:var(--fs-sm)] truncate flex-1" style={{ color: "var(--ink-0)" }}>{course.name}</h3>
                   {course.curated && <OfficialCourseChip />}
                   {course.surface && (
-                    <span className="text-[10px] font-medium rounded-[var(--r-sm)]" style={{ ...surfaceChipStyle(course.surface), padding: "var(--space-1) var(--space-2)" }}>
+                    <span className="font-medium" style={{ ...COURSE_LIST_BADGE_STYLE, ...surfaceChipStyle(course.surface) }}>
                       {t(`edit.surface.${course.surface}`)}
                     </span>
                   )}
                   {course.climbs.length > 0 && (
-                    <span className="text-[10px] font-medium rounded-[var(--r-sm)]" style={{ ...climbBadgeStyle(Math.max(...course.climbs.map((c) => c.cat))), padding: "var(--space-1) var(--space-2)" }}>
+                    <span className="font-medium" style={{ ...COURSE_LIST_BADGE_STYLE, ...climbBadgeStyle(Math.max(...course.climbs.map((c) => c.cat))) }}>
                       {climbCatLabel(Math.max(...course.climbs.map((c) => c.cat)))}
                     </span>
                   )}
