@@ -78,11 +78,16 @@ jobs:
           set -euo pipefail
           built=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1)
           if [ -z "$built" ]; then echo "::error::빌드 index.html 에서 entry 청크를 못 찾음"; exit 1; fi
-          live=$(curl -fsSL -H 'Cache-Control: no-cache' "https://miranae-orider-g1-stage.web.app/?cacheBust=${GITHUB_SHA}" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1 || true)
           echo "built entry: $built"
-          echo "stage entry: ${live:-<none>}"
-          if [ "$live" != "$built" ]; then
-            echo "::error::stage가 방금 빌드한 번들을 서빙하지 않음"
+          ok=0
+          for i in $(seq 1 10); do
+            live=$(curl -fsSL -H 'Cache-Control: no-cache' "https://miranae-orider-g1-stage.web.app/?cacheBust=${GITHUB_SHA}-$i" | grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' | head -1 || true)
+            echo "attempt $i: stage entry = ${live:-<none>}"
+            if [ "$live" = "$built" ]; then ok=1; break; fi
+            sleep 15
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::stage가 방금 빌드한 번들($built)을 서빙하지 않음 — stale 배포/캐시."
             exit 1
           fi
       - name: Package verified dist for production promotion
