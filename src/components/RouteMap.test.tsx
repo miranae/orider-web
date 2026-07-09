@@ -23,6 +23,23 @@ vi.mock("react-map-gl/mapbox", () => ({
 }));
 
 describe("RouteMap", () => {
+  it("uses fallback before mounting Mapbox when WebGL is unavailable", () => {
+    const getContextSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(null);
+
+    renderWithProviders(
+      <RouteMap
+        polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+      />
+    );
+
+    expect(screen.queryByTestId("mock-map")).not.toBeInTheDocument();
+    expect(screen.getByText("지도 표시를 준비하지 못했습니다")).toBeInTheDocument();
+
+    getContextSpy.mockRestore();
+  });
+
   it("falls back to the stored route image when Mapbox reports an error", () => {
     renderWithProviders(
       <RouteMap
