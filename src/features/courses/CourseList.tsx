@@ -2,6 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import type { CourseData } from "./courseSnapshot";
+import { courseTagLabel, primaryCourseTags } from "./courseTags";
 
 export function climbCatLabel(cat: number): string {
   if (cat === 5) return "HC";
@@ -163,6 +164,7 @@ export function CourseList({
             const distKm = (course.distance / 1000).toFixed(1);
             const elevM = Math.round(course.elevationGain);
             const mpk = course.distance > 0 ? (course.elevationGain / (course.distance / 1000)).toFixed(1) : "0";
+            const tags = primaryCourseTags(course, 5);
             return (
               <div
                 key={course.id}
@@ -197,6 +199,15 @@ export function CourseList({
                 </div>
                 {course.regions.length > 0 && (
                   <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>{course.regions.join(" · ")}</div>
+                )}
+                {tags.length > 0 && (
+                  <div className="flex items-center gap-1 mt-2 overflow-hidden">
+                    {tags.map((tag) => (
+                      <Chip key={tag} variant="default" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px", maxWidth: 128 }}>
+                        <span className="truncate">{courseTagLabel(tag)}</span>
+                      </Chip>
+                    ))}
+                  </div>
                 )}
                 <div className="flex gap-3 mt-1.5 text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
                   <span>{distKm} km</span>
