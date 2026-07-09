@@ -104,6 +104,34 @@ function climbBadgeStyle(cat: number): React.CSSProperties {
   }
 }
 
+const COURSE_INFO_STACK_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-4)",
+};
+
+const COURSE_INFO_SECTION_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-2)",
+};
+
+const COURSE_INLINE_WRAP_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "var(--space-2)",
+};
+
+const COURSE_ACTION_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "var(--space-2)",
+  paddingTop: "var(--space-4)",
+  borderTop: "1px solid var(--line-soft)",
+};
+
 // ── GPX generation from polyline ────────────────────────────────────
 
 function escapeXml(s: string): string {
@@ -886,36 +914,36 @@ export default function CoursePage() {
       )}
 
       {/* Header + Info */}
-      <Card padding="none" className="p-5">
+      <Card>
         {editing ? (
           /* ── Edit Mode ────────────────────────────────────────── */
-          <div className="space-y-3">
-            <div>
-              <Text as="label" variant="eyebrow" className="mb-1 block">{t("form.courseName")}</Text>
+          <div style={{ ...COURSE_INFO_SECTION_STYLE, gap: "var(--space-3)" }}>
+            <div style={COURSE_INFO_SECTION_STYLE}>
+              <Text as="label" variant="eyebrow" style={{ display: "block" }}>{t("form.courseName")}</Text>
               <input
                 ref={nameInputRef}
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 maxLength={50}
-                className="w-full px-3 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
-                style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)" }}
+                className="w-full rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
+                style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", padding: "var(--space-2) var(--space-3)" }}
               />
-              <div className="text-[length:var(--fs-xs)] text-right mt-0.5" style={{ color: "var(--ink-4)" }}>{t("form.charLimit", { current: editName.length, max: 50 })}</div>
+              <div className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-4)" }}>{t("form.charLimit", { current: editName.length, max: 50 })}</div>
             </div>
-            <div>
-              <Text as="label" variant="eyebrow" className="mb-1 block">{t("form.description")}</Text>
+            <div style={COURSE_INFO_SECTION_STYLE}>
+              <Text as="label" variant="eyebrow" style={{ display: "block" }}>{t("form.description")}</Text>
               <textarea
                 value={editDesc}
                 onChange={(e) => setEditDesc(e.target.value)}
                 maxLength={200}
                 rows={3}
-                className="w-full px-3 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none resize-none"
-                style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)" }}
+                className="w-full rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none resize-none"
+                style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", padding: "var(--space-2) var(--space-3)" }}
               />
-              <div className="text-[length:var(--fs-xs)] text-right mt-0.5" style={{ color: "var(--ink-4)" }}>{t("form.charLimit", { current: editDesc.length, max: 200 })}</div>
+              <div className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-4)" }}>{t("form.charLimit", { current: editDesc.length, max: 200 })}</div>
             </div>
-            <div className="flex gap-2">
+            <div style={COURSE_INLINE_WRAP_STYLE}>
               <Button
                 onClick={handleSaveEdit}
                 disabled={saving} variant="primary" className="disabled:opacity-50"
@@ -931,8 +959,9 @@ export default function CoursePage() {
           </div>
         ) : (
           /* ── View Mode ────────────────────────────────────────── */
-          <>
-            <div className="flex items-center gap-3 flex-wrap">
+          <div style={COURSE_INFO_STACK_STYLE}>
+            <div style={COURSE_INFO_SECTION_STYLE}>
+              <div style={{ ...COURSE_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
               <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{course.name}</h1>
               {officialCourse && (
                 <Chip variant="accent">{t("badge.official")}</Chip>
@@ -943,74 +972,81 @@ export default function CoursePage() {
               {course.regions.map((r) => (
                 <Chip key={r} variant="accent">{r}</Chip>
               ))}
+              </div>
+
+              {course.description && (
+                <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{course.description}</p>
+              )}
             </div>
 
-            {course.description && (
-              <p className="text-[length:var(--fs-sm)] mt-2" style={{ color: "var(--ink-2)" }}>{course.description}</p>
-            )}
-          </>
-        )}
-
-        {/* Creator */}
-        {!editing && (
-          <div className="flex items-center gap-2 mt-3">
-            <Avatar
-              name={creatorName}
-              imageUrl={course.creatorProfileImage}
-              size="sm"
-              userId={course.creatorId}
-            />
-            <div>
-              {officialCourse ? (
-                <Text as="div" variant="body" style={{ fontWeight: 600, color: "var(--ink-1)" }}>
-                  {creatorName}
-                </Text>
-              ) : (
-                <Link
-                  to={`/athlete/${course.creatorId}`}
-                  className="text-[length:var(--fs-sm)] font-medium transition-colors hover:underline"
-                  style={{ color: "var(--ink-1)" }}
-                >
-                  {creatorName}
-                </Link>
-              )}
-              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>
-                {new Date(course.createdAt).toLocaleDateString(localeTag())} {t("creator.registered")}
+            {/* Creator */}
+            <div style={{ ...COURSE_INLINE_WRAP_STYLE, alignItems: "center" }}>
+              <Avatar
+                name={creatorName}
+                imageUrl={course.creatorProfileImage}
+                size="sm"
+                userId={course.creatorId}
+              />
+              <div>
+                {officialCourse ? (
+                  <Text as="div" variant="body" style={{ fontWeight: 600, color: "var(--ink-1)" }}>
+                    {creatorName}
+                  </Text>
+                ) : (
+                  <Link
+                    to={`/athlete/${course.creatorId}`}
+                    className="text-[length:var(--fs-sm)] font-medium transition-colors hover:underline"
+                    style={{ color: "var(--ink-1)" }}
+                  >
+                    {creatorName}
+                  </Link>
+                )}
+                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>
+                  {new Date(course.createdAt).toLocaleDateString(localeTag())} {t("creator.registered")}
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-          <div>
-            <Text as="div" variant="eyebrow" className="mb-1">{t("distance")}</Text>
-            <Text variant="dataMedium">{(course.distance / 1000).toFixed(2)}</Text><Text variant="unit">km</Text>
+        <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+          <div style={COURSE_INFO_SECTION_STYLE}>
+            <Text as="div" variant="eyebrow">{t("distance")}</Text>
+            <div>
+              <Text variant="dataMedium">{(course.distance / 1000).toFixed(2)}</Text><Text variant="unit">km</Text>
+            </div>
           </div>
-          <div>
-            <Text as="div" variant="eyebrow" className="mb-1">{t("elevationGainShort")}</Text>
-            <Text variant="dataMedium">{Math.round(course.elevationGain)}</Text><Text variant="unit">m</Text>
+          <div style={COURSE_INFO_SECTION_STYLE}>
+            <Text as="div" variant="eyebrow">{t("elevationGainShort")}</Text>
+            <div>
+              <Text variant="dataMedium">{Math.round(course.elevationGain)}</Text><Text variant="unit">m</Text>
+            </div>
           </div>
-          <div>
-            <Text as="div" variant="eyebrow" className="mb-1">{t("elevation")}</Text>
-            <Text variant="dataMedium">{Math.round(course.elevationLow)}–{Math.round(course.elevationHigh)}</Text><Text variant="unit">m</Text>
+          <div style={COURSE_INFO_SECTION_STYLE}>
+            <Text as="div" variant="eyebrow">{t("elevation")}</Text>
+            <div>
+              <Text variant="dataMedium">{Math.round(course.elevationLow)}–{Math.round(course.elevationHigh)}</Text><Text variant="unit">m</Text>
+            </div>
           </div>
-          <div>
-            <Text as="div" variant="eyebrow" className="mb-1">{t("maxGrade")}</Text>
-            <Text variant="dataMedium">{course.maximumGrade.toFixed(1)}</Text><Text variant="unit">%</Text>
+          <div style={COURSE_INFO_SECTION_STYLE}>
+            <Text as="div" variant="eyebrow">{t("maxGrade")}</Text>
+            <div>
+              <Text variant="dataMedium">{course.maximumGrade.toFixed(1)}</Text><Text variant="unit">%</Text>
+            </div>
           </div>
         </div>
 
         {/* Climb badges */}
         {course.climbs && course.climbs.length > 0 && (
-          <div className="mt-3">
-            <Text as="div" variant="eyebrow" className="mb-1.5">{t("climbSection")}</Text>
-            <div className="flex gap-1.5 flex-wrap">
+          <div style={{ ...COURSE_INFO_SECTION_STYLE, marginTop: "var(--space-4)" }}>
+            <Text as="div" variant="eyebrow">{t("climbSection")}</Text>
+            <div style={COURSE_INLINE_WRAP_STYLE}>
               {[...course.climbs].sort((a, b) => b.cat - a.cat).map((climb, i) => (
                 <span
                   key={i}
-                  className="px-2 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-sm)]"
-                  style={climbBadgeStyle(climb.cat)}
+                  className="text-[length:var(--fs-xs)] font-medium rounded-[var(--r-sm)]"
+                  style={{ ...climbBadgeStyle(climb.cat), padding: "var(--space-1) var(--space-2)" }}
                 >
                   {climbCatLabel(climb.cat)} · {Math.round(climb.gain)}m / {(climb.dist / 1000).toFixed(1)}km
                 </span>
@@ -1021,17 +1057,17 @@ export default function CoursePage() {
 
         {/* 이 코스의 세그먼트 — 정방향 역링크(#495) */}
         {linkedSegments.length > 0 && (
-          <div className="mt-3">
-            <Text as="div" variant="eyebrow" className="mb-1.5">{t("courseSegments")}</Text>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div style={{ ...COURSE_INFO_SECTION_STYLE, marginTop: "var(--space-4)" }}>
+            <Text as="div" variant="eyebrow">{t("courseSegments")}</Text>
+            <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)" }}>
               {linkedSegments.map((s) => (
                 <Link key={s.id} to={`/segment/${s.id}`}>
-                  <Card padding="none" className="p-3! hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
-                    <div className="flex items-center gap-2">
-                      {s.climbCategory >= 1 && <span className="text-[10px] px-1.5 py-0.5 rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)" }}>{s.climbCategory >= 5 ? "HC" : `Cat ${s.climbCategory}`}</span>}
+                  <Card padding="compact" className="hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
+                    <div style={COURSE_INLINE_WRAP_STYLE}>
+                      {s.climbCategory >= 1 && <span className="text-[10px] rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)", padding: "var(--space-1) var(--space-2)" }}>{s.climbCategory >= 5 ? "HC" : `Cat ${s.climbCategory}`}</span>}
                       <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{s.name}</span>
                     </div>
-                    <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>{(s.distance / 1000).toFixed(1)}km · {s.averageGrade.toFixed(1)}%</div>
+                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{(s.distance / 1000).toFixed(1)}km · {s.averageGrade.toFixed(1)}%</div>
                   </Card>
                 </Link>
               ))}
@@ -1040,12 +1076,12 @@ export default function CoursePage() {
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-2 mt-4 pt-4 flex-wrap" style={{ borderTop: "1px solid var(--line-soft)" }}>
+        <div style={{ ...COURSE_ACTION_ROW_STYLE, marginTop: "var(--space-4)" }}>
           {/* Like */}
           {user && (
             <Button
               onClick={handleToggleLike}
-              disabled={likeLoading} variant="secondary" className="flex items-center gap-1.5"
+              disabled={likeLoading} variant="secondary"
               style={liked ? { color: "var(--lime)", borderColor: "var(--lime)" } : undefined}
             >
               <svg className="w-4 h-4" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1058,7 +1094,7 @@ export default function CoursePage() {
           {/* 시뮬레이터 (실험실) */}
           <Link
             to={`/lab?courseId=${courseId}`}
-            className={buttonClass({ variant: "secondary" }) + " flex items-center gap-1.5"}
+            className={buttonClass({ variant: "secondary" })}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 3v6l-5 9a1 1 0 00.9 1.5h14.2A1 1 0 0020 18l-5-9V3" />
@@ -1068,7 +1104,7 @@ export default function CoursePage() {
           </Link>
 
           {/* GPX Export */}
-          <Button onClick={handleExportGpx} variant="secondary" className="flex items-center gap-1.5">
+          <Button onClick={handleExportGpx} variant="secondary">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -1076,7 +1112,7 @@ export default function CoursePage() {
           </Button>
 
           {/* Share */}
-          <Button onClick={handleShare} variant="secondary" className="flex items-center gap-1.5">
+          <Button onClick={handleShare} variant="secondary">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
@@ -1085,7 +1121,7 @@ export default function CoursePage() {
           </Button>
 
           {user && (
-            <Button onClick={() => setReportOpen(true)} variant="secondary" className="flex items-center gap-1.5">
+            <Button onClick={() => setReportOpen(true)} variant="secondary">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z" />
                 <path d="M4 22V15" />
@@ -1095,7 +1131,7 @@ export default function CoursePage() {
           )}
 
           {/* 앱으로 보내기 */}
-          <Button onClick={handleSendToApp} variant="primary" className="flex items-center gap-1.5">
+          <Button onClick={handleSendToApp} variant="primary">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 18V6M12 6l-5 5M12 6l5 5"/>
               <rect x="3" y="14" width="18" height="7" rx="2"/>
@@ -1104,7 +1140,7 @@ export default function CoursePage() {
           </Button>
 
           {/* View count */}
-          <span className="text-[length:var(--fs-xs)] flex items-center gap-1" style={{ color: "var(--ink-4)" }}>
+          <span className="text-[length:var(--fs-xs)] flex items-center" style={{ color: "var(--ink-4)", gap: "var(--space-1)" }}>
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -1114,7 +1150,7 @@ export default function CoursePage() {
 
           {/* Owner actions */}
           {isOwner && (
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center" style={{ gap: "var(--space-2)" }}>
               <Button onClick={startEditing} variant="secondary" size="sm">{t("button.edit")}</Button>
               <Button
                 onClick={handleDelete}
@@ -1126,7 +1162,7 @@ export default function CoursePage() {
             </div>
           )}
           {isAdmin && (
-            <div className={isOwner ? "flex items-center gap-2" : "ml-auto flex items-center gap-2"}>
+            <div className={isOwner ? "flex items-center" : "ml-auto flex items-center"} style={{ gap: "var(--space-2)" }}>
               <Button
                 onClick={() => handleToggleHidden(course.hidden !== true)}
                 disabled={moderating}
