@@ -29,10 +29,28 @@ function surfaceChipStyle(surface: string): React.CSSProperties {
   }
 }
 
+const COURSE_LIST_STACK_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-2)",
+};
+
+const COURSE_LIST_INLINE_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "var(--space-2)",
+};
+
+const COURSE_LIST_CHIP_STYLE: React.CSSProperties = {
+  fontSize: "var(--fs-2xs)",
+  padding: "var(--space-1) var(--space-2)",
+};
+
 function OfficialCourseChip() {
   const { t } = useTranslation("course");
   return (
-    <Chip variant="accent" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>
+    <Chip variant="accent" style={COURSE_LIST_CHIP_STYLE}>
       {t("badge.official")}
     </Chip>
   );
@@ -52,21 +70,21 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
   const catLabel = maxCat > 0 ? climbCatLabel(maxCat) : "-";
 
   return (
-    <Card padding="none" className="mb-3" style={{ padding: 0, overflow: "hidden", borderRadius: "var(--r-md)" }}>
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
+    <Card padding="none" style={{ padding: 0, overflow: "hidden", borderRadius: "var(--r-md)", marginBottom: "var(--space-3)" }}>
+      <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+        <div style={{ ...COURSE_LIST_INLINE_STYLE, marginBottom: "var(--space-1)" }}>
           {course.curated && <OfficialCourseChip />}
           {course.regions.map((r) => (
-            <Chip key={r} variant="accent" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>{r}</Chip>
+            <Chip key={r} variant="accent" style={COURSE_LIST_CHIP_STYLE}>{r}</Chip>
           ))}
           {course.climbs.length > 0 && [...course.climbs].sort((a, b) => b.cat - a.cat).map((climb, i) => (
-            <span key={i} className="px-1.5 py-0.5 text-[10px] font-medium rounded-[var(--r-sm)]" style={climbBadgeStyle(climb.cat)}>
+            <span key={i} className="text-[10px] font-medium rounded-[var(--r-sm)]" style={{ ...climbBadgeStyle(climb.cat), padding: "var(--space-1) var(--space-2)" }}>
               {climbCatLabel(climb.cat)}
             </span>
           ))}
         </div>
         <h2 className="text-[length:var(--fs-lg)] font-bold" style={{ color: "var(--ink-0)" }}>{course.name}</h2>
-        <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
+        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
           {course.likeCount > 0 && t("stats.likes", { count: course.likeCount })}
         </div>
       </div>
@@ -81,7 +99,7 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
           [t("difficulty"), catLabel, null],
           [t("button.share"), String(course.likeCount), null],
         ] as [string, string, string | null][]).map(([k, v, u]) => (
-          <div key={k} style={{ padding: "10px 8px", background: "var(--bg-1)" }}>
+          <div key={k} style={{ padding: "var(--space-2)", background: "var(--bg-1)" }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)', fontSize: "var(--fs-2xs)" }}>{k}</Text>
             <div>
               <Text variant="dataMedium" style={{ fontSize: "var(--fs-sm)" }}>{v}</Text>
@@ -90,7 +108,7 @@ function SelectedCoursePanel({ course, onOpenCourse }: SelectedCoursePanelProps)
           </div>
         ))}
       </div>
-      <div style={{ padding: "10px 16px", display: "flex", gap: 'var(--space-2)' }}>
+      <div style={{ padding: "var(--space-2) var(--space-4)", display: "flex", gap: 'var(--space-2)' }}>
         <Button
           onClick={() => onOpenCourse(course.id)} variant="primary" size="sm"
           style={{ flex: 1, justifyContent: "center" }}
@@ -132,11 +150,11 @@ export function CourseList({
   const { t } = useTranslation("course");
 
   return (
-    <div className="p-3">
+    <div style={{ padding: "var(--space-3)" }}>
       {mapUnavailable && (
-        <div className="mb-3 rounded-[var(--r-lg)] px-4 py-3" role="status" style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)" }}>
+        <div className="rounded-[var(--r-lg)]" role="status" style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", marginBottom: "var(--space-3)", padding: "var(--space-3) var(--space-4)" }}>
           <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("map.unavailableTitle")}</div>
-          <div className="mt-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("map.listPriorityDescription")}</div>
+          <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{t("map.listPriorityDescription")}</div>
         </div>
       )}
 
@@ -144,13 +162,13 @@ export function CourseList({
         <SelectedCoursePanel course={selectedCourse} onOpenCourse={onOpenCourse} />
       )}
 
-      <Text as="div" variant="eyebrow" className="mb-2">
+      <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>
         {searchQuery
           ? t("stats.resultCount", { count: courses.length })
           : t("stats.areaCount", { count: courses.length })}
       </Text>
       {courses.length === 0 ? (
-        <div className="text-center py-12 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
+        <div className="text-center text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>
           {searchQuery
             ? t("empty.noResults")
             : allCourseCount === 0
@@ -158,7 +176,7 @@ export function CourseList({
               : t("empty.noCoursesInArea")}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div style={COURSE_LIST_STACK_STYLE}>
           {courses.map((course) => {
             const highlighted = hoveredId === course.id || selectedId === course.id;
             const distKm = (course.distance / 1000).toFixed(1);
@@ -176,40 +194,41 @@ export function CourseList({
                 onMouseLeave={() => onHoverCourse(null)}
                 onClick={() => onSelectCourse(course.id)}
                 onDoubleClick={() => onOpenCourse(course.id)}
-                className="cursor-pointer rounded-[var(--r-lg)] p-3 transition-colors"
+                className="cursor-pointer rounded-[var(--r-lg)] transition-colors"
                 style={{
                   background: highlighted ? "color-mix(in oklch, var(--lime) 6%, var(--bg-2))" : "var(--bg-1)",
                   border: highlighted ? "1px solid var(--lime)" : "1px solid var(--line-soft)",
                   borderLeft: highlighted ? "2px solid var(--lime)" : "2px solid transparent",
+                  padding: "var(--space-3)",
                 }}
               >
-                <div className="flex items-center gap-2">
+                <div style={COURSE_LIST_INLINE_STYLE}>
                   <h3 className="font-semibold text-[length:var(--fs-sm)] truncate flex-1" style={{ color: "var(--ink-0)" }}>{course.name}</h3>
                   {course.curated && <OfficialCourseChip />}
                   {course.surface && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-[var(--r-sm)]" style={surfaceChipStyle(course.surface)}>
+                    <span className="text-[10px] font-medium rounded-[var(--r-sm)]" style={{ ...surfaceChipStyle(course.surface), padding: "var(--space-1) var(--space-2)" }}>
                       {t(`edit.surface.${course.surface}`)}
                     </span>
                   )}
                   {course.climbs.length > 0 && (
-                    <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-[var(--r-sm)]" style={climbBadgeStyle(Math.max(...course.climbs.map((c) => c.cat)))}>
+                    <span className="text-[10px] font-medium rounded-[var(--r-sm)]" style={{ ...climbBadgeStyle(Math.max(...course.climbs.map((c) => c.cat))), padding: "var(--space-1) var(--space-2)" }}>
                       {climbCatLabel(Math.max(...course.climbs.map((c) => c.cat)))}
                     </span>
                   )}
                 </div>
                 {course.regions.length > 0 && (
-                  <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>{course.regions.join(" · ")}</div>
+                  <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{course.regions.join(" · ")}</div>
                 )}
                 {tags.length > 0 && (
-                  <div className="flex items-center gap-1 mt-2 overflow-hidden">
+                  <div className="flex items-center overflow-hidden" style={{ gap: "var(--space-1)", marginTop: "var(--space-2)" }}>
                     {tags.map((tag) => (
-                      <Chip key={tag} variant="default" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px", maxWidth: 128 }}>
+                      <Chip key={tag} variant="default" style={{ ...COURSE_LIST_CHIP_STYLE, maxWidth: 128 }}>
                         <span className="truncate">{courseTagLabel(tag)}</span>
                       </Chip>
                     ))}
                   </div>
                 )}
-                <div className="flex gap-3 mt-1.5 text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
+                <div className="flex text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
                   <span>{distKm} km</span>
                   <span>↑ {elevM}m</span>
                   <span style={{ color: Number(mpk) > 15 ? "var(--amber)" : Number(mpk) > 5 ? "var(--ink-2)" : "var(--lime)" }}>
