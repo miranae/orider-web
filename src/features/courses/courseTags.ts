@@ -50,5 +50,7 @@ export function courseTagLabel(tag: string): string {
   if (tag.startsWith("region:")) return tag.slice("region:".length);
   if (tag.startsWith("segment:")) return tag.slice("segment:".length);
   if (tag.startsWith("start:")) return `시작 ${tag.slice("start:".length)}`;
-  return TAG_LABELS[tag] ?? tag;
+  if (TAG_LABELS[tag]) return TAG_LABELS[tag];
+  const [, value] = tag.split(":", 2);
+  return value?.trim() || tag;
 }
