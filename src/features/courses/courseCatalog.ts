@@ -1,4 +1,5 @@
 import type { CourseData } from "./courseSnapshot";
+import { courseTagLabel, uniqueCourseTags } from "./courseTags";
 
 export type SortMode = "latest" | "popular";
 export type SurfaceFilter = "" | "paved" | "gravel" | "mixed";
@@ -28,7 +29,17 @@ export function filterAndSortCourses(courses: CourseData[], filters: CourseCatal
 
   if (queryTokens.length > 0) {
     filtered = filtered.filter((course) => {
-      const text = `${course.name} ${course.regions.join(" ")}`.toLowerCase();
+      const text = [
+        course.name,
+        ...course.regions,
+        ...course.tags,
+        ...course.autoTags,
+        ...uniqueCourseTags(course).map(courseTagLabel),
+        ...course.segmentNames,
+        course.distanceBand,
+        course.elevationBand,
+        course.difficultyBand,
+      ].filter(Boolean).join(" ").toLowerCase();
       return queryTokens.every((token) => text.includes(token));
     });
   }

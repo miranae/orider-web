@@ -31,6 +31,7 @@ import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
 import { Button, buttonClass, Card, Chip, Text } from "../theme/components";
+import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
 
 interface CourseData {
   id: string;
@@ -62,6 +63,13 @@ interface CourseData {
   createdAt: number;
   deletedAt: number | null;
   segmentIds?: string[];
+  segmentNames?: string[];
+  tags?: string[];
+  autoTags?: string[];
+  distanceBand?: string | null;
+  elevationBand?: string | null;
+  difficultyBand?: string | null;
+  bikeLaneRatioStatus?: string | null;
   visibility?: "public" | "private";
   curated?: boolean;
   hidden?: boolean;
@@ -73,6 +81,13 @@ type ReportReason = typeof REPORT_REASONS[number];
 
 function isOfficialCourse(course: CourseData): boolean {
   return course.curated === true || course.creatorId === OFFICIAL_COURSE_BOT_UID;
+}
+
+function courseDisplayTags(course: CourseData): string[] {
+  return primaryCourseTags({
+    tags: Array.isArray(course.tags) ? course.tags : [],
+    autoTags: Array.isArray(course.autoTags) ? course.autoTags : [],
+  }, 100);
 }
 
 function profileHasAdminFlag(profile: unknown): boolean {
@@ -752,6 +767,8 @@ export default function CoursePage() {
     );
   }
 
+  const displayTags = courseDisplayTags(course);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Toast (portal to body to avoid Leaflet stacking context) */}
@@ -978,6 +995,19 @@ export default function CoursePage() {
                 <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{course.description}</p>
               )}
             </div>
+
+            {displayTags.length > 0 && (
+              <div style={COURSE_INFO_SECTION_STYLE}>
+                <Text as="div" variant="eyebrow">{t("tagSection")}</Text>
+                <div className="flex gap-1.5 flex-wrap">
+                  {displayTags.map((tag) => (
+                    <Chip key={tag} variant="default" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>
+                      {courseTagLabel(tag)}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Creator */}
             <div style={{ ...COURSE_INLINE_WRAP_STYLE, alignItems: "center" }}>

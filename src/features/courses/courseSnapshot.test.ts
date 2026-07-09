@@ -10,6 +10,13 @@ function course(id: string, overrides: Partial<CourseData> = {}): CourseData {
     elevationGain: 0,
     climbs: [],
     regions: [],
+    tags: [],
+    autoTags: [],
+    segmentNames: [],
+    distanceBand: null,
+    elevationBand: null,
+    difficultyBand: null,
+    bikeLaneRatioStatus: null,
     likeCount: 0,
     createdAt: 0,
     surface: null,
@@ -80,6 +87,28 @@ describe("courseFromSnapshotData", () => {
       visibility: "public",
       curated: true,
       creatorId: "orider_official",
+    });
+  });
+
+  it("parses recommendation tags and generated metadata fields", async () => {
+    const { courseFromSnapshotData } = await import("./courseSnapshot");
+
+    expect(courseFromSnapshotData("auto", {
+      tags: ["distance:ultra", "region:경기도"],
+      autoTags: ["auto-curated"],
+      segmentNames: ["하오고개"],
+      distanceBand: "ultra",
+      elevationBand: "rolling",
+      difficultyBand: "challenging",
+      bikeLaneRatioStatus: "unavailable",
+    })).toMatchObject({
+      tags: ["distance:ultra", "region:경기도"],
+      autoTags: ["auto-curated"],
+      segmentNames: ["하오고개"],
+      distanceBand: "ultra",
+      elevationBand: "rolling",
+      difficultyBand: "challenging",
+      bikeLaneRatioStatus: "unavailable",
     });
   });
 });

@@ -11,12 +11,22 @@ function course(id: string, overrides: Partial<CourseData> = {}): CourseData {
     elevationGain: 0,
     climbs: [],
     regions: [],
+    tags: [],
+    autoTags: [],
+    segmentNames: [],
+    distanceBand: null,
+    elevationBand: null,
+    difficultyBand: null,
+    bikeLaneRatioStatus: null,
     likeCount: 0,
     createdAt: 0,
     surface: null,
     difficulty: null,
     startLat: 0,
     startLon: 0,
+    visibility: null,
+    curated: false,
+    creatorId: null,
     ...overrides,
   };
 }
@@ -36,6 +46,15 @@ describe("filterAndSortCourses", () => {
       course("a", { name: "남한강 자전거길", regions: ["양평"] }),
       course("b", { name: "북한강", regions: ["춘천"] }),
     ], { ...baseFilters, searchQuery: "남한강 양평" });
+
+    expect(result.map((item) => item.id)).toEqual(["a"]);
+  });
+
+  it("matches search tokens against tags and segment names", () => {
+    const result = filterAndSortCourses([
+      course("a", { name: "추천 코스", tags: ["distance:ultra"], segmentNames: ["하오고개"] }),
+      course("b", { name: "추천 코스", tags: ["distance:medium"], segmentNames: ["남산"] }),
+    ], { ...baseFilters, searchQuery: "하오고개 초장거리" });
 
     expect(result.map((item) => item.id)).toEqual(["a"]);
   });

@@ -16,6 +16,7 @@
   "averageGrade": "평균경사",
   "maxGrade": "최대경사",
   "climbSection": "오르막 구간",
+  "tagSection": "태그",
   "courseSegments": "이 코스의 세그먼트",
   "difficulty.easy": "쉬움",
   "difficulty.moderate": "중간",

@@ -16,6 +16,13 @@ export interface CourseData {
   elevationGain: number;
   climbs: ClimbInfo[];
   regions: string[];
+  tags: string[];
+  autoTags: string[];
+  segmentNames: string[];
+  distanceBand: string | null;
+  elevationBand: string | null;
+  difficultyBand: string | null;
+  bikeLaneRatioStatus: string | null;
   likeCount: number;
   createdAt: number;
   surface: string | null;
@@ -65,6 +72,13 @@ export function courseFromSnapshotData(id: string, data: Record<string, unknown>
     elevationGain: numberOrZero(data.elevationGain),
     climbs: arrayOrEmpty<ClimbInfo>(data.climbs),
     regions: arrayOrEmpty<string>(data.regions),
+    tags: arrayOrEmpty<string>(data.tags).filter((value) => typeof value === "string"),
+    autoTags: arrayOrEmpty<string>(data.autoTags).filter((value) => typeof value === "string"),
+    segmentNames: arrayOrEmpty<string>(data.segmentNames).filter((value) => typeof value === "string"),
+    distanceBand: typeof data.distanceBand === "string" ? data.distanceBand : null,
+    elevationBand: typeof data.elevationBand === "string" ? data.elevationBand : null,
+    difficultyBand: typeof data.difficultyBand === "string" ? data.difficultyBand : null,
+    bikeLaneRatioStatus: typeof data.bikeLaneRatioStatus === "string" ? data.bikeLaneRatioStatus : null,
     likeCount: numberOrZero(data.likeCount),
     createdAt: numberOrZero(data.createdAt),
     surface: typeof data.surface === "string" ? data.surface : null,
