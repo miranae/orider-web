@@ -147,6 +147,20 @@ const COURSE_ACTION_ROW_STYLE: React.CSSProperties = {
   borderTop: "1px solid var(--line-soft)",
 };
 
+const COURSE_PAGE_STACK_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-6)",
+};
+
+const COURSE_TOAST_STYLE: React.CSSProperties = {
+  zIndex: 10000,
+  background: "var(--bg-4)",
+  color: "var(--ink-0)",
+  border: "1px solid var(--line)",
+  padding: "var(--space-2) var(--space-4)",
+};
+
 // ── GPX generation from polyline ────────────────────────────────────
 
 function escapeXml(s: string): string {
@@ -747,7 +761,7 @@ export default function CoursePage() {
 
   if (courseLoading || (course?.hidden === true && adminClaimsLoading)) {
     return (
-      <div className="max-w-4xl mx-auto space-y-4 py-4">
+      <div className="max-w-4xl mx-auto" style={{ ...COURSE_PAGE_STACK_STYLE, gap: "var(--space-4)", paddingBlock: "var(--space-4)" }}>
         <LoadingSkeleton kind="chart" />
         <LoadingSkeleton kind="list" count={3} />
       </div>
@@ -770,38 +784,40 @@ export default function CoursePage() {
   const displayTags = courseDisplayTags(course);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto" style={COURSE_PAGE_STACK_STYLE}>
       {/* Toast (portal to body to avoid Leaflet stacking context) */}
       {toast && createPortal(
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={{ zIndex: 10000, background: "var(--bg-4)", color: "var(--ink-0)", border: "1px solid var(--line)" }}>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={COURSE_TOAST_STYLE}>
           {toast}
         </div>,
         document.body,
       )}
 
       {reportOpen && createPortal(
-        <div className="fixed inset-0 flex items-center justify-center px-4" style={{ zIndex: 9999, background: "color-mix(in oklch, var(--bg-0) 72%, transparent)" }} role="dialog" aria-modal="true" aria-labelledby="course-report-title">
-          <Card padding="none" className="w-full max-w-sm p-4">
-            <Text id="course-report-title" as="h2" variant="title" className="mb-3">{t("report.title")}</Text>
-            <label className="block text-[length:var(--fs-sm)] mb-2" style={{ color: "var(--ink-2)" }} htmlFor="course-report-reason">
-              {t("report.reason")}
-            </label>
-            <select
-              id="course-report-reason"
-              value={reportReason}
-              onChange={(e) => setReportReason(e.target.value as ReportReason)}
-              className="w-full px-3 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
-              style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)" }}
-            >
-              {REPORT_REASONS.map((reason) => (
-                <option key={reason} value={reason}>{t(`report.reason.${reason}`)}</option>
-              ))}
-            </select>
-            <div className="flex justify-end gap-2 mt-4">
-              <Button type="button" variant="ghost" onClick={() => setReportOpen(false)} disabled={reporting}>{t("button.cancel")}</Button>
-              <Button type="button" variant="primary" onClick={handleReportCourse} disabled={reporting}>
-                {reporting ? t("report.submitting") : t("report.submit")}
-              </Button>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9999, background: "color-mix(in oklch, var(--bg-0) 72%, transparent)", paddingInline: "var(--space-4)" }} role="dialog" aria-modal="true" aria-labelledby="course-report-title">
+          <Card className="w-full max-w-sm">
+            <div style={{ ...COURSE_INFO_SECTION_STYLE, gap: "var(--space-3)" }}>
+              <Text id="course-report-title" as="h2" variant="title">{t("report.title")}</Text>
+              <label className="block text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }} htmlFor="course-report-reason">
+                {t("report.reason")}
+              </label>
+              <select
+                id="course-report-reason"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value as ReportReason)}
+                className="w-full rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
+                style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", padding: "var(--space-2) var(--space-3)" }}
+              >
+                {REPORT_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>{t(`report.reason.${reason}`)}</option>
+                ))}
+              </select>
+              <div style={{ ...COURSE_INLINE_WRAP_STYLE, justifyContent: "flex-end" }}>
+                <Button type="button" variant="ghost" onClick={() => setReportOpen(false)} disabled={reporting}>{t("button.cancel")}</Button>
+                <Button type="button" variant="primary" onClick={handleReportCourse} disabled={reporting}>
+                  {reporting ? t("report.submitting") : t("report.submit")}
+                </Button>
+              </div>
             </div>
           </Card>
         </div>,
@@ -837,8 +853,8 @@ export default function CoursePage() {
 
       {/* Photo Gallery */}
       {((course.photos && course.photos.length > 0) || userPhotos.length > 0 || user) && (
-        <Card padding="none" className="p-4">
-          <div className="flex items-center justify-between mb-3">
+        <Card>
+          <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-3)" }}>
             <Text as="h3" variant="eyebrow">{t("photo.title")}</Text>
             {user && (
               <>
@@ -851,7 +867,7 @@ export default function CoursePage() {
                 />
                 <Button
                   onClick={() => photoInputRef.current?.click()}
-                  disabled={uploading} variant="primary" size="sm" className="flex items-center gap-1.5 disabled:opacity-50"
+                  disabled={uploading} variant="primary" size="sm" className="disabled:opacity-50"
                 >
                   {uploading ? (
                     <>
@@ -874,7 +890,7 @@ export default function CoursePage() {
             )}
           </div>
           {((course.photos && course.photos.length > 0) || userPhotos.length > 0) && (
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+            <div className="flex overflow-x-auto scrollbar-thin" style={{ gap: "var(--space-3)", paddingBottom: "var(--space-2)" }}>
               {course.photos?.map((photo, i) => (
                 <div key={`auto-${i}`} className="flex-shrink-0 group relative">
                   <img
@@ -912,7 +928,7 @@ export default function CoursePage() {
             </div>
           )}
           {(!course.photos || course.photos.length === 0) && userPhotos.length === 0 && user && (
-            <p className="text-[length:var(--fs-sm)] text-center py-4" style={{ color: "var(--ink-3)" }}>
+            <p className="text-[length:var(--fs-sm)] text-center" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-4)" }}>
               {t("empty.noPhotos")}
             </p>
           )}
@@ -921,7 +937,7 @@ export default function CoursePage() {
 
       {/* Elevation Chart */}
       {course.elevationProfile && course.elevationProfile.length > 0 && (
-        <Card padding="none" className="p-4">
+        <Card>
           <ElevationChart
             data={course.elevationProfile.map((p) => ({ distance: p.d, elevation: p.e }))}
             height={180}
@@ -999,9 +1015,9 @@ export default function CoursePage() {
             {displayTags.length > 0 && (
               <div style={COURSE_INFO_SECTION_STYLE}>
                 <Text as="div" variant="eyebrow">{t("tagSection")}</Text>
-                <div className="flex gap-1.5 flex-wrap">
+                <div style={{ ...COURSE_INLINE_WRAP_STYLE, gap: "var(--space-2)" }}>
                   {displayTags.map((tag) => (
-                    <Chip key={tag} variant="default" style={{ fontSize: "var(--fs-2xs)", padding: "2px 6px" }}>
+                    <Chip key={tag} variant="default" style={{ fontSize: "var(--fs-2xs)", padding: "var(--space-1) var(--space-2)" }}>
                       {courseTagLabel(tag)}
                     </Chip>
                   ))}
@@ -1214,8 +1230,8 @@ export default function CoursePage() {
       <div className="flex items-center">
         <Link
           to="/courses"
-          className="px-4 py-2 text-[length:var(--fs-sm)] transition-colors hover:underline"
-          style={{ color: "var(--ink-3)" }}
+          className="text-[length:var(--fs-sm)] transition-colors hover:underline"
+          style={{ color: "var(--ink-3)", padding: "var(--space-2) var(--space-4)" }}
         >
           &larr; {t("button.courseList")}
         </Link>

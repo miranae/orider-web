@@ -15,6 +15,33 @@ import { filterAndSortCourses, type SortMode, type SurfaceFilter } from "../feat
 import type { CourseData } from "../features/courses/courseSnapshot";
 import { useCourseCatalog } from "../features/courses/useCourseCatalog";
 
+const COURSES_CONTROL_STACK_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-4)",
+  padding: "var(--space-6) var(--space-4) var(--space-4)",
+  background: "var(--bg-0)",
+  borderBottom: "1px solid var(--line-soft)",
+};
+
+const COURSES_FILTER_ROW_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  columnGap: "var(--space-4)",
+  rowGap: "var(--space-2)",
+  marginTop: "var(--space-2)",
+};
+
+const COURSES_FILTER_GROUP_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "var(--space-2)",
+};
+
+const COURSES_FILTER_BUTTON_STYLE: React.CSSProperties = {
+  padding: "var(--space-1) var(--space-2)",
+};
+
 export default function CoursesPage() {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("course");
@@ -148,11 +175,11 @@ export default function CoursesPage() {
   return (
     <div className="flex flex-col -mx-4 -my-6" style={{ height: "calc(100vh - 56px)" }}>
       {/* 컨트롤 바 */}
-      <div className="flex-shrink-0 px-4 pb-4 space-y-4" style={{ background: "var(--bg-0)", borderBottom: "1px solid var(--line-soft)" }}>
-        <div className="flex items-center justify-between pt-6">
+      <div className="flex-shrink-0" style={COURSES_CONTROL_STACK_STYLE}>
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{t("title")}</h1>
-            <p className="text-[length:var(--fs-sm)] mt-1" style={{ color: "var(--ink-3)" }}>
+            <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
               {t("subtitle")}
             </p>
           </div>
@@ -163,7 +190,7 @@ export default function CoursesPage() {
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row" style={{ gap: "var(--space-3)" }}>
           <div className="relative flex-1">
             <button
               onClick={handleSearch}
@@ -180,11 +207,11 @@ export default function CoursesPage() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full pl-10 pr-4 py-2.5 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
-              style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)" }}
+              className="w-full rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none"
+              style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-0)", padding: "var(--space-2) var(--space-4) var(--space-2) 2.5rem" }}
             />
           </div>
-          <div className="flex gap-1">
+          <div className="flex" style={{ gap: "var(--space-1)" }}>
             {([
               { id: "latest" as SortMode, label: t("sort.latest") },
               { id: "popular" as SortMode, label: t("sort.popular") },
@@ -201,8 +228,8 @@ export default function CoursesPage() {
         </div>
 
         {/* 노면/난이도 다축 필터(#489) */}
-        <div className="flex items-center gap-x-4 gap-y-2 mt-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
-          <div className="flex shrink-0 items-center gap-1.5">
+        <div className="overflow-x-auto lg:flex-wrap lg:overflow-visible" style={COURSES_FILTER_ROW_STYLE}>
+          <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("edit.surface")}</span>
             {([
               { v: "" as const, label: t("filter.all") },
@@ -213,14 +240,14 @@ export default function CoursesPage() {
               const active = surfaceFilter === o.v;
               return (
                 <button key={o.v || "all"} type="button" onClick={() => setSurfaceFilter(o.v)}
-                  className="px-2 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
-                  style={active ? { background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+                  className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                  style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                   {o.label}
                 </button>
               );
             })}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.nearMe")}</span>
             {([10, 20, 50] as const).map((km) => {
               const active = myLoc != null && radiusKm === km;
@@ -236,18 +263,18 @@ export default function CoursesPage() {
                       { timeout: 8000, maximumAge: 300000 },
                     );
                   }}
-                  className="px-2 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
-                  style={active ? { background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+                  className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                  style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                   {t("filter.radiusKm", { km })}
                 </button>
               );
             })}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("difficulty")}</span>
             <button type="button" onClick={() => setDifficultyFilter(null)}
-              className="px-2 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
-              style={difficultyFilter == null ? { background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+              className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+              style={difficultyFilter == null ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
               {t("filter.all")}
             </button>
             {[1, 2, 3, 4, 5].map((n) => {
@@ -319,7 +346,7 @@ export default function CoursesPage() {
               onOpenCourse={handleOpenCourse}
             />
             {hasMore && (
-              <div className="px-4 pb-4">
+              <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>
                 <Button
                   type="button"
                   variant="secondary"

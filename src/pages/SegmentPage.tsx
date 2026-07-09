@@ -112,6 +112,42 @@ const STATUS_BADGE_STYLES: Record<string, React.CSSProperties> = {
   hidden: { background: "var(--bg-3)", color: "var(--ink-3)", border: "1px solid var(--line-soft)" },
 };
 
+const SEGMENT_PAGE_STACK_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-6)",
+};
+
+const SEGMENT_SECTION_STACK_STYLE: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-2)",
+};
+
+const SEGMENT_INLINE_WRAP_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "var(--space-2)",
+};
+
+const SEGMENT_TOAST_STYLE: React.CSSProperties = {
+  zIndex: 10000,
+  background: "var(--bg-4)",
+  color: "var(--ink-0)",
+  border: "1px solid var(--line)",
+  padding: "var(--space-2) var(--space-4)",
+};
+
+const SEGMENT_TABLE_HEADER_CELL_STYLE: React.CSSProperties = {
+  color: "var(--ink-3)",
+  padding: "var(--space-2) var(--space-4)",
+};
+
+const SEGMENT_TABLE_CELL_STYLE: React.CSSProperties = {
+  padding: "var(--space-3) var(--space-4)",
+};
+
 interface EffortData {
   id: string;
   segmentId: string;
@@ -525,22 +561,22 @@ export default function SegmentPage() {
 
   if (segLoading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto" style={SEGMENT_PAGE_STACK_STYLE}>
         <div className="h-[28rem] rounded-[var(--r-lg)] animate-pulse" style={{ background: "var(--bg-3)" }} />
-        <Card padding="none" className="p-5! space-y-4">
+        <Card>
           <div className="h-8 rounded-[var(--r-sm)] w-1/3 animate-pulse" style={{ background: "var(--bg-3)" }} />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="space-y-2">
+              <div key={i} style={SEGMENT_SECTION_STACK_STYLE}>
                 <div className="h-3 rounded-[var(--r-sm)] w-16 animate-pulse" style={{ background: "var(--bg-3)" }} />
                 <div className="h-6 rounded-[var(--r-sm)] w-20 animate-pulse" style={{ background: "var(--bg-3)" }} />
               </div>
             ))}
           </div>
         </Card>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-4)" }}>
           {[1, 2].map((i) => (
-            <Card key={i} padding="none" className="p-4 h-28 animate-pulse" />
+            <Card key={i} className="h-28 animate-pulse" />
           ))}
         </div>
       </div>
@@ -549,9 +585,9 @@ export default function SegmentPage() {
 
   if (!segment) {
     return (
-      <div className="text-center py-16" style={{ color: "var(--ink-3)" }}>
+      <div className="text-center" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>
         <p className="text-[length:var(--fs-lg)]">{t("error.notFound")}</p>
-        <Link to="/" className="text-[length:var(--fs-sm)] mt-2 inline-block hover:underline" style={{ color: "var(--lime)" }}>{t("button.goBack")}</Link>
+        <Link to="/" className="text-[length:var(--fs-sm)] inline-block hover:underline" style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}>{t("button.goBack")}</Link>
       </div>
     );
   }
@@ -559,10 +595,10 @@ export default function SegmentPage() {
   const cat = CATEGORY_COLORS[segment.climbCategory];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto" style={SEGMENT_PAGE_STACK_STYLE}>
       {/* Toast */}
       {toast && createPortal(
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={{ zIndex: 10000, background: "var(--bg-4)", color: "var(--ink-0)", border: "1px solid var(--line)" }}>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={SEGMENT_TOAST_STYLE}>
           {toast}
         </div>,
         document.body,
@@ -605,8 +641,8 @@ export default function SegmentPage() {
 
       {/* Photo Gallery */}
       {((segment.photos && segment.photos.length > 0) || userPhotos.length > 0 || user) && (
-        <Card padding="none" className="p-4!">
-          <div className="flex items-center justify-between mb-3">
+        <Card>
+          <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-3)" }}>
             <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("photo.title")}</h3>
             {user && (
               <>
@@ -619,7 +655,7 @@ export default function SegmentPage() {
                 />
                 <Button
                   onClick={() => photoInputRef.current?.click()}
-                  disabled={uploading} variant="primary" className="flex items-center gap-1.5 px-3 py-1.5 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-lg)] disabled:opacity-50"
+                  disabled={uploading} variant="primary" size="sm" className="disabled:opacity-50"
                 >
                   {uploading ? (
                     <>
@@ -642,7 +678,7 @@ export default function SegmentPage() {
             )}
           </div>
           {((segment.photos && segment.photos.length > 0) || userPhotos.length > 0) && (
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+            <div className="flex overflow-x-auto scrollbar-thin" style={{ gap: "var(--space-3)", paddingBottom: "var(--space-2)" }}>
               {segment.photos?.map((photo, i) => (
                 <div key={`auto-${i}`} className="flex-shrink-0 group relative">
                   <img
@@ -680,7 +716,7 @@ export default function SegmentPage() {
             </div>
           )}
           {(!segment.photos || segment.photos.length === 0) && userPhotos.length === 0 && user && (
-            <p className="text-[length:var(--fs-sm)] text-center py-4" style={{ color: "var(--ink-3)" }}>
+            <p className="text-[length:var(--fs-sm)] text-center" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-4)" }}>
               {t("empty.noPhotos")}
             </p>
           )}
@@ -688,10 +724,10 @@ export default function SegmentPage() {
       )}
 
       {/* Header */}
-      <Card padding="none" className="p-5!">
-        <div className="flex items-center gap-3 flex-wrap">
+      <Card>
+        <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
           {cat && (
-            <span className={`px-2.5 py-1 text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${cat.bg}`}>
+            <span className={`text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${cat.bg}`} style={{ padding: "var(--space-1) var(--space-2)" }}>
               {cat.label}
             </span>
           )}
@@ -702,53 +738,53 @@ export default function SegmentPage() {
               ? t(`status.${segment.status}`)
               : null;
             return badgeStyle && badgeLabel && (
-              <span className="px-2.5 py-1 text-[length:var(--fs-xs)] font-semibold rounded-[var(--r-sm)]" style={badgeStyle}>
+              <span className="text-[length:var(--fs-xs)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
                 {badgeLabel}
               </span>
             );
           })()}
         </div>
         {(segment.city || segment.state) && (
-          <p className="text-[length:var(--fs-sm)] mt-1" style={{ color: "var(--ink-2)" }}>
+          <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
             {[segment.city, segment.state].filter(Boolean).join(", ")}
           </p>
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-          <div>
+        <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+          <div style={SEGMENT_SECTION_STACK_STYLE}>
             <Text as="div" variant="eyebrow">{t("distance")}</Text>
-            <Text as="div" variant="dataMedium" className="mt-1">{(segment.distance / 1000).toFixed(2)}<Text variant="unit">km</Text></Text>
+            <Text as="div" variant="dataMedium">{(segment.distance / 1000).toFixed(2)}<Text variant="unit">km</Text></Text>
           </div>
-          <div>
+          <div style={SEGMENT_SECTION_STACK_STYLE}>
             <Text as="div" variant="eyebrow">{t("elevationGain")}</Text>
-            <Text as="div" variant="dataMedium" className="mt-1">{Math.round(elevGain)}<Text variant="unit">m</Text></Text>
+            <Text as="div" variant="dataMedium">{Math.round(elevGain)}<Text variant="unit">m</Text></Text>
           </div>
-          <div>
+          <div style={SEGMENT_SECTION_STACK_STYLE}>
             <Text as="div" variant="eyebrow">{t("averageGrade")}</Text>
-            <Text as="div" variant="dataMedium" className="mt-1">{segment.averageGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
+            <Text as="div" variant="dataMedium">{segment.averageGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
           </div>
-          <div>
+          <div style={SEGMENT_SECTION_STACK_STYLE}>
             <Text as="div" variant="eyebrow">{t("maxGrade")}</Text>
-            <Text as="div" variant="dataMedium" className="mt-1">{segment.maximumGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
+            <Text as="div" variant="dataMedium">{segment.maximumGrade.toFixed(1)}<Text variant="unit">%</Text></Text>
           </div>
         </div>
       </Card>
 
       {/* KOM + My Best */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-4)" }}>
         {/* KOM */}
-        <Card padding="none" className="p-4!">
-          <Text as="div" variant="eyebrow" className="mb-2">{t("kom.title")}</Text>
+        <Card>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("kom.title")}</Text>
           {komEffort ? (
-            <div className="flex items-center gap-3">
+            <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
               <Avatar name={komEffort.nickname} imageUrl={komEffort.profileImage} size="md" userId={komEffort.userId} />
               <div className="flex-1">
                 <Link to={`/athlete/${komEffort.userId}`} className="font-semibold text-[length:var(--fs-sm)] hover:underline" style={{ color: "var(--ink-0)" }}>
                   {komEffort.nickname}
                 </Link>
-                <Text as="div" variant="dataLarge" className="mt-0.5" style={{ color: "var(--lime)" }}>{formatTime(komEffort.elapsedTime)}</Text>
-                <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
+                <Text as="div" variant="dataLarge" style={{ color: "var(--lime)", marginTop: "var(--space-1)" }}>{formatTime(komEffort.elapsedTime)}</Text>
+                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
                   {formatEffortSpeed(komEffort.averageSpeed)}
                   {komEffort.averageWatts != null && ` · ${komEffort.averageWatts}W`}
                 </div>
@@ -760,27 +796,27 @@ export default function SegmentPage() {
         </Card>
 
         {/* My Best */}
-        <Card padding="none" className="p-4!">
-          <Text as="div" variant="eyebrow" className="mb-2">{t("myRecord")}</Text>
+        <Card>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("myRecord")}</Text>
           {myBestEffort ? (
             <div>
-              <div className="flex items-center gap-2">
+              <div style={SEGMENT_INLINE_WRAP_STYLE}>
                 <Text as="div" variant="dataLarge" style={{ color: "var(--ink-0)" }}>{formatTime(myBestEffort.elapsedTime)}</Text>
                 {myRank !== 0 && (
                   <span
-                    className="text-[length:var(--fs-xs)] font-bold px-2 py-0.5 rounded-[var(--r-sm)]"
-                    style={myRank > 0 && myRank <= 3 ? rankStyle(myRank) : { background: "var(--bg-3)", color: "var(--ink-2)", border: "1px solid var(--line-soft)" }}
+                    className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)]"
+                    style={{ ...(myRank > 0 && myRank <= 3 ? rankStyle(myRank) : { background: "var(--bg-3)", color: "var(--ink-2)", border: "1px solid var(--line-soft)" }), padding: "var(--space-1) var(--space-2)" }}
                   >
                     {myRank === -1 ? "200+" : `#${myRank}`}
                   </span>
                 )}
               </div>
-              <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
+              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
                 {formatEffortSpeed(myBestEffort.averageSpeed)}
                 {myBestEffort.averageWatts != null && ` · ${myBestEffort.averageWatts}W`}
                 {myBestEffort.averageHeartrate != null && ` · ${Math.round(myBestEffort.averageHeartrate)} bpm`}
               </div>
-              <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-4)" }}>
+              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)", marginTop: "var(--space-1)" }}>
                 {new Date(myBestEffort.startDate).toLocaleDateString(localeTag())}
               </div>
             </div>
@@ -793,22 +829,22 @@ export default function SegmentPage() {
       </div>
 
       {/* Local Legend — 90일 최다완주(#490) */}
-      <Card padding="none" className="p-4!">
-        <div className="flex items-baseline justify-between mb-2">
+      <Card>
+        <div className="flex items-baseline justify-between" style={{ marginBottom: "var(--space-2)" }}>
           <Text as="div" variant="eyebrow">👑 {t("legend.title")}</Text>
           <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("legend.subtitle")}</span>
         </div>
         {legendFresh && legend?.leader ? (
-          <div className="flex items-center gap-3">
+          <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
             <Avatar name={legend.leader.nickname ?? ""} imageUrl={legend.leader.profileImage} size="md" userId={legend.leader.userId} />
             <div className="flex-1">
               <Link to={`/athlete/${legend.leader.userId}`} className="font-semibold text-[length:var(--fs-sm)] hover:underline" style={{ color: "var(--ink-0)" }}>
                 {legend.leader.nickname || t("table.rider")}
               </Link>
-              <Text as="div" variant="dataLarge" className="mt-0.5" style={{ color: "var(--amber)" }}>
+              <Text as="div" variant="dataLarge" style={{ color: "var(--amber)", marginTop: "var(--space-1)" }}>
                 {t("legend.efforts", { count: legend.leader.effortCount })}
               </Text>
-              <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
+              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
                 {t("legend.riders", { count: legend.riderCount })}
                 {legend.handoverCount > 0 && ` · ${t("legend.handover", { count: legend.handoverCount })}`}
               </div>
@@ -821,14 +857,14 @@ export default function SegmentPage() {
 
       {/* 이 세그먼트를 쓰는 코스 — 역링크(#495) */}
       {usedByCourses.length > 0 && (
-        <Card padding="none" className="p-4!">
-          <Text as="div" variant="eyebrow" className="mb-2">{t("usedByCourses")}</Text>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Card>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("usedByCourses")}</Text>
+          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)" }}>
             {usedByCourses.map((c) => (
               <Link key={c.id} to={`/course/${c.id}`}>
-                <Card padding="none" className="p-3! hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
+                <Card padding="compact" className="hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
                   <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{c.name}</span>
-                  <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>{(c.distance / 1000).toFixed(1)}km · ↑{Math.round(c.elevationGain)}m</div>
+                  <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{(c.distance / 1000).toFixed(1)}km · ↑{Math.round(c.elevationGain)}m</div>
                 </Card>
               </Link>
             ))}
@@ -838,7 +874,7 @@ export default function SegmentPage() {
 
       {/* Leaderboard */}
       <Card padding="none" className="overflow-hidden">
-        <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+        <div className="flex items-center justify-between" style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-5)" }}>
           <h2 className="font-semibold text-[length:var(--fs-sm)]" style={{ color: "var(--ink-0)" }}>
             {t("stats.leaderboardCount", { count: validEfforts.length })}
           </h2>
@@ -846,14 +882,14 @@ export default function SegmentPage() {
 
         {loadingEfforts ? (
           <div className="w-full">
-            <div className="px-4 py-2.5 flex gap-4" style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--line-soft)" }}>
+            <div className="flex" style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--line-soft)", gap: "var(--space-4)", padding: "var(--space-2) var(--space-4)" }}>
               <div className="h-3 rounded-[var(--r-sm)] w-8 animate-pulse" style={{ background: "var(--bg-3)" }} />
               <div className="h-3 rounded-[var(--r-sm)] w-24 animate-pulse" style={{ background: "var(--bg-3)" }} />
               <div className="flex-1" />
               <div className="h-3 rounded-[var(--r-sm)] w-16 animate-pulse" style={{ background: "var(--bg-3)" }} />
             </div>
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="px-4 py-3 flex items-center gap-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+              <div key={i} className="flex items-center" style={{ borderBottom: "1px solid var(--line-soft)", gap: "var(--space-4)", padding: "var(--space-3) var(--space-4)" }}>
                 <div className="h-4 rounded-[var(--r-sm)] w-6 animate-pulse" style={{ background: "var(--bg-3)" }} />
                 <div className="h-8 w-8 rounded-full animate-pulse" style={{ background: "var(--bg-3)" }} />
                 <div className="h-4 rounded-[var(--r-sm)] w-28 animate-pulse" style={{ background: "var(--bg-3)" }} />
@@ -863,19 +899,19 @@ export default function SegmentPage() {
             ))}
           </div>
         ) : validEfforts.length === 0 ? (
-          <div className="text-center py-8 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{t("empty.noRecords")}</div>
+          <div className="text-center text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>{t("empty.noRecords")}</div>
         ) : (
           <div className="max-h-[480px] overflow-y-auto">
           <table className="w-full text-[length:var(--fs-sm)]">
             <thead className="sticky top-0 z-10">
               <tr style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--line-soft)" }} className="text-[length:var(--fs-xs)]">
-                <th className="text-left px-4 py-2.5 font-medium w-12" style={{ color: "var(--ink-3)" }}>{t("table.rank")}</th>
-                <th className="text-left px-4 py-2.5 font-medium" style={{ color: "var(--ink-3)" }}>{t("table.rider")}</th>
-                <th className="text-right px-4 py-2.5 font-medium" style={{ color: "var(--ink-3)" }}>{t("table.time")}</th>
-                <th className="text-right px-4 py-2.5 font-medium hidden sm:table-cell" style={{ color: "var(--ink-3)" }}>{t("table.avgSpeed")}</th>
-                <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell" style={{ color: "var(--ink-3)" }}>{t("table.power")}</th>
-                <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell" style={{ color: "var(--ink-3)" }}>{t("table.heartrate")}</th>
-                <th className="text-right px-4 py-2.5 font-medium hidden lg:table-cell" style={{ color: "var(--ink-3)" }}>{t("table.date")}</th>
+                <th className="text-left font-medium w-12" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.rank")}</th>
+                <th className="text-left font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.rider")}</th>
+                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.time")}</th>
+                <th className="text-right font-medium hidden sm:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.avgSpeed")}</th>
+                <th className="text-right font-medium hidden md:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.power")}</th>
+                <th className="text-right font-medium hidden md:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.heartrate")}</th>
+                <th className="text-right font-medium hidden lg:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.date")}</th>
               </tr>
             </thead>
             <tbody>
@@ -893,17 +929,17 @@ export default function SegmentPage() {
                     onMouseEnter={(e) => { if (!isMe) (e.currentTarget as HTMLElement).style.background = "var(--bg-2)"; }}
                     onMouseLeave={(e) => { if (!isMe) (e.currentTarget as HTMLElement).style.background = ""; }}
                   >
-                    <td className="px-4 py-3 font-medium">
+                    <td className="font-medium" style={SEGMENT_TABLE_CELL_STYLE}>
                       {rank <= 3 ? (
-                        <span className="text-[length:var(--fs-xs)] font-bold px-1.5 py-0.5 rounded-[var(--r-sm)]" style={rankStyle(rank)}>
+                        <span className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)]" style={{ ...rankStyle(rank), padding: "var(--space-1) var(--space-2)" }}>
                           {rank}
                         </span>
                       ) : (
                         <span style={{ color: "var(--ink-3)" }}>{rank}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td style={SEGMENT_TABLE_CELL_STYLE}>
+                      <div style={SEGMENT_INLINE_WRAP_STYLE}>
                         <Avatar name={effort.nickname || "Rider"} imageUrl={effort.profileImage} size="sm" userId={effort.userId} />
                         <Link
                           to={`/athlete/${effort.userId}`}
@@ -915,19 +951,19 @@ export default function SegmentPage() {
                         </Link>
                       </div>
                     </td>
-                    <td className="text-right px-4 py-3 font-mono font-semibold" style={{ color: "var(--ink-0)" }}>
+                    <td className="text-right font-mono font-semibold" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-0)" }}>
                       {formatTime(effort.elapsedTime)}
                     </td>
-                    <td className="text-right px-4 py-3 hidden sm:table-cell" style={{ color: "var(--ink-2)" }}>
+                    <td className="text-right hidden sm:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-2)" }}>
                       {formatEffortSpeed(effort.averageSpeed)}
                     </td>
-                    <td className="text-right px-4 py-3 hidden md:table-cell" style={{ color: "var(--aqua)" }}>
+                    <td className="text-right hidden md:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--aqua)" }}>
                       {effort.averageWatts != null ? `${effort.averageWatts}W` : "-"}
                     </td>
-                    <td className="text-right px-4 py-3 hidden md:table-cell" style={{ color: "var(--rose)" }}>
+                    <td className="text-right hidden md:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--rose)" }}>
                       {effort.averageHeartrate != null ? `${Math.round(effort.averageHeartrate)}` : "-"}
                     </td>
-                    <td className="text-right px-4 py-3 hidden lg:table-cell" style={{ color: "var(--ink-3)" }}>
+                    <td className="text-right hidden lg:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-3)" }}>
                       {new Date(effort.startDate).toLocaleDateString(localeTag())}
                     </td>
                   </tr>
@@ -944,8 +980,8 @@ export default function SegmentPage() {
         <Card padding="none" className="overflow-hidden">
           <button
             onClick={() => setShowAllEfforts(!showAllEfforts)}
-            className="w-full px-5 py-3 flex items-center justify-between transition-colors"
-            style={{ borderBottom: "1px solid var(--line-soft)" }}
+            className="w-full flex items-center justify-between transition-colors"
+            style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-5)" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--bg-2)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ""; }}
           >
@@ -972,25 +1008,26 @@ export default function SegmentPage() {
                   return (
                     <div
                       key={effort.id}
-                      className="px-5 py-3 flex items-center justify-between"
+                      className="flex items-center justify-between"
                       style={{
                         borderBottom: "1px solid var(--line-soft)",
                         background: isBest ? "color-mix(in oklch, var(--lime) 8%, var(--bg-1))" : undefined,
+                        padding: "var(--space-3) var(--space-5)",
                       }}
                     >
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div style={SEGMENT_INLINE_WRAP_STYLE}>
                           <span className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{new Date(effort.startDate).toLocaleDateString(localeTag())}</span>
                           {isBest && (
-                            <span className="text-[length:var(--fs-xs)] font-bold px-1.5 py-0.5 rounded-[var(--r-sm)]" style={{ background: "color-mix(in oklch, var(--amber) 18%, var(--bg-2))", color: "var(--amber)", border: "1px solid color-mix(in oklch, var(--amber) 35%, transparent)" }}>BEST</span>
+                            <span className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)]" style={{ background: "color-mix(in oklch, var(--amber) 18%, var(--bg-2))", color: "var(--amber)", border: "1px solid color-mix(in oklch, var(--amber) 35%, transparent)", padding: "var(--space-1) var(--space-2)" }}>BEST</span>
                           )}
                           {effort.prRank != null && effort.prRank <= 3 && (
-                            <span className="text-[length:var(--fs-xs)] font-bold px-1.5 py-0.5 rounded-[var(--r-sm)]" style={rankStyle(effort.prRank)}>
+                            <span className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)]" style={{ ...rankStyle(effort.prRank), padding: "var(--space-1) var(--space-2)" }}>
                               PR #{effort.prRank}
                             </span>
                           )}
                         </div>
-                        <Link to={`/activity/${effort.activityId}`} className="text-[length:var(--fs-xs)] hover:underline mt-0.5 inline-block" style={{ color: "var(--lime)" }}>
+                        <Link to={`/activity/${effort.activityId}`} className="text-[length:var(--fs-xs)] hover:underline inline-block" style={{ color: "var(--lime)", marginTop: "var(--space-1)" }}>
                           {t("activity.view")}
                         </Link>
                       </div>
