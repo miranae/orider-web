@@ -30,6 +30,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest") {
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<unknown>(null);
   const [hasMore, setHasMore] = useState(true);
   const cursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const loadingMoreRef = useRef(false);
@@ -42,6 +43,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest") {
     if (reset) {
       setLoading(true);
       setLoadingMore(false);
+      setError(null);
       setHasMore(true);
       loadingMoreRef.current = false;
       hasMoreRef.current = true;
@@ -74,6 +76,10 @@ export function useCourseCatalog(sortMode: SortMode = "latest") {
       setHasMore(nextHasMore);
       setCourses((prev) => reset ? nextCourses : [...prev, ...nextCourses]);
     } catch (err) {
+      if (reset) {
+        setCourses([]);
+        setError(err);
+      }
       logClientError("CoursesPage.coursePageLoad", err, { sortMode, reset });
     } finally {
       if (requestId === requestIdRef.current) {
@@ -92,8 +98,10 @@ export function useCourseCatalog(sortMode: SortMode = "latest") {
     courses,
     loading,
     loadingMore,
+    error,
     hasMore,
     loadMore: () => fetchPage(false),
+    retry: () => fetchPage(true),
     polylineCache,
   };
 }

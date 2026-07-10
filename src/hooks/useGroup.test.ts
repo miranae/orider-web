@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { getDocs } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import { setCollectionDocs } from "../__tests__/mocks/firebase";
 import { getPublicUserProfile } from "../services/publicProfiles";
-import { useGroupMembers } from "./useGroup";
+import { useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
 
 vi.mock("../services/publicProfiles", () => ({
   getPublicUserProfile: vi.fn(),
@@ -57,5 +58,39 @@ describe("useGroupMembers", () => {
     });
 
     expect(result.current.members.map((member) => member.id)).toEqual(["member-b"]);
+  });
+});
+
+describe("group list hooks", () => {
+  beforeEach(() => {
+    vi.mocked(getDocs).mockClear();
+  });
+
+  it("keeps my group load failures distinct from an empty group list", async () => {
+    const err = new Error("network down");
+    vi.mocked(getDocs).mockRejectedValueOnce(err);
+
+    const { result } = renderHook(() => useMyGroups("user-1"));
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.groups).toEqual([]);
+    expect(result.current.error).toBe(err);
+  });
+
+  it("keeps public group load failures distinct from no public groups", async () => {
+    const err = new Error("permission denied");
+    vi.mocked(getDocs).mockRejectedValueOnce(err);
+
+    const { result } = renderHook(() => usePublicGroups());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.groups).toEqual([]);
+    expect(result.current.error).toBe(err);
   });
 });

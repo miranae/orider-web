@@ -16,10 +16,12 @@ export interface GroupMemberWithProfile extends GroupMember {
 export function useGroup(groupId: string | undefined) {
   const [group, setGroup] = useState<Group | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     if (!groupId) return;
     setLoading(true);
+    setError(null);
     return onSnapshot(doc(firestore, "groups", groupId), (snap) => {
       if (snap.exists()) {
         setGroup({ id: snap.id, ...snap.data() } as Group);
@@ -27,10 +29,14 @@ export function useGroup(groupId: string | undefined) {
         setGroup(null);
       }
       setLoading(false);
-    }, () => setLoading(false));
+    }, (err) => {
+      setError(err);
+      setGroup(null);
+      setLoading(false);
+    });
   }, [groupId]);
 
-  return { group, loading };
+  return { group, loading, error };
 }
 
 // 그룹 멤버 목록 + 프로필 조회
@@ -79,10 +85,18 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number) 
 export function useMyGroups(userId: string | undefined) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    if (!userId) { setLoading(false); return; }
+    if (!userId) {
+      setGroups([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setError(null);
 
     // user_groups/{userId}/groups에서 내 그룹 ID 목록 조회
     getDocs(collection(firestore, "user_groups", userId, "groups")).then(async (snap) => {
@@ -114,19 +128,25 @@ export function useMyGroups(userId: string | undefined) {
       setLoading(false);
     }).catch((err) => {
       logClientError("useMyGroups.load", err, { userId });
+      setError(err);
+      setGroups([]);
       setLoading(false);
     });
-  }, [userId]);
+  }, [userId, reloadKey]);
 
-  return { groups, loading };
+  return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
 }
 
 // 공개 그룹 검색
 export function usePublicGroups() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
     const q = query(
       collection(firestore, "groups"),
       where("visibility", "==", "public"),
@@ -135,8 +155,13 @@ export function usePublicGroups() {
     getDocs(q).then((snap) => {
       setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Group));
       setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+    }).catch((err) => {
+      logClientError("usePublicGroups.load", err, {});
+      setError(err);
+      setGroups([]);
+      setLoading(false);
+    });
+  }, [reloadKey]);
 
-  return { groups, loading };
+  return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
 }

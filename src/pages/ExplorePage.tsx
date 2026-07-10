@@ -12,6 +12,7 @@ import { decodePolyline } from "../utils/polyline";
 import { isImplausibleSegmentElevation } from "../utils/activitySanity";
 import { fetchStaticJson } from "../utils/staticJson";
 import { segmentTileUrl } from "../utils/segmentTiles";
+import { ErrorState } from "../components/redesign";
 import { Button, Card, Chip, Text } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 
@@ -392,6 +393,8 @@ export default function ExplorePage() {
 
   const [allSegments, setAllSegments] = useState<SegmentData[]>(moduleCache.segments);
   const [loading, setLoading] = useState(moduleCache.segments.length === 0);
+  const [overviewError, setOverviewError] = useState<unknown>(null);
+  const [overviewReloadKey, setOverviewReloadKey] = useState(0);
   const [category, setCategory] = useState<Category>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [inputValue, setInputValue] = useState("");
@@ -437,11 +440,13 @@ export default function ExplorePage() {
   useEffect(() => {
     if (moduleCache.overview && moduleCache.segments.length > 0) {
       setAllSegments(moduleCache.segments);
+      setOverviewError(null);
       setLoading(false);
       return;
     }
     if (moduleCache.loading) return;
     moduleCache.loading = true;
+    setOverviewError(null);
 
     fetchStaticJson<TileOverview>(segmentTileUrl(`overview.json?v=${Date.now()}`))
       .then((data: TileOverview) => {
@@ -474,13 +479,14 @@ export default function ExplorePage() {
       })
       .catch(err => {
         logClientError("ExplorePage.loadSegmentOverview", err);
+        setOverviewError(err);
         setLoading(false);
       })
       .finally(() => {
         moduleCache.loading = false;
       });
      
-  }, []);
+  }, [overviewReloadKey]);
 
   // 지역 폴리라인 lazy 로드 (zoom >= 10)
   useEffect(() => {
@@ -688,6 +694,21 @@ export default function ExplorePage() {
   }, []);
 
   if (!hasRendered) return null;
+
+  if (!loading && overviewError) {
+    return (
+      <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100vh-56px)]">
+        <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
+          <div className="flex items-center justify-between pt-3 md:pt-6">
+            <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("leaderboard")}</h1>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <ErrorState onRetry={() => setOverviewReloadKey((key) => key + 1)} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     // 모바일: 고정 높이 없이 자연 스크롤(짧은 지도 + 목록이 아래로 흐름) — 지도가 화면을 다 덮어
