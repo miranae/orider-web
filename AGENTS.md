@@ -14,6 +14,8 @@ Orider Web is a React 19, Vite, and TypeScript frontend. Application code lives 
 - `npm test`: run Vitest once.
 - `npm run build`: validate env, generate manuals, type-check, and build with Vite.
 - `npm run e2e`: run Playwright against Firebase Auth/Firestore emulators.
+- `scripts/start-work.sh <slug> [--issue N]`: start new work — claims the issue (`scripts/claim-issue.sh`, `wip:sess-N` label) and creates a fresh worktree from `origin/main` under the monorepo root `_worktrees/`, with `.env`/`node_modules` symlinked. Always start work through this helper.
+- `scripts/merge-pr.sh [PR]`: PR merge gate — run it from the PR worktree instead of `gh pr merge`; it runs lint/test/build, local AI review, merges, releases issue claims, and cleans up the worktree.
 
 ## Coding Style & Naming Conventions
 
