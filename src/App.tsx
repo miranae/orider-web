@@ -72,6 +72,7 @@ const TrainingLogPage = lazyTimed("TrainingLogPage", () => import("./pages/Train
 const SocialPage = lazyTimed("SocialPage", () => import("./pages/SocialPage"));
 const MyPage = lazyTimed("MyPage", () => import("./pages/MyPage"));
 const OnboardingPage = lazyTimed("OnboardingPage", () => import("./pages/OnboardingPage"));
+const NotFoundPage = lazyTimed("NotFoundPage", () => import("./pages/NotFoundPage"));
 
 const LoadingSpinner = () => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "var(--ink-3)" }}>
@@ -154,6 +155,7 @@ function AppRoutes() {
           <Route path="event/:eventId/register" element={<EventRegisterPage />} />
           <Route path="event/:eventId/edit" element={<EventEditPage />} />
           <Route path="event/:eventId/participants" element={<EventParticipantsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>
       <Route path="*" element={<LocaleRedirect />} />

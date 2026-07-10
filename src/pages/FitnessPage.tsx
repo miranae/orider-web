@@ -782,7 +782,7 @@ export default function FitnessPage() {
             title={t("empty.noActivities")}
             description={t("empty.hint")}
             actions={[
-              { label: t("empty.connectStrava"), variant: "primary", href: "/settings#integrations" },
+              { label: t("empty.connectStrava"), variant: "primary", href: "/settings?section=connections" },
             ]}
           />
         </div>
