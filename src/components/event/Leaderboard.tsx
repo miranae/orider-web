@@ -74,41 +74,43 @@ export default function Leaderboard({ locations, highlightBib }: LeaderboardProp
       </div>
 
       {/* Table */}
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
-        <thead>
-          <tr style={{ borderBottom: "2px solid var(--bg-3)" }}>
-            <th style={{ textAlign: "center", padding: "var(--space-2)", width: "50px" }}>{t("rank")}</th>
-            <th style={{ textAlign: "left", padding: "var(--space-2)" }}>{t("bibNumber")}</th>
-            <th style={{ textAlign: "left", padding: "var(--space-2)" }}>{t("realName")}</th>
-            <th style={{ textAlign: "center", padding: "var(--space-2)" }}>CP</th>
-            <th style={{ textAlign: "right", padding: "var(--space-2)" }}>{t("distance")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map(loc => {
-            const rank = activeTab === "all" ? loc.overallRank : loc.rank;
-            const isHighlighted = highlightBib != null && loc.bib === highlightBib;
-            return (
-              <tr
-                key={loc.uid}
-                style={{
-                  borderBottom: "1px solid var(--bg-3)",
-                  backgroundColor: isHighlighted ? "color-mix(in oklch, var(--amber) 14%, var(--bg-1))" : "transparent",
-                  fontWeight: isHighlighted ? "bold" : "normal",
-                }}
-              >
-                <td style={{ textAlign: "center", padding: "var(--space-2)" }}>{rank ?? "-"}</td>
-                <td style={{ padding: "var(--space-2)" }}>#{loc.bib ?? "-"}</td>
-                <td style={{ padding: "var(--space-2)" }}>{loc.displayName}</td>
-                <td style={{ textAlign: "center", padding: "var(--space-2)" }}>CP{loc.lastCp ?? 0}</td>
-                <td style={{ textAlign: "right", padding: "var(--space-2)" }}>
-                  {(loc.distance / 1000).toFixed(1)} km
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div style={{ overflowX: "auto", overscrollBehaviorX: "contain" }}>
+        <table style={{ minWidth: 420, width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid var(--bg-3)" }}>
+              <th style={{ textAlign: "center", padding: "var(--space-2)", width: "50px" }}>{t("rank")}</th>
+              <th style={{ textAlign: "left", padding: "var(--space-2)" }}>{t("bibNumber")}</th>
+              <th style={{ textAlign: "left", padding: "var(--space-2)", minWidth: 120 }}>{t("realName")}</th>
+              <th style={{ textAlign: "center", padding: "var(--space-2)" }}>CP</th>
+              <th style={{ textAlign: "right", padding: "var(--space-2)" }}>{t("distance")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(loc => {
+              const rank = activeTab === "all" ? loc.overallRank : loc.rank;
+              const isHighlighted = highlightBib != null && loc.bib === highlightBib;
+              return (
+                <tr
+                  key={loc.uid}
+                  style={{
+                    borderBottom: "1px solid var(--bg-3)",
+                    backgroundColor: isHighlighted ? "color-mix(in oklch, var(--amber) 14%, var(--bg-1))" : "transparent",
+                    fontWeight: isHighlighted ? "bold" : "normal",
+                  }}
+                >
+                  <td style={{ textAlign: "center", padding: "var(--space-2)" }}>{rank ?? "-"}</td>
+                  <td style={{ padding: "var(--space-2)" }}>#{loc.bib ?? "-"}</td>
+                  <td style={{ padding: "var(--space-2)" }}>{loc.displayName}</td>
+                  <td style={{ textAlign: "center", padding: "var(--space-2)" }}>CP{loc.lastCp ?? 0}</td>
+                  <td style={{ textAlign: "right", padding: "var(--space-2)" }}>
+                    {(loc.distance / 1000).toFixed(1)} km
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

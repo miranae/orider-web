@@ -80,7 +80,7 @@ const OnboardingPage = lazyTimed("OnboardingPage", () => import("./pages/Onboard
 const NotFoundPage = lazyTimed("NotFoundPage", () => import("./pages/NotFoundPage"));
 
 const LoadingSpinner = () => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "var(--ink-3)" }}>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100dvh", color: "var(--ink-3)" }}>
     <div style={{ width: 32, height: 32, border: "3px solid var(--line-soft)", borderTopColor: "var(--lime)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
     <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
   </div>

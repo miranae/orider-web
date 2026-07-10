@@ -74,7 +74,7 @@ export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyD
         },
         y: {
           display: true,
-          ticks: { color: textColor, font: { size: 11 } },
+          ticks: { color: textColor, font: { size: 11 }, autoSkip: true, maxTicksLimit: 6 },
           grid: { display: false },
         },
       },

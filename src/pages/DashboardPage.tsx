@@ -465,7 +465,7 @@ export default function DashboardPage() {
         )}
 
         {/* KPI 스트립 */}
-        <Card padding="none" style={{ marginTop: 'var(--space-4)', display: "grid", gridTemplateColumns: "repeat(6, 1fr)" }}>
+        <Card padding="none" style={{ marginTop: 'var(--space-4)', display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))" }}>
           {KPI.map((s, i) => (
             <div key={i} style={{ padding: "18px 20px", borderRight: i < KPI.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
               <StatBlock {...s} />

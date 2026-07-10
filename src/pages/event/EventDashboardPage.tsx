@@ -473,7 +473,7 @@ export default function EventDashboardPage() {
   const isHost = user.uid === eventInfo.creatorId;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 64px)" }}>
       {/* Header */}
       <div
         className="flex items-center flex-wrap"

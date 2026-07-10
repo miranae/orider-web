@@ -157,7 +157,7 @@ export default function WeeklyChart({
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { size: 10 }, color: tickColor },
+              ticks: { font: { size: 10 }, color: tickColor, autoSkip: true, maxTicksLimit: 6 },
             },
             y: {
               beginAtZero: true,
