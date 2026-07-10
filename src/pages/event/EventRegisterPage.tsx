@@ -175,9 +175,10 @@ function fmtDateTime(ts: number) {
 
 export default function EventRegisterPage() {
   const { t } = useTranslation("event");
+  const { t: tCommon } = useTranslation("common");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, signInWithGoogle } = useAuth();
   const { showToast } = useToast();
 
   const [event, setEvent] = useState<EventSummary | null>(null);
@@ -393,7 +394,12 @@ export default function EventRegisterPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("register.loginRequired")} description={t("register.loginDesc")} />
+        <PermissionGate
+          title={t("register.loginRequired")}
+          description={t("register.loginDesc")}
+          actionLabel={tCommon("button.loginGoogle")}
+          onAction={() => { void signInWithGoogle(); }}
+        />
       </div>
     );
   }
