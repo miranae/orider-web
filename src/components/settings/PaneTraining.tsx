@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
+import { useLocale } from "../../contexts/LocaleContext";
 import { useBikeProfiles } from "../../hooks/useBikeProfiles";
 
 import {
@@ -32,6 +33,9 @@ import { estimateFtpFromTest, isConservativeDrop, type FtpTestProtocol } from "@
 const BLOOD_TYPES: BloodType[] = [
   "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-", "UNKNOWN",
 ];
+type BodyUnit = "metric" | "imperial";
+const KG_PER_LB = 0.45359237;
+const CM_PER_IN = 2.54;
 
 function secsToMmss(secs: number): string {
   if (!secs || secs <= 0) return "";
@@ -49,9 +53,28 @@ function mmssToSecs(mmss: string): number | null {
   return min * 60 + sec;
 }
 
+function formatBodyValue(value: string, unit: BodyUnit, kind: "weight" | "height"): string {
+  if (value.trim() === "") return "";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  if (unit === "metric") return value;
+  const converted = kind === "weight" ? n / KG_PER_LB : n / CM_PER_IN;
+  return String(Math.round(converted * 10) / 10);
+}
+
+function parseBodyValue(value: string, unit: BodyUnit, kind: "weight" | "height"): string {
+  const clean = value.replace(/[^0-9.]/g, "");
+  if (clean.trim() === "") return "";
+  const n = Number(clean);
+  if (!Number.isFinite(n)) return "";
+  const metric = unit === "metric" ? n : kind === "weight" ? n * KG_PER_LB : n * CM_PER_IN;
+  return String(Math.round(metric * 10) / 10);
+}
+
 export function PaneTraining() {
   const { t } = useTranslation("settings");
   const { user, profile } = useAuth();
+  const { units } = useLocale();
   const { profiles: bikeProfiles } = useBikeProfiles(user?.uid ?? null);
   const { showToast } = useToast();
   const dialog = useDialog();
@@ -68,6 +91,7 @@ export function PaneTraining() {
   const [css, setCss] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [heightCm, setHeightCm] = useState("");
+  const [bodyUnit, setBodyUnit] = useState<BodyUnit>(units === "imperial" ? "imperial" : "metric");
   const [bloodType, setBloodType] = useState<BloodType>("UNKNOWN");
   const [medications, setMedications] = useState("");
   const [allergies, setAllergies] = useState("");
@@ -95,6 +119,10 @@ export function PaneTraining() {
     setWeightKg(profile?.weightKg ? String(profile.weightKg) : "");
     setHeightCm(profile?.heightCm ? String(profile.heightCm) : "");
   }, [profile?.weightKg, profile?.heightCm]);
+
+  useEffect(() => {
+    setBodyUnit(units === "imperial" ? "imperial" : "metric");
+  }, [units]);
 
   // 의료/응급 PII — owner-only 서브컬렉션에서 로드(#524). 미마이그레이션 레거시는 루트 폴백.
   useEffect(() => {
@@ -325,21 +353,52 @@ export function PaneTraining() {
         ]}
       />
 
-      <SettingsCard title={t("training.cardPhysique")} dense>
+      <SettingsCard
+        title={t("training.cardPhysique")}
+        dense
+        action={
+          <div style={{ display: "flex", gap: "var(--space-1)", padding: 2, background: "var(--bg-2)", borderRadius: "var(--r-md)" }}>
+            {(["metric", "imperial"] as const).map((unit) => (
+              <button
+                key={unit}
+                type="button"
+                onClick={() => setBodyUnit(unit)}
+                className="rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]"
+                style={{
+                  border: "none",
+                  padding: "5px 10px",
+                  fontSize: "var(--fs-xs)",
+                  cursor: "pointer",
+                  background: bodyUnit === unit ? "var(--bg-1)" : "transparent",
+                  color: bodyUnit === unit ? "var(--ink-0)" : "var(--ink-3)",
+                }}
+              >
+                {t(`training.bodyUnit.${unit}`)}
+              </button>
+            ))}
+          </div>
+        }
+      >
         <FieldGrid cols={2}>
-          <Field label={t("training.fieldWeight")} hint={t("training.fieldWeightHint")}>
+          <Field
+            label={bodyUnit === "imperial" ? t("training.fieldWeightLb") : t("training.fieldWeight")}
+            hint={bodyUnit === "imperial" ? t("training.fieldWeightLbHint") : t("training.fieldWeightHint")}
+          >
             <input
-              value={weightKg}
-              onChange={(e) => setWeightKg(e.target.value.replace(/[^0-9.]/g, ""))}
-              placeholder="68"
+              value={formatBodyValue(weightKg, bodyUnit, "weight")}
+              onChange={(e) => setWeightKg(parseBodyValue(e.target.value, bodyUnit, "weight"))}
+              placeholder={bodyUnit === "imperial" ? "150" : "68"}
               style={monoInputStyle}
             />
           </Field>
-          <Field label={t("training.fieldHeight")} hint={t("training.fieldHeightHint")}>
+          <Field
+            label={bodyUnit === "imperial" ? t("training.fieldHeightIn") : t("training.fieldHeight")}
+            hint={bodyUnit === "imperial" ? t("training.fieldHeightInHint") : t("training.fieldHeightHint")}
+          >
             <input
-              value={heightCm}
-              onChange={(e) => setHeightCm(e.target.value.replace(/[^0-9.]/g, ""))}
-              placeholder="172"
+              value={formatBodyValue(heightCm, bodyUnit, "height")}
+              onChange={(e) => setHeightCm(parseBodyValue(e.target.value, bodyUnit, "height"))}
+              placeholder={bodyUnit === "imperial" ? "68" : "172"}
               style={monoInputStyle}
             />
           </Field>

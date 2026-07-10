@@ -14,6 +14,8 @@
     "landingConnectedDesc": "You can now import your ride records to Orider. Existing Strava data is preserved.",
     "landingNotConnectedDesc": "Connecting your Strava account copies all of your ride records to Orider.",
     "loginGoogle": "Sign in with Google",
+    "loginLoading": "Signing in…",
+    "loginFailed": "Sign-in failed. Please try again.",
     "connectStrava": "Connect Strava",
     "startMigration": "Import Strava activities",
     "starting": "Starting...",

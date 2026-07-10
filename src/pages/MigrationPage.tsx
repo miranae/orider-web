@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { LogIn } from "lucide-react";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useAuth } from "../contexts/AuthContext";
 import { useStrava } from "../hooks/useStrava";
+import { useToast } from "../contexts/ToastContext";
 
 type Step = "landing" | "progress" | "report";
 type MigrationProgressLike = {
@@ -81,7 +83,9 @@ export default function MigrationPage() {
   const { t } = useTranslation("migration");
   const navigate = useNavigate();
   const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
+  const { showToast } = useToast();
   const { connectStrava, startMigration, cancelMigration, verifyMigration, fixMigration, loading, error } = useStrava();
+  const [signInPending, setSignInPending] = useState(false);
 
   const [step, setStep] = useState<Step | null>(null);
   const [verifyResult, setVerifyResult] = useState<{
@@ -90,6 +94,18 @@ export default function MigrationPage() {
     missingActivityCount: number;
   } | null>(null);
   const [verifying, setVerifying] = useState(false);
+
+  const handleSignIn = async () => {
+    if (signInPending) return;
+    setSignInPending(true);
+    try {
+      await signInWithGoogle();
+    } catch {
+      showToast(t("userMigration.loginFailed"), "error");
+    } finally {
+      setSignInPending(false);
+    }
+  };
 
   // Determine initial step based on migration status
   useEffect(() => {
@@ -201,8 +217,8 @@ export default function MigrationPage() {
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-[var(--r-xl)] px-4 py-3 text-[length:var(--fs-sm)] text-red-700 flex items-start gap-2">
-          <svg className="w-5 h-5 shrink-0 mt-0.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="rounded-[var(--r-xl)] border px-4 py-3 text-[length:var(--fs-sm)] flex items-start gap-2" style={{ background: "color-mix(in oklch, var(--rose) 10%, var(--bg-1))", borderColor: "color-mix(in oklch, var(--rose) 32%, var(--line-soft))", color: "var(--rose)" }}>
+          <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{error}</span>
@@ -220,8 +236,8 @@ export default function MigrationPage() {
                 </svg>
               </div>
               {profile?.stravaConnected && (
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-100 border-2 border-[var(--bg-1)] rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-2 border-[var(--bg-1)] rounded-full flex items-center justify-center" style={{ background: "color-mix(in oklch, var(--lime) 18%, var(--bg-1))", color: "var(--lime)" }}>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -242,16 +258,17 @@ export default function MigrationPage() {
             <div className="w-full max-w-sm space-y-3">
               {!user ? (
                 <button
-                  onClick={signInWithGoogle}
+                  onClick={handleSignIn}
+                  disabled={signInPending}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-xl)] hover:bg-[var(--bg-3)] transition-colors font-medium text-[var(--ink-0)]"
                 >
-                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-                  {t("userMigration.loginGoogle")}
+                  <LogIn size={18} />
+                  {signInPending ? t("userMigration.loginLoading") : t("userMigration.loginGoogle")}
                 </button>
               ) : !profile?.stravaConnected ? (
                 <button
                   onClick={() => connectStrava("/migrate")}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#FC4C02] text-[var(--ink-0)] rounded-[var(--r-xl)] hover:bg-[#E34402] transition-colors font-bold shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--strava)] text-[var(--primary-fg)] rounded-[var(--r-xl)] hover:opacity-90 transition-opacity font-bold shadow-sm"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>
                   {t("userMigration.connectStrava")}
@@ -297,14 +314,14 @@ export default function MigrationPage() {
               {/* Status Icon */}
               <div className="relative inline-block">
                  {migrationStatus === "FAILED" ? (
-                   <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center animate-pulse">
-                     <svg className="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <div className="w-20 h-20 rounded-full flex items-center justify-center animate-pulse" style={{ background: "color-mix(in oklch, var(--rose) 12%, var(--bg-1))", color: "var(--rose)" }}>
+                     <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                      </svg>
                    </div>
                  ) : migrationStatus === "WAITING" ? (
-                   <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center">
-                     <svg className="w-10 h-10 text-amber-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: "color-mix(in oklch, var(--amber) 12%, var(--bg-1))", color: "var(--amber)" }}>
+                     <svg className="w-10 h-10 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                      </svg>
                    </div>
@@ -312,7 +329,7 @@ export default function MigrationPage() {
                    <div className="w-20 h-20 relative">
                      <div className="absolute inset-0 border-4 border-[var(--line-soft)] rounded-full" />
                      <div className="absolute inset-0 border-4 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
-                     <div className="absolute inset-0 flex items-center justify-center font-bold text-orange-600 text-[length:var(--fs-lg)]">
+                     <div className="absolute inset-0 flex items-center justify-center font-bold text-[length:var(--fs-lg)] text-[var(--lime)]">
                        {Math.round(progressPercent)}%
                      </div>
                    </div>
@@ -339,10 +356,13 @@ export default function MigrationPage() {
               {migrationStatus !== "FAILED" && (
                 <div className="max-w-md mx-auto space-y-2">
                   <div className="h-2.5 bg-[var(--bg-2)] rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${migrationStatus === "WAITING" ? "bg-amber-500" : "bg-[var(--lime)]"}`}
-                      style={{ width: `${progressPercent}%` }}
-                    />
+	                    <div
+	                      className="h-full rounded-full transition-all duration-500"
+	                      style={{
+	                        background: migrationStatus === "WAITING" ? "var(--amber)" : "var(--lime)",
+	                        width: `${progressPercent}%`,
+	                      }}
+	                    />
                   </div>
                 </div>
               )}
@@ -363,7 +383,7 @@ export default function MigrationPage() {
 
               {/* Tip */}
               {migrationStatus !== "FAILED" && (
-                <div className="bg-blue-50 border border-blue-100 rounded-[var(--r-xl)] px-4 py-3 text-[length:var(--fs-sm)] text-blue-700 max-w-md mx-auto text-left flex items-start gap-2.5">
+                <div className="rounded-[var(--r-xl)] border px-4 py-3 text-[length:var(--fs-sm)] max-w-md mx-auto text-left flex items-start gap-2.5" style={{ background: "color-mix(in oklch, var(--aqua) 10%, var(--bg-1))", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))", color: "var(--ink-1)" }}>
                   <span className="text-[length:var(--fs-lg)] shrink-0">💡</span>
                   <span>{t("userMigration.tip")}</span>
                 </div>
@@ -413,8 +433,8 @@ export default function MigrationPage() {
       {step === "report" && report && (
         <div className="space-y-6">
            <Section className="p-8 text-center space-y-6">
-              <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
-                 <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center" style={{ background: "color-mix(in oklch, var(--lime) 16%, var(--bg-1))", color: "var(--lime)" }}>
+                 <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                  </svg>
               </div>
@@ -489,8 +509,8 @@ export default function MigrationPage() {
                      <span className="font-medium text-[var(--ink-0)]">{t("userMigration.verifyCountUnit", { count: verifyResult.totalImported })}</span>
                   </div>
                   {verifyResult.missingActivityCount > 0 ? (
-                    <div className="bg-amber-50 p-4 rounded-[var(--r-lg)] space-y-3">
-                       <div className="text-[length:var(--fs-sm)] text-amber-800">
+                    <div className="p-4 rounded-[var(--r-lg)] space-y-3" style={{ background: "color-mix(in oklch, var(--amber) 12%, var(--bg-1))" }}>
+                       <div className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-1)" }}>
                          {t("userMigration.verifyMissingPrefix")}
                          <strong>{t("userMigration.verifyMissingCount", { count: verifyResult.missingActivityCount })}</strong>
                          {t("userMigration.verifyMissingSuffix")}
@@ -498,7 +518,7 @@ export default function MigrationPage() {
                        <button
                          onClick={handleFix}
                          disabled={loading}
-                         className={`w-full py-2.5 bg-amber-500 text-[var(--ink-0)] font-bold rounded-[var(--r-lg)] hover:bg-amber-600 transition-colors text-[length:var(--fs-sm)] ${loading ? 'cursor-wait' : ''}`}
+                         className={`w-full py-2.5 bg-[var(--amber)] text-[var(--primary-fg)] font-bold rounded-[var(--r-lg)] hover:opacity-90 transition-opacity text-[length:var(--fs-sm)] ${loading ? 'cursor-wait' : ''}`}
                        >
                          {loading ? (
                            <span className="flex items-center justify-center gap-2">
@@ -509,7 +529,7 @@ export default function MigrationPage() {
                        </button>
                     </div>
                   ) : (
-                    <div className="text-center py-3 text-green-600 text-[length:var(--fs-sm)] font-medium bg-green-50 rounded-[var(--r-lg)]">
+                    <div className="text-center py-3 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)]" style={{ background: "color-mix(in oklch, var(--lime) 12%, var(--bg-1))", color: "var(--lime)" }}>
                        {t("userMigration.verifyAllMatch")}
                     </div>
                   )}

@@ -15,12 +15,13 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import type { Visibility } from "@shared/types";
-import { auth, firestore, functions, storage } from "../../services/firebase";
+import { firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
 import { useStrava } from "../../hooks/useStrava";
+import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 
 import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } from "./_primitives";
 import { ProfileHero } from "./ProfileHero";
@@ -36,7 +37,8 @@ const VIS_OPTS: VisOpt[] = [
 
 export function PaneAccount() {
   const { t } = useTranslation("settings");
-  const { user, profile } = useAuth();
+  const { user, profile, logout } = useAuth();
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const dialog = useDialog();
   const { theme, setTheme } = useTheme();
@@ -44,20 +46,22 @@ export function PaneAccount() {
 
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [bioSaving, setBioSaving] = useState(false);
-  const [profilePublic, setProfilePublic] = useState(profile?.profilePublic ?? true);
-  const [leaderboardOptIn, setLeaderboardOptIn] = useState(profile?.leaderboardOptIn ?? true);
+  const [profilePublic, setProfilePublic] = useState(profile?.profilePublic ?? false);
+  const [leaderboardOptIn, setLeaderboardOptIn] = useState(profile?.leaderboardOptIn ?? false);
   const [friendRequestsAllowed, setFriendRequestsAllowed] = useState(
     profile?.friendRequestsAllowed ?? true,
   );
   const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [nicknameSaving, setNicknameSaving] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [friendCode, setFriendCode] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setBio(profile?.bio ?? "");
-    setProfilePublic(profile?.profilePublic ?? true);
-    setLeaderboardOptIn(profile?.leaderboardOptIn ?? true);
+    setProfilePublic(profile?.profilePublic ?? false);
+    setLeaderboardOptIn(profile?.leaderboardOptIn ?? false);
     setFriendRequestsAllowed(profile?.friendRequestsAllowed ?? true);
   }, [
     profile?.bio,
@@ -78,11 +82,17 @@ export function PaneAccount() {
   const currentVisibility: Visibility = profile?.defaultVisibility ?? "private";
 
   async function handleSaveNickname() {
-    if (!user) return;
+    if (!user || nicknameSaving) return;
     const v = await dialog.prompt(t("profile.nicknamePrompt"), { defaultValue: profile?.nickname ?? "" });
     const trimmed = v?.trim();
     if (!trimmed) return;
+    if (trimmed.length < 2 || trimmed.length > 30) {
+      showToast(t("profile.nicknameLength"));
+      return;
+    }
+    setNicknameSaving(true);
     try {
+      showToast(t("profile.nicknameSaving"));
       await updateDoc(doc(firestore, "users", user.uid), { nickname: trimmed });
       const activitiesSnap = await getDocs(
         query(collection(firestore, "activities"), where("userId", "==", user.uid)),
@@ -100,6 +110,8 @@ export function PaneAccount() {
       showToast(t("profile.nicknameUpdated"));
     } catch (e) {
       showToast(`${t("profile.nicknameSaveFailed")}: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setNicknameSaving(false);
     }
   }
 
@@ -186,6 +198,7 @@ export function PaneAccount() {
     setter(value);
     try {
       await updateDoc(doc(firestore, "users", user.uid), { [field]: value });
+      showToast(t("privacy.settingChanged"));
     } catch {
       setter(!value);
       showToast(t("privacy.settingChangeFailed"));
@@ -193,18 +206,33 @@ export function PaneAccount() {
   }
 
   async function handleDeleteAccount() {
-    if (!(await dialog.confirm(t("data.deleteConfirm"), { destructive: true }))) return;
+    if (deletingAccount) return;
+    const typed = await dialog.prompt(t("pane.account.deleteTypeConfirm"), {
+      destructive: true,
+      confirmLabel: t("pane.account.deleteBtnLabel"),
+      placeholder: t("pane.account.deleteTypePlaceholder"),
+    });
+    if (typed?.trim() !== t("pane.account.deleteTypeToken")) {
+      if (typed != null) showToast(t("pane.account.deleteTypeMismatch"));
+      return;
+    }
+    setDeletingAccount(true);
     try {
       await deleteUserData();
+      await logout();
       showToast(t("pane.account.deleteAccountDone"));
+      navigate("/", { replace: true });
     } catch (e) {
       showToast(`${t("pane.account.deleteAccountFailed")}: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setDeletingAccount(false);
     }
   }
 
   async function handleLogout() {
     if (!(await dialog.confirm(t("pane.account.logoutConfirm")))) return;
-    await auth.signOut();
+    await logout();
+    navigate("/", { replace: true });
   }
 
   return (
@@ -215,7 +243,7 @@ export function PaneAccount() {
         photoURL={profile?.photoURL}
         friendCode={friendCode}
         stravaConnected={profile?.stravaConnected}
-        onEditNickname={handleSaveNickname}
+        onEditNickname={nicknameSaving ? undefined : handleSaveNickname}
         actions={
           <>
             <Button variant="secondary"
@@ -379,9 +407,9 @@ export function PaneAccount() {
         >
           <Button variant="danger"
             onClick={handleDeleteAccount}
-            disabled={stravaLoading}
+            disabled={stravaLoading || deletingAccount}
           >
-            {stravaLoading ? t("pane.account.deleteBtnDeleting") : t("pane.account.deleteBtnLabel")}
+            {stravaLoading || deletingAccount ? t("pane.account.deleteBtnDeleting") : t("pane.account.deleteBtnLabel")}
           </Button>
         </InlineRow>
       </SettingsCard>

@@ -58,7 +58,7 @@ describe("Layout", () => {
   it("shows Google login button when not authenticated", async () => {
     renderWithProviders(<Layout />, { authenticated: false });
     await waitFor(() => {
-      expect(screen.getByText("Google 로그인")).toBeInTheDocument();
+      expect(screen.getByText("기록을 저장하려면 로그인")).toBeInTheDocument();
     });
   });
 
@@ -67,10 +67,10 @@ describe("Layout", () => {
     renderWithProviders(<Layout />, { authenticated: false });
 
     await waitFor(() => {
-      expect(screen.getByText("Google 로그인")).toBeInTheDocument();
+      expect(screen.getByText("기록을 저장하려면 로그인")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText("Google 로그인"));
+    await user.click(screen.getByText("기록을 저장하려면 로그인"));
     expect(mockSignInWithPopup).toHaveBeenCalled();
   });
 
