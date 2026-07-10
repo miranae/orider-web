@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SettingsPage from "./SettingsPage";
@@ -143,5 +145,17 @@ describe("SettingsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("XYZ789")).toBeInTheDocument();
     });
+  });
+
+  it("keeps mobile settings connected to training and integration panes", () => {
+    const settingsPage = readFileSync(join(process.cwd(), "src/pages/SettingsPage.tsx"), "utf8");
+    const mobileSettings = readFileSync(join(process.cwd(), "src/components/mobile/MobileSettingsPage.tsx"), "utf8");
+
+    expect(settingsPage).toContain('if (isMobile && section !== "account")');
+    expect(settingsPage).toContain('section === "training" && <PaneTraining />');
+    expect(settingsPage).toContain('section === "connections" && <PaneConnections />');
+    expect(mobileSettings).toContain('to="/settings?section=training"');
+    expect(mobileSettings).toContain('connectStrava("/settings")');
+    expect(mobileSettings).toContain('navigate("/settings?section=connections")');
   });
 });

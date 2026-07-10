@@ -12,6 +12,13 @@ import { LanguageToggle } from "../i18n/LanguageToggle";
 import { useLocale } from "../../contexts/LocaleContext";
 import { Text } from "../../theme/components";
 
+function secsToMmss(secs?: number | null): string {
+  if (!secs || secs <= 0) return "—";
+  const min = Math.floor(secs / 60);
+  const sec = Math.round(secs % 60);
+  return `${min}:${String(sec).padStart(2, "0")}`;
+}
+
 function Toggle({ on, onToggle, disabled = false }: { on: boolean; onToggle: () => void; disabled?: boolean }) {
   return (
     <div
@@ -46,8 +53,16 @@ export default function MobileSettingsPage() {
   const { units, setUnits } = useLocale();
   const { showToast } = useToast();
   const dialog = useDialog();
-  const { deleteUserData, loading: stravaLoading } = useStrava();
-  const stravaConnected = !!profile?.stravaAthleteId;
+  const { connectStrava, deleteUserData, loading: stravaLoading } = useStrava();
+  const stravaConnected = !!profile?.stravaAthleteId || !!profile?.stravaConnected;
+
+  const trainingMetrics = [
+    [t("training.ftp"), profile?.ftp ? `${profile.ftp} W` : "—"],
+    [t("training.weight"), profile?.weightKg ? `${profile.weightKg} kg` : "—"],
+    [t("training.maxHr"), profile?.maxHr ? `${profile.maxHr} bpm` : "—"],
+    [t("training.thresholdPace"), secsToMmss(profile?.thresholdPace)],
+    [t("training.css"), secsToMmss(profile?.css)],
+  ];
 
   // 데스크톱 PaneAccount.handleDeleteAccount(파일: src/components/settings/PaneAccount.tsx:193) 미러링.
   // 확인 대화상자 → stravaDeleteUserData CF(deleteUserData) 호출 → 결과 토스트.
@@ -92,15 +107,41 @@ export default function MobileSettingsPage() {
             <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{l}</div>
           </div>
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{v}</span>
-          <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
         </div>
       ))}
+
+      {/* 훈련 기준값 */}
+      <div className="flex items-center justify-between" style={{ padding: "14px 16px 8px" }}>
+        <Text variant="eyebrow">{t("nav.trainingLabel")}</Text>
+      </div>
+      <Link to="/settings?section=training" className="flex items-center gap-3"
+        style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)", textDecoration: "none" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{t("nav.trainingHint")}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 3 }}>
+            {trainingMetrics.map(([label, value]) => `${label}: ${value}`).join(" · ")}
+          </div>
+        </div>
+        <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
+      </Link>
 
       {/* 연동 */}
       <div className="flex items-center justify-between" style={{ padding: "14px 16px 8px" }}>
         <Text variant="eyebrow">{t("section.integrations")}</Text>
       </div>
-      <div className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+      <button
+        type="button"
+        onClick={() => {
+          if (stravaConnected) {
+            navigate("/settings?section=connections");
+          } else {
+            connectStrava("/settings");
+          }
+        }}
+        disabled={stravaLoading}
+        className="flex items-center gap-3"
+        style={{ width: "100%", padding: "13px 16px", border: 0, borderBottom: "1px solid var(--line-soft)", background: "transparent", textAlign: "left", cursor: stravaLoading ? "wait" : "pointer", opacity: stravaLoading ? 0.65 : 1 }}
+      >
         <span style={{ fontSize: "var(--fs-lg)", width: 28, textAlign: "center" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="#FC4C02"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
         </span>
@@ -113,7 +154,8 @@ export default function MobileSettingsPage() {
         <span style={{ fontSize: "var(--fs-xs)", color: stravaConnected ? "var(--strava)" : "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
           {stravaConnected ? t("strava.connected") : t("strava.connect")}
         </span>
-      </div>
+        <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
+      </button>
 
       {/* 알림 */}
       <div className="flex items-center justify-between" style={{ padding: "14px 16px 8px" }}>
@@ -145,7 +187,6 @@ export default function MobileSettingsPage() {
         <div key={l} className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
           <span style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", flex: 1 }}>{l}</span>
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{v}</span>
-          <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
         </div>
       ))}
 
