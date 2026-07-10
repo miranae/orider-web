@@ -465,6 +465,42 @@ export default function FitnessPage() {
     );
   }
 
+  if (isMobile && (loading || !timeseriesLoaded)) {
+    return (
+      <div style={{ padding: "20px 16px 40px" }}>
+        <LoadingSkeleton kind="chart" />
+      </div>
+    );
+  }
+
+  if (isMobile && error) {
+    return (
+      <div style={{ padding: "20px 16px 40px" }}>
+        <ErrorState title={t("error.dataFailed")} description={error} />
+      </div>
+    );
+  }
+
+  if (isMobile && activities.length === 0) {
+    return (
+      <div style={{ padding: "20px 16px 40px" }}>
+        <EmptyState
+          icon="📈"
+          title={t("empty.noActivities")}
+          description={t("empty.hint")}
+          actions={[
+            { label: t("empty.connectStrava"), variant: "primary", href: "/settings?section=connections" },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  // tri 뷰 — 모바일 dashboard 보다 먼저 분기해 ?sport=tri 가 TriFitnessView 에 도달한다.
+  if (discipline === "tri") {
+    return <TriFitnessView activities={activities} streamsMap={streamsMap} range={range} profile={profile} />;
+  }
+
   if (isMobile) {
     const ftp = profile?.ftp ?? 0;
     const cp = currentPoint;
@@ -607,11 +643,6 @@ export default function FitnessPage() {
         }}
       />
     );
-  }
-
-  // tri 뷰 — 모든 hooks 이후에 분기 (hooks 순서 보장)
-  if (discipline === "tri") {
-    return <TriFitnessView activities={activities} streamsMap={streamsMap} range={range} profile={profile} />;
   }
 
   // loading/error/empty 분기는 헤더 정의(pageHeader) 이후로 이동 — 어느 상태든
