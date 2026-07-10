@@ -30,7 +30,7 @@ export function splitDtLocal(value: string): { date: string; time: string } {
 
 export function joinDtLocal(date: string, time: string): string {
   if (!date) return "";
-  return `${date}T${time || "00:00"}`;
+  return `${date}T${time || "00:00"}:00${KST_OFFSET}`;
 }
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;

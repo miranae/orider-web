@@ -972,7 +972,7 @@ export default function EventDetailPage() {
         <aside className="event-detail-aside" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", alignSelf: "start", position: "sticky", top: 68 }}>
           {/* 참가 현황 */}
           <Card padding="none" style={{ padding: "var(--space-4)" }}>
-            <h2 className="text-[length:var(--fs-sm)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>{t("label.myParticipation")}</h2>
+            <h2 className="text-[length:var(--fs-sm)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>{t("label.recruitmentStatus")}</h2>
             <div className="flex items-baseline" style={{ gap: "var(--space-1-5)" }}>
               <span style={{ fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)" }}>{participantCount}</span>
               {event.maxParticipants ? (

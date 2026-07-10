@@ -490,15 +490,17 @@ export default function EventParticipantsPage() {
             </Button>
             <Button
               type="button"
-              onClick={() => showToast("warn", t("participantsView.csvSoon"))} variant="secondary" size="sm"
+              disabled
+              title={t("participantsView.csvSoon")} variant="secondary" size="sm"
             >
-              ⬇ {t("action.exportCSV")}
+              ⬇ {t("action.exportCSV")} · {t("participantsView.comingSoon")}
             </Button>
             <Button
               type="button"
-              onClick={() => showToast("warn", t("participantsView.noticeSoon"))} variant="primary" size="sm"
+              disabled
+              title={t("participantsView.noticeSoon")} variant="secondary" size="sm"
             >
-              📢 {t("participantsView.broadcastBtn")}
+              📢 {t("participantsView.broadcastBtn")} · {t("participantsView.comingSoon")}
             </Button>
           </div>
         </div>
@@ -1032,17 +1034,19 @@ export default function EventParticipantsPage() {
               >
                 <Button
                   type="button" variant="secondary" size="sm"
+                  disabled
                   style={{ justifyContent: "flex-start", width: "100%" }}
-                  onClick={() => showToast("warn", t("participantsView.bibChangeSoon"))}
+                  title={t("participantsView.bibChangeSoon")}
                 >
-                  ✎ {t("participantsView.action.bibChange")}
+                  ✎ {t("participantsView.action.bibChange")} · {t("participantsView.comingSoon")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
+                  disabled
                   style={{ justifyContent: "flex-start", width: "100%" }}
-                  onClick={() => showToast("warn", t("participantsView.smsSingleSoon"))}
+                  title={t("participantsView.smsSingleSoon")}
                 >
-                  📤 {t("participantsView.action.smsSingle")}
+                  📤 {t("participantsView.action.smsSingle")} · {t("participantsView.comingSoon")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
