@@ -11,6 +11,7 @@ export interface EventDetail {
   status: string;
   startTime: number;
   creatorId: string;
+  hostIds: string[];
   groupId?: string;
   maxParticipants?: number;
   courseGpx?: string;
