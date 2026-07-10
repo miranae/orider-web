@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties }
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { Upload } from "lucide-react";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs, limit } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
+import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
@@ -112,16 +113,41 @@ function getMonthCalendar(year: number, month: number): CalCell[][] {
 
 interface LogDayCellProps {
   activities: Activity[];
+  plans: PlanGhost[];
   isToday: boolean;
   isCurrentMonth: boolean;
   dayNum: number;
+  dateKey: string;
+  todayKey: string;
 }
 
-function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellProps) {
+interface PlanGhost {
+  workout: PlanDay["workout"];
+  plannedTSS: number;
+  plannedDurationMin: number;
+}
+
+function effectivePlanTSS(day: PlanDay): number {
+  return day.adjustedTSS ?? day.plannedTSS ?? 0;
+}
+
+function effectivePlanDuration(day: PlanDay): number {
+  return day.adjustedDurationMin ?? day.plannedDurationMin ?? 0;
+}
+
+function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKey, todayKey }: LogDayCellProps) {
   const navigate = useNavigate();
   const { t } = useTranslation("training");
   const hasAct = activities.length > 0;
+  const hasPlan = plans.length > 0;
   const single = activities.length === 1;
+  const plannedTSS = plans.reduce((sum, plan) => sum + plan.plannedTSS, 0);
+  const actualTSS = activities.reduce((sum, activity) => sum + estimateTSS(activity), 0);
+  const adherence =
+    !hasPlan ? null :
+    hasAct ? (actualTSS >= plannedTSS * 0.8 ? "hit" : "under") :
+    dateKey < todayKey ? "missed" : "planned";
+  const adherenceLabel = adherence === "hit" ? "✓" : adherence === "under" ? "△" : adherence === "missed" ? "!" : "";
 
   // 활동 정렬 — 시작 시각 빠른 순
   const sorted = [...activities].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
@@ -188,6 +214,36 @@ function LogDayCell({ activities, isToday, isCurrentMonth, dayNum }: LogDayCellP
       </div>
 
       {/* 활동 목록 — 각 행이 개별 클릭 영역 */}
+      {plans.map((plan, index) => {
+        const color = sportColor(plan.workout);
+        return (
+          <div
+            key={`${plan.workout}-${index}`}
+            title={`Plan · ${plan.plannedTSS} TSS · ${plan.plannedDurationMin}m`}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-1)",
+              padding: "1px 3px",
+              borderRadius: "var(--r-xs)",
+              border: `1px dashed ${color}`,
+              color,
+              opacity: hasAct ? 0.55 : 0.82,
+              background: "color-mix(in oklch, currentColor 7%, transparent)",
+            }}
+          >
+            <span style={{ fontSize: "var(--fs-xs)", lineHeight: 1 }}>P</span>
+            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
+              {plan.plannedTSS}
+            </span>
+            {index === 0 && adherenceLabel && (
+              <span style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
+                {adherenceLabel}
+              </span>
+            )}
+          </div>
+        );
+      })}
       {sorted.map((a) => {
         const icon = getSportIcon(a.type);
         const color = sportColor(a.type);
@@ -334,6 +390,7 @@ export default function TrainingLogPage() {
 
   // 월별 캐시 — 본 적 있는 달은 재요청하지 않는다 (Firestore 읽기 절감 + 즉시 표시)
   const [activitiesByMonth, setActivitiesByMonth] = useState<Map<string, Activity[]>>(new Map());
+  const [planByMonth, setPlanByMonth] = useState<Map<string, PlanGhost[]>>(new Map());
   const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set());
   const [failedMonths, setFailedMonths] = useState<Set<string>>(new Set());
   const requestedMonths = useRef<Set<string>>(new Set()); // 진행 중 + 완료 가드 (중복 페치 방지)
@@ -342,6 +399,7 @@ export default function TrainingLogPage() {
   useEffect(() => {
     requestedMonths.current = new Set();
     setActivitiesByMonth(new Map());
+    setPlanByMonth(new Map());
     setLoadedMonths(new Set());
     setFailedMonths(new Set());
   }, [user?.uid]);
@@ -393,6 +451,58 @@ export default function TrainingLogPage() {
     loadMonth(year, month);
     loadMonth(prev.year, prev.month);
   }, [user, selectedMonth, loadMonth]);
+
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.uid;
+    let cancelled = false;
+    async function loadPlan() {
+      try {
+        const goalSnap = await getDocs(
+          query(
+            collection(firestore, "goals"),
+            where("userId", "==", uid),
+            where("status", "==", "active"),
+            limit(1),
+          ),
+        );
+        if (cancelled || goalSnap.empty) {
+          if (!cancelled) setPlanByMonth(new Map());
+          return;
+        }
+
+        const goalId = goalSnap.docs[0]!.id;
+        const planSnap = await getDocs(
+          query(collection(firestore, "goals", goalId, "plan"), orderBy("weekNumber")),
+        );
+        if (cancelled) return;
+
+        const next = new Map<string, PlanGhost[]>();
+        for (const docSnap of planSnap.docs) {
+          const week = { id: docSnap.id, ...docSnap.data() } as PlanWeek;
+          for (const day of week.days ?? []) {
+            if (day.workout === "rest" || day.skipped) continue;
+            const key = msToDateKey(day.date);
+            const plannedTSS = Math.round(effectivePlanTSS(day));
+            if (plannedTSS <= 0) continue;
+            const plans = next.get(key) ?? [];
+            plans.push({
+              workout: day.workout,
+              plannedTSS,
+              plannedDurationMin: Math.round(effectivePlanDuration(day)),
+            });
+            next.set(key, plans);
+          }
+        }
+        setPlanByMonth(next);
+      } catch (err) {
+        setPlanByMonth(new Map());
+        logClientError("TrainingLogPage.loadPlanOverlay", err, {});
+      }
+    }
+    void loadPlan();
+    return () => { cancelled = true; };
+  }, [user]);
 
   // 캐시된 모든 월 활동 평탄화 (자식/모바일 뷰가 소비) — 월 범위는 서로 겹치지 않음
   const activities = useMemo(() => {
@@ -701,14 +811,18 @@ export default function TrainingLogPage() {
                     {week.map((cell, di) => {
                       const key = dateToKey(cell.date);
                       const acts = byDay.get(key) ?? [];
+                      const plans = planByMonth.get(key) ?? [];
                       const isToday = key === todayKey;
                       return (
                         <LogDayCell
                           key={di}
                           activities={acts}
+                          plans={plans}
                           isToday={isToday}
                           isCurrentMonth={cell.isCurrentMonth}
                           dayNum={cell.date.getDate()}
+                          dateKey={key}
+                          todayKey={todayKey}
                         />
                       );
                     })}
