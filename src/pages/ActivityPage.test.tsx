@@ -84,6 +84,26 @@ describe("ActivityPage", () => {
     });
   });
 
+  it("places key stats before the tab navigation", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      summary: createMockSummary({
+        distance: 50000,
+        elevationGain: 400,
+        ridingTimeMillis: 7200000,
+        averageSpeed: 25.0,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />);
+
+    const stat = await screen.findByText("50.0");
+    const overviewTab = await screen.findByRole("tab", { name: "개요" });
+
+    expect(stat.compareDocumentPosition(overviewTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("shows 404 message instead of crashing when activity summary is missing", async () => {
     const { summary: _summary, ...activityWithoutSummary } = createMockActivity({
       id: "test-activity",
@@ -132,8 +152,8 @@ describe("ActivityPage", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
 
     expect(await screen.findByText("저장된 센서 요약")).toBeInTheDocument();
-    expect(screen.getByText("평균 심박")).toBeInTheDocument();
-    expect(screen.getByText("평균 파워")).toBeInTheDocument();
+    expect(screen.getAllByText("평균 심박").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("평균 파워").length).toBeGreaterThan(0);
     expect(screen.getByText("최대 파워")).toBeInTheDocument();
     expect(screen.getByText("NP 147 W")).toBeInTheDocument();
   });

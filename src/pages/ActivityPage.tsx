@@ -657,6 +657,31 @@ export default function ActivityPage() {
       : null,
   ] as (SummarySensorMetric | null)[]).filter((metric): metric is SummarySensorMetric => metric != null);
 
+  const keyStatsStrip = (
+    <Card padding="none" style={{ padding: 0 }}>
+      <ActivityStatsGrid
+        summary={s}
+        sport={sport}
+        avgPowerValue={avgPowerValue}
+        normalizedPowerValue={normalizedPowerValue}
+        movingTimeSec={serverMetrics.metrics?.movingTimeSec}
+        pauseTimeSec={serverMetrics.metrics?.pauseTimeSec}
+        displayAvgKph={displayAvgKph}
+        displayAvgImplausible={displayAvgImplausible}
+        avgSpeedImplausible={avgSpeedImplausible}
+        maxSpeedImplausible={maxSpeedImplausible}
+        showElevation={showElevation}
+        distVal={distVal}
+        distUnit={distUnit}
+        speedVal={speedVal}
+        speedUnit={speedUnit}
+        elevVal={elevVal}
+        elevUnit={elevUnit}
+        t={t}
+      />
+    </Card>
+  );
+
   return (
     <div className="max-w-[1440px] mx-auto space-y-6">
       {/* 1. Header (제목) */}
@@ -795,6 +820,9 @@ export default function ActivityPage() {
         flyToPosition={flyToPosition}
         t={t}
       />
+
+      {/* 핵심 스탯 — 모바일 첫 화면에서 지도 직후, 탭보다 먼저 노출. */}
+      {keyStatsStrip}
 
       {/* ── 탭 네비게이션 ── */}
       <TabNav
@@ -1028,30 +1056,6 @@ export default function ActivityPage() {
           </div>
         </Card>
       )}
-
-      {/* 스탯 — 6-metric strip (프로토타입 매칭) */}
-      <Card padding="none" style={{ padding: 0 }}>
-        <ActivityStatsGrid
-          summary={s}
-          sport={sport}
-          avgPowerValue={avgPowerValue}
-          normalizedPowerValue={normalizedPowerValue}
-          movingTimeSec={serverMetrics.metrics?.movingTimeSec}
-          pauseTimeSec={serverMetrics.metrics?.pauseTimeSec}
-          displayAvgKph={displayAvgKph}
-          displayAvgImplausible={displayAvgImplausible}
-          avgSpeedImplausible={avgSpeedImplausible}
-          maxSpeedImplausible={maxSpeedImplausible}
-          showElevation={showElevation}
-          distVal={distVal}
-          distUnit={distUnit}
-          speedVal={speedVal}
-          speedUnit={speedUnit}
-          elevVal={elevVal}
-          elevUnit={elevUnit}
-          t={t}
-        />
-      </Card>
 
       {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}
       {activeTab === "overview" && sport === "run" && streams && <RunLeftCards streams={streams} />}
