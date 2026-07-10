@@ -50,7 +50,6 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
   const [visibility, setVisibility] = useState<"public" | "private">("private");
   const [approval, setApproval] = useState<GroupApproval>("auto");
   const [rules, setRules] = useState("");
-  const [invites, setInvites] = useState("");
   const [creating, setCreating] = useState(false);
 
   const KINDS = useMemo<{ id: GroupKind; label: string; desc: string }[]>(() => [
@@ -82,7 +81,6 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
     setVisibility("private");
     setApproval("auto");
     setRules("");
-    setInvites("");
   };
 
   const close = () => {
@@ -146,21 +144,6 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
         groupId,
         joinedAt: now,
       });
-      // 초대된 이메일을 invites 컬렉션에 기록 (실제 발송은 후속 CF에서)
-      const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const inviteList = invites
-        .split(/[\s,;\n]+/)
-        .map((s) => s.trim())
-        .filter((s) => EMAIL_RE.test(s));
-      for (const email of inviteList) {
-        const invRef = doc(collection(firestore, "groups", groupId, "invitations"));
-        batch.set(invRef, {
-          email,
-          invitedBy: user.uid,
-          invitedAt: now,
-          status: "pending",
-        });
-      }
       await batch.commit();
 
       const createdName = name.trim();
@@ -391,16 +374,9 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
         <div className="flex flex-col" style={{ gap: 'var(--space-4)' }}>
           <div>
             <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("create.inviteHeading")}</div>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
+            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", lineHeight: 1.5 }}>
               {t("create.inviteHelp")}
             </div>
-            <textarea
-              value={invites}
-              onChange={(e) => setInvites(e.target.value)}
-              rows={4}
-              placeholder="rider1@example.com, rider2@example.com"
-              style={{ ...inputStyle, resize: "vertical", fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)" }}
-            />
           </div>
 
           <Card padding="none" style={{ padding: 'var(--space-3)', background: "var(--bg-2)" }}>
