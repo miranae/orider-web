@@ -456,6 +456,15 @@ export default function FitnessPage() {
 
   // (오늘의 권장 카드는 통합 후 홈에서만 노출. 피트니스 페이지는 분석 전용.)
 
+  if (!user) {
+    return (
+      <div style={{ maxWidth: 1440, margin: "0 auto", textAlign: "center", padding: "64px 24px", color: "var(--ink-3)" }}>
+        <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, marginBottom: 'var(--space-2)', color: "var(--ink-1)" }}>{t("login.title")}</h2>
+        <p>{t("login.hint")}</p>
+      </div>
+    );
+  }
+
   if (isMobile) {
     const ftp = profile?.ftp ?? 0;
     const cp = currentPoint;
@@ -603,15 +612,6 @@ export default function FitnessPage() {
   // tri 뷰 — 모든 hooks 이후에 분기 (hooks 순서 보장)
   if (discipline === "tri") {
     return <TriFitnessView activities={activities} streamsMap={streamsMap} range={range} profile={profile} />;
-  }
-
-  if (!user) {
-    return (
-      <div style={{ maxWidth: 1440, margin: "0 auto", textAlign: "center", padding: "64px 24px", color: "var(--ink-3)" }}>
-        <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, marginBottom: 'var(--space-2)', color: "var(--ink-1)" }}>{t("login.title")}</h2>
-        <p>{t("login.hint")}</p>
-      </div>
-    );
   }
 
   // loading/error/empty 분기는 헤더 정의(pageHeader) 이후로 이동 — 어느 상태든
