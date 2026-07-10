@@ -18,7 +18,7 @@ import { usePdc } from "../../hooks/usePdc";
 import { useCohortPercentiles } from "../../hooks/useCohortPercentiles";
 import { useDocument } from "../../hooks/useFirestore";
 import { Button, Card, Text } from "../../theme/components";
-import { EmptyState, LoadingSkeleton } from "../redesign";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../redesign";
 import GroupLeaderboardTable from "../group/GroupLeaderboardTable";
 import CohortRankingCard from "../CohortRankingCard";
 import type { GroupLeaderboardEntry, GroupLeaderboard } from "@shared/types";
@@ -69,7 +69,7 @@ function FriendsScope({ uid }: { uid: string | undefined }) {
 /** 그룹 W/kg 순위 — groups/{gid}/rankings/ftp_per_kg 스냅샷. */
 function GroupScope({ uid }: { uid: string | undefined }) {
   const { t } = useTranslation("segment");
-  const { groups, loading } = useMyGroups(uid);
+  const { groups, loading, error, retry } = useMyGroups(uid);
   const [groupId, setGroupId] = useState<string | null>(null);
   const activeGroupId = groupId ?? groups[0]?.id ?? null;
   const { data: snapshot } = useDocument<GroupLeaderboard>(
@@ -78,6 +78,7 @@ function GroupScope({ uid }: { uid: string | undefined }) {
   );
 
   if (!uid) return <EmptyState icon="🏢" title={t("leaderboardPage.rider.loginTitle")} description={t("leaderboardPage.rider.loginDesc")} />;
+  if (error) return <ErrorState onRetry={retry} compact />;
   if (loading) return <LoadingSkeleton kind="list" count={5} />;
   if (groups.length === 0) return <EmptyState icon="🏢" title={t("leaderboardPage.rider.noGroup")} description={t("leaderboardPage.rider.noGroupDesc")} actions={[{ label: t("leaderboardPage.rider.findGroup"), variant: "primary", href: "/groups" }]} />;
 

@@ -48,6 +48,7 @@
   "empty.noBlockedUsers": "No blocked users",
   "error.joinFailed": "Failed to join group",
   "error.invalidInviteCode": "Invalid invite code",
+  "error.loadFailed": "Failed to load groups.",
   "error.approveFailed": "Failed to approve. Backend function may not be deployed.",
   "error.loginRequired": "Login required to access groups",
   "error.creatorOnly": "Login required",

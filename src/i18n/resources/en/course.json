@@ -86,6 +86,7 @@
   "error.noGps": "Photo has no location info. Please select a photo with GPS data.",
   "error.fileTooLarge": "File size exceeds 5MB",
   "error.uploadFailed": "Upload failed",
+  "error.locationFailed": "Could not get your current location. Check your browser location permission.",
   "error.photoUploadSuccess": "Photo uploaded. It will appear after review.",
   "error.nameLength": "Name must be 2-50 characters",
   "error.descriptionLength": "Description must be 200 characters or less",

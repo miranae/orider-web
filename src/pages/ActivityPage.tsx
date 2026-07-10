@@ -38,6 +38,7 @@ import { useActiveBikeProfile } from "../hooks/useActiveBikeProfile";
 import { calcVirtualPowerStream } from "../utils/virtualPower";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text } from "../theme/components";
+import { ErrorState } from "../components/redesign";
 import {
   formatDuration,
   formatTime,
@@ -210,6 +211,8 @@ export default function ActivityPage() {
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   // 탭 네비게이션
   const [activeTab, setActiveTab] = useState("overview");
+  const [activityLoadError, setActivityLoadError] = useState<unknown>(null);
+  const [activityReloadKey, setActivityReloadKey] = useState(0);
 
   useEffect(() => {
     if (!activityId) return;
@@ -225,6 +228,7 @@ export default function ActivityPage() {
     setLiked(false);
     setCoRiders([]);
     setWattsOverride(null);
+    setActivityLoadError(null);
 
     getDoc(doc(firestore, "activities", activityId)).then((snap) => {
       if (snap.exists()) {
@@ -232,8 +236,12 @@ export default function ActivityPage() {
         setActivity(data.summary == null ? null : { id: snap.id, ...data } as Activity);
       }
       setLoadingActivity(false);
-    }).catch(() => setLoadingActivity(false));
-  }, [activityId]);
+    }).catch((err) => {
+      setActivityLoadError(err);
+      setLoadingActivity(false);
+      logClientError("ActivityPage.loadActivity", err, { activityId });
+    });
+  }, [activityId, activityReloadKey]);
 
   // 첫 활동 상세 진입 마일스톤 — 로그인 사용자가 activity 로드 완료 후 1회.
   // deps 를 primitive identity 로 좁혀 setActivity 가 같은 doc 으로 재할당되어도 useEffect 가 안 돎.
@@ -509,6 +517,19 @@ export default function ActivityPage() {
             <div key={i} className="h-20 rounded-[var(--r-sm)] animate-pulse" style={{ background: 'var(--bg-2)' }} />
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (activityLoadError) {
+    const isPermissionError = isPermissionDeniedError(activityLoadError);
+    return (
+      <div className="max-w-xl mx-auto py-16">
+        <ErrorState
+          title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
+          description={isPermissionError ? t("card.noActivity") : tCommon("error.description")}
+          onRetry={() => setActivityReloadKey((key) => key + 1)}
+        />
       </div>
     );
   }

@@ -8,14 +8,14 @@ import { useMyGroups, usePublicGroups } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
-import { EmptyState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
 import { Button } from "../../theme/components";
 
 export default function GroupsPage() {
   const { t } = useTranslation("group");
   const { user } = useAuth();
-  const { groups: myGroups, loading: myLoading } = useMyGroups(user?.uid);
-  const { groups: publicGroups, loading: publicLoading } = usePublicGroups();
+  const { groups: myGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
+  const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups } = usePublicGroups();
   const [showCreate, setShowCreate] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
@@ -130,7 +130,11 @@ export default function GroupsPage() {
         </div>
       </div>
 
-      {myLoading ? (
+      {myGroupsError ? (
+        <div className="mb-8">
+          <ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact />
+        </div>
+      ) : myLoading ? (
         <div className="mb-8">
           <LoadingSkeleton kind="list" count={3} />
         </div>
@@ -177,7 +181,9 @@ export default function GroupsPage() {
       {error && <p className="text-[length:var(--fs-sm)] text-red-500 mb-4">{error}</p>}
 
       <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("find.publicGroups")}</h3>
-      {publicLoading ? (
+      {publicGroupsError ? (
+        <ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact />
+      ) : publicLoading ? (
         <LoadingSkeleton kind="list" count={3} />
       ) : filteredPublicGroups.length === 0 ? (
         <EmptyState

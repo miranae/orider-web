@@ -13,6 +13,7 @@ import ImportActivityModal from "../components/mobile/ImportActivityModal";
 import { estimateTSS } from "../utils/estimateTSS";
 import { getSportIcon } from "../utils/sportType";
 import { Button, Card, Text } from "../theme/components";
+import { ErrorState, PermissionGate } from "../components/redesign";
 
 // ── 날짜 유틸 ─────────────────────────────────────────────────────────
 
@@ -315,6 +316,7 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
 
 export default function TrainingLogPage() {
   const { t } = useTranslation("training");
+  const { t: tCommon } = useTranslation("common");
   const { user } = useAuth();
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>({
@@ -325,6 +327,7 @@ export default function TrainingLogPage() {
   // 월별 캐시 — 본 적 있는 달은 재요청하지 않는다 (Firestore 읽기 절감 + 즉시 표시)
   const [activitiesByMonth, setActivitiesByMonth] = useState<Map<string, Activity[]>>(new Map());
   const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set());
+  const [failedMonths, setFailedMonths] = useState<Set<string>>(new Set());
   const requestedMonths = useRef<Set<string>>(new Set()); // 진행 중 + 완료 가드 (중복 페치 방지)
 
   // 유저 전환 시 캐시 리셋
@@ -332,6 +335,7 @@ export default function TrainingLogPage() {
     requestedMonths.current = new Set();
     setActivitiesByMonth(new Map());
     setLoadedMonths(new Set());
+    setFailedMonths(new Set());
   }, [user?.uid]);
 
   // 선택 월 범위만 로드 — 전체 이력 대신 캘린더가 보여주는 한 달치만 (startTime 인덱스 사용)
@@ -341,6 +345,11 @@ export default function TrainingLogPage() {
       const key = monthKey(year, month);
       if (requestedMonths.current.has(key)) return; // 이미 로드했거나 진행 중
       requestedMonths.current.add(key);
+      setFailedMonths((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
       try {
         const start = new Date(year, month, 1).getTime();
         const end = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
@@ -361,6 +370,7 @@ export default function TrainingLogPage() {
       } catch (err) {
         requestedMonths.current.delete(key); // 실패 시 재시도 허용
         setLoadedMonths((prev) => new Set(prev).add(key));
+        setFailedMonths((prev) => new Set(prev).add(key));
         logClientError("TrainingLogPage.loadActivities", err, { key });
       }
     },
@@ -384,7 +394,23 @@ export default function TrainingLogPage() {
   }, [activitiesByMonth]);
 
   // 선택 월이 아직 안 들어왔으면 로딩 표시 — 캐시된 월 재방문은 즉시 (스피너 없음)
-  const loading = user ? !loadedMonths.has(monthKey(selectedMonth.year, selectedMonth.month)) : false;
+  const selectedMonthKey = monthKey(selectedMonth.year, selectedMonth.month);
+  const loading = user ? !loadedMonths.has(selectedMonthKey) : false;
+  const loadError = failedMonths.has(selectedMonthKey);
+  const retryMonth = () => {
+    requestedMonths.current.delete(selectedMonthKey);
+    setLoadedMonths((prev) => {
+      const next = new Set(prev);
+      next.delete(selectedMonthKey);
+      return next;
+    });
+    setFailedMonths((prev) => {
+      const next = new Set(prev);
+      next.delete(selectedMonthKey);
+      return next;
+    });
+    void loadMonth(selectedMonth.year, selectedMonth.month);
+  };
 
   const todayKey = useMemo(() => msToDateKey(Date.now()), []);
 
@@ -473,7 +499,25 @@ export default function TrainingLogPage() {
 
   const isMobile = useMobile();
 
+  if (!user) {
+    return (
+      <div className="max-w-xl mx-auto py-16">
+        <PermissionGate
+          title={tCommon("auth.loginRequiredTitle")}
+          description={tCommon("auth.loginRequiredDescription")}
+        />
+      </div>
+    );
+  }
+
   if (isMobile) {
+    if (loadError) {
+      return (
+        <div style={{ padding: "var(--space-4)" }}>
+          <ErrorState title={tCommon("error.title")} onRetry={retryMonth} />
+        </div>
+      );
+    }
     return (
       <MobileLogPage
         activities={activities}
@@ -601,7 +645,13 @@ export default function TrainingLogPage() {
 
           {/* 주별 행 */}
           <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-            {loading
+            {loadError
+              ? (
+                  <div style={{ padding: "var(--space-4)" }}>
+                    <ErrorState title={tCommon("error.title")} onRetry={retryMonth} compact />
+                  </div>
+                )
+              : loading
               ? Array.from({ length: 5 }).map((_, wi) => (
                   <div
                     key={wi}

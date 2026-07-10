@@ -21,7 +21,7 @@ import { useToast } from "../contexts/ToastContext";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import MobilePlanPage from "../components/mobile/MobilePlanPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
-import { EmptyState } from "../components/redesign";
+import { EmptyState, ErrorState } from "../components/redesign";
 import { Button, Card, Text } from "../theme/components";
 import { buildDayNames, buildWorkoutMeta, formatDateLabel, phaseColor, phaseLabel } from "../features/training/plan/planDisplay";
 
@@ -496,6 +496,7 @@ export default function PlanPage() {
   const [goal, setGoal]   = useState<Goal | null>(null);
   const [weeks, setWeeks] = useState<PlanWeek[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [selectedDay, setSelectedDay] = useState<{ day: PlanDay; weekId: string; dayIndex: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   // lazy revalidate — plan 페이지는 활동/피로도 기반 자동 조정이 가장 직접 보이는 화면
@@ -504,8 +505,16 @@ export default function PlanPage() {
   // Load active goal
   // TODO: 실시간 업데이트를 위해 getDocs 대신 onSnapshot 사용 권장
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setGoal(null);
+      setWeeks([]);
+      setLoadError(null);
+      setLoading(false);
+      return;
+    }
     const load = async () => {
+      setLoading(true);
+      setLoadError(null);
       try {
         // 종목별 목표 조회, 없으면 discipline 필드 없는 레거시 목표도 조회
         let snap = await getDocs(
@@ -548,6 +557,9 @@ export default function PlanPage() {
         );
         setWeeks(planSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as PlanWeek));
       } catch (err) {
+        setGoal(null);
+        setWeeks([]);
+        setLoadError(err);
         logClientError("PlanPage.load", err, { discipline });
       } finally {
         setLoading(false);
@@ -595,6 +607,20 @@ export default function PlanPage() {
   // ── Render ─────────────────────────────────────────────────────────
   const isMobile = useMobile();
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
+  const retryLoad = () => setReloadKey((key) => key + 1);
+
+  if (!loading && loadError) {
+    return (
+      <div style={{ maxWidth: 1440, margin: "0 auto", paddingBottom: 'var(--space-8)' }}>
+        <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
+          <DisciplineTabs />
+        </div>
+        <div style={{ padding: "24px 0" }}>
+          <ErrorState title={tCommon("error.title")} onRetry={retryLoad} />
+        </div>
+      </div>
+    );
+  }
 
   if (!loading && !goal) {
     const sportLabel = t(`discipline.${discipline}`);

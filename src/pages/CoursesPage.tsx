@@ -8,6 +8,7 @@ import type { LngLatBounds } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { getMapboxToken } from "../utils/mapbox";
+import { ErrorState } from "../components/redesign";
 import { Button, buttonClass } from "../theme/components";
 import { CourseList } from "../features/courses/CourseList";
 import { CoursesMap, isCourseInBounds } from "../features/courses/CoursesMap";
@@ -62,8 +63,10 @@ export default function CoursesPage() {
     courses: allCourses,
     loading,
     loadingMore,
+    error: loadError,
     hasMore,
     loadMore,
+    retry,
     polylineCache,
   } = useCourseCatalog(sortMode);
   const [surfaceFilter, setSurfaceFilter] = useState<SurfaceFilter>("");
@@ -78,6 +81,7 @@ export default function CoursesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
+  const [locationError, setLocationError] = useState("");
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const mapUnavailable = !mapboxToken || mapFailed;
@@ -257,9 +261,14 @@ export default function CoursesPage() {
                     if (active) { setRadiusKm(null); return; }
                     if (myLoc) { setRadiusKm(km); return; }
                     setLocating(true);
+                    setLocationError("");
                     navigator.geolocation.getCurrentPosition(
                       (pos) => { setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setRadiusKm(km); setLocating(false); },
-                      (err) => { logClientError("CoursesPage.geolocation", err, {}); setLocating(false); },
+                      (err) => {
+                        logClientError("CoursesPage.geolocation", err, {});
+                        setLocationError(t("error.locationFailed"));
+                        setLocating(false);
+                      },
                       { timeout: 8000, maximumAge: 300000 },
                     );
                   }}
@@ -289,6 +298,11 @@ export default function CoursesPage() {
             })}
           </div>
         </div>
+        {locationError && (
+          <div className="text-[length:var(--fs-xs)]" role="status" style={{ color: "var(--rose)" }}>
+            {locationError}
+          </div>
+        )}
         {!mapUnavailable && (
           <div className="lg:hidden">
             <Button
@@ -306,7 +320,11 @@ export default function CoursesPage() {
       </div>
 
       {/* 메인: 지도 + 목록 */}
-      {loading ? (
+      {loadError ? (
+        <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg-0)", padding: "var(--space-6)" }}>
+          <ErrorState title={t("error.loadFailed")} onRetry={retry} />
+        </div>
+      ) : loading ? (
         <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg-0)" }}>
           <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--lime) transparent var(--lime) var(--lime)" }} />
         </div>

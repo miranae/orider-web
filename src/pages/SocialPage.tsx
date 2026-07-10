@@ -8,6 +8,7 @@ import { useMyGroups } from "../hooks/useGroup";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import Avatar from "../components/Avatar";
+import { ErrorState } from "../components/redesign";
 import { Text } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 
@@ -177,7 +178,7 @@ function FriendsTab() {
 function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
   const { t } = useTranslation("common");
   const { user } = useAuth();
-  const { groups, loading } = useMyGroups(user?.uid);
+  const { groups, loading, error, retry } = useMyGroups(user?.uid);
   const isMobile = useMobile();
   // 전폭 행: Layout px-4(16px) 인셋 음수마진으로 상쇄
   const fullBleedRow: CSSProperties = isMobile
@@ -210,7 +211,13 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
         </div>
       )}
 
-      {groups.map((g) => (
+      {error && (
+        <div style={{ padding: "var(--space-4)" }}>
+          <ErrorState onRetry={retry} compact />
+        </div>
+      )}
+
+      {!error && groups.map((g) => (
         <div
           key={g.id}
           onClick={() => onNavigate(g.id)}
@@ -240,7 +247,7 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
         </div>
       ))}
 
-      {!loading && groups.length === 0 && (
+      {!loading && !error && groups.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
           {t("social.noGroups")}
         </div>

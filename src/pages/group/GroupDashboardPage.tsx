@@ -11,7 +11,7 @@ import { useGroupRideStats } from "../../hooks/useGroupRides";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
-import { EmptyState, LoadingSkeleton } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Card, Chip, Text, buttonClass } from "../../theme/components";
 
 interface UpcomingEvent {
@@ -25,7 +25,7 @@ export default function GroupDashboardPage() {
   const { t } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
-  const { group, loading: groupLoading } = useGroup(groupId);
+  const { group, loading: groupLoading, error: groupError } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId, 8);
 
   const { rides, loading: ridesLoading } = useGroupRideStats(groupId);
@@ -130,6 +130,14 @@ export default function GroupDashboardPage() {
         <div className="flex gap-3">
           {[1, 2, 3, 4].map((i) => <div key={i} className="w-10 h-10 rounded-full" style={{ background: "var(--bg-2)" }} />)}
         </div>
+      </div>
+    );
+  }
+
+  if (groupError) {
+    return (
+      <div className="max-w-xl mx-auto py-16">
+        <ErrorState title={t("error.loadFailed")} onRetry={() => window.location.reload()} />
       </div>
     );
   }

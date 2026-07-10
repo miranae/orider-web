@@ -86,6 +86,7 @@
   "error.noGps": "위치 정보가 없는 사진입니다. GPS가 포함된 사진을 선택해주세요.",
   "error.fileTooLarge": "파일 크기가 5MB를 초과합니다",
   "error.uploadFailed": "업로드 실패",
+  "error.locationFailed": "현재 위치를 가져오지 못했습니다. 브라우저 위치 권한을 확인해 주세요.",
   "error.photoUploadSuccess": "사진이 업로드되었습니다. 검토 후 표시됩니다.",
   "error.nameLength": "이름은 2~50자여야 합니다",
   "error.descriptionLength": "설명은 200자 이내여야 합니다",
