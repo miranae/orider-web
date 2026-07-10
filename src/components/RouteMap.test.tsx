@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 import RouteMap from "./RouteMap";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
+const mapProps = vi.hoisted(() => ({
+  latest: null as null | { cooperativeGestures?: boolean; dragPan?: boolean; scrollZoom?: boolean },
+}));
+
 vi.mock("../utils/mapbox", () => ({
   getMapboxToken: () => "test-token",
   MAP_STYLE: "mapbox://styles/mapbox/outdoors-v12",
@@ -10,11 +14,26 @@ vi.mock("../utils/mapbox", () => ({
 }));
 
 vi.mock("react-map-gl/mapbox", () => ({
-  default: ({ children, onError }: { children: ReactNode; onError?: () => void }) => (
-    <button type="button" data-testid="mock-map" onClick={() => onError?.()}>
-      {children}
-    </button>
-  ),
+  default: ({
+    children,
+    onError,
+    cooperativeGestures,
+    dragPan,
+    scrollZoom,
+  }: {
+    children: ReactNode;
+    onError?: () => void;
+    cooperativeGestures?: boolean;
+    dragPan?: boolean;
+    scrollZoom?: boolean;
+  }) => {
+    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom };
+    return (
+      <button type="button" data-testid="mock-map" onClick={() => onError?.()}>
+        {children}
+      </button>
+    );
+  },
   Source: ({ children }: { children: ReactNode }) => <>{children}</>,
   Layer: () => null,
   Marker: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -23,6 +42,22 @@ vi.mock("react-map-gl/mapbox", () => ({
 }));
 
 describe("RouteMap", () => {
+  it("uses cooperative gestures on interactive maps to preserve mobile page scroll", () => {
+    renderWithProviders(
+      <RouteMap
+        polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@"
+        interactive
+      />
+    );
+
+    expect(screen.getByTestId("mock-map")).toBeInTheDocument();
+    expect(mapProps.latest).toMatchObject({
+      cooperativeGestures: true,
+      dragPan: true,
+      scrollZoom: true,
+    });
+  });
+
   it("uses fallback before mounting Mapbox when WebGL is unavailable", () => {
     const getContextSpy = vi
       .spyOn(HTMLCanvasElement.prototype, "getContext")
