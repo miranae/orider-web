@@ -47,7 +47,7 @@ export function applyKoreaCyclingStyle(map: { getStyle: () => any; setLayoutProp
     if (layer.id.includes("path") || layer.id.includes("cycleway") || layer.id.includes("bike")) {
       try {
         if (layer.type === "line") {
-          map.setPaintProperty(layer.id, "line-color", "#16A34A");
+          map.setPaintProperty(layer.id, "line-color", "#008986");
           map.setPaintProperty(layer.id, "line-opacity", 0.7);
           map.setPaintProperty(layer.id, "line-width", 2);
         }

@@ -57,13 +57,26 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               aria-live={toast.type === "error" ? "assertive" : "polite"}
               className={`${
                 toast.removing ? "animate-toast-out" : "animate-toast-in"
-              } pointer-events-auto px-4 py-2.5 rounded-[var(--r-lg)] shadow-lg text-[length:var(--fs-sm)] font-medium flex items-center gap-2 ${
+              } pointer-events-auto px-4 py-2.5 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] font-medium flex items-center gap-2 ${
                 toast.type === "success"
-                  ? "bg-green-600 text-[var(--ink-0)]"
+                  ? "text-[var(--color-success)]"
                   : toast.type === "error"
-                    ? "bg-red-600 text-[var(--ink-0)]"
-                    : "bg-blue-600 text-[var(--ink-0)]"
+                    ? "text-[var(--color-error)]"
+                    : "text-[var(--aqua)]"
               }`}
+              style={{
+                background: toast.type === "success"
+                  ? "color-mix(in oklch, var(--color-success) 14%, var(--bg-1))"
+                  : toast.type === "error"
+                    ? "color-mix(in oklch, var(--color-error) 14%, var(--bg-1))"
+                    : "color-mix(in oklch, var(--aqua) 14%, var(--bg-1))",
+                border: `1px solid ${toast.type === "success"
+                  ? "color-mix(in oklch, var(--color-success) 35%, var(--line-soft))"
+                  : toast.type === "error"
+                    ? "color-mix(in oklch, var(--color-error) 35%, var(--line-soft))"
+                    : "color-mix(in oklch, var(--aqua) 35%, var(--line-soft))"}`,
+                boxShadow: "var(--shadow-lg)",
+              }}
             >
               {toast.type === "success" && (
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

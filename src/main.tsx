@@ -120,7 +120,7 @@ loadRuntimeConfig()
     p.textContent = err.message;
     const btn = document.createElement("button");
     btn.textContent = "새로고침";
-    btn.style.cssText = "margin-top:1rem;padding:8px 16px;background:#f97316;color:white;border:none;border-radius:8px;cursor:pointer";
+    btn.style.cssText = "margin-top:1rem;padding:8px 16px;background:#008986;color:white;border:none;border-radius:8px;cursor:pointer";
     btn.addEventListener("click", () => location.reload());
     container.append(h2, p, btn);
     root.replaceChildren(container);

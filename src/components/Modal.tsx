@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from "react";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import { Card } from "../theme/components";
 
 interface ModalProps {
   open: boolean;
@@ -28,13 +29,14 @@ export default function Modal({ open, onClose, title, children, maxWidth = "max-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div
-        className={`relative rounded-[var(--r-lg)] shadow-xl w-full ${maxWidth} mx-4 p-6`}
-        style={{ background: "var(--bg-0)", maxHeight: "min(90vh, 720px)", overflowY: "auto", overscrollBehavior: "contain" }}
+      <Card
+        padding="none"
+        className={`relative w-full ${maxWidth} mx-4 p-6!`}
+        style={{ background: "var(--bg-1)", maxHeight: "min(90vh, 720px)", overflowY: "auto", overscrollBehavior: "contain", boxShadow: "var(--shadow-lg)" }}
       >
         <h2 className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{title}</h2>
         {children}
-      </div>
+      </Card>
     </div>
   );
 }
