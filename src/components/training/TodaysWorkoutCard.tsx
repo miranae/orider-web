@@ -33,6 +33,26 @@ import {
   type WorkoutDetail,
 } from "../../features/training/todaysWorkout/todaysWorkoutUtils";
 
+const TODAYS_WORKOUT_FETCH_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error("todays-workout-timeout"));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
+
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 
 export default function TodaysWorkoutCard() {
@@ -41,6 +61,7 @@ export default function TodaysWorkoutCard() {
   const { user, profile, loading: authLoading } = useAuth();
   const [data, setData] = useState<WorkoutDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasCompletedInitialFetchRef = useRef(false);
   /** 사용자가 "AI 분석 받기" 버튼을 눌렀을 때 true → full LLM 호출 허용. */
   const [triggerFull, setTriggerFull] = useState(false);
   const [cfDone, setCfDone] = useState(false);
@@ -209,17 +230,19 @@ export default function TodaysWorkoutCard() {
       setData(null);
       setLoading(false);
       setCfDone(true);
+      hasCompletedInitialFetchRef.current = true;
       return () => { cancelled = true; };
     }
     const refetch = async () => {
-      setLoading(true);
+      const showSkeleton = !hasCompletedInitialFetchRef.current;
+      if (showSkeleton) setLoading(true);
       try {
         await ensureAppCheckReady();
         const fn = httpsCallable<Record<string, never>, TodaysWorkoutCFResponse>(
           functions,
           "getTodaysWorkout"
         );
-        const res = await fn({});
+        const res = await withTimeout(fn({}), TODAYS_WORKOUT_FETCH_TIMEOUT_MS);
         if (cancelled) return;
         setData(res.data.todaysWorkout);
       } catch (err) {
@@ -227,7 +250,11 @@ export default function TodaysWorkoutCard() {
         logClientError("TodaysWorkoutCard.todaysWorkout", err, {});
         setData(null);
       } finally {
-        if (!cancelled) { setLoading(false); setCfDone(true); }
+        if (!cancelled) {
+          hasCompletedInitialFetchRef.current = true;
+          setLoading(false);
+          setCfDone(true);
+        }
       }
     };
     void refetch();
@@ -259,7 +286,7 @@ export default function TodaysWorkoutCard() {
             functions,
             "getTodaysWorkout"
           );
-          const res = await fn({});
+          const res = await withTimeout(fn({}), TODAYS_WORKOUT_FETCH_TIMEOUT_MS);
           if (!cancelled) setData(res.data.todaysWorkout);
         } catch (err) {
           if (!cancelled) logClientError("TodaysWorkoutCard.todaysWorkout", err, {});
