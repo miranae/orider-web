@@ -16,6 +16,7 @@ interface FileItem {
   name: string; // 사용자 편집 가능 (기본: 파일명)
   status: UploadStatus;
   error?: string;
+  rejected?: boolean;
   activityId?: string;
 }
 
@@ -46,16 +47,34 @@ export default function ActivityUploadPage() {
 
   const addFiles = (fs: FileList | File[]) => {
     const next: FileItem[] = [];
+    let rejectedCount = 0;
     for (const f of Array.from(fs)) {
       const ext = f.name.toLowerCase().split(".").pop() ?? "";
-      if (!VALID_EXT.includes(ext)) continue;
-      if (f.size > MAX_SIZE) continue;
+      const invalidType = !VALID_EXT.includes(ext);
+      const tooLarge = f.size > MAX_SIZE;
+      if (invalidType || tooLarge) {
+        rejectedCount += 1;
+        next.push({
+          id: `${f.name}-${f.size}-${f.lastModified}`,
+          file: f,
+          name: stripExt(f.name),
+          status: "error",
+          rejected: true,
+          error: invalidType
+            ? t("upload.rejectInvalidType")
+            : t("upload.rejectTooLarge", { max: formatSize(MAX_SIZE), size: formatSize(f.size) }),
+        });
+        continue;
+      }
       next.push({
         id: `${f.name}-${f.size}-${f.lastModified}`,
         file: f,
         name: stripExt(f.name),
         status: "pending",
       });
+    }
+    if (rejectedCount > 0) {
+      showToast(t("upload.rejectedToast", { count: rejectedCount }), "error");
     }
     setFiles((prev) => {
       const seen = new Set(prev.map((p) => p.id));
@@ -80,7 +99,7 @@ export default function ActivityUploadPage() {
       const token = await user.getIdToken();
       const results = await Promise.all(
         files.map(async (item) => {
-          if (item.status === "done" || item.status === "skipped") return item;
+          if (item.status === "done" || item.status === "skipped" || item.rejected) return item;
           setFiles((prev) => prev.map((f) => (f.id === item.id ? { ...f, status: "uploading" } : f)));
           try {
             const formData = new FormData();
@@ -120,6 +139,8 @@ export default function ActivityUploadPage() {
         const first = results.find((r) => r.status === "done" && r.activityId);
         if (first?.activityId) navigate(`/activity/${first.activityId}`);
       }
+    } catch {
+      showToast(t("upload.batchFailed"), "error");
     } finally {
       setUploading(false);
     }
@@ -144,7 +165,7 @@ export default function ActivityUploadPage() {
     );
   }
 
-  const pendingCount = files.filter((f) => f.status !== "done" && f.status !== "skipped").length;
+  const pendingCount = files.filter((f) => f.status !== "done" && f.status !== "skipped" && !f.rejected).length;
   const hasFiles = files.length > 0;
 
   return (
