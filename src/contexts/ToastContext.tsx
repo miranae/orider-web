@@ -12,11 +12,13 @@ interface Toast {
 interface ToastContextValue {
   toasts: Toast[];
   showToast: (message: string, type?: ToastType) => void;
+  dismissToast: (id: number) => void;
 }
 
 const ToastContext = createContext<ToastContextValue>({
   toasts: [],
   showToast: () => {},
+  dismissToast: () => {},
 });
 
 let nextId = 0;
@@ -24,21 +26,26 @@ let nextId = 0;
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, removing: true } : t)),
+    );
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 200);
+  }, []);
+
   const showToast = useCallback((message: string, type: ToastType = "success") => {
     const id = ++nextId;
     setToasts((prev) => [...prev, { id, message, type }]);
+    const duration = type === "error" ? 8000 : type === "info" ? 4000 : 2500;
     setTimeout(() => {
-      setToasts((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, removing: true } : t)),
-      );
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 200);
-    }, 2500);
-  }, []);
+      dismissToast(id);
+    }, duration);
+  }, [dismissToast]);
 
   return (
-    <ToastContext.Provider value={{ toasts, showToast }}>
+    <ToastContext.Provider value={{ toasts, showToast, dismissToast }}>
       {children}
       {/* Toast container */}
       {toasts.length > 0 && (
@@ -46,8 +53,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           {toasts.map((toast) => (
             <div
               key={toast.id}
-              role="status"
-              aria-live="polite"
+              role={toast.type === "error" ? "alert" : "status"}
+              aria-live={toast.type === "error" ? "assertive" : "polite"}
               className={`${
                 toast.removing ? "animate-toast-out" : "animate-toast-in"
               } pointer-events-auto px-4 py-2.5 rounded-[var(--r-lg)] shadow-lg text-[length:var(--fs-sm)] font-medium flex items-center gap-2 ${
@@ -68,7 +75,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               )}
-              {toast.message}
+              <span className="flex-1">{toast.message}</span>
+              <button
+                type="button"
+                onClick={() => dismissToast(toast.id)}
+                className="ml-2 rounded-[var(--r-sm)] px-1 text-[length:var(--fs-sm)] opacity-80 hover:opacity-100 focus:outline-none"
+                aria-label="닫기"
+              >
+                ×
+              </button>
             </div>
           ))}
         </div>

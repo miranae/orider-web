@@ -14,21 +14,24 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   variant?: ButtonVariant;
   size?: ButtonSize;
   icon: ReactNode;
+  loading?: boolean;
   type?: 'button' | 'submit' | 'reset';
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { variant = 'ghost', size = 'md', icon, type = 'button', className, ...rest },
+  { variant = 'ghost', size = 'md', icon, loading, disabled, type = 'button', className, ...rest },
   ref,
 ) {
   return (
     <button
       ref={ref}
       type={type}
-      className={cn('ds-btn', `ds-btn--${variant}`, `ds-btn--${size}`, 'ds-btn--icon-only', className)}
+      disabled={disabled || loading}
+      data-loading={loading || undefined}
+      className={cn('ds-btn', `ds-btn--${variant}`, `ds-btn--${size}`, 'ds-btn--icon-only', loading && 'ds-btn--loading', className)}
       {...rest}
     >
-      <span className="ds-btn__icon" aria-hidden>{icon}</span>
+      {loading ? <span className="ds-btn__spinner" aria-hidden /> : <span className="ds-btn__icon" aria-hidden>{icon}</span>}
     </button>
   );
 });

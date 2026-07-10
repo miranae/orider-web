@@ -305,11 +305,6 @@ a:active,
  * ds-* 클래스 (buttonClass() 헬퍼 경유) 로 마이그레이션 완료.
  * 정의는 src/theme/components/components.css 의 ds-* 로 이전. */
 
-@keyframes rd-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
 @keyframes rd-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }

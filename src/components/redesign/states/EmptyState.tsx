@@ -1,6 +1,6 @@
 import type { ReactNode, MouseEvent } from "react";
 import { LocalizedLink as Link } from "../../LocalizedLink";
-import { Card } from "../../../theme/components";
+import { Card, buttonClass } from "../../../theme/components";
 export interface EmptyStateAction {
   label: string;
   variant?: "primary" | "secondary";
@@ -50,7 +50,7 @@ export default function EmptyState({ icon, title, description, actions, compact 
           style={{ gap: "var(--space-2)", marginTop: "var(--space-4)" }}
         >
           {actions.map((a, i) => {
-            const cls = a.variant === "primary" ? "ds-btn ds-btn--md ds-btn--primary ds-btn--sm" : "ds-btn ds-btn--md ds-btn--ghost ds-btn--sm";
+            const cls = buttonClass({ variant: a.variant === "primary" ? "primary" : "ghost", size: "sm" });
             if (a.href) {
               return a.href.startsWith("http") ? (
                 <a key={i} href={a.href} className={cls} target="_blank" rel="noopener noreferrer">
