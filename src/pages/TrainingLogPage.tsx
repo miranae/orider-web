@@ -14,7 +14,8 @@ import ImportActivityModal from "../components/mobile/ImportActivityModal";
 import { estimateTSS } from "../utils/estimateTSS";
 import { getSportIcon } from "../utils/sportType";
 import { Button, Card, Text } from "../theme/components";
-import { ErrorState, PermissionGate } from "../components/redesign";
+import { ErrorState } from "../components/redesign";
+import GuestValuePreview from "../components/guest/GuestValuePreview";
 
 const LOG_WEEK_GRID_COLUMNS = "repeat(7, minmax(72px, 1fr)) 60px";
 const LOG_CALENDAR_CARD_STYLE: CSSProperties = {
@@ -379,7 +380,7 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
 // ── Main Page ─────────────────────────────────────────────────────────
 
 export default function TrainingLogPage() {
-  const { t } = useTranslation("training");
+  const { t, i18n } = useTranslation("training");
   const { t: tCommon } = useTranslation("common");
   const { user } = useAuth();
   const today = new Date();
@@ -618,14 +619,7 @@ export default function TrainingLogPage() {
   const isMobile = useMobile();
 
   if (!user) {
-    return (
-      <div className="max-w-xl mx-auto py-16">
-        <PermissionGate
-          title={tCommon("auth.loginRequiredTitle")}
-          description={tCommon("auth.loginRequiredDescription")}
-        />
-      </div>
-    );
+    return <GuestValuePreview kind="log" lang={i18n.language} />;
   }
 
   if (isMobile) {

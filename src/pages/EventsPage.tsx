@@ -338,7 +338,11 @@ export default function EventsPage() {
             <Link to="/event/create" className={`${buttonClass({ variant: 'primary', size: 'sm' })}`}>
               + {t("button.create")}
             </Link>
-          ) : undefined
+          ) : (
+            <Link to="/tools/virtual-power" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>
+              {t("guest.compareCta", { defaultValue: "내 예상 기록과 비교하기" })}
+            </Link>
+          )
         }
       />
 

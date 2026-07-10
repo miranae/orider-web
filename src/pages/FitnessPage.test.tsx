@@ -14,14 +14,14 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
 }));
 
 describe("FitnessPage", () => {
-  it("shows the login prompt instead of the mobile dashboard for signed-out mobile visitors", async () => {
+  it("shows the guest demo instead of the mobile dashboard for signed-out mobile visitors", async () => {
     renderWithProviders(<FitnessPage />, {
       authenticated: false,
       route: "/fitness",
     });
 
-    expect(await screen.findByText("피트니스 대시보드")).toBeInTheDocument();
-    expect(screen.getByText("로그인 후 이용할 수 있습니다")).toBeInTheDocument();
+    expect(await screen.findByText("피트니스 곡선 미리보기")).toBeInTheDocument();
+    expect(screen.getByText("데모 데이터")).toBeInTheDocument();
     expect(screen.queryByText("mobile fitness dashboard")).not.toBeInTheDocument();
   });
 

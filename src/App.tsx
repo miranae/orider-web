@@ -72,6 +72,7 @@ const LabPage = lazyTimed("LabPage", () => import("./pages/LabPage"));
 const GoalSetupPage = lazyTimed("GoalSetupPage", () => import("./pages/GoalSetupPage"));
 const PlanPage = lazyTimed("PlanPage", () => import("./pages/PlanPage"));
 const TrainingLogPage = lazyTimed("TrainingLogPage", () => import("./pages/TrainingLogPage"));
+const VirtualPowerToolPage = lazyTimed("VirtualPowerToolPage", () => import("./pages/tools/VirtualPowerToolPage"));
 const SocialPage = lazyTimed("SocialPage", () => import("./pages/SocialPage"));
 const MyPage = lazyTimed("MyPage", () => import("./pages/MyPage"));
 const YearRecapPage = lazyTimed("YearRecapPage", () => import("./pages/YearRecapPage"));
@@ -182,6 +183,7 @@ function AppRoutes() {
           <Route path="board/:postId" element={<PostDetailPage />} />
           <Route path="creator" element={<CreatorHubPage />} />
           <Route path="creator/:section" element={<CreatorHubPage />} />
+          <Route path="tools/virtual-power" element={<VirtualPowerToolPage />} />
           {/* 상대 경로 — /:lang 프리픽스 보존 */}
           <Route path="feedback" element={<Navigate to="../board?type=inquiry" replace />} />
           <Route path="feedback/board" element={<Navigate to="../board?type=inquiry" replace />} />
