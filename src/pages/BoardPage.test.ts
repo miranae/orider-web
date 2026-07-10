@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import { getEffectiveListTotal } from "./BoardPage";
 
 describe("getEffectiveListTotal", () => {
@@ -18,5 +19,14 @@ describe("getEffectiveListTotal", () => {
       displayedCount: 7,
       listTotal: 20,
     })).toBe(7);
+  });
+});
+
+describe("BoardPage source defaults", () => {
+  it("defaults the public board away from AI-only seed posts", async () => {
+    const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
+
+    expect(source).toContain('new Set(["AI"])');
+    expect(source).toContain("activeTag !== 'AI'");
   });
 });

@@ -9,6 +9,7 @@ import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign"
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import RiderRankingPanel from "../components/leaderboard/RiderRankingPanel";
 import { formatElapsedMillis } from "../features/leaderboard/leaderboardFormat";
+import { localizeRegionName } from "../utils/regionName";
 
 type LeaderboardTab = "segments" | "riders";
 
@@ -29,7 +30,7 @@ interface UserPrInfo {
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
-  const { t } = useTranslation("segment");
+  const { t, i18n } = useTranslation("segment");
   const [segments, setSegments] = useState<SegmentInfo[]>([]);
   const [myBest, setMyBest] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -217,7 +218,7 @@ export default function LeaderboardPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
                         <span className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{s.name}</span>
-                        {s.region && <Chip style={{ fontSize: "var(--fs-2xs)" }}>{s.region}</Chip>}
+                        {s.region && <Chip style={{ fontSize: "var(--fs-2xs)" }}>{localizeRegionName(s.region, i18n.language)}</Chip>}
                       </div>
                       <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
                         {(s.distance / 1000).toFixed(1)}km

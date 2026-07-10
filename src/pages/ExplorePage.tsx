@@ -12,6 +12,7 @@ import { decodePolyline } from "../utils/polyline";
 import { isImplausibleSegmentElevation } from "../utils/activitySanity";
 import { fetchStaticJson } from "../utils/staticJson";
 import { segmentTileUrl } from "../utils/segmentTiles";
+import { formatSegmentRegion } from "../utils/regionName";
 import { ErrorState } from "../components/redesign";
 import { Button, Card, Chip, Text } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
@@ -700,7 +701,7 @@ export default function ExplorePage() {
       <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100vh-56px)]">
         <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
           <div className="flex items-center justify-between pt-3 md:pt-6">
-            <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("leaderboard")}</h1>
+            <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("title")}</h1>
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
@@ -718,7 +719,7 @@ export default function ExplorePage() {
       <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
         <div className="flex items-center justify-between pt-3 md:pt-6">
           <div className="hidden md:block">
-            <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("leaderboard")}</h1>
+            <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("title")}</h1>
             <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mt-1">
               {t("subtitle")}
             </p>
@@ -1007,7 +1008,7 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
   cardRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
   isFullBleed?: boolean;
 }) {
-  const { t } = useTranslation("segment");
+  const { t, i18n } = useTranslation("segment");
   const elevGainRaw = Math.max(0, segment.elevationHigh - segment.elevationLow);
   // 비현실 획득고도 가드 (activitySanity 공통 헬퍼). corrupt 한 8623m 등을 "—" 로 가린다.
   const elevImplausible = isImplausibleSegmentElevation({
@@ -1020,6 +1021,7 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
   const climbLabel = CLIMB_LABELS[segment.climbCategory];
   const climbColor = CLIMB_COLORS[segment.climbCategory];
   const highlighted = isHovered || isSelected;
+  const regionLabel = formatSegmentRegion(segment.city, segment.state, i18n.language);
 
   return (
     <div
@@ -1053,9 +1055,9 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
         )}
         <h3 className="font-semibold text-[length:var(--fs-sm)] truncate flex-1" style={{ color: "var(--ink-0)" }}>{segment.name}</h3>
       </div>
-      {(segment.city || segment.state) && (
+      {regionLabel && (
         <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
-          {[segment.city, segment.state].filter(Boolean).join(", ")}
+          {regionLabel}
         </div>
       )}
       <div className="flex gap-3 mt-1.5 text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-2)" }}>
