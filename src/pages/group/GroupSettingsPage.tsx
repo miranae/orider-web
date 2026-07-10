@@ -12,11 +12,12 @@ import { useGroup } from "../../hooks/useGroup";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import VisibilityToggle from "../../components/group/VisibilityToggle";
 import { generateInviteCode } from "../../utils/inviteCode";
+import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import type { GroupApproval, GroupKind, GroupToggles } from "@shared/types";
 import { Button, Card, Text } from "../../theme/components";
 
 export default function GroupSettingsPage() {
-  const { t } = useTranslation("group");
+  const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
@@ -414,16 +415,16 @@ export default function GroupSettingsPage() {
 
         {/* 초대 코드 */}
         <Card padding="none" className="p-6" style={{ borderRadius: "var(--r-md)" }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.inviteCode")}</h2>
+          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.inviteLink")}</h2>
           <div className="flex items-center gap-2 mb-3">
             <code
               className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] font-mono"
-              style={{ background: "var(--bg-2)", color: "var(--ink-0)" }}
+              style={{ background: "var(--bg-2)", color: "var(--ink-0)", wordBreak: "break-all" }}
             >
-              {group.inviteCode}
+              {buildGroupInviteUrl(group.inviteCode, i18n.language)}
             </code>
             <button
-              onClick={() => { navigator.clipboard.writeText(group.inviteCode); }}
+              onClick={() => { navigator.clipboard.writeText(buildGroupInviteUrl(group.inviteCode, i18n.language)); }}
               className="px-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-md)] transition-colors"
               style={{ background: "var(--bg-2)", color: "var(--ink-1)", border: "1px solid var(--line)" }}
             >
