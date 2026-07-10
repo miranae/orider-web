@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from '../components/redesign'
 import type { BoardType } from '@shared/types';
 import { Button, Card } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
+import SafeImage from "../components/SafeImage";
 
 export function getEffectiveListTotal({
   submittedQuery,
@@ -492,7 +493,7 @@ const BoardPage: React.FC = () => {
                 <div className="flex items-center justify-between text-[length:var(--fs-xs)] text-[var(--ink-3)]">
                   <div className="flex items-center gap-2">
                     {post.profileImage ? (
-                      <img src={post.profileImage} alt="" className="w-5 h-5 rounded-full" loading="lazy" decoding="async" />
+                      <SafeImage src={post.profileImage} alt={post.nickname} fallbackLabel={post.nickname} className="w-5 h-5 rounded-full object-cover" loading="lazy" decoding="async" />
                     ) : (
                       <div className="w-5 h-5 rounded-full bg-[var(--bg-3)]" />
                     )}
@@ -518,7 +519,7 @@ const BoardPage: React.FC = () => {
                 </div>
               </div>{/* flex-1 min-w-0 */}
                 {post.imageUrls && post.imageUrls.length > 0 && (
-                  <img src={post.imageUrls[0]} alt="" referrerPolicy="no-referrer" className="w-32 h-32 rounded-[var(--r-lg)] object-cover flex-shrink-0 border border-[var(--line-soft)]" loading="lazy" decoding="async" />
+                  <SafeImage src={post.imageUrls[0]} alt={t("label.thumbnail", { title: post.title })} referrerPolicy="no-referrer" className="w-32 h-32 rounded-[var(--r-lg)] object-cover flex-shrink-0 border border-[var(--line-soft)]" loading="lazy" decoding="async" />
                 )}
               </div>{/* flex gap-3 */}
             </Card>

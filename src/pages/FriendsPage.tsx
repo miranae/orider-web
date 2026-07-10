@@ -152,8 +152,11 @@ export default function FriendsPage() {
       </Card>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--line-soft)]">
+      <div className="flex gap-1 border-b border-[var(--line-soft)]" role="tablist" aria-label={t("tabsLabel")}>
         <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "friends"}
           onClick={() => setTab("friends")}
           className={`px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${
             tab === "friends"
@@ -164,6 +167,10 @@ export default function FriendsPage() {
           {t("tab.friends", { count: friends.length })}
         </button>
         <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "requests"}
+          aria-label={t("tab.requestsAria", { count: requests.length })}
           onClick={() => setTab("requests")}
           className={`px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors relative ${
             tab === "requests"

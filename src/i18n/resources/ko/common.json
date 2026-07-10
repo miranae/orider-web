@@ -93,6 +93,7 @@
     "board": "게시판",
     "creator": "크리에이터",
     "friends": "친구",
+    "friendRequests": "받은 친구 요청 {{count}}건",
     "aboutOrider": "오라이더 소개",
     "profile": "프로필",
     "account": "계정",
