@@ -79,9 +79,9 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, join
       {/* Body */}
       <div className="min-w-0">
         <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: 'var(--space-1)' }}>
-          <h3 className="font-semibold truncate" style={{ color: "var(--ink-0)", margin: 0, fontSize: "var(--fs-sm)" }}>
+          <Text as="h3" variant="bodyMedium" truncate tone="primary" style={{ margin: 0 }}>
             {group.name}
-          </h3>
+          </Text>
           {group.isLeader && (
             <Chip style={{ color: "var(--lime)", fontSize: "var(--fs-2xs)", padding: "1px 6px", whiteSpace: "nowrap" }}>{t("card.leader")}</Chip>
           )}

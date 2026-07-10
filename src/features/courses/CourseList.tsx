@@ -212,7 +212,7 @@ export function CourseList({
                 }}
               >
                 <div style={COURSE_LIST_INLINE_STYLE}>
-                  <h3 className="font-semibold text-[length:var(--fs-sm)] truncate flex-1" style={{ color: "var(--ink-0)" }}>{course.name}</h3>
+                  <Text as="h3" variant="bodyMedium" truncate className="flex-1" tone="primary" style={{ margin: 0 }}>{course.name}</Text>
                   {course.curated && <OfficialCourseChip />}
                   {course.surface && (
                     <span className="font-medium" style={{ ...COURSE_LIST_BADGE_STYLE, ...surfaceChipStyle(course.surface) }}>
