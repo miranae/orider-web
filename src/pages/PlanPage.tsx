@@ -12,6 +12,7 @@ import { useAuth } from "../contexts/AuthContext";
 import type { Goal, PlanWeek, PlanDay } from "@shared/types/goal";
 import { computePlanProgress } from "@shared/training/planMetrics";
 import { generateICS, downloadICS } from "../utils/icsExport";
+import { sumEffectivePlanTSS } from "../utils/planTss";
 import WorkoutEditModal from "../components/training/WorkoutEditModal";
 import AdaptationBanner from "../components/training/AdaptationBanner";
 import AdjustedChip from "../components/training/AdjustedChip";
@@ -965,7 +966,7 @@ export default function PlanPage() {
               </div>
             ) : (
               weeks.map((wk, wi) => {
-                const weekTSS = wk.days.reduce((s, d) => s + (d.skipped ? 0 : d.plannedTSS), 0);
+                const weekTSS = sumEffectivePlanTSS(wk.days);
                 const isCurrentWeek = wk.days.some(isTodayCell);
                 const pc = phaseColor(wk.phase);
 

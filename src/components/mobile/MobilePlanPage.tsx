@@ -6,6 +6,7 @@ import type { AdaptationFlag, PlanWeek, PlanDay, WorkoutKind } from "@shared/typ
 import { getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { getWorkoutDiscipline as _gwDiscipline } from "../../utils/workoutDiscipline";
+import { effectivePlanTSS, sumEffectivePlanTSS } from "../../utils/planTss";
 import { AddPlanSheet } from "../training";
 import AdaptationBanner from "../training/AdaptationBanner";
 import AdjustedChip from "../training/AdjustedChip";
@@ -145,19 +146,17 @@ export default function MobilePlanPage({
 
       {/* Weekly summary */}
       {currentWeek && (() => {
-        // 자동 적응이 적용된 경우 effective TSS 사용
-        const effective = (d: PlanDay) => d.adjustedTSS ?? d.plannedTSS;
-        const totalTSS = days.reduce((s, d) => s + (d.completed ? (d.actualTSS ?? effective(d)) : effective(d)), 0);
+        const totalTSS = sumEffectivePlanTSS(days);
         const totalMins = days.filter(d => d.workout !== "rest").reduce((s, d) => {
-          return s + (effective(d) * 0.6);
+          return s + (effectivePlanTSS(d) * 0.6);
         }, 0);
         const h = Math.floor(totalMins / 60);
         const m = Math.round(totalMins % 60);
         const sessions = days.filter(d => d.workout !== "rest").length;
 
-        const bikeTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "bike" && d.workout !== "rest").reduce((s, d) => s + d.plannedTSS, 0);
-        const runTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "run").reduce((s, d) => s + d.plannedTSS, 0);
-        const swimTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "swim").reduce((s, d) => s + d.plannedTSS, 0);
+        const bikeTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "bike" && d.workout !== "rest").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const runTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
+        const swimTSS = days.filter(d => getWorkoutDisciplineForDisplay(d.workout) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
         const stackTotal = bikeTSS + runTSS + swimTSS || 1;
 
         return (
