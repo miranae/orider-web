@@ -9,7 +9,7 @@ import { Home, Activity, Map, Users, Settings, type LucideIcon } from "lucide-re
  *
  * 허브 구성:
  *  - 홈        : 대시보드(/)                                  — 단일, 서브탭 없음
- *  - 내 운동   : 피트니스(/fitness) · 계획(/plan) · 기록(/log)  — "내 데이터" 성격
+ *  - 내 운동   : 피트니스(/fitness) · 업로드(/activity/upload) · 계획(/plan) · 기록(/log)  — "내 데이터" 성격
  *  - 탐색      : 도전(/discover) · 세그먼트(/explore) · 리더보드(/leaderboard) · 코스(/courses)
  *               — '발견→처방→도전' 동선(#486). 데이터 출처가 아니라 사용자 의도로 서열화.
   *  - 커뮤니티  : 게시판(/board) · 그룹(/groups) · 이벤트(/events) · 친구(/friends) — "사람·소통"
@@ -56,10 +56,17 @@ export const HUBS: Hub[] = [
     to: "/fitness",
     subs: [
       { labelKey: "nav.fitness", to: "/fitness" },
+      { labelKey: "nav.activityUpload", to: "/activity/upload" },
       { labelKey: "nav.plan", to: "/plan" },
       { labelKey: "nav.log", to: "/log" },
     ],
-    match: (p) => p === "/fitness" || p === "/plan" || p === "/goal-setup" || p === "/log",
+    match: (p) =>
+      p === "/fitness" ||
+      p === "/activity/upload" ||
+      p.startsWith("/activity/") ||
+      p === "/plan" ||
+      p === "/goal-setup" ||
+      p === "/log",
   },
   {
     key: "explore",
@@ -75,6 +82,7 @@ export const HUBS: Hub[] = [
     match: (p) =>
       p === "/discover" ||
       p === "/explore" ||
+      p === "/segment/create" ||
       p.startsWith("/segment/") ||
       p === "/leaderboard" ||
       p === "/courses" ||
@@ -103,6 +111,8 @@ export const HUBS: Hub[] = [
       p === "/events" ||
       p.startsWith("/event/") ||
       p === "/friends" ||
+      p.startsWith("/friend/") ||
+      p.startsWith("/athlete/") ||
       p === "/community" ||
       p === "/about" ||
       p === "/social",

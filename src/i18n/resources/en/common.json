@@ -70,6 +70,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "fitness": "Fitness",
+    "activityUpload": "Upload",
     "plan": "Plan",
     "log": "Log",
     "courses": "Courses",
@@ -93,6 +94,16 @@
     "profile": "Profile",
     "account": "Account",
     "mainNavAria": "Main navigation"
+  },
+  "about": {
+    "title": "Ride records that lead to the next choice",
+    "subtitle": "Orider connects activity history, course discovery, groups, and events in one riding platform.",
+    "pointsAria": "About Orider",
+    "points": [
+      "Use your activity data to read training flow and recovery signals.",
+      "Find the next challenge through courses, segments, and leaderboards.",
+      "Meet riders and share context through groups, events, and the board."
+    ]
   },
   "search": {
     "activities": "Activities",

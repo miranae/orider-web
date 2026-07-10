@@ -126,6 +126,7 @@
     "viewAllComments": "View all {{count}} comments",
     "routeMapAlt": "Route map",
     "noAchievements": "No segment records",
+    "segmentCount": "{{count}} segments",
     "segmentCount_one": "{{count}} segment",
     "segmentCount_other": "{{count}} segments",
     "cohortTop": "Top {{pct}}% cohort",
@@ -134,9 +135,11 @@
     "viewOnStrava": "View on Strava",
     "timeAgo": {
       "justNow": "just now",
+      "hoursAgo": "{{count}} hours ago",
       "hoursAgo_one": "{{count}} hour ago",
       "hoursAgo_other": "{{count}} hours ago",
       "yesterday": "yesterday",
+      "daysAgo": "{{count}} days ago",
       "daysAgo_one": "{{count}} day ago",
       "daysAgo_other": "{{count}} days ago"
     }
@@ -175,6 +178,7 @@
     "uploading": "Uploading…",
     "photoToast": {
       "imageOnly": "Only image files can be uploaded",
+      "maxLimit": "You can upload up to {{count}} photos",
       "maxLimit_one": "You can upload up to {{count}} photo",
       "maxLimit_other": "You can upload up to {{count}} photos",
       "tooLarge": "Photo size exceeds 5MB",
@@ -183,6 +187,7 @@
       "deleted": "Photo deleted",
       "deleteConfirm": "Delete this photo?"
     },
+    "coRiders": "Co-riders ({{count}})",
     "coRiders_one": "Co-rider ({{count}})",
     "coRiders_other": "Co-riders ({{count}})",
     "topResults": "Top Results",
@@ -215,6 +220,7 @@
   },
   "segments": {
     "title": "Segments",
+    "matched": "{{count}} segments matched on this ride",
     "matched_one": "{{count}} segment matched on this ride",
     "matched_other": "{{count}} segments matched on this ride",
     "viewAll": "View all",
@@ -419,6 +425,7 @@
       "ftpPercent": "% FTP",
       "seconds": "{{count}}s",
       "minutes": "{{count}}m",
+      "hours": "{{count}}h",
       "hours_one": "{{count}}h",
       "hours_other": "{{count}}h"
     },

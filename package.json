@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "lint": "eslint src",
     "lint:budget": "eslint src --max-warnings 0",
+    "check:i18n": "node scripts/check-i18n-keys.mjs",
     "lint:report": "eslint src --format=stylish || true",
     "quality:budget": "node scripts/check-quality-budget.mjs",
     "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",

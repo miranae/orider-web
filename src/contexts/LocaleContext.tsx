@@ -11,7 +11,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { firestore } from '../services/firebase';
 import { logClientError } from '../services/errorLogger';
 import i18n from '../i18n';
-import { SUPPORTED_LANGS, type Lang } from '../i18n/detector';
+import { AUTO_LOCALE_REDIRECT_KEY, SUPPORTED_LANGS, type Lang } from '../i18n/detector';
 import type { Units } from '../utils/units';
 
 interface LocaleContextValue {
@@ -28,6 +28,29 @@ function initialLocale(): Lang {
   return (SUPPORTED_LANGS as readonly string[]).includes(current)
     ? (current as Lang)
     : 'ko';
+}
+
+function replacePathLang(lang: Lang): void {
+  const parts = window.location.pathname.split('/');
+  if ((SUPPORTED_LANGS as readonly string[]).includes(parts[1] ?? '')) {
+    parts[1] = lang;
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${parts.join('/')}${window.location.search}${window.location.hash}`
+    );
+  }
+}
+
+function consumeAutoLocaleRedirectMarker(): { target?: string; lang?: string } | null {
+  try {
+    const raw = sessionStorage.getItem(AUTO_LOCALE_REDIRECT_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(AUTO_LOCALE_REDIRECT_KEY);
+    return JSON.parse(raw) as { target?: string; lang?: string };
+  } catch {
+    return null;
+  }
 }
 
 export function LocaleProvider({
@@ -47,7 +70,15 @@ export function LocaleProvider({
     const fsUnits = profile?.units;
     const pathLang = window.location.pathname.split('/')[1] ?? '';
     const urlHasLang = (SUPPORTED_LANGS as readonly string[]).includes(pathLang);
-    if (fsLocale && !urlHasLang && fsLocale !== locale) {
+    if (fsLocale && urlHasLang && fsLocale !== pathLang) {
+      const marker = consumeAutoLocaleRedirectMarker();
+      const currentTarget = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (marker?.target === currentTarget) {
+        setLocaleState(fsLocale);
+        void i18n.changeLanguage(fsLocale);
+        replacePathLang(fsLocale);
+      }
+    } else if (fsLocale && !urlHasLang && fsLocale !== locale) {
       setLocaleState(fsLocale);
       void i18n.changeLanguage(fsLocale);
     }

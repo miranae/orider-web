@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -44,6 +44,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const mobileHistoryPushedRef = useRef(false);
 
   const { results } = useGlobalSearch(searchQuery);
 
@@ -77,10 +78,52 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
     return () => document.removeEventListener("mousedown", handler);
   }, [notifOpen]);
 
-  // 모바일 메뉴 열릴 때 스크롤 잠금
+  const stripMobileMenuHistoryState = useCallback(() => {
+    const state = window.history.state;
+    if (!state || typeof state !== "object" || !("oriderMobileMenu" in state)) return;
+    const { oriderMobileMenu: _oriderMobileMenu, ...rest } = state as Record<string, unknown>;
+    window.history.replaceState(rest, "", window.location.href);
+  }, []);
+
+  const openMobileMenu = useCallback(() => {
+    if (mobileOpen) return;
+    const state = window.history.state;
+    window.history.pushState(
+      { ...(state && typeof state === "object" ? state : {}), oriderMobileMenu: true },
+      "",
+      window.location.href
+    );
+    mobileHistoryPushedRef.current = true;
+    setMobileOpen(true);
+  }, [mobileOpen]);
+
+  const closeMobileMenu = useCallback(() => {
+    if (mobileHistoryPushedRef.current && window.history.state?.oriderMobileMenu) {
+      mobileHistoryPushedRef.current = false;
+      window.history.back();
+      return;
+    }
+    setMobileOpen(false);
+  }, []);
+
+  const closeMobileMenuForNavigation = useCallback(() => {
+    mobileHistoryPushedRef.current = false;
+    stripMobileMenuHistoryState();
+    setMobileOpen(false);
+  }, [stripMobileMenuHistoryState]);
+
+  // 모바일 메뉴 열릴 때 스크롤 잠금 + 브라우저 뒤로가기 연동
   useEffect(() => {
+    const handlePopState = () => {
+      mobileHistoryPushedRef.current = false;
+      setMobileOpen(false);
+    };
+    if (mobileOpen) window.addEventListener("popstate", handlePopState);
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      document.body.style.overflow = '';
+    };
   }, [mobileOpen]);
 
   const nickname = profile?.nickname || user?.displayName || "";
@@ -512,7 +555,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               <button
                 className={`md:hidden ${navIconButtonClass}`}
                 aria-label={t('button.more')}
-                onClick={() => setMobileOpen(true)}
+                onClick={openMobileMenu}
                 style={{
                   width: 30, height: 30,
                   alignItems: 'center', justifyContent: 'center',
@@ -542,7 +585,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               <button
                 className={`md:hidden ${navIconButtonClass}`}
                 aria-label={t('button.more')}
-                onClick={() => setMobileOpen(true)}
+                onClick={openMobileMenu}
                 style={{
                   width: 30, height: 30,
                   alignItems: 'center', justifyContent: 'center',
@@ -564,7 +607,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
             position: 'fixed', inset: 0, zIndex: 200,
             display: 'flex',
           }}
-          onClick={() => setMobileOpen(false)}
+          onClick={closeMobileMenu}
         >
           {/* backdrop */}
           <div style={{ flex: 1, backgroundColor: 'color-mix(in oklch, var(--ink-1) 50%, transparent)' }} />
@@ -595,7 +638,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               <button
                 className={navIconButtonClass}
                 aria-label={t('button.close')}
-                onClick={() => setMobileOpen(false)}
+                onClick={closeMobileMenu}
                 style={{
                   width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   borderRadius: "var(--r-md)", border: 'none', background: 'transparent', cursor: 'pointer',
@@ -641,7 +684,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                     <Link
                       key={hub.key}
                       to={hub.to}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={closeMobileMenuForNavigation}
                       aria-current={hubActive ? 'page' : undefined}
                       className={mobileMenuItemClass}
                       style={{
@@ -672,7 +715,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                       <Link
                         key={s.to}
                         to={s.to}
-                        onClick={() => setMobileOpen(false)}
+                        onClick={closeMobileMenuForNavigation}
                         className={mobileMenuItemClass}
                         style={{
                           display: 'flex', alignItems: 'center',
@@ -696,7 +739,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 <>
                   <Link
                     to={`/athlete/${user.uid}`}
-                    onClick={() => setMobileOpen(false)}
+                    onClick={closeMobileMenuForNavigation}
                     className={mobileMenuItemClass}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
@@ -710,7 +753,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   </Link>
                   <Link
                     to="/settings"
-                    onClick={() => setMobileOpen(false)}
+                    onClick={closeMobileMenuForNavigation}
                     className={mobileMenuItemClass}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
@@ -724,7 +767,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                   </Link>
                   <button
                     className={mobileMenuItemClass}
-                    onClick={() => { logout(); setMobileOpen(false); }}
+                    onClick={() => { logout(); closeMobileMenuForNavigation(); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%',
                       padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--rose)',
@@ -739,7 +782,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               ) : (
                 <button
                   className={mobileMenuItemClass}
-                  onClick={() => { signInWithGoogle(); setMobileOpen(false); }}
+                  onClick={() => { signInWithGoogle(); closeMobileMenuForNavigation(); }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
                     width: '100%', padding: '10px 12px', fontSize: "var(--fs-sm)",
@@ -760,11 +803,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
 
             {/* 법적 링크 (모바일 — 데스크톱 푸터 대체. 약관/개인정보 접근성 보장) */}
             <div style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--line-soft)', display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
-              <Link to="/terms" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.terms')}</Link>
-              <Link to="/privacy" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.privacy')}</Link>
-              <Link to="/community" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
-              <Link to="/feedback" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.feedback')}</Link>
-              <Link to="/board?type=inquiry" onClick={() => setMobileOpen(false)} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</Link>
+              <Link to="/terms" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.terms')}</Link>
+              <Link to="/privacy" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.privacy')}</Link>
+              <Link to="/community" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.community')}</Link>
+              <Link to="/feedback" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.feedback')}</Link>
+              <Link to="/board?type=inquiry" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</Link>
               <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', width: '100%', marginTop: 'var(--space-1)' }}>&copy; 2026 Orider</span>
             </div>
           </div>
