@@ -559,8 +559,14 @@ export default function EventResultsPage() {
                 {t("resultsView.noFilteredResults")}
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
+              <div style={{ overflowX: "auto", overscrollBehavior: "contain" }}>
+                <style>{`
+                  @media (max-width: 767px), (pointer: coarse) {
+                    .event-results-optional { display: none; }
+                    .event-results-table { min-width: 360px !important; }
+                  }
+                `}</style>
+                <table className="event-results-table" style={{ minWidth: 760, width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
                   <thead>
                     <tr style={{ background: "var(--bg-2)" }}>
                       {[
@@ -575,6 +581,7 @@ export default function EventResultsPage() {
                       ].map((h, i) => (
                         <th
                           key={h}
+                          className={[1, 3, 5, 6, 7].includes(i) ? "event-results-optional" : undefined}
                           style={{
                             textAlign: [0, 1, 4, 5, 6, 7].includes(i) ? "right" : "left",
                             padding: "10px 16px",
@@ -607,6 +614,7 @@ export default function EventResultsPage() {
                           }}
                         >
                           <td
+                            className="event-results-optional"
                             style={{
                               padding: "10px 16px",
                               textAlign: "right",
@@ -656,10 +664,11 @@ export default function EventResultsPage() {
                               </Chip>
                             )}
                           </td>
-                          <td style={{ padding: "10px 16px", color: "var(--ink-3)" }}>
+                          <td className="event-results-optional" style={{ padding: "10px 16px", color: "var(--ink-3)" }}>
                             <CategoryChip category={r.category} />
                           </td>
                           <td
+                            className="event-results-optional"
                             style={{
                               padding: "10px 16px",
                               textAlign: "right",
@@ -677,6 +686,7 @@ export default function EventResultsPage() {
                               : "—"}
                           </td>
                           <td
+                            className="event-results-optional"
                             style={{
                               padding: "10px 16px",
                               textAlign: "right",
@@ -687,6 +697,7 @@ export default function EventResultsPage() {
                             {r.avgSpeed != null ? r.avgSpeed.toFixed(1) : "—"}
                           </td>
                           <td
+                            className="event-results-optional"
                             style={{
                               padding: "10px 16px",
                               textAlign: "right",

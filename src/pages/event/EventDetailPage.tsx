@@ -869,7 +869,8 @@ export default function EventDetailPage() {
                 <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.waypoints")}</div>
                 <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{t("create.itemCount", { count: waypointRows.length })}</div>
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
+              <div style={{ overflowX: "auto", overscrollBehavior: "contain" }}>
+              <table style={{ minWidth: 560, width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
                 <thead>
                   <tr style={{ background: "var(--bg-2)" }}>
                     {["#", t("detail.col.name"), t("detail.col.type"), t("distance"), t("detail.col.elevation")].map((h, i) => (
@@ -915,6 +916,7 @@ export default function EventDetailPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </Card>
           )}
 
