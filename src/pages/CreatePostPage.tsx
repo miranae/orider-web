@@ -10,6 +10,8 @@ import { storage } from '../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Button, Card } from "../theme/components";
 import { normalizeUserContentUrl } from "../utils/userContentUrl";
+import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
+import { clearPostDraft, getPostDraftKey, readPostDraft, writePostDraft } from "../features/board/postDraft";
 import { serializePostEditorContent } from "../features/board/editor/serializePostEditorContent";
 const MAX_IMAGES = 5;
 
@@ -93,6 +95,7 @@ const CreatePostPage: React.FC = () => {
   const [imageCount, setImageCount] = useState(0);
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [editorEmpty, setEditorEmpty] = useState(true);
+  const [editorRevision, setEditorRevision] = useState(0);
 
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'question' | 'other'>(isCreatorRecipeTemplate ? 'feature' : 'bug');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -109,7 +112,9 @@ const CreatePostPage: React.FC = () => {
   const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
 
   const imageMapRef = useRef<Map<string, File>>(new Map());
+  const restoredDraftKeyRef = useRef<string | null>(null);
   const tagItems = tags.split(',').map(tag => tag.trim()).filter(Boolean);
+  const draftKey = user ? getPostDraftKey(user.uid, isInquiry ? "inquiry" : "free") : null;
 
   const syncAttachedImages = useCallback(() => {
     setImageCount(imageMapRef.current.size);
@@ -121,13 +126,18 @@ const CreatePostPage: React.FC = () => {
     );
   }, []);
 
-  const checkEditorEmpty = () => {
+  const checkEditorEmpty = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
     const hasText = (editor.textContent || '').trim().length > 0;
     const hasImages = editor.querySelectorAll('img').length > 0;
     setEditorEmpty(!hasText && !hasImages);
-  };
+  }, []);
+
+  const markEditorChanged = useCallback(() => {
+    checkEditorEmpty();
+    setEditorRevision((value) => value + 1);
+  }, [checkEditorEmpty]);
 
   useEffect(() => {
     if (!isCreatorRecipeTemplate) return;
@@ -139,6 +149,45 @@ const CreatePostPage: React.FC = () => {
     editor.innerHTML = lines.map((line) => line ? `<p>${line}</p>` : '<p><br></p>').join('');
     setEditorEmpty(false);
   }, [i18n.language, isCreatorRecipeTemplate, t]);
+
+  useEffect(() => {
+    if (!draftKey || restoredDraftKeyRef.current === draftKey) return;
+    const draft = readPostDraft(draftKey);
+    restoredDraftKeyRef.current = draftKey;
+    if (!draft) return;
+
+    setTitle(draft.title);
+    setTags(draft.tags);
+    setFeedbackType(draft.feedbackType);
+    setIsPrivate(draft.isPrivate);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = DOMPurify.sanitize(draft.contentHtml);
+      markEditorChanged();
+    }
+  }, [draftKey, markEditorChanged]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    const timer = window.setTimeout(() => {
+      const editor = editorRef.current;
+      const hasDraftContent = title.trim() || tags.trim() || !editorEmpty || (isInquiry && (isPrivate || feedbackType !== "bug"));
+      if (!hasDraftContent) {
+        clearPostDraft(draftKey);
+        return;
+      }
+
+      writePostDraft(draftKey, {
+        title,
+        tags,
+        contentHtml: editor?.innerHTML ?? "",
+        feedbackType,
+        isPrivate,
+        updatedAt: Date.now(),
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timer);
+  }, [draftKey, title, tags, feedbackType, isPrivate, editorEmpty, editorRevision, isInquiry]);
 
   // 서식 상태 감지
   const updateFormatState = useCallback(() => {
@@ -289,7 +338,7 @@ const CreatePostPage: React.FC = () => {
       sel?.addRange(range);
     }
 
-    checkEditorEmpty();
+    markEditorChanged();
   };
 
   const insertImageAtCursor = useCallback((file: File) => {
@@ -332,8 +381,8 @@ const CreatePostPage: React.FC = () => {
     }
 
     editor.focus();
-    setEditorEmpty(false);
-  }, [syncAttachedImages, t]);
+    markEditorChanged();
+  }, [markEditorChanged, syncAttachedImages, t]);
 
   // Find untracked <img> in editor, download & convert to tracked blobs
   const processNewImages = useCallback(async () => {
@@ -361,8 +410,8 @@ const CreatePostPage: React.FC = () => {
       }
     }
     syncAttachedImages();
-    checkEditorEmpty();
-  }, [syncAttachedImages]);
+    markEditorChanged();
+  }, [markEditorChanged, syncAttachedImages]);
 
   const removeAttachedImage = useCallback((url: string) => {
     const editor = editorRef.current;
@@ -385,8 +434,8 @@ const CreatePostPage: React.FC = () => {
       imageMapRef.current.delete(url);
     }
     syncAttachedImages();
-    checkEditorEmpty();
-  }, [syncAttachedImages]);
+    markEditorChanged();
+  }, [markEditorChanged, syncAttachedImages]);
 
   // Manually parse clipboard HTML, sanitize, insert with images preserved
   const insertSanitizedHtml = useCallback(async (html: string) => {
@@ -434,11 +483,11 @@ const CreatePostPage: React.FC = () => {
     // Insert sanitized HTML at cursor (execCommand preserves cursor position)
     editor.focus();
     document.execCommand('insertHTML', false, DOMPurify.sanitize(temp.innerHTML));
-    checkEditorEmpty();
+    markEditorChanged();
 
     // Then async: download external images → tracked blobs
     await processNewImages();
-  }, [processNewImages]);
+  }, [markEditorChanged, processNewImages]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
@@ -475,12 +524,12 @@ const CreatePostPage: React.FC = () => {
         const file = item.getAsFile();
         if (file) insertImageAtCursor(file);
       }
-      checkEditorEmpty();
+      markEditorChanged();
       return;
     }
 
     // Case 3: Plain text or HTML without images — let browser handle
-  }, [insertImageAtCursor, insertSanitizedHtml]);
+  }, [insertImageAtCursor, insertSanitizedHtml, markEditorChanged]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -628,6 +677,7 @@ const CreatePostPage: React.FC = () => {
       } else {
         navigate(`/board/${postId}`);
       }
+      if (draftKey) clearPostDraft(draftKey);
     } catch {
       alert(t('message.submitFailed'));
     } finally {
@@ -637,6 +687,15 @@ const CreatePostPage: React.FC = () => {
 
   const isBusy = submitting || uploading;
   const canSubmit = title.trim() && !editorEmpty && !isBusy;
+  const isDirty = Boolean(title.trim() || tags.trim() || !editorEmpty || (isInquiry && (isPrivate || feedbackType !== "bug")));
+  const { requestLeave, guardDialog } = useUnsavedChangesGuard({
+    dirty: isDirty && !isBusy,
+    title: t("unsaved.title"),
+    message: t("unsaved.message"),
+    stayLabel: t("unsaved.stay"),
+    leaveLabel: t("unsaved.leave"),
+  });
+  const leavePage = () => requestLeave(() => navigate(-1));
   const postOptions = (
     <div className="grid gap-5 lg:grid-cols-2">
       <Card
@@ -749,7 +808,7 @@ const CreatePostPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={leavePage}
             className="text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -918,7 +977,7 @@ const CreatePostPage: React.FC = () => {
                 ref={editorRef}
                 contentEditable
                 suppressContentEditableWarning
-                onInput={checkEditorEmpty}
+                onInput={markEditorChanged}
                 onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
                 className={`px-5 py-4 min-h-[480px] text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-1)] focus:outline-none
@@ -938,6 +997,7 @@ const CreatePostPage: React.FC = () => {
 
         {postOptions}
       </div>
+      {guardDialog}
     </form>
   );
 };

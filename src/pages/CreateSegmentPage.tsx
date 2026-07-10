@@ -14,6 +14,7 @@ import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
 import { Card } from "../theme/components";
 import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
+import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -317,6 +318,21 @@ export default function CreateSegmentPage() {
   }, [streams, lowIdx, highIdx, segmentStats, t]);
 
   const isFormValid = name.length >= 2 && name.length <= 50 && rangeValidation.length === 0;
+  const rangeChanged = streams?.latlng ? rangeStart !== 0 || rangeEnd !== streams.latlng.length - 1 : false;
+  const isDirty = !createdSegmentId && (
+    Boolean(name.trim()) ||
+    Boolean(description.trim()) ||
+    categoryTouchedRef.current ||
+    rangeChanged
+  );
+  const { requestLeave, guardDialog } = useUnsavedChangesGuard({
+    dirty: isDirty && !submitting,
+    title: t("unsaved.title"),
+    message: t("unsaved.message"),
+    stayLabel: t("unsaved.stay"),
+    leaveLabel: t("unsaved.leave"),
+  });
+  const leavePage = () => requestLeave(() => navigate(-1));
 
   const startKm = streams?.distance ? (streams.distance[rangeStart] ?? 0) / 1000 : 0;
   const endKm = streams?.distance ? (streams.distance[rangeEnd] ?? 0) / 1000 : 0;
@@ -359,7 +375,7 @@ export default function CreateSegmentPage() {
     return (
       <div className="text-center py-16">
         <p className="text-[var(--ink-2)]">{t("empty.noActivity")}</p>
-        <button onClick={() => navigate(-1)} className="mt-4 px-4 py-2 text-[length:var(--fs-sm)] text-[var(--lime)] hover:underline">
+        <button onClick={leavePage} className="mt-4 px-4 py-2 text-[length:var(--fs-sm)] text-[var(--lime)] hover:underline">
           &larr; {t("button.goBack")}
         </button>
       </div>
@@ -415,7 +431,7 @@ export default function CreateSegmentPage() {
           )}
         </div>
         <button
-          onClick={() => navigate(-1)}
+          onClick={leavePage}
           className="text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
         >
           {t("button.cancel")}
@@ -437,7 +453,7 @@ export default function CreateSegmentPage() {
             <p className="text-red-600">{streamError}</p>
           </div>
           <button
-            onClick={() => navigate(-1)}
+            onClick={leavePage}
             className="px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
           >
             &larr; {t("button.goBack")}
@@ -614,7 +630,7 @@ export default function CreateSegmentPage() {
           {/* Bottom nav */}
           <div className="flex items-center">
             <button
-              onClick={() => navigate(-1)}
+              onClick={leavePage}
               className="px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors"
             >
               &larr; {t("button.goBack")}
@@ -622,6 +638,7 @@ export default function CreateSegmentPage() {
           </div>
         </>
       )}
+      {guardDialog}
     </div>
   );
 }
