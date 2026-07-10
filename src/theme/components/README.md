@@ -59,6 +59,15 @@ import { buttonClass } from '@/theme';
 
 직접 className 조립이 아니라 `buttonClass()` 호출이므로 lint 통과 + 토큰 일관성 유지.
 
+## 상태·피드백 규칙
+
+- 폼 검증 실패는 `Input`, `Textarea`, `Select`의 `invalid` prop을 사용한다. 컴포넌트가 `aria-invalid=true`를 함께 연결한다.
+- 제출·저장처럼 중복 실행되면 안 되는 액션은 `disabled`만 두지 말고 `Button loading` 또는 `IconButton loading`을 사용한다.
+- 로딩 피드백은 레이아웃을 유지해야 하면 `LoadingSkeleton`, 짧은 인라인 대기는 버튼 스피너를 쓴다.
+- 스켈레톤 높이가 실제 콘텐츠와 다르면 `minHeight`를 넘겨 로드 완료 시 레이아웃 이동을 줄인다.
+- 에러 토스트는 성공/정보보다 길게 유지되며 닫기 버튼을 제공한다. 사용자가 반드시 읽어야 하는 오류는 토스트만 쓰지 말고 화면 내 `ErrorState`도 함께 둔다.
+- 클릭 가능한 `Card`와 `Chip`은 직접 role/tabIndex를 붙이지 않아도 `onClick` 또는 `selectable` prop으로 키보드 실행이 보강된다.
+
 ## 마이그레이션 매핑
 
 ### 폐기됨 (rd2-*)

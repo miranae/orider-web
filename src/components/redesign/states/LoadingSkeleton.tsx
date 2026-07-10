@@ -6,6 +6,7 @@ export type SkeletonKind = "feed" | "card" | "list" | "chart";
 interface LoadingSkeletonProps {
   kind?: SkeletonKind;
   count?: number;
+  minHeight?: number | string;
 }
 
 const DEFAULT_COUNT: Record<SkeletonKind, number> = {
@@ -32,7 +33,7 @@ function Shimmer({ height, style }: { height: number | string; style?: React.CSS
   );
 }
 
-export default function LoadingSkeleton({ kind = "card", count }: LoadingSkeletonProps) {
+export default function LoadingSkeleton({ kind = "card", count, minHeight }: LoadingSkeletonProps) {
   const { t } = useTranslation("common");
   const loadingHint = t("label.loadingHint");
   const n = count ?? DEFAULT_COUNT[kind];
@@ -41,7 +42,7 @@ export default function LoadingSkeleton({ kind = "card", count }: LoadingSkeleto
     return (
       <Card padding="none" role="status" aria-label={loadingHint} style={{ padding: 'var(--space-4)' }}>
         <Shimmer height={16} style={{ width: "40%", marginBottom: 'var(--space-3)' }} />
-        <Shimmer height={240} />
+        <Shimmer height={minHeight ?? "clamp(180px, 32dvh, 240px)"} />
       </Card>
     );
   }
@@ -74,7 +75,7 @@ export default function LoadingSkeleton({ kind = "card", count }: LoadingSkeleto
               <Shimmer height={11} style={{ width: "20%" }} />
             </div>
           </div>
-          {kind === "feed" && <Shimmer height={180} style={{ marginBottom: 'var(--space-3)' }} />}
+          {kind === "feed" && <Shimmer height={minHeight ?? "clamp(140px, 24dvh, 180px)"} style={{ marginBottom: 'var(--space-3)' }} />}
           <div className="flex" style={{ gap: 'var(--space-3)' }}>
             <Shimmer height={14} style={{ flex: 1 }} />
             <Shimmer height={14} style={{ flex: 1 }} />

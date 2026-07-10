@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { Alert, Button, Card, Chip, Field, IconButton, Input, Progress, Stack, Stat, Switch, Text } from './index';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Alert, Button, Card, Chip, Field, IconButton, Input, Progress, Select, Stack, Stat, Switch, Text, Textarea } from './index';
 import { cn } from './cn';
 
 describe('cn()', () => {
@@ -47,6 +47,14 @@ describe('Card', () => {
     const { container } = render(<Card variant="flat">x</Card>);
     expect(container.firstElementChild?.className).toMatch(/\bds-card--flat\b/);
   });
+
+  it('onClick 카드에 button 역할과 키보드 실행을 부여', () => {
+    const onClick = vi.fn();
+    render(<Card onClick={onClick}>열기</Card>);
+    const card = screen.getByRole('button');
+    fireEvent.keyDown(card, { key: 'Enter' });
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('Chip', () => {
@@ -55,6 +63,14 @@ describe('Chip', () => {
     const chip = container.firstElementChild!;
     expect(chip.className).toMatch(/\bds-chip--accent\b/);
     expect(chip.querySelector('.ds-chip__dot')).toBeTruthy();
+  });
+
+  it('selectable/onClick 칩은 키보드로 실행 가능', () => {
+    const onClick = vi.fn();
+    render(<Chip selectable onClick={onClick}>AI</Chip>);
+    const chip = screen.getByRole('button');
+    fireEvent.keyDown(chip, { key: ' ' });
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -72,7 +88,20 @@ describe('Input + Field', () => {
 
   it('invalid 시 ds-input--invalid', () => {
     const { container } = render(<Input invalid />);
-    expect(container.querySelector('input')?.className).toMatch(/\bds-input--invalid\b/);
+    const input = container.querySelector('input')!;
+    expect(input.className).toMatch(/\bds-input--invalid\b/);
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('Textarea/Select invalid 도 aria-invalid 를 연결', () => {
+    render(
+      <>
+        <Textarea invalid aria-label="설명" />
+        <Select invalid aria-label="종류"><option>자전거</option></Select>
+      </>,
+    );
+    expect(screen.getByLabelText('설명')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('종류')).toHaveAttribute('aria-invalid', 'true');
   });
 });
 
@@ -80,6 +109,15 @@ describe('Switch', () => {
   it('label prop 시 라벨 텍스트 노출', () => {
     render(<Switch label="자동 업로드" defaultChecked />);
     expect(screen.getByText('자동 업로드')).toBeTruthy();
+  });
+});
+
+describe('IconButton', () => {
+  it('loading 시 disabled + spinner 표시', () => {
+    render(<IconButton aria-label="저장" icon={<svg />} loading />);
+    const btn = screen.getByRole('button', { name: '저장' });
+    expect(btn).toBeDisabled();
+    expect(btn.querySelector('.ds-btn__spinner')).toBeTruthy();
   });
 });
 

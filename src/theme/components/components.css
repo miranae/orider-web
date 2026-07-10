@@ -31,7 +31,7 @@
 }
 .ds-btn:hover:not(:disabled) { background: var(--bg-3); border-color: var(--bg-4); }
 .ds-btn:active:not(:disabled) { transform: translateY(1px); }
-.ds-btn:disabled, .ds-btn[aria-disabled="true"] {
+.ds-btn:disabled {
   opacity: .5; cursor: not-allowed;
 }
 .ds-btn:focus-visible {
@@ -171,6 +171,20 @@
   color: var(--color-error);
   border-color: color-mix(in oklab, var(--color-error) 30%, transparent);
 }
+.ds-chip--selectable {
+  cursor: pointer;
+  user-select: none;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.ds-chip--selectable:hover {
+  background: var(--bg-4);
+  border-color: var(--line);
+  color: var(--ink-1);
+}
+.ds-chip--selectable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .ds-chip__dot {
   width: 6px; height: 6px; border-radius: 50%; background: currentColor;
   display: inline-block; flex-shrink: 0;
@@ -275,6 +289,23 @@ select.ds-input {
 }
 .ds-switch input:checked + .ds-switch__slider::before { transform: translateX(16px); }
 .ds-switch input:disabled + .ds-switch__slider { opacity: .5; cursor: not-allowed; }
+.ds-switch input:focus-visible + .ds-switch__slider {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-btn,
+  .ds-card,
+  .ds-chip,
+  .ds-switch__slider,
+  .ds-switch__slider::before,
+  .ds-progress__bar,
+  .ds-btn__spinner {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 
 /* ===== Stack (layout) ===== */
 .ds-stack {

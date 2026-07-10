@@ -14,12 +14,13 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   mono?: boolean;
 }
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { invalid, mono, className, ...rest },
+  { invalid, mono, className, 'aria-invalid': ariaInvalid, ...rest },
   ref,
 ) {
   return (
     <input
       ref={ref}
+      aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
       className={cn('ds-input', invalid && 'ds-input--invalid', mono && 'ds-input--mono', className)}
       {...rest}
     />
@@ -31,11 +32,11 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
   invalid?: boolean;
 }
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
-  { invalid, className, ...rest },
+  { invalid, className, 'aria-invalid': ariaInvalid, ...rest },
   ref,
 ) {
   return (
-    <textarea ref={ref} className={cn('ds-input', invalid && 'ds-input--invalid', className)} {...rest} />
+    <textarea ref={ref} aria-invalid={ariaInvalid ?? (invalid ? true : undefined)} className={cn('ds-input', invalid && 'ds-input--invalid', className)} {...rest} />
   );
 });
 
@@ -44,11 +45,11 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   invalid?: boolean;
 }
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { invalid, className, children, ...rest },
+  { invalid, className, children, 'aria-invalid': ariaInvalid, ...rest },
   ref,
 ) {
   return (
-    <select ref={ref} className={cn('ds-input', invalid && 'ds-input--invalid', className)} {...rest}>
+    <select ref={ref} aria-invalid={ariaInvalid ?? (invalid ? true : undefined)} className={cn('ds-input', invalid && 'ds-input--invalid', className)} {...rest}>
       {children}
     </select>
   );
