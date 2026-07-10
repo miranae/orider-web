@@ -8,6 +8,7 @@ describe("navHubs", () => {
       expect(getActiveHub("/fitness")).toBe("train");
       expect(getActiveHub("/plan")).toBe("train");
       expect(getActiveHub("/log")).toBe("train");
+      expect(getActiveHub("/activity/upload")).toBe("train");
       expect(getActiveHub("/goal-setup")).toBe("train");
       expect(getActiveHub("/courses")).toBe("explore");
       expect(getActiveHub("/explore")).toBe("explore");
@@ -27,34 +28,37 @@ describe("navHubs", () => {
 
     it("상세 경로도 부모 허브로 매핑", () => {
       expect(getActiveHub("/course/abc")).toBe("explore");
+      expect(getActiveHub("/segment/create")).toBe("explore");
       expect(getActiveHub("/segment/abc")).toBe("explore");
+      expect(getActiveHub("/activity/xyz")).toBe("train");
       expect(getActiveHub("/board/123")).toBe("community");
       expect(getActiveHub("/group/g1")).toBe("community");
       expect(getActiveHub("/event/e1")).toBe("community");
+      expect(getActiveHub("/athlete/u1")).toBe("community");
+      expect(getActiveHub("/friend/invite-code")).toBe("community");
     });
 
     it("매칭 없는 경로는 home 폴백", () => {
-      expect(getActiveHub("/activity/xyz")).toBe("home");
       expect(getActiveHub("/unknown")).toBe("home");
     });
   });
 
   describe("isHubSubRoute", () => {
     it("허브 서브 목적지(목록/루트)에선 true", () => {
-      for (const p of ["/fitness", "/plan", "/log", "/discover", "/explore", "/leaderboard", "/courses", "/board", "/creator", "/groups", "/events", "/friends", "/about", "/my", "/settings"]) {
+      for (const p of ["/fitness", "/activity/upload", "/plan", "/log", "/discover", "/explore", "/leaderboard", "/courses", "/board", "/creator", "/groups", "/events", "/friends", "/about", "/my", "/settings"]) {
         expect(isHubSubRoute(p)).toBe(true);
       }
     });
 
     it("상세·흐름·홈 경로에선 false (서브탭바 미노출)", () => {
-      for (const p of ["/", "/board/123", "/group/g1", "/segment/s1", "/course/c1", "/event/e1", "/goal-setup", "/activity/xyz", "/social"]) {
+      for (const p of ["/", "/board/123", "/group/g1", "/segment/s1", "/segment/create", "/course/c1", "/event/e1", "/goal-setup", "/activity/xyz", "/social"]) {
         expect(isHubSubRoute(p)).toBe(false);
       }
     });
   });
 
   it("getHub 은 key 로 허브를 반환", () => {
-    expect(getHub("train").subs.map((s) => s.to)).toEqual(["/fitness", "/plan", "/log"]);
+    expect(getHub("train").subs.map((s) => s.to)).toEqual(["/fitness", "/activity/upload", "/plan", "/log"]);
     expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/discover", "/explore", "/leaderboard", "/courses"]);
     expect(getHub("community").subs.map((s) => s.to)).toEqual(["/board", "/creator", "/groups", "/events", "/friends", "/about"]);
     expect(getHub("home").subs).toHaveLength(0);

@@ -54,6 +54,8 @@ jobs:
         if: steps.changes.outputs.docs_only != 'true'
       - run: npm run quality:budget
         if: steps.changes.outputs.docs_only != 'true'
+      - run: npm run check:i18n
+        if: steps.changes.outputs.docs_only != 'true'
       - run: npm run check:deploy-config
         if: steps.changes.outputs.docs_only != 'true'
       - run: npm test

@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { LocaleProvider, useLocale } from './LocaleContext';
+import { AUTO_LOCALE_REDIRECT_KEY } from '../i18n/detector';
 
 vi.mock('../services/firebase', () => ({
   firestore: {},
@@ -15,6 +16,11 @@ function Probe() {
   const { locale, units } = useLocale();
   return <div>{locale}/{units}</div>;
 }
+
+beforeEach(() => {
+  sessionStorage.removeItem(AUTO_LOCALE_REDIRECT_KEY);
+  window.history.replaceState(null, '', '/');
+});
 
 describe('LocaleContext', () => {
   it('provides defaults', () => {
@@ -49,5 +55,24 @@ describe('LocaleContext', () => {
       </LocaleProvider>
     );
     expect(screen.getByText('en/imperial')).toBeInTheDocument();
+  });
+
+  it('replaces an automatic URL language prefix with the auth profile locale', async () => {
+    window.history.replaceState(null, '', '/en/settings');
+    sessionStorage.setItem(
+      AUTO_LOCALE_REDIRECT_KEY,
+      JSON.stringify({ target: '/en/settings', lang: 'en' })
+    );
+
+    render(
+      <LocaleProvider userId="test-uid" profile={{ locale: 'ko' }}>
+        <Probe />
+      </LocaleProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('ko/metric')).toBeInTheDocument();
+    });
+    expect(window.location.pathname).toBe('/ko/settings');
   });
 });

@@ -51,6 +51,7 @@ const BoardPage = lazyTimed("BoardPage", () => import("./pages/BoardPage"));
 const PostDetailPage = lazyTimed("PostDetailPage", () => import("./pages/PostDetailPage"));
 const CreatePostPage = lazyTimed("CreatePostPage", () => import("./pages/CreatePostPage"));
 const CreatorHubPage = lazyTimed("CreatorHubPage", () => import("./pages/CreatorHubPage"));
+const AboutPage = lazyTimed("AboutPage", () => import("./pages/AboutPage"));
 const StravaTermsPage = lazyTimed("StravaTermsPage", () => import("./pages/StravaTermsPage"));
 const CreateSegmentPage = lazyTimed("CreateSegmentPage", () => import("./pages/CreateSegmentPage"));
 const CoursePage = lazyTimed("CoursePage", () => import("./pages/CoursePage"));
@@ -124,16 +125,6 @@ function AppErrorFallback({ error, reset }: { error: Error; reset: () => void })
   );
 }
 
-function StaticAboutRedirect() {
-  const { i18n } = useTranslation();
-  useEffect(() => {
-    const lang = i18n.language.startsWith("en") ? "en" : "ko";
-    window.location.assign(`/${lang}/about/index.html`);
-  }, [i18n.language]);
-
-  return <LoadingSpinner />;
-}
-
 function AppRoutes() {
   return (
     <Routes>
@@ -190,7 +181,7 @@ function AppRoutes() {
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="community" element={<CommunityGuidelinesPage />} />
-          <Route path="about" element={<StaticAboutRedirect />} />
+          <Route path="about" element={<AboutPage />} />
           <Route path="strava-terms" element={<StravaTermsPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="event/create" element={<EventCreatePage />} />

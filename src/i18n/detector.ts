@@ -2,6 +2,7 @@ import type { CustomDetector } from 'i18next-browser-languagedetector';
 
 export const SUPPORTED_LANGS = ['ko', 'en'] as const;
 export type Lang = typeof SUPPORTED_LANGS[number];
+export const AUTO_LOCALE_REDIRECT_KEY = 'orider:auto-locale-redirect';
 
 export function detectLangFromPath(pathname: string): Lang | null {
   const seg = pathname.split('/')[1];

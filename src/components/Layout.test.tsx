@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Layout, { buildOnboardingRedirectTarget, shouldBypassOnboardingRedirect } from "./Layout";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -252,6 +252,23 @@ describe("Layout", () => {
     });
     const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
     expect(within(tabBar).getAllByRole("tab")).toHaveLength(5);
+  });
+
+  it("closes the mobile slide menu when browser back is pressed", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Layout />, { authenticated: false });
+
+    const moreButtons = await screen.findAllByRole("button", { name: "더보기" });
+    await user.click(moreButtons[0]!);
+    expect(await screen.findByRole("button", { name: "닫기" })).toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
+    });
   });
 
   it("marks repeated navigation controls with visible keyboard focus styles", async () => {
