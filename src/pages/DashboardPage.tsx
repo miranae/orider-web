@@ -21,8 +21,10 @@ import { toLocalDate } from "../utils/dateUtils";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { isYearRecapSeason } from "../utils/yearRecapSeason";
+import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
 import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
+import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text } from "../theme/components";
 import type { Activity } from "@shared/types";
@@ -161,6 +163,7 @@ export default function DashboardPage() {
   const { weeklyStats, thisWeek } = useWeeklyStats();
   const monthlyActivityDistance = useMonthlyActivityDistance();
   const activitySearch = useActivitySearch();
+  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
   const [searchParams] = useSearchParams();
   const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
@@ -379,6 +382,7 @@ export default function DashboardPage() {
           distance: ws.distance,
         }))}
         showYearRecapBanner={showYearRecapBanner}
+        consistencyStreak={consistencyStreak}
       />
     );
   }
@@ -422,6 +426,12 @@ export default function DashboardPage() {
             <Suspense fallback={null}>
               <TodaysWorkoutCard />
             </Suspense>
+          </div>
+        )}
+
+        {consistencyStreak && (
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <ConsistencyStreakCard summary={consistencyStreak} />
           </div>
         )}
 

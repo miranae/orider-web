@@ -19,6 +19,8 @@ import SportFilterTabs from "./SportFilterTabs";
 import { getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Text } from "../../theme/components";
+import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
+import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 
 export type ZoneSource = "power" | "hr" | "none";
 
@@ -407,7 +409,13 @@ function SectionCard({ children, title, sub }: { children: React.ReactNode; titl
 }
 
 // ── 메인 ──────────────────────────────────────────────────────
-export default function MobileFitnessPage({ data }: { data: MobileFitnessData }) {
+export default function MobileFitnessPage({
+  data,
+  consistencyStreak = null,
+}: {
+  data: MobileFitnessData;
+  consistencyStreak?: ConsistencyStreakSummary | null;
+}) {
   const { t } = useTranslation("dashboard");
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
   // sportSegment 는 URL ?sport= 와 양방향 바인딩 — 탭 클릭 시 URL 갱신 →
@@ -484,6 +492,12 @@ export default function MobileFitnessPage({ data }: { data: MobileFitnessData })
 
       {tab === "overview" && (
         <div style={{ paddingTop: 14 }}>
+          {consistencyStreak && (
+            <div style={{ padding: "0 14px 14px" }}>
+              <ConsistencyStreakCard summary={consistencyStreak} compact />
+            </div>
+          )}
+
           {/* KPI 4×1 표 — 데스크탑 FitnessPage KPI 스트립과 동일 패턴 (점+eyebrow+값+unit+desc), 모바일 폭에 맞춰 컴팩트. */}
           <SectionCard>
             <div

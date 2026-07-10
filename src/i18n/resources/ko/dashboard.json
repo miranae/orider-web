@@ -68,6 +68,13 @@
     "desc": "거리, 시간, 고도, 90일 일관성, 월별 흐름을 한 장의 공유 카드로 정리합니다.",
     "cta": "연말결산 보기"
   },
+  "streak": {
+    "eyebrow": "라이딩 루틴",
+    "title": "{{count}}주 연속 라이딩",
+    "maintained": "이번 주 {{count}}회 완료 · 루틴 유지 중",
+    "needOne": "이번 주 유지까지 1회 · 주말에 한 번이면 이어집니다",
+    "score": "90일"
+  },
   "sidebar": {
     "weeklyTss": {
       "title": "주간 TSS",
