@@ -71,6 +71,7 @@ export default function AthletePage() {
 
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
+  const [relationshipLoading, setRelationshipLoading] = useState(true);
   const [friendLoading, setFriendLoading] = useState(false);
   const autoInviteAttemptRef = useRef<string | null>(null);
   const [friendCount, setFriendCount] = useState(0);
@@ -103,6 +104,14 @@ export default function AthletePage() {
 
   useEffect(() => {
     if (!userId) return;
+    if (profileLoading && !ownProfileFallback) return;
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+      setActivitiesLoading(false);
+      setDisplayActivities([]);
+      setLastActivityDoc(null);
+      setHasMoreActivities(false);
+      return;
+    }
     let cancelled = false;
 
     const load = async () => {
@@ -134,11 +143,16 @@ export default function AthletePage() {
 
     load();
     return () => { cancelled = true; };
-  }, [userId, isOwnProfile]);
+  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
 
   // 2. 통계 카드: 실제 표시 가능한 활동을 개별 활동 카드와 같은 시간 기준으로 집계.
   useEffect(() => {
     if (!userId) return;
+    if (profileLoading && !ownProfileFallback) return;
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+      setStats({ count: 0, distance: 0, time: 0, elevation: 0 });
+      return;
+    }
     let cancelled = false;
 
     const loadStats = async () => {
@@ -165,11 +179,16 @@ export default function AthletePage() {
     void loadStats();
 
     return () => { cancelled = true; };
-  }, [isOwnProfile, userId]);
+  }, [isOwnProfile, userId, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
 
   // 3. 월간 차트: 백그라운드 (limit 200)
   useEffect(() => {
     if (!userId) return;
+    if (profileLoading && !ownProfileFallback) return;
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+      setChartActivities([]);
+      return;
+    }
 
     const constraints = [
       where("userId", "==", userId),
@@ -182,7 +201,7 @@ export default function AthletePage() {
       .then((snap) => {
         setChartActivities(docsToActivities(snap.docs));
       }).catch((err) => logClientError("AthletePage.loadChartActivities", err, { userId, isOwnProfile }));
-  }, [userId, isOwnProfile]);
+  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
 
   // 4. 서버 검색: keywords array-contains 쿼리
   const handleSearch = () => {
@@ -194,6 +213,12 @@ export default function AthletePage() {
   // searchQuery 변경 시 서버 검색 실행
   useEffect(() => {
     if (!searchQuery || !userId) return;
+    if (profileLoading && !ownProfileFallback) return;
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
 
     let cancelled = false;
     setSearchLoading(true);
@@ -231,7 +256,7 @@ export default function AthletePage() {
     });
 
     return () => { cancelled = true; };
-  }, [searchQuery, userId, isOwnProfile]);
+  }, [searchQuery, userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
 
   const handleResetSearch = () => {
     setSearchQuery("");
@@ -240,6 +265,8 @@ export default function AthletePage() {
 
   const handleLoadMoreActivities = async () => {
     if (!userId || !lastActivityDoc || loadingMore) return;
+    if (profileLoading && !ownProfileFallback) return;
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
     setLoadingMore(true);
     try {
       const constraints = [
@@ -265,6 +292,11 @@ export default function AthletePage() {
   // Fetch my segments
   useEffect(() => {
     if (!userId) return;
+    if (profileLoading && !ownProfileFallback) return;
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+      setMySegments([]);
+      return;
+    }
     getDocs(query(
       collection(firestore, "segments"),
       where("createdByUid", "==", userId),
@@ -276,12 +308,17 @@ export default function AthletePage() {
         return { id: d.id, name: data.name, distance: data.distance, status: data.status ?? "active", createdAt: data.createdAt };
       }));
     }).catch((err) => logClientError("AthletePage.bg", err, {}));
-  }, [userId]);
+  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
 
   // Check friend relationship
   useEffect(() => {
-    if (!currentUser || !userId || currentUser.uid === userId) return;
+    if (!currentUser || !userId || currentUser.uid === userId) {
+      setFriendStatus("none");
+      setRelationshipLoading(false);
+      return;
+    }
 
+    setRelationshipLoading(true);
     // 1. 이미 친구인지 확인
     getDoc(doc(firestore, "friends", currentUser.uid, "users", userId))
       .then((snap) => {
@@ -303,7 +340,8 @@ export default function AthletePage() {
               });
           });
       })
-      .catch((err) => logClientError("AthletePage.bg", err, {}));
+      .catch((err) => logClientError("AthletePage.bg", err, {}))
+      .finally(() => setRelationshipLoading(false));
   }, [currentUser, userId]);
 
   // Handle auto-friend request from invite link
@@ -313,6 +351,7 @@ export default function AthletePage() {
       !userId ||
       currentUser.uid === userId ||
       searchParams.get("action") !== "invite" ||
+      profileForPage?.friendRequestsAllowed === false ||
       friendStatus !== "none" ||
       friendLoading
     ) return;
@@ -326,11 +365,17 @@ export default function AthletePage() {
         showToast(t("friend.autoSent"));
       }
     });
-  }, [currentUser, userId, friendStatus, friendLoading, searchParams, t]);
+  }, [currentUser, userId, profileForPage?.friendRequestsAllowed, friendStatus, friendLoading, searchParams, t]);
 
   // Fetch friend list + count
   useEffect(() => {
     if (!userId) return;
+    if (profileLoading && !ownProfileFallback) return;
+    if (!isOwnProfile && friendStatus !== "friends") {
+      setFriendCount(0);
+      setFriends([]);
+      return;
+    }
 
     getDocs(collection(firestore, "friends", userId, "users"))
       .then((snap) => {
@@ -345,7 +390,7 @@ export default function AthletePage() {
         }));
       })
       .catch((err) => logClientError("AthletePage.bg", err, {}));
-  }, [userId]);
+  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, friendStatus]);
 
   const handleSendFriendRequest = async (): Promise<boolean> => {
     if (!currentUser || !userId || friendLoading) return false;
@@ -432,6 +477,9 @@ export default function AthletePage() {
 
   const nickname = profileForPage?.nickname;
   const photoURL = profileForPage?.photoURL ?? null;
+  const canViewProfile = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
+  const canViewFriends = isOwnProfile || friendStatus === "friends";
+  const canSendFriendRequest = profileForPage?.friendRequestsAllowed !== false;
   const activities = displayActivities.map((a) =>
     !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
   );
@@ -496,10 +544,44 @@ export default function AthletePage() {
     );
   }
 
+  if (profileForPage?.profilePublic === false && !canViewProfile && relationshipLoading) {
+    return (
+      <div className="space-y-6">
+        <Card padding="none" className="rounded-[var(--r-lg)] p-8 text-center text-[var(--ink-3)]">
+          {t("privacy.checking")}
+        </Card>
+      </div>
+    );
+  }
+
   if (!nickname) {
     return (
       <div className="text-center py-12 text-[var(--ink-3)]">
         {t("notFound")}
+      </div>
+    );
+  }
+
+  if (!canViewProfile) {
+    return (
+      <div className="space-y-6">
+        <Card padding="none" className="rounded-[var(--r-lg)] p-8 text-center">
+          <div className="text-[length:var(--fs-lg)] font-semibold text-[var(--ink-0)]">
+            {t("privacy.privateTitle")}
+          </div>
+          <div className="mt-2 text-[length:var(--fs-sm)] text-[var(--ink-3)]">
+            {t("privacy.privateDesc")}
+          </div>
+          {currentUser && canSendFriendRequest && friendStatus === "none" && (
+            <button
+              onClick={handleSendFriendRequest}
+              disabled={friendLoading}
+              className={`ds-btn ds-btn--md mt-5 px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] disabled:opacity-50${friendLoading ? ' cursor-wait' : ''}`}
+            >
+              {friendLoading ? t("friend.requesting") : t("friend.request")}
+            </button>
+          )}
+        </Card>
       </div>
     );
   }
@@ -547,7 +629,7 @@ export default function AthletePage() {
         </div>
         {!isMe && currentUser && (
           <div className="flex gap-2">
-            {friendStatus === "none" && (
+            {friendStatus === "none" && canSendFriendRequest && (
               <button
                 onClick={handleSendFriendRequest}
                 disabled={friendLoading}
@@ -625,8 +707,8 @@ export default function AthletePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Friends & Chart */}
         <div className="space-y-6 sticky top-0 self-start">
-          {/* Friends List (Always visible) */}
-          <Card padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
+          {/* Friends List */}
+          {canViewFriends && <Card padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
               <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">{t("friends.title", { count: friendCount })}</h3>
               <Link to="/friends" className="text-[length:var(--fs-xs)] text-[var(--lime)] hover:opacity-80 font-medium">
@@ -668,7 +750,7 @@ export default function AthletePage() {
                 </div>
               )}
             </div>
-          </Card>
+          </Card>}
 
           {/* My Segments */}
           {mySegments.length > 0 && (
