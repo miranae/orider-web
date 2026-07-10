@@ -62,6 +62,12 @@
       "ctaConnectStrava": "Connect Strava"
     }
   },
+  "yearRecap": {
+    "eyebrow": "December season",
+    "title": "Review your riding year",
+    "desc": "Summarize distance, time, elevation, 90-day consistency, and monthly trends into a share card.",
+    "cta": "View recap"
+  },
   "sidebar": {
     "weeklyTss": {
       "title": "Weekly TSS",

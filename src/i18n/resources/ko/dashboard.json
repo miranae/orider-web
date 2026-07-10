@@ -62,6 +62,12 @@
       "ctaConnectStrava": "Strava 연결"
     }
   },
+  "yearRecap": {
+    "eyebrow": "12월 시즌",
+    "title": "올해의 라이딩을 연말결산으로 확인하세요",
+    "desc": "거리, 시간, 고도, 90일 일관성, 월별 흐름을 한 장의 공유 카드로 정리합니다.",
+    "cta": "연말결산 보기"
+  },
   "sidebar": {
     "weeklyTss": {
       "title": "주간 TSS",

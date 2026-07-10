@@ -1,0 +1,54 @@
+{
+  "title": "Year in Review",
+  "subtitle": "My {{year}} riding",
+  "rider": "Rider",
+  "loginRequired": "Please sign in.",
+  "loading": "Loading...",
+  "selectYear": "Select year",
+  "activeDays": "{{count}} active days",
+  "totalCalories": "{{kcal}} kcal burned",
+  "monthShort": "{{month}}",
+  "empty": {
+    "title": "No activities in {{year}} yet",
+    "desc": "Record a ride and your year in review will fill up."
+  },
+  "section": {
+    "totals": "Yearly totals",
+    "consistency": "90-day consistency",
+    "byDiscipline": "By sport",
+    "highlights": "Best efforts",
+    "monthly": "Monthly trend",
+    "share": "Share"
+  },
+  "stat": {
+    "distance": "Total distance",
+    "time": "Total time",
+    "elevation": "Total elevation",
+    "activities": "Activities"
+  },
+  "unit": {
+    "hour": "h",
+    "count": "",
+    "day": "d",
+    "week": "w"
+  },
+  "highlight": {
+    "longestDistance": "Longest distance",
+    "longestDuration": "Longest time",
+    "biggestClimb": "Biggest climb"
+  },
+  "consistency": {
+    "score": "Consistency score",
+    "activeDays": "Active days",
+    "activeWeeks": "Active weeks",
+    "streak": "Longest streak",
+    "note": "Based on the last {{window}} days. Your current active streak is {{current}} days."
+  },
+  "share": {
+    "desc": "Save your year as a card image for social media.",
+    "square": "Share square card",
+    "story": "Save story card"
+  },
+  "shareTitle": "{{year}} Year in Review",
+  "shareFooter": "orider.co.kr · Orider"
+}

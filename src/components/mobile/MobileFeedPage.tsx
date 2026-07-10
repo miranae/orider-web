@@ -31,6 +31,7 @@ interface MobileFeedPageProps {
   loadingMore: boolean;
   onLoadMore: () => void;
   recentWeeks: WeekEntry[];
+  showYearRecapBanner?: boolean;
 }
 
 function formatDur(ms: number): string {
@@ -213,7 +214,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 }
 
 export default function MobileFeedPage({
-  activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks,
+  activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks, showYearRecapBanner = false,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
@@ -264,6 +265,23 @@ export default function MobileFeedPage({
           <Card padding="none" style={{ margin: "0 -16px", padding: "var(--space-3)", borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("mobileFeed.weeklyDistance")}</Text>
             <WeekBars weeks={recentWeeks} />
+          </Card>
+        </div>
+      )}
+
+      {showYearRecapBanner && (
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+          <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "var(--lime)" }}>
+            <Text variant="eyebrow" tone="secondary">{t("yearRecap.eyebrow")}</Text>
+            <Text as="h2" variant="subtitle" weight={700} style={{ display: "block", marginTop: "var(--space-1)", color: "var(--ink-0)" }}>
+              {t("yearRecap.title")}
+            </Text>
+            <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}>
+              {t("yearRecap.desc")}
+            </Text>
+            <Link to="/year-recap" className="ds-btn ds-btn--primary ds-btn--sm" style={{ textDecoration: "none", width: "100%" }}>
+              <span className="ds-btn__label">{t("yearRecap.cta")}</span>
+            </Link>
           </Card>
         </div>
       )}

@@ -1,0 +1,54 @@
+{
+  "title": "연말결산",
+  "subtitle": "{{year}}년 나의 라이딩",
+  "rider": "라이더",
+  "loginRequired": "로그인이 필요합니다.",
+  "loading": "불러오는 중...",
+  "selectYear": "연도 선택",
+  "activeDays": "{{count}}일 활동",
+  "totalCalories": "{{kcal}} kcal 소모",
+  "monthShort": "{{month}}월",
+  "empty": {
+    "title": "{{year}}년 활동이 아직 없어요",
+    "desc": "라이딩을 기록하면 연말결산이 채워집니다."
+  },
+  "section": {
+    "totals": "한 해 총합",
+    "consistency": "90일 일관성",
+    "byDiscipline": "종목별",
+    "highlights": "최고 노력",
+    "monthly": "월별 추이",
+    "share": "공유하기"
+  },
+  "stat": {
+    "distance": "총 거리",
+    "time": "총 시간",
+    "elevation": "총 상승고도",
+    "activities": "활동 수"
+  },
+  "unit": {
+    "hour": "시간",
+    "count": "회",
+    "day": "일",
+    "week": "주"
+  },
+  "highlight": {
+    "longestDistance": "최장 거리",
+    "longestDuration": "최장 시간",
+    "biggestClimb": "최대 상승고도"
+  },
+  "consistency": {
+    "score": "일관성 점수",
+    "activeDays": "활동일",
+    "activeWeeks": "활동 주",
+    "streak": "최장 연속",
+    "note": "최근 {{window}}일 기준입니다. 현재 연속 활동은 {{current}}일입니다."
+  },
+  "share": {
+    "desc": "한 해 기록을 SNS 공유용 카드로 저장하세요.",
+    "square": "정사각 카드 공유",
+    "story": "스토리 카드 저장"
+  },
+  "shareTitle": "{{year}} 연말결산",
+  "shareFooter": "orider.co.kr · 오라이더"
+}
