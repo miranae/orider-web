@@ -613,6 +613,23 @@ export default function PlanPage() {
   const isMobile = useMobile();
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
   const retryLoad = () => setReloadKey((key) => key + 1);
+  const mobilePlanViewModel = useMemo(() => {
+    const now = Date.now();
+    const currentWeekIdx = weeks.findIndex((w) => w.days.some((d) => {
+      if (!d.date) return false;
+      const dayStart = new Date(d.date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      return now >= dayStart.getTime() && now < dayEnd.getTime();
+    }));
+    const baseIdx = currentWeekIdx >= 0 ? currentWeekIdx : 0;
+    const mobileWeekIdx = Math.max(0, Math.min(weeks.length - 1, baseIdx + mobileWeekOffset));
+    return {
+      currentWeek: weeks[mobileWeekIdx] ?? null,
+      weekLabel: mobileWeekOffset === 0 ? t('mobile.weekThis') : `W${mobileWeekIdx + 1}`,
+    };
+  }, [mobileWeekOffset, t, weeks]);
   const exportPlanIcs = () => {
     if (!goal) return;
     const ics = generateICS(weeks, goal.courseName, tActivity);
@@ -704,26 +721,11 @@ export default function PlanPage() {
   }
 
   if (isMobile && !loading) {
-    // Find the current week index (the one containing today)
-    const now = Date.now();
-    const currentWeekIdx = weeks.findIndex((w) => w.days.some((d) => {
-      if (!d.date) return false;
-      const dayStart = new Date(d.date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-      return now >= dayStart.getTime() && now < dayEnd.getTime();
-    }));
-    const baseIdx = currentWeekIdx >= 0 ? currentWeekIdx : 0;
-    const mobileWeekIdx = Math.max(0, Math.min(weeks.length - 1, baseIdx + mobileWeekOffset));
-    const mobileWeek = weeks[mobileWeekIdx] ?? null;
-    const mobileWeekLabel = mobileWeekOffset === 0 ? t('mobile.weekThis') : `W${mobileWeekIdx + 1}`;
-
     return (
       <>
         <MobilePlanPage
-          currentWeek={mobileWeek}
-          weekLabel={mobileWeekLabel}
+          currentWeek={mobilePlanViewModel.currentWeek}
+          weekLabel={mobilePlanViewModel.weekLabel}
           goalId={goal?.id}
           goalTitle={goal?.courseName}
           daysLeft={daysLeft}

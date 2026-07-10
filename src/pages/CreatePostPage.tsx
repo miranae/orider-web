@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
+import { useMobile } from "../hooks/useMobile";
 import DOMPurify from 'dompurify';
 import { useCreatePost } from '../features/board/useBoard';
 
@@ -73,11 +74,24 @@ function findParentBlock(editor: HTMLElement): { blockType: string; listType: st
   return { blockType, listType };
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function plainTextToHtml(value: string): string {
+  return value.split(/\n/).map((line) => line.trim() ? `<p>${escapeHtml(line)}</p>` : "<p><br></p>").join("");
+}
+
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation("board");
   const { user } = useAuth();
   const dialog = useDialog();
+  const isMobile = useMobile();
   const { createPost, submitting } = useCreatePost();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -98,6 +112,7 @@ const CreatePostPage: React.FC = () => {
   const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const [editorEmpty, setEditorEmpty] = useState(true);
   const [editorRevision, setEditorRevision] = useState(0);
+  const [mobilePlainText, setMobilePlainText] = useState('');
 
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'question' | 'other'>(isCreatorRecipeTemplate ? 'feature' : 'bug');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -149,6 +164,7 @@ const CreatePostPage: React.FC = () => {
     const lines = t('creatorRecipeTemplate.lines', { returnObjects: true }) as string[];
 
     editor.innerHTML = lines.map((line) => line ? `<p>${line}</p>` : '<p><br></p>').join('');
+    setMobilePlainText(lines.join("\n"));
     setEditorEmpty(false);
   }, [i18n.language, isCreatorRecipeTemplate, t]);
 
@@ -164,9 +180,18 @@ const CreatePostPage: React.FC = () => {
     setIsPrivate(draft.isPrivate);
     if (editorRef.current) {
       editorRef.current.innerHTML = DOMPurify.sanitize(draft.contentHtml);
+      setMobilePlainText(editorRef.current.textContent ?? '');
       markEditorChanged();
     }
   }, [draftKey, markEditorChanged]);
+
+  const handleMobilePlainTextChange = (value: string) => {
+    setMobilePlainText(value);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = DOMPurify.sanitize(plainTextToHtml(value));
+    }
+    markEditorChanged();
+  };
 
   useEffect(() => {
     if (!draftKey) return;
@@ -934,6 +959,8 @@ const CreatePostPage: React.FC = () => {
                           <div
                             key={i}
                             onMouseEnter={() => setTableHover({ rows: row, cols: col })}
+                            onPointerEnter={() => setTableHover({ rows: row, cols: col })}
+                            onPointerDown={() => setTableHover({ rows: row, cols: col })}
                             onMouseDown={(e) => { e.preventDefault(); insertTable(row, col); }}
                             className={`w-5 h-5 border rounded-[var(--r-sm)] cursor-pointer transition-colors ${
                               isHighlighted
@@ -975,14 +1002,22 @@ const CreatePostPage: React.FC = () => {
                   {t('placeholder.editorHint')}
                 </div>
               )}
+              {isMobile && (
+                <textarea
+                  value={mobilePlainText}
+                  onChange={(event) => handleMobilePlainTextChange(event.target.value)}
+                  placeholder={t('placeholder.editorHint')}
+                  className="w-full min-h-[360px] resize-y bg-transparent px-5 py-4 text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-1)] placeholder:text-[var(--ink-3)] focus:outline-none"
+                />
+              )}
               <div
                 ref={editorRef}
-                contentEditable
+                contentEditable={!isMobile}
                 suppressContentEditableWarning
                 onInput={markEditorChanged}
                 onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
-                className={`px-5 py-4 min-h-[480px] text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-1)] focus:outline-none
+                className={`${isMobile ? "sr-only" : ""} px-5 py-4 min-h-[480px] text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-1)] focus:outline-none
                   [&_img]:max-w-full [&_img]:rounded-[var(--r-lg)] [&_img]:my-3
                   [&_h2]:text-[length:var(--fs-xl)] [&_h2]:font-bold [&_h2]:my-3
                   [&_h3]:text-[length:var(--fs-lg)] [&_h3]:font-semibold [&_h3]:my-2
