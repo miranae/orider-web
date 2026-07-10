@@ -175,6 +175,43 @@ describe("AthletePage", () => {
     });
   });
 
+  it("restricts private profiles for non-friends", async () => {
+    const profile = createMockProfile({ nickname: "비공개 라이더", profilePublic: false });
+    setDocData("users_public/athlete-1", { ...profile });
+    setCollectionDocs("friends/athlete-1/users", [
+      { id: "friend-1", userId: "friend-1", nickname: "숨김 친구", profileImage: null },
+    ]);
+
+    renderWithProviders(<AthletePage />, {
+      authenticated: true,
+      user: { uid: "current-user" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("비공개 프로필입니다")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("숨김 친구")).not.toBeInTheDocument();
+    expect(screen.queryByText(/친구 \(/)).not.toBeInTheDocument();
+  });
+
+  it("hides the friend request button when requests are disabled", async () => {
+    const profile = createMockProfile({
+      nickname: "요청 차단 라이더",
+      friendRequestsAllowed: false,
+    });
+    setDocData("users_public/athlete-1", { ...profile });
+
+    renderWithProviders(<AthletePage />, {
+      authenticated: true,
+      user: { uid: "current-user" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("요청 차단 라이더")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "친구 요청" })).not.toBeInTheDocument();
+  });
+
   it("does not show friend action for own profile", async () => {
     renderWithProviders(<AthletePage />, {
       authenticated: true,
