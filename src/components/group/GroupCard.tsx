@@ -10,6 +10,7 @@ interface GroupCardProps {
   showJoinButton?: boolean;
   onJoin?: () => void;
   joining?: boolean;
+  joinPending?: boolean;
   /** 추천/공개 그룹 카드용 매칭 이유 */
   why?: string;
   /** 다음 이벤트 라벨 (예: "4/20(토) 07:00 · 북한강") */
@@ -46,7 +47,7 @@ function badgeText(name: string): string {
   return trimmed.slice(0, 2);
 }
 
-export default function GroupCard({ group, showJoinButton, onJoin, joining, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
+export default function GroupCard({ group, showJoinButton, onJoin, joining, joinPending, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
   const { t } = useTranslation("group");
   const primarySport = (group.sports && group.sports[0]) ?? group.discipline ?? "bike";
   const meta = DISCIPLINE_META[primarySport] ?? DISCIPLINE_META.bike!;
@@ -119,9 +120,9 @@ export default function GroupCard({ group, showJoinButton, onJoin, joining, why,
             <Button
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoin(); }}
-              disabled={joining} variant="primary" size="sm"
+              disabled={joining || joinPending} variant="primary" size="sm"
             >
-              {joining ? t("card.joining") : t("card.join")}
+              {joinPending ? t("card.joinPending") : joining ? t("card.joining") : t("card.join")}
             </Button>
           </div>
         )}

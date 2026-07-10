@@ -8,6 +8,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { normalizeGroupInviteCode } from "../../features/group/groupInviteLink";
+import { isPendingGroupJoinResult, type GroupJoinResult } from "../../features/group/groupJoinResult";
 
 function InviteSpinner({ label }: { label: string }) {
   return (
@@ -37,9 +38,15 @@ export default function GroupInvitePage() {
     if (!user || !inviteCode || processed || processing) return;
     setProcessing(true);
 
-    const joinFn = httpsCallable<{ inviteCode: string }, { groupId: string }>(functions, "joinGroupByCode");
+    const joinFn = httpsCallable<{ inviteCode: string }, GroupJoinResult>(functions, "joinGroupByCode");
     joinFn({ inviteCode })
       .then((result) => {
+        if (isPendingGroupJoinResult(result.data)) {
+          showToast(t("join.pendingToast"));
+          setProcessed(true);
+          navigate("/groups", { replace: true });
+          return;
+        }
         const groupId = result.data.groupId;
         if (!groupId) throw new Error("Missing group id");
         showToast(t("inviteLink.joined"));

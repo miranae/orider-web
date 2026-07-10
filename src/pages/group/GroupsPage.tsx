@@ -4,22 +4,28 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 import { useMyGroups, usePublicGroups } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
-import { Button } from "../../theme/components";
+import { Button, Card } from "../../theme/components";
+import { isPendingGroupJoinResult, type GroupJoinResult } from "../../features/group/groupJoinResult";
+import type { Group } from "@shared/types";
 
 export default function GroupsPage() {
   const { t } = useTranslation("group");
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { groups: myGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
   const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups } = usePublicGroups();
   const [showCreate, setShowCreate] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [joiningPublic, setJoiningPublic] = useState<string | null>(null);
+  const [pendingGroupIds, setPendingGroupIds] = useState<Set<string>>(() => new Set());
+  const [pendingNotice, setPendingNotice] = useState("");
   const [error, setError] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,9 +54,15 @@ export default function GroupsPage() {
     if (!inviteCode.trim()) return;
     setJoining(true);
     setError("");
+    setPendingNotice("");
     try {
-      const joinFn = httpsCallable<{ inviteCode: string }, { groupId: string }>(functions, "joinGroupByCode");
+      const joinFn = httpsCallable<{ inviteCode: string }, GroupJoinResult>(functions, "joinGroupByCode");
       const result = await joinFn({ inviteCode: inviteCode.trim() });
+      if (isPendingGroupJoinResult(result.data)) {
+        setPendingNotice(t("join.pendingByCode"));
+        showToast(t("join.pendingToast"));
+        return;
+      }
       navigate(`/group/${result.data.groupId}`);
     } catch (err: any) {
       setError(err.message === "Invalid invite code" ? t("error.invalidInviteCode") : t("error.joinFailed"));
@@ -58,12 +70,20 @@ export default function GroupsPage() {
     setJoining(false);
   };
 
-  const handleJoinPublic = async (groupId: string) => {
-    setJoiningPublic(groupId);
+  const handleJoinPublic = async (group: Group) => {
+    setJoiningPublic(group.id);
+    setPendingNotice("");
+    setError("");
     try {
-      const joinFn = httpsCallable(functions, "joinGroupPublic");
-      await joinFn({ groupId });
-      navigate(`/group/${groupId}`);
+      const joinFn = httpsCallable<{ groupId: string }, GroupJoinResult>(functions, "joinGroupPublic");
+      const result = await joinFn({ groupId: group.id });
+      if (group.approval === "manual" || isPendingGroupJoinResult(result.data)) {
+        setPendingGroupIds((prev) => new Set(prev).add(group.id));
+        setPendingNotice(t("join.pendingPublic", { name: group.name }));
+        showToast(t("join.pendingToast"));
+        return;
+      }
+      navigate(`/group/${group.id}`);
     } catch {
       setError(t("error.joinFailed"));
     }
@@ -157,6 +177,17 @@ export default function GroupsPage() {
 
       <h2 className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("find.section")}</h2>
 
+      {pendingNotice && (
+        <Card padding="compact" className="mb-4" role="status" style={{ borderColor: "color-mix(in oklch, var(--amber) 45%, var(--line-soft))" }}>
+          <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>
+            {t("join.pendingTitle")}
+          </div>
+          <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>
+            {pendingNotice}
+          </div>
+        </Card>
+      )}
+
       <div className="flex gap-2 mb-6">
         <input
           type="text"
@@ -199,8 +230,9 @@ export default function GroupsPage() {
               key={g.id}
               group={g}
               showJoinButton
-              onJoin={() => handleJoinPublic(g.id)}
+              onJoin={() => handleJoinPublic(g)}
               joining={joiningPublic === g.id}
+              joinPending={pendingGroupIds.has(g.id)}
             />
           ))}
         </div>
