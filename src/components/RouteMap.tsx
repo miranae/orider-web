@@ -451,7 +451,7 @@ export default function RouteMap({
               width: 36, height: 36, borderRadius: "50%", border: "3px solid var(--ink-0)",
               boxShadow: "0 2px 6px color-mix(in srgb, var(--bg-0) 30%, transparent)", overflow: "hidden", background: "var(--bg-3)", cursor: "pointer",
             }}>
-              <img src={photo.url} alt={photo.caption || ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={photo.url} alt={photo.caption || ""} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
           </Marker>
         ))}

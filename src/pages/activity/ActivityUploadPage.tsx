@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
+import { useMobile } from "../../hooks/useMobile";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { EmptyState, PageHeader, PermissionGate } from "../../components/redesign";
@@ -38,6 +39,7 @@ export default function ActivityUploadPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { t } = useTranslation("activity");
+  const isMobile = useMobile();
 
   const [files, setFiles] = useState<FileItem[]>([]);
   const [visibility, setVisibility] = useState<Visibility>("everyone");
@@ -200,7 +202,9 @@ export default function ActivityUploadPage() {
           {t("upload.dropZoneLabel")}
         </div>
         <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
-          {t("upload.dropZoneHint")}
+          {isMobile
+            ? t("upload.mobileFileSelectHint", { defaultValue: "탭해서 FIT, GPX, TCX 파일을 선택하세요." })
+            : t("upload.dropZoneHint")}
         </div>
         <input
           ref={inputRef}

@@ -850,6 +850,8 @@ export default function AthletePage() {
                           alt=""
                           className="w-10 h-10 rounded-full object-cover border border-[var(--line-soft)]"
                           referrerPolicy="no-referrer"
+                          loading="lazy"
+                          decoding="async"
                         />
                       ) : (
                         <Avatar name={friend.nickname} size="sm" />
