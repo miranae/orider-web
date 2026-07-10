@@ -68,6 +68,13 @@
     "desc": "Summarize distance, time, elevation, 90-day consistency, and monthly trends into a share card.",
     "cta": "View recap"
   },
+  "streak": {
+    "eyebrow": "Riding routine",
+    "title": "{{count}}-week streak",
+    "maintained": "{{count}} ride(s) this week · streak maintained",
+    "needOne": "1 ride to keep this week · one weekend ride keeps it alive",
+    "score": "90d"
+  },
   "sidebar": {
     "weeklyTss": {
       "title": "Weekly TSS",

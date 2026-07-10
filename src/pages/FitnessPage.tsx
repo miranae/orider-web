@@ -30,9 +30,11 @@ import { useFreshTraining } from "../hooks/useFreshTraining";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { usePdc } from "../hooks/usePdc";
 import { useCohortPercentiles } from "../hooks/useCohortPercentiles";
+import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
 import CohortRankingCard from "../components/CohortRankingCard";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import AdaptationSummary from "../components/training/AdaptationSummary";
+import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
 import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { Card, Text, Chip, buttonClass } from "../theme/components";
@@ -79,6 +81,7 @@ export default function FitnessPage() {
   const { pdc } = usePdc(user?.uid);
   // 코호트 백분위 랭킹(G9) — bike + pdc 있을 때만 stats doc 구독.
   const cohortStats = useCohortPercentiles(!!user);
+  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
   const [searchParams] = useSearchParams();
   const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
@@ -641,6 +644,7 @@ export default function FitnessPage() {
           powerCurve,
           discipline,
         }}
+        consistencyStreak={consistencyStreak}
       />
     );
   }
@@ -832,6 +836,12 @@ export default function FitnessPage() {
             flag={activeGoal.adaptationFlag}
             style={{ marginBottom: 'var(--space-4)' }}
           />
+        )}
+
+        {consistencyStreak && (
+          <div style={{ marginBottom: 'var(--space-4)' }}>
+            <ConsistencyStreakCard summary={consistencyStreak} />
+          </div>
         )}
 
         {/* (오늘의 권장은 홈으로 통합. 피트니스 페이지는 분석 전용.) */}

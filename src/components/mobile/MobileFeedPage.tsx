@@ -15,8 +15,10 @@ import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
 import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
 import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activitySanity";
+import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 
 const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
+const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const RouteMap = lazy(() => import("../RouteMap"));
 
 interface WeekEntry {
@@ -32,6 +34,7 @@ interface MobileFeedPageProps {
   onLoadMore: () => void;
   recentWeeks: WeekEntry[];
   showYearRecapBanner?: boolean;
+  consistencyStreak?: ConsistencyStreakSummary | null;
 }
 
 function formatDur(ms: number): string {
@@ -214,7 +217,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 }
 
 export default function MobileFeedPage({
-  activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks, showYearRecapBanner = false,
+  activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks, showYearRecapBanner = false, consistencyStreak = null,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
@@ -266,6 +269,14 @@ export default function MobileFeedPage({
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("mobileFeed.weeklyDistance")}</Text>
             <WeekBars weeks={recentWeeks} />
           </Card>
+        </div>
+      )}
+
+      {consistencyStreak && (
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+          <Suspense fallback={null}>
+            <ConsistencyStreakCard summary={consistencyStreak} compact />
+          </Suspense>
         </div>
       )}
 
