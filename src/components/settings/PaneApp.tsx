@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useLocale } from "../../contexts/LocaleContext";
 import { useStrava } from "../../hooks/useStrava";
 import { useExport } from "../../hooks/useExport";
@@ -21,6 +22,7 @@ export function PaneApp() {
   const { t } = useTranslation("settings");
   const { t: tCommon } = useTranslation("common");
   const { showToast } = useToast();
+  const dialog = useDialog();
   const { locale, units, setLocale, setUnits } = useLocale();
   const { exportData, loading: exportLoading, progress: exportProgress } = useExport();
   const { deleteUserData, loading: stravaLoading } = useStrava();
@@ -29,7 +31,7 @@ export function PaneApp() {
   const [exportFormat, setExportFormat] = useState<"GPX" | "TCX" | "FIT" | "JSON">("GPX");
 
   async function handleClearCache() {
-    if (!window.confirm(t("data.clearCacheConfirm"))) return;
+    if (!(await dialog.confirm(t("data.clearCacheConfirm"), { destructive: true }))) return;
     try {
       await deleteUserData(true);
       showToast(t("data.cacheCleared"));
@@ -39,7 +41,7 @@ export function PaneApp() {
   }
 
   async function handleDeleteAll() {
-    if (!window.confirm(t("data.deleteConfirm"))) return;
+    if (!(await dialog.confirm(t("data.deleteConfirm"), { destructive: true }))) return;
     try {
       await deleteUserData();
       showToast(t("data.deleted"));

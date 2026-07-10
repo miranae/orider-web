@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { doc, runTransaction } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { useDialog } from "../../contexts/DialogContext";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
 import { Bike, Footprints, Waves, Moon } from "lucide-react";
 
@@ -71,6 +72,7 @@ export default function AddPlanSheet({
 }: AddPlanSheetProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
+  const dialog = useDialog();
   const TEMPLATES_BY_DISCIPLINE = useMemo(() => buildTemplates(t), [t]);
   const DAY_NAMES = useMemo(() => [
     tCommon('weekday.mon'),
@@ -116,7 +118,7 @@ export default function AddPlanSheet({
       onClose();
     } catch (err) {
       logClientError("AddPlanSheet.handleAdd", err, { goalId, weekId, selectedDay, workout: template.kind });
-      alert(t('add.addFailedAlert'));
+      void dialog.alert(t('add.addFailedAlert'), { variant: "danger" });
     } finally {
       setLoading(false);
     }

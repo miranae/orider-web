@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useStrava } from "../../hooks/useStrava";
 import { LanguageToggle } from "../i18n/LanguageToggle";
 import { useLocale } from "../../contexts/LocaleContext";
@@ -44,13 +45,14 @@ export default function MobileSettingsPage() {
   const { theme, setTheme } = useTheme();
   const { units, setUnits } = useLocale();
   const { showToast } = useToast();
+  const dialog = useDialog();
   const { deleteUserData, loading: stravaLoading } = useStrava();
   const stravaConnected = !!profile?.stravaAthleteId;
 
   // 데스크톱 PaneAccount.handleDeleteAccount(파일: src/components/settings/PaneAccount.tsx:193) 미러링.
   // 확인 대화상자 → stravaDeleteUserData CF(deleteUserData) 호출 → 결과 토스트.
   const handleDeleteAccount = async () => {
-    if (!window.confirm(t("data.deleteConfirm"))) return;
+    if (!(await dialog.confirm(t("data.deleteConfirm"), { destructive: true }))) return;
     try {
       await deleteUserData();
       showToast(t("pane.account.deleteAccountDone"));

@@ -7,6 +7,7 @@ import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { DateField, TimeField, EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
 import { getSportLabelKey } from "../../utils/sportType";
 import { Button, Card, Text } from "../../theme/components";
@@ -66,6 +67,7 @@ export default function ActivityEditPage() {
   const { t: tCommon } = useTranslation("common");
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const dialog = useDialog();
 
   const [data, setData] = useState<ActivityEditData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -191,7 +193,7 @@ export default function ActivityEditPage() {
 
   const handleDelete = async () => {
     if (!activityId || !isOwner) return;
-    if (!window.confirm(t("edit.deleteConfirm"))) return;
+    if (!(await dialog.confirm(t("edit.deleteConfirm"), { destructive: true }))) return;
     setSaving(true);
     try {
       await updateDoc(doc(firestore, "activities", activityId), { deletedAt: Date.now() });

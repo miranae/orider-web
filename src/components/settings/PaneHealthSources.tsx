@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useHealthConnections } from "../../hooks/useHealthConnections";
 import { useHealthPreferences } from "../../hooks/useHealthPreferences";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import type {
   ConnectionDoc,
   ConnectionStatus,
@@ -186,6 +187,7 @@ export function PaneHealthSources() {
   const { connections, loading: connLoading } = useHealthConnections(uid);
   const { prefs, loading: prefsLoading, setPrimarySource, setRetainForever } = useHealthPreferences(uid);
   const { showToast } = useToast();
+  const dialog = useDialog();
   const [retainSaving, setRetainSaving] = useState(false);
 
   const activeProviders = useMemo<ProviderId[]>(() => {
@@ -217,7 +219,7 @@ export function PaneHealthSources() {
   async function handleRetainToggle() {
     const next = !(prefs?.retainSamplesForever ?? false);
     if (next) {
-      const confirmed = window.confirm(t("healthSources.retainForeverConfirm"));
+      const confirmed = await dialog.confirm(t("healthSources.retainForeverConfirm"));
       if (!confirmed) return;
     }
     setRetainSaving(true);

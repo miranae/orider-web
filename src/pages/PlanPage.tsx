@@ -18,6 +18,7 @@ import AdjustedChip from "../components/training/AdjustedChip";
 import { useMobile } from "../hooks/useMobile";
 import { useFreshTraining } from "../hooks/useFreshTraining";
 import { useToast } from "../contexts/ToastContext";
+import { useDialog } from "../contexts/DialogContext";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import MobilePlanPage from "../components/mobile/MobilePlanPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
@@ -488,6 +489,7 @@ export default function PlanPage() {
   const { t: tActivity } = useTranslation('activity');
   const DAY_NAMES = useMemo(() => buildDayNames(tCommon), [tCommon]);
   const { showToast } = useToast();
+  const dialog = useDialog();
   const { user } = useAuth();
   const navigate  = useNavigate();
   const [searchParams] = useSearchParams();
@@ -885,7 +887,7 @@ export default function PlanPage() {
             }}
             onReroll={async () => {
               if (!goal) return;
-              if (!window.confirm(t('confirmations.rerollConfirm'))) return;
+              if (!(await dialog.confirm(t('confirmations.rerollConfirm'), { destructive: true }))) return;
               try {
                 const reroll = httpsCallable(functions, "rerollPlan");
                 await reroll({ goalId: goal.id });
@@ -898,7 +900,7 @@ export default function PlanPage() {
             onGoalReset={() => navigate("/goal-setup")}
             onAbandon={async () => {
               if (!goal) return;
-              if (!window.confirm(t('confirmations.abandonConfirm'))) return;
+              if (!(await dialog.confirm(t('confirmations.abandonConfirm'), { destructive: true }))) return;
               try {
                 await updateDoc(doc(firestore, "goals", goal.id), { status: "abandoned", updatedAt: Date.now() });
                 navigate("/");

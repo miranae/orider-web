@@ -9,6 +9,7 @@ import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
@@ -147,6 +148,7 @@ export default function EventParticipantsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useTranslation("event");
+  const dialog = useDialog();
 
   const [event, setEvent] = useState<EventHead | null>(null);
   const [participants, setParticipants] = useState<ParticipantRow[]>([]);
@@ -488,13 +490,13 @@ export default function EventParticipantsPage() {
             </Button>
             <Button
               type="button"
-              onClick={() => alert(t("participantsView.csvSoon"))} variant="secondary" size="sm"
+              onClick={() => showToast("warn", t("participantsView.csvSoon"))} variant="secondary" size="sm"
             >
               ⬇ {t("action.exportCSV")}
             </Button>
             <Button
               type="button"
-              onClick={() => alert(t("participantsView.noticeSoon"))} variant="primary" size="sm"
+              onClick={() => showToast("warn", t("participantsView.noticeSoon"))} variant="primary" size="sm"
             >
               📢 {t("participantsView.broadcastBtn")}
             </Button>
@@ -1031,14 +1033,14 @@ export default function EventParticipantsPage() {
                 <Button
                   type="button" variant="secondary" size="sm"
                   style={{ justifyContent: "flex-start", width: "100%" }}
-                  onClick={() => alert(t("participantsView.bibChangeSoon"))}
+                  onClick={() => showToast("warn", t("participantsView.bibChangeSoon"))}
                 >
                   ✎ {t("participantsView.action.bibChange")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
                   style={{ justifyContent: "flex-start", width: "100%" }}
-                  onClick={() => alert(t("participantsView.smsSingleSoon"))}
+                  onClick={() => showToast("warn", t("participantsView.smsSingleSoon"))}
                 >
                   📤 {t("participantsView.action.smsSingle")}
                 </Button>
@@ -1078,7 +1080,7 @@ export default function EventParticipantsPage() {
                   }}
                   disabled={busy}
                   onClick={async () => {
-                    if (!confirm(t("participantsView.confirmRefund"))) return;
+                    if (!(await dialog.confirm(t("participantsView.confirmRefund"), { destructive: true }))) return;
                     const id = drawer.userId;
                     setDrawer(null);
                     await applyBulkAction("refund", [id]);

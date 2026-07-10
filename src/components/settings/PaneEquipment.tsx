@@ -4,6 +4,7 @@ import { Bike as BikeIcon, Check, Pencil, Trash2, X } from "lucide-react";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useActiveBikeProfile } from "../../hooks/useActiveBikeProfile";
 import type {
   BikeProfile,
@@ -59,6 +60,7 @@ interface SensorRowProps {
 function SensorRow({ sensor, onRemove }: SensorRowProps) {
   const { t } = useTranslation("settings");
   const { showToast } = useToast();
+  const dialog = useDialog();
   const [busy, setBusy] = useState(false);
   const typeKey = SENSOR_TYPE_KEY[sensor.type];
   const typeLabel = typeKey ? t(typeKey) : sensor.type;
@@ -68,7 +70,7 @@ function SensorRow({ sensor, onRemove }: SensorRowProps) {
 
   async function handleRemove() {
     const sensorName = sensor.deviceName ?? sensor.deviceAddress;
-    if (!window.confirm(t("equipment.sensorRemoveConfirm", { name: sensorName }))) return;
+    if (!(await dialog.confirm(t("equipment.sensorRemoveConfirm", { name: sensorName }), { destructive: true }))) return;
     setBusy(true);
     try {
       await onRemove();
@@ -146,6 +148,7 @@ function ProfileCard({
 }: ProfileCardProps) {
   const { t } = useTranslation("settings");
   const { showToast } = useToast();
+  const dialog = useDialog();
   const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name);
   const [wheelInput, setWheelInput] = useState(String(profile.wheelCircumferenceMm));
@@ -194,7 +197,7 @@ function ProfileCard({
   }
 
   async function handleDelete() {
-    if (!window.confirm(t("equipment.bikeDeleteConfirm", { name: profile.name }))) return;
+    if (!(await dialog.confirm(t("equipment.bikeDeleteConfirm", { name: profile.name }), { destructive: true }))) return;
     setBusy(true);
     try {
       await onDelete();

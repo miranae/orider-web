@@ -3,6 +3,7 @@ import { KeyRound, Copy, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button, Chip, Text } from "../../theme/components";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { logClientError } from "../../services/errorLogger";
 import {
   createPersonalApiKey,
@@ -30,6 +31,7 @@ function formatDate(value?: number) {
 export function PaneDeveloper() {
   const { t } = useTranslation("settings");
   const { showToast } = useToast();
+  const dialog = useDialog();
   const [keys, setKeys] = useState<PersonalApiKeySummary[]>([]);
   const [createdKey, setCreatedKey] = useState<CreatedPersonalApiKey | null>(null);
   const [name, setName] = useState("Personal dashboard");
@@ -84,7 +86,7 @@ export function PaneDeveloper() {
   }
 
   async function handleRevoke(key: PersonalApiKeySummary) {
-    if (!window.confirm(t("pane.developer.revokeConfirm", { name: key.name }))) return;
+    if (!(await dialog.confirm(t("pane.developer.revokeConfirm", { name: key.name }), { destructive: true }))) return;
     setRevokingId(key.id);
     try {
       await revokePersonalApiKey(key.id);

@@ -11,6 +11,7 @@ import LapTable from "../components/LapTable";
 import ExportTab from "../components/ExportTab";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
+import { useDialog } from "../contexts/DialogContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance, formatSpeed } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
@@ -146,6 +147,7 @@ export default function ActivityPage() {
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
+  const dialog = useDialog();
   const { getStreams } = useStrava();
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loadingActivity, setLoadingActivity] = useState(true);
@@ -385,7 +387,7 @@ export default function ActivityPage() {
 
   const handleDeleteActivity = async () => {
     if (!activityId || !user || user.uid !== activity?.userId) return;
-    if (!window.confirm(t("page.deleteConfirm"))) return;
+    if (!(await dialog.confirm(t("page.deleteConfirm"), { destructive: true }))) return;
     await updateDoc(doc(firestore, "activities", activityId), { deletedAt: Date.now() });
     navigate("/", { replace: true });
   };
@@ -468,7 +470,7 @@ export default function ActivityPage() {
   // Soft-delete uploaded photo (Storage file retained)
   const handleDeletePhoto = async (photo: UploadedPhoto) => {
     if (!activityId) return;
-    if (!window.confirm(t("page.photoToast.deleteConfirm"))) return;
+    if (!(await dialog.confirm(t("page.photoToast.deleteConfirm"), { destructive: true }))) return;
     await updateDoc(doc(firestore, "activity_photos", activityId, "photos", photo.id), { deletedAt: Date.now() });
     showToast(t("page.photoToast.deleted"));
   };

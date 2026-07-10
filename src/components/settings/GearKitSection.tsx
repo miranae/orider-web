@@ -21,6 +21,7 @@ import type { Gear } from "@shared/types";
 import type { GearInput } from "../../hooks/useGear";
 import { useGear } from "../../hooks/useGear";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { Button, Text } from "../../theme/components";
 import {
   SettingsCard,
@@ -304,11 +305,12 @@ interface GearRowProps {
 function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
   const { t } = useTranslation("settings");
   const { showToast } = useToast();
+  const dialog = useDialog();
   const [busy, setBusy] = useState(false);
   const Icon = TYPE_ICON[gear.type] ?? Package;
 
   async function handleDelete() {
-    if (!window.confirm(t("gear.deleteConfirm", { name: gear.name }))) return;
+    if (!(await dialog.confirm(t("gear.deleteConfirm", { name: gear.name }), { destructive: true }))) return;
     setBusy(true);
     try {
       await onDelete();

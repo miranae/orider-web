@@ -23,6 +23,7 @@ import {
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useAllDeviceSettings } from "../../hooks/useDeviceSettings";
 
 import {
@@ -595,6 +596,7 @@ export function PaneDevice() {
   const { t } = useTranslation("settings");
   const { user } = useAuth();
   const { showToast } = useToast();
+  const dialog = useDialog();
   const uid = user?.uid ?? null;
   const { records, loading, error, reload, update, broadcastUserScoped } =
     useAllDeviceSettings(uid);
@@ -921,9 +923,9 @@ export function PaneDevice() {
         </div>
         <Button
           variant="secondary"
-          onClick={() => {
+          onClick={async () => {
             if (!uid || !record) return;
-            const next = window.prompt(t("device.renamePrompt"), record.deviceName || "");
+            const next = await dialog.prompt(t("device.renamePrompt"), { defaultValue: record.deviceName || "" });
             if (next == null) return;
             void (async () => {
               try {
@@ -940,10 +942,11 @@ export function PaneDevice() {
         </Button>
         <Button
           variant="secondary"
-          onClick={() => {
+          onClick={async () => {
             if (!uid || !record) return;
-            const ok = window.confirm(
-              t("device.deleteDeviceConfirm", { name: record.deviceName || record.deviceId })
+            const ok = await dialog.confirm(
+              t("device.deleteDeviceConfirm", { name: record.deviceName || record.deviceId }),
+              { destructive: true },
             );
             if (!ok) return;
             void (async () => {

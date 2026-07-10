@@ -7,6 +7,7 @@ import { httpsCallable } from "firebase/functions";
 import { firestore as db, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDialog } from "../../contexts/DialogContext";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { decodePolyline } from "../../utils/polyline";
 import ParticipantTable from "../../components/event/ParticipantTable";
@@ -135,6 +136,7 @@ export default function EventDashboardPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const dialog = useDialog();
 
   const STATUS_LABELS: Record<string, string> = {
     DRAFT: t("status.draft"),
@@ -369,7 +371,7 @@ export default function EventDashboardPage() {
 
   const handleFinishEvent = useCallback(async () => {
     if (!eventId || finishing) return;
-    if (!window.confirm(t("dashboard.confirm.finish"))) return;
+    if (!(await dialog.confirm(t("dashboard.confirm.finish"), { destructive: true }))) return;
     setFinishing(true);
     try {
       const finishEvent = httpsCallable(functions, "finishEvent");
@@ -377,24 +379,24 @@ export default function EventDashboardPage() {
       navigate(`/event/${eventId}/results`);
     } catch (err) {
       logClientError("EventDashboard.handleFinishEvent", err, { eventId });
-      alert(t("dashboard.error.finish"));
+      void dialog.alert(t("dashboard.error.finish"), { variant: "danger" });
       setFinishing(false);
     }
-  }, [eventId, finishing, navigate, t]);
+  }, [dialog, eventId, finishing, navigate, t]);
 
   const handleSendAlert = useCallback(async () => {
     if (!eventId) return;
-    const message = window.prompt(t("dashboard.prompt.sendAlert"));
+    const message = await dialog.prompt(t("dashboard.prompt.sendAlert"), { multiline: true });
     if (!message || !message.trim()) return;
     try {
       const sendEventAlert = httpsCallable(functions, "sendEventAlert");
       await sendEventAlert({ eventId, message: message.trim(), severity: "info" });
-      alert(t("dashboard.success.alertSent"));
+      void dialog.alert(t("dashboard.success.alertSent"), { variant: "success" });
     } catch (err) {
       logClientError("EventDashboard.handleSendAlert", err, { eventId });
-      alert(t("dashboard.error.alertFailed"));
+      void dialog.alert(t("dashboard.error.alertFailed"), { variant: "danger" });
     }
-  }, [eventId, t]);
+  }, [dialog, eventId, t]);
 
   const categories = useMemo(() => {
     if (!snapshot) return [] as string[];

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { useDialog } from "../../contexts/DialogContext";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
 import { parseWorkoutFile, toIntervalBlocks, estimateWorkoutLoad } from "@shared/training/workoutImport";
 import { Check, SkipForward, RefreshCw, ArrowUpDown, Undo2, Upload } from "lucide-react";
@@ -134,6 +135,7 @@ export default function WorkoutEditModal({
   onUpdate,
 }: WorkoutEditModalProps) {
   const { t } = useTranslation('training');
+  const dialog = useDialog();
   const WORKOUT_META = useMemo(() => buildWorkoutMeta(t), [t]);
   const [loading, setLoading] = useState(false);
   const [showKindPicker, setShowKindPicker] = useState(false);
@@ -162,7 +164,7 @@ export default function WorkoutEditModal({
       onClose();
     } catch (err) {
       logClientError("WorkoutEditModal.run", err, { goalId, weekId, dayIndex });
-      alert(t('edit.saveFailedAlert'));
+      void dialog.alert(t('edit.saveFailedAlert'), { variant: "danger" });
     } finally {
       setLoading(false);
     }
@@ -201,13 +203,13 @@ export default function WorkoutEditModal({
     const file = e.target.files?.[0];
     e.target.value = ""; // 같은 파일 재선택 허용
     if (!file) return;
-    if (file.size > 1024 * 1024) { alert(t('edit.importTooLarge')); return; }
+    if (file.size > 1024 * 1024) { void dialog.alert(t('edit.importTooLarge'), { variant: "warning" }); return; }
     setLoading(true);
     // 파일 읽기·파싱·FTP 조회·저장을 단일 try 로 보호 — 어느 단계 실패든 로딩 해제 + alert + 로깅.
     // (이전엔 getDoc 이 catch 밖이라 실패 시 모달이 영구 로딩 고착되고 rejection 이 삼켜짐.)
     try {
       const parsed = parseWorkoutFile(file.name, await file.text());
-      if (!parsed) { alert(t('edit.importUnsupported')); setLoading(false); return; }
+      if (!parsed) { void dialog.alert(t('edit.importUnsupported'), { variant: "warning" }); setLoading(false); return; }
       // 플랜 snapshot FTP 로 watts 환산(없으면 200 기본).
       const goalSnap = await getDoc(doc(firestore, "goals", goalId));
       const ftp = (goalSnap.data()?.snapshot?.ftp as number | undefined) ?? 200;
@@ -226,7 +228,7 @@ export default function WorkoutEditModal({
       });
     } catch (err) {
       logClientError("WorkoutEditModal.handleImportFile", err, { goalId, weekId, dayIndex, fileName: file.name });
-      alert(t('edit.importFailedAlert'));
+      void dialog.alert(t('edit.importFailedAlert'), { variant: "danger" });
       setLoading(false);
     }
   }
@@ -241,7 +243,7 @@ export default function WorkoutEditModal({
       if (dayIndex >= days.length) { throw new Error(t('edit.rangeError')); }
       const nextIdx = dayIndex + 1;
       if (nextIdx >= days.length || !days[nextIdx] || days[nextIdx]!.workout === 'goal' || days[dayIndex]!.workout === 'goal') {
-        alert(t('edit.swapNoNext'));
+        void dialog.alert(t('edit.swapNoNext'), { variant: "warning" });
         setLoading(false);
         return;
       }
@@ -267,7 +269,7 @@ export default function WorkoutEditModal({
       onClose();
     } catch (err) {
       logClientError("WorkoutEditModal.handleSwapNext", err, { goalId, weekId, dayIndex });
-      alert(t('edit.swapFailedAlert'));
+      void dialog.alert(t('edit.swapFailedAlert'), { variant: "danger" });
     } finally {
       setLoading(false);
     }
@@ -282,13 +284,13 @@ export default function WorkoutEditModal({
 
       if (dayIndex >= days.length) { throw new Error(t('edit.rangeError')); }
       if (dayIndex === 0) {
-        alert(t('edit.swapNoPrev'));
+        void dialog.alert(t('edit.swapNoPrev'), { variant: "warning" });
         setLoading(false);
         return;
       }
       const prevIdx = dayIndex - 1;
       if (!days[prevIdx] || days[prevIdx]!.workout === 'goal' || days[dayIndex]!.workout === 'goal') {
-        alert(t('edit.swapNoPrevValid'));
+        void dialog.alert(t('edit.swapNoPrevValid'), { variant: "warning" });
         setLoading(false);
         return;
       }
@@ -314,7 +316,7 @@ export default function WorkoutEditModal({
       onClose();
     } catch (err) {
       logClientError("WorkoutEditModal.handleSwapPrev", err, { goalId, weekId, dayIndex });
-      alert(t('edit.swapFailedAlert'));
+      void dialog.alert(t('edit.swapFailedAlert'), { variant: "danger" });
     } finally {
       setLoading(false);
     }
