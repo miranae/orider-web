@@ -127,6 +127,9 @@
     "routeMapAlt": "경로 지도",
     "noAchievements": "구간 기록 없음",
     "segmentCount": "{{count}}개 세그먼트",
+    "cohortTop": "코호트 상위 {{pct}}%",
+    "gearRemaining": "{{name}} 정비까지 {{distance}} km",
+    "gearOverdue": "{{name}} 정비 권장 {{distance}} km 초과",
     "viewOnStrava": "View on Strava",
     "timeAgo": {
       "justNow": "방금 전",

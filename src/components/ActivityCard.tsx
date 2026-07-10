@@ -1,4 +1,4 @@
-import { Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { Suspense, useState, useRef, useEffect, useCallback, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import { LocalizedLink as Link } from "./LocalizedLink";
@@ -13,12 +13,13 @@ import { formatDistance, formatSpeed, formatElev } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
 import { getStravaActivityId } from "../utils/stravaActivity";
 import type { Activity } from "@shared/types";
+import type { PdcDoc } from "@shared/types/pdc";
 import Avatar from "./Avatar";
 import { getSportLabelKey } from "../utils/sportType";
 import DisciplineBadge from "./redesign/DisciplineBadge";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { isImplausibleActivity, isImplausibleAvgSpeed } from "../utils/activitySanity";
-import { Card } from "../theme/components";
+import { Card, Chip } from "../theme/components";
 import ActivityAiSummary from "./activity/ActivityAiSummary";
 import ActivitySocialFooter from "./activity/ActivitySocialFooter";
 
@@ -38,6 +39,8 @@ interface ActivityCardProps {
   /** 피드 첫 카드(above-fold·LCP 후보)에만 true. 지도 썸네일을 eager+fetchpriority=high
    *  로 우선 로드해 LCP discovery 지연을 줄인다. 나머지 카드는 기존대로 lazy. */
   priority?: boolean;
+  identityPdc?: PdcDoc | null;
+  cohortTopPct?: number | null;
 }
 
 const EMPTY_ACTIVITY_SUMMARY: Activity["summary"] = {
@@ -58,6 +61,10 @@ const EMPTY_ACTIVITY_SUMMARY: Activity["summary"] = {
   tss: null,
   swolf: null,
 };
+
+const RIDER_TYPE_KEYS = new Set([
+  "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist",
+]);
 
 /**
  * 지도 이미지가 있으면 img, 없으면 RouteMap 라이브 렌더링 후 캡처 → Storage 업로드.
@@ -355,11 +362,49 @@ function StatBlock({ label, value, title }: { label: string; value: string; titl
   );
 }
 
+function GearMaintenanceChip({ gear }: { gear?: Activity["gear"] }) {
+  const { t } = useTranslation("activity");
+  if (!gear?.name || !gear.maxDistanceKm) return null;
+  const remaining = Math.round(gear.maxDistanceKm - gear.totalDistanceKm);
+  const distance = Math.abs(remaining).toLocaleString();
+  return (
+    <Chip variant={remaining <= 0 ? "warning" : "default"} dot>
+      {remaining <= 0
+        ? t("card.gearOverdue", { name: gear.name, distance })
+        : t("card.gearRemaining", { name: gear.name, distance })}
+    </Chip>
+  );
+}
+
+function IdentityDataChips({ pdc, cohortTopPct }: { pdc?: PdcDoc | null; cohortTopPct?: number | null }) {
+  const { t } = useTranslation("activity");
+  const { t: tFitness } = useTranslation("fitness");
+  const chips: ReactNode[] = [];
+  const riderType = pdc?.riderType;
+  if (riderType && riderType.confidence >= 0.5 && RIDER_TYPE_KEYS.has(riderType.type)) {
+    chips.push(
+      <Chip key="riderType" variant="accent" dot>
+        {tFitness(`riderType.type.${riderType.type}.label`)}
+      </Chip>,
+    );
+  }
+  if (cohortTopPct != null) {
+    chips.push(
+      <Chip key="cohort" variant={cohortTopPct <= 20 ? "success" : "default"} dot>
+        {t("card.cohortTop", { pct: cohortTopPct })}
+      </Chip>,
+    );
+  }
+  return chips;
+}
+
 export default function ActivityCard({
   activity,
   showMap = true,
   hideAuthor = false,
   priority = false,
+  identityPdc = null,
+  cohortTopPct = null,
 }: ActivityCardProps) {
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -493,6 +538,8 @@ export default function ActivityCard({
                 )}
               </div>
             )}
+            <IdentityDataChips pdc={identityPdc} cohortTopPct={cohortTopPct} />
+            <GearMaintenanceChip gear={activity.gear} />
           </div>
         </div>
 
