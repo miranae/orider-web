@@ -20,6 +20,7 @@ import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import { estimateTSS } from "../utils/estimateTSS";
+import { isPermissionDeniedError } from "../utils/firebaseErrors";
 
 export type DatePreset = "all" | "7d" | "30d" | "90d" | "year";
 
@@ -38,14 +39,6 @@ type ActivityPage = {
   last: QueryDocumentSnapshot<DocumentData> | null;
   hasMore: boolean;
 };
-
-function isPermissionDeniedError(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const code = "code" in err ? (err as { code?: unknown }).code : undefined;
-  if (code === "permission-denied") return true;
-  const message = err instanceof Error ? err.message : String(err);
-  return message.includes("Missing or insufficient permissions");
-}
 
 async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity[]> {
   const missingProfileImageUserIds = Array.from(
