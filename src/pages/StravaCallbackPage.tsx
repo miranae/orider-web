@@ -8,15 +8,23 @@ import { track } from "../services/analytics";
 
 type Step = "verifying" | "exchanging" | "done" | "error";
 
+const AUTH_RESTORE_TIMEOUT_MS = 5000;
+const SETTINGS_CONNECTIONS_PATH = "/settings?section=connections";
+
 export default function StravaCallbackPage() {
   const { t } = useTranslation("auth");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { exchangeCode } = useStrava();
+  const { user, loading: authLoading } = useAuth();
+  const { connectStrava, exchangeCode } = useStrava();
   const [step, setStep] = useState<Step>("verifying");
   const [errorMsg, setErrorMsg] = useState("");
   const exchangeStartedRef = useRef(false);
+
+  const retryStravaConnection = () => {
+    const returnTo = sessionStorage.getItem("strava_return_to") || SETTINGS_CONNECTIONS_PATH;
+    connectStrava(returnTo);
+  };
 
   useEffect(() => {
     const code = searchParams.get("code");
@@ -50,7 +58,14 @@ export default function StravaCallbackPage() {
     }
 
     // Wait for Firebase Auth to restore the session
-    if (!user) return;
+    if (!user) {
+      if (authLoading) return;
+      const timeout = window.setTimeout(() => {
+        setStep("error");
+        setErrorMsg(t("stravaCallback.error.sessionExpired"));
+      }, AUTH_RESTORE_TIMEOUT_MS);
+      return () => window.clearTimeout(timeout);
+    }
     exchangeStartedRef.current = true;
 
     sessionStorage.removeItem("strava_state");
@@ -74,7 +89,7 @@ export default function StravaCallbackPage() {
       }
     })();
 
-  }, [exchangeCode, navigate, searchParams, t, user]);
+  }, [authLoading, exchangeCode, navigate, searchParams, t, user]);
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -108,9 +123,26 @@ export default function StravaCallbackPage() {
         </p>
 
         {step === "error" && (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button
+              onClick={retryStravaConnection}
+              className="px-4 py-2 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] hover:opacity-90"
+            >
+              {t("stravaCallback.action.retry")}
+            </button>
+            <button
+              onClick={() => navigate(SETTINGS_CONNECTIONS_PATH)}
+              className="px-4 py-2 border border-[var(--line-soft)] text-[var(--ink-1)] text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] hover:bg-[var(--bg-1)]"
+            >
+              {t("stravaCallback.action.settings")}
+            </button>
+          </div>
+        )}
+
+        {step === "error" && (
           <button
             onClick={() => navigate("/")}
-            className="px-4 py-2 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] hover:opacity-90"
+            className="text-[length:var(--fs-sm)] text-[var(--ink-3)] underline-offset-4 hover:underline"
           >
             {t("goHome")}
           </button>
