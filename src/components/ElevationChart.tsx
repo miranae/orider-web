@@ -262,21 +262,27 @@ export default function ElevationChart({
     return null;
   }, [range, indexToKm]);
 
-  // Mouse down — start drag if near a handle
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  // Pointer down — start drag if near a handle.
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!rangeMode || !range || !onRangeChange) return;
     const handle = getHandleNear(e.clientX);
     if (handle) {
       setDragTarget(handle);
       lastDragClientX.current = e.clientX;
       accumulatedDelta.current = 0;
+      e.currentTarget.setPointerCapture?.(e.pointerId);
       e.preventDefault();
     }
   }, [rangeMode, range, onRangeChange, getHandleNear]);
 
-  // Mouse move — update range while dragging, or update cursor
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!rangeMode || !range || !onRangeChange) return;
+  // Pointer move — update range while dragging, update cursor, or scrub hover on touch.
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!rangeMode || !range || !onRangeChange) {
+      if (!dragTarget && onHoverIndex) {
+        onHoverIndex(pixelToIndex(e.clientX));
+      }
+      return;
+    }
 
     // Update cursor on hover near handles
     if (!dragTarget) {
@@ -320,14 +326,18 @@ export default function ElevationChart({
     } else {
       onRangeChange([range[0], idx]);
     }
-  }, [rangeMode, range, onRangeChange, dragTarget, pixelToIndex, getHandleNear, data.length]);
+  }, [rangeMode, range, onRangeChange, dragTarget, pixelToIndex, getHandleNear, data.length, onHoverIndex]);
 
-  // Global mouseup to end drag even if mouse leaves chart
+  // Global pointerup to end drag even if the pointer leaves the chart.
   useEffect(() => {
     if (!dragTarget) return;
     const handleUp = () => setDragTarget(null);
-    window.addEventListener("mouseup", handleUp);
-    return () => window.removeEventListener("mouseup", handleUp);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+    return () => {
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+    };
   }, [dragTarget]);
 
   // Suppress hover index during drag
@@ -419,10 +429,11 @@ export default function ElevationChart({
   return (
     <div
       ref={wrapperRef}
-      style={{ height }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleLeave}
+      style={{ height, touchAction: rangeMode ? "none" : "pan-y" }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handleLeave}
+      onPointerCancel={handleLeave}
     >
       <Line
         ref={chartRef}

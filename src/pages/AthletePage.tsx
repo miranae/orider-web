@@ -910,7 +910,7 @@ export default function AthletePage() {
                     {isMe && (
                       <Link
                         to={`/segment/create?activityId=${activity.id}`}
-                        className="absolute top-3 right-3 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-md)] bg-[var(--bg-2)]/90 text-[var(--lime)] border border-[var(--lime)]/30 opacity-0 group-hover:opacity-100 hover:bg-[var(--lime)]/10 transition-all"
+                        className="absolute top-3 right-3 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-md)] bg-[var(--bg-2)]/90 text-[var(--lime)] border border-[var(--lime)]/30 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-[var(--lime)]/10 transition-all"
                       >
                         {t("activities.addSegment")}
                       </Link>
