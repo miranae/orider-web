@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
@@ -13,12 +13,16 @@ import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { Chip, Text, buttonClass } from "../theme/components";
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
+type EventVisibility = "PUBLIC" | "GROUP" | "PRIVATE" | "UNKNOWN";
+
+const PUBLIC_EVENT_STATUSES = ["OPEN", "LIVE", "FINISHED"] as const;
 
 interface EventInfo {
   id: string;
   name: string;
   type: string;
   status: EventStatus;
+  visibility: EventVisibility;
   startTime: number;
   creatorId: string;
   groupId?: string | null;
@@ -153,6 +157,16 @@ function toMillis(v: unknown): number {
   return 0;
 }
 
+export function isPublicEventInfo(info: Record<string, unknown>): boolean {
+  if (info.deletedAt) return false;
+  const status = info.status;
+  const visibility = info.visibility;
+  return (
+    PUBLIC_EVENT_STATUSES.includes(status as (typeof PUBLIC_EVENT_STATUSES)[number]) &&
+    visibility === "PUBLIC"
+  );
+}
+
 export default function EventsPage() {
   const { t } = useTranslation("event");
   const STATUS_TABS = STATUS_TAB_KEYS.map(({ k, labelKey }) => ({ k, label: t(labelKey) }));
@@ -169,18 +183,24 @@ export default function EventsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const snap = await getDocs(collection(firestore, "events"));
+        const eventsQuery = query(
+          collection(firestore, "events"),
+          where("info.status", "in", [...PUBLIC_EVENT_STATUSES]),
+          where("info.visibility", "==", "PUBLIC"),
+        );
+        const snap = await getDocs(eventsQuery);
         const list: EventInfo[] = [];
         snap.forEach((doc) => {
           const d = doc.data();
           const info = d.info || {};
-          // soft-deleted 이벤트는 목록에서 제외한다.
-          if (info.deletedAt) return;
+          // 공개 목록 방어선: 서버 쿼리와 같은 조건을 클라이언트에서도 한 번 더 확인한다.
+          if (!isPublicEventInfo(info)) return;
           list.push({
             id: doc.id,
             name: info.name || t("noName"),
             type: info.type || "TOUR",
             status: (info.status as EventStatus) || "UNKNOWN",
+            visibility: (info.visibility as EventVisibility) || "UNKNOWN",
             startTime: toMillis(info.startTime),
             creatorId: info.creatorId || "",
             groupId: info.groupId || null,
