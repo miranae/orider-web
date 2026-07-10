@@ -119,12 +119,17 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
 
   // --- Dimens → index.css `--space-*`, `--r-*` 호환 + 확장 ---
   const d = theme.dimens;
+  style.setProperty('--space-0', `0`);
+  style.setProperty('--space-0-5', `2px`);
   style.setProperty('--space-1', `${d.paddingXs}px`);
+  style.setProperty('--space-1-5', `6px`);
   style.setProperty('--space-2', `${d.paddingS}px`);
   style.setProperty('--space-3', `${d.itemInner}px`);
   style.setProperty('--space-4', `${d.paddingM}px`);
+  style.setProperty('--space-5', `20px`);
   style.setProperty('--space-6', `${d.paddingL}px`);
   style.setProperty('--space-7', `${d.paddingXl}px`);
+  style.setProperty('--space-8', `48px`);
   style.setProperty('--r-sm', `${d.cornerRadiusS}px`);
   style.setProperty('--r-md', `${d.cornerRadiusM}px`);
   style.setProperty('--r-lg', `${d.cornerRadiusL}px`);
@@ -146,6 +151,7 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
   style.setProperty('--fs-data-medium', `${t.dataMedium.size}px`);
   style.setProperty('--fs-data-small', `${t.dataSmall.size}px`);
   // 일반 ramp (index.css `--fs-*` 와 호환)
+  style.setProperty('--fs-2xs', `10px`);
   style.setProperty('--fs-xs', `11px`);
   style.setProperty('--fs-sm', `12px`);
   style.setProperty('--fs-base', `${t.body.size}px`);
@@ -158,6 +164,8 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
   style.setProperty('--fs-xl', `22px`);
   style.setProperty('--fs-2xl', `28px`);
   style.setProperty('--fs-3xl', `32px`);
+  style.setProperty('--fs-4xl', `36px`);
+  style.setProperty('--fs-5xl', `48px`);
 
   // 모든 typography 키 — `--ft-{kebab}-{size|weight}` 로도 노출
   (Object.keys(t) as Array<keyof typeof t>).forEach((key) => {
