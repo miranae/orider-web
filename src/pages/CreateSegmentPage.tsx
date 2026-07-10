@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -12,7 +12,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSegmentCreator } from "../hooks/useSegmentCreator";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
-import { Card } from "../theme/components";
+import PermissionGate from "../components/redesign/states/PermissionGate";
+import { Card, buttonClass } from "../theme/components";
 import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 
@@ -146,7 +147,8 @@ function StatsPanel({ stats, t }: { stats: ReturnType<typeof computeStats>; t: a
 export default function CreateSegmentPage() {
   const { t } = useTranslation("segment");
   const { t: tActivity } = useTranslation("activity");
-  const { user, loading: authLoading } = useAuth();
+  const { t: tCommon } = useTranslation("common");
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activityId = searchParams.get("activityId");
@@ -164,6 +166,9 @@ export default function CreateSegmentPage() {
 
   // Activity
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
+  const [activityChoices, setActivityChoices] = useState<ActivityItem[]>([]);
+  const [loadingActivityChoices, setLoadingActivityChoices] = useState(false);
+  const [activityChoiceError, setActivityChoiceError] = useState<string | null>(null);
 
   // Streams
   const [streams, setStreams] = useState<StreamData | null>(null);
@@ -268,6 +273,43 @@ export default function CreateSegmentPage() {
     loadActivityStreams(activityId);
   }, [user, activityId, loadActivityStreams]);
 
+  useEffect(() => {
+    if (!user || activityId) return;
+    let cancelled = false;
+    setLoadingActivityChoices(true);
+    setActivityChoiceError(null);
+    (async () => {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(firestore, "activities"),
+            where("userId", "==", user.uid),
+            where("deletedAt", "==", null),
+            orderBy("startTime", "desc"),
+            limit(20),
+          ),
+        );
+        if (cancelled) return;
+        setActivityChoices(snap.docs.map((activityDoc) => {
+          const d = activityDoc.data();
+          return {
+            id: activityDoc.id,
+            description: d.description ?? tActivity("noName"),
+            startTime: d.startTime ?? d.createdAt ?? Date.now(),
+            summary: d.summary ?? { distance: 0, ridingTimeMillis: 0, elevationGain: 0 },
+            thumbnailTrack: d.thumbnailTrack ?? "",
+          } as ActivityItem;
+        }));
+      } catch (err) {
+        logClientError("CreateSegmentPage.loadActivityChoices", err, { userId: user.uid });
+        if (!cancelled) setActivityChoiceError(t("error.activityChoicesFailed"));
+      } finally {
+        if (!cancelled) setLoadingActivityChoices(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activityId, t, tActivity, user]);
+
   // ── Computed ──
   const lowIdx = Math.min(rangeStart, rangeEnd);
   const highIdx = Math.max(rangeStart, rangeEnd);
@@ -338,6 +380,12 @@ export default function CreateSegmentPage() {
   const endKm = streams?.distance ? (streams.distance[rangeEnd] ?? 0) / 1000 : 0;
   const totalKm = streams?.distance ? (streams.distance[streams.distance.length - 1] ?? 0) / 1000 : 0;
   const selectedKm = Math.abs(endKm - startKm);
+  const formatActivityMeta = (activity: ActivityItem) => {
+    const date = new Date(activity.startTime).toLocaleDateString(localeTag());
+    const distanceKm = activity.summary.distance > 0 ? `${(activity.summary.distance / 1000).toFixed(1)} km` : null;
+    const elev = activity.summary.elevationGain > 0 ? `↑${Math.round(activity.summary.elevationGain)} m` : null;
+    return [date, distanceKm, elev].filter(Boolean).join(" · ");
+  };
 
   const handleRangeChange = useCallback((s: number, e: number) => {
     setRangeStart(s);
@@ -369,15 +417,79 @@ export default function CreateSegmentPage() {
     );
   }
 
-  if (!user) return <Navigate to="/explore" replace />;
+  if (!user) {
+    return (
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px" }}>
+        <PermissionGate
+          title={t("createAuth.title")}
+          description={t("createAuth.description")}
+          actionLabel={tCommon("button.loginGoogle")}
+          onAction={() => { void signInWithGoogle(); }}
+        />
+      </div>
+    );
+  }
 
   if (!activityId) {
     return (
-      <div className="text-center py-16">
-        <p className="text-[var(--ink-2)]">{t("empty.noActivity")}</p>
-        <button onClick={leavePage} className="mt-4 px-4 py-2 text-[length:var(--fs-sm)] text-[var(--lime)] hover:underline">
-          &larr; {t("button.goBack")}
-        </button>
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("createTitle")}</h1>
+          <p className="text-[length:var(--fs-sm)] mt-1" style={{ color: "var(--ink-3)" }}>
+            {t("activityPicker.description")}
+          </p>
+        </div>
+
+        {loadingActivityChoices && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="w-8 h-8 border-4 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
+            <p className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("activityPicker.loading")}</p>
+          </div>
+        )}
+
+        {!loadingActivityChoices && activityChoiceError && (
+          <Card padding="none" style={{ padding: "var(--space-5)", textAlign: "center" }}>
+            <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)" }}>{activityChoiceError}</p>
+          </Card>
+        )}
+
+        {!loadingActivityChoices && !activityChoiceError && activityChoices.length === 0 && (
+          <Card padding="none" style={{ padding: "var(--space-8)", textAlign: "center" }}>
+            <p className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("activityPicker.emptyTitle")}</p>
+            <p className="text-[length:var(--fs-sm)] mt-2" style={{ color: "var(--ink-3)" }}>{t("activityPicker.emptyDescription")}</p>
+            <div className="flex flex-wrap justify-center mt-5" style={{ gap: "var(--space-2)" }}>
+              <Link to="/activity/upload" className={buttonClass({ variant: "primary", size: "sm" })}>
+                {t("activityPicker.uploadAction")}
+              </Link>
+              <Link to="/leaderboard" className={buttonClass({ variant: "secondary", size: "sm" })}>
+                {t("button.goBack")}
+              </Link>
+            </div>
+          </Card>
+        )}
+
+        {!loadingActivityChoices && !activityChoiceError && activityChoices.length > 0 && (
+          <Card padding="none" style={{ padding: 0 }}>
+            <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {activityChoices.map((activity) => (
+                <li key={activity.id} style={{ borderBottom: "1px solid var(--line-soft)" }}>
+                  <Link
+                    to={`/segment/create?activityId=${encodeURIComponent(activity.id)}`}
+                    className="block"
+                    style={{ padding: "var(--space-4)", color: "inherit" }}
+                  >
+                    <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>
+                      {activity.description}
+                    </div>
+                    <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-3)" }}>
+                      {formatActivityMeta(activity)}
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
       </div>
     );
   }
