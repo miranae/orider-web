@@ -137,8 +137,11 @@ body {
   --shadow-md: 0 3px 12px rgba(20,40,40,.08);
   --shadow-lg: 0 10px 28px rgba(20,40,40,.12);
 
-  /* 간격 스케일 — 4/8/12/16/20/24/32. 인라인 style 대신 점진 치환 대상. */
+  /* 간격 스케일 — 0/2/4/6/8/12/16/20/24/32/48. 인라인 style 대신 점진 치환 대상. */
+  --space-0: 0;
+  --space-0-5: 2px;
   --space-1: 4px;
+  --space-1-5: 6px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
@@ -152,14 +155,17 @@ body {
   --feed-thumb-aspect: 14 / 5;
 
   /* 타이포 스케일 */
+  --fs-2xs: 10px;
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-base: 13px;
   --fs-md: 14px;
   --fs-lg: 16px;
-  --fs-xl: 20px;
-  --fs-2xl: 24px;
-  --fs-3xl: 30px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 32px;
+  --fs-4xl: 36px;
+  --fs-5xl: 48px;
 
   /* 운동존 컬러 — 사이클 존, 러닝/수영에도 공통 매핑 */
   --zone-1: oklch(0.62 0.07 230);  /* 회복 */

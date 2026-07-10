@@ -33,6 +33,20 @@ describe('OriderTheme CSS 변수 주입', () => {
     expect(style.getPropertyValue('--ft-title-weight')).toBe('700');
   });
 
+  it('fractional spacing and extended font tokens are defined', () => {
+    _testApplyTheme(DEFAULT_THEME, 'dark');
+    const style = document.documentElement.style;
+    expect(style.getPropertyValue('--space-0')).toBe('0');
+    expect(style.getPropertyValue('--space-0-5')).toBe('2px');
+    expect(style.getPropertyValue('--space-1-5')).toBe('6px');
+    expect(style.getPropertyValue('--fs-2xs')).toBe('10px');
+    expect(style.getPropertyValue('--fs-xl')).toBe('22px');
+    expect(style.getPropertyValue('--fs-2xl')).toBe('28px');
+    expect(style.getPropertyValue('--fs-3xl')).toBe('32px');
+    expect(style.getPropertyValue('--fs-4xl')).toBe('36px');
+    expect(style.getPropertyValue('--fs-5xl')).toBe('48px');
+  });
+
   it('라이트/다크 variant 교체 시 토큰이 갱신', () => {
     _testApplyTheme(DEFAULT_THEME, 'light');
     const light = document.documentElement.style.getPropertyValue('--bg-0');
