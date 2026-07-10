@@ -31,6 +31,8 @@ const COURSES_FILTER_ROW_STYLE: React.CSSProperties = {
   columnGap: "var(--space-4)",
   rowGap: "var(--space-2)",
   marginTop: "var(--space-2)",
+  paddingInlineEnd: "var(--space-8)",
+  scrollPaddingInline: "var(--space-4)",
 };
 
 const COURSES_FILTER_GROUP_STYLE: React.CSSProperties = {
@@ -259,7 +261,7 @@ export default function CoursesPage() {
         </div>
 
         {/* 노면/난이도 다축 필터(#489) + 거리/고도/지역 탐색 필터(#243) */}
-        <div className="overflow-x-auto lg:flex-wrap lg:overflow-visible" style={COURSES_FILTER_ROW_STYLE}>
+        <div className="overflow-x-auto overscroll-x-contain lg:flex-wrap lg:overflow-visible" style={COURSES_FILTER_ROW_STYLE}>
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("edit.surface")}</span>
             {([

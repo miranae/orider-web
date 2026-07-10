@@ -48,9 +48,9 @@ const BoardPage: React.FC = () => {
   const [activeTag, setActiveTag] = useState<string | undefined>();
 
 
-  const [uncheckedTags, setUncheckedTags] = useState<Set<string>>(new Set());
+  const [uncheckedTags, setUncheckedTags] = useState<Set<string>>(() => new Set(["AI"]));
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  const excludeAI = uncheckedTags.has('AI');
+  const excludeAI = uncheckedTags.has('AI') && activeTag !== 'AI';
 
   const { tags: allTags } = useBoardMeta();
   // 상위 30개만 패널에 표시
