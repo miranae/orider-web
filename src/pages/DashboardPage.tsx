@@ -576,7 +576,7 @@ export default function DashboardPage() {
                     title={t("feed.empty.title")}
                     description={t("feed.empty.description")}
                     actions={[
-                      { label: t("feed.empty.ctaConnectStrava"), variant: "primary", href: "/settings#integrations" },
+                      { label: t("feed.empty.ctaConnectStrava"), variant: "primary", href: "/settings?section=connections" },
                     ]}
                   />
                 )}

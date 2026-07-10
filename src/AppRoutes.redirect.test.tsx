@@ -38,3 +38,34 @@ describe('feedback route redirects', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/ko/board?type=inquiry');
   });
 });
+
+function LayoutProbe() {
+  return (
+    <div>
+      <nav>app shell</nav>
+      <Outlet />
+    </div>
+  );
+}
+
+describe('localized not found routes', () => {
+  it('keeps the app shell for unknown paths under a language prefix', () => {
+    render(
+      <MemoryRouter initialEntries={['/ko/activityy']}>
+        <Routes>
+          <Route path="/:lang" element={<Outlet />}>
+            <Route element={<LayoutProbe />}>
+              <Route path="activity/:activityId" element={<div>activity detail</div>} />
+              <Route path="*" element={<div>not found</div>} />
+            </Route>
+          </Route>
+          <Route path="*" element={<div>locale redirect</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('app shell')).toBeInTheDocument();
+    expect(screen.getByText('not found')).toBeInTheDocument();
+    expect(screen.queryByText('locale redirect')).not.toBeInTheDocument();
+  });
+});
