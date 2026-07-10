@@ -40,4 +40,19 @@ describe("GroupInvitePage", () => {
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
     expect(mockCallableInvocations).toEqual([]);
   });
+
+  it("does not enter the group dashboard when the invite requires manual approval", async () => {
+    setCallableResult("joinGroupByCode", { data: { groupId: "group-1", pending: true } });
+
+    renderInvite();
+
+    await waitFor(() => {
+      expect(mockCallableInvocations).toContainEqual({
+        name: "joinGroupByCode",
+        data: { inviteCode: "ABCD1234" },
+      });
+    });
+    expect(await screen.findByText("groups fallback")).toBeInTheDocument();
+    expect(screen.queryByText("group destination")).not.toBeInTheDocument();
+  });
 });
