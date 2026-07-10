@@ -284,6 +284,15 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
     if (sport === "swim") return [];
     return detectClimbs(streams.altitude, streams.distance, streams.time, 3, 500);
   }, [streams.altitude, streams.distance, streams.time, sport]);
+  const climbRows = useMemo(() => {
+    if (sm?.climbs?.length) {
+      return sm.climbs.map((c) => ({
+        ...c,
+        elevationGain: c.elevationGainM,
+      }));
+    }
+    return climbs.map((c) => ({ ...c, avgPower: null, wPerKg: null, vam: null }));
+  }, [sm?.climbs, climbs]);
 
   // 러닝 전용 — km 스플릿 + GAP
   const runSplits = useMemo(() => sport === "run" ? calculateRunSplits(streams) : [], [streams, sport]);
@@ -718,9 +727,9 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
       )}
 
       {/* 클라임 자동 탐지 */}
-      {climbs.length > 0 && (
+      {climbRows.length > 0 && (
         <div>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.climbs", { count: climbs.length })}</h3>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.climbs", { count: climbRows.length })}</h3>
           <div className="rounded-[var(--r-lg)] overflow-x-auto" style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}>
             <table className="w-full text-[length:var(--fs-sm)]">
               <thead>
@@ -730,11 +739,14 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.length")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.elev")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.avgGrade")}</th>
+                  <th className="text-right px-3 py-2">W</th>
+                  <th className="text-right px-3 py-2">W/kg</th>
+                  <th className="text-right px-3 py-2">VAM</th>
                   <th className="text-left px-3 py-2 pl-4">{t("analysis.climbs.header.category")}</th>
                 </tr>
               </thead>
               <tbody>
-                {climbs.map((c, i) => {
+                {climbRows.map((c, i) => {
                   const cat = c.avgGrade * c.lengthKm * 100;
                   const grade = cat > 800 ? "HC" : cat > 600 ? "1" : cat > 400 ? "2" : cat > 200 ? "3" : "4";
                   const gradeColor = grade === "HC" ? "var(--rose)" : grade === "1" ? "var(--amber)" : grade === "2" ? "var(--violet)" : "var(--aqua)";
@@ -745,6 +757,9 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{distVal(c.lengthKm)} {distUnit}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{elevValRound(c.elevationGain)} {elevUnit}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--amber)' }}>{c.avgGrade.toFixed(1)} %</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.avgPower != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.avgPower != null ? Math.round(c.avgPower) : "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.wPerKg != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.wPerKg != null ? c.wPerKg.toFixed(1) : "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.vam != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.vam != null ? Math.round(c.vam) : "—"}</td>
                       <td className="px-3 py-2 pl-4">
                         <Chip style={{ background: gradeColor, color: 'var(--ink-0)', fontSize: "var(--fs-xs)", padding: '2px 8px', borderRadius: "9999px" }}>
                           {grade === "HC" ? "HC" : t("analysis.climbs.category", { grade })}

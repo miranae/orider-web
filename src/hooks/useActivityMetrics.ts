@@ -56,6 +56,19 @@ export interface ActivityMetricsDoc {
   peakHr?: { "1m"?: number; "5m"?: number; "20m"?: number };
   zoneKj?: { z1: number; z2: number; z3: number; z4: number; z5: number; z6: number; z7: number };
   wPrimeMinJ?: number | null;
+  loadAxes?: {
+    cardiovascular?: number | null;
+    muscular?: number | null;
+    perceptual?: number | null;
+    confidence?: number | null;
+  } | null;
+  newPrs?: Array<{
+    duration?: string;
+    durationSeconds?: number;
+    rank?: number;
+    value?: number;
+    watts?: number;
+  }>;
   workoutTypeConfidence?: number;
   cyclingMetrics?: { cadenceStdDev: number | null; longestZ4PlusSec: number | null };
 
