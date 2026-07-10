@@ -6,6 +6,7 @@ import DOMPurify from 'dompurify';
 import { useCreatePost } from '../features/board/useBoard';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useDialog } from '../contexts/DialogContext';
 import { storage } from '../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Button, Card } from "../theme/components";
@@ -76,6 +77,7 @@ const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation("board");
   const { user } = useAuth();
+  const dialog = useDialog();
   const { createPost, submitting } = useCreatePost();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -343,7 +345,7 @@ const CreatePostPage: React.FC = () => {
 
   const insertImageAtCursor = useCallback((file: File) => {
     if (imageMapRef.current.size >= MAX_IMAGES) {
-      alert(t('message.imageLimitWarning', { max: MAX_IMAGES }));
+      void dialog.alert(t('message.imageLimitWarning', { max: MAX_IMAGES }), { variant: "warning" });
       return;
     }
 
@@ -679,7 +681,7 @@ const CreatePostPage: React.FC = () => {
       }
       if (draftKey) clearPostDraft(draftKey);
     } catch {
-      alert(t('message.submitFailed'));
+      void dialog.alert(t('message.submitFailed'), { variant: "danger" });
     } finally {
       setUploading(false);
     }
@@ -882,7 +884,7 @@ const CreatePostPage: React.FC = () => {
                 <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14" /></svg>
                 <span className="text-[10px]">{t('toolbar.divider')}</span>
               </ToolBtn>
-              <ToolBtn onClick={() => { const url = normalizeUserContentUrl(prompt(t('toolbar.linkPrompt'))); if (url) { editorRef.current?.focus(); document.execCommand('createLink', false, url); } }} title={t('toolbar.link')}>
+              <ToolBtn onClick={async () => { const rawUrl = await dialog.prompt(t('toolbar.linkPrompt')); const url = normalizeUserContentUrl(rawUrl); if (url) { editorRef.current?.focus(); document.execCommand('createLink', false, url); } }} title={t('toolbar.link')}>
                 <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.02a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.336 9.12" /></svg>
                 <span className="text-[10px]">{t('toolbar.link')}</span>
               </ToolBtn>

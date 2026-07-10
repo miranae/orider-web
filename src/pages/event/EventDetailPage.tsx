@@ -10,6 +10,7 @@ import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { Course } from "@shared/types";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
@@ -40,6 +41,7 @@ export default function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const dialog = useDialog();
 
   const LANE_META: Record<WpLane, { label: string; color: string; icon: string }> = {
     KOM: { label: t(LANE_DEFS.KOM.labelKey), color: LANE_DEFS.KOM.color, icon: LANE_DEFS.KOM.icon },
@@ -256,7 +258,7 @@ export default function EventDetailPage() {
 
   const handleSendCourseToParticipants = async (course: Course) => {
     if (!user || sending) return;
-    if (!window.confirm(t("detail.confirm.sendCourse", { name: course.name }))) return;
+    if (!(await dialog.confirm(t("detail.confirm.sendCourse", { name: course.name })))) return;
     setSending(true);
     try {
       const fn = httpsCallable(functions, "sendCourseToApp");

@@ -12,6 +12,7 @@ import {
 } from "../../services/syncRiderMetrics";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useBikeProfiles } from "../../hooks/useBikeProfiles";
 
 import {
@@ -53,6 +54,7 @@ export function PaneTraining() {
   const { user, profile } = useAuth();
   const { profiles: bikeProfiles } = useBikeProfiles(user?.uid ?? null);
   const { showToast } = useToast();
+  const dialog = useDialog();
 
   const [ftp, setFtp] = useState("");
   // FTP 테스트 모드 — 전용 테스트 입력 → FTP 후보 산출(#307).
@@ -270,7 +272,7 @@ export function PaneTraining() {
         // 의도치 않은 데이터 손실이 가능하므로 명시적 confirm. 1대만 있으면 자동 동기화.
         const shouldSyncBikes =
           bikeProfiles.length === 1 ||
-          window.confirm(
+          await dialog.confirm(
             t("training.syncBikeConfirm", { count: bikeProfiles.length }),
           );
         if (shouldSyncBikes) {
@@ -400,8 +402,8 @@ export function PaneTraining() {
               </Text>
               <Button
                 variant={ftpTestDrop ? "secondary" : "primary"}
-                onClick={() => {
-                  if (ftpTestDrop && !window.confirm(t("training.ftpTest.dropConfirm", { current: curFtp, candidate: ftpTestCandidate }))) return;
+                onClick={async () => {
+                  if (ftpTestDrop && !(await dialog.confirm(t("training.ftpTest.dropConfirm", { current: curFtp, candidate: ftpTestCandidate })))) return;
                   setFtp(String(ftpTestCandidate));
                   showToast(t("training.ftpTest.applied"));
                 }}

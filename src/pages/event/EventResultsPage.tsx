@@ -7,6 +7,7 @@ import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { firestore as db } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
@@ -97,6 +98,7 @@ export default function EventResultsPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const dialog = useDialog();
 
   const [eventHead, setEventHead] = useState<EventHead | null>(null);
   const [results, setResults] = useState<ResultEntry[]>([]);
@@ -532,7 +534,7 @@ export default function EventResultsPage() {
               <div className="flex" style={{ gap: "var(--space-1-5)", marginLeft: "auto" }}>
                 <Button
                   type="button" variant="secondary" size="sm"
-                  onClick={() => alert(t("resultsView.csvComingSoon"))}
+                  onClick={() => void dialog.alert(t("resultsView.csvComingSoon"))}
                 >
                   ⬇ CSV
                 </Button>
@@ -543,7 +545,7 @@ export default function EventResultsPage() {
                       navigator.share({ title: eventHead.name, url: window.location.href }).catch(() => undefined);
                     } else {
                       navigator.clipboard?.writeText(window.location.href);
-                      alert(t("resultsView.linkCopied"));
+                      void dialog.alert(t("resultsView.linkCopied"), { variant: "success" });
                     }
                   }}
                 >

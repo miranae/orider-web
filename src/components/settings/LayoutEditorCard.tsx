@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useDialog } from "../../contexts/DialogContext";
 import { Plus, Trash2, X } from "lucide-react";
 
 import type {
@@ -48,6 +49,7 @@ interface Props {
 
 export function LayoutEditorCard({ config, onSave }: Props) {
   const { t } = useTranslation("settings");
+  const dialog = useDialog();
   const [draft, setDraft] = useState<LayoutConfig[]>(clonePages(config.pages));
   const [activePage, setActivePage] = useState(0);
   const [picker, setPicker] = useState<
@@ -133,9 +135,9 @@ export function LayoutEditorCard({ config, onSave }: Props) {
     setActivePage(draft.length); // 새 페이지로 이동
   }
 
-  function removePage() {
+  async function removePage() {
     if (draft.length <= 1) return;
-    if (!window.confirm(t("layout.deletePageConfirm"))) return;
+    if (!(await dialog.confirm(t("layout.deletePageConfirm"), { destructive: true }))) return;
     setDraft((prev) => prev.filter((_, i) => i !== activePage));
     setActivePage((p) => Math.max(0, p - 1));
   }

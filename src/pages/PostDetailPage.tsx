@@ -10,6 +10,7 @@ import { useBoardLike } from '../features/board/useBoardLike';
 import { useDeletePost, useReportBoardContent } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useDialog } from '../contexts/DialogContext';
 import { firestore } from '../services/firebase';
 import ActivityCard from '../components/ActivityCard';
 import { EmptyState, LoadingSkeleton } from '../components/redesign';
@@ -30,6 +31,7 @@ const PostDetailPage: React.FC = () => {
   const [commentText, setCommentText] = useState('');
   const { user } = useAuth();
   const { showToast } = useToast();
+  const dialog = useDialog();
   const { deletePost, deleting: postDeleting } = useDeletePost();
   const { report, submitting: reportSubmitting } = useReportBoardContent();
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
@@ -75,7 +77,7 @@ const PostDetailPage: React.FC = () => {
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!window.confirm(t('message.commentDeleteConfirm'))) return;
+    if (!(await dialog.confirm(t('message.commentDeleteConfirm'), { destructive: true }))) return;
     try {
       const { doc, updateDoc, increment } = await import("firebase/firestore");
       await updateDoc(doc(firestore, `board_posts/${postId}/comments`, commentId), {
@@ -100,7 +102,7 @@ const PostDetailPage: React.FC = () => {
   const handleDeletePost = async () => {
     if (!postId) return;
     if (post?.userId !== user?.uid) return;
-    if (!window.confirm(t('message.deleteConfirm', { label: t('message.deleteLabel') }))) return;
+    if (!(await dialog.confirm(t('message.deleteConfirm', { label: t('message.deleteLabel') }), { destructive: true }))) return;
     try {
       await deletePost(postId);
       navigate('/board', { replace: true });

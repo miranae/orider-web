@@ -8,6 +8,7 @@ import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useGroup } from "../../hooks/useGroup";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import VisibilityToggle from "../../components/group/VisibilityToggle";
@@ -22,6 +23,7 @@ export default function GroupSettingsPage() {
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
   const navigate = useNavigate();
+  const dialog = useDialog();
 
   const KIND_LABELS: Record<GroupKind, string> = {
     club: t("dashboard.kind.club"),
@@ -180,7 +182,7 @@ export default function GroupSettingsPage() {
       });
     } catch (err) {
       logClientError("GroupSettingsPage.handleSave", err, { groupId, visibility, kind, approval });
-      alert(err instanceof Error ? err.message : t("error.saveFailed"));
+      void dialog.alert(err instanceof Error ? err.message : t("error.saveFailed"), { variant: "danger" });
     }
     setSaving(false);
   };

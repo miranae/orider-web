@@ -25,6 +25,7 @@ import { firestore, functions, storage } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
+import { useDialog } from "../contexts/DialogContext";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
 import Avatar from "../components/Avatar";
@@ -441,6 +442,7 @@ export default function CoursePage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
+  const dialog = useDialog();
 
   useEffect(() => {
     let cancelled = false;
@@ -615,7 +617,7 @@ export default function CoursePage() {
 
   const handleDelete = async () => {
     if (!courseId || deleting) return;
-    if (!confirm(t("error.deleteConfirm"))) return;
+    if (!(await dialog.confirm(t("error.deleteConfirm"), { destructive: true }))) return;
     setDeleting(true);
     try {
       const fn = httpsCallable(functions, "deleteMyCourse");
@@ -623,7 +625,7 @@ export default function CoursePage() {
       navigate("/courses", { replace: true });
     } catch (err) {
       logClientError("CoursePage.handleDelete", err, { courseId });
-      alert(t("error.deleteFailed"));
+      void dialog.alert(t("error.deleteFailed"), { variant: "danger" });
       setDeleting(false);
     }
   };
@@ -723,11 +725,11 @@ export default function CoursePage() {
     const trimDesc = editDesc.trim();
 
     if (trimName.length < 2 || trimName.length > 50) {
-      alert(t("error.nameLength"));
+      void dialog.alert(t("error.nameLength"), { variant: "warning" });
       return;
     }
     if (trimDesc.length > 200) {
-      alert(t("error.descriptionLength"));
+      void dialog.alert(t("error.descriptionLength"), { variant: "warning" });
       return;
     }
 
@@ -739,7 +741,7 @@ export default function CoursePage() {
       showToast(t("error.updateSuccess"));
     } catch (err) {
       logClientError("CoursePage.handleSaveEdit", err, { courseId });
-      alert(t("error.updateFailed"));
+      void dialog.alert(t("error.updateFailed"), { variant: "danger" });
     } finally {
       setSaving(false);
     }

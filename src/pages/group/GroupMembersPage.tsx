@@ -7,6 +7,7 @@ import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useGroup, useGroupMembers } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
 import GroupSubNav from "../../components/group/GroupSubNav";
@@ -36,6 +37,7 @@ export default function GroupMembersPage() {
   const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
+  const dialog = useDialog();
   const { group, loading: groupLoading } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId);
 
@@ -126,7 +128,7 @@ export default function GroupMembersPage() {
   const handleBulkRemove = async () => {
     const targetIds = Array.from(selected).filter((id) => id !== user?.uid);
     if (!groupId || !isCreator || targetIds.length === 0) return;
-    if (!window.confirm(t("members.confirmBulkRemove", { count: targetIds.length }))) return;
+    if (!(await dialog.confirm(t("members.confirmBulkRemove", { count: targetIds.length }), { destructive: true }))) return;
     setBulkBusy(true);
     try {
       const removeFn = httpsCallable(functions, "removeGroupMember");
@@ -153,7 +155,7 @@ export default function GroupMembersPage() {
       setPending((prev) => prev.filter((p) => p.userId !== userId));
     } catch (err) {
       logClientError("GroupMembersPage.handleApprove", err, { groupId, userId });
-      alert(err instanceof Error ? err.message : t("error.approveFailed"));
+      void dialog.alert(err instanceof Error ? err.message : t("error.approveFailed"), { variant: "danger" });
     }
   };
 

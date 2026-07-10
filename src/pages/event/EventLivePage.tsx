@@ -7,6 +7,7 @@ import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { doc, getDoc } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Text } from "../../theme/components";
@@ -272,6 +273,7 @@ function RiderCard({
 export default function EventLivePage() {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
+  const dialog = useDialog();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightBib = searchParams.get("bib") ? Number(searchParams.get("bib")) : null;
@@ -479,7 +481,7 @@ export default function EventLivePage() {
     if (typeof navigator !== "undefined" && navigator.share) {
       navigator.share({ title: eventName, url }).catch(() => undefined);
     } else {
-      navigator.clipboard?.writeText(url).then(() => alert(t("liveView.linkCopied")));
+      navigator.clipboard?.writeText(url).then(() => void dialog.alert(t("liveView.linkCopied"), { variant: "success" }));
     }
   };
 

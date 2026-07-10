@@ -8,6 +8,7 @@ import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
 import { Button, Card, Text } from "../../theme/components";
 
@@ -30,6 +31,7 @@ export default function CourseEditPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const dialog = useDialog();
 
   const SURFACE_OPTIONS: { v: Surface; label: string }[] = [
     { v: "", label: t("edit.surface.unspecified") },
@@ -121,7 +123,7 @@ export default function CourseEditPage() {
 
   const handleDelete = async () => {
     if (!courseId || !isOwner || deleting) return;
-    if (!window.confirm(t("edit.deleteConfirm"))) return;
+    if (!(await dialog.confirm(t("edit.deleteConfirm"), { destructive: true }))) return;
     setDeleting(true);
     try {
       const fn = httpsCallable(functions, "deleteMyCourse");

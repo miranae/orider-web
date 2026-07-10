@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useFriends } from "../hooks/useFriends";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
+import { useDialog } from "../contexts/DialogContext";
 import Avatar from "../components/Avatar";
 import { Card, Text } from "../theme/components";
 
@@ -12,6 +13,7 @@ export default function FriendsPage() {
   const { t } = useTranslation("friends");
   const { friends, requests, friendCode, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
   const { showToast } = useToast();
+  const dialog = useDialog();
   const [codeInput, setCodeInput] = useState("");
   const [tab, setTab] = useState<"friends" | "requests">("friends");
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(() => new Set());
@@ -84,7 +86,7 @@ export default function FriendsPage() {
   };
 
   const handleRemove = async (friendId: string, nickname: string) => {
-    if (!window.confirm(t("confirm.remove", { nickname }))) return;
+    if (!(await dialog.confirm(t("confirm.remove", { nickname }), { destructive: true }))) return;
     try {
       await removeFriend(friendId);
       showToast(t("toast.removeSuccess"));

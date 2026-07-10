@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useBoardPosts, useBoardMeta, useDeletePost, useMyInquiryPosts } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
+import { useDialog } from '../contexts/DialogContext';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/redesign';
 import type { BoardType } from '@shared/types';
 import { Button, Card } from "../theme/components";
@@ -134,18 +135,19 @@ const BoardPage: React.FC = () => {
 
   const handleSearch = () => setSubmittedQuery(searchQuery.trim());
   const { user } = useAuth();
+  const dialog = useDialog();
   const { deletePost, deleting } = useDeletePost();
   const isMobile = useMobile();
 
   const handleDeletePost = async (e: React.MouseEvent, postId: string, postUserId: string) => {
     e.stopPropagation();
     if (postUserId !== user?.uid) return;
-    if (!window.confirm(t("message.deleteConfirm", { label: t("message.deleteLabel") }))) return;
+    if (!(await dialog.confirm(t("message.deleteConfirm", { label: t("message.deleteLabel") }), { destructive: true }))) return;
     try {
       await deletePost(postId);
       refresh();
     } catch {
-      alert(t("message.postDeleteFailed"));
+      void dialog.alert(t("message.postDeleteFailed"), { variant: "danger" });
     }
   };
 

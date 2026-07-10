@@ -356,6 +356,41 @@ select.ds-input {
 }
 .ds-alert--danger .ds-alert__icon, .ds-alert--danger .ds-alert__title { color: var(--color-error); }
 
+/* ===== App Dialog ===== */
+.app-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4, 16px);
+}
+.app-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgb(0 0 0 / 0.58);
+  cursor: default;
+}
+.app-dialog__panel {
+  position: relative;
+  display: flex;
+  width: min(100%, 420px);
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+  padding: var(--space-4, 16px);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg, 10px);
+  background: var(--bg-0);
+  box-shadow: var(--shadow-2);
+}
+.app-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2, 8px);
+}
+
 /* ===== Progress ===== */
 .ds-progress {
   width: 100%;

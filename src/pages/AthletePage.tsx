@@ -10,6 +10,7 @@ import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 
 import { useToast } from "../contexts/ToastContext";
+import { useDialog } from "../contexts/DialogContext";
 import { firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
@@ -36,6 +37,7 @@ export default function AthletePage() {
   const { userId } = useParams<{ userId: string }>();
   const { user: currentUser, profile: currentProfile } = useAuth();
   const { showToast } = useToast();
+  const dialog = useDialog();
   const { t } = useTranslation("athlete");
   const [searchParams] = useSearchParams();
   const isOwnProfile = currentUser?.uid === userId;
@@ -463,7 +465,7 @@ export default function AthletePage() {
   };
 
   const handleDeleteSegment = async (segmentId: string, segName: string) => {
-    if (!confirm(t("segments.deleteConfirm", { name: segName }))) return;
+    if (!(await dialog.confirm(t("segments.deleteConfirm", { name: segName }), { destructive: true }))) return;
     try {
       const fn = httpsCallable(functions, "deleteMySegment");
       await fn({ segmentId });
@@ -471,7 +473,7 @@ export default function AthletePage() {
       showToast(t("segments.deleteSuccess"));
     } catch (err) {
       const msg = (err as { message?: string }).message ?? t("segments.deleteFailed");
-      alert(msg);
+      void dialog.alert(msg, { variant: "danger" });
     }
   };
 
@@ -659,8 +661,8 @@ export default function AthletePage() {
             )}
             {friendStatus === "friends" && (
               <button
-                onClick={() => {
-                  if (!window.confirm(t("friend.confirmRemove", { nickname }))) return;
+                onClick={async () => {
+                  if (!(await dialog.confirm(t("friend.confirmRemove", { nickname }), { destructive: true }))) return;
                   handleRemoveFriend();
                 }}
                 disabled={friendLoading}

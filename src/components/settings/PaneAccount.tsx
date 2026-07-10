@@ -18,6 +18,7 @@ import type { Visibility } from "@shared/types";
 import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
 import { useStrava } from "../../hooks/useStrava";
 
@@ -37,6 +38,7 @@ export function PaneAccount() {
   const { t } = useTranslation("settings");
   const { user, profile } = useAuth();
   const { showToast } = useToast();
+  const dialog = useDialog();
   const { theme, setTheme } = useTheme();
   const { deleteUserData, loading: stravaLoading } = useStrava();
 
@@ -77,7 +79,7 @@ export function PaneAccount() {
 
   async function handleSaveNickname() {
     if (!user) return;
-    const v = window.prompt(t("profile.nicknamePrompt"), profile?.nickname ?? "");
+    const v = await dialog.prompt(t("profile.nicknamePrompt"), { defaultValue: profile?.nickname ?? "" });
     const trimmed = v?.trim();
     if (!trimmed) return;
     try {
@@ -191,7 +193,7 @@ export function PaneAccount() {
   }
 
   async function handleDeleteAccount() {
-    if (!window.confirm(t("data.deleteConfirm"))) return;
+    if (!(await dialog.confirm(t("data.deleteConfirm"), { destructive: true }))) return;
     try {
       await deleteUserData();
       showToast(t("pane.account.deleteAccountDone"));
@@ -201,7 +203,7 @@ export function PaneAccount() {
   }
 
   async function handleLogout() {
-    if (!window.confirm(t("pane.account.logoutConfirm"))) return;
+    if (!(await dialog.confirm(t("pane.account.logoutConfirm")))) return;
     await auth.signOut();
   }
 

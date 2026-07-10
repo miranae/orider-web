@@ -10,6 +10,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { useDialog } from "../../contexts/DialogContext";
 import type { AdaptationFlag } from "@shared/types/goal";
 import { Button } from "../../theme/components";
 
@@ -34,6 +35,7 @@ const STYLES: Record<"warn" | "critical", { bg: string; border: string; ink: str
 
 export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
   const { t } = useTranslation("training");
+  const dialog = useDialog();
   const [busy, setBusy] = useState(false);
   // optimistic: 사용자가 스누즈 누른 직후 onChange 리로드가 끝나기 전까지 즉시 숨김
   const [locallySnoozedUntil, setLocallySnoozedUntil] = useState<number | null>(null);
@@ -49,7 +51,7 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
 
   async function onReroll() {
     if (busy) return;
-    if (!window.confirm(t("confirmations.rerollConfirm"))) return;
+    if (!(await dialog.confirm(t("confirmations.rerollConfirm"), { destructive: true }))) return;
     setBusy(true);
     try {
       const reroll = httpsCallable(functions, "rerollPlan");
@@ -57,7 +59,7 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
       onChange();
     } catch (err) {
       logClientError("AdaptationBanner.onReroll", err, { goalId });
-      alert(t("errors.rerollError"));
+      void dialog.alert(t("errors.rerollError"), { variant: "danger" });
     } finally {
       setBusy(false);
     }
@@ -76,7 +78,7 @@ export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
       onChange();
     } catch (err) {
       logClientError("AdaptationBanner.onSnooze", err, { goalId });
-      alert(t("adaptation.snoozeError"));
+      void dialog.alert(t("adaptation.snoozeError"), { variant: "danger" });
     } finally {
       setBusy(false);
     }

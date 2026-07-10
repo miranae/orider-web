@@ -5,6 +5,7 @@ import { httpsCallable } from "firebase/functions";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useDialog } from "../../contexts/DialogContext";
 import { useStrava } from "../../hooks/useStrava";
 import { functions } from "../../services/firebase";
 
@@ -117,6 +118,7 @@ export function PaneConnections() {
   const { t } = useTranslation("settings");
   const { profile } = useAuth();
   const { showToast } = useToast();
+  const dialog = useDialog();
   const { connectStrava, disconnectStrava, loading } = useStrava();
   const [autoUploadSaving, setAutoUploadSaving] = useState(false);
 
@@ -124,7 +126,7 @@ export function PaneConnections() {
   const autoUpload = profile?.autoUpload ?? false;
 
   async function handleStravaDisconnect() {
-    if (!window.confirm(t("strava.disconnectConfirm"))) return;
+    if (!(await dialog.confirm(t("strava.disconnectConfirm"), { destructive: true }))) return;
     try {
       await disconnectStrava();
       showToast(t("strava.disconnected"));

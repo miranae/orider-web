@@ -4,6 +4,7 @@ import type { User } from "firebase/auth";
 import type { UserProfile } from "@shared/types";
 import Avatar from "../Avatar";
 import { Card, buttonClass } from "../../theme/components";
+import { useDialog } from "../../contexts/DialogContext";
 import { useHydratedSocialProfiles } from "./useHydratedSocialProfiles";
 
 export interface KudoItem {
@@ -63,6 +64,7 @@ export default function KudosCommentsCard({
   formatTimeAgo,
 }: KudosCommentsCardProps) {
   const { t } = useTranslation("activity");
+  const dialog = useDialog();
   const hydratedKudos = useHydratedSocialProfiles(kudos, "KudosCommentsCard.kudos");
   const hydratedComments = useHydratedSocialProfiles(comments, "KudosCommentsCard.comments");
   const currentProfileImage = profile?.photoURL ?? user?.photoURL ?? null;
@@ -113,7 +115,7 @@ export default function KudosCommentsCard({
                         className="text-[length:var(--fs-xs)] hover:underline" style={{ color: 'var(--ink-3)' }}
                       >{t("kudosCard.edit")}</button>
                       <button
-                        onClick={() => { if (window.confirm(t("kudosCard.deleteConfirm"))) onDeleteComment(c.id); }}
+                        onClick={async () => { if (await dialog.confirm(t("kudosCard.deleteConfirm"), { destructive: true })) onDeleteComment(c.id); }}
                         className="text-[length:var(--fs-xs)] hover:underline" style={{ color: 'var(--ink-3)' }}
                       >{t("kudosCard.delete")}</button>
                     </span>

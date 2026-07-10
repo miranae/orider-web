@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDialog } from "../../contexts/DialogContext";
 import Modal from "../Modal";
 import { generateInviteCode } from "../../utils/inviteCode";
 import type { GroupKind, GroupApproval } from "@shared/types";
@@ -40,6 +41,7 @@ const inputStyle: React.CSSProperties = {
 export default function CreateGroupModal({ open, onClose, onCreated }: CreateGroupModalProps) {
   const { user } = useAuth();
   const { t } = useTranslation("group");
+  const dialog = useDialog();
   const [step, setStep] = useState(0);
   const [kind, setKind] = useState<GroupKind>("club");
   const [name, setName] = useState("");
@@ -151,7 +153,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
       onCreated(groupId, createdName);
     } catch (err) {
       logClientError("CreateGroupModal.createGroup", err, { kind, approval });
-      alert(err instanceof Error ? err.message : t("create.failed"));
+      void dialog.alert(err instanceof Error ? err.message : t("create.failed"), { variant: "danger" });
     }
     setCreating(false);
   };
