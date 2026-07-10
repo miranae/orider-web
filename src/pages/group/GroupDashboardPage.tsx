@@ -199,7 +199,7 @@ export default function GroupDashboardPage() {
       </Card>
 
       {/* KPI 스트립 — 5개 (시안 정합) */}
-      <Card padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
+      <Card padding="none" className="mb-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" style={{ borderRadius: "var(--r-lg)", padding: 0 }}>
         {([
           { l: t("dashboard.stats.weekDistance"), v: `${(weekStats.totalDistance / 1000).toFixed(1)}`, u: "km", sub: weekStats.activeMembers > 0 ? `${t("dashboard.stats.perMember")} ${(weekStats.totalDistance / 1000 / weekStats.activeMembers).toFixed(1)}km` : "" },
           { l: t("dashboard.stats.participatingMembers"), v: `${weekStats.activeMembers}`, u: `/ ${group.memberCount}`, sub: group.memberCount > 0 ? `${t("dashboard.stats.participationRate")} ${Math.round(weekStats.activeMembers / group.memberCount * 100)}%` : "" },
