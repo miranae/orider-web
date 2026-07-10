@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import Layout, { shouldBypassOnboardingRedirect } from "./Layout";
+import Layout, { buildOnboardingRedirectTarget, shouldBypassOnboardingRedirect } from "./Layout";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import {
   setCollectionDocs,
@@ -19,8 +19,18 @@ describe("Layout", () => {
     expect(shouldBypassOnboardingRedirect("/strava/callback")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/migrate")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/onboarding")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/terms")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/privacy")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/community")).toBe(true);
+    expect(shouldBypassOnboardingRedirect("/strava-terms")).toBe(true);
     expect(shouldBypassOnboardingRedirect("/")).toBe(false);
     expect(shouldBypassOnboardingRedirect("/activity/abc")).toBe(false);
+  });
+
+  it("preserves a deep link when redirecting to onboarding", () => {
+    expect(buildOnboardingRedirectTarget("/ko/group/abc", "?tab=rides", "#today"))
+      .toBe("/onboarding?returnTo=%2Fgroup%2Fabc%3Ftab%3Drides%23today");
+    expect(buildOnboardingRedirectTarget("/ko")).toBe("/onboarding");
   });
 
   it("renders Orider logo", async () => {
