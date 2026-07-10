@@ -278,14 +278,19 @@ fi
 # best-effort: 실패해도 머지는 이미 완료 상태라 진행을 막지 않는다.
 CLAIM_SH="$REPO_ROOT/scripts/claim-issue.sh"
 if [[ -x "$CLAIM_SH" ]]; then
-  CLAIM_ISSUES="$( { gh pr view "$PR_NUM" --json closingIssuesReferences \
-        -q '.closingIssuesReferences[].number' 2>/dev/null || true; \
-      grep -oE '^[a-z]+/0*[0-9]+' <<<"${HEADREF:-}" | grep -oE '[0-9]+' || true; } | sort -un || true)"
-  if [[ -n "$CLAIM_ISSUES" ]]; then
-    log "클레임 해제 (이슈: $(tr '\n' ' ' <<<"$CLAIM_ISSUES"))"
-    for CLAIM_ISSUE in $CLAIM_ISSUES; do
-      "$CLAIM_SH" release --force "$CLAIM_ISSUE" 2>&1 | sed 's/^/  /' || true
-    done
+  # closing 이슈(PR 메타데이터, 정확) → 전체 해제(--force).
+  # 브랜치명 추출(휴리스틱, <kind>/NNN-…) → **내 세션 라벨만**(non-force) — 날짜 선두 slug
+  # (feat/2026-07-… 등)를 이슈로 오인해도 타 세션의 활성 클레임은 건드리지 않는다.
+  CLOSING_ISSUES="$(gh pr view "$PR_NUM" --json closingIssuesReferences \
+    -q '.closingIssuesReferences[].number' 2>/dev/null | sort -un || true)"
+  BRANCH_ISSUE="$(grep -oE '^[a-z]+/0*[0-9]+-' <<<"${HEADREF:-}" | grep -oE '[0-9]+' | sed 's/^0*//' || true)"
+  for CLAIM_ISSUE in $CLOSING_ISSUES; do
+    log "클레임 해제 (closing 이슈 #$CLAIM_ISSUE)"
+    "$CLAIM_SH" release --force "$CLAIM_ISSUE" 2>&1 | sed 's/^/  /' || true
+  done
+  if [[ -n "$BRANCH_ISSUE" ]] && ! grep -qx "$BRANCH_ISSUE" <<<"${CLOSING_ISSUES:-}"; then
+    log "클레임 해제 (브랜치명 이슈 #$BRANCH_ISSUE — 내 세션 라벨만)"
+    "$CLAIM_SH" release "$BRANCH_ISSUE" 2>&1 | sed 's/^/  /' || true
   fi
 fi
 if [[ "$KEEP_WORKTREE" == 0 ]]; then

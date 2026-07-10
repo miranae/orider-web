@@ -49,7 +49,7 @@ log() { printf '\033[1;36m▶ %s\033[0m\n' "$*"; }
 
 # primary 체크아웃(= worktree list 첫 항목) 기준으로 저장소·모노레포 루트를 잡는다.
 # 워크트리 안에서 실행해도 primary 를 찾아 같은 위치 규약을 쓴다.
-PRIMARY_WT="$(git -C "$SCRIPT_DIR" worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
+PRIMARY_WT="$(git -C "$SCRIPT_DIR" worktree list --porcelain | awk '/^worktree /{sub(/^worktree /,""); print; exit}')"
 REPO_NAME="$(basename "$PRIMARY_WT")"
 MONO_ROOT="$(dirname "$PRIMARY_WT")"
 WT_ROOT="$MONO_ROOT/_worktrees"
@@ -83,13 +83,18 @@ WT_DIR="$WT_ROOT/$WT_NAME"
 if git -C "$PRIMARY_WT" rev-parse --verify -q "$BRANCH" >/dev/null; then
   echo "✗ 로컬 브랜치 '$BRANCH' 이미 존재 — 기존 작업 확인 후 정리(git branch -D)하거나 다른 이름 사용" >&2; exit 2
 fi
+if git -C "$PRIMARY_WT" ls-remote --exit-code origin "refs/heads/$BRANCH" >/dev/null 2>&1; then
+  echo "✗ 원격 브랜치 origin/$BRANCH 이미 존재 — 이전 세션 잔재인지 확인 후 정리하거나 다른 이름 사용" >&2; exit 2
+fi
 
 # 이슈 클레임 — 실패하면 워크트리를 만들지 않는다 (다른 세션 선점 존중)
+CLAIM_SH="$SCRIPT_DIR/claim-issue.sh"
+CLAIMED=0
 if [[ -n "$ISSUE" ]]; then
-  CLAIM_SH="$SCRIPT_DIR/claim-issue.sh"
   if [[ -x "$CLAIM_SH" ]]; then
     log "이슈 #$ISSUE 클레임"
     ( cd "$PRIMARY_WT" && "$CLAIM_SH" acquire "$ISSUE" ) || exit 1
+    CLAIMED=1
   else
     printf '\033[1;33m⚠ claim-issue.sh 없음 — 클레임 생략 (병렬 세션 충돌 주의)\033[0m\n'
   fi
@@ -97,7 +102,13 @@ fi
 
 log "워크트리 생성: $WT_DIR (branch $BRANCH ← origin/$BASE)"
 mkdir -p "$WT_ROOT"
-git -C "$PRIMARY_WT" worktree add -b "$BRANCH" "$WT_DIR" "origin/$BASE"
+if ! git -C "$PRIMARY_WT" worktree add -b "$BRANCH" "$WT_DIR" "origin/$BASE"; then
+  # 클레임 롤백 — 워크트리 생성 실패 시 고아 wip 라벨을 남기지 않는다
+  if [[ "$CLAIMED" == 1 && -x "$CLAIM_SH" ]]; then
+    ( cd "$PRIMARY_WT" && "$CLAIM_SH" release "$ISSUE" ) || true
+  fi
+  exit 1
+fi
 
 # dev 셋업 — primary 의 로컬 전용 자산(.env/node_modules)을 심볼릭 링크.
 # (gitignore 대상이라 워크트리에 없음 — 없으면 빌드/테스트가 즉시 깨진다)
