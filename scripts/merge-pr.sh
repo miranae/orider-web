@@ -17,6 +17,13 @@
 #   --e2e                     Run Playwright E2E.
 #   --no-wait                 Do not wait for GitHub checks.
 #   --keep-worktree           Do not remove the current worktree/branch after merge.
+#
+# 속도 설계 (2026-07-10):
+#   - 변경 분류 3단계: 제품 코드(npm 게이트+풀 리뷰) / 툴링(.sh·.github — 게이트 생략+haiku 경량 리뷰)
+#     / 문서(전부 생략). 미분류 경로는 안전하게 코드로 취급.
+#   - AI 리뷰는 npm 게이트와 **병렬** 실행 — 리뷰(수 분)가 크리티컬 패스에서 빠진다.
+#   - base 전진(BEHIND)은 게이트 시작 시 자동으로 origin/base 머지+푸시 — CI 재실행이
+#     로컬 게이트와 겹쳐 돌아 마지막 대기가 짧다.
 set -euo pipefail
 
 DO_MERGE=1
@@ -76,27 +83,31 @@ assert_local_head_matches_pr() {
   fi
 }
 
-run_claude_review_with_timeout() {
-  local out="$1" timeout_s="${CLAUDE_REVIEW_TIMEOUT_SEC:-900}" pid watchdog rc
-
-  "${REVIEW_CMD[@]}" >"$out" 2>&1 &
-  pid=$!
+# AI 리뷰를 백그라운드로 시작 (npm 게이트와 병렬) — 결과 처리는 아래 join 블록에서.
+REVIEW_STARTED=0
+start_claude_review() {
+  local timeout_s="${CLAUDE_REVIEW_TIMEOUT_SEC:-900}"
+  "${REVIEW_CMD[@]}" >"$REVIEW_OUT" 2>&1 &
+  REVIEW_PID=$!
   (
     sleep "$timeout_s"
-    if kill -0 "$pid" 2>/dev/null; then
-      kill "$pid" 2>/dev/null || true
+    if kill -0 "$REVIEW_PID" 2>/dev/null; then
+      kill "$REVIEW_PID" 2>/dev/null || true
       sleep 2
-      kill -9 "$pid" 2>/dev/null || true
+      kill -9 "$REVIEW_PID" 2>/dev/null || true
     fi
   ) &
-  watchdog=$!
-
-  wait "$pid" || rc=$?
-  rc="${rc:-0}"
-  kill "$watchdog" 2>/dev/null || true
-  wait "$watchdog" 2>/dev/null || true
-  return "$rc"
+  REVIEW_WATCHDOG=$!
+  REVIEW_STARTED=1
 }
+# 게이트가 중간에 die 해도 백그라운드 claude 를 고아로 남기지 않는다
+cleanup_review() {
+  if [[ "${REVIEW_STARTED:-0}" == 1 ]]; then
+    kill "${REVIEW_PID:-0}" 2>/dev/null || true
+    kill "${REVIEW_WATCHDOG:-0}" 2>/dev/null || true
+  fi
+}
+trap cleanup_review EXIT
 
 if [[ -z "$PR_NUM" ]]; then
   PR_NUM="$(gh pr view "$BRANCH" --json number -q .number 2>/dev/null || true)"
@@ -122,15 +133,39 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 assert_local_head_matches_pr "게이트 시작"
 
+# ── BEHIND 자동 갱신 ──────────────────────────────────────────────────────────
+# base 전진으로 BEHIND 면 지금 origin/$BASE 를 머지해 푸시한다 — 로컬 게이트가 갱신된
+# 코드 기준으로 돌고 CI 재실행도 병렬로 진행돼, 게이트 전부 통과 후 BEHIND 로 죽어
+# 수동 갱신+전체 재실행하던 낭비(#227 사례)가 없어진다.
+if [[ "$MERGE_STATE" == "BEHIND" ]]; then
+  log "base 전진 감지(BEHIND) — origin/$BASE 자동 머지 후 푸시"
+  git fetch origin "$BASE" --quiet || true
+  git merge "origin/$BASE" --no-edit --quiet \
+    || die "origin/$BASE 자동 머지 충돌 — 수동 해결 후 재실행하세요"
+  git push --quiet origin "HEAD:$HEADREF" || die "갱신 커밋 푸시 실패"
+  HEAD_OID="$(git rev-parse HEAD)"
+  echo "  갱신 완료: headSha=${HEAD_OID:0:12} (CI 재실행 시작)"
+fi
+
 git fetch origin "$BASE" --quiet || true
 CHANGED="$(git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true)"
 if [[ -z "$CHANGED" ]]; then
   warn "origin/$BASE...HEAD 변경 파일이 비어 있습니다. PR head가 현재 checkout과 다른지 확인하세요."
 fi
 
-code_changes=0
-if [[ -n "$CHANGED" ]] && grep -qEv '(^docs/|^\.github/(ISSUE_TEMPLATE/|PULL_REQUEST_TEMPLATE)|\.md$)' <<<"$CHANGED"; then
-  code_changes=1
+# 변경 분류 — 게이트 비용을 diff 성격에 맞춘다. 미분류 경로는 안전하게 '코드'.
+#   docs    (docs/·*.md·LICENSE 등)        → npm 게이트·리뷰 전부 생략
+#   tooling (scripts/*.sh·.github/)        → npm 게이트 생략(어차피 src/ 만 봄), haiku 경량 리뷰
+#   code    (그 외 전부)                   → npm 게이트 + 풀 리뷰
+DOCS_PAT='^docs/|\.md$|^LICENSE|^\.gitignore$|^\.gitattributes$'
+TOOLING_PAT='^scripts/[^/]+\.sh$|^\.github/'
+code_changes=0; review_mode="skip"
+if [[ -n "$CHANGED" ]]; then
+  if grep -qEv "($DOCS_PAT)|($TOOLING_PAT)" <<<"$CHANGED"; then
+    code_changes=1; review_mode="full"
+  elif grep -qE "$TOOLING_PAT" <<<"$CHANGED"; then
+    review_mode="fast"
+  fi
 fi
 
 log "PR #$PR_NUM 머지 게이트"
@@ -138,7 +173,35 @@ echo "  URL: $PR_URL"
 echo "  base=$BASE head=$HEADREF branch=$BRANCH"
 echo "  headSha=${HEAD_OID:0:12}"
 echo "  reviewDecision=${REVIEW_DECISION:-<none>} mergeState=${MERGE_STATE:-<unknown>}"
-echo "  code_changes=$code_changes"
+echo "  code_changes=$code_changes review_mode=$review_mode"
+
+# ── AI 리뷰 시작 (npm 게이트와 병렬) ─────────────────────────────────────────
+if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
+  command -v claude >/dev/null 2>&1 || die "claude CLI 없음 — 코드 리뷰 게이트 실행 불가. 설치하거나 --no-review 로 우회하세요."
+
+  REVIEW_OUT="$(mktemp -t orider-merge-review)"
+  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 이 브랜치의 origin/$BASE 대비 diff(\`git diff origin/$BASE...HEAD\`)만 리뷰하라. 필요한 맥락은 허용된 git diff/show/log/status 출력만 사용하고, 일반 파일 읽기는 사용하지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
+
+로깅/관측성도 점검하라:
+- 신규 무음 에러 스왈로우(catch {}, .catch(() => {}), 실패 숨김)가 있는지.
+- 운영 가시성이 필요한 프론트 에러가 logClientError/Sentry 경로 없이 raw console 또는 무시로 끝나는지.
+- 새 외부 호출/Firebase IO가 실패 맥락을 남기는지.
+
+출력 형식:
+1) 발견 목록. 각 항목은 BLOCKER / MAJOR / MINOR 중 하나로 시작하고 file:line을 포함한다. 없으면 '결함 없음'.
+2) 마지막 줄은 반드시 정확히 하나:
+MERGE_VERDICT: BLOCK
+MERGE_VERDICT: PASS"
+
+  REVIEW_CMD=(claude -p "$REVIEW_PROMPT" \
+    --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*)")
+  if [[ "$review_mode" == "fast" ]]; then
+    # 툴링 전용 diff — 경량 모델로 빠르게 (안전망 유지, 수 분 → 1분 미만)
+    REVIEW_CMD+=(--model claude-haiku-4-5-20251001)
+  fi
+  log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
+  start_claude_review
+fi
 
 if [[ "$code_changes" == 1 ]]; then
   [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
@@ -172,7 +235,7 @@ if [[ "$code_changes" == 1 ]]; then
     log "Build 생략 (--skip-build)"
   fi
 else
-  log "문서/메타데이터 변경만 감지 — 로컬 npm 게이트 생략"
+  log "문서/툴링 변경만 감지 — 로컬 npm 게이트 생략 (lint/test 는 src/ 대상)"
 fi
 
 if [[ "$RUN_E2E" == 1 ]]; then
@@ -183,29 +246,14 @@ if [[ "$RUN_E2E" == 1 ]]; then
   fi
 fi
 
-if [[ "$RUN_REVIEW" == 1 && "$code_changes" == 1 ]]; then
-  command -v claude >/dev/null 2>&1 || die "claude CLI 없음 — 코드 리뷰 게이트 실행 불가. 설치하거나 --no-review 로 우회하세요."
-
-  log "로컬 AI 코드리뷰 (origin/$BASE...HEAD)"
-  REVIEW_OUT="$(mktemp -t orider-merge-review)"
-  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 이 브랜치의 origin/$BASE 대비 diff(\`git diff origin/$BASE...HEAD\`)만 리뷰하라. 필요한 맥락은 허용된 git diff/show/log/status 출력만 사용하고, 일반 파일 읽기는 사용하지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
-
-로깅/관측성도 점검하라:
-- 신규 무음 에러 스왈로우(catch {}, .catch(() => {}), 실패 숨김)가 있는지.
-- 운영 가시성이 필요한 프론트 에러가 logClientError/Sentry 경로 없이 raw console 또는 무시로 끝나는지.
-- 새 외부 호출/Firebase IO가 실패 맥락을 남기는지.
-
-출력 형식:
-1) 발견 목록. 각 항목은 BLOCKER / MAJOR / MINOR 중 하나로 시작하고 file:line을 포함한다. 없으면 '결함 없음'.
-2) 마지막 줄은 반드시 정확히 하나:
-MERGE_VERDICT: BLOCK
-MERGE_VERDICT: PASS"
-
-  REVIEW_CMD=(claude -p "$REVIEW_PROMPT" \
-    --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*)")
-
+# ── AI 리뷰 join (병렬 시작분 결과 처리) ─────────────────────────────────────
+if [[ "$REVIEW_STARTED" == 1 ]]; then
+  log "로컬 AI 코드리뷰 결과 대기 (mode=$review_mode)"
   review_rc=0
-  run_claude_review_with_timeout "$REVIEW_OUT" || review_rc=$?
+  wait "$REVIEW_PID" || review_rc=$?
+  kill "$REVIEW_WATCHDOG" 2>/dev/null || true
+  wait "$REVIEW_WATCHDOG" 2>/dev/null || true
+  REVIEW_STARTED=0
   verdict="$(grep -oE 'MERGE_VERDICT:[[:space:]]*(BLOCK|PASS)' "$REVIEW_OUT" | tail -1 || true)"
   if [[ "$verdict" == *BLOCK ]]; then
     sed 's/^/  │ /' "$REVIEW_OUT"
@@ -222,7 +270,7 @@ MERGE_VERDICT: PASS"
     die "코드 리뷰 판정(MERGE_VERDICT) 누락"
   fi
 else
-  [[ "$RUN_REVIEW" == 0 ]] && log "로컬 AI 코드리뷰 생략 (--no-review)" || log "코드 변경 없음 — 로컬 AI 코드리뷰 생략"
+  [[ "$RUN_REVIEW" == 0 ]] && log "로컬 AI 코드리뷰 생략 (--no-review)" || log "문서 전용 변경 — 로컬 AI 코드리뷰 생략"
 fi
 
 if [[ "$WAIT_CHECKS" == 1 ]]; then
