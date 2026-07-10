@@ -11,6 +11,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useCourses } from "../hooks/useCourses";
 import { GoalDetailsStep, PlanPreviewStep, RunGoalSetupWizard, SwimGoalSetupWizard } from "../components/training";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import PermissionGate from "../components/redesign/states/PermissionGate";
 import type { GoalDetailsStepValue } from "../components/training/GoalDetailsStep";
 import type { FeasibilityLabel } from "@shared/types/goal";
 
@@ -416,7 +417,8 @@ function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: Wi
 
 export default function GoalSetupPage() {
   const { t } = useTranslation('training');
-  const { profile, user } = useAuth();
+  const { t: tCommon } = useTranslation('common');
+  const { profile, user, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const discipline = (searchParams.get("sport") || "bike") as "bike" | "run" | "swim";
@@ -481,6 +483,27 @@ export default function GoalSetupPage() {
     step === 1 ? selectedCourseId !== null :
     step === 2 ? goalDetails.eventDate !== "" :
     true;
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="w-8 h-8 border-4 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px" }}>
+        <PermissionGate
+          title={t("goals.loginRequiredTitle")}
+          description={t("goals.loginRequiredDescription")}
+          actionLabel={tCommon("button.loginGoogle")}
+          onAction={() => { void signInWithGoogle(); }}
+        />
+      </div>
+    );
+  }
 
   const handleNext = () => setStep((s) => Math.min(3, s + 1));
   const handlePrev = () => setStep((s) => Math.max(1, s - 1));

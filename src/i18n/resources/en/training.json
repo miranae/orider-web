@@ -164,7 +164,9 @@
     "courseSelectInstructions": "Select a course for your goal",
     "courseSelectDetail": "We'll compare difficulty in real-time based on your fitness level",
     "stepLabel": "STEP",
-    "distanceLabel": "Distance"
+    "distanceLabel": "Distance",
+    "loginRequiredTitle": "Sign in to create a training goal",
+    "loginRequiredDescription": "Sign in before entering your course and target time. Once signed in, Orider can save the goal and generate your weekly plan."
   },
   "feasibility": {
     "label": "Goal Feasibility"
