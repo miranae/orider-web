@@ -43,6 +43,34 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-0);
   color: var(--ink-1);
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role="button"],
+[role="tab"],
+input,
+select,
+textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active:not(:disabled),
+a:active,
+[role="button"]:active,
+[role="tab"]:active {
+  opacity: 0.82;
+}
+
+@media (pointer: coarse) {
+  .overflow-x-auto,
+  .overflow-y-auto,
+  [role="tablist"] {
+    overscroll-behavior: contain;
+  }
 }
 
 /* Page transition */

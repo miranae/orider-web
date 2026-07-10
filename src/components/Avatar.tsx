@@ -43,6 +43,8 @@ export default function Avatar({
     <img
       src={imageUrl}
       alt={name}
+      loading="lazy"
+      decoding="async"
       className={`${sizeClass} rounded-full object-cover ${className}`}
     />
   ) : (

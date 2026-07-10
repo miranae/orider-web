@@ -225,7 +225,7 @@ const PostDetailPage: React.FC = () => {
           <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)] mb-4">{post.title}</h1>
           <div className="flex items-center gap-2">
             {post.profileImage ? (
-              <img src={post.profileImage} alt="" className="w-8 h-8 rounded-full" />
+              <img src={post.profileImage} alt="" className="w-8 h-8 rounded-full" loading="lazy" decoding="async" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-[var(--bg-3)]" />
             )}
@@ -245,7 +245,7 @@ const PostDetailPage: React.FC = () => {
           return standAlone.length > 0 ? (
             <div className="flex flex-wrap gap-3 mb-6">
               {standAlone.map((url, i) => (
-                <img key={i} src={url} alt="" referrerPolicy="no-referrer" className="rounded-[var(--r-lg)] max-h-96 object-cover border border-[var(--line-soft)]" />
+                <img key={i} src={url} alt="" referrerPolicy="no-referrer" className="rounded-[var(--r-lg)] max-h-96 object-cover border border-[var(--line-soft)]" loading="lazy" decoding="async" />
               ))}
             </div>
           ) : null;
@@ -364,7 +364,7 @@ const PostDetailPage: React.FC = () => {
             <Card key={comment.id} padding="none" className="p-4! md:p-6! rounded-[var(--r-lg)]">
               <div className="flex items-center gap-2 mb-2">
                 {comment.profileImage ? (
-                  <img src={comment.profileImage} alt="" className="w-5 h-5 rounded-full" />
+                  <img src={comment.profileImage} alt="" className="w-5 h-5 rounded-full" loading="lazy" decoding="async" />
                 ) : (
                   <div className="w-5 h-5 rounded-full bg-[var(--bg-3)]" />
                 )}

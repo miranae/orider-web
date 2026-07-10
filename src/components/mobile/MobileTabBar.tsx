@@ -1,4 +1,5 @@
 import { NavLink, useLocation, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { stripLangPrefix } from "../../i18n/detector";
 import { HUBS, getActiveHub } from "../../config/navHubs";
@@ -14,6 +15,22 @@ export default function MobileTabBar() {
   const { lang } = useParams();
   const path = stripLangPrefix(location.pathname);
   const activeHub = getActiveHub(path);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () => {
+      setKeyboardOpen(window.innerHeight - viewport.height - viewport.offsetTop > 120);
+    };
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+    };
+  }, []);
 
   const localized = (to: string) => `/${lang ?? 'ko'}${to === '/' ? '' : to}`;
 
@@ -24,6 +41,8 @@ export default function MobileTabBar() {
         background: "var(--bg-1)",
         borderTop: "1px solid var(--line-soft)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        transform: keyboardOpen ? "translateY(110%)" : "translateY(0)",
+        transition: "transform 160ms ease",
       }}
     >
       <nav className="flex items-start pt-1.5" role="tablist" aria-label={t("nav.mainNavAria")} style={{ minHeight: 46 }}>

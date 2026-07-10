@@ -20,6 +20,8 @@ import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const RouteMap = lazy(() => import("../RouteMap"));
+const MOBILE_FEED_RENDER_STEP = 40;
+const MOBILE_FEED_RENDER_INITIAL = 60;
 
 interface WeekEntry {
   label: string;
@@ -227,6 +229,7 @@ export default function MobileFeedPage({
   const [feedScope, setFeedScope] = useState<"all" | "friends" | "self">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [datePreset, setDatePreset] = useState<"all" | "7d" | "30d" | "90d">("all");
+  const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
 
   const sportBreakdown = useMemo(() => {
@@ -257,9 +260,11 @@ export default function MobileFeedPage({
   const filteredActivities = q
     ? filteredByDate.filter((a) => `${a.description ?? ""} ${a.nickname ?? ""} ${a.type ?? ""}`.toLowerCase().includes(q))
     : filteredByDate;
+  const renderedActivities = filteredActivities.slice(0, renderLimit);
+  const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
 
   return (
-    <div>
+    <div style={{ overscrollBehavior: "contain" }}>
       {/* 주간 요약 — 로그인 사용자만 (비로그인은 개인 통계 컨텍스트 없음) */}
       {user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
@@ -409,16 +414,22 @@ export default function MobileFeedPage({
 
       {!loading && filteredActivities.length > 0 && (
         <div>
-          {filteredActivities.map((activity, i) => (
+          {renderedActivities.map((activity, i) => (
             <CompactActivityCard key={activity.id} activity={activity} priority={i === 0} />
           ))}
         </div>
       )}
 
-      {!loading && hasMore && (
+      {!loading && (hasHiddenLocalItems || hasMore) && (
         <div style={{ padding: "var(--space-3) var(--space-4)" }}>
           <Button variant="secondary"
-            onClick={onLoadMore}
+            onClick={() => {
+              if (hasHiddenLocalItems) {
+                setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);
+              } else {
+                onLoadMore();
+              }
+            }}
             disabled={loadingMore}
             style={{ width: "100%" }}
           >
