@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
@@ -24,13 +24,116 @@ import Avatar from "../components/Avatar";
 import WeeklyChart from "../components/WeeklyChart";
 import type { Activity } from "@shared/types";
 import type { PublicUserProfile } from "../services/publicProfiles";
-import { Button, Card } from "../theme/components";
+import type { PdcDoc } from "@shared/types/pdc";
+import type { CohortPercentiles } from "@shared/types/cohort-percentiles";
+import { percentileOf } from "@shared/training/cohortPercentile";
+import { usePdc } from "../hooks/usePdc";
+import { useCohortPercentiles } from "../hooks/useCohortPercentiles";
+import { Button, Card, Chip, Text } from "../theme/components";
 
 function formatHours(ms: number): string {
   const hours = Math.floor(ms / 3600000);
   const minutes = Math.floor((ms % 3600000) / 60000);
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+const RIDER_TYPE_KEYS = new Set([
+  "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified",
+]);
+
+function bestCohortTopPct(pdc: PdcDoc, stats: CohortPercentiles): number | null {
+  const values: Array<{ key: "ftp" | "wkg20m" | "vo2max"; value: number | null }> = [
+    { key: "ftp", value: pdc.pdcModel?.ftpEst ?? null },
+    { key: "wkg20m", value: pdc.wPerKgAtKey?.["20m"] ?? null },
+    { key: "vo2max", value: pdc.vo2maxEst ?? null },
+  ];
+  const topPcts = values.flatMap(({ key, value }) => {
+    if (value == null) return [];
+    const all = stats.metrics[key]?.cohorts.all;
+    const percentile = all ? percentileOf(value, all) : null;
+    return percentile == null ? [] : [Math.max(1, Math.round(100 - percentile))];
+  });
+  return topPcts.length > 0 ? Math.min(...topPcts) : null;
+}
+
+function mostUrgentGear(activities: Activity[]): Activity["gear"] | null {
+  const byName = new Map<string, NonNullable<Activity["gear"]>>();
+  for (const activity of activities) {
+    const gear = activity.gear;
+    if (!gear?.name || !gear.maxDistanceKm) continue;
+    const prev = byName.get(gear.name);
+    if (!prev || gear.totalDistanceKm > prev.totalDistanceKm) byName.set(gear.name, gear);
+  }
+  return Array.from(byName.values())
+    .sort((a, b) => (a.maxDistanceKm! - a.totalDistanceKm) - (b.maxDistanceKm! - b.totalDistanceKm))[0] ?? null;
+}
+
+function AthleteIdentityChips({
+  pdc,
+  cohortStats,
+  activities,
+}: {
+  pdc: PdcDoc | null;
+  cohortStats: ReturnType<typeof useCohortPercentiles>;
+  activities: Activity[];
+}) {
+  const { t } = useTranslation("athlete");
+  const { t: tFitness } = useTranslation("fitness");
+  const chips: ReactNode[] = [];
+
+  if (pdc?.riderType && pdc.riderType.confidence >= 0.5) {
+    const type = RIDER_TYPE_KEYS.has(pdc.riderType.type) ? pdc.riderType.type : "Unclassified";
+    chips.push(
+      <Chip key="riderType" variant="accent" dot>
+        {tFitness(`riderType.type.${type}.label`)}
+      </Chip>,
+    );
+  }
+
+  if (pdc?.stamina != null && Number.isFinite(pdc.stamina)) {
+    const pct = Math.max(0, Math.min(100, Math.round(pdc.stamina * 100)));
+    chips.push(
+      <span key="stamina" className="inline-flex items-center gap-2 rounded-[var(--r-full)] border border-[var(--line-soft)] px-2.5 py-1">
+        <Text as="span" variant="eyebrow" style={{ color: "var(--ink-2)" }}>{t("identity.stamina")}</Text>
+        <span style={{ width: 46, height: 5, borderRadius: "var(--r-full)", background: "var(--bg-3)", overflow: "hidden" }}>
+          <span style={{ display: "block", width: `${pct}%`, height: "100%", background: "var(--aqua)" }} />
+        </span>
+        <Text as="span" variant="mono" style={{ color: "var(--ink-1)" }}>{pct}</Text>
+      </span>,
+    );
+  }
+
+  if (pdc && cohortStats.status === "ready") {
+    const topPct = bestCohortTopPct(pdc, cohortStats.stats);
+    if (topPct != null) {
+      chips.push(
+        <Chip key="cohort" variant={topPct <= 20 ? "success" : "default"} dot>
+          {t("identity.cohortTop", { pct: topPct })}
+        </Chip>,
+      );
+    }
+  }
+
+  const gear = mostUrgentGear(activities);
+  if (gear?.maxDistanceKm) {
+    const remaining = Math.round(gear.maxDistanceKm - gear.totalDistanceKm);
+    chips.push(
+      <Chip key="gear" variant={remaining <= 0 ? "warning" : "default"} dot>
+        {remaining <= 0
+          ? t("identity.gearOverdue", { name: gear.name, distance: Math.abs(remaining).toLocaleString() })
+          : t("identity.gearRemaining", { name: gear.name, distance: remaining.toLocaleString() })}
+      </Chip>,
+    );
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2" style={{ marginTop: "var(--space-3)" }}>
+      {chips}
+    </div>
+  );
 }
 
 export default function AthletePage() {
@@ -43,6 +146,8 @@ export default function AthletePage() {
   const isOwnProfile = currentUser?.uid === userId;
 
   const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
+  const { pdc } = usePdc(isOwnProfile ? userId : null);
+  const cohortStats = useCohortPercentiles(isOwnProfile);
   const ownProfileFallback: PublicUserProfile | null = useMemo(() => (
     isOwnProfile && currentProfile && userId
       ? {
@@ -507,6 +612,10 @@ export default function AthletePage() {
       .map(([week, data]) => ({ week, ...data }));
   }, [chartActivities]);
 
+  const cohortTopPct = useMemo(() => (
+    pdc && cohortStats.status === "ready" ? bestCohortTopPct(pdc, cohortStats.stats) : null
+  ), [pdc, cohortStats]);
+
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용
   const baseActivities = useMemo(() => {
@@ -628,6 +737,9 @@ export default function AthletePage() {
           <div className="flex gap-4 mt-2 text-[length:var(--fs-sm)] text-[var(--ink-2)]">
             {/* Friend count removed */}
           </div>
+          {isOwnProfile && (
+            <AthleteIdentityChips pdc={pdc} cohortStats={cohortStats} activities={chartActivities} />
+          )}
         </div>
         {!isMe && currentUser && (
           <div className="flex gap-2">
@@ -906,7 +1018,12 @@ export default function AthletePage() {
                 {filteredActivities.map((activity) => (
                   <div key={activity.id} className="relative group">
                     {/* athlete 페이지는 컨텍스트 자체가 작성자라 카드 내 작성자 헤더 중복 — 숨김. */}
-                    <ActivityCard activity={activity} hideAuthor />
+                    <ActivityCard
+                      activity={activity}
+                      hideAuthor
+                      identityPdc={isOwnProfile ? pdc : null}
+                      cohortTopPct={isOwnProfile ? cohortTopPct : null}
+                    />
                     {isMe && (
                       <Link
                         to={`/segment/create?activityId=${activity.id}`}
