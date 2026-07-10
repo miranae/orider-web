@@ -32,6 +32,8 @@
   "invite.loading": "Processing friend invite…",
   "invite.adding": "Adding friend...",
   "invite.title": "A friend invited you to Orider",
+  "invite.titleWithName": "{{nickname}} invited you to Orider",
   "invite.loginPrompt": "Sign in to add this friend",
+  "invite.loginPromptWithName": "Sign in to add {{nickname}} as a friend",
   "invite.signInGoogle": "Sign in with Google"
 }

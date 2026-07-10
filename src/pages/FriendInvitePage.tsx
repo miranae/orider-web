@@ -1,10 +1,60 @@
 import { useEffect, useState } from "react";
+import { collection, getDocs, limit, orderBy, query, where, type DocumentData } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import type { Activity } from "@shared/types";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useAuth } from "../contexts/AuthContext";
 import { useFriends } from "../hooks/useFriends";
 import { useToast } from "../contexts/ToastContext";
+import { firestore } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
+
+interface InvitePreview {
+  userId: string;
+  nickname: string;
+  photoURL: string | null;
+  rideImageUrl: string | null;
+}
+
+function readText(data: DocumentData, field: string): string | null {
+  const value = data[field];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+async function loadRecentRideImage(userId: string): Promise<string | null> {
+  try {
+    const snap = await getDocs(query(
+      collection(firestore, "activities"),
+      where("userId", "==", userId),
+      where("deletedAt", "==", null),
+      orderBy("createdAt", "desc"),
+      limit(8),
+    ));
+    const recentPublicRide = snap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as Activity)
+      .find((activity) => activity.visibility === "everyone" && (activity.mapImageUrl || activity.thumbnailTrack));
+    return recentPublicRide?.mapImageUrl ?? null;
+  } catch (err) {
+    logClientError("FriendInvitePage.recentRidePreview", err, { userId });
+    return null;
+  }
+}
+
+async function loadInvitePreview(code: string): Promise<InvitePreview | null> {
+  const snap = await getDocs(query(
+    collection(firestore, "users_public"),
+    where("friendCode", "==", code),
+    limit(1),
+  ));
+  const profileDoc = snap.docs[0];
+  if (!profileDoc) return null;
+  const data = profileDoc.data();
+  const nickname = readText(data, "nickname") ?? readText(data, "displayName") ?? profileDoc.id.slice(0, 8);
+  const photoURL = readText(data, "photoURL");
+  const rideImageUrl = await loadRecentRideImage(profileDoc.id);
+  return { userId: profileDoc.id, nickname, photoURL, rideImageUrl };
+}
 
 export default function FriendInvitePage() {
   const { code } = useParams<{ code: string }>();
@@ -15,6 +65,7 @@ export default function FriendInvitePage() {
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
   const [processed, setProcessed] = useState(false);
+  const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
 
   useEffect(() => {
     if (!user || !code || processed || processing) return;
@@ -38,6 +89,22 @@ export default function FriendInvitePage() {
       })
       .finally(() => setProcessing(false));
   }, [user, code, processed]);
+
+  useEffect(() => {
+    if (!code || user) return;
+    let cancelled = false;
+    loadInvitePreview(code)
+      .then((preview) => {
+        if (!cancelled) setInvitePreview(preview);
+      })
+      .catch((err) => {
+        logClientError("FriendInvitePage.invitePreview", err, { code });
+        if (!cancelled) setInvitePreview(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, user]);
 
   if (authLoading) {
     return (
@@ -103,26 +170,46 @@ export default function FriendInvitePage() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-sm mx-auto px-4">
-          <div className="w-16 h-16 mx-auto mb-4 bg-[var(--bg-2)] rounded-full flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-[color:var(--lime)]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {invitePreview?.rideImageUrl && (
+            <div
+              className="mb-4 overflow-hidden rounded-[var(--r-lg)] border border-[var(--line-soft)]"
+              style={{ aspectRatio: "2.6 / 1", background: "var(--bg-2)" }}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+              <img
+                src={invitePreview.rideImageUrl}
+                alt=""
+                className="h-full w-full object-cover"
               />
-            </svg>
+            </div>
+          )}
+          <div className="w-16 h-16 mx-auto mb-4 bg-[var(--bg-2)] rounded-full flex items-center justify-center overflow-hidden">
+            {invitePreview?.photoURL ? (
+              <img src={invitePreview.photoURL} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <svg
+                className="w-8 h-8 text-[color:var(--lime)]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                />
+              </svg>
+            )}
           </div>
           <h1 className="text-[length:var(--fs-xl)] font-bold mb-2" style={{ color: "var(--ink-0)" }}>
-            {t("invite.title")}
+            {invitePreview
+              ? t("invite.titleWithName", { nickname: invitePreview.nickname })
+              : t("invite.title")}
           </h1>
           <p className="mb-6" style={{ color: "var(--ink-2)" }}>
-            {t("invite.loginPrompt")}
+            {invitePreview
+              ? t("invite.loginPromptWithName", { nickname: invitePreview.nickname })
+              : t("invite.loginPrompt")}
           </p>
           <button
             onClick={signInWithGoogle}
