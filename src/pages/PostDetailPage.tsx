@@ -40,7 +40,7 @@ const PostDetailPage: React.FC = () => {
     [where('deletedAt', '==', null), orderBy('createdAt', 'asc')]
   );
   const { createComment, submitting: commentSubmitting } = useCreateComment(postId || '');
-  const { isLiked, toggleLike } = useBoardLike(postId || '');
+  const { isLiked, likeCount, toggleLike } = useBoardLike(postId || '', post?.likeCount ?? 0);
   const safeSourceUrl = normalizeUserContentUrl(post?.sourceUrl);
 
   useEffect(() => {
@@ -322,7 +322,7 @@ const PostDetailPage: React.FC = () => {
             }`}
           >
             <span>{isLiked ? '🧡' : '👍'}</span>
-            {t('likes')} {post.likeCount}
+            {t('likes')} {likeCount}
           </button>
           <span className="text-[var(--ink-3)] flex items-center gap-1.5 text-[length:var(--fs-sm)] font-medium">
             <span>💬</span>
