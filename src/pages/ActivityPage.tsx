@@ -142,7 +142,7 @@ export default function ActivityPage() {
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, signInWithGoogle } = useAuth();
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
@@ -279,14 +279,14 @@ export default function ActivityPage() {
 
   // Real-time kudos subscription
   useEffect(() => {
-    if (!activityId || !user) return;
+    if (!activityId) return;
     setKudosLoaded(false);
     const kudosRef = collection(firestore, "activities", activityId, "kudos");
     return onSnapshot(kudosRef, (snap) => {
       const list = snap.docs.map((d) => ({ userId: d.id, ...d.data() } as { userId: string; nickname: string; profileImage?: string | null }));
       setKudosList(list);
       setKudosLoaded(true);
-      setLiked(list.some((k) => k.userId === user.uid));
+      setLiked(user ? list.some((k) => k.userId === user.uid) : false);
     }, (err) => {
       setKudosLoaded(false);
       logClientError("ActivityPage.kudos", err, { path: `activities/${activityId}/kudos` });
@@ -295,7 +295,7 @@ export default function ActivityPage() {
 
   // Real-time comments subscription (exclude soft-deleted)
   useEffect(() => {
-    if (!activityId || !user) return;
+    if (!activityId) return;
     const commentsRef = query(
       collection(firestore, "activities", activityId, "comments"),
       where("deletedAt", "==", null),
@@ -309,7 +309,7 @@ export default function ActivityPage() {
       logClientError("ActivityPage.comments", err, { path: `activities/${activityId}/comments` });
     });
      
-  }, [activityId, user]);
+  }, [activityId]);
 
   const handleToggleKudos = async () => {
     if (!user || !activityId || !profile) return;
@@ -1225,6 +1225,7 @@ export default function ActivityPage() {
         onSubmitComment={handleSubmitComment}
         onDeleteComment={handleDeleteComment}
         onSaveEditComment={handleSaveEditComment}
+        onSignIn={() => { void signInWithGoogle(); }}
         formatTimeAgo={timeAgo}
       />
 

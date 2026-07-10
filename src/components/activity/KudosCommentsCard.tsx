@@ -38,6 +38,7 @@ interface KudosCommentsCardProps {
   onSubmitComment: () => void;
   onDeleteComment: (commentId: string) => void;
   onSaveEditComment: () => void;
+  onSignIn: () => void;
   formatTimeAgo: (ts: number) => string;
 }
 
@@ -58,6 +59,7 @@ export default function KudosCommentsCard({
   onSubmitComment,
   onDeleteComment,
   onSaveEditComment,
+  onSignIn,
   formatTimeAgo,
 }: KudosCommentsCardProps) {
   const { t } = useTranslation("activity");
@@ -69,12 +71,11 @@ export default function KudosCommentsCard({
     <Card padding="none" style={{ padding: 'var(--space-5)' }}>
       <div className="flex items-center gap-4 pb-3" style={{ borderBottom: '1px solid var(--line-soft)' }}>
         <button
-          onClick={onToggleKudos}
-          disabled={!user}
-          className="flex items-center gap-1.5 text-[length:var(--fs-sm)] transition-colors disabled:opacity-50"
+          onClick={user ? onToggleKudos : onSignIn}
+          className="flex items-center gap-1.5 text-[length:var(--fs-sm)] transition-colors hover:text-[var(--lime)]"
           style={{ color: liked ? 'var(--lime)' : 'var(--ink-2)' }}
           aria-pressed={liked}
-          aria-label={liked ? t("kudosCard.kudosCancel") : t("kudosCard.kudos")}
+          aria-label={!user ? t("kudosCard.loginToKudos") : liked ? t("kudosCard.kudosCancel") : t("kudosCard.kudos")}
         >
           <svg className="w-5 h-5" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
@@ -182,6 +183,23 @@ export default function KudosCommentsCard({
                   {t("kudosCard.submitting")}
                 </span>
               ) : t("kudosCard.submit")}
+            </button>
+          </div>
+        </div>
+      )}
+      {!user && (
+        <div className="pt-3">
+          <div className="flex flex-col gap-3 rounded-[var(--r-lg)] border border-[var(--line-soft)] bg-[var(--bg-2)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">{t("kudosCard.loginTitle")}</p>
+              <p className="mt-0.5 text-[length:var(--fs-xs)] text-[var(--ink-3)]">{t("kudosCard.loginDesc")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onSignIn}
+              className={buttonClass({ variant: "secondary", size: "sm", className: "shrink-0" })}
+            >
+              {t("kudosCard.loginAction")}
             </button>
           </div>
         </div>

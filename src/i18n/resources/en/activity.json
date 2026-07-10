@@ -238,6 +238,10 @@
     "submit": "Post",
     "submitting": "Posting",
     "placeholder": "Write a comment...",
+    "loginToKudos": "Sign in to give kudos",
+    "loginTitle": "Sign in to join",
+    "loginDesc": "Sign in to give kudos or leave a comment. You can still read comments.",
+    "loginAction": "Sign in with Google",
     "ariaInput": "Comment input",
     "ariaEdit": "Edit comment",
     "deleteConfirm": "Delete this comment?"
