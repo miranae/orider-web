@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -25,6 +25,14 @@ import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { EmptyState, ErrorState } from "../components/redesign";
 import { Button, Card, Text } from "../theme/components";
 import { buildDayNames, buildWorkoutMeta, formatDateLabel, phaseColor, phaseLabel } from "../features/training/plan/planDisplay";
+
+const PLAN_WEEK_GRID_COLUMNS = '80px repeat(7, minmax(72px, 1fr)) 100px';
+const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
+  padding: 0,
+  overflowX: 'auto',
+  overflowY: 'hidden',
+  WebkitOverflowScrolling: 'touch',
+};
 
 interface DayCellProps {
   day: PlanDay;
@@ -276,12 +284,12 @@ function SkeletonGrid() {
   const { t: tCommon } = useTranslation('common');
   const DAY_NAMES = useMemo(() => buildDayNames(tCommon), [tCommon]);
   return (
-    <Card padding="none" style={{ padding: 0, overflow: 'hidden' }}>
+    <Card padding="none" style={PLAN_CALENDAR_CARD_STYLE}>
       {/* Header row */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '80px repeat(7, 1fr) 100px',
+          gridTemplateColumns: PLAN_WEEK_GRID_COLUMNS,
           padding: '10px 14px',
           borderBottom: '1px solid var(--line-soft)',
           background: 'var(--bg-2)',
@@ -299,7 +307,7 @@ function SkeletonGrid() {
           key={i}
           style={{
             display: 'grid',
-            gridTemplateColumns: '80px repeat(7, 1fr) 100px',
+            gridTemplateColumns: PLAN_WEEK_GRID_COLUMNS,
             gap: "var(--space-1-5)",
             padding: '10px 14px',
             borderBottom: i < 11 ? '1px solid var(--line-soft)' : 'none',
@@ -916,12 +924,12 @@ export default function PlanPage() {
         {loading ? (
           <SkeletonGrid />
         ) : (
-          <Card padding="none" style={{ padding: 0, overflow: 'hidden' }}>
+          <Card padding="none" style={PLAN_CALENDAR_CARD_STYLE}>
             {/* Header */}
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '80px repeat(7, 1fr) 100px',
+                gridTemplateColumns: PLAN_WEEK_GRID_COLUMNS,
                 padding: '10px 14px',
                 borderBottom: '1px solid var(--line-soft)',
                 background: 'var(--bg-2)',
@@ -966,7 +974,7 @@ export default function PlanPage() {
                     key={wk.id}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '80px repeat(7, 1fr) 100px',
+                      gridTemplateColumns: PLAN_WEEK_GRID_COLUMNS,
                       gap: "var(--space-1-5)",
                       padding: '10px 14px',
                       borderBottom: wi < weeks.length - 1 ? '1px solid var(--line-soft)' : 'none',

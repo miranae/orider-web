@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { Upload } from "lucide-react";
@@ -14,6 +14,14 @@ import { estimateTSS } from "../utils/estimateTSS";
 import { getSportIcon } from "../utils/sportType";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState, PermissionGate } from "../components/redesign";
+
+const LOG_WEEK_GRID_COLUMNS = "repeat(7, minmax(72px, 1fr)) 60px";
+const LOG_CALENDAR_CARD_STYLE: CSSProperties = {
+  padding: 0,
+  overflowX: "auto",
+  overflowY: "hidden",
+  WebkitOverflowScrolling: "touch",
+};
 
 // ── 날짜 유틸 ─────────────────────────────────────────────────────────
 
@@ -617,12 +625,12 @@ export default function TrainingLogPage() {
         </div>
 
         {/* 캘린더 그리드 */}
-        <Card padding="none" style={{ padding: 0, overflow: "hidden" }}>
+        <Card padding="none" style={LOG_CALENDAR_CARD_STYLE}>
           {/* 요일 헤더 */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(7, 1fr) 60px",
+              gridTemplateColumns: LOG_WEEK_GRID_COLUMNS,
               padding: "8px 10px",
               borderBottom: "1px solid var(--line-soft)",
               background: "var(--bg-2)",
@@ -657,7 +665,7 @@ export default function TrainingLogPage() {
                     key={wi}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(7, 1fr)",
+                      gridTemplateColumns: LOG_WEEK_GRID_COLUMNS,
                       gap: "var(--space-1)",
                     }}
                   >
@@ -685,7 +693,7 @@ export default function TrainingLogPage() {
                     key={wi}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(7, 1fr) 60px",
+                      gridTemplateColumns: LOG_WEEK_GRID_COLUMNS,
                       gap: "var(--space-1)",
                       alignItems: "stretch",
                     }}
