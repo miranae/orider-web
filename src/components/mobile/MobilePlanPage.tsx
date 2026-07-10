@@ -68,16 +68,27 @@ interface MobilePlanPageProps {
   currentWeek: PlanWeek | null;
   weekLabel: string;
   goalId?: string;
+  goalTitle?: string;
+  daysLeft?: number;
+  progressPct?: number;
+  completedTSS?: number;
+  totalTSS?: number;
+  weeksLeft?: number;
+  projectedCTL?: number | null;
   /** 자동 적응 알림 — warn/critical 일 때 상단 배너 노출 */
   adaptationFlag?: AdaptationFlag;
   onWeekPrev?: () => void;
   onWeekNext?: () => void;
   onEditWorkout?: (day: PlanDay, weekId: string, dayIndex: number) => void;
   onPlanUpdate?: () => void;
+  onIcsExport?: () => void;
+  onReroll?: () => void;
+  onGoalReset?: () => void;
+  onAbandon?: () => void;
 }
 
 export default function MobilePlanPage({
-  currentWeek, weekLabel, goalId, adaptationFlag, onWeekPrev, onWeekNext, onEditWorkout, onPlanUpdate,
+  currentWeek, weekLabel, goalId, goalTitle, daysLeft, progressPct, completedTSS, totalTSS, weeksLeft, projectedCTL, adaptationFlag, onWeekPrev, onWeekNext, onEditWorkout, onPlanUpdate, onIcsExport, onReroll, onGoalReset, onAbandon,
 }: MobilePlanPageProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
@@ -131,6 +142,48 @@ export default function MobilePlanPage({
       {goalId && adaptationFlag && (
         <div style={{ padding: "0 16px" }}>
           <AdaptationBanner goalId={goalId} flag={adaptationFlag} onChange={onPlanUpdate ?? (() => {})} />
+        </div>
+      )}
+
+      {goalTitle && (
+        <div style={{ margin: "14px 16px 12px", background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", padding: "var(--space-3)" }}>
+          <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: "var(--space-1)" }}>{t("page.planTitle")}</Text>
+          <div style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", marginBottom: "var(--space-3)" }}>{goalTitle}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+            {[
+              [t("page.daysLeftPrefix"), daysLeft ?? "—"],
+              [t("metrics.progress"), progressPct != null ? `${progressPct}%` : "—"],
+              [t("metrics.completedTSS"), `${completedTSS ?? 0}/${totalTSS ?? 0}`],
+              [t("metrics.projectedCTL"), projectedCTL != null ? `+${Math.round(projectedCTL)}` : "—"],
+            ].map(([label, value]) => (
+              <div key={String(label)} style={{ minWidth: 0, padding: "var(--space-2)", borderRadius: "var(--r-md)", background: "var(--bg-2)" }}>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{label}</Text>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: "var(--space-2)", overflowX: "auto", paddingBottom: 2 }}>
+            {[
+              [t("actions.ics", { defaultValue: "ICS" }), onIcsExport],
+              [t("actions.reroll", { defaultValue: "재생성" }), onReroll],
+              [t("actions.resetGoal", { defaultValue: "목표 재설정" }), onGoalReset],
+              [t("actions.abandon", { defaultValue: "포기" }), onAbandon],
+            ].map(([label, action]) => action ? (
+              <button
+                key={String(label)}
+                type="button"
+                onClick={action as () => void}
+                style={{ minHeight: 36, padding: "0 10px", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", color: "var(--ink-1)", fontSize: "var(--fs-xs)", fontWeight: 600, whiteSpace: "nowrap" }}
+              >
+                {String(label)}
+              </button>
+            ) : null)}
+          </div>
+          {weeksLeft != null && (
+            <div style={{ marginTop: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+              {t("metrics.weeksLeft")}: {weeksLeft}{t("metrics.weeksUnit")}
+            </div>
+          )}
         </div>
       )}
 

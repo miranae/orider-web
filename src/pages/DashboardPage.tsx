@@ -372,7 +372,7 @@ export default function DashboardPage() {
   if (isMobile) {
     return (
       <MobileFeedPage
-        activities={filteredActivities}
+        activities={sportFiltered}
         loading={loading}
         hasMore={hasMore}
         loadingMore={loadingMore}
@@ -383,6 +383,8 @@ export default function DashboardPage() {
         }))}
         showYearRecapBanner={showYearRecapBanner}
         consistencyStreak={consistencyStreak}
+        currentUserId={user?.uid ?? null}
+        friendIds={[...friendIds]}
       />
     );
   }

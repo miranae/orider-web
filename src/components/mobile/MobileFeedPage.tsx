@@ -35,6 +35,8 @@ interface MobileFeedPageProps {
   recentWeeks: WeekEntry[];
   showYearRecapBanner?: boolean;
   consistencyStreak?: ConsistencyStreakSummary | null;
+  currentUserId?: string | null;
+  friendIds?: string[];
 }
 
 function formatDur(ms: number): string {
@@ -217,11 +219,15 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 }
 
 export default function MobileFeedPage({
-  activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks, showYearRecapBanner = false, consistencyStreak = null,
+  activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
   const [sportFilter, setSportFilter] = useState("all");
+  const [feedScope, setFeedScope] = useState<"all" | "friends" | "self">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [datePreset, setDatePreset] = useState<"all" | "7d" | "30d" | "90d">("all");
+  const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
 
   const sportBreakdown = useMemo(() => {
     const bike = activities.filter(a => getDiscipline(a.type) === "bike");
@@ -236,8 +242,21 @@ export default function MobileFeedPage({
 
   // 측정 오류 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
   const visibleActivities = activities.filter((a) => !isTrivialActivity(a));
-  const filteredBySprt = sportFilter === "all" ? visibleActivities
+  const filteredBySport = sportFilter === "all" ? visibleActivities
     : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
+  const filteredByScope = filteredBySport.filter((a) => {
+    if (feedScope === "friends") return friendIdSet.has(a.userId);
+    if (feedScope === "self") return currentUserId != null && a.userId === currentUserId;
+    return true;
+  });
+  const cutoff = datePreset === "all"
+    ? 0
+    : Date.now() - (datePreset === "7d" ? 7 : datePreset === "30d" ? 30 : 90) * 86400000;
+  const filteredByDate = cutoff > 0 ? filteredByScope.filter((a) => a.startTime >= cutoff) : filteredByScope;
+  const q = searchQuery.trim().toLowerCase();
+  const filteredActivities = q
+    ? filteredByDate.filter((a) => `${a.description ?? ""} ${a.nickname ?? ""} ${a.type ?? ""}`.toLowerCase().includes(q))
+    : filteredByDate;
 
   return (
     <div>
@@ -311,12 +330,76 @@ export default function MobileFeedPage({
         <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
       </div>
 
+      <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "10px 16px", display: "grid", gap: "var(--space-2)" }}>
+        <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-1)" }}>
+          {([
+            ["all", t("feed.filter.all")],
+            ["friends", t("feed.filter.friends")],
+            ["self", t("feed.filter.self")],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={feedScope === value}
+              onClick={() => setFeedScope(value)}
+              style={{
+                minHeight: 36,
+                borderRadius: "var(--r-md)",
+                border: "1px solid var(--line-soft)",
+                background: feedScope === value ? "var(--bg-3)" : "var(--bg-1)",
+                color: feedScope === value ? "var(--ink-0)" : "var(--ink-3)",
+                fontSize: "var(--fs-xs)",
+                fontWeight: 600,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "var(--space-2)" }}>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={t("feed.search.placeholder")}
+            aria-label={t("feed.search.placeholder")}
+            style={{
+              minHeight: 40,
+              borderRadius: "var(--r-md)",
+              border: "1px solid var(--line-soft)",
+              background: "var(--bg-2)",
+              color: "var(--ink-0)",
+              padding: "0 12px",
+              fontSize: "var(--fs-sm)",
+            }}
+          />
+          <select
+            value={datePreset}
+            onChange={(event) => setDatePreset(event.target.value as "all" | "7d" | "30d" | "90d")}
+            aria-label={t("feed.datePreset.label", { defaultValue: "기간" })}
+            style={{
+              minHeight: 40,
+              borderRadius: "var(--r-md)",
+              border: "1px solid var(--line-soft)",
+              background: "var(--bg-2)",
+              color: "var(--ink-0)",
+              padding: "0 10px",
+              fontSize: "var(--fs-xs)",
+            }}
+          >
+            <option value="all">{t("feed.datePreset.all")}</option>
+            <option value="7d">{t("feed.datePreset.7d")}</option>
+            <option value="30d">{t("feed.datePreset.30d")}</option>
+            <option value="90d">{t("feed.datePreset.90d")}</option>
+          </select>
+        </div>
+      </div>
+
       {/* 활동 피드 */}
       {loading && (
         <MobileFeedSkeleton />
       )}
 
-      {!loading && filteredBySprt.length === 0 && (
+      {!loading && filteredActivities.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>🚴</div>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("mobileFeed.emptyTitle")}</div>
@@ -324,9 +407,9 @@ export default function MobileFeedPage({
         </div>
       )}
 
-      {!loading && filteredBySprt.length > 0 && (
+      {!loading && filteredActivities.length > 0 && (
         <div>
-          {filteredBySprt.map((activity, i) => (
+          {filteredActivities.map((activity, i) => (
             <CompactActivityCard key={activity.id} activity={activity} priority={i === 0} />
           ))}
         </div>

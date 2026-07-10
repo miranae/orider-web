@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -17,32 +16,6 @@ function secsToMmss(secs?: number | null): string {
   const min = Math.floor(secs / 60);
   const sec = Math.round(secs % 60);
   return `${min}:${String(sec).padStart(2, "0")}`;
-}
-
-function Toggle({ on, onToggle, disabled = false }: { on: boolean; onToggle: () => void; disabled?: boolean }) {
-  return (
-    <div
-      onClick={disabled ? undefined : onToggle}
-      className={disabled ? "" : "cursor-pointer"}
-      role="switch"
-      aria-checked={on}
-      aria-disabled={disabled}
-      style={{
-        width: 36, height: 20, borderRadius: "var(--r-xl)", flexShrink: 0,
-        background: disabled ? "var(--bg-3)" : (on ? "var(--lime)" : "var(--bg-3)"),
-        border: `1px solid ${disabled ? "var(--line-soft)" : (on ? "var(--lime)" : "var(--line)")}`,
-        position: "relative",
-        opacity: disabled ? 0.45 : 1,
-      }}
-    >
-      <div style={{
-        position: "absolute", top: 2, left: on ? 18 : 2,
-        width: 14, height: 14, borderRadius: "50%",
-        background: disabled ? "var(--ink-4)" : (on ? "var(--primary-fg)" : "var(--ink-4)"),
-        transition: "all 0.15s",
-      }} />
-    </div>
-  );
 }
 
 export default function MobileSettingsPage() {
@@ -75,12 +48,6 @@ export default function MobileSettingsPage() {
       showToast(`${t("pane.account.deleteAccountFailed")}: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
-
-  const [pushOn, setPushOn] = useState(true);
-  const [emailOn, setEmailOn] = useState(false);
-  const [followerOn, setFollowerOn] = useState(true);
-  const [kudosOn, setKudosOn] = useState(true);
-  const [prOn, setPrOn] = useState(true);
 
   return (
     <div>
@@ -163,16 +130,15 @@ export default function MobileSettingsPage() {
         <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "2px 6px", borderRadius: "var(--r-xs)", background: "var(--bg-3)", color: "var(--ink-4)" }}>{t("notifications.preparing")}</span>
       </div>
       {[
-        { label: t("notifications.push"), on: pushOn, toggle: () => setPushOn(!pushOn) },
-        { label: t("notifications.email"), on: emailOn, toggle: () => setEmailOn(!emailOn) },
-        { label: t("notifications.newFollower"), on: followerOn, toggle: () => setFollowerOn(!followerOn) },
-        { label: t("notifications.kudosComment"), on: kudosOn, toggle: () => setKudosOn(!kudosOn) },
-        { label: t("notifications.prRecord"), on: prOn, toggle: () => setPrOn(!prOn) },
+        t("notifications.push"),
+        t("notifications.email"),
+        t("notifications.newFollower"),
+        t("notifications.kudosComment"),
+        t("notifications.prRecord"),
       ].map((item) => (
-        // 알림 섹션 전체가 "준비 중" — 토글은 시각적으로만 비활성, onClick 무시.
-        <div key={item.label} className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <span style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-3)", flex: 1 }}>{item.label}</span>
-          <Toggle on={item.on} onToggle={item.toggle} disabled />
+        <div key={item} className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+          <span style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-3)", flex: 1 }}>{item}</span>
+          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{t("notifications.preparing")}</span>
         </div>
       ))}
 
