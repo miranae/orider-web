@@ -613,6 +613,34 @@ export default function PlanPage() {
   const isMobile = useMobile();
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
   const retryLoad = () => setReloadKey((key) => key + 1);
+  const exportPlanIcs = () => {
+    if (!goal) return;
+    const ics = generateICS(weeks, goal.courseName, tActivity);
+    downloadICS(ics, `orider-plan-${goal.courseName}.ics`);
+  };
+  const rerollPlan = async () => {
+    if (!goal) return;
+    if (!(await dialog.confirm(t('confirmations.rerollConfirm'), { destructive: true }))) return;
+    try {
+      const reroll = httpsCallable(functions, "rerollPlan");
+      await reroll({ goalId: goal.id });
+      window.location.reload();
+    } catch (err) {
+      logClientError("PlanPage.rerollPlan", err, { goalId: goal.id });
+      showToast(t('errors.rerollError'), "error");
+    }
+  };
+  const abandonGoal = async () => {
+    if (!goal) return;
+    if (!(await dialog.confirm(t('confirmations.abandonConfirm'), { destructive: true }))) return;
+    try {
+      await updateDoc(doc(firestore, "goals", goal.id), { status: "abandoned", updatedAt: Date.now() });
+      navigate("/");
+    } catch (err) {
+      logClientError("PlanPage.abandonGoal", err, { goalId: goal.id });
+      showToast(t('errors.abandonError'), "error");
+    }
+  };
 
   if (!user) {
     return <GuestValuePreview kind="plan" lang={i18n.language} />;
@@ -697,6 +725,13 @@ export default function PlanPage() {
           currentWeek={mobileWeek}
           weekLabel={mobileWeekLabel}
           goalId={goal?.id}
+          goalTitle={goal?.courseName}
+          daysLeft={daysLeft}
+          progressPct={progress}
+          completedTSS={completedTSS}
+          totalTSS={totalTSS}
+          weeksLeft={weeksLeft}
+          projectedCTL={goal ? (goal.snapshot?.ctl ?? 0) * 0.18 : null}
           adaptationFlag={goal?.adaptationFlag}
           onWeekPrev={() => setMobileWeekOffset(o => o - 1)}
           onWeekNext={() => setMobileWeekOffset(o => o + 1)}
@@ -706,6 +741,10 @@ export default function PlanPage() {
             setReloadKey((k) => k + 1);
             setMobileWeekOffset(0);
           }}
+          onIcsExport={exportPlanIcs}
+          onReroll={() => { void rerollPlan(); }}
+          onGoalReset={() => navigate("/goal-setup")}
+          onAbandon={() => { void abandonGoal(); }}
         />
         {selectedDay && goal && (
           <WorkoutEditModal
@@ -887,35 +926,10 @@ export default function PlanPage() {
           <PhaseBar
             weeks={weeks}
             goal={goal}
-            onIcsExport={() => {
-              if (!goal) return;
-              const ics = generateICS(weeks, goal.courseName, tActivity);
-              downloadICS(ics, `orider-plan-${goal.courseName}.ics`);
-            }}
-            onReroll={async () => {
-              if (!goal) return;
-              if (!(await dialog.confirm(t('confirmations.rerollConfirm'), { destructive: true }))) return;
-              try {
-                const reroll = httpsCallable(functions, "rerollPlan");
-                await reroll({ goalId: goal.id });
-                window.location.reload();
-              } catch (err) {
-                logClientError("PlanPage.rerollPlan", err, { goalId: goal.id });
-                showToast(t('errors.rerollError'), "error");
-              }
-            }}
+            onIcsExport={exportPlanIcs}
+            onReroll={rerollPlan}
             onGoalReset={() => navigate("/goal-setup")}
-            onAbandon={async () => {
-              if (!goal) return;
-              if (!(await dialog.confirm(t('confirmations.abandonConfirm'), { destructive: true }))) return;
-              try {
-                await updateDoc(doc(firestore, "goals", goal.id), { status: "abandoned", updatedAt: Date.now() });
-                navigate("/");
-              } catch (err) {
-                logClientError("PlanPage.abandonGoal", err, { goalId: goal.id });
-                showToast(t('errors.abandonError'), "error");
-              }
-            }}
+            onAbandon={abandonGoal}
           />
         )}
 

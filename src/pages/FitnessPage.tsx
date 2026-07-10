@@ -504,8 +504,8 @@ export default function FitnessPage() {
     const ftp = profile?.ftp ?? 0;
     const cp = currentPoint;
 
-    // PMC 추이 (최근 60일) — date 도 함께 전달 (모바일 차트의 x축 날짜·오늘 마커용)
-    const pmcHistory = rangeData.fitness.slice(-60).map((p) => ({
+    // PMC 추이 — 데스크톱 range 선택과 같은 데이터 범위를 모바일에도 전달한다.
+    const pmcHistory = rangeData.fitness.map((p) => ({
       ctl: p.ctl, atl: p.atl, tsb: p.tsb, date: p.date,
     }));
 
@@ -516,11 +516,11 @@ export default function FitnessPage() {
       return Math.round(last28.slice(start, start + 7).reduce((s, d) => s + d.totalLoad, 0));
     });
 
-    // 최근 활동 5개 (종목 필터 적용된 disciplineActivities, 최신순)
+    // 최근 활동 (종목 필터 적용된 disciplineActivities, 최신순)
     const recentActivities = disciplineActivities
       .slice()
       .sort((a, b) => (b.startTime ?? 0) - (a.startTime ?? 0))
-      .slice(0, 5)
+      .slice(0, 10)
       .map((a) => {
         const date = a.startTime ? new Date(a.startTime) : null;
         const dateLabel = date ? t("mobile.dateLabel", { month: date.getMonth() + 1, date: date.getDate() }) : "";

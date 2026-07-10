@@ -6,22 +6,51 @@ import type { Activity } from "@shared/types";
 import ImportActivityModal from "./ImportActivityModal";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDiscipline, getDisciplineColor } from "../../utils/disciplineFilter";
+import { estimateTSS } from "../../utils/estimateTSS";
 
 // DAY_NAMES — i18n via t("mobileLog.dayNames")
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.round(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const min = Math.floor((totalSec % 3600) / 60);
+  if (h > 0) return `${h}h ${min}m`;
+  return `${min}m`;
+}
 
 interface MobileLogPageProps {
   activities: Activity[];
   year: number;
   month: number;
   onChangeMonth: (delta: number) => void;
+  loading?: boolean;
 }
 
-export default function MobileLogPage({ activities, year, month, onChangeMonth }: MobileLogPageProps) {
+function MobileLogSkeleton() {
+  return (
+    <div aria-hidden="true" style={{ padding: "var(--space-4)", display: "grid", gap: "var(--space-3)" }}>
+      <div style={{ height: 40, borderRadius: "var(--r-md)", background: "var(--bg-2)" }} />
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: 35 }).map((_, i) => (
+          <div key={i} style={{ aspectRatio: "1", borderRadius: "var(--r-sm)", background: i % 3 === 0 ? "var(--bg-3)" : "var(--bg-2)" }} />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} style={{ height: 72, borderRadius: "var(--r-md)", background: "var(--bg-2)" }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function MobileLogPage({ activities, year, month, onChangeMonth, loading = false }: MobileLogPageProps) {
   const { t } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [tab, setTab] = useState<"month" | "activity">("month");
   const [importOpen, setImportOpen] = useState(false);
   const [sportFilter, setSportFilter] = useState("all");
+  const [activityLimit, setActivityLimit] = useState(20);
   const [dayDetailActs, setDayDetailActs] = useState<Activity[] | null>(null);
   const navigate = useNavigate();
 
@@ -68,11 +97,17 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
 
   const activeDays = new Set(monthActs.map(a => new Date(a.startTime).getDate())).size;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthTotals = {
+    timeMs: monthActs.reduce((sum, a) => sum + (a.summary.ridingTimeMillis ?? 0), 0),
+    elevationM: Math.round(monthActs.reduce((sum, a) => sum + (a.summary.elevationGain ?? 0), 0)),
+    tss: Math.round(monthActs.reduce((sum, a) => sum + (((a as { tss?: number | null }).tss ?? a.summary.tss) ?? estimateTSS(a)), 0)),
+  };
 
   const monthLabel = t("mobileLog.monthLabel", { year, month: month + 1 });
 
-  // Recent activities for "활동" tab
-  const recentActs = [...filteredActivities].sort((a, b) => b.startTime - a.startTime).slice(0, 20);
+  // Activities tab uses the selected month, matching the calendar and summary range.
+  const recentActs = [...monthActs].sort((a, b) => b.startTime - a.startTime);
+  const visibleRecentActs = recentActs.slice(0, activityLimit);
 
   return (
     <div>
@@ -100,6 +135,8 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
       {/* 종목 필터 */}
       <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
 
+      {loading && <MobileLogSkeleton />}
+
       {/* Tabs */}
       <div className="flex" role="tablist" style={{ borderBottom: "1px solid var(--line-soft)", background: "var(--bg-1)" }}>
         {(["month", "activity"] as const).map((k) => {
@@ -119,7 +156,7 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
         })}
       </div>
 
-      {tab === "month" && (
+      {!loading && tab === "month" && (
         <>
           {/* Calendar */}
           <div style={{ padding: 'var(--space-4)' }}>
@@ -172,10 +209,11 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
                     }}>
                     {date.getDate()}
                     {dotColors.length > 0 ? (
-                      <div style={{ display: "flex", gap: "var(--space-1)", justifyContent: "center", marginTop: 'var(--space-1)' }}>
+                  <div style={{ display: "flex", gap: "var(--space-1)", justifyContent: "center", marginTop: 'var(--space-1)', alignItems: "center" }}>
                         {dotColors.map((c, idx) => (
                           <div key={idx} style={{ width: 5, height: 5, borderRadius: "50%", background: c }} />
                         ))}
+                        {dayActs.length > 1 && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", transform: "scale(0.82)", transformOrigin: "center" }}>{dayActs.length}</span>}
                       </div>
                     ) : null}
                   </div>
@@ -189,14 +227,18 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
             <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t("mobileLog.monthlySummary")}</span>
           </div>
           <div className="grid grid-cols-2 gap-2.5" style={{ padding: "0 16px 12px" }}>
-            <div style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: "var(--space-1)" }}>{t("mobileLog.activeDays")}</div>
-              <div><span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>{activeDays}</span><span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "var(--space-0-5)" }}>/{daysInMonth}</span></div>
-            </div>
-            <div style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: 'var(--space-3)' }}>
-              <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: "var(--space-1)" }}>{t("mobileLog.totalSessions")}</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>{monthActs.length}</div>
-            </div>
+            {[
+              [t("mobileLog.activeDays"), `${activeDays}/${daysInMonth}`],
+              [t("mobileLog.totalSessions"), monthActs.length],
+              [t("mobileLog.totalTime", { defaultValue: "총 시간" }), formatDuration(monthTotals.timeMs)],
+              [t("mobileLog.totalTss", { defaultValue: "총 TSS" }), monthTotals.tss],
+              [t("mobileLog.totalElevation", { defaultValue: "상승고도" }), `${monthTotals.elevationM.toLocaleString()}m`],
+            ].map(([label, value]) => (
+              <div key={String(label)} style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: 'var(--space-3)' }}>
+                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: "var(--space-1)" }}>{label}</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xl)", fontWeight: 600, color: "var(--ink-0)" }}>{value}</div>
+              </div>
+            ))}
           </div>
 
           {/* Sport breakdown rows */}
@@ -224,9 +266,9 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
         </>
       )}
 
-      {tab === "activity" && (
+      {!loading && tab === "activity" && (
         <>
-          {recentActs.map((a) => {
+          {visibleRecentActs.map((a) => {
             const d = new Date(a.startTime);
             const dateStr = t("mobileLog.dateMonthDay", { month: d.getMonth() + 1, day: d.getDate() });
             const km = (a.summary.distance / 1000).toFixed(1);
@@ -251,6 +293,17 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth }
               </div>
             );
           })}
+          {recentActs.length > visibleRecentActs.length && (
+            <div style={{ padding: "var(--space-3) var(--space-4)" }}>
+              <button
+                type="button"
+                onClick={() => setActivityLimit((limit) => limit + 20)}
+                style={{ width: "100%", minHeight: 44, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", color: "var(--ink-1)", fontSize: "var(--fs-sm)", fontWeight: 600 }}
+              >
+                {t("mobileLog.loadMore", { defaultValue: "더 보기" })}
+              </button>
+            </div>
+          )}
           {recentActs.length === 0 && (
             <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
               {t("mobileLog.emptyActivity")}

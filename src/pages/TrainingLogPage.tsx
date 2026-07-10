@@ -635,6 +635,7 @@ export default function TrainingLogPage() {
         activities={activities}
         year={selectedMonth.year}
         month={selectedMonth.month}
+        loading={loading}
         onChangeMonth={(delta) => {
           setSelectedMonth((prev) => {
             let m = prev.month + delta;
