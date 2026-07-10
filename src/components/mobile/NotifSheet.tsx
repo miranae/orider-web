@@ -1,8 +1,8 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import type { Notification } from "@shared/types";
 import { timeAgo } from "../../utils/timeAgo";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 
 interface NotifSheetProps {
   open: boolean;
@@ -14,11 +14,7 @@ interface NotifSheetProps {
 
 export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick }: NotifSheetProps) {
   const { t } = useTranslation("common");
-
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  useBodyScrollLock(open);
 
   if (!open) return null;
 
@@ -34,6 +30,7 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
           borderTop: "1px solid var(--line-soft)",
           maxHeight: "70%",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          overscrollBehavior: "contain",
         }}
       >
         <div

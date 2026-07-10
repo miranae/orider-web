@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useRef, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, runTransaction } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
 import { Bike, Footprints, Waves, Moon } from "lucide-react";
 
@@ -73,6 +74,7 @@ export default function AddPlanSheet({
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const dialog = useDialog();
+  useBodyScrollLock(true);
   const TEMPLATES_BY_DISCIPLINE = useMemo(() => buildTemplates(t), [t]);
   const DAY_NAMES = useMemo(() => [
     tCommon('weekday.mon'),
@@ -86,6 +88,9 @@ export default function AddPlanSheet({
   const [discipline, setDiscipline] = useState<Discipline | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(initialDayIndex ?? -1);
   const [loading, setLoading] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartYRef = useRef<number | null>(null);
 
   // 휴식일인 요일 목록 (추가 가능한 대상)
   const availableDays = days.map((d, i) => ({
@@ -155,6 +160,24 @@ export default function AddPlanSheet({
 
   const templates = discipline && discipline !== "rest" ? TEMPLATES_BY_DISCIPLINE[discipline] : [];
 
+  const handleDragStart = (clientY: number) => {
+    dragStartYRef.current = clientY;
+    setDragging(true);
+  };
+
+  const handleDragMove = (clientY: number) => {
+    if (dragStartYRef.current == null) return;
+    setDragY(Math.max(0, clientY - dragStartYRef.current));
+  };
+
+  const handleDragEnd = () => {
+    const shouldClose = dragY > 96;
+    dragStartYRef.current = null;
+    setDragging(false);
+    setDragY(0);
+    if (shouldClose) onClose();
+  };
+
   return (
     <>
       {/* Backdrop */}
@@ -179,12 +202,26 @@ export default function AddPlanSheet({
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
+          transform: `translateY(${dragY}px)`,
+          transition: dragging ? "none" : "transform 160ms ease",
         }}
       >
         {/* Handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
+        <button
+          type="button"
+          aria-label={tCommon("button.close")}
+          onClick={onClose}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            handleDragStart(event.clientY);
+          }}
+          onPointerMove={(event) => handleDragMove(event.clientY)}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
+          style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px", border: 0, background: "transparent", cursor: "grab", touchAction: "none" }}
+        >
           <div style={{ width: 36, height: 4, background: "var(--line)", borderRadius: "var(--r-xs)" }} />
-        </div>
+        </button>
 
         {/* Header */}
         <div style={{ padding: "var(--space-2) var(--space-5) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
@@ -201,7 +238,7 @@ export default function AddPlanSheet({
           </div>
         </div>
 
-        <div style={{ overflow: "auto", flex: 1, padding: "var(--space-4) var(--space-5) var(--space-6)" }}>
+        <div style={{ overflow: "auto", overscrollBehavior: "contain", flex: 1, padding: "var(--space-4) var(--space-5) var(--space-6)" }}>
           {/* Step 1: 요일 선택 */}
           <div style={{ marginBottom: 'var(--space-5)' }}>
             <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>

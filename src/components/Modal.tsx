@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 
 interface ModalProps {
   open: boolean;
@@ -9,6 +10,8 @@ interface ModalProps {
 }
 
 export default function Modal({ open, onClose, title, children, maxWidth = "max-w-md" }: ModalProps) {
+  useBodyScrollLock(open);
+
   const handleEscape = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
   }, [onClose]);
@@ -25,7 +28,10 @@ export default function Modal({ open, onClose, title, children, maxWidth = "max-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className={`relative rounded-[var(--r-lg)] shadow-xl w-full ${maxWidth} mx-4 p-6`} style={{ background: "var(--bg-0)" }}>
+      <div
+        className={`relative rounded-[var(--r-lg)] shadow-xl w-full ${maxWidth} mx-4 p-6`}
+        style={{ background: "var(--bg-0)", maxHeight: "min(90vh, 720px)", overflowY: "auto", overscrollBehavior: "contain" }}
+      >
         <h2 className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{title}</h2>
         {children}
       </div>
