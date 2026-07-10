@@ -4,6 +4,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { X, Upload, CheckCircle } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import { Text } from "../../theme/components";
 
 interface ImportActivityModalProps {
@@ -12,6 +13,8 @@ interface ImportActivityModalProps {
 }
 
 export default function ImportActivityModal({ open, onClose }: ImportActivityModalProps) {
+  useBodyScrollLock(open);
+
   const { t } = useTranslation("activity");
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -115,6 +118,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
         style={{
           background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)",
           maxHeight: "80%", paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          overscrollBehavior: "contain",
         }}
       >
         <div className="flex items-center justify-between" style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
