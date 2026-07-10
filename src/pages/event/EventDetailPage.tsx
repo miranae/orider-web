@@ -26,6 +26,7 @@ import {
   Legend,
 } from "chart.js";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { isEventHost } from "../../features/event/eventHost";
 import { haversine, parseGpxFull, type CourseData } from "../../features/event/detail/courseGpx";
 import type { EventDetail, RecentParticipant } from "../../features/event/detail/eventDetailTypes";
 import { classifyLane, LANE_DEFS, LANE_ORDER, type WpLane } from "../../features/event/detail/waypointLanes";
@@ -49,7 +50,7 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [isParticipant, setIsParticipant] = useState(false);
-  const [isLeader, setIsLeader] = useState(false);
+  const [isHost, setIsHost] = useState(false);
   const [participantCount, setParticipantCount] = useState(0);
   const [starting, setStarting] = useState(false);
   const [sending, setSending] = useState(false);
@@ -98,10 +99,13 @@ export default function EventDetailPage() {
       try {
         const docRef = doc(firestore, "events", eventId);
         const docSnap = await getDoc(docRef);
+        let hostSource: Pick<EventDetail, "creatorId" | "hostIds"> | null = null;
         if (docSnap.exists()) {
           const d = docSnap.data();
           const info = d.info || {};
           const creatorId = info.creatorId || "";
+          const hostIds = Array.isArray(info.hostIds) ? info.hostIds : [];
+          hostSource = { creatorId, hostIds };
           let creatorName = "";
           if (creatorId) {
             try {
@@ -118,6 +122,7 @@ export default function EventDetailPage() {
             status: info.status || "UNKNOWN",
             startTime: normalizeStartTime(info.startTime),
             creatorId,
+            hostIds,
             creatorName,
             groupId: info.groupId || "",
             maxParticipants: info.settings?.maxParticipants || info.maxParticipants || 0,
@@ -136,8 +141,12 @@ export default function EventDetailPage() {
         setParticipantCount(participantsSnap.size);
         if (user) {
           const myDoc = participantsSnap.docs.find((d) => d.id === user.uid);
+          const participantRole = typeof myDoc?.data()?.role === "string" ? myDoc.data().role : null;
           setIsParticipant(!!myDoc);
-          setIsLeader(myDoc?.data()?.role === "LEADER");
+          setIsHost(isEventHost(user.uid, hostSource, participantRole));
+        } else {
+          setIsParticipant(false);
+          setIsHost(false);
         }
       } catch (err) {
         logClientError("EventDetailPage.loadEvent", err, { eventId });
@@ -584,7 +593,7 @@ export default function EventDetailPage() {
                     ✓ {t("status.registered")}
                   </Button>
                 )}
-                {event.status === "OPEN" && isLeader && (
+                {event.status === "OPEN" && isHost && (
                   <Button
                     type="button"
                     onClick={() => setShowStartConfirm(true)} variant="primary" size="sm"
@@ -928,7 +937,7 @@ export default function EventDetailPage() {
                       <Button type="button" onClick={() => navigate(`/course/${course.id}`)} variant="secondary" size="sm">
                         {t("action.viewDetails")}
                       </Button>
-                      {isLeader && (
+                      {isHost && (
                         <Button
                           type="button"
                           onClick={() => handleSendCourseToParticipants(course)}
@@ -1059,7 +1068,7 @@ export default function EventDetailPage() {
           </Card>
 
           {/* Host menu */}
-          {isLeader && (
+          {isHost && (
             <Card padding="none"
               style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--amber) 30%, var(--line-soft))" }}
             >
