@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import ActivityPage from "./ActivityPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { setDocData, mockSetDoc } from "../__tests__/mocks/firebase";
+import { mockSignInWithPopup, mockSetDoc, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
 // Mock heavy components
@@ -127,6 +127,42 @@ describe("ActivityPage", () => {
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/댓글/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows public comments and login CTA for signed-out visitors", async () => {
+    const activity = createMockActivity({ id: "test-activity" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setCollectionDocs("activities/test-activity/comments", [
+      {
+        id: "comment-1",
+        userId: "commenter-1",
+        nickname: "댓글러",
+        profileImage: null,
+        text: "공개 댓글입니다",
+        createdAt: Date.now(),
+        deletedAt: null,
+      },
+    ]);
+
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+
+    expect(await screen.findByText("공개 댓글입니다")).toBeInTheDocument();
+    expect(screen.getByText("댓글 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Google로 로그인" })).toBeInTheDocument();
+  });
+
+  it("starts sign-in when a signed-out visitor tries to participate", async () => {
+    const activity = createMockActivity({ id: "test-activity" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    mockSignInWithPopup.mockClear();
+
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+
+    fireEvent.click(await screen.findByRole("button", { name: "로그인하고 좋아요" }));
+
+    await waitFor(() => {
+      expect(mockSignInWithPopup).toHaveBeenCalled();
     });
   });
 

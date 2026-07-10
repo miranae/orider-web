@@ -244,6 +244,10 @@
     "submit": "등록",
     "submitting": "등록 중",
     "placeholder": "댓글을 입력하세요...",
+    "loginToKudos": "로그인하고 좋아요",
+    "loginTitle": "로그인하고 참여하세요",
+    "loginDesc": "좋아요와 댓글을 남기려면 로그인이 필요합니다. 댓글은 계속 읽을 수 있어요.",
+    "loginAction": "Google로 로그인",
     "ariaInput": "댓글 입력",
     "ariaEdit": "댓글 수정",
     "deleteConfirm": "댓글을 삭제하시겠습니까?"
