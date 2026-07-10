@@ -234,7 +234,7 @@ function RiderCard({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))",
           gap: 1,
           background: "var(--line-soft)",
           border: "1px solid var(--line-soft)",
@@ -285,6 +285,7 @@ export default function EventLivePage() {
   const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
   const snapshotRef = useRef<SnapshotData | null>(null);
   const [searchBib, setSearchBib] = useState(highlightBib?.toString() || "");
+  const [followError, setFollowError] = useState<string | null>(null);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -427,13 +428,26 @@ export default function EventLivePage() {
 
   useEffect(() => {
     fetchSnapshot();
-    const interval = setInterval(fetchSnapshot, 10000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void fetchSnapshot();
+    }, 10000);
     return () => clearInterval(interval);
   }, [fetchSnapshot]);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const schedule = () => {
+      if (timer) clearInterval(timer);
+      setNow(Date.now());
+      timer = setInterval(() => setNow(Date.now()), typeof document !== "undefined" && document.hidden ? 15000 : 1000);
+    };
+    schedule();
+    document.addEventListener("visibilitychange", schedule);
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", schedule);
+    };
   }, []);
 
   const elapsedLabel = useMemo(() => {
@@ -468,7 +482,12 @@ export default function EventLivePage() {
   const addFollow = () => {
     const n = Number(searchBib.trim());
     if (!Number.isFinite(n)) return;
+    if (!snapshot?.locations.some((l) => l.bib === n)) {
+      setFollowError(t("liveView.bibNotFound", { bib: searchBib.trim() }));
+      return;
+    }
     if (!followBibs.includes(n)) setFollowBibs([...followBibs, n]);
+    setFollowError(null);
     setSearchBib("");
   };
 
@@ -516,6 +535,10 @@ export default function EventLivePage() {
       </div>
     );
   }
+
+  const snapshotAgeMs = snapshot ? Math.max(0, now - snapshot.timestamp) : null;
+  const snapshotAgeMinutes = snapshotAgeMs == null ? 0 : Math.floor(snapshotAgeMs / 60000);
+  const isSnapshotStale = snapshotAgeMs != null && snapshotAgeMs > 60000;
 
   return (
     <div>
@@ -568,6 +591,19 @@ export default function EventLivePage() {
             >
               LIVE · {t("label.spectatorView")}
             </span>
+            {snapshot && (
+              <span
+                style={{
+                  marginLeft: "var(--space-2)",
+                  fontSize: "var(--fs-xs)",
+                  color: isSnapshotStale ? "var(--amber)" : "var(--ink-3)",
+                }}
+              >
+                {snapshotAgeMinutes <= 0
+                  ? t("liveView.updatedJustNow")
+                  : t("liveView.updatedMinutesAgo", { count: snapshotAgeMinutes })}
+              </span>
+            )}
           </div>
           <div className="truncate" style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
             {eventName}
@@ -601,6 +637,27 @@ export default function EventLivePage() {
           </Button>
         </div>
       </div>
+      {isSnapshotStale && (
+        <div
+          style={{
+            maxWidth: 1280,
+            margin: "8px auto 0",
+            padding: "0 24px",
+          }}
+        >
+          <div
+            style={{
+              padding: "8px 12px",
+              borderRadius: "var(--r-sm)",
+              background: "color-mix(in oklch, var(--amber) 10%, var(--bg-2))",
+              color: "var(--ink-1)",
+              fontSize: "var(--fs-xs)",
+            }}
+          >
+            {t("liveView.staleWarning")}
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "22px 24px 40px" }}>
         {/* 팔로우 헤더 */}
@@ -618,7 +675,10 @@ export default function EventLivePage() {
               type="text"
               placeholder={t("liveView.bibPlaceholder")}
               value={searchBib}
-              onChange={(e) => setSearchBib(e.target.value)}
+              onChange={(e) => {
+                setSearchBib(e.target.value);
+                setFollowError(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") addFollow();
               }}
@@ -642,6 +702,11 @@ export default function EventLivePage() {
             </Button>
           </div>
         </div>
+        {followError && (
+          <div style={{ marginTop: "calc(-1 * var(--space-3))", marginBottom: "var(--space-4)", fontSize: "var(--fs-xs)", color: "var(--rose)", textAlign: "right" }}>
+            {followError}
+          </div>
+        )}
 
         {/* 검색 결과 (미팔로우 선수일 때만 카드 표시) */}
         {searchedParticipant && searchedParticipant.bib != null && !followBibs.includes(searchedParticipant.bib) && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { joinStartTimeKst, splitStartTime } from "./eventFormUtils";
+import { joinDtLocal, joinStartTimeKst, splitDtLocal, splitStartTime } from "./eventFormUtils";
 
 describe("eventFormUtils start time", () => {
   it("splits event startTime in KST, independent of browser local timezone", () => {
@@ -17,5 +17,10 @@ describe("eventFormUtils start time", () => {
     expect(saved).toBe(original);
     expect(savedAgain).toBe(original);
   });
-});
 
+  it("stores registration windows with explicit KST offset", () => {
+    const value = joinDtLocal("2026-07-11", "09:30");
+    expect(value).toBe("2026-07-11T09:30:00+09:00");
+    expect(splitDtLocal(value)).toEqual({ date: "2026-07-11", time: "09:30" });
+  });
+});

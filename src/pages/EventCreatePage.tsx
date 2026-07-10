@@ -8,7 +8,6 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { functions, firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
-import { useToast } from "../contexts/ToastContext";
 import { DateField, TimeField, EmptyState } from "../components/redesign";
 import { useCourses } from "../hooks/useCourses";
 import { Button, Card, Text } from "../theme/components";
@@ -78,7 +77,6 @@ export default function EventCreatePage() {
   const { t } = useTranslation("event");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { showToast } = useToast();
 
   const TYPE_OPTIONS = TYPE_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey), sub: t(d.subKey) }));
   const VISIBILITY_OPTIONS = VISIBILITY_DEFS.map((d) => ({ value: d.value, label: t(d.labelKey), sub: t(d.subKey) }));
@@ -501,9 +499,10 @@ export default function EventCreatePage() {
                       </Button>
                       <Button
                         type="button"
-                        onClick={() => showToast(t("create.gpxSoon"), "info")} variant="secondary" size="sm"
+                        disabled
+                        title={t("create.gpxSoon")} variant="secondary" size="sm"
                       >
-                        {t("action.uploadGPX")}
+                        {t("action.uploadGPX")} · {t("create.comingSoon")}
                       </Button>
                       <Button
                         type="button"

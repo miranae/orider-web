@@ -276,13 +276,38 @@ export default function EventRegisterPage() {
       } catch (err) {
         logClientError("EventRegisterPage.loadCategoryCounts", err, { eventId });
       }
+      if (user) {
+        try {
+          const participantSnap = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
+          if (participantSnap.exists()) {
+            const participant = participantSnap.data() as {
+              category?: string;
+              categoryId?: string;
+              registrationNumber?: string;
+              realName?: string;
+              emergencyContact?: { name?: string; relation?: string; phone?: string };
+            };
+            setData((prev) => ({
+              ...prev,
+              categoryId: participant.category ?? participant.categoryId ?? prev.categoryId,
+              name: participant.realName ?? prev.name,
+              emName: participant.emergencyContact?.name ?? prev.emName,
+              emRel: participant.emergencyContact?.relation ?? prev.emRel,
+              emPhone: participant.emergencyContact?.phone ?? prev.emPhone,
+            }));
+            setRegistrationNumber(participant.registrationNumber ?? "");
+          }
+        } catch (err) {
+          logClientError("EventRegisterPage.loadExistingParticipant", err, { eventId });
+        }
+      }
     } catch (err) {
       logClientError("EventRegisterPage.loadEvent", err, { eventId });
       setLoadError(err instanceof Error ? err.message : t("register.errLoad"));
     } finally {
       setLoading(false);
     }
-  }, [eventId, t]);
+  }, [eventId, t, user]);
 
   useEffect(() => {
     void loadEvent();
@@ -361,6 +386,10 @@ export default function EventRegisterPage() {
           : fbErr?.code === "functions/failed-precondition"
             ? t("register.errNotOpen")
             : fbErr?.message || t("register.errSubmit");
+      if (fbErr?.code === "functions/resource-exhausted") {
+        const categoryStep = steps.findIndex((s) => s.key === "category");
+        if (categoryStep >= 0) setStepIdx(categoryStep);
+      }
       showToast(msg, "error");
     } finally {
       setSubmitting(false);

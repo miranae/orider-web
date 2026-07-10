@@ -66,6 +66,17 @@ function formatDuration(ms: number | null): string {
   return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function eventStatusLabel(t: (key: string) => string, status: string): string {
+  switch (status) {
+    case "OPEN": return t("status.open");
+    case "LIVE": return t("status.live");
+    case "FINISHED": return t("status.finished");
+    case "CANCELLED": return t("status.cancelled");
+    case "DRAFT": return t("status.draft");
+    default: return t("status.unknown");
+  }
+}
+
 function formatGap(diffMs: number | null): string {
   if (diffMs == null || diffMs <= 0) return "—";
   const totalSeconds = Math.floor(diffMs / 1000);
@@ -327,6 +338,8 @@ export default function EventResultsPage() {
   }
 
   const winnerTime = filtered.find((r) => r.status === "FINISHED")?.finishTime ?? null;
+  const statusLabel = eventStatusLabel(t, eventHead.status);
+  const resultsUnavailable = eventHead.status !== "FINISHED";
 
   return (
     <div>
@@ -358,7 +371,7 @@ export default function EventResultsPage() {
                 borderColor: "color-mix(in oklch, var(--aqua) 40%, transparent)",
               }}
             >
-              🏁 {eventHead.status === "FINISHED" ? t("finished") : eventHead.status}
+              🏁 {statusLabel}
             </Chip>
             {eventDateStr && (
               <Chip style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
@@ -554,7 +567,14 @@ export default function EventResultsPage() {
               </div>
             </div>
 
-            {filtered.length === 0 ? (
+            {resultsUnavailable ? (
+              <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
+                <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1)" }}>
+                  {t("resultsView.notFinishedTitle")}
+                </div>
+                {t("resultsView.notFinishedDesc", { status: statusLabel })}
+              </div>
+            ) : filtered.length === 0 ? (
               <div style={{ padding: 'var(--space-7)', textAlign: "center", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
                 {t("resultsView.noFilteredResults")}
               </div>
