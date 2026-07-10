@@ -19,7 +19,7 @@
 #   --keep-worktree           Do not remove the current worktree/branch after merge.
 #
 # 속도 설계 (2026-07-10):
-#   - 변경 분류 3단계: 제품 코드(npm 게이트+풀 리뷰) / 툴링(.sh·.github — 게이트 생략+haiku 경량 리뷰)
+#   - 변경 분류 3단계: 제품 코드(npm 게이트+풀 리뷰) / 툴링(.sh·.github — 게이트 생략+경량(sonnet) 리뷰)
 #     / 문서(전부 생략). 미분류 경로는 안전하게 코드로 취급.
 #   - AI 리뷰는 npm 게이트와 **병렬** 실행 — 리뷰(수 분)가 크리티컬 패스에서 빠진다.
 #   - base 전진(BEHIND)은 게이트 시작 시 자동으로 origin/base 머지+푸시 — CI 재실행이
@@ -102,10 +102,11 @@ start_claude_review() {
 }
 # 게이트가 중간에 die 해도 백그라운드 claude 를 고아로 남기지 않는다
 cleanup_review() {
-  if [[ "${REVIEW_STARTED:-0}" == 1 ]]; then
-    kill "${REVIEW_PID:-0}" 2>/dev/null || true
-    kill "${REVIEW_WATCHDOG:-0}" 2>/dev/null || true
-  fi
+  # 주의: kill 의 인자가 빈값/0 이면 프로세스 그룹 전체가 죽는다 — 반드시 변수 존재를 확인.
+  [[ "${REVIEW_STARTED:-0}" == 1 ]] || return 0
+  [[ -n "${REVIEW_PID:-}" ]] && { kill "$REVIEW_PID" 2>/dev/null || true; }
+  [[ -n "${REVIEW_WATCHDOG:-}" ]] && { kill "$REVIEW_WATCHDOG" 2>/dev/null || true; }
+  return 0
 }
 trap cleanup_review EXIT
 
@@ -155,7 +156,7 @@ fi
 
 # 변경 분류 — 게이트 비용을 diff 성격에 맞춘다. 미분류 경로는 안전하게 '코드'.
 #   docs    (docs/·*.md·LICENSE 등)        → npm 게이트·리뷰 전부 생략
-#   tooling (scripts/*.sh·.github/)        → npm 게이트 생략(어차피 src/ 만 봄), haiku 경량 리뷰
+#   tooling (scripts/*.sh·.github/)        → npm 게이트 생략(어차피 src/ 만 봄), 경량(sonnet) 리뷰
 #   code    (그 외 전부)                   → npm 게이트 + 풀 리뷰
 DOCS_PAT='^docs/|\.md$|^LICENSE|^\.gitignore$|^\.gitattributes$'
 TOOLING_PAT='^scripts/[^/]+\.sh$|^\.github/'
@@ -196,8 +197,8 @@ MERGE_VERDICT: PASS"
   REVIEW_CMD=(claude -p "$REVIEW_PROMPT" \
     --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*)")
   if [[ "$review_mode" == "fast" ]]; then
-    # 툴링 전용 diff — 경량 모델로 빠르게 (안전망 유지, 수 분 → 1분 미만)
-    REVIEW_CMD+=(--model claude-haiku-4-5-20251001)
+    # 툴링 전용 diff — 경량 모델(sonnet)로 빠르게 — 안전망 유지, 비용·시간 절감
+    REVIEW_CMD+=(--model claude-sonnet-5)
   fi
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
   start_claude_review
