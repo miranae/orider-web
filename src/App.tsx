@@ -6,6 +6,8 @@ import { collection, getCountFromServer, query, where } from "firebase/firestore
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { lazyTimed, beginNavigation } from "./services/routeTiming";
 import { useRouteVisitTelemetry } from "./hooks/useRouteVisitTelemetry";
+import OfflineBanner from "./components/OfflineBanner";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +83,44 @@ const LoadingSpinner = () => (
     <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
   </div>
 );
+
+function AppErrorFallback({ error, reset }: { error: Error; reset: () => void }) {
+  const { t } = useTranslation();
+  const online = useOnlineStatus();
+
+  useEffect(() => {
+    if (online) reset();
+  }, [online, reset]);
+
+  return (
+    <div role="alert" aria-live="assertive" className="max-w-md mx-auto px-4 py-16 text-center">
+      <h2 className="text-[length:var(--fs-xl)] font-bold mb-2" style={{ color: 'var(--ink-0)' }}>
+        {online ? t("error.boundaryTitle") : t("error.offlineTitle")}
+      </h2>
+      <p className="text-[length:var(--fs-sm)] mb-4" style={{ color: 'var(--ink-3)' }}>
+        {online ? (error?.toString() || t("error.unknownError")) : t("error.offlineDescription")}
+      </p>
+      {online ? (
+        <button
+          onClick={() => window.location.reload()}
+          aria-label={t("error.reloadAriaLabel")}
+          className="px-4 py-2 bg-[var(--lime)] text-[var(--bg-0)] rounded-[var(--r-lg)] hover:opacity-90"
+        >
+          {t("error.reload")}
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled
+          className="px-4 py-2 rounded-[var(--r-lg)] opacity-70"
+          style={{ background: "var(--bg-3)", color: "var(--ink-2)" }}
+        >
+          {t("error.waitingOnline")}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function StaticAboutRedirect() {
   const { i18n } = useTranslation();
@@ -166,7 +206,6 @@ function AppRoutes() {
 }
 
 export default function App() {
-  const { t } = useTranslation("common");
   const location = useLocation();
   const { user, profile } = useAuth();
 
@@ -263,30 +302,17 @@ export default function App() {
   }, [user?.uid]);
 
   return (
-    <ErrorBoundary
-      fallback={({ error }) => (
-        <div role="alert" aria-live="assertive" className="max-w-md mx-auto px-4 py-16 text-center">
-          <h2 className="text-[length:var(--fs-xl)] font-bold mb-2" style={{ color: 'var(--ink-0)' }}>{t("error.boundaryTitle")}</h2>
-          <p className="text-[length:var(--fs-sm)] mb-4" style={{ color: 'var(--ink-3)' }}>
-            {error?.toString() || t("error.unknownError")}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            aria-label={t("error.reloadAriaLabel")}
-            className="px-4 py-2 bg-[var(--lime)] text-[var(--bg-0)] rounded-[var(--r-lg)] hover:opacity-90"
-          >
-            {t("error.reload")}
-          </button>
-        </div>
-      )}
-    >
-      <QueryClientProvider client={queryClient}>
-        <LocaleProvider userId={user?.uid ?? null} profile={profile}>
-          <Suspense fallback={<LoadingSpinner />}>
-            <AppRoutes />
-          </Suspense>
-        </LocaleProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <>
+      <OfflineBanner />
+      <ErrorBoundary fallback={({ error, reset }) => <AppErrorFallback error={error} reset={reset} />}>
+        <QueryClientProvider client={queryClient}>
+          <LocaleProvider userId={user?.uid ?? null} profile={profile}>
+            <Suspense fallback={<LoadingSpinner />}>
+              <AppRoutes />
+            </Suspense>
+          </LocaleProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </>
   );
 }

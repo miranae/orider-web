@@ -13,6 +13,7 @@ import { installSlowFetchTracker } from "./services/slowRequests";
 import { captureError } from "./services/sentry";
 import { initAnalytics } from "./services/analytics";
 import { isChunkLoadError } from "./utils/lazyWithRetry";
+import { reloadWhenOnline, shouldReloadChunkOnce } from "./utils/chunkReload";
 import App from "./App";
 
 // 느린 fetch (>= 2s) 자동 기록 — Firebase / Firestore SDK 가 fetch 참조를 캡쳐하기
@@ -26,14 +27,11 @@ if (typeof window !== "undefined") {
   window.addEventListener("vite:preloadError", (e) => {
     const ev = e as Event & { payload?: unknown };
     if (!isChunkLoadError(ev.payload)) return;
-    const KEY = "orider:chunk-reload-ts";
-    try {
-      const last = Number(sessionStorage.getItem(KEY) || 0);
-      if (Date.now() - last < 10_000) return; // 무한 새로고침 가드
-      sessionStorage.setItem(KEY, String(Date.now()));
-    } catch { /* sessionStorage 불가 — 그대로 새로고침 */ }
     e.preventDefault();
-    window.location.reload();
+    reloadWhenOnline();
+    if (shouldReloadChunkOnce()) {
+      window.location.reload();
+    }
   });
 }
 // 폰트 self-host (perf, 2026-06): 옛 index.html 의 jsdelivr/Google Fonts <link>(3rd-party,
