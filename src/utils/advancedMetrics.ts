@@ -125,10 +125,10 @@ export interface CriticalBand {
 }
 export function calculateCriticalBands(watts: number[], ftp: number, time?: StreamTimeArray): CriticalBand[] {
   const bands = [
-    { label: "Sweet Spot", lo: 0.83, hi: 0.95, color: "#10b981" },
-    { label: "Threshold", lo: 0.95, hi: 1.06, color: "#f59e0b" },
-    { label: "VO2max", lo: 1.06, hi: 1.20, color: "#f97316" },
-    { label: "Anaerobic", lo: 1.20, hi: Infinity, color: "#ef4444" },
+    { label: "Sweet Spot", lo: 0.83, hi: 0.95, color: "var(--zone-3)" },
+    { label: "Threshold", lo: 0.95, hi: 1.06, color: "var(--zone-4)" },
+    { label: "VO2max", lo: 1.06, hi: 1.20, color: "var(--zone-5)" },
+    { label: "Anaerobic", lo: 1.20, hi: Infinity, color: "var(--zone-5)" },
   ];
   const counts = bands.map(() => 0);
   const durations = sampleDurationsSec(watts.length, time);

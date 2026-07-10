@@ -13,21 +13,21 @@ export interface ZoneDistribution {
 }
 
 const HR_ZONES = [
-  { zone: 1, name: "회복", nameKey: "fitness:zone.recovery", min: 0, max: 0.6, color: "#94a3b8" },
-  { zone: 2, name: "지구력", nameKey: "fitness:zone.endurance", min: 0.6, max: 0.7, color: "#3b82f6" },
-  { zone: 3, name: "템포", nameKey: "fitness:zone.tempo", min: 0.7, max: 0.8, color: "#22c55e" },
-  { zone: 4, name: "역치", nameKey: "fitness:zone.threshold", min: 0.8, max: 0.9, color: "#f59e0b" },
-  { zone: 5, name: "최대", nameKey: "fitness:zone.maxAerobic", min: 0.9, max: Infinity, color: "#ef4444" },
+  { zone: 1, name: "회복", nameKey: "fitness:zone.recovery", min: 0, max: 0.6, color: "var(--zone-1)" },
+  { zone: 2, name: "지구력", nameKey: "fitness:zone.endurance", min: 0.6, max: 0.7, color: "var(--zone-2)" },
+  { zone: 3, name: "템포", nameKey: "fitness:zone.tempo", min: 0.7, max: 0.8, color: "var(--zone-3)" },
+  { zone: 4, name: "역치", nameKey: "fitness:zone.threshold", min: 0.8, max: 0.9, color: "var(--zone-4)" },
+  { zone: 5, name: "최대", nameKey: "fitness:zone.maxAerobic", min: 0.9, max: Infinity, color: "var(--zone-5)" },
 ];
 
 const POWER_ZONES = [
-  { zone: 1, name: "회복", nameKey: "fitness:zone.recovery", min: 0, max: 0.55, color: "#94a3b8" },
-  { zone: 2, name: "지구력", nameKey: "fitness:zone.endurance", min: 0.55, max: 0.75, color: "#3b82f6" },
-  { zone: 3, name: "템포", nameKey: "fitness:zone.tempo", min: 0.75, max: 0.90, color: "#22c55e" },
-  { zone: 4, name: "역치", nameKey: "fitness:zone.threshold", min: 0.90, max: 1.05, color: "#f59e0b" },
-  { zone: 5, name: "VO2max", nameKey: "fitness:zone.vo2max", min: 1.05, max: 1.20, color: "#f97316" },
-  { zone: 6, name: "무산소", nameKey: "fitness:zone.anaerobic", min: 1.20, max: 1.50, color: "#ef4444" },
-  { zone: 7, name: "신경근", nameKey: "fitness:zone.neurological", min: 1.50, max: Infinity, color: "#7c3aed" },
+  { zone: 1, name: "회복", nameKey: "fitness:zone.recovery", min: 0, max: 0.55, color: "var(--zone-1)" },
+  { zone: 2, name: "지구력", nameKey: "fitness:zone.endurance", min: 0.55, max: 0.75, color: "var(--zone-2)" },
+  { zone: 3, name: "템포", nameKey: "fitness:zone.tempo", min: 0.75, max: 0.90, color: "var(--zone-3)" },
+  { zone: 4, name: "역치", nameKey: "fitness:zone.threshold", min: 0.90, max: 1.05, color: "var(--zone-4)" },
+  { zone: 5, name: "VO2max", nameKey: "fitness:zone.vo2max", min: 1.05, max: 1.20, color: "var(--zone-5)" },
+  { zone: 6, name: "무산소", nameKey: "fitness:zone.anaerobic", min: 1.20, max: 1.50, color: "var(--zone-5)" },
+  { zone: 7, name: "신경근", nameKey: "fitness:zone.neurological", min: 1.50, max: Infinity, color: "var(--zone-5)" },
 ];
 
 export function calculateHrZoneDistribution(heartrates: number[], maxHr: number, time?: StreamTimeArray): ZoneDistribution[] {
@@ -83,9 +83,9 @@ export function calculatePowerZoneDistribution(watts: number[], ftp: number, tim
 //      Scandinavian Journal of Medicine & Science in Sports
 
 const SEILER_ZONES = [
-  { zone: 1 as const, name: "저강도", nameKey: "activity:analysis.seiler.z1", min: 0, max: 0.75, color: "#3b82f6" },
-  { zone: 2 as const, name: "역치",   nameKey: "activity:analysis.seiler.z2", min: 0.75, max: 1.00, color: "#f59e0b" },
-  { zone: 3 as const, name: "고강도", nameKey: "activity:analysis.seiler.z3", min: 1.00, max: Infinity, color: "#ef4444" },
+  { zone: 1 as const, name: "저강도", nameKey: "activity:analysis.seiler.z1", min: 0, max: 0.75, color: "var(--zone-2)" },
+  { zone: 2 as const, name: "역치",   nameKey: "activity:analysis.seiler.z2", min: 0.75, max: 1.00, color: "var(--zone-4)" },
+  { zone: 3 as const, name: "고강도", nameKey: "activity:analysis.seiler.z3", min: 1.00, max: Infinity, color: "var(--zone-5)" },
 ];
 
 export interface SeilerZoneDistribution {

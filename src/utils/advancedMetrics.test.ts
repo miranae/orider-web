@@ -114,6 +114,16 @@ describe("calculateCriticalBands", () => {
     const bands = calculateCriticalBands([94.5], 100);
     expect(bands.find((b) => b.label === "Sweet Spot")?.seconds).toBe(1);
   });
+
+  it("uses semantic zone color tokens", () => {
+    const bands = calculateCriticalBands([90, 100, 110, 130], 100);
+    expect(bands.map((b) => b.color)).toEqual([
+      "var(--zone-3)",
+      "var(--zone-4)",
+      "var(--zone-5)",
+      "var(--zone-5)",
+    ]);
+  });
 });
 
 describe("calculateAvgSpeed", () => {
