@@ -9,6 +9,11 @@ export interface CourseCatalogFilters {
   sortMode: SortMode;
   surfaceFilter: SurfaceFilter;
   difficultyFilter: number | null;
+  distanceMinKm: number | null;
+  distanceMaxKm: number | null;
+  elevationMinM: number | null;
+  elevationMaxM: number | null;
+  regionFilter: string;
   myLoc: { lat: number; lng: number } | null;
   radiusKm: number | null;
 }
@@ -50,6 +55,26 @@ export function filterAndSortCourses(courses: CourseData[], filters: CourseCatal
 
   if (filters.difficultyFilter != null) {
     filtered = filtered.filter((course) => course.difficulty === filters.difficultyFilter);
+  }
+
+  if (filters.distanceMinKm != null) {
+    filtered = filtered.filter((course) => course.distance / 1000 >= filters.distanceMinKm!);
+  }
+
+  if (filters.distanceMaxKm != null) {
+    filtered = filtered.filter((course) => course.distance / 1000 <= filters.distanceMaxKm!);
+  }
+
+  if (filters.elevationMinM != null) {
+    filtered = filtered.filter((course) => course.elevationGain >= filters.elevationMinM!);
+  }
+
+  if (filters.elevationMaxM != null) {
+    filtered = filtered.filter((course) => course.elevationGain <= filters.elevationMaxM!);
+  }
+
+  if (filters.regionFilter) {
+    filtered = filtered.filter((course) => course.regions.includes(filters.regionFilter));
   }
 
   if (filters.myLoc && filters.radiusKm != null) {

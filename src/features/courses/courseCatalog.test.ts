@@ -36,6 +36,11 @@ const baseFilters: CourseCatalogFilters = {
   sortMode: "latest",
   surfaceFilter: "",
   difficultyFilter: null,
+  distanceMinKm: null,
+  distanceMaxKm: null,
+  elevationMinM: null,
+  elevationMaxM: null,
+  regionFilter: "",
   myLoc: null,
   radiusKm: null,
 };
@@ -81,5 +86,22 @@ describe("filterAndSortCourses", () => {
     });
 
     expect(result.map((item) => item.id)).toEqual(["near"]);
+  });
+
+  it("filters by distance, elevation, and region metadata", () => {
+    const result = filterAndSortCourses([
+      course("weekend-fit", { distance: 42_000, elevationGain: 420, regions: ["서울", "남양주"] }),
+      course("too-short", { distance: 18_000, elevationGain: 200, regions: ["서울"] }),
+      course("too-hilly", { distance: 45_000, elevationGain: 900, regions: ["서울"] }),
+      course("wrong-region", { distance: 38_000, elevationGain: 300, regions: ["부산"] }),
+    ], {
+      ...baseFilters,
+      distanceMinKm: 30,
+      distanceMaxKm: 50,
+      elevationMaxM: 500,
+      regionFilter: "서울",
+    });
+
+    expect(result.map((item) => item.id)).toEqual(["weekend-fit"]);
   });
 });
