@@ -26,6 +26,7 @@ import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { EmptyState, ErrorState } from "../components/redesign";
 import { Button, Card, Text } from "../theme/components";
 import { buildDayNames, buildWorkoutMeta, formatDateLabel, phaseColor, phaseLabel } from "../features/training/plan/planDisplay";
+import GuestValuePreview from "../components/guest/GuestValuePreview";
 
 const PLAN_WEEK_GRID_COLUMNS = '80px repeat(7, minmax(72px, 1fr)) 100px';
 const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
@@ -579,13 +580,6 @@ export default function PlanPage() {
     load();
   }, [user, navigate, discipline, reloadKey]);
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate("/goal-setup", { replace: true });
-    }
-  }, [loading, user, navigate]);
-
   const goalMatchesDiscipline = !goal || !goal.discipline || goal.discipline === discipline;
 
   // ── 계산 ───────────────────────────────────────────────────────────
@@ -619,6 +613,10 @@ export default function PlanPage() {
   const isMobile = useMobile();
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
   const retryLoad = () => setReloadKey((key) => key + 1);
+
+  if (!user) {
+    return <GuestValuePreview kind="plan" lang={i18n.language} />;
+  }
 
   if (!loading && loadError) {
     return (

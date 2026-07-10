@@ -210,9 +210,13 @@ export default function CoursesPage() {
               {t("subtitle")}
             </p>
           </div>
-          {user && (
+          {user ? (
             <Link to="/course/create" className={`${buttonClass({ variant: 'primary', className: 'whitespace-nowrap' })}`}>
               {t("button.create")}
+            </Link>
+          ) : (
+            <Link to="/tools/virtual-power" className={`${buttonClass({ variant: 'secondary', className: 'whitespace-nowrap' })}`}>
+              {t("guest.compareCta", { defaultValue: "이 코스 내 기록과 비교하기" })}
             </Link>
           )}
         </div>

@@ -56,6 +56,7 @@ import {
   type PowerCurvePoint,
   type RangeOption,
 } from "../features/fitness/fitnessPageUtils";
+import GuestValuePreview from "../components/guest/GuestValuePreview";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -460,12 +461,7 @@ export default function FitnessPage() {
   // (오늘의 권장 카드는 통합 후 홈에서만 노출. 피트니스 페이지는 분석 전용.)
 
   if (!user) {
-    return (
-      <div style={{ maxWidth: 1440, margin: "0 auto", textAlign: "center", padding: "64px 24px", color: "var(--ink-3)" }}>
-        <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 700, marginBottom: 'var(--space-2)', color: "var(--ink-1)" }}>{t("login.title")}</h2>
-        <p>{t("login.hint")}</p>
-      </div>
-    );
+    return <GuestValuePreview kind="fitness" lang={i18n.language} />;
   }
 
   if (isMobile && (loading || !timeseriesLoaded)) {
