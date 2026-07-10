@@ -3,6 +3,7 @@ import type { ActivityStreams } from "@shared/types";
 
 import {
   OVERLAY_CONFIGS,
+  resolveCssColor,
   type OverlayConfig,
   type SampledPoint,
   type SegmentEffortData,
@@ -96,7 +97,7 @@ export function buildChartOverlays(
     .map((cfg) => ({
       label: `${labelFor(cfg.label)} (${cfg.unit})`,
       data: sampledData.map((d) => cfg.getValue(d)),
-      color: cfg.color,
+      color: resolveCssColor(cfg.color),
       yAxisID: cfg.yAxisID,
       unit: cfg.unit,
     }));

@@ -96,8 +96,14 @@ export interface OverlayConfig {
 }
 
 export const OVERLAY_CONFIGS: OverlayConfig[] = [
-  { key: "speed", label: "speed", unit: "km/h", color: "rgba(59, 130, 246, 0.7)", dotColor: "#3b82f6", yAxisID: "ySpeed", getValue: (d) => d.speed },
-  { key: "hr", label: "hr", unit: "bpm", color: "rgba(239, 68, 68, 0.7)", dotColor: "#ef4444", yAxisID: "yHR", getValue: (d) => d.heartRate },
-  { key: "power", label: "power", unit: "W", color: "rgba(168, 85, 247, 0.7)", dotColor: "#a855f7", yAxisID: "yPower", getValue: (d) => d.power },
-  { key: "cadence", label: "cadence", unit: "rpm", color: "rgba(6, 182, 212, 0.7)", dotColor: "#06b6d4", yAxisID: "yCadence", getValue: (d) => d.cadence },
+  { key: "speed", label: "speed", unit: "km/h", color: "var(--chart-speed)", dotColor: "var(--chart-speed)", yAxisID: "ySpeed", getValue: (d) => d.speed },
+  { key: "hr", label: "hr", unit: "bpm", color: "var(--chart-heart-rate)", dotColor: "var(--chart-heart-rate)", yAxisID: "yHR", getValue: (d) => d.heartRate },
+  { key: "power", label: "power", unit: "W", color: "var(--chart-power)", dotColor: "var(--chart-power)", yAxisID: "yPower", getValue: (d) => d.power },
+  { key: "cadence", label: "cadence", unit: "rpm", color: "var(--chart-cadence)", dotColor: "var(--chart-cadence)", yAxisID: "yCadence", getValue: (d) => d.cadence },
 ];
+
+export function resolveCssColor(value: string): string {
+  const match = value.match(/^var\((--[^)]+)\)$/);
+  if (!match || typeof window === "undefined") return value;
+  return getComputedStyle(document.documentElement).getPropertyValue(match[1]!).trim() || value;
+}

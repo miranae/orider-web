@@ -81,6 +81,11 @@ describe("calculateSeilerZones", () => {
       expect(typeof z.color).toBe("string");
     });
   });
+
+  it("Seiler zones use semantic zone color tokens", () => {
+    const zones = calculateSeilerZones(makeStream(10, 100), FTP);
+    expect(zones.map((z) => z.color)).toEqual(["var(--zone-2)", "var(--zone-4)", "var(--zone-5)"]);
+  });
 });
 
 describe("polarizationIndex", () => {

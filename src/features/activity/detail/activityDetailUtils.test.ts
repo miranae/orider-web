@@ -6,6 +6,8 @@ import {
   formatTime,
   getSportCategory,
   isStreamNotCachedError,
+  OVERLAY_CONFIGS,
+  resolveCssColor,
 } from "./activityDetailUtils";
 
 describe("activityDetailUtils", () => {
@@ -28,5 +30,21 @@ describe("activityDetailUtils", () => {
     expect(isStreamNotCachedError({ code: "functions/not-found" })).toBe(true);
     expect(isStreamNotCachedError(new Error("Stream data not yet available"))).toBe(true);
     expect(isStreamNotCachedError(new Error("Activity not found"))).toBe(false);
+  });
+
+  it("uses chart CSS tokens for activity overlays", () => {
+    expect(OVERLAY_CONFIGS.map((cfg) => cfg.color)).toEqual([
+      "var(--chart-speed)",
+      "var(--chart-heart-rate)",
+      "var(--chart-power)",
+      "var(--chart-cadence)",
+    ]);
+  });
+
+  it("resolves CSS variable colors for chart datasets", () => {
+    document.documentElement.style.setProperty("--chart-speed", "oklch(0.7 0.1 200)");
+
+    expect(resolveCssColor("var(--chart-speed)")).toBe("oklch(0.7 0.1 200)");
+    expect(resolveCssColor("red")).toBe("red");
   });
 });
