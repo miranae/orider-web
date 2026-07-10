@@ -24,6 +24,7 @@ import React from "react";
 import { track } from "./analytics";
 import { readNetwork, readDeviceMemory, reportSlowPage } from "./slowRequests";
 import { isChunkLoadError } from "../utils/lazyWithRetry";
+import { reloadWhenOnline, shouldReloadChunkOnce } from "../utils/chunkReload";
 
 const SLOW_ROUTE_MS = 3000;
 
@@ -127,20 +128,6 @@ export function reportRouteReady(route: string): void {
  * RouteProbe 는 매 마운트마다 reportRouteReady() 를 호출해 duration_ms 를 갱신.
  * lazyWithRetry 의 청크 에러 자동 복구 로직을 내장 — App.tsx 에서 lazyTimed 만 쓰면 됨.
  */
-const RELOAD_KEY = "orider:chunk-reload-ts";
-const RELOAD_WINDOW_MS = 10_000;
-
-function shouldReloadOnce(): boolean {
-  try {
-    const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
-    if (Date.now() - last < RELOAD_WINDOW_MS) return false;
-    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
-    return true;
-  } catch {
-    return true;
-  }
-}
-
 export function lazyTimed(
   route: string,
   factory: () => Promise<{ default: React.ComponentType<any> }>,
@@ -153,9 +140,12 @@ export function lazyTimed(
     } catch (err) {
       recordChunkLoad(route, performance.now() - t0);
       // 청크 로드 에러 → lazyWithRetry 와 동일한 1회 새로고침 복구
-      if (isChunkLoadError(err) && shouldReloadOnce()) {
-        window.location.reload();
-        return new Promise<{ default: React.ComponentType<any> }>(() => {});
+      if (isChunkLoadError(err)) {
+        reloadWhenOnline();
+        if (shouldReloadChunkOnce()) {
+          window.location.reload();
+          return new Promise<{ default: React.ComponentType<any> }>(() => {});
+        }
       }
       throw err;
     }

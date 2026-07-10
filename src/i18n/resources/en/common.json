@@ -27,6 +27,10 @@
     "unknownError": "Unknown error",
     "reload": "Reload",
     "reloadAriaLabel": "Reload page",
+    "offlineBanner": "You are offline. Some screens will retry when the connection returns.",
+    "offlineTitle": "You're offline",
+    "offlineDescription": "Screens that are not cached yet will retry automatically when you are back online.",
+    "waitingOnline": "Waiting for connection",
     "appLoadFailed": "Could not load the app",
     "appLoadFailedReload": "Reload"
   },
