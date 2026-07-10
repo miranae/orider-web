@@ -1195,7 +1195,7 @@ export default function ActivityPage() {
                 {user?.uid === photo.userId && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
-                    className="absolute top-1.5 right-1.5 w-7 h-7 bg-black/60 hover:bg-red-600 text-[var(--ink-0)] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1.5 right-1.5 w-7 h-7 bg-black/60 hover:bg-red-600 text-[var(--ink-0)] rounded-full flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                     title={t("page.delete")}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
