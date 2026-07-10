@@ -20,6 +20,7 @@ import type { ActivityLoadEntry } from "../utils/fitnessMetrics";
 import { toLocalDate } from "../utils/dateUtils";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { isYearRecapSeason } from "../utils/yearRecapSeason";
 import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import { useMobile } from "../hooks/useMobile";
@@ -202,6 +203,7 @@ export default function DashboardPage() {
   const heroTitle = isAnon
     ? t("header.anonTitle")
     : `${t("header.greetingPrefix")}${userName}${t("header.greetingSuffix")}`;
+  const showYearRecapBanner = !!user && isYearRecapSeason();
 
   const thisWeekDistFormatted = formatDistance(thisWeek.distance, units);
   // KPI에선 숫자만 별도, 단위 별도로 표시
@@ -376,6 +378,7 @@ export default function DashboardPage() {
           label: ws.week,
           distance: ws.distance,
         }))}
+        showYearRecapBanner={showYearRecapBanner}
       />
     );
   }
@@ -420,6 +423,33 @@ export default function DashboardPage() {
               <TodaysWorkoutCard />
             </Suspense>
           </div>
+        )}
+
+        {showYearRecapBanner && (
+          <Card
+            padding="none"
+            style={{
+              marginTop: "var(--space-4)",
+              borderColor: "var(--lime)",
+              background: "linear-gradient(135deg, var(--bg-1), var(--bg-0))",
+              overflow: "hidden",
+            }}
+          >
+            <div className="flex items-center justify-between gap-4" style={{ padding: "var(--space-4) var(--space-5)" }}>
+              <div>
+                <Text variant="eyebrow" tone="secondary">{t("yearRecap.eyebrow")}</Text>
+                <Text as="h2" variant="subtitle" weight={700} style={{ marginTop: "var(--space-1)", color: "var(--ink-0)" }}>
+                  {t("yearRecap.title")}
+                </Text>
+                <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)" }}>
+                  {t("yearRecap.desc")}
+                </Text>
+              </div>
+              <Link to="/year-recap" className="ds-btn ds-btn--primary ds-btn--sm" style={{ textDecoration: "none", flexShrink: 0 }}>
+                <span className="ds-btn__label">{t("yearRecap.cta")}</span>
+              </Link>
+            </div>
+          </Card>
         )}
 
         {/* KPI 스트립 */}

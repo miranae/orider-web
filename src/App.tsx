@@ -74,6 +74,7 @@ const PlanPage = lazyTimed("PlanPage", () => import("./pages/PlanPage"));
 const TrainingLogPage = lazyTimed("TrainingLogPage", () => import("./pages/TrainingLogPage"));
 const SocialPage = lazyTimed("SocialPage", () => import("./pages/SocialPage"));
 const MyPage = lazyTimed("MyPage", () => import("./pages/MyPage"));
+const YearRecapPage = lazyTimed("YearRecapPage", () => import("./pages/YearRecapPage"));
 const OnboardingPage = lazyTimed("OnboardingPage", () => import("./pages/OnboardingPage"));
 const NotFoundPage = lazyTimed("NotFoundPage", () => import("./pages/NotFoundPage"));
 
@@ -173,6 +174,7 @@ function AppRoutes() {
           <Route path="friends" element={<FriendsPage />} />
           <Route path="social" element={<SocialPage />} />
           <Route path="my" element={<MyPage />} />
+          <Route path="year-recap" element={<YearRecapPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="migrate" element={<MigrationPage />} />
           <Route path="board" element={<BoardPage />} />

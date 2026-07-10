@@ -18,6 +18,7 @@ import koGroup from "../../i18n/resources/ko/group.json";
 import koLegal from "../../i18n/resources/ko/legal.json";
 import koMigration from "../../i18n/resources/ko/migration.json";
 import koMypage from "../../i18n/resources/ko/mypage.json";
+import koRecap from "../../i18n/resources/ko/recap.json";
 import koSegment from "../../i18n/resources/ko/segment.json";
 import koSettings from "../../i18n/resources/ko/settings.json";
 import koTraining from "../../i18n/resources/ko/training.json";
@@ -37,6 +38,7 @@ const ko = {
   legal: koLegal,
   migration: koMigration,
   mypage: koMypage,
+  recap: koRecap,
   segment: koSegment,
   settings: koSettings,
   training: koTraining,

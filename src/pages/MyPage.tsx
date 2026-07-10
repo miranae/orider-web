@@ -81,6 +81,7 @@ export default function MyPage() {
         <Text variant="eyebrow">{t("section.account")}</Text>
       </div>
       {[
+        { label: t("menu.yearRecap"), icon: "🗓️", to: "/year-recap" },
         { label: t("menu.settings"), icon: "⚙️", to: "/settings" },
         { label: t("menu.strava"), icon: "🔗", to: "/settings" },
         { label: t("menu.manual"), icon: "📖", to: "/terms" },
