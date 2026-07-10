@@ -8,10 +8,33 @@ const mocks = vi.hoisted(() => ({
   connectStrava: vi.fn(),
   exchangeCode: vi.fn(),
   navigate: vi.fn(),
+  activityDocs: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
+}));
+
+vi.mock("firebase/firestore", () => ({
+  collection: vi.fn((...args: unknown[]) => ({ kind: "collection", args })),
+  where: vi.fn((...args: unknown[]) => ({ kind: "where", args })),
+  orderBy: vi.fn((...args: unknown[]) => ({ kind: "orderBy", args })),
+  limit: vi.fn((...args: unknown[]) => ({ kind: "limit", args })),
+  query: vi.fn((...args: unknown[]) => ({ kind: "query", args })),
+  getDocs: vi.fn(async () => ({
+    docs: mocks.activityDocs.map((data, index) => ({
+      id: String(data.id ?? `activity-${index}`),
+      data: () => data,
+    })),
+  })),
+}));
+
+vi.mock("../services/firebase", () => ({
+  firestore: {},
+}));
+
+vi.mock("../services/errorLogger", () => ({
+  logClientError: vi.fn(),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -42,6 +65,15 @@ describe("StravaCallbackPage", () => {
     mocks.connectStrava.mockReset();
     mocks.exchangeCode.mockReset();
     mocks.navigate.mockReset();
+    mocks.activityDocs = [
+      {
+        id: "a1",
+        userId: "u1",
+        source: "strava",
+        createdAt: Date.now(),
+        summary: { distance: 25_000, elevationGain: 450, tss: 42 },
+      },
+    ];
     mocks.exchangeCode.mockResolvedValue({ athleteId: 1 });
   });
 
@@ -63,6 +95,25 @@ describe("StravaCallbackPage", () => {
     expect(mocks.exchangeCode).toHaveBeenCalledTimes(1);
     expect(mocks.exchangeCode).toHaveBeenCalledWith("code-1");
     expect(sessionStorage.getItem("strava_state")).toBeNull();
+  });
+
+  it("keeps the user on a success summary instead of auto-redirecting", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    sessionStorage.setItem("strava_return_to", "/onboarding?returnTo=%2Fplan");
+
+    render(
+      <MemoryRouter initialEntries={["/strava/callback?code=code-1&state=nonce"]}>
+        <StravaCallbackPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("stravaCallback.summary.activities")).toBeInTheDocument();
+    expect(screen.getByText("stravaCallback.summary.curveReady")).toBeInTheDocument();
+    expect(mocks.navigate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "stravaCallback.action.continue" }));
+
+    expect(mocks.navigate).toHaveBeenCalledWith("/onboarding?returnTo=%2Fplan");
   });
 
   it("stops waiting when auth session is not restored", async () => {
