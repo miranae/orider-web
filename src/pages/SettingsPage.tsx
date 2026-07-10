@@ -90,6 +90,9 @@ export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedSection = parseSection(searchParams.get("section"));
   const [section, setSectionState] = useState<SectionId>(requestedSection);
+  const flatItems = NAV_GROUPS.flatMap((g) => g.items);
+  const current = flatItems.find((i) => i.id === section);
+  const currentGroup = NAV_GROUPS.find((g) => g.items.some((i) => i.id === section));
 
   useEffect(() => {
     setSectionState(requestedSection);
@@ -107,7 +110,7 @@ export default function SettingsPage() {
       </div>
     );
   }
-  if (isMobile && section === "developer") {
+  if (isMobile && section !== "account") {
     return (
       <div>
         <div
@@ -118,20 +121,22 @@ export default function SettingsPage() {
             <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
           </LocalizedLink>
           <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>
-            {t("nav.developerLabel")}
+            {current && t(current.labelKey)}
           </span>
         </div>
         <main style={{ padding: "var(--space-4)" }}>
-          <PaneDeveloper />
+          {section === "training" && <PaneTraining />}
+          {section === "equipment" && <PaneEquipment />}
+          {section === "connections" && <PaneConnections />}
+          {section === "health_sources" && <PaneHealthSources />}
+          {section === "developer" && <PaneDeveloper />}
+          {section === "device" && <PaneDevice />}
+          {section === "app" && <PaneApp />}
         </main>
       </div>
     );
   }
   if (isMobile) return <MobileSettingsPage />;
-
-  const flatItems = NAV_GROUPS.flatMap((g) => g.items);
-  const current = flatItems.find((i) => i.id === section);
-  const currentGroup = NAV_GROUPS.find((g) => g.items.some((i) => i.id === section));
 
   return (
     <div className="settings-layout">
