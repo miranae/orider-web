@@ -1323,7 +1323,7 @@ export default function FitnessPage() {
                     {t("powerCurve.empty")}
                   </div>
                 )}
-                <div style={{ marginTop: "var(--space-3)", paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "var(--space-2)" }}>
+                <div style={{ marginTop: "var(--space-3)", paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))", gap: "var(--space-2)" }}>
                   {pcKeyDurations.map((_, i) => (
                     <div key={i}>
                       <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{pcKeyNames[i]} · {pcKeyLabels[i]}</Text>

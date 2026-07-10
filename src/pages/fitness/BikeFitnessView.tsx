@@ -138,7 +138,7 @@ export default function BikeFitnessView() {
 
       {/* KPI 5칸 */}
       <Card padding="none"
-        style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}
+        style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))" }}
       >
         {KPI_DEFS.map((s, i) => (
           <div

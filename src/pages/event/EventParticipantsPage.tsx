@@ -504,7 +504,7 @@ export default function EventParticipantsPage() {
         </div>
 
         {/* 통계 카드 */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "var(--space-2)", marginBottom: 'var(--space-5)' }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))", gap: "var(--space-2)", marginBottom: 'var(--space-5)' }}>
           <StatCard label={t("stats.total")} value={stats.total} sub={t("participantsView.paidSub", { count: stats.paid })} />
           <StatCard label={t("stats.racing")} value={stats.racing} tone="var(--lime)" />
           <StatCard label={t("stats.finished")} value={stats.finished} />

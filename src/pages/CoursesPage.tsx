@@ -202,7 +202,7 @@ export default function CoursesPage() {
   if (!hasRendered) return null;
 
   return (
-    <div className="flex flex-col -mx-4 -my-6" style={{ height: "calc(100vh - 56px)" }}>
+    <div className="flex flex-col -mx-4 -my-6" style={{ height: "calc(100dvh - 56px)" }}>
       {/* 컨트롤 바 */}
       <div className="flex-shrink-0" style={COURSES_CONTROL_STACK_STYLE}>
         <div className="flex items-center justify-between">

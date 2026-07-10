@@ -73,7 +73,7 @@ export default function PowerCurveProgressionChart({ progressions }: Props) {
         },
       },
       scales: {
-        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
+        x: { ticks: { color: textColor, font: { size: 10 }, autoSkip: true, maxTicksLimit: 6 }, grid: { color: gridColor } },
         y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: (v) => `${v}W` }, grid: { color: gridColor } },
       },
     };

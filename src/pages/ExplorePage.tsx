@@ -698,7 +698,7 @@ export default function ExplorePage() {
 
   if (!loading && overviewError) {
     return (
-      <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100vh-56px)]">
+      <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100dvh-56px)]">
         <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
           <div className="flex items-center justify-between pt-3 md:pt-6">
             <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("title")}</h1>
@@ -714,7 +714,7 @@ export default function ExplorePage() {
   return (
     // 모바일: 고정 높이 없이 자연 스크롤(짧은 지도 + 목록이 아래로 흐름) — 지도가 화면을 다 덮어
     // 순위/기록을 못 보던 문제 해결. 데스크톱(lg)만 풀 높이 분할 화면 유지.
-    <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100vh-56px)]">
+    <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100dvh-56px)]">
       {/* 컨트롤 바 */}
       <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
         <div className="flex items-center justify-between pt-3 md:pt-6">

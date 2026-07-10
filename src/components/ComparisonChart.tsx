@@ -69,7 +69,7 @@ export default function ComparisonChart({
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { size: 11 }, color: labelColor },
+              ticks: { font: { size: 11 }, color: labelColor, autoSkip: true, maxTicksLimit: 6 },
             },
             y: {
               beginAtZero: true,

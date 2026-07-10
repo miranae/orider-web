@@ -201,7 +201,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="h-screen flex flex-col" style={{ background: 'var(--bg-0)', color: 'var(--ink-1)' }}>
+    <div className="flex flex-col" style={{ height: "100dvh", background: 'var(--bg-0)', color: 'var(--ink-1)' }}>
       <TopNav
         active={activeNav}
         notifications={notifications}
