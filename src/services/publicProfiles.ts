@@ -1,6 +1,7 @@
 import { collection, doc, getDoc, getDocs, limit, query, where, type DocumentData } from "firebase/firestore";
 import type { UserStats } from "@shared/types";
 import { firestore } from "./firebase";
+import { isPermissionDeniedError } from "../utils/firebaseErrors";
 
 export interface PublicUserProfile {
   id: string;
@@ -49,10 +50,17 @@ export async function getPublicUserProfile(userId: string): Promise<PublicUserPr
 }
 
 export async function getPublicUserProfiles(userIds: readonly string[]): Promise<Map<string, PublicUserProfile>> {
-  const pairs = await Promise.all(
+  const pairs = await Promise.allSettled(
     Array.from(new Set(userIds)).map(async (userId) => [userId, await getPublicUserProfile(userId)] as const),
   );
-  return new Map(pairs.filter((pair): pair is readonly [string, PublicUserProfile] => pair[1] != null));
+  return new Map(pairs.flatMap((result) => {
+    if (result.status === "fulfilled") {
+      const [userId, profile] = result.value;
+      return profile ? [[userId, profile] as const] : [];
+    }
+    if (isPermissionDeniedError(result.reason)) return [];
+    throw result.reason;
+  }));
 }
 
 export async function searchPublicUserProfilesByNickname(searchText: string, maxResults = 10): Promise<PublicUserProfile[]> {

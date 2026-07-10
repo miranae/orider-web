@@ -518,6 +518,7 @@ export default function SegmentPage() {
     getDocs(query(
       collection(firestore, "courses"),
       where("segmentIds", "array-contains", segmentId),
+      where("deletedAt", "==", null),
       orderBy("createdAt", "desc"),
       limit(6),
     ))

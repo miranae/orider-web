@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { getPublicUserProfiles } from "../../services/publicProfiles";
 import { logClientError } from "../../services/errorLogger";
+import { isPermissionDeniedError } from "../../utils/firebaseErrors";
 
 type SocialProfileItem = {
   userId: string;
   profileImage?: string | null;
 };
-
-function isPermissionDeniedError(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const code = "code" in err ? (err as { code?: unknown }).code : undefined;
-  if (code === "permission-denied") return true;
-  const message = err instanceof Error ? err.message : String(err);
-  return message.includes("Missing or insufficient permissions");
-}
 
 export function useHydratedSocialProfiles<T extends SocialProfileItem>(
   items: readonly T[],
