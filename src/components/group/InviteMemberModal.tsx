@@ -6,6 +6,7 @@ import { logClientError } from "../../services/errorLogger";
 import { searchPublicUserProfilesByNickname, type PublicUserProfile } from "../../services/publicProfiles";
 import Avatar from "../Avatar";
 import Modal from "../Modal";
+import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 
 interface InviteMemberModalProps {
   open: boolean;
@@ -20,7 +21,7 @@ interface SearchResult {
 }
 
 export default function InviteMemberModal({ open, onClose, groupId, inviteCode }: InviteMemberModalProps) {
-  const { t } = useTranslation("group");
+  const { t, i18n } = useTranslation("group");
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -55,7 +56,7 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode }
   const handleCopy = async () => {
     try {
       if (!navigator.clipboard?.writeText) return;
-      await navigator.clipboard.writeText(inviteCode);
+      await navigator.clipboard.writeText(buildGroupInviteUrl(inviteCode, i18n.language));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -66,10 +67,10 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode }
   return (
     <Modal open={open} onClose={onClose} title={t("invite.modalTitle")}>
       <div className="mb-6">
-        <label className="block text-[length:var(--fs-sm)] font-medium mb-2" style={{ color: "var(--ink-1)" }}>{t("members.inviteCode")}</label>
+        <label className="block text-[length:var(--fs-sm)] font-medium mb-2" style={{ color: "var(--ink-1)" }}>{t("members.inviteLink")}</label>
         <div className="flex items-center gap-2">
-          <code className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] font-mono" style={{ background: "var(--bg-1)", color: "var(--ink-0)" }}>
-            {inviteCode}
+          <code className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] font-mono" style={{ background: "var(--bg-1)", color: "var(--ink-0)", wordBreak: "break-all" }}>
+            {buildGroupInviteUrl(inviteCode, i18n.language)}
           </code>
           <button
             onClick={handleCopy}

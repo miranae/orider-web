@@ -32,6 +32,7 @@ const GroupDashboardPage = lazyTimed("GroupDashboardPage", () => import("./pages
 const GroupRidesPage = lazyTimed("GroupRidesPage", () => import("./pages/group/GroupRidesPage"));
 const GroupRidePage = lazyTimed("GroupRidePage", () => import("./pages/group/GroupRidePage"));
 const GroupMembersPage = lazyTimed("GroupMembersPage", () => import("./pages/group/GroupMembersPage"));
+const GroupInvitePage = lazyTimed("GroupInvitePage", () => import("./pages/group/GroupInvitePage"));
 const GroupLeaderboardPage = lazyTimed("GroupLeaderboardPage", () => import("./pages/group/GroupLeaderboardPage"));
 const GroupSettingsPage = lazyTimed("GroupSettingsPage", () => import("./pages/group/GroupSettingsPage"));
 const SegmentPage = lazyTimed("SegmentPage", () => import("./pages/SegmentPage"));
@@ -114,6 +115,7 @@ function AppRoutes() {
           <Route path="group/:groupId/leaderboard" element={<GroupLeaderboardPage />} />
           <Route path="group/:groupId/members" element={<GroupMembersPage />} />
           <Route path="group/:groupId/settings" element={<GroupSettingsPage />} />
+          <Route path="group/join/:code" element={<GroupInvitePage />} />
           <Route path="segment/create" element={<CreateSegmentPage />} />
           <Route path="segment/:segmentId" element={<SegmentPage />} />
           {/* Layout에서 직접 렌더 — element={null} 유지 필수 (변경 시 이중 렌더) */}

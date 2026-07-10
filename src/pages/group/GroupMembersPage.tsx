@@ -14,6 +14,7 @@ import Avatar from "../../components/Avatar";
 import InviteMemberModal from "../../components/group/InviteMemberModal";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 
 type Tab = "members" | "pending" | "invite" | "banned";
 type RoleFilter = "all" | "leader" | "co-leader" | "member";
@@ -32,7 +33,7 @@ interface InvitationDoc {
 }
 
 export default function GroupMembersPage() {
-  const { t } = useTranslation("group");
+  const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
@@ -54,6 +55,7 @@ export default function GroupMembersPage() {
   const [pendingLoading, setPendingLoading] = useState(false);
   const [invitations, setInvitations] = useState<InvitationDoc[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
 
   // 멤버 통계는 useGroupRideStats 서버 집계에서 제공한다.
 
@@ -385,19 +387,20 @@ export default function GroupMembersPage() {
       {/* INVITE TAB */}
       {tab === "invite" && (
         <Card padding="none" style={{ padding: 'var(--space-4)' }}>
-          <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("members.inviteCode")}</h2>
+          <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("members.inviteLink")}</h2>
           <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
             <code style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", fontFamily: "var(--font-mono)", color: "var(--lime)", flex: 1 }}>
-              {group.inviteCode}
+              {buildGroupInviteUrl(group.inviteCode, i18n.language)}
             </code>
             <Button
               type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(group.inviteCode);
-                alert(t("members.codeCopied"));
+              onClick={async () => {
+                await navigator.clipboard.writeText(buildGroupInviteUrl(group.inviteCode, i18n.language));
+                setInviteLinkCopied(true);
+                setTimeout(() => setInviteLinkCopied(false), 2000);
               }} variant="secondary" size="sm"
             >
-              {t("button.copy")}
+              {inviteLinkCopied ? t("invite.copied") : t("button.copy")}
             </Button>
           </div>
           <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
