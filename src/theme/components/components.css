@@ -209,6 +209,15 @@ select.ds-input {
   cursor: pointer;
 }
 
+@media (hover: none) and (pointer: coarse), (max-width: 767px) {
+  .ds-input,
+  input:not([type="button"]):not([type="checkbox"]):not([type="color"]):not([type="hidden"]):not([type="image"]):not([type="radio"]):not([type="range"]):not([type="reset"]):not([type="submit"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
 /* ===== Field (label + input + hint/error) ===== */
 .ds-field {
   display: flex;
