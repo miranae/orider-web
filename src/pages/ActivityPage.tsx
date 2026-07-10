@@ -60,10 +60,7 @@ import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
 import { useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
 import { selectActualCoRiders } from "../utils/coRiders";
-
-function isPermissionDeniedError(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "permission-denied";
-}
+import { isPermissionDeniedError } from "../utils/firebaseErrors";
 
 function StreamUnavailableCard({
   title,

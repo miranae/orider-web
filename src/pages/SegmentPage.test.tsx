@@ -1,4 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
+import { where } from "firebase/firestore";
 import SegmentPage from "./SegmentPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData, setCollectionDocs } from "../__tests__/mocks/firebase";
@@ -121,5 +122,30 @@ describe("SegmentPage", () => {
       const content = document.body.textContent ?? "";
       expect(content.includes("리더보드 세그먼트")).toBeTruthy();
     });
+  });
+
+  it("queries used-by courses with the deployed deletedAt composite index shape", async () => {
+    vi.mocked(where).mockClear();
+    setDocData("segments/seg-1", {
+      id: "seg-1",
+      name: "코스 역링크 세그먼트",
+      distance: 3000,
+      averageGrade: 5.5,
+      maximumGrade: 10.0,
+      elevationHigh: 200,
+      elevationLow: 50,
+      climbCategory: 2,
+    });
+    setCollectionDocs("courses", [
+      { id: "course-1", name: "남산 코스", segmentIds: ["seg-1"], deletedAt: null, createdAt: 2 },
+    ]);
+
+    renderWithProviders(<SegmentPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("코스 역링크 세그먼트")).toBeInTheDocument();
+    });
+    expect(where).toHaveBeenCalledWith("segmentIds", "array-contains", "seg-1");
+    expect(where).toHaveBeenCalledWith("deletedAt", "==", null);
   });
 });
