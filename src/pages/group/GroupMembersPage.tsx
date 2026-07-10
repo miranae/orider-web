@@ -328,9 +328,9 @@ export default function GroupMembersPage() {
                     </div>
                     <Link to={`/athlete/${m.id}`} className="flex items-center min-w-0" style={{ gap: 'var(--space-2)' }}>
                       <Avatar name={m.profile?.nickname ?? "?"} imageUrl={m.profile?.photoURL} size="sm" />
-                      <span className="text-[length:var(--fs-sm)] font-medium truncate" style={{ color: "var(--ink-0)" }}>
+                      <Text variant="bodyMedium" truncate tone="primary">
                         {m.profile?.nickname ?? m.id}
-                      </span>
+                      </Text>
                       {isMe && <Chip style={{ fontSize: "var(--fs-2xs)", color: "var(--lime)" }}>{t("members.self")}</Chip>}
                     </Link>
                     <div className="text-[length:var(--fs-xs)]" style={{ color: role === "leader" ? "var(--lime)" : role === "co-leader" ? "var(--aqua)" : "var(--ink-2)" }}>

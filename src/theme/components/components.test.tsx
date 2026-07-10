@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Alert, Button, Card, Chip, Field, IconButton, Input, Progress, Select, Stack, Stat, Switch, Text, Textarea } from './index';
 import { cn } from './cn';
@@ -192,6 +194,12 @@ describe('Text', () => {
   it('truncate 클래스 적용', () => {
     const { container } = render(<Text truncate>긴 텍스트입니다</Text>);
     expect(container.firstElementChild?.className).toMatch(/\bds-text--truncate\b/);
+  });
+
+  it('기본 한글 조판 보호 규칙을 가진다', () => {
+    const css = readFileSync(join(process.cwd(), 'src/theme/components/components.css'), 'utf8');
+    expect(css).toContain('.ds-text { color: inherit; overflow-wrap: anywhere; word-break: keep-all; }');
+    expect(css).toContain('.ds-card__title { margin: 0; font-size: var(--fs-lg);');
   });
 });
 

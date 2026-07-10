@@ -127,7 +127,7 @@
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 12px;
 }
-.ds-card__title { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink-0); }
+.ds-card__title { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink-0); overflow-wrap: anywhere; word-break: keep-all; }
 .ds-card__sub {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -338,10 +338,11 @@ select.ds-input {
   letter-spacing: -0.02em;
 }
 .ds-stat__value-unit {
-  font-size: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--ink-3);
-  margin-left: 4px;
-  font-weight: 500;
+  margin-left: 2px;
+  font-weight: 400;
 }
 .ds-stat__delta {
   display: inline-flex;
@@ -452,7 +453,7 @@ select.ds-input {
 .ds-progress--sm { height: 4px; }
 
 /* ===== Text — 의미 단위 타이포 ===== */
-.ds-text { color: inherit; }
+.ds-text { color: inherit; overflow-wrap: anywhere; word-break: keep-all; }
 
 /* Data hierarchy (앱 RideData 위계) — 토큰 직접 참조 */
 .ds-text--data-hero    { font-family: var(--font-mono); font-size: var(--fs-data-hero, 44px); font-weight: 700; line-height: 1; letter-spacing: -0.03em; color: var(--ink-0); }
