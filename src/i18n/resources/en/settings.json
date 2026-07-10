@@ -45,6 +45,8 @@
     "nicknameDesc": "The name shown on the feed and leaderboards.",
     "nicknameUpdated": "Nickname updated",
     "nicknamePrompt": "Enter your nickname",
+    "nicknameSaving": "Updating nickname across your activities…",
+    "nicknameLength": "Nickname must be 2-30 characters",
     "nicknameSaveFailed": "Failed to update nickname",
     "save": "Save",
     "cancel": "Cancel",
@@ -83,6 +85,7 @@
     "private": "Private",
     "privateDesc": "Visible only to you.",
     "visibilityChanged": "Visibility updated",
+    "settingChanged": "Setting saved",
     "changeFailed": "Update failed",
     "settingChangeFailed": "Failed to change setting",
     "profilePublic": "Public profile",
@@ -166,8 +169,16 @@
     "cardPhysique": "Body",
     "fieldWeight": "Weight",
     "fieldWeightHint": "kg · used for W/kg",
+    "fieldWeightLb": "Weight",
+    "fieldWeightLbHint": "lb · converted to kg on save",
     "fieldHeight": "Height",
     "fieldHeightHint": "cm",
+    "fieldHeightIn": "Height",
+    "fieldHeightInHint": "in · converted to cm on save",
+    "bodyUnit": {
+      "metric": "kg/cm",
+      "imperial": "lb/in"
+    },
     "ftpTest": {
       "title": "FTP test",
       "desc": "Compute an FTP candidate from a dedicated test effort and apply it.",
@@ -327,6 +338,10 @@
       "deleteBtnDeleting": "Deleting…",
       "deleteBtnLabel": "Delete data",
       "deleteAccountDone": "Activity data deleted",
+      "deleteTypeConfirm": "Type DELETE to delete your account and activity data. You will be signed out and sent home.",
+      "deleteTypePlaceholder": "DELETE",
+      "deleteTypeToken": "DELETE",
+      "deleteTypeMismatch": "Input did not match. Account deletion was cancelled.",
       "deleteAccountFailed": "Failed to delete data"
     },
     "app": {

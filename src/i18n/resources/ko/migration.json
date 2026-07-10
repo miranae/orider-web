@@ -14,6 +14,8 @@
     "landingConnectedDesc": "이제 라이딩 기록을 오라이더로 가져올 수 있어요. 기존 Strava 데이터는 그대로 유지됩니다.",
     "landingNotConnectedDesc": "Strava 계정을 연결하면 모든 라이딩 기록을 오라이더로 복사합니다.",
     "loginGoogle": "Google로 로그인",
+    "loginLoading": "로그인 중…",
+    "loginFailed": "로그인에 실패했습니다. 다시 시도해 주세요.",
     "connectStrava": "Strava 연결하기",
     "startMigration": "Strava 활동 가져오기",
     "starting": "시작하는 중...",

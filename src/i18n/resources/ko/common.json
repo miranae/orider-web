@@ -53,7 +53,10 @@
   },
   "auth": {
     "loginRequiredTitle": "로그인이 필요합니다",
-    "loginRequiredDescription": "이 기능을 사용하려면 로그인이 필요해요."
+    "loginRequiredDescription": "이 기능을 사용하려면 로그인이 필요해요.",
+    "loginValue": "기록을 저장하려면 로그인",
+    "loginLoading": "로그인 중…",
+    "loginFailed": "로그인에 실패했습니다. 다시 시도해 주세요."
   },
   "notFound": {
     "description": "요청한 페이지가 없거나 이동되었어요."

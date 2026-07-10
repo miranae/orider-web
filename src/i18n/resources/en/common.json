@@ -53,7 +53,10 @@
   },
   "auth": {
     "loginRequiredTitle": "Sign in required",
-    "loginRequiredDescription": "Sign in to use this feature."
+    "loginRequiredDescription": "Sign in to use this feature.",
+    "loginValue": "Sign in to save rides",
+    "loginLoading": "Signing in…",
+    "loginFailed": "Sign-in failed. Please try again."
   },
   "notFound": {
     "description": "The page you requested does not exist or has moved."

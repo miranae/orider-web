@@ -45,6 +45,8 @@
     "nicknameDesc": "피드와 리더보드에 표시되는 이름입니다.",
     "nicknameUpdated": "닉네임이 변경되었습니다",
     "nicknamePrompt": "닉네임을 입력하세요",
+    "nicknameSaving": "닉네임을 반영하는 중입니다…",
+    "nicknameLength": "닉네임은 2~30자로 입력해 주세요",
     "nicknameSaveFailed": "닉네임 변경 실패",
     "save": "저장",
     "cancel": "취소",
@@ -83,6 +85,7 @@
     "private": "비공개",
     "privateDesc": "본인만 볼 수 있음.",
     "visibilityChanged": "공개 범위가 변경되었습니다",
+    "settingChanged": "설정이 저장되었습니다",
     "changeFailed": "변경 실패",
     "settingChangeFailed": "설정 변경 실패",
     "profilePublic": "프로필 공개",
@@ -166,8 +169,16 @@
     "cardPhysique": "체격",
     "fieldWeight": "체중",
     "fieldWeightHint": "kg · W/kg 계산에 사용",
+    "fieldWeightLb": "체중",
+    "fieldWeightLbHint": "lb · 저장 시 kg로 변환",
     "fieldHeight": "신장",
     "fieldHeightHint": "cm",
+    "fieldHeightIn": "신장",
+    "fieldHeightInHint": "in · 저장 시 cm로 변환",
+    "bodyUnit": {
+      "metric": "kg/cm",
+      "imperial": "lb/in"
+    },
     "ftpTest": {
       "title": "FTP 테스트",
       "desc": "전용 테스트로 측정한 파워에서 FTP 후보를 계산해 반영합니다.",
@@ -327,6 +338,10 @@
       "deleteBtnDeleting": "삭제 중…",
       "deleteBtnLabel": "데이터 삭제",
       "deleteAccountDone": "모든 활동 데이터가 삭제되었습니다",
+      "deleteTypeConfirm": "계정과 활동 데이터를 삭제하려면 DELETE를 입력하세요. 삭제 후 홈으로 이동하며 다시 로그인해야 합니다.",
+      "deleteTypePlaceholder": "DELETE",
+      "deleteTypeToken": "DELETE",
+      "deleteTypeMismatch": "입력값이 일치하지 않아 삭제하지 않았습니다.",
       "deleteAccountFailed": "데이터 삭제 실패"
     },
     "app": {

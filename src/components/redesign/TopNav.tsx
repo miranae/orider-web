@@ -5,6 +5,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { Search, Bell, Settings, LogIn, LogOut, User, Menu, X } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 import { useGlobalSearch } from "../../hooks/useGlobalSearch";
 import { LanguageToggle } from "../i18n/LanguageToggle";
 import type { Notification } from "@shared/types";
@@ -31,6 +32,7 @@ interface TopNavProps {
 export default function TopNav({ active, notifications = [], unreadCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick }: TopNavProps) {
   const { t } = useTranslation('common');
   const { user, profile, signInWithGoogle, logout } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const NAV_ITEMS = useMemo(
     () => HUBS.map(({ key, labelKey, to }) => ({ key, label: t(labelKey), to })),
@@ -41,12 +43,25 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [signInPending, setSignInPending] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileHistoryPushedRef = useRef(false);
 
   const { results } = useGlobalSearch(searchQuery);
+
+  const handleSignInWithGoogle = useCallback(async () => {
+    if (signInPending) return;
+    setSignInPending(true);
+    try {
+      await signInWithGoogle();
+    } catch {
+      showToast(t("auth.loginFailed"), "error");
+    } finally {
+      setSignInPending(false);
+    }
+  }, [showToast, signInPending, signInWithGoogle, t]);
 
   // 검색 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -575,10 +590,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
 
               {/* 비로그인: Google 로그인 버튼 (데스크톱) */}
               <Button
-                onClick={signInWithGoogle} variant="primary" size="sm" className="hidden md:flex"
+                onClick={handleSignInWithGoogle} variant="primary" size="sm" className="hidden md:flex"
+                disabled={signInPending}
                 style={{ gap: "var(--space-1-5)" }}
               >
-                <LogIn size={14} /> {t('button.loginGoogle')}
+                <LogIn size={14} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
               </Button>
 
               {/* 비로그인: 모바일 햄버거 */}
@@ -782,15 +798,16 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
               ) : (
                 <button
                   className={mobileMenuItemClass}
-                  onClick={() => { signInWithGoogle(); closeMobileMenuForNavigation(); }}
+                  onClick={() => { void handleSignInWithGoogle(); closeMobileMenuForNavigation(); }}
+                  disabled={signInPending}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
                     width: '100%', padding: '10px 12px', fontSize: "var(--fs-sm)",
                     backgroundColor: 'var(--lime)', color: 'var(--primary-fg)',
-                    borderRadius: 'var(--r-md)', border: 'none', cursor: 'pointer', fontWeight: 600,
+                    borderRadius: 'var(--r-md)', border: 'none', cursor: signInPending ? 'wait' : 'pointer', fontWeight: 600,
                   }}
                 >
-                  <LogIn size={15} /> {t('button.loginGoogle')}
+                  <LogIn size={15} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
                 </button>
               )}
             </div>

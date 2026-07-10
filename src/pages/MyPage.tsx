@@ -98,14 +98,15 @@ export default function MyPage() {
         </Link>
       ))}
       {/* Logout — inside 계정 section, no chevron */}
-      <div
+      <button
+        type="button"
         onClick={logout}
-        className="flex items-center gap-3 cursor-pointer"
-        style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}
+        className="flex w-full items-center gap-3 cursor-pointer text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]"
+        style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)", background: "transparent", borderTop: 0, borderRight: 0, borderLeft: 0 }}
       >
         <span style={{ fontSize: "var(--fs-lg)", width: 28, textAlign: "center" }}>🚪</span>
         <span style={{ fontSize: "var(--fs-sm)", color: "var(--rose)", fontWeight: 500, flex: 1 }}>{t("menu.logout")}</span>
-      </div>
+      </button>
 
       <div style={{ height: 80 }} />
     </div>
