@@ -43,6 +43,9 @@ const COURSES_FILTER_BUTTON_STYLE: React.CSSProperties = {
   padding: "var(--space-1) var(--space-2)",
 };
 
+const DISTANCE_FILTER_MAX_KM = 200;
+const ELEVATION_FILTER_MAX_M = 3000;
+
 export default function CoursesPage() {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("course");
@@ -71,6 +74,11 @@ export default function CoursesPage() {
   } = useCourseCatalog(sortMode);
   const [surfaceFilter, setSurfaceFilter] = useState<SurfaceFilter>("");
   const [difficultyFilter, setDifficultyFilter] = useState<number | null>(null);
+  const [distanceMinKm, setDistanceMinKm] = useState(0);
+  const [distanceMaxKm, setDistanceMaxKm] = useState(DISTANCE_FILTER_MAX_KM);
+  const [elevationMinM, setElevationMinM] = useState(0);
+  const [elevationMaxM, setElevationMaxM] = useState(ELEVATION_FILTER_MAX_M);
+  const [regionFilter, setRegionFilter] = useState("");
   // 위치+반경 필터(#495) — 내 주변 코스. geolocation 1회 취득 후 km 반경 클라 필터.
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
@@ -99,10 +107,25 @@ export default function CoursesPage() {
       sortMode,
       surfaceFilter,
       difficultyFilter,
+      distanceMinKm: distanceMinKm > 0 ? distanceMinKm : null,
+      distanceMaxKm: distanceMaxKm < DISTANCE_FILTER_MAX_KM ? distanceMaxKm : null,
+      elevationMinM: elevationMinM > 0 ? elevationMinM : null,
+      elevationMaxM: elevationMaxM < ELEVATION_FILTER_MAX_M ? elevationMaxM : null,
+      regionFilter,
       myLoc,
       radiusKm,
     });
-  }, [allCourses, searchQuery, sortMode, surfaceFilter, difficultyFilter, myLoc, radiusKm]);
+  }, [allCourses, searchQuery, sortMode, surfaceFilter, difficultyFilter, distanceMinKm, distanceMaxKm, elevationMinM, elevationMaxM, regionFilter, myLoc, radiusKm]);
+
+  const regionOptions = useMemo(() => {
+    return Array.from(new Set(allCourses.flatMap((course) => course.regions))).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }, [allCourses]);
+
+  const hasAdvancedFilters = distanceMinKm > 0 ||
+    distanceMaxKm < DISTANCE_FILTER_MAX_KM ||
+    elevationMinM > 0 ||
+    elevationMaxM < ELEVATION_FILTER_MAX_M ||
+    regionFilter !== "";
 
   const visibleOnMap = useMemo(() => {
     if (mapUnavailable) return displayCourses;
@@ -231,7 +254,7 @@ export default function CoursesPage() {
           </div>
         </div>
 
-        {/* 노면/난이도 다축 필터(#489) */}
+        {/* 노면/난이도 다축 필터(#489) + 거리/고도/지역 탐색 필터(#243) */}
         <div className="overflow-x-auto lg:flex-wrap lg:overflow-visible" style={COURSES_FILTER_ROW_STYLE}>
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("edit.surface")}</span>
@@ -251,6 +274,109 @@ export default function CoursesPage() {
               );
             })}
           </div>
+          <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
+            <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.distance")}</span>
+            <label className="flex items-center" style={{ gap: "var(--space-1)" }}>
+              <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.min")}</span>
+              <input
+                type="range"
+                min={0}
+                max={DISTANCE_FILTER_MAX_KM}
+                step={5}
+                value={distanceMinKm}
+                onChange={(e) => setDistanceMinKm(Math.min(Number(e.target.value), distanceMaxKm))}
+                aria-label={t("filter.distanceMin")}
+              />
+              <span className="text-[length:var(--fs-xs)] tabular-nums" style={{ color: "var(--ink-2)", minWidth: "3.5rem" }}>
+                {t("filter.kmValue", { value: distanceMinKm })}
+              </span>
+            </label>
+            <label className="flex items-center" style={{ gap: "var(--space-1)" }}>
+              <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.max")}</span>
+              <input
+                type="range"
+                min={0}
+                max={DISTANCE_FILTER_MAX_KM}
+                step={5}
+                value={distanceMaxKm}
+                onChange={(e) => setDistanceMaxKm(Math.max(Number(e.target.value), distanceMinKm))}
+                aria-label={t("filter.distanceMax")}
+              />
+              <span className="text-[length:var(--fs-xs)] tabular-nums" style={{ color: "var(--ink-2)", minWidth: "3.5rem" }}>
+                {distanceMaxKm >= DISTANCE_FILTER_MAX_KM ? t("filter.kmValuePlus", { value: DISTANCE_FILTER_MAX_KM }) : t("filter.kmValue", { value: distanceMaxKm })}
+              </span>
+            </label>
+          </div>
+          <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
+            <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.elevation")}</span>
+            <label className="flex items-center" style={{ gap: "var(--space-1)" }}>
+              <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.min")}</span>
+              <input
+                type="range"
+                min={0}
+                max={ELEVATION_FILTER_MAX_M}
+                step={100}
+                value={elevationMinM}
+                onChange={(e) => setElevationMinM(Math.min(Number(e.target.value), elevationMaxM))}
+                aria-label={t("filter.elevationMin")}
+              />
+              <span className="text-[length:var(--fs-xs)] tabular-nums" style={{ color: "var(--ink-2)", minWidth: "3.75rem" }}>
+                {t("filter.mValue", { value: elevationMinM })}
+              </span>
+            </label>
+            <label className="flex items-center" style={{ gap: "var(--space-1)" }}>
+              <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.max")}</span>
+              <input
+                type="range"
+                min={0}
+                max={ELEVATION_FILTER_MAX_M}
+                step={100}
+                value={elevationMaxM}
+                onChange={(e) => setElevationMaxM(Math.max(Number(e.target.value), elevationMinM))}
+                aria-label={t("filter.elevationMax")}
+              />
+              <span className="text-[length:var(--fs-xs)] tabular-nums" style={{ color: "var(--ink-2)", minWidth: "3.75rem" }}>
+                {elevationMaxM >= ELEVATION_FILTER_MAX_M ? t("filter.mValuePlus", { value: ELEVATION_FILTER_MAX_M }) : t("filter.mValue", { value: elevationMaxM })}
+              </span>
+            </label>
+          </div>
+          {regionOptions.length > 0 && (
+            <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
+              <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.region")}</span>
+              <button type="button" onClick={() => setRegionFilter("")}
+                className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                style={!regionFilter ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+                {t("filter.all")}
+              </button>
+              {regionOptions.slice(0, 12).map((region) => {
+                const active = regionFilter === region;
+                return (
+                  <button key={region} type="button" onClick={() => setRegionFilter(active ? "" : region)}
+                    className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors whitespace-nowrap"
+                    style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+                    {region}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {hasAdvancedFilters && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setDistanceMinKm(0);
+                setDistanceMaxKm(DISTANCE_FILTER_MAX_KM);
+                setElevationMinM(0);
+                setElevationMaxM(ELEVATION_FILTER_MAX_M);
+                setRegionFilter("");
+              }}
+              className="shrink-0"
+            >
+              {t("filter.reset")}
+            </Button>
+          )}
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.nearMe")}</span>
             {([10, 20, 50] as const).map((km) => {
