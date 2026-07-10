@@ -9,7 +9,7 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { getMapboxToken } from "../utils/mapbox";
 import { ErrorState } from "../components/redesign";
-import { Button, buttonClass } from "../theme/components";
+import { Button, buttonClass, Text } from "../theme/components";
 import { CourseList } from "../features/courses/CourseList";
 import { CoursesMap, isCourseInBounds } from "../features/courses/CoursesMap";
 import { filterAndSortCourses, type SortMode, type SurfaceFilter } from "../features/courses/courseCatalog";
@@ -205,7 +205,7 @@ export default function CoursesPage() {
       <div className="flex-shrink-0" style={COURSES_CONTROL_STACK_STYLE}>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{t("title")}</h1>
+            <Text as="h1" variant="pageTitle">{t("title")}</Text>
             <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
               {t("subtitle")}
             </p>

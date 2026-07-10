@@ -364,9 +364,9 @@ export default function EventResultsPage() {
               </Chip>
             )}
           </div>
-          <h1 style={{ fontSize: "var(--fs-4xl)", letterSpacing: "-0.025em", marginBottom: 'var(--space-1)', color: "var(--ink-0)" }}>
+          <Text as="h1" variant="pageTitle" style={{ marginBottom: 'var(--space-1)' }}>
             {eventHead.name}
-          </h1>
+          </Text>
           <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("resultsTitle")}</div>
 
           <div

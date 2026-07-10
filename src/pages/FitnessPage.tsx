@@ -717,9 +717,9 @@ export default function FitnessPage() {
             mode={revalidating ? "updating" : "success"}
           />
         </Text>
-        <h1 style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
+        <Text as="h1" variant="pageTitle" style={{ marginBottom: "var(--space-1-5)" }}>
           {t("header.title")}
-        </h1>
+        </Text>
         <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
           {subtitleParts.join(" ")}
         </div>

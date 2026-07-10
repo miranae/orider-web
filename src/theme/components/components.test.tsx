@@ -132,6 +132,12 @@ describe('Progress', () => {
 });
 
 describe('Text', () => {
+  it('pageTitle variant 는 h1 페이지 제목 클래스로 매핑', () => {
+    render(<Text as="h1" variant="pageTitle">페이지 제목</Text>);
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading.className).toMatch(/\bds-text--page-title\b/);
+  });
+
   it('variant + size + tone 클래스 매핑', () => {
     const { container } = render(<Text variant="title" size="lg" tone="accent">x</Text>);
     const el = container.firstElementChild!;
