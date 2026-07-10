@@ -45,7 +45,7 @@ describe("ToastContext", () => {
     act(() => { fireEvent.click(screen.getByText("에러")); });
     const toast = screen.getByText("에러 메시지");
     expect(toast).toBeInTheDocument();
-    expect(toast.closest("div")?.className).toContain("bg-red-600");
+    expect(toast.closest("div")?.className).toContain("text-[var(--color-error)]");
   });
 
   it("adds an info toast with info styling", () => {
@@ -53,7 +53,7 @@ describe("ToastContext", () => {
     act(() => { fireEvent.click(screen.getByText("정보")); });
     const toast = screen.getByText("정보 메시지");
     expect(toast).toBeInTheDocument();
-    expect(toast.closest("div")?.className).toContain("bg-blue-600");
+    expect(toast.closest("div")?.className).toContain("text-[var(--aqua)]");
   });
 
   it("auto-removes toast after 2.5s + 200ms animation", () => {

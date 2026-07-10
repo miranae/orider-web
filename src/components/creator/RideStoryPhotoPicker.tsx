@@ -253,7 +253,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 md:items-center" role="dialog" aria-modal="true" aria-labelledby="ride-story-picker-title">
-      <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-[var(--r-lg)] border shadow-2xl" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
+      <div className="max-h-[88vh] w-full max-w-3xl overflow-hidden rounded-[var(--r-lg)] border" style={{ background: "var(--bg-1)", borderColor: "var(--line)", boxShadow: "var(--shadow-lg)" }}>
         <div className="flex items-start justify-between gap-4 border-b p-4" style={{ borderColor: "var(--line-soft)" }}>
           <div>
             <h2 id="ride-story-picker-title" className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{copy.title}</h2>

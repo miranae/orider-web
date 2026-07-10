@@ -88,6 +88,7 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
   style.setProperty('--aqua', c.info);
   style.setProperty('--amber', c.warning);
   style.setProperty('--rose', c.error);
+  style.setProperty('--violet', 'oklch(0.60 0.16 285)');
   style.setProperty('--primary-fg', c.primaryFg);
   style.setProperty('--accent-soft-bg', c.accentSoftBg);
   style.setProperty('--accent-soft-border', c.accentSoftBorder);

@@ -18,6 +18,7 @@ function buildCourseLinesGeoJSON(
   polylineCache: Map<string, LatLngTuple[]>,
   hoveredId: string | null,
   selectedId: string | null,
+  colors: { selected: string; hovered: string; base: string },
 ): GeoJSON.FeatureCollection {
   const features: GeoJSON.Feature[] = [];
   for (const course of courses) {
@@ -29,7 +30,7 @@ function buildCourseLinesGeoJSON(
       type: "Feature",
       properties: {
         id: course.id,
-        color: isSelected ? "#f97316" : isHovered ? "#a3e635" : "#3B82F6",
+        color: isSelected ? colors.selected : isHovered ? colors.hovered : colors.base,
         width: isSelected ? 6 : isHovered ? 5 : 3,
         opacity: isSelected || isHovered ? 0.95 : 0.7,
         glowOpacity: isSelected ? 0.62 : isHovered ? 0.5 : 0,
@@ -44,6 +45,16 @@ function buildCourseLinesGeoJSON(
     });
   }
   return { type: "FeatureCollection", features };
+}
+
+function readCourseMapColors() {
+  const style = typeof window === "undefined" ? null : getComputedStyle(document.documentElement);
+  const read = (token: string, fallback: string) => style?.getPropertyValue(token).trim() || fallback;
+  return {
+    selected: read("--accent", "#008986"),
+    hovered: read("--lime", "#008986"),
+    base: read("--aqua", "#2563eb"),
+  };
 }
 
 function getCoursePopupPosition(courseId: string | null, polylineCache: Map<string, LatLngTuple[]>): { lat: number; lng: number } | null {
@@ -153,9 +164,10 @@ export function CoursesMap({
   const { t } = useTranslation("course");
   const mapboxToken = getMapboxToken();
   const [tooltipInfo, setTooltipInfo] = useState<{ lng: number; lat: number; name: string; distance: number; elevGain: number } | null>(null);
+  const courseMapColors = useMemo(readCourseMapColors, []);
   const linesGeoJSON = useMemo(
-    () => buildCourseLinesGeoJSON(visibleCourses, polylineCache, hoveredId, selectedId),
-    [visibleCourses, polylineCache, hoveredId, selectedId],
+    () => buildCourseLinesGeoJSON(visibleCourses, polylineCache, hoveredId, selectedId, courseMapColors),
+    [visibleCourses, polylineCache, hoveredId, selectedId, courseMapColors],
   );
   const selectedCourse = useMemo(
     () => allCourses.find((course) => course.id === selectedId) ?? null,
@@ -253,7 +265,7 @@ export function CoursesMap({
 
           <Source id="course-lines" type="geojson" data={linesGeoJSON}>
             <Layer id="course-lines-glow" type="line" paint={{
-              "line-color": "#a3e635",
+              "line-color": courseMapColors.hovered,
               "line-width": 10,
               "line-opacity": ["get", "glowOpacity"],
             }} layout={{ "line-cap": "round", "line-join": "round" }} />

@@ -11,10 +11,10 @@ export function climbCatLabel(cat: number): string {
 
 export function climbBadgeStyle(cat: number): React.CSSProperties {
   switch (cat) {
-    case 5: return { background: "var(--rose)", color: "#1a0005" };
-    case 4: return { background: "var(--rose)", color: "#1a0005", opacity: 0.85 };
-    case 3: return { background: "var(--amber)", color: "#1a0800" };
-    case 2: return { background: "var(--amber)", color: "#1a0800", opacity: 0.75 };
+    case 5: return { background: "var(--rose)", color: "var(--primary-fg)" };
+    case 4: return { background: "var(--rose)", color: "var(--primary-fg)", opacity: 0.85 };
+    case 3: return { background: "var(--amber)", color: "var(--primary-fg)" };
+    case 2: return { background: "var(--amber)", color: "var(--primary-fg)", opacity: 0.75 };
     case 1: return { background: "var(--lime)", color: "var(--primary-fg)" };
     default: return { background: "var(--bg-3)", color: "var(--ink-3)" };
   }

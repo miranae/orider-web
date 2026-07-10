@@ -32,7 +32,7 @@ export function ReportContentModal({
         className="absolute inset-0 bg-black/50"
         onClick={submitting ? undefined : onClose}
       />
-      <Card padding="none" className="relative z-[91] w-full max-w-lg p-5! md:p-6! rounded-[var(--r-xl)] shadow-xl">
+      <Card padding="none" className="relative z-[91] w-full max-w-lg p-5! md:p-6! rounded-[var(--r-xl)]" style={{ boxShadow: "var(--shadow-lg)" }}>
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h2 className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
