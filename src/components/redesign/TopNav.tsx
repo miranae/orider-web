@@ -24,12 +24,13 @@ interface TopNavProps {
   active: HubKey;
   notifications?: Notification[];
   unreadCount?: number;
+  friendRequestCount?: number;
   onMarkAllRead?: () => void;
   onNotificationClick?: (notification: Notification) => void;
   onMobileNotifClick?: () => void;
 }
 
-export default function TopNav({ active, notifications = [], unreadCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick }: TopNavProps) {
+export default function TopNav({ active, notifications = [], unreadCount = 0, friendRequestCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick }: TopNavProps) {
   const { t } = useTranslation('common');
   const { user, profile, signInWithGoogle, logout } = useAuth();
   const { showToast } = useToast();
@@ -210,6 +211,27 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                 }}
               >
                 {label}
+                {key === "community" && friendRequestCount > 0 && (
+                  <span
+                    aria-label={t("nav.friendRequests", { count: friendRequestCount })}
+                    style={{
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: "var(--r-xl)",
+                      backgroundColor: "var(--color-error)",
+                      color: "var(--primary-fg)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "var(--fs-2xs)",
+                      fontWeight: 700,
+                      marginLeft: 5,
+                      paddingInline: "var(--space-1)",
+                    }}
+                  >
+                    {friendRequestCount > 9 ? "9+" : friendRequestCount}
+                  </span>
+                )}
                 {isActive && (
                   <span
                     style={{
@@ -742,6 +764,27 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, on
                         onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         {t(s.labelKey)}
+                          {s.to === "/friends" && friendRequestCount > 0 && (
+                            <span
+                              aria-label={t("nav.friendRequests", { count: friendRequestCount })}
+                              style={{
+                                minWidth: 16,
+                                height: 16,
+                                borderRadius: "var(--r-xl)",
+                                backgroundColor: "var(--color-error)",
+                                color: "var(--primary-fg)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "var(--fs-2xs)",
+                                fontWeight: 700,
+                                marginLeft: "auto",
+                                paddingInline: "var(--space-1)",
+                              }}
+                            >
+                              {friendRequestCount > 9 ? "9+" : friendRequestCount}
+                            </span>
+                          )}
                       </Link>
                     ))}
                   </div>

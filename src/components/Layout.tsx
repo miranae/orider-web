@@ -78,6 +78,7 @@ export default function Layout() {
   const path = stripLangPrefix(location.pathname);
   const activeNav = getActiveHub(path);
   const mainRef = useRef<HTMLElement>(null);
+  const [friendRequestCount, setFriendRequestCount] = useState(0);
 
   // 온보딩 리다이렉트: step이 설정됐지만 "done"이 아닌 신규 유저
   useEffect(() => {
@@ -163,6 +164,18 @@ export default function Layout() {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!user) {
+      setFriendRequestCount(0);
+      return;
+    }
+    return onSnapshot(
+      collection(firestore, "friend_requests", user.uid, "items"),
+      (snap) => setFriendRequestCount(snap.size),
+      () => setFriendRequestCount(0),
+    );
+  }, [user]);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleMarkAllRead = async () => {
@@ -206,6 +219,7 @@ export default function Layout() {
         active={activeNav}
         notifications={notifications}
         unreadCount={unreadCount}
+        friendRequestCount={friendRequestCount}
         onMarkAllRead={handleMarkAllRead}
         onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
         onMobileNotifClick={() => setNotifOpen(!notifOpen)}
@@ -226,7 +240,7 @@ export default function Layout() {
       {path !== "/" && (
         <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] md:pb-0">
           <div className="max-w-[1440px] w-full mx-auto px-4 py-6 animate-page-in">
-            {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
+            {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} friendRequestCount={friendRequestCount} />}
             <Suspense fallback={<div style={{ height: 200 }} />}>
               {path === "/explore" && <ExplorePage />}
               {path === "/courses" && <CoursesPage />}
@@ -261,7 +275,7 @@ export default function Layout() {
       </footer>
 
       {/* Mobile bottom tab bar */}
-      <MobileTabBar />
+      <MobileTabBar friendRequestCount={friendRequestCount} />
 
       {/* Mobile notification bottom sheet */}
       {notifOpen && (

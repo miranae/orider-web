@@ -9,6 +9,7 @@ import { useFriends } from "../hooks/useFriends";
 import { useToast } from "../contexts/ToastContext";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { Card } from "../theme/components";
 
 interface InvitePreview {
   userId: string;
@@ -66,6 +67,7 @@ export default function FriendInvitePage() {
   const [processing, setProcessing] = useState(false);
   const [processed, setProcessed] = useState(false);
   const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !code || processed || processing) return;
@@ -83,9 +85,15 @@ export default function FriendInvitePage() {
         navigate("/friends", { replace: true });
       })
       .catch((err: any) => {
-        showToast(err?.message || t("toast.addFailed"), "error");
+        const code = typeof err?.code === "string" ? err.code : "";
+        const message = code.includes("not-found")
+          ? t("invite.errorNotFound")
+          : code.includes("invalid-argument")
+            ? t("invite.errorInvalid")
+            : t("invite.errorFailed");
+        setInviteError(message);
+        showToast(message, "error");
         setProcessed(true);
-        navigate("/friends", { replace: true });
       })
       .finally(() => setProcessing(false));
   }, [user, code, processed]);
@@ -162,6 +170,44 @@ export default function FriendInvitePage() {
             {t("invite.adding")}
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (user && inviteError) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Card className="max-w-sm text-center" padding="card">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--rose)]/10 text-[var(--rose)] flex items-center justify-center">
+            !
+          </div>
+          <h1 className="text-[length:var(--fs-lg)] font-bold mb-2 text-[var(--ink-0)]">
+            {t("invite.errorTitle")}
+          </h1>
+          <p className="mb-5 text-[length:var(--fs-sm)] text-[var(--ink-2)]">
+            {inviteError}
+          </p>
+          <div className="flex gap-2 justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                setInviteError(null);
+                setProcessed(false);
+              }}
+              className="ds-btn ds-btn--md px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)]"
+            >
+              {t("invite.retry")}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/friends", { replace: true })}
+              className="px-4 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] text-[var(--ink-1)]"
+              style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}
+            >
+              {t("invite.backToFriends")}
+            </button>
+          </div>
+        </Card>
       </div>
     );
   }

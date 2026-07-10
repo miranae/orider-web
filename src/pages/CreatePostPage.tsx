@@ -113,6 +113,7 @@ const CreatePostPage: React.FC = () => {
   const [editorEmpty, setEditorEmpty] = useState(true);
   const [editorRevision, setEditorRevision] = useState(0);
   const [mobilePlainText, setMobilePlainText] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
 
   const [feedbackType, setFeedbackType] = useState<'bug' | 'feature' | 'question' | 'other'>(isCreatorRecipeTemplate ? 'feature' : 'bug');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -129,6 +130,7 @@ const CreatePostPage: React.FC = () => {
   const [tableHover, setTableHover] = useState({ rows: 0, cols: 0 });
 
   const imageMapRef = useRef<Map<string, File>>(new Map());
+  const uploadedImageMapRef = useRef<Map<string, string>>(new Map());
   const restoredDraftKeyRef = useRef<string | null>(null);
   const tagItems = tags.split(',').map(tag => tag.trim()).filter(Boolean);
   const draftKey = user ? getPostDraftKey(user.uid, isInquiry ? "inquiry" : "free") : null;
@@ -655,8 +657,10 @@ const CreatePostPage: React.FC = () => {
   }, []);
 
   const uploadAllImages = async (): Promise<Map<string, string>> => {
-    const urlMap = new Map<string, string>();
-    for (const [blobUrl, file] of imageMapRef.current) {
+    const urlMap = new Map(uploadedImageMapRef.current);
+    const pendingImages = Array.from(imageMapRef.current).filter(([blobUrl]) => !urlMap.has(blobUrl));
+    setUploadProgress({ done: 0, total: pendingImages.length });
+    for (const [index, [blobUrl, file]] of pendingImages.entries()) {
       const ext = file.name.split('.').pop() || 'jpg';
       const fileName = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
       // user 는 form 렌더 시점에 보장됨 (early return 가드, 754행 참조).
@@ -664,6 +668,8 @@ const CreatePostPage: React.FC = () => {
       await uploadBytes(storageRef, file, { contentType: file.type });
       const realUrl = await getDownloadURL(storageRef);
       urlMap.set(blobUrl, realUrl);
+      uploadedImageMapRef.current.set(blobUrl, realUrl);
+      setUploadProgress({ done: index + 1, total: pendingImages.length });
     }
     return urlMap;
   };
@@ -709,6 +715,7 @@ const CreatePostPage: React.FC = () => {
       void dialog.alert(t('message.submitFailed'), { variant: "danger" });
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -848,7 +855,9 @@ const CreatePostPage: React.FC = () => {
           type="submit"
           disabled={!canSubmit} variant="secondary" className="px-6 py-2 text-[length:var(--fs-sm)] font-bold rounded-[var(--r-lg)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {uploading ? t('button.uploading') : submitting ? t('button.submitLoading') : t('button.submit')}
+          {uploading && uploadProgress && uploadProgress.total > 0
+            ? t('button.uploadingProgress', { done: uploadProgress.done, total: uploadProgress.total })
+            : uploading ? t('button.uploading') : submitting ? t('button.submitLoading') : t('button.submit')}
         </Button>
       </div>
 
@@ -1007,6 +1016,7 @@ const CreatePostPage: React.FC = () => {
                   value={mobilePlainText}
                   onChange={(event) => handleMobilePlainTextChange(event.target.value)}
                   placeholder={t('placeholder.editorHint')}
+                  aria-label={t('label.editor')}
                   className="w-full min-h-[360px] resize-y bg-transparent px-5 py-4 text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-1)] placeholder:text-[var(--ink-3)] focus:outline-none"
                 />
               )}
@@ -1017,6 +1027,7 @@ const CreatePostPage: React.FC = () => {
                 onInput={markEditorChanged}
                 onPaste={handlePaste}
                 onKeyDown={handleKeyDown}
+                aria-label={t('label.editor')}
                 className={`${isMobile ? "sr-only" : ""} px-5 py-4 min-h-[480px] text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-1)] focus:outline-none
                   [&_img]:max-w-full [&_img]:rounded-[var(--r-lg)] [&_img]:my-3
                   [&_h2]:text-[length:var(--fs-xl)] [&_h2]:font-bold [&_h2]:my-3

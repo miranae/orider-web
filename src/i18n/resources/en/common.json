@@ -93,6 +93,7 @@
     "board": "Board",
     "creator": "Creator",
     "friends": "Friends",
+    "friendRequests": "{{count}} incoming friend requests",
     "aboutOrider": "About Orider",
     "profile": "Profile",
     "account": "Account",

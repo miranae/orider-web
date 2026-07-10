@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
-  collection, query, where, orderBy, getDocs, limit, startAfter,
+  collection, query, where, orderBy, getDocs, getCountFromServer, limit, startAfter,
   doc, getDoc, setDoc, deleteDoc,
   type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
@@ -30,6 +30,7 @@ import { percentileOf } from "@shared/training/cohortPercentile";
 import { usePdc } from "../hooks/usePdc";
 import { useCohortPercentiles } from "../hooks/useCohortPercentiles";
 import { Button, Card, Chip, Text } from "../theme/components";
+import SafeImage from "../components/SafeImage";
 
 function formatHours(ms: number): string {
   const hours = Math.floor(ms / 3600000);
@@ -252,7 +253,7 @@ export default function AthletePage() {
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
 
-  // 2. 통계 카드: 실제 표시 가능한 활동을 개별 활동 카드와 같은 시간 기준으로 집계.
+  // 2. 통계 카드: 전체 활동 fetch 대신 count() + 제한된 활동 샘플로 read 폭을 제한.
   useEffect(() => {
     if (!userId) return;
     if (profileLoading && !ownProfileFallback) return;
@@ -269,14 +270,17 @@ export default function AthletePage() {
           where("deletedAt", "==", null),
           ...(!isOwnProfile ? [where("visibility", "==", "everyone")] : []),
         ];
-        const statsQuery = query(
-          collection(firestore, "activities"),
-          ...constraints,
-        );
-        const snap = await getDocs(statsQuery);
+        const [countSnap, sampleSnap] = await Promise.all([
+          getCountFromServer(query(collection(firestore, "activities"), ...constraints)),
+          getDocs(query(collection(firestore, "activities"), ...constraints, orderBy("createdAt", "desc"), limit(ACTIVITIES_PAGE_SIZE))),
+        ]);
         if (cancelled) return;
-        const items = docsToActivities(snap.docs);
-        setStats(aggregateActivityStats(items));
+        const sampledStats = aggregateActivityStats(docsToActivities(sampleSnap.docs));
+        const countedActivities = countSnap.data().count;
+        setStats({
+          ...sampledStats,
+          count: countedActivities > 0 ? countedActivities : sampledStats.count,
+        });
       } catch (err) {
         logClientError("AthletePage.loadStats", err, { userId, isOwnProfile });
         if (!cancelled) setStats({ count: 0, distance: 0, time: 0, elevation: 0 });
@@ -701,7 +705,7 @@ export default function AthletePage() {
     <div className="space-y-6">
       {/* Cover + Profile */}
       <div className="relative">
-        <div className="bg-gradient-to-br from-orange-400 via-amber-500 to-orange-600 rounded-[var(--r-xl)] h-40 relative overflow-hidden shadow-sm">
+        <div className="rounded-[var(--r-xl)] h-40 relative overflow-hidden shadow-sm" style={{ background: "linear-gradient(135deg, var(--lime), var(--aqua))" }}>
           {/* Decorative pattern */}
           <svg className="absolute inset-0 w-full h-full opacity-[0.08]" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -715,9 +719,10 @@ export default function AthletePage() {
         <div className="absolute -bottom-10 left-6 flex items-end gap-4">
           <div className="ring-4 ring-[var(--bg-1)] rounded-full bg-[var(--bg-1)]">
             {photoURL ? (
-              <img
+              <SafeImage
                 src={photoURL}
-                alt=""
+                alt={nickname}
+                fallbackLabel={nickname}
                 className="w-20 h-20 rounded-full object-cover"
                 referrerPolicy="no-referrer"
               />
@@ -845,9 +850,10 @@ export default function AthletePage() {
                       className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-2)] transition-colors"
                     >
                       {friend.profileImage ? (
-                        <img
+                        <SafeImage
                           src={friend.profileImage}
-                          alt=""
+                          alt={friend.nickname}
+                          fallbackLabel={friend.nickname}
                           className="w-10 h-10 rounded-full object-cover border border-[var(--line-soft)]"
                           referrerPolicy="no-referrer"
                           loading="lazy"

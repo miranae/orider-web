@@ -9,6 +9,8 @@
   "adding": "추가 중...",
   "tab.friends": "친구 ({{count}})",
   "tab.requests": "요청 ({{count}})",
+  "tab.requestsAria": "받은 친구 요청 {{count}}건",
+  "tabsLabel": "친구 탭",
   "empty.friends": "아직 친구가 없습니다. 친구코드로 추가해보세요!",
   "empty.requests": "받은 친구 요청이 없습니다.",
   "remove": "삭제",
@@ -35,5 +37,11 @@
   "invite.titleWithName": "{{nickname}}님이 당신을 초대했습니다",
   "invite.loginPrompt": "친구를 추가하려면 로그인하세요",
   "invite.loginPromptWithName": "로그인하면 {{nickname}}님을 바로 친구로 추가합니다",
-  "invite.signInGoogle": "Google로 로그인"
+  "invite.signInGoogle": "Google로 로그인",
+  "invite.errorTitle": "초대 링크를 처리하지 못했습니다",
+  "invite.errorNotFound": "유효하지 않거나 만료된 친구 초대 코드입니다.",
+  "invite.errorInvalid": "이 초대 코드는 사용할 수 없습니다.",
+  "invite.errorFailed": "친구 추가에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+  "invite.retry": "다시 시도",
+  "invite.backToFriends": "친구로 이동"
 }

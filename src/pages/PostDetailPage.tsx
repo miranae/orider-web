@@ -14,6 +14,7 @@ import { useDialog } from '../contexts/DialogContext';
 import { firestore } from '../services/firebase';
 import ActivityCard from '../components/ActivityCard';
 import { EmptyState, LoadingSkeleton } from '../components/redesign';
+import SafeImage from '../components/SafeImage';
 import type { BoardPost, BoardComment, Activity } from '@shared/types';
 import { Button, Card, Chip } from "../theme/components";
 import { normalizeUserContentUrl } from "../utils/userContentUrl";
@@ -48,8 +49,14 @@ const PostDetailPage: React.FC = () => {
   useEffect(() => {
     if (!postId || postLoading || !post) return;
 
-    // 조회수 로깅 (세션당 1회 로직 생략하고 우선 매 로드 시 증가 처리)
     const logView = async () => {
+      const viewKey = `board:viewed:${postId}`;
+      try {
+        if (sessionStorage.getItem(viewKey)) return;
+        sessionStorage.setItem(viewKey, "1");
+      } catch {
+        // sessionStorage unavailable; keep best-effort view logging.
+      }
       try {
         const { doc, updateDoc, increment } = await import("firebase/firestore");
         const postRef = doc(firestore, "board_posts", postId);
@@ -66,6 +73,10 @@ const PostDetailPage: React.FC = () => {
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
+    if (!user) {
+      showToast(t("error.loginRequired"), "info");
+      return;
+    }
     try {
       await createComment(commentText);
       setCommentText('');
@@ -92,6 +103,10 @@ const PostDetailPage: React.FC = () => {
   };
 
   const handleLikeToggle = async () => {
+    if (!user) {
+      showToast(t("error.loginRequired"), "info");
+      return;
+    }
     try {
       await toggleLike();
     } catch {
@@ -117,6 +132,24 @@ const PostDetailPage: React.FC = () => {
       return;
     }
     setReportTarget(target);
+  };
+
+  const handleBlockAuthor = async () => {
+    if (!user || !post || user.uid === post.userId) return;
+    if (!(await dialog.confirm(t("block.confirm", { nickname: post.nickname }), { destructive: true }))) return;
+    try {
+      const { doc, setDoc } = await import("firebase/firestore");
+      await setDoc(doc(firestore, "users", user.uid, "blocked_users", post.userId), {
+        userId: post.userId,
+        nickname: post.nickname,
+        profileImage: post.profileImage ?? null,
+        createdAt: Date.now(),
+      }, { merge: true });
+      showToast(t("block.done", { nickname: post.nickname }));
+      navigate("/board", { replace: true });
+    } catch {
+      showToast(t("block.failed"), "error");
+    }
   };
 
   const handleReportSubmit = async (reason: BoardReportReason, note: string) => {
@@ -198,18 +231,28 @@ const PostDetailPage: React.FC = () => {
             <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)] ml-auto flex items-center gap-2">
               {t('label.views')} {post.viewCount}
               {user?.uid !== post.userId && (
-                <button
-                  onClick={() => openReport({
-                    targetType: "post",
-                    postId: post.id,
-                    previewTitle: post.title,
-                    authorNickname: post.nickname,
-                    createdAt: post.createdAt,
-                  })}
-                  className="text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
-                >
-                  {t("report.action")}
-                </button>
+                <>
+                  <button
+                    onClick={() => openReport({
+                      targetType: "post",
+                      postId: post.id,
+                      previewTitle: post.title,
+                      authorNickname: post.nickname,
+                      createdAt: post.createdAt,
+                    })}
+                    className="text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
+                  >
+                    {t("report.action")}
+                  </button>
+                  {user && (
+                    <button
+                      onClick={handleBlockAuthor}
+                      className="text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
+                    >
+                      {t("block.action")}
+                    </button>
+                  )}
+                </>
               )}
               {user && user.uid === post.userId && (
                 <button
@@ -225,7 +268,7 @@ const PostDetailPage: React.FC = () => {
           <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)] mb-4">{post.title}</h1>
           <div className="flex items-center gap-2">
             {post.profileImage ? (
-              <img src={post.profileImage} alt="" className="w-8 h-8 rounded-full" loading="lazy" decoding="async" />
+              <SafeImage src={post.profileImage} alt={post.nickname} fallbackLabel={post.nickname} className="w-8 h-8 rounded-full object-cover" loading="lazy" decoding="async" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-[var(--bg-3)]" />
             )}
@@ -245,7 +288,7 @@ const PostDetailPage: React.FC = () => {
           return standAlone.length > 0 ? (
             <div className="flex flex-wrap gap-3 mb-6">
               {standAlone.map((url, i) => (
-                <img key={i} src={url} alt="" referrerPolicy="no-referrer" className="rounded-[var(--r-lg)] max-h-96 object-cover border border-[var(--line-soft)]" loading="lazy" decoding="async" />
+                <SafeImage key={i} src={url} alt={t("label.postImage", { index: i + 1 })} referrerPolicy="no-referrer" className="rounded-[var(--r-lg)] max-h-96 object-cover border border-[var(--line-soft)]" loading="lazy" decoding="async" />
               ))}
             </div>
           ) : null;
@@ -268,7 +311,7 @@ const PostDetailPage: React.FC = () => {
               img: ({ node: _node, src, ...props }) => {
                 const safeSrc = normalizeUserContentUrl(src);
                 if (!safeSrc) return null;
-                return <img {...props} src={safeSrc} referrerPolicy="no-referrer" />;
+                return <SafeImage {...props} src={safeSrc} alt={props.alt || t("label.embeddedImage")} referrerPolicy="no-referrer" />;
               },
             }}
           >
@@ -340,31 +383,43 @@ const PostDetailPage: React.FC = () => {
         </h2>
 
         {/* Comment Input */}
-        <form onSubmit={handleCommentSubmit} className="mb-6">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder={t('placeholder.comment')}
-              className="flex-1 p-2.5 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
-              style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
-            />
-            <Button
-              type="submit"
-              disabled={commentSubmitting || !commentText.trim()} variant="secondary" className="px-5 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] font-bold disabled:opacity-50"
-            >
-              {commentSubmitting ? '...' : t('button.submit')}
-            </Button>
-          </div>
-        </form>
+        {user ? (
+          <form onSubmit={handleCommentSubmit} className="mb-6">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder={t('placeholder.comment')}
+                aria-label={t('placeholder.comment')}
+                className="flex-1 p-2.5 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
+                style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
+              />
+              <Button
+                type="submit"
+                disabled={commentSubmitting || !commentText.trim()} variant="secondary" className="px-5 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] font-bold disabled:opacity-50"
+              >
+                {commentSubmitting ? '...' : t('button.submit')}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <Card className="mb-6" padding="compact">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("comment.loginRequired")}</span>
+              <Button type="button" variant="secondary" size="sm" onClick={() => navigate("/settings")}>
+                {t("comment.loginAction")}
+              </Button>
+            </div>
+          </Card>
+        )}
 
         <div className="space-y-3">
           {comments.map((comment) => (
             <Card key={comment.id} padding="none" className="p-4! md:p-6! rounded-[var(--r-lg)]">
               <div className="flex items-center gap-2 mb-2">
                 {comment.profileImage ? (
-                  <img src={comment.profileImage} alt="" className="w-5 h-5 rounded-full" loading="lazy" decoding="async" />
+                  <SafeImage src={comment.profileImage} alt={comment.nickname} fallbackLabel={comment.nickname} className="w-5 h-5 rounded-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <div className="w-5 h-5 rounded-full bg-[var(--bg-3)]" />
                 )}
