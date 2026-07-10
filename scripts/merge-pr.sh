@@ -272,6 +272,22 @@ if [[ -n "$HEADREF" ]]; then
   fi
 fi
 
+# ── 클레임 자동 해제 ─────────────────────────────────────────────────────────
+# 머지 완료 = 이슈 작업 종료. PR 의 closing 이슈 + 브랜치명(fix/NNN-…) 이슈의 wip:sess
+# 클레임 라벨을 정리한다(scripts/claim-issue.sh — release --force 는 라벨 없으면 no-op).
+# best-effort: 실패해도 머지는 이미 완료 상태라 진행을 막지 않는다.
+CLAIM_SH="$REPO_ROOT/scripts/claim-issue.sh"
+if [[ -x "$CLAIM_SH" ]]; then
+  CLAIM_ISSUES="$( { gh pr view "$PR_NUM" --json closingIssuesReferences \
+        -q '.closingIssuesReferences[].number' 2>/dev/null || true; \
+      grep -oE '^[a-z]+/0*[0-9]+' <<<"${HEADREF:-}" | grep -oE '[0-9]+' || true; } | sort -un || true)"
+  if [[ -n "$CLAIM_ISSUES" ]]; then
+    log "클레임 해제 (이슈: $(tr '\n' ' ' <<<"$CLAIM_ISSUES"))"
+    for CLAIM_ISSUE in $CLAIM_ISSUES; do
+      "$CLAIM_SH" release --force "$CLAIM_ISSUE" 2>&1 | sed 's/^/  /' || true
+    done
+  fi
+fi
 if [[ "$KEEP_WORKTREE" == 0 ]]; then
   log "워크트리/브랜치 정리"
   MAIN_WT="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
