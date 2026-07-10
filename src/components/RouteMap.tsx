@@ -361,6 +361,7 @@ export default function RouteMap({
           }}
           onError={() => setMapFailed(true)}
           interactive={interactive}
+          cooperativeGestures={interactive}
           scrollZoom={interactive}
           dragPan={interactive}
           dragRotate={false}
