@@ -2,7 +2,7 @@ import { useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
-import { Search, ChevronRight, UserPlus } from "lucide-react";
+import { Copy, Search, ChevronRight, UserPlus } from "lucide-react";
 import { useFriends } from "../hooks/useFriends";
 import { useMyGroups } from "../hooks/useGroup";
 import { useAuth } from "../contexts/AuthContext";
@@ -101,12 +101,13 @@ function FriendsTab() {
   return (
     <>
       {/* Search + invite */}
-      <div className="flex gap-2" style={{ padding: "var(--space-3) var(--space-4) var(--space-2)" }}>
+      <div className="flex flex-wrap gap-2" style={{ padding: "var(--space-3) var(--space-4) var(--space-2)" }}>
         <div
           className="flex-1 flex items-center gap-1.5"
           style={{
             background: "var(--bg-2)", border: "1px solid var(--line-soft)",
             borderRadius: "var(--r-md)", padding: "var(--space-2) var(--space-3)",
+            minWidth: 180,
           }}
         >
           <Search size={14} style={{ color: "var(--ink-4)", flexShrink: 0 }} />
@@ -121,6 +122,18 @@ function FriendsTab() {
             }}
           />
         </div>
+        <Link
+          to="/friends"
+          style={{
+            padding: "8px 14px", background: "var(--bg-2)", border: "1px solid var(--line-soft)",
+            borderRadius: "var(--r-md)", fontSize: "var(--fs-xs)", fontWeight: 600,
+            color: "var(--ink-1)", cursor: "pointer", whiteSpace: "nowrap",
+            display: "flex", alignItems: "center", gap: "var(--space-1)", textDecoration: "none",
+          }}
+        >
+          <UserPlus size={14} />
+          {t("social.addFriends")}
+        </Link>
         <button
           onClick={() => {
             if (friendCode) {
@@ -135,8 +148,8 @@ function FriendsTab() {
             display: "flex", alignItems: "center", gap: 'var(--space-1)',
           }}
         >
-          <UserPlus size={14} />
-          {t("social.invite")}
+          <Copy size={14} />
+          {t("social.shareMyCode")}
         </button>
       </div>
 
@@ -168,7 +181,25 @@ function FriendsTab() {
 
       {!loading && filtered.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)", lineHeight: 1.5 }}>
-          {searchQuery ? t("social.searchEmpty") : t("social.noFriends")}
+          <div>{searchQuery ? t("social.searchEmpty") : t("social.noFriends")}</div>
+          {!searchQuery && (
+            <>
+              <div style={{ marginTop: "var(--space-1)", color: "var(--ink-3)" }}>{t("social.noFriendsDesc")}</div>
+              <Link
+                to="/friends"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: "var(--space-1)",
+                  marginTop: "var(--space-4)", padding: "9px 14px",
+                  background: "var(--lime)", color: "var(--primary-fg)",
+                  borderRadius: "var(--r-md)", fontSize: "var(--fs-xs)",
+                  fontWeight: 700, textDecoration: "none",
+                }}
+              >
+                <UserPlus size={14} />
+                {t("social.addFriends")}
+              </Link>
+            </>
+          )}
         </div>
       )}
     </>
