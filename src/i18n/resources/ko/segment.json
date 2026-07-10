@@ -164,6 +164,8 @@
   "leaderboardPage.rider.noFriendsDesc": "친구를 추가하면 서로의 W/kg 순위를 비교할 수 있어요.",
   "leaderboardPage.rider.noData": "비교할 데이터가 없어요",
   "leaderboardPage.rider.noDataDesc": "FTP·체중이 등록된 친구가 아직 없어요.",
+  "leaderboardPage.rider.friendsSoon": "친구 순위 준비 중",
+  "leaderboardPage.rider.friendsSoonDesc": "친구 W/kg 순위는 서버 집계 스냅샷 도입 후 제공됩니다. 지금은 전체 코호트 또는 그룹 순위를 확인해 주세요.",
   "leaderboardPage.rider.noGroup": "가입한 그룹이 없어요",
   "leaderboardPage.rider.noGroupDesc": "그룹에 가입하면 멤버 간 W/kg 순위를 볼 수 있어요.",
   "leaderboardPage.rider.findGroup": "그룹 찾기",

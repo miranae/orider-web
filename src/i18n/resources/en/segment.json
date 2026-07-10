@@ -164,6 +164,8 @@
   "leaderboardPage.rider.noFriendsDesc": "Add friends to compare each other's W/kg ranking.",
   "leaderboardPage.rider.noData": "No data to compare",
   "leaderboardPage.rider.noDataDesc": "None of your friends have registered FTP and weight yet.",
+  "leaderboardPage.rider.friendsSoon": "Friends ranking coming soon",
+  "leaderboardPage.rider.friendsSoonDesc": "Friends W/kg ranking will be available after the server aggregation snapshot is added. For now, use All or Group rankings.",
   "leaderboardPage.rider.noGroup": "No groups joined",
   "leaderboardPage.rider.noGroupDesc": "Join a group to see W/kg ranking among members.",
   "leaderboardPage.rider.findGroup": "Find a group",

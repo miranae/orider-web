@@ -28,13 +28,14 @@ type Scope = "friends" | "group" | "all";
 export default function RiderRankingPanel() {
   const { t } = useTranslation("segment");
   const { user } = useAuth();
-  const [scope, setScope] = useState<Scope>(user ? "friends" : "all");
+  const [scope, setScope] = useState<Scope>("all");
+  const scopes: Scope[] = user ? ["all", "group", "friends"] : ["all"];
 
   return (
     <div className="space-y-4">
       {/* 스코프 토글 */}
       <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1)" }}>
-        {(["friends", "group", "all"] as Scope[]).map((s) => {
+        {scopes.map((s) => {
           const active = scope === s;
           return (
             <Button
@@ -63,7 +64,7 @@ export default function RiderRankingPanel() {
 function FriendsScope({ uid }: { uid: string | undefined }) {
   const { t } = useTranslation("segment");
   if (!uid) return <EmptyState icon="👥" title={t("leaderboardPage.rider.loginTitle")} description={t("leaderboardPage.rider.loginDesc")} />;
-  return <EmptyState icon="⚡" title={t("leaderboardPage.rider.noData")} description={t("leaderboardPage.rider.noDataDesc")} />;
+  return <EmptyState icon="👥" title={t("leaderboardPage.rider.friendsSoon")} description={t("leaderboardPage.rider.friendsSoonDesc")} />;
 }
 
 /** 그룹 W/kg 순위 — groups/{gid}/rankings/ftp_per_kg 스냅샷. */
