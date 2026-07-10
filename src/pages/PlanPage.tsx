@@ -760,16 +760,9 @@ export default function PlanPage() {
                 flexWrap: 'wrap',
               }}
             >
-              <h1
-                style={{
-                  fontSize: "var(--fs-3xl)",
-                  fontWeight: 700,
-                  color: 'var(--ink-0)',
-                  margin: 0,
-                }}
-              >
+              <Text as="h1" variant="pageTitle" style={{ margin: 0 }}>
                 {loading ? '...' : (goal?.courseName ?? '—')}
-              </h1>
+              </Text>
               <span
                 style={{
                   fontSize: "var(--fs-xs)",

@@ -737,12 +737,14 @@ export default function ActivityPage() {
                 onBlur={handleSaveDescription}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); handleSaveDescription(); } if (e.key === "Escape") { setEditingDescription(false); } }}
                 autoFocus
-                className="text-[length:var(--fs-2xl)] font-bold bg-transparent outline-none w-full" style={{ color: 'var(--ink-0)', borderBottom: '2px solid var(--lime)' }}
+                className="ds-text ds-text--page-title bg-transparent outline-none w-full"
+                style={{ borderBottom: '2px solid var(--lime)' }}
               />
             ) : (
-              <h1
-                className={`text-[length:var(--fs-2xl)] font-bold ${user?.uid === activity.userId ? "cursor-pointer transition-colors" : ""}`}
-                style={{ color: 'var(--ink-0)' }}
+              <Text
+                as="h1"
+                variant="pageTitle"
+                className={user?.uid === activity.userId ? "cursor-pointer transition-colors" : ""}
                 onClick={() => { if (user?.uid === activity.userId) { setDescriptionText(activity.description || ""); setEditingDescription(true); } }}
               >
                 {activity.description || tCommon(getSportLabelKey(activity.type))}
@@ -751,7 +753,7 @@ export default function ActivityPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
                 )}
-              </h1>
+              </Text>
             )}
             <div className="flex items-center gap-3 mt-1">
               <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>{formatFullDate(activity.startTime)}</span>

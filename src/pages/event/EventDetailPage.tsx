@@ -550,7 +550,7 @@ export default function EventDetailPage() {
             {/* 제목 + 메타 + 액션 */}
             <div className="flex flex-wrap items-end justify-between" style={{ gap: 'var(--space-5)' }}>
               <div className="flex-1 min-w-0">
-                <h1 style={{ fontSize: "var(--fs-4xl)", letterSpacing: "-0.025em", marginBottom: "var(--space-1-5)", color: "var(--ink-0)" }}>{event.name}</h1>
+                <Text as="h1" variant="pageTitle" style={{ marginBottom: "var(--space-1-5)" }}>{event.name}</Text>
                 <div className="flex flex-wrap items-center" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", gap: 'var(--space-4)' }}>
                   <span className="inline-flex items-center" style={{ gap: "var(--space-1)" }}>
                     <span aria-hidden="true">📅</span>

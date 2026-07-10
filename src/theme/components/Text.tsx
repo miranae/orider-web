@@ -15,6 +15,7 @@ export type TextVariant =
   | 'dataLarge'
   | 'dataMedium'
   | 'dataSmall'
+  | 'pageTitle'
   | 'title'
   | 'subtitle'
   | 'bodyLarge'
@@ -54,6 +55,7 @@ const VARIANT_CLASS: Record<TextVariant, string> = {
   dataLarge: 'ds-text--data-large',
   dataMedium: 'ds-text--data-medium',
   dataSmall: 'ds-text--data-small',
+  pageTitle: 'ds-text--page-title',
   title: 'ds-text--title',
   subtitle: 'ds-text--subtitle',
   bodyLarge: 'ds-text--body-large',
