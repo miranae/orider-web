@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { doc, updateDoc } from "firebase/firestore";
 import { firestore } from "../services/firebase";
@@ -10,6 +11,7 @@ import { logClientError } from "../services/errorLogger";
 import { Bike, Footprints, Triangle, Waves } from "lucide-react";
 
 type Step = "discipline" | "strava" | "goal";
+const STEPS: Step[] = ["discipline", "strava", "goal"];
 
 const DISCIPLINES = [
   { key: "tri"  as const, icon: <Triangle size={28} /> },
@@ -20,10 +22,14 @@ const DISCIPLINES = [
 
 export default function OnboardingPage() {
   const { t } = useTranslation("auth");
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { connectStrava } = useStrava();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>("discipline");
+  const returnTo = searchParams.get("returnTo") || "/";
+  const returnSuffix = returnTo === "/" ? "" : `?returnTo=${encodeURIComponent(returnTo)}`;
+  const finishTarget = returnTo.startsWith("/") ? returnTo : "/";
   // E3 or_onboarding_step_view — 모바일 앱과 동일 이벤트명으로 웹 온보딩 단계 진입 측정.
   // 웹 단계는 discipline/strava/goal (앱은 login/permission/sensor/first_ride) — 이름만 공유, 크로스 퍼널은 합집합.
   // 인증/로딩 게이트 통과(실제 온보딩 UI 노출) 시에만 발화 — 비로그인·로딩 프레임의 헛 카운트로
@@ -35,6 +41,21 @@ export default function OnboardingPage() {
   const [selected, setSelected] = useState<"tri" | "bike" | "run" | "swim" | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profile) return;
+    if (profile.onboardingStep === "done") {
+      navigate(finishTarget, { replace: true });
+      return;
+    }
+    if (profile.onboardingStep === "discipline" || profile.onboardingStep === "strava" || profile.onboardingStep === "goal") {
+      setStep(profile.onboardingStep);
+    }
+    const discipline = profile.primaryDiscipline;
+    if (discipline === "tri" || discipline === "bike" || discipline === "run" || discipline === "swim") {
+      setSelected(discipline);
+    }
+  }, [profile, finishTarget, navigate]);
 
   // 비인증 가드
   if (!loading && !user) {
@@ -61,6 +82,21 @@ export default function OnboardingPage() {
 
   const userRef = user ? doc(firestore, "users", user.uid) : null;
 
+  const finishOnboarding = async (target = finishTarget) => {
+    if (!userRef) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateDoc(userRef, { onboardingStep: "done" });
+      navigate(target, { replace: true });
+    } catch (err) {
+      logClientError("OnboardingPage.finishOnboarding", err, { target });
+      setError(t("saveFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDisciplineNext = async () => {
     if (!userRef || !selected) return;
     setSaving(true);
@@ -82,7 +118,7 @@ export default function OnboardingPage() {
     setError(null);
     try {
       await updateDoc(userRef, { onboardingStep: "goal" });
-      connectStrava("/settings");
+      connectStrava(`/onboarding${returnSuffix}`);
     } catch (err) {
       logClientError("OnboardingPage.handleStravaConnect", err);
       setError(t("saveFailed"));
@@ -103,27 +139,20 @@ export default function OnboardingPage() {
   };
 
   const handleGoalSkip = async () => {
-    if (!userRef) return;
-    setError(null);
-    try {
-      await updateDoc(userRef, { onboardingStep: "done" });
-      navigate("/", { replace: true });
-    } catch (err) {
-      logClientError("OnboardingPage.handleGoalSkip", err);
-      setError(t("saveFailed"));
-    }
+    await finishOnboarding();
   };
 
   const handleGoalSetup = async () => {
-    if (!userRef) return;
-    setError(null);
-    try {
-      await updateDoc(userRef, { onboardingStep: "done" });
-      navigate("/goal-setup", { replace: true });
-    } catch (err) {
-      logClientError("OnboardingPage.handleGoalSetup", err);
-      setError(t("saveFailed"));
-    }
+    await finishOnboarding(`/goal-setup?returnTo=${encodeURIComponent(returnTo)}`);
+  };
+
+  const handleSkipAll = async () => {
+    await finishOnboarding();
+  };
+
+  const handleBack = () => {
+    const index = STEPS.indexOf(step);
+    if (index > 0) setStep(STEPS[index - 1]!);
   };
 
   return (
@@ -134,15 +163,20 @@ export default function OnboardingPage() {
       <div className="w-full max-w-sm">
         {/* 단계 표시 */}
         <div className="flex items-center gap-2 mb-8">
-          {(["discipline", "strava", "goal"] as Step[]).map((s, i) => (
+          {STEPS.map((s, i) => (
             <div
               key={s}
+              role="progressbar"
+              aria-valuemin={1}
+              aria-valuemax={STEPS.length}
+              aria-valuenow={STEPS.indexOf(step) + 1}
+              aria-label={t("onboarding.progress", { current: STEPS.indexOf(step) + 1, total: STEPS.length })}
               className="flex-1 h-1 rounded-full"
               style={{
                 background:
                   s === step
                     ? "var(--lime)"
-                    : ["discipline", "strava", "goal"].indexOf(step) > i
+                    : STEPS.indexOf(step) > i
                     ? "var(--lime)"
                     : "var(--line-soft)",
               }}
@@ -170,6 +204,7 @@ export default function OnboardingPage() {
                 <button
                   key={key}
                   onClick={() => setSelected(key)}
+                  aria-pressed={selected === key}
                   className="flex items-center gap-4 px-5 py-4 rounded-[var(--r-xl)] border transition-all"
                   style={{
                     background: selected === key ? "var(--bg-3)" : "var(--bg-1)",
@@ -194,6 +229,14 @@ export default function OnboardingPage() {
             >
               {saving ? t("saving") : t("next")}
             </button>
+            <button
+              onClick={handleSkipAll}
+              disabled={saving}
+              className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mt-3"
+              style={{ background: "var(--bg-2)", color: "var(--ink-2)", opacity: saving ? 0.4 : 1 }}
+            >
+              {t("later")}
+            </button>
           </>
         )}
 
@@ -212,6 +255,13 @@ export default function OnboardingPage() {
               style={{ background: "var(--accent)", color: "var(--ink-0)", opacity: saving ? 0.4 : 1 }}
             >
               {saving ? t("saving") : t("onboarding.strava.connect")}
+            </button>
+            <button
+              onClick={handleBack}
+              className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mb-3"
+              style={{ background: "transparent", color: "var(--ink-3)", border: "1px solid var(--line-soft)" }}
+            >
+              {t("back")}
             </button>
             <button
               onClick={handleStravaSkip}
@@ -237,6 +287,13 @@ export default function OnboardingPage() {
               style={{ background: "var(--lime)", color: "var(--ink-0)" }}
             >
               {t("onboarding.goal.setup")}
+            </button>
+            <button
+              onClick={handleBack}
+              className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mb-3"
+              style={{ background: "transparent", color: "var(--ink-3)", border: "1px solid var(--line-soft)" }}
+            >
+              {t("back")}
             </button>
             <button
               onClick={handleGoalSkip}

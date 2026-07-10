@@ -30,8 +30,19 @@ export function shouldBypassOnboardingRedirect(path: string): boolean {
     path === "/onboarding" ||
     path === "/settings" ||
     path === "/strava/callback" ||
-    path === "/migrate"
+    path === "/migrate" ||
+    path === "/terms" ||
+    path === "/privacy" ||
+    path === "/community" ||
+    path === "/strava-terms"
   );
+}
+
+export function buildOnboardingRedirectTarget(pathname: string, search = "", hash = ""): string {
+  const path = stripLangPrefix(pathname);
+  if (path === "/") return "/onboarding";
+  const returnTo = `${path}${search}${hash}`;
+  return `/onboarding?returnTo=${encodeURIComponent(returnTo)}`;
 }
 
 function DashboardShell() {
@@ -81,9 +92,9 @@ export default function Layout() {
         reason: "onboarding_required",
         onboardingStep: profile.onboardingStep,
       });
-      navigate("/onboarding", { replace: true });
+      navigate(buildOnboardingRedirectTarget(location.pathname, location.search, location.hash), { replace: true });
     }
-  }, [profile?.onboardingStep, path, navigate]);
+  }, [profile?.onboardingStep, path, navigate, location.pathname, location.search, location.hash]);
 
   // 경로 변경 시 main에 포커스 (스크린리더 접근성)
   useEffect(() => {
