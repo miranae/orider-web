@@ -4,7 +4,10 @@ name: CI
 # 브랜치 push 이벤트는 열린 PR에서 pull_request 이벤트와 중복 실행되므로 사용하지 않는다.
 # docs-only PR도 required check를 success로 남기기 위해 job은 실행하되 무거운 npm 단계를 건너뛴다.
 on:
+  # feature→dev는 scripts/merge-pr.sh의 로컬 게이트로 검증한다. 누적 변경 전체에 대한
+  # GitHub CI는 dev→main 승격 PR에서 한 번만 실행해 PR마다 중복되는 비용을 없앤다.
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
