@@ -11,7 +11,11 @@ import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
 import { Button, Card } from "../../theme/components";
-import { isPendingGroupJoinResult, type GroupJoinResult } from "../../features/group/groupJoinResult";
+import {
+  isPendingGroupJoinResult,
+  type JoinGroupByCodeResult,
+  type JoinGroupPublicResult,
+} from "../../features/group/groupJoinResult";
 import type { Group } from "@shared/types";
 
 export default function GroupsPage() {
@@ -23,7 +27,6 @@ export default function GroupsPage() {
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [joiningPublic, setJoiningPublic] = useState<string | null>(null);
-  const [pendingGroupIds, setPendingGroupIds] = useState<Set<string>>(() => new Set());
   const [pendingNotice, setPendingNotice] = useState("");
   const [error, setError] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
@@ -60,7 +63,7 @@ export default function GroupsPage() {
     setError("");
     setPendingNotice("");
     try {
-      const joinFn = httpsCallable<{ inviteCode: string }, GroupJoinResult>(functions, "joinGroupByCode");
+      const joinFn = httpsCallable<{ inviteCode: string }, JoinGroupByCodeResult>(functions, "joinGroupByCode");
       const result = await joinFn({ inviteCode: inviteCode.trim() });
       if (isPendingGroupJoinResult(result.data)) {
         setPendingNotice(t("join.pendingByCode"));
@@ -70,8 +73,9 @@ export default function GroupsPage() {
       navigate(`/group/${result.data.groupId}`);
     } catch (err: any) {
       setError(err.message === "Invalid invite code" ? t("error.invalidInviteCode") : t("error.joinFailed"));
+    } finally {
+      setJoining(false);
     }
-    setJoining(false);
   };
 
   const handleJoinPublic = async (group: Group) => {
@@ -79,19 +83,15 @@ export default function GroupsPage() {
     setPendingNotice("");
     setError("");
     try {
-      const joinFn = httpsCallable<{ groupId: string }, GroupJoinResult>(functions, "joinGroupPublic");
+      const joinFn = httpsCallable<{ groupId: string }, JoinGroupPublicResult>(functions, "joinGroupPublic");
       const result = await joinFn({ groupId: group.id });
-      if (group.approval === "manual" || isPendingGroupJoinResult(result.data)) {
-        setPendingGroupIds((prev) => new Set(prev).add(group.id));
-        setPendingNotice(t("join.pendingPublic", { name: group.name }));
-        showToast(t("join.pendingToast"));
-        return;
-      }
+      if (result.data.success !== true) throw new Error("Public group join failed");
       navigate(`/group/${group.id}`);
     } catch {
       setError(t("error.joinFailed"));
+    } finally {
+      setJoiningPublic(null);
     }
-    setJoiningPublic(null);
   };
 
   if (!user) {
@@ -236,7 +236,6 @@ export default function GroupsPage() {
               showJoinButton
               onJoin={() => handleJoinPublic(g)}
               joining={joiningPublic === g.id}
-              joinPending={pendingGroupIds.has(g.id)}
             />
           ))}
         </div>

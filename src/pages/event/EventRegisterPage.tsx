@@ -11,6 +11,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField } from "../../components/redesign";
 import { fmtIsoLocal, isClosed, normalizeStartTime } from "../../utils/event-time";
+import { localeTag } from "../../utils/localeDate";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import {
   ABO_TYPES,
@@ -168,7 +169,7 @@ function StepBar({ steps, stepIdx }: { steps: StepInfo[]; stepIdx: number }) {
 
 function fmtDateTime(ts: number) {
   if (!ts) return "-";
-  return new Date(ts).toLocaleString("ko-KR", {
+  return new Date(ts).toLocaleString(localeTag(), {
     year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
