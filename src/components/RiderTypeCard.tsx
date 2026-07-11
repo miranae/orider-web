@@ -107,7 +107,7 @@ export default function RiderTypeCard({ pdc }: { pdc: PdcDoc }) {
               {/* 강점/보완을 직접 라벨링 — 내부 점수(Np) 없이도 의미가 읽히게 (#401) */}
               {ability && (() => {
                 // 서버 duration 은 자유 string — 알려진 키만 라벨링 (i18n raw key 노출 방지)
-                const known = ability.byDuration.filter((d) => d.duration in durationLabelKey);
+                const known = ability.byDuration.filter((d) => Object.prototype.hasOwnProperty.call(durationLabelKey, d.duration));
                 if (known.length < 2) return null;
                 const sorted = [...known].sort((a, b) => b.percentile - a.percentile);
                 const best = sorted[0];

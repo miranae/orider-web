@@ -145,8 +145,13 @@ const BoardPage: React.FC = () => {
   useEffect(() => {
     if (!cardMenuOpenId) return;
     const close = () => setCardMenuOpenId(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setCardMenuOpenId(null); };
     document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', close);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [cardMenuOpenId]);
 
   const handleDeletePost = async (e: React.MouseEvent, postId: string, postUserId: string) => {
