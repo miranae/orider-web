@@ -32,8 +32,20 @@ import { haversine, parseGpxFull, type CourseData } from "../../features/event/d
 import type { EventDetail, RecentParticipant } from "../../features/event/detail/eventDetailTypes";
 import { classifyLane, LANE_DEFS, LANE_ORDER, type WpLane } from "../../features/event/detail/waypointLanes";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
+import { useGroup } from "../../hooks/useGroup";
+import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+
+export function shouldShowHostGroupCard(
+  groupId: string | undefined,
+  loadedGroupId: string | undefined,
+  loading: boolean,
+  inactive: boolean,
+  hasError: boolean,
+): boolean {
+  return !!groupId && !loading && loadedGroupId === groupId && !inactive && !hasError;
+}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -61,11 +73,18 @@ export default function EventDetailPage() {
   const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [recentParticipants, setRecentParticipants] = useState<RecentParticipant[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const groupId = event?.groupId || undefined;
+  const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
+  const { byGroup: nextEventLabels, eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   }, []);
+
+  useEffect(() => {
+    if (groupError) logClientError("EventDetailPage.loadHostGroup", groupError, { eventId, groupId });
+  }, [eventId, groupError, groupId]);
 
   const handleStartEvent = useCallback(async () => {
     if (!eventId || !event) return;
@@ -538,6 +557,7 @@ export default function EventDetailPage() {
   const fillPct = event.maxParticipants
     ? Math.min(100, Math.round((participantCount / event.maxParticipants) * 100))
     : null;
+  const activeGroupId = shouldShowHostGroupCard(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
 
   return (
     <>
@@ -1005,6 +1025,27 @@ export default function EventDetailPage() {
 
         {/* 사이드바 */}
         <aside className="event-detail-aside" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", alignSelf: "start", position: "sticky", top: 68 }}>
+          {activeGroupId && (
+            <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
+              <Text as="div" variant="eyebrow">{t("group.hostLabel")}</Text>
+              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{group?.name || t("group.fallbackName")}</div>
+              {nextEventLabels.get(activeGroupId) && (
+                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-2)" }}>
+                  {t("group.nextEvent")}: {nextEventLabels.get(activeGroupId)}
+                </div>
+              )}
+              <div className="flex flex-wrap" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+                <Link to={`/group/${activeGroupId}`}>
+                  <Button type="button" variant="primary" size="sm">{t("group.viewAndJoin")}</Button>
+                </Link>
+                {nextEvents.get(activeGroupId) && (
+                  <Link to={`/event/${nextEvents.get(activeGroupId)!.id}`}>
+                    <Button type="button" variant="secondary" size="sm">{t("group.viewNextEvent")}</Button>
+                  </Link>
+                )}
+              </div>
+            </Card>
+          )}
           {/* 참가 현황 */}
           <Card padding="none" style={{ padding: "var(--space-4)" }}>
             <h2 className="text-[length:var(--fs-sm)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>{t("label.recruitmentStatus")}</h2>

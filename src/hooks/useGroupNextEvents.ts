@@ -5,7 +5,7 @@ import { logClientError } from "../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 
-interface NextEventInfo {
+export interface NextEventInfo {
   id: string;
   groupId: string;
   name: string;
@@ -35,38 +35,59 @@ export function formatNextLabel(ts: number, name: string, locale: string): strin
   })} · ${name}`;
 }
 
+export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: boolean): boolean {
+  return !publicOnly || (info.visibility === "PUBLIC" && info.deletedAt == null);
+}
+
 /**
  * 그룹별 가장 가까운 OPEN/LIVE 이벤트 1건씩 묶어 반환.
  * Firestore in-clause 한도(10) 단위로 chunk 쿼리.
  */
-export function useGroupNextEvents(groupIds: string[]) {
+export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, publicOnly = false) {
   const { t, i18n } = useTranslation("group");
   const [byGroup, setByGroup] = useState<Map<string, string>>(new Map());
+  const [eventByGroup, setEventByGroup] = useState<Map<string, NextEventInfo>>(new Map());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (groupIds.length === 0) {
       setByGroup(new Map());
+      setEventByGroup(new Map());
       return;
     }
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setByGroup(new Map());
+      setEventByGroup(new Map());
       try {
         const map = new Map<string, NextEventInfo>();
-        for (let i = 0; i < groupIds.length; i += 10) {
-          const chunk = groupIds.slice(i, i + 10);
-          const q = query(
-            collection(firestore, "events"),
-            where("info.groupId", "in", chunk),
-            where("info.status", "in", ["OPEN", "LIVE"]),
-            orderBy("info.startTime", "asc"),
-          );
-          const snap = await getDocs(q);
-          snap.forEach((doc) => {
+        const uniqueGroupIds = [...new Set(groupIds)];
+        const snapshots = publicOnly
+          ? await Promise.all(uniqueGroupIds.map((groupId) => getDocs(query(
+              collection(firestore, "events"),
+              where("info.groupId", "==", groupId),
+              where("info.visibility", "==", "PUBLIC"),
+            ))))
+          : await Promise.all(Array.from(
+              { length: Math.ceil(uniqueGroupIds.length / 10) },
+              (_, index) => uniqueGroupIds.slice(index * 10, index * 10 + 10),
+            ).map((chunk) => getDocs(query(
+              collection(firestore, "events"),
+              where("info.groupId", "in", chunk),
+              where("info.status", "in", ["OPEN", "LIVE"]),
+              orderBy("info.startTime", "asc"),
+            ))));
+
+        snapshots.forEach((snap) => {
+          snap.docs.forEach((doc) => {
+            if (doc.id === excludeEventId) return;
             const d = doc.data();
             const info = d.info ?? {};
+            if (!isEligibleNextEvent(info, publicOnly)) return;
+            if (info.status !== "OPEN" && info.status !== "LIVE") return;
             const groupId: string = info.groupId ?? "";
+            if (!uniqueGroupIds.includes(groupId)) return;
             const startTime = toMillis(info.startTime);
             const name = info.name ?? t("dashboard.fallbackEventName");
             const existing = map.get(groupId);
@@ -74,15 +95,17 @@ export function useGroupNextEvents(groupIds: string[]) {
               map.set(groupId, { id: doc.id, groupId, name, startTime });
             }
           });
-        }
+        });
         if (cancelled) return;
         const labels = new Map<string, string>();
         map.forEach((v, k) => labels.set(k, formatNextLabel(v.startTime, v.name, localeTag())));
         setByGroup(labels);
+        setEventByGroup(map);
       } catch (err) {
         // 인덱스/규칙 문제 시 조용히 실패
         logClientError("useGroupNextEvents.load", err, { count: groupIds.length });
         if (!cancelled) setByGroup(new Map());
+        if (!cancelled) setEventByGroup(new Map());
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -90,7 +113,7 @@ export function useGroupNextEvents(groupIds: string[]) {
     return () => {
       cancelled = true;
     };
-  }, [groupIds.join("|"), i18n.language, t]);
+  }, [excludeEventId, groupIds.join("|"), i18n.language, publicOnly, t]);
 
-  return { byGroup, loading };
+  return { byGroup, eventByGroup, loading };
 }

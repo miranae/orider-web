@@ -78,6 +78,23 @@ describe("useGroup", () => {
     expect(result.current.group).toBeNull();
     expect(result.current.inactive).toBe(true);
   });
+
+  it("clears the previous group when the requested identity is removed", async () => {
+    setDocData("groups/group-1", {
+      name: "First Group",
+      creatorId: "leader-1",
+      isActive: true,
+    });
+    const { result, rerender } = renderHook(
+      ({ groupId }: { groupId: string | undefined }) => useGroup(groupId),
+      { initialProps: { groupId: "group-1" as string | undefined } },
+    );
+    await waitFor(() => expect(result.current.group?.id).toBe("group-1"));
+
+    rerender({ groupId: undefined });
+    expect(result.current.group).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
 });
 
 describe("useGroupMemberRole", () => {

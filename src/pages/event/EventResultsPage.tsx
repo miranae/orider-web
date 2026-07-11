@@ -11,6 +11,9 @@ import { useDialog } from "../../contexts/DialogContext";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { useGroup } from "../../hooks/useGroup";
+import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
+import AppInstallLinks from "../../components/AppInstallLinks";
 
 export interface ResultEntry {
   userId: string;
@@ -35,6 +38,7 @@ interface EventHead {
   distanceKm: number | null;
   elevationGain: number | null;
   status: string;
+  groupId?: string;
 }
 
 const MEDAL_COLORS: Record<number, string> = {
@@ -55,6 +59,16 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export function displayRankFor(entry: ResultEntry, activeCategory: string): number {
   return activeCategory === "__overall__" ? entry.overallRank : entry.rank;
+}
+
+export function shouldShowResultsGroupCta(
+  groupId: string | undefined,
+  loadedGroupId: string | undefined,
+  loading: boolean,
+  inactive: boolean,
+  hasError: boolean,
+): boolean {
+  return !!groupId && !loading && loadedGroupId === groupId && !inactive && !hasError;
 }
 
 function formatDuration(ms: number | null): string {
@@ -108,7 +122,7 @@ export default function EventResultsPage() {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const dialog = useDialog();
 
   const [eventHead, setEventHead] = useState<EventHead | null>(null);
@@ -117,6 +131,13 @@ export default function EventResultsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [eventDateStr, setEventDateStr] = useState<string>("");
+  const groupId = eventHead?.groupId;
+  const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
+  const { eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
+
+  useEffect(() => {
+    if (groupError) logClientError("EventResultsPage.loadHostGroup", groupError, { eventId, groupId });
+  }, [eventId, groupError, groupId]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -159,6 +180,7 @@ export default function EventResultsPage() {
           distanceKm,
           elevationGain,
           status: info.status || "FINISHED",
+          groupId: typeof info.groupId === "string" ? info.groupId : undefined,
         });
 
         // 참가자 + 닉네임 비정규화
@@ -340,6 +362,7 @@ export default function EventResultsPage() {
   const winnerTime = filtered.find((r) => r.status === "FINISHED")?.finishTime ?? null;
   const statusLabel = eventStatusLabel(t, eventHead.status);
   const resultsUnavailable = eventHead.status !== "FINISHED";
+  const activeGroupId = shouldShowResultsGroupCta(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
 
   return (
     <div>
@@ -775,6 +798,28 @@ export default function EventResultsPage() {
           className="event-results-aside flex flex-col"
           style={{ gap: "var(--space-3)", alignSelf: "start", position: "sticky", top: 68 }}
         >
+          {!authLoading && !myResult && (
+            <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
+              <Text as="div" variant="eyebrow">{t("resultsView.nextAction.eyebrow")}</Text>
+              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("resultsView.nextAction.title")}</div>
+              {activeGroupId && (
+                <div className="flex flex-col" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+                  {nextEvents.get(activeGroupId) && (
+                    <Link to={`/event/${nextEvents.get(activeGroupId)!.id}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
+                      {t("resultsView.nextAction.nextEvent", { name: nextEvents.get(activeGroupId)!.name })} →
+                    </Link>
+                  )}
+                  <Link to={`/group/${activeGroupId}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
+                    {t("resultsView.nextAction.group", { name: group?.name || t("group.fallbackName") })} →
+                  </Link>
+                </div>
+              )}
+              <div style={{ marginTop: "var(--space-3)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--line-soft)" }}>
+                <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginBottom: "var(--space-2)" }}>{t("resultsView.nextAction.app")}</div>
+                <AppInstallLinks compact appStoreLabel={t("resultsView.nextAction.ios")} playStoreLabel={t("resultsView.nextAction.android")} />
+              </div>
+            </Card>
+          )}
           {/* 내 결과 */}
           {myResult && (
             <Card padding="none"
