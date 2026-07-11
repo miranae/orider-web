@@ -692,8 +692,16 @@ export default function CoursePage() {
       const fn = httpsCallable(functions, "sendCourseToApp");
       await fn({ courseId });
       showToast(t("link.sentToApp"));
-    } catch {
-      showToast(t("link.sendFailed"));
+    } catch (err) {
+      logClientError("CoursePage.sendCourseToApp", err, { courseId });
+      const code = callableCode(err);
+      // failed-precondition = 서버가 판정한 사용자 행동 필요 사유(기기 없음/알림 권한) — 그대로 표시
+      const serverMessage = (err as { message?: string } | null)?.message;
+      if ((code === "functions/failed-precondition" || code === "failed-precondition") && serverMessage) {
+        showToast(serverMessage);
+      } else {
+        showToast(t("link.sendFailed"));
+      }
     }
   };
 

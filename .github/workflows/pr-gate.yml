@@ -39,7 +39,7 @@ jobs:
             if [ "$BASE_REF" = "main" ] && [ "$HEAD_REF" = "dev" ]; then
               echo "dev → main promotion branch accepted"
             else
-              branch_re='^(feat|fix|docs|test|refactor|ci|chore|security|style|perf|build)/[a-z0-9][a-z0-9-]*$'
+              branch_re='^(feat|fix|hotfix|docs|test|refactor|ci|chore|security|style|perf|build)/[a-z0-9][a-z0-9-]*$'
               if ! [[ "$HEAD_REF" =~ $branch_re ]]; then
                 echo "::error::Maintainer branch '$HEAD_REF' should use a topic prefix such as docs/readme-structure"
                 exit 1
@@ -47,6 +47,29 @@ jobs:
             fi
           else
             echo "Fork PR branch names are accepted: $HEAD_REPO:$HEAD_REF"
+          fi
+
+      # 뷰포트 점유 요소 시각 증빙 — hotfix→main 등 dev 승격이 아닌 main PR에서
+      # sticky/fixed 추가 시 스크린샷 요구 (#374 스티키 배너 장애 재발 방지).
+      # feature→dev PR은 로컬 merge-pr.sh의 동일 게이트가 담당한다.
+      - name: Require screenshot for new sticky/fixed elements
+        if: github.event.pull_request.head.ref != 'dev' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+        shell: bash
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          # :(glob) — src 최상위 파일(src/App.tsx 등)도 매칭. diff 실패는 fail-closed.
+          style_diff=$(git diff "$base" "$head" -- ':(glob)src/**/*.tsx' ':(glob)src/**/*.ts' ':(glob)src/**/*.css')
+          sticky_added=$(grep -E '^\+' <<<"$style_diff" | grep -cE 'position:\s*["'"'"']?(sticky|fixed)|className=.*(^|[^a-z-])(sticky|fixed)([^a-z-]|$)' || true)
+          if [ "$sticky_added" -gt 0 ]; then
+            if ! grep -qiE '!\[|<img|user-images\.githubusercontent\.com|github\.com/user-attachments|스크린샷|screenshot' <<<"$PR_BODY"; then
+              echo "::error::sticky/fixed 요소 추가가 감지되었습니다(${sticky_added}건). PR 본문에 스크린샷(모바일 뷰포트 권장)을 첨부하세요."
+              exit 1
+            fi
+            echo "sticky/fixed 추가 ${sticky_added}건 — 스크린샷 증빙 확인"
           fi
 
       - name: Check changed-file risk

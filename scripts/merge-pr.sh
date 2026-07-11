@@ -6,7 +6,8 @@
 # local lint/test/build, optional local AI review, GitHub check status, and review
 # decision inspection. Use it instead of calling `gh pr merge` directly.
 # Feature PR은 dev로 통합하고 로컬 게이트를 실행한다. GitHub의 무거운 CI는 dev→main
-# 승격 PR에서만 실행하며, main으로는 head=dev인 PR만 허용한다.
+# 승격 PR에서만 실행하며, main으로는 head=dev(승격) 또는 hotfix/*(긴급 단건) PR만 허용한다.
+# hotfix→main 도 승격과 동일하게 full 게이트를 타고, 머지 후 main→dev 동기화로 유실을 막는다.
 #
 # Usage:
 #   scripts/merge-pr.sh [PR_NUMBER] [options]
@@ -14,6 +15,7 @@
 # Options:
 #   --no-merge                Run gates only.
 #   --no-review               Skip local AI code review.
+#   --no-visual-check         Skip the sticky/fixed screenshot-evidence gate.
 #   --require-github-review   Require GitHub reviewDecision=APPROVED before merge.
 #   --skip-build              Skip `npm run build`.
 #   --e2e                     Run Playwright E2E.
@@ -30,6 +32,7 @@ set -euo pipefail
 
 DO_MERGE=1
 RUN_REVIEW=1
+REQUIRE_VISUAL_CHECK=1
 REQUIRE_GITHUB_REVIEW=0
 DO_BUILD=1
 RUN_E2E=0
@@ -41,6 +44,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-merge) DO_MERGE=0 ;;
     --no-review) RUN_REVIEW=0 ;;
+    --no-visual-check) REQUIRE_VISUAL_CHECK=0 ;;
     --require-github-review) REQUIRE_GITHUB_REVIEW=1 ;;
     --skip-build) DO_BUILD=0 ;;
     --e2e) RUN_E2E=1 ;;
@@ -133,8 +137,8 @@ PR_URL="$(json_field "$META" url)"
 
 # dev 통합 브랜치 규칙. GitHub free-plan 저장소에서도 main 직접 머지를 이 래퍼가 차단한다.
 # main-promote-guard.yml은 잘못 열린 PR에 즉시 빨간 신호를 주는 서버측 보조 안전망이다.
-if [[ "$BASE" == "main" && "$HEADREF" != "dev" ]]; then
-  die "main 으로의 머지는 dev 승격만 허용됩니다 (현재 head=${HEADREF:-<unknown>}). feature는 'gh pr create --base dev'로 PR 하세요."
+if [[ "$BASE" == "main" && "$HEADREF" != "dev" && "$HEADREF" != hotfix/* ]]; then
+  die "main 으로의 머지는 dev 승격 또는 hotfix/* 만 허용됩니다 (현재 head=${HEADREF:-<unknown>}). feature는 'gh pr create --base dev'로 PR 하세요."
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
@@ -174,6 +178,25 @@ if [[ -n "$CHANGED" ]]; then
     code_changes=1; review_mode="full"
   elif grep -qE "$TOOLING_PAT" <<<"$CHANGED"; then
     review_mode="fast"
+  fi
+fi
+
+# ── 뷰포트 점유 요소 시각 증빙 게이트 ────────────────────────────────────────
+# position: sticky/fixed 를 새로 추가하는 UI 변경은 화면을 상시 점유할 수 있어
+# (#374 상·하단 스티키 배너 장애) PR 본문에 스크린샷 증빙이 있어야 머지한다.
+# 우회는 --no-visual-check (스티키/픽스드와 무관한 리팩터 등 한정).
+if [[ "$REQUIRE_VISUAL_CHECK" == 1 && -n "$CHANGED" ]]; then
+  # :(glob) — 'src/**/*.tsx' 가 src/App.tsx 같은 최상위 파일도 매칭하게 한다.
+  # 안전 게이트이므로 git diff 실패는 통과가 아니라 중단이다(fail-closed).
+  STYLE_DIFF="$(git diff "origin/$BASE...HEAD" -- ':(glob)src/**/*.tsx' ':(glob)src/**/*.ts' ':(glob)src/**/*.css')" \
+    || die "시각 증빙 게이트: git diff 실패 — origin/$BASE 상태를 확인하세요."
+  STICKY_ADDED="$(grep -E '^\+' <<<"$STYLE_DIFF" | grep -cE 'position:\s*["'"'"']?(sticky|fixed)|className=.*(^|[^a-z-])(sticky|fixed)([^a-z-]|$)' || true)"
+  if [[ "$STICKY_ADDED" -gt 0 ]]; then
+    PR_BODY_TEXT="$(gh pr view "$PR_NUM" --json body -q .body 2>/dev/null || true)"
+    if ! grep -qiE '!\[|<img|user-images\.githubusercontent\.com|github\.com/user-attachments|스크린샷|screenshot' <<<"$PR_BODY_TEXT"; then
+      die "sticky/fixed 요소 추가 감지(${STICKY_ADDED}건) — PR 본문에 스크린샷(모바일 뷰포트 권장)을 첨부하세요. 무관한 변경이면 --no-visual-check 로 우회."
+    fi
+    echo "  시각 증빙 확인: sticky/fixed 추가 ${STICKY_ADDED}건 + PR 본문 스크린샷 존재"
   fi
 fi
 
@@ -226,8 +249,7 @@ if [[ "$GATE_TIER" == "feature" ]]; then
 
   log "Feature→dev 경량 게이트: 변경 영향 Vitest"
   run_step "targeted Vitest" "Test Files|Tests |FAIL|passed|failed|No test files" \
-    npm test -- --changed "origin/$BASE" --passWithNoTests \
-      --maxWorkers "${VITEST_FEATURE_MAX_WORKERS:-2}"
+    npm test -- --changed "origin/$BASE" --passWithNoTests
 
   log "Feature→dev 경량 게이트: TypeScript typecheck"
   run_step "TypeScript typecheck" "error TS|Found 0 errors" npx tsc -b --pretty false
@@ -370,7 +392,8 @@ sync_main_back_to_dev() {
   die "main 승격은 완료됐지만 dev 동기화 push가 $max_attempts회 실패했습니다. dev에서 origin/dev와 origin/main을 병합한 뒤 일반 push로 복구하세요."
 }
 
-if [[ "$BASE" == "main" && "$HEADREF" == "dev" ]]; then
+# dev 승격뿐 아니라 hotfix→main 도 동기화 — hotfix 변경이 dev에 없으면 다음 승격에서 유실된다.
+if [[ "$BASE" == "main" ]]; then
   sync_main_back_to_dev
 fi
 

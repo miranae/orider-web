@@ -21,6 +21,7 @@ import type { Discipline } from "../../utils/disciplineFilter";
 import { Text } from "../../theme/components";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
+import TodaysWorkoutCard from "../training/TodaysWorkoutCard";
 
 export type ZoneSource = "power" | "hr" | "none";
 
@@ -492,6 +493,10 @@ export default function MobileFitnessPage({
 
       {tab === "overview" && (
         <div style={{ paddingTop: 14 }}>
+          <div style={{ padding: "0 14px 14px" }}>
+            <TodaysWorkoutCard variant="compact" />
+          </div>
+
           {consistencyStreak && (
             <div style={{ padding: "0 14px 14px" }}>
               <ConsistencyStreakCard summary={consistencyStreak} compact />

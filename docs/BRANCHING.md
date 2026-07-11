@@ -18,6 +18,7 @@
 |---|---|
 | 기능 | `feat/creator-hub-card` |
 | 버그 수정 | `fix/mobile-tab-overflow` |
+| 긴급 수정 | `hotfix/remove-app-install-banner` |
 | 문서 | `docs/personal-data-recipe` |
 | CI/빌드 | `ci/pr-gate-node-version` |
 | 리팩터 | `refactor/settings-pane-boundary` |
@@ -27,6 +28,8 @@
 ## PR 대상
 
 일반 PR은 repository의 현재 contribution branch 정책을 따릅니다. `main` 승격이 별도 gate로 관리되는 경우 feature branch는 `dev`나 지정된 integration branch로 PR을 보내고, `main`은 승격 PR만 받습니다.
+
+예외는 `hotfix/*` 브랜치입니다. 운영에서 즉시 고쳐야 하는 최소 변경은 `origin/main`에서 분기한 `hotfix/*` 브랜치로 `main`에 직접 PR을 열 수 있습니다. hotfix도 full merge gate를 통과해야 하며, 머지 후에는 `main`을 `dev`로 되병합해 다음 승격에서 변경이 유실되지 않게 합니다(로컬 머지 게이트가 자동 수행).
 
 PR을 열기 전에 최신 base를 가져오세요.
 
@@ -81,3 +84,5 @@ scripts/merge-pr.sh <PR번호> --require-github-review
 ## 릴리스
 
 `main`에 머지하는 것과 production 배포는 동일하지 않을 수 있습니다. release tag가 배포를 트리거하는 경우 tag 생성, release note, environment approval을 별도로 관리합니다.
+
+production 태그는 `scripts/release-tag.sh`로 만듭니다. 이 스크립트는 마지막 태그 이후 `origin/main`에 쌓인 커밋 전체(release diff)를 보여주고 확인을 받은 뒤에만 태그를 push합니다 — 다른 목적의 배포에 검토되지 않은 변경이 편승하는 것을 막기 위한 절차입니다. 배포 성공 후에는 `prod-smoke.yml`이 모바일 뷰포트 스모크(고정 요소 과점유·렌더 실패 감지)를 자동 실행합니다.

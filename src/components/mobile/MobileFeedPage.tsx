@@ -6,7 +6,6 @@ import type { Activity } from "@shared/types";
 import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
-import AppInstallLinks from "../AppInstallLinks";
 import WeekBars from "./WeekBars";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
@@ -73,32 +72,6 @@ function MobileFeedSkeleton() {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function MobileAppInstallBanner({ placement }: { placement: "top" | "bottom" }) {
-  const { t } = useTranslation("dashboard");
-  // #401: sticky 고정이 상·하단 배너를 동시에 상시 노출시켜 콘텐츠 영역을 ~380px 잠식했음.
-  // 배너는 일반 플로우로 두고 스크롤과 함께 지나가게 한다 (placement 는 노출 위치만 구분).
-  void placement;
-
-  return (
-    <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
-      <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "var(--lime)" }}>
-        <Text variant="eyebrow" tone="secondary">{t("mobileFeed.appInstall.eyebrow")}</Text>
-        <Text as="h2" variant="subtitle" weight={700} style={{ display: "block", marginTop: "var(--space-1)", color: "var(--ink-0)" }}>
-          {t("mobileFeed.appInstall.title")}
-        </Text>
-        <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}>
-          {t("mobileFeed.appInstall.desc")}
-        </Text>
-        <AppInstallLinks
-          compact
-          appStoreLabel={t("sidebar.app.storeIos")}
-          playStoreLabel={t("sidebar.app.storeAos")}
-        />
-      </Card>
     </div>
   );
 }
@@ -292,8 +265,6 @@ export default function MobileFeedPage({
 
   return (
     <div style={{ overscrollBehavior: "contain" }}>
-      <MobileAppInstallBanner placement="top" />
-
       {/* 오늘의 워크아웃 — 첫 화면 최상단: 오늘 행동 → 핵심 수치 → 추이 → 피드 순서.
           모바일은 '오늘의 결론 + CTA' 압축형 (#401). 상세 해설은 /fitness·/plan 에서. */}
       {user && (
@@ -467,8 +438,6 @@ export default function MobileFeedPage({
           </Button>
         </div>
       )}
-
-      <MobileAppInstallBanner placement="bottom" />
 
       <div style={{ height: 80 }} />
     </div>

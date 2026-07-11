@@ -1,0 +1,104 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ActivityShareButton } from "./ActivityShareButton";
+import * as cardModule from "./activityShareCard";
+import { track } from "../../../services/analytics";
+
+vi.mock("../../../services/errorLogger", () => ({ logClientError: vi.fn() }));
+vi.mock("../../../services/analytics", () => ({ track: vi.fn() }));
+vi.mock("./activityShareCard", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./activityShareCard")>();
+  return {
+    ...actual,
+    drawActivityShareCard: vi.fn(),
+    canvasToPng: vi.fn(),
+    downloadShareCard: vi.fn(),
+  };
+});
+
+const card = {
+  title: "Morning Ride",
+  athlete: "Rider",
+  sport: "Ride",
+  date: "2026-07-11",
+  distance: "42 km",
+  duration: "1:30:00",
+  elevation: "500 m",
+  distanceLabel: "Distance",
+  durationLabel: "Time",
+  elevationLabel: "Elevation",
+  footer: "Ride card",
+  includeRouteImage: true,
+};
+const props = { card, filename: "ride.png", url: "https://orider.net/a/1", activityId: "a1", visibility: "everyone", onFeedback: vi.fn() };
+
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+  Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+  Object.defineProperty(navigator, "canShare", { value: undefined, configurable: true });
+});
+
+describe("ActivityShareButton", () => {
+  it("shares the generated PNG file when file sharing is supported", async () => {
+    const blob = new Blob(["png"], { type: "image/png" });
+    vi.mocked(cardModule.drawActivityShareCard).mockResolvedValue(document.createElement("canvas"));
+    vi.mocked(cardModule.canvasToPng).mockResolvedValue(blob);
+    const share = vi.fn().mockResolvedValue(undefined);
+    const canShare = vi.fn().mockReturnValue(true);
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    Object.defineProperty(navigator, "canShare", { value: canShare, configurable: true });
+
+    render(<ActivityShareButton {...props} />);
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    expect(share.mock.calls[0][0].files[0]).toBeInstanceOf(File);
+    expect(canShare).toHaveBeenCalledWith(share.mock.calls[0][0]);
+    expect(track).toHaveBeenCalledWith("activity_share_native", { activityId: "a1", visibility: "everyone" });
+  });
+
+  it("downloads once when native file sharing is unavailable and blocks duplicate clicks", async () => {
+    let resolveCanvas!: (canvas: HTMLCanvasElement) => void;
+    vi.mocked(cardModule.drawActivityShareCard).mockReturnValue(new Promise((resolve) => { resolveCanvas = resolve; }));
+    vi.mocked(cardModule.canvasToPng).mockResolvedValue(new Blob(["png"], { type: "image/png" }));
+
+    render(<ActivityShareButton {...props} />);
+    const button = screen.getByRole("button");
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(cardModule.drawActivityShareCard).toHaveBeenCalledTimes(1);
+    expect(button).toBeDisabled();
+    resolveCanvas(document.createElement("canvas"));
+
+    await waitFor(() => expect(cardModule.downloadShareCard).toHaveBeenCalledTimes(1));
+    expect(track).toHaveBeenCalledWith("activity_share_download", { activityId: "a1", visibility: "everyone" });
+  });
+
+  it("copies the safe activity link if image generation fails", async () => {
+    vi.mocked(cardModule.drawActivityShareCard).mockRejectedValue(new Error("tainted canvas"));
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    render(<ActivityShareButton {...props} />);
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("https://orider.net/a/1"));
+    expect(track).toHaveBeenCalledWith("activity_share_link", { activityId: "a1", visibility: "everyone" });
+  });
+
+  it("aborts generation and suppresses feedback after unmount", async () => {
+    let resolveCanvas!: (canvas: HTMLCanvasElement) => void;
+    vi.mocked(cardModule.drawActivityShareCard).mockReturnValue(new Promise((resolve) => { resolveCanvas = resolve; }));
+    const onFeedback = vi.fn();
+    const { unmount } = render(<ActivityShareButton {...props} onFeedback={onFeedback} />);
+    fireEvent.click(screen.getByRole("button"));
+    const signal = vi.mocked(cardModule.drawActivityShareCard).mock.calls[0][1];
+    unmount();
+    expect(signal?.aborted).toBe(true);
+    resolveCanvas(document.createElement("canvas"));
+    await Promise.resolve();
+    expect(cardModule.canvasToPng).not.toHaveBeenCalled();
+    expect(onFeedback).not.toHaveBeenCalled();
+  });
+});

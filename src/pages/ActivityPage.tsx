@@ -65,6 +65,7 @@ import { useActivityStreamsLoader } from "../features/activity/detail/useActivit
 import { RideActivityRouteButton } from "../features/activity/detail/RideActivityRouteButton";
 import { selectActualCoRiders } from "../utils/coRiders";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
+import { ActivityShareButton } from "../features/activity/share/ActivityShareButton";
 
 type SummarySensorMetric = { label: string; value: string; unit?: string; sub?: string };
 
@@ -929,6 +930,35 @@ export default function ActivityPage() {
                   </svg>
                   View on Strava
                 </a>
+              )}
+            </div>
+            <div className="mt-3">
+              <ActivityShareButton
+                card={{
+                  title: activity.description || tCommon(getSportLabelKey(activity.type)),
+                  athlete: activity.nickname,
+                  sport: tCommon(getSportLabelKey(activity.type)),
+                  date: formatFullDate(activity.startTime),
+                  distance: `${distVal(s.distance)} ${distUnit}`,
+                  duration: formatDuration(s.ridingTimeMillis),
+                  elevation: `${elevVal(s.elevationGain)} ${elevUnit}`,
+                  distanceLabel: t("stat.distance"),
+                  durationLabel: t("stat.time"),
+                  elevationLabel: t("stat.elev"),
+                  footer: t("page.share.footer"),
+                  backgroundImageUrl: activity.mapImageUrl,
+                  includeRouteImage: activity.visibility === "everyone",
+                }}
+                filename={`orider-activity-${activity.id}.png`}
+                url={window.location.href}
+                activityId={activity.id}
+                visibility={activity.visibility}
+                onFeedback={showToast}
+              />
+              {activity.visibility !== "everyone" && (
+                <span className="ml-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+                  {t("page.share.routeHidden")}
+                </span>
               )}
             </div>
             {user?.uid === activity.userId && (

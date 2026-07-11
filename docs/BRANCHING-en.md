@@ -26,6 +26,7 @@ Use lowercase, hyphen-separated names:
 |---|---|---|
 | `feat/` | User-facing features | `feat/activity-splits-chart` |
 | `fix/` | Bugs and regressions | `fix/mobile-tab-overflow` |
+| `hotfix/` | Urgent minimal fixes branched from `main`, allowed to target `main` directly | `hotfix/remove-app-install-banner` |
 | `docs/` | Documentation and contributor setup | `docs/readme-structure` |
 | `test/` | Test-only changes | `test/activity-detail-e2e` |
 | `refactor/` | Internal cleanup without behavior changes | `refactor/route-hooks` |
@@ -104,7 +105,7 @@ Use a merge commit only when the branch is large enough that preserving an integ
 
 ## Releases and Hotfixes
 
-Production deploys come from version tags on `main`; there are no separate release branches for routine web releases. Urgent production fixes still use a PR and a follow-up tag:
+Production deploys come from version tags on `main`; there are no separate release branches for routine web releases. Create tags with `scripts/release-tag.sh` — it prints the full release diff (every commit since the last tag) and requires confirmation before pushing, so unreviewed changes cannot ride along with an unrelated deploy. After a successful deploy, `prod-smoke.yml` runs a mobile-viewport smoke check against production. Urgent production fixes still use a PR and a follow-up tag:
 
 ```text
 fix/production-issue -> PR -> required checks -> main -> tag v* -> deploy
