@@ -27,7 +27,6 @@ import { LocaleRedirect } from "./components/i18n/LocaleRedirect";
 import { firestore } from "./services/firebase";
 
 const ActivityPage = lazyTimed("ActivityPage", () => import("./pages/ActivityPage"));
-const ActivityUploadPage = lazyTimed("ActivityUploadPage", () => import("./pages/activity/ActivityUploadPage"));
 const ActivityEditPage = lazyTimed("ActivityEditPage", () => import("./pages/activity/ActivityEditPage"));
 const GroupsPage = lazyTimed("GroupsPage", () => import("./pages/group/GroupsPage"));
 const GroupDashboardPage = lazyTimed("GroupDashboardPage", () => import("./pages/group/GroupDashboardPage"));
@@ -134,7 +133,6 @@ function AppRoutes() {
         <Route path="onboarding" element={<OnboardingPage />} />
         <Route element={<Layout />}>
           <Route index element={null} />
-          <Route path="activity/upload" element={<ActivityUploadPage />} />
           <Route path="activity/:activityId" element={<ActivityPage />} />
           <Route path="activity/:activityId/edit" element={<ActivityEditPage />} />
           <Route path="fitness" element={<FitnessPage />} />

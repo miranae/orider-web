@@ -39,10 +39,4 @@ describe("mobile touch r4", () => {
     expect(read("src/pages/AthletePage.tsx")).toContain('loading="lazy"');
   });
 
-  it("shows mobile file-select copy for activity upload", () => {
-    const upload = read("src/pages/activity/ActivityUploadPage.tsx");
-
-    expect(upload).toContain("useMobile");
-    expect(upload).toContain("mobileFileSelectHint");
-  });
 });

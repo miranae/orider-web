@@ -477,7 +477,7 @@ export default function CreateSegmentPage() {
             <p className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("activityPicker.emptyTitle")}</p>
             <p className="text-[length:var(--fs-sm)] mt-2" style={{ color: "var(--ink-3)" }}>{t("activityPicker.emptyDescription")}</p>
             <div className="flex flex-wrap justify-center mt-5" style={{ gap: "var(--space-2)" }}>
-              <Link to="/activity/upload" className={buttonClass({ variant: "primary", size: "sm" })}>
+              <Link to="/log" className={buttonClass({ variant: "primary", size: "sm" })}>
                 {t("activityPicker.uploadAction")}
               </Link>
               <Link to="/leaderboard" className={buttonClass({ variant: "secondary", size: "sm" })}>
