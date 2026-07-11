@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { routeToGpx } from "./routeGpx";
+describe("routeToGpx", () => { it("emits parseable GPX 1.1, escapes names and never fabricates elevation", () => { const xml = routeToGpx("A & <B>", [[127, 37], [128, 38]]); const doc = new DOMParser().parseFromString(xml, "application/xml"); expect(doc.querySelector("parsererror")).toBeNull(); expect(doc.documentElement.namespaceURI).toBe("http://www.topografix.com/GPX/1/1"); expect(xml).toContain("A &amp; &lt;B&gt;"); expect(xml).not.toContain("<ele>"); }); it("rejects invalid or undersized geometry", () => { expect(() => routeToGpx("x", [[127, 37]])).toThrow(); expect(() => routeToGpx("x", [[127, 37], [999, 38]])).toThrow(); }); });
