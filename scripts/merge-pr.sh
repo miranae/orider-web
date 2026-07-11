@@ -186,8 +186,11 @@ fi
 # (#374 상·하단 스티키 배너 장애) PR 본문에 스크린샷 증빙이 있어야 머지한다.
 # 우회는 --no-visual-check (스티키/픽스드와 무관한 리팩터 등 한정).
 if [[ "$REQUIRE_VISUAL_CHECK" == 1 && -n "$CHANGED" ]]; then
-  STICKY_ADDED="$(git diff "origin/$BASE...HEAD" -- 'src/**/*.tsx' 'src/**/*.ts' 'src/**/*.css' 2>/dev/null \
-    | grep -E '^\+' | grep -cE 'position:\s*["'"'"']?(sticky|fixed)|className=.*(^|[^a-z-])(sticky|fixed)([^a-z-]|$)' || true)"
+  # :(glob) — 'src/**/*.tsx' 가 src/App.tsx 같은 최상위 파일도 매칭하게 한다.
+  # 안전 게이트이므로 git diff 실패는 통과가 아니라 중단이다(fail-closed).
+  STYLE_DIFF="$(git diff "origin/$BASE...HEAD" -- ':(glob)src/**/*.tsx' ':(glob)src/**/*.ts' ':(glob)src/**/*.css')" \
+    || die "시각 증빙 게이트: git diff 실패 — origin/$BASE 상태를 확인하세요."
+  STICKY_ADDED="$(grep -E '^\+' <<<"$STYLE_DIFF" | grep -cE 'position:\s*["'"'"']?(sticky|fixed)|className=.*(^|[^a-z-])(sticky|fixed)([^a-z-]|$)' || true)"
   if [[ "$STICKY_ADDED" -gt 0 ]]; then
     PR_BODY_TEXT="$(gh pr view "$PR_NUM" --json body -q .body 2>/dev/null || true)"
     if ! grep -qiE '!\[|<img|user-images\.githubusercontent\.com|github\.com/user-attachments|스크린샷|screenshot' <<<"$PR_BODY_TEXT"; then

@@ -27,7 +27,15 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run production mobile smoke
         run: npx playwright test --config playwright.prod.config.ts
+      - name: Upload failure evidence (screenshots, traces)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-smoke-failure-${{ github.run_id }}
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: ignore
       - name: Report failure
         if: failure()
         run: |
-          echo "::error::운영 모바일 스모크 실패 — orider.co.kr 모바일 뷰포트를 확인하세요 (sticky/fixed 과점유 또는 렌더 실패)."
+          echo "::error::운영 모바일 스모크 실패 — orider.co.kr 모바일 뷰포트를 확인하세요 (sticky/fixed 과점유 또는 렌더 실패). 스크린샷은 run artifact 참조."

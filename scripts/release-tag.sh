@@ -23,7 +23,8 @@ fi
 
 git fetch origin main --tags --quiet
 MAIN_SHA="$(git rev-parse origin/main)"
-LAST_TAG="$(git describe --tags --abbrev=0 origin/main 2>/dev/null || true)"
+# --match 'v*' — 배포 트리거는 v* 태그뿐이므로 비릴리스 태그가 diff 범위를 오염시키지 않게 한다.
+LAST_TAG="$(git describe --tags --match 'v*' --abbrev=0 origin/main 2>/dev/null || true)"
 
 printf '\n\033[1;36m▶ Release diff — %s → origin/main(%s)\033[0m\n' "${LAST_TAG:-<태그 없음>}" "${MAIN_SHA:0:12}"
 
@@ -40,7 +41,7 @@ if [[ -n "$LAST_TAG" ]]; then
     printf '  \033[1m커밋 %s건 / 변경 파일:\033[0m\n' "$COUNT"
     git diff --stat "$RANGE" | tail -1 | sed 's/^/ /'
     # 사용자 대면 위험 신호 — 뷰포트 점유 요소·워크플로·rules 변경은 별도 표시
-    RISK="$(git diff "$RANGE" -- 'src/**' | grep -E '^\+' | grep -cE 'position:\s*["'"'"']?(sticky|fixed)' || true)"
+    RISK="$(git diff "$RANGE" -- 'src/**' | grep -E '^\+' | grep -cE 'position:\s*["'"'"']?(sticky|fixed)|className=.*(^|[^a-z-])(sticky|fixed)([^a-z-]|$)' || true)"
     [[ "$RISK" -gt 0 ]] && printf '  \033[1;33m⚠ sticky/fixed 요소 추가 %s건 — 모바일 뷰포트 확인 권장\033[0m\n' "$RISK"
     WF="$(git diff --name-only "$RANGE" -- '.github/workflows/' | wc -l | tr -d ' ')"
     [[ "$WF" -gt 0 ]] && printf '  \033[1;33m⚠ workflow 변경 %s개 파일 포함\033[0m\n' "$WF"
