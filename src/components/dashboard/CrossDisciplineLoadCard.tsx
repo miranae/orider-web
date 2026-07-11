@@ -37,6 +37,10 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
   if (!contribution || !contribution.isMultiDiscipline) return null;
 
   const mine = sliceFor(contribution, discipline);
+  // 정작 **보고 있는 종목**이 반올림 후 0% 면 "통합 체력의 0% 는 러닝에서" 가 된다.
+  // (예: bike 60 / swim 40 / run 0.4 — 과거에 달렸지만 러닝 CTL 이 소멸한 사용자.)
+  // isMultiDiscipline 은 두 종목만 보면 되므로 이 케이스를 못 걸러낸다.
+  if (mine.pct < 1) return null;
 
   return (
     <Card>
@@ -98,15 +102,9 @@ function Donut({ contribution }: { contribution: NonNullable<ReturnType<typeof c
   const outer = 30;
   const inner = 21;
 
-  // 한 종목이 100% 인 경우(예: bike 199 / run 0.4 → 100/0 반올림) arc 의 시작점과 끝점이
-  // 같은 좌표가 되어 SVG 가 아무것도 그리지 않는다 — 도넛이 사라지고 가운데 숫자만 남는다.
-  // 이때는 arc 대신 링(ring)을 그린다.
-  const solo = contribution.slices.filter((s) => s.pct > 0);
-  const fullSlice = solo.length === 1 ? solo[0] : undefined;
-
   let acc = 0;
-  const arcs = solo
-    .filter(() => fullSlice == null)
+  const arcs = contribution.slices
+    .filter((s) => s.pct > 0)
     .map((s) => {
       const a0 = (acc / 100) * Math.PI * 2 - Math.PI / 2;
       acc += s.pct;
@@ -133,18 +131,9 @@ function Donut({ contribution }: { contribution: NonNullable<ReturnType<typeof c
       role="img"
       aria-label={t("crossLoad.donutA11y", { ctl: contribution.totalCtl })}
     >
-      {fullSlice ? (
-        <circle
-          cx={cx}
-          cy={cy}
-          r={(outer + inner) / 2}
-          fill="none"
-          stroke={COLOR[fullSlice.discipline]}
-          strokeWidth={outer - inner}
-        />
-      ) : (
-        arcs.map((a) => <path key={a.key} d={a.d} fill={a.color} />)
-      )}
+      {arcs.map((a) => (
+        <path key={a.key} d={a.d} fill={a.color} />
+      ))}
       <text
         x={cx}
         y={cy + 5}

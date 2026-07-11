@@ -86,8 +86,15 @@ describe("newRecordsForActivity", () => {
     expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(41);
   });
 
-  it("0.5초 미만 단축은 '0초 단축' 대신 문구를 생략한다", () => {
+  // null(첫 기록) 과 0(1초 미만 단축) 은 다른 의미다 — 섞으면 소비처가 "첫 기록이에요" 라고
+  // 거짓말한다. 세 상태를 구분한다.
+  it("0.5초 미만 단축은 0 — null(첫 기록) 이 아니다", () => {
     const run: RunPrTable = { "5km": [e(1600.1, "today"), e(1600.4, "old")] };
+    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(0);
+  });
+
+  it("직전 최고가 없을 때만 null (첫 기록)", () => {
+    const run: RunPrTable = { "5km": [e(1600, "today")] };
     expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBeNull();
   });
 

@@ -809,6 +809,7 @@
       "full": "Full"
     },
     "improved": "{{sec}}s faster than your previous best · confirmed by server",
+    "improvedTiny": "A new personal best · confirmed by server",
     "first": "Your first record · confirmed by server",
     "more": "{{count}} more distance(s) too",
     "share": {
@@ -816,6 +817,7 @@
       "appName": "O-Rider",
       "copied": "Record copied",
       "improved": "{{dist}} best {{time}} — {{sec}}s faster than before! Analyzed on O-Rider.",
+      "improvedTiny": "{{dist}} best {{time}} — a new personal best! Analyzed on O-Rider.",
       "first": "Set my first {{dist}} record: {{time}}! Analyzed on O-Rider."
     }
   }

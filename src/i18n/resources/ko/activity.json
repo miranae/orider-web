@@ -809,6 +809,7 @@
       "full": "풀"
     },
     "improved": "이전 기록보다 {{sec}}초 단축 · 서버 확정 기록",
+    "improvedTiny": "이전 기록을 갱신했어요 · 서버 확정 기록",
     "first": "첫 기록이에요 · 서버 확정 기록",
     "more": "다른 거리 {{count}}개도 갱신",
     "share": {
@@ -816,6 +817,7 @@
       "appName": "O-Rider",
       "copied": "기록을 복사했어요",
       "improved": "{{dist}} 최고 기록 {{time}} — 이전보다 {{sec}}초 단축했어요! O-Rider에서 분석했어요.",
+      "improvedTiny": "{{dist}} 최고 기록 {{time}} — 이전 기록을 갱신했어요! O-Rider에서 분석했어요.",
       "first": "{{dist}} 첫 기록 {{time}}을 세웠어요! O-Rider에서 분석했어요."
     }
   }

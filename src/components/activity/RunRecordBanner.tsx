@@ -83,9 +83,11 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
           {t("runRecord.title", { dist: t(`runRecord.dist.${top.distance}`), time: formatDuration(top.timeSec) })}
         </Text>
         <Text as="div" variant="caption" tone="secondary">
-          {top.improvedBySec != null
-            ? t("runRecord.improved", { sec: top.improvedBySec })
-            : t("runRecord.first")}
+          {top.improvedBySec == null
+            ? t("runRecord.first")
+            : top.improvedBySec > 0
+              ? t("runRecord.improved", { sec: top.improvedBySec })
+              : t("runRecord.improvedTiny")}
           {news.length > 1 && ` · ${t("runRecord.more", { count: news.length - 1 })}`}
         </Text>
       </div>
