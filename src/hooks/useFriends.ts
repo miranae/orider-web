@@ -24,7 +24,8 @@ export function useFriends() {
   const { user, profile } = useAuth();
   const [friends, setFriends] = useState<FriendRelation[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [friendCode, setFriendCode] = useState<string | null>(null);
+  const [friendCodeState, setFriendCodeState] = useState<{ uid: string; code: string | null } | null>(null);
+  const [friendCodeLoadingUid, setFriendCodeLoadingUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const pendingAcceptsRef = useRef<Set<string>>(new Set());
@@ -86,14 +87,25 @@ export function useFriends() {
 
   // Fetch friend code from Firestore
   useEffect(() => {
-    if (!user) return;
+    if (!user) { setFriendCodeState(null); setFriendCodeLoadingUid(null); return; }
+    let cancelled = false;
+    const uid = user.uid;
+    setFriendCodeLoadingUid(uid);
     getDoc(doc(firestore, "users", user.uid)).then((snap) => {
-      if (snap.exists()) {
+      if (!cancelled && snap.exists()) {
         const code = snap.data()?.friendCode;
-        if (code) setFriendCode(code);
+        setFriendCodeState({ uid, code: typeof code === "string" && code ? code : null });
+      } else if (!cancelled) {
+        setFriendCodeState({ uid, code: null });
       }
-    });
-  }, [user]);
+    }).catch(() => { if (!cancelled) setFriendCodeState({ uid, code: null }); })
+      .finally(() => { if (!cancelled) setFriendCodeLoadingUid((current) => current === uid ? null : current); });
+    return () => { cancelled = true; };
+  }, [user?.uid]);
+
+  const currentUid = user?.uid ?? null;
+  const friendCode = currentUid && friendCodeState?.uid === currentUid ? friendCodeState.code : null;
+  const friendCodeLoading = currentUid !== null && (friendCodeState?.uid !== currentUid || friendCodeLoadingUid === currentUid);
 
   // via 출처: "invite_link" = /friend/:code 딥링크, "manual" = 친구 페이지 수동 입력.
   // 기본값 "manual" — 호출 사이트에서 override 가능. funnel 분석 시 어떤 경로가 효과적인지 비교.
@@ -163,6 +175,7 @@ export function useFriends() {
     friends,
     requests,
     friendCode,
+    friendCodeLoading,
     loading,
     actionLoading,
     addByCode,

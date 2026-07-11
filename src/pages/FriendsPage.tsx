@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useTranslation } from "react-i18next";
 import { useFriends } from "../hooks/useFriends";
@@ -7,16 +8,32 @@ import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
 import Avatar from "../components/Avatar";
 import { Card, Text } from "../theme/components";
+import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
+import { buildFriendInviteUrl, shareFriendInvite } from "../utils/friendInviteShare";
+import i18n from "../i18n";
+import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 
 export default function FriendsPage() {
   const { user } = useAuth();
   const { t } = useTranslation("friends");
-  const { friends, requests, friendCode, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
+  const { friends, requests, friendCode, friendCodeLoading, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
   const { showToast } = useToast();
   const dialog = useDialog();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromOnboarding = searchParams.get("source") === "onboarding";
+  const continueTo = sanitizeInternalReturnPath(searchParams.get("returnTo"));
   const [codeInput, setCodeInput] = useState("");
   const [tab, setTab] = useState<"friends" | "requests">("friends");
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(() => new Set());
+
+  const handleShareInvite = async () => {
+    if (!friendCode) return;
+    const url = buildFriendInviteUrl(window.location.origin, i18n.language, friendCode);
+    const result = await shareFriendInvite({ title: t("onboarding.shareTitle"), text: t("onboarding.shareText"), url });
+    if (result === "copied") showToast(t("onboarding.copied"));
+    else if (result === "error") showToast(t("onboarding.shareFailed"), "error");
+  };
 
   if (!user) {
     return (
@@ -98,6 +115,21 @@ export default function FriendsPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">{t("title")}</h1>
+
+      {fromOnboarding && (
+        <Card padding="none" className="rounded-[var(--r-lg)] p-5">
+          <Text as="h2" className="font-semibold text-[var(--ink-0)]">{t("onboarding.title")}</Text>
+          <Text as="p" className="mt-1 text-[var(--ink-3)]">{t("onboarding.description")}</Text>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={handleShareInvite} disabled={friendCodeLoading || !friendCode} className="ds-btn ds-btn--md disabled:opacity-50">
+              {friendCodeLoading ? t("onboarding.loadingCode") : friendCode ? t("onboarding.share") : t("onboarding.codeUnavailable")}
+            </button>
+            <button type="button" onClick={() => navigate(continueTo, { replace: true })} className="px-4 py-2 rounded-[var(--r-lg)] bg-[var(--bg-2)] text-[var(--ink-1)]">
+              {t("onboarding.continue")}
+            </button>
+          </div>
+        </Card>
+      )}
 
       {/* Friend code + add by code */}
       <Card padding="none" className="rounded-[var(--r-lg)] p-5">
