@@ -38,6 +38,11 @@ interface StreamData {
   time?: number[];
 }
 
+const RANGE_STEP_CONTROLS: { point: "start" | "end"; labelKey: "creation.startPoint" | "creation.endPoint" }[] = [
+  { point: "start", labelKey: "creation.startPoint" },
+  { point: "end", labelKey: "creation.endPoint" },
+];
+
 type Category = SegmentCategory;
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -392,6 +397,13 @@ export default function CreateSegmentPage() {
     setRangeEnd(e);
   }, []);
 
+  const adjustRangePoint = useCallback((point: "start" | "end", delta: number) => {
+    const maxIdx = (streams?.latlng?.length ?? 1) - 1;
+    const clamp = (value: number) => Math.max(0, Math.min(maxIdx, value));
+    if (point === "start") setRangeStart((prev) => clamp(prev + delta));
+    else setRangeEnd((prev) => clamp(prev + delta));
+  }, [streams?.latlng?.length]);
+
   // ── Submit ──
   const handleSubmit = async () => {
     if (submitting || !selectedActivity || !segmentStats || !isFormValid) return;
@@ -618,6 +630,40 @@ export default function CreateSegmentPage() {
                 onRangeChange={(range) => handleRangeChange(range[0], range[1])}
                 onHoverIndex={setHoverIndex}
               />
+              <div className="grid grid-cols-1 sm:grid-cols-2 mt-3" style={{ gap: "var(--space-2)" }}>
+                {RANGE_STEP_CONTROLS.map(({ point, labelKey }) => {
+                  const label = t(labelKey);
+                  const value = point === "start" ? rangeStart : rangeEnd;
+                  return (
+                    <div key={point} className="flex items-center justify-between rounded-[var(--r-md)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)", padding: "var(--space-2)" }}>
+                      <span className="text-[length:var(--fs-xs)] font-medium" style={{ color: "var(--ink-2)" }}>{label}</span>
+                      <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
+                        <button
+                          type="button"
+                          onClick={() => adjustRangePoint(point, -1)}
+                          className={buttonClass({ variant: "secondary", size: "sm" })}
+                          aria-label={t("creation.stepBackward", { label })}
+                          disabled={value <= 0}
+                        >
+                          -
+                        </button>
+                        <span className="text-[length:var(--fs-xs)] tabular-nums" style={{ color: "var(--ink-3)", minWidth: "3rem", textAlign: "center" }}>
+                          {value}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => adjustRangePoint(point, 1)}
+                          className={buttonClass({ variant: "secondary", size: "sm" })}
+                          aria-label={t("creation.stepForward", { label })}
+                          disabled={value >= (streams.latlng?.length ?? 1) - 1}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
               <div className="flex items-center justify-end mt-2">
                 <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">
                   {t("creation.fullDistance", { total: totalKm.toFixed(1), selected: selectedKm.toFixed(2) })}

@@ -13,8 +13,8 @@ import { Button, buttonClass, Text } from "../theme/components";
 import { CourseList } from "../features/courses/CourseList";
 import { CoursesMap, isCourseInBounds } from "../features/courses/CoursesMap";
 import { filterAndSortCourses, type SortMode, type SurfaceFilter } from "../features/courses/courseCatalog";
-import type { CourseData } from "../features/courses/courseSnapshot";
-import { useCourseCatalog } from "../features/courses/useCourseCatalog";
+import type { CourseData, LatLngTuple } from "../features/courses/courseSnapshot";
+import { searchVisibleCoursesByName, useCourseCatalog } from "../features/courses/useCourseCatalog";
 
 const COURSES_CONTROL_STACK_STYLE: React.CSSProperties = {
   display: "flex",
@@ -87,6 +87,10 @@ export default function CoursesPage() {
   const [locating, setLocating] = useState(false);
   const [searchQuery, setSearchQuery] = useState(queryParam);
   const [inputValue, setInputValue] = useState(queryParam);
+  const [serverSearchCourses, setServerSearchCourses] = useState<CourseData[]>([]);
+  const [serverSearchLoading, setServerSearchLoading] = useState(false);
+  const [serverSearchError, setServerSearchError] = useState<unknown>(null);
+  const [serverSearchReloadKey, setServerSearchReloadKey] = useState(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
@@ -94,6 +98,8 @@ export default function CoursesPage() {
   const [locationError, setLocationError] = useState("");
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const searchPolylineCache = useRef<Map<string, LatLngTuple[]>>(new Map());
+  const searchPolylineValueCache = useRef<Map<string, string>>(new Map());
   const mapUnavailable = !mapboxToken || mapFailed;
 
   useEffect(() => {
@@ -103,8 +109,41 @@ export default function CoursesPage() {
     setHoveredId(null);
   }, [queryParam]);
 
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setServerSearchCourses([]);
+      setServerSearchError(null);
+      setServerSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setServerSearchLoading(true);
+    setServerSearchError(null);
+    searchVisibleCoursesByName(q, 80, searchPolylineCache.current, searchPolylineValueCache.current)
+      .then((results) => {
+        if (cancelled) return;
+        setServerSearchCourses(results);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        logClientError("CoursesPage.courseSearch", err, { q });
+        setServerSearchCourses([]);
+        setServerSearchError(err);
+      })
+      .finally(() => {
+        if (!cancelled) setServerSearchLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [searchQuery, serverSearchReloadKey]);
+
+  const activeCourses = searchQuery ? serverSearchCourses : allCourses;
+  const activePolylineCache = searchQuery ? searchPolylineCache : polylineCache;
+
   const displayCourses = useMemo(() => {
-    return filterAndSortCourses(allCourses, {
+    return filterAndSortCourses(activeCourses, {
       searchQuery,
       sortMode,
       surfaceFilter,
@@ -117,11 +156,11 @@ export default function CoursesPage() {
       myLoc,
       radiusKm,
     });
-  }, [allCourses, searchQuery, sortMode, surfaceFilter, difficultyFilter, distanceMinKm, distanceMaxKm, elevationMinM, elevationMaxM, regionFilter, myLoc, radiusKm]);
+  }, [activeCourses, searchQuery, sortMode, surfaceFilter, difficultyFilter, distanceMinKm, distanceMaxKm, elevationMinM, elevationMaxM, regionFilter, myLoc, radiusKm]);
 
   const regionOptions = useMemo(() => {
-    return Array.from(new Set(allCourses.flatMap((course) => course.regions))).filter(Boolean).sort((a, b) => a.localeCompare(b));
-  }, [allCourses]);
+    return Array.from(new Set(activeCourses.flatMap((course) => course.regions))).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  }, [activeCourses]);
 
   const hasAdvancedFilters = distanceMinKm > 0 ||
     distanceMaxKm < DISTANCE_FILTER_MAX_KM ||
@@ -132,8 +171,8 @@ export default function CoursesPage() {
   const visibleOnMap = useMemo(() => {
     if (mapUnavailable) return displayCourses;
     if (!mapBounds) return displayCourses;
-    return displayCourses.filter((c) => isCourseInBounds(c, mapBounds, polylineCache.current));
-  }, [displayCourses, mapBounds, mapUnavailable, polylineCache]);
+    return displayCourses.filter((c) => isCourseInBounds(c, mapBounds, activePolylineCache.current));
+  }, [activePolylineCache, displayCourses, mapBounds, mapUnavailable]);
 
   const [frozenList, setFrozenList] = useState<CourseData[] | null>(null);
 
@@ -195,9 +234,11 @@ export default function CoursesPage() {
   }, []);
 
   const selectedCourse = useMemo(
-    () => allCourses.find((course) => course.id === selectedId) ?? null,
-    [allCourses, selectedId],
+    () => activeCourses.find((course) => course.id === selectedId) ?? null,
+    [activeCourses, selectedId],
   );
+  const activeLoadError = searchQuery ? serverSearchError : loadError;
+  const activeLoading = searchQuery ? serverSearchLoading : loading;
 
   if (!hasRendered) return null;
 
@@ -452,11 +493,11 @@ export default function CoursesPage() {
       </div>
 
       {/* 메인: 지도 + 목록 */}
-      {loadError ? (
+      {activeLoadError ? (
         <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg-0)", padding: "var(--space-6)" }}>
-          <ErrorState title={t("error.loadFailed")} onRetry={retry} />
+          <ErrorState title={t("error.loadFailed")} onRetry={searchQuery ? () => setServerSearchReloadKey((key) => key + 1) : retry} />
         </div>
-      ) : loading ? (
+      ) : activeLoading ? (
         <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg-0)" }}>
           <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--lime) transparent var(--lime) var(--lime)" }} />
         </div>
@@ -464,9 +505,9 @@ export default function CoursesPage() {
         <div className={mapUnavailable ? "flex-1 flex flex-col min-h-0" : "flex-1 flex flex-col lg:flex-row min-h-0"} style={{ background: "var(--bg-0)" }}>
           {!mapUnavailable && (
             <CoursesMap
-              allCourses={allCourses}
+              allCourses={activeCourses}
               visibleCourses={visibleOnMap}
-              polylineCache={polylineCache.current}
+              polylineCache={activePolylineCache.current}
               selectedId={selectedId}
               hoveredId={hoveredId}
               onBoundsChange={setMapBounds}
@@ -484,7 +525,7 @@ export default function CoursesPage() {
           <div className={mapUnavailable ? "flex-1 overflow-y-auto" : "flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto"} style={{ borderTop: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
             <CourseList
               courses={listCourses}
-              allCourseCount={allCourses.length}
+              allCourseCount={activeCourses.length}
               selectedCourse={selectedCourse}
               selectedId={selectedId}
               hoveredId={hoveredId}
@@ -495,7 +536,7 @@ export default function CoursesPage() {
               onSelectCourse={handleSelectCourse}
               onOpenCourse={handleOpenCourse}
             />
-            {hasMore && (
+            {!searchQuery && hasMore && (
               <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>
                 <Button
                   type="button"

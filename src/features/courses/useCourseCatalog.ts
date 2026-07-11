@@ -6,6 +6,7 @@ import {
   orderBy,
   query,
   startAfter,
+  where,
   type DocumentData,
   type QueryConstraint,
   type QueryDocumentSnapshot,
@@ -21,6 +22,7 @@ import {
 import { isVisibleCourseDocData } from "./courseVisibility";
 
 const PAGE_SIZE = 80;
+const SEARCH_LIMIT = 80;
 
 function orderFieldForSort(sortMode: SortMode) {
   return sortMode === "popular" ? "likeCount" : "createdAt";
@@ -104,4 +106,30 @@ export function useCourseCatalog(sortMode: SortMode = "latest") {
     retry: () => fetchPage(true),
     polylineCache,
   };
+}
+
+export async function searchVisibleCoursesByName(
+  searchText: string,
+  maxCount = SEARCH_LIMIT,
+  polylineCache: Map<string, LatLngTuple[]> = new Map(),
+  polylineValueCache: Map<string, string> = new Map(),
+): Promise<CourseData[]> {
+  const text = searchText.trim();
+  if (!text) return [];
+
+  const snapshot = await getDocs(query(
+    collection(firestore, "courses"),
+    where("name", ">=", text),
+    where("name", "<=", `${text}\uf8ff`),
+    orderBy("name"),
+    limit(maxCount),
+  ));
+
+  const normalized = text.toLowerCase();
+  const docs = snapshot.docs
+    .map((doc) => ({ id: doc.id, data: doc.data() }))
+    .filter((item) => isVisibleCourseDocData(item.data))
+    .filter((item) => String(item.data.name ?? "").toLowerCase().includes(normalized));
+
+  return replaceCourseSnapshotDocs(docs, polylineCache, polylineValueCache);
 }
