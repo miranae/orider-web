@@ -174,9 +174,11 @@ export function matchesDatePreset(startTime: number, preset: DatePreset, now = n
   start.setHours(0, 0, 0, 0);
   let end: Date;
   if (preset === "MONTH") {
+    start.setDate(1);
     end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
   } else {
-    const daysUntilSaturday = (6 - start.getDay() + 7) % 7;
+    // 일요일은 다음 주말로 점프하지 않고 현재 주말(어제 토요일)에 포함한다.
+    const daysUntilSaturday = start.getDay() === 0 ? -1 : (6 - start.getDay() + 7) % 7;
     const saturday = new Date(start);
     saturday.setDate(start.getDate() + daysUntilSaturday);
     end = new Date(saturday);
@@ -190,7 +192,7 @@ export default function EventsPage() {
   const { t } = useTranslation("event");
   const STATUS_TABS = STATUS_TAB_KEYS.map(({ k, labelKey }) => ({ k, label: t(labelKey) }));
   const TYPE_FILTERS = TYPE_FILTER_KEYS.map(({ k, labelKey, icon }) => ({ k, label: t(labelKey), icon }));
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [coursePolylines, setCoursePolylines] = useState<Record<string, string>>({});
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
@@ -325,7 +327,7 @@ export default function EventsPage() {
     return events
       .filter((e) => statusFilter === "ALL" || e.status === statusFilter)
       .filter((e) => typeFilter === "ALL" || e.type === typeFilter)
-      .filter((e) => regionFilter === "ALL" || e.region === regionFilter)
+      .filter((e) => regionFilter === "ALL" || e.region?.trim() === regionFilter)
       .filter((e) => matchesDatePreset(e.startTime, datePreset))
       .sort((a, b) => {
         // LIVE/OPEN 먼저, 종료는 뒤로 — 같은 상태 내 가까운 시작일 우선 (종료는 최근순)
@@ -363,7 +365,7 @@ export default function EventsPage() {
         title={t("title")}
         subtitle={t("page.subtitle")}
         right={
-          user ? (
+          authLoading ? null : user ? (
             <Link to="/event/create" className={`${buttonClass({ variant: 'primary', size: 'sm' })}`}>
               + {t("button.create")}
             </Link>
@@ -375,7 +377,7 @@ export default function EventsPage() {
         }
       />
 
-      {!user && (
+      {!authLoading && !user && (
         <Card padding="none" style={{ padding: "var(--space-5)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap" }}>
           <div>
             <Text as="div" variant="eyebrow">{t("organizer.eyebrow")}</Text>

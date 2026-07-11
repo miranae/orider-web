@@ -28,7 +28,14 @@ describe("matchesDatePreset", () => {
     expect(matchesDatePreset(new Date("2026-07-13T00:00:00+09:00").getTime(), "WEEKEND", now)).toBe(false);
   });
 
-  it("matches from today through the end of the current month", () => {
+  it("keeps the current Sunday in the weekend preset", () => {
+    const sunday = new Date("2026-07-12T10:00:00+09:00");
+    expect(matchesDatePreset(new Date("2026-07-12T18:00:00+09:00").getTime(), "WEEKEND", sunday)).toBe(true);
+    expect(matchesDatePreset(new Date("2026-07-18T09:00:00+09:00").getTime(), "WEEKEND", sunday)).toBe(false);
+  });
+
+  it("matches the full current calendar month", () => {
+    expect(matchesDatePreset(new Date("2026-07-01T09:00:00+09:00").getTime(), "MONTH", now)).toBe(true);
     expect(matchesDatePreset(new Date("2026-07-31T23:59:00+09:00").getTime(), "MONTH", now)).toBe(true);
     expect(matchesDatePreset(new Date("2026-08-01T00:00:00+09:00").getTime(), "MONTH", now)).toBe(false);
   });
