@@ -396,8 +396,9 @@ export default function FitnessChart({
         <>
           <line x1={goalX} x2={goalX} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
                 stroke="var(--lime)" strokeWidth="1.5" opacity="0.85" />
-          <rect x={goalX - 58} y={PAD_TOP + 2} width="56" height="18" rx="3" fill="var(--lime)" />
-          <text x={goalX - 30} y={PAD_TOP + 14} fontSize="12" fontFamily="var(--font-mono)"
+          {/* 12px 폰트 기준 en "Goal day"(~58px)까지 수용하도록 pill 폭 68px (#401 리뷰) */}
+          <rect x={goalX - 70} y={PAD_TOP + 2} width="68" height="18" rx="3" fill="var(--lime)" />
+          <text x={goalX - 36} y={PAD_TOP + 14} fontSize="12" fontFamily="var(--font-mono)"
                 fill="var(--primary-fg)" fontWeight="700" textAnchor="middle">
             {t("charts.fitness.goalDay")}
           </text>

@@ -531,7 +531,7 @@ const BoardPage: React.FC = () => {
                             e.stopPropagation();
                             setActiveTag(prev => prev === tag ? undefined : tag);
                           }}
-                          className={`ds-chip ds-tap-target rounded-[var(--r-sm)] cursor-pointer ${activeTag === tag ? 'ds-chip--accent' : ''}`}
+                          className={`ds-chip rounded-[var(--r-sm)] cursor-pointer ${activeTag === tag ? 'ds-chip--accent' : ''}`}
                         >
                           #{tag}
                         </button>

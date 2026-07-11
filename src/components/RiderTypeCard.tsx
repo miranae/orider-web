@@ -105,8 +105,11 @@ export default function RiderTypeCard({ pdc }: { pdc: PdcDoc }) {
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
               <Chip variant="accent" dot>{t(`riderType.type.${type}.label`)}</Chip>
               {/* 강점/보완을 직접 라벨링 — 내부 점수(Np) 없이도 의미가 읽히게 (#401) */}
-              {ability && ability.byDuration.length > 1 && (() => {
-                const sorted = [...ability.byDuration].sort((a, b) => b.percentile - a.percentile);
+              {ability && (() => {
+                // 서버 duration 은 자유 string — 알려진 키만 라벨링 (i18n raw key 노출 방지)
+                const known = ability.byDuration.filter((d) => d.duration in durationLabelKey);
+                if (known.length < 2) return null;
+                const sorted = [...known].sort((a, b) => b.percentile - a.percentile);
                 const best = sorted[0];
                 const worst = sorted[sorted.length - 1];
                 if (!best || !worst) return null;
