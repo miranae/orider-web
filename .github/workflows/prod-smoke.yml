@@ -1,0 +1,33 @@
+name: Production smoke (mobile viewport)
+
+# 운영 배포(deploy.yml) 성공 직후 orider.co.kr 를 모바일 뷰포트로 스모크한다.
+# sticky/fixed 요소가 화면 35% 이상을 점유하면 실패 — #374 스티키 배너 장애의 사후 감지.
+# 배포 자체를 막지 않는 사후 알람이며, 실패 시 즉시 핫픽스/롤백 판단 근거가 된다.
+on:
+  workflow_run:
+    workflows: ["Deploy (Hosting → production)"]
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Install Playwright (chromium only)
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Run production mobile smoke
+        run: npx playwright test --config playwright.prod.config.ts
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "::error::운영 모바일 스모크 실패 — orider.co.kr 모바일 뷰포트를 확인하세요 (sticky/fixed 과점유 또는 렌더 실패)."

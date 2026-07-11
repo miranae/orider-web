@@ -84,3 +84,5 @@ scripts/merge-pr.sh <PR번호> --require-github-review
 ## 릴리스
 
 `main`에 머지하는 것과 production 배포는 동일하지 않을 수 있습니다. release tag가 배포를 트리거하는 경우 tag 생성, release note, environment approval을 별도로 관리합니다.
+
+production 태그는 `scripts/release-tag.sh`로 만듭니다. 이 스크립트는 마지막 태그 이후 `origin/main`에 쌓인 커밋 전체(release diff)를 보여주고 확인을 받은 뒤에만 태그를 push합니다 — 다른 목적의 배포에 검토되지 않은 변경이 편승하는 것을 막기 위한 절차입니다. 배포 성공 후에는 `prod-smoke.yml`이 모바일 뷰포트 스모크(고정 요소 과점유·렌더 실패 감지)를 자동 실행합니다.
