@@ -17,6 +17,12 @@ describe("calculateHrZoneDistribution", () => {
     const zones = calculateHrZoneDistribution([113, 114, 133, 152, 171], 190);
     expect(zones.map((zone) => zone.seconds)).toEqual([1, 1, 1, 1, 1]);
   });
+
+  it("keeps the max-HR Z5 label and includes max HR itself", () => {
+    const model = deriveHrZones({ maxHr: 190 });
+    const zones = calculateHrZoneDistribution([170, 171, 190], model);
+    expect(zones[4]).toMatchObject({ nameKey: "fitness:zone.maxAerobic", seconds: 2, color: "var(--zone-5)" });
+  });
 });
 
 // FTP = 200W 기준 테스트 스트림 헬퍼

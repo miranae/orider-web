@@ -44,6 +44,14 @@ describe("deriveHrZones", () => {
     expect(deriveHrZones({ maxHr: undefined }).referenceBpm).toBe(184);
   });
 
+  it("keeps max HR inside Z5 and uses the existing theme colors", () => {
+    const zones = deriveHrZones({ maxHr: 190 }).zones;
+    expect(zones[4]).toMatchObject({ minBpm: 171, maxBpmExclusive: 191, label: "vo2", color: "var(--zone-5)" });
+    expect(zones.map((zone) => zone.color)).toEqual([
+      "var(--zone-1)", "var(--zone-2)", "var(--zone-3)", "var(--zone-4)", "var(--zone-5)",
+    ]);
+  });
+
   it.each(["ko", "en"])("defines explicit LTHR and max-HR source labels for %s", (locale) => {
     const resource = JSON.parse(readFileSync(join(process.cwd(), `src/i18n/resources/${locale}/settings.json`), "utf8")) as {
       training: { hrZonesSource: Record<string, string>; hrZonesNote: Record<string, string> };
@@ -77,6 +85,33 @@ describe("resolveActivityHrZones", () => {
   it("uses owner activity context before stream fallback", () => {
     expect(resolveActivityHrZones({ isOwner: true, sport: "ride", activityContextMaxHr: 190, streamMaxHr: 188 }))
       .toMatchObject({ maxHr: 190, source: "activity_context_max_hr" });
+  });
+
+  it("falls back to a valid context LTHR when the profile relationship is invalid", () => {
+    const result = resolveActivityHrZones({
+      isOwner: true,
+      sport: "run",
+      profileMaxHr: 190,
+      profileLthr: 195,
+      activityContextLthr: 170,
+    });
+    expect(result).toMatchObject({ source: "activity_context_lthr", maxHrSource: "profile_max_hr" });
+    expect(result.zones).toMatchObject({ source: "lthr", referenceBpm: 170 });
+  });
+
+  it("keeps max-HR provenance separate when LTHR uses the default max HR", () => {
+    const result = resolveActivityHrZones({ isOwner: true, sport: "run", profileLthr: 170 });
+    expect(result).toMatchObject({ source: "profile_lthr", maxHrSource: "default", maxHr: 190 });
+  });
+
+  it("accepts a legacy activity metrics document without a context snapshot", () => {
+    expect(() => resolveActivityHrZones({
+      isOwner: true,
+      sport: "run",
+      activityContextMaxHr: undefined,
+      activityContextLthr: undefined,
+      streamMaxHr: 188,
+    })).not.toThrow();
   });
 
   it("uses public activity peak then default without viewer profile", () => {
