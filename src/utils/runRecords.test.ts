@@ -1,0 +1,76 @@
+import { describe, it, expect } from "vitest";
+import type { RunPrTable } from "@shared/types/personal-records";
+import { distanceRecords, newRecordsForActivity } from "./runRecords";
+
+const e = (value: number, activityId: string, startTime = 0) => ({
+  value,
+  activityId,
+  date: "2026-07-01",
+  startTime,
+});
+
+describe("distanceRecords", () => {
+  it("모든 거리를 표시 순서대로, 각 거리의 최고(최소 초)를 낸다", () => {
+    const run: RunPrTable = {
+      "1km": [e(281, "a"), e(290, "b")],
+      "5km": [e(1600, "c")],
+    };
+    const rows = distanceRecords(run);
+    expect(rows.map((r) => r.distance)).toEqual(["1km", "5km", "10km", "half", "full"]);
+    expect(rows[0].best?.value).toBe(281);
+    expect(rows[1].best?.value).toBe(1600);
+    expect(rows[2].best).toBeNull(); // 10km 기록 없음 — 자리는 남긴다
+    expect(rows[3].best).toBeNull(); // half
+    expect(rows[4].best).toBeNull(); // full
+  });
+
+  it("정렬이 뒤섞여 있어도 최소값을 고른다 (방어적)", () => {
+    const rows = distanceRecords({ "1km": [e(300, "x"), e(275, "y"), e(288, "z")] });
+    expect(rows[0].best?.activityId).toBe("y");
+  });
+
+  it("run 이 없으면 전부 자리만 남긴다 (5거리)", () => {
+    const rows = distanceRecords(undefined);
+    expect(rows).toHaveLength(5);
+    expect(rows.every((r) => r.best === null)).toBe(true);
+  });
+});
+
+describe("newRecordsForActivity", () => {
+  it("이 활동이 현행 최고면 배너 대상, 직전 최고 대비 단축 초를 계산", () => {
+    const run: RunPrTable = {
+      "5km": [e(1600, "today"), e(1641, "old")],
+    };
+    const news = newRecordsForActivity(run, "today");
+    expect(news).toHaveLength(1);
+    expect(news[0]).toEqual({ distance: "5km", timeSec: 1600, improvedBySec: 41 });
+  });
+
+  it("이 활동이 최고가 아니면 배너 없음", () => {
+    const run: RunPrTable = { "5km": [e(1600, "someone"), e(1650, "today")] };
+    expect(newRecordsForActivity(run, "today")).toEqual([]);
+  });
+
+  it("이 활동이 유일 기록이면 improvedBySec 는 null (첫 기록)", () => {
+    const run: RunPrTable = { "1km": [e(280, "today")] };
+    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBeNull();
+  });
+
+  it("여러 거리에서 동시에 기록을 세우면 모두 반환", () => {
+    const run: RunPrTable = {
+      "1km": [e(275, "today"), e(280, "old")],
+      "5km": [e(1600, "today")],
+      "10km": [e(3500, "other")],
+    };
+    const news = newRecordsForActivity(run, "today");
+    expect(news.map((n) => n.distance)).toEqual(["1km", "5km"]);
+  });
+
+  it("직전 최고는 '이 활동보다 느린 것 중 가장 빠른 것'이다", () => {
+    const run: RunPrTable = {
+      "10km": [e(3400, "today"), e(3410, "b"), e(3600, "c")],
+    };
+    // 직전 최고는 3410 (b) — 3400 보다 느린 것 중 최소
+    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(10);
+  });
+});

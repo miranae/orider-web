@@ -46,6 +46,7 @@ import {
   type SegmentEffortData,
 } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid";
+import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
 import {
@@ -601,6 +602,9 @@ export default function ActivityPage() {
 
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
 
+  // 러닝 전용 상태 — 기준선 페이스·거리 기록·해설 컨텍스트 (features/activity/detail 참조)
+  const runDetail = useRunActivityDetail(activity, profile);
+
   if (loadingActivity) {
     return (
       <div className="space-y-6 max-w-[1440px] mx-auto">
@@ -811,6 +815,7 @@ export default function ActivityPage() {
       <ActivityStatsGrid
         summary={s}
         sport={sport}
+        interpretationContext={runDetail.interpretationContext}
         avgPowerValue={avgPowerValue}
         normalizedPowerValue={normalizedPowerValue}
         movingTimeSec={serverMetrics.metrics?.movingTimeSec}
@@ -1045,7 +1050,7 @@ export default function ActivityPage() {
 
       {/* ── 스플릿 탭 (러닝 전용) ── */}
       {activeTab === "splits" && sport === "run" && streams && (
-        <RunLeftCards streams={streams} />
+        <RunLeftCards streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />
       )}
 
       {/* ── 랩 탭 ── */}
@@ -1203,8 +1208,11 @@ export default function ActivityPage() {
         </Card>
       )}
 
+      {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
+      <RunActivityIntro detail={runDetail} activityId={activityId} streams={streams} />
+
       {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}
-      {activeTab === "overview" && sport === "run" && streams && <RunLeftCards streams={streams} />}
+      {activeTab === "overview" && sport === "run" && streams && <RunLeftCards streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />}
       {activeTab === "overview" && sport === "swim" && streams && <SwimLeftCards streams={streams} />}
 
       {/* 사진 (가로 스크롤) — Strava + 업로드 사진 */}

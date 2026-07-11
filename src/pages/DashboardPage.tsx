@@ -7,6 +7,19 @@ import { useTranslation } from "react-i18next";
 import { filterByDiscipline, getDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { StatBlock, SectionHeader, PageHeader, EmptyState } from "../components/redesign";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import RunEmptyState from "../components/dashboard/RunEmptyState";
+import WeeklyRecapCard from "../components/dashboard/WeeklyRecapCard";
+import CrossDisciplineLoadCard from "../components/dashboard/CrossDisciplineLoadCard";
+import FirstSyncCelebration from "../components/dashboard/FirstSyncCelebration";
+import ThresholdPaceNudge from "../components/dashboard/ThresholdPaceNudge";
+import ShoeReplacementBadge from "../components/dashboard/ShoeReplacementBadge";
+import { estimateRunnerLevel } from "../utils/runnerLevel";
+import { latestShoeStatus } from "../utils/shoeStatus";
+import { useRunHistory } from "../hooks/useRunHistory";
+import { useUserFitness } from "../hooks/useUserFitness";
+import { useFirstSyncCelebration } from "../hooks/useFirstSyncCelebration";
+import { computeRunWeeklyRecap, isRecapVisible } from "../utils/runWeeklyRecap";
+import { seoulWeekday } from "../utils/seoulWeek";
 import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
@@ -168,6 +181,38 @@ export default function DashboardPage() {
 
   const [searchParams] = useSearchParams();
   const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
+
+  // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
+  // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
+  const isRunTab = discipline === "run";
+  const runHistory = useRunHistory(8, isRunTab && !!user);
+  const { fitness: userFitness } = useUserFitness(isRunTab && !!user);
+  const firstSync = useFirstSyncCelebration(runHistory.runs, runHistory.loading, user?.uid ?? null);
+
+  const runRecap = useMemo(
+    () => (isRunTab ? computeRunWeeklyRecap(runHistory.runs, Date.now()) : null),
+    [isRunTab, runHistory.runs],
+  );
+  const showRecap = runRecap != null && isRecapVisible(Date.now(), seoulWeekday);
+  const hasNoRuns = isRunTab && !!user && !runHistory.loading && runHistory.runs.length === 0;
+
+  // 꾸준히 달리는데 임계 페이스가 없으면 목표 페이스·rTSS 해석이 전부 잠긴다 (§3.1).
+  // 가끔 달리는 사람에게는 띄우지 않는다 — 잔소리가 되므로.
+  const runnerLevel = useMemo(
+    () =>
+      isRunTab && !runHistory.loading
+        ? estimateRunnerLevel(runHistory.runs, Date.now(), profile?.createdAt ?? null)
+        : null,
+    [isRunTab, runHistory.runs, runHistory.loading, profile?.createdAt],
+  );
+  const showThresholdNudge =
+    runnerLevel?.level === "regular" && !profile?.thresholdPace && !hasNoRuns;
+
+  // 신발 교체 임박 — 가장 최근 러닝의 gear 스냅샷에서 파생 (§3.6, 신규 구현 아님)
+  const shoeStatus = useMemo(
+    () => (isRunTab ? latestShoeStatus(runHistory.runs) : null),
+    [isRunTab, runHistory.runs],
+  );
 
   // 종목 필터 적용
   const sportFiltered = useMemo(() => filterByDiscipline(activities, discipline), [activities, discipline]);
@@ -425,13 +470,53 @@ export default function DashboardPage() {
           }
         />
 
+        {/* 러닝 데이터가 없으면 빈 대시보드 대신 첫 동기화 여정을 보여준다 (§3.0) */}
+        {hasNoRuns && (
+          <div style={{ marginTop: 'var(--space-5)' }}>
+            <RunEmptyState stravaConnected={!!profile?.stravaConnected} />
+          </div>
+        )}
+
+        {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}
+        {isRunTab && showRecap && runRecap && !hasNoRuns && (
+          <div style={{ marginTop: 'var(--space-5)' }}>
+            <WeeklyRecapCard recap={runRecap} />
+          </div>
+        )}
+
+        {/* 임계 페이스 설정 유도 — regular 러너에게만 (§3.1) */}
+        {showThresholdNudge && (
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <ThresholdPaceNudge visible />
+          </div>
+        )}
+
+        {/* 신발 교체 임박 — 임박했을 때만 (§3.6) */}
+        {isRunTab && !hasNoRuns && shoeStatus?.replacementDue && (
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <ShoeReplacementBadge status={shoeStatus} />
+          </div>
+        )}
+
+        {/* 통합 부하 기여 — 자전거를 병행하는 러너에게만 의미가 있다 (§3.7) */}
+        {isRunTab && !hasNoRuns && (
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <CrossDisciplineLoadCard fitness={userFitness} discipline="run" />
+          </div>
+        )}
+
         {/* 오늘의 워크아웃 — 로그인 사용자에게만 지연 로드. 비로그인 첫 피드/LCP 경로에서 제외. */}
-        {user && (
+        {user && !hasNoRuns && (
           <div style={{ marginTop: 'var(--space-5)' }}>
             <Suspense fallback={null}>
               <TodaysWorkoutCard />
             </Suspense>
           </div>
+        )}
+
+        {/* 첫 러닝 도착 축하 — aha moment 와 같은 릴리스 (§3.0.3) */}
+        {firstSync.show && (
+          <FirstSyncCelebration activityId={firstSync.activityId} onClose={firstSync.dismiss} />
         )}
 
         {consistencyStreak && (

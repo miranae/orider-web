@@ -1,0 +1,93 @@
+{
+  "sheet": {
+    "definitionLabel": "What this means",
+    "interpLabel": "On this run",
+    "interpLabelGeneric": "Your numbers",
+    "learnMore": "Learn more",
+    "close": "Close",
+    "openHint": "Show metric explanation"
+  },
+  "pace": {
+    "title": "Pace",
+    "definition": "How long it takes you to cover one kilometer. Lower is faster.",
+    "interp": {
+      "faster": "That's {{diffSec}} seconds per km quicker than your four-week average.",
+      "slower": "That's {{diffSec}} seconds per km slower than your four-week average — terrain and how you felt both play a part.",
+      "steady": "Right in line with your four-week average."
+    }
+  },
+  "gap": {
+    "title": "GAP (Grade Adjusted Pace)",
+    "definition": "Your pace converted to what it would have been on flat ground. It shows the real effort behind a hilly run.",
+    "interp": {
+      "uphill": "Your GAP is {{diffSec}} seconds per km quicker than your actual pace — you were climbing.",
+      "downhill": "Your GAP is {{diffSec}} seconds per km slower than your actual pace — the descents gave you a hand.",
+      "flat": "GAP and actual pace are nearly identical — this route was essentially flat."
+    },
+    "summary": {
+      "uphill": "Factor in the climbing and you effectively ran {{gapPace}} per km on the flat.",
+      "downhill": "Take the descents out and you effectively ran {{gapPace}} per km on the flat.",
+      "flat": "This route was near flat, so your actual pace tells the whole story."
+    }
+  },
+  "cadence": {
+    "title": "Cadence",
+    "definition": "How many times your feet strike the ground each minute (spm). Taking quicker, shorter steps eases the load on your knees.",
+    "interp": {
+      "low": "At {{cadence}} spm you're below the {{target}} spm guideline. Try shortening your stride and turning your legs over a little faster.",
+      "optimal": "At {{cadence}} spm you're inside the recommended range.",
+      "high": "{{cadence}} spm is on the quick side — normal during intervals or downhill stretches."
+    }
+  },
+  "rtss": {
+    "title": "Training Load (rTSS)",
+    "definition": "How much this run asked of your body. Longer runs and harder efforts both push it up.",
+    "interp": {
+      "hard": "Load {{rtss}} at an intensity of {{if}} — above your threshold pace. Keep tomorrow easy, or take the day off.",
+      "moderate": "Load {{rtss}} at an intensity of {{if}} — a moderate effort. A day is usually enough to bounce back.",
+      "easy": "Load {{rtss}} at an intensity of {{if}} — an easy run. This is the kind of effort that helps you recover."
+    }
+  },
+  "thresholdPace": {
+    "title": "Threshold Pace",
+    "definition": "The quickest pace you could hold for roughly an hour. Everything from your training zones to your load is calculated from it.",
+    "interp": {
+      "set": "Your target paces and training load are calculated from the threshold pace you set.",
+      "unset": "You haven't set one yet. Adding it sharpens both your target paces and your training load."
+    }
+  },
+  "ctl": {
+    "title": "Fitness (CTL)",
+    "definition": "The average training you've absorbed over the past six weeks. It climbs slowly and falls slowly.",
+    "interp": {
+      "rising": "Fitness {{ctl}}, climbing {{ramp}} per week.",
+      "falling": "Fitness {{ctl}}, easing off {{ramp}} per week — your training volume has dropped.",
+      "plain": "Your fitness is sitting at {{ctl}}."
+    }
+  },
+  "atl": {
+    "title": "Fatigue (ATL)",
+    "definition": "The training you've done in the last week or so. It rises fast and clears fast.",
+    "interp": {
+      "high": "Fatigue {{atl}} is running ahead of fitness {{ctl}} — you've been packing the sessions in.",
+      "balanced": "Fatigue {{atl}} and fitness {{ctl}} are nicely balanced.",
+      "low": "Fatigue {{atl}} sits below fitness {{ctl}} — you're resting well.",
+      "plain": "Your fatigue is sitting at {{atl}}."
+    }
+  },
+  "tsb": {
+    "title": "Form (TSB)",
+    "definition": "Fitness minus fatigue. Negative means training is stacking up; positive means you've recovered.",
+    "interp": {
+      "overload": "TSB {{tsb}} — fatigue has piled up. Work a rest day into the week.",
+      "needsRecovery": "TSB {{tsb}} — a fair amount of load on board. An easy day would serve you well.",
+      "productive": "TSB {{tsb}} — your body is absorbing the training nicely.",
+      "fresh": "TSB {{tsb}} — you're well recovered. A harder session would land well.",
+      "overRecovered": "TSB {{tsb}} — you've rested a while. Time to start building again."
+    }
+  },
+  "criticalPace": {
+    "title": "Critical Pace Curve",
+    "definition": "The quickest pace you can sustain for each duration, drawn as a line. Short efforts sit fast; long ones settle slower."
+  }
+}

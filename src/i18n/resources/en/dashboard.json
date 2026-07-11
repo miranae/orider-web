@@ -332,5 +332,46 @@
     "pmcLabelToday": " · Today",
     "pmcLabelForecast": " · Forecast",
     "weeklyTssThisWeek": "This week"
+  },
+  "runEmpty": {
+    "title": "Connect the app you run with, and we'll make sense of it here",
+    "subtitle": "Your Nike Run Club and Garmin history, as it is — nothing to upload.",
+    "waitingTitle": "We'll tell you when your first run lands",
+    "waitingSubtitle": "As soon as a run reaches Strava we'll pull it in and read it for you.",
+    "connectCta": "Connect Strava",
+    "previewTag": "Preview",
+    "sampleSentence": "Once connected you'll see readings like this — \"Factor in the climbing and you effectively ran {{gap}} per km on the flat.\"",
+    "samplePace": "Pace",
+    "sampleLoad": "Load",
+    "manualHint": "New to pace, GAP and training load?",
+    "manualCta": "Read the plain-English guide"
+  },
+  "runRecap": {
+    "eyebrow": "Last week's running",
+    "headlineFaster": "{{count}} runs, {{km}} km — your average pace came down {{sec}} seconds on the week before.",
+    "headlineSlower": "{{count}} runs, {{km}} km. Pace moves around with terrain and how you felt.",
+    "headlinePlain": "{{count}} runs, {{km}} km.",
+    "runs": "Runs",
+    "distance": "Distance",
+    "avgPace": "Avg pace",
+    "unitTimes": "",
+    "unitSeconds": "s",
+    "prevWeek": "Week before: {{count}} runs · {{km}} km",
+    "deltaFasterA11y": "{{sec}} seconds faster",
+    "deltaSlowerA11y": "{{sec}} seconds slower"
+  },
+  "firstSync": {
+    "title": "Your first run has landed",
+    "body": "From here your records become readings. Take a look at your grade-adjusted pace and training load.",
+    "viewCta": "See the reading",
+    "later": "Later"
+  },
+  "thresholdNudge": {
+    "body": "You're running consistently. Setting a threshold pace sharpens your target paces and training load considerably.",
+    "cta": "Set threshold pace"
+  },
+  "shoeBadge": {
+    "title": "{{name}} is nearing the end of its life",
+    "detail": "{{total}} km logged · roughly {{remaining}} km left"
   }
 }

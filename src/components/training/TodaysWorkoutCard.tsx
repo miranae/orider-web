@@ -26,6 +26,7 @@ import {
 import {
   applyDisciplineToWorkout,
   buildWorkoutLabels,
+  getWorkoutCategory,
   makeFactChips,
   tsbTone,
   workoutToRecType,
@@ -33,6 +34,7 @@ import {
   type TodaysWorkoutCFResponse,
   type WorkoutDetail,
 } from "../../features/training/todaysWorkout/todaysWorkoutUtils";
+import WorkoutPurposeDetail from "../../features/training/todaysWorkout/WorkoutPurposeDetail";
 
 const TODAYS_WORKOUT_FETCH_TIMEOUT_MS = 12_000;
 
@@ -737,8 +739,19 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
     </>
   );
 
+  // 워크아웃 목적 + 목표 페이스 (§3.3). 휴식일에는 페이스가 무의미하므로 목적만 노출된다.
+  const purposeDetail = (
+    <WorkoutPurposeDetail
+      category={getWorkoutCategory(disciplineWorkoutKind)}
+      zone={workoutToZone(disciplineWorkoutKind)}
+      isRun={planDiscipline === "run" && disciplineWorkoutKind !== "rest"}
+      thresholdPaceSecPerKm={profile?.thresholdPace ?? null}
+      thresholdSource={profile?.thresholdPace ? "confirmed" : null}
+    />
+  );
+
   // 시간 · TSS 라인 (+ 완료 시 실제 TSS / 달성률)
-  const detailLine = (duration > 0 || tss > 0) ? (
+  const statsLine = (duration > 0 || tss > 0) ? (
     <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-2)' }}>
       {duration > 0 ? t('today.minutes', { value: duration }) : ""}
       {duration > 0 && tss > 0 ? " · " : ""}
@@ -768,6 +781,14 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
     </div>
   ) : null;
 
+  const detailLine = (
+    <>
+      {statsLine}
+      {purposeDetail}
+    </>
+  );
+
+  // compact variant 는 히어로 카드 대신 축약 카드(main). detailLine 은 히어로에서만 쓴다.
   if (variant === "compact") {
     return (
       <CompactWorkoutCard
