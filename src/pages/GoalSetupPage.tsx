@@ -31,6 +31,7 @@ interface FeasibilityResult {
 function calcFeasibility(
   courseDist: number, // km
   courseElev: number, // m
+  courseClimbs: Array<{ gain: number; dist: number; cat: number }> | undefined,
   goalDetails: GoalDetailsStepValue,
   ftpW: number,
   weightKg: number,
@@ -44,7 +45,7 @@ function calcFeasibility(
     ? (courseDist > 0 ? (courseDist / 20) * 60 : 60)
     : goalDetails.targetDurationMin!;
   const r = calcFeasibilityCore({
-    course: { dist: courseDist, elev: courseElev },
+    course: { dist: courseDist, elev: courseElev, climbs: courseClimbs },
     target: { eventType: isCompletion ? 'time' : goalDetails.eventType, targetDurationMin: targetMin },
     snap: { ftp: ftpW, weightKg },
     fitness: userTsb != null ? { tsb: userTsb } : null,
@@ -169,7 +170,7 @@ function Stepper({ current, steps }: StepperProps) {
 
 interface CourseSelectStepProps {
   selectedId: string | null;
-  onSelect: (id: string, course: { name: string; dist: number; elev: number }) => void;
+  onSelect: (id: string, course: { name: string; dist: number; elev: number; climbs?: Array<{ gain: number; dist: number; cat: number }> }) => void;
 }
 
 function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
@@ -269,7 +270,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
           return (
             <button
               key={c.id}
-              onClick={() => onSelect(c.id, { name: c.name, dist: c.distance / 1000, elev: c.elevationGain })}
+              onClick={() => onSelect(c.id, { name: c.name, dist: c.distance / 1000, elev: c.elevationGain, climbs: c.climbs })}
               style={{
                 textAlign: "left",
                 padding: 'var(--space-4)',
@@ -424,7 +425,7 @@ export default function GoalSetupPage() {
   const discipline = (searchParams.get("sport") || "bike") as "bike" | "run" | "swim";
   const [step, setStep] = useState(1);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<{ name: string; dist: number; elev: number } | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<{ name: string; dist: number; elev: number; climbs?: Array<{ gain: number; dist: number; cat: number }> } | null>(null);
   const [goalDetails, setGoalDetails] = useState<GoalDetailsStepValue>({
     eventType: "completion",
     eventDate: "",
@@ -476,7 +477,7 @@ export default function GoalSetupPage() {
 
   // Step 3: 실시간 feasibility 계산 (goalDetails 변경 시 재계산)
   const feasibility: FeasibilityResult | null = selectedCourse
-    ? calcFeasibility(selectedCourse.dist, selectedCourse.elev, goalDetails, userFtp, userWeightKg, userTsb)
+    ? calcFeasibility(selectedCourse.dist, selectedCourse.elev, selectedCourse.climbs, goalDetails, userFtp, userWeightKg, userTsb)
     : null;
 
   const canNext =
@@ -575,6 +576,7 @@ export default function GoalSetupPage() {
             <GoalDetailsStep
               courseDist={selectedCourse.dist}
               courseElev={selectedCourse.elev}
+              courseClimbs={selectedCourse.climbs}
               value={goalDetails}
               onChange={setGoalDetails}
               userFtp={userFtp}

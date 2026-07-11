@@ -1,7 +1,18 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { getDocs, where } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import ActivityPage from "./ActivityPage";
+import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { mockSignInWithPopup, mockUpdateDoc, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
+import {
+  mockCallableInvocations,
+  mockSignInWithPopup,
+  mockUpdateDoc,
+  simulateLogin,
+  setCallableResult,
+  setCollectionDocs,
+  setDocData,
+} from "../__tests__/mocks/firebase";
 import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
 const shareButtonProps = vi.hoisted(() => vi.fn());
@@ -41,16 +52,28 @@ vi.mock("chart.js", () => ({
   Filler: class {},
 }));
 
+const { mockRoute } = vi.hoisted(() => ({ mockRoute: { activityId: "test-activity" } }));
+const findSentButton = () => screen.findByRole("button", { name: "앱으로 전송됨" }, { timeout: 5000 });
+
 // Mock react-router-dom useParams
 vi.mock("react-router-dom", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react-router-dom")>();
   return {
     ...actual,
-    useParams: () => ({ activityId: "test-activity" }),
+    useParams: () => ({ activityId: mockRoute.activityId }),
   };
 });
 
 describe("ActivityPage", () => {
+  beforeEach(() => {
+    mockRoute.activityId = "test-activity";
+    vi.mocked(getDocs).mockClear();
+    vi.mocked(where).mockClear();
+    vi.mocked(httpsCallable).mockClear();
+    window.sessionStorage.clear();
+    clearRideRouteIntentMemoryForTests();
+  });
+
   it("shows loading state initially", () => {
     renderWithProviders(<ActivityPage />);
     // The component starts with loading state
@@ -182,6 +205,332 @@ describe("ActivityPage", () => {
     await waitFor(() => {
       expect(mockSignInWithPopup).toHaveBeenCalled();
     });
+  });
+
+  it("creates a course from the activity route and sends it to the app in one click", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      description: "다시 달릴 한강 코스",
+      thumbnailTrack: "encoded-route",
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setCallableResult("createCourseFromActivity", { data: { courseId: "course-from-activity" } });
+    setCallableResult("sendCourseToApp", { data: {} });
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(screen.getByText("코스를 만들고 앱으로 전송했습니다")).toBeInTheDocument();
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toEqual([
+      {
+        name: "createCourseFromActivity",
+        data: {
+          activityId: "test-activity",
+          name: "다시 달릴 한강 코스",
+          description: "활동 경로에서 만든 코스",
+          surface: null,
+          difficulty: null,
+        },
+      },
+    ]);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+      { name: "sendCourseToApp", data: { courseId: "course-from-activity" } },
+    ]);
+    const createCallableIndex = vi.mocked(httpsCallable).mock.calls.findIndex(([, name]) => name === "createCourseFromActivity");
+    expect(vi.mocked(getDocs).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(httpsCallable).mock.invocationCallOrder[createCallableIndex]!,
+    );
+  });
+
+  it("reuses an existing course for the same creator and activity before creating", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setCollectionDocs("courses", [{
+      id: "existing-course",
+      creatorId: "test-uid",
+      sourceActivityId: "test-activity",
+    }]);
+    setCallableResult("sendCourseToApp", { data: {} });
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+      { name: "sendCourseToApp", data: { courseId: "existing-course" } },
+    ]);
+    expect(vi.mocked(where)).toHaveBeenCalledWith("creatorId", "==", "test-uid");
+    expect(vi.mocked(where)).toHaveBeenCalledWith("sourceActivityId", "==", "test-activity");
+    expect(vi.mocked(where)).toHaveBeenCalledWith("deletedAt", "==", null);
+  });
+
+  it("does not create when the existing-course lookup fails", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    vi.mocked(getDocs).mockRejectedValueOnce(new Error("index unavailable"));
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("기존 코스를 확인하지 못했습니다");
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(0);
+  });
+
+  it("keeps an ambiguous pending intent across remounts and performs lookup only", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    window.sessionStorage.setItem("orider:ride-route:test-uid:test-activity", JSON.stringify({
+      state: "pending",
+      updatedAt: Date.now(),
+    }));
+
+    const first = renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
+    first.unmount();
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2));
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
+  });
+
+  it("reuses a persisted created course after remount without creating or looking it up", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    window.sessionStorage.setItem("orider:ride-route:test-uid:test-activity", JSON.stringify({
+      state: "created",
+      courseId: "persisted-course",
+      updatedAt: Date.now(),
+    }));
+    setCallableResult("sendCourseToApp", { data: {} });
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(0);
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+      { name: "sendCourseToApp", data: { courseId: "persisted-course" } },
+    ]);
+  });
+
+  it("recovers the created course after a lost create response without creating again", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    let rejectCreate!: (reason: Error) => void;
+    const createResponse = new Promise((_resolve, reject) => { rejectCreate = reject; });
+    void createResponse.catch(() => undefined);
+    setCallableResult("createCourseFromActivity", createResponse);
+    setCallableResult("sendCourseToApp", { data: {} });
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    await waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1));
+
+    setCollectionDocs("courses", [{
+      id: "recovered-course",
+      creatorId: "test-uid",
+      sourceActivityId: "test-activity",
+    }]);
+    rejectCreate(new Error("response lost"));
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+      { name: "sendCourseToApp", data: { courseId: "recovered-course" } },
+    ]);
+    expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears pending intent after a definitive create rejection so a retry may create", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    const definitiveError = Object.assign(new Error("invalid activity state"), {
+      code: "functions/failed-precondition",
+    });
+    const rejectedCreate = Promise.reject(definitiveError);
+    void rejectedCreate.catch(() => undefined);
+    setCallableResult("createCourseFromActivity", rejectedCreate);
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("코스를 만들지 못했습니다");
+    expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toBeNull();
+
+    setCallableResult("createCourseFromActivity", { data: { courseId: "retry-course" } });
+    setCallableResult("sendCourseToApp", { data: {} });
+    fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(2);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+      { name: "sendCourseToApp", data: { courseId: "retry-course" } },
+    ]);
+  }, 15_000);
+
+  it("keeps pending intent after an unavailable create response and never duplicates it", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    const unavailableError = Object.assign(new Error("transport unavailable"), {
+      code: "functions/unavailable",
+    });
+    const rejectedCreate = Promise.reject(unavailableError);
+    void rejectedCreate.catch(() => undefined);
+    setCallableResult("createCourseFromActivity", rejectedCreate);
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
+    expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toContain('"state":"pending"');
+
+    fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
+    await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(3));
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(0);
+  }, 15_000);
+
+  it("continues create and send with the in-memory intent when sessionStorage is unavailable", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
+    setCallableResult("createCourseFromActivity", { data: { courseId: "memory-course" } });
+    setCallableResult("sendCourseToApp", { data: {} });
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+      { name: "sendCourseToApp", data: { courseId: "memory-course" } },
+    ]);
+    getItem.mockRestore();
+    setItem.mockRestore();
+  }, 15_000);
+
+  it("discards a pending create result when the activity route changes", async () => {
+    const first = createMockActivity({ id: "test-activity", description: "첫 활동", thumbnailTrack: "route-1" });
+    const second = createMockActivity({ id: "next-activity", description: "다음 활동", thumbnailTrack: "route-2" });
+    setDocData("activities/test-activity", first as unknown as Record<string, unknown>);
+    setDocData("activities/next-activity", second as unknown as Record<string, unknown>);
+    let resolveCreate!: (value: { data: { courseId: string } }) => void;
+    setCallableResult("createCourseFromActivity", new Promise((resolve) => { resolveCreate = resolve; }));
+
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    await waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1));
+
+    mockRoute.activityId = "next-activity";
+    view.rerender(<ActivityPage />);
+    expect(await screen.findByText("다음 활동")).toBeInTheDocument();
+    resolveCreate({ data: { courseId: "stale-course" } });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "이 경로로 라이드" })).toBeEnabled());
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(0);
+    expect(screen.queryByText("코스를 만들고 앱으로 전송했습니다")).not.toBeInTheDocument();
+  });
+
+  it("does not send or publish stale UI after unmounting during creation", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    let resolveCreate!: (value: { data: { courseId: string } }) => void;
+    setCallableResult("createCourseFromActivity", new Promise((resolve) => { resolveCreate = resolve; }));
+
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    await waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1));
+    view.unmount();
+    resolveCreate({ data: { courseId: "stale-course" } });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(0);
+  });
+
+  it("invalidates pending work when auth switches and does not reuse user A course for user B", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    let resolveUserACreate!: (value: { data: { courseId: string } }) => void;
+    setCallableResult("createCourseFromActivity", new Promise((resolve) => { resolveUserACreate = resolve; }));
+
+    renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: "user-a" } });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    await waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1));
+
+    simulateLogin({ uid: "user-b", displayName: "User B" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "이 경로로 라이드" })).toBeEnabled());
+    resolveUserACreate({ data: { courseId: "user-a-course" } });
+    await Promise.resolve();
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(0);
+
+    setCallableResult("createCourseFromActivity", { data: { courseId: "user-b-course" } });
+    setCallableResult("sendCourseToApp", { data: {} });
+    fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+      { name: "sendCourseToApp", data: { courseId: "user-b-course" } },
+    ]);
+    expect(window.sessionStorage.getItem("orider:ride-route:user-a:test-activity")).toContain('"state":"pending"');
+    expect(window.sessionStorage.getItem("orider:ride-route:user-b:test-activity")).toContain("user-b-course");
+  });
+
+  it("retries only app delivery when course creation succeeded but delivery failed", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setCallableResult("createCourseFromActivity", { data: { courseId: "preserved-course" } });
+    const rejectedDelivery = Promise.reject(new Error("push unavailable"));
+    void rejectedDelivery.catch(() => undefined);
+    setCallableResult("sendCourseToApp", rejectedDelivery);
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("코스는 만들었지만 앱으로 보내지 못했습니다");
+
+    setCallableResult("sendCourseToApp", { data: {} });
+    fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(2);
+  });
+
+  it("offers sign-in instead of invoking course functions for signed-out visitors", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    mockSignInWithPopup.mockClear();
+
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+
+    fireEvent.click(await screen.findByRole("button", { name: "로그인하고 이 경로로 라이드" }));
+
+    await waitFor(() => expect(mockSignInWithPopup).toHaveBeenCalledTimes(1));
+    expect(mockCallableInvocations).not.toContainEqual(expect.objectContaining({ name: "createCourseFromActivity" }));
+  });
+
+  it("does not offer route-to-app when the activity has no route", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({ userId: "user-1", time: [0, 60] }),
+    });
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    await screen.findByText("한강 라이딩");
+    expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
   });
 
   it("shows saved sensor summary on analysis tab when streams are missing", async () => {
