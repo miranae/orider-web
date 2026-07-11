@@ -5,7 +5,7 @@ import { logClientError } from "../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 
-interface NextEventInfo {
+export interface NextEventInfo {
   id: string;
   groupId: string;
   name: string;
@@ -39,14 +39,16 @@ export function formatNextLabel(ts: number, name: string, locale: string): strin
  * 그룹별 가장 가까운 OPEN/LIVE 이벤트 1건씩 묶어 반환.
  * Firestore in-clause 한도(10) 단위로 chunk 쿼리.
  */
-export function useGroupNextEvents(groupIds: string[]) {
+export function useGroupNextEvents(groupIds: string[], excludeEventId?: string) {
   const { t, i18n } = useTranslation("group");
   const [byGroup, setByGroup] = useState<Map<string, string>>(new Map());
+  const [eventByGroup, setEventByGroup] = useState<Map<string, NextEventInfo>>(new Map());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (groupIds.length === 0) {
       setByGroup(new Map());
+      setEventByGroup(new Map());
       return;
     }
     let cancelled = false;
@@ -64,6 +66,7 @@ export function useGroupNextEvents(groupIds: string[]) {
           );
           const snap = await getDocs(q);
           snap.forEach((doc) => {
+            if (doc.id === excludeEventId) return;
             const d = doc.data();
             const info = d.info ?? {};
             const groupId: string = info.groupId ?? "";
@@ -79,10 +82,12 @@ export function useGroupNextEvents(groupIds: string[]) {
         const labels = new Map<string, string>();
         map.forEach((v, k) => labels.set(k, formatNextLabel(v.startTime, v.name, localeTag())));
         setByGroup(labels);
+        setEventByGroup(map);
       } catch (err) {
         // 인덱스/규칙 문제 시 조용히 실패
         logClientError("useGroupNextEvents.load", err, { count: groupIds.length });
         if (!cancelled) setByGroup(new Map());
+        if (!cancelled) setEventByGroup(new Map());
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -90,7 +95,7 @@ export function useGroupNextEvents(groupIds: string[]) {
     return () => {
       cancelled = true;
     };
-  }, [groupIds.join("|"), i18n.language, t]);
+  }, [excludeEventId, groupIds.join("|"), i18n.language, t]);
 
-  return { byGroup, loading };
+  return { byGroup, eventByGroup, loading };
 }

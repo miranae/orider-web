@@ -10,10 +10,11 @@ import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign"
 import { decodePolyline, encodePolyline } from "../utils/polyline";
 import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { Chip, Text, buttonClass } from "../theme/components";
+import { Card, Chip, Text, buttonClass } from "../theme/components";
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
 type EventVisibility = "PUBLIC" | "GROUP" | "PRIVATE" | "UNKNOWN";
+type DatePreset = "ALL" | "WEEKEND" | "MONTH";
 
 const PUBLIC_EVENT_STATUSES = ["OPEN", "LIVE", "FINISHED"] as const;
 
@@ -167,6 +168,24 @@ export function isPublicEventInfo(info: Record<string, unknown>): boolean {
   );
 }
 
+export function matchesDatePreset(startTime: number, preset: DatePreset, now = new Date()): boolean {
+  if (preset === "ALL") return true;
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  let end: Date;
+  if (preset === "MONTH") {
+    end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+  } else {
+    const daysUntilSaturday = (6 - start.getDay() + 7) % 7;
+    const saturday = new Date(start);
+    saturday.setDate(start.getDate() + daysUntilSaturday);
+    end = new Date(saturday);
+    end.setDate(saturday.getDate() + 2);
+    start.setTime(saturday.getTime());
+  }
+  return startTime >= start.getTime() && startTime < end.getTime();
+}
+
 export default function EventsPage() {
   const { t } = useTranslation("event");
   const STATUS_TABS = STATUS_TAB_KEYS.map(({ k, labelKey }) => ({ k, label: t(labelKey) }));
@@ -179,6 +198,8 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"ALL" | EventStatus>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  const [regionFilter, setRegionFilter] = useState<string>("ALL");
+  const [datePreset, setDatePreset] = useState<DatePreset>("ALL");
 
   useEffect(() => {
     (async () => {
@@ -304,6 +325,8 @@ export default function EventsPage() {
     return events
       .filter((e) => statusFilter === "ALL" || e.status === statusFilter)
       .filter((e) => typeFilter === "ALL" || e.type === typeFilter)
+      .filter((e) => regionFilter === "ALL" || e.region === regionFilter)
+      .filter((e) => matchesDatePreset(e.startTime, datePreset))
       .sort((a, b) => {
         // LIVE/OPEN 먼저, 종료는 뒤로 — 같은 상태 내 가까운 시작일 우선 (종료는 최근순)
         const bucket = (s: EventStatus) => (s === "LIVE" ? 0 : s === "OPEN" ? 1 : 2);
@@ -313,7 +336,12 @@ export default function EventsPage() {
         if (a.status === "FINISHED") return b.startTime - a.startTime;
         return a.startTime - b.startTime;
       });
-  }, [events, statusFilter, typeFilter]);
+  }, [datePreset, events, regionFilter, statusFilter, typeFilter]);
+
+  const regions = useMemo(
+    () => Array.from(new Set(events.map((event) => event.region?.trim()).filter((region): region is string => !!region))).sort(localeTag()),
+    [events],
+  );
 
   const liveCount = useMemo(() => events.filter((e) => e.status === "LIVE").length, [events]);
   const openCount = useMemo(() => events.filter((e) => e.status === "OPEN").length, [events]);
@@ -345,6 +373,17 @@ export default function EventsPage() {
           )
         }
       />
+
+      {!user && (
+        <Card padding="none" style={{ padding: "var(--space-5)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap" }}>
+          <div>
+            <Text as="div" variant="eyebrow">{t("organizer.eyebrow")}</Text>
+            <div className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("organizer.title")}</div>
+            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{t("organizer.description")}</div>
+          </div>
+          <Link to="/login" className={buttonClass({ variant: "primary", size: "sm" })}>{t("organizer.cta")}</Link>
+        </Card>
+      )}
 
       {/* 요약 strip — 3컬럼 (진행중/모집중/내 참가) */}
       {events.length > 0 && (
@@ -447,6 +486,21 @@ export default function EventsPage() {
           })}
         </div>
 
+        {regions.length > 0 && (
+          <select aria-label={t("filter.region")} value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)} className="ds-chip" style={{ color: "var(--ink-2)", background: "var(--bg-2)" }}>
+            <option value="ALL">{t("filter.allRegions")}</option>
+            {regions.map((region) => <option key={region} value={region}>{region}</option>)}
+          </select>
+        )}
+
+        <div style={{ display: "flex", gap: "var(--space-1)" }}>
+          {(["ALL", "WEEKEND", "MONTH"] as const).map((preset) => (
+            <button key={preset} type="button" aria-pressed={datePreset === preset} onClick={() => setDatePreset(preset)} className="ds-chip" style={{ cursor: "pointer", color: datePreset === preset ? "var(--ink-0)" : "var(--ink-3)", borderColor: datePreset === preset ? "var(--lime)" : "var(--line-soft)" }}>
+              {t(`filter.date.${preset.toLowerCase()}`)}
+            </button>
+          ))}
+        </div>
+
         <div style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
           {filtered.length} / {events.length}
         </div>
@@ -467,7 +521,7 @@ export default function EventsPage() {
           description={t("empty.adjustFilters")}
           actions={[
             { label: t("button.create"), variant: "primary", href: "/event/create" },
-            { label: t("button.resetFilters"), variant: "secondary", onClick: () => { setStatusFilter("ALL"); setTypeFilter("ALL"); } },
+            { label: t("button.resetFilters"), variant: "secondary", onClick: () => { setStatusFilter("ALL"); setTypeFilter("ALL"); setRegionFilter("ALL"); setDatePreset("ALL"); } },
           ]}
         />
       ) : (
