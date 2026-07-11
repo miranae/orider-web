@@ -2,9 +2,11 @@ import { fireEvent, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import RouteMap from "./RouteMap";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
+import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 
 const mapProps = vi.hoisted(() => ({
   latest: null as null | { cooperativeGestures?: boolean; dragPan?: boolean; scrollZoom?: boolean },
+  layers: new Map<string, Record<string, unknown>>(),
 }));
 
 vi.mock("../utils/mapbox", () => ({
@@ -35,13 +37,24 @@ vi.mock("react-map-gl/mapbox", () => ({
     );
   },
   Source: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Layer: () => null,
+  Layer: ({ id, paint }: { id: string; paint: Record<string, unknown> }) => {
+    mapProps.layers.set(id, paint);
+    return null;
+  },
   Marker: ({ children }: { children: ReactNode }) => <>{children}</>,
   Popup: ({ children }: { children: ReactNode }) => <>{children}</>,
   useMap: () => ({ current: null }),
 }));
 
 describe("RouteMap", () => {
+  beforeEach(() => mapProps.layers.clear());
+
+  it("uses the generated recorded-track functional color in production layers", () => {
+    renderWithProviders(<RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" />);
+    expect(mapProps.layers.get("route-main")?.["line-color"]).toBe(RECORDED_TRACK_COLOR);
+    expect(mapProps.layers.get("route-glow")?.["line-color"]).toBe(RECORDED_TRACK_COLOR);
+  });
+
   it("uses cooperative gestures on interactive maps to preserve mobile page scroll", () => {
     renderWithProviders(
       <RouteMap
