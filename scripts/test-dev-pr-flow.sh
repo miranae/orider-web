@@ -86,4 +86,16 @@ assert_contains .github/workflows/deploy-stage.yml 'branches:' \
 assert_contains .github/workflows/deploy-stage.yml '^      - main$' \
   'stage deploy must remain on main push'
 
+# 재발 방지 계약 (#374 스티키 배너 장애)
+assert_contains scripts/merge-pr.sh 'REQUIRE_VISUAL_CHECK' \
+  'local merge gate must require screenshot evidence for new sticky/fixed elements'
+assert_contains .github/workflows/pr-gate.yml 'Require screenshot for new sticky/fixed elements' \
+  'PR gate must require screenshot evidence for sticky/fixed additions on non-dev main PRs'
+assert_contains scripts/release-tag.sh 'Release diff' \
+  'release tagging must surface the full diff going to production'
+assert_contains .github/workflows/prod-smoke.yml 'workflow_run' \
+  'production smoke must chain off the production deploy workflow'
+assert_contains playwright.prod.config.ts 'e2e/prod-smoke' \
+  'production smoke config must target the prod-smoke spec directory'
+
 echo 'PASS: dev PR flow contracts'
