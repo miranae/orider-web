@@ -6,7 +6,7 @@ import { useLocalizedNavigate as useNavigate } from '../hooks/useLocalizedNaviga
 import PermissionGate from '../components/redesign/states/PermissionGate';
 import { Button, Card, Field, Input, Text } from '../theme/components';
 import { functions } from '../services/firebase';
-import { buildClimbGoalRequest } from '../features/training/climbGoal';
+import { buildClimbGoalRequest, climbGoalDateBounds } from '../features/training/climbGoal';
 
 export default function ClimbGoalSetupPage() {
   const { t } = useTranslation('training');
@@ -19,7 +19,7 @@ export default function ClimbGoalSetupPage() {
   const [sessions, setSessions] = useState('4');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(false);
-  const dateBound = (weeks: number) => new Date(Date.now() + weeks * 7 * 86400000).toISOString().slice(0, 10);
+  const dateBounds = climbGoalDateBounds();
 
   if (authLoading) return <Text as="div" variant="body" style={{ padding: 'var(--space-6)', color: 'var(--ink-3)' }}>{t('climbGoal.loading')}</Text>;
   if (!user) return <PermissionGate title={t('climbGoal.loginTitle')} description={t('climbGoal.loginDescription')} actionLabel={t('climbGoal.loginAction')} onAction={() => { void signInWithGoogle(); }} />;
@@ -43,7 +43,7 @@ export default function ClimbGoalSetupPage() {
       <Field label={t('climbGoal.name')}><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></Field>
       <Field label={t('climbGoal.duration')}><Input type="number" min={3} max={240} value={duration} onChange={(e) => setDuration(e.target.value)} /></Field>
       <Field label={t('climbGoal.wkg')}><Input type="number" min={1} max={8} step={0.1} value={wkg} onChange={(e) => setWkg(e.target.value)} /></Field>
-      <Field label={t('climbGoal.date')}><Input type="date" min={dateBound(4)} max={dateBound(24)} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+      <Field label={t('climbGoal.date')}><Input type="date" min={dateBounds.min} max={dateBounds.max} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
       <Field label={t('climbGoal.sessions')}><Input type="number" min={1} max={6} value={sessions} onChange={(e) => setSessions(e.target.value)} /></Field>
       {error && <Text variant="caption" style={{ color: 'var(--rose)' }}>{t('climbGoal.error')}</Text>}
       <Button onClick={() => { void submit(); }} disabled={submitting}>{t('climbGoal.submit')}</Button>

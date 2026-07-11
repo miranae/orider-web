@@ -1242,7 +1242,7 @@ export default function FitnessPage() {
                       {activeGoal.goalType === 'climb'
                         ? `${activeGoal.target?.climbDurationMin ?? activeGoal.targetDurationMin ?? '—'} min${activeGoal.target?.targetWkg != null ? ` · ${activeGoal.target.targetWkg.toFixed(1)} W/kg` : ''}`
                         : `${activeGoal.courseDist.toFixed(1)} km`}
-                      {activeGoal.targetDurationMin != null && (
+                      {activeGoal.goalType !== 'climb' && activeGoal.targetDurationMin != null && (
                         activeGoal.targetDurationMin % 60 > 0
                           ? t("goal.targetHm", { h: Math.floor(activeGoal.targetDurationMin / 60), m: activeGoal.targetDurationMin % 60 })
                           : t("goal.targetH", { h: Math.floor(activeGoal.targetDurationMin / 60) })

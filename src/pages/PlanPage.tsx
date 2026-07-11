@@ -866,7 +866,7 @@ export default function PlanPage() {
                   {goal.target?.targetWkg != null ? ` · ${goal.target.targetWkg.toFixed(1)} W/kg` : ''}
                 </span>
               )}
-              {goal?.targetDurationMin && (
+              {goal?.goalType !== 'climb' && goal?.targetDurationMin && (
                 <span>
                   {t('page.targetDuration')}{' '}
                   <span style={{ color: 'var(--ink-0)' }}>
