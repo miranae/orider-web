@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import MapGL, { Source, Layer, Popup, useMap } from "react-map-gl/mapbox";
 import HeatmapLayer, { type HeatMode } from "../components/explore/HeatmapLayer";
+import PersonalHeatmapLayer from "../components/explore/PersonalHeatmapLayer";
 import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
@@ -16,6 +17,8 @@ import { formatSegmentRegion } from "../utils/regionName";
 import { ErrorState } from "../components/redesign";
 import { Button, Card, Chip, Text } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
+import { useAuth } from "../contexts/AuthContext";
+import { usePersonalHeatmap } from "../hooks/usePersonalHeatmap";
 
 interface SegmentData {
   id: string;
@@ -421,6 +424,11 @@ export default function ExplorePage() {
   const [mapZoom, setMapZoom] = useState(initialView.zoom ?? 7);
   const [listLimit, setListLimit] = useState(LIST_PAGE_SIZE);
   const [heatMode, setHeatMode] = useState<HeatMode>("off");
+  const { user } = useAuth();
+  const personalHeatmap = usePersonalHeatmap(user?.uid, heatMode === "mine");
+  useEffect(() => {
+    if (!user && heatMode === "mine") setHeatMode("off");
+  }, [heatMode, user]);
   const [tooltipInfo, setTooltipInfo] = useState<{ lng: number; lat: number; name: string; distance: number; grade: number } | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const polylineCache = useRef<Map<string, LatLngTuple[]>>(new Map());
@@ -778,8 +786,9 @@ export default function ExplorePage() {
           {/* 지도 — 모바일은 짧게(목록에 공간 양보), 데스크톱은 좌측 분할 영역 채움 */}
           <div className="h-[55vh] lg:h-auto lg:flex-[2] relative">
             {/* 히트맵 토글 (#493) */}
-            <div className="absolute top-2 right-2 z-10 flex gap-1">
-              {(["off", "global", "recent30"] as HeatMode[]).map((m) => (
+            <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+              <div className="flex gap-1">
+              {(["off", "global", "recent30", ...(user ? ["mine" as const] : [])] as HeatMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setHeatMode(m)}
@@ -793,6 +802,17 @@ export default function ExplorePage() {
                   {t(`heat.${m}`)}
                 </button>
               ))}
+              </div>
+              {heatMode === "mine" && user && (
+                <div className="max-w-64 rounded-[var(--r-sm)] bg-black/70 px-2 py-1 text-right text-[length:var(--fs-xs)] text-[var(--ink-0)]">
+                  {personalHeatmap.loading
+                    ? t("heat.mineLoading")
+                    : personalHeatmap.error
+                      ? t("heat.mineError")
+                      : t("heat.mineSummary", { count: personalHeatmap.points.length })}
+                  <div className="text-[var(--ink-2)]">{t("heat.minePrivacy")}</div>
+                </div>
+              )}
             </div>
             <MapGL
               mapboxAccessToken={mapboxToken}
@@ -814,6 +834,7 @@ export default function ExplorePage() {
 
               {/* 발견 히트맵 — 세그먼트 아래 렌더(#493) */}
               <HeatmapLayer mode={heatMode} />
+              {heatMode === "mine" && user && <PersonalHeatmapLayer points={personalHeatmap.points} />}
 
               {/* Segment polylines */}
               <Source id="segment-lines" type="geojson" data={linesGeoJSON}>

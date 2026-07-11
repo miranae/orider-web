@@ -2,13 +2,16 @@
  * Decode a track string to [lat, lng] array.
  * Supports both "lat,lon;lat,lon;..." (Orider) and Google Encoded Polyline (Strava).
  */
-export function decodeTrack(str: string): [number, number][] {
+export function decodeTrack(str: string, maxPoints = Number.POSITIVE_INFINITY): [number, number][] {
   if (!str || str.length === 0) return [];
+  const pointCap = Number.isFinite(maxPoints) ? Math.max(0, Math.floor(maxPoints)) : Number.POSITIVE_INFINITY;
+  if (pointCap === 0) return [];
 
   // Orider format: "lat,lon;lat,lon;..."
   if (str.includes(",")) {
     const points: [number, number][] = [];
-    for (const pair of str.split(";")) {
+    const pairs = Number.isFinite(pointCap) ? str.split(";", pointCap) : str.split(";");
+    for (const pair of pairs) {
       const parts = pair.split(",");
       if (parts.length === 2 && parts[0] && parts[1]) {
         const lat = parseFloat(parts[0]);
@@ -22,7 +25,7 @@ export function decodeTrack(str: string): [number, number][] {
   }
 
   // Fallback: Google Encoded Polyline
-  return decodePolyline(str);
+  return decodePolyline(str, pointCap);
 }
 
 /**
@@ -58,13 +61,13 @@ function encodeValue(value: number): string {
  * Decode Google Encoded Polyline to [lat, lng] array.
  * https://developers.google.com/maps/documentation/utilities/polylinealgorithm
  */
-export function decodePolyline(encoded: string): [number, number][] {
+export function decodePolyline(encoded: string, maxPoints = Number.POSITIVE_INFINITY): [number, number][] {
   const points: [number, number][] = [];
   let index = 0;
   let lat = 0;
   let lng = 0;
 
-  while (index < encoded.length) {
+  while (index < encoded.length && points.length < maxPoints) {
     let shift = 0;
     let result = 0;
     let byte: number;
