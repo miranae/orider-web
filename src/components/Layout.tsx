@@ -47,7 +47,7 @@ export function buildOnboardingRedirectTarget(pathname: string, search = "", has
 
 function DashboardShell() {
   return (
-    <div className="mx-auto grid w-full max-w-[1440px] gap-4 px-4 py-4 md:grid-cols-[minmax(0,1fr)_320px] md:py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="mx-auto grid w-full max-w-[1120px] gap-4 px-4 py-4 md:grid-cols-[minmax(0,1fr)_320px] md:py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section className="space-y-4">
         <div className="rounded-[var(--r-lg)] border p-4" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           <div className="mb-3 h-5 w-44 rounded-[var(--r-sm)]" style={{ background: "var(--bg-3)" }} />
@@ -228,7 +228,7 @@ export default function Layout() {
       {/* 대시보드: 데스크톱/모바일 모두 페이지 전체 스크롤 (워크아웃·KPI 포함) */}
       {path === "/" && (
         <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] md:pb-0">
-          <div className="max-w-[1440px] w-full mx-auto md:px-4 md:py-6">
+          <div className="max-w-[1120px] w-full mx-auto md:px-6 md:py-6">
             <Suspense fallback={<DashboardShell />}>
               <DashboardPage />
             </Suspense>
@@ -239,7 +239,7 @@ export default function Layout() {
       {/* 다른 페이지: main 영역 내부 스크롤 */}
       {path !== "/" && (
         <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] md:pb-0">
-          <div className="max-w-[1440px] w-full mx-auto px-4 py-6 animate-page-in">
+          <div className="max-w-[1120px] w-full mx-auto px-4 md:px-6 py-6 animate-page-in">
             {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} friendRequestCount={friendRequestCount} />}
             <Suspense fallback={<div style={{ height: 200 }} />}>
               {path === "/explore" && <ExplorePage />}
@@ -262,7 +262,7 @@ export default function Layout() {
         className={`${path === "/" ? "hidden md:block lg:hidden" : "hidden md:block"} flex-shrink-0 border-t`}
         style={{ borderColor: 'var(--line)', background: 'var(--bg-1)' }}
       >
-        <div className="max-w-[1440px] mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
+        <div className="max-w-[1120px] mx-auto px-4 md:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
           <span className="flex items-center gap-2">&copy; 2026 Orider <span className="inline-block px-1.5 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium" style={{ background: 'var(--amber)', color: 'var(--bg-0)', opacity: 0.85 }}>Beta</span><span className="flex items-center gap-1" style={{ color: 'var(--ink-3)' }}><svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>Powered by Strava</span></span>
           <div className="flex items-center gap-4">
             <Link to="/feedback" className="transition-colors hover:opacity-80">{tCommon("footer.feedback")}</Link>

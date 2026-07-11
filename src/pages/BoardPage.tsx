@@ -319,8 +319,8 @@ const BoardPage: React.FC = () => {
         )}
       </div>
 
-      {/* Posts List */}
-      <div className="relative z-0">
+      {/* Posts List — 데스크톱 읽기 폭 840px 제한 (#401: 긴 한 줄 읽기 폭 과다 방지) */}
+      <div className="relative z-0 md:max-w-[840px] md:mx-auto">
         {submittedPostId && selectedBoard === 'inquiry' && (
           <Card padding="none" className="mb-4 p-4! md:p-5! rounded-[var(--r-lg)] border-[var(--lime)]/40">
             <div className="flex items-start justify-between gap-3">
@@ -512,8 +512,9 @@ const BoardPage: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <h3 className="font-semibold mb-1 text-[var(--ink-0)] line-clamp-1">{post.title}</h3>
-                <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] line-clamp-2 mb-3">{post.content.replace(/[#*_~`>\-[\]()!|]/g, '').replace(/\n+/g, ' ').slice(0, 200)}</p>
+                {/* 제목 모바일 2줄·데스크톱 1줄, 요약 모바일 2줄·데스크톱 3줄 (#401 가이드) */}
+                <h3 className="font-semibold mb-1 text-[var(--ink-0)] line-clamp-2 md:line-clamp-1">{post.title}</h3>
+                <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] line-clamp-2 md:line-clamp-3 mb-3">{post.content.replace(/[#*_~`>\-[\]()!|]/g, '').replace(/\n+/g, ' ').slice(0, 200)}</p>
 
                 {post.tags && post.tags.length > 0 && (() => {
                   {/* 태그는 기본 2~3개만 노출, 나머지는 +N 축약 (#401) — 전체 태그는 상세에서 */}
