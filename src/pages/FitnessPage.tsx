@@ -52,6 +52,8 @@ import { estimateCyclingVo2max } from "@shared/training/vo2max";
 import type { PowerDurationKey } from "@shared/types/personal-records";
 import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
 import PowerCurveChart from "../features/fitness/components/PowerCurveChart";
+import FtpProgressionCard from "../features/fitness/components/FtpProgressionCard";
+import { deriveEstimatedFtpProgression, detectFtpBreakthrough } from "@shared/training/ftpProgression";
 import {
   POWER_DURATION_KEY_SEC,
   formatKoreanDate,
@@ -660,6 +662,10 @@ export default function FitnessPage() {
           zones,
           zoneSource,
           powerCurve,
+          ftpProgression: deriveEstimatedFtpProgression(pdc?.history),
+          ftpBreakthrough: pdc?.pdcModel != null && pdc.activityCount >= 5
+            ? detectFtpBreakthrough(profile?.ftp, pdc.pdcModel.ftpEst)
+            : null,
           discipline,
         }}
         consistencyStreak={consistencyStreak}
@@ -752,6 +758,11 @@ export default function FitnessPage() {
             }))
             .filter((p): p is { period: string; v: number } => p.v != null);
         })();
+
+  const ftpProgression = deriveEstimatedFtpProgression(pdc?.history);
+  const ftpBreakthrough = pdc?.pdcModel != null && pdc.activityCount >= 5
+    ? detectFtpBreakthrough(profile?.ftp, pdc.pdcModel.ftpEst)
+    : null;
 
   // 강점/약점 — mmpAll(duration 별 best)과 CP 모델 기대파워 갭 분류.
   const powerGaps: GapEntry[] =
@@ -1046,6 +1057,14 @@ export default function FitnessPage() {
         )}
 
         {discipline === "bike" && (
+          <FtpProgressionCard
+            points={ftpProgression}
+            currentFtpW={profile?.ftp}
+            breakthrough={ftpBreakthrough}
+          />
+        )}
+
+        {discipline === "bike" && (
           <BikeActionAccordion
             ftp={profile?.ftp}
             hasPdcModel={pdc?.pdcModel != null}
@@ -1223,8 +1242,8 @@ export default function FitnessPage() {
                 style={{
                   marginTop: 'var(--space-4)',
                   padding: "var(--space-3)",
+                  // 카드 안 서피스는 테두리 없이 배경 틴트만 — surface 3단계 유지 (이슈 401)
                   background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
-                  border: "1px solid color-mix(in oklch, var(--lime) 20%, var(--line-soft))",
                   borderRadius: "var(--r-md)",
                   display: "grid",
                   gridTemplateColumns: "2fr repeat(3, 1fr) auto",
@@ -1239,8 +1258,10 @@ export default function FitnessPage() {
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
                     {eventDateStr} · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text>
                     <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>
-                      {activeGoal.courseDist.toFixed(1)} km
-                      {activeGoal.targetDurationMin != null && (
+                      {activeGoal.goalType === 'climb'
+                        ? `${activeGoal.target?.climbDurationMin ?? activeGoal.targetDurationMin ?? '—'} min${activeGoal.target?.targetWkg != null ? ` · ${activeGoal.target.targetWkg.toFixed(1)} W/kg` : ''}`
+                        : `${activeGoal.courseDist.toFixed(1)} km`}
+                      {activeGoal.goalType !== 'climb' && activeGoal.targetDurationMin != null && (
                         activeGoal.targetDurationMin % 60 > 0
                           ? t("goal.targetHm", { h: Math.floor(activeGoal.targetDurationMin / 60), m: activeGoal.targetDurationMin % 60 })
                           : t("goal.targetH", { h: Math.floor(activeGoal.targetDurationMin / 60) })

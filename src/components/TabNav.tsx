@@ -29,7 +29,7 @@ export default function TabNav({ tabs, activeTab, onChange }: TabNavProps) {
           role="tab"
           aria-selected={activeTab === tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex-shrink-0 whitespace-nowrap rounded-t-[var(--r-sm)] px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
+          className={`flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
             activeTab === tab.id
               ? ""
               : "border-transparent hover:border-[var(--line)]"
@@ -66,7 +66,7 @@ export function RouteTabNav({ tabs }: RouteTabNavProps) {
           to={localizeTo(tab.to, lang)}
           end={tab.end}
           className={({ isActive }) =>
-            `flex-shrink-0 whitespace-nowrap rounded-t-[var(--r-sm)] px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
+            `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
               isActive
                 ? ""
                 : "border-transparent hover:border-[var(--line)]"

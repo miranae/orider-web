@@ -10,6 +10,7 @@ import { DateField } from '../redesign';
 interface CourseSnap {
   distKm: number;
   elevM: number;
+  climbs?: Array<{ gain: number; dist: number; cat: number }>;
 }
 interface TargetSnap {
   durationMin: number; // 완주(completion)이면 0 전달
@@ -40,7 +41,7 @@ function calcFeasibility(
     const fakeTargetH = course.distKm > 0 ? course.distKm / 20 : 1; // 20km/h 가정
     const fakeDurationMin = fakeTargetH * 60;
     const r = calcFeasibilityCore({
-      course: { dist: course.distKm, elev: course.elevM },
+      course: { dist: course.distKm, elev: course.elevM, climbs: course.climbs },
       target: { eventType: 'time', targetDurationMin: fakeDurationMin },
       snap: { ftp: snap.ftpW, weightKg: snap.weightKg },
       fitness: userTsb != null ? { tsb: userTsb } : null,
@@ -55,7 +56,7 @@ function calcFeasibility(
   }
 
   const r = calcFeasibilityCore({
-    course: { dist: course.distKm, elev: course.elevM },
+    course: { dist: course.distKm, elev: course.elevM, climbs: course.climbs },
     target: { eventType: target.eventType, targetDurationMin: target.durationMin },
     snap: { ftp: snap.ftpW, weightKg: snap.weightKg },
     fitness: userTsb != null ? { tsb: userTsb } : null,
@@ -80,6 +81,7 @@ export interface GoalDetailsStepValue {
 interface GoalDetailsStepProps {
   courseDist: number;  // km
   courseElev: number;  // m
+  courseClimbs?: Array<{ gain: number; dist: number; cat: number }>;
   value: GoalDetailsStepValue;
   onChange: (value: GoalDetailsStepValue) => void;
   userFtp: number;
@@ -92,6 +94,7 @@ interface GoalDetailsStepProps {
 export default function GoalDetailsStep({
   courseDist,
   courseElev,
+  courseClimbs,
   value,
   onChange,
   userFtp,
@@ -107,7 +110,7 @@ export default function GoalDetailsStep({
 
   // feasibility 계산 (현재 TSB 반영)
   const feas = calcFeasibility(
-    { distKm: courseDist, elevM: courseElev },
+    { distKm: courseDist, elevM: courseElev, climbs: courseClimbs },
     { durationMin: targetDurationMin ?? 0, eventType },
     { ftpW: userFtp, weightKg: userWeightKg },
     userTsb,

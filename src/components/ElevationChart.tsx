@@ -457,19 +457,19 @@ export default function ElevationChart({
               max: distancesKm.length > 0 ? distancesKm[distancesKm.length - 1] : undefined,
               grid: { display: false },
               ticks: {
-                font: { size: 10 },
+                font: { size: 12 },
                 color: tickColor,
                 maxTicksLimit: 10,
                 callback: (v) => `${Number(v).toFixed(1)}`,
               },
-              title: { display: true, text: "km", font: { size: 10 }, color: tickColor },
+              title: { display: true, text: "km", font: { size: 12 }, color: tickColor },
             },
             yElev: {
               type: "linear",
               position: "left",
               grid: { color: gridColor },
               ticks: {
-                font: { size: 10 },
+                font: { size: 12 },
                 color: "rgba(199,247,58,0.6)",
                 callback: (v) => `${v}m`,
               },

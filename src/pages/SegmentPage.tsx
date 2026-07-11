@@ -693,7 +693,7 @@ export default function SegmentPage() {
                     }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[10px] text-[var(--ink-0)]/80 truncate">{photo.attribution}</p>
+                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)]/80 truncate">{photo.attribution}</p>
                   </div>
                 </div>
               ))}
@@ -710,7 +710,7 @@ export default function SegmentPage() {
                     }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[10px] text-[var(--ink-0)]/80 truncate">{photo.uploaderNickname}</p>
+                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)]/80 truncate">{photo.uploaderNickname}</p>
                   </div>
                 </div>
               ))}

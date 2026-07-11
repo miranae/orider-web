@@ -11,8 +11,19 @@ import { createMockFriend, createMockFriendRequest } from "../__tests__/fixtures
 
 describe("FriendsPage", () => {
   it("shows login required when not authenticated", () => {
-    renderWithProviders(<FriendsPage />, { authenticated: false });
+    renderWithProviders(<FriendsPage />, { authenticated: false, route: "/ko/friends?source=onboarding&returnTo=%2Fplan" });
     expect(screen.getByText("친구 목록을 보려면 로그인이 필요합니다.")).toBeInTheDocument();
+    expect(screen.queryByText("친구와 함께 시작해 보세요")).not.toBeInTheDocument();
+  });
+
+  it("shows the onboarding handoff panel only for signed-in onboarding traffic", async () => {
+    renderWithProviders(<FriendsPage />, {
+      authenticated: true,
+      route: "/ko/friends?source=onboarding&returnTo=%2Fplan",
+      profile: { friendCode: "ABC123" },
+    });
+    expect(await screen.findByText("친구와 함께 시작해 보세요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "계속하기" })).toBeInTheDocument();
   });
 
   it("renders friend page heading", async () => {

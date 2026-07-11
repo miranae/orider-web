@@ -148,8 +148,8 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
           type="button"
           onClick={handleToggleKudos}
           disabled={!user}
-          className="flex items-center gap-1.5 transition-opacity disabled:opacity-50"
-          style={{ color: liked ? "var(--lime)" : "var(--ink-3)", background: "none", border: "none", cursor: user ? "pointer" : "default", minHeight: 32 }}
+          className="flex items-center justify-center gap-1.5 transition-opacity disabled:opacity-50"
+          style={{ color: liked ? "var(--lime)" : "var(--ink-3)", background: "none", border: "none", cursor: user ? "pointer" : "default", minHeight: 44, minWidth: 44, padding: "0 var(--space-2)", margin: "-6px calc(var(--space-2) * -1)" }}
           aria-label={t("card.kudosShort")}
         >
           <Heart size={18} fill={liked ? "currentColor" : "none"} />
@@ -166,7 +166,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
                   className="rounded-full"
                   style={{ marginLeft: i === 0 ? 0 : -8, boxShadow: "0 0 0 2px var(--bg-1)", borderRadius: "9999px" }}
                 >
-                  <Avatar userId={k.userId} name={k.nickname} imageUrl={k.profileImage} size="sm" />
+                  <Avatar userId={k.userId} name={k.nickname} imageUrl={k.profileImage} size="sm" tapTarget={false} />
                 </span>
               ))}
             </div>
@@ -182,8 +182,8 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
         <button
           type="button"
           onClick={handleToggleComment}
-          className="flex items-center gap-1.5 ml-auto transition-opacity"
-          style={{ color: showComment ? "var(--lime)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer", minHeight: 32 }}
+          className="flex items-center justify-center gap-1.5 ml-auto transition-opacity"
+          style={{ color: showComment ? "var(--lime)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer", minHeight: 44, minWidth: 44, padding: "0 var(--space-2)", margin: "-6px calc(var(--space-2) * -1)" }}
           aria-label={t("card.comment")}
           aria-expanded={showComment}
         >

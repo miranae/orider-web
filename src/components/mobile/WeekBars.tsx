@@ -64,7 +64,7 @@ export default function WeekBars({ weeks }: { weeks: WeekEntry[] }) {
       <div className="flex items-end gap-[5px] mb-2">
         {last7.map((w, i) => (
           <Text key={`v-${w.label}`} as="div" variant="mono"
-            className="text-[10px]"
+            className="text-[length:var(--fs-xs)]"
             style={{
               flex: 1,
               textAlign: "center",
@@ -110,7 +110,7 @@ export default function WeekBars({ weeks }: { weeks: WeekEntry[] }) {
               />
             </div>
             <Text as="div" variant="mono"
-              className="text-[9px]"
+              className="text-[length:var(--fs-xs)]"
               style={{ color: i === activeIdx ? "var(--lime)" : "var(--ink-4)" }}
             >
               {w.label}

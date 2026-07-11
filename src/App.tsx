@@ -27,7 +27,6 @@ import { LocaleRedirect } from "./components/i18n/LocaleRedirect";
 import { firestore } from "./services/firebase";
 
 const ActivityPage = lazyTimed("ActivityPage", () => import("./pages/ActivityPage"));
-const ActivityUploadPage = lazyTimed("ActivityUploadPage", () => import("./pages/activity/ActivityUploadPage"));
 const ActivityEditPage = lazyTimed("ActivityEditPage", () => import("./pages/activity/ActivityEditPage"));
 const GroupsPage = lazyTimed("GroupsPage", () => import("./pages/group/GroupsPage"));
 const GroupDashboardPage = lazyTimed("GroupDashboardPage", () => import("./pages/group/GroupDashboardPage"));
@@ -70,6 +69,7 @@ const EventEditPage = lazyTimed("EventEditPage", () => import("./pages/event/Eve
 const EventParticipantsPage = lazyTimed("EventParticipantsPage", () => import("./pages/event/EventParticipantsPage"));
 const FitnessPage = lazyTimed("FitnessPage", () => import("./pages/FitnessPage"));
 const LabPage = lazyTimed("LabPage", () => import("./pages/LabPage"));
+const ClimbGoalSetupPage = lazyTimed("ClimbGoalSetupPage", () => import("./pages/ClimbGoalSetupPage"));
 const GoalSetupPage = lazyTimed("GoalSetupPage", () => import("./pages/GoalSetupPage"));
 const PlanPage = lazyTimed("PlanPage", () => import("./pages/PlanPage"));
 const TrainingLogPage = lazyTimed("TrainingLogPage", () => import("./pages/TrainingLogPage"));
@@ -133,11 +133,11 @@ function AppRoutes() {
         <Route path="onboarding" element={<OnboardingPage />} />
         <Route element={<Layout />}>
           <Route index element={null} />
-          <Route path="activity/upload" element={<ActivityUploadPage />} />
           <Route path="activity/:activityId" element={<ActivityPage />} />
           <Route path="activity/:activityId/edit" element={<ActivityEditPage />} />
           <Route path="fitness" element={<FitnessPage />} />
           <Route path="lab" element={<LabPage />} />
+          <Route path="goal/climb" element={<ClimbGoalSetupPage />} />
           <Route path="goal-setup" element={<GoalSetupPage />} />
           <Route path="plan" element={<PlanPage />} />
           <Route path="log" element={<TrainingLogPage />} />

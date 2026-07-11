@@ -46,7 +46,7 @@
     "prevMonth": "← 이전 달",
     "nextMonth": "다음 달 →",
     "currentMonth": "이번 달",
-    "import": "임포트",
+    "import": "업로드",
     "monthlyBarTitle": "월간 일별 거리 (km)",
     "weekNavigate": "주간 TSS",
     "weekTSSLabel": "TSS",
@@ -209,6 +209,7 @@
     "tempo": "Z3 템포",
     "ftp": "Z4 역치",
     "vo2": "Z5 VO2",
+    "hillRepeats": "클라임 반복",
     "vo2Max": "Z5 VO₂max",
     "sim": "목표 시뮬",
     "simFull": "목표 시뮬레이션",
@@ -241,6 +242,12 @@
     "brickSwim": "브릭",
     "brickSwimFull": "브릭 운동"
   },
+  "climbGoal": {
+    "title": "클라임 목표 만들기", "description": "코스나 이벤트 없이 오르막 이름과 목표 기록으로 훈련을 시작해요.",
+    "name": "클라임 이름", "duration": "목표 시간(분)", "wkg": "목표 W/kg (선택)", "date": "목표일", "sessions": "주당 운동 횟수",
+    "submit": "클라임 훈련 시작", "error": "입력을 확인하고 다시 시도해 주세요.",
+    "loginTitle": "로그인이 필요해요", "loginDescription": "클라임 목표와 계획을 저장하려면 로그인해 주세요.", "loginAction": "Google로 로그인", "loading": "로그인 상태를 확인하고 있어요…"
+  },
   "intensityChip": {
     "rest": "REST",
     "easy": "EASY",
@@ -268,6 +275,7 @@
     "todayRecord": "오늘 기록: {{tss}} TSS · {{min}}분"
   },
   "today": {
+    "start": "운동 계획 열기",
     "purposePlain": {
       "rest": "오늘은 쉬어요. 근육과 신경이 회복되면서 다음 훈련을 받아들일 준비를 해요.",
       "recovery": "아주 가볍게 달려요. 쌓인 피로를 풀어 다음 핵심 훈련의 강도를 지켜 줘요.",
@@ -295,6 +303,7 @@
       "zone5": "Z5 인터벌"
     },
     "eyebrow": "오늘의 워크아웃",
+    "loading": "오늘의 워크아웃 불러오는 중…",
     "noGoalTitle": "아직 운동 목표가 없어요",
     "noGoalDesc": "목표를 설정하면 오늘의 맞춤 워크아웃을 알려드릴게요.",
     "goalSetupCta": "목표 설정 →",

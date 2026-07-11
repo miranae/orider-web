@@ -41,7 +41,7 @@ export function ActivityMediaPanel({
 }: ActivityMediaPanelProps) {
   if (hasTrack) {
     return (
-      <div className="-mx-6 sm:-mx-8 lg:mx-[calc((100vw-1440px)/-2-24px)] xl:mx-0" style={{ marginTop: -24 }}>
+      <div className="-mx-6 sm:-mx-8 lg:mx-[calc((100vw-1120px)/-2-24px)] xl:mx-0" style={{ marginTop: -24 }}>
         <RouteMap
           polyline={activity.thumbnailTrack}
           latlng={streams?.latlng}

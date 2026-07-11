@@ -16,6 +16,7 @@ import PermissionGate from "../components/redesign/states/PermissionGate";
 import { Card, buttonClass } from "../theme/components";
 import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
+import { readClimbPromotionRange, resolveClimbPromotionIndices } from "../features/segmentCreation/climbPromotion";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -157,6 +158,8 @@ export default function CreateSegmentPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activityId = searchParams.get("activityId");
+  const climbPromotionRange = useMemo(() => readClimbPromotionRange(searchParams), [searchParams]);
+  const isClimbPromotion = searchParams.get("category") === "climb" && climbPromotionRange != null;
   const { createProposal, loading: submitting, error: submitError } = useSegmentCreator();
 
   const CLIMB_LABELS: Record<number, string> = {
@@ -259,8 +262,12 @@ export default function CreateSegmentPage() {
       }
 
       setStreams(data);
-      setRangeStart(0);
-      setRangeEnd(data.latlng.length - 1);
+      const promotedRange = data.distance && climbPromotionRange
+        ? resolveClimbPromotionIndices(data.distance, climbPromotionRange)
+        : null;
+      setRangeStart(promotedRange?.startIndex ?? 0);
+      setRangeEnd(promotedRange?.endIndex ?? data.latlng.length - 1);
+      categoryTouchedRef.current = Boolean(promotedRange && isClimbPromotion);
       setCategory("climb");
     } catch (err: unknown) {
       logClientError("CreateSegmentPage.loadStreams", err, { activityId: aid });
@@ -271,7 +278,7 @@ export default function CreateSegmentPage() {
     } finally {
       setLoadingStreams(false);
     }
-  }, [t, tActivity]);
+  }, [climbPromotionRange, isClimbPromotion, t, tActivity]);
 
   useEffect(() => {
     if (!user || !activityId) return;
@@ -470,7 +477,7 @@ export default function CreateSegmentPage() {
             <p className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("activityPicker.emptyTitle")}</p>
             <p className="text-[length:var(--fs-sm)] mt-2" style={{ color: "var(--ink-3)" }}>{t("activityPicker.emptyDescription")}</p>
             <div className="flex flex-wrap justify-center mt-5" style={{ gap: "var(--space-2)" }}>
-              <Link to="/activity/upload" className={buttonClass({ variant: "primary", size: "sm" })}>
+              <Link to="/log" className={buttonClass({ variant: "primary", size: "sm" })}>
                 {t("activityPicker.uploadAction")}
               </Link>
               <Link to="/leaderboard" className={buttonClass({ variant: "secondary", size: "sm" })}>
@@ -615,7 +622,7 @@ export default function CreateSegmentPage() {
             <Card padding="none" className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] font-medium">
-                  {t("creation.instructionDrag")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[10px]">&larr;&rarr;</kbd>{t("creation.instructionArrows")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[10px]">{t("creation.instructionShift")}&larr;&rarr;</kbd>{t("creation.instructionEnd")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[10px]">{t("creation.instructionCtrl")}</kbd>{t("creation.instructionFine")}
+                  {t("creation.instructionDrag")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--fs-xs)]">&larr;&rarr;</kbd>{t("creation.instructionArrows")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--fs-xs)]">{t("creation.instructionShift")}&larr;&rarr;</kbd>{t("creation.instructionEnd")}<kbd className="px-1 py-0.5 bg-[var(--bg-2)] rounded-[var(--r-sm)] text-[length:var(--fs-xs)]">{t("creation.instructionCtrl")}</kbd>{t("creation.instructionFine")}
                 </div>
                 <div className="flex items-center gap-3 text-[length:var(--fs-xs)] font-mono text-[var(--ink-2)]">
                   <span><span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />{startKm.toFixed(2)} km</span>
@@ -730,7 +737,7 @@ export default function CreateSegmentPage() {
                         <div className={`text-[length:var(--fs-sm)] font-medium ${isSelected ? "text-[var(--lime)]" : "text-[var(--ink-1)]"}`}>
                           {info.label}
                         </div>
-                        <div className="text-[10px] text-[var(--ink-3)] hidden sm:block">{info.desc}</div>
+                        <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)] hidden sm:block">{info.desc}</div>
                       </div>
                     </button>
                   );
@@ -777,7 +784,7 @@ export default function CreateSegmentPage() {
                       t("button.submit")
                     )}
                   </button>
-                  <p className="text-[10px] text-[var(--ink-3)] text-center mt-1.5">
+                  <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] text-center mt-1.5">
                     {t("creation.submitNote")}
                   </p>
                 </div>

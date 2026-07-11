@@ -70,13 +70,13 @@ export default function DailyLoadChart({ data }: DailyLoadChartProps) {
       scales: {
         x: {
           display: true,
-          ticks: { color: textColor, maxTicksLimit: 10, font: { size: 10 } },
+          ticks: { color: textColor, maxTicksLimit: 10, font: { size: 12 } },
           grid: { display: false },
         },
         y: {
           display: true,
           beginAtZero: true,
-          ticks: { color: textColor, font: { size: 10 } },
+          ticks: { color: textColor, font: { size: 12 } },
           grid: { color: gridColor },
         },
       },

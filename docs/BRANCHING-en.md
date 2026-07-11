@@ -105,7 +105,7 @@ Use a merge commit only when the branch is large enough that preserving an integ
 
 ## Releases and Hotfixes
 
-Production deploys come from version tags on `main`; there are no separate release branches for routine web releases. Urgent production fixes still use a PR and a follow-up tag:
+Production deploys come from version tags on `main`; there are no separate release branches for routine web releases. Create tags with `scripts/release-tag.sh` — it prints the full release diff (every commit since the last tag) and requires confirmation before pushing, so unreviewed changes cannot ride along with an unrelated deploy. After a successful deploy, `prod-smoke.yml` runs a mobile-viewport smoke check against production. Urgent production fixes still use a PR and a follow-up tag:
 
 ```text
 fix/production-issue -> PR -> required checks -> main -> tag v* -> deploy

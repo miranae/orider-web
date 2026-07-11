@@ -62,14 +62,14 @@ export default function MobileTabBar({ friendRequestCount = 0 }: { friendRequest
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.7} />
                 {key === "community" && friendRequestCount > 0 && (
                   <span
-                    className="absolute -right-2 -top-1 min-w-[15px] h-[15px] px-0.5 rounded-full text-[9px] font-bold leading-none flex items-center justify-center"
+                    className="absolute -right-2 -top-1 min-w-[18px] h-[18px] px-1 rounded-full text-[length:var(--fs-xs)] font-bold leading-none flex items-center justify-center"
                     style={{ background: "var(--color-error)", color: "var(--primary-fg)" }}
                   >
                     {friendRequestCount > 9 ? "9+" : friendRequestCount}
                   </span>
                 )}
               </span>
-              <span className="text-[10px] font-medium" style={{ letterSpacing: "-0.01em" }}>
+              <span className="text-[length:var(--fs-xs)] font-medium" style={{ letterSpacing: "-0.01em" }}>
                 {label}
               </span>
             </NavLink>

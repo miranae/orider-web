@@ -27,6 +27,7 @@ function buildWorkoutLabels(t: (key: string) => string): Record<WorkoutKind, str
     tempo: t('workouts.tempo'),
     ftp: t('workouts.ftp'),
     vo2: t('workouts.vo2Max'),
+    hillRepeats: t('workouts.hillRepeats'),
     sim: t('workouts.sim'),
     goal: t('workouts.goal'),
     easyRun: t('workouts.easyRun'),

@@ -222,7 +222,7 @@ const PostDetailPage: React.FC = () => {
       <Card padding="none" className="rounded-[var(--r-lg)] p-6! md:p-8!">
         <header className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <span className="bg-[var(--lime)]/10 text-[var(--lime)] px-2 py-0.5 rounded-[var(--r-sm)] text-[10px] font-bold uppercase">
+            <span className="bg-[var(--lime)]/10 text-[var(--lime)] px-2 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold uppercase">
               {t(`label.boardTypes.${post.boardType}` as any)}
             </span>
             <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">
@@ -277,7 +277,8 @@ const PostDetailPage: React.FC = () => {
         </header>
 
         {post.selectionReason && (
-          <div className="mb-6 p-4 bg-[var(--lime)]/10 border border-[var(--lime)]/30 rounded-[var(--r-lg)]">
+          // 카드 안 콜아웃은 테두리 없이 배경 틴트만 — surface 3단계 유지 (#401)
+          <div className="mb-6 p-4 bg-[var(--lime)]/10 rounded-[var(--r-lg)]">
             <div className="text-[length:var(--fs-xs)] font-bold text-[var(--lime)] mb-1.5">{t('label.selectionReason')}</div>
             <p className="text-[length:var(--fs-sm)] text-[var(--ink-1)] leading-relaxed whitespace-pre-line">{post.selectionReason}</p>
           </div>
@@ -330,8 +331,9 @@ const PostDetailPage: React.FC = () => {
         )}
 
         {linkedActivity && (
-          <div className="mb-8 p-1 rounded-[var(--r-xl)] border border-[var(--line-soft)]" style={{ background: 'var(--bg-2)' }}>
-            <div className="px-3 py-2 text-[10px] font-bold text-[var(--lime)] flex items-center gap-1">
+          // ActivityCard 가 자체 카드 서피스 — 래퍼 카드를 없애 3중 중첩 방지 (#401)
+          <div className="mb-8">
+            <div className="px-1 py-2 text-[length:var(--fs-xs)] font-bold text-[var(--lime)] flex items-center gap-1">
               <span>📍</span> {t('label.linkedActivity')}
             </div>
             <ActivityCard activity={linkedActivity} />
@@ -339,7 +341,7 @@ const PostDetailPage: React.FC = () => {
         )}
 
         {post.commentReaction && (
-          <div className="mb-4 p-4 bg-[var(--aqua)]/10 border border-[var(--aqua)]/30 rounded-[var(--r-lg)]">
+          <div className="mb-4 p-4 bg-[var(--aqua)]/10 rounded-[var(--r-lg)]">
             <div className="text-[length:var(--fs-xs)] font-bold text-[var(--aqua)] mb-1.5">{t('label.commentReaction')}</div>
             <p className="text-[length:var(--fs-sm)] text-[var(--ink-1)] leading-relaxed whitespace-pre-line">{post.commentReaction}</p>
           </div>
@@ -424,11 +426,11 @@ const PostDetailPage: React.FC = () => {
                   <div className="w-5 h-5 rounded-full bg-[var(--bg-3)]" />
                 )}
                 <span className="font-bold text-[length:var(--fs-sm)] text-[var(--ink-1)]">{comment.nickname}</span>
-                <span className="text-[10px] text-[var(--ink-3)]">{new Date(comment.createdAt).toLocaleString()}</span>
+                <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(comment.createdAt).toLocaleString()}</span>
                 {user && user.uid === comment.userId && (
                   <button
                     onClick={() => handleDeleteComment(comment.id)}
-                    className="ml-auto text-[10px] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
+                    className="ml-auto text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors"
                   >
                     {t('button.delete')}
                   </button>
@@ -443,7 +445,7 @@ const PostDetailPage: React.FC = () => {
                       authorNickname: comment.nickname,
                       createdAt: comment.createdAt,
                     })}
-                    className={`${user && user.uid === comment.userId ? "" : "ml-auto"} text-[10px] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors`}
+                    className={`${user && user.uid === comment.userId ? "" : "ml-auto"} text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--rose)] transition-colors`}
                   >
                     {t("report.action")}
                   </button>

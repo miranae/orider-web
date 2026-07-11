@@ -86,7 +86,7 @@ function CompactWorkoutCard({
         </div>
         <Link
           to={ctaHref}
-          className="inline-flex items-center justify-center rounded-[var(--r-md)] px-4 py-2 text-[length:var(--fs-sm)] font-semibold"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-[var(--r-md)] px-4 py-2 text-[length:var(--fs-sm)] font-semibold"
           style={{ background: "var(--lime)", color: "var(--ink-inverse)" }}
         >
           {ctaLabel}
@@ -620,8 +620,10 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
           t={t}
         />
       ),
-      // 활성 goal 없을 때만 목표 만들기 CTA. 있으면 계획 보기는 굳이 노출 안 함.
-      cta: activeGoal ? undefined : { href: "/goal-setup", label: t('today.goalSetupCta') },
+      // 화면당 primary action 1개 (#401): goal 있으면 운동 시작, 없으면 목표 만들기.
+      cta: activeGoal
+        ? { href: "/plan", label: t('today.start'), emphasis: true }
+        : { href: "/goal-setup", label: t('today.goalSetupCta'), emphasis: true },
     });
   }
 
@@ -833,9 +835,10 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
     topRightExtras,
     detailLine,
     intervalBar: intervals.length > 0 ? <IntervalBar intervals={intervals} /> : null,
-    // 완료 활동이 있을 때만 활동 보기 CTA. 계획 보기는 제거 (헤더의 코스명·D-N으로 충분).
+    // 완료 전이면 '운동 시작' 이 이 화면의 primary action (#401 — 화면당 핵심 CTA 1개).
+    // 완료 활동이 있으면 활동 보기로 전환.
     cta: completed && actualActivityId
       ? { href: `/activity/${actualActivityId}`, label: t('today.viewActivity'), emphasis: false }
-      : undefined,
+      : { href: '/plan', label: t('today.start'), emphasis: true },
   });
 }

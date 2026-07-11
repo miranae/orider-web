@@ -1,5 +1,5 @@
 export type WorkoutKind =
-  | 'rest' | 'rec' | 'z2' | 'z2Long' | 'tempo' | 'ftp' | 'vo2' | 'sim' | 'goal'
+  | 'rest' | 'rec' | 'z2' | 'z2Long' | 'tempo' | 'ftp' | 'vo2' | 'hillRepeats' | 'sim' | 'goal'
   // 달리기
   | 'easyRun' | 'tempoRun' | 'intervalRun' | 'longRun' | 'recoveryRun'
   | 'stridesRun' | 'progressRun' | 'threshRun' | 'raceRun'
@@ -10,6 +10,7 @@ export type WorkoutKind =
 export type FeasibilityLabel = 'easy' | 'on_track' | 'stretch' | 'risky';
 
 export type GoalStatus = 'active' | 'completed' | 'abandoned';
+export type GoalType = 'event' | 'ftp' | 'fitness' | 'climb';
 
 export type EventType =
   | 'completion' | 'time' | 'race'
@@ -44,14 +45,28 @@ export interface Goal {
   id: string;
   userId: string;
   discipline?: 'bike' | 'run' | 'swim';
-  courseId: string;
+  goalType?: GoalType;
+  targetDate?: number;
+  title?: string;
+  target?: {
+    startFtpW?: number;
+    targetFtpW?: number;
+    startCtl?: number;
+    targetCtl?: number;
+    climbName?: string;
+    climbDurationMin?: number;
+    targetWkg?: number | null;
+  };
+  courseId: string | null;
   courseName: string;
   courseDist: number;  // km
   courseElev: number;   // m
+  /** 목표 생성 시점의 코스 클라임 구조 스냅샷. 과거 문서는 미보유. */
+  courseClimbs?: Array<{ gain: number; dist: number; cat: number }>;
   eventType: EventType;
   eventDate: number;    // timestamp ms
   targetDurationMin?: number;
-  weeklySessions: 3 | 4 | 5 | 6;
+  weeklySessions: 1 | 2 | 3 | 4 | 5 | 6;
   status: GoalStatus;
   createdAt: number;
   updatedAt: number;
@@ -65,6 +80,7 @@ export interface Goal {
     requiredWkg?: number;
     sustainableWkg?: number;
     gapWkg?: number;
+    model?: 'aggregate' | 'climb_structure';
     /** 피로도(TSB) 기반 sustainableWkg 보정율(%, 0=무보정, -10=10% 하향) */
     fatigueAdjustmentPct?: number;
     computedAt: number;

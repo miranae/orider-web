@@ -1,5 +1,6 @@
 import { sampleDurationsSec } from "./sampleTime";
 import type { StreamTimeArray } from "./streamTime";
+import type { DerivedHrZones } from "./hrZones";
 
 export interface ZoneDistribution {
   zone: number;
@@ -30,22 +31,34 @@ const POWER_ZONES = [
   { zone: 7, name: "신경근", nameKey: "fitness:zone.neurological", min: 1.50, max: Infinity, color: "var(--zone-5)" },
 ];
 
-export function calculateHrZoneDistribution(heartrates: number[], maxHr: number, time?: StreamTimeArray): ZoneDistribution[] {
+export function calculateHrZoneDistribution(heartrates: number[], maxHrOrZones: number | DerivedHrZones, time?: StreamTimeArray): ZoneDistribution[] {
+  const derived = typeof maxHrOrZones === "number" ? null : maxHrOrZones;
+  const maxHr = typeof maxHrOrZones === "number" ? maxHrOrZones : null;
   const counts = new Array(HR_ZONES.length).fill(0);
   const durations = sampleDurationsSec(heartrates.length, time);
   for (let sampleIdx = 0; sampleIdx < heartrates.length; sampleIdx++) {
     const hr = heartrates[sampleIdx]!;
     const dt = durations[sampleIdx] ?? 0;
-    const ratio = hr / maxHr;
-    for (let i = HR_ZONES.length - 1; i >= 0; i--) {
-      if (ratio >= HR_ZONES[i]!.min) { counts[i] += dt; break; }
+    if (derived) {
+      for (let i = derived.zones.length - 1; i >= 0; i--) {
+        if (hr >= derived.zones[i]!.minBpm) { counts[i] += dt; break; }
+      }
+    } else {
+      const ratio = hr / maxHr!;
+      for (let i = HR_ZONES.length - 1; i >= 0; i--) {
+        if (ratio >= HR_ZONES[i]!.min) { counts[i] += dt; break; }
+      }
     }
   }
   const total = counts.reduce((sum, v) => sum + v, 0);
-  return HR_ZONES.map((z, i) => ({
-    zone: z.zone,
-    name: z.name,
-    nameKey: z.nameKey,
+  return (derived?.zones ?? HR_ZONES).map((z, i) => ({
+    zone: i + 1,
+    name: derived ? derived.zones[i]!.label : HR_ZONES[i]!.name,
+    nameKey: derived
+      ? derived.source === "max_hr" && i === 4
+        ? "fitness:zone.maxAerobic"
+        : `fitness:zone.${derived.zones[i]!.label === "vo2" ? "vo2max" : derived.zones[i]!.label}`
+      : HR_ZONES[i]!.nameKey,
     seconds: counts[i],
     percentage: total > 0 ? (counts[i] / total) * 100 : 0,
     color: z.color,

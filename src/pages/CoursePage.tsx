@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -33,6 +34,9 @@ import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
 import { Button, buttonClass, Card, Chip, Text } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
+import { useGear } from "../hooks/useGear";
+import { usePdc } from "../hooks/usePdc";
+import { formatClimbDuration, predictClimb, type ClimbPrediction } from "@shared/sim/climbPrediction";
 
 interface CourseData {
   id: string;
@@ -311,11 +315,43 @@ async function extractGpsFromFile(file: File): Promise<[number, number] | null> 
 // ── Component ───────────────────────────────────────────────────────
 
 export default function CoursePage() {
-  const { t } = useTranslation("course");
+  const { t, i18n } = useTranslation("course");
   const { courseId } = useParams<{ courseId: string }>();
-  const { user, profile } = useAuth();
+  const { user, profile, profileLoading, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId);
+  const { items: gearItems, loading: gearLoading } = useGear(user?.uid ?? null);
+  const pdcState = usePdc(user?.uid ?? null);
+
+  const defaultBike = useMemo(
+    () => gearItems.find((gear) => gear.type === "bike" && gear.isDefault)
+      ?? gearItems.find((gear) => gear.type === "bike")
+      ?? null,
+    [gearItems],
+  );
+  const climbPredictions = useMemo(() => {
+    if (!course?.climbs || !profile?.weightKg) return [];
+    const cpW = pdcState.pdc?.cp?.value ?? pdcState.pdc?.pdcModel?.cpEst;
+    const wPrimeJ = pdcState.pdc?.cp?.wPrime ?? pdcState.pdc?.pdcModel?.frc;
+    return course.climbs.map((climb) => predictClimb(climb, {
+      riderWeightKg: profile.weightKg!,
+      bikeWeightKg: defaultBike?.weightKg,
+      ftpW: profile.ftp,
+      cpW,
+      wPrimeJ,
+      cda: defaultBike?.cda,
+      crr: defaultBike?.crr,
+      drivetrainEfficiency: defaultBike?.drivetrainEfficiency,
+    }));
+  }, [course?.climbs, defaultBike, pdcState.pdc, profile?.ftp, profile?.weightKg]);
+  const climbCards = useMemo(
+    () => (course?.climbs ?? [])
+      .map((climb, index) => ({ climb, prediction: climbPredictions[index] ?? null }))
+      .sort((a, b) => b.climb.cat - a.climb.cat),
+    [climbPredictions, course?.climbs],
+  );
+  const climbPredictionLoading = authLoading || profileLoading
+    || (Boolean(user) && (gearLoading || pdcState.status === "loading"));
 
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -634,17 +670,14 @@ export default function CoursePage() {
 
   const handleShare = async () => {
     const url = window.location.href;
-    const text = course ? `${course.name} — ${(course.distance / 1000).toFixed(1)}km, ${Math.round(course.elevationGain)}m` : "";
+    const body = course ? `${course.name} — ${(course.distance / 1000).toFixed(1)}km, ${Math.round(course.elevationGain)}m` : "";
+    const payload = buildOriderSharePayload({ title: course?.name ?? t("share.courseTitle"), body, url, language: i18n.language });
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: course?.name ?? t("share.courseTitle"), text, url });
-      } catch {
-        // user cancelled share
-      }
-    } else {
-      await navigator.clipboard.writeText(url);
-      showToast(t("link.copied"));
+    const result = await shareOrCopy(payload);
+    if (result === "copied") showToast(t("link.copied"));
+    else if (result === "failed") {
+      logClientError("CoursePage.share", new Error("Share unavailable or failed"), { courseId });
+      showToast(t("link.shareFailed"));
     }
   };
 
@@ -657,8 +690,16 @@ export default function CoursePage() {
       const fn = httpsCallable(functions, "sendCourseToApp");
       await fn({ courseId });
       showToast(t("link.sentToApp"));
-    } catch {
-      showToast(t("link.sendFailed"));
+    } catch (err) {
+      logClientError("CoursePage.sendCourseToApp", err, { courseId });
+      const code = callableCode(err);
+      // failed-precondition = 서버가 판정한 사용자 행동 필요 사유(기기 없음/알림 권한) — 그대로 표시
+      const serverMessage = (err as { message?: string } | null)?.message;
+      if ((code === "functions/failed-precondition" || code === "failed-precondition") && serverMessage) {
+        showToast(serverMessage);
+      } else {
+        showToast(t("link.sendFailed"));
+      }
     }
   };
 
@@ -906,7 +947,7 @@ export default function CoursePage() {
                     }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[10px] text-[var(--ink-0)]/80 truncate">{photo.attribution}</p>
+                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)]/80 truncate">{photo.attribution}</p>
                   </div>
                 </div>
               ))}
@@ -923,7 +964,7 @@ export default function CoursePage() {
                     }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[10px] text-[var(--ink-0)]/80 truncate">{photo.uploaderNickname}</p>
+                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)]/80 truncate">{photo.uploaderNickname}</p>
                   </div>
                 </div>
               ))}
@@ -1089,17 +1130,38 @@ export default function CoursePage() {
         {course.climbs && course.climbs.length > 0 && (
           <div style={{ ...COURSE_INFO_SECTION_STYLE, marginTop: "var(--space-4)" }}>
             <Text as="div" variant="eyebrow">{t("climbSection")}</Text>
-            <div style={COURSE_INLINE_WRAP_STYLE}>
-              {[...course.climbs].sort((a, b) => b.cat - a.cat).map((climb, i) => (
-                <span
+            <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)" }}>
+              {climbCards.map(({ climb, prediction }, i) => (
+                <div
                   key={i}
-                  className="text-[length:var(--fs-xs)] font-medium rounded-[var(--r-sm)]"
-                  style={{ ...climbBadgeStyle(climb.cat), padding: "var(--space-1) var(--space-2)" }}
+                  className="rounded-[var(--r-md)]"
+                  style={{ border: "1px solid var(--line-soft)", padding: "var(--space-3)" }}
                 >
-                  {climbCatLabel(climb.cat)} · {Math.round(climb.gain)}m / {(climb.dist / 1000).toFixed(1)}km
-                </span>
+                  <div style={COURSE_INLINE_WRAP_STYLE}>
+                    <span
+                      className="text-[length:var(--fs-xs)] font-medium rounded-[var(--r-sm)]"
+                      style={{ ...climbBadgeStyle(climb.cat), padding: "var(--space-1) var(--space-2)" }}
+                    >
+                      {climbCatLabel(climb.cat)}
+                    </span>
+                    <Text variant="bodySmall">
+                      {Math.round(climb.gain)}m / {(climb.dist / 1000).toFixed(1)}km
+                    </Text>
+                  </div>
+                  <ClimbPredictionStatus
+                    prediction={prediction}
+                    loading={climbPredictionLoading}
+                    signedIn={Boolean(user)}
+                    onLogin={() => { void signInWithGoogle(); }}
+                  />
+                </div>
               ))}
             </div>
+            {climbPredictions.some(Boolean) && (
+              <Text variant="caption" style={{ color: "var(--ink-4)" }}>
+                {t("climbPrediction.disclaimer")}
+              </Text>
+            )}
           </div>
         )}
 
@@ -1112,7 +1174,7 @@ export default function CoursePage() {
                 <Link key={s.id} to={`/segment/${s.id}`}>
                   <Card padding="compact" className="hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
                     <div style={COURSE_INLINE_WRAP_STYLE}>
-                      {s.climbCategory >= 1 && <span className="text-[10px] rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)", padding: "var(--space-1) var(--space-2)" }}>{s.climbCategory >= 5 ? "HC" : `Cat ${s.climbCategory}`}</span>}
+                      {s.climbCategory >= 1 && <span className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)", padding: "var(--space-1) var(--space-2)" }}>{s.climbCategory >= 5 ? "HC" : `Cat ${s.climbCategory}`}</span>}
                       <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{s.name}</span>
                     </div>
                     <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{(s.distance / 1000).toFixed(1)}km · {s.averageGrade.toFixed(1)}%</div>
@@ -1239,5 +1301,58 @@ export default function CoursePage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export function ClimbPredictionStatus({
+  prediction,
+  loading,
+  signedIn,
+  onLogin,
+}: {
+  prediction: ClimbPrediction | null;
+  loading: boolean;
+  signedIn: boolean;
+  onLogin: () => void;
+}) {
+  const { t } = useTranslation("course");
+  if (loading) {
+    return (
+      <Text as="div" variant="caption" style={{ color: "var(--ink-4)", marginTop: "var(--space-2)" }}>
+        {t("climbPrediction.loading")}
+      </Text>
+    );
+  }
+  if (prediction) {
+    return (
+      <Text as="div" variant="bodyMedium" style={{ color: "var(--ink-1)", marginTop: "var(--space-2)" }}>
+        {t("climbPrediction.result", {
+          duration: formatClimbDuration(prediction.totalSec),
+          wkg: prediction.wattsPerKg.toFixed(1),
+        })}
+      </Text>
+    );
+  }
+  if (!signedIn) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onLogin}
+        style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
+      >
+        {t("climbPrediction.login")}
+      </Button>
+    );
+  }
+  return (
+    <Link
+      to="/settings?section=training"
+      className="block text-[length:var(--fs-xs)] hover:underline"
+      style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
+    >
+      {t("climbPrediction.addMetrics")}
+    </Link>
   );
 }

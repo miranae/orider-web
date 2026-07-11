@@ -24,6 +24,7 @@ import {
 } from "../utils/advancedMetrics";
 import { calculateRunSplits, calculateOverallGap } from "../utils/runMetrics";
 import { sampleDurationsSec, totalDurationSec } from "../utils/sampleTime";
+import { buildClimbTableRows } from "../utils/climbMetrics";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
@@ -35,6 +36,9 @@ import { Chip, Text } from "../theme/components";
 import { useActivityMetrics } from "../hooks/useActivityMetrics";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
+import { LocalizedLink as Link } from "./LocalizedLink";
+import { buildClimbSegmentProposalPath } from "../features/segmentCreation/climbPromotion";
+import { resolveActivityHrZones } from "../utils/hrZones";
 
 type AccentColor = "lime" | "aqua" | "amber" | "rose" | "violet" | "ink";
 const ACCENT: Record<AccentColor, string> = {
@@ -181,11 +185,17 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
   // 우선순위: 사용자 프로필(현재값) → 활동 스트림 스냅샷 → 기본값
   // 프로필을 우선해 임계값 변경이 과거 활동 분석에 즉시 반영되도록 한다.
   const ftp = profile?.ftp || streams.ftp || 200;
-  const maxHr = profile?.maxHr || streams.maxHr || 190;
+  const hrResolution = useMemo(() => resolveActivityHrZones({
+    isOwner, sport, profileMaxHr: profile?.maxHr, profileLthr: profile?.lthr,
+    activityContextMaxHr: sm?.contextSnapshot?.maxHr, activityContextLthr: sm?.contextSnapshot?.lthr,
+    streamMaxHr: streams.maxHr, summaryPeakHr: summary?.maxHeartRate,
+  }), [isOwner, profile?.lthr, profile?.maxHr, sm?.contextSnapshot?.lthr, sm?.contextSnapshot?.maxHr, sport, streams.maxHr, summary?.maxHeartRate]);
+  const maxHr = hrResolution.maxHr;
+  const derivedHrZones = hrResolution.zones;
   const restHr = 60; // 기본 안정 심박. 향후 프로필에서
   const weightKg = profile?.weightKg ?? null;
   const hasFtp = !!profile?.ftp || !!streams.ftp;
-  const hasMaxHr = !!profile?.maxHr || !!streams.maxHr;
+  const hasMaxHr = hrResolution.maxHrSource !== "default";
 
   // 서버(activity-metrics)와 동일하게 plausibleWatts 로 정제(#532) — 비현실 파워(평균/5분>2×FTP)
   // 는 []→파워지표 미표시, 고립 스파이크는 2000W 클램프. 서버 사전계산값과 발산 방지.
@@ -262,7 +272,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
   const elevGain = useMemo(() => calculateElevationGain(streams.altitude), [streams.altitude]);
 
   // 존 분포 + 임계 영역
-  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, maxHr, time) : null, [hr, maxHr, time, hasHr]);
+  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, derivedHrZones, time) : null, [hr, derivedHrZones, time, hasHr]);
   const powerZones = useMemo(() => hasPower ? calculatePowerZoneDistribution(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
   // Seiler 3존 (자전거 + 파워 있을 때만)
   const seilerZones = useMemo(() => (hasPower && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, time) : null, [watts, ftp, time, hasPower, sport]);
@@ -285,13 +295,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
     return detectClimbs(streams.altitude, streams.distance, streams.time, 3, 500);
   }, [streams.altitude, streams.distance, streams.time, sport]);
   const climbRows = useMemo(() => {
-    if (sm?.climbs?.length) {
-      return sm.climbs.map((c) => ({
-        ...c,
-        elevationGain: c.elevationGainM,
-      }));
-    }
-    return climbs.map((c) => ({ ...c, avgPower: null, wPerKg: null, vam: null }));
+    return buildClimbTableRows(sm?.climbs, climbs);
   }, [sm?.climbs, climbs]);
 
   // 러닝 전용 — km 스플릿 + GAP
@@ -739,17 +743,18 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.length")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.elev")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.avgGrade")}</th>
-                  <th className="text-right px-3 py-2">W</th>
-                  <th className="text-right px-3 py-2">W/kg</th>
-                  <th className="text-right px-3 py-2">VAM</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.duration")}</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.vam")}</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.avgPower")}</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.wPerKg")}</th>
                   <th className="text-left px-3 py-2 pl-4">{t("analysis.climbs.header.category")}</th>
+                  {isOwner && activityId && <th className="text-right px-3 py-2">{t("analysis.climbs.header.action")}</th>}
                 </tr>
               </thead>
               <tbody>
                 {climbRows.map((c, i) => {
-                  const cat = c.avgGrade * c.lengthKm * 100;
-                  const grade = cat > 800 ? "HC" : cat > 600 ? "1" : cat > 400 ? "2" : cat > 200 ? "3" : "4";
-                  const gradeColor = grade === "HC" ? "var(--rose)" : grade === "1" ? "var(--amber)" : grade === "2" ? "var(--violet)" : "var(--aqua)";
+                  const grade = c.category?.replace("Cat", "") ?? null;
+                  const gradeColor = grade === "HC" ? "var(--rose)" : grade === "1" ? "var(--amber)" : grade === "2" ? "var(--violet)" : grade != null ? "var(--aqua)" : "var(--ink-4)";
                   return (
                     <tr key={i} className="border-t" style={{ borderColor: 'var(--line-soft)' }}>
                       <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{i + 1}</td>
@@ -757,14 +762,33 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{distVal(c.lengthKm)} {distUnit}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{elevValRound(c.elevationGain)} {elevUnit}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--amber)' }}>{c.avgGrade.toFixed(1)} %</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.durationSec != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.durationSec != null ? formatDuration(c.durationSec) : "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.vam != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.vam != null ? Math.round(c.vam) : "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.avgPower != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.avgPower != null ? Math.round(c.avgPower) : "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.wPerKg != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.wPerKg != null ? c.wPerKg.toFixed(1) : "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.vam != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.vam != null ? Math.round(c.vam) : "—"}</td>
                       <td className="px-3 py-2 pl-4">
                         <Chip style={{ background: gradeColor, color: 'var(--ink-0)', fontSize: "var(--fs-xs)", padding: '2px 8px', borderRadius: "9999px" }}>
-                          {grade === "HC" ? "HC" : t("analysis.climbs.category", { grade })}
+                          {grade === "HC" ? "HC" : grade != null ? t("analysis.climbs.category", { grade }) : t("analysis.climbs.uncategorized")}
                         </Chip>
                       </td>
+                      {isOwner && activityId && (
+                        <td className="px-3 py-2 text-right">
+                          <Link
+                            to={buildClimbSegmentProposalPath(activityId, {
+                              startKm: c.startKm,
+                              endKm: c.startKm + c.lengthKm,
+                            })}
+                            className="inline-flex whitespace-nowrap rounded-[var(--r-md)] px-2.5 py-1 text-[length:var(--fs-xs)] font-semibold"
+                            style={{
+                              color: "var(--aqua)",
+                              border: "1px solid color-mix(in srgb, var(--aqua) 35%, transparent)",
+                              background: "color-mix(in srgb, var(--aqua) 10%, transparent)",
+                            }}
+                          >
+                            {t("analysis.climbs.promote")}
+                          </Link>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

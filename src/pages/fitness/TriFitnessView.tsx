@@ -174,7 +174,7 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
         strokeDasharray="2 2"
         opacity="0.5"
       />
-      <text x={sx(n - 1) - 40} y="14" fontSize="10" fontFamily="JetBrains Mono" fill="var(--ink-2)">
+      <text x={sx(n - 1) - 40} y="14" fontSize="12" fontFamily="JetBrains Mono" fill="var(--ink-2)">
         {t("triView.today")}
       </text>
       <circle
@@ -194,7 +194,7 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
             key={idx}
             x={sx(idx)}
             y={h - 4}
-            fontSize="9"
+            fontSize="12"
             fontFamily="JetBrains Mono"
             fill="var(--ink-4)"
             textAnchor="middle"
@@ -290,7 +290,7 @@ function ContribDonut({ slices, totalCtl }: { slices: ContribSlice[]; totalCtl: 
             <title>{`${a.label} · ${a.pct}% · CTL ${a.ctl.toFixed(1)}`}</title>
           </path>
         ))}
-        <text x={cx} y={cy - 4} fontSize="10" fontFamily="JetBrains Mono" fill="var(--ink-3)" textAnchor="middle">
+        <text x={cx} y={cy - 4} fontSize="12" fontFamily="JetBrains Mono" fill="var(--ink-3)" textAnchor="middle">
           {t("triView.totalCtl")}
         </text>
         <text x={cx} y={cy + 14} fontSize="20" fontFamily="JetBrains Mono" fill="var(--ink-0)" textAnchor="middle" fontWeight="600">

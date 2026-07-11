@@ -165,7 +165,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
         {showDataWarning && (
           <span
             title={t("mobileFeed.dataWarningTooltip")}
-            className="text-[10px]"
+            className="text-[length:var(--fs-xs)]"
             style={{
               padding: "3px 6px", borderRadius: "var(--r-sm)",
               fontWeight: 600, color: "var(--amber)",
@@ -265,12 +265,22 @@ export default function MobileFeedPage({
 
   return (
     <div style={{ overscrollBehavior: "contain" }}>
+      {/* 오늘의 워크아웃 — 첫 화면 최상단: 오늘 행동 → 핵심 수치 → 추이 → 피드 순서.
+          모바일은 '오늘의 결론 + CTA' 압축형 (#401). 상세 해설은 /fitness·/plan 에서. */}
+      {user && (
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+          <Suspense fallback={null}>
+            <TodaysWorkoutCard variant="compact" />
+          </Suspense>
+        </div>
+      )}
+
       {/* 주간 요약 — 로그인 사용자만 (비로그인은 개인 통계 컨텍스트 없음) */}
       {user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
           <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-3)' }}>
             <Text variant="eyebrow">{t("mobileFeed.weekSummary")}</Text>
-            <Link to="/my" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
+            <Link to="/my" className="ds-tap-target" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
               {t("mobileFeed.viewAll")}
             </Link>
           </div>
@@ -321,15 +331,6 @@ export default function MobileFeedPage({
         </div>
       )}
 
-      {/* 오늘의 워크아웃 — 로그인 사용자만 (비로그인은 훈련 컨텍스트 없음) */}
-      {user && (
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <Suspense fallback={null}>
-            <TodaysWorkoutCard />
-          </Suspense>
-        </div>
-      )}
-
       {/* 종목 필터 */}
       <div style={{ borderBottom: "1px solid var(--line-soft)" }}>
         <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
@@ -348,7 +349,7 @@ export default function MobileFeedPage({
               aria-pressed={feedScope === value}
               onClick={() => setFeedScope(value)}
               style={{
-                minHeight: 36,
+                minHeight: 44,
                 borderRadius: "var(--r-md)",
                 border: "1px solid var(--line-soft)",
                 background: feedScope === value ? "var(--bg-3)" : "var(--bg-1)",
@@ -368,7 +369,7 @@ export default function MobileFeedPage({
             placeholder={t("feed.search.placeholder")}
             aria-label={t("feed.search.placeholder")}
             style={{
-              minHeight: 40,
+              minHeight: 44,
               borderRadius: "var(--r-md)",
               border: "1px solid var(--line-soft)",
               background: "var(--bg-2)",
@@ -382,7 +383,7 @@ export default function MobileFeedPage({
             onChange={(event) => setDatePreset(event.target.value as "all" | "7d" | "30d" | "90d")}
             aria-label={t("feed.datePreset.label", { defaultValue: "기간" })}
             style={{
-              minHeight: 40,
+              minHeight: 44,
               borderRadius: "var(--r-md)",
               border: "1px solid var(--line-soft)",
               background: "var(--bg-2)",
@@ -422,7 +423,7 @@ export default function MobileFeedPage({
 
       {!loading && (hasHiddenLocalItems || hasMore) && (
         <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-          <Button variant="secondary"
+          <Button variant="secondary" size="lg"
             onClick={() => {
               if (hasHiddenLocalItems) {
                 setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);

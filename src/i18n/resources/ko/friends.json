@@ -43,5 +43,15 @@
   "invite.errorInvalid": "이 초대 코드는 사용할 수 없습니다.",
   "invite.errorFailed": "친구 추가에 실패했습니다. 잠시 후 다시 시도해 주세요.",
   "invite.retry": "다시 시도",
-  "invite.backToFriends": "친구로 이동"
+  "invite.backToFriends": "친구로 이동",
+  "onboarding.title": "친구와 함께 시작해 보세요",
+  "onboarding.description": "초대 링크를 공유하거나 받은 친구코드를 아래에 입력할 수 있어요. 이 단계는 건너뛰어도 됩니다.",
+  "onboarding.share": "초대 링크 공유",
+  "onboarding.loadingCode": "친구코드 준비 중…",
+  "onboarding.codeUnavailable": "친구코드를 준비하지 못했어요",
+  "onboarding.continue": "계속하기",
+  "onboarding.shareTitle": "ORider 친구 초대",
+  "onboarding.shareText": "ORider에서 함께 운동해요.",
+  "onboarding.copied": "초대 링크를 복사했어요",
+  "onboarding.shareFailed": "초대 링크를 공유하지 못했어요"
 }

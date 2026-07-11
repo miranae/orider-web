@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -9,6 +9,7 @@ import { useStrava } from "../hooks/useStrava";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import { Bike, Footprints, Triangle, Waves } from "lucide-react";
+import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 
 type Step = "discipline" | "strava" | "goal";
 const STEPS: Step[] = ["discipline", "strava", "goal"];
@@ -27,9 +28,9 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>("discipline");
-  const returnTo = searchParams.get("returnTo") || "/";
+  const returnTo = sanitizeInternalReturnPath(searchParams.get("returnTo"));
   const returnSuffix = returnTo === "/" ? "" : `?returnTo=${encodeURIComponent(returnTo)}`;
-  const finishTarget = returnTo.startsWith("/") ? returnTo : "/";
+  const finishTarget = returnTo;
   // E3 or_onboarding_step_view — 모바일 앱과 동일 이벤트명으로 웹 온보딩 단계 진입 측정.
   // 웹 단계는 discipline/strava/goal (앱은 login/permission/sensor/first_ride) — 이름만 공유, 크로스 퍼널은 합집합.
   // 인증/로딩 게이트 통과(실제 온보딩 UI 노출) 시에만 발화 — 비로그인·로딩 프레임의 헛 카운트로
@@ -40,6 +41,7 @@ export default function OnboardingPage() {
   }, [step, loading, user]);
   const [selected, setSelected] = useState<"tri" | "bike" | "run" | "swim" | null>(null);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,7 +85,8 @@ export default function OnboardingPage() {
   const userRef = user ? doc(firestore, "users", user.uid) : null;
 
   const finishOnboarding = async (target = finishTarget) => {
-    if (!userRef) return;
+    if (!userRef || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -93,12 +96,14 @@ export default function OnboardingPage() {
       logClientError("OnboardingPage.finishOnboarding", err, { target });
       setError(t("saveFailed"));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleDisciplineNext = async () => {
-    if (!userRef || !selected) return;
+    if (!userRef || !selected || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -108,12 +113,14 @@ export default function OnboardingPage() {
       logClientError("OnboardingPage.handleDisciplineNext", err, { selected });
       setError(t("saveFailed"));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleStravaConnect = async () => {
-    if (!userRef) return;
+    if (!userRef || savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -122,12 +129,15 @@ export default function OnboardingPage() {
     } catch (err) {
       logClientError("OnboardingPage.handleStravaConnect", err);
       setError(t("saveFailed"));
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleStravaSkip = async () => {
-    if (!userRef) return;
+    if (!userRef || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
     setError(null);
     try {
       await updateDoc(userRef, { onboardingStep: "goal" });
@@ -135,6 +145,9 @@ export default function OnboardingPage() {
     } catch (err) {
       logClientError("OnboardingPage.handleStravaSkip", err);
       setError(t("saveFailed"));
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
@@ -146,11 +159,16 @@ export default function OnboardingPage() {
     await finishOnboarding(`/goal-setup?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
+  const handleInviteFriends = async () => {
+    await finishOnboarding(`/friends?source=onboarding&returnTo=${encodeURIComponent(returnTo)}`);
+  };
+
   const handleSkipAll = async () => {
     await finishOnboarding();
   };
 
   const handleBack = () => {
+    if (saving) return;
     const index = STEPS.indexOf(step);
     if (index > 0) setStep(STEPS[index - 1]!);
   };
@@ -258,6 +276,7 @@ export default function OnboardingPage() {
             </button>
             <button
               onClick={handleBack}
+              disabled={saving}
               className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mb-3"
               style={{ background: "transparent", color: "var(--ink-3)", border: "1px solid var(--line-soft)" }}
             >
@@ -265,6 +284,7 @@ export default function OnboardingPage() {
             </button>
             <button
               onClick={handleStravaSkip}
+              disabled={saving}
               className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)]"
               style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}
             >
@@ -283,13 +303,23 @@ export default function OnboardingPage() {
             </p>
             <button
               onClick={handleGoalSetup}
+              disabled={saving}
               className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mb-3"
               style={{ background: "var(--lime)", color: "var(--ink-0)" }}
             >
               {t("onboarding.goal.setup")}
             </button>
             <button
+              onClick={handleInviteFriends}
+              disabled={saving}
+              className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mb-3"
+              style={{ background: "var(--aqua)", color: "var(--bg-0)", opacity: saving ? 0.4 : 1 }}
+            >
+              {saving ? t("saving") : t("onboarding.goal.inviteFriends")}
+            </button>
+            <button
               onClick={handleBack}
+              disabled={saving}
               className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)] mb-3"
               style={{ background: "transparent", color: "var(--ink-3)", border: "1px solid var(--line-soft)" }}
             >
@@ -297,6 +327,7 @@ export default function OnboardingPage() {
             </button>
             <button
               onClick={handleGoalSkip}
+              disabled={saving}
               className="w-full py-3 rounded-[var(--r-xl)] font-semibold text-[length:var(--fs-sm)]"
               style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}
             >

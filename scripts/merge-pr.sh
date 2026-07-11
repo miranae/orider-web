@@ -15,6 +15,7 @@
 # Options:
 #   --no-merge                Run gates only.
 #   --no-review               Skip local AI code review.
+#   --no-visual-check         Skip the sticky/fixed screenshot-evidence gate.
 #   --require-github-review   Require GitHub reviewDecision=APPROVED before merge.
 #   --skip-build              Skip `npm run build`.
 #   --e2e                     Run Playwright E2E.
@@ -31,6 +32,7 @@ set -euo pipefail
 
 DO_MERGE=1
 RUN_REVIEW=1
+REQUIRE_VISUAL_CHECK=1
 REQUIRE_GITHUB_REVIEW=0
 DO_BUILD=1
 RUN_E2E=0
@@ -42,6 +44,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-merge) DO_MERGE=0 ;;
     --no-review) RUN_REVIEW=0 ;;
+    --no-visual-check) REQUIRE_VISUAL_CHECK=0 ;;
     --require-github-review) REQUIRE_GITHUB_REVIEW=1 ;;
     --skip-build) DO_BUILD=0 ;;
     --e2e) RUN_E2E=1 ;;
@@ -175,6 +178,25 @@ if [[ -n "$CHANGED" ]]; then
     code_changes=1; review_mode="full"
   elif grep -qE "$TOOLING_PAT" <<<"$CHANGED"; then
     review_mode="fast"
+  fi
+fi
+
+# ── 뷰포트 점유 요소 시각 증빙 게이트 ────────────────────────────────────────
+# position: sticky/fixed 를 새로 추가하는 UI 변경은 화면을 상시 점유할 수 있어
+# (#374 상·하단 스티키 배너 장애) PR 본문에 스크린샷 증빙이 있어야 머지한다.
+# 우회는 --no-visual-check (스티키/픽스드와 무관한 리팩터 등 한정).
+if [[ "$REQUIRE_VISUAL_CHECK" == 1 && -n "$CHANGED" ]]; then
+  # :(glob) — 'src/**/*.tsx' 가 src/App.tsx 같은 최상위 파일도 매칭하게 한다.
+  # 안전 게이트이므로 git diff 실패는 통과가 아니라 중단이다(fail-closed).
+  STYLE_DIFF="$(git diff "origin/$BASE...HEAD" -- ':(glob)src/**/*.tsx' ':(glob)src/**/*.ts' ':(glob)src/**/*.css')" \
+    || die "시각 증빙 게이트: git diff 실패 — origin/$BASE 상태를 확인하세요."
+  STICKY_ADDED="$(grep -E '^\+' <<<"$STYLE_DIFF" | grep -cE 'position:\s*["'"'"']?(sticky|fixed)|className=.*(^|[^a-z-])(sticky|fixed)([^a-z-]|$)' || true)"
+  if [[ "$STICKY_ADDED" -gt 0 ]]; then
+    PR_BODY_TEXT="$(gh pr view "$PR_NUM" --json body -q .body 2>/dev/null || true)"
+    if ! grep -qiE '!\[|<img|user-images\.githubusercontent\.com|github\.com/user-attachments|스크린샷|screenshot' <<<"$PR_BODY_TEXT"; then
+      die "sticky/fixed 요소 추가 감지(${STICKY_ADDED}건) — PR 본문에 스크린샷(모바일 뷰포트 권장)을 첨부하세요. 무관한 변경이면 --no-visual-check 로 우회."
+    fi
+    echo "  시각 증빙 확인: sticky/fixed 추가 ${STICKY_ADDED}건 + PR 본문 스크린샷 존재"
   fi
 fi
 

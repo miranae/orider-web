@@ -12,7 +12,7 @@ import { Source, Layer } from "react-map-gl/mapbox";
 import { logClientError } from "../../services/errorLogger";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 
-export type HeatMode = "off" | "global" | "recent30";
+export type HeatMode = "off" | "global" | "recent30" | "mine";
 
 interface HeatPoint { lat: number; lng: number; weight: number }
 
@@ -20,7 +20,7 @@ export default function HeatmapLayer({ mode }: { mode: HeatMode }) {
   const [pointsByMode, setPointsByMode] = useState<Partial<Record<HeatMode, HeatPoint[]>>>({});
 
   useEffect(() => {
-    if (mode === "off" || pointsByMode[mode]) return;
+    if (mode === "off" || mode === "mine" || pointsByMode[mode]) return;
     let cancelled = false;
     const file = mode === "recent30" ? "recent30" : "global";
     const heatBase = getRuntimeConfig().heatmapBase;
@@ -41,7 +41,7 @@ export default function HeatmapLayer({ mode }: { mode: HeatMode }) {
   }, [mode, pointsByMode]);
 
   const geojson = useMemo(() => {
-    const pts = mode !== "off" ? pointsByMode[mode] ?? [] : [];
+    const pts = mode !== "off" && mode !== "mine" ? pointsByMode[mode] ?? [] : [];
     return {
       type: "FeatureCollection" as const,
       features: pts.map((p) => ({
@@ -52,7 +52,7 @@ export default function HeatmapLayer({ mode }: { mode: HeatMode }) {
     };
   }, [mode, pointsByMode]);
 
-  if (mode === "off") return null;
+  if (mode === "off" || mode === "mine") return null;
 
   return (
     <Source id="heatmap" type="geojson" data={geojson}>

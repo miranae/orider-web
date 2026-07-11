@@ -161,6 +161,7 @@
     "maxHrRange": "Max HR must be between 50 and 250 bpm",
     "weightRange": "Weight must be between 20 and 300 kg",
     "lthrRange": "LTHR must be between 50 and 250 bpm",
+    "lthrBelowMaxHr": "LTHR must be lower than max heart rate",
     "paceFormat": "Invalid threshold pace format (e.g. 5:30)",
     "cssFormat": "Invalid CSS format (e.g. 1:45)",
     "statMaxHr": "Max HR",
@@ -210,7 +211,14 @@
     "fieldCssHint": "mm:ss / 100m",
     "cardHrZones": "HR Zones",
     "hrZonesActionBpm": "Based on max HR {{bpm}} bpm",
-    "hrZonesNote": "Zone boundaries are auto-adjusted when a measured LTHR is available. Check the time-in-zone distribution on the activity analysis page.",
+    "hrZonesSource": {
+      "lthr": "Based on LTHR {{bpm}} bpm",
+      "max_hr": "Based on max HR {{bpm}} bpm"
+    },
+    "hrZonesNote": {
+      "lthr": "Friel running-zone boundaries are applied to your measured LTHR. Check time in zone on the activity analysis page.",
+      "max_hr": "Max-HR percentages are used because no valid LTHR is set. Add LTHR to adjust your running zones."
+    },
     "cardMedical": "Medical Info",
     "cardMedicalAction": "May be shared with first responders in an emergency",
     "fieldBloodType": "Blood type",
@@ -277,6 +285,7 @@
     "export": "Export data",
     "exportDesc": "Download your activities (incl. GPX), profile, comments and kudos in one bundle.",
     "preparing": "Preparing...",
+    "preparingDesc": "Push, email, new-follower, kudos/comment and PR notifications are on the way. You'll be able to toggle them here once ready.",
     "downloadAll": "Download all data",
     "defaultFormat": "Default export format",
     "defaultFormatDesc": "Format used for quick exports from the activity detail page.",

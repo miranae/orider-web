@@ -110,8 +110,8 @@ export function WeeklyLoadStrip({
       style={{
         marginTop: "var(--space-3)",
         padding: "var(--space-3)",
+        // 카드 안 서피스는 테두리 없이 배경 틴트만 — surface 3단계 유지 (이슈 401)
         background: `color-mix(in oklch, var(--${phaseTone}) 6%, var(--bg-2))`,
-        border: `1px solid color-mix(in oklch, var(--${phaseTone}) 28%, transparent)`,
         borderRadius: "var(--r-md)",
       }}
     >
@@ -304,7 +304,7 @@ export function HeroCard(opts: HeroCardOpts) {
         </div>
         {opts.cta && (
           <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-3)" }}>
-            <a href={opts.cta.href} className={opts.cta.emphasis ? "ds-btn ds-btn--md" : "ds-btn ds-btn--md ds-btn--ghost"} style={{ fontSize: "var(--fs-xs)" }}>{opts.cta.label}</a>
+            <a href={opts.cta.href} className={opts.cta.emphasis ? "ds-btn ds-btn--md ds-btn--primary" : "ds-btn ds-btn--md ds-btn--ghost"} style={opts.cta.emphasis ? undefined : { fontSize: "var(--fs-xs)" }}>{opts.cta.label}</a>
           </div>
         )}
       </div>

@@ -15,6 +15,7 @@ import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import React from "react";
+import { getDoc } from "firebase/firestore";
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(
@@ -73,6 +74,22 @@ describe("useFriends", () => {
       expect(result.current.requests.length).toBe(1);
     });
     expect(result.current.requests[0]?.nickname).toBe("Requester");
+  });
+
+  it("fails closed synchronously across account switch and logout", async () => {
+    simulateLogin({ uid: "owner-a" });
+    setDocData("users/owner-a", { friendCode: "CODE-A" });
+    const { result } = renderHook(() => useFriends(), { wrapper });
+    await waitFor(() => expect(result.current.friendCode).toBe("CODE-A"));
+
+    vi.mocked(getDoc).mockImplementationOnce(() => new Promise(() => {}) as never);
+    act(() => simulateLogin({ uid: "owner-b" }));
+    expect(result.current.friendCode).toBeNull();
+    expect(result.current.friendCodeLoading).toBe(true);
+
+    act(() => simulateLogout());
+    expect(result.current.friendCode).toBeNull();
+    expect(result.current.friendCodeLoading).toBe(false);
   });
 
   it("addByCode calls Cloud Function", async () => {

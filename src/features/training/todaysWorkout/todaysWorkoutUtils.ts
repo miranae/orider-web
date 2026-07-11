@@ -57,6 +57,7 @@ export function buildWorkoutLabels(t: (key: string) => string): Record<WorkoutKi
     tempo: t("workouts.tempo"),
     ftp: t("workouts.ftp"),
     vo2: t("workouts.vo2Max"),
+    hillRepeats: t("workouts.hillRepeats"),
     sim: t("workouts.simFull"),
     goal: t("workouts.goalEmoji"),
     easyRun: t("workouts.easyRun"),

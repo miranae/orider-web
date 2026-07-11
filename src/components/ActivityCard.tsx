@@ -288,7 +288,7 @@ function AchievementBadge({ type }: { type: AchievementType }) {
       : { background: 'var(--bg-3)', color: 'var(--ink-2)', borderColor: 'var(--line-soft)' };
 
   return (
-    <span className="inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded-[var(--r-sm)] text-[10px] font-bold border" style={badgeStyle}>
+    <span className="inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={badgeStyle}>
       {icons[type]}
     </span>
   );
@@ -507,7 +507,7 @@ export default function ActivityCard({
               discipline: getDiscipline(activity.type),
             }) && (
               <span
-                className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[10px] font-semibold border"
+                className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-semibold border"
                 style={{ background: 'var(--bg-3)', color: 'var(--amber)', borderColor: 'var(--amber)' }}
                 title={t("stat.dataWarningTooltip")}
               >
@@ -527,12 +527,12 @@ export default function ActivityCard({
                *  4-5회 중복 정리. 데스크톱 3컬럼 레이아웃에선 컬럼 간 정보 분리 명확해 유지. */
               <div className="hidden md:flex items-center gap-1 flex-shrink-0">
                 {komCount > 0 && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[10px] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--lime)', borderColor: 'var(--lime)' }}>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--lime)', borderColor: 'var(--lime)' }}>
                     👑 KOM
                   </span>
                 )}
                 {prCount > 0 && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[10px] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--lime)', borderColor: 'var(--line-soft)' }}>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--lime)', borderColor: 'var(--line-soft)' }}>
                     🥇 PR {prCount}
                   </span>
                 )}
