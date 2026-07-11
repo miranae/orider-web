@@ -653,6 +653,8 @@ export default function FitnessPage() {
   const atl = currentPoint?.atl ?? 0;
   const tsb = currentPoint?.tsb ?? 0;
   const ctlDelta = rangeStartPoint ? ctl - rangeStartPoint.ctl : 0;
+  const formulaVo2max = profile?.ftp ? Math.round((profile.ftp / (profile.weightKg || 70)) * 15.7 + 3.5) : null;
+  const displayedVo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : formulaVo2max;
 
   // 자막 생성
   const subtitleParts: string[] = [];
@@ -852,6 +854,7 @@ export default function FitnessPage() {
                 sub: t("kpi.ctl.subDelta", { delta: `${ctlDelta >= 0 ? "+" : ""}${ctlDelta.toFixed(1)}`, range }),
                 color: "var(--lime)",
                 desc: ctlDelta > 5 ? t("kpi.ctl.descUp") : ctlDelta > 0 ? t("kpi.ctl.descMild") : t("kpi.ctl.descFlat"),
+                hint: t("kpi.ctl.hint"),
               },
               {
                 label: t("kpi.atl.label"),
@@ -859,6 +862,7 @@ export default function FitnessPage() {
                 sub: t("kpi.atl.sub"),
                 color: "var(--rose)",
                 desc: atl > ctl ? t("kpi.atl.descHigh") : t("kpi.atl.descNormal"),
+                hint: t("kpi.atl.hint"),
               },
               {
                 label: t("kpi.tsb.label"),
@@ -866,6 +870,7 @@ export default function FitnessPage() {
                 sub: tsbStatusDesc(tsb, t),
                 color: "var(--amber)",
                 desc: tsbStatusLabel(tsb, t),
+                hint: t("kpi.tsb.hint"),
               },
               discipline === "run"
                 ? {
@@ -875,6 +880,7 @@ export default function FitnessPage() {
                     sub: "",
                     color: "var(--aqua)",
                     desc: "",
+                    hint: t("kpi.thresholdPaceHint"),
                   }
                 : discipline === "swim"
                 ? {
@@ -884,6 +890,7 @@ export default function FitnessPage() {
                     sub: "",
                     color: "var(--aqua)",
                     desc: "",
+                    hint: t("kpi.cssHint"),
                   }
                 : {
                     label: "FTP",
@@ -892,14 +899,16 @@ export default function FitnessPage() {
                     sub: "",
                     color: "var(--aqua)",
                     desc: "",
+                    hint: t("kpi.ftpHint"),
                   },
               ...(discipline === "bike" ? [{
                 label: "VO2max",
-                value: profile?.ftp ? String(Math.round((profile.ftp / (profile.weightKg || 70)) * 15.7 + 3.5)) : "—",
+                value: displayedVo2max != null ? String(displayedVo2max) : "—",
                 unit: "ml/kg/min",
-                sub: "",
+                sub: pdc?.vo2maxEst != null && formulaVo2max != null ? t("kpi.vo2max.subFormula", { value: formulaVo2max }) : "",
                 color: "var(--lime)",
-                desc: "",
+                desc: pdc?.vo2maxEst != null ? t("kpi.vo2max.descServer") : t("kpi.vo2max.descFormula"),
+                hint: t("kpi.vo2max.hint"),
               }] : []),
             ].map((s, i, arr) => (
               <div key={i} style={{ padding: "22px 24px", borderRight: i < arr.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
@@ -907,6 +916,11 @@ export default function FitnessPage() {
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color }} />
                   <Text variant="eyebrow">{s.label}</Text>
                 </div>
+                {s.hint && (
+                  <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)", marginBottom: "var(--space-1)" }}>
+                    {s.hint}
+                  </div>
+                )}
                 <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
                   <Text variant="dataHero" style={{ fontSize: "var(--fs-4xl)", color: s.color }}>{s.value}</Text>
                   {s.unit && <Text variant="unit">{s.unit}</Text>}

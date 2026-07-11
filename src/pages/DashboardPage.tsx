@@ -363,7 +363,9 @@ export default function DashboardPage() {
       // 즉시 알기 어려웠음 (옆 sub 의 "ATL 109.8" 와 혼동).
       delta: fitness.tsb !== 0 ? (fitness.tsb > 0 ? `TSB +${fitness.tsb.toFixed(1)}` : `TSB ${fitness.tsb.toFixed(1)}`) : null,
       deltaKind: (fitness.tsb >= 0 ? "up" : "down") as "up" | "down",
-      sub: fitness.ctl > 0 ? t("kpi.subAtl", { value: fitness.atl.toFixed(1) }) : t("kpi.subInsufficient"),
+      sub: fitness.ctl > 0
+        ? `${fitness.tsb >= 5 ? t("kpi.fitnessMaintain") : fitness.tsb <= -10 ? t("kpi.fitnessRecovery") : t("kpi.fitnessBuild")} · ${t("kpi.subAtl", { value: fitness.atl.toFixed(1) })}`
+        : t("kpi.subInsufficient"),
     },
   ];
 
@@ -753,10 +755,12 @@ export default function DashboardPage() {
                   <div>
                     <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.ctl")}</Text>
                     <div><Text variant="dataMedium">{fitness.ctl.toFixed(1)}</Text></div>
+                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("sidebar.fitness.ctlHint")}</div>
                   </div>
                   <div>
                     <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.atl")}</Text>
                     <div><Text variant="dataMedium">{fitness.atl.toFixed(1)}</Text></div>
+                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("sidebar.fitness.atlHint")}</div>
                   </div>
                   <div>
                     <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.tsb")}</Text>
@@ -765,6 +769,7 @@ export default function DashboardPage() {
                         {fitness.tsb >= 0 ? `+${fitness.tsb.toFixed(1)}` : fitness.tsb.toFixed(1)}
                       </Text>
                     </div>
+                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{t("sidebar.fitness.tsbHint")}</div>
                   </div>
                   <div>
                     <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("sidebar.fitness.recommend")}</Text>
@@ -781,12 +786,12 @@ export default function DashboardPage() {
               <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("sidebar.community.title")}</Text>
               <div className="flex flex-col gap-2">
                 {[
-                  { name: "RIDING CLUB LARA", descKey: "lara", url: "https://cafe.naver.com/clublara", logo: "https://cafeptthumb-phinf.pstatic.net/MjAyNTEyMDVfMjU1/MDAxNzY0OTQwMjUyMTY1.2Q6mw5UnFu97-YuUfQlZUhvWFowAmYnlmIfw0tlFad0g.x7s1AKzSkzc_QoY7MXbFkCksbVDh-_UmTvvrtJjbIh8g.PNG/externalFile.png" },
-                  { name: "자출사", descKey: "jachulsa", url: "https://cafe.naver.com/bikecity", logo: "https://cafeptthumb-phinf.pstatic.net/20140811_139/0_1407739316239_yBqthS_jpg/%B8%F0%B9%D9%C0%CF%C4%AB%C6%E4%B8%ED2.jpg" },
-                  { name: "도싸", descKey: "dossa", url: "https://corearoadbike.com/", logo: "https://corearoadbike.com/img/logo.gif", logoBg: "white" },
-                  { name: "클리앙 자전거당", descKey: "clien", url: "https://www.clien.net/service/board/cm_bike", logo: "https://www.clien.net/service/image/logo.png", logoBg: "white" },
-                  { name: "바이크셀", descKey: "bikesell", url: "https://bikesell.co.kr", logo: "https://bikesell.co.kr/site/images/main_top1.gif", logoBg: "white" },
-                  { name: "더바이크", descKey: "thebike", url: "https://thebike.co.kr", logo: "https://www.thebike.co.kr/img/home_logo.png", logoBg: "black" },
+                  { name: "RIDING CLUB LARA", badge: "L", descKey: "lara", url: "https://cafe.naver.com/clublara" },
+                  { name: "자출사", badge: "자", descKey: "jachulsa", url: "https://cafe.naver.com/bikecity" },
+                  { name: "도싸", badge: "도", descKey: "dossa", url: "https://corearoadbike.com/" },
+                  { name: "클리앙 자전거당", badge: "클", descKey: "clien", url: "https://www.clien.net/service/board/cm_bike" },
+                  { name: "바이크셀", badge: "바", descKey: "bikesell", url: "https://bikesell.co.kr" },
+                  { name: "더바이크", badge: "더", descKey: "thebike", url: "https://thebike.co.kr" },
                 ].map((c) => (
                   <a
                     key={c.name}
@@ -798,8 +803,8 @@ export default function DashboardPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-2)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <div className="flex-shrink-0 overflow-hidden" style={{ width: 28, height: 28, borderRadius: "var(--r-sm)", background: c.logoBg || "var(--bg-3)" }}>
-                      <img src={c.logo} alt={c.name} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: c.logoBg ? "contain" : "cover", padding: c.logoBg ? 2 : 0 }} />
+                    <div className="flex-shrink-0" aria-hidden="true" style={{ width: 28, height: 28, borderRadius: "var(--r-sm)", background: "var(--bg-3)", color: "var(--lime)", display: "grid", placeItems: "center", fontSize: "var(--fs-xs)", fontWeight: 700 }}>
+                      {c.badge}
                     </div>
                     <div className="min-w-0">
                       <div style={{ fontSize: "var(--fs-xs)", fontWeight: 600, color: "var(--ink-0)" }}>{c.name}</div>

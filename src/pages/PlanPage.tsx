@@ -641,7 +641,9 @@ export default function PlanPage() {
     try {
       const reroll = httpsCallable(functions, "rerollPlan");
       await reroll({ goalId: goal.id });
-      window.location.reload();
+      setReloadKey((key) => key + 1);
+      setMobileWeekOffset(0);
+      showToast(t('plan.rerollSuccess'));
     } catch (err) {
       logClientError("PlanPage.rerollPlan", err, { goalId: goal.id });
       showToast(t('errors.rerollError'), "error");
@@ -733,7 +735,7 @@ export default function PlanPage() {
           completedTSS={completedTSS}
           totalTSS={totalTSS}
           weeksLeft={weeksLeft}
-          projectedCTL={goal ? (goal.snapshot?.ctl ?? 0) * 0.18 : null}
+          projectedCTL={goal?.snapshot?.ctl != null ? goal.snapshot.ctl * 0.18 : null}
           adaptationFlag={goal?.adaptationFlag}
           onWeekPrev={() => setMobileWeekOffset(o => o - 1)}
           onWeekNext={() => setMobileWeekOffset(o => o + 1)}
@@ -879,7 +881,7 @@ export default function PlanPage() {
               { label: t('metrics.progress'),   value: `${progress}%`,       unit: null,  color: 'var(--lime)' },
               { label: t('metrics.completedTSS'), value: completedTSS.toLocaleString(), unit: `/ ${totalTSS.toLocaleString()}`, color: 'var(--ink-0)' },
               { label: t('metrics.weeksLeft'), value: String(weeksLeft),    unit: t('metrics.weeksUnit'),  color: 'var(--ink-0)' },
-              { label: t('metrics.projectedCTL'), value: goal ? `+${Math.round((goal.snapshot?.ctl ?? 0) * 0.18)}` : '—', unit: null, color: 'var(--lime)' },
+              { label: t('metrics.projectedCTL'), value: goal?.snapshot?.ctl != null ? `≈+${Math.round(goal.snapshot.ctl * 0.18)}` : '—', unit: null, color: 'var(--lime)' },
             ].map(({ label, value, unit, color }) => (
               <div
                 key={label}

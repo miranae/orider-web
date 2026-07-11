@@ -8,6 +8,8 @@
   "course.title": "코스 선택",
   "course.select": "코스",
   "course.placeholder": "코스를 선택하세요",
+  "course.createLink": "코스 만들기",
+  "course.exploreLink": "공개 코스 탐색",
   "course.distance": "거리",
   "course.elevation": "획득 고도",
   "course.segments": "구간 수",

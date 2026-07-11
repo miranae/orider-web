@@ -124,7 +124,7 @@
     "completedTSS": "완료 TSS",
     "weeksLeft": "남은 주수",
     "weeksUnit": "주",
-    "projectedCTL": "예상 CTL",
+    "projectedCTL": "CTL 변화 가이드",
     "goalDate": "목표일",
     "daysLeft": "D-",
     "courseDistance": "km",
@@ -132,6 +132,7 @@
     "targetDuration": "목표 시간",
     "plannedGeneration": "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요."
   },
+  "plan.rerollSuccess": "운동 계획을 재생성했습니다.",
   "goals": {
     "wizardTitle": {
       "bike": "3분 안에 나만의 운동 계획 만들기",
