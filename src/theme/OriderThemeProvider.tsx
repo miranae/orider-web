@@ -10,6 +10,7 @@ import {
 import { useTheme, type ResolvedTheme } from '../contexts/ThemeContext';
 import type { OriderTheme, OriderThemeVariant } from './OriderTheme';
 import { DEFAULT_THEME, THEMES, type ThemeId } from './themes';
+import { CHART_CSS_VARIABLES, COLOR_CSS_VARIABLES, DIMENSION_CSS_VARIABLES } from './generated';
 
 /**
  * 디자인 시스템 Provider — 앱(Compose `LocalOriderTheme`) 패턴의 웹 포팅.
@@ -66,84 +67,32 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
 
   // --- Colors → index.css 변수 호환 매핑 ---
   const c = variant.colors;
-  style.setProperty('--bg-0', c.background);
-  style.setProperty('--bg-1', c.surface);
-  style.setProperty('--bg-2', c.surfaceVariant);
-  style.setProperty('--bg-3', c.surfaceElevated);
-  style.setProperty('--bg-4', c.surfaceHigh);
-  style.setProperty('--line', c.border);
-  style.setProperty('--line-soft', c.divider);
-  style.setProperty('--ink-0', c.textPrimary);
-  style.setProperty('--ink-1', c.textSecondary);
-  style.setProperty('--ink-2', c.textTertiary);
-  style.setProperty('--ink-3', c.textQuaternary);
-  style.setProperty('--ink-4', c.textDisabled);
+  for (const [key, cssVariable] of Object.entries(COLOR_CSS_VARIABLES)) {
+    style.setProperty(cssVariable, c[key as keyof typeof c]);
+  }
   style.setProperty('--lime', c.accent);
-  style.setProperty('--lime-dim', c.accentLight);
   // --accent: 컴포넌트 CSS (.ds-btn--primary 등) 가 직접 var(--accent) 를 참조해 왔으나
   // 옛 provider 는 --lime 만 노출해 폴백 fail → 라이트 테마에서 primary 버튼 배경 투명.
   // --accent + --accent-dark 둘 다 명시적으로 노출해 컴포넌트 CSS 가 의도대로 동작.
-  style.setProperty('--accent', c.accent);
-  style.setProperty('--accent-dark', c.accentDark);
-  style.setProperty('--aqua', c.info);
-  style.setProperty('--amber', c.warning);
-  style.setProperty('--rose', c.error);
-  style.setProperty('--violet', 'oklch(0.60 0.16 285)');
-  style.setProperty('--primary-fg', c.primaryFg);
-  style.setProperty('--accent-soft-bg', c.accentSoftBg);
-  style.setProperty('--accent-soft-border', c.accentSoftBorder);
-  style.setProperty('--zone-1', c.zone1);
-  style.setProperty('--zone-2', c.zone2);
-  style.setProperty('--zone-3', c.zone3);
-  style.setProperty('--zone-4', c.zone4);
-  style.setProperty('--zone-5', c.zone5);
   // 확장: 의미 토큰 직접 노출 (기존 var(--lime) 사용처 점진 마이그레이션용)
-  style.setProperty('--color-primary', c.primary);
   style.setProperty('--color-accent', c.accent);
-  style.setProperty('--color-success', c.success);
-  style.setProperty('--color-warning', c.warning);
-  style.setProperty('--color-error', c.error);
-  style.setProperty('--color-brand-bike', c.brandBike);
-  style.setProperty('--color-brand-run', c.brandRun);
-  style.setProperty('--color-brand-swim', c.brandSwim);
 
   // --- Chart colors ---
   const ch = variant.chartColors;
-  style.setProperty('--grid-soft', ch.grid);
-  style.setProperty('--grid-axis', ch.gridAxis);
-  style.setProperty('--chart-speed', ch.speed);
-  style.setProperty('--chart-altitude', ch.altitude);
-  style.setProperty('--chart-cadence', ch.cadence);
-  style.setProperty('--chart-heart-rate', ch.heartRate);
-  style.setProperty('--chart-power', ch.power);
-  style.setProperty('--chart-grid-label', ch.gridLabel);
+  for (const [key, cssVariable] of Object.entries(CHART_CSS_VARIABLES)) {
+    style.setProperty(cssVariable, ch[key as keyof typeof ch]);
+  }
 
   // --- Dimens → index.css `--space-*`, `--r-*` 호환 + 확장 ---
   const d = theme.dimens;
+  for (const [key, cssVariable] of Object.entries(DIMENSION_CSS_VARIABLES)) {
+    style.setProperty(cssVariable, `${d[key as keyof typeof d]}px`);
+  }
   style.setProperty('--space-0', `0`);
   style.setProperty('--space-0-5', `2px`);
-  style.setProperty('--space-1', `${d.paddingXs}px`);
   style.setProperty('--space-1-5', `6px`);
-  style.setProperty('--space-2', `${d.paddingS}px`);
-  style.setProperty('--space-3', `${d.itemInner}px`);
-  style.setProperty('--space-4', `${d.paddingM}px`);
   style.setProperty('--space-5', `20px`);
-  style.setProperty('--space-6', `${d.paddingL}px`);
-  style.setProperty('--space-7', `${d.paddingXl}px`);
   style.setProperty('--space-8', `48px`);
-  style.setProperty('--r-sm', `${d.cornerRadiusS}px`);
-  style.setProperty('--r-md', `${d.cornerRadiusM}px`);
-  style.setProperty('--r-lg', `${d.cornerRadiusL}px`);
-  style.setProperty('--r-xl', `${d.cornerRadiusXl}px`);
-  // 확장 — 앱 의미 토큰
-  style.setProperty('--dim-item-gap', `${d.itemGap}px`);
-  style.setProperty('--dim-section-gap', `${d.sectionGap}px`);
-  style.setProperty('--dim-card-padding', `${d.cardPadding}px`);
-  style.setProperty('--dim-button-height', `${d.buttonHeight}px`);
-  style.setProperty('--dim-list-item-height', `${d.listItemHeight}px`);
-  style.setProperty('--dim-icon-s', `${d.iconS}px`);
-  style.setProperty('--dim-icon-m', `${d.iconM}px`);
-  style.setProperty('--dim-icon-l', `${d.iconL}px`);
 
   // --- Typography — 데이터 위계만 CSS 변수로 (UI 텍스트는 컴포넌트에서 직접 사용) ---
   const t = theme.typography;
