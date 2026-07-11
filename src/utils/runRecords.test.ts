@@ -86,6 +86,11 @@ describe("newRecordsForActivity", () => {
     expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(41);
   });
 
+  it("0.5초 미만 단축은 '0초 단축' 대신 문구를 생략한다", () => {
+    const run: RunPrTable = { "5km": [e(1600.1, "today"), e(1600.4, "old")] };
+    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBeNull();
+  });
+
   it("동률이 섞여도 결과가 결정적이다 — 입력 순서가 바뀌어도 같은 답", () => {
     const a: RunPrTable = { "5km": [e(1600, "x"), e(1600, "y")] };
     const b: RunPrTable = { "5km": [e(1600, "y"), e(1600, "x")] };

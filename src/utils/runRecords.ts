@@ -58,12 +58,14 @@ export function newRecordsForActivity(
     // (더 빠르지 않은데 "신기록"이라 말하면 거짓말이다).
     const previous = sorted.find((e) => e.activityId !== activityId);
     if (previous && previous.value <= best.value) continue;
+    // 스트림 보간으로 뽑은 값이라 소수일 수 있다. 반올림하지 않으면 공유 문구가
+    // "41.29999999초 단축" 이 된다 — 카카오톡으로 그대로 나간다.
+    // 반올림 결과가 0 이면(0.5초 미만 단축) 단축 문구 자체를 생략한다 — "0초 단축" 은 말이 안 된다.
+    const improved = previous ? Math.round(previous.value - best.value) : 0;
     out.push({
       distance,
       timeSec: best.value,
-      // 스트림 보간으로 뽑은 값이라 소수일 수 있다. 반올림하지 않으면 공유 문구가
-      // "41.29999999초 단축" 이 된다 — 카카오톡으로 그대로 나간다.
-      improvedBySec: previous ? Math.round(previous.value - best.value) : null,
+      improvedBySec: improved > 0 ? improved : null,
     });
   }
   return out;
