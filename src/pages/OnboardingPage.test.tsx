@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { mockUpdateDoc } from "../__tests__/mocks/firebase";
@@ -12,6 +12,11 @@ vi.mock("../hooks/useStrava", () => ({
 }));
 
 describe("OnboardingPage", () => {
+  it("shows the signed-out guard without onboarding actions", () => {
+    renderWithProviders(<OnboardingPage />, { authenticated: false, route: "/ko/onboarding" });
+    expect(screen.getByText("로그인이 필요합니다")).toBeInTheDocument();
+    expect(screen.queryByText("친구 초대하고 시작")).not.toBeInTheDocument();
+  });
   it("resumes from the saved onboarding step instead of restarting", async () => {
     renderWithProviders(<OnboardingPage />, {
       route: "/ko/onboarding?returnTo=%2Fgroup%2Fabc",
@@ -63,5 +68,36 @@ describe("OnboardingPage", () => {
         { onboardingStep: "done" },
       );
     });
+  });
+
+  it("does not navigate when completion persistence fails", async () => {
+    mockUpdateDoc.mockClear();
+    mockUpdateDoc.mockRejectedValueOnce(new Error("firestore unavailable"));
+    const user = userEvent.setup();
+    renderWithProviders(<OnboardingPage />, {
+      route: "/ko/onboarding?returnTo=%2Fplan",
+      authenticated: true,
+      profile: { onboardingStep: "goal" },
+    });
+    await user.click(await screen.findByRole("button", { name: "친구 초대하고 시작" }));
+    expect(await screen.findByText("저장에 실패했습니다. 다시 시도해주세요.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "친구 초대하고 시작" })).toBeInTheDocument();
+  });
+
+  it("guards completion handlers against double action", async () => {
+    mockUpdateDoc.mockClear();
+    let resolve!: () => void;
+    mockUpdateDoc.mockImplementationOnce(() => new Promise<void>((done) => { resolve = done; }));
+    renderWithProviders(<OnboardingPage />, {
+      route: "/ko/onboarding?returnTo=%2Fplan",
+      authenticated: true,
+      profile: { onboardingStep: "goal" },
+    });
+    const button = await screen.findByRole("button", { name: "친구 초대하고 시작" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(mockUpdateDoc).toHaveBeenCalledTimes(1);
+    expect(button).toBeDisabled();
+    resolve();
   });
 });
