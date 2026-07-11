@@ -4,6 +4,14 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { mockSignInWithPopup, mockUpdateDoc, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
+const shareButtonProps = vi.hoisted(() => vi.fn());
+vi.mock("../features/activity/share/ActivityShareButton", () => ({
+  ActivityShareButton: (props: unknown) => {
+    shareButtonProps(props);
+    return <button>share-card</button>;
+  },
+}));
+
 // Mock heavy components
 vi.mock("../components/RouteMap", () => ({
   default: () => <div data-testid="route-map">Map</div>,
@@ -63,6 +71,18 @@ describe("ActivityPage", () => {
     await waitFor(() => {
       expect(screen.getByText("한강 아침 라이딩")).toBeInTheDocument();
     });
+  });
+
+  it("passes activity identity and visibility context to the share action", async () => {
+    const activity = createMockActivity({ id: "test-activity", visibility: "followers" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    shareButtonProps.mockClear();
+    renderWithProviders(<ActivityPage />);
+    await screen.findByText("share-card");
+    expect(shareButtonProps).toHaveBeenCalledWith(expect.objectContaining({
+      activityId: "test-activity",
+      visibility: "followers",
+    }));
   });
 
   it("shows activity stats when loaded", async () => {

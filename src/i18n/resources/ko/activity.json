@@ -155,6 +155,16 @@
     "restoreToast": "활동을 복원했습니다.",
     "edit": "편집",
     "editTitleAria": "활동 제목 편집",
+    "share": {
+      "button": "성과 카드 공유",
+      "generating": "카드 만드는 중…",
+      "shared": "성과 카드를 공유했습니다.",
+      "downloaded": "성과 카드를 다운로드했습니다.",
+      "linkCopied": "이미지를 만들지 못해 활동 링크를 복사했습니다.",
+      "failed": "성과 카드를 공유하지 못했습니다.",
+      "footer": "오늘의 라이딩, 한 장의 기록",
+      "routeHidden": "공개 범위를 보호하기 위해 경로를 숨깁니다."
+    },
     "visibilityToast": "공개 범위를 변경했습니다.",
     "visibilityFailed": "공개 범위를 변경하지 못했습니다. 이전 상태로 되돌렸습니다.",
     "visibility": {

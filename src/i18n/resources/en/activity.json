@@ -155,6 +155,16 @@
     "restoreToast": "Activity restored.",
     "edit": "Edit",
     "editTitleAria": "Edit activity title",
+    "share": {
+      "button": "Share achievement card",
+      "generating": "Creating card…",
+      "shared": "Achievement card shared.",
+      "downloaded": "Achievement card downloaded.",
+      "linkCopied": "The image could not be created, so the activity link was copied.",
+      "failed": "Could not share the achievement card.",
+      "footer": "Today's ride, captured in one card",
+      "routeHidden": "The route is hidden to protect this activity's visibility."
+    },
     "visibilityToast": "Visibility updated.",
     "visibilityFailed": "Could not update visibility. Restored the previous setting.",
     "visibility": {
