@@ -177,11 +177,20 @@ describe("GroupMembersPage", () => {
         role: "member",
         profile: { id: "pending-1", nickname: "Pending One", photoURL: null },
       },
+      {
+        id: "legacy-leader-1",
+        userId: "legacy-leader-1",
+        joinedAt: Date.now(),
+        status: "approved",
+        role: "leader",
+        profile: { id: "legacy-leader-1", nickname: "Recovered Leader", photoURL: null },
+      },
     );
     setCallableResult("transferGroupLeadership", { data: { success: true, leftGroup: true } });
     renderMembersPage();
 
     expect(await screen.findByRole("option", { name: "Rider One" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Recovered Leader" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Pending One" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "이임 완료 후 그룹에서 탈퇴" }));
     fireEvent.click(screen.getByRole("button", { name: "그룹장 이임" }));

@@ -148,7 +148,7 @@ export default function GroupMembersPage() {
     () => members.filter((member) =>
       member.id !== user?.uid
       && ["active", "approved"].includes(String(member.status ?? ""))
-      && ["member", "co-leader"].includes(String(member.role ?? "member"))),
+      && ["member", "co-leader", "leader"].includes(String(member.role ?? "member"))),
     [members, user?.uid],
   );
 
