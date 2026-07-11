@@ -209,6 +209,7 @@
     "tempo": "Z3 Tempo",
     "ftp": "Z4 Threshold",
     "vo2": "Z5 VO2",
+    "hillRepeats": "Hill repeats",
     "vo2Max": "Z5 VO₂max",
     "sim": "Goal Sim",
     "simFull": "Goal Simulation",
@@ -240,6 +241,12 @@
     "owSwimFull": "Open Water Swim",
     "brickSwim": "Brick",
     "brickSwimFull": "Brick Workout"
+  },
+  "climbGoal": {
+    "title": "Create a climb goal", "description": "Train for a named climb and target time without requiring a course or event.",
+    "name": "Climb name", "duration": "Target time (minutes)", "wkg": "Target W/kg (optional)", "date": "Target date", "sessions": "Sessions per week",
+    "submit": "Start climb training", "error": "Check your inputs and try again.",
+    "loginTitle": "Sign in required", "loginDescription": "Sign in to save your climb goal and plan.", "loginAction": "Sign in with Google", "loading": "Checking your sign-in status…"
   },
   "intensityChip": {
     "rest": "REST",

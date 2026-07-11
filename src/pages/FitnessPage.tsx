@@ -1239,8 +1239,10 @@ export default function FitnessPage() {
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
                     {eventDateStr} · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text>
                     <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>
-                      {activeGoal.courseDist.toFixed(1)} km
-                      {activeGoal.targetDurationMin != null && (
+                      {activeGoal.goalType === 'climb'
+                        ? `${activeGoal.target?.climbDurationMin ?? activeGoal.targetDurationMin ?? '—'} min${activeGoal.target?.targetWkg != null ? ` · ${activeGoal.target.targetWkg.toFixed(1)} W/kg` : ''}`
+                        : `${activeGoal.courseDist.toFixed(1)} km`}
+                      {activeGoal.goalType !== 'climb' && activeGoal.targetDurationMin != null && (
                         activeGoal.targetDurationMin % 60 > 0
                           ? t("goal.targetHm", { h: Math.floor(activeGoal.targetDurationMin / 60), m: activeGoal.targetDurationMin % 60 })
                           : t("goal.targetH", { h: Math.floor(activeGoal.targetDurationMin / 60) })

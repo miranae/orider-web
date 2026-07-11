@@ -18,6 +18,7 @@ const WORKOUT_COLORS: Record<WorkoutKind, string> = {
   tempo: 'var(--amber)',
   ftp: 'var(--rose)',
   vo2: 'var(--rose)',
+  hillRepeats: 'var(--amber)',
   sim: 'var(--lime)',
   goal: 'var(--lime)',
   easyRun: 'var(--aqua)',
@@ -52,6 +53,7 @@ function buildWorkoutMeta(t: (key: string) => string): Record<WorkoutKind, { lab
     tempo: t('workouts.tempo'),
     ftp: t('workouts.ftp'),
     vo2: t('workouts.vo2'),
+    hillRepeats: t('workouts.hillRepeats'),
     sim: t('workouts.sim'),
     goal: t('workouts.goal'),
     easyRun: t('workouts.easyRun'),
@@ -84,7 +86,7 @@ function buildWorkoutMeta(t: (key: string) => string): Record<WorkoutKind, { lab
 }
 
 const TSS_MAP: Record<WorkoutKind, number> = {
-  rest: 0, rec: 25, z2: 65, z2Long: 180, tempo: 85, ftp: 110, vo2: 95, sim: 240, goal: 0,
+  rest: 0, rec: 25, z2: 65, z2Long: 180, tempo: 85, ftp: 110, vo2: 95, hillRepeats: 58, sim: 240, goal: 0,
   easyRun: 40, tempoRun: 70, intervalRun: 90, longRun: 120, recoveryRun: 20,
   easySwim: 30, drillSwim: 35, intervalSwim: 60, longSwim: 80, recoverySwim: 15,
   stridesRun: 30, progressRun: 95, threshRun: 85, raceRun: 160,
@@ -92,7 +94,7 @@ const TSS_MAP: Record<WorkoutKind, number> = {
 };
 
 const DURATION_MAP: Record<WorkoutKind, number> = {
-  rest: 0, rec: 45, z2: 90, z2Long: 240, tempo: 75, ftp: 70, vo2: 60, sim: 300, goal: 0,
+  rest: 0, rec: 45, z2: 90, z2Long: 240, tempo: 75, ftp: 70, vo2: 60, hillRepeats: 42, sim: 300, goal: 0,
   easyRun: 45, tempoRun: 50, intervalRun: 55, longRun: 90, recoveryRun: 30,
   easySwim: 40, drillSwim: 45, intervalSwim: 50, longSwim: 60, recoverySwim: 30,
   stridesRun: 35, progressRun: 70, threshRun: 55, raceRun: 90,
@@ -101,7 +103,7 @@ const DURATION_MAP: Record<WorkoutKind, number> = {
 
 // Selectable workout kinds (휴식·목표일 제외)
 const SELECTABLE_KINDS: WorkoutKind[] = [
-  'rec', 'z2', 'z2Long', 'tempo', 'ftp', 'vo2', 'sim',
+  'rec', 'z2', 'z2Long', 'tempo', 'ftp', 'vo2', 'hillRepeats', 'sim',
   'easyRun', 'tempoRun', 'intervalRun', 'longRun', 'recoveryRun',
   'stridesRun', 'progressRun', 'threshRun', 'raceRun',
   'easySwim', 'drillSwim', 'intervalSwim', 'longSwim', 'recoverySwim',

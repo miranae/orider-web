@@ -70,6 +70,7 @@ const EventEditPage = lazyTimed("EventEditPage", () => import("./pages/event/Eve
 const EventParticipantsPage = lazyTimed("EventParticipantsPage", () => import("./pages/event/EventParticipantsPage"));
 const FitnessPage = lazyTimed("FitnessPage", () => import("./pages/FitnessPage"));
 const LabPage = lazyTimed("LabPage", () => import("./pages/LabPage"));
+const ClimbGoalSetupPage = lazyTimed("ClimbGoalSetupPage", () => import("./pages/ClimbGoalSetupPage"));
 const GoalSetupPage = lazyTimed("GoalSetupPage", () => import("./pages/GoalSetupPage"));
 const PlanPage = lazyTimed("PlanPage", () => import("./pages/PlanPage"));
 const TrainingLogPage = lazyTimed("TrainingLogPage", () => import("./pages/TrainingLogPage"));
@@ -138,6 +139,7 @@ function AppRoutes() {
           <Route path="activity/:activityId/edit" element={<ActivityEditPage />} />
           <Route path="fitness" element={<FitnessPage />} />
           <Route path="lab" element={<LabPage />} />
+          <Route path="goal/climb" element={<ClimbGoalSetupPage />} />
           <Route path="goal-setup" element={<GoalSetupPage />} />
           <Route path="plan" element={<PlanPage />} />
           <Route path="log" element={<TrainingLogPage />} />
