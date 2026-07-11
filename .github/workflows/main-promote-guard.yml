@@ -1,0 +1,29 @@
+name: main promotion guard
+
+# main PR은 dev 브랜치의 누적 변경 승격, 또는 hotfix/* 단건 긴급 수정만 허용한다.
+# feature PR은 dev를 향한다. 실제 로컬 머지 경로도 scripts/merge-pr.sh에서 같은 규칙을 강제한다.
+# hotfix/* 는 dev 누적분을 끌고 가지 않고 최소 변경만 main 직행 — 머지 후 main→dev 동기화 필수.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  promote-guard:
+    name: Require dev or hotfix head
+    runs-on: ubuntu-latest
+    steps:
+      - name: Allow only dev or hotfix/* to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_HEAD_REF" in
+            dev) echo "dev → main promotion PR" ;;
+            hotfix/*) echo "hotfix → main: $GITHUB_HEAD_REF" ;;
+            *)
+              echo "::error::main PR은 dev(승격) 또는 hotfix/*(긴급 수정)에서만 허용됩니다 (현재 head: $GITHUB_HEAD_REF). feature는 'gh pr create --base dev'로 PR 하세요."
+              exit 1
+              ;;
+          esac

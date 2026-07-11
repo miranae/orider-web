@@ -26,6 +26,7 @@ Use lowercase, hyphen-separated names:
 |---|---|---|
 | `feat/` | User-facing features | `feat/activity-splits-chart` |
 | `fix/` | Bugs and regressions | `fix/mobile-tab-overflow` |
+| `hotfix/` | Urgent minimal fixes branched from `main`, allowed to target `main` directly | `hotfix/remove-app-install-banner` |
 | `docs/` | Documentation and contributor setup | `docs/readme-structure` |
 | `test/` | Test-only changes | `test/activity-detail-e2e` |
 | `refactor/` | Internal cleanup without behavior changes | `refactor/route-hooks` |

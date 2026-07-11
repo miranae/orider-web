@@ -203,11 +203,6 @@
     "loadMore": "더 보기",
     "emptyTitle": "아직 활동이 없어요",
     "emptyDesc": "Strava를 연동하거나 라이딩을 기록해 보세요.",
-    "appInstall": {
-      "eyebrow": "모바일 앱",
-      "title": "앱으로 계속하기",
-      "desc": "주행 기록, 센서, 경로 안내, 그룹 위치 공유는 Orider 앱에서 더 안정적으로 이어집니다."
-    },
     "dataWarningBadge": "⚠ 데이터 이상",
     "dataWarningTooltip": "GPS noise 또는 짧은 활동으로 일부 지표가 비현실적입니다."
   },
