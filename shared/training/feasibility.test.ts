@@ -47,5 +47,34 @@ describe("calcFeasibility 입력 가드 (#539)", () => {
       snap: { ftp: 420, weightKg: 70 },
     });
     expect(r.requiredWkg).toBeCloseTo(5.53, 2);
+    expect(r.model).toBe("aggregate");
+  });
+
+  it("같은 거리·상승고도라도 짧고 가파른 클라임을 더 어렵게 판정한다", () => {
+    const common = {
+      target: { eventType: "time", targetDurationMin: 90 },
+      snap: { ftp: 300, weightKg: 70 },
+    };
+    const gradual = calcFeasibility({
+      ...common,
+      course: { dist: 30, elev: 400, climbs: [{ gain: 400, dist: 20_000, cat: 1 }] },
+    });
+    const steep = calcFeasibility({
+      ...common,
+      course: { dist: 30, elev: 400, climbs: [{ gain: 400, dist: 5_000, cat: 3 }] },
+    });
+
+    expect(gradual.model).toBe("climb_structure");
+    expect(steep.model).toBe("climb_structure");
+    expect(steep.requiredWkg!).toBeGreaterThan(gradual.requiredWkg!);
+  });
+
+  it("유효하지 않은 클라임 구조는 aggregate 경로로 안전하게 폴백한다", () => {
+    const result = calcFeasibility({
+      ...base,
+      course: { ...base.course, climbs: [{ gain: 400, dist: 50_000, cat: 3 }] },
+    });
+    expect(result.model).toBe("aggregate");
+    expect(result.requiredWkg).toBeCloseTo(calcFeasibility(base).requiredWkg!, 2);
   });
 });
