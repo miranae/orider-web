@@ -110,8 +110,8 @@ export function WeeklyLoadStrip({
       style={{
         marginTop: "var(--space-3)",
         padding: "var(--space-3)",
+        // 카드 안 서피스는 테두리 없이 배경 틴트만 — surface 3단계 유지 (이슈 401)
         background: `color-mix(in oklch, var(--${phaseTone}) 6%, var(--bg-2))`,
-        border: `1px solid color-mix(in oklch, var(--${phaseTone}) 28%, transparent)`,
         borderRadius: "var(--r-md)",
       }}
     >
