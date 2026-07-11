@@ -18,7 +18,7 @@ function renderInvite(route = "/ko/group/join/abcd1234", authenticated = true) {
 
 describe("GroupInvitePage", () => {
   it("joins signed-in users with the invite code from the link", async () => {
-    setCallableResult("joinGroupByCode", { data: { groupId: "group-1" } });
+    setCallableResult("joinGroupByCode", { data: { groupId: "group-1", status: "active" } });
 
     renderInvite();
 
@@ -42,7 +42,7 @@ describe("GroupInvitePage", () => {
   });
 
   it("does not enter the group dashboard when the invite requires manual approval", async () => {
-    setCallableResult("joinGroupByCode", { data: { groupId: "group-1", pending: true } });
+    setCallableResult("joinGroupByCode", { data: { groupId: "group-1", status: "pending" } });
 
     renderInvite();
 

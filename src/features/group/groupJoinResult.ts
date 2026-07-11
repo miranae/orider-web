@@ -1,18 +1,12 @@
-export interface GroupJoinResult {
-  groupId?: string;
-  pending?: boolean;
-  status?: string;
-  memberStatus?: string;
-  joinStatus?: string;
-  requestStatus?: string;
+export interface JoinGroupByCodeResult {
+  groupId: string;
+  status: "active" | "pending";
 }
 
-const PENDING_STATUSES = new Set(["pending", "requested", "approval_required", "manual_approval"]);
+export interface JoinGroupPublicResult {
+  success: true;
+}
 
-export function isPendingGroupJoinResult(result: GroupJoinResult | null | undefined): boolean {
-  if (!result) return false;
-  if (result.pending === true) return true;
-
-  return [result.status, result.memberStatus, result.joinStatus, result.requestStatus]
-    .some((status) => typeof status === "string" && PENDING_STATUSES.has(status.toLowerCase()));
+export function isPendingGroupJoinResult(result: JoinGroupByCodeResult): boolean {
+  return result.status === "pending";
 }

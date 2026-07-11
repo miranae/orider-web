@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { useTranslation } from "react-i18next";
+import { localeTag } from "../utils/localeDate";
 
 interface NextEventInfo {
   id: string;
@@ -21,15 +23,16 @@ function toMillis(v: unknown): number {
   return 0;
 }
 
-function formatNextLabel(ts: number, name: string): string {
+export function formatNextLabel(ts: number, name: string, locale: string): string {
   if (!ts) return name;
-  const d = new Date(ts);
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const wd = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${m}/${day}(${wd}) ${hh}:${mm} · ${name}`;
+  return `${new Date(ts).toLocaleString(locale, {
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })} · ${name}`;
 }
 
 /**
@@ -37,6 +40,7 @@ function formatNextLabel(ts: number, name: string): string {
  * Firestore in-clause 한도(10) 단위로 chunk 쿼리.
  */
 export function useGroupNextEvents(groupIds: string[]) {
+  const { t, i18n } = useTranslation("group");
   const [byGroup, setByGroup] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
 
@@ -64,7 +68,7 @@ export function useGroupNextEvents(groupIds: string[]) {
             const info = d.info ?? {};
             const groupId: string = info.groupId ?? "";
             const startTime = toMillis(info.startTime);
-            const name = info.name ?? "이벤트";
+            const name = info.name ?? t("dashboard.fallbackEventName");
             const existing = map.get(groupId);
             if (!existing || startTime < existing.startTime) {
               map.set(groupId, { id: doc.id, groupId, name, startTime });
@@ -73,7 +77,7 @@ export function useGroupNextEvents(groupIds: string[]) {
         }
         if (cancelled) return;
         const labels = new Map<string, string>();
-        map.forEach((v, k) => labels.set(k, formatNextLabel(v.startTime, v.name)));
+        map.forEach((v, k) => labels.set(k, formatNextLabel(v.startTime, v.name, localeTag())));
         setByGroup(labels);
       } catch (err) {
         // 인덱스/규칙 문제 시 조용히 실패
@@ -86,7 +90,7 @@ export function useGroupNextEvents(groupIds: string[]) {
     return () => {
       cancelled = true;
     };
-  }, [groupIds.join("|")]);  
+  }, [groupIds.join("|"), i18n.language, t]);
 
   return { byGroup, loading };
 }

@@ -11,6 +11,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { decodePolyline } from "../../utils/polyline";
 import ParticipantTable from "../../components/event/ParticipantTable";
+import { localeTag } from "../../utils/localeDate";
 
 type CourseWaypoint = {
   id: string;
@@ -695,7 +696,7 @@ export default function EventDashboardPage() {
                 pointerEvents: "none",
               }}
             >
-              {t("dashboard.lastUpdated", { time: snapshot?.timestamp ? new Date(snapshot.timestamp).toLocaleTimeString("ko-KR", { hour12: false }) : "--:--:--" })}
+              {t("dashboard.lastUpdated", { time: snapshot?.timestamp ? new Date(snapshot.timestamp).toLocaleTimeString(localeTag(), { hour12: false }) : "--:--:--" })}
             </div>
           </div>
           <div style={{ height: 300, borderTop: "1px solid var(--line-soft)", flexShrink: 0, overflow: "hidden" }}>
@@ -821,5 +822,5 @@ function timeAgo(ts: number | null | undefined, t: (key: string, opts?: Record<s
   if (mins < 60) return t("dashboard.timeAgo.minutesAgo", { count: mins });
   const hours = Math.floor(mins / 60);
   if (hours < 24) return t("dashboard.timeAgo.hoursAgo", { count: hours });
-  return new Date(ts).toLocaleDateString("ko-KR");
+  return new Date(ts).toLocaleDateString(localeTag());
 }
