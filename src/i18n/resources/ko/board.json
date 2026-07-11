@@ -73,6 +73,7 @@
   "label.writingDevlog": "작업일지 쓰기",
   "label.tagFilter": "태그 필터",
   "label.tagFilterCount": "태그 필터 ({{count}})",
+  "label.popularTags": "인기 태그",
   "label.filterReset": "필터 초기화",
   "label.excluded": "{{count}}개 제외됨",
   "label.searchResults": "검색 결과",

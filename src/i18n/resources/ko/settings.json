@@ -277,6 +277,7 @@
     "export": "데이터 내보내기",
     "exportDesc": "활동 기록(GPX 포함) · 프로필 · 댓글 · 좋아요를 일괄 다운로드합니다.",
     "preparing": "준비 중…",
+    "preparingDesc": "푸시·이메일·새 팔로워·좋아요/댓글·개인 기록 알림을 준비하고 있어요. 준비가 끝나면 여기에서 켜고 끌 수 있어요.",
     "downloadAll": "전체 데이터 다운로드",
     "defaultFormat": "기본 내보내기 포맷",
     "defaultFormatDesc": "활동 상세에서 빠른 내보내기 시 사용할 형식.",

@@ -319,8 +319,9 @@ const BoardPage: React.FC = () => {
         )}
       </div>
 
-      {/* Posts List — 데스크톱 읽기 폭 840px 제한 (#401: 긴 한 줄 읽기 폭 과다 방지) */}
-      <div className="relative z-0 md:max-w-[840px] md:mx-auto">
+      {/* Posts List — 데스크톱 읽기 폭 840px 제한 + xl 에서 인기 태그 사이드바 2열 (#401) */}
+      <div className="relative z-0 xl:flex xl:justify-center xl:gap-6">
+      <div className="min-w-0 md:max-w-[840px] md:mx-auto md:w-full xl:mx-0 xl:flex-none xl:w-[840px]">
         {submittedPostId && selectedBoard === 'inquiry' && (
           <Card padding="none" className="mb-4 p-4! md:p-5! rounded-[var(--r-lg)] border-[var(--lime)]/40">
             <div className="flex items-start justify-between gap-3">
@@ -623,6 +624,29 @@ const BoardPage: React.FC = () => {
             </button>
           </div>
         )}
+      </div>
+
+      {/* 우측 사이드바 (xl 전용) — 인기 태그로 남는 폭 활용 (#401) */}
+      {!isMyInquiryView && panelTags.length > 0 && (
+        <aside className="hidden xl:block xl:w-[240px] xl:flex-none">
+          <Card padding="none" className="p-4! sticky top-4">
+            <p className="text-[length:var(--fs-xs)] font-semibold uppercase tracking-widest text-[var(--ink-3)] mb-3">
+              {t("label.popularTags")}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {panelTags.slice(0, 12).map(({ name }) => (
+                <button
+                  key={name}
+                  onClick={() => setActiveTag(prev => prev === name ? undefined : name)}
+                  className={`ds-chip rounded-[var(--r-sm)] cursor-pointer ${activeTag === name ? 'ds-chip--accent' : ''}`}
+                >
+                  #{name}
+                </button>
+              ))}
+            </div>
+          </Card>
+        </aside>
+      )}
       </div>
 
     </div>

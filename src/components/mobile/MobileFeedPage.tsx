@@ -79,12 +79,12 @@ function MobileFeedSkeleton() {
 
 function MobileAppInstallBanner({ placement }: { placement: "top" | "bottom" }) {
   const { t } = useTranslation("dashboard");
-  const stickyStyle = placement === "top"
-    ? { position: "sticky" as const, top: 0, zIndex: 8 }
-    : { position: "sticky" as const, bottom: 64, zIndex: 8 };
+  // #401: sticky 고정이 상·하단 배너를 동시에 상시 노출시켜 콘텐츠 영역을 ~380px 잠식했음.
+  // 배너는 일반 플로우로 두고 스크롤과 함께 지나가게 한다 (placement 는 노출 위치만 구분).
+  void placement;
 
   return (
-    <div style={{ ...stickyStyle, padding: "14px 16px", borderBottom: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
+    <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
       <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "var(--lime)" }}>
         <Text variant="eyebrow" tone="secondary">{t("mobileFeed.appInstall.eyebrow")}</Text>
         <Text as="h2" variant="subtitle" weight={700} style={{ display: "block", marginTop: "var(--space-1)", color: "var(--ink-0)" }}>
@@ -294,6 +294,16 @@ export default function MobileFeedPage({
     <div style={{ overscrollBehavior: "contain" }}>
       <MobileAppInstallBanner placement="top" />
 
+      {/* 오늘의 워크아웃 — 첫 화면 최상단: 오늘 행동 → 핵심 수치 → 추이 → 피드 순서.
+          모바일은 '오늘의 결론 + CTA' 압축형 (#401). 상세 해설은 /fitness·/plan 에서. */}
+      {user && (
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+          <Suspense fallback={null}>
+            <TodaysWorkoutCard variant="compact" />
+          </Suspense>
+        </div>
+      )}
+
       {/* 주간 요약 — 로그인 사용자만 (비로그인은 개인 통계 컨텍스트 없음) */}
       {user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
@@ -347,15 +357,6 @@ export default function MobileFeedPage({
               <span className="ds-btn__label">{t("yearRecap.cta")}</span>
             </Link>
           </Card>
-        </div>
-      )}
-
-      {/* 오늘의 워크아웃 — 로그인 사용자만 (비로그인은 훈련 컨텍스트 없음) */}
-      {user && (
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <Suspense fallback={null}>
-            <TodaysWorkoutCard />
-          </Suspense>
         </div>
       )}
 

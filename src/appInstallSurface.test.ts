@@ -34,7 +34,9 @@ describe("app install and deep link surfaces", () => {
     expect(mobileFeed).toContain("MobileAppInstallBanner");
     expect(mobileFeed).toContain('placement="top"');
     expect(mobileFeed).toContain('placement="bottom"');
-    expect(mobileFeed).toContain("position: \"sticky\"");
+    // #401: 배너는 sticky 로 상시 고정하지 않는다 — 상·하단 동시 고정 시 모바일
+    // 콘텐츠 영역을 과점유. 일반 플로우 노출 2곳(top/bottom)만 보장한다.
+    expect(mobileFeed).not.toContain("position: \"sticky\"");
     expect(mobileFeed).toContain("AppInstallLinks");
     expect(mobileFeed).toContain("mobileFeed.appInstall.title");
   });

@@ -129,18 +129,12 @@ export default function MobileSettingsPage() {
         <Text variant="eyebrow">{t("section.notifications")}</Text>
         <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", padding: "2px 6px", borderRadius: "var(--r-xs)", background: "var(--bg-3)", color: "var(--ink-4)" }}>{t("notifications.preparing")}</span>
       </div>
-      {[
-        t("notifications.push"),
-        t("notifications.email"),
-        t("notifications.newFollower"),
-        t("notifications.kudosComment"),
-        t("notifications.prRecord"),
-      ].map((item) => (
-        <div key={item} className="flex items-center gap-3" style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <span style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-3)", flex: 1 }}>{item}</span>
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{t("notifications.preparing")}</span>
-        </div>
-      ))}
+      {/* 준비 중 스위치를 항목별로 반복하지 않고 설명 블록 하나로 축약 (#401) */}
+      <div style={{ padding: "13px 16px", borderBottom: "1px solid var(--line-soft)" }}>
+        <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", lineHeight: 1.5 }}>
+          {t("notifications.preparingDesc")}
+        </span>
+      </div>
 
       {/* 개인정보 */}
       <div className="flex items-center justify-between" style={{ padding: "14px 16px 8px" }}>
