@@ -110,6 +110,8 @@
   },
   "card": {
     "noActivity": "활동을 찾을 수 없습니다.",
+    "processingActivity": "활동을 처리 중입니다.",
+    "processingActivityDesc": "업로드는 완료됐고 요약 계산을 기다리고 있습니다. 잠시 후 자동으로 다시 확인합니다.",
     "deletedActivity": "삭제된 활동입니다.",
     "backHome": "홈으로 돌아가기",
     "kudosShort": "좋아요",
@@ -147,7 +149,13 @@
   "page": {
     "deleteConfirm": "이 활동을 삭제하시겠습니까?",
     "delete": "삭제",
+    "deleteToast": "활동을 삭제했습니다. 이 화면에서 바로 복원할 수 있습니다.",
+    "restore": "복원",
+    "restoreToast": "활동을 복원했습니다.",
     "edit": "편집",
+    "editTitleAria": "활동 제목 편집",
+    "visibilityToast": "공개 범위를 변경했습니다.",
+    "visibilityFailed": "공개 범위를 변경하지 못했습니다. 이전 상태로 되돌렸습니다.",
     "visibility": {
       "everyone": "전체 공개",
       "friends": "친구",
@@ -159,6 +167,8 @@
     "swim": {
       "setTimeline": "세트 타임라인",
       "setAnalysis": "세트 분석",
+      "setLabel": "{{index}}세트 · {{distance}}m · {{time}}",
+      "noSetTimeline": "세트별 기록이 없어 타임라인을 그릴 수 없습니다.",
       "totalSummary": "총 {{distance}}m · {{time}}"
     },
     "lapAnalysis": "랩 분석",
@@ -174,6 +184,8 @@
     "avgPrefix": "평균",
     "max": "최고",
     "photos": "사진",
+    "photoPreview": "활동 사진",
+    "photoMapFocus": "사진 위치를 지도에서 보기",
     "addPhoto": "사진 추가",
     "uploading": "업로드 중…",
     "photoToast": {

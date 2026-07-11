@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import ActivityPage from "./ActivityPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { mockSignInWithPopup, mockSetDoc, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
+import { mockSignInWithPopup, mockUpdateDoc, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
 // Mock heavy components
@@ -104,7 +104,7 @@ describe("ActivityPage", () => {
     expect(stat.compareDocumentPosition(overviewTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("shows 404 message instead of crashing when activity summary is missing", async () => {
+  it("shows processing state instead of not found when activity summary is still missing", async () => {
     const { summary: _summary, ...activityWithoutSummary } = createMockActivity({
       id: "test-activity",
       description: "수집 중 활동",
@@ -113,10 +113,8 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    await waitFor(() => {
-      const notFound = screen.queryByText(/찾을 수 없/) || screen.queryByText(/존재하지 않/);
-      expect(notFound).toBeInTheDocument();
-    });
+    expect(await screen.findByText("활동을 처리 중입니다.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
   });
 
   it("shows comment input for authenticated users", async () => {
@@ -247,6 +245,29 @@ describe("ActivityPage", () => {
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
 
+  it("retries Orider stream loading from Firestore when stream data appears later", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      thumbnailTrack: null,
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
+    expect(await screen.findByText(/원본 스트림 데이터가 아직 저장되지 않았습니다/)).toBeInTheDocument();
+
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify(createMockStreams()),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+
+    expect(await screen.findByText("훈련 부하")).toBeInTheDocument();
+    expect(screen.queryByText(/원본 스트림 데이터가 아직 저장되지 않았습니다/)).not.toBeInTheDocument();
+  });
+
   it("shows the AI analysis card on overview when a saved preview exists without streams", async () => {
     const activity = createMockActivity({
       id: "test-activity",
@@ -270,6 +291,40 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true });
 
     expect(await screen.findByLabelText("좋아요 취소")).toBeInTheDocument();
+  });
+
+  it("exposes title editing as a keyboard-focusable button for owners", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "test-uid",
+      description: "키보드 편집 테스트",
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    const editButton = await screen.findByRole("button", { name: "활동 제목 편집" });
+    expect(editButton).toHaveTextContent("키보드 편집 테스트");
+
+    fireEvent.click(editButton);
+    expect(screen.getByDisplayValue("키보드 편집 테스트")).toBeInTheDocument();
+  });
+
+  it("rolls back visibility when the update fails", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "test-uid",
+      visibility: "everyone",
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    mockUpdateDoc.mockRejectedValueOnce(new Error("permission denied"));
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    fireEvent.click(await screen.findByRole("button", { name: /친구/ }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("공개 범위를 변경하지 못했습니다");
+    expect(screen.getByRole("button", { name: /전체 공개/ })).toHaveStyle({ color: "var(--lime)" });
   });
 
   it("shows 404 message when activity not found", async () => {
