@@ -20,7 +20,7 @@ describe("O-Rider share payload", () => {
   it("does not duplicate existing branding or store guidance", () => {
     const once = buildOriderShareText({ body: `Ride · O-Rider\n${ORIDER_APP_STORE_URL}`, language: "en" });
     expect(once.match(/· O-Rider/g)).toHaveLength(1);
-    expect(once.match(new RegExp(ORIDER_APP_STORE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"))).toHaveLength(1);
+    expect(once.split(ORIDER_APP_STORE_URL)).toHaveLength(2);
   });
 
   it("adds only the missing store on unknown desktop partial-store text", () => {
