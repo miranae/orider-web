@@ -2,6 +2,7 @@ name: DCO
 
 on:
   pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -21,6 +22,7 @@ jobs:
 
           base="${{ github.event.pull_request.base.sha }}"
           head="${{ github.event.pull_request.head.sha }}"
+          base_ref="${{ github.event.pull_request.base.ref }}"
           missing=()
           failed=0
 
@@ -43,7 +45,7 @@ jobs:
               "  git push --force-with-lease" \
               "" \
               "To fix several commits, rebase and amend each missing commit:" \
-              "  git rebase -i origin/main" \
+              "  git rebase -i origin/$base_ref" \
               "  git commit --amend -s --no-edit"
           fi
 

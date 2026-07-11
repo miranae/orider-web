@@ -13,8 +13,8 @@
 #   --issue N   scripts/claim-issue.sh acquire N 으로 선점 — 실패하면 워크트리를 만들지 않고
 #               종료(다른 세션이 작업 중). 브랜치명에 "N-" 접두가 들어가 claim-issue 의
 #               경쟁 브랜치 스캔과 교차 참조된다.
-#   --base B    시작점/통합 브랜치. 기본: origin/dev 있으면 dev(g1-app·g1-web 흐름),
-#               없으면 origin 기본 브랜치(main).
+#   --base B    예외적인 분기 시작점 override. 기본: dev. 이 옵션으로 만든 topic 브랜치도
+#               main 직접 머지는 허용되지 않는다. dev→main 승격 PR은 기존 dev 브랜치에서 연다.
 #   --kind K    브랜치 접두. 기본: --issue 있으면 fix, 없으면 feat.
 #
 # 동작:
@@ -57,17 +57,11 @@ WT_ROOT="$MONO_ROOT/_worktrees"
 log "fetch origin ($REPO_NAME)"
 git -C "$PRIMARY_WT" fetch origin --quiet
 
-# base 결정: 명시 > origin/dev 존재 시 dev > origin 기본 브랜치
-if [[ -z "$BASE" ]]; then
-  if git -C "$PRIMARY_WT" rev-parse --verify -q "origin/dev" >/dev/null; then
-    BASE="dev"
-  else
-    BASE="$(git -C "$PRIMARY_WT" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')"
-    BASE="${BASE:-main}"
-  fi
-fi
+# 일반 작업은 항상 dev 에 통합한다. dev 가 없을 때 main 으로 조용히 폴백하면 feature PR이
+# 다시 main 을 향하게 되므로, 설정 오류를 즉시 드러내고 중단한다.
+BASE="${BASE:-dev}"
 git -C "$PRIMARY_WT" rev-parse --verify -q "origin/$BASE" >/dev/null \
-  || { echo "✗ origin/$BASE 없음" >&2; exit 2; }
+  || { echo "✗ origin/$BASE 없음 — 일반 작업의 통합 브랜치 dev를 먼저 생성/푸시하거나 --base를 명시하세요." >&2; exit 2; }
 
 # 브랜치명: slug 에 '/' 가 있으면 그대로, 없으면 <kind>/<issue->slug
 if [[ "$SLUG" == */* ]]; then
