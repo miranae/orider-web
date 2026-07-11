@@ -27,6 +27,7 @@ describe("group next events", () => {
       { id: "later", info: { groupId: "g1", visibility: "PUBLIC", status: "OPEN", startTime: 200, name: "Later" } },
       { id: "next", info: { groupId: "g1", visibility: "PUBLIC", status: "LIVE", startTime: 100, name: "Next" } },
       { id: "draft", info: { groupId: "g1", visibility: "PUBLIC", status: "DRAFT", startTime: 50, name: "Draft" } },
+      { id: "deleted", info: { groupId: "g1", visibility: "PUBLIC", status: "OPEN", startTime: 25, name: "Deleted", deletedAt: 1 } },
       { id: "private", info: { groupId: "g2", visibility: "PRIVATE", status: "OPEN", startTime: 10, name: "Private" } },
     ]);
 
@@ -93,6 +94,8 @@ describe("group next events", () => {
   it("fails closed for non-public event heads on public pages", () => {
     expect(isEligibleNextEvent({ visibility: "PUBLIC" }, true)).toBe(true);
     expect(isEligibleNextEvent({ visibility: "GROUP" }, true)).toBe(false);
+    expect(isEligibleNextEvent({ visibility: "PUBLIC", deletedAt: 1 }, true)).toBe(false);
+    expect(isEligibleNextEvent({ visibility: "PUBLIC", deletedAt: null }, true)).toBe(true);
     expect(isEligibleNextEvent({}, true)).toBe(false);
     expect(isEligibleNextEvent({ visibility: "GROUP" }, false)).toBe(true);
   });

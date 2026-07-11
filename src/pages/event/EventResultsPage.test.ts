@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { displayRankFor, type ResultEntry } from "./EventResultsPage";
+import { displayRankFor, shouldShowResultsGroupCta, type ResultEntry } from "./EventResultsPage";
 
 function entry(rank: number, overallRank: number): ResultEntry {
   return {
@@ -24,3 +26,18 @@ describe("EventResultsPage podium rank", () => {
   });
 });
 
+describe("EventResultsPage group CTA", () => {
+  it("shows only the active event group's completed successful snapshot", () => {
+    expect(shouldShowResultsGroupCta("group-1", "group-1", false, false, false)).toBe(true);
+    expect(shouldShowResultsGroupCta("group-1", "group-1", true, false, false)).toBe(false);
+    expect(shouldShowResultsGroupCta("group-1", "group-old", false, false, false)).toBe(false);
+    expect(shouldShowResultsGroupCta("group-1", undefined, false, false, false)).toBe(false);
+    expect(shouldShowResultsGroupCta("group-1", "group-1", false, true, false)).toBe(false);
+    expect(shouldShowResultsGroupCta("group-1", "group-1", false, false, true)).toBe(false);
+  });
+
+  it("observes host group snapshot failures", () => {
+    const source = readFileSync(join(process.cwd(), "src/pages/event/EventResultsPage.tsx"), "utf8");
+    expect(source).toContain('logClientError("EventResultsPage.loadHostGroup", groupError');
+  });
+});

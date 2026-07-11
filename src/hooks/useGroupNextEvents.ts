@@ -36,7 +36,7 @@ export function formatNextLabel(ts: number, name: string, locale: string): strin
 }
 
 export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: boolean): boolean {
-  return !publicOnly || info.visibility === "PUBLIC";
+  return !publicOnly || (info.visibility === "PUBLIC" && info.deletedAt == null);
 }
 
 /**

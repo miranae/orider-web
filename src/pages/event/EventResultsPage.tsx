@@ -61,6 +61,16 @@ export function displayRankFor(entry: ResultEntry, activeCategory: string): numb
   return activeCategory === "__overall__" ? entry.overallRank : entry.rank;
 }
 
+export function shouldShowResultsGroupCta(
+  groupId: string | undefined,
+  loadedGroupId: string | undefined,
+  loading: boolean,
+  inactive: boolean,
+  hasError: boolean,
+): boolean {
+  return !!groupId && !loading && loadedGroupId === groupId && !inactive && !hasError;
+}
+
 function formatDuration(ms: number | null): string {
   if (ms == null || ms < 0) return "—";
   const totalSeconds = Math.floor(ms / 1000);
@@ -122,8 +132,12 @@ export default function EventResultsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [eventDateStr, setEventDateStr] = useState<string>("");
   const groupId = eventHead?.groupId;
-  const { group } = useGroup(groupId);
+  const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
   const { eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
+
+  useEffect(() => {
+    if (groupError) logClientError("EventResultsPage.loadHostGroup", groupError, { eventId, groupId });
+  }, [eventId, groupError, groupId]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -348,6 +362,7 @@ export default function EventResultsPage() {
   const winnerTime = filtered.find((r) => r.status === "FINISHED")?.finishTime ?? null;
   const statusLabel = eventStatusLabel(t, eventHead.status);
   const resultsUnavailable = eventHead.status !== "FINISHED";
+  const activeGroupId = shouldShowResultsGroupCta(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
 
   return (
     <div>
@@ -787,14 +802,14 @@ export default function EventResultsPage() {
             <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
               <Text as="div" variant="eyebrow">{t("resultsView.nextAction.eyebrow")}</Text>
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("resultsView.nextAction.title")}</div>
-              {groupId && (
+              {activeGroupId && (
                 <div className="flex flex-col" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
-                  {nextEvents.get(groupId) && (
-                    <Link to={`/event/${nextEvents.get(groupId)!.id}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
-                      {t("resultsView.nextAction.nextEvent", { name: nextEvents.get(groupId)!.name })} →
+                  {nextEvents.get(activeGroupId) && (
+                    <Link to={`/event/${nextEvents.get(activeGroupId)!.id}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
+                      {t("resultsView.nextAction.nextEvent", { name: nextEvents.get(activeGroupId)!.name })} →
                     </Link>
                   )}
-                  <Link to={`/group/${groupId}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
+                  <Link to={`/group/${activeGroupId}`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--aqua)" }}>
                     {t("resultsView.nextAction.group", { name: group?.name || t("group.fallbackName") })} →
                   </Link>
                 </div>
