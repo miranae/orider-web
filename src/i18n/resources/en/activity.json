@@ -110,6 +110,8 @@
   },
   "card": {
     "noActivity": "Activity not found.",
+    "processingActivity": "Activity is still processing.",
+    "processingActivityDesc": "The upload is complete and summary calculation is still running. This page will check again shortly.",
     "deletedActivity": "This activity has been deleted.",
     "backHome": "Back to home",
     "kudosShort": "Kudos",
@@ -147,7 +149,13 @@
   "page": {
     "deleteConfirm": "Delete this activity?",
     "delete": "Delete",
+    "deleteToast": "Activity deleted. You can restore it from this screen.",
+    "restore": "Restore",
+    "restoreToast": "Activity restored.",
     "edit": "Edit",
+    "editTitleAria": "Edit activity title",
+    "visibilityToast": "Visibility updated.",
+    "visibilityFailed": "Could not update visibility. Restored the previous setting.",
     "visibility": {
       "everyone": "Public",
       "friends": "Friends",
@@ -159,6 +167,8 @@
     "swim": {
       "setTimeline": "Set Timeline",
       "setAnalysis": "Set Analysis",
+      "setLabel": "Set {{index}} · {{distance}}m · {{time}}",
+      "noSetTimeline": "No set records are available for the timeline.",
       "totalSummary": "Total {{distance}}m · {{time}}"
     },
     "lapAnalysis": "Lap Analysis",
@@ -174,6 +184,8 @@
     "avgPrefix": "Avg",
     "max": "Max",
     "photos": "Photos",
+    "photoPreview": "Activity photo",
+    "photoMapFocus": "Show this photo on the map",
     "addPhoto": "Add Photo",
     "uploading": "Uploading…",
     "photoToast": {

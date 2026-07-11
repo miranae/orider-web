@@ -68,64 +68,92 @@ export function ActivityMediaPanel({
   }
 
   if (sport === "swim") {
+    const laps = streams?.laps ?? [];
+    const setBars = laps
+      .map((lap, index) => {
+        const duration = lap.durationMs;
+        const distance = lap.distanceKm * 1000;
+        return { index, duration, distance };
+      })
+      .filter((lap) => lap.duration > 0 || lap.distance > 0);
+    const maxDuration = Math.max(...setBars.map((lap) => lap.duration), 1);
+
     return (
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>
           {t("page.swim.setTimeline")}
         </h3>
-        <div
-          style={{
-            position: "relative",
-            height: 160,
-            background: "linear-gradient(180deg, var(--bg-2), var(--bg-1))",
-            borderRadius: "var(--r-md)",
-            overflow: "hidden",
-            border: "1px solid var(--line-soft)",
-          }}
-        >
-          {[0.25, 0.5, 0.75].map((p) => (
-            <div
-              key={p}
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: `${p * 100}%`,
-                height: 1,
-                background: "repeating-linear-gradient(90deg, color-mix(in srgb, var(--aqua) 30%, transparent) 0 10px, transparent 10px 16px)",
-              }}
-            />
-          ))}
-          <div style={{ position: "absolute", inset: "20px 20px 30px", display: "flex", alignItems: "flex-end" }}>
-            <div
-              style={{
-                width: "100%",
-                height: "80%",
-                background: "var(--aqua)",
-                opacity: 0.7,
-                borderRadius: "3px 3px 0 0",
-                border: "1px solid var(--aqua)",
-              }}
-            />
-          </div>
+        {setBars.length > 0 ? (
           <div
             style={{
-              position: "absolute",
-              left: 20,
-              right: 20,
-              bottom: 8,
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: "var(--fs-2xs)",
-              fontFamily: "var(--font-mono)",
-              color: "var(--ink-4)",
+              position: "relative",
+              height: 160,
+              background: "linear-gradient(180deg, var(--bg-2), var(--bg-1))",
+              borderRadius: "var(--r-md)",
+              overflow: "hidden",
+              border: "1px solid var(--line-soft)",
             }}
           >
-            <span>0m</span>
-            <span>{Math.round(summary.distance / 2).toLocaleString()}m</span>
-            <span>{Math.round(summary.distance).toLocaleString()}m</span>
+            {[0.25, 0.5, 0.75].map((p) => (
+              <div
+                key={p}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: `${p * 100}%`,
+                  height: 1,
+                  background: "repeating-linear-gradient(90deg, color-mix(in srgb, var(--aqua) 30%, transparent) 0 10px, transparent 10px 16px)",
+                }}
+              />
+            ))}
+            <div style={{ position: "absolute", inset: "20px 20px 34px", display: "flex", alignItems: "flex-end", gap: 6 }}>
+              {setBars.map((lap) => (
+                <div
+                  key={lap.index}
+                  title={t("page.swim.setLabel", {
+                    index: lap.index + 1,
+                    distance: Math.round(lap.distance).toLocaleString(),
+                    time: formatDuration(lap.duration),
+                  })}
+                  style={{
+                    flex: "1 1 0",
+                    minWidth: 8,
+                    height: `${Math.max(12, Math.round((lap.duration / maxDuration) * 100))}%`,
+                    background: "var(--aqua)",
+                    opacity: 0.72,
+                    borderRadius: "3px 3px 0 0",
+                    border: "1px solid var(--aqua)",
+                  }}
+                />
+              ))}
+            </div>
+            <div
+              style={{
+                position: "absolute",
+                left: 20,
+                right: 20,
+                bottom: 8,
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: "var(--fs-2xs)",
+                fontFamily: "var(--font-mono)",
+                color: "var(--ink-4)",
+              }}
+            >
+              <span>0m</span>
+              <span>{Math.round(summary.distance / 2).toLocaleString()}m</span>
+              <span>{Math.round(summary.distance).toLocaleString()}m</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className="rounded-[var(--r-md)] border px-4 py-6 text-[length:var(--fs-sm)]"
+            style={{ borderColor: "var(--line-soft)", background: "var(--bg-1)", color: "var(--ink-2)" }}
+          >
+            {t("page.swim.noSetTimeline")}
+          </div>
+        )}
         <div className="text-[length:var(--fs-xs)] mt-2" style={{ color: "var(--ink-3)" }}>
           {t("page.swim.totalSummary", { distance: Math.round(summary.distance).toLocaleString(), time: formatDuration(summary.ridingTimeMillis) })}
         </div>

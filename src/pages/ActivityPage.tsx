@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import ElevationChart from "../components/ElevationChart";
 import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
@@ -48,6 +47,7 @@ import {
 } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
+import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
 import {
   buildChartOverlays,
   buildSampledData,
@@ -63,33 +63,6 @@ import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type Uploaded
 import { useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
 import { selectActualCoRiders } from "../utils/coRiders";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
-
-function StreamUnavailableCard({
-  title,
-  message,
-}: {
-  title: string;
-  message: string;
-}) {
-  return (
-    <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-      <div className="flex items-start gap-3">
-        <div
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[var(--r-lg)]"
-          style={{ background: "color-mix(in srgb, var(--amber) 14%, transparent)", color: "var(--amber)" }}
-        >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 4.4 2.7 18a1.8 1.8 0 0 0 1.6 2.7h15.4a1.8 1.8 0 0 0 1.6-2.7L13.7 4.4a1.9 1.9 0 0 0-3.4 0Z" />
-          </svg>
-        </div>
-        <div>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{title}</h3>
-          <p className="mt-1 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-3)" }}>{message}</p>
-        </div>
-      </div>
-    </Card>
-  );
-}
 
 type SummarySensorMetric = { label: string; value: string; unit?: string; sub?: string };
 
@@ -215,7 +188,6 @@ export default function ActivityPage() {
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
-  const navigate = useNavigate();
   const { user, profile, signInWithGoogle } = useAuth();
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
@@ -288,6 +260,7 @@ export default function ActivityPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [activityLoadError, setActivityLoadError] = useState<unknown>(null);
   const [activityReloadKey, setActivityReloadKey] = useState(0);
+  const [activityProcessing, setActivityProcessing] = useState(false);
 
   useEffect(() => {
     if (!activityId) return;
@@ -305,17 +278,40 @@ export default function ActivityPage() {
     setWattsOverride(null);
     setActivityLoadError(null);
 
+    let cancelled = false;
+    let processingTimer: number | undefined;
+
     getDoc(doc(firestore, "activities", activityId)).then((snap) => {
+      if (cancelled) return;
       if (snap.exists()) {
         const data = snap.data();
-        setActivity(data.summary == null ? null : { id: snap.id, ...data } as Activity);
+        if (data.summary == null) {
+          setActivity(null);
+          setActivityProcessing(true);
+          setLoadingActivity(false);
+          processingTimer = window.setTimeout(() => {
+            setActivityReloadKey((key) => key + 1);
+          }, 3000);
+          return;
+        }
+        setActivityProcessing(false);
+        setActivity({ id: snap.id, ...data } as Activity);
+      } else {
+        setActivityProcessing(false);
       }
       setLoadingActivity(false);
     }).catch((err) => {
+      if (cancelled) return;
       setActivityLoadError(err);
+      setActivityProcessing(false);
       setLoadingActivity(false);
       logClientError("ActivityPage.loadActivity", err, { activityId });
     });
+
+    return () => {
+      cancelled = true;
+      if (processingTimer !== undefined) window.clearTimeout(processingTimer);
+    };
   }, [activityId, activityReloadKey]);
 
   // 첫 활동 상세 진입 마일스톤 — 로그인 사용자가 activity 로드 완료 후 1회.
@@ -461,8 +457,31 @@ export default function ActivityPage() {
   const handleDeleteActivity = async () => {
     if (!activityId || !user || user.uid !== activity?.userId) return;
     if (!(await dialog.confirm(t("page.deleteConfirm"), { destructive: true }))) return;
-    await updateDoc(doc(firestore, "activities", activityId), { deletedAt: Date.now() });
-    navigate("/", { replace: true });
+    const deletedAt = Date.now();
+    await updateDoc(doc(firestore, "activities", activityId), { deletedAt });
+    setActivity({ ...activity, deletedAt } as Activity);
+    showToast(t("page.deleteToast"), "info");
+  };
+
+  const handleRestoreActivity = async () => {
+    if (!activityId || !user || user.uid !== activity?.userId) return;
+    await updateDoc(doc(firestore, "activities", activityId), { deletedAt: null });
+    setActivity({ ...activity, deletedAt: null } as Activity);
+    showToast(t("page.restoreToast"));
+  };
+
+  const handleVisibilityChange = async (visibility: Visibility) => {
+    if (!activity || activity.visibility === visibility) return;
+    const previous = activity.visibility;
+    setActivity({ ...activity, visibility });
+    try {
+      await updateDoc(doc(firestore, "activities", activity.id), { visibility });
+      showToast(t("page.visibilityToast"));
+    } catch (err) {
+      setActivity({ ...activity, visibility: previous });
+      showToast(t("page.visibilityFailed"), "error");
+      logClientError("ActivityPage.visibility", err, { activityId: activity.id, visibility });
+    }
   };
 
   // Load uploaded photos from activity_photos/{activityId} (exclude soft-deleted)
@@ -609,6 +628,17 @@ export default function ActivityPage() {
     );
   }
 
+  if (activityProcessing) {
+    return (
+      <ActivityProcessingState
+        title={t("card.processingActivity")}
+        description={t("card.processingActivityDesc")}
+        retryLabel={t("page.retry")}
+        onRetry={() => setActivityReloadKey((key) => key + 1)}
+      />
+    );
+  }
+
   if (!activity?.summary) {
     return (
       <div className="text-center py-16" style={{ color: 'var(--ink-2)' }}>
@@ -621,11 +651,13 @@ export default function ActivityPage() {
 
   if ((activity as Activity & { deletedAt?: number | null }).deletedAt) {
     return (
-      <div className="text-center py-16" style={{ color: 'var(--ink-2)' }}>
-        <div className="text-[48px] mb-4">🗑️</div>
-        <p className="text-[length:var(--fs-lg)]">{t("card.deletedActivity")}</p>
-        <Link to="/" className="text-[length:var(--fs-sm)] mt-2 inline-block hover:underline" style={{ color: 'var(--lime)' }}>{t("card.backHome")}</Link>
-      </div>
+      <DeletedActivityState
+        canRestore={user?.uid === activity.userId}
+        deletedLabel={t("card.deletedActivity")}
+        restoreLabel={t("page.restore")}
+        backHomeLabel={t("card.backHome")}
+        onRestore={handleRestoreActivity}
+      />
     );
   }
 
@@ -692,6 +724,48 @@ export default function ActivityPage() {
   const streamUnavailableMessage = loadingStreams || showStreamSpinner
     ? t("page.loadingGps")
     : streamsError ?? t("page.streamsMissing");
+
+  const handleRetryStreams = async () => {
+    if (!activityId || !activity) return;
+    const source = (activity as Activity & { source?: string }).source;
+    const isOriderActivity = source === "orider" || activityId.startsWith("orider_");
+
+    setLoadingStreams(true);
+    setStreamsError(null);
+    setShowStreamSpinner(true);
+    try {
+      if (isOriderActivity) {
+        const snap = await getDoc(doc(firestore, "activity_streams", activityId));
+        const data = snap.exists() ? snap.data() : null;
+        const jsonStr = data?.json as string | undefined;
+        if (!jsonStr) {
+          setStreamsError(t("page.streamsMissing"));
+          return;
+        }
+        const parsed = JSON.parse(jsonStr) as ActivityStreams;
+        parsed.userId = typeof data?.userId === "string" ? data.userId : activity.userId;
+        setStreams(parsed);
+        return;
+      }
+
+      const stravaId = stravaActivityId;
+      if (!stravaId) {
+        setStreamsError(t("page.streamsMissing"));
+        return;
+      }
+      const data = await getStreams(stravaId);
+      setStreams(data as unknown as ActivityStreams);
+    } catch (err) {
+      logClientError("ActivityPage.streams.retry", err, {
+        activityId,
+        source: isOriderActivity ? "orider" : "strava",
+      });
+      setStreamsError(err instanceof Error ? err.message : t("page.streamsErrorFallback"));
+    } finally {
+      setShowStreamSpinner(false);
+      setLoadingStreams(false);
+    }
+  };
   const summarySensorMetrics = ([
     s.averageHeartRate != null
       ? {
@@ -816,19 +890,25 @@ export default function ActivityPage() {
                 style={{ borderBottom: '2px solid var(--lime)' }}
               />
             ) : (
-              <Text
-                as="h1"
-                variant="pageTitle"
-                className={user?.uid === activity.userId ? "cursor-pointer transition-colors" : ""}
-                onClick={() => { if (user?.uid === activity.userId) { setDescriptionText(activity.description || ""); setEditingDescription(true); } }}
-              >
-                {activity.description || tCommon(getSportLabelKey(activity.type))}
-                {user?.uid === activity.userId && (
-                  <svg className="inline-block w-4 h-4 ml-1.5 text-[var(--ink-3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                )}
-              </Text>
+              user?.uid === activity.userId ? (
+                <button
+                  type="button"
+                  className="group block max-w-full text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-0)]"
+                  onClick={() => { setDescriptionText(activity.description || ""); setEditingDescription(true); }}
+                  aria-label={t("page.editTitleAria")}
+                >
+                  <Text as="h1" variant="pageTitle">
+                    {activity.description || tCommon(getSportLabelKey(activity.type))}
+                    <svg className="inline-block w-4 h-4 ml-1.5 text-[var(--ink-3)] group-hover:text-[var(--lime)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </Text>
+                </button>
+              ) : (
+                <Text as="h1" variant="pageTitle">
+                  {activity.description || tCommon(getSportLabelKey(activity.type))}
+                </Text>
+              )
             )}
             <div className="flex items-center gap-3 mt-1">
               <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>{formatFullDate(activity.startTime)}</span>
@@ -854,10 +934,7 @@ export default function ActivityPage() {
                 ] as { value: Visibility; label: string; icon: string }[]).map((opt) => (
                   <button
                     key={opt.value}
-                    onClick={() => {
-                      updateDoc(doc(firestore, "activities", activity.id), { visibility: opt.value });
-                      setActivity({ ...activity, visibility: opt.value });
-                    }}
+                    onClick={() => { void handleVisibilityChange(opt.value); }}
                     className="px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
                     style={activity.visibility === opt.value ? {
                       background: 'color-mix(in srgb, var(--lime) 12%, transparent)',
@@ -873,7 +950,12 @@ export default function ActivityPage() {
                 ))}
                 <button
                   onClick={handleDeleteActivity}
-                  className="ml-auto px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+                  className="ml-auto px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors"
+                  style={{
+                    borderColor: "color-mix(in srgb, var(--rose) 35%, var(--line-soft))",
+                    color: "var(--rose)",
+                    background: "color-mix(in srgb, var(--rose) 8%, transparent)",
+                  }}
                 >
                   {t("page.delete")}
                 </button>
@@ -924,7 +1006,7 @@ export default function ActivityPage() {
             description={t("page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
-          <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} />
+          <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void handleRetryStreams(); }} retryLabel={t("page.retry")} />
         </div>
       )}
       {activeTab === "analysis" && hasAnalysisStreams && streams && (
@@ -978,7 +1060,7 @@ export default function ActivityPage() {
 
       {/* ── 내보내기 탭 ── */}
       {activeTab === "export" && !streams && (
-        <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} />
+        <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void handleRetryStreams(); }} retryLabel={t("page.retry")} />
       )}
       {activeTab === "export" && streams && activity && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -1112,21 +1194,7 @@ export default function ActivityPage() {
           <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
             <p>{streamsError}</p>
             <button
-              onClick={() => {
-                const stravaId = stravaActivityId;
-                if (!stravaId) return;
-                setLoadingStreams(true);
-                setStreamsError(null);
-                setShowStreamSpinner(true);
-                getStreams(stravaId).then((data) => {
-                  setStreams(data as unknown as ActivityStreams);
-                }).catch((err) => {
-                  setStreamsError(err instanceof Error ? err.message : t("page.streamsErrorFallback"));
-                }).finally(() => {
-                  setShowStreamSpinner(false);
-                  setLoadingStreams(false);
-                });
-              }}
+              onClick={() => { void handleRetryStreams(); }}
               className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
             >
               {t("page.retry")}
@@ -1148,9 +1216,10 @@ export default function ActivityPage() {
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory scrollbar-thin" style={{ '--scrollbar-thumb': 'var(--line)' } as React.CSSProperties}>
             {/* Strava photos */}
             {photos.map((photo) => photo.url && (
-              <div
+              <button
+                type="button"
                 key={`strava-${photo.id}`}
-                className="relative group flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 snap-start overflow-hidden rounded-[var(--r-lg)] cursor-pointer" style={{ background: 'var(--bg-2)' }}
+                className="relative group flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 snap-start overflow-hidden rounded-[var(--r-lg)] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)]" style={{ background: 'var(--bg-2)' }}
                 onClick={() => {
                   if (photo.location) {
                     setFlyToPosition(null);
@@ -1158,10 +1227,11 @@ export default function ActivityPage() {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }
                 }}
+                aria-label={photo.location ? t("page.photoMapFocus") : t("page.photoPreview")}
               >
                 <img
                   src={photo.url}
-                  alt={photo.caption || ""}
+                  alt={photo.caption || t("page.photoPreview")}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />
@@ -1170,33 +1240,42 @@ export default function ActivityPage() {
                     <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)] truncate">{photo.caption}</p>
                   </div>
                 )}
-              </div>
+              </button>
             ))}
             {/* Uploaded photos */}
             {uploadedPhotos.map((photo) => (
               <div
                 key={`upload-${photo.id}`}
-                className="relative group flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 snap-start overflow-hidden rounded-[var(--r-lg)] cursor-pointer" style={{ background: 'var(--bg-2)' }}
-                onClick={() => {
-                  const loc = photo.location;
-                  if (loc) {
-                    setFlyToPosition(null);
-                    setTimeout(() => setFlyToPosition(loc), 10);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }
-                }}
+                className="relative group flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 snap-start overflow-hidden rounded-[var(--r-lg)]"
+                style={{ background: 'var(--bg-2)' }}
               >
-                <img
-                  src={photo.url}
-                  alt=""
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
+                <button
+                  type="button"
+                  className="h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)]"
+                  onClick={() => {
+                    const loc = photo.location;
+                    if (loc) {
+                      setFlyToPosition(null);
+                      setTimeout(() => setFlyToPosition(loc), 10);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }
+                  }}
+                  aria-label={photo.location ? t("page.photoMapFocus") : t("page.photoPreview")}
+                >
+                  <img
+                    src={photo.url}
+                    alt={t("page.photoPreview")}
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                </button>
                 {user?.uid === photo.userId && (
                   <button
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
                     className="absolute top-1.5 right-1.5 w-7 h-7 bg-black/60 hover:bg-red-600 text-[var(--ink-0)] rounded-full flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                     title={t("page.delete")}
+                    aria-label={t("page.delete")}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
