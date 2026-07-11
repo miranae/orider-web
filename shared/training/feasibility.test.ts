@@ -77,4 +77,16 @@ describe("calcFeasibility 입력 가드 (#539)", () => {
     expect(result.model).toBe("aggregate");
     expect(result.requiredWkg).toBeCloseTo(calcFeasibility(base).requiredWkg!, 2);
   });
+
+  it("부분 유효 배열은 sanitizer를 거쳐 유효 클라임만 계산한다", () => {
+    const mixed = calcFeasibility({
+      ...base,
+      course: {
+        ...base.course,
+        climbs: [null, { gain: 'x', dist: 1000, cat: 2 }, { gain: 200, dist: 4000, cat: 3 }] as never,
+      },
+    });
+    expect(mixed.model).toBe("climb_structure");
+    expect(Number.isFinite(mixed.requiredWkg)).toBe(true);
+  });
 });

@@ -15,6 +15,7 @@ import {
   requiredPowerForTime,
   type SimSegment,
 } from '../sim/courseSim';
+import { sanitizeCourseClimbs } from './climbStructure';
 
 // ── 피로도(TSB) 기반 sustainable W/kg 보정 임계값 ───────────────────────
 //
@@ -87,13 +88,9 @@ function round2(n: number): number { return Math.round(n * 100) / 100; }
 function courseSegments(
   course: FeasibilityInput['course'],
 ): SimSegment[] | null {
-  if (!Array.isArray(course.climbs) || course.climbs.length === 0) return null;
-  const totalDistanceM = course.dist * 1000;
-  const climbs = course.climbs.filter((climb) =>
-    Number.isFinite(climb.dist) && climb.dist > 0
-    && Number.isFinite(climb.gain) && climb.gain >= 0,
-  );
+  const climbs = sanitizeCourseClimbs(course.climbs);
   if (climbs.length === 0) return null;
+  const totalDistanceM = course.dist * 1000;
 
   const climbDistanceM = climbs.reduce((sum, climb) => sum + climb.dist, 0);
   if (climbDistanceM > totalDistanceM) return null;
