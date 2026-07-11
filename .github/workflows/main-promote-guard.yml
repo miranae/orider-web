@@ -1,0 +1,25 @@
+name: main promotion guard
+
+# main PR은 dev 브랜치의 누적 변경을 승격하는 용도로만 사용한다. feature PR은 dev를 향한다.
+# 실제 로컬 머지 경로도 scripts/merge-pr.sh에서 같은 규칙을 강제한다.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  promote-guard:
+    name: Require dev head
+    runs-on: ubuntu-latest
+    steps:
+      - name: Allow only dev to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_HEAD_REF" != "dev" ]; then
+            echo "::error::main PR은 dev 브랜치에서만 허용됩니다 (현재 head: $GITHUB_HEAD_REF). feature는 'gh pr create --base dev'로 PR 하세요."
+            exit 1
+          fi
+          echo "dev → main promotion PR"
