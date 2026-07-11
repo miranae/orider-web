@@ -19,7 +19,6 @@ export default function GroupsPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { groups: myGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
-  const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups } = usePublicGroups();
   const [showCreate, setShowCreate] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
@@ -29,6 +28,11 @@ export default function GroupsPage() {
   const [error, setError] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups } = usePublicGroups({
+    searchText: searchQuery,
+    discipline: disciplineFilter,
+    maxCount: 30,
+  });
   const navigate = useNavigate();
 
   const myGroupIds = new Set(myGroups.map((g) => g.id));
@@ -46,8 +50,8 @@ export default function GroupsPage() {
 
   const filteredMyGroups = useMemo(() => filterGroups(myGroups), [myGroups, disciplineFilter, searchQuery]);
   const filteredPublicGroups = useMemo(
-    () => filterGroups(publicGroups.filter((g) => !myGroupIds.has(g.id))),
-    [publicGroups, myGroupIds, disciplineFilter, searchQuery]
+    () => publicGroups.filter((g) => !myGroupIds.has(g.id)),
+    [publicGroups, myGroupIds]
   );
 
   const handleJoinByCode = async () => {

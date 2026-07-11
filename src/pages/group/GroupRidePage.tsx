@@ -557,6 +557,8 @@ export default function GroupRidePage() {
                 <button
                   key={a.id}
                   onClick={() => toggleRider(a.id)}
+                  aria-pressed={visibleRiders.has(a.id)}
+                  aria-label={t(visibleRiders.has(a.id) ? "ridePage.hideRider" : "ridePage.showRider", { name: a.nickname })}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[length:var(--fs-xs)] font-medium transition-colors border"
                   style={visibleRiders.has(a.id) ? {
                     color: RIDER_COLORS[i % RIDER_COLORS.length],

@@ -5,6 +5,7 @@ import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { isPermissionDeniedError } from "../../utils/firebaseErrors";
 import { useAuth } from "../../contexts/AuthContext";
 import { useGroup, useGroupMembers } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
@@ -25,7 +26,7 @@ export default function GroupDashboardPage() {
   const { t } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
-  const { group, loading: groupLoading, error: groupError } = useGroup(groupId);
+  const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId, 8);
 
   const { rides, loading: ridesLoading } = useGroupRideStats(groupId);
@@ -135,6 +136,18 @@ export default function GroupDashboardPage() {
   }
 
   if (groupError) {
+    if (isPermissionDeniedError(groupError)) {
+      return (
+        <div className="max-w-xl mx-auto py-16">
+          <EmptyState
+            icon="🔒"
+            title={t("empty.groupAccessDenied")}
+            description={t("empty.groupAccessDeniedDesc")}
+            actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+          />
+        </div>
+      );
+    }
     return (
       <div className="max-w-xl mx-auto py-16">
         <ErrorState title={t("error.loadFailed")} onRetry={() => window.location.reload()} />
@@ -147,7 +160,8 @@ export default function GroupDashboardPage() {
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
           icon="👥"
-          title={t("empty.groupNotFound")}
+          title={groupInactive ? t("empty.groupInactive") : t("empty.groupNotFound")}
+          description={groupInactive ? t("empty.groupInactiveDesc") : undefined}
           actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
         />
       </div>
@@ -188,7 +202,7 @@ export default function GroupDashboardPage() {
           </div>
           {isCreator && (
             <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
-              <Link to="/event/create" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.events")}</Link>
+              <Link to="/events" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.events")}</Link>
               <Link to={`/group/${groupId}/settings`} className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.manage")}</Link>
             </div>
           )}
@@ -217,6 +231,35 @@ export default function GroupDashboardPage() {
           </div>
         ))}
       </Card>
+
+      {/* 다가오는 이벤트 */}
+      {upcomingEvents.length > 0 && (
+        <Card padding="none" className="mb-5 p-4" style={{ borderRadius: "var(--r-lg)" }}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
+            <Link to="/events" className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreEvents")}</Link>
+          </div>
+          <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ listStyle: "none", margin: 0, padding: 0, gap: "var(--space-2)" }}>
+            {upcomingEvents.map((e) => (
+              <li key={e.id} style={{ padding: "10px 12px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)" }}>
+                <Link to={`/event/${e.id}`} className="flex items-center justify-between" style={{ gap: "var(--space-2)" }}>
+                  <div className="min-w-0">
+                    <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{e.name}</div>
+                    <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
+                      {e.startTime ? new Date(e.startTime).toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" }) : "-"}
+                    </div>
+                  </div>
+                  <Chip
+                    style={{ color: e.status === "LIVE" ? "var(--lime)" : "var(--aqua)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
+                  >
+                    {e.status === "LIVE" ? t("dashboard.eventStatus.live") : t("dashboard.eventStatus.recruiting")}
+                  </Chip>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-5">
         {/* 멤버 랭킹 */}
@@ -346,7 +389,7 @@ export default function GroupDashboardPage() {
           <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.memberPreview")}</h2>
-              <Link to={`/group/${groupId}/members`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreRides")}</Link>
+              <Link to={`/group/${groupId}/members`} className="text-[length:var(--fs-xs)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreMembers")}</Link>
             </div>
             {membersLoading ? (
               <div className="flex gap-3">
@@ -373,32 +416,6 @@ export default function GroupDashboardPage() {
               </div>
             )}
           </Card>
-
-          {/* 다가오는 이벤트 */}
-          {upcomingEvents.length > 0 && (
-            <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>
-              <h2 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
-              <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {upcomingEvents.map((e) => (
-                  <li key={e.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
-                    <Link to={`/event/${e.id}`} className="flex items-center justify-between">
-                      <div className="min-w-0">
-                        <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{e.name}</div>
-                        <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
-                          {e.startTime ? new Date(e.startTime).toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" }) : "-"}
-                        </div>
-                      </div>
-                      <Chip
-                        style={{ color: e.status === "LIVE" ? "var(--lime)" : "var(--aqua)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
-                      >
-                        {e.status === "LIVE" ? t("dashboard.eventStatus.live") : t("dashboard.eventStatus.recruiting")}
-                      </Chip>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
 
           {/* 그룹 정보 카드 */}
           <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-lg)" }}>

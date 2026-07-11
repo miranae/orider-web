@@ -22,7 +22,7 @@ export default function GroupRidesPage() {
     return rides.filter((r) => r.participantCount >= minParticipants);
   }, [rides, minParticipants]);
 
-  if (groupLoading || !group) {
+  if (groupLoading) {
     return (
       <div className="space-y-4 animate-pulse">
         <div className="h-8 w-56 rounded-[var(--r-sm)]" style={{ background: "var(--bg-2)" }} />
@@ -32,6 +32,18 @@ export default function GroupRidesPage() {
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-16 rounded-[var(--r-lg)]" style={{ background: "var(--bg-2)" }} />)}
         </div>
+      </div>
+    );
+  }
+
+  if (!group) {
+    return (
+      <div className="max-w-xl mx-auto py-16">
+        <EmptyState
+          icon="👥"
+          title={t("empty.groupNotFound")}
+          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+        />
       </div>
     );
   }
