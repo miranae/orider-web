@@ -62,6 +62,7 @@ import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
 import { useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
+import { RideActivityRouteButton } from "../features/activity/detail/RideActivityRouteButton";
 import { selectActualCoRiders } from "../utils/coRiders";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 
@@ -989,6 +990,7 @@ export default function ActivityPage() {
       {keyStatsStrip}
       <ServerActivityInsightsCard metrics={serverMetrics.metrics} weather={activity.weather} />
 
+      <RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} />
       {/* ── 탭 네비게이션 ── */}
       <TabNav
         tabs={[
