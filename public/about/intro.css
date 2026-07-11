@@ -485,6 +485,31 @@ footer a {
   color: var(--brand-light);
 }
 
+.store-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 12px auto 0;
+}
+
+.store-links a {
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.24);
+  border-radius: 8px;
+  color: var(--hero-fg);
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 9px 13px;
+  text-decoration: none;
+}
+
+.store-links a:hover {
+  background: rgba(255,255,255,0.1);
+}
+
 @media (max-width: 860px) {
   header {
     min-height: 360px;

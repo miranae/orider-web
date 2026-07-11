@@ -426,6 +426,39 @@ footer a {
   color: var(--text2);
 }
 
+.manual-store-links {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 24px 0 8px;
+  padding: 16px 20px;
+}
+
+.manual-store-links span {
+  color: var(--text2);
+  flex: 1 1 100%;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.manual-store-links a {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--heading);
+  font-weight: 800;
+  min-height: 40px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.manual-store-links a:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 /* -- Level badges -- */
 .level {
   display: inline-block;

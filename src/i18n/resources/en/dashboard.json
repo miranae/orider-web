@@ -203,6 +203,11 @@
     "loadMore": "Load more",
     "emptyTitle": "No activities yet",
     "emptyDesc": "Connect Strava or record a ride to get started.",
+    "appInstall": {
+      "eyebrow": "Mobile app",
+      "title": "Continue in the app",
+      "desc": "Ride recording, sensors, route guidance, and group location sharing continue more reliably in the Orider app."
+    },
     "dataWarningBadge": "⚠ Data anomaly",
     "dataWarningTooltip": "Some metrics may be unrealistic due to GPS noise or a very short activity."
   },
