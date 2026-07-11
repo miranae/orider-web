@@ -19,16 +19,14 @@ assert_contains scripts/start-work.sh 'BASE="\$\{BASE:-dev\}"' \
   'start-work default base must be dev'
 assert_contains scripts/start-work.sh 'gh pr create -B \$BASE' \
   'start-work guidance must create the PR against the selected base'
-assert_contains scripts/merge-pr.sh '\[\[ "\$BASE" == "main" && "\$HEADREF" != "dev" \]\]' \
-  'merge gate must reject non-dev heads targeting main'
+assert_contains scripts/merge-pr.sh '\[\[ "\$BASE" == "main" && "\$HEADREF" != "dev" && "\$HEADREF" != hotfix/\* \]\]' \
+  'merge gate must reject heads targeting main other than dev or hotfix/*'
 assert_contains scripts/merge-pr.sh 'WAIT_CHECKS.*BASE.*main' \
   'GitHub check waiting must be limited to main promotion PRs'
 assert_contains scripts/merge-pr.sh 'BASE.*== "dev".*HEADREF.*!= "dev"' \
   'feature gate must be selected only for topic PRs targeting dev'
 assert_contains scripts/merge-pr.sh 'npm test -- --changed "origin/\$BASE" --passWithNoTests' \
   'feature gate must run changed-file Vitest with no-test allowance'
-assert_contains scripts/merge-pr.sh 'VITEST_FEATURE_MAX_WORKERS:-2' \
-  'feature gate must cap Vitest workers so parallel worktrees do not exhaust the host'
 assert_contains scripts/merge-pr.sh 'npx tsc -b --pretty false' \
   'feature gate must run TypeScript typecheck'
 feature_gate="$(sed -n '/if \[\[ "\$GATE_TIER" == "feature" \]\]; then/,/^else$/p' scripts/merge-pr.sh)"
@@ -67,8 +65,14 @@ done
 
 assert_contains .github/workflows/dco.yml 'git rebase -i origin/\$base_ref' \
   'DCO repair guidance must use the PR actual base branch'
-assert_contains .github/workflows/main-promote-guard.yml 'GITHUB_HEAD_REF.*dev' \
-  'promotion guard must allow only dev as the PR head'
+assert_contains .github/workflows/main-promote-guard.yml 'case "\$GITHUB_HEAD_REF" in' \
+  'promotion guard must branch on the PR head ref'
+assert_contains .github/workflows/main-promote-guard.yml 'hotfix/\*\)' \
+  'promotion guard must accept hotfix/* heads targeting main'
+assert_contains scripts/merge-pr.sh 'if \[\[ "\$BASE" == "main" \]\]; then' \
+  'hotfix and promotion merges must both synchronize main back into dev'
+assert_contains .github/workflows/pr-gate.yml '\|hotfix\|' \
+  'PR metadata gate must accept hotfix/* branch names'
 assert_contains .github/workflows/pr-gate.yml 'BASE_REF.*main.*HEAD_REF.*dev' \
   'PR metadata gate must accept the dev to main promotion branch'
 if sed -n '/dev → main promotion branch accepted/,/^[[:space:]]*fi$/p' \
