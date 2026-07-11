@@ -2,6 +2,7 @@ name: PR Gate
 
 on:
   pull_request:
+    branches: [main]
     types: [opened, edited, synchronize, reopened, ready_for_review]
 
 permissions:
@@ -22,6 +23,7 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
         run: |
@@ -34,10 +36,14 @@ jobs:
           fi
 
           if [ "$HEAD_REPO" = "$BASE_REPO" ]; then
-            branch_re='^(feat|fix|docs|test|refactor|ci|chore|security|style|perf|build)/[a-z0-9][a-z0-9-]*$'
-            if ! [[ "$HEAD_REF" =~ $branch_re ]]; then
-              echo "::error::Maintainer branch '$HEAD_REF' should use a topic prefix such as docs/readme-structure"
-              exit 1
+            if [ "$BASE_REF" = "main" ] && [ "$HEAD_REF" = "dev" ]; then
+              echo "dev → main promotion branch accepted"
+            else
+              branch_re='^(feat|fix|docs|test|refactor|ci|chore|security|style|perf|build)/[a-z0-9][a-z0-9-]*$'
+              if ! [[ "$HEAD_REF" =~ $branch_re ]]; then
+                echo "::error::Maintainer branch '$HEAD_REF' should use a topic prefix such as docs/readme-structure"
+                exit 1
+              fi
             fi
           else
             echo "Fork PR branch names are accepted: $HEAD_REPO:$HEAD_REF"
