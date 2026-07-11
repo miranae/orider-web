@@ -55,7 +55,9 @@ export function calculateHrZoneDistribution(heartrates: number[], maxHrOrZones: 
     zone: i + 1,
     name: derived ? derived.zones[i]!.label : HR_ZONES[i]!.name,
     nameKey: derived
-      ? `fitness:zone.${derived.zones[i]!.label === "vo2" ? "vo2max" : derived.zones[i]!.label}`
+      ? derived.source === "max_hr" && i === 4
+        ? "fitness:zone.maxAerobic"
+        : `fitness:zone.${derived.zones[i]!.label === "vo2" ? "vo2max" : derived.zones[i]!.label}`
       : HR_ZONES[i]!.nameKey,
     seconds: counts[i],
     percentage: total > 0 ? (counts[i] / total) * 100 : 0,
