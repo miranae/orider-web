@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
@@ -15,6 +15,11 @@ import ElevationChart from "../components/ElevationChart";
 import { EmptyState } from "../components/redesign";
 import { Card } from "../theme/components";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
+import RouteBuilderMap from "../components/course/RouteBuilderMap";
+import { MAX_BUILDER_WAYPOINTS, tryAddWaypoint, undoWaypoint, type Waypoint } from "../features/courseBuilder/routeBuilder";
+import { DirectionsTimeoutError, fetchCyclingRoute, type CyclingRoute } from "../services/mapboxDirections";
+import { getMapboxToken } from "../utils/mapbox";
+import { downloadGpx, routeToGpx } from "../utils/routeGpx";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -37,7 +42,7 @@ interface StreamData {
   time?: number[];
 }
 
-type CreateMode = "activity" | "section" | "gpx";
+type CreateMode = "activity" | "section" | "gpx" | "builder";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -129,6 +134,16 @@ export default function CreateCoursePage() {
         : "gpx";
 
   const [mode, setMode] = useState<CreateMode>(initialMode);
+  const [builderPoints, setBuilderPoints] = useState<Waypoint[]>([]);
+  const builderPointsRef = useRef<Waypoint[]>([]);
+  const [builderRoute, setBuilderRoute] = useState<CyclingRoute | null>(null);
+  const [routing, setRouting] = useState(false);
+  const [builderError, setBuilderError] = useState<string | null>(null);
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
+  const routeRequestRef = useRef(0);
+  const routeAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => routeAbortRef.current?.abort(), []);
 
   // Activity streams
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
@@ -321,6 +336,7 @@ export default function CreateCoursePage() {
   }, [mode, streams]);
 
   const currentStats = mode === "section" ? sectionStats : mode === "activity" ? activityStats : gpxStats;
+  const builderTokenAvailable = Boolean(getMapboxToken());
 
   const elevationData = useMemo(() => {
     const alt = streams?.altitude;
@@ -349,7 +365,7 @@ export default function CreateCoursePage() {
   const isFormValid = name.length >= 2 && name.length <= 50 && rangeValidation.length === 0;
   const rangeChanged = streams?.latlng ? rangeStart !== 0 || rangeEnd !== streams.latlng.length - 1 : false;
   const isDirty = !createdCourseId && (
-    mode !== initialMode ||
+    mode !== initialMode || builderPoints.length > 0 ||
     Boolean(name.trim()) ||
     Boolean(description.trim()) ||
     Boolean(surface) ||
@@ -366,6 +382,23 @@ export default function CreateCoursePage() {
   });
   const leavePage = () => requestLeave(() => navigate(-1));
 
+  const calculateBuilderRoute = async () => {
+    const token = getMapboxToken();
+    if (!token || builderPoints.length < 2) return;
+    const requestId = ++routeRequestRef.current;
+    routeAbortRef.current?.abort();
+    const controller = new AbortController();
+    routeAbortRef.current = controller;
+    setRouting(true); setBuilderError(null);
+    try {
+      const route = await fetchCyclingRoute(builderPoints, token, controller.signal);
+      if (requestId === routeRequestRef.current) setBuilderRoute(route);
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      if (requestId === routeRequestRef.current) setBuilderError(err instanceof DirectionsTimeoutError ? t("builder.timeout") : t("builder.routeFailed"));
+    } finally { if (requestId === routeRequestRef.current) setRouting(false); }
+  };
+
   const handleRangeChange = useCallback((s: number, e: number) => {
     setRangeStart(s);
     setRangeEnd(e);
@@ -373,6 +406,7 @@ export default function CreateCoursePage() {
 
   // ── Submit ──
   const handleSubmit = async () => {
+    if (mode === "builder") { setSubmitError(t("builder.saveDisabled")); return; }
     if (!isFormValid || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -574,10 +608,13 @@ export default function CreateCoursePage() {
         >
           {t("creation.gpxMode")}
         </button>
+        <button onClick={() => setMode("builder")} className={`flex-1 px-3 py-2 text-[length:var(--fs-sm)] font-medium rounded-[var(--r-md)] ${mode === "builder" ? "bg-[var(--bg-1)] text-[var(--ink-0)]" : "text-[var(--ink-2)]"}`}>
+          {t("builder.mode")}
+        </button>
       </div>
 
       {/* ── Activity / Section Mode ── */}
-      {mode !== "gpx" && (
+      {mode !== "gpx" && mode !== "builder" && (
         <>
           {/* Loading */}
           {loadingStreams && (
@@ -723,8 +760,31 @@ export default function CreateCoursePage() {
         </>
       )}
 
+      {mode === "builder" && (
+        <Card padding="none" className="p-4 space-y-4">
+          <div><h2 className="font-semibold">{t("builder.title")}</h2><p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">{t("builder.description", { max: MAX_BUILDER_WAYPOINTS })}</p></div>
+          <p id="builder-map-instructions" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("builder.instructions")}</p>
+          <RouteBuilderMap labels={{ region: t("builder.mapRegion"), unavailable: t("builder.mapUnavailable"), waypoint: t("builder.waypoint") }} waypoints={builderPoints} route={builderRoute?.coordinates ?? []} onAdd={(point) => { const result = tryAddWaypoint(builderPointsRef.current, point); if (!result.changed) return; builderPointsRef.current = result.points; routeAbortRef.current?.abort(); setRouting(false); setBuilderPoints(result.points); setBuilderRoute(null); setBuilderError(null); routeRequestRef.current++; }} />
+          <div className="flex flex-wrap gap-2" aria-label={t("builder.coordinateEntry")}>
+            <input aria-label={t("builder.latitude")} inputMode="decimal" value={manualLat} onChange={(e) => setManualLat(e.target.value)} className="w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
+            <input aria-label={t("builder.longitude")} inputMode="decimal" value={manualLng} onChange={(e) => setManualLng(e.target.value)} className="w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
+            <button type="button" className="ds-btn ds-btn--md" onClick={() => { if (!manualLat.trim() || !manualLng.trim()) { setBuilderError(t("builder.invalidCoordinate")); return; } const result = tryAddWaypoint(builderPointsRef.current, { lat: Number(manualLat), lng: Number(manualLng) }); if (!result.changed) { setBuilderError(t("builder.invalidCoordinate")); return; } builderPointsRef.current = result.points; routeAbortRef.current?.abort(); routeRequestRef.current++; setRouting(false); setBuilderPoints(result.points); setBuilderRoute(null); setBuilderError(null); setManualLat(""); setManualLng(""); }}>{t("builder.addCoordinate")}</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => { routeAbortRef.current?.abort(); setRouting(false); builderPointsRef.current = undoWaypoint(builderPointsRef.current); setBuilderPoints(builderPointsRef.current); setBuilderRoute(null); routeRequestRef.current++; }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.undo")}</button>
+            <button type="button" onClick={() => { routeAbortRef.current?.abort(); setRouting(false); builderPointsRef.current = []; setBuilderPoints([]); setBuilderRoute(null); routeRequestRef.current++; }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.clear")}</button>
+            <button type="button" onClick={() => void calculateBuilderRoute()} disabled={!builderTokenAvailable || builderPoints.length < 2 || routing} className="ds-btn ds-btn--md disabled:opacity-50">{routing ? t("builder.routing") : t("builder.calculate")}</button>
+            <button type="button" onClick={() => builderRoute && downloadGpx(routeToGpx(name, builderRoute.coordinates))} disabled={!builderRoute} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.export")}</button>
+          </div>
+          <div aria-live="polite" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">
+            {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distance / 1000).toFixed(1), minutes: Math.round(builderRoute.duration / 60) }) : t("builder.pointCount", { count: builderPoints.length, max: MAX_BUILDER_WAYPOINTS }))}
+          </div>
+          <div className="rounded-[var(--r-lg)] border border-[var(--amber)] p-3 text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("builder.saveDisabled")}</div>
+        </Card>
+      )}
+
       {/* ── Form + Stats ── */}
-      {((mode !== "gpx" && streams) || (mode === "gpx" && gpxXml)) && (
+      {(((mode === "activity" || mode === "section") && streams) || (mode === "gpx" && gpxXml)) && (
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Info form */}
           <Card padding="none" className="lg:flex-1 p-4 space-y-4">
