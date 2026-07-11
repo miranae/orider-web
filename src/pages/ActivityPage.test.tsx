@@ -67,6 +67,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 describe("ActivityPage", () => {
   beforeEach(() => {
     mockRoute.activityId = "test-activity";
+    setCollectionDocs("courses", []);
     vi.mocked(getDocs).mockClear();
     vi.mocked(where).mockClear();
     vi.mocked(httpsCallable).mockClear();
