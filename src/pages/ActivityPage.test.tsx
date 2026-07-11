@@ -97,14 +97,14 @@ describe("ActivityPage", () => {
   });
 
   it("passes activity identity and visibility context to the share action", async () => {
-    const activity = createMockActivity({ id: "test-activity", visibility: "followers" });
+    const activity = createMockActivity({ id: "test-activity", visibility: "friends" });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     shareButtonProps.mockClear();
     renderWithProviders(<ActivityPage />);
     await screen.findByText("share-card");
     expect(shareButtonProps).toHaveBeenCalledWith(expect.objectContaining({
       activityId: "test-activity",
-      visibility: "followers",
+      visibility: "friends",
     }));
   });
 

@@ -59,8 +59,8 @@ export function ActivityShareButton({ card, filename, url, activityId, visibilit
       if (payload && canShareFile) {
         try {
           await navigator.share(payload);
-          if (!mounted.current || currentGeneration !== generation.current) return;
           track("activity_share_native", context);
+          if (!mounted.current || currentGeneration !== generation.current) return;
           onFeedback(t("page.share.shared"));
           return;
         } catch (error) {
@@ -70,8 +70,11 @@ export function ActivityShareButton({ card, filename, url, activityId, visibilit
             return;
           }
           if (!mounted.current || currentGeneration !== generation.current) return;
-          track("activity_share_fail", { ...context, stage: "native" });
-          logClientError("ActivityShareButton.nativeShare", error, context);
+          const activationExpired = error instanceof DOMException && error.name === "NotAllowedError";
+          if (!activationExpired) {
+            track("activity_share_fail", { ...context, stage: "native" });
+            logClientError("ActivityShareButton.nativeShare", error, context);
+          }
         }
       }
       if (!mounted.current || currentGeneration !== generation.current) return;

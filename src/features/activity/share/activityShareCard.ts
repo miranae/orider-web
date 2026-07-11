@@ -1,3 +1,5 @@
+import { saveAs } from "file-saver";
+
 export interface ActivityShareCardInput {
   title: string;
   athlete: string;
@@ -42,7 +44,10 @@ function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement 
       image.src = "";
       finish(null);
     };
-    const timeout = window.setTimeout(() => finish(null), IMAGE_TIMEOUT_MS);
+    const timeout = window.setTimeout(() => {
+      image.src = "";
+      finish(null);
+    }, IMAGE_TIMEOUT_MS);
     image.crossOrigin = "anonymous";
     image.onload = () => finish(image);
     image.onerror = () => finish(null);
@@ -157,4 +162,3 @@ export function canvasToPng(canvas: HTMLCanvasElement): Promise<Blob | null> {
 export function downloadShareCard(blob: Blob, filename: string): void {
   saveAs(blob, filename);
 }
-import { saveAs } from "file-saver";

@@ -944,7 +944,7 @@ export default function ActivityPage() {
                   elevation: `${elevVal(s.elevationGain)} ${elevUnit}`,
                   distanceLabel: t("stat.distance"),
                   durationLabel: t("stat.time"),
-                  elevationLabel: t("stat.elevation"),
+                  elevationLabel: t("stat.elev"),
                   footer: t("page.share.footer"),
                   backgroundImageUrl: activity.mapImageUrl,
                   includeRouteImage: activity.visibility === "everyone",
