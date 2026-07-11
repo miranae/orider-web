@@ -453,10 +453,12 @@
         "vam": "VAM (m/h)",
         "avgPower": "평균 파워 (W)",
         "wPerKg": "W/kg",
-        "category": "등급"
+        "category": "등급",
+        "action": "세그먼트"
       },
       "footnote": "서버가 저장한 클라임 분석 결과입니다. 서버 결과가 없는 이전 활동만 스트림에서 다시 탐지합니다.",
       "uncategorized": "미분류",
+      "promote": "세그먼트로 승격",
       "category": "Cat. {{grade}}"
     },
     "splits": {
