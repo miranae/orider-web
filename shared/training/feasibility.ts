@@ -8,6 +8,14 @@
  */
 
 import type { FeasibilityLabel } from '../types/goal';
+import {
+  DEFAULT_CDA,
+  DEFAULT_CRR,
+  DEFAULT_ETA,
+  requiredPowerForTime,
+  type SimSegment,
+} from '../sim/courseSim';
+import { sanitizeCourseClimbs } from './climbStructure';
 
 // ── 피로도(TSB) 기반 sustainable W/kg 보정 임계값 ───────────────────────
 //
@@ -50,7 +58,12 @@ export function labelFromGap(gapWkg: number): FeasibilityLabel {
 
 export interface FeasibilityInput {
   /** 코스 또는 이벤트 거리(km) / 누적 상승고도(m) */
-  course: { dist: number; elev: number };
+  course: {
+    dist: number;
+    elev: number;
+    /** 코스 스냅샷 클라임. dist는 m, gain은 m, cat은 1~5(HC). */
+    climbs?: Array<{ gain: number; dist: number; cat: number }>;
+  };
   /** 목표 — 완주(completion)이면 항상 on_track 반환 */
   target: { eventType: string; targetDurationMin?: number | null };
   /** 사용자 임계값 — ftpW, weightKg */
@@ -64,11 +77,37 @@ export interface FeasibilityResult {
   requiredWkg?: number;
   sustainableWkg?: number;
   gapWkg?: number;
+  /** requiredWkg 계산 경로. 과거 문서는 필드가 없으며 aggregate로 해석한다. */
+  model?: 'aggregate' | 'climb_structure';
   /** 피로도(TSB) 기반 sustainableWkg 보정율(%). fitness 미주입이면 undefined. */
   fatigueAdjustmentPct?: number;
 }
 
 function round2(n: number): number { return Math.round(n * 100) / 100; }
+
+function courseSegments(
+  course: FeasibilityInput['course'],
+): SimSegment[] | null {
+  const climbs = sanitizeCourseClimbs(course.climbs);
+  if (climbs.length === 0) return null;
+  const totalDistanceM = course.dist * 1000;
+
+  const climbDistanceM = climbs.reduce((sum, climb) => sum + climb.dist, 0);
+  if (climbDistanceM > totalDistanceM) return null;
+  const climbGainM = climbs.reduce((sum, climb) => sum + climb.gain, 0);
+  const segments = climbs.map((climb) => ({
+    distanceM: climb.dist,
+    grade: climb.gain / climb.dist,
+  }));
+  const remainingDistanceM = totalDistanceM - climbDistanceM;
+  if (remainingDistanceM > 0) {
+    segments.push({
+      distanceM: remainingDistanceM,
+      grade: Math.max(0, course.elev - climbGainM) / remainingDistanceM,
+    });
+  }
+  return segments;
+}
 
 export function calcFeasibility(input: FeasibilityInput): FeasibilityResult {
   const { course, target, snap, fitness } = input;
@@ -91,7 +130,15 @@ export function calcFeasibility(input: FeasibilityInput): FeasibilityResult {
   const targetH = dur / 60;
   const speed = course.dist / targetH;                    // km/h
   const climbMperH = elev / targetH;                      // m/h
-  const requiredWkg = 0.12 * speed + 0.0035 * climbMperH;
+  const segments = courseSegments(course);
+  const requiredWkg = segments
+    ? requiredPowerForTime(segments, dur * 60, {
+        massKg: snap.weightKg + 8,
+        cda: DEFAULT_CDA,
+        crr: DEFAULT_CRR,
+        eta: DEFAULT_ETA,
+      }) / snap.weightKg
+    : 0.12 * speed + 0.0035 * climbMperH;
   const myWkg = snap.ftp / snap.weightKg;
 
   // 피로도 — fitness 인자 자체가 없거나 tsb가 null이면 보정 안 함 (Pct=undefined)
@@ -110,6 +157,7 @@ export function calcFeasibility(input: FeasibilityInput): FeasibilityResult {
     requiredWkg: round2(requiredWkg),
     sustainableWkg: round2(sustainableWkg),
     gapWkg: round2(gap),
+    model: segments ? 'climb_structure' : 'aggregate',
     fatigueAdjustmentPct,
   };
 }
