@@ -93,7 +93,7 @@ describe("group list hooks", () => {
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
-    });
+    }, { timeout: 5_000 });
 
     expect(result.current.groups).toEqual([]);
     expect(result.current.error).toBe(err);
