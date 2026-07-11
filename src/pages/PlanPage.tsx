@@ -16,6 +16,7 @@ import { sumEffectivePlanTSS } from "../utils/planTss";
 import WorkoutEditModal from "../components/training/WorkoutEditModal";
 import AdaptationBanner from "../components/training/AdaptationBanner";
 import AdjustedChip from "../components/training/AdjustedChip";
+import TodaysWorkoutCard from "../components/training/TodaysWorkoutCard";
 import { useMobile } from "../hooks/useMobile";
 import { useFreshTraining } from "../hooks/useFreshTraining";
 import { useToast } from "../contexts/ToastContext";
@@ -27,6 +28,7 @@ import { EmptyState, ErrorState } from "../components/redesign";
 import { Button, Card, Text } from "../theme/components";
 import { buildDayNames, buildWorkoutMeta, formatDateLabel, phaseColor, phaseLabel } from "../features/training/plan/planDisplay";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
+import { PlanAdjustmentNarrative } from "../features/trainingHub/TrainingHubOpportunityPanel";
 
 const PLAN_WEEK_GRID_COLUMNS = '80px repeat(7, minmax(72px, 1fr)) 100px';
 const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
@@ -915,6 +917,11 @@ export default function PlanPage() {
 
       {/* ── Body ────────────────────────────────────────────────────── */}
       <div style={{ padding: '20px 0 0' }}>
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <TodaysWorkoutCard variant="compact" />
+        </div>
+
+        <PlanAdjustmentNarrative goal={goal} weeks={weeks} t={t} />
 
         {/* Adaptation Banner — warn/critical 일 때만 노출 */}
         {goal?.adaptationFlag && (

@@ -117,7 +117,13 @@
     "streakSuffix": " · {{count}}주 연속 이탈",
     "snoozeError": "1주 미루기에 실패했습니다.",
     "detailsArrow": "운동 계획 →",
-    "cta": "운동 계획에서 자세히 보기"
+    "cta": "운동 계획에서 자세히 보기",
+    "narrative": {
+      "title": "적응형 재계획",
+      "down": "최근 준수율 {{compliance}}% — 다음 주 강도를 {{pct}}% 낮췄어요.",
+      "up": "최근 준수율 {{compliance}}% — 다음 주 강도를 {{pct}}% 올렸어요.",
+      "recovery": "최근 준수율 {{compliance}}% — 회복 우선 주간으로 조정했어요."
+    }
   },
   "metrics": {
     "progress": "진행률",

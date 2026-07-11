@@ -117,7 +117,13 @@
     "streakSuffix": " · {{count}}w off-track",
     "snoozeError": "Failed to snooze for 1 week.",
     "detailsArrow": "Training plan →",
-    "cta": "View details in training plan"
+    "cta": "View details in training plan",
+    "narrative": {
+      "title": "Adaptive replanning",
+      "down": "Recent compliance {{compliance}}% — lowered next week's intensity by {{pct}}%.",
+      "up": "Recent compliance {{compliance}}% — raised next week's intensity by {{pct}}%.",
+      "recovery": "Recent compliance {{compliance}}% — shifted the week toward recovery."
+    }
   },
   "metrics": {
     "progress": "Progress",
