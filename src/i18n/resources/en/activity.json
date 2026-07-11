@@ -469,10 +469,12 @@
         "vam": "VAM (m/h)",
         "avgPower": "Avg Power (W)",
         "wPerKg": "W/kg",
-        "category": "Category"
+        "category": "Category",
+        "action": "Segment"
       },
       "footnote": "Server-saved climb analysis. Stream detection is used only for older activities without server results.",
       "uncategorized": "Uncategorized",
+      "promote": "Promote to segment",
       "category": "Cat. {{grade}}"
     },
     "splits": {

@@ -41,6 +41,7 @@ function emitAuthEvent(result: UserCredential, method: string) {
 interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
+  profileLoading: boolean;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
@@ -49,6 +50,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   profile: null,
+  profileLoading: true,
   loading: true,
   signInWithGoogle: async () => {},
   logout: async () => {},
@@ -57,6 +59,7 @@ const AuthContext = createContext<AuthContextValue>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [loading, setLoading] = useState(true);
 
   // Listen to auth state
@@ -76,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (cancelled) return;
       setUser(firebaseUser);
+      setProfileLoading(Boolean(firebaseUser));
       if (firebaseUser) {
         // 프로필 생성 — 3회 지수 백오프 retry
         try {
@@ -91,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         if (!cancelled) {
           setProfile(null);
+          setProfileLoading(false);
         }
       }
       if (!cancelled) setLoading(false);
@@ -103,7 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Subscribe to user profile
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setProfileLoading(false);
+      return;
+    }
+    setProfileLoading(true);
 
     return onSnapshot(
       doc(firestore, "users", user.uid),
@@ -113,10 +122,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
         }
+        setProfileLoading(false);
       },
       (err) => {
         logClientError("AuthContext.profileSnapshot", err, { uid: user.uid });
         setProfile(null);
+        setProfileLoading(false);
       },
     );
   }, [user]);
@@ -151,8 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, profile, loading, signInWithGoogle, logout }),
-    [user, profile, loading, signInWithGoogle, logout],
+    () => ({ user, profile, profileLoading, loading, signInWithGoogle, logout }),
+    [user, profile, profileLoading, loading, signInWithGoogle, logout],
   );
 
   return (

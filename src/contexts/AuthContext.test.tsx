@@ -1,6 +1,7 @@
 import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { onSnapshot } from "firebase/firestore";
 import { AuthProvider, useAuth } from "./AuthContext";
 import {
   simulateLogin,
@@ -13,12 +14,13 @@ import {
 import { createMockProfile } from "../__tests__/fixtures/mockData";
 
 function TestConsumer() {
-  const { user, profile, loading, signInWithGoogle, logout } = useAuth();
+  const { user, profile, profileLoading, loading, signInWithGoogle, logout } = useAuth();
   return (
     <div>
       <div data-testid="loading">{String(loading)}</div>
       <div data-testid="user">{user ? user.uid : "null"}</div>
       <div data-testid="profile">{profile ? profile.nickname : "null"}</div>
+      <div data-testid="profile-loading">{String(profileLoading)}</div>
       <button onClick={signInWithGoogle}>로그인</button>
       <button onClick={logout}>로그아웃</button>
     </div>
@@ -65,6 +67,28 @@ describe("AuthContext", () => {
     await waitFor(() => {
       expect(screen.getByTestId("profile")).toHaveTextContent("Rider");
     });
+  });
+
+  it("로그인 전환 후 프로필 첫 스냅샷까지 profileLoading을 유지한다", async () => {
+    let emitProfile: ((snap: { exists: () => boolean; data: () => Record<string, unknown> }) => void) | null = null;
+    vi.mocked(onSnapshot).mockImplementationOnce(((_ref: unknown, next: typeof emitProfile) => {
+      emitProfile = next;
+      return () => {};
+    }) as typeof onSnapshot);
+    renderAuth();
+
+    act(() => { simulateLogin({ uid: "uid-slow" }); });
+    await waitFor(() => expect(screen.getByTestId("user")).toHaveTextContent("uid-slow"));
+    expect(screen.getByTestId("profile-loading")).toHaveTextContent("true");
+
+    act(() => {
+      emitProfile?.({
+        exists: () => true,
+        data: () => createMockProfile({ nickname: "Slow Rider" }) as unknown as Record<string, unknown>,
+      });
+    });
+    await waitFor(() => expect(screen.getByTestId("profile-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("profile")).toHaveTextContent("Slow Rider");
   });
 
   it("clears profile on logout", async () => {
