@@ -20,7 +20,6 @@ import {
   SettingsCard,
   Field,
   FieldGrid,
-  RD_HR_ZONES,
   StatGrid,
   ZoneBar,
   fieldInputStyle,
@@ -29,6 +28,7 @@ import {
 import { ThresholdSuggestionBanner } from "./ThresholdSuggestionBanner";
 import { Button, Text } from "../../theme/components";
 import { estimateFtpFromTest, isConservativeDrop, type FtpTestProtocol } from "@shared/training/ftpTest";
+import { deriveHrZones, isValidHrThresholdRelationship } from "../../utils/hrZones";
 
 const BLOOD_TYPES: BloodType[] = [
   "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-", "UNKNOWN",
@@ -147,7 +147,7 @@ export function PaneTraining() {
   const ftpN = Number(ftp) || 0;
   const wN = Number(weightKg) || 0;
   const wkg = wN > 0 && ftpN > 0 ? (ftpN / wN).toFixed(2) : "—";
-  const maxHrN = Number(maxHr) || 184;
+  const hrZonePreview = deriveHrZones({ maxHr: Number(maxHr), lthr: Number(lthr) });
 
   async function handleSave() {
     if (!user) return;
@@ -182,6 +182,10 @@ export function PaneTraining() {
         return;
       }
       updates.lthr = v;
+    }
+    if (!isValidHrThresholdRelationship(updates.maxHr, updates.lthr)) {
+      showToast(t("training.lthrBelowMaxHr"));
+      return;
     }
     if (thresholdPace.trim() === "") {
       updates.thresholdPace = null;
@@ -527,11 +531,11 @@ export function PaneTraining() {
 
       <SettingsCard
         title={t("training.cardHrZones")}
-        action={<Text variant="eyebrow">{t("training.hrZonesActionBpm", { bpm: maxHrN })}</Text>}
+        action={<Text variant="eyebrow">{t(`training.hrZonesSource.${hrZonePreview.source}`, { bpm: hrZonePreview.referenceBpm })}</Text>}
       >
-        <ZoneBar refValue={maxHrN} zones={RD_HR_ZONES} />
+        <ZoneBar refValue={hrZonePreview.referenceBpm} zones={hrZonePreview.zones} />
         <div style={{ marginTop: 'var(--space-4)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-          {t("training.hrZonesNote")}
+          {t(`training.hrZonesNote.${hrZonePreview.source}`)}
         </div>
       </SettingsCard>
 
