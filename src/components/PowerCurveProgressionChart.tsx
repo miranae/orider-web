@@ -65,7 +65,7 @@ export default function PowerCurveProgressionChart({ progressions }: Props) {
       plugins: {
         legend: {
           display: true, position: "top",
-          labels: { color: textColor, usePointStyle: true, pointStyle: "circle", font: { size: 11 } },
+          labels: { color: textColor, usePointStyle: true, pointStyle: "circle", font: { size: 12 } },
         },
         tooltip: {
           mode: "index", intersect: false,
@@ -73,8 +73,8 @@ export default function PowerCurveProgressionChart({ progressions }: Props) {
         },
       },
       scales: {
-        x: { ticks: { color: textColor, font: { size: 10 }, autoSkip: true, maxTicksLimit: 6 }, grid: { color: gridColor } },
-        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 10 }, callback: (v) => `${v}W` }, grid: { color: gridColor } },
+        x: { ticks: { color: textColor, font: { size: 12 }, autoSkip: true, maxTicksLimit: 6 }, grid: { color: gridColor } },
+        y: { beginAtZero: true, ticks: { color: textColor, font: { size: 12 }, callback: (v) => `${v}W` }, grid: { color: gridColor } },
       },
     };
   }, [resolvedTheme]);

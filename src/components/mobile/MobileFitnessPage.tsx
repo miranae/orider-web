@@ -292,9 +292,9 @@ function PmcMiniChart({ history, projection, today, color, t }: {
                 <text x={bx + 6} y={by + 12} fontSize="9" fontFamily="var(--font-mono)" fill="var(--ink-3)">
                   {formatMd(tip.date)}{tip.isFuture ? t("mobileFitness.pmcLabelForecast") : ""}
                 </text>
-                <text x={bx + 6} y={by + 24} fontSize="10" fontFamily="var(--font-mono)" fill={color}>CTL {tip.ctl.toFixed(0)}</text>
-                <text x={bx + 6} y={by + 35} fontSize="10" fontFamily="var(--font-mono)" fill="var(--rose)">ATL {tip.atl.toFixed(0)}</text>
-                <text x={bx + 6} y={by + 46} fontSize="10" fontFamily="var(--font-mono)" fill="var(--amber)">TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</text>
+                <text x={bx + 6} y={by + 24} fontSize="12" fontFamily="var(--font-mono)" fill={color}>CTL {tip.ctl.toFixed(0)}</text>
+                <text x={bx + 6} y={by + 35} fontSize="12" fontFamily="var(--font-mono)" fill="var(--rose)">ATL {tip.atl.toFixed(0)}</text>
+                <text x={bx + 6} y={by + 46} fontSize="12" fontFamily="var(--font-mono)" fill="var(--amber)">TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</text>
               </g>
             );
           })()}
@@ -337,7 +337,7 @@ function WeeklyTssBars({ values, color, t }: { values: number[]; color: string; 
               {/* borderRadius 3px: --r-sm(4px) 보다 작은 미니 막대 전용 — 토큰 없음, 시각 동일 위해 리터럴 유지 */}
               <div style={{ width: "100%", height: `${h}px`, minHeight: v > 0 ? 4 : 0, background: isActive ? color : "var(--bg-3)", borderRadius: "var(--r-xs)", transition: "background 0.15s, height 0.2s" }} />
             </div>
-            <div className="text-[10px]" style={{ color: isActive ? "var(--ink-2)" : "var(--ink-4)", fontWeight: isActive ? 600 : 400 }}>{labels[i] ?? ""}</div>
+            <div className="text-[length:var(--fs-xs)]" style={{ color: isActive ? "var(--ink-2)" : "var(--ink-4)", fontWeight: isActive ? 600 : 400 }}>{labels[i] ?? ""}</div>
           </button>
         );
       })}

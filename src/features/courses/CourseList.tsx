@@ -43,7 +43,7 @@ const COURSE_LIST_INLINE_STYLE: React.CSSProperties = {
 };
 
 const COURSE_LIST_CHIP_STYLE: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: 12,
   lineHeight: 1.2,
   padding: "var(--space-1)",
   letterSpacing: 0,

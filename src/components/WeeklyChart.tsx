@@ -157,12 +157,12 @@ export default function WeeklyChart({
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { size: 10 }, color: tickColor, autoSkip: true, maxTicksLimit: 6 },
+              ticks: { font: { size: 12 }, color: tickColor, autoSkip: true, maxTicksLimit: 6 },
             },
             y: {
               beginAtZero: true,
               grid: { color: gridColor },
-              ticks: { font: { size: 10 }, color: tickColor },
+              ticks: { font: { size: 12 }, color: tickColor },
             },
           },
         }}

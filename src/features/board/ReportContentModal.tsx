@@ -92,7 +92,7 @@ export function ReportContentModal({
           className="w-full p-3 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
           style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
         />
-        <div className="text-right text-[10px] text-[var(--ink-3)] mt-1">{note.length}/500</div>
+        <div className="text-right text-[length:var(--fs-xs)] text-[var(--ink-3)] mt-1">{note.length}/500</div>
 
         <div className="flex justify-end gap-2 mt-5">
           <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>

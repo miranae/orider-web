@@ -88,6 +88,32 @@
 .ds-btn--md { /* default — 위 .ds-btn 정의 사용 */ }
 .ds-btn--lg { height: 48px; padding: 0 20px; font-size: 14px; }
 
+/* 작은 버튼: 시각 높이(28px)는 유지하되 실제 터치 영역을 44px 로 확장 (#401).
+ * ::after 오버레이가 히트 영역만 넓히므로 레이아웃에는 영향 없음. */
+.ds-btn--sm { position: relative; }
+.ds-btn--sm::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+/* 임의 요소용 터치 타깃 확장 유틸리티 (#401) — 시각 크기를 바꾸지 않고
+ * 최소 44×44px 히트 영역만 보장한다. 타깃이 촘촘히 겹치는 밀집 UI 에는 쓰지 말 것. */
+.ds-tap-target { position: relative; }
+.ds-tap-target::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
 .ds-btn--block { width: 100%; }
 .ds-btn--icon-only { padding: 0; aspect-ratio: 1; min-width: 44px; min-height: 44px; width: max(var(--dim-button-height, 40px), 44px); }
 .ds-btn--icon-only.ds-btn--sm { width: 44px; }
@@ -130,7 +156,7 @@
 .ds-card__title { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--ink-0); overflow-wrap: anywhere; word-break: keep-all; }
 .ds-card__sub {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: .14em;
   color: var(--ink-3);
   text-transform: uppercase;
@@ -143,7 +169,7 @@
   gap: 4px;
   padding: 3px 8px;
   border-radius: var(--r-sm, 4px);
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-mono);
   letter-spacing: .02em;
   background: var(--bg-3);
@@ -244,12 +270,12 @@ select.ds-input {
   color: var(--ink-1);
 }
 .ds-field__hint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink-3);
   font-family: var(--font-mono);
 }
 .ds-field__error {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-error);
 }
 
@@ -324,7 +350,7 @@ select.ds-input {
 }
 .ds-stat__label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -339,7 +365,7 @@ select.ds-input {
 }
 .ds-stat__value-unit {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink-3);
   margin-left: 2px;
   font-weight: 400;
@@ -349,7 +375,7 @@ select.ds-input {
   align-items: center;
   gap: 4px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 .ds-stat__delta--up { color: var(--color-success); }
 .ds-stat__delta--down { color: var(--color-error); }
@@ -471,12 +497,12 @@ select.ds-input {
 .ds-text--body-small   { font-size: 13px; font-weight: 400; line-height: 1.5; color: var(--ink-1); }
 .ds-text--caption      { font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink-2); }
 .ds-text--label        { font-size: 13px; font-weight: 500; line-height: 1.3; letter-spacing: 0.05em; color: var(--ink-1); }
-.ds-text--eyebrow      { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+.ds-text--eyebrow      { font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
 .ds-text--mono         { font-family: var(--font-mono); font-feature-settings: 'tnum' 1, 'zero' 1; }
 /* 옛 .num — 인라인 수치 (size 미지정, mono + tnum + medium weight + tight letter-spacing) */
 .ds-text--num          { font-family: var(--font-mono); font-feature-settings: 'tnum' 1; font-weight: 500; letter-spacing: -0.01em; }
 /* 옛 .unit — 수치 옆 작은 단위 표시 (km, W, bpm 등) */
-.ds-text--unit         { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-left: 2px; font-weight: 400; }
+.ds-text--unit         { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); margin-left: 2px; font-weight: 400; }
 
 /* Raw size — 토큰 기반 (테마 교체 시 자동 반영) */
 .ds-text--size-xs   { font-size: var(--fs-xs, 11px); }

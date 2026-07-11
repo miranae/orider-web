@@ -295,6 +295,8 @@
       "zone5": "Z5 인터벌"
     },
     "eyebrow": "오늘의 워크아웃",
+    "start": "운동 시작 →",
+    "loading": "오늘의 워크아웃 불러오는 중…",
     "noGoalTitle": "아직 운동 목표가 없어요",
     "noGoalDesc": "목표를 설정하면 오늘의 맞춤 워크아웃을 알려드릴게요.",
     "goalSetupCta": "목표 설정 →",

@@ -120,7 +120,7 @@ export default function DiscoverPage() {
                   <Link key={s.id} to={`/segment/${s.id}`}>
                     <Card padding="none" className="p-3! hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
                       <div className="flex items-center gap-2">
-                        {catLabel(s.climbCategory) && <span className="text-[10px] px-1.5 py-0.5 rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)" }}>{catLabel(s.climbCategory)}</span>}
+                        {catLabel(s.climbCategory) && <span className="text-[length:var(--fs-xs)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)" }}>{catLabel(s.climbCategory)}</span>}
                         <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{s.name}</span>
                       </div>
                       <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>

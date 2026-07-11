@@ -66,7 +66,7 @@ function StepIndicator({ current, steps }: { current: number; steps: string[] })
                   </svg>
                 ) : i + 1}
               </div>
-              <span className={`text-[10px] sm:text-[length:var(--fs-xs)] font-medium whitespace-nowrap ${
+              <span className={`text-[length:var(--fs-xs)] font-medium whitespace-nowrap ${
                 isActive ? 'text-[var(--lime)]' :
                 isDone ? 'text-[var(--ink-1)]' :
                 'text-[var(--ink-3)]'
@@ -372,11 +372,11 @@ export default function MigrationPage() {
                 <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
                   <div className="bg-[var(--bg-2)] rounded-[var(--r-lg)] p-3">
                     <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">{progress.importedActivities ?? 0}</div>
-                    <div className="text-[11px] text-[var(--ink-2)]">{t("userMigration.imported")}</div>
+                    <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)]">{t("userMigration.imported")}</div>
                   </div>
                   <div className="bg-[var(--bg-2)] rounded-[var(--r-lg)] p-3">
                     <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">{progress.skippedActivities ?? 0}</div>
-                    <div className="text-[11px] text-[var(--ink-2)]">{t("userMigration.skipped")}</div>
+                    <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)]">{t("userMigration.skipped")}</div>
                   </div>
                 </div>
               )}

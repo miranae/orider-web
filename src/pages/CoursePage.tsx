@@ -941,7 +941,7 @@ export default function CoursePage() {
                     }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[10px] text-[var(--ink-0)]/80 truncate">{photo.attribution}</p>
+                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)]/80 truncate">{photo.attribution}</p>
                   </div>
                 </div>
               ))}
@@ -958,7 +958,7 @@ export default function CoursePage() {
                     }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent rounded-b-lg px-2 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[10px] text-[var(--ink-0)]/80 truncate">{photo.uploaderNickname}</p>
+                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)]/80 truncate">{photo.uploaderNickname}</p>
                   </div>
                 </div>
               ))}
@@ -1168,7 +1168,7 @@ export default function CoursePage() {
                 <Link key={s.id} to={`/segment/${s.id}`}>
                   <Card padding="compact" className="hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
                     <div style={COURSE_INLINE_WRAP_STYLE}>
-                      {s.climbCategory >= 1 && <span className="text-[10px] rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)", padding: "var(--space-1) var(--space-2)" }}>{s.climbCategory >= 5 ? "HC" : `Cat ${s.climbCategory}`}</span>}
+                      {s.climbCategory >= 1 && <span className="text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)", padding: "var(--space-1) var(--space-2)" }}>{s.climbCategory >= 5 ? "HC" : `Cat ${s.climbCategory}`}</span>}
                       <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{s.name}</span>
                     </div>
                     <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{(s.distance / 1000).toFixed(1)}km · {s.averageGrade.toFixed(1)}%</div>

@@ -57,7 +57,7 @@ export default function ComparisonChart({
           plugins: {
             legend: {
               position: "bottom",
-              labels: { font: { size: 11 }, padding: 12, usePointStyle: true, color: labelColor },
+              labels: { font: { size: 12 }, padding: 12, usePointStyle: true, color: labelColor },
             },
             tooltip: {
               callbacks: {
@@ -69,13 +69,13 @@ export default function ComparisonChart({
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { size: 11 }, color: labelColor, autoSkip: true, maxTicksLimit: 6 },
+              ticks: { font: { size: 12 }, color: labelColor, autoSkip: true, maxTicksLimit: 6 },
             },
             y: {
               beginAtZero: true,
               grid: { color: gridColor },
               ticks: {
-                font: { size: 10 },
+                font: { size: 12 },
                 color: tickColor,
                 callback: (v) => `${v}${unit}`,
               },

@@ -69,12 +69,12 @@ export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyD
         x: {
           display: true,
           max: 100,
-          ticks: { color: textColor, font: { size: 10 }, callback: (v) => `${v}%` },
+          ticks: { color: textColor, font: { size: 12 }, callback: (v) => `${v}%` },
           grid: { display: false },
         },
         y: {
           display: true,
-          ticks: { color: textColor, font: { size: 11 }, autoSkip: true, maxTicksLimit: 6 },
+          ticks: { color: textColor, font: { size: 12 }, autoSkip: true, maxTicksLimit: 6 },
           grid: { display: false },
         },
       },

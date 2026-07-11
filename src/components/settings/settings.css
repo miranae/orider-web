@@ -32,7 +32,7 @@
 .settings-navgroup { margin-bottom: 18px; }
 .settings-navgroup-title {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -65,7 +65,7 @@
 .settings-navitem > svg { margin-top: 2px; flex-shrink: 0; }
 .settings-navitem-text { display: flex; flex-direction: column; min-width: 0; }
 .settings-navitem-label { font-size: 13px; color: var(--ink-1); }
-.settings-navitem-hint { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.settings-navitem-hint { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
 
 .settings-main {
   padding: 32px 40px 60px;

@@ -1537,7 +1537,7 @@ export default function ActivityPage() {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm ${badgeBg}`}>
+                    <span className={`text-[length:var(--fs-xs)] font-bold px-2 py-0.5 rounded-full shadow-sm ${badgeBg}`}>
                       {badgeText}
                     </span>
                     <div className="font-mono font-bold text-[length:var(--fs-xs)] tabular-nums mt-0.5" style={{ color: 'var(--ink-0)' }}>{formatTime(effort.elapsedTime)}</div>

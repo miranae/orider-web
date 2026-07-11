@@ -180,7 +180,7 @@ export default function FriendsPage() {
         >
           {t("tab.requests", { count: requests.length })}
           {requests.length > 0 && tab !== "requests" && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-[var(--lime)] rounded-full text-[10px] font-bold text-[var(--bg-0)] flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-[20px] px-1 bg-[var(--lime)] rounded-full text-[length:var(--fs-xs)] font-bold text-[var(--bg-0)] flex items-center justify-center">
               {requests.length}
             </span>
           )}

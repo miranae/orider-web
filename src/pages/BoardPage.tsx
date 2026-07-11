@@ -140,6 +140,15 @@ const BoardPage: React.FC = () => {
   const { deletePost, deleting } = useDeletePost();
   const isMobile = useMobile();
 
+  // 카드 ⋯ 메뉴 (#401): 위험 동작(삭제)을 카드에 상시 노출하는 대신 overflow 메뉴로 이동
+  const [cardMenuOpenId, setCardMenuOpenId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!cardMenuOpenId) return;
+    const close = () => setCardMenuOpenId(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [cardMenuOpenId]);
+
   const handleDeletePost = async (e: React.MouseEvent, postId: string, postUserId: string) => {
     e.stopPropagation();
     if (postUserId !== user?.uid) return;
@@ -188,7 +197,7 @@ const BoardPage: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSearch(); }}
-                className="w-full pl-9 pr-3 py-1.5 sm:py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
+                className="w-full min-h-[44px] pl-9 pr-3 py-1.5 sm:py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
                 style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
               />
             </div>
@@ -206,7 +215,7 @@ const BoardPage: React.FC = () => {
             {submittedQuery && (
               <button
                 onClick={() => { setSearchQuery(''); setSubmittedQuery(''); }}
-                className="p-2 text-[var(--ink-3)] hover:text-[var(--ink-1)] rounded-[var(--r-lg)] hover:bg-[var(--bg-2)] transition-colors"
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--ink-3)] hover:text-[var(--ink-1)] rounded-[var(--r-lg)] hover:bg-[var(--bg-2)] transition-colors"
                 title={t("button.searchReset")}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -231,7 +240,7 @@ const BoardPage: React.FC = () => {
               <button
                 key={type}
                 onClick={() => selectBoard(type)}
-                className={`px-2.5 py-1.5 sm:px-3 sm:py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] font-medium transition-colors whitespace-nowrap ${
+                className={`min-h-[44px] px-2.5 py-1.5 sm:px-3 sm:py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] font-medium transition-colors whitespace-nowrap ${
                   selectedBoard === type && !activeTag
                     ? "ds-btn ds-btn--md"
                     : "border text-[var(--ink-2)] hover:text-[var(--ink-1)] hover:bg-[var(--bg-2)]"
@@ -250,7 +259,7 @@ const BoardPage: React.FC = () => {
             <div className="flex items-center gap-2 mb-1.5">
               <button
                 onClick={() => setTagsExpanded(!tagsExpanded)}
-                className="flex items-center gap-1 text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
+                className="flex min-h-[44px] items-center gap-1 text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
               >
                 <svg className={`w-3.5 h-3.5 transition-transform ${tagsExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -435,7 +444,7 @@ const BoardPage: React.FC = () => {
                 <div className="flex gap-3">
                 <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-[var(--r-sm)] font-bold uppercase ${
+                  <span className={`text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] font-bold uppercase ${
                     post.boardType === 'free' ? 'bg-blue-900/30 text-blue-400' :
                     post.boardType === 'hot' ? 'bg-red-900/30 text-red-400' :
                     post.boardType === 'archive' ? 'bg-amber-900/30 text-[var(--amber)]' :
@@ -450,45 +459,87 @@ const BoardPage: React.FC = () => {
                     const icon = t(`label.feedbackIcons.${post.feedbackType}`);
                     const label = t(`label.feedbackTypes.${post.feedbackType}`);
                     return icon && label ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--amber)]/10 text-[var(--amber)] font-medium">
+                      <span className="text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--amber)]/10 text-[var(--amber)] font-medium">
                         {icon} {label}
                       </span>
                     ) : null;
                   })()}
                   {post.isPrivate && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--rose)]/10 text-[var(--rose)] font-medium">
+                    <span className="text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--rose)]/10 text-[var(--rose)] font-medium">
                       {t("label.privatePost")}
                     </span>
                   )}
                   {isMyInquiryView && post.inquiryStatus && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--aqua)]/10 text-[var(--aqua)] font-medium">
+                    <span className="text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--aqua)]/10 text-[var(--aqua)] font-medium">
                       {t(`inquiry.status.${post.inquiryStatus}` as any)}
                     </span>
                   )}
                   <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(post.createdAt).toLocaleDateString()}</span>
-                  {post.sourceSite && (
-                    <span className="text-[10px] text-[var(--ink-3)] ml-auto">{post.sourceSite}</span>
-                  )}
+                  <div className="ml-auto flex items-center gap-1">
+                    {post.sourceSite && (
+                      <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{post.sourceSite}</span>
+                    )}
+                    {user && user.uid === post.userId && (
+                      <div className="relative -my-3 -mr-2">
+                        <button
+                          aria-label={t("button.more")}
+                          aria-haspopup="menu"
+                          aria-expanded={cardMenuOpenId === post.id}
+                          onClick={(e) => { e.stopPropagation(); setCardMenuOpenId(prev => prev === post.id ? null : post.id); }}
+                          className="flex w-[44px] h-[44px] items-center justify-center rounded-[var(--r-md)] text-[var(--ink-3)] hover:text-[var(--ink-1)] hover:bg-[var(--bg-2)] transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" />
+                          </svg>
+                        </button>
+                        {cardMenuOpenId === post.id && (
+                          <div
+                            role="menu"
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-1 top-[40px] z-10 min-w-[140px] rounded-[var(--r-lg)] border border-[var(--line-soft)] bg-[var(--bg-1)] p-1 shadow-lg"
+                          >
+                            <button
+                              role="menuitem"
+                              onClick={(e) => { setCardMenuOpenId(null); handleDeletePost(e, post.id, post.userId); }}
+                              disabled={deleting}
+                              className="flex w-full min-h-[44px] items-center gap-2 rounded-[var(--r-md)] px-3 text-left text-[length:var(--fs-sm)] text-[var(--rose)] hover:bg-[var(--bg-2)] transition-colors disabled:opacity-50"
+                            >
+                              {t("button.delete")}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <h3 className="font-semibold mb-1 text-[var(--ink-0)] line-clamp-1">{post.title}</h3>
                 <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] line-clamp-2 mb-3">{post.content.replace(/[#*_~`>\-[\]()!|]/g, '').replace(/\n+/g, ' ').slice(0, 200)}</p>
 
-                {post.tags && post.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {post.tags.map(tag => (
-                      <span
-                        key={tag}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveTag(prev => prev === tag ? undefined : tag);
-                        }}
-                        className={`ds-chip text-[10px] px-1.5 py-0.5 rounded-[var(--r-sm)]${activeTag === tag ? 'ds-btn ds-btn--md' : ''}`}
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {post.tags && post.tags.length > 0 && (() => {
+                  {/* 태그는 기본 2~3개만 노출, 나머지는 +N 축약 (#401) — 전체 태그는 상세에서 */}
+                  const maxTags = isMobile ? 2 : 3;
+                  const shownTags = post.tags.slice(0, maxTags);
+                  const hiddenCount = post.tags.length - shownTags.length;
+                  return (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {shownTags.map(tag => (
+                        <button
+                          key={tag}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTag(prev => prev === tag ? undefined : tag);
+                          }}
+                          className={`ds-chip rounded-[var(--r-sm)] cursor-pointer ${activeTag === tag ? 'ds-chip--accent' : ''}`}
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                      {hiddenCount > 0 && (
+                        <span className="ds-chip rounded-[var(--r-sm)]">+{hiddenCount}</span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="flex items-center justify-between text-[length:var(--fs-xs)] text-[var(--ink-3)]">
                   <div className="flex items-center gap-2">
@@ -505,15 +556,6 @@ const BoardPage: React.FC = () => {
                     <span>{t("label.commentCount")} {post.commentCount}</span>
                     {isMyInquiryView && post.resolvedAt && (
                       <span>{t("inquiry.resolvedAt")} {new Date(post.resolvedAt).toLocaleDateString()}</span>
-                    )}
-                    {user && user.uid === post.userId && (
-                      <button
-                        onClick={(e) => handleDeletePost(e, post.id, post.userId)}
-                        disabled={deleting}
-                        className="text-[var(--rose)] hover:text-[var(--rose)]/70 transition-colors disabled:opacity-50"
-                      >
-                        {t("button.delete")}
-                      </button>
                     )}
                   </div>
                 </div>
@@ -533,14 +575,14 @@ const BoardPage: React.FC = () => {
             <button
               onClick={() => goToPage(1)}
               disabled={page === 1}
-              className="px-2 py-1.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
+              className="min-w-[44px] min-h-[44px] px-2 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
             >
               &laquo;
             </button>
             <button
               onClick={() => goToPage(page - 1)}
               disabled={page === 1}
-              className="px-2 py-1.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
+              className="min-w-[44px] min-h-[44px] px-2 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
             >
               &lsaquo;
             </button>
@@ -554,7 +596,7 @@ const BoardPage: React.FC = () => {
                 <button
                   key={p}
                   onClick={() => goToPage(p)}
-                  className={`min-w-[32px] py-1.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium transition-colors ${
+                  className={`min-w-[44px] min-h-[44px] text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium transition-colors ${
                     p === page
                       ? 'ds-btn ds-btn--md'
                       : 'border border-[var(--line-soft)] text-[var(--ink-2)] hover:bg-[var(--bg-2)]'
@@ -567,14 +609,14 @@ const BoardPage: React.FC = () => {
             <button
               onClick={() => goToPage(page + 1)}
               disabled={page === totalPages}
-              className="px-2 py-1.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
+              className="min-w-[44px] min-h-[44px] px-2 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
             >
               &rsaquo;
             </button>
             <button
               onClick={() => goToPage(totalPages)}
               disabled={page === totalPages}
-              className="px-2 py-1.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
+              className="min-w-[44px] min-h-[44px] px-2 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[var(--ink-2)] disabled:opacity-30 hover:bg-[var(--bg-2)] transition-colors"
             >
               &raquo;
             </button>

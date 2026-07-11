@@ -316,7 +316,7 @@ export default function FitnessChart({
       </defs>
 
       {/* 범례 — 좌상단 */}
-      <g transform={`translate(${PAD_LEFT}, 12)`} fontFamily="var(--font-mono)" fontSize="11">
+      <g transform={`translate(${PAD_LEFT}, 12)`} fontFamily="var(--font-mono)" fontSize="12">
         {[
           { label: "CTL", color: "var(--lime)", desc: t("charts.fitness.legendFitness") },
           { label: "ATL", color: "var(--rose)", desc: t("charts.fitness.legendFatigue") },
@@ -349,7 +349,7 @@ export default function FitnessChart({
           <text
             x={PAD_LEFT - 6}
             y={t.y + 3}
-            fontSize="10"
+            fontSize="12"
             fontFamily="var(--font-mono)"
             fill="var(--ink-3)"
             textAnchor="end"
@@ -385,7 +385,7 @@ export default function FitnessChart({
       {/* 오늘 마커 */}
       <line x1={todayX} x2={todayX} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
             stroke="var(--ink-2)" strokeDasharray="3 3" opacity="0.7" />
-      <text x={todayX + 6} y={PAD_TOP + 12} fontSize="10" fontFamily="var(--font-mono)"
+      <text x={todayX + 6} y={PAD_TOP + 12} fontSize="12" fontFamily="var(--font-mono)"
             fill="var(--ink-1)" fontWeight="600">
         {t("charts.fitness.today")}
       </text>
@@ -397,17 +397,17 @@ export default function FitnessChart({
           <line x1={goalX} x2={goalX} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
                 stroke="var(--lime)" strokeWidth="1.5" opacity="0.85" />
           <rect x={goalX - 58} y={PAD_TOP + 2} width="56" height="18" rx="3" fill="var(--lime)" />
-          <text x={goalX - 30} y={PAD_TOP + 14} fontSize="10" fontFamily="var(--font-mono)"
+          <text x={goalX - 30} y={PAD_TOP + 14} fontSize="12" fontFamily="var(--font-mono)"
                 fill="var(--primary-fg)" fontWeight="700" textAnchor="middle">
             {t("charts.fitness.goalDay")}
           </text>
           <circle cx={goalX} cy={goalCtlY} r="5" fill="var(--lime)" stroke="var(--bg-0)" strokeWidth="2" />
-          <text x={goalX - 8} y={goalCtlY - 8} fontSize="11" fontFamily="var(--font-mono)"
+          <text x={goalX - 8} y={goalCtlY - 8} fontSize="12" fontFamily="var(--font-mono)"
                 fill="var(--lime)" fontWeight="600" textAnchor="end">
             CTL {Math.round(goalCTLVal)}
           </text>
           {goalTSBVal != null && (
-            <text x={goalX - 8} y={goalTsbY - 6} fontSize="10" fontFamily="var(--font-mono)"
+            <text x={goalX - 8} y={goalTsbY - 6} fontSize="12" fontFamily="var(--font-mono)"
                   fill="var(--amber)" textAnchor="end">
               TSB {goalTSBVal >= 0 ? "+" : ""}{Math.round(goalTSBVal)}
             </text>
@@ -426,7 +426,7 @@ export default function FitnessChart({
 
           <rect x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH} rx="6"
                 fill="var(--bg-1)" stroke="var(--line)" strokeWidth="1" opacity="0.98" />
-          <text x={tooltipX + 10} y={tooltipY + 16} fontSize="11" fontFamily="var(--font-mono)"
+          <text x={tooltipX + 10} y={tooltipY + 16} fontSize="12" fontFamily="var(--font-mono)"
                 fill="var(--ink-0)" fontWeight="700">
             {formatDateLabel(hover.dateStr)}{hover.isFuture ? ` · ${t("charts.fitness.forecast")}` : ""}
           </text>
@@ -437,8 +437,8 @@ export default function FitnessChart({
           ] as const).map(([label, v, color], i) => (
             <g key={label} transform={`translate(${tooltipX + 10}, ${tooltipY + 34 + i * 16})`}>
               <circle cx="4" cy="-3" r="3" fill={color} />
-              <text x="14" y="0" fontSize="10" fontFamily="var(--font-mono)" fill="var(--ink-2)">{label}</text>
-              <text x={tooltipW - 20} y="0" fontSize="11" fontFamily="var(--font-mono)" fill={color}
+              <text x="14" y="0" fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-2)">{label}</text>
+              <text x={tooltipW - 20} y="0" fontSize="12" fontFamily="var(--font-mono)" fill={color}
                     fontWeight="700" textAnchor="end">
                 {v >= 0 && label === "TSB" ? "+" : ""}{v.toFixed(1)}
               </text>
@@ -453,7 +453,7 @@ export default function FitnessChart({
           key={i}
           x={lbl.x}
           y={PAD_TOP + PLOT_H + 16}
-          fontSize="10"
+          fontSize="12"
           fontFamily="var(--font-mono)"
           fill={lbl.isToday || lbl.isGoal ? "var(--lime)" : "var(--ink-3)"}
           fontWeight={lbl.isToday || lbl.isGoal ? 600 : 400}
