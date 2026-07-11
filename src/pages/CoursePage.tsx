@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -314,7 +315,7 @@ async function extractGpsFromFile(file: File): Promise<[number, number] | null> 
 // ── Component ───────────────────────────────────────────────────────
 
 export default function CoursePage() {
-  const { t } = useTranslation("course");
+  const { t, i18n } = useTranslation("course");
   const { courseId } = useParams<{ courseId: string }>();
   const { user, profile, profileLoading, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -669,17 +670,14 @@ export default function CoursePage() {
 
   const handleShare = async () => {
     const url = window.location.href;
-    const text = course ? `${course.name} — ${(course.distance / 1000).toFixed(1)}km, ${Math.round(course.elevationGain)}m` : "";
+    const body = course ? `${course.name} — ${(course.distance / 1000).toFixed(1)}km, ${Math.round(course.elevationGain)}m` : "";
+    const payload = buildOriderSharePayload({ title: course?.name ?? t("share.courseTitle"), body, url, language: i18n.language });
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: course?.name ?? t("share.courseTitle"), text, url });
-      } catch {
-        // user cancelled share
-      }
-    } else {
-      await navigator.clipboard.writeText(url);
-      showToast(t("link.copied"));
+    const result = await shareOrCopy(payload);
+    if (result === "copied") showToast(t("link.copied"));
+    else if (result === "failed") {
+      logClientError("CoursePage.share", new Error("Share unavailable or failed"), { courseId });
+      showToast(t("link.shareFailed"));
     }
   };
 

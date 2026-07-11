@@ -812,6 +812,7 @@
       "button": "Share",
       "appName": "O-Rider",
       "copied": "Record copied",
+      "failed": "Couldn't share or copy the record",
       "improved": "{{dist}} best {{time}} — {{sec}}s faster than before! Analyzed on O-Rider.",
       "improvedTiny": "{{dist}} best {{time}} — a new personal best! Analyzed on O-Rider.",
       "first": "Set my first {{dist}} record: {{time}}! Analyzed on O-Rider."

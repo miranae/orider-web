@@ -32,6 +32,7 @@ import { haversine, parseGpxFull, type CourseData } from "../../features/event/d
 import type { EventDetail, RecentParticipant } from "../../features/event/detail/eventDetailTypes";
 import { classifyLane, LANE_DEFS, LANE_ORDER, type WpLane } from "../../features/event/detail/waypointLanes";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
+import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 
@@ -50,7 +51,7 @@ export function shouldShowHostGroupCard(
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function EventDetailPage() {
-  const { t } = useTranslation("event");
+  const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -622,11 +623,13 @@ export default function EventDetailPage() {
               <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
                 <Button
                   type="button" variant="secondary" size="sm"
-                  onClick={() => {
-                    if (typeof navigator !== "undefined" && navigator.share) {
-                      navigator.share({ title: event.name, url: window.location.href }).catch(() => undefined);
-                    } else {
-                      navigator.clipboard?.writeText(window.location.href).then(() => showToast(t("detail.toast.linkCopied")));
+                  onClick={async () => {
+                    const payload = buildOriderSharePayload({ title: event.name, body: event.name, url: window.location.href, language: i18n.language });
+                    const result = await shareOrCopy(payload);
+                    if (result === "copied") showToast(t("detail.toast.linkCopied"));
+                    else if (result === "failed") {
+                      logClientError("EventDetailPage.share", new Error("Share unavailable or failed"), { eventId });
+                      showToast(t("detail.toast.shareFailed"));
                     }
                   }}
                 >

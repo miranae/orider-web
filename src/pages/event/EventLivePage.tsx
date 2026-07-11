@@ -11,6 +11,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Text } from "../../theme/components";
+import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 
 export interface SnapshotLocation {
   uid: string;
@@ -271,7 +272,7 @@ function RiderCard({
 }
 
 export default function EventLivePage() {
-  const { t } = useTranslation("event");
+  const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const dialog = useDialog();
   const navigate = useNavigate();
@@ -495,12 +496,14 @@ export default function EventLivePage() {
     setFollowBibs(followBibs.filter((b) => b !== bib));
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const url = window.location.href;
-    if (typeof navigator !== "undefined" && navigator.share) {
-      navigator.share({ title: eventName, url }).catch(() => undefined);
-    } else {
-      navigator.clipboard?.writeText(url).then(() => void dialog.alert(t("liveView.linkCopied"), { variant: "success" }));
+    const payload = buildOriderSharePayload({ title: eventName, body: eventName, url, language: i18n.language });
+    const result = await shareOrCopy(payload);
+    if (result === "copied") await dialog.alert(t("liveView.linkCopied"), { variant: "success" });
+    else if (result === "failed") {
+      logClientError("EventLivePage.share", new Error("Share unavailable or failed"), { eventId });
+      await dialog.alert(t("liveView.shareFailed"), { variant: "danger" });
     }
   };
 

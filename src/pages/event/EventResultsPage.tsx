@@ -14,6 +14,7 @@ import { Button, Card, Chip, Text } from "../../theme/components";
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import AppInstallLinks from "../../components/AppInstallLinks";
+import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 
 export interface ResultEntry {
   userId: string;
@@ -119,7 +120,7 @@ function CategoryChip({ category }: { category: string }) {
 }
 
 export default function EventResultsPage() {
-  const { t } = useTranslation("event");
+  const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -134,6 +135,17 @@ export default function EventResultsPage() {
   const groupId = eventHead?.groupId;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
   const { eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
+
+  const shareResults = async () => {
+    if (!eventHead) return;
+    const payload = buildOriderSharePayload({ title: eventHead.name, body: eventHead.name, url: window.location.href, language: i18n.language });
+    const result = await shareOrCopy(payload);
+    if (result === "copied") await dialog.alert(t("resultsView.linkCopied"), { variant: "success" });
+    else if (result === "failed") {
+      logClientError("EventResultsPage.share", new Error("Share unavailable or failed"), { eventId });
+      await dialog.alert(t("resultsView.shareFailed"), { variant: "danger" });
+    }
+  };
 
   useEffect(() => {
     if (groupError) logClientError("EventResultsPage.loadHostGroup", groupError, { eventId, groupId });
@@ -576,14 +588,7 @@ export default function EventResultsPage() {
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
-                  onClick={() => {
-                    if (typeof navigator !== "undefined" && navigator.share) {
-                      navigator.share({ title: eventHead.name, url: window.location.href }).catch(() => undefined);
-                    } else {
-                      navigator.clipboard?.writeText(window.location.href);
-                      void dialog.alert(t("resultsView.linkCopied"), { variant: "success" });
-                    }
-                  }}
+                  onClick={shareResults}
                 >
                   🔗 {t("button.share")}
                 </Button>
@@ -887,13 +892,7 @@ export default function EventResultsPage() {
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => {
-                    if (typeof navigator !== "undefined" && navigator.share) {
-                      navigator.share({ title: eventHead.name, url: window.location.href }).catch(() => undefined);
-                    } else {
-                      navigator.clipboard?.writeText(window.location.href);
-                    }
-                  }} variant="secondary" size="sm"
+                  onClick={shareResults} variant="secondary" size="sm"
                   style={{ padding: "var(--space-1-5)" }}
                   aria-label={t("button.share")}
                 >

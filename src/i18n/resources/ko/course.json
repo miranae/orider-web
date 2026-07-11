@@ -154,6 +154,7 @@
   "link.copied": "링크가 복사되었습니다",
   "link.sentToApp": "앱으로 전송했습니다",
   "link.sendFailed": "전송에 실패했습니다",
+  "link.shareFailed": "공유하거나 링크를 복사하지 못했습니다",
   "creator.registered": "등록",
   "creator.official": "O-Rider 공식",
   "mode.gradient": "m/km",
