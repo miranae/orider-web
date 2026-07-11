@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { Activity, ActivitySummary } from "@shared/types";
 import type { ActivityStreams } from "@shared/types";
 import { Card, Text } from "../../theme/components";
+import { paceToZone } from "../../utils/workoutPace";
 
 // ── 유틸리티 ─────────────────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ function PaceChart({ laps }: { laps?: ActivityStreams["laps"] }) {
 
 // ── km 스플릿 테이블 ─────────────────────────────────────────────────────────
 
-function SplitTable({ laps }: { laps?: ActivityStreams["laps"] }) {
+function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: ActivityStreams["laps"]; thresholdPaceSecPerKm?: number | null }) {
   const { t } = useTranslation("activity");
   if (!laps || laps.length === 0) return null;
 
@@ -84,8 +85,15 @@ function SplitTable({ laps }: { laps?: ActivityStreams["laps"] }) {
     const paceStr = paceSec > 0 ? `${Math.floor(paceSec / 60)}:${String(Math.round(paceSec % 60)).padStart(2, '0')}` : '-';
     const hr = lap.avgHeartRate ?? null;
     const cad = lap.avgCadence ?? null;
-    const zone = paceSec <= 0 ? '-' : paceSec < 250 ? 'Z5' : paceSec < 270 ? 'Z4' : paceSec < 295 ? 'Z3' : 'Z2';
-    const zoneColor = zone === '-' ? 'var(--ink-4)' : zone === 'Z5' ? 'var(--rose)' : zone === 'Z4' ? 'var(--lime)' : zone === 'Z3' ? 'var(--amber)' : 'var(--aqua)';
+    // 존은 사용자 임계 페이스 상대값이다. 임계값이 없으면 표시하지 않는다 —
+    // 과거의 절대 기준(250/270/295 sec/km)은 느린 러너의 모든 구간을 Z2 로 찍는 잘못된 값이었다.
+    const zoneNum = paceToZone(paceSec, thresholdPaceSecPerKm);
+    const zone = zoneNum == null ? '-' : `Z${zoneNum}`;
+    const zoneColor = zoneNum == null ? 'var(--ink-4)'
+      : zoneNum === 5 ? 'var(--rose)'
+      : zoneNum === 4 ? 'var(--lime)'
+      : zoneNum === 3 ? 'var(--amber)'
+      : 'var(--aqua)';
     return { km: i + 1, pace: paceStr, paceSec, hr, cad, zone, zoneColor, partial: distKm < 0.9 };
   });
 
@@ -377,13 +385,20 @@ function RunLoadCard({ tss }: { tss: number | null }) {
 // ── 메인 export ──────────────────────────────────────────────────────────────
 
 /** 러닝 활동 상세 — 좌측 컬럼용 차트/테이블 */
-export function RunLeftCards({ streams }: { streams?: ActivityStreams | null }) {
+export function RunLeftCards({
+  streams,
+  thresholdPaceSecPerKm,
+}: {
+  streams?: ActivityStreams | null;
+  /** 스플릿 존 계산 기준. 없으면 존 열이 '-' 로 표시된다. */
+  thresholdPaceSecPerKm?: number | null;
+}) {
   return (
     <>
       <PaceChart laps={streams?.laps} />
       <HRCard laps={streams?.laps} />
       <CadenceCard laps={streams?.laps} />
-      <SplitTable laps={streams?.laps} />
+      <SplitTable laps={streams?.laps} thresholdPaceSecPerKm={thresholdPaceSecPerKm} />
     </>
   );
 }

@@ -1,12 +1,14 @@
 /**
  * 개인 기록 (Personal Records) — `users/{uid}/records/power` 단일 doc.
  *
- * Phase B — 2026-05-28
+ * Phase B — 2026-05-28 / v2 (run) — 2026-07
  *
- * activity_metrics.mmp 누적 → duration 별 top 5 PR 시계열.
- * LLM 컨텍스트 강화 ("오늘의 5min 320W = 역대 3위") + 향후 PDC 모델 입력.
+ * bike: activity_metrics.mmp 누적 → duration 별 top-K power PR (value = W, 높을수록 우수).
+ * run:  activity_metrics.runMetrics.distanceRecords(streams 기반) 에서 거리별 top-K time PR
+ *       (value = sec, 낮을수록 우수). 서버 트리거 `onActivityMetricsRecords` 가 write.
  *
- * Phase B v1: bike (power) 만. run (pace) / swim 은 후속.
+ * write 는 서버 전용(rules `if false`), 프론트는 본인 doc read-only 구독.
+ * shared/types ↔ functions/src/analysis/personal-records.ts 미러 — 함께 갱신할 것.
  */
 
 export type PowerDurationKey =
@@ -27,11 +29,22 @@ export interface PrEntry {
 
 export type BikePrTable = Partial<Record<PowerDurationKey, PrEntry[]>>;
 
-/** Run per-distance PR — value = best contiguous N km 시간 (sec).
- *  v1: 1/5/10 km. HM(21.0975) / M(42.195) 은 splits 분수 km 라 정밀 추출에 streams
- *  레벨 분석 필요 — 후속. */
-export type RunDistanceKey = "1km" | "5km" | "10km";
+/** Run per-distance PR — value = best contiguous 구간 시간 (sec, 낮을수록 우수).
+ *  streams(distance/time) 기반 정밀 추출이라 1/5/10km + 하프(21.0975)/풀(42.195) 모두 지원. */
+export type RunDistanceKey = "1km" | "5km" | "10km" | "half" | "full";
 export type RunPrTable = Partial<Record<RunDistanceKey, PrEntry[]>>;
+
+/** UI 표시·순회 순서 (짧은 거리 → 긴 거리). */
+export const RUN_DISTANCES: RunDistanceKey[] = ["1km", "5km", "10km", "half", "full"];
+
+/** RunDistanceKey → 누적 거리(m). 하프·풀은 공식 거리. */
+export const RUN_DISTANCE_M: Record<RunDistanceKey, number> = {
+  "1km": 1000,
+  "5km": 5000,
+  "10km": 10000,
+  "half": 21097.5,
+  "full": 42195,
+};
 
 export interface PersonalRecords {
   /** bike power MMP 별 top-K PR (W). value 높을수록 좋음. */
@@ -43,6 +56,7 @@ export interface PersonalRecords {
   version: number;
 }
 
-export const PERSONAL_RECORDS_VERSION = 1;
-/** duration 별 PR 유지 개수. UI 가 top 3-5 표시 + LLM 컨텍스트 인용. */
+/** v2: run PR(거리별 시간, 하프·풀 포함). 서버 미러(functions)와 동일해야 한다. */
+export const PERSONAL_RECORDS_VERSION = 2;
+/** duration/거리 별 PR 유지 개수. UI 가 top 3-5 표시 + LLM 컨텍스트 인용. */
 export const PR_TOP_K = 5;

@@ -268,6 +268,32 @@
     "todayRecord": "Today's record: {{tss}} TSS · {{min}} min"
   },
   "today": {
+    "purposePlain": {
+      "rest": "Take the day off. Muscle and nervous system rebuild now, so the next session lands better.",
+      "recovery": "Run very easy. Clearing accumulated fatigue protects the intensity of your next key session.",
+      "base": "Run at a pace where you could hold a conversation. Stack these weeks and the same speed starts to feel easy.",
+      "long": "Go slow and go long. This is what keeps your pace from falling apart late in a race.",
+      "tempo": "Comfortably hard — sustainable, but you'll notice it. Sitting just under threshold lifts your aerobic efficiency.",
+      "threshold": "Run at a pace you could hold for about an hour. This pushes your threshold pace itself upward.",
+      "vo2": "Short, fast efforts with recovery between them. The most efficient way there is to raise your VO₂ max.",
+      "simulation": "Run it like the race. A chance to rehearse pacing, fuelling and kit before the day.",
+      "goal": "This is the day you've been building toward. Time to show what you've stacked up.",
+      "specialty": "Target a weak spot directly — form or leg power, the things ordinary training rarely sharpens."
+    },
+    "pace": {
+      "targetPaceLabel": "Target pace",
+      "estimatedTag": "(estimated)",
+      "estimatedHint": "Worked out from your best 20–30 minute pace — set a threshold pace and this sharpens up",
+      "confirmedHint": "Calculated from the threshold pace you set",
+      "unsetHint": "Set a threshold pace and we'll work out the target paces for this session.",
+      "unsetCta": "Set it up",
+      "purposeLabel": "Why this session?",
+      "zone1": "Z1 Recovery",
+      "zone2": "Z2 Easy",
+      "zone3": "Z3 Tempo",
+      "zone4": "Z4 Threshold",
+      "zone5": "Z5 Interval"
+    },
     "eyebrow": "Today's Workout",
     "noGoalTitle": "No training goal yet",
     "noGoalDesc": "Set a goal and we'll plan today's workout for you.",

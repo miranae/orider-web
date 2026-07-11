@@ -48,3 +48,15 @@ export function logClientError(
     console.warn("[errorLogger] 서버 에러 로깅 동기 실패:", message);
   }
 }
+
+/**
+ * 진단 로그 — 정상 흐름의 파생값·IO 결과를 남긴다 (에러 아님).
+ *
+ * `logClientError` 는 Sentry·error_logs 로 가는 **에러 전용**이라 정상 흐름 진단에 쓰면
+ * 에러로 오인된다. 진단은 이 함수로 분리한다. 호출부가 `console.debug` 를 직접 쓰지 않는 이유:
+ * 품질 예산(`scripts/check-quality-budget.mjs`)이 `console.*` 총량을 제한하므로 한 곳에 모은다.
+ */
+export function debugLog(scope: string, payload: Record<string, unknown>): void {
+  if (typeof console === "undefined") return;
+  console.debug(`[${scope}]`, payload);
+}

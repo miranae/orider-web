@@ -16,6 +16,7 @@ import koFitness from "../../i18n/resources/ko/fitness.json";
 import koFriends from "../../i18n/resources/ko/friends.json";
 import koGroup from "../../i18n/resources/ko/group.json";
 import koLegal from "../../i18n/resources/ko/legal.json";
+import koMetricGlossary from "../../i18n/resources/ko/metricGlossary.json";
 import koMigration from "../../i18n/resources/ko/migration.json";
 import koMypage from "../../i18n/resources/ko/mypage.json";
 import koRecap from "../../i18n/resources/ko/recap.json";
@@ -36,6 +37,7 @@ const ko = {
   friends: koFriends,
   group: koGroup,
   legal: koLegal,
+  metricGlossary: koMetricGlossary,
   migration: koMigration,
   mypage: koMypage,
   recap: koRecap,
