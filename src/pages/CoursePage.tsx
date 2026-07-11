@@ -35,7 +35,7 @@ import { Button, buttonClass, Card, Chip, Text } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
-import { formatClimbDuration, predictClimb } from "@shared/sim/climbPrediction";
+import { formatClimbDuration, predictClimb, type ClimbPrediction } from "@shared/sim/climbPrediction";
 
 interface CourseData {
   id: string;
@@ -316,10 +316,10 @@ async function extractGpsFromFile(file: File): Promise<[number, number] | null> 
 export default function CoursePage() {
   const { t } = useTranslation("course");
   const { courseId } = useParams<{ courseId: string }>();
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId);
-  const { items: gearItems } = useGear(user?.uid ?? null);
+  const { items: gearItems, loading: gearLoading } = useGear(user?.uid ?? null);
   const pdcState = usePdc(user?.uid ?? null);
 
   const defaultBike = useMemo(
@@ -349,6 +349,8 @@ export default function CoursePage() {
       .sort((a, b) => b.climb.cat - a.climb.cat),
     [climbPredictions, course?.climbs],
   );
+  const climbPredictionLoading = authLoading
+    || (Boolean(user) && (gearLoading || pdcState.status === "loading"));
 
   const [liked, setLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -1140,22 +1142,12 @@ export default function CoursePage() {
                       {Math.round(climb.gain)}m / {(climb.dist / 1000).toFixed(1)}km
                     </Text>
                   </div>
-                  {prediction ? (
-                    <Text as="div" variant="bodyMedium" style={{ color: "var(--ink-1)", marginTop: "var(--space-2)" }}>
-                      {t("climbPrediction.result", {
-                        duration: formatClimbDuration(prediction.totalSec),
-                        wkg: prediction.wattsPerKg.toFixed(1),
-                      })}
-                    </Text>
-                  ) : (
-                    <Link
-                      to={user ? "/settings?section=training" : "/login"}
-                      className="block text-[length:var(--fs-xs)] hover:underline"
-                      style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
-                    >
-                      {t(user ? "climbPrediction.addMetrics" : "climbPrediction.login")}
-                    </Link>
-                  )}
+                  <ClimbPredictionStatus
+                    prediction={prediction}
+                    loading={climbPredictionLoading}
+                    signedIn={Boolean(user)}
+                    onLogin={() => { void signInWithGoogle(); }}
+                  />
                 </div>
               ))}
             </div>
@@ -1303,5 +1295,58 @@ export default function CoursePage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export function ClimbPredictionStatus({
+  prediction,
+  loading,
+  signedIn,
+  onLogin,
+}: {
+  prediction: ClimbPrediction | null;
+  loading: boolean;
+  signedIn: boolean;
+  onLogin: () => void;
+}) {
+  const { t } = useTranslation("course");
+  if (loading) {
+    return (
+      <Text as="div" variant="caption" style={{ color: "var(--ink-4)", marginTop: "var(--space-2)" }}>
+        {t("climbPrediction.loading")}
+      </Text>
+    );
+  }
+  if (prediction) {
+    return (
+      <Text as="div" variant="bodyMedium" style={{ color: "var(--ink-1)", marginTop: "var(--space-2)" }}>
+        {t("climbPrediction.result", {
+          duration: formatClimbDuration(prediction.totalSec),
+          wkg: prediction.wattsPerKg.toFixed(1),
+        })}
+      </Text>
+    );
+  }
+  if (!signedIn) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onLogin}
+        style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
+      >
+        {t("climbPrediction.login")}
+      </Button>
+    );
+  }
+  return (
+    <Link
+      to="/settings?section=training"
+      className="block text-[length:var(--fs-xs)] hover:underline"
+      style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
+    >
+      {t("climbPrediction.addMetrics")}
+    </Link>
   );
 }

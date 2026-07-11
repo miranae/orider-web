@@ -30,6 +30,10 @@ export interface ClimbPrediction {
   source: "pdc" | "ftp";
 }
 
+function finiteInRange(value: number | undefined, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
+}
+
 /**
  * 코스 스냅샷의 climb 요약을 개인 능력치와 결합해 등반 시간을 예측한다.
  *
@@ -41,24 +45,34 @@ export function predictClimb(
   climb: ClimbSummary,
   rider: ClimbRiderProfile,
 ): ClimbPrediction | null {
-  if (!(climb.dist > 0) || !(climb.gain >= 0) || !(rider.riderWeightKg > 0)) {
+  if (!finiteInRange(climb.dist, 1, 1_000_000)
+    || !finiteInRange(climb.gain, 0, 20_000)
+    || !finiteInRange(rider.riderWeightKg, 20, 300)) {
     return null;
   }
 
-  const cpW = rider.cpW ?? 0;
-  const ftpW = rider.ftpW ?? 0;
-  if (!(cpW > 0) && !(ftpW > 0)) return null;
+  const cpW = finiteInRange(rider.cpW, 1, 2_000) ? rider.cpW : 0;
+  const ftpW = finiteInRange(rider.ftpW, 1, 2_000) ? rider.ftpW : 0;
+  if (cpW === 0 && ftpW === 0) return null;
+
+  const bikeWeightKg = finiteInRange(rider.bikeWeightKg, 0, 50) ? rider.bikeWeightKg : 8;
+  const cda = finiteInRange(rider.cda, 0.1, 1) ? rider.cda : DEFAULT_CDA;
+  const crr = finiteInRange(rider.crr, 0.001, 0.03) ? rider.crr : DEFAULT_CRR;
+  const eta = finiteInRange(rider.drivetrainEfficiency, 0.5, 1)
+    ? rider.drivetrainEfficiency
+    : DEFAULT_ETA;
+  const wPrimeJ = finiteInRange(rider.wPrimeJ, 0, 100_000) ? rider.wPrimeJ : 0;
 
   const segments = [{ distanceM: climb.dist, grade: climb.gain / climb.dist }];
   const params = {
-    massKg: rider.riderWeightKg + (rider.bikeWeightKg ?? 8),
-    cda: rider.cda ?? DEFAULT_CDA,
-    crr: rider.crr ?? DEFAULT_CRR,
-    eta: rider.drivetrainEfficiency ?? DEFAULT_ETA,
+    massKg: rider.riderWeightKg + bikeWeightKg,
+    cda,
+    crr,
+    eta,
   };
 
   if (cpW > 0) {
-    const result = predictPR(segments, cpW, rider.wPrimeJ ?? 0, params);
+    const result = predictPR(segments, cpW, wPrimeJ, params);
     return {
       totalSec: result.totalSec,
       sustainablePowerW: result.sustainablePowerW,

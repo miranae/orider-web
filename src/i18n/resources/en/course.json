@@ -32,6 +32,7 @@
   "climbSection": "Climb Sections",
   "climbPrediction": {
     "result": "My estimate {{duration}} · {{wkg}} W/kg",
+    "loading": "Calculating my estimate…",
     "login": "Sign in to see my estimate",
     "addMetrics": "Add FTP and weight to see my estimate",
     "disclaimer": "A physics-model estimate using average grade and your FTP or power-duration curve. Wind, surface, and traffic are not included."

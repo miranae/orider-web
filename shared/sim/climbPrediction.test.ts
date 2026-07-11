@@ -10,6 +10,7 @@ describe("predictClimb", () => {
     expect(result?.source).toBe("ftp");
     expect(result?.wattsPerKg).toBe(4);
     expect(result?.totalSec).toBeGreaterThan(0);
+    expect(result?.totalSec).toBeCloseTo(1278.35, 1);
   });
 
   it("CP/W′가 있으면 짧은 등반의 지속 가능 파워를 반영한다", () => {
@@ -29,6 +30,35 @@ describe("predictClimb", () => {
     expect(predictClimb(climb, { riderWeightKg: 70 })).toBeNull();
     expect(predictClimb({ ...climb, dist: 0 }, { riderWeightKg: 70, ftpW: 240 })).toBeNull();
     expect(predictClimb(climb, { riderWeightKg: 0, ftpW: 240 })).toBeNull();
+  });
+
+  it("유효하지 않은 CP는 무시하고 FTP로 폴백한다", () => {
+    const result = predictClimb(climb, {
+      riderWeightKg: 70,
+      cpW: Number.NaN,
+      wPrimeJ: Number.POSITIVE_INFINITY,
+      ftpW: 250,
+    });
+    expect(result?.source).toBe("ftp");
+    expect(result?.sustainablePowerW).toBe(250);
+  });
+
+  it("비정상 장비 물리값은 안전한 기본값으로 대체한다", () => {
+    const defaults = predictClimb(climb, { riderWeightKg: 70, ftpW: 250 });
+    const invalid = predictClimb(climb, {
+      riderWeightKg: 70,
+      ftpW: 250,
+      bikeWeightKg: -20,
+      cda: -1,
+      crr: Number.NaN,
+      drivetrainEfficiency: 2,
+    });
+    expect(invalid).toEqual(defaults);
+  });
+
+  it("CP 경계값이 유효하면 PDC 경로를 선택한다", () => {
+    expect(predictClimb(climb, { riderWeightKg: 70, ftpW: 250, cpW: 1 })?.source).toBe("pdc");
+    expect(predictClimb(climb, { riderWeightKg: 70, ftpW: 250, cpW: 2_001 })?.source).toBe("ftp");
   });
 });
 
