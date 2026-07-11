@@ -61,7 +61,9 @@ export function newRecordsForActivity(
     out.push({
       distance,
       timeSec: best.value,
-      improvedBySec: previous ? previous.value - best.value : null,
+      // 스트림 보간으로 뽑은 값이라 소수일 수 있다. 반올림하지 않으면 공유 문구가
+      // "41.29999999초 단축" 이 된다 — 카카오톡으로 그대로 나간다.
+      improvedBySec: previous ? Math.round(previous.value - best.value) : null,
     });
   }
   return out;

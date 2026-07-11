@@ -64,14 +64,17 @@ export function computeContribution(fitness: UserFitness | null | undefined): Cr
     biggest.pct = Math.max(0, biggest.pct + drift);
   }
 
-  const withLoad = slices.filter((s) => s.ctl > 0);
+  // "여러 종목"의 기준은 **표시되는 비율**이어야 한다. ctl > 0 만 보면 bike 199 / run 0.4 같은
+  // 사용자도 멀티 종목이 되어 "통합 체력의 0% 는 러닝에서" 라는 공허한 헤드라인이 나온다.
+  // 반올림 후 1% 도 안 되는 조각은 이 카드가 할 말이 없다는 뜻이다.
+  const meaningful = slices.filter((s) => s.ctl > 0 && s.pct >= 1);
   const dominant = slices.reduce((a, b) => (b.ctl > a.ctl ? b : a)).discipline;
 
   return {
     totalCtl: Math.round(totalCtl * 10) / 10,
     slices,
     dominant,
-    isMultiDiscipline: withLoad.length >= 2,
+    isMultiDiscipline: meaningful.length >= 2,
   };
 }
 

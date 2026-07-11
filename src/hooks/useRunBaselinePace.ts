@@ -1,8 +1,10 @@
 /**
  * 최근 4주 러닝 평균 페이스 — 활동 상세의 "지난 4주 평균보다 8초 빨라졌어요" 문장의 기준선.
  *
- * 쿼리는 `useWeeklyStats` 와 **동일한 인덱스 조합**(userId, deletedAt, createdAt)을 재사용한다.
- * 새 복합 인덱스를 만들지 않기 위해 종목 필터는 클라이언트에서 적용한다.
+ * 창은 **`startTime`(실제 운동 시각)** 기준이다. `createdAt`(동기화 시각) 기준이면 Strava 를 방금
+ * 연결한 사용자의 수년치 백필이 전부 창에 들어와 "최근 4주 평균"이 과거 러닝의 평균이 된다.
+ * 기존 인덱스(deletedAt, userId, startTime DESC)를 재사용하므로 새 복합 인덱스는 필요 없다.
+ * 종목 필터만 클라이언트에서 적용한다.
  *
  * 거리 가중 평균을 쓴다 — 짧은 회복 조깅 하나가 기준선을 통째로 끌어내리면 안 되기 때문.
  */
@@ -49,8 +51,8 @@ export function useRunBaselinePace(excludeActivityId?: string, enabled = true): 
           collection(firestore, "activities"),
           where("userId", "==", user.uid),
           where("deletedAt", "==", null),
-          where("createdAt", ">=", cutoff),
-          orderBy("createdAt", "desc"),
+          where("startTime", ">=", cutoff),
+          orderBy("startTime", "desc"),
           limit(QUERY_LIMIT),
         );
         const snap = await getDocs(q);
@@ -59,10 +61,6 @@ export function useRunBaselinePace(excludeActivityId?: string, enabled = true): 
           .filter((a) => a.id !== excludeActivityId)
           .filter((a) => a.summary != null)
           .filter((a) => getSportCategory(a.type) === "run")
-          // createdAt(동기화 시각) 창만으로는 부족하다: Strava 를 방금 연결하면 수년치 활동이
-          // createdAt ≈ now 로 한꺼번에 들어와 "최근 4주 평균"이 과거 러닝의 평균이 된다.
-          // 실제 운동 시각(startTime)으로 다시 자른다.
-          .filter((a) => a.startTime >= cutoff)
           .filter((a) => a.summary.distance > 0 && a.summary.averageSpeed > 0);
 
         // 거리 가중 평균: Σ(시간) / Σ(거리) = 전체 페이스
