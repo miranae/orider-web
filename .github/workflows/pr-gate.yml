@@ -39,7 +39,7 @@ jobs:
             if [ "$BASE_REF" = "main" ] && [ "$HEAD_REF" = "dev" ]; then
               echo "dev → main promotion branch accepted"
             else
-              branch_re='^(feat|fix|docs|test|refactor|ci|chore|security|style|perf|build)/[a-z0-9][a-z0-9-]*$'
+              branch_re='^(feat|fix|hotfix|docs|test|refactor|ci|chore|security|style|perf|build)/[a-z0-9][a-z0-9-]*$'
               if ! [[ "$HEAD_REF" =~ $branch_re ]]; then
                 echo "::error::Maintainer branch '$HEAD_REF' should use a topic prefix such as docs/readme-structure"
                 exit 1

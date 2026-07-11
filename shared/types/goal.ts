@@ -61,6 +61,8 @@ export interface Goal {
   courseName: string;
   courseDist: number;  // km
   courseElev: number;   // m
+  /** 목표 생성 시점의 코스 클라임 구조 스냅샷. 과거 문서는 미보유. */
+  courseClimbs?: Array<{ gain: number; dist: number; cat: number }>;
   eventType: EventType;
   eventDate: number;    // timestamp ms
   targetDurationMin?: number;
@@ -78,6 +80,7 @@ export interface Goal {
     requiredWkg?: number;
     sustainableWkg?: number;
     gapWkg?: number;
+    model?: 'aggregate' | 'climb_structure';
     /** 피로도(TSB) 기반 sustainableWkg 보정율(%, 0=무보정, -10=10% 하향) */
     fatigueAdjustmentPct?: number;
     computedAt: number;

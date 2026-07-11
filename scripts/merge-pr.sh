@@ -6,7 +6,8 @@
 # local lint/test/build, optional local AI review, GitHub check status, and review
 # decision inspection. Use it instead of calling `gh pr merge` directly.
 # Feature PR은 dev로 통합하고 로컬 게이트를 실행한다. GitHub의 무거운 CI는 dev→main
-# 승격 PR에서만 실행하며, main으로는 head=dev인 PR만 허용한다.
+# 승격 PR에서만 실행하며, main으로는 head=dev(승격) 또는 hotfix/*(긴급 단건) PR만 허용한다.
+# hotfix→main 도 승격과 동일하게 full 게이트를 타고, 머지 후 main→dev 동기화로 유실을 막는다.
 #
 # Usage:
 #   scripts/merge-pr.sh [PR_NUMBER] [options]
@@ -133,8 +134,8 @@ PR_URL="$(json_field "$META" url)"
 
 # dev 통합 브랜치 규칙. GitHub free-plan 저장소에서도 main 직접 머지를 이 래퍼가 차단한다.
 # main-promote-guard.yml은 잘못 열린 PR에 즉시 빨간 신호를 주는 서버측 보조 안전망이다.
-if [[ "$BASE" == "main" && "$HEADREF" != "dev" ]]; then
-  die "main 으로의 머지는 dev 승격만 허용됩니다 (현재 head=${HEADREF:-<unknown>}). feature는 'gh pr create --base dev'로 PR 하세요."
+if [[ "$BASE" == "main" && "$HEADREF" != "dev" && "$HEADREF" != hotfix/* ]]; then
+  die "main 으로의 머지는 dev 승격 또는 hotfix/* 만 허용됩니다 (현재 head=${HEADREF:-<unknown>}). feature는 'gh pr create --base dev'로 PR 하세요."
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
@@ -369,7 +370,8 @@ sync_main_back_to_dev() {
   die "main 승격은 완료됐지만 dev 동기화 push가 $max_attempts회 실패했습니다. dev에서 origin/dev와 origin/main을 병합한 뒤 일반 push로 복구하세요."
 }
 
-if [[ "$BASE" == "main" && "$HEADREF" == "dev" ]]; then
+# dev 승격뿐 아니라 hotfix→main 도 동기화 — hotfix 변경이 dev에 없으면 다음 승격에서 유실된다.
+if [[ "$BASE" == "main" ]]; then
   sync_main_back_to_dev
 fi
 
