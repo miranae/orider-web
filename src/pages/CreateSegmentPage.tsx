@@ -16,6 +16,7 @@ import PermissionGate from "../components/redesign/states/PermissionGate";
 import { Card, buttonClass } from "../theme/components";
 import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
+import { readClimbPromotionRange, resolveClimbPromotionIndices } from "../features/segmentCreation/climbPromotion";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -157,6 +158,8 @@ export default function CreateSegmentPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activityId = searchParams.get("activityId");
+  const climbPromotionRange = useMemo(() => readClimbPromotionRange(searchParams), [searchParams]);
+  const isClimbPromotion = searchParams.get("category") === "climb" && climbPromotionRange != null;
   const { createProposal, loading: submitting, error: submitError } = useSegmentCreator();
 
   const CLIMB_LABELS: Record<number, string> = {
@@ -259,8 +262,12 @@ export default function CreateSegmentPage() {
       }
 
       setStreams(data);
-      setRangeStart(0);
-      setRangeEnd(data.latlng.length - 1);
+      const promotedRange = data.distance && climbPromotionRange
+        ? resolveClimbPromotionIndices(data.distance, climbPromotionRange)
+        : null;
+      setRangeStart(promotedRange?.startIndex ?? 0);
+      setRangeEnd(promotedRange?.endIndex ?? data.latlng.length - 1);
+      categoryTouchedRef.current = Boolean(promotedRange && isClimbPromotion);
       setCategory("climb");
     } catch (err: unknown) {
       logClientError("CreateSegmentPage.loadStreams", err, { activityId: aid });
@@ -271,7 +278,7 @@ export default function CreateSegmentPage() {
     } finally {
       setLoadingStreams(false);
     }
-  }, [t, tActivity]);
+  }, [climbPromotionRange, isClimbPromotion, t, tActivity]);
 
   useEffect(() => {
     if (!user || !activityId) return;

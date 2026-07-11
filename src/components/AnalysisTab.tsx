@@ -36,6 +36,8 @@ import { Chip, Text } from "../theme/components";
 import { useActivityMetrics } from "../hooks/useActivityMetrics";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
+import { LocalizedLink as Link } from "./LocalizedLink";
+import { buildClimbSegmentProposalPath } from "../features/segmentCreation/climbPromotion";
 
 type AccentColor = "lime" | "aqua" | "amber" | "rose" | "violet" | "ink";
 const ACCENT: Record<AccentColor, string> = {
@@ -739,6 +741,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.avgPower")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.wPerKg")}</th>
                   <th className="text-left px-3 py-2 pl-4">{t("analysis.climbs.header.category")}</th>
+                  {isOwner && activityId && <th className="text-right px-3 py-2">{t("analysis.climbs.header.action")}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -761,6 +764,24 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                           {grade === "HC" ? "HC" : grade != null ? t("analysis.climbs.category", { grade }) : t("analysis.climbs.uncategorized")}
                         </Chip>
                       </td>
+                      {isOwner && activityId && (
+                        <td className="px-3 py-2 text-right">
+                          <Link
+                            to={buildClimbSegmentProposalPath(activityId, {
+                              startKm: c.startKm,
+                              endKm: c.startKm + c.lengthKm,
+                            })}
+                            className="inline-flex whitespace-nowrap rounded-[var(--r-md)] px-2.5 py-1 text-[length:var(--fs-xs)] font-semibold"
+                            style={{
+                              color: "var(--aqua)",
+                              border: "1px solid color-mix(in srgb, var(--aqua) 35%, transparent)",
+                              background: "color-mix(in srgb, var(--aqua) 10%, transparent)",
+                            }}
+                          >
+                            {t("analysis.climbs.promote")}
+                          </Link>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
