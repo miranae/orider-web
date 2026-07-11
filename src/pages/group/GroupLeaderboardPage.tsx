@@ -12,11 +12,13 @@ import GroupLeaderboardTable from "../../components/group/GroupLeaderboardTable"
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Text } from "../../theme/components";
 import type { GroupLeaderboard, GroupLeaderboardMetric } from "@shared/types";
+import { localeTag } from "../../utils/localeDate";
+import { normalizeStartTime } from "../../utils/event-time";
 
 const METRICS: GroupLeaderboardMetric[] = ["ftp_per_kg", "weekly_wtss"];
 
 export default function GroupLeaderboardPage() {
-  const { t } = useTranslation("group");
+  const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
@@ -68,13 +70,15 @@ export default function GroupLeaderboardPage() {
 
   const computedLabel = useMemo(() => {
     if (!current?.computedAt) return null;
-    return new Date(current.computedAt).toLocaleString("ko-KR", {
+    const timestamp = normalizeStartTime(current.computedAt);
+    if (!timestamp) return null;
+    return new Date(timestamp).toLocaleString(localeTag(), {
       month: "numeric",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-  }, [current]);
+  }, [current, i18n.language]);
 
   if (groupLoading) {
     return (

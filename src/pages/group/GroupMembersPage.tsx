@@ -18,6 +18,8 @@ import InviteMemberModal from "../../components/group/InviteMemberModal";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
+import { localeTag } from "../../utils/localeDate";
+import { normalizeStartTime } from "../../utils/event-time";
 
 type Tab = "members" | "pending" | "invite";
 type RoleFilter = "all" | "leader" | "co-leader" | "member";
@@ -80,7 +82,7 @@ export default function GroupMembersPage() {
           const data = d.data();
           return {
             userId: d.id,
-            requestedAt: typeof data.requestedAt === "number" ? data.requestedAt : 0,
+          requestedAt: normalizeStartTime(data.requestedAt),
             message: typeof data.message === "string" ? data.message : undefined,
           };
         });
@@ -394,7 +396,10 @@ export default function GroupMembersPage() {
               {filteredMembers.map((m) => {
                 const stats = memberStats[m.id];
                 const role = (m.role as string) ?? (group.creatorId === m.id ? "leader" : "member");
-                const joinDate = new Date(m.joinedAt).toLocaleDateString("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" });
+                const joinedAt = normalizeStartTime(m.joinedAt);
+                const joinDate = joinedAt
+                  ? new Date(joinedAt).toLocaleDateString(localeTag(), { year: "2-digit", month: "numeric", day: "numeric" })
+                  : "—";
                 const isMe = m.id === user?.uid;
                 return (
                   <div
@@ -496,7 +501,7 @@ export default function GroupMembersPage() {
                         <div className="min-w-0">
                           <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{name}</div>
                           <div className="text-[length:var(--fs-xs)] mt-0.5 truncate" style={{ color: "var(--ink-3)" }}>
-                            {p.requestedAt ? new Date(p.requestedAt).toLocaleDateString("ko-KR") : ""}
+                            {p.requestedAt ? new Date(p.requestedAt).toLocaleDateString(localeTag()) : ""}
                             {p.message && ` · "${p.message}"`}
                             {!profile && ` · ${p.userId.slice(0, 8)}`}
                           </div>

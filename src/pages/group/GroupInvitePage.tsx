@@ -8,7 +8,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { normalizeGroupInviteCode } from "../../features/group/groupInviteLink";
-import { isPendingGroupJoinResult, type GroupJoinResult } from "../../features/group/groupJoinResult";
+import { isPendingGroupJoinResult, type JoinGroupByCodeResult } from "../../features/group/groupJoinResult";
 
 function InviteSpinner({ label }: { label: string }) {
   return (
@@ -38,7 +38,7 @@ export default function GroupInvitePage() {
     if (!user || !inviteCode || processed || processing) return;
     setProcessing(true);
 
-    const joinFn = httpsCallable<{ inviteCode: string }, GroupJoinResult>(functions, "joinGroupByCode");
+    const joinFn = httpsCallable<{ inviteCode: string }, JoinGroupByCodeResult>(functions, "joinGroupByCode");
     joinFn({ inviteCode })
       .then((result) => {
         if (isPendingGroupJoinResult(result.data)) {

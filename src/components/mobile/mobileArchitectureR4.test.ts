@@ -7,6 +7,15 @@ function read(path: string): string {
 }
 
 describe("mobile architecture r4", () => {
+  it("keeps groups discoverable through the shared five-hub mobile navigation", () => {
+    const tabBar = read("src/components/mobile/MobileTabBar.tsx");
+    const hubs = read("src/config/navHubs.ts");
+
+    expect(tabBar).toContain("HUBS.map");
+    expect(hubs).toContain('key: "community"');
+    expect(hubs).toContain('{ labelKey: "nav.groups", to: "/groups" }');
+  });
+
   it("treats coarse pointer landscape phones as mobile", () => {
     const hook = read("src/hooks/useMobile.ts");
 
