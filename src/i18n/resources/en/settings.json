@@ -277,6 +277,7 @@
     "export": "Export data",
     "exportDesc": "Download your activities (incl. GPX), profile, comments and kudos in one bundle.",
     "preparing": "Preparing...",
+    "preparingDesc": "Push, email, new-follower, kudos/comment and PR notifications are on the way. You'll be able to toggle them here once ready.",
     "downloadAll": "Download all data",
     "defaultFormat": "Default export format",
     "defaultFormatDesc": "Format used for quick exports from the activity detail page.",

@@ -171,7 +171,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
         {/* 로고 */}
         <Link
           to="/"
-          className={`flex items-center gap-2 rounded-[var(--r-sm)] ${navFocusClass}`}
+          className={`flex items-center gap-2 rounded-[var(--r-sm)] ds-tap-target ${navFocusClass}`}
           style={{ textDecoration: 'none', flexShrink: 0 }}
         >
           <img src={iconSvg} alt="Orider" style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", flexShrink: 0 }} />
@@ -364,11 +364,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                   className={`md:hidden ${navIconButtonClass}`}
                   aria-label={t('topnav.notifications')}
                   onClick={onMobileNotifClick}
-                  style={{ width: 30, height: 30, borderRadius: "var(--r-md)", border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
+                  style={{ width: 44, height: 44, borderRadius: "var(--r-md)", border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
                 >
                   <Bell size={16} />
                   {unreadCount > 0 && (
-                    <div style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, background: "var(--color-error)", borderRadius: "50%", border: "1.5px solid var(--bg-1)" }} />
+                    <div style={{ position: "absolute", top: 10, right: 10, width: 7, height: 7, background: "var(--color-error)", borderRadius: "50%", border: "1.5px solid var(--bg-1)" }} />
                   )}
                 </button>
               )}
@@ -380,7 +380,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                   className={navFocusClass}
                   aria-label={t('topnav.notifications')}
                   style={{
-                    width: 30, height: 30,
+                    width: 44, height: 44,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     borderRadius: "var(--r-md)", border: 'none', background: 'transparent',
                     cursor: 'pointer', color: 'var(--ink-3)', position: 'relative',
@@ -391,8 +391,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                     <span
                       style={{
                         position: 'absolute',
-                        top: 4,
-                        right: 4,
+                        top: 8,
+                        right: 8,
                         minWidth: 14,
                         height: 14,
                         borderRadius: "9999px",
@@ -510,7 +510,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 className={`hidden md:flex ${navFocusClass}`}
                 aria-label={t('label.settings')}
                 style={{
-                  width: 30, height: 30,
+                  width: 44, height: 44,
                   alignItems: 'center', justifyContent: 'center',
                   borderRadius: "var(--r-md)", color: 'var(--ink-3)',
                 }}
@@ -525,25 +525,35 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                   className={navFocusClass}
                   aria-label={t('label.profile')}
                   style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    border: '1px solid var(--line)',
-                    background: 'var(--bg-3)',
+                    width: 44, height: 44, borderRadius: '50%',
+                    border: 'none', background: 'transparent',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', overflow: 'hidden', padding: 0,
-                    fontSize: "var(--fs-xs)", fontWeight: 600, color: 'var(--ink-0)',
+                    cursor: 'pointer', padding: 0,
                   }}
                 >
-                  {photoURL ? (
-                    <img src={photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    avatarInitials || <User size={14} />
-                  )}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 28, height: 28, borderRadius: '50%',
+                      border: '1px solid var(--line)',
+                      background: 'var(--bg-3)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      overflow: 'hidden',
+                      fontSize: "var(--fs-xs)", fontWeight: 600, color: 'var(--ink-0)',
+                    }}
+                  >
+                    {photoURL ? (
+                      <img src={photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      avatarInitials || <User size={14} />
+                    )}
+                  </span>
                 </button>
 
                 {menuOpen && (
                   <div
                     style={{
-                      position: 'absolute', top: 36, right: 0, width: 200,
+                      position: 'absolute', top: 46, right: 0, width: 200,
                       background: 'var(--bg-1)', border: '1px solid var(--line-soft)',
                       borderRadius: 'var(--r-lg)', padding: "var(--space-1-5)", zIndex: 100,
                     }}
@@ -594,7 +604,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 aria-label={t('button.more')}
                 onClick={openMobileMenu}
                 style={{
-                  width: 30, height: 30,
+                  width: 44, height: 44,
                   alignItems: 'center', justifyContent: 'center',
                   borderRadius: "var(--r-md)", border: 'none', background: 'transparent',
                   cursor: 'pointer', color: 'var(--ink-3)',
@@ -625,7 +635,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 aria-label={t('button.more')}
                 onClick={openMobileMenu}
                 style={{
-                  width: 30, height: 30,
+                  width: 44, height: 44,
                   alignItems: 'center', justifyContent: 'center',
                   borderRadius: "var(--r-md)", border: 'none', background: 'transparent',
                   cursor: 'pointer', color: 'var(--ink-3)',

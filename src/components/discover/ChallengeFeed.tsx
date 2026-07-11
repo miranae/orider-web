@@ -130,7 +130,7 @@ function FallbackSegments({ segments }: { segments: OverviewSeg[] | null }) {
             <Card padding="none" className="p-3! h-full hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
               <div className="flex items-center gap-2">
                 {catLabel(segment.climbCategory) && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)" }}>
+                  <span className="text-[length:var(--fs-xs)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)" }}>
                     {catLabel(segment.climbCategory)}
                   </span>
                 )}

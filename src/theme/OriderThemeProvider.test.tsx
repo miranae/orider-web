@@ -39,7 +39,8 @@ describe('OriderTheme CSS 변수 주입', () => {
     expect(style.getPropertyValue('--space-0')).toBe('0');
     expect(style.getPropertyValue('--space-0-5')).toBe('2px');
     expect(style.getPropertyValue('--space-1-5')).toBe('6px');
-    expect(style.getPropertyValue('--fs-2xs')).toBe('10px');
+    // 최소 12px — 모바일 접근성 하한 (#401)
+    expect(style.getPropertyValue('--fs-2xs')).toBe('12px');
     expect(style.getPropertyValue('--fs-xl')).toBe('22px');
     expect(style.getPropertyValue('--fs-2xl')).toBe('28px');
     expect(style.getPropertyValue('--fs-3xl')).toBe('32px');

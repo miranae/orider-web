@@ -152,8 +152,9 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
   style.setProperty('--fs-data-medium', `${t.dataMedium.size}px`);
   style.setProperty('--fs-data-small', `${t.dataSmall.size}px`);
   // 일반 ramp (index.css `--fs-*` 와 호환)
-  style.setProperty('--fs-2xs', `10px`);
-  style.setProperty('--fs-xs', `11px`);
+  // 최소 12px — 모바일 접근성 하한 (#401). 2xs/xs 는 역할(위계)만 다르고 크기 하한은 공유.
+  style.setProperty('--fs-2xs', `12px`);
+  style.setProperty('--fs-xs', `12px`);
   style.setProperty('--fs-sm', `12px`);
   style.setProperty('--fs-base', `${t.body.size}px`);
   style.setProperty('--fs-md', `${t.bodyMedium.size}px`);

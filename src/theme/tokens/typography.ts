@@ -53,7 +53,7 @@ export const DEFAULT_TYPOGRAPHY: TypographyTokens = {
   caption:    { size: 12, weight: 400, lineHeight: 1.4 },
   label:      { size: 13, weight: 500, lineHeight: 1.3, letterSpacing: '0.05em' },
   status:     { size: 13, weight: 500, lineHeight: 1.3, letterSpacing: '0.05em' },
-  eyebrow:    { size: 10, weight: 500, mono: true, letterSpacing: '0.14em' },
+  eyebrow:    { size: 12, weight: 500, mono: true, letterSpacing: '0.14em' }, // 최소 12px (#401)
 };
 
 /** 앱 패리티 — 모바일 컴퓨터 화면 가독성용 큰 데이터 위계. */

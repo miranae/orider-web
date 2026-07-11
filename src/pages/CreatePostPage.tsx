@@ -812,7 +812,7 @@ const CreatePostPage: React.FC = () => {
                 <img src={image.url} alt="" className="h-10 w-10 flex-shrink-0 rounded-[var(--r-md)] object-cover" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[length:var(--fs-xs)] font-semibold text-[var(--ink-1)]">{image.name}</div>
-                  <div className="text-[10px] text-[var(--ink-3)]">{index + 1}/{MAX_IMAGES}</div>
+                  <div className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{index + 1}/{MAX_IMAGES}</div>
                 </div>
                 <button
                   type="button"
@@ -912,15 +912,15 @@ const CreatePostPage: React.FC = () => {
               {/* --- Insert --- */}
               <ToolBtn onClick={() => fileInputRef.current?.click()} disabled={imageCount >= MAX_IMAGES} title={t('toolbar.photo')}>
                 <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" /></svg>
-                <span className="text-[10px]">{t('toolbar.photo')}</span>
+                <span className="text-[length:var(--fs-xs)]">{t('toolbar.photo')}</span>
               </ToolBtn>
               <ToolBtn onClick={() => { editorRef.current?.focus(); document.execCommand('insertHorizontalRule'); }} title={t('toolbar.divider')}>
                 <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14" /></svg>
-                <span className="text-[10px]">{t('toolbar.divider')}</span>
+                <span className="text-[length:var(--fs-xs)]">{t('toolbar.divider')}</span>
               </ToolBtn>
               <ToolBtn onClick={async () => { const rawUrl = await dialog.prompt(t('toolbar.linkPrompt')); const url = normalizeUserContentUrl(rawUrl); if (url) { editorRef.current?.focus(); document.execCommand('createLink', false, url); } }} title={t('toolbar.link')}>
                 <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.02a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L5.336 9.12" /></svg>
-                <span className="text-[10px]">{t('toolbar.link')}</span>
+                <span className="text-[length:var(--fs-xs)]">{t('toolbar.link')}</span>
               </ToolBtn>
 
               <div className="h-5 w-px bg-[var(--line-soft)] mx-1" />

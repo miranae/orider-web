@@ -104,6 +104,22 @@ export default function RiderTypeCard({ pdc }: { pdc: PdcDoc }) {
           <div style={{ flex: "1 1 240px", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
               <Chip variant="accent" dot>{t(`riderType.type.${type}.label`)}</Chip>
+              {/* 강점/보완을 직접 라벨링 — 내부 점수(Np) 없이도 의미가 읽히게 (#401) */}
+              {ability && (() => {
+                // 서버 duration 은 자유 string — 알려진 키만 라벨링 (i18n raw key 노출 방지)
+                const known = ability.byDuration.filter((d) => Object.prototype.hasOwnProperty.call(durationLabelKey, d.duration));
+                if (known.length < 2) return null;
+                const sorted = [...known].sort((a, b) => b.percentile - a.percentile);
+                const best = sorted[0];
+                const worst = sorted[sorted.length - 1];
+                if (!best || !worst) return null;
+                return (
+                  <>
+                    <Chip variant="success">{t("riderType.strengthLabel")} · {t(`riderType.strengthName.${best.duration}`)}</Chip>
+                    <Chip variant="default">{t("riderType.improveLabel")} · {t(`riderType.strengthName.${worst.duration}`)}</Chip>
+                  </>
+                );
+              })()}
             </div>
             <Text as="div" variant="eyebrow" style={{ color: "var(--ink-4)" }}>
               {t(`riderType.type.${type}.desc`)}
@@ -132,8 +148,8 @@ export default function RiderTypeCard({ pdc }: { pdc: PdcDoc }) {
                           }}
                         />
                       </div>
-                      <Text as="span" variant="mono" style={{ width: 36, textAlign: "right", color: "var(--ink-3)" }}>
-                        {d.percentile}p
+                      <Text as="span" variant="mono" style={{ width: 64, textAlign: "right", color: "var(--ink-3)" }}>
+                        {t("riderType.topPct", { pct: 100 - d.percentile })}
                       </Text>
                     </div>
                   ))}

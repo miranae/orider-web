@@ -1049,7 +1049,7 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
     >
       <div className="flex items-center gap-2">
         {climbLabel && climbColor && (
-          <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-[var(--r-sm)] ${climbColor}`}>
+          <span className={`px-1.5 py-0.5 text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] ${climbColor}`}>
             {climbLabel}
           </span>
         )}

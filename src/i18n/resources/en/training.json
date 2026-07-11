@@ -303,6 +303,7 @@
       "zone5": "Z5 Interval"
     },
     "eyebrow": "Today's Workout",
+    "loading": "Loading today's workout…",
     "noGoalTitle": "No training goal yet",
     "noGoalDesc": "Set a goal and we'll plan today's workout for you.",
     "goalSetupCta": "Set goal →",

@@ -304,7 +304,7 @@ export function HeroCard(opts: HeroCardOpts) {
         </div>
         {opts.cta && (
           <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginTop: "var(--space-3)" }}>
-            <a href={opts.cta.href} className={opts.cta.emphasis ? "ds-btn ds-btn--md" : "ds-btn ds-btn--md ds-btn--ghost"} style={{ fontSize: "var(--fs-xs)" }}>{opts.cta.label}</a>
+            <a href={opts.cta.href} className={opts.cta.emphasis ? "ds-btn ds-btn--md ds-btn--primary" : "ds-btn ds-btn--md ds-btn--ghost"} style={opts.cta.emphasis ? undefined : { fontSize: "var(--fs-xs)" }}>{opts.cta.label}</a>
           </div>
         )}
       </div>

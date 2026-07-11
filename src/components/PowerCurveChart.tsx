@@ -82,13 +82,13 @@ export default function PowerCurveChart({ points, ftp, emptyTitle, emptyDescript
       scales: {
         x: {
           display: true,
-          ticks: { color: textColor, font: { size: 10 }, autoSkip: true, maxTicksLimit: 6 },
+          ticks: { color: textColor, font: { size: 12 }, autoSkip: true, maxTicksLimit: 6 },
           grid: { color: gridColor },
         },
         y: {
           display: true,
           beginAtZero: true,
-          ticks: { color: textColor, font: { size: 10 }, callback: (v) => `${v}W` },
+          ticks: { color: textColor, font: { size: 12 }, callback: (v) => `${v}W` },
           grid: { color: gridColor },
         },
       },

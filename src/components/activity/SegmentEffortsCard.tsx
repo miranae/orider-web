@@ -62,7 +62,7 @@ export default function SegmentEffortsCard({
         <div className="flex items-center gap-1.5 text-[length:var(--fs-xs)]">
           {prCount > 0 && (
             <span
-              className="px-2 py-0.5 rounded-full font-bold text-[11px]"
+              className="px-2 py-0.5 rounded-full font-bold text-[length:var(--fs-xs)]"
               style={{ background: "color-mix(in srgb, var(--amber) 15%, transparent)", color: "var(--amber)", border: "1px solid color-mix(in srgb, var(--amber) 30%, transparent)" }}
             >
               PR {prCount}
@@ -70,7 +70,7 @@ export default function SegmentEffortsCard({
           )}
           {komCount > 0 && (
             <span
-              className="px-2 py-0.5 rounded-full font-bold text-[11px]"
+              className="px-2 py-0.5 rounded-full font-bold text-[length:var(--fs-xs)]"
               style={{ background: "color-mix(in srgb, var(--lime) 15%, transparent)", color: "var(--lime)", border: "1px solid color-mix(in srgb, var(--lime) 30%, transparent)" }}
             >
               KOM {komCount}
@@ -126,7 +126,7 @@ export default function SegmentEffortsCard({
                     <div className="flex items-center gap-2">
                       {cat && (
                         <span
-                          className="text-[9px] font-bold px-1 py-0.5 rounded-[var(--r-sm)] leading-none flex-shrink-0"
+                          className="text-[length:var(--fs-xs)] font-bold px-1 py-0.5 rounded-[var(--r-sm)] leading-none flex-shrink-0"
                           style={
                             cat === "HC" ? { background: "var(--rose)", color: "var(--ink-0)" } :
                             cat === "1" ? { background: "color-mix(in oklch, var(--rose) 82%, var(--amber))", color: "var(--ink-0)" } :
@@ -141,7 +141,7 @@ export default function SegmentEffortsCard({
                       <span className="font-medium truncate" style={{ color: "var(--ink-0)" }}>{effort.name}</span>
                       {isPR && (
                         <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                          className={`text-[length:var(--fs-xs)] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                             effort.prRank === 1
                               ? "bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-900"
                               : effort.prRank === 2
@@ -153,7 +153,7 @@ export default function SegmentEffortsCard({
                         </span>
                       )}
                       {isKOM && (
-                        <span className="text-[9px] font-bold bg-[var(--lime)] text-[var(--bg-0)] px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        <span className="text-[length:var(--fs-xs)] font-bold bg-[var(--lime)] text-[var(--bg-0)] px-1.5 py-0.5 rounded-full flex-shrink-0">
                           KOM
                         </span>
                       )}
