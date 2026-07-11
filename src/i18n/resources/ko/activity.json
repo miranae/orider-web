@@ -17,6 +17,7 @@
     "avgSpeed": "평균 속도",
     "maxSpeed": "최고 속도",
     "avgPace": "평균 페이스",
+    "runLoad": "부하 rTSS",
     "maxPace": "최고 페이스",
     "avgHr": "평균 심박",
     "maxHr": "최고 심박",
@@ -796,6 +797,26 @@
       "vo2": "Z5 VO2max",
       "sim": "목표 시뮬레이션",
       "goal": "목표일"
+    }
+  },
+  "runRecord": {
+    "title": "{{dist}} 최고 기록! {{time}}",
+    "dist": {
+      "1km": "1km",
+      "5km": "5km",
+      "10km": "10km",
+      "half": "하프",
+      "full": "풀"
+    },
+    "improved": "이전 기록보다 {{sec}}초 단축 · 서버 확정 기록",
+    "first": "첫 기록이에요 · 서버 확정 기록",
+    "more": "다른 거리 {{count}}개도 갱신",
+    "share": {
+      "button": "공유",
+      "appName": "O-Rider",
+      "copied": "기록을 복사했어요",
+      "improved": "{{dist}} 최고 기록 {{time}} — 이전보다 {{sec}}초 단축했어요! O-Rider에서 분석했어요.",
+      "first": "{{dist}} 첫 기록 {{time}}을 세웠어요! O-Rider에서 분석했어요."
     }
   }
 }

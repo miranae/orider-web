@@ -332,5 +332,46 @@
     "pmcLabelToday": " · 오늘",
     "pmcLabelForecast": " · 예측",
     "weeklyTssThisWeek": "이번 주"
+  },
+  "runEmpty": {
+    "title": "달리던 앱을 연결하면, 여기서 러닝을 해석해 드려요",
+    "subtitle": "나이키 런 클럽·가민에서 쌓은 기록 그대로 — 업로드는 필요 없어요.",
+    "waitingTitle": "첫 러닝이 도착하면 알려드릴게요",
+    "waitingSubtitle": "Strava에 러닝이 올라오면 자동으로 가져와 해석해 드려요.",
+    "connectCta": "Strava 계정 연결하기",
+    "previewTag": "미리보기",
+    "sampleSentence": "연결하면 이런 해석을 받아요 — \"오르막을 감안하면 평지 기준 {{gap}}/km로 달린 셈이에요.\"",
+    "samplePace": "페이스",
+    "sampleLoad": "부하",
+    "manualHint": "페이스·GAP·훈련 부하가 처음이라면",
+    "manualCta": "쉬운 안내서 보기"
+  },
+  "runRecap": {
+    "eyebrow": "지난주 러닝",
+    "headlineFaster": "{{count}}번 달려서 {{km}}km — 평균 페이스가 그 전주보다 {{sec}}초 단축됐어요.",
+    "headlineSlower": "{{count}}번 달려서 {{km}}km 달렸어요. 컨디션과 코스에 따라 페이스는 달라져요.",
+    "headlinePlain": "{{count}}번 달려서 {{km}}km 달렸어요.",
+    "runs": "러닝",
+    "distance": "거리",
+    "avgPace": "평균 페이스",
+    "unitTimes": "회",
+    "unitSeconds": "초",
+    "prevWeek": "그 전주에는 {{count}}번 · {{km}}km",
+    "deltaFasterA11y": "{{sec}}초 단축",
+    "deltaSlowerA11y": "{{sec}}초 지연"
+  },
+  "firstSync": {
+    "title": "첫 러닝이 도착했어요!",
+    "body": "이제 기록이 해석으로 바뀝니다. 오르막을 감안한 페이스와 훈련 부하를 확인해 보세요.",
+    "viewCta": "해석 보러 가기",
+    "later": "나중에 볼게요"
+  },
+  "thresholdNudge": {
+    "body": "꾸준히 달리고 계시네요. 임계 페이스를 설정하면 목표 페이스와 훈련 부하가 훨씬 정확해져요.",
+    "cta": "임계 페이스 설정하기"
+  },
+  "shoeBadge": {
+    "title": "{{name}} 교체가 가까워졌어요",
+    "detail": "누적 {{total}}km · 남은 수명 약 {{remaining}}km"
   }
 }

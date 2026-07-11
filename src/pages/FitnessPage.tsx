@@ -2,6 +2,13 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import TriFitnessView from "./fitness/TriFitnessView";
+import TrainingStatusCard from "../components/fitness/TrainingStatusCard";
+import RunRecordsBoard from "../components/fitness/RunRecordsBoard";
+import MilestonesGrid from "../components/fitness/MilestonesGrid";
+import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
+import { useRunRecords } from "../hooks/useRunRecords";
+import { useMilestones } from "../hooks/useMilestones";
+import type { MilestoneId } from "@shared/types/milestone";
 import { useSearchParams } from "react-router-dom";
 import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { collection, query, where, doc, getDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
@@ -88,6 +95,19 @@ export default function FitnessPage() {
 
   const [searchParams] = useSearchParams();
   const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
+
+  // 거리별 러닝 기록 — 러닝 탭에서만 구독 (§3.4a)
+  const { run: runRecords } = useRunRecords(discipline === "run");
+
+  // 마일스톤 — 러닝 탭 (§3.4b). celebrated:false 인 신규 달성 하나를 축하 모달로.
+  const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run");
+  const [dismissedMilestone, setDismissedMilestone] = useState<MilestoneId | null>(null);
+  const pendingMilestone = useMemo(() => {
+    for (const m of milestones.values()) {
+      if (!m.celebrated && m.id !== dismissedMilestone) return m.id;
+    }
+    return null;
+  }, [milestones, dismissedMilestone]);
 
   // lazy revalidate — 화면 진입 시 신선도 체크 + 필요 시 서버 재계산.
   // discipline 전달 → 멀티 goal 사용자가 종목 전환할 때 해당 종목 신선도 재평가.
@@ -656,6 +676,16 @@ export default function FitnessPage() {
   const formulaVo2max = profile?.ftp ? Math.round((profile.ftp / (profile.weightKg || 70)) * 15.7 + 3.5) : null;
   const displayedVo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : formulaVo2max;
 
+  // 훈련 상태 판정용 CTL 램프 — 선택된 range(최대 365일)로 나누면 희석되므로
+  // 항상 최근 28일 기울기를 쓴다. 표본이 모자라면 null(램프 승격 규칙 비활성).
+  const RAMP_WINDOW_DAYS = 28;
+  const rampStartPoint = fitnessData.length > RAMP_WINDOW_DAYS
+    ? fitnessData[fitnessData.length - 1 - RAMP_WINDOW_DAYS]
+    : null;
+  const ctlRampPerWeek = rampStartPoint
+    ? ((ctl - rampStartPoint.ctl) / RAMP_WINDOW_DAYS) * 7
+    : null;
+
   // 자막 생성
   const subtitleParts: string[] = [];
   if (projection) {
@@ -854,6 +884,35 @@ export default function FitnessPage() {
             tsb={tsb}
             dailyData={dailyData}
             t={t}
+          />
+        )}
+
+        {/* 훈련 상태 — 숫자(KPI) 앞에 일상어 라벨을 먼저 (§3.5) */}
+        {currentPoint && (
+          <TrainingStatusCard
+            tsb={tsb}
+            ctl={ctl}
+            atl={atl}
+            ctlRampPerWeek={ctlRampPerWeek}
+            sport={discipline}
+          />
+        )}
+
+        {/* 거리별 기록 보드 — 러닝 탭 (§3.4a). 임계 페이스 곡선은 페이지 하단에 이미 있어
+            여기선 표만 둔다(중복 방지). */}
+        {discipline === "run" && <RunRecordsBoard run={runRecords} />}
+
+        {/* 마일스톤 그리드 — 러닝 탭 (§3.4b) */}
+        {discipline === "run" && <MilestonesGrid achieved={milestones} />}
+
+        {/* 신규 달성 축하 — celebrated:false 하나. 닫으면 서버에 celebrated:true 기록. */}
+        {pendingMilestone && (
+          <MilestoneCelebration
+            milestoneId={pendingMilestone}
+            onClose={() => {
+              void markCelebrated(pendingMilestone);
+              setDismissedMilestone(pendingMilestone);
+            }}
           />
         )}
 

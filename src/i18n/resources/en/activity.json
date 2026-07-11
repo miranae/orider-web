@@ -17,6 +17,7 @@
     "avgSpeed": "Avg Speed",
     "maxSpeed": "Max Speed",
     "avgPace": "Avg Pace",
+    "runLoad": "Load (rTSS)",
     "maxPace": "Best Pace",
     "avgHr": "Avg HR",
     "maxHr": "Max HR",
@@ -796,6 +797,26 @@
       "vo2": "Z5 VO2max",
       "sim": "Goal simulation",
       "goal": "Goal day"
+    }
+  },
+  "runRecord": {
+    "title": "{{dist}} best! {{time}}",
+    "dist": {
+      "1km": "1 km",
+      "5km": "5 km",
+      "10km": "10 km",
+      "half": "Half",
+      "full": "Full"
+    },
+    "improved": "{{sec}}s faster than your previous best · confirmed by server",
+    "first": "Your first record · confirmed by server",
+    "more": "{{count}} more distance(s) too",
+    "share": {
+      "button": "Share",
+      "appName": "O-Rider",
+      "copied": "Record copied",
+      "improved": "{{dist}} best {{time}} — {{sec}}s faster than before! Analyzed on O-Rider.",
+      "first": "Set my first {{dist}} record: {{time}}! Analyzed on O-Rider."
     }
   }
 }
