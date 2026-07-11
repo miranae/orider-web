@@ -1,5 +1,5 @@
 export type WorkoutKind =
-  | 'rest' | 'rec' | 'z2' | 'z2Long' | 'tempo' | 'ftp' | 'vo2' | 'sim' | 'goal'
+  | 'rest' | 'rec' | 'z2' | 'z2Long' | 'tempo' | 'ftp' | 'vo2' | 'hillRepeats' | 'sim' | 'goal'
   // 달리기
   | 'easyRun' | 'tempoRun' | 'intervalRun' | 'longRun' | 'recoveryRun'
   | 'stridesRun' | 'progressRun' | 'threshRun' | 'raceRun'
@@ -10,6 +10,7 @@ export type WorkoutKind =
 export type FeasibilityLabel = 'easy' | 'on_track' | 'stretch' | 'risky';
 
 export type GoalStatus = 'active' | 'completed' | 'abandoned';
+export type GoalType = 'event' | 'ftp' | 'fitness' | 'climb';
 
 export type EventType =
   | 'completion' | 'time' | 'race'
@@ -44,6 +45,18 @@ export interface Goal {
   id: string;
   userId: string;
   discipline?: 'bike' | 'run' | 'swim';
+  goalType?: GoalType;
+  targetDate?: number;
+  title?: string;
+  target?: {
+    startFtpW?: number;
+    targetFtpW?: number;
+    startCtl?: number;
+    targetCtl?: number;
+    climbName?: string;
+    climbDurationMin?: number;
+    targetWkg?: number;
+  };
   courseId: string;
   courseName: string;
   courseDist: number;  // km
@@ -51,7 +64,7 @@ export interface Goal {
   eventType: EventType;
   eventDate: number;    // timestamp ms
   targetDurationMin?: number;
-  weeklySessions: 3 | 4 | 5 | 6;
+  weeklySessions: 1 | 2 | 3 | 4 | 5 | 6;
   status: GoalStatus;
   createdAt: number;
   updatedAt: number;

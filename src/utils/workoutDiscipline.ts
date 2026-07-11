@@ -13,7 +13,7 @@ export function getWorkoutDiscipline(workout: WorkoutKind | string): Discipline 
 }
 
 export const KINDS_BY_DISCIPLINE: Record<Discipline, WorkoutKind[]> = {
-  bike: ['rec', 'z2', 'z2Long', 'tempo', 'ftp', 'vo2', 'sim'],
+  bike: ['rec', 'z2', 'z2Long', 'tempo', 'ftp', 'vo2', 'hillRepeats', 'sim'],
   run: [...RUN_KINDS] as WorkoutKind[],
   swim: [...SWIM_KINDS] as WorkoutKind[],
 };
