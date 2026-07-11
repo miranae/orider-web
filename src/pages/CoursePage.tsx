@@ -316,7 +316,7 @@ async function extractGpsFromFile(file: File): Promise<[number, number] | null> 
 export default function CoursePage() {
   const { t } = useTranslation("course");
   const { courseId } = useParams<{ courseId: string }>();
-  const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, profile, profileLoading, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId);
   const { items: gearItems, loading: gearLoading } = useGear(user?.uid ?? null);
@@ -349,7 +349,7 @@ export default function CoursePage() {
       .sort((a, b) => b.climb.cat - a.climb.cat),
     [climbPredictions, course?.climbs],
   );
-  const climbPredictionLoading = authLoading
+  const climbPredictionLoading = authLoading || profileLoading
     || (Boolean(user) && (gearLoading || pdcState.status === "loading"));
 
   const [liked, setLiked] = useState(false);

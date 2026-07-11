@@ -20,15 +20,18 @@ import type { Gear } from "@shared/types";
 export type GearInput = Omit<Gear, "id" | "createdAt" | "updatedAt">;
 
 export function useGear(uid: string | null) {
-  const [items, setItems] = useState<Gear[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [snapshot, setSnapshot] = useState<{ uid: string | null; items: Gear[]; loading: boolean }>({
+    uid: null,
+    items: [],
+    loading: true,
+  });
 
   useEffect(() => {
     if (!uid) {
-      setItems([]);
-      setLoading(false);
+      setSnapshot({ uid: null, items: [], loading: false });
       return;
     }
+    setSnapshot({ uid, items: [], loading: true });
     const q = query(
       collection(firestore, "users", uid, "gear"),
       orderBy("createdAt", "asc"),
@@ -36,14 +39,14 @@ export function useGear(uid: string | null) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setItems(
-          snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Gear, "id">) })),
-        );
-        setLoading(false);
+        setSnapshot({
+          uid,
+          items: snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Gear, "id">) })),
+          loading: false,
+        });
       },
       () => {
-        setItems([]);
-        setLoading(false);
+        setSnapshot({ uid, items: [], loading: false });
       },
     );
     return () => unsub();
@@ -72,5 +75,8 @@ export function useGear(uid: string | null) {
     await deleteDoc(doc(firestore, "users", uid, "gear", id));
   }
 
-  return { items, loading, addGear, updateGear, removeGear };
+  const resolved = snapshot.uid === uid
+    ? snapshot
+    : { uid, items: [] as Gear[], loading: uid !== null };
+  return { items: resolved.items, loading: resolved.loading, addGear, updateGear, removeGear };
 }
