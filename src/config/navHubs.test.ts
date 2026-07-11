@@ -8,7 +8,6 @@ describe("navHubs", () => {
       expect(getActiveHub("/fitness")).toBe("train");
       expect(getActiveHub("/plan")).toBe("train");
       expect(getActiveHub("/log")).toBe("train");
-      expect(getActiveHub("/activity/upload")).toBe("train");
       expect(getActiveHub("/goal-setup")).toBe("train");
       expect(getActiveHub("/courses")).toBe("explore");
       expect(getActiveHub("/explore")).toBe("explore");
@@ -45,7 +44,7 @@ describe("navHubs", () => {
 
   describe("isHubSubRoute", () => {
     it("허브 서브 목적지(목록/루트)에선 true", () => {
-      for (const p of ["/fitness", "/activity/upload", "/plan", "/log", "/discover", "/explore", "/leaderboard", "/courses", "/board", "/creator", "/groups", "/events", "/friends", "/about", "/my", "/settings"]) {
+      for (const p of ["/fitness", "/plan", "/log", "/discover", "/explore", "/leaderboard", "/courses", "/board", "/creator", "/groups", "/events", "/friends", "/about", "/my", "/settings"]) {
         expect(isHubSubRoute(p)).toBe(true);
       }
     });
@@ -58,7 +57,7 @@ describe("navHubs", () => {
   });
 
   it("getHub 은 key 로 허브를 반환", () => {
-    expect(getHub("train").subs.map((s) => s.to)).toEqual(["/fitness", "/activity/upload", "/plan", "/log"]);
+    expect(getHub("train").subs.map((s) => s.to)).toEqual(["/fitness", "/plan", "/log"]);
     expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/discover", "/explore", "/leaderboard", "/courses"]);
     expect(getHub("community").subs.map((s) => s.to)).toEqual(["/board", "/creator", "/groups", "/events", "/friends", "/about"]);
     expect(getHub("home").subs).toHaveLength(0);

@@ -51,7 +51,7 @@ export function BikeActionAccordion({
   const rows = useMemo(() => [
     { id: "ftp", needed: !ftp, href: "/settings?section=training" },
     { id: "tte", needed: !hasPdcModel, href: "/plan" },
-    { id: "zones", needed: !hasZoneData, href: "/activity/upload" },
+    { id: "zones", needed: !hasZoneData, href: "/log" },
     { id: "vo2", needed: !hasPdcModel, href: "/fitness?sport=bike" },
     { id: "recovery", needed: false, href: "/plan" },
     { id: "endurance", needed: false, href: "/plan" },
