@@ -10,7 +10,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, DateField } from "../../components/redesign";
-import { fmtIsoLocal, isClosed, normalizeStartTime } from "../../utils/event-time";
+import { fmtIsoLocal, isClosed, isRegistrationTimeOpen, normalizeStartTime } from "../../utils/event-time";
 import { localeTag } from "../../utils/localeDate";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import {
@@ -465,7 +465,7 @@ export default function EventRegisterPage() {
     );
   }
 
-  if (isClosed(event.closeAt)) {
+  if (isClosed(event.closeAt) || !isRegistrationTimeOpen(event.startTime, event.closeAt)) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState

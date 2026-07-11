@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockUpdateDoc, setCollectionDocs } from "../../__tests__/mocks/firebase";
+import { mockCallableInvocations, mockUpdateDoc, setCallableResult, setCollectionDocs } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupMembersPage from "./GroupMembersPage";
 
@@ -42,6 +42,7 @@ describe("GroupMembersPage", () => {
     mockConfirm.mockReset();
     mockConfirm.mockResolvedValue(true);
     mockUpdateDoc.mockClear();
+    mockCallableInvocations.length = 0;
     mockMembers.splice(0);
     mockGetPublicUserProfiles.mockReset();
     mockGetPublicUserProfiles.mockResolvedValue(new Map([
@@ -156,6 +157,52 @@ describe("GroupMembersPage", () => {
       expect.objectContaining({ path: "groups/group-1/members/co-leader-1" }),
       { role: "member" },
     ));
+  });
+
+  it("transfers leadership to an eligible active member and can leave atomically", async () => {
+    mockMembers.push(
+      {
+        id: "member-1",
+        userId: "member-1",
+        joinedAt: Date.now(),
+        status: "active",
+        role: "member",
+        profile: { id: "member-1", nickname: "Rider One", photoURL: null },
+      },
+      {
+        id: "pending-1",
+        userId: "pending-1",
+        joinedAt: Date.now(),
+        status: "pending",
+        role: "member",
+        profile: { id: "pending-1", nickname: "Pending One", photoURL: null },
+      },
+      {
+        id: "legacy-leader-1",
+        userId: "legacy-leader-1",
+        joinedAt: Date.now(),
+        status: "approved",
+        role: "leader",
+        profile: { id: "legacy-leader-1", nickname: "Recovered Leader", photoURL: null },
+      },
+    );
+    setCallableResult("transferGroupLeadership", { data: { success: true, leftGroup: true } });
+    renderMembersPage();
+
+    expect(await screen.findByRole("option", { name: "Rider One" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Recovered Leader" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Pending One" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "이임 완료 후 그룹에서 탈퇴" }));
+    fireEvent.click(screen.getByRole("button", { name: "그룹장 이임" }));
+
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalledWith(
+      "Rider One님에게 그룹장 권한을 이임하고 그룹에서 탈퇴하시겠습니까?",
+      { destructive: true },
+    ));
+    await waitFor(() => expect(mockCallableInvocations).toContainEqual({
+      name: "transferGroupLeadership",
+      data: { groupId: "group-1", targetUserId: "member-1", leaveAfterTransfer: true },
+    }));
   });
 });
 

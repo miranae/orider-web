@@ -18,4 +18,13 @@ describe("GroupDashboardPage KPI layout", () => {
     expect(source).toContain('whiteSpace: "pre-wrap"');
     expect(source).not.toContain("dangerouslySetInnerHTML");
   });
+
+  it("shows the composer only to active members and routes RSVP actions by registration state", () => {
+    const source = readFileSync(join(process.cwd(), "src/pages/group/GroupDashboardPage.tsx"), "utf8");
+
+    expect(source).toContain("currentMemberRole !== null &&");
+    expect(source).toContain('e.myRsvp ? `/event/${e.id}` : `/event/${e.id}/register`');
+    expect(source).toContain('dashboard.eventAction.manageRsvp');
+    expect(source).toContain('dashboard.eventAction.rsvp');
+  });
 });

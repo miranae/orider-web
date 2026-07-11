@@ -275,6 +275,8 @@ export interface Group {
   /** 운영 토글 */
   toggles?: Partial<GroupToggles>;
   memberCount: number;
+  /** 그룹 월간 합산 거리 목표(km). 0/미설정이면 목표 카드 숨김. */
+  monthlyGoalKm?: number;
 }
 
 export type GroupMemberRole = 'leader' | 'co-leader' | 'member';

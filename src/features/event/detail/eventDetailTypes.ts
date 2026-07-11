@@ -10,6 +10,7 @@ export interface EventDetail {
   type: string;
   status: string;
   startTime: number;
+  closeAt?: string;
   creatorId: string;
   hostIds: string[];
   groupId?: string;
