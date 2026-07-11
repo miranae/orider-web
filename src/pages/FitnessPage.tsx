@@ -101,13 +101,15 @@ export default function FitnessPage() {
 
   // 마일스톤 — 러닝 탭 (§3.4b). celebrated:false 인 신규 달성 하나를 축하 모달로.
   const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run");
-  const [dismissedMilestone, setDismissedMilestone] = useState<MilestoneId | null>(null);
+  // 단일 슬롯이면 A 닫기 → markCelebrated(A) 실패 → B 닫기 시 슬롯이 B 로 덮이면서 A 가
+  // 다시 pending 이 되어 모달이 되돌아온다. 세션 내에서 닫은 것은 모두 기억한다.
+  const [dismissedMilestones, setDismissedMilestones] = useState<ReadonlySet<MilestoneId>>(new Set());
   const pendingMilestone = useMemo(() => {
     for (const m of milestones.values()) {
-      if (!m.celebrated && m.id !== dismissedMilestone) return m.id;
+      if (!m.celebrated && !dismissedMilestones.has(m.id)) return m.id;
     }
     return null;
-  }, [milestones, dismissedMilestone]);
+  }, [milestones, dismissedMilestones]);
 
   // lazy revalidate — 화면 진입 시 신선도 체크 + 필요 시 서버 재계산.
   // discipline 전달 → 멀티 goal 사용자가 종목 전환할 때 해당 종목 신선도 재평가.
@@ -911,7 +913,7 @@ export default function FitnessPage() {
             milestoneId={pendingMilestone}
             onClose={() => {
               void markCelebrated(pendingMilestone);
-              setDismissedMilestone(pendingMilestone);
+              setDismissedMilestones((prev) => new Set(prev).add(pendingMilestone));
             }}
           />
         )}

@@ -32,6 +32,10 @@ export interface RecordShareInput {
  */
 export function buildRecordShareText(input: RecordShareInput): string {
   const time = formatRecordDuration(input.timeSec);
+  if (input.improvedBySec != null && input.improvedBySec <= 0) {
+    // 1초 미만 단축 — 초 수를 말하지 않는다.
+    return input.t("runRecord.share.improvedTiny", { dist: input.distanceLabel, time });
+  }
   return input.improvedBySec != null
     ? input.t("runRecord.share.improved", { dist: input.distanceLabel, time, sec: input.improvedBySec })
     : input.t("runRecord.share.first", { dist: input.distanceLabel, time });

@@ -226,8 +226,10 @@ export default function DashboardPage() {
         : null,
     [isRunTab, runHistory.runs, runHistory.loading, profile?.createdAt],
   );
+  // profile 이 도착하기 전에는 판단하지 않는다 — 이미 임계 페이스를 설정한 러너에게
+  // 넛지가 깜빡 떴다 사라지는 플래시가 생긴다(firstSync 와 같은 프로필 레이스).
   const showThresholdNudge =
-    runnerLevel?.level === "regular" && !profile?.thresholdPace && !hasNoRuns;
+    profile != null && runnerLevel?.level === "regular" && !profile.thresholdPace && !hasNoRuns;
 
   // 신발 교체 임박 — 가장 최근 러닝의 gear 스냅샷에서 파생 (§3.6, 신규 구현 아님)
   const shoeStatus = useMemo(

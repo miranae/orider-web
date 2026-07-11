@@ -61,6 +61,19 @@ describe("computeContribution", () => {
     expect(sliceFor(c, "run").pct).toBe(100);
   });
 
+  // 코드리뷰 지적 — ctl>0 만으로 멀티 종목을 판정하면 "통합 체력의 0% 는 러닝에서" 가 나오고,
+  // 100/0 도넛은 arc 시작=끝이라 아예 그려지지 않는다.
+  it("반올림 후 0% 가 되는 부스러기 종목은 멀티 종목으로 치지 않는다", () => {
+    const c = computeContribution(fitness(199, 0.4, 0))!;
+    expect(sliceFor(c, "run").pct).toBe(0);
+    expect(c.isMultiDiscipline).toBe(false); // 카드를 렌더하지 않는다
+  });
+
+  it("두 종목 모두 1% 이상이면 멀티 종목", () => {
+    const c = computeContribution(fitness(90, 10, 0))!;
+    expect(c.isMultiDiscipline).toBe(true);
+  });
+
   it("문서가 없으면 null (카드를 렌더하지 않는다)", () => {
     expect(computeContribution(null)).toBeNull();
     expect(computeContribution(undefined)).toBeNull();

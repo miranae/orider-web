@@ -37,6 +37,10 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
   if (!contribution || !contribution.isMultiDiscipline) return null;
 
   const mine = sliceFor(contribution, discipline);
+  // 정작 **보고 있는 종목**이 반올림 후 0% 면 "통합 체력의 0% 는 러닝에서" 가 된다.
+  // (예: bike 60 / swim 40 / run 0.4 — 과거에 달렸지만 러닝 CTL 이 소멸한 사용자.)
+  // isMultiDiscipline 은 두 종목만 보면 되므로 이 케이스를 못 걸러낸다.
+  if (mine.pct < 1) return null;
 
   return (
     <Card>

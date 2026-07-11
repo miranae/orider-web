@@ -37,7 +37,10 @@ export function distanceRecords(run: RunPrTable | undefined): DistanceRecord[] {
 export interface NewRecordForActivity {
   distance: RunDistanceKey;
   timeSec: number;
-  /** 직전 최고(있으면) 대비 단축된 초. 이 활동이 유일 기록이면 null. */
+  /**
+   * 직전 최고 대비 단축된 초(반올림). 직전 최고가 없으면(=첫 기록) null.
+   * 갱신했지만 1초 미만이면 0 — "0초 단축" 대신 초 수를 말하지 않는 문구를 쓴다.
+   */
   improvedBySec: number | null;
 }
 
@@ -58,10 +61,15 @@ export function newRecordsForActivity(
     // (더 빠르지 않은데 "신기록"이라 말하면 거짓말이다).
     const previous = sorted.find((e) => e.activityId !== activityId);
     if (previous && previous.value <= best.value) continue;
+    // 세 상태를 구분한다 — null 과 0 을 섞으면 소비처가 거짓말을 한다:
+    //   null → 직전 최고가 없음 = "첫 기록이에요"
+    //   0    → 갱신했지만 1초 미만 단축 = "기록을 갱신했어요" (초 수를 말하지 않는다)
+    //   >0   → "N초 단축"
+    // 스트림 보간 값이라 소수일 수 있어 반올림한다 — 안 하면 "41.29999999초 단축" 이 공유된다.
     out.push({
       distance,
       timeSec: best.value,
-      improvedBySec: previous ? previous.value - best.value : null,
+      improvedBySec: previous ? Math.round(previous.value - best.value) : null,
     });
   }
   return out;

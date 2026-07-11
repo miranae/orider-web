@@ -80,6 +80,24 @@ describe("newRecordsForActivity", () => {
     expect(newRecordsForActivity(run, "today")).toEqual([]);
   });
 
+  // 코드리뷰 지적 — 스트림 보간 값은 소수라 그대로 두면 "41.2999999초 단축" 이 공유된다.
+  it("단축 초는 정수로 반올림한다 (공유 문구에 그대로 들어간다)", () => {
+    const run: RunPrTable = { "5km": [e(1600.1, "today"), e(1641.4, "old")] };
+    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(41);
+  });
+
+  // null(첫 기록) 과 0(1초 미만 단축) 은 다른 의미다 — 섞으면 소비처가 "첫 기록이에요" 라고
+  // 거짓말한다. 세 상태를 구분한다.
+  it("0.5초 미만 단축은 0 — null(첫 기록) 이 아니다", () => {
+    const run: RunPrTable = { "5km": [e(1600.1, "today"), e(1600.4, "old")] };
+    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(0);
+  });
+
+  it("직전 최고가 없을 때만 null (첫 기록)", () => {
+    const run: RunPrTable = { "5km": [e(1600, "today")] };
+    expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBeNull();
+  });
+
   it("동률이 섞여도 결과가 결정적이다 — 입력 순서가 바뀌어도 같은 답", () => {
     const a: RunPrTable = { "5km": [e(1600, "x"), e(1600, "y")] };
     const b: RunPrTable = { "5km": [e(1600, "y"), e(1600, "x")] };
