@@ -20,6 +20,8 @@ import { Button, Card, Chip, Text } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import { localeTag } from "../../utils/localeDate";
 import { normalizeStartTime } from "../../utils/event-time";
+import { transferGroupLeadership } from "../../features/group/groupLeadership";
+import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 
 type Tab = "members" | "pending" | "invite";
 type RoleFilter = "all" | "leader" | "co-leader" | "member";
@@ -43,6 +45,7 @@ export default function GroupMembersPage() {
   const { user } = useAuth();
   const dialog = useDialog();
   const { showToast } = useToast();
+  const navigate = useLocalizedNavigate();
   const { group, loading: groupLoading } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId);
 
@@ -65,6 +68,9 @@ export default function GroupMembersPage() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [roleBusyId, setRoleBusyId] = useState<string | null>(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [leadershipTargetId, setLeadershipTargetId] = useState("");
+  const [leaveAfterTransfer, setLeaveAfterTransfer] = useState(false);
+  const [leadershipBusy, setLeadershipBusy] = useState(false);
 
   // 멤버 통계는 useGroupRideStats 서버 집계에서 제공한다.
 
@@ -137,6 +143,20 @@ export default function GroupMembersPage() {
     () => filteredMembers.filter((m) => m.id !== user?.uid).map((m) => m.id),
     [filteredMembers, user?.uid],
   );
+
+  const leadershipCandidates = useMemo(
+    () => members.filter((member) =>
+      member.id !== user?.uid
+      && ["active", "approved"].includes(String(member.status ?? ""))
+      && ["member", "co-leader"].includes(String(member.role ?? "member"))),
+    [members, user?.uid],
+  );
+
+  useEffect(() => {
+    if (!leadershipCandidates.some((member) => member.id === leadershipTargetId)) {
+      setLeadershipTargetId(leadershipCandidates[0]?.id ?? "");
+    }
+  }, [leadershipCandidates, leadershipTargetId]);
 
   const toggleSel = (id: string) => {
     setSelected((s) => {
@@ -221,6 +241,39 @@ export default function GroupMembersPage() {
       showToast(t("members.roleChangeFailed"), "error");
     } finally {
       setRoleBusyId(null);
+    }
+  };
+
+  const handleLeadershipTransfer = async () => {
+    if (!groupId || !isCreator || !leadershipTargetId || leadershipBusy) return;
+    const target = leadershipCandidates.find((member) => member.id === leadershipTargetId);
+    if (!target) return;
+    const name = target.profile?.nickname ?? target.id;
+    if (!(await dialog.confirm(t(
+      leaveAfterTransfer ? "members.leadership.confirmAndLeave" : "members.leadership.confirm",
+      { name },
+    ), { destructive: leaveAfterTransfer }))) return;
+
+    setLeadershipBusy(true);
+    try {
+      const result = await transferGroupLeadership({
+        groupId,
+        targetUserId: target.id,
+        leaveAfterTransfer,
+      });
+      showToast(t(result.leftGroup
+        ? "members.leadership.transferAndLeaveSuccess"
+        : "members.leadership.transferSuccess", { name }));
+      navigate(result.leftGroup ? "/groups" : `/group/${groupId}`, { replace: true });
+    } catch (err) {
+      logClientError("GroupMembersPage.handleLeadershipTransfer", err, {
+        groupId,
+        targetUserId: target.id,
+        leaveAfterTransfer,
+      });
+      showToast(t("members.leadership.transferFailed"), "error");
+    } finally {
+      setLeadershipBusy(false);
     }
   };
 
@@ -315,6 +368,58 @@ export default function GroupMembersPage() {
       {/* MEMBERS TAB */}
       {tab === "members" && (
         <>
+          {isCreator && (
+            <Card padding="none" className="mb-4" style={{ padding: "var(--space-4)" }}>
+              <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>
+                {t("members.leadership.title")}
+              </h2>
+              <p className="text-[length:var(--fs-xs)] mt-1 mb-3" style={{ color: "var(--ink-3)" }}>
+                {t("members.leadership.desc")}
+              </p>
+              {leadershipCandidates.length === 0 ? (
+                <Text as="p" variant="body" tone="tertiary">{t("members.leadership.noEligibleMember")}</Text>
+              ) : (
+                <div className="flex items-end flex-wrap" style={{ gap: "var(--space-3)" }}>
+                  <label className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>
+                    <span className="block mb-1">{t("members.leadership.target")}</span>
+                    <select
+                      value={leadershipTargetId}
+                      onChange={(event) => setLeadershipTargetId(event.target.value)}
+                      disabled={leadershipBusy}
+                      className="px-3 py-2 rounded-[var(--r-md)]"
+                      style={{ minWidth: 220, background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
+                    >
+                      {leadershipCandidates.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.profile?.nickname ?? member.id}
+                          {member.role === "co-leader" ? ` · ${t("members.role.coLeader")}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex items-center text-[length:var(--fs-xs)]" style={{ gap: "var(--space-2)", color: "var(--ink-2)" }}>
+                    <input
+                      type="checkbox"
+                      checked={leaveAfterTransfer}
+                      onChange={(event) => setLeaveAfterTransfer(event.target.checked)}
+                      disabled={leadershipBusy}
+                    />
+                    {t("members.leadership.leaveAfterTransfer")}
+                  </label>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!leadershipTargetId || leadershipBusy}
+                    onClick={() => { void handleLeadershipTransfer(); }}
+                    style={{ color: "var(--amber)" }}
+                  >
+                    {leadershipBusy ? t("button.saving") : t("members.leadership.transfer")}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          )}
           {/* Toolbar */}
           <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
             <input
