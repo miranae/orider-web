@@ -20,23 +20,23 @@ describe("isPublicEventInfo", () => {
 });
 
 describe("matchesDatePreset", () => {
-  const now = new Date("2026-07-08T10:00:00+09:00");
+  const now = new Date(2026, 6, 8, 10, 0);
 
   it("matches the upcoming Saturday and Sunday for the weekend preset", () => {
-    expect(matchesDatePreset(new Date("2026-07-11T09:00:00+09:00").getTime(), "WEEKEND", now)).toBe(true);
-    expect(matchesDatePreset(new Date("2026-07-12T23:59:00+09:00").getTime(), "WEEKEND", now)).toBe(true);
-    expect(matchesDatePreset(new Date("2026-07-13T00:00:00+09:00").getTime(), "WEEKEND", now)).toBe(false);
+    expect(matchesDatePreset(new Date(2026, 6, 11, 9, 0).getTime(), "WEEKEND", now)).toBe(true);
+    expect(matchesDatePreset(new Date(2026, 6, 12, 23, 59).getTime(), "WEEKEND", now)).toBe(true);
+    expect(matchesDatePreset(new Date(2026, 6, 13, 0, 0).getTime(), "WEEKEND", now)).toBe(false);
   });
 
   it("keeps the current Sunday in the weekend preset", () => {
-    const sunday = new Date("2026-07-12T10:00:00+09:00");
-    expect(matchesDatePreset(new Date("2026-07-12T18:00:00+09:00").getTime(), "WEEKEND", sunday)).toBe(true);
-    expect(matchesDatePreset(new Date("2026-07-18T09:00:00+09:00").getTime(), "WEEKEND", sunday)).toBe(false);
+    const sunday = new Date(2026, 6, 12, 10, 0);
+    expect(matchesDatePreset(new Date(2026, 6, 12, 18, 0).getTime(), "WEEKEND", sunday)).toBe(true);
+    expect(matchesDatePreset(new Date(2026, 6, 18, 9, 0).getTime(), "WEEKEND", sunday)).toBe(false);
   });
 
   it("matches the full current calendar month", () => {
-    expect(matchesDatePreset(new Date("2026-07-01T09:00:00+09:00").getTime(), "MONTH", now)).toBe(true);
-    expect(matchesDatePreset(new Date("2026-07-31T23:59:00+09:00").getTime(), "MONTH", now)).toBe(true);
-    expect(matchesDatePreset(new Date("2026-08-01T00:00:00+09:00").getTime(), "MONTH", now)).toBe(false);
+    expect(matchesDatePreset(new Date(2026, 6, 1, 9, 0).getTime(), "MONTH", now)).toBe(true);
+    expect(matchesDatePreset(new Date(2026, 6, 31, 23, 59).getTime(), "MONTH", now)).toBe(true);
+    expect(matchesDatePreset(new Date(2026, 7, 1, 0, 0).getTime(), "MONTH", now)).toBe(false);
   });
 });

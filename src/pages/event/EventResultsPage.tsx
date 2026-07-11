@@ -112,7 +112,7 @@ export default function EventResultsPage() {
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const dialog = useDialog();
 
   const [eventHead, setEventHead] = useState<EventHead | null>(null);
@@ -123,7 +123,7 @@ export default function EventResultsPage() {
   const [eventDateStr, setEventDateStr] = useState<string>("");
   const groupId = eventHead?.groupId;
   const { group } = useGroup(groupId);
-  const { eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId);
+  const { eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
 
   useEffect(() => {
     if (!eventId) return;
@@ -783,7 +783,7 @@ export default function EventResultsPage() {
           className="event-results-aside flex flex-col"
           style={{ gap: "var(--space-3)", alignSelf: "start", position: "sticky", top: 68 }}
         >
-          {!myResult && (
+          {!authLoading && !myResult && (
             <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
               <Text as="div" variant="eyebrow">{t("resultsView.nextAction.eyebrow")}</Text>
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("resultsView.nextAction.title")}</div>

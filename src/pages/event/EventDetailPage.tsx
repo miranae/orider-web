@@ -65,7 +65,7 @@ export default function EventDetailPage() {
   const [toast, setToast] = useState<string | null>(null);
   const groupId = event?.groupId || undefined;
   const { group } = useGroup(groupId);
-  const { byGroup: nextEventLabels, eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId);
+  const { byGroup: nextEventLabels, eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);

@@ -35,11 +35,15 @@ export function formatNextLabel(ts: number, name: string, locale: string): strin
   })} · ${name}`;
 }
 
+export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: boolean): boolean {
+  return !publicOnly || info.visibility === "PUBLIC";
+}
+
 /**
  * 그룹별 가장 가까운 OPEN/LIVE 이벤트 1건씩 묶어 반환.
  * Firestore in-clause 한도(10) 단위로 chunk 쿼리.
  */
-export function useGroupNextEvents(groupIds: string[], excludeEventId?: string) {
+export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, publicOnly = false) {
   const { t, i18n } = useTranslation("group");
   const [byGroup, setByGroup] = useState<Map<string, string>>(new Map());
   const [eventByGroup, setEventByGroup] = useState<Map<string, NextEventInfo>>(new Map());
@@ -69,6 +73,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string) 
             if (doc.id === excludeEventId) return;
             const d = doc.data();
             const info = d.info ?? {};
+            if (!isEligibleNextEvent(info, publicOnly)) return;
             const groupId: string = info.groupId ?? "";
             const startTime = toMillis(info.startTime);
             const name = info.name ?? t("dashboard.fallbackEventName");
@@ -95,7 +100,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string) 
     return () => {
       cancelled = true;
     };
-  }, [excludeEventId, groupIds.join("|"), i18n.language, t]);
+  }, [excludeEventId, groupIds.join("|"), i18n.language, publicOnly, t]);
 
   return { byGroup, eventByGroup, loading };
 }

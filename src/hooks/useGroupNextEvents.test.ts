@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatNextLabel } from "./useGroupNextEvents";
+import { formatNextLabel, isEligibleNextEvent } from "./useGroupNextEvents";
 
 describe("group next-event localization", () => {
   it("formats weekdays with the requested UI locale", () => {
@@ -20,5 +20,18 @@ describe("group next-event localization", () => {
 
     expect(source).toContain('t("dashboard.fallbackEventName")');
     expect(source).not.toContain('info.name ?? "이벤트"');
+  });
+});
+
+describe("public next-event filtering", () => {
+  it("fails closed for non-public event heads on public pages", () => {
+    expect(isEligibleNextEvent({ visibility: "PUBLIC" }, true)).toBe(true);
+    expect(isEligibleNextEvent({ visibility: "GROUP" }, true)).toBe(false);
+    expect(isEligibleNextEvent({ visibility: "PRIVATE" }, true)).toBe(false);
+    expect(isEligibleNextEvent({}, true)).toBe(false);
+  });
+
+  it("keeps the member dashboard behavior when public-only mode is off", () => {
+    expect(isEligibleNextEvent({ visibility: "GROUP" }, false)).toBe(true);
   });
 });
