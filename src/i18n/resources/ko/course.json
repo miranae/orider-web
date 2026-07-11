@@ -30,6 +30,13 @@
   "averageGrade": "평균경사",
   "maxGrade": "최대경사",
   "climbSection": "오르막 구간",
+  "climbPrediction": {
+    "result": "내 예상 {{duration}} · {{wkg}} W/kg",
+    "loading": "내 예상 기록을 계산하고 있어요…",
+    "login": "로그인하고 내 예상 기록 보기",
+    "addMetrics": "FTP와 체중을 입력해 예상 기록 보기",
+    "disclaimer": "평균 경사와 내 FTP 또는 파워 지속곡선을 사용한 물리 모델 추정치예요. 바람·노면·교통은 반영하지 않아요."
+  },
   "tagSection": "태그",
   "courseSegments": "이 코스의 세그먼트",
   "difficulty.easy": "쉬움",

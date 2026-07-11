@@ -5,6 +5,8 @@
 # This wrapper keeps the actual merge behind the same checks we expect from PRs:
 # local lint/test/build, optional local AI review, GitHub check status, and review
 # decision inspection. Use it instead of calling `gh pr merge` directly.
+# Feature PR은 dev로 통합하고 로컬 게이트를 실행한다. GitHub의 무거운 CI는 dev→main
+# 승격 PR에서만 실행하며, main으로는 head=dev인 PR만 허용한다.
 #
 # Usage:
 #   scripts/merge-pr.sh [PR_NUMBER] [options]
@@ -19,8 +21,8 @@
 #   --keep-worktree           Do not remove the current worktree/branch after merge.
 #
 # 속도 설계 (2026-07-10):
-#   - 변경 분류 3단계: 제품 코드(npm 게이트+풀 리뷰) / 툴링(.sh·.github — 게이트 생략+경량(sonnet) 리뷰)
-#     / 문서(전부 생략). 미분류 경로는 안전하게 코드로 취급.
+#   - 변경 분류는 AI 리뷰 강도만 결정한다: 제품 코드=full, 툴링=fast, 문서=skip.
+#     로컬 검증은 별도로 feature→dev(변경 영향 테스트+타입체크) / dev→main(full) 2단계다.
 #   - AI 리뷰는 npm 게이트와 **병렬** 실행 — 리뷰(수 분)가 크리티컬 패스에서 빠진다.
 #   - base 전진(BEHIND)은 게이트 시작 시 자동으로 origin/base 머지+푸시 — CI 재실행이
 #     로컬 게이트와 겹쳐 돌아 마지막 대기가 짧다.
@@ -129,6 +131,12 @@ PR_URL="$(json_field "$META" url)"
 [[ "$IS_DRAFT" != "true" ]] || die "PR #$PR_NUM 이 draft입니다."
 [[ -n "$BASE" ]] || BASE=main
 
+# dev 통합 브랜치 규칙. GitHub free-plan 저장소에서도 main 직접 머지를 이 래퍼가 차단한다.
+# main-promote-guard.yml은 잘못 열린 PR에 즉시 빨간 신호를 주는 서버측 보조 안전망이다.
+if [[ "$BASE" == "main" && "$HEADREF" != "dev" ]]; then
+  die "main 으로의 머지는 dev 승격만 허용됩니다 (현재 head=${HEADREF:-<unknown>}). feature는 'gh pr create --base dev'로 PR 하세요."
+fi
+
 if [[ -n "$(git status --porcelain)" ]]; then
   die "워크트리가 깨끗하지 않습니다. 커밋/스태시 후 재실행하세요."
 fi
@@ -154,10 +162,10 @@ if [[ -z "$CHANGED" ]]; then
   warn "origin/$BASE...HEAD 변경 파일이 비어 있습니다. PR head가 현재 checkout과 다른지 확인하세요."
 fi
 
-# 변경 분류 — 게이트 비용을 diff 성격에 맞춘다. 미분류 경로는 안전하게 '코드'.
-#   docs    (docs/·*.md·LICENSE 등)        → npm 게이트·리뷰 전부 생략
-#   tooling (scripts/*.sh·.github/)        → npm 게이트 생략(어차피 src/ 만 봄), 경량(sonnet) 리뷰
-#   code    (그 외 전부)                   → npm 게이트 + 풀 리뷰
+# 변경 분류 — AI 리뷰 강도를 diff 성격에 맞춘다. 미분류 경로는 안전하게 '코드'.
+#   docs    (docs/·*.md·LICENSE 등)        → 리뷰 생략
+#   tooling (scripts/*.sh·.github/)        → 경량(sonnet) 리뷰
+#   code    (그 외 전부)                   → 풀 리뷰
 DOCS_PAT='^docs/|\.md$|^LICENSE|^\.gitignore$|^\.gitattributes$'
 TOOLING_PAT='^scripts/[^/]+\.sh$|^\.github/'
 code_changes=0; review_mode="skip"
@@ -169,12 +177,21 @@ if [[ -n "$CHANGED" ]]; then
   fi
 fi
 
+# 2단계 로컬 게이트:
+# - topic→dev: 변경 영향 Vitest + TypeScript typecheck만 실행. 누적 전체 검증은 승격 때 1회.
+# - dev→main 및 기타 base: 안전하게 기존 full gate(lint/quality/full test/build) 실행.
+if [[ "$BASE" == "dev" && "$HEADREF" != "dev" ]]; then
+  GATE_TIER="feature"
+else
+  GATE_TIER="full"
+fi
+
 log "PR #$PR_NUM 머지 게이트"
 echo "  URL: $PR_URL"
 echo "  base=$BASE head=$HEADREF branch=$BRANCH"
 echo "  headSha=${HEAD_OID:0:12}"
 echo "  reviewDecision=${REVIEW_DECISION:-<none>} mergeState=${MERGE_STATE:-<unknown>}"
-echo "  code_changes=$code_changes review_mode=$review_mode"
+echo "  gate_tier=$GATE_TIER code_changes=$code_changes review_mode=$review_mode"
 
 # ── AI 리뷰 시작 (npm 게이트와 병렬) ─────────────────────────────────────────
 if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
@@ -204,20 +221,31 @@ MERGE_VERDICT: PASS"
   start_claude_review
 fi
 
-if [[ "$code_changes" == 1 ]]; then
+if [[ "$GATE_TIER" == "feature" ]]; then
   [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
 
-  log "ESLint budget"
+  log "Feature→dev 경량 게이트: 변경 영향 Vitest"
+  run_step "targeted Vitest" "Test Files|Tests |FAIL|passed|failed|No test files" \
+    npm test -- --changed "origin/$BASE" --passWithNoTests
+
+  log "Feature→dev 경량 게이트: TypeScript typecheck"
+  run_step "TypeScript typecheck" "error TS|Found 0 errors" npx tsc -b --pretty false
+
+  log "Feature→dev 경량 게이트 완료 — lint/quality/full test/build는 dev→main 승격에서 실행"
+else
+  [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
+
+  log "Full 게이트: ESLint budget"
   run_step "lint:budget" "error|warning|problem" npm run lint:budget
 
-  log "Quality budget"
+  log "Full 게이트: Quality budget"
   run_step "quality:budget" "error|warning|budget|PASS|FAIL" npm run quality:budget
 
-  log "Unit tests"
+  log "Full 게이트: 전체 Unit tests"
   run_step "npm test" "Test Files|Tests |FAIL|passed|failed" npm test
 
   if [[ "$DO_BUILD" == 1 ]]; then
-    log "Build"
+    log "Full 게이트: Build"
     if [[ -f .env ]]; then
       run_step "build" "error TS|built in|✓|error" npm run build
     else
@@ -235,8 +263,6 @@ if [[ "$code_changes" == 1 ]]; then
   else
     log "Build 생략 (--skip-build)"
   fi
-else
-  log "문서/툴링 변경만 감지 — 로컬 npm 게이트 생략 (lint/test 는 src/ 대상)"
 fi
 
 if [[ "$RUN_E2E" == 1 ]]; then
@@ -274,9 +300,11 @@ else
   [[ "$RUN_REVIEW" == 0 ]] && log "로컬 AI 코드리뷰 생략 (--no-review)" || log "문서 전용 변경 — 로컬 AI 코드리뷰 생략"
 fi
 
-if [[ "$WAIT_CHECKS" == 1 ]]; then
+if [[ "$WAIT_CHECKS" == 1 && "$BASE" == "main" ]]; then
   log "GitHub PR checks 대기"
   gh pr checks "$PR_NUM" --watch --interval 10
+elif [[ "$WAIT_CHECKS" == 1 ]]; then
+  log "feature→$BASE PR — 무거운 GitHub CI는 dev→main 승격에서 실행하므로 체크 대기 생략"
 else
   log "GitHub PR checks 대기 생략 (--no-wait)"
 fi
@@ -312,7 +340,40 @@ log "PR #$PR_NUM squash merge"
 # that branch. Delete the remote ref through the API after a successful merge.
 gh pr merge "$PR_NUM" --squash --match-head-commit "$HEAD_OID" || die "gh pr merge 실패 (충돌/보호 규칙/head SHA 상태 확인)"
 
-if [[ -n "$HEADREF" ]]; then
+# squash 승격은 main에 새 커밋을 만들기 때문에 dev와 ancestry가 갈라진다. 승격 직후
+# main을 dev에 되병합해 다음 승격 PR이 이미 배포된 변경을 다시 표시하지 않게 한다.
+# fetch 후 origin/dev를 먼저 병합하므로 승격 도중 dev에 추가된 커밋도 잃지 않는다.
+# push race는 최신 origin/dev를 다시 병합한 뒤 일반 push로 제한 재시도한다(강제 push 금지).
+sync_main_back_to_dev() {
+  local attempt max_attempts=3
+  for attempt in $(seq 1 "$max_attempts"); do
+    log "승격 후 main→dev 동기화 ($attempt/$max_attempts)"
+    git fetch origin main dev --quiet \
+      || die "main 승격은 완료됐지만 origin/main·origin/dev fetch에 실패했습니다. dev에서 origin/dev와 origin/main을 병합해 push하세요."
+
+    if ! git merge origin/dev --no-edit --quiet; then
+      git merge --abort >/dev/null 2>&1 || true
+      die "main 승격은 완료됐지만 최신 origin/dev 병합이 충돌했습니다. dev에서 origin/dev를 병합한 뒤 origin/main을 병합·push하세요."
+    fi
+    if ! git merge origin/main --no-edit --quiet; then
+      git merge --abort >/dev/null 2>&1 || true
+      die "main 승격은 완료됐지만 origin/main→dev 동기화가 충돌했습니다. dev에서 origin/main을 병합·push하세요."
+    fi
+
+    if git push --quiet origin HEAD:dev; then
+      echo "  dev 동기화 완료: $(git rev-parse --short=12 HEAD)"
+      return 0
+    fi
+    warn "동시 dev 갱신으로 push 실패 — 최신 origin/dev 병합 후 재시도"
+  done
+  die "main 승격은 완료됐지만 dev 동기화 push가 $max_attempts회 실패했습니다. dev에서 origin/dev와 origin/main을 병합한 뒤 일반 push로 복구하세요."
+}
+
+if [[ "$BASE" == "main" && "$HEADREF" == "dev" ]]; then
+  sync_main_back_to_dev
+fi
+
+if [[ -n "$HEADREF" && "$HEADREF" != "dev" ]]; then
   REPO_SLUG="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
   if [[ -n "$REPO_SLUG" ]]; then
     gh api --method DELETE "repos/$REPO_SLUG/git/refs/heads/$HEADREF" >/dev/null 2>&1 \
@@ -342,7 +403,7 @@ if [[ -x "$CLAIM_SH" ]]; then
     "$CLAIM_SH" release "$BRANCH_ISSUE" 2>&1 | sed 's/^/  /' || true
   fi
 fi
-if [[ "$KEEP_WORKTREE" == 0 ]]; then
+if [[ "$KEEP_WORKTREE" == 0 && "$HEADREF" != "dev" ]]; then
   log "워크트리/브랜치 정리"
   MAIN_WT="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
   WT_PATH="$REPO_ROOT"
@@ -359,6 +420,8 @@ if [[ "$KEEP_WORKTREE" == 0 ]]; then
     git switch "$BASE" --quiet 2>/dev/null || warn "$BASE 브랜치 전환 실패"
     git branch -D "$BRANCH" 2>/dev/null || warn "로컬 브랜치 삭제 실패/스킵: $BRANCH"
   fi
+elif [[ "$HEADREF" == "dev" ]]; then
+  log "dev→main 승격 완료 — 통합 브랜치와 worktree 유지"
 fi
 
 printf '\n\033[1;32m✓ PR #%s 머지 완료\033[0m\n' "$PR_NUM"

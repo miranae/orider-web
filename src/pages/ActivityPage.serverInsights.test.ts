@@ -19,5 +19,7 @@ describe("activity detail server insights", () => {
     expect(analysisTab).toContain("sm?.climbs");
     expect(analysisTab).toContain("c.wPerKg");
     expect(analysisTab).toContain("c.vam");
+    expect(analysisTab).toContain("c.durationSec");
+    expect(analysisTab).toContain("buildClimbTableRows(sm?.climbs, climbs)");
   });
 });
