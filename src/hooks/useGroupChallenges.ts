@@ -23,6 +23,44 @@ export interface GroupChallenge {
   computedAt: number;
 }
 
+export interface GroupChallengeProgress {
+  distanceKm: number;
+  goalKm: number | null;
+  percent: number | null;
+  remainingKm: number | null;
+  completed: boolean;
+}
+
+/** Normalize untrusted callable values before rendering progress UI. */
+export function getGroupChallengeProgress(distanceKm: unknown, goalKm: unknown): GroupChallengeProgress {
+  const distance = typeof distanceKm === "number" && Number.isFinite(distanceKm)
+    ? Math.max(0, distanceKm)
+    : 0;
+  const goal = typeof goalKm === "number" && Number.isFinite(goalKm) && goalKm > 0
+    ? goalKm
+    : null;
+  if (goal === null) return { distanceKm: distance, goalKm: null, percent: null, remainingKm: null, completed: false };
+  return {
+    distanceKm: distance,
+    goalKm: goal,
+    percent: Math.min(100, Math.max(0, (distance / goal) * 100)),
+    remainingKm: Math.max(0, goal - distance),
+    completed: distance >= goal,
+  };
+}
+
+export function getVisibleChallengeStandings(
+  standings: GroupChallengeStanding[],
+  selectedGroupId: string,
+  limitCount = 5,
+): GroupChallengeStanding[] {
+  const leaders = standings.slice(0, Math.max(0, limitCount));
+  const selected = standings.find((standing) => standing.groupId === selectedGroupId);
+  return selected && !leaders.some((standing) => standing.groupId === selected.groupId)
+    ? [...leaders, selected]
+    : leaders;
+}
+
 interface StandingsResponse {
   challengeId: string;
   name: string;

@@ -4,6 +4,8 @@ import type { Group } from "@shared/types";
 import { useToast } from "../../contexts/ToastContext";
 import {
   createGroupChallenge,
+  getGroupChallengeProgress,
+  getVisibleChallengeStandings,
   joinGroupChallenge,
   useGroupChallenges,
   useManagedGroups,
@@ -104,12 +106,53 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
                   ))}
                 </div>
                 <ol className="space-y-2" style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                  {challenge.standings.slice(0, 5).map((standing) => (
-                    <li key={standing.groupId} className="flex items-center justify-between text-[length:var(--fs-xs)]" style={{ gap: "var(--space-2)" }}>
-                      <span className="truncate" style={{ color: "var(--ink-2)" }}>{standing.rank}. {standing.badge ? `${standing.badge} · ` : ""}{standing.name}</span>
-                      <Text variant="num">{standing.distanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km</Text>
-                    </li>
-                  ))}
+                  {getVisibleChallengeStandings(challenge.standings, alreadyJoined ? groupId : "").map((standing) => {
+                    const progress = getGroupChallengeProgress(standing.distanceKm, standing.goalKm);
+                    const isSelectedGroup = alreadyJoined && standing.groupId === groupId;
+                    return (
+                      <li
+                        key={standing.groupId}
+                        className="text-[length:var(--fs-xs)]"
+                        aria-current={isSelectedGroup ? "true" : undefined}
+                        style={{
+                          padding: "var(--space-2)",
+                          borderRadius: "var(--r-sm)",
+                          background: isSelectedGroup ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "transparent",
+                          border: isSelectedGroup ? "1px solid color-mix(in oklch, var(--lime) 30%, var(--line-soft))" : "1px solid transparent",
+                        }}
+                      >
+                        <div className="flex items-center justify-between" style={{ gap: "var(--space-2)" }}>
+                          <span className="truncate" style={{ color: isSelectedGroup ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isSelectedGroup ? 600 : 400 }}>
+                            {standing.rank}. {standing.badge ? `${standing.badge} · ` : ""}{standing.name}
+                            {isSelectedGroup && <span className="sr-only"> · {t("challenges.yourGroup")}</span>}
+                          </span>
+                          <Text variant="num">{progress.distanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km</Text>
+                        </div>
+                        {progress.goalKm !== null && progress.percent !== null && progress.remainingKm !== null && (
+                          <div style={{ marginTop: "var(--space-1-5)" }}>
+                            <div
+                              role="progressbar"
+                              aria-label={t("challenges.progressLabel", { name: standing.name })}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={Math.round(progress.percent)}
+                              style={{ height: 4, borderRadius: "var(--r-xs)", overflow: "hidden", background: "var(--bg-3)" }}
+                            >
+                              <div style={{ width: `${progress.percent}%`, height: "100%", background: progress.completed ? "var(--lime)" : "var(--aqua)" }} />
+                            </div>
+                            <div className="flex justify-between" style={{ marginTop: "var(--space-1)", color: "var(--ink-3)" }}>
+                              <span>{t("challenges.goal", { goal: progress.goalKm.toLocaleString(undefined, { maximumFractionDigits: 1 }) })}</span>
+                              <span style={{ color: progress.completed ? "var(--lime)" : "var(--ink-3)" }}>
+                                {progress.completed
+                                  ? t("challenges.completed")
+                                  : t("challenges.remaining", { distance: progress.remainingKm.toLocaleString(undefined, { maximumFractionDigits: 1 }) })}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ol>
               </Card>
             );
