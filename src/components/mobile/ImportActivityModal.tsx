@@ -6,6 +6,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import { Text } from "../../theme/components";
+import { LocalizedLink as Link } from "../LocalizedLink";
 
 interface ImportActivityModalProps {
   open: boolean;
@@ -211,6 +212,10 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
             }}>
             {uploading ? (isZip ? t("import.submitBatch") : t("import.submitSingle")) : t("import.submit")}
           </button>
+
+          <p className="text-center" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-3)" }}>
+            {t("import.stravaNote")} <Link to="/settings" className="hover:underline" style={{ color: "var(--strava)" }} onClick={handleClose}>{t("import.stravaSettingsLink")}</Link>{t("import.stravaNoteSuffix")}
+          </p>
         </div>
       </div>
     </div>
