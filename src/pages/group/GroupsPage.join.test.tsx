@@ -44,7 +44,7 @@ describe("GroupsPage join results", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "가입" })).toBeEnabled());
   }, 15_000);
 
-  it("does not infer pending from local approval metadata when the server reports an active join", async () => {
+  function addManualPublicGroup() {
     publicGroups.push({
       id: "group-1",
       name: "Manual Club",
@@ -57,7 +57,22 @@ describe("GroupsPage join results", () => {
       approval: "manual",
       memberCount: 2,
     });
-    setCallableResult("joinGroupPublic", { data: { success: true } });
+  }
+
+  it("keeps a public join request on the list when the deployed contract reports pending", async () => {
+    addManualPublicGroup();
+    setCallableResult("joinGroupPublic", { data: { success: true, status: "pending" } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
+
+    expect(await screen.findByText(/Manual Club 그룹은 수동 승인 방식입니다/)).toBeInTheDocument();
+    expect(screen.queryByText("group destination")).not.toBeInTheDocument();
+  }, 15_000);
+
+  it("does not infer pending from local approval metadata when the server reports an active join", async () => {
+    addManualPublicGroup();
+    setCallableResult("joinGroupPublic", { data: { success: true, status: "active" } });
     renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));

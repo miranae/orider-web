@@ -5,7 +5,7 @@ import {
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { getPublicUserProfile, type PublicUserProfile } from "../services/publicProfiles";
-import type { Group, GroupMember } from "@shared/types";
+import type { Group, GroupMember, GroupMemberRole } from "@shared/types";
 
 export interface GroupMemberWithProfile extends GroupMember {
   id: string;
@@ -48,6 +48,34 @@ export function useGroup(groupId: string | undefined) {
   }, [groupId]);
 
   return { group, loading, error, inactive };
+}
+
+/** Subscribe only to the signed-in user's membership document for role gates. */
+export function useGroupMemberRole(groupId: string | undefined, userId: string | undefined) {
+  const [role, setRole] = useState<GroupMemberRole | null>(null);
+  const [loading, setLoading] = useState(!!groupId && !!userId);
+
+  useEffect(() => {
+    if (!groupId || !userId) {
+      setRole(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    return onSnapshot(doc(firestore, "groups", groupId, "members", userId), (snap) => {
+      const data = snap.exists() ? snap.data() : null;
+      const value = data?.role;
+      const isActive = data && ["active", "approved"].includes(String(data.status ?? ""));
+      setRole(isActive && (value === "leader" || value === "co-leader" || value === "member") ? value : null);
+      setLoading(false);
+    }, (err) => {
+      logClientError("useGroupMemberRole.snapshot", err, { groupId, userId });
+      setRole(null);
+      setLoading(false);
+    });
+  }, [groupId, userId]);
+
+  return { role, loading };
 }
 
 // 그룹 멤버 목록 + 프로필 조회
@@ -149,8 +177,8 @@ export function useMyGroups(userId: string | undefined) {
 }
 
 // 공개 그룹 검색
-export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; maxCount?: number } = {}) {
-  const { searchText = "", discipline = "ALL", maxCount = 30 } = options;
+export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; maxCount?: number } = {}) {
+  const { searchText = "", discipline = "ALL", city = "", maxCount = 30 } = options;
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -163,13 +191,16 @@ export function usePublicGroups(options: { searchText?: string; discipline?: "AL
     const constraints = [
       where("visibility", "==", "public"),
       where("isActive", "==", true),
+      where("toggles.showInDirectory", "==", true),
       ...(discipline !== "ALL" ? [where("discipline", "==", discipline)] : []),
+      ...(city.trim() ? [where("city", "==", city.trim())] : []),
       ...(trimmed ? [where("name", ">=", trimmed), where("name", "<=", `${trimmed}\uf8ff`), orderBy("name")] : []),
       firestoreLimit(maxCount),
     ];
     const q = query(collection(firestore, "groups"), ...constraints);
     getDocs(q).then((snap) => {
-      setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Group));
+      setGroups(snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Group));
       setLoading(false);
     }).catch((err) => {
       logClientError("usePublicGroups.load", err, {});
@@ -177,7 +208,7 @@ export function usePublicGroups(options: { searchText?: string; discipline?: "AL
       setGroups([]);
       setLoading(false);
     });
-  }, [discipline, maxCount, reloadKey, searchText]);
+  }, [city, discipline, maxCount, reloadKey, searchText]);
 
   return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
 }

@@ -39,3 +39,18 @@ export function isClosed(closeAtIso: string | undefined | null): boolean {
   const ms = new Date(closeAtIso).getTime();
   return !isNaN(ms) && ms < Date.now();
 }
+
+/**
+ * 등록 가능 시간인지 판정한다. 호스트가 상태를 OPEN으로 남겨도 시작 시각이
+ * 지나면 등록을 막고, closeAt이 더 이르면 그 시각을 우선한다.
+ */
+export function isRegistrationTimeOpen(
+  startTime: number,
+  closeAtIso: string | undefined | null,
+  now = Date.now(),
+): boolean {
+  if (!Number.isFinite(startTime) || startTime <= 0 || startTime <= now) return false;
+  if (!closeAtIso) return true;
+  const closeAt = new Date(closeAtIso).getTime();
+  return Number.isNaN(closeAt) || closeAt > now;
+}

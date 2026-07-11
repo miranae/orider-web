@@ -5,7 +5,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
-import { useGroup } from "../../hooks/useGroup";
+import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
 import { logClientError } from "../../services/errorLogger";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import GroupLeaderboardTable from "../../components/group/GroupLeaderboardTable";
@@ -22,23 +22,45 @@ export default function GroupLeaderboardPage() {
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
+  const { role: currentMemberRole } = useGroupMemberRole(groupId, user?.uid);
 
   const [metric, setMetric] = useState<GroupLeaderboardMetric>("ftp_per_kg");
   const [boards, setBoards] = useState<Record<string, GroupLeaderboard | null>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
 
   const isCreator = !!user && !!group && user.uid === group.creatorId;
+  const canManage = isCreator || currentMemberRole === "co-leader";
+
+  const requestRebuild = async (force: boolean) => {
+    if (!groupId || refreshing) return;
+    setRefreshing(true);
+    setRefreshFailed(false);
+    try {
+      const fn = httpsCallable(functions, "rebuildGroupLeaderboard");
+      await fn({ groupId, force });
+    } catch (err) {
+      setRefreshFailed(true);
+      logClientError("group-leaderboard:rebuild", err, { groupId, force });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // 진입 시 1회: 신선도 판단은 서버(rebuildGroupLeaderboard)에 위임.
   useEffect(() => {
     if (!groupId) return;
     let cancelled = false;
     setRefreshing(true);
+    setRefreshFailed(false);
     const fn = httpsCallable(functions, "rebuildGroupLeaderboard");
-    fn({ groupId })
+    fn({ groupId, force: false })
       // 폴백(기존 스냅샷 표시)은 유지하되, 권한 오설정·CF 내부오류·rate-limit 같은 비자명
       // 실패가 전 멤버에 발생해도 가시성이 0이 되지 않도록 표준 로거로 컨텍스트를 남긴다.
-      .catch((err) => { logClientError("group-leaderboard:rebuild", err, { groupId }); })
+      .catch((err) => {
+        if (!cancelled) setRefreshFailed(true);
+        logClientError("group-leaderboard:rebuild", err, { groupId, force: false });
+      })
       .finally(() => { if (!cancelled) setRefreshing(false); });
     return () => { cancelled = true; };
   }, [groupId]);
@@ -79,6 +101,8 @@ export default function GroupLeaderboardPage() {
       minute: "2-digit",
     });
   }, [current, i18n.language]);
+  const computedAt = normalizeStartTime(current?.computedAt);
+  const isStale = !computedAt || Date.now() - computedAt > 15 * 60 * 1000;
 
   if (groupLoading) {
     return (
@@ -102,7 +126,7 @@ export default function GroupLeaderboardPage() {
 
   return (
     <div>
-      <GroupSubNav group={group} isCreator={isCreator} />
+      <GroupSubNav group={group} isCreator={canManage} />
 
       <div className="flex items-center justify-between flex-wrap" style={{ gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
         <div>
@@ -113,12 +137,25 @@ export default function GroupLeaderboardPage() {
             {t("leaderboard.desc")}
           </p>
         </div>
-        {refreshing && (
-          <Text as="span" className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
-            {t("leaderboard.refreshing")}
-          </Text>
-        )}
+        <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
+          {refreshing && (
+            <Text as="span" className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+              {t("leaderboard.refreshing")}
+            </Text>
+          )}
+          {canManage && (
+            <Button variant="secondary" size="sm" disabled={refreshing} onClick={() => { void requestRebuild(true); }}>
+              {t("leaderboard.refreshNow")}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {(isStale || refreshFailed) && (
+        <div role="status" className="mb-3 rounded-[var(--r-md)] px-3 py-2 text-[length:var(--fs-xs)]" style={{ color: "var(--amber)", background: "color-mix(in oklch, var(--amber) 10%, transparent)", border: "1px solid color-mix(in oklch, var(--amber) 25%, transparent)" }}>
+          {refreshFailed ? t("leaderboard.refreshFailed") : t("leaderboard.staleWarning")}
+        </div>
+      )}
 
       {/* 메트릭 토글 */}
       <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
@@ -143,7 +180,6 @@ export default function GroupLeaderboardPage() {
           </Text>
         )}
       </div>
-
       {entries.length === 0 ? (
         <EmptyState icon="🏆" title={t("leaderboard.empty")} description={t("leaderboard.emptyDesc")} compact />
       ) : (
