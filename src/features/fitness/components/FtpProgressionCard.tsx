@@ -18,18 +18,23 @@ export default function FtpProgressionCard({
 
   const w = 480;
   const h = 128;
+  const xPadding = 8;
   const values = points.map((point) => point.ftpW);
   const referenceValues = currentFtpW && currentFtpW > 0 ? [...values, currentFtpW] : values;
-  const min = Math.min(...referenceValues, 100);
-  const max = Math.max(...referenceValues, 100);
+  const min = referenceValues.length > 0 ? Math.min(...referenceValues) : 100;
+  const max = referenceValues.length > 0 ? Math.max(...referenceValues) : 100;
   const padding = Math.max(5, (max - min) * 0.15);
   const lo = min - padding;
   const hi = max + padding;
-  const sx = (index: number) => points.length <= 1 ? 0 : (index / (points.length - 1)) * w;
+  const sx = (index: number) => points.length <= 1
+    ? w / 2
+    : xPadding + (index / (points.length - 1)) * (w - xPadding * 2);
   const sy = (value: number) => h - ((value - lo) / Math.max(hi - lo, 1)) * h;
   const path = points.map((point, index) => `${index ? "L" : "M"}${sx(index).toFixed(1)} ${sy(point.ftpW).toFixed(1)}`).join(" ");
   const formatPeriod = (period: string) => new Intl.DateTimeFormat(i18n.language, { year: "2-digit", month: "short" })
     .format(new Date(`${period}-01T00:00:00`));
+  const labelStep = Math.max(1, Math.ceil((points.length - 1) / 5));
+  const shouldLabel = (index: number) => index === 0 || index === points.length - 1 || index % labelStep === 0;
 
   return (
     <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "var(--space-5)" }}>
@@ -57,9 +62,11 @@ export default function FtpProgressionCard({
             {points.map((point, index) => (
               <g key={point.period}>
                 <circle cx={sx(index)} cy={sy(point.ftpW)} r="3.5" fill="var(--aqua)" />
-                <text x={sx(index)} y={h + 18} textAnchor={index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} fill="var(--ink-4)" style={{ fontSize: "var(--fs-xs)" }}>
-                  {formatPeriod(point.period)}
-                </text>
+                {shouldLabel(index) && (
+                  <text x={sx(index)} y={h + 18} textAnchor={index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} fill="var(--ink-4)" style={{ fontSize: "var(--fs-xs)" }}>
+                    {formatPeriod(point.period)}
+                  </text>
+                )}
               </g>
             ))}
           </svg>
