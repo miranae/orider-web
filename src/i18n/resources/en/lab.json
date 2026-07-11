@@ -8,6 +8,8 @@
   "course.title": "Select course",
   "course.select": "Course",
   "course.placeholder": "Select a course",
+  "course.createLink": "Create course",
+  "course.exploreLink": "Explore public courses",
   "course.distance": "Distance",
   "course.elevation": "Elevation gain",
   "course.segments": "Segments",

@@ -154,7 +154,7 @@ export default function MobilePlanPage({
               [t("page.daysLeftPrefix"), daysLeft ?? "—"],
               [t("metrics.progress"), progressPct != null ? `${progressPct}%` : "—"],
               [t("metrics.completedTSS"), `${completedTSS ?? 0}/${totalTSS ?? 0}`],
-              [t("metrics.projectedCTL"), projectedCTL != null ? `+${Math.round(projectedCTL)}` : "—"],
+              [t("metrics.projectedCTL"), projectedCTL != null ? `≈+${Math.round(projectedCTL)}` : "—"],
             ].map(([label, value]) => (
               <div key={String(label)} style={{ minWidth: 0, padding: "var(--space-2)", borderRadius: "var(--r-md)", background: "var(--bg-2)" }}>
                 <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{label}</Text>

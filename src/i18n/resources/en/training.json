@@ -124,7 +124,7 @@
     "completedTSS": "Completed TSS",
     "weeksLeft": "Weeks Left",
     "weeksUnit": "wk",
-    "projectedCTL": "Projected CTL",
+    "projectedCTL": "CTL change guide",
     "goalDate": "Goal Date",
     "daysLeft": "D-",
     "courseDistance": "km",
@@ -132,6 +132,7 @@
     "targetDuration": "Target Duration",
     "plannedGeneration": "Training plan is still being generated. Please refresh later."
   },
+  "plan.rerollSuccess": "Workout plan regenerated.",
   "goals": {
     "wizardTitle": {
       "bike": "Create Your Training Plan in 3 Minutes",

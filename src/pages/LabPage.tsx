@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
   collection,
   query,
@@ -314,6 +315,16 @@ export default function LabPage() {
               ))}
             </Select>
           </Field>
+          {courses.length === 0 && (
+            <div className="flex flex-wrap" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+              <Link to="/course/create" style={{ padding: "var(--space-2) var(--space-3)", borderRadius: "var(--r-md)", background: "var(--lime)", color: "var(--primary-fg)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
+                {t("course.createLink")}
+              </Link>
+              <Link to="/courses" style={{ padding: "var(--space-2) var(--space-3)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", color: "var(--ink-1)", fontSize: "var(--fs-sm)", fontWeight: 600 }}>
+                {t("course.exploreLink")}
+              </Link>
+            </div>
+          )}
           {selectedCourse && (
             <div
               style={{
