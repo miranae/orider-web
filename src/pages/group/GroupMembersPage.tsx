@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { collection, getDocs, deleteDoc, doc as fsDoc, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc as fsDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -20,7 +20,7 @@ import { Button, Card, Chip, Text } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 
 type Tab = "members" | "pending" | "invite";
-type RoleFilter = "all" | "leader" | "member";
+type RoleFilter = "all" | "leader" | "co-leader" | "member";
 
 interface PendingRequest {
   userId: string;
@@ -61,6 +61,7 @@ export default function GroupMembersPage() {
   const [pendingLoading, setPendingLoading] = useState(false);
   const [invitations, setInvitations] = useState<InvitationDoc[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [roleBusyId, setRoleBusyId] = useState<string | null>(null);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
 
   // 멤버 통계는 useGroupRideStats 서버 집계에서 제공한다.
@@ -192,6 +193,35 @@ export default function GroupMembersPage() {
     }
   };
 
+  const handleRoleChange = async (targetUserId: string, name: string, currentRole: string) => {
+    if (
+      !groupId ||
+      !isCreator ||
+      targetUserId === user?.uid ||
+      targetUserId === group.creatorId ||
+      currentRole === "leader" ||
+      (currentRole !== "member" && currentRole !== "co-leader")
+    ) return;
+
+    const nextRole = currentRole === "co-leader" ? "member" : "co-leader";
+    const confirmed = await dialog.confirm(t(
+      nextRole === "co-leader" ? "members.confirmPromote" : "members.confirmDemote",
+      { name },
+    ));
+    if (!confirmed) return;
+
+    setRoleBusyId(targetUserId);
+    try {
+      await updateDoc(fsDoc(firestore, "groups", groupId, "members", targetUserId), { role: nextRole });
+      showToast(t(nextRole === "co-leader" ? "members.promoteSuccess" : "members.demoteSuccess", { name }));
+    } catch (err) {
+      logClientError("GroupMembersPage.handleRoleChange", err, { groupId, targetUserId, nextRole });
+      showToast(t("members.roleChangeFailed"), "error");
+    } finally {
+      setRoleBusyId(null);
+    }
+  };
+
   const handleApprove = async (userId: string) => {
     if (!groupId) return;
     try {
@@ -303,6 +333,7 @@ export default function GroupMembersPage() {
             >
               <option value="all">{t("filter.roles")}</option>
               <option value="leader">{t("members.role.leader")}</option>
+              <option value="co-leader">{t("members.role.coLeader")}</option>
               <option value="member">{t("members.role.member")}</option>
             </select>
             {selected.size > 0 && isCreator && (
@@ -332,8 +363,8 @@ export default function GroupMembersPage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "32px minmax(160px, 1fr) minmax(78px, 100px) minmax(92px, 110px) minmax(104px, 120px) minmax(76px, 96px)",
-                  minWidth: 640,
+                  gridTemplateColumns: "32px minmax(160px, 1fr) minmax(78px, 100px) minmax(92px, 110px) minmax(104px, 120px) minmax(170px, 190px)",
+                  minWidth: 760,
                   padding: "10px 14px",
                   borderBottom: "1px solid var(--line-soft)",
                   background: "var(--bg-1)",
@@ -370,8 +401,8 @@ export default function GroupMembersPage() {
                     key={m.id}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "32px minmax(160px, 1fr) minmax(78px, 100px) minmax(92px, 110px) minmax(104px, 120px) minmax(76px, 96px)",
-                      minWidth: 640,
+                      gridTemplateColumns: "32px minmax(160px, 1fr) minmax(78px, 100px) minmax(92px, 110px) minmax(104px, 120px) minmax(170px, 190px)",
+                      minWidth: 760,
                       padding: "12px 14px",
                       alignItems: "center",
                       borderTop: "1px solid var(--line-soft)",
@@ -402,18 +433,35 @@ export default function GroupMembersPage() {
                     <Text as="div" variant="num" className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-1)" }}>
                       {stats ? `${(stats.distance / 1000).toFixed(0)}km · ${stats.rideCount}${t("members.rideUnit")}` : "—"}
                     </Text>
-                    <div style={{ textAlign: "right" }}>
-                      {isCreator && !isMe && (
-                        <Button
-                          type="button"
-                          onClick={() => void handleRemoveMember(m.id, m.profile?.nickname ?? m.id)}
-                          disabled={bulkBusy}
-                          variant="secondary"
-                          size="sm"
-                          style={{ color: "var(--rose)", borderColor: "color-mix(in oklch, var(--rose) 40%, transparent)" }}
-                        >
-                          {t("button.remove")}
-                        </Button>
+                    <div className="flex items-center justify-end" style={{ gap: "var(--space-1)" }}>
+                      {isCreator && !isMe && m.id !== group.creatorId && role !== "leader" && (role === "member" || role === "co-leader") && (
+                        <>
+                          <Button
+                            type="button"
+                            onClick={() => void handleRoleChange(m.id, m.profile?.nickname ?? m.id, role)}
+                            disabled={roleBusyId === m.id || bulkBusy}
+                            aria-label={t(
+                              role === "co-leader" ? "members.action.demoteAria" : "members.action.promoteAria",
+                              { name: m.profile?.nickname ?? m.id },
+                            )}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            {roleBusyId === m.id
+                              ? t("button.saving")
+                              : t(role === "co-leader" ? "members.action.demote" : "members.action.promote")}
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => void handleRemoveMember(m.id, m.profile?.nickname ?? m.id)}
+                            disabled={bulkBusy || roleBusyId === m.id}
+                            variant="secondary"
+                            size="sm"
+                            style={{ color: "var(--rose)", borderColor: "color-mix(in oklch, var(--rose) 40%, transparent)" }}
+                          >
+                            {t("button.remove")}
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>

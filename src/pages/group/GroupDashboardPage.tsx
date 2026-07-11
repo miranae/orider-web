@@ -212,6 +212,17 @@ export default function GroupDashboardPage() {
         )}
       </Card>
 
+      {group.rules?.trim() && (
+        <Card padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
+          <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)", marginBottom: "var(--space-2)" }}>
+            {t("dashboard.rules.title")}
+          </h2>
+          <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+            {group.rules}
+          </p>
+        </Card>
+      )}
+
       {/* KPI 스트립 — 5개 (시안 정합) */}
       <Card padding="none" className="mb-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" style={{ borderRadius: "var(--r-lg)", padding: 0 }}>
         {([
