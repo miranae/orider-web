@@ -43,5 +43,15 @@
   "invite.errorInvalid": "This invite code cannot be used.",
   "invite.errorFailed": "Failed to add this friend. Try again in a moment.",
   "invite.retry": "Retry",
-  "invite.backToFriends": "Go to friends"
+  "invite.backToFriends": "Go to friends",
+  "onboarding.title": "Start with friends",
+  "onboarding.description": "Share your invite link or enter a friend's code below. You can skip this step.",
+  "onboarding.share": "Share invite link",
+  "onboarding.loadingCode": "Preparing friend code…",
+  "onboarding.codeUnavailable": "Friend code isn't available yet",
+  "onboarding.continue": "Continue",
+  "onboarding.shareTitle": "ORider friend invite",
+  "onboarding.shareText": "Let's train together on ORider.",
+  "onboarding.copied": "Invite link copied",
+  "onboarding.shareFailed": "Couldn't share the invite link"
 }
