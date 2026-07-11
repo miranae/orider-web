@@ -10,7 +10,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useToast } from "../../contexts/ToastContext";
-import { useGroup } from "../../hooks/useGroup";
+import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import VisibilityToggle from "../../components/group/VisibilityToggle";
 import { EmptyState } from "../../components/redesign";
@@ -24,6 +24,7 @@ export default function GroupSettingsPage() {
   const { groupId } = useParams();
   const { user } = useAuth();
   const { group, loading: groupLoading } = useGroup(groupId);
+  const { role: currentMemberRole, loading: roleLoading } = useGroupMemberRole(groupId, user?.uid);
   const navigate = useNavigate();
   const dialog = useDialog();
   const { showToast } = useToast();
@@ -59,6 +60,7 @@ export default function GroupSettingsPage() {
   const [sports, setSports] = useState<("bike" | "run" | "swim" | "tri")[]>(["bike"]);
   const [approval, setApproval] = useState<GroupApproval>("auto");
   const [rules, setRules] = useState("");
+  const [monthlyGoalKm, setMonthlyGoalKm] = useState(0);
   const [toggles, setToggles] = useState<GroupToggles>({
     postEvents: true,
     membersPost: true,
@@ -96,6 +98,7 @@ export default function GroupSettingsPage() {
       setSports(group.sports ?? (group.discipline ? [group.discipline] : ["bike"]));
       setApproval(group.approval ?? "auto");
       setRules(group.rules ?? "");
+      setMonthlyGoalKm(group.monthlyGoalKm ?? 0);
       setToggles({
         postEvents: group.toggles?.postEvents ?? true,
         membersPost: group.toggles?.membersPost ?? true,
@@ -124,7 +127,7 @@ export default function GroupSettingsPage() {
     );
   }
 
-  if (groupLoading) {
+  if (groupLoading || roleLoading) {
     return (
       <div className="space-y-4 animate-pulse max-w-lg">
         <div className="h-8 w-44 rounded-[var(--r-sm)]" style={{ background: "var(--bg-2)" }} />
@@ -147,9 +150,10 @@ export default function GroupSettingsPage() {
   }
 
   const isCreator = user.uid === group.creatorId;
+  const canManage = isCreator || currentMemberRole === "co-leader";
 
   // 일반 멤버: 탈퇴만 표시
-  if (!isCreator) {
+  if (!canManage) {
     return (
       <div>
         <GroupSubNav group={group} isCreator={false} />
@@ -191,13 +195,16 @@ export default function GroupSettingsPage() {
         badge: badge.trim().slice(0, 3).toUpperCase() || null,
         city: city.trim() || null,
         description: description.trim(),
-        visibility,
-        kind,
-        sports,
-        discipline: sports[0] ?? "bike",
-        approval,
+        ...(isCreator ? {
+          visibility,
+          kind,
+          sports,
+          discipline: sports[0] ?? "bike",
+          approval,
+        } : {}),
         rules: rules.trim() || null,
         toggles,
+        monthlyGoalKm: Math.max(0, Math.min(1_000_000, monthlyGoalKm)),
       });
       dirtyRef.current = false;
       showToast(t("settings.saveSuccess"));
@@ -240,7 +247,7 @@ export default function GroupSettingsPage() {
 
   return (
     <div>
-      <GroupSubNav group={group} isCreator={isCreator} />
+      <GroupSubNav group={group} isCreator={canManage} />
 
       {/* Breadcrumb */}
       <div className="text-[length:var(--fs-xs)] flex items-center mb-3" style={{ gap: "var(--space-1-5)", color: "var(--ink-3)" }}>
@@ -286,7 +293,7 @@ export default function GroupSettingsPage() {
               />
             </div>
           </div>
-          <div style={{ marginBottom: 'var(--space-4)' }}>
+          {isCreator && <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.location")}</Text>
             <input
               type="text"
@@ -299,8 +306,8 @@ export default function GroupSettingsPage() {
               className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
               style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
             />
-          </div>
-          <div style={{ marginBottom: 'var(--space-4)' }}>
+          </div>}
+          {isCreator && <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.kind")}</Text>
             <div role="radiogroup" aria-label={t("settings.kind")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {(Object.keys(KIND_LABELS) as GroupKind[]).map((k) => {
@@ -322,7 +329,7 @@ export default function GroupSettingsPage() {
                 );
               })}
             </div>
-          </div>
+          </div>}
           <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.sports")}</Text>
             <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
@@ -359,7 +366,7 @@ export default function GroupSettingsPage() {
         </Card>
 
         {/* 공개 & 가입 */}
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+        {isCreator && <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <h2 className="text-[length:var(--fs-sm)] font-semibold mb-4" style={{ color: "var(--ink-1)" }}>{t("settings.visibility")}</h2>
           <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.visibilityLabel")}</Text>
@@ -394,7 +401,7 @@ export default function GroupSettingsPage() {
               })}
             </div>
           </div>
-        </Card>
+        </Card>}
 
         {/* 권한 토글 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -413,6 +420,28 @@ export default function GroupSettingsPage() {
                 </label>
               );
             })}
+          </div>
+        </Card>
+
+        {/* 월간 팀 목표 */}
+        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+          <h2 className="text-[length:var(--fs-sm)] font-semibold mb-2" style={{ color: "var(--ink-1)" }}>{t("settings.monthlyGoal.title")}</h2>
+          <p className="text-[length:var(--fs-xs)] mb-3" style={{ color: "var(--ink-3)" }}>{t("settings.monthlyGoal.desc")}</p>
+          <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
+            <input
+              type="number"
+              min={0}
+              max={1_000_000}
+              step={10}
+              value={monthlyGoalKm}
+              onChange={(event) => {
+                markDirty();
+                setMonthlyGoalKm(Number(event.target.value) || 0);
+              }}
+              className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
+              style={{ width: 160, background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
+            />
+            <Text variant="unit">km</Text>
           </div>
         </Card>
 
@@ -477,8 +506,8 @@ export default function GroupSettingsPage() {
           </button>
         </Card>
 
-        {/* 그룹 삭제 */}
-        <Card padding="none" className="p-6"
+        {/* 그룹 삭제는 소유권이 있는 생성자에게만 허용한다. */}
+        {isCreator && <Card padding="none" className="p-6"
           style={{ borderRadius: "var(--r-md)", borderColor: "color-mix(in srgb, var(--rose) 30%, transparent)" }}
         >
           <h2 className="text-[length:var(--fs-sm)] font-semibold text-red-500 mb-2">{t("settings.dangerZone")}</h2>
@@ -510,7 +539,7 @@ export default function GroupSettingsPage() {
               {t("button.deleteGroup")}
             </button>
           )}
-        </Card>
+        </Card>}
       </div>
     </div>
   );

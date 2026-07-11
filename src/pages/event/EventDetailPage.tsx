@@ -14,7 +14,7 @@ import { useDialog } from "../../contexts/DialogContext";
 import { Course } from "@shared/types";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
-import { normalizeStartTime } from "../../utils/event-time";
+import { isRegistrationTimeOpen, normalizeStartTime } from "../../utils/event-time";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -55,6 +55,7 @@ export default function EventDetailPage() {
   const [isHost, setIsHost] = useState(false);
   const [participantCount, setParticipantCount] = useState(0);
   const [starting, setStarting] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [sending, setSending] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [recentParticipants, setRecentParticipants] = useState<RecentParticipant[]>([]);
@@ -83,6 +84,35 @@ export default function EventDetailPage() {
       setStarting(false);
     }
   }, [eventId, event, navigate, showToast, t]);
+
+  const handleCancelRegistration = useCallback(async () => {
+    if (!eventId || !user || withdrawing) return;
+    if (!(await dialog.confirm(t("detail.confirm.cancelRegistration"), {
+      destructive: true,
+      confirmLabel: t("detail.button.cancelRegistration"),
+    }))) return;
+
+    setWithdrawing(true);
+    try {
+      const cancelRegistration = httpsCallable<{ eventId: string }, { cancelled: boolean }>(functions, "cancelRegistration");
+      const { data } = await cancelRegistration({ eventId });
+      setIsParticipant(false);
+      if (data.cancelled) setParticipantCount((count) => Math.max(0, count - 1));
+      setRecentParticipants((items) => items.filter((participant) => participant.uid !== user.uid));
+      showToast(t("detail.toast.registrationCancelled"));
+    } catch (err) {
+      logClientError("EventDetailPage.cancelRegistration", err, { eventId });
+      const code = (err as { code?: string } | null)?.code;
+      void dialog.alert(
+        code === "functions/failed-precondition"
+          ? t("detail.error.registrationCancellationClosed")
+          : t("detail.error.cancelRegistrationFailed"),
+        { variant: "danger" },
+      );
+    } finally {
+      setWithdrawing(false);
+    }
+  }, [dialog, eventId, showToast, t, user, withdrawing]);
   const [linkedCourses, setLinkedCourses] = useState<Course[]>([]);
   const [selectedCourseIdx, setSelectedCourseIdx] = useState(0);
   const [courseDataMap, setCourseDataMap] = useState<Record<number, CourseData>>({});
@@ -123,6 +153,7 @@ export default function EventDetailPage() {
             type: info.type || "TOUR",
             status: info.status || "UNKNOWN",
             startTime: normalizeStartTime(info.startTime),
+            closeAt: typeof info.closeAt === "string" ? info.closeAt : undefined,
             creatorId,
             hostIds,
             creatorName,
@@ -579,7 +610,7 @@ export default function EventDetailPage() {
                 >
                   🔗 {t("button.share")}
                 </Button>
-                {event.status === "OPEN" && !isParticipant && (
+                {event.status === "OPEN" && !isParticipant && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
                   <Button
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/register`)} variant="primary" size="sm"
@@ -590,9 +621,11 @@ export default function EventDetailPage() {
                 {event.status === "OPEN" && isParticipant && (
                   <Button
                     type="button" variant="secondary" size="sm"
-                    style={{ color: "var(--aqua)", borderColor: "color-mix(in oklch, var(--aqua) 40%, transparent)" }}
+                    disabled={withdrawing}
+                    onClick={() => { void handleCancelRegistration(); }}
+                    style={{ color: "var(--amber)", borderColor: "color-mix(in oklch, var(--amber) 40%, transparent)" }}
                   >
-                    ✓ {t("status.registered")}
+                    {withdrawing ? t("detail.button.cancellingRegistration") : t("detail.button.cancelRegistration")}
                   </Button>
                 )}
                 {event.status === "OPEN" && isHost && (

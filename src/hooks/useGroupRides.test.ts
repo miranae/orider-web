@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { setCallableResult } from "../__tests__/mocks/firebase";
-import { useGroupRideStats } from "./useGroupRides";
+import { normalizeGroupRideAggregate, useGroupRideStats } from "./useGroupRides";
 
 describe("useGroupRideStats", () => {
   it("loads grouped rides from the callable response", async () => {
@@ -33,6 +33,13 @@ describe("useGroupRideStats", () => {
         },
         computedAt: 1_700_000_100_000,
         cached: false,
+        aggregate: {
+          monthKey: "2026-07",
+          monthlyDistance: 42_000,
+          lifetimeDistance: 1_000_000,
+          lifetimeRideCount: 20,
+          longestRideDistance: 120_000,
+        },
       },
     });
 
@@ -44,6 +51,10 @@ describe("useGroupRideStats", () => {
     expect(result.current.rides).toHaveLength(1);
     expect(result.current.rides[0]?.totalDistance).toBe(12_000);
     expect(result.current.memberStats["member-a"]?.rideCount).toBe(1);
+    expect(result.current.aggregate).toEqual(expect.objectContaining({
+      monthKey: "2026-07",
+      lifetimeRideCount: 20,
+    }));
   });
 
   it("does not query when group id is missing", async () => {
@@ -85,5 +96,12 @@ describe("useGroupRideStats", () => {
     });
     expect(result.current.rides).toEqual([]);
     expect(result.current.memberStats).toEqual({});
+  });
+});
+
+describe("normalizeGroupRideAggregate", () => {
+  it("rejects partial or non-finite server aggregates", () => {
+    expect(normalizeGroupRideAggregate({ monthKey: "2026-07", monthlyDistance: Number.NaN })).toBeNull();
+    expect(normalizeGroupRideAggregate({ monthKey: "July" })).toBeNull();
   });
 });

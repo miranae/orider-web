@@ -9,6 +9,7 @@ import { useMyGroups, usePublicGroups } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
+import GroupChallengesPanel from "../../components/group/GroupChallengesPanel";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader, PermissionGate } from "../../components/redesign";
 import { Button, Card } from "../../theme/components";
 import {
@@ -30,10 +31,12 @@ export default function GroupsPage() {
   const [pendingNotice, setPendingNotice] = useState("");
   const [error, setError] = useState("");
   const [disciplineFilter, setDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
+  const [cityFilter, setCityFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups } = usePublicGroups({
     searchText: searchQuery,
     discipline: disciplineFilter,
+    city: cityFilter,
     maxCount: 30,
   });
   const navigate = useNavigate();
@@ -126,6 +129,15 @@ export default function GroupsPage() {
           className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
           style={{ flex: "1 1 200px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
         />
+        <input
+          type="search"
+          value={cityFilter}
+          onChange={(e) => setCityFilter(e.target.value)}
+          placeholder={t("search.city")}
+          aria-label={t("search.city")}
+          className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
+          style={{ flex: "0 1 180px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
+        />
         <div role="group" aria-label={t("filter.all")} className="flex items-center flex-wrap" style={{ gap: 'var(--space-1)' }}>
           {[
             { v: "ALL" as const, label: t("filter.all") },
@@ -178,6 +190,8 @@ export default function GroupsPage() {
           ))}
         </div>
       )}
+
+      <GroupChallengesPanel userId={user.uid} groups={myGroups} />
 
       <h2 className="text-[length:var(--fs-lg)] font-bold mb-4" style={{ color: "var(--ink-0)" }}>{t("find.section")}</h2>
 

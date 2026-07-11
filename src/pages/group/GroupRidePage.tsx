@@ -10,6 +10,8 @@ import { logClientError } from "../../services/errorLogger";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Activity, ActivityStreams } from "@shared/types";
+import { useGroup } from "../../hooks/useGroup";
+import { getStreamPhotos } from "../../features/activity/detail/activityDetailDerived";
 
 import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
 import type { LngLatBoundsLike } from "mapbox-gl";
@@ -33,6 +35,7 @@ export default function GroupRidePage() {
   const { t } = useTranslation("group");
   const { groupId, rideId } = useParams();
   const { user } = useAuth();
+  const { group } = useGroup(groupId);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [streams, setStreams] = useState<Record<string, ActivityStreams>>({});
   const [loading, setLoading] = useState(true);
@@ -153,6 +156,15 @@ export default function GroupRidePage() {
     () => activities.filter((a) => visibleRiders.has(a.id)),
     [activities, visibleRiders],
   );
+
+  const ridePhotos = useMemo(() => {
+    if (group?.toggles?.ridePhotos !== true) return [];
+    return activities.flatMap((activity) =>
+      getStreamPhotos(streams[activity.id] ?? null)
+        .filter((photo) => !!photo.url)
+        .map((photo) => ({ ...photo, activityId: activity.id, riderName: activity.nickname })),
+    );
+  }, [activities, group?.toggles?.ridePhotos, streams]);
 
   // ── Multi-route map data (ALL activities for stable bounds) ──
   const allRouteGeoJSONs = useMemo(() => {
@@ -544,6 +556,27 @@ export default function GroupRidePage() {
                 ))}
               </div>
             </div>
+          )}
+
+          {ridePhotos.length > 0 && (
+            <Card padding="none" className="p-5 mb-8" style={{ borderRadius: "var(--r-md)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ridePage.photos.title")}</h3>
+                <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("ridePage.photos.count", { count: ridePhotos.length })}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {ridePhotos.map((photo, index) => (
+                  <figure key={`${photo.activityId}-${photo.id}-${index}`} style={{ margin: 0 }}>
+                    <a href={photo.url ?? undefined} target="_blank" rel="noreferrer" aria-label={t("ridePage.photos.open", { name: photo.riderName })}>
+                      <img src={photo.url ?? ""} alt={photo.caption ?? t("ridePage.photos.alt", { name: photo.riderName })} loading="lazy" style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }} />
+                    </a>
+                    <figcaption className="text-[length:var(--fs-xs)] mt-1 truncate" style={{ color: "var(--ink-3)" }}>
+                      {photo.riderName}{photo.caption ? ` · ${photo.caption}` : ""}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </Card>
           )}
         </div>
 

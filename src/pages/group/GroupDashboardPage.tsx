@@ -2,13 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { isPermissionDeniedError } from "../../utils/firebaseErrors";
 import { useAuth } from "../../contexts/AuthContext";
-import { useGroup, useGroupMembers } from "../../hooks/useGroup";
+import { useToast } from "../../contexts/ToastContext";
+import { useGroup, useGroupMemberRole, useGroupMembers } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
+import { createGroupPost, useGroupPosts } from "../../hooks/useGroupPosts";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
@@ -20,16 +22,23 @@ interface UpcomingEvent {
   name: string;
   startTime: number;
   status: string;
+  participantCount: number | null;
+  myRsvp: boolean;
 }
 
 export default function GroupDashboardPage() {
   const { t } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId, 8);
+  const { role: currentMemberRole } = useGroupMemberRole(groupId, user?.uid);
 
-  const { rides, loading: ridesLoading } = useGroupRideStats(groupId);
+  const { rides, aggregate, loading: ridesLoading } = useGroupRideStats(groupId);
+  const { posts, loading: postsLoading } = useGroupPosts(groupId);
+  const [postContent, setPostContent] = useState("");
+  const [posting, setPosting] = useState(false);
 
   // 다가오는 그룹 이벤트
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
@@ -48,20 +57,30 @@ export default function GroupDashboardPage() {
             limit(5)
           )
         );
-        const list: UpcomingEvent[] = snap.docs.map((d) => {
+        const list: UpcomingEvent[] = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           const info = data.info ?? {};
           const startTime =
             typeof info.startTime === "number" ? info.startTime :
             info.startTime?._seconds ? info.startTime._seconds * 1000 :
             info.startTime?.seconds ? info.startTime.seconds * 1000 : 0;
+          let myRsvp = false;
+          if (user?.uid) {
+            try {
+              myRsvp = (await getDoc(doc(firestore, "events", d.id, "participants", user.uid))).exists();
+            } catch (err) {
+              logClientError("GroupDashboardPage.loadMyRsvp", err, { groupId, eventId: d.id });
+            }
+          }
           return {
             id: d.id,
             name: info.name ?? t("dashboard.fallbackEventName"),
             startTime,
             status: info.status ?? "UNKNOWN",
+            participantCount: typeof data.counters?.totalRegistered === "number" ? data.counters.totalRegistered : null,
+            myRsvp,
           };
-        });
+        }));
         if (!cancelled) setUpcomingEvents(list);
       } catch (err) {
         // 인덱스 없을 시 조용히 실패
@@ -69,7 +88,7 @@ export default function GroupDashboardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [groupId, t]);
+  }, [groupId, t, user?.uid]);
 
   // 이번 주 통계 계산
   const weekStats = useMemo(() => {
@@ -169,10 +188,30 @@ export default function GroupDashboardPage() {
   }
 
   const isCreator = user?.uid === group.creatorId;
+  const canManage = isCreator || currentMemberRole === "co-leader";
+  const canPost = !!user && (isCreator || group.toggles?.membersPost !== false);
+  const submitPost = async () => {
+    if (!groupId || !user || posting) return;
+    setPosting(true);
+    try {
+      await createGroupPost({
+        groupId,
+        content: postContent,
+        kind: canManage ? "announcement" : "post",
+      });
+      setPostContent("");
+      showToast(t("dashboard.posts.success"));
+    } catch (err) {
+      logClientError("GroupDashboardPage.createPost", err, { groupId });
+      showToast(t("dashboard.posts.failed"), "error");
+    } finally {
+      setPosting(false);
+    }
+  };
 
   return (
     <div>
-      <GroupSubNav group={group} isCreator={isCreator} />
+      <GroupSubNav group={group} isCreator={canManage} />
 
       {/* Hero 영역 */}
       <Card padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: "24px 28px" }}>
@@ -200,7 +239,7 @@ export default function GroupDashboardPage() {
               )}
             </div>
           </div>
-          {isCreator && (
+          {canManage && (
             <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
               <Link to="/events" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.events")}</Link>
               <Link to={`/group/${groupId}/settings`} className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`}>{t("dashboard.manage")}</Link>
@@ -223,6 +262,47 @@ export default function GroupDashboardPage() {
         </Card>
       )}
 
+      <Card padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("dashboard.posts.title")}</h2>
+          <Text as="span" variant="eyebrow">{t("dashboard.posts.latest")}</Text>
+        </div>
+        {canPost && (
+          <div className="flex items-end mb-4" style={{ gap: "var(--space-2)" }}>
+            <textarea
+              value={postContent}
+              onChange={(event) => setPostContent(event.target.value.slice(0, 1_000))}
+              maxLength={1_000}
+              rows={2}
+              placeholder={canManage ? t("dashboard.posts.announcementPlaceholder") : t("dashboard.posts.placeholder")}
+              aria-label={t("dashboard.posts.placeholder")}
+              style={{ flex: 1, resize: "vertical", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", color: "var(--ink-0)", padding: "10px 12px" }}
+            />
+            <button type="button" className={buttonClass({ variant: "primary", size: "sm" })} disabled={posting || !postContent.trim()} onClick={() => { void submitPost(); }}>
+              {posting ? t("dashboard.posts.posting") : t("dashboard.posts.submit")}
+            </button>
+          </div>
+        )}
+        {postsLoading ? (
+          <LoadingSkeleton kind="list" count={2} />
+        ) : posts.length === 0 ? (
+          <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("dashboard.posts.empty")}</p>
+        ) : (
+          <ul className="space-y-2" style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {posts.map((post) => (
+              <li key={post.id} style={{ padding: "10px 12px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)" }}>
+                <div className="flex items-center mb-1" style={{ gap: "var(--space-2)" }}>
+                  {post.kind === "announcement" && <Chip style={{ color: "var(--amber)", fontSize: "var(--fs-xs)" }}>{t("dashboard.posts.announcement")}</Chip>}
+                  <span className="text-[length:var(--fs-xs)] font-semibold" style={{ color: "var(--ink-1)" }}>{post.authorName || t("dashboard.posts.memberFallback")}</span>
+                  {post.createdAt > 0 && <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)" }}>{new Date(post.createdAt).toLocaleDateString()}</span>}
+                </div>
+                <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)", margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{post.content}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
       {/* KPI 스트립 — 5개 (시안 정합) */}
       <Card padding="none" className="mb-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" style={{ borderRadius: "var(--r-lg)", padding: 0 }}>
         {([
@@ -243,6 +323,36 @@ export default function GroupDashboardPage() {
         ))}
       </Card>
 
+      {aggregate && (
+        <Card padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: "var(--space-3)" }}>
+            <div>
+              <Text as="div" variant="eyebrow">{t("dashboard.identity.lifetimeDistance")}</Text>
+              <Text as="div" variant="dataLarge">{(aggregate.lifetimeDistance / 1000).toLocaleString(undefined, { maximumFractionDigits: 0 })} km</Text>
+            </div>
+            <div>
+              <Text as="div" variant="eyebrow">{t("dashboard.identity.rideCount")}</Text>
+              <Text as="div" variant="dataLarge">{aggregate.lifetimeRideCount.toLocaleString()} {t("members.rideUnit")}</Text>
+            </div>
+            <div>
+              <Text as="div" variant="eyebrow">{t("dashboard.identity.longestRide")}</Text>
+              <Text as="div" variant="dataLarge">{(aggregate.longestRideDistance / 1000).toFixed(1)} km</Text>
+            </div>
+          </div>
+          {(group.monthlyGoalKm ?? 0) > 0 && (
+            <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--line-soft)" }}>
+              <div className="flex items-center justify-between text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-2)" }}>
+                <span>{t("dashboard.monthlyGoal.title", { month: aggregate.monthKey })}</span>
+                <span>{(aggregate.monthlyDistance / 1000).toFixed(1)} / {group.monthlyGoalKm?.toLocaleString()} km</span>
+              </div>
+              <div style={{ height: 8, borderRadius: "var(--r-full)", overflow: "hidden", background: "var(--bg-3)" }}>
+                <div style={{ width: `${Math.min(100, aggregate.monthlyDistance / ((group.monthlyGoalKm ?? 1) * 1000) * 100)}%`, height: "100%", background: "var(--lime)" }} />
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* 다가오는 이벤트 */}
       {upcomingEvents.length > 0 && (
         <Card padding="none" className="mb-5 p-4" style={{ borderRadius: "var(--r-lg)" }}>
@@ -258,13 +368,17 @@ export default function GroupDashboardPage() {
                     <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{e.name}</div>
                     <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
                       {e.startTime ? new Date(e.startTime).toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" }) : "-"}
+                      {e.participantCount != null ? ` · ${t("dashboard.eventParticipants", { count: e.participantCount })}` : ""}
                     </div>
                   </div>
-                  <Chip
-                    style={{ color: e.status === "LIVE" ? "var(--lime)" : "var(--aqua)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
-                  >
-                    {e.status === "LIVE" ? t("dashboard.eventStatus.live") : t("dashboard.eventStatus.recruiting")}
-                  </Chip>
+                  <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
+                    {e.myRsvp && <Chip style={{ color: "var(--aqua)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}>{t("dashboard.eventStatus.rsvp")}</Chip>}
+                    <Chip
+                      style={{ color: e.status === "LIVE" ? "var(--lime)" : "var(--aqua)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
+                    >
+                      {e.status === "LIVE" ? t("dashboard.eventStatus.live") : t("dashboard.eventStatus.recruiting")}
+                    </Chip>
+                  </div>
                 </Link>
               </li>
             ))}

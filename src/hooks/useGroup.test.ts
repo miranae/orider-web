@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { getPublicUserProfile } from "../services/publicProfiles";
-import { useGroup, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
+import { isGroupVisibleInDirectory, useGroup, useGroupMemberRole, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
 
 vi.mock("../services/publicProfiles", () => ({
   getPublicUserProfile: vi.fn(),
@@ -80,6 +80,15 @@ describe("useGroup", () => {
   });
 });
 
+describe("useGroupMemberRole", () => {
+  it("tracks the current member role without loading the member list", async () => {
+    setDocData("groups/group-1/members/member-1", { role: "co-leader", status: "active" });
+    const { result } = renderHook(() => useGroupMemberRole("group-1", "member-1"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.role).toBe("co-leader");
+  });
+});
+
 describe("group list hooks", () => {
   beforeEach(() => {
     vi.mocked(getDocs).mockClear();
@@ -114,7 +123,7 @@ describe("group list hooks", () => {
   });
 
   it("queries public groups with server-side search constraints and a limit", async () => {
-    renderHook(() => usePublicGroups({ searchText: "Han", discipline: "bike", maxCount: 30 }));
+    renderHook(() => usePublicGroups({ searchText: "Han", discipline: "bike", city: "서울 · 잠실", maxCount: 30 }));
 
     await waitFor(() => {
       expect(getDocs).toHaveBeenCalled();
@@ -128,5 +137,16 @@ describe("group list hooks", () => {
     expect(orderBy).toHaveBeenCalledWith("name");
     expect(limit).toHaveBeenCalledWith(30);
     expect(query).toHaveBeenCalled();
+  });
+});
+
+describe("isGroupVisibleInDirectory", () => {
+  const base = { id: "g", name: "G", description: "", creatorId: "u", createdAt: 1, isActive: true, inviteCode: "x", visibility: "public" as const, memberCount: 1 };
+
+  it("preserves legacy groups and respects explicit opt-out and city", () => {
+    expect(isGroupVisibleInDirectory(base)).toBe(true);
+    expect(isGroupVisibleInDirectory({ ...base, toggles: { showInDirectory: false } })).toBe(false);
+    expect(isGroupVisibleInDirectory({ ...base, city: "서울 · 잠실" }, "잠실")).toBe(true);
+    expect(isGroupVisibleInDirectory({ ...base, city: "부산" }, "서울")).toBe(false);
   });
 });
