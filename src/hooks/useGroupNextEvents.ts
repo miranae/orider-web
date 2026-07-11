@@ -58,23 +58,36 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setByGroup(new Map());
+      setEventByGroup(new Map());
       try {
         const map = new Map<string, NextEventInfo>();
-        for (let i = 0; i < groupIds.length; i += 10) {
-          const chunk = groupIds.slice(i, i + 10);
-          const q = query(
-            collection(firestore, "events"),
-            where("info.groupId", "in", chunk),
-            where("info.status", "in", ["OPEN", "LIVE"]),
-            orderBy("info.startTime", "asc"),
-          );
-          const snap = await getDocs(q);
-          snap.forEach((doc) => {
+        const uniqueGroupIds = [...new Set(groupIds)];
+        const snapshots = publicOnly
+          ? await Promise.all(uniqueGroupIds.map((groupId) => getDocs(query(
+              collection(firestore, "events"),
+              where("info.groupId", "==", groupId),
+              where("info.visibility", "==", "PUBLIC"),
+            ))))
+          : await Promise.all(Array.from(
+              { length: Math.ceil(uniqueGroupIds.length / 10) },
+              (_, index) => uniqueGroupIds.slice(index * 10, index * 10 + 10),
+            ).map((chunk) => getDocs(query(
+              collection(firestore, "events"),
+              where("info.groupId", "in", chunk),
+              where("info.status", "in", ["OPEN", "LIVE"]),
+              orderBy("info.startTime", "asc"),
+            ))));
+
+        snapshots.forEach((snap) => {
+          snap.docs.forEach((doc) => {
             if (doc.id === excludeEventId) return;
             const d = doc.data();
             const info = d.info ?? {};
             if (!isEligibleNextEvent(info, publicOnly)) return;
+            if (info.status !== "OPEN" && info.status !== "LIVE") return;
             const groupId: string = info.groupId ?? "";
+            if (!uniqueGroupIds.includes(groupId)) return;
             const startTime = toMillis(info.startTime);
             const name = info.name ?? t("dashboard.fallbackEventName");
             const existing = map.get(groupId);
@@ -82,7 +95,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
               map.set(groupId, { id: doc.id, groupId, name, startTime });
             }
           });
-        }
+        });
         if (cancelled) return;
         const labels = new Map<string, string>();
         map.forEach((v, k) => labels.set(k, formatNextLabel(v.startTime, v.name, localeTag())));

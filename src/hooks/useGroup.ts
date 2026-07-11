@@ -20,7 +20,14 @@ export function useGroup(groupId: string | undefined) {
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId) {
+      setGroup(null);
+      setLoading(false);
+      setError(null);
+      setInactive(false);
+      return;
+    }
+    setGroup(null);
     setLoading(true);
     setError(null);
     setInactive(false);
