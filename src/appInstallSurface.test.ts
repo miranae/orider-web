@@ -28,15 +28,12 @@ describe("app install and deep link surfaces", () => {
     );
   });
 
-  it("shows mobile app install links on the mobile feed", () => {
+  it("keeps the mobile feed free of the sticky app install banner", () => {
     const mobileFeed = read("src/components/mobile/MobileFeedPage.tsx");
 
-    expect(mobileFeed).toContain("MobileAppInstallBanner");
-    expect(mobileFeed).toContain('placement="top"');
-    expect(mobileFeed).toContain('placement="bottom"');
-    expect(mobileFeed).toContain("position: \"sticky\"");
-    expect(mobileFeed).toContain("AppInstallLinks");
-    expect(mobileFeed).toContain("mobileFeed.appInstall.title");
+    expect(mobileFeed).not.toContain("MobileAppInstallBanner");
+    expect(mobileFeed).not.toContain("AppInstallLinks");
+    expect(mobileFeed).not.toContain("mobileFeed.appInstall");
   });
 
   it("keeps static about and manual entry points linked to both stores", () => {
