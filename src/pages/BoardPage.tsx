@@ -634,7 +634,7 @@ const BoardPage: React.FC = () => {
       {/* 우측 사이드바 (xl 전용) — 인기 태그로 남는 폭 활용 (#401) */}
       {!isMyInquiryView && panelTags.length > 0 && (
         <aside className="hidden xl:block xl:w-[240px] xl:flex-none">
-          <Card padding="none" className="p-4! sticky top-4">
+          <Card padding="none" className="p-4!">
             <p className="text-[length:var(--fs-xs)] font-semibold uppercase tracking-widest text-[var(--ink-3)] mb-3">
               {t("label.popularTags")}
             </p>
