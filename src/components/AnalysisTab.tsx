@@ -38,6 +38,7 @@ import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import { buildClimbSegmentProposalPath } from "../features/segmentCreation/climbPromotion";
+import { resolveActivityHrZones } from "../utils/hrZones";
 
 type AccentColor = "lime" | "aqua" | "amber" | "rose" | "violet" | "ink";
 const ACCENT: Record<AccentColor, string> = {
@@ -184,11 +185,17 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
   // 우선순위: 사용자 프로필(현재값) → 활동 스트림 스냅샷 → 기본값
   // 프로필을 우선해 임계값 변경이 과거 활동 분석에 즉시 반영되도록 한다.
   const ftp = profile?.ftp || streams.ftp || 200;
-  const maxHr = profile?.maxHr || streams.maxHr || 190;
+  const hrResolution = useMemo(() => resolveActivityHrZones({
+    isOwner, sport, profileMaxHr: profile?.maxHr, profileLthr: profile?.lthr,
+    activityContextMaxHr: sm?.contextSnapshot?.maxHr, activityContextLthr: sm?.contextSnapshot?.lthr,
+    streamMaxHr: streams.maxHr, summaryPeakHr: summary?.maxHeartRate,
+  }), [isOwner, profile?.lthr, profile?.maxHr, sm?.contextSnapshot?.lthr, sm?.contextSnapshot?.maxHr, sport, streams.maxHr, summary?.maxHeartRate]);
+  const maxHr = hrResolution.maxHr;
+  const derivedHrZones = hrResolution.zones;
   const restHr = 60; // 기본 안정 심박. 향후 프로필에서
   const weightKg = profile?.weightKg ?? null;
   const hasFtp = !!profile?.ftp || !!streams.ftp;
-  const hasMaxHr = !!profile?.maxHr || !!streams.maxHr;
+  const hasMaxHr = hrResolution.maxHrSource !== "default";
 
   // 서버(activity-metrics)와 동일하게 plausibleWatts 로 정제(#532) — 비현실 파워(평균/5분>2×FTP)
   // 는 []→파워지표 미표시, 고립 스파이크는 2000W 클램프. 서버 사전계산값과 발산 방지.
@@ -265,7 +272,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
   const elevGain = useMemo(() => calculateElevationGain(streams.altitude), [streams.altitude]);
 
   // 존 분포 + 임계 영역
-  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, maxHr, time) : null, [hr, maxHr, time, hasHr]);
+  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, derivedHrZones, time) : null, [hr, derivedHrZones, time, hasHr]);
   const powerZones = useMemo(() => hasPower ? calculatePowerZoneDistribution(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
   // Seiler 3존 (자전거 + 파워 있을 때만)
   const seilerZones = useMemo(() => (hasPower && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, time) : null, [watts, ftp, time, hasPower, sport]);

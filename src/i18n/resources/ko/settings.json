@@ -161,6 +161,7 @@
     "maxHrRange": "최대 심박수는 50~250bpm 범위여야 합니다",
     "weightRange": "체중은 20~300kg 범위여야 합니다",
     "lthrRange": "LTHR은 50~250bpm 범위여야 합니다",
+    "lthrBelowMaxHr": "LTHR은 최대 심박수보다 낮아야 합니다",
     "paceFormat": "역치 페이스 형식이 잘못됐습니다 (예: 5:30)",
     "cssFormat": "CSS 형식이 잘못됐습니다 (예: 1:45)",
     "statMaxHr": "최대 심박",
@@ -210,7 +211,14 @@
     "fieldCssHint": "mm:ss / 100m",
     "cardHrZones": "심박 존",
     "hrZonesActionBpm": "최대 심박 {{bpm}} bpm 기준",
-    "hrZonesNote": "존 경계는 실측 LTHR가 있을 때 자동 보정됩니다. 활동 분석 페이지에서 존별 시간 분포를 확인할 수 있습니다.",
+    "hrZonesSource": {
+      "lthr": "LTHR {{bpm}} bpm 기준",
+      "max_hr": "최대 심박 {{bpm}} bpm 기준"
+    },
+    "hrZonesNote": {
+      "lthr": "실측 LTHR의 Friel 달리기 존 경계를 적용했습니다. 활동 분석 페이지에서 존별 시간 분포를 확인할 수 있습니다.",
+      "max_hr": "유효한 LTHR가 없어 최대 심박 비율을 적용했습니다. LTHR를 입력하면 달리기 존이 자동 조정됩니다."
+    },
     "cardMedical": "의료 정보",
     "cardMedicalAction": "응급 시 구조대에 공유될 수 있음",
     "fieldBloodType": "혈액형",

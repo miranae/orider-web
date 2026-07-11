@@ -256,6 +256,8 @@ export interface DisplayZone {
   minPct: number;
   maxPct: number | null;
   color: string;
+  minBpm?: number;
+  maxBpmExclusive?: number | null;
 }
 
 export const RD_HR_ZONES: DisplayZone[] = [
@@ -313,8 +315,11 @@ export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZ
         }}
       >
         {zones.map((z) => {
-          const lo = Math.round((refValue * z.minPct) / 100);
-          const hi = z.maxPct === null ? null : Math.round((refValue * z.maxPct) / 100);
+          const lo = z.minBpm ?? Math.ceil((refValue * z.minPct) / 100);
+          const upper = z.maxBpmExclusive !== undefined
+            ? z.maxBpmExclusive
+            : z.maxPct === null ? null : Math.ceil((refValue * z.maxPct) / 100);
+          const hi = upper === null ? null : upper - 1;
           const label = t(`hrZone.${z.label}`, { defaultValue: z.label });
           return (
             <div
@@ -328,7 +333,7 @@ export function ZoneBar({ refValue, zones }: { refValue: number; zones: DisplayZ
                   fontSize: "var(--fs-xs)",
                 }}
               >
-                {hi === null ? `${lo}+` : z.minPct === 0 ? `<${hi}` : `${lo}–${hi}`}
+                {hi === null ? `${lo}+` : z.minPct === 0 ? `≤${hi}` : `${lo}–${hi}`}
               </div>
               <div>{label}</div>
             </div>
