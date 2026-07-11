@@ -12,12 +12,6 @@ export interface GroupMemberWithProfile extends GroupMember {
   profile: PublicUserProfile | null;
 }
 
-export function isGroupVisibleInDirectory(group: Group, city = ""): boolean {
-  const normalizedCity = city.trim();
-  return group.toggles?.showInDirectory !== false
-    && (!normalizedCity || group.city?.toLocaleLowerCase().includes(normalizedCity.toLocaleLowerCase()) === true);
-}
-
 // 그룹 메타데이터 실시간 구독
 export function useGroup(groupId: string | undefined) {
   const [group, setGroup] = useState<Group | null>(null);
@@ -197,18 +191,16 @@ export function usePublicGroups(options: { searchText?: string; discipline?: "AL
     const constraints = [
       where("visibility", "==", "public"),
       where("isActive", "==", true),
+      where("toggles.showInDirectory", "==", true),
       ...(discipline !== "ALL" ? [where("discipline", "==", discipline)] : []),
+      ...(city.trim() ? [where("city", "==", city.trim())] : []),
       ...(trimmed ? [where("name", ">=", trimmed), where("name", "<=", `${trimmed}\uf8ff`), orderBy("name")] : []),
       firestoreLimit(maxCount),
     ];
     const q = query(collection(firestore, "groups"), ...constraints);
     getDocs(q).then((snap) => {
-      const normalizedCity = city.trim();
       setGroups(snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Group)
-        // Legacy groups predate this nested toggle. Preserve their historical
-        // directory visibility while respecting an explicit opt-out.
-        .filter((group) => isGroupVisibleInDirectory(group, normalizedCity)));
+        .map((d) => ({ id: d.id, ...d.data() }) as Group));
       setLoading(false);
     }).catch((err) => {
       logClientError("usePublicGroups.load", err, {});

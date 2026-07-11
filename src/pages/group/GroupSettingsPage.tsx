@@ -14,8 +14,8 @@ import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import VisibilityToggle from "../../components/group/VisibilityToggle";
 import { EmptyState } from "../../components/redesign";
-import { generateInviteCode } from "../../utils/inviteCode";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
+import { getGroupInviteCode, regenerateGroupInviteCode, type GroupInviteAdminResult } from "../../features/group/groupInviteAdmin";
 import type { GroupApproval, GroupKind, GroupToggles } from "@shared/types";
 import { Button, Card, Text } from "../../theme/components";
 
@@ -74,6 +74,8 @@ export default function GroupSettingsPage() {
   const [leaving, setLeaving] = useState(false);
   const [regeneratingCode, setRegeneratingCode] = useState(false);
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [invite, setInvite] = useState<GroupInviteAdminResult | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
   const seededGroupIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
 
@@ -119,6 +121,25 @@ export default function GroupSettingsPage() {
     setToggles((prev) => ({ ...prev, [k]: !prev[k] }));
   };
 
+  const isCreator = !!user && !!group && user.uid === group.creatorId;
+  const canManage = isCreator || currentMemberRole === "co-leader";
+
+  useEffect(() => {
+    if (!groupId || !canManage) {
+      setInvite(null);
+      return;
+    }
+    let cancelled = false;
+    setInviteLoading(true);
+    void getGroupInviteCode(groupId).then((result) => {
+      if (!cancelled) setInvite(result);
+    }).catch((err) => {
+      logClientError("GroupSettingsPage.getGroupInviteCode", err, { groupId });
+      if (!cancelled) setInvite(null);
+    }).finally(() => { if (!cancelled) setInviteLoading(false); });
+    return () => { cancelled = true; };
+  }, [canManage, groupId]);
+
   if (!user) {
     return (
       <div className="text-center py-16">
@@ -148,9 +169,6 @@ export default function GroupSettingsPage() {
       </div>
     );
   }
-
-  const isCreator = user.uid === group.creatorId;
-  const canManage = isCreator || currentMemberRole === "co-leader";
 
   // 일반 멤버: 탈퇴만 표시
   if (!canManage) {
@@ -220,8 +238,8 @@ export default function GroupSettingsPage() {
     if (!(await dialog.confirm(t("settings.confirmRegenerateCode"), { destructive: true }))) return;
     setRegeneratingCode(true);
     try {
-      const newCode = generateInviteCode();
-      await updateDoc(doc(firestore, "groups", groupId), { inviteCode: newCode });
+      const nextInvite = await regenerateGroupInviteCode(groupId);
+      setInvite(nextInvite);
       showToast(t("settings.regenerateCodeSuccess"));
     } catch (err) {
       logClientError("GroupSettingsPage.handleRegenerateCode", err, { groupId });
@@ -293,7 +311,7 @@ export default function GroupSettingsPage() {
               />
             </div>
           </div>
-          {isCreator && <div style={{ marginBottom: 'var(--space-4)' }}>
+          <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.location")}</Text>
             <input
               type="text"
@@ -306,7 +324,7 @@ export default function GroupSettingsPage() {
               className="w-full px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)]"
               style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
             />
-          </div>}
+          </div>
           {isCreator && <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.kind")}</Text>
             <div role="radiogroup" aria-label={t("settings.kind")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
@@ -330,7 +348,7 @@ export default function GroupSettingsPage() {
               })}
             </div>
           </div>}
-          <div style={{ marginBottom: 'var(--space-4)' }}>
+          {isCreator && <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.sports")}</Text>
             <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
               {SPORT_OPTIONS.map((o) => {
@@ -348,7 +366,7 @@ export default function GroupSettingsPage() {
                 );
               })}
             </div>
-          </div>
+          </div>}
           <div>
             <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.description")}</Text>
             <textarea
@@ -481,21 +499,32 @@ export default function GroupSettingsPage() {
               className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--fs-sm)] font-mono"
               style={{ background: "var(--bg-2)", color: "var(--ink-0)", wordBreak: "break-all" }}
             >
-              {buildGroupInviteUrl(group.inviteCode, i18n.language)}
+              {inviteLoading ? t("settings.inviteLoading") : invite ? buildGroupInviteUrl(invite.inviteCode, i18n.language) : t("settings.inviteUnavailable")}
             </code>
             <button
               onClick={async () => {
-                await navigator.clipboard.writeText(buildGroupInviteUrl(group.inviteCode, i18n.language));
+                if (!invite) return;
+                await navigator.clipboard.writeText(buildGroupInviteUrl(invite.inviteCode, i18n.language));
                 setInviteLinkCopied(true);
                 showToast(t("members.codeCopied"));
                 setTimeout(() => setInviteLinkCopied(false), 2000);
               }}
-              className="px-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-md)] transition-colors"
+              disabled={!invite}
+              className="px-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-md)] transition-colors disabled:opacity-50"
               style={{ background: "var(--bg-2)", color: "var(--ink-1)", border: "1px solid var(--line)" }}
             >
               {inviteLinkCopied ? t("invite.copied") : t("button.copy")}
             </button>
           </div>
+          {invite && (
+            <p className="text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-3)" }}>
+              {t("settings.inviteLifecycle", {
+                date: new Date(invite.expiresAt).toLocaleDateString(i18n.language?.startsWith("en") ? "en-US" : "ko-KR"),
+                used: invite.useCount,
+                limit: invite.useLimit,
+              })}
+            </p>
+          )}
           <button
             onClick={handleRegenerateCode}
             disabled={regeneratingCode}

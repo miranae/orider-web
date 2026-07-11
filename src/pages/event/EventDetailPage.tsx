@@ -31,6 +31,7 @@ import { isEventHost } from "../../features/event/eventHost";
 import { haversine, parseGpxFull, type CourseData } from "../../features/event/detail/courseGpx";
 import type { EventDetail, RecentParticipant } from "../../features/event/detail/eventDetailTypes";
 import { classifyLane, LANE_DEFS, LANE_ORDER, type WpLane } from "../../features/event/detail/waypointLanes";
+import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
@@ -94,10 +95,11 @@ export default function EventDetailPage() {
 
     setWithdrawing(true);
     try {
-      const cancelRegistration = httpsCallable<{ eventId: string }, { cancelled: boolean }>(functions, "cancelRegistration");
-      const { data } = await cancelRegistration({ eventId });
+      await cancelEventRegistration(eventId);
       setIsParticipant(false);
-      if (data.cancelled) setParticipantCount((count) => Math.max(0, count - 1));
+      // `withdrawing` prevents duplicate requests; a successful server transaction
+      // therefore decrements this optimistic count exactly once.
+      setParticipantCount((count) => Math.max(0, count - 1));
       setRecentParticipants((items) => items.filter((participant) => participant.uid !== user.uid));
       showToast(t("detail.toast.registrationCancelled"));
     } catch (err) {

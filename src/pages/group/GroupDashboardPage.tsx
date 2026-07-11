@@ -189,7 +189,7 @@ export default function GroupDashboardPage() {
 
   const isCreator = user?.uid === group.creatorId;
   const canManage = isCreator || currentMemberRole === "co-leader";
-  const canPost = !!user && (isCreator || group.toggles?.membersPost !== false);
+  const canPost = currentMemberRole !== null && (canManage || group.toggles?.membersPost !== false);
   const submitPost = async () => {
     if (!groupId || !user || posting) return;
     setPosting(true);
@@ -362,8 +362,8 @@ export default function GroupDashboardPage() {
           </div>
           <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ listStyle: "none", margin: 0, padding: 0, gap: "var(--space-2)" }}>
             {upcomingEvents.map((e) => (
-              <li key={e.id} style={{ padding: "10px 12px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)" }}>
-                <Link to={`/event/${e.id}`} className="flex items-center justify-between" style={{ gap: "var(--space-2)" }}>
+              <li key={e.id} className="flex items-center justify-between" style={{ padding: "10px 12px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", gap: "var(--space-2)" }}>
+                <Link to={`/event/${e.id}`} className="min-w-0 flex-1">
                   <div className="min-w-0">
                     <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{e.name}</div>
                     <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
@@ -371,15 +371,19 @@ export default function GroupDashboardPage() {
                       {e.participantCount != null ? ` · ${t("dashboard.eventParticipants", { count: e.participantCount })}` : ""}
                     </div>
                   </div>
-                  <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
-                    {e.myRsvp && <Chip style={{ color: "var(--aqua)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}>{t("dashboard.eventStatus.rsvp")}</Chip>}
-                    <Chip
-                      style={{ color: e.status === "LIVE" ? "var(--lime)" : "var(--aqua)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}
-                    >
-                      {e.status === "LIVE" ? t("dashboard.eventStatus.live") : t("dashboard.eventStatus.recruiting")}
-                    </Chip>
-                  </div>
                 </Link>
+                <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
+                  {e.status === "OPEN" && (
+                    <Link
+                      to={e.myRsvp ? `/event/${e.id}` : `/event/${e.id}/register`}
+                      className={buttonClass({ variant: e.myRsvp ? "secondary" : "primary", size: "sm" })}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      {e.myRsvp ? t("dashboard.eventAction.manageRsvp") : t("dashboard.eventAction.rsvp")}
+                    </Link>
+                  )}
+                  {e.status === "LIVE" && <Chip style={{ color: "var(--lime)", fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }}>{t("dashboard.eventStatus.live")}</Chip>}
+                </div>
               </li>
             ))}
           </ul>

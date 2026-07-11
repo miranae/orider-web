@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { getPublicUserProfile } from "../services/publicProfiles";
-import { isGroupVisibleInDirectory, useGroup, useGroupMemberRole, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
+import { useGroup, useGroupMemberRole, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
 
 vi.mock("../services/publicProfiles", () => ({
   getPublicUserProfile: vi.fn(),
@@ -92,6 +92,10 @@ describe("useGroupMemberRole", () => {
 describe("group list hooks", () => {
   beforeEach(() => {
     vi.mocked(getDocs).mockClear();
+    vi.mocked(where).mockClear();
+    vi.mocked(limit).mockClear();
+    vi.mocked(orderBy).mockClear();
+    vi.mocked(query).mockClear();
   });
 
   it("keeps my group load failures distinct from an empty group list", async () => {
@@ -122,7 +126,7 @@ describe("group list hooks", () => {
     expect(result.current.error).toBe(err);
   });
 
-  it("queries public groups with server-side search constraints and a limit", async () => {
+  it("applies directory and city filters on the server before the limit to avoid false-empty pages", async () => {
     renderHook(() => usePublicGroups({ searchText: "Han", discipline: "bike", city: "서울 · 잠실", maxCount: 30 }));
 
     await waitFor(() => {
@@ -131,22 +135,19 @@ describe("group list hooks", () => {
 
     expect(where).toHaveBeenCalledWith("visibility", "==", "public");
     expect(where).toHaveBeenCalledWith("isActive", "==", true);
+    expect(where).toHaveBeenCalledWith("toggles.showInDirectory", "==", true);
     expect(where).toHaveBeenCalledWith("discipline", "==", "bike");
+    expect(where).toHaveBeenCalledWith("city", "==", "서울 · 잠실");
     expect(where).toHaveBeenCalledWith("name", ">=", "Han");
     expect(where).toHaveBeenCalledWith("name", "<=", "Han\uf8ff");
     expect(orderBy).toHaveBeenCalledWith("name");
     expect(limit).toHaveBeenCalledWith(30);
+    const directoryFilterOrder = vi.mocked(where).mock.invocationCallOrder.find((_, index) =>
+      vi.mocked(where).mock.calls[index]?.[0] === "toggles.showInDirectory");
+    const cityFilterOrder = vi.mocked(where).mock.invocationCallOrder.find((_, index) =>
+      vi.mocked(where).mock.calls[index]?.[0] === "city");
+    expect(directoryFilterOrder).toBeLessThan(vi.mocked(limit).mock.invocationCallOrder.at(-1)!);
+    expect(cityFilterOrder).toBeLessThan(vi.mocked(limit).mock.invocationCallOrder.at(-1)!);
     expect(query).toHaveBeenCalled();
-  });
-});
-
-describe("isGroupVisibleInDirectory", () => {
-  const base = { id: "g", name: "G", description: "", creatorId: "u", createdAt: 1, isActive: true, inviteCode: "x", visibility: "public" as const, memberCount: 1 };
-
-  it("preserves legacy groups and respects explicit opt-out and city", () => {
-    expect(isGroupVisibleInDirectory(base)).toBe(true);
-    expect(isGroupVisibleInDirectory({ ...base, toggles: { showInDirectory: false } })).toBe(false);
-    expect(isGroupVisibleInDirectory({ ...base, city: "서울 · 잠실" }, "잠실")).toBe(true);
-    expect(isGroupVisibleInDirectory({ ...base, city: "부산" }, "서울")).toBe(false);
   });
 });
