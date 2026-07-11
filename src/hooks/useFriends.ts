@@ -6,6 +6,7 @@ import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import { track } from "../services/analytics";
+import { logClientError } from "../services/errorLogger";
 import type { FriendRelation, FriendRequest } from "@shared/types";
 
 function toMillis(value: unknown): number {
@@ -98,7 +99,10 @@ export function useFriends() {
       } else if (!cancelled) {
         setFriendCodeState({ uid, code: null });
       }
-    }).catch(() => { if (!cancelled) setFriendCodeState({ uid, code: null }); })
+    }).catch((error) => {
+      logClientError("useFriends.friendCode", error, { uid });
+      if (!cancelled) setFriendCodeState({ uid, code: null });
+    })
       .finally(() => { if (!cancelled) setFriendCodeLoadingUid((current) => current === uid ? null : current); });
     return () => { cancelled = true; };
   }, [user?.uid]);
