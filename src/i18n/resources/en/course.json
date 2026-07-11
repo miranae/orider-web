@@ -154,6 +154,7 @@
   "link.copied": "Link copied",
   "link.sentToApp": "Sent to app",
   "link.sendFailed": "Send failed",
+  "link.shareFailed": "Couldn't share or copy the link",
   "creator.registered": "Registered",
   "creator.official": "O-Rider Official",
   "mode.gradient": "m/km",

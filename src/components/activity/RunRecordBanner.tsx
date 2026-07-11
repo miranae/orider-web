@@ -8,6 +8,7 @@
  * 기록 보드에서 NEW 로 확인한다.
  */
 import { useTranslation } from "react-i18next";
+import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { PartyPopper, Share2 } from "lucide-react";
 import { Card, Text } from "../../theme/components";
 import { useToast } from "../../contexts/ToastContext";
@@ -32,7 +33,7 @@ function formatDuration(sec: number): string {
 }
 
 export default function RunRecordBanner({ run, activityId }: RunRecordBannerProps) {
-  const { t } = useTranslation("activity");
+  const { t, i18n } = useTranslation("activity");
   const { showToast } = useToast();
   const news = newRecordsForActivity(run, activityId);
   if (news.length === 0) return null;
@@ -46,24 +47,13 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
     const distanceLabel = t(`runRecord.dist.${top.distance}`);
     const text = buildRecordShareText({ distanceLabel, timeSec: top.timeSec, improvedBySec: top.improvedBySec, t });
     const url = window.location.href;
+    const payload = buildOriderSharePayload({ title: t("runRecord.share.appName"), body: text, url, language: i18n.language });
     track("or_run_record_share", { distance: top.distance });
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: t("runRecord.share.appName"), text, url });
-      } catch (err) {
-        // 사용자가 시트를 닫은 것(AbortError)은 정상 흐름이라 무시하고,
-        // 그 외 실제 공유 실패는 남긴다 — 전부 삼키면 공유가 안 되는 이유를 알 수 없다.
-        if ((err as { name?: string } | null)?.name !== "AbortError") {
-          logClientError("RunRecordBanner.share", err, { distance: top.distance, via: "navigator.share" });
-        }
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(`${text}\n${url}`);
-        showToast(t("runRecord.share.copied"));
-      } catch (err) {
-        logClientError("RunRecordBanner.share", err, { distance: top.distance });
-      }
+    const result = await shareOrCopy(payload);
+    if (result === "copied") showToast(t("runRecord.share.copied"));
+    else if (result === "failed") {
+      logClientError("RunRecordBanner.share", new Error("Share unavailable or failed"), { distance: top.distance });
+      showToast(t("runRecord.share.failed"));
     }
   };
 

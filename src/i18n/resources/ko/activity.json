@@ -812,6 +812,7 @@
       "button": "공유",
       "appName": "O-Rider",
       "copied": "기록을 복사했어요",
+      "failed": "기록을 공유하거나 복사하지 못했어요",
       "improved": "{{dist}} 최고 기록 {{time}} — 이전보다 {{sec}}초 단축했어요! O-Rider에서 분석했어요.",
       "improvedTiny": "{{dist}} 최고 기록 {{time}} — 이전 기록을 갱신했어요! O-Rider에서 분석했어요.",
       "first": "{{dist}} 첫 기록 {{time}}을 세웠어요! O-Rider에서 분석했어요."
