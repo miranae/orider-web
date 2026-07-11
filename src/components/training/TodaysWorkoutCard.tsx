@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
 import { collection, query, where, orderBy, limit, getDocs, doc, onSnapshot } from "firebase/firestore";
+import { LocalizedLink as Link } from "../LocalizedLink";
 import { ensureAppCheckReady, functions, firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
@@ -15,7 +16,7 @@ import { useTodaysNarrativePeek, invalidateTodaysNarrativePeekCache } from "../.
 import { recommendToday, type RecommendationFacts, type ToneColor, type RecDiscipline } from "../../utils/todaysRecommendation";
 import { composeFallbackNarrative } from "../../utils/recommendationComposer";
 import AdjustedChip from "./AdjustedChip";
-import { Chip } from "../../theme/components";
+import { Card, Chip, Text } from "../../theme/components";
 import {
   IntervalBar,
   WeeklyLoadStrip,
@@ -35,6 +36,10 @@ import {
 
 const TODAYS_WORKOUT_FETCH_TIMEOUT_MS = 12_000;
 
+type TodaysWorkoutCardProps = {
+  variant?: "default" | "compact";
+};
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
@@ -53,9 +58,45 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   });
 }
 
+function CompactWorkoutCard({
+  eyebrow,
+  title,
+  detail,
+  intervals,
+  ctaHref,
+  ctaLabel,
+}: {
+  eyebrow: string;
+  title: string;
+  detail?: string | null;
+  intervals?: WorkoutDetail["intervals"];
+  ctaHref: string;
+  ctaLabel: string;
+}) {
+  return (
+    <Card padding="none" style={{ padding: "var(--space-4)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{eyebrow}</Text>
+          <Text as="h2" variant="title" style={{ margin: 0 }}>{title}</Text>
+          {detail && <Text as="div" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>{detail}</Text>}
+          {intervals && intervals.length > 0 && <IntervalBar intervals={intervals} />}
+        </div>
+        <Link
+          to={ctaHref}
+          className="inline-flex items-center justify-center rounded-[var(--r-md)] px-4 py-2 text-[length:var(--fs-sm)] font-semibold"
+          style={{ background: "var(--lime)", color: "var(--ink-inverse)" }}
+        >
+          {ctaLabel}
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 
-export default function TodaysWorkoutCard() {
+export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkoutCardProps) {
   const { t } = useTranslation('training');
   const WORKOUT_LABELS = useMemo(() => buildWorkoutLabels(t), [t]);
   const { user, profile, loading: authLoading } = useAuth();
@@ -503,6 +544,9 @@ export default function TodaysWorkoutCard() {
 
   // 로딩 중
   if (loading) {
+    if (variant === "compact") {
+      return <CompactWorkoutCard eyebrow={t("today.eyebrow")} title={t("today.loading")} ctaHref="/plan" ctaLabel={t("today.start")} />;
+    }
     return <WorkoutCardSkeleton />;
   }
 
@@ -529,9 +573,23 @@ export default function TodaysWorkoutCard() {
   // facts 미준비 (CF 응답 전) 면 작은 placeholder.
   if (!data) {
     if (!facts) {
+      if (variant === "compact") {
+        return <CompactWorkoutCard eyebrow={t("today.eyebrow")} title={t("today.loading")} ctaHref="/plan" ctaLabel={t("today.start")} />;
+      }
       return <WorkoutCardSkeleton />;
     }
     const narrativeText = stableNarrative ?? composeFallbackNarrative(facts, summary, t);
+    if (variant === "compact") {
+      return (
+        <CompactWorkoutCard
+          eyebrow={t("today.eyebrow")}
+          title={t(facts.sessionNameKey, { disc: t(`discipline.${facts.inputSnapshot.discipline}`) })}
+          detail={facts.chips.slice(0, 3).join(" · ")}
+          ctaHref="/plan"
+          ctaLabel={t("today.start")}
+        />
+      );
+    }
     return renderHeroCard({
       tone: facts.tone,
       eyebrow: t('today.eyebrow'),
@@ -580,6 +638,17 @@ export default function TodaysWorkoutCard() {
     const restNarrative = restFacts
       ? (stableNarrative ?? composeFallbackNarrative(restFacts, summary, t))
       : (data.recommendation ?? t('today.restFallbackNarrative'));
+    if (variant === "compact") {
+      return (
+        <CompactWorkoutCard
+          eyebrow={data.courseName ? t('today.courseDay', { course: data.courseName, daysLeft: data.daysLeft }) : t('today.eyebrow')}
+          title={restSessionName}
+          detail={headerChips.join(" · ")}
+          ctaHref="/plan"
+          ctaLabel={t("today.start")}
+        />
+      );
+    }
     return renderHeroCard({
       tone: restTone,
       eyebrow: data.courseName ? t('today.courseDay', { course: data.courseName, daysLeft: data.daysLeft }) : t('today.eyebrow'),
@@ -698,6 +767,25 @@ export default function TodaysWorkoutCard() {
       )}
     </div>
   ) : null;
+
+  if (variant === "compact") {
+    return (
+      <CompactWorkoutCard
+        eyebrow={courseName && daysLeft !== undefined
+          ? `${t('today.eyebrow')} · ${courseName} D-${daysLeft}`
+          : t('today.eyebrow')}
+        title={workoutName ?? WORKOUT_LABELS[disciplineWorkoutKind]}
+        detail={[
+          duration > 0 ? t('today.minutes', { value: duration }) : null,
+          tss > 0 ? t('today.tssValue', { value: tss }) : null,
+          weekTotal > 0 ? `${t('today.thisWeek')} ${weekCompleted}/${weekTotal}` : null,
+        ].filter(Boolean).join(" · ")}
+        intervals={intervals}
+        ctaHref="/plan"
+        ctaLabel={completed && actualActivityId ? t("today.viewActivity") : t("today.start")}
+      />
+    );
+  }
 
   return renderHeroCard({
     tone: planTone,

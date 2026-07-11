@@ -35,6 +35,7 @@ import CohortRankingCard from "../components/CohortRankingCard";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import AdaptationSummary from "../components/training/AdaptationSummary";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
+import TodaysWorkoutCard from "../components/training/TodaysWorkoutCard";
 import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { Card, Text, Chip, buttonClass } from "../theme/components";
@@ -57,6 +58,7 @@ import {
   type RangeOption,
 } from "../features/fitness/fitnessPageUtils";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
+import { BikeActionAccordion, FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -458,8 +460,6 @@ export default function FitnessPage() {
     return { recentStreams, prevStreams };
   }, [disciplineActivities, streamsMap]);
 
-  // (오늘의 권장 카드는 통합 후 홈에서만 노출. 피트니스 페이지는 분석 전용.)
-
   if (!user) {
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
   }
@@ -842,7 +842,20 @@ export default function FitnessPage() {
           </div>
         )}
 
-        {/* (오늘의 권장은 홈으로 통합. 피트니스 페이지는 분석 전용.) */}
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <TodaysWorkoutCard variant="compact" />
+        </div>
+
+        {currentPoint && (
+          <FitnessWeeklyInsight
+            ctlDelta={ctlDelta}
+            ctl={ctl}
+            atl={atl}
+            tsb={tsb}
+            dailyData={dailyData}
+            t={t}
+          />
+        )}
 
         {/* KPI 스트립 */}
         {currentPoint && (
@@ -969,6 +982,15 @@ export default function FitnessPage() {
               </Text>
             </div>
           </Card>
+        )}
+
+        {discipline === "bike" && (
+          <BikeActionAccordion
+            ftp={profile?.ftp}
+            hasPdcModel={pdc?.pdcModel != null}
+            hasZoneData={!!zoneDistribution}
+            t={t}
+          />
         )}
 
         {/* VO2max 추정 — bike 종목이고 vo2maxEst 있을 때만 표시 */}
