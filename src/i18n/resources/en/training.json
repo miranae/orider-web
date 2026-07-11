@@ -246,7 +246,7 @@
     "title": "Create a climb goal", "description": "Train for a named climb and target time without requiring a course or event.",
     "name": "Climb name", "duration": "Target time (minutes)", "wkg": "Target W/kg (optional)", "date": "Target date", "sessions": "Sessions per week",
     "submit": "Start climb training", "error": "Check your inputs and try again.",
-    "loginTitle": "Sign in required", "loginDescription": "Sign in to save your climb goal and plan.", "loginAction": "Sign in with Google"
+    "loginTitle": "Sign in required", "loginDescription": "Sign in to save your climb goal and plan.", "loginAction": "Sign in with Google", "loading": "Checking your sign-in status…"
   },
   "intensityChip": {
     "rest": "REST",

@@ -55,9 +55,9 @@ export interface Goal {
     targetCtl?: number;
     climbName?: string;
     climbDurationMin?: number;
-    targetWkg?: number;
+    targetWkg?: number | null;
   };
-  courseId: string;
+  courseId: string | null;
   courseName: string;
   courseDist: number;  // km
   courseElev: number;   // m

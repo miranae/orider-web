@@ -246,7 +246,7 @@
     "title": "클라임 목표 만들기", "description": "코스나 이벤트 없이 오르막 이름과 목표 기록으로 훈련을 시작해요.",
     "name": "클라임 이름", "duration": "목표 시간(분)", "wkg": "목표 W/kg (선택)", "date": "목표일", "sessions": "주당 운동 횟수",
     "submit": "클라임 훈련 시작", "error": "입력을 확인하고 다시 시도해 주세요.",
-    "loginTitle": "로그인이 필요해요", "loginDescription": "클라임 목표와 계획을 저장하려면 로그인해 주세요.", "loginAction": "Google로 로그인"
+    "loginTitle": "로그인이 필요해요", "loginDescription": "클라임 목표와 계획을 저장하려면 로그인해 주세요.", "loginAction": "Google로 로그인", "loading": "로그인 상태를 확인하고 있어요…"
   },
   "intensityChip": {
     "rest": "REST",

@@ -815,7 +815,7 @@ export default function PlanPage() {
               }}
             >
               <Text as="h1" variant="pageTitle" style={{ margin: 0 }}>
-                {loading ? '...' : (goal?.courseName ?? '—')}
+                {loading ? '...' : (goal?.title ?? goal?.courseName ?? '—')}
               </Text>
               <span
                 style={{
@@ -855,9 +855,15 @@ export default function PlanPage() {
               <span>
                 {t('page.daysLeftPrefix')}<span style={{ color: 'var(--lime)' }}>{daysLeft}</span>
               </span>
-              {goal && (
+              {goal && goal.goalType !== 'climb' && (
                 <span>
                   {goal.courseDist.toFixed(1)} km · ↑{Math.round(goal.courseElev)} m
+                </span>
+              )}
+              {goal?.goalType === 'climb' && (
+                <span>
+                  {goal.target?.climbDurationMin ?? goal.targetDurationMin} min
+                  {goal.target?.targetWkg != null ? ` · ${goal.target.targetWkg.toFixed(1)} W/kg` : ''}
                 </span>
               )}
               {goal?.targetDurationMin && (
