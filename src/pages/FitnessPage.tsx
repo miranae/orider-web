@@ -52,6 +52,8 @@ import { estimateCyclingVo2max } from "@shared/training/vo2max";
 import type { PowerDurationKey } from "@shared/types/personal-records";
 import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
 import PowerCurveChart from "../features/fitness/components/PowerCurveChart";
+import FtpProgressionCard from "../features/fitness/components/FtpProgressionCard";
+import { deriveEstimatedFtpProgression, detectFtpBreakthrough } from "@shared/training/ftpProgression";
 import {
   POWER_DURATION_KEY_SEC,
   formatKoreanDate,
@@ -660,6 +662,10 @@ export default function FitnessPage() {
           zones,
           zoneSource,
           powerCurve,
+          ftpProgression: deriveEstimatedFtpProgression(pdc?.history),
+          ftpBreakthrough: pdc?.pdcModel != null && pdc.activityCount >= 5
+            ? detectFtpBreakthrough(profile?.ftp, pdc.pdcModel.ftpEst)
+            : null,
           discipline,
         }}
         consistencyStreak={consistencyStreak}
@@ -752,6 +758,11 @@ export default function FitnessPage() {
             }))
             .filter((p): p is { period: string; v: number } => p.v != null);
         })();
+
+  const ftpProgression = deriveEstimatedFtpProgression(pdc?.history);
+  const ftpBreakthrough = pdc?.pdcModel != null && pdc.activityCount >= 5
+    ? detectFtpBreakthrough(profile?.ftp, pdc.pdcModel.ftpEst)
+    : null;
 
   // 강점/약점 — mmpAll(duration 별 best)과 CP 모델 기대파워 갭 분류.
   const powerGaps: GapEntry[] =
@@ -1043,6 +1054,14 @@ export default function FitnessPage() {
               </Text>
             </div>
           </Card>
+        )}
+
+        {discipline === "bike" && (
+          <FtpProgressionCard
+            points={ftpProgression}
+            currentFtpW={profile?.ftp}
+            breakthrough={ftpBreakthrough}
+          />
         )}
 
         {discipline === "bike" && (

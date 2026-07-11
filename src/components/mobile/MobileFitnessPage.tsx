@@ -22,6 +22,8 @@ import { Text } from "../../theme/components";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import TodaysWorkoutCard from "../training/TodaysWorkoutCard";
+import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
+import type { EstimatedFtpPoint, FtpBreakthrough } from "@shared/training/ftpProgression";
 
 export type ZoneSource = "power" | "hr" | "none";
 
@@ -80,6 +82,8 @@ export interface MobileFitnessData {
   zoneSource: ZoneSource;
   // 파워 커브 (bike, 있을 때만)
   powerCurve?: MobilePowerCurvePoint[];
+  ftpProgression?: EstimatedFtpPoint[];
+  ftpBreakthrough?: FtpBreakthrough | null;
   // 디스플레이용 종목 키 (탭 라벨/색상 결정)
   discipline: "bike" | "run" | "swim" | "tri";
 }
@@ -533,6 +537,16 @@ export default function MobileFitnessPage({
               ))}
             </div>
           </SectionCard>
+
+          {data.discipline === "bike" && (
+            <div style={{ padding: "0 14px 14px" }}>
+              <FtpProgressionCard
+                points={data.ftpProgression ?? []}
+                currentFtpW={data.ftp}
+                breakthrough={data.ftpBreakthrough ?? null}
+              />
+            </div>
+          )}
 
           {/* PMC 추이 */}
           <SectionCard title={t("mobileFitness.pmcTitle", { n: data.pmcHistory.length })} sub={t("mobileFitness.pmcSub")}>
