@@ -24,6 +24,7 @@ import {
 } from "../utils/advancedMetrics";
 import { calculateRunSplits, calculateOverallGap } from "../utils/runMetrics";
 import { sampleDurationsSec, totalDurationSec } from "../utils/sampleTime";
+import { buildClimbTableRows } from "../utils/climbMetrics";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
@@ -285,13 +286,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
     return detectClimbs(streams.altitude, streams.distance, streams.time, 3, 500);
   }, [streams.altitude, streams.distance, streams.time, sport]);
   const climbRows = useMemo(() => {
-    if (sm?.climbs?.length) {
-      return sm.climbs.map((c) => ({
-        ...c,
-        elevationGain: c.elevationGainM,
-      }));
-    }
-    return climbs.map((c) => ({ ...c, avgPower: null, wPerKg: null, vam: null }));
+    return buildClimbTableRows(sm?.climbs, climbs);
   }, [sm?.climbs, climbs]);
 
   // 러닝 전용 — km 스플릿 + GAP
@@ -739,17 +734,17 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.length")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.elev")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.avgGrade")}</th>
-                  <th className="text-right px-3 py-2">W</th>
-                  <th className="text-right px-3 py-2">W/kg</th>
-                  <th className="text-right px-3 py-2">VAM</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.duration")}</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.vam")}</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.avgPower")}</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.wPerKg")}</th>
                   <th className="text-left px-3 py-2 pl-4">{t("analysis.climbs.header.category")}</th>
                 </tr>
               </thead>
               <tbody>
                 {climbRows.map((c, i) => {
-                  const cat = c.avgGrade * c.lengthKm * 100;
-                  const grade = cat > 800 ? "HC" : cat > 600 ? "1" : cat > 400 ? "2" : cat > 200 ? "3" : "4";
-                  const gradeColor = grade === "HC" ? "var(--rose)" : grade === "1" ? "var(--amber)" : grade === "2" ? "var(--violet)" : "var(--aqua)";
+                  const grade = c.category?.replace("Cat", "") ?? null;
+                  const gradeColor = grade === "HC" ? "var(--rose)" : grade === "1" ? "var(--amber)" : grade === "2" ? "var(--violet)" : grade != null ? "var(--aqua)" : "var(--ink-4)";
                   return (
                     <tr key={i} className="border-t" style={{ borderColor: 'var(--line-soft)' }}>
                       <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{i + 1}</td>
@@ -757,12 +752,13 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{distVal(c.lengthKm)} {distUnit}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{elevValRound(c.elevationGain)} {elevUnit}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--amber)' }}>{c.avgGrade.toFixed(1)} %</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.durationSec != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.durationSec != null ? formatDuration(c.durationSec) : "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.vam != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.vam != null ? Math.round(c.vam) : "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.avgPower != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.avgPower != null ? Math.round(c.avgPower) : "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.wPerKg != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.wPerKg != null ? c.wPerKg.toFixed(1) : "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.vam != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.vam != null ? Math.round(c.vam) : "—"}</td>
                       <td className="px-3 py-2 pl-4">
                         <Chip style={{ background: gradeColor, color: 'var(--ink-0)', fontSize: "var(--fs-xs)", padding: '2px 8px', borderRadius: "9999px" }}>
-                          {grade === "HC" ? "HC" : t("analysis.climbs.category", { grade })}
+                          {grade === "HC" ? "HC" : grade != null ? t("analysis.climbs.category", { grade }) : t("analysis.climbs.uncategorized")}
                         </Chip>
                       </td>
                     </tr>
