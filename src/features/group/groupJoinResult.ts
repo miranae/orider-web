@@ -5,6 +5,7 @@ export interface JoinGroupByCodeResult {
 
 export interface JoinGroupPublicResult {
   success: true;
+  status: "active" | "pending";
 }
 
 export function isPendingGroupJoinResult(result: JoinGroupByCodeResult): boolean {

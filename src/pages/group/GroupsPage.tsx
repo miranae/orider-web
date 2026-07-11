@@ -89,6 +89,11 @@ export default function GroupsPage() {
       const joinFn = httpsCallable<{ groupId: string }, JoinGroupPublicResult>(functions, "joinGroupPublic");
       const result = await joinFn({ groupId: group.id });
       if (result.data.success !== true) throw new Error("Public group join failed");
+      if (result.data.status === "pending") {
+        setPendingNotice(t("join.pendingPublic", { name: group.name }));
+        showToast(t("join.pendingToast"));
+        return;
+      }
       navigate(`/group/${group.id}`);
     } catch {
       setError(t("error.joinFailed"));
