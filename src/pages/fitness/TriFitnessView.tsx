@@ -194,7 +194,7 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
             key={idx}
             x={sx(idx)}
             y={h - 4}
-            fontSize="9"
+            fontSize="12"
             fontFamily="JetBrains Mono"
             fill="var(--ink-4)"
             textAnchor="middle"

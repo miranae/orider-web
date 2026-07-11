@@ -238,7 +238,7 @@ function PmcMiniChart({ history, projection, today, color, t }: {
       {yTicks.map((v) => (
         <g key={v}>
           <line x1={PAD_L} x2={W - PAD_R} y1={sy(v)} y2={sy(v)} stroke="var(--line-soft)" strokeOpacity="0.5" />
-          <text x={PAD_L - 4} y={sy(v) + 3} fontSize="9" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="end">{Math.round(v)}</text>
+          <text x={PAD_L - 4} y={sy(v) + 3} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="end">{Math.round(v)}</text>
         </g>
       ))}
       {/* TSB 0 기준선 */}
@@ -272,7 +272,7 @@ function PmcMiniChart({ history, projection, today, color, t }: {
 
       {/* X 날짜 라벨 */}
       {xLabels.map((l, i) => (
-        <text key={i} x={l.x} y={H - 6} fontSize="9" fontFamily="var(--font-mono)"
+        <text key={i} x={l.x} y={H - 6} fontSize="12" fontFamily="var(--font-mono)"
           fill={l.isToday ? "var(--ink-1)" : "var(--ink-4)"} textAnchor={i === 0 ? "start" : i === xLabels.length - 1 ? "end" : "middle"}>
           {l.text}{l.isToday ? t("mobileFitness.pmcLabelToday") : ""}
         </text>
@@ -289,7 +289,7 @@ function PmcMiniChart({ history, projection, today, color, t }: {
             return (
               <g>
                 <rect x={bx} y={by} width={boxW} height={boxH} rx="4" fill="var(--bg-2)" stroke="var(--line-soft)" />
-                <text x={bx + 6} y={by + 12} fontSize="9" fontFamily="var(--font-mono)" fill="var(--ink-3)">
+                <text x={bx + 6} y={by + 12} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-3)">
                   {formatMd(tip.date)}{tip.isFuture ? t("mobileFitness.pmcLabelForecast") : ""}
                 </text>
                 <text x={bx + 6} y={by + 24} fontSize="12" fontFamily="var(--font-mono)" fill={color}>CTL {tip.ctl.toFixed(0)}</text>
@@ -369,7 +369,7 @@ function PowerCurveMini({ points, color }: { points: MobilePowerCurvePoint[]; co
       {ticks.filter(t => t >= points[0]!.durationSeconds && t <= points[points.length - 1]!.durationSeconds).map((t) => (
         <g key={t}>
           <line x1={sx(t)} x2={sx(t)} y1={padY} y2={h - padY} stroke="var(--line-soft)" strokeDasharray="2 3" />
-          <text x={sx(t)} y={h - 1} fontSize="9" fill="var(--ink-4)" fontFamily="var(--font-mono)" textAnchor="middle">{tickLabels[t]}</text>
+          <text x={sx(t)} y={h - 1} fontSize="12" fill="var(--ink-4)" fontFamily="var(--font-mono)" textAnchor="middle">{tickLabels[t]}</text>
         </g>
       ))}
       <path d={fillPath} fill="url(#mobPcFill)" />
@@ -379,7 +379,7 @@ function PowerCurveMini({ points, color }: { points: MobilePowerCurvePoint[]; co
         if (!p) return null;
         return <circle key={t} cx={sx(p.durationSeconds)} cy={sy(p.maxPower)} r="3" fill={color} />;
       })}
-      <text x={4} y={padY + 4} fontSize="9" fill="var(--ink-4)" fontFamily="var(--font-mono)">{Math.round(yMax)} W</text>
+      <text x={4} y={padY + 4} fontSize="12" fill="var(--ink-4)" fontFamily="var(--font-mono)">{Math.round(yMax)} W</text>
     </svg>
   );
 }

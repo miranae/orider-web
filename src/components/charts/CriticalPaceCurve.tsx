@@ -137,7 +137,7 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentStream
         return (
           <g key={label}>
             <line x1={x} x2={x} y1={padT} y2={padT + chartH} stroke="var(--grid-axis)" strokeDasharray="3 3" />
-            <text x={x + 3} y={padT + 10} fontSize="9" fontFamily="var(--font-mono)" fill="var(--ink-3)">{label}</text>
+            <text x={x + 3} y={padT + 10} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-3)">{label}</text>
           </g>
         );
       })}
@@ -153,7 +153,7 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentStream
 
       {/* X축 틱 */}
       {xTicks.map((t) => (
-        <text key={t} x={sx(t)} y={h - 4} fontSize="9" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="middle">
+        <text key={t} x={sx(t)} y={h - 4} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="middle">
           {t < 1 ? `${t * 60}s` : t < 60 ? `${t}m` : `${t / 60}h`}
         </text>
       ))}

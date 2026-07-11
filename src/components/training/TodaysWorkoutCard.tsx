@@ -86,7 +86,7 @@ function CompactWorkoutCard({
         </div>
         <Link
           to={ctaHref}
-          className="inline-flex items-center justify-center rounded-[var(--r-md)] px-4 py-2 text-[length:var(--fs-sm)] font-semibold"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-[var(--r-md)] px-4 py-2 text-[length:var(--fs-sm)] font-semibold"
           style={{ background: "var(--lime)", color: "var(--ink-inverse)" }}
         >
           {ctaLabel}
