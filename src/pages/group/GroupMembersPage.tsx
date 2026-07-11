@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { collection, getDocs, deleteDoc, doc as fsDoc } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc as fsDoc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -67,34 +67,42 @@ export default function GroupMembersPage() {
 
   // 가입 요청 (pending 컬렉션)
   useEffect(() => {
-    if (!groupId || tab !== "pending") return;
+    if (!groupId) return;
     let cancelled = false;
     setPendingLoading(true);
-    (async () => {
-      try {
-        const snap = await getDocs(collection(firestore, "groups", groupId, "pending"));
+    let snapshotEpoch = 0;
+    const unsubscribe = onSnapshot(
+      collection(firestore, "groups", groupId, "pending"),
+      (snap) => {
+        const epoch = ++snapshotEpoch;
         const list: PendingRequest[] = snap.docs.map((d) => {
           const data = d.data();
           return {
             userId: d.id,
             requestedAt: typeof data.requestedAt === "number" ? data.requestedAt : 0,
-            message: data.message,
+            message: typeof data.message === "string" ? data.message : undefined,
           };
         });
-        if (!cancelled) setPending(list);
-        const profiles = await getPublicUserProfiles(list.map((item) => item.userId));
-        if (!cancelled) setPendingProfiles(profiles);
-      } catch {
-        if (!cancelled) {
-          setPending([]);
-          setPendingProfiles(new Map());
-        }
-      } finally {
+        setPending(list);
+        setPendingLoading(false);
+
+        void getPublicUserProfiles(list.map((item) => item.userId)).then((profiles) => {
+          if (!cancelled && epoch === snapshotEpoch) setPendingProfiles(profiles);
+        }).catch((err) => {
+          logClientError("GroupMembersPage.pendingProfiles", err, { groupId, userCount: list.length });
+          if (!cancelled && epoch === snapshotEpoch) setPendingProfiles(new Map());
+        });
+      },
+      (err) => {
+        logClientError("GroupMembersPage.pending", err, { groupId });
         if (!cancelled) setPendingLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [groupId, tab]);
+      },
+    );
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [groupId]);
 
   // 초대 발송 내역
   useEffect(() => {
