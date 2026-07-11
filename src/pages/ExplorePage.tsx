@@ -705,7 +705,11 @@ export default function ExplorePage() {
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
-          <ErrorState onRetry={() => setOverviewReloadKey((key) => key + 1)} />
+          <ErrorState
+            title={t("error.overviewLoadFailed")}
+            description={t("error.overviewLoadFailedDesc")}
+            onRetry={() => setOverviewReloadKey((key) => key + 1)}
+          />
         </div>
       </div>
     );
@@ -773,10 +777,6 @@ export default function ExplorePage() {
         <div className="flex-1 flex flex-col lg:flex-row min-h-0">
           {/* 지도 — 모바일은 짧게(목록에 공간 양보), 데스크톱은 좌측 분할 영역 채움 */}
           <div className="h-[55vh] lg:h-auto lg:flex-[2] relative">
-            {/* 줌 레벨 표시 */}
-            <div className="absolute top-2 left-2 z-10 px-2 py-1 bg-black/50 text-[var(--ink-0)] text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-mono">
-              z{Math.round(mapZoom)}
-            </div>
             {/* 히트맵 토글 (#493) */}
             <div className="absolute top-2 right-2 z-10 flex gap-1">
               {(["off", "global", "recent30"] as HeatMode[]).map((m) => (

@@ -132,7 +132,7 @@ export default function CourseEditPage() {
       navigate("/courses");
     } catch (err) {
       logClientError("CourseEditPage.handleDelete", err, { courseId });
-      showToast(err instanceof Error ? err.message : t("error.deleteFailed"));
+      void dialog.alert(err instanceof Error ? err.message : t("error.deleteFailed"), { variant: "danger" });
       setDeleting(false);
     }
   };

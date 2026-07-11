@@ -1,13 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { collection, query, getDocs } from "firebase/firestore";
 import { Map as MapIcon, Trophy, Route as RouteIcon, Search } from "lucide-react";
-import { firestore } from "../services/firebase";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { Card, Text } from "../theme/components";
 import ChallengeFeed from "../components/discover/ChallengeFeed";
-import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
+import { searchVisibleCoursesByName } from "../features/courses/useCourseCatalog";
 import { fetchStaticJson } from "../utils/staticJson";
 import { segmentTileUrl } from "../utils/segmentTiles";
 
@@ -33,7 +31,7 @@ export default function DiscoverPage() {
   const [q, setQ] = useState((sp.get("q") ?? "").trim());
   const [segs, setSegs] = useState<SegHit[] | null>(null);
   const [courses, setCourses] = useState<CourseHit[] | null>(null);
-  const loadedRef = useRef(false);
+  const segmentsLoadedRef = useRef(false);
 
   // 입력 디바운스 → 질의 + URL 동기화(공유·새로고침 복원)
   useEffect(() => {
@@ -45,25 +43,25 @@ export default function DiscoverPage() {
     return () => clearTimeout(id);
   }, [input, setSp]);
 
-  // 첫 질의 시점에 두 소스 1회 로드(세그먼트 overview + 코스). 빈 질의면 로드 안 함(비용 절약).
+  // 첫 질의 시점에 세그먼트 overview를 1회 로드한다. 빈 질의면 로드 안 함(비용 절약).
   useEffect(() => {
-    if (!q || loadedRef.current) return;
-    loadedRef.current = true;
+    if (!q || segmentsLoadedRef.current) return;
+    segmentsLoadedRef.current = true;
     fetchStaticJson<{ segments: SegHit[] }>(segmentTileUrl("overview.json"))
       .then((d: { segments: SegHit[] }) =>
         setSegs(d.segments.map((s) => ({ id: s.id, name: s.name, city: s.city, state: s.state, distance: s.distance, averageGrade: s.averageGrade, climbCategory: s.climbCategory }))),
       )
       .catch(() => setSegs([]));
-    getDocs(query(collection(firestore, "courses")))
-      .then((snap) =>
-        setCourses(snap.docs
-          .map((d) => ({ id: d.id, data: d.data() }))
-          .filter((item) => isVisibleCourseDocData(item.data))
-          .map((item) => {
-            const x = item.data;
-            return { id: item.id, name: x.name ?? "", distance: x.distance ?? 0, elevationGain: x.elevationGain ?? 0 } as CourseHit;
-          })),
-      )
+  }, [q]);
+
+  useEffect(() => {
+    if (!q) {
+      setCourses(null);
+      return;
+    }
+    setCourses(null);
+    searchVisibleCoursesByName(q, 16)
+      .then((items) => setCourses(items.map((x) => ({ id: x.id, name: x.name, distance: x.distance, elevationGain: x.elevationGain }))))
       .catch(() => setCourses([]));
   }, [q]);
 

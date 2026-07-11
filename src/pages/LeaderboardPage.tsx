@@ -26,6 +26,8 @@ interface SegmentInfo {
 interface UserPrInfo {
   bestTime?: number;
   elapsedTime?: number;
+  rank?: number;
+  prRank?: number;
 }
 
 export default function LeaderboardPage() {
@@ -33,6 +35,7 @@ export default function LeaderboardPage() {
   const { t, i18n } = useTranslation("segment");
   const [segments, setSegments] = useState<SegmentInfo[]>([]);
   const [myBest, setMyBest] = useState<Map<string, number>>(new Map());
+  const [myRanks, setMyRanks] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [disciplineFilter, setDisciplineFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,6 +44,8 @@ export default function LeaderboardPage() {
   useEffect(() => {
     (async () => {
       try {
+        setMyBest(new Map());
+        setMyRanks(new Map());
         // 인기 세그먼트 (totalEfforts 기준 정렬)
         const segSnap = await getDocs(
           query(
@@ -69,13 +74,17 @@ export default function LeaderboardPage() {
           try {
             const prSnap = await getDocs(collection(firestore, "user_prs", user.uid, "segments"));
             const best = new Map<string, number>();
+            const ranks = new Map<string, number>();
             prSnap.forEach((prDoc) => {
               const data = prDoc.data() as UserPrInfo;
               const time = typeof data.bestTime === "number" ? data.bestTime : data.elapsedTime;
               if (typeof time !== "number" || time <= 0) return;
               best.set(prDoc.id, time);
+              const rank = typeof data.rank === "number" ? data.rank : data.prRank;
+              if (typeof rank === "number" && rank > 0) ranks.set(prDoc.id, rank);
             });
             setMyBest(best);
+            setMyRanks(ranks);
           } catch (err) {
             logClientError("LeaderboardPage.loadMyBest", err);
           }
@@ -208,6 +217,7 @@ export default function LeaderboardPage() {
           <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {filtered.map((s) => {
               const best = myBest.get(s.id);
+              const myRank = myRanks.get(s.id);
               return (
                 <li key={s.id} style={{ borderBottom: "1px solid var(--line-soft)" }}>
                   <Link
@@ -230,6 +240,11 @@ export default function LeaderboardPage() {
                       {best != null ? (
                         <>
                           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-0-5)" }}>{t("leaderboardPage.myBest")}</Text>
+                          {myRank != null && (
+                            <div className="text-[length:var(--fs-xs)] font-bold rounded-[var(--r-sm)] inline-block" style={{ color: "var(--lime)", border: "1px solid color-mix(in oklch, var(--lime) 35%, transparent)", padding: "var(--space-0-5) var(--space-1)", marginBottom: "var(--space-1)" }}>
+                              {t("leaderboardPage.myRankShort", { rank: myRank })}
+                            </div>
+                          )}
                           <Text as="div" variant="dataMedium" style={{ color: "var(--lime)" }}>{formatElapsedMillis(best)}</Text>
                         </>
                       ) : (
