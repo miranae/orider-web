@@ -89,9 +89,12 @@
 .ds-btn--lg { height: 48px; padding: 0 20px; font-size: 14px; }
 
 /* 모든 버튼: 시각 높이(28/40px)는 유지하되 실제 터치 영역을 최소 44px 로 확장 (#401).
- * ::after 오버레이가 히트 영역만 넓히므로 레이아웃에는 영향 없음. */
+ * ::after 오버레이가 히트 영역만 넓히므로 레이아웃에는 영향 없음.
+ * - disabled 버튼은 오버레이를 끈다 — 주변 요소 위 투명 데드존 방지.
+ * - 버튼이 44px 미만 간격으로 밀집한 툴바/버튼 그룹에서는 <Button dense> (.ds-btn--dense)
+ *   로 옵트아웃해 이웃 타깃 가로채기를 막는다. */
 .ds-btn { position: relative; }
-.ds-btn::after {
+.ds-btn:not(:disabled):not(.ds-btn--dense)::after {
   content: "";
   position: absolute;
   left: 50%;
