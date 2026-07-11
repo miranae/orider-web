@@ -27,6 +27,8 @@ assert_contains scripts/merge-pr.sh 'BASE.*== "dev".*HEADREF.*!= "dev"' \
   'feature gate must be selected only for topic PRs targeting dev'
 assert_contains scripts/merge-pr.sh 'npm test -- --changed "origin/\$BASE" --passWithNoTests' \
   'feature gate must run changed-file Vitest with no-test allowance'
+assert_contains scripts/merge-pr.sh 'VITEST_FEATURE_MAX_WORKERS:-2' \
+  'feature gate must cap Vitest workers so parallel worktrees do not exhaust the host'
 assert_contains scripts/merge-pr.sh 'npx tsc -b --pretty false' \
   'feature gate must run TypeScript typecheck'
 feature_gate="$(sed -n '/if \[\[ "\$GATE_TIER" == "feature" \]\]; then/,/^else$/p' scripts/merge-pr.sh)"
