@@ -4,9 +4,11 @@
  * 판정은 순수 함수(`utils/firstSync.ts`)가 하고, 이 훅은 부작용만 담당한다:
  * localStorage 락, 분석 이벤트, 모달 상태.
  *
- * R2 는 **localStorage 만** 쓴다. `users/{uid}/milestones` 서브컬렉션 write 는 rules 가
- * 비공개 저장소(orider-g1-web)에 있어 아직 없다 — 없는 rules 에 write 하면 권한 오류만 쌓인다.
- * 서버 판정 마일스톤은 R3 에서 도입한다.
+ * 이 이벤트만 **localStorage** 로 락을 건다. 서버에 쓸 값이 없기 때문이다(축하 1회 노출이 목적).
+ * 조작 가능한 마일스톤·거리별 기록은 서버가 판정하며 `users/{uid}/milestones` 를 쓴다 —
+ * 해당 rules 는 orider-g1-web 에서 이미 배포됐다(read 는 본인, 클라 write 는 `celebrated` 필드만).
+ * 즉 "rules 가 없다"는 R2 시점의 제약은 해소됐고, 이 훅이 localStorage 를 쓰는 이유는 서버
+ * 판정이 불가능해서가 아니라 **판정 근거가 조작할 가치가 없어서**다.
  */
 import { useEffect, useState } from "react";
 import type { Activity } from "@shared/types";

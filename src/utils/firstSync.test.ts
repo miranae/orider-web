@@ -52,10 +52,22 @@ describe("decideFirstSync", () => {
     expect(d).toEqual({ action: "mark-silently", reason: "history-truncated" });
   });
 
-  it("계정 생성일을 모르면 축하하지 않는다 — 증명할 수 없으면 침묵한다", () => {
-    expect(
-      decideFirstSync([run(1)], NOW, false, { historyWindowMs: WINDOW, accountCreatedMs: null }).action,
-    ).toBe("mark-silently");
+  // 프로필 로딩 레이스 (코드리뷰 지적) — null 은 "오래된 계정"이 아니라 "아직 모름"이다.
+  // 여기서 플래그를 세우면 프로필이 늦게 도착한 신규 사용자가 축하를 영구히 잃는다.
+  it("계정 생성일을 모르면 플래그도 세우지 않는다 — 다음 렌더에서 다시 판정", () => {
+    const d = decideFirstSync([run(1)], NOW, false, { historyWindowMs: WINDOW, accountCreatedMs: null });
+    expect(d).toEqual({ action: "none", reason: "profile-unknown" });
+  });
+
+  it("프로필이 늦게 도착해도 축하를 받는다 — 레이스 회귀", () => {
+    // 1차 렌더: 프로필 미도착 → 아무것도 안 함(락 없음).
+    const first = decideFirstSync([run(1)], NOW, false, {
+      historyWindowMs: WINDOW,
+      accountCreatedMs: undefined,
+    });
+    expect(first.action).toBe("none");
+    // 2차 렌더: 프로필 도착 → 여전히 alreadyMarked=false 이므로 축하가 살아 있다.
+    expect(decideFirstSync([run(1)], NOW, false, newAccount).action).toBe("celebrate");
   });
 });
 

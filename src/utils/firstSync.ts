@@ -26,7 +26,11 @@ const RECENT_WINDOW_MS = 14 * 86400000;
 export interface FirstSyncInputs {
   /** `runs` 를 만든 이력 조회 창 길이 (ms). 이보다 오래된 러닝은 애초에 배열에 없다. */
   historyWindowMs: number;
-  /** 계정 생성 시각. 모르면 null — 증명 불가로 보고 축하하지 않는다. */
+  /**
+   * 계정 생성 시각. **아직 로딩 중이면 null 이 들어온다** — 프로필 스냅샷은 활동 쿼리와
+   * 별개로 도착하기 때문. 그래서 null 은 "오래된 계정"이 아니라 "모름"으로 다뤄야 한다.
+   * 모를 때 플래그를 세워버리면 프로필이 늦게 도착한 신규 사용자가 축하를 영구히 잃는다.
+   */
   accountCreatedMs: number | null | undefined;
 }
 
@@ -34,7 +38,8 @@ export type FirstSyncDecision =
   | { action: "celebrate" }
   /** 조건은 충족했지만 첫 러닝임을 증명할 수 없어 모달 없이 플래그만 세운다. */
   | { action: "mark-silently"; reason: "backfill" | "history-truncated" }
-  | { action: "none"; reason: "already-celebrated" | "no-runs" };
+  /** 아직 판단할 수 없다 — 플래그도 세우지 않는다(다음 렌더에서 다시 판정). */
+  | { action: "none"; reason: "already-celebrated" | "no-runs" | "profile-unknown" };
 
 export function decideFirstSync(
   runs: Activity[],
@@ -45,10 +50,11 @@ export function decideFirstSync(
   if (alreadyMarked) return { action: "none", reason: "already-celebrated" };
   if (runs.length === 0) return { action: "none", reason: "no-runs" };
 
+  // 계정 생성일을 모르면 아무것도 하지 않는다 — 로딩 중일 수 있으므로 락을 세우면 안 된다.
+  if (inputs.accountCreatedMs == null) return { action: "none", reason: "profile-unknown" };
+
   // 창이 계정 수명을 못 덮으면 창 밖에 과거 러닝이 있을 수 있다 → 첫 러닝이라 단정 못 한다.
-  const accountAgeMs =
-    inputs.accountCreatedMs != null ? nowMs - inputs.accountCreatedMs : Number.POSITIVE_INFINITY;
-  if (accountAgeMs > inputs.historyWindowMs) {
+  if (nowMs - inputs.accountCreatedMs > inputs.historyWindowMs) {
     return { action: "mark-silently", reason: "history-truncated" };
   }
 

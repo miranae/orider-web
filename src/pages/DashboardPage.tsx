@@ -16,6 +16,7 @@ import ShoeReplacementBadge from "../components/dashboard/ShoeReplacementBadge";
 import { estimateRunnerLevel } from "../utils/runnerLevel";
 import { latestShoeStatus } from "../utils/shoeStatus";
 import { useRunHistory } from "../hooks/useRunHistory";
+import { useRunRecords } from "../hooks/useRunRecords";
 import { useUserFitness } from "../hooks/useUserFitness";
 import { useFirstSyncCelebration } from "../hooks/useFirstSyncCelebration";
 import { computeRunWeeklyRecap, isRecapVisible } from "../utils/runWeeklyRecap";
@@ -202,7 +203,19 @@ export default function DashboardPage() {
     [isRunTab, runHistory.runs],
   );
   const showRecap = runRecap != null && isRecapVisible(Date.now(), seoulWeekday);
-  const hasNoRuns = isRunTab && !!user && !runHistory.loading && runHistory.runs.length === 0;
+
+  // "최근 8주 러닝 없음" 과 "러닝 이력 자체가 없음" 은 다른 신호다. 둘을 같게 다루면 오래 쉬었다
+  // 돌아온 러너에게 "첫 러닝이 도착하면 알려드릴게요" 온보딩이 뜨고 오늘의 워크아웃까지 사라진다.
+  // 서버가 유지하는 거리별 기록(records/power.run)을 "달린 적 있음"의 근거로 쓴다.
+  const { run: dashRunRecords, loading: recordsLoading } = useRunRecords(isRunTab && !!user);
+  const hasEverRun = dashRunRecords != null && Object.keys(dashRunRecords).length > 0;
+  const hasNoRuns =
+    isRunTab &&
+    !!user &&
+    !runHistory.loading &&
+    !recordsLoading &&
+    runHistory.runs.length === 0 &&
+    !hasEverRun;
 
   // 꾸준히 달리는데 임계 페이스가 없으면 목표 페이스·rTSS 해석이 전부 잠긴다 (§3.1).
   // 가끔 달리는 사람에게는 띄우지 않는다 — 잔소리가 되므로.
