@@ -339,7 +339,8 @@ export default function EventsPage() {
   }, [datePreset, events, regionFilter, statusFilter, typeFilter]);
 
   const regions = useMemo(
-    () => Array.from(new Set(events.map((event) => event.region?.trim()).filter((region): region is string => !!region))).sort(localeTag()),
+    () => Array.from(new Set(events.map((event) => event.region?.trim()).filter((region): region is string => !!region)))
+      .sort((a, b) => a.localeCompare(b, localeTag())),
     [events],
   );
 

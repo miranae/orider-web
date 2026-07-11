@@ -226,7 +226,8 @@ if [[ "$GATE_TIER" == "feature" ]]; then
 
   log "Feature→dev 경량 게이트: 변경 영향 Vitest"
   run_step "targeted Vitest" "Test Files|Tests |FAIL|passed|failed|No test files" \
-    npm test -- --changed "origin/$BASE" --passWithNoTests
+    npm test -- --changed "origin/$BASE" --passWithNoTests \
+      --maxWorkers "${VITEST_FEATURE_MAX_WORKERS:-2}"
 
   log "Feature→dev 경량 게이트: TypeScript typecheck"
   run_step "TypeScript typecheck" "error TS|Found 0 errors" npx tsc -b --pretty false

@@ -564,6 +564,7 @@ export interface Course {
   maximumGrade: number;
   elevationHigh: number;
   elevationLow: number;
+  climbs?: Array<{ gain: number; dist: number; cat: number }>;
   keywords: string[];
   regions: string[];          // 지역 배지 ("성남시", "서울특별시")
   visibility?: 'public' | 'private';
