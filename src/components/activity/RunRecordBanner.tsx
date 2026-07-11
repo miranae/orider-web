@@ -50,8 +50,12 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
     if (navigator.share) {
       try {
         await navigator.share({ title: t("runRecord.share.appName"), text, url });
-      } catch {
-        // 사용자가 공유 취소 — 무시
+      } catch (err) {
+        // 사용자가 시트를 닫은 것(AbortError)은 정상 흐름이라 무시하고,
+        // 그 외 실제 공유 실패는 남긴다 — 전부 삼키면 공유가 안 되는 이유를 알 수 없다.
+        if ((err as { name?: string } | null)?.name !== "AbortError") {
+          logClientError("RunRecordBanner.share", err, { distance: top.distance, via: "navigator.share" });
+        }
       }
     } else {
       try {

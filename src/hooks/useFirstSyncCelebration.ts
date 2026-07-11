@@ -39,10 +39,17 @@ export interface FirstSyncCelebrationState {
   dismiss: () => void;
 }
 
+/**
+ * @param historyWindowMs `runs` 를 만든 조회 창 — 창이 계정 수명보다 짧으면 첫 러닝임을
+ *   증명할 수 없다(복귀 러너 오발화 방지). `firstSync.decideFirstSync` 참고.
+ * @param accountCreatedMs 계정 생성 시각(`profile.createdAt`). 모르면 축하하지 않는다.
+ */
 export function useFirstSyncCelebration(
   runs: Activity[],
   loading: boolean,
   uid: string | null,
+  historyWindowMs: number,
+  accountCreatedMs: number | null | undefined,
 ): FirstSyncCelebrationState {
   const [show, setShow] = useState(false);
   const [activityId, setActivityId] = useState<string | null>(null);
@@ -50,9 +57,16 @@ export function useFirstSyncCelebration(
   useEffect(() => {
     if (loading || !uid) return;
     const key = firstSyncStorageKey(uid);
-    const decision = decideFirstSync(runs, Date.now(), readMarked(key));
+    const decision = decideFirstSync(runs, Date.now(), readMarked(key), {
+      historyWindowMs,
+      accountCreatedMs,
+    });
 
-    debugLog("firstSync.decision", { action: decision.action, runs: runs.length });
+    debugLog("firstSync.decision", {
+      action: decision.action,
+      reason: "reason" in decision ? decision.reason : null,
+      runs: runs.length,
+    });
 
     if (decision.action === "celebrate") {
       const newest = runs.reduce((a, b) => (b.startTime > a.startTime ? b : a));
@@ -61,11 +75,11 @@ export function useFirstSyncCelebration(
       setShow(true);
       track("or_first_sync_celebrated", { runCount: runs.length });
     } else if (decision.action === "mark-silently") {
-      // 소급분: 모달 없이 달성 처리만 — 다음 방문에도 뜨지 않는다.
-      writeMarked(key, "backfill");
-      track("or_first_sync_backfilled", { runCount: runs.length });
+      // 소급분·증명 불가: 모달 없이 달성 처리만 — 다음 방문에도 뜨지 않는다.
+      writeMarked(key, decision.reason);
+      track("or_first_sync_backfilled", { runCount: runs.length, reason: decision.reason });
     }
-  }, [runs, loading, uid]);
+  }, [runs, loading, uid, historyWindowMs, accountCreatedMs]);
 
   return { show, activityId, dismiss: () => setShow(false) };
 }

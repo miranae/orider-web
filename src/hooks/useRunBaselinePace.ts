@@ -28,14 +28,15 @@ export interface RunBaseline {
 
 /**
  * @param excludeActivityId 지금 보고 있는 활동 — 자기 자신과 비교하지 않도록 제외.
+ * @param enabled 러닝 활동에서만 쿼리한다. 자전거·수영 상세에서 100문서를 읽을 이유가 없다.
  */
-export function useRunBaselinePace(excludeActivityId?: string): RunBaseline {
+export function useRunBaselinePace(excludeActivityId?: string, enabled = true): RunBaseline {
   const { user } = useAuth();
   const [state, setState] = useState<RunBaseline>({ paceSecPerKm: null, sampleCount: 0, loading: true });
 
   useEffect(() => {
     let cancelled = false;
-    if (!user) {
+    if (!user || !enabled) {
       setState({ paceSecPerKm: null, sampleCount: 0, loading: false });
       return;
     }
@@ -58,6 +59,10 @@ export function useRunBaselinePace(excludeActivityId?: string): RunBaseline {
           .filter((a) => a.id !== excludeActivityId)
           .filter((a) => a.summary != null)
           .filter((a) => getSportCategory(a.type) === "run")
+          // createdAt(동기화 시각) 창만으로는 부족하다: Strava 를 방금 연결하면 수년치 활동이
+          // createdAt ≈ now 로 한꺼번에 들어와 "최근 4주 평균"이 과거 러닝의 평균이 된다.
+          // 실제 운동 시각(startTime)으로 다시 자른다.
+          .filter((a) => a.startTime >= cutoff)
           .filter((a) => a.summary.distance > 0 && a.summary.averageSpeed > 0);
 
         // 거리 가중 평균: Σ(시간) / Σ(거리) = 전체 페이스
@@ -93,7 +98,7 @@ export function useRunBaselinePace(excludeActivityId?: string): RunBaseline {
     return () => {
       cancelled = true;
     };
-  }, [user, excludeActivityId]);
+  }, [user, excludeActivityId, enabled]);
 
   return state;
 }

@@ -29,7 +29,9 @@ export function useRunActivityDetail(
   profile: UserProfile | null | undefined,
 ): RunActivityDetail {
   const isRun = getSportCategory(activity?.type) === "run";
-  const baseline = useRunBaselinePace(activity?.id);
+  // `isRun` 게이트가 두 가지를 동시에 막는다: 자전거·수영 상세의 불필요한 100문서 읽기,
+  // 그리고 활동 로딩 전(id=undefined)·후(id) 두 번 실행되던 중복 쿼리.
+  const baseline = useRunBaselinePace(activity?.id, isRun);
   const { run: runRecords } = useRunRecords(isRun);
 
   const s = activity?.summary;

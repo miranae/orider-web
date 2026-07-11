@@ -37,15 +37,19 @@ const PACE_TREND_THRESHOLD_SEC = 3;
 function aggregate(runs: Activity[]): WeekRunStats {
   let totalMeters = 0;
   let totalSeconds = 0;
+  let count = 0;
   for (const a of runs) {
     const meters = a.summary.distance;
     const speedKmh = a.summary.averageSpeed;
+    // 거리·속도가 없는 러닝(수동 기록 등)은 합산에서 빠지므로 횟수에서도 빼야 한다.
+    // 그러지 않으면 "3번 달려서 0km" 같은 헤드라인이 나온다.
     if (!(meters > 0) || !(speedKmh > 0)) continue;
+    count += 1;
     totalMeters += meters;
     totalSeconds += (meters / 1000) * (3600 / speedKmh);
   }
   return {
-    count: runs.length,
+    count,
     distanceKm: Math.round((totalMeters / 1000) * 10) / 10,
     avgPaceSecPerKm: totalMeters > 0 ? Math.round(totalSeconds / (totalMeters / 1000)) : null,
   };

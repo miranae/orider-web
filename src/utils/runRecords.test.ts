@@ -73,4 +73,17 @@ describe("newRecordsForActivity", () => {
     // 직전 최고는 3410 (b) — 3400 보다 느린 것 중 최소
     expect(newRecordsForActivity(run, "today")[0].improvedBySec).toBe(10);
   });
+
+  // 동률 처리 (코드리뷰 지적) — 더 빠르지 않은데 "신기록"이라 말하면 거짓말이다.
+  it("직전 최고와 동률이면 배너 없음 — 갱신이 아니다", () => {
+    const run: RunPrTable = { "5km": [e(1600, "today"), e(1600, "old")] };
+    expect(newRecordsForActivity(run, "today")).toEqual([]);
+  });
+
+  it("동률이 섞여도 결과가 결정적이다 — 입력 순서가 바뀌어도 같은 답", () => {
+    const a: RunPrTable = { "5km": [e(1600, "x"), e(1600, "y")] };
+    const b: RunPrTable = { "5km": [e(1600, "y"), e(1600, "x")] };
+    expect(newRecordsForActivity(a, "x")).toEqual(newRecordsForActivity(b, "x"));
+    expect(newRecordsForActivity(a, "y")).toEqual(newRecordsForActivity(b, "y"));
+  });
 });

@@ -58,10 +58,11 @@ describe("computeRunWeeklyRecap — 집계", () => {
     expect(computeRunWeeklyRecap(runs, NOW).lastWeek.count).toBe(1);
   });
 
-  it("거리나 속도가 0 인 활동은 페이스 계산에서 제외", () => {
+  it("거리나 속도가 0 인 활동은 페이스 계산에서도, 횟수에서도 제외", () => {
     const bad = { ...run("2026-07-07T07:00:00", 0, 350) } as Activity;
     const r = computeRunWeeklyRecap([bad], NOW);
-    expect(r.lastWeek.count).toBe(1);
+    // 이전에는 count 가 1 이라 "1번 달려서 0km" 가 나올 수 있었다 (코드리뷰 지적).
+    expect(r.lastWeek.count).toBe(0);
     expect(r.lastWeek.avgPaceSecPerKm).toBeNull();
   });
 });
@@ -90,6 +91,15 @@ describe("computeRunWeeklyRecap — 추세 (페이스는 낮을수록 좋다)", 
     const r = computeRunWeeklyRecap([run("2026-07-07T07:00:00", 10, 350)], NOW);
     expect(r.trend).toBe("unknown");
     expect(r.paceDeltaSec).toBeNull();
+  });
+
+  // 코드리뷰 지적 — 거리 0 러닝이 횟수에만 잡히면 "1번 달려서 0km" 가 나온다.
+  it("거리 0 러닝은 횟수에서도 제외한다", () => {
+    const zero = { ...run("2026-07-07T07:00:00", 0, 350) } as Activity;
+    (zero.summary as { distance: number }).distance = 0;
+    const r = computeRunWeeklyRecap([zero, run("2026-07-08T07:00:00", 5, 350)], NOW);
+    expect(r.lastWeek.count).toBe(1);
+    expect(r.lastWeek.distanceKm).toBe(5);
   });
 });
 

@@ -49,12 +49,15 @@ export function newRecordsForActivity(
   for (const distance of RUN_DISTANCES) {
     const entries = run?.[distance];
     if (!entries || entries.length === 0) continue;
-    const sorted = [...entries].sort((a, b) => a.value - b.value);
+    // 동률일 때 정렬이 흔들리면 배너 노출 여부가 비결정적이 된다 — activityId 로 tie-break.
+    const sorted = [...entries].sort((a, b) => a.value - b.value || a.activityId.localeCompare(b.activityId));
     const best = sorted[0]!;
     if (best.activityId !== activityId) continue; // 이 활동이 현행 최고가 아니면 배너 없음
 
-    // 이 활동이 세운 기록보다 느린 것 중 가장 빠른 것 = 직전 최고.
-    const previous = sorted.find((e) => e.activityId !== activityId && e.value > best.value);
+    // 다른 활동 중 가장 빠른 것 = 직전 최고. 동률이면 기록을 "갱신"한 게 아니므로 배너를 띄우지 않는다
+    // (더 빠르지 않은데 "신기록"이라 말하면 거짓말이다).
+    const previous = sorted.find((e) => e.activityId !== activityId);
+    if (previous && previous.value <= best.value) continue;
     out.push({
       distance,
       timeSec: best.value,

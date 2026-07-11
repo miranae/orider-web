@@ -185,9 +185,17 @@ export default function DashboardPage() {
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
   const isRunTab = discipline === "run";
-  const runHistory = useRunHistory(8, isRunTab && !!user);
+  const RUN_HISTORY_WEEKS = 8;
+  const runHistory = useRunHistory(RUN_HISTORY_WEEKS, isRunTab && !!user);
   const { fitness: userFitness } = useUserFitness(isRunTab && !!user);
-  const firstSync = useFirstSyncCelebration(runHistory.runs, runHistory.loading, user?.uid ?? null);
+  // 창 길이·계정 생성일을 함께 넘긴다 — 창이 계정 수명을 못 덮으면 "첫 러닝" 축하를 하지 않는다.
+  const firstSync = useFirstSyncCelebration(
+    runHistory.runs,
+    runHistory.loading,
+    user?.uid ?? null,
+    RUN_HISTORY_WEEKS * 7 * 86400000,
+    profile?.createdAt,
+  );
 
   const runRecap = useMemo(
     () => (isRunTab ? computeRunWeeklyRecap(runHistory.runs, Date.now()) : null),
