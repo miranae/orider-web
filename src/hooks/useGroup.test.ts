@@ -1,10 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { getDocs } from "firebase/firestore";
+import { getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicUserProfile } from "../services/publicProfiles";
-import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { getPublicUserProfile } from "../services/publicProfiles";
-import { useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
+import { useGroup, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
 
 vi.mock("../services/publicProfiles", () => ({
   getPublicUserProfile: vi.fn(),
@@ -61,6 +61,25 @@ describe("useGroupMembers", () => {
   });
 });
 
+describe("useGroup", () => {
+  it("treats soft-deleted groups as unavailable", async () => {
+    setDocData("groups/group-deleted", {
+      name: "Deleted Group",
+      creatorId: "leader-1",
+      isActive: false,
+    });
+
+    const { result } = renderHook(() => useGroup("group-deleted"));
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.group).toBeNull();
+    expect(result.current.inactive).toBe(true);
+  });
+});
+
 describe("group list hooks", () => {
   beforeEach(() => {
     vi.mocked(getDocs).mockClear();
@@ -92,5 +111,22 @@ describe("group list hooks", () => {
 
     expect(result.current.groups).toEqual([]);
     expect(result.current.error).toBe(err);
+  });
+
+  it("queries public groups with server-side search constraints and a limit", async () => {
+    renderHook(() => usePublicGroups({ searchText: "Han", discipline: "bike", maxCount: 30 }));
+
+    await waitFor(() => {
+      expect(getDocs).toHaveBeenCalled();
+    });
+
+    expect(where).toHaveBeenCalledWith("visibility", "==", "public");
+    expect(where).toHaveBeenCalledWith("isActive", "==", true);
+    expect(where).toHaveBeenCalledWith("discipline", "==", "bike");
+    expect(where).toHaveBeenCalledWith("name", ">=", "Han");
+    expect(where).toHaveBeenCalledWith("name", "<=", "Han\uf8ff");
+    expect(orderBy).toHaveBeenCalledWith("name");
+    expect(limit).toHaveBeenCalledWith(30);
+    expect(query).toHaveBeenCalled();
   });
 });

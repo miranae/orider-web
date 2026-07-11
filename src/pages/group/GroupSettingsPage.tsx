@@ -9,9 +9,11 @@ import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
+import { useToast } from "../../contexts/ToastContext";
 import { useGroup } from "../../hooks/useGroup";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import VisibilityToggle from "../../components/group/VisibilityToggle";
+import { EmptyState } from "../../components/redesign";
 import { generateInviteCode } from "../../utils/inviteCode";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import type { GroupApproval, GroupKind, GroupToggles } from "@shared/types";
@@ -24,6 +26,7 @@ export default function GroupSettingsPage() {
   const { group, loading: groupLoading } = useGroup(groupId);
   const navigate = useNavigate();
   const dialog = useDialog();
+  const { showToast } = useToast();
 
   const KIND_LABELS: Record<GroupKind, string> = {
     club: t("dashboard.kind.club"),
@@ -67,6 +70,8 @@ export default function GroupSettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const seededGroupIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
 
@@ -119,12 +124,24 @@ export default function GroupSettingsPage() {
     );
   }
 
-  if (groupLoading || !group) {
+  if (groupLoading) {
     return (
       <div className="space-y-4 animate-pulse max-w-lg">
         <div className="h-8 w-44 rounded-[var(--r-sm)]" style={{ background: "var(--bg-2)" }} />
         <div className="h-40 rounded-[var(--r-lg)]" style={{ background: "var(--bg-2)" }} />
         <div className="h-24 rounded-[var(--r-lg)]" style={{ background: "var(--bg-2)" }} />
+      </div>
+    );
+  }
+
+  if (!group) {
+    return (
+      <div className="max-w-xl mx-auto py-16">
+        <EmptyState
+          icon="👥"
+          title={t("empty.groupNotFound")}
+          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+        />
       </div>
     );
   }
@@ -147,9 +164,11 @@ export default function GroupSettingsPage() {
               try {
                 const leaveFn = httpsCallable(functions, "leaveGroup");
                 await leaveFn({ groupId });
+                showToast(t("settings.leaveSuccess"));
                 navigate("/groups");
               } catch (err) {
                 logClientError("GroupSettingsPage.leaveGroup", err, { groupId });
+                showToast(t("error.leaveFailed"), "error");
               }
               setLeaving(false);
             }}
@@ -180,6 +199,8 @@ export default function GroupSettingsPage() {
         rules: rules.trim() || null,
         toggles,
       });
+      dirtyRef.current = false;
+      showToast(t("settings.saveSuccess"));
     } catch (err) {
       logClientError("GroupSettingsPage.handleSave", err, { groupId, visibility, kind, approval });
       void dialog.alert(err instanceof Error ? err.message : t("error.saveFailed"), { variant: "danger" });
@@ -189,11 +210,17 @@ export default function GroupSettingsPage() {
 
   const handleRegenerateCode = async () => {
     if (!groupId) return;
+    if (!(await dialog.confirm(t("settings.confirmRegenerateCode"), { destructive: true }))) return;
+    setRegeneratingCode(true);
     try {
       const newCode = generateInviteCode();
       await updateDoc(doc(firestore, "groups", groupId), { inviteCode: newCode });
+      showToast(t("settings.regenerateCodeSuccess"));
     } catch (err) {
       logClientError("GroupSettingsPage.handleRegenerateCode", err, { groupId });
+      showToast(t("settings.regenerateCodeFailed"), "error");
+    } finally {
+      setRegeneratingCode(false);
     }
   };
 
@@ -202,9 +229,11 @@ export default function GroupSettingsPage() {
     setDeleting(true);
     try {
       await updateDoc(doc(firestore, "groups", groupId), { isActive: false });
+      showToast(t("settings.deleteSuccess"));
       navigate("/groups");
     } catch (err) {
       logClientError("GroupSettingsPage.handleDelete", err, { groupId });
+      showToast(t("error.deleteFailed"), "error");
     }
     setDeleting(false);
   };
@@ -426,19 +455,25 @@ export default function GroupSettingsPage() {
               {buildGroupInviteUrl(group.inviteCode, i18n.language)}
             </code>
             <button
-              onClick={() => { navigator.clipboard.writeText(buildGroupInviteUrl(group.inviteCode, i18n.language)); }}
+              onClick={async () => {
+                await navigator.clipboard.writeText(buildGroupInviteUrl(group.inviteCode, i18n.language));
+                setInviteLinkCopied(true);
+                showToast(t("members.codeCopied"));
+                setTimeout(() => setInviteLinkCopied(false), 2000);
+              }}
               className="px-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-md)] transition-colors"
               style={{ background: "var(--bg-2)", color: "var(--ink-1)", border: "1px solid var(--line)" }}
             >
-              {t("button.copy")}
+              {inviteLinkCopied ? t("invite.copied") : t("button.copy")}
             </button>
           </div>
           <button
             onClick={handleRegenerateCode}
+            disabled={regeneratingCode}
             className="text-[length:var(--fs-xs)]"
-            style={{ color: "var(--lime)" }}
+            style={{ color: "var(--lime)", opacity: regeneratingCode ? 0.6 : 1 }}
           >
-            {t("button.regenerateCode")}
+            {regeneratingCode ? t("button.saving") : t("button.regenerateCode")}
           </button>
         </Card>
 

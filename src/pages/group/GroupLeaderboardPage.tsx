@@ -76,10 +76,22 @@ export default function GroupLeaderboardPage() {
     });
   }, [current]);
 
-  if (groupLoading || !group) {
+  if (groupLoading) {
     return (
       <div className="py-6">
         <LoadingSkeleton kind="list" count={5} />
+      </div>
+    );
+  }
+
+  if (!group) {
+    return (
+      <div className="max-w-xl mx-auto py-16">
+        <EmptyState
+          icon="👥"
+          title={t("empty.groupNotFound")}
+          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+        />
       </div>
     );
   }
@@ -129,7 +141,7 @@ export default function GroupLeaderboardPage() {
       </div>
 
       {entries.length === 0 ? (
-        <EmptyState icon="🏆" title={t("leaderboard.empty")} compact />
+        <EmptyState icon="🏆" title={t("leaderboard.empty")} description={t("leaderboard.emptyDesc")} compact />
       ) : (
         <GroupLeaderboardTable entries={entries} metric={metric} highlightUserId={user?.uid} />
       )}

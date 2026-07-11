@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import {
-  doc, collection, query, onSnapshot, getDocs, where, limit as firestoreLimit,
+  doc, collection, query, onSnapshot, getDocs, where, orderBy, limit as firestoreLimit,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -15,6 +15,7 @@ export interface GroupMemberWithProfile extends GroupMember {
 // 그룹 메타데이터 실시간 구독
 export function useGroup(groupId: string | undefined) {
   const [group, setGroup] = useState<Group | null>(null);
+  const [inactive, setInactive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
 
@@ -22,21 +23,31 @@ export function useGroup(groupId: string | undefined) {
     if (!groupId) return;
     setLoading(true);
     setError(null);
+    setInactive(false);
     return onSnapshot(doc(firestore, "groups", groupId), (snap) => {
       if (snap.exists()) {
-        setGroup({ id: snap.id, ...snap.data() } as Group);
+        const nextGroup = { id: snap.id, ...snap.data() } as Group;
+        if (nextGroup.isActive === false) {
+          setInactive(true);
+          setGroup(null);
+        } else {
+          setInactive(false);
+          setGroup(nextGroup);
+        }
       } else {
+        setInactive(false);
         setGroup(null);
       }
       setLoading(false);
     }, (err) => {
       setError(err);
       setGroup(null);
+      setInactive(false);
       setLoading(false);
     });
   }, [groupId]);
 
-  return { group, loading, error };
+  return { group, loading, error, inactive };
 }
 
 // 그룹 멤버 목록 + 프로필 조회
@@ -138,7 +149,8 @@ export function useMyGroups(userId: string | undefined) {
 }
 
 // 공개 그룹 검색
-export function usePublicGroups() {
+export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; maxCount?: number } = {}) {
+  const { searchText = "", discipline = "ALL", maxCount = 30 } = options;
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -147,11 +159,15 @@ export function usePublicGroups() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    const q = query(
-      collection(firestore, "groups"),
+    const trimmed = searchText.trim();
+    const constraints = [
       where("visibility", "==", "public"),
       where("isActive", "==", true),
-    );
+      ...(discipline !== "ALL" ? [where("discipline", "==", discipline)] : []),
+      ...(trimmed ? [where("name", ">=", trimmed), where("name", "<=", `${trimmed}\uf8ff`), orderBy("name")] : []),
+      firestoreLimit(maxCount),
+    ];
+    const q = query(collection(firestore, "groups"), ...constraints);
     getDocs(q).then((snap) => {
       setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Group));
       setLoading(false);
@@ -161,7 +177,7 @@ export function usePublicGroups() {
       setGroups([]);
       setLoading(false);
     });
-  }, [reloadKey]);
+  }, [discipline, maxCount, reloadKey, searchText]);
 
   return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
 }

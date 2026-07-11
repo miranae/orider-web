@@ -8,8 +8,10 @@ import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
+import { useToast } from "../../contexts/ToastContext";
 import { useGroup, useGroupMembers } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
+import { getPublicUserProfiles, type PublicUserProfile } from "../../services/publicProfiles";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import Avatar from "../../components/Avatar";
 import InviteMemberModal from "../../components/group/InviteMemberModal";
@@ -17,8 +19,8 @@ import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 
-type Tab = "members" | "pending" | "invite" | "banned";
-type RoleFilter = "all" | "leader" | "co-leader" | "member";
+type Tab = "members" | "pending" | "invite";
+type RoleFilter = "all" | "leader" | "member";
 
 interface PendingRequest {
   userId: string;
@@ -38,6 +40,7 @@ export default function GroupMembersPage() {
   const { groupId } = useParams();
   const { user } = useAuth();
   const dialog = useDialog();
+  const { showToast } = useToast();
   const { group, loading: groupLoading } = useGroup(groupId);
   const { members, loading: membersLoading } = useGroupMembers(groupId);
 
@@ -54,6 +57,7 @@ export default function GroupMembersPage() {
   const [showInvite, setShowInvite] = useState(false);
   const { memberStats } = useGroupRideStats(groupId);
   const [pending, setPending] = useState<PendingRequest[]>([]);
+  const [pendingProfiles, setPendingProfiles] = useState<Map<string, PublicUserProfile>>(new Map());
   const [pendingLoading, setPendingLoading] = useState(false);
   const [invitations, setInvitations] = useState<InvitationDoc[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -64,6 +68,7 @@ export default function GroupMembersPage() {
   // 가입 요청 (pending 컬렉션)
   useEffect(() => {
     if (!groupId || tab !== "pending") return;
+    let cancelled = false;
     setPendingLoading(true);
     (async () => {
       try {
@@ -76,13 +81,19 @@ export default function GroupMembersPage() {
             message: data.message,
           };
         });
-        setPending(list);
+        if (!cancelled) setPending(list);
+        const profiles = await getPublicUserProfiles(list.map((item) => item.userId));
+        if (!cancelled) setPendingProfiles(profiles);
       } catch {
-        setPending([]);
+        if (!cancelled) {
+          setPending([]);
+          setPendingProfiles(new Map());
+        }
       } finally {
-        setPendingLoading(false);
+        if (!cancelled) setPendingLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [groupId, tab]);
 
   // 초대 발송 내역
@@ -132,14 +143,42 @@ export default function GroupMembersPage() {
     setBulkBusy(true);
     try {
       const removeFn = httpsCallable(functions, "removeGroupMember");
+      let failed = 0;
       for (const targetUserId of targetIds) {
         try {
           await removeFn({ groupId, targetUserId });
         } catch (err) {
+          failed += 1;
           logClientError("GroupMembersPage.handleBulkRemove", err, { groupId, targetUserId });
         }
       }
       setSelected(new Set());
+      if (failed > 0) {
+        showToast(t("members.removePartialFailed", { failed, total: targetIds.length }), "error");
+      } else {
+        showToast(t("members.removeSuccess", { count: targetIds.length }));
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleRemoveMember = async (targetUserId: string, name: string) => {
+    if (!groupId || !isCreator || targetUserId === user?.uid) return;
+    if (!(await dialog.confirm(t("members.confirmRemove", { name }), { destructive: true }))) return;
+    setBulkBusy(true);
+    try {
+      const removeFn = httpsCallable(functions, "removeGroupMember");
+      await removeFn({ groupId, targetUserId });
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(targetUserId);
+        return next;
+      });
+      showToast(t("members.removeOneSuccess", { name }));
+    } catch (err) {
+      logClientError("GroupMembersPage.handleRemoveMember", err, { groupId, targetUserId });
+      showToast(t("members.removeFailed"), "error");
     } finally {
       setBulkBusy(false);
     }
@@ -153,6 +192,7 @@ export default function GroupMembersPage() {
       const fn = httpsCallable(functions, "approveGroupRequest");
       await fn({ groupId, userId });
       setPending((prev) => prev.filter((p) => p.userId !== userId));
+      showToast(t("members.approveSuccess"));
     } catch (err) {
       logClientError("GroupMembersPage.handleApprove", err, { groupId, userId });
       void dialog.alert(err instanceof Error ? err.message : t("error.approveFailed"), { variant: "danger" });
@@ -164,15 +204,29 @@ export default function GroupMembersPage() {
     try {
       await deleteDoc(fsDoc(firestore, "groups", groupId, "pending", userId));
       setPending((prev) => prev.filter((p) => p.userId !== userId));
+      showToast(t("members.rejectSuccess"));
     } catch (err) {
       logClientError("GroupMembersPage.handleReject", err, { groupId, userId });
+      showToast(t("members.rejectFailed"), "error");
     }
   };
 
-  if (groupLoading || !group) {
+  if (groupLoading) {
     return (
       <div className="py-6">
         <LoadingSkeleton kind="list" count={5} />
+      </div>
+    );
+  }
+
+  if (!group) {
+    return (
+      <div className="max-w-xl mx-auto py-16">
+        <EmptyState
+          icon="👥"
+          title={t("empty.groupNotFound")}
+          actions={[{ label: t("empty.goToList"), variant: "primary", href: "/groups" }]}
+        />
       </div>
     );
   }
@@ -196,7 +250,6 @@ export default function GroupMembersPage() {
           ["members", `${t("members.tab.members")} ${members.length}`],
           ["pending", `${t("members.tab.pending")} ${pending.length}`],
           ["invite", t("members.tab.invite")],
-          ["banned", t("members.tab.banned")],
         ] as [Tab, string][]).map(([id, label]) => (
           <button
             key={id}
@@ -242,7 +295,6 @@ export default function GroupMembersPage() {
             >
               <option value="all">{t("filter.roles")}</option>
               <option value="leader">{t("members.role.leader")}</option>
-              <option value="co-leader">{t("members.role.coLeader")}</option>
               <option value="member">{t("members.role.member")}</option>
             </select>
             {selected.size > 0 && isCreator && (
@@ -267,12 +319,13 @@ export default function GroupMembersPage() {
           ) : filteredMembers.length === 0 ? (
             <EmptyState icon="🔍" title={t("empty.noMembers")} compact />
           ) : (
-            <Card padding="none" className="overflow-hidden" style={{ padding: 0 }}>
+            <Card padding="none" style={{ padding: 0, overflowX: "auto" }}>
               {/* Header */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "32px 1fr 100px 110px 120px 36px",
+                  gridTemplateColumns: "32px minmax(160px, 1fr) minmax(78px, 100px) minmax(92px, 110px) minmax(104px, 120px) minmax(76px, 96px)",
+                  minWidth: 640,
                   padding: "10px 14px",
                   borderBottom: "1px solid var(--line-soft)",
                   background: "var(--bg-1)",
@@ -296,7 +349,7 @@ export default function GroupMembersPage() {
                 <div>{t("members.table.role")}</div>
                 <div>{t("members.table.joinedDate")}</div>
                 <div style={{ textAlign: "right" }}>{t("members.table.distanceRides")}</div>
-                <div />
+                <div>{t("members.table.actions")}</div>
               </div>
 
               {filteredMembers.map((m) => {
@@ -309,7 +362,8 @@ export default function GroupMembersPage() {
                     key={m.id}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "32px 1fr 100px 110px 120px 36px",
+                      gridTemplateColumns: "32px minmax(160px, 1fr) minmax(78px, 100px) minmax(92px, 110px) minmax(104px, 120px) minmax(76px, 96px)",
+                      minWidth: 640,
                       padding: "12px 14px",
                       alignItems: "center",
                       borderTop: "1px solid var(--line-soft)",
@@ -340,7 +394,20 @@ export default function GroupMembersPage() {
                     <Text as="div" variant="num" className="text-[length:var(--fs-xs)] text-right" style={{ color: "var(--ink-1)" }}>
                       {stats ? `${(stats.distance / 1000).toFixed(0)}km · ${stats.rideCount}${t("members.rideUnit")}` : "—"}
                     </Text>
-                    <div />
+                    <div style={{ textAlign: "right" }}>
+                      {isCreator && !isMe && (
+                        <Button
+                          type="button"
+                          onClick={() => void handleRemoveMember(m.id, m.profile?.nickname ?? m.id)}
+                          disabled={bulkBusy}
+                          variant="secondary"
+                          size="sm"
+                          style={{ color: "var(--rose)", borderColor: "color-mix(in oklch, var(--rose) 40%, transparent)" }}
+                        >
+                          {t("button.remove")}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -359,27 +426,35 @@ export default function GroupMembersPage() {
           ) : (
             <Card padding="none" style={{ padding: 0 }}>
               <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {pending.map((p) => (
-                  <li
-                    key={p.userId}
-                    className="flex items-center justify-between"
-                    style={{ padding: "12px 14px", borderBottom: "1px solid var(--line-soft)" }}
-                  >
-                    <div className="min-w-0">
-                      <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{p.userId.slice(0, 12)}…</div>
-                      <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
-                        {p.requestedAt ? new Date(p.requestedAt).toLocaleDateString("ko-KR") : ""}
-                        {p.message && ` · "${p.message}"`}
+                {pending.map((p) => {
+                  const profile = pendingProfiles.get(p.userId) ?? null;
+                  const name = profile?.nickname ?? t("members.unknownRequester");
+                  return (
+                    <li
+                      key={p.userId}
+                      className="flex items-center justify-between flex-wrap"
+                      style={{ gap: "var(--space-3)", padding: "12px 14px", borderBottom: "1px solid var(--line-soft)" }}
+                    >
+                      <div className="min-w-0 flex items-center" style={{ gap: "var(--space-2)" }}>
+                        <Avatar name={name} imageUrl={profile?.photoURL} size="sm" />
+                        <div className="min-w-0">
+                          <div className="text-[length:var(--fs-sm)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{name}</div>
+                          <div className="text-[length:var(--fs-xs)] mt-0.5 truncate" style={{ color: "var(--ink-3)" }}>
+                            {p.requestedAt ? new Date(p.requestedAt).toLocaleDateString("ko-KR") : ""}
+                            {p.message && ` · "${p.message}"`}
+                            {!profile && ` · ${p.userId.slice(0, 8)}`}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    {isCreator && (
-                      <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
-                        <Button type="button" onClick={() => handleApprove(p.userId)} variant="primary" size="sm">{t("button.approve")}</Button>
-                        <Button type="button" onClick={() => handleReject(p.userId)} variant="secondary" size="sm" style={{ color: "var(--rose)" }}>{t("button.reject")}</Button>
-                      </div>
-                    )}
-                  </li>
-                ))}
+                      {isCreator && (
+                        <div className="flex items-center" style={{ gap: "var(--space-1-5)" }}>
+                          <Button type="button" onClick={() => handleApprove(p.userId)} variant="primary" size="sm">{t("button.approve")}</Button>
+                          <Button type="button" onClick={() => handleReject(p.userId)} variant="secondary" size="sm" style={{ color: "var(--rose)" }}>{t("button.reject")}</Button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </Card>
           )}
@@ -425,11 +500,6 @@ export default function GroupMembersPage() {
             </div>
           )}
         </Card>
-      )}
-
-      {/* BANNED TAB */}
-      {tab === "banned" && (
-        <EmptyState icon="🚫" title={t("empty.noBlockedUsers")} description={t("members.blockedFuture")} compact />
       )}
 
       <InviteMemberModal
