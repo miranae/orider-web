@@ -423,6 +423,29 @@ footer a {
   color: var(--text2);
 }
 
+.manual-store-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 12px auto 0;
+}
+
+.manual-store-links a {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-weight: 800;
+  min-height: 40px;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.manual-store-links a:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 /* -- Responsive -- */
 @media (max-width: 600px) {
   header { padding: 40px 16px 28px; }

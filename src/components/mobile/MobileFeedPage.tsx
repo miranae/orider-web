@@ -6,6 +6,7 @@ import type { Activity } from "@shared/types";
 import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
+import AppInstallLinks from "../AppInstallLinks";
 import WeekBars from "./WeekBars";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
@@ -72,6 +73,32 @@ function MobileFeedSkeleton() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function MobileAppInstallBanner({ placement }: { placement: "top" | "bottom" }) {
+  const { t } = useTranslation("dashboard");
+  const stickyStyle = placement === "top"
+    ? { position: "sticky" as const, top: 0, zIndex: 8 }
+    : { position: "sticky" as const, bottom: 64, zIndex: 8 };
+
+  return (
+    <div style={{ ...stickyStyle, padding: "14px 16px", borderBottom: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
+      <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "var(--lime)" }}>
+        <Text variant="eyebrow" tone="secondary">{t("mobileFeed.appInstall.eyebrow")}</Text>
+        <Text as="h2" variant="subtitle" weight={700} style={{ display: "block", marginTop: "var(--space-1)", color: "var(--ink-0)" }}>
+          {t("mobileFeed.appInstall.title")}
+        </Text>
+        <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)", marginBottom: "var(--space-3)" }}>
+          {t("mobileFeed.appInstall.desc")}
+        </Text>
+        <AppInstallLinks
+          compact
+          appStoreLabel={t("sidebar.app.storeIos")}
+          playStoreLabel={t("sidebar.app.storeAos")}
+        />
+      </Card>
     </div>
   );
 }
@@ -265,6 +292,8 @@ export default function MobileFeedPage({
 
   return (
     <div style={{ overscrollBehavior: "contain" }}>
+      <MobileAppInstallBanner placement="top" />
+
       {/* 주간 요약 — 로그인 사용자만 (비로그인은 개인 통계 컨텍스트 없음) */}
       {user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
@@ -437,6 +466,8 @@ export default function MobileFeedPage({
           </Button>
         </div>
       )}
+
+      <MobileAppInstallBanner placement="bottom" />
 
       <div style={{ height: 80 }} />
     </div>

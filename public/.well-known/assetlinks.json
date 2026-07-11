@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.miranae.orider",
+      "sha256_cert_fingerprints": [
+        "F3:52:C1:FB:D9:89:F8:53:BD:41:C6:F8:D0:87:56:6C:F9:CE:3B:43:83:AE:AB:76:91:28:94:C4:B1:E8:B4:07"
+      ]
+    }
+  }
+]

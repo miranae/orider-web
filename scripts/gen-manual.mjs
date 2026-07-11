@@ -124,6 +124,12 @@ ${nav}      </nav>
     </aside>`;
 }
 
+const storeLinks = `<div class="manual-store-links" aria-label="Orider 앱 설치">
+        <span>주행 기록은 Orider 앱에서 이어집니다.</span>
+        <a href="https://apps.apple.com/kr/app/o-rider/id6775696052" target="_blank" rel="noopener">App Store</a>
+        <a href="https://play.google.com/store/apps/details?id=com.miranae.orider" target="_blank" rel="noopener">Google Play</a>
+      </div>`;
+
 // ── 페이지 셸 ──────────────────────────────────────────────
 function page({ file, title, group, contentInner, prev, next }) {
   const crumb = `<b>${esc(group)}</b> · ${esc(title)}`;
@@ -156,6 +162,7 @@ ${sidebar(file)}
     <main class="gb-content">
 ${contentInner}
       <nav class="gb-prevnext">${prevHtml}${nextHtml}</nav>
+      ${storeLinks}
     </main>
   </div>
 </div>
@@ -216,6 +223,7 @@ ${sidebar("index.html")}
       <div class="gb-cards">
 ${cards}
       </div>
+      ${storeLinks}
     </main>
   </div>
 </div>
