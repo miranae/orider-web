@@ -332,10 +332,9 @@ export function useCreatePost() {
         sourceSite: null,
         feedbackType: data.feedbackType || null,
         isPrivate: data.isPrivate || false,
-        moderationStatus: data.boardType === "inquiry" ? "new" : null,
-        inquiryStatus: data.boardType === "inquiry" ? "new" : null,
-        lastModeratorActionAt: null,
-        resolvedAt: null,
+        // moderationStatus·inquiryStatus·lastModeratorActionAt·resolvedAt 는 넣지 않는다 —
+        // firestore.rules hasNoModerationFields() 가 해당 키 존재 시 create 를 거부하며,
+        // 관리자 API(normalizePost)가 읽기 시점에 기본값을 채운다.
         viewCount: 0,
         likeCount: 0,
         commentCount: 0,

@@ -15,6 +15,7 @@ import { normalizeUserContentUrl } from "../utils/userContentUrl";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import { clearPostDraft, getPostDraftKey, readPostDraft, writePostDraft } from "../features/board/postDraft";
 import { serializePostEditorContent } from "../features/board/editor/serializePostEditorContent";
+import { logClientError } from "../services/errorLogger";
 const MAX_IMAGES = 5;
 
 type AttachedImage = {
@@ -711,7 +712,11 @@ const CreatePostPage: React.FC = () => {
         navigate(`/board/${postId}`);
       }
       if (draftKey) clearPostDraft(draftKey);
-    } catch {
+    } catch (err) {
+      logClientError("CreatePostPage.handleSubmit", err, {
+        boardType: isInquiry ? 'inquiry' : isDevlog ? 'devlog' : 'free',
+        imageCount: imageMapRef.current.size,
+      });
       void dialog.alert(t('message.submitFailed'), { variant: "danger" });
     } finally {
       setUploading(false);
