@@ -250,6 +250,17 @@
       "newPlace": "새로운 곳",
       "popularCourses": "인기 코스",
       "notable": "주목 세그먼트",
+      "monthlyTitle": "개인 월간 챌린지",
+      "monthlyHeading": "{{month}} 거리 도전",
+      "monthlyDescription": "내 활동 거리로 300·500·1,000km 목표에 도전하세요.",
+      "monthlyProgressLabel": "이번 달 거리 챌린지 진행률",
+      "monthlyRemaining": "{{distance}}km 남음",
+      "monthlyCompleted": "이번 달 목표 달성",
+      "joinTier": "{{tier}}km 참가",
+      "joined": "참가 중",
+      "joinSuccess": "{{tier}}km 챌린지에 참가했습니다.",
+      "joinFailed": "챌린지 참가 상태를 저장하지 못했습니다.",
+      "loading": "이번 달 진행 상황을 불러오는 중…",
       "predicted": "예상 {{time}}",
       "faster": "−{{sec}}초 단축"
     }
