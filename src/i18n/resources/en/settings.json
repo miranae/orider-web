@@ -48,6 +48,7 @@
     "nicknameSaving": "Updating nickname across your activities…",
     "nicknameLength": "Nickname must be 2-30 characters",
     "nicknameSaveFailed": "Failed to update nickname",
+    "nicknameAuthSyncFailed": "Nickname saved, but syncing it to your login profile failed",
     "save": "Save",
     "cancel": "Cancel",
     "friendCode": "Friend code",
