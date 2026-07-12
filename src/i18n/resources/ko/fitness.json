@@ -78,6 +78,8 @@
   "hub.weekly.recommend.maintain": "현재 리듬을 유지하세요.",
   "hub.actions.title": "바이크 개선 액션",
   "hub.actions.needed": "필요",
+  "hub.actions.showMore": "나머지 액션 {{count}}개 보기",
+  "hub.actions.showLess": "액션 접기",
   "hub.actions.ftp.title": "FTP 기준값",
   "hub.actions.ftp.desc": "파워 존과 TSS 정확도를 위해 FTP를 최신값으로 맞춥니다.",
   "hub.actions.ftp.cta": "운동 프로필에서 FTP 입력",
