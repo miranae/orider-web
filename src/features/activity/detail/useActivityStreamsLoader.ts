@@ -4,6 +4,7 @@ import { doc, getDoc } from "firebase/firestore";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { firestore } from "../../../services/firebase";
 import { logClientError } from "../../../services/errorLogger";
+import { getActivityStreams } from "../../../services/personalDataApi";
 import { getStravaActivityId } from "../../../utils/stravaActivity";
 import { isStreamNotCachedError } from "./activityDetailUtils";
 
@@ -13,6 +14,29 @@ interface UseActivityStreamsLoaderArgs {
   userId: string | undefined;
   getStreams: (stravaId: number) => Promise<unknown>;
   t: (key: string) => string;
+}
+
+export async function loadOriderActivityStreams(
+  activityId: string,
+  fallbackUserId?: string,
+): Promise<ActivityStreams> {
+  const snap = await getDoc(doc(firestore, "activity_streams", activityId));
+  if (!snap.exists()) throw new Error("STREAMS_MISSING");
+
+  const data = snap.data();
+  if (data.storage === "gcs" && typeof data.gcsPath === "string") {
+    const streams = await getActivityStreams(activityId);
+    const ownerId = typeof data.userId === "string" ? data.userId : fallbackUserId;
+    if (ownerId) streams.userId = ownerId;
+    return streams;
+  }
+
+  const jsonStr = data.json as string | undefined;
+  if (!jsonStr) throw new Error("STREAMS_MISSING");
+  const streams = JSON.parse(jsonStr) as ActivityStreams;
+  const ownerId = typeof data.userId === "string" ? data.userId : fallbackUserId;
+  if (ownerId) streams.userId = ownerId;
+  return streams;
 }
 
 export function useActivityStreamsLoader({
@@ -44,32 +68,8 @@ export function useActivityStreamsLoader({
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => setShowStreamSpinner(true), 500);
-      getDoc(doc(firestore, "activity_streams", activityId)).then((snap) => {
-        if (!snap.exists()) {
-          setStreamsError(t("page.streamsMissing"));
-          return;
-        }
-
-        const data = snap.data();
-        const jsonStr = data.json as string | undefined;
-        if (!jsonStr) {
-          setStreamsError(t("page.streamsMissing"));
-          return;
-        }
-
-        try {
-          const parsed = JSON.parse(jsonStr) as ActivityStreams;
-          parsed.userId = data.userId;
-          setStreams(parsed);
-        } catch (err) {
-          logClientError("ActivityPage.streams.parse", err, {
-            activityId,
-            source: "orider",
-            visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
-            isOwn: !!userId && activity.userId === userId,
-          });
-          setStreamsError(t("page.streamsMissing"));
-        }
+      loadOriderActivityStreams(activityId, activity.userId).then((parsed) => {
+        setStreams(parsed);
       }).catch((err) => {
         logClientError("ActivityPage.streams", err, {
           activityId,
@@ -77,7 +77,9 @@ export function useActivityStreamsLoader({
           visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
           isOwn: !!userId && activity.userId === userId,
         });
-        setStreamsError(err instanceof Error ? err.message : t("page.streamsErrorFallback"));
+        setStreamsError(err instanceof Error && err.message !== "STREAMS_MISSING"
+          ? err.message
+          : t("page.streamsMissing"));
       }).finally(() => {
         clearTimeout(timer);
         setShowStreamSpinner(false);
