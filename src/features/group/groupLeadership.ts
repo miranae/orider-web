@@ -25,3 +25,21 @@ export async function transferGroupLeadership(
   }
   return data;
 }
+
+export interface SetGroupMemberRoleInput {
+  groupId: string;
+  userId: string;
+  role: "member" | "co-leader";
+}
+
+/** #379: 역할 변경을 직접 Firestore 쓰기 대신 CF로 — 서버가 creator 권한·대상 유효성을 강제한다. */
+export async function setGroupMemberRole(input: SetGroupMemberRoleInput): Promise<void> {
+  const fn = httpsCallable<SetGroupMemberRoleInput, { success: true }>(
+    functions,
+    "setGroupMemberRole",
+  );
+  const { data } = await fn(input);
+  if (data.success !== true) {
+    throw new Error("invalid-set-group-member-role-response");
+  }
+}

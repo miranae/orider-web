@@ -106,15 +106,18 @@ describe("GroupMembersPage", () => {
     });
     renderMembersPage();
 
+    setCallableResult("setGroupMemberRole", { data: { success: true } });
     fireEvent.click(await screen.findByRole("button", { name: "Rider One님 부리더 지정" }));
 
     await waitFor(() => expect(mockConfirm).toHaveBeenCalledWith(
       "Rider One님을 부리더로 지정하시겠습니까?",
     ));
-    await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: "groups/group-1/members/member-1" }),
-      { role: "co-leader" },
-    ));
+    // #379: 역할 변경은 직접 Firestore 쓰기가 아닌 setGroupMemberRole CF 를 경유한다.
+    await waitFor(() => expect(mockCallableInvocations).toContainEqual({
+      name: "setGroupMemberRole",
+      data: { groupId: "group-1", userId: "member-1", role: "co-leader" },
+    }));
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
     expect(await screen.findByText("Rider One님을 부리더로 지정했습니다.")).toBeInTheDocument();
   });
 
@@ -151,12 +154,13 @@ describe("GroupMembersPage", () => {
     expect(screen.getByRole("button", { name: "Helper님 부리더 해제" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other Leader님 부리더 지정" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Other Leader님 부리더 해제" })).not.toBeInTheDocument();
+    setCallableResult("setGroupMemberRole", { data: { success: true } });
     fireEvent.click(screen.getByRole("button", { name: "Helper님 부리더 해제" }));
 
-    await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: "groups/group-1/members/co-leader-1" }),
-      { role: "member" },
-    ));
+    await waitFor(() => expect(mockCallableInvocations).toContainEqual({
+      name: "setGroupMemberRole",
+      data: { groupId: "group-1", userId: "co-leader-1", role: "member" },
+    }));
   });
 
   it("transfers leadership to an eligible active member and can leave atomically", async () => {

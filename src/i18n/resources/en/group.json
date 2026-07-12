@@ -270,6 +270,8 @@
   "settings.locationPlaceholder": "e.g., Seoul · Jamsil",
   "settings.dangerZone": "Danger Zone",
   "settings.deleteDescription": "Deleting the group will remove all members. This action cannot be undone.",
+  "settings.transferHint": "If you want to leave the group, transfer leadership in Member Management instead of deleting it, then leave.",
+  "settings.transferLink": "Go to leadership transfer",
   "settings.leaveDescription": "Leaving the group will keep your group ride records but remove you from the member list.",
   "settings.saveSuccess": "Group settings saved.",
   "settings.leaveSuccess": "Left the group.",
