@@ -36,6 +36,7 @@ import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oride
 import { buildEventIcs, downloadIcsFile, icsFileName } from "../../features/event/detail/generateIcs";
 import { createEventShareImage, shareEventImage } from "../../features/event/share/eventShareCard";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
+import { buildEventFollowPayload, followerExists } from "../../features/event/detail/eventFollow";
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 
@@ -79,6 +80,7 @@ export default function EventDetailPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [followingEvent, setFollowingEvent] = useState(false);
   const [followPending, setFollowPending] = useState(false);
+  const [followLoading, setFollowLoading] = useState(true);
   const groupId = event?.groupId || undefined;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
   const { byGroup: nextEventLabels, eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
@@ -91,6 +93,24 @@ export default function EventDetailPage() {
   useEffect(() => {
     if (groupError) logClientError("EventDetailPage.loadHostGroup", groupError, { eventId, groupId });
   }, [eventId, groupError, groupId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!eventId || !user) {
+      setFollowingEvent(false);
+      setFollowLoading(false);
+      return;
+    }
+    setFollowLoading(true);
+    void getDoc(doc(firestore, "events", eventId, "followers", user.uid)).then((snapshot) => {
+      if (!cancelled) setFollowingEvent(followerExists(snapshot));
+    }).catch((err) => {
+      logClientError("EventDetailPage.loadEventFollow", err, { eventId });
+    }).finally(() => {
+      if (!cancelled) setFollowLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [eventId, user]);
 
   const handleStartEvent = useCallback(async () => {
     if (!eventId || !event) return;
@@ -666,12 +686,12 @@ export default function EventDetailPage() {
                   📅 {t("detail.button.addToCalendar")}
                 </Button>
                 {event.status === "OPEN" && !isParticipant && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
-                  <><Button type="button" variant="secondary" size="sm" disabled={followPending} onClick={async () => {
+                  <><Button type="button" variant="secondary" size="sm" disabled={followPending || followLoading} onClick={async () => {
                     if (!user || !eventId) { navigate("/login"); return; }
                     const next = !followingEvent;
                     setFollowPending(true);
                     try {
-                      await httpsCallable(functions, "setEventFollow")({ eventId, following: next });
+                      await httpsCallable(functions, "setEventFollow")(buildEventFollowPayload(eventId, next));
                       setFollowingEvent(next);
                       showToast(t(next ? "follow.enabled" : "follow.disabled"));
                     } catch (err) { logClientError("EventDetailPage.setEventFollow", err, { eventId }); showToast(t("follow.failed")); }

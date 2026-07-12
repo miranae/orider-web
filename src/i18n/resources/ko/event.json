@@ -690,5 +690,8 @@
   "difficulty.intermediate": "중급",
   "difficulty.advanced": "상급",
   "difficulty.expert": "전문",
-  "group.subscribeCalendar": "그룹 캘린더 구독"
+  "group.subscribeCalendar": "그룹 캘린더 구독",
+  "liveView.guestCta.eyebrow": "라이딩을 직접 기록하세요",
+  "liveView.guestCta.title": "O-Rider 앱에서 이벤트에 참가하고 라이브 위치를 공유하세요",
+  "liveView.guestCta.description": "코스 안내, 라이브 트래킹, 완주 기록과 결과를 한곳에서 확인할 수 있습니다."
 }

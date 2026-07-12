@@ -690,5 +690,8 @@
   "difficulty.intermediate": "Intermediate",
   "difficulty.advanced": "Advanced",
   "difficulty.expert": "Expert",
-  "group.subscribeCalendar": "Subscribe to group calendar"
+  "group.subscribeCalendar": "Subscribe to group calendar",
+  "liveView.guestCta.eyebrow": "Track your own ride",
+  "liveView.guestCta.title": "Join events and share your live position with the O-Rider app",
+  "liveView.guestCta.description": "Keep course guidance, live tracking, finish records, and results together."
 }

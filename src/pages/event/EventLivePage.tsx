@@ -13,6 +13,9 @@ import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Switch, Text } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
+import { countActiveViewers, createViewerSessionId } from "../../features/event/viewerPresence";
+import { useAuth } from "../../contexts/AuthContext";
+import AppInstallLinks from "../../components/AppInstallLinks";
 
 export interface SnapshotLocation {
   uid: string;
@@ -298,6 +301,7 @@ export default function EventLivePage() {
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const dialog = useDialog();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightBib = searchParams.get("bib") ? Number(searchParams.get("bib")) : null;
@@ -329,7 +333,7 @@ export default function EventLivePage() {
     const storageKey = `event-viewer-session:${eventId}`;
     let viewerSessionId = sessionStorage.getItem(storageKey);
     if (!viewerSessionId || !/^[A-Za-z0-9_-]{16,100}$/.test(viewerSessionId)) {
-      viewerSessionId = crypto.randomUUID().replace(/-/g, "_");
+      viewerSessionId = createViewerSessionId();
       sessionStorage.setItem(storageKey, viewerSessionId);
     }
     const sessionId = viewerSessionId;
@@ -337,12 +341,7 @@ export default function EventLivePage() {
       try {
         await heartbeat({ eventId, viewerSessionId: sessionId, active: true });
         const viewers = await getDocs(collection(firestore, `events/${eventId}/viewers`));
-        const cutoff = Date.now() - 90_000;
-        const count = viewers.docs.filter((viewer) => {
-          const lastSeen = viewer.data().lastSeenAt;
-          const lastSeenMs = typeof lastSeen?.toMillis === "function" ? lastSeen.toMillis() : typeof lastSeen === "number" ? lastSeen : 0;
-          return lastSeenMs >= cutoff;
-        }).length;
+        const count = countActiveViewers(viewers.docs.map((viewer) => viewer.data()));
         if (!cancelled) setViewerCount(count);
       } catch (err) {
         logClientError("EventLivePage.viewerHeartbeat", err, { eventId });
@@ -960,6 +959,13 @@ export default function EventLivePage() {
           )}
         </Card>
       </div>
+
+      {!authLoading && !user && <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
+        <Text as="div" variant="eyebrow">{t("liveView.guestCta.eyebrow")}</Text>
+        <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", margin: "var(--space-1) 0 var(--space-2)" }}>{t("liveView.guestCta.title")}</div>
+        <p style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginBottom: "var(--space-3)" }}>{t("liveView.guestCta.description")}</p>
+        <AppInstallLinks compact appStoreLabel={t("resultsView.nextAction.ios")} playStoreLabel={t("resultsView.nextAction.android")} />
+      </Card>}
 
       <style>{`
         @media (max-width: 900px) {
