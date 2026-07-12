@@ -38,7 +38,9 @@
       },
       {
         "title": "Article 5 (Provision and Modification of the Service)",
-        "paragraphs": ["The Company provides the following services:"],
+        "paragraphs": [
+          "The Company provides the following services:"
+        ],
         "list": [
           "Ride record storage and analysis",
           "Strava data migration and synchronization",
@@ -76,7 +78,9 @@
       },
       {
         "title": "Article 8 (User Obligations and Prohibited Activities)",
-        "paragraphs": ["Users must not engage in any of the following:"],
+        "paragraphs": [
+          "Users must not engage in any of the following:"
+        ],
         "list": [
           "Acts that violate laws or these Terms",
           "Infringing on others' rights (copyright, portrait rights, personal data, etc.)",
@@ -137,7 +141,9 @@
       },
       {
         "title": "Article 15 (Contact)",
-        "paragraphs": ["Inquiries about the Service can be made through the following:"],
+        "paragraphs": [
+          "Inquiries about the Service can be made through the following:"
+        ],
         "list": [
           "Email: orider.app@gmail.com",
           "In-service feedback or email"
@@ -322,13 +328,15 @@
   },
   "privacy": {
     "title": "Orider Privacy Policy",
-    "lastUpdated": "Last updated: February 18, 2026",
+    "lastUpdated": "Last updated: July 11, 2026",
     "intro": "Orider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
     "stravaPrivacyLink": "Strava Privacy Policy",
     "sections": [
       {
         "title": "Article 1 (Personal Information Collected)",
-        "paragraphs": ["The Company collects the following personal information:"],
+        "paragraphs": [
+          "The Company collects the following personal information:"
+        ],
         "groups": [
           {
             "heading": "1. Sign-up and sign-in",
@@ -367,7 +375,9 @@
       },
       {
         "title": "Article 2 (Purposes of Collection and Use)",
-        "paragraphs": ["The Company processes personal information for the following purposes:"],
+        "paragraphs": [
+          "The Company processes personal information for the following purposes:"
+        ],
         "list": [
           "Member identification and account management",
           "Storing and analyzing ride records",
@@ -401,7 +411,9 @@
       },
       {
         "title": "Article 4-2 (Data Processing for Strava Integration)",
-        "paragraphs": ["When a User integrates a Strava account, data is processed as follows:"],
+        "paragraphs": [
+          "When a User integrates a Strava account, data is processed as follows:"
+        ],
         "groups": [
           {
             "heading": "1. Data collected",
@@ -451,12 +463,60 @@
         "stravaLinkSentenceSuffix": ". If this Policy and the Strava policy conflict, the Strava policy shall prevail."
       },
       {
+        "title": "Article 4-3 (Health Platform Integration and Health Data)",
+        "paragraphs": [
+          "When you connect a device health platform such as Apple Health (HealthKit) in the mobile app, we process data as follows.",
+          "Health data is sensitive information under Article 23 of the Personal Information Protection Act, so we obtain separate consent, distinct from general privacy consent, before collection. Core features such as ride recording remain fully available if you decline."
+        ],
+        "groups": [
+          {
+            "heading": "1. Data collected (only items you consent to)",
+            "list": [
+              "Workout records — activity type, start and end time, distance, calories, heart-rate statistics",
+              "Recovery data (with additional consent) — heart-rate variability (HRV), resting heart rate, sleep duration"
+            ]
+          },
+          {
+            "heading": "2. Purpose of use",
+            "list": [
+              "Creating and analyzing service activities from workouts recorded on your watch or device",
+              "Recovery (readiness) analysis and training intensity guidance"
+            ]
+          },
+          {
+            "heading": "3. Retention and deletion",
+            "list": [
+              "Imported activities are retained until you delete them individually or delete your account.",
+              "Deleting an activity also deletes data derived from it."
+            ]
+          },
+          {
+            "heading": "4. Withdrawal of consent",
+            "list": [
+              "You can disconnect anytime in the app under Settings > Health Sync; collection stops immediately.",
+              "Health platform access can also be revoked per item in device settings (iOS Settings > Health)."
+            ]
+          },
+          {
+            "heading": "5. Processing principles",
+            "list": [
+              "Health data is used only to provide service features — never for advertising or other purposes, and never shared with third parties.",
+              "Data in transit and at rest is protected by HTTPS and access controls."
+            ]
+          }
+        ]
+      },
+      {
         "title": "Article 5 (Outsourced Processing)",
-        "paragraphs": ["Currently, the Company does not outsource personal information processing to external companies. If outsourcing occurs in the future, related details will be disclosed in this Policy."]
+        "paragraphs": [
+          "Currently, the Company does not outsource personal information processing to external companies. If outsourcing occurs in the future, related details will be disclosed in this Policy."
+        ]
       },
       {
         "title": "Article 6 (User Rights and How to Exercise Them)",
-        "paragraphs": ["Users may exercise the following rights at any time:"],
+        "paragraphs": [
+          "Users may exercise the following rights at any time:"
+        ],
         "list": [
           "Request to view personal information",
           "Request to correct personal information",
@@ -467,11 +527,15 @@
       },
       {
         "title": "Article 7 (Cookies and Similar Technologies)",
-        "paragraphs": ["The Company may use cookies (web), local storage (app), or similar technologies to improve the Service. Users may refuse the use of cookies and local storage through browser settings (web) or app settings (mobile)."]
+        "paragraphs": [
+          "The Company may use cookies (web), local storage (app), or similar technologies to improve the Service. Users may refuse the use of cookies and local storage through browser settings (web) or app settings (mobile)."
+        ]
       },
       {
         "title": "Article 8 (Security Measures)",
-        "paragraphs": ["The Company implements the following protective measures:"],
+        "paragraphs": [
+          "The Company implements the following protective measures:"
+        ],
         "list": [
           "OAuth-based authentication",
           "HTTPS encrypted communication",
@@ -481,15 +545,21 @@
       },
       {
         "title": "Article 9 (Protection of Children's Information)",
-        "paragraphs": ["Children under the age of 14 may not register without the consent of a legal guardian."]
+        "paragraphs": [
+          "Children under the age of 14 may not register without the consent of a legal guardian."
+        ]
       },
       {
         "title": "Article 10 (Privacy Officer)",
-        "list": ["Email: orider.app@gmail.com"]
+        "list": [
+          "Email: orider.app@gmail.com"
+        ]
       },
       {
         "title": "Article 11 (Changes to the Policy)",
-        "paragraphs": ["This Policy may be revised due to changes in laws or the Service, and changes will be announced."]
+        "paragraphs": [
+          "This Policy may be revised due to changes in laws or the Service, and changes will be announced."
+        ]
       }
     ]
   }

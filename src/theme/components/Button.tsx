@@ -24,6 +24,8 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   block?: boolean;
   /** 아이콘 only — 정사각 padding. */
   iconOnly?: boolean;
+  /** 44px 히트 오버레이 옵트아웃 — 버튼이 44px 미만 간격으로 밀집한 툴바/그룹에서 사용 (#401). */
+  dense?: boolean;
   leadingIcon?: ReactNode;
   trailingIcon?: ReactNode;
   /** HTML type — 기본 'button' (form submit 사고 방지). */
@@ -58,6 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     loading,
     block,
     iconOnly,
+    dense,
     leadingIcon,
     trailingIcon,
     disabled,
@@ -80,6 +83,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         `ds-btn--${size}`,
         block && 'ds-btn--block',
         iconOnly && 'ds-btn--icon-only',
+        dense && 'ds-btn--dense',
         loading && 'ds-btn--loading',
         className,
       )}

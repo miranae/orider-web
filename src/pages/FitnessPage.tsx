@@ -1242,8 +1242,8 @@ export default function FitnessPage() {
                 style={{
                   marginTop: 'var(--space-4)',
                   padding: "var(--space-3)",
+                  // 카드 안 서피스는 테두리 없이 배경 틴트만 — surface 3단계 유지 (이슈 401)
                   background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
-                  border: "1px solid color-mix(in oklch, var(--lime) 20%, var(--line-soft))",
                   borderRadius: "var(--r-md)",
                   display: "grid",
                   gridTemplateColumns: "2fr repeat(3, 1fr) auto",
