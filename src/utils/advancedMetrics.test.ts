@@ -12,6 +12,7 @@ import {
   estimateCriticalPower,
   calculateAvgSpeed,
   calculateCriticalBands,
+  trimpToTssEquivalent,
 } from "./advancedMetrics";
 
 // 서버 functions/src/analysis/activity-metrics.ts:wPrimeBalanceMin 과 동일 알고리즘(미러 검증용).
@@ -237,5 +238,45 @@ describe("calculateTRIMP", () => {
     const high = calculateTRIMP(Array(600).fill(170), 190, 60)!;
     expect(high).toBeGreaterThan(low);
     expect(low).toBeGreaterThan(0);
+  });
+});
+
+// #365 — TRIMP → TSS 등가 정규화 (hrTSS 방식: 임계HR 1시간 = 100).
+describe("trimpToTssEquivalent", () => {
+  it("1시간을 근사 임계HR(maxHr*0.85)로 유지하면 ≈100", () => {
+    const maxHr = 190;
+    const heartrate = Array(3600).fill(maxHr * 0.85);
+    const tss = trimpToTssEquivalent({ heartrate, maxHr })!;
+    expect(tss).toBeCloseTo(100, -1);
+  });
+
+  it("30분을 임계HR로 유지하면 ≈50 (선형에 가까운 스케일)", () => {
+    const maxHr = 190;
+    const heartrate = Array(1800).fill(maxHr * 0.85);
+    const tss = trimpToTssEquivalent({ heartrate, maxHr })!;
+    expect(tss).toBeCloseTo(50, -1);
+  });
+
+  it("명시적 LTHR 이 주어지면 근사치 대신 그 값을 임계 기준으로 사용", () => {
+    const maxHr = 190;
+    const lthr = 165;
+    const heartrate = Array(3600).fill(lthr);
+    const tss = trimpToTssEquivalent({ heartrate, maxHr, thresholdHr: lthr })!;
+    expect(tss).toBeCloseTo(100, -1);
+  });
+
+  it("Z2 (HRr 낮음) 라이딩은 TSS 등가가 임계 강도보다 훨씬 낮음", () => {
+    const maxHr = 190;
+    const restHr = 60;
+    const z2Hr = restHr + (maxHr - restHr) * 0.55; // HRr ≈ 0.55
+    const heartrate = Array(3600).fill(z2Hr);
+    const tss = trimpToTssEquivalent({ heartrate, maxHr, restHr })!;
+    expect(tss).toBeLessThan(50);
+    expect(tss).toBeGreaterThan(0);
+  });
+
+  it("빈 입력·maxHr<=restHr → null", () => {
+    expect(trimpToTssEquivalent({ heartrate: [], maxHr: 190 })).toBeNull();
+    expect(trimpToTssEquivalent({ heartrate: Array(60).fill(150), maxHr: 60, restHr: 60 })).toBeNull();
   });
 });

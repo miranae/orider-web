@@ -114,7 +114,7 @@ export interface RecommendationFacts {
   balanceGuide?: {
     lo: number;
     hi: number;
-    phase: "build" | "maintain" | "taper" | "recovery";
+    phase: "base" | "build" | "maintain" | "taper" | "recovery";
     note: string;
   };
 }
