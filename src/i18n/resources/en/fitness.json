@@ -496,5 +496,9 @@
   "mobile.activity.period.dawn": "Early morning",
   "mobile.activity.period.morning": "Morning",
   "mobile.activity.period.afternoon": "Afternoon",
-  "mobile.activity.period.evening": "Evening"
+  "mobile.activity.period.evening": "Evening",
+  "lifetimeMilestones.title": "Kilometerstones",
+  "lifetimeMilestones.total": "{{km}} km lifetime (all disciplines)",
+  "lifetimeMilestones.label": "{{km}} km",
+  "lifetimeMilestones.longestRide": "Longest ride"
 }

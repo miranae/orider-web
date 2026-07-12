@@ -496,5 +496,9 @@
   "mobile.activity.period.dawn": "새벽",
   "mobile.activity.period.morning": "아침",
   "mobile.activity.period.afternoon": "오후",
-  "mobile.activity.period.evening": "저녁"
+  "mobile.activity.period.evening": "저녁",
+  "lifetimeMilestones.title": "킬로미터스톤",
+  "lifetimeMilestones.total": "누적 {{km}}km (모든 종목)",
+  "lifetimeMilestones.label": "{{km}}km",
+  "lifetimeMilestones.longestRide": "최장 라이드"
 }

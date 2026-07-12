@@ -21,6 +21,8 @@ import {
 } from "../components/recap/recapShareCanvas";
 import { logClientError } from "../services/errorLogger";
 import { Card, Stat, Text, Button, Stack } from "../theme/components";
+import LifetimeMilestonesGrid from "../components/fitness/LifetimeMilestonesGrid";
+import { computeLifetimeMilestones } from "../utils/lifetimeMilestones";
 
 /** km, 콤마·정수 */
 function km(meters: number): string {
@@ -46,6 +48,9 @@ export default function YearRecapPage() {
   const year = selectedYear ?? years[0] ?? new Date().getFullYear();
 
   const recap = useMemo(() => computeYearRecap(activities, year), [activities, year]);
+  // 연도 필터 이전의 전체 활동(useYearActivities 가 이미 로드)에서 계산 — 누적 거리는
+  // 연도에 갇히지 않는 lifetime 지표라 recap(연도별 집계)과 별도로 둔다.
+  const lifetimeMilestones = useMemo(() => computeLifetimeMilestones(activities), [activities]);
 
   const nickname = profile?.nickname || user?.displayName || t("rider");
 
@@ -220,6 +225,9 @@ export default function YearRecapPage() {
               )}
             </Stack>
           </Card>
+
+          {/* 킬로미터스톤 (이슈 #360) — 종목 무관 누적 거리·최장 라이드, 클라 파생 */}
+          <LifetimeMilestonesGrid summary={lifetimeMilestones} />
 
           {/* 월별 추이 */}
           <Card title={t("section.monthly")}>
