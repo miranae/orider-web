@@ -36,7 +36,10 @@ const COLORS = [
 
 const MAX_HR_BOUNDS: Array<[number, number | null]> = [[0, 60], [60, 70], [70, 80], [80, 90], [90, 100]];
 // Friel running zones, collapsed to five UI bands (5a-c remain within Z5).
-const LTHR_BOUNDS: Array<[number, number | null]> = [[0, 85], [85, 90], [90, 95], [95, 100], [100, null]];
+const RUN_LTHR_BOUNDS: Array<[number, number | null]> = [[0, 85], [85, 90], [90, 95], [95, 100], [100, null]];
+// Friel cycling zones (The Cyclist's Training Bible) — %LTHR bounds differ from running
+// because bike LT/HR lag characteristics differ; Z5a-c collapsed into the Z5 UI band.
+const BIKE_LTHR_BOUNDS: Array<[number, number | null]> = [[0, 81], [81, 90], [90, 94], [94, 100], [100, null]];
 
 export function validBpm(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 50 && value <= 250;
@@ -47,12 +50,12 @@ export function isValidHrThresholdRelationship(maxHr: unknown, lthr: unknown): b
   return !validBpm(maxHr) || !validBpm(lthr) || lthr < maxHr;
 }
 
-export function deriveHrZones({ maxHr, lthr }: { maxHr: unknown; lthr?: unknown }): DerivedHrZones {
+export function deriveHrZones({ maxHr, lthr, sport = "run" }: { maxHr: unknown; lthr?: unknown; sport?: "run" | "bike" }): DerivedHrZones {
   const normalizedMaxHr = validBpm(maxHr) ? maxHr : 184;
   const useLthr = validBpm(lthr) && (!validBpm(maxHr) || lthr < maxHr);
   const source: HrZoneSource = useLthr ? "lthr" : "max_hr";
   const referenceBpm = useLthr ? lthr : normalizedMaxHr;
-  const bounds = useLthr ? LTHR_BOUNDS : MAX_HR_BOUNDS;
+  const bounds = useLthr ? (sport === "bike" ? BIKE_LTHR_BOUNDS : RUN_LTHR_BOUNDS) : MAX_HR_BOUNDS;
 
   return {
     source,
@@ -89,11 +92,14 @@ export function resolveActivityHrZones(input: {
   const maxHrSource = (selected?.[1] ?? "default") as MaxHrSource;
   let source: ActivityHrSource = maxHrSource;
   let lthr: unknown;
-  if (input.isOwner && input.sport === "run") {
+  // #365: LTHR 존은 run 뿐 아니라 bike(ride, 앱 주 종목)에도 적용 — Friel 사이클 %LTHR 경계
+  // (BIKE_LTHR_BOUNDS)로 파생. swim/other 는 아직 Friel 기준이 명확치 않아 %maxHR 유지.
+  if (input.isOwner && (input.sport === "run" || input.sport === "ride")) {
     const validProfileLthr = validBpm(input.profileLthr) && input.profileLthr < maxHr;
     const validContextLthr = validBpm(input.activityContextLthr) && input.activityContextLthr < maxHr;
     lthr = validProfileLthr ? input.profileLthr : validContextLthr ? input.activityContextLthr : undefined;
     if (validBpm(lthr)) source = validProfileLthr ? "profile_lthr" : "activity_context_lthr";
   }
-  return { zones: deriveHrZones({ maxHr, lthr }), maxHr, source, maxHrSource };
+  const zoneSport: "run" | "bike" = input.sport === "ride" ? "bike" : "run";
+  return { zones: deriveHrZones({ maxHr, lthr, sport: zoneSport }), maxHr, source, maxHrSource };
 }

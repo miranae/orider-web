@@ -4,7 +4,37 @@ import {
   RAMP_CAP_FACTOR,
   TSS_PER_AVAILABLE_HOUR,
   OCCUPATION_FACTOR,
+  BASE_DAYS_THRESHOLD,
 } from "./weeklyLoad";
+
+// #365 — base(기초 유산소 축적기) phase.
+describe("recommendWeeklyLoad — base 페이즈 (#365)", () => {
+  it("레이스까지 8주(BASE_DAYS_THRESHOLD) 초과 여유 → base, Balance −5~−15", () => {
+    const r = recommendWeeklyLoad({ ctl: 60, tsb: -8, daysUntilGoal: BASE_DAYS_THRESHOLD + 1 });
+    expect(r.balanceGuide.phase).toBe("base");
+    expect(r.balanceGuide.lo).toBe(-15);
+    expect(r.balanceGuide.hi).toBe(-5);
+    // CTL×7 = 420 → base 1.0~1.08 = 420~454(round)
+    expect(r.targetTss[0]).toBe(420);
+    expect(r.targetTss[1]).toBe(454);
+  });
+
+  it("BASE_DAYS_THRESHOLD 정확히 경계 → build (base 아님, 8주 이내는 빌드 개시)", () => {
+    const r = recommendWeeklyLoad({ ctl: 60, tsb: -8, daysUntilGoal: BASE_DAYS_THRESHOLD });
+    expect(r.balanceGuide.phase).toBe("build");
+  });
+
+  it("base 는 build 보다 ramp 이 완만함(hi 가 더 낮음, 같은 CTL 기준)", () => {
+    const base = recommendWeeklyLoad({ ctl: 60, tsb: -8, daysUntilGoal: BASE_DAYS_THRESHOLD + 1 });
+    const build = recommendWeeklyLoad({ ctl: 60, tsb: -8, daysUntilGoal: BASE_DAYS_THRESHOLD });
+    expect(base.targetTss[1]).toBeLessThan(build.targetTss[1]);
+  });
+
+  it("목표 없음(daysUntilGoal null) 이면 base 로 분류되지 않음", () => {
+    const r = recommendWeeklyLoad({ ctl: 60, tsb: -8 });
+    expect(r.balanceGuide.phase).not.toBe("base");
+  });
+});
 
 describe("recommendWeeklyLoad — phase 판정", () => {
   it("빌드기: 목표 D-30 + 폼 여유 → build, Balance −10~−30", () => {

@@ -98,6 +98,43 @@ export function calculateTRIMP(
   return sum;
 }
 
+/** LTHR 미상 시 임계 HR 근사치 (%maxHR). Friel: 잘 훈련된 선수 LTHR ≈ maxHR 의 85~92% —
+ *  과대평가(=부하 저평가) 방지를 위해 보수적 하한 채택(TIME_FACTORS 보수화와 동일 철학). */
+const DEFAULT_THRESHOLD_HR_PCT = 0.85;
+
+/**
+ * TRIMP(Banister) → TSS 등가 정규화 (hrTSS 방식).
+ *
+ * TSS 는 "FTP 로 1시간 라이딩 = 100" 이 정의다. 원시 TRIMP 는 이 기준이 없어 개인의
+ * restHr/maxHr·강도 분포에 따라 스케일이 크게 요동친다(예: HRr 0.85 로 1시간이면
+ * TRIMP ≈ 167, HRr 0.55 Z2 라이딩 1시간이면 TRIMP ≈ 17 — TSS 라면 각각 100·30 대여야 함).
+ * PMC(CTL/ATL/TSB)에 파워 기반 TSS 와 같은 척도로 섞이려면 "임계 HR(LTHR, 없으면
+ * maxHR×0.85 근사)에서 1시간 = 100" 이 되도록 재정규화해야 한다 — TrainingPeaks 의
+ * hrTSS 산정 원리와 동일. thresholdHr 을 기준 TRIMP/h 로 나눠 100 을 곱한다.
+ */
+export function trimpToTssEquivalent(params: {
+  heartrate: number[];
+  maxHr: number;
+  restHr?: number;
+  /** LTHR(있으면 최우선). 없으면 maxHr × DEFAULT_THRESHOLD_HR_PCT 근사. */
+  thresholdHr?: number | null;
+  gender?: "male" | "female";
+  time?: StreamTimeArray;
+}): number | null {
+  const { heartrate, maxHr, restHr = 60, gender = "male", time } = params;
+  if (!heartrate.length || maxHr <= restHr) return null;
+  const thresholdHr =
+    params.thresholdHr != null && params.thresholdHr > restHr && params.thresholdHr < maxHr
+      ? params.thresholdHr
+      : maxHr * DEFAULT_THRESHOLD_HR_PCT;
+  const trimp = calculateTRIMP(heartrate, maxHr, restHr, gender, time);
+  if (trimp == null) return null;
+  // 임계HR 로 1시간(3600 × 1Hz) 유지했을 때의 기준 TRIMP — calculateTRIMP 재사용으로 상수(k/c) 중복 방지.
+  const oneHourAtThreshold = calculateTRIMP(new Array(3600).fill(thresholdHr), maxHr, restHr, gender);
+  if (!oneHourAtThreshold || oneHourAtThreshold <= 0) return null;
+  return (trimp / oneHourAtThreshold) * 100;
+}
+
 /** 누적 고도 상승 (m) — altitude 스트림에서 양의 변화량 합 */
 export function calculateElevationGain(altitude: number[] | undefined, threshold = 0.5): number | null {
   if (!altitude?.length) return null;

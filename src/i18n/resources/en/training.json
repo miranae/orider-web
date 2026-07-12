@@ -68,6 +68,7 @@
     "today": "TODAY"
   },
   "phase": {
+    "base": "Base",
     "build": "Build",
     "peak": "Peak",
     "taper": "Taper",
@@ -124,6 +125,12 @@
       "up": "Recent compliance {{compliance}}% — raised next week's intensity by {{pct}}%.",
       "recovery": "Recent compliance {{compliance}}% — shifted the week toward recovery."
     }
+  },
+  "downshift": {
+    "easyLabel": "Go easy",
+    "restLabel": "Rest advised",
+    "easyTooltip": "TSB {{tsb}} — fatigue is building. Consider swapping today's hard session for an easy one.",
+    "restTooltip": "TSB {{tsb}} — burnout risk zone. Consider full rest instead of today's planned hard session."
   },
   "metrics": {
     "progress": "Progress",
@@ -374,6 +381,7 @@
     "weeklyRemaining": "Left {{value}}",
     "balanceDirection": "Balance target {{lo}}~{{hi}}",
     "balancePhase": {
+      "base": "Base",
       "build": "Build",
       "maintain": "Maintain",
       "taper": "Taper",
