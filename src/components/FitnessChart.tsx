@@ -315,17 +315,17 @@ export default function FitnessChart({
         </pattern>
       </defs>
 
-      {/* 범례 — 좌상단 */}
+      {/* 범례 — 좌상단. #400 §6: 초심자에게는 체력/피로/회복 상태(일상어)가 먼저 읽히고
+          CTL/ATL/TSB(전문 약어)는 보조 표기로 뒤에 붙는다. */}
       <g transform={`translate(${PAD_LEFT}, 12)`} fontFamily="var(--font-mono)" fontSize="12">
         {[
           { label: "CTL", color: "var(--lime)", desc: t("charts.fitness.legendFitness") },
           { label: "ATL", color: "var(--rose)", desc: t("charts.fitness.legendFatigue") },
           { label: "TSB", color: "var(--amber)", desc: t("charts.fitness.legendForm") },
         ].map((item, i) => (
-          <g key={item.label} transform={`translate(${i * 130}, 0)`}>
+          <g key={item.label} transform={`translate(${i * 150}, 0)`}>
             <line x1="0" y1="6" x2="14" y2="6" stroke={item.color} strokeWidth="2.5" />
-            <text x="18" y="9" fill="var(--ink-1)" fontWeight="600">{item.label}</text>
-            <text x="48" y="9" fill="var(--ink-3)">{item.desc}</text>
+            <text x="18" y="9" fill="var(--ink-1)" fontWeight="700">{item.desc} <tspan fill="var(--ink-4)" fontWeight="400">{item.label}</tspan></text>
           </g>
         ))}
       </g>
