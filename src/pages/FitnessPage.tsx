@@ -10,7 +10,12 @@ import { useRunRecords } from "../hooks/useRunRecords";
 import { useMilestones } from "../hooks/useMilestones";
 import type { MilestoneId } from "@shared/types/milestone";
 import { useSearchParams } from "react-router-dom";
-import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
+import {
+  filterByDiscipline,
+  getDiscipline,
+  getDisciplineLabelKey,
+  type Discipline,
+} from "../utils/disciplineFilter";
 import { collection, query, where, doc, getDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
 
 import { toLocalDate } from "../utils/dateUtils";
@@ -43,8 +48,10 @@ import { RevalidatingIndicator } from "../components/training/RevalidatingIndica
 import AdaptationSummary from "../components/training/AdaptationSummary";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
 import TodaysWorkoutCard from "../components/training/TodaysWorkoutCard";
+import TodayConclusion from "../components/training/TodayConclusion";
 import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import DetailsSection from "../components/redesign/DetailsSection";
 import { Card, Text, Chip, buttonClass } from "../theme/components";
 import RiderTypeCard from "../components/RiderTypeCard";
 import { computeExpectedCurve, classifyGaps, computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
@@ -540,7 +547,15 @@ export default function FitnessPage() {
       return Math.round(last28.slice(start, start + 7).reduce((s, d) => s + d.totalLoad, 0));
     });
 
-    // 최근 활동 (종목 필터 적용된 disciplineActivities, 최신순)
+    // 최근 활동 (종목 필터 적용된 disciplineActivities, 최신순). #400 §8: 기본 "Ride" 제목을
+    // 시간대+종목 기반 대체명으로 바꾸고, 0거리/0시간 기록은 흐리게 표시할 수 있도록 플래그를 둔다.
+    const GENERIC_TITLES = new Set(["ride", "run", "swim", "walk", "hike", "workout", "activity"]);
+    const timeOfDayKey = (hour: number): string => {
+      if (hour < 6) return "mobile.activity.period.dawn";
+      if (hour < 12) return "mobile.activity.period.morning";
+      if (hour < 18) return "mobile.activity.period.afternoon";
+      return "mobile.activity.period.evening";
+    };
     const recentActivities = disciplineActivities
       .slice()
       .sort((a, b) => (b.startTime ?? 0) - (a.startTime ?? 0))
@@ -551,13 +566,26 @@ export default function FitnessPage() {
         const distM = a.summary?.distance ?? 0;
         const durMs = a.summary?.ridingTimeMillis ?? 0;
         const tss = (a as { tss?: number | null }).tss ?? a.summary?.tss;
+        const activityDiscipline = getDiscipline(a.type);
+        const rawTitle = (a.description || "").trim();
+        const isGenericTitle = rawTitle.length === 0 || GENERIC_TITLES.has(rawTitle.toLowerCase());
+        const title = isGenericTitle
+          ? date
+            ? t("mobile.activity.timeOfDayTitle", {
+                period: t(timeOfDayKey(date.getHours())),
+                discipline: t(getDisciplineLabelKey(activityDiscipline)),
+              })
+            : t(getDisciplineLabelKey(activityDiscipline))
+          : rawTitle;
         return {
           id: a.id,
-          title: a.description || a.type || t("mobile.activityFallback"),
+          title,
           dateLabel,
           tss: typeof tss === "number" ? Math.round(tss) : undefined,
           distanceKm: distM > 0 ? distM / 1000 : undefined,
           durationMin: durMs > 0 ? durMs / 60000 : undefined,
+          discipline: activityDiscipline,
+          isEmptyRecord: distM <= 0 && durMs <= 0,
         };
       });
 
@@ -871,44 +899,60 @@ export default function FitnessPage() {
       {pageHeader}
 
       <div style={bodyPad}>
-        {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /plan 으로 이동. */}
-        {activeGoal?.adaptationFlag && (
-          <AdaptationSummary
-            flag={activeGoal.adaptationFlag}
-            style={{ marginBottom: 'var(--space-4)' }}
+        {/* 오늘의 결론 (#400 §1·§2) — 경고/회복/주간해석/워크아웃 추천을 모순 없는 한 문장으로
+            합성한 결론 + 바로 아래 유일한 primary CTA(TodaysWorkoutCard). 근거가 되는 개별
+            지표 카드는 아래 "근거 보기" 상세로 내려간다. */}
+        {currentPoint && (
+          <TodayConclusion
+            tsb={tsb}
+            restDays={weeklyStats.restDays}
+            thisWeekTSS={weeklyStats.thisWeekTSS}
+            avgWeekTSS={weeklyStats.avgWeekTSS}
           />
-        )}
-
-        {consistencyStreak && (
-          <div style={{ marginBottom: 'var(--space-4)' }}>
-            <ConsistencyStreakCard summary={consistencyStreak} />
-          </div>
         )}
 
         <div style={{ marginBottom: "var(--space-4)" }}>
           <TodaysWorkoutCard variant="compact" />
         </div>
 
-        {currentPoint && (
-          <FitnessWeeklyInsight
-            ctlDelta={ctlDelta}
-            ctl={ctl}
-            atl={atl}
-            tsb={tsb}
-            dailyData={dailyData}
-            t={t}
-          />
-        )}
+        {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
+          <DetailsSection title={t("conclusion.evidenceToggle")}>
+            {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /plan 으로 이동. */}
+            {activeGoal?.adaptationFlag && (
+              <AdaptationSummary
+                flag={activeGoal.adaptationFlag}
+                style={{ marginBottom: 'var(--space-4)' }}
+              />
+            )}
 
-        {/* 훈련 상태 — 숫자(KPI) 앞에 일상어 라벨을 먼저 (§3.5) */}
-        {currentPoint && (
-          <TrainingStatusCard
-            tsb={tsb}
-            ctl={ctl}
-            atl={atl}
-            ctlRampPerWeek={ctlRampPerWeek}
-            sport={discipline}
-          />
+            {consistencyStreak && (
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <ConsistencyStreakCard summary={consistencyStreak} />
+              </div>
+            )}
+
+            {currentPoint && (
+              <FitnessWeeklyInsight
+                ctlDelta={ctlDelta}
+                ctl={ctl}
+                atl={atl}
+                tsb={tsb}
+                dailyData={dailyData}
+                t={t}
+              />
+            )}
+
+            {/* 훈련 상태 — 숫자(KPI) 앞에 일상어 라벨을 먼저 (§3.5) */}
+            {currentPoint && (
+              <TrainingStatusCard
+                tsb={tsb}
+                ctl={ctl}
+                atl={atl}
+                ctlRampPerWeek={ctlRampPerWeek}
+                sport={discipline}
+              />
+            )}
+          </DetailsSection>
         )}
 
         {/* 거리별 기록 보드 — 러닝 탭 (§3.4a). 임계 페이스 곡선은 페이지 하단에 이미 있어
@@ -1064,6 +1108,10 @@ export default function FitnessPage() {
           />
         )}
 
+        {/* 상세 분석 (#400 §1·§4·§5) — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·
+            라이더 유형·코호트 백분위는 오늘의 결론 근거로, 기본 접힘 progressive disclosure. */}
+        {discipline === "bike" && (
+        <DetailsSection title={t("conclusion.detailToggle")}>
         {discipline === "bike" && (
           <BikeActionAccordion
             ftp={profile?.ftp}
@@ -1179,6 +1227,8 @@ export default function FitnessPage() {
             }}
           />
         )}
+        </DetailsSection>
+        )}
 
         {/* PMC 차트 */}
         <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
@@ -1211,6 +1261,13 @@ export default function FitnessPage() {
               )}
             </div>
           </div>
+
+          {/* 차트 위 한 줄 해석 (#400 §6) — 초심자가 무엇을 먼저 읽어야 할지 알려준다. */}
+          {rangeData.fitness.length > 0 && (
+            <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-3)", maxWidth: 640 }}>
+              {t("pmc.interpretation")}
+            </Text>
+          )}
 
           {rangeData.fitness.length > 0 ? (
             <FitnessChart

@@ -479,5 +479,22 @@
   "milestones.celebrate.cumulative_500km.title": "500 km logged!",
   "milestones.celebrate.cumulative_500km.body": "500 km down. Not many runners cover this distance.",
   "milestones.celebrate.cumulative_1000km.title": "1000 km logged!",
-  "milestones.celebrate.cumulative_1000km.body": "1000 km total — a real runner's milestone."
+  "milestones.celebrate.cumulative_1000km.body": "1000 km total — a real runner's milestone.",
+  "conclusion.title": "Today's takeaway",
+  "conclusion.fatiguedRest": "Fatigue has been building up. Take it easy or rest today and focus on recovery.",
+  "conclusion.recoveredLongRest": "No hard load for {{restDays}} days and you're well recovered. It's a good day to do today's planned workout.",
+  "conclusion.recoveredLowRecentLoad": "Recent load is only {{loadPct}}% of your usual and you're well recovered. It's a good day to do today's planned workout.",
+  "conclusion.balancedFollowPlan": "Your condition is steady. Follow today's plan as scheduled.",
+  "conclusion.evidenceToggle": "Show the evidence — recovery, consistency, training status",
+  "conclusion.detailToggle": "Show detailed analysis — improvement actions, rider type, percentiles",
+  "ranking.smallSampleNote": "Sample size is small ({{n}} people total) — treat this as a rough guide, it may shift as the sample grows.",
+  "pmc.interpretation": "The higher the lines climb, the more fitness you're building — ideally the thick line (fitness) rises while the thin line (fatigue) stays steady.",
+  "mobile.week.lastWeek": "Last week",
+  "mobile.week.nWeeksAgo": "{{n}}w ago",
+  "mobile.activity.emptyRecord": "No record",
+  "mobile.activity.timeOfDayTitle": "{{period}} {{discipline}}",
+  "mobile.activity.period.dawn": "Early morning",
+  "mobile.activity.period.morning": "Morning",
+  "mobile.activity.period.afternoon": "Afternoon",
+  "mobile.activity.period.evening": "Evening"
 }

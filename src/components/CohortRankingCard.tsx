@@ -25,6 +25,9 @@ interface UserDemographics {
   birthYear?: number | null;
 }
 
+/** 이 미만 표본이면 "참고용" 안내를 덧붙인다 (#400 §5 — 이슈 예시 17명 기준). */
+const SMALL_SAMPLE_THRESHOLD = 30;
+
 /** percentile(하위 N%) → 색. RiderTypeCard.percentileColor 와 동일 톤. */
 function percentileColor(p: number): string {
   if (p >= 75) return "var(--lime)";
@@ -186,6 +189,13 @@ export default function CohortRankingCard({
           ? t("ranking.footerFallback", { n: stats.sampleSize })
           : t("ranking.footer", { n: stats.sampleSize })}
       </Text>
+      {/* #400 §5: 표본이 작을 때는 백분위를 모집단 전체의 확정적 순위로 오해하지 않도록
+          "참고용" 안내를 같은 문맥에 배치 (예: 전체 17명). */}
+      {stats.sampleSize < SMALL_SAMPLE_THRESHOLD && (
+        <Text as="div" variant="caption" tone="warning" style={{ marginTop: "var(--space-1)" }}>
+          {t("ranking.smallSampleNote", { n: stats.sampleSize })}
+        </Text>
+      )}
     </Card>
   );
 }
