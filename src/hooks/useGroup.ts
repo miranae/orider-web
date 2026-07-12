@@ -184,14 +184,22 @@ export function useMyGroups(userId: string | undefined) {
 }
 
 // 공개 그룹 검색
-export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; maxCount?: number } = {}) {
-  const { searchText = "", discipline = "ALL", city = "", maxCount = 30 } = options;
+export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; maxCount?: number; enabled?: boolean } = {}) {
+  const { searchText = "", discipline = "ALL", city = "", maxCount = 30, enabled = true } = options;
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!enabled) {
+      setGroups([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
     setLoading(true);
     setError(null);
     const trimmed = searchText.trim();
@@ -206,16 +214,19 @@ export function usePublicGroups(options: { searchText?: string; discipline?: "AL
     ];
     const q = query(collection(firestore, "groups"), ...constraints);
     getDocs(q).then((snap) => {
+      if (cancelled) return;
       setGroups(snap.docs
         .map((d) => ({ id: d.id, ...d.data() }) as Group));
       setLoading(false);
     }).catch((err) => {
+      if (cancelled) return;
       logClientError("usePublicGroups.load", err, {});
       setError(err);
       setGroups([]);
       setLoading(false);
     });
-  }, [city, discipline, maxCount, reloadKey, searchText]);
+    return () => { cancelled = true; };
+  }, [city, discipline, enabled, maxCount, reloadKey, searchText]);
 
   return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
 }
