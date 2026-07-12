@@ -147,6 +147,15 @@
     "segmentCount_one": "{{count}}개 세그먼트",
     "segmentCount_other": "{{count}}개 세그먼트"
   },
+  "socialErrors": {
+    "auth": "로그인이 만료되었습니다. 다시 로그인해 주세요.",
+    "app_check": "앱 보안 확인에 실패했습니다. 새로고침 후 다시 시도해 주세요.",
+    "access": "차단되었거나 비공개·숨김 처리된 활동에는 반응할 수 없습니다.",
+    "missing": "활동 또는 댓글이 삭제되어 더 이상 변경할 수 없습니다.",
+    "rate_limited": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    "invalid": "댓글 내용을 확인해 주세요.",
+    "unknown": "변경하지 못했습니다. 잠시 후 다시 시도해 주세요."
+  },
   "page": {
     "deleteConfirm": "이 활동을 삭제하시겠습니까?",
     "delete": "삭제",

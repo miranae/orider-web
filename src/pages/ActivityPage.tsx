@@ -16,11 +16,12 @@ import { formatDistance, formatSpeed } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
 import { useStrava } from "../hooks/useStrava";
 import {
-  doc, getDoc, setDoc, deleteDoc, addDoc, updateDoc,
+  doc, getDoc, setDoc, updateDoc,
   collection, query, where, getDocs, orderBy, onSnapshot,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { firestore, storage } from "../services/firebase";
+import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
 import type { ActivityStreams } from "@shared/types";
@@ -275,29 +276,32 @@ export default function ActivityPage() {
 
   const handleToggleKudos = async () => {
     if (!user || !activityId || !profile) return;
-    const kudosDocRef = doc(firestore, "activities", activityId, "kudos", user.uid);
     const fallbackLiked = !kudosTouched
       && (!kudosLoaded || kudosList.length === 0)
       && !!activity?.recentKudos?.some((k) => k.userId === user.uid);
     const wasLiked = liked || fallbackLiked;
     const currentProfileImage = profile.photoURL ?? user.photoURL ?? null;
+    const previous = { liked, kudosList, kudosTouched };
     setKudosTouched(true);
     if (wasLiked) {
       setLiked(false);
       setKudosList((list) => list.filter((k) => k.userId !== user.uid));
-      await deleteDoc(kudosDocRef);
     } else {
       setLiked(true);
       setKudosList((list) => [
         { userId: user.uid, nickname: profile.nickname ?? user.displayName ?? "User", profileImage: currentProfileImage },
         ...list.filter((k) => k.userId !== user.uid),
       ]);
-      await setDoc(kudosDocRef, {
-        nickname: profile.nickname ?? user.displayName ?? "User",
-        profileImage: currentProfileImage,
-        createdAt: Date.now(),
-      });
-      showToast(t("card.kudosToast"));
+    }
+    try {
+      await activitySocialMutations.setKudos(activityId, !wasLiked);
+      if (!wasLiked) showToast(t("card.kudosToast"));
+    } catch (err) {
+      setLiked(previous.liked);
+      setKudosList(previous.kudosList);
+      setKudosTouched(previous.kudosTouched);
+      showToast(t(activitySocialErrorMessageKey(err)), "error");
+      logClientError("ActivityPage.kudosMutation", err, { activityId, enabled: !wasLiked });
     }
   };
 
@@ -306,16 +310,8 @@ export default function ActivityPage() {
     if (!user || !activityId || !profile || !commentText.trim() || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
-    const currentProfileImage = profile.photoURL ?? user.photoURL ?? null;
     try {
-      await addDoc(collection(firestore, "activities", activityId, "comments"), {
-        userId: user.uid,
-        nickname: profile.nickname ?? user.displayName ?? "User",
-        profileImage: currentProfileImage,
-        text: commentText.trim(),
-        createdAt: Date.now(),
-        deletedAt: null,
-      });
+      await activitySocialMutations.postComment(activityId, commentText.trim());
       track("activity_comment_send", {
         activity_id: activityId,
         text_len: commentText.trim().length,
@@ -325,6 +321,9 @@ export default function ActivityPage() {
         activity_source: (activity as Activity & { source?: string } | null)?.source ?? "unknown",
       });
       setCommentText("");
+    } catch (err) {
+      showToast(t(activitySocialErrorMessageKey(err)), "error");
+      logClientError("ActivityPage.commentCreate", err, { activityId });
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -333,16 +332,32 @@ export default function ActivityPage() {
 
   const handleDeleteComment = async (commentId: string) => {
     if (!activityId) return;
-    await updateDoc(doc(firestore, "activities", activityId, "comments", commentId), { deletedAt: Date.now() });
+    const previous = commentsList;
+    setCommentsList((list) => list.filter((comment) => comment.id !== commentId));
+    try {
+      await activitySocialMutations.deleteComment(activityId, commentId);
+    } catch (err) {
+      setCommentsList(previous);
+      showToast(t(activitySocialErrorMessageKey(err)), "error");
+      logClientError("ActivityPage.commentDelete", err, { activityId, commentId });
+    }
   };
 
   const handleSaveEditComment = async () => {
     if (!activityId || !editingCommentId || !editingText.trim()) return;
-    await updateDoc(doc(firestore, "activities", activityId, "comments", editingCommentId), {
-      text: editingText.trim(),
-    });
-    setEditingCommentId(null);
-    setEditingText("");
+    const commentId = editingCommentId;
+    const text = editingText.trim();
+    const previous = commentsList;
+    setCommentsList((list) => list.map((comment) => comment.id === commentId ? { ...comment, text } : comment));
+    try {
+      await activitySocialMutations.editComment(activityId, commentId, text);
+      setEditingCommentId(null);
+      setEditingText("");
+    } catch (err) {
+      setCommentsList(previous);
+      showToast(t(activitySocialErrorMessageKey(err)), "error");
+      logClientError("ActivityPage.commentEdit", err, { activityId, commentId });
+    }
   };
 
   const handleDeleteActivity = async () => {
