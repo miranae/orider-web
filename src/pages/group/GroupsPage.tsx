@@ -34,6 +34,7 @@ export default function GroupsPage() {
   const [cityFilter, setCityFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups } = usePublicGroups({
+    enabled: !!user,
     searchText: searchQuery,
     discipline: disciplineFilter,
     city: cityFilter,
