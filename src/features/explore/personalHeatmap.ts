@@ -186,12 +186,18 @@ function toPoints(visits: Map<string, CellVisit>, zoom: number): PersonalHeatPoi
   });
 }
 
-/** Counts at most once per activity/cell. Damaged paths skip; oversized paths truncate at explicit caps. */
-export function aggregatePersonalHeatmap(
+export interface VisitedTileCell { x: number; y: number }
+
+function toCells(visits: Map<string, CellVisit>): VisitedTileCell[] {
+  return [...visits.values()].map(({ x, y }) => ({ x, y }));
+}
+
+/** Shared cell-visiting core reused by both the heat-point and visited-tile aggregations. */
+function collectVisits(
   activities: TrackActivity[],
-  zoom = PERSONAL_HEATMAP_ZOOM,
-  options: PersonalHeatmapAggregationOptions = {},
-): PersonalHeatPoint[] {
+  zoom: number,
+  options: PersonalHeatmapAggregationOptions,
+): Map<string, CellVisit> {
   const visits = new Map<string, CellVisit>();
   const outputCap = normalizedLimits(options).outputCells;
   for (const activity of activities) {
@@ -199,16 +205,16 @@ export function aggregatePersonalHeatmap(
     accumulateActivity(activity, visits, zoom, options);
     if (visits.size >= outputCap) break;
   }
-  return toPoints(visits, zoom);
+  return visits;
 }
 
-/** Yield between batches while merging each activity immediately into one bounded map. */
-export async function aggregatePersonalHeatmapAsync(
+/** Async variant of collectVisits — yields between batches so large activity lists don't block the main thread. */
+async function collectVisitsAsync(
   activities: TrackActivity[],
-  zoom = PERSONAL_HEATMAP_ZOOM,
-  batchSize = 20,
-  options: PersonalHeatmapAggregationOptions = {},
-): Promise<PersonalHeatPoint[]> {
+  zoom: number,
+  batchSize: number,
+  options: PersonalHeatmapAggregationOptions,
+): Promise<Map<string, CellVisit>> {
   const visits = new Map<string, CellVisit>();
   const limits = normalizedLimits(options);
   const size = Math.max(1, Math.floor(batchSize));
@@ -221,5 +227,45 @@ export async function aggregatePersonalHeatmapAsync(
       throwIfCancelled(options);
     }
   }
-  return toPoints(visits, zoom);
+  return visits;
+}
+
+/** Counts at most once per activity/cell. Damaged paths skip; oversized paths truncate at explicit caps. */
+export function aggregatePersonalHeatmap(
+  activities: TrackActivity[],
+  zoom = PERSONAL_HEATMAP_ZOOM,
+  options: PersonalHeatmapAggregationOptions = {},
+): PersonalHeatPoint[] {
+  return toPoints(collectVisits(activities, zoom, options), zoom);
+}
+
+/** Yield between batches while merging each activity immediately into one bounded map. */
+export async function aggregatePersonalHeatmapAsync(
+  activities: TrackActivity[],
+  zoom = PERSONAL_HEATMAP_ZOOM,
+  batchSize = 20,
+  options: PersonalHeatmapAggregationOptions = {},
+): Promise<PersonalHeatPoint[]> {
+  return toPoints(await collectVisitsAsync(activities, zoom, batchSize, options), zoom);
+}
+
+/**
+ * z14 방문 타일 좌표 집합 — 탐험 그리드(#363)가 소비. 좌표->타일 순회 로직은 개인 히트맵과
+ * 완전히 동일해야 하므로(경계 통과·안티메리디안·캡 처리 등) collectVisits 를 그대로 재사용.
+ */
+export function aggregateVisitedTileCells(
+  activities: TrackActivity[],
+  zoom = PERSONAL_HEATMAP_ZOOM,
+  options: PersonalHeatmapAggregationOptions = {},
+): VisitedTileCell[] {
+  return toCells(collectVisits(activities, zoom, options));
+}
+
+export async function aggregateVisitedTileCellsAsync(
+  activities: TrackActivity[],
+  zoom = PERSONAL_HEATMAP_ZOOM,
+  batchSize = 20,
+  options: PersonalHeatmapAggregationOptions = {},
+): Promise<VisitedTileCell[]> {
+  return toCells(await collectVisitsAsync(activities, zoom, batchSize, options));
 }

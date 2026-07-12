@@ -244,7 +244,8 @@
       "forecast": "Forecast",
       "legendFitness": "Fitness",
       "legendFatigue": "Fatigue",
-      "legendForm": "Form"
+      "legendForm": "Recovery",
+      "projectionNote": "if plan is followed 100%"
     },
     "powerCurve": {
       "noData": "No power data yet",

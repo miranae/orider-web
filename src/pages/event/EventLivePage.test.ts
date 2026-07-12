@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSnapshotData } from "./EventLivePage";
+import { normalizeSnapshotData, shouldEmitSosHighlight } from "./EventLivePage";
 
 describe("EventLivePage snapshot normalization", () => {
   it("defaults missing locations and checkpoints to empty arrays", () => {
@@ -16,6 +16,28 @@ describe("EventLivePage snapshot normalization", () => {
       offCourse: 0,
       total: 0,
     });
+  });
+});
+
+describe("EventLivePage SOS highlight gating", () => {
+  it("emits when a rider transitions into SOS and alerts aren't muted", () => {
+    expect(shouldEmitSosHighlight("RIDING", "SOS", false)).toBe(true);
+  });
+
+  it("does not emit when SOS alerts are muted", () => {
+    expect(shouldEmitSosHighlight("RIDING", "SOS", true)).toBe(false);
+  });
+
+  it("does not emit when the rider was already in SOS (no transition)", () => {
+    expect(shouldEmitSosHighlight("SOS", "SOS", false)).toBe(false);
+  });
+
+  it("does not emit for non-SOS statuses", () => {
+    expect(shouldEmitSosHighlight("RIDING", "FINISHED", false)).toBe(false);
+  });
+
+  it("does not emit without a known previous status (first snapshot)", () => {
+    expect(shouldEmitSosHighlight(undefined, "SOS", false)).toBe(false);
   });
 });
 

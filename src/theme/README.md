@@ -2,13 +2,20 @@
 
 앱(KMP `shared/theme`) 의 토큰·테마 인터페이스·런타임 교체 구조를 웹에 포팅한 모듈.
 
+이 manifest는 #372 Phase 1의 **웹 canonical/export contract**다. 현재 생성 대상은
+웹 TypeScript/CSS뿐이며, KMP `Orider*Tokens.kt`는 아직 앱 저장소가 소유한다.
+따라서 이 단계만으로 앱↔웹 단일 진실원이 완성된 것은 아니다. Kotlin 생성 경로와
+cross-repo 배포/버전 계약은 후속 작업으로 남겨 둔다.
+
 ## 레이어
 
 ```
-tokens/        — 단일 진실원 (colors / dimens / typography)
+../../design-tokens/orider.tokens.json — 웹 런타임 값의 단일 진실원
+generated.ts/css — manifest에서 생성된 TS 값·Provider 매핑·FOUC CSS
+tokens/        — 공개 타입과 수동 typography/app-parity 확장
 OriderTheme.ts — 테마 인터페이스 (id, label, scheme.light/dark, dimens, typography)
 themes/        — 구현체
-  defaultTheme.ts   — 기존 OKLCH 라이트/다크 (현 index.css 와 등가)
+  defaultTheme.ts   — generated scheme을 기존 OriderTheme API로 노출
   appParityTheme.ts — 앱 OLED 다크 + Strava Orange
 OriderThemeProvider.tsx — Context + <html> inline CSS 변수 주입
 ```
@@ -59,7 +66,8 @@ CSS 에서는 기존 `var(--bg-0)`, `var(--lime)` 등을 그대로 사용 — pr
 
 ## 주의
 
-- `index.css` 의 `:root` 블록은 SSR/FOUC 방지용 기본값 — provider 가 mount 후
-  덮어쓰지만, JS 비활성 환경에서도 라이트 테마 default 가 보이도록 유지.
-- `index.css` 토큰 변경 시 `themes/defaultTheme.ts` 도 함께 갱신.
+- 기본 테마 값은 `design-tokens/orider.tokens.json`에서만 수정하고
+  `npm run gen:design-tokens`을 실행. `generated.css`가 React mount 전 FOUC 기본값을 제공한다.
+- `npm run check:design-tokens`은 산출물이 manifest와 다르면 실패한다.
+- 지도 트랙/계획 경로 색은 브랜드 accent와 별개인 `functionalColors.map`에서 관리한다.
 - Chart.js 등 비-React 코드: `readVariantFromDom()` 또는 `getComputedStyle(document.documentElement)` 로 조회.

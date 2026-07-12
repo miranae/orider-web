@@ -60,6 +60,7 @@ const LeaderboardPage = lazyTimed("LeaderboardPage", () => import("./pages/Leade
 const DiscoverPage = lazyTimed("DiscoverPage", () => import("./pages/DiscoverPage"));
 const EventsPage = lazyTimed("EventsPage", () => import("./pages/EventsPage"));
 const EventCreatePage = lazyTimed("EventCreatePage", () => import("./pages/EventCreatePage"));
+const EventOrganizerPage = lazyTimed("EventOrganizerPage", () => import("./pages/EventOrganizerPage"));
 const EventDetailPage = lazyTimed("EventDetailPage", () => import("./pages/event/EventDetailPage"));
 const EventDashboardPage = lazyTimed("EventDashboardPage", () => import("./pages/event/EventDashboardPage"));
 const EventLivePage = lazyTimed("EventLivePage", () => import("./pages/event/EventLivePage"));
@@ -185,6 +186,7 @@ function AppRoutes() {
           <Route path="strava-terms" element={<StravaTermsPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="event/create" element={<EventCreatePage />} />
+          <Route path="events/organize" element={<EventOrganizerPage />} />
           {/* Event detail page route */}
           <Route path="event/:eventId" element={<EventDetailPage />} />
           <Route path="event/:eventId/dashboard" element={<EventDashboardPage />} />

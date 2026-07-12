@@ -20,6 +20,9 @@ export interface EventDetail {
   courseIds?: string[];
   description?: string;
   region?: string;
+  meetLocation?: string;
+  seriesId?: string;
+  round?: number;
   creatorName?: string;
   categories?: Array<{ id: string; name: string; capacity?: number }>;
   entryFee?: number;
