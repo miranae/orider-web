@@ -72,9 +72,12 @@ describe("EventCreatePage recurring series", () => {
     }
 
     for (const call of createCalls) {
-      const payload = call.data as { groupId?: string; createGroup?: unknown };
+      const payload = call.data as { groupId?: string; createGroup?: unknown; seriesId?: string };
       expect(payload.groupId).toBe("group-1");
       expect(payload.createGroup).toBeUndefined();
+      expect(payload.seriesId).toBe((createCalls[0]!.data as { seriesId: string }).seriesId);
     }
+    expect(createCalls.map((call) => (call.data as { round: number }).round)).toEqual([1, 2, 3, 4]);
+    expect((createCalls[0]!.data as { seriesId: string }).seriesId).toMatch(/^web_[a-z0-9]+_[a-z0-9]+$/);
   }, 15000);
 });

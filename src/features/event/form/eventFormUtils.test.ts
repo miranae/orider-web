@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { joinDtLocal, joinStartTimeKst, shiftDtLocalByWeeks, splitDtLocal, splitStartTime } from "./eventFormUtils";
+import { createEventSeriesId, joinDtLocal, joinStartTimeKst, shiftDtLocalByWeeks, splitDtLocal, splitStartTime } from "./eventFormUtils";
 
 describe("eventFormUtils start time", () => {
   it("splits event startTime in KST, independent of browser local timezone", () => {
@@ -35,5 +35,14 @@ describe("shiftDtLocalByWeeks", () => {
   it("returns the input unchanged for empty or invalid values", () => {
     expect(shiftDtLocalByWeeks("", 2)).toBe("");
     expect(shiftDtLocalByWeeks("not-a-date", 2)).toBe("not-a-date");
+  });
+});
+
+describe("createEventSeriesId", () => {
+  it("creates a stable backend-safe opaque id from supplied attempt inputs", () => {
+    const first = createEventSeriesId(1_750_000_000_000, 0.25);
+    expect(first).toBe(createEventSeriesId(1_750_000_000_000, 0.25));
+    expect(first).toMatch(/^web_[a-z0-9]+_[a-z0-9]+$/);
+    expect(first.length).toBeLessThanOrEqual(100);
   });
 });

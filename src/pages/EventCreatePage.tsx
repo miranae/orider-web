@@ -12,7 +12,7 @@ import { DateField, TimeField, EmptyState } from "../components/redesign";
 import { useCourses } from "../hooks/useCourses";
 import { Button, Card, Text } from "../theme/components";
 import { Field, SegmentedPicker, StepBar, Toggle, fieldStyle } from "../features/event/form/eventFormControls";
-import { joinDtLocal, newCategory, shiftDtLocalByWeeks, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
+import { createEventSeriesId, joinDtLocal, newCategory, shiftDtLocalByWeeks, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
 
 const REPEAT_WEEK_OPTIONS = [2, 4, 8] as const;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -258,6 +258,10 @@ export default function EventCreatePage() {
       if (data.courseIds.length > 0) {
         payload.courseIds = data.courseIds;
       }
+      if (!asDraft && data.repeatEnabled && data.repeatWeeks > 1) {
+        payload.seriesId = createEventSeriesId();
+        payload.round = 1;
+      }
 
       const fn = httpsCallable<unknown, { eventId: string }>(functions, "createEvent");
       const result = await fn(payload);
@@ -286,6 +290,7 @@ export default function EventCreatePage() {
           try {
             const weekPayload: Record<string, unknown> = {
               ...basePayload,
+              round: i + 1,
               startTime: startTimestamp + i * WEEK_MS,
               ...(data.openAt ? { openAt: shiftDtLocalByWeeks(data.openAt, i) } : {}),
               ...(data.closeAt ? { closeAt: shiftDtLocalByWeeks(data.closeAt, i) } : {}),
