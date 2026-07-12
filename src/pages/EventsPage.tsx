@@ -11,10 +11,15 @@ import { decodePolyline, encodePolyline } from "../utils/polyline";
 import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { Card, Chip, Text, buttonClass } from "../theme/components";
+import MapGL, { Marker, Popup } from "react-map-gl/mapbox";
+import { MAP_STYLE, DEFAULT_VIEW } from "../utils/mapbox";
+import { buildMonthCells, firstPolylinePoint } from "../features/event/discovery/eventViews";
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
 type EventVisibility = "PUBLIC" | "GROUP" | "PRIVATE" | "UNKNOWN";
 type DatePreset = "ALL" | "WEEKEND" | "MONTH";
+type EventView = "LIST" | "CALENDAR" | "MAP";
+type EventDifficulty = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
 
 const PUBLIC_EVENT_STATUSES = ["OPEN", "LIVE", "FINISHED"] as const;
 
@@ -30,6 +35,12 @@ interface EventInfo {
   registered?: number;
   maxParticipants?: number;
   region?: string;
+  meetLocation?: string;
+  seriesId?: string;
+  round?: number;
+  viewerCount?: number;
+  followerCount?: number;
+  difficulty?: EventDifficulty;
   distance?: number;
   elevationGain?: number;
   courseId?: string;
@@ -202,6 +213,10 @@ export default function EventsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [regionFilter, setRegionFilter] = useState<string>("ALL");
   const [datePreset, setDatePreset] = useState<DatePreset>("ALL");
+  const [view, setView] = useState<EventView>("LIST");
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [mapEventId, setMapEventId] = useState<string | null>(null);
+  const [difficultyFilter, setDifficultyFilter] = useState<"ALL" | EventDifficulty>("ALL");
 
   useEffect(() => {
     (async () => {
@@ -228,6 +243,12 @@ export default function EventsPage() {
             creatorId: info.creatorId || "",
             groupId: info.groupId || null,
             region: info.region || undefined,
+            meetLocation: info.meetLocation || d.schedule?.meetLocation || undefined,
+            seriesId: typeof info.seriesId === "string" ? info.seriesId : undefined,
+            round: typeof info.round === "number" ? info.round : undefined,
+            viewerCount: typeof d.counters?.viewerCount === "number" ? d.counters.viewerCount : undefined,
+            followerCount: typeof d.counters?.followerCount === "number" ? d.counters.followerCount : undefined,
+            difficulty: (["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).includes(info.difficulty) ? info.difficulty : undefined,
             registered: d.counters?.totalRegistered,
             maxParticipants: info.settings?.maxParticipants || info.maxParticipants,
             distance: typeof info.distance === "number" ? info.distance / 1000 : undefined,
@@ -329,6 +350,7 @@ export default function EventsPage() {
       .filter((e) => typeFilter === "ALL" || e.type === typeFilter)
       .filter((e) => regionFilter === "ALL" || e.region?.trim() === regionFilter)
       .filter((e) => matchesDatePreset(e.startTime, datePreset))
+      .filter((e) => difficultyFilter === "ALL" || e.difficulty === difficultyFilter)
       .sort((a, b) => {
         // LIVE/OPEN 먼저, 종료는 뒤로 — 같은 상태 내 가까운 시작일 우선 (종료는 최근순)
         const bucket = (s: EventStatus) => (s === "LIVE" ? 0 : s === "OPEN" ? 1 : 2);
@@ -338,7 +360,7 @@ export default function EventsPage() {
         if (a.status === "FINISHED") return b.startTime - a.startTime;
         return a.startTime - b.startTime;
       });
-  }, [datePreset, events, regionFilter, statusFilter, typeFilter]);
+  }, [datePreset, difficultyFilter, events, regionFilter, statusFilter, typeFilter]);
 
   const regions = useMemo(
     () => Array.from(new Set(events.map((event) => event.region?.trim()).filter((region): region is string => !!region)))
@@ -349,6 +371,11 @@ export default function EventsPage() {
   const liveCount = useMemo(() => events.filter((e) => e.status === "LIVE").length, [events]);
   const openCount = useMemo(() => events.filter((e) => e.status === "OPEN").length, [events]);
   const myCount = myEventIds.size;
+  const calendarCells = useMemo(() => buildMonthCells(filtered, calendarMonth), [calendarMonth, filtered]);
+  const mapEvents = useMemo(() => filtered.map((event) => {
+    const polyline = (event.courseId ? coursePolylines[event.courseId] : undefined) ?? event.inlinePolyline;
+    return { event, point: firstPolylinePoint(polyline, decodePolyline) };
+  }), [coursePolylines, filtered]);
 
   if (loading) {
     return (
@@ -384,7 +411,7 @@ export default function EventsPage() {
             <div className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("organizer.title")}</div>
             <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{t("organizer.description")}</div>
           </div>
-          <Link to="/login" className={buttonClass({ variant: "primary", size: "sm" })}>{t("organizer.cta")}</Link>
+          <Link to="/events/organize" className={buttonClass({ variant: "primary", size: "sm" })}>{t("organizer.cta")}</Link>
         </Card>
       )}
 
@@ -504,9 +531,31 @@ export default function EventsPage() {
           ))}
         </div>
 
+        <select aria-label={t("filter.difficulty")} value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value as "ALL" | EventDifficulty)} className="ds-chip" style={{ color: "var(--ink-2)", background: "var(--bg-2)" }}>
+          <option value="ALL">{t("filter.allDifficulties")}</option>
+          {(["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).map((difficulty) => <option key={difficulty} value={difficulty}>{t(`difficulty.${difficulty.toLowerCase()}`)}</option>)}
+        </select>
+
         <div style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
           {filtered.length} / {events.length}
         </div>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap" style={{ gap: "var(--space-2)" }}>
+        <div className="flex" role="group" aria-label={t("view.label")} style={{ gap: "var(--space-1)" }}>
+          {(["LIST", "CALENDAR", "MAP"] as const).map((item) => (
+            <button key={item} type="button" className="ds-chip" aria-pressed={view === item} onClick={() => setView(item)} style={{ cursor: "pointer", borderColor: view === item ? "var(--lime)" : "var(--line-soft)" }}>
+              {t(`view.${item.toLowerCase()}`)}
+            </button>
+          ))}
+        </div>
+        {view === "CALENDAR" && (
+          <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
+            <button type="button" className="ds-chip" aria-label={t("view.previousMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>←</button>
+            <strong>{calendarMonth.toLocaleDateString(localeTag(), { year: "numeric", month: "long" })}</strong>
+            <button type="button" className="ds-chip" aria-label={t("view.nextMonth")} onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>→</button>
+          </div>
+        )}
       </div>
 
       {/* 리스트 — 2컬럼 그리드 */}
@@ -524,9 +573,30 @@ export default function EventsPage() {
           description={t("empty.adjustFilters")}
           actions={[
             { label: t("button.create"), variant: "primary", href: "/event/create" },
-            { label: t("button.resetFilters"), variant: "secondary", onClick: () => { setStatusFilter("ALL"); setTypeFilter("ALL"); setRegionFilter("ALL"); setDatePreset("ALL"); } },
+            { label: t("button.resetFilters"), variant: "secondary", onClick: () => { setStatusFilter("ALL"); setTypeFilter("ALL"); setRegionFilter("ALL"); setDatePreset("ALL"); setDifficultyFilter("ALL"); } },
           ]}
         />
+      ) : view === "CALENDAR" ? (
+        <div className="event-calendar" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+          {calendarCells.map((cell) => (
+            <div key={cell.date.toISOString()} style={{ minHeight: 112, padding: "var(--space-2)", borderRight: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", opacity: cell.inMonth ? 1 : 0.45 }}>
+              <Text as="div" variant="eyebrow">{cell.date.getDate()}</Text>
+              <div className="flex flex-col" style={{ gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
+                {cell.events.map((event) => <Link key={event.id} to={`/event/${event.id}`} className="text-[length:var(--fs-xs)] truncate" style={{ color: event.status === "LIVE" ? "var(--lime)" : "var(--aqua)" }}>{event.name}</Link>)}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : view === "MAP" ? (
+        <Card padding="none" style={{ overflow: "hidden" }}>
+          <div style={{ height: 560 }}>
+            <MapGL initialViewState={DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
+              {mapEvents.map(({ event, point }) => point && <Marker key={event.id} latitude={point[0]} longitude={point[1]} anchor="bottom"><button type="button" aria-label={event.name} onClick={() => setMapEventId(event.id)} style={{ border: 0, background: "var(--lime)", color: "var(--primary-fg)", borderRadius: "50%", width: 32, height: 32, cursor: "pointer" }}>🚴</button></Marker>)}
+              {(() => { const selected = mapEvents.find(({ event }) => event.id === mapEventId); return selected?.point ? <Popup latitude={selected.point[0]} longitude={selected.point[1]} onClose={() => setMapEventId(null)} anchor="bottom" offset={36}><div style={{ minWidth: 180 }}><strong>{selected.event.name}</strong><div style={{ color: "var(--ink-3)", margin: "var(--space-1) 0" }}>{selected.event.meetLocation || selected.event.region || t("view.routeStart")}</div><Link to={`/event/${selected.event.id}`}>{t("action.viewDetails")} →</Link></div></Popup> : null; })()}
+            </MapGL>
+          </div>
+          {mapEvents.some(({ point }) => !point) && <div style={{ padding: "var(--space-3)", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{t("view.noCoordinates", { count: mapEvents.filter(({ point }) => !point).length })}</div>}
+        </Card>
       ) : (
         <div
           className="event-grid"
@@ -553,6 +623,7 @@ export default function EventsPage() {
         @media (max-width: 900px) {
           .event-grid { grid-template-columns: 1fr !important; }
         }
+        @media (max-width: 700px) { .event-calendar { overflow-x: auto; grid-template-columns: repeat(7, minmax(110px, 1fr)) !important; } }
       `}</style>
     </div>
   );
@@ -847,6 +918,13 @@ function EventCard({
             )}
           </div>
         </div>
+
+        {(event.seriesId || event.difficulty || event.viewerCount != null || event.followerCount != null) && <div className="flex flex-wrap" style={{ gap: "var(--space-1)" }}>
+          {event.seriesId && <Chip style={{ fontSize: "var(--fs-xs)" }}>{t("series.round", { round: event.round ?? 1 })}</Chip>}
+          {event.difficulty && <Chip style={{ fontSize: "var(--fs-xs)" }}>{t(`difficulty.${event.difficulty.toLowerCase()}`)}</Chip>}
+          {event.viewerCount != null && <Chip style={{ fontSize: "var(--fs-xs)" }}>👀 {t("viewer.count", { count: event.viewerCount })}</Chip>}
+          {event.followerCount != null && <Chip style={{ fontSize: "var(--fs-xs)" }}>🔔 {t("follow.count", { count: event.followerCount })}</Chip>}
+        </div>}
 
         {/* 메트릭 행 — 데이터 있을 때만 */}
         {(event.distance != null || event.elevationGain != null || event.maxParticipants != null) && (

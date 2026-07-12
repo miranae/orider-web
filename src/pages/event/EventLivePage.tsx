@@ -4,8 +4,9 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { doc, getDoc } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
@@ -315,10 +316,46 @@ export default function EventLivePage() {
   const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(eventId) : []));
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [sosMuted, setSosMuted] = useState(() => (eventId ? loadSosMuted(eventId) : false));
+  const [viewerCount, setViewerCount] = useState(0);
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
   const sosMutedRef = useRef(sosMuted);
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
+    const storageKey = `event-viewer-session:${eventId}`;
+    let viewerSessionId = sessionStorage.getItem(storageKey);
+    if (!viewerSessionId || !/^[A-Za-z0-9_-]{16,100}$/.test(viewerSessionId)) {
+      viewerSessionId = crypto.randomUUID().replace(/-/g, "_");
+      sessionStorage.setItem(storageKey, viewerSessionId);
+    }
+    const sessionId = viewerSessionId;
+    const refresh = async () => {
+      try {
+        await heartbeat({ eventId, viewerSessionId: sessionId, active: true });
+        const viewers = await getDocs(collection(firestore, `events/${eventId}/viewers`));
+        const cutoff = Date.now() - 90_000;
+        const count = viewers.docs.filter((viewer) => {
+          const lastSeen = viewer.data().lastSeenAt;
+          const lastSeenMs = typeof lastSeen?.toMillis === "function" ? lastSeen.toMillis() : typeof lastSeen === "number" ? lastSeen : 0;
+          return lastSeenMs >= cutoff;
+        }).length;
+        if (!cancelled) setViewerCount(count);
+      } catch (err) {
+        logClientError("EventLivePage.viewerHeartbeat", err, { eventId });
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      void heartbeat({ eventId, viewerSessionId: sessionId, active: false }).catch(() => undefined);
+    };
+  }, [eventId]);
 
   // URL bib 쿼리 → 팔로우 리스트에 자동 추가
   useEffect(() => {
@@ -654,6 +691,7 @@ export default function EventLivePage() {
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-3)', marginLeft: "auto" }}>
+          <div aria-live="polite" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>👀 {t("viewer.count", { count: viewerCount })}</div>
           {elapsedLabel && (
             <div style={{ textAlign: "right", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               <div style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>{t("label.elapsed")}</div>

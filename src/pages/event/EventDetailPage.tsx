@@ -33,6 +33,9 @@ import type { EventDetail, RecentParticipant } from "../../features/event/detail
 import { classifyLane, LANE_DEFS, LANE_ORDER, type WpLane } from "../../features/event/detail/waypointLanes";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
+import { buildEventIcs, downloadIcsFile, icsFileName } from "../../features/event/detail/generateIcs";
+import { createEventShareImage, shareEventImage } from "../../features/event/share/eventShareCard";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 
@@ -74,6 +77,8 @@ export default function EventDetailPage() {
   const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [recentParticipants, setRecentParticipants] = useState<RecentParticipant[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [followingEvent, setFollowingEvent] = useState(false);
+  const [followPending, setFollowPending] = useState(false);
   const groupId = event?.groupId || undefined;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
   const { byGroup: nextEventLabels, eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
@@ -135,6 +140,25 @@ export default function EventDetailPage() {
       setWithdrawing(false);
     }
   }, [dialog, eventId, showToast, t, user, withdrawing]);
+
+  const handleAddToCalendar = useCallback(() => {
+    if (!event) return;
+    try {
+      const ics = buildEventIcs({
+        id: event.id,
+        name: event.name,
+        description: event.description,
+        startTime: event.startTime,
+        durationMs: event.cutoffMs,
+        location: event.meetLocation || event.region,
+        url: window.location.href,
+      });
+      downloadIcsFile(icsFileName(event.name), ics);
+    } catch (err) {
+      logClientError("EventDetailPage.addToCalendar", err, { eventId });
+      showToast(t("detail.toast.shareFailed"));
+    }
+  }, [event, eventId, showToast, t]);
   const [linkedCourses, setLinkedCourses] = useState<Course[]>([]);
   const [selectedCourseIdx, setSelectedCourseIdx] = useState(0);
   const [courseDataMap, setCourseDataMap] = useState<Record<number, CourseData>>({});
@@ -186,6 +210,9 @@ export default function EventDetailPage() {
             courseIds: info.courseIds || [],
             description: info.description || "",
             region: info.region || "",
+            meetLocation: info.meetLocation || d.schedule?.meetLocation || "",
+            seriesId: typeof info.seriesId === "string" ? info.seriesId : undefined,
+            round: typeof info.round === "number" ? info.round : undefined,
             categories: Array.isArray(info.categories) ? info.categories : [],
             entryFee: typeof info.entryFee === "number" ? info.entryFee : undefined,
             cutoffMs: typeof info.cutoffMs === "number" ? info.cutoffMs : undefined,
@@ -635,23 +662,45 @@ export default function EventDetailPage() {
                 >
                   🔗 {t("button.share")}
                 </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={handleAddToCalendar}>
+                  📅 {t("detail.button.addToCalendar")}
+                </Button>
                 {event.status === "OPEN" && !isParticipant && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
-                  <Button
+                  <><Button type="button" variant="secondary" size="sm" disabled={followPending} onClick={async () => {
+                    if (!user || !eventId) { navigate("/login"); return; }
+                    const next = !followingEvent;
+                    setFollowPending(true);
+                    try {
+                      await httpsCallable(functions, "setEventFollow")({ eventId, following: next });
+                      setFollowingEvent(next);
+                      showToast(t(next ? "follow.enabled" : "follow.disabled"));
+                    } catch (err) { logClientError("EventDetailPage.setEventFollow", err, { eventId }); showToast(t("follow.failed")); }
+                    finally { setFollowPending(false); }
+                  }}>🔔 {t(followingEvent ? "follow.unfollow" : "follow.action")}</Button><Button
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/register`)} variant="primary" size="sm"
                   >
                     + {t("button.register")}
-                  </Button>
+                  </Button></>
                 )}
                 {event.status === "OPEN" && isParticipant && (
-                  <Button
+                  <><Button type="button" variant="secondary" size="sm" onClick={async () => {
+                    try {
+                      const file = await createEventShareImage({ eventName: event.name, riderName: user?.displayName || t("detail.defaultNickname"), date: formatDateTime(event.startTime), kind: "registered" });
+                      const result = await shareEventImage(file, event.name);
+                      if (result === "downloaded") showToast(t("shareCard.downloaded"));
+                    } catch (err) {
+                      logClientError("EventDetailPage.shareRegistrationCard", err, { eventId });
+                      showToast(t("detail.toast.shareFailed"));
+                    }
+                  }}>🖼️ {t("shareCard.registration")}</Button><Button
                     type="button" variant="secondary" size="sm"
                     disabled={withdrawing}
                     onClick={() => { void handleCancelRegistration(); }}
                     style={{ color: "var(--amber)", borderColor: "color-mix(in oklch, var(--amber) 40%, transparent)" }}
                   >
                     {withdrawing ? t("detail.button.cancellingRegistration") : t("detail.button.cancelRegistration")}
-                  </Button>
+                  </Button></>
                 )}
                 {event.status === "OPEN" && isHost && (
                   <Button
@@ -1046,6 +1095,9 @@ export default function EventDetailPage() {
                     <Button type="button" variant="secondary" size="sm">{t("group.viewNextEvent")}</Button>
                   </Link>
                 )}
+                <a href={`https://${getRuntimeConfig().firebaseFunctionsRegion || "us-central1"}-${getRuntimeConfig().firebaseProjectId}.cloudfunctions.net/groupEventCalendar?groupId=${encodeURIComponent(activeGroupId)}`}>
+                  <Button type="button" variant="secondary" size="sm">📅 {t("group.subscribeCalendar")}</Button>
+                </a>
               </div>
             </Card>
           )}
