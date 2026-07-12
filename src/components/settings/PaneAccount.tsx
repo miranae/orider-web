@@ -13,15 +13,17 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { updateProfile } from "firebase/auth";
 
 import type { Visibility } from "@shared/types";
-import { firestore, functions, storage } from "../../services/firebase";
+import { auth, firestore, functions, storage } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
 import { useStrava } from "../../hooks/useStrava";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
+import { logClientError } from "../../services/errorLogger";
 
 import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } from "./_primitives";
 import { ProfileHero } from "./ProfileHero";
@@ -94,6 +96,14 @@ export function PaneAccount() {
     try {
       showToast(t("profile.nicknameSaving"));
       await updateDoc(doc(firestore, "users", user.uid), { nickname: trimmed });
+      if (auth.currentUser) {
+        try {
+          await updateProfile(auth.currentUser, { displayName: trimmed });
+        } catch (authErr) {
+          logClientError("PaneAccount.syncAuthDisplayName", authErr, { uid: user.uid });
+          showToast(t("profile.nicknameAuthSyncFailed"));
+        }
+      }
       const activitiesSnap = await getDocs(
         query(collection(firestore, "activities"), where("userId", "==", user.uid)),
       );

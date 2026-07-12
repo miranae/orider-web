@@ -9,6 +9,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { firestore } from "../services/firebase";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
+import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
 
 type Step = "verifying" | "exchanging" | "done" | "error";
 
@@ -161,20 +162,18 @@ export default function StravaCallbackPage() {
   }, [authLoading, exchangeCode, navigate, searchParams, t, user]);
 
   const shareSuccess = async () => {
-    const text = t("stravaCallback.share.text", {
+    const body = t("stravaCallback.share.text", {
       count: successSummary?.activityCount ?? 0,
       distance: formatDistance(successSummary?.totalDistanceM ?? 0, i18n.language),
     });
-    try {
-      if (navigator.share) {
-        await navigator.share({ text, title: t("stravaCallback.share.title") });
-      } else {
-        await navigator.clipboard?.writeText(text);
-      }
-      setShared(true);
-    } catch {
-      setShared(false);
-    }
+    const payload = buildOriderSharePayload({
+      title: t("stravaCallback.share.title"),
+      body,
+      url: window.location.origin,
+      language: i18n.language,
+    });
+    const result = await shareOrCopy(payload);
+    setShared(result === "shared" || result === "copied");
   };
 
   return (

@@ -10,7 +10,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Switch, Text } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 
 export interface SnapshotLocation {
@@ -101,6 +101,28 @@ function loadFollowedBibs(eventId: string): number[] {
 function saveFollowedBibs(eventId: string, bibs: number[]): void {
   try {
     localStorage.setItem(`event-follow:${eventId}`, JSON.stringify(bibs));
+  } catch {
+    // ignore
+  }
+}
+
+/** SOS 하이라이트 생성 여부 — 이전 상태에서 SOS로 전환됐고 음소거되지 않은 경우만. */
+export function shouldEmitSosHighlight(prevStatus: string | undefined, status: string, muted: boolean): boolean {
+  return status === "SOS" && prevStatus !== undefined && prevStatus !== status && !muted;
+}
+
+function loadSosMuted(eventId: string): boolean {
+  try {
+    return localStorage.getItem(`event-sos-mute:${eventId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveSosMuted(eventId: string, muted: boolean): void {
+  try {
+    if (muted) localStorage.setItem(`event-sos-mute:${eventId}`, "1");
+    else localStorage.removeItem(`event-sos-mute:${eventId}`);
   } catch {
     // ignore
   }
@@ -292,9 +314,11 @@ export default function EventLivePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(eventId) : []));
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
+  const [sosMuted, setSosMuted] = useState(() => (eventId ? loadSosMuted(eventId) : false));
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
+  const sosMutedRef = useRef(sosMuted);
 
   // URL bib 쿼리 → 팔로우 리스트에 자동 추가
   useEffect(() => {
@@ -307,6 +331,13 @@ export default function EventLivePage() {
     if (!eventId) return;
     saveFollowedBibs(eventId, followBibs);
   }, [eventId, followBibs]);
+
+  // SOS 알림 음소거 저장 + 최신값 ref 동기화 (폴링 클로저용)
+  useEffect(() => {
+    sosMutedRef.current = sosMuted;
+    if (!eventId) return;
+    saveSosMuted(eventId, sosMuted);
+  }, [eventId, sosMuted]);
 
   // 이벤트 메타 로드
   useEffect(() => {
@@ -390,6 +421,16 @@ export default function EventLivePage() {
               color: colorFor(loc.bib),
               message: `${loc.displayName} DNF`,
               sub: loc.lastCp ? t("liveView.highlight.abandonedAfterCp", { cp: loc.lastCp }) : undefined,
+            });
+          } else if (shouldEmitSosHighlight(prev, loc.status, sosMutedRef.current)) {
+            newHighlights.push({
+              key: `${loc.uid}-sos-${tsNow}`,
+              ts: tsNow,
+              bib: loc.bib,
+              name: loc.displayName,
+              color: "var(--rose)",
+              message: t("liveView.highlight.sos", { name: loc.displayName }),
+              sub: loc.lastCp ? t("liveView.highlight.sosSub", { cp: loc.lastCp }) : undefined,
             });
           }
         }
@@ -811,11 +852,18 @@ export default function EventLivePage() {
 
         {/* 최근 하이라이트 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <div style={{ marginBottom: 'var(--space-3)' }}>
-            <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.recentHighlights")}</div>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
-              {t("liveView.highlightsDesc")}
+          <div className="flex items-start justify-between" style={{ marginBottom: 'var(--space-3)', gap: 'var(--space-3)' }}>
+            <div>
+              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.recentHighlights")}</div>
+              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
+                {t("liveView.highlightsDesc")}
+              </div>
             </div>
+            <Switch
+              checked={sosMuted}
+              onChange={(e) => setSosMuted(e.target.checked)}
+              label={t("liveView.sosMuteToggle")}
+            />
           </div>
           {highlights.length === 0 ? (
             <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("liveView.noHighlights")}</p>
