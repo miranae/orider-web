@@ -47,6 +47,9 @@ import "@fontsource/jetbrains-mono/700.css";
 // mapbox-gl CSS 는 RouteMap.tsx 에서 import — 메인 entry 가 vendor-mapbox(1.6MB)
 // 청크를 끌어오던 문제 해소. 지도 페이지 진입 시점에 함께 로드됨.
 import "./index.css";
+// Manifest-generated FOUC defaults are loaded after legacy layout CSS so the
+// same values used by OriderThemeProvider win before React mounts.
+import "./theme/generated.css";
 import "./theme/components/components.css";
 
 // 전역 uncaught 에러·unhandled rejection 을 즉시 포착(#544).

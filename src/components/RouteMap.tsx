@@ -7,6 +7,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { decodeTrack } from "../utils/polyline";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
+import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 
 export interface PhotoMarker {
   id: string;
@@ -384,12 +385,12 @@ export default function RouteMap({
             {highlightGeoJSON && (
               <Source type="geojson" data={highlightGeoJSON}>
                 <Layer id="highlight-glow" type="line" paint={{
-                  "line-color": "#FDBA74",
+                  "line-color": RECORDED_TRACK_COLOR,
                   "line-width": 10,
                   "line-opacity": 0.45,
                 }} layout={{ "line-cap": "round", "line-join": "round" }} />
                 <Layer id="highlight-main" type="line" paint={{
-                  "line-color": "#F97316",
+                  "line-color": RECORDED_TRACK_COLOR,
                   "line-width": 4,
                   "line-opacity": 0.95,
                 }} layout={{ "line-cap": "round", "line-join": "round" }} />
@@ -423,12 +424,12 @@ export default function RouteMap({
         ) : (
           <Source type="geojson" data={fullRouteGeoJSON}>
             <Layer id="route-glow" type="line" paint={{
-              "line-color": "#FDBA74",
+              "line-color": RECORDED_TRACK_COLOR,
               "line-width": 10,
               "line-opacity": 0.45,
             }} layout={{ "line-cap": "round", "line-join": "round" }} />
             <Layer id="route-main" type="line" paint={{
-              "line-color": "#F97316",
+              "line-color": RECORDED_TRACK_COLOR,
               "line-width": 4,
               "line-opacity": 0.95,
             }} layout={{ "line-cap": "round", "line-join": "round" }} />
@@ -548,7 +549,7 @@ export default function RouteMap({
             <Layer id="hover-marker-outer" type="circle" paint={{
               "circle-radius": 7,
               "circle-color": "#ffffff",
-              "circle-stroke-color": "#F97316",
+              "circle-stroke-color": RECORDED_TRACK_COLOR,
               "circle-stroke-width": 3,
             }} />
           </Source>
