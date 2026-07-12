@@ -15,6 +15,7 @@ import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import AppInstallLinks from "../../components/AppInstallLinks";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
+import { createEventShareImage, shareEventImage } from "../../features/event/share/eventShareCard";
 
 export interface ResultEntry {
   userId: string;
@@ -898,6 +899,16 @@ export default function EventResultsPage() {
                 >
                   🔗
                 </Button>
+                {myResult.status === "FINISHED" && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} onClick={async () => {
+                  try {
+                    const file = await createEventShareImage({ eventName: eventHead.name, riderName: myResult.displayName, date: eventHead.date, kind: "finished", result: formatDuration(myResult.finishTime), rank: t("resultsView.myRankDetail", { rank1: myResult.overallRank, cat: myResult.category, rank2: myResult.rank }) });
+                    const result = await shareEventImage(file, eventHead.name);
+                    if (result === "downloaded") await dialog.alert(t("shareCard.downloaded"), { variant: "success" });
+                  } catch (err) {
+                    logClientError("EventResultsPage.shareCompletionCard", err, { eventId });
+                    await dialog.alert(t("resultsView.shareFailed"), { variant: "danger" });
+                  }
+                }}>🖼️</Button>}
               </div>
             </Card>
           )}

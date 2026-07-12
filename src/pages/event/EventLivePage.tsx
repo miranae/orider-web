@@ -4,14 +4,18 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { doc, getDoc } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Switch, Text } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
+import { countActiveViewers, createViewerSessionId } from "../../features/event/viewerPresence";
+import { useAuth } from "../../contexts/AuthContext";
+import AppInstallLinks from "../../components/AppInstallLinks";
 
 export interface SnapshotLocation {
   uid: string;
@@ -297,6 +301,7 @@ export default function EventLivePage() {
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const dialog = useDialog();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightBib = searchParams.get("bib") ? Number(searchParams.get("bib")) : null;
@@ -315,10 +320,41 @@ export default function EventLivePage() {
   const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(eventId) : []));
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [sosMuted, setSosMuted] = useState(() => (eventId ? loadSosMuted(eventId) : false));
+  const [viewerCount, setViewerCount] = useState(0);
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
   const sosMutedRef = useRef(sosMuted);
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
+    const storageKey = `event-viewer-session:${eventId}`;
+    let viewerSessionId = sessionStorage.getItem(storageKey);
+    if (!viewerSessionId || !/^[A-Za-z0-9_-]{16,100}$/.test(viewerSessionId)) {
+      viewerSessionId = createViewerSessionId();
+      sessionStorage.setItem(storageKey, viewerSessionId);
+    }
+    const sessionId = viewerSessionId;
+    const refresh = async () => {
+      try {
+        await heartbeat({ eventId, viewerSessionId: sessionId, active: true });
+        const viewers = await getDocs(collection(firestore, `events/${eventId}/viewers`));
+        const count = countActiveViewers(viewers.docs.map((viewer) => viewer.data()));
+        if (!cancelled) setViewerCount(count);
+      } catch (err) {
+        logClientError("EventLivePage.viewerHeartbeat", err, { eventId });
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      void heartbeat({ eventId, viewerSessionId: sessionId, active: false }).catch(() => undefined);
+    };
+  }, [eventId]);
 
   // URL bib 쿼리 → 팔로우 리스트에 자동 추가
   useEffect(() => {
@@ -654,6 +690,7 @@ export default function EventLivePage() {
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-3)', marginLeft: "auto" }}>
+          <div aria-live="polite" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>👀 {t("viewer.count", { count: viewerCount })}</div>
           {elapsedLabel && (
             <div style={{ textAlign: "right", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               <div style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>{t("label.elapsed")}</div>
@@ -922,6 +959,13 @@ export default function EventLivePage() {
           )}
         </Card>
       </div>
+
+      {!authLoading && !user && <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
+        <Text as="div" variant="eyebrow">{t("liveView.guestCta.eyebrow")}</Text>
+        <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", margin: "var(--space-1) 0 var(--space-2)" }}>{t("liveView.guestCta.title")}</div>
+        <p style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginBottom: "var(--space-3)" }}>{t("liveView.guestCta.description")}</p>
+        <AppInstallLinks compact appStoreLabel={t("resultsView.nextAction.ios")} playStoreLabel={t("resultsView.nextAction.android")} />
+      </Card>}
 
       <style>{`
         @media (max-width: 900px) {
