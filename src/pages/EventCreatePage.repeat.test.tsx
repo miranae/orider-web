@@ -6,6 +6,7 @@ import {
   setCallableResult,
   setCollectionDocs,
 } from "../__tests__/mocks/firebase";
+import { readFileSync } from "node:fs";
 
 function clickToggleNear(labelText: string) {
   const label = screen.getByText(labelText);
@@ -21,6 +22,14 @@ async function openAndPickDatePreset(fieldButtonName: string, presetName: string
 }
 
 describe("EventCreatePage recurring series", () => {
+  it("retains failed payload identity and retries only those original rounds", () => {
+    const source = readFileSync(`${process.cwd()}/src/pages/EventCreatePage.tsx`, "utf8");
+    const retry = source.slice(source.indexOf("async function retryFailedRepeats"), source.indexOf("if (authLoading)"));
+    expect(source).toContain("failedPayloads.push(weekPayload)");
+    expect(retry).toContain("for (const payload of failedRepeatPayloads)");
+    expect(retry).toContain("await fn(payload)");
+    expect(retry).not.toContain("createEventSeriesId(");
+  });
   beforeEach(() => {
     setCollectionDocs("courses", [
       { id: "course-1", name: "테스트 코스", distance: 50000, elevationGain: 500, creatorId: "test-uid", likeCount: 10 },
