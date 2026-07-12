@@ -3,6 +3,7 @@ import EventCreatePage from "./EventCreatePage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import {
   mockCallableInvocations,
+  setCallableImplementation,
   setCallableResult,
   setCollectionDocs,
 } from "../__tests__/mocks/firebase";
@@ -72,9 +73,52 @@ describe("EventCreatePage recurring series", () => {
     }
 
     for (const call of createCalls) {
-      const payload = call.data as { groupId?: string; createGroup?: unknown };
+      const payload = call.data as { groupId?: string; createGroup?: unknown; seriesId?: string };
       expect(payload.groupId).toBe("group-1");
       expect(payload.createGroup).toBeUndefined();
+      expect(payload.seriesId).toBe((createCalls[0]!.data as { seriesId: string }).seriesId);
     }
+    expect(createCalls.map((call) => (call.data as { round: number }).round)).toEqual([1, 2, 3, 4]);
+    expect((createCalls[0]!.data as { seriesId: string }).seriesId).toMatch(/^web_[a-z0-9]+_[a-z0-9]+$/);
+  }, 15000);
+
+  it("retries only failed rounds with original identity until the queue is empty", async () => {
+    const attempts = new Map<number, number>();
+    setCallableImplementation("createEvent", (raw) => {
+      const round = (raw as { round?: number }).round ?? 1;
+      const attempt = (attempts.get(round) ?? 0) + 1;
+      attempts.set(round, attempt);
+      if ((round === 2 && attempt <= 2) || (round === 3 && attempt === 1)) throw new Error("transient");
+      return { data: { eventId: `event-${round}` } };
+    });
+    renderWithProviders(<EventCreatePage />, { authenticated: true, route: "/ko/event/create" });
+    fireEvent.change(await screen.findByPlaceholderText("남한강 그란폰도 2026"), { target: { value: "위클리 정기 라이드" } });
+    fireEvent.change(screen.getByPlaceholderText("010-0000-0000"), { target: { value: "010-1234-5678" } });
+    fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
+    fireEvent.click(await screen.findByText("테스트 코스"));
+    await openAndPickDatePreset("이벤트 날짜", "+1주");
+    fireEvent.change(screen.getByPlaceholderText("팔당역 1번 출구 앞 광장"), { target: { value: "테스트 집결지" } });
+    fireEvent.change(await screen.findByRole("combobox"), { target: { value: "group-1" } });
+    clickToggleNear("매주 반복");
+    fireEvent.click(await screen.findByRole("button", { name: "4주" }));
+    fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
+    await openAndPickDatePreset("모집 시작 날짜", "오늘");
+    await openAndPickDatePreset("모집 마감 날짜", "+1개월");
+    fireEvent.click(screen.getByRole("button", { name: /검토 후 공개하기/ }));
+    await screen.findByText((text) => text.includes("4주 중 2주 생성 완료"));
+
+    const initial = mockCallableInvocations.filter((c) => c.name === "createEvent");
+    const seriesId = (initial[0]!.data as { seriesId: string }).seriesId;
+    expect(initial.map((c) => (c.data as { round: number }).round)).toEqual([1, 2, 3, 4]);
+
+    fireEvent.click(screen.getByRole("button", { name: "실패한 회차만 다시 시도" }));
+    await screen.findByText((text) => text.includes("4주 중 3주 생성 완료"));
+    fireEvent.click(screen.getByRole("button", { name: "실패한 회차만 다시 시도" }));
+    await screen.findByText((text) => text.includes("4주 중 4주 생성 완료"));
+
+    const calls = mockCallableInvocations.filter((c) => c.name === "createEvent");
+    expect(calls.map((c) => (c.data as { round: number }).round)).toEqual([1, 2, 3, 4, 2, 3, 2]);
+    expect(calls.every((c) => (c.data as { seriesId: string }).seriesId === seriesId)).toBe(true);
+    expect(screen.queryByRole("button", { name: "실패한 회차만 다시 시도" })).not.toBeInTheDocument();
   }, 15000);
 });

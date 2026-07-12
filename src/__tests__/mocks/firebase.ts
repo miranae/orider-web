@@ -126,9 +126,17 @@ function createCollectionSnapshot(docs: Array<Record<string, unknown> & { id: st
 
 // ─── Cloud Functions ──────────────────────────────────────
 const _callableResults = new Map<string, unknown>();
+const _callableImplementations = new Map<string, (data: unknown) => unknown>();
 
 export function setCallableResult(name: string, data: unknown) {
   _callableResults.set(name, data);
+}
+export function setCallableImplementation(name: string, fn: (data: unknown) => unknown) {
+  _callableImplementations.set(name, fn);
+}
+export function invokeCallable(name: string, data: unknown) {
+  const implementation = _callableImplementations.get(name);
+  return implementation ? implementation(data) : getCallableResult(name);
 }
 
 export function getCallableResult(name: string) {
@@ -150,6 +158,7 @@ export function resetAllMocks() {
   mockCollectionData.clear();
   _snapshotListeners.clear();
   _callableResults.clear();
+  _callableImplementations.clear();
   mockCallableInvocations.length = 0;
 }
 

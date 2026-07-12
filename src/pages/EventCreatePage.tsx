@@ -12,7 +12,7 @@ import { DateField, TimeField, EmptyState } from "../components/redesign";
 import { useCourses } from "../hooks/useCourses";
 import { Button, Card, Text } from "../theme/components";
 import { Field, SegmentedPicker, StepBar, Toggle, fieldStyle } from "../features/event/form/eventFormControls";
-import { joinDtLocal, newCategory, shiftDtLocalByWeeks, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
+import { createEventSeriesId, joinDtLocal, newCategory, shiftDtLocalByWeeks, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
 
 const REPEAT_WEEK_OPTIONS = [2, 4, 8] as const;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -131,6 +131,8 @@ export default function EventCreatePage() {
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [createdAsDraft, setCreatedAsDraft] = useState(false);
   const [repeatSummary, setRepeatSummary] = useState<RepeatSummary | null>(null);
+  const [failedRepeatPayloads, setFailedRepeatPayloads] = useState<Record<string, unknown>[]>([]);
+  const [retryingRepeat, setRetryingRepeat] = useState(false);
 
   // 코스
   const { courses: availableCourses, loading: loadingCourses } = useCourses();
@@ -258,6 +260,10 @@ export default function EventCreatePage() {
       if (data.courseIds.length > 0) {
         payload.courseIds = data.courseIds;
       }
+      if (!asDraft && data.repeatEnabled && data.repeatWeeks > 1) {
+        payload.seriesId = createEventSeriesId();
+        payload.round = 1;
+      }
 
       const fn = httpsCallable<unknown, { eventId: string }>(functions, "createEvent");
       const result = await fn(payload);
@@ -282,23 +288,27 @@ export default function EventCreatePage() {
         const { createGroup: _createGroup, ...basePayload } = payload as Record<string, unknown>;
         let successCount = 1;
         let failedCount = 0;
+        const failedPayloads: Record<string, unknown>[] = [];
         for (let i = 1; i < data.repeatWeeks; i++) {
+          const weekPayload: Record<string, unknown> = {
+            ...basePayload,
+            round: i + 1,
+            startTime: startTimestamp + i * WEEK_MS,
+            ...(data.openAt ? { openAt: shiftDtLocalByWeeks(data.openAt, i) } : {}),
+            ...(data.closeAt ? { closeAt: shiftDtLocalByWeeks(data.closeAt, i) } : {}),
+            ...(seriesGroupId ? { groupId: seriesGroupId } : {}),
+          };
           try {
-            const weekPayload: Record<string, unknown> = {
-              ...basePayload,
-              startTime: startTimestamp + i * WEEK_MS,
-              ...(data.openAt ? { openAt: shiftDtLocalByWeeks(data.openAt, i) } : {}),
-              ...(data.closeAt ? { closeAt: shiftDtLocalByWeeks(data.closeAt, i) } : {}),
-              ...(seriesGroupId ? { groupId: seriesGroupId } : {}),
-            };
             await fn(weekPayload);
             successCount += 1;
           } catch (err) {
             failedCount += 1;
+            failedPayloads.push(weekPayload);
             logClientError("EventCreatePage.repeatSeries.createWeek", err, { week: i });
           }
         }
         summary = { totalWeeks: data.repeatWeeks, successCount, failedCount };
+        setFailedRepeatPayloads(failedPayloads);
       }
 
       setCreatedEventId(firstEventId);
@@ -310,6 +320,24 @@ export default function EventCreatePage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function retryFailedRepeats() {
+    if (!repeatSummary || failedRepeatPayloads.length === 0) return;
+    setRetryingRepeat(true);
+    const fn = httpsCallable<unknown, { eventId: string }>(functions, "createEvent");
+    const stillFailed: Record<string, unknown>[] = [];
+    let recovered = 0;
+    for (const payload of failedRepeatPayloads) {
+      try { await fn(payload); recovered += 1; }
+      catch (err) {
+        stillFailed.push(payload);
+        logClientError("EventCreatePage.repeatSeries.retryWeek", err, { round: payload.round });
+      }
+    }
+    setFailedRepeatPayloads(stillFailed);
+    setRepeatSummary({ ...repeatSummary, successCount: repeatSummary.successCount + recovered, failedCount: stillFailed.length });
+    setRetryingRepeat(false);
   }
 
   if (authLoading) {
@@ -381,6 +409,9 @@ export default function EventCreatePage() {
             {repeatSummary.failedCount > 0 && (
               <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--amber)", marginTop: 'var(--space-1)' }}>
                 {t("create.repeat.partialFail", { count: repeatSummary.failedCount })}
+                <Button type="button" variant="secondary" disabled={retryingRepeat} onClick={retryFailedRepeats}>
+                  {t("create.repeat.retryFailed")}
+                </Button>
               </div>
             )}
           </Card>
