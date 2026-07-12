@@ -49,6 +49,8 @@ export function estimateActivityLoad(params: {
   avgPower?: number | null
   /** HR 스트림 — 파워 기반 부하를 구하지 못했을 때 TRIMP 로 폴백(#365). */
   heartrate?: number[]
+  /** time 스트림(초) — 스마트 레코딩/일시정지 보정. 미전달 시 1Hz 가정으로 TRIMP 저평가됨. */
+  time?: number[]
   /** HR TRIMP 계산용. maxHr 없으면 이 단계 skip. */
   maxHr?: number | null
   restHr?: number | null
@@ -76,6 +78,7 @@ export function estimateActivityLoad(params: {
           restHr: params.restHr ?? undefined,
           thresholdHr: params.lthr ?? undefined,
           gender: params.gender,
+          time: params.time,
         })
       : null
 

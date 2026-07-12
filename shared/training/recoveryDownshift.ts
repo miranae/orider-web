@@ -23,10 +23,22 @@ export const RECOVERY_TSB = -5;
 
 /** 강도 높은(하드) 워크아웃 종류 — 다운시프트 판정 대상. 회복/이지/휴식류는 제외. */
 const HARD_WORKOUT_KINDS: ReadonlySet<WorkoutKind> = new Set<WorkoutKind>([
-  "tempo", "ftp", "vo2", "hillRepeats", "sim", "goal",
+  "tempo", "ftp", "vo2", "hillRepeats",
   "tempoRun", "intervalRun", "threshRun", "raceRun", "progressRun",
   "intervalSwim", "cssSwim", "racepaceSwim", "sprintSwim",
 ]);
+
+/**
+ * 의도된 하드데이 — 레이스 당일(goal)·레이스 시뮬레이션(sim)은 피로해도 수행이 계획의
+ * 본질이므로 다운시프트 제안 대상에서 제외한다 (UI 게이트와 기준이 흩어지지 않게 여기서 단일 관리).
+ */
+const INTENDED_HARD_KINDS: ReadonlySet<WorkoutKind> = new Set<WorkoutKind>(["sim", "goal"]);
+
+/**
+ * 판정 유효 지평(일) — TSB 는 일 단위로 변하는 신호라, 오늘의 TSB 로 먼 미래 하드데이를
+ * 판정하면 사실과 다른 조언이 된다(휴식 며칠이면 회복). 오늘~+3일까지만 제안.
+ */
+export const DOWNSHIFT_HORIZON_DAYS = 3;
 
 export type DownshiftSwap = "easy" | "rest" | null;
 
@@ -34,6 +46,11 @@ export interface RecoveryDownshiftInput {
   workoutKind: WorkoutKind;
   /** 현재(해당 날짜 기준) TSB. */
   tsb: number;
+  /**
+   * 오늘부터 해당 하드데이까지 남은 일수(0=오늘). 생략 시 0 으로 간주.
+   * DOWNSHIFT_HORIZON_DAYS 초과 미래는 판정하지 않는다 — 오늘 TSB 의 유효 범위 밖.
+   */
+  daysUntil?: number;
 }
 
 export interface RecoveryDownshiftResult {
@@ -47,8 +64,9 @@ export interface RecoveryDownshiftResult {
 
 /** 계획된 하드데이 vs TSB 신호를 대조해 다운시프트 제안 여부를 판정한다. */
 export function evaluateRecoveryDownshift(input: RecoveryDownshiftInput): RecoveryDownshiftResult {
-  const isHardDay = HARD_WORKOUT_KINDS.has(input.workoutKind);
-  if (!isHardDay) {
+  const isHardDay = HARD_WORKOUT_KINDS.has(input.workoutKind) && !INTENDED_HARD_KINDS.has(input.workoutKind);
+  const withinHorizon = (input.daysUntil ?? 0) <= DOWNSHIFT_HORIZON_DAYS;
+  if (!isHardDay || !withinHorizon) {
     return { shouldDownshift: false, suggestedSwap: null, reasonTsb: input.tsb };
   }
   if (input.tsb < BURNOUT_TSB) {

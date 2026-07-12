@@ -58,3 +58,20 @@ describe("evaluateRecoveryDownshift (#365)", () => {
     },
   );
 });
+
+describe("evaluateRecoveryDownshift — 지평·의도된 하드데이 (#429 리뷰 반영)", () => {
+  it("goal(레이스 당일)·sim(레이스 시뮬)은 피로해도 다운시프트를 제안하지 않는다", () => {
+    expect(evaluateRecoveryDownshift({ workoutKind: "goal", tsb: -30 }).shouldDownshift).toBe(false);
+    expect(evaluateRecoveryDownshift({ workoutKind: "sim", tsb: -30 }).shouldDownshift).toBe(false);
+  });
+
+  it("오늘 TSB 는 +3일까지만 유효 — 지평 밖 미래 하드데이는 판정하지 않는다", () => {
+    expect(evaluateRecoveryDownshift({ workoutKind: "vo2", tsb: -30, daysUntil: 3 }).shouldDownshift).toBe(true);
+    expect(evaluateRecoveryDownshift({ workoutKind: "vo2", tsb: -30, daysUntil: 4 }).shouldDownshift).toBe(false);
+    expect(evaluateRecoveryDownshift({ workoutKind: "vo2", tsb: -30, daysUntil: 56 }).shouldDownshift).toBe(false);
+  });
+
+  it("daysUntil 생략 시 오늘(0)로 간주해 기존 동작 보존", () => {
+    expect(evaluateRecoveryDownshift({ workoutKind: "ftp", tsb: -21 }).suggestedSwap).toBe("rest");
+  });
+});

@@ -33,6 +33,8 @@ import { buildDayNames, buildWorkoutMeta, formatDateLabel, phaseColor, phaseLabe
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { PlanAdjustmentNarrative } from "../features/trainingHub/TrainingHubOpportunityPanel";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 const PLAN_WEEK_GRID_COLUMNS = '80px repeat(7, minmax(72px, 1fr)) 100px';
 const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
   padding: 0,
@@ -70,9 +72,11 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
   const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && day.plannedTSS > 0
     ? day.actualTSS / day.plannedTSS
     : null;
-  // #365 — 달력 회복 다운시프트: 아직 지나지 않은 하드데이만 판정(과거/완료/스킵 일자는 제외).
+  // #365 — 달력 회복 다운시프트: 지나지 않은 하드데이만 판정(과거/완료/스킵 제외).
+  // 오늘 TSB 의 유효 지평(daysUntil)은 순수 함수가 단일 관리 — 먼 미래 주차 오경고 방지.
+  const daysUntil = Math.max(0, Math.floor((day.date - Date.now()) / DAY_MS));
   const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && currentTsb != null
-    ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb })
+    ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
 
   // 건너뛴 날은 휴식처럼 흐리게 + 취소선
@@ -534,9 +538,13 @@ export default function PlanPage() {
   // lazy revalidate — plan 페이지는 활동/피로도 기반 자동 조정이 가장 직접 보이는 화면
   const { revalidating, justRecomputed } = useFreshTraining(discipline);
   // #365 — 달력 회복 다운시프트: 정본 시계열의 최신 TSB 로 계획된 하드데이 충돌을 판정.
+  // 시계열이 아직 오늘 근처까지 갱신되지 않았으면(stale — revalidate 완료 전 창) 판정을 보류해
+  // 며칠 전의 과음수 TSB 로 잘못된 '휴식 권장'이 뜨는 것을 막는다.
   const { timeseries } = useFitnessTimeseries(user?.uid, discipline);
-  const currentTsb = timeseries?.points.length
-    ? timeseries.points[timeseries.points.length - 1]!.tsb
+  const tsbFresh = timeseries?.endDate != null &&
+    (Date.now() - new Date(`${timeseries.endDate}T00:00:00Z`).getTime()) <= 3 * DAY_MS;
+  const currentTsb = tsbFresh && timeseries!.points.length
+    ? timeseries!.points[timeseries!.points.length - 1]!.tsb
     : null;
 
   // Load active goal
