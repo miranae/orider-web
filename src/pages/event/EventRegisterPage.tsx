@@ -526,7 +526,7 @@ export default function EventRegisterPage() {
           <div className="flex items-center justify-between" style={{ fontSize: "var(--fs-xs)" }}>
             <span style={{ color: "var(--ink-3)" }}>{(event.fee ?? 0) > 0 ? t("register.paymentAmount") : t("label.entryFee")}</span>
             <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
-              {(event.fee ?? 0) > 0 ? `₩ ${totalAmount.toLocaleString("ko-KR")}` : t("feeType.free")}
+              {(event.fee ?? 0) > 0 ? `₩ ${totalAmount.toLocaleString(localeTag())}` : t("feeType.free")}
             </span>
           </div>
         </Card>
@@ -1069,20 +1069,20 @@ export default function EventRegisterPage() {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-0-5)" }}>{t("label.entryFee")}</Text>
-                    <Text as="div" variant="dataMedium">₩ {(event.fee ?? 0).toLocaleString("ko-KR")}</Text>
+                    <Text as="div" variant="dataMedium">₩ {(event.fee ?? 0).toLocaleString(localeTag())}</Text>
                   </div>
                 </div>
                 <div className="flex flex-col" style={{ gap: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
                   <div className="flex justify-between">
                     <span style={{ color: "var(--ink-3)" }}>{t("label.entryFee")}</span>
                     <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
-                      ₩ {(event.fee ?? 0).toLocaleString("ko-KR")}
+                      ₩ {(event.fee ?? 0).toLocaleString(localeTag())}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color: "var(--ink-3)" }}>{t("register.insurance")}</span>
                     <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>
-                      ₩ {insurance.toLocaleString("ko-KR")}
+                      ₩ {insurance.toLocaleString(localeTag())}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1095,7 +1095,7 @@ export default function EventRegisterPage() {
                   >
                     <span style={{ color: "var(--ink-0)", fontWeight: 500 }}>{t("register.totalAmount")}</span>
                     <span style={{ color: "var(--lime)", fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "var(--fs-sm)" }}>
-                      ₩ {totalAmount.toLocaleString("ko-KR")}
+                      ₩ {totalAmount.toLocaleString(localeTag())}
                     </span>
                   </div>
                 </div>
@@ -1221,7 +1221,7 @@ export default function EventRegisterPage() {
               [t("label.categories"), selectedCat?.name ?? selectedCat?.label ?? t("register.notSelected")],
               [t("register.summaryParticipant"), data.name || "–"],
               [t("distance"), event.distance != null ? `${(event.distance / 1000).toFixed(1)} km` : "–"],
-              [t("label.entryFee"), (event.fee ?? 0) > 0 ? `₩ ${(event.fee ?? 0).toLocaleString("ko-KR")}` : t("feeType.free")],
+              [t("label.entryFee"), (event.fee ?? 0) > 0 ? `₩ ${(event.fee ?? 0).toLocaleString(localeTag())}` : t("feeType.free")],
               [t("field.closeAt"), fmtIsoLocal(event.closeAt)],
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between">
@@ -1244,7 +1244,7 @@ export default function EventRegisterPage() {
             >
               <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t("register.paymentDue")}</span>
               <Text variant="dataMedium" style={{ color: "var(--lime)" }}>
-                ₩ {totalAmount.toLocaleString("ko-KR")}
+                ₩ {totalAmount.toLocaleString(localeTag())}
               </Text>
             </div>
           )}

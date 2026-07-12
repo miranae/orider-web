@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { collection, getDocs, deleteDoc, doc as fsDoc, onSnapshot, updateDoc } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc as fsDoc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -20,7 +20,7 @@ import { Button, Card, Chip, Text } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import { localeTag } from "../../utils/localeDate";
 import { normalizeStartTime } from "../../utils/event-time";
-import { transferGroupLeadership } from "../../features/group/groupLeadership";
+import { setGroupMemberRole, transferGroupLeadership } from "../../features/group/groupLeadership";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 
 type Tab = "members" | "pending" | "invite";
@@ -234,7 +234,8 @@ export default function GroupMembersPage() {
 
     setRoleBusyId(targetUserId);
     try {
-      await updateDoc(fsDoc(firestore, "groups", groupId, "members", targetUserId), { role: nextRole });
+      // #379: 서버(CF)가 creator 권한·대상 유효성·updatedAt 을 강제 — 직접 쓰기 제거.
+      await setGroupMemberRole({ groupId, userId: targetUserId, role: nextRole });
       showToast(t(nextRole === "co-leader" ? "members.promoteSuccess" : "members.demoteSuccess", { name }));
     } catch (err) {
       logClientError("GroupMembersPage.handleRoleChange", err, { groupId, targetUserId, nextRole });
