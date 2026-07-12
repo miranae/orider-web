@@ -78,6 +78,8 @@
   "hub.weekly.recommend.maintain": "Keep the current rhythm.",
   "hub.actions.title": "Bike improvement actions",
   "hub.actions.needed": "Needed",
+  "hub.actions.showMore": "Show {{count}} more actions",
+  "hub.actions.showLess": "Hide additional actions",
   "hub.actions.ftp.title": "FTP baseline",
   "hub.actions.ftp.desc": "Keep FTP current so power zones and TSS stay accurate.",
   "hub.actions.ftp.cta": "Enter FTP in training profile",

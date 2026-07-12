@@ -784,7 +784,7 @@ export default function FitnessPage() {
   // 동일 헤더를 공유한다. 콜드 진입 시 차트 데이터가 도착하기 전에도 헤더(h1)가 즉시
   // 페인트돼 LCP 요소가 늦게 뜨는 차트가 아닌 정적 헤더로 고정 → LCP 꼬리 제거.
   const pageHeader = (
-    <div style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)', maxWidth: 1440, margin: "0 auto" }}>
+    <div style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)', maxWidth: 1120, margin: "0 auto" }}>
       <div style={{ flex: 1 }}>
         <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)', display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
           <span>{t("header.eyebrow", { date: formatMonthDay(i18n.language) })}</span>
@@ -825,7 +825,7 @@ export default function FitnessPage() {
     </div>
   );
 
-  const bodyPad = { maxWidth: 1440, margin: "0 auto", padding: "20px 24px 40px" };
+  const bodyPad = { maxWidth: 1120, margin: "0 auto", padding: "20px 24px 40px" };
 
   // 데이터 의존 본문만 상태별로 스왑 — 헤더는 항상 즉시 페인트.
   // 정본 timeseries doc 이 도착하기 전(doc 보유 유저)엔 스켈레톤 유지 — 클라 폴백(부정확
@@ -931,7 +931,7 @@ export default function FitnessPage() {
 
         {/* KPI 스트립 */}
         {currentPoint && (
-          <Card padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: `repeat(${discipline === "bike" ? 5 : 4}, 1fr)` }}>
+          <Card padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-3)", border: "none", background: "transparent", boxShadow: "none" }}>
             {[
               {
                 label: t("kpi.ctl.label"),
@@ -995,8 +995,8 @@ export default function FitnessPage() {
                 desc: pdc?.vo2maxEst != null ? t("kpi.vo2max.descServer") : t("kpi.vo2max.descFormula"),
                 hint: t("kpi.vo2max.hint"),
               }] : []),
-            ].map((s, i, arr) => (
-              <div key={i} style={{ padding: "22px 24px", borderRight: i < arr.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
+            ].map((s, i) => (
+              <div key={i} style={{ padding: "22px 24px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", background: "var(--bg-1)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color }} />
                   <Text variant="eyebrow">{s.label}</Text>
