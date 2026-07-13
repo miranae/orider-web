@@ -12,6 +12,7 @@
   "stat": {
     "distance": "거리",
     "movingTime": "이동 시간",
+    "elapsedTime": "총 활동시간",
     "elev": "획득 고도",
     "elevShort": "획득고도",
     "avgSpeed": "평균 속도",
@@ -33,7 +34,7 @@
     "speed": "속도",
     "dataWarning": "⚠ 데이터 이상",
     "dataWarningTooltip": "GPS noise 또는 짧은 활동으로 평균/최고 속도가 비현실적입니다. 일부 지표는 '—' 로 표시됩니다.",
-    "movingTimeTotal": "전체 {{elapsed}} · 정지 {{pause}}",
+    "movingTimeTotal": "총 활동시간 {{elapsed}} · 정지시간 {{pause}}",
     "movingTimeTotalSimple": "이동 시간 · 전체 {{elapsed}}",
     "movingAvgTotal": "이동 평균 · 전체 {{total}} km/h",
     "dataWarningRaw": "데이터 이상 — 원본값 {{value}} km/h"
@@ -749,8 +750,8 @@
     "chip": "서버 분석",
     "workoutTypeLabel": "유형",
     "confidenceHint": "신뢰도 {{pct}}%",
-    "movingTimeLabel": "이동시간",
-    "pauseHint": "정지 {{time}}",
+    "movingTimeLabel": "분석상 이동시간",
+    "pauseHint": "분석상 정지시간 {{time}}",
     "workoutType": {
       "recovery": "회복",
       "endurance": "지구력",

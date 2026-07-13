@@ -4,6 +4,41 @@ import { resolveDuration, resolveAvgSpeedKph } from "./activityTime";
 const H = 3_600_000; // 1시간 ms
 
 describe("resolveDuration (#236 이동시간 우선 정책)", () => {
+  it("start/end 경과시간을 소스별 ridingTimeMillis보다 우선", () => {
+    const startTime = 1_783_809_513_000;
+    const d = resolveDuration({
+      ridingTimeMillis: 10_019_000,
+      startTime,
+      endTime: startTime + 14_788_000,
+      movingTimeSec: 9_971,
+      pauseTimeSec: 4_817,
+    });
+    expect(d.elapsedMs).toBe(14_788_000);
+    expect(d.displayMs).toBe(9_971_000);
+    expect(d.pauseMs).toBe(4_817_000);
+  });
+
+  it("FIT 기기 이동/정지시간과 총 경과시간을 분리", () => {
+    const d = resolveDuration({
+      ridingTimeMillis: 14_793_000,
+      elapsedTimeMillis: 14_793_000,
+      movingTimeSec: 10_032,
+      pauseTimeSec: 4_761,
+    });
+    expect(d.elapsedMs).toBe(14_793_000);
+    expect(d.movingMs).toBe(10_032_000);
+    expect(d.pauseMs).toBe(4_761_000);
+  });
+
+  it("정지시간이 없으면 총 경과시간에서 이동시간을 빼서 계산", () => {
+    const d = resolveDuration({
+      ridingTimeMillis: 14_793_000,
+      movingTimeSec: 10_032,
+    });
+    expect(d.pauseMs).toBe(4_761_000);
+    expect(d.usingMoving).toBe(true);
+  });
+
   it("metrics 없으면 경과시간 그대로 — 회귀 X", () => {
     const d = resolveDuration({ ridingTimeMillis: 2 * H });
     expect(d.displayMs).toBe(2 * H);
@@ -53,12 +88,12 @@ describe("resolveDuration (#236 이동시간 우선 정책)", () => {
     expect(d.movingMs).toBeNull();
   });
 
-  it("pauseTimeSec 누락 시 전환 안 함 (정지량 판단 불가)", () => {
+  it("pauseTimeSec 누락 시 경과시간과 이동시간의 차이로 보완", () => {
     const d = resolveDuration({ ridingTimeMillis: 2 * H, movingTimeSec: 3600 });
-    expect(d.usingMoving).toBe(false);
-    expect(d.displayMs).toBe(2 * H);
+    expect(d.usingMoving).toBe(true);
+    expect(d.displayMs).toBe(H);
     expect(d.movingMs).toBe(H);
-    expect(d.pauseMs).toBeNull();
+    expect(d.pauseMs).toBe(H);
   });
 });
 
