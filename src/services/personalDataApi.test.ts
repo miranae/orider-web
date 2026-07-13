@@ -3,6 +3,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { auth } from "./firebase";
 import {
   createPersonalApiKey,
+  getActivityStreams,
   listPersonalApiKeys,
   revokePersonalApiKey,
 } from "./personalDataApi";
@@ -89,6 +90,30 @@ describe("personalDataApi", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/developer/api-keys/key%2Frevoked",
       expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("loads GCS-backed activity streams through the authenticated REST endpoint", async () => {
+    const streams = { time: [0, 1], altitude: [12, 13] };
+    fetchMock.mockResolvedValueOnce(responseJson({ data: streams }));
+
+    await expect(getActivityStreams("activity/with spaces")).resolves.toEqual(streams);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/activities/activity%2Fwith%20spaces/streams",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer test-id-token" }),
+      }),
+    );
+  });
+
+  it("surfaces REST errors while loading GCS-backed activity streams", async () => {
+    fetchMock.mockResolvedValueOnce(responseJson(
+      { error: { message: "Stream data file not available" } },
+      { ok: false, status: 404 },
+    ));
+
+    await expect(getActivityStreams("missing-activity")).rejects.toThrow(
+      "Stream data file not available",
     );
   });
 });

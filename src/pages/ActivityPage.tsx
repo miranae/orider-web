@@ -62,7 +62,7 @@ import {
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
-import { useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
+import { loadOriderActivityStreams, useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
 import { RideActivityRouteButton } from "../features/activity/detail/RideActivityRouteButton";
 import { selectActualCoRiders } from "../utils/coRiders";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
@@ -644,16 +644,7 @@ export default function ActivityPage() {
     setShowStreamSpinner(true);
     try {
       if (isOriderActivity) {
-        const snap = await getDoc(doc(firestore, "activity_streams", activityId));
-        const data = snap.exists() ? snap.data() : null;
-        const jsonStr = data?.json as string | undefined;
-        if (!jsonStr) {
-          setStreamsError(t("page.streamsMissing"));
-          return;
-        }
-        const parsed = JSON.parse(jsonStr) as ActivityStreams;
-        parsed.userId = typeof data?.userId === "string" ? data.userId : activity.userId;
-        setStreams(parsed);
+        setStreams(await loadOriderActivityStreams(activityId, activity.userId));
         return;
       }
 
@@ -669,7 +660,9 @@ export default function ActivityPage() {
         activityId,
         source: isOriderActivity ? "orider" : "strava",
       });
-      setStreamsError(err instanceof Error ? err.message : t("page.streamsErrorFallback"));
+      setStreamsError(err instanceof Error && err.message !== "STREAMS_MISSING"
+        ? err.message
+        : t("page.streamsMissing"));
     } finally {
       setShowStreamSpinner(false);
       setLoadingStreams(false);

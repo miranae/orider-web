@@ -1,5 +1,6 @@
 import { auth } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
+import type { ActivityStreams } from "@shared/types";
 
 export type PersonalApiScope =
   | "profile:read"
@@ -70,4 +71,14 @@ export async function revokePersonalApiKey(keyId: string): Promise<void> {
   await apiFetch<{ data: { revoked: boolean } }>(`/developer/api-keys/${encodeURIComponent(keyId)}`, {
     method: "DELETE",
   });
+}
+
+export async function getActivityStreams(activityId: string): Promise<ActivityStreams> {
+  const payload = await apiFetch<{ data?: ActivityStreams }>(
+    `/activities/${encodeURIComponent(activityId)}/streams`,
+  );
+  if (!payload.data || typeof payload.data !== "object") {
+    throw new Error("INVALID_PERSONAL_API_RESPONSE");
+  }
+  return payload.data;
 }
