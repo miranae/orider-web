@@ -56,6 +56,43 @@ interface PeekCacheEntry {
   cachedAt: number;
 }
 const peekDone = new Map<string, PeekCacheEntry>();
+const peekRevision = new Map<string, number>();
+const peekSubscribers = new Map<string, Set<(state: PeekState) => void>>();
+
+const peekKey = (uid: string, discipline: PeekDiscipline, lang: "ko" | "en") =>
+  `${uid}:${discipline}:${lang}`;
+
+function bumpPeekRevision(key: string): number {
+  const next = (peekRevision.get(key) ?? 0) + 1;
+  peekRevision.set(key, next);
+  return next;
+}
+
+function notifyPeekSubscribers(key: string, state: PeekState): void {
+  for (const subscriber of peekSubscribers.get(key) ?? []) subscriber(state);
+}
+
+/**
+ * 방금 full 호출로 확인한 narrative 를 해당 언어 슬롯의 세션 캐시에 원자적으로 발행한다.
+ * revision 을 올려 먼저 시작된 cacheOnly 응답이 새 답변을 뒤늦게 덮지 못하게 한다.
+ */
+export function publishTodaysNarrativePeekCache(
+  uid: string,
+  discipline: PeekDiscipline,
+  lang: "ko" | "en",
+  narrative: string,
+): void {
+  const key = peekKey(uid, discipline, lang);
+  bumpPeekRevision(key);
+  const state: PeekState = {
+    narrative,
+    loading: false,
+    cacheMiss: false,
+    stale: false,
+  };
+  peekDone.set(key, { state, cachedAt: Date.now() });
+  notifyPeekSubscribers(key, state);
+}
 
 /**
  * @param discipline  운동 종목. null 이면 peek 보류.
@@ -75,9 +112,24 @@ export function useTodaysNarrativePeek(
   const activeKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!user || !discipline) return;
+    const key = peekKey(user.uid, discipline, lang);
+    activeKeyRef.current = key;
+    const subscribers = peekSubscribers.get(key) ?? new Set<(state: PeekState) => void>();
+    const subscriber = (next: PeekState) => setState(next);
+    subscribers.add(subscriber);
+    peekSubscribers.set(key, subscribers);
+    return () => {
+      subscribers.delete(subscriber);
+      if (subscribers.size === 0) peekSubscribers.delete(key);
+      if (activeKeyRef.current === key) activeKeyRef.current = null;
+    };
+  }, [user?.uid, discipline, lang]);
+
+  useEffect(() => {
     // facts 가 null 이면 stale 판별 불가 — peek 보류 (enabled 여도 대기)
     if (!user || !discipline || !enabled || !facts) return;
-    const key = `${user.uid}:${discipline}:${lang}`;
+    const key = peekKey(user.uid, discipline, lang);
     activeKeyRef.current = key;
 
     // 세션 캐시 적중
@@ -94,6 +146,7 @@ export function useTodaysNarrativePeek(
     // 이미 in-flight
     if (calledRef.current === key) return;
     calledRef.current = key;
+    const requestRevision = peekRevision.get(key) ?? 0;
 
     // ⚠️ cancelled/cleanup 가드를 두지 않는다: deps 의 `facts` 가 매 렌더 새 객체라
     // (ruleFacts = recommendToday(...) 인라인) effect 가 매 렌더 cleanup+재실행되는데,
@@ -112,6 +165,8 @@ export function useTodaysNarrativePeek(
         return fn({ cacheOnly: true, facts, lang });
       })
       .then((res) => {
+        // full 분석 결과가 이 요청 뒤에 발행됐다면 이 cacheOnly 응답은 이미 구버전이다.
+        if ((peekRevision.get(key) ?? 0) !== requestRevision) return;
         const d = res.data;
         const next: PeekState = d.hit && d.narrative
           ? { narrative: d.narrative, loading: false, cacheMiss: false, stale: d.stale ?? false }
@@ -120,6 +175,7 @@ export function useTodaysNarrativePeek(
         if (activeKeyRef.current === key) setState(next);
       })
       .catch(() => {
+        if ((peekRevision.get(key) ?? 0) !== requestRevision) return;
         // peek 실패는 조용히 miss 처리하되 세션 캐시에 저장하지 않는다. 일시적 인증/네트워크
         // 오류를 miss 로 고정하면 서버 복구 후에도 같은 탭에서 AI 카드가 계속 비어 보인다.
         const next: PeekState = { narrative: null, loading: false, cacheMiss: true, stale: false };
@@ -133,11 +189,14 @@ export function useTodaysNarrativePeek(
   return state;
 }
 
-/** 오늘 날짜 기준 peek 세션 캐시 무효화. 새 narrative 생성 완료 후 호출.
- *  언어별 슬롯이 모두 갱신되도록 해당 uid:discipline 의 전 언어 키를 비운다. */
+/** 오늘 날짜 기준 peek 세션 캐시 무효화.
+ *  다음 조회가 서버를 다시 확인하도록 해당 uid:discipline 의 전 언어 키를 비운다. */
 export function invalidateTodaysNarrativePeekCache(uid: string, discipline: PeekDiscipline): void {
-  const prefix = `${uid}:${discipline}:`;
-  for (const k of Array.from(peekDone.keys())) {
-    if (k === `${uid}:${discipline}` || k.startsWith(prefix)) peekDone.delete(k);
+  for (const lang of ["ko", "en"] as const) {
+    const key = peekKey(uid, discipline, lang);
+    bumpPeekRevision(key);
+    peekDone.delete(key);
   }
+  // 구버전(언어 구분 전) 세션 키가 남아 있는 탭과도 호환한다.
+  peekDone.delete(`${uid}:${discipline}`);
 }

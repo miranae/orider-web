@@ -12,7 +12,7 @@ import { useFreshTraining } from "../../hooks/useFreshTraining";
 import { useTrainingSummary } from "../../hooks/useTrainingSummary";
 import { estimateActivityLoad } from "../../utils/fitnessMetrics";
 import { useTodaysNarrative } from "../../hooks/useTodaysNarrative";
-import { useTodaysNarrativePeek, invalidateTodaysNarrativePeekCache } from "../../hooks/useTodaysNarrativePeek";
+import { useTodaysNarrativePeek, publishTodaysNarrativePeekCache } from "../../hooks/useTodaysNarrativePeek";
 import { recommendToday, type RecommendationFacts, type ToneColor, type RecDiscipline } from "../../utils/todaysRecommendation";
 import { composeFallbackNarrative } from "../../utils/recommendationComposer";
 import AdjustedChip from "./AdjustedChip";
@@ -524,12 +524,24 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
   // peek hit 만으로는 호출하지 않는다 — 이미 생성된 답변은 peek.narrative 를 그대로 표시해
   // "페이지 진입마다 자동 생성"을 제거한다(#393 리뷰 MAJOR).
   const shouldCallLLM = narrativeReady && triggerFull;
-  const { narrative: llmNarrative, loading: llmLoading, phase: llmPhase } =
+  const { narrative: llmNarrative, loading: llmLoading, phase: llmPhase, cacheContext: llmCacheContext } =
     useTodaysNarrative(facts, shouldCallLLM, derivedSummary, athlete, goalDetail, narrativeAdaptation, narrativeMismatch, daysSinceLastActivity);
+
+  // full 호출 성공 결과를 현재 언어 슬롯에 commit 후 발행한다. 렌더 중 모듈 캐시를
+  // 변경하면 다른 카드의 렌더와 교차할 수 있으므로 effect 에서만 동기화한다.
+  useEffect(() => {
+    if (!llmNarrative || !llmCacheContext) return;
+    publishTodaysNarrativePeekCache(
+      llmCacheContext.uid,
+      llmCacheContext.discipline,
+      llmCacheContext.lang,
+      llmNarrative,
+    );
+  }, [llmNarrative, llmCacheContext]);
 
   // 표시용 답변: 새로 생성된 llmNarrative 가 있으면 우선, 없으면 peek 캐시 답변.
   const displayNarrative = llmNarrative ?? peek.narrative;
-  // 마지막으로 보여준 non-null 답변 보존 — '다시분석' 클릭 시 peek invalidate→재peek 왕복 동안
+  // 마지막으로 보여준 non-null 답변 보존 — 재분석 입력/응답 상태가 전환되는 동안
   // displayNarrative 가 잠깐 null 이 돼도 본문이 룰 fallback 으로 깜빡이지 않게 직전 답변 유지
   // (#395 리뷰 MAJOR 후속). 렌더 중 ref 갱신은 "직전값 캐시" 표준 패턴(재렌더 유발 없음).
   const lastNarrativeRef = useRef<string | null>(null);
@@ -555,7 +567,7 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
   // peek miss + 아직 full 미호출 → "분석시작" 버튼 표시용 플래그 + 핸들러
   const llmCacheMiss = peek.cacheMiss && !triggerFull && !llmNarrative && !llmLoading;
   const onRequestAnalysis = () => {
-    if (user) invalidateTodaysNarrativePeekCache(user.uid, discipline as "bike" | "run" | "swim");
+    if (llmLoading || triggerFull) return;
     setTriggerFull(true);
   };
 
@@ -565,7 +577,7 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
   const reanalyzable = peek.stale;
   const onReanalyze = showReanalyze
     ? () => {
-        if (user) invalidateTodaysNarrativePeekCache(user.uid, discipline as "bike" | "run" | "swim");
+        if (llmLoading || triggerFull) return;
         setTriggerFull(true);
       }
     : null;
