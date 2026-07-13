@@ -67,6 +67,12 @@ export type NarrativePhase = "idle" | "preparing" | "calling" | "ready";
 interface State {
   narrative: string | null;
   source: "cache" | "generated" | null;
+  /** 이 narrative 를 생성한 요청의 정확한 세션 캐시 슬롯. */
+  cacheContext: {
+    uid: string;
+    discipline: "bike" | "run" | "swim";
+    lang: "ko" | "en";
+  } | null;
   loading: boolean;
   phase: NarrativePhase;
   /** 마지막 fetch 의 입력 fingerprint — 같은 입력 재호출 회피. */
@@ -106,6 +112,7 @@ export function useTodaysNarrative(
   const [state, setState] = useState<State>({
     narrative: null,
     source: null,
+    cacheContext: null,
     loading: false,
     phase: "idle",
     lastFingerprint: null,
@@ -117,6 +124,8 @@ export function useTodaysNarrative(
   // CF 가 처리. fingerprint 는 사람 손 의존 없이 자동 — 입력 한 바이트라도 다르면 재요청.
   const fingerprint = facts && ready
     ? localFingerprint({
+        // 동일 facts 여도 로그인 사용자가 바뀌면 별도 요청/결과다.
+        u: user?.uid ?? null,
         // sessionName/chips/contextTags 는 한국어 UI 전용 — fingerprint 에서도 빼서 RPC 중복 회피
         // 가 라벨 변경에 흔들리지 않도록. CF 의 캐시 키는 prompt sha1 기반이라 그쪽에서 자동 처리.
         f: {
@@ -154,12 +163,16 @@ export function useTodaysNarrative(
   // 없으면 호출 — 안정 상태에서 1회로 수렴.
   const debounceMs = 800;
   useEffect(() => {
+    // full 호출이 시작된 뒤에는 입력·사용자·언어가 바뀌어도 두 번째 호출을 만들지 않는다.
+    // 첫 요청이 완료될 때까지 그 요청과 정확한 cacheContext 가 단일 진실원이다.
+    if (inFlightRef.current !== null) return;
     if (!user || !facts || !ready || !fingerprint) return;
     if (state.lastFingerprint === fingerprint) return;
     if (inFlightRef.current === fingerprint) return;
 
     const facts1: RecommendationFacts = facts;
     const fp1: string = fingerprint;
+    const uid1 = user.uid;
     // 즉시 "preparing" phase 진입 — 사용자에게 "데이터 다시 계산 중" 명시.
     // 800ms 안에 입력이 또 변하면 cleanup 되고 새 effect 가 다시 preparing 진입.
     setState((s) => ({ ...s, phase: "preparing", loading: true }));
@@ -167,6 +180,8 @@ export function useTodaysNarrative(
     return () => clearTimeout(timer);
 
     async function doFetch() {
+    // debounce 사이 다른 effect 가 먼저 호출을 시작했을 수도 있다.
+    if (inFlightRef.current !== null) return;
     inFlightRef.current = fp1;
     setState((s) => ({ ...s, phase: "calling", loading: true }));
 
@@ -174,7 +189,7 @@ export function useTodaysNarrative(
       await ensureAppCheckReady();
     } catch (err) {
       logClientError("useTodaysNarrative.appCheck", err, { fingerprint: fp1 });
-      setState({ narrative: null, source: null, loading: false, phase: "idle", lastFingerprint: null });
+      setState({ narrative: null, source: null, cacheContext: null, loading: false, phase: "idle", lastFingerprint: null });
       if (inFlightRef.current === fp1) inFlightRef.current = null;
       return;
     }
@@ -212,6 +227,11 @@ export function useTodaysNarrative(
         setState({
           narrative: data.narrative,
           source: data.source,
+          cacheContext: {
+            uid: uid1,
+            discipline: facts1.inputSnapshot.discipline,
+            lang,
+          },
           loading: false,
           phase: "ready",
           lastFingerprint: fp1,
@@ -219,7 +239,7 @@ export function useTodaysNarrative(
       })
       .catch((err) => {
         logClientError("useTodaysNarrative", err, { fingerprint: fp1 });
-        setState({ narrative: null, source: null, loading: false, phase: "idle", lastFingerprint: null });
+        setState({ narrative: null, source: null, cacheContext: null, loading: false, phase: "idle", lastFingerprint: null });
       })
       .finally(() => {
         if (inFlightRef.current === fp1) inFlightRef.current = null;
