@@ -16,6 +16,7 @@ import { isTrivialActivity } from "../../utils/activityFilter";
 import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
 import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activitySanity";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
+import type { ActivityFeedScope } from "../../hooks/useActivities";
 
 const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
@@ -39,6 +40,8 @@ interface MobileFeedPageProps {
   consistencyStreak?: ConsistencyStreakSummary | null;
   currentUserId?: string | null;
   friendIds?: string[];
+  feedScope: ActivityFeedScope;
+  onFeedScopeChange: (scope: ActivityFeedScope) => void;
 }
 
 function formatDur(ms: number): string {
@@ -222,11 +225,11 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 
 export default function MobileFeedPage({
   activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
+  feedScope, onFeedScopeChange,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
   const [sportFilter, setSportFilter] = useState("all");
-  const [feedScope, setFeedScope] = useState<"all" | "friends" | "self">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [datePreset, setDatePreset] = useState<"all" | "7d" | "30d" | "90d">("all");
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
@@ -347,7 +350,7 @@ export default function MobileFeedPage({
               key={value}
               type="button"
               aria-pressed={feedScope === value}
-              onClick={() => setFeedScope(value)}
+              onClick={() => onFeedScopeChange(value)}
               style={{
                 minHeight: 44,
                 borderRadius: "var(--r-md)",
