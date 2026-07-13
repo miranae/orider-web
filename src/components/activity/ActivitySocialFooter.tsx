@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, MessageCircle } from "lucide-react";
-import { doc, setDoc, deleteDoc, addDoc, collection } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
 import type { Activity } from "@shared/types";
 import Avatar from "../Avatar";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -12,6 +10,7 @@ import { track, trackActivationStep } from "../../services/analytics";
 import { logClientError } from "../../services/errorLogger";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import { useHydratedSocialProfiles } from "./useHydratedSocialProfiles";
+import { activitySocialErrorMessageKey, activitySocialMutations } from "../../services/activitySocialMutations";
 
 /**
  * 스트라바형 활동 카드 소셜 푸터 — 좋아요(토글 + 누른 사람 아바타 스택) + 댓글 수.
@@ -40,7 +39,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [localComments, setLocalComments] = useState(activity.commentCount ?? 0);
 
-  // 좋아요 토글 — activities/{id}/kudos/{uid} write (recentKudos·kudosCount 는 서버 트리거가 갱신).
+  // 좋아요 토글 — canonical callable write (recentKudos·kudosCount 는 서버 트리거가 갱신).
   // 카드에선 낙관적으로 카운트/아바타만 즉시 반영. 비로그인은 무동작.
   // write 실패 시 낙관적 변경을 롤백해 UI 가 실제 Firestore 상태와 어긋나지 않게 하고(좋아요
   // 안 됐는데 하트 채워짐 방지), 표준 로거로 운영 가시성 확보.
@@ -48,7 +47,6 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
     e.preventDefault();
     e.stopPropagation();
     if (!user || !profile) return;
-    const kudosDocRef = doc(firestore, "activities", activity.id, "kudos", user.uid);
     const wasLiked = liked;
     // 롤백용 스냅샷 — 실패 시 이 값으로 복구.
     const prev = { liked, localKudos, recent };
@@ -73,14 +71,8 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
       ].slice(0, 5));
     }
     try {
-      if (wasLiked) {
-        await deleteDoc(kudosDocRef);
-      } else {
-        await setDoc(kudosDocRef, {
-          nickname: profile.nickname ?? user.displayName ?? "User",
-          profileImage: currentProfileImage,
-          createdAt: Date.now(),
-        });
+      await activitySocialMutations.setKudos(activity.id, !wasLiked);
+      if (!wasLiked) {
         showToast(t("card.kudosToast"));
         trackActivationStep(user.uid, "first_kudos", { activity_id: activity.id });
       }
@@ -93,6 +85,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
         activityId: activity.id,
         action: wasLiked ? "off" : "on",
       });
+      showToast(t(activitySocialErrorMessageKey(err)), "error");
     }
   };
 
@@ -103,7 +96,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
     setShowComment((v) => !v);
   };
 
-  // 댓글 등록 — activities/{id}/comments addDoc (commentCount 는 서버 트리거가 갱신).
+  // 댓글 등록 — canonical callable write (commentCount 는 서버 트리거가 갱신).
   // 낙관적으로 카운트만 +1, 실패 시 롤백 + 표준 로깅. 기존 댓글 목록은 카드에서 안 띄움(read 0).
   const handleSubmitComment = async () => {
     const text = commentText.trim();
@@ -111,14 +104,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
     setCommentSubmitting(true);
     setLocalComments((c) => c + 1); // 낙관적
     try {
-      await addDoc(collection(firestore, "activities", activity.id, "comments"), {
-        userId: user.uid,
-        nickname: profile.nickname ?? user.displayName ?? "User",
-        profileImage: currentProfileImage,
-        text,
-        createdAt: Date.now(),
-        deletedAt: null,
-      });
+      await activitySocialMutations.postComment(activity.id, text);
       track("activity_comment_send", {
         activity_id: activity.id,
         text_len: text.length,
@@ -132,7 +118,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
     } catch (err) {
       setLocalComments((c) => Math.max(0, c - 1)); // 롤백
       logClientError("ActivitySocialFooter.commentSubmit", err, { activityId: activity.id });
-      showToast(t("card.commentFailed"), "error");
+      showToast(t(activitySocialErrorMessageKey(err)), "error");
     } finally {
       setCommentSubmitting(false);
     }

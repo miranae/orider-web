@@ -147,6 +147,15 @@
       "daysAgo_other": "{{count}} days ago"
     }
   },
+  "socialErrors": {
+    "auth": "Your sign-in has expired. Please sign in again.",
+    "app_check": "The app security check failed. Refresh and try again.",
+    "access": "You cannot react to an activity that is blocked, private, or hidden.",
+    "missing": "This activity or comment was deleted and can no longer be changed.",
+    "rate_limited": "Too many requests. Please try again shortly.",
+    "invalid": "Please check the comment text.",
+    "unknown": "The change could not be saved. Please try again shortly."
+  },
   "page": {
     "deleteConfirm": "Delete this activity?",
     "delete": "Delete",
