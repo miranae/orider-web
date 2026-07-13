@@ -268,12 +268,11 @@ export default function MobileFeedPage({
 
   return (
     <div style={{ overscrollBehavior: "contain" }}>
-      {/* 오늘의 워크아웃 — 첫 화면 최상단: 오늘 행동 → 핵심 수치 → 추이 → 피드 순서.
-          모바일은 '오늘의 결론 + CTA' 압축형 (#401). 상세 해설은 /fitness·/plan 에서. */}
+      {/* 오늘의 워크아웃 — 첫 화면 최상단: AI 코치 해설과 오늘 행동을 함께 노출한다. */}
       {user && (
         <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
           <Suspense fallback={null}>
-            <TodaysWorkoutCard variant="compact" />
+            <TodaysWorkoutCard />
           </Suspense>
         </div>
       )}
