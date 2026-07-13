@@ -104,6 +104,7 @@ export interface ActivityMetricsDoc {
   }>;
   decoupling: { ef: number|null; decouplingPct: number|null; hrDriftPct: number|null };
   trimp: number | null;
+  streamTrimpTss?: number | null;
   sufferScore: number | null;
   zonesSec: { sweetSpot: number; threshold: number; vo2: number; anaerobic: number };
   hrZoneSec: number[];

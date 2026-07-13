@@ -109,6 +109,8 @@ export interface ActivityMetrics {
 
   // ── TRIMP / Suffer
   trimp: number | null;
+  /** HR 스트림 TRIMP를 LTHR 1시간=100으로 정규화한 PMC 부하. */
+  streamTrimpTss?: number | null;
   sufferScore: number | null;
 
   // ── Zones (시간 초)

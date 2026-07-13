@@ -328,6 +328,64 @@
     "pmcLabelToday": " · 오늘",
     "pmcLabelForecast": " · 예측",
     "weeklyTssThisWeek": "이번 주",
+    "integrated": {
+      "cardAria": "통합 멀티스포츠 훈련 상태와 최근 28일 부하 포커스",
+      "title": "통합 멀티스포츠 상태",
+      "authoritativeSource": "사이클·러닝·수영을 합쳐 서버에서 계산한 CTL · ATL · TSB",
+      "contributionTitle": "현재 체력 기여도",
+      "discipline": {
+        "bike": "사이클",
+        "run": "러닝",
+        "swim": "수영"
+      },
+      "contributionAria": "통합 체력 중 {{sport}} 기여도 {{pct}}퍼센트",
+      "focusTitle": "부하 포커스 · 최근 {{days}}일",
+      "focusBasis": "존 커버리지가 50% 이상일 때만 각 활동 부하를 존 시간과 대표 상대강도의 제곱으로 한 번 배분하며, 미달 부하는 미분류로 보존합니다.",
+      "bucket": {
+        "baseAerobic": "기초 유산소",
+        "highAerobic": "강화 유산소",
+        "highIntensity": "고강도",
+        "unclassified": "미분류"
+      },
+      "focusAria": "{{band}}: 부하 {{load}}, {{pct}}퍼센트",
+      "coverage": "분류 커버리지 {{pct}}% · 신뢰도 {{confidence}}",
+      "sources": "파워 부하 {{power}} · 심박 부하 {{hr}} · 미분류 {{unclassified}}",
+      "anaerobicBikeDetail": "실측 사이클 파워 Z6~Z7은 고강도에 포함되며 사이클 무산소 세부 근거로 사용할 수 있습니다.",
+      "hrHighIntensityNote": "심박 Z5는 고강도 근거이며 무산소 기여도를 증명하지 않습니다.",
+      "confidence": {
+        "high": "높음",
+        "medium": "보통",
+        "low": "낮음",
+        "none": "없음"
+      }
+    },
+    "sport": {
+      "cardAria": "종목별 실측 퍼포먼스 근거",
+      "insufficient": "실측 근거 부족 · 점수 미산출",
+      "noMeasuredEvidence": "측정된 구간 근거 없음",
+      "percentileStatus": "근거 백분위 {{score}}",
+      "bandAria": "{{metric}}: {{status}}",
+      "bike": {
+        "title": "사이클링 능력 근거",
+        "basis": "최근 90일 실측 PDC의 세 개 독립 축 · 활동 {{count}}개 · 기존 Coggan 남성 v1 백분위, 성별·연령 미보정",
+        "notGarmin": "계산 근거를 공개한 O-Rider PDC 분석이며 Garmin EPOC, Training Effect 또는 독점 점수와 동일하지 않습니다.",
+        "axis": {
+          "anaerobic": "단시간 파워 역량",
+          "aerobic": "유산소 역량",
+          "endurance": "지속 지구력"
+        }
+      },
+      "run": {
+        "title": "러닝 실측 근거",
+        "basis": "설정된 임계 페이스와 서버에 저장된 실측 거리 기록만 표시합니다.",
+        "threshold": "임계 페이스"
+      },
+      "swim": {
+        "title": "수영 실측 근거",
+        "basis": "설정된 CSS와 최근 {{days}}일의 측정 수영 효율만 표시하며 mock 곡선이나 임의 PR을 만들지 않습니다.",
+        "distancePerStroke": "스트로크당 거리"
+      }
+    },
     "snapshot": {
       "title": "현재 피트니스 스냅샷",
       "subtitle": "수치 · 평가 · 산출 근거를 함께 확인하세요",
