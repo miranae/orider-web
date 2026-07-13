@@ -1,7 +1,7 @@
 /**
  * 모바일 피트니스 페이지.
  *
- * 개요 탭: PMC 링 + 60일 PMC 추이 + 주간 TSS(4주) + 최근 활동
+ * 개요 탭: PMC 링 + 60일 PMC 추이 + 주간 TSS(4주)
  * 분석 탭(종목별):
  *   - bike: FTP + 파워존 분포(스트림 기반) + 파워 커브 + 존 정의
  *   - run:  임계 페이스 + HR 존 분포 + 존 정의
@@ -12,9 +12,8 @@
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { LocalizedLink as Link } from "../LocalizedLink";
 import SportFilterTabs from "./SportFilterTabs";
-import { getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
+import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Text } from "../../theme/components";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
@@ -31,19 +30,6 @@ export interface MobileFitnessZone {
   color: string;
   rangeLabel: string;     // "< 110 W" 또는 "60–70% maxHR"
   percentLabel: string;   // "~55%" / "60–70%"
-}
-
-export interface MobileRecentActivity {
-  id: string;
-  title: string;
-  dateLabel: string;
-  tss?: number;
-  distanceKm?: number;
-  durationMin?: number;
-  /** 종목 아이콘/색 표식용 (#400 §8) */
-  discipline?: Discipline;
-  /** 0거리·0시간 등 유효하지 않은 기록 — 흐리게 표시 */
-  isEmptyRecord?: boolean;
 }
 
 export interface MobilePowerCurvePoint {
@@ -79,8 +65,6 @@ export interface MobileFitnessData {
   weightKg?: number;
   hasLoadData: boolean;
   pdcSummary?: MobileFitnessPdcSummary | null;
-  // 최근 활동
-  recentActivities: MobileRecentActivity[];
   // 존 분포
   zones: MobileFitnessZone[];
   zoneSource: ZoneSource;
@@ -441,37 +425,25 @@ function WeeklyTssBars({
     if (weeksAgo === 1) return t("fitness:mobile.week.lastWeek");
     return t("fitness:mobile.week.nWeeksAgo", { n: weeksAgo });
   });
-  // 탭으로 선택된 막대 강조. -1 = 기본(이번 주만 강조).
-  const [selectedIdx, setSelectedIdx] = useState<number>(-1);
-  const activeIdx = selectedIdx >= 0 ? selectedIdx : values.length - 1;
-
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(values.length, 1)}, 1fr)`, gap: "var(--space-2)", alignItems: "end" }}>
       {values.map((v, i) => {
         const h = Math.round((v / max) * 70);
-        const isActive = i === activeIdx;
+        const isCurrentWeek = i === values.length - 1;
         return (
-          <button
+          <div
             key={i}
-            type="button"
-            aria-label={`${labels[i] ?? ""} ${Math.round(v)} TSS`}
-            title={`${labels[i] ?? ""} · ${Math.round(v)} TSS`}
-            onClick={() => setSelectedIdx((s) => (s === i ? -1 : i))}
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)",
-              // 디자인 시스템 className 차단 룰 회피 + iOS button 기본 스타일/탭 하이라이트 reset.
-              background: "transparent", border: 0, padding: 0, cursor: "pointer",
-              color: "inherit", font: "inherit",
-              WebkitTapHighlightColor: "transparent",
             }}
           >
-            <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: isActive ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isActive ? 600 : 400 }}>{Math.round(v)}</div>
+            <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: isCurrentWeek ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isCurrentWeek ? 600 : 400 }}>{Math.round(v)}</div>
             <div style={{ width: "100%", height: 70, display: "flex", alignItems: "end" }}>
               {/* borderRadius 3px: --r-sm(4px) 보다 작은 미니 막대 전용 — 토큰 없음, 시각 동일 위해 리터럴 유지 */}
-              <div style={{ width: "100%", height: `${h}px`, minHeight: v > 0 ? 4 : 0, background: isActive ? color : "var(--bg-3)", borderRadius: "var(--r-xs)", transition: "background 0.15s, height 0.2s" }} />
+              <div style={{ width: "100%", height: `${h}px`, minHeight: v > 0 ? 4 : 0, background: isCurrentWeek ? color : "var(--bg-3)", borderRadius: "var(--r-xs)" }} />
             </div>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: isActive ? "var(--ink-2)" : "var(--ink-4)", fontWeight: isActive ? 600 : 400 }}>{labels[i] ?? ""}</div>
-          </button>
+            <div className="text-[length:var(--fs-xs)]" style={{ color: isCurrentWeek ? "var(--ink-2)" : "var(--ink-4)", fontWeight: isCurrentWeek ? 600 : 400 }}>{labels[i] ?? ""}</div>
+          </div>
         );
       })}
     </div>
@@ -701,67 +673,6 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {/* 최근 활동 */}
-          {data.recentActivities.length > 0 ? (
-            <SectionCard title={t("mobileFitness.recentActivities")}>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {data.recentActivities.map((a, i) => {
-                  // #400 §8: 종목 아이콘/색 표식 + 0거리·0시간 기록은 흐리게(무효 기록으로 구분).
-                  const rowOpacity = a.isEmptyRecord ? 0.5 : 1;
-                  return (
-                  <Link key={a.id} to={`/activity/${a.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                    <div className="flex items-center justify-between" style={{ padding: "10px 0", borderBottom: i < data.recentActivities.length - 1 ? "1px solid var(--line-soft)" : "none", opacity: rowOpacity }}>
-                      <div className="flex items-center" style={{ minWidth: 0, flex: 1, gap: "var(--space-2)" }}>
-                        {a.discipline && (
-                          <span
-                            aria-hidden
-                            style={{
-                              flexShrink: 0,
-                              width: 22,
-                              height: 22,
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: "var(--fs-xs)",
-                              background: `color-mix(in oklch, ${getDisciplineColor(a.discipline)} 16%, transparent)`,
-                            }}
-                          >
-                            {getDisciplineIcon(a.discipline)}
-                          </span>
-                        )}
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
-                          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-0-5)" }}>
-                            {a.dateLabel}
-                            {a.isEmptyRecord
-                              ? ` · ${t("fitness:mobile.activity.emptyRecord")}`
-                              : <>
-                                  {a.distanceKm != null && ` · ${a.distanceKm.toFixed(1)} km`}
-                                  {a.durationMin != null && ` · ${Math.floor(a.durationMin / 60)}:${String(Math.floor(a.durationMin % 60)).padStart(2, "0")}`}
-                                </>}
-                          </div>
-                        </div>
-                      </div>
-                      {a.tss != null && (
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 600, marginLeft: "var(--space-3)" }}>
-                          {a.tss}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-1)" }}>TSS</span>
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                  );
-                })}
-              </div>
-            </SectionCard>
-          ) : (
-            <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
-              <div style={{ fontSize: "var(--fs-4xl)", marginBottom: "var(--space-3)" }}>{getDisciplineIcon(data.discipline as Discipline)}</div>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-3)" }}>
-                {t("mobileFitness.disciplineLoading", { discipline: t(getDisciplineLabelKey(data.discipline as Discipline)) })}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
