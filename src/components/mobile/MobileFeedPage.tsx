@@ -280,7 +280,7 @@ export default function MobileFeedPage({
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
           <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-3)' }}>
             <Text variant="eyebrow">{t("mobileFeed.weekSummary")}</Text>
-            <Link to="/my" className="ds-tap-target" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
+            <Link to="/fitness" className="ds-tap-target" style={{ fontSize: "var(--fs-xs)", color: "var(--lime)", fontWeight: 500, textDecoration: "none" }}>
               {t("mobileFeed.viewAll")}
             </Link>
           </div>
