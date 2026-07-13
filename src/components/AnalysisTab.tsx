@@ -36,6 +36,7 @@ import { Chip, Text } from "../theme/components";
 import { useActivityMetrics } from "../hooks/useActivityMetrics";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
+import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import { buildClimbSegmentProposalPath } from "../features/segmentCreation/climbPromotion";
 import { resolveActivityHrZones } from "../utils/hrZones";
@@ -320,8 +321,61 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
 
   // 파워 존 뷰 토글: Coggan 7존 ↔ Seiler 3존
   const [powerZoneView, setPowerZoneView] = useState<"coggan" | "seiler">("coggan");
+  const cyclingDynamicsCards = buildCyclingDynamicsCards({
+    cyclingDynamics: sm?.cyclingDynamics,
+    lrBalance: sm?.lrBalance,
+  });
 
-  if (!hasPower && !hasHr) {
+  const cyclingDynamicsDescription = (card: CyclingDynamicsCardDescriptor): string => {
+    switch (card.kind) {
+      case "balance": return t("analysis.metric.pedalBalanceDesc", { value: card.detailValue });
+      case "torqueEffectiveness": return t("analysis.metric.torqueEffectivenessDesc");
+      case "pedalSmoothness": return card.detailValue
+        ? t("analysis.metric.pedalSmoothnessCombined", { value: card.detailValue })
+        : t("analysis.metric.pedalSmoothnessDesc");
+      case "platformCenterOffset": return t("analysis.metric.platformCenterOffsetDesc");
+      case "powerPhaseLeft":
+      case "powerPhaseRight": {
+        const [arc, peak] = card.detailValue?.split("|") ?? [];
+        return peak
+          ? t("analysis.metric.powerPhasePeakDesc", { arc, peak })
+          : t("analysis.metric.powerPhaseDesc", { arc });
+      }
+      case "coverage": {
+        const [samples, source] = card.detailValue?.split("|") ?? [];
+        return t("analysis.metric.dynamicsCoverageDesc", {
+          samples,
+          source: source === "session" ? t("analysis.metric.dynamicsSourceSession") : t("analysis.metric.dynamicsSourceRecords"),
+        });
+      }
+    }
+  };
+
+  const cyclingDynamicsLabel = (card: CyclingDynamicsCardDescriptor): string => {
+    switch (card.kind) {
+      case "balance": return t("analysis.metric.pedalBalance");
+      case "torqueEffectiveness": return t("analysis.metric.torqueEffectiveness");
+      case "pedalSmoothness": return t("analysis.metric.pedalSmoothness");
+      case "platformCenterOffset": return t("analysis.metric.platformCenterOffset");
+      case "powerPhaseLeft": return t("analysis.metric.powerPhaseLeft");
+      case "powerPhaseRight": return t("analysis.metric.powerPhaseRight");
+      case "coverage": return t("analysis.metric.dynamicsCoverage");
+    }
+  };
+
+  const cyclingDynamicsGlossary = (card: CyclingDynamicsCardDescriptor): string => {
+    switch (card.kind) {
+      case "balance": return t("analysis.glossary.pedalBalance");
+      case "torqueEffectiveness": return t("analysis.glossary.torqueEffectiveness");
+      case "pedalSmoothness": return t("analysis.glossary.pedalSmoothness");
+      case "platformCenterOffset": return t("analysis.glossary.platformCenterOffset");
+      case "powerPhaseLeft":
+      case "powerPhaseRight": return t("analysis.glossary.powerPhase");
+      case "coverage": return t("analysis.glossary.dynamicsCoverage");
+    }
+  };
+
+  if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0) {
     return (
       <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}>
         <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>
@@ -432,8 +486,27 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
         </div>
       )}
 
+      {cyclingDynamicsCards.length > 0 && (
+        <div>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.cyclingDynamics")}</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {cyclingDynamicsCards.map((card) => (
+              <MetricCard
+                key={card.kind}
+                color={card.kind === "balance" ? "aqua" : card.kind === "coverage" ? "ink" : "violet"}
+                label={cyclingDynamicsLabel(card)}
+                value={card.value}
+                unit={card.unit}
+                description={cyclingDynamicsDescription(card)}
+                tooltip={cyclingDynamicsGlossary(card)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* #459/#462 페달링 사분면 + 노력 품질 (서버 사전계산 메트릭 노출) */}
-      {hasPower && (sm?.quadrant || sm?.lrBalance || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (
+      {hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.pedalQuality")}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -450,16 +523,6 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
             )}
             {sm?.cyclingMetrics?.cadenceStdDev != null && (
               <MetricCard color="violet" label={t("analysis.metric.cadenceConsistency")} value={sm.cyclingMetrics.cadenceStdDev.toFixed(0)} unit="rpm σ" description={t("analysis.metric.cadenceConsistencyDesc")} tooltip={t("analysis.glossary.cadenceConsistency")} />
-            )}
-            {sm?.lrBalance && (
-              <MetricCard
-                color="aqua"
-                label={t("analysis.metric.pedalBalance")}
-                value={`${(100 - sm.lrBalance.avg).toFixed(1)} / ${sm.lrBalance.avg.toFixed(1)}`}
-                unit="L/R %"
-                description={t("analysis.metric.pedalBalanceDesc", { value: sm.lrBalance.asymmetryPct.toFixed(1) })}
-                tooltip={t("analysis.glossary.pedalBalance")}
-              />
             )}
           </div>
         </div>
