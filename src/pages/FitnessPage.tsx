@@ -12,8 +12,6 @@ import type { MilestoneId } from "@shared/types/milestone";
 import { useSearchParams } from "react-router-dom";
 import {
   filterByDiscipline,
-  getDiscipline,
-  getDisciplineLabelKey,
   type Discipline,
 } from "../utils/disciplineFilter";
 import { collection, query, where, doc, getDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
@@ -550,48 +548,6 @@ export default function FitnessPage() {
       return Math.round(last28.slice(start, start + 7).reduce((s, d) => s + d.totalLoad, 0));
     });
 
-    // 최근 활동 (종목 필터 적용된 disciplineActivities, 최신순). #400 §8: 기본 "Ride" 제목을
-    // 시간대+종목 기반 대체명으로 바꾸고, 0거리/0시간 기록은 흐리게 표시할 수 있도록 플래그를 둔다.
-    const GENERIC_TITLES = new Set(["ride", "run", "swim", "walk", "hike", "workout", "activity"]);
-    const timeOfDayKey = (hour: number): string => {
-      if (hour < 6) return "mobile.activity.period.dawn";
-      if (hour < 12) return "mobile.activity.period.morning";
-      if (hour < 18) return "mobile.activity.period.afternoon";
-      return "mobile.activity.period.evening";
-    };
-    const recentActivities = disciplineActivities
-      .slice()
-      .sort((a, b) => (b.startTime ?? 0) - (a.startTime ?? 0))
-      .slice(0, 10)
-      .map((a) => {
-        const date = a.startTime ? new Date(a.startTime) : null;
-        const dateLabel = date ? t("mobile.dateLabel", { month: date.getMonth() + 1, date: date.getDate() }) : "";
-        const distM = a.summary?.distance ?? 0;
-        const durMs = a.summary?.ridingTimeMillis ?? 0;
-        const tss = (a as { tss?: number | null }).tss ?? a.summary?.tss;
-        const activityDiscipline = getDiscipline(a.type);
-        const rawTitle = (a.description || "").trim();
-        const isGenericTitle = rawTitle.length === 0 || GENERIC_TITLES.has(rawTitle.toLowerCase());
-        const title = isGenericTitle
-          ? date
-            ? t("mobile.activity.timeOfDayTitle", {
-                period: t(timeOfDayKey(date.getHours())),
-                discipline: t(getDisciplineLabelKey(activityDiscipline)),
-              })
-            : t(getDisciplineLabelKey(activityDiscipline))
-          : rawTitle;
-        return {
-          id: a.id,
-          title,
-          dateLabel,
-          tss: typeof tss === "number" ? Math.round(tss) : undefined,
-          distanceKm: distM > 0 ? distM / 1000 : undefined,
-          durationMin: durMs > 0 ? durMs / 60000 : undefined,
-          discipline: activityDiscipline,
-          isEmptyRecord: distM <= 0 && durMs <= 0,
-        };
-      });
-
     // 파워 존 분포 — 서버 계산 metrics.powerZoneSec(z1..z7 누적 초) 합산. z2~z7 을 z1~z6
     // 으로 매핑 (서버 z1=Active Recovery 는 클라 z1=Recovery 와 동일). bike 전용.
     const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
@@ -688,7 +644,6 @@ export default function FitnessPage() {
             cohortSampleSize: cohortStats.status === "ready" ? cohortStats.stats.sampleSize : null,
             activityCount: pdc?.activityCount ?? null,
           } : null,
-          recentActivities,
           zones,
           zoneSource,
           powerCurve,

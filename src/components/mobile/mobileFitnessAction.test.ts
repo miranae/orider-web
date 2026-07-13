@@ -59,4 +59,22 @@ describe("mobile fitness action", () => {
     expect(chart).toContain('fontSize: "var(--fs-xs)"');
     expect(chart).toContain('left: `${(l.x / W) * 100}%`');
   });
+
+  it("keeps weekly load bars static and omits the duplicated recent activity section", () => {
+    const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
+    const fitnessPage = read("src/pages/FitnessPage.tsx");
+    const weeklyBars = mobileFitness.slice(
+      mobileFitness.indexOf("function WeeklyTssBars"),
+      mobileFitness.indexOf("function PowerCurveMini"),
+    );
+
+    expect(weeklyBars).not.toContain("<button");
+    expect(weeklyBars).not.toContain("onClick");
+    expect(weeklyBars).not.toContain("selectedIdx");
+    expect(weeklyBars).not.toContain("title=");
+    expect(weeklyBars).not.toContain("aria-label");
+    expect(weeklyBars).toContain("const isCurrentWeek = i === values.length - 1");
+    expect(mobileFitness).not.toContain("recentActivities");
+    expect(fitnessPage).not.toContain("recentActivities");
+  });
 });
