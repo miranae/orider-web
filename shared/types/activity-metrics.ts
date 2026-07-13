@@ -20,6 +20,21 @@ export type WorkoutType =
   | "recovery" | "endurance" | "tempo" | "threshold"
   | "interval" | "race" | "mixed";
 
+export interface CyclingDynamicsMetrics {
+  source: "session" | "records";
+  sampleCount: number;
+  validSampleCount: number;
+  coverage: number;
+  balance?: { leftAvgPct: number; rightAvgPct: number; asymmetryPct: number };
+  torqueEffectiveness?: { leftAvgPct?: number; rightAvgPct?: number };
+  pedalSmoothness?: { leftAvgPct?: number; rightAvgPct?: number; combinedAvgPct?: number };
+  platformCenterOffset?: { leftAvgMm?: number; rightAvgMm?: number };
+  powerPhase?: {
+    left?: { startDeg: number; endDeg: number; arcDeg: number; peakStartDeg?: number; peakEndDeg?: number };
+    right?: { startDeg: number; endDeg: number; arcDeg: number; peakStartDeg?: number; peakEndDeg?: number };
+  };
+}
+
 export interface ActivityMetrics {
   // ── 기본 (Coggan)
   np: number | null;
@@ -167,6 +182,7 @@ export interface ActivityMetrics {
 
   // ── 좌우 파워 균형 (dual power 사용자)
   lrBalance?: { avg: number; asymmetryPct: number };
+  cyclingDynamics?: CyclingDynamicsMetrics;
 
   // ── Meta
   discipline: "bike" | "run" | "swim";
