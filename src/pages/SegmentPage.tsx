@@ -562,7 +562,7 @@ export default function SegmentPage() {
 
   if (segLoading) {
     return (
-      <div className="max-w-4xl mx-auto" style={SEGMENT_PAGE_STACK_STYLE}>
+      <div className="site-shell" style={SEGMENT_PAGE_STACK_STYLE}>
         <div className="h-[28rem] rounded-[var(--r-lg)] animate-pulse" style={{ background: "var(--bg-3)" }} />
         <Card>
           <div className="h-8 rounded-[var(--r-sm)] w-1/3 animate-pulse" style={{ background: "var(--bg-3)" }} />
@@ -596,7 +596,7 @@ export default function SegmentPage() {
   const cat = CATEGORY_COLORS[segment.climbCategory];
 
   return (
-    <div className="max-w-4xl mx-auto" style={SEGMENT_PAGE_STACK_STYLE}>
+    <div className="site-shell" style={SEGMENT_PAGE_STACK_STYLE}>
       {/* Toast */}
       {toast && createPortal(
         <div className="fixed top-4 left-1/2 -translate-x-1/2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={SEGMENT_TOAST_STYLE}>

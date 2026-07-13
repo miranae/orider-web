@@ -804,7 +804,7 @@ export default function CoursePage() {
 
   if (courseLoading || (course?.hidden === true && adminClaimsLoading)) {
     return (
-      <div className="max-w-4xl mx-auto" style={{ ...COURSE_PAGE_STACK_STYLE, gap: "var(--space-4)", paddingBlock: "var(--space-4)" }}>
+      <div className="site-shell" style={{ ...COURSE_PAGE_STACK_STYLE, gap: "var(--space-4)", paddingBlock: "var(--space-4)" }}>
         <LoadingSkeleton kind="chart" />
         <LoadingSkeleton kind="list" count={3} />
       </div>
@@ -827,7 +827,7 @@ export default function CoursePage() {
   const displayTags = courseDisplayTags(course);
 
   return (
-    <div className="max-w-4xl mx-auto" style={COURSE_PAGE_STACK_STYLE}>
+    <div className="site-shell" style={COURSE_PAGE_STACK_STYLE}>
       {/* Toast (portal to body to avoid Leaflet stacking context) */}
       {toast && createPortal(
         <div className="fixed top-4 left-1/2 -translate-x-1/2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)]" style={COURSE_TOAST_STYLE}>

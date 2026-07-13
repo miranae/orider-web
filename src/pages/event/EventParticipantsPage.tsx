@@ -439,7 +439,7 @@ export default function EventParticipantsPage() {
   return (
     <div>
       {/* 헤더 */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "var(--space-5) var(--space-6) var(--space-4)" }}>
+      <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-4)" }}>
         <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
           <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
@@ -558,7 +558,7 @@ export default function EventParticipantsPage() {
       </div>
 
       {/* 리스트 */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px 40px" }}>
+      <div className="site-shell" style={{ padding: "0 24px 40px" }}>
         <Card padding="none" style={{ padding: 0, overflow: "hidden" }}>
           {/* 필터 바 */}
           <div

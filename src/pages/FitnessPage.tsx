@@ -813,7 +813,7 @@ export default function FitnessPage() {
   // 동일 헤더를 공유한다. 콜드 진입 시 차트 데이터가 도착하기 전에도 헤더(h1)가 즉시
   // 페인트돼 LCP 요소가 늦게 뜨는 차트가 아닌 정적 헤더로 고정 → LCP 꼬리 제거.
   const pageHeader = (
-    <div style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)', maxWidth: 1120, margin: "0 auto" }}>
+    <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
       <div style={{ flex: 1 }}>
         <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)', display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
           <span>{t("header.eyebrow", { date: formatMonthDay(i18n.language) })}</span>
@@ -854,7 +854,7 @@ export default function FitnessPage() {
     </div>
   );
 
-  const bodyPad = { maxWidth: 1120, margin: "0 auto", padding: "20px 24px 40px" };
+  const bodyPad = { padding: "20px 24px 40px" };
 
   // 데이터 의존 본문만 상태별로 스왑 — 헤더는 항상 즉시 페인트.
   // 정본 timeseries doc 이 도착하기 전(doc 보유 유저)엔 스켈레톤 유지 — 클라 폴백(부정확
@@ -865,7 +865,7 @@ export default function FitnessPage() {
     return (
       <div>
         {pageHeader}
-        <div style={bodyPad}><LoadingSkeleton kind="chart" /></div>
+        <div className="site-shell" style={bodyPad}><LoadingSkeleton kind="chart" /></div>
       </div>
     );
   }
@@ -873,7 +873,7 @@ export default function FitnessPage() {
     return (
       <div>
         {pageHeader}
-        <div style={bodyPad}><ErrorState title={t("error.dataFailed")} description={error} /></div>
+        <div className="site-shell" style={bodyPad}><ErrorState title={t("error.dataFailed")} description={error} /></div>
       </div>
     );
   }
@@ -881,7 +881,7 @@ export default function FitnessPage() {
     return (
       <div>
         {pageHeader}
-        <div style={bodyPad}>
+        <div className="site-shell" style={bodyPad}>
           <EmptyState
             icon="📈"
             title={t("empty.noActivities")}
@@ -899,7 +899,7 @@ export default function FitnessPage() {
     <div>
       {pageHeader}
 
-      <div style={bodyPad}>
+      <div className="site-shell" style={bodyPad}>
         {/* 오늘의 결론 (#400 §1·§2) — 경고/회복/주간해석/워크아웃 추천을 모순 없는 한 문장으로
             합성한 결론 + 바로 아래 유일한 primary CTA(TodaysWorkoutCard). 근거가 되는 개별
             지표 카드는 아래 "근거 보기" 상세로 내려간다. */}

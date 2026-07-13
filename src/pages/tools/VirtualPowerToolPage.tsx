@@ -59,7 +59,7 @@ export default function VirtualPowerToolPage() {
   ];
 
   return (
-    <div style={{ maxWidth: 1120, margin: "0 auto", padding: "32px 20px 64px" }}>
+    <div className="site-shell" style={{ padding: "32px 20px 64px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
         <span style={{ width: 44, height: 44, borderRadius: "var(--r-md)", background: "color-mix(in oklch, var(--lime) 16%, var(--bg-2))", display: "grid", placeItems: "center", color: "var(--lime)" }}>
           <Zap size={22} />

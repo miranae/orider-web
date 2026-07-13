@@ -751,7 +751,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
   return (
     <div>
       {/* 헤더 — PageHeader 패턴 */}
-      <div style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)', maxWidth: 1440, margin: "0 auto" }}>
+      <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
         <div style={{ flex: 1 }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("triView.header.eyebrow")}</Text>
           <h1 style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
@@ -786,7 +786,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
         </div>
       </div>
 
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "var(--space-5) var(--space-6) var(--space-8)" }}>
+      <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-8)" }}>
 
       {/* KPI 4칸 */}
       <Card padding="none"

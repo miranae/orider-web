@@ -841,7 +841,8 @@ const CreatePostPage: React.FC = () => {
   if (isDevlog) return <Navigate to="/board?type=devlog" replace />;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    /* 복합 에디터의 도구 모음과 입력 행은 기존 1120px 작업 폭을 유지한다. */
+    <form onSubmit={handleSubmit} className="mx-auto max-w-[1120px] space-y-6">
       {/* Top bar */}
       <div className="flex items-center justify-between pb-4 border-b border-[var(--line-soft)]">
         <div className="flex items-center gap-3">

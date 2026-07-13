@@ -720,9 +720,9 @@ export default function EventLivePage() {
       </div>
       {isSnapshotStale && (
         <div
+          className="site-shell"
           style={{
-            maxWidth: 1280,
-            margin: "8px auto 0",
+            marginTop: "var(--space-2)",
             padding: "0 24px",
           }}
         >
@@ -740,7 +740,7 @@ export default function EventLivePage() {
         </div>
       )}
 
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "22px 24px 40px" }}>
+      <div className="site-shell" style={{ padding: "22px 24px 40px" }}>
         {/* 팔로우 헤더 */}
         <div className="flex items-end justify-between flex-wrap" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
           <div>
