@@ -177,7 +177,7 @@ export default function DashboardPage() {
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
   const feedScope: ActivityFeedScope = (["all", "friends", "self"] as const)[feedFilter];
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities(feedScope, [...friendIds]);
-  const { weeklyStats, thisWeek } = useWeeklyStats();
+  const { weeklyStats, thisWeek, recent7DayDistances } = useWeeklyStats();
   const monthlyActivityDistance = useMonthlyActivityDistance();
   const activitySearch = useActivitySearch();
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
@@ -450,6 +450,7 @@ export default function DashboardPage() {
         onLoadMore={loadMore}
         showYearRecapBanner={showYearRecapBanner}
         consistencyStreak={consistencyStreak}
+        weeklySummary={{ activityCount: thisWeek.rides, distances: recent7DayDistances }}
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
         feedScope={feedScope}

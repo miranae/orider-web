@@ -40,7 +40,7 @@ describe("MobileFeedPage", () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
-  it("uses the weekly summary labels as the single sport filter row", async () => {
+  it("uses owner-only weekly stats for the summary while feed activities only drive filtering", async () => {
     const user = userEvent.setup();
     const bike = createMockActivity({
       id: "bike-activity",
@@ -62,6 +62,10 @@ describe("MobileFeedPage", () => {
         hasMore={false}
         loadingMore={false}
         onLoadMore={vi.fn()}
+        weeklySummary={{
+          activityCount: 3,
+          distances: { bike: 12_400, run: 5_600, swim: 1_450 },
+        }}
         feedScope="all"
         onFeedScopeChange={vi.fn()}
       />,
@@ -77,7 +81,10 @@ describe("MobileFeedPage", () => {
     const allButton = within(sportFilters).getByRole("button", { name: "전체" });
     const runButton = within(sportFilters).getByRole("button", { name: "🏃 러닝" });
     expect(allButton).toHaveAttribute("aria-pressed", "true");
-    expect(within(sportFilters).getByText("2건")).toBeInTheDocument();
+    expect(within(sportFilters).getByText("3건")).toBeInTheDocument();
+    expect(within(sportFilters).getByText("12")).toBeInTheDocument();
+    expect(within(sportFilters).getByText("6")).toBeInTheDocument();
+    expect(within(sportFilters).getByText("1,450")).toBeInTheDocument();
 
     await user.click(runButton);
 

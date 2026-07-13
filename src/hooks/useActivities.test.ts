@@ -338,6 +338,133 @@ describe("useWeeklyStats", () => {
     });
     expect(result.current.weeklyStats.at(-1)?.week).toBe("6/29");
   });
+
+  it("aggregates only the signed-in user's bike, run, and swim distances from the recent 7 days", async () => {
+    const now = new Date(2026, 6, 14, 12, 0, 0);
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      {
+        id: "recent-bike",
+        ...createMockActivity({
+          id: "recent-bike",
+          userId: "user-1",
+          type: "Ride",
+          startTime: now.getTime() - 86400000,
+          summary: createMockSummary({ distance: 12_400 }),
+        }),
+      },
+      {
+        id: "recent-run",
+        ...createMockActivity({
+          id: "recent-run",
+          userId: "user-1",
+          type: "Run",
+          startTime: now.getTime() - 6 * 86400000,
+          summary: createMockSummary({ distance: 5_600 }),
+        }),
+      },
+      {
+        id: "recent-swim",
+        ...createMockActivity({
+          id: "recent-swim",
+          userId: "user-1",
+          type: "Swim",
+          startTime: now.getTime() - 2 * 86400000,
+          summary: createMockSummary({ distance: 1_450 }),
+        }),
+      },
+      {
+        id: "old-own-ride",
+        ...createMockActivity({
+          id: "old-own-ride",
+          userId: "user-1",
+          type: "Ride",
+          startTime: now.getTime() - 8 * 86400000,
+          summary: createMockSummary({ distance: 99_000 }),
+        }),
+      },
+      {
+        id: "public-other-ride",
+        ...createMockActivity({
+          id: "public-other-ride",
+          userId: "other-user",
+          type: "Ride",
+          startTime: now.getTime() - 86400000,
+          summary: createMockSummary({ distance: 88_000 }),
+        }),
+      },
+    ]);
+
+    const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+
+    await waitFor(() => expect(result.current.thisWeek.rides).toBe(3));
+    expect(result.current.thisWeek.distance).toBe(19_450);
+    expect(result.current.recent7DayDistances).toEqual({
+      bike: 12_400,
+      run: 5_600,
+      swim: 1_450,
+    });
+  });
+
+  it("keeps user B stats when user A's older request resolves last", async () => {
+    const now = new Date(2026, 6, 14, 12, 0, 0);
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockClear();
+    let resolveA!: (value: unknown) => void;
+    let resolveB!: (value: unknown) => void;
+    const requestA = new Promise((resolve) => { resolveA = resolve; });
+    const requestB = new Promise((resolve) => { resolveB = resolve; });
+    mockedGetDocs
+      .mockImplementationOnce(() => requestA as never)
+      .mockImplementationOnce(() => requestB as never);
+
+    try {
+      simulateLogin({ uid: "user-a" });
+      const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+      await waitFor(() => expect(mockedGetDocs).toHaveBeenCalledTimes(1));
+
+      act(() => { simulateLogin({ uid: "user-b" }); });
+      await waitFor(() => expect(mockedGetDocs).toHaveBeenCalledTimes(2));
+
+      await act(async () => {
+        resolveB({
+          docs: [{
+            id: "b-bike",
+            data: () => createMockActivity({
+              id: "b-bike",
+              userId: "user-b",
+              type: "Ride",
+              startTime: now.getTime() - 86400000,
+              summary: createMockSummary({ distance: 25_000 }),
+            }),
+          }],
+        });
+      });
+      await waitFor(() => expect(result.current.recent7DayDistances.bike).toBe(25_000));
+
+      await act(async () => {
+        resolveA({
+          docs: [{
+            id: "a-bike",
+            data: () => createMockActivity({
+              id: "a-bike",
+              userId: "user-a",
+              type: "Ride",
+              startTime: now.getTime() - 86400000,
+              summary: createMockSummary({ distance: 99_000 }),
+            }),
+          }],
+        });
+      });
+
+      expect(result.current.thisWeek.rides).toBe(1);
+      expect(result.current.recent7DayDistances).toEqual({ bike: 25_000, run: 0, swim: 0 });
+    } finally {
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
+  });
 });
 
 describe("useMonthlyActivityDistance", () => {
