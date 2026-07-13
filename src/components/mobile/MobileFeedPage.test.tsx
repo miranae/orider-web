@@ -1,7 +1,8 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MobileFeedPage from "./MobileFeedPage";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
+import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
 
 vi.mock("../training/TodaysWorkoutCard", () => ({
   default: () => null,
@@ -9,6 +10,10 @@ vi.mock("../training/TodaysWorkoutCard", () => ({
 
 vi.mock("../RouteMap", () => ({
   default: () => <div data-testid="route-map">Map</div>,
+}));
+
+vi.mock("../activity/ActivitySocialFooter", () => ({
+  default: () => null,
 }));
 
 describe("MobileFeedPage", () => {
@@ -32,5 +37,83 @@ describe("MobileFeedPage", () => {
 
     await user.click(loadMore);
     expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the weekly summary labels as the single sport filter row", async () => {
+    const user = userEvent.setup();
+    const bike = createMockActivity({
+      id: "bike-activity",
+      type: "ride",
+      description: "한강 사이클",
+      summary: createMockSummary({ distance: 42000 }),
+    });
+    const run = createMockActivity({
+      id: "run-activity",
+      type: "run",
+      description: "공원 러닝",
+      summary: createMockSummary({ distance: 10000 }),
+    });
+
+    renderWithProviders(
+      <MobileFeedPage
+        activities={[bike, run]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        recentWeeks={[]}
+      />,
+      { authenticated: true },
+    );
+
+    await screen.findByText("이번 주 요약");
+    const sportFilters = await screen.findByRole("group", { name: "활동 종목 필터" });
+    const buttons = within(sportFilters).getAllByRole("button");
+    expect(buttons).toHaveLength(4);
+
+    const allButton = within(sportFilters).getByRole("button", { name: "전체" });
+    const runButton = within(sportFilters).getByRole("button", { name: "🏃 러닝" });
+    expect(allButton).toHaveAttribute("aria-pressed", "true");
+    expect(within(sportFilters).getByText("2건")).toBeInTheDocument();
+
+    await user.click(runButton);
+
+    expect(runButton).toHaveAttribute("aria-pressed", "true");
+    expect(allButton).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("공원 러닝")).toBeInTheDocument();
+    expect(screen.queryByText("한강 사이클")).not.toBeInTheDocument();
+  });
+
+  it("keeps the unified sport filters available to guests", async () => {
+    const user = userEvent.setup();
+    const bike = createMockActivity({
+      id: "guest-bike",
+      type: "ride",
+      description: "게스트 사이클",
+    });
+    const swim = createMockActivity({
+      id: "guest-swim",
+      type: "swim",
+      description: "게스트 수영",
+    });
+
+    renderWithProviders(
+      <MobileFeedPage
+        activities={[bike, swim]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        recentWeeks={[]}
+      />,
+    );
+
+    const sportFilters = await screen.findByRole("group", { name: "활동 종목 필터" });
+    expect(within(sportFilters).getAllByRole("button")).toHaveLength(4);
+
+    await user.click(within(sportFilters).getByRole("button", { name: "🏊 수영" }));
+
+    expect(screen.getByText("게스트 수영")).toBeInTheDocument();
+    expect(screen.queryByText("게스트 사이클")).not.toBeInTheDocument();
   });
 });

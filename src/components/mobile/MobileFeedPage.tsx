@@ -9,7 +9,6 @@ import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import WeekBars from "./WeekBars";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
-import SportFilterTabs from "./SportFilterTabs";
 import { Button, Card, Text } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
@@ -22,6 +21,15 @@ const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCa
 const RouteMap = lazy(() => import("../RouteMap"));
 const MOBILE_FEED_RENDER_STEP = 40;
 const MOBILE_FEED_RENDER_INITIAL = 60;
+type SportFilter = "all" | "bike" | "run" | "swim";
+
+interface SportBreakdownItem {
+  key: SportFilter;
+  label: string;
+  value: string;
+  unit: string;
+  color: string;
+}
 
 interface WeekEntry {
   label: string;
@@ -39,6 +47,57 @@ interface MobileFeedPageProps {
   consistencyStreak?: ConsistencyStreakSummary | null;
   currentUserId?: string | null;
   friendIds?: string[];
+}
+
+function SportSummaryFilter({
+  items,
+  value,
+  onChange,
+  ariaLabel,
+  withBottomSpacing = false,
+}: {
+  items: SportBreakdownItem[];
+  value: SportFilter;
+  onChange: (value: SportFilter) => void;
+  ariaLabel: string;
+  withBottomSpacing?: boolean;
+}) {
+  return (
+    <Card
+      padding="none"
+      role="group"
+      aria-label={ariaLabel}
+      className="grid grid-cols-4 overflow-hidden"
+      style={{ margin: withBottomSpacing ? "0 -16px var(--space-3)" : "0 -16px", padding: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}
+    >
+      {items.map((item, index) => (
+        <button
+          key={item.key}
+          type="button"
+          aria-label={item.label}
+          aria-pressed={value === item.key}
+          onClick={() => onChange(item.key)}
+          style={{
+            minWidth: 0,
+            minHeight: 64,
+            padding: "10px 2px",
+            textAlign: "center",
+            border: "none",
+            borderRight: index < items.length - 1 ? "1px solid var(--line-soft)" : "none",
+            background: value === item.key ? "var(--bg-3)" : "transparent",
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: value === item.key ? item.color : "var(--ink-4)", marginBottom: 'var(--space-1)', overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.label}
+          </div>
+          <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: item.color, lineHeight: 1 }}>
+            {item.value}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-0-5)" }}>{item.unit}</span>
+          </Text>
+        </button>
+      ))}
+    </Card>
+  );
 }
 
 function formatDur(ms: number): string {
@@ -225,23 +284,24 @@ export default function MobileFeedPage({
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
-  const [sportFilter, setSportFilter] = useState("all");
+  const [sportFilter, setSportFilter] = useState<SportFilter>("all");
   const [feedScope, setFeedScope] = useState<"all" | "friends" | "self">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [datePreset, setDatePreset] = useState<"all" | "7d" | "30d" | "90d">("all");
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
 
-  const sportBreakdown = useMemo(() => {
+  const sportBreakdown = useMemo<SportBreakdownItem[]>(() => {
     const bike = activities.filter(a => getDiscipline(a.type) === "bike");
     const run = activities.filter(a => getDiscipline(a.type) === "run");
     const swim = activities.filter(a => getDiscipline(a.type) === "swim");
     return [
-      { icon: "🚴", label: "RIDE", value: Math.round(bike.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--aqua)" },
-      { icon: "🏃", label: "RUN", value: Math.round(run.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--amber)" },
-      { icon: "🏊", label: "SWIM", value: Math.round(swim.reduce((s, a) => s + a.summary.distance, 0)).toLocaleString(), unit: "m", color: "var(--lime)" },
+      { key: "all" as const, label: t("common:label.all"), value: t("feed.countSuffix", { value: activities.length }), unit: "", color: "var(--ink-0)" },
+      { key: "bike" as const, label: t("common:sportFilter.bike"), value: Math.round(bike.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--aqua)" },
+      { key: "run" as const, label: t("common:sportFilter.run"), value: Math.round(run.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--amber)" },
+      { key: "swim" as const, label: t("common:sportFilter.swim"), value: Math.round(swim.reduce((s, a) => s + a.summary.distance, 0)).toLocaleString(), unit: "m", color: "var(--lime)" },
     ];
-  }, [activities]);
+  }, [activities, t]);
 
   // 측정 오류 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
   const visibleActivities = activities.filter((a) => !isTrivialActivity(a));
@@ -275,6 +335,17 @@ export default function MobileFeedPage({
         </div>
       )}
 
+      {!user && (
+        <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
+          <SportSummaryFilter
+            items={sportBreakdown}
+            value={sportFilter}
+            onChange={setSportFilter}
+            ariaLabel={t("mobileFeed.sportFilterLabel")}
+          />
+        </div>
+      )}
+
       {/* 주간 요약 — 로그인 사용자만 (비로그인은 개인 통계 컨텍스트 없음) */}
       {user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
@@ -286,18 +357,13 @@ export default function MobileFeedPage({
           </div>
 
           {/* 전폭 카드: 대시보드 래퍼는 모바일 px 없음 → 부모 padding(16px) 음수마진으로 상쇄 */}
-          <Card padding="none" className="grid grid-cols-3 overflow-hidden" style={{ margin: "0 -16px var(--space-3)", padding: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
-            {sportBreakdown.map((s, i) => (
-              <div key={s.label} style={{ padding: "10px 0", textAlign: "center", borderRight: i < 2 ? "1px solid var(--line-soft)" : "none" }}>
-                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-4)", marginBottom: 'var(--space-1)', display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1)" }}>
-                  <span>{s.icon}</span> {s.label}
-                </div>
-                <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: s.color, lineHeight: 1 }}>
-                  {s.value}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-0-5)" }}>{s.unit}</span>
-                </Text>
-              </div>
-            ))}
-          </Card>
+          <SportSummaryFilter
+            items={sportBreakdown}
+            value={sportFilter}
+            onChange={setSportFilter}
+            ariaLabel={t("mobileFeed.sportFilterLabel")}
+            withBottomSpacing
+          />
 
           <Card padding="none" style={{ margin: "0 -16px", padding: "var(--space-3)", borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("mobileFeed.weeklyDistance")}</Text>
@@ -330,11 +396,6 @@ export default function MobileFeedPage({
           </Card>
         </div>
       )}
-
-      {/* 종목 필터 */}
-      <div style={{ borderBottom: "1px solid var(--line-soft)" }}>
-        <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
-      </div>
 
       <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "10px 16px", display: "grid", gap: "var(--space-2)" }}>
         <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-1)" }}>
