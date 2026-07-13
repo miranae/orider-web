@@ -510,6 +510,7 @@
         "elev": "상승",
         "avgGrade": "평균 경사",
         "duration": "소요시간",
+        "entryTime": "진입시간",
         "vam": "VAM (m/h)",
         "avgPower": "평균 파워 (W)",
         "wPerKg": "W/kg",

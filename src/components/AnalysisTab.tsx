@@ -24,7 +24,7 @@ import {
 } from "../utils/advancedMetrics";
 import { calculateRunSplits, calculateOverallGap } from "../utils/runMetrics";
 import { sampleDurationsSec, totalDurationSec } from "../utils/sampleTime";
-import { buildClimbTableRows } from "../utils/climbMetrics";
+import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
@@ -130,6 +130,8 @@ interface AnalysisTabProps {
   /** 현재 사용자가 이 활동의 owner 인지. activity_metrics 는 owner 만 read 가능하므로
    *  false 면 구독을 막아 permission-denied 알림 노이즈를 없앤다(기본 false — 안전측). */
   isOwner?: boolean;
+  /** 활동 시작 epoch (초 또는 밀리초). 클라임 진입 실제 현지 시각 계산에 사용. */
+  startTime?: number | null;
   streams: ActivityStreams;
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
@@ -161,7 +163,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
   );
 }
 
-export default function AnalysisTab({ activityId, isOwner = false, streams, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
+export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
   // Phase A.7: server-computed metrics 구독 (있으면 배너로 표시).
   // 현재는 client 재계산 결과와 병렬 표시 — 향후 점진적으로 server 우선 + 폴백 패턴으로 전환.
   // owner 가 아니면 구독 차단(owner-only doc) → permission-denied 회피.
@@ -174,7 +176,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
   const ctlDiscipline = sport === "run" ? "run" : sport === "swim" ? "swim" : "bike";
   const { timeseries: ctlTs } = useFitnessTimeseries(isOwner ? user?.uid : undefined, ctlDiscipline);
   const currentCtl = ctlTs?.points?.[ctlTs.points.length - 1]?.ctl;
-  const { units } = useLocale();
+  const { units, locale } = useLocale();
   const M_PER_MI = 1609.344;
   const M_PER_FT = 0.3048;
   const distVal = (km: number) => units === 'imperial' ? (km * 1000 / M_PER_MI).toFixed(2) : km.toFixed(2);
@@ -296,8 +298,19 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
     return detectClimbs(streams.altitude, streams.distance, streams.time, 3, 500);
   }, [streams.altitude, streams.distance, streams.time, sport]);
   const climbRows = useMemo(() => {
-    return buildClimbTableRows(sm?.climbs, climbs);
-  }, [sm?.climbs, climbs]);
+    return buildClimbTableRows(sm?.climbs, climbs, {
+      distance: streams.distance,
+      time: streams.time,
+      activityStartTime: startTime,
+      elapsedDurationSec: summary?.elapsedTimeMillis != null
+        ? summary.elapsedTimeMillis / 1000
+        : summary?.ridingTimeMillis != null
+          ? summary.ridingTimeMillis / 1000
+          : null,
+      routeOffsetSec: streams.device_temperature?.routeOffsetSec,
+      routeRecordStartTimeMs: streams.device_temperature?.startTimeMs,
+    });
+  }, [sm?.climbs, climbs, startTime, summary?.elapsedTimeMillis, summary?.ridingTimeMillis, streams.device_temperature?.routeOffsetSec, streams.device_temperature?.startTimeMs, streams.distance, streams.time]);
 
   // 러닝 전용 — km 스플릿 + GAP
   const runSplits = useMemo(() => sport === "run" ? calculateRunSplits(streams) : [], [streams, sport]);
@@ -806,9 +819,9 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
       {/* 클라임 자동 탐지 */}
       {climbRows.length > 0 && (
         <div>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.climbs", { count: climbRows.length })}</h3>
+          <h3 id="climb-analysis-heading" className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.climbs", { count: climbRows.length })}</h3>
           <div className="rounded-[var(--r-lg)] overflow-x-auto" style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}>
-            <table className="w-full text-[length:var(--fs-sm)]">
+            <table aria-labelledby="climb-analysis-heading" className="w-full text-[length:var(--fs-sm)]">
               <thead>
                 <tr className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
                   <th className="text-left px-3 py-2">{t("analysis.climbs.header.index")}</th>
@@ -817,6 +830,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.elev")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.avgGrade")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.duration")}</th>
+                  <th className="text-right px-3 py-2">{t("analysis.climbs.header.entryTime")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.vam")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.avgPower")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.wPerKg")}</th>
@@ -828,6 +842,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                 {climbRows.map((c, i) => {
                   const grade = c.category?.replace("Cat", "") ?? null;
                   const gradeColor = grade === "HC" ? "var(--rose)" : grade === "1" ? "var(--amber)" : grade === "2" ? "var(--violet)" : grade != null ? "var(--aqua)" : "var(--ink-4)";
+                  const entryTime = formatClimbEntryTime(startTime, c.entrySec, locale);
                   return (
                     <tr key={i} className="border-t" style={{ borderColor: 'var(--line-soft)' }}>
                       <td className="px-3 py-2" style={{ color: 'var(--ink-1)' }}>{i + 1}</td>
@@ -836,6 +851,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--ink-0)' }}>{elevValRound(c.elevationGain)} {elevUnit}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: 'var(--amber)' }}>{c.avgGrade.toFixed(1)} %</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.durationSec != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.durationSec != null ? formatDuration(c.durationSec) : "—"}</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: entryTime != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{entryTime ?? "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.vam != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.vam != null ? Math.round(c.vam) : "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.avgPower != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.avgPower != null ? Math.round(c.avgPower) : "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: c.wPerKg != null ? 'var(--ink-0)' : 'var(--ink-4)' }}>{c.wPerKg != null ? c.wPerKg.toFixed(1) : "—"}</td>

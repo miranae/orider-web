@@ -510,6 +510,7 @@
         "elev": "Gain",
         "avgGrade": "Avg Grade",
         "duration": "Duration",
+        "entryTime": "Entry Time",
         "vam": "VAM (m/h)",
         "avgPower": "Avg Power (W)",
         "wPerKg": "W/kg",
