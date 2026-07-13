@@ -39,6 +39,11 @@ interface MobileFeedPageProps {
   onLoadMore: () => void;
   showYearRecapBanner?: boolean;
   consistencyStreak?: ConsistencyStreakSummary | null;
+  weeklySummary?: {
+    activityCount: number;
+    /** 종목별 최근 7일 거리. Firestore 원본 단위인 meter. */
+    distances: Record<"bike" | "run" | "swim", number>;
+  };
   currentUserId?: string | null;
   friendIds?: string[];
   feedScope: ActivityFeedScope;
@@ -275,7 +280,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 
 export default function MobileFeedPage({
   activities, loading, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
-  feedScope, onFeedScopeChange,
+  weeklySummary, feedScope, onFeedScopeChange,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
@@ -285,7 +290,8 @@ export default function MobileFeedPage({
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
 
-  const sportBreakdown = useMemo<SportBreakdownItem[]>(() => {
+  // 비로그인 필터 행은 현재 공개 피드 요약을 유지한다. 로그인 주간 요약에는 사용하지 않는다.
+  const feedSportBreakdown = useMemo<SportBreakdownItem[]>(() => {
     const bike = activities.filter(a => getDiscipline(a.type) === "bike");
     const run = activities.filter(a => getDiscipline(a.type) === "run");
     const swim = activities.filter(a => getDiscipline(a.type) === "swim");
@@ -296,6 +302,16 @@ export default function MobileFeedPage({
       { key: "swim" as const, label: t("common:sportFilter.swim"), value: Math.round(swim.reduce((s, a) => s + a.summary.distance, 0)).toLocaleString(), unit: "m", color: "var(--lime)" },
     ];
   }, [activities, t]);
+  const weeklySportBreakdown = useMemo<SportBreakdownItem[]>(() => {
+    const activityCount = weeklySummary?.activityCount ?? 0;
+    const distances = weeklySummary?.distances ?? { bike: 0, run: 0, swim: 0 };
+    return [
+      { key: "all" as const, label: t("common:label.all"), value: t("feed.countSuffix", { value: activityCount }), unit: "", color: "var(--ink-0)" },
+      { key: "bike" as const, label: t("common:sportFilter.bike"), value: Math.round(distances.bike / 1000).toLocaleString(), unit: "km", color: "var(--aqua)" },
+      { key: "run" as const, label: t("common:sportFilter.run"), value: Math.round(distances.run / 1000).toLocaleString(), unit: "km", color: "var(--amber)" },
+      { key: "swim" as const, label: t("common:sportFilter.swim"), value: Math.round(distances.swim).toLocaleString(), unit: "m", color: "var(--lime)" },
+    ];
+  }, [weeklySummary, t]);
 
   // 측정 오류 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
   const visibleActivities = activities.filter((a) => !isTrivialActivity(a));
@@ -331,7 +347,7 @@ export default function MobileFeedPage({
       {!user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
           <SportSummaryFilter
-            items={sportBreakdown}
+            items={feedSportBreakdown}
             value={sportFilter}
             onChange={setSportFilter}
             ariaLabel={t("mobileFeed.sportFilterLabel")}
@@ -351,7 +367,7 @@ export default function MobileFeedPage({
 
           {/* 전폭 카드: 대시보드 래퍼는 모바일 px 없음 → 부모 padding(16px) 음수마진으로 상쇄 */}
           <SportSummaryFilter
-            items={sportBreakdown}
+            items={weeklySportBreakdown}
             value={sportFilter}
             onChange={setSportFilter}
             ariaLabel={t("mobileFeed.sportFilterLabel")}

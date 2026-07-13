@@ -25,6 +25,7 @@ import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import { estimateTSS } from "../utils/estimateTSS";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
+import { getDiscipline } from "../utils/disciplineFilter";
 
 export type DatePreset = "all" | "7d" | "30d" | "90d" | "year";
 
@@ -441,7 +442,12 @@ export function useWeeklyStats(now: Date = new Date()) {
   const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setActivities([]);
+      return;
+    }
+    let cancelled = false;
+    const uid = user.uid;
 
     const load = async () => {
       try {
@@ -454,35 +460,41 @@ export function useWeeklyStats(now: Date = new Date()) {
         const cutoff = Date.now() - TWELVE_WEEKS_MS;
         const q = query(
           collection(firestore, "activities"),
-          where("userId", "==", user.uid),
+          where("userId", "==", uid),
           where("deletedAt", "==", null),
           where("createdAt", ">=", cutoff),
           orderBy("createdAt", "desc"),
           limit(200),
         );
         const snap = await getDocs(q);
+        if (cancelled) return;
         // summary 누락 문서는 통계 계산에서 크래시를 유발하므로 제외
         setActivities(
           snap.docs
             .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-            .filter((a) => a.summary != null),
+            // 쿼리 자체도 userId 로 제한하지만, 집계 경계에서도 소유자를 확인해 공개 피드나
+            // 잘못 합쳐진 응답이 개인 주간 통계에 섞이지 않게 한다.
+            .filter((a) => a.userId === uid && a.summary != null),
         );
       } catch (err) {
-        logClientError("useWeeklyStats.load", err);
+        if (!cancelled) logClientError("useWeeklyStats.load", err, { userId: uid });
       }
     };
 
     load();
+    return () => { cancelled = true; };
   }, [user]);
 
   const emptyWeeks: WeeklyStat[] = [];
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };
+  const emptyRecent7DayDistances = { bike: 0, run: 0, swim: 0 };
 
   if (!user) {
-    return { weeklyStats: emptyWeeks, thisWeek: emptyThisWeek };
+    return { weeklyStats: emptyWeeks, thisWeek: emptyThisWeek, recent7DayDistances: emptyRecent7DayDistances };
   }
 
-  const all = activities;
+  // 계정 전환 직후 이전 effect 결과가 잠깐 남아도 새 사용자의 통계로 노출하지 않는다.
+  const all = activities.filter((activity) => activity.userId === user.uid);
   const weeks: WeeklyStat[] = [];
   for (let w = 11; w >= 0; w--) {
     const weekStart = new Date(now);
@@ -506,10 +518,20 @@ export function useWeeklyStats(now: Date = new Date()) {
   }
 
   // 이번 주 = 오늘부터 7일 전
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-  const thisWeekActivities = all.filter((a) => a.startTime >= sevenDaysAgo.getTime());
+  const sevenDaysAgo = now.getTime() - 7 * 86400000;
+  const thisWeekActivities = all.filter(
+    (a) => a.startTime >= sevenDaysAgo && a.startTime <= now.getTime(),
+  );
+  const recent7DayDistances = thisWeekActivities.reduce(
+    (distances, activity) => {
+      const discipline = getDiscipline(activity.type);
+      if (discipline === "bike" || discipline === "run" || discipline === "swim") {
+        distances[discipline] += activity.summary.distance;
+      }
+      return distances;
+    },
+    { ...emptyRecent7DayDistances },
+  );
 
   return {
     weeklyStats: weeks,
@@ -519,6 +541,7 @@ export function useWeeklyStats(now: Date = new Date()) {
       time: thisWeekActivities.reduce((s, a) => s + a.summary.ridingTimeMillis, 0),
       elevation: Math.round(thisWeekActivities.reduce((s, a) => s + a.summary.elevationGain, 0)),
     },
+    recent7DayDistances,
   };
 }
 
