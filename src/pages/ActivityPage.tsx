@@ -978,7 +978,7 @@ export default function ActivityPage() {
               )}
             </div>
           )}
-          <AnalysisTab activityId={activityId ?? null} isOwner={isActivityOwner} streams={effectiveStreams ?? streams} summary={activity.summary} sport={sport} isVirtualPower={activity.isVirtualPower} virtualPowerParams={activity.virtualPowerParams} />
+          <AnalysisTab activityId={activityId ?? null} isOwner={isActivityOwner} startTime={activity.startTime} streams={effectiveStreams ?? streams} summary={activity.summary} sport={sport} isVirtualPower={activity.isVirtualPower} virtualPowerParams={activity.virtualPowerParams} />
         </Card>
       )}
 

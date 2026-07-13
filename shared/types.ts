@@ -669,6 +669,13 @@ export interface ActivityStreams {
   /** 기록 기기(Garmin/Wahoo 등) 온도센서 실측값 °C. Strava temp 스트림 패스스루.
    *  키 이름은 Strava 스트림 타입(temp)을 그대로 사용 — Activity.weather.temperature(API 표시값)와 구분 */
   temp?: number[];
+  /** FIT route 스트림이 세션 시작보다 늦게 시작한 경우의 단일 보정 메타데이터. */
+  device_temperature?: {
+    /** FIT 파일에서 timestamp가 존재하는 첫 record의 epoch milliseconds. */
+    startTimeMs?: number;
+    /** route 시작 epoch와 startTimeMs 사이의 차이. 상대 route time에는 한 번만 적용. */
+    routeOffsetSec?: number;
+  };
   // Orider 확장 필드 (앱에서 업로드)
   laps?: LapData[];
   calories?: number;
