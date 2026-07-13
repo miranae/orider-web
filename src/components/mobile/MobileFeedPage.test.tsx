@@ -24,6 +24,8 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={onLoadMore}
         recentWeeks={[]}
+        feedScope="all"
+        onFeedScopeChange={vi.fn()}
       />,
     );
 
@@ -32,5 +34,26 @@ describe("MobileFeedPage", () => {
 
     await user.click(loadMore);
     expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports scope changes to the dashboard owner", async () => {
+    const user = userEvent.setup();
+    const onFeedScopeChange = vi.fn();
+
+    renderWithProviders(
+      <MobileFeedPage
+        activities={[]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        recentWeeks={[]}
+        feedScope="all"
+        onFeedScopeChange={onFeedScopeChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "친구" }));
+    expect(onFeedScopeChange).toHaveBeenCalledWith("friends");
   });
 });
