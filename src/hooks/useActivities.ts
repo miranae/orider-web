@@ -18,7 +18,7 @@ import {
   type CollectionReference,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
-import { logClientError } from "../services/errorLogger";
+import { debugLog, logClientError } from "../services/errorLogger";
 import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
@@ -100,6 +100,17 @@ function activityCreatedAt(item: BufferedActivity): number {
   return item.activity.startTime;
 }
 
+const activityPageRequests = new Map<string, Promise<ActivityPage>>();
+
+function feedCursorRequestKey(cursor: FeedCursor | null): unknown {
+  return cursor?.sources.map((source) => ({
+    ownerIds: source.ownerIds,
+    lastPath: source.last?.ref.path ?? null,
+    exhausted: source.exhausted,
+    bufferedActivityIds: source.buffer.map(({ activity }) => activity.id),
+  })) ?? null;
+}
+
 async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity[]> {
   const missingProfileImageUserIds = Array.from(
     new Set(items.filter((activity) => !activity.profileImage).map((activity) => activity.userId)),
@@ -133,7 +144,12 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
     () => activeFriendIdsKey ? activeFriendIdsKey.split("\u0000") : [],
     [activeFriendIdsKey],
   );
-  const feedRequestKey = `${user?.uid ?? "guest"}\u0001${scope}\u0001${activeFriendIdsKey}`;
+  const feedRequestKey = JSON.stringify([
+    user == null ? "anonymous" : "authenticated",
+    user?.uid ?? null,
+    scope,
+    activeFriendIdsKey,
+  ]);
   const feedRequestKeyRef = useRef(feedRequestKey);
   const feedRequestGenerationRef = useRef(0);
   if (feedRequestKeyRef.current !== feedRequestKey) {
@@ -208,7 +224,7 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
     };
   }, [authLoading, user, buildSourceQueries, scope]);
 
-  const fetchPage = useCallback(async (
+  const fetchPageRequest = useCallback(async (
     uid: string | null,
     cursor: FeedCursor | null,
     pageSize = FEED_PAGE_SIZE,
@@ -280,6 +296,32 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
     };
   }, [buildSourceQueries]);
 
+  const fetchPage = useCallback((
+    uid: string | null,
+    cursor: FeedCursor | null,
+    pageSize = FEED_PAGE_SIZE,
+  ): Promise<ActivityPage> => {
+    const key = JSON.stringify([
+      uid == null ? "anonymous" : "authenticated",
+      uid,
+      scope,
+      activeFriendIdsKey,
+      feedCursorRequestKey(cursor),
+      pageSize,
+    ]);
+    const existing = activityPageRequests.get(key);
+    if (existing) return existing;
+
+    const request = fetchPageRequest(uid, cursor, pageSize);
+    activityPageRequests.set(key, request);
+    void request.finally(() => {
+      if (activityPageRequests.get(key) === request) activityPageRequests.delete(key);
+    }).catch(() => {
+      // 원래 request의 rejection은 호출자가 처리한다. finally 파생 Promise만 흡수한다.
+    });
+    return request;
+  }, [activeFriendIdsKey, fetchPageRequest, scope]);
+
   // 초기 로드 + 유저 변경 시 리셋
   useEffect(() => {
     if (authLoading) return;
@@ -298,7 +340,11 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
         try {
           return await fetchPage(user?.uid ?? null, cursor, pageSize);
         } catch (retryErr) {
-          logClientError("useActivities.initialLoad.retry", retryErr, { context, delayMs });
+          debugLog("useActivities.initialLoad.retry", {
+            context,
+            delayMs,
+            message: retryErr instanceof Error ? retryErr.message : String(retryErr),
+          });
         }
       }
 
