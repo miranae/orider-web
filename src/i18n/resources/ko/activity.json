@@ -383,6 +383,8 @@
       "longestZ4Desc": "FTP 91% 이상 연속 최장 시간",
       "cadenceConsistency": "케이던스 일관성",
       "cadenceConsistencyDesc": "케이던스 표준편차(작을수록 일정)",
+      "pedalBalance": "페달 좌우 밸런스",
+      "pedalBalanceDesc": "좌우 차이 {{value}}%p",
       "paceConsistency": "페이스 일관성",
       "paceConsistencyDesc": "페이스 표준편차(작을수록 일정)",
       "wPrimeBal": "W' 잔량 궤적",
@@ -431,6 +433,7 @@
       "quadrant": "페달링 사분면 — 케이던스×토크 4분면에 머문 시간 비중. Q4(저rpm·고토크) 높으면 근력형, Q1(고rpm·고출력) 높으면 고강도 스피닝.",
       "longestZ4": "FTP 91% 이상을 끊김 없이 유지한 최장 시간 — 역치 지구력 지표.",
       "cadenceConsistency": "케이던스 표준편차. 작을수록 일정한 페달링.",
+      "pedalBalance": "듀얼 파워미터가 기록한 좌측/우측 출력 비율입니다. 50/50에 가까울수록 좌우 출력이 균형적입니다.",
       "paceConsistency": "페이스 표준편차. 작을수록 균일한 페이스.",
       "wPrimeBal": "W'(무산소 용량) 잔량의 시간 궤적. CP 초과 시 소모, 이하 시 회복(Skiba 2015). 최저점이 0%에 가까울수록 한계까지 짜낸 것."
     },
