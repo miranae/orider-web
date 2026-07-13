@@ -382,7 +382,7 @@
       },
       "swim": {
         "title": "수영 실측 근거",
-        "basis": "설정된 CSS와 측정된 수영 효율만 표시하며 mock 곡선이나 임의 PR을 만들지 않습니다.",
+        "basis": "설정된 CSS와 최근 {{days}}일의 측정 수영 효율만 표시하며 mock 곡선이나 임의 PR을 만들지 않습니다.",
         "distancePerStroke": "스트로크당 거리"
       }
     },

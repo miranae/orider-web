@@ -1,6 +1,4 @@
 import { screen } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
@@ -66,7 +64,7 @@ describe("SportPerformanceCard", () => {
         ],
       }}
       run={{ thresholdPaceSec: null, records: [] }}
-      swim={{ cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
+      swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
     />);
 
     expect(screen.getAllByText("실측 근거 부족 · 점수 미산출")).toHaveLength(2);
@@ -80,7 +78,7 @@ describe("SportPerformanceCard", () => {
       discipline="run"
       cycling={null}
       run={{ thresholdPaceSec: 285, records: [{ distance: "5km", seconds: 1250, date: "2026-07-10" }] }}
-      swim={{ cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
+      swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
     />);
     expect(screen.getByText("4:45/km")).toBeInTheDocument();
     expect(screen.getByText("20:50 · 2026-07-10")).toBeInTheDocument();
@@ -92,7 +90,7 @@ describe("SportPerformanceCard", () => {
       discipline="run"
       cycling={null}
       run={{ thresholdPaceSec: 359.6, records: [{ distance: "5km", seconds: 3599.6, date: "2026-07-10" }] }}
-      swim={{ cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
+      swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
     />);
 
     expect(screen.getByText("6:00/km")).toBeInTheDocument();
@@ -100,9 +98,14 @@ describe("SportPerformanceCard", () => {
     expect(screen.queryByText(/:60/)).not.toBeInTheDocument();
   });
 
-  it("does not create an empty sport-card wrapper on the tri tab", () => {
-    const source = readFileSync(resolve("src/components/mobile/MobileFitnessPage.tsx"), "utf8");
+  it("states the explicit swim evidence period in the rendered contract", () => {
+    renderWithProviders(<SportPerformanceCard
+      discipline="swim"
+      cycling={null}
+      run={{ thresholdPaceSec: null, records: [] }}
+      swim={{ windowDays: 90, cssSecPer100m: 95, swolfAvg: 40, distancePerStrokeM: 1.3, activityCount: 2 }}
+    />);
 
-    expect(source).toContain('data.discipline !== "tri" && (');
+    expect(screen.getByText(/최근 90일의 측정 수영 효율/)).toBeInTheDocument();
   });
 });

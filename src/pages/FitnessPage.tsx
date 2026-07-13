@@ -108,7 +108,9 @@ export default function FitnessPage() {
   const isMobile = useMobile();
   const { pdc } = usePdc(user?.uid);
   const { fitness: userFitness } = useUserFitness(!!user);
-  const fitnessClock = useFitnessClock(userFitness?.updatedAt);
+  const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
+  const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
+  const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   // 코호트 백분위 랭킹(G9) — bike + pdc 있을 때만 stats doc 구독.
   const cohortStats = useCohortPercentiles(!!user);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
@@ -503,8 +505,8 @@ export default function FitnessPage() {
     [userFitness, profile?.thresholdPace, runRecords],
   );
   const swimEvidence = useMemo(
-    () => buildSwimEvidence(userFitness?.thresholds?.swim?.css ?? profile?.css, activities, metricsMap),
-    [userFitness, profile?.css, activities, metricsMap],
+    () => buildSwimEvidence(userFitness?.thresholds?.swim?.css ?? profile?.css, activities, metricsMap, fitnessClock),
+    [userFitness, profile?.css, activities, metricsMap, fitnessClock],
   );
 
   const runPaceStreams = useMemo(() => {

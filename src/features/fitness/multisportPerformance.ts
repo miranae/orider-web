@@ -7,6 +7,7 @@ import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 
 export const LOAD_FOCUS_WINDOW_DAYS = 28;
 export const MIN_ZONE_COVERAGE = 0.5;
+export const SWIM_EVIDENCE_WINDOW_DAYS = 90;
 
 export type PerformanceDiscipline = "bike" | "run" | "swim" | "other";
 export type LoadFocusBucket = "baseAerobic" | "highAerobic" | "highIntensity" | "unclassified";
@@ -44,6 +45,7 @@ export interface RunEvidence {
 }
 
 export interface SwimEvidence {
+  windowDays: number;
   cssSecPer100m: number | null;
   swolfAvg: number | null;
   distancePerStrokeM: number | null;
@@ -72,7 +74,6 @@ export function classifyPerformanceDiscipline(type?: string, metricsDiscipline?:
 
 function activityLoad(activity: Activity, metrics?: ActivityMetrics): number {
   const candidates = [
-    metrics?.tss,
     (activity as Activity & { tss?: number | null }).tss,
     activity.summary.tss,
   ];
@@ -80,8 +81,11 @@ function activityLoad(activity: Activity, metrics?: ActivityMetrics): number {
   const discipline = classifyPerformanceDiscipline(activity.type, metrics?.discipline);
   return estimateLoad({
     precomputedTss: authoritative,
+    // activity_metrics.tss는 스트림 분석 결과이므로 canonical 2순위 streamTss로 전달한다.
+    streamTss: metrics?.tss,
     avgPower: metrics?.avgPower ?? activity.summary.averagePower,
     ftp: metrics?.contextSnapshot?.ftp ?? activity.ftp,
+    streamTrimpTss: metrics?.streamTrimpTss ?? activity.summary.streamTrimpTss,
     relativeEffort: activity.summary.relativeEffort,
     durationMillis: activity.summary.ridingTimeMillis,
     discipline: discipline === "other" ? undefined : discipline,
@@ -253,8 +257,12 @@ export function buildSwimEvidence(
   cssSecPer100m: number | null | undefined,
   activities: ReadonlyArray<Activity>,
   metricsMap: ReadonlyMap<string, ActivityMetrics>,
+  now: number,
+  windowDays = SWIM_EVIDENCE_WINDOW_DAYS,
 ): SwimEvidence {
+  const cutoff = now - windowDays * DAY_MS;
   const samples = activities.flatMap((activity) => {
+    if (activity.startTime < cutoff || activity.startTime > now) return [];
     const metrics = metricsMap.get(activity.id);
     if (classifyPerformanceDiscipline(activity.type, metrics?.discipline) !== "swim") return [];
     const swolf = metrics?.swimMetrics?.swolfAvg ?? activity.summary.swolf;
@@ -264,6 +272,7 @@ export function buildSwimEvidence(
   });
   const average = (values: number[]) => values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   return {
+    windowDays,
     cssSecPer100m: finitePositive(cssSecPer100m) ? cssSecPer100m : null,
     swolfAvg: average(samples.map((sample) => sample.swolf).filter((value): value is number => value != null)),
     distancePerStrokeM: average(samples.map((sample) => sample.distancePerStroke).filter((value): value is number => value != null)),

@@ -14,8 +14,14 @@ export function nextFitnessClockDelay(now: number, updatedAt?: number): number {
 }
 
 /** 28일 창의 날짜 경계와 UserFitness 신선도 경계에서 화면 계산 시각을 갱신한다. */
-export function useFitnessClock(updatedAt?: number): number {
+export function useFitnessClock(updatedAt?: number, refreshKey?: string): number {
   const [now, setNow] = useState(() => Date.now());
+
+  // 새 UserFitness 문서나 활동이 도착하면 장시간 열린 탭의 기준 시각도 즉시 전진시킨다.
+  // timer effect와 분리해 now 변경이 이 effect를 다시 호출하는 순환을 만들지 않는다.
+  useEffect(() => {
+    setNow(Date.now());
+  }, [updatedAt, refreshKey]);
 
   useEffect(() => {
     const current = Date.now();

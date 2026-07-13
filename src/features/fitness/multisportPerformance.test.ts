@@ -105,6 +105,30 @@ describe("computeIntegratedLoadFocus", () => {
     expect(result.sourceLoad).toEqual({ power: 0, heartRate: 0, unclassified: 100 });
     expect(result.coveragePct).toBe(0);
   });
+
+  it("preserves the canonical precomputed, stream TSS, and stream HR-TSS precedence", () => {
+    const zones = [720, 720, 720, 720, 720];
+    const precomputed = activity("precomputed", "Run", 120);
+    const streamPower = activity("stream-power", "Run", 0);
+    const streamHeartRate = activity("stream-hr", "Run", 0);
+    streamHeartRate.summary.relativeEffort = 70;
+
+    expect(computeIntegratedLoadFocus(
+      [precomputed],
+      new Map([["precomputed", metrics({ discipline: "run", tss: 90, streamTrimpTss: 85, hrZoneSec: zones })]]),
+      now,
+    ).totalLoad).toBe(120);
+    expect(computeIntegratedLoadFocus(
+      [streamPower],
+      new Map([["stream-power", metrics({ discipline: "run", tss: 90, streamTrimpTss: 85, hrZoneSec: zones })]]),
+      now,
+    ).totalLoad).toBeCloseTo(90, 10);
+    expect(computeIntegratedLoadFocus(
+      [streamHeartRate],
+      new Map([["stream-hr", metrics({ discipline: "run", tss: null, streamTrimpTss: 85, hrZoneSec: zones })]]),
+      now,
+    ).totalLoad).toBeCloseTo(85, 10);
+  });
 });
 
 describe("computeCyclingAbility", () => {
@@ -204,12 +228,19 @@ describe("sport evidence", () => {
   });
 
   it("averages only measured swim efficiency samples and never creates records", () => {
-    const swims = [activity("s1", "Swim", 20), activity("s2", "Swim", 20)];
+    const swims = [
+      activity("s1", "Swim", 20),
+      activity("s2", "Swim", 20, now - 89 * day),
+      activity("old", "Swim", 20, now - 90 * day - 1),
+      activity("future", "Swim", 20, now + 1),
+    ];
     swims[0]!.summary.swolf = 40;
     const result = buildSwimEvidence(95, swims, new Map([
       ["s1", metrics({ discipline: "swim", swimMetrics: { swolfAvg: 38, strokesPerLap: 18, distancePerStroke: 1.4 } })],
       ["s2", metrics({ discipline: "swim", swimMetrics: { swolfAvg: 42, strokesPerLap: 20, distancePerStroke: 1.2 } })],
-    ]));
-    expect(result).toEqual({ cssSecPer100m: 95, swolfAvg: 40, distancePerStrokeM: 1.2999999999999998, activityCount: 2 });
+      ["old", metrics({ discipline: "swim", swimMetrics: { swolfAvg: 10, strokesPerLap: 10, distancePerStroke: 3 } })],
+      ["future", metrics({ discipline: "swim", swimMetrics: { swolfAvg: 10, strokesPerLap: 10, distancePerStroke: 3 } })],
+    ]), now);
+    expect(result).toEqual({ windowDays: 90, cssSecPer100m: 95, swolfAvg: 40, distancePerStrokeM: 1.2999999999999998, activityCount: 2 });
   });
 });
