@@ -448,10 +448,6 @@ export default function DashboardPage() {
         hasMore={hasMore}
         loadingMore={loadingMore}
         onLoadMore={loadMore}
-        recentWeeks={weeklyStats.map((ws) => ({
-          label: ws.week,
-          distance: ws.distance,
-        }))}
         showYearRecapBanner={showYearRecapBanner}
         consistencyStreak={consistencyStreak}
         currentUserId={user?.uid ?? null}
