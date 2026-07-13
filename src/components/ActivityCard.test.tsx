@@ -33,6 +33,8 @@ describe("ActivityCard", () => {
 
   it("renders distance, elevation, and time", () => {
     const activity = createMockActivity({
+      startTime: 1_000_000,
+      endTime: 6_400_000,
       summary: {
         distance: 42000,
         elevationGain: 320,

@@ -1,7 +1,8 @@
 /**
  * activityTime — 활동 "시간" 표시 정책 (#236).
  *
- * orider 활동의 ridingTimeMillis 는 경과(elapsed) 시간이라 정지 구간을 포함한다.
+ * ridingTimeMillis 의미는 소스별로 다르다. orider 는 경과시간, Strava 는 이동시간에
+ * 가까우므로 startTime/endTime 이 있으면 그 차이를 총 경과시간으로 우선 사용한다.
  * 정지 시간이 큰 활동(예: 9h 57m / 3.3km)을 그대로 보여주면 "9시간 라이딩?" 오해.
  * activity_metrics 가 산출한 movingTimeSec/pauseTimeSec 가 있고 정지가 유의미(60s+)하면
  * 이동시간을 표시값으로, 아니면 경과시간을 쓴다. 상세(ActivityPage)·피드 카드
@@ -31,12 +32,21 @@ export interface ResolvedDuration {
  */
 export function resolveDuration(src: {
   ridingTimeMillis: number;
+  startTime?: number | null;
+  endTime?: number | null;
+  elapsedTimeMillis?: number | null;
   movingTimeSec?: number | null;
   pauseTimeSec?: number | null;
 }): ResolvedDuration {
-  const elapsedMs = src.ridingTimeMillis;
+  const activitySpanMs = src.startTime != null && src.endTime != null && src.endTime > src.startTime
+    ? src.endTime - src.startTime
+    : null;
+  const elapsedMs = src.elapsedTimeMillis != null && src.elapsedTimeMillis > 0
+    ? src.elapsedTimeMillis
+    : activitySpanMs ?? src.ridingTimeMillis;
   const movingMs = src.movingTimeSec != null && src.movingTimeSec > 0 ? src.movingTimeSec * 1000 : null;
-  const pauseMs = src.pauseTimeSec != null && src.pauseTimeSec > 0 ? src.pauseTimeSec * 1000 : null;
+  const explicitPauseMs = src.pauseTimeSec != null && src.pauseTimeSec >= 0 ? src.pauseTimeSec * 1000 : null;
+  const pauseMs = explicitPauseMs ?? (movingMs != null && elapsedMs >= movingMs ? elapsedMs - movingMs : null);
   const usingMoving = movingMs != null && pauseMs != null && pauseMs >= PAUSE_THRESHOLD_MS;
   return {
     displayMs: usingMoving ? movingMs : elapsedMs,

@@ -554,7 +554,7 @@ export default function ActivityCard({
             {(() => {
               // #236: 정지 큰 활동은 이동시간 우선 표시 (상세 페이지와 동일 정책). 전환 시
               //  경과 시간은 hover title 로 부연 — 카드엔 "전체/정지" 풀 sub 넣을 공간이 없음.
-              const d = resolveDuration(s);
+              const d = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
               return (
                 <StatBlock
                   label={t("stat.time")}
@@ -566,7 +566,7 @@ export default function ActivityCard({
             {(() => {
               // #236 후속: 이동시간으로 전환된 활동은 평균 속도도 거리/이동시간 기준 (시간 표시와 일관).
               //  전환 시 경과 기준 원본값은 hover title 로 부연.
-              const sd = resolveDuration(s);
+              const sd = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
               const avgKph = resolveAvgSpeedKph(s.distance, sd, s.averageSpeed);
               const implausible = isImplausibleAvgSpeed(avgKph, getDiscipline(activity.type));
               return (

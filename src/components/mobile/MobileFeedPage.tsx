@@ -116,7 +116,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 
   const distKm = (s.distance / 1000).toFixed(1);
   // #236: 정지 큰 활동은 이동시간 우선 (상세·데스크톱 카드와 동일 정책 — resolveDuration 공유).
-  const sd = resolveDuration(s);
+  const sd = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
   const dur = formatDur(sd.displayMs);
   const elev = Math.round(s.elevationGain).toLocaleString();
   // 평균 속도도 시간 기준과 일치 — 전환 시 거리/이동시간, 아니면 거리/경과 (#236 후속).

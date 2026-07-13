@@ -19,6 +19,7 @@ type ActivityStatsGridProps = {
   normalizedPowerValue: number | null;
   movingTimeSec?: number | null;
   pauseTimeSec?: number | null;
+  elapsedTimeMillis?: number | null;
   displayAvgKph: number;
   displayAvgImplausible: boolean;
   avgSpeedImplausible: boolean;
@@ -114,6 +115,7 @@ export function ActivityStatsGrid({
   normalizedPowerValue,
   movingTimeSec,
   pauseTimeSec,
+  elapsedTimeMillis,
   displayAvgKph,
   displayAvgImplausible,
   avgSpeedImplausible,
@@ -129,6 +131,7 @@ export function ActivityStatsGrid({
 }: ActivityStatsGridProps) {
   const duration = resolveDuration({
     ridingTimeMillis: s.ridingTimeMillis,
+    elapsedTimeMillis,
     movingTimeSec,
     pauseTimeSec,
   });
@@ -164,7 +167,7 @@ export function ActivityStatsGrid({
         )}
 
         <MetricCell
-          label={t("stat.movingTime")}
+          label={duration.usingMoving ? t("stat.movingTime") : t("stat.elapsedTime")}
           sub={duration.usingMoving ? t("stat.movingTimeTotal", { elapsed: formatDuration(duration.elapsedMs), pause: formatDuration(duration.pauseMs!) }) : undefined}
         >
           <Value>{formatDuration(duration.displayMs)}</Value>

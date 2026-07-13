@@ -598,12 +598,16 @@ export default function ActivityPage() {
   const discipline = sport === "ride" ? "bike" : sport === "run" ? "run" : "swim";
   const avgSpeedImplausible = isImplausibleAvgSpeed(s.averageSpeed, discipline);
   const maxSpeedImplausible = isImplausibleMaxSpeed(s.maxSpeed, discipline);
-  // #236 후속: 라이딩 평균 속도도 이동시간 기준으로 (시간 표시와 일관). serverMetrics(live doc)을
-  //  소스로 — 시간 stat 과 동일. run/swim 은 페이스 로직이 별도라 건드리지 않음.
+  // 기기/제공자 요약값을 우선하고, 없을 때만 서버 재분석값을 사용한다. Strava 의
+  // ridingTimeMillis 는 이동시간 성격이므로 총 경과시간은 start/end 차이로 확정한다.
+  const movingTimeSec = s.movingTimeSec ?? serverMetrics.metrics?.movingTimeSec;
+  const pauseTimeSec = s.pauseTimeSec ?? serverMetrics.metrics?.pauseTimeSec;
   const speedDur = resolveDuration({
     ridingTimeMillis: s.ridingTimeMillis,
-    movingTimeSec: serverMetrics.metrics?.movingTimeSec,
-    pauseTimeSec: serverMetrics.metrics?.pauseTimeSec,
+    startTime: activity.startTime,
+    endTime: activity.endTime,
+    movingTimeSec,
+    pauseTimeSec,
   });
   const displayAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed);
   const displayAvgImplausible = isImplausibleAvgSpeed(displayAvgKph, discipline);
@@ -716,8 +720,9 @@ export default function ActivityPage() {
         interpretationContext={runDetail.interpretationContext}
         avgPowerValue={avgPowerValue}
         normalizedPowerValue={normalizedPowerValue}
-        movingTimeSec={serverMetrics.metrics?.movingTimeSec}
-        pauseTimeSec={serverMetrics.metrics?.pauseTimeSec}
+        movingTimeSec={movingTimeSec}
+        pauseTimeSec={pauseTimeSec}
+        elapsedTimeMillis={speedDur.elapsedMs}
         displayAvgKph={displayAvgKph}
         displayAvgImplausible={displayAvgImplausible}
         avgSpeedImplausible={avgSpeedImplausible}
