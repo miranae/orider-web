@@ -12,6 +12,7 @@
   "stat": {
     "distance": "Distance",
     "movingTime": "Moving Time",
+    "elapsedTime": "Total Activity Time",
     "elev": "Elevation Gain",
     "elevShort": "Elev Gain",
     "avgSpeed": "Avg Speed",
@@ -33,7 +34,7 @@
     "speed": "Speed",
     "dataWarning": "⚠ Data anomaly",
     "dataWarningTooltip": "GPS noise or short activity — avg/max speed is unrealistic. Some stats show '—'.",
-    "movingTimeTotal": "Total {{elapsed}} · stopped {{pause}}",
+    "movingTimeTotal": "Total activity {{elapsed}} · stopped {{pause}}",
     "movingTimeTotalSimple": "Moving time · total {{elapsed}}",
     "movingAvgTotal": "Moving avg · total {{total}} km/h",
     "dataWarningRaw": "Data anomaly — raw value {{value}} km/h"
@@ -749,8 +750,8 @@
     "chip": "Server analysis",
     "workoutTypeLabel": "Type",
     "confidenceHint": "{{pct}}% confidence",
-    "movingTimeLabel": "Moving time",
-    "pauseHint": "paused {{time}}",
+    "movingTimeLabel": "Analyzed moving time",
+    "pauseHint": "analyzed stopped time {{time}}",
     "workoutType": {
       "recovery": "Recovery",
       "endurance": "Endurance",
