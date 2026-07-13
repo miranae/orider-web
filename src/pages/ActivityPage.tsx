@@ -645,7 +645,9 @@ export default function ActivityPage() {
         activityId,
         source: isOriderActivity ? "orider" : "strava",
       });
-      setStreamsError(err instanceof Error ? err.message : t("page.streamsErrorFallback"));
+      setStreamsError(err instanceof Error && err.message !== "STREAMS_MISSING"
+        ? err.message
+        : t("page.streamsMissing"));
     } finally {
       setShowStreamSpinner(false);
       setLoadingStreams(false);
