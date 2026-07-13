@@ -516,7 +516,7 @@ export default function MobileFitnessPage({
       {tab === "overview" && (
         <div style={{ paddingTop: 14 }}>
           <div style={{ padding: "0 14px 14px" }}>
-            <TodaysWorkoutCard variant="compact" />
+            <TodaysWorkoutCard />
           </div>
 
           {consistencyStreak && (
