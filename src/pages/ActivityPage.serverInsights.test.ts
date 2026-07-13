@@ -12,6 +12,7 @@ describe("activity detail server insights", () => {
     expect(metricsHook).toContain("loadAxes?");
     expect(metricsHook).toContain("newPrs?");
     expect(activityPage).toContain("ServerActivityInsightsCard");
+    expect(activityPage).toContain("startTime={activity.startTime}");
     expect(insightCards).toContain("metrics?.loadAxes");
     expect(insightCards).toContain("wPrimeMinJ");
     expect(insightCards).toContain("metrics?.newPrs");
@@ -21,6 +22,7 @@ describe("activity detail server insights", () => {
     expect(analysisTab).toContain("c.wPerKg");
     expect(analysisTab).toContain("c.vam");
     expect(analysisTab).toContain("c.durationSec");
-    expect(analysisTab).toContain("buildClimbTableRows(sm?.climbs, climbs)");
+    expect(analysisTab).toContain("c.entrySec");
+    expect(analysisTab).toContain("buildClimbTableRows(sm?.climbs, climbs, {");
   });
 });

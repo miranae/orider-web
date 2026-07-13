@@ -12,8 +12,6 @@ import type { MilestoneId } from "@shared/types/milestone";
 import { useSearchParams } from "react-router-dom";
 import {
   filterByDiscipline,
-  getDiscipline,
-  getDisciplineLabelKey,
   type Discipline,
 } from "../utils/disciplineFilter";
 import { collection, query, where, doc, getDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
@@ -75,6 +73,8 @@ import {
 } from "../features/fitness/fitnessPageUtils";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { BikeActionAccordion, FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
+import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
+import { percentileOf } from "@shared/training/cohortPercentile";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -460,18 +460,18 @@ export default function FitnessPage() {
   // 다운로드하지 않아 거의 빈 결과 → metrics 컬렉션으로 교체. maxHr 경계는 서버에서
   // 활동별 athlete.maxHr 로 이미 계산됨 (FitnessPage 의 profile.maxHr 기준 임의 보정은 X).
   const zoneDistribution = useMemo(() => {
-    const sums = [0, 0, 0, 0, 0];
-    let total = 0;
-    for (const a of disciplineActivities) {
-      const m = metricsMap.get(a.id);
-      const hz = m?.hrZoneSec;
-      if (!hz || hz.length < 5) continue;
-      for (let i = 0; i < 5; i++) {
-        const v = hz[i] ?? 0;
-        sums[i]! += v;
-        total += v;
-      }
-    }
+    const { counts: sums, total } = aggregateRecentZoneSeconds(
+      disciplineActivities, metricsMap, "hrZoneSec", 5, Date.now(), 30,
+    );
+    if (total === 0) return null;
+    return sums.map(c => Math.round((c / total) * 100));
+  }, [disciplineActivities, metricsMap]);
+
+  // 모바일 UI는 "최근 4주"를 약속하므로 데스크톱의 30일 분포와 별도로 정확히 28일만 집계한다.
+  const mobileZoneDistribution = useMemo(() => {
+    const { counts: sums, total } = aggregateRecentZoneSeconds(
+      disciplineActivities, metricsMap, "hrZoneSec", 5,
+    );
     if (total === 0) return null;
     return sums.map(c => Math.round((c / total) * 100));
   }, [disciplineActivities, metricsMap]);
@@ -548,70 +548,17 @@ export default function FitnessPage() {
       return Math.round(last28.slice(start, start + 7).reduce((s, d) => s + d.totalLoad, 0));
     });
 
-    // 최근 활동 (종목 필터 적용된 disciplineActivities, 최신순). #400 §8: 기본 "Ride" 제목을
-    // 시간대+종목 기반 대체명으로 바꾸고, 0거리/0시간 기록은 흐리게 표시할 수 있도록 플래그를 둔다.
-    const GENERIC_TITLES = new Set(["ride", "run", "swim", "walk", "hike", "workout", "activity"]);
-    const timeOfDayKey = (hour: number): string => {
-      if (hour < 6) return "mobile.activity.period.dawn";
-      if (hour < 12) return "mobile.activity.period.morning";
-      if (hour < 18) return "mobile.activity.period.afternoon";
-      return "mobile.activity.period.evening";
-    };
-    const recentActivities = disciplineActivities
-      .slice()
-      .sort((a, b) => (b.startTime ?? 0) - (a.startTime ?? 0))
-      .slice(0, 10)
-      .map((a) => {
-        const date = a.startTime ? new Date(a.startTime) : null;
-        const dateLabel = date ? t("mobile.dateLabel", { month: date.getMonth() + 1, date: date.getDate() }) : "";
-        const distM = a.summary?.distance ?? 0;
-        const durMs = a.summary?.ridingTimeMillis ?? 0;
-        const tss = (a as { tss?: number | null }).tss ?? a.summary?.tss;
-        const activityDiscipline = getDiscipline(a.type);
-        const rawTitle = (a.description || "").trim();
-        const isGenericTitle = rawTitle.length === 0 || GENERIC_TITLES.has(rawTitle.toLowerCase());
-        const title = isGenericTitle
-          ? date
-            ? t("mobile.activity.timeOfDayTitle", {
-                period: t(timeOfDayKey(date.getHours())),
-                discipline: t(getDisciplineLabelKey(activityDiscipline)),
-              })
-            : t(getDisciplineLabelKey(activityDiscipline))
-          : rawTitle;
-        return {
-          id: a.id,
-          title,
-          dateLabel,
-          tss: typeof tss === "number" ? Math.round(tss) : undefined,
-          distanceKm: distM > 0 ? distM / 1000 : undefined,
-          durationMin: durMs > 0 ? durMs / 60000 : undefined,
-          discipline: activityDiscipline,
-          isEmptyRecord: distM <= 0 && durMs <= 0,
-        };
-      });
-
     // 파워 존 분포 — 서버 계산 metrics.powerZoneSec(z1..z7 누적 초) 합산. z2~z7 을 z1~z6
     // 으로 매핑 (서버 z1=Active Recovery 는 클라 z1=Recovery 와 동일). bike 전용.
-    const powerZoneCounts = [0, 0, 0, 0, 0, 0];
-    let powerSamples = 0;
-    if (discipline === "bike") {
-      for (const a of disciplineActivities) {
-        const m = metricsMap.get(a.id);
-        const pz = m?.powerZoneSec;
-        if (!pz || pz.length < 6) continue;
-        for (let i = 0; i < 6; i++) {
-          const v = pz[i] ?? 0;
-          powerZoneCounts[i]! += v;
-          powerSamples += v;
-        }
-      }
-    }
+    const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
+      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", 6)
+      : { counts: [0, 0, 0, 0, 0, 0], total: 0 };
 
     type MobZone = { name: string; pct: number; color: string; rangeLabel: string; percentLabel: string };
     type ZoneSrc = "power" | "hr" | "none";
     let zones: MobZone[] = [];
     let zoneSource: ZoneSrc = "none";
-    const hrFracs = zoneDistribution ?? [0, 0, 0, 0, 0];
+    const hrFracs = mobileZoneDistribution ?? [0, 0, 0, 0, 0];
     const maxHr = profile?.maxHr ?? 200;
     const hrZoneBounds = [{ lo: 0, hi: 60 }, { lo: 60, hi: 70 }, { lo: 70, hi: 80 }, { lo: 80, hi: 90 }, { lo: 90, hi: 100 }];
     const hrColors = ["var(--ink-3)", "var(--aqua)", "var(--lime)", "var(--amber)", "var(--rose)"];
@@ -630,12 +577,12 @@ export default function FitnessPage() {
       if (powerSamples > 0) {
         zoneSource = "power";
         pcts = powerZoneCounts.map((c) => Math.round((c / powerSamples) * 100));
-      } else if (zoneDistribution) {
+      } else if (mobileZoneDistribution) {
         zoneSource = "hr";
         // HR Z1~Z5 → 파워 Z1~Z5, Z6 = 0 (HR 로는 무산소 분리 불가).
         pcts = [hrFracs[0] ?? 0, hrFracs[1] ?? 0, hrFracs[2] ?? 0, hrFracs[3] ?? 0, hrFracs[4] ?? 0, 0];
       }
-      zones = [
+      zones = zoneSource === "none" ? [] : [
         { name: t("zone.recovery"),  pct: pcts[0]!, color: "var(--ink-3)", rangeLabel: `< ${Math.round(ftp * 0.55)} W`,                            percentLabel: "~55%" },
         { name: t("zone.endurance"), pct: pcts[1]!, color: "var(--aqua)",  rangeLabel: `${Math.round(ftp * 0.55)}–${Math.round(ftp * 0.75)} W`,    percentLabel: "55–75%" },
         { name: t("zone.tempo"),     pct: pcts[2]!, color: "var(--lime)",  rangeLabel: `${Math.round(ftp * 0.75)}–${Math.round(ftp * 0.90)} W`,    percentLabel: "75–90%" },
@@ -643,9 +590,8 @@ export default function FitnessPage() {
         { name: "VO₂max",            pct: pcts[4]!, color: "var(--rose)",  rangeLabel: `${Math.round(ftp * 1.05)}–${Math.round(ftp * 1.20)} W`,    percentLabel: "105–120%" },
         { name: t("zone.anaerobic"), pct: pcts[5]!, color: "var(--zone-5)", rangeLabel: `> ${Math.round(ftp * 1.20)} W`,                            percentLabel: ">120%" },
       ];
-    } else if (zoneDistribution || discipline !== "bike") {
-      // 러닝/수영: 항상 HR 5 존 구조. 분포 있으면 채우고 없으면 0%.
-      zoneSource = zoneDistribution ? "hr" : "none";
+    } else if (mobileZoneDistribution) {
+      zoneSource = "hr";
       zones = hrZoneBounds.map((z, i) => ({
         name: hrNames[i]!,
         pct: hrFracs[i] ?? 0,
@@ -687,7 +633,17 @@ export default function FitnessPage() {
           threshold,
           ftp,
           weightKg: profile?.weightKg,
-          recentActivities,
+          hasLoadData: cp != null,
+          pdcSummary: discipline === "bike" ? {
+            riderType: pdc?.riderType ?? null,
+            abilityPercentile: pdc?.ability?.overallPercentile ?? null,
+            vo2maxEst: pdc?.vo2maxEst ?? null,
+            vo2maxPercentile: pdc?.vo2maxEst != null && cohortStats.status === "ready"
+              ? percentileOf(pdc.vo2maxEst, cohortStats.stats.metrics?.vo2max?.cohorts?.all ?? {})
+              : null,
+            cohortSampleSize: cohortStats.status === "ready" ? cohortStats.stats.sampleSize : null,
+            activityCount: pdc?.activityCount ?? null,
+          } : null,
           zones,
           zoneSource,
           powerCurve,
@@ -813,7 +769,7 @@ export default function FitnessPage() {
   // 동일 헤더를 공유한다. 콜드 진입 시 차트 데이터가 도착하기 전에도 헤더(h1)가 즉시
   // 페인트돼 LCP 요소가 늦게 뜨는 차트가 아닌 정적 헤더로 고정 → LCP 꼬리 제거.
   const pageHeader = (
-    <div style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)', maxWidth: 1120, margin: "0 auto" }}>
+    <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
       <div style={{ flex: 1 }}>
         <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)', display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
           <span>{t("header.eyebrow", { date: formatMonthDay(i18n.language) })}</span>
@@ -854,7 +810,7 @@ export default function FitnessPage() {
     </div>
   );
 
-  const bodyPad = { maxWidth: 1120, margin: "0 auto", padding: "20px 24px 40px" };
+  const bodyPad = { padding: "20px 24px 40px" };
 
   // 데이터 의존 본문만 상태별로 스왑 — 헤더는 항상 즉시 페인트.
   // 정본 timeseries doc 이 도착하기 전(doc 보유 유저)엔 스켈레톤 유지 — 클라 폴백(부정확
@@ -865,7 +821,7 @@ export default function FitnessPage() {
     return (
       <div>
         {pageHeader}
-        <div style={bodyPad}><LoadingSkeleton kind="chart" /></div>
+        <div className="site-shell" style={bodyPad}><LoadingSkeleton kind="chart" /></div>
       </div>
     );
   }
@@ -873,7 +829,7 @@ export default function FitnessPage() {
     return (
       <div>
         {pageHeader}
-        <div style={bodyPad}><ErrorState title={t("error.dataFailed")} description={error} /></div>
+        <div className="site-shell" style={bodyPad}><ErrorState title={t("error.dataFailed")} description={error} /></div>
       </div>
     );
   }
@@ -881,7 +837,7 @@ export default function FitnessPage() {
     return (
       <div>
         {pageHeader}
-        <div style={bodyPad}>
+        <div className="site-shell" style={bodyPad}>
           <EmptyState
             icon="📈"
             title={t("empty.noActivities")}
@@ -899,7 +855,7 @@ export default function FitnessPage() {
     <div>
       {pageHeader}
 
-      <div style={bodyPad}>
+      <div className="site-shell" style={bodyPad}>
         {/* 오늘의 결론 (#400 §1·§2) — 경고/회복/주간해석/워크아웃 추천을 모순 없는 한 문장으로
             합성한 결론 + 바로 아래 유일한 primary CTA(TodaysWorkoutCard). 근거가 되는 개별
             지표 카드는 아래 "근거 보기" 상세로 내려간다. */}

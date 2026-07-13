@@ -1,7 +1,7 @@
 /**
  * 모바일 피트니스 페이지.
  *
- * 개요 탭: PMC 링 + 60일 PMC 추이 + 주간 TSS(4주) + 최근 활동
+ * 개요 탭: PMC 링 + 60일 PMC 추이 + 주간 TSS(4주)
  * 분석 탭(종목별):
  *   - bike: FTP + 파워존 분포(스트림 기반) + 파워 커브 + 존 정의
  *   - run:  임계 페이스 + HR 존 분포 + 존 정의
@@ -12,11 +12,8 @@
 import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { LocalizedLink as Link } from "../LocalizedLink";
-import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { ChevronLeft } from "lucide-react";
 import SportFilterTabs from "./SportFilterTabs";
-import { getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
+import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Text } from "../../theme/components";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
@@ -33,19 +30,6 @@ export interface MobileFitnessZone {
   color: string;
   rangeLabel: string;     // "< 110 W" 또는 "60–70% maxHR"
   percentLabel: string;   // "~55%" / "60–70%"
-}
-
-export interface MobileRecentActivity {
-  id: string;
-  title: string;
-  dateLabel: string;
-  tss?: number;
-  distanceKm?: number;
-  durationMin?: number;
-  /** 종목 아이콘/색 표식용 (#400 §8) */
-  discipline?: Discipline;
-  /** 0거리·0시간 등 유효하지 않은 기록 — 흐리게 표시 */
-  isEmptyRecord?: boolean;
 }
 
 export interface MobilePowerCurvePoint {
@@ -79,8 +63,8 @@ export interface MobileFitnessData {
   // VO2max 추정용 (bike 한정). FTP/체중 → KPI 표에서 VO2max 셀 노출.
   ftp?: number;
   weightKg?: number;
-  // 최근 활동
-  recentActivities: MobileRecentActivity[];
+  hasLoadData: boolean;
+  pdcSummary?: MobileFitnessPdcSummary | null;
   // 존 분포
   zones: MobileFitnessZone[];
   zoneSource: ZoneSource;
@@ -92,6 +76,15 @@ export interface MobileFitnessData {
   discipline: "bike" | "run" | "swim" | "tri";
 }
 
+export interface MobileFitnessPdcSummary {
+  riderType: { type: string; confidence: number } | null;
+  abilityPercentile: number | null;
+  vo2maxEst: number | null;
+  vo2maxPercentile: number | null;
+  cohortSampleSize: number | null;
+  activityCount: number | null;
+}
+
 /** TSB 가독성 라벨 키 (데스크탑 FitnessPage 와 동일 톤). */
 function tsbLabelKey(tsb: number): string {
   if (tsb >= 25) return "mobileFitness.tsbOverRested";
@@ -101,11 +94,107 @@ function tsbLabelKey(tsb: number): string {
   return "mobileFitness.tsbOverload";
 }
 
-/** VO2max 추정: FTP / 체중(kg) × 15.7 + 3.5 (FitnessPage.tsx 와 동일 공식). */
+/** VO2max 단순 추정: FTP / 체중(kg) × 15.7 + 3.5. 실제 체중이 있을 때만 제공한다. */
 function estimateVo2max(ftp: number | undefined, weightKg: number | undefined): number | null {
-  if (!ftp || ftp <= 0) return null;
-  const w = weightKg && weightKg > 0 ? weightKg : 70;
-  return Math.round((ftp / w) * 15.7 + 3.5);
+  if (!ftp || ftp <= 0 || !weightKg || weightKg <= 0) return null;
+  return Math.round((ftp / weightKg) * 15.7 + 3.5);
+}
+
+const RIDER_TYPE_KEYS = new Set([
+  "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified",
+]);
+
+function SnapshotBand({ value, label }: { value: number; label: string }) {
+  const position = Math.max(0, Math.min(100, value));
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      style={{ position: "relative", height: 7, borderRadius: "var(--r-sm)", background: "var(--bg-3)", marginTop: "var(--space-2)" }}
+    >
+      <div style={{ position: "absolute", inset: 0, width: `${position}%`, borderRadius: "var(--r-sm)", background: "var(--aqua)" }} />
+      <span
+        aria-hidden
+        style={{ position: "absolute", left: `${position}%`, top: "50%", width: 3, height: 13, borderRadius: "var(--r-xs)", background: "var(--ink-0)", transform: "translate(-50%, -50%)" }}
+      />
+    </div>
+  );
+}
+
+function FitnessSnapshot({ data, t }: { data: MobileFitnessData; t: (key: string, options?: Record<string, unknown>) => string }) {
+  if (data.discipline !== "bike") return null;
+
+  const pdc = data.pdcSummary;
+  const ftp = data.ftp && data.ftp > 0 ? data.ftp : null;
+  const wkg = ftp != null && data.weightKg && data.weightKg > 0 ? ftp / data.weightKg : null;
+  const riderType = pdc?.riderType && pdc.riderType.confidence >= 0.5 && RIDER_TYPE_KEYS.has(pdc.riderType.type)
+    ? pdc.riderType.type
+    : null;
+  const ability = pdc?.abilityPercentile;
+  const vo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : estimateVo2max(data.ftp, data.weightKg);
+  const vo2Source = pdc?.vo2maxEst != null
+    ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc.activityCount ?? 0 })
+    : vo2max != null
+      ? t("mobileFitness.snapshot.vo2FormulaSource")
+      : t("mobileFitness.snapshot.insufficient");
+  const topPct = (percentile: number) => Math.max(1, 100 - Math.round(percentile));
+
+  const rows = [
+    {
+      key: "ftp",
+      label: t("mobileFitness.snapshot.ftp"),
+      value: ftp != null ? `${Math.round(ftp)} W${wkg != null ? ` · ${wkg.toFixed(2)} W/kg` : ""}` : "—",
+      status: ftp != null ? t("mobileFitness.snapshot.ftpStatus") : t("mobileFitness.snapshot.insufficient"),
+      source: wkg != null ? t("mobileFitness.snapshot.ftpSource") : t("mobileFitness.snapshot.ftpWeightMissing"),
+      percentile: null,
+    },
+    {
+      key: "rider",
+      label: t("mobileFitness.snapshot.riderType"),
+      value: riderType ? t(`fitness:riderType.type.${riderType}.label`) : "—",
+      status: ability != null ? t("mobileFitness.snapshot.abilityTop", { pct: topPct(ability) }) : t("mobileFitness.snapshot.insufficient"),
+      source: t("mobileFitness.snapshot.riderSource"),
+      percentile: ability,
+    },
+    {
+      key: "vo2max",
+      label: "VO₂max",
+      value: vo2max != null ? `${vo2max} ml/kg/min` : "—",
+      status: pdc?.vo2maxPercentile != null
+        ? t("mobileFitness.snapshot.cohortTop", { pct: topPct(pdc.vo2maxPercentile), count: pdc.cohortSampleSize ?? 0 })
+        : vo2max != null ? t("mobileFitness.snapshot.estimateOnly") : t("mobileFitness.snapshot.insufficient"),
+      source: vo2Source,
+      percentile: pdc?.vo2maxPercentile ?? null,
+    },
+    {
+      key: "load",
+      label: t("mobileFitness.snapshot.load"),
+      value: data.hasLoadData ? `CTL ${data.ctl.toFixed(1)} · ATL ${data.atl.toFixed(1)} · TSB ${data.tsb >= 0 ? "+" : ""}${data.tsb.toFixed(1)}` : "—",
+      status: data.hasLoadData ? t(tsbLabelKey(data.tsb)) : t("mobileFitness.snapshot.insufficient"),
+      source: t("mobileFitness.snapshot.loadSource"),
+      percentile: data.hasLoadData ? ((data.tsb + 30) / 60) * 100 : null,
+    },
+  ];
+
+  return (
+    <SectionCard title={t("mobileFitness.snapshot.title")} sub={t("mobileFitness.snapshot.subtitle")}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {rows.map((row, index) => (
+          <div key={row.key} style={{ padding: "var(--space-2) 0", borderBottom: index < rows.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", alignItems: "baseline" }}>
+              <Text variant="eyebrow" as="span">{row.label}</Text>
+              <Text variant="mono" as="span" style={{ color: "var(--ink-0)", textAlign: "right" }}>{row.value}</Text>
+            </div>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: "var(--space-1)", fontWeight: 600 }}>{row.status}</div>
+            {row.percentile != null && (
+              <SnapshotBand value={row.percentile} label={t("mobileFitness.snapshot.bandAria", { metric: row.label, status: row.status })} />
+            )}
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{row.source}</div>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
 }
 
 // ── PMC 추이 미니 차트 (Y축·X축 라벨, 오늘 마커, 예측, 탭 툴팁) ──
@@ -230,86 +319,91 @@ function PmcMiniChart({ history, projection, today, color, t }: {
   } : null;
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 210, display: "block", touchAction: "manipulation" }}
-      preserveAspectRatio="none"
-      onPointerDown={handleTap} onPointerMove={(e) => { if (e.buttons & 1) handleTap(e); }} onPointerLeave={() => setTapIdx(null)}>
-      <defs>
-        <linearGradient id="mobPmcCtlFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0.22" />
-          <stop offset="1" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-        <pattern id="mobPmcFutHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="6" stroke="var(--ink-3)" strokeOpacity="0.10" strokeWidth="1" />
-        </pattern>
-      </defs>
+    <div data-pmc-chart style={{ position: "relative", width: "100%", aspectRatio: `${W} / ${H}` }}>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", touchAction: "manipulation" }}
+        preserveAspectRatio="xMidYMid meet"
+        onPointerDown={handleTap} onPointerMove={(e) => { if (e.buttons & 1) handleTap(e); }} onPointerLeave={() => setTapIdx(null)}>
+        <defs>
+          <linearGradient id="mobPmcCtlFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.22" />
+            <stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+          <pattern id="mobPmcFutHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="var(--ink-3)" strokeOpacity="0.10" strokeWidth="1" />
+          </pattern>
+        </defs>
 
-      {/* Y 눈금 + 라벨 */}
-      {yTicks.map((v) => (
-        <g key={v}>
-          <line x1={PAD_L} x2={W - PAD_R} y1={sy(v)} y2={sy(v)} stroke="var(--line-soft)" strokeOpacity="0.5" />
-          <text x={PAD_L - 4} y={sy(v) + 3} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="end">{Math.round(v)}</text>
-        </g>
-      ))}
-      {/* TSB 0 기준선 */}
-      {zeroY > PAD_T && zeroY < PAD_T + PLOT_H && (
-        <line x1={PAD_L} x2={W - PAD_R} y1={zeroY} y2={zeroY} stroke="var(--ink-3)" strokeDasharray="3 3" opacity="0.4" />
-      )}
+        {/* Y 눈금 */}
+        {yTicks.map((v) => (
+          <line key={v} x1={PAD_L} x2={W - PAD_R} y1={sy(v)} y2={sy(v)} stroke="var(--line-soft)" strokeOpacity="0.5" />
+        ))}
+        {/* TSB 0 기준선 */}
+        {zeroY > PAD_T && zeroY < PAD_T + PLOT_H && (
+          <line x1={PAD_L} x2={W - PAD_R} y1={zeroY} y2={zeroY} stroke="var(--ink-3)" strokeDasharray="3 3" opacity="0.4" />
+        )}
 
-      {/* 예측 영역(해치) */}
-      {hasFut && (
-        <rect x={todayX} y={PAD_T} width={W - PAD_R - todayX} height={PLOT_H} fill="url(#mobPmcFutHatch)" />
-      )}
+        {/* 예측 영역(해치) */}
+        {hasFut && (
+          <rect x={todayX} y={PAD_T} width={W - PAD_R - todayX} height={PLOT_H} fill="url(#mobPmcFutHatch)" />
+        )}
 
-      {/* CTL 영역 채움 (과거만) */}
-      <path d={ctlFill} fill="url(#mobPmcCtlFill)" />
+        {/* CTL 영역 채움 (과거만) */}
+        <path d={ctlFill} fill="url(#mobPmcCtlFill)" />
 
-      {/* TSB → ATL → CTL (zorder: CTL 가장 위) */}
-      <path d={tsbPast} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.75" />
-      <path d={atlPast} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.7" />
-      <path d={ctlPast} stroke={color} strokeWidth="1.8" fill="none" />
-      {hasFut && (
-        <>
-          <path d={tsbFut} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.6" strokeDasharray="3 3" />
-          <path d={atlFut} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.55" strokeDasharray="3 3" />
-          <path d={ctlFut} stroke={color} strokeWidth="1.6" fill="none" opacity="0.85" strokeDasharray="4 3" />
-        </>
-      )}
+        {/* TSB → ATL → CTL (zorder: CTL 가장 위) */}
+        <path d={tsbPast} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.75" />
+        <path d={atlPast} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.7" />
+        <path d={ctlPast} stroke={color} strokeWidth="1.8" fill="none" />
+        {hasFut && (
+          <>
+            <path d={tsbFut} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.6" strokeDasharray="3 3" />
+            <path d={atlFut} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.55" strokeDasharray="3 3" />
+            <path d={ctlFut} stroke={color} strokeWidth="1.6" fill="none" opacity="0.85" strokeDasharray="4 3" />
+          </>
+        )}
 
-      {/* 오늘 마커 */}
-      <line x1={todayX} x2={todayX} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-2)" strokeDasharray="2 2" opacity="0.55" />
-      <circle cx={todayX} cy={todayCtlY} r="3.5" fill={color} stroke="var(--bg-0)" strokeWidth="1.5" />
+        {/* 오늘 + 탭 마커 */}
+        <line x1={todayX} x2={todayX} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-2)" strokeDasharray="2 2" opacity="0.55" />
+        <circle cx={todayX} cy={todayCtlY} r="3.5" fill={color} stroke="var(--bg-0)" strokeWidth="1.5" />
+        {tip && <line x1={tip.x} x2={tip.x} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-1)" strokeWidth="1" opacity="0.7" />}
+      </svg>
 
-      {/* X 날짜 라벨 */}
-      {xLabels.map((l, i) => (
-        <text key={i} x={l.x} y={H - 6} fontSize="12" fontFamily="var(--font-mono)"
-          fill={l.isToday ? "var(--ink-1)" : "var(--ink-4)"} textAnchor={i === 0 ? "start" : i === xLabels.length - 1 ? "end" : "middle"}>
-          {l.text}{l.isToday ? t("mobileFitness.pmcLabelToday") : ""}
-        </text>
-      ))}
+      <div data-pmc-axis-labels style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        {yTicks.map((v) => (
+          <span key={v} style={{
+            position: "absolute", left: `${(PAD_L / W) * 100}%`, top: `${(sy(v) / H) * 100}%`,
+            transform: "translate(calc(-100% - var(--space-0-5)), -50%)", color: "var(--ink-4)", fontFamily: "var(--font-mono)",
+            fontSize: "var(--fs-xs)", fontWeight: 500, fontVariantNumeric: "tabular-nums", lineHeight: 1,
+          }}>{Math.round(v)}</span>
+        ))}
+        {xLabels.map((l, i) => (
+          <span key={i} style={{
+            position: "absolute", left: `${(l.x / W) * 100}%`, top: `${((H - 6) / H) * 100}%`,
+            transform: `translate(${i === 0 ? "0" : i === xLabels.length - 1 ? "-100%" : "-50%"}, -100%)`,
+            color: l.isToday ? "var(--ink-1)" : "var(--ink-4)", fontSize: "var(--fs-xs)", fontWeight: 500,
+            lineHeight: 1, whiteSpace: "nowrap",
+          }}>{l.text}{l.isToday ? t("mobileFitness.pmcLabelToday") : ""}</span>
+        ))}
+      </div>
 
-      {/* 탭 툴팁 */}
       {tip && (
-        <g>
-          <line x1={tip.x} x2={tip.x} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-1)" strokeWidth="1" opacity="0.7" />
-          {(() => {
-            const boxW = 96, boxH = 50;
-            const bx = Math.max(PAD_L, Math.min(W - PAD_R - boxW, tip.x + 6));
-            const by = PAD_T + 2;
-            return (
-              <g>
-                <rect x={bx} y={by} width={boxW} height={boxH} rx="4" fill="var(--bg-2)" stroke="var(--line-soft)" />
-                <text x={bx + 6} y={by + 12} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-3)">
-                  {formatMd(tip.date)}{tip.isFuture ? t("mobileFitness.pmcLabelForecast") : ""}
-                </text>
-                <text x={bx + 6} y={by + 24} fontSize="12" fontFamily="var(--font-mono)" fill={color}>CTL {tip.ctl.toFixed(0)}</text>
-                <text x={bx + 6} y={by + 35} fontSize="12" fontFamily="var(--font-mono)" fill="var(--rose)">ATL {tip.atl.toFixed(0)}</text>
-                <text x={bx + 6} y={by + 46} fontSize="12" fontFamily="var(--font-mono)" fill="var(--amber)">TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</text>
-              </g>
-            );
-          })()}
-        </g>
+        <div data-pmc-tooltip style={{
+          position: "absolute", left: `${(tip.x / W) * 100}%`, top: `${((PAD_T + 2) / H) * 100}%`,
+          transform: tip.x > W / 2 ? "translateX(calc(-100% - var(--space-1-5)))" : "translateX(var(--space-1-5))",
+          width: 96, padding: "var(--space-1)", borderRadius: "var(--r-sm)", pointerEvents: "none",
+          background: "var(--bg-2)", border: "1px solid var(--line-soft)", boxSizing: "border-box",
+          fontSize: "var(--fs-xs)", fontWeight: 500, lineHeight: 1.1,
+        }}>
+          <div style={{ color: "var(--ink-3)", whiteSpace: "nowrap" }}>
+            {formatMd(tip.date)}{tip.isFuture ? t("mobileFitness.pmcLabelForecast") : ""}
+          </div>
+          <div style={{ color, fontFamily: "var(--font-mono)" }}>CTL {tip.ctl.toFixed(0)}</div>
+          <div style={{ color: "var(--rose)", fontFamily: "var(--font-mono)" }}>ATL {tip.atl.toFixed(0)}</div>
+          <div style={{ color: "var(--amber)", fontFamily: "var(--font-mono)" }}>TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</div>
+        </div>
       )}
-    </svg>
+    </div>
   );
 }
 
@@ -331,37 +425,25 @@ function WeeklyTssBars({
     if (weeksAgo === 1) return t("fitness:mobile.week.lastWeek");
     return t("fitness:mobile.week.nWeeksAgo", { n: weeksAgo });
   });
-  // 탭으로 선택된 막대 강조. -1 = 기본(이번 주만 강조).
-  const [selectedIdx, setSelectedIdx] = useState<number>(-1);
-  const activeIdx = selectedIdx >= 0 ? selectedIdx : values.length - 1;
-
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(values.length, 1)}, 1fr)`, gap: "var(--space-2)", alignItems: "end" }}>
       {values.map((v, i) => {
         const h = Math.round((v / max) * 70);
-        const isActive = i === activeIdx;
+        const isCurrentWeek = i === values.length - 1;
         return (
-          <button
+          <div
             key={i}
-            type="button"
-            aria-label={`${labels[i] ?? ""} ${Math.round(v)} TSS`}
-            title={`${labels[i] ?? ""} · ${Math.round(v)} TSS`}
-            onClick={() => setSelectedIdx((s) => (s === i ? -1 : i))}
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)",
-              // 디자인 시스템 className 차단 룰 회피 + iOS button 기본 스타일/탭 하이라이트 reset.
-              background: "transparent", border: 0, padding: 0, cursor: "pointer",
-              color: "inherit", font: "inherit",
-              WebkitTapHighlightColor: "transparent",
             }}
           >
-            <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: isActive ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isActive ? 600 : 400 }}>{Math.round(v)}</div>
+            <div className="text-[length:var(--fs-xs)]" style={{ fontFamily: "var(--font-mono)", color: isCurrentWeek ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isCurrentWeek ? 600 : 400 }}>{Math.round(v)}</div>
             <div style={{ width: "100%", height: 70, display: "flex", alignItems: "end" }}>
               {/* borderRadius 3px: --r-sm(4px) 보다 작은 미니 막대 전용 — 토큰 없음, 시각 동일 위해 리터럴 유지 */}
-              <div style={{ width: "100%", height: `${h}px`, minHeight: v > 0 ? 4 : 0, background: isActive ? color : "var(--bg-3)", borderRadius: "var(--r-xs)", transition: "background 0.15s, height 0.2s" }} />
+              <div style={{ width: "100%", height: `${h}px`, minHeight: v > 0 ? 4 : 0, background: isCurrentWeek ? color : "var(--bg-3)", borderRadius: "var(--r-xs)" }} />
             </div>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: isActive ? "var(--ink-2)" : "var(--ink-4)", fontWeight: isActive ? 600 : 400 }}>{labels[i] ?? ""}</div>
-          </button>
+            <div className="text-[length:var(--fs-xs)]" style={{ color: isCurrentWeek ? "var(--ink-2)" : "var(--ink-4)", fontWeight: isCurrentWeek ? 600 : 400 }}>{labels[i] ?? ""}</div>
+          </div>
         );
       })}
     </div>
@@ -454,8 +536,6 @@ export default function MobileFitnessPage({
     next.set("sport", v === "all" ? "tri" : v);
     setSearchParams(next, { replace: true });
   };
-  const navigate = useNavigate();
-
   const ringColor = data.discipline === "bike"
     ? getDisciplineColor("bike")
     : getDisciplineColor(data.discipline as Discipline);
@@ -466,14 +546,16 @@ export default function MobileFitnessPage({
     ? t("mobileFitness.tabZonesRun")
     : t("mobileFitness.tabZonesSwim");
 
-  const vo2 = estimateVo2max(data.ftp, data.weightKg);
+  const vo2 = data.pdcSummary?.vo2maxEst != null
+    ? Math.round(data.pdcSummary.vo2maxEst)
+    : estimateVo2max(data.ftp, data.weightKg);
   // 각 KPI desc 는 그 지표 자체를 설명. 이전엔 "피로 우세" 처럼 전체 상태(TSB)를 CTL
   // 하단에 노출해 "CTL=피로?" 오해를 일으켰음. 신뢰성을 위해 TSB 카드에만 종합 상태를 노출하고,
   // CTL/ATL 은 지표 정의를, VO2MAX 는 데이터 출처를 명시한다.
   const kpiItems: Array<{ shortLabel: string; value: string; unit?: string; color: string; desc: string }> = [
-    { shortLabel: t("mobileFitness.kpiCtlLabel"),  value: data.ctl.toFixed(1), color: "var(--lime)",  desc: t("fitness:kpi.ctl.sub") },
-    { shortLabel: t("mobileFitness.kpiAtlLabel"),  value: data.atl.toFixed(1), color: "var(--rose)",  desc: t("fitness:kpi.atl.sub") },
-    { shortLabel: t("mobileFitness.kpiTsbLabel"),  value: (data.tsb >= 0 ? "+" : "") + data.tsb.toFixed(1), color: "var(--amber)", desc: t(tsbLabelKey(data.tsb)) },
+    { shortLabel: t("mobileFitness.kpiCtlLabel"),  value: data.hasLoadData ? data.ctl.toFixed(1) : "—", color: "var(--lime)",  desc: data.hasLoadData ? t("fitness:kpi.ctl.sub") : t("mobileFitness.snapshot.insufficient") },
+    { shortLabel: t("mobileFitness.kpiAtlLabel"),  value: data.hasLoadData ? data.atl.toFixed(1) : "—", color: "var(--rose)",  desc: data.hasLoadData ? t("fitness:kpi.atl.sub") : t("mobileFitness.snapshot.insufficient") },
+    { shortLabel: t("mobileFitness.kpiTsbLabel"),  value: data.hasLoadData ? (data.tsb >= 0 ? "+" : "") + data.tsb.toFixed(1) : "—", color: "var(--amber)", desc: data.hasLoadData ? t(tsbLabelKey(data.tsb)) : t("mobileFitness.snapshot.insufficient") },
     { shortLabel: "VO2MAX",   value: vo2 != null ? String(vo2) : "—", unit: "ml/kg/min", color: "var(--aqua)", desc: vo2 != null ? t("mobileFitness.vo2maxDesc") : t("mobileFitness.vo2maxNoFtp") },
   ];
 
@@ -485,10 +567,6 @@ export default function MobileFitnessPage({
       {/* Header */}
       <div className="flex items-center sticky top-0 z-10"
         style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
-        <div className="cursor-pointer flex items-center" style={{ marginLeft: -4, padding: "4px 8px 4px 0", minHeight: 44 }}
-          onClick={() => navigate("/my")}>
-          <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
-        </div>
         <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
       </div>
 
@@ -515,6 +593,8 @@ export default function MobileFitnessPage({
 
       {tab === "overview" && (
         <div style={{ paddingTop: 14 }}>
+          <FitnessSnapshot data={data} t={t} />
+
           <div style={{ padding: "0 14px 14px" }}>
             <TodaysWorkoutCard />
           </div>
@@ -593,67 +673,6 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {/* 최근 활동 */}
-          {data.recentActivities.length > 0 ? (
-            <SectionCard title={t("mobileFitness.recentActivities")}>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {data.recentActivities.map((a, i) => {
-                  // #400 §8: 종목 아이콘/색 표식 + 0거리·0시간 기록은 흐리게(무효 기록으로 구분).
-                  const rowOpacity = a.isEmptyRecord ? 0.5 : 1;
-                  return (
-                  <Link key={a.id} to={`/activity/${a.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                    <div className="flex items-center justify-between" style={{ padding: "10px 0", borderBottom: i < data.recentActivities.length - 1 ? "1px solid var(--line-soft)" : "none", opacity: rowOpacity }}>
-                      <div className="flex items-center" style={{ minWidth: 0, flex: 1, gap: "var(--space-2)" }}>
-                        {a.discipline && (
-                          <span
-                            aria-hidden
-                            style={{
-                              flexShrink: 0,
-                              width: 22,
-                              height: 22,
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: "var(--fs-xs)",
-                              background: `color-mix(in oklch, ${getDisciplineColor(a.discipline)} 16%, transparent)`,
-                            }}
-                          >
-                            {getDisciplineIcon(a.discipline)}
-                          </span>
-                        )}
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
-                          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-0-5)" }}>
-                            {a.dateLabel}
-                            {a.isEmptyRecord
-                              ? ` · ${t("fitness:mobile.activity.emptyRecord")}`
-                              : <>
-                                  {a.distanceKm != null && ` · ${a.distanceKm.toFixed(1)} km`}
-                                  {a.durationMin != null && ` · ${Math.floor(a.durationMin / 60)}:${String(Math.floor(a.durationMin % 60)).padStart(2, "0")}`}
-                                </>}
-                          </div>
-                        </div>
-                      </div>
-                      {a.tss != null && (
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 600, marginLeft: "var(--space-3)" }}>
-                          {a.tss}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-1)" }}>TSS</span>
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                  );
-                })}
-              </div>
-            </SectionCard>
-          ) : (
-            <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
-              <div style={{ fontSize: "var(--fs-4xl)", marginBottom: "var(--space-3)" }}>{getDisciplineIcon(data.discipline as Discipline)}</div>
-              <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-3)" }}>
-                {t("mobileFitness.disciplineLoading", { discipline: t(getDisciplineLabelKey(data.discipline as Discipline)) })}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
