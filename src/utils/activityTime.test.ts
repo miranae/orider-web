@@ -109,19 +109,30 @@ describe("resolveAvgSpeedKph (#236 후속 — 이동시간 기준 평균 속도)
     expect(resolveAvgSpeedKph(30000, resolved, 20)).toBeCloseTo(30, 5);
   });
 
-  it("전환 안 하면 기존 평균 속도(fallback) 유지", () => {
+  it("전환 안 해도 거리와 표시시간의 기준을 일치", () => {
     const resolved = resolveDuration({ ridingTimeMillis: H }); // metrics 없음
-    expect(resolved.usingMoving).toBe(false);
-    expect(resolveAvgSpeedKph(30000, resolved, 27.3)).toBe(27.3);
+    expect(resolveAvgSpeedKph(30000, resolved, 27.3)).toBe(30);
   });
 
-  it("정지 60초 미만이면 fallback 유지", () => {
+  it("정지 60초 미만이면 표시된 경과시간으로 재계산", () => {
     const resolved = resolveDuration({
       ridingTimeMillis: H,
       movingTimeSec: 3600 - 30,
       pauseTimeSec: 30,
     });
-    expect(resolveAvgSpeedKph(30000, resolved, 30)).toBe(30);
+    expect(resolveAvgSpeedKph(30000, resolved, 31)).toBe(30);
+  });
+
+  it("공개 Strava의 이동 메트릭이 없어도 경과시간과 평균속도를 일치", () => {
+    const startTime = 1_783_809_513_000;
+    const resolved = resolveDuration({
+      ridingTimeMillis: H,
+      startTime,
+      endTime: startTime + 2 * H,
+    });
+    expect(resolved.usingMoving).toBe(false);
+    expect(resolved.displayMs).toBe(2 * H);
+    expect(resolveAvgSpeedKph(30_000, resolved, 30)).toBe(15);
   });
 
   it("거리 0 이면 fallback (0 나눗셈 방지)", () => {
