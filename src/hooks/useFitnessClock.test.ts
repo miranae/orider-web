@@ -23,4 +23,29 @@ describe("useFitnessClock", () => {
 
     expect(nextFitnessClockDelay(now, updatedAt)).toBe(5_001);
   });
+
+  it("advances immediately when UserFitness or the activity refresh key changes without accumulating timers", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 14, 10, 0, 0));
+    const { result, rerender } = renderHook(
+      ({ updatedAt, refreshKey }) => useFitnessClock(updatedAt, refreshKey),
+      { initialProps: { updatedAt: 1_000, refreshKey: "1:1000" } },
+    );
+    const initial = result.current;
+
+    act(() => {
+      vi.setSystemTime(new Date(2026, 6, 14, 10, 5, 0));
+      rerender({ updatedAt: 1_000, refreshKey: "2:2000" });
+    });
+    const afterActivity = result.current;
+
+    act(() => {
+      vi.setSystemTime(new Date(2026, 6, 14, 10, 10, 0));
+      rerender({ updatedAt: 2_000, refreshKey: "2:2000" });
+    });
+
+    expect(afterActivity).toBeGreaterThan(initial);
+    expect(result.current).toBeGreaterThan(afterActivity);
+    expect(vi.getTimerCount()).toBe(1);
+  });
 });

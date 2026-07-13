@@ -382,7 +382,7 @@
       },
       "swim": {
         "title": "Swimming evidence",
-        "basis": "Only configured CSS and measured swim efficiency metrics are shown; no mock curve or invented PR.",
+        "basis": "Configured CSS and measured swim efficiency from the last {{days}} days only; no mock curve or invented PR.",
         "distancePerStroke": "Distance per stroke"
       }
     },

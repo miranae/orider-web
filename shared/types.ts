@@ -111,6 +111,8 @@ export interface ActivitySummary {
   calories: number | null;
   relativeEffort: number | null; // TRIMP
   tss: number | null; // Training Stress Score (bike TSS / run rTSS / swim sTSS)
+  /** HR 스트림 TRIMP를 LTHR 1시간=100으로 정규화한 부하. 구형 활동에는 없을 수 있다. */
+  streamTrimpTss?: number | null;
   swolf: number | null; // 수영 SWOLF (시간+스트로크)
 }
 

@@ -82,7 +82,7 @@ export default function SportPerformanceCard({
 
       {discipline === "swim" && (
         <>
-          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{t("mobileFitness.sport.swim.basis")}</div>
+          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{t("mobileFitness.sport.swim.basis", { days: swim.windowDays })}</div>
           {swim.cssSecPer100m != null && <EvidenceRow label="CSS" value={`${formatPace(swim.cssSecPer100m)}/100m`} />}
           {swim.swolfAvg != null && <EvidenceRow label="SWOLF" value={swim.swolfAvg.toFixed(1)} />}
           {swim.distancePerStrokeM != null && <EvidenceRow label={t("mobileFitness.sport.swim.distancePerStroke")} value={`${swim.distancePerStrokeM.toFixed(2)} m`} />}
