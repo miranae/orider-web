@@ -6,6 +6,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import MapGL, { Source, Layer, Popup, useMap } from "react-map-gl/mapbox";
 import HeatmapLayer, { type HeatMode } from "../components/explore/HeatmapLayer";
 import PersonalHeatmapLayer from "../components/explore/PersonalHeatmapLayer";
+import ExplorationGridLayer from "../components/explore/ExplorationGridLayer";
 import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../utils/mapbox";
@@ -19,6 +20,7 @@ import { Button, Card, Chip, Text } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 import { useAuth } from "../contexts/AuthContext";
 import { usePersonalHeatmap } from "../hooks/usePersonalHeatmap";
+import { useExplorationGrid } from "../hooks/useExplorationGrid";
 
 interface SegmentData {
   id: string;
@@ -429,6 +431,12 @@ export default function ExplorePage() {
   useEffect(() => {
     if (!user && heatMode === "mine") setHeatMode("off");
   }, [heatMode, user]);
+  // 탐험 그리드 토글(#363) — 히트맵 모드와 독립적으로 켜고 끌 수 있음
+  const [showExplorationGrid, setShowExplorationGrid] = useState(false);
+  const explorationGrid = useExplorationGrid(user?.uid, showExplorationGrid);
+  useEffect(() => {
+    if (!user && showExplorationGrid) setShowExplorationGrid(false);
+  }, [showExplorationGrid, user]);
   const [tooltipInfo, setTooltipInfo] = useState<{ lng: number; lat: number; name: string; distance: number; grade: number } | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const polylineCache = useRef<Map<string, LatLngTuple[]>>(new Map());
@@ -813,6 +821,35 @@ export default function ExplorePage() {
                   <div className="text-[var(--ink-2)]">{t("heat.minePrivacy")}</div>
                 </div>
               )}
+              {/* 탐험 그리드 토글(#363) — 로그인 사용자만 노출 */}
+              {user && (
+                <button
+                  onClick={() => setShowExplorationGrid((prev) => !prev)}
+                  aria-pressed={showExplorationGrid}
+                  className={`px-2 py-1 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium transition-colors ${
+                    showExplorationGrid
+                      ? "bg-[var(--lime)] text-[var(--bg-0)]"
+                      : "bg-black/50 text-[var(--ink-0)] hover:bg-black/70"
+                  }`}
+                >
+                  {t("exploration.toggle")}
+                </button>
+              )}
+              {showExplorationGrid && user && (
+                <div className="max-w-64 rounded-[var(--r-sm)] bg-black/70 px-2 py-1 text-right text-[length:var(--fs-xs)] text-[var(--ink-0)]">
+                  {explorationGrid.loading
+                    ? t("exploration.loading")
+                    : explorationGrid.error
+                      ? t("exploration.error")
+                      : (
+                        <>
+                          <div>{t("exploration.tileCount", { count: explorationGrid.result.tileCount })}</div>
+                          <div>{t("exploration.maxSquare", { size: explorationGrid.result.maxSquare })}</div>
+                        </>
+                      )}
+                  <div className="text-[var(--ink-2)]">{t("heat.minePrivacy")}</div>
+                </div>
+              )}
             </div>
             <MapGL
               mapboxAccessToken={mapboxToken}
@@ -835,6 +872,7 @@ export default function ExplorePage() {
               {/* 발견 히트맵 — 세그먼트 아래 렌더(#493) */}
               <HeatmapLayer mode={heatMode} />
               {heatMode === "mine" && user && <PersonalHeatmapLayer points={personalHeatmap.points} />}
+              {showExplorationGrid && user && <ExplorationGridLayer tiles={explorationGrid.result.tiles} />}
 
               {/* Segment polylines */}
               <Source id="segment-lines" type="geojson" data={linesGeoJSON}>

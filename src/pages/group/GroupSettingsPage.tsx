@@ -540,8 +540,15 @@ export default function GroupSettingsPage() {
           style={{ borderRadius: "var(--r-md)", borderColor: "color-mix(in srgb, var(--rose) 30%, transparent)" }}
         >
           <h2 className="text-[length:var(--fs-sm)] font-semibold text-red-500 mb-2">{t("settings.dangerZone")}</h2>
-          <p className="text-[length:var(--fs-xs)] mb-4" style={{ color: "var(--ink-2)" }}>
+          <p className="text-[length:var(--fs-xs)] mb-2" style={{ color: "var(--ink-2)" }}>
             {t("settings.deleteDescription")}
+          </p>
+          {/* #379: 그룹장의 유일한 출구가 '삭제'로 보이지 않도록 이임 동선을 위험 구역에서 직접 노출 */}
+          <p className="text-[length:var(--fs-xs)] mb-4" style={{ color: "var(--ink-2)" }}>
+            {t("settings.transferHint")}{" "}
+            <Link to={`/group/${groupId}/members`} style={{ color: "var(--lime)", fontWeight: 500 }}>
+              {t("settings.transferLink")}
+            </Link>
           </p>
           {showDeleteConfirm ? (
             <div className="flex gap-2">

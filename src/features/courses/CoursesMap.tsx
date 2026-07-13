@@ -5,6 +5,7 @@ import type { LngLatBounds, MapMouseEvent } from "mapbox-gl";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from "../../utils/mapbox";
 import type { CourseData, LatLngTuple } from "./courseSnapshot";
+import { readPlannedRouteColor } from "../../theme/mapColors";
 
 export function isCourseInBounds(course: CourseData, bounds: LngLatBounds, polylineCache: Map<string, LatLngTuple[]>): boolean {
   const pts = polylineCache.get(course.id);
@@ -48,12 +49,11 @@ function buildCourseLinesGeoJSON(
 }
 
 function readCourseMapColors() {
-  const style = typeof window === "undefined" ? null : getComputedStyle(document.documentElement);
-  const read = (token: string, fallback: string) => style?.getPropertyValue(token).trim() || fallback;
+  const plannedRoute = readPlannedRouteColor();
   return {
-    selected: read("--accent", "#008986"),
-    hovered: read("--lime", "#008986"),
-    base: read("--aqua", "#2563eb"),
+    selected: plannedRoute,
+    hovered: plannedRoute,
+    base: plannedRoute,
   };
 }
 

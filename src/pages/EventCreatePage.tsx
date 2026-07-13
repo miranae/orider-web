@@ -4,15 +4,24 @@ import { Navigate } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { httpsCallable } from "firebase/functions";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, query, where, getDocs } from "firebase/firestore";
 import { functions, firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { DateField, TimeField, EmptyState } from "../components/redesign";
 import { useCourses } from "../hooks/useCourses";
 import { Button, Card, Text } from "../theme/components";
-import { Field, SegmentedPicker, StepBar, fieldStyle } from "../features/event/form/eventFormControls";
-import { joinDtLocal, newCategory, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
+import { Field, SegmentedPicker, StepBar, Toggle, fieldStyle } from "../features/event/form/eventFormControls";
+import { createEventSeriesId, joinDtLocal, newCategory, shiftDtLocalByWeeks, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
+
+const REPEAT_WEEK_OPTIONS = [2, 4, 8] as const;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+interface RepeatSummary {
+  totalWeeks: number;
+  successCount: number;
+  failedCount: number;
+}
 
 interface GroupInfo {
   id: string;
@@ -53,6 +62,9 @@ interface FormData {
   // 그룹 관련
   groupId: string;
   createNewGroup: boolean;
+  // 반복(정기) 일정 — 매주 같은 요일·시간으로 N주치 이벤트를 생성
+  repeatEnabled: boolean;
+  repeatWeeks: number;
   // 운영 — 사이클 외 설정
   maxParticipants: number;
   offCourseThreshold: number;
@@ -106,6 +118,8 @@ export default function EventCreatePage() {
     mechanicalSag: false,
     groupId: "",
     createNewGroup: false,
+    repeatEnabled: false,
+    repeatWeeks: 4,
     maxParticipants: 50,
     offCourseThreshold: 500,
   });
@@ -116,6 +130,9 @@ export default function EventCreatePage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdEventId, setCreatedEventId] = useState<string | null>(null);
   const [createdAsDraft, setCreatedAsDraft] = useState(false);
+  const [repeatSummary, setRepeatSummary] = useState<RepeatSummary | null>(null);
+  const [failedRepeatPayloads, setFailedRepeatPayloads] = useState<Record<string, unknown>[]>([]);
+  const [retryingRepeat, setRetryingRepeat] = useState(false);
 
   // 코스
   const { courses: availableCourses, loading: loadingCourses } = useCourses();
@@ -243,17 +260,84 @@ export default function EventCreatePage() {
       if (data.courseIds.length > 0) {
         payload.courseIds = data.courseIds;
       }
+      if (!asDraft && data.repeatEnabled && data.repeatWeeks > 1) {
+        payload.seriesId = createEventSeriesId();
+        payload.round = 1;
+      }
 
       const fn = httpsCallable<unknown, { eventId: string }>(functions, "createEvent");
       const result = await fn(payload);
-      setCreatedEventId(result.data.eventId);
+      const firstEventId = result.data.eventId;
+
+      // 반복(정기) 일정 — 초안이 아닐 때만, 기존/신규 그룹과 관계없이 매주 N-1회 추가 생성.
+      // createEvent 응답은 eventId만 반환하므로(신규 그룹 생성 시 groupId 미포함) 첫 이벤트 문서를
+      // 읽어(rules상 events는 read: true) 실제 groupId를 확인한 뒤 나머지 회차에 재사용한다.
+      let summary: RepeatSummary | null = null;
+      if (!asDraft && data.repeatEnabled && data.repeatWeeks > 1) {
+        let seriesGroupId = data.groupId || null;
+        if (!seriesGroupId && data.createNewGroup) {
+          try {
+            const createdSnap = await getDoc(doc(firestore, "events", firstEventId));
+            const fetchedGroupId = createdSnap.data()?.info?.groupId;
+            if (typeof fetchedGroupId === "string" && fetchedGroupId) seriesGroupId = fetchedGroupId;
+          } catch (err) {
+            logClientError("EventCreatePage.repeatSeries.readGroupId", err, { eventId: firstEventId });
+          }
+        }
+
+        const { createGroup: _createGroup, ...basePayload } = payload as Record<string, unknown>;
+        let successCount = 1;
+        let failedCount = 0;
+        const failedPayloads: Record<string, unknown>[] = [];
+        for (let i = 1; i < data.repeatWeeks; i++) {
+          const weekPayload: Record<string, unknown> = {
+            ...basePayload,
+            round: i + 1,
+            startTime: startTimestamp + i * WEEK_MS,
+            ...(data.openAt ? { openAt: shiftDtLocalByWeeks(data.openAt, i) } : {}),
+            ...(data.closeAt ? { closeAt: shiftDtLocalByWeeks(data.closeAt, i) } : {}),
+            ...(seriesGroupId ? { groupId: seriesGroupId } : {}),
+          };
+          try {
+            await fn(weekPayload);
+            successCount += 1;
+          } catch (err) {
+            failedCount += 1;
+            failedPayloads.push(weekPayload);
+            logClientError("EventCreatePage.repeatSeries.createWeek", err, { week: i });
+          }
+        }
+        summary = { totalWeeks: data.repeatWeeks, successCount, failedCount };
+        setFailedRepeatPayloads(failedPayloads);
+      }
+
+      setCreatedEventId(firstEventId);
       setCreatedAsDraft(asDraft);
+      setRepeatSummary(summary);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t("create.errCreate");
       setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function retryFailedRepeats() {
+    if (!repeatSummary || failedRepeatPayloads.length === 0) return;
+    setRetryingRepeat(true);
+    const fn = httpsCallable<unknown, { eventId: string }>(functions, "createEvent");
+    const stillFailed: Record<string, unknown>[] = [];
+    let recovered = 0;
+    for (const payload of failedRepeatPayloads) {
+      try { await fn(payload); recovered += 1; }
+      catch (err) {
+        stillFailed.push(payload);
+        logClientError("EventCreatePage.repeatSeries.retryWeek", err, { round: payload.round });
+      }
+    }
+    setFailedRepeatPayloads(stillFailed);
+    setRepeatSummary({ ...repeatSummary, successCount: repeatSummary.successCount + recovered, failedCount: stillFailed.length });
+    setRetryingRepeat(false);
   }
 
   if (authLoading) {
@@ -308,6 +392,30 @@ export default function EventCreatePage() {
             <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)" }}>{data.closeAt || "–"}</span>
           </div>
         </Card>
+        {repeatSummary && (
+          <Card
+            padding="none"
+            style={{
+              padding: 'var(--space-4)',
+              textAlign: "left",
+              marginBottom: 'var(--space-5)',
+              background: repeatSummary.failedCount > 0 ? "color-mix(in oklch, var(--amber) 8%, var(--bg-2))" : undefined,
+              border: repeatSummary.failedCount > 0 ? "1px solid color-mix(in oklch, var(--amber) 30%, transparent)" : undefined,
+            }}
+          >
+            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-1)" }}>
+              {t("create.repeat.summary", { success: repeatSummary.successCount, total: repeatSummary.totalWeeks })}
+            </div>
+            {repeatSummary.failedCount > 0 && (
+              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--amber)", marginTop: 'var(--space-1)' }}>
+                {t("create.repeat.partialFail", { count: repeatSummary.failedCount })}
+                <Button type="button" variant="secondary" disabled={retryingRepeat} onClick={retryFailedRepeats}>
+                  {t("create.repeat.retryFailed")}
+                </Button>
+              </div>
+            )}
+          </Card>
+        )}
         <div className="flex justify-center" style={{ gap: "var(--space-2)" }}>
           <Button
             type="button"
@@ -661,6 +769,42 @@ export default function EventCreatePage() {
                   ) : (
                     <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("create.noLeaderGroups")}</div>
                   )
+                )}
+              </Field>
+
+              {/* 반복(정기) 일정 — 매주 같은 요일·시간으로 N주치 이벤트를 한 번에 생성 */}
+              <Field label={t("create.repeat.title")} sub={t("create.optional")} hint={t("create.repeat.hint")}>
+                <label className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: data.repeatEnabled ? 'var(--space-2)' : 0, cursor: "pointer" }}>
+                  <Toggle on={data.repeatEnabled} onChange={(v) => patch({ repeatEnabled: v })} />
+                  <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-1)" }}>{t("create.repeat.enable")}</span>
+                </label>
+                {data.repeatEnabled && (
+                  <div>
+                    <div className="flex" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-1-5)' }}>
+                      {REPEAT_WEEK_OPTIONS.map((weeks) => (
+                        <button
+                          key={weeks}
+                          type="button"
+                          onClick={() => patch({ repeatWeeks: weeks })}
+                          aria-pressed={data.repeatWeeks === weeks}
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: "var(--fs-xs)",
+                            borderRadius: "var(--r-sm)",
+                            background: data.repeatWeeks === weeks ? "color-mix(in oklch, var(--lime) 8%, var(--bg-2))" : "var(--bg-2)",
+                            border: `1px solid ${data.repeatWeeks === weeks ? "var(--lime)" : "var(--line-soft)"}`,
+                            color: data.repeatWeeks === weeks ? "var(--ink-0)" : "var(--ink-2)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {t("create.repeat.weeksOption", { count: weeks })}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+                      {t("create.repeat.summaryHint", { count: data.repeatWeeks })}
+                    </div>
+                  </div>
                 )}
               </Field>
             </div>

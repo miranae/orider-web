@@ -250,6 +250,17 @@
       "newPlace": "New places",
       "popularCourses": "Popular courses",
       "notable": "Notable segments",
+      "monthlyTitle": "Personal monthly challenge",
+      "monthlyHeading": "{{month}} distance challenge",
+      "monthlyDescription": "Use your activity distance to pursue a 300, 500, or 1,000 km goal.",
+      "monthlyProgressLabel": "Monthly distance challenge progress",
+      "monthlyRemaining": "{{distance}} km remaining",
+      "monthlyCompleted": "Monthly goal complete",
+      "joinTier": "Join {{tier}} km",
+      "joined": "Joined",
+      "joinSuccess": "Joined the {{tier}} km challenge.",
+      "joinFailed": "Could not save your challenge participation.",
+      "loading": "Loading this month's progress…",
       "predicted": "Est. {{time}}",
       "faster": "−{{sec}}s faster"
     }

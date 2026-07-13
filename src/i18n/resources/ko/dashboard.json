@@ -242,9 +242,10 @@
       "today": "오늘",
       "goalDay": "목표일",
       "forecast": "예측",
-      "legendFitness": "피트니스",
+      "legendFitness": "체력",
       "legendFatigue": "피로",
-      "legendForm": "폼"
+      "legendForm": "회복 상태",
+      "projectionNote": "계획 100% 수행 시"
     },
     "powerCurve": {
       "noData": "아직 파워 데이터가 없어요",

@@ -43,6 +43,12 @@ export interface LoadInputs {
   avgPower?: number | null;
   /** 사용자 FTP(W). */
   ftp?: number | null;
+  /**
+   * HR 스트림에서 계산한 실측 TRIMP 를 TSS 등가로 정규화한 값(hrTSS 방식). 클라 전용
+   * (heartrate 스트림 보유 시, fitnessMetrics.ts:estimateActivityLoad 에서 계산해 전달);
+   * 서버는 null. relativeEffort(Strava 블랙박스)보다 우선 — 실측 HR 기반이라 더 정밀.
+   */
+  streamTrimpTss?: number | null;
   /** Strava relativeEffort(TRIMP) — 보통 TSS 와 같은 척도. */
   relativeEffort?: number | null;
   /** 운동 시간(millis). */
@@ -65,7 +71,8 @@ export function isSaneTss(x: number | null | undefined): x is number {
  * 통합 폴백 체인 (정확도 높은 순):
  *   1) precomputedTss   2) streamTss(파워 스트림 실측)
  *   3) avgPower → IF²·h·100 (bike + ftp + avgPower, VI=1 근사)
- *   4) relativeEffort(TRIMP)   5) 시간 기반(종목 factor)   6) 0
+ *   4) streamTrimpTss(HR 스트림 실측 TRIMP → TSS 등가)
+ *   5) relativeEffort(TRIMP)   6) 시간 기반(종목 factor)   7) 0
  */
 export function estimateLoad(i: LoadInputs): LoadResult {
   if (isSaneTss(i.precomputedTss)) return { value: Math.round(i.precomputedTss), source: "tss" };
@@ -80,10 +87,13 @@ export function estimateLoad(i: LoadInputs): LoadResult {
     if (isSaneTss(tss)) return { value: Math.round(tss), source: "tss" };
   }
 
-  // 4: TRIMP
+  // 4: HR 스트림 실측 TRIMP(TSS 등가 정규화 완료 — 계산은 클라에서 trimpToTssEquivalent 로 수행)
+  if (isSaneTss(i.streamTrimpTss)) return { value: Math.round(i.streamTrimpTss), source: "trimp" };
+
+  // 5: Strava relativeEffort(TRIMP)
   if (isSaneTss(i.relativeEffort)) return { value: Math.round(i.relativeEffort), source: "trimp" };
 
-  // 5: 시간 기반 (보수적 — Z2 normal 가정)
+  // 6: 시간 기반 (보수적 — Z2 normal 가정)
   if (hours > 0) {
     const factor = i.discipline ? TIME_FACTORS[i.discipline] : DEFAULT_TIME_FACTOR;
     const est = Math.round(hours * factor);

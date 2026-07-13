@@ -4,14 +4,18 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { doc, getDoc } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
-import { Button, Card, Text } from "../../theme/components";
+import { Button, Card, Switch, Text } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
+import { countActiveViewers, createViewerSessionId } from "../../features/event/viewerPresence";
+import { useAuth } from "../../contexts/AuthContext";
+import AppInstallLinks from "../../components/AppInstallLinks";
 
 export interface SnapshotLocation {
   uid: string;
@@ -101,6 +105,28 @@ function loadFollowedBibs(eventId: string): number[] {
 function saveFollowedBibs(eventId: string, bibs: number[]): void {
   try {
     localStorage.setItem(`event-follow:${eventId}`, JSON.stringify(bibs));
+  } catch {
+    // ignore
+  }
+}
+
+/** SOS 하이라이트 생성 여부 — 이전 상태에서 SOS로 전환됐고 음소거되지 않은 경우만. */
+export function shouldEmitSosHighlight(prevStatus: string | undefined, status: string, muted: boolean): boolean {
+  return status === "SOS" && prevStatus !== undefined && prevStatus !== status && !muted;
+}
+
+function loadSosMuted(eventId: string): boolean {
+  try {
+    return localStorage.getItem(`event-sos-mute:${eventId}`) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveSosMuted(eventId: string, muted: boolean): void {
+  try {
+    if (muted) localStorage.setItem(`event-sos-mute:${eventId}`, "1");
+    else localStorage.removeItem(`event-sos-mute:${eventId}`);
   } catch {
     // ignore
   }
@@ -275,6 +301,7 @@ export default function EventLivePage() {
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const dialog = useDialog();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightBib = searchParams.get("bib") ? Number(searchParams.get("bib")) : null;
@@ -292,9 +319,42 @@ export default function EventLivePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [followBibs, setFollowBibs] = useState<number[]>(() => (eventId ? loadFollowedBibs(eventId) : []));
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
+  const [sosMuted, setSosMuted] = useState(() => (eventId ? loadSosMuted(eventId) : false));
+  const [viewerCount, setViewerCount] = useState(0);
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
+  const sosMutedRef = useRef(sosMuted);
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
+    const storageKey = `event-viewer-session:${eventId}`;
+    let viewerSessionId = sessionStorage.getItem(storageKey);
+    if (!viewerSessionId || !/^[A-Za-z0-9_-]{16,100}$/.test(viewerSessionId)) {
+      viewerSessionId = createViewerSessionId();
+      sessionStorage.setItem(storageKey, viewerSessionId);
+    }
+    const sessionId = viewerSessionId;
+    const refresh = async () => {
+      try {
+        await heartbeat({ eventId, viewerSessionId: sessionId, active: true });
+        const viewers = await getDocs(collection(firestore, `events/${eventId}/viewers`));
+        const count = countActiveViewers(viewers.docs.map((viewer) => viewer.data()));
+        if (!cancelled) setViewerCount(count);
+      } catch (err) {
+        logClientError("EventLivePage.viewerHeartbeat", err, { eventId });
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      void heartbeat({ eventId, viewerSessionId: sessionId, active: false }).catch(() => undefined);
+    };
+  }, [eventId]);
 
   // URL bib 쿼리 → 팔로우 리스트에 자동 추가
   useEffect(() => {
@@ -307,6 +367,13 @@ export default function EventLivePage() {
     if (!eventId) return;
     saveFollowedBibs(eventId, followBibs);
   }, [eventId, followBibs]);
+
+  // SOS 알림 음소거 저장 + 최신값 ref 동기화 (폴링 클로저용)
+  useEffect(() => {
+    sosMutedRef.current = sosMuted;
+    if (!eventId) return;
+    saveSosMuted(eventId, sosMuted);
+  }, [eventId, sosMuted]);
 
   // 이벤트 메타 로드
   useEffect(() => {
@@ -390,6 +457,16 @@ export default function EventLivePage() {
               color: colorFor(loc.bib),
               message: `${loc.displayName} DNF`,
               sub: loc.lastCp ? t("liveView.highlight.abandonedAfterCp", { cp: loc.lastCp }) : undefined,
+            });
+          } else if (shouldEmitSosHighlight(prev, loc.status, sosMutedRef.current)) {
+            newHighlights.push({
+              key: `${loc.uid}-sos-${tsNow}`,
+              ts: tsNow,
+              bib: loc.bib,
+              name: loc.displayName,
+              color: "var(--rose)",
+              message: t("liveView.highlight.sos", { name: loc.displayName }),
+              sub: loc.lastCp ? t("liveView.highlight.sosSub", { cp: loc.lastCp }) : undefined,
             });
           }
         }
@@ -613,6 +690,7 @@ export default function EventLivePage() {
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-3)', marginLeft: "auto" }}>
+          <div aria-live="polite" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>👀 {t("viewer.count", { count: viewerCount })}</div>
           {elapsedLabel && (
             <div style={{ textAlign: "right", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
               <div style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>{t("label.elapsed")}</div>
@@ -811,11 +889,18 @@ export default function EventLivePage() {
 
         {/* 최근 하이라이트 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <div style={{ marginBottom: 'var(--space-3)' }}>
-            <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.recentHighlights")}</div>
-            <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
-              {t("liveView.highlightsDesc")}
+          <div className="flex items-start justify-between" style={{ marginBottom: 'var(--space-3)', gap: 'var(--space-3)' }}>
+            <div>
+              <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.recentHighlights")}</div>
+              <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)" }}>
+                {t("liveView.highlightsDesc")}
+              </div>
             </div>
+            <Switch
+              checked={sosMuted}
+              onChange={(e) => setSosMuted(e.target.checked)}
+              label={t("liveView.sosMuteToggle")}
+            />
           </div>
           {highlights.length === 0 ? (
             <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("liveView.noHighlights")}</p>
@@ -874,6 +959,13 @@ export default function EventLivePage() {
           )}
         </Card>
       </div>
+
+      {!authLoading && !user && <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
+        <Text as="div" variant="eyebrow">{t("liveView.guestCta.eyebrow")}</Text>
+        <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", margin: "var(--space-1) 0 var(--space-2)" }}>{t("liveView.guestCta.title")}</div>
+        <p style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginBottom: "var(--space-3)" }}>{t("liveView.guestCta.description")}</p>
+        <AppInstallLinks compact appStoreLabel={t("resultsView.nextAction.ios")} playStoreLabel={t("resultsView.nextAction.android")} />
+      </Card>}
 
       <style>{`
         @media (max-width: 900px) {

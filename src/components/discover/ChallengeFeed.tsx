@@ -7,12 +7,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs, query } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
-import { Mountain, Route as RouteIcon } from "lucide-react";
+import { Mountain, Route as RouteIcon, Trophy } from "lucide-react";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
+import { MONTHLY_CHALLENGE_TIERS, useMonthlyChallenge, type MonthlyChallengeTier } from "../../hooks/useMonthlyChallenge";
 import { isVisibleCourseDocData } from "../../features/courses/courseVisibility";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { Card, Text } from "../../theme/components";
+import { Button, Card, Chip, Text } from "../../theme/components";
 import { fetchStaticJson } from "../../utils/staticJson";
 import { segmentTileUrl } from "../../utils/segmentTiles";
 
@@ -38,6 +41,9 @@ const catLabel = (c: number) => (c >= 5 ? "HC" : c >= 1 ? `Cat ${c}` : "");
 
 export default function ChallengeFeed() {
   const { t } = useTranslation("common");
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const monthly = useMonthlyChallenge(user?.uid);
   const [segments, setSegments] = useState<OverviewSeg[] | null>(null);
   const [courses, setCourses] = useState<CourseHit[] | null>(null);
 
@@ -86,6 +92,70 @@ export default function ChallengeFeed() {
 
   return (
     <div className="space-y-5">
+      {user && (
+        <section aria-labelledby="personal-monthly-challenge-title">
+          <SectionHeader icon={Trophy} title={t("discover.challenge.monthlyTitle")} />
+          <Card padding="none" className="p-4!" style={{ borderRadius: "var(--r-lg)" }}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 id="personal-monthly-challenge-title" className="font-semibold" style={{ color: "var(--ink-0)" }}>
+                  {t("discover.challenge.monthlyHeading", { month: monthly.monthKey })}
+                </h3>
+                <Text as="p" variant="body" tone="tertiary">{t("discover.challenge.monthlyDescription")}</Text>
+              </div>
+              {monthly.participation && <Chip>{t("discover.challenge.joined")}</Chip>}
+            </div>
+            {monthly.loading ? (
+              <Text as="p" variant="body" tone="tertiary" style={{ marginTop: "var(--space-3)" }}>{t("discover.challenge.loading")}</Text>
+            ) : monthly.participation && monthly.progress ? (
+              <div className="mt-4">
+                <div className="flex justify-between text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>
+                  <span>{monthly.progress.distanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km</span>
+                  <span>{monthly.participation.tierKm.toLocaleString()} km</span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label={t("discover.challenge.monthlyProgressLabel")}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(monthly.progress.percent)}
+                  className="h-2 mt-2 overflow-hidden rounded-full"
+                  style={{ background: "var(--bg-3)" }}
+                >
+                  <div className="h-full rounded-full" style={{ width: `${monthly.progress.percent}%`, background: "var(--lime)" }} />
+                </div>
+                <Text as="p" variant="body" tone={monthly.progress.completed ? "accent" : "tertiary"} style={{ marginTop: "var(--space-2)" }}>
+                  {monthly.progress.completed
+                    ? t("discover.challenge.monthlyCompleted")
+                    : t("discover.challenge.monthlyRemaining", { distance: monthly.progress.remainingKm.toLocaleString(undefined, { maximumFractionDigits: 1 }) })}
+                </Text>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {MONTHLY_CHALLENGE_TIERS.map((tier) => (
+                  <Button
+                    key={tier}
+                    variant="secondary"
+                    size="sm"
+                    disabled={monthly.joining}
+                    onClick={() => {
+                      void monthly.join(tier as MonthlyChallengeTier)
+                        .then(() => showToast(t("discover.challenge.joinSuccess", { tier })))
+                        .catch((err) => {
+                          logClientError("ChallengeFeed.monthlyJoin", err, { tier, monthKey: monthly.monthKey });
+                          showToast(t("discover.challenge.joinFailed"), "error");
+                        });
+                    }}
+                  >
+                    {t("discover.challenge.joinTier", { tier })}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </Card>
+        </section>
+      )}
+
       <FallbackSegments segments={notable} />
 
       {courses && courses.length > 0 && (

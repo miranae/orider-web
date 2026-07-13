@@ -17,6 +17,24 @@ describe("deriveHrZones", () => {
     ]);
   });
 
+  it("uses Friel cycling %LTHR boundaries when sport is bike (#365)", () => {
+    const result = deriveHrZones({ maxHr: 190, lthr: 173, sport: "bike" });
+    expect(result.source).toBe("lthr");
+    expect(result.zones.map(({ minPct, maxPct }) => ({ minPct, maxPct }))).toEqual([
+      { minPct: 0, maxPct: 81 },
+      { minPct: 81, maxPct: 90 },
+      { minPct: 90, maxPct: 94 },
+      { minPct: 94, maxPct: 100 },
+      { minPct: 100, maxPct: null },
+    ]);
+  });
+
+  it("defaults to running bounds when sport is unspecified (back-compat)", () => {
+    const withSport = deriveHrZones({ maxHr: 190, lthr: 173, sport: "run" });
+    const withoutSport = deriveHrZones({ maxHr: 190, lthr: 173 });
+    expect(withoutSport).toEqual(withSport);
+  });
+
   it("has contiguous, non-overlapping integer BPM boundaries", () => {
     const zones = deriveHrZones({ maxHr: 191, lthr: 173 }).zones;
     for (let i = 0; i < zones.length - 1; i++) {
@@ -68,12 +86,21 @@ describe("resolveActivityHrZones", () => {
 
   it.each([
     ["run", "lthr", "profile_lthr"],
-    ["ride", "max_hr", "profile_max_hr"],
+    // #365: ride(bike) 도 Friel 사이클 LTHR 존 적용 — bike 는 앱 주 종목이라 run 과 동등하게 취급.
+    ["ride", "lthr", "profile_lthr"],
     ["swim", "max_hr", "profile_max_hr"],
   ] as const)("resolves owner %s zones", (sport, zoneSource, source) => {
     const result = resolveActivityHrZones({ ...values, isOwner: true, sport });
     expect(result.zones.source).toBe(zoneSource);
     expect(result.source).toBe(source);
+  });
+
+  it("uses Friel cycling %LTHR bounds (distinct from running bounds) for ride zones", () => {
+    const result = resolveActivityHrZones({ isOwner: true, sport: "ride", profileMaxHr: 190, profileLthr: 165 });
+    expect(result.zones.source).toBe("lthr");
+    expect(result.zones.referenceBpm).toBe(165);
+    // Friel bike bounds [0,81,90,94,100,null] vs run bounds [0,85,90,95,100,null] — Z1/Z4 differ.
+    expect(result.zones.zones.map((z) => z.maxPct)).toEqual([81, 90, 94, 100, null]);
   });
 
   it.each(["run", "ride", "swim"] as const)("excludes viewer profile from public %s zones", (sport) => {
