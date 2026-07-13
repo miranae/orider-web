@@ -102,12 +102,14 @@ export function formatDateLabel(ms: number, dayOfWeek: number): string {
 }
 
 export function phaseColor(phase: string): string {
+  if (phase === "base") return "var(--violet)"; // #365 — 기초 유산소 축적기
   if (phase === "build") return "var(--aqua)";
   if (phase === "peak") return "var(--lime)";
   return "var(--amber)";
 }
 
 export function phaseLabel(phase: string, t: (key: string) => string): string {
+  if (phase === "base") return t("phase.base");
   if (phase === "build") return t("phase.build");
   if (phase === "peak") return t("phase.peak");
   return t("phase.taper");

@@ -116,7 +116,9 @@ export interface PlanDay {
 export interface PlanWeek {
   id: string;          // 'week-01' ~ 'week-12'
   weekNumber: number;
-  phase: 'build' | 'peak' | 'taper';
+  /** 'base' — 기초 유산소 축적기(레이스까지 여유 있음, #365). 생성기(서버)가 아직 emit
+   *  하지 않을 수 있음 — 타입만 선반영, 클라 UI(PhaseBar)는 값이 있으면 렌더링. */
+  phase: 'base' | 'build' | 'peak' | 'taper';
   startDate: number;   // timestamp ms
   plannedTSS: number;
   days: PlanDay[];

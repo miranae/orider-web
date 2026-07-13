@@ -42,6 +42,10 @@ export interface MobileRecentActivity {
   tss?: number;
   distanceKm?: number;
   durationMin?: number;
+  /** 종목 아이콘/색 표식용 (#400 §8) */
+  discipline?: Discipline;
+  /** 0거리·0시간 등 유효하지 않은 기록 — 흐리게 표시 */
+  isEmptyRecord?: boolean;
 }
 
 export interface MobilePowerCurvePoint {
@@ -310,9 +314,23 @@ function PmcMiniChart({ history, projection, today, color, t }: {
 }
 
 // ── 주간 TSS 막대 ──────────────────────────────────────────────
-function WeeklyTssBars({ values, color, t }: { values: number[]; color: string; t: (key: string) => string }) {
+function WeeklyTssBars({
+  values,
+  color,
+  t,
+}: {
+  values: number[];
+  color: string;
+  t: (key: string, options?: Record<string, unknown>) => string;
+}) {
   const max = Math.max(1, ...values);
-  const labels = ["−3", "−2", "−1", t("mobileFitness.weeklyTssThisWeek")];
+  // #400 §8: "−3/−2/−1" 상대 인덱스 대신 사람이 바로 읽을 수 있는 "N주 전/지난주/이번 주".
+  const labels = values.map((_, i, arr) => {
+    if (i === arr.length - 1) return t("mobileFitness.weeklyTssThisWeek");
+    const weeksAgo = arr.length - 1 - i;
+    if (weeksAgo === 1) return t("fitness:mobile.week.lastWeek");
+    return t("fitness:mobile.week.nWeeksAgo", { n: weeksAgo });
+  });
   // 탭으로 선택된 막대 강조. -1 = 기본(이번 주만 강조).
   const [selectedIdx, setSelectedIdx] = useState<number>(-1);
   const activeIdx = selectedIdx >= 0 ? selectedIdx : values.length - 1;
@@ -579,15 +597,42 @@ export default function MobileFitnessPage({
           {data.recentActivities.length > 0 ? (
             <SectionCard title={t("mobileFitness.recentActivities")}>
               <div style={{ display: "flex", flexDirection: "column" }}>
-                {data.recentActivities.map((a, i) => (
+                {data.recentActivities.map((a, i) => {
+                  // #400 §8: 종목 아이콘/색 표식 + 0거리·0시간 기록은 흐리게(무효 기록으로 구분).
+                  const rowOpacity = a.isEmptyRecord ? 0.5 : 1;
+                  return (
                   <Link key={a.id} to={`/activity/${a.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                    <div className="flex items-center justify-between" style={{ padding: "10px 0", borderBottom: i < data.recentActivities.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
-                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-0-5)" }}>
-                          {a.dateLabel}
-                          {a.distanceKm != null && ` · ${a.distanceKm.toFixed(1)} km`}
-                          {a.durationMin != null && ` · ${Math.floor(a.durationMin / 60)}:${String(Math.floor(a.durationMin % 60)).padStart(2, "0")}`}
+                    <div className="flex items-center justify-between" style={{ padding: "10px 0", borderBottom: i < data.recentActivities.length - 1 ? "1px solid var(--line-soft)" : "none", opacity: rowOpacity }}>
+                      <div className="flex items-center" style={{ minWidth: 0, flex: 1, gap: "var(--space-2)" }}>
+                        {a.discipline && (
+                          <span
+                            aria-hidden
+                            style={{
+                              flexShrink: 0,
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "var(--fs-xs)",
+                              background: `color-mix(in oklch, ${getDisciplineColor(a.discipline)} 16%, transparent)`,
+                            }}
+                          >
+                            {getDisciplineIcon(a.discipline)}
+                          </span>
+                        )}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.title}</div>
+                          <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-0-5)" }}>
+                            {a.dateLabel}
+                            {a.isEmptyRecord
+                              ? ` · ${t("fitness:mobile.activity.emptyRecord")}`
+                              : <>
+                                  {a.distanceKm != null && ` · ${a.distanceKm.toFixed(1)} km`}
+                                  {a.durationMin != null && ` · ${Math.floor(a.durationMin / 60)}:${String(Math.floor(a.durationMin % 60)).padStart(2, "0")}`}
+                                </>}
+                          </div>
                         </div>
                       </div>
                       {a.tss != null && (
@@ -597,7 +642,8 @@ export default function MobileFitnessPage({
                       )}
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             </SectionCard>
           ) : (

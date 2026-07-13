@@ -14,14 +14,24 @@
  *
  * ── Balance(TSB) 가이드 ──────────────────────────────────────────────────────
  * TSB = CTL − ATL (전일). 음수면 피로 누적(자극↑), 양수면 신선(레이스 준비/과회복).
+ *   - 베이스기:  TSB −5  ~ −15  (기초 유산소 볼륨 축적, 완만한 점진 과부하 — #365)
  *   - 빌드기:   TSB −10 ~ −30  (적절한 자극·과부하, 흡수 가능 범위)
  *   - 유지기:   TSB −5  ~ −15  (가벼운 자극, 컨디션 유지)
  *   - 테이퍼:   TSB +5  ~ +15  (레이스 D-7 이내, 신선도 확보)
  *   - 리커버리: TSB  0  ~ +10  (과피로 TSB<−30, 회복 우선)
+ *
+ * ── 베이스 페이즈 (#365) ──────────────────────────────────────────────────────
+ * 고전 선형 주기화(base → build → peak → taper)의 첫 단계. 레이스까지 여유가 많을 때
+ * (BASE_DAYS_THRESHOLD 초과) 강도보다 "볼륨의 꾸준한 누적"에 집중하도록 빌드기보다
+ * 완만한 ramp(BASE_LO/HI_FACTOR)를 쓴다. daysUntilGoal 이 짧아지면 자동으로 build 로 전환.
  */
 
 /** 주간 유지 부하 계수 — CTL×7 = ramp 0 (정체) 기준. */
 export const MAINTAIN_FACTOR = 1.0;
+/** 베이스기 주간 부하 하한/상한 계수 (CTL×7 대비). 빌드기보다 완만한 +0~+8% — 강도보다
+ *  볼륨 누적·일관성 우선(#365). */
+export const BASE_LO_FACTOR = 1.0;
+export const BASE_HI_FACTOR = 1.08;
 /** 빌드기 주간 부하 하한/상한 계수 (CTL×7 대비). +5~+15% 점진 과부하. */
 export const BUILD_LO_FACTOR = 1.05;
 export const BUILD_HI_FACTOR = 1.15;
@@ -36,14 +46,17 @@ export const RECOVERY_HI_FACTOR = 0.5;
 
 /** 레이스 D-day 임계 — 이 일수 이내면 테이퍼. */
 export const TAPER_DAYS_THRESHOLD = 7;
+/** 베이스기 임계(일) — 레이스까지 이보다 여유가 있으면 베이스기(#365). 8주 관례값. */
+export const BASE_DAYS_THRESHOLD = 56;
 /** 과피로 TSB 임계 — 이보다 낮으면 리커버리 강제. */
 export const OVERFATIGUE_TSB = -30;
 
 /** Balance(TSB) phase 별 목표 범위. */
 export const BALANCE_RANGE: Record<
-  "build" | "maintain" | "taper" | "recovery",
+  "base" | "build" | "maintain" | "taper" | "recovery",
   { lo: number; hi: number; note: string }
 > = {
+  base: { lo: -15, hi: -5, note: "베이스기 — 강도보다 볼륨 누적에 집중, 피로를 −5~−15 범위로 유지하세요." },
   build: { lo: -30, hi: -10, note: "빌드기 — 자극을 흡수하며 피로를 −10~−30 범위로 유지하세요." },
   maintain: { lo: -15, hi: -5, note: "유지기 — 가벼운 자극으로 컨디션을 −5~−15 범위로 유지하세요." },
   taper: { lo: 5, hi: 15, note: "레이스 주간 — 볼륨을 줄여 Balance 를 +5~+15 로 끌어올리세요." },
@@ -85,7 +98,7 @@ export interface WeeklyLoadResult {
   balanceGuide: {
     lo: number;
     hi: number;
-    phase: "build" | "maintain" | "taper" | "recovery";
+    phase: "base" | "build" | "maintain" | "taper" | "recovery";
     /** 한국어 행동지침. */
     note: string;
   };
@@ -93,17 +106,22 @@ export interface WeeklyLoadResult {
 
 /**
  * phase 판정: 레이스 D-7 이내 → taper, 과피로 → recovery,
+ * 목표가 BASE_DAYS_THRESHOLD(8주) 보다 여유 있으면 base(#365),
  * 그 외 빌드기(목표가 있거나 폼 여유) → build, 기본 → maintain.
  */
 function decidePhase(
   tsb: number,
   daysUntilGoal: number | null | undefined,
-): "build" | "maintain" | "taper" | "recovery" {
+): "base" | "build" | "maintain" | "taper" | "recovery" {
   if (daysUntilGoal != null && daysUntilGoal >= 0 && daysUntilGoal <= TAPER_DAYS_THRESHOLD) {
     return "taper";
   }
   if (tsb < OVERFATIGUE_TSB) return "recovery";
-  // 목표를 향해 빌드 중(목표 존재) 이거나 폼에 여유가 있으면 빌드기.
+  // 레이스까지 충분히 여유 있으면(8주+) 강도보다 볼륨에 집중하는 베이스기.
+  if (daysUntilGoal != null && daysUntilGoal > BASE_DAYS_THRESHOLD) {
+    return "base";
+  }
+  // 목표를 향해 빌드 중(목표 존재, 베이스 임계 이내) 이거나 폼에 여유가 있으면 빌드기.
   if ((daysUntilGoal != null && daysUntilGoal > TAPER_DAYS_THRESHOLD) || tsb > -10) {
     return "build";
   }
@@ -139,6 +157,10 @@ export function recommendWeeklyLoad(input: WeeklyLoadInput): WeeklyLoadResult {
     case "build":
       lo = ctl * 7 * BUILD_LO_FACTOR;
       hi = ctl * 7 * BUILD_HI_FACTOR;
+      break;
+    case "base":
+      lo = ctl * 7 * BASE_LO_FACTOR;
+      hi = ctl * 7 * BASE_HI_FACTOR;
       break;
     case "maintain":
     default:

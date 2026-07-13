@@ -270,6 +270,8 @@
   "settings.locationPlaceholder": "예: 서울 · 잠실",
   "settings.dangerZone": "위험 구역",
   "settings.deleteDescription": "그룹을 삭제하면 모든 멤버가 그룹에서 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "settings.transferHint": "그룹을 떠나고 싶다면 삭제 대신 멤버 관리에서 그룹장을 이임한 뒤 탈퇴할 수 있습니다.",
+  "settings.transferLink": "그룹장 이임하러 가기",
   "settings.leaveDescription": "그룹을 탈퇴하면 그룹 라이드 기록은 유지되지만, 그룹 멤버 목록에서 제거됩니다.",
   "settings.saveSuccess": "그룹 설정을 저장했습니다.",
   "settings.leaveSuccess": "그룹에서 탈퇴했습니다.",

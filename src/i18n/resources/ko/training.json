@@ -68,6 +68,7 @@
     "today": "TODAY"
   },
   "phase": {
+    "base": "베이스",
     "build": "빌드",
     "peak": "피크",
     "taper": "테이퍼",
@@ -124,6 +125,12 @@
       "up": "최근 준수율 {{compliance}}% — 다음 주 강도를 {{pct}}% 올렸어요.",
       "recovery": "최근 준수율 {{compliance}}% — 회복 우선 주간으로 조정했어요."
     }
+  },
+  "downshift": {
+    "easyLabel": "이지 권장",
+    "restLabel": "휴식 권장",
+    "easyTooltip": "TSB {{tsb}} — 피로가 누적됐어요. 오늘 계획된 하드 세션을 이지로 낮추는 걸 고려하세요.",
+    "restTooltip": "TSB {{tsb}} — 번아웃 위험 구간이에요. 오늘 계획된 하드 세션 대신 완전 휴식을 권장해요."
   },
   "metrics": {
     "progress": "진행률",
@@ -374,6 +381,7 @@
     "weeklyRemaining": "남은 {{value}}",
     "balanceDirection": "Balance 목표 {{lo}}~{{hi}}",
     "balancePhase": {
+      "base": "베이스",
       "build": "빌드",
       "maintain": "유지",
       "taper": "테이퍼",

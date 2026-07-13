@@ -52,3 +52,19 @@ export function joinStartTimeKst(date: string, time: string): number | undefined
   const ms = new Date(`${date}T${time}:00${KST_OFFSET}`).getTime();
   return Number.isFinite(ms) ? ms : undefined;
 }
+
+// 매주 반복 이벤트 생성 시 등록 마감시각(openAt/closeAt) 등 "+09:00" 오프셋 문자열을
+// N주만큼 그대로 밀어야 함(반복 회차마다 모집 기간을 startTime과 함께 이동).
+export function shiftDtLocalByWeeks(value: string, weeks: number): string {
+  if (!value) return value;
+  const ms = new Date(value).getTime();
+  if (!Number.isFinite(ms)) return value;
+  const { date, time } = splitStartTime(ms + weeks * 7 * 24 * 60 * 60 * 1000);
+  return joinDtLocal(date, time);
+}
+
+/** 한 번의 반복 생성 시도 전체에서 재사용할 서버 시리즈 식별자. */
+export function createEventSeriesId(now = Date.now(), random = Math.random()): string {
+  const entropy = Math.floor(random * Number.MAX_SAFE_INTEGER).toString(36);
+  return `web_${now.toString(36)}_${entropy}`;
+}

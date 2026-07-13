@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
-import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { fetchRecentActivityTracks } from "../services/activityTracks";
 import { aggregatePersonalHeatmapAsync, type PersonalHeatPoint } from "../features/explore/personalHeatmap";
 
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
-const DOCUMENT_CAP = 500;
 let sessionCache: { uid: string; points: PersonalHeatPoint[] } | null = null;
 export function clearPersonalHeatmapSessionCache(): void { sessionCache = null; }
 
@@ -35,19 +32,9 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
     setOwnedPoints(null);
     setLoading(true);
     setError(false);
-    const cutoff = Date.now() - ONE_YEAR_MS;
-    void getDocs(query(
-      collection(firestore, "activities"),
-      where("userId", "==", uid),
-      where("deletedAt", "==", null),
-      where("startTime", ">=", cutoff),
-      orderBy("startTime", "desc"),
-      limit(DOCUMENT_CAP),
-    )).then((snapshot) => {
+    void fetchRecentActivityTracks(uid).then((tracks) => {
       if (cancelled) return;
-      return aggregatePersonalHeatmapAsync(snapshot.docs.map((doc) => ({
-        thumbnailTrack: doc.data().thumbnailTrack as string | undefined,
-      })), undefined, undefined, {
+      return aggregatePersonalHeatmapAsync(tracks, undefined, undefined, {
         signal: controller.signal,
         isCancelled: () => cancelled,
       });

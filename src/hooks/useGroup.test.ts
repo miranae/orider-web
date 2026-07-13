@@ -143,6 +143,15 @@ describe("group list hooks", () => {
     expect(result.current.error).toBe(err);
   });
 
+  it("does not query public groups while disabled for an unauthenticated page", () => {
+    const { result } = renderHook(() => usePublicGroups({ enabled: false }));
+
+    expect(getDocs).not.toHaveBeenCalled();
+    expect(result.current.groups).toEqual([]);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
   it("applies directory and city filters on the server before the limit to avoid false-empty pages", async () => {
     renderHook(() => usePublicGroups({ searchText: "Han", discipline: "bike", city: "서울 · 잠실", maxCount: 30 }));
 

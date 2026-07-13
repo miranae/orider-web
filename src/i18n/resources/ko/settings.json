@@ -48,6 +48,7 @@
     "nicknameSaving": "닉네임을 반영하는 중입니다…",
     "nicknameLength": "닉네임은 2~30자로 입력해 주세요",
     "nicknameSaveFailed": "닉네임 변경 실패",
+    "nicknameAuthSyncFailed": "닉네임은 저장됐지만 로그인 프로필 동기화에 실패했어요",
     "save": "저장",
     "cancel": "취소",
     "friendCode": "친구 코드",

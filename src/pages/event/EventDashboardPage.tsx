@@ -12,6 +12,7 @@ import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { decodePolyline } from "../../utils/polyline";
 import ParticipantTable from "../../components/event/ParticipantTable";
 import { localeTag } from "../../utils/localeDate";
+import { countActiveViewers } from "../../features/event/viewerPresence";
 
 type CourseWaypoint = {
   id: string;
@@ -170,11 +171,28 @@ export default function EventDashboardPage() {
   const [coursePolylines, setCoursePolylines] = useState<string[]>([]);
   const [courseLatlngs, setCourseLatlngs] = useState<Array<Array<[number, number]>>>([]);
   const [courseWaypoints, setCourseWaypoints] = useState<CourseWaypoint[]>([]);
+  const [viewerCount, setViewerCount] = useState(0);
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
   // 코스 로딩 race 방지 — onSnapshot이 빠르게 재발사될 때 이전 IIFE의 setState를 무효화
   const courseLoadAbortRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const viewers = await getDocs(collection(db, `events/${eventId}/viewers`));
+        if (!cancelled) setViewerCount(countActiveViewers(viewers.docs.map((viewer) => viewer.data())));
+      } catch (err) {
+        logClientError("EventDashboardPage.loadViewerCount", err, { eventId });
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [eventId]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -513,6 +531,7 @@ export default function EventDashboardPage() {
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
+          <Chip aria-live="polite">👀 {t("viewer.count", { count: viewerCount })}</Chip>
           <Button
             type="button"
             onClick={() => eventId && window.open(`/live/${eventId}`, "_blank", "noopener")} variant="secondary" size="sm"

@@ -5,31 +5,44 @@ import { setCallableResult } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupsPage from "./GroupsPage";
 
-const { publicGroups } = vi.hoisted(() => ({
+const { publicGroups, usePublicGroupsMock } = vi.hoisted(() => ({
   publicGroups: [] as Array<Record<string, unknown>>,
+  usePublicGroupsMock: vi.fn(),
 }));
 
 vi.mock("../../hooks/useGroup", () => ({
   useMyGroups: () => ({ groups: [], loading: false, error: null, retry: vi.fn() }),
-  usePublicGroups: () => ({ groups: publicGroups, loading: false, error: null, retry: vi.fn() }),
+  usePublicGroups: (options: unknown) => {
+    usePublicGroupsMock(options);
+    return { groups: publicGroups, loading: false, error: null, retry: vi.fn() };
+  },
 }));
 
 vi.mock("../../hooks/useGroupNextEvents", () => ({
   useGroupNextEvents: () => ({ byGroup: new Map(), loading: false }),
 }));
 
-function renderPage() {
+function renderPage(authenticated = true) {
   return renderWithProviders(
     <Routes>
       <Route path="/ko/groups" element={<GroupsPage />} />
       <Route path="/ko/group/:groupId" element={<div>group destination</div>} />
     </Routes>,
-    { route: "/ko/groups", authenticated: true },
+    { route: "/ko/groups", authenticated },
   );
 }
 
 describe("GroupsPage join results", () => {
-  beforeEach(() => publicGroups.splice(0));
+  beforeEach(() => {
+    publicGroups.splice(0);
+    usePublicGroupsMock.mockClear();
+  });
+
+  it("disables the public group query before authentication", () => {
+    renderPage(false);
+
+    expect(usePublicGroupsMock).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+  });
 
   it("keeps an invite-code request on the group list when the server reports pending", async () => {
     setCallableResult("joinGroupByCode", { data: { groupId: "group-1", status: "pending" } });

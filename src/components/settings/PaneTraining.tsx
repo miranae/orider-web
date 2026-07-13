@@ -147,7 +147,8 @@ export function PaneTraining() {
   const ftpN = Number(ftp) || 0;
   const wN = Number(weightKg) || 0;
   const wkg = wN > 0 && ftpN > 0 ? (ftpN / wN).toFixed(2) : "—";
-  const hrZonePreview = deriveHrZones({ maxHr: Number(maxHr), lthr: Number(lthr) });
+  // 사이클링 우선 앱 — 설정 프리뷰는 Friel 사이클 %LTHR 경계를 사용 (#365).
+  const hrZonePreview = deriveHrZones({ maxHr: Number(maxHr), lthr: Number(lthr), sport: "bike" });
 
   async function handleSave() {
     if (!user) return;

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "cssNameMap": { "type": "object", "minProperties": 1, "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" }, "additionalProperties": { "type": "string", "pattern": "^--[a-z0-9-]+$" } },
+    "tokenValues": { "type": "object", "minProperties": 1, "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" }, "additionalProperties": { "type": "string", "minLength": 1 } },
+    "variant": { "type": "object", "required": ["colors", "charts"], "additionalProperties": false, "properties": { "colors": { "$ref": "#/$defs/tokenValues" }, "charts": { "$ref": "#/$defs/tokenValues" } } }
+  },
+  "type": "object",
+  "required": ["$schema", "version", "functionalColors", "dimensions", "cssVariables", "staticCssVariables", "themeCssVariables", "themes"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "version": { "type": "integer", "minimum": 1 },
+    "functionalColors": { "type": "object", "required": ["map"], "additionalProperties": false, "properties": { "map": { "type": "object", "required": ["recordedTrack", "plannedRoute"], "additionalProperties": false, "properties": { "recordedTrack": { "type": "string", "pattern": "^#[0-9A-F]{6}$" }, "plannedRoute": { "type": "string", "pattern": "^#[0-9A-F]{6}$" } } } } },
+    "dimensions": { "type": "object", "minProperties": 1, "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" }, "additionalProperties": { "type": "number", "minimum": 0 } },
+    "cssVariables": { "type": "object", "required": ["colors", "charts", "dimensions"], "additionalProperties": false, "properties": { "colors": { "$ref": "#/$defs/cssNameMap" }, "charts": { "$ref": "#/$defs/cssNameMap" }, "dimensions": { "$ref": "#/$defs/cssNameMap" } } },
+    "staticCssVariables": { "type": "object", "propertyNames": { "pattern": "^--[a-z0-9-]+$" }, "additionalProperties": { "type": "string", "minLength": 1 } },
+    "themeCssVariables": { "type": "object", "required": ["light", "dark"], "additionalProperties": false, "properties": { "light": { "type": "object", "propertyNames": { "pattern": "^--[a-z0-9-]+$" }, "additionalProperties": { "type": "string", "minLength": 1 } }, "dark": { "type": "object", "propertyNames": { "pattern": "^--[a-z0-9-]+$" }, "additionalProperties": { "type": "string", "minLength": 1 } } } },
+    "themes": { "type": "object", "required": ["default"], "additionalProperties": false, "properties": { "default": { "type": "object", "required": ["light", "dark"], "additionalProperties": false, "properties": { "light": { "$ref": "#/$defs/variant" }, "dark": { "$ref": "#/$defs/variant" } } } } }
+  }
+}
