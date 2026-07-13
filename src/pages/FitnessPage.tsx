@@ -526,8 +526,9 @@ export default function FitnessPage() {
     );
   }
 
-  // tri 뷰 — 모바일 dashboard 보다 먼저 분기해 ?sport=tri 가 TriFitnessView 에 도달한다.
-  if (discipline === "tri") {
+  // TriFitnessView 는 데스크톱 전용 레이아웃이다. 모바일 tri 는 아래의
+  // MobileFitnessPage 로 보내 좁은 화면에서 헤더와 카드가 눌리지 않게 한다.
+  if (!isMobile && discipline === "tri") {
     return <TriFitnessView activities={activities} streamsMap={streamsMap} range={range} profile={profile} />;
   }
 

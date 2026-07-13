@@ -1,19 +1,30 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
+import { setCollectionDocs } from "../__tests__/mocks/firebase";
 import FitnessPage from "./FitnessPage";
 
+const viewport = vi.hoisted(() => ({ isMobile: true }));
+
 vi.mock("../hooks/useMobile", () => ({
-  useMobile: () => true,
+  useMobile: () => viewport.isMobile,
 }));
 
 vi.mock("../components/mobile/MobileFitnessPage", () => ({
-  default: () => <div>mobile fitness dashboard</div>,
+  default: ({ data }: { data: { discipline: string } }) => (
+    <div>mobile fitness dashboard: {data.discipline}</div>
+  ),
+}));
+
+vi.mock("./fitness/TriFitnessView", () => ({
+  default: () => <div>desktop tri fitness dashboard</div>,
 }));
 
 describe("FitnessPage", () => {
+  beforeEach(() => {
+    viewport.isMobile = true;
+  });
+
   it("shows the guest demo instead of the mobile dashboard for signed-out mobile visitors", async () => {
     renderWithProviders(<FitnessPage />, {
       authenticated: false,
@@ -25,17 +36,34 @@ describe("FitnessPage", () => {
     expect(screen.queryByText("mobile fitness dashboard")).not.toBeInTheDocument();
   });
 
-  it("keeps mobile loading, error, empty, and tri branches before the mobile dashboard return", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/FitnessPage.tsx"), "utf8");
-    const mobileDashboardIndex = source.indexOf("return (\n      <MobileFitnessPage");
+  it("renders the mobile dashboard for an authenticated tri athlete on mobile", async () => {
+    setCollectionDocs("activities", [{
+      id: "tri-ride",
+      userId: "test-uid",
+      type: "Ride",
+      startTime: Date.now(),
+      deletedAt: null,
+      summary: { distance: 20_000, ridingTimeMillis: 3_600_000 },
+    }]);
 
-    expect(source.indexOf("if (isMobile && (loading || !timeseriesLoaded))")).toBeGreaterThan(-1);
-    expect(source.indexOf("if (isMobile && error)")).toBeGreaterThan(-1);
-    expect(source.indexOf("if (isMobile && activities.length === 0)")).toBeGreaterThan(-1);
-    expect(source.indexOf('if (discipline === "tri")')).toBeGreaterThan(-1);
-    expect(source.indexOf("if (isMobile && (loading || !timeseriesLoaded))")).toBeLessThan(mobileDashboardIndex);
-    expect(source.indexOf("if (isMobile && error)")).toBeLessThan(mobileDashboardIndex);
-    expect(source.indexOf("if (isMobile && activities.length === 0)")).toBeLessThan(mobileDashboardIndex);
-    expect(source.indexOf('if (discipline === "tri")')).toBeLessThan(mobileDashboardIndex);
+    renderWithProviders(<FitnessPage />, {
+      authenticated: true,
+      route: "/fitness?sport=tri",
+    });
+
+    expect(await screen.findByText("mobile fitness dashboard: tri")).toBeInTheDocument();
+    expect(screen.queryByText("desktop tri fitness dashboard")).not.toBeInTheDocument();
+  });
+
+  it("keeps the dedicated tri dashboard on desktop", async () => {
+    viewport.isMobile = false;
+
+    renderWithProviders(<FitnessPage />, {
+      authenticated: true,
+      route: "/fitness?sport=tri",
+    });
+
+    expect(await screen.findByText("desktop tri fitness dashboard")).toBeInTheDocument();
+    expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
   });
 });
