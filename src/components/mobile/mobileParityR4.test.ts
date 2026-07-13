@@ -40,13 +40,14 @@ describe("mobile parity r4", () => {
     expect(mobileLog).toContain("monthTotals");
   });
 
-  it("removes dead mobile weekly summary and non-persistent notification toggles", () => {
+  it("keeps dead mobile-only summaries and non-persistent notification controls out of the settings hub", () => {
     const settings = read("src/components/mobile/MobileSettingsPage.tsx");
 
     expect(() => read("src/components/mobile/WeeklySummaryCard.tsx")).toThrow();
     expect(settings).not.toContain("useState");
     expect(settings).not.toContain("role=\"switch\"");
-    expect(settings).toContain("notifications.preparing");
+    expect(settings).not.toContain("notifications.preparing");
+    expect(settings).toContain("NAV_GROUPS.map");
   });
 
   it("does not hard-cap mobile fitness PMC to 60 days or recent activities to 5", () => {

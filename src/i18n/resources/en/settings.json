@@ -447,7 +447,10 @@
     "deviceLabel": "Device",
     "deviceHint": "Mobile app sync",
     "appLabel": "App & Data",
-    "appHint": "Language, units, export"
+    "appHint": "Language, units, export",
+    "mobileHubLabel": "Settings categories",
+    "backToProfile": "Back to profile",
+    "backToSettings": "Back to settings categories"
   },
   "equipment": {
     "bikeProfile": "Bike profiles",

@@ -95,6 +95,50 @@
 }
 .settings-main .ds-card { box-shadow: none; }
 
+.mobile-settings-hub { min-height: 100%; background: var(--bg-0); }
+.mobile-settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line-soft);
+}
+.mobile-settings-groups { padding: var(--space-4); }
+.mobile-settings-group { margin-bottom: var(--space-5); }
+.mobile-settings-group > h2 { margin: 0 0 var(--space-2); }
+.mobile-settings-list {
+  overflow: hidden;
+  background: var(--bg-1);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+}
+.mobile-settings-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  color: var(--ink-0);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-soft);
+}
+.mobile-settings-item:last-child { border-bottom: 0; }
+.mobile-settings-item:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: -2px;
+}
+.mobile-settings-item-icon {
+  display: inline-flex;
+  color: var(--ink-2);
+}
+.mobile-settings-item-icon > svg,
+.mobile-settings-item-chevron { width: var(--space-5); height: var(--space-5); }
+.mobile-settings-item-copy { display: flex; flex: 1; flex-direction: column; gap: var(--space-0-5); }
+.mobile-settings-item-chevron { color: var(--ink-4); }
+
 /* 폐기 이력 (2026-05-24 ~ 25):
  *   rd2-btn / rd2-input → <Button> / <Input> 으로 마이그레이션 후 CSS 제거
  *   rd-btn / rd-card / rd-chip → <Button> / <Card> / <Chip> 또는 ds-* 로 마이그레이션 후 CSS 제거
@@ -111,4 +155,16 @@
     padding: 16px 12px;
   }
   .settings-main { padding: 20px 16px 40px; }
+
+  /* 모바일 설정 상세는 독립 화면이므로 데스크톱의 조밀한 크기 대신
+   * 실제 44px 터치 영역을 보장한다. */
+  .mobile-settings-detail :is(
+    button,
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    select,
+    textarea,
+    summary
+  ) {
+    min-height: 44px;
+  }
 }

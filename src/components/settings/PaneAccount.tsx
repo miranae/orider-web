@@ -346,18 +346,21 @@ export function PaneAccount() {
         <InlineRow label={t("privacy.profilePublicInline")} hint={t("privacy.profilePublicInlineDesc")}>
           <Toggle
             on={profilePublic}
+            ariaLabel={t("privacy.profilePublicInline")}
             onChange={(v) => handleToggleSetting("profilePublic", v, setProfilePublic)}
           />
         </InlineRow>
         <InlineRow label={t("privacy.leaderboard")} hint={t("privacy.leaderboardInlineDesc")}>
           <Toggle
             on={leaderboardOptIn}
+            ariaLabel={t("privacy.leaderboard")}
             onChange={(v) => handleToggleSetting("leaderboardOptIn", v, setLeaderboardOptIn)}
           />
         </InlineRow>
         <InlineRow label={t("privacy.friendRequests")}>
           <Toggle
             on={friendRequestsAllowed}
+            ariaLabel={t("privacy.friendRequests")}
             onChange={(v) =>
               handleToggleSetting("friendRequestsAllowed", v, setFriendRequestsAllowed)
             }

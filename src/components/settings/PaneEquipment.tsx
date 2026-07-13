@@ -538,6 +538,7 @@ export function PaneEquipment() {
         action={
           <Toggle
             on={vpDraft?.enabled ?? true}
+            ariaLabel={t("equipment.virtualPower")}
             onChange={(v) => patchVp({ enabled: v, userDisabled: !v })}
           />
         }

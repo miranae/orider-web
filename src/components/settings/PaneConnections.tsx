@@ -230,6 +230,7 @@ export function PaneConnections() {
           <InlineRow label={t("pane.connections.autoUploadLabel")} hint={t("pane.connections.autoUploadHint")}>
             <Toggle
               on={autoUpload}
+              ariaLabel={t("pane.connections.autoUploadLabel")}
               onChange={handleAutoUploadChange}
               disabled={autoUploadSaving}
             />

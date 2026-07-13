@@ -187,8 +187,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           </span>
         </Link>
 
-        {/* 데스크톱 네비게이션 링크 (768px 이상) */}
-        <div className="hidden md:flex items-center" style={{ gap: 'var(--space-1)', flex: 1 }}>
+        {/* 데스크톱 네비게이션 링크 (1024px 이상) */}
+        <div className="hidden lg:flex items-center" style={{ gap: 'var(--space-1)', flex: 1 }}>
           {NAV_ITEMS.map(({ key, label, to }) => {
             const isActive = active === key;
             return (
@@ -251,14 +251,14 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
         </div>
 
         {/* flex spacer for mobile */}
-        <div className="flex md:hidden" style={{ flex: 1 }} />
+        <div className="flex lg:hidden" style={{ flex: 1 }} />
 
         {/* 우측: 검색 + 아이콘 + 인증 */}
         <div className="flex items-center" style={{ gap: 'var(--space-2)', flexShrink: 0 }}>
           {/* 검색 박스 (데스크톱만) */}
           <div
             ref={searchRef}
-            className="hidden md:block"
+            className="hidden lg:block"
             style={{ position: 'relative', width: 220 }}
           >
             <div
@@ -361,7 +361,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               {/* 모바일 알림 벨 → 바텀시트 */}
               {onMobileNotifClick && (
                 <button
-                  className={`md:hidden ${navIconButtonClass}`}
+                  className={`lg:hidden ${navIconButtonClass}`}
                   aria-label={t('topnav.notifications')}
                   onClick={onMobileNotifClick}
                   style={{ width: 44, height: 44, borderRadius: "var(--r-md)", border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
@@ -374,7 +374,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               )}
 
               {/* 데스크톱 알림 벨 + 드롭다운 */}
-              <div ref={notifRef} className="hidden md:block" style={{ position: 'relative' }}>
+              <div ref={notifRef} className="hidden lg:block" style={{ position: 'relative' }}>
                 <button
                   onClick={() => { setNotifOpen(!notifOpen); setMenuOpen(false); }}
                   className={navFocusClass}
@@ -500,14 +500,14 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               </div>
 
               {/* 언어 토글 (데스크톱만) */}
-              <div className="hidden md:flex items-center">
+              <div className="hidden lg:flex items-center">
                 <LanguageToggle variant="header" />
               </div>
 
               {/* 설정 (데스크톱만) */}
               <Link
                 to="/settings"
-                className={`hidden md:flex ${navFocusClass}`}
+                className={`hidden lg:flex ${navFocusClass}`}
                 aria-label={t('label.settings')}
                 style={{
                   width: 44, height: 44,
@@ -600,7 +600,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
               {/* 모바일 햄버거 버튼 */}
               <button
-                className={`md:hidden ${navIconButtonClass}`}
+                className={`lg:hidden ${navIconButtonClass}`}
                 aria-label={t('button.more')}
                 onClick={openMobileMenu}
                 style={{
@@ -616,13 +616,13 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           ) : (
             <>
               {/* 언어 토글 (데스크톱, 비로그인) */}
-              <div className="hidden md:flex items-center">
+              <div className="hidden lg:flex items-center">
                 <LanguageToggle variant="header" />
               </div>
 
               {/* 비로그인: Google 로그인 버튼 (데스크톱) */}
               <Button
-                onClick={handleSignInWithGoogle} variant="primary" size="sm" className="hidden md:flex"
+                onClick={handleSignInWithGoogle} variant="primary" size="sm" className="hidden lg:flex"
                 disabled={signInPending}
                 style={{ gap: "var(--space-1-5)" }}
               >
@@ -631,7 +631,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
               {/* 비로그인: 모바일 햄버거 */}
               <button
-                className={`md:hidden ${navIconButtonClass}`}
+                className={`lg:hidden ${navIconButtonClass}`}
                 aria-label={t('button.more')}
                 onClick={openMobileMenu}
                 style={{
