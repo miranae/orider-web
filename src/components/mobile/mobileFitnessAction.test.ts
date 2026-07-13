@@ -9,17 +9,18 @@ function read(path: string): string {
 describe("mobile fitness action", () => {
   it("orders today's workout before core status, load, and sport analysis", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
-    const overview = source.slice(source.indexOf('{tab === "overview"'));
+    const overview = source.slice(source.indexOf('{activeTab === "overview"'));
     const workoutIndex = overview.indexOf("<TodaysWorkoutCard />");
     const coreIndex = overview.indexOf("<BikeAbilityCompact");
     const loadIndex = overview.indexOf("<IntegratedLoadCard");
     const sportIndex = overview.indexOf("<SportPerformanceCard");
-    const analysisIndex = overview.indexOf('{tab === "analysis"');
+    const analysisIndex = overview.indexOf('{activeTab === "analysis"');
 
     expect(workoutIndex).toBeGreaterThan(-1);
     expect(overview).not.toContain('<TodaysWorkoutCard variant="compact" />');
     expect(coreIndex).toBeGreaterThan(-1);
     expect(loadIndex).toBeGreaterThan(-1);
+    expect(overview).toContain('data.discipline === "tri" && data.combinedLoad');
     expect(sportIndex).toBeGreaterThan(-1);
     expect(workoutIndex).toBeLessThan(coreIndex);
     expect(coreIndex).toBeLessThan(loadIndex);
@@ -36,6 +37,14 @@ describe("mobile fitness action", () => {
     expect(mobileHome).toContain("<TodaysWorkoutCard />");
     expect(mobileHome).not.toContain('<TodaysWorkoutCard variant="compact" />');
     expect(plan).toContain('<TodaysWorkoutCard variant="compact" />');
+  });
+
+  it("uses the full AI coach across desktop fitness, including integrated and empty states", () => {
+    const fitness = read("src/pages/FitnessPage.tsx");
+    const triFitness = read("src/pages/fitness/TriFitnessView.tsx");
+    expect(fitness).toContain("<TodaysWorkoutCard />");
+    expect(fitness).not.toContain('<TodaysWorkoutCard variant="compact" />');
+    expect(triFitness).toContain("<TodaysWorkoutCard />");
   });
 
   it.each([

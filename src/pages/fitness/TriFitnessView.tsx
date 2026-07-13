@@ -13,6 +13,9 @@ import {
 } from "../../utils/fitnessMetrics";
 import { toLocalDate } from "../../utils/dateUtils";
 import { Card, Text } from "../../theme/components";
+import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
+import IntegratedLoadCard, { type CombinedLoadStatus } from "../../components/mobile/IntegratedLoadCard";
+import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
@@ -22,6 +25,8 @@ interface TriFitnessViewProps {
   streamsMap: Map<string, ActivityStreams>;
   range: number;
   profile: UserProfile | null;
+  combinedLoad: CombinedLoadStatus | null;
+  loadFocus: LoadFocusResult;
 }
 
 
@@ -509,7 +514,7 @@ const LEGEND_ITEM_KEYS = [
 // ─────────────────────────────────────────────────────────────────────────────
 // TriFitnessView
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TriFitnessView({ activities, streamsMap, range, profile }: TriFitnessViewProps) {
+export default function TriFitnessView({ activities, streamsMap, range, profile, combinedLoad, loadFocus }: TriFitnessViewProps) {
   const { t } = useTranslation("fitness");
   const [rangeLocal, setRangeLocal] = useState(range);
 
@@ -787,6 +792,16 @@ export default function TriFitnessView({ activities, streamsMap, range, profile 
       </div>
 
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-8)" }}>
+
+      {/* 통합 탭에서도 오늘의 AI 코치와 authoritative 멀티스포츠 상세를 한 번만 노출한다. */}
+      <div style={{ marginBottom: "var(--space-4)" }}>
+        <TodaysWorkoutCard />
+      </div>
+      {combinedLoad && (
+        <div style={{ marginBottom: "var(--space-5)" }}>
+          <IntegratedLoadCard combined={combinedLoad} focus={loadFocus} />
+        </div>
+      )}
 
       {/* KPI 4칸 */}
       <Card padding="none"

@@ -71,6 +71,7 @@ describe("SportPerformanceCard", () => {
     expect(screen.getByText(/5m 320W · 4.40W\/kg/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /유산소 역량: 근거 백분위 65/ })).toBeInTheDocument();
     expect(screen.getByText(/Garmin EPOC/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "PDC와 3축 산출 근거 보기" })).toHaveAttribute("href", "/web-manual/ch06-advanced.html#s6-3");
   });
 
   it("shows only persisted running records and threshold evidence", () => {

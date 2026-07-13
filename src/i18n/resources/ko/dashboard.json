@@ -371,6 +371,7 @@
         "title": "사이클링 능력 근거",
         "basis": "최근 90일 실측 PDC의 세 개 독립 축 · 활동 {{count}}개 · 기존 Coggan 남성 v1 백분위, 성별·연령 미보정",
         "notGarmin": "계산 근거를 공개한 O-Rider PDC 분석이며 Garmin EPOC, Training Effect 또는 독점 점수와 동일하지 않습니다.",
+        "manualLink": "PDC와 3축 산출 근거 보기",
         "axis": {
           "anaerobic": "단시간 파워 역량",
           "aerobic": "유산소 역량",
