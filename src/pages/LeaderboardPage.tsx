@@ -123,7 +123,8 @@ export default function LeaderboardPage() {
   };
 
   return (
-    <div className="space-y-4">
+    /* 순위 목록은 한 행의 시선 이동 거리를 제한해 기존 정보 밀도를 보존한다. */
+    <div className="mx-auto max-w-[1120px] space-y-4">
       <PageHeader
         eyebrow={t("leaderboardPage.eyebrow")}
         title={t("leaderboardPage.title")}

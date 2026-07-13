@@ -27,7 +27,8 @@ export default function SocialPage() {
   }
 
   return (
-    <div>
+    /* 단일 열 관계 목록은 행 스캔 거리를 유지하도록 전역 1440px 셸 안에서 1120px로 제한한다. */
+    <div className="mx-auto w-full max-w-[1120px]">
       {/* Page header — 모바일은 하단 탭 바가 "소셜" 라벨 제공하므로 중복 제목 숨김 */}
       <div
         className="hidden md:flex items-center sticky top-0 z-10"

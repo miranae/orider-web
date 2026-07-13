@@ -71,7 +71,7 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
   const isPlan = kind === "plan";
 
   return (
-    <div style={{ maxWidth: 1120, margin: "0 auto", padding: "48px 20px 64px" }}>
+    <div className="site-shell" style={{ padding: "48px 20px 64px" }}>
       <Card padding="none" style={{ padding: "var(--space-6)", display: "grid", gap: "var(--space-5)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap", alignItems: "flex-start" }}>
           <div style={{ maxWidth: 640 }}>

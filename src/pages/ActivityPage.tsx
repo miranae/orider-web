@@ -512,7 +512,7 @@ export default function ActivityPage() {
 
   if (loadingActivity) {
     return (
-      <div className="space-y-6 max-w-[1440px] mx-auto">
+      <div className="site-shell space-y-6">
         <div className="h-80 rounded-[var(--r-lg)] animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="h-8 rounded-[var(--r-sm)] w-1/3 animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="grid grid-cols-4 gap-3">
@@ -741,7 +741,7 @@ export default function ActivityPage() {
   );
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-6">
+    <div className="site-shell space-y-6">
       {/* 1. Header (제목) */}
       <Card padding="none" style={{ padding: 'var(--space-5)' }}>
         <div className="flex items-start gap-4">

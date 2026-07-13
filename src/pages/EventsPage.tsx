@@ -386,7 +386,7 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="space-y-4" style={{ maxWidth: 1440, margin: "0 auto", padding: "0 24px 40px" }}>
+    <div className="site-shell space-y-4" style={{ padding: "0 24px 40px" }}>
       <PageHeader
         eyebrow={t("page.eyebrow")}
         title={t("title")}

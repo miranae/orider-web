@@ -33,6 +33,16 @@
   --text-3xl: var(--fs-3xl);
 }
 
+:root {
+  --site-shell-max: 1440px;
+}
+
+.site-shell {
+  width: 100%;
+  max-width: var(--site-shell-max);
+  margin-inline: auto;
+}
+
 body {
   margin: 0;
   font-family:
