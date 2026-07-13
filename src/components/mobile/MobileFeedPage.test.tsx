@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MobileFeedPage from "./MobileFeedPage";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -12,6 +12,24 @@ vi.mock("../RouteMap", () => ({
 }));
 
 describe("MobileFeedPage", () => {
+  it("links the weekly summary view-all action to the localized fitness page", async () => {
+    renderWithProviders(
+      <MobileFeedPage
+        activities={[]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        recentWeeks={[]}
+      />,
+      { route: "/ko", authenticated: true },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "전체보기" })).toHaveAttribute("href", "/ko/fitness");
+    });
+  });
+
   it("shows load more when the current filtered page is empty but more pages exist", async () => {
     const user = userEvent.setup();
     const onLoadMore = vi.fn();
