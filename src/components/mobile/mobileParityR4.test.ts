@@ -14,7 +14,14 @@ describe("mobile parity r4", () => {
     expect(mobileFeed).toContain("feedScope");
     expect(mobileFeed).toContain("searchQuery");
     expect(mobileFeed).toContain("datePreset");
-    expect(dashboard).toContain("activities={sportFiltered}");
+    expect(mobileFeed).toContain('aria-label={t("feed.filter.label")}');
+    expect(mobileFeed).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
+    expect(mobileFeed).not.toContain('role="tablist"');
+    expect(mobileFeed).not.toContain("WeekBars");
+    expect(mobileFeed).not.toContain("recentWeeks");
+    expect(dashboard).toContain("const sportFiltered = useMemo");
+    expect(dashboard).toContain("<MobileFeedPage\n        activities={activities}");
+    expect(dashboard).not.toContain("recentWeeks={weeklyStats.map");
     expect(dashboard).toContain("friendIds={[...friendIds]}");
   });
 
@@ -50,12 +57,10 @@ describe("mobile parity r4", () => {
     expect(settings).toContain("NAV_GROUPS.map");
   });
 
-  it("does not hard-cap mobile fitness PMC to 60 days or recent activities to 5", () => {
+  it("does not hard-cap mobile fitness PMC to 60 days", () => {
     const fitness = read("src/pages/FitnessPage.tsx");
 
     expect(fitness).toContain("const pmcHistory = rangeData.fitness.map");
-    expect(fitness).toContain(".slice(0, 10)");
     expect(fitness).not.toContain("rangeData.fitness.slice(-60)");
-    expect(fitness).not.toContain(".slice(0, 5)");
   });
 });

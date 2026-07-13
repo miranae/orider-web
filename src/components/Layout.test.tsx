@@ -229,6 +229,22 @@ describe("Layout", () => {
     expect(screen.getByRole("contentinfo").className).not.toContain("lg:hidden");
   });
 
+  it("uses the shared site shell for home content", () => {
+    const { container } = renderWithProviders(<Layout />, { route: "/" });
+    const shell = container.querySelector('[data-page-shell="home"]');
+
+    expect(shell).toHaveClass("site-shell");
+    expect(container.querySelector('[data-page-shell="content"]')).not.toBeInTheDocument();
+  });
+
+  it("uses the shared site shell for non-home content", () => {
+    const { container } = renderWithProviders(<Layout />, { route: "/feedback" });
+    const shell = container.querySelector('[data-page-shell="content"]');
+
+    expect(shell).toHaveClass("site-shell");
+    expect(container.querySelector('[data-page-shell="home"]')).not.toBeInTheDocument();
+  });
+
   it("hides main-screen footer at lg+ but keeps it on tablet (md~lg)", async () => {
     // 메인화면(`/`)에서는 푸터 링크를 사이드바(lg:flex) 더보기로 흡수하므로 푸터를 lg+ 에서만
     // 숨긴다. 사이드바가 렌더되지 않는 md~lg(태블릿)에서는 푸터를 유지해 법적 링크 접근성을 보존.

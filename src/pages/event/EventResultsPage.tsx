@@ -386,7 +386,7 @@ export default function EventResultsPage() {
           background: "linear-gradient(to bottom, color-mix(in oklch, var(--aqua) 4%, var(--bg-0)), var(--bg-0))",
         }}
       >
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 24px 0" }}>
+        <div className="site-shell" style={{ padding: "14px 24px 0" }}>
           <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
             <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
             <span style={{ color: "var(--ink-4)" }}>›</span>
@@ -398,7 +398,7 @@ export default function EventResultsPage() {
           </div>
         </div>
 
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 24px 28px" }}>
+        <div className="site-shell" style={{ padding: "0 24px 28px" }}>
           <div className="flex items-center flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
             <Chip
               style={{
@@ -453,10 +453,8 @@ export default function EventResultsPage() {
 
       {/* Body */}
       <div
-        className="event-results-body"
+        className="site-shell event-results-body"
         style={{
-          maxWidth: 1440,
-          margin: "0 auto",
           padding: "20px 24px 40px",
           display: "grid",
           gridTemplateColumns: "1fr 340px",

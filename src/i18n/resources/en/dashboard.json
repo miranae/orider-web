@@ -37,6 +37,7 @@
     "feedScope": "· Full feed",
     "countSuffix": "{{value}}",
     "filter": {
+      "label": "Feed scope",
       "all": "All",
       "friends": "Friends",
       "self": "Mine"
@@ -51,6 +52,7 @@
       "emptyDescription": "Try a different keyword or date range."
     },
     "datePreset": {
+      "label": "Date range",
       "all": "All",
       "7d": "7d",
       "30d": "30d",
@@ -196,8 +198,8 @@
     "statElev": "Elev gain",
     "statSpeed": "Avg speed",
     "weekSummary": "This week",
+    "sportFilterLabel": "Activity sport filter",
     "viewAll": "View all",
-    "weeklyDistance": "Weekly distance",
     "loading": "Loading…",
     "loadingMore": "Loading…",
     "loadMore": "Load more",
@@ -298,12 +300,11 @@
     "ftpBasis": "Based on 90-day best power",
     "zoneDist": "Power zone distribution (last 4 weeks)",
     "zoneDefTitle": "Zone definitions",
-    "disciplineLoading": "{{discipline}} fitness data is being prepared",
     "kpiCtlLabel": "CTL Fitness",
     "kpiAtlLabel": "ATL Fatigue",
     "kpiTsbLabel": "TSB Form",
     "vo2maxDesc": "Estimated",
-    "vo2maxNoFtp": "FTP required",
+    "vo2maxNoFtp": "FTP and weight required",
     "tsbOverRested": "Over-rested",
     "tsbOptimalForm": "Optimal form",
     "tsbTrainingOk": "Training load OK",
@@ -313,7 +314,6 @@
     "pmcSub": "CTL Fitness · ATL Fatigue · TSB Form",
     "weeklyLoadTitle": "Weekly load · last 4 weeks",
     "weeklyLoadSub": "This week {{thisWeek}} · avg {{avg}} · {{restDays}} rest days",
-    "recentActivities": "Recent activities",
     "zonePowerTitle": "Power zone distribution · last 4 weeks",
     "zoneHrTitle": "HR zone distribution · last 4 weeks",
     "zoneSourcePower": "Based on power stream",
@@ -327,7 +327,26 @@
     "pmcNoData": "Not enough data — need at least 2 days",
     "pmcLabelToday": " · Today",
     "pmcLabelForecast": " · Forecast",
-    "weeklyTssThisWeek": "This week"
+    "weeklyTssThisWeek": "This week",
+    "snapshot": {
+      "title": "Current fitness snapshot",
+      "subtitle": "Read each value together with its evaluation and basis",
+      "ftp": "Reference power",
+      "ftpStatus": "Profile FTP",
+      "ftpSource": "W/kg calculated from current profile FTP and weight",
+      "ftpWeightMissing": "Profile FTP · W/kg unavailable without body weight",
+      "riderType": "Cycling ability",
+      "abilityTop": "Overall ability · top {{pct}}%",
+      "riderSource": "Last 90-day PDC · Coggan men's power profile (v1); sex and age are not adjusted",
+      "vo2PdcSource": "Estimated from CP/5-minute power and weight in the last 90-day PDC · {{count}} activities · not a lab measurement",
+      "vo2FormulaSource": "Simple estimate from profile FTP and weight · not a lab measurement",
+      "cohortTop": "Top {{pct}}% of all cohort · n={{count}}",
+      "estimateOnly": "Estimate · no cohort evaluation",
+      "load": "O-Rider training load",
+      "loadSource": "CTL 42-day EMA · ATL 7-day EMA · TSB=CTL-ATL. This is not Garmin acute load",
+      "insufficient": "Not enough data · not evaluated",
+      "bandAria": "{{metric}} position: {{status}}"
+    }
   },
   "runEmpty": {
     "title": "Connect the app you run with, and we'll make sense of it here",

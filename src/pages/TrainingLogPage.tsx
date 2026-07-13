@@ -650,7 +650,7 @@ export default function TrainingLogPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1440, margin: "0 auto", paddingBottom: 'var(--space-8)' }}>
+    <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
 
       {/* ── 헤더 ───────────────────────────────────────────────── */}
       <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "20px 0 16px" }}>

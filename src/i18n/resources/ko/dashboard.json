@@ -37,6 +37,7 @@
     "feedScope": "· 전체 피드",
     "countSuffix": "{{value}}건",
     "filter": {
+      "label": "피드 범위",
       "all": "전체",
       "friends": "친구",
       "self": "본인"
@@ -51,6 +52,7 @@
       "resultsCount_other": "{{count}}건"
     },
     "datePreset": {
+      "label": "기간",
       "all": "전체",
       "7d": "7일",
       "30d": "30일",
@@ -196,8 +198,8 @@
     "statElev": "획득고도",
     "statSpeed": "평균속도",
     "weekSummary": "이번 주 요약",
+    "sportFilterLabel": "활동 종목 필터",
     "viewAll": "전체보기",
-    "weeklyDistance": "주간 거리",
     "loading": "불러오는 중…",
     "loadingMore": "불러오는 중…",
     "loadMore": "더 보기",
@@ -298,12 +300,11 @@
     "ftpBasis": "최근 90일 베스트 파워 기반",
     "zoneDist": "파워 존 분포 (최근 4주)",
     "zoneDefTitle": "존 정의",
-    "disciplineLoading": "{{discipline}} 피트니스 데이터를 준비하고 있어요",
     "kpiCtlLabel": "CTL 체력",
     "kpiAtlLabel": "ATL 피로",
     "kpiTsbLabel": "TSB 상태",
     "vo2maxDesc": "추정치",
-    "vo2maxNoFtp": "FTP 필요",
+    "vo2maxNoFtp": "FTP와 체중 필요",
     "tsbOverRested": "휴식 과다",
     "tsbOptimalForm": "폼 최적",
     "tsbTrainingOk": "트레이닝 적정",
@@ -313,7 +314,6 @@
     "pmcSub": "CTL 체력 · ATL 피로 · TSB 상태",
     "weeklyLoadTitle": "주간 부하 · 최근 4주",
     "weeklyLoadSub": "이번 주 {{thisWeek}} · 평균 {{avg}} · 연속 휴식 {{restDays}}일",
-    "recentActivities": "최근 활동",
     "zonePowerTitle": "파워 존 분포 · 최근 4주",
     "zoneHrTitle": "심박 존 분포 · 최근 4주",
     "zoneSourcePower": "파워 스트림 기반",
@@ -327,7 +327,26 @@
     "pmcNoData": "데이터 부족 — 최소 2일 필요",
     "pmcLabelToday": " · 오늘",
     "pmcLabelForecast": " · 예측",
-    "weeklyTssThisWeek": "이번 주"
+    "weeklyTssThisWeek": "이번 주",
+    "snapshot": {
+      "title": "현재 피트니스 스냅샷",
+      "subtitle": "수치 · 평가 · 산출 근거를 함께 확인하세요",
+      "ftp": "기준 파워",
+      "ftpStatus": "프로필 FTP",
+      "ftpSource": "현재 프로필 FTP와 체중으로 계산한 W/kg",
+      "ftpWeightMissing": "프로필 FTP · 체중이 없어 W/kg는 미산출",
+      "riderType": "사이클링 능력",
+      "abilityTop": "종합 역량 상위 {{pct}}%",
+      "riderSource": "최근 90일 PDC · Coggan 남성 파워 프로파일 기준(v1), 성별·연령 미반영",
+      "vo2PdcSource": "최근 90일 PDC의 CP/5분 파워와 체중 기반 추정 · 활동 {{count}}개 · 실험실 측정치 아님",
+      "vo2FormulaSource": "프로필 FTP와 체중 기반 단순 근사 · 실험실 측정치 아님",
+      "cohortTop": "전체 코호트 상위 {{pct}}% · 표본 {{count}}명",
+      "estimateOnly": "추정치 · 코호트 평가 없음",
+      "load": "O-Rider 훈련 부하",
+      "loadSource": "CTL 42일 EMA · ATL 7일 EMA · TSB=CTL-ATL. Garmin 급성 부하와 다른 모델",
+      "insufficient": "데이터 부족 · 평가하지 않음",
+      "bandAria": "{{metric}} 위치 표시: {{status}}"
+    }
   },
   "runEmpty": {
     "title": "달리던 앱을 연결하면, 여기서 러닝을 해석해 드려요",

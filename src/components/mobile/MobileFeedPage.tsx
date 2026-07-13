@@ -6,26 +6,29 @@ import type { Activity } from "@shared/types";
 import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
-import WeekBars from "./WeekBars";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
-import SportFilterTabs from "./SportFilterTabs";
 import { Button, Card, Text } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
 import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
 import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activitySanity";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
+import type { ActivityFeedScope } from "../../hooks/useActivities";
 
 const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const RouteMap = lazy(() => import("../RouteMap"));
 const MOBILE_FEED_RENDER_STEP = 40;
 const MOBILE_FEED_RENDER_INITIAL = 60;
+type SportFilter = "all" | "bike" | "run" | "swim";
 
-interface WeekEntry {
+interface SportBreakdownItem {
+  key: SportFilter;
   label: string;
-  distance: number;
+  value: string;
+  unit: string;
+  color: string;
 }
 
 interface MobileFeedPageProps {
@@ -34,11 +37,61 @@ interface MobileFeedPageProps {
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
-  recentWeeks: WeekEntry[];
   showYearRecapBanner?: boolean;
   consistencyStreak?: ConsistencyStreakSummary | null;
   currentUserId?: string | null;
   friendIds?: string[];
+  feedScope: ActivityFeedScope;
+  onFeedScopeChange: (scope: ActivityFeedScope) => void;
+}
+
+function SportSummaryFilter({
+  items,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  items: SportBreakdownItem[];
+  value: SportFilter;
+  onChange: (value: SportFilter) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <Card
+      padding="none"
+      role="group"
+      aria-label={ariaLabel}
+      className="grid grid-cols-4 overflow-hidden"
+      style={{ margin: "0 -16px", padding: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}
+    >
+      {items.map((item, index) => (
+        <button
+          key={item.key}
+          type="button"
+          aria-label={item.label}
+          aria-pressed={value === item.key}
+          onClick={() => onChange(item.key)}
+          style={{
+            minWidth: 0,
+            minHeight: 64,
+            padding: "10px 2px",
+            textAlign: "center",
+            border: "none",
+            borderRight: index < items.length - 1 ? "1px solid var(--line-soft)" : "none",
+            background: value === item.key ? "var(--bg-3)" : "transparent",
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: value === item.key ? item.color : "var(--ink-4)", marginBottom: 'var(--space-1)', overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.label}
+          </div>
+          <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: item.color, lineHeight: 1 }}>
+            {item.value}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-0-5)" }}>{item.unit}</span>
+          </Text>
+        </button>
+      ))}
+    </Card>
+  );
 }
 
 function formatDur(ms: number): string {
@@ -221,27 +274,28 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 }
 
 export default function MobileFeedPage({
-  activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
+  activities, loading, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
+  feedScope, onFeedScopeChange,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
-  const [sportFilter, setSportFilter] = useState("all");
-  const [feedScope, setFeedScope] = useState<"all" | "friends" | "self">("all");
+  const [sportFilter, setSportFilter] = useState<SportFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [datePreset, setDatePreset] = useState<"all" | "7d" | "30d" | "90d">("all");
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
 
-  const sportBreakdown = useMemo(() => {
+  const sportBreakdown = useMemo<SportBreakdownItem[]>(() => {
     const bike = activities.filter(a => getDiscipline(a.type) === "bike");
     const run = activities.filter(a => getDiscipline(a.type) === "run");
     const swim = activities.filter(a => getDiscipline(a.type) === "swim");
     return [
-      { icon: "🚴", label: "RIDE", value: Math.round(bike.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--aqua)" },
-      { icon: "🏃", label: "RUN", value: Math.round(run.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--amber)" },
-      { icon: "🏊", label: "SWIM", value: Math.round(swim.reduce((s, a) => s + a.summary.distance, 0)).toLocaleString(), unit: "m", color: "var(--lime)" },
+      { key: "all" as const, label: t("common:label.all"), value: t("feed.countSuffix", { value: activities.length }), unit: "", color: "var(--ink-0)" },
+      { key: "bike" as const, label: t("common:sportFilter.bike"), value: Math.round(bike.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--aqua)" },
+      { key: "run" as const, label: t("common:sportFilter.run"), value: Math.round(run.reduce((s, a) => s + a.summary.distance / 1000, 0)).toLocaleString(), unit: "km", color: "var(--amber)" },
+      { key: "swim" as const, label: t("common:sportFilter.swim"), value: Math.round(swim.reduce((s, a) => s + a.summary.distance, 0)).toLocaleString(), unit: "m", color: "var(--lime)" },
     ];
-  }, [activities]);
+  }, [activities, t]);
 
   // 측정 오류 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
   const visibleActivities = activities.filter((a) => !isTrivialActivity(a));
@@ -274,6 +328,17 @@ export default function MobileFeedPage({
         </div>
       )}
 
+      {!user && (
+        <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
+          <SportSummaryFilter
+            items={sportBreakdown}
+            value={sportFilter}
+            onChange={setSportFilter}
+            ariaLabel={t("mobileFeed.sportFilterLabel")}
+          />
+        </div>
+      )}
+
       {/* 주간 요약 — 로그인 사용자만 (비로그인은 개인 통계 컨텍스트 없음) */}
       {user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
@@ -285,23 +350,12 @@ export default function MobileFeedPage({
           </div>
 
           {/* 전폭 카드: 대시보드 래퍼는 모바일 px 없음 → 부모 padding(16px) 음수마진으로 상쇄 */}
-          <Card padding="none" className="grid grid-cols-3 overflow-hidden" style={{ margin: "0 -16px var(--space-3)", padding: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
-            {sportBreakdown.map((s, i) => (
-              <div key={s.label} style={{ padding: "10px 0", textAlign: "center", borderRight: i < 2 ? "1px solid var(--line-soft)" : "none" }}>
-                <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-4)", marginBottom: 'var(--space-1)', display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1)" }}>
-                  <span>{s.icon}</span> {s.label}
-                </div>
-                <Text as="div" variant="num" style={{ fontSize: "var(--fs-lg)", color: s.color, lineHeight: 1 }}>
-                  {s.value}<span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginLeft: "var(--space-0-5)" }}>{s.unit}</span>
-                </Text>
-              </div>
-            ))}
-          </Card>
-
-          <Card padding="none" style={{ margin: "0 -16px", padding: "var(--space-3)", borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("mobileFeed.weeklyDistance")}</Text>
-            <WeekBars weeks={recentWeeks} />
-          </Card>
+          <SportSummaryFilter
+            items={sportBreakdown}
+            value={sportFilter}
+            onChange={setSportFilter}
+            ariaLabel={t("mobileFeed.sportFilterLabel")}
+          />
         </div>
       )}
 
@@ -330,58 +384,52 @@ export default function MobileFeedPage({
         </div>
       )}
 
-      {/* 종목 필터 */}
-      <div style={{ borderBottom: "1px solid var(--line-soft)" }}>
-        <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
-      </div>
-
       <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "10px 16px", display: "grid", gap: "var(--space-2)" }}>
-        <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-1)" }}>
-          {([
-            ["all", t("feed.filter.all")],
-            ["friends", t("feed.filter.friends")],
-            ["self", t("feed.filter.self")],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={feedScope === value}
-              onClick={() => setFeedScope(value)}
-              style={{
-                minHeight: 44,
-                borderRadius: "var(--r-md)",
-                border: "1px solid var(--line-soft)",
-                background: feedScope === value ? "var(--bg-3)" : "var(--bg-1)",
-                color: feedScope === value ? "var(--ink-0)" : "var(--ink-3)",
-                fontSize: "var(--fs-xs)",
-                fontWeight: 600,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "var(--space-2)" }}>
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t("feed.search.placeholder")}
-            aria-label={t("feed.search.placeholder")}
+        <input
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder={t("feed.search.placeholder")}
+          aria-label={t("feed.search.placeholder")}
+          style={{
+            width: "100%",
+            minWidth: 0,
+            minHeight: 44,
+            borderRadius: "var(--r-md)",
+            border: "1px solid var(--line-soft)",
+            background: "var(--bg-2)",
+            color: "var(--ink-0)",
+            padding: "0 12px",
+            fontSize: "var(--fs-sm)",
+          }}
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)" }}>
+          <select
+            value={feedScope}
+            onChange={(event) => onFeedScopeChange(event.target.value as ActivityFeedScope)}
+            aria-label={t("feed.filter.label")}
             style={{
+              width: "100%",
+              minWidth: 0,
               minHeight: 44,
               borderRadius: "var(--r-md)",
               border: "1px solid var(--line-soft)",
               background: "var(--bg-2)",
               color: "var(--ink-0)",
-              padding: "0 12px",
-              fontSize: "var(--fs-sm)",
+              padding: "0 10px",
+              fontSize: "var(--fs-xs)",
             }}
-          />
+          >
+            <option value="all">{t("feed.filter.all")}</option>
+            <option value="friends">{t("feed.filter.friends")}</option>
+            <option value="self">{t("feed.filter.self")}</option>
+          </select>
           <select
             value={datePreset}
             onChange={(event) => setDatePreset(event.target.value as "all" | "7d" | "30d" | "90d")}
-            aria-label={t("feed.datePreset.label", { defaultValue: "기간" })}
+            aria-label={t("feed.datePreset.label")}
             style={{
+              width: "100%",
+              minWidth: 0,
               minHeight: 44,
               borderRadius: "var(--r-md)",
               border: "1px solid var(--line-soft)",

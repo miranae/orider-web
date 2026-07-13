@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 
 describe("FitnessPage desktop hierarchy", () => {
   const source = readFileSync(join(process.cwd(), "src/pages/FitnessPage.tsx"), "utf8");
-  it("caps desktop reading width and lets KPI cards wrap at intermediate widths", () => {
-    expect(source).toContain("maxWidth: 1120");
-    expect(source).not.toContain("maxWidth: 1440");
+  it("uses the site shell and lets KPI cards wrap at intermediate widths", () => {
+    expect(source).toContain('className="site-shell"');
+    expect(source).not.toContain("maxWidth: 1120");
     expect(source).toContain('repeat(auto-fit, minmax(180px, 1fr))');
     expect(source).toContain('gap: "var(--space-3)"');
     expect(source).not.toContain("borderRight: i < arr.length - 1");

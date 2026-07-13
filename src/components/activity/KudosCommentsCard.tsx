@@ -27,7 +27,9 @@ interface KudosCommentsCardProps {
   profile: UserProfile | null;
   liked: boolean;
   kudos: KudoItem[];
+  kudosCount?: number;
   comments: CommentItem[];
+  commentCount?: number;
   commentText: string;
   setCommentText: (v: string) => void;
   submitting: boolean;
@@ -48,7 +50,9 @@ export default function KudosCommentsCard({
   profile,
   liked,
   kudos,
+  kudosCount,
   comments,
+  commentCount,
   commentText,
   setCommentText,
   submitting,
@@ -67,6 +71,8 @@ export default function KudosCommentsCard({
   const dialog = useDialog();
   const hydratedKudos = useHydratedSocialProfiles(kudos, "KudosCommentsCard.kudos");
   const hydratedComments = useHydratedSocialProfiles(comments, "KudosCommentsCard.comments");
+  const displayedKudosCount = Math.max(hydratedKudos.length, kudosCount ?? 0);
+  const displayedCommentCount = Math.max(hydratedComments.length, commentCount ?? 0);
   const currentProfileImage = profile?.photoURL ?? user?.photoURL ?? null;
 
   return (
@@ -82,10 +88,10 @@ export default function KudosCommentsCard({
           <svg className="w-5 h-5" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
           </svg>
-          {hydratedKudos.length > 0 ? t("kudosCard.kudosWithCount", { count: hydratedKudos.length }) : t("kudosCard.kudos")}
+          {displayedKudosCount > 0 ? t("kudosCard.kudosWithCount", { count: displayedKudosCount }) : t("kudosCard.kudos")}
         </button>
         <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
-          {t("kudosCard.comments", { count: hydratedComments.length })}
+          {t("kudosCard.comments", { count: displayedCommentCount })}
         </span>
       </div>
 

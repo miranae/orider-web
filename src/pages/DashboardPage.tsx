@@ -26,7 +26,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch, useMonthlyActivityDistance } from "../hooks/useActivities";
-import type { DatePreset } from "../hooks/useActivities";
+import type { ActivityFeedScope, DatePreset } from "../hooks/useActivities";
 import { useFriends } from "../hooks/useFriends";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { estimateActivityLoad, aggregateDailyLoad, calculateFitness } from "../utils/fitnessMetrics";
@@ -173,8 +173,10 @@ export default function DashboardPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
   const { units } = useLocale();
-  const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities();
   const { friends } = useFriends();
+  const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
+  const feedScope: ActivityFeedScope = (["all", "friends", "self"] as const)[feedFilter];
+  const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities(feedScope, [...friendIds]);
   const { weeklyStats, thisWeek } = useWeeklyStats();
   const monthlyActivityDistance = useMonthlyActivityDistance();
   const activitySearch = useActivitySearch();
@@ -239,8 +241,6 @@ export default function DashboardPage() {
 
   // 종목 필터 적용
   const sportFiltered = useMemo(() => filterByDiscipline(activities, discipline), [activities, discipline]);
-  const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
-
   // 피드 필터 적용 (전체/친구/본인)
   const filteredActivities = useMemo(
     () => filterFeedActivities(sportFiltered, feedFilter, user?.uid, friendIds),
@@ -443,19 +443,17 @@ export default function DashboardPage() {
   if (isMobile) {
     return (
       <MobileFeedPage
-        activities={sportFiltered}
+        activities={activities}
         loading={loading}
         hasMore={hasMore}
         loadingMore={loadingMore}
         onLoadMore={loadMore}
-        recentWeeks={weeklyStats.map((ws) => ({
-          label: ws.week,
-          distance: ws.distance,
-        }))}
         showYearRecapBanner={showYearRecapBanner}
         consistencyStreak={consistencyStreak}
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
+        feedScope={feedScope}
+        onFeedScopeChange={(scope) => setFeedFilter(({ all: 0, friends: 1, self: 2 } as const)[scope])}
       />
     );
   }
@@ -596,10 +594,12 @@ export default function DashboardPage() {
                    tooltip 은 실제 쿼리(본인 OR visibility==everyone)와 일치하게 "전체 공개 + 내 활동" 으로 표기 (#231). */
                 <span
                   style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}
-                  title={t("feed.countTooltip")}
+                  title={feedScope === "all" ? t("feed.countTooltip") : t(`feed.filter.${feedScope}`)}
                 >
                   {t("feed.countSuffix", { value: formatNum(totalCount, i18n.language) })}
-                  <span style={{ fontFamily: "var(--font-sans)", color: "var(--ink-4)", marginLeft: 'var(--space-1)' }}>{t("feed.feedScope")}</span>
+                  <span style={{ fontFamily: "var(--font-sans)", color: "var(--ink-4)", marginLeft: 'var(--space-1)' }}>
+                    {feedScope === "all" ? t("feed.feedScope") : t(`feed.filter.${feedScope}`)}
+                  </span>
                 </span>
               )}
               <div className="flex-1" />
