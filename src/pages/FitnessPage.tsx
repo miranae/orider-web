@@ -53,12 +53,12 @@ import DetailsSection from "../components/redesign/DetailsSection";
 import { Card, Text, Chip, buttonClass } from "../theme/components";
 import RiderTypeCard from "../components/RiderTypeCard";
 import { computeExpectedCurve, classifyGaps, computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
-import { estimateCyclingVo2max } from "@shared/training/vo2max";
 import type { PowerDurationKey } from "@shared/types/personal-records";
 import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
 import PowerCurveChart from "../features/fitness/components/PowerCurveChart";
-import FtpProgressionCard from "../features/fitness/components/FtpProgressionCard";
-import { deriveEstimatedFtpProgression, detectFtpBreakthrough } from "@shared/training/ftpProgression";
+import { deriveEstimatedFtpProgression } from "@shared/training/ftpProgression";
+import { resolveBikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
+import { isConservativeDrop } from "@shared/training/ftpTest";
 import {
   POWER_DURATION_KEY_SEC,
   formatKoreanDate,
@@ -72,7 +72,8 @@ import {
   type RangeOption,
 } from "../features/fitness/fitnessPageUtils";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
-import { BikeActionAccordion, FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
+import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
+import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
 import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
 import { percentileOf } from "@shared/training/cohortPercentile";
 import { useUserFitness } from "../hooks/useUserFitness";
@@ -84,6 +85,9 @@ import {
   computeIntegratedLoadFocus,
 } from "../features/fitness/multisportPerformance";
 import { useFitnessClock } from "../hooks/useFitnessClock";
+import { useDialog } from "../contexts/DialogContext";
+import { useToast } from "../contexts/ToastContext";
+import { persistRiderMetrics } from "../services/syncRiderMetrics";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -91,6 +95,10 @@ export default function FitnessPage() {
   const { t, i18n } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
+  const dialog = useDialog();
+  const { showToast } = useToast();
+  const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
+  const [applyingFtp, setApplyingFtp] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [streamsMap, setStreamsMap] = useState<Map<string, ActivityStreams>>(new Map());
   // 활동별 분석 메트릭 (서버에서 GCS 스트림까지 파싱·계산해둠). FitnessPage 가 직접 stream 을
@@ -117,6 +125,36 @@ export default function FitnessPage() {
 
   const [searchParams] = useSearchParams();
   const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
+  const canonicalFtpW = appliedFtpW ?? profile?.ftp ?? null;
+  const thresholdDecision = useMemo(
+    () => resolveBikeThresholdDecision(canonicalFtpW, pdc),
+    [canonicalFtpW, pdc],
+  );
+
+  async function applyAutomaticFtp(candidateW: number) {
+    if (!user || applyingFtp) return;
+    if (isConservativeDrop(thresholdDecision.activeFtpW, candidateW)) {
+      const confirmed = await dialog.confirm(
+        t("thresholdDecision.dropConfirm", { current: thresholdDecision.activeFtpW, candidate: candidateW }),
+        { title: t("thresholdDecision.dropConfirmTitle"), destructive: true },
+      );
+      if (!confirmed) return;
+    }
+    setApplyingFtp(true);
+    try {
+      const result = await persistRiderMetrics(user.uid, { ftp: candidateW });
+      setAppliedFtpW(candidateW);
+      if (result.failures.length > 0) {
+        showToast(t("thresholdDecision.partial", { count: result.failures.length }), "error");
+      } else {
+        showToast(t("thresholdDecision.applied", { value: candidateW }));
+      }
+    } catch (error) {
+      showToast(t("thresholdDecision.applyFailed", { message: error instanceof Error ? error.message : String(error) }), "error");
+    } finally {
+      setApplyingFtp(false);
+    }
+  }
 
   // 거리별 러닝 기록 — 러닝 탭에서만 구독 (§3.4a)
   const { run: runRecords } = useRunRecords(discipline === "run");
@@ -566,7 +604,7 @@ export default function FitnessPage() {
   }
 
   if (isMobile) {
-    const ftp = profile?.ftp ?? 0;
+    const ftp = canonicalFtpW ?? 0;
     const cp = currentPoint;
 
     // PMC 추이 — 데스크톱 range 선택과 같은 데이터 범위를 모바일에도 전달한다.
@@ -685,13 +723,12 @@ export default function FitnessPage() {
           zones,
           zoneSource,
           powerCurve,
-          ftpProgression: deriveEstimatedFtpProgression(pdc?.history),
-          ftpBreakthrough: pdc?.pdcModel != null && pdc.activityCount >= 5
-            ? detectFtpBreakthrough(profile?.ftp, pdc.pdcModel.ftpEst)
-            : null,
+          thresholdDecision,
           discipline,
         }}
         consistencyStreak={consistencyStreak}
+        applyingFtp={applyingFtp}
+        onApplyFtp={applyAutomaticFtp}
       />
     );
   }
@@ -704,7 +741,7 @@ export default function FitnessPage() {
   const atl = currentPoint?.atl ?? 0;
   const tsb = currentPoint?.tsb ?? 0;
   const ctlDelta = rangeStartPoint ? ctl - rangeStartPoint.ctl : 0;
-  const formulaVo2max = profile?.ftp ? Math.round((profile.ftp / (profile.weightKg || 70)) * 15.7 + 3.5) : null;
+  const formulaVo2max = canonicalFtpW ? Math.round((canonicalFtpW / (profile?.weightKg || 70)) * 15.7 + 3.5) : null;
   const displayedVo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : formulaVo2max;
 
   // 훈련 상태 판정용 CTL 램프 — 선택된 range(최대 365일)로 나누면 희석되므로
@@ -767,26 +804,7 @@ export default function FitnessPage() {
       ? computeOutdoorPacingGuide(pdc.cp.value, profile?.weightKg)
       : null;
 
-  // #461 VO2max 월별 트렌드 — pdc.history 의 월별 mmp("5m"|"1h"=CP 폴백)와 체중으로 파생(서버 미저장, 클라 계산).
-  const vo2maxTrend =
-    discipline !== "bike" || !pdc?.history?.length
-      ? []
-      : (() => {
-          const weightKg = profile?.weightKg ?? pdc.weightKgSnapshot ?? null;
-          if (weightKg == null) return [];
-          return pdc.history
-            .map((h) => ({
-              period: h.period,
-              v: estimateCyclingVo2max({ power5minW: h.mmp?.["5m"] ?? null, cpW: pdc.cp?.value ?? null, weightKg }),
-            }))
-            .filter((p): p is { period: string; v: number } => p.v != null);
-        })();
-
   const ftpProgression = deriveEstimatedFtpProgression(pdc?.history);
-  const ftpBreakthrough = pdc?.pdcModel != null && pdc.activityCount >= 5
-    ? detectFtpBreakthrough(profile?.ftp, pdc.pdcModel.ftpEst)
-    : null;
-
   // 강점/약점 — mmpAll(duration 별 best)과 CP 모델 기대파워 갭 분류.
   const powerGaps: GapEntry[] =
     discipline === "bike" && pdc?.cp != null && pdc.mmpAll
@@ -996,8 +1014,8 @@ export default function FitnessPage() {
                 desc: tsbStatusLabel(tsb, t),
                 hint: t("kpi.tsb.hint"),
               },
-              discipline === "run"
-                ? {
+              ...(discipline === "run"
+                ? [{
                     label: t("kpi.thresholdPace"),
                     value: profile?.thresholdPace ? secToMmss(profile.thresholdPace) : "—",
                     unit: "/km",
@@ -1005,9 +1023,9 @@ export default function FitnessPage() {
                     color: "var(--aqua)",
                     desc: "",
                     hint: t("kpi.thresholdPaceHint"),
-                  }
+                  }]
                 : discipline === "swim"
-                ? {
+                ? [{
                     label: "CSS",
                     value: profile?.css ? secToMmss(profile.css) : "—",
                     unit: "/100m",
@@ -1015,16 +1033,8 @@ export default function FitnessPage() {
                     color: "var(--aqua)",
                     desc: "",
                     hint: t("kpi.cssHint"),
-                  }
-                : {
-                    label: "FTP",
-                    value: profile?.ftp ? String(profile.ftp) : "—",
-                    unit: "W",
-                    sub: "",
-                    color: "var(--aqua)",
-                    desc: "",
-                    hint: t("kpi.ftpHint"),
-                  },
+                  }]
+                : []),
               ...(discipline === "bike" ? [{
                 label: "VO2max",
                 value: displayedVo2max != null ? String(displayedVo2max) : "—",
@@ -1059,47 +1069,14 @@ export default function FitnessPage() {
           </Card>
         )}
 
-        {/* FTP 지속시간 (TTE) — PDC 서버 계산 결과, bike 종목이고 pdcModel 있을 때만 표시 */}
-        {discipline === "bike" && pdc?.pdcModel != null && (
-          <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
-            <div style={{ borderRight: "1px solid var(--line-soft)", paddingRight: 'var(--space-5)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{t("ftpCard.tteLabel")}</Text>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)' }}>
-                <Text variant="dataLarge" style={{ color: "var(--aqua)" }}>~{Math.round(pdc.pdcModel.tteMin)}</Text>
-                <Text variant="unit">{t("ftpCard.tteUnit")}</Text>
-              </div>
-              <Text as="div" variant="eyebrow" style={{ marginTop: 'var(--space-1)', color: "var(--ink-4)" }}>
-                {t("ftpCard.tteSub")}
-              </Text>
-            </div>
-            <div style={{ borderRight: "1px solid var(--line-soft)", padding: `0 var(--space-5)` }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{t("ftpCard.cpLabel")}</Text>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)' }}>
-                <Text variant="dataLarge" style={{ color: "var(--aqua)" }}>{Math.round(pdc.pdcModel.cpEst)}</Text>
-                <Text variant="unit">W</Text>
-              </div>
-              <Text as="div" variant="eyebrow" style={{ marginTop: 'var(--space-1)', color: "var(--ink-4)" }}>
-                {t("ftpCard.cpSub")}
-              </Text>
-            </div>
-            <div style={{ paddingLeft: 'var(--space-5)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{t("ftpCard.ftpEstLabel")}</Text>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)' }}>
-                <Text variant="dataLarge" style={{ color: "var(--aqua)" }}>{Math.round(pdc.pdcModel.ftpEst)}</Text>
-                <Text variant="unit">W</Text>
-              </div>
-              <Text as="div" variant="eyebrow" style={{ marginTop: 'var(--space-1)', color: "var(--ink-4)" }}>
-                {t("ftpCard.ftpEstSub")}
-              </Text>
-            </div>
-          </Card>
-        )}
-
         {discipline === "bike" && (
-          <FtpProgressionCard
-            points={ftpProgression}
-            currentFtpW={profile?.ftp}
-            breakthrough={ftpBreakthrough}
+          <BikeThresholdDecisionCard
+            decision={thresholdDecision}
+            hasZoneData={!!zoneDistribution}
+            applying={applyingFtp}
+            onApplyCandidate={applyAutomaticFtp}
+            progressionPoints={ftpProgression}
+            t={t}
           />
         )}
 
@@ -1107,54 +1084,6 @@ export default function FitnessPage() {
             라이더 유형·코호트 백분위는 오늘의 결론 근거로, 기본 접힘 progressive disclosure. */}
         {discipline === "bike" && (
         <DetailsSection title={t("conclusion.detailToggle")}>
-        {discipline === "bike" && (
-          <BikeActionAccordion
-            ftp={profile?.ftp}
-            hasPdcModel={pdc?.pdcModel != null}
-            hasZoneData={!!zoneDistribution}
-            t={t}
-          />
-        )}
-
-        {/* VO2max 추정 — bike 종목이고 vo2maxEst 있을 때만 표시 */}
-        {discipline === "bike" && pdc?.vo2maxEst != null && (
-          <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-4)' }}>
-              <div>
-                <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{t("vo2maxCard.label")}</Text>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)' }}>
-                  <Text variant="dataLarge" style={{ color: "var(--aqua)" }}>~{pdc.vo2maxEst}</Text>
-                  <Text variant="unit">ml/kg/min</Text>
-                </div>
-                <Text as="div" variant="eyebrow" style={{ marginTop: 'var(--space-1)', color: "var(--ink-4)" }}>
-                  {t("vo2maxCard.sub")}
-                </Text>
-              </div>
-              {/* #461 월별 VO2max 트렌드 스파크라인 (히스토리 2개월+ 있을 때) */}
-              {vo2maxTrend.length >= 2 && (() => {
-                const vals = vo2maxTrend.map((p) => p.v);
-                const lo = Math.min(...vals), hi = Math.max(...vals);
-                const w = 132, h = 40, span = hi - lo || 1;
-                const sx = (i: number) => (i / (vals.length - 1)) * w;
-                const sy = (v: number) => h - ((v - lo) / span) * h;
-                const path = vals.map((v, i) => `${i ? "L" : "M"}${sx(i).toFixed(1)} ${sy(v).toFixed(1)}`).join(" ");
-                const delta = vals[vals.length - 1]! - vals[0]!;
-                return (
-                  <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 'var(--space-1)' }}>
-                    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: w, height: h, display: "block" }} preserveAspectRatio="none">
-                      <path d={`M0 ${h} ${path.replace(/^M/, "L")} L${w} ${h} Z`} fill="var(--aqua)" opacity="0.14" />
-                      <path d={path} stroke="var(--aqua)" strokeWidth="1.5" fill="none" />
-                    </svg>
-                    <Text as="div" variant="mono" className="text-[length:var(--fs-xs)]" style={{ color: delta >= 0 ? "var(--lime)" : "var(--rose)" }}>
-                      {delta >= 0 ? "+" : ""}{delta.toFixed(1)} · {t("vo2maxCard.trendSpan", { n: vo2maxTrend.length })}
-                    </Text>
-                  </div>
-                );
-              })()}
-            </div>
-          </Card>
-        )}
-
         {/* 강점/약점 — CP 모델 기대파워 대비 실제 best 갭. bike + pdc.cp + 분류 결과 있을 때만 */}
         {discipline === "bike" && pdc?.cp != null && (strengths.length > 0 || weaknesses.length > 0) && (
           <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>

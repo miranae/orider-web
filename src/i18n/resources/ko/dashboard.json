@@ -328,10 +328,12 @@
     "pmcLabelToday": " · 오늘",
     "pmcLabelForecast": " · 예측",
     "weeklyTssThisWeek": "이번 주",
+    "coreStatusTitle": "현재 FTP · 사이클 역량",
     "integrated": {
       "cardAria": "통합 멀티스포츠 훈련 상태와 최근 28일 부하 포커스",
       "title": "통합 멀티스포츠 상태",
       "authoritativeSource": "사이클·러닝·수영을 합쳐 서버에서 계산한 CTL · ATL · TSB",
+      "detailsToggle": "종목 기여도와 부하 포커스 상세",
       "contributionTitle": "현재 체력 기여도",
       "discipline": {
         "bike": "사이클",

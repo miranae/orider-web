@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 
 import type { AppSettings } from "@shared/types/deviceSettings";
 
@@ -22,10 +22,43 @@ import { parseBikeProfile } from "../types/bikeProfile";
  * 변경할 때만 발동한다 — 웹에서 운동 프로필만 바꾸는 케이스를 위해 명시적 동기화.
  */
 
-interface RiderMetricsSync {
+export interface RiderMetricsSync {
   ftp?: number | null;
   maxHr?: number | null;
   weightKg?: number | null;
+}
+
+/**
+ * 프로필 임계값을 기기 설정에 반영하고 사용자 루트에도 즉시 기록한다.
+ * 기기 미러 트리거의 지연/실패와 무관하게 웹 프로필 정본이 유지된다.
+ * 호출 전에는 어떤 변경도 일어나지 않는다.
+ */
+export async function persistRiderMetrics(
+  uid: string,
+  patch: RiderMetricsSync,
+): Promise<RiderMetricsSyncResult> {
+  let result: RiderMetricsSyncResult;
+  try {
+    result = await syncRiderMetricsToDevices(uid, patch);
+  } catch (error) {
+    result = {
+      updatedDevices: 0,
+      failures: [{
+        deviceId: "*",
+        deviceName: "",
+        error: error instanceof Error ? error.message : String(error),
+      }],
+    };
+  }
+  const rootPatch = Object.fromEntries(
+    Object.entries(patch).filter((entry): entry is [string, number] => (
+      typeof entry[1] === "number" && Number.isFinite(entry[1])
+    )),
+  );
+  if (Object.keys(rootPatch).length > 0) {
+    await updateDoc(doc(firestore, "users", uid), rootPatch);
+  }
+  return result;
 }
 
 export interface RiderMetricsSyncResult {

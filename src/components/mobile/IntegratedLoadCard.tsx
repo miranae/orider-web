@@ -63,7 +63,11 @@ export default function IntegratedLoadCard({
         })}
       </div>
 
-      <div style={{ marginTop: "var(--space-3)" }}>
+      <details style={{ marginTop: "var(--space-3)" }}>
+        <summary style={{ minHeight: 44, display: "flex", alignItems: "center", cursor: "pointer", fontSize: "var(--fs-sm)", fontWeight: 700 }}>
+          {t("mobileFitness.integrated.detailsToggle")}
+        </summary>
+      <div>
         <Text variant="eyebrow" as="div">{t("mobileFitness.integrated.contributionTitle")}</Text>
         {contributions.map((item) => {
           const share = pct(Math.max(0, item.ctl), contributionTotal);
@@ -79,8 +83,6 @@ export default function IntegratedLoadCard({
             </div>
           );
         })}
-      </div>
-
       <div style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--line-soft)" }}>
         <Text variant="eyebrow" as="div">{t("mobileFitness.integrated.focusTitle", { days: focus.windowDays })}</Text>
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>
@@ -117,6 +119,8 @@ export default function IntegratedLoadCard({
             : t("mobileFitness.integrated.hrHighIntensityNote")}
         </div>
       </div>
+      </div>
+      </details>
     </section>
   );
 }

@@ -328,10 +328,12 @@
     "pmcLabelToday": " · Today",
     "pmcLabelForecast": " · Forecast",
     "weeklyTssThisWeek": "This week",
+    "coreStatusTitle": "Active FTP · cycling ability",
     "integrated": {
       "cardAria": "Combined multisport training status and 28-day load focus",
       "title": "Combined multisport status",
       "authoritativeSource": "Server-computed combined CTL · ATL · TSB across cycling, running, and swimming",
+      "detailsToggle": "Sport contribution and load-focus details",
       "contributionTitle": "Current fitness contribution",
       "discipline": {
         "bike": "Cycling",
