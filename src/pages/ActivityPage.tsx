@@ -80,7 +80,7 @@ export default function ActivityPage() {
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
-  const { user, profile, signInWithGoogle } = useAuth();
+  const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
@@ -242,23 +242,35 @@ export default function ActivityPage() {
 
   // Real-time kudos subscription
   useEffect(() => {
-    if (!activityId) return;
+    if (authLoading) return;
+    if (!user || !activityId) {
+      setKudosList([]);
+      setKudosLoaded(false);
+      setKudosTouched(false);
+      setLiked(false);
+      return;
+    }
     setKudosLoaded(false);
+    setKudosTouched(false);
     const kudosRef = collection(firestore, "activities", activityId, "kudos");
     return onSnapshot(kudosRef, (snap) => {
       const list = snap.docs.map((d) => ({ userId: d.id, ...d.data() } as { userId: string; nickname: string; profileImage?: string | null }));
       setKudosList(list);
       setKudosLoaded(true);
-      setLiked(user ? list.some((k) => k.userId === user.uid) : false);
+      setLiked(list.some((k) => k.userId === user.uid));
     }, (err) => {
       setKudosLoaded(false);
       logClientError("ActivityPage.kudos", err, { path: `activities/${activityId}/kudos` });
     });
-  }, [activityId, user]);
+  }, [activityId, authLoading, user]);
 
   // Real-time comments subscription (exclude soft-deleted)
   useEffect(() => {
-    if (!activityId) return;
+    if (authLoading) return;
+    if (!user || !activityId) {
+      setCommentsList([]);
+      return;
+    }
     const commentsRef = query(
       collection(firestore, "activities", activityId, "comments"),
       where("deletedAt", "==", null),
@@ -272,7 +284,7 @@ export default function ActivityPage() {
       logClientError("ActivityPage.comments", err, { path: `activities/${activityId}/comments` });
     });
      
-  }, [activityId]);
+  }, [activityId, authLoading, user]);
 
   const handleToggleKudos = async () => {
     if (!user || !activityId || !profile) return;
@@ -1312,7 +1324,9 @@ export default function ActivityPage() {
         profile={profile}
         liked={displayLiked}
         kudos={activityKudos}
+        kudosCount={user ? activityKudos.length : activity.kudosCount}
         comments={activityComments}
+        commentCount={user ? activityComments.length : activity.commentCount}
         commentText={commentText}
         setCommentText={setCommentText}
         submitting={submitting}
