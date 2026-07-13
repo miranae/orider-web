@@ -77,6 +77,8 @@ export interface MobileFitnessData {
   // VO2max 추정용 (bike 한정). FTP/체중 → KPI 표에서 VO2max 셀 노출.
   ftp?: number;
   weightKg?: number;
+  hasLoadData: boolean;
+  pdcSummary?: MobileFitnessPdcSummary | null;
   // 최근 활동
   recentActivities: MobileRecentActivity[];
   // 존 분포
@@ -90,6 +92,15 @@ export interface MobileFitnessData {
   discipline: "bike" | "run" | "swim" | "tri";
 }
 
+export interface MobileFitnessPdcSummary {
+  riderType: { type: string; confidence: number } | null;
+  abilityPercentile: number | null;
+  vo2maxEst: number | null;
+  vo2maxPercentile: number | null;
+  cohortSampleSize: number | null;
+  activityCount: number | null;
+}
+
 /** TSB 가독성 라벨 키 (데스크탑 FitnessPage 와 동일 톤). */
 function tsbLabelKey(tsb: number): string {
   if (tsb >= 25) return "mobileFitness.tsbOverRested";
@@ -101,9 +112,105 @@ function tsbLabelKey(tsb: number): string {
 
 /** VO2max 추정: FTP / 체중(kg) × 15.7 + 3.5 (FitnessPage.tsx 와 동일 공식). */
 function estimateVo2max(ftp: number | undefined, weightKg: number | undefined): number | null {
-  if (!ftp || ftp <= 0) return null;
-  const w = weightKg && weightKg > 0 ? weightKg : 70;
-  return Math.round((ftp / w) * 15.7 + 3.5);
+  if (!ftp || ftp <= 0 || !weightKg || weightKg <= 0) return null;
+  return Math.round((ftp / weightKg) * 15.7 + 3.5);
+}
+
+const RIDER_TYPE_KEYS = new Set([
+  "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified",
+]);
+
+function SnapshotBand({ value, label }: { value: number; label: string }) {
+  const position = Math.max(0, Math.min(100, value));
+  return (
+    <div
+      role="img"
+      aria-label={label}
+      style={{ position: "relative", height: 7, borderRadius: "var(--r-sm)", background: "var(--bg-3)", marginTop: "var(--space-2)" }}
+    >
+      <div style={{ position: "absolute", inset: 0, width: `${position}%`, borderRadius: "var(--r-sm)", background: "var(--aqua)" }} />
+      <span
+        aria-hidden
+        style={{ position: "absolute", left: `${position}%`, top: "50%", width: 3, height: 13, borderRadius: "var(--r-xs)", background: "var(--ink-0)", transform: "translate(-50%, -50%)" }}
+      />
+    </div>
+  );
+}
+
+function FitnessSnapshot({ data, t }: { data: MobileFitnessData; t: (key: string, options?: Record<string, unknown>) => string }) {
+  if (data.discipline !== "bike") return null;
+
+  const pdc = data.pdcSummary;
+  const ftp = data.ftp && data.ftp > 0 ? data.ftp : null;
+  const wkg = ftp != null && data.weightKg && data.weightKg > 0 ? ftp / data.weightKg : null;
+  const riderType = pdc?.riderType && pdc.riderType.confidence >= 0.5 && RIDER_TYPE_KEYS.has(pdc.riderType.type)
+    ? pdc.riderType.type
+    : null;
+  const ability = pdc?.abilityPercentile;
+  const vo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : estimateVo2max(data.ftp, data.weightKg);
+  const vo2Source = pdc?.vo2maxEst != null
+    ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc.activityCount ?? 0 })
+    : vo2max != null
+      ? t("mobileFitness.snapshot.vo2FormulaSource")
+      : t("mobileFitness.snapshot.insufficient");
+  const topPct = (percentile: number) => Math.max(1, 100 - Math.round(percentile));
+
+  const rows = [
+    {
+      key: "ftp",
+      label: t("mobileFitness.snapshot.ftp"),
+      value: ftp != null ? `${Math.round(ftp)} W${wkg != null ? ` · ${wkg.toFixed(2)} W/kg` : ""}` : "—",
+      status: ftp != null ? t("mobileFitness.snapshot.ftpStatus") : t("mobileFitness.snapshot.insufficient"),
+      source: wkg != null ? t("mobileFitness.snapshot.ftpSource") : t("mobileFitness.snapshot.ftpWeightMissing"),
+      percentile: null,
+    },
+    {
+      key: "rider",
+      label: t("mobileFitness.snapshot.riderType"),
+      value: riderType ? t(`fitness:riderType.type.${riderType}.label`) : "—",
+      status: ability != null ? t("mobileFitness.snapshot.abilityTop", { pct: topPct(ability) }) : t("mobileFitness.snapshot.insufficient"),
+      source: t("mobileFitness.snapshot.riderSource"),
+      percentile: ability,
+    },
+    {
+      key: "vo2max",
+      label: "VO₂max",
+      value: vo2max != null ? `${vo2max} ml/kg/min` : "—",
+      status: pdc?.vo2maxPercentile != null
+        ? t("mobileFitness.snapshot.cohortTop", { pct: topPct(pdc.vo2maxPercentile), count: pdc.cohortSampleSize ?? 0 })
+        : vo2max != null ? t("mobileFitness.snapshot.estimateOnly") : t("mobileFitness.snapshot.insufficient"),
+      source: vo2Source,
+      percentile: pdc?.vo2maxPercentile ?? null,
+    },
+    {
+      key: "load",
+      label: t("mobileFitness.snapshot.load"),
+      value: data.hasLoadData ? `CTL ${data.ctl.toFixed(1)} · ATL ${data.atl.toFixed(1)} · TSB ${data.tsb >= 0 ? "+" : ""}${data.tsb.toFixed(1)}` : "—",
+      status: data.hasLoadData ? t(tsbLabelKey(data.tsb)) : t("mobileFitness.snapshot.insufficient"),
+      source: t("mobileFitness.snapshot.loadSource"),
+      percentile: data.hasLoadData ? ((data.tsb + 30) / 60) * 100 : null,
+    },
+  ];
+
+  return (
+    <SectionCard title={t("mobileFitness.snapshot.title")} sub={t("mobileFitness.snapshot.subtitle")}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {rows.map((row, index) => (
+          <div key={row.key} style={{ padding: "var(--space-2) 0", borderBottom: index < rows.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", alignItems: "baseline" }}>
+              <Text variant="eyebrow" as="span">{row.label}</Text>
+              <Text variant="mono" as="span" style={{ color: "var(--ink-0)", textAlign: "right" }}>{row.value}</Text>
+            </div>
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: "var(--space-1)", fontWeight: 600 }}>{row.status}</div>
+            {row.percentile != null && (
+              <SnapshotBand value={row.percentile} label={t("mobileFitness.snapshot.bandAria", { metric: row.label, status: row.status })} />
+            )}
+            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{row.source}</div>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  );
 }
 
 // ── PMC 추이 미니 차트 (Y축·X축 라벨, 오늘 마커, 예측, 탭 툴팁) ──
@@ -467,14 +574,16 @@ export default function MobileFitnessPage({
     ? t("mobileFitness.tabZonesRun")
     : t("mobileFitness.tabZonesSwim");
 
-  const vo2 = estimateVo2max(data.ftp, data.weightKg);
+  const vo2 = data.pdcSummary?.vo2maxEst != null
+    ? Math.round(data.pdcSummary.vo2maxEst)
+    : estimateVo2max(data.ftp, data.weightKg);
   // 각 KPI desc 는 그 지표 자체를 설명. 이전엔 "피로 우세" 처럼 전체 상태(TSB)를 CTL
   // 하단에 노출해 "CTL=피로?" 오해를 일으켰음. 신뢰성을 위해 TSB 카드에만 종합 상태를 노출하고,
   // CTL/ATL 은 지표 정의를, VO2MAX 는 데이터 출처를 명시한다.
   const kpiItems: Array<{ shortLabel: string; value: string; unit?: string; color: string; desc: string }> = [
-    { shortLabel: t("mobileFitness.kpiCtlLabel"),  value: data.ctl.toFixed(1), color: "var(--lime)",  desc: t("fitness:kpi.ctl.sub") },
-    { shortLabel: t("mobileFitness.kpiAtlLabel"),  value: data.atl.toFixed(1), color: "var(--rose)",  desc: t("fitness:kpi.atl.sub") },
-    { shortLabel: t("mobileFitness.kpiTsbLabel"),  value: (data.tsb >= 0 ? "+" : "") + data.tsb.toFixed(1), color: "var(--amber)", desc: t(tsbLabelKey(data.tsb)) },
+    { shortLabel: t("mobileFitness.kpiCtlLabel"),  value: data.hasLoadData ? data.ctl.toFixed(1) : "—", color: "var(--lime)",  desc: data.hasLoadData ? t("fitness:kpi.ctl.sub") : t("mobileFitness.snapshot.insufficient") },
+    { shortLabel: t("mobileFitness.kpiAtlLabel"),  value: data.hasLoadData ? data.atl.toFixed(1) : "—", color: "var(--rose)",  desc: data.hasLoadData ? t("fitness:kpi.atl.sub") : t("mobileFitness.snapshot.insufficient") },
+    { shortLabel: t("mobileFitness.kpiTsbLabel"),  value: data.hasLoadData ? (data.tsb >= 0 ? "+" : "") + data.tsb.toFixed(1) : "—", color: "var(--amber)", desc: data.hasLoadData ? t(tsbLabelKey(data.tsb)) : t("mobileFitness.snapshot.insufficient") },
     { shortLabel: "VO2MAX",   value: vo2 != null ? String(vo2) : "—", unit: "ml/kg/min", color: "var(--aqua)", desc: vo2 != null ? t("mobileFitness.vo2maxDesc") : t("mobileFitness.vo2maxNoFtp") },
   ];
 
@@ -512,6 +621,8 @@ export default function MobileFitnessPage({
 
       {tab === "overview" && (
         <div style={{ paddingTop: 14 }}>
+          <FitnessSnapshot data={data} t={t} />
+
           <div style={{ padding: "0 14px 14px" }}>
             <TodaysWorkoutCard />
           </div>
