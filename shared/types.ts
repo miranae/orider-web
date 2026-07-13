@@ -91,6 +91,8 @@ export interface Activity {
 export interface ActivitySummary {
   distance: number; // meters
   ridingTimeMillis: number; // 경과 시간(elapsed) — orider 활동은 정지 포함
+  /** 기기/파일이 제공한 총 경과시간. start/end GPS span보다 우선한다. */
+  elapsedTimeMillis?: number;
   // #236: activity_metrics 에서 비정규화된 이동/정지 시간 (정지 제외 movingTime, durationSec - moving).
   // 피드 카드(ActivityCard/MobileFeedPage)가 per-card metrics 구독 없이 이동시간을 표시하게 하는 용도.
   // 상세 페이지와 동일 소스(activity_metrics)라 값 일치 보장. streams/metrics 없는 활동은 undefined.
