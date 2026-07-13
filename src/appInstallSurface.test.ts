@@ -22,10 +22,17 @@ describe("app install and deep link surfaces", () => {
     ]);
   });
 
-  it("declares the iOS smart app banner", () => {
-    expect(read("index.html")).toContain(
-      '<meta name="apple-itunes-app" content="app-id=6775696052, app-argument=https://orider.co.kr" />',
-    );
+  it("keeps the iOS smart app banner disabled", () => {
+    expect(read("index.html")).not.toContain('name="apple-itunes-app"');
+  });
+
+  it("keeps iOS universal links enabled", () => {
+    const association = JSON.parse(read("public/.well-known/apple-app-site-association"));
+
+    expect(association.applinks.details).toContainEqual({
+      appID: "44UCACQVM5.com.miranae.orider",
+      paths: ["/course/*", "/friend/*", "/group/*"],
+    });
   });
 
   it("keeps the mobile feed free of the sticky app install banner", () => {
