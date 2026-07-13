@@ -1,5 +1,6 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { getDocs, where } from "firebase/firestore";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { getDocs, onSnapshot, where } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import ActivityPage from "./ActivityPage";
 import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
@@ -69,11 +70,17 @@ describe("ActivityPage", () => {
     mockRoute.activityId = "test-activity";
     setCollectionDocs("courses", []);
     vi.mocked(getDocs).mockClear();
+    vi.mocked(onSnapshot).mockClear();
+    vi.mocked(onAuthStateChanged).mockClear();
     vi.mocked(where).mockClear();
     vi.mocked(httpsCallable).mockClear();
     window.sessionStorage.clear();
     clearRideRouteIntentMemoryForTests();
   });
+
+  const socialSnapshotPaths = () => vi.mocked(onSnapshot).mock.calls
+    .map(([ref]) => (ref as { path?: string }).path)
+    .filter((path) => path?.endsWith("/kudos") || path?.endsWith("/comments"));
 
   it("shows loading state initially", () => {
     renderWithProviders(<ActivityPage />);
@@ -172,8 +179,13 @@ describe("ActivityPage", () => {
     });
   });
 
-  it("shows public comments and login CTA for signed-out visitors", async () => {
-    const activity = createMockActivity({ id: "test-activity" });
+  it("shows public social aggregates without subcollection reads for signed-out visitors", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      kudosCount: 4,
+      commentCount: 1,
+      recentKudos: [{ userId: "rider-1", nickname: "라이더", profileImage: null }],
+    });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setCollectionDocs("activities/test-activity/comments", [
       {
@@ -189,9 +201,50 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />, { authenticated: false });
 
-    expect(await screen.findByText("공개 댓글입니다")).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Google로 로그인" });
+    expect(screen.queryByText("공개 댓글입니다")).not.toBeInTheDocument();
+    expect(screen.getByText("좋아요 4")).toBeInTheDocument();
     expect(screen.getByText("댓글 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Google로 로그인" })).toBeInTheDocument();
+    expect(socialSnapshotPaths()).toEqual([]);
+  });
+
+  it("waits for auth resolution before subscribing and then loads signed-in social data", async () => {
+    const activity = createMockActivity({ id: "test-activity" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setCollectionDocs("activities/test-activity/comments", [{
+      id: "comment-1",
+      userId: "commenter-1",
+      nickname: "댓글러",
+      profileImage: null,
+      text: "로그인 후 댓글",
+      createdAt: Date.now(),
+      deletedAt: null,
+    }]);
+    let resolveAuth!: Parameters<typeof onAuthStateChanged>[1];
+    vi.mocked(onAuthStateChanged).mockImplementationOnce(((_auth, next) => {
+      resolveAuth = next;
+      return vi.fn();
+    }) as typeof onAuthStateChanged);
+
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+    await screen.findByText(activity.description);
+    expect(socialSnapshotPaths()).toEqual([]);
+
+    act(() => {
+      resolveAuth({
+        uid: "signed-in-user",
+        displayName: "Signed In",
+        email: "signed-in@example.com",
+        photoURL: null,
+      } as Parameters<typeof resolveAuth>[0]);
+    });
+
+    expect(await screen.findByText("로그인 후 댓글")).toBeInTheDocument();
+    expect(socialSnapshotPaths()).toEqual([
+      "activities/test-activity/kudos",
+      "activities/test-activity/comments",
+    ]);
   });
 
   it("starts sign-in when a signed-out visitor tries to participate", async () => {

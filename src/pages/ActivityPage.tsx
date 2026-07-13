@@ -80,7 +80,7 @@ export default function ActivityPage() {
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
-  const { user, profile, signInWithGoogle } = useAuth();
+  const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
@@ -242,23 +242,35 @@ export default function ActivityPage() {
 
   // Real-time kudos subscription
   useEffect(() => {
-    if (!activityId) return;
+    if (authLoading) return;
+    if (!user || !activityId) {
+      setKudosList([]);
+      setKudosLoaded(false);
+      setKudosTouched(false);
+      setLiked(false);
+      return;
+    }
     setKudosLoaded(false);
+    setKudosTouched(false);
     const kudosRef = collection(firestore, "activities", activityId, "kudos");
     return onSnapshot(kudosRef, (snap) => {
       const list = snap.docs.map((d) => ({ userId: d.id, ...d.data() } as { userId: string; nickname: string; profileImage?: string | null }));
       setKudosList(list);
       setKudosLoaded(true);
-      setLiked(user ? list.some((k) => k.userId === user.uid) : false);
+      setLiked(list.some((k) => k.userId === user.uid));
     }, (err) => {
       setKudosLoaded(false);
       logClientError("ActivityPage.kudos", err, { path: `activities/${activityId}/kudos` });
     });
-  }, [activityId, user]);
+  }, [activityId, authLoading, user]);
 
   // Real-time comments subscription (exclude soft-deleted)
   useEffect(() => {
-    if (!activityId) return;
+    if (authLoading) return;
+    if (!user || !activityId) {
+      setCommentsList([]);
+      return;
+    }
     const commentsRef = query(
       collection(firestore, "activities", activityId, "comments"),
       where("deletedAt", "==", null),
@@ -272,7 +284,7 @@ export default function ActivityPage() {
       logClientError("ActivityPage.comments", err, { path: `activities/${activityId}/comments` });
     });
      
-  }, [activityId]);
+  }, [activityId, authLoading, user]);
 
   const handleToggleKudos = async () => {
     if (!user || !activityId || !profile) return;
@@ -512,7 +524,7 @@ export default function ActivityPage() {
 
   if (loadingActivity) {
     return (
-      <div className="space-y-6 max-w-[1440px] mx-auto">
+      <div className="site-shell space-y-6">
         <div className="h-80 rounded-[var(--r-lg)] animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="h-8 rounded-[var(--r-sm)] w-1/3 animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="grid grid-cols-4 gap-3">
@@ -741,7 +753,7 @@ export default function ActivityPage() {
   );
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-6">
+    <div className="site-shell space-y-6">
       {/* 1. Header (제목) */}
       <Card padding="none" style={{ padding: 'var(--space-5)' }}>
         <div className="flex items-start gap-4">
@@ -978,7 +990,7 @@ export default function ActivityPage() {
               )}
             </div>
           )}
-          <AnalysisTab activityId={activityId ?? null} isOwner={isActivityOwner} streams={effectiveStreams ?? streams} summary={activity.summary} sport={sport} isVirtualPower={activity.isVirtualPower} virtualPowerParams={activity.virtualPowerParams} />
+          <AnalysisTab activityId={activityId ?? null} isOwner={isActivityOwner} startTime={activity.startTime} streams={effectiveStreams ?? streams} summary={activity.summary} sport={sport} isVirtualPower={activity.isVirtualPower} virtualPowerParams={activity.virtualPowerParams} />
         </Card>
       )}
 
@@ -1312,7 +1324,9 @@ export default function ActivityPage() {
         profile={profile}
         liked={displayLiked}
         kudos={activityKudos}
+        kudosCount={user ? activityKudos.length : activity.kudosCount}
         comments={activityComments}
+        commentCount={user ? activityComments.length : activity.commentCount}
         commentText={commentText}
         setCommentText={setCommentText}
         submitting={submitting}

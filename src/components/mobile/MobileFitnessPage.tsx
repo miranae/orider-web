@@ -230,86 +230,91 @@ function PmcMiniChart({ history, projection, today, color, t }: {
   } : null;
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: 210, display: "block", touchAction: "manipulation" }}
-      preserveAspectRatio="none"
-      onPointerDown={handleTap} onPointerMove={(e) => { if (e.buttons & 1) handleTap(e); }} onPointerLeave={() => setTapIdx(null)}>
-      <defs>
-        <linearGradient id="mobPmcCtlFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0.22" />
-          <stop offset="1" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-        <pattern id="mobPmcFutHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="6" stroke="var(--ink-3)" strokeOpacity="0.10" strokeWidth="1" />
-        </pattern>
-      </defs>
+    <div data-pmc-chart style={{ position: "relative", width: "100%", aspectRatio: `${W} / ${H}` }}>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", touchAction: "manipulation" }}
+        preserveAspectRatio="xMidYMid meet"
+        onPointerDown={handleTap} onPointerMove={(e) => { if (e.buttons & 1) handleTap(e); }} onPointerLeave={() => setTapIdx(null)}>
+        <defs>
+          <linearGradient id="mobPmcCtlFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.22" />
+            <stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+          <pattern id="mobPmcFutHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="var(--ink-3)" strokeOpacity="0.10" strokeWidth="1" />
+          </pattern>
+        </defs>
 
-      {/* Y 눈금 + 라벨 */}
-      {yTicks.map((v) => (
-        <g key={v}>
-          <line x1={PAD_L} x2={W - PAD_R} y1={sy(v)} y2={sy(v)} stroke="var(--line-soft)" strokeOpacity="0.5" />
-          <text x={PAD_L - 4} y={sy(v) + 3} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="end">{Math.round(v)}</text>
-        </g>
-      ))}
-      {/* TSB 0 기준선 */}
-      {zeroY > PAD_T && zeroY < PAD_T + PLOT_H && (
-        <line x1={PAD_L} x2={W - PAD_R} y1={zeroY} y2={zeroY} stroke="var(--ink-3)" strokeDasharray="3 3" opacity="0.4" />
-      )}
+        {/* Y 눈금 */}
+        {yTicks.map((v) => (
+          <line key={v} x1={PAD_L} x2={W - PAD_R} y1={sy(v)} y2={sy(v)} stroke="var(--line-soft)" strokeOpacity="0.5" />
+        ))}
+        {/* TSB 0 기준선 */}
+        {zeroY > PAD_T && zeroY < PAD_T + PLOT_H && (
+          <line x1={PAD_L} x2={W - PAD_R} y1={zeroY} y2={zeroY} stroke="var(--ink-3)" strokeDasharray="3 3" opacity="0.4" />
+        )}
 
-      {/* 예측 영역(해치) */}
-      {hasFut && (
-        <rect x={todayX} y={PAD_T} width={W - PAD_R - todayX} height={PLOT_H} fill="url(#mobPmcFutHatch)" />
-      )}
+        {/* 예측 영역(해치) */}
+        {hasFut && (
+          <rect x={todayX} y={PAD_T} width={W - PAD_R - todayX} height={PLOT_H} fill="url(#mobPmcFutHatch)" />
+        )}
 
-      {/* CTL 영역 채움 (과거만) */}
-      <path d={ctlFill} fill="url(#mobPmcCtlFill)" />
+        {/* CTL 영역 채움 (과거만) */}
+        <path d={ctlFill} fill="url(#mobPmcCtlFill)" />
 
-      {/* TSB → ATL → CTL (zorder: CTL 가장 위) */}
-      <path d={tsbPast} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.75" />
-      <path d={atlPast} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.7" />
-      <path d={ctlPast} stroke={color} strokeWidth="1.8" fill="none" />
-      {hasFut && (
-        <>
-          <path d={tsbFut} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.6" strokeDasharray="3 3" />
-          <path d={atlFut} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.55" strokeDasharray="3 3" />
-          <path d={ctlFut} stroke={color} strokeWidth="1.6" fill="none" opacity="0.85" strokeDasharray="4 3" />
-        </>
-      )}
+        {/* TSB → ATL → CTL (zorder: CTL 가장 위) */}
+        <path d={tsbPast} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.75" />
+        <path d={atlPast} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.7" />
+        <path d={ctlPast} stroke={color} strokeWidth="1.8" fill="none" />
+        {hasFut && (
+          <>
+            <path d={tsbFut} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.6" strokeDasharray="3 3" />
+            <path d={atlFut} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.55" strokeDasharray="3 3" />
+            <path d={ctlFut} stroke={color} strokeWidth="1.6" fill="none" opacity="0.85" strokeDasharray="4 3" />
+          </>
+        )}
 
-      {/* 오늘 마커 */}
-      <line x1={todayX} x2={todayX} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-2)" strokeDasharray="2 2" opacity="0.55" />
-      <circle cx={todayX} cy={todayCtlY} r="3.5" fill={color} stroke="var(--bg-0)" strokeWidth="1.5" />
+        {/* 오늘 + 탭 마커 */}
+        <line x1={todayX} x2={todayX} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-2)" strokeDasharray="2 2" opacity="0.55" />
+        <circle cx={todayX} cy={todayCtlY} r="3.5" fill={color} stroke="var(--bg-0)" strokeWidth="1.5" />
+        {tip && <line x1={tip.x} x2={tip.x} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-1)" strokeWidth="1" opacity="0.7" />}
+      </svg>
 
-      {/* X 날짜 라벨 */}
-      {xLabels.map((l, i) => (
-        <text key={i} x={l.x} y={H - 6} fontSize="12" fontFamily="var(--font-mono)"
-          fill={l.isToday ? "var(--ink-1)" : "var(--ink-4)"} textAnchor={i === 0 ? "start" : i === xLabels.length - 1 ? "end" : "middle"}>
-          {l.text}{l.isToday ? t("mobileFitness.pmcLabelToday") : ""}
-        </text>
-      ))}
+      <div data-pmc-axis-labels style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        {yTicks.map((v) => (
+          <span key={v} style={{
+            position: "absolute", left: `${(PAD_L / W) * 100}%`, top: `${(sy(v) / H) * 100}%`,
+            transform: "translate(calc(-100% - var(--space-0-5)), -50%)", color: "var(--ink-4)", fontFamily: "var(--font-mono)",
+            fontSize: "var(--fs-xs)", fontWeight: 500, fontVariantNumeric: "tabular-nums", lineHeight: 1,
+          }}>{Math.round(v)}</span>
+        ))}
+        {xLabels.map((l, i) => (
+          <span key={i} style={{
+            position: "absolute", left: `${(l.x / W) * 100}%`, top: `${((H - 6) / H) * 100}%`,
+            transform: `translate(${i === 0 ? "0" : i === xLabels.length - 1 ? "-100%" : "-50%"}, -100%)`,
+            color: l.isToday ? "var(--ink-1)" : "var(--ink-4)", fontSize: "var(--fs-xs)", fontWeight: 500,
+            lineHeight: 1, whiteSpace: "nowrap",
+          }}>{l.text}{l.isToday ? t("mobileFitness.pmcLabelToday") : ""}</span>
+        ))}
+      </div>
 
-      {/* 탭 툴팁 */}
       {tip && (
-        <g>
-          <line x1={tip.x} x2={tip.x} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-1)" strokeWidth="1" opacity="0.7" />
-          {(() => {
-            const boxW = 96, boxH = 50;
-            const bx = Math.max(PAD_L, Math.min(W - PAD_R - boxW, tip.x + 6));
-            const by = PAD_T + 2;
-            return (
-              <g>
-                <rect x={bx} y={by} width={boxW} height={boxH} rx="4" fill="var(--bg-2)" stroke="var(--line-soft)" />
-                <text x={bx + 6} y={by + 12} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-3)">
-                  {formatMd(tip.date)}{tip.isFuture ? t("mobileFitness.pmcLabelForecast") : ""}
-                </text>
-                <text x={bx + 6} y={by + 24} fontSize="12" fontFamily="var(--font-mono)" fill={color}>CTL {tip.ctl.toFixed(0)}</text>
-                <text x={bx + 6} y={by + 35} fontSize="12" fontFamily="var(--font-mono)" fill="var(--rose)">ATL {tip.atl.toFixed(0)}</text>
-                <text x={bx + 6} y={by + 46} fontSize="12" fontFamily="var(--font-mono)" fill="var(--amber)">TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</text>
-              </g>
-            );
-          })()}
-        </g>
+        <div data-pmc-tooltip style={{
+          position: "absolute", left: `${(tip.x / W) * 100}%`, top: `${((PAD_T + 2) / H) * 100}%`,
+          transform: tip.x > W / 2 ? "translateX(calc(-100% - var(--space-1-5)))" : "translateX(var(--space-1-5))",
+          width: 96, padding: "var(--space-1)", borderRadius: "var(--r-sm)", pointerEvents: "none",
+          background: "var(--bg-2)", border: "1px solid var(--line-soft)", boxSizing: "border-box",
+          fontSize: "var(--fs-xs)", fontWeight: 500, lineHeight: 1.1,
+        }}>
+          <div style={{ color: "var(--ink-3)", whiteSpace: "nowrap" }}>
+            {formatMd(tip.date)}{tip.isFuture ? t("mobileFitness.pmcLabelForecast") : ""}
+          </div>
+          <div style={{ color, fontFamily: "var(--font-mono)" }}>CTL {tip.ctl.toFixed(0)}</div>
+          <div style={{ color: "var(--rose)", fontFamily: "var(--font-mono)" }}>ATL {tip.atl.toFixed(0)}</div>
+          <div style={{ color: "var(--amber)", fontFamily: "var(--font-mono)" }}>TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</div>
+        </div>
       )}
-    </svg>
+    </div>
   );
 }
 

@@ -700,7 +700,7 @@ export default function PlanPage() {
 
   if (!loading && loadError) {
     return (
-      <div style={{ maxWidth: 1440, margin: "0 auto", paddingBottom: 'var(--space-8)' }}>
+      <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
         <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
           <DisciplineTabs />
         </div>
@@ -715,7 +715,7 @@ export default function PlanPage() {
     const sportLabel = t(`discipline.${discipline}`);
     const sportIcon = t(`disciplineIcon.${discipline}`);
     return (
-      <div style={{ maxWidth: 1440, margin: "0 auto", paddingBottom: 'var(--space-8)' }}>
+      <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
         <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
           <DisciplineTabs />
         </div>
@@ -737,7 +737,7 @@ export default function PlanPage() {
     const sportLabel = t(`discipline.${discipline}`);
     const sportIcon = t(`disciplineIcon.${discipline}`);
     return (
-      <div style={{ maxWidth: 1440, margin: "0 auto", paddingBottom: 'var(--space-8)' }}>
+      <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
         <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
           <DisciplineTabs />
         </div>
@@ -804,7 +804,7 @@ export default function PlanPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1440, margin: '0 auto', paddingBottom: 'var(--space-8)' }}>
+    <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
 
       {/* ── Goal Header ─────────────────────────────────────────────── */}
       <div

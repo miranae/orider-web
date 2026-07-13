@@ -44,4 +44,19 @@ describe("mobile fitness action", () => {
     expect(resource.today?.start).toBe(expected);
     expect(resource.today?.start).not.toBe("today.start");
   });
+
+  it("renders mobile PMC typography as fixed-size HTML overlays outside the SVG", () => {
+    const source = read("src/components/mobile/MobileFitnessPage.tsx");
+    const chart = source.slice(source.indexOf("function PmcMiniChart"), source.indexOf("function WeeklyTssBars"));
+    const svg = chart.slice(chart.indexOf("<svg"), chart.indexOf("</svg>"));
+
+    expect(chart).toContain('aspectRatio: `${W} / ${H}`');
+    expect(chart).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(chart).not.toContain('preserveAspectRatio="none"');
+    expect(svg).not.toContain("<text");
+    expect(chart).toContain("data-pmc-axis-labels");
+    expect(chart).toContain("data-pmc-tooltip");
+    expect(chart).toContain('fontSize: "var(--fs-xs)"');
+    expect(chart).toContain('left: `${(l.x / W) * 100}%`');
+  });
 });

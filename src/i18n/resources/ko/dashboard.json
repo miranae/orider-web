@@ -37,6 +37,7 @@
     "feedScope": "· 전체 피드",
     "countSuffix": "{{value}}건",
     "filter": {
+      "label": "피드 범위",
       "all": "전체",
       "friends": "친구",
       "self": "본인"
@@ -51,6 +52,7 @@
       "resultsCount_other": "{{count}}건"
     },
     "datePreset": {
+      "label": "기간",
       "all": "전체",
       "7d": "7일",
       "30d": "30일",
@@ -196,8 +198,8 @@
     "statElev": "획득고도",
     "statSpeed": "평균속도",
     "weekSummary": "이번 주 요약",
+    "sportFilterLabel": "활동 종목 필터",
     "viewAll": "전체보기",
-    "weeklyDistance": "주간 거리",
     "loading": "불러오는 중…",
     "loadingMore": "불러오는 중…",
     "loadMore": "더 보기",

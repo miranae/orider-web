@@ -610,14 +610,14 @@ export default function EventDetailPage() {
   return (
     <>
       {/* Breadcrumb */}
-      <div className="flex items-center" style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 24px 0", gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
+      <div className="site-shell flex items-center" style={{ padding: "14px 24px 0", gap: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
         <Link to="/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
         <span style={{ color: "var(--ink-4)" }}>›</span>
         <span className="truncate" style={{ color: "var(--ink-2)" }}>{event.name}</span>
       </div>
 
       {/* 히어로 카드 */}
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 24px 0" }}>
+      <div className="site-shell" style={{ padding: "14px 24px 0" }}>
         <Card padding="none" style={{ padding: 0, overflow: "hidden" }}>
           {courseData ? (
             <RouteMap
@@ -784,10 +784,8 @@ export default function EventDetailPage() {
 
       {/* 본문 */}
       <div
-        className="event-detail-body"
+        className="site-shell event-detail-body"
         style={{
-          maxWidth: 1440,
-          margin: "0 auto",
           padding: "20px 24px 40px",
           display: "grid",
           gridTemplateColumns: "1fr 320px",

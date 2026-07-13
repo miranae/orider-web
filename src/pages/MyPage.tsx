@@ -21,7 +21,8 @@ export default function MyPage() {
   const stravaConnected = !!profile?.stravaAthleteId;
 
   return (
-    <div>
+    /* 설정형 단일 열 UI는 전역 1440px 셸을 모두 쓰지 않고 기존 읽기 폭을 유지한다. */
+    <div className="mx-auto w-full max-w-[1120px]">
       {/* Profile section */}
       <div
         className="flex items-center gap-3.5"
