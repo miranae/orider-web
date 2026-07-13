@@ -73,6 +73,20 @@ export interface ActivityMetricsDoc {
   cyclingMetrics?: { cadenceStdDev: number | null; longestZ4PlusSec: number | null };
   /** FIT dual-sided power meter. avg is right-side percentage; left = 100 - avg. */
   lrBalance?: { avg: number; asymmetryPct: number };
+  cyclingDynamics?: {
+    source: "session" | "records";
+    sampleCount: number;
+    validSampleCount: number;
+    coverage: number;
+    balance?: { leftAvgPct: number; rightAvgPct: number; asymmetryPct: number };
+    torqueEffectiveness?: { leftAvgPct?: number; rightAvgPct?: number };
+    pedalSmoothness?: { leftAvgPct?: number; rightAvgPct?: number; combinedAvgPct?: number };
+    platformCenterOffset?: { leftAvgMm?: number; rightAvgMm?: number };
+    powerPhase?: {
+      left?: { startDeg: number; endDeg: number; arcDeg: number; peakStartDeg?: number; peakEndDeg?: number };
+      right?: { startDeg: number; endDeg: number; arcDeg: number; peakStartDeg?: number; peakEndDeg?: number };
+    };
+  };
 
   // 모델 / 분포
   cp: number | null;
