@@ -500,6 +500,15 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* 오늘의 워크아웃은 실행 가능한 기본 행동이므로 러닝 정보 카드보다 먼저 둔다. */}
+        {user && !hasNoRuns && (
+          <div style={{ marginTop: 'var(--space-5)' }}>
+            <Suspense fallback={null}>
+              <TodaysWorkoutCard />
+            </Suspense>
+          </div>
+        )}
+
         {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}
         {isRunTab && showRecap && runRecap && !hasNoRuns && (
           <div style={{ marginTop: 'var(--space-5)' }}>
@@ -525,15 +534,6 @@ export default function DashboardPage() {
         {isRunTab && !hasNoRuns && (
           <div style={{ marginTop: 'var(--space-4)' }}>
             <CrossDisciplineLoadCard fitness={userFitness} discipline="run" />
-          </div>
-        )}
-
-        {/* 오늘의 워크아웃 — 로그인 사용자에게만 지연 로드. 비로그인 첫 피드/LCP 경로에서 제외. */}
-        {user && !hasNoRuns && (
-          <div style={{ marginTop: 'var(--space-5)' }}>
-            <Suspense fallback={null}>
-              <TodaysWorkoutCard />
-            </Suspense>
           </div>
         )}
 

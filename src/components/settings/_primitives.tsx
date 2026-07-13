@@ -161,43 +161,59 @@ export function Toggle({
   on,
   onChange,
   disabled,
+  ariaLabel,
 }: {
   on: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  ariaLabel: string;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onChange(!on)}
       style={{
-        width: 40,
-        height: 22,
-        borderRadius: "var(--r-lg)",
-        background: on ? "var(--lime)" : "var(--bg-3)",
-        position: "relative",
-        border: `1px solid ${on ? "var(--lime)" : "var(--line)"}`,
-        transition: "background .15s",
+        width: 44,
+        height: 44,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "transparent",
+        border: 0,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : 1,
         padding: 0,
       }}
     >
-      <div
+      <span
+        aria-hidden="true"
         style={{
-          position: "absolute",
-          top: 2,
-          left: on ? 20 : 2,
-          width: 16,
-          height: 16,
-          borderRadius: "50%",
-          background: on ? "var(--primary-fg)" : "var(--ink-2)",
-          transition: "left .15s",
+          width: 40,
+          height: 22,
+          borderRadius: "var(--r-lg)",
+          background: on ? "var(--lime)" : "var(--bg-3)",
+          position: "relative",
+          border: `1px solid ${on ? "var(--lime)" : "var(--line)"}`,
+          transition: "background .15s",
         }}
-      />
+      >
+        <span
+          style={{
+            position: "absolute",
+            top: 2,
+            left: on ? 20 : 2,
+            width: 16,
+            height: 16,
+            borderRadius: "50%",
+            background: on ? "var(--primary-fg)" : "var(--ink-2)",
+            transition: "left .15s",
+          }}
+        />
+      </span>
     </button>
   );
 }

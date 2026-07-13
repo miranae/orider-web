@@ -342,6 +342,7 @@ function AlertEdit({ draft, setDraft }: CardEditProps<AlertSettings>) {
           </span>
           <Toggle
             on={th.enabled}
+            ariaLabel={t(ALERT_METRIC_KEY[th.metric])}
             onChange={(v) => patchThreshold(th.metric, "enabled", v)}
           />
           <input
@@ -434,6 +435,7 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
           <label style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
             <Toggle
               on={draft.dynamicZoomEnabled}
+              ariaLabel={t("device.fieldDynamicZoomLabel")}
               onChange={(v) => setDraft({ ...draft, dynamicZoomEnabled: v })}
             />
             <span style={{ color: "var(--ink-2)" }}>{t("device.fieldDynamicZoomLabel")}</span>
@@ -441,6 +443,7 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
           <label style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)" }}>
             <Toggle
               on={draft.headingLockEnabled}
+              ariaLabel={t("device.fieldHeadingLock")}
               onChange={(v) => setDraft({ ...draft, headingLockEnabled: v })}
             />
             <span style={{ color: "var(--ink-2)" }}>{t("device.fieldHeadingLock")}</span>
@@ -450,6 +453,7 @@ function DisplaySoundEdit({ draft, setDraft }: CardEditProps<DisplaySoundDraft>)
       <Field label={t("device.fieldSound")}>
         <Toggle
           on={draft.soundEnabled}
+          ariaLabel={t("device.fieldSound")}
           onChange={(v) => setDraft({ ...draft, soundEnabled: v })}
         />
       </Field>
