@@ -383,6 +383,8 @@
       "longestZ4Desc": "Longest continuous ≥91% FTP",
       "cadenceConsistency": "Cadence consistency",
       "cadenceConsistencyDesc": "Cadence std-dev (lower = steadier)",
+      "pedalBalance": "Pedal balance",
+      "pedalBalanceDesc": "Left-right difference {{value}}pp",
       "paceConsistency": "Pace consistency",
       "paceConsistencyDesc": "Pace std-dev (lower = steadier)",
       "wPrimeBal": "W'bal trajectory",
@@ -431,6 +433,7 @@
       "quadrant": "Pedaling quadrants — time share across cadence×torque. High Q4 (low rpm·high torque) = strength-style; high Q1 (high rpm·high power) = high-intensity spinning.",
       "longestZ4": "Longest continuous time ≥91% FTP — threshold endurance.",
       "cadenceConsistency": "Cadence standard deviation. Lower = steadier pedaling.",
+      "pedalBalance": "Left/right power share recorded by a dual-sided power meter. Values closer to 50/50 indicate more even output.",
       "paceConsistency": "Pace standard deviation. Lower = more even pace.",
       "wPrimeBal": "Time trajectory of W' (anaerobic capacity) balance. Depletes above CP, recharges below (Skiba 2015). A minimum near 0% means nearly maxed out."
     },

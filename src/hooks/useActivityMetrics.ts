@@ -71,6 +71,8 @@ export interface ActivityMetricsDoc {
   }>;
   workoutTypeConfidence?: number;
   cyclingMetrics?: { cadenceStdDev: number | null; longestZ4PlusSec: number | null };
+  /** FIT dual-sided power meter. avg is right-side percentage; left = 100 - avg. */
+  lrBalance?: { avg: number; asymmetryPct: number };
 
   // 모델 / 분포
   cp: number | null;
