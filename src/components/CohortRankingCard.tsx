@@ -28,7 +28,7 @@ interface UserDemographics {
 /** 이 미만 표본이면 "참고용" 안내를 덧붙인다 (#400 §5 — 이슈 예시 17명 기준). */
 const SMALL_SAMPLE_THRESHOLD = 30;
 
-/** percentile(하위 N%) → 색. RiderTypeCard.percentileColor 와 동일 톤. */
+/** percentile(하위 N%) → 색. 피트니스 능력 카드와 동일 톤. */
 function percentileColor(p: number): string {
   if (p >= 75) return "var(--lime)";
   if (p >= 50) return "var(--aqua)";

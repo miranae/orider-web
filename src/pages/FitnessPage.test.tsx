@@ -21,9 +21,18 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
     </div>
   ),
 }));
+vi.mock("../components/training/TodaysWorkoutCard", () => ({
+  default: () => <div data-testid="desktop-full-ai-coach" />,
+}));
 
 vi.mock("./fitness/TriFitnessView", () => ({
-  default: () => <div>desktop tri fitness dashboard</div>,
+  default: ({ combinedLoad, loadFocus }: { combinedLoad?: { ctl: number } | null; loadFocus: { totalLoad: number } }) => (
+    <div>
+      desktop tri fitness dashboard
+      <span>desktop integrated {combinedLoad?.ctl ?? "none"}</span>
+      <span>desktop focus {loadFocus.totalLoad}</span>
+    </div>
+  ),
 }));
 
 describe("FitnessPage", () => {
@@ -63,6 +72,10 @@ describe("FitnessPage", () => {
 
   it("keeps the dedicated tri dashboard on desktop", async () => {
     viewport.isMobile = false;
+    setDocData("users/test-uid/fitness/current", {
+      updatedAt: Date.now(), totalCTL: 48, totalATL: 51, totalTSB: -3,
+      breakdown: { bike: { ctl: 30 }, run: { ctl: 15 }, swim: { ctl: 3 } },
+    });
 
     renderWithProviders(<FitnessPage />, {
       authenticated: true,
@@ -70,10 +83,18 @@ describe("FitnessPage", () => {
     });
 
     expect(await screen.findByText("desktop tri fitness dashboard")).toBeInTheDocument();
+    expect(screen.getByText("desktop integrated 48")).toBeInTheDocument();
     expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
   });
 
-  it("passes authoritative combined load to a single-sport mobile tab", async () => {
+  it("keeps the full AI coach visible on desktop when activities are empty", async () => {
+    viewport.isMobile = false;
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+    expect(await screen.findByTestId("desktop-full-ai-coach")).toBeInTheDocument();
+    expect(screen.getByText("피트니스 차트를 만들 활동이 아직 없어요")).toBeInTheDocument();
+  });
+
+  it("does not pass integrated detail to a single-sport mobile tab", async () => {
     const now = Date.now();
     setCollectionDocs("activities", [{
       id: "run-1",
@@ -109,8 +130,8 @@ describe("FitnessPage", () => {
 
     expect(await screen.findByText("mobile fitness dashboard: run")).toBeInTheDocument();
     expect(screen.getByText("selected 12/14/-2")).toBeInTheDocument();
-    expect(screen.getByText("integrated 48")).toBeInTheDocument();
-    expect(screen.getByText("contributions 3")).toBeInTheDocument();
+    expect(screen.getByText("integrated none")).toBeInTheDocument();
+    expect(screen.getByText("contributions 0")).toBeInTheDocument();
     expect(screen.getByText("focus 40")).toBeInTheDocument();
   });
 });

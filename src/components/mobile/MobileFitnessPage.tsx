@@ -9,7 +9,7 @@
  *
  * 모든 데이터는 FitnessPage 가 미리 계산해 props 로 전달.
  */
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import SportFilterTabs from "./SportFilterTabs";
@@ -460,6 +460,9 @@ export default function MobileFitnessPage({
 }) {
   const { t } = useTranslation("dashboard");
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
+  useEffect(() => {
+    setTab("overview");
+  }, [data.discipline]);
   // sportSegment 는 URL ?sport= 와 양방향 바인딩 — 탭 클릭 시 URL 갱신 →
   // FitnessPage 가 discipline 별 데이터(PMC/존/임계값/최근활동/파워커브)를 재계산해
   // props 로 다시 흘려준다. URL 동기화 없이 로컬 state 만 바꾸면 데이터가 안 바뀌어
@@ -482,6 +485,8 @@ export default function MobileFitnessPage({
     : data.discipline === "run"
     ? t("mobileFitness.tabZonesRun")
     : t("mobileFitness.tabZonesSwim");
+  const topTabs = ["overview", "analysis"] as const;
+  const activeTab = data.discipline === "tri" ? "overview" : tab;
 
   const isBike = data.discipline === "bike";
   const showZones = data.zones.length > 0;
@@ -494,28 +499,30 @@ export default function MobileFitnessPage({
         <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
       </div>
 
-      <SportFilterTabs value={sportSegment} onChange={setSportSegment} />
+      <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />
 
-      {/* Top tabs */}
-      <div className="flex" role="tablist" style={{ borderBottom: "1px solid var(--line-soft)", background: "var(--bg-1)" }}>
-        {(["overview", "analysis"] as const).map((k) => {
-          const label = k === "overview" ? t("mobileFitness.tabOverview") : analysisTabLabel;
-          const active = tab === k;
-          return (
-            <button key={k} onClick={() => setTab(k)}
-              role="tab"
-              aria-selected={active}
-              className="flex-1 flex items-center justify-center relative"
-              style={{ padding: "12px 0", fontSize: "var(--fs-sm)", fontWeight: 500, minHeight: 44,
-                color: active ? "var(--ink-0)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer" }}>
-              {label}
-              {active && <div style={{ position: "absolute", bottom: 0, left: 16, right: 16, height: 2, background: "var(--lime)", borderRadius: "2px 2px 0 0" }} />}
-            </button>
-          );
-        })}
-      </div>
+      {/* 통합 화면은 단일 개요이므로 종목별 개요/분석 탭을 노출하지 않는다. */}
+      {data.discipline !== "tri" && (
+        <div className="flex" role="tablist" style={{ borderBottom: "1px solid var(--line-soft)", background: "var(--bg-1)" }}>
+          {topTabs.map((k) => {
+            const label = k === "overview" ? t("mobileFitness.tabOverview") : analysisTabLabel;
+            const active = activeTab === k;
+            return (
+              <button key={k} onClick={() => setTab(k)}
+                role="tab"
+                aria-selected={active}
+                className="flex-1 flex items-center justify-center relative"
+                style={{ padding: "12px 0", fontSize: "var(--fs-sm)", fontWeight: 500, minHeight: 44,
+                  color: active ? "var(--ink-0)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer" }}>
+                {label}
+                {active && <div style={{ position: "absolute", bottom: 0, left: 16, right: 16, height: 2, background: "var(--lime)", borderRadius: "2px 2px 0 0" }} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      {tab === "overview" && (
+      {activeTab === "overview" && (
         <div style={{ paddingTop: 14 }}>
           <div style={{ padding: "0 14px 14px" }}>
             <TodaysWorkoutCard />
@@ -523,7 +530,7 @@ export default function MobileFitnessPage({
 
           <BikeAbilityCompact data={data} applying={applyingFtp} onApply={onApplyFtp} t={t} />
 
-          {data.combinedLoad && (
+          {data.discipline === "tri" && data.combinedLoad && (
             <div style={{ marginBottom: "var(--space-3)" }}>
               <IntegratedLoadCard combined={data.combinedLoad} focus={data.loadFocus} />
             </div>
@@ -576,7 +583,7 @@ export default function MobileFitnessPage({
         </div>
       )}
 
-      {tab === "analysis" && (
+      {activeTab === "analysis" && (
         <div style={{ paddingTop: 14 }}>
           {/* 임계값 카드 */}
           {data.threshold && !isBike && (

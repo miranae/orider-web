@@ -371,6 +371,7 @@
         "title": "Cycling ability evidence",
         "basis": "Three separate axes from the last 90-day measured PDC · {{count}} activities · existing Coggan male v1 percentiles, without sex or age adjustment",
         "notGarmin": "Transparent O-Rider PDC evidence; not Garmin EPOC, Training Effect, or a proprietary-equivalent score.",
+        "manualLink": "How PDC and the three axes are calculated",
         "axis": {
           "anaerobic": "Short-power capacity",
           "aerobic": "Aerobic capacity",

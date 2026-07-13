@@ -51,7 +51,7 @@ import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import DetailsSection from "../components/redesign/DetailsSection";
 import { Card, Text, Chip, buttonClass } from "../theme/components";
-import RiderTypeCard from "../components/RiderTypeCard";
+import CyclingAbilityCard from "../components/fitness/CyclingAbilityCard";
 import { computeExpectedCurve, classifyGaps, computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
 import type { PowerDurationKey } from "@shared/types/personal-records";
 import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
@@ -600,7 +600,16 @@ export default function FitnessPage() {
   // TriFitnessView 는 데스크톱 전용 레이아웃이다. 모바일 tri 는 아래의
   // MobileFitnessPage 로 보내 좁은 화면에서 헤더와 카드가 눌리지 않게 한다.
   if (!isMobile && discipline === "tri") {
-    return <TriFitnessView activities={activities} streamsMap={streamsMap} range={range} profile={profile} />;
+    return (
+      <TriFitnessView
+        activities={activities}
+        streamsMap={streamsMap}
+        range={range}
+        profile={profile}
+        combinedLoad={combinedLoad}
+        loadFocus={integratedLoadFocus}
+      />
+    );
   }
 
   if (isMobile) {
@@ -705,7 +714,7 @@ export default function FitnessPage() {
           ftp,
           weightKg: profile?.weightKg,
           hasLoadData: cp != null,
-          combinedLoad,
+          combinedLoad: discipline === "tri" ? combinedLoad : null,
           loadFocus: integratedLoadFocus,
           cyclingAbility,
           runEvidence,
@@ -894,6 +903,9 @@ export default function FitnessPage() {
       <div>
         {pageHeader}
         <div className="site-shell" style={bodyPad}>
+          <div style={{ marginBottom: "var(--space-4)" }}>
+            <TodaysWorkoutCard />
+          </div>
           <EmptyState
             icon="📈"
             title={t("empty.noActivities")}
@@ -925,7 +937,7 @@ export default function FitnessPage() {
         )}
 
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <TodaysWorkoutCard variant="compact" />
+          <TodaysWorkoutCard />
         </div>
 
         {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
@@ -1135,9 +1147,9 @@ export default function FitnessPage() {
           </Card>
         )}
 
-        {/* 라이더 타입 — bike + riderType 있을 때만 */}
-        {discipline === "bike" && pdc?.riderType != null && (
-          <RiderTypeCard pdc={pdc} />
+        {/* 사이클링 능력 — 모바일과 동일한 최근 90일 PDC 3축 실측 근거. */}
+        {discipline === "bike" && cyclingAbility && (
+          <CyclingAbilityCard cycling={cyclingAbility} variant="desktop" />
         )}
 
         {/* 코호트 백분위 랭킹(G9) — bike + pdc + stats doc 있을 때만 */}
