@@ -6,7 +6,6 @@ import type { Activity } from "@shared/types";
 import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
-import WeekBars from "./WeekBars";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
 import { Button, Card, Text } from "../../theme/components";
@@ -32,18 +31,12 @@ interface SportBreakdownItem {
   color: string;
 }
 
-interface WeekEntry {
-  label: string;
-  distance: number;
-}
-
 interface MobileFeedPageProps {
   activities: Activity[];
   loading: boolean;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
-  recentWeeks: WeekEntry[];
   showYearRecapBanner?: boolean;
   consistencyStreak?: ConsistencyStreakSummary | null;
   currentUserId?: string | null;
@@ -57,13 +50,11 @@ function SportSummaryFilter({
   value,
   onChange,
   ariaLabel,
-  withBottomSpacing = false,
 }: {
   items: SportBreakdownItem[];
   value: SportFilter;
   onChange: (value: SportFilter) => void;
   ariaLabel: string;
-  withBottomSpacing?: boolean;
 }) {
   return (
     <Card
@@ -71,7 +62,7 @@ function SportSummaryFilter({
       role="group"
       aria-label={ariaLabel}
       className="grid grid-cols-4 overflow-hidden"
-      style={{ margin: withBottomSpacing ? "0 -16px var(--space-3)" : "0 -16px", padding: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}
+      style={{ margin: "0 -16px", padding: 0, borderRadius: 0, borderLeft: "none", borderRight: "none" }}
     >
       {items.map((item, index) => (
         <button
@@ -283,7 +274,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 }
 
 export default function MobileFeedPage({
-  activities, loading, hasMore, loadingMore, onLoadMore, recentWeeks, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
+  activities, loading, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
   feedScope, onFeedScopeChange,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
@@ -365,13 +356,7 @@ export default function MobileFeedPage({
             value={sportFilter}
             onChange={setSportFilter}
             ariaLabel={t("mobileFeed.sportFilterLabel")}
-            withBottomSpacing
           />
-
-          <Card padding="none" style={{ margin: "0 -16px", padding: "var(--space-3)", borderRadius: 0, borderLeft: "none", borderRight: "none" }}>
-            <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>{t("mobileFeed.weeklyDistance")}</Text>
-            <WeekBars weeks={recentWeeks} />
-          </Card>
         </div>
       )}
 

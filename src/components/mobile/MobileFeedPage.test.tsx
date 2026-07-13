@@ -28,7 +28,6 @@ describe("MobileFeedPage", () => {
         hasMore
         loadingMore={false}
         onLoadMore={onLoadMore}
-        recentWeeks={[]}
         feedScope="all"
         onFeedScopeChange={vi.fn()}
       />,
@@ -63,7 +62,6 @@ describe("MobileFeedPage", () => {
         hasMore={false}
         loadingMore={false}
         onLoadMore={vi.fn()}
-        recentWeeks={[]}
         feedScope="all"
         onFeedScopeChange={vi.fn()}
       />,
@@ -71,6 +69,7 @@ describe("MobileFeedPage", () => {
     );
 
     await screen.findByText("이번 주 요약");
+    expect(screen.queryByText("주간 거리")).not.toBeInTheDocument();
     const sportFilters = await screen.findByRole("group", { name: "활동 종목 필터" });
     const buttons = within(sportFilters).getAllByRole("button");
     expect(buttons).toHaveLength(4);
@@ -108,7 +107,6 @@ describe("MobileFeedPage", () => {
         hasMore={false}
         loadingMore={false}
         onLoadMore={vi.fn()}
-        recentWeeks={[]}
         feedScope="all"
         onFeedScopeChange={vi.fn()}
       />,
@@ -144,7 +142,6 @@ describe("MobileFeedPage", () => {
         hasMore={false}
         loadingMore={false}
         onLoadMore={vi.fn()}
-        recentWeeks={[]}
         friendIds={["friend-1"]}
         feedScope="all"
         onFeedScopeChange={onFeedScopeChange}
@@ -166,7 +163,6 @@ describe("MobileFeedPage", () => {
         hasMore={false}
         loadingMore={false}
         onLoadMore={vi.fn()}
-        recentWeeks={[]}
         friendIds={["friend-1"]}
         feedScope="friends"
         onFeedScopeChange={onFeedScopeChange}
