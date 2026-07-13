@@ -328,6 +328,64 @@
     "pmcLabelToday": " · Today",
     "pmcLabelForecast": " · Forecast",
     "weeklyTssThisWeek": "This week",
+    "integrated": {
+      "cardAria": "Combined multisport training status and 28-day load focus",
+      "title": "Combined multisport status",
+      "authoritativeSource": "Server-computed combined CTL · ATL · TSB across cycling, running, and swimming",
+      "contributionTitle": "Current fitness contribution",
+      "discipline": {
+        "bike": "Cycling",
+        "run": "Running",
+        "swim": "Swimming"
+      },
+      "contributionAria": "{{sport}} contributes {{pct}} percent of combined fitness",
+      "focusTitle": "Load focus · last {{days}} days",
+      "focusBasis": "With at least 50% zone coverage, each activity load is allocated once by zone time weighted by representative intensity squared; otherwise it stays unclassified.",
+      "bucket": {
+        "baseAerobic": "Base aerobic",
+        "highAerobic": "High aerobic",
+        "highIntensity": "High intensity",
+        "unclassified": "Unclassified"
+      },
+      "focusAria": "{{band}}: load {{load}}, {{pct}} percent",
+      "coverage": "Classified coverage {{pct}}% · {{confidence}} confidence",
+      "sources": "Power load {{power}} · HR load {{hr}} · unclassified {{unclassified}}",
+      "anaerobicBikeDetail": "Measured cycling power Z6–Z7 is included as high intensity and can support anaerobic cycling detail.",
+      "hrHighIntensityNote": "HR Z5 is high-intensity evidence, not proof of anaerobic contribution.",
+      "confidence": {
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+        "none": "no"
+      }
+    },
+    "sport": {
+      "cardAria": "Sport-specific measured performance evidence",
+      "insufficient": "Not enough measured evidence · not scored",
+      "noMeasuredEvidence": "No measured duration evidence",
+      "percentileStatus": "Evidence percentile {{score}}",
+      "bandAria": "{{metric}}: {{status}}",
+      "bike": {
+        "title": "Cycling ability evidence",
+        "basis": "Three separate axes from the last 90-day measured PDC · {{count}} activities · existing Coggan male v1 percentiles, without sex or age adjustment",
+        "notGarmin": "Transparent O-Rider PDC evidence; not Garmin EPOC, Training Effect, or a proprietary-equivalent score.",
+        "axis": {
+          "anaerobic": "Short-power capacity",
+          "aerobic": "Aerobic capacity",
+          "endurance": "Sustained endurance"
+        }
+      },
+      "run": {
+        "title": "Running evidence",
+        "basis": "Only your configured threshold pace and persisted measured distance records are shown.",
+        "threshold": "Threshold pace"
+      },
+      "swim": {
+        "title": "Swimming evidence",
+        "basis": "Only configured CSS and measured swim efficiency metrics are shown; no mock curve or invented PR.",
+        "distancePerStroke": "Distance per stroke"
+      }
+    },
     "snapshot": {
       "title": "Current fitness snapshot",
       "subtitle": "Read each value together with its evaluation and basis",
