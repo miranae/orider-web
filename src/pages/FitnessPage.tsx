@@ -75,6 +75,15 @@ import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { BikeActionAccordion, FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
 import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
 import { percentileOf } from "@shared/training/cohortPercentile";
+import { useUserFitness } from "../hooks/useUserFitness";
+import {
+  authoritativeCombinedLoad,
+  buildRunEvidence,
+  buildSwimEvidence,
+  computeCyclingAbility,
+  computeIntegratedLoadFocus,
+} from "../features/fitness/multisportPerformance";
+import { useFitnessClock } from "../hooks/useFitnessClock";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -98,6 +107,8 @@ export default function FitnessPage() {
   const [, setGoalQueryDone] = useState(false);
   const isMobile = useMobile();
   const { pdc } = usePdc(user?.uid);
+  const { fitness: userFitness } = useUserFitness(!!user);
+  const fitnessClock = useFitnessClock(userFitness?.updatedAt);
   // 코호트 백분위 랭킹(G9) — bike + pdc 있을 때만 stats doc 구독.
   const cohortStats = useCohortPercentiles(!!user);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
@@ -461,20 +472,40 @@ export default function FitnessPage() {
   // 활동별 athlete.maxHr 로 이미 계산됨 (FitnessPage 의 profile.maxHr 기준 임의 보정은 X).
   const zoneDistribution = useMemo(() => {
     const { counts: sums, total } = aggregateRecentZoneSeconds(
-      disciplineActivities, metricsMap, "hrZoneSec", 5, Date.now(), 30,
+      disciplineActivities, metricsMap, "hrZoneSec", 5, fitnessClock, 30,
     );
     if (total === 0) return null;
     return sums.map(c => Math.round((c / total) * 100));
-  }, [disciplineActivities, metricsMap]);
+  }, [disciplineActivities, metricsMap, fitnessClock]);
 
   // 모바일 UI는 "최근 4주"를 약속하므로 데스크톱의 30일 분포와 별도로 정확히 28일만 집계한다.
   const mobileZoneDistribution = useMemo(() => {
     const { counts: sums, total } = aggregateRecentZoneSeconds(
-      disciplineActivities, metricsMap, "hrZoneSec", 5,
+      disciplineActivities, metricsMap, "hrZoneSec", 5, fitnessClock,
     );
     if (total === 0) return null;
     return sums.map(c => Math.round((c / total) * 100));
-  }, [disciplineActivities, metricsMap]);
+  }, [disciplineActivities, metricsMap, fitnessClock]);
+
+  // 통합 상태와 28일 Load Focus는 선택한 탭이 아니라 모든 활동을 입력으로 쓴다.
+  // 서버 UserFitness/current가 CTL/ATL/TSB 정본이며, 클라이언트 집계는 강도별 설명만 담당한다.
+  const combinedLoad = useMemo(
+    () => authoritativeCombinedLoad(userFitness, fitnessClock),
+    [userFitness, fitnessClock],
+  );
+  const integratedLoadFocus = useMemo(
+    () => computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
+    [activities, metricsMap, fitnessClock],
+  );
+  const cyclingAbility = useMemo(() => computeCyclingAbility(pdc), [pdc]);
+  const runEvidence = useMemo(
+    () => buildRunEvidence(userFitness?.thresholds?.run?.thresholdPace ?? profile?.thresholdPace, runRecords),
+    [userFitness, profile?.thresholdPace, runRecords],
+  );
+  const swimEvidence = useMemo(
+    () => buildSwimEvidence(userFitness?.thresholds?.swim?.css ?? profile?.css, activities, metricsMap),
+    [userFitness, profile?.css, activities, metricsMap],
+  );
 
   const runPaceStreams = useMemo(() => {
     const now = Date.now();
@@ -634,6 +665,11 @@ export default function FitnessPage() {
           ftp,
           weightKg: profile?.weightKg,
           hasLoadData: cp != null,
+          combinedLoad,
+          loadFocus: integratedLoadFocus,
+          cyclingAbility,
+          runEvidence,
+          swimEvidence,
           pdcSummary: discipline === "bike" ? {
             riderType: pdc?.riderType ?? null,
             abilityPercentile: pdc?.ability?.overallPercentile ?? null,

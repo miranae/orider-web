@@ -21,6 +21,9 @@ import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import TodaysWorkoutCard from "../training/TodaysWorkoutCard";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
 import type { EstimatedFtpPoint, FtpBreakthrough } from "@shared/training/ftpProgression";
+import type { CyclingAbilityResult, LoadFocusResult, RunEvidence, SwimEvidence } from "../../features/fitness/multisportPerformance";
+import IntegratedLoadCard, { type CombinedLoadStatus } from "./IntegratedLoadCard";
+import SportPerformanceCard from "./SportPerformanceCard";
 
 export type ZoneSource = "power" | "hr" | "none";
 
@@ -65,6 +68,11 @@ export interface MobileFitnessData {
   weightKg?: number;
   hasLoadData: boolean;
   pdcSummary?: MobileFitnessPdcSummary | null;
+  combinedLoad?: CombinedLoadStatus | null;
+  loadFocus: LoadFocusResult;
+  cyclingAbility: CyclingAbilityResult | null;
+  runEvidence: RunEvidence;
+  swimEvidence: SwimEvidence;
   // 존 분포
   zones: MobileFitnessZone[];
   zoneSource: ZoneSource;
@@ -594,6 +602,23 @@ export default function MobileFitnessPage({
       {tab === "overview" && (
         <div style={{ paddingTop: 14 }}>
           <FitnessSnapshot data={data} t={t} />
+
+          {data.combinedLoad && (
+            <div style={{ marginBottom: "var(--space-3)" }}>
+              <IntegratedLoadCard combined={data.combinedLoad} focus={data.loadFocus} />
+            </div>
+          )}
+
+          {data.discipline !== "tri" && (
+            <div style={{ marginBottom: "var(--space-3)" }}>
+              <SportPerformanceCard
+                discipline={data.discipline}
+                cycling={data.cyclingAbility}
+                run={data.runEvidence}
+                swim={data.swimEvidence}
+              />
+            </div>
+          )}
 
           <div style={{ padding: "0 14px 14px" }}>
             <TodaysWorkoutCard />
