@@ -461,6 +461,10 @@ export default function CreateCoursePage() {
 
   // ── Submit ──
   const handleSubmit = async () => {
+    // routeCourse currently returns a 2D LineString plus aggregate ascent only.
+    // Saving that geometry through createCourseFromGpx would turn every missing
+    // elevation sample into zero and permanently corrupt course/climb stats.
+    if (mode === "builder") { setSubmitError(t("builder.saveDisabled")); return; }
     if (!isFormValid || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -504,16 +508,6 @@ export default function CreateCoursePage() {
         const fn = httpsCallable<unknown, { courseId: string }>(functions, "createCourseFromGpx");
         const res = await fn({
           gpxXml,
-          name,
-          description,
-          surface: surface || null,
-          difficulty,
-        });
-        result = res.data;
-      } else if (mode === "builder" && builderRoute) {
-        const fn = httpsCallable<unknown, { courseId: string }>(functions, "createCourseFromGpx");
-        const res = await fn({
-          gpxXml: routeToGpx(name, builderRoute.geometry.coordinates),
           name,
           description,
           surface: surface || null,
@@ -992,9 +986,14 @@ export default function CreateCoursePage() {
 
               {/* Submit */}
               <div className="mt-auto pt-3 border-t border-[var(--line-soft)] mt-3">
+                {mode === "builder" && (
+                  <p className="mb-2 text-[length:var(--fs-xs)] text-[var(--ink-2)]" role="status">
+                    {t("builder.saveDisabled")}
+                  </p>
+                )}
                 <button
                   onClick={handleSubmit}
-                  disabled={!isFormValid || submitting}
+                  disabled={mode === "builder" || !isFormValid || submitting}
                   className="w-full py-3 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-base)] font-semibold rounded-[var(--r-lg)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? (

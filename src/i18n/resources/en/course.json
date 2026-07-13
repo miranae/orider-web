@@ -212,6 +212,7 @@
   "builder.retry": "Try again",
   "builder.routing": "Calculating…",
   "builder.export": "Export GPX",
+  "builder.saveDisabled": "Until elevation data can be preserved safely, export map-built routes as GPX instead of saving them here.",
   "builder.pointCount": "Waypoints {{count}}/{{max}}",
   "builder.stats": "{{distance}}km · about {{minutes}} min · {{ascent}}m ascent",
   "builder.surfaceSummary": "Surface mix",

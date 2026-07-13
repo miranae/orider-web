@@ -21,4 +21,10 @@ describe("CreateCoursePage builder isolation", () => {
     expect(source).not.toMatch(/track\([^)]*(waypoints|coordinates|geometry)/);
     expect(source).not.toMatch(/logClientError\([^)]*(waypoints|coordinates|geometry)/);
   });
+
+  it("fails closed instead of saving 2D builder geometry as a flat course", () => {
+    expect(source).toContain('if (mode === "builder") { setSubmitError(t("builder.saveDisabled")); return; }');
+    expect(source).toContain('disabled={mode === "builder" || !isFormValid || submitting}');
+    expect(source).not.toContain('gpxXml: routeToGpx(name, builderRoute.geometry.coordinates)');
+  });
 });

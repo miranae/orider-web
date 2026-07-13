@@ -212,6 +212,7 @@
   "builder.retry": "다시 시도",
   "builder.routing": "계산 중…",
   "builder.export": "GPX 내보내기",
+  "builder.saveDisabled": "고도 데이터를 안전하게 보존할 수 있을 때까지 지도에서 만든 경로는 GPX로 내보내서 사용해 주세요.",
   "builder.pointCount": "웨이포인트 {{count}}/{{max}}",
   "builder.stats": "거리 {{distance}}km · 예상 {{minutes}}분 · 상승 {{ascent}}m",
   "builder.surfaceSummary": "노면 구성",
