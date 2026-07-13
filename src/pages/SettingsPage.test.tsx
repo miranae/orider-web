@@ -147,15 +147,27 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("keeps mobile settings connected to training and integration panes", () => {
+  it("uses a category hub and dedicated mobile subpages for every desktop setting section", () => {
     const settingsPage = readFileSync(join(process.cwd(), "src/pages/SettingsPage.tsx"), "utf8");
     const mobileSettings = readFileSync(join(process.cwd(), "src/components/mobile/MobileSettingsPage.tsx"), "utf8");
 
-    expect(settingsPage).toContain('if (isMobile && section !== "account")');
-    expect(settingsPage).toContain('section === "training" && <PaneTraining />');
-    expect(settingsPage).toContain('section === "connections" && <PaneConnections />');
-    expect(mobileSettings).toContain('to="/settings?section=training"');
-    expect(mobileSettings).toContain('connectStrava("/settings")');
-    expect(mobileSettings).toContain('navigate("/settings?section=connections")');
+    expect(settingsPage).toContain("if (isMobile && hasRequestedSection)");
+    expect(settingsPage).toContain('section === "account" && <PaneAccount />');
+    for (const [section, pane] of [
+      ["training", "PaneTraining"],
+      ["equipment", "PaneEquipment"],
+      ["connections", "PaneConnections"],
+      ["health_sources", "PaneHealthSources"],
+      ["developer", "PaneDeveloper"],
+      ["device", "PaneDevice"],
+      ["app", "PaneApp"],
+    ]) {
+      expect(settingsPage).toContain(`section === "${section}" && <${pane} />`);
+    }
+    expect(settingsPage).toContain('aria-label={t("nav.backToSettings")}');
+    expect(mobileSettings).toContain("NAV_GROUPS.map");
+    expect(mobileSettings).toContain("`/settings?section=${item.id}`");
+    expect(mobileSettings).toContain('aria-label={t("nav.backToProfile")}');
+    expect(mobileSettings).not.toContain("useStrava");
   });
 });

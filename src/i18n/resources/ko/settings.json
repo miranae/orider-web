@@ -447,7 +447,10 @@
     "deviceLabel": "디바이스",
     "deviceHint": "모바일 앱 동기화",
     "appLabel": "앱 & 데이터",
-    "appHint": "언어, 단위, 내보내기"
+    "appHint": "언어, 단위, 내보내기",
+    "mobileHubLabel": "설정 카테고리",
+    "backToProfile": "프로필로 돌아가기",
+    "backToSettings": "설정 카테고리로 돌아가기"
   },
   "equipment": {
     "bikeProfile": "자전거 프로필",

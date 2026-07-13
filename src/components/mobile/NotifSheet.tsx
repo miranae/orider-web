@@ -19,7 +19,7 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
   if (!open) return null;
 
   return (
-    <div className="md:hidden fixed inset-0 z-[200] flex flex-col" role="dialog" aria-modal="true" aria-label={t("label.notifications")}>
+    <div className="lg:hidden fixed inset-0 z-[200] flex flex-col" role="dialog" aria-modal="true" aria-label={t("label.notifications")}>
       {/* Backdrop */}
       <div className="flex-1" style={{ background: "color-mix(in srgb, var(--bg-0) 50%, transparent)" }} onClick={onClose} />
       {/* Sheet */}

@@ -14,6 +14,7 @@ import type {
   ProviderId,
 } from "@shared/types";
 import { Card, Chip } from "../../theme/components";
+import { Toggle } from "./_primitives";
 
 /**
  * Stage 1 PR F — 헬스 소스 연결 + 주 소스 선택 + 보존 정책 UI.
@@ -287,15 +288,15 @@ export function PaneHealthSources() {
             {t("healthSources.retentionDesc")}
           </p>
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
-          <input
-            type="checkbox"
-            checked={prefs?.retainSamplesForever ?? false}
+        <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
+          <Toggle
+            on={prefs?.retainSamplesForever ?? false}
             disabled={retainSaving}
-            onChange={handleRetainToggle}
+            ariaLabel={t("healthSources.retainForever")}
+            onChange={() => void handleRetainToggle()}
           />
           <span style={{ fontSize: "var(--fs-sm)" }}>{t("healthSources.retainForever")}</span>
-        </label>
+        </div>
         {prefs?.retainSamplesForever && (
           <div
             style={{
