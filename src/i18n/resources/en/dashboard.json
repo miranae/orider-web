@@ -37,6 +37,7 @@
     "feedScope": "· Full feed",
     "countSuffix": "{{value}}",
     "filter": {
+      "label": "Feed scope",
       "all": "All",
       "friends": "Friends",
       "self": "Mine"
@@ -51,6 +52,7 @@
       "emptyDescription": "Try a different keyword or date range."
     },
     "datePreset": {
+      "label": "Date range",
       "all": "All",
       "7d": "7d",
       "30d": "30d",

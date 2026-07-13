@@ -14,6 +14,9 @@ describe("mobile parity r4", () => {
     expect(mobileFeed).toContain("feedScope");
     expect(mobileFeed).toContain("searchQuery");
     expect(mobileFeed).toContain("datePreset");
+    expect(mobileFeed).toContain('aria-label={t("feed.filter.label")}');
+    expect(mobileFeed).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
+    expect(mobileFeed).not.toContain('role="tablist"');
     expect(dashboard).toContain("const sportFiltered = useMemo");
     expect(dashboard).toContain("<MobileFeedPage\n        activities={activities}");
     expect(dashboard).toContain("friendIds={[...friendIds]}");

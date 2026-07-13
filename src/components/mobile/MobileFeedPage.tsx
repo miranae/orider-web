@@ -398,52 +398,51 @@ export default function MobileFeedPage({
       )}
 
       <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "10px 16px", display: "grid", gap: "var(--space-2)" }}>
-        <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-1)" }}>
-          {([
-            ["all", t("feed.filter.all")],
-            ["friends", t("feed.filter.friends")],
-            ["self", t("feed.filter.self")],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={feedScope === value}
-              onClick={() => setFeedScope(value)}
-              style={{
-                minHeight: 44,
-                borderRadius: "var(--r-md)",
-                border: "1px solid var(--line-soft)",
-                background: feedScope === value ? "var(--bg-3)" : "var(--bg-1)",
-                color: feedScope === value ? "var(--ink-0)" : "var(--ink-3)",
-                fontSize: "var(--fs-xs)",
-                fontWeight: 600,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "var(--space-2)" }}>
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t("feed.search.placeholder")}
-            aria-label={t("feed.search.placeholder")}
+        <input
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder={t("feed.search.placeholder")}
+          aria-label={t("feed.search.placeholder")}
+          style={{
+            width: "100%",
+            minWidth: 0,
+            minHeight: 44,
+            borderRadius: "var(--r-md)",
+            border: "1px solid var(--line-soft)",
+            background: "var(--bg-2)",
+            color: "var(--ink-0)",
+            padding: "0 12px",
+            fontSize: "var(--fs-sm)",
+          }}
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)" }}>
+          <select
+            value={feedScope}
+            onChange={(event) => setFeedScope(event.target.value as "all" | "friends" | "self")}
+            aria-label={t("feed.filter.label")}
             style={{
+              width: "100%",
+              minWidth: 0,
               minHeight: 44,
               borderRadius: "var(--r-md)",
               border: "1px solid var(--line-soft)",
               background: "var(--bg-2)",
               color: "var(--ink-0)",
-              padding: "0 12px",
-              fontSize: "var(--fs-sm)",
+              padding: "0 10px",
+              fontSize: "var(--fs-xs)",
             }}
-          />
+          >
+            <option value="all">{t("feed.filter.all")}</option>
+            <option value="friends">{t("feed.filter.friends")}</option>
+            <option value="self">{t("feed.filter.self")}</option>
+          </select>
           <select
             value={datePreset}
             onChange={(event) => setDatePreset(event.target.value as "all" | "7d" | "30d" | "90d")}
-            aria-label={t("feed.datePreset.label", { defaultValue: "기간" })}
+            aria-label={t("feed.datePreset.label")}
             style={{
+              width: "100%",
+              minWidth: 0,
               minHeight: 44,
               borderRadius: "var(--r-md)",
               border: "1px solid var(--line-soft)",

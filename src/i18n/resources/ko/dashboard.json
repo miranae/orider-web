@@ -37,6 +37,7 @@
     "feedScope": "· 전체 피드",
     "countSuffix": "{{value}}건",
     "filter": {
+      "label": "피드 범위",
       "all": "전체",
       "friends": "친구",
       "self": "본인"
@@ -51,6 +52,7 @@
       "resultsCount_other": "{{count}}건"
     },
     "datePreset": {
+      "label": "기간",
       "all": "전체",
       "7d": "7일",
       "30d": "30일",

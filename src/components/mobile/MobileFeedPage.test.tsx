@@ -116,4 +116,39 @@ describe("MobileFeedPage", () => {
     expect(screen.getByText("게스트 수영")).toBeInTheDocument();
     expect(screen.queryByText("게스트 사이클")).not.toBeInTheDocument();
   });
+
+  it("filters the feed scope from the select beside the date range", async () => {
+    const user = userEvent.setup();
+    const friendActivity = createMockActivity({
+      id: "friend-activity",
+      userId: "friend-1",
+      description: "친구 활동",
+    });
+    const publicActivity = createMockActivity({
+      id: "public-activity",
+      userId: "public-1",
+      description: "전체 활동",
+    });
+
+    renderWithProviders(
+      <MobileFeedPage
+        activities={[friendActivity, publicActivity]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        recentWeeks={[]}
+        friendIds={["friend-1"]}
+      />,
+    );
+
+    const scopeSelect = screen.getByRole("combobox", { name: "피드 범위" });
+    const dateSelect = screen.getByRole("combobox", { name: "기간" });
+    expect(scopeSelect.compareDocumentPosition(dateSelect) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.selectOptions(scopeSelect, "friends");
+
+    expect(screen.getByText("친구 활동")).toBeInTheDocument();
+    expect(screen.queryByText("전체 활동")).not.toBeInTheDocument();
+  });
 });
