@@ -7,20 +7,30 @@ function read(path: string): string {
 }
 
 describe("mobile fitness action", () => {
-  it("orders workout, consistency, and KPI cards at the top of the overview", () => {
+  it("orders the full AI coach, consistency, and KPI cards at the top of the overview", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const overview = source.slice(source.indexOf('{tab === "overview"'));
-    const workoutIndex = overview.indexOf('<TodaysWorkoutCard variant="compact" />');
+    const workoutIndex = overview.indexOf("<TodaysWorkoutCard />");
     const consistencyIndex = overview.indexOf('<ConsistencyStreakCard summary={consistencyStreak} compact />');
     const metricsIndex = overview.indexOf("{kpiItems.map");
     const analysisIndex = overview.indexOf('{tab === "analysis"');
 
     expect(workoutIndex).toBeGreaterThan(-1);
+    expect(overview).not.toContain('<TodaysWorkoutCard variant="compact" />');
     expect(consistencyIndex).toBeGreaterThan(-1);
     expect(metricsIndex).toBeGreaterThan(-1);
     expect(workoutIndex).toBeLessThan(consistencyIndex);
     expect(consistencyIndex).toBeLessThan(metricsIndex);
     expect(workoutIndex).toBeLessThan(analysisIndex);
+  });
+
+  it("uses the full AI coach on mobile home and keeps the plan card compact", () => {
+    const mobileHome = read("src/components/mobile/MobileFeedPage.tsx");
+    const plan = read("src/pages/PlanPage.tsx");
+
+    expect(mobileHome).toContain("<TodaysWorkoutCard />");
+    expect(mobileHome).not.toContain('<TodaysWorkoutCard variant="compact" />');
+    expect(plan).toContain('<TodaysWorkoutCard variant="compact" />');
   });
 
   it.each([
