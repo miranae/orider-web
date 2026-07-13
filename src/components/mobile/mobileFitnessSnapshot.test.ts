@@ -2,20 +2,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-describe("mobile fitness snapshot contract", () => {
+describe("mobile fitness decision hierarchy", () => {
   const source = fs.readFileSync(path.resolve("src/components/mobile/MobileFitnessPage.tsx"), "utf8");
 
-  it("uses PDC summary values and exposes a text status plus accessible pointer label", () => {
-    expect(source).toContain("pdc?.vo2maxEst");
+  it("shows a compact active FTP and cycling ability without the duplicate snapshot", () => {
+    expect(source).toContain("function BikeAbilityCompact");
     expect(source).toContain("abilityPercentile");
-    expect(source).toContain('role="img"');
-    expect(source).toContain("aria-label={label}");
-    expect(source).toContain("row.status");
+    expect(source).toContain("thresholdDecision?.activeFtpW");
+    expect(source).not.toContain("function FitnessSnapshot");
+    expect(source).not.toContain("const kpiItems");
+    expect(source).not.toContain("<FtpProgressionCard");
   });
 
-  it("does not evaluate missing load data as a zero score", () => {
-    expect(source).toContain("data.hasLoadData ?");
-    expect(source).toContain('value: data.hasLoadData ? `CTL');
-    expect(source).toContain('t("mobileFitness.snapshot.insufficient")');
+  it("keeps the integrated load summary and moves load-focus evidence into details", () => {
+    const load = fs.readFileSync(path.resolve("src/components/mobile/IntegratedLoadCard.tsx"), "utf8");
+    expect(load).toContain("<details");
+    expect(load).toContain('minHeight: 44');
+    expect(load).toContain('mobileFitness.integrated.detailsToggle');
   });
 });

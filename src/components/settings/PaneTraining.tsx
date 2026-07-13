@@ -7,7 +7,7 @@ import type { BloodType, EmergencyContact, MedicalProfile } from "@shared/types"
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import {
-  syncRiderMetricsToDevices,
+  persistRiderMetrics,
   syncRiderWeightToBikeProfiles,
 } from "../../services/syncRiderMetrics";
 import { useAuth } from "../../contexts/AuthContext";
@@ -252,9 +252,8 @@ export function PaneTraining() {
 
     setSaving(true);
     try {
-      // 라이더 임계값(ftp/maxHr/weightKg) 은 디바이스 settings JSON 을 진실 소스로 일원화.
-      // 비-null 값은 syncRiderMetricsToDevices 로 디바이스에 쓴 뒤 CF `syncDeviceSettingsToUser`
-      // 가 자동으로 root 에 미러 — 같은 값으로 두 번 쓰지 않도록 root updates 에서 분리.
+      // 라이더 임계값(ftp/maxHr/weightKg)은 프로필 root 정본과 디바이스 settings JSON을
+      // 한 동작으로 갱신한다. CF 미러 지연과 무관하게 저장 직후 웹 정본도 일치해야 한다.
       // null(클리어) 은 디바이스가 "기본값 사용" 의미와 다르므로 root 에는 직접 null 로 쓴다.
       const ftpForSync = typeof updates.ftp === "number" ? updates.ftp : undefined;
       const maxHrForSync = typeof updates.maxHr === "number" ? updates.maxHr : undefined;
@@ -266,15 +265,13 @@ export function PaneTraining() {
         weightForSync !== undefined;
 
       const syncErrors: string[] = [];
-      let devicesUpdated = 0;
       if (needDeviceSync) {
         try {
-          const result = await syncRiderMetricsToDevices(user.uid, {
+          const result = await persistRiderMetrics(user.uid, {
             ftp: ftpForSync,
             maxHr: maxHrForSync,
             weightKg: weightForSync,
           });
-          devicesUpdated = result.updatedDevices;
           if (result.failures.length > 0) {
             const failedNames = result.failures
               .map((f) => f.deviceName || f.deviceId)
@@ -286,15 +283,12 @@ export function PaneTraining() {
         }
       }
 
-      // 디바이스가 하나도 갱신되지 않았으면 (사용자가 모바일 앱을 아직 안 썼거나 디바이스
-      // sync 실패) root 에 라이더 필드 fallback 쓰기 — 분석 탭 / feasibility 에 즉시 반영
-      // 보장. 1개 이상 갱신되었으면 CF 미러를 신뢰하고 root 에는 쓰지 않는다.
+      // persistRiderMetrics가 기기 동기화와 root 정본 갱신을 함께 처리하므로,
+      // 나머지 프로필 필드만 이 update에 포함한다.
       const rootUpdates: Record<string, unknown> = { ...updates };
-      if (devicesUpdated > 0) {
-        if (ftpForSync !== undefined) delete rootUpdates.ftp;
-        if (maxHrForSync !== undefined) delete rootUpdates.maxHr;
-        if (weightForSync !== undefined) delete rootUpdates.weightKg;
-      }
+      if (ftpForSync !== undefined) delete rootUpdates.ftp;
+      if (maxHrForSync !== undefined) delete rootUpdates.maxHr;
+      if (weightForSync !== undefined) delete rootUpdates.weightKg;
       if (Object.keys(rootUpdates).length > 0) {
         await updateDoc(doc(firestore, "users", user.uid), rootUpdates);
       }
