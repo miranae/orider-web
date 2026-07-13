@@ -11,6 +11,31 @@ import { functions } from "./firebase";
  * init 후 호출 시점엔 정상 인스턴스로 보인다.
  */
 let _logClientErrorFn: HttpsCallable<unknown, unknown> | null = null;
+const RECENT_ERROR_WINDOW_MS = 10_000;
+const MAX_RECENT_ERROR_KEYS = 200;
+const recentClientErrors = new Map<string, number>();
+
+function shouldSuppressClientError(source: string, message: string, now = Date.now()): boolean {
+  const key = `${source}\u0000${message}`;
+  const previousAt = recentClientErrors.get(key);
+  if (previousAt != null && now - previousAt < RECENT_ERROR_WINDOW_MS) return true;
+
+  recentClientErrors.set(key, now);
+  if (recentClientErrors.size > MAX_RECENT_ERROR_KEYS) {
+    for (const [candidate, seenAt] of recentClientErrors) {
+      if (now - seenAt >= RECENT_ERROR_WINDOW_MS || recentClientErrors.size > MAX_RECENT_ERROR_KEYS) {
+        recentClientErrors.delete(candidate);
+      }
+    }
+  }
+  return false;
+}
+
+/** 테스트 간 모듈 전역 중복 방지 상태를 격리한다. */
+export function __resetClientErrorDedupeForTests(): void {
+  recentClientErrors.clear();
+}
+
 function getLogClientErrorFn(): HttpsCallable<unknown, unknown> | null {
   if (!_logClientErrorFn && functions) {
     _logClientErrorFn = httpsCallable(functions, "logClientError");
@@ -28,6 +53,9 @@ export function logClientError(
   error: unknown,
   context?: Record<string, unknown>
 ) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (shouldSuppressClientError(source, message)) return;
+
   // Sentry 에 전송 (lazy-loaded, init 전이면 큐에 저장 → load 시 flush)
   captureError(
     error instanceof Error ? error : new Error(String(error)),
@@ -35,7 +63,6 @@ export function logClientError(
   );
 
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
-  const message = error instanceof Error ? error.message : String(error);
   const stack = error instanceof Error ? error.stack : undefined;
 
   try {

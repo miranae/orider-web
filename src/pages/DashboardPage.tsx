@@ -443,7 +443,7 @@ export default function DashboardPage() {
   if (isMobile) {
     return (
       <MobileFeedPage
-        activities={sportFiltered}
+        activities={activities}
         loading={loading}
         hasMore={hasMore}
         loadingMore={loadingMore}

@@ -22,7 +22,77 @@ function wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+function strictWrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(React.StrictMode, null, wrapper({ children }));
+}
+
 describe("useActivities", () => {
+  beforeEach(() => {
+    vi.mocked(getDocs).mockClear();
+  });
+
+  it("shares the first Firestore request across concurrent hook mounts", async () => {
+    let resolveRequest!: (value: {
+      docs: Array<{ id: string; data: () => ReturnType<typeof createMockActivity> }>;
+    }) => void;
+    const request = new Promise<{
+      docs: Array<{ id: string; data: () => ReturnType<typeof createMockActivity> }>;
+    }>((resolve) => { resolveRequest = resolve; });
+    vi.mocked(getDocs).mockReturnValueOnce(request as ReturnType<typeof getDocs>);
+
+    const { result } = renderHook(() => ({ first: useActivities(), second: useActivities() }), {
+      wrapper: strictWrapper,
+    });
+
+    await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(1));
+    resolveRequest({
+      docs: [{
+        id: "shared",
+        data: () => createMockActivity({ id: "shared", profileImage: "https://example.com/avatar.jpg" }),
+      }],
+    });
+
+    await waitFor(() => {
+      expect(result.current.first.loading).toBe(false);
+      expect(result.current.second.loading).toBe(false);
+    });
+    expect(result.current.first.activities[0]?.id).toBe("shared");
+    expect(result.current.second.activities[0]?.id).toBe("shared");
+    expect(getDocs).toHaveBeenCalledTimes(1);
+  });
+
+  it("evicts a failed shared request and recovers with one request per retry wave", async () => {
+    const assertion = new Error("INTERNAL ASSERTION FAILED: Unexpected state (ID: b815)");
+    const recoveredActivity = createMockActivity({
+      id: "recovered",
+      profileImage: "https://example.com/avatar.jpg",
+    });
+    let resolveRecovery!: (value: Awaited<ReturnType<typeof getDocs>>) => void;
+    const recoveryRequest = new Promise<Awaited<ReturnType<typeof getDocs>>>((resolve) => {
+      resolveRecovery = resolve;
+    });
+    vi.mocked(getDocs)
+      .mockRejectedValueOnce(assertion)
+      .mockReturnValueOnce(recoveryRequest);
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useActivities(), {
+      wrapper: strictWrapper,
+    });
+
+    await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(2), { timeout: 2_000 });
+    resolveRecovery({
+      docs: [{ id: "recovered", data: () => recoveredActivity }],
+    } as Awaited<ReturnType<typeof getDocs>>);
+
+    await waitFor(() => {
+      expect(result.current.activities[0]?.id).toBe("recovered");
+    }, { timeout: 2_000 });
+    expect(getDocs).toHaveBeenCalledTimes(2);
+    expect(logSpy).toHaveBeenCalledWith("useActivities.initialLoad.first", assertion);
+    logSpy.mockRestore();
+  });
+
   it("returns empty activities initially for guest", async () => {
     const { result } = renderHook(() => useActivities(), { wrapper });
     await waitFor(() => {
