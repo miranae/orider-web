@@ -433,7 +433,7 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
       )}
 
       {/* #459/#462 페달링 사분면 + 노력 품질 (서버 사전계산 메트릭 노출) */}
-      {hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (
+      {hasPower && (sm?.quadrant || sm?.lrBalance || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.pedalQuality")}</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -450,6 +450,16 @@ export default function AnalysisTab({ activityId, isOwner = false, streams, summ
             )}
             {sm?.cyclingMetrics?.cadenceStdDev != null && (
               <MetricCard color="violet" label={t("analysis.metric.cadenceConsistency")} value={sm.cyclingMetrics.cadenceStdDev.toFixed(0)} unit="rpm σ" description={t("analysis.metric.cadenceConsistencyDesc")} tooltip={t("analysis.glossary.cadenceConsistency")} />
+            )}
+            {sm?.lrBalance && (
+              <MetricCard
+                color="aqua"
+                label={t("analysis.metric.pedalBalance")}
+                value={`${(100 - sm.lrBalance.avg).toFixed(1)} / ${sm.lrBalance.avg.toFixed(1)}`}
+                unit="L/R %"
+                description={t("analysis.metric.pedalBalanceDesc", { value: sm.lrBalance.asymmetryPct.toFixed(1) })}
+                tooltip={t("analysis.glossary.pedalBalance")}
+              />
             )}
           </div>
         </div>
