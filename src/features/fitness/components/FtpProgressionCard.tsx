@@ -7,10 +7,12 @@ export default function FtpProgressionCard({
   points,
   currentFtpW,
   breakthrough,
+  embedded = false,
 }: {
   points: EstimatedFtpPoint[];
   currentFtpW?: number | null;
   breakthrough: FtpBreakthrough | null;
+  embedded?: boolean;
 }) {
   const { t, i18n } = useTranslation("fitness");
   const hasTrend = points.length >= 2;
@@ -36,8 +38,8 @@ export default function FtpProgressionCard({
   const labelStep = Math.max(1, Math.ceil((points.length - 1) / 5));
   const shouldLabel = (index: number) => index === 0 || index === points.length - 1 || index % labelStep === 0;
 
-  return (
-    <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "var(--space-5)" }}>
+  const content = (
+    <>
       <div className="flex flex-wrap items-start justify-between" style={{ gap: "var(--space-4)" }}>
         <div>
           <Text as="h3" variant="title">{t("ftpProgression.title")}</Text>
@@ -45,10 +47,11 @@ export default function FtpProgressionCard({
             {t("ftpProgression.description")}
           </Text>
         </div>
-        {hasTrend && (
-          <Text variant="mono" style={{ color: "var(--aqua)" }}>
-            {points[points.length - 1]!.ftpW} W
-          </Text>
+        {hasTrend && !embedded && (
+          <div style={{ textAlign: "right" }}>
+            <Text as="div" variant="caption" tone="tertiary">{t("ftpProgression.latestAutoEstimate")}</Text>
+            <Text variant="mono" style={{ color: "var(--aqua)" }}>{points[points.length - 1]!.ftpW} W</Text>
+          </div>
         )}
       </div>
 
@@ -74,7 +77,7 @@ export default function FtpProgressionCard({
         </div>
       )}
 
-      {breakthrough && (
+      {breakthrough && !embedded && (
         <div style={{ marginTop: hasTrend ? "var(--space-4)" : 0, padding: "var(--space-4)", borderRadius: "var(--r-md)", background: "var(--accent-soft-bg)", border: "1px solid var(--accent-soft-border)" }}>
           <Text as="div" variant="eyebrow" style={{ color: "var(--aqua)" }}>{t("ftpProgression.breakthroughEyebrow")}</Text>
           <Text as="p" variant="bodySmall" style={{ margin: "var(--space-2) 0 var(--space-3)" }}>
@@ -89,6 +92,10 @@ export default function FtpProgressionCard({
           </LocalizedLink>
         </div>
       )}
-    </Card>
+    </>
   );
+
+  return embedded
+    ? <div style={{ marginTop: "var(--space-4)" }}>{content}</div>
+    : <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "var(--space-5)" }}>{content}</Card>;
 }

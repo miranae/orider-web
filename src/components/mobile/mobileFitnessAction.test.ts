@@ -7,21 +7,26 @@ function read(path: string): string {
 }
 
 describe("mobile fitness action", () => {
-  it("orders the full AI coach, consistency, and KPI cards at the top of the overview", () => {
+  it("orders today's workout before core status, load, and sport analysis", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const overview = source.slice(source.indexOf('{tab === "overview"'));
     const workoutIndex = overview.indexOf("<TodaysWorkoutCard />");
-    const consistencyIndex = overview.indexOf('<ConsistencyStreakCard summary={consistencyStreak} compact />');
-    const metricsIndex = overview.indexOf("{kpiItems.map");
+    const coreIndex = overview.indexOf("<BikeAbilityCompact");
+    const loadIndex = overview.indexOf("<IntegratedLoadCard");
+    const sportIndex = overview.indexOf("<SportPerformanceCard");
     const analysisIndex = overview.indexOf('{tab === "analysis"');
 
     expect(workoutIndex).toBeGreaterThan(-1);
     expect(overview).not.toContain('<TodaysWorkoutCard variant="compact" />');
-    expect(consistencyIndex).toBeGreaterThan(-1);
-    expect(metricsIndex).toBeGreaterThan(-1);
-    expect(workoutIndex).toBeLessThan(consistencyIndex);
-    expect(consistencyIndex).toBeLessThan(metricsIndex);
+    expect(coreIndex).toBeGreaterThan(-1);
+    expect(loadIndex).toBeGreaterThan(-1);
+    expect(sportIndex).toBeGreaterThan(-1);
+    expect(workoutIndex).toBeLessThan(coreIndex);
+    expect(coreIndex).toBeLessThan(loadIndex);
+    expect(loadIndex).toBeLessThan(sportIndex);
     expect(workoutIndex).toBeLessThan(analysisIndex);
+    expect(overview).not.toContain("{kpiItems.map");
+    expect(overview).not.toContain("<FitnessSnapshot");
   });
 
   it("uses the full AI coach on mobile home and keeps the plan card compact", () => {

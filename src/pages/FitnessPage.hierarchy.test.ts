@@ -13,4 +13,15 @@ describe("FitnessPage desktop hierarchy", () => {
     expect(source).toContain('border: "1px solid var(--line-soft)"');
     expect(source).toContain('borderRadius: "var(--r-lg)"');
   });
+
+  it("uses one bike threshold decision card instead of duplicate FTP and model strips", () => {
+    expect(source).toContain("<BikeThresholdDecisionCard");
+    expect(source).not.toContain("<FtpProgressionCard");
+    expect(source).toContain("progressionPoints={ftpProgression}");
+    expect(source).not.toContain("<BikeActionAccordion");
+    expect(source).not.toContain('t("ftpCard.tteLabel")');
+    expect(source).not.toContain('t("vo2maxCard.label")');
+    expect(source).toContain("isConservativeDrop(thresholdDecision.activeFtpW, candidateW)");
+    expect(source).toContain("await dialog.confirm(");
+  });
 });
