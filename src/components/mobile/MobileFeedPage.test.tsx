@@ -29,6 +29,8 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={onLoadMore}
         recentWeeks={[]}
+        feedScope="all"
+        onFeedScopeChange={vi.fn()}
       />,
     );
 
@@ -62,6 +64,8 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={vi.fn()}
         recentWeeks={[]}
+        feedScope="all"
+        onFeedScopeChange={vi.fn()}
       />,
       { authenticated: true },
     );
@@ -105,6 +109,8 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={vi.fn()}
         recentWeeks={[]}
+        feedScope="all"
+        onFeedScopeChange={vi.fn()}
       />,
     );
 
@@ -119,6 +125,7 @@ describe("MobileFeedPage", () => {
 
   it("filters the feed scope from the select beside the date range", async () => {
     const user = userEvent.setup();
+    const onFeedScopeChange = vi.fn();
     const friendActivity = createMockActivity({
       id: "friend-activity",
       userId: "friend-1",
@@ -130,7 +137,7 @@ describe("MobileFeedPage", () => {
       description: "전체 활동",
     });
 
-    renderWithProviders(
+    const { rerender } = renderWithProviders(
       <MobileFeedPage
         activities={[friendActivity, publicActivity]}
         loading={false}
@@ -139,6 +146,8 @@ describe("MobileFeedPage", () => {
         onLoadMore={vi.fn()}
         recentWeeks={[]}
         friendIds={["friend-1"]}
+        feedScope="all"
+        onFeedScopeChange={onFeedScopeChange}
       />,
     );
 
@@ -147,6 +156,22 @@ describe("MobileFeedPage", () => {
     expect(scopeSelect.compareDocumentPosition(dateSelect) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     await user.selectOptions(scopeSelect, "friends");
+
+    expect(onFeedScopeChange).toHaveBeenCalledWith("friends");
+
+    rerender(
+      <MobileFeedPage
+        activities={[friendActivity, publicActivity]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        recentWeeks={[]}
+        friendIds={["friend-1"]}
+        feedScope="friends"
+        onFeedScopeChange={onFeedScopeChange}
+      />,
+    );
 
     expect(screen.getByText("친구 활동")).toBeInTheDocument();
     expect(screen.queryByText("전체 활동")).not.toBeInTheDocument();

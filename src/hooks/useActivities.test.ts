@@ -8,6 +8,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import React from "react";
 import * as publicProfiles from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
+import { getDocs, where } from "firebase/firestore";
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(
@@ -103,6 +104,139 @@ describe("useActivities", () => {
     });
     expect(result.current.activities).toHaveLength(1);
     expect(result.current.activities[0]?.id).toBe("ok");
+  });
+
+  it("adds the signed-in owner constraint to the self feed query", async () => {
+    simulateLogin({ uid: "owner-1" });
+    vi.mocked(where).mockClear();
+
+    const { result } = renderHook(() => useActivities("self"), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(where).toHaveBeenCalledWith("userId", "==", "owner-1");
+  });
+
+  it("chunks friend owner queries and includes public and friends visibility", async () => {
+    simulateLogin({ uid: "owner-1" });
+    vi.mocked(where).mockClear();
+    const friendIds = Array.from({ length: 16 }, (_, index) => `friend-${index}`);
+
+    const { result } = renderHook(() => useActivities("friends", friendIds), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const ownerCalls = vi.mocked(where).mock.calls.filter(([field, operator]) => field === "userId" && operator === "in");
+    expect(ownerCalls.map(([, , ids]) => (ids as string[]).length)).toEqual([10, 6]);
+    expect(where).toHaveBeenCalledWith("visibility", "in", ["everyone", "friends"]);
+  });
+
+  it("refills a source after a full raw page contains summary-less documents", async () => {
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockClear();
+
+    const snapshot = (docs: Array<{ id: string; summary: boolean; createdAt: number }>) => ({
+      docs: docs.map(({ id, summary, createdAt }) => {
+        const data = {
+          ...createMockActivity({ id, createdAt, profileImage: "https://example.com/avatar.jpg" }),
+          ...(summary ? {} : { summary: null }),
+        };
+        return { id, data: () => data, exists: () => true, ref: { path: `activities/${id}` } };
+      }),
+      size: docs.length,
+      empty: docs.length === 0,
+    });
+
+    mockedGetDocs
+      .mockResolvedValueOnce(snapshot([
+        { id: "broken-1", summary: false, createdAt: 400 },
+        { id: "valid-newer", summary: true, createdAt: 300 },
+        { id: "broken-2", summary: false, createdAt: 200 },
+      ]) as never)
+      .mockResolvedValueOnce(snapshot([
+        { id: "valid-older", summary: true, createdAt: 100 },
+      ]) as never);
+
+    try {
+      const { result } = renderHook(() => useActivities(), { wrapper });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.activities.map((activity) => activity.id)).toEqual(["valid-newer", "valid-older"]);
+      expect(mockedGetDocs).toHaveBeenCalledTimes(2);
+    } finally {
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
+  });
+
+  it("does not reload all-scope activities when the async friend list changes", async () => {
+    const mockedGetDocs = vi.mocked(getDocs);
+    mockedGetDocs.mockClear();
+
+    const { result, rerender } = renderHook(
+      ({ friendIds }: { friendIds: string[] }) => useActivities("all", friendIds),
+      { wrapper, initialProps: { friendIds: [] } },
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const callsAfterInitialLoad = mockedGetDocs.mock.calls.length;
+
+    rerender({ friendIds: ["friend-loaded-later"] });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockedGetDocs).toHaveBeenCalledTimes(callsAfterInitialLoad);
+  });
+
+  it("does not append an old load-more response after an all-self-all scope cycle", async () => {
+    simulateLogin({ uid: "owner-1" });
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockClear();
+    let resolveOldPage!: (value: unknown) => void;
+
+    const snapshot = (ids: string[]) => ({
+      docs: ids.map((id, index) => {
+        const data = createMockActivity({
+          id,
+          userId: id === "self-new" ? "owner-1" : "other-1",
+          createdAt: Date.now() - index,
+        });
+        return { id, data: () => data, exists: () => true, ref: { path: `activities/${id}` } };
+      }),
+      size: ids.length,
+      empty: ids.length === 0,
+    });
+
+    const oldPage = new Promise((resolve) => { resolveOldPage = resolve; });
+    mockedGetDocs
+      .mockResolvedValueOnce(snapshot(["all-1", "all-2", "all-3"]) as never)
+      .mockResolvedValueOnce(snapshot(Array.from({ length: 7 }, (_, index) => `all-rest-${index}`)) as never)
+      .mockImplementationOnce(() => oldPage as never)
+      .mockResolvedValueOnce(snapshot(["self-new"]) as never)
+      .mockResolvedValueOnce(snapshot(["all-new"]) as never);
+
+    try {
+      const { result, rerender } = renderHook(
+        ({ scope }: { scope: "all" | "self" }) => useActivities(scope),
+        { wrapper, initialProps: { scope: "all" as const } },
+      );
+
+      await waitFor(() => expect(result.current.activities).toHaveLength(10));
+      await waitFor(() => expect(result.current.loadingMore).toBe(false));
+      expect(result.current.hasMore).toBe(true);
+
+      act(() => { void result.current.loadMore(); });
+      await waitFor(() => expect(mockedGetDocs).toHaveBeenCalledTimes(3));
+      rerender({ scope: "self" });
+      await waitFor(() => expect(result.current.activities.map((activity) => activity.id)).toEqual(["self-new"]));
+      rerender({ scope: "all" });
+      await waitFor(() => expect(result.current.activities.map((activity) => activity.id)).toEqual(["all-new"]));
+
+      await act(async () => { resolveOldPage(snapshot(["old-scope-result"])); });
+      expect(result.current.activities.map((activity) => activity.id)).toEqual(["all-new"]);
+    } finally {
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
   });
 });
 
