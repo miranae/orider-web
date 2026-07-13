@@ -604,6 +604,7 @@ export default function ActivityPage() {
   const pauseTimeSec = s.pauseTimeSec ?? serverMetrics.metrics?.pauseTimeSec;
   const speedDur = resolveDuration({
     ridingTimeMillis: s.ridingTimeMillis,
+    elapsedTimeMillis: s.elapsedTimeMillis,
     startTime: activity.startTime,
     endTime: activity.endTime,
     movingTimeSec,
