@@ -13,8 +13,6 @@ import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { ChevronLeft } from "lucide-react";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDisciplineColor, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
@@ -459,8 +457,6 @@ export default function MobileFitnessPage({
     next.set("sport", v === "all" ? "tri" : v);
     setSearchParams(next, { replace: true });
   };
-  const navigate = useNavigate();
-
   const ringColor = data.discipline === "bike"
     ? getDisciplineColor("bike")
     : getDisciplineColor(data.discipline as Discipline);
@@ -490,10 +486,6 @@ export default function MobileFitnessPage({
       {/* Header */}
       <div className="flex items-center sticky top-0 z-10"
         style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
-        <div className="cursor-pointer flex items-center" style={{ marginLeft: -4, padding: "4px 8px 4px 0", minHeight: 44 }}
-          onClick={() => navigate("/my")}>
-          <ChevronLeft size={22} style={{ color: "var(--ink-1)" }} />
-        </div>
         <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
       </div>
 
