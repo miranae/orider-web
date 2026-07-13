@@ -124,7 +124,7 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("50.0")).toBeInTheDocument(); // distance
+      expect(screen.getAllByText("50.0")[0]).toBeInTheDocument(); // distance; average speed can share the value
     });
   });
 
@@ -142,7 +142,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />);
 
-    const stat = await screen.findByText("50.0");
+    const stat = (await screen.findAllByText("50.0"))[0]!;
     const overviewTab = await screen.findByRole("tab", { name: "개요" });
 
     expect(stat.compareDocumentPosition(overviewTab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
