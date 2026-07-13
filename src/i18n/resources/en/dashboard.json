@@ -305,7 +305,7 @@
     "kpiAtlLabel": "ATL Fatigue",
     "kpiTsbLabel": "TSB Form",
     "vo2maxDesc": "Estimated",
-    "vo2maxNoFtp": "FTP required",
+    "vo2maxNoFtp": "FTP and weight required",
     "tsbOverRested": "Over-rested",
     "tsbOptimalForm": "Optimal form",
     "tsbTrainingOk": "Training load OK",

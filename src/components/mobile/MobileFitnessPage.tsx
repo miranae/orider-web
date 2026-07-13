@@ -110,7 +110,7 @@ function tsbLabelKey(tsb: number): string {
   return "mobileFitness.tsbOverload";
 }
 
-/** VO2max 추정: FTP / 체중(kg) × 15.7 + 3.5 (FitnessPage.tsx 와 동일 공식). */
+/** VO2max 단순 추정: FTP / 체중(kg) × 15.7 + 3.5. 실제 체중이 있을 때만 제공한다. */
 function estimateVo2max(ftp: number | undefined, weightKg: number | undefined): number | null {
   if (!ftp || ftp <= 0 || !weightKg || weightKg <= 0) return null;
   return Math.round((ftp / weightKg) * 15.7 + 3.5);

@@ -305,7 +305,7 @@
     "kpiAtlLabel": "ATL 피로",
     "kpiTsbLabel": "TSB 상태",
     "vo2maxDesc": "추정치",
-    "vo2maxNoFtp": "FTP 필요",
+    "vo2maxNoFtp": "FTP와 체중 필요",
     "tsbOverRested": "휴식 과다",
     "tsbOptimalForm": "폼 최적",
     "tsbTrainingOk": "트레이닝 적정",
