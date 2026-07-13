@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import type { CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
@@ -17,8 +18,12 @@ import { Card } from "../theme/components";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import RouteBuilderMap from "../components/course/RouteBuilderMap";
 import { MAX_BUILDER_WAYPOINTS, tryAddWaypoint, undoWaypoint, type Waypoint } from "../features/courseBuilder/routeBuilder";
-import { DirectionsTimeoutError, fetchCyclingRoute, type CyclingRoute } from "../services/mapboxDirections";
-import { getMapboxToken } from "../utils/mapbox";
+import {
+  CourseRoutingError,
+  requestCourseRoute,
+  type CourseRoutingProfile,
+  type CourseRoutingResult,
+} from "../services/courseRouting";
 import { downloadGpx, routeToGpx } from "../utils/routeGpx";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -81,10 +86,10 @@ function computeStats(
   };
 }
 
-function StatsPanel({ stats }: { stats: ReturnType<typeof computeStats> }) {
+function StatsPanel({ stats, hideGrades = false }: { stats: ReturnType<typeof computeStats>; hideGrades?: boolean }) {
   const { t } = useTranslation("course");
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-6">
+    <div className={`grid grid-cols-2 ${hideGrades ? "" : "sm:grid-cols-4"} gap-y-4 gap-x-6`}>
       <div className="border-l-2 border-[var(--lime)] pl-3">
         <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("distance")}</div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
@@ -97,18 +102,18 @@ function StatsPanel({ stats }: { stats: ReturnType<typeof computeStats> }) {
           {stats.elevationGain} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">m</span>
         </div>
       </div>
-      <div className="border-l-2 border-[var(--line)] pl-3">
+      {!hideGrades && <div className="border-l-2 border-[var(--line)] pl-3">
         <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("averageGrade")}</div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
           {stats.avgGrade} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">%</span>
         </div>
-      </div>
-      <div className="border-l-2 border-[var(--line)] pl-3">
+      </div>}
+      {!hideGrades && <div className="border-l-2 border-[var(--line)] pl-3">
         <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("maxGrade")}</div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
           {stats.maxGrade} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">%</span>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -129,21 +134,26 @@ export default function CreateCoursePage() {
     ? "section"
     : modeParam === "gpx"
       ? "gpx"
-      : activityId
-        ? "activity"
-        : "gpx";
+      : modeParam === "builder"
+        ? "builder"
+        : activityId
+          ? "activity"
+          : "gpx";
 
   const [mode, setMode] = useState<CreateMode>(initialMode);
   const [builderPoints, setBuilderPoints] = useState<Waypoint[]>([]);
   const builderPointsRef = useRef<Waypoint[]>([]);
-  const [builderRoute, setBuilderRoute] = useState<CyclingRoute | null>(null);
+  const [builderRoute, setBuilderRoute] = useState<CourseRoutingResult | null>(null);
   const [routing, setRouting] = useState(false);
   const [builderError, setBuilderError] = useState<string | null>(null);
+  const [builderProfile, setBuilderProfile] = useState<CourseRoutingProfile>("road");
+  const [avoidHighways, setAvoidHighways] = useState(true);
+  const [builderKind, setBuilderKind] = useState<"waypoints" | "loop">("waypoints");
+  const [targetDistanceKm, setTargetDistanceKm] = useState(30);
+  const [roundTripSeed, setRoundTripSeed] = useState(1);
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
   const routeRequestRef = useRef(0);
-  const routeAbortRef = useRef<AbortController | null>(null);
-  useEffect(() => () => routeAbortRef.current?.abort(), []);
 
   // Activity streams
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
@@ -226,7 +236,7 @@ export default function CreateCoursePage() {
   }, [t, tActivity]);
 
   useEffect(() => {
-    if (!user || !activityId || mode === "gpx") return;
+    if (!user || !activityId || mode === "gpx" || mode === "builder") return;
     if (selectedActivity?.id === activityId && streams?.latlng?.length) return;
     loadActivityStreams(activityId);
   }, [user, activityId, mode, selectedActivity?.id, streams?.latlng?.length, loadActivityStreams]);
@@ -335,8 +345,19 @@ export default function CreateCoursePage() {
     return computeStats(streams.altitude, streams.distance);
   }, [mode, streams]);
 
-  const currentStats = mode === "section" ? sectionStats : mode === "activity" ? activityStats : gpxStats;
-  const builderTokenAvailable = Boolean(getMapboxToken());
+  const builderStats = useMemo(() => builderRoute ? {
+    distance: Math.round(builderRoute.distanceM),
+    elevationGain: Math.round(builderRoute.ascentM ?? 0),
+    avgGrade: 0,
+    maxGrade: 0,
+  } : null, [builderRoute]);
+  const currentStats = mode === "section"
+    ? sectionStats
+    : mode === "activity"
+      ? activityStats
+      : mode === "builder"
+        ? builderStats
+        : gpxStats;
 
   const elevationData = useMemo(() => {
     const alt = streams?.altitude;
@@ -365,7 +386,7 @@ export default function CreateCoursePage() {
   const isFormValid = name.length >= 2 && name.length <= 50 && rangeValidation.length === 0;
   const rangeChanged = streams?.latlng ? rangeStart !== 0 || rangeEnd !== streams.latlng.length - 1 : false;
   const isDirty = !createdCourseId && (
-    mode !== initialMode || builderPoints.length > 0 ||
+    mode !== initialMode || builderPoints.length > 0 || builderProfile !== "road" || !avoidHighways ||
     Boolean(name.trim()) ||
     Boolean(description.trim()) ||
     Boolean(surface) ||
@@ -382,21 +403,55 @@ export default function CreateCoursePage() {
   });
   const leavePage = () => requestLeave(() => navigate(-1));
 
-  const calculateBuilderRoute = async () => {
-    const token = getMapboxToken();
-    if (!token || builderPoints.length < 2) return;
+  const calculateBuilderRoute = async (seedOverride?: number) => {
+    const requiredPoints = builderKind === "loop" ? 1 : 2;
+    if (builderPoints.length < requiredPoints) return;
     const requestId = ++routeRequestRef.current;
-    routeAbortRef.current?.abort();
-    const controller = new AbortController();
-    routeAbortRef.current = controller;
     setRouting(true); setBuilderError(null);
     try {
-      const route = await fetchCyclingRoute(builderPoints, token, controller.signal);
+      const loopStart = builderPoints[0];
+      const route = await requestCourseRoute(functions, {
+        waypoints: builderKind === "loop"
+          ? [{ lat: loopStart!.lat, lon: loopStart!.lng }]
+          : builderPoints.map(({ lat, lng }) => ({ lat, lon: lng })),
+        profile: builderProfile,
+        avoidHighways,
+        ...(builderKind === "loop" ? {
+          targetDistanceM: Math.round(targetDistanceKm * 1_000),
+          roundTripSeed: seedOverride ?? roundTripSeed,
+        } : {}),
+      });
       if (requestId === routeRequestRef.current) setBuilderRoute(route);
     } catch (err) {
-      if (controller.signal.aborted) return;
-      if (requestId === routeRequestRef.current) setBuilderError(err instanceof DirectionsTimeoutError ? t("builder.timeout") : t("builder.routeFailed"));
+      if (requestId === routeRequestRef.current) {
+        const reason = err instanceof CourseRoutingError ? err.reason : undefined;
+        setBuilderError(reason ? t(`builder.error.${reason}`) : t("builder.routeFailed"));
+      }
     } finally { if (requestId === routeRequestRef.current) setRouting(false); }
+  };
+
+  const invalidateBuilderRoute = () => {
+    routeRequestRef.current += 1;
+    setRouting(false);
+    setBuilderRoute(null);
+    setBuilderError(null);
+  };
+
+  const addBuilderPoint = (point: Waypoint): boolean => {
+    if (builderKind === "loop") {
+      const result = tryAddWaypoint([], point);
+      if (!result.changed) return false;
+      builderPointsRef.current = result.points;
+      invalidateBuilderRoute();
+      setBuilderPoints(result.points);
+      return true;
+    }
+    const result = tryAddWaypoint(builderPointsRef.current, point);
+    if (!result.changed) return false;
+    builderPointsRef.current = result.points;
+    invalidateBuilderRoute();
+    setBuilderPoints(result.points);
+    return true;
   };
 
   const handleRangeChange = useCallback((s: number, e: number) => {
@@ -406,7 +461,6 @@ export default function CreateCoursePage() {
 
   // ── Submit ──
   const handleSubmit = async () => {
-    if (mode === "builder") { setSubmitError(t("builder.saveDisabled")); return; }
     if (!isFormValid || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -450,6 +504,16 @@ export default function CreateCoursePage() {
         const fn = httpsCallable<unknown, { courseId: string }>(functions, "createCourseFromGpx");
         const res = await fn({
           gpxXml,
+          name,
+          description,
+          surface: surface || null,
+          difficulty,
+        });
+        result = res.data;
+      } else if (mode === "builder" && builderRoute) {
+        const fn = httpsCallable<unknown, { courseId: string }>(functions, "createCourseFromGpx");
+        const res = await fn({
+          gpxXml: routeToGpx(name, builderRoute.geometry.coordinates),
           name,
           description,
           surface: surface || null,
@@ -558,7 +622,7 @@ export default function CreateCoursePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[length:var(--fs-2xl)] font-bold">{t("createTitle")}</h1>
-          {selectedActivity && mode !== "gpx" && (
+          {selectedActivity && mode !== "gpx" && mode !== "builder" && (
             <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mt-1">
               {selectedActivity.description} · {new Date(selectedActivity.startTime).toLocaleDateString(localeTag())}
             </p>
@@ -763,28 +827,59 @@ export default function CreateCoursePage() {
       {mode === "builder" && (
         <Card padding="none" className="p-4 space-y-4">
           <div><h2 className="font-semibold">{t("builder.title")}</h2><p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">{t("builder.description", { max: MAX_BUILDER_WAYPOINTS })}</p></div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <fieldset>
+              <legend className="mb-2 text-[length:var(--fs-sm)] font-medium">{t("builder.routeType")}</legend>
+              <div className="flex gap-2">
+                {(["waypoints", "loop"] as const).map((kind) => <button key={kind} type="button" role="radio" aria-checked={builderKind === kind} className={`ds-btn ds-btn--md ${builderKind === kind ? "bg-[var(--lime)] text-[var(--bg-0)]" : ""}`} onClick={() => { setBuilderKind(kind); invalidateBuilderRoute(); }}>{t(`builder.routeType.${kind}`)}</button>)}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="mb-2 text-[length:var(--fs-sm)] font-medium">{t("builder.profile")}</legend>
+              <div className="flex flex-wrap gap-2">
+                {(["road", "gravel", "mtb", "city"] as const).map((profile) => <button key={profile} type="button" role="radio" aria-checked={builderProfile === profile} className={`ds-btn ds-btn--md ${builderProfile === profile ? "bg-[var(--lime)] text-[var(--bg-0)]" : ""}`} onClick={() => { setBuilderProfile(profile); invalidateBuilderRoute(); }}>{t(`builder.profile.${profile}`)}</button>)}
+              </div>
+            </fieldset>
+          </div>
+          <label className="flex min-h-11 items-center gap-3 text-[length:var(--fs-sm)]">
+            <input type="checkbox" checked={avoidHighways} onChange={(event) => { setAvoidHighways(event.target.checked); invalidateBuilderRoute(); }} className="h-5 w-5 accent-[var(--lime)]" />
+            {t("builder.avoidHighways")}
+          </label>
+          {builderKind === "loop" && <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+            <label className="text-[length:var(--fs-sm)]">
+              <span className="mb-1 block font-medium">{t("builder.targetDistance")}</span>
+              <input type="range" min={1} max={300} step={1} value={targetDistanceKm} onChange={(event) => { setTargetDistanceKm(Number(event.target.value)); invalidateBuilderRoute(); }} className="min-h-11 w-full accent-[var(--lime)]" />
+              <span>{t("builder.targetDistanceValue", { distance: targetDistanceKm })}</span>
+            </label>
+            <button type="button" className="ds-btn ds-btn--md" disabled={routing || builderPoints.length < 1} onClick={() => { const nextSeed = roundTripSeed >= 2_147_483_647 ? 0 : roundTripSeed + 1; setRoundTripSeed(nextSeed); invalidateBuilderRoute(); void calculateBuilderRoute(nextSeed); }}>{t("builder.anotherLoop")}</button>
+          </div>}
           <p id="builder-map-instructions" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("builder.instructions")}</p>
-          <RouteBuilderMap labels={{ region: t("builder.mapRegion"), unavailable: t("builder.mapUnavailable"), waypoint: t("builder.waypoint") }} waypoints={builderPoints} route={builderRoute?.coordinates ?? []} onAdd={(point) => { const result = tryAddWaypoint(builderPointsRef.current, point); if (!result.changed) return; builderPointsRef.current = result.points; routeAbortRef.current?.abort(); setRouting(false); setBuilderPoints(result.points); setBuilderRoute(null); setBuilderError(null); routeRequestRef.current++; }} />
+          <RouteBuilderMap labels={{ region: t("builder.mapRegion"), unavailable: t("builder.mapUnavailable"), waypoint: t("builder.waypoint") }} waypoints={builderPoints} route={builderRoute?.geometry.coordinates ?? []} onAdd={addBuilderPoint} />
           <div className="flex flex-wrap gap-2" aria-label={t("builder.coordinateEntry")}>
-            <input aria-label={t("builder.latitude")} inputMode="decimal" value={manualLat} onChange={(e) => setManualLat(e.target.value)} className="w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
-            <input aria-label={t("builder.longitude")} inputMode="decimal" value={manualLng} onChange={(e) => setManualLng(e.target.value)} className="w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
-            <button type="button" className="ds-btn ds-btn--md" onClick={() => { if (!manualLat.trim() || !manualLng.trim()) { setBuilderError(t("builder.invalidCoordinate")); return; } const result = tryAddWaypoint(builderPointsRef.current, { lat: Number(manualLat), lng: Number(manualLng) }); if (!result.changed) { setBuilderError(t("builder.invalidCoordinate")); return; } builderPointsRef.current = result.points; routeAbortRef.current?.abort(); routeRequestRef.current++; setRouting(false); setBuilderPoints(result.points); setBuilderRoute(null); setBuilderError(null); setManualLat(""); setManualLng(""); }}>{t("builder.addCoordinate")}</button>
+            <input aria-label={t("builder.latitude")} inputMode="decimal" value={manualLat} onChange={(e) => setManualLat(e.target.value)} className="min-h-11 w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
+            <input aria-label={t("builder.longitude")} inputMode="decimal" value={manualLng} onChange={(e) => setManualLng(e.target.value)} className="min-h-11 w-36 rounded-[var(--r-md)] border border-[var(--line)] bg-[var(--bg-2)] px-2" />
+            <button type="button" className="ds-btn ds-btn--md" onClick={() => { if (!manualLat.trim() || !manualLng.trim() || !addBuilderPoint({ lat: Number(manualLat), lng: Number(manualLng) })) { setBuilderError(t("builder.invalidCoordinate")); return; } setManualLat(""); setManualLng(""); }}>{t("builder.addCoordinate")}</button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => { routeAbortRef.current?.abort(); setRouting(false); builderPointsRef.current = undoWaypoint(builderPointsRef.current); setBuilderPoints(builderPointsRef.current); setBuilderRoute(null); routeRequestRef.current++; }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.undo")}</button>
-            <button type="button" onClick={() => { routeAbortRef.current?.abort(); setRouting(false); builderPointsRef.current = []; setBuilderPoints([]); setBuilderRoute(null); routeRequestRef.current++; }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.clear")}</button>
-            <button type="button" onClick={() => void calculateBuilderRoute()} disabled={!builderTokenAvailable || builderPoints.length < 2 || routing} className="ds-btn ds-btn--md disabled:opacity-50">{routing ? t("builder.routing") : t("builder.calculate")}</button>
-            <button type="button" onClick={() => builderRoute && downloadGpx(routeToGpx(name, builderRoute.coordinates))} disabled={!builderRoute} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.export")}</button>
+            <button type="button" onClick={() => { builderPointsRef.current = undoWaypoint(builderPointsRef.current); setBuilderPoints(builderPointsRef.current); invalidateBuilderRoute(); }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.undo")}</button>
+            <button type="button" onClick={() => { builderPointsRef.current = []; setBuilderPoints([]); invalidateBuilderRoute(); }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.clear")}</button>
+            <button type="button" onClick={() => void calculateBuilderRoute()} disabled={builderPoints.length < (builderKind === "loop" ? 1 : 2) || routing} className="ds-btn ds-btn--md disabled:opacity-50">{routing ? t("builder.routing") : builderError ? t("builder.retry") : t("builder.calculate")}</button>
+            <button type="button" onClick={() => builderRoute && downloadGpx(routeToGpx(name, builderRoute.geometry.coordinates))} disabled={!builderRoute} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.export")}</button>
           </div>
-          <div aria-live="polite" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">
-            {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distance / 1000).toFixed(1), minutes: Math.round(builderRoute.duration / 60) }) : t("builder.pointCount", { count: builderPoints.length, max: MAX_BUILDER_WAYPOINTS }))}
+          <div role={builderError ? "alert" : "status"} aria-live="polite" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">
+            {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distanceM / 1000).toFixed(1), minutes: Math.round(builderRoute.durationSeconds / 60), ascent: Math.round(builderRoute.ascentM ?? 0) }) : t("builder.pointCount", { count: builderPoints.length, max: builderKind === "loop" ? 1 : MAX_BUILDER_WAYPOINTS }))}
           </div>
-          <div className="rounded-[var(--r-lg)] border border-[var(--amber)] p-3 text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("builder.saveDisabled")}</div>
+          {builderRoute?.surfaceSummary && builderRoute.surfaceSummary.length > 0 && <div aria-label={t("builder.surfaceSummary")}>
+            <div className="mb-1 text-[length:var(--fs-sm)] font-medium">{t("builder.surfaceSummary")}</div>
+            <div className="flex h-3 overflow-hidden rounded-full bg-[var(--bg-2)]">{builderRoute.surfaceSummary.map((item, index) => <span key={`${item.surface}-${index}`} title={`${item.surface} ${(item.distanceM / 1000).toFixed(1)}km`} className="h-full bg-[var(--lime)] opacity-[var(--surface-opacity)]" style={{ width: `${Math.max(1, item.distanceM / builderRoute.distanceM * 100)}%`, "--surface-opacity": String(Math.max(0.35, 1 - index * 0.15)) } as CSSProperties} />)}</div>
+            <ul className="mt-1 flex flex-wrap gap-x-3 text-[length:var(--fs-xs)] text-[var(--ink-3)]">{builderRoute.surfaceSummary.map((item) => <li key={item.surface}>{item.surface} {(item.distanceM / 1000).toFixed(1)}km</li>)}</ul>
+          </div>}
+          {builderRoute && <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{builderRoute.attribution}</p>}
         </Card>
       )}
 
       {/* ── Form + Stats ── */}
-      {(((mode === "activity" || mode === "section") && streams) || (mode === "gpx" && gpxXml)) && (
+      {(((mode === "activity" || mode === "section") && streams) || (mode === "gpx" && gpxXml) || (mode === "builder" && builderRoute)) && (
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Info form */}
           <Card padding="none" className="lg:flex-1 p-4 space-y-4">
@@ -879,7 +974,7 @@ export default function CreateCoursePage() {
               <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] font-medium mb-2">
                 {mode === "section" ? t("creation.sectionStats") : t("creation.courseStats")}
               </div>
-              <StatsPanel stats={currentStats} />
+              <StatsPanel stats={currentStats} hideGrades={mode === "builder"} />
 
               {/* Errors */}
               {rangeValidation.length > 0 && (
