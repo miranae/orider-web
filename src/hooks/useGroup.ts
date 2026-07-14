@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import {
-  doc, collection, query, onSnapshot, getDocs, where, orderBy, limit as firestoreLimit,
+  doc, collection, query, onSnapshot, getDoc, getDocs, where, orderBy, limit as firestoreLimit,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -127,7 +127,7 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number) 
   return { members, loading };
 }
 
-// 내 그룹 목록: user_groups/{userId}/groups 서브컬렉션으로 빠르게 조회
+// 내 그룹 목록: 빠른 조회 인덱스, 사용자 현재 그룹, creator 관계를 함께 조회한다.
 export function useMyGroups(userId: string | undefined) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,43 +141,91 @@ export function useMyGroups(userId: string | undefined) {
       setLoading(false);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     setError(null);
 
-    // user_groups/{userId}/groups에서 내 그룹 ID 목록 조회
-    getDocs(collection(firestore, "user_groups", userId, "groups")).then(async (snap) => {
-      const groupIds = snap.docs.map((d) => d.id);
+    const load = async () => {
+      const [indexResult, currentGroupResult, creatorResult] = await Promise.allSettled([
+        getDocs(collection(firestore, "user_groups", userId, "groups")),
+        getDoc(doc(firestore, "users", userId)),
+        getDocs(query(collection(firestore, "groups"), where("creatorId", "==", userId))),
+      ]);
+      if (cancelled) return;
 
-      if (groupIds.length === 0) {
-        setGroups([]);
-        setLoading(false);
-        return;
+      const partialFailures: Array<{ source: string; reason: unknown }> = [];
+      if (indexResult.status === "rejected") partialFailures.push({ source: "index", reason: indexResult.reason });
+      if (currentGroupResult.status === "rejected") partialFailures.push({ source: "currentGroup", reason: currentGroupResult.reason });
+      if (creatorResult.status === "rejected") partialFailures.push({ source: "creator", reason: creatorResult.reason });
+
+      const groupsById = new Map<string, Group>();
+      if (creatorResult.status === "fulfilled") {
+        creatorResult.value.docs.forEach((groupDoc) => {
+          const data = groupDoc.data();
+          if (data.isActive !== false) groupsById.set(groupDoc.id, { id: groupDoc.id, ...data } as Group);
+        });
       }
 
       // 그룹 문서들 조회 (10개씩 in 쿼리)
-      const groupDocs: Group[] = [];
-      for (let i = 0; i < groupIds.length; i += 10) {
-        const chunk = groupIds.slice(i, i + 10);
-        const gq = query(
-          collection(firestore, "groups"),
-          where("__name__", "in", chunk),
+      let discoveredGroupsLoaded = false;
+      let discoveryError: unknown = null;
+      const currentGroupId = currentGroupResult.status === "fulfilled" && currentGroupResult.value.exists()
+        ? currentGroupResult.value.data().currentGroupId
+        : null;
+      const validCurrentGroupId = typeof currentGroupId === "string" && currentGroupId ? currentGroupId : null;
+      const discoverySourceLoaded = indexResult.status === "fulfilled" || validCurrentGroupId !== null;
+      if (discoverySourceLoaded) {
+        const groupIds = new Set(
+          indexResult.status === "fulfilled" ? indexResult.value.docs.map((membership) => membership.id) : [],
         );
-        const gSnap = await getDocs(gq);
-        gSnap.docs.forEach((d) => {
-          const data = d.data();
-          if (data.isActive !== false) {
-            groupDocs.push({ id: d.id, ...data } as Group);
+        if (validCurrentGroupId) groupIds.add(validCurrentGroupId);
+        const discoveredGroupIds = [...groupIds];
+        const chunkResults = await Promise.allSettled(
+          Array.from({ length: Math.ceil(discoveredGroupIds.length / 10) }, (_, chunkIndex) => {
+            const chunk = discoveredGroupIds.slice(chunkIndex * 10, chunkIndex * 10 + 10);
+            return getDocs(query(collection(firestore, "groups"), where("__name__", "in", chunk)));
+          }),
+        );
+        if (cancelled) return;
+        discoveredGroupsLoaded = chunkResults.every((result) => result.status === "fulfilled");
+        discoveryError = chunkResults.find((result) => result.status === "rejected")?.reason ?? null;
+        chunkResults.forEach((result) => {
+          if (result.status === "rejected") {
+            partialFailures.push({ source: "discoveredChunk", reason: result.reason });
+            return;
           }
+          result.value.docs.forEach((groupDoc) => {
+            const data = groupDoc.data();
+            if (data.isActive !== false) groupsById.set(groupDoc.id, { id: groupDoc.id, ...data } as Group);
+          });
         });
       }
-      setGroups(groupDocs);
+
+      if (!discoveredGroupsLoaded && groupsById.size === 0) {
+        throw discoveryError ?? (indexResult.status === "rejected"
+          ? indexResult.reason
+          : currentGroupResult.status === "rejected"
+            ? currentGroupResult.reason
+            : creatorResult.status === "rejected"
+              ? creatorResult.reason
+              : new Error("Failed to resolve indexed groups"));
+      }
+      if (cancelled) return;
+      partialFailures.forEach(({ source, reason }) => {
+        logClientError("useMyGroups.partial", reason, { userId, source });
+      });
+      setGroups([...groupsById.values()]);
       setLoading(false);
-    }).catch((err) => {
+    };
+
+    void load().catch((err) => {
+      if (cancelled) return;
       logClientError("useMyGroups.load", err, { userId });
       setError(err);
       setGroups([]);
       setLoading(false);
     });
+    return () => { cancelled = true; };
   }, [userId, reloadKey]);
 
   return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };

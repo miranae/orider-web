@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { RouteTabNav } from "../TabNav";
+import { LocalizedLink as Link } from "../LocalizedLink";
 import type { Group } from "@shared/types";
 
 interface GroupSubNavProps {
@@ -23,6 +24,14 @@ export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
 
   return (
     <div className="mb-6">
+      <nav
+        aria-label={t("subNav.contextLabel")}
+        className="flex flex-wrap items-center mb-3 text-[length:var(--fs-sm)]"
+        style={{ gap: "var(--space-3)", color: "var(--ink-3)" }}
+      >
+        <Link to="/groups" style={{ color: "var(--ink-2)" }}>{t("subNav.groupList")}</Link>
+        <Link to="/events" style={{ color: "var(--ink-2)" }}>{t("subNav.eventList")}</Link>
+      </nav>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-[length:var(--fs-xl)] font-bold" style={{ color: "var(--ink-0)" }}>{group.name}</h1>
