@@ -60,7 +60,7 @@ describe("mobile fitness action", () => {
     const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
     const integrated = read("src/components/mobile/IntegratedLoadCard.tsx");
     expect(mobileFitness).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다.");
-    expect(mobileFitness).toContain("<SectionCard title={pmcTitle} sub={pmcSub}>");
+    expect(mobileFitness).toContain("<SectionCard title={pmcTitle} sub={pmcSub} accentColor={pmcCtlColor}>");
     expect(integrated).not.toContain("PmcMiniChart");
     expect(integrated).not.toContain("TripleStackPMC");
   });
@@ -112,6 +112,9 @@ describe("mobile fitness action", () => {
     expect(tooltip).toContain("PMC_LINE_PALETTE.atl.dasharray");
     expect(tooltip).toContain("PMC_LINE_PALETTE.tsb.dasharray");
     expect(tooltip).toContain("<PmcLegendSample");
+    expect(tooltip).toContain("{ctlLabel}");
+    expect(source).toContain("ctlLabel={pmcCtlLabel}");
+    expect(source).toContain("/>{pmcCtlLabel}");
     expect(source).not.toContain('background: "var(--rose)" }} />ATL');
   });
 

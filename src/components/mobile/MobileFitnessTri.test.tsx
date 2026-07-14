@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -24,6 +24,38 @@ describe("MobileFitnessPage tri", () => {
   beforeEach(() => {
     sportPerformanceSpy.mockClear();
     integratedLoadSpy.mockClear();
+  });
+
+  it.each([
+    ["tri", "통합 체력 추이 · 2일", "모든 종목의 훈련 부하 합산", "총 CTL"],
+    ["bike", "사이클 체력 추이 · 2일", "사이클 활동 부하만 계산", "사이클 CTL"],
+    ["run", "러닝 체력 추이 · 2일", "러닝 활동 부하만 계산", "러닝 CTL"],
+    ["swim", "수영 체력 추이 · 2일", "수영 활동 부하만 계산", "수영 CTL"],
+  ] as const)("scopes PMC copy, legend, tooltip, and aria to %s", (discipline, title, sub, ctlLabel) => {
+    const data = {
+      ctl: 12, atl: 10, tsb: 2,
+      pmcHistory: [
+        { date: "2026-07-13", ctl: 10, atl: 9, tsb: 1 },
+        { date: "2026-07-14", ctl: 12, atl: 10, tsb: 2 },
+      ],
+      weeklyTSS: [], thisWeekTSS: 0, avgWeekTSS: 0, restDays: 0,
+      threshold: null, hasLoadData: true, combinedLoad: null,
+      loadFocus: { windowDays: 28, totalLoad: 0, buckets: { baseAerobic: 0, highAerobic: 0, highIntensity: 0, unclassified: 0 }, sourceLoad: { power: 0, heartRate: 0, unclassified: 0 }, disciplineLoad: { bike: 0, run: 0, swim: 0, other: 0 }, activityCount: 0, coveragePct: 0, confidence: "none", hasAnaerobicBikeDetail: false },
+      cyclingAbility: null, runEvidence: { thresholdPaceSec: null, records: [] }, swimEvidence: { windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 },
+      zones: [], zoneSource: "none", discipline,
+    } satisfies MobileFitnessData;
+
+    const { container } = renderWithProviders(<MobileFitnessPage data={data} />);
+
+    expect(screen.getByText(title)).toBeInTheDocument();
+    expect(screen.getByText(sub)).toBeInTheDocument();
+    expect(screen.getByText(ctlLabel)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: `${title}. ${sub}` })).toBeInTheDocument();
+
+    const chartSvg = container.querySelector<SVGSVGElement>("[data-pmc-chart] svg");
+    expect(chartSvg).not.toBeNull();
+    fireEvent.pointerDown(chartSvg!, { clientX: 0 });
+    expect(screen.getByText(`${ctlLabel} 10`)).toBeInTheDocument();
   });
 
   it("does not invoke or wrap the sport-specific card on the integrated tab", () => {

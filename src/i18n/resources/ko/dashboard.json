@@ -312,6 +312,28 @@
     "tsbOverload": "과부하",
     "pmcTitle": "PMC 추이 · {{n}}일",
     "pmcSub": "CTL 체력 · ATL 피로 · TSB 상태",
+    "pmcByDiscipline": {
+      "tri": {
+        "title": "통합 체력 추이 · {{n}}일",
+        "sub": "모든 종목의 훈련 부하 합산",
+        "ctlLabel": "총 CTL"
+      },
+      "bike": {
+        "title": "사이클 체력 추이 · {{n}}일",
+        "sub": "사이클 활동 부하만 계산",
+        "ctlLabel": "사이클 CTL"
+      },
+      "run": {
+        "title": "러닝 체력 추이 · {{n}}일",
+        "sub": "러닝 활동 부하만 계산",
+        "ctlLabel": "러닝 CTL"
+      },
+      "swim": {
+        "title": "수영 체력 추이 · {{n}}일",
+        "sub": "수영 활동 부하만 계산",
+        "ctlLabel": "수영 CTL"
+      }
+    },
     "weeklyLoadTitle": "주간 부하 · 최근 4주",
     "weeklyLoadSub": "이번 주 {{thisWeek}} · 평균 {{avg}} · 연속 휴식 {{restDays}}일",
     "zonePowerTitle": "파워 존 분포 · 최근 4주",

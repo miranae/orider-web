@@ -106,11 +106,12 @@ function formatMd(dateStr?: string): string {
   return m && d ? `${parseInt(m)}/${parseInt(d)}` : dateStr;
 }
 
-function PmcMiniChart({ history, projection, today, ctlColor, ariaLabel, t }: {
+function PmcMiniChart({ history, projection, today, ctlColor, ctlLabel, ariaLabel, t }: {
   history: MobileFitnessPmcPoint[];
   projection?: MobileFitnessProjPoint[] | null;
   today?: string;
   ctlColor: string;
+  ctlLabel: string;
   ariaLabel: string;
   t: (key: string) => string;
 }) {
@@ -287,7 +288,8 @@ function PmcMiniChart({ history, projection, today, ctlColor, ariaLabel, t }: {
         <div data-pmc-tooltip style={{
           position: "absolute", left: `${(tip.x / W) * 100}%`, top: `${((PAD_T + 2) / H) * 100}%`,
           transform: tip.x > W / 2 ? "translateX(calc(-100% - var(--space-1-5)))" : "translateX(var(--space-1-5))",
-          width: 96, padding: "var(--space-1)", borderRadius: "var(--r-sm)", pointerEvents: "none",
+          width: "max-content", minWidth: "calc(var(--space-8) * 2 + var(--space-4))", maxWidth: "calc(100vw - var(--space-8))",
+          padding: "var(--space-1)", borderRadius: "var(--r-sm)", pointerEvents: "none",
           background: "var(--bg-2)", border: "1px solid var(--line-soft)", boxSizing: "border-box",
           fontSize: "var(--fs-xs)", fontWeight: 500, lineHeight: 1.1,
         }}>
@@ -296,7 +298,7 @@ function PmcMiniChart({ history, projection, today, ctlColor, ariaLabel, t }: {
           </div>
           <div data-pmc-tooltip-metric="CTL" style={{ color: ctlColor, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
             <PmcLegendSample color={ctlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />
-            <span>CTL {tip.ctl.toFixed(0)}</span>
+            <span>{ctlLabel} {tip.ctl.toFixed(0)}</span>
           </div>
           <div data-pmc-tooltip-metric="ATL" style={{ color: PMC_LINE_PALETTE.atl.color, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
             <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />
@@ -431,7 +433,7 @@ function PowerCurveMini({ points, color, ariaLabel }: { points: MobilePowerCurve
 }
 
 // ── 카드 컨테이너 ─────────────────────────────────────────────
-function SectionCard({ children, title, sub }: { children: React.ReactNode; title?: string; sub?: string }) {
+function SectionCard({ children, title, sub, accentColor }: { children: React.ReactNode; title?: string; sub?: string; accentColor?: string }) {
   // 모바일은 화면이 좁아 모든 카드를 화면 전폭으로 쓴다(섹션 스타일). Layout 컨텐츠 래퍼
   // (max-w mx-auto px-4 = 좌우 16px) 인셋을 음수 마진(-16)으로 상쇄해 좌우 끝까지 채우고,
   // 좌우 border·radius 는 제거하고 상하 구분선만 둔다. 콘텐츠는 좌우 16px padding 으로 가독성 유지.
@@ -439,7 +441,7 @@ function SectionCard({ children, title, sub }: { children: React.ReactNode; titl
     <div style={{
       margin: "0 -16px 12px",
       background: "var(--bg-1)",
-      borderTop: "1px solid var(--line-soft)",
+      borderTop: accentColor ? `var(--space-0-5) solid ${accentColor}` : "1px solid var(--line-soft)",
       borderBottom: "1px solid var(--line-soft)",
       padding: "12px 16px",
     }}>
@@ -489,8 +491,9 @@ export default function MobileFitnessPage({
     : getDisciplineColor(data.discipline as Discipline);
   const pmcCtlColor = data.discipline === "tri" ? PMC_LINE_PALETTE.ctl.color : ringColor;
   const weeklyLoadColor = data.discipline === "tri" ? PMC_LINE_PALETTE.ctl.color : ringColor;
-  const pmcTitle = t("mobileFitness.pmcTitle", { n: data.pmcHistory.length });
-  const pmcSub = t("mobileFitness.pmcSub");
+  const pmcTitle = t(`mobileFitness.pmcByDiscipline.${data.discipline}.title`, { n: data.pmcHistory.length });
+  const pmcSub = t(`mobileFitness.pmcByDiscipline.${data.discipline}.sub`);
+  const pmcCtlLabel = t(`mobileFitness.pmcByDiscipline.${data.discipline}.ctlLabel`);
 
   const analysisTabLabel = data.discipline === "bike"
     ? t("mobileFitness.tabZonesBike")
@@ -582,15 +585,15 @@ export default function MobileFitnessPage({
           )}
 
           {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
-          <SectionCard title={pmcTitle} sub={pmcSub}>
+          <SectionCard title={pmcTitle} sub={pmcSub} accentColor={pmcCtlColor}>
             {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
                 제목/범례는 카드 padding 인셋 유지. */}
             <div style={{ margin: "0 -16px" }}>
-              <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
+              <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ctlLabel={pmcCtlLabel} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
             </div>
             <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: "var(--space-3)" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />CTL
+                <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />{pmcCtlLabel}
               </span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
                 <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
