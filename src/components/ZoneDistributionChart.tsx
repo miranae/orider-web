@@ -10,7 +10,9 @@ import {
   Tooltip,
 } from "chart.js";
 import type { ZoneDistribution } from "../utils/zoneAnalysis";
+import { resolveCssColor } from "../utils/cssColor";
 import { useTheme } from "../contexts/ThemeContext";
+import { useOriderTheme } from "../theme";
 import ChartEmptyState from "./charts/ChartEmptyState";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
@@ -36,16 +38,17 @@ interface ZoneDistributionChartProps {
 export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyDescription }: ZoneDistributionChartProps) {
   const { t } = useTranslation("dashboard");
   const { resolvedTheme } = useTheme();
+  const { variant } = useOriderTheme();
   const hasZoneData = zones.some((z) => z.seconds > 0 || z.percentage > 0);
   const data = useMemo(() => ({
     labels: zones.map((z) => `Z${z.zone} ${t(z.nameKey)}`),
     datasets: [{
       data: zones.map((z) => z.percentage),
-      backgroundColor: zones.map((z) => z.color),
+      backgroundColor: zones.map((z) => resolveCssColor(z.color, variant)),
       borderRadius: 4,
       barThickness: 24,
     }],
-  }), [zones, t]);
+  }), [zones, t, variant]);
 
   const options: ChartOptions<"bar"> = useMemo(() => {
     const dark = resolvedTheme === "dark";
