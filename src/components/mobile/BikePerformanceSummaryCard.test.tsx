@@ -40,7 +40,9 @@ describe("BikePerformanceSummaryCard", () => {
     expect(within(container.querySelector('[data-performance-metric="eftp"]')!).getByText("265")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="cp"]')!).getByText("270")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="tte"]')!).getByText("45")).toBeInTheDocument();
-    expect(within(container.querySelector('[data-performance-metric="vo2max"]')!).getByText("58")).toBeInTheDocument();
+    const vo2Tile = container.querySelector('[data-performance-metric="vo2max"]')!;
+    expect(within(vo2Tile).getByText("58")).toHaveStyle({ whiteSpace: "nowrap" });
+    expect(within(vo2Tile).getByText("ml/kg/min")).toHaveStyle({ whiteSpace: "nowrap" });
     expect(screen.getByRole("meter", { name: "VO2max 전체 코호트 백분위" })).toHaveAttribute("aria-valuenow", "75");
     expect(within(container.querySelector('[data-performance-metric="vo2max"]')!).getByText("백분위 75")).toBeInTheDocument();
     expect(screen.getByText("실제 O-Rider 전체 코호트 기준")).toBeInTheDocument();
