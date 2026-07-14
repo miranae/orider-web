@@ -24,7 +24,7 @@ import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { CyclingAbilityResult, LoadFocusResult, RunEvidence, SwimEvidence } from "../../features/fitness/multisportPerformance";
 import IntegratedLoadCard, { type CombinedLoadStatus } from "./IntegratedLoadCard";
 import SportPerformanceCard from "./SportPerformanceCard";
-import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
+import BikePerformanceSummaryCard, { type MobileFitnessPdcSummary } from "./BikePerformanceSummaryCard";
 
 export type ZoneSource = "power" | "hr" | "none";
 
@@ -83,123 +83,6 @@ export interface MobileFitnessData {
   thresholdDecision?: BikeThresholdDecision;
   // 디스플레이용 종목 키 (탭 라벨/색상 결정)
   discipline: "bike" | "run" | "swim" | "tri";
-}
-
-export interface MobileFitnessPdcSummary {
-  riderType: { type: string; confidence: number } | null;
-  abilityPercentile: number | null;
-  vo2maxEst: number | null;
-  vo2maxPercentile: number | null;
-  cohortSampleSize: number | null;
-  activityCount: number | null;
-}
-
-const RIDER_TYPE_KEYS = new Set([
-  "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified",
-]);
-
-function tsbLabelKey(tsb: number): string {
-  if (tsb >= 25) return "mobileFitness.tsbOverRested";
-  if (tsb >= 5) return "mobileFitness.tsbOptimalForm";
-  if (tsb >= -10) return "mobileFitness.tsbTrainingOk";
-  if (tsb >= -20) return "mobileFitness.tsbFatigue";
-  return "mobileFitness.tsbOverload";
-}
-
-function estimateVo2max(ftp: number | null, weightKg: number | undefined): number | null {
-  if (!ftp || ftp <= 0 || !weightKg || weightKg <= 0) return null;
-  return Math.round((ftp / weightKg) * 15.7 + 3.5);
-}
-
-function SnapshotBand({ value, label }: { value: number; label: string }) {
-  const position = Math.max(0, Math.min(100, value));
-  return (
-    <div role="img" aria-label={label} style={{ position: "relative", height: 7, borderRadius: "var(--r-sm)", background: "var(--bg-3)", marginTop: "var(--space-2)" }}>
-      <div style={{ position: "absolute", inset: 0, width: `${position}%`, borderRadius: "var(--r-sm)", background: "var(--aqua)" }} />
-      <span aria-hidden style={{ position: "absolute", left: `${position}%`, top: "50%", width: 3, height: 13, borderRadius: "var(--r-xs)", background: "var(--ink-0)", transform: "translate(-50%, -50%)" }} />
-    </div>
-  );
-}
-
-function BikeAbilityCompact({ data, applying, onApply, t }: { data: MobileFitnessData; applying: boolean; onApply: (watts: number) => void; t: (key: string, options?: Record<string, unknown>) => string }) {
-  if (data.discipline !== "bike") return null;
-  const pdc = data.pdcSummary;
-  const activeFtp = data.thresholdDecision?.activeFtpW ?? null;
-  const wkg = activeFtp != null && data.weightKg && data.weightKg > 0 ? activeFtp / data.weightKg : null;
-  const riderType = pdc?.riderType && pdc.riderType.confidence >= 0.5 && RIDER_TYPE_KEYS.has(pdc.riderType.type)
-    ? pdc.riderType.type
-    : null;
-  const ability = pdc?.abilityPercentile ?? null;
-  const vo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : estimateVo2max(activeFtp, data.weightKg);
-  const topPct = (percentile: number) => Math.max(1, 100 - Math.round(percentile));
-  const rows = [
-    {
-      key: "ftp",
-      label: t("fitness:thresholdDecision.activeLabel"),
-      value: activeFtp != null ? `${activeFtp} W${wkg != null ? ` · ${wkg.toFixed(2)} W/kg` : ""}` : "—",
-      status: activeFtp != null ? t("mobileFitness.snapshot.ftpStatus") : t("mobileFitness.snapshot.insufficient"),
-      source: wkg != null ? t("mobileFitness.snapshot.ftpSource") : t("mobileFitness.snapshot.ftpWeightMissing"),
-      percentile: null,
-    },
-    {
-      key: "rider",
-      label: t("mobileFitness.snapshot.riderType"),
-      value: riderType ? t(`fitness:riderType.type.${riderType}.label`) : "—",
-      status: ability != null ? t("mobileFitness.snapshot.abilityTop", { pct: topPct(ability) }) : t("mobileFitness.snapshot.insufficient"),
-      source: t("mobileFitness.snapshot.riderSource"),
-      percentile: ability,
-    },
-    {
-      key: "vo2max",
-      label: "VO₂max",
-      value: vo2max != null ? `${vo2max} ml/kg/min` : "—",
-      status: pdc?.vo2maxPercentile != null
-        ? t("mobileFitness.snapshot.cohortTop", { pct: topPct(pdc.vo2maxPercentile), count: pdc.cohortSampleSize ?? 0 })
-        : vo2max != null ? t("mobileFitness.snapshot.estimateOnly") : t("mobileFitness.snapshot.insufficient"),
-      source: pdc?.vo2maxEst != null
-        ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc.activityCount ?? 0 })
-        : vo2max != null ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient"),
-      percentile: pdc?.vo2maxPercentile ?? null,
-    },
-    {
-      key: "load",
-      label: t("mobileFitness.snapshot.load"),
-      value: data.hasLoadData ? `CTL ${data.ctl.toFixed(1)} · ATL ${data.atl.toFixed(1)} · TSB ${data.tsb >= 0 ? "+" : ""}${data.tsb.toFixed(1)}` : "—",
-      status: data.hasLoadData ? t(tsbLabelKey(data.tsb)) : t("mobileFitness.snapshot.insufficient"),
-      source: t("mobileFitness.snapshot.loadSource"),
-      percentile: data.hasLoadData ? ((data.tsb + 30) / 60) * 100 : null,
-    },
-  ];
-  return (
-    <SectionCard title={t("mobileFitness.snapshot.title")} sub={t("mobileFitness.snapshot.subtitle")}>
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        {rows.map((row, index) => (
-          <div key={row.key} style={{ padding: "var(--space-2) 0", borderBottom: index < rows.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", alignItems: "baseline" }}>
-              <Text variant="eyebrow" as="span">{row.label}</Text>
-              <Text variant="mono" as="span" style={{ color: "var(--ink-0)", textAlign: "right" }}>{row.value}</Text>
-            </div>
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: "var(--space-1)", fontWeight: 600 }}>{row.status}</div>
-            {row.percentile != null && <SnapshotBand value={row.percentile} label={t("mobileFitness.snapshot.bandAria", { metric: row.label, status: row.status })} />}
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{row.source}</div>
-          </div>
-        ))}
-      </div>
-      {data.thresholdDecision?.automaticCandidateW != null && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-3)", marginTop: "var(--space-3)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--line-soft)" }}>
-          <div>
-            <Text as="div" variant="caption" tone="secondary">{t("fitness:thresholdDecision.candidateLabel")}</Text>
-            <Text as="div" variant="label">{data.thresholdDecision.automaticCandidateW} W</Text>
-            <Text as="div" variant="caption" tone="tertiary">{t("fitness:thresholdDecision.candidateSub", { count: data.thresholdDecision.activityCount })}</Text>
-          </div>
-          <button type="button" disabled={applying} onClick={() => onApply(data.thresholdDecision!.automaticCandidateW!)} style={{ minHeight: 44, padding: "0 var(--space-3)", border: 0, borderRadius: "var(--r-md)", background: "var(--lime)", color: "var(--ink-inverse)", fontWeight: 700 }}>
-            {t(applying ? "fitness:thresholdDecision.applying" : "fitness:thresholdDecision.apply")}
-          </button>
-        </div>
-      )}
-      <FtpProgressionCard points={data.ftpProgression ?? []} currentFtpW={activeFtp} breakthrough={null} embedded />
-    </SectionCard>
-  );
 }
 
 // ── PMC 추이 미니 차트 (Y축·X축 라벨, 오늘 마커, 예측, 탭 툴팁) ──
@@ -633,7 +516,16 @@ export default function MobileFitnessPage({
             <TodaysWorkoutCard />
           </div>
 
-          <BikeAbilityCompact data={data} applying={applyingFtp} onApply={onApplyFtp} t={t} />
+          {data.discipline === "bike" && (
+            <BikePerformanceSummaryCard
+              decision={data.thresholdDecision}
+              pdc={data.pdcSummary}
+              weightKg={data.weightKg}
+              progression={data.ftpProgression}
+              applying={applyingFtp}
+              onApplyCandidate={onApplyFtp}
+            />
+          )}
 
           {data.discipline === "tri" && data.combinedLoad && (
             <div style={{ marginBottom: "var(--space-3)" }}>

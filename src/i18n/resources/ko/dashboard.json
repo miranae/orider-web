@@ -407,6 +407,39 @@
       "loadSource": "CTL 42일 EMA · ATL 7일 EMA · TSB=CTL-ATL. Garmin 급성 부하와 다른 모델",
       "insufficient": "데이터 부족 · 평가하지 않음",
       "bandAria": "{{metric}} 위치 표시: {{status}}"
+    },
+    "performance": {
+      "title": "사이클링 퍼포먼스",
+      "ariaLabel": "사이클링 성능 요약",
+      "canonical": "프로필 정본 · 존과 훈련에 적용",
+      "ftpMissing": "프로필 FTP를 먼저 설정하세요",
+      "ftpMissingEvidence": "현재 적용할 프로필 FTP가 없어 W/kg와 FTP 차이를 계산하지 않습니다.",
+      "weightMissing": "체중 입력 시 W/kg 표시",
+      "riderUnknown": "라이더 유형 근거 부족",
+      "abilityLabel": "종합 사이클링 역량",
+      "abilityTop": "상위 {{pct}}%",
+      "abilityUnknown": "백분위 근거 부족",
+      "abilityMeterAria": "종합 사이클링 역량 백분위",
+      "estimated": "추정값",
+      "insufficient": "근거 부족",
+      "metrics": {
+        "eftp": "최근 월별 eFTP",
+        "cp": "임계 파워 CP",
+        "tte": "지속시간 TTE"
+      },
+      "evidenceOpen": "산출 근거 보기",
+      "evidenceClose": "산출 근거 닫기",
+      "evidence": {
+        "twentyMinute": "최근 20분 최고 평균",
+        "latestPeriod": "최근 eFTP 산출 월",
+        "activityCount": "PDC 분석 활동",
+        "activityCountValue": "{{count}}개",
+        "activeDelta": "현재 적용 FTP 대비 eFTP",
+        "riderConfidence": "라이더 유형 신뢰도",
+        "cohortSample": "VO2max 코호트 표본",
+        "cohortSampleValue": "{{count}}명"
+      },
+      "modelEvidence": "eFTP는 월별 20분 최고 평균 파워의 95%, CP와 TTE는 최근 90일 PDC 모델에서 계산합니다. 모두 추정값이며 현재 적용 FTP를 자동 변경하지 않습니다."
     }
   },
   "runEmpty": {

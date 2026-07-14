@@ -8,11 +8,13 @@ export default function FtpProgressionCard({
   currentFtpW,
   breakthrough,
   embedded = false,
+  compact = false,
 }: {
   points: EstimatedFtpPoint[];
   currentFtpW?: number | null;
   breakthrough: FtpBreakthrough | null;
   embedded?: boolean;
+  compact?: boolean;
 }) {
   const { t, i18n } = useTranslation("fitness");
   const hasTrend = points.length >= 2;
@@ -43,10 +45,8 @@ export default function FtpProgressionCard({
     <>
       <div className="flex flex-wrap items-start justify-between" style={{ gap: "var(--space-4)" }}>
         <div>
-          <Text as="h3" variant="title">{t("ftpProgression.title")}</Text>
-          <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>
-            {t("ftpProgression.description")}
-          </Text>
+          <Text as="h3" variant={compact ? "eyebrow" : "title"}>{t("ftpProgression.title")}</Text>
+          {!compact && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>{t("ftpProgression.description")}</Text>}
         </div>
         {hasTrend && !embedded && (
           <div style={{ textAlign: "right" }}>
@@ -81,7 +81,7 @@ export default function FtpProgressionCard({
               </g>
             ))}
           </svg>
-          <Text as="p" variant="caption" tone="tertiary">{t("ftpProgression.method")}</Text>
+          {!compact && <Text as="p" variant="caption" tone="tertiary">{t("ftpProgression.method")}</Text>}
         </div>
       )}
 

@@ -140,11 +140,11 @@ describe("MobileFitnessPage tri", () => {
 
     renderWithProviders(<MobileFitnessPage data={data} onApplyFtp={onApplyFtp} />);
 
-    expect(screen.getByText("250 W · 3.57 W/kg")).toBeInTheDocument();
-    expect(screen.getByText(/CTL 42.1 · ATL 48.3 · TSB -6.2/)).toBeInTheDocument();
+    expect(screen.getByText("250")).toBeInTheDocument();
+    expect(screen.getByText("3.57 W/kg")).toBeInTheDocument();
+    expect(screen.queryByText(/CTL 42.1 · ATL 48.3 · TSB -6.2/)).not.toBeInTheDocument();
     expect(screen.getByText(/실험실 측정치 아님/)).toBeInTheDocument();
     expect(screen.getByText(/현재 적용 FTP 250W/)).toBeInTheDocument();
-    expect(screen.getByText("265 W")).toBeInTheDocument();
     expect(onApplyFtp).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "이 후보 적용" }));
     expect(onApplyFtp).toHaveBeenCalledWith(265);

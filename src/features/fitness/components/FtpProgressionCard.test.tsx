@@ -45,10 +45,13 @@ describe("FtpProgressionCard", () => {
         currentFtpW={250}
         breakthrough={null}
         embedded
+        compact
       />,
     );
 
     const chart = screen.getByRole("img", { name: /월별 추정 FTP 추이 차트:.*245W.*252W/ });
     expect(chart.querySelector("desc")).toHaveTextContent(/245W.*252W/);
+    expect(screen.queryByText(/직접 설정한 FTP 변경 이력과는 다릅니다/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/월별 20분 최고 평균 파워의 95%/)).not.toBeInTheDocument();
   });
 });
