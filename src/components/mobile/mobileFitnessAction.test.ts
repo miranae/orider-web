@@ -74,6 +74,33 @@ describe("mobile fitness action", () => {
     expect(chart).toContain('left: `${(l.x / W) * 100}%`');
   });
 
+  it("renders the mobile power curve with separate copy and fixed-size HTML axis labels", () => {
+    const source = read("src/components/mobile/MobileFitnessPage.tsx");
+    const chart = source.slice(source.indexOf("function PowerCurveMini"), source.indexOf("function SectionCard"));
+    const svg = chart.slice(chart.indexOf("<svg"), chart.indexOf("</svg>"));
+
+    expect(source).toContain("data-power-curve-copy");
+    expect(source).toContain("data-power-curve-visual");
+    expect(chart).toContain("data-power-curve-chart");
+    expect(chart).toContain('aspectRatio: `${W} / ${H}`');
+    expect(chart).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(chart).not.toContain('preserveAspectRatio="none"');
+    expect(svg).not.toContain("<text");
+    expect(chart).toContain("data-power-curve-axis-labels");
+    expect(chart).toContain('fontSize: "var(--fs-xs)"');
+    expect(chart).toContain('3600: "1h"');
+    expect(chart).toContain("baselineY");
+    expect(chart).toContain('role="img"');
+    expect(chart).toContain("aria-label={ariaLabel}");
+    expect(chart).toContain('maxWidth: "100%"');
+    expect(chart).toContain('leftPct >= 95 ? "translateX(-100%)"');
+    expect(chart).toContain("const W = 340, H = 150");
+    expect(source).toContain('data-power-curve-copy style={{ marginBottom: "var(--space-2)" }}');
+    expect(source).toContain('style={{ margin: "0 -16px", overflow: "hidden" }}');
+    expect(source).not.toContain('margin: "0 -16px -12px"');
+    expect(source).not.toContain('data-power-curve-visual\n                style={{ margin: "0 -16px -12px", padding:');
+  });
+
   it("keeps weekly load bars static and omits the duplicated recent activity section", () => {
     const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
     const fitnessPage = read("src/pages/FitnessPage.tsx");
