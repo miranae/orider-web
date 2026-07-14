@@ -12,8 +12,10 @@ import type { MilestoneId } from "@shared/types/milestone";
 import { useSearchParams } from "react-router-dom";
 import {
   filterByDiscipline,
+  getDisciplineColor,
   type Discipline,
 } from "../utils/disciplineFilter";
+import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
 import { collection, query, where, doc, getDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
 
 import { toLocalDate } from "../utils/dateUtils";
@@ -1213,13 +1215,13 @@ export default function FitnessPage() {
             <div style={{ flex: 1 }} />
             <div style={{ display: "flex", gap: 'var(--space-4)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
               <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <span style={{ width: 14, height: 2, background: "var(--lime)" }} /> {t("pmc.legend.ctl")}
+                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={getDisciplineColor(discipline)} strokeWidth="2" strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.ctl")}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <span style={{ width: 14, height: 2, background: "var(--rose)" }} /> {t("pmc.legend.atl")}
+                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={PMC_LINE_PALETTE.atl.color} strokeWidth="2" strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.atl")}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <span style={{ width: 14, height: 2, background: "var(--amber)" }} /> {t("pmc.legend.tsb")}
+                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth="2" strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.tsb")}
               </span>
               {projection && (
                 <>
@@ -1250,6 +1252,7 @@ export default function FitnessPage() {
               goalDate={activeGoal?.eventDate ?? null}
               goalCTL={projection?.goalDay.ctl ?? null}
               goalTSB={projection?.goalDay.tsb ?? null}
+              ctlColor={getDisciplineColor(discipline)}
             />
           ) : (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 280, fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>

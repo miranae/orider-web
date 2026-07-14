@@ -60,7 +60,7 @@ describe("mobile fitness action", () => {
     const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
     const integrated = read("src/components/mobile/IntegratedLoadCard.tsx");
     expect(mobileFitness).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다.");
-    expect(mobileFitness).toContain('title={t("mobileFitness.pmcTitle"');
+    expect(mobileFitness).toContain("<SectionCard title={pmcTitle} sub={pmcSub}>");
     expect(integrated).not.toContain("PmcMiniChart");
     expect(integrated).not.toContain("TripleStackPMC");
   });
@@ -90,6 +90,29 @@ describe("mobile fitness action", () => {
     expect(chart).toContain("data-pmc-tooltip");
     expect(chart).toContain('fontSize: "var(--fs-xs)"');
     expect(chart).toContain('left: `${(l.x / W) * 100}%`');
+    expect(chart).toContain('role="img"');
+    expect(chart).toContain("aria-label={ariaLabel}");
+    expect(chart).toContain('vectorEffect="non-scaling-stroke"');
+    expect(chart).toContain("PMC_FUTURE_OPACITY");
+  });
+
+  it("renders semantic PMC line samples instead of indistinguishable color blocks", () => {
+    const source = read("src/components/mobile/MobileFitnessPage.tsx");
+    const legend = source.slice(source.indexOf("function PmcLegendSample"), source.indexOf("function WeeklyTssBars"));
+    const chart = source.slice(source.indexOf("function PmcMiniChart"), source.indexOf("function PmcLegendSample"));
+    const tooltip = chart.slice(chart.indexOf("data-pmc-tooltip"));
+
+    expect(legend).toContain("data-pmc-legend-sample");
+    expect(legend).toContain("strokeDasharray={dasharray}");
+    expect(source).toContain("PMC_LINE_PALETTE.atl.dasharray");
+    expect(source).toContain("PMC_LINE_PALETTE.tsb.dasharray");
+    expect(tooltip).toContain('data-pmc-tooltip-metric="CTL"');
+    expect(tooltip).toContain('data-pmc-tooltip-metric="ATL"');
+    expect(tooltip).toContain('data-pmc-tooltip-metric="TSB"');
+    expect(tooltip).toContain("PMC_LINE_PALETTE.atl.dasharray");
+    expect(tooltip).toContain("PMC_LINE_PALETTE.tsb.dasharray");
+    expect(tooltip).toContain("<PmcLegendSample");
+    expect(source).not.toContain('background: "var(--rose)" }} />ATL');
   });
 
   it("renders the mobile power curve with separate copy and fixed-size HTML axis labels", () => {

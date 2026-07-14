@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FitnessPoint } from "../utils/fitnessMetrics";
+import { PMC_FUTURE_OPACITY, PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
 
 interface ProjectionPoint {
   date: number; // ms timestamp
@@ -20,6 +21,8 @@ interface FitnessChartProps {
   goalCTL?: number | null;
   /** TSB value on goal day */
   goalTSB?: number | null;
+  /** Single-sport charts retain their discipline brand color; combined charts use the semantic CTL token. */
+  ctlColor?: string;
 }
 
 function tsToDateStr(ms: number): string {
@@ -79,6 +82,7 @@ export default function FitnessChart({
   goalDate,
   goalCTL,
   goalTSB,
+  ctlColor = PMC_LINE_PALETTE.ctl.color,
 }: FitnessChartProps) {
   const { t } = useTranslation("dashboard");
   const svgRef = useRef<SVGSVGElement>(null);
@@ -302,16 +306,18 @@ export default function FitnessChart({
       preserveAspectRatio="xMidYMid meet"
       onPointerMove={handleMove}
       onPointerLeave={() => setHoverIdx(null)}
+      role="img"
+      aria-label={`${t("pmc.title")}. ${t("pmc.interpretation")}`}
     >
       <defs>
         <linearGradient id="ctlFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="var(--lime)" stopOpacity="0.28" />
-          <stop offset="1" stopColor="var(--lime)" stopOpacity="0" />
+          <stop offset="0" stopColor={ctlColor} stopOpacity="0.28" />
+          <stop offset="1" stopColor={ctlColor} stopOpacity="0" />
         </linearGradient>
         {/* 예측 영역 hatch — 토큰화 (테마 교체 시 자동 반영). */}
         <pattern id="projHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <rect width="6" height="6" fill="var(--accent-soft-bg)" />
-          <line x1="0" y1="0" x2="0" y2="6" stroke="var(--lime)" strokeOpacity="0.15" strokeWidth="1" />
+          <line x1="0" y1="0" x2="0" y2="6" stroke={ctlColor} strokeOpacity="0.15" strokeWidth="1" />
         </pattern>
       </defs>
 
@@ -319,12 +325,12 @@ export default function FitnessChart({
           CTL/ATL/TSB(전문 약어)는 보조 표기로 뒤에 붙는다. */}
       <g transform={`translate(${PAD_LEFT}, 12)`} fontFamily="var(--font-mono)" fontSize="12">
         {[
-          { label: "CTL", color: "var(--lime)", desc: t("charts.fitness.legendFitness") },
-          { label: "ATL", color: "var(--rose)", desc: t("charts.fitness.legendFatigue") },
-          { label: "TSB", color: "var(--amber)", desc: t("charts.fitness.legendForm") },
+          { label: "CTL", color: ctlColor, style: PMC_LINE_PALETTE.ctl, desc: t("charts.fitness.legendFitness") },
+          { label: "ATL", color: PMC_LINE_PALETTE.atl.color, style: PMC_LINE_PALETTE.atl, desc: t("charts.fitness.legendFatigue") },
+          { label: "TSB", color: PMC_LINE_PALETTE.tsb.color, style: PMC_LINE_PALETTE.tsb, desc: t("charts.fitness.legendForm") },
         ].map((item, i) => (
           <g key={item.label} transform={`translate(${i * 150}, 0)`}>
-            <line x1="0" y1="6" x2="14" y2="6" stroke={item.color} strokeWidth="2.5" />
+            <line x1="0" y1="6" x2="14" y2="6" stroke={item.color} strokeWidth="2.5" strokeDasharray={item.style.dasharray} strokeLinecap={item.style.linecap} vectorEffect="non-scaling-stroke" />
             <text x="18" y="9" fill="var(--ink-1)" fontWeight="700">{item.desc} <tspan fill="var(--ink-4)" fontWeight="400">{item.label}</tspan></text>
           </g>
         ))}
@@ -362,24 +368,24 @@ export default function FitnessChart({
       {/* CTL 영역 fill + 라인 (CTL 두꺼움, ATL/TSB opacity 강화) */}
       {ctlFillPath && <path d={ctlFillPath} fill="url(#ctlFill)" />}
       {ctlPastPath && (
-        <path d={ctlPastPath} stroke="var(--lime)" strokeWidth="2.4" fill="none" strokeLinejoin="round" />
+        <path d={ctlPastPath} stroke={ctlColor} strokeWidth={PMC_LINE_PALETTE.ctl.strokeWidth} strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
       )}
       {atlPastPath && (
-        <path d={atlPastPath} stroke="var(--rose)" strokeWidth="2" fill="none" opacity="0.95" strokeLinejoin="round" />
+        <path d={atlPastPath} stroke={PMC_LINE_PALETTE.atl.color} strokeWidth={PMC_LINE_PALETTE.atl.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} strokeLinecap={PMC_LINE_PALETTE.atl.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
       )}
       {tsbPastPath && (
-        <path d={tsbPastPath} stroke="var(--amber)" strokeWidth="1.8" fill="none" opacity="0.9" strokeLinejoin="round" />
+        <path d={tsbPastPath} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
       )}
 
       {/* 예측 dashed */}
       {ctlFuturePath && (
-        <path d={ctlFuturePath} stroke="var(--lime)" strokeWidth="2.2" fill="none" strokeDasharray="5 3" opacity="0.85" />
+        <path d={ctlFuturePath} stroke={ctlColor} strokeWidth={PMC_LINE_PALETTE.ctl.strokeWidth} strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" fill="none" opacity={PMC_FUTURE_OPACITY} />
       )}
       {atlFuturePath && (
-        <path d={atlFuturePath} stroke="var(--rose)" strokeWidth="1.8" fill="none" strokeDasharray="4 3" opacity="0.75" />
+        <path d={atlFuturePath} stroke={PMC_LINE_PALETTE.atl.color} strokeWidth={PMC_LINE_PALETTE.atl.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} strokeLinecap={PMC_LINE_PALETTE.atl.linecap} vectorEffect="non-scaling-stroke" fill="none" opacity={PMC_FUTURE_OPACITY} />
       )}
       {tsbFuturePath && (
-        <path d={tsbFuturePath} stroke="var(--amber)" strokeWidth="1.6" fill="none" strokeDasharray="4 3" opacity="0.8" />
+        <path d={tsbFuturePath} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" opacity={PMC_FUTURE_OPACITY} />
       )}
 
       {/* 오늘 마커 */}
@@ -389,22 +395,22 @@ export default function FitnessChart({
             fill="var(--ink-1)" fontWeight="600">
         {t("charts.fitness.today")}
       </text>
-      <circle cx={todayX} cy={todayCtlY} r="4" fill="var(--lime)" stroke="var(--bg-0)" strokeWidth="2" />
+      <circle cx={todayX} cy={todayCtlY} r="4" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="2" />
 
       {/* 목표일 마커 */}
       {hasFuture && goalCTLVal != null && (
         <>
           <line x1={goalX} x2={goalX} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
-                stroke="var(--lime)" strokeWidth="1.5" opacity="0.85" />
+                stroke={ctlColor} strokeWidth="1.5" opacity="0.85" />
           {/* 12px 폰트 기준 en "Goal day"(~58px)까지 수용하도록 pill 폭 68px (#401 리뷰) */}
-          <rect x={goalX - 70} y={PAD_TOP + 2} width="68" height="18" rx="3" fill="var(--lime)" />
+          <rect x={goalX - 70} y={PAD_TOP + 2} width="68" height="18" rx="3" fill={ctlColor} />
           <text x={goalX - 36} y={PAD_TOP + 14} fontSize="12" fontFamily="var(--font-mono)"
                 fill="var(--primary-fg)" fontWeight="700" textAnchor="middle">
             {t("charts.fitness.goalDay")}
           </text>
-          <circle cx={goalX} cy={goalCtlY} r="5" fill="var(--lime)" stroke="var(--bg-0)" strokeWidth="2" />
+          <circle cx={goalX} cy={goalCtlY} r="5" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="2" />
           <text x={goalX - 8} y={goalCtlY - 8} fontSize="12" fontFamily="var(--font-mono)"
-                fill="var(--lime)" fontWeight="600" textAnchor="end">
+                fill={ctlColor} fontWeight="600" textAnchor="end">
             CTL {Math.round(goalCTLVal)}
           </text>
           {goalTSBVal != null && (
@@ -421,9 +427,9 @@ export default function FitnessChart({
         <g pointerEvents="none">
           <line x1={hover.x} x2={hover.x} y1={PAD_TOP} y2={PAD_TOP + PLOT_H}
                 stroke="var(--ink-2)" strokeWidth="1" opacity="0.5" strokeDasharray="2 2" />
-          <circle cx={hover.x} cy={syFn(hover.ctl)} r="3.5" fill="var(--lime)" stroke="var(--bg-0)" strokeWidth="1.5" />
-          <circle cx={hover.x} cy={syFn(hover.atl)} r="3.5" fill="var(--rose)" stroke="var(--bg-0)" strokeWidth="1.5" />
-          <circle cx={hover.x} cy={syFn(hover.tsb)} r="3.5" fill="var(--amber)" stroke="var(--bg-0)" strokeWidth="1.5" />
+          <circle cx={hover.x} cy={syFn(hover.ctl)} r="3.5" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="1.5" />
+          <circle cx={hover.x} cy={syFn(hover.atl)} r="3.5" fill={PMC_LINE_PALETTE.atl.color} stroke="var(--bg-0)" strokeWidth="1.5" />
+          <circle cx={hover.x} cy={syFn(hover.tsb)} r="3.5" fill={PMC_LINE_PALETTE.tsb.color} stroke="var(--bg-0)" strokeWidth="1.5" />
 
           <rect x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH} rx="6"
                 fill="var(--bg-1)" stroke="var(--line)" strokeWidth="1" opacity="0.98" />
@@ -432,16 +438,16 @@ export default function FitnessChart({
             {formatDateLabel(hover.dateStr)}{hover.isFuture ? ` · ${t("charts.fitness.forecast")}` : ""}
           </text>
           {([
-            ["CTL", hover.ctl, "var(--lime)"],
-            ["ATL", hover.atl, "var(--rose)"],
-            ["TSB", hover.tsb, "var(--amber)"],
-          ] as const).map(([label, v, color], i) => (
-            <g key={label} transform={`translate(${tooltipX + 10}, ${tooltipY + 34 + i * 16})`}>
-              <circle cx="4" cy="-3" r="3" fill={color} />
-              <text x="14" y="0" fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-2)">{label}</text>
-              <text x={tooltipW - 20} y="0" fontSize="12" fontFamily="var(--font-mono)" fill={color}
+            { label: "CTL", value: hover.ctl, color: ctlColor, style: PMC_LINE_PALETTE.ctl },
+            { label: "ATL", value: hover.atl, color: PMC_LINE_PALETTE.atl.color, style: PMC_LINE_PALETTE.atl },
+            { label: "TSB", value: hover.tsb, color: PMC_LINE_PALETTE.tsb.color, style: PMC_LINE_PALETTE.tsb },
+          ] as const).map((item, i) => (
+            <g key={item.label} data-pmc-tooltip-metric={item.label} transform={`translate(${tooltipX + 10}, ${tooltipY + 34 + i * 16})`}>
+              <line x1="0" y1="-3" x2="10" y2="-3" stroke={item.color} strokeWidth="2" strokeDasharray={item.style.dasharray} strokeLinecap={item.style.linecap} vectorEffect="non-scaling-stroke" />
+              <text x="14" y="0" fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-2)">{item.label}</text>
+              <text x={tooltipW - 20} y="0" fontSize="12" fontFamily="var(--font-mono)" fill={item.color}
                     fontWeight="700" textAnchor="end">
-                {v >= 0 && label === "TSB" ? "+" : ""}{v.toFixed(1)}
+                {item.value >= 0 && item.label === "TSB" ? "+" : ""}{item.value.toFixed(1)}
               </text>
             </g>
           ))}
@@ -456,7 +462,7 @@ export default function FitnessChart({
           y={PAD_TOP + PLOT_H + 16}
           fontSize="12"
           fontFamily="var(--font-mono)"
-          fill={lbl.isToday || lbl.isGoal ? "var(--lime)" : "var(--ink-3)"}
+          fill={lbl.isToday || lbl.isGoal ? ctlColor : "var(--ink-3)"}
           fontWeight={lbl.isToday || lbl.isGoal ? 600 : 400}
           textAnchor="middle"
         >

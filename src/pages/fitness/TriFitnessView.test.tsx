@@ -48,4 +48,18 @@ describe("TriFitnessView parity", () => {
     expect(source).toContain("<TripleStackPMC");
     expect(source).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다.");
   });
+
+  it("uses tokenized discipline fills and semantic PMC line patterns", () => {
+    const source = readFileSync(join(process.cwd(), "src/pages/fitness/TriFitnessView.tsx"), "utf8");
+    const chart = source.slice(source.indexOf("function TripleStackPMC"), source.indexOf("function ContribDonut"));
+
+    expect(source).not.toMatch(/oklch\(\d/);
+    expect(chart).toContain("DISCIPLINE_CHART_COLORS.bike");
+    expect(chart).toContain("DISCIPLINE_CHART_COLORS.run");
+    expect(chart).toContain("DISCIPLINE_CHART_COLORS.swim");
+    expect(chart).toContain("PMC_LINE_PALETTE.atl.dasharray");
+    expect(chart).toContain("PMC_LINE_PALETTE.tsb.dasharray");
+    expect(chart).toContain('vectorEffect="non-scaling-stroke"');
+    expect(chart).toContain('role="img"');
+  });
 });
