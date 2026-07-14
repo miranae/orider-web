@@ -173,6 +173,7 @@ export interface HeroCardOpts {
   llmLoading: boolean;
   llmPhase?: "idle" | "preparing" | "calling" | "ready";
   llmCacheMiss?: boolean;
+  llmError?: boolean;
   onRequestAnalysis?: () => void;
   onReanalyze?: (() => void) | null;
   reanalyzable?: boolean;
@@ -254,8 +255,8 @@ export function HeroCard(opts: HeroCardOpts) {
         {opts.intervalBar}
         {opts.llmCacheMiss && opts.onRequestAnalysis && (
           <div style={{ marginTop: "var(--space-3)", display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-            <button type="button" onClick={opts.onRequestAnalysis} style={{ padding: "var(--space-2) var(--space-4)", borderRadius: "var(--r-md)", background: `color-mix(in oklch, var(--${opts.tone}) 16%, var(--bg-2))`, border: `1px solid color-mix(in oklch, var(--${opts.tone}) 40%, transparent)`, color: `var(--${opts.tone})`, fontSize: "var(--fs-xs)", fontWeight: 600, cursor: "pointer" }}>{t("today.analyzeStart")}</button>
-            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("today.analyzeWaiting")}</span>
+            <button type="button" onClick={opts.onRequestAnalysis} style={{ padding: "var(--space-2) var(--space-4)", borderRadius: "var(--r-md)", background: `color-mix(in oklch, var(--${opts.tone}) 16%, var(--bg-2))`, border: `1px solid color-mix(in oklch, var(--${opts.tone}) 40%, transparent)`, color: `var(--${opts.tone})`, fontSize: "var(--fs-xs)", fontWeight: 600, cursor: "pointer" }}>{t(opts.llmError ? "today.analysisRetry" : "today.analyzeStart")}</button>
+            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t(opts.llmError ? "today.analysisUnavailable" : "today.analyzeWaiting")}</span>
           </div>
         )}
         {opts.onReanalyze != null && !opts.llmCacheMiss && (

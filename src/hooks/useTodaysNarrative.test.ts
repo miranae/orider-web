@@ -79,4 +79,30 @@ describe("useTodaysNarrative single-flight full request", () => {
     });
     expect(callableCount).toBe(1);
   });
+
+  it("stops after failure and succeeds only after an explicit retry", async () => {
+    let calls = 0;
+    setCallableImplementation("getTodaysRecommendationNarrative", () => {
+      calls++;
+      return Promise.reject({ code: "functions/internal" });
+    });
+
+    const { result } = renderHook(() => useTodaysNarrative(makeFacts(3), true));
+    await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.errorKind).toBe("request");
+    expect(calls).toBe(1);
+
+    setCallableImplementation("getTodaysRecommendationNarrative", () => {
+      calls++;
+      return { data: { narrative: "retry success", source: "generated", generatedAt: 2 } };
+    });
+    act(() => result.current.retry());
+    await act(async () => { await vi.advanceTimersByTimeAsync(800); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.narrative).toBe("retry success");
+    expect(result.current.errorKind).toBeNull();
+    expect(calls).toBe(2);
+  });
 });

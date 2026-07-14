@@ -74,4 +74,5 @@ jobs:
           VITE_FIREBASE_FUNCTIONS_REGION: asia-northeast3
           VITE_STRAVA_CLIENT_ID: ci-placeholder
           VITE_STRAVA_REDIRECT_URI: https://example.com/strava/callback
+          VITE_APPCHECK_RECAPTCHA_SITE_KEY: ci-placeholder
         run: npm run build

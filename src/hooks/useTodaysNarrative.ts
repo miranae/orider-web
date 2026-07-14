@@ -11,14 +11,18 @@
  * factsHash 관리하던 옛 구조는 사람 손에 의존해 사고 빈발 → prompt-hash 기반으로 전환.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { httpsCallable } from "firebase/functions";
-import { ensureAppCheckReady, functions } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import type { RecommendationFacts } from "../utils/todaysRecommendation";
 import { logClientError } from "../services/errorLogger";
 import type { TrainingSummary } from "@shared/types/training-summary";
+import {
+  callTodaysNarrative,
+  clearTodaysNarrativeRequestState,
+  NarrativeRequestError,
+  type NarrativeRequestErrorKind,
+} from "../services/todaysNarrativeClient";
 
 export interface AthleteProfile {
   ftpWatts?: number;
@@ -77,6 +81,20 @@ interface State {
   phase: NarrativePhase;
   /** 마지막 fetch 의 입력 fingerprint — 같은 입력 재호출 회피. */
   lastFingerprint: string | null;
+  errorKind: NarrativeRequestErrorKind | null;
+}
+
+interface CFRequest {
+  facts: RecommendationFacts;
+  /** Deprecated compatibility field; the server now owns prompt hashing. */
+  factsHash: string;
+  summary?: TrainingSummary | null;
+  athlete?: AthleteProfile | null;
+  goal?: GoalDetail | null;
+  adaptation?: NarrativeAdaptation | null;
+  disciplineMismatch?: NarrativeDisciplineMismatch | null;
+  lastActivityDaysAgo?: number | null;
+  lang?: "ko" | "en";
 }
 
 /**
@@ -116,8 +134,11 @@ export function useTodaysNarrative(
     loading: false,
     phase: "idle",
     lastFingerprint: null,
+    errorKind: null,
   });
   const inFlightRef = useRef<string | null>(null);
+  const [retryRevision, setRetryRevision] = useState(0);
+  const manualRetryRef = useRef(false);
 
   // 입력 전체를 deep-stringify 해서 fingerprint. RPC 중복 호출 차단용.
   // facts 의 chips/contextTags 같은 한국어 UI 라벨은 CF 에 전달은 되지만 prompt 에는 무시되도록
@@ -162,6 +183,13 @@ export function useTodaysNarrative(
   // 페이지 로드에 3~4회 paid call 발생. 마지막 변동 후 debounceMs 동안 추가 변동
   // 없으면 호출 — 안정 상태에서 1회로 수렴.
   const debounceMs = 800;
+  const retry = useCallback(() => {
+    if (!user || !fingerprint) return;
+    clearTodaysNarrativeRequestState(`full:${user.uid}:${lang}:${fingerprint}`);
+    manualRetryRef.current = true;
+    setRetryRevision((value) => value + 1);
+  }, [user?.uid, fingerprint, lang]);
+
   useEffect(() => {
     // full 호출이 시작된 뒤에는 입력·사용자·언어가 바뀌어도 두 번째 호출을 만들지 않는다.
     // 첫 요청이 완료될 때까지 그 요청과 정확한 cacheContext 가 단일 진실원이다.
@@ -173,9 +201,12 @@ export function useTodaysNarrative(
     const facts1: RecommendationFacts = facts;
     const fp1: string = fingerprint;
     const uid1 = user.uid;
+    const requestKey = `full:${uid1}:${lang}:${fp1}`;
+    const manualRetry = manualRetryRef.current;
+    manualRetryRef.current = false;
     // 즉시 "preparing" phase 진입 — 사용자에게 "데이터 다시 계산 중" 명시.
     // 800ms 안에 입력이 또 변하면 cleanup 되고 새 effect 가 다시 preparing 진입.
-    setState((s) => ({ ...s, phase: "preparing", loading: true }));
+    setState((s) => ({ ...s, phase: "preparing", loading: true, errorKind: null }));
     const timer = setTimeout(() => { doFetch(); }, debounceMs);
     return () => clearTimeout(timer);
 
@@ -183,47 +214,24 @@ export function useTodaysNarrative(
     // debounce 사이 다른 effect 가 먼저 호출을 시작했을 수도 있다.
     if (inFlightRef.current !== null) return;
     inFlightRef.current = fp1;
-    setState((s) => ({ ...s, phase: "calling", loading: true }));
+    setState((s) => ({ ...s, phase: "calling", loading: true, errorKind: null }));
 
-    try {
-      await ensureAppCheckReady();
-    } catch (err) {
-      logClientError("useTodaysNarrative.appCheck", err, { fingerprint: fp1 });
-      setState({ narrative: null, source: null, cacheContext: null, loading: false, phase: "idle", lastFingerprint: null });
-      if (inFlightRef.current === fp1) inFlightRef.current = null;
-      return;
-    }
-
-    const fn = httpsCallable<
-      {
-        facts: RecommendationFacts;
-        /** Deprecated. 신규 CF 는 prompt sha1 로 캐시 결정. 라이브 CF (구버전 배포본) 가
-         *  factsHash 를 필수로 요구하던 시기 호환용 — 배포 후엔 무시됨. fingerprint 그대로 전달. */
-        factsHash: string;
-        summary?: TrainingSummary | null;
-        athlete?: AthleteProfile | null;
-        goal?: GoalDetail | null;
-        adaptation?: NarrativeAdaptation | null;
-        disciplineMismatch?: NarrativeDisciplineMismatch | null;
-        lastActivityDaysAgo?: number | null;
-        lang?: "ko" | "en";
+    callTodaysNarrative<CFRequest, CFResponse>({
+      requestKey,
+      manualRetry,
+      payload: {
+        facts: facts1,
+        factsHash: fp1,
+        summary: summary ?? undefined,
+        athlete: athlete ?? undefined,
+        goal: goal ?? undefined,
+        adaptation: adaptation ?? undefined,
+        disciplineMismatch: disciplineMismatch ?? undefined,
+        lastActivityDaysAgo: lastActivityDaysAgo ?? undefined,
+        lang,
       },
-      CFResponse
-    >(functions, "getTodaysRecommendationNarrative");
-
-    fn({
-      facts: facts1,
-      factsHash: fp1,
-      summary: summary ?? undefined,
-      athlete: athlete ?? undefined,
-      goal: goal ?? undefined,
-      adaptation: adaptation ?? undefined,
-      disciplineMismatch: disciplineMismatch ?? undefined,
-      lastActivityDaysAgo: lastActivityDaysAgo ?? undefined,
-      lang,
     })
-      .then((res) => {
-        const data = res.data;
+      .then((data) => {
         setState({
           narrative: data.narrative,
           source: data.source,
@@ -235,18 +243,32 @@ export function useTodaysNarrative(
           loading: false,
           phase: "ready",
           lastFingerprint: fp1,
+          errorKind: null,
         });
       })
-      .catch((err) => {
-        logClientError("useTodaysNarrative", err, { fingerprint: fp1 });
-        setState({ narrative: null, source: null, cacheContext: null, loading: false, phase: "idle", lastFingerprint: null });
+      .catch((err: unknown) => {
+        const errorKind = err instanceof NarrativeRequestError ? err.kind : "request";
+        logClientError("useTodaysNarrative", err, {
+          errorKind,
+          discipline: facts1.inputSnapshot.discipline,
+          lang,
+        });
+        setState({
+          narrative: null,
+          source: null,
+          cacheContext: null,
+          loading: false,
+          phase: "idle",
+          lastFingerprint: null,
+          errorKind,
+        });
       })
       .finally(() => {
         if (inFlightRef.current === fp1) inFlightRef.current = null;
       });
     }
      
-  }, [user?.uid, fingerprint, ready]);
+  }, [user?.uid, fingerprint, ready, retryRevision]);
 
-  return state;
+  return { ...state, retry };
 }

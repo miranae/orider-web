@@ -49,6 +49,7 @@ const required = [
   "firebaseAuthDomain",
   "firebaseProjectId",
   "firebaseAppId",
+  "appCheckRecaptchaSiteKey",
   "stravaClientId",
   "stravaRedirectUri",
 ];
