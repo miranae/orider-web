@@ -33,7 +33,7 @@ describe("BikeThresholdDecisionCard", () => {
 
     expect(screen.getByText("203")).toBeInTheDocument();
     expect(screen.getByText("153")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "월별 추정 FTP 추이 차트", hidden: true })).not.toBeVisible();
+    expect(screen.getByRole("img", { name: /월별 추정 FTP 추이 차트/, hidden: true })).not.toBeVisible();
     expect(onApply).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "thresholdDecision.applyAria" }));
     expect(onApply).toHaveBeenCalledWith(153);
@@ -42,7 +42,25 @@ describe("BikeThresholdDecisionCard", () => {
     expect(screen.getByText("158 W")).toBeVisible();
     expect(screen.getByText("173 W")).toBeVisible();
     expect(screen.getByText("154 W")).toBeVisible();
-    expect(screen.getByRole("img", { name: "월별 추정 FTP 추이 차트" })).toBeVisible();
+    expect(screen.getByRole("img", { name: /월별 추정 FTP 추이 차트/ })).toBeVisible();
     expect(screen.queryByText("최근 자동 추정값")).not.toBeInTheDocument();
+  });
+
+  it("can render the consolidated evidence open by default", () => {
+    renderWithProviders(
+      <BikeThresholdDecisionCard
+        decision={{ activeFtpW: 250, automaticCandidateW: 265, cpW: 270, recentTwentyMinuteW: 279, latestMonthlyEstimate: { period: "2026-06", ftpW: 265 }, tteMin: 45, activityCount: 12 }}
+        hasZoneData
+        applying={false}
+        onApplyCandidate={vi.fn()}
+        progressionPoints={[{ period: "2026-05", ftpW: 255, source: "20m" }, { period: "2026-06", ftpW: 265, source: "20m" }]}
+        defaultEvidenceOpen
+        t={t}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "추정 근거와 기간 보기" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("270 W")).toBeVisible();
+    expect(screen.getByRole("img", { name: /월별 추정 FTP 추이 차트:.*255W.*265W/ })).toBeVisible();
   });
 });

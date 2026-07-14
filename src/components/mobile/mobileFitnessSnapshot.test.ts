@@ -5,13 +5,16 @@ import { describe, expect, it } from "vitest";
 describe("mobile fitness decision hierarchy", () => {
   const source = fs.readFileSync(path.resolve("src/components/mobile/MobileFitnessPage.tsx"), "utf8");
 
-  it("shows a compact active FTP and cycling ability without the duplicate snapshot", () => {
+  it("keeps one canonical active FTP while restoring the evidence-rich bike snapshot", () => {
     expect(source).toContain("function BikeAbilityCompact");
     expect(source).toContain("abilityPercentile");
     expect(source).toContain("thresholdDecision?.activeFtpW");
-    expect(source).not.toContain("function FitnessSnapshot");
-    expect(source).not.toContain("const kpiItems");
-    expect(source).not.toContain("<FtpProgressionCard");
+    expect(source).toContain("W/kg");
+    expect(source).toContain("vo2PdcSource");
+    expect(source).toContain("vo2FormulaSource");
+    expect(source).toContain("CTL ${data.ctl.toFixed(1)} · ATL");
+    expect(source).toContain("<FtpProgressionCard");
+    expect(source).toContain("currentFtpW={activeFtp}");
   });
 
   it("keeps the integrated load summary and moves load-focus evidence into details", () => {

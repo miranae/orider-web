@@ -14,6 +14,7 @@ export default function BikeThresholdDecisionCard({
   applying,
   onApplyCandidate,
   progressionPoints = [],
+  defaultEvidenceOpen = false,
   t,
 }: {
   decision: BikeThresholdDecision;
@@ -21,9 +22,10 @@ export default function BikeThresholdDecisionCard({
   applying: boolean;
   onApplyCandidate: (watts: number) => void;
   progressionPoints?: EstimatedFtpPoint[];
+  defaultEvidenceOpen?: boolean;
   t: T;
 }) {
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [evidenceOpen, setEvidenceOpen] = useState(defaultEvidenceOpen);
   const missingPdc = decision.automaticCandidateW == null && decision.cpW == null;
   const evidence = [
     { id: "cp", value: decision.cpW, label: t("thresholdDecision.evidence.cp"), sub: t("thresholdDecision.evidence.cpSub") },
