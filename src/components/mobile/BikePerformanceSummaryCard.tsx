@@ -78,6 +78,11 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
     && vo2max != null
     && vo2max >= vo2Distribution.domain[0]
     && vo2max <= vo2Distribution.domain[1];
+  const cohortPopulation = pdc?.ttePercentile != null && pdc?.vo2maxPercentile != null
+    ? t("mobileFitness.performance.cohortPopulation")
+    : pdc?.ttePercentile != null
+      ? t("mobileFitness.performance.ttePopulation")
+      : t("mobileFitness.performance.vo2Population");
 
   return (
     <section aria-label={t("mobileFitness.performance.ariaLabel")} style={{ marginBottom: "var(--space-3)", padding: "var(--space-5) var(--space-4)", background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)" }}>
@@ -151,8 +156,8 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
           <PercentileScale
             percentile={pdc.vo2maxPercentile ?? pdc.ttePercentile ?? 0}
             ariaLabel={t("mobileFitness.performance.cohortContextAria")}
-            population={t("mobileFitness.performance.cohortPopulation")}
-            distribution={pdc.cohortDistributions?.vo2max}
+            population={cohortPopulation}
+            distribution={pdc.vo2maxPercentile != null ? vo2Distribution : null}
             distributionValue={vo2max}
             fallbackComputedAt={pdc.cohortComputedAt}
             hideScale
@@ -161,12 +166,12 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
           />
           {pdc?.ttePercentile != null && (
             <span id={tteDescriptionId} className="sr-only">
-              {t("mobileFitness.performance.cohortPopulation")}. {t("mobileFitness.percentile.rulerGuide")}
+              {cohortPopulation}. {t("mobileFitness.percentile.rulerGuide")}
             </span>
           )}
           {pdc?.vo2maxPercentile != null && (
             <span id={vo2DescriptionId} className="sr-only">
-              {t("mobileFitness.performance.cohortPopulation")}. {t(hasVo2Density ? "mobileFitness.percentile.densityGuide" : "mobileFitness.percentile.rulerGuide")}
+              {cohortPopulation}. {t(hasVo2Density ? "mobileFitness.percentile.densityGuide" : "mobileFitness.percentile.rulerGuide")}
             </span>
           )}
         </div>
