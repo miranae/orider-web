@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "callables": [
+    { "name": "setActivityKudos", "capability": "setKudos" },
+    { "name": "postActivityComment", "capability": "postComment" },
+    { "name": "editActivityComment", "capability": "editComment" },
+    { "name": "deleteActivityComment", "capability": "deleteComment" },
+    { "name": "setActivitySocialBlock", "capability": "blockActivityUser" },
+    { "name": "setActivityHidden", "capability": "hideActivity" },
+    { "name": "reportActivitySocialContent", "capability": "reportContent" },
+    { "name": "getActivitySocialFeed", "capability": "getFeed" }
+  ]
+}
