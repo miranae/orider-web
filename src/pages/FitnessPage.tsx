@@ -728,7 +728,6 @@ export default function FitnessPage() {
             vo2maxPercentile: pdc?.vo2maxEst != null && cohortStats.status === "ready"
               ? percentileOf(pdc.vo2maxEst, cohortStats.stats.metrics?.vo2max?.cohorts?.all ?? {})
               : null,
-            cohortSampleSize: cohortStats.status === "ready" ? cohortStats.stats.sampleSize : null,
             activityCount: pdc?.activityCount ?? null,
           } : null,
           zones,

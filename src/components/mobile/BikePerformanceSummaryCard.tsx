@@ -4,13 +4,13 @@ import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecisi
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import { Button, Chip, Text } from "../../theme/components";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
+import PercentileScale from "../fitness/PercentileScale";
 
 export interface MobileFitnessPdcSummary {
   riderType: { type: string; confidence: number } | null;
   abilityPercentile: number | null;
   vo2maxEst: number | null;
   vo2maxPercentile: number | null;
-  cohortSampleSize: number | null;
   activityCount: number | null;
 }
 
@@ -51,7 +51,6 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
   const riderType = pdc?.riderType && pdc.riderType.confidence >= 0.5 && RIDER_TYPE_KEYS.has(pdc.riderType.type)
     ? t(`fitness:riderType.type.${pdc.riderType.type}.label`)
     : null;
-  const abilityTop = pdc?.abilityPercentile != null ? topPercent(pdc.abilityPercentile) : null;
   const vo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : estimateVo2max(activeFtp, weightKg);
   const vo2Source = pdc?.vo2maxEst != null ? "pdc" : vo2max != null ? "formula" : null;
   const latestEstimate = decision?.latestMonthlyEstimate ?? null;
@@ -62,7 +61,6 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
     decision && decision.activityCount > 0 ? { label: t("mobileFitness.performance.evidence.activityCount"), value: t("mobileFitness.performance.evidence.activityCountValue", { count: decision.activityCount }) } : null,
     activeToEstimateDelta != null ? { label: t("mobileFitness.performance.evidence.activeDelta"), value: `${activeToEstimateDelta >= 0 ? "+" : ""}${activeToEstimateDelta} W` } : null,
     pdc?.riderType ? { label: t("mobileFitness.performance.evidence.riderConfidence"), value: `${Math.round(pdc.riderType.confidence * 100)}%` } : null,
-    pdc?.cohortSampleSize != null && pdc.cohortSampleSize > 0 ? { label: t("mobileFitness.performance.evidence.cohortSample"), value: t("mobileFitness.performance.evidence.cohortSampleValue", { count: pdc.cohortSampleSize }) } : null,
   ].filter((row): row is { label: string; value: string } => row != null);
   const metrics = [
     { key: "eftp", label: t("mobileFitness.performance.metrics.eftp"), value: decision?.latestMonthlyEstimate?.ftpW ?? null, unit: "W", status: decision?.latestMonthlyEstimate ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
@@ -88,15 +86,14 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         <Chip variant={riderType ? "accent" : "default"} dot={!!riderType}>{riderType ?? t("mobileFitness.performance.riderUnknown")}</Chip>
       </div>
       <div style={{ marginTop: "var(--space-3)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)" }}>
-          <Text variant="caption" tone="secondary">{t("mobileFitness.performance.abilityLabel")}</Text>
-          <Text variant="label">{abilityTop != null ? t("mobileFitness.performance.abilityTop", { pct: abilityTop }) : t("mobileFitness.performance.abilityUnknown")}</Text>
-        </div>
+        <Text as="div" variant="caption" tone="secondary" style={{ marginBottom: "var(--space-1)" }}>{t("mobileFitness.performance.abilityLabel")}</Text>
         {pdc?.abilityPercentile != null
-          ? <div role="meter" aria-label={t("mobileFitness.performance.abilityMeterAria")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pdc.abilityPercentile} aria-valuetext={t("mobileFitness.performance.abilityTop", { pct: abilityTop })} style={{ height: "var(--space-2)", marginTop: "var(--space-2)", overflow: "hidden", borderRadius: "var(--r-pill)", background: "var(--bg-3)" }}>
-              <div style={{ width: `${Math.max(0, Math.min(100, pdc.abilityPercentile))}%`, height: "100%", borderRadius: "var(--r-pill)", background: "var(--aqua)" }} />
-            </div>
-          : <div aria-hidden style={{ height: "var(--space-2)", marginTop: "var(--space-2)", borderRadius: "var(--r-pill)", background: "var(--bg-3)" }} />}
+          ? <PercentileScale
+              percentile={pdc.abilityPercentile}
+              ariaLabel={t("mobileFitness.performance.abilityMeterAria")}
+              population={t("mobileFitness.performance.abilityPopulation")}
+            />
+          : <Text as="div" variant="label">{t("mobileFitness.performance.abilityUnknown")}</Text>}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
@@ -108,6 +105,15 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
               {metric.value != null && <Text as="span" variant="unit">{metric.unit}</Text>}
             </div>
             <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{metric.status}</Text>
+            {metric.key === "vo2max" && metric.value != null && pdc?.vo2maxPercentile != null && (
+              <div style={{ marginTop: "var(--space-3)" }}>
+                <PercentileScale
+                  percentile={pdc.vo2maxPercentile}
+                  ariaLabel={t("mobileFitness.performance.vo2MeterAria")}
+                  population={t("mobileFitness.performance.vo2Population")}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -139,7 +145,7 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
           {vo2Source === "pdc" ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc?.activityCount ?? 0 }) : vo2Source === "formula" ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient")}
         </Text>
         <Text as="p" variant="caption" tone="secondary">
-          {pdc?.vo2maxPercentile != null ? t("mobileFitness.snapshot.cohortTop", { pct: topPercent(pdc.vo2maxPercentile), count: pdc.cohortSampleSize ?? 0 }) : t("mobileFitness.snapshot.estimateOnly")}
+          {pdc?.vo2maxPercentile != null ? t("mobileFitness.snapshot.cohortTopNoSample", { pct: topPercent(pdc.vo2maxPercentile) }) : t("mobileFitness.snapshot.estimateOnly")}
         </Text>
         <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.performance.modelEvidence")}</Text>
         <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
