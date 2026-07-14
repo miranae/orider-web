@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import ElevationChart from "../components/ElevationChart";
@@ -72,6 +72,7 @@ import {
   SummarySensorFallbackCard,
   type SummarySensorMetric,
 } from "../features/activity/detail/ActivityInsightCards";
+import type { LayoutOutletContext } from "../components/Layout";
 
 
 export default function ActivityPage() {
@@ -80,6 +81,8 @@ export default function ActivityPage() {
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
+  const outletContext = useOutletContext<LayoutOutletContext | null>();
+  const setActivityOwner = outletContext?.setActivityOwner;
   const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
@@ -153,6 +156,16 @@ export default function ActivityPage() {
   const [activityLoadError, setActivityLoadError] = useState<unknown>(null);
   const [activityReloadKey, setActivityReloadKey] = useState(0);
   const [activityProcessing, setActivityProcessing] = useState(false);
+
+  // Layout의 허브 판정에 소유권을 전달한다. 같은 ActivityPage 인스턴스에서 activityId만
+  // 바뀔 때 이전 활동의 owner가 남지 않도록 현재 문서와 route id가 일치할 때만 publish한다.
+  useEffect(() => {
+    const owner = activity && activity.id === activityId
+      ? { activityId, ownerId: activity.userId }
+      : null;
+    setActivityOwner?.(owner);
+    return () => setActivityOwner?.(null);
+  }, [activity?.id, activity?.userId, activityId, setActivityOwner]);
 
   useEffect(() => {
     if (!activityId) return;

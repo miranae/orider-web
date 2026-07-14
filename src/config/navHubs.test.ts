@@ -29,12 +29,20 @@ describe("navHubs", () => {
       expect(getActiveHub("/course/abc")).toBe("explore");
       expect(getActiveHub("/segment/create")).toBe("explore");
       expect(getActiveHub("/segment/abc")).toBe("explore");
-      expect(getActiveHub("/activity/xyz")).toBe("train");
       expect(getActiveHub("/board/123")).toBe("community");
       expect(getActiveHub("/group/g1")).toBe("community");
       expect(getActiveHub("/event/e1")).toBe("community");
       expect(getActiveHub("/athlete/u1")).toBe("community");
       expect(getActiveHub("/friend/invite-code")).toBe("community");
+    });
+
+    it("활동 상세는 확인된 소유권에 따라 홈 또는 내 운동으로 매핑", () => {
+      expect(getActiveHub("/activity/xyz")).toBe("home");
+      expect(getActiveHub("/activity/xyz", { viewerUid: "me", activityOwnerId: null })).toBe("home");
+      expect(getActiveHub("/activity/xyz", { viewerUid: "me", activityOwnerId: "other" })).toBe("home");
+      expect(getActiveHub("/activity/xyz", { viewerUid: "me", activityOwnerId: "me" })).toBe("train");
+      expect(getActiveHub("/activity/xyz", { viewerUid: null, activityOwnerId: "me" })).toBe("home");
+      expect(getActiveHub("/activity/xyz/edit")).toBe("train");
     });
 
     it("매칭 없는 경로는 home 폴백", () => {
