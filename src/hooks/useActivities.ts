@@ -26,6 +26,12 @@ import type { WeeklyStat } from "../components/WeeklyChart";
 import { estimateTSS } from "../utils/estimateTSS";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline } from "../utils/disciplineFilter";
+import {
+  executeFirestoreSessionRecovery,
+  firestoreRecoveryLogContext,
+  prepareFirestoreSessionRecovery,
+  shouldAbortForFirestoreRecovery,
+} from "../utils/firestoreSessionRecovery";
 
 export type DatePreset = "all" | "7d" | "30d" | "90d" | "year";
 
@@ -42,6 +48,20 @@ const FEED_LOAD_RETRY_DELAYS_MS = [600, 1600] as const;
 // 단일 쿼리의 rules 문서 접근 호출 한도(10)를 넘지 않도록 10명씩 나눈다. visibility(in)
 // 두 값과 곱해진 DNF 분기도 20개라 Firestore의 30-disjunction 한도 안에 남는다.
 const FRIEND_QUERY_CHUNK_SIZE = 10;
+
+function handleActivityFeedError(
+  source: string,
+  error: unknown,
+  context?: Record<string, unknown>,
+): boolean {
+  const recovery = prepareFirestoreSessionRecovery(error);
+  logClientError(source, error, {
+    ...context,
+    ...firestoreRecoveryLogContext(recovery),
+  });
+  if (recovery.action === "reload-ready") executeFirestoreSessionRecovery(recovery);
+  return shouldAbortForFirestoreRecovery(recovery);
+}
 
 export type ActivityFeedScope = "all" | "friends" | "self";
 
@@ -341,11 +361,16 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
         try {
           return await fetchPage(user?.uid ?? null, cursor, pageSize);
         } catch (retryErr) {
+          const recoveryAborted = handleActivityFeedError("useActivities.initialLoad.retry", retryErr, {
+            context,
+            delayMs,
+          });
           debugLog("useActivities.initialLoad.retry", {
             context,
             delayMs,
             message: retryErr instanceof Error ? retryErr.message : String(retryErr),
           });
+          if (recoveryAborted) return null;
         }
       }
 
@@ -364,7 +389,10 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
       try {
         first = await fetchPage(user?.uid ?? null, null, FIRST_FEED_CHUNK_SIZE);
       } catch (err) {
-        logClientError("useActivities.initialLoad.first", err);
+        if (handleActivityFeedError("useActivities.initialLoad.first", err, { scope })) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
         first = await retryFetchPage(null, FIRST_FEED_CHUNK_SIZE, "first");
       }
 
@@ -383,7 +411,7 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
         try {
           rest = await fetchPage(user?.uid ?? null, first.cursor, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE);
         } catch (err) {
-          logClientError("useActivities.initialLoad.rest", err);
+          if (handleActivityFeedError("useActivities.initialLoad.rest", err, { scope })) return;
           rest = await retryFetchPage(first.cursor, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE, "rest");
         }
         if (!rest) return;
@@ -418,7 +446,7 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
       setFeedCursor(result.cursor);
       setHasMore(result.hasMore);
     } catch (err) {
-      logClientError("useActivities.loadMore", err);
+      handleActivityFeedError("useActivities.loadMore", err, { scope });
     } finally {
       if (feedRequestKeyRef.current === requestKey && feedRequestGenerationRef.current === requestGeneration) {
         setLoadingMore(false);
