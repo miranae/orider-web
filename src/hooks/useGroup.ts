@@ -153,6 +153,11 @@ export function useMyGroups(userId: string | undefined) {
       ]);
       if (cancelled) return;
 
+      const partialFailures: Array<{ source: string; reason: unknown }> = [];
+      if (indexResult.status === "rejected") partialFailures.push({ source: "index", reason: indexResult.reason });
+      if (currentGroupResult.status === "rejected") partialFailures.push({ source: "currentGroup", reason: currentGroupResult.reason });
+      if (creatorResult.status === "rejected") partialFailures.push({ source: "creator", reason: creatorResult.reason });
+
       const groupsById = new Map<string, Group>();
       if (creatorResult.status === "fulfilled") {
         creatorResult.value.docs.forEach((groupDoc) => {
@@ -185,7 +190,10 @@ export function useMyGroups(userId: string | undefined) {
         discoveredGroupsLoaded = chunkResults.every((result) => result.status === "fulfilled");
         discoveryError = chunkResults.find((result) => result.status === "rejected")?.reason ?? null;
         chunkResults.forEach((result) => {
-          if (result.status !== "fulfilled") return;
+          if (result.status === "rejected") {
+            partialFailures.push({ source: "discoveredChunk", reason: result.reason });
+            return;
+          }
           result.value.docs.forEach((groupDoc) => {
             const data = groupDoc.data();
             if (data.isActive !== false) groupsById.set(groupDoc.id, { id: groupDoc.id, ...data } as Group);
@@ -203,6 +211,9 @@ export function useMyGroups(userId: string | undefined) {
               : new Error("Failed to resolve indexed groups"));
       }
       if (cancelled) return;
+      partialFailures.forEach(({ source, reason }) => {
+        logClientError("useMyGroups.partial", reason, { userId, source });
+      });
       setGroups([...groupsById.values()]);
       setLoading(false);
     };

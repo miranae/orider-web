@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { getPublicUserProfile } from "../services/publicProfiles";
+import * as errorLogger from "../services/errorLogger";
 import { useGroup, useGroupMemberRole, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
 
 vi.mock("../services/publicProfiles", () => ({
@@ -182,6 +183,7 @@ describe("group list hooks", () => {
 
   it("keeps creator groups when the user_groups source fails", async () => {
     const indexError = new Error("index unavailable");
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
     vi.mocked(getDocs)
       .mockRejectedValueOnce(indexError)
       .mockResolvedValueOnce({
@@ -196,6 +198,8 @@ describe("group list hooks", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.groups.map((group) => group.id)).toEqual(["creator-group"]);
     expect(result.current.error).toBeNull();
+    expect(logSpy).toHaveBeenCalledWith("useMyGroups.partial", indexError, { userId: "user-1", source: "index" });
+    logSpy.mockRestore();
   });
 
   it("keeps indexed groups when the creator source fails", async () => {
@@ -215,6 +219,34 @@ describe("group list hooks", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.groups.map((group) => group.id)).toEqual(["indexed-group"]);
     expect(result.current.error).toBeNull();
+  });
+
+  it("logs a failed group chunk while keeping groups from successful chunks", async () => {
+    const chunkError = new Error("chunk unavailable");
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    const indexedIds = Array.from({ length: 11 }, (_, index) => ({ id: `group-${index + 1}` }));
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: indexedIds } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({
+        docs: [{
+          id: "group-1",
+          data: () => ({ name: "Available group", creatorId: "leader-1", isActive: true }),
+        }],
+      } as never)
+      .mockRejectedValueOnce(chunkError);
+
+    const { result } = renderHook(() => useMyGroups("user-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups.map((group) => group.id)).toEqual(["group-1"]);
+    expect(result.current.error).toBeNull();
+    expect(logSpy).toHaveBeenCalledWith(
+      "useMyGroups.partial",
+      chunkError,
+      { userId: "user-1", source: "discoveredChunk" },
+    );
+    logSpy.mockRestore();
   });
 
   it("ignores a late group response after the user changes", async () => {
