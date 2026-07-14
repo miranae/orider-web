@@ -1,3 +1,7 @@
+import { resolveCssColor } from "../../../utils/cssColor";
+
+export { resolveCssColor };
+
 export type SportCategory = "ride" | "run" | "swim" | "other";
 
 export function getSportCategory(type?: string | null): SportCategory {
@@ -101,9 +105,3 @@ export const OVERLAY_CONFIGS: OverlayConfig[] = [
   { key: "power", label: "power", unit: "W", color: "var(--chart-power)", dotColor: "var(--chart-power)", yAxisID: "yPower", getValue: (d) => d.power },
   { key: "cadence", label: "cadence", unit: "rpm", color: "var(--chart-cadence)", dotColor: "var(--chart-cadence)", yAxisID: "yCadence", getValue: (d) => d.cadence },
 ];
-
-export function resolveCssColor(value: string): string {
-  const match = value.match(/^var\((--[^)]+)\)$/);
-  if (!match || typeof window === "undefined") return value;
-  return getComputedStyle(document.documentElement).getPropertyValue(match[1]!).trim() || value;
-}

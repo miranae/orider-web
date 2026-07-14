@@ -12,8 +12,10 @@ import {
   Legend,
 } from "chart.js";
 import type { PowerCurveProgression } from "../utils/powerCurveProgression";
+import { resolveCssColor } from "../utils/cssColor";
 import { formatNum } from "../utils/units";
 import { useTheme } from "../contexts/ThemeContext";
+import { useOriderTheme } from "../theme";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -24,6 +26,7 @@ interface Props {
 export default function PowerCurveProgressionChart({ progressions }: Props) {
   const { t } = useTranslation("dashboard");
   const { resolvedTheme } = useTheme();
+  const { variant } = useOriderTheme();
 
   const formatDuration = (sec: number): string => {
     if (sec < 60) return t("charts.powerCurve.unitSec", { n: sec });
@@ -44,15 +47,15 @@ export default function PowerCurveProgressionChart({ progressions }: Props) {
       return {
         label: p.label,
         data: allDurations.map((d) => map.get(d) ?? null),
-        borderColor: p.color,
+        borderColor: resolveCssColor(p.color, variant),
         borderWidth: 2,
         pointRadius: 4,
-        pointBackgroundColor: p.color,
+        pointBackgroundColor: resolveCssColor(p.color, variant),
         tension: 0.3,
         spanGaps: true,
       };
     }),
-  }), [progressions, allDurations, t]);
+  }), [progressions, allDurations, t, variant]);
 
   const options: ChartOptions<"line"> = useMemo(() => {
     const dark = resolvedTheme === "dark";
