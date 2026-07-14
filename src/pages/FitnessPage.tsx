@@ -76,6 +76,7 @@ import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportu
 import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
 import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
 import { percentileOf } from "@shared/training/cohortPercentile";
+import { deriveMonthlyCyclingVo2maxTrend } from "../features/fitness/deriveMonthlyCyclingVo2maxTrend";
 import { useUserFitness } from "../hooks/useUserFitness";
 import {
   authoritativeCombinedLoad,
@@ -732,6 +733,7 @@ export default function FitnessPage() {
           zones,
           zoneSource,
           powerCurve,
+          ftpProgression: deriveEstimatedFtpProgression(pdc?.history),
           thresholdDecision,
           discipline,
         }}
@@ -812,6 +814,10 @@ export default function FitnessPage() {
     discipline === "bike" && pdc?.cp != null
       ? computeOutdoorPacingGuide(pdc.cp.value, profile?.weightKg)
       : null;
+
+  const vo2maxTrend = discipline === "bike"
+    ? deriveMonthlyCyclingVo2maxTrend(pdc?.history, profile?.weightKg ?? pdc?.weightKgSnapshot)
+    : [];
 
   const ftpProgression = deriveEstimatedFtpProgression(pdc?.history);
   // 강점/약점 — mmpAll(duration 별 best)과 CP 모델 기대파워 갭 분류.
@@ -1088,6 +1094,7 @@ export default function FitnessPage() {
             applying={applyingFtp}
             onApplyCandidate={applyAutomaticFtp}
             progressionPoints={ftpProgression}
+            defaultEvidenceOpen
             t={t}
           />
         )}
@@ -1096,6 +1103,44 @@ export default function FitnessPage() {
             라이더 유형·코호트 백분위는 오늘의 결론 근거로, 기본 접힘 progressive disclosure. */}
         {discipline === "bike" && (
         <DetailsSection title={t("conclusion.detailToggle")}>
+        {/* PDC 기반 VO2max 근거와 월별 추이. 현재 적용 FTP 공식값과 구분한다. */}
+        {pdc?.vo2maxEst != null && (
+          <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "16px 24px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>
+              <div>
+                <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("vo2maxCard.pdcLabel")}</Text>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
+                  <Text variant="dataLarge" style={{ color: "var(--aqua)" }}>~{pdc.vo2maxEst}</Text>
+                  <Text variant="unit">ml/kg/min</Text>
+                </div>
+                <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{t("vo2maxCard.pdcSub")}</Text>
+              </div>
+              {vo2maxTrend.length >= 2 && (() => {
+                const vals = vo2maxTrend.map((point) => point.v);
+                const lo = Math.min(...vals), hi = Math.max(...vals);
+                const w = 132, h = 40, span = hi - lo || 1;
+                const sx = (index: number) => (index / (vals.length - 1)) * w;
+                const sy = (value: number) => h - ((value - lo) / span) * h;
+                const path = vals.map((value, index) => `${index ? "L" : "M"}${sx(index).toFixed(1)} ${sy(value).toFixed(1)}`).join(" ");
+                const delta = vals[vals.length - 1]! - vals[0]!;
+                const first = vo2maxTrend[0]!, last = vo2maxTrend[vo2maxTrend.length - 1]!;
+                const trendDescription = t("vo2maxCard.trendAriaValues", { startPeriod: first.period, start: first.v, endPeriod: last.period, end: last.v, delta: `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}` });
+                return (
+                  <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--space-1)" }}>
+                    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={trendDescription} style={{ width: w, height: h, display: "block" }} preserveAspectRatio="none">
+                      <desc>{trendDescription}</desc>
+                      <path d={`M0 ${h} ${path.replace(/^M/, "L")} L${w} ${h} Z`} fill="var(--aqua)" opacity="0.14" />
+                      <path d={path} stroke="var(--aqua)" strokeWidth="1.5" fill="none" />
+                    </svg>
+                    <Text as="div" variant="mono" className="text-[length:var(--fs-xs)]" style={{ color: delta >= 0 ? "var(--lime)" : "var(--rose)" }}>
+                      {delta >= 0 ? "+" : ""}{delta.toFixed(1)} · {t("vo2maxCard.trendSpan", { n: vo2maxTrend.length })}
+                    </Text>
+                  </div>
+                );
+              })()}
+            </div>
+          </Card>
+        )}
         {/* 강점/약점 — CP 모델 기대파워 대비 실제 best 갭. bike + pdc.cp + 분류 결과 있을 때만 */}
         {discipline === "bike" && pdc?.cp != null && (strengths.length > 0 || weaknesses.length > 0) && (
           <Card padding="none" style={{ marginTop: 'var(--space-4)', padding: "16px 24px" }}>

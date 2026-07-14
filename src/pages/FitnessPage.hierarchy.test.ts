@@ -14,13 +14,16 @@ describe("FitnessPage desktop hierarchy", () => {
     expect(source).toContain('borderRadius: "var(--r-lg)"');
   });
 
-  it("uses one bike threshold decision card instead of duplicate FTP and model strips", () => {
+  it("separates the canonical FTP decision from restored PDC evidence", () => {
     expect(source).toContain("<BikeThresholdDecisionCard");
-    expect(source).not.toContain("<FtpProgressionCard");
     expect(source).toContain("progressionPoints={ftpProgression}");
     expect(source).not.toContain("<BikeActionAccordion");
-    expect(source).not.toContain('t("ftpCard.tteLabel")');
-    expect(source).not.toContain('t("vo2maxCard.label")');
+    expect(source).not.toContain('t("kpi.activeFtpLabel")');
+    expect(source).not.toContain('t("ftpCard.pdcTteLabel")');
+    expect(source).toContain("defaultEvidenceOpen");
+    expect(source).toContain('t("vo2maxCard.pdcLabel")');
+    expect(source).toContain('t("vo2maxCard.trendAriaValues"');
+    expect(source).toContain("<desc>{trendDescription}</desc>");
     expect(source).toContain("isConservativeDrop(thresholdDecision.activeFtpW, candidateW)");
     expect(source).toContain("await dialog.confirm(");
   });

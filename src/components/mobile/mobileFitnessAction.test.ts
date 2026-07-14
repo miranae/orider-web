@@ -27,7 +27,7 @@ describe("mobile fitness action", () => {
     expect(loadIndex).toBeLessThan(sportIndex);
     expect(workoutIndex).toBeLessThan(analysisIndex);
     expect(overview).not.toContain("{kpiItems.map");
-    expect(overview).not.toContain("<FitnessSnapshot");
+    expect(overview).toContain("<BikeAbilityCompact");
   });
 
   it("uses the full AI coach on mobile home and keeps the plan card compact", () => {

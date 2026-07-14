@@ -37,6 +37,7 @@ export default function FtpProgressionCard({
     .format(new Date(`${period}-01T00:00:00`));
   const labelStep = Math.max(1, Math.ceil((points.length - 1) / 5));
   const shouldLabel = (index: number) => index === 0 || index === points.length - 1 || index % labelStep === 0;
+  const trendDescription = `${t("ftpProgression.chartLabel")}: ${points.map((point) => `${formatPeriod(point.period)} ${point.ftpW}W`).join(", ")}`;
 
   const content = (
     <>
@@ -57,7 +58,14 @@ export default function FtpProgressionCard({
 
       {hasTrend && (
         <div style={{ marginTop: "var(--space-4)" }}>
-          <svg viewBox={`0 0 ${w} ${h + 24}`} role="img" aria-label={t("ftpProgression.chartLabel")} style={{ width: "100%", height: 168 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-2)" }}>
+            <Text as="span" variant="caption" tone="secondary">● {t("ftpProgression.autoSeriesLabel")}</Text>
+            {currentFtpW != null && currentFtpW > 0 && (
+              <Text as="span" variant="caption" tone="secondary">┄ {t("ftpProgression.activeReferenceLabel", { value: currentFtpW })}</Text>
+            )}
+          </div>
+          <svg viewBox={`0 0 ${w} ${h + 24}`} role="img" aria-label={trendDescription} style={{ width: "100%", height: 168 }}>
+            <desc>{trendDescription}</desc>
             {currentFtpW != null && currentFtpW > 0 && (
               <line x1="0" x2={w} y1={sy(currentFtpW)} y2={sy(currentFtpW)} stroke="var(--ink-4)" strokeDasharray="4 4" />
             )}

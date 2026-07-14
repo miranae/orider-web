@@ -123,4 +123,30 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.queryByTestId("integrated-load-card")).not.toBeInTheDocument();
     expect(integratedLoadSpy).not.toHaveBeenCalled();
   });
+
+  it("renders active FTP evidence and keeps the PDC candidate opt-in", async () => {
+    const user = userEvent.setup();
+    const onApplyFtp = vi.fn();
+    const data = {
+      ctl: 42.1, atl: 48.3, tsb: -6.2, pmcHistory: [], weeklyTSS: [], thisWeekTSS: 0, avgWeekTSS: 0, restDays: 0,
+      threshold: { label: "FTP", value: "250", unit: "W", sub: "" }, ftp: 250, weightKg: 70, hasLoadData: true, combinedLoad: null,
+      loadFocus: { windowDays: 28, totalLoad: 0, buckets: { baseAerobic: 0, highAerobic: 0, highIntensity: 0, unclassified: 0 }, sourceLoad: { power: 0, heartRate: 0, unclassified: 0 }, disciplineLoad: { bike: 0, run: 0, swim: 0, other: 0 }, activityCount: 0, coveragePct: 0, confidence: "none", hasAnaerobicBikeDetail: false },
+      cyclingAbility: null, runEvidence: { thresholdPaceSec: null, records: [] }, swimEvidence: { windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 },
+      zones: [], zoneSource: "none", discipline: "bike",
+      pdcSummary: { riderType: { type: "Climber", confidence: 0.8 }, abilityPercentile: 82, vo2maxEst: 58.4, vo2maxPercentile: 75, cohortSampleSize: 120, activityCount: 14 },
+      thresholdDecision: { activeFtpW: 250, automaticCandidateW: 265, cpW: 270, recentTwentyMinuteW: 279, latestMonthlyEstimate: { period: "2026-07", ftpW: 265 }, tteMin: 45, activityCount: 14 },
+      ftpProgression: [{ period: "2026-06", ftpW: 255, source: "20m" }, { period: "2026-07", ftpW: 265, source: "20m" }],
+    } satisfies MobileFitnessData;
+
+    renderWithProviders(<MobileFitnessPage data={data} onApplyFtp={onApplyFtp} />);
+
+    expect(screen.getByText("250 W · 3.57 W/kg")).toBeInTheDocument();
+    expect(screen.getByText(/CTL 42.1 · ATL 48.3 · TSB -6.2/)).toBeInTheDocument();
+    expect(screen.getByText(/실험실 측정치 아님/)).toBeInTheDocument();
+    expect(screen.getByText(/현재 적용 FTP 250W/)).toBeInTheDocument();
+    expect(screen.getByText("265 W")).toBeInTheDocument();
+    expect(onApplyFtp).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "이 후보 적용" }));
+    expect(onApplyFtp).toHaveBeenCalledWith(265);
+  });
 });
