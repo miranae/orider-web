@@ -68,7 +68,6 @@ import { selectActualCoRiders } from "../utils/coRiders";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { ActivityShareButton } from "../features/activity/share/ActivityShareButton";
 import {
-  ServerActivityInsightsCard,
   SummarySensorFallbackCard,
   type SummarySensorMetric,
 } from "../features/activity/detail/ActivityInsightCards";
@@ -945,7 +944,6 @@ export default function ActivityPage() {
 
       {/* 핵심 스탯 — 모바일 첫 화면에서 지도 직후, 탭보다 먼저 노출. */}
       {keyStatsStrip}
-      <ServerActivityInsightsCard metrics={serverMetrics.metrics} weather={activity.weather} />
 
       <RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} />
       {/* ── 탭 네비게이션 ── */}

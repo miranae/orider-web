@@ -34,7 +34,6 @@
     "speed": "Speed",
     "dataWarning": "⚠ Data anomaly",
     "dataWarningTooltip": "GPS noise or short activity — avg/max speed is unrealistic. Some stats show '—'.",
-    "movingTimeTotal": "Total activity {{elapsed}} · stopped {{pause}}",
     "movingTimeTotalSimple": "Moving time · total {{elapsed}}",
     "movingAvgTotal": "Moving avg · total {{total}} km/h",
     "dataWarningRaw": "Data anomaly — raw value {{value}} km/h"

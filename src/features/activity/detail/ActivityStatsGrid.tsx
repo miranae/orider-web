@@ -161,7 +161,6 @@ export function ActivityStatsGrid({
 
         <MetricCell
           label={duration.usingMoving ? t("stat.movingTime") : t("stat.elapsedTime")}
-          sub={duration.usingMoving ? t("stat.movingTimeTotal", { elapsed: formatDuration(duration.elapsedMs), pause: formatDuration(duration.pauseMs!) }) : undefined}
         >
           <Value>{formatDuration(duration.displayMs)}</Value>
         </MetricCell>
