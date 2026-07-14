@@ -34,6 +34,11 @@ const AXIS_DISTRIBUTION_KEYS: Record<CyclingAbilityResult["axes"][number]["key"]
 function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pick<CyclingAbilityCardProps, "cycling" | "distributions" | "cohortComputedAt">) {
   const { t } = useTranslation("dashboard");
   const strongestAxis = uniqueStrongestAxis(cycling);
+  const hasRulerOnlyAxis = cycling?.axes.some((axis) => {
+    if (axis.score == null) return false;
+    const distribution = distributions?.[AXIS_DISTRIBUTION_KEYS[axis.key]];
+    return distribution == null || axis.score < distribution.domain[0] || axis.score > distribution.domain[1];
+  }) ?? false;
   return (
     <>
       <Text variant="eyebrow">{t("mobileFitness.sport.bike.title")}</Text>
@@ -69,6 +74,8 @@ function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pic
                   distribution={distributions?.[AXIS_DISTRIBUTION_KEYS[axis.key]]}
                   distributionValue={axis.score}
                   fallbackComputedAt={cohortComputedAt}
+                  showRulerGuide={false}
+                  floorClipped={axis.score <= 1}
                 />
               </div>
             )}
@@ -81,6 +88,11 @@ function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pic
           </div>
         );
       }) ?? <div style={{ marginTop: "var(--space-3)", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("mobileFitness.sport.insufficient")}</div>}
+      {hasRulerOnlyAxis && (
+        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
+          {t("mobileFitness.percentile.rulerGuide")}
+        </Text>
+      )}
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-2)" }}>
         {t("mobileFitness.sport.bike.notGarmin")}{" "}
         <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>

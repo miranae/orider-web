@@ -4,7 +4,7 @@
  * G9 (2026-06-06)
  *
  * 서버(functions/src/analysis/cohort-percentiles.ts)가 주 1회 cron 으로 전체 사용자의
- *  pdc_bike(ftpEst·20m W/kg·vo2maxEst) 표본을 코호트(전체·성별·연령대)별 백분위 구간으로
+ *  pdc_bike(ftpEst·20m W/kg·TTE·vo2maxEst) 표본을 코호트(전체·성별·연령대)별 백분위 구간으로
  *  집계한다. 클라는 이 doc 1회 read 후 percentile-util 로 자기 값의 백분위를 로컬 매핑한다.
  *
  * 비용모델: BigQuery 대신 Firestore 집계 → 클라는 stats doc 1회 read.
@@ -36,6 +36,8 @@ export interface CohortPercentiles {
     ftp: CohortMetric;
     wkg20m: CohortMetric;
     vo2max: CohortMetric;
+    /** v3: FTP 강도 지속 시간(분). 기존 stats 문서에는 없을 수 있다. */
+    tte?: CohortMetric;
   };
   version: number;
 }
