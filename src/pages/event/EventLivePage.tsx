@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -328,7 +328,6 @@ export default function EventLivePage() {
 
   useEffect(() => {
     if (!eventId) return;
-    let cancelled = false;
     const heartbeat = httpsCallable(functions, "heartbeatEventViewer");
     const storageKey = `event-viewer-session:${eventId}`;
     let viewerSessionId = sessionStorage.getItem(storageKey);
@@ -337,21 +336,37 @@ export default function EventLivePage() {
       sessionStorage.setItem(storageKey, viewerSessionId);
     }
     const sessionId = viewerSessionId;
-    const refresh = async () => {
+    let heartbeatInFlight = false;
+    const refreshHeartbeat = async () => {
+      if (heartbeatInFlight) return;
+      heartbeatInFlight = true;
       try {
         await heartbeat({ eventId, viewerSessionId: sessionId, active: true });
-        const viewers = await getDocs(collection(firestore, `events/${eventId}/viewers`));
-        const count = countActiveViewers(viewers.docs.map((viewer) => viewer.data()));
-        if (!cancelled) setViewerCount(count);
       } catch (err) {
         logClientError("EventLivePage.viewerHeartbeat", err, { eventId });
+      } finally {
+        heartbeatInFlight = false;
       }
     };
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 30_000);
+
+    // getDocs 폴링은 매번 임시 listen target을 열고 닫는다. Firestore 11.x의
+    // 다중 탭 primary 전환과 겹치면 target이 중복 해제되어 AsyncQueue가 영구
+    // 실패할 수 있으므로, 화면 수명 동안 하나의 target을 유지한다.
+    const unsubscribeViewers = onSnapshot(
+      collection(firestore, `events/${eventId}/viewers`),
+      (viewers) => {
+        setViewerCount(countActiveViewers(viewers.docs.map((viewer) => viewer.data())));
+      },
+      (err) => {
+        logClientError("EventLivePage.viewerPresence", err, { eventId });
+      },
+    );
+
+    void refreshHeartbeat();
+    const timer = window.setInterval(() => void refreshHeartbeat(), 30_000);
     return () => {
-      cancelled = true;
       window.clearInterval(timer);
+      unsubscribeViewers();
       void heartbeat({ eventId, viewerSessionId: sessionId, active: false }).catch(() => undefined);
     };
   }, [eventId]);
