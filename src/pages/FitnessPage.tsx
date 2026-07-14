@@ -729,6 +729,8 @@ export default function FitnessPage() {
               ? percentileOf(pdc.vo2maxEst, cohortStats.stats.metrics?.vo2max?.cohorts?.all ?? {})
               : null,
             activityCount: pdc?.activityCount ?? null,
+            cohortDistributions: cohortStats.status === "ready" ? cohortStats.stats.distributions ?? null : null,
+            cohortComputedAt: cohortStats.status === "ready" ? cohortStats.stats.computedAt : null,
           } : null,
           zones,
           zoneSource,
@@ -1187,7 +1189,12 @@ export default function FitnessPage() {
 
         {/* 사이클링 능력 — 모바일과 동일한 최근 90일 PDC 3축 실측 근거. */}
         {discipline === "bike" && cyclingAbility && (
-          <CyclingAbilityCard cycling={cyclingAbility} variant="desktop" />
+          <CyclingAbilityCard
+            cycling={cyclingAbility}
+            variant="desktop"
+            distributions={cohortStats.status === "ready" ? cohortStats.stats.distributions : null}
+            cohortComputedAt={cohortStats.status === "ready" ? cohortStats.stats.computedAt : null}
+          />
         )}
 
         {/* 코호트 백분위 랭킹(G9) — bike + pdc + stats doc 있을 때만 */}

@@ -409,6 +409,7 @@
         "basis": "최근 90일 실측 PDC의 세 개 독립 축 · 활동 {{count}}개 · 기존 Coggan 남성 v1 백분위, 성별·연령 미보정",
         "notGarmin": "Garmin과 계산 방식은 다릅니다. Garmin은 EPOC·Training Effect 같은 독점 지표를 사용하고, O-Rider는 공개한 PDC 근거로 비교 집단 안의 위치를 보여줍니다.",
         "manualLink": "PDC와 3축 산출 근거 보기",
+        "strongestAxis": "현재 가장 두드러진 능력은 {{axis}}입니다.",
         "axis": {
           "anaerobic": "단시간 파워 역량",
           "aerobic": "유산소 역량",
@@ -428,10 +429,20 @@
     },
     "percentile": {
       "raw": "백분위 {{score}}",
-      "top": "상위 {{top}}%",
-      "ariaValue": "백분위 {{score}}, 상위 {{top}}퍼센트",
-      "low": "낮음",
-      "high": "높음"
+      "ariaValue": "백분위 {{score}}",
+      "rulerGuide": "분포 데이터가 없어 백분위 위치만 표시합니다. 이 눈금은 실제 인구 밀도 분포가 아닙니다.",
+      "densityGuide": "실제 O-Rider 비교 집단의 상대 밀도입니다. 막대가 높을수록 해당 구간에 사용자가 더 많습니다.",
+      "densityPopulation": "O-Rider 전체 · 약 {{count}}명",
+      "privacy": "{{minimum}}명 미만 구간 병합 · 정확한 인원 수 비공개",
+      "computedAt": "{{date}} 계산",
+      "basis": {
+        "cogganScore": "Coggan 기반 사이클링 점수 분포",
+        "vo2maxEstimate": "O-Rider 추정 VO2max 분포",
+        "generic": "O-Rider 비교 지표 분포"
+      },
+      "lower": "하위",
+      "middle": "중간",
+      "upper": "상위"
     },
     "snapshot": {
       "title": "현재 피트니스 스냅샷",
@@ -441,11 +452,9 @@
       "ftpSource": "현재 프로필 FTP와 체중으로 계산한 W/kg",
       "ftpWeightMissing": "프로필 FTP · 체중이 없어 W/kg는 미산출",
       "riderType": "사이클링 능력",
-      "abilityTop": "종합 역량 상위 {{pct}}%",
       "riderSource": "최근 90일 PDC · Coggan 남성 파워 프로파일 기준(v1), 성별·연령 미반영",
       "vo2PdcSource": "최근 90일 PDC의 CP/5분 파워와 체중 기반 추정 · 활동 {{count}}개 · 실험실 측정치 아님",
       "vo2FormulaSource": "프로필 FTP와 체중 기반 단순 근사 · 실험실 측정치 아님",
-      "cohortTopNoSample": "전체 코호트 상위 {{pct}}%",
       "estimateOnly": "추정치 · 코호트 평가 없음",
       "load": "O-Rider 훈련 부하",
       "loadSource": "CTL 42일 EMA · ATL 7일 EMA · TSB=CTL-ATL. Garmin 급성 부하와 다른 모델",
@@ -461,7 +470,6 @@
       "weightMissing": "체중 입력 시 W/kg 표시",
       "riderUnknown": "라이더 유형 근거 부족",
       "abilityLabel": "종합 사이클링 역량",
-      "abilityTop": "상위 {{pct}}%",
       "abilityUnknown": "백분위 근거 부족",
       "abilityMeterAria": "종합 사이클링 역량 백분위",
       "abilityPopulation": "Coggan 남성 파워 프로파일 v1 기준 · 성별·연령 미보정",

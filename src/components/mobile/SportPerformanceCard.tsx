@@ -3,6 +3,7 @@ import type { CyclingAbilityResult, RunEvidence, SwimEvidence } from "../../feat
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Text } from "../../theme/components";
 import CyclingAbilityCard from "../fitness/CyclingAbilityCard";
+import type { CohortDistributions } from "../../hooks/useCohortPercentiles";
 
 function formatDuration(seconds: number) {
   const roundedSeconds = Math.round(seconds);
@@ -25,15 +26,19 @@ export default function SportPerformanceCard({
   cycling,
   run,
   swim,
+  distributions,
+  cohortComputedAt,
 }: {
   discipline: Discipline;
   cycling: CyclingAbilityResult | null;
   run: RunEvidence;
   swim: SwimEvidence;
+  distributions?: CohortDistributions | null;
+  cohortComputedAt?: number | null;
 }) {
   const { t } = useTranslation("dashboard");
   if (discipline === "tri") return null;
-  if (discipline === "bike") return <CyclingAbilityCard cycling={cycling} />;
+  if (discipline === "bike") return <CyclingAbilityCard cycling={cycling} distributions={distributions} cohortComputedAt={cohortComputedAt} />;
 
   return (
     <section aria-label={t("mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>
