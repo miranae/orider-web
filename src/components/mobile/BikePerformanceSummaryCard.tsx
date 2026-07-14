@@ -100,9 +100,9 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         {metrics.map((metric) => (
           <div key={metric.key} data-performance-metric={metric.key} style={{ minWidth: 0, padding: "var(--space-3)", borderRadius: "var(--r-md)", background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}>
             <Text as="div" variant="caption" tone="secondary">{metric.label}</Text>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
-              <Text as="span" variant="dataLarge">{metric.value ?? "—"}</Text>
-              {metric.value != null && <Text as="span" variant="unit">{metric.unit}</Text>}
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
+              <Text as="span" variant="dataLarge" style={{ whiteSpace: "nowrap" }}>{metric.value ?? "—"}</Text>
+              {metric.value != null && <Text as="span" variant="unit" style={{ whiteSpace: "nowrap" }}>{metric.unit}</Text>}
             </div>
             <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{metric.status}</Text>
             {metric.key === "vo2max" && metric.value != null && pdc?.vo2maxPercentile != null && (
