@@ -22,7 +22,7 @@ describe("BikePerformanceSummaryCard", () => {
       <BikePerformanceSummaryCard
         decision={completeDecision}
         pdc={{
-          riderType: { type: "Climber", confidence: 0.8 }, abilityPercentile: 82, vo2maxEst: 58.4, vo2maxPercentile: 75, activityCount: 14,
+          riderType: { type: "Climber", confidence: 0.8 }, abilityPercentile: 82, ttePercentile: 62, vo2maxEst: 58.4, vo2maxPercentile: 75, activityCount: 14,
           cohortComputedAt: Date.UTC(2026, 6, 14),
           cohortDistributions: {
             overallAbility: {
@@ -54,19 +54,32 @@ describe("BikePerformanceSummaryCard", () => {
     expect(screen.getByRole("meter", { name: "종합 사이클링 역량 백분위" })).toHaveAttribute("aria-valuenow", "82");
     expect(screen.getByRole("meter", { name: "종합 사이클링 역량 백분위" })).toHaveAttribute("aria-valuetext", "백분위 82");
     expect(screen.queryByText("상위 18%")).not.toBeInTheDocument();
-    expect(screen.queryByText(/실제 인구 밀도 분포가 아닙니다/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/실제 인구 밀도 분포가 아닙니다/).filter((node) => !node.closest(".sr-only"))).toHaveLength(1);
     expect(screen.getAllByText("O-Rider 전체 · 약 120명")).toHaveLength(2);
     expect(screen.getAllByText(/5명 미만 구간 병합 · 정확한 인원 수 비공개/)).toHaveLength(2);
     expect(screen.getByText("Coggan 남성 파워 프로파일 v1 기준 · 성별·연령 미보정")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="eftp"]')!).getByText("265")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="cp"]')!).getByText("270")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="tte"]')!).getByText("45")).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "TTE 전체 코호트 백분위" })).toHaveAttribute("aria-valuenow", "62");
+    const tteMeter = screen.getByRole("meter", { name: "TTE 전체 코호트 백분위" });
+    const tteDescription = document.getElementById(tteMeter.getAttribute("aria-describedby")!);
+    expect(tteDescription).toHaveTextContent(/분포 데이터가 없어/);
+    expect(tteDescription).not.toHaveTextContent(/상대 밀도/);
+    expect(within(container.querySelector('[data-performance-metric="tte"]')!).getByText("백분위 62")).toBeInTheDocument();
     const vo2Tile = container.querySelector('[data-performance-metric="vo2max"]')!;
     expect(within(vo2Tile).getByText("58")).toHaveStyle({ whiteSpace: "nowrap" });
     expect(within(vo2Tile).getByText("ml/kg/min")).toHaveStyle({ whiteSpace: "nowrap" });
     expect(screen.getByRole("meter", { name: "VO2max 전체 코호트 백분위" })).toHaveAttribute("aria-valuenow", "75");
+    const vo2Meter = screen.getByRole("meter", { name: "VO2max 전체 코호트 백분위" });
+    const vo2Description = document.getElementById(vo2Meter.getAttribute("aria-describedby")!);
+    expect(vo2Description).toHaveTextContent(/상대 밀도/);
+    expect(vo2Description).not.toHaveTextContent(/분포 데이터가 없어/);
     expect(within(container.querySelector('[data-performance-metric="vo2max"]')!).getByText("백분위 75")).toBeInTheDocument();
-    expect(screen.getByText("실제 O-Rider 전체 코호트 기준")).toBeInTheDocument();
+    expect(screen.getByText("TTE·VO2max · 실제 O-Rider 전체 코호트 기준")).toBeInTheDocument();
+    expect(within(container.querySelector('[data-performance-metric="tte"]')!).queryByText(/O-Rider 전체/)).not.toBeInTheDocument();
+    expect(within(container.querySelector('[data-performance-metric="vo2max"]')!).queryByText(/O-Rider 전체/)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/분포 데이터가 없어 백분위 위치만 표시합니다/).filter((node) => !node.closest(".sr-only"))).toHaveLength(1);
     expect(screen.getByRole("img", { name: /월별 추정 FTP 추이 차트:.*255W.*265W/ })).toBeInTheDocument();
 
     const evidenceButton = screen.getByRole("button", { name: "산출 근거 보기" });

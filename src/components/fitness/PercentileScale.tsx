@@ -11,6 +11,13 @@ type PercentileScaleProps = {
   distribution?: CohortDensityDistribution | null;
   distributionValue?: number | null;
   fallbackComputedAt?: number | null;
+  showRulerGuide?: boolean;
+  floorClipped?: boolean;
+  showContext?: boolean;
+  hideScale?: boolean;
+  contextId?: string;
+  externalDescriptionId?: string;
+  alwaysShowRulerGuide?: boolean;
 };
 
 function normalizePercentile(value: number): number {
@@ -22,11 +29,11 @@ function normalizePercentile(value: number): number {
  * A percentile is a rank position, not completion progress or a measured density curve.
  * Five equal-width bands make that rank easier to scan without inventing cohort density.
  */
-export default function PercentileScale({ percentile, ariaLabel, population, accentColor = "var(--aqua)", distribution, distributionValue, fallbackComputedAt }: PercentileScaleProps) {
+export default function PercentileScale({ percentile, ariaLabel, population, accentColor = "var(--aqua)", distribution, distributionValue, fallbackComputedAt, showRulerGuide = true, floorClipped = false, showContext = true, hideScale = false, contextId, externalDescriptionId, alwaysShowRulerGuide = false }: PercentileScaleProps) {
   const { t, i18n } = useTranslation("dashboard");
   const populationId = useId();
   const score = normalizePercentile(percentile);
-  const valueText = t("mobileFitness.percentile.ariaValue", { score });
+  const valueText = t(floorClipped ? "mobileFitness.percentile.ariaValueFloor" : "mobileFitness.percentile.ariaValue", { score });
   const hasDensity = distribution != null
     && distributionValue != null
     && Number.isFinite(distributionValue)
@@ -39,24 +46,23 @@ export default function PercentileScale({ percentile, ariaLabel, population, acc
   const computedLabel = computedAt && Number.isFinite(computedAt)
     ? new Date(computedAt).toLocaleDateString(i18n.resolvedLanguage === "en" ? "en-US" : "ko-KR")
     : null;
-  const descriptionId = `${populationId}-description`;
   const densityBasis = hasDensity
     ? t(`mobileFitness.percentile.basis.${distribution.basis === "coggan_score_v1" ? "cogganScore" : distribution.basis === "vo2max_ml_kg_min" ? "vo2maxEstimate" : "generic"}`)
     : null;
 
   return (
     <div style={{ minWidth: 0 }}>
-      <div
+      {!hideScale && <div
         role="meter"
         aria-label={ariaLabel}
-        aria-describedby={[population ? populationId : null, hasDensity ? descriptionId : null].filter(Boolean).join(" ") || undefined}
+        aria-describedby={externalDescriptionId ?? (showContext && (population || hasDensity || showRulerGuide) ? (contextId ?? populationId) : undefined)}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={score}
         aria-valuetext={valueText}
       >
         <div style={{ display: "flex", alignItems: "baseline" }}>
-          <Text as="span" variant="label">{t("mobileFitness.percentile.raw", { score })}</Text>
+          <Text as="span" variant="label">{t(floorClipped ? "mobileFitness.percentile.rawFloor" : "mobileFitness.percentile.raw", { score })}</Text>
         </div>
         <div aria-hidden data-percentile-visual={hasDensity ? "density" : "ruler"} style={{ position: "relative", height: "var(--space-8)", marginTop: "var(--space-1)" }}>
           {hasDensity
@@ -103,14 +109,15 @@ export default function PercentileScale({ percentile, ariaLabel, population, acc
           <Text as="span" variant="caption" tone="tertiary">{t("mobileFitness.percentile.middle")}</Text>
           <Text as="span" variant="caption" tone="tertiary" style={{ textAlign: "right" }}>{t("mobileFitness.percentile.upper")}</Text>
         </div>
-      </div>
+      </div>}
+      {showContext && <div id={contextId ?? populationId} style={{ marginTop: hideScale ? 0 : "var(--space-1)" }}>
       {population && (
-        <Text id={populationId} as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)", overflowWrap: "anywhere" }}>
+        <Text as="div" variant="caption" tone="tertiary" style={{ overflowWrap: "anywhere" }}>
           {population}
         </Text>
       )}
       {hasDensity ? (
-        <div id={descriptionId} style={{ minWidth: 0, marginTop: "var(--space-1)" }}>
+        <div style={{ minWidth: 0, marginTop: "var(--space-1)" }}>
           <Text as="div" variant="caption" tone="secondary" style={{ overflowWrap: "anywhere" }}>
             {t("mobileFitness.percentile.densityPopulation", { count: distribution.approximateSampleSize })}
           </Text>
@@ -122,11 +129,17 @@ export default function PercentileScale({ percentile, ariaLabel, population, acc
             {t("mobileFitness.percentile.densityGuide")}
           </Text>
         </div>
-      ) : (
+      ) : showRulerGuide ? (
+        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)", overflowWrap: "anywhere" }}>
+          {t("mobileFitness.percentile.rulerGuide")}
+        </Text>
+      ) : null}
+      {hasDensity && alwaysShowRulerGuide && (
         <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)", overflowWrap: "anywhere" }}>
           {t("mobileFitness.percentile.rulerGuide")}
         </Text>
       )}
+      </div>}
     </div>
   );
 }
