@@ -409,6 +409,7 @@
         "basis": "Three separate axes from the last 90-day measured PDC · {{count}} activities · existing Coggan male v1 percentiles, without sex or age adjustment",
         "notGarmin": "The calculation differs from Garmin. Garmin uses proprietary metrics such as EPOC and Training Effect; O-Rider shows your position in a reference group using published PDC evidence.",
         "manualLink": "How PDC and the three axes are calculated",
+        "strongestAxis": "Your strongest current ability is {{axis}}.",
         "axis": {
           "anaerobic": "Short-power capacity",
           "aerobic": "Aerobic capacity",
@@ -428,10 +429,20 @@
     },
     "percentile": {
       "raw": "Percentile {{score}}",
-      "top": "Top {{top}}%",
-      "ariaValue": "Percentile {{score}}, top {{top}} percent",
-      "low": "Low",
-      "high": "High"
+      "ariaValue": "Percentile {{score}}",
+      "rulerGuide": "Distribution data is unavailable, so this shows percentile position only. The ruler is not measured population density.",
+      "densityGuide": "Relative density in the actual O-Rider comparison group. Taller bars mean more riders in that range.",
+      "densityPopulation": "All O-Rider users · about {{count}} riders",
+      "privacy": "Ranges under {{minimum}} riders merged · exact counts not published",
+      "computedAt": "Calculated {{date}}",
+      "basis": {
+        "cogganScore": "Distribution of Coggan-based cycling scores",
+        "vo2maxEstimate": "Distribution of O-Rider estimated VO2max",
+        "generic": "Distribution of the O-Rider comparison metric"
+      },
+      "lower": "Lower",
+      "middle": "Middle",
+      "upper": "Upper"
     },
     "snapshot": {
       "title": "Current fitness snapshot",
@@ -441,11 +452,9 @@
       "ftpSource": "W/kg calculated from current profile FTP and weight",
       "ftpWeightMissing": "Profile FTP · W/kg unavailable without body weight",
       "riderType": "Cycling ability",
-      "abilityTop": "Overall ability · top {{pct}}%",
       "riderSource": "Last 90-day PDC · Coggan men's power profile (v1); sex and age are not adjusted",
       "vo2PdcSource": "Estimated from CP/5-minute power and weight in the last 90-day PDC · {{count}} activities · not a lab measurement",
       "vo2FormulaSource": "Simple estimate from profile FTP and weight · not a lab measurement",
-      "cohortTopNoSample": "Top {{pct}}% of the all-user cohort",
       "estimateOnly": "Estimate · no cohort evaluation",
       "load": "O-Rider training load",
       "loadSource": "CTL 42-day EMA · ATL 7-day EMA · TSB=CTL-ATL. This is not Garmin acute load",
@@ -461,7 +470,6 @@
       "weightMissing": "Add weight to see W/kg",
       "riderUnknown": "Not enough rider-type evidence",
       "abilityLabel": "Overall cycling ability",
-      "abilityTop": "Top {{pct}}%",
       "abilityUnknown": "Not enough percentile evidence",
       "abilityMeterAria": "Overall cycling ability percentile",
       "abilityPopulation": "Coggan men's power profile v1 · not adjusted for sex or age",

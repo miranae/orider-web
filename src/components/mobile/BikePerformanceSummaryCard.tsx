@@ -5,6 +5,7 @@ import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import { Button, Chip, Text } from "../../theme/components";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
 import PercentileScale from "../fitness/PercentileScale";
+import type { CohortDistributions } from "../../hooks/useCohortPercentiles";
 
 export interface MobileFitnessPdcSummary {
   riderType: { type: string; confidence: number } | null;
@@ -12,6 +13,8 @@ export interface MobileFitnessPdcSummary {
   vo2maxEst: number | null;
   vo2maxPercentile: number | null;
   activityCount: number | null;
+  cohortDistributions?: CohortDistributions | null;
+  cohortComputedAt?: number | null;
 }
 
 interface BikePerformanceSummaryCardProps {
@@ -26,10 +29,6 @@ interface BikePerformanceSummaryCardProps {
 const RIDER_TYPE_KEYS = new Set([
   "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified",
 ]);
-
-function topPercent(percentile: number): number {
-  return Math.max(1, 100 - Math.round(percentile));
-}
 
 function estimateVo2max(ftp: number | null, weightKg: number | undefined): number | null {
   if (!ftp || ftp <= 0 || !weightKg || weightKg <= 0) return null;
@@ -92,10 +91,13 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
               percentile={pdc.abilityPercentile}
               ariaLabel={t("mobileFitness.performance.abilityMeterAria")}
               population={t("mobileFitness.performance.abilityPopulation")}
+              accentColor="var(--lime)"
+              distribution={pdc.cohortDistributions?.overallAbility}
+              distributionValue={pdc.abilityPercentile}
+              fallbackComputedAt={pdc.cohortComputedAt}
             />
           : <Text as="div" variant="label">{t("mobileFitness.performance.abilityUnknown")}</Text>}
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
         {metrics.map((metric) => (
           <div key={metric.key} data-performance-metric={metric.key} style={{ minWidth: 0, padding: "var(--space-3)", borderRadius: "var(--r-md)", background: "var(--bg-2)", border: "1px solid var(--line-soft)" }}>
@@ -111,6 +113,10 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
                   percentile={pdc.vo2maxPercentile}
                   ariaLabel={t("mobileFitness.performance.vo2MeterAria")}
                   population={t("mobileFitness.performance.vo2Population")}
+                  accentColor="var(--aqua)"
+                  distribution={pdc.cohortDistributions?.vo2max}
+                  distributionValue={vo2max}
+                  fallbackComputedAt={pdc.cohortComputedAt}
                 />
               </div>
             )}
@@ -144,9 +150,7 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         <Text as="p" variant="caption" tone="secondary">
           {vo2Source === "pdc" ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc?.activityCount ?? 0 }) : vo2Source === "formula" ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient")}
         </Text>
-        <Text as="p" variant="caption" tone="secondary">
-          {pdc?.vo2maxPercentile != null ? t("mobileFitness.snapshot.cohortTopNoSample", { pct: topPercent(pdc.vo2maxPercentile) }) : t("mobileFitness.snapshot.estimateOnly")}
-        </Text>
+        {pdc?.vo2maxPercentile == null && <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.snapshot.estimateOnly")}</Text>}
         <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.performance.modelEvidence")}</Text>
         <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
           {t("mobileFitness.sport.bike.manualLink")}
