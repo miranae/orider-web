@@ -25,6 +25,7 @@ import type { CyclingAbilityResult, LoadFocusResult, RunEvidence, SwimEvidence }
 import IntegratedLoadCard, { type CombinedLoadStatus } from "./IntegratedLoadCard";
 import SportPerformanceCard from "./SportPerformanceCard";
 import BikePerformanceSummaryCard, { type MobileFitnessPdcSummary } from "./BikePerformanceSummaryCard";
+import { PMC_FUTURE_OPACITY, PMC_LINE_PALETTE } from "../../features/fitness/chartPalette";
 
 export type ZoneSource = "power" | "hr" | "none";
 
@@ -105,11 +106,12 @@ function formatMd(dateStr?: string): string {
   return m && d ? `${parseInt(m)}/${parseInt(d)}` : dateStr;
 }
 
-function PmcMiniChart({ history, projection, today, color, t }: {
+function PmcMiniChart({ history, projection, today, ctlColor, ariaLabel, t }: {
   history: MobileFitnessPmcPoint[];
   projection?: MobileFitnessProjPoint[] | null;
   today?: string;
-  color: string;
+  ctlColor: string;
+  ariaLabel: string;
   t: (key: string) => string;
 }) {
   const [tapIdx, setTapIdx] = useState<number | null>(null);
@@ -207,15 +209,21 @@ function PmcMiniChart({ history, projection, today, color, t }: {
   } : null;
 
   return (
-    <div data-pmc-chart style={{ position: "relative", width: "100%", aspectRatio: `${W} / ${H}` }}>
+    <div
+      data-pmc-chart
+      role="img"
+      aria-label={ariaLabel}
+      style={{ position: "relative", width: "100%", aspectRatio: `${W} / ${H}` }}
+    >
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
+        aria-hidden="true"
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", touchAction: "manipulation" }}
         preserveAspectRatio="xMidYMid meet"
         onPointerDown={handleTap} onPointerMove={(e) => { if (e.buttons & 1) handleTap(e); }} onPointerLeave={() => setTapIdx(null)}>
         <defs>
           <linearGradient id="mobPmcCtlFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor={color} stopOpacity="0.22" />
-            <stop offset="1" stopColor={color} stopOpacity="0" />
+            <stop offset="0" stopColor={ctlColor} stopOpacity="0.22" />
+            <stop offset="1" stopColor={ctlColor} stopOpacity="0" />
           </linearGradient>
           <pattern id="mobPmcFutHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="6" stroke="var(--ink-3)" strokeOpacity="0.10" strokeWidth="1" />
@@ -240,20 +248,20 @@ function PmcMiniChart({ history, projection, today, color, t }: {
         <path d={ctlFill} fill="url(#mobPmcCtlFill)" />
 
         {/* TSB → ATL → CTL (zorder: CTL 가장 위) */}
-        <path d={tsbPast} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.75" />
-        <path d={atlPast} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.7" />
-        <path d={ctlPast} stroke={color} strokeWidth="1.8" fill="none" />
+        <path d={tsbPast} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" />
+        <path d={atlPast} stroke={PMC_LINE_PALETTE.atl.color} strokeWidth={PMC_LINE_PALETTE.atl.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} strokeLinecap={PMC_LINE_PALETTE.atl.linecap} vectorEffect="non-scaling-stroke" fill="none" />
+        <path d={ctlPast} stroke={ctlColor} strokeWidth={PMC_LINE_PALETTE.ctl.strokeWidth} strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" fill="none" />
         {hasFut && (
           <>
-            <path d={tsbFut} stroke="var(--amber)" strokeWidth="1.2" fill="none" opacity="0.6" strokeDasharray="3 3" />
-            <path d={atlFut} stroke="var(--rose)" strokeWidth="1.2" fill="none" opacity="0.55" strokeDasharray="3 3" />
-            <path d={ctlFut} stroke={color} strokeWidth="1.6" fill="none" opacity="0.85" strokeDasharray="4 3" />
+            <path d={tsbFut} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" opacity={PMC_FUTURE_OPACITY} />
+            <path d={atlFut} stroke={PMC_LINE_PALETTE.atl.color} strokeWidth={PMC_LINE_PALETTE.atl.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} strokeLinecap={PMC_LINE_PALETTE.atl.linecap} vectorEffect="non-scaling-stroke" fill="none" opacity={PMC_FUTURE_OPACITY} />
+            <path d={ctlFut} stroke={ctlColor} strokeWidth={PMC_LINE_PALETTE.ctl.strokeWidth} strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" fill="none" opacity={PMC_FUTURE_OPACITY} />
           </>
         )}
 
         {/* 오늘 + 탭 마커 */}
         <line x1={todayX} x2={todayX} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-2)" strokeDasharray="2 2" opacity="0.55" />
-        <circle cx={todayX} cy={todayCtlY} r="3.5" fill={color} stroke="var(--bg-0)" strokeWidth="1.5" />
+        <circle cx={todayX} cy={todayCtlY} r="3.5" fill={ctlColor} stroke="var(--bg-0)" strokeWidth="1.5" />
         {tip && <line x1={tip.x} x2={tip.x} y1={PAD_T} y2={PAD_T + PLOT_H} stroke="var(--ink-1)" strokeWidth="1" opacity="0.7" />}
       </svg>
 
@@ -286,12 +294,29 @@ function PmcMiniChart({ history, projection, today, color, t }: {
           <div style={{ color: "var(--ink-3)", whiteSpace: "nowrap" }}>
             {formatMd(tip.date)}{tip.isFuture ? t("mobileFitness.pmcLabelForecast") : ""}
           </div>
-          <div style={{ color, fontFamily: "var(--font-mono)" }}>CTL {tip.ctl.toFixed(0)}</div>
-          <div style={{ color: "var(--rose)", fontFamily: "var(--font-mono)" }}>ATL {tip.atl.toFixed(0)}</div>
-          <div style={{ color: "var(--amber)", fontFamily: "var(--font-mono)" }}>TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</div>
+          <div data-pmc-tooltip-metric="CTL" style={{ color: ctlColor, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+            <PmcLegendSample color={ctlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />
+            <span>CTL {tip.ctl.toFixed(0)}</span>
+          </div>
+          <div data-pmc-tooltip-metric="ATL" style={{ color: PMC_LINE_PALETTE.atl.color, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+            <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />
+            <span>ATL {tip.atl.toFixed(0)}</span>
+          </div>
+          <div data-pmc-tooltip-metric="TSB" style={{ color: PMC_LINE_PALETTE.tsb.color, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+            <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />
+            <span>TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</span>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+function PmcLegendSample({ color, dasharray, linecap }: { color: string; dasharray?: string; linecap?: "butt" | "round" }) {
+  return (
+    <svg data-pmc-legend-sample width="14" height="6" viewBox="0 0 14 6" aria-hidden="true" style={{ display: "block", flex: "0 0 auto" }}>
+      <line x1="0" y1="3" x2="14" y2="3" stroke={color} strokeWidth="2" strokeDasharray={dasharray} strokeLinecap={linecap} vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 
@@ -462,6 +487,9 @@ export default function MobileFitnessPage({
   const ringColor = data.discipline === "bike"
     ? getDisciplineColor("bike")
     : getDisciplineColor(data.discipline as Discipline);
+  const pmcCtlColor = data.discipline === "tri" ? PMC_LINE_PALETTE.ctl.color : ringColor;
+  const pmcTitle = t("mobileFitness.pmcTitle", { n: data.pmcHistory.length });
+  const pmcSub = t("mobileFitness.pmcSub");
 
   const analysisTabLabel = data.discipline === "bike"
     ? t("mobileFitness.tabZonesBike")
@@ -553,21 +581,21 @@ export default function MobileFitnessPage({
           )}
 
           {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
-          <SectionCard title={t("mobileFitness.pmcTitle", { n: data.pmcHistory.length })} sub={t("mobileFitness.pmcSub")}>
+          <SectionCard title={pmcTitle} sub={pmcSub}>
             {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
                 제목/범례는 카드 padding 인셋 유지. */}
             <div style={{ margin: "0 -16px" }}>
-              <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} color={ringColor} t={t} />
+              <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
             </div>
             <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: "var(--space-3)" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <span style={{ display: "inline-block", width: 10, height: 2, background: ringColor }} />CTL
+                <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />CTL
               </span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <span style={{ display: "inline-block", width: 10, height: 2, background: "var(--rose)" }} />ATL
+                <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
               </span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <span style={{ display: "inline-block", width: 10, height: 2, background: "var(--amber)" }} />TSB
+                <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
               </span>
             </div>
           </SectionCard>

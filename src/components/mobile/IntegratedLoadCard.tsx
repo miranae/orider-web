@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { LoadFocusBucket, LoadFocusResult } from "../../features/fitness/multisportPerformance";
+import { DISCIPLINE_CHART_COLORS, LOAD_FOCUS_COLORS } from "../../features/fitness/chartPalette";
 
 export interface CombinedLoadStatus {
   ctl: number;
@@ -9,18 +10,14 @@ export interface CombinedLoadStatus {
 }
 
 const BUCKETS: Array<{ key: LoadFocusBucket; color: string }> = [
-  { key: "baseAerobic", color: "var(--aqua)" },
-  { key: "highAerobic", color: "var(--lime)" },
-  { key: "highIntensity", color: "var(--rose)" },
-  { key: "unclassified", color: "var(--ink-3)" },
+  { key: "baseAerobic", color: LOAD_FOCUS_COLORS.baseAerobic },
+  { key: "highAerobic", color: LOAD_FOCUS_COLORS.highAerobic },
+  { key: "highIntensity", color: LOAD_FOCUS_COLORS.highIntensity },
+  { key: "unclassified", color: LOAD_FOCUS_COLORS.unclassified },
 ];
 
 const DISCIPLINES = ["bike", "run", "swim"] as const;
-const DISCIPLINE_COLORS = {
-  bike: "var(--aqua)",
-  run: "var(--amber)",
-  swim: "var(--lime)",
-} as const;
+const DISCIPLINE_COLORS = DISCIPLINE_CHART_COLORS;
 
 function safeLoad(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0;

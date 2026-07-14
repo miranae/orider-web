@@ -16,6 +16,7 @@ import { Card, Text } from "../../theme/components";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import IntegratedLoadCard, { type CombinedLoadStatus } from "../../components/mobile/IntegratedLoadCard";
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
+import { DISCIPLINE_CHART_COLORS, PMC_LINE_PALETTE } from "../../features/fitness/chartPalette";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
@@ -134,6 +135,8 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
       viewBox={`0 0 ${w} ${h}`}
       style={{ width: "100%", height: 300, display: "block" }}
       preserveAspectRatio="none"
+      role="img"
+      aria-label={`${t("triView.pmc.title")}. ${t("triView.pmc.sub")}`}
     >
       {/* 가이드 라인 */}
       {[0, 0.25, 0.5, 0.75, 1].map((p) => (
@@ -156,18 +159,18 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
       />
 
       {/* 스택 영역 */}
-      <path d={bikeArea} fill="oklch(0.82 0.13 195)" opacity="0.28" />
-      <path d={runArea} fill="var(--lime)" opacity="0.28" />
-      <path d={swimArea} fill="var(--aqua)" opacity="0.32" />
+      <path d={bikeArea} fill={DISCIPLINE_CHART_COLORS.bike} opacity="0.28" />
+      <path d={runArea} fill={DISCIPLINE_CHART_COLORS.run} opacity="0.28" />
+      <path d={swimArea} fill={DISCIPLINE_CHART_COLORS.swim} opacity="0.32" />
 
       {/* 총 CTL 라인 */}
-      <path d={linePath(totCtl)} stroke="var(--ink-0)" strokeWidth="2.2" fill="none" />
+      <path d={linePath(totCtl)} stroke={PMC_LINE_PALETTE.ctl.color} strokeWidth={PMC_LINE_PALETTE.ctl.strokeWidth} strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" fill="none" />
 
       {/* ATL */}
-      <path d={linePath(atl)} stroke="var(--rose)" strokeWidth="1.4" fill="none" opacity="0.65" />
+      <path d={linePath(atl)} stroke={PMC_LINE_PALETTE.atl.color} strokeWidth={PMC_LINE_PALETTE.atl.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} strokeLinecap={PMC_LINE_PALETTE.atl.linecap} vectorEffect="non-scaling-stroke" fill="none" />
 
       {/* TSB */}
-      <path d={linePath(tsb)} stroke="var(--amber)" strokeWidth="1.4" fill="none" opacity="0.7" />
+      <path d={linePath(tsb)} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" />
 
       {/* 오늘(마지막) 마커 */}
       <line
@@ -186,7 +189,7 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
         cx={sx(n - 1)}
         cy={sy(totCtl[n - 1]!)}
         r="4"
-        fill="var(--ink-0)"
+        fill={PMC_LINE_PALETTE.ctl.color}
         stroke="var(--primary-fg)"
         strokeWidth="2"
       />
@@ -236,18 +239,24 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
       >
         <div style={{ color: "var(--ink-2)", marginBottom: "var(--space-1)" }}>{fmtDate(dates[hi])}</div>
         {([
-          [t("triView.totalCtl"), totCtl[hi], "var(--ink-0)"],
-          [t("discipline.bike"), bikeCtl[hi], "oklch(0.82 0.13 195)"],
-          [t("discipline.run"), runCtl[hi], "var(--lime)"],
-          [t("discipline.swim"), swimCtl[hi], "var(--aqua)"],
-          ["ATL", atl[hi], "var(--rose)"],
-          ["TSB", tsb[hi], "var(--amber)"],
-        ] as const).map(([label, v, color]) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
-            <span style={{ color: "var(--ink-2)", minWidth: 56 }}>{label}</span>
-            <span style={{ color, fontWeight: 700, marginLeft: "auto" }}>
-              {v != null && label === "TSB" && v >= 0 ? "+" : ""}{(v ?? 0).toFixed(1)}
+          { type: "line", label: t("triView.totalCtl"), value: totCtl[hi], ...PMC_LINE_PALETTE.ctl },
+          { type: "rect", label: t("discipline.bike"), value: bikeCtl[hi], color: DISCIPLINE_CHART_COLORS.bike },
+          { type: "rect", label: t("discipline.run"), value: runCtl[hi], color: DISCIPLINE_CHART_COLORS.run },
+          { type: "rect", label: t("discipline.swim"), value: swimCtl[hi], color: DISCIPLINE_CHART_COLORS.swim },
+          { type: "line", label: "ATL", value: atl[hi], ...PMC_LINE_PALETTE.atl },
+          { type: "line", label: "TSB", value: tsb[hi], ...PMC_LINE_PALETTE.tsb },
+        ] as const).map((item) => (
+          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+            {item.type === "line" ? (
+              <svg width="12" height="8" viewBox="0 0 12 8" aria-hidden="true" style={{ display: "block", flex: "0 0 auto" }}>
+                <line x1="0" y1="4" x2="12" y2="4" stroke={item.color} strokeWidth="2" strokeDasharray={item.dasharray} strokeLinecap={item.linecap} vectorEffect="non-scaling-stroke" />
+              </svg>
+            ) : (
+              <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: item.color, flexShrink: 0 }} />
+            )}
+            <span style={{ color: "var(--ink-2)", minWidth: 56 }}>{item.label}</span>
+            <span style={{ color: item.color, fontWeight: 700, marginLeft: "auto" }}>
+              {item.value != null && item.label === "TSB" && item.value >= 0 ? "+" : ""}{(item.value ?? 0).toFixed(1)}
             </span>
           </div>
         ))}
@@ -398,7 +407,7 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
 // ─────────────────────────────────────────────────────────────────────────────
 type DailyBarEntry = { date: string; bike: number; run: number; swim: number };
 
-const BIKE_COLOR = "oklch(0.82 0.13 195)";
+const BIKE_COLOR = DISCIPLINE_CHART_COLORS.bike;
 
 function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
   const { t } = useTranslation("fitness");
@@ -451,8 +460,8 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
               ) : (
                 <>
                   {/* 스택 순서: 바이크(하단), 러닝(중간), 수영(상단) */}
-                  <div style={{ height: `${(swim / max) * 100}%`, background: "var(--amber)", borderRadius: swim > 0 ? "1px 1px 0 0" : 0, minHeight: swim > 0 ? 2 : 0 }} />
-                  <div style={{ height: `${(run / max) * 100}%`, background: "var(--lime)", borderRadius: run > 0 && swim === 0 ? "1px 1px 0 0" : 0, minHeight: run > 0 ? 2 : 0 }} />
+                  <div style={{ height: `${(swim / max) * 100}%`, background: DISCIPLINE_CHART_COLORS.swim, borderRadius: swim > 0 ? "1px 1px 0 0" : 0, minHeight: swim > 0 ? 2 : 0 }} />
+                  <div style={{ height: `${(run / max) * 100}%`, background: DISCIPLINE_CHART_COLORS.run, borderRadius: run > 0 && swim === 0 ? "1px 1px 0 0" : 0, minHeight: run > 0 ? 2 : 0 }} />
                   <div style={{ height: `${(bike / max) * 100}%`, background: BIKE_COLOR, borderRadius: bike > 0 && run === 0 && swim === 0 ? "1px 1px 0 0" : 0, minHeight: bike > 0 ? 2 : 0 }} />
                 </>
               )}
@@ -480,8 +489,8 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
           <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-2)", marginBottom: "var(--space-0-5)" }}>{hover.date}</div>
           {([
             [t("discipline.bike"), hover.bike, BIKE_COLOR],
-            [t("discipline.run"), hover.run, "var(--lime)"],
-            [t("discipline.swim"), hover.swim, "var(--amber)"],
+            [t("discipline.run"), hover.run, DISCIPLINE_CHART_COLORS.run],
+            [t("discipline.swim"), hover.swim, DISCIPLINE_CHART_COLORS.swim],
           ] as const).map(([label, v, color]) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
@@ -503,12 +512,12 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
 // 범례 아이템 키 정의 (모듈 레벨 — 번역은 컴포넌트 내부에서)
 // ─────────────────────────────────────────────────────────────────────────────
 const LEGEND_ITEM_KEYS = [
-  { type: "rect" as const, color: "oklch(0.82 0.13 195)", opacity: 0.4, key: "discipline.bike" },
-  { type: "rect" as const, color: "var(--lime)",           opacity: 0.4, key: "discipline.run" },
-  { type: "rect" as const, color: "var(--aqua)",           opacity: 0.5, key: "discipline.swim" },
-  { type: "line" as const, color: "var(--ink-0)",          opacity: 1,   key: "triView.legend.totalCtl" },
-  { type: "line" as const, color: "var(--rose)",           opacity: 0.7, key: "pmc.legend.atl" },
-  { type: "line" as const, color: "var(--amber)",          opacity: 1,   key: "pmc.legend.tsb" },
+  { type: "rect" as const, color: DISCIPLINE_CHART_COLORS.bike, opacity: 0.4, key: "discipline.bike" },
+  { type: "rect" as const, color: DISCIPLINE_CHART_COLORS.run, opacity: 0.4, key: "discipline.run" },
+  { type: "rect" as const, color: DISCIPLINE_CHART_COLORS.swim, opacity: 0.5, key: "discipline.swim" },
+  { type: "line" as const, ...PMC_LINE_PALETTE.ctl, opacity: 1, key: "triView.legend.totalCtl" },
+  { type: "line" as const, ...PMC_LINE_PALETTE.atl, opacity: 1, key: "pmc.legend.atl" },
+  { type: "line" as const, ...PMC_LINE_PALETTE.tsb, opacity: 1, key: "pmc.legend.tsb" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -587,9 +596,9 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
   const swimPct = Math.max(0, 100 - bikePct - runPct);
 
   const contribSlices: ContribSlice[] = [
-    { label: t("triView.cycling"), pct: bikePct, ctl: bikeCTL, color: "oklch(0.82 0.13 195)" },
-    { label: t("discipline.run"),  pct: runPct,  ctl: runCTL,  color: "var(--lime)" },
-    { label: t("discipline.swim"), pct: swimPct, ctl: swimCTL, color: "var(--aqua)" },
+    { label: t("triView.cycling"), pct: bikePct, ctl: bikeCTL, color: DISCIPLINE_CHART_COLORS.bike },
+    { label: t("discipline.run"),  pct: runPct,  ctl: runCTL,  color: DISCIPLINE_CHART_COLORS.run },
+    { label: t("discipline.swim"), pct: swimPct, ctl: swimCTL, color: DISCIPLINE_CHART_COLORS.swim },
   ];
 
   // ── CTL 스파크라인 (최근 28일 FitnessPoint에서 추출) ───────────────────────
@@ -705,9 +714,9 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
   ];
 
   const dailyLegendItems = [
-    { color: "oklch(0.82 0.13 195)", label: t("discipline.bike") },
-    { color: "var(--lime)",           label: t("discipline.run") },
-    { color: "var(--amber)",           label: t("discipline.swim") },
+    { color: DISCIPLINE_CHART_COLORS.bike, label: t("discipline.bike") },
+    { color: DISCIPLINE_CHART_COLORS.run, label: t("discipline.run") },
+    { color: DISCIPLINE_CHART_COLORS.swim, label: t("discipline.swim") },
     { color: "var(--bg-3)",            label: t("load.rest") },
   ];
 
@@ -805,14 +814,9 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
                     }}
                   />
                 ) : (
-                  <span
-                    style={{
-                      width: 14,
-                      height: 2,
-                      background: item.color,
-                      opacity: item.opacity,
-                    }}
-                  />
+                  <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true" style={{ display: "block", flex: "0 0 auto", opacity: item.opacity }}>
+                    <line x1="0" y1="3" x2="14" y2="3" stroke={item.color} strokeWidth="2" strokeDasharray={item.dasharray} strokeLinecap={item.linecap} vectorEffect="non-scaling-stroke" />
+                  </svg>
                 )}
                 {t(item.key)}
               </span>
@@ -915,7 +919,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 'var(--space-4)' }}>
           <PerDisciplineCard
             label={t("triView.cycling")}
-            color="oklch(0.82 0.13 195)"
+            color={DISCIPLINE_CHART_COLORS.bike}
             ctl={bikeSpark.length > 0 ? bikeSpark : [0]}
             delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : 0}
             tss={Math.round(triBreakdown.bike?.weeklyTSS ?? 0)}
@@ -926,7 +930,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
           />
           <PerDisciplineCard
             label={t("discipline.run")}
-            color="var(--lime)"
+            color={DISCIPLINE_CHART_COLORS.run}
             ctl={runSpark.length > 0 ? runSpark : [0]}
             delta={runSpark.length >= 2 ? runSpark[runSpark.length - 1]! - runSpark[runSpark.length - 2]! : 0}
             tss={Math.round(triBreakdown.run?.weeklyTSS ?? 0)}
@@ -937,7 +941,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
           />
           <PerDisciplineCard
             label={t("discipline.swim")}
-            color="var(--aqua)"
+            color={DISCIPLINE_CHART_COLORS.swim}
             ctl={swimSpark.length > 0 ? swimSpark : [0]}
             delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : 0}
             tss={Math.round(triBreakdown.swim?.weeklyTSS ?? 0)}
@@ -971,9 +975,9 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
           </div>
           <ContribDonut
             slices={hasData ? contribSlices : [
-              { label: t("triView.cycling"), pct: 45, ctl: 28, color: "oklch(0.82 0.13 195)" },
-              { label: t("discipline.run"),  pct: 33, ctl: 20, color: "var(--lime)" },
-              { label: t("discipline.swim"), pct: 22, ctl: 14, color: "var(--aqua)" },
+              { label: t("triView.cycling"), pct: 45, ctl: 28, color: DISCIPLINE_CHART_COLORS.bike },
+              { label: t("discipline.run"),  pct: 33, ctl: 20, color: DISCIPLINE_CHART_COLORS.run },
+              { label: t("discipline.swim"), pct: 22, ctl: 14, color: DISCIPLINE_CHART_COLORS.swim },
             ]}
             totalCtl={hasData ? totalCTL : 62.1}
           />
