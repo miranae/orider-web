@@ -11,7 +11,7 @@ describe("mobile fitness action", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const overview = source.slice(source.indexOf('{activeTab === "overview"'));
     const workoutIndex = overview.indexOf("<TodaysWorkoutCard />");
-    const coreIndex = overview.indexOf("<BikeAbilityCompact");
+    const coreIndex = overview.indexOf("<BikePerformanceSummaryCard");
     const loadIndex = overview.indexOf("<IntegratedLoadCard");
     const sportIndex = overview.indexOf("<SportPerformanceCard");
     const analysisIndex = overview.indexOf('{activeTab === "analysis"');
@@ -27,7 +27,7 @@ describe("mobile fitness action", () => {
     expect(loadIndex).toBeLessThan(sportIndex);
     expect(workoutIndex).toBeLessThan(analysisIndex);
     expect(overview).not.toContain("{kpiItems.map");
-    expect(overview).toContain("<BikeAbilityCompact");
+    expect(overview).toContain("<BikePerformanceSummaryCard");
   });
 
   it("uses the full AI coach on mobile home and keeps the plan card compact", () => {

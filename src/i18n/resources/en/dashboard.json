@@ -407,6 +407,39 @@
       "loadSource": "CTL 42-day EMA · ATL 7-day EMA · TSB=CTL-ATL. This is not Garmin acute load",
       "insufficient": "Not enough data · not evaluated",
       "bandAria": "{{metric}} position: {{status}}"
+    },
+    "performance": {
+      "title": "Cycling Performance",
+      "ariaLabel": "Cycling performance summary",
+      "canonical": "Profile source of truth · applied to zones and training",
+      "ftpMissing": "Set profile FTP first",
+      "ftpMissingEvidence": "There is no active profile FTP, so W/kg and the FTP difference are not calculated.",
+      "weightMissing": "Add weight to see W/kg",
+      "riderUnknown": "Not enough rider-type evidence",
+      "abilityLabel": "Overall cycling ability",
+      "abilityTop": "Top {{pct}}%",
+      "abilityUnknown": "Not enough percentile evidence",
+      "abilityMeterAria": "Overall cycling ability percentile",
+      "estimated": "Estimate",
+      "insufficient": "Not enough evidence",
+      "metrics": {
+        "eftp": "Latest monthly eFTP",
+        "cp": "Critical power CP",
+        "tte": "Duration TTE"
+      },
+      "evidenceOpen": "View calculation evidence",
+      "evidenceClose": "Close calculation evidence",
+      "evidence": {
+        "twentyMinute": "Recent 20-minute best average",
+        "latestPeriod": "Latest eFTP period",
+        "activityCount": "Activities in PDC analysis",
+        "activityCountValue": "{{count}} activities",
+        "activeDelta": "eFTP vs active FTP",
+        "riderConfidence": "Rider-type confidence",
+        "cohortSample": "VO2max cohort sample",
+        "cohortSampleValue": "{{count}} riders"
+      },
+      "modelEvidence": "eFTP uses 95% of the monthly best 20-minute average power; CP and TTE come from the last 90-day PDC model. All are estimates and never change active FTP automatically."
     }
   },
   "runEmpty": {
