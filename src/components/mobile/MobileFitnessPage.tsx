@@ -384,41 +384,69 @@ function WeeklyTssBars({
 }
 
 // ── 파워 커브 미니 ─────────────────────────────────────────────
-function PowerCurveMini({ points, color }: { points: MobilePowerCurvePoint[]; color: string }) {
+function PowerCurveMini({ points, color, ariaLabel }: { points: MobilePowerCurvePoint[]; color: string; ariaLabel: string }) {
   if (!points || points.length < 2) return null;
-  const w = 340, h = 150, padX = 28, padY = 10;
+  // 기존 340×150 밀도를 유지하고, plot 높이 안에서 HTML 축 라벨 공간을 확보한다.
+  const W = 340, H = 150;
+  const PAD_X = 8, PAD_TOP = 10, PAD_BOTTOM = 24;
+  const baselineY = H - PAD_BOTTOM;
   const xMin = Math.log10(Math.max(1, points[0]!.durationSeconds));
   const xMax = Math.log10(points[points.length - 1]!.durationSeconds);
   const yMax = Math.max(...points.map(p => p.maxPower)) * 1.05;
-  const sx = (d: number) => padX + ((w - padX * 2) * (Math.log10(Math.max(1, d)) - xMin)) / Math.max(0.0001, xMax - xMin);
-  const sy = (p: number) => padY + (h - padY * 2) * (1 - p / Math.max(1, yMax));
+  const sx = (d: number) => PAD_X + ((W - PAD_X * 2) * (Math.log10(Math.max(1, d)) - xMin)) / Math.max(0.0001, xMax - xMin);
+  const sy = (p: number) => PAD_TOP + (baselineY - PAD_TOP) * (1 - p / Math.max(1, yMax));
   const linePath = points.map((p, i) => `${i ? "L" : "M"}${sx(p.durationSeconds).toFixed(1)} ${sy(p.maxPower).toFixed(1)}`).join(" ");
-  const fillPath = `${linePath} L${sx(points[points.length - 1]!.durationSeconds).toFixed(1)} ${h} L${sx(points[0]!.durationSeconds).toFixed(1)} ${h} Z`;
-  const ticks = [5, 60, 300, 1200];
-  const tickLabels: Record<number, string> = { 5: "5s", 60: "1m", 300: "5m", 1200: "20m" };
+  const fillPath = `${linePath} L${sx(points[points.length - 1]!.durationSeconds).toFixed(1)} ${baselineY} L${sx(points[0]!.durationSeconds).toFixed(1)} ${baselineY} Z`;
+  const ticks = [5, 60, 300, 1200, 3600];
+  const tickLabels: Record<number, string> = { 5: "5s", 60: "1m", 300: "5m", 1200: "20m", 3600: "1h" };
+  const visibleTicks = ticks.filter(t => t >= points[0]!.durationSeconds && t <= points[points.length - 1]!.durationSeconds);
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: 150, display: "block" }} preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="mobPcFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0.2" />
-          <stop offset="1" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {ticks.filter(t => t >= points[0]!.durationSeconds && t <= points[points.length - 1]!.durationSeconds).map((t) => (
-        <g key={t}>
-          <line x1={sx(t)} x2={sx(t)} y1={padY} y2={h - padY} stroke="var(--line-soft)" strokeDasharray="2 3" />
-          <text x={sx(t)} y={h - 1} fontSize="12" fill="var(--ink-4)" fontFamily="var(--font-mono)" textAnchor="middle">{tickLabels[t]}</text>
-        </g>
-      ))}
-      <path d={fillPath} fill="url(#mobPcFill)" />
-      <path d={linePath} stroke={color} strokeWidth="1.8" fill="none" />
-      {[5, 60, 300, 1200].map(t => {
-        const p = points.find(p => p.durationSeconds === t);
-        if (!p) return null;
-        return <circle key={t} cx={sx(p.durationSeconds)} cy={sy(p.maxPower)} r="3" fill={color} />;
-      })}
-      <text x={4} y={padY + 4} fontSize="12" fill="var(--ink-4)" fontFamily="var(--font-mono)">{Math.round(yMax)} W</text>
-    </svg>
+    <div
+      data-power-curve-chart
+      role="img"
+      aria-label={ariaLabel}
+      style={{ position: "relative", width: "100%", maxWidth: "100%", aspectRatio: `${W} / ${H}`, overflow: "hidden" }}
+    >
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="xMidYMid meet"
+        aria-hidden="true"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }}
+      >
+        <defs>
+          <linearGradient id="mobPcFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.2" />
+            <stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {visibleTicks.map((tick) => (
+          <line key={tick} x1={sx(tick)} x2={sx(tick)} y1={PAD_TOP} y2={baselineY} stroke="var(--line-soft)" strokeDasharray="2 3" />
+        ))}
+        <line x1={PAD_X} x2={W - PAD_X} y1={baselineY} y2={baselineY} stroke="var(--line-soft)" />
+        <path d={fillPath} fill="url(#mobPcFill)" />
+        <path d={linePath} stroke={color} strokeWidth="1.8" fill="none" />
+        {ticks.map(tick => {
+          const point = points.find(point => point.durationSeconds === tick);
+          if (!point) return null;
+          return <circle key={tick} cx={sx(point.durationSeconds)} cy={sy(point.maxPower)} r="3" fill={color} />;
+        })}
+      </svg>
+      <div data-power-curve-axis-labels aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>
+        <span style={{ position: "absolute", top: 0, left: 0 }}>{Math.round(yMax)} W</span>
+        {visibleTicks.map((tick) => {
+          const leftPct = (sx(tick) / W) * 100;
+          const transform = leftPct <= 5 ? "none" : leftPct >= 95 ? "translateX(-100%)" : "translateX(-50%)";
+          return (
+            <span
+              key={tick}
+              style={{ position: "absolute", left: `${leftPct}%`, top: `${((baselineY + 8) / H) * 100}%`, transform, whiteSpace: "nowrap" }}
+            >
+              {tickLabels[tick]}
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -490,6 +518,11 @@ export default function MobileFitnessPage({
 
   const isBike = data.discipline === "bike";
   const showZones = data.zones.length > 0;
+  const powerCurveMaxW = data.powerCurve?.length
+    ? Math.round(Math.max(...data.powerCurve.map(point => point.maxPower)))
+    : 0;
+  const powerCurveTitle = t("mobileFitness.powerCurveTitle");
+  const powerCurveSub = t("mobileFitness.powerCurveSub", { maxW: powerCurveMaxW });
 
   return (
     <div>
@@ -621,10 +654,16 @@ export default function MobileFitnessPage({
 
           {/* 파워 커브 (bike) */}
           {isBike && data.powerCurve && data.powerCurve.length >= 2 && (
-            <SectionCard title={t("mobileFitness.powerCurveTitle")} sub={t("mobileFitness.powerCurveSub", { maxW: Math.round(Math.max(...data.powerCurve.map(p => p.maxPower))) })}>
-              {/* 차트를 카드 좌우 padding(16) 상쇄해 화면 끝까지 (PMC 와 동일) */}
-              <div style={{ margin: "0 -16px" }}>
-                <PowerCurveMini points={data.powerCurve} color={ringColor} />
+            <SectionCard>
+              <div data-power-curve-copy style={{ marginBottom: "var(--space-2)" }}>
+                <Text variant="eyebrow">{powerCurveTitle}</Text>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{powerCurveSub}</div>
+              </div>
+              <div
+                data-power-curve-visual
+                style={{ margin: "0 -16px", overflow: "hidden" }}
+              >
+                <PowerCurveMini points={data.powerCurve} color={ringColor} ariaLabel={`${powerCurveTitle}. ${powerCurveSub}`} />
               </div>
             </SectionCard>
           )}
