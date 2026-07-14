@@ -130,8 +130,11 @@ describe("SportPerformanceCard", () => {
 
     expect(screen.getAllByText("실측 근거 부족 · 점수 미산출")).toHaveLength(2);
     expect(screen.getByText(/5m 320W · 4.40W\/kg/)).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /유산소 역량: 근거 백분위 65/ })).toBeInTheDocument();
-    expect(screen.getByText(/Garmin EPOC/)).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "유산소 역량 백분위 위치" })).toHaveAttribute("aria-valuenow", "65");
+    expect(screen.getByRole("meter", { name: "유산소 역량 백분위 위치" })).toHaveAttribute("aria-valuetext", "백분위 65, 상위 35퍼센트");
+    expect(screen.getByText("백분위 65")).toBeInTheDocument();
+    expect(screen.getByText(/백분위가 높을수록 기준 집단에서/)).toBeInTheDocument();
+    expect(screen.getByText(/Garmin은 EPOC·Training Effect/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "PDC와 3축 산출 근거 보기" })).toHaveAttribute("href", "/web-manual/ch06-advanced.html#s6-3");
   });
 

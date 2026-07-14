@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { CyclingAbilityResult } from "../../features/fitness/multisportPerformance";
 import { Card, Text } from "../../theme/components";
+import PercentileScale from "./PercentileScale";
 
 type CyclingAbilityCardProps = {
   cycling: CyclingAbilityResult | null;
@@ -15,20 +16,24 @@ function CyclingAbilityContent({ cycling }: Pick<CyclingAbilityCardProps, "cycli
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>
         {t("mobileFitness.sport.bike.basis", { count: cycling?.activityCount ?? 0 })}
       </div>
+      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-2)" }}>
+        {t("mobileFitness.sport.percentileGuide")}
+      </div>
       {cycling?.axes.map((axis) => {
-        const status = axis.score == null
-          ? t("mobileFitness.sport.insufficient")
-          : t("mobileFitness.sport.percentileStatus", { score: Math.round(axis.score) });
+        const status = axis.score == null ? t("mobileFitness.sport.insufficient") : null;
         const label = t(`mobileFitness.sport.bike.axis.${axis.key}`);
         return (
           <div key={axis.key} style={{ padding: "var(--space-3) 0", borderBottom: "1px solid var(--line-soft)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)" }}>
               <span style={{ fontSize: "var(--fs-sm)" }}>{label}</span>
-              <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", fontWeight: 600 }}>{status}</span>
+              {status && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", fontWeight: 600 }}>{status}</span>}
             </div>
             {axis.score != null && (
-              <div role="img" aria-label={t("mobileFitness.sport.bandAria", { metric: label, status })} style={{ height: 7, background: "var(--bg-3)", borderRadius: "var(--r-sm)", overflow: "hidden", marginTop: "var(--space-2)" }}>
-                <div style={{ width: `${Math.max(0, Math.min(100, axis.score))}%`, height: "100%", background: "var(--aqua)" }} />
+              <div style={{ marginTop: "var(--space-2)" }}>
+                <PercentileScale
+                  percentile={axis.score}
+                  ariaLabel={t("mobileFitness.sport.axisMeterAria", { metric: label })}
+                />
               </div>
             )}
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>

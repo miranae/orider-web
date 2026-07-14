@@ -21,7 +21,7 @@ describe("BikePerformanceSummaryCard", () => {
     const { container } = renderWithProviders(
       <BikePerformanceSummaryCard
         decision={completeDecision}
-        pdc={{ riderType: { type: "Climber", confidence: 0.8 }, abilityPercentile: 82, vo2maxEst: 58.4, vo2maxPercentile: 75, cohortSampleSize: 120, activityCount: 14 }}
+        pdc={{ riderType: { type: "Climber", confidence: 0.8 }, abilityPercentile: 82, vo2maxEst: 58.4, vo2maxPercentile: 75, activityCount: 14 }}
         weightKg={70}
         progression={[{ period: "2026-06", ftpW: 255, source: "20m" }, { period: "2026-07", ftpW: 265, source: "20m" }]}
         applying={false}
@@ -35,15 +35,20 @@ describe("BikePerformanceSummaryCard", () => {
     expect(screen.getByText(/프로필 정본/)).toBeInTheDocument();
     expect(screen.getByText("클라이머")).toBeInTheDocument();
     expect(screen.getByRole("meter", { name: "종합 사이클링 역량 백분위" })).toHaveAttribute("aria-valuenow", "82");
+    expect(screen.getByRole("meter", { name: "종합 사이클링 역량 백분위" })).toHaveAttribute("aria-valuetext", "백분위 82, 상위 18퍼센트");
+    expect(screen.getByText("Coggan 남성 파워 프로파일 v1 기준 · 성별·연령 미보정")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="eftp"]')!).getByText("265")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="cp"]')!).getByText("270")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="tte"]')!).getByText("45")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="vo2max"]')!).getByText("58")).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "VO2max 전체 코호트 백분위" })).toHaveAttribute("aria-valuenow", "75");
+    expect(within(container.querySelector('[data-performance-metric="vo2max"]')!).getByText("백분위 75")).toBeInTheDocument();
+    expect(screen.getByText("실제 O-Rider 전체 코호트 기준")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /월별 추정 FTP 추이 차트:.*255W.*265W/ })).toBeInTheDocument();
 
     const evidenceButton = screen.getByRole("button", { name: "산출 근거 보기" });
     expect(evidenceButton).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByText(/Coggan 남성 파워 프로파일/)).not.toBeVisible();
+    expect(screen.getByText(/최근 90일 PDC · Coggan 남성 파워 프로파일/)).not.toBeVisible();
     expect(onApply).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "이 후보 적용" }));
     expect(onApply).toHaveBeenCalledWith(265);
@@ -59,9 +64,7 @@ describe("BikePerformanceSummaryCard", () => {
     expect(screen.getByText("+15 W")).toBeVisible();
     expect(screen.getByText("라이더 유형 신뢰도")).toBeVisible();
     expect(screen.getByText("80%")).toBeVisible();
-    expect(screen.getByText("VO2max 코호트 표본")).toBeVisible();
-    expect(screen.getByText("120명")).toBeVisible();
-    expect(screen.getByText(/Coggan 남성 파워 프로파일/)).toBeVisible();
+    expect(screen.getByText(/최근 90일 PDC · Coggan 남성 파워 프로파일/)).toBeVisible();
     expect(screen.getByRole("link", { name: "PDC와 3축 산출 근거 보기" })).toHaveAttribute("href", "/web-manual/ch06-advanced.html#s6-3");
   });
 
@@ -84,7 +87,7 @@ describe("BikePerformanceSummaryCard", () => {
     const { container } = renderWithProviders(
       <BikePerformanceSummaryCard
         decision={{ ...completeDecision, automaticCandidateW: null, latestMonthlyEstimate: null, tteMin: null, cpW: 245 }}
-        pdc={{ riderType: null, abilityPercentile: null, vo2maxEst: 52.2, vo2maxPercentile: null, cohortSampleSize: null, activityCount: 4 }}
+        pdc={{ riderType: null, abilityPercentile: null, vo2maxEst: 52.2, vo2maxPercentile: null, activityCount: 4 }}
         applying={false}
         onApplyCandidate={vi.fn()}
       />,
@@ -95,6 +98,7 @@ describe("BikePerformanceSummaryCard", () => {
     expect(within(container.querySelector('[data-performance-metric="vo2max"]')!).getByText("52")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="eftp"]')!).getByText("—")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="tte"]')!).getByText("—")).toBeInTheDocument();
+    expect(screen.queryByRole("meter")).not.toBeInTheDocument();
   });
 
   it("reports missing FTP instead of blaming weight when weight is present", async () => {
