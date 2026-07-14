@@ -19,7 +19,7 @@ const CoursesPage = lazy(() => import("../pages/CoursesPage"));
 import { TopNav } from "./redesign";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
-import { getActiveHub, isHubSubRoute } from "../config/navHubs";
+import { getActiveHub, getActivityIdFromDetailPath, isHubSubRoute } from "../config/navHubs";
 import { logClientError } from "../services/errorLogger";
 import { recordRouteRedirect } from "../services/routeLoopTelemetry";
 // 네비 IA(5 허브)는 단일 진실원 config/navHubs.ts 가 보유 — TopNav·MobileTabBar·HubSubNav 공유.
@@ -43,6 +43,10 @@ export function buildOnboardingRedirectTarget(pathname: string, search = "", has
   if (path === "/") return "/onboarding";
   const returnTo = `${path}${search}${hash}`;
   return `/onboarding?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+export interface LayoutOutletContext {
+  setActivityOwner: (activityOwner: { activityId: string; ownerId: string } | null) => void;
 }
 
 function DashboardShell() {
@@ -76,7 +80,10 @@ export default function Layout() {
   const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
   const path = stripLangPrefix(location.pathname);
-  const activeNav = getActiveHub(path);
+  const [activityOwner, setActivityOwner] = useState<{ activityId: string; ownerId: string } | null>(null);
+  const routeActivityId = getActivityIdFromDetailPath(path);
+  const activityOwnerId = routeActivityId === activityOwner?.activityId ? activityOwner.ownerId : null;
+  const activeNav = getActiveHub(path, { viewerUid: user?.uid, activityOwnerId });
   const mainRef = useRef<HTMLElement>(null);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
@@ -245,7 +252,7 @@ export default function Layout() {
               {path === "/explore" && <ExplorePage />}
               {path === "/courses" && <CoursesPage />}
             </Suspense>
-            <Outlet />
+            <Outlet context={{ setActivityOwner } satisfies LayoutOutletContext} />
           </div>
         </main>
       )}
@@ -275,7 +282,7 @@ export default function Layout() {
       </footer>
 
       {/* Mobile bottom tab bar */}
-      <MobileTabBar friendRequestCount={friendRequestCount} />
+      <MobileTabBar active={activeNav} friendRequestCount={friendRequestCount} />
 
       {/* Mobile notification bottom sheet */}
       {notifOpen && (
