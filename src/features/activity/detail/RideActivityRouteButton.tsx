@@ -76,7 +76,7 @@ export function RideActivityRouteButton({
     };
   }, [activityId, user?.uid]);
 
-  if (sport === "swim" || !hasRoute) return null;
+  if (sport !== "ride" || !hasRoute) return null;
 
   const handleClick = async () => {
     if (busyRef.current || status === "sent") return;

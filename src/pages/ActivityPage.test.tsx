@@ -627,6 +627,23 @@ describe("ActivityPage", () => {
     expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
   });
 
+  it.each(["run", "swim", "other"])(
+    "does not offer route-to-app for %s activities even when a route exists",
+    async (type) => {
+      const activity = createMockActivity({
+        id: "test-activity",
+        type,
+        thumbnailTrack: "encoded-route",
+      });
+      setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+      renderWithProviders(<ActivityPage />, { authenticated: true });
+
+      await screen.findByText("한강 라이딩");
+      expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
+    },
+  );
+
   it("shows saved sensor summary on analysis tab when streams are missing", async () => {
     const activity = createMockActivity({
       id: "test-activity",

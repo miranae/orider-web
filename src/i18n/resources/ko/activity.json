@@ -34,7 +34,6 @@
     "speed": "속도",
     "dataWarning": "⚠ 데이터 이상",
     "dataWarningTooltip": "GPS noise 또는 짧은 활동으로 평균/최고 속도가 비현실적입니다. 일부 지표는 '—' 로 표시됩니다.",
-    "movingTimeTotal": "총 활동시간 {{elapsed}} · 정지시간 {{pause}}",
     "movingTimeTotalSimple": "이동 시간 · 전체 {{elapsed}}",
     "movingAvgTotal": "이동 평균 · 전체 {{total}} km/h",
     "dataWarningRaw": "데이터 이상 — 원본값 {{value}} km/h"
