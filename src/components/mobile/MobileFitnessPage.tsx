@@ -488,6 +488,7 @@ export default function MobileFitnessPage({
     ? getDisciplineColor("bike")
     : getDisciplineColor(data.discipline as Discipline);
   const pmcCtlColor = data.discipline === "tri" ? PMC_LINE_PALETTE.ctl.color : ringColor;
+  const weeklyLoadColor = data.discipline === "tri" ? PMC_LINE_PALETTE.ctl.color : ringColor;
   const pmcTitle = t("mobileFitness.pmcTitle", { n: data.pmcHistory.length });
   const pmcSub = t("mobileFitness.pmcSub");
 
@@ -603,7 +604,7 @@ export default function MobileFitnessPage({
           {/* 주간 TSS */}
           {data.weeklyTSS.length > 0 && (
             <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekTSS, avg: data.avgWeekTSS, restDays: data.restDays })}>
-              <WeeklyTssBars values={data.weeklyTSS} color={ringColor} t={t} />
+              <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />
             </SectionCard>
           )}
 

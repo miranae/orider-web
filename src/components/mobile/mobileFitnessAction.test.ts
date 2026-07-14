@@ -115,6 +115,17 @@ describe("mobile fitness action", () => {
     expect(source).not.toContain('background: "var(--rose)" }} />ATL');
   });
 
+  it("uses semantic violet only for integrated weekly load and preserves discipline colors", () => {
+    const source = read("src/components/mobile/MobileFitnessPage.tsx");
+    const colorSetup = source.slice(source.indexOf("const ringColor"), source.indexOf("const pmcTitle"));
+    const overview = source.slice(source.indexOf('{activeTab === "overview"'), source.indexOf('{activeTab === "analysis"'));
+
+    expect(colorSetup).toContain('const weeklyLoadColor = data.discipline === "tri" ? PMC_LINE_PALETTE.ctl.color : ringColor;');
+    expect(overview).toContain('<WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />');
+    expect(overview).not.toContain('<WeeklyTssBars values={data.weeklyTSS} color={pmcCtlColor}');
+    expect(source).toContain('<PowerCurveMini points={data.powerCurve} color={ringColor}');
+  });
+
   it("renders the mobile power curve with separate copy and fixed-size HTML axis labels", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const chart = source.slice(source.indexOf("function PowerCurveMini"), source.indexOf("function SectionCard"));
