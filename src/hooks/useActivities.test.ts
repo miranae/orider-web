@@ -9,6 +9,22 @@ import React from "react";
 import * as publicProfiles from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
 import { getDocs, where } from "firebase/firestore";
+import {
+  __resetFirestoreSessionRecoveryForTests,
+  FIRESTORE_B815_RECOVERY_SESSION_KEY,
+} from "../utils/firestoreSessionRecovery";
+
+const firestoreRecoveryMocks = vi.hoisted(() => ({
+  execute: vi.fn(),
+}));
+
+vi.mock("../utils/firestoreSessionRecovery", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils/firestoreSessionRecovery")>();
+  return {
+    ...actual,
+    executeFirestoreSessionRecovery: firestoreRecoveryMocks.execute,
+  };
+});
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(
@@ -29,6 +45,9 @@ function strictWrapper({ children }: { children: React.ReactNode }) {
 describe("useActivities", () => {
   beforeEach(() => {
     vi.mocked(getDocs).mockClear();
+    __resetFirestoreSessionRecoveryForTests();
+    window.sessionStorage.removeItem(FIRESTORE_B815_RECOVERY_SESSION_KEY);
+    firestoreRecoveryMocks.execute.mockClear();
   });
 
   it("shares the first Firestore request across concurrent hook mounts", async () => {
@@ -61,35 +80,32 @@ describe("useActivities", () => {
     expect(getDocs).toHaveBeenCalledTimes(1);
   });
 
-  it("evicts a failed shared request and recovers with one request per retry wave", async () => {
+  it("stops retry waves after a poisoned shared request schedules session recovery", async () => {
     const assertion = new Error("INTERNAL ASSERTION FAILED: Unexpected state (ID: b815)");
-    const recoveredActivity = createMockActivity({
-      id: "recovered",
-      profileImage: "https://example.com/avatar.jpg",
-    });
-    let resolveRecovery!: (value: Awaited<ReturnType<typeof getDocs>>) => void;
-    const recoveryRequest = new Promise<Awaited<ReturnType<typeof getDocs>>>((resolve) => {
-      resolveRecovery = resolve;
-    });
-    vi.mocked(getDocs)
-      .mockRejectedValueOnce(assertion)
-      .mockReturnValueOnce(recoveryRequest);
+    vi.mocked(getDocs).mockRejectedValueOnce(assertion);
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
 
     const { result } = renderHook(() => useActivities(), {
       wrapper: strictWrapper,
     });
 
-    await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(2), { timeout: 2_000 });
-    resolveRecovery({
-      docs: [{ id: "recovered", data: () => recoveredActivity }],
-    } as Awaited<ReturnType<typeof getDocs>>);
-
-    await waitFor(() => {
-      expect(result.current.activities[0]?.id).toBe("recovered");
-    }, { timeout: 2_000 });
-    expect(getDocs).toHaveBeenCalledTimes(2);
-    expect(logSpy).toHaveBeenCalledWith("useActivities.initialLoad.first", assertion);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(getDocs).toHaveBeenCalledTimes(1);
+    expect(result.current.activities).toEqual([]);
+    expect(logSpy).toHaveBeenCalledWith(
+      "useActivities.initialLoad.first",
+      assertion,
+      expect.objectContaining({
+        firestoreRecoveryKind: "b815",
+        firestoreRecoveryAction: "reload-ready",
+        firebaseSdkVersion: expect.any(String),
+        pageVisibility: expect.any(String),
+      }),
+    );
+    expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBe("1");
+    expect(firestoreRecoveryMocks.execute).toHaveBeenCalledTimes(1);
+    expect(firestoreRecoveryMocks.execute).toHaveBeenCalledWith({ kind: "b815", action: "reload-ready" });
+    expect(logSpy.mock.invocationCallOrder[0]).toBeLessThan(firestoreRecoveryMocks.execute.mock.invocationCallOrder[0]!);
     logSpy.mockRestore();
   });
 
