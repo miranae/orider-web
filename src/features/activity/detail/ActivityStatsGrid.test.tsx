@@ -7,7 +7,6 @@ const labels: Record<string, string> = {
   "stat.distance": "거리",
   "stat.movingTime": "이동 시간",
   "stat.elapsedTime": "경과 시간",
-  "stat.movingTimeTotal": "전체 시간",
   "stat.avgPace": "평균 페이스",
   "stat.maxPace": "최고 페이스",
   "stat.elev": "획득 고도",
@@ -69,7 +68,7 @@ describe("ActivityStatsGrid", () => {
     const cells = Array.from(screen.getByTestId("activity-stats-grid").children);
     expect(cells.map((cell) => cell.textContent)).toEqual([
       "거리18.4km",
-      "이동 시간1h 51m전체 시간",
+      "이동 시간1h 51m",
       "평균 페이스5'00\"/km",
       "최고 페이스3'20\"/km",
       "획득 고도240m",
