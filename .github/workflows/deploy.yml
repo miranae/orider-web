@@ -78,6 +78,13 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
           token_format: access_token
+      - name: Verify production backend social callable contract
+        env:
+          SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: >-
+          node scripts/verify-social-callables.mjs
+          --project "${{ vars.VITE_FIREBASE_PROJECT_ID }}"
+          --region "${{ vars.VITE_FIREBASE_FUNCTIONS_REGION }}"
       - name: Deploy Hosting only
         run: |
           set -euo pipefail

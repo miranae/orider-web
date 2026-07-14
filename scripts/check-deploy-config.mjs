@@ -20,6 +20,14 @@ function requireIncludes(haystack, needle, label) {
   if (!haystack.includes(needle)) fail(`${label} must include ${needle}`);
 }
 
+function requireBefore(haystack, before, after, label) {
+  const beforeIndex = haystack.indexOf(before);
+  const afterIndex = haystack.indexOf(after);
+  if (beforeIndex < 0 || afterIndex < 0 || beforeIndex >= afterIndex) {
+    fail(`${label} must run ${before} before ${after}`);
+  }
+}
+
 const firebaseConfig = JSON.parse(readFileSync("firebase.json", "utf8"));
 const stageFirebaseConfig = JSON.parse(readFileSync("firebase.stage.json", "utf8"));
 
@@ -70,6 +78,11 @@ requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.V
 requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
 requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
+requireIncludes(deployWorkflow, "node scripts/verify-social-callables.mjs", "deploy.yml backend contract gate");
+requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_PROJECT_ID', "deploy.yml backend contract project");
+requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_FUNCTIONS_REGION', "deploy.yml backend contract region");
+requireIncludes(deployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy.yml backend contract credential");
+requireBefore(deployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy --only hosting", "deploy.yml backend contract gate");
 if (deployWorkflow.includes("npm run build")) {
   fail("deploy.yml must promote the verified stage artifact without npm run build");
 }
@@ -93,6 +106,11 @@ requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_STRAVA_CLIENT_ID", "dep
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_STRAVA_REDIRECT_URI", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE_KEY", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-stage.yml verification");
+requireIncludes(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "deploy-stage.yml backend contract gate");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION", "deploy-stage.yml backend contract region");
+requireIncludes(stageDeployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy-stage.yml backend contract credential");
+requireBefore(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy \\", "deploy-stage.yml backend contract gate");
 
 const forbiddenStageFallbacks = [
   "secrets.VITE_FIREBASE_API_KEY",
