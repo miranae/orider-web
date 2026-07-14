@@ -137,6 +137,38 @@ describe("BikePerformanceSummaryCard", () => {
     expect(screen.queryByRole("meter")).not.toBeInTheDocument();
   });
 
+  it("does not describe a TTE-only percentile with an unrelated VO2max density", () => {
+    renderWithProviders(
+      <BikePerformanceSummaryCard
+        decision={{ ...completeDecision, automaticCandidateW: null }}
+        pdc={{
+          riderType: null,
+          abilityPercentile: null,
+          ttePercentile: 60,
+          vo2maxEst: 52,
+          vo2maxPercentile: null,
+          activityCount: 4,
+          cohortDistributions: {
+            vo2max: {
+              basis: "vo2max_ml_kg_min",
+              domain: [20, 95],
+              approximateSampleSize: 120,
+              bins: [{ from: 20, to: 95, densityLevel: 5 }],
+              privacy: { minimumCellSize: 5, exactCountsPublished: false, method: "adjacent_merge_relative_density_v1" },
+              computedAt: Date.UTC(2026, 6, 14),
+            },
+          },
+        }}
+        applying={false}
+        onApplyCandidate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("실제 O-Rider 전체 코호트 기준")).toBeInTheDocument();
+    expect(screen.queryByText(/O-Rider 추정 VO2max 분포/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/상대 밀도/)).not.toBeInTheDocument();
+  });
+
   it("reports missing FTP instead of blaming weight when weight is present", async () => {
     const user = userEvent.setup();
     renderWithProviders(

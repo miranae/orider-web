@@ -34,7 +34,11 @@ const AXIS_DISTRIBUTION_KEYS: Record<CyclingAbilityResult["axes"][number]["key"]
 function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pick<CyclingAbilityCardProps, "cycling" | "distributions" | "cohortComputedAt">) {
   const { t } = useTranslation("dashboard");
   const strongestAxis = uniqueStrongestAxis(cycling);
-  const hasRulerOnlyAxis = cycling?.axes.some((axis) => axis.score != null && distributions?.[AXIS_DISTRIBUTION_KEYS[axis.key]] == null) ?? false;
+  const hasRulerOnlyAxis = cycling?.axes.some((axis) => {
+    if (axis.score == null) return false;
+    const distribution = distributions?.[AXIS_DISTRIBUTION_KEYS[axis.key]];
+    return distribution == null || axis.score < distribution.domain[0] || axis.score > distribution.domain[1];
+  }) ?? false;
   return (
     <>
       <Text variant="eyebrow">{t("mobileFitness.sport.bike.title")}</Text>

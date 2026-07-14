@@ -110,7 +110,7 @@ export default function PercentileScale({ percentile, ariaLabel, population, acc
           <Text as="span" variant="caption" tone="tertiary" style={{ textAlign: "right" }}>{t("mobileFitness.percentile.upper")}</Text>
         </div>
       </div>}
-      {showContext && <div id={contextId ?? populationId} style={{ marginTop: hideScale ? 0 : "var(--space-1)" }}>
+      {showContext && (population || hasDensity || showRulerGuide || alwaysShowRulerGuide) && <div id={contextId ?? populationId} style={{ marginTop: hideScale ? 0 : "var(--space-1)" }}>
       {population && (
         <Text as="div" variant="caption" tone="tertiary" style={{ overflowWrap: "anywhere" }}>
           {population}
