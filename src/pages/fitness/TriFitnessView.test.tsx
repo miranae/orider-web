@@ -1,4 +1,6 @@
 import { screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import TriFitnessView from "./TriFitnessView";
@@ -36,5 +38,14 @@ describe("TriFitnessView parity", () => {
 
     expect(screen.getAllByTestId("full-ai-coach")).toHaveLength(1);
     expect(screen.getAllByTestId("desktop-integrated-detail")).toHaveLength(1);
+  });
+
+  it("uses integrated status as the only static snapshot and keeps the PMC trend", () => {
+    const source = readFileSync(join(process.cwd(), "src/pages/fitness/TriFitnessView.tsx"), "utf8");
+    expect(source).not.toContain("KPI_ITEMS");
+    expect(source).not.toContain("triView.kpi.thresholdReady");
+    expect(source).not.toContain("triView.kpi.recoveryAdvised");
+    expect(source).toContain("<TripleStackPMC");
+    expect(source).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다.");
   });
 });

@@ -576,7 +576,9 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
   const totalATL = bikeATL + runATL + swimATL;
 
   const totalTSB = totalCTL - totalATL;
-  const weeklyTSS = (triBreakdown.bike?.weeklyTSS ?? 0) + (triBreakdown.run?.weeklyTSS ?? 0) + (triBreakdown.swim?.weeklyTSS ?? 0);
+  const displayedWeeklyTss = hasData
+    ? Math.round((triBreakdown.bike?.weeklyTSS ?? 0) + (triBreakdown.run?.weeklyTSS ?? 0) + (triBreakdown.swim?.weeklyTSS ?? 0)).toString()
+    : "487";
 
   const totalForPct = totalCTL || 1;
   const bikePct = Math.round((bikeCTL / totalForPct) * 100);
@@ -695,50 +697,6 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
     return { bikeCtl: bikeCtlArr, runCtl: runCtlArr, swimCtl: swimCtlArr, totCtl: totCtlArr, atl: atlArr, tsb: tsbArr, dates: dateArr };
   }, [triBreakdown, rangeLocal]);
 
-  // ── TSB 표시용 ──────────────────────────────────────────────────────────────
-  const tsbNow = totalTSB;
-
-  // ── KPI 표시값 ─────────────────────────────────────────────────────────────
-  const kpiCtl   = hasData ? totalCTL.toFixed(1)  : "62.1";
-  const kpiAtl   = hasData ? totalATL.toFixed(1)  : "59.7";
-  const kpiTsb   = hasData ? (totalTSB >= 0 ? `+${totalTSB.toFixed(1)}` : totalTSB.toFixed(1)) : "+2.4";
-  const kpiTss   = hasData ? Math.round(weeklyTSS).toString() : "487";
-
-  const kpiDescCtl = hasData
-    ? t("triView.kpi.ctlDesc", { bike: bikePct, run: runPct, swim: swimPct })
-    : t("triView.kpi.ctlDescDemo");
-
-  const KPI_ITEMS = [
-    {
-      labelKey: "triView.kpi.totalCtl",
-      value: kpiCtl,
-      sub: hasData ? t("triView.kpi.ctlSub") : t("triView.kpi.ctlSubDemo"),
-      desc: kpiDescCtl,
-      color: "var(--lime)",
-    },
-    {
-      labelKey: "kpi.atl.label",
-      value: kpiAtl,
-      sub: hasData ? t("kpi.atl.sub") : t("triView.kpi.atlSubDemo"),
-      desc: t("kpi.atl.descNormal"),
-      color: "var(--rose)",
-    },
-    {
-      labelKey: "kpi.tsb.label",
-      value: kpiTsb,
-      sub: tsbNow >= 0 ? t("triView.kpi.raceMode") : t("triView.kpi.fatigue"),
-      desc: tsbNow >= 0 ? t("triView.kpi.thresholdReady") : t("triView.kpi.recoveryAdvised"),
-      color: "var(--amber)",
-    },
-    {
-      labelKey: "triView.kpi.weeklyTss",
-      value: kpiTss,
-      sub: t("triView.kpi.weeklyTssSub"),
-      desc: hasData ? t("triView.kpi.weeklyTssDesc") : t("triView.kpi.weeklyTssDescDemo"),
-      color: "var(--lime)",
-    },
-  ] as const;
-
   const rangeOptions = [
     { label: t("triView.range.6w"), value: 42 },
     { label: t("triView.range.3m"), value: 90 },
@@ -803,81 +761,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
         </div>
       )}
 
-      {/* KPI 4칸 */}
-      <Card padding="none"
-        style={{
-          padding: 0,
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-        }}
-      >
-        {KPI_ITEMS.map((s, i) => (
-          <div
-            key={s.labelKey}
-            style={{
-              padding: "22px 24px",
-              borderRight: i < 3 ? "1px solid var(--line-soft)" : "none",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "var(--space-1-5)",
-                marginBottom: "var(--space-2)",
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: s.color,
-                }}
-              />
-              <Text variant="eyebrow">{t(s.labelKey)}</Text>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: 'var(--space-1)',
-                marginBottom: 'var(--space-2)',
-              }}
-            >
-              <Text variant="dataHero"
-                style={{
-                  fontSize: "var(--fs-5xl)",
-                  color:
-                    s.labelKey === "kpi.tsb.label"
-                      ? tsbNow >= 0
-                        ? "var(--lime)"
-                        : "var(--rose)"
-                      : s.color,
-                  fontFamily: "var(--font-mono)",
-                }}
-              >
-                {s.value}
-              </Text>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 'var(--space-2)',
-                fontSize: "var(--fs-xs)",
-                color: "var(--ink-3)",
-              }}
-            >
-              <Text variant="mono">{s.sub}</Text>
-              <span style={{ color: "var(--ink-4)" }}>·</span>
-              <span>{s.desc}</span>
-            </div>
-          </div>
-        ))}
-      </Card>
-
-      {/* PMC 3종목 스택 */}
+      {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다. */}
       <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
         <div
           style={{
@@ -1011,7 +895,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
               <Text variant="dataMedium"
                 style={{ fontFamily: "var(--font-mono)" }}
               >
-                {kpiTss}
+                {displayedWeeklyTss}
               </Text>
               <Text variant="unit"> TSS</Text>
             </div>
@@ -1140,7 +1024,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
           >
             <div>
               <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("daily.weekTSS")}</Text>
-              <div><Text variant="dataMedium">{kpiTss}</Text><Text variant="unit"> {t("triView.total")}</Text></div>
+              <div><Text variant="dataMedium">{displayedWeeklyTss}</Text><Text variant="unit"> {t("triView.total")}</Text></div>
             </div>
             <div>
               <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.bike")}</Text>

@@ -18,7 +18,7 @@ vi.mock("./IntegratedLoadCard", () => ({
     return <div data-testid="integrated-load-card" />;
   },
 }));
-vi.mock("../training/TodaysWorkoutCard", () => ({ default: () => null }));
+vi.mock("../training/TodaysWorkoutCard", () => ({ default: () => <div data-testid="mobile-full-ai-coach" /> }));
 
 describe("MobileFitnessPage tri", () => {
   beforeEach(() => {
@@ -66,6 +66,7 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "개요" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "수영" })).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("mobile-full-ai-coach")).toHaveLength(1);
   });
 
   it("resets the secondary tab after bike analysis to tri and then run", async () => {
@@ -80,14 +81,17 @@ describe("MobileFitnessPage tri", () => {
     const { rerender } = renderWithProviders(
       <MobileFitnessPage data={{ ...base, discipline: "bike" } satisfies MobileFitnessData} />,
     );
+    expect(screen.queryByTestId("mobile-full-ai-coach")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "파워존" }));
     expect(screen.getByRole("tab", { name: "파워존" })).toHaveAttribute("aria-selected", "true");
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "tri" } satisfies MobileFitnessData} />);
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("mobile-full-ai-coach")).toHaveLength(1);
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "run" } satisfies MobileFitnessData} />);
+    expect(screen.queryByTestId("mobile-full-ai-coach")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
     });
