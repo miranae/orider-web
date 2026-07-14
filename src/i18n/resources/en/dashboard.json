@@ -402,12 +402,12 @@
       "cardAria": "Sport-specific measured performance evidence",
       "insufficient": "Not enough measured evidence · not scored",
       "noMeasuredEvidence": "No measured duration evidence",
-      "percentileStatus": "Evidence percentile {{score}}",
-      "bandAria": "{{metric}}: {{status}}",
+      "axisMeterAria": "{{metric}} percentile position",
+      "percentileGuide": "A higher percentile means this ability ranks higher within the stated reference group.",
       "bike": {
         "title": "Cycling ability evidence",
         "basis": "Three separate axes from the last 90-day measured PDC · {{count}} activities · existing Coggan male v1 percentiles, without sex or age adjustment",
-        "notGarmin": "Transparent O-Rider PDC evidence; not Garmin EPOC, Training Effect, or a proprietary-equivalent score.",
+        "notGarmin": "The calculation differs from Garmin. Garmin uses proprietary metrics such as EPOC and Training Effect; O-Rider shows your position in a reference group using published PDC evidence.",
         "manualLink": "How PDC and the three axes are calculated",
         "axis": {
           "anaerobic": "Short-power capacity",
@@ -426,6 +426,13 @@
         "distancePerStroke": "Distance per stroke"
       }
     },
+    "percentile": {
+      "raw": "Percentile {{score}}",
+      "top": "Top {{top}}%",
+      "ariaValue": "Percentile {{score}}, top {{top}} percent",
+      "low": "Low",
+      "high": "High"
+    },
     "snapshot": {
       "title": "Current fitness snapshot",
       "subtitle": "Read each value together with its evaluation and basis",
@@ -438,7 +445,7 @@
       "riderSource": "Last 90-day PDC · Coggan men's power profile (v1); sex and age are not adjusted",
       "vo2PdcSource": "Estimated from CP/5-minute power and weight in the last 90-day PDC · {{count}} activities · not a lab measurement",
       "vo2FormulaSource": "Simple estimate from profile FTP and weight · not a lab measurement",
-      "cohortTop": "Top {{pct}}% of all cohort · n={{count}}",
+      "cohortTopNoSample": "Top {{pct}}% of the all-user cohort",
       "estimateOnly": "Estimate · no cohort evaluation",
       "load": "O-Rider training load",
       "loadSource": "CTL 42-day EMA · ATL 7-day EMA · TSB=CTL-ATL. This is not Garmin acute load",
@@ -457,6 +464,9 @@
       "abilityTop": "Top {{pct}}%",
       "abilityUnknown": "Not enough percentile evidence",
       "abilityMeterAria": "Overall cycling ability percentile",
+      "abilityPopulation": "Coggan men's power profile v1 · not adjusted for sex or age",
+      "vo2MeterAria": "VO2max all-cohort percentile",
+      "vo2Population": "Actual O-Rider all-user cohort",
       "estimated": "Estimate",
       "insufficient": "Not enough evidence",
       "metrics": {
@@ -472,9 +482,7 @@
         "activityCount": "Activities in PDC analysis",
         "activityCountValue": "{{count}} activities",
         "activeDelta": "eFTP vs active FTP",
-        "riderConfidence": "Rider-type confidence",
-        "cohortSample": "VO2max cohort sample",
-        "cohortSampleValue": "{{count}} riders"
+        "riderConfidence": "Rider-type confidence"
       },
       "modelEvidence": "eFTP uses 95% of the monthly best 20-minute average power; CP and TTE come from the last 90-day PDC model. All are estimates and never change active FTP automatically."
     }
