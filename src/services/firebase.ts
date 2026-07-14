@@ -3,7 +3,12 @@ import { getAuth, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPas
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase/functions";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
+import {
+  getToken,
+  initializeAppCheck,
+  ReCaptchaEnterpriseProvider,
+  type AppCheck,
+} from "firebase/app-check";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 
 let app: FirebaseApp;
@@ -11,7 +16,29 @@ let _auth: Auth;
 let _firestore: Firestore;
 let _storage: FirebaseStorage;
 let _functions: Functions;
+let appCheck: AppCheck | null = null;
 let appCheckPromise: Promise<void> | null = null;
+let appCheckRefreshPromise: Promise<void> | null = null;
+
+const APP_CHECK_TOKEN_TIMEOUT_MS = 12_000;
+
+function withAppCheckTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new Error("app-check/token-timeout"));
+    }, APP_CHECK_TOKEN_TIMEOUT_MS);
+    promise.then(
+      (value) => {
+        globalThis.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        globalThis.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
 
 /** main.tsx에서 렌더링 전 호출. Hosting site별 runtime-config.json 기반 config 사용. */
 export async function initFirebase() {
@@ -73,19 +100,35 @@ export function getFirebaseApp(): FirebaseApp | undefined {
  * 먼저 실행되면 피드 이미지 discovery 가 밀린다. Callable Functions 는 호출 전에
  * 이 promise 를 await 해서 enforceAppCheck 보안 경로를 유지한다.
  */
-export function ensureAppCheckReady(): Promise<void> {
-  if (appCheckPromise) return appCheckPromise;
-  appCheckPromise = Promise.resolve().then(() => {
+export function ensureAppCheckReady(forceRefresh = false): Promise<void> {
+  if (isEmulatorRuntime()) return Promise.resolve();
+  if (forceRefresh && appCheckRefreshPromise) return appCheckRefreshPromise;
+  if (!forceRefresh && appCheckPromise) return appCheckPromise;
+
+  const readiness = Promise.resolve().then(async () => {
     const runtimeConfig = getRuntimeConfig();
     const appCheckSiteKey = runtimeConfig.appCheckRecaptchaSiteKey;
-    if (!app || !appCheckSiteKey || isEmulatorRuntime()) return;
-    initializeAppCheck(app, {
+    if (!app) throw new Error("app-check/firebase-not-initialized");
+    if (!appCheckSiteKey) throw new Error("app-check/missing-site-key");
+    appCheck ??= initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
       isTokenAutoRefreshEnabled: true,
     });
+
+    const tokenResult = await withAppCheckTimeout(getToken(appCheck, forceRefresh));
+    if (!tokenResult.token) throw new Error("app-check/empty-token");
   }).catch((err) => {
-    appCheckPromise = null;
+    if (forceRefresh) appCheckRefreshPromise = null;
+    else appCheckPromise = null;
     throw err;
   });
+
+  if (forceRefresh) {
+    appCheckRefreshPromise = readiness.finally(() => {
+      appCheckRefreshPromise = null;
+    });
+    return appCheckRefreshPromise;
+  }
+  appCheckPromise = readiness;
   return appCheckPromise;
 }

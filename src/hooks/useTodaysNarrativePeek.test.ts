@@ -55,11 +55,12 @@ describe("useTodaysNarrativePeek session publication", () => {
     act(() => {
       publishTodaysNarrativePeekCache(mocks.uid, "bike", "ko", "새 AI 분석");
     });
-    expect(result.current).toEqual({
+    expect(result.current).toMatchObject({
       narrative: "새 AI 분석",
       loading: false,
       cacheMiss: false,
       stale: false,
+      errorKind: null,
     });
 
     await act(async () => {
@@ -104,5 +105,60 @@ describe("useTodaysNarrativePeek session publication", () => {
     const en = renderHook(() => useTodaysNarrativePeek("bike", true, facts));
     await waitFor(() => expect(en.result.current.cacheMiss).toBe(true));
     expect(en.result.current.narrative).toBeNull();
+  });
+
+  it("does not restart a failed request when an equivalent facts object is recreated", async () => {
+    let calls = 0;
+    setCallableImplementation("getTodaysRecommendationNarrative", () => {
+      calls++;
+      return Promise.reject({ code: "functions/internal" });
+    });
+
+    const { result, rerender } = renderHook(
+      ({ currentFacts }) => useTodaysNarrativePeek("bike", true, currentFacts),
+      { initialProps: { currentFacts: { ...facts } } },
+    );
+    await waitFor(() => expect(result.current.errorKind).toBe("request"));
+
+    for (let i = 0; i < 20; i++) rerender({ currentFacts: { ...facts } });
+    await act(async () => { await Promise.resolve(); });
+    expect(calls).toBe(1);
+  });
+
+  it("shares one in-flight peek across two mounted cards", async () => {
+    let calls = 0;
+    let resolveRequest!: (value: unknown) => void;
+    setCallableImplementation("getTodaysRecommendationNarrative", () => {
+      calls++;
+      return new Promise((resolve) => { resolveRequest = resolve; });
+    });
+
+    const first = renderHook(() => useTodaysNarrativePeek("bike", true, facts));
+    const second = renderHook(() => useTodaysNarrativePeek("bike", true, { ...facts }));
+    await waitFor(() => expect(calls).toBe(1));
+
+    await act(async () => {
+      resolveRequest({ data: { hit: false } });
+    });
+    expect(first.result.current.cacheMiss).toBe(true);
+    expect(second.result.current.cacheMiss).toBe(true);
+  });
+
+  it("allows an explicit retry after a transient failure", async () => {
+    setCallableImplementation("getTodaysRecommendationNarrative", () =>
+      Promise.reject({ code: "functions/internal" }));
+    const { result } = renderHook(() => useTodaysNarrativePeek("bike", true, facts));
+    await waitFor(() => expect(result.current.errorKind).toBe("request"));
+
+    setCallableResult("getTodaysRecommendationNarrative", {
+      data: { hit: true, narrative: "복구된 분석" },
+    });
+    setCallableImplementation("getTodaysRecommendationNarrative", () => ({
+      data: { hit: true, narrative: "복구된 분석" },
+    }));
+    act(() => result.current.retry());
+
+    await waitFor(() => expect(result.current.narrative).toBe("복구된 분석"));
+    expect(result.current.errorKind).toBeNull();
   });
 });

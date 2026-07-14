@@ -389,6 +389,8 @@
     },
     "analyzeStart": "Analyze",
     "analyzeWaiting": "Awaiting analysis — data collection complete",
+    "analysisRetry": "Try again",
+    "analysisUnavailable": "AI connection is not ready. Please try again shortly.",
     "reanalyze": "Re-analyze",
     "upToDate": "Up to date"
   },

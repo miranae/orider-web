@@ -524,7 +524,14 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
   // peek hit 만으로는 호출하지 않는다 — 이미 생성된 답변은 peek.narrative 를 그대로 표시해
   // "페이지 진입마다 자동 생성"을 제거한다(#393 리뷰 MAJOR).
   const shouldCallLLM = narrativeReady && triggerFull;
-  const { narrative: llmNarrative, loading: llmLoading, phase: llmPhase, cacheContext: llmCacheContext } =
+  const {
+    narrative: llmNarrative,
+    loading: llmLoading,
+    phase: llmPhase,
+    cacheContext: llmCacheContext,
+    errorKind: llmErrorKind,
+    retry: retryFullNarrative,
+  } =
     useTodaysNarrative(facts, shouldCallLLM, derivedSummary, athlete, goalDetail, narrativeAdaptation, narrativeMismatch, daysSinceLastActivity);
 
   // full 호출 성공 결과를 현재 언어 슬롯에 commit 후 발행한다. 렌더 중 모듈 캐시를
@@ -565,9 +572,19 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
   }
 
   // peek miss + 아직 full 미호출 → "분석시작" 버튼 표시용 플래그 + 핸들러
-  const llmCacheMiss = peek.cacheMiss && !triggerFull && !llmNarrative && !llmLoading;
+  const llmError = !!peek.errorKind || !!llmErrorKind;
+  const llmCacheMiss = (peek.cacheMiss || llmError) && !llmNarrative && !llmLoading;
   const onRequestAnalysis = () => {
-    if (llmLoading || triggerFull) return;
+    if (llmLoading) return;
+    if (llmErrorKind) {
+      retryFullNarrative();
+      return;
+    }
+    if (peek.errorKind) {
+      peek.retry();
+      return;
+    }
+    if (triggerFull) return;
     setTriggerFull(true);
   };
 
@@ -615,6 +632,7 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
       llmLoading,
       llmPhase,
       llmCacheMiss,
+      llmError,
       onRequestAnalysis,
       onReanalyze,
       reanalyzable,
@@ -676,6 +694,7 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
       llmLoading,
       llmPhase,
       llmCacheMiss,
+      llmError,
       onRequestAnalysis,
       onReanalyze,
       reanalyzable,
@@ -835,6 +854,7 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
     llmLoading,
     llmPhase,
     llmCacheMiss,
+    llmError,
     onRequestAnalysis,
     onReanalyze,
     reanalyzable,

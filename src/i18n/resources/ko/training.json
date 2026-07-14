@@ -389,6 +389,8 @@
     },
     "analyzeStart": "분석시작",
     "analyzeWaiting": "분석 대기 — 데이터 수집 완료",
+    "analysisRetry": "다시 시도",
+    "analysisUnavailable": "AI 연결을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     "reanalyze": "다시분석",
     "upToDate": "최신 상태"
   },

@@ -66,6 +66,7 @@ requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
 requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
 requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");

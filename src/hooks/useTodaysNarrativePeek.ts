@@ -11,12 +11,16 @@
  * stale 판별: 현재 facts 를 그대로 전송 — 서버에서 저장된 facts 의 type/zone/tsb/ctl/atl
  * 등을 비교해 stale 여부를 반환. facts 가 null 이면 peek 보류 (stale 판별 불가).
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { httpsCallable } from "firebase/functions";
-import { ensureAppCheckReady, functions } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
 import type { RecommendationFacts } from "../utils/todaysRecommendation";
+import {
+  callTodaysNarrative,
+  clearTodaysNarrativeRequestState,
+  NarrativeRequestError,
+  type NarrativeRequestErrorKind,
+} from "../services/todaysNarrativeClient";
 
 export type PeekDiscipline = "bike" | "run" | "swim";
 
@@ -47,6 +51,11 @@ interface PeekState {
    * false = 최신 상태 (재생성 불필요) 또는 아직 미확인.
    */
   stale: boolean;
+  errorKind: NarrativeRequestErrorKind | null;
+}
+
+export interface TodaysNarrativePeekResult extends PeekState {
+  retry: () => void;
 }
 
 // 세션 내 중복 peek 방지 (discipline 별)
@@ -89,6 +98,7 @@ export function publishTodaysNarrativePeekCache(
     loading: false,
     cacheMiss: false,
     stale: false,
+    errorKind: null,
   };
   peekDone.set(key, { state, cachedAt: Date.now() });
   notifyPeekSubscribers(key, state);
@@ -103,13 +113,30 @@ export function useTodaysNarrativePeek(
   discipline: PeekDiscipline | null,
   enabled: boolean,
   facts: RecommendationFacts | null,
-): PeekState {
+): TodaysNarrativePeekResult {
   const { user } = useAuth();
   const { i18n } = useTranslation();
   const lang: "ko" | "en" = i18n.language?.startsWith("en") ? "en" : "ko";
-  const [state, setState] = useState<PeekState>({ narrative: null, loading: false, cacheMiss: false, stale: false });
-  const calledRef = useRef<string | null>(null);
+  const [state, setState] = useState<PeekState>({
+    narrative: null,
+    loading: false,
+    cacheMiss: false,
+    stale: false,
+    errorKind: null,
+  });
+  const [retryRevision, setRetryRevision] = useState(0);
+  const manualRetryRef = useRef(false);
   const activeKeyRef = useRef<string | null>(null);
+  const factsFingerprint = facts ? JSON.stringify(facts) : null;
+
+  const retry = useCallback(() => {
+    if (!user || !discipline) return;
+    const key = peekKey(user.uid, discipline, lang);
+    peekDone.delete(key);
+    clearTodaysNarrativeRequestState(`peek:${key}:`);
+    manualRetryRef.current = true;
+    setRetryRevision((value) => value + 1);
+  }, [user?.uid, discipline, lang]);
 
   useEffect(() => {
     if (!user || !discipline) return;
@@ -128,8 +155,9 @@ export function useTodaysNarrativePeek(
 
   useEffect(() => {
     // facts 가 null 이면 stale 판별 불가 — peek 보류 (enabled 여도 대기)
-    if (!user || !discipline || !enabled || !facts) return;
+    if (!user || !discipline || !enabled || !facts || !factsFingerprint) return;
     const key = peekKey(user.uid, discipline, lang);
+    const requestKey = `peek:${key}:${factsFingerprint}`;
     activeKeyRef.current = key;
 
     // 세션 캐시 적중
@@ -143,50 +171,45 @@ export function useTodaysNarrativePeek(
       peekDone.delete(key);
     }
 
-    // 이미 in-flight
-    if (calledRef.current === key) return;
-    calledRef.current = key;
     const requestRevision = peekRevision.get(key) ?? 0;
+    const manualRetry = manualRetryRef.current;
+    manualRetryRef.current = false;
+    const requestFacts = JSON.parse(factsFingerprint) as RecommendationFacts;
 
-    // ⚠️ cancelled/cleanup 가드를 두지 않는다: deps 의 `facts` 가 매 렌더 새 객체라
-    // (ruleFacts = recommendToday(...) 인라인) effect 가 매 렌더 cleanup+재실행되는데,
-    // cancelled 를 setState 가드로 쓰면 발사한 fetch 의 .then 이 영구 스킵돼 peek 가
-    // loading 에 고착된다(캐시 답변·버튼 모두 미표시). 세션 중복은 calledRef + peekDone 로
-    // 충분히 막고, React 19 는 언마운트 후 setState 를 무해 무시한다.
-    setState({ narrative: null, loading: true, cacheMiss: false, stale: false });
+    setState({ narrative: null, loading: true, cacheMiss: false, stale: false, errorKind: null });
 
     // 전체 facts 를 전송 — 서버가 type/zone/tsb/ctl/atl 를 저장값과 비교해 stale 판별.
-    ensureAppCheckReady()
-      .then(() => {
-        const fn = httpsCallable<CFPeekRequest, CFPeekResponse>(
-          functions,
-          "getTodaysRecommendationNarrative",
-        );
-        return fn({ cacheOnly: true, facts, lang });
-      })
-      .then((res) => {
+    callTodaysNarrative<CFPeekRequest, CFPeekResponse>({
+      requestKey,
+      payload: { cacheOnly: true, facts: requestFacts, lang },
+      manualRetry,
+    })
+      .then((d) => {
         // full 분석 결과가 이 요청 뒤에 발행됐다면 이 cacheOnly 응답은 이미 구버전이다.
         if ((peekRevision.get(key) ?? 0) !== requestRevision) return;
-        const d = res.data;
         const next: PeekState = d.hit && d.narrative
-          ? { narrative: d.narrative, loading: false, cacheMiss: false, stale: d.stale ?? false }
-          : { narrative: null, loading: false, cacheMiss: true, stale: false };
+          ? { narrative: d.narrative, loading: false, cacheMiss: false, stale: d.stale ?? false, errorKind: null }
+          : { narrative: null, loading: false, cacheMiss: true, stale: false, errorKind: null };
         peekDone.set(key, { state: next, cachedAt: Date.now() });
         if (activeKeyRef.current === key) setState(next);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if ((peekRevision.get(key) ?? 0) !== requestRevision) return;
-        // peek 실패는 조용히 miss 처리하되 세션 캐시에 저장하지 않는다. 일시적 인증/네트워크
-        // 오류를 miss 로 고정하면 서버 복구 후에도 같은 탭에서 AI 카드가 계속 비어 보인다.
-        const next: PeekState = { narrative: null, loading: false, cacheMiss: true, stale: false };
+        const errorKind = error instanceof NarrativeRequestError ? error.kind : "request";
+        // 실패는 cache miss로 저장하지 않는다. cooldown은 공통 client가 관리하고 사용자는
+        // 명시적인 retry로 즉시 복구할 수 있다.
+        const next: PeekState = {
+          narrative: null,
+          loading: false,
+          cacheMiss: false,
+          stale: false,
+          errorKind,
+        };
         if (activeKeyRef.current === key) setState(next);
-      })
-      .finally(() => {
-        if (calledRef.current === key) calledRef.current = null;
       });
-  }, [user?.uid, discipline, enabled, facts, lang]);
+  }, [user?.uid, discipline, enabled, factsFingerprint, lang, retryRevision]);
 
-  return state;
+  return { ...state, retry };
 }
 
 /** 오늘 날짜 기준 peek 세션 캐시 무효화.
@@ -196,6 +219,7 @@ export function invalidateTodaysNarrativePeekCache(uid: string, discipline: Peek
     const key = peekKey(uid, discipline, lang);
     bumpPeekRevision(key);
     peekDone.delete(key);
+    clearTodaysNarrativeRequestState(`peek:${key}:`);
   }
   // 구버전(언어 구분 전) 세션 키가 남아 있는 탭과도 호환한다.
   peekDone.delete(`${uid}:${discipline}`);
