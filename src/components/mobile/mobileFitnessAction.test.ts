@@ -7,7 +7,7 @@ function read(path: string): string {
 }
 
 describe("mobile fitness action", () => {
-  it("orders today's workout before core status, load, and sport analysis", () => {
+  it("shows today's workout only on integrated mobile fitness and keeps core sections ordered", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const overview = source.slice(source.indexOf('{activeTab === "overview"'));
     const workoutIndex = overview.indexOf("<TodaysWorkoutCard />");
@@ -17,12 +17,12 @@ describe("mobile fitness action", () => {
     const analysisIndex = overview.indexOf('{activeTab === "analysis"');
 
     expect(workoutIndex).toBeGreaterThan(-1);
+    expect(overview).toContain('data.discipline === "tri" && (');
     expect(overview).not.toContain('<TodaysWorkoutCard variant="compact" />');
     expect(coreIndex).toBeGreaterThan(-1);
     expect(loadIndex).toBeGreaterThan(-1);
     expect(overview).toContain('data.discipline === "tri" && data.combinedLoad');
     expect(sportIndex).toBeGreaterThan(-1);
-    expect(workoutIndex).toBeLessThan(coreIndex);
     expect(coreIndex).toBeLessThan(loadIndex);
     expect(loadIndex).toBeLessThan(sportIndex);
     expect(workoutIndex).toBeLessThan(analysisIndex);
@@ -39,12 +39,30 @@ describe("mobile fitness action", () => {
     expect(plan).toContain('<TodaysWorkoutCard variant="compact" />');
   });
 
-  it("uses the full AI coach across desktop fitness, including integrated and empty states", () => {
+  it("uses the full AI coach only in desktop integrated fitness", () => {
     const fitness = read("src/pages/FitnessPage.tsx");
     const triFitness = read("src/pages/fitness/TriFitnessView.tsx");
-    expect(fitness).toContain("<TodaysWorkoutCard />");
-    expect(fitness).not.toContain('<TodaysWorkoutCard variant="compact" />');
+    expect(fitness).not.toContain("TodaysWorkoutCard");
     expect(triFitness).toContain("<TodaysWorkoutCard />");
+    expect(triFitness.match(/<TodaysWorkoutCard \/>/g)).toHaveLength(1);
+  });
+
+  it("uses shrink-safe grid tracks for the integrated mobile summary", () => {
+    const integrated = read("src/components/mobile/IntegratedLoadCard.tsx");
+    expect(integrated).toContain('gridTemplateColumns: "minmax(0, 1.35fr) repeat(2, minmax(0, 1fr))"');
+    expect(integrated).toContain('gridTemplateColumns: "repeat(3, minmax(0, 1fr))"');
+    expect(integrated).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
+    expect(integrated).not.toContain("minWidth: 320");
+    expect(integrated).not.toContain("minWidth: 390");
+  });
+
+  it("keeps integrated snapshot and mobile PMC history as separate roles", () => {
+    const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
+    const integrated = read("src/components/mobile/IntegratedLoadCard.tsx");
+    expect(mobileFitness).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다.");
+    expect(mobileFitness).toContain('title={t("mobileFitness.pmcTitle"');
+    expect(integrated).not.toContain("PmcMiniChart");
+    expect(integrated).not.toContain("TripleStackPMC");
   });
 
   it.each([

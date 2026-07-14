@@ -512,9 +512,11 @@ export default function MobileFitnessPage({
 
       {activeTab === "overview" && (
         <div style={{ paddingTop: 14 }}>
-          <div style={{ padding: "0 14px 14px" }}>
-            <TodaysWorkoutCard />
-          </div>
+          {data.discipline === "tri" && (
+            <div style={{ padding: "0 14px 14px" }}>
+              <TodaysWorkoutCard />
+            </div>
+          )}
 
           {data.discipline === "bike" && (
             <BikePerformanceSummaryCard
@@ -544,13 +546,13 @@ export default function MobileFitnessPage({
             </div>
           )}
 
-          {consistencyStreak && (
+          {data.discipline !== "tri" && consistencyStreak && (
             <div style={{ padding: "0 14px 14px" }}>
               <ConsistencyStreakCard summary={consistencyStreak} compact />
             </div>
           )}
 
-          {/* PMC 추이 */}
+          {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
           <SectionCard title={t("mobileFitness.pmcTitle", { n: data.pmcHistory.length })} sub={t("mobileFitness.pmcSub")}>
             {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
                 제목/범례는 카드 padding 인셋 유지. */}

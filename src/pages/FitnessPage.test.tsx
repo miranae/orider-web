@@ -21,10 +21,6 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
     </div>
   ),
 }));
-vi.mock("../components/training/TodaysWorkoutCard", () => ({
-  default: () => <div data-testid="desktop-full-ai-coach" />,
-}));
-
 vi.mock("./fitness/TriFitnessView", () => ({
   default: ({ combinedLoad, loadFocus }: { combinedLoad?: { ctl: number } | null; loadFocus: { totalLoad: number } }) => (
     <div>
@@ -87,11 +83,11 @@ describe("FitnessPage", () => {
     expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
   });
 
-  it("keeps the full AI coach visible on desktop when activities are empty", async () => {
+  it("keeps today's workout out of an empty single-sport desktop tab", async () => {
     viewport.isMobile = false;
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
-    expect(await screen.findByTestId("desktop-full-ai-coach")).toBeInTheDocument();
-    expect(screen.getByText("피트니스 차트를 만들 활동이 아직 없어요")).toBeInTheDocument();
+    expect(await screen.findByText("피트니스 차트를 만들 활동이 아직 없어요")).toBeInTheDocument();
+    expect(screen.queryByTestId("desktop-full-ai-coach")).not.toBeInTheDocument();
   });
 
   it("does not pass integrated detail to a single-sport mobile tab", async () => {

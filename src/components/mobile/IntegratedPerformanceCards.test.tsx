@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
@@ -18,7 +19,7 @@ const focus: LoadFocusResult = {
 };
 
 describe("IntegratedLoadCard", () => {
-  it("renders authoritative combined status, contribution and accessible focus bands", () => {
+  it("keeps the combined status, normalized contribution and focus summaries visible", () => {
     renderWithProviders(<IntegratedLoadCard combined={{
       ctl: 42,
       atl: 38,
@@ -31,10 +32,56 @@ describe("IntegratedLoadCard", () => {
     }} focus={focus} />);
 
     expect(screen.getByRole("region", { name: /통합 멀티스포츠 훈련 상태/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "통합 멀티스포츠 상태" })).toBeInTheDocument();
     expect(screen.getByText("42.0")).toBeInTheDocument();
     expect(screen.getByText("+4.0")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /기초 유산소: 부하 40.0, 40퍼센트/ })).toBeInTheDocument();
-    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /현재 체력 종목 기여도: 사이클 30.0, 71퍼센트/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /최근 28일 부하 포커스: 기초 유산소 40.0, 40퍼센트/ })).toBeInTheDocument();
+    expect(screen.getByText("주요 부하 · 기초 유산소")).toBeInTheDocument();
+    expect(screen.getByText("분류 커버리지 90% · 신뢰도 높음")).toBeInTheDocument();
+    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeVisible();
+  });
+
+  it("keeps methodology closed until the accessible details control is opened", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<IntegratedLoadCard combined={{
+      ctl: 42, atl: 38, tsb: 4, contributions: [],
+    }} focus={focus} />);
+
+    const toggle = screen.getByText("계산 방법과 해석 근거").closest("summary");
+    expect(toggle).toBeInTheDocument();
+    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeVisible();
+
+    await user.click(toggle!);
+    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).toBeVisible();
+    expect(screen.getByText(/서버에서 계산한 CTL/)).toBeVisible();
+  });
+
+  it("sanitizes missing, negative, and non-finite breakdown values", () => {
+    renderWithProviders(<IntegratedLoadCard combined={{
+      ctl: 0,
+      atl: 0,
+      tsb: 0,
+      contributions: [
+        { discipline: "bike", ctl: Number.NaN },
+        { discipline: "run", ctl: -4 },
+      ],
+    }} focus={{
+      ...focus,
+      windowDays: Number.NaN,
+      totalLoad: Number.NaN,
+      buckets: { baseAerobic: Number.NaN, highAerobic: -5, highIntensity: 0, unclassified: 0 },
+      sourceLoad: { power: Number.NaN, heartRate: -2, unclassified: 0 },
+      coveragePct: Number.NaN,
+      confidence: "none",
+    }} />);
+
+    expect(screen.getByRole("img", { name: /종목별 체력 기여 데이터 없음/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /최근 28일 부하 포커스: 분류된 부하 없음/ })).toBeInTheDocument();
+    expect(screen.getByText("분류 0% · 없음")).toBeInTheDocument();
+    expect(screen.getAllByText("CTL 0.0 · 0%")).toHaveLength(3);
+    expect(screen.getAllByText("0.0 · 0%")).toHaveLength(4);
+    expect(document.body.textContent).not.toMatch(/NaN|Infinity|-5\.0|-4\.0/);
   });
 
   it("does not render non-finite authoritative totals", () => {
@@ -46,6 +93,20 @@ describe("IntegratedLoadCard", () => {
     }} focus={focus} />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("clamps authoritative CTL and ATL to zero while preserving signed TSB", () => {
+    renderWithProviders(<IntegratedLoadCard combined={{
+      ctl: -12,
+      atl: -3,
+      tsb: -9,
+      contributions: [],
+    }} focus={focus} />);
+
+    expect(screen.getAllByText("0.0")).toHaveLength(2);
+    expect(screen.getByText("-9.0")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("-12.0");
+    expect(document.body.textContent).not.toContain("-3.0");
   });
 });
 

@@ -15,6 +15,8 @@ describe("consistency streak card placement", () => {
 
   it("passes the streak summary through mobile dashboard and fitness pages", () => {
     expect(read("src/components/mobile/MobileFeedPage.tsx")).toContain("consistencyStreak");
-    expect(read("src/components/mobile/MobileFitnessPage.tsx")).toContain("consistencyStreak");
+    const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
+    expect(mobileFitness).toContain("consistencyStreak");
+    expect(mobileFitness).toContain('data.discipline !== "tri" && consistencyStreak');
   });
 });

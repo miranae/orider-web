@@ -45,7 +45,6 @@ import CohortRankingCard from "../components/CohortRankingCard";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import AdaptationSummary from "../components/training/AdaptationSummary";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
-import TodaysWorkoutCard from "../components/training/TodaysWorkoutCard";
 import TodayConclusion from "../components/training/TodayConclusion";
 import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
@@ -909,9 +908,6 @@ export default function FitnessPage() {
       <div>
         {pageHeader}
         <div className="site-shell" style={bodyPad}>
-          <div style={{ marginBottom: "var(--space-4)" }}>
-            <TodaysWorkoutCard />
-          </div>
           <EmptyState
             icon="📈"
             title={t("empty.noActivities")}
@@ -930,9 +926,9 @@ export default function FitnessPage() {
       {pageHeader}
 
       <div className="site-shell" style={bodyPad}>
-        {/* 오늘의 결론 (#400 §1·§2) — 경고/회복/주간해석/워크아웃 추천을 모순 없는 한 문장으로
-            합성한 결론 + 바로 아래 유일한 primary CTA(TodaysWorkoutCard). 근거가 되는 개별
-            지표 카드는 아래 "근거 보기" 상세로 내려간다. */}
+        {/* 오늘의 결론 (#400 §1·§2) — 경고/회복/주간해석을 모순 없는 한 문장으로
+            합성한다. 워크아웃 추천은 통합 탭에서만 노출하고, 근거가 되는 개별 지표 카드는
+            아래 "근거 보기" 상세로 내려간다. */}
         {currentPoint && (
           <TodayConclusion
             tsb={tsb}
@@ -941,10 +937,6 @@ export default function FitnessPage() {
             avgWeekTSS={weeklyStats.avgWeekTSS}
           />
         )}
-
-        <div style={{ marginBottom: "var(--space-4)" }}>
-          <TodaysWorkoutCard />
-        </div>
 
         {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
           <DetailsSection title={t("conclusion.evidenceToggle")}>
