@@ -706,7 +706,7 @@ export default function FitnessPage() {
           atl: cp?.atl ?? 0,
           tsb: cp?.tsb ?? 0,
           pmcHistory,
-          pmcProjection: projection?.series ?? null,
+          pmcProjection: discipline === "tri" ? null : projection?.series ?? null,
           today: toLocalDate(Date.now()),
           weeklyTSS,
           thisWeekTSS: weeklyStats.thisWeekTSS,
