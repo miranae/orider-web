@@ -574,6 +574,8 @@ export default function MobileFitnessPage({
                 cycling={data.cyclingAbility}
                 run={data.runEvidence}
                 swim={data.swimEvidence}
+                distributions={data.pdcSummary?.cohortDistributions}
+                cohortComputedAt={data.pdcSummary?.cohortComputedAt}
               />
             </div>
           )}
