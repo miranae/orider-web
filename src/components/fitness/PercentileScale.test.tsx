@@ -22,7 +22,7 @@ describe("PercentileScale", () => {
     expect(screen.queryByText(/상위 \d+%/)).not.toBeInTheDocument();
     const population = screen.getByText("비교 집단");
     expect(population).toBeInTheDocument();
-    expect(meter).toHaveAttribute("aria-describedby", population.id);
+    expect(meter).toHaveAttribute("aria-describedby", population.parentElement?.id);
     expect(container.querySelector("[data-percentile-marker]")).toHaveStyle({
       left: `clamp(var(--space-1), ${score}%, calc(100% - var(--space-1)))`,
     });
@@ -40,6 +40,19 @@ describe("PercentileScale", () => {
     expect(container.querySelector("[data-percentile-marker]")).toHaveStyle({ background: "var(--violet)" });
     expect(container.querySelector('[data-percentile-visual="ruler"]')).toBeInTheDocument();
     expect(screen.getAllByRole("meter")).toHaveLength(1);
+  });
+
+  it("can leave the shared ruler explanation to a parent and clarify a clipped floor score", () => {
+    renderWithProviders(
+      <PercentileScale percentile={1} ariaLabel="하한 백분위" floorClipped showRulerGuide={false} />,
+    );
+
+    expect(screen.getByRole("meter", { name: "하한 백분위" })).toHaveAttribute(
+      "aria-valuetext",
+      "백분위 1 이하, 기준표 하한",
+    );
+    expect(screen.getByText("백분위 1 이하 · 기준표 하한")).toBeInTheDocument();
+    expect(screen.queryByText(/분포 데이터가 없어/)).not.toBeInTheDocument();
   });
 
   it("renders validated cohort bins as density with a raw-value marker and privacy-safe context", () => {

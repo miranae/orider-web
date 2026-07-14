@@ -21,6 +21,24 @@ import { Home, Activity, Map, Users, Settings, type LucideIcon } from "lucide-re
 
 export type HubKey = "home" | "train" | "explore" | "community" | "settings";
 
+export interface ActiveHubContext {
+  /** 현재 로그인 사용자. 비로그인 상태는 null. */
+  viewerUid?: string | null;
+  /** 활동 상세가 로드한 실제 소유자. 아직 로드되지 않았으면 null. */
+  activityOwnerId?: string | null;
+}
+
+/** `/activity/:activityId` 상세 경로의 활동 ID. 편집 등 하위 경로는 제외한다. */
+export function getActivityIdFromDetailPath(path: string): string | null {
+  const match = /^\/activity\/([^/]+)\/?$/.exec(path);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 export interface HubSub {
   /** i18n 키 (common 네임스페이스) */
   labelKey: string;
@@ -128,8 +146,15 @@ export const HUBS: Hub[] = [
   },
 ];
 
-/** 경로 → 활성 허브 key (매칭 없으면 home 폴백). */
-export function getActiveHub(path: string): HubKey {
+/** 경로와 상세 화면 문맥 → 활성 허브 key (매칭 없으면 home 폴백). */
+export function getActiveHub(path: string, context: ActiveHubContext = {}): HubKey {
+  // 활동 상세는 경로만으로 "내 운동"인지 판단할 수 없다. 소유자가 확인된 본인 활동만
+  // 내 운동으로 표시하고, 타인 활동과 로딩 중인 직접 진입은 홈 피드 문맥을 유지한다.
+  if (getActivityIdFromDetailPath(path) !== null) {
+    return context.viewerUid != null && context.viewerUid === context.activityOwnerId
+      ? "train"
+      : "home";
+  }
   return HUBS.find((h) => h.match(path))?.key ?? "home";
 }
 

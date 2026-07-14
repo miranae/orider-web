@@ -724,6 +724,9 @@ export default function FitnessPage() {
           pdcSummary: discipline === "bike" ? {
             riderType: pdc?.riderType ?? null,
             abilityPercentile: pdc?.ability?.overallPercentile ?? null,
+            ttePercentile: thresholdDecision.tteMin != null && cohortStats.status === "ready"
+              ? percentileOf(thresholdDecision.tteMin, cohortStats.stats.metrics?.tte?.cohorts?.all ?? {})
+              : null,
             vo2maxEst: pdc?.vo2maxEst ?? null,
             vo2maxPercentile: pdc?.vo2maxEst != null && cohortStats.status === "ready"
               ? percentileOf(pdc.vo2maxEst, cohortStats.stats.metrics?.vo2max?.cohorts?.all ?? {})

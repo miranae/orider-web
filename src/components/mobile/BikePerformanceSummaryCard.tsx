@@ -10,6 +10,7 @@ import type { CohortDistributions } from "../../hooks/useCohortPercentiles";
 export interface MobileFitnessPdcSummary {
   riderType: { type: string; confidence: number } | null;
   abilityPercentile: number | null;
+  ttePercentile?: number | null;
   vo2maxEst: number | null;
   vo2maxPercentile: number | null;
   activityCount: number | null;
@@ -39,6 +40,9 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
   const { t } = useTranslation("dashboard");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const evidenceId = useId();
+  const cohortContextId = useId();
+  const tteDescriptionId = `${cohortContextId}-tte`;
+  const vo2DescriptionId = `${cohortContextId}-vo2`;
   const activeFtp = decision?.activeFtpW ?? null;
   const wkg = activeFtp != null && weightKg && weightKg > 0 ? activeFtp / weightKg : null;
   const wkgSummary = activeFtp == null
@@ -67,6 +71,18 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
     { key: "tte", label: t("mobileFitness.performance.metrics.tte"), value: decision?.tteMin ?? null, unit: t("fitness:thresholdDecision.minuteUnit"), status: decision?.tteMin != null ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
     { key: "vo2max", label: "VO₂max", value: vo2max, unit: "ml/kg/min", status: vo2max != null ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
   ];
+  const hasRulerOnlyCohortMetric = pdc?.ttePercentile != null
+    || (pdc?.vo2maxPercentile != null && pdc.cohortDistributions?.vo2max == null);
+  const vo2Distribution = pdc?.cohortDistributions?.vo2max;
+  const hasVo2Density = vo2Distribution != null
+    && vo2max != null
+    && vo2max >= vo2Distribution.domain[0]
+    && vo2max <= vo2Distribution.domain[1];
+  const cohortPopulation = pdc?.ttePercentile != null && pdc?.vo2maxPercentile != null
+    ? t("mobileFitness.performance.cohortPopulation")
+    : pdc?.ttePercentile != null
+      ? t("mobileFitness.performance.ttePopulation")
+      : t("mobileFitness.performance.vo2Population");
 
   return (
     <section aria-label={t("mobileFitness.performance.ariaLabel")} style={{ marginBottom: "var(--space-3)", padding: "var(--space-5) var(--space-4)", background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)" }}>
@@ -107,22 +123,59 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
               {metric.value != null && <Text as="span" variant="unit" style={{ whiteSpace: "nowrap" }}>{metric.unit}</Text>}
             </div>
             <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{metric.status}</Text>
+            {metric.key === "tte" && metric.value != null && pdc?.ttePercentile != null && (
+              <div style={{ marginTop: "var(--space-3)" }}>
+                <PercentileScale
+                  percentile={pdc.ttePercentile}
+                  ariaLabel={t("mobileFitness.performance.tteMeterAria")}
+                  accentColor="var(--aqua)"
+                  showContext={false}
+                  externalDescriptionId={tteDescriptionId}
+                />
+              </div>
+            )}
             {metric.key === "vo2max" && metric.value != null && pdc?.vo2maxPercentile != null && (
               <div style={{ marginTop: "var(--space-3)" }}>
                 <PercentileScale
                   percentile={pdc.vo2maxPercentile}
                   ariaLabel={t("mobileFitness.performance.vo2MeterAria")}
-                  population={t("mobileFitness.performance.vo2Population")}
                   accentColor="var(--aqua)"
                   distribution={pdc.cohortDistributions?.vo2max}
                   distributionValue={vo2max}
                   fallbackComputedAt={pdc.cohortComputedAt}
+                  showContext={false}
+                  externalDescriptionId={vo2DescriptionId}
                 />
               </div>
             )}
           </div>
         ))}
       </div>
+      {(pdc?.ttePercentile != null || pdc?.vo2maxPercentile != null) && (
+        <div style={{ marginTop: "var(--space-2)" }}>
+          <PercentileScale
+            percentile={pdc.vo2maxPercentile ?? pdc.ttePercentile ?? 0}
+            ariaLabel={t("mobileFitness.performance.cohortContextAria")}
+            population={cohortPopulation}
+            distribution={pdc.vo2maxPercentile != null ? vo2Distribution : null}
+            distributionValue={vo2max}
+            fallbackComputedAt={pdc.cohortComputedAt}
+            hideScale
+            contextId={cohortContextId}
+            alwaysShowRulerGuide={hasRulerOnlyCohortMetric}
+          />
+          {pdc?.ttePercentile != null && (
+            <span id={tteDescriptionId} className="sr-only">
+              {cohortPopulation}. {t("mobileFitness.percentile.rulerGuide")}
+            </span>
+          )}
+          {pdc?.vo2maxPercentile != null && (
+            <span id={vo2DescriptionId} className="sr-only">
+              {cohortPopulation}. {t(hasVo2Density ? "mobileFitness.percentile.densityGuide" : "mobileFitness.percentile.rulerGuide")}
+            </span>
+          )}
+        </div>
+      )}
 
       <FtpProgressionCard points={progression} currentFtpW={activeFtp} breakthrough={null} embedded compact />
 

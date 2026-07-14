@@ -53,7 +53,10 @@ vi.mock("chart.js", () => ({
   Filler: class {},
 }));
 
-const { mockRoute } = vi.hoisted(() => ({ mockRoute: { activityId: "test-activity" } }));
+const { mockRoute, mockSetActivityOwner } = vi.hoisted(() => ({
+  mockRoute: { activityId: "test-activity" },
+  mockSetActivityOwner: vi.fn(),
+}));
 const findSentButton = () => screen.findByRole("button", { name: "앱으로 전송됨" }, { timeout: 5000 });
 
 // Mock react-router-dom useParams
@@ -62,6 +65,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
   return {
     ...actual,
     useParams: () => ({ activityId: mockRoute.activityId }),
+    useOutletContext: () => ({ setActivityOwner: mockSetActivityOwner }),
   };
 });
 
@@ -74,6 +78,7 @@ describe("ActivityPage", () => {
     vi.mocked(onAuthStateChanged).mockClear();
     vi.mocked(where).mockClear();
     vi.mocked(httpsCallable).mockClear();
+    mockSetActivityOwner.mockClear();
     window.sessionStorage.clear();
     clearRideRouteIntentMemoryForTests();
   });
@@ -102,6 +107,41 @@ describe("ActivityPage", () => {
     await waitFor(() => {
       expect(screen.getByText("한강 아침 라이딩")).toBeInTheDocument();
     });
+  });
+
+  it("publishes the current owner and clears stale ownership across route changes", async () => {
+    const first = createMockActivity({
+      id: "test-activity",
+      userId: "owner-a",
+      description: "첫 활동",
+    });
+    const second = createMockActivity({
+      id: "next-activity",
+      userId: "owner-b",
+      description: "다음 활동",
+    });
+    setDocData("activities/test-activity", first as unknown as Record<string, unknown>);
+    setDocData("activities/next-activity", second as unknown as Record<string, unknown>);
+
+    const view = renderWithProviders(<ActivityPage />);
+    await screen.findByText("첫 활동");
+    await waitFor(() => expect(mockSetActivityOwner).toHaveBeenCalledWith({
+      activityId: "test-activity",
+      ownerId: "owner-a",
+    }));
+
+    const callsBeforeTransition = mockSetActivityOwner.mock.calls.length;
+    mockRoute.activityId = "next-activity";
+    view.rerender(<ActivityPage />);
+    expect(mockSetActivityOwner.mock.calls.slice(callsBeforeTransition)).toContainEqual([null]);
+    await screen.findByText("다음 활동");
+    await waitFor(() => expect(mockSetActivityOwner).toHaveBeenCalledWith({
+      activityId: "next-activity",
+      ownerId: "owner-b",
+    }));
+
+    view.unmount();
+    expect(mockSetActivityOwner).toHaveBeenLastCalledWith(null);
   });
 
   it("passes activity identity and visibility context to the share action", async () => {
@@ -586,6 +626,23 @@ describe("ActivityPage", () => {
     await screen.findByText("한강 라이딩");
     expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
   });
+
+  it.each(["run", "swim", "other"])(
+    "does not offer route-to-app for %s activities even when a route exists",
+    async (type) => {
+      const activity = createMockActivity({
+        id: "test-activity",
+        type,
+        thumbnailTrack: "encoded-route",
+      });
+      setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+
+      renderWithProviders(<ActivityPage />, { authenticated: true });
+
+      await screen.findByText("한강 라이딩");
+      expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
+    },
+  );
 
   it("shows saved sensor summary on analysis tab when streams are missing", async () => {
     const activity = createMockActivity({

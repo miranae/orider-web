@@ -39,14 +39,12 @@ const gridCellStyle = {
   borderBottom: "1px solid var(--line-soft)",
 } as const;
 
-const lastCellStyle = {
-  borderBottom: "1px solid var(--line-soft)",
-} as const;
-
 const baselineStyle = {
   display: "flex",
   alignItems: "baseline",
   gap: "var(--space-1)",
+  minWidth: 0,
+  whiteSpace: "nowrap",
 } as const;
 
 function MetricCell({
@@ -54,14 +52,12 @@ function MetricCell({
   children,
   sub,
   title,
-  last = false,
   explain,
 }: {
   label: React.ReactNode;
   children: React.ReactNode;
   sub?: React.ReactNode;
   title?: string;
-  last?: boolean;
   /** 지정되면 셀 전체가 지표 해설 시트를 여는 탭 타깃이 된다. */
   explain?: { metric: MetricKey; context: InterpretationContext; sport: SportCategory };
 }) {
@@ -82,7 +78,7 @@ function MetricCell({
   );
 
   return (
-    <div className="p-4 sm:p-5" style={last ? lastCellStyle : gridCellStyle}>
+    <div className="min-w-0 p-4 sm:p-5" style={gridCellStyle}>
       {explain ? (
         <MetricExplainerTrigger
           metric={explain.metric}
@@ -99,8 +95,8 @@ function MetricCell({
   );
 }
 
-function Value({ children, compact = false }: { children: React.ReactNode; compact?: boolean }) {
-  return <Text variant={compact ? "dataMedium" : "dataLarge"}>{children}</Text>;
+function Value({ children }: { children: React.ReactNode }) {
+  return <Text variant="dataLarge">{children}</Text>;
 }
 
 function Unit({ children }: { children: React.ReactNode }) {
@@ -136,11 +132,6 @@ export function ActivityStatsGrid({
     pauseTimeSec,
   });
 
-  const showAdditionalRow =
-    (s.averageHeartRate != null && avgPowerValue != null && (sport === "ride" || sport === "run")) ||
-    s.maxSpeed > 0 ||
-    s.averageCadence != null;
-
   /** 러닝에서만 해설을 붙인다 — 사이클·수영 해설 콘텐츠는 아직 집필되지 않았다. */
   const explainFor = (metric: MetricKey) =>
     sport === "run" && interpretationContext
@@ -148,8 +139,10 @@ export function ActivityStatsGrid({
       : undefined;
 
   return (
-    <div>
-      <div className="grid grid-cols-3 sm:grid-cols-6" style={{ borderBottom: "none" }}>
+    <div
+      className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+      data-testid="activity-stats-grid"
+    >
         {sport !== "other" && (
           <MetricCell label={t("stat.distance")}>
             {sport === "swim" ? (
@@ -168,7 +161,6 @@ export function ActivityStatsGrid({
 
         <MetricCell
           label={duration.usingMoving ? t("stat.movingTime") : t("stat.elapsedTime")}
-          sub={duration.usingMoving ? t("stat.movingTimeTotal", { elapsed: formatDuration(duration.elapsedMs), pause: formatDuration(duration.pauseMs!) }) : undefined}
         >
           <Value>{formatDuration(duration.displayMs)}</Value>
         </MetricCell>
@@ -224,6 +216,54 @@ export function ActivityStatsGrid({
           </MetricCell>
         )}
 
+        {sport === "ride" && s.maxSpeed > 0 && (
+          <MetricCell
+            label={t("stat.maxSpeed")}
+            title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
+          >
+            {maxSpeedImplausible ? (
+              <Value>--</Value>
+            ) : (
+              <>
+                <Value>{speedVal(s.maxSpeed)}</Value>
+                <Unit>{speedUnit}</Unit>
+              </>
+            )}
+          </MetricCell>
+        )}
+
+        {sport === "run" && s.maxSpeed > 0 && (
+          <MetricCell
+            label={t("stat.maxPace")}
+            title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
+          >
+            {maxSpeedImplausible ? (
+              <Value>--</Value>
+            ) : (
+              <>
+                <Value>{formatPace(s.maxSpeed)}</Value>
+                <Unit>/km</Unit>
+              </>
+            )}
+          </MetricCell>
+        )}
+
+        {sport === "swim" && s.maxSpeed > 0 && (
+          <MetricCell
+            label={t("stat.maxPace")}
+            title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
+          >
+            {maxSpeedImplausible ? (
+              <Value>--</Value>
+            ) : (
+              <>
+                <Value>{formatSwimPace(s.maxSpeed)}</Value>
+                <Unit>/100m</Unit>
+              </>
+            )}
+          </MetricCell>
+        )}
+
         {showElevation && s.elevationGain > 0 && (
           <MetricCell label={t("stat.elev")}>
             <Value>{elevVal(s.elevationGain)}</Value>
@@ -249,6 +289,37 @@ export function ActivityStatsGrid({
           </MetricCell>
         ) : null}
 
+        {s.averageHeartRate != null && avgPowerValue != null && (sport === "ride" || sport === "run") && (
+          <MetricCell
+            label={t("stat.avgPower")}
+            sub={normalizedPowerValue != null ? `NP ${Math.round(normalizedPowerValue)}` : undefined}
+          >
+            <Value>{Math.round(avgPowerValue)}</Value>
+            <Unit>W</Unit>
+          </MetricCell>
+        )}
+
+        {s.averageCadence != null && sport === "ride" && (
+          <MetricCell label={t("stat.avgCadence")}>
+            <Value>{Math.round(s.averageCadence)}</Value>
+            <Unit>rpm</Unit>
+          </MetricCell>
+        )}
+
+        {s.averageCadence != null && sport === "run" && (
+          <MetricCell label={t("stat.cadence")} explain={explainFor("cadence")}>
+            <Value>{Math.round(s.averageCadence)}</Value>
+            <Unit>spm</Unit>
+          </MetricCell>
+        )}
+
+        {s.averageCadence != null && sport === "swim" && (
+          <MetricCell label={t("stat.avgStroke")}>
+            <Value>{Math.round(s.averageCadence)}</Value>
+            <Unit>spm</Unit>
+          </MetricCell>
+        )}
+
         {s.tss != null && (
           <MetricCell
             label={sport === "run" ? t("stat.runLoad") : sport === "swim" ? "sTSS" : "TSS"}
@@ -265,95 +336,11 @@ export function ActivityStatsGrid({
         )}
 
         {s.calories != null && (
-          <MetricCell label={t("stat.calories")} last>
+          <MetricCell label={t("stat.calories")}>
             <Value>{Math.round(s.calories).toLocaleString()}</Value>
             <Unit>kcal</Unit>
           </MetricCell>
         )}
-      </div>
-
-      {showAdditionalRow && (
-        <div className="grid grid-cols-3 sm:grid-cols-6" style={{ borderTop: "1px solid var(--line-soft)" }}>
-          {s.averageHeartRate != null && avgPowerValue != null && (sport === "ride" || sport === "run") && (
-            <MetricCell
-              label={t("stat.avgPower")}
-              sub={normalizedPowerValue != null ? `NP ${Math.round(normalizedPowerValue)}` : undefined}
-            >
-              <Value compact>{Math.round(avgPowerValue)}</Value>
-              <Unit>W</Unit>
-            </MetricCell>
-          )}
-
-          {sport === "ride" && s.maxSpeed > 0 && (
-            <MetricCell
-              label={t("stat.maxSpeed")}
-              title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
-            >
-              {maxSpeedImplausible ? (
-                <Value compact>--</Value>
-              ) : (
-                <>
-                  <Value compact>{speedVal(s.maxSpeed)}</Value>
-                  <Unit>{speedUnit}</Unit>
-                </>
-              )}
-            </MetricCell>
-          )}
-
-          {sport === "run" && s.maxSpeed > 0 && (
-            <MetricCell
-              label={t("stat.maxPace")}
-              title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
-            >
-              {maxSpeedImplausible ? (
-                <Value compact>--</Value>
-              ) : (
-                <>
-                  <Value compact>{formatPace(s.maxSpeed)}</Value>
-                  <Unit>/km</Unit>
-                </>
-              )}
-            </MetricCell>
-          )}
-
-          {sport === "swim" && s.maxSpeed > 0 && (
-            <MetricCell
-              label={t("stat.maxPace")}
-              title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
-            >
-              {maxSpeedImplausible ? (
-                <Value compact>--</Value>
-              ) : (
-                <>
-                  <Value compact>{formatSwimPace(s.maxSpeed)}</Value>
-                  <Unit>/100m</Unit>
-                </>
-              )}
-            </MetricCell>
-          )}
-
-          {s.averageCadence != null && sport === "ride" && (
-            <MetricCell label={t("stat.avgCadence")}>
-              <Value compact>{Math.round(s.averageCadence)}</Value>
-              <Unit>rpm</Unit>
-            </MetricCell>
-          )}
-
-          {s.averageCadence != null && sport === "run" && (
-            <MetricCell label={t("stat.cadence")} explain={explainFor("cadence")}>
-              <Value compact>{Math.round(s.averageCadence)}</Value>
-              <Unit>spm</Unit>
-            </MetricCell>
-          )}
-
-          {s.averageCadence != null && sport === "swim" && (
-            <MetricCell label={t("stat.avgStroke")}>
-              <Value compact>{Math.round(s.averageCadence)}</Value>
-              <Unit>spm</Unit>
-            </MetricCell>
-          )}
-        </div>
-      )}
     </div>
   );
 }
