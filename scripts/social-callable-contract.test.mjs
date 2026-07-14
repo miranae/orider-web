@@ -25,6 +25,7 @@ function jsonResponse(body, status = 200) {
 function activeResource(name) {
   return {
     name: functionResourceName(project, region, name),
+    environment: "GEN_2",
     state: "ACTIVE",
     serviceConfig: { uri: `https://${name.toLowerCase()}-revision.a.run.app` },
   };
@@ -59,7 +60,7 @@ test("manifest pins the eight deployed backend callable names", () => {
   ]);
 });
 
-test("ACTIVE resources with callable auth rejection pass", async () => {
+test("GEN_2 ACTIVE resources with callable auth rejection pass", async () => {
   const results = await verifySocialCallableContract({
     project, region, accessToken, manifest, fetchImpl: successfulFetch(),
   });
@@ -67,7 +68,7 @@ test("ACTIVE resources with callable auth rejection pass", async () => {
   assert.ok(results.every(({ state, endpoint }) => state === "ACTIVE" && endpoint === "unauthenticated"));
 });
 
-test("missing resource, inactive function, and endpoint 404 fail distinctly", async (t) => {
+test("missing, non-Gen2, inactive, and endpoint 404 states fail distinctly", async (t) => {
   await t.test("missing function API resource", async () => {
     await assert.rejects(() => verifySocialCallableContract({
       project,
@@ -86,6 +87,31 @@ test("missing resource, inactive function, and endpoint 404 fail distinctly", as
       fetchImpl: successfulFetch({ resource: (name) => jsonResponse({ ...activeResource(name), state: "FAILED" }) }),
     }), /function is not ACTIVE/);
   });
+  await t.test("Gen1 function", async () => {
+    await assert.rejects(() => verifySocialCallableContract({
+      project,
+      region,
+      accessToken,
+      manifest,
+      fetchImpl: successfulFetch({ resource: (name) => jsonResponse({
+        ...activeResource(name),
+        environment: "GEN_1",
+      }) }),
+    }), /function is not Gen2 \(environment=GEN_1\)/);
+  });
+  await t.test("missing function environment", async () => {
+    await assert.rejects(() => verifySocialCallableContract({
+      project,
+      region,
+      accessToken,
+      manifest,
+      fetchImpl: successfulFetch({ resource: (name) => {
+        const resource = activeResource(name);
+        delete resource.environment;
+        return jsonResponse(resource);
+      } }),
+    }), /function is not Gen2 \(environment=MISSING\)/);
+  });
   await t.test("endpoint 404", async () => {
     await assert.rejects(() => verifySocialCallableContract({
       project,
@@ -94,6 +120,17 @@ test("missing resource, inactive function, and endpoint 404 fail distinctly", as
       manifest,
       fetchImpl: successfulFetch({ probe: () => jsonResponse({}, 404) }),
     }), /endpoint probe failed \(missing\)/);
+  });
+  await t.test("endpoint IAM or Cloud Run invoker denial", async () => {
+    await assert.rejects(() => verifySocialCallableContract({
+      project,
+      region,
+      accessToken,
+      manifest,
+      fetchImpl: successfulFetch({ probe: () => jsonResponse({
+        error: { status: "PERMISSION_DENIED", message: "Forbidden" },
+      }, 403) }),
+    }), /endpoint probe failed \(iam-or-invoker-denied\)/);
   });
 });
 
@@ -116,12 +153,15 @@ test("project/region mismatch and malformed config fail closed", async () => {
   }), /project\/region mismatch/);
 });
 
-test("only structured auth/App Check rejection is accepted", () => {
+test("only the callable/App Check 401 UNAUTHENTICATED rejection is accepted", () => {
   assert.deepEqual(classifyCallableProbe(401, { error: { status: "UNAUTHENTICATED" } }), {
     ok: true, kind: "unauthenticated",
   });
   assert.deepEqual(classifyCallableProbe(403, { error: { status: "PERMISSION_DENIED" } }), {
-    ok: true, kind: "app-check-or-access",
+    ok: false, kind: "iam-or-invoker-denied",
+  });
+  assert.deepEqual(classifyCallableProbe(403, { error: { status: "UNAUTHENTICATED" } }), {
+    ok: false, kind: "unexpected-rejection-403",
   });
   assert.deepEqual(classifyCallableProbe(403, null), {
     ok: false, kind: "unexpected-rejection-403",

@@ -41,6 +41,9 @@ export function assertActiveFunctionResource(resource, { project, region, functi
   if (!resource || resource.name !== expectedName) {
     throw new Error(`${functionName}: function resource project/region mismatch`);
   }
+  if (resource.environment !== "GEN_2") {
+    throw new Error(`${functionName}: function is not Gen2 (environment=${resource.environment ?? "MISSING"})`);
+  }
   if (resource.state !== "ACTIVE") {
     throw new Error(`${functionName}: function is not ACTIVE (state=${resource.state ?? "MISSING"})`);
   }
@@ -57,14 +60,14 @@ export function assertActiveFunctionResource(resource, { project, region, functi
 
 export function classifyCallableProbe(status, payload) {
   if (status === 404) return { ok: false, kind: "missing" };
+  const errorStatus = payload?.error?.status;
+  if (status === 401 && errorStatus === "UNAUTHENTICATED") {
+    return { ok: true, kind: "unauthenticated" };
+  }
+  if (status === 403 && errorStatus === "PERMISSION_DENIED") {
+    return { ok: false, kind: "iam-or-invoker-denied" };
+  }
   if (status === 401 || status === 403) {
-    const errorStatus = payload?.error?.status;
-    if (errorStatus === "UNAUTHENTICATED" || errorStatus === "PERMISSION_DENIED") {
-      return {
-        ok: true,
-        kind: errorStatus === "PERMISSION_DENIED" ? "app-check-or-access" : "unauthenticated",
-      };
-    }
     return { ok: false, kind: `unexpected-rejection-${status}` };
   }
   if (status >= 200 && status < 300) return { ok: false, kind: "unexpected-success" };
