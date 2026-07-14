@@ -312,6 +312,28 @@
     "tsbOverload": "Overload",
     "pmcTitle": "PMC trend · {{n}} days",
     "pmcSub": "CTL Fitness · ATL Fatigue · TSB Form",
+    "pmcByDiscipline": {
+      "tri": {
+        "title": "Combined fitness trend · {{n}} days",
+        "sub": "Training load combined across all sports",
+        "ctlLabel": "Total CTL"
+      },
+      "bike": {
+        "title": "Cycling fitness trend · {{n}} days",
+        "sub": "Calculated from cycling activity load only",
+        "ctlLabel": "Cycling CTL"
+      },
+      "run": {
+        "title": "Running fitness trend · {{n}} days",
+        "sub": "Calculated from running activity load only",
+        "ctlLabel": "Running CTL"
+      },
+      "swim": {
+        "title": "Swimming fitness trend · {{n}} days",
+        "sub": "Calculated from swimming activity load only",
+        "ctlLabel": "Swimming CTL"
+      }
+    },
     "weeklyLoadTitle": "Weekly load · last 4 weeks",
     "weeklyLoadSub": "This week {{thisWeek}} · avg {{avg}} · {{restDays}} rest days",
     "zonePowerTitle": "Power zone distribution · last 4 weeks",

@@ -1,4 +1,6 @@
 import { screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
@@ -34,6 +36,11 @@ vi.mock("./fitness/TriFitnessView", () => ({
 describe("FitnessPage", () => {
   beforeEach(() => {
     viewport.isMobile = true;
+  });
+
+  it("never carries a single-sport projection into the integrated mobile PMC", () => {
+    const source = readFileSync(join(process.cwd(), "src/pages/FitnessPage.tsx"), "utf8");
+    expect(source).toContain('pmcProjection: discipline === "tri" ? null : projection?.series ?? null');
   });
 
   it("shows the guest demo instead of the mobile dashboard for signed-out mobile visitors", async () => {
