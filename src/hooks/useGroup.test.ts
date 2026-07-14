@@ -117,7 +117,7 @@ describe("group list hooks", () => {
 
   it("keeps my group load failures distinct from an empty group list", async () => {
     const err = new Error("network down");
-    vi.mocked(getDocs).mockRejectedValueOnce(err);
+    vi.mocked(getDocs).mockRejectedValueOnce(err).mockRejectedValueOnce(err);
 
     const { result } = renderHook(() => useMyGroups("user-1"));
 
@@ -127,6 +127,129 @@ describe("group list hooks", () => {
 
     expect(result.current.groups).toEqual([]);
     expect(result.current.error).toBe(err);
+  });
+
+  it("discovers a group creator when the user_groups lookup index is missing", async () => {
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({
+        docs: [{
+          id: "creator-group",
+          data: () => ({ name: "Created group", creatorId: "user-1", isActive: true }),
+        }],
+      } as never);
+
+    const { result } = renderHook(() => useMyGroups("user-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups.map((group) => group.id)).toEqual(["creator-group"]);
+    expect(where).toHaveBeenCalledWith("creatorId", "==", "user-1");
+  });
+
+  it("discovers the current group when the user_groups lookup index is missing", async () => {
+    setDocData("users/user-1", { currentGroupId: "current-group" });
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({
+        docs: [{
+          id: "current-group",
+          data: () => ({ name: "Current group", creatorId: "leader-1", isActive: true }),
+        }],
+      } as never);
+
+    const { result } = renderHook(() => useMyGroups("user-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups.map((group) => group.id)).toEqual(["current-group"]);
+    expect(where).toHaveBeenCalledWith("__name__", "in", ["current-group"]);
+  });
+
+  it("reports a current-group fetch failure when the creator fallback is empty", async () => {
+    const permissionError = new Error("permission-denied");
+    setDocData("users/user-1", { currentGroupId: "restricted-group" });
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockRejectedValueOnce(permissionError);
+
+    const { result } = renderHook(() => useMyGroups("user-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups).toEqual([]);
+    expect(result.current.error).toBe(permissionError);
+  });
+
+  it("keeps creator groups when the user_groups source fails", async () => {
+    const indexError = new Error("index unavailable");
+    vi.mocked(getDocs)
+      .mockRejectedValueOnce(indexError)
+      .mockResolvedValueOnce({
+        docs: [{
+          id: "creator-group",
+          data: () => ({ name: "Created group", creatorId: "user-1", isActive: true }),
+        }],
+      } as never);
+
+    const { result } = renderHook(() => useMyGroups("user-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups.map((group) => group.id)).toEqual(["creator-group"]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("keeps indexed groups when the creator source fails", async () => {
+    const creatorError = new Error("creator query unavailable");
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [{ id: "indexed-group" }] } as never)
+      .mockRejectedValueOnce(creatorError)
+      .mockResolvedValueOnce({
+        docs: [{
+          id: "indexed-group",
+          data: () => ({ name: "Indexed group", creatorId: "leader-1", isActive: true }),
+        }],
+      } as never);
+
+    const { result } = renderHook(() => useMyGroups("user-1"));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups.map((group) => group.id)).toEqual(["indexed-group"]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("ignores a late group response after the user changes", async () => {
+    const firstIndex = deferred<{ docs: [] }>();
+    const firstCreator = deferred<{ docs: Array<{ id: string; data: () => Record<string, unknown> }> }>();
+    vi.mocked(getDocs)
+      .mockReturnValueOnce(firstIndex.promise as never)
+      .mockReturnValueOnce(firstCreator.promise as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({
+        docs: [{
+          id: "second-user-group",
+          data: () => ({ name: "Second user group", creatorId: "user-2", isActive: true }),
+        }],
+      } as never);
+
+    const { result, rerender } = renderHook(
+      ({ userId }: { userId: string }) => useMyGroups(userId),
+      { initialProps: { userId: "user-1" } },
+    );
+    rerender({ userId: "user-2" });
+    await waitFor(() => expect(result.current.groups.map((group) => group.id)).toEqual(["second-user-group"]));
+
+    await act(async () => {
+      firstIndex.resolve({ docs: [] });
+      firstCreator.resolve({
+        docs: [{
+          id: "first-user-group",
+          data: () => ({ name: "First user group", creatorId: "user-1", isActive: true }),
+        }],
+      });
+      await Promise.all([firstIndex.promise, firstCreator.promise]);
+    });
+
+    expect(result.current.groups.map((group) => group.id)).toEqual(["second-user-group"]);
   });
 
   it("keeps public group load failures distinct from no public groups", async () => {
