@@ -25,10 +25,7 @@ import WeeklyChart from "../components/WeeklyChart";
 import type { Activity } from "@shared/types";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import type { PdcDoc } from "@shared/types/pdc";
-import type { CohortPercentiles } from "@shared/types/cohort-percentiles";
-import { percentileOf } from "@shared/training/cohortPercentile";
 import { usePdc } from "../hooks/usePdc";
-import { useCohortPercentiles } from "../hooks/useCohortPercentiles";
 import { Button, Card, Chip, Text } from "../theme/components";
 import SafeImage from "../components/SafeImage";
 
@@ -42,21 +39,6 @@ function formatHours(ms: number): string {
 const RIDER_TYPE_KEYS = new Set([
   "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified",
 ]);
-
-function bestCohortTopPct(pdc: PdcDoc, stats: CohortPercentiles): number | null {
-  const values: Array<{ key: "ftp" | "wkg20m" | "vo2max"; value: number | null }> = [
-    { key: "ftp", value: pdc.pdcModel?.ftpEst ?? null },
-    { key: "wkg20m", value: pdc.wPerKgAtKey?.["20m"] ?? null },
-    { key: "vo2max", value: pdc.vo2maxEst ?? null },
-  ];
-  const topPcts = values.flatMap(({ key, value }) => {
-    if (value == null) return [];
-    const all = stats.metrics[key]?.cohorts.all;
-    const percentile = all ? percentileOf(value, all) : null;
-    return percentile == null ? [] : [Math.max(1, Math.round(100 - percentile))];
-  });
-  return topPcts.length > 0 ? Math.min(...topPcts) : null;
-}
 
 function mostUrgentGear(activities: Activity[]): Activity["gear"] | null {
   const byName = new Map<string, NonNullable<Activity["gear"]>>();
@@ -72,11 +54,9 @@ function mostUrgentGear(activities: Activity[]): Activity["gear"] | null {
 
 function AthleteIdentityChips({
   pdc,
-  cohortStats,
   activities,
 }: {
   pdc: PdcDoc | null;
-  cohortStats: ReturnType<typeof useCohortPercentiles>;
   activities: Activity[];
 }) {
   const { t } = useTranslation("athlete");
@@ -103,17 +83,6 @@ function AthleteIdentityChips({
         <Text as="span" variant="mono" style={{ color: "var(--ink-1)" }}>{pct}</Text>
       </span>,
     );
-  }
-
-  if (pdc && cohortStats.status === "ready") {
-    const topPct = bestCohortTopPct(pdc, cohortStats.stats);
-    if (topPct != null) {
-      chips.push(
-        <Chip key="cohort" variant={topPct <= 20 ? "success" : "default"} dot>
-          {t("identity.cohortTop", { pct: topPct })}
-        </Chip>,
-      );
-    }
   }
 
   const gear = mostUrgentGear(activities);
@@ -148,7 +117,6 @@ export default function AthletePage() {
 
   const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
   const { pdc } = usePdc(isOwnProfile ? userId : null);
-  const cohortStats = useCohortPercentiles(isOwnProfile);
   const ownProfileFallback: PublicUserProfile | null = useMemo(() => (
     isOwnProfile && currentProfile && userId
       ? {
@@ -616,10 +584,6 @@ export default function AthletePage() {
       .map(([week, data]) => ({ week, ...data }));
   }, [chartActivities]);
 
-  const cohortTopPct = useMemo(() => (
-    pdc && cohortStats.status === "ready" ? bestCohortTopPct(pdc, cohortStats.stats) : null
-  ), [pdc, cohortStats]);
-
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용
   const baseActivities = useMemo(() => {
@@ -743,7 +707,7 @@ export default function AthletePage() {
             {/* Friend count removed */}
           </div>
           {isOwnProfile && (
-            <AthleteIdentityChips pdc={pdc} cohortStats={cohortStats} activities={chartActivities} />
+            <AthleteIdentityChips pdc={pdc} activities={chartActivities} />
           )}
         </div>
         {!isMe && currentUser && (
@@ -1030,7 +994,6 @@ export default function AthletePage() {
                       activity={activity}
                       hideAuthor
                       identityPdc={isOwnProfile ? pdc : null}
-                      cohortTopPct={isOwnProfile ? cohortTopPct : null}
                     />
                     {isMe && (
                       <Link

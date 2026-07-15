@@ -1,14 +1,11 @@
 import { useTranslation } from "react-i18next";
 import type { CyclingAbilityResult } from "../../features/fitness/multisportPerformance";
 import { Card, Text } from "../../theme/components";
-import PercentileScale from "./PercentileScale";
-import type { CohortDistributionKey, CohortDistributions } from "../../hooks/useCohortPercentiles";
+import AbilityScoreScale from "./AbilityScoreScale";
 
 type CyclingAbilityCardProps = {
   cycling: CyclingAbilityResult | null;
   variant?: "mobile" | "desktop";
-  distributions?: CohortDistributions | null;
-  cohortComputedAt?: number | null;
 };
 
 const AXIS_ACCENTS = {
@@ -25,20 +22,9 @@ function uniqueStrongestAxis(cycling: CyclingAbilityResult | null): CyclingAbili
   return strongest.length === 1 ? strongest[0]?.key ?? null : null;
 }
 
-const AXIS_DISTRIBUTION_KEYS: Record<CyclingAbilityResult["axes"][number]["key"], CohortDistributionKey> = {
-  anaerobic: "anaerobicAbility",
-  aerobic: "aerobicAbility",
-  endurance: "enduranceAbility",
-};
-
-function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pick<CyclingAbilityCardProps, "cycling" | "distributions" | "cohortComputedAt">) {
+function CyclingAbilityContent({ cycling }: Pick<CyclingAbilityCardProps, "cycling">) {
   const { t } = useTranslation("dashboard");
   const strongestAxis = uniqueStrongestAxis(cycling);
-  const hasRulerOnlyAxis = cycling?.axes.some((axis) => {
-    if (axis.score == null) return false;
-    const distribution = distributions?.[AXIS_DISTRIBUTION_KEYS[axis.key]];
-    return distribution == null || axis.score < distribution.domain[0] || axis.score > distribution.domain[1];
-  }) ?? false;
   return (
     <>
       <Text variant="eyebrow">{t("mobileFitness.sport.bike.title")}</Text>
@@ -46,7 +32,7 @@ function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pic
         {t("mobileFitness.sport.bike.basis", { count: cycling?.activityCount ?? 0 })}
       </div>
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginTop: "var(--space-2)" }}>
-        {t("mobileFitness.sport.percentileGuide")}
+        {t("mobileFitness.sport.scoreGuide")}
       </div>
       {strongestAxis && (
         <Text as="div" variant="label" style={{ marginTop: "var(--space-3)", color: AXIS_ACCENTS[strongestAxis] }}>
@@ -67,15 +53,10 @@ function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pic
             </div>
             {axis.score != null && (
               <div style={{ marginTop: "var(--space-2)" }}>
-                <PercentileScale
-                  percentile={axis.score}
-                  ariaLabel={t("mobileFitness.sport.axisMeterAria", { metric: label })}
+                <AbilityScoreScale
+                  score={axis.score}
+                  ariaLabel={t("mobileFitness.sport.axisScoreAria", { metric: label })}
                   accentColor={AXIS_ACCENTS[axis.key]}
-                  distribution={distributions?.[AXIS_DISTRIBUTION_KEYS[axis.key]]}
-                  distributionValue={axis.score}
-                  fallbackComputedAt={cohortComputedAt}
-                  showRulerGuide={false}
-                  floorClipped={axis.score <= 1}
                 />
               </div>
             )}
@@ -88,11 +69,6 @@ function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pic
           </div>
         );
       }) ?? <div style={{ marginTop: "var(--space-3)", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("mobileFitness.sport.insufficient")}</div>}
-      {hasRulerOnlyAxis && (
-        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
-          {t("mobileFitness.percentile.rulerGuide")}
-        </Text>
-      )}
       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-2)" }}>
         {t("mobileFitness.sport.bike.notGarmin")}{" "}
         <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
@@ -103,18 +79,18 @@ function CyclingAbilityContent({ cycling, distributions, cohortComputedAt }: Pic
   );
 }
 
-export default function CyclingAbilityCard({ cycling, variant = "mobile", distributions, cohortComputedAt }: CyclingAbilityCardProps) {
+export default function CyclingAbilityCard({ cycling, variant = "mobile" }: CyclingAbilityCardProps) {
   const { t } = useTranslation("dashboard");
   if (variant === "desktop") {
     return (
       <Card padding="none" aria-label={t("mobileFitness.sport.cardAria")} style={{ marginTop: "var(--space-4)", padding: "var(--space-4) var(--space-6)" }}>
-        <CyclingAbilityContent cycling={cycling} distributions={distributions} cohortComputedAt={cohortComputedAt} />
+        <CyclingAbilityContent cycling={cycling} />
       </Card>
     );
   }
   return (
     <section aria-label={t("mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>
-      <CyclingAbilityContent cycling={cycling} distributions={distributions} cohortComputedAt={cohortComputedAt} />
+      <CyclingAbilityContent cycling={cycling} />
     </section>
   );
 }

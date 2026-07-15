@@ -6,12 +6,12 @@ function read(path: string): string {
 }
 
 describe("identity data chips", () => {
-  it("surfaces rider type, stamina, cohort, and gear on the athlete page", () => {
+  it("surfaces rider type, stamina, and gear without cohort comparison on the athlete page", () => {
     const source = read("src/pages/AthletePage.tsx");
     expect(source).toContain("usePdc");
-    expect(source).toContain("useCohortPercentiles");
+    expect(source).not.toContain("useCohortPercentiles");
     expect(source).toContain("identity.stamina");
-    expect(source).toContain("identity.cohortTop");
+    expect(source).not.toContain("identity.cohortTop");
     expect(source).toContain("identity.gearOverdue");
   });
 
@@ -19,7 +19,7 @@ describe("identity data chips", () => {
     const source = read("src/components/ActivityCard.tsx");
     expect(source).toContain("IdentityDataChips");
     expect(source).toContain("identityPdc");
-    expect(source).toContain("card.cohortTop");
+    expect(source).not.toContain("card.cohortTop");
     expect(source).toContain("GearMaintenanceChip");
     expect(source).toContain("card.gearRemaining");
     expect(source).toContain("card.gearOverdue");

@@ -40,7 +40,6 @@ interface ActivityCardProps {
    *  로 우선 로드해 LCP discovery 지연을 줄인다. 나머지 카드는 기존대로 lazy. */
   priority?: boolean;
   identityPdc?: PdcDoc | null;
-  cohortTopPct?: number | null;
 }
 
 const EMPTY_ACTIVITY_SUMMARY: Activity["summary"] = {
@@ -376,8 +375,7 @@ function GearMaintenanceChip({ gear }: { gear?: Activity["gear"] }) {
   );
 }
 
-function IdentityDataChips({ pdc, cohortTopPct }: { pdc?: PdcDoc | null; cohortTopPct?: number | null }) {
-  const { t } = useTranslation("activity");
+function IdentityDataChips({ pdc }: { pdc?: PdcDoc | null }) {
   const { t: tFitness } = useTranslation("fitness");
   const chips: ReactNode[] = [];
   const riderType = pdc?.riderType;
@@ -385,13 +383,6 @@ function IdentityDataChips({ pdc, cohortTopPct }: { pdc?: PdcDoc | null; cohortT
     chips.push(
       <Chip key="riderType" variant="accent" dot>
         {tFitness(`riderType.type.${riderType.type}.label`)}
-      </Chip>,
-    );
-  }
-  if (cohortTopPct != null) {
-    chips.push(
-      <Chip key="cohort" variant={cohortTopPct <= 20 ? "success" : "default"} dot>
-        {t("card.cohortTop", { pct: cohortTopPct })}
       </Chip>,
     );
   }
@@ -404,7 +395,6 @@ export default function ActivityCard({
   hideAuthor = false,
   priority = false,
   identityPdc = null,
-  cohortTopPct = null,
 }: ActivityCardProps) {
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -538,7 +528,7 @@ export default function ActivityCard({
                 )}
               </div>
             )}
-            <IdentityDataChips pdc={identityPdc} cohortTopPct={cohortTopPct} />
+            <IdentityDataChips pdc={identityPdc} />
             <GearMaintenanceChip gear={activity.gear} />
           </div>
         </div>

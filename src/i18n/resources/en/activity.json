@@ -132,7 +132,6 @@
     "segmentCount": "{{count}} segments",
     "segmentCount_one": "{{count}} segment",
     "segmentCount_other": "{{count}} segments",
-    "cohortTop": "Top {{pct}}% cohort",
     "gearRemaining": "{{name}} service in {{distance}} km",
     "gearOverdue": "{{name}} service overdue by {{distance}} km",
     "viewOnStrava": "View on Strava",

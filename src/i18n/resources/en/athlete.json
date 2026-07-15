@@ -7,7 +7,6 @@
   "stats.time": "Total Time",
   "stats.elevation": "Total Elevation",
   "identity.stamina": "Stamina",
-  "identity.cohortTop": "Top {{pct}}% cohort",
   "identity.gearRemaining": "{{name}} service in {{distance}} km",
   "identity.gearOverdue": "{{name}} service overdue by {{distance}} km",
   "friend.request": "Add Friend",

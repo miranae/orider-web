@@ -7,7 +7,6 @@
   "stats.time": "총 시간",
   "stats.elevation": "총 획득고도",
   "identity.stamina": "지구력",
-  "identity.cohortTop": "코호트 상위 {{pct}}%",
   "identity.gearRemaining": "{{name}} 정비까지 {{distance}} km",
   "identity.gearOverdue": "{{name}} 정비 권장 {{distance}} km 초과",
   "friend.request": "친구 요청",
