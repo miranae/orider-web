@@ -402,12 +402,12 @@
       "cardAria": "Sport-specific measured performance evidence",
       "insufficient": "Not enough measured evidence · not scored",
       "noMeasuredEvidence": "No measured duration evidence",
-      "axisMeterAria": "{{metric}} percentile position",
-      "percentileGuide": "A higher percentile means this ability ranks higher within the stated reference group.",
+      "axisScoreAria": "{{metric}} score",
+      "scoreGuide": "A 100-point ability score simplified from your personal PDC over the last 90 days.",
       "bike": {
         "title": "Cycling ability evidence",
-        "basis": "Three separate axes from the last 90-day measured PDC · {{count}} activities · existing Coggan male v1 percentiles, without sex or age adjustment",
-        "notGarmin": "The calculation differs from Garmin. Garmin uses proprietary metrics such as EPOC and Training Effect; O-Rider shows your position in a reference group using published PDC evidence.",
+        "basis": "Three separate axes from the last 90-day measured PDC · {{count}} activities · personal power profile summarized on a 100-point scale",
+        "notGarmin": "The calculation differs from Garmin. Garmin uses proprietary metrics such as EPOC and Training Effect; O-Rider explains your personal ability using published PDC evidence.",
         "manualLink": "How PDC and the three axes are calculated",
         "strongestAxis": "Your strongest current ability is {{axis}}.",
         "axis": {
@@ -427,24 +427,17 @@
         "distancePerStroke": "Distance per stroke"
       }
     },
-    "percentile": {
-      "raw": "Percentile {{score}}",
-      "rawFloor": "Percentile {{score}} or below · reference floor",
-      "ariaValue": "Percentile {{score}}",
-      "ariaValueFloor": "Percentile {{score}} or below, reference floor",
-      "rulerGuide": "Distribution data is unavailable, so this shows percentile position only. The ruler is not measured population density.",
-      "densityGuide": "Relative density in the actual O-Rider comparison group. Taller bars mean more riders in that range.",
-      "densityPopulation": "All O-Rider users · about {{count}} riders",
-      "privacy": "Ranges under {{minimum}} riders merged · exact counts not published",
-      "computedAt": "Calculated {{date}}",
-      "basis": {
-        "cogganScore": "Distribution of Coggan-based cycling scores",
-        "vo2maxEstimate": "Distribution of O-Rider estimated VO2max",
-        "generic": "Distribution of the O-Rider comparison metric"
-      },
-      "lower": "Lower",
-      "middle": "Middle",
-      "upper": "Upper"
+    "abilityScore": {
+      "raw": "Ability score {{score}}/100",
+      "ariaValue": "Ability score {{score}}/100, {{stage}} level",
+      "guide": "A fixed five-level score summarizing your personal PDC analysis, not a ranking or percentile among users.",
+      "stage": {
+        "entry": "Entry",
+        "foundation": "Foundation",
+        "average": "Average",
+        "excellent": "Excellent",
+        "top": "Top"
+      }
     },
     "snapshot": {
       "title": "Current fitness snapshot",
@@ -457,7 +450,7 @@
       "riderSource": "Last 90-day PDC · Coggan men's power profile (v1); sex and age are not adjusted",
       "vo2PdcSource": "Estimated from CP/5-minute power and weight in the last 90-day PDC · {{count}} activities · not a lab measurement",
       "vo2FormulaSource": "Simple estimate from profile FTP and weight · not a lab measurement",
-      "estimateOnly": "Estimate · no cohort evaluation",
+      "estimateOnly": "Estimate · not a lab measurement",
       "load": "O-Rider training load",
       "loadSource": "CTL 42-day EMA · ATL 7-day EMA · TSB=CTL-ATL. This is not Garmin acute load",
       "insufficient": "Not enough data · not evaluated",
@@ -472,15 +465,8 @@
       "weightMissing": "Add weight to see W/kg",
       "riderUnknown": "Not enough rider-type evidence",
       "abilityLabel": "Overall cycling ability",
-      "abilityUnknown": "Not enough percentile evidence",
-      "abilityMeterAria": "Overall cycling ability percentile",
-      "abilityPopulation": "Coggan men's power profile v1 · not adjusted for sex or age",
-      "tteMeterAria": "TTE all-cohort percentile",
-      "ttePopulation": "Actual O-Rider all-user cohort",
-      "cohortContextAria": "TTE and VO2max cohort context",
-      "cohortPopulation": "TTE and VO2max · actual O-Rider all-user cohort",
-      "vo2MeterAria": "VO2max all-cohort percentile",
-      "vo2Population": "Actual O-Rider all-user cohort",
+      "abilityUnknown": "Not enough ability-score evidence",
+      "abilityScoreAria": "Overall cycling ability score",
       "estimated": "Estimate",
       "insufficient": "Not enough evidence",
       "metrics": {

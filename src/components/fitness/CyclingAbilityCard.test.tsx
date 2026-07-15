@@ -4,7 +4,7 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import CyclingAbilityCard from "./CyclingAbilityCard";
 
 describe("CyclingAbilityCard", () => {
-  it("기준표 하한을 명확히 표시하고 반복되는 눈금 설명은 하나로 묶는다", () => {
+  it("세 축을 개인 역량 점수와 고정 5단계로 표시한다", () => {
     renderWithProviders(
       <CyclingAbilityCard
         cycling={{
@@ -20,12 +20,12 @@ describe("CyclingAbilityCard", () => {
       />,
     );
 
-    expect(screen.getByText("백분위 1 이하 · 기준표 하한")).toBeInTheDocument();
-    expect(screen.getByRole("meter", { name: "단시간 파워 역량 백분위 위치" })).toHaveAttribute(
+    expect(screen.getByText("역량 점수 1/100")).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "단시간 파워 역량 점수" })).toHaveAttribute(
       "aria-valuetext",
-      "백분위 1 이하, 기준표 하한",
+      "역량 점수 1/100, 입문 단계",
     );
-    expect(screen.getAllByText(/분포 데이터가 없어 백분위 위치만 표시합니다/)).toHaveLength(1);
-    expect(screen.getAllByText(/낮음/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("입문").length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toMatch(/상위 \d+%|밀도|표본/);
   });
 });

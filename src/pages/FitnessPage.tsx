@@ -41,9 +41,7 @@ import { useMobile } from "../hooks/useMobile";
 import { useFreshTraining } from "../hooks/useFreshTraining";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { usePdc } from "../hooks/usePdc";
-import { useCohortPercentiles } from "../hooks/useCohortPercentiles";
 import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
-import CohortRankingCard from "../components/CohortRankingCard";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import AdaptationSummary from "../components/training/AdaptationSummary";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
@@ -76,7 +74,6 @@ import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
 import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
 import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
-import { percentileOf } from "@shared/training/cohortPercentile";
 import { deriveMonthlyCyclingVo2maxTrend } from "../features/fitness/deriveMonthlyCyclingVo2maxTrend";
 import { useUserFitness } from "../hooks/useUserFitness";
 import {
@@ -121,8 +118,6 @@ export default function FitnessPage() {
   const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
-  // 코호트 백분위 랭킹(G9) — bike + pdc 있을 때만 stats doc 구독.
-  const cohortStats = useCohortPercentiles(!!user);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
   const [searchParams] = useSearchParams();
@@ -723,17 +718,9 @@ export default function FitnessPage() {
           swimEvidence,
           pdcSummary: discipline === "bike" ? {
             riderType: pdc?.riderType ?? null,
-            abilityPercentile: pdc?.ability?.overallPercentile ?? null,
-            ttePercentile: thresholdDecision.tteMin != null && cohortStats.status === "ready"
-              ? percentileOf(thresholdDecision.tteMin, cohortStats.stats.metrics?.tte?.cohorts?.all ?? {})
-              : null,
+            abilityScore: pdc?.ability?.overallPercentile ?? null,
             vo2maxEst: pdc?.vo2maxEst ?? null,
-            vo2maxPercentile: pdc?.vo2maxEst != null && cohortStats.status === "ready"
-              ? percentileOf(pdc.vo2maxEst, cohortStats.stats.metrics?.vo2max?.cohorts?.all ?? {})
-              : null,
             activityCount: pdc?.activityCount ?? null,
-            cohortDistributions: cohortStats.status === "ready" ? cohortStats.stats.distributions ?? null : null,
-            cohortComputedAt: cohortStats.status === "ready" ? cohortStats.stats.computedAt : null,
           } : null,
           zones,
           zoneSource,
@@ -1097,8 +1084,7 @@ export default function FitnessPage() {
           />
         )}
 
-        {/* 상세 분석 (#400 §1·§4·§5) — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·
-            라이더 유형·코호트 백분위는 오늘의 결론 근거로, 기본 접힘 progressive disclosure. */}
+        {/* 상세 분석 — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·라이더 유형. */}
         {discipline === "bike" && (
         <DetailsSection title={t("conclusion.detailToggle")}>
         {/* PDC 기반 VO2max 근거와 월별 추이. 현재 적용 FTP 공식값과 구분한다. */}
@@ -1192,24 +1178,7 @@ export default function FitnessPage() {
 
         {/* 사이클링 능력 — 모바일과 동일한 최근 90일 PDC 3축 실측 근거. */}
         {discipline === "bike" && cyclingAbility && (
-          <CyclingAbilityCard
-            cycling={cyclingAbility}
-            variant="desktop"
-            distributions={cohortStats.status === "ready" ? cohortStats.stats.distributions : null}
-            cohortComputedAt={cohortStats.status === "ready" ? cohortStats.stats.computedAt : null}
-          />
-        )}
-
-        {/* 코호트 백분위 랭킹(G9) — bike + pdc + stats doc 있을 때만 */}
-        {discipline === "bike" && pdc != null && cohortStats.status === "ready" && (
-          <CohortRankingCard
-            pdc={pdc}
-            stats={cohortStats.stats}
-            demographics={{
-              gender: (profile as { gender?: string | null } | null)?.gender ?? null,
-              birthYear: (profile as { birthYear?: number | null } | null)?.birthYear ?? null,
-            }}
-          />
+          <CyclingAbilityCard cycling={cyclingAbility} variant="desktop" />
         )}
         </DetailsSection>
         )}
