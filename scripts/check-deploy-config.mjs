@@ -60,6 +60,19 @@ function checkHostingConfig(hosting, label) {
     requireIncludes(csp, "https://www.google.com", `${label} Content-Security-Policy frame-src`);
     requireIncludes(csp, "https://www.recaptcha.net", `${label} Content-Security-Policy frame-src`);
   }
+
+  const rewrites = hosting.rewrites ?? [];
+  const spaRewriteIndexes = rewrites
+    .map((rule, index) => rule.destination === "/index.html" ? index : -1)
+    .filter((index) => index >= 0);
+  const spaRewriteIndex = spaRewriteIndexes[0] ?? -1;
+  const spaRewrite = rewrites[spaRewriteIndex];
+  if (spaRewriteIndexes.length !== 1 || spaRewrite?.source !== "!/@(assets)/**") {
+    fail(`${label} SPA rewrite must exclude /assets/** so missing chunks return 404 instead of index.html`);
+  }
+  if (spaRewriteIndex !== rewrites.length - 1) {
+    fail(`${label} SPA rewrite must be the final rule so no later catch-all can rewrite missing assets`);
+  }
 }
 
 checkHostingConfig(firebaseConfig.hosting, "firebase.json");
