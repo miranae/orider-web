@@ -4,18 +4,13 @@ import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecisi
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import { Button, Chip, Text } from "../../theme/components";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
-import PercentileScale from "../fitness/PercentileScale";
-import type { CohortDistributions } from "../../hooks/useCohortPercentiles";
+import AbilityScoreScale from "../fitness/AbilityScoreScale";
 
 export interface MobileFitnessPdcSummary {
   riderType: { type: string; confidence: number } | null;
-  abilityPercentile: number | null;
-  ttePercentile?: number | null;
+  abilityScore: number | null;
   vo2maxEst: number | null;
-  vo2maxPercentile: number | null;
   activityCount: number | null;
-  cohortDistributions?: CohortDistributions | null;
-  cohortComputedAt?: number | null;
 }
 
 interface BikePerformanceSummaryCardProps {
@@ -40,9 +35,6 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
   const { t } = useTranslation("dashboard");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const evidenceId = useId();
-  const cohortContextId = useId();
-  const tteDescriptionId = `${cohortContextId}-tte`;
-  const vo2DescriptionId = `${cohortContextId}-vo2`;
   const activeFtp = decision?.activeFtpW ?? null;
   const wkg = activeFtp != null && weightKg && weightKg > 0 ? activeFtp / weightKg : null;
   const wkgSummary = activeFtp == null
@@ -71,19 +63,6 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
     { key: "tte", label: t("mobileFitness.performance.metrics.tte"), value: decision?.tteMin ?? null, unit: t("fitness:thresholdDecision.minuteUnit"), status: decision?.tteMin != null ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
     { key: "vo2max", label: "VO₂max", value: vo2max, unit: "ml/kg/min", status: vo2max != null ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
   ];
-  const hasRulerOnlyCohortMetric = pdc?.ttePercentile != null
-    || (pdc?.vo2maxPercentile != null && pdc.cohortDistributions?.vo2max == null);
-  const vo2Distribution = pdc?.cohortDistributions?.vo2max;
-  const hasVo2Density = vo2Distribution != null
-    && vo2max != null
-    && vo2max >= vo2Distribution.domain[0]
-    && vo2max <= vo2Distribution.domain[1];
-  const cohortPopulation = pdc?.ttePercentile != null && pdc?.vo2maxPercentile != null
-    ? t("mobileFitness.performance.cohortPopulation")
-    : pdc?.ttePercentile != null
-      ? t("mobileFitness.performance.ttePopulation")
-      : t("mobileFitness.performance.vo2Population");
-
   return (
     <section aria-label={t("mobileFitness.performance.ariaLabel")} style={{ marginBottom: "var(--space-3)", padding: "var(--space-5) var(--space-4)", background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)" }}>
       <Text as="h2" variant="title" style={{ margin: 0 }}>{t("mobileFitness.performance.title")}</Text>
@@ -102,15 +81,11 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
       </div>
       <div style={{ marginTop: "var(--space-3)" }}>
         <Text as="div" variant="caption" tone="secondary" style={{ marginBottom: "var(--space-1)" }}>{t("mobileFitness.performance.abilityLabel")}</Text>
-        {pdc?.abilityPercentile != null
-          ? <PercentileScale
-              percentile={pdc.abilityPercentile}
-              ariaLabel={t("mobileFitness.performance.abilityMeterAria")}
-              population={t("mobileFitness.performance.abilityPopulation")}
+        {pdc?.abilityScore != null
+          ? <AbilityScoreScale
+              score={pdc.abilityScore}
+              ariaLabel={t("mobileFitness.performance.abilityScoreAria")}
               accentColor="var(--lime)"
-              distribution={pdc.cohortDistributions?.overallAbility}
-              distributionValue={pdc.abilityPercentile}
-              fallbackComputedAt={pdc.cohortComputedAt}
             />
           : <Text as="div" variant="label">{t("mobileFitness.performance.abilityUnknown")}</Text>}
       </div>
@@ -123,59 +98,9 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
               {metric.value != null && <Text as="span" variant="unit" style={{ whiteSpace: "nowrap" }}>{metric.unit}</Text>}
             </div>
             <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{metric.status}</Text>
-            {metric.key === "tte" && metric.value != null && pdc?.ttePercentile != null && (
-              <div style={{ marginTop: "var(--space-3)" }}>
-                <PercentileScale
-                  percentile={pdc.ttePercentile}
-                  ariaLabel={t("mobileFitness.performance.tteMeterAria")}
-                  accentColor="var(--aqua)"
-                  showContext={false}
-                  externalDescriptionId={tteDescriptionId}
-                />
-              </div>
-            )}
-            {metric.key === "vo2max" && metric.value != null && pdc?.vo2maxPercentile != null && (
-              <div style={{ marginTop: "var(--space-3)" }}>
-                <PercentileScale
-                  percentile={pdc.vo2maxPercentile}
-                  ariaLabel={t("mobileFitness.performance.vo2MeterAria")}
-                  accentColor="var(--aqua)"
-                  distribution={pdc.cohortDistributions?.vo2max}
-                  distributionValue={vo2max}
-                  fallbackComputedAt={pdc.cohortComputedAt}
-                  showContext={false}
-                  externalDescriptionId={vo2DescriptionId}
-                />
-              </div>
-            )}
           </div>
         ))}
       </div>
-      {(pdc?.ttePercentile != null || pdc?.vo2maxPercentile != null) && (
-        <div style={{ marginTop: "var(--space-2)" }}>
-          <PercentileScale
-            percentile={pdc.vo2maxPercentile ?? pdc.ttePercentile ?? 0}
-            ariaLabel={t("mobileFitness.performance.cohortContextAria")}
-            population={cohortPopulation}
-            distribution={pdc.vo2maxPercentile != null ? vo2Distribution : null}
-            distributionValue={vo2max}
-            fallbackComputedAt={pdc.cohortComputedAt}
-            hideScale
-            contextId={cohortContextId}
-            alwaysShowRulerGuide={hasRulerOnlyCohortMetric}
-          />
-          {pdc?.ttePercentile != null && (
-            <span id={tteDescriptionId} className="sr-only">
-              {cohortPopulation}. {t("mobileFitness.percentile.rulerGuide")}
-            </span>
-          )}
-          {pdc?.vo2maxPercentile != null && (
-            <span id={vo2DescriptionId} className="sr-only">
-              {cohortPopulation}. {t(hasVo2Density ? "mobileFitness.percentile.densityGuide" : "mobileFitness.percentile.rulerGuide")}
-            </span>
-          )}
-        </div>
-      )}
 
       <FtpProgressionCard points={progression} currentFtpW={activeFtp} breakthrough={null} embedded compact />
 
@@ -203,7 +128,6 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         <Text as="p" variant="caption" tone="secondary">
           {vo2Source === "pdc" ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc?.activityCount ?? 0 }) : vo2Source === "formula" ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient")}
         </Text>
-        {pdc?.vo2maxPercentile == null && <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.snapshot.estimateOnly")}</Text>}
         <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.performance.modelEvidence")}</Text>
         <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
           {t("mobileFitness.sport.bike.manualLink")}

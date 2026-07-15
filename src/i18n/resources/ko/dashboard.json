@@ -402,12 +402,12 @@
       "cardAria": "종목별 실측 퍼포먼스 근거",
       "insufficient": "실측 근거 부족 · 점수 미산출",
       "noMeasuredEvidence": "측정된 구간 근거 없음",
-      "axisMeterAria": "{{metric}} 백분위 위치",
-      "percentileGuide": "백분위가 높을수록 기준 집단에서 해당 능력이 높은 위치입니다.",
+      "axisScoreAria": "{{metric}} 점수",
+      "scoreGuide": "최근 90일 개인 PDC를 100점 기준으로 단순화한 역량 점수입니다.",
       "bike": {
         "title": "사이클링 능력 근거",
-        "basis": "최근 90일 실측 PDC의 세 개 독립 축 · 활동 {{count}}개 · 기존 Coggan 남성 v1 백분위, 성별·연령 미보정",
-        "notGarmin": "Garmin과 계산 방식은 다릅니다. Garmin은 EPOC·Training Effect 같은 독점 지표를 사용하고, O-Rider는 공개한 PDC 근거로 비교 집단 안의 위치를 보여줍니다.",
+        "basis": "최근 90일 실측 PDC의 세 개 독립 축 · 활동 {{count}}개 · 개인 파워 프로파일을 100점 기준으로 요약",
+        "notGarmin": "Garmin과 계산 방식은 다릅니다. Garmin은 EPOC·Training Effect 같은 독점 지표를 사용하고, O-Rider는 공개한 PDC 근거로 개인 역량을 설명합니다.",
         "manualLink": "PDC와 3축 산출 근거 보기",
         "strongestAxis": "현재 가장 두드러진 능력은 {{axis}}입니다.",
         "axis": {
@@ -427,24 +427,17 @@
         "distancePerStroke": "스트로크당 거리"
       }
     },
-    "percentile": {
-      "raw": "백분위 {{score}}",
-      "rawFloor": "백분위 {{score}} 이하 · 기준표 하한",
-      "ariaValue": "백분위 {{score}}",
-      "ariaValueFloor": "백분위 {{score}} 이하, 기준표 하한",
-      "rulerGuide": "분포 데이터가 없어 백분위 위치만 표시합니다. 이 눈금은 실제 인구 밀도 분포가 아닙니다.",
-      "densityGuide": "실제 O-Rider 비교 집단의 상대 밀도입니다. 막대가 높을수록 해당 구간에 사용자가 더 많습니다.",
-      "densityPopulation": "O-Rider 전체 · 약 {{count}}명",
-      "privacy": "{{minimum}}명 미만 구간 병합 · 정확한 인원 수 비공개",
-      "computedAt": "{{date}} 계산",
-      "basis": {
-        "cogganScore": "Coggan 기반 사이클링 점수 분포",
-        "vo2maxEstimate": "O-Rider 추정 VO2max 분포",
-        "generic": "O-Rider 비교 지표 분포"
-      },
-      "lower": "하위",
-      "middle": "중간",
-      "upper": "상위"
+    "abilityScore": {
+      "raw": "역량 점수 {{score}}/100",
+      "ariaValue": "역량 점수 {{score}}/100, {{stage}} 단계",
+      "guide": "개인 PDC 분석 결과를 다섯 단계로 정리한 고정 기준 점수이며, 사용자 간 순위나 백분위가 아닙니다.",
+      "stage": {
+        "entry": "입문",
+        "foundation": "기초",
+        "average": "보통",
+        "excellent": "우수",
+        "top": "최상"
+      }
     },
     "snapshot": {
       "title": "현재 피트니스 스냅샷",
@@ -457,7 +450,7 @@
       "riderSource": "최근 90일 PDC · Coggan 남성 파워 프로파일 기준(v1), 성별·연령 미반영",
       "vo2PdcSource": "최근 90일 PDC의 CP/5분 파워와 체중 기반 추정 · 활동 {{count}}개 · 실험실 측정치 아님",
       "vo2FormulaSource": "프로필 FTP와 체중 기반 단순 근사 · 실험실 측정치 아님",
-      "estimateOnly": "추정치 · 코호트 평가 없음",
+      "estimateOnly": "추정치 · 실험실 측정치 아님",
       "load": "O-Rider 훈련 부하",
       "loadSource": "CTL 42일 EMA · ATL 7일 EMA · TSB=CTL-ATL. Garmin 급성 부하와 다른 모델",
       "insufficient": "데이터 부족 · 평가하지 않음",
@@ -472,15 +465,8 @@
       "weightMissing": "체중 입력 시 W/kg 표시",
       "riderUnknown": "라이더 유형 근거 부족",
       "abilityLabel": "종합 사이클링 역량",
-      "abilityUnknown": "백분위 근거 부족",
-      "abilityMeterAria": "종합 사이클링 역량 백분위",
-      "abilityPopulation": "Coggan 남성 파워 프로파일 v1 기준 · 성별·연령 미보정",
-      "tteMeterAria": "TTE 전체 코호트 백분위",
-      "ttePopulation": "실제 O-Rider 전체 코호트 기준",
-      "cohortContextAria": "TTE와 VO2max 코호트 설명",
-      "cohortPopulation": "TTE·VO2max · 실제 O-Rider 전체 코호트 기준",
-      "vo2MeterAria": "VO2max 전체 코호트 백분위",
-      "vo2Population": "실제 O-Rider 전체 코호트 기준",
+      "abilityUnknown": "역량 점수 근거 부족",
+      "abilityScoreAria": "종합 사이클링 역량 점수",
       "estimated": "추정값",
       "insufficient": "근거 부족",
       "metrics": {

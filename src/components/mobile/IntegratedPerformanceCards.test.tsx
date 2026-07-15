@@ -126,33 +126,20 @@ describe("SportPerformanceCard", () => {
       }}
       run={{ thresholdPaceSec: null, records: [] }}
       swim={{ windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 }}
-      distributions={{ aerobicAbility: {
-        basis: "coggan_score_v1",
-        domain: [0, 100],
-        approximateSampleSize: 120,
-        bins: [{ from: 0, to: 50, densityLevel: 2 }, { from: 50, to: 100, densityLevel: 5 }],
-        privacy: { minimumCellSize: 5, exactCountsPublished: false, method: "adjacent_merge_relative_density_v1" },
-        computedAt: Date.UTC(2026, 6, 14),
-      } }}
-      cohortComputedAt={Date.UTC(2026, 6, 14)}
     />);
 
     expect(screen.getAllByText("실측 근거 부족 · 점수 미산출")).toHaveLength(2);
     expect(screen.getByText(/5m 320W · 4.40W\/kg/)).toBeInTheDocument();
-    expect(screen.getByRole("meter", { name: "유산소 역량 백분위 위치" })).toHaveAttribute("aria-valuenow", "65");
-    expect(screen.getByRole("meter", { name: "유산소 역량 백분위 위치" })).toHaveAttribute("aria-valuetext", "백분위 65");
-    expect(screen.getByText("백분위 65")).toBeInTheDocument();
-    expect(document.querySelector('[data-percentile-visual="density"]')).toBeInTheDocument();
-    expect(screen.getByText("O-Rider 전체 · 약 120명")).toBeInTheDocument();
-    expect(screen.queryByText("상위 35%")).not.toBeInTheDocument();
-    expect(screen.getByText(/백분위가 높을수록 기준 집단에서/)).toBeInTheDocument();
-    expect(screen.getByText(/실제 O-Rider 비교 집단의 상대 밀도입니다/)).toBeInTheDocument();
+    expect(screen.getByRole("meter", { name: "유산소 역량 점수" })).toHaveAttribute("aria-valuenow", "65");
+    expect(screen.getByRole("meter", { name: "유산소 역량 점수" })).toHaveAttribute("aria-valuetext", "역량 점수 65/100, 우수 단계");
+    expect(screen.getByText("역량 점수 65/100")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/상위 \d+%|O-Rider 전체|밀도|표본/);
     expect(screen.getByText("현재 가장 두드러진 능력은 유산소 역량입니다.")).toBeInTheDocument();
     expect(screen.getByText(/Garmin은 EPOC·Training Effect/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "PDC와 3축 산출 근거 보기" })).toHaveAttribute("href", "/web-manual/ch06-advanced.html#s6-3");
   });
 
-  it("omits the strongest-axis summary when the highest percentile is tied", () => {
+  it("omits the strongest-axis summary when the highest score is tied", () => {
     renderWithProviders(<SportPerformanceCard
       discipline="bike"
       cycling={{

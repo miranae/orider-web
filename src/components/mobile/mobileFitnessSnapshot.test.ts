@@ -9,7 +9,7 @@ describe("mobile fitness decision hierarchy", () => {
     expect(source).toContain("function BikePerformanceSummaryCard");
     expect(source).toContain("decision?.activeFtpW");
     expect(source).toContain("W/kg");
-    expect(source).toContain("<PercentileScale");
+    expect(source).toContain("<AbilityScoreScale");
     expect(source).toContain('gridTemplateColumns: "repeat(2, minmax(0, 1fr))"');
     expect(source).toContain("vo2PdcSource");
     expect(source).toContain("vo2FormulaSource");
