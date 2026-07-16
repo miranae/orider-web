@@ -608,6 +608,7 @@
   "liveView.riding": "Riding",
   "liveView.snapshotLoadError": "Failed to load snapshot",
   "liveView.errorTitle": "Could not load live data",
+  "liveView.recoveryGuidance": "The live connection could not recover safely. Refresh this page once to reconnect.",
   "liveView.notStartedDesc": "The event hasn't started yet. The live view will appear automatically once the first location snapshot is available.",
   "liveView.followingCount": "Following · {{count}}",
   "liveView.bibPlaceholder": "Enter bib #",

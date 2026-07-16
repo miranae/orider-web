@@ -6,7 +6,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../../services/firebase";
+import { ensureAppCheckReady, firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import EventMap from "../../components/event/EventMap";
@@ -14,8 +14,16 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesi
 import { Button, Card, Switch, Text } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { countActiveViewers, createViewerSessionId } from "../../features/event/viewerPresence";
+import { createViewerHeartbeatRunner } from "../../features/event/liveViewerRecovery";
 import { useAuth } from "../../contexts/AuthContext";
 import AppInstallLinks from "../../components/AppInstallLinks";
+import {
+  classifyFirestoreFatalError,
+  executeFirestoreSessionRecovery,
+  firestoreRecoveryLogContext,
+  prepareFirestoreSessionRecovery,
+  shouldAbortForFirestoreRecovery,
+} from "../../utils/firestoreSessionRecovery";
 
 export interface SnapshotLocation {
   uid: string;
@@ -321,6 +329,7 @@ export default function EventLivePage() {
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [sosMuted, setSosMuted] = useState(() => (eventId ? loadSosMuted(eventId) : false));
   const [viewerCount, setViewerCount] = useState(0);
+  const [viewerRecoveryError, setViewerRecoveryError] = useState<string | null>(null);
 
   const prevStatusRef = useRef<Map<string, string>>(new Map());
   const prevCpRef = useRef<Map<string, number>>(new Map());
@@ -336,18 +345,28 @@ export default function EventLivePage() {
       sessionStorage.setItem(storageKey, viewerSessionId);
     }
     const sessionId = viewerSessionId;
-    let heartbeatInFlight = false;
-    const refreshHeartbeat = async () => {
-      if (heartbeatInFlight) return;
-      heartbeatInFlight = true;
-      try {
-        await heartbeat({ eventId, viewerSessionId: sessionId, active: true });
-      } catch (err) {
-        logClientError("EventLivePage.viewerHeartbeat", err, { eventId });
-      } finally {
-        heartbeatInFlight = false;
+    const handleViewerError = (source: string, error: unknown, context?: Record<string, unknown>) => {
+      const recovery = prepareFirestoreSessionRecovery(error);
+      logClientError(source, error, {
+        eventId,
+        ...context,
+        ...firestoreRecoveryLogContext(recovery),
+      });
+      if (recovery.action === "reload-ready") executeFirestoreSessionRecovery(recovery);
+      if (recovery.kind && !shouldAbortForFirestoreRecovery(recovery)) {
+        setViewerRecoveryError(t("liveView.recoveryGuidance"));
       }
+      return recovery;
     };
+
+    const heartbeatRunner = createViewerHeartbeatRunner({
+      sendHeartbeat: () => heartbeat({ eventId, viewerSessionId: sessionId, active: true }),
+      ensureAppCheckReady,
+      isVisible: () => !document.hidden,
+      onError: (error, phase) => {
+        handleViewerError("EventLivePage.viewerHeartbeat", error, { phase });
+      },
+    });
 
     // getDocs 폴링은 매번 임시 listen target을 열고 닫는다. Firestore 11.x의
     // 다중 탭 primary 전환과 겹치면 target이 중복 해제되어 AsyncQueue가 영구
@@ -358,18 +377,39 @@ export default function EventLivePage() {
         setViewerCount(countActiveViewers(viewers.docs.map((viewer) => viewer.data())));
       },
       (err) => {
-        logClientError("EventLivePage.viewerPresence", err, { eventId });
+        handleViewerError("EventLivePage.viewerPresence", err);
       },
     );
 
-    void refreshHeartbeat();
-    const timer = window.setInterval(() => void refreshHeartbeat(), 30_000);
+    const handleUnhandledRejection = (unhandled: PromiseRejectionEvent) => {
+      if (!classifyFirestoreFatalError(unhandled.reason)) return;
+      handleViewerError("EventLivePage.firestoreUnhandledRejection", unhandled.reason);
+    };
+    const handleWindowError = (event: ErrorEvent) => {
+      const error = event.error ?? event.message;
+      if (!classifyFirestoreFatalError(error)) return;
+      handleViewerError("EventLivePage.firestoreWindowError", error);
+    };
+    const handleVisibilityChange = () => {
+      if (!document.hidden) void heartbeatRunner.pulse();
+    };
+
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    window.addEventListener("error", handleWindowError);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    void heartbeatRunner.pulse();
+    const timer = window.setInterval(() => void heartbeatRunner.pulse(), 30_000);
     return () => {
       window.clearInterval(timer);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener("error", handleWindowError);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       unsubscribeViewers();
-      void heartbeat({ eventId, viewerSessionId: sessionId, active: false }).catch(() => undefined);
+      void ensureAppCheckReady()
+        .then(() => heartbeat({ eventId, viewerSessionId: sessionId, active: false }))
+        .catch(() => undefined);
     };
-  }, [eventId]);
+  }, [eventId, t]);
 
   // URL bib 쿼리 → 팔로우 리스트에 자동 추가
   useEffect(() => {
@@ -607,12 +647,12 @@ export default function EventLivePage() {
     );
   }
 
-  if (loadError) {
+  if (viewerRecoveryError || loadError) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <ErrorState
           title={t("liveView.errorTitle")}
-          description={loadError}
+          description={viewerRecoveryError ?? loadError ?? t("liveView.snapshotLoadError")}
           onRetry={() => window.location.reload()}
         />
       </div>

@@ -608,6 +608,7 @@
   "liveView.riding": "주행중",
   "liveView.snapshotLoadError": "스냅샷 로딩 실패",
   "liveView.errorTitle": "실시간 데이터를 불러오지 못했습니다",
+  "liveView.recoveryGuidance": "라이브 연결을 안전하게 복구하지 못했습니다. 이 페이지를 한 번 새로고침해 다시 연결해 주세요.",
   "liveView.notStartedDesc": "이벤트가 아직 시작되지 않았어요. 출발 직후 첫 위치 스냅샷이 생성되면 자동으로 라이브 화면이 표시됩니다.",
   "liveView.followingCount": "팔로우 중 · {{count}}명",
   "liveView.bibPlaceholder": "배번 입력",
