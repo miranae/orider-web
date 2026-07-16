@@ -18,6 +18,11 @@ import { ensureAppCheckReady, firestore, functions } from "../services/firebase"
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
+import {
+  executeFirestoreSessionRecovery,
+  firestoreRecoveryLogContext,
+  prepareFirestoreSessionRecovery,
+} from "../utils/firestoreSessionRecovery";
 
 interface FreshTrainingState {
   /** 서버 호출 진행 중 — 로딩 UI에 사용 */
@@ -102,11 +107,21 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
           setJustRecomputed(true);
         }
       } catch (err) {
-        if (cancelled) return;
-        logClientError("useFreshTraining.revalidate", err, { discipline });
-        setLastStatus("error");
+        const recovery = prepareFirestoreSessionRecovery(err);
+        if (recovery.kind) {
+          // b815는 이 요청만의 실패가 아니라 공유 AsyncQueue가 영구 중단된 상태다.
+          // 언마운트된 뒤 오류가 도착해도 진단을 남기고 탭 세션당 한 번 복구해야 한다.
+          logClientError("useFreshTraining.revalidate", err, {
+            discipline,
+            ...firestoreRecoveryLogContext(recovery),
+          });
+          executeFirestoreSessionRecovery(recovery);
+        } else if (!cancelled) {
+          logClientError("useFreshTraining.revalidate", err, { discipline });
+        }
+        if (!cancelled) setLastStatus("error");
       } finally {
-        setRevalidating(false);
+        if (!cancelled) setRevalidating(false);
       }
     })();
 
