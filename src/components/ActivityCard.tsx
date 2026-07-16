@@ -1,12 +1,7 @@
-import { Suspense, useState, useRef, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import { LocalizedLink as Link } from "./LocalizedLink";
-import { doc, updateDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { firestore, storage } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
-import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { useStrava } from "../hooks/useStrava";
 import { formatDistance, formatSpeed, formatElev } from "../utils/units";
@@ -22,13 +17,9 @@ import { isImplausibleActivity, isImplausibleAvgSpeed } from "../utils/activityS
 import { Card, Chip } from "../theme/components";
 import ActivityAiSummary from "./activity/ActivityAiSummary";
 import ActivitySocialFooter from "./activity/ActivitySocialFooter";
+import ActivityRouteThumbnail, { shouldReportMapCaptureError } from "./activity/ActivityRouteThumbnail";
 
-/**
- * RouteMap 은 mapbox-gl(1.7MB) 을 정적 import 하므로 lazy 로 분리.
- * 결과: 메인/대시보드 entry chunk 가 vendor-mapbox 의존성 해제 → modulepreload 제거.
- * Card 가 mapImageUrl 없는 경우(소수) 에만 실제로 chunk 다운로드.
- */
-const RouteMap = lazy(() => import("./RouteMap"));
+export { shouldReportMapCaptureError };
 
 interface ActivityCardProps {
   activity: Activity;
@@ -64,165 +55,6 @@ const EMPTY_ACTIVITY_SUMMARY: Activity["summary"] = {
 const RIDER_TYPE_KEYS = new Set([
   "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist",
 ]);
-
-/**
- * 지도 이미지가 있으면 img, 없으면 RouteMap 라이브 렌더링 후 캡처 → Storage 업로드.
- *
- * 클라 캡처 (A+ 전략, 2026-05-23): 인증된 모든 viewer 가 mapImageUrl 이 없는 활동을
- * 보면 RouteMap 의 WebGL canvas → toBlob('image/webp') → Storage 업로드 →
- * Firestore mapImageUrl 갱신. 서버 generateMapThumbnail 폐기, 모든 썸네일은 클라
- * 캡처가 채운다. 첫 viewer 가 보는 디바이스 해상도에 따라 품질 결정됨.
- *
- * OG 미리보기 (KakaoTalk-Scrap / facebookexternalhit 등) 는 별도 CF 엔드포인트
- * `og-thumbnail` 이 활동 thumbnailTrack 으로 동적 webp 생성.
- *
- * Storage 규칙: 인증된 누구나 `map_thumbnails/{userId}/{activityId}.webp` 쓰기 허용.
- * Firestore 규칙: 인증된 누구나 mapImageUrl 단일 필드 update 허용.
- */
-function CaptureMap({ activityId, userId, polyline, mapImageUrl, priority = false }: {
-  activityId: string;
-  userId: string;
-  polyline: string;
-  mapImageUrl?: string | null;
-  priority?: boolean;
-}) {
-  const { t } = useTranslation("activity");
-  const { user } = useAuth();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(mapImageUrl ?? null);
-  const captured = useRef(false);
-
-  // mapImageUrl prop 변경 시 동기화 (피드 갱신 등)
-  useEffect(() => { setImageUrl(mapImageUrl ?? null); }, [mapImageUrl]);
-
-  // 인증된 viewer 이고 클라 캡처 webp 가 아직 없는 경우에 한해 캡처.
-  const needsCapture = !!user && !isClientCapturedUrl(imageUrl);
-
-  useEffect(() => {
-    if (imageUrl && !needsCapture) return;
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry?.isIntersecting) { setVisible(true); observer.disconnect(); } },
-      { rootMargin: "200px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [imageUrl, needsCapture]);
-
-  // RouteMap idle 후 canvas → webp 캡처 → Storage 업로드 → Firestore mapImageUrl 갱신.
-  // Storage/Firestore 규칙은 인증된 누구나 허용 — viewer 가 owner 일 필요 없음.
-  const handleMapLoad = useCallback(async () => {
-    if (captured.current || !needsCapture) return;
-    captured.current = true;
-
-    const el = containerRef.current;
-    if (!el) return;
-    const canvas = el.querySelector("canvas");
-    if (!canvas) return;
-
-    try {
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/webp", 0.85)
-      );
-      if (!blob) return;
-
-      const storageRef = ref(storage, `map_thumbnails/${userId}/${activityId}.webp`);
-      await uploadBytes(storageRef, blob, { contentType: "image/webp" });
-      const url = await getDownloadURL(storageRef);
-
-      await updateDoc(doc(firestore, "activities", activityId), { mapImageUrl: url });
-      setImageUrl(url);
-    } catch (err) {
-      if (shouldReportMapCaptureError(err)) {
-        logClientError("ActivityCard.captureMap", err, { activityId });
-      }
-    }
-  }, [activityId, userId, needsCapture]);
-
-  // 지도 위 거리/시간/획득고도 뱃지는 카드 stats 와 중복이라 제거.
-  // 호버 시 dim 그라데이션만 남겨 액션 가능성(클릭→상세) 시각 단서 유지.
-  const hoverDim = (
-    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-  );
-
-  // 클라 캡처 webp 가 이미 있고 추가 캡처가 필요 없으면 그대로 표시.
-  if (imageUrl && !needsCapture) {
-    return (
-      <div className="px-4 pb-3">
-        <Link to={`/activity/${activityId}`} className="block relative group rounded-[var(--r-md)] overflow-hidden w-full aspect-[var(--feed-thumb-aspect)]" style={{ background: "var(--bg-2)" }}>
-          {/* 박스 비율은 토큰 --feed-thumb-aspect(현재 2.8:1, index.css 단일 진실원) + object-cover.
-              썸네일/캡처가 2:1 이라 더 납작한 박스에선 상하가 크롭되고(좌우 보존) 경로는 프레임을
-              채운다. 데스크톱·모바일·캡처가 모두 같은 토큰을 참조해 프레임이 일치한다. */}
-          <img
-            src={imageUrl}
-            alt={t("card.routeMapAlt")}
-            className="w-full h-full object-cover"
-            loading={priority ? "eager" : "lazy"}
-            fetchPriority={priority ? "high" : undefined}
-          />
-          {hoverDim}
-        </Link>
-      </div>
-    );
-  }
-
-  // mapImageUrl 없거나 비인증 / 서버 webp 잔존 — RouteMap 라이브 렌더링.
-  // needsCapture 면 onLoad 콜백에서 canvas → webp → upload 실행.
-  return (
-    <div ref={containerRef} className="px-4 pb-3">
-      <Link to={`/activity/${activityId}`} className="block relative group rounded-[var(--r-md)] overflow-hidden">
-        {visible ? (
-          <Suspense fallback={<div className="w-full aspect-[var(--feed-thumb-aspect)]" style={{ background: 'var(--bg-2)' }} />}>
-            {/* 캡처/렌더도 디스플레이와 같은 토큰 비율 프레임 → 카드 높이 일관 + cover 시 비율 일치.
-                fitPadding 16 으로 경로를 프레임 가까이 키운다. */}
-            <RouteMap
-              polyline={polyline}
-              height="w-full aspect-[var(--feed-thumb-aspect)]"
-              fitPadding={16}
-              rounded={false}
-              preserveDrawingBuffer={needsCapture}
-              pixelRatio={needsCapture ? 2 : undefined}
-              onLoad={needsCapture ? handleMapLoad : undefined}
-            />
-          </Suspense>
-        ) : (
-          <div className="w-full aspect-[var(--feed-thumb-aspect)]" style={{ background: 'var(--bg-2)' }} />
-        )}
-        {hoverDim}
-      </Link>
-    </div>
-  );
-}
-
-/**
- * mapImageUrl 이 클라 캡처(Firebase Storage download URL) 인지 식별.
- * 클라 캡처: `firebasestorage.googleapis.com/v0/b/...?alt=media&token=...`
- * 서버 webp (PR #85 이전): `storage.googleapis.com/...?v=...` (현재는 더 이상 생성 안 함)
- */
-function isClientCapturedUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  return url.includes("firebasestorage.googleapis.com");
-}
-
-export function shouldReportMapCaptureError(error: unknown): boolean {
-  const code = getErrorCode(error);
-  if (code === "storage/unauthorized" || code === "permission-denied") return false;
-
-  const message = error instanceof Error ? error.message : String(error);
-  return !(
-    message.includes("storage/unauthorized") ||
-    message.includes("does not have permission") ||
-    message.includes("Missing or insufficient permissions")
-  );
-}
-
-function getErrorCode(error: unknown): string | null {
-  if (typeof error !== "object" || error === null || !("code" in error)) return null;
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "string" ? code : null;
-}
 
 function formatDuration(ms: number): string {
   const hours = Math.floor(ms / 3600000);
@@ -617,7 +449,7 @@ export default function ActivityCard({
 
       {/* Route map — static image to avoid WebGL overflow + reduce Mapbox costs */}
       {showMap && activity.thumbnailTrack && (
-        <CaptureMap activityId={activity.id} userId={activity.userId} polyline={activity.thumbnailTrack} mapImageUrl={activity.mapImageUrl} priority={priority} />
+        <ActivityRouteThumbnail activityId={activity.id} userId={activity.userId} polyline={activity.thumbnailTrack} mapImageUrl={activity.mapImageUrl} priority={priority} />
       )}
 
       {/* 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. 작성자 컨텍스트(hideAuthor)에선 생략.

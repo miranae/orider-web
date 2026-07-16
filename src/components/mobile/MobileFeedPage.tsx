@@ -15,10 +15,10 @@ import { resolveDuration, resolveAvgSpeedKph } from "../../utils/activityTime";
 import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activitySanity";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import type { ActivityFeedScope } from "../../hooks/useActivities";
+import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
 
 const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
-const RouteMap = lazy(() => import("../RouteMap"));
 const MOBILE_FEED_RENDER_STEP = 40;
 const MOBILE_FEED_RENDER_INITIAL = 60;
 type SportFilter = "all" | "bike" | "run" | "swim";
@@ -135,34 +135,17 @@ function MobileFeedSkeleton() {
 }
 
 function MobileRouteThumbnail({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
-  if (activity.mapImageUrl) {
-    return (
-      <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 10px", overflow: "hidden" }}>
-        <img
-          src={activity.mapImageUrl}
-          alt=""
-          loading={priority ? "eager" : "lazy"}
-          fetchPriority={priority ? "high" : undefined}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      </div>
-    );
-  }
-
   if (!activity.thumbnailTrack) return null;
 
   return (
-    <div style={{ aspectRatio: "var(--feed-thumb-aspect)", margin: "0 -16px 10px", overflow: "hidden", background: "var(--bg-2)" }}>
-      <Suspense fallback={<div style={{ width: "100%", height: "100%", background: "var(--bg-2)" }} />}>
-        <RouteMap
-          polyline={activity.thumbnailTrack}
-          height="w-full h-full"
-          interactive={false}
-          rounded={false}
-          fitPadding={16}
-        />
-      </Suspense>
-    </div>
+    <ActivityRouteThumbnail
+      activityId={activity.id}
+      userId={activity.userId}
+      polyline={activity.thumbnailTrack}
+      mapImageUrl={activity.mapImageUrl}
+      priority={priority}
+      layout="mobile"
+    />
   );
 }
 
