@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
+import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { Card, Text, buttonClass } from "../../../theme/components";
 import FtpProgressionCard from "./FtpProgressionCard";
@@ -14,6 +15,7 @@ export default function BikeThresholdDecisionCard({
   applying,
   onApplyCandidate,
   progressionPoints = [],
+  ftpHistory = [],
   defaultEvidenceOpen = false,
   t,
 }: {
@@ -22,6 +24,7 @@ export default function BikeThresholdDecisionCard({
   applying: boolean;
   onApplyCandidate: (watts: number) => void;
   progressionPoints?: EstimatedFtpPoint[];
+  ftpHistory?: FtpHistoryEntry[];
   defaultEvidenceOpen?: boolean;
   t: T;
 }) {
@@ -95,6 +98,7 @@ export default function BikeThresholdDecisionCard({
         ))}
         <FtpProgressionCard
           points={progressionPoints}
+          history={ftpHistory}
           currentFtpW={decision.activeFtpW}
           breakthrough={null}
           embedded

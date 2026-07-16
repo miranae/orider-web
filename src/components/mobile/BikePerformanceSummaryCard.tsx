@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
+import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
 import { Button, Chip, Text } from "../../theme/components";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
 import AbilityScoreScale from "../fitness/AbilityScoreScale";
@@ -18,6 +19,7 @@ interface BikePerformanceSummaryCardProps {
   pdc?: MobileFitnessPdcSummary | null;
   weightKg?: number;
   progression?: EstimatedFtpPoint[];
+  ftpHistory?: FtpHistoryEntry[];
   applying: boolean;
   onApplyCandidate: (watts: number) => void;
 }
@@ -31,7 +33,7 @@ function estimateVo2max(ftp: number | null, weightKg: number | undefined): numbe
   return Math.round((ftp / weightKg) * 15.7 + 3.5);
 }
 
-export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, progression = [], applying, onApplyCandidate }: BikePerformanceSummaryCardProps) {
+export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, progression = [], ftpHistory = [], applying, onApplyCandidate }: BikePerformanceSummaryCardProps) {
   const { t } = useTranslation("dashboard");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const evidenceId = useId();
@@ -102,7 +104,7 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
         ))}
       </div>
 
-      <FtpProgressionCard points={progression} currentFtpW={activeFtp} breakthrough={null} embedded compact />
+      <FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact />
 
       {decision?.automaticCandidateW != null && (
         <div style={{ marginTop: "var(--space-4)", padding: "var(--space-4)", borderRadius: "var(--r-md)", background: "var(--accent-soft-bg)", border: "1px solid var(--accent-soft-border)" }}>

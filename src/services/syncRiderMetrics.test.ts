@@ -4,14 +4,22 @@ const mocks = vi.hoisted(() => ({
   fetchAll: vi.fn(),
   put: vi.fn(),
   updateDoc: vi.fn(),
+  batchUpdate: vi.fn(),
+  batchSet: vi.fn(),
+  batchCommit: vi.fn(),
 }));
 
 vi.mock("firebase/firestore", () => ({
-  collection: vi.fn(),
-  doc: vi.fn(() => "user-ref"),
+  collection: vi.fn(() => "history-collection"),
+  doc: vi.fn((value) => value === "history-collection" ? "history-ref" : "user-ref"),
   getDocs: vi.fn(),
   setDoc: vi.fn(),
   updateDoc: mocks.updateDoc,
+  writeBatch: vi.fn(() => ({
+    update: mocks.batchUpdate,
+    set: mocks.batchSet,
+    commit: mocks.batchCommit,
+  })),
 }));
 vi.mock("./firebase", () => ({ firestore: {} }));
 vi.mock("./deviceSettingsClient", () => ({
@@ -22,7 +30,10 @@ vi.mock("./deviceSettingsClient", () => ({
 import { persistRiderMetrics } from "./syncRiderMetrics";
 
 describe("persistRiderMetrics", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.batchCommit.mockResolvedValue(undefined);
+  });
 
   it("does not mutate anything until explicitly called, then falls back to the profile root", async () => {
     mocks.fetchAll.mockResolvedValue([]);
@@ -59,5 +70,51 @@ describe("persistRiderMetrics", () => {
     const result = await persistRiderMetrics("uid", { ftp: 153 });
     expect(mocks.updateDoc).toHaveBeenCalledWith("user-ref", { ftp: 153 });
     expect(result.failures[0]?.error).toBe("offline");
+  });
+
+  it("atomically persists a detected FTP change with its audit history", async () => {
+    mocks.fetchAll.mockResolvedValue([]);
+
+    await persistRiderMetrics(
+      "uid",
+      { ftp: 265 },
+      { ftpHistorySource: "detected", changedAt: 1234 },
+    );
+
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    expect(mocks.batchUpdate).toHaveBeenCalledWith("user-ref", { ftp: 265 });
+    expect(mocks.batchSet).toHaveBeenCalledWith("history-ref", {
+      value: 265,
+      source: "detected",
+      changedAt: 1234,
+    });
+    expect(mocks.batchCommit).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an atomic save failure and retries the same audit intent", async () => {
+    mocks.fetchAll.mockResolvedValue([]);
+    mocks.batchCommit
+      .mockRejectedValueOnce(new Error("batch unavailable"))
+      .mockResolvedValueOnce(undefined);
+
+    const save = () => persistRiderMetrics(
+      "uid",
+      { ftp: 265 },
+      { ftpHistorySource: "test", changedAt: 1234 },
+    );
+
+    await expect(save()).rejects.toThrow("batch unavailable");
+    await expect(save()).resolves.toMatchObject({ failures: [] });
+    expect(mocks.batchSet).toHaveBeenNthCalledWith(1, "history-ref", {
+      value: 265,
+      source: "test",
+      changedAt: 1234,
+    });
+    expect(mocks.batchSet).toHaveBeenNthCalledWith(2, "history-ref", {
+      value: 265,
+      source: "test",
+      changedAt: 1234,
+    });
+    expect(mocks.batchCommit).toHaveBeenCalledTimes(2);
   });
 });

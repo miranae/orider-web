@@ -18,7 +18,7 @@ describe("FtpProgressionCard", () => {
 
     expect(screen.getByText("월별 추정 FTP 추이")).toBeInTheDocument();
     expect(screen.getByText(/직접 설정한 FTP 변경 이력과는 다릅니다/)).toBeInTheDocument();
-    expect(screen.getByText(/월별 자동 추정 eFTP/)).toBeInTheDocument();
+    expect(screen.getAllByText(/월별 자동 추정 eFTP/).length).toBeGreaterThan(0);
     expect(screen.getByText(/현재 적용 FTP 250W/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /월별 추정 FTP 추이 차트:.*250W.*265W/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "훈련 설정에서 검토" })).toHaveAttribute("href", "/ko/settings?section=training");
@@ -53,5 +53,43 @@ describe("FtpProgressionCard", () => {
     expect(chart.querySelector("desc")).toHaveTextContent(/245W.*252W/);
     expect(screen.queryByText(/직접 설정한 FTP 변경 이력과는 다릅니다/)).not.toBeInTheDocument();
     expect(screen.queryByText(/월별 20분 최고 평균 파워의 95%/)).not.toBeInTheDocument();
+  });
+
+  it("merges applied FTP audit events with eFTP while preserving source labels", () => {
+    renderWithProviders(
+      <FtpProgressionCard
+        points={[
+          { period: "2026-05", ftpW: 245, source: "20m" },
+          { period: "2026-06", ftpW: 252, source: "20m" },
+        ]}
+        history={[
+          { id: "manual", value: 248, source: "manual", changedAt: Date.UTC(2026, 4, 15) },
+          { id: "detected", value: 255, source: "detected", changedAt: Date.UTC(2026, 5, 20) },
+        ]}
+        currentFtpW={255}
+        breakthrough={null}
+      />,
+    );
+
+    expect(screen.getByText("FTP 진전과 변경 이력")).toBeInTheDocument();
+    expect(screen.getAllByText(/실제 적용 FTP/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/직접 설정/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/자동 검출 제안/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("img", { name: /월별 자동 추정 eFTP.*245W.*252W.*실제 적용 FTP.*248W.*255W/ })).toBeInTheDocument();
+  });
+
+  it("shows a single real FTP change even without enough eFTP points", () => {
+    renderWithProviders(
+      <FtpProgressionCard
+        points={[]}
+        history={[{ id: "test", value: 260, source: "test", changedAt: Date.UTC(2026, 6, 1) }]}
+        currentFtpW={260}
+        breakthrough={null}
+      />,
+    );
+
+    expect(screen.getByText("FTP 진전과 변경 이력")).toBeInTheDocument();
+    expect(screen.getAllByText(/FTP 테스트/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("260 W").length).toBeGreaterThan(0);
   });
 });
