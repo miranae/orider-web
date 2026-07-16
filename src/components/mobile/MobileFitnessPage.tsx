@@ -21,6 +21,7 @@ import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import TodaysWorkoutCard from "../training/TodaysWorkoutCard";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
+import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
 import type { CyclingAbilityResult, LoadFocusResult, RunEvidence, SwimEvidence } from "../../features/fitness/multisportPerformance";
 import IntegratedLoadCard, { type CombinedLoadStatus } from "./IntegratedLoadCard";
 import SportPerformanceCard from "./SportPerformanceCard";
@@ -81,6 +82,7 @@ export interface MobileFitnessData {
   // 파워 커브 (bike, 있을 때만)
   powerCurve?: MobilePowerCurvePoint[];
   ftpProgression?: EstimatedFtpPoint[];
+  ftpHistory?: FtpHistoryEntry[];
   thresholdDecision?: BikeThresholdDecision;
   // 디스플레이용 종목 키 (탭 라벨/색상 결정)
   discipline: "bike" | "run" | "swim" | "tri";
@@ -556,6 +558,7 @@ export default function MobileFitnessPage({
               pdc={data.pdcSummary}
               weightKg={data.weightKg}
               progression={data.ftpProgression}
+              ftpHistory={data.ftpHistory}
               applying={applyingFtp}
               onApplyCandidate={onApplyFtp}
             />

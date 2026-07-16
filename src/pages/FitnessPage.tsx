@@ -42,6 +42,7 @@ import { useFreshTraining } from "../hooks/useFreshTraining";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { usePdc } from "../hooks/usePdc";
 import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
+import { useFtpHistory } from "../hooks/useFtpHistory";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import AdaptationSummary from "../components/training/AdaptationSummary";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
@@ -94,6 +95,7 @@ export default function FitnessPage() {
   const { t, i18n } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
+  const { entries: ftpHistory } = useFtpHistory(user?.uid);
   const dialog = useDialog();
   const { showToast } = useToast();
   const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
@@ -139,7 +141,11 @@ export default function FitnessPage() {
     }
     setApplyingFtp(true);
     try {
-      const result = await persistRiderMetrics(user.uid, { ftp: candidateW });
+      const result = await persistRiderMetrics(
+        user.uid,
+        { ftp: candidateW },
+        { ftpHistorySource: "detected" },
+      );
       setAppliedFtpW(candidateW);
       if (result.failures.length > 0) {
         showToast(t("thresholdDecision.partial", { count: result.failures.length }), "error");
@@ -726,6 +732,7 @@ export default function FitnessPage() {
           zoneSource,
           powerCurve,
           ftpProgression: deriveEstimatedFtpProgression(pdc?.history),
+          ftpHistory,
           thresholdDecision,
           discipline,
         }}
@@ -1079,6 +1086,7 @@ export default function FitnessPage() {
             applying={applyingFtp}
             onApplyCandidate={applyAutomaticFtp}
             progressionPoints={ftpProgression}
+            ftpHistory={ftpHistory}
             defaultEvidenceOpen
             t={t}
           />

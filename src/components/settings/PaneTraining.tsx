@@ -28,6 +28,10 @@ import {
 import { ThresholdSuggestionBanner } from "./ThresholdSuggestionBanner";
 import { Button, Text } from "../../theme/components";
 import { estimateFtpFromTest, isConservativeDrop, type FtpTestProtocol } from "@shared/training/ftpTest";
+import {
+  ftpHistorySourceForChange,
+  type FtpHistorySource,
+} from "@shared/training/ftpHistory";
 import { deriveHrZones, isValidHrThresholdRelationship } from "../../utils/hrZones";
 
 const BLOOD_TYPES: BloodType[] = [
@@ -80,6 +84,8 @@ export function PaneTraining() {
   const dialog = useDialog();
 
   const [ftp, setFtp] = useState("");
+  const [savedFtp, setSavedFtp] = useState<number | null | undefined>(profile?.ftp);
+  const [ftpChangeSource, setFtpChangeSource] = useState<FtpHistorySource>("manual");
   // FTP 테스트 모드 — 전용 테스트 입력 → FTP 후보 산출(#307).
   const [ftpTestProtocol, setFtpTestProtocol] = useState<FtpTestProtocol>("twenty_min");
   const [ftpTestInput, setFtpTestInput] = useState("");
@@ -107,7 +113,12 @@ export function PaneTraining() {
     if (!user) return;
     void getDoc(doc(firestore, "users", user.uid)).then((snap) => {
       const d = snap.data() ?? {};
-      if (typeof d.ftp === "number") setFtp(String(d.ftp));
+      if (typeof d.ftp === "number") {
+        setFtp(String(d.ftp));
+        setSavedFtp(d.ftp);
+      } else {
+        setSavedFtp(null);
+      }
       if (typeof d.maxHr === "number") setMaxHr(String(d.maxHr));
       if (typeof d.lthr === "number") setLthr(String(d.lthr));
       if (typeof d.thresholdPace === "number") setThresholdPace(secsToMmss(d.thresholdPace));
@@ -266,20 +277,30 @@ export function PaneTraining() {
 
       const syncErrors: string[] = [];
       if (needDeviceSync) {
-        try {
-          const result = await persistRiderMetrics(user.uid, {
-            ftp: ftpForSync,
-            maxHr: maxHrForSync,
-            weightKg: weightForSync,
-          });
-          if (result.failures.length > 0) {
-            const failedNames = result.failures
-              .map((f) => f.deviceName || f.deviceId)
-              .join(", ");
-            syncErrors.push(t("training.syncDeviceFail", { count: result.failures.length, names: failedNames }));
-          }
-        } catch (e) {
-          syncErrors.push(t("training.syncDeviceError", { message: e instanceof Error ? e.message : String(e) }));
+        const ftpHistorySource = ftpHistorySourceForChange(
+          savedFtp,
+          ftpForSync,
+          ftpChangeSource,
+        );
+        // persistRiderMetrics 내부의 device 실패는 result.failures 로 반환되지만,
+        // 프로필+이력 batch 실패는 throw한다. 후자는 아래 저장 흐름을 중단해야 재시도 때
+        // audit source가 보존되고, FTP만 별도 저장되는 부분 성공이 생기지 않는다.
+        const result = await persistRiderMetrics(user.uid, {
+          ftp: ftpForSync,
+          maxHr: maxHrForSync,
+          weightKg: weightForSync,
+        }, { ftpHistorySource });
+        if (ftpForSync !== undefined) {
+          // FTP 정본+이력 커밋은 여기서 이미 완료됐다. 이후 다른 프로필/의료 저장이
+          // 실패해도 재시도가 같은 FTP 이력을 다시 append하지 않도록 기준을 즉시 확정한다.
+          setSavedFtp(ftpForSync);
+          setFtpChangeSource("manual");
+        }
+        if (result.failures.length > 0) {
+          const failedNames = result.failures
+            .map((f) => f.deviceName || f.deviceId)
+            .join(", ");
+          syncErrors.push(t("training.syncDeviceFail", { count: result.failures.length, names: failedNames }));
         }
       }
 
@@ -316,6 +337,10 @@ export function PaneTraining() {
       } else {
         showToast(t("training.syncPartialFail", { errors: syncErrors.join(" / ") }));
       }
+      if (ftpForSync === undefined) {
+        setSavedFtp(null);
+        setFtpChangeSource("manual");
+      }
     } catch (e) {
       showToast(`${t("training.saveFailed")}: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -325,6 +350,8 @@ export function PaneTraining() {
 
   function handleReset() {
     setFtp(profile?.ftp ? String(profile.ftp) : "");
+    setSavedFtp(profile?.ftp ?? null);
+    setFtpChangeSource("manual");
     setMaxHr(profile?.maxHr ? String(profile.maxHr) : "");
     setLthr(profile?.lthr ? String(profile.lthr) : "");
     setThresholdPace(profile?.thresholdPace ? secsToMmss(profile.thresholdPace) : "");
@@ -406,7 +433,14 @@ export function PaneTraining() {
 
       <ThresholdSuggestionBanner
         onAccepted={(applied) => {
-          if (applied.ftp != null) setFtp(String(applied.ftp));
+          if (applied.ftp != null) {
+            setFtp(String(applied.ftp));
+            // callable이 이미 profile FTP와 detected 이력을 원자적으로 저장한다.
+            // 폼의 저장 기준도 즉시 맞춰 이후 무관한 설정 저장 시 manual 이력이
+            // 중복 생성되지 않도록 한다.
+            setSavedFtp(applied.ftp);
+            setFtpChangeSource("manual");
+          }
           if (applied.lthr != null) setLthr(String(applied.lthr));
           if (applied.maxHr != null) setMaxHr(String(applied.maxHr));
         }}
@@ -463,6 +497,7 @@ export function PaneTraining() {
                 onClick={async () => {
                   if (ftpTestDrop && !(await dialog.confirm(t("training.ftpTest.dropConfirm", { current: curFtp, candidate: ftpTestCandidate })))) return;
                   setFtp(String(ftpTestCandidate));
+                  setFtpChangeSource("test");
                   showToast(t("training.ftpTest.applied"));
                 }}
                 style={{ padding: "6px 14px", fontSize: "var(--fs-sm)" }}
@@ -487,7 +522,10 @@ export function PaneTraining() {
           <Field label="FTP" hint={t("training.fieldFtpHint")}>
             <input
               value={ftp}
-              onChange={(e) => setFtp(e.target.value.replace(/[^0-9]/g, ""))}
+              onChange={(e) => {
+                setFtp(e.target.value.replace(/[^0-9]/g, ""));
+                setFtpChangeSource("manual");
+              }}
               style={monoInputStyle}
             />
           </Field>
