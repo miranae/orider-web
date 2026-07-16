@@ -6,7 +6,9 @@ import { setCallableResult, setDocData } from "../__tests__/mocks/firebase";
 
 // Mock RouteMap to avoid Leaflet issues
 vi.mock("./RouteMap", () => ({
-  default: () => <div data-testid="route-map">Map</div>,
+  default: ({ interactive }: { interactive?: boolean }) => (
+    <div data-testid="route-map" data-interactive={String(interactive)}>Map</div>
+  ),
 }));
 
 describe("ActivityCard", () => {
@@ -149,7 +151,7 @@ describe("ActivityCard", () => {
     renderWithProviders(<ActivityCard activity={activity} />);
     // RouteMap 은 lazy() 로 분리되어 Suspense 경계 뒤에서 비동기 로드된다.
     await waitFor(() => {
-      expect(screen.getByTestId("route-map")).toBeInTheDocument();
+      expect(screen.getByTestId("route-map")).toHaveAttribute("data-interactive", "false");
     });
   });
 
@@ -161,10 +163,11 @@ describe("ActivityCard", () => {
 
   it("links to activity detail page", () => {
     const activity = createMockActivity({ id: "act-detail" });
-    renderWithProviders(<ActivityCard activity={activity} />);
+    const { container } = renderWithProviders(<ActivityCard activity={activity} />);
     const links = screen.getAllByRole("link");
     const actLink = links.find((l) => l.getAttribute("href") === "/ko/activity/act-detail");
     expect(actLink).toBeTruthy();
+    expect(container.querySelector('a[href="/ko/activity/act-detail"].group')).toHaveClass("block");
   });
 
   it("links to athlete profile", () => {

@@ -9,7 +9,9 @@ vi.mock("../training/TodaysWorkoutCard", () => ({
 }));
 
 vi.mock("../RouteMap", () => ({
-  default: () => <div data-testid="route-map">Map</div>,
+  default: ({ interactive }: { interactive?: boolean }) => (
+    <div data-testid="route-map" data-interactive={String(interactive)}>Map</div>
+  ),
 }));
 
 vi.mock("../activity/ActivitySocialFooter", () => ({
@@ -126,6 +128,50 @@ describe("MobileFeedPage", () => {
 
     expect(screen.getByText("게스트 수영")).toBeInTheDocument();
     expect(screen.queryByText("게스트 사이클")).not.toBeInTheDocument();
+  });
+
+  it("re-renders legacy map thumbnails for authenticated viewers", async () => {
+    const activity = createMockActivity({
+      id: "legacy-thumbnail",
+      mapImageUrl: "https://storage.googleapis.com/legacy/map.webp",
+    });
+
+    const { container } = renderWithProviders(
+      <MobileFeedPage
+        activities={[activity]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        feedScope="all"
+        onFeedScopeChange={vi.fn()}
+      />,
+      { authenticated: true },
+    );
+
+    expect(await screen.findByTestId("route-map")).toHaveAttribute("data-interactive", "false");
+    expect(container.querySelector(`img[src="${activity.mapImageUrl}"]`)).not.toBeInTheDocument();
+  });
+
+  it("keeps client-captured Firebase thumbnails on mobile", () => {
+    const mapImageUrl = "https://firebasestorage.googleapis.com/v0/b/test/o/map.webp?alt=media";
+    const activity = createMockActivity({ id: "current-thumbnail", mapImageUrl });
+
+    const { container } = renderWithProviders(
+      <MobileFeedPage
+        activities={[activity]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        feedScope="all"
+        onFeedScopeChange={vi.fn()}
+      />,
+      { authenticated: true },
+    );
+
+    expect(container.querySelector(`img[src="${mapImageUrl}"]`)).toBeInTheDocument();
+    expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
   });
 
   it("filters the feed scope from the select beside the date range", async () => {
