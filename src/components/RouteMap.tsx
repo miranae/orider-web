@@ -176,8 +176,8 @@ function RouteMapFallback({
     >
       {path && (
         <svg viewBox="0 0 320 160" className="absolute inset-0 h-full w-full" aria-hidden="true" preserveAspectRatio="none">
-          <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />
-          <path d={path} fill="none" stroke="var(--lime)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={path} fill="none" stroke="color-mix(in oklch, var(--lime) 36%, transparent)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={path} fill="none" stroke="var(--lime)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
       <div className="relative mx-4 max-w-sm rounded-[var(--r-md)] px-4 py-3 text-center" style={{ background: "color-mix(in srgb, var(--bg-0) 82%, transparent)", border: "1px solid var(--line-soft)" }}>
@@ -377,7 +377,7 @@ export default function RouteMap({
             <Source type="geojson" data={fullRouteGeoJSON}>
               <Layer id="route-gray" type="line" paint={{
                 "line-color": "#9CA3AF",
-                "line-width": 3,
+                "line-width": 1.5,
                 "line-opacity": 0.5,
               }} layout={{ "line-cap": "round", "line-join": "round" }} />
             </Source>
@@ -386,12 +386,12 @@ export default function RouteMap({
               <Source type="geojson" data={highlightGeoJSON}>
                 <Layer id="highlight-glow" type="line" paint={{
                   "line-color": RECORDED_TRACK_COLOR,
-                  "line-width": 10,
+                  "line-width": 5,
                   "line-opacity": 0.45,
                 }} layout={{ "line-cap": "round", "line-join": "round" }} />
                 <Layer id="highlight-main" type="line" paint={{
                   "line-color": RECORDED_TRACK_COLOR,
-                  "line-width": 4,
+                  "line-width": 2,
                   "line-opacity": 0.95,
                 }} layout={{ "line-cap": "round", "line-join": "round" }} />
               </Source>
@@ -425,12 +425,12 @@ export default function RouteMap({
           <Source type="geojson" data={fullRouteGeoJSON}>
             <Layer id="route-glow" type="line" paint={{
               "line-color": RECORDED_TRACK_COLOR,
-              "line-width": 10,
+              "line-width": 5,
               "line-opacity": 0.45,
             }} layout={{ "line-cap": "round", "line-join": "round" }} />
             <Layer id="route-main" type="line" paint={{
               "line-color": RECORDED_TRACK_COLOR,
-              "line-width": 4,
+              "line-width": 2,
               "line-opacity": 0.95,
             }} layout={{ "line-cap": "round", "line-join": "round" }} />
           </Source>
