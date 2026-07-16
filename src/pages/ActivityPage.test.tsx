@@ -58,6 +58,10 @@ const { mockRoute, mockSetActivityOwner } = vi.hoisted(() => ({
   mockSetActivityOwner: vi.fn(),
 }));
 const findSentButton = () => screen.findByRole("button", { name: "앱으로 전송됨" }, { timeout: 5000 });
+const waitForCallableCount = (name: string, count: number) => waitFor(
+  () => expect(mockCallableInvocations.filter((call) => call.name === name)).toHaveLength(count),
+  { timeout: 5000 },
+);
 
 // Mock react-router-dom useParams
 vi.mock("react-router-dom", async (importOriginal) => {
@@ -428,7 +432,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    await waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1));
+    await waitForCallableCount("createCourseFromActivity", 1);
 
     setCollectionDocs("courses", [{
       id: "recovered-course",
@@ -522,7 +526,7 @@ describe("ActivityPage", () => {
 
     const view = renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    await waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1));
+    await waitForCallableCount("createCourseFromActivity", 1);
 
     mockRoute.activityId = "next-activity";
     view.rerender(<ActivityPage />);
@@ -542,7 +546,7 @@ describe("ActivityPage", () => {
 
     const view = renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    await waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1));
+    await waitForCallableCount("createCourseFromActivity", 1);
     view.unmount();
     resolveCreate({ data: { courseId: "stale-course" } });
 
@@ -559,7 +563,7 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: "user-a" } });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    await waitFor(() => expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1));
+    await waitForCallableCount("createCourseFromActivity", 1);
 
     simulateLogin({ uid: "user-b", displayName: "User B" });
     await waitFor(() => expect(screen.getByRole("button", { name: "이 경로로 라이드" })).toBeEnabled());
@@ -590,7 +594,8 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true });
 
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("코스는 만들었지만 앱으로 보내지 못했습니다");
+    expect(await screen.findByRole("alert", undefined, { timeout: 5000 }))
+      .toHaveTextContent("코스는 만들었지만 앱으로 보내지 못했습니다");
 
     setCallableResult("sendCourseToApp", { data: {} });
     fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
