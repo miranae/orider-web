@@ -17,6 +17,12 @@ export interface Activity {
   mapImageUrl?: string | null;
   groupId: string | null;
   groupRideId: string | null;
+  /** 백엔드가 원본 GPS 스트림의 같은 시각·위치 근접성을 검증한 매칭 상태. */
+  groupRideMatchState?: 'pending' | 'confirmed' | 'unmatched' | null;
+  /** 동승 매칭 알고리즘 버전. v3부터 시공간 동시 근접성을 보장한다. */
+  groupRideMatchVersion?: number | null;
+  /** 이 활동과 직접적인 시공간 동승이 확인된 사용자 ID 목록. */
+  groupRideConfirmedPeerUserIds?: string[] | null;
   photoCount: number;
   kudosCount: number;
   commentCount: number;
