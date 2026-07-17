@@ -20,6 +20,7 @@ import koLegal from './resources/ko/legal.json';
 import koTraining from './resources/ko/training.json';
 import koFitness from './resources/ko/fitness.json';
 import koLab from './resources/ko/lab.json';
+import koCoach from './resources/ko/coach.json';
 import enCommon from './resources/en/common.json';
 import enAuth from './resources/en/auth.json';
 import enDashboard from './resources/en/dashboard.json';
@@ -30,6 +31,7 @@ import enLegal from './resources/en/legal.json';
 import enTraining from './resources/en/training.json';
 import enFitness from './resources/en/fitness.json';
 import enLab from './resources/en/lab.json';
+import enCoach from './resources/en/coach.json';
 
 const detector = new LanguageDetector();
 detector.addDetector(pathDetector);
@@ -45,6 +47,7 @@ export const NAMESPACES = [
   'training',
   'fitness',
   'lab',
+  'coach',
 ] as const;
 
 // 번들 인라인된 초기 리소스 — NAMESPACES 와 1:1. 여기 없는 ns 는 HttpBackend 가 lazy 로드.
@@ -60,6 +63,7 @@ const resources: Resource = {
     training: koTraining,
     fitness: koFitness,
     lab: koLab,
+    coach: koCoach,
   },
   en: {
     common: enCommon,
@@ -72,6 +76,7 @@ const resources: Resource = {
     training: enTraining,
     fitness: enFitness,
     lab: enLab,
+    coach: enCoach,
   },
 };
 
