@@ -44,6 +44,8 @@ import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard"
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text } from "../theme/components";
 import type { Activity } from "@shared/types";
+import { CoachQuestionLauncher } from "../features/coach/CoachQuestionLauncher";
+import type { CoachDiscipline } from "../services/coachClient";
 
 const TodaysWorkoutCard = lazy(() => import("../components/training/TodaysWorkoutCard"));
 
@@ -189,6 +191,9 @@ export default function DashboardPage() {
 
   const [searchParams] = useSearchParams();
   const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
+  const coachDiscipline: CoachDiscipline = discipline === "tri"
+    ? (profile?.primaryDiscipline && profile.primaryDiscipline !== "tri" ? profile.primaryDiscipline : "bike")
+    : discipline;
 
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
@@ -507,7 +512,6 @@ export default function DashboardPage() {
             <RunEmptyState stravaConnected={!!profile?.stravaConnected} />
           </div>
         )}
-
         {/* 오늘의 워크아웃은 실행 가능한 기본 행동이므로 러닝 정보 카드보다 먼저 둔다. */}
         {user && !hasNoRuns && (
           <div style={{ marginTop: 'var(--space-5)' }}>
@@ -516,6 +520,9 @@ export default function DashboardPage() {
             </Suspense>
           </div>
         )}
+        <div style={{ marginTop: 'var(--space-3)' }}>
+          <CoachQuestionLauncher user={user} discipline={coachDiscipline} onSignIn={signInWithGoogle} />
+        </div>
 
         {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}
         {isRunTab && showRecap && runRecap && !hasNoRuns && (

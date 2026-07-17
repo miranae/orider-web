@@ -23,6 +23,7 @@ import koRecap from "../../i18n/resources/ko/recap.json";
 import koSegment from "../../i18n/resources/ko/segment.json";
 import koSettings from "../../i18n/resources/ko/settings.json";
 import koTraining from "../../i18n/resources/ko/training.json";
+import koCoach from "../../i18n/resources/ko/coach.json";
 
 const ko = {
   activity: koActivity,
@@ -44,6 +45,7 @@ const ko = {
   segment: koSegment,
   settings: koSettings,
   training: koTraining,
+  coach: koCoach,
 };
 
 if (!i18n.isInitialized) {

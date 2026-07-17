@@ -17,6 +17,7 @@ import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import type { ActivityFeedScope } from "../../hooks/useActivities";
 import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
 import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useDashboardPreferences";
+import { CoachQuestionLauncher } from "../../features/coach/CoachQuestionLauncher";
 
 const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
@@ -275,7 +276,7 @@ export default function MobileFeedPage({
   onDatePresetChange,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
-  const { user } = useAuth();
+  const { user, profile, signInWithGoogle } = useAuth();
   const [localSportFilter, setLocalSportFilter] = useState<SportFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [localDatePreset, setLocalDatePreset] = useState<DashboardDatePreset>("all");
@@ -339,6 +340,15 @@ export default function MobileFeedPage({
           </Suspense>
         </div>
       )}
+      <div style={{ padding: "0 16px 14px", borderBottom: "1px solid var(--line-soft)" }}>
+        <CoachQuestionLauncher
+          user={user}
+          discipline={sportFilter === "bike" || sportFilter === "run" || sportFilter === "swim"
+            ? sportFilter
+            : (profile?.primaryDiscipline && profile.primaryDiscipline !== "tri" ? profile.primaryDiscipline : "bike")}
+          onSignIn={signInWithGoogle}
+        />
+      </div>
 
       {!user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
