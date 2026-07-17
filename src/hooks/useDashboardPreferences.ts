@@ -49,10 +49,11 @@ export function dashboardPreferencesStorageKey(uid: string): string {
 
 export function readDashboardPreferences(
   uid: string,
-  storage: Pick<Storage, "getItem"> = window.localStorage,
+  storage?: Pick<Storage, "getItem">,
 ): DashboardPreferences {
   try {
-    const raw = storage.getItem(dashboardPreferencesStorageKey(uid));
+    const resolvedStorage = storage ?? window.localStorage;
+    const raw = resolvedStorage.getItem(dashboardPreferencesStorageKey(uid));
     return raw == null ? DEFAULT_DASHBOARD_PREFERENCES : parseDashboardPreferences(JSON.parse(raw));
   } catch {
     return DEFAULT_DASHBOARD_PREFERENCES;
@@ -62,11 +63,12 @@ export function readDashboardPreferences(
 export function updateDashboardPreferences(
   uid: string,
   patch: Partial<DashboardPreferences>,
-  storage: Pick<Storage, "getItem" | "setItem"> = window.localStorage,
+  storage?: Pick<Storage, "getItem" | "setItem">,
 ): boolean {
   try {
-    const current = readDashboardPreferences(uid, storage);
-    storage.setItem(dashboardPreferencesStorageKey(uid), JSON.stringify({ ...current, ...patch }));
+    const resolvedStorage = storage ?? window.localStorage;
+    const current = readDashboardPreferences(uid, resolvedStorage);
+    resolvedStorage.setItem(dashboardPreferencesStorageKey(uid), JSON.stringify({ ...current, ...patch }));
     return true;
   } catch {
     return false;

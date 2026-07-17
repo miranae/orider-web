@@ -70,4 +70,16 @@ describe("dashboard preferences", () => {
     expect(readDashboardPreferences("rider", throwingStorage)).toEqual(DEFAULT_DASHBOARD_PREFERENCES);
     expect(updateDashboardPreferences("rider", { feedScope: "self" }, throwingStorage)).toBe(false);
   });
+
+  it("survives a browser that throws while resolving localStorage", () => {
+    const localStorageGetter = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new DOMException("Storage access denied", "SecurityError");
+    });
+    try {
+      expect(readDashboardPreferences("rider")).toEqual(DEFAULT_DASHBOARD_PREFERENCES);
+      expect(updateDashboardPreferences("rider", { feedScope: "self" })).toBe(false);
+    } finally {
+      localStorageGetter.mockRestore();
+    }
+  });
 });
