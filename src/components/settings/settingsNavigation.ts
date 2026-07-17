@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bot,
   Bike,
   KeyRound,
   Link2,
@@ -16,6 +17,7 @@ export type SectionId =
   | "equipment"
   | "connections"
   | "health_sources"
+  | "ai_coach"
   | "developer"
   | "device"
   | "app";
@@ -38,6 +40,7 @@ export const SECTION_IDS: SectionId[] = [
   "equipment",
   "connections",
   "health_sources",
+  "ai_coach",
   "developer",
   "device",
   "app",
@@ -58,6 +61,7 @@ export const NAV_GROUPS: NavGroupDef[] = [
     items: [
       { id: "connections", icon: Link2, labelKey: "nav.connectionsLabel", hintKey: "nav.connectionsHint" },
       { id: "health_sources", icon: Activity, labelKey: "nav.healthSourcesLabel", hintKey: "nav.healthSourcesHint" },
+      { id: "ai_coach", icon: Bot, labelKey: "nav.aiCoachLabel", hintKey: "nav.aiCoachHint" },
       { id: "developer", icon: KeyRound, labelKey: "nav.developerLabel", hintKey: "nav.developerHint" },
       { id: "device", icon: Smartphone, labelKey: "nav.deviceLabel", hintKey: "nav.deviceHint" },
     ],

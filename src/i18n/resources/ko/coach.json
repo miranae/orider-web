@@ -1,0 +1,62 @@
+{
+  "open": "AI 코치에게 물어보기",
+  "close": "AI 코치 닫기",
+  "title": "O·RIDER Coach",
+  "subtitle": "내 운동 기록을 근거로 답합니다. 각 질문은 독립적으로 분석됩니다.",
+  "signInRequired": "AI 코치가 내 운동 기록을 분석하려면 로그인이 필요합니다.",
+  "signIn": "로그인하기",
+  "loadingStatus": "오늘의 사용 가능 횟수를 확인하고 있습니다…",
+  "loadError": "AI 코치 상태를 불러오지 못했습니다. 잠시 후 다시 열어 주세요.",
+  "reloadStatus": "상태 다시 확인",
+  "loadingAnswer": "운동 기록을 확인하고 답변을 준비하고 있습니다…",
+  "loadingHonest": "서버는 완료된 답변만 보내므로 현재 세부 처리 단계는 표시하지 않습니다.",
+  "inputLabel": "내 운동에 대한 질문",
+  "placeholder": "예: 최근 28일과 직전 28일을 비교해줘.",
+  "submit": "질문하기",
+  "another": "다른 질문하기",
+  "suggestions": {
+    "title": "이런 질문을 해보세요",
+    "1": "이번 주 운동량이 어땠나요?",
+    "2": "최근 28일과 직전 28일을 비교해줘."
+  },
+  "discipline": { "bike": "사이클", "run": "러닝", "swim": "수영" },
+  "period": { "default": "서버가 질문에서 기간 확인", "current7d": "최근 7일", "current28d": "최근 28일", "previous28d": "직전 28일" },
+  "goal": { "included": "목표 포함", "notIncluded": "목표 미포함" },
+  "quota": {
+    "remaining": "오늘 {{count}}회 남음",
+    "exhausted": "오늘 사용 완료 · {{resetAt}} 이후 다시 이용할 수 있어요",
+    "previousConsumed": "이 요청은 이미 오늘 사용 횟수 1회를 사용했습니다."
+  },
+  "retry": {
+    "same": "같은 요청 다시 확인",
+    "poll": "결과 다시 확인",
+    "replay": "저장된 결과 다시 확인",
+    "newTurnTitle": "새 질문으로 다시 시도",
+    "newTurnConfirm": "오늘 사용 횟수 1회를 더 사용해 다시 질문할까요?",
+    "newTurnAction": "1회 사용하고 다시 질문"
+  },
+  "states": {
+    "network": { "title": "답변을 확인하지 못했습니다", "body": "같은 requestId로 결과를 다시 확인할 수 있습니다. 추가 사용 여부는 서버 응답으로만 판단합니다." },
+    "compatibility": { "title": "이 답변을 안전하게 표시할 수 없습니다", "body": "앱과 AI 코치 응답 계약이 맞지 않습니다. 새 질문을 자동 제출하지 않았습니다." },
+    "terminal": { "title": "이 요청을 처리할 수 없습니다", "body": "같은 요청 재시도나 새 질문을 자동 실행하지 않았습니다. 다른 질문을 작성해 주세요." },
+    "ok": { "body": "" },
+    "insufficient_data": { "body": "분석에 필요한 운동 기록이 충분하지 않습니다." },
+    "stale": { "body": "일부 최신 계산을 기다리는 중입니다. 현재 근거를 함께 확인해 주세요." },
+    "unsupported": { "body": "현재는 최근 운동 요약과 28일 비교 질문을 지원합니다." },
+    "quota_exceeded": { "body": "오늘 사용할 수 있는 AI 코치 질문을 모두 사용했습니다." },
+    "budget_blocked": { "body": "지금은 AI 설명을 생성할 수 없습니다. 잠시 후 다시 확인해 주세요." },
+    "fallback": { "body": "안전하게 확인된 범위의 안내만 표시합니다." }
+  },
+  "actions": {
+    "FOLLOW_EXISTING_PLAN": "기존 계획 확인하기",
+    "REVIEW_RECOVERY_BEFORE_TRAINING": "회복 지표 확인하기",
+    "CHECK_MISSING_DATA": "누락 데이터 확인하기",
+    "OPEN_PLAN": "운동 계획 열기",
+    "NO_ACTIVE_GOAL": "운동 목표 설정하기"
+  },
+  "evidence": { "toggle": "분석 근거 {{count}}개 보기" },
+  "freshness": "데이터 기준 {{at}}",
+  "latestActivity": "최근 활동 {{at}}",
+  "staleSources": "갱신을 기다리는 데이터 {{count}}개",
+  "feedback": { "label": "답변 평가", "helpful": "도움됨", "notHelpful": "도움 안 됨" }
+}

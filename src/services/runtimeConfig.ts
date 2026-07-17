@@ -13,6 +13,7 @@ export interface RuntimeConfig {
   heatmapBase?: string;
   mapboxToken?: string;
   personalApiBase?: string;
+  aiApiBase?: string;
   sentryDsn?: string;
   appEnvironment?: string;
   useEmulators?: boolean;
@@ -50,6 +51,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     heatmapBase: import.meta.env.VITE_HEATMAP_BASE,
     mapboxToken: import.meta.env.VITE_MAPBOX_TOKEN,
     personalApiBase: import.meta.env.VITE_ORIDER_PERSONAL_API_BASE,
+    aiApiBase: import.meta.env.VITE_ORIDER_AI_API_BASE,
     sentryDsn: import.meta.env.VITE_SENTRY_DSN,
     appEnvironment: import.meta.env.MODE,
     useEmulators: import.meta.env.VITE_USE_EMULATORS === "true",

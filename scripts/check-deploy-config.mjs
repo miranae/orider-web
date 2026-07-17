@@ -59,6 +59,7 @@ function checkHostingConfig(hosting, label) {
     requireIncludes(csp, "https://*.firebaseapp.com", `${label} Content-Security-Policy frame-src`);
     requireIncludes(csp, "https://www.google.com", `${label} Content-Security-Policy frame-src`);
     requireIncludes(csp, "https://www.recaptcha.net", `${label} Content-Security-Policy frame-src`);
+    requireIncludes(csp, "https://orider-ai-api-h5zqzw3n4a-du.a.run.app", `${label} Content-Security-Policy connect-src`);
   }
 
   const rewrites = hosting.rewrites ?? [];
@@ -81,6 +82,9 @@ if (stageFirebaseConfig.hosting?.site !== "miranae-orider-g1-stage") {
   fail("firebase.stage.json hosting.site must be miranae-orider-g1-stage");
 }
 
+const ciWorkflow = readFileSync(".github/workflows/ci.yml", "utf8");
+requireIncludes(ciWorkflow, "VITE_ORIDER_AI_API_BASE: https://coach.example.run.app", "ci.yml placeholder build env");
+
 const deployWorkflow = readFileSync(".github/workflows/deploy.yml", "utf8");
 requireIncludes(deployWorkflow, "tags:", "deploy.yml trigger");
 requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
@@ -88,6 +92,7 @@ requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_ORIDER_AI_API_BASE: ${{ vars.VITE_ORIDER_AI_API_BASE }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
 requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
@@ -118,6 +123,7 @@ requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_APP_ID", "depl
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_STRAVA_CLIENT_ID", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_STRAVA_REDIRECT_URI", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE_KEY", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_ORIDER_AI_API_BASE", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-stage.yml verification");
 requireIncludes(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "deploy-stage.yml backend contract gate");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
@@ -134,6 +140,7 @@ const forbiddenStageFallbacks = [
   "secrets.VITE_STRAVA_CLIENT_ID",
   "vars.VITE_STRAVA_REDIRECT_URI",
   "secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY",
+  "vars.VITE_ORIDER_AI_API_BASE",
   "vars.FIREBASE_PROJECT_ID",
   "vars.GCP_WORKLOAD_IDENTITY_PROVIDER",
   "vars.GCP_SERVICE_ACCOUNT",

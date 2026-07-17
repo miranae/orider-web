@@ -1,0 +1,62 @@
+{
+  "open": "Ask AI Coach",
+  "close": "Close AI Coach",
+  "title": "O·RIDER Coach",
+  "subtitle": "Answers based on your training records. Each question is analyzed independently.",
+  "signInRequired": "Sign in so AI Coach can analyze your training records.",
+  "signIn": "Sign in",
+  "loadingStatus": "Checking today's available uses…",
+  "loadError": "AI Coach status could not be loaded. Please open it again shortly.",
+  "reloadStatus": "Check status again",
+  "loadingAnswer": "Checking your training records and preparing an answer…",
+  "loadingHonest": "The server returns only a completed answer, so detailed processing stages are not shown.",
+  "inputLabel": "Question about my training",
+  "placeholder": "For example: Compare my last 28 days with the previous 28 days.",
+  "submit": "Ask",
+  "another": "Ask another question",
+  "suggestions": {
+    "title": "Try asking",
+    "1": "How was my training volume this week?",
+    "2": "Compare my last 28 days with the previous 28 days."
+  },
+  "discipline": { "bike": "Cycling", "run": "Running", "swim": "Swimming" },
+  "period": { "default": "Period resolved from the question", "current7d": "Last 7 days", "current28d": "Last 28 days", "previous28d": "Previous 28 days" },
+  "goal": { "included": "Goal included", "notIncluded": "Goal not included" },
+  "quota": {
+    "remaining": "{{count}} uses left today",
+    "exhausted": "Today's uses are complete · Available again after {{resetAt}}",
+    "previousConsumed": "This request has already consumed one of today's uses."
+  },
+  "retry": {
+    "same": "Check the same request again",
+    "poll": "Check for the result",
+    "replay": "Check the stored result again",
+    "newTurnTitle": "Try as a new question",
+    "newTurnConfirm": "Use one more of today's uses to ask again?",
+    "newTurnAction": "Use one and ask again"
+  },
+  "states": {
+    "network": { "title": "The answer could not be confirmed", "body": "You can check the result with the same requestId. Additional usage is determined only by the server response." },
+    "compatibility": { "title": "This answer cannot be displayed safely", "body": "The app and AI Coach response contracts do not match. No new question was submitted automatically." },
+    "terminal": { "title": "This request cannot be processed", "body": "The same request was not retried and no new question was submitted automatically. Please write another question." },
+    "ok": { "body": "" },
+    "insufficient_data": { "body": "There are not enough training records for this analysis." },
+    "stale": { "body": "Some recent calculations are pending. Review the current evidence as well." },
+    "unsupported": { "body": "Recent summaries and 28-day comparison questions are currently supported." },
+    "quota_exceeded": { "body": "You have used all AI Coach questions available today." },
+    "budget_blocked": { "body": "An AI explanation cannot be generated right now. Please check again later." },
+    "fallback": { "body": "Only guidance within the safely verified scope is shown." }
+  },
+  "actions": {
+    "FOLLOW_EXISTING_PLAN": "View existing plan",
+    "REVIEW_RECOVERY_BEFORE_TRAINING": "Review recovery metrics",
+    "CHECK_MISSING_DATA": "Review missing data",
+    "OPEN_PLAN": "Open training plan",
+    "NO_ACTIVE_GOAL": "Set a training goal"
+  },
+  "evidence": { "toggle": "View {{count}} evidence items" },
+  "freshness": "Data as of {{at}}",
+  "latestActivity": "Latest activity {{at}}",
+  "staleSources": "{{count}} data sources awaiting refresh",
+  "feedback": { "label": "Rate this answer", "helpful": "Helpful", "notHelpful": "Not helpful" }
+}

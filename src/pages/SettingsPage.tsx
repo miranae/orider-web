@@ -16,6 +16,7 @@ import { PaneHealthSources } from "../components/settings/PaneHealthSources";
 import { PaneDevice } from "../components/settings/PaneDevice";
 import { PaneApp } from "../components/settings/PaneApp";
 import { PaneDeveloper } from "../components/settings/PaneDeveloper";
+import { PaneAiCoach } from "../components/settings/PaneAiCoach";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { Text } from "../theme/components";
 import { NAV_GROUPS, SECTION_IDS, type SectionId } from "../components/settings/settingsNavigation";
@@ -73,6 +74,7 @@ export default function SettingsPage() {
           {section === "equipment" && <PaneEquipment />}
           {section === "connections" && <PaneConnections />}
           {section === "health_sources" && <PaneHealthSources />}
+          {section === "ai_coach" && <PaneAiCoach />}
           {section === "developer" && <PaneDeveloper />}
           {section === "device" && <PaneDevice />}
           {section === "app" && <PaneApp />}
@@ -126,6 +128,7 @@ export default function SettingsPage() {
         {section === "equipment" && <PaneEquipment />}
         {section === "connections" && <PaneConnections />}
         {section === "health_sources" && <PaneHealthSources />}
+        {section === "ai_coach" && <PaneAiCoach />}
         {section === "developer" && <PaneDeveloper />}
         {section === "device" && <PaneDevice />}
         {section === "app" && <PaneApp />}

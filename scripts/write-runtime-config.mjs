@@ -39,6 +39,7 @@ const config = {
   heatmapBase: readEnv("VITE_HEATMAP_BASE"),
   mapboxToken: readEnv("VITE_MAPBOX_TOKEN"),
   personalApiBase: readEnv("VITE_ORIDER_PERSONAL_API_BASE"),
+  aiApiBase: readEnv("VITE_ORIDER_AI_API_BASE"),
   sentryDsn: readEnv("VITE_SENTRY_DSN"),
   appEnvironment: readEnv("VITE_MODE") ?? readEnv("MODE") ?? "production",
   useEmulators: readBoolEnv("VITE_USE_EMULATORS"),
@@ -52,6 +53,7 @@ const required = [
   "appCheckRecaptchaSiteKey",
   "stravaClientId",
   "stravaRedirectUri",
+  "aiApiBase",
 ];
 
 const missing = required.filter((key) => !config[key]);
