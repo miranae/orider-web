@@ -36,6 +36,7 @@ jobs:
       VITE_HEATMAP_BASE: ${{ vars.VITE_HEATMAP_BASE }}
       VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}
       VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}
+      VITE_ORIDER_AI_API_BASE: ${{ vars.VITE_ORIDER_AI_API_BASE }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6

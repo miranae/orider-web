@@ -132,3 +132,13 @@ export function ensureAppCheckReady(forceRefresh = false): Promise<void> {
   appCheckPromise = readiness;
   return appCheckPromise;
 }
+
+/** Authenticated REST APIs that enforce App Check use this short-lived token. */
+export async function getAppCheckToken(forceRefresh = false): Promise<string | null> {
+  if (isEmulatorRuntime()) return null;
+  await ensureAppCheckReady(forceRefresh);
+  if (!appCheck) throw new Error("app-check/not-initialized");
+  const tokenResult = await withAppCheckTimeout(getToken(appCheck, forceRefresh));
+  if (!tokenResult.token) throw new Error("app-check/empty-token");
+  return tokenResult.token;
+}

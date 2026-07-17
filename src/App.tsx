@@ -45,6 +45,7 @@ const MigrationPage = lazyTimed("MigrationPage", () => import("./pages/Migration
 const FriendInvitePage = lazyTimed("FriendInvitePage", () => import("./pages/FriendInvitePage"));
 const TermsPage = lazyTimed("TermsPage", () => import("./pages/TermsPage"));
 const PrivacyPage = lazyTimed("PrivacyPage", () => import("./pages/PrivacyPage"));
+const AiCoachPolicyPage = lazyTimed("AiCoachPolicyPage", () => import("./pages/AiCoachPolicyPage"));
 const CommunityGuidelinesPage = lazyTimed("CommunityGuidelinesPage", () => import("./pages/CommunityGuidelinesPage"));
 const BoardPage = lazyTimed("BoardPage", () => import("./pages/BoardPage"));
 const PostDetailPage = lazyTimed("PostDetailPage", () => import("./pages/PostDetailPage"));
@@ -181,6 +182,7 @@ function AppRoutes() {
           <Route path="feedback/board" element={<Navigate to="../board?type=inquiry" replace />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="policies/ai-coach" element={<AiCoachPolicyPage />} />
           <Route path="community" element={<CommunityGuidelinesPage />} />
           <Route path="about" element={<AboutPage />} />
           <Route path="strava-terms" element={<StravaTermsPage />} />
