@@ -98,6 +98,7 @@ function createDocSnapshot(path: string, data: Record<string, unknown> | null) {
     data: () => data,
     id: path.split("/").pop() ?? "",
     ref: { path },
+    metadata: { fromCache: false },
   };
 }
 
@@ -111,6 +112,7 @@ function createCollectionSnapshot(docs: Array<Record<string, unknown> & { id: st
     })),
     size: docs.length,
     empty: docs.length === 0,
+    metadata: { fromCache: false },
     forEach: (cb: (doc: unknown) => void) => {
       docs.forEach((d) =>
         cb({

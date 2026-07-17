@@ -92,7 +92,15 @@ vi.mock("firebase/firestore", () => {
     };
   });
 
-  const onSnapshot = vi.fn((ref: { path: string; type?: string }, cb: (snap: unknown) => void, _onError?: unknown) => {
+  const onSnapshot = vi.fn((
+    ref: { path: string; type?: string },
+    optionsOrCallback: unknown,
+    callbackOrError?: unknown,
+    _onError?: unknown,
+  ) => {
+    const cb = (typeof optionsOrCallback === "function"
+      ? optionsOrCallback
+      : callbackOrError) as (snap: unknown) => void;
     const path = ref.path;
     if (ref.type === "collection" || path.split("/").length % 2 === 1) {
       // Collection
@@ -106,6 +114,7 @@ vi.mock("firebase/firestore", () => {
         })),
         size: docs.length,
         empty: docs.length === 0,
+        metadata: { fromCache: false },
       });
       return addSnapshotListener(path, cb);
     } else {
@@ -116,6 +125,7 @@ vi.mock("firebase/firestore", () => {
         data: () => data,
         id: path.split("/").pop() ?? "",
         ref: { path },
+        metadata: { fromCache: false },
       });
       return addSnapshotListener(path, cb);
     }
