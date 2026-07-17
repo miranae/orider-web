@@ -35,6 +35,7 @@ import {
   type WorkoutDetail,
 } from "../../features/training/todaysWorkout/todaysWorkoutUtils";
 import WorkoutPurposeDetail from "../../features/training/todaysWorkout/WorkoutPurposeDetail";
+import { useDashboardPreferences } from "../../hooks/useDashboardPreferences";
 
 const TODAYS_WORKOUT_FETCH_TIMEOUT_MS = 12_000;
 
@@ -102,6 +103,14 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
   const { t } = useTranslation('training');
   const WORKOUT_LABELS = useMemo(() => buildWorkoutLabels(t), [t]);
   const { user, profile, loading: authLoading } = useAuth();
+  const { preferences: dashboardPreferences, update: updateDashboardPreferences } = useDashboardPreferences(
+    user?.uid ?? null,
+    authLoading,
+  );
+  const narrativePreferenceProps = {
+    narrativeExpanded: dashboardPreferences.workoutNarrativeExpanded,
+    onNarrativeExpandedChange: (workoutNarrativeExpanded: boolean) => updateDashboardPreferences({ workoutNarrativeExpanded }),
+  };
   const [data, setData] = useState<WorkoutDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const hasCompletedInitialFetchRef = useRef(false);
@@ -622,6 +631,7 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
       );
     }
     return renderHeroCard({
+      ...narrativePreferenceProps,
       tone: facts.tone,
       eyebrow: t('today.eyebrow'),
       sessionName: t(facts.sessionNameKey, { disc: t(`discipline.${facts.inputSnapshot.discipline}`) }),
@@ -684,6 +694,7 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
       );
     }
     return renderHeroCard({
+      ...narrativePreferenceProps,
       tone: restTone,
       eyebrow: data.courseName ? t('today.courseDay', { course: data.courseName, daysLeft: data.daysLeft }) : t('today.eyebrow'),
       sessionName: restSessionName,
@@ -842,6 +853,7 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
   }
 
   return renderHeroCard({
+    ...narrativePreferenceProps,
     tone: planTone,
     eyebrow: courseName && daysLeft !== undefined
       ? `${t('today.eyebrow')} · ${courseName} D-${daysLeft}`
