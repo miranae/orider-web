@@ -36,6 +36,7 @@ import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { isYearRecapSeason } from "../utils/yearRecapSeason";
 import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
+import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import AppInstallLinks from "../components/AppInstallLinks";
@@ -166,16 +167,20 @@ function WeeklyTssBars({
 export default function DashboardPage() {
   const { t, i18n } = useTranslation("dashboard");
   const { t: tCommon } = useTranslation("common");
-  const [feedFilter, setFeedFilter] = useState<FeedFilterIndex>(0);
   // 사이드바 푸터(약관/정책 링크) 접이식 — Layout 데스크톱 푸터를 메인화면에서 흡수 (#347 후속)
   const [footerOpen, setFooterOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
+  const { preferences: dashboardPreferences, update: updateDashboardPreferences } = useDashboardPreferences(
+    user?.uid ?? null,
+    authLoading,
+  );
   const { units } = useLocale();
   const { friends } = useFriends();
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
-  const feedScope: ActivityFeedScope = (["all", "friends", "self"] as const)[feedFilter];
+  const feedScope: ActivityFeedScope = dashboardPreferences.feedScope;
+  const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities(feedScope, [...friendIds]);
   const { weeklyStats, thisWeek, recent7DayDistances } = useWeeklyStats();
   const monthlyActivityDistance = useMonthlyActivityDistance();
@@ -454,7 +459,11 @@ export default function DashboardPage() {
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
         feedScope={feedScope}
-        onFeedScopeChange={(scope) => setFeedFilter(({ all: 0, friends: 1, self: 2 } as const)[scope])}
+        onFeedScopeChange={(scope) => updateDashboardPreferences({ feedScope: scope })}
+        sportFilter={dashboardPreferences.sportFilter}
+        onSportFilterChange={(sportFilter) => updateDashboardPreferences({ sportFilter })}
+        datePreset={dashboardPreferences.datePreset}
+        onDatePresetChange={(datePreset) => updateDashboardPreferences({ datePreset })}
       />
     );
   }
@@ -608,7 +617,7 @@ export default function DashboardPage() {
                 {([t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")] as const).map((label, i) => (
                   <button
                     key={i}
-                    onClick={() => setFeedFilter(i as FeedFilterIndex)}
+                    onClick={() => updateDashboardPreferences({ feedScope: (["all", "friends", "self"] as const)[i] })}
                     style={{
                       padding: "5px 10px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
                       background: feedFilter === i ? "var(--bg-3)" : "transparent",

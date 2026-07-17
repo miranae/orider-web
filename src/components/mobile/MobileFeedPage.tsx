@@ -16,12 +16,13 @@ import { isImplausibleAvgSpeed, isImplausibleActivity } from "../../utils/activi
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import type { ActivityFeedScope } from "../../hooks/useActivities";
 import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
+import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useDashboardPreferences";
 
 const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const MOBILE_FEED_RENDER_STEP = 40;
 const MOBILE_FEED_RENDER_INITIAL = 60;
-type SportFilter = "all" | "bike" | "run" | "swim";
+type SportFilter = DashboardSportFilter;
 
 interface SportBreakdownItem {
   key: SportFilter;
@@ -48,6 +49,10 @@ interface MobileFeedPageProps {
   friendIds?: string[];
   feedScope: ActivityFeedScope;
   onFeedScopeChange: (scope: ActivityFeedScope) => void;
+  sportFilter?: SportFilter;
+  onSportFilterChange?: (sportFilter: SportFilter) => void;
+  datePreset?: DashboardDatePreset;
+  onDatePresetChange?: (datePreset: DashboardDatePreset) => void;
 }
 
 function SportSummaryFilter({
@@ -264,12 +269,20 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
 export default function MobileFeedPage({
   activities, loading, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, consistencyStreak = null, currentUserId = null, friendIds = [],
   weeklySummary, feedScope, onFeedScopeChange,
+  sportFilter: controlledSportFilter,
+  onSportFilterChange,
+  datePreset: controlledDatePreset,
+  onDatePresetChange,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user } = useAuth();
-  const [sportFilter, setSportFilter] = useState<SportFilter>("all");
+  const [localSportFilter, setLocalSportFilter] = useState<SportFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [datePreset, setDatePreset] = useState<"all" | "7d" | "30d" | "90d">("all");
+  const [localDatePreset, setLocalDatePreset] = useState<DashboardDatePreset>("all");
+  const sportFilter = controlledSportFilter ?? localSportFilter;
+  const datePreset = controlledDatePreset ?? localDatePreset;
+  const setSportFilter = onSportFilterChange ?? setLocalSportFilter;
+  const setDatePreset = onDatePresetChange ?? setLocalDatePreset;
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
 
@@ -402,47 +415,37 @@ export default function MobileFeedPage({
           }}
         />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2)" }}>
-          <select
-            value={feedScope}
-            onChange={(event) => onFeedScopeChange(event.target.value as ActivityFeedScope)}
-            aria-label={t("feed.filter.label")}
-            style={{
-              width: "100%",
-              minWidth: 0,
-              minHeight: 44,
-              borderRadius: "var(--r-md)",
-              border: "1px solid var(--line-soft)",
-              background: "var(--bg-2)",
-              color: "var(--ink-0)",
-              padding: "0 10px",
-              fontSize: "var(--fs-xs)",
-            }}
-          >
-            <option value="all">{t("feed.filter.all")}</option>
-            <option value="friends">{t("feed.filter.friends")}</option>
-            <option value="self">{t("feed.filter.self")}</option>
-          </select>
-          <select
-            value={datePreset}
-            onChange={(event) => setDatePreset(event.target.value as "all" | "7d" | "30d" | "90d")}
-            aria-label={t("feed.datePreset.label")}
-            style={{
-              width: "100%",
-              minWidth: 0,
-              minHeight: 44,
-              borderRadius: "var(--r-md)",
-              border: "1px solid var(--line-soft)",
-              background: "var(--bg-2)",
-              color: "var(--ink-0)",
-              padding: "0 10px",
-              fontSize: "var(--fs-xs)",
-            }}
-          >
-            <option value="all">{t("feed.datePreset.all")}</option>
-            <option value="7d">{t("feed.datePreset.7d")}</option>
-            <option value="30d">{t("feed.datePreset.30d")}</option>
-            <option value="90d">{t("feed.datePreset.90d")}</option>
-          </select>
+          <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden" }}>
+            <span style={{ display: "block", padding: "8px 10px 0", color: "var(--ink-3)", fontSize: "var(--fs-2xs)", fontWeight: 600 }}>
+              {t("feed.filter.label")}
+            </span>
+            <select
+              value={feedScope}
+              onChange={(event) => onFeedScopeChange(event.target.value as ActivityFeedScope)}
+              aria-label={t("feed.filter.label")}
+              style={{ width: "100%", minWidth: 0, minHeight: 44, border: 0, background: "transparent", color: "var(--ink-0)", padding: "0 10px", fontSize: "var(--fs-xs)" }}
+            >
+              <option value="all">{t("feed.filter.all")}</option>
+              <option value="friends">{t("feed.filter.friends")}</option>
+              <option value="self">{t("feed.filter.self")}</option>
+            </select>
+          </label>
+          <label style={{ minWidth: 0, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", overflow: "hidden" }}>
+            <span style={{ display: "block", padding: "8px 10px 0", color: "var(--ink-3)", fontSize: "var(--fs-2xs)", fontWeight: 600 }}>
+              {t("feed.datePreset.label")}
+            </span>
+            <select
+              value={datePreset}
+              onChange={(event) => setDatePreset(event.target.value as DashboardDatePreset)}
+              aria-label={t("feed.datePreset.label")}
+              style={{ width: "100%", minWidth: 0, minHeight: 44, border: 0, background: "transparent", color: "var(--ink-0)", padding: "0 10px", fontSize: "var(--fs-xs)" }}
+            >
+              <option value="all">{t("feed.datePreset.all")}</option>
+              <option value="7d">{t("feed.datePreset.7d")}</option>
+              <option value="30d">{t("feed.datePreset.30d")}</option>
+              <option value="90d">{t("feed.datePreset.90d")}</option>
+            </select>
+          </label>
         </div>
       </div>
 

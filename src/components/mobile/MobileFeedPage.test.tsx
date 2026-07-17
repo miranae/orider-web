@@ -201,8 +201,10 @@ describe("MobileFeedPage", () => {
       />,
     );
 
-    const scopeSelect = screen.getByRole("combobox", { name: "피드 범위" });
-    const dateSelect = screen.getByRole("combobox", { name: "기간" });
+    expect(screen.getByText("공개 범위")).toBeVisible();
+    expect(screen.getByText("조회 기간")).toBeVisible();
+    const scopeSelect = screen.getByRole("combobox", { name: "공개 범위" });
+    const dateSelect = screen.getByRole("combobox", { name: "조회 기간" });
     expect(scopeSelect.compareDocumentPosition(dateSelect) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     await user.selectOptions(scopeSelect, "friends");

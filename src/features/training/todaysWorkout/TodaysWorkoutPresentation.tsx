@@ -187,12 +187,19 @@ export interface HeroCardOpts {
   topRightExtras?: ReactNode;
   detailLine?: ReactNode;
   intervalBar?: ReactNode;
+  narrativeExpanded?: boolean;
+  onNarrativeExpandedChange?: (expanded: boolean) => void;
 }
 
 export function HeroCard(opts: HeroCardOpts) {
   const { t } = useTranslation("training");
   const paragraphs = opts.narrativeText.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
-  const [expanded, setExpanded] = useState(true);
+  const [localExpanded, setLocalExpanded] = useState(true);
+  const expanded = opts.narrativeExpanded ?? localExpanded;
+  const setExpanded = (next: boolean) => {
+    setLocalExpanded(next);
+    opts.onNarrativeExpandedChange?.(next);
+  };
   const canFold = paragraphs.length > 1;
   const visibleParagraphs = canFold && !expanded ? paragraphs.slice(0, 1) : paragraphs;
   return (
@@ -298,7 +305,7 @@ export function HeroCard(opts: HeroCardOpts) {
             );
           })}
           {canFold && (
-            <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded} style={{ marginTop: "var(--space-2)", background: "transparent", border: 0, padding: 0, color: "var(--lime)", fontSize: "var(--fs-xs)", fontWeight: 500, cursor: "pointer", textDecoration: "none" }}>
+            <button type="button" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} style={{ marginTop: "var(--space-2)", background: "transparent", border: 0, padding: 0, color: "var(--lime)", fontSize: "var(--fs-xs)", fontWeight: 500, cursor: "pointer", textDecoration: "none" }}>
               {expanded ? t("today.narrativeCollapse") : t("today.narrativeExpand", { n: paragraphs.length - 1 })}
             </button>
           )}
