@@ -63,6 +63,16 @@ function reportFreshnessError(err: unknown, discipline: string | undefined, canc
   } else if (!cancelled) {
     logClientError("useFreshTraining.revalidate", err, { discipline });
   }
+  return recovery.kind;
+}
+
+function isRetryableListenerError(err: unknown): boolean {
+  const code = typeof err === "object" && err !== null && "code" in err
+    ? String((err as { code?: unknown }).code)
+    : "";
+  const normalizedCode = code.replace(/^firestore\//, "");
+  if (["aborted", "deadline-exceeded", "unavailable"].includes(normalizedCode)) return true;
+  return /(?:FirebaseError:\s*)?(?:aborted|deadline-exceeded|unavailable)\b/i.test(String(err));
 }
 
 export function useFreshTraining(discipline?: string): FreshTrainingState {
@@ -71,10 +81,15 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
   const [revalidating, setRevalidating] = useState(false);
   const [justRecomputed, setJustRecomputed] = useState(false);
   const [lastStatus, setLastStatus] = useState<FreshTrainingState["lastStatus"]>(null);
+  const [userListenerAttempt, setUserListenerAttempt] = useState(0);
   const disciplineRef = useRef(discipline);
+  const userRetryRef = useRef({ uid, attempted: false });
   const userFreshnessRef = useRef({ uid: undefined as string | undefined, ready: false, failed: false, lastIngest: 0 });
   const evaluateCurrentProjectionRef = useRef<() => void>(() => undefined);
   disciplineRef.current = discipline;
+  if (userRetryRef.current.uid !== uid) {
+    userRetryRef.current = { uid, attempted: false };
+  }
 
   // user 문서는 discipline과 무관하므로 사용자 세션 전체에서 구독을 유지한다.
   // 종목 전환 때 이 target까지 불필요하게 release/re-add하지 않는다.
@@ -99,10 +114,14 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       listenerFailed = true;
       const isCurrentGeneration = userFreshnessRef.current === userGeneration;
       if (isCurrentGeneration) userGeneration.failed = true;
-      reportFreshnessError(err, disciplineRef.current, cancelled);
+      const recoveryKind = reportFreshnessError(err, disciplineRef.current, cancelled);
       if (!cancelled && isCurrentGeneration) {
         setLastStatus("error");
         setRevalidating(false);
+        if (!recoveryKind && !userRetryRef.current.attempted && isRetryableListenerError(err)) {
+          userRetryRef.current.attempted = true;
+          setUserListenerAttempt((attempt) => attempt + 1);
+        }
       }
     };
 
@@ -111,13 +130,13 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         doc(firestore, "users", uid),
         { includeMetadataChanges: true },
         (snapshot) => {
-          if (cancelled || listenerFailed || userFreshnessRef.current !== userGeneration
-            || userGeneration.ready) return;
+          if (cancelled || listenerFailed || userFreshnessRef.current !== userGeneration) return;
           userGeneration.lastIngest =
             (snapshot.data()?.lastActivityIngestAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
+          const isFirstServerSnapshot = !userGeneration.ready;
           userGeneration.ready = true;
-          evaluateCurrentProjectionRef.current();
+          if (isFirstServerSnapshot) evaluateCurrentProjectionRef.current();
         },
         handleUserError,
       );
@@ -129,7 +148,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       cancelled = true;
       unsubscribe();
     };
-  }, [authLoading, uid]);
+  }, [authLoading, uid, userListenerAttempt]);
 
   useEffect(() => {
     if (authLoading || !uid) return;
@@ -150,7 +169,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       if (listenerFailed) return;
       listenerFailed = true;
       const hasCurrentUser = hasCurrentUserGeneration();
-      reportFreshnessError(err, discipline, cancelled || !hasCurrentUser);
+      reportFreshnessError(err, discipline, cancelled);
       if (!cancelled && hasCurrentUser) {
         setLastStatus("error");
         setRevalidating(false);
@@ -232,7 +251,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       }
       unsubscribe();
     };
-  }, [authLoading, uid, discipline]);
+  }, [authLoading, uid, discipline, userListenerAttempt]);
 
   // justRecomputed가 켜지면 1.5초 후 자동 해제 — "✓ 업데이트 완료" 트랜지언트 표시
   useEffect(() => {

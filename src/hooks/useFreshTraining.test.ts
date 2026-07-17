@@ -126,6 +126,30 @@ describe("useFreshTraining", () => {
     expect(mockCallableInvocations).toHaveLength(0);
   });
 
+  it("uses the latest server lastIngest after an activity ingest and discipline change", async () => {
+    const listeners = installControlledSnapshots();
+    const now = Date.now();
+    const { result, rerender } = renderHook(
+      ({ discipline }) => useFreshTraining(discipline),
+      { initialProps: { discipline: "bike" } },
+    );
+
+    act(() => {
+      emit(listeners[0]!, { lastActivityIngestAt: now - 1_000 });
+      emit(listeners[1]!, { computedAt: now });
+    });
+    await waitFor(() => expect(result.current.lastStatus).toBe("fresh"));
+
+    // 최초 readiness 이후 들어온 서버 확정 활동 인제스트를 최신 값으로 보존한다.
+    act(() => emit(listeners[0]!, { lastActivityIngestAt: now + 1_000 }));
+    rerender({ discipline: "run" });
+    act(() => emit(listeners[2]!, { computedAt: now }));
+
+    await waitFor(() => expect(mockCallableInvocations).toEqual([
+      { name: "revalidateTraining", data: { discipline: "run" } },
+    ]));
+  });
+
   it("does not evaluate or call after unmount when only one snapshot arrived", async () => {
     const listeners = installControlledSnapshots();
     const { unmount } = renderHook(() => useFreshTraining("bike"));
@@ -319,22 +343,52 @@ describe("useFreshTraining", () => {
     logSpy.mockRestore();
   });
 
-  it("keeps ordinary listener errors on the existing non-reload path", async () => {
-    const unavailable = new Error("FirebaseError: unavailable");
+  it("keeps non-transient listener errors on the existing non-reload path", async () => {
+    const permissionDenied = Object.assign(new Error("FirebaseError: permission-denied"), {
+      code: "permission-denied",
+    });
     const listeners = installControlledSnapshots();
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
 
     const { result } = renderHook(() => useFreshTraining("bike"));
-    act(() => listeners[0]!.error(unavailable));
+    act(() => listeners[0]!.error(permissionDenied));
 
     await waitFor(() => expect(result.current.lastStatus).toBe("error"));
     expect(logSpy).toHaveBeenCalledWith(
       "useFreshTraining.revalidate",
-      unavailable,
+      permissionDenied,
       { discipline: "bike" },
     );
+    expect(listeners).toHaveLength(2);
     expect(window.sessionStorage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY)).toBeNull();
     expect(firestoreRecoveryMocks.execute).not.toHaveBeenCalled();
+    logSpy.mockRestore();
+  });
+
+  it("retries an unavailable user listener once and recovers without a retry loop", async () => {
+    const unavailable = Object.assign(new Error("FirebaseError: unavailable"), {
+      code: "unavailable",
+    });
+    const listeners = installControlledSnapshots();
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    const { result } = renderHook(() => useFreshTraining("bike"));
+
+    act(() => listeners[0]!.error(unavailable));
+    await waitFor(() => expect(listeners).toHaveLength(4));
+    expect(listeners[0]!.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(listeners[1]!.unsubscribe).toHaveBeenCalledTimes(1);
+
+    const now = Date.now();
+    act(() => {
+      emit(listeners[2]!, { lastActivityIngestAt: now });
+      emit(listeners[3]!, { computedAt: now });
+    });
+    await waitFor(() => expect(result.current.lastStatus).toBe("fresh"));
+
+    // 동일 UID에서는 재시도 예산을 이미 사용했으므로 두 번째 종료는 재구독하지 않는다.
+    act(() => listeners[2]!.error(unavailable));
+    await waitFor(() => expect(result.current.lastStatus).toBe("error"));
+    expect(listeners).toHaveLength(4);
     logSpy.mockRestore();
   });
 
