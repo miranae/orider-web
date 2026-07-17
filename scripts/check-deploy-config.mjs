@@ -82,6 +82,9 @@ if (stageFirebaseConfig.hosting?.site !== "miranae-orider-g1-stage") {
   fail("firebase.stage.json hosting.site must be miranae-orider-g1-stage");
 }
 
+const ciWorkflow = readFileSync(".github/workflows/ci.yml", "utf8");
+requireIncludes(ciWorkflow, "VITE_ORIDER_AI_API_BASE: https://coach.example.run.app", "ci.yml placeholder build env");
+
 const deployWorkflow = readFileSync(".github/workflows/deploy.yml", "utf8");
 requireIncludes(deployWorkflow, "tags:", "deploy.yml trigger");
 requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
