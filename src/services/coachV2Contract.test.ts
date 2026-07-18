@@ -91,7 +91,7 @@ describe("coachV2Contract", () => {
     expect(thresholdResult.answer?.blocks[0]).toEqual({ kind: "unsupported_block", blockId: "load", reason: "invalid_block" });
   });
 
-  it("replaces unknown, malformed, prescription and evidence-mismatched blocks without retaining raw payload", () => {
+  it("replaces unknown, malformed prescription and evidence-mismatched blocks without retaining raw payload", () => {
     const blocks = [
       { ...baseBlock, blockId: "unknown", kind: "html", html: "<script>private()</script>" },
       { ...baseBlock, blockId: "malformed", kind: "metric_grid", items: "not-an-array", private: "secret" },
@@ -102,7 +102,7 @@ describe("coachV2Contract", () => {
     expect(parsed.answer?.blocks).toEqual([
       { kind: "unsupported_block", blockId: "unknown", reason: "unknown_kind" },
       { kind: "unsupported_block", blockId: "malformed", reason: "invalid_block" },
-      { kind: "unsupported_block", blockId: "rx", reason: "prescription_feature_disabled" },
+      { kind: "unsupported_block", blockId: "rx", reason: "invalid_block" },
       { kind: "unsupported_block", blockId: "mismatch", reason: "invalid_block" },
     ]);
     expect(JSON.stringify(parsed)).not.toContain("<script>");

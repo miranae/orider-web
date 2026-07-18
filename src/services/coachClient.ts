@@ -1,6 +1,10 @@
 import { auth, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { parseCoachV2Response, type CoachV2Request, type CoachV2Response } from "./coachV2Contract";
+import {
+  coachPrescriptionCheckInRequestSchema, parseCoachPrescriptionCheckInResponse,
+  type CoachPrescriptionCheckInRequest, type CoachPrescriptionCheckInResponse,
+} from "./coachPrescriptionContract";
 
 export type CoachDiscipline = "bike" | "run" | "swim";
 export type CoachResponseStatus = "ok" | "insufficient_data" | "stale" | "unsupported" | "quota_exceeded" | "budget_blocked" | "fallback";
@@ -291,5 +295,18 @@ export async function askCoachV2(request: CoachV2Request): Promise<CoachV2Respon
   } catch (cause) {
     if (isCoachClientError(cause)) throw cause;
     throw new CoachClientError("contract", "INVALID_COACH_V2_RESPONSE", { cause });
+  }
+}
+
+/** Deterministic P2 continuation. The endpoint must return zero provider calls and zero quota consumption. */
+export async function submitCoachPrescriptionCheckIn(request: CoachPrescriptionCheckInRequest): Promise<CoachPrescriptionCheckInResponse> {
+  try {
+    const body = coachPrescriptionCheckInRequestSchema.parse(request);
+    return parseCoachPrescriptionCheckInResponse(await authenticatedFetch("/prescription/check-in", {
+      method: "POST", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PRESCRIPTION_RESPONSE", { cause });
   }
 }

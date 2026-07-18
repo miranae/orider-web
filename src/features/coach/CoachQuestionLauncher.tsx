@@ -348,6 +348,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                 {response && phase !== "submitting" && ("outcome" in response
                   ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} feedback={feedback}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action} onFeedback={sendFeedback}
+                    onReanalyze={startAnother}
                     onSuggested={(query) => { startAnother(); setDraft(query); setSource("free_text"); }} />
                   : <CoachResult response={response} evidenceOpen={evidenceOpen} locale={i18n.language}
                     feedback={feedback} onEvidence={() => { setEvidenceOpen((value) => !value); if (!evidenceOpen) coachAnalytics.evidenceExpand(response.status); }}
@@ -413,17 +414,18 @@ function suggestedQuestion(templateId: string, locale: string): string | null {
   return value ? value[ko ? 0 : 1] : null;
 }
 
-function CoachV2Result({ response, locale, selectedOption, feedback, onSelectOption, onClarification, onAction, onFeedback, onSuggested }: {
+function CoachV2Result({ response, locale, selectedOption, feedback, onSelectOption, onClarification, onAction, onFeedback, onSuggested, onReanalyze }: {
   response: CoachV2Response; locale: string; selectedOption: string | null; feedback: boolean | null;
   onSelectOption: (option: string) => void; onClarification: () => void;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void; onFeedback: (helpful: boolean) => void;
   onSuggested: (query: string) => void;
+  onReanalyze: () => void;
 }) {
   const { t } = useTranslation("coach");
   const spec = response.clarification;
   const expired = spec ? Date.parse(spec.expiresAt) <= Date.now() : false;
   return <div className="coach-result">
-    {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} />}
+    {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} onReanalyze={onReanalyze} />}
     {response.outcome === "clarification_required" && spec && <form className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
       <fieldset disabled={expired}><legend>{safeClarificationText(spec.promptKey, "prompt", t)}</legend>
         {spec.options.map((option) => <label key={option.optionId} className="coach-clarification__option">

@@ -5,6 +5,7 @@ import type {
   CoachAnswerActionCode, CoachAnswerBlock, CoachAnswerDocument, CoachDisplayValue, CoachEntityRef,
   CoachEvidenceRecord, CoachLoadAssessment, CoachMetricId, CoachV2Response,
 } from "../../services/coachV2Contract";
+import { CoachPrescription } from "./CoachPrescription";
 
 const PRIMARY_COUNT = 5;
 const LOAD_METRIC_IDS = new Set<CoachMetricId>(["ctl", "atl", "form"]);
@@ -225,7 +226,7 @@ function LoadAnalysisView({ group, locale, onAction }: { group: LoadAnalysisGrou
 }
 
 function SupportedBlock({ block, locale, onAction }: {
-  block: Exclude<CoachAnswerBlock, { kind: "unsupported_block" }>;
+  block: Exclude<CoachAnswerBlock, { kind: "unsupported_block" } | { kind: "prescription" }>;
   locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
 }) {
@@ -290,10 +291,11 @@ function Evidence({ records, locale, timezone }: { records: CoachEvidenceRecord[
     </li>)}</ol></details>;
 }
 
-export function CoachAnswerDocumentView({ response, locale, onAction }: {
+export function CoachAnswerDocumentView({ response, locale, onAction, onReanalyze = () => undefined }: {
   response: CoachV2Response;
   locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
+  onReanalyze?: () => void;
 }) {
   const { t } = useTranslation("coach");
   const document = response.answer;
@@ -310,6 +312,9 @@ export function CoachAnswerDocumentView({ response, locale, onAction }: {
         }
         return block.kind === "unsupported_block"
           ? <UnsupportedBlockNotice key={block.blockId} prescription={block.reason === "prescription_feature_disabled"} />
+          : block.kind === "prescription"
+            ? <CoachPrescription key={block.blockId} initial={block.prescription} parentRequestId={response.requestId}
+              locale={locale} onReanalyze={onReanalyze} />
           : <SupportedBlock key={block.blockId} block={block} locale={locale} onAction={onAction} />;
       })}
       <footer className="coach-answer__metadata"><span>{t("answer.freshness", { at: formatDate(document.freshness.asOf, locale, document.freshness.timezone) })}</span>

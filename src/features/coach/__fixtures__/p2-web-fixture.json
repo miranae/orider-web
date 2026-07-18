@@ -1,0 +1,842 @@
+{
+  "schemaVersion": "coach-prescription-v1",
+  "factsId": "load_5ac366ebf2862b6556cc2bc6",
+  "snapshotRevision": "rxsnap_012984edf83f8739baa1a659",
+  "planRevision": "plan_8dcb67b66c0fc495a7fde3c0",
+  "rulesVersion": "coach-prescription-rules-v1",
+  "validFrom": "2026-07-16T10:50:33.000Z",
+  "validUntil": "2026-07-17T10:50:33.000Z",
+  "confidence": "high",
+  "status": "ready",
+  "nextDays": [
+    {
+      "localDate": "2026-07-16",
+      "action": "rest",
+      "workout": {
+        "kind": "rest",
+        "durationMin": 0,
+        "targetTss": 0
+      },
+      "reasonCodes": [
+        "high_load_initial_recovery"
+      ],
+      "evidenceIds": [
+        "lev_0fd47a6df9b166a32323",
+        "rx_ev_c2d55259fcf425fd2ed2",
+        "rx_ev_7e98841ba8d465b00689",
+        "rx_ev_1e43aadacc5f8378362d",
+        "rx_ev_qa_checkin_0",
+        "rx_ev_qa_checkin_1",
+        "rx_ev_qa_checkin_2",
+        "rx_ev_aa25c606ff299ad37a33",
+        "rx_ev_76b88d3c9a838112463c",
+        "rx_ev_19e51f27828a244f11f0"
+      ]
+    },
+    {
+      "localDate": "2026-07-17",
+      "action": "rest",
+      "workout": {
+        "kind": "rest",
+        "durationMin": 0,
+        "targetTss": 0
+      },
+      "reasonCodes": [
+        "high_load_initial_recovery"
+      ],
+      "evidenceIds": [
+        "lev_0fd47a6df9b166a32323",
+        "rx_ev_c2d55259fcf425fd2ed2",
+        "rx_ev_7e98841ba8d465b00689",
+        "rx_ev_1e43aadacc5f8378362d",
+        "rx_ev_qa_checkin_0",
+        "rx_ev_qa_checkin_1",
+        "rx_ev_qa_checkin_2",
+        "rx_ev_dcaebfd177c544dce232",
+        "rx_ev_c274e5ef83e470b3a0fc",
+        "rx_ev_b6bdfa74534f2dda659e"
+      ]
+    },
+    {
+      "localDate": "2026-07-18",
+      "action": "recovery",
+      "workout": {
+        "kind": "recovery",
+        "durationMin": 45,
+        "zone": "Z2",
+        "targetTss": 25
+      },
+      "reasonCodes": [
+        "high_load_recovery_session"
+      ],
+      "evidenceIds": [
+        "lev_0fd47a6df9b166a32323",
+        "rx_ev_bd5a9dcc55d4718b864e",
+        "rx_ev_bd9874c91910a2d09b32",
+        "rx_ev_9678e5fd34cd6c866ba1",
+        "rx_ev_6857768a5e29c24524b3",
+        "rx_ev_d516d4368b5f1ae113a9",
+        "rx_ev_92441980461943d75bc3"
+      ],
+      "reassessBefore": [
+        {
+          "metric": "form",
+          "operator": "gte",
+          "threshold": {
+            "value": -15,
+            "evidenceId": "rx_ev_b925cd58b64ca98d2cae"
+          },
+          "evidenceIds": [
+            "lev_0fd47a6df9b166a32323",
+            "rx_ev_b925cd58b64ca98d2cae"
+          ],
+          "ruleId": "rx.resume.form.v1"
+        },
+        {
+          "metric": "rhr_delta_pct",
+          "operator": "lte",
+          "threshold": {
+            "value": 5,
+            "evidenceId": "rx_ev_9335c5ccef6b3cb52da3"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_98b724846408b29b638a",
+            "rx_ev_c10ecdef8c5b29ae7349",
+            "rx_ev_9335c5ccef6b3cb52da3"
+          ],
+          "ruleId": "rx.resume.rhr.v1"
+        },
+        {
+          "metric": "hrv_delta_pct",
+          "operator": "gte",
+          "threshold": {
+            "value": -10,
+            "evidenceId": "rx_ev_ef760b015e231a8cfd26"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_d6c84f90166ed6b4d9e2",
+            "rx_ev_c554efd193651765eb3e",
+            "rx_ev_ef760b015e231a8cfd26"
+          ],
+          "ruleId": "rx.resume.hrv.v1"
+        },
+        {
+          "metric": "sleep_hours",
+          "operator": "gte",
+          "threshold": {
+            "value": 7,
+            "evidenceId": "rx_ev_fc588d8d0376b7ad0dc0"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_5500a00d6261334f6a90",
+            "rx_ev_fc588d8d0376b7ad0dc0"
+          ],
+          "ruleId": "rx.resume.sleep.v1"
+        },
+        {
+          "metric": "hours_since_high_intensity",
+          "operator": "gte",
+          "threshold": {
+            "value": 48,
+            "evidenceId": "rx_ev_472e04bb156278c97017"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_6d6805e8277df32647b6",
+            "rx_ev_472e04bb156278c97017"
+          ],
+          "ruleId": "rx.resume.high_intensity_gap.v1"
+        }
+      ]
+    },
+    {
+      "localDate": "2026-07-19",
+      "action": "reassess",
+      "reasonCodes": [
+        "form_gate_before_intensity"
+      ],
+      "evidenceIds": [
+        "rx_ev_5903410d4c09296af7a8",
+        "rx_ev_8e58d3d6c30ff88657d8",
+        "rx_ev_4b8b2b9f108a1c54fba5",
+        "lev_0fd47a6df9b166a32323"
+      ],
+      "reassessBefore": [
+        {
+          "metric": "form",
+          "operator": "gte",
+          "threshold": {
+            "value": -15,
+            "evidenceId": "rx_ev_b925cd58b64ca98d2cae"
+          },
+          "evidenceIds": [
+            "lev_0fd47a6df9b166a32323",
+            "rx_ev_b925cd58b64ca98d2cae"
+          ],
+          "ruleId": "rx.resume.form.v1"
+        },
+        {
+          "metric": "rhr_delta_pct",
+          "operator": "lte",
+          "threshold": {
+            "value": 5,
+            "evidenceId": "rx_ev_9335c5ccef6b3cb52da3"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_98b724846408b29b638a",
+            "rx_ev_c10ecdef8c5b29ae7349",
+            "rx_ev_9335c5ccef6b3cb52da3"
+          ],
+          "ruleId": "rx.resume.rhr.v1"
+        },
+        {
+          "metric": "hrv_delta_pct",
+          "operator": "gte",
+          "threshold": {
+            "value": -10,
+            "evidenceId": "rx_ev_ef760b015e231a8cfd26"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_d6c84f90166ed6b4d9e2",
+            "rx_ev_c554efd193651765eb3e",
+            "rx_ev_ef760b015e231a8cfd26"
+          ],
+          "ruleId": "rx.resume.hrv.v1"
+        },
+        {
+          "metric": "sleep_hours",
+          "operator": "gte",
+          "threshold": {
+            "value": 7,
+            "evidenceId": "rx_ev_fc588d8d0376b7ad0dc0"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_5500a00d6261334f6a90",
+            "rx_ev_fc588d8d0376b7ad0dc0"
+          ],
+          "ruleId": "rx.resume.sleep.v1"
+        },
+        {
+          "metric": "hours_since_high_intensity",
+          "operator": "gte",
+          "threshold": {
+            "value": 48,
+            "evidenceId": "rx_ev_472e04bb156278c97017"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_6d6805e8277df32647b6",
+            "rx_ev_472e04bb156278c97017"
+          ],
+          "ruleId": "rx.resume.high_intensity_gap.v1"
+        }
+      ]
+    },
+    {
+      "localDate": "2026-07-20",
+      "action": "modified_workout",
+      "workout": {
+        "kind": "z2",
+        "durationMin": 59,
+        "zone": "Z2",
+        "targetTss": 30
+      },
+      "reasonCodes": [
+        "high_load_plan_reduction"
+      ],
+      "evidenceIds": [
+        "rx_ev_a4f46ece1f0d8bd5de69",
+        "rx_ev_31e7652c01f23135b7f9",
+        "rx_ev_5322ca4da793ae27b596",
+        "rx_ev_055ff4ae34d6946c2e58",
+        "rx_ev_658f5da89acde6a1de9a"
+      ]
+    },
+    {
+      "localDate": "2026-07-21",
+      "action": "reassess",
+      "reasonCodes": [
+        "form_gate_before_intensity"
+      ],
+      "evidenceIds": [
+        "rx_ev_5c01ed2faed01549fc65",
+        "rx_ev_b8d58a8cf16479dbab88",
+        "rx_ev_d52296fb7f643da1bb67",
+        "lev_0fd47a6df9b166a32323"
+      ],
+      "reassessBefore": [
+        {
+          "metric": "form",
+          "operator": "gte",
+          "threshold": {
+            "value": -15,
+            "evidenceId": "rx_ev_b925cd58b64ca98d2cae"
+          },
+          "evidenceIds": [
+            "lev_0fd47a6df9b166a32323",
+            "rx_ev_b925cd58b64ca98d2cae"
+          ],
+          "ruleId": "rx.resume.form.v1"
+        },
+        {
+          "metric": "rhr_delta_pct",
+          "operator": "lte",
+          "threshold": {
+            "value": 5,
+            "evidenceId": "rx_ev_9335c5ccef6b3cb52da3"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_98b724846408b29b638a",
+            "rx_ev_c10ecdef8c5b29ae7349",
+            "rx_ev_9335c5ccef6b3cb52da3"
+          ],
+          "ruleId": "rx.resume.rhr.v1"
+        },
+        {
+          "metric": "hrv_delta_pct",
+          "operator": "gte",
+          "threshold": {
+            "value": -10,
+            "evidenceId": "rx_ev_ef760b015e231a8cfd26"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_d6c84f90166ed6b4d9e2",
+            "rx_ev_c554efd193651765eb3e",
+            "rx_ev_ef760b015e231a8cfd26"
+          ],
+          "ruleId": "rx.resume.hrv.v1"
+        },
+        {
+          "metric": "sleep_hours",
+          "operator": "gte",
+          "threshold": {
+            "value": 7,
+            "evidenceId": "rx_ev_fc588d8d0376b7ad0dc0"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_5500a00d6261334f6a90",
+            "rx_ev_fc588d8d0376b7ad0dc0"
+          ],
+          "ruleId": "rx.resume.sleep.v1"
+        },
+        {
+          "metric": "hours_since_high_intensity",
+          "operator": "gte",
+          "threshold": {
+            "value": 48,
+            "evidenceId": "rx_ev_472e04bb156278c97017"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_6d6805e8277df32647b6",
+            "rx_ev_472e04bb156278c97017"
+          ],
+          "ruleId": "rx.resume.high_intensity_gap.v1"
+        }
+      ]
+    },
+    {
+      "localDate": "2026-07-22",
+      "action": "modified_workout",
+      "workout": {
+        "kind": "z2",
+        "durationMin": 39,
+        "zone": "Z2",
+        "targetTss": 18
+      },
+      "reasonCodes": [
+        "high_load_plan_reduction"
+      ],
+      "evidenceIds": [
+        "rx_ev_ef9089dc0f539e83c59d",
+        "rx_ev_241f407e506288663ef9",
+        "rx_ev_938139afc0ea61b05b3e",
+        "rx_ev_055ff4ae34d6946c2e58",
+        "rx_ev_658f5da89acde6a1de9a"
+      ]
+    }
+  ],
+  "nextWeekLoad": {
+    "minTss": 200,
+    "maxTss": 250,
+    "evidenceIds": [
+      "lev_f075acffcd24cac338cb",
+      "rx_ev_f17f3d4186485310ada8",
+      "rx_ev_ff160d8621697863b2fb",
+      "rx_ev_0c6cb6b307166f77749a",
+      "rx_ev_f56744be466f04904eae",
+      "rx_ev_76b88d3c9a838112463c",
+      "rx_ev_c274e5ef83e470b3a0fc",
+      "rx_ev_d516d4368b5f1ae113a9",
+      "rx_ev_8e58d3d6c30ff88657d8",
+      "rx_ev_31e7652c01f23135b7f9",
+      "rx_ev_b8d58a8cf16479dbab88",
+      "rx_ev_241f407e506288663ef9"
+    ]
+  },
+  "missingSignals": [],
+  "evidence": [
+    {
+      "evidenceId": "lev_0fd47a6df9b166a32323",
+      "source": "fitness",
+      "sourceId": "2026-07-16",
+      "field": "form",
+      "value": -27,
+      "sourceRevision": "fitness-revision-43",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "lev_f075acffcd24cac338cb",
+      "source": "derived",
+      "sourceId": "current_week",
+      "field": "tss",
+      "value": 275,
+      "sourceRevision": "f827f5db5818a8b1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_055ff4ae34d6946c2e58",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "modified.duration.factor",
+      "value": 0.65,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_0c6cb6b307166f77749a",
+      "source": "goal",
+      "sourceId": "goal-ctl40",
+      "field": "phase",
+      "value": "build",
+      "sourceRevision": "goal-ctl40-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_19e51f27828a244f11f0",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:0",
+      "field": "completed",
+      "value": false,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_1e43aadacc5f8378362d",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "rest.targetTss",
+      "value": 0,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_241f407e506288663ef9",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:6",
+      "field": "targetTss",
+      "value": 30,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_31e7652c01f23135b7f9",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:4",
+      "field": "targetTss",
+      "value": 50,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_472e04bb156278c97017",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "resume.hoursSinceHighIntensity.min",
+      "value": 48,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_4b8b2b9f108a1c54fba5",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:3",
+      "field": "completed",
+      "value": false,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_5322ca4da793ae27b596",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:4",
+      "field": "completed",
+      "value": false,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_5500a00d6261334f6a90",
+      "source": "readiness",
+      "sourceId": "summary_bike",
+      "field": "sleepHours",
+      "value": 7.5,
+      "sourceRevision": "summary_bike-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_5903410d4c09296af7a8",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:3",
+      "field": "durationMin",
+      "value": 60,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_5c01ed2faed01549fc65",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:5",
+      "field": "durationMin",
+      "value": 75,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_658f5da89acde6a1de9a",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "modified.tss.factor",
+      "value": 0.6,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_6857768a5e29c24524b3",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:2",
+      "field": "durationMin",
+      "value": 0,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_6d6805e8277df32647b6",
+      "source": "activity",
+      "sourceId": "ride-141",
+      "field": "hoursSinceHighIntensity",
+      "value": 24,
+      "sourceRevision": "ride-141-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_76b88d3c9a838112463c",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:0",
+      "field": "targetTss",
+      "value": 100,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_7e98841ba8d465b00689",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "rest.durationMin",
+      "value": 0,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_8e58d3d6c30ff88657d8",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:3",
+      "field": "targetTss",
+      "value": 90,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_92441980461943d75bc3",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:2",
+      "field": "completed",
+      "value": false,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_9335c5ccef6b3cb52da3",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "resume.rhrDeltaPct.max",
+      "value": 5,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_938139afc0ea61b05b3e",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:6",
+      "field": "completed",
+      "value": false,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_9678e5fd34cd6c866ba1",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "recovery.zone",
+      "value": "Z2",
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_98b724846408b29b638a",
+      "source": "readiness",
+      "sourceId": "summary_bike",
+      "field": "rhr",
+      "value": 50,
+      "sourceRevision": "summary_bike-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_a4f46ece1f0d8bd5de69",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:4",
+      "field": "durationMin",
+      "value": 90,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_aa25c606ff299ad37a33",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:0",
+      "field": "durationMin",
+      "value": 90,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_b56f8ddd15a7b6a3ae07",
+      "source": "readiness",
+      "sourceId": "summary_bike",
+      "field": "score",
+      "value": 72,
+      "sourceRevision": "summary_bike-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_b6bdfa74534f2dda659e",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:1",
+      "field": "completed",
+      "value": false,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_b8d58a8cf16479dbab88",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:5",
+      "field": "targetTss",
+      "value": 70,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_b925cd58b64ca98d2cae",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "resume.form.minInclusive",
+      "value": -15,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_bd5a9dcc55d4718b864e",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "recovery.durationMin",
+      "value": 45,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_bd9874c91910a2d09b32",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "recovery.targetTss",
+      "value": 25,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_c10ecdef8c5b29ae7349",
+      "source": "readiness",
+      "sourceId": "summary_bike",
+      "field": "rhrBaseline",
+      "value": 49,
+      "sourceRevision": "summary_bike-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_c274e5ef83e470b3a0fc",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:1",
+      "field": "targetTss",
+      "value": 60,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_c2d55259fcf425fd2ed2",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "highLoad.initialRestDays",
+      "value": 2,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_c554efd193651765eb3e",
+      "source": "readiness",
+      "sourceId": "summary_bike",
+      "field": "hrvBaseline",
+      "value": 60,
+      "sourceRevision": "summary_bike-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_d516d4368b5f1ae113a9",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:2",
+      "field": "targetTss",
+      "value": 0,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_d52296fb7f643da1bb67",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:5",
+      "field": "completed",
+      "value": false,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_d6c84f90166ed6b4d9e2",
+      "source": "readiness",
+      "sourceId": "summary_bike",
+      "field": "hrv",
+      "value": 58,
+      "sourceRevision": "summary_bike-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_dcaebfd177c544dce232",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:1",
+      "field": "durationMin",
+      "value": 90,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_ef760b015e231a8cfd26",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "resume.hrvDeltaPct.min",
+      "value": -10,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_ef9089dc0f539e83c59d",
+      "source": "plan",
+      "sourceId": "goal-ctl40:week-1:6",
+      "field": "durationMin",
+      "value": 60,
+      "sourceRevision": "week-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_f17f3d4186485310ada8",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "nextWeekLoad.minFactor",
+      "value": 0.5,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_f56744be466f04904eae",
+      "source": "goal",
+      "sourceId": "goal-ctl40",
+      "field": "targetDate",
+      "value": "2026-09-01",
+      "sourceRevision": "goal-ctl40-revision",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_fc588d8d0376b7ad0dc0",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "resume.sleepHours.min",
+      "value": 7,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_ff160d8621697863b2fb",
+      "source": "policy",
+      "sourceId": "coach-prescription-rules-v1",
+      "field": "nextWeekLoad.maxFactor",
+      "value": 0.625,
+      "sourceRevision": "coach-prescription-rules-v1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_qa_checkin_0",
+      "source": "checkin",
+      "sourceId": "qa-checkin",
+      "field": "subjectiveFatigue",
+      "value": "normal",
+      "sourceRevision": "qa-checkin-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_qa_checkin_1",
+      "source": "checkin",
+      "sourceId": "qa-checkin",
+      "field": "soreness",
+      "value": "none",
+      "sourceRevision": "qa-checkin-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    },
+    {
+      "evidenceId": "rx_ev_qa_checkin_2",
+      "source": "checkin",
+      "sourceId": "qa-checkin",
+      "field": "painOrIllness",
+      "value": false,
+      "sourceRevision": "qa-checkin-r1",
+      "asOf": "2026-07-16T10:50:33.000Z"
+    }
+  ],
+  "providerCalls": 0,
+  "quotaConsumed": 0,
+  "prescriptionId": "rx_892dcb9c2668b568b597ea84"
+}

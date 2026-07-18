@@ -111,6 +111,23 @@
     "freshness": "Data as of {{at}}", "timezone": "Timezone {{timezone}}",
     "evidence": { "toggle": "{{count}} evidence items", "item": "Evidence {{index}}" }
   },
+  "prescription": {
+    "title": "Next 7-day adjustment", "validUntil": "Valid until {{at}}", "proposalNotice": "This is a proposal and is not saved to your training plan until you confirm it.",
+    "weekTitle": "Recommended TSS next week", "confidenceLabel": "Confidence", "confidence": { "low": "Low", "medium": "Medium", "high": "High" },
+    "dataAsOf": "Data as of", "factsId": "Facts ID", "planRevision": "Plan revision", "rulesVersion": "Rules version", "none": "None",
+    "duration": "{{minutes}} min", "targetTss": "Target TSS {{value}}", "reassessTitle": "Reassess before training", "maxAge": "measured within {{hours}} hours", "evidence": "{{count}} evidence items",
+    "action": { "rest": "Rest", "recovery": "Recovery", "follow_plan": "Follow plan", "modified_workout": "Modified workout", "reassess": "Reassess" },
+    "workout": { "rest": "Rest", "recovery": "Recovery", "z2": "Z2", "tempo": "Tempo", "sweet_spot": "Sweet spot", "threshold": "Threshold", "vo2max": "VO2max", "planned": "Planned workout" },
+    "metric": { "form": "Form", "rhr_delta_pct": "Resting HR change", "hrv_delta_pct": "HRV change", "sleep_hours": "Sleep hours", "hours_since_high_intensity": "Hours since high intensity" },
+    "operator": { "gte": "at least", "gt": "greater than", "lte": "at most", "lt": "less than" },
+    "signal": { "subjective_fatigue": "Fatigue", "soreness": "Soreness", "pain_or_illness": "Pain or illness" },
+    "option": { "subjective_fatigue": { "normal": "Normal", "tired": "Tired" }, "soreness": { "none": "None", "present": "Present" }, "pain_or_illness": { "none": "None", "present": "Present" } },
+    "checkin": { "title": "More information is needed to assess recovery", "body": "Tell us how you feel today.", "submit": "Confirm", "submitting": "Checking…",
+      "networkError": "Your check-in was not sent. You can retry the same request.", "retry": "Retry", "reanalyze": "The data or plan changed, or the check-in window expired.",
+      "newAnalysis": "Start a new analysis", "error": "The check-in could not be applied. Please start a new analysis shortly.", "noCharge": "No additional use · 0 AI calls" },
+    "insufficient": { "title": "More data is needed for a prescription", "body": "Review the missing data or continue with your existing plan." }, "existingPlan": "View existing plan",
+    "safety": { "title": "No workout prescription is shown", "body": "Stop exercising if you have pain or illness and seek medical help when needed." }
+  },
   "clarification": {
     "title": "Please make the question a little more specific", "policy": "This choice: {{quota}} · {{provider}} AI calls",
     "policyContinue": "No additional turn · {{provider}} AI calls",

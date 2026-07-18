@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { CoachDiscipline, CoachRetryDisposition } from "./coachClient";
+import { coachPrescriptionSchema, type CoachPrescriptionDTO } from "./coachPrescriptionContract";
 
 export const COACH_V2_API_VERSION = "v2" as const;
 export const COACH_P1_CAPABILITY_VERSION = "p1" as const;
@@ -141,6 +142,7 @@ export interface ActionBlock extends BlockBase {
   actionCode: CoachAnswerActionCode;
   entity?: CoachEntityRef;
 }
+export interface PrescriptionBlock extends BlockBase { kind: "prescription"; prescription: CoachPrescriptionDTO }
 export interface UnsupportedBlock {
   kind: "unsupported_block";
   blockId: string;
@@ -149,7 +151,7 @@ export interface UnsupportedBlock {
 
 export type CoachAnswerBlock = NarrativeBlock | MetricGridBlock | ComparisonTableBlock | TimeSeriesBlock |
   DistributionBlock | RankingBlock | ActivityListBlock | GoalProgressBlock | PlanAdherenceBlock |
-  LoadAnalysisBlock | DataGapBlock | ActionBlock | UnsupportedBlock;
+  LoadAnalysisBlock | DataGapBlock | ActionBlock | PrescriptionBlock | UnsupportedBlock;
 
 export interface CoachEvidenceRecord {
   evidenceId: string;
@@ -343,6 +345,7 @@ const schemas = {
     z.object({ ...base, kind: z.literal("action"), actionCode: z.enum(["REVIEW_DATA_GAPS", "VIEW_TRAINING_LOAD"]),
     }).strict(),
   ]),
+  prescription: z.object({ ...base, kind: z.literal("prescription"), prescription: coachPrescriptionSchema }).strict(),
 } as const;
 
 const evidence = z.object({ evidenceId: id, source: z.enum(["activity", "activity_metrics", "fitness", "goal", "plan", "policy", "load_analysis", "derived"]),
@@ -430,7 +433,6 @@ function displayValues(block: Exclude<CoachAnswerBlock, UnsupportedBlock>): Coac
 function parseBlock(value: unknown, index: number, evidenceById: Map<string, CoachEvidenceRecord>): CoachAnswerBlock {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
   const safeId = typeof raw?.blockId === "string" && raw.blockId.length <= 160 ? raw.blockId : `unsupported_${index}`;
-  if (raw?.kind === "prescription") return { kind: "unsupported_block", blockId: safeId, reason: "prescription_feature_disabled" };
   if (typeof raw?.kind !== "string" || !(raw.kind in schemas)) {
     return { kind: "unsupported_block", blockId: safeId, reason: "unknown_kind" };
   }

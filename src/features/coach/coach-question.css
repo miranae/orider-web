@@ -243,6 +243,76 @@
   list-style: none;
 }
 
+.coach-prescription {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+  overflow-wrap: anywhere;
+}
+
+.coach-prescription__header,
+.coach-prescription__day-title,
+.coach-prescription__workout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.coach-prescription__proposal,
+.coach-checkin__policy { color: var(--ink-3); font-size: var(--fs-sm); }
+
+.coach-prescription__days {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.coach-prescription__day {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+}
+
+.coach-prescription__workout { justify-content: flex-start; }
+.coach-prescription__week-value { color: var(--accent); font: 700 var(--fs-xl) var(--font-mono); }
+
+.coach-prescription__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.coach-prescription__meta div { min-width: 0; }
+.coach-prescription__meta dt { color: var(--ink-3); font-size: var(--fs-xs); }
+.coach-prescription__meta dd { margin: 0; overflow-wrap: anywhere; }
+.coach-prescription--safety { border-color: var(--color-warning); }
+
+.coach-checkin__signal {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+}
+
+.coach-checkin__signal > div { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.coach-checkin__signal label { display: inline-flex; min-height: 44px; align-items: center; gap: var(--space-2); }
+
+@media (min-width: 48rem) {
+  .coach-prescription__days { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .coach-answer__list > li,
 .coach-answer__more li,
 .coach-answer__evidence li,
