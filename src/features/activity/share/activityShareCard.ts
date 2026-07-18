@@ -11,6 +11,15 @@ export interface ActivityShareElevationPoint {
   elevation: number;
 }
 
+export interface ActivityShareWeather {
+  temperature?: number;
+  feelsLike?: number;
+  humidity?: number;
+  windSpeed?: number;
+  windDirection?: number;
+  weatherCode?: number;
+}
+
 export interface ActivityShareCardInput {
   title: string;
   athlete: string;
@@ -31,13 +40,13 @@ export interface ActivityShareCardInput {
   performanceMetrics?: ActivityShareMetric[];
   elevationProfile?: ActivityShareElevationPoint[];
   elevationProfileUnit?: string;
+  weather?: ActivityShareWeather;
 }
 
 const IMAGE_TIMEOUT_MS = 8_000;
 const WIDTH = 1080;
-const HEIGHT = 1350;
+const HEIGHT = 900;
 const MAP_HEIGHT = 600;
-const ATTRIBUTION_STRIP_HEIGHT = 32;
 const MAX_ELEVATION_POINTS = 240;
 
 function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement | null> {
@@ -86,15 +95,26 @@ function boundedText(ctx: CanvasRenderingContext2D, text: string, maxWidth: numb
   return end > 0 ? `${text.slice(0, end).trimEnd()}…` : "…";
 }
 
-interface DrawnImageRect { x: number; y: number; width: number; height: number }
-
-function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement): DrawnImageRect {
+function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement): void {
   const scale = Math.min(WIDTH / image.naturalWidth, MAP_HEIGHT / image.naturalHeight);
   const width = image.naturalWidth * scale;
   const height = image.naturalHeight * scale;
-  const rect = { x: (WIDTH - width) / 2, y: (MAP_HEIGHT - height) / 2, width, height };
-  ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
-  return rect;
+  ctx.drawImage(image, (WIDTH - width) / 2, (MAP_HEIGHT - height) / 2, width, height);
+}
+
+function weatherSummary(weather: ActivityShareWeather | undefined): string {
+  if (!weather) return "";
+  const code = weather.weatherCode;
+  const icon = code == null ? "◌" : code <= 1 ? "☀︎" : code <= 3 ? "☁︎" : code <= 48 ? "≋" : code <= 67 ? "☂︎" : code <= 77 ? "❄︎" : code <= 82 ? "☂︎" : "ϟ";
+  const values = [
+    Number.isFinite(weather.temperature) ? `${icon} ${Math.round(weather.temperature!)}°C` : "",
+    Number.isFinite(weather.feelsLike) ? `≈ ${Math.round(weather.feelsLike!)}°C` : "",
+    Number.isFinite(weather.humidity) ? `RH ${Math.round(weather.humidity!)}%` : "",
+    Number.isFinite(weather.windSpeed)
+      ? `${weather.windDirection == null ? "↗" : ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(weather.windDirection / 45) % 8]} ${weather.windSpeed!.toFixed(1)} m/s`
+      : "",
+  ].filter(Boolean);
+  return values.join("  ·  ");
 }
 
 function normalizedElevationProfile(points: ActivityShareElevationPoint[] | undefined): ActivityShareElevationPoint[] {
@@ -131,11 +151,10 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   const image = input.includeRouteImage
     ? await loadFirstImage([input.routeImageUrl, input.backgroundImageUrl], signal)
     : null;
-  let drawnImageRect: DrawnImageRect | null = null;
   if (image) {
     ctx.fillStyle = "#dce8e3";
     ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
-    drawnImageRect = drawContainedImage(ctx, image);
+    drawContainedImage(ctx, image);
   } else {
     const mapFallback = ctx.createLinearGradient(0, 0, WIDTH, MAP_HEIGHT);
     mapFallback.addColorStop(0, "#17695d");
@@ -144,63 +163,44 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
   }
 
-  const topShade = ctx.createLinearGradient(0, 0, 0, MAP_HEIGHT);
-  topShade.addColorStop(0, "rgba(2,12,10,.62)");
-  topShade.addColorStop(0.48, "rgba(2,12,10,.04)");
-  topShade.addColorStop(1, "rgba(2,12,10,.78)");
-  ctx.fillStyle = topShade;
-  ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
-  // Static Images API가 이미지에 넣은 Mapbox wordmark/귀속 표시는 변형하거나
-  // 가리지 않는다. 그라데이션 뒤에 하단 32px를 원본 밝기로 다시 그린다.
-  if (image && drawnImageRect) {
-    const stripHeight = Math.min(ATTRIBUTION_STRIP_HEIGHT, drawnImageRect.height);
-    const sourceHeight = image.naturalHeight * stripHeight / drawnImageRect.height;
-    ctx.drawImage(
-      image,
-      0,
-      image.naturalHeight - sourceHeight,
-      image.naturalWidth,
-      sourceHeight,
-      drawnImageRect.x,
-      drawnImageRect.y + drawnImageRect.height - stripHeight,
-      drawnImageRect.width,
-      stripHeight,
-    );
-  }
-
+  ctx.shadowColor = "rgba(0,0,0,.9)";
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetY = 1;
   ctx.fillStyle = "#ffffff";
-  ctx.font = `800 28px ${mono}`;
-  ctx.fillText("O·RIDER", 48, 54);
+  ctx.font = `800 14px ${mono}`;
+  ctx.fillText("O·RIDER", 24, 30);
+  const weather = weatherSummary(input.weather);
+  if (weather) {
+    ctx.textAlign = "right";
+    ctx.font = `700 11px ${mono}`;
+    ctx.fillText(boundedText(ctx, weather, 700), 1056, 30);
+    ctx.textAlign = "left";
+  }
 
   const metrics = (input.performanceMetrics ?? []).filter((metric) => metric.value).slice(0, 6);
   if (metrics.length > 0) {
-    ctx.fillStyle = "rgba(3,18,15,.76)";
-    ctx.fillRect(40, 78, 1000, 116);
-    ctx.fillStyle = accent;
-    ctx.fillRect(40, 78, 6, 116);
-    ctx.font = `700 15px ${font}`;
-    ctx.fillText(boundedText(ctx, input.performanceLabel, 956), 64, 101);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 8px ${font}`;
+    ctx.fillText(boundedText(ctx, input.performanceLabel, 1008), 36, 68);
     metrics.forEach((metric, index) => {
-      const x = 64 + index * 162;
-      ctx.fillStyle = "rgba(255,255,255,.7)";
-      ctx.font = `600 17px ${font}`;
-      ctx.fillText(boundedText(ctx, metric.label, 142), x, 132);
-      ctx.fillStyle = ink;
-      ctx.font = `800 26px ${mono}`;
+      const x = 36 + index * 170;
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `600 9px ${font}`;
+      ctx.fillText(boundedText(ctx, metric.label, 150), x, 86);
+      ctx.font = `800 13px ${mono}`;
       const value = metric.unit ? `${metric.value} ${metric.unit}` : metric.value;
-      ctx.fillText(boundedText(ctx, value, 142), x, 168);
+      ctx.fillText(boundedText(ctx, value, 150), x, 104);
     });
   }
 
-  ctx.font = `600 21px ${font}`;
-  ctx.fillStyle = "rgba(255,255,255,.9)";
-  ctx.fillText(boundedText(ctx, `${input.sport} · ${input.date}`, 968), 48, 389);
-  ctx.font = `800 46px ${font}`;
+  ctx.font = `600 11px ${font}`;
   ctx.fillStyle = "#ffffff";
-  ctx.fillText(boundedText(ctx, input.title, 968), 48, 441);
-  ctx.font = `500 21px ${font}`;
-  ctx.fillStyle = "rgba(255,255,255,.88)";
-  ctx.fillText(boundedText(ctx, input.athlete, 968), 48, 474);
+  ctx.fillText(boundedText(ctx, `${input.sport} · ${input.date}`, 1016), 32, 448);
+  ctx.font = `800 23px ${font}`;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(boundedText(ctx, input.title, 1016), 32, 478);
+  ctx.font = `500 11px ${font}`;
+  ctx.fillText(boundedText(ctx, input.athlete, 1016), 32, 496);
 
   const primaryStats: Array<readonly [string, string]> = [
     [input.distance, input.distanceLabel],
@@ -208,26 +208,28 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     [input.elevation, input.elevationLabel],
   ];
   primaryStats.forEach(([value, label], index) => {
-    const x = 48 + index * 336;
-    ctx.fillStyle = ink;
-    ctx.font = `800 34px ${mono}`;
-    ctx.fillText(boundedText(ctx, value, 300), x, 520);
-    ctx.fillStyle = "rgba(255,255,255,.7)";
-    ctx.font = `600 18px ${font}`;
-    ctx.fillText(boundedText(ctx, label, 300), x, 548);
+    const x = 32 + index * 344;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `800 17px ${mono}`;
+    ctx.fillText(boundedText(ctx, value, 310), x, 530);
+    ctx.font = `600 9px ${font}`;
+    ctx.fillText(boundedText(ctx, label, 310), x, 545);
   });
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
 
   const elevationProfile = normalizedElevationProfile(input.elevationProfile);
-  const plot = { left: 56, right: 1024, top: 744, bottom: 1188 };
+  const plot = { left: 40, right: 1040, top: 678, bottom: 789 };
   if (elevationProfile.length >= 2) {
     ctx.fillStyle = ink;
-    ctx.font = `700 27px ${font}`;
-    ctx.fillText(boundedText(ctx, input.elevationProfileLabel, 968), 56, 666);
+    ctx.font = `700 14px ${font}`;
+    ctx.fillText(boundedText(ctx, input.elevationProfileLabel, 1000), 40, 630);
     ctx.fillStyle = muted;
-    ctx.font = `600 20px ${font}`;
-    ctx.fillText(boundedText(ctx, `${input.elevationLabel} ${input.elevation}`, 968), 56, 702);
+    ctx.font = `600 10px ${font}`;
+    ctx.fillText(boundedText(ctx, `${input.elevationLabel} ${input.elevation}`, 1000), 40, 648);
     ctx.strokeStyle = line;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
     [plot.top, (plot.top + plot.bottom) / 2, plot.bottom].forEach((y) => {
       ctx.beginPath();
       ctx.moveTo(plot.left, y);
@@ -260,31 +262,31 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.beginPath();
     coordinates.forEach((point, index) => index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y));
     ctx.strokeStyle = accent;
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 3;
     ctx.stroke();
     ctx.fillStyle = muted;
-    ctx.font = `600 18px ${mono}`;
+    ctx.font = `600 9px ${mono}`;
     const elevationUnit = input.elevationProfileUnit ?? "m";
     const elevationScale = elevationUnit === "ft" ? 3.28084 : 1;
     if (isFlat) {
-      ctx.fillText(`${Math.round(maxElevation * elevationScale)} ${elevationUnit}`, plot.left, (plot.top + plot.bottom) / 2 - 12);
+      ctx.fillText(`${Math.round(maxElevation * elevationScale)} ${elevationUnit}`, plot.left, (plot.top + plot.bottom) / 2 - 6);
     } else {
-      ctx.fillText(`${Math.round(maxElevation * elevationScale)} ${elevationUnit}`, plot.left, plot.top - 12);
-      ctx.fillText(`${Math.round(minElevation * elevationScale)} ${elevationUnit}`, plot.left, plot.bottom + 30);
+      ctx.fillText(`${Math.round(maxElevation * elevationScale)} ${elevationUnit}`, plot.left, plot.top - 6);
+      ctx.fillText(`${Math.round(minElevation * elevationScale)} ${elevationUnit}`, plot.left, plot.bottom + 15);
     }
     ctx.textAlign = "right";
-    ctx.fillText(input.distance, plot.right, plot.bottom + 30);
+    ctx.fillText(input.distance, plot.right, plot.bottom + 15);
     ctx.textAlign = "left";
   }
 
   ctx.fillStyle = muted;
-  ctx.font = `500 23px ${font}`;
-  ctx.fillText(boundedText(ctx, input.footer, 470), 56, 1298);
+  ctx.font = `500 12px ${font}`;
+  ctx.fillText(boundedText(ctx, input.footer, 470), 40, 858);
   ctx.textAlign = "right";
-  ctx.fillText(image ? "orider.co.kr  ·  © Mapbox  ·  © OpenStreetMap" : "orider.co.kr", 1024, 1298);
+  ctx.fillText(image ? "orider.co.kr  ·  © Mapbox  ·  © OpenStreetMap" : "orider.co.kr", 1040, 858);
   ctx.textAlign = "left";
   ctx.fillStyle = accent;
-  ctx.fillRect(0, 1338, WIDTH, 12);
+  ctx.fillRect(0, 892, WIDTH, 8);
   return canvas;
 }
 

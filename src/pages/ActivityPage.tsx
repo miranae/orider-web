@@ -908,6 +908,7 @@ export default function ActivityPage() {
                   performanceMetrics: sharePerformanceMetrics,
                   elevationProfile: streams?.altitude?.length && streams.altitude.length >= 2 ? elevData : [],
                   elevationProfileUnit: elevUnit,
+                  weather: activity.weather,
                 }}
                 filename={`orider-activity-${activity.id}.png`}
                 url={window.location.href}
