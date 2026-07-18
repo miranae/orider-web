@@ -78,6 +78,26 @@
       "seconds_per_km": "sec/km", "meters": "m", "kcal": "kcal", "percent": "%", "score": "points", "dimensionless": ""
     },
     "column": { "current": "Current", "previous": "Previous comparable", "delta": "Change" },
+    "load": {
+      "title": "Training load analysis", "comparisonCaption": "Current load comparison",
+      "trendTitle": "Server-canonical trend", "sequenceLabel": "{{metric}} trend values",
+      "showChart": "View chart and table", "hideChart": "Hide chart and table", "chartRegion": "Training-load charts and data tables",
+      "goalTitle": "CTL goal", "previousCanonical": "Canonical daily close 7 days ago",
+      "weeklyTssTitle": "This week's TSS", "weeklyTssBasis": "Monday through now in your timezone",
+      "weeklyTrendCaption": "Weekly canonical CTL, ATL, and Form", "canonicalPeriod": "Canonical UTC period", "inProgress": "In progress",
+      "driversTitle": "Top load-contributing activities this week", "goalResult": "Goal result", "goalAchieved": "Goal achieved",
+      "goalNotAchieved": "Not achieved yet", "goalAchievedAt": "First achieved", "bandTitle": "Form policy bands",
+      "bandMeta": "Policy catalog {{catalog}}", "currentBand": "Current band {{band}}", "none": "No classification",
+      "reasons": "Decision reason codes", "missingSignal": "Data to review: {{signal}}",
+      "confidence": { "low": "Low confidence", "lowBody": "The data is insufficient, so no strong conclusion or training prescription is provided.", "medium": "Medium-confidence analysis", "high": "High-confidence analysis" },
+      "band": {
+        "recovery_review": { "label": "Review recovery", "explanation": "Form is very low; review recovery status first." },
+        "high_load": { "label": "High load", "explanation": "Form indicates a high recent training load." },
+        "productive_load": { "label": "Productive load", "explanation": "Training load is accumulating in this range." },
+        "normal": { "label": "Normal", "explanation": "This is the normal Form range in the policy." },
+        "unknown": "Unknown band", "unknownExplanation": "This policy band is not supported by this app version."
+      }
+    },
     "chart": { "visualLabel": "Trend chart from the server-provided series", "tableCaption": "Trend data table", "series": "Metric", "at": "At", "value": "Value" },
     "goal": { "current": "Current", "target": "Target", "progress": "Progress" },
     "plan": { "planned": "Planned", "completed": "Completed", "missed": "{{count}} missed plan items", "replacements": "{{count}} replacement activities" },

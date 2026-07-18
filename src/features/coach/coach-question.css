@@ -294,6 +294,61 @@
 .coach-answer__unsupported { color: var(--ink-2); }
 .coach-answer__fallback { color: var(--color-warning); }
 
+.coach-answer__load {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  background: var(--bg-1);
+}
+
+.coach-answer__load h4 {
+  margin: 0;
+  color: var(--ink-1);
+  font-size: var(--fs-sm);
+}
+
+.coach-answer__load-trend,
+.coach-answer__load-goal,
+.coach-answer__load-charts {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.coach-answer__load-sequences {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.coach-answer__load-sequences li {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.coach-answer__load-sequences li > span {
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.coach-answer__load-goal > div:not(.coach-answer__badges) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+
 .coach-clarification fieldset {
   display: grid;
   gap: var(--space-2);

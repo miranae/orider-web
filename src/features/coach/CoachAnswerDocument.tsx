@@ -1,12 +1,13 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import type {
   CoachAnswerActionCode, CoachAnswerBlock, CoachAnswerDocument, CoachDisplayValue, CoachEntityRef,
-  CoachEvidenceRecord, CoachMetricId, CoachV2Response,
+  CoachEvidenceRecord, CoachLoadAssessment, CoachMetricId, CoachV2Response,
 } from "../../services/coachV2Contract";
 
 const PRIMARY_COUNT = 5;
+const LOAD_METRIC_IDS = new Set<CoachMetricId>(["ctl", "atl", "form"]);
 
 function formatDate(value: string, locale: string, timezone?: string): string {
   try {
@@ -14,17 +15,18 @@ function formatDate(value: string, locale: string, timezone?: string): string {
   } catch { return value; }
 }
 
-function primitiveText(value: unknown, locale: string): string {
+function primitiveText(value: unknown, locale: string, signDisplay: "auto" | "always" = "auto"): string {
   if (value === null) return "—";
-  if (typeof value === "number") return new Intl.NumberFormat(locale, { maximumFractionDigits: 2, signDisplay: "auto" }).format(value);
+  if (typeof value === "number") return new Intl.NumberFormat(locale, { maximumFractionDigits: 2, signDisplay }).format(value);
   if (typeof value === "boolean") return value ? "✓" : "—";
   if (typeof value === "string") return value;
   return "";
 }
 
-function Display({ item, locale, className }: { item: CoachDisplayValue; locale: string; className?: string }) {
+function Display({ item, locale, className, showPositiveSign = false }: { item: CoachDisplayValue; locale: string; className?: string;
+  showPositiveSign?: boolean }) {
   const { t } = useTranslation("coach");
-  const value = primitiveText(item.value, locale);
+  const value = primitiveText(item.value, locale, showPositiveSign ? "always" : "auto");
   return <span className={className} data-evidence-id={item.evidenceId}>
     {value}{item.unit ? <small className="coach-answer__unit"> {t(`answer.unit.${item.unit}`)}</small> : null}
   </span>;
@@ -91,12 +93,144 @@ function SeriesGraphic({ block, locale }: { block: Extract<CoachAnswerBlock, { k
   </div>;
 }
 
+interface LoadAnalysisGroup {
+  blockIds: Set<string>;
+  firstBlockId: string;
+  comparisons: Array<Extract<CoachAnswerBlock, { kind: "comparison_table" }>["rows"][number]>;
+  trends: Array<Extract<CoachAnswerBlock, { kind: "time_series" }>>;
+  goal?: Extract<CoachAnswerBlock, { kind: "goal_progress" }>;
+  typed?: Extract<CoachAnswerBlock, { kind: "load_analysis" }>;
+}
+
+function collectLoadAnalysisGroup(document: CoachAnswerDocument): LoadAnalysisGroup | null {
+  const typed = document.blocks.find((block): block is Extract<CoachAnswerBlock, { kind: "load_analysis" }> => block.kind === "load_analysis");
+  const comparisonBlocks = document.blocks.filter((block): block is Extract<CoachAnswerBlock, { kind: "comparison_table" }> =>
+    block.kind === "comparison_table" && block.rows.length > 0 && block.rows.every((row) => LOAD_METRIC_IDS.has(row.metricId)));
+  const trends = document.blocks.filter((block): block is Extract<CoachAnswerBlock, { kind: "time_series" }> =>
+    block.kind === "time_series" && block.series.length > 0 && block.series.every((series) => LOAD_METRIC_IDS.has(series.metricId)));
+  const goal = document.blocks.find((block): block is Extract<CoachAnswerBlock, { kind: "goal_progress" }> => block.kind === "goal_progress");
+  if (!typed && comparisonBlocks.length === 0 && trends.length === 0 && !goal) return null;
+  const comparisons = comparisonBlocks.flatMap((block) => block.rows.filter((row) => LOAD_METRIC_IDS.has(row.metricId)));
+  const blockIds = new Set([...(typed ? [typed.blockId] : []), ...comparisonBlocks.map((block) => block.blockId), ...trends.map((block) => block.blockId),
+    ...(goal ? [goal.blockId] : [])]);
+  const firstBlockId = document.blocks.find((block) => blockIds.has(block.blockId))?.blockId;
+  if (!firstBlockId) return null;
+  return { blockIds, firstBlockId, comparisons, trends, ...(goal ? { goal } : {}), ...(typed ? { typed } : {}) };
+}
+
+const BAND_KEYS: Record<string, string> = {
+  "coach.load.band.recovery_review.label": "answer.load.band.recovery_review.label",
+  "coach.load.band.recovery_review.explanation": "answer.load.band.recovery_review.explanation",
+  "coach.load.band.high_load.label": "answer.load.band.high_load.label",
+  "coach.load.band.high_load.explanation": "answer.load.band.high_load.explanation",
+  "coach.load.band.productive_load.label": "answer.load.band.productive_load.label",
+  "coach.load.band.productive_load.explanation": "answer.load.band.productive_load.explanation",
+  "coach.load.band.normal.label": "answer.load.band.normal.label",
+  "coach.load.band.normal.explanation": "answer.load.band.normal.explanation",
+};
+
+function TypedLoadAnalysisView({ block, locale, onAction }: { block: Extract<CoachAnswerBlock, { kind: "load_analysis" }>;
+  locale: string; onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void }) {
+  const { t } = useTranslation("coach");
+  const [chartOpen, setChartOpen] = useState(false);
+  const value = block.assessment;
+  const metrics = ["ctl", "atl", "form"] as const;
+  const openDriver = (driver: CoachLoadAssessment["drivers"][number]) => onAction("OPEN_ACTIVITY", {
+    entityType: "activity", entityId: driver.activityId, label: driver.title, occurredAt: driver.date,
+  });
+  return <section className="coach-answer__load" aria-labelledby={`coach-block-${block.blockId}`}>
+    <h3 id={`coach-block-${block.blockId}`} className="coach-answer__block-title">{t("answer.load.title")}</h3>
+    {value.confidence === "low" && <div className="coach-answer__notice" role="status"><strong>{t("answer.load.confidence.low")}</strong>
+      <p>{t("answer.load.confidence.lowBody")}</p>{value.missingSignals.length > 0 && <ul>{value.missingSignals.map((signal) => <li key={signal}>{t("answer.load.missingSignal", { signal })}</li>)}</ul>}</div>}
+    <div className="coach-answer__table-scroll"><table><caption>{t("answer.load.comparisonCaption")}</caption><thead><tr>
+      <th scope="col">{t("answer.metricLabel")}</th><th scope="col">{t("answer.load.previousCanonical")}</th>
+      <th scope="col">{t("answer.column.current")}</th><th scope="col">{t("answer.column.delta")}</th></tr></thead>
+      <tbody>{metrics.map((metric) => <tr key={metric}><th scope="row"><MetricLabel metricId={metric} /></th>
+        <td><Display item={value.previousComparable[metric]} locale={locale} /></td><td><Display item={value.current[metric]} locale={locale} /></td>
+        <td><Display item={value.delta[metric]} locale={locale} showPositiveSign /></td></tr>)}</tbody></table></div>
+    <section className="coach-answer__load-trend"><h4>{t("answer.load.weeklyTssTitle")}</h4>
+      <p>{t("answer.load.weeklyTssBasis")}</p><div className="coach-answer__load-goal">
+        <div><span>{t("answer.column.previous")}</span><Display item={value.weeklyTss.previousComparable} locale={locale} /></div>
+        <div><span>{t("answer.column.current")}</span><Display item={value.weeklyTss.current} locale={locale} /></div>
+        <div><span>{t("answer.column.delta")}</span><Display item={value.weeklyTss.delta} locale={locale} showPositiveSign /></div></div></section>
+    {value.weeklyTrend.length > 0 && <section className="coach-answer__load-trend"><h4>{t("answer.load.trendTitle")}</h4>
+      <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls={`coach-load-${block.blockId}`}
+        onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>
+      {chartOpen && <div id={`coach-load-${block.blockId}`} className="coach-answer__table-scroll"><table><caption>{t("answer.load.weeklyTrendCaption")}</caption>
+        <thead><tr><th scope="col">{t("answer.load.canonicalPeriod")}</th>{metrics.map((metric) => <th key={metric} scope="col"><MetricLabel metricId={metric} /></th>)}</tr></thead>
+        <tbody>{value.weeklyTrend.map((week) => <tr key={week.weekId}><th scope="row"><Display item={week.period.fromCanonicalDate} locale={locale} /> – <Display item={week.period.toCanonicalDate} locale={locale} />
+          {(week.partial || week.sampleBasis === "current_as_of") && <Chip variant="warning">{t("answer.load.inProgress")}</Chip>}</th>
+          {metrics.map((metric) => <td key={metric}><Display item={week[metric]} locale={locale} /></td>)}</tr>)}</tbody></table></div>}</section>}
+    {value.drivers.length > 0 && <section><h4>{t("answer.load.driversTitle")}</h4><ol className="coach-answer__list">{value.drivers.map((driver) => <li key={driver.activityId}>
+      <button type="button" className="coach-answer__driver" onClick={() => openDriver(driver)}><Display item={driver.title} locale={locale} /></button>
+      <span><Display item={driver.date} locale={locale} /> · TSS <Display item={driver.tss} locale={locale} /> · <Display item={driver.durationMin} locale={locale} /> min
+        {driver.distanceKm && <> · <Display item={driver.distanceKm} locale={locale} /> km</>} · <Display item={driver.weeklyLoadContributionPct} locale={locale} />%</span></li>)}</ol></section>}
+    {value.goalAssessment && <section className="coach-answer__load-goal"><h4>{t("answer.load.goalTitle")}</h4>
+      <div><span>{t("answer.goal.target")}</span><Display item={value.goalAssessment.target} locale={locale} /></div>
+      <div><span>{t("answer.goal.current")}</span><Display item={value.goalAssessment.current} locale={locale} /></div>
+      <div><span>{t("answer.load.goalResult")}</span><strong><Display item={value.goalAssessment.achieved} locale={locale} /> {t(value.goalAssessment.achieved.value ? "answer.load.goalAchieved" : "answer.load.goalNotAchieved")}</strong></div>
+      {value.goalAssessment.achievedAt && <div><span>{t("answer.load.goalAchievedAt")}</span><Display item={value.goalAssessment.achievedAt} locale={locale} /></div>}</section>}
+    <section><h4>{t("answer.load.bandTitle")}</h4><p>{t("answer.load.bandMeta", { catalog: value.bandAssessment.catalogVersion })}</p>
+      <ul className="coach-answer__list">{value.bandAssessment.bands.map((band) => <li key={band.id} aria-current={band.id === value.bandAssessment.currentBandId ? "true" : undefined}>
+        <strong>{t(BAND_KEYS[band.labelKey] ?? "answer.load.band.unknown")}</strong><span>{t(BAND_KEYS[band.explanationKey] ?? "answer.load.band.unknownExplanation")}</span>
+        <small>{band.minInclusive && <Display item={band.minInclusive} locale={locale} />}{band.minInclusive && band.maxExclusive && " ≤ Form < "}{band.maxExclusive && <Display item={band.maxExclusive} locale={locale} />} · {band.referenceId}</small></li>)}</ul>
+      <p>{t("answer.load.currentBand", { band: value.bandAssessment.currentBandId ?? t("answer.load.none") })}: <Display item={value.bandAssessment.currentValue} locale={locale} /></p></section>
+    {value.confidence !== "low" && <p>{t(`answer.load.confidence.${value.confidence}`)}</p>}
+    {value.reasonCodes.length > 0 && <details><summary>{t("answer.load.reasons")}</summary><ul>{value.reasonCodes.map((reason) => <li key={reason}>{reason}</li>)}</ul></details>}
+    <BlockState block={block} />
+  </section>;
+}
+
+function LoadAnalysisView({ group, locale, onAction }: { group: LoadAnalysisGroup; locale: string;
+  onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void }) {
+  const { t } = useTranslation("coach");
+  const [chartOpen, setChartOpen] = useState(false);
+  if (group.typed) return <TypedLoadAnalysisView block={group.typed} locale={locale} onAction={onAction} />;
+  const columns = ["previous", "current", "delta"] as const;
+  return <section className="coach-answer__load" aria-labelledby="coach-load-title">
+    <h3 id="coach-load-title" className="coach-answer__block-title">{t("answer.load.title")}</h3>
+    {group.comparisons.length > 0 && <div className="coach-answer__table-scroll"><table>
+      <caption>{t("answer.load.comparisonCaption")}</caption>
+      <thead><tr><th scope="col">{t("answer.metricLabel")}</th>
+        <th scope="col">{t("answer.column.previous")}</th><th scope="col">{t("answer.column.current")}</th>
+        <th scope="col">{t("answer.column.delta")}</th></tr></thead>
+      <tbody>{group.comparisons.map((row) => <tr key={row.rowId}><th scope="row"><MetricLabel metricId={row.metricId} /></th>
+        {columns.map((column) => <td key={column}><Display item={row.cells[column]} locale={locale} showPositiveSign={column === "delta"} /></td>)}</tr>)}</tbody>
+    </table></div>}
+    {group.trends.length > 0 && <section className="coach-answer__load-trend" aria-labelledby="coach-load-trend-title">
+      <h4 id="coach-load-trend-title">{t("answer.load.trendTitle")}</h4>
+      <ul className="coach-answer__load-sequences">{group.trends.flatMap((block) => block.series
+        .filter((series) => LOAD_METRIC_IDS.has(series.metricId)).map((series) => <li key={`${block.blockId}-${series.seriesId}`}>
+          <strong><MetricLabel metricId={series.metricId} /></strong>
+          <span aria-label={t("answer.load.sequenceLabel", { metric: t(`answer.metric.${series.metricId}`) })}>
+            {series.points.map((point, index) => <Fragment key={`${point.at.evidenceId}-${point.value.evidenceId}`}>
+              {index > 0 && <span aria-hidden="true"> → </span>}<Display item={point.value} locale={locale} />
+            </Fragment>)}
+          </span>
+        </li>))}</ul>
+      <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls="coach-load-charts"
+        onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>
+      {chartOpen && <div id="coach-load-charts" className="coach-answer__load-charts" aria-label={t("answer.load.chartRegion")}>
+        {group.trends.map((block) => <div key={block.blockId}><SeriesGraphic block={block} locale={locale} /><BlockState block={block} /></div>)}
+      </div>}
+    </section>}
+    {group.goal && <section className="coach-answer__load-goal" aria-labelledby="coach-load-goal-title">
+      <h4 id="coach-load-goal-title">{t("answer.load.goalTitle")}</h4>
+      <div><span>{t("answer.goal.target")}</span><Display item={group.goal.target} locale={locale} /></div>
+      <div><span>{t("answer.goal.current")}</span><Display item={group.goal.current} locale={locale} /></div>
+      {group.goal.progress && <div><span>{t("answer.goal.progress")}</span><Display item={group.goal.progress} locale={locale} /></div>}
+      <BlockState block={group.goal} />
+    </section>}
+  </section>;
+}
+
 function SupportedBlock({ block, locale, onAction }: {
   block: Exclude<CoachAnswerBlock, { kind: "unsupported_block" }>;
   locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
 }) {
   const { t } = useTranslation("coach");
+  if (block.kind === "load_analysis") return <TypedLoadAnalysisView block={block} locale={locale} onAction={onAction} />;
   let body: ReactNode;
   if (block.kind === "narrative") {
     const order = block.templateKey.endsWith("comparison_summary") ? ["current", "previous", "delta"] : ["current"];
@@ -165,12 +299,19 @@ export function CoachAnswerDocumentView({ response, locale, onAction }: {
   const document = response.answer;
   if (!document) return null;
   const fallback = response.outcome !== "answer";
+  const loadAnalysis = document.compatibility === "supported" ? collectLoadAnalysisGroup(document) : null;
   return <div className="coach-answer">
     {fallback && <div className="coach-answer__fallback" role="alert"><strong>{t("answer.fallback.title")}</strong><p>{t("answer.fallback.body")}</p></div>}
     {document.compatibility === "unsupported_schema" ? <UnsupportedBlockNotice /> : <>
-      {document.blocks.map((block) => block.kind === "unsupported_block"
-        ? <UnsupportedBlockNotice key={block.blockId} prescription={block.reason === "prescription_feature_disabled"} />
-        : <SupportedBlock key={block.blockId} block={block} locale={locale} onAction={onAction} />)}
+      {document.blocks.map((block) => {
+        if (loadAnalysis?.blockIds.has(block.blockId)) {
+          if (block.blockId !== loadAnalysis.firstBlockId) return null;
+          return <LoadAnalysisView key="load-analysis" group={loadAnalysis} locale={locale} onAction={onAction} />;
+        }
+        return block.kind === "unsupported_block"
+          ? <UnsupportedBlockNotice key={block.blockId} prescription={block.reason === "prescription_feature_disabled"} />
+          : <SupportedBlock key={block.blockId} block={block} locale={locale} onAction={onAction} />;
+      })}
       <footer className="coach-answer__metadata"><span>{t("answer.freshness", { at: formatDate(document.freshness.asOf, locale, document.freshness.timezone) })}</span>
         <span>{t("answer.timezone", { timezone: document.freshness.timezone })}</span>
         {document.status === "partial" && <span>{t("answer.state.partial")}</span>}</footer>
