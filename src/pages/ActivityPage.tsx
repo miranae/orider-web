@@ -76,6 +76,7 @@ import {
   type SummarySensorMetric,
 } from "../features/activity/detail/ActivityInsightCards";
 import type { LayoutOutletContext } from "../components/Layout";
+import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
 
 
 export default function ActivityPage() {
@@ -1076,6 +1077,13 @@ export default function ActivityPage() {
 
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
       <div className="flex-1 min-w-0 space-y-6">
+
+      <EquipmentSignalCard
+        key={activity.id}
+        activityId={activity.id}
+        ownerId={activity.userId}
+        viewerId={user?.uid ?? null}
+      />
 
       {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
       {canShowAiAnalysis && (

@@ -1,5 +1,34 @@
 {
   "title": "Activity",
+  "equipment": {
+    "eyebrow": "Equipment check recommended",
+    "loading": "Checking for equipment recommendations",
+    "loadErrorTitle": "Could not load the recommendation",
+    "loadErrorBody": "Please try again shortly.",
+    "dismiss": "Checked · hide",
+    "dismissError": "Could not hide the recommendation. Please try again.",
+    "evidenceTitle": "Server evidence ({{count}})",
+    "evidenceListLabel": "Evidence for the equipment recommendation",
+    "disclaimer": "This is a check recommendation based on changes in the recording. It does not confirm a fault.",
+    "guidance": {
+      "CHECK_TIRE_PRESSURE": {
+        "title": "Check your tire pressure",
+        "body": "Before riding, inspect both tires for pressure and damage. Follow the tire and rim manufacturers' recommended pressure limits."
+      },
+      "CHECK_BRAKE_RUB": {
+        "title": "Check for brake rub",
+        "body": "Spin each wheel gently and check for continuous pad or rotor contact. Service is recommended if drag or unusual noise persists."
+      },
+      "CHECK_DRIVETRAIN": {
+        "title": "Check the drivetrain",
+        "body": "Inspect chain cleanliness and wear, shifting, and debris around the chainrings and cassette. Clean, lubricate, and recheck if needed."
+      },
+      "CHECK_SENSOR": {
+        "title": "Check the sensor recording",
+        "body": "Check sensor fit, battery, and connection. If unusual readings continue, pair the sensor again."
+      }
+    }
+  },
   "tab": {
     "overview": "Overview",
     "analysis": "Analysis",

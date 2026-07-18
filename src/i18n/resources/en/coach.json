@@ -58,5 +58,89 @@
   "freshness": "Data as of {{at}}",
   "latestActivity": "Latest activity {{at}}",
   "staleSources": "{{count}} data sources awaiting refresh",
-  "feedback": { "label": "Rate this answer", "helpful": "Helpful", "notHelpful": "Not helpful" }
+  "feedback": { "label": "Rate this answer", "helpful": "Helpful", "notHelpful": "Not helpful" },
+  "answer": {
+    "block": {
+      "narrative": "Conclusion", "metric_grid": "Current status", "comparison_table": "Period comparison",
+      "time_series": "Trend", "distribution": "Distribution", "ranking": "Ranking", "activity_list": "Related activities",
+      "goal_progress": "Goal progress", "plan_adherence": "Plan adherence", "data_gap": "Data check", "action": "Next step"
+    },
+    "template": { "metric_summary": "Current status summary", "comparison_summary": "Period comparison summary" },
+    "metricLabel": "Metric",
+    "metric": {
+      "activity_count": "Activities", "duration": "Duration", "distance": "Distance", "tss": "TSS", "ctl": "CTL",
+      "atl": "ATL", "form": "Form", "average_power": "Average power", "heart_rate": "Heart rate", "cadence": "Cadence",
+      "pace": "Pace", "elevation": "Elevation", "calories": "Calories", "zone_time": "Zone time", "readiness": "Readiness",
+      "plan_completion": "Plan completion"
+    },
+    "unit": {
+      "count": "", "seconds": "sec", "kilometers": "km", "tss": "TSS", "watts": "W", "bpm": "bpm", "rpm": "rpm",
+      "seconds_per_km": "sec/km", "meters": "m", "kcal": "kcal", "percent": "%", "score": "points", "dimensionless": ""
+    },
+    "column": { "current": "Current", "previous": "Previous comparable", "delta": "Change" },
+    "load": {
+      "title": "Training load analysis", "comparisonCaption": "Current load comparison",
+      "trendTitle": "Server-canonical trend", "sequenceLabel": "{{metric}} trend values",
+      "showChart": "View chart and table", "hideChart": "Hide chart and table", "chartRegion": "Training-load charts and data tables",
+      "goalTitle": "CTL goal", "previousCanonical": "Canonical daily close 7 days ago",
+      "weeklyTssTitle": "This week's TSS", "weeklyTssBasis": "Monday through now in your timezone",
+      "weeklyTrendCaption": "Weekly canonical CTL, ATL, and Form", "canonicalPeriod": "Canonical UTC period", "inProgress": "In progress",
+      "driversTitle": "Top load-contributing activities this week", "goalResult": "Goal result", "goalAchieved": "Goal achieved",
+      "goalNotAchieved": "Not achieved yet", "goalAchievedAt": "First achieved", "bandTitle": "Form policy bands",
+      "bandMeta": "Policy catalog {{catalog}}", "currentBand": "Current band {{band}}", "none": "No classification",
+      "reasons": "Decision reason codes", "missingSignal": "Data to review: {{signal}}",
+      "confidence": { "low": "Low confidence", "lowBody": "The data is insufficient, so no strong conclusion or training prescription is provided.", "medium": "Medium-confidence analysis", "high": "High-confidence analysis" },
+      "band": {
+        "recovery_review": { "label": "Review recovery", "explanation": "Form is very low; review recovery status first." },
+        "high_load": { "label": "High load", "explanation": "Form indicates a high recent training load." },
+        "productive_load": { "label": "Productive load", "explanation": "Training load is accumulating in this range." },
+        "normal": { "label": "Normal", "explanation": "This is the normal Form range in the policy." },
+        "unknown": "Unknown band", "unknownExplanation": "This policy band is not supported by this app version."
+      }
+    },
+    "chart": { "visualLabel": "Trend chart from the server-provided series", "tableCaption": "Trend data table", "series": "Metric", "at": "At", "value": "Value" },
+    "goal": { "current": "Current", "target": "Target", "progress": "Progress" },
+    "plan": { "planned": "Planned", "completed": "Completed", "missed": "{{count}} missed plan items", "replacements": "{{count}} replacement activities" },
+    "gap": { "title": "Some data needs attention", "body": "Review items that are missing or still refreshing." },
+    "state": { "label": "Answer data status", "partial": "Partial data", "stale": "Awaiting refresh", "omitted": "{{count}} omitted by server" },
+    "more": "Show {{count}} more items",
+    "action": { "OPEN_ACTIVITY": "Open activity", "REVIEW_DATA_GAPS": "Review missing data", "VIEW_TRAINING_LOAD": "View training load" },
+    "fallback": { "title": "Only part of the result is shown", "body": "The request did not complete, so only deterministic blocks approved by the server are displayed." },
+    "unsupportedBlock": { "title": "Unsupported result block", "body": "The raw block payload was not displayed. Update the web app and try again." },
+    "prescriptionDisabled": { "title": "Prescriptions are not supported yet", "body": "P1 does not execute or display training prescriptions." },
+    "freshness": "Data as of {{at}}", "timezone": "Timezone {{timezone}}",
+    "evidence": { "toggle": "{{count}} evidence items", "item": "Evidence {{index}}" }
+  },
+  "prescription": {
+    "title": "Next 7-day adjustment", "validUntil": "Valid until {{at}}", "proposalNotice": "This is a proposal and is not saved to your training plan until you confirm it.",
+    "weekTitle": "Recommended TSS next week", "confidenceLabel": "Confidence", "confidence": { "low": "Low", "medium": "Medium", "high": "High" },
+    "dataAsOf": "Data as of", "factsId": "Facts ID", "planRevision": "Plan revision", "rulesVersion": "Rules version", "none": "None",
+    "duration": "{{minutes}} min", "targetTss": "Target TSS {{value}}", "reassessTitle": "Reassess before training", "maxAge": "measured within {{hours}} hours", "evidence": "{{count}} evidence items",
+    "action": { "rest": "Rest", "recovery": "Recovery", "follow_plan": "Follow plan", "modified_workout": "Modified workout", "reassess": "Reassess" },
+    "workout": { "rest": "Rest", "recovery": "Recovery", "z2": "Z2", "tempo": "Tempo", "sweet_spot": "Sweet spot", "threshold": "Threshold", "vo2max": "VO2max", "planned": "Planned workout" },
+    "metric": { "form": "Form", "rhr_delta_pct": "Resting HR change", "hrv_delta_pct": "HRV change", "sleep_hours": "Sleep hours", "hours_since_high_intensity": "Hours since high intensity" },
+    "operator": { "gte": "at least", "gt": "greater than", "lte": "at most", "lt": "less than" },
+    "signal": { "subjective_fatigue": "Fatigue", "soreness": "Soreness", "pain_or_illness": "Pain or illness" },
+    "option": { "subjective_fatigue": { "normal": "Normal", "tired": "Tired" }, "soreness": { "none": "None", "present": "Present" }, "pain_or_illness": { "none": "None", "present": "Present" } },
+    "checkin": { "title": "More information is needed to assess recovery", "body": "Tell us how you feel today.", "submit": "Confirm", "submitting": "Checking…",
+      "networkError": "Your check-in was not sent. You can retry the same request.", "retry": "Retry", "reanalyze": "The data or plan changed, or the check-in window expired.",
+      "newAnalysis": "Start a new analysis", "error": "The check-in could not be applied. Please start a new analysis shortly.", "noCharge": "No additional use · 0 AI calls" },
+    "insufficient": { "title": "More data is needed for a prescription", "body": "Review the missing data or continue with your existing plan." }, "existingPlan": "View existing plan",
+    "safety": { "title": "No workout prescription is shown", "body": "Stop exercising if you have pain or illness and seek medical help when needed." }
+  },
+  "clarification": {
+    "title": "Please make the question a little more specific", "policy": "This choice: {{quota}} · {{provider}} AI calls",
+    "policyContinue": "No additional turn · {{provider}} AI calls",
+    "policyNewTurn": "After confirmation, this uses one new question and may make up to one AI call",
+    "noCharge": "no additional use", "newTurn": "one new question", "expired": "The selection has expired. Please check again as a new question.",
+    "submit": "Continue with this choice", "newTurnConfirm": "Submitting this choice as a new question uses one of today's turns. Continue?",
+    "prompt": { "time_range": "Which period should be analyzed?", "discipline": "Which discipline should be analyzed?", "generic": "Choose an additional analysis condition" },
+    "option": { "this_week": "This week", "last_week": "Last week", "bike": "Cycling", "run": "Running", "swim": "Swimming", "generic": "{{value}}" }
+  },
+  "unsupportedV2": { "title": "This question is not supported yet", "body": "Try asking about summaries, comparisons, trends, activity rankings, goals, or plan adherence.", "suggestions": "Ways to revise your question" },
+  "v2State": {
+    "quota_exceeded": "You have used all questions available today.",
+    "budget_blocked": "A response cannot be generated due to the current AI budget limit.",
+    "failed": "The answer could not be completed. Any partial result shown is limited to the safely verified scope."
+  }
 }
