@@ -30,6 +30,7 @@ export interface ActivityShareCardInput {
   includeRouteImage: boolean;
   performanceMetrics?: ActivityShareMetric[];
   elevationProfile?: ActivityShareElevationPoint[];
+  elevationProfileUnit?: string;
 }
 
 const IMAGE_TIMEOUT_MS = 8_000;
@@ -217,35 +218,34 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   });
 
   const elevationProfile = normalizedElevationProfile(input.elevationProfile);
-  ctx.fillStyle = ink;
-  ctx.font = `700 27px ${font}`;
-  ctx.fillText(boundedText(ctx, input.elevationProfileLabel, 968), 56, 666);
-  ctx.fillStyle = muted;
-  ctx.font = `600 20px ${font}`;
-  ctx.fillText(boundedText(ctx, `${input.elevationLabel} ${input.elevation}`, 968), 56, 702);
-
   const plot = { left: 56, right: 1024, top: 744, bottom: 1188 };
-  ctx.strokeStyle = line;
-  ctx.lineWidth = 2;
-  [plot.top, (plot.top + plot.bottom) / 2, plot.bottom].forEach((y) => {
-    ctx.strokeStyle = line;
-    ctx.beginPath();
-    ctx.moveTo(plot.left, y);
-    ctx.lineTo(plot.right, y);
-    ctx.stroke();
-  });
-
   if (elevationProfile.length >= 2) {
+    ctx.fillStyle = ink;
+    ctx.font = `700 27px ${font}`;
+    ctx.fillText(boundedText(ctx, input.elevationProfileLabel, 968), 56, 666);
+    ctx.fillStyle = muted;
+    ctx.font = `600 20px ${font}`;
+    ctx.fillText(boundedText(ctx, `${input.elevationLabel} ${input.elevation}`, 968), 56, 702);
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 2;
+    [plot.top, (plot.top + plot.bottom) / 2, plot.bottom].forEach((y) => {
+      ctx.beginPath();
+      ctx.moveTo(plot.left, y);
+      ctx.lineTo(plot.right, y);
+      ctx.stroke();
+    });
     const distances = elevationProfile.map((point) => point.distance);
     const elevations = elevationProfile.map((point) => point.elevation);
     const minDistance = Math.min(...distances);
     const distanceRange = Math.max(1, Math.max(...distances) - minDistance);
     const minElevation = Math.min(...elevations);
     const maxElevation = Math.max(...elevations);
-    const elevationRange = Math.max(1, maxElevation - minElevation);
+    const elevationDelta = maxElevation - minElevation;
+    const elevationRange = Math.max(1, elevationDelta);
+    const isFlat = elevationDelta < 0.5;
     const coordinates = elevationProfile.map((point) => ({
       x: plot.left + ((point.distance - minDistance) / distanceRange) * (plot.right - plot.left),
-      y: plot.bottom - ((point.elevation - minElevation) / elevationRange) * (plot.bottom - plot.top),
+      y: isFlat ? (plot.top + plot.bottom) / 2 : plot.bottom - ((point.elevation - minElevation) / elevationRange) * (plot.bottom - plot.top),
     }));
     const chartFill = ctx.createLinearGradient(0, plot.top, 0, plot.bottom);
     chartFill.addColorStop(0, "rgba(35,213,167,.58)");
@@ -264,15 +264,17 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.stroke();
     ctx.fillStyle = muted;
     ctx.font = `600 18px ${mono}`;
-    ctx.fillText(`${Math.round(maxElevation)} m`, plot.left, plot.top - 12);
-    ctx.fillText(`${Math.round(minElevation)} m`, plot.left, plot.bottom + 30);
+    const elevationUnit = input.elevationProfileUnit ?? "m";
+    const elevationScale = elevationUnit === "ft" ? 3.28084 : 1;
+    if (isFlat) {
+      ctx.fillText(`${Math.round(maxElevation * elevationScale)} ${elevationUnit}`, plot.left, (plot.top + plot.bottom) / 2 - 12);
+    } else {
+      ctx.fillText(`${Math.round(maxElevation * elevationScale)} ${elevationUnit}`, plot.left, plot.top - 12);
+      ctx.fillText(`${Math.round(minElevation * elevationScale)} ${elevationUnit}`, plot.left, plot.bottom + 30);
+    }
     ctx.textAlign = "right";
     ctx.fillText(input.distance, plot.right, plot.bottom + 30);
     ctx.textAlign = "left";
-  } else {
-    ctx.fillStyle = muted;
-    ctx.font = `600 24px ${font}`;
-    ctx.fillText(boundedText(ctx, input.footer, 968), 56, 820);
   }
 
   ctx.fillStyle = muted;

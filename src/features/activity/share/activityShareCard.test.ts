@@ -89,6 +89,29 @@ describe("drawActivityShareCard privacy", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     await drawActivityShareCard({ ...cardInput(), elevationProfile: [{ distance: 0, elevation: 120 }, { distance: 1_000, elevation: 120 }] });
     expect(vi.mocked(ctx.lineTo).mock.calls.flat().every(Number.isFinite)).toBe(true);
+    expect(vi.mocked(ctx.fillText).mock.calls.filter(([text]) => text === "120 m")).toHaveLength(1);
+    expect(vi.mocked(ctx.lineTo).mock.calls.some(([, y]) => y === 966)).toBe(true);
+  });
+
+  it("formats elevation profile bounds in the selected unit", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    await drawActivityShareCard({
+      ...cardInput(), elevationProfileUnit: "ft",
+      elevationProfile: [{ distance: 0, elevation: 115 }, { distance: 1_000, elevation: 229 }],
+    });
+    const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => text);
+    expect(labels).toContain("751 ft");
+    expect(labels).toContain("377 ft");
+  });
+
+  it("does not render an empty elevation section or duplicate the footer", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    await drawActivityShareCard({ ...cardInput(), elevationProfile: [] });
+    const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => text);
+    expect(labels).not.toContain("Elevation profile");
+    expect(labels.filter((text) => text === "O-Rider")).toHaveLength(1);
   });
 
   it("stops waiting for a route image after the timeout", async () => {
