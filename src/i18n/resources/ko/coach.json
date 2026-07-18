@@ -58,5 +58,52 @@
   "freshness": "데이터 기준 {{at}}",
   "latestActivity": "최근 활동 {{at}}",
   "staleSources": "갱신을 기다리는 데이터 {{count}}개",
-  "feedback": { "label": "답변 평가", "helpful": "도움됨", "notHelpful": "도움 안 됨" }
+  "feedback": { "label": "답변 평가", "helpful": "도움됨", "notHelpful": "도움 안 됨" },
+  "answer": {
+    "block": {
+      "narrative": "한 줄 결론", "metric_grid": "현재 상태", "comparison_table": "기간 비교",
+      "time_series": "추세", "distribution": "분포", "ranking": "순위", "activity_list": "관련 활동",
+      "goal_progress": "목표 진행", "plan_adherence": "계획 준수", "data_gap": "데이터 확인", "action": "다음 단계"
+    },
+    "template": { "metric_summary": "현재 상태 요약", "comparison_summary": "기간 비교 요약" },
+    "metricLabel": "지표",
+    "metric": {
+      "activity_count": "활동 수", "duration": "운동 시간", "distance": "거리", "tss": "TSS", "ctl": "CTL",
+      "atl": "ATL", "form": "Form", "average_power": "평균 파워", "heart_rate": "심박수", "cadence": "케이던스",
+      "pace": "페이스", "elevation": "고도", "calories": "칼로리", "zone_time": "구간 시간", "readiness": "회복 준비도",
+      "plan_completion": "계획 완료"
+    },
+    "unit": {
+      "count": "회", "seconds": "초", "kilometers": "km", "tss": "TSS", "watts": "W", "bpm": "bpm", "rpm": "rpm",
+      "seconds_per_km": "초/km", "meters": "m", "kcal": "kcal", "percent": "%", "score": "점", "dimensionless": ""
+    },
+    "column": { "current": "현재", "previous": "이전 비교값", "delta": "변화" },
+    "chart": { "visualLabel": "서버가 제공한 시계열의 추세 차트", "tableCaption": "추세 데이터 표", "series": "지표", "at": "시점", "value": "값" },
+    "goal": { "current": "현재", "target": "목표", "progress": "진행률" },
+    "plan": { "planned": "계획", "completed": "완료", "missed": "놓친 계획 {{count}}개", "replacements": "대체 활동 {{count}}개" },
+    "gap": { "title": "확인이 필요한 데이터가 있습니다", "body": "누락되거나 아직 갱신 중인 항목을 확인해 주세요." },
+    "state": { "label": "답변 데이터 상태", "partial": "일부 데이터", "stale": "갱신 대기", "omitted": "서버에서 {{count}}개 생략" },
+    "more": "항목 {{count}}개 더 보기",
+    "action": { "OPEN_ACTIVITY": "활동 열기", "REVIEW_DATA_GAPS": "누락 데이터 확인", "VIEW_TRAINING_LOAD": "훈련 부하 보기" },
+    "fallback": { "title": "일부 결과만 표시합니다", "body": "요청은 완료되지 않았지만 서버가 안전하다고 확인한 결정론적 블록만 표시합니다." },
+    "unsupportedBlock": { "title": "지원되지 않는 결과 블록", "body": "이 블록의 원문 데이터는 표시하지 않았습니다. 웹을 업데이트한 뒤 다시 확인해 주세요." },
+    "prescriptionDisabled": { "title": "처방 결과는 아직 지원하지 않습니다", "body": "P1에서는 운동 처방을 실행하거나 표시하지 않습니다." },
+    "freshness": "데이터 기준 {{at}}", "timezone": "시간대 {{timezone}}",
+    "evidence": { "toggle": "분석 근거 {{count}}개", "item": "근거 {{index}}" }
+  },
+  "clarification": {
+    "title": "질문을 조금 더 구체화해 주세요", "policy": "이 선택은 {{quota}} · AI 호출 {{provider}}회",
+    "policyContinue": "이 선택은 추가 사용 없음 · AI 호출 {{provider}}회",
+    "policyNewTurn": "확인 후 새 질문 1회를 사용하며 질문에 따라 AI를 최대 1회 호출할 수 있습니다",
+    "noCharge": "추가 사용 없음", "newTurn": "새 질문 1회 사용", "expired": "선택 가능 시간이 지났습니다. 새 질문으로 다시 확인해 주세요.",
+    "submit": "이 조건으로 계속", "newTurnConfirm": "선택한 조건을 새 질문으로 제출하면 오늘 사용 횟수 1회를 사용합니다. 계속할까요?",
+    "prompt": { "time_range": "어느 기간을 분석할까요?", "discipline": "어느 종목을 분석할까요?", "generic": "추가 분석 조건을 선택해 주세요" },
+    "option": { "this_week": "이번 주", "last_week": "지난주", "bike": "사이클", "run": "러닝", "swim": "수영", "generic": "{{value}}" }
+  },
+  "unsupportedV2": { "title": "현재 지원하지 않는 질문입니다", "body": "운동 기록의 요약, 기간 비교, 추세, 활동 순위, 목표나 계획 준수를 질문해 보세요.", "suggestions": "질문 수정 예시" },
+  "v2State": {
+    "quota_exceeded": "오늘 사용할 수 있는 질문을 모두 사용했습니다.",
+    "budget_blocked": "현재 AI 분석 예산 제한으로 답변을 만들 수 없습니다.",
+    "failed": "답변을 완성하지 못했습니다. 표시된 일부 결과가 있다면 안전하게 확인된 범위입니다."
+  }
 }
