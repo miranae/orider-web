@@ -28,6 +28,7 @@ const card = {
   durationLabel: "Time",
   elevationLabel: "Elevation",
   performanceLabel: "Ride performance",
+  elevationProfileLabel: "Elevation profile",
   footer: "Ride card",
   includeRouteImage: true,
 };

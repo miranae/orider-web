@@ -23,8 +23,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { firestore, storage } from "../services/firebase";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
-import type { Activity, Visibility } from "@shared/types";
-import type { ActivityStreams } from "@shared/types";
+import type { Activity, ActivityStreams, Visibility } from "@shared/types";
 import { getSportIcon, getSportLabelKey } from "../utils/sportType";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { isImplausibleAvgSpeed, isImplausibleMaxSpeed } from "../utils/activitySanity";
@@ -42,12 +41,7 @@ import { calcVirtualPowerStream } from "../utils/virtualPower";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
-import {
-  formatDuration,
-  formatTime,
-  getSportCategory,
-  type SegmentEffortData,
-} from "../features/activity/detail/activityDetailUtils";
+import { formatDuration, formatTime, getSportCategory, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid";
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
@@ -71,10 +65,7 @@ import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { ActivityShareButton } from "../features/activity/share/ActivityShareButton";
 import { buildActivityShareMapUrl } from "../features/activity/share/activityShareMap";
 import type { ActivityShareMetric } from "../features/activity/share/activityShareCard";
-import {
-  SummarySensorFallbackCard,
-  type SummarySensorMetric,
-} from "../features/activity/detail/ActivityInsightCards";
+import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features/activity/detail/ActivityInsightCards";
 import type { LayoutOutletContext } from "../components/Layout";
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
 
@@ -908,12 +899,14 @@ export default function ActivityPage() {
                   distanceLabel: t("stat.distance"),
                   durationLabel: t("stat.time"),
                   elevationLabel: t("stat.elev"),
+                  elevationProfileLabel: t("page.share.elevationProfile"),
                   performanceLabel: t("page.share.performanceLabel"),
                   footer: t("page.share.footer"),
                   routeImageUrl: shareMapUrl,
                   backgroundImageUrl: activity.mapImageUrl,
                   includeRouteImage: activity.visibility === "everyone",
                   performanceMetrics: sharePerformanceMetrics,
+                  elevationProfile: streams?.altitude?.length && streams.altitude.length >= 2 ? elevData : [],
                 }}
                 filename={`orider-activity-${activity.id}.png`}
                 url={window.location.href}

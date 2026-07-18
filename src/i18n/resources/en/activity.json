@@ -201,6 +201,7 @@
       "failed": "Could not share the achievement card.",
       "footer": "Today's ride, captured in one card",
       "performanceLabel": "Ride performance · end-of-day fitness",
+      "elevationProfile": "Elevation profile",
       "tss": "Training load TSS",
       "normalizedPower": "Normalized Power",
       "vo2max": "Current est. VO₂max",
