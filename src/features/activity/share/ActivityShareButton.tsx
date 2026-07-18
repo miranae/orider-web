@@ -44,40 +44,6 @@ export function ActivityShareButton({ card, filename, url, activityId, visibilit
       const blob = await canvasToPng(canvas);
       if (!mounted.current || currentGeneration !== generation.current) return;
       if (!blob) throw new Error("canvas.toBlob returned null");
-      const file = typeof File === "undefined" ? null : new File([blob], filename, { type: "image/png" });
-      let canShareFile = false;
-      const payload: ShareData | null = file
-        ? { title: card.title, text: card.footer, url, files: [file] }
-        : null;
-      if (file && typeof navigator.share === "function") {
-        try {
-          canShareFile = typeof navigator.canShare !== "function" || navigator.canShare(payload!);
-        } catch {
-          canShareFile = false;
-        }
-      }
-      if (payload && canShareFile) {
-        try {
-          await navigator.share(payload);
-          track("activity_share_native", context);
-          if (!mounted.current || currentGeneration !== generation.current) return;
-          onFeedback(t("page.share.shared"));
-          return;
-        } catch (error) {
-          if (error instanceof DOMException && error.name === "AbortError") {
-            if (!mounted.current || currentGeneration !== generation.current) return;
-            track("activity_share_cancel", context);
-            return;
-          }
-          if (!mounted.current || currentGeneration !== generation.current) return;
-          const activationExpired = error instanceof DOMException && error.name === "NotAllowedError";
-          if (!activationExpired) {
-            track("activity_share_fail", { ...context, stage: "native" });
-            logClientError("ActivityShareButton.nativeShare", error, context);
-          }
-        }
-      }
-      if (!mounted.current || currentGeneration !== generation.current) return;
       downloadShareCard(blob, filename);
       track("activity_share_download", context);
       onFeedback(t("page.share.downloaded"));

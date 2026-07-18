@@ -164,13 +164,17 @@
     "edit": "편집",
     "editTitleAria": "활동 제목 편집",
     "share": {
-      "button": "성과 카드 공유",
+      "button": "성과 카드 이미지 저장",
       "generating": "카드 만드는 중…",
       "shared": "성과 카드를 공유했습니다.",
       "downloaded": "성과 카드를 다운로드했습니다.",
       "linkCopied": "이미지를 만들지 못해 활동 링크를 복사했습니다.",
       "failed": "성과 카드를 공유하지 못했습니다.",
       "footer": "오늘의 라이딩, 한 장의 기록",
+      "performanceLabel": "라이딩 성과 · 활동일 종료 기준 훈련 상태",
+      "tss": "훈련 부하 TSS",
+      "normalizedPower": "정규화 파워 NP",
+      "vo2max": "현재 추정 VO₂max",
       "routeHidden": "공개 범위를 보호하기 위해 경로를 숨깁니다."
     },
     "visibilityToast": "공개 범위를 변경했습니다.",
