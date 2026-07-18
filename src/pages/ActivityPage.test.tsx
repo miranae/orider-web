@@ -17,6 +17,10 @@ import {
 import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
 const shareButtonProps = vi.hoisted(() => vi.fn());
+const mockFitnessTimeseries = vi.hoisted(() => vi.fn(() => ({ timeseries: null, loaded: true })));
+const mockPdc = vi.hoisted(() => vi.fn(() => ({ status: "missing", pdc: null })));
+vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: mockFitnessTimeseries }));
+vi.mock("../hooks/usePdc", () => ({ usePdc: mockPdc }));
 vi.mock("../features/activity/share/ActivityShareButton", () => ({
   ActivityShareButton: (props: unknown) => {
     shareButtonProps(props);
@@ -75,6 +79,8 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 describe("ActivityPage", () => {
   beforeEach(() => {
+    mockFitnessTimeseries.mockReturnValue({ timeseries: null, loaded: true });
+    mockPdc.mockReturnValue({ status: "missing", pdc: null });
     mockRoute.activityId = "test-activity";
     setCollectionDocs("courses", []);
     vi.mocked(getDocs).mockClear();
@@ -157,6 +163,43 @@ describe("ActivityPage", () => {
     expect(shareButtonProps).toHaveBeenCalledWith(expect.objectContaining({
       activityId: "test-activity",
       visibility: "friends",
+    }));
+  });
+
+  it("passes activity-date fitness and VO2max into the exported image", async () => {
+    simulateLogin("owner-a");
+    mockFitnessTimeseries.mockReturnValue({
+      timeseries: {
+        discipline: "bike", schemaVersion: 1, computedAt: 0, startDate: "2026-07-01", endDate: "2026-07-18", pointCount: 2,
+        points: [
+          { date: "2026-07-10", ctl: 40.2, atl: 45.1, tsb: -4.9, dailyLoad: 0 },
+          { date: "2026-07-18", ctl: 48, atl: 55, tsb: -7, dailyLoad: 0 },
+        ],
+      },
+      loaded: true,
+    });
+    mockPdc.mockReturnValue({ status: "ready", pdc: { vo2maxEst: 57.8 } });
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "owner-a",
+      startTime: Date.parse("2026-07-10T08:00:00Z"),
+      summary: createMockSummary({ tss: 82, normalizedPower: 214 }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    shareButtonProps.mockClear();
+
+    renderWithProviders(<ActivityPage />);
+    await screen.findByText("share-card");
+
+    expect(shareButtonProps).toHaveBeenLastCalledWith(expect.objectContaining({
+      card: expect.objectContaining({
+        performanceMetrics: expect.arrayContaining([
+          { label: "CTL", value: "40", unit: undefined },
+          { label: "ATL", value: "45", unit: undefined },
+          { label: "TSB", value: "-5", unit: undefined },
+          expect.objectContaining({ value: "58" }),
+        ]),
+      }),
     }));
   });
 

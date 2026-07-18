@@ -38,7 +38,8 @@ describe("drawActivityShareCard privacy", () => {
       title: "Private ride", athlete: "Rider", sport: "Ride", date: "Today",
       distance: "10 km", duration: "30:00", elevation: "100 m",
       distanceLabel: "Distance", durationLabel: "Time", elevationLabel: "Elevation",
-      footer: "O-Rider", backgroundImageUrl: "https://example.com/precise-route.png",
+      performanceLabel: "Ride performance",
+      footer: "O-Rider", routeImageUrl: "https://example.com/static-route.png", backgroundImageUrl: "https://example.com/precise-route.png",
       includeRouteImage: false,
     });
 
@@ -59,7 +60,7 @@ describe("drawActivityShareCard privacy", () => {
     });
     const drawn = vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text));
     expect(drawn.filter((text) => text.includes("…")).length).toBeGreaterThanOrEqual(9);
-    expect(drawn.every((text) => text === "O-RIDER" || text === "orider.net" || text.length < long.length)).toBe(true);
+    expect(drawn.every((text) => text === "O·RIDER" || text.includes("orider.co.kr") || text.length < long.length)).toBe(true);
   });
 
   it("uses the established Safari-safe file saver", () => {
@@ -98,6 +99,7 @@ function cardInput() {
     title: "Ride", athlete: "Rider", sport: "Ride", date: "Today",
     distance: "10 km", duration: "30:00", elevation: "100 m",
     distanceLabel: "Distance", durationLabel: "Time", elevationLabel: "Elevation",
+    performanceLabel: "Ride performance",
     footer: "O-Rider", includeRouteImage: false,
   };
 }

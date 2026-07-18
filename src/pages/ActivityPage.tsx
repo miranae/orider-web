@@ -30,6 +30,8 @@ import { getDiscipline } from "../utils/disciplineFilter";
 import { isImplausibleAvgSpeed, isImplausibleMaxSpeed } from "../utils/activitySanity";
 import { getStravaActivityId } from "../utils/stravaActivity";
 import { useActivityMetrics } from "../hooks/useActivityMetrics";
+import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
+import { usePdc } from "../hooks/usePdc";
 import { RunLeftCards, RunRightCards } from "../components/activity/RunDetailCards";
 import { SwimLeftCards, SwimRightCards } from "../components/activity/SwimDetailCards";
 import KudosCommentsCard from "../components/activity/KudosCommentsCard";
@@ -67,6 +69,8 @@ import { RideActivityRouteButton } from "../features/activity/detail/RideActivit
 import { selectActualCoRiders } from "../utils/coRiders";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { ActivityShareButton } from "../features/activity/share/ActivityShareButton";
+import { buildActivityShareMapUrl } from "../features/activity/share/activityShareMap";
+import type { ActivityShareMetric } from "../features/activity/share/activityShareCard";
 import {
   SummarySensorFallbackCard,
   type SummarySensorMetric,
@@ -121,6 +125,16 @@ export default function ActivityPage() {
   // 구독을 막아 permission-denied 알림 노이즈(client:useActivityMetrics)를 없앤다.
   const isActivityOwner = !!activity && !!user && activity.userId === user.uid;
   const serverMetrics = useActivityMetrics(activityId ?? null, isActivityOwner);
+  const shareDiscipline = getDiscipline(activity?.type);
+  const { timeseries: fitnessTimeseries } = useFitnessTimeseries(
+    isActivityOwner ? user?.uid : undefined,
+    shareDiscipline,
+  );
+  const { pdc: bikePdc } = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
+  const shareMapUrl = useMemo(
+    () => activity?.visibility === "everyone" ? buildActivityShareMapUrl(activity.thumbnailTrack) : null,
+    [activity?.thumbnailTrack, activity?.visibility],
+  );
   // 가상 파워 즉석 재계산 미리보기 (Firestore 저장 안 함). 자전거 활동에서만 구독.
   const isRide = activity ? getSportCategory(activity.type) === "ride" : false;
   const { active: activeBike } = useActiveBikeProfile(isRide ? (user?.uid ?? null) : null);
@@ -600,6 +614,28 @@ export default function ActivityPage() {
   // 과거 활동을 위해 활동 문서 top-level(`avgPower`, `weightedAvgPower`)을 fallback으로 사용.
   const avgPowerValue = s.averagePower ?? activity.avgPower ?? null;
   const normalizedPowerValue = s.normalizedPower ?? activity.weightedAvgPower ?? null;
+  const activityDate = Number.isFinite(activity.startTime)
+    ? new Date(activity.startTime).toISOString().slice(0, 10)
+    : null;
+  const fitnessAtActivity = fitnessTimeseries?.points
+    .slice()
+    .reverse()
+    .find((point) => activityDate != null && point.date <= activityDate) ?? null;
+  const shareMetric = (label: string, value: number | null | undefined, unit?: string, signed = false): ActivityShareMetric | null => {
+    if (value == null || !Number.isFinite(value)) return null;
+    const rounded = Math.round(value);
+    return { label, value: `${signed && rounded > 0 ? "+" : ""}${rounded}`, unit };
+  };
+  const activityTss = serverMetrics.metrics?.tss ?? s.tss;
+  const activityNp = serverMetrics.metrics?.np ?? normalizedPowerValue;
+  const sharePerformanceMetrics = [
+    shareMetric(t("page.share.tss"), activityTss),
+    shareMetric(activityNp != null ? t("page.share.normalizedPower") : t("stat.avgPower"), activityNp ?? avgPowerValue, "W"),
+    shareMetric("CTL", fitnessAtActivity?.ctl),
+    shareMetric("ATL", fitnessAtActivity?.atl),
+    shareMetric("TSB", fitnessAtActivity?.tsb, undefined, true),
+    shareMetric(t("page.share.vo2max"), bikePdc?.vo2maxEst),
+  ].filter((metric): metric is ActivityShareMetric => metric != null);
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const stravaActivityId = getStravaActivityId(activity);
   const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
@@ -872,9 +908,12 @@ export default function ActivityPage() {
                   distanceLabel: t("stat.distance"),
                   durationLabel: t("stat.time"),
                   elevationLabel: t("stat.elev"),
+                  performanceLabel: t("page.share.performanceLabel"),
                   footer: t("page.share.footer"),
+                  routeImageUrl: shareMapUrl,
                   backgroundImageUrl: activity.mapImageUrl,
                   includeRouteImage: activity.visibility === "everyone",
+                  performanceMetrics: sharePerformanceMetrics,
                 }}
                 filename={`orider-activity-${activity.id}.png`}
                 url={window.location.href}
