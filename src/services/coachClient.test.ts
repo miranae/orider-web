@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./firebase", () => ({ auth: { currentUser: { getIdToken: mocks.getIdToken } }, getAppCheckToken: mocks.getAppCheckToken }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.runtime }));
 
-import { askCoach, CoachClientError, getCoachStatus, parseCoachInitialStatus, parseCoachResponse, type CoachRespondRequest } from "./coachClient";
+import { askCoach, askCoachV2, CoachClientError, getCoachStatus, parseCoachInitialStatus, parseCoachResponse, type CoachRespondRequest } from "./coachClient";
 
 const request: CoachRespondRequest = {
   requestId: "123e4567-e89b-42d3-a456-426614174000", question: "최근 운동을 요약해줘", discipline: "bike",
@@ -47,6 +47,21 @@ describe("coachClient", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: exhausted }), { status: 429 }));
     await expect(askCoach(request)).resolves.toMatchObject({ status: "quota_exceeded", quota: { remaining: 0 } });
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST", body: JSON.stringify(request) });
+  });
+
+  it("posts the explicit P1 tuple and parses terminal envelopes without P0 fallback", async () => {
+    const p1Request = { requestId: request.requestId, question: request.question, discipline: request.discipline, locale: request.locale,
+      apiVersion: "v2" as const, schemaVersion: "coach-respond-v2" as const, capabilityVersion: "p1" as const, contextFilters: {} };
+    const data = { apiVersion: "v2", capabilityVersion: "p1", schemaVersion: "coach-response-envelope-v1", requestId: request.requestId,
+      outcome: "unsupported", unsupported: { reasonCodes: ["unsupported_capability"], missingCapabilities: [],
+        suggestedQueries: [{ queryTemplateId: "show_weekly_trend", labelKey: "coach.followup.show_weekly_trend" }] },
+      quota: { limit: 3, remaining: 3, resetAt: "2026-07-19T15:00:00Z", consumed: false },
+      budget: { blocked: false, providerCalls: 0, inputTokens: 0, outputTokens: 0 },
+      retry: { mode: "same_request_replay", quotaImpact: "none", previousTurnConsumed: false, providerCallAllowed: false, retryable: false, reasonCode: "unsupported_capability" },
+      execution: { parser: "deterministic", asOf: "2026-07-18T00:00:00Z" } };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data })));
+    await expect(askCoachV2(p1Request)).resolves.toMatchObject({ outcome: "unsupported", quota: { remaining: 3 } });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST", body: JSON.stringify(p1Request) });
   });
 
   it("rejects unknown blocks, actions, evidence references and non-data envelopes", () => {

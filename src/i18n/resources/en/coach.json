@@ -58,5 +58,52 @@
   "freshness": "Data as of {{at}}",
   "latestActivity": "Latest activity {{at}}",
   "staleSources": "{{count}} data sources awaiting refresh",
-  "feedback": { "label": "Rate this answer", "helpful": "Helpful", "notHelpful": "Not helpful" }
+  "feedback": { "label": "Rate this answer", "helpful": "Helpful", "notHelpful": "Not helpful" },
+  "answer": {
+    "block": {
+      "narrative": "Conclusion", "metric_grid": "Current status", "comparison_table": "Period comparison",
+      "time_series": "Trend", "distribution": "Distribution", "ranking": "Ranking", "activity_list": "Related activities",
+      "goal_progress": "Goal progress", "plan_adherence": "Plan adherence", "data_gap": "Data check", "action": "Next step"
+    },
+    "template": { "metric_summary": "Current status summary", "comparison_summary": "Period comparison summary" },
+    "metricLabel": "Metric",
+    "metric": {
+      "activity_count": "Activities", "duration": "Duration", "distance": "Distance", "tss": "TSS", "ctl": "CTL",
+      "atl": "ATL", "form": "Form", "average_power": "Average power", "heart_rate": "Heart rate", "cadence": "Cadence",
+      "pace": "Pace", "elevation": "Elevation", "calories": "Calories", "zone_time": "Zone time", "readiness": "Readiness",
+      "plan_completion": "Plan completion"
+    },
+    "unit": {
+      "count": "", "seconds": "sec", "kilometers": "km", "tss": "TSS", "watts": "W", "bpm": "bpm", "rpm": "rpm",
+      "seconds_per_km": "sec/km", "meters": "m", "kcal": "kcal", "percent": "%", "score": "points", "dimensionless": ""
+    },
+    "column": { "current": "Current", "previous": "Previous comparable", "delta": "Change" },
+    "chart": { "visualLabel": "Trend chart from the server-provided series", "tableCaption": "Trend data table", "series": "Metric", "at": "At", "value": "Value" },
+    "goal": { "current": "Current", "target": "Target", "progress": "Progress" },
+    "plan": { "planned": "Planned", "completed": "Completed", "missed": "{{count}} missed plan items", "replacements": "{{count}} replacement activities" },
+    "gap": { "title": "Some data needs attention", "body": "Review items that are missing or still refreshing." },
+    "state": { "label": "Answer data status", "partial": "Partial data", "stale": "Awaiting refresh", "omitted": "{{count}} omitted by server" },
+    "more": "Show {{count}} more items",
+    "action": { "OPEN_ACTIVITY": "Open activity", "REVIEW_DATA_GAPS": "Review missing data", "VIEW_TRAINING_LOAD": "View training load" },
+    "fallback": { "title": "Only part of the result is shown", "body": "The request did not complete, so only deterministic blocks approved by the server are displayed." },
+    "unsupportedBlock": { "title": "Unsupported result block", "body": "The raw block payload was not displayed. Update the web app and try again." },
+    "prescriptionDisabled": { "title": "Prescriptions are not supported yet", "body": "P1 does not execute or display training prescriptions." },
+    "freshness": "Data as of {{at}}", "timezone": "Timezone {{timezone}}",
+    "evidence": { "toggle": "{{count}} evidence items", "item": "Evidence {{index}}" }
+  },
+  "clarification": {
+    "title": "Please make the question a little more specific", "policy": "This choice: {{quota}} · {{provider}} AI calls",
+    "policyContinue": "No additional turn · {{provider}} AI calls",
+    "policyNewTurn": "After confirmation, this uses one new question and may make up to one AI call",
+    "noCharge": "no additional use", "newTurn": "one new question", "expired": "The selection has expired. Please check again as a new question.",
+    "submit": "Continue with this choice", "newTurnConfirm": "Submitting this choice as a new question uses one of today's turns. Continue?",
+    "prompt": { "time_range": "Which period should be analyzed?", "discipline": "Which discipline should be analyzed?", "generic": "Choose an additional analysis condition" },
+    "option": { "this_week": "This week", "last_week": "Last week", "bike": "Cycling", "run": "Running", "swim": "Swimming", "generic": "{{value}}" }
+  },
+  "unsupportedV2": { "title": "This question is not supported yet", "body": "Try asking about summaries, comparisons, trends, activity rankings, goals, or plan adherence.", "suggestions": "Ways to revise your question" },
+  "v2State": {
+    "quota_exceeded": "You have used all questions available today.",
+    "budget_blocked": "A response cannot be generated due to the current AI budget limit.",
+    "failed": "The answer could not be completed. Any partial result shown is limited to the safely verified scope."
+  }
 }

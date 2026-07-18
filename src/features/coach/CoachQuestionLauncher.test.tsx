@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), policy: vi.fn()
   open: vi.fn(), submit: vi.fn(), complete: vi.fn(), evidenceExpand: vi.fn(), actionClick: vi.fn(), limitSeen: vi.fn(),
 }, feedback: vi.fn() }));
 
-vi.mock("../../services/coachClient", async (original) => ({ ...(await original()), getCoachStatus: mocks.status, askCoach: mocks.ask }));
+vi.mock("../../services/coachClient", async (original) => ({ ...(await original()), getCoachStatus: mocks.status, askCoachV2: mocks.ask }));
 vi.mock("../../services/coachConsentClient", () => ({ getCoachConsentPolicy: mocks.policy }));
 vi.mock("./coachAnalytics", () => ({ coachAnalytics: mocks.analytics, trackCoachFeedback: mocks.feedback }));
 vi.mock("./FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, policy, onConsented }: {
@@ -34,6 +34,20 @@ const answer = {
   context: { discipline: "bike", period: "current7d", goalIncluded: true },
   quota: { limit: 3, remaining: 2, timezone: "Asia/Seoul", resetAt: "2026-07-19T15:00:00Z" },
   retry: { mode: "same_request_replay", quotaImpact: "none", previousTurnConsumed: true, providerCallAllowed: false, retryable: false, reasonCode: "completed" },
+};
+const p1Base = {
+  apiVersion: "v2", capabilityVersion: "p1", schemaVersion: "coach-response-envelope-v1",
+  quota: { limit: 3, remaining: 2, resetAt: "2099-07-19T15:00:00Z", consumed: true },
+  budget: { blocked: false, providerCalls: 0, inputTokens: 0, outputTokens: 0 },
+  retry: { mode: "same_request_replay", quotaImpact: "none", previousTurnConsumed: true, providerCallAllowed: false, retryable: false, reasonCode: "completed" },
+  execution: { parser: "deterministic", asOf: "2026-07-18T00:00:00Z" },
+};
+const p1Answer = {
+  ...p1Base, requestId: "223e4567-e89b-42d3-a456-426614174001", outcome: "answer",
+  budget: { blocked: false, providerCalls: 1, inputTokens: 20, outputTokens: 30 },
+  execution: { parser: "provider", queryPlanHash: "plan_hash_1", catalogVersion: "p1-v1", factsId: "facts_1", asOf: "2026-07-18T00:00:00Z" },
+  answer: { compatibility: "supported", answerId: "answer_1", sourceFactsId: "facts_1", questionSummary: "coach.answer.summary.distance",
+    status: "complete", blocks: [], evidence: [], warnings: [], freshness: { asOf: "2026-07-18T00:00:00Z", timezone: "Asia/Seoul", staleSourceSlotIds: [] }, followUps: [] },
 };
 
 function setup(currentUser: User | null = user, discipline: "bike" | "run" | "swim" = "bike") {
@@ -316,5 +330,70 @@ describe("CoachQuestionLauncher", () => {
     await act(async () => { await Promise.resolve(); });
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("답변을 확인하지 못했습니다");
+  });
+
+  it("submits a signed continue_no_charge clarification as option-only child DTO", async () => {
+    const parentId = answer.requestId; const childId = p1Answer.requestId;
+    vi.mocked(crypto.randomUUID).mockReturnValueOnce(parentId).mockReturnValueOnce(childId);
+    const clarification = { ...p1Base, requestId: parentId, outcome: "clarification_required",
+      clarification: { clarificationId: "clarify_1", promptKey: "coach.clarification.time_range",
+        options: [{ optionId: "this_week", labelKey: "coach.clarification.this_week" }], turnToken: "signed-token-abcdefghijklmnopqrstuvwxyz",
+        expiresAt: "2099-07-19T15:00:00Z", resolutionMode: "continue_no_charge", consumesQuota: false, providerCalls: 0,
+        reasonCode: "time_range_required" } };
+    mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "이번 주 운동량이 어땠나요?" })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    expect(await screen.findByText("어느 기간을 분석할까요?")).toBeInTheDocument();
+    expect(screen.getByText("이 선택은 추가 사용 없음 · AI 호출 0회")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "이번 주" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
+    expect(mocks.ask.mock.calls[1]?.[0]).toEqual({ requestId: childId, parentRequestId: parentId,
+      turnToken: clarification.clarification.turnToken, optionId: "this_week", apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1" });
+  });
+
+  it("requires confirmation before a new-turn clarification and sends a new natural-language request", async () => {
+    const parentId = answer.requestId; const childId = p1Answer.requestId;
+    vi.mocked(crypto.randomUUID).mockReturnValueOnce(parentId).mockReturnValueOnce(childId);
+    const clarification = { ...p1Base, requestId: parentId, outcome: "clarification_required",
+      clarification: { clarificationId: "clarify_2", promptKey: "coach.clarification.time_range",
+        options: [{ optionId: "last_week", labelKey: "coach.clarification.last_week" }], turnToken: "",
+        expiresAt: "2099-07-19T15:00:00Z", resolutionMode: "new_turn_required", consumesQuota: false, providerCalls: 0,
+        reasonCode: "time_range_required" } };
+    mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "이번 주 운동량이 어땠나요?" })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "지난주" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
+    const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
+    expect(mocks.ask).toHaveBeenCalledOnce();
+    await userEvent.click(within(confirmation).getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
+    expect(mocks.ask.mock.calls[1]?.[0]).toMatchObject({ requestId: childId, question: expect.stringContaining("분석 기간은 지난주"),
+      apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1", contextFilters: {} });
+    expect(mocks.ask.mock.calls[1]?.[0]).not.toHaveProperty("turnToken");
+  });
+
+  it("keeps an unknown valid clarification actionable without claiming a free provider call", async () => {
+    const parentId = answer.requestId; const childId = p1Answer.requestId;
+    vi.mocked(crypto.randomUUID).mockReturnValueOnce(parentId).mockReturnValueOnce(childId);
+    const clarification = { ...p1Base, requestId: parentId, outcome: "clarification_required",
+      clarification: { clarificationId: "clarify_custom", promptKey: "coach.clarification.custom_period",
+        options: [{ optionId: "rolling_42_days", labelKey: "coach.clarification.rolling_42_days" }], turnToken: "",
+        expiresAt: "2099-07-19T15:00:00Z", resolutionMode: "new_turn_required", consumesQuota: false, providerCalls: 0,
+        reasonCode: "custom_period_required" } };
+    mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "이번 주 운동량이 어땠나요?" })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    expect(await screen.findByText("추가 분석 조건을 선택해 주세요")).toBeInTheDocument();
+    expect(screen.getByText("확인 후 새 질문 1회를 사용하며 질문에 따라 AI를 최대 1회 호출할 수 있습니다")).toBeInTheDocument();
+    expect(screen.queryByText(/AI 호출 0회/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "rolling 42 days" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
+    const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
+    await userEvent.click(within(confirmation).getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
+    expect(mocks.ask.mock.calls[1]?.[0]).toMatchObject({ requestId: childId,
+      question: expect.stringContaining("rolling 42 days"), capabilityVersion: "p1" });
   });
 });
