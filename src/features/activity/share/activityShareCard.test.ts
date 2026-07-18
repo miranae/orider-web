@@ -19,7 +19,7 @@ function context() {
     fillRect: vi.fn(),
     fillText: vi.fn(),
     drawImage: vi.fn(),
-    createLinearGradient: () => ({ addColorStop: vi.fn() }),
+    createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
     measureText: vi.fn(() => ({ width: 100 })),
     beginPath: vi.fn(),
     moveTo: vi.fn(),
@@ -81,7 +81,7 @@ describe("drawActivityShareCard privacy", () => {
     const coordinates = vi.mocked(ctx.lineTo).mock.calls.flat();
     expect(ctx.fill).toHaveBeenCalledOnce();
     expect(coordinates.every(Number.isFinite)).toBe(true);
-    expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 1024)).toBe(true);
+    expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 1040)).toBe(true);
   });
 
   it("handles a flat elevation profile without invalid coordinates", async () => {
@@ -90,7 +90,34 @@ describe("drawActivityShareCard privacy", () => {
     await drawActivityShareCard({ ...cardInput(), elevationProfile: [{ distance: 0, elevation: 120 }, { distance: 1_000, elevation: 120 }] });
     expect(vi.mocked(ctx.lineTo).mock.calls.flat().every(Number.isFinite)).toBe(true);
     expect(vi.mocked(ctx.fillText).mock.calls.filter(([text]) => text === "120 m")).toHaveLength(1);
-    expect(vi.mocked(ctx.lineTo).mock.calls.some(([, y]) => y === 966)).toBe(true);
+    expect(vi.mocked(ctx.lineTo).mock.calls.some(([, y]) => y === 733.5)).toBe(true);
+  });
+
+  it("renders compact activity weather on the map", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    await drawActivityShareCard({
+      ...cardInput(),
+      weather: { temperature: 25, feelsLike: 29.8, humidity: 89, windSpeed: 1.5, windDirection: 90, weatherCode: 1 },
+    });
+    const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text));
+    expect(labels).toContain("☀︎ 25°C  ·  ≈ 30°C  ·  RH 89%  ·  E 1.5 m/s");
+  });
+
+  it("draws the route map once without a map-wide shade overlay", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    class LoadedImage {
+      crossOrigin = ""; naturalWidth = 1080; naturalHeight = 600;
+      onload: (() => void) | null = null; onerror: (() => void) | null = null; private value = "";
+      set src(value: string) { this.value = value; if (value) queueMicrotask(() => this.onload?.()); }
+      get src() { return this.value; }
+    }
+    vi.stubGlobal("Image", LoadedImage);
+    const canvas = await drawActivityShareCard({ ...cardInput(), includeRouteImage: true, routeImageUrl: "https://example.com/map.png" });
+    expect(canvas.height).toBe(900);
+    expect(ctx.drawImage).toHaveBeenCalledOnce();
+    expect(ctx.createLinearGradient).not.toHaveBeenCalled();
   });
 
   it("formats elevation profile bounds in the selected unit", async () => {
