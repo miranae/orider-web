@@ -7,13 +7,18 @@ import { Button, Card, Chip, Text, Textarea } from "../../theme/components";
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 import {
-  askCoach, CoachClientError, getCoachStatus, isCoachClientError, type CoachActionCode, type CoachDiscipline,
+  askCoachV2, CoachClientError, getCoachStatus, isCoachClientError, type CoachActionCode, type CoachDiscipline,
   type CoachQuota, type CoachResponse, type CoachRetryMode,
 } from "../../services/coachClient";
+import {
+  COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
+  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest, type CoachV2Request, type CoachV2Response,
+} from "../../services/coachV2Contract";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../../services/coachConsentClient";
 import { FirstUseCoachConsent } from "./FirstUseCoachConsent";
 import { subscribeCoachConsentSessionReset } from "./consentSessionBoundary";
 import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
+import { CoachAnswerDocumentView } from "./CoachAnswerDocument";
 import "./coach-question.css";
 
 type QuestionSource = "suggestion_1" | "suggestion_2" | "free_text";
@@ -61,6 +66,20 @@ function isConsentActive(policy: CoachConsentPolicy): boolean {
     && policy.consent.storedPolicyVersion === policy.policyVersion;
 }
 
+function clarificationQuestion(question: string, promptKey: string, optionId: string, locale: string): string {
+  const ko = locale.startsWith("ko");
+  if (promptKey === "coach.clarification.time_range" && ["this_week", "last_week"].includes(optionId)) {
+    const period = optionId === "this_week" ? (ko ? "이번 주" : "this week") : (ko ? "지난주" : "last week");
+    return ko ? `${question} 분석 기간은 ${period}로 해줘.` : `${question} Use ${period} as the analysis period.`;
+  }
+  if (promptKey === "coach.clarify.discipline" && ["bike", "run", "swim"].includes(optionId)) {
+    const labels = ko ? { bike: "사이클", run: "러닝", swim: "수영" } : { bike: "cycling", run: "running", swim: "swimming" };
+    return ko ? `${question} 종목은 ${labels[optionId as keyof typeof labels]}로 해줘.` : `${question} Use ${labels[optionId as keyof typeof labels]} as the discipline.`;
+  }
+  const safeOption = optionId.replace(/_/g, " ");
+  return ko ? `${question} 추가 조건은 ${safeOption}(으)로 해줘.` : `${question} Use ${safeOption} as the additional condition.`;
+}
+
 export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
@@ -70,7 +89,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const panelRef = useRef<HTMLElement>(null);
   const inFlightRef = useRef(false);
   const activeRequestRef = useRef<string | null>(null);
-  const responseRef = useRef<CoachResponse | null>(null);
+  const activeBodyRef = useRef<CoachV2Request | null>(null);
+  const responseRef = useRef<CoachResponse | CoachV2Response | null>(null);
   const consentOpenRef = useRef(false);
   const phaseRef = useRef<Phase>("closed");
   const openGenerationRef = useRef(0);
@@ -82,7 +102,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const [quota, setQuota] = useState<CoachQuota | null>(null);
   const [policy, setPolicy] = useState<CoachConsentPolicy | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
-  const [response, setResponse] = useState<CoachResponse | null>(null);
+  const [response, setResponse] = useState<CoachResponse | CoachV2Response | null>(null);
+  const [clarificationOption, setClarificationOption] = useState<string | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [feedback, setFeedback] = useState<boolean | null>(null);
   const [submitFailure, setSubmitFailure] = useState<SubmitFailure>(null);
@@ -95,7 +116,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     openGenerationRef.current += 1;
     sessionGenerationRef.current += 1;
     activeRequestRef.current = null;
-    setDraft(""); setRequestId(null); setResponse(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
+    activeBodyRef.current = null;
+    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
     setConsentOpen(false); setPolicy(null); setQuota(null); setPhase("closed");
   }, []);
 
@@ -172,22 +194,26 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     if (responseRef.current) clearSession(); else setPhase("closed");
   }
 
-  async function execute(id: string, question: string, submitSource: QuestionSource, trackSubmit = true) {
+  async function execute(body: CoachV2Request, submitSource: QuestionSource, trackSubmit = true) {
     if (inFlightRef.current) return;
+    const id = body.requestId;
     const sessionGeneration = sessionGenerationRef.current;
-    inFlightRef.current = true; activeRequestRef.current = id; setSubmitFailure(null); setPhase("submitting");
+    inFlightRef.current = true; activeRequestRef.current = id; activeBodyRef.current = body; setSubmitFailure(null); setPhase("submitting");
     const startedAt = Date.now();
     if (trackSubmit) coachAnalytics.submit(submitSource);
     try {
-      const result = await askCoach({
-        requestId: id, question, discipline,
-        locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
-        capabilityVersion: "p0", contextFilters: {},
-      });
+      const result = await askCoachV2(body);
       if (sessionGenerationRef.current !== sessionGeneration) return;
       if (result.requestId !== id || activeRequestRef.current !== id) throw new CoachClientError("contract", "REQUEST_ID_MISMATCH");
-      setResponse(result); setQuota(result.quota); setPhase("complete");
-      coachAnalytics.complete(result.status, Date.now() - startedAt, result.quota.remaining);
+      // Runtime parser only returns V2. This guard preserves mounted P0 fixtures during a rolling web rollout.
+      const legacy = !("outcome" in result) ? result as unknown as CoachResponse : null;
+      setResponse(legacy ?? result); setClarificationOption(null);
+      setQuota((previous) => legacy ? legacy.quota : ({ limit: result.quota.limit, remaining: result.quota.remaining, resetAt: result.quota.resetAt,
+        timezone: result.answer?.freshness.timezone ?? previous?.timezone ?? "UTC" })); setPhase("complete");
+      const analyticsStatus = legacy ? legacy.status : result.outcome === "answer" ? (result.answer?.status === "partial" ? "fallback" : "ok")
+        : result.outcome === "clarification_required" ? "insufficient_data"
+          : result.outcome === "failed" ? "fallback" : result.outcome;
+      coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, result.quota.remaining);
       if (result.quota.remaining === 0) coachAnalytics.limitSeen(0);
     } catch (error) {
       if (sessionGenerationRef.current !== sessionGeneration) return;
@@ -206,27 +232,35 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     if (inFlightRef.current || question.length < 2 || question.length > 1000 || !user || quota?.remaining === 0) return;
     const id = forceNew || !requestId ? crypto.randomUUID() : requestId;
     setRequestId(id); setSource(submitSource);
+    const body: CoachV2QuestionRequest = { requestId: id, question, discipline,
+      locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
+      apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
+      capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters: {} };
+    activeBodyRef.current = body;
     let currentPolicy = policy;
     if (!currentPolicy) {
       try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
       catch { setPhase("load_error"); return; }
     }
     if (!isConsentActive(currentPolicy)) { setConsentOpen(true); return; }
-    await execute(id, question, submitSource);
+    await execute(body, submitSource);
   }
 
   async function retry() {
     if (!response) {
-      if (requestId) await execute(requestId, draft.trim(), source, false);
+      if (activeBodyRef.current) await execute(activeBodyRef.current, source, false);
       return;
     }
-    const action = retryActionFor(response.retry.mode, response.reasonCode, response.retry.reasonCode);
+    const reasonCodes = "outcome" in response ? [response.error?.code, response.clarification?.reasonCode,
+      response.unsupported?.reasonCodes[0], response.retry.reasonCode].filter((item): item is string => Boolean(item))
+      : [response.reasonCode, response.retry.reasonCode];
+    const action = retryActionFor(response.retry.mode, ...reasonCodes);
     if (action === "new") {
       const confirmed = await dialog.confirm(t("retry.newTurnConfirm"), { title: t("retry.newTurnTitle"), confirmLabel: t("retry.newTurnAction") });
       if (confirmed) await submit(source, true);
       return;
     }
-    if (action !== "none" && requestId) await execute(requestId, draft.trim(), source, false);
+    if (action !== "none" && activeBodyRef.current) await execute(activeBodyRef.current, source, false);
   }
 
   function chooseSuggestion(index: 1 | 2) {
@@ -234,19 +268,51 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   }
 
   function startAnother() {
-    setDraft(""); setRequestId(null); setResponse(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setSource("free_text"); setPhase("ready");
+    activeBodyRef.current = null;
+    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setSource("free_text"); setPhase("ready");
   }
 
   function action(code: CoachActionCode) {
     coachAnalytics.actionClick(code); clearSession(); navigate(actionRoutes[code]);
   }
 
-  function sendFeedback(helpful: boolean) {
-    if (!response || feedback !== null) return;
-    setFeedback(helpful); trackCoachFeedback(helpful, response.status);
+  function v2Action(code: CoachAnswerActionCode, entity?: CoachEntityRef) {
+    coachAnalytics.actionClick(code);
+    clearSession();
+    if (code === "OPEN_ACTIVITY" && entity?.entityType === "activity") navigate(`/activity/${encodeURIComponent(entity.entityId)}`);
+    else navigate(code === "VIEW_TRAINING_LOAD" ? "/fitness" : "/my");
   }
 
-  const retryAction = response ? retryActionFor(response.retry.mode, response.reasonCode, response.retry.reasonCode) : "none";
+  function sendFeedback(helpful: boolean) {
+    if (!response || feedback !== null) return;
+    setFeedback(helpful); trackCoachFeedback(helpful, "outcome" in response
+      ? response.outcome === "answer" ? "ok" : response.outcome === "failed" ? "fallback" : response.outcome === "clarification_required" ? "insufficient_data" : response.outcome
+      : response.status);
+  }
+
+  async function submitClarification() {
+    if (!(response && "outcome" in response && response.outcome === "clarification_required" && response.clarification) || !clarificationOption) return;
+    const spec = response.clarification;
+    if (Date.parse(spec.expiresAt) <= Date.now()) { setSubmitFailure("terminal"); return; }
+    if (spec.resolutionMode === "continue_no_charge") {
+      const id = crypto.randomUUID(); setRequestId(id);
+      await execute({ requestId: id, parentRequestId: response.requestId, turnToken: spec.turnToken, optionId: clarificationOption,
+        apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION }, source, false);
+      return;
+    }
+    const confirmed = await dialog.confirm(t("clarification.newTurnConfirm"), { title: t("retry.newTurnTitle"), confirmLabel: t("retry.newTurnAction") });
+    if (!confirmed) return;
+    const prompt = clarificationQuestion(draft.trim(), spec.promptKey, clarificationOption, i18n.language);
+    const id = crypto.randomUUID(); setRequestId(id);
+    await execute({ requestId: id, question: prompt, discipline, locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
+      apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION,
+      contextFilters: {} }, source, false);
+  }
+
+  const retryReasonCodes = response ? ("outcome" in response
+    ? [response.error?.code, response.clarification?.reasonCode, response.unsupported?.reasonCodes[0], response.retry.reasonCode].filter((item): item is string => Boolean(item))
+    : [response.reasonCode, response.retry.reasonCode]) : [];
+  const retryAction = response ? retryActionFor(response.retry.mode, ...retryReasonCodes) : "none";
   const canRetry = (phase === "network_error" && requestId !== null)
     || (phase === "complete" && response !== null && retryAction !== "none" && !(retryAction === "new" && quota?.remaining === 0));
   const exhausted = quota?.remaining === 0;
@@ -279,9 +345,14 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                 {phase === "network_error" && <div role="alert"><Text as="h3" variant="subtitle">{t("states.network.title")}</Text><p>{t("states.network.body")}</p></div>}
                 {phase === "terminal_error" && <div role="alert"><Text as="h3" variant="subtitle">{t(`states.${submitFailure ?? "terminal"}.title`)}</Text>
                   <p>{t(`states.${submitFailure ?? "terminal"}.body`)}</p></div>}
-                {response && phase !== "submitting" && <CoachResult response={response} evidenceOpen={evidenceOpen} locale={i18n.language}
-                  feedback={feedback} onEvidence={() => { setEvidenceOpen((value) => !value); if (!evidenceOpen) coachAnalytics.evidenceExpand(response.status); }}
-                  onAction={action} onFeedback={sendFeedback} />}
+                {response && phase !== "submitting" && ("outcome" in response
+                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} feedback={feedback}
+                    onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action} onFeedback={sendFeedback}
+                    onReanalyze={startAnother}
+                    onSuggested={(query) => { startAnother(); setDraft(query); setSource("free_text"); }} />
+                  : <CoachResult response={response} evidenceOpen={evidenceOpen} locale={i18n.language}
+                    feedback={feedback} onEvidence={() => { setEvidenceOpen((value) => !value); if (!evidenceOpen) coachAnalytics.evidenceExpand(response.status); }}
+                    onAction={action} onFeedback={sendFeedback} />)}
                 <div className="coach-sheet__dock">
                   {phase === "ready" && !response && <div className="coach-sheet__composer">
                     <label htmlFor="coach-question">{t("inputLabel")}</label>
@@ -308,10 +379,81 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
       )}
       {policy && <FirstUseCoachConsent open={consentOpen} policy={policy} onCancel={() => setConsentOpen(false)} onConsented={(saved) => {
         setPolicy(saved); setConsentOpen(false);
-        if (requestId && !inFlightRef.current) void execute(requestId, draft.trim(), source);
+        if (activeBodyRef.current && !inFlightRef.current) void execute(activeBodyRef.current, source);
       }} />}
     </>
   );
+}
+
+function safeClarificationText(key: string, kind: "prompt" | "option", t: (key: string, options?: Record<string, unknown>) => string,
+  fallbackId?: string): string {
+  const allowlist: Record<string, string> = {
+    "coach.clarification.time_range": "clarification.prompt.time_range",
+    "coach.clarify.discipline": "clarification.prompt.discipline",
+    "coach.clarification.this_week": "clarification.option.this_week",
+    "coach.clarification.last_week": "clarification.option.last_week",
+    "coach.clarification.bike": "clarification.option.bike",
+    "coach.clarification.run": "clarification.option.run",
+    "coach.clarification.swim": "clarification.option.swim",
+  };
+  const mapped = allowlist[key];
+  if (mapped) return t(mapped);
+  return t(kind === "prompt" ? "clarification.prompt.generic" : "clarification.option.generic",
+    { value: fallbackId?.replace(/_/g, " ") ?? "" });
+}
+
+function suggestedQuestion(templateId: string, locale: string): string | null {
+  const ko = locale.startsWith("ko");
+  const values: Record<string, [string, string]> = {
+    compare_previous_period: ["최근 28일과 직전 28일을 비교해줘.", "Compare my last 28 days with the previous 28 days."],
+    show_weekly_trend: ["최근 주별 운동 추세를 보여줘.", "Show my recent weekly training trend."],
+    show_recent_activities: ["최근 활동을 순위와 함께 보여줘.", "Show and rank my recent activities."],
+    review_missing_data: ["분석에 부족한 데이터를 알려줘.", "Show which data is missing from my analysis."],
+  };
+  const value = values[templateId];
+  return value ? value[ko ? 0 : 1] : null;
+}
+
+function CoachV2Result({ response, locale, selectedOption, feedback, onSelectOption, onClarification, onAction, onFeedback, onSuggested, onReanalyze }: {
+  response: CoachV2Response; locale: string; selectedOption: string | null; feedback: boolean | null;
+  onSelectOption: (option: string) => void; onClarification: () => void;
+  onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void; onFeedback: (helpful: boolean) => void;
+  onSuggested: (query: string) => void;
+  onReanalyze: () => void;
+}) {
+  const { t } = useTranslation("coach");
+  const spec = response.clarification;
+  const expired = spec ? Date.parse(spec.expiresAt) <= Date.now() : false;
+  return <div className="coach-result">
+    {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} onReanalyze={onReanalyze} />}
+    {response.outcome === "clarification_required" && spec && <form className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
+      <fieldset disabled={expired}><legend>{safeClarificationText(spec.promptKey, "prompt", t)}</legend>
+        {spec.options.map((option) => <label key={option.optionId} className="coach-clarification__option">
+          <input type="radio" name="coach-clarification" value={option.optionId} checked={selectedOption === option.optionId} onChange={() => onSelectOption(option.optionId)} />
+          <span>{safeClarificationText(option.labelKey, "option", t, option.optionId)}</span>
+        </label>)}
+      </fieldset>
+      <p className="coach-clarification__policy">{spec.resolutionMode === "continue_no_charge" && !spec.consumesQuota
+        ? t("clarification.policyContinue", { provider: spec.providerCalls })
+        : t("clarification.policyNewTurn")}</p>
+      {expired ? <p role="alert">{t("clarification.expired")}</p> : <Button type="submit" disabled={!selectedOption}>{t("clarification.submit")}</Button>}
+    </form>}
+    {response.outcome === "unsupported" && response.unsupported && <div className="coach-answer__unsupported" role="status">
+      <Text as="h3" variant="subtitle">{t("unsupportedV2.title")}</Text><p>{t("unsupportedV2.body")}</p>
+      {response.unsupported.suggestedQueries.length > 0 && <div className="coach-sheet__suggestions" aria-label={t("unsupportedV2.suggestions")}>
+        {response.unsupported.suggestedQueries.map((suggestion) => {
+          const query = suggestedQuestion(suggestion.queryTemplateId, locale);
+          return query && <Button key={suggestion.queryTemplateId} variant="outline" onClick={() => onSuggested(query)}>{query}</Button>;
+        })}
+      </div>}
+    </div>}
+    {(["quota_exceeded", "budget_blocked", "failed"] as const).includes(response.outcome as "quota_exceeded" | "budget_blocked" | "failed")
+      && <p className="coach-result__state" role="alert">{t(`v2State.${response.outcome}`)}</p>}
+    {(response.outcome === "answer" || Boolean(response.answer)) && <div className="coach-result__feedback" role="group" aria-label={t("feedback.label")}>
+      <Button size="sm" variant={feedback === true ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(true)}>{t("feedback.helpful")}</Button>
+      <Button size="sm" variant={feedback === false ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(false)}>{t("feedback.notHelpful")}</Button>
+    </div>}
+  </div>;
 }
 
 function CoachResult({ response, evidenceOpen, locale, feedback, onEvidence, onAction, onFeedback }: {
