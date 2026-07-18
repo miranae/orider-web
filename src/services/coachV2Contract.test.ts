@@ -26,6 +26,71 @@ describe("coachV2Contract", () => {
     expect(parsed.answer?.blocks[0]).toMatchObject({ kind: "metric_grid", items: [{ current: { value: 42, evidenceId: "ev_distance" } }] });
   });
 
+  it("accepts the strict load-analysis projection and fails closed on nested evidence drift", () => {
+    const records: typeof evidence[] = [];
+    let index = 0;
+    const value = (raw: number | string | boolean) => {
+      const record = { ...evidence, evidenceId: `ev_load_${++index}`, source: "load_analysis", sourceId: "load_facts_1", value: raw };
+      records.push(record); return { value: raw, evidenceId: record.evidenceId };
+    };
+    const metricSet = (ctl: number, atl: number, form: number) => ({ ctl: value(ctl), atl: value(atl), form: value(form) });
+    const currentMetrics = metricSet(51, 62, -11);
+    const goalTarget = value(40); const goalCurrent = value(51); const goalAchieved = value(true);
+    const bands = [
+      { id: "recovery_review", metric: "form", maxExclusive: value(-30), classification: "recovery_review_recommended",
+        labelKey: "coach.load.band.recovery_review.label", explanationKey: "coach.load.band.recovery_review.explanation", referenceId: "ai-coach-load-policy-2026-07" },
+      { id: "high_load", metric: "form", minInclusive: value(-30), maxExclusive: value(-20), classification: "high_load",
+        labelKey: "coach.load.band.high_load.label", explanationKey: "coach.load.band.high_load.explanation", referenceId: "ai-coach-load-policy-2026-07" },
+      { id: "productive_load", metric: "form", minInclusive: value(-20), maxExclusive: value(-10), classification: "productive_load",
+        labelKey: "coach.load.band.productive_load.label", explanationKey: "coach.load.band.productive_load.explanation", referenceId: "ai-coach-load-policy-2026-07" },
+      { id: "normal", metric: "form", minInclusive: value(-10), classification: "normal",
+        labelKey: "coach.load.band.normal.label", explanationKey: "coach.load.band.normal.explanation", referenceId: "ai-coach-load-policy-2026-07" },
+    ];
+    const loadBlock = { ...baseBlock, blockId: "load", kind: "load_analysis", assessment: {
+      schemaVersion: "coach-load-assessment-v1", capabilityVersion: "p1", factsId: "load_facts_1", asOf: value(evidence.asOf),
+      timezone: "Asia/Seoul", discipline: "bike", sourceDateConvention: "utc_calendar_day",
+      current: currentMetrics, previousComparable: metricSet(46, 54, -8), delta: metricSet(5, 8, -3),
+      comparisonBasis: "canonical_utc_day_7d_delta", weeklyTss: { basis: "user_local_monday_to_as_of",
+        current: value(214), previousComparable: value(180), delta: value(34) },
+      weeklyTrend: [{ weekId: "2026-W29", period: { fromCanonicalDate: value("2026-07-13"), toCanonicalDate: value("2026-07-18") },
+        partial: true, sampleBasis: "current_as_of", ctl: value(51), atl: value(62), form: value(-11) }], drivers: [],
+      goalAssessment: { goalId: "goal_ctl", type: "ctl_target", target: goalTarget, current: goalCurrent, achieved: goalAchieved,
+        evidenceIds: [goalTarget.evidenceId, goalCurrent.evidenceId, goalAchieved.evidenceId] },
+      bandAssessment: { catalogVersion: "form-band-catalog-v1", bands, currentBandId: "productive_load", currentValue: currentMetrics.form },
+      classification: "productive_load", reasonCodes: ["classification_productive_load"], confidence: "medium", missingSignals: [],
+    } };
+    const parsed = parseCoachV2Response({ data: { ...envelope, answer: { ...answer, blocks: [loadBlock], evidence: records } } });
+    expect(parsed.answer?.blocks[0]).toMatchObject({ kind: "load_analysis", assessment: { current: { ctl: { value: 51 } },
+      comparisonBasis: "canonical_utc_day_7d_delta" } });
+    const drifted = structuredClone(loadBlock);
+    drifted.assessment.weeklyTrend[0].ctl.value = 999;
+    const failed = parseCoachV2Response({ data: { ...envelope, answer: { ...answer, blocks: [drifted], evidence: records } } });
+    expect(failed.answer?.blocks[0]).toEqual({ kind: "unsupported_block", blockId: "load", reason: "invalid_block" });
+
+    for (const mutate of [
+      (block: typeof loadBlock) => { block.assessment.bandAssessment.catalogVersion = "invented"; },
+      (block: typeof loadBlock) => { block.assessment.bandAssessment.bands[0].referenceId = "invented"; },
+      (block: typeof loadBlock) => { block.assessment.bandAssessment.currentBandId = "invented"; },
+      (block: typeof loadBlock) => { block.assessment.goalAssessment.evidenceIds = []; },
+      (block: typeof loadBlock) => { block.assessment.goalAssessment.evidenceIds.reverse(); },
+      (block: typeof loadBlock) => { block.assessment.bandAssessment.currentBandId = "normal"; },
+      (block: typeof loadBlock) => { block.assessment.bandAssessment.currentValue = value(-12); },
+    ]) {
+      const tampered = structuredClone(loadBlock); mutate(tampered);
+      const result = parseCoachV2Response({ data: { ...envelope, answer: { ...answer, blocks: [tampered], evidence: records } } });
+      expect(result.answer?.blocks[0]).toEqual({ kind: "unsupported_block", blockId: "load", reason: "invalid_block" });
+    }
+    const thresholdTampered = structuredClone(loadBlock);
+    const boundary = thresholdTampered.assessment.bandAssessment.bands[0].maxExclusive;
+    boundary.value = -31;
+    const thresholdRecords = structuredClone(records);
+    const boundaryRecord = thresholdRecords.find((item) => item.evidenceId === boundary.evidenceId)!;
+    boundaryRecord.value = -31;
+    const thresholdResult = parseCoachV2Response({ data: { ...envelope,
+      answer: { ...answer, blocks: [thresholdTampered], evidence: thresholdRecords } } });
+    expect(thresholdResult.answer?.blocks[0]).toEqual({ kind: "unsupported_block", blockId: "load", reason: "invalid_block" });
+  });
+
   it("replaces unknown, malformed, prescription and evidence-mismatched blocks without retaining raw payload", () => {
     const blocks = [
       { ...baseBlock, blockId: "unknown", kind: "html", html: "<script>private()</script>" },

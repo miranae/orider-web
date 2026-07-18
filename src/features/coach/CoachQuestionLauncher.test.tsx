@@ -396,4 +396,25 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.ask.mock.calls[1]?.[0]).toMatchObject({ requestId: childId,
       question: expect.stringContaining("rolling 42 days"), capabilityVersion: "p1" });
   });
+
+  it("toggles an AnswerDocument load chart without another coach request", async () => {
+    const atEvidence = { evidenceId: "ev_load_at", source: "load_analysis", sourceId: "load_fixture", field: "week",
+      value: "2026-W30", sourceRevision: "load-r1", asOf: "2026-07-18T00:00:00Z", ownerScope: "authenticated_user" };
+    const valueEvidence = { ...atEvidence, evidenceId: "ev_load_ctl", field: "ctl", value: 21 };
+    const loadResponse = { ...p1Answer, requestId: answer.requestId, answer: { ...p1Answer.answer,
+      blocks: [{ blockId: "block_dynamic_load", sourceSlotIds: ["weekly_ctl"], partial: false, stale: false,
+        truncated: false, omittedCount: 0, kind: "time_series", series: [{ seriesId: "weekly_ctl", metricId: "ctl",
+          points: [{ at: { value: atEvidence.value, evidenceId: atEvidence.evidenceId },
+            value: { value: valueEvidence.value, unit: "score", evidenceId: valueEvidence.evidenceId } }] }] }],
+      evidence: [atEvidence, valueEvidence] } };
+    mocks.ask.mockResolvedValue(loadResponse);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "이번 주 운동량이 어땠나요?" }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await screen.findByRole("button", { name: "차트와 표로 보기" });
+    expect(mocks.ask).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
+    expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
+    expect(mocks.ask).toHaveBeenCalledOnce();
+  });
 });

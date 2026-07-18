@@ -7,6 +7,18 @@ export const COACH_V2_REQUEST_SCHEMA_VERSION = "coach-respond-v2" as const;
 export const COACH_V2_RESPONSE_SCHEMA_VERSION = "coach-response-envelope-v1" as const;
 export const COACH_ANSWER_SCHEMA_VERSION = "coach-answer-document-v1" as const;
 export const COACH_ANSWER_CATALOG_VERSION = "coach-answer-block-catalog-v1" as const;
+export const COACH_LOAD_MISSING_SIGNALS = [
+  "current_fitness_point_missing", "current_week_activities_missing", "fitness_behind_activity_revision", "fitness_behind_latest_activity",
+  "fitness_computed_at_missing", "fitness_daily_window_gap", "fitness_discipline_mismatch", "fitness_form_inconsistent",
+  "fitness_point_metric_missing", "fitness_points_duplicate_date", "fitness_points_missing", "fitness_points_oversize",
+  "fitness_revision_from_future", "fitness_schema_unsupported", "fitness_timeseries_missing", "fitness_timeseries_stale",
+  "fitness_weekly_sample_gap", "previous_comparable_point_missing",
+] as const;
+export const COACH_LOAD_REASON_CODES = [
+  "activity_tss_estimated", "classification_high_load", "classification_insufficient_data", "classification_normal",
+  "classification_productive_load", "classification_recovery_review_recommended", "ctl_decreased_week_over_week",
+  "ctl_increased_week_over_week", "ctl_unchanged_week_over_week", "fitness_source_not_fresh", ...COACH_LOAD_MISSING_SIGNALS,
+] as const;
 
 export type CoachMetricId = "activity_count" | "duration" | "distance" | "tss" | "ctl" | "atl" |
   "form" | "average_power" | "heart_rate" | "cadence" | "pace" | "elevation" |
@@ -15,7 +27,7 @@ export type CoachUnit = "count" | "seconds" | "kilometers" | "tss" | "watts" | "
   "seconds_per_km" | "meters" | "kcal" | "percent" | "score" | "dimensionless";
 export type CoachDisplayPrimitive = number | string | boolean;
 
-export interface CoachDisplayValue<T extends CoachDisplayPrimitive = number | string> {
+export interface CoachDisplayValue<T extends CoachDisplayPrimitive = CoachDisplayPrimitive> {
   value: T | null;
   unit?: CoachUnit;
   evidenceId: string;
@@ -80,6 +92,37 @@ export interface GoalProgressBlock extends BlockBase {
   target: CoachDisplayValue;
   progress?: CoachDisplayValue;
 }
+export type CoachLoadClassification = "normal" | "productive_load" | "high_load" |
+  "recovery_review_recommended" | "insufficient_data";
+export interface CoachLoadMetricSet { ctl: CoachDisplayValue; atl: CoachDisplayValue; form: CoachDisplayValue }
+export interface CoachLoadAssessment {
+  schemaVersion: "coach-load-assessment-v1";
+  capabilityVersion: "p1";
+  factsId: string;
+  asOf: CoachDisplayValue<string>;
+  timezone: string;
+  discipline: CoachDiscipline;
+  sourceDateConvention: "utc_calendar_day";
+  current: CoachLoadMetricSet;
+  previousComparable: CoachLoadMetricSet;
+  delta: CoachLoadMetricSet;
+  comparisonBasis: "canonical_utc_day_7d_delta";
+  weeklyTss: { basis: "user_local_monday_to_as_of"; current: CoachDisplayValue; previousComparable: CoachDisplayValue; delta: CoachDisplayValue };
+  weeklyTrend: Array<{ weekId: string; period: { fromCanonicalDate: CoachDisplayValue<string>; toCanonicalDate: CoachDisplayValue<string> };
+    partial: boolean; sampleBasis: "completed_week_end" | "current_as_of"; ctl: CoachDisplayValue; atl: CoachDisplayValue; form: CoachDisplayValue }>;
+  drivers: Array<{ activityId: string; date: CoachDisplayValue<string>; title: CoachDisplayValue<string>; discipline: CoachDiscipline;
+    tss: CoachDisplayValue; durationMin: CoachDisplayValue; distanceKm?: CoachDisplayValue; weeklyLoadContributionPct: CoachDisplayValue }>;
+  goalAssessment?: { goalId: string; type: "ctl_target"; target: CoachDisplayValue; current: CoachDisplayValue;
+    achieved: CoachDisplayValue<boolean>; achievedAt?: CoachDisplayValue<string>; evidenceIds: string[] };
+  bandAssessment: { catalogVersion: string; bands: Array<{ id: string; metric: "form"; minInclusive?: CoachDisplayValue;
+    maxExclusive?: CoachDisplayValue; classification: Exclude<CoachLoadClassification, "insufficient_data">; labelKey: string;
+    explanationKey: string; referenceId: string }>; currentBandId: string | null; currentValue: CoachDisplayValue };
+  classification: CoachLoadClassification;
+  reasonCodes: Array<typeof COACH_LOAD_REASON_CODES[number]>;
+  confidence: "low" | "medium" | "high";
+  missingSignals: Array<typeof COACH_LOAD_MISSING_SIGNALS[number]>;
+}
+export interface LoadAnalysisBlock extends BlockBase { kind: "load_analysis"; assessment: CoachLoadAssessment }
 export interface PlanAdherenceBlock extends BlockBase {
   kind: "plan_adherence";
   planned: CoachDisplayValue;
@@ -106,7 +149,7 @@ export interface UnsupportedBlock {
 
 export type CoachAnswerBlock = NarrativeBlock | MetricGridBlock | ComparisonTableBlock | TimeSeriesBlock |
   DistributionBlock | RankingBlock | ActivityListBlock | GoalProgressBlock | PlanAdherenceBlock |
-  DataGapBlock | ActionBlock | UnsupportedBlock;
+  LoadAnalysisBlock | DataGapBlock | ActionBlock | UnsupportedBlock;
 
 export interface CoachEvidenceRecord {
   evidenceId: string;
@@ -203,6 +246,63 @@ const entity = z.object({ entityType: z.enum(["activity", "plan_item", "goal"]),
 const unique = <T>(items: T[]) => new Set(items).size === items.length;
 const base = { blockId: id, sourceSlotIds: z.array(id).max(24).refine(unique), partial: z.boolean(), stale: z.boolean(), truncated: z.boolean(),
   omittedCount: z.number().int().nonnegative().max(100_000) };
+const loadMetricSet = z.object({ ctl: displayValue, atl: displayValue, form: displayValue }).strict();
+const loadWeek = z.object({ weekId: id, period: z.object({ fromCanonicalDate: displayValue, toCanonicalDate: displayValue }).strict(),
+  partial: z.boolean(), sampleBasis: z.enum(["completed_week_end", "current_as_of"]), ctl: displayValue, atl: displayValue, form: displayValue }).strict();
+const loadDriver = z.object({ activityId: id, date: displayValue, title: displayValue, discipline: z.enum(["bike", "run", "swim"]),
+  tss: displayValue, durationMin: displayValue, distanceKm: displayValue.optional(), weeklyLoadContributionPct: displayValue }).strict();
+const loadGoal = z.object({ goalId: id, type: z.literal("ctl_target"), target: displayValue, current: displayValue,
+  achieved: displayValue, achievedAt: displayValue.optional(), evidenceIds: z.array(id).max(4).refine(unique) }).strict()
+  .superRefine((value, context) => {
+    const expected = [value.target.evidenceId, value.current.evidenceId, value.achieved.evidenceId,
+      ...(value.achievedAt ? [value.achievedAt.evidenceId] : [])];
+    if (value.evidenceIds.length !== expected.length || value.evidenceIds.some((item, index) => item !== expected[index])) {
+      context.addIssue({ code: "custom", message: "goal evidence contract mismatch" });
+    }
+  });
+const loadClassification = z.enum(["normal", "productive_load", "high_load", "recovery_review_recommended", "insufficient_data"]);
+const loadReference = z.literal("ai-coach-load-policy-2026-07");
+const loadBoundary = (expected: number) => displayValue.refine((item) => item.value === expected, "band boundary mismatch");
+const loadBand = z.discriminatedUnion("id", [
+  z.object({ id: z.literal("recovery_review"), metric: z.literal("form"), maxExclusive: loadBoundary(-30),
+    classification: z.literal("recovery_review_recommended"), labelKey: z.literal("coach.load.band.recovery_review.label"),
+    explanationKey: z.literal("coach.load.band.recovery_review.explanation"), referenceId: loadReference }).strict(),
+  z.object({ id: z.literal("high_load"), metric: z.literal("form"), minInclusive: loadBoundary(-30), maxExclusive: loadBoundary(-20),
+    classification: z.literal("high_load"), labelKey: z.literal("coach.load.band.high_load.label"),
+    explanationKey: z.literal("coach.load.band.high_load.explanation"), referenceId: loadReference }).strict(),
+  z.object({ id: z.literal("productive_load"), metric: z.literal("form"), minInclusive: loadBoundary(-20), maxExclusive: loadBoundary(-10),
+    classification: z.literal("productive_load"), labelKey: z.literal("coach.load.band.productive_load.label"),
+    explanationKey: z.literal("coach.load.band.productive_load.explanation"), referenceId: loadReference }).strict(),
+  z.object({ id: z.literal("normal"), metric: z.literal("form"), minInclusive: loadBoundary(-10),
+    classification: z.literal("normal"), labelKey: z.literal("coach.load.band.normal.label"),
+    explanationKey: z.literal("coach.load.band.normal.explanation"), referenceId: loadReference }).strict(),
+]);
+const loadAssessment = z.object({ schemaVersion: z.literal("coach-load-assessment-v1"), capabilityVersion: z.literal("p1"), factsId: id,
+  asOf: displayValue, timezone: z.string().min(1).max(100), discipline: z.enum(["bike", "run", "swim"]),
+  sourceDateConvention: z.literal("utc_calendar_day"), current: loadMetricSet, previousComparable: loadMetricSet, delta: loadMetricSet,
+  comparisonBasis: z.literal("canonical_utc_day_7d_delta"), weeklyTss: z.object({ basis: z.literal("user_local_monday_to_as_of"),
+    current: displayValue, previousComparable: displayValue, delta: displayValue }).strict(), weeklyTrend: z.array(loadWeek).max(9),
+  drivers: z.array(loadDriver).max(3), goalAssessment: loadGoal.optional(), bandAssessment: z.object({ catalogVersion: z.literal("form-band-catalog-v1"),
+    bands: z.tuple([loadBand, loadBand, loadBand, loadBand]).superRefine((bands, context) => {
+      const expected = ["recovery_review", "high_load", "productive_load", "normal"];
+      if (bands.some((band, index) => band.id !== expected[index])) context.addIssue({ code: "custom", message: "band order mismatch" });
+    }), currentBandId: z.enum(["recovery_review", "high_load", "productive_load", "normal"]).nullable(), currentValue: displayValue }).strict(), classification: loadClassification,
+  reasonCodes: z.array(z.enum(COACH_LOAD_REASON_CODES)).max(32).refine((items) => unique(items) && items.every((item, index) => index === 0 || items[index - 1]! < item)),
+  confidence: z.enum(["low", "medium", "high"]),
+  missingSignals: z.array(z.enum(COACH_LOAD_MISSING_SIGNALS)).max(32).refine((items) => unique(items) && items.every((item, index) => index === 0 || items[index - 1]! < item)) }).strict()
+  .superRefine((value, context) => {
+    const expectedBand = value.classification === "insufficient_data" ? null : {
+      normal: "normal", productive_load: "productive_load", high_load: "high_load",
+      recovery_review_recommended: "recovery_review",
+    }[value.classification];
+    if (value.bandAssessment.currentBandId !== expectedBand) {
+      context.addIssue({ code: "custom", message: "current band classification mismatch" });
+    }
+    if (value.bandAssessment.currentValue.evidenceId !== value.current.form.evidenceId
+        || !Object.is(value.bandAssessment.currentValue.value, value.current.form.value)) {
+      context.addIssue({ code: "custom", message: "current band value mismatch" });
+    }
+  });
 const schemas = {
   narrative: z.object({ ...base, kind: z.literal("narrative"), templateKey: z.enum([
     "coach.answer.narrative.metric_summary", "coach.answer.narrative.comparison_summary",
@@ -228,6 +328,7 @@ const schemas = {
   goal_progress: z.object({ ...base, kind: z.literal("goal_progress"), goalId: id, sourceLoadFactsId: id,
     current: displayValue, target: displayValue, progress: displayValue.optional(),
   }).strict(),
+  load_analysis: z.object({ ...base, kind: z.literal("load_analysis"), assessment: loadAssessment }).strict(),
   plan_adherence: z.object({ ...base, kind: z.literal("plan_adherence"), planned: displayValue, completed: displayValue,
     missed: z.array(z.object({ planned: entity, evidenceIds: z.array(id).max(24) }).strict()).max(160),
     replacements: z.array(z.object({ planned: entity, actual: entity, evidenceIds: z.array(id).max(24) }).strict()).max(160),
@@ -306,6 +407,19 @@ function displayValues(block: Exclude<CoachAnswerBlock, UnsupportedBlock>): Coac
   if (block.kind === "ranking") return block.entries.flatMap((item) => [item.rank, item.entity.label, ...(item.entity.occurredAt ? [item.entity.occurredAt] : []), ...item.values]);
   if (block.kind === "activity_list") return block.activities.flatMap((item) => [item.activity.label, ...(item.activity.occurredAt ? [item.activity.occurredAt] : []), ...item.values]);
   if (block.kind === "goal_progress") return [block.current, block.target, ...(block.progress ? [block.progress] : [])];
+  if (block.kind === "load_analysis") {
+    const value = block.assessment;
+    const metricValues = (set: CoachLoadMetricSet) => [set.ctl, set.atl, set.form];
+    return [value.asOf, ...metricValues(value.current), ...metricValues(value.previousComparable), ...metricValues(value.delta),
+      value.weeklyTss.current, value.weeklyTss.previousComparable, value.weeklyTss.delta,
+      ...value.weeklyTrend.flatMap((week) => [week.period.fromCanonicalDate, week.period.toCanonicalDate, week.ctl, week.atl, week.form]),
+      ...value.drivers.flatMap((driver) => [driver.date, driver.title, driver.tss, driver.durationMin,
+        ...(driver.distanceKm ? [driver.distanceKm] : []), driver.weeklyLoadContributionPct]),
+      ...(value.goalAssessment ? [value.goalAssessment.target, value.goalAssessment.current, value.goalAssessment.achieved,
+        ...(value.goalAssessment.achievedAt ? [value.goalAssessment.achievedAt] : [])] : []),
+      ...value.bandAssessment.bands.flatMap((band) => [...(band.minInclusive ? [band.minInclusive] : []),
+        ...(band.maxExclusive ? [band.maxExclusive] : [])]), value.bandAssessment.currentValue];
+  }
   if (block.kind === "plan_adherence") return [block.planned, block.completed, ...block.missed.flatMap((item) => [item.planned.label, ...(item.planned.occurredAt ? [item.planned.occurredAt] : [])]),
     ...block.replacements.flatMap((item) => [item.planned.label, ...(item.planned.occurredAt ? [item.planned.occurredAt] : []),
       item.actual.label, ...(item.actual.occurredAt ? [item.actual.occurredAt] : [])])];
@@ -329,7 +443,9 @@ function parseBlock(value: unknown, index: number, evidenceById: Map<string, Coa
   });
   const relationEvidence = block.kind !== "plan_adherence" || [...block.missed, ...block.replacements]
     .flatMap((item) => item.evidenceIds).every((evidenceId) => evidenceById.has(evidenceId));
-  return validEvidence && relationEvidence ? block : { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
+  const goalEvidence = block.kind !== "load_analysis" || !block.assessment.goalAssessment
+    || block.assessment.goalAssessment.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId));
+  return validEvidence && relationEvidence && goalEvidence ? block : { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
 }
 
 function parseAnswer(value: unknown): CoachAnswerDocument {
