@@ -422,6 +422,58 @@ describe("useWeeklyStats", () => {
     });
   });
 
+  it("keeps weekly totals finite when a recent activity has incomplete summary metrics", async () => {
+    const now = new Date(2026, 6, 14, 12, 0, 0);
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      {
+        id: "complete-ride",
+        ...createMockActivity({
+          id: "complete-ride",
+          userId: "user-1",
+          startTime: now.getTime() - 6 * 3_600_000,
+          summary: createMockSummary({
+            distance: 20_000,
+            ridingTimeMillis: 3_600_000,
+            elevationGain: 250,
+          }),
+        }),
+      },
+      {
+        id: "incomplete-ride",
+        ...createMockActivity({
+          id: "incomplete-ride",
+          userId: "user-1",
+          startTime: now.getTime() - 12 * 3_600_000,
+          summary: {
+            ...createMockSummary(),
+            distance: undefined,
+            ridingTimeMillis: Number.NaN,
+            elapsedTimeMillis: 1_800_000,
+            elevationGain: Number.POSITIVE_INFINITY,
+          } as never,
+        }),
+      },
+    ]);
+
+    const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+
+    await waitFor(() => expect(result.current.thisWeek.rides).toBe(2));
+    expect(result.current.thisWeek).toEqual({
+      rides: 2,
+      distance: 20_000,
+      time: 5_400_000,
+      elevation: 250,
+    });
+    expect(result.current.recent7DayDistances.bike).toBe(20_000);
+    expect(result.current.weeklyStats.at(-1)).toEqual(expect.objectContaining({
+      rides: 2,
+      distance: 20,
+      time: 1.5,
+      elevation: 250,
+    }));
+  });
+
   it("keeps user B stats when user A's older request resolves last", async () => {
     const now = new Date(2026, 6, 14, 12, 0, 0);
     const mockedGetDocs = vi.mocked(getDocs);

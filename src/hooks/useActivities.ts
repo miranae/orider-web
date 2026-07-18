@@ -523,6 +523,18 @@ export function useWeeklyStats(now: Date = new Date()) {
 
   // 계정 전환 직후 이전 effect 결과가 잠깐 남아도 새 사용자의 통계로 노출하지 않는다.
   const all = activities.filter((activity) => activity.userId === user.uid);
+  const summaryNumber = (value: unknown): number => (
+    typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0
+  );
+  const activityDistance = (activity: Activity): number => summaryNumber(activity.summary.distance);
+  const activityDurationMillis = (activity: Activity): number => {
+    const ridingTime = summaryNumber(activity.summary.ridingTimeMillis);
+    if (ridingTime > 0) return ridingTime;
+    const elapsedTime = summaryNumber(activity.summary.elapsedTimeMillis);
+    if (elapsedTime > 0) return elapsedTime;
+    return summaryNumber(activity.summary.movingTimeSec) * 1000;
+  };
+  const activityElevation = (activity: Activity): number => summaryNumber(activity.summary.elevationGain);
   const weeks: WeeklyStat[] = [];
   for (let w = 11; w >= 0; w--) {
     const weekStart = new Date(now);
@@ -537,9 +549,9 @@ export function useWeeklyStats(now: Date = new Date()) {
 
     weeks.push({
       week: `${weekStart.getMonth() + 1}/${weekStart.getDate()}`,
-      distance: Math.round(weekActivities.reduce((s, a) => s + a.summary.distance, 0) / 1000),
-      time: Math.round(weekActivities.reduce((s, a) => s + a.summary.ridingTimeMillis, 0) / 3600000 * 10) / 10,
-      elevation: Math.round(weekActivities.reduce((s, a) => s + a.summary.elevationGain, 0)),
+      distance: Math.round(weekActivities.reduce((s, a) => s + activityDistance(a), 0) / 1000),
+      time: Math.round(weekActivities.reduce((s, a) => s + activityDurationMillis(a), 0) / 3600000 * 10) / 10,
+      elevation: Math.round(weekActivities.reduce((s, a) => s + activityElevation(a), 0)),
       rides: weekActivities.length,
       tss: Math.round(weekActivities.reduce((s, a) => s + estimateTSS(a), 0)),
     });
@@ -554,7 +566,7 @@ export function useWeeklyStats(now: Date = new Date()) {
     (distances, activity) => {
       const discipline = getDiscipline(activity.type);
       if (discipline === "bike" || discipline === "run" || discipline === "swim") {
-        distances[discipline] += activity.summary.distance;
+        distances[discipline] += activityDistance(activity);
       }
       return distances;
     },
@@ -565,9 +577,9 @@ export function useWeeklyStats(now: Date = new Date()) {
     weeklyStats: weeks,
     thisWeek: {
       rides: thisWeekActivities.length,
-      distance: thisWeekActivities.reduce((s, a) => s + a.summary.distance, 0),
-      time: thisWeekActivities.reduce((s, a) => s + a.summary.ridingTimeMillis, 0),
-      elevation: Math.round(thisWeekActivities.reduce((s, a) => s + a.summary.elevationGain, 0)),
+      distance: thisWeekActivities.reduce((s, a) => s + activityDistance(a), 0),
+      time: thisWeekActivities.reduce((s, a) => s + activityDurationMillis(a), 0),
+      elevation: Math.round(thisWeekActivities.reduce((s, a) => s + activityElevation(a), 0)),
     },
     recent7DayDistances,
   };
