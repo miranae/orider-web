@@ -24,6 +24,8 @@ function context() {
     beginPath: vi.fn(),
     moveTo: vi.fn(),
     lineTo: vi.fn(),
+    closePath: vi.fn(),
+    fill: vi.fn(),
     stroke: vi.fn(),
   } as unknown as CanvasRenderingContext2D;
 }
@@ -38,6 +40,7 @@ describe("drawActivityShareCard privacy", () => {
       title: "Private ride", athlete: "Rider", sport: "Ride", date: "Today",
       distance: "10 km", duration: "30:00", elevation: "100 m",
       distanceLabel: "Distance", durationLabel: "Time", elevationLabel: "Elevation",
+      elevationProfileLabel: "Elevation profile",
       performanceLabel: "Ride performance",
       footer: "O-Rider", routeImageUrl: "https://example.com/static-route.png", backgroundImageUrl: "https://example.com/precise-route.png",
       includeRouteImage: false,
@@ -56,7 +59,7 @@ describe("drawActivityShareCard privacy", () => {
       title: long, athlete: long, sport: long, date: long,
       distance: long, duration: long, elevation: long,
       distanceLabel: long, durationLabel: long, elevationLabel: long,
-      footer: long, includeRouteImage: false,
+      elevationProfileLabel: long, performanceLabel: long, footer: long, includeRouteImage: false,
     });
     const drawn = vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text));
     expect(drawn.filter((text) => text.includes("…")).length).toBeGreaterThanOrEqual(9);
@@ -67,6 +70,25 @@ describe("drawActivityShareCard privacy", () => {
     const blob = new Blob(["png"], { type: "image/png" });
     downloadShareCard(blob, "ride.png");
     expect(saveAs).toHaveBeenCalledWith(blob, "ride.png");
+  });
+
+  it("draws a finite filled elevation profile and preserves its final point", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    const elevationProfile = Array.from({ length: 500 }, (_, index) => ({ distance: index * 10, elevation: 100 + Math.sin(index / 10) * 30 }));
+    elevationProfile.splice(120, 0, { distance: Number.NaN, elevation: 999 });
+    await drawActivityShareCard({ ...cardInput(), elevationProfile });
+    const coordinates = vi.mocked(ctx.lineTo).mock.calls.flat();
+    expect(ctx.fill).toHaveBeenCalledOnce();
+    expect(coordinates.every(Number.isFinite)).toBe(true);
+    expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 1024)).toBe(true);
+  });
+
+  it("handles a flat elevation profile without invalid coordinates", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    await drawActivityShareCard({ ...cardInput(), elevationProfile: [{ distance: 0, elevation: 120 }, { distance: 1_000, elevation: 120 }] });
+    expect(vi.mocked(ctx.lineTo).mock.calls.flat().every(Number.isFinite)).toBe(true);
   });
 
   it("stops waiting for a route image after the timeout", async () => {
@@ -99,6 +121,7 @@ function cardInput() {
     title: "Ride", athlete: "Rider", sport: "Ride", date: "Today",
     distance: "10 km", duration: "30:00", elevation: "100 m",
     distanceLabel: "Distance", durationLabel: "Time", elevationLabel: "Elevation",
+    elevationProfileLabel: "Elevation profile",
     performanceLabel: "Ride performance",
     footer: "O-Rider", includeRouteImage: false,
   };
