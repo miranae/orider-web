@@ -21,7 +21,7 @@ import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
 import { CoachAnswerDocumentView } from "./CoachAnswerDocument";
 import "./coach-question.css";
 
-type QuestionSource = "suggestion_1" | "suggestion_2" | "free_text";
+type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
 type Phase = "closed" | "loading_status" | "ready" | "submitting" | "complete" | "network_error" | "terminal_error" | "load_error";
 type SubmitFailure = "compatibility" | "terminal" | null;
 
@@ -265,8 +265,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     if (action !== "none" && activeBodyRef.current) await execute(activeBodyRef.current, source, false);
   }
 
-  function chooseSuggestion(index: 1 | 2) {
-    setDraft(t(`suggestions.${index}`)); setSource(`suggestion_${index}`); setRequestId(null);
+  function chooseSuggestion(index: 1 | 2 | 3) {
+    setDraft(t(`suggestions.${discipline}.${index}`)); setSource(`suggestion_${index}`); setRequestId(null);
     questionRef.current?.focus();
   }
 
@@ -320,7 +320,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     || (phase === "complete" && response !== null && retryAction !== "none" && !(retryAction === "new" && quota?.remaining === 0));
   const exhausted = quota?.remaining === 0;
   const showCounter = inputFocused || draft.length >= 900;
-  const suggestions = ([1, 2] as const).filter((index) => source !== `suggestion_${index}`);
+  const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
     <>
       <Button ref={triggerRef} block variant="outline" leadingIcon={<Sparkles size={18} />} onClick={() => void openSheet()}>{t("open")}</Button>
@@ -344,7 +344,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                   <div className="coach-sheet__composer">
                     <label htmlFor="coach-question"><Text variant="label">{t("inputLabel")}</Text></label>
                     <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
-                      placeholder={t("placeholder")} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
+                      placeholder={t(`placeholder.${discipline}`)} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
                       onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
                       onChange={(event) => { setDraft(event.target.value); setSource("free_text"); setRequestId(null); }} />
                     <div className="coach-sheet__composer-meta">
@@ -359,7 +359,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                   <div className="coach-sheet__quick-prompts">
                     <Text as="h3" variant="label" tone="secondary">{t("suggestions.title")}</Text>
                     <div className="coach-sheet__suggestions">
-                      {suggestions.map((index) => <Button key={index} block variant="ghost" onClick={() => chooseSuggestion(index)}>{t(`suggestions.${index}`)}</Button>)}
+                      {suggestions.map((index) => <Button key={index} block variant="ghost" onClick={() => chooseSuggestion(index)}>{t(`suggestions.${discipline}.${index}`)}</Button>)}
                     </div>
                   </div>
                 </div>}

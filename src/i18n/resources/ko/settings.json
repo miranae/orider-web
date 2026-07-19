@@ -439,6 +439,11 @@
     "reviewConsent": "안내 확인 및 동의",
     "consentTitle": "AI 코치 데이터 사용 안내",
     "staleTitle": "변경된 AI 코치 데이터 사용 안내",
+    "compactIntro": "동의 전에 사용 데이터, 외부 처리, 저장·철회 방식을 확인해 주세요.",
+    "summaryDataTitle": "사용하는 데이터",
+    "summaryExternalTitle": "외부 AI 처리 · {{country}}",
+    "summaryStorageTitle": "저장 및 철회",
+    "fullDetailsSummary": "전체 데이터 처리 세부사항과 링크 보기",
     "consentIntro": "답변을 만들기 위해 다음 정보를 사용합니다.",
     "category": {
       "userQuestion": "사용자가 입력한 AI 코치 질문",

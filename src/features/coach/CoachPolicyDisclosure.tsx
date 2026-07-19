@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import type { CoachConsentPolicy, CoachDataCategory } from "../../services/coachConsentClient";
+import { Card, Text } from "../../theme/components";
 
 const categoryKeys: Record<CoachDataCategory, string> = {
   user_question: "coach.category.userQuestion",
@@ -15,7 +16,7 @@ function PolicyLink({ href, children }: { href: string; children: React.ReactNod
   return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
 }
 
-export function CoachPolicyDisclosure({ policy, stale = false }: { policy: CoachConsentPolicy; stale?: boolean }) {
+function FullPolicyDisclosure({ policy, stale }: { policy: CoachConsentPolicy; stale: boolean }) {
   const { t } = useTranslation("settings");
   const categoryList = (items: CoachDataCategory[]) => (
     <ul>{items.map((category) => <li key={category}>{t(categoryKeys[category])}</li>)}</ul>
@@ -44,6 +45,50 @@ export function CoachPolicyDisclosure({ policy, stale = false }: { policy: Coach
       )}
       <p><PolicyLink href={policy.policyDocumentUrl}>{t("coach.policyDocumentLink")}</PolicyLink></p>
       <p><PolicyLink href={policy.privacyPolicyUrl}>{t("coach.privacyLink")}</PolicyLink></p>
+    </div>
+  );
+}
+
+export function CoachPolicyDisclosure({ policy, stale = false, mode = "full" }: {
+  policy: CoachConsentPolicy;
+  stale?: boolean;
+  mode?: "full" | "compact";
+}) {
+  const { t } = useTranslation("settings");
+  if (mode === "full") return <FullPolicyDisclosure policy={policy} stale={stale} />;
+  return (
+    <div className="coach-policy-compact">
+      <div className="coach-policy-compact__summaries">
+        <Card variant="inset" padding="compact">
+          <Text as="h3" variant="label">{t("coach.summaryDataTitle")}</Text>
+          <ul className="coach-policy-compact__list">
+            {policy.dataCategories.map((category) => <li key={category}><Text variant="bodySmall">{t(categoryKeys[category])}</Text></li>)}
+          </ul>
+        </Card>
+        <Card variant="inset" padding="compact">
+          <Text as="h3" variant="label">{t("coach.summaryExternalTitle", { country: policy.internationalProcessing.country })}</Text>
+          <Text as="p" variant="bodySmall">{policy.processor.name} · {policy.processor.service}</Text>
+          <Text as="p" variant="caption" tone="tertiary">
+            {policy.internationalProcessing.recipient} · {policy.internationalProcessing.country}
+          </Text>
+        </Card>
+        <Card variant="inset" padding="compact">
+          <Text as="h3" variant="label">{t("coach.summaryStorageTitle")}</Text>
+          <Text as="p" variant="bodySmall">{policy.retention}</Text>
+          <Text as="p" variant="caption" tone="tertiary">{policy.withdrawal.method} · {policy.withdrawal.effect}</Text>
+        </Card>
+      </div>
+      {policy.changeSummary && (stale || policy.changeSummary.summary) && (
+        <Text as="p" variant="bodySmall" tone="warning">
+          <strong>{t("coach.changeSummaryLabel")}</strong> {policy.changeSummary.effectiveAt} · {policy.changeSummary.summary}
+        </Text>
+      )}
+      <details className="coach-policy-compact__details">
+        <summary><Text variant="label">{t("coach.fullDetailsSummary")}</Text></summary>
+        <div className="coach-policy-compact__full">
+          <FullPolicyDisclosure policy={policy} stale={stale} />
+        </div>
+      </details>
     </div>
   );
 }

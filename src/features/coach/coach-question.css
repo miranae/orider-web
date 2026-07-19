@@ -59,9 +59,17 @@
   min-height: 44px;
   height: auto;
   justify-content: flex-start;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-1);
+  color: var(--ink-1);
   padding-inline: var(--space-3);
   text-align: left;
   white-space: normal;
+}
+
+.coach-sheet__quick-prompts .coach-sheet__suggestions .ds-btn:hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--accent) 35%, var(--line-soft));
+  background: var(--bg-2);
 }
 
 .coach-sheet__ready,
