@@ -24,7 +24,7 @@ import {
 vi.mock("../../services/firebase", () => ({
   auth: {},
   firestore: {},
-  storage: {},
+  storage: { app: { options: { storageBucket: "test" } } },
   functions: {},
   googleProvider: {},
   analytics: null,

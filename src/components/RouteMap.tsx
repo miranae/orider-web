@@ -39,7 +39,7 @@ interface RouteMapProps {
   flyToPosition?: [number, number] | null;
   onLoad?: () => void;
   preserveDrawingBuffer?: boolean;
-  /** 기기 DPR 무관, 강제로 적용할 pixel ratio (캡처용 썸네일 품질 일관성) */
+  /** Mapbox resize 동안 강제로 적용할 pixel ratio (캡처 backing 해상도 고정용) */
   pixelRatio?: number;
   /** 초기 fitBounds 패딩(px). 기본 20. 피드 썸네일은 라인이 가장자리에 붙지 않게 더 키운다. */
   fitPadding?: number;
@@ -370,13 +370,7 @@ export default function RouteMap({
           initialViewState={{ bounds, fitBoundsOptions: { padding: fitPadding } }}
           onLoad={(e) => {
             applyKoreaCyclingStyle(e.target);
-            // 캡처 모드: 기기 DPR 무관하게 고정 해상도로 렌더링
-            if (pixelRatio && typeof (e.target as unknown as { setPixelRatio?: (n: number) => void }).setPixelRatio === "function") {
-              (e.target as unknown as { setPixelRatio: (n: number) => void }).setPixelRatio(pixelRatio);
-              // setPixelRatio 직후 backing canvas 의 세로 크기가 이전 DPR에 남을 수 있다.
-              // resize 후의 idle을 기다려 캡처가 정확히 2× 해상도를 갖게 한다.
-              e.target.resize();
-            }
+            if (pixelRatio) resizeMapAtPixelRatio(e.target, pixelRatio);
             if (onLoad) { e.target.once("idle", onLoad); }
           }}
           onError={() => setMapFailed(true)}
@@ -601,4 +595,27 @@ export default function RouteMap({
       </ErrorBoundary>
     </div>
   );
+}
+
+/** Mapbox GL 3.19에는 setPixelRatio API가 없으므로 resize가 읽는 DPR만 동기 구간에서 고정한다. */
+export function resizeMapAtPixelRatio(
+  map: { resize: () => unknown; getContainer: () => HTMLElement },
+  pixelRatio: number,
+) {
+  const ownDescriptor = Object.getOwnPropertyDescriptor(window, "devicePixelRatio");
+  const container = map.getContainer();
+  const originalWidth = container.style.width;
+  try {
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: pixelRatio });
+    // Mapbox GL 3.19 resize()는 container 크기가 같으면 backing resize를 생략한다.
+    // public API가 실제 dimension change를 관찰하게 한 뒤 원래 logical viewport로 되돌린다.
+    container.style.width = `${container.getBoundingClientRect().width + 1}px`;
+    map.resize();
+    container.style.width = originalWidth;
+    map.resize();
+  } finally {
+    container.style.width = originalWidth;
+    if (ownDescriptor) Object.defineProperty(window, "devicePixelRatio", ownDescriptor);
+    else delete (window as unknown as { devicePixelRatio?: number }).devicePixelRatio;
+  }
 }
