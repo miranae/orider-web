@@ -340,7 +340,7 @@ export default function MobileFeedPage({
           </Suspense>
         </div>
       )}
-      <div style={{ padding: "0 16px 14px", borderBottom: "1px solid var(--line-soft)" }}>
+      <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
         <CoachQuestionLauncher
           user={user}
           discipline={sportFilter === "bike" || sportFilter === "run" || sportFilter === "swim"
