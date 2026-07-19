@@ -13,6 +13,19 @@
   "loadingAnswer": "Checking your training records and preparing an answer…",
   "loadingHonest": "The server returns only a completed answer, so detailed processing stages are not shown.",
   "inputLabel": "Question about my training",
+  "responseFormat": {
+    "label": "Answer format",
+    "option": { "auto": "Default", "table": "Table", "chart": "Chart" },
+    "helper": "Answers are shown only in verified O·RIDER formats. We prioritize your selection and use the default format when the data does not support it.",
+    "tableCaption": "Training record table",
+    "category": "Category",
+    "distributionChartLabel": "Training record distribution chart",
+    "showLess": "Show less",
+    "blockFallbackTitle": "This result is shown as a table",
+    "blockFallbackBody": "There are not enough valid numeric values for a chart, so the verified data table is used.",
+    "fallbackTitle": "Shown in the default format",
+    "fallbackBody": "This answer does not contain chartable trend or numeric distribution data, so the verified default format is used."
+  },
   "placeholder": {
     "bike": "For example: Summarize today's cycling average power, heart rate, and cadence.",
     "run": "For example: Summarize today's running heart rate, cadence, duration, and distance.",
@@ -50,6 +63,8 @@
     "retryQuota": "Check availability again",
     "followUpSaved": "The answer was saved and the latest conversation was loaded.",
     "submitFailed": "The question could not be sent. Your draft is preserved.",
+    "sameRequestRetry": "Check the same request again",
+    "sameRequestRetryNote": "Checks the result with the same request ID and answer format. It does not request a new use; actual usage is confirmed only by the server response.",
     "delete": "Delete conversation",
     "deleteNamed": "Delete {{title}} conversation",
     "deleteTitle": "Delete this conversation?",

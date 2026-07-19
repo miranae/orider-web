@@ -13,6 +13,19 @@
   "loadingAnswer": "운동 기록을 확인하고 답변을 준비하고 있습니다…",
   "loadingHonest": "서버는 완료된 답변만 보내므로 현재 세부 처리 단계는 표시하지 않습니다.",
   "inputLabel": "내 운동에 대한 질문",
+  "responseFormat": {
+    "label": "답변 형식",
+    "option": { "auto": "기본", "table": "표", "chart": "그래프" },
+    "helper": "답변은 검증된 O·RIDER 형식으로만 표시됩니다. 선택한 형식을 우선하며, 데이터가 지원하지 않으면 기본 형식으로 표시합니다.",
+    "tableCaption": "운동 기록 표",
+    "category": "구분",
+    "distributionChartLabel": "운동 기록 분포 그래프",
+    "showLess": "접기",
+    "blockFallbackTitle": "이 결과는 표로 표시합니다",
+    "blockFallbackBody": "그래프로 표시할 유효한 수치가 부족해 검증된 데이터 표를 사용했습니다.",
+    "fallbackTitle": "기본 형식으로 표시합니다",
+    "fallbackBody": "이 답변에는 그래프로 표시할 수 있는 추세 또는 수치 분포 데이터가 없어 검증된 기본 형식을 사용했습니다."
+  },
   "placeholder": {
     "bike": "예: 오늘 사이클의 평균 파워, 심박, 케이던스를 요약해줘.",
     "run": "예: 오늘 러닝의 심박, 케이던스, 시간과 거리를 요약해줘.",
@@ -50,6 +63,8 @@
     "retryQuota": "사용 횟수 다시 확인",
     "followUpSaved": "답변을 저장하고 최신 대화를 불러왔습니다.",
     "submitFailed": "질문을 보내지 못했습니다. 입력 내용은 유지됩니다.",
+    "sameRequestRetry": "같은 요청 결과 다시 확인",
+    "sameRequestRetryNote": "동일한 요청 ID와 답변 형식으로 결과를 다시 확인합니다. 새 사용 횟수를 요청하지 않으며 실제 차감 여부는 서버 응답으로만 확정됩니다.",
     "delete": "대화 삭제",
     "deleteNamed": "{{title}} 대화 삭제",
     "deleteTitle": "이 대화를 삭제할까요?",

@@ -83,14 +83,16 @@ describe("CoachHistoryPage", () => {
     await userEvent.click(jump);
     expect(screen.getByLabelText("이 대화에서 이어 묻기")).toHaveFocus();
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    await userEvent.click(screen.getByRole("radio", { name: "그래프" }));
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
     await waitFor(() => expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({
-      requestId: "323e4567-e89b-42d3-a456-426614174002", question: "지난주와 비교해줘", discipline: "bike",
+      requestId: "323e4567-e89b-42d3-a456-426614174002", question: "지난주와 비교해줘", discipline: "bike", responseFormat: "chart",
     })));
     const original = screen.getByText(`answer ${requestId}`);
     const appended = await screen.findByText("answer 323e4567-e89b-42d3-a456-426614174002");
     expect(original.compareDocumentPosition(appended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("status")).toHaveTextContent("답변을 저장하고 최신 대화를 불러왔습니다.");
+    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
   });
 
   it("drops a late user A list response after the authenticated user changes to B", async () => {
@@ -164,6 +166,29 @@ describe("CoachHistoryPage", () => {
     expect(deleteButton).toBeEnabled();
     await userEvent.click(deleteButton);
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith(threadId));
+  });
+
+  it("retries an unknown follow-up completion with the same request id and response format", async () => {
+    const followUpId = "323e4567-e89b-42d3-a456-426614174002";
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
+    mocks.more.mockRejectedValueOnce(new Error("transport unknown")).mockResolvedValueOnce({ ...response, requestId: followUpId });
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    await userEvent.click(screen.getByRole("radio", { name: "그래프" }));
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    expect(await screen.findByRole("button", { name: "같은 요청 결과 다시 확인" })).toBeInTheDocument();
+    expect(screen.getByText(/동일한 요청 ID와 답변 형식.*새 사용 횟수를 요청하지 않으며.*서버 응답/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이어 묻기" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "같은 요청 결과 다시 확인" }));
+    await waitFor(() => expect(mocks.more).toHaveBeenCalledTimes(2));
+    expect(mocks.more.mock.calls.map((call) => call[0])).toEqual([threadId, threadId]);
+    expect(mocks.more.mock.calls.map((call) => call[1])).toEqual([
+      expect.objectContaining({ requestId: followUpId, responseFormat: "chart" }),
+      expect.objectContaining({ requestId: followUpId, responseFormat: "chart" }),
+    ]);
+    expect(screen.queryByRole("button", { name: "같은 요청 결과 다시 확인" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
   });
 
   it("disables the follow-up jump when today's quota is exhausted", async () => {
