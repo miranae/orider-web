@@ -6,6 +6,7 @@ import type { User } from "firebase/auth";
 import { DialogProvider } from "../../contexts/DialogContext";
 import { CoachQuestionLauncher, retryActionFor } from "./CoachQuestionLauncher";
 import { CoachClientError } from "../../services/coachClient";
+import enCoach from "../../i18n/resources/en/coach.json";
 
 const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), policy: vi.fn(), analytics: {
   open: vi.fn(), submit: vi.fn(), complete: vi.fn(), evidenceExpand: vi.fn(), actionClick: vi.fn(), limitSeen: vi.fn(),
@@ -30,7 +31,7 @@ const disciplinePrompts = [
   {
     discipline: "bike" as const,
     placeholder: "예: 오늘 사이클의 평균 파워, 심박, 케이던스를 요약해줘.",
-    labels: ["8주 사이클 추세", "오늘 사이클 요약", "주간 사이클 비교"],
+    labels: ["최근 8주 사이클", "오늘 사이클", "이번 주 사이클"],
     prompts: [
       "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
       "오늘 사이클의 평균 파워, 심박, 케이던스를 근거와 함께 요약해줘.",
@@ -40,7 +41,7 @@ const disciplinePrompts = [
   {
     discipline: "run" as const,
     placeholder: "예: 오늘 러닝의 심박, 케이던스, 시간과 거리를 요약해줘.",
-    labels: ["8주 러닝 추세", "오늘 러닝 요약", "주간 러닝 비교"],
+    labels: ["최근 8주 러닝", "오늘 러닝", "이번 주 러닝"],
     prompts: [
       "최근 8주 러닝 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
       "오늘 러닝의 평균 심박과 케이던스를 보여주고, 운동 시간과 거리 합계를 근거와 함께 요약해줘.",
@@ -50,7 +51,7 @@ const disciplinePrompts = [
   {
     discipline: "swim" as const,
     placeholder: "예: 오늘 수영의 심박, 시간과 거리를 요약해줘.",
-    labels: ["8주 수영 추세", "오늘 수영 요약", "주간 수영 비교"],
+    labels: ["최근 8주 수영", "오늘 수영", "이번 주 수영"],
     prompts: [
       "최근 8주 수영 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
       "오늘 수영의 평균 심박을 보여주고, 운동 시간과 거리 합계를 근거와 함께 요약해줘.",
@@ -58,6 +59,15 @@ const disciplinePrompts = [
     ],
   },
 ];
+
+it("keeps every English visible prompt label inside its accessible question name", () => {
+  for (const discipline of ["bike", "run", "swim"] as const) {
+    for (const index of ["1", "2", "3"] as const) {
+      expect(enCoach.suggestions[discipline][index].toLocaleLowerCase())
+        .toContain(enCoach.suggestions.labels[discipline][index].toLocaleLowerCase());
+    }
+  }
+});
 const answer = {
   requestId: "123e4567-e89b-42d3-a456-426614174000", status: "ok", reasonCode: "completed", intent: "summary",
   answer: { blocks: [{ kind: "headline", parts: [{ type: "text", text: "이번 주 훈련량이 높았습니다." }] }], actionCode: "OPEN_PLAN" },
@@ -140,7 +150,10 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveAttribute("placeholder", placeholder);
     const quickPrompts = screen.getByRole("heading", { name: "이런 질문을 해보세요" }).closest(".coach-sheet__quick-prompts");
     expect(within(quickPrompts!).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual(prompts);
-    labels.forEach((label) => expect(within(quickPrompts!).getByText(label)).toBeInTheDocument());
+    labels.forEach((label, index) => {
+      expect(prompts[index].toLocaleLowerCase()).toContain(label.toLocaleLowerCase());
+      expect(within(quickPrompts!).getByText(label)).toBeInTheDocument();
+    });
   });
 
   it("disables the composer and every suggestion when the authoritative quota is exhausted", async () => {
