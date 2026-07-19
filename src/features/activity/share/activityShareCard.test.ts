@@ -15,6 +15,7 @@ function context() {
     fillStyle: "",
     strokeStyle: "",
     lineWidth: 0,
+    filter: "none",
     font: "",
     fillRect: vi.fn(),
     fillText: vi.fn(),
@@ -29,10 +30,12 @@ function context() {
     stroke: vi.fn(),
     fillRectStyles: [] as string[],
     fillTextStyles: [] as string[],
+    drawImageFilters: [] as string[],
   };
   ctx.fillRect.mockImplementation(() => ctx.fillRectStyles.push(ctx.fillStyle));
   ctx.fillText.mockImplementation(() => ctx.fillTextStyles.push(ctx.fillStyle));
-  return ctx as unknown as CanvasRenderingContext2D & { fillRectStyles: string[]; fillTextStyles: string[] };
+  ctx.drawImage.mockImplementation(() => ctx.drawImageFilters.push(ctx.filter));
+  return ctx as unknown as CanvasRenderingContext2D & { fillRectStyles: string[]; fillTextStyles: string[]; drawImageFilters: string[] };
 }
 
 describe("drawActivityShareCard privacy", () => {
@@ -122,18 +125,37 @@ describe("drawActivityShareCard privacy", () => {
     expect(labels).toContain("RH 89%  ·  E 1.5 m/s");
   });
 
-  it("places the Orider mark immediately left of the wordmark", async () => {
+  it("places the Orider lockup at the top left", async () => {
     const ctx = context();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     await drawActivityShareCard(cardInput());
-    expect(ctx.fillText).toHaveBeenCalledWith("O·RIDER", 1056, 28);
-    expect(ctx.fillRect).toHaveBeenCalledWith(936, 15, 14, 14);
+    expect(ctx.fillText).toHaveBeenCalledWith("O·RIDER", 44, 28);
+    expect(ctx.fillRect).toHaveBeenCalledWith(24, 15, 14, 14);
     const markCall = vi.mocked(ctx.fillRect).mock.calls.findIndex(([x, y, width, height]) =>
-      x === 936 && y === 15 && width === 14 && height === 14,
+      x === 24 && y === 15 && width === 14 && height === 14,
     );
     expect(ctx.fillRectStyles[markCall]).toBe("#008986");
     const activityLineCall = vi.mocked(ctx.fillText).mock.calls.findIndex(([text]) => text === "Ride · Today");
     expect(ctx.fillTextStyles[activityLineCall]).toBe("#FFFFFF");
+  });
+
+  it("restores saturation for the Korean static map only", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    class LoadedImage {
+      crossOrigin = ""; naturalWidth = 1080; naturalHeight = 600;
+      onload: (() => void) | null = null; onerror: (() => void) | null = null; private value = "";
+      set src(value: string) { this.value = value; if (value) queueMicrotask(() => this.onload?.()); }
+      get src() { return this.value; }
+    }
+    vi.stubGlobal("Image", LoadedImage);
+
+    await drawActivityShareCard({
+      ...cardInput(), includeRouteImage: true,
+      routeImageUrl: "https://api.mapbox.com/styles/v1/orider/cmp9okm6p006c01snfd3dexqb/static/map.png",
+    });
+    expect(ctx.drawImageFilters).toEqual(["saturate(2) brightness(.91) hue-rotate(-12deg) contrast(1.08)"]);
+    expect(ctx.filter).toBe("none");
   });
 
   it("draws the route map once without a map-wide shade overlay", async () => {
@@ -149,6 +171,8 @@ describe("drawActivityShareCard privacy", () => {
     const canvas = await drawActivityShareCard({ ...cardInput(), includeRouteImage: true, routeImageUrl: "https://example.com/map.png" });
     expect(canvas.height).toBe(600);
     expect(ctx.drawImage).toHaveBeenCalledOnce();
+    expect(ctx.drawImageFilters).toEqual(["none"]);
+    expect(ctx.filter).toBe("none");
     expect(ctx.createLinearGradient).not.toHaveBeenCalled();
     expect(ctx.fillText).not.toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 1056, 558);
   });
@@ -175,7 +199,7 @@ describe("drawActivityShareCard privacy", () => {
     expect(ctx.fillText).toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 1056, 558);
   });
 
-  it("keeps non-profile text inside the right rail and groups profile text with its chart", async () => {
+  it("keeps activity text inside the right rail and groups profile text with its chart", async () => {
     const ctx = context();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     await drawActivityShareCard({
@@ -184,7 +208,9 @@ describe("drawActivityShareCard privacy", () => {
       performanceMetrics: Array.from({ length: 6 }, (_, index) => ({ label: `Metric ${index}`, value: String(index) })),
     });
     const localProfileText = "Elevation profile · Elevation 100 m";
-    expect(vi.mocked(ctx.fillText).mock.calls.every(([text, x]) => text === localProfileText ? x === 332 : Number(x) >= 756)).toBe(true);
+    expect(vi.mocked(ctx.fillText).mock.calls.every(([text, x]) =>
+      text === "O·RIDER" ? x === 44 : text === localProfileText ? x === 332 : Number(x) >= 756,
+    )).toBe(true);
     const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text));
     expect(labels.filter((text) => text === "100 m")).toHaveLength(0);
     expect(labels.filter((text) => text === "Elevation")).toHaveLength(0);

@@ -54,6 +54,8 @@ const RIGHT_RAIL_WIDTH = RIGHT_RAIL_RIGHT - RIGHT_RAIL_LEFT;
 const ORIDER_BRAND = "#008986";
 const ORIDER_BRAND_DARK = "#006F6C";
 const ORIDER_BRAND_LIGHT = "#4FD5D1";
+const KOREAN_MAP_STYLE_ID = "orider/cmp9okm6p006c01snfd3dexqb";
+const KOREAN_MAP_FILTER = "saturate(2) brightness(.91) hue-rotate(-12deg) contrast(1.08)";
 
 function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -106,11 +108,14 @@ function boundedText(ctx: CanvasRenderingContext2D, text: string, maxWidth: numb
   return end > 0 ? `${text.slice(0, end).trimEnd()}…` : "…";
 }
 
-function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement): void {
+function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, filter = "none"): void {
   const scale = Math.min(WIDTH / image.naturalWidth, MAP_HEIGHT / image.naturalHeight);
   const width = image.naturalWidth * scale;
   const height = image.naturalHeight * scale;
+  const previousFilter = ctx.filter;
+  ctx.filter = filter;
   ctx.drawImage(image, (WIDTH - width) / 2, (MAP_HEIGHT - height) / 2, width, height);
+  ctx.filter = previousFilter;
 }
 
 function drawOriderMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
@@ -181,7 +186,8 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   if (image) {
     ctx.fillStyle = "#dce8e3";
     ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
-    drawContainedImage(ctx, image);
+    const mapFilter = loadedImage?.url.includes(KOREAN_MAP_STYLE_ID) ? KOREAN_MAP_FILTER : "none";
+    drawContainedImage(ctx, image, mapFilter);
   } else {
     const mapFallback = ctx.createLinearGradient(0, 0, WIDTH, MAP_HEIGHT);
     mapFallback.addColorStop(0, "#17695d");
@@ -195,12 +201,12 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.shadowBlur = 5;
   ctx.shadowOffsetY = 1;
   ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "right";
+  ctx.textAlign = "left";
   ctx.font = `800 14px ${mono}`;
-  ctx.fillText("O·RIDER", RIGHT_RAIL_RIGHT, 28);
-  const wordmarkWidth = ctx.measureText("O·RIDER").width;
-  drawOriderMark(ctx, RIGHT_RAIL_RIGHT - wordmarkWidth - 20, 15, 14);
+  drawOriderMark(ctx, 24, 15, 14);
   ctx.fillStyle = "#FFFFFF";
+  ctx.fillText("O·RIDER", 44, 28);
+  ctx.textAlign = "right";
   ctx.font = `700 10px ${mono}`;
   weatherLines(input.weather).forEach((line, index) =>
     ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 48 + index * 15),
