@@ -19,6 +19,7 @@ import { FirstUseCoachConsent } from "./FirstUseCoachConsent";
 import { subscribeCoachConsentSessionReset } from "./consentSessionBoundary";
 import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
 import { CoachAnswerDocumentView } from "./CoachAnswerDocument";
+import { safeClarificationText } from "./coachClarificationText";
 import "./coach-question.css";
 
 type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
@@ -421,23 +422,6 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
       }} />}
     </>
   );
-}
-
-function safeClarificationText(key: string, kind: "prompt" | "option", t: (key: string, options?: Record<string, unknown>) => string,
-  fallbackId?: string): string {
-  const allowlist: Record<string, string> = {
-    "coach.clarification.time_range": "clarification.prompt.time_range",
-    "coach.clarify.discipline": "clarification.prompt.discipline",
-    "coach.clarification.this_week": "clarification.option.this_week",
-    "coach.clarification.last_week": "clarification.option.last_week",
-    "coach.clarification.bike": "clarification.option.bike",
-    "coach.clarification.run": "clarification.option.run",
-    "coach.clarification.swim": "clarification.option.swim",
-  };
-  const mapped = allowlist[key];
-  if (mapped) return t(mapped);
-  return t(kind === "prompt" ? "clarification.prompt.generic" : "clarification.option.generic",
-    { value: fallbackId?.replace(/_/g, " ") ?? "" });
 }
 
 function suggestedQuestion(templateId: string, locale: string): string | null {
