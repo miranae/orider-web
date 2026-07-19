@@ -126,7 +126,7 @@
   "table.rank": "#",
   "table.rider": "라이더",
   "table.time": "시간",
-  "table.avgSpeed": "평속",
+  "table.segmentAvgSpeed": "구간 평속",
   "table.power": "파워",
   "table.heartrate": "심박",
   "table.date": "날짜",

@@ -126,7 +126,7 @@
   "table.rank": "#",
   "table.rider": "Rider",
   "table.time": "Time",
-  "table.avgSpeed": "Avg Speed",
+  "table.segmentAvgSpeed": "Segment Avg Speed",
   "table.power": "Power",
   "table.heartrate": "Heart Rate",
   "table.date": "Date",
