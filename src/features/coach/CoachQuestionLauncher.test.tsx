@@ -120,7 +120,8 @@ describe("CoachQuestionLauncher", () => {
     await screen.findByText("오늘 3회 남음");
 
     expect(screen.getByText("내 운동 기록을 근거로 답합니다.")).toBeInTheDocument();
-    expect(screen.getByText("이전 질문의 맥락은 이어지지 않아요.")).toBeInTheDocument();
+    expect(screen.getByText("새 질문은 새 대화로 저장됩니다.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "대화 내역" })).toBeInTheDocument();
     expect(screen.getByText("사이클 기록 분석")).toBeInTheDocument();
     expect(screen.queryByText("서버가 질문에서 기간 확인")).not.toBeInTheDocument();
     expect(screen.queryByText("0/1000")).not.toBeInTheDocument();
@@ -415,7 +416,7 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByRole("button", { name: "이번 주 사이클 운동 시간과 TSS 합계를 지난 주와 비교해, 차이를 한눈에 확인할 수 있게 근거와 함께 보여줘." })).toHaveFocus();
     const outside = document.createElement("button"); document.body.appendChild(outside); outside.focus();
     await userEvent.tab();
-    expect(within(screen.getByRole("dialog", { name: "O·RIDER Coach" })).getByRole("button", { name: "AI 코치 닫기" })).toHaveFocus();
+    expect(within(screen.getByRole("dialog", { name: "O·RIDER Coach" })).getByRole("button", { name: "대화 내역" })).toHaveFocus();
     outside.remove();
     await userEvent.keyboard("{Escape}");
     expect(trigger).toHaveFocus();

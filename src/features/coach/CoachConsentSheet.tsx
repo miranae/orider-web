@@ -89,6 +89,8 @@ export function CoachConsentSheet({ open, stale, saving, error, policy, onCancel
         </header>
         <div className="coach-consent-sheet__body">
           <CoachPolicyDisclosure policy={policy} stale={stale} mode="compact" />
+          <Text as="p" variant="bodySmall" tone="secondary">{t("coach.conversationContextNote")}</Text>
+          <Text as="p" variant="bodySmall" tone="secondary">{t("coach.consentPersistenceNote")}</Text>
           {error && <Text as="p" variant="bodySmall" tone="danger" role="alert">{t("coach.saveFailed")}</Text>}
         </div>
         <div className="app-dialog__actions coach-consent-sheet__actions">

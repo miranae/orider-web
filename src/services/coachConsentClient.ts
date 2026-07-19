@@ -2,7 +2,8 @@ import { auth, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 
 export type CoachConsentState = "missing" | "current" | "stale" | "revoked";
-export type CoachDataCategory = "user_question" | "training_summary" | "fitness_metrics" | "active_goal" | "workout_plan";
+export type CoachDataCategory = "user_question" | "training_summary" | "fitness_metrics" | "active_goal" | "workout_plan"
+  | "verified_answer" | "answer_evidence" | "thread_metadata";
 
 export interface CoachConsentStatus {
   currentPolicyVersion: string;
@@ -54,6 +55,7 @@ function endpoint(path: string): string {
 
 const DATA_CATEGORIES = new Set<CoachDataCategory>([
   "user_question", "training_summary", "fitness_metrics", "active_goal", "workout_plan",
+  "verified_answer", "answer_evidence", "thread_metadata",
 ]);
 
 function categories(value: unknown): CoachDataCategory[] | null {

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingsCard, InlineRow } from "./_primitives";
-import { Button } from "../../theme/components";
+import { History } from "lucide-react";
+import { Button, buttonClass } from "../../theme/components";
+import { LocalizedLink } from "../LocalizedLink";
 import { useDialog } from "../../contexts/DialogContext";
 import { useToast } from "../../contexts/ToastContext";
 import {
@@ -78,11 +80,12 @@ export function PaneAiCoach() {
     <>
       <SettingsCard title={t("coach.cardTitle")}>
         <p>{t("coach.cardDescription")}</p>
-        <InlineRow label={t("coach.processingLabel")} hint={t("coach.noHistory") }>
+        <InlineRow label={t("coach.processingLabel")} hint={t("coach.historyRetention") }>
           <strong>{loading ? t("coach.checking") : t(valid ? "coach.statusAccepted" : `coach.status.${state}`)}</strong>
         </InlineRow>
         {policy && <InlineRow label={t("coach.policyVersion")}><code>{policy.policyVersion}</code></InlineRow>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+          <LocalizedLink to="/coach" className={buttonClass({ variant: "secondary" })}><History size={16} aria-hidden />{t("coach.manageHistory")}</LocalizedLink>
           {!valid && <Button disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
           {valid && <Button variant="danger" disabled={saving} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>

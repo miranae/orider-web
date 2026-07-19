@@ -9,6 +9,9 @@ const categoryKeys: Record<CoachDataCategory, string> = {
   fitness_metrics: "coach.category.fitnessMetrics",
   active_goal: "coach.category.activeGoal",
   workout_plan: "coach.category.workoutPlan",
+  verified_answer: "coach.category.verifiedAnswer",
+  answer_evidence: "coach.category.answerEvidence",
+  thread_metadata: "coach.category.threadMetadata",
 };
 
 function PolicyLink({ href, children }: { href: string; children: React.ReactNode }) {
