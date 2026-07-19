@@ -29,6 +29,7 @@
   min-height: 0;
   overflow-y: auto;
   padding-block-start: 0;
+  padding-block-end: calc(var(--space-8) + var(--space-8));
   overscroll-behavior: contain;
 }
 
@@ -120,6 +121,10 @@
 
   .coach-consent-sheet__actions {
     padding-block-end: max(var(--space-4), env(safe-area-inset-bottom));
+  }
+
+  .coach-consent-sheet__body {
+    padding-block-end: calc(var(--space-8) + var(--space-8) + env(safe-area-inset-bottom));
   }
 
   .coach-consent-sheet__actions .ds-btn {

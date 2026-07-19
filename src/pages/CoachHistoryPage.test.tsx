@@ -76,6 +76,8 @@ describe("CoachHistoryPage", () => {
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
     expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 12 KiB\).*외부 AI 처리/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기로 이동" }));
+    expect(screen.getByLabelText("이 대화에서 이어 묻기")).toHaveFocus();
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
     await waitFor(() => expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({

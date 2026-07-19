@@ -31,40 +31,41 @@ const disciplinePrompts = [
   {
     discipline: "bike" as const,
     placeholder: "예: 오늘 사이클의 평균 파워, 심박, 케이던스를 요약해줘.",
-    labels: ["최근 8주 사이클", "오늘 사이클", "이번 주 사이클"],
+    labels: ["FTP 목표 코칭", "오늘 운동 리뷰", "한 달 몸 상태"],
     prompts: [
-      "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
-      "오늘 사이클의 평균 파워, 심박, 케이던스를 근거와 함께 요약해줘.",
-      "이번 주 사이클 운동 시간과 TSS 합계를 지난 주와 비교해, 차이를 한눈에 확인할 수 있게 근거와 함께 보여줘.",
+      "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.",
+      "오늘 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동을 처방해줘.",
+      "최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태를 분석해줘.",
     ],
   },
   {
     discipline: "run" as const,
     placeholder: "예: 오늘 러닝의 심박, 케이던스, 시간과 거리를 요약해줘.",
-    labels: ["최근 8주 러닝", "오늘 러닝", "이번 주 러닝"],
+    labels: ["10km 목표 코칭", "오늘 운동 리뷰", "한 달 몸 상태"],
     prompts: [
-      "최근 8주 러닝 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
-      "오늘 러닝의 평균 심박과 케이던스를 보여주고, 운동 시간과 거리 합계를 근거와 함께 요약해줘.",
-      "이번 주 러닝 운동 시간과 거리 합계를 지난 주와 비교해, 차이를 한눈에 확인할 수 있게 근거와 함께 보여줘.",
+      "10km 50분을 달성하고 싶어. 최근 한 달 러닝 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.",
+      "오늘 러닝 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 러닝을 처방해줘.",
+      "최근 한 달 러닝 기록을 확인하고 체력·피로·회복 상태를 분석해줘.",
     ],
   },
   {
     discipline: "swim" as const,
     placeholder: "예: 오늘 수영의 심박, 시간과 거리를 요약해줘.",
-    labels: ["최근 8주 수영", "오늘 수영", "이번 주 수영"],
+    labels: ["1,500m 목표 코칭", "오늘 운동 리뷰", "한 달 몸 상태"],
     prompts: [
-      "최근 8주 수영 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
-      "오늘 수영의 평균 심박을 보여주고, 운동 시간과 거리 합계를 근거와 함께 요약해줘.",
-      "이번 주 수영 운동 시간과 거리 합계를 지난 주와 비교해, 차이를 한눈에 확인할 수 있게 근거와 함께 보여줘.",
+      "자유형 1,500m 30분을 달성하고 싶어. 최근 한 달 수영 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.",
+      "오늘 수영 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 수영을 처방해줘.",
+      "최근 한 달 수영 기록을 확인하고 체력·피로·회복 상태를 분석해줘.",
     ],
   },
 ];
 
-it("keeps every English visible prompt label inside its accessible question name", () => {
+it("keeps every English coaching label and question complete", () => {
   for (const discipline of ["bike", "run", "swim"] as const) {
     for (const index of ["1", "2", "3"] as const) {
-      expect(enCoach.suggestions[discipline][index].toLocaleLowerCase())
-        .toContain(enCoach.suggestions.labels[discipline][index].toLocaleLowerCase());
+      expect(enCoach.suggestions.labels[discipline][index].trim().length).toBeGreaterThan(0);
+      expect(enCoach.suggestions[discipline][index].trim().length).toBeGreaterThan(20);
+      expect(enCoach.suggestions[discipline][index].length).toBeLessThanOrEqual(1000);
     }
   }
 });
@@ -136,12 +137,12 @@ describe("CoachQuestionLauncher", () => {
 
     const submit = screen.getByRole("button", { name: "질문하기" });
     expect(submit).toHaveClass("ds-btn--primary", "ds-btn--block");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
-    expect(composer).toHaveValue("최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.");
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." }));
+    expect(composer).toHaveValue("FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.");
     expect(composer).toHaveFocus();
-    expect(screen.queryByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "오늘 사이클의 평균 파워, 심박, 케이던스를 근거와 함께 요약해줘." })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "이번 주 사이클 운동 시간과 TSS 합계를 지난 주와 비교해, 차이를 한눈에 확인할 수 있게 근거와 함께 보여줘." })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "오늘 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동을 처방해줘." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태를 분석해줘." })).toBeInTheDocument();
   });
 
   it.each(disciplinePrompts)("shows only $discipline prompts and placeholder", async ({ discipline, placeholder, labels, prompts }) => {
@@ -152,7 +153,6 @@ describe("CoachQuestionLauncher", () => {
     const quickPrompts = screen.getByRole("heading", { name: "이런 질문을 해보세요" }).closest(".coach-sheet__quick-prompts");
     expect(within(quickPrompts!).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual(prompts);
     labels.forEach((label, index) => {
-      expect(prompts[index].toLocaleLowerCase()).toContain(label.toLocaleLowerCase());
       expect(within(quickPrompts!).getByText(label)).toBeInTheDocument();
     });
   });
@@ -182,7 +182,7 @@ describe("CoachQuestionLauncher", () => {
       },
     });
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("현재 지원하지 않는 질문입니다")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "최근 주별 운동 추세를 보여줘." })).toBeDisabled();
@@ -206,7 +206,7 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("이번 주 훈련량이 높았습니다.")).toBeInTheDocument();
     expect(screen.getByText("이번 주 훈련량이 높았습니다.").closest(".coach-result__answer")).toHaveClass("coach-result__answer--hero");
@@ -218,13 +218,13 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByText("훈련 부하")).toBeInTheDocument();
     expect(mocks.ask).toHaveBeenCalledTimes(calls);
     expect(mocks.analytics.submit).toHaveBeenCalledWith("suggestion_1");
-    expect(JSON.stringify(mocks.analytics.submit.mock.calls)).not.toContain("최근 8주 사이클 체력");
+    expect(JSON.stringify(mocks.analytics.submit.mock.calls)).not.toContain("FTP 3.5 W/kg");
   });
 
   it("announces a non-urgent stale legacy answer as status rather than an assertive alert", async () => {
     mocks.ask.mockResolvedValue({ ...answer, status: "stale", reasonCode: "stale" });
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "오늘 사이클의 평균 파워, 심박, 케이던스를 근거와 함께 요약해줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "오늘 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동을 처방해줘." }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("일부 최신 계산을 기다리는 중입니다");
@@ -251,7 +251,7 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "같은 요청 다시 확인" }));
@@ -272,7 +272,7 @@ describe("CoachQuestionLauncher", () => {
     }));
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" })); await screen.findByText("이번 주 훈련량이 높았습니다.");
     await userEvent.click(screen.getByRole("button", { name: "1회 사용하고 다시 질문" }));
     const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
@@ -296,7 +296,7 @@ describe("CoachQuestionLauncher", () => {
       ...answer, reasonCode, retry: { ...answer.retry, mode: "same_request_resume", retryable: true },
     });
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await screen.findByText("이번 주 훈련량이 높았습니다.");
     expect(screen.queryByRole("button", { name: /같은 요청|결과 다시|저장된 결과|1회 사용/ })).not.toBeInTheDocument();
   });
@@ -305,7 +305,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockResolvedValueOnce({ ...answer, retry: { ...answer.retry, mode: "same_request_poll", retryable: false } })
       .mockResolvedValueOnce({ ...answer, retry: { ...answer.retry, mode: "none", retryable: true } });
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByRole("button", { name: "결과 다시 확인" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "결과 다시 확인" }));
     await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
@@ -320,7 +320,7 @@ describe("CoachQuestionLauncher", () => {
   ])("shows a non-retry fixed state for %s", async (failure, title) => {
     mocks.ask.mockRejectedValue(failure); setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText(title)).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(failure.code);
     expect(screen.queryByRole("button", { name: /같은 요청|결과 다시|저장된 결과|1회 사용/ })).not.toBeInTheDocument();
@@ -341,7 +341,7 @@ describe("CoachQuestionLauncher", () => {
     if (result instanceof Error) mocks.ask.mockRejectedValue(result);
     else mocks.ask.mockResolvedValue(result);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("AI 코치를 준비하고 있습니다")).toBeInTheDocument();
     expect(screen.getByText(/사용 횟수는 차감되지 않았습니다/)).toBeInTheDocument();
@@ -354,7 +354,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockResolvedValueOnce({ ...answer, retry: { ...answer.retry, mode: "same_request_resume" } })
       .mockRejectedValueOnce(new CoachClientError("http", "invalid_request"));
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await screen.findByText("이번 주 훈련량이 높았습니다.");
     await userEvent.click(screen.getByRole("button", { name: "같은 요청 다시 확인" }));
     expect(await screen.findByText("이 요청을 처리할 수 없습니다")).toBeInTheDocument();
@@ -368,7 +368,7 @@ describe("CoachQuestionLauncher", () => {
   it("treats a response requestId mismatch as a non-retry compatibility failure", async () => {
     mocks.ask.mockResolvedValue({ ...answer, requestId: "323e4567-e89b-42d3-a456-426614174002" });
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("이 답변을 안전하게 표시할 수 없습니다")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /같은 요청|결과 다시|저장된 결과|1회 사용/ })).not.toBeInTheDocument();
   });
@@ -379,10 +379,10 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
       .mockImplementationOnce(async (input) => ({ ...answer, requestId: input.requestId }));
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await screen.findByText("답변을 확인하지 못했습니다");
     expect(screen.queryByLabelText("내 운동에 대한 질문")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "다른 질문하기" }));
     await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "새로운 독립 질문");
     await userEvent.click(screen.getByRole("button", { name: "질문하기" })); await screen.findByText("이번 주 훈련량이 높았습니다.");
@@ -413,7 +413,7 @@ describe("CoachQuestionLauncher", () => {
     await screen.findByText("오늘 3회 남음");
     const heading = screen.getByRole("heading", { name: "O·RIDER Coach" });
     heading.focus(); await userEvent.tab({ shift: true });
-    expect(screen.getByRole("button", { name: "이번 주 사이클 운동 시간과 TSS 합계를 지난 주와 비교해, 차이를 한눈에 확인할 수 있게 근거와 함께 보여줘." })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태를 분석해줘." })).toHaveFocus();
     const outside = document.createElement("button"); document.body.appendChild(outside); outside.focus();
     await userEvent.tab();
     expect(within(screen.getByRole("dialog", { name: "O·RIDER Coach" })).getByRole("button", { name: "대화 내역" })).toHaveFocus();
@@ -426,7 +426,7 @@ describe("CoachQuestionLauncher", () => {
     let resolve!: (value: typeof answer) => void;
     mocks.ask.mockReturnValue(new Promise((done) => { resolve = done; }));
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(screen.getByRole("dialog", { name: "O·RIDER Coach" })).toHaveFocus();
     expect(document.querySelector(".coach-sheet__backdrop")).toBeDisabled();
     resolve(answer); await screen.findByText("이번 주 훈련량이 높았습니다.");
@@ -450,7 +450,7 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("자전거 전용 초안");
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 러닝 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); mocks.ask.mockResolvedValue(answer);
+    await userEvent.click(screen.getByRole("button", { name: "10km 50분을 달성하고 싶어. 최근 한 달 러닝 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); mocks.ask.mockResolvedValue(answer);
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await waitFor(() => expect(mocks.ask).toHaveBeenCalled());
     expect(mocks.ask.mock.calls[mocks.ask.mock.calls.length - 1]?.[0].discipline).toBe("run");
@@ -461,7 +461,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockReturnValue(new Promise((done) => { resolve = done; }));
     const view = setup(user, "bike");
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(screen.getByText("운동 기록을 확인하고 답변을 준비하고 있습니다…")).toBeInTheDocument();
     view.rerender(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="run" onSignIn={vi.fn()} /></DialogProvider></MemoryRouter>);
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
@@ -477,7 +477,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     act(() => window.dispatchEvent(new CustomEvent("orider:coach-consent-revoked")));
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
     reject(new CoachClientError("transport", "NETWORK_ERROR"));
@@ -496,7 +496,7 @@ describe("CoachQuestionLauncher", () => {
         reasonCode: "time_range_required" } };
     mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("어느 기간을 분석할까요?")).toBeInTheDocument();
     expect(screen.getByText("이 선택은 추가 사용 없음 · AI 호출 0회")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("radio", { name: "이번 주" }));
@@ -516,7 +516,7 @@ describe("CoachQuestionLauncher", () => {
         reasonCode: "time_range_required" } };
     mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await userEvent.click(await screen.findByRole("radio", { name: "지난주" }));
     await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
     const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
@@ -538,7 +538,7 @@ describe("CoachQuestionLauncher", () => {
         reasonCode: "custom_period_required" } };
     mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("추가 분석 조건을 선택해 주세요")).toBeInTheDocument();
     expect(screen.getByText("확인 후 새 질문 1회를 사용하며 질문에 따라 AI를 최대 1회 호출할 수 있습니다")).toBeInTheDocument();
     expect(screen.queryByText(/AI 호출 0회/)).not.toBeInTheDocument();
@@ -563,7 +563,7 @@ describe("CoachQuestionLauncher", () => {
       evidence: [atEvidence, valueEvidence] } };
     mocks.ask.mockResolvedValue(loadResponse);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘." }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await screen.findByRole("button", { name: "차트와 표로 보기" });
     expect(mocks.ask).toHaveBeenCalledOnce();
