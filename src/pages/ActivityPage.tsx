@@ -71,7 +71,7 @@ import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignal
 
 
 export default function ActivityPage() {
-  const { t, i18n } = useTranslation("activity");
+  const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
@@ -123,10 +123,8 @@ export default function ActivityPage() {
   );
   const { pdc: bikePdc } = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
   const shareMapUrl = useMemo(
-    () => activity?.visibility === "everyone"
-      ? buildActivityShareMapUrl(activity.thumbnailTrack, i18n.resolvedLanguage ?? i18n.language)
-      : null,
-    [activity?.thumbnailTrack, activity?.visibility, i18n.language, i18n.resolvedLanguage],
+    () => activity?.visibility === "everyone" ? buildActivityShareMapUrl(activity.thumbnailTrack) : null,
+    [activity?.thumbnailTrack, activity?.visibility],
   );
   // 가상 파워 즉석 재계산 미리보기 (Firestore 저장 안 함). 자전거 활동에서만 구독.
   const isRide = activity ? getSportCategory(activity.type) === "ride" : false;

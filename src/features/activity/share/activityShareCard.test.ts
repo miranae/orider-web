@@ -15,7 +15,6 @@ function context() {
     fillStyle: "",
     strokeStyle: "",
     lineWidth: 0,
-    filter: "none",
     font: "",
     fillRect: vi.fn(),
     fillText: vi.fn(),
@@ -30,12 +29,10 @@ function context() {
     stroke: vi.fn(),
     fillRectStyles: [] as string[],
     fillTextStyles: [] as string[],
-    drawImageFilters: [] as string[],
   };
   ctx.fillRect.mockImplementation(() => ctx.fillRectStyles.push(ctx.fillStyle));
   ctx.fillText.mockImplementation(() => ctx.fillTextStyles.push(ctx.fillStyle));
-  ctx.drawImage.mockImplementation(() => ctx.drawImageFilters.push(ctx.filter));
-  return ctx as unknown as CanvasRenderingContext2D & { fillRectStyles: string[]; fillTextStyles: string[]; drawImageFilters: string[] };
+  return ctx as unknown as CanvasRenderingContext2D & { fillRectStyles: string[]; fillTextStyles: string[] };
 }
 
 describe("drawActivityShareCard privacy", () => {
@@ -139,25 +136,6 @@ describe("drawActivityShareCard privacy", () => {
     expect(ctx.fillTextStyles[activityLineCall]).toBe("#FFFFFF");
   });
 
-  it("restores saturation for the Korean static map only", async () => {
-    const ctx = context();
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
-    class LoadedImage {
-      crossOrigin = ""; naturalWidth = 1080; naturalHeight = 600;
-      onload: (() => void) | null = null; onerror: (() => void) | null = null; private value = "";
-      set src(value: string) { this.value = value; if (value) queueMicrotask(() => this.onload?.()); }
-      get src() { return this.value; }
-    }
-    vi.stubGlobal("Image", LoadedImage);
-
-    await drawActivityShareCard({
-      ...cardInput(), includeRouteImage: true,
-      routeImageUrl: "https://api.mapbox.com/styles/v1/orider/cmp9okm6p006c01snfd3dexqb/static/map.png",
-    });
-    expect(ctx.drawImageFilters).toEqual(["saturate(2) brightness(.91) hue-rotate(-12deg) contrast(1.08)"]);
-    expect(ctx.filter).toBe("none");
-  });
-
   it("draws the route map once without a map-wide shade overlay", async () => {
     const ctx = context();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
@@ -171,8 +149,6 @@ describe("drawActivityShareCard privacy", () => {
     const canvas = await drawActivityShareCard({ ...cardInput(), includeRouteImage: true, routeImageUrl: "https://example.com/map.png" });
     expect(canvas.height).toBe(600);
     expect(ctx.drawImage).toHaveBeenCalledOnce();
-    expect(ctx.drawImageFilters).toEqual(["none"]);
-    expect(ctx.filter).toBe("none");
     expect(ctx.createLinearGradient).not.toHaveBeenCalled();
     expect(ctx.fillText).not.toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 1056, 558);
   });
