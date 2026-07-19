@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 function context() {
-  return {
+  const ctx = {
     fillStyle: "",
     strokeStyle: "",
     lineWidth: 0,
@@ -27,7 +27,10 @@ function context() {
     closePath: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
-  } as unknown as CanvasRenderingContext2D;
+    fillRectStyles: [] as string[],
+  };
+  ctx.fillRect.mockImplementation(() => ctx.fillRectStyles.push(ctx.fillStyle));
+  return ctx as unknown as CanvasRenderingContext2D & { fillRectStyles: string[] };
 }
 
 describe("drawActivityShareCard privacy", () => {
@@ -87,6 +90,11 @@ describe("drawActivityShareCard privacy", () => {
     expect(ctx.strokeStyle).toBe("#b8ffe8");
     expect(ctx.lineWidth).toBe(2.5);
     expect(ctx.fillText).toHaveBeenCalledWith("Elevation profile · Elevation 100 m", 332, 480);
+    const overlayCall = vi.mocked(ctx.fillRect).mock.calls.findIndex(([x, y, width, height]) =>
+      x === 24 && y === 464 && width === 316 && height === 92,
+    );
+    expect(overlayCall).toBeGreaterThanOrEqual(0);
+    expect(ctx.fillRectStyles[overlayCall]).toBe("rgba(0,0,0,.10)");
     expect(ctx.fillRect).toHaveBeenCalledWith(32, 548, 300, 1);
   });
 
@@ -173,6 +181,7 @@ describe("drawActivityShareCard privacy", () => {
     const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => text);
     expect(labels).not.toContain("Elevation profile");
     expect(labels.filter((text) => text === "O-Rider")).toHaveLength(1);
+    expect(ctx.fillRect).not.toHaveBeenCalledWith(24, 464, 316, 92);
   });
 
   it("stops waiting for a route image after the timeout", async () => {
