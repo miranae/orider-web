@@ -907,7 +907,6 @@ export default function ActivityPage() {
                   includeRouteImage: activity.visibility === "everyone",
                   performanceMetrics: sharePerformanceMetrics,
                   elevationProfile: streams?.altitude?.length && streams.altitude.length >= 2 ? elevData : [],
-                  elevationProfileUnit: elevUnit,
                   weather: activity.weather,
                 }}
                 filename={`orider-activity-${activity.id}.png`}

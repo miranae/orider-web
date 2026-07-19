@@ -39,15 +39,18 @@ export interface ActivityShareCardInput {
   includeRouteImage: boolean;
   performanceMetrics?: ActivityShareMetric[];
   elevationProfile?: ActivityShareElevationPoint[];
-  elevationProfileUnit?: string;
   weather?: ActivityShareWeather;
 }
 
 const IMAGE_TIMEOUT_MS = 8_000;
 const WIDTH = 1080;
-const HEIGHT = 900;
+const HEIGHT = 600;
 const MAP_HEIGHT = 600;
 const MAX_ELEVATION_POINTS = 240;
+const RIGHT_RAIL_X = WIDTH * 0.7;
+const RIGHT_RAIL_LEFT = RIGHT_RAIL_X + 18;
+const RIGHT_RAIL_RIGHT = WIDTH - 24;
+const RIGHT_RAIL_WIDTH = RIGHT_RAIL_RIGHT - RIGHT_RAIL_LEFT;
 
 function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -102,19 +105,22 @@ function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageEleme
   ctx.drawImage(image, (WIDTH - width) / 2, (MAP_HEIGHT - height) / 2, width, height);
 }
 
-function weatherSummary(weather: ActivityShareWeather | undefined): string {
-  if (!weather) return "";
+function weatherLines(weather: ActivityShareWeather | undefined): string[] {
+  if (!weather) return [];
   const code = weather.weatherCode;
   const icon = code == null ? "◌" : code <= 1 ? "☀︎" : code <= 3 ? "☁︎" : code <= 48 ? "≋" : code <= 67 ? "☂︎" : code <= 77 ? "❄︎" : code <= 82 ? "☂︎" : "ϟ";
-  const values = [
+  const temperature = [
     Number.isFinite(weather.temperature) ? `${icon} ${Math.round(weather.temperature!)}°C` : "",
     Number.isFinite(weather.feelsLike) ? `≈ ${Math.round(weather.feelsLike!)}°C` : "",
+  ].filter(Boolean).join("  ·  ");
+  const direction = Number.isFinite(weather.windDirection)
+    ? ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(weather.windDirection! / 45) % 8]
+    : "↗";
+  const conditions = [
     Number.isFinite(weather.humidity) ? `RH ${Math.round(weather.humidity!)}%` : "",
-    Number.isFinite(weather.windSpeed)
-      ? `${weather.windDirection == null ? "↗" : ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(weather.windDirection / 45) % 8]} ${weather.windSpeed!.toFixed(1)} m/s`
-      : "",
-  ].filter(Boolean);
-  return values.join("  ·  ");
+    Number.isFinite(weather.windSpeed) ? `${direction} ${weather.windSpeed!.toFixed(1)} m/s` : "",
+  ].filter(Boolean).join("  ·  ");
+  return [temperature, conditions].filter(Boolean);
 }
 
 function normalizedElevationProfile(points: ActivityShareElevationPoint[] | undefined): ActivityShareElevationPoint[] {
@@ -140,10 +146,6 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   const font = "Pretendard, Inter, system-ui, sans-serif";
   const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
   const bg = "#071311";
-  const ink = "#f5fbf8";
-  const muted = "#98aaa4";
-  const line = "#27413b";
-  const accent = "#23d5a7";
 
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -162,45 +164,42 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.fillStyle = mapFallback;
     ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
   }
+  const elevationProfile = normalizedElevationProfile(input.elevationProfile);
 
   ctx.shadowColor = "rgba(0,0,0,.9)";
   ctx.shadowBlur = 5;
   ctx.shadowOffsetY = 1;
   ctx.fillStyle = "#ffffff";
   ctx.font = `800 14px ${mono}`;
-  ctx.fillText("O·RIDER", 24, 30);
-  const weather = weatherSummary(input.weather);
-  if (weather) {
-    ctx.textAlign = "right";
-    ctx.font = `700 11px ${mono}`;
-    ctx.fillText(boundedText(ctx, weather, 700), 1056, 30);
-    ctx.textAlign = "left";
-  }
+  ctx.fillText("O·RIDER", RIGHT_RAIL_LEFT, 28);
+  ctx.font = `700 10px ${mono}`;
+  weatherLines(input.weather).forEach((line, index) =>
+    ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 48 + index * 15),
+  );
+
+  ctx.font = `600 10px ${font}`;
+  ctx.fillText(boundedText(ctx, `${input.sport} · ${input.date}`, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 88);
+  ctx.font = `800 20px ${font}`;
+  ctx.fillText(boundedText(ctx, input.title, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 114);
+  ctx.font = `500 10px ${font}`;
+  ctx.fillText(boundedText(ctx, input.athlete, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 132);
 
   const metrics = (input.performanceMetrics ?? []).filter((metric) => metric.value).slice(0, 6);
   if (metrics.length > 0) {
     ctx.fillStyle = "#ffffff";
     ctx.font = `700 8px ${font}`;
-    ctx.fillText(boundedText(ctx, input.performanceLabel, 1008), 36, 68);
+    ctx.fillText(boundedText(ctx, input.performanceLabel, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 158);
     metrics.forEach((metric, index) => {
-      const x = 36 + index * 170;
+      const x = RIGHT_RAIL_LEFT + (index % 2) * 145;
+      const y = 178 + Math.floor(index / 2) * 37;
       ctx.fillStyle = "#ffffff";
-      ctx.font = `600 9px ${font}`;
-      ctx.fillText(boundedText(ctx, metric.label, 150), x, 86);
-      ctx.font = `800 13px ${mono}`;
+      ctx.font = `600 8px ${font}`;
+      ctx.fillText(boundedText(ctx, metric.label, 132), x, y);
+      ctx.font = `800 12px ${mono}`;
       const value = metric.unit ? `${metric.value} ${metric.unit}` : metric.value;
-      ctx.fillText(boundedText(ctx, value, 150), x, 104);
+      ctx.fillText(boundedText(ctx, value, 132), x, y + 14);
     });
   }
-
-  ctx.font = `600 11px ${font}`;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(boundedText(ctx, `${input.sport} · ${input.date}`, 1016), 32, 448);
-  ctx.font = `800 23px ${font}`;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(boundedText(ctx, input.title, 1016), 32, 478);
-  ctx.font = `500 11px ${font}`;
-  ctx.fillText(boundedText(ctx, input.athlete, 1016), 32, 496);
 
   const primaryStats: Array<readonly [string, string]> = [
     [input.distance, input.distanceLabel],
@@ -208,34 +207,31 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     [input.elevation, input.elevationLabel],
   ];
   primaryStats.forEach(([value, label], index) => {
-    const x = 32 + index * 344;
+    const x = RIGHT_RAIL_LEFT + index * 94;
     ctx.fillStyle = "#ffffff";
-    ctx.font = `800 17px ${mono}`;
-    ctx.fillText(boundedText(ctx, value, 310), x, 530);
-    ctx.font = `600 9px ${font}`;
-    ctx.fillText(boundedText(ctx, label, 310), x, 545);
+    ctx.font = `800 14px ${mono}`;
+    ctx.fillText(boundedText(ctx, value, 86), x, 306);
+    ctx.font = `600 8px ${font}`;
+    ctx.fillText(boundedText(ctx, label, 86), x, 320);
   });
+  if (elevationProfile.length >= 2) {
+    ctx.font = `700 9px ${font}`;
+    ctx.fillText(boundedText(ctx, `${input.elevationProfileLabel} · ${input.elevationLabel} ${input.elevation}`, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 350);
+  }
+  ctx.font = `500 10px ${font}`;
+  ctx.fillText(boundedText(ctx, input.footer, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 520);
+  ctx.font = `600 9px ${mono}`;
+  ctx.fillText("orider.co.kr", RIGHT_RAIL_LEFT, 540);
+  if (image) {
+    ctx.font = `500 8px ${font}`;
+    ctx.fillText("© Mapbox · © OpenStreetMap", RIGHT_RAIL_LEFT, 558);
+  }
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  const elevationProfile = normalizedElevationProfile(input.elevationProfile);
-  const plot = { left: 40, right: 1040, top: 678, bottom: 789 };
+  const plot = { left: 32, right: 332, top: 500, bottom: 548 };
   if (elevationProfile.length >= 2) {
-    ctx.fillStyle = ink;
-    ctx.font = `700 14px ${font}`;
-    ctx.fillText(boundedText(ctx, input.elevationProfileLabel, 1000), 40, 630);
-    ctx.fillStyle = muted;
-    ctx.font = `600 10px ${font}`;
-    ctx.fillText(boundedText(ctx, `${input.elevationLabel} ${input.elevation}`, 1000), 40, 648);
-    ctx.strokeStyle = line;
-    ctx.lineWidth = 1;
-    [plot.top, (plot.top + plot.bottom) / 2, plot.bottom].forEach((y) => {
-      ctx.beginPath();
-      ctx.moveTo(plot.left, y);
-      ctx.lineTo(plot.right, y);
-      ctx.stroke();
-    });
     const distances = elevationProfile.map((point) => point.distance);
     const elevations = elevationProfile.map((point) => point.elevation);
     const minDistance = Math.min(...distances);
@@ -250,8 +246,8 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
       y: isFlat ? (plot.top + plot.bottom) / 2 : plot.bottom - ((point.elevation - minElevation) / elevationRange) * (plot.bottom - plot.top),
     }));
     const chartFill = ctx.createLinearGradient(0, plot.top, 0, plot.bottom);
-    chartFill.addColorStop(0, "rgba(35,213,167,.58)");
-    chartFill.addColorStop(1, "rgba(35,213,167,.04)");
+    chartFill.addColorStop(0, "rgba(35,213,167,.12)");
+    chartFill.addColorStop(1, "rgba(35,213,167,.01)");
     ctx.beginPath();
     ctx.moveTo(coordinates[0]!.x, plot.bottom);
     coordinates.forEach((point) => ctx.lineTo(point.x, point.y));
@@ -261,32 +257,10 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.fill();
     ctx.beginPath();
     coordinates.forEach((point, index) => index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y));
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(35,213,167,.5)";
+    ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = muted;
-    ctx.font = `600 9px ${mono}`;
-    const elevationUnit = input.elevationProfileUnit ?? "m";
-    const elevationScale = elevationUnit === "ft" ? 3.28084 : 1;
-    if (isFlat) {
-      ctx.fillText(`${Math.round(maxElevation * elevationScale)} ${elevationUnit}`, plot.left, (plot.top + plot.bottom) / 2 - 6);
-    } else {
-      ctx.fillText(`${Math.round(maxElevation * elevationScale)} ${elevationUnit}`, plot.left, plot.top - 6);
-      ctx.fillText(`${Math.round(minElevation * elevationScale)} ${elevationUnit}`, plot.left, plot.bottom + 15);
-    }
-    ctx.textAlign = "right";
-    ctx.fillText(input.distance, plot.right, plot.bottom + 15);
-    ctx.textAlign = "left";
   }
-
-  ctx.fillStyle = muted;
-  ctx.font = `500 12px ${font}`;
-  ctx.fillText(boundedText(ctx, input.footer, 470), 40, 858);
-  ctx.textAlign = "right";
-  ctx.fillText(image ? "orider.co.kr  ·  © Mapbox  ·  © OpenStreetMap" : "orider.co.kr", 1040, 858);
-  ctx.textAlign = "left";
-  ctx.fillStyle = accent;
-  ctx.fillRect(0, 892, WIDTH, 8);
   return canvas;
 }
 

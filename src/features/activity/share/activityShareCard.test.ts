@@ -81,7 +81,8 @@ describe("drawActivityShareCard privacy", () => {
     const coordinates = vi.mocked(ctx.lineTo).mock.calls.flat();
     expect(ctx.fill).toHaveBeenCalledOnce();
     expect(coordinates.every(Number.isFinite)).toBe(true);
-    expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 1040)).toBe(true);
+    expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 332)).toBe(true);
+    expect(vi.mocked(ctx.lineTo).mock.calls.every(([x, y]) => Number(x) >= 32 && Number(x) <= 332 && Number(y) >= 500 && Number(y) <= 548)).toBe(true);
   });
 
   it("handles a flat elevation profile without invalid coordinates", async () => {
@@ -89,8 +90,7 @@ describe("drawActivityShareCard privacy", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     await drawActivityShareCard({ ...cardInput(), elevationProfile: [{ distance: 0, elevation: 120 }, { distance: 1_000, elevation: 120 }] });
     expect(vi.mocked(ctx.lineTo).mock.calls.flat().every(Number.isFinite)).toBe(true);
-    expect(vi.mocked(ctx.fillText).mock.calls.filter(([text]) => text === "120 m")).toHaveLength(1);
-    expect(vi.mocked(ctx.lineTo).mock.calls.some(([, y]) => y === 733.5)).toBe(true);
+    expect(vi.mocked(ctx.lineTo).mock.calls.some(([, y]) => y === 524)).toBe(true);
   });
 
   it("renders compact activity weather on the map", async () => {
@@ -101,7 +101,8 @@ describe("drawActivityShareCard privacy", () => {
       weather: { temperature: 25, feelsLike: 29.8, humidity: 89, windSpeed: 1.5, windDirection: 90, weatherCode: 1 },
     });
     const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text));
-    expect(labels).toContain("☀︎ 25°C  ·  ≈ 30°C  ·  RH 89%  ·  E 1.5 m/s");
+    expect(labels).toContain("☀︎ 25°C  ·  ≈ 30°C");
+    expect(labels).toContain("RH 89%  ·  E 1.5 m/s");
   });
 
   it("draws the route map once without a map-wide shade overlay", async () => {
@@ -115,21 +116,21 @@ describe("drawActivityShareCard privacy", () => {
     }
     vi.stubGlobal("Image", LoadedImage);
     const canvas = await drawActivityShareCard({ ...cardInput(), includeRouteImage: true, routeImageUrl: "https://example.com/map.png" });
-    expect(canvas.height).toBe(900);
+    expect(canvas.height).toBe(600);
     expect(ctx.drawImage).toHaveBeenCalledOnce();
     expect(ctx.createLinearGradient).not.toHaveBeenCalled();
+    expect(ctx.fillText).toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 774, 558);
   });
 
-  it("formats elevation profile bounds in the selected unit", async () => {
+  it("keeps every app-drawn text item inside the rightmost 30 percent", async () => {
     const ctx = context();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     await drawActivityShareCard({
-      ...cardInput(), elevationProfileUnit: "ft",
+      ...cardInput(),
       elevationProfile: [{ distance: 0, elevation: 115 }, { distance: 1_000, elevation: 229 }],
+      performanceMetrics: Array.from({ length: 6 }, (_, index) => ({ label: `Metric ${index}`, value: String(index) })),
     });
-    const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => text);
-    expect(labels).toContain("751 ft");
-    expect(labels).toContain("377 ft");
+    expect(vi.mocked(ctx.fillText).mock.calls.every(([, x]) => Number(x) >= 756)).toBe(true);
   });
 
   it("does not render an empty elevation section or duplicate the footer", async () => {
