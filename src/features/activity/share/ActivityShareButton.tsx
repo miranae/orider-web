@@ -4,6 +4,7 @@ import { Button } from "../../../theme/components";
 import { logClientError } from "../../../services/errorLogger";
 import { track } from "../../../services/analytics";
 import { canvasToPng, downloadShareCard, drawActivityShareCard, type ActivityShareCardInput } from "./activityShareCard";
+import { ActivityShareMapCapture, type ActivityShareMapCaptureHandle } from "./ActivityShareMapCapture";
 
 type Props = {
   card: ActivityShareCardInput;
@@ -11,16 +12,18 @@ type Props = {
   url: string;
   activityId: string;
   visibility: string;
+  routeTrack?: string | null;
   onFeedback: (message: string) => void;
 };
 
-export function ActivityShareButton({ card, filename, url, activityId, visibility, onFeedback }: Props) {
+export function ActivityShareButton({ card, filename, url, activityId, visibility, routeTrack, onFeedback }: Props) {
   const { t } = useTranslation("activity");
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const generation = useRef(0);
   const mounted = useRef(true);
   const controller = useRef<AbortController | null>(null);
+  const mapCapture = useRef<ActivityShareMapCaptureHandle>(null);
   useEffect(() => () => {
     mounted.current = false;
     generation.current += 1;
@@ -39,7 +42,11 @@ export function ActivityShareButton({ card, filename, url, activityId, visibilit
     controller.current = abortController;
     track("activity_share_attempt", context);
     try {
-      const canvas = await drawActivityShareCard(card, abortController.signal);
+      const routeCanvas = card.includeRouteImage
+        ? await mapCapture.current?.capture(abortController.signal) ?? null
+        : null;
+      if (!mounted.current || currentGeneration !== generation.current) return;
+      const canvas = await drawActivityShareCard({ ...card, routeCanvas }, abortController.signal);
       if (!mounted.current || currentGeneration !== generation.current) return;
       const blob = await canvasToPng(canvas);
       if (!mounted.current || currentGeneration !== generation.current) return;
@@ -72,16 +79,19 @@ export function ActivityShareButton({ card, filename, url, activityId, visibilit
   };
 
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      size="sm"
-      disabled={busy}
-      aria-busy={busy}
-      aria-label={busy ? t("page.share.generating") : t("page.share.button")}
-      onClick={() => void handleShare()}
-    >
-      {busy ? t("page.share.generating") : t("page.share.button")}
-    </Button>
+    <>
+      <ActivityShareMapCapture ref={mapCapture} enabled={card.includeRouteImage} track={routeTrack} />
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        disabled={busy}
+        aria-busy={busy}
+        aria-label={busy ? t("page.share.generating") : t("page.share.button")}
+        onClick={() => void handleShare()}
+      >
+        {busy ? t("page.share.generating") : t("page.share.button")}
+      </Button>
+    </>
   );
 }
