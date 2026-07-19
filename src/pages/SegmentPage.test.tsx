@@ -1,8 +1,9 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { where } from "firebase/firestore";
 import SegmentPage from "./SegmentPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData, setCollectionDocs } from "../__tests__/mocks/firebase";
+import enSegment from "../i18n/resources/en/segment.json";
 
 // Mock heavy components
 vi.mock("../components/RouteMap", () => ({
@@ -86,7 +87,7 @@ describe("SegmentPage", () => {
     });
   });
 
-  it("shows leaderboard when efforts exist", async () => {
+  it("shows segment average speed from distance and elapsed time instead of stored moving speed", async () => {
     setDocData("segments/seg-1", {
       id: "seg-1",
       name: "리더보드 세그먼트",
@@ -106,7 +107,7 @@ describe("SegmentPage", () => {
         userId: "u1",
         nickname: "1등 라이더",
         elapsedTime: 300000,
-        movingTime: 295000,
+        movingTime: 240000,
         averageSpeed: 30.0,
         averageWatts: 280,
         averageHeartrate: 170,
@@ -119,9 +120,50 @@ describe("SegmentPage", () => {
     renderWithProviders(<SegmentPage />);
 
     await waitFor(() => {
-      const content = document.body.textContent ?? "";
-      expect(content.includes("리더보드 세그먼트")).toBeTruthy();
+      expect(screen.getByText("리더보드 세그먼트")).toBeInTheDocument();
     });
+    expect(screen.getByRole("columnheader", { name: "구간 평속" })).toBeInTheDocument();
+    expect(enSegment["table.segmentAvgSpeed"]).toBe("Segment Avg Speed");
+    const leaderboard = within(screen.getByRole("table"));
+    expect(leaderboard.getByText("5:00")).toBeInTheDocument();
+    expect(leaderboard.getByText("24.0 km/h")).toBeInTheDocument();
+    expect(leaderboard.queryByText("30.0 km/h")).not.toBeInTheDocument();
+  });
+
+  it("keeps an effort with invalid canonical inputs and renders no segment average speed", async () => {
+    setDocData("segments/seg-1", {
+      id: "seg-1",
+      name: "거리 미확인 세그먼트",
+      distance: 0,
+      averageGrade: 0,
+      maximumGrade: 0,
+      elevationHigh: 0,
+      elevationLow: 0,
+      climbCategory: 0,
+    });
+    setCollectionDocs("segment_efforts/seg-1/efforts", [
+      {
+        id: "e-invalid",
+        segmentId: "seg-1",
+        activityId: "a-invalid",
+        userId: "u-invalid",
+        nickname: "계산 불가 라이더",
+        elapsedTime: 300000,
+        movingTime: 240000,
+        averageSpeed: 30,
+        recordedAt: Date.now(),
+      },
+    ]);
+
+    renderWithProviders(<SegmentPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("거리 미확인 세그먼트")).toBeInTheDocument();
+    });
+    const leaderboard = within(screen.getByRole("table"));
+    expect(screen.getByText("리더보드 (1명)")).toBeInTheDocument();
+    expect(leaderboard.getByText("— km/h")).toBeInTheDocument();
+    expect(leaderboard.queryByText("0.0 km/h")).not.toBeInTheDocument();
   });
 
   it("queries used-by courses with the deployed deletedAt composite index shape", async () => {

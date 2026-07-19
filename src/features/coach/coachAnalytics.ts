@@ -13,7 +13,7 @@ export function trackCoachFeedback(helpful: boolean, status: CoachResponseStatus
   track("coach_feedback", { helpful, status });
 }
 
-type QuestionSource = "suggestion_1" | "suggestion_2" | "free_text";
+type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
 
 /** These functions intentionally accept no raw question, answer, evidence, requestId or health fields. */
 export const coachAnalytics = {

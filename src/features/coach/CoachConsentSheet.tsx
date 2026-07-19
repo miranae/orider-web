@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Button } from "../../theme/components";
+import { Button, Text } from "../../theme/components";
 import type { CoachConsentPolicy } from "../../services/coachConsentClient";
 import { CoachPolicyDisclosure } from "./CoachPolicyDisclosure";
+import "./coach-consent.css";
 
 interface Props {
   open: boolean;
@@ -47,8 +48,9 @@ export function CoachConsentSheet({ open, stale, saving, error, policy, onCancel
       if (event.key === "Escape" && !savingRef.current) onCancelRef.current();
       if (event.key === "Tab" && panel) {
         const focusable = Array.from(panel.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        )).filter((element) => !element.hasAttribute("hidden"));
+          'a[href], button:not([disabled]), summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        )).filter((element) => !element.hasAttribute("hidden")
+          && !(element.tagName !== "SUMMARY" && element.closest("details:not([open])")));
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
         if (focusable.length === 0) { event.preventDefault(); return; }
@@ -70,7 +72,7 @@ export function CoachConsentSheet({ open, stale, saving, error, policy, onCancel
   }, [open]);
   if (!open) return null;
   return createPortal(
-    <div className="app-dialog" role="presentation">
+    <div className="app-dialog coach-consent-dialog" role="presentation">
       <button
         type="button"
         className="app-dialog__backdrop"
@@ -80,13 +82,18 @@ export function CoachConsentSheet({ open, stale, saving, error, policy, onCancel
         onMouseDown={(event) => event.preventDefault()}
         onClick={onCancel}
       />
-      <section ref={panelRef} tabIndex={-1} className="app-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="coach-consent-title" aria-describedby="coach-consent-description">
-        <h2 id="coach-consent-title">{t(stale ? "coach.staleTitle" : "coach.consentTitle")}</h2>
-        <div id="coach-consent-description"><CoachPolicyDisclosure policy={policy} stale={stale} /></div>
-        {error && <p role="alert">{t("coach.saveFailed")}</p>}
-        <div className="app-dialog__actions">
+      <section ref={panelRef} tabIndex={-1} className="app-dialog__panel coach-consent-sheet" role="dialog" aria-modal="true" aria-labelledby="coach-consent-title" aria-describedby="coach-consent-summary">
+        <header className="coach-consent-sheet__header">
+          <Text id="coach-consent-title" as="h2" variant="title">{t(stale ? "coach.staleTitle" : "coach.consentTitle")}</Text>
+          <Text id="coach-consent-summary" as="p" variant="bodySmall" tone="secondary">{t("coach.compactIntro")}</Text>
+        </header>
+        <div className="coach-consent-sheet__body">
+          <CoachPolicyDisclosure policy={policy} stale={stale} mode="compact" />
+          {error && <Text as="p" variant="bodySmall" tone="danger" role="alert">{t("coach.saveFailed")}</Text>}
+        </div>
+        <div className="app-dialog__actions coach-consent-sheet__actions">
           <Button ref={cancelRef} type="button" variant="secondary" disabled={saving} onClick={onCancel}>{t("coach.cancel")}</Button>
-          <Button type="button" disabled={saving} onClick={onConsented}>
+          <Button type="button" variant="primary" disabled={saving} onClick={onConsented}>
             {saving ? t("coach.saving") : t("coach.acceptAndAsk")}
           </Button>
         </div>

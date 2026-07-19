@@ -43,6 +43,8 @@ interface RouteMapProps {
   pixelRatio?: number;
   /** 초기 fitBounds 패딩(px). 기본 20. 피드 썸네일은 라인이 가장자리에 붙지 않게 더 키운다. */
   fitPadding?: number;
+  /** 캔버스 캡처에 포함되는 경로 시작(초록)·종료(빨강) 마커 */
+  showRouteEndpoints?: boolean;
   /** Mapbox 렌더링이 실패했을 때 보여줄 저장된 정적 지도 이미지 */
   fallbackImageUrl?: string | null;
   fallbackImageAlt?: string;
@@ -270,6 +272,7 @@ export default function RouteMap({
   preserveDrawingBuffer,
   pixelRatio,
   fitPadding = 20,
+  showRouteEndpoints = false,
   fallbackImageUrl,
   fallbackImageAlt,
   fallbackHeight,
@@ -304,6 +307,19 @@ export default function RouteMap({
     if (!markerPosition) return null;
     return toPointGeoJSON(markerPosition[0], markerPosition[1]);
   }, [markerPosition]);
+
+  const endpointGeoJSON = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point> | null>(() => {
+    if (!showRouteEndpoints || positions.length < 2) return null;
+    const start = positions[0]!;
+    const end = positions[positions.length - 1]!;
+    return {
+      type: "FeatureCollection",
+      features: [
+        { type: "Feature", properties: { endpoint: "start" }, geometry: { type: "Point", coordinates: [start[1], start[0]] } },
+        { type: "Feature", properties: { endpoint: "end" }, geometry: { type: "Point", coordinates: [end[1], end[0]] } },
+      ],
+    };
+  }, [positions, showRouteEndpoints]);
 
   const handleStartDrag = useCallback((e: { lngLat: { lat: number; lng: number } }) => {
     if (!onHighlightRangeChange || !highlightRange) return;
@@ -357,6 +373,9 @@ export default function RouteMap({
             // 캡처 모드: 기기 DPR 무관하게 고정 해상도로 렌더링
             if (pixelRatio && typeof (e.target as unknown as { setPixelRatio?: (n: number) => void }).setPixelRatio === "function") {
               (e.target as unknown as { setPixelRatio: (n: number) => void }).setPixelRatio(pixelRatio);
+              // setPixelRatio 직후 backing canvas 의 세로 크기가 이전 DPR에 남을 수 있다.
+              // resize 후의 idle을 기다려 캡처가 정확히 2× 해상도를 갖게 한다.
+              e.target.resize();
             }
             if (onLoad) { e.target.once("idle", onLoad); }
           }}
@@ -551,6 +570,22 @@ export default function RouteMap({
               "circle-color": "#ffffff",
               "circle-stroke-color": RECORDED_TRACK_COLOR,
               "circle-stroke-width": 3,
+            }} />
+          </Source>
+        )}
+
+        {/* WebGL 레이어로 그려 캔버스 기반 공유 썸네일에도 포함한다. */}
+        {endpointGeoJSON && (
+          <Source type="geojson" data={endpointGeoJSON}>
+            <Layer id="route-endpoint-halo" type="circle" paint={{
+              "circle-radius": 8,
+              "circle-color": "#ffffff",
+              "circle-stroke-color": "rgba(0,0,0,0.32)",
+              "circle-stroke-width": 1.5,
+            }} />
+            <Layer id="route-endpoint-core" type="circle" paint={{
+              "circle-radius": 5,
+              "circle-color": ["match", ["get", "endpoint"], "start", "#16a34a", "#dc2626"],
             }} />
           </Source>
         )}

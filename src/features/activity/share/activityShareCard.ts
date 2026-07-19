@@ -34,7 +34,8 @@ export interface ActivityShareCardInput {
   elevationProfileLabel: string;
   performanceLabel: string;
   footer: string;
-  routeImageUrl?: string | null;
+  /** RouteMap idle 이후 복사한 고해상도 WebGL 캔버스 */
+  routeCanvas?: HTMLCanvasElement | null;
   backgroundImageUrl?: string | null;
   includeRouteImage: boolean;
   performanceMetrics?: ActivityShareMetric[];
@@ -46,14 +47,24 @@ const IMAGE_TIMEOUT_MS = 8_000;
 const WIDTH = 1080;
 const HEIGHT = 600;
 const MAP_HEIGHT = 600;
+const OUTER_MARGIN = 24;
 const MAX_ELEVATION_POINTS = 240;
 const RIGHT_RAIL_X = WIDTH * 0.7;
 const RIGHT_RAIL_LEFT = RIGHT_RAIL_X + 18;
-const RIGHT_RAIL_RIGHT = WIDTH - 24;
+const RIGHT_RAIL_RIGHT = WIDTH - OUTER_MARGIN;
 const RIGHT_RAIL_WIDTH = RIGHT_RAIL_RIGHT - RIGHT_RAIL_LEFT;
+const ELEVATION_BLOCK = {
+  left: OUTER_MARGIN,
+  top: HEIGHT - OUTER_MARGIN - 92,
+  width: 316,
+  height: 92,
+} as const;
 const ORIDER_BRAND = "#008986";
 const ORIDER_BRAND_DARK = "#006F6C";
 const ORIDER_BRAND_LIGHT = "#4FD5D1";
+// mapbox-gl v3 공식 88×23 로고의 원본 벡터 경로. 지도 내보내기 귀속에 사용한다.
+const MAPBOX_MARK_PATH = "M11.5 2.25c5.105 0 9.25 4.145 9.25 9.25s-4.145 9.25-9.25 9.25-9.25-4.145-9.25-9.25 4.145-9.25 9.25-9.25zM6.997 15.983c-.051-.338-.828-5.802 2.233-8.873a4.395 4.395 0 013.13-1.28c1.27 0 2.49.51 3.39 1.42.91.9 1.42 2.12 1.42 3.39 0 1.18-.449 2.301-1.28 3.13C12.72 16.93 7 16 7 16l-.003-.017zM15.3 10.5l-2 .8-.8 2-.8-2-2-.8 2-.8.8-2 .8 2 2 .8z";
+const MAPBOX_WORDMARK_PATH = "M50.63 8c.13 0 .23.1.23.23V9c.7-.76 1.7-1.18 2.73-1.18 2.17 0 3.95 1.85 3.95 4.17s-1.77 4.19-3.94 4.19c-1.04 0-2.03-.43-2.74-1.18v3.77c0 .13-.1.23-.23.23h-1.4c-.13 0-.23-.1-.23-.23V8.23c0-.12.1-.23.23-.23h1.4zm-3.86.01c.01 0 .01 0 .01-.01.13 0 .22.1.22.22v7.55c0 .12-.1.23-.23.23h-1.4c-.13 0-.23-.1-.23-.23V15c-.7.76-1.69 1.19-2.73 1.19-2.17 0-3.94-1.87-3.94-4.19 0-2.32 1.77-4.19 3.94-4.19 1.03 0 2.02.43 2.73 1.18v-.75c0-.12.1-.23.23-.23h1.4zm26.375-.19a4.24 4.24 0 00-4.16 3.29c-.13.59-.13 1.19 0 1.77a4.233 4.233 0 004.17 3.3c2.35 0 4.26-1.87 4.26-4.19 0-2.32-1.9-4.17-4.27-4.17zM60.63 5c.13 0 .23.1.23.23v3.76c.7-.76 1.7-1.18 2.73-1.18 1.88 0 3.45 1.4 3.84 3.28.13.59.13 1.2 0 1.8-.39 1.88-1.96 3.29-3.84 3.29-1.03 0-2.02-.43-2.73-1.18v.77c0 .12-.1.23-.23.23h-1.4c-.13 0-.23-.1-.23-.23V5.23c0-.12.1-.23.23-.23h1.4zm-34 11h-1.4c-.13 0-.23-.11-.23-.23V8.22c.01-.13.1-.22.23-.22h1.4c.13 0 .22.11.23.22v.68c.5-.68 1.3-1.09 2.16-1.1h.03c1.09 0 2.09.6 2.6 1.55.45-.95 1.4-1.55 2.44-1.56 1.62 0 2.93 1.25 2.9 2.78l.03 5.2c0 .13-.1.23-.23.23h-1.41c-.13 0-.23-.11-.23-.23v-4.59c0-.98-.74-1.71-1.62-1.71-.8 0-1.46.7-1.59 1.62l.01 4.68c0 .13-.11.23-.23.23h-1.41c-.13 0-.23-.11-.23-.23v-4.59c0-.98-.74-1.71-1.62-1.71-.85 0-1.54.79-1.6 1.8v4.5c0 .13-.1.23-.23.23zm53.615 0h-1.61c-.04 0-.08-.01-.12-.03-.09-.06-.13-.19-.06-.28l2.43-3.71-2.39-3.65a.213.213 0 01-.03-.12c0-.12.09-.21.21-.21h1.61c.13 0 .24.06.3.17l1.41 2.37 1.4-2.37a.34.34 0 01.3-.17h1.6c.04 0 .08.01.12.03.09.06.13.19.06.28l-2.37 3.65 2.43 3.7c0 .05.01.09.01.13 0 .12-.09.21-.21.21h-1.61c-.13 0-.24-.06-.3-.17l-1.44-2.42-1.44 2.42a.34.34 0 01-.3.17zm-7.12-1.49c-1.33 0-2.42-1.12-2.42-2.51 0-1.39 1.08-2.52 2.42-2.52 1.33 0 2.42 1.12 2.42 2.51 0 1.39-1.08 2.51-2.42 2.52zm-19.865 0c-1.32 0-2.39-1.11-2.42-2.48v-.07c.02-1.38 1.09-2.49 2.4-2.49 1.32 0 2.41 1.12 2.41 2.51 0 1.39-1.07 2.52-2.39 2.53zm-8.11-2.48c-.01 1.37-1.09 2.47-2.41 2.47s-2.42-1.12-2.42-2.51c0-1.39 1.08-2.52 2.4-2.52 1.33 0 2.39 1.11 2.41 2.48l.02.08zm18.12 2.47c-1.32 0-2.39-1.11-2.41-2.48v-.06c.02-1.38 1.09-2.48 2.41-2.48s2.42 1.12 2.42 2.51c0 1.39-1.09 2.51-2.42 2.51z";
 
 function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -85,16 +96,11 @@ function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement 
   });
 }
 
-interface LoadedImage {
-  image: HTMLImageElement;
-  url: string;
-}
-
-async function loadFirstImage(urls: Array<string | null | undefined>, signal?: AbortSignal): Promise<LoadedImage | null> {
+async function loadFirstImage(urls: Array<string | null | undefined>, signal?: AbortSignal): Promise<HTMLImageElement | null> {
   for (const url of urls) {
     if (!url || signal?.aborted) continue;
     const image = await loadImage(url, signal);
-    if (image) return { image, url };
+    if (image) return image;
   }
   return null;
 }
@@ -106,10 +112,15 @@ function boundedText(ctx: CanvasRenderingContext2D, text: string, maxWidth: numb
   return end > 0 ? `${text.slice(0, end).trimEnd()}…` : "…";
 }
 
-function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement): void {
-  const scale = Math.min(WIDTH / image.naturalWidth, MAP_HEIGHT / image.naturalHeight);
-  const width = image.naturalWidth * scale;
-  const height = image.naturalHeight * scale;
+function drawContainedImage(
+  ctx: CanvasRenderingContext2D,
+  image: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+): void {
+  const scale = Math.min(WIDTH / sourceWidth, MAP_HEIGHT / sourceHeight);
+  const width = sourceWidth * scale;
+  const height = sourceHeight * scale;
   ctx.drawImage(image, (WIDTH - width) / 2, (MAP_HEIGHT - height) / 2, width, height);
 }
 
@@ -127,6 +138,26 @@ function drawOriderMark(ctx: CanvasRenderingContext2D, x: number, y: number, siz
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.stroke();
+}
+
+function drawMapboxLogo(ctx: CanvasRenderingContext2D, x: number, y: number, width: number): void {
+  const scale = width / 88;
+  const mark = new Path2D(MAPBOX_MARK_PATH);
+  const wordmark = new Path2D(MAPBOX_WORDMARK_PATH);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = "rgba(0,0,0,.3)";
+  ctx.lineWidth = 3;
+  ctx.stroke(mark);
+  ctx.stroke(wordmark);
+  ctx.fillStyle = "rgba(255,255,255,.9)";
+  ctx.fill(mark);
+  ctx.fill(wordmark);
+  ctx.restore();
 }
 
 function weatherLines(weather: ActivityShareWeather | undefined): string[] {
@@ -174,14 +205,19 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  const loadedImage = input.includeRouteImage
-    ? await loadFirstImage([input.routeImageUrl, input.backgroundImageUrl], signal)
+  const routeCanvas = input.includeRouteImage ? input.routeCanvas : null;
+  const loadedImage = input.includeRouteImage && !routeCanvas
+    ? await loadFirstImage([input.backgroundImageUrl], signal)
     : null;
-  const image = loadedImage?.image ?? null;
-  if (image) {
+  const image = loadedImage;
+  if (routeCanvas) {
     ctx.fillStyle = "#dce8e3";
     ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
-    drawContainedImage(ctx, image);
+    drawContainedImage(ctx, routeCanvas, routeCanvas.width, routeCanvas.height);
+  } else if (image) {
+    ctx.fillStyle = "#dce8e3";
+    ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
+    drawContainedImage(ctx, image, image.naturalWidth, image.naturalHeight);
   } else {
     const mapFallback = ctx.createLinearGradient(0, 0, WIDTH, MAP_HEIGHT);
     mapFallback.addColorStop(0, "#17695d");
@@ -197,13 +233,13 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "left";
   ctx.font = `800 14px ${mono}`;
-  drawOriderMark(ctx, 24, 15, 14);
+  drawOriderMark(ctx, OUTER_MARGIN, OUTER_MARGIN, 14);
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("O·RIDER", 44, 28);
+  ctx.fillText("O·RIDER", OUTER_MARGIN + 20, OUTER_MARGIN + 13);
   ctx.textAlign = "right";
   ctx.font = `700 10px ${mono}`;
   weatherLines(input.weather).forEach((line, index) =>
-    ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 48 + index * 15),
+    ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, OUTER_MARGIN + 10 + index * 15),
   );
 
   ctx.font = `600 10px ${font}`;
@@ -248,24 +284,34 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.fillText(boundedText(ctx, input.footer, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 520);
   ctx.font = `600 9px ${mono}`;
   ctx.fillText("orider.co.kr", RIGHT_RAIL_RIGHT, 540);
-  if (image && loadedImage?.url !== input.routeImageUrl) {
+  if (routeCanvas || image) {
+    drawMapboxLogo(ctx, RIGHT_RAIL_LEFT, HEIGHT - OUTER_MARGIN - 13, 53);
     ctx.font = `500 8px ${font}`;
-    ctx.fillText("© Mapbox · © OpenStreetMap", RIGHT_RAIL_RIGHT, 558);
+    ctx.fillText("© Mapbox · © OpenStreetMap", RIGHT_RAIL_RIGHT, HEIGHT - OUTER_MARGIN - 2);
   }
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  const plot = { left: 32, right: 332, top: 490, bottom: 542 };
+  const plot = {
+    left: ELEVATION_BLOCK.left + 8,
+    right: ELEVATION_BLOCK.left + ELEVATION_BLOCK.width - 8,
+    top: ELEVATION_BLOCK.top + 26,
+    bottom: ELEVATION_BLOCK.top + 78,
+  };
   if (elevationProfile.length >= 2) {
     ctx.fillStyle = "rgba(0,0,0,.10)";
-    ctx.fillRect(plot.left - 8, 464, plot.right - plot.left + 16, 92);
+    ctx.fillRect(ELEVATION_BLOCK.left, ELEVATION_BLOCK.top, ELEVATION_BLOCK.width, ELEVATION_BLOCK.height);
     ctx.shadowColor = "rgba(0,0,0,.9)";
     ctx.shadowBlur = 3;
     ctx.shadowOffsetY = 1;
     ctx.fillStyle = "#ffffff";
     ctx.font = `700 9px ${font}`;
-    ctx.fillText(boundedText(ctx, `${input.elevationProfileLabel} · ${input.elevationLabel} ${input.elevation}`, 300), plot.right, 480);
+    ctx.fillText(
+      boundedText(ctx, `${input.elevationProfileLabel} · ${input.elevationLabel} ${input.elevation}`, plot.right - plot.left),
+      plot.right,
+      ELEVATION_BLOCK.top + 16,
+    );
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
@@ -301,7 +347,7 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.fillStyle = "rgba(79,213,209,.46)";
-    ctx.fillRect(plot.left, 548, plot.right - plot.left, 1);
+    ctx.fillRect(plot.left, plot.bottom + 6, plot.right - plot.left, 1);
   }
   return canvas;
 }

@@ -22,6 +22,18 @@ function formatEffortSpeed(avgKph: number): string {
   return isImplausibleAvgSpeed(avgKph, "bike") ? "— km/h" : `${avgKph.toFixed(1)} km/h`;
 }
 
+function segmentAverageSpeedKph(distanceMeters: number, elapsedTimeMs: number): number | null {
+  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0 || !Number.isFinite(elapsedTimeMs) || elapsedTimeMs <= 0) {
+    return null;
+  }
+  return (distanceMeters * 3600) / elapsedTimeMs;
+}
+
+function formatSegmentAverageSpeed(distanceMeters: number, elapsedTimeMs: number): string {
+  const avgKph = segmentAverageSpeedKph(distanceMeters, elapsedTimeMs);
+  return avgKph == null ? "— km/h" : formatEffortSpeed(avgKph);
+}
+
 const CATEGORY_COLORS: Record<number, { bg: string; label: string }> = {
   5: { bg: "bg-red-600 text-[var(--ink-0)]", label: "HC" },
   4: { bg: "bg-red-500 text-[var(--ink-0)]", label: "Cat 1" },
@@ -909,7 +921,7 @@ export default function SegmentPage() {
                 <th className="text-left font-medium w-12" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.rank")}</th>
                 <th className="text-left font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.rider")}</th>
                 <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.time")}</th>
-                <th className="text-right font-medium hidden sm:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.avgSpeed")}</th>
+                <th className="text-right font-medium hidden sm:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.segmentAvgSpeed")}</th>
                 <th className="text-right font-medium hidden md:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.power")}</th>
                 <th className="text-right font-medium hidden md:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.heartrate")}</th>
                 <th className="text-right font-medium hidden lg:table-cell" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.date")}</th>
@@ -956,7 +968,7 @@ export default function SegmentPage() {
                       {formatTime(effort.elapsedTime)}
                     </td>
                     <td className="text-right hidden sm:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-2)" }}>
-                      {formatEffortSpeed(effort.averageSpeed)}
+                      {formatSegmentAverageSpeed(segment.distance, effort.elapsedTime)}
                     </td>
                     <td className="text-right hidden md:table-cell" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--aqua)" }}>
                       {effort.averageWatts != null ? `${effort.averageWatts}W` : "-"}

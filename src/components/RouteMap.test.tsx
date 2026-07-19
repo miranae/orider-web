@@ -5,8 +5,14 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 
 const mapProps = vi.hoisted(() => ({
-  latest: null as null | { cooperativeGestures?: boolean; dragPan?: boolean; scrollZoom?: boolean },
+  latest: null as null | {
+    cooperativeGestures?: boolean;
+    dragPan?: boolean;
+    scrollZoom?: boolean;
+    onLoad?: (event: { target: Record<string, unknown> }) => void;
+  },
   layers: new Map<string, Record<string, unknown>>(),
+  sources: [] as unknown[],
 }));
 
 vi.mock("../utils/mapbox", () => ({
@@ -22,21 +28,26 @@ vi.mock("react-map-gl/mapbox", () => ({
     cooperativeGestures,
     dragPan,
     scrollZoom,
+    onLoad,
   }: {
     children: ReactNode;
     onError?: () => void;
     cooperativeGestures?: boolean;
     dragPan?: boolean;
     scrollZoom?: boolean;
+    onLoad?: (event: { target: Record<string, unknown> }) => void;
   }) => {
-    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom };
+    mapProps.latest = { cooperativeGestures, dragPan, scrollZoom, onLoad };
     return (
       <button type="button" data-testid="mock-map" onClick={() => onError?.()}>
         {children}
       </button>
     );
   },
-  Source: ({ children }: { children: ReactNode }) => <>{children}</>,
+  Source: ({ children, data }: { children: ReactNode; data: unknown }) => {
+    mapProps.sources.push(data);
+    return <>{children}</>;
+  },
   Layer: ({ id, paint }: { id: string; paint: Record<string, unknown> }) => {
     mapProps.layers.set(id, paint);
     return null;
@@ -47,12 +58,53 @@ vi.mock("react-map-gl/mapbox", () => ({
 }));
 
 describe("RouteMap", () => {
-  beforeEach(() => mapProps.layers.clear());
+  beforeEach(() => {
+    mapProps.layers.clear();
+    mapProps.sources.length = 0;
+  });
 
   it("uses the generated recorded-track functional color in production layers", () => {
     renderWithProviders(<RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" />);
     expect(mapProps.layers.get("route-main")?.["line-color"]).toBe(RECORDED_TRACK_COLOR);
     expect(mapProps.layers.get("route-glow")?.["line-color"]).toBe(RECORDED_TRACK_COLOR);
+  });
+
+  it("renders distinct WebGL endpoint markers for canvas capture", () => {
+    renderWithProviders(
+      <RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" showRouteEndpoints />,
+    );
+
+    expect(mapProps.layers.get("route-endpoint-halo")).toMatchObject({
+      "circle-color": "#ffffff",
+      "circle-radius": 8,
+    });
+    expect(mapProps.layers.get("route-endpoint-core")?.["circle-color"]).toEqual([
+      "match", ["get", "endpoint"], "start", "#16a34a", "#dc2626",
+    ]);
+    expect(mapProps.sources).toContainEqual({
+      type: "FeatureCollection",
+      features: [
+        expect.objectContaining({ properties: { endpoint: "start" }, geometry: expect.objectContaining({ coordinates: [-120.2, 38.5] }) }),
+        expect.objectContaining({ properties: { endpoint: "end" }, geometry: expect.objectContaining({ coordinates: [-126.453, 43.252] }) }),
+      ],
+    });
+  });
+
+  it("resizes the backing canvas after forcing a capture pixel ratio", () => {
+    renderWithProviders(
+      <RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" pixelRatio={2} />,
+    );
+    const map = {
+      getStyle: vi.fn(() => ({ layers: [] })),
+      setLayoutProperty: vi.fn(),
+      setPaintProperty: vi.fn(),
+      setPixelRatio: vi.fn(),
+      resize: vi.fn(),
+      once: vi.fn(),
+    };
+    mapProps.latest!.onLoad?.({ target: map });
+    expect(map.setPixelRatio).toHaveBeenCalledWith(2);
+    expect(map.resize).toHaveBeenCalledOnce();
   });
 
   it("uses cooperative gestures on interactive maps to preserve mobile page scroll", () => {
