@@ -51,6 +51,9 @@ const RIGHT_RAIL_X = WIDTH * 0.7;
 const RIGHT_RAIL_LEFT = RIGHT_RAIL_X + 18;
 const RIGHT_RAIL_RIGHT = WIDTH - 24;
 const RIGHT_RAIL_WIDTH = RIGHT_RAIL_RIGHT - RIGHT_RAIL_LEFT;
+const ORIDER_BRAND = "#008986";
+const ORIDER_BRAND_DARK = "#006F6C";
+const ORIDER_BRAND_LIGHT = "#4FD5D1";
 
 function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -108,6 +111,22 @@ function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageEleme
   const width = image.naturalWidth * scale;
   const height = image.naturalHeight * scale;
   ctx.drawImage(image, (WIDTH - width) / 2, (MAP_HEIGHT - height) / 2, width, height);
+}
+
+function drawOriderMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+  ctx.fillStyle = ORIDER_BRAND;
+  ctx.fillRect(x, y, size, size);
+  ctx.beginPath();
+  ctx.moveTo(x + size * 0.16, y + size * 0.72);
+  ctx.lineTo(x + size * 0.37, y + size * 0.39);
+  ctx.lineTo(x + size * 0.52, y + size * 0.56);
+  ctx.lineTo(x + size * 0.69, y + size * 0.32);
+  ctx.lineTo(x + size * 0.84, y + size * 0.72);
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = size * 0.16;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
 }
 
 function weatherLines(weather: ActivityShareWeather | undefined): string[] {
@@ -179,6 +198,9 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.textAlign = "right";
   ctx.font = `800 14px ${mono}`;
   ctx.fillText("O·RIDER", RIGHT_RAIL_RIGHT, 28);
+  const wordmarkWidth = ctx.measureText("O·RIDER").width;
+  drawOriderMark(ctx, RIGHT_RAIL_RIGHT - wordmarkWidth - 20, 15, 14);
+  ctx.fillStyle = "#FFFFFF";
   ctx.font = `700 10px ${mono}`;
   weatherLines(input.weather).forEach((line, index) =>
     ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 48 + index * 15),
@@ -261,8 +283,8 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
       y: isFlat ? (plot.top + plot.bottom) / 2 : plot.bottom - ((point.elevation - minElevation) / elevationRange) * (plot.bottom - plot.top),
     }));
     const chartFill = ctx.createLinearGradient(0, plot.top, 0, plot.bottom);
-    chartFill.addColorStop(0, "rgba(35,213,167,.38)");
-    chartFill.addColorStop(1, "rgba(35,213,167,.07)");
+    chartFill.addColorStop(0, "rgba(79,213,209,.38)");
+    chartFill.addColorStop(1, "rgba(79,213,209,.07)");
     ctx.beginPath();
     ctx.moveTo(coordinates[0]!.x, plot.bottom);
     coordinates.forEach((point) => ctx.lineTo(point.x, point.y));
@@ -272,13 +294,13 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.fill();
     ctx.beginPath();
     coordinates.forEach((point, index) => index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y));
-    ctx.strokeStyle = "rgba(0,0,0,.68)";
+    ctx.strokeStyle = ORIDER_BRAND_DARK;
     ctx.lineWidth = 5;
     ctx.stroke();
-    ctx.strokeStyle = "#b8ffe8";
+    ctx.strokeStyle = ORIDER_BRAND_LIGHT;
     ctx.lineWidth = 2.5;
     ctx.stroke();
-    ctx.fillStyle = "rgba(184,255,232,.38)";
+    ctx.fillStyle = "rgba(79,213,209,.46)";
     ctx.fillRect(plot.left, 548, plot.right - plot.left, 1);
   }
   return canvas;

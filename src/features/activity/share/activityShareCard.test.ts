@@ -28,9 +28,11 @@ function context() {
     fill: vi.fn(),
     stroke: vi.fn(),
     fillRectStyles: [] as string[],
+    fillTextStyles: [] as string[],
   };
   ctx.fillRect.mockImplementation(() => ctx.fillRectStyles.push(ctx.fillStyle));
-  return ctx as unknown as CanvasRenderingContext2D & { fillRectStyles: string[] };
+  ctx.fillText.mockImplementation(() => ctx.fillTextStyles.push(ctx.fillStyle));
+  return ctx as unknown as CanvasRenderingContext2D & { fillRectStyles: string[]; fillTextStyles: string[] };
 }
 
 describe("drawActivityShareCard privacy", () => {
@@ -81,13 +83,15 @@ describe("drawActivityShareCard privacy", () => {
     const elevationProfile = Array.from({ length: 500 }, (_, index) => ({ distance: index * 10, elevation: 100 + Math.sin(index / 10) * 30 }));
     elevationProfile.splice(120, 0, { distance: Number.NaN, elevation: 999 });
     await drawActivityShareCard({ ...cardInput(), elevationProfile });
-    const coordinates = vi.mocked(ctx.lineTo).mock.calls.flat();
+    const lineCalls = vi.mocked(ctx.lineTo).mock.calls;
+    const coordinates = lineCalls.flat();
+    const chartLineCalls = lineCalls.slice(4);
     expect(ctx.fill).toHaveBeenCalledOnce();
     expect(coordinates.every(Number.isFinite)).toBe(true);
-    expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 332)).toBe(true);
-    expect(vi.mocked(ctx.lineTo).mock.calls.every(([x, y]) => Number(x) >= 32 && Number(x) <= 332 && Number(y) >= 490 && Number(y) <= 542)).toBe(true);
-    expect(ctx.stroke).toHaveBeenCalledTimes(2);
-    expect(ctx.strokeStyle).toBe("#b8ffe8");
+    expect(chartLineCalls.some(([x]) => x === 332)).toBe(true);
+    expect(chartLineCalls.every(([x, y]) => Number(x) >= 32 && Number(x) <= 332 && Number(y) >= 490 && Number(y) <= 542)).toBe(true);
+    expect(ctx.stroke).toHaveBeenCalledTimes(3);
+    expect(ctx.strokeStyle).toBe("#4FD5D1");
     expect(ctx.lineWidth).toBe(2.5);
     expect(ctx.fillText).toHaveBeenCalledWith("Elevation profile · Elevation 100 m", 332, 480);
     const overlayCall = vi.mocked(ctx.fillRect).mock.calls.findIndex(([x, y, width, height]) =>
@@ -116,6 +120,20 @@ describe("drawActivityShareCard privacy", () => {
     const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text));
     expect(labels).toContain("☀︎ 25°C  ·  ≈ 30°C");
     expect(labels).toContain("RH 89%  ·  E 1.5 m/s");
+  });
+
+  it("places the Orider mark immediately left of the wordmark", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    await drawActivityShareCard(cardInput());
+    expect(ctx.fillText).toHaveBeenCalledWith("O·RIDER", 1056, 28);
+    expect(ctx.fillRect).toHaveBeenCalledWith(936, 15, 14, 14);
+    const markCall = vi.mocked(ctx.fillRect).mock.calls.findIndex(([x, y, width, height]) =>
+      x === 936 && y === 15 && width === 14 && height === 14,
+    );
+    expect(ctx.fillRectStyles[markCall]).toBe("#008986");
+    const activityLineCall = vi.mocked(ctx.fillText).mock.calls.findIndex(([text]) => text === "Ride · Today");
+    expect(ctx.fillTextStyles[activityLineCall]).toBe("#FFFFFF");
   });
 
   it("draws the route map once without a map-wide shade overlay", async () => {
