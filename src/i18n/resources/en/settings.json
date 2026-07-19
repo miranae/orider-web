@@ -442,6 +442,7 @@
     "compactIntro": "Before consenting, review the data used, external processing, storage, and withdrawal.",
     "summaryDataTitle": "Data used",
     "summaryExternalTitle": "External AI processing · {{country}}",
+    "country": { "us": "United States", "jp": "Japan" },
     "summaryStorageTitle": "Storage and withdrawal",
     "fullDetailsSummary": "View all processing details and links",
     "consentIntro": "The following data is used to create an answer.",

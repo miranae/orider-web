@@ -20,8 +20,18 @@
   },
   "submit": "Ask",
   "another": "Ask another question",
+  "serviceUnavailable": {
+    "title": "AI Coach is being prepared",
+    "body": "AI answers are temporarily unavailable. This request did not use one of today's questions. Please try again later.",
+    "close": "Close and try later"
+  },
   "suggestions": {
     "title": "Try asking",
+    "labels": {
+      "bike": { "1": "8-week cycling trend", "2": "Today's cycling", "3": "Weekly cycling comparison" },
+      "run": { "1": "8-week running trend", "2": "Today's run", "3": "Weekly running comparison" },
+      "swim": { "1": "8-week swimming trend", "2": "Today's swim", "3": "Weekly swimming comparison" }
+    },
     "bike": {
       "1": "Show my weekly cycling fitness, fatigue, and form trends over the last 8 weeks with evidence so the changes are easy to see.",
       "2": "Summarize today's cycling average power, heart rate, and cadence with supporting evidence.",
@@ -77,7 +87,7 @@
   "freshness": "Data as of {{at}}",
   "latestActivity": "Latest activity {{at}}",
   "staleSources": "{{count}} data sources awaiting refresh",
-  "feedback": { "label": "Rate this answer", "helpful": "Helpful", "notHelpful": "Not helpful" },
+  "feedback": { "label": "Rate this answer", "prompt": "Was this answer helpful?", "helpful": "Helpful", "notHelpful": "Not helpful" },
   "answer": {
     "block": {
       "narrative": "Conclusion", "metric_grid": "Current status", "comparison_table": "Period comparison",

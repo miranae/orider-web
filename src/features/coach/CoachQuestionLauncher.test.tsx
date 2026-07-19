@@ -30,6 +30,7 @@ const disciplinePrompts = [
   {
     discipline: "bike" as const,
     placeholder: "예: 오늘 사이클의 평균 파워, 심박, 케이던스를 요약해줘.",
+    labels: ["8주 사이클 추세", "오늘 사이클 요약", "주간 사이클 비교"],
     prompts: [
       "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
       "오늘 사이클의 평균 파워, 심박, 케이던스를 근거와 함께 요약해줘.",
@@ -39,6 +40,7 @@ const disciplinePrompts = [
   {
     discipline: "run" as const,
     placeholder: "예: 오늘 러닝의 심박, 케이던스, 시간과 거리를 요약해줘.",
+    labels: ["8주 러닝 추세", "오늘 러닝 요약", "주간 러닝 비교"],
     prompts: [
       "최근 8주 러닝 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
       "오늘 러닝의 평균 심박과 케이던스를 보여주고, 운동 시간과 거리 합계를 근거와 함께 요약해줘.",
@@ -48,6 +50,7 @@ const disciplinePrompts = [
   {
     discipline: "swim" as const,
     placeholder: "예: 오늘 수영의 심박, 시간과 거리를 요약해줘.",
+    labels: ["8주 수영 추세", "오늘 수영 요약", "주간 수영 비교"],
     prompts: [
       "최근 8주 수영 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘.",
       "오늘 수영의 평균 심박을 보여주고, 운동 시간과 거리 합계를 근거와 함께 요약해줘.",
@@ -130,13 +133,46 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByRole("button", { name: "이번 주 사이클 운동 시간과 TSS 합계를 지난 주와 비교해, 차이를 한눈에 확인할 수 있게 근거와 함께 보여줘." })).toBeInTheDocument();
   });
 
-  it.each(disciplinePrompts)("shows only $discipline prompts and placeholder", async ({ discipline, placeholder, prompts }) => {
+  it.each(disciplinePrompts)("shows only $discipline prompts and placeholder", async ({ discipline, placeholder, labels, prompts }) => {
     setup(user, discipline);
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
     expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveAttribute("placeholder", placeholder);
     const quickPrompts = screen.getByRole("heading", { name: "이런 질문을 해보세요" }).closest(".coach-sheet__quick-prompts");
-    expect(within(quickPrompts!).getAllByRole("button").map((button) => button.textContent)).toEqual(prompts);
+    expect(within(quickPrompts!).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual(prompts);
+    labels.forEach((label) => expect(within(quickPrompts!).getByText(label)).toBeInTheDocument());
+  });
+
+  it("disables the composer and every suggestion when the authoritative quota is exhausted", async () => {
+    mocks.status.mockResolvedValue({ status: "available", quota: { ...quota, consumed: 3, remaining: 0 } });
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText(/오늘 사용 완료/);
+    expect(screen.getByLabelText("내 운동에 대한 질문")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "질문하기" })).toBeDisabled();
+    const quickPrompts = screen.getByRole("heading", { name: "이런 질문을 해보세요" }).closest(".coach-sheet__quick-prompts");
+    within(quickPrompts!).getAllByRole("button").forEach((button) => expect(button).toBeDisabled());
+  });
+
+  it("disables server-suggested replacement questions when the response exhausts quota", async () => {
+    mocks.ask.mockResolvedValue({
+      ...p1Base,
+      requestId: answer.requestId,
+      outcome: "unsupported",
+      quota: { ...p1Base.quota, remaining: 0 },
+      retry: { ...p1Base.retry, mode: "none", reasonCode: "unsupported_question" },
+      unsupported: {
+        reasonCodes: ["unsupported_question"],
+        missingCapabilities: [],
+        suggestedQueries: [{ queryTemplateId: "show_weekly_trend", labelKey: "coach.follow_up.weekly_trend" }],
+      },
+    });
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    expect(await screen.findByText("현재 지원하지 않는 질문입니다")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "최근 주별 운동 추세를 보여줘." })).toBeDisabled();
+    expect(screen.getByText(/오늘 사용 완료/)).toBeInTheDocument();
   });
 
   it("retries initial status and consent loading in the same sheet without exposing raw errors", async () => {
@@ -144,6 +180,7 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("AI 코치 상태를 불러오지 못했습니다");
+    expect(screen.getByRole("alert")).toHaveClass("ds-alert--danger", "coach-sheet__alert");
     expect(document.body).not.toHaveTextContent("private backend detail");
     await userEvent.click(screen.getByRole("button", { name: "상태 다시 확인" }));
     expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
@@ -158,6 +195,9 @@ describe("CoachQuestionLauncher", () => {
     await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("이번 주 훈련량이 높았습니다.")).toBeInTheDocument();
+    expect(screen.getByText("이번 주 훈련량이 높았습니다.").closest(".coach-result__answer")).toHaveClass("coach-result__answer--hero");
+    expect(screen.getByText("이 답변이 도움됐나요?")).toBeInTheDocument();
+    expect(document.querySelector(".coach-sheet__content")).not.toContainElement(document.querySelector(".coach-sheet__dock"));
     expect(screen.getByText("오늘 2회 남음")).toBeInTheDocument();
     const calls = mocks.ask.mock.calls.length;
     await userEvent.click(screen.getByRole("button", { name: "분석 근거 1개 보기" }));
@@ -165,6 +205,16 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.ask).toHaveBeenCalledTimes(calls);
     expect(mocks.analytics.submit).toHaveBeenCalledWith("suggestion_1");
     expect(JSON.stringify(mocks.analytics.submit.mock.calls)).not.toContain("최근 8주 사이클 체력");
+  });
+
+  it("announces a non-urgent stale legacy answer as status rather than an assertive alert", async () => {
+    mocks.ask.mockResolvedValue({ ...answer, status: "stale", reasonCode: "stale" });
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "오늘 사이클의 평균 파워, 심박, 케이던스를 근거와 함께 요약해줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("일부 최신 계산을 기다리는 중입니다");
+    expect(screen.queryByRole("alert", { name: /일부 최신 계산/ })).not.toBeInTheDocument();
   });
 
   it("single-flights rapid submit and resumes consent with exactly the same memory-only requestId", async () => {
@@ -261,6 +311,29 @@ describe("CoachQuestionLauncher", () => {
     expect(document.body).not.toHaveTextContent(failure.code);
     expect(screen.queryByRole("button", { name: /같은 요청|결과 다시|저장된 결과|1회 사용/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다른 질문하기" })).toBeInTheDocument();
+  });
+
+  it.each([
+    new CoachClientError("http", "provider_kill_switch"),
+    {
+      ...p1Base,
+      requestId: answer.requestId,
+      outcome: "failed",
+      error: { code: "provider_kill_switch", retryable: false, fallbackAvailable: false },
+      quota: { ...p1Base.quota, remaining: 3, consumed: false },
+      retry: { ...p1Base.retry, previousTurnConsumed: false, mode: "none", reasonCode: "provider_kill_switch" },
+    },
+  ])("treats provider kill switch as service unavailability without suggesting another question", async (result) => {
+    if (result instanceof Error) mocks.ask.mockRejectedValue(result);
+    else mocks.ask.mockResolvedValue(result);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "최근 8주 사이클 체력, 피로, 컨디션의 주간 추세를 변화가 한눈에 보이도록 근거와 함께 보여줘." }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    expect(await screen.findByText("AI 코치를 준비하고 있습니다")).toBeInTheDocument();
+    expect(screen.getByText(/사용 횟수는 차감되지 않았습니다/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다른 질문하기" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "닫고 나중에 다시 시도" })).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("provider_kill_switch");
   });
 
   it("preserves a prior terminal answer when a contract retry fails", async () => {

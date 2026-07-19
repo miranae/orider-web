@@ -14,6 +14,7 @@
 
 .coach-consent-sheet__header {
   display: grid;
+  flex-shrink: 0;
   gap: var(--space-1);
   padding-block-end: var(--space-3);
 }
@@ -24,6 +25,7 @@
 }
 
 .coach-consent-sheet__body {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   padding-block-start: 0;
@@ -31,8 +33,6 @@
 }
 
 .coach-consent-sheet__actions {
-  position: sticky;
-  bottom: 0;
   flex-shrink: 0;
   border-top: 1px solid var(--line-soft);
   background: var(--bg-0);
@@ -124,5 +124,14 @@
 
   .coach-consent-sheet__actions .ds-btn {
     flex: 1;
+  }
+
+  .coach-policy-compact__full dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+
+  .coach-policy-compact__full dd + dt {
+    margin-block-start: var(--space-2);
   }
 }
