@@ -1,11 +1,13 @@
 import {
   blobToBase64,
+  createCanonicalMapThumbnailBlob,
   getCanonicalMapThumbnailFileName,
   getPolylineHash,
   isCanonicalMapThumbnailUrl,
   isAppCheckRetryable,
   MAP_THUMBNAIL_VIEWPORT_HEIGHT,
   MAP_THUMBNAIL_VIEWPORT_WIDTH,
+  shouldReportMapCaptureError,
 } from "./ActivityRouteThumbnail";
 
 describe("canonical activity map thumbnails", () => {
@@ -68,5 +70,38 @@ describe("canonical activity map thumbnails", () => {
       .toBe("AAECA/8=");
     await expect(blobToBase64(new Blob([new Uint8Array(1024 * 1024)])))
       .rejects.toThrow("map-thumbnail/blob-too-large");
+  });
+
+  it.each([
+    { code: "functions/permission-denied" },
+    { code: "functions/failed-precondition" },
+    { code: "functions/not-found" },
+    { code: "permission-denied" },
+    new Error("functions/permission-denied"),
+    new Error("functions/failed-precondition: visibility changed"),
+    new Error("functions/not-found: activity deleted"),
+    new Error("map-thumbnail/stale-prepare"),
+    new Error("map-thumbnail/webp-unsupported"),
+  ])("does not report expected capture refusal: %o", (error) => {
+    expect(shouldReportMapCaptureError(error)).toBe(false);
+  });
+
+  it.each([
+    { code: "functions/internal" },
+    { code: "functions/unavailable" },
+    new Error("network timeout"),
+    new Error("map-thumbnail/webp-encode-failed"),
+  ])("reports unexpected capture failures: %o", (error) => {
+    expect(shouldReportMapCaptureError(error)).toBe(true);
+  });
+
+  it("stops after the first non-WebP encoder fallback", async () => {
+    const toBlob = vi.fn((callback: BlobCallback) => {
+      callback(new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" }));
+    });
+
+    await expect(createCanonicalMapThumbnailBlob({ toBlob } as unknown as HTMLCanvasElement))
+      .rejects.toThrow("map-thumbnail/webp-unsupported");
+    expect(toBlob).toHaveBeenCalledOnce();
   });
 });
