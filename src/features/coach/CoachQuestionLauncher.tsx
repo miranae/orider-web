@@ -370,9 +370,10 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                     <div className="coach-sheet__suggestions">
                       {suggestions.map((index) => {
                         const question = t(`suggestions.${discipline}.${index}`);
-                        return <Button key={index} block variant="ghost" aria-label={question} disabled={exhausted} onClick={() => chooseSuggestion(index)}>
+                        const label = t(`suggestions.labels.${discipline}.${index}`);
+                        return <Button key={index} block variant="ghost" aria-label={`${label}: ${question}`} disabled={exhausted} onClick={() => chooseSuggestion(index)}>
                           <span className="coach-sheet__suggestion-copy">
-                            <Text as="span" variant="caption" tone="accent">{t(`suggestions.labels.${discipline}.${index}`)}</Text>
+                            <Text as="span" variant="caption" tone="accent">{label}</Text>
                             <Text as="span" variant="bodySmall">{question}</Text>
                           </span>
                         </Button>;

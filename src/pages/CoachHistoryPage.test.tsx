@@ -76,6 +76,10 @@ describe("CoachHistoryPage", () => {
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
     expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 12 KiB\).*외부 AI 처리/)).toBeInTheDocument();
+    const jump = screen.getByRole("button", { name: "이어 묻기로 이동" });
+    await waitFor(() => expect(jump).toBeEnabled());
+    await userEvent.click(jump);
+    expect(screen.getByLabelText("이 대화에서 이어 묻기")).toHaveFocus();
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
     await waitFor(() => expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({
@@ -152,10 +156,21 @@ describe("CoachHistoryPage", () => {
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByRole("link", { name: /이번 주 운동량/ })).toBeInTheDocument();
     expect(await screen.findByText("AI 코치 사용 가능 횟수를 확인하지 못했습니다")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이어 묻기로 이동" })).toBeDisabled();
+    expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeDisabled();
     const deleteButton = screen.getAllByRole("button", { name: "이번 주 운동량 대화 삭제" })[0]!;
     expect(deleteButton).toBeEnabled();
     await userEvent.click(deleteButton);
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith(threadId));
+  });
+
+  it("disables the follow-up jump when today's quota is exhausted", async () => {
+    mocks.status.mockResolvedValue({ quota: { limit: 3, remaining: 0, resetAt: "2026-07-20T00:00:00Z", timezone: "Asia/Seoul" } });
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    await waitFor(() => expect(screen.getByText("오늘 0회 남음")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "이어 묻기로 이동" })).toBeDisabled();
+    expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeDisabled();
   });
 
   it("prepends cursor-loaded older turns above the latest chronological page and removes overlap", async () => {

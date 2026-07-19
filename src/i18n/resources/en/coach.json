@@ -41,6 +41,7 @@
     "threadLoadFailed": "The selected conversation could not be loaded.",
     "back": "Back to conversation list",
     "followUpLabel": "Continue this conversation",
+    "jumpToFollowUp": "Jump to follow-up",
     "followUpPlaceholder": "For example: What changed compared with last week?",
     "contextNote": "For a follow-up, up to 3 recent questions and answers from this conversation (up to 12 KiB combined) may be used for external AI processing.",
     "followUp": "Ask follow-up",
@@ -65,24 +66,24 @@
   "suggestions": {
     "title": "Try asking",
     "labels": {
-      "bike": { "1": "Last 8 weeks", "2": "Today's cycling", "3": "This week's cycling" },
-      "run": { "1": "Last 8 weeks", "2": "Today's running", "3": "This week's running" },
-      "swim": { "1": "Last 8 weeks", "2": "Today's swimming", "3": "This week's swimming" }
+      "bike": { "1": "FTP goal coaching", "2": "Today's workout review", "3": "Monthly readiness" },
+      "run": { "1": "10K goal coaching", "2": "Today's workout review", "3": "Monthly readiness" },
+      "swim": { "1": "1,500 m goal coaching", "2": "Today's workout review", "3": "Monthly readiness" }
     },
     "bike": {
-      "1": "Show my weekly cycling fitness, fatigue, and form trends over the last 8 weeks with evidence so the changes are easy to see.",
-      "2": "Summarize today's cycling average power, heart rate, and cadence with supporting evidence.",
-      "3": "Compare this week's cycling duration and total TSS with last week, and show the differences clearly with evidence."
+      "1": "I want to reach an FTP of 3.5 W/kg. Review my training over the past month, assess the gap to my goal, and coach me on the right training direction.",
+      "2": "Review today's workout, coach me on what went well and what to improve, and suggest what I should do in my next workout.",
+      "3": "Review my training over the past month and analyze my fitness, fatigue, and recovery."
     },
     "run": {
-      "1": "Show my weekly running fitness, fatigue, and form trends over the last 8 weeks with evidence so the changes are easy to see.",
-      "2": "Show today's running average heart rate and cadence, and summarize total duration and distance with supporting evidence.",
-      "3": "Compare this week's running duration and total distance with last week, and show the differences clearly with evidence."
+      "1": "I want to run a 50-minute 10K. Review my running over the past month, assess the gap to my goal, and coach me on the right training direction.",
+      "2": "Review today's run, coach me on what went well and what to improve, and suggest what I should do in my next run.",
+      "3": "Review my running over the past month and analyze my fitness, fatigue, and recovery."
     },
     "swim": {
-      "1": "Show my weekly swimming fitness, fatigue, and form trends over the last 8 weeks with evidence so the changes are easy to see.",
-      "2": "Show today's swimming average heart rate, and summarize total duration and distance with supporting evidence.",
-      "3": "Compare this week's swimming duration and total distance with last week, and show the differences clearly with evidence."
+      "1": "I want to swim 1,500 m freestyle in 30 minutes. Review my swimming over the past month, assess the gap to my goal, and coach me on the right training direction.",
+      "2": "Review today's swim, coach me on what went well and what to improve, and suggest what I should do in my next swim.",
+      "3": "Review my swimming over the past month and analyze my fitness, fatigue, and recovery."
     }
   },
   "discipline": { "bike": "Cycling", "run": "Running", "swim": "Swimming" },
