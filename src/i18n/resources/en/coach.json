@@ -28,9 +28,9 @@
   "suggestions": {
     "title": "Try asking",
     "labels": {
-      "bike": { "1": "8-week cycling trend", "2": "Today's cycling", "3": "Weekly cycling comparison" },
-      "run": { "1": "8-week running trend", "2": "Today's run", "3": "Weekly running comparison" },
-      "swim": { "1": "8-week swimming trend", "2": "Today's swim", "3": "Weekly swimming comparison" }
+      "bike": { "1": "Last 8 weeks", "2": "Today's cycling", "3": "This week's cycling" },
+      "run": { "1": "Last 8 weeks", "2": "Today's running", "3": "This week's running" },
+      "swim": { "1": "Last 8 weeks", "2": "Today's swimming", "3": "This week's swimming" }
     },
     "bike": {
       "1": "Show my weekly cycling fitness, fatigue, and form trends over the last 8 weeks with evidence so the changes are easy to see.",
