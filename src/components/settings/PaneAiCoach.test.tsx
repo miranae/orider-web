@@ -35,6 +35,8 @@ describe("PaneAiCoach", () => {
     window.addEventListener("orider:coach-consent-revoked", reset);
     renderWithProviders(<DialogProvider><PaneAiCoach /></DialogProvider>, { authenticated: true });
     await waitFor(() => expect(screen.getByText("동의함")).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: /대화 내역 관리/ })).toHaveAttribute("href", "/ko/coach");
+    expect(screen.getByText("질문과 답변은 대화 또는 계정을 삭제할 때까지 저장됩니다.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "동의 철회" }));
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "동의 철회" }));
     await waitFor(() => expect(mocks.revoke).toHaveBeenCalledOnce());
