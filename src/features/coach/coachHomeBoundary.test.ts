@@ -18,11 +18,12 @@ describe("AI Coach P0 home-only boundary", () => {
     expect(readFileSync(path, "utf8")).not.toContain("CoachQuestionLauncher");
   });
 
-  it("keeps the mobile composer visible without changing the desktop dock", () => {
+  it("keeps the composer dock visible while only the sheet content scrolls", () => {
     const css = readFileSync("src/features/coach/coach-question.css", "utf8");
-    expect(css).toMatch(/\.coach-sheet__dock\s*{[^}]*position:\s*sticky;[^}]*bottom:\s*0;/s);
+    expect(css).toMatch(/\.coach-sheet__panel\s*{[^}]*overflow:\s*hidden;/s);
+    expect(css).toMatch(/\.coach-sheet__content\s*{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;/s);
+    expect(css).toMatch(/\.coach-sheet__dock\s*{[^}]*flex-shrink:\s*0;/s);
     expect(css).toMatch(/\.coach-sheet__dock\s*{[^}]*env\(safe-area-inset-bottom\)/s);
-    expect(css).toMatch(/@media \(min-width:\s*768px\)[\s\S]*\.coach-sheet__dock\s*{\s*position:\s*static;/);
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
   });
 });
