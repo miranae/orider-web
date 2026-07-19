@@ -47,11 +47,18 @@ const IMAGE_TIMEOUT_MS = 8_000;
 const WIDTH = 1080;
 const HEIGHT = 600;
 const MAP_HEIGHT = 600;
+const OUTER_MARGIN = 24;
 const MAX_ELEVATION_POINTS = 240;
 const RIGHT_RAIL_X = WIDTH * 0.7;
 const RIGHT_RAIL_LEFT = RIGHT_RAIL_X + 18;
-const RIGHT_RAIL_RIGHT = WIDTH - 24;
+const RIGHT_RAIL_RIGHT = WIDTH - OUTER_MARGIN;
 const RIGHT_RAIL_WIDTH = RIGHT_RAIL_RIGHT - RIGHT_RAIL_LEFT;
+const ELEVATION_BLOCK = {
+  left: OUTER_MARGIN,
+  top: HEIGHT - OUTER_MARGIN - 92,
+  width: 316,
+  height: 92,
+} as const;
 const ORIDER_BRAND = "#008986";
 const ORIDER_BRAND_DARK = "#006F6C";
 const ORIDER_BRAND_LIGHT = "#4FD5D1";
@@ -226,13 +233,13 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "left";
   ctx.font = `800 14px ${mono}`;
-  drawOriderMark(ctx, 24, 15, 14);
+  drawOriderMark(ctx, OUTER_MARGIN, OUTER_MARGIN, 14);
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillText("O·RIDER", 44, 28);
+  ctx.fillText("O·RIDER", OUTER_MARGIN + 20, OUTER_MARGIN + 13);
   ctx.textAlign = "right";
   ctx.font = `700 10px ${mono}`;
   weatherLines(input.weather).forEach((line, index) =>
-    ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 48 + index * 15),
+    ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, OUTER_MARGIN + 10 + index * 15),
   );
 
   ctx.font = `600 10px ${font}`;
@@ -278,24 +285,33 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.font = `600 9px ${mono}`;
   ctx.fillText("orider.co.kr", RIGHT_RAIL_RIGHT, 540);
   if (routeCanvas || image) {
-    drawMapboxLogo(ctx, RIGHT_RAIL_LEFT, 544, 53);
+    drawMapboxLogo(ctx, RIGHT_RAIL_LEFT, HEIGHT - OUTER_MARGIN - 13, 53);
     ctx.font = `500 8px ${font}`;
-    ctx.fillText("© Mapbox · © OpenStreetMap", RIGHT_RAIL_RIGHT, 558);
+    ctx.fillText("© Mapbox · © OpenStreetMap", RIGHT_RAIL_RIGHT, HEIGHT - OUTER_MARGIN - 2);
   }
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  const plot = { left: 32, right: 332, top: 490, bottom: 542 };
+  const plot = {
+    left: ELEVATION_BLOCK.left + 8,
+    right: ELEVATION_BLOCK.left + ELEVATION_BLOCK.width - 8,
+    top: ELEVATION_BLOCK.top + 26,
+    bottom: ELEVATION_BLOCK.top + 78,
+  };
   if (elevationProfile.length >= 2) {
     ctx.fillStyle = "rgba(0,0,0,.10)";
-    ctx.fillRect(plot.left - 8, 464, plot.right - plot.left + 16, 92);
+    ctx.fillRect(ELEVATION_BLOCK.left, ELEVATION_BLOCK.top, ELEVATION_BLOCK.width, ELEVATION_BLOCK.height);
     ctx.shadowColor = "rgba(0,0,0,.9)";
     ctx.shadowBlur = 3;
     ctx.shadowOffsetY = 1;
     ctx.fillStyle = "#ffffff";
     ctx.font = `700 9px ${font}`;
-    ctx.fillText(boundedText(ctx, `${input.elevationProfileLabel} · ${input.elevationLabel} ${input.elevation}`, 300), plot.right, 480);
+    ctx.fillText(
+      boundedText(ctx, `${input.elevationProfileLabel} · ${input.elevationLabel} ${input.elevation}`, plot.right - plot.left),
+      plot.right,
+      ELEVATION_BLOCK.top + 16,
+    );
     ctx.shadowColor = "transparent";
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
@@ -331,7 +347,7 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.fillStyle = "rgba(79,213,209,.46)";
-    ctx.fillRect(plot.left, 548, plot.right - plot.left, 1);
+    ctx.fillRect(plot.left, plot.bottom + 6, plot.right - plot.left, 1);
   }
   return canvas;
 }
