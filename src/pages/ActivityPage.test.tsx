@@ -437,10 +437,13 @@ describe("ActivityPage", () => {
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
     first.unmount();
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    const second = renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
     await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2));
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "이 경로로 라이드" })).toBeEnabled();
+    second.unmount();
   });
 
   it("reuses a persisted created course after remount without creating or looking it up", async () => {
