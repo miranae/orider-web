@@ -4,9 +4,15 @@ import tailwindcss from "@tailwindcss/vite";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
+import { realpathSync } from "node:fs";
 import { copyLocales } from "./scripts/copy-locales";
 
 export default defineConfig({
+  server: {
+    fs: {
+      allow: [path.resolve(__dirname), realpathSync(path.resolve(__dirname, "node_modules"))],
+    },
+  },
   test: {
     alias: {
       "@shared": path.resolve(__dirname, "shared"),

@@ -50,25 +50,27 @@
 .coach-thread-turn__question p { margin: 0 0 var(--space-2); white-space: pre-wrap; }
 .coach-thread-turn__question time { display: block; text-align: end; }
 .coach-thread-turn__answer { min-width: 0; }
+.coach-thread-turn__outcome h3,
+.coach-thread-turn__outcome p { margin: 0; }
+.coach-thread-turn__outcome { display: grid; gap: var(--space-2); }
+.coach-thread-turn__outcome--warning {
+  border-color: color-mix(in oklab, var(--color-warning) 30%, var(--line-soft));
+  background: color-mix(in oklab, var(--color-warning) 8%, transparent);
+}
+.coach-thread-turn__options { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-start: var(--space-3); }
 .coach-thread-composer { position: sticky; inset-block-end: 0; display: grid; gap: var(--space-2); padding: var(--space-4); border-block-start: 1px solid var(--line-soft); background: color-mix(in srgb, var(--bg-0) 94%, transparent); backdrop-filter: blur(12px); }
 .coach-thread-composer__meta,
 .coach-thread-composer__actions { justify-content: space-between; gap: var(--space-3); }
+.coach-thread-composer__meta > :first-child { min-width: 0; }
+.coach-thread-composer__meta > :last-child { flex: none; white-space: nowrap; }
+.coach-thread-composer__retry { display: grid; gap: var(--space-2); }
+.coach-thread-composer__retry p { margin: 0; }
+.coach-thread-composer__retry .ds-btn { justify-self: start; }
 
 @media (max-width: 47.999rem) {
   .coach-history-page { padding: var(--space-4); padding-block-end: calc(var(--space-8) + var(--space-6) + env(safe-area-inset-bottom)); }
   .coach-history-page__header { align-items: flex-start; }
-  .coach-history-page.has-selection .coach-history-page__header { margin-block-end: var(--space-2); }
-  .coach-history-page.has-selection .coach-history-page__eyebrow,
-  .coach-history-page.has-selection .coach-history-page__title,
-  .coach-history-page.has-selection .coach-history-page__header > .ds-btn { display: none; }
-  .coach-history-page.has-selection .coach-history-page__description {
-    display: block;
-    overflow: hidden;
-    color: var(--ink-3);
-    font-size: var(--fs-xs);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .coach-history-page.has-selection .coach-history-page__header { display: none; }
   .coach-history-layout { display: block; }
   .coach-history-layout.has-selection .coach-history-list { display: none; }
   .coach-history-layout:not(.has-selection) .coach-thread-detail { display: none; }

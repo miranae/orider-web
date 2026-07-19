@@ -49,6 +49,143 @@ function fixture() {
 }
 
 describe("CoachAnswerDocumentView", () => {
+  it("renders supported metric, series, and distribution blocks as native tables when table is requested", () => {
+    const { response } = fixture();
+    render(<CoachAnswerDocumentView response={response} responseFormat="table" locale="ko-KR" onAction={vi.fn()} />);
+    expect(screen.getAllByRole("table", { name: "운동 기록 표" })).toHaveLength(2);
+    expect(screen.getByRole("table", { name: "추세 데이터 표" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).not.toBeInTheDocument();
+  });
+
+  it("charts numeric distributions with an accessible table and explains chart fallback", () => {
+    const { response, document } = fixture();
+    render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    expect(screen.getByRole("img", { name: "운동 기록 분포 그래프" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "운동 기록 표" })).toBeInTheDocument();
+
+    document.blocks = document.blocks.filter((block) => block.kind === "metric_grid");
+    const fallback = render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    expect(within(fallback.container).getByRole("status")).toHaveTextContent("기본 형식으로 표시합니다");
+    expect(within(fallback.container).getByText("현재 상태")).toBeInTheDocument();
+  });
+
+  it("keeps load-analysis grouping deduplicated while applying table and chart defaults", () => {
+    const tableFixture = fixture();
+    const tableView = render(<CoachAnswerDocumentView response={tableFixture.response} responseFormat="table" locale="ko-KR" onAction={vi.fn()} />);
+    const tableLoad = tableView.container.querySelector(".coach-answer__load") as HTMLElement;
+    expect(tableLoad).toBeInTheDocument();
+    expect(within(tableLoad).getByRole("table", { name: "추세 데이터 표" })).toBeInTheDocument();
+    expect(within(tableLoad).queryByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).not.toBeInTheDocument();
+    expect(tableView.container.querySelectorAll(".coach-answer__load")).toHaveLength(1);
+    tableView.unmount();
+
+    const chartFixture = fixture();
+    const chartView = render(<CoachAnswerDocumentView response={chartFixture.response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    const chartLoad = chartView.container.querySelector(".coach-answer__load") as HTMLElement;
+    expect(within(chartLoad).getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
+    expect(within(chartLoad).queryByRole("button", { name: "차트와 표로 보기" })).not.toBeInTheDocument();
+    expect(chartView.container.querySelectorAll(".coach-answer__load")).toHaveLength(1);
+  });
+
+  it("requires two valid numeric time-series points and never draws a fabricated line", () => {
+    const { response, document, value, base } = fixture();
+    document.blocks = [{ ...base("sparse"), kind: "time_series", series: [{ seriesId: "sparse", metricId: "ctl", points: [
+      { at: value("2026-W27"), value: value(35, "score") },
+      { at: value("2026-W28"), value: { value: null, evidenceId: "ev_missing", unit: "score" } },
+    ] }] }];
+    render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    expect(screen.queryByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).not.toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "추세 데이터 표" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("추세 또는 수치 분포 데이터가 없어");
+  });
+
+  it("shows block-local fallback only for unchartable blocks in a mixed chart answer", () => {
+    const { response, document, value, base } = fixture();
+    document.blocks = [
+      { ...base("chartable"), kind: "time_series", series: [{ seriesId: "distance", metricId: "distance", points: [
+        { at: value("2026-07-01"), value: value(30, "kilometers") }, { at: value("2026-07-02"), value: value(42, "kilometers") },
+      ] }] },
+      { ...base("sparse"), kind: "time_series", series: [{ seriesId: "heart_rate", metricId: "heart_rate", points: [
+        { at: value("2026-07-01"), value: value(152, "bpm") },
+      ] }] },
+    ];
+    render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    expect(screen.getAllByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toHaveLength(1);
+    expect(screen.getByRole("status")).toHaveTextContent("이 결과는 표로 표시합니다");
+    expect(screen.queryByText("이 답변에는 그래프로 표시할 수 있는 추세 또는 수치 분포 데이터가 없어")).not.toBeInTheDocument();
+  });
+
+  it("preserves the common time domain and splits lines across invalid point gaps", () => {
+    const { response, document, value, base } = fixture();
+    document.blocks = [{ ...base("gapped"), kind: "time_series", series: [{ seriesId: "distance", metricId: "distance", points: [
+      { at: value("2026-07-01"), value: value(10, "kilometers") },
+      { at: value("2026-07-02"), value: value(12, "kilometers") },
+      { at: value("2026-07-03"), value: { value: null, evidenceId: "ev_gap", unit: "kilometers" } },
+      { at: value("2026-07-04"), value: value(15, "kilometers") },
+      { at: value("2026-07-05"), value: value(18, "kilometers") },
+    ] }] }];
+    const view = render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    const lines = [...view.container.querySelectorAll<SVGPolylineElement>("polyline")];
+    expect(lines.map((line) => line.dataset.sourceIndexes)).toEqual(["0,1", "3,4"]);
+    expect(lines[0]).toHaveAttribute("points", expect.stringMatching(/^0,[^ ]+ 25,/));
+    expect(lines[1]).toHaveAttribute("points", expect.stringMatching(/^75,[^ ]+ 100,/));
+  });
+
+  it("sorts a multi-series ISO time domain before mapping each series to x positions", () => {
+    const { response, document, value, base } = fixture();
+    document.blocks = [{ ...base("offset_series"), kind: "time_series", series: [
+      { seriesId: "distance", metricId: "distance", points: [
+        { at: value("2026-07-02"), value: value(20, "kilometers") },
+        { at: value("2026-07-03"), value: value(30, "kilometers") },
+      ] },
+      { seriesId: "heart_rate", metricId: "heart_rate", points: [
+        { at: value("2026-07-01"), value: value(140, "bpm") },
+        { at: value("2026-07-02"), value: value(145, "bpm") },
+        { at: value("2026-07-03"), value: value(150, "bpm") },
+      ] },
+    ] }];
+    const view = render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    const lines = [...view.container.querySelectorAll<SVGPolylineElement>("polyline")];
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toHaveAttribute("points", expect.stringMatching(/^50,[^ ]+ 100,/));
+    expect(lines[1]).toHaveAttribute("points", expect.stringMatching(/^0,[^ ]+ 50,[^ ]+ 100,/));
+  });
+
+  it("falls back to a table for an ambiguous multi-series label domain", () => {
+    const { response, document, value, base } = fixture();
+    document.blocks = [{ ...base("label_series"), kind: "time_series", series: [
+      { seriesId: "distance", metricId: "distance", points: [
+        { at: value("최근"), value: value(20, "kilometers") }, { at: value("현재"), value: value(30, "kilometers") },
+      ] },
+      { seriesId: "heart_rate", metricId: "heart_rate", points: [
+        { at: value("이전"), value: value(140, "bpm") }, { at: value("현재"), value: value(150, "bpm") },
+      ] },
+    ] }];
+    render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    expect(screen.queryByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).not.toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "추세 데이터 표" })).toBeInTheDocument();
+  });
+
+  it("keeps table and distribution-chart density bounded behind expansion controls", () => {
+    const { response, document, value, base } = fixture();
+    document.blocks = [
+      { ...base("many_metrics"), kind: "metric_grid", items: Array.from({ length: 7 }, (_, index) => ({ metricId: "ctl" as const, current: value(index, "score") })) },
+      { ...base("many_categories"), kind: "distribution", categories: Array.from({ length: 7 }, (_, index) => ({ categoryId: `c_${index}`, label: value(`C${index}`), value: value(index, "percent") })) },
+    ];
+    const tableView = render(<CoachAnswerDocumentView response={response} responseFormat="table" locale="ko-KR" onAction={vi.fn()} />);
+    const tables = within(tableView.container).getAllByRole("table", { name: "운동 기록 표" });
+    expect(tables).toHaveLength(2);
+    expect(tables.every((table) => table.querySelectorAll("tbody tr").length === 5)).toBe(true);
+    expect(within(tableView.container).getAllByRole("button", { name: "항목 2개 더 보기" })).toHaveLength(2);
+    tableView.unmount();
+
+    render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    const bars = screen.getByRole("img", { name: "운동 기록 분포 그래프" }).closest(".coach-answer__bars") as HTMLElement;
+    const disclosure = within(bars).getByText("항목 2개 더 보기").closest("details");
+    expect(disclosure).not.toHaveAttribute("open");
+    expect(screen.getByRole("table", { name: "운동 기록 표" }).querySelectorAll("tbody tr")).toHaveLength(5);
+  });
+
   it("renders all eleven P1 allowlisted block fixtures together with accessible table/chart semantics", async () => {
     const { response, document, evidence } = fixture();
     render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
@@ -107,6 +244,16 @@ describe("CoachAnswerDocumentView", () => {
     const { response } = fixture(); response.outcome = "failed"; response.error = { code: "planner_failed", retryable: false, fallbackAvailable: true };
     render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
     expect(screen.getByRole("alert")).toHaveTextContent("일부 결과만 표시합니다");
+  });
+
+  it("renders a saved partial answer without replaying its live fallback alert", () => {
+    const { response } = fixture();
+    response.outcome = "failed";
+    response.error = { code: "planner_failed", retryable: false, fallbackAvailable: true };
+    render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} historical />);
+    expect(documentElement().querySelector(".coach-answer__block--narrative")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("일부 결과만 표시합니다")).not.toBeInTheDocument();
   });
 
   it("groups evidence-bound load comparison, canonical trends and goal without inventing unavailable basis or state", async () => {
@@ -176,7 +323,7 @@ describe("CoachAnswerDocumentView", () => {
     } }];
     document.evidence = evidence;
     const action = vi.fn();
-    render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={action} />);
+    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={action} />);
     const comparison = screen.getByRole("table", { name: "현재 상태 비교" });
     expect(within(comparison).getByRole("columnheader", { name: "7일 전 정본 일마감" })).toBeInTheDocument();
     expect(within(comparison).getByRole("row", { name: /CTL/ })).toHaveTextContent(/46\s*점51\s*점\+5\s*점/);
@@ -187,6 +334,14 @@ describe("CoachAnswerDocumentView", () => {
     expect(screen.getByText("진행 중")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Dynamic Ride" }));
     expect(action).toHaveBeenCalledWith("OPEN_ACTIVITY", expect.objectContaining({ entityId: "ride_dynamic" }));
+    view.unmount();
+    const chartView = render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={action} />);
+    expect(within(chartView.container).getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
+    expect(within(chartView.container).queryByRole("button", { name: "차트와 표로 보기" })).not.toBeInTheDocument();
+    chartView.unmount();
+    const tableView = render(<CoachAnswerDocumentView response={response} responseFormat="table" locale="ko-KR" onAction={action} />);
+    expect(within(tableView.container).getByRole("table", { name: "주간 정본 CTL·ATL·Form" })).toBeInTheDocument();
+    expect(within(tableView.container).queryByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).not.toBeInTheDocument();
   });
 });
 

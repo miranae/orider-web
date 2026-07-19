@@ -8,12 +8,13 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { Alert, Button, Card, Chip, Text, Textarea, buttonClass } from "../theme/components";
 import { CoachAnswerDocumentView } from "../features/coach/CoachAnswerDocument";
+import { safeClarificationText } from "../features/coach/coachClarificationText";
 import { FirstUseCoachConsent } from "../features/coach/FirstUseCoachConsent";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../services/coachConsentClient";
 import { getCoachStatus, type CoachQuota } from "../services/coachClient";
 import {
   COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
-  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest,
+  type CoachAnswerActionCode, type CoachEntityRef, type CoachResponseFormat, type CoachV2QuestionRequest, type CoachV2Response,
 } from "../services/coachV2Contract";
 import {
   continueCoachThread, deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads,
@@ -21,6 +22,7 @@ import {
 } from "../services/coachHistoryClient";
 import "../features/coach/coach-question.css";
 import "../features/coach/coach-history.css";
+import { CoachResponseFormatPicker } from "../features/coach/CoachResponseFormatPicker";
 
 const PAGE_SIZE = 20;
 
@@ -41,6 +43,33 @@ function consentActive(policy: CoachConsentPolicy): boolean {
 function formatDate(value: string, locale: string): string {
   try { return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
   catch { return value; }
+}
+
+function CoachStoredTurnResult({ response }: { response: CoachV2Response }) {
+  const { t } = useTranslation("coach");
+  if (response.outcome === "answer") return null;
+  if (response.outcome === "unsupported") {
+    return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
+      <Text as="h3" variant="subtitle" tone="warning">{t("unsupportedV2.title")}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{t("unsupportedV2.body")}</Text>
+    </Card>;
+  }
+  if (response.outcome === "clarification_required" && response.clarification) {
+    const prompt = safeClarificationText(response.clarification.promptKey, "prompt", t);
+    return <Card className="coach-thread-turn__outcome" variant="inset">
+      <Text as="h3" variant="subtitle">{t("clarification.title")}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{prompt}</Text>
+      <div className="coach-thread-turn__options" aria-label={prompt}>{response.clarification.options.map((option) => <Chip key={option.optionId}>
+        {safeClarificationText(option.labelKey, "option", t, option.optionId)}
+      </Chip>)}</div>
+    </Card>;
+  }
+  if (["quota_exceeded", "budget_blocked", "failed"].includes(response.outcome)) {
+    return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
+      <Text as="p" variant="bodySmall" tone="warning">{t(`v2State.${response.outcome}`)}</Text>
+    </Card>;
+  }
+  return null;
 }
 
 export default function CoachHistoryPage() {
@@ -81,6 +110,7 @@ export default function CoachHistoryPage() {
   const [loadError, setLoadError] = useState(false);
   const [threadError, setThreadError] = useState(false);
   const [draft, setDraft] = useState("");
+  const [responseFormat, setResponseFormat] = useState<CoachResponseFormat>("auto");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -136,14 +166,14 @@ export default function CoachHistoryPage() {
     pendingBodyRef.current = null;
     setThreads([]); setCursor(null); setThread(null); setThreadCursor(null); setQuota(null); setPolicy(null);
     setLoadingList(Boolean(uid)); setLoadingThread(false); setLoadingMore(false); setLoadingEarlierTurns(false); setLoadingQuota(false);
-    setLoadError(false); setThreadError(false); setQuotaError(false); setDraft(""); setSubmitError(false); setFollowUpSuccess(false);
+    setLoadError(false); setThreadError(false); setQuotaError(false); setDraft(""); setResponseFormat("auto"); setSubmitError(false); setFollowUpSuccess(false);
     setSubmitting(false); setDeleting(false); setConsentOpen(false);
     if (uid) { void loadList(generation, uid); void loadQuota(generation, uid); }
   }, [loadList, loadQuota, uid, userGeneration]);
 
   useEffect(() => {
     pendingBodyRef.current = null;
-    setThread(null); setThreadCursor(null); setThreadError(false); setDraft(""); setSubmitError(false); setFollowUpSuccess(false);
+    setThread(null); setThreadCursor(null); setThreadError(false); setDraft(""); setResponseFormat("auto"); setSubmitError(false); setFollowUpSuccess(false);
     setSubmitting(false); setConsentOpen(false);
     if (uid && threadId) void loadThread(threadId, userGeneration, uid, routeGeneration);
   }, [loadThread, routeGeneration, threadId, uid, userGeneration]);
@@ -217,7 +247,7 @@ export default function CoachHistoryPage() {
       if (!current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
       const canonical = await getCoachThread(pending.threadId, PAGE_SIZE);
       if (!current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
-      setThread(canonical.thread); setThreadCursor(canonical.nextCursor); setDraft(""); pendingBodyRef.current = null;
+      setThread(canonical.thread); setThreadCursor(canonical.nextCursor); setDraft(""); setResponseFormat("auto"); pendingBodyRef.current = null;
       setQuota((current) => current ? { ...current, remaining: response.quota.remaining, resetAt: response.quota.resetAt } : current);
       setThreads((items) => items.map((item) => item.threadId === canonical.thread.threadId
         ? { ...item, updatedAt: canonical.thread.updatedAt, turnCount: canonical.thread.turnCount, title: canonical.thread.title } : item));
@@ -233,7 +263,7 @@ export default function CoachHistoryPage() {
     const body: CoachV2QuestionRequest = {
       requestId: crypto.randomUUID(), question, discipline: thread.discipline,
       locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US", apiVersion: COACH_V2_API_VERSION,
-      schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters: {},
+      schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters: {}, responseFormat,
     };
     const pending = { body, threadId: thread.threadId, uid, generation: generationRef.current, routeGeneration: routeGenerationRef.current };
     pendingBodyRef.current = pending;
@@ -244,6 +274,18 @@ export default function CoachHistoryPage() {
       if (!consentActive(loadedPolicy)) { setConsentOpen(true); return; }
       await executeFollowUp(pending);
     } catch { if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) setSubmitError(true); }
+  }
+
+  async function retryPendingFollowUp() {
+    const pending = pendingBodyRef.current;
+    if (!pending || submitting || !current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
+    await executeFollowUp(pending);
+  }
+
+  function startEditedFollowUp() {
+    pendingBodyRef.current = null;
+    setSubmitError(false);
+    setFollowUpSuccess(false);
   }
 
   function answerAction(code: CoachAnswerActionCode, entity?: CoachEntityRef) {
@@ -297,19 +339,28 @@ export default function CoachHistoryPage() {
           <div className="coach-thread-turns">{threadCursor && <Button block variant="ghost" loading={loadingEarlierTurns} onClick={() => void loadEarlierTurns()}>{t("history.loadEarlierTurns")}</Button>}
             {thread.turns.map((turn) => <article key={turn.turnId} className="coach-thread-turn">
             <Card variant="inset" className="coach-thread-turn__question"><Text as="p" variant="body">{turn.question}</Text><time dateTime={turn.createdAt}><Text as="span" variant="caption" tone="tertiary">{formatDate(turn.createdAt, i18n.language)}</Text></time></Card>
-            <div className="coach-thread-turn__answer"><CoachAnswerDocumentView response={turn.response} locale={i18n.language} onAction={answerAction} /></div>
+            <div className="coach-thread-turn__answer"><CoachAnswerDocumentView response={turn.response} responseFormat={turn.responseFormat}
+              locale={i18n.language} onAction={answerAction} historical />
+              <CoachStoredTurnResult response={turn.response} />
+            </div>
           </article>)}</div>
           <div className="coach-thread-composer"><label htmlFor="coach-follow-up"><Text variant="label">{t("history.followUpLabel")}</Text></label>
             <Textarea ref={followUpRef} id="coach-follow-up" rows={3} maxLength={1000} value={draft}
               disabled={followUpUnavailable}
-              placeholder={t("history.followUpPlaceholder")} onChange={(event) => { setDraft(event.target.value); setFollowUpSuccess(false); }} />
+              placeholder={t("history.followUpPlaceholder")} onChange={(event) => { startEditedFollowUp(); setDraft(event.target.value); }} />
             <div className="coach-thread-composer__meta"><Text variant="caption" tone="tertiary">{t("history.contextNote")}</Text><Text variant="caption" tone="tertiary" mono>{draft.length}/1000</Text></div>
+            <CoachResponseFormatPicker value={responseFormat} onChange={(value) => { startEditedFollowUp(); setResponseFormat(value); }} disabled={followUpUnavailable} />
             {quotaError && <Alert variant="warning" title={t("history.quotaLoadFailed")}><Button variant="outline" size="sm" onClick={() => void loadQuota()}>{t("history.retryQuota")}</Button></Alert>}
-            {submitError && <Text as="p" variant="bodySmall" tone="danger" role="alert">{t("history.submitFailed")}</Text>}
+            {submitError && pendingBodyRef.current && <div className="coach-thread-composer__retry">
+              <Text as="p" variant="bodySmall" tone="danger" role="alert">{t("history.submitFailed")}</Text>
+              <Text as="p" variant="caption" tone="tertiary">{t("history.sameRequestRetryNote")}</Text>
+              <Button variant="outline" size="sm" disabled={submitting} onClick={() => void retryPendingFollowUp()}>{t("history.sameRequestRetry")}</Button>
+            </div>}
             {followUpSuccess && <Text as="p" variant="bodySmall" tone="success" role="status" aria-live="polite">{t("history.followUpSaved")}</Text>}
             <div className="coach-thread-composer__actions">{loadingQuota && <Text variant="caption" tone="tertiary">{t("history.loadingQuota")}</Text>}
               {quota && <Text variant="caption" tone={quota.remaining === 0 ? "warning" : "tertiary"}>{t("quota.remaining", { count: quota.remaining })}</Text>}
-              <Button variant="primary" loading={submitting} disabled={draft.trim().length < 2 || loadingQuota || quotaError || !quota || quota.remaining === 0}
+              <Button variant="primary" loading={submitting} disabled={draft.trim().length < 2 || loadingQuota || quotaError || !quota || quota.remaining === 0
+                || Boolean(pendingBodyRef.current)}
                 onClick={() => void submitFollowUp()}>{t("history.followUp")}</Button></div>
           </div>
         </>}

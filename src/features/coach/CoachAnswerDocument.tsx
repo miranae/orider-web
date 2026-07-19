@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import type {
   CoachAnswerActionCode, CoachAnswerBlock, CoachAnswerDocument, CoachDisplayValue, CoachEntityRef,
-  CoachEvidenceRecord, CoachLoadAssessment, CoachMetricId, CoachV2Response,
+  CoachEvidenceRecord, CoachLoadAssessment, CoachMetricId, CoachResponseFormat, CoachV2Response,
 } from "../../services/coachV2Contract";
 import { CoachPrescription } from "./CoachPrescription";
 
@@ -48,6 +48,14 @@ function BlockState({ block }: { block: Exclude<CoachAnswerBlock, { kind: "unsup
   </div>;
 }
 
+function FormatFallbackNotice({ local = false }: { local?: boolean }) {
+  const { t } = useTranslation("coach");
+  return <div className="coach-answer__format-fallback" role="status">
+    <strong>{t(local ? "responseFormat.blockFallbackTitle" : "responseFormat.fallbackTitle")}</strong>
+    <p>{t(local ? "responseFormat.blockFallbackBody" : "responseFormat.fallbackBody")}</p>
+  </div>;
+}
+
 function MoreItems<T>({ items, render, listKind }: { items: T[]; render: (item: T, index: number) => ReactNode;
   listKind?: "ul" | "ol" }) {
   const { t } = useTranslation("coach");
@@ -67,30 +75,147 @@ function Entity({ entity, locale }: { entity: CoachEntityRef; locale: string }) 
   </span>;
 }
 
-function SeriesGraphic({ block, locale }: { block: Extract<CoachAnswerBlock, { kind: "time_series" }>; locale: string }) {
+type TimeSeriesBlock = Extract<CoachAnswerBlock, { kind: "time_series" }>;
+
+function numericSegments(series: TimeSeriesBlock["series"][number]) {
+  const segments: Array<Array<{ point: typeof series.points[number]; sourceIndex: number }>> = [];
+  let current: Array<{ point: typeof series.points[number]; sourceIndex: number }> = [];
+  series.points.forEach((point, sourceIndex) => {
+    if (typeof point.value.value === "number" && Number.isFinite(point.value.value)) current.push({ point, sourceIndex });
+    else {
+      if (current.length >= 2) segments.push(current);
+      current = [];
+    }
+  });
+  if (current.length >= 2) segments.push(current);
+  return segments;
+}
+
+const ISO_DATE_OR_INSTANT = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+
+function timestampFromAt(value: unknown): number | null {
+  if (typeof value !== "string" || !ISO_DATE_OR_INSTANT.test(value)) return null;
+  const calendarDate = value.slice(0, 10);
+  const calendarTimestamp = Date.parse(`${calendarDate}T00:00:00Z`);
+  if (!Number.isFinite(calendarTimestamp) || new Date(calendarTimestamp).toISOString().slice(0, 10) !== calendarDate) return null;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  return timestamp;
+}
+
+function timeSeriesDomain(block: TimeSeriesBlock): { keys: string[]; keyFor: (value: unknown) => string } | null {
+  const values = block.series.flatMap((series) => series.points.map((point) => point.at.value));
+  const timestamps = values.map(timestampFromAt);
+  const allTemporal = timestamps.every((timestamp) => timestamp !== null);
+  const allLabels = timestamps.every((timestamp) => timestamp === null);
+  if (!allTemporal && !allLabels) return null;
+
+  if (allTemporal) {
+    const keys = [...new Set(timestamps as number[])].sort((left, right) => left - right).map((timestamp) => `time:${timestamp}`);
+    return { keys, keyFor: (value) => `time:${timestampFromAt(value)}` };
+  }
+
+  // A single categorical sequence has a trustworthy source order. Across multiple
+  // series, arbitrary labels do not provide enough information to infer one shared order.
+  if (block.series.length > 1) return null;
+  const keys = [...new Set(values.map((value) => `${typeof value}:${String(value)}`))];
+  return { keys, keyFor: (value) => `${typeof value}:${String(value)}` };
+}
+
+function isChartableTimeSeries(block: TimeSeriesBlock): boolean {
+  return timeSeriesDomain(block) !== null && block.series.some((series) => numericSegments(series).length > 0);
+}
+
+function SeriesGraphic({ block, locale }: { block: TimeSeriesBlock; locale: string }) {
   const { t } = useTranslation("coach");
-  const numeric = block.series.flatMap((series) => series.points.map((point) => typeof point.value.value === "number" ? point.value.value : null)).filter((value): value is number => value !== null);
+  const domain = timeSeriesDomain(block);
+  if (!domain) return <TimeSeriesTable block={block} locale={locale} />;
+  const chartSegments = block.series.flatMap((series, seriesIndex) => numericSegments(series).map((segment, segmentIndex) => ({
+    seriesId: series.seriesId, seriesIndex, segmentIndex, points: segment.map(({ point, sourceIndex }) => ({
+      point, sourceIndex, domainIndex: domain.keys.indexOf(domain.keyFor(point.at.value)),
+    })),
+  })));
+  const numeric = chartSegments.flatMap((segment) => segment.points.map(({ point }) => point.value.value as number));
   const min = numeric.length > 0 ? Math.min(...numeric) : 0;
   const max = numeric.length > 0 ? Math.max(...numeric) : 0;
   const span = max - min || 1;
   return <div className="coach-answer__series">
     <svg viewBox="0 0 100 40" role="img" aria-label={t("answer.chart.visualLabel")} preserveAspectRatio="none">
-      {block.series.map((series, seriesIndex) => {
-        const points = series.points.map((point, index) => {
-          const x = series.points.length <= 1 ? 50 : index * 100 / (series.points.length - 1);
-          const number = typeof point.value.value === "number" ? point.value.value : min;
+      {chartSegments.map((segment) => {
+        const points = segment.points.map(({ point, domainIndex }) => {
+          const x = domain.keys.length <= 1 ? 50 : domainIndex * 100 / (domain.keys.length - 1);
+          const number = point.value.value as number;
           return `${x},${36 - ((number - min) / span) * 32}`;
         }).join(" ");
-        return <polyline key={series.seriesId} points={points} className={`coach-answer__line coach-answer__line--${seriesIndex % 3}`} />;
+        return <polyline key={`${segment.seriesId}-${segment.segmentIndex}`} data-source-indexes={segment.points.map(({ sourceIndex }) => sourceIndex).join(",")}
+          points={points} className={`coach-answer__line coach-answer__line--${segment.seriesIndex % 3}`} />;
       })}
     </svg>
-    <div className="coach-answer__table-scroll"><table>
+    <TimeSeriesTable block={block} locale={locale} />
+  </div>;
+}
+
+function TimeSeriesTable({ block, locale }: { block: TimeSeriesBlock; locale: string }) {
+  const { t } = useTranslation("coach");
+  return <div className="coach-answer__table-scroll"><table>
       <caption>{t("answer.chart.tableCaption")}</caption>
       <thead><tr><th scope="col">{t("answer.chart.series")}</th><th scope="col">{t("answer.chart.at")}</th><th scope="col">{t("answer.chart.value")}</th></tr></thead>
       <tbody>{block.series.flatMap((series) => series.points.map((point, index) => <tr key={`${series.seriesId}-${index}`}>
         <th scope="row"><MetricLabel metricId={series.metricId} /></th><td><Display item={point.at} locale={locale} /></td><td><Display item={point.value} locale={locale} /></td>
       </tr>))}</tbody>
-    </table></div>
+    </table></div>;
+}
+
+function MetricGridTable({ block, locale }: { block: Extract<CoachAnswerBlock, { kind: "metric_grid" }>; locale: string }) {
+  const { t } = useTranslation("coach");
+  const [expanded, setExpanded] = useState(false);
+  const remaining = Math.max(0, block.items.length - PRIMARY_COUNT);
+  const items = expanded ? block.items : block.items.slice(0, PRIMARY_COUNT);
+  return <div className="coach-answer__table-scroll"><table>
+    <caption>{t("responseFormat.tableCaption")}</caption>
+    <thead><tr><th scope="col">{t("answer.metricLabel")}</th><th scope="col">{t("answer.chart.value")}</th></tr></thead>
+    <tbody>{items.map((item, index) => <tr key={`${item.metricId}-${index}`}>
+      <th scope="row"><MetricLabel metricId={item.metricId} /></th><td><Display item={item.current} locale={locale} /></td>
+    </tr>)}</tbody>
+  </table>{remaining > 0 && <Button type="button" variant="ghost" size="sm" aria-expanded={expanded}
+    onClick={() => setExpanded((value) => !value)}>{expanded ? t("responseFormat.showLess") : t("answer.more", { count: remaining })}</Button>}</div>;
+}
+
+function DistributionTable({ block, locale }: { block: Extract<CoachAnswerBlock, { kind: "distribution" }>; locale: string }) {
+  const { t } = useTranslation("coach");
+  const [expanded, setExpanded] = useState(false);
+  const remaining = Math.max(0, block.categories.length - PRIMARY_COUNT);
+  const categories = expanded ? block.categories : block.categories.slice(0, PRIMARY_COUNT);
+  return <div className="coach-answer__table-scroll"><table>
+    <caption>{t("responseFormat.tableCaption")}</caption>
+    <thead><tr><th scope="col">{t("responseFormat.category")}</th><th scope="col">{t("answer.chart.value")}</th></tr></thead>
+    <tbody>{categories.map((item) => <tr key={item.categoryId}>
+      <th scope="row"><Display item={item.label} locale={locale} /></th><td><Display item={item.value} locale={locale} /></td>
+    </tr>)}</tbody>
+  </table>{remaining > 0 && <Button type="button" variant="ghost" size="sm" aria-expanded={expanded}
+    onClick={() => setExpanded((value) => !value)}>{expanded ? t("responseFormat.showLess") : t("answer.more", { count: remaining })}</Button>}</div>;
+}
+
+function DistributionGraphic({ block, locale }: { block: Extract<CoachAnswerBlock, { kind: "distribution" }>; locale: string }) {
+  const { t } = useTranslation("coach");
+  const numeric = block.categories.map((item) => typeof item.value.value === "number" ? item.value.value : 0);
+  const max = Math.max(...numeric.map(Math.abs), 1);
+  const bar = (item: typeof block.categories[number], index: number) => <div className="coach-answer__bar-row" key={item.categoryId}>
+    <Display item={item.label} locale={locale} />
+    <span className="coach-answer__bar-track" aria-hidden="true"><span className="coach-answer__bar"
+      style={{ inlineSize: `${Math.max(2, Math.abs(numeric[index]!) / max * 100)}%` }} /></span>
+    <Display item={item.value} locale={locale} className="coach-answer__strong" />
+  </div>;
+  const remaining = block.categories.slice(PRIMARY_COUNT);
+  return <div className="coach-answer__distribution-chart">
+    <div className="coach-answer__bars">
+      <div className="coach-answer__bar-plot" role="img" aria-label={t("responseFormat.distributionChartLabel")}>
+        {block.categories.slice(0, PRIMARY_COUNT).map(bar)}
+      </div>
+      {remaining.length > 0 && <details className="coach-answer__more"><summary>{t("answer.more", { count: remaining.length })}</summary>
+        <div className="coach-answer__bar-plot">{remaining.map((item, index) => bar(item, index + PRIMARY_COUNT))}</div></details>}
+    </div>
+    <DistributionTable block={block} locale={locale} />
   </div>;
 }
 
@@ -130,12 +255,33 @@ const BAND_KEYS: Record<string, string> = {
   "coach.load.band.normal.explanation": "answer.load.band.normal.explanation",
 };
 
-function TypedLoadAnalysisView({ block, locale, onAction }: { block: Extract<CoachAnswerBlock, { kind: "load_analysis" }>;
-  locale: string; onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void }) {
+function typedLoadTrendBlock(block: Extract<CoachAnswerBlock, { kind: "load_analysis" }>): TimeSeriesBlock {
+  const metrics = ["ctl", "atl", "form"] as const;
+  return { blockId: `${block.blockId}_weekly_trend`, kind: "time_series", sourceSlotIds: block.sourceSlotIds,
+    partial: block.partial, stale: block.stale, truncated: block.truncated, omittedCount: block.omittedCount,
+    series: metrics.map((metric) => ({ seriesId: `${block.blockId}_${metric}`, metricId: metric,
+      points: block.assessment.weeklyTrend.map((week) => ({ at: week.period.toCanonicalDate, value: week[metric] })) })) };
+}
+
+function TypedLoadTrendTable({ block, locale }: { block: Extract<CoachAnswerBlock, { kind: "load_analysis" }>; locale: string }) {
+  const { t } = useTranslation("coach");
+  const metrics = ["ctl", "atl", "form"] as const;
+  return <div className="coach-answer__table-scroll"><table><caption>{t("answer.load.weeklyTrendCaption")}</caption>
+    <thead><tr><th scope="col">{t("answer.load.canonicalPeriod")}</th>{metrics.map((metric) => <th key={metric} scope="col"><MetricLabel metricId={metric} /></th>)}</tr></thead>
+    <tbody>{block.assessment.weeklyTrend.map((week) => <tr key={week.weekId}><th scope="row"><Display item={week.period.fromCanonicalDate} locale={locale} /> – <Display item={week.period.toCanonicalDate} locale={locale} />
+      {(week.partial || week.sampleBasis === "current_as_of") && <Chip variant="warning">{t("answer.load.inProgress")}</Chip>}</th>
+      {metrics.map((metric) => <td key={metric}><Display item={week[metric]} locale={locale} /></td>)}</tr>)}</tbody></table></div>;
+}
+
+function TypedLoadAnalysisView({ block, responseFormat, showLocalFormatFallback = false, locale, onAction }: { block: Extract<CoachAnswerBlock, { kind: "load_analysis" }>;
+  responseFormat: CoachResponseFormat; showLocalFormatFallback?: boolean; locale: string;
+  onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void }) {
   const { t } = useTranslation("coach");
   const [chartOpen, setChartOpen] = useState(false);
   const value = block.assessment;
   const metrics = ["ctl", "atl", "form"] as const;
+  const trendBlock = typedLoadTrendBlock(block);
+  const chartableTrend = isChartableTimeSeries(trendBlock);
   const openDriver = (driver: CoachLoadAssessment["drivers"][number]) => onAction("OPEN_ACTIVITY", {
     entityType: "activity", entityId: driver.activityId, label: driver.title, occurredAt: driver.date,
   });
@@ -155,13 +301,14 @@ function TypedLoadAnalysisView({ block, locale, onAction }: { block: Extract<Coa
         <div><span>{t("answer.column.current")}</span><Display item={value.weeklyTss.current} locale={locale} /></div>
         <div><span>{t("answer.column.delta")}</span><Display item={value.weeklyTss.delta} locale={locale} showPositiveSign /></div></div></section>
     {value.weeklyTrend.length > 0 && <section className="coach-answer__load-trend"><h4>{t("answer.load.trendTitle")}</h4>
-      <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls={`coach-load-${block.blockId}`}
-        onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>
-      {chartOpen && <div id={`coach-load-${block.blockId}`} className="coach-answer__table-scroll"><table><caption>{t("answer.load.weeklyTrendCaption")}</caption>
-        <thead><tr><th scope="col">{t("answer.load.canonicalPeriod")}</th>{metrics.map((metric) => <th key={metric} scope="col"><MetricLabel metricId={metric} /></th>)}</tr></thead>
-        <tbody>{value.weeklyTrend.map((week) => <tr key={week.weekId}><th scope="row"><Display item={week.period.fromCanonicalDate} locale={locale} /> – <Display item={week.period.toCanonicalDate} locale={locale} />
-          {(week.partial || week.sampleBasis === "current_as_of") && <Chip variant="warning">{t("answer.load.inProgress")}</Chip>}</th>
-          {metrics.map((metric) => <td key={metric}><Display item={week[metric]} locale={locale} /></td>)}</tr>)}</tbody></table></div>}</section>}
+      {showLocalFormatFallback && responseFormat === "chart" && !chartableTrend && <FormatFallbackNotice local />}
+      {responseFormat === "auto" && chartableTrend && <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls={`coach-load-${block.blockId}`}
+        onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>}
+      {responseFormat === "table" || !chartableTrend || (responseFormat === "auto" && chartOpen)
+        ? <TypedLoadTrendTable block={block} locale={locale} />
+        : responseFormat === "chart"
+          ? <div id={`coach-load-${block.blockId}`}><SeriesGraphic block={trendBlock} locale={locale} /></div>
+          : null}</section>}
     {value.drivers.length > 0 && <section><h4>{t("answer.load.driversTitle")}</h4><ol className="coach-answer__list">{value.drivers.map((driver) => <li key={driver.activityId}>
       <button type="button" className="coach-answer__driver" onClick={() => openDriver(driver)}><Display item={driver.title} locale={locale} /></button>
       <span><Display item={driver.date} locale={locale} /> · TSS <Display item={driver.tss} locale={locale} /> · <Display item={driver.durationMin} locale={locale} /> min
@@ -182,11 +329,13 @@ function TypedLoadAnalysisView({ block, locale, onAction }: { block: Extract<Coa
   </section>;
 }
 
-function LoadAnalysisView({ group, locale, onAction }: { group: LoadAnalysisGroup; locale: string;
+function LoadAnalysisView({ group, responseFormat, showLocalFormatFallback, locale, onAction }: { group: LoadAnalysisGroup; responseFormat: CoachResponseFormat;
+  showLocalFormatFallback: boolean; locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void }) {
   const { t } = useTranslation("coach");
   const [chartOpen, setChartOpen] = useState(false);
-  if (group.typed) return <TypedLoadAnalysisView block={group.typed} locale={locale} onAction={onAction} />;
+  if (group.typed) return <TypedLoadAnalysisView block={group.typed} responseFormat={responseFormat}
+    showLocalFormatFallback={showLocalFormatFallback} locale={locale} onAction={onAction} />;
   const columns = ["previous", "current", "delta"] as const;
   return <section className="coach-answer__load" aria-labelledby="coach-load-title">
     <h3 id="coach-load-title" className="coach-answer__block-title">{t("answer.load.title")}</h3>
@@ -200,7 +349,7 @@ function LoadAnalysisView({ group, locale, onAction }: { group: LoadAnalysisGrou
     </table></div>}
     {group.trends.length > 0 && <section className="coach-answer__load-trend" aria-labelledby="coach-load-trend-title">
       <h4 id="coach-load-trend-title">{t("answer.load.trendTitle")}</h4>
-      <ul className="coach-answer__load-sequences">{group.trends.flatMap((block) => block.series
+      {responseFormat === "auto" && <ul className="coach-answer__load-sequences">{group.trends.flatMap((block) => block.series
         .filter((series) => LOAD_METRIC_IDS.has(series.metricId)).map((series) => <li key={`${block.blockId}-${series.seriesId}`}>
           <strong><MetricLabel metricId={series.metricId} /></strong>
           <span aria-label={t("answer.load.sequenceLabel", { metric: t(`answer.metric.${series.metricId}`) })}>
@@ -208,11 +357,13 @@ function LoadAnalysisView({ group, locale, onAction }: { group: LoadAnalysisGrou
               {index > 0 && <span aria-hidden="true"> → </span>}<Display item={point.value} locale={locale} />
             </Fragment>)}
           </span>
-        </li>))}</ul>
-      <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls="coach-load-charts"
-        onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>
-      {chartOpen && <div id="coach-load-charts" className="coach-answer__load-charts" aria-label={t("answer.load.chartRegion")}>
-        {group.trends.map((block) => <div key={block.blockId}><SeriesGraphic block={block} locale={locale} /><BlockState block={block} /></div>)}
+        </li>))}</ul>}
+      {responseFormat === "auto" && group.trends.some(isChartableTimeSeries) && <Button type="button" variant="outline" aria-expanded={chartOpen} aria-controls="coach-load-charts"
+        onClick={() => setChartOpen((open) => !open)}>{t(chartOpen ? "answer.load.hideChart" : "answer.load.showChart")}</Button>}
+      {(responseFormat !== "auto" || chartOpen) && <div id="coach-load-charts" className="coach-answer__load-charts" aria-label={t("answer.load.chartRegion")}>
+        {group.trends.map((block) => <div key={block.blockId}>{showLocalFormatFallback && responseFormat === "chart"
+          && !isChartableTimeSeries(block) && <FormatFallbackNotice local />}{responseFormat === "table" || !isChartableTimeSeries(block)
+          ? <TimeSeriesTable block={block} locale={locale} /> : <SeriesGraphic block={block} locale={locale} />}<BlockState block={block} /></div>)}
       </div>}
     </section>}
     {group.goal && <section className="coach-answer__load-goal" aria-labelledby="coach-load-goal-title">
@@ -225,31 +376,42 @@ function LoadAnalysisView({ group, locale, onAction }: { group: LoadAnalysisGrou
   </section>;
 }
 
-function SupportedBlock({ block, locale, onAction }: {
+function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale, onAction }: {
   block: Exclude<CoachAnswerBlock, { kind: "unsupported_block" } | { kind: "prescription" }>;
+  responseFormat: CoachResponseFormat;
+  showLocalFormatFallback: boolean;
   locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
 }) {
   const { t } = useTranslation("coach");
-  if (block.kind === "load_analysis") return <TypedLoadAnalysisView block={block} locale={locale} onAction={onAction} />;
+  if (block.kind === "load_analysis") return <TypedLoadAnalysisView block={block} responseFormat={responseFormat}
+    showLocalFormatFallback={showLocalFormatFallback} locale={locale} onAction={onAction} />;
   let body: ReactNode;
+  let formatFallback = false;
   if (block.kind === "narrative") {
     const order = block.templateKey.endsWith("comparison_summary") ? ["current", "previous", "delta"] : ["current"];
     body = <div className="coach-answer__narrative"><Text id={`coach-block-${block.blockId}`} as="h3" variant="subtitle">{t(`answer.template.${block.templateKey.split(".").slice(-1)[0]}`)}</Text>
       <div className="coach-answer__narrative-values">{order.flatMap((key) => block.placeholders[key] ? [<Display key={key} item={block.placeholders[key]} locale={locale} className="coach-answer__strong" />] : [])}</div></div>;
   } else if (block.kind === "metric_grid") {
-    body = <div className="coach-answer__metric-grid"><MoreItems items={block.items} render={(item, index) => <Card key={`${item.metricId}-${index}`} padding="compact">
+    body = responseFormat === "table" ? <MetricGridTable block={block} locale={locale} />
+      : <div className="coach-answer__metric-grid"><MoreItems items={block.items} render={(item, index) => <Card key={`${item.metricId}-${index}`} padding="compact">
       <Text as="div" variant="label"><MetricLabel metricId={item.metricId} /></Text><Display item={item.current} locale={locale} className="coach-answer__metric" />
-    </Card>} /></div>;
+      </Card>} /></div>;
   } else if (block.kind === "comparison_table") {
     body = <div className="coach-answer__table-scroll"><table><caption>{t("answer.block.comparison_table")}</caption><thead><tr><th scope="col">{t("answer.metricLabel")}</th>
       {block.columns.map((column) => <th key={column.id} scope="col">{t(`answer.column.${column.id}`)}</th>)}</tr></thead>
       <tbody>{block.rows.map((row) => <tr key={row.rowId}><th scope="row"><MetricLabel metricId={row.metricId} /></th>
         {block.columns.map((column) => <td key={column.id}><Display item={row.cells[column.id]} locale={locale} /></td>)}</tr>)}</tbody></table></div>;
   } else if (block.kind === "time_series") {
-    body = <SeriesGraphic block={block} locale={locale} />;
+    formatFallback = responseFormat === "chart" && !isChartableTimeSeries(block);
+    body = responseFormat === "table" || !isChartableTimeSeries(block)
+      ? <TimeSeriesTable block={block} locale={locale} /> : <SeriesGraphic block={block} locale={locale} />;
   } else if (block.kind === "distribution") {
-    body = <ul className="coach-answer__list"><MoreItems listKind="ul" items={block.categories} render={(item) => <li key={item.categoryId}>
+    const numeric = block.categories.length > 0 && block.categories.every((item) => typeof item.value.value === "number");
+    formatFallback = responseFormat === "chart" && !numeric;
+    body = responseFormat === "table" || (responseFormat === "chart" && !numeric) ? <DistributionTable block={block} locale={locale} />
+      : responseFormat === "chart" && numeric ? <DistributionGraphic block={block} locale={locale} />
+      : <ul className="coach-answer__list"><MoreItems listKind="ul" items={block.categories} render={(item) => <li key={item.categoryId}>
       <Display item={item.label} locale={locale} /><Display item={item.value} locale={locale} className="coach-answer__strong" />
     </li>} /></ul>;
   } else if (block.kind === "ranking") {
@@ -277,7 +439,7 @@ function SupportedBlock({ block, locale, onAction }: {
   }
   return <section className={`coach-answer__block coach-answer__block--${block.kind}`} aria-labelledby={`coach-block-${block.blockId}`}>
     {block.kind !== "narrative" && <h3 id={`coach-block-${block.blockId}`} className="coach-answer__block-title">{t(`answer.block.${block.kind}`)}</h3>}
-    {body}<BlockState block={block} />
+    {showLocalFormatFallback && formatFallback && <FormatFallbackNotice local />}{body}<BlockState block={block} />
   </section>;
 }
 
@@ -291,31 +453,45 @@ function Evidence({ records, locale, timezone }: { records: CoachEvidenceRecord[
     </li>)}</ol></details>;
 }
 
-export function CoachAnswerDocumentView({ response, locale, onAction, onReanalyze = () => undefined }: {
+export function CoachAnswerDocumentView({ response, responseFormat = "auto", locale, onAction, onReanalyze = () => undefined, historical = false }: {
   response: CoachV2Response;
+  responseFormat?: CoachResponseFormat;
   locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
   onReanalyze?: () => void;
+  historical?: boolean;
 }) {
   const { t } = useTranslation("coach");
   const document = response.answer;
   if (!document) return null;
   const fallback = response.outcome !== "answer";
   const loadAnalysis = document.compatibility === "supported" ? collectLoadAnalysisGroup(document) : null;
+  const loadChartable = loadAnalysis?.typed ? isChartableTimeSeries(typedLoadTrendBlock(loadAnalysis.typed))
+    : loadAnalysis?.trends.some(isChartableTimeSeries) ?? false;
+  const chartable = loadChartable || document.blocks.some((block) => {
+    if (loadAnalysis?.blockIds.has(block.blockId)) return false;
+    if (block.kind === "time_series") return isChartableTimeSeries(block);
+    if (block.kind === "distribution") return block.categories.length > 0
+      && block.categories.every((item) => typeof item.value.value === "number");
+    return false;
+  });
   return <div className="coach-answer">
-    {fallback && <div className="coach-answer__fallback" role="alert"><strong>{t("answer.fallback.title")}</strong><p>{t("answer.fallback.body")}</p></div>}
+    {fallback && !historical && <div className="coach-answer__fallback" role="alert"><strong>{t("answer.fallback.title")}</strong><p>{t("answer.fallback.body")}</p></div>}
+    {responseFormat === "chart" && !chartable && <FormatFallbackNotice />}
     {document.compatibility === "unsupported_schema" ? <UnsupportedBlockNotice /> : <>
       {document.blocks.map((block) => {
         if (loadAnalysis?.blockIds.has(block.blockId)) {
           if (block.blockId !== loadAnalysis.firstBlockId) return null;
-          return <LoadAnalysisView key="load-analysis" group={loadAnalysis} locale={locale} onAction={onAction} />;
+          return <LoadAnalysisView key="load-analysis" group={loadAnalysis} responseFormat={responseFormat}
+            showLocalFormatFallback={responseFormat === "chart" && chartable} locale={locale} onAction={onAction} />;
         }
         return block.kind === "unsupported_block"
           ? <UnsupportedBlockNotice key={block.blockId} prescription={block.reason === "prescription_feature_disabled"} />
           : block.kind === "prescription"
             ? <CoachPrescription key={block.blockId} initial={block.prescription} parentRequestId={response.requestId}
               locale={locale} onReanalyze={onReanalyze} />
-          : <SupportedBlock key={block.blockId} block={block} locale={locale} onAction={onAction} />;
+          : <SupportedBlock key={block.blockId} block={block} responseFormat={responseFormat}
+            showLocalFormatFallback={responseFormat === "chart" && chartable} locale={locale} onAction={onAction} />;
       })}
       <footer className="coach-answer__metadata"><span>{t("answer.freshness", { at: formatDate(document.freshness.asOf, locale, document.freshness.timezone) })}</span>
         <span>{t("answer.timezone", { timezone: document.freshness.timezone })}</span>
