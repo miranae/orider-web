@@ -22,6 +22,14 @@ const MAP_THUMBNAIL_WEBP_QUALITIES = [0.85, 0.78, 0.7, 0.62, 0.52, 0.4, 0.28, 0.
 let activeCaptureToken: symbol | null = null;
 const waitingCaptureTokens: symbol[] = [];
 const captureCallbacks = new Map<symbol, () => void>();
+let webpCaptureSupported: boolean | null = null;
+
+function disableWebpCapture() {
+  webpCaptureSupported = false;
+  // 이미 대기 중인 카드도 같은 unsupported 인코딩을 반복하지 않게 즉시 큐에서 제거한다.
+  waitingCaptureTokens.splice(0, waitingCaptureTokens.length);
+  captureCallbacks.clear();
+}
 
 function advanceCaptureQueue() {
   if (activeCaptureToken) return;
@@ -123,7 +131,7 @@ export default function ActivityRouteThumbnail({
   // anonymous는 공개 활동만, 인증 viewer는 조회된 friends/private도 시도한다.
   // 실제 owner/양방향 친구 관계는 prepare/finalize callable이 최신 서버 상태로 최종 강제한다.
   const mayCapture = visibility === "everyone" || !!user;
-  const needsCapture = mayCapture && !!canonicalKey && !canonicalImageUrl;
+  const needsCapture = mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {
     if (canonicalImageUrl) return;
@@ -383,10 +391,15 @@ function copyCanonicalMapThumbnailCanvas(mapCanvas: HTMLCanvasElement): HTMLCanv
   return output;
 }
 
-async function createCanonicalMapThumbnailBlob(output: HTMLCanvasElement): Promise<Blob> {
+export async function createCanonicalMapThumbnailBlob(output: HTMLCanvasElement): Promise<Blob> {
   for (const quality of MAP_THUMBNAIL_WEBP_QUALITIES) {
     const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, "image/webp", quality));
     if (!blob) throw new Error("map-thumbnail/webp-encode-failed");
+    if (blob.type !== "image/webp") {
+      disableWebpCapture();
+      throw new Error("map-thumbnail/webp-unsupported");
+    }
+    webpCaptureSupported = true;
     if (blob.size < MAP_THUMBNAIL_MAX_BYTES) return blob;
   }
   throw new Error("map-thumbnail/webp-too-large");
@@ -477,11 +490,22 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorCode:
 }
 
 export function shouldReportMapCaptureError(error: unknown): boolean {
-  const code = getErrorCode(error);
-  if (code === "storage/unauthorized" || code === "permission-denied") return false;
+  const code = getErrorCode(error)?.toLowerCase() ?? "";
+  if (
+    code === "storage/unauthorized" ||
+    code === "permission-denied" ||
+    code === "functions/permission-denied" ||
+    code === "functions/failed-precondition" ||
+    code === "functions/not-found"
+  ) return false;
 
   const message = error instanceof Error ? error.message : String(error);
   return !(
+    message.includes("map-thumbnail/stale-prepare") ||
+    message.includes("map-thumbnail/webp-unsupported") ||
+    message.includes("functions/permission-denied") ||
+    message.includes("functions/failed-precondition") ||
+    message.includes("functions/not-found") ||
     message.includes("storage/unauthorized") ||
     message.includes("does not have permission") ||
     message.includes("Missing or insufficient permissions")
