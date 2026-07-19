@@ -13,13 +13,30 @@
   "loadingAnswer": "Checking your training records and preparing an answer…",
   "loadingHonest": "The server returns only a completed answer, so detailed processing stages are not shown.",
   "inputLabel": "Question about my training",
-  "placeholder": "For example: Compare my last 28 days with the previous 28 days.",
+  "placeholder": {
+    "bike": "For example: Summarize today's cycling average power, heart rate, and cadence.",
+    "run": "For example: Summarize today's running heart rate, cadence, duration, and distance.",
+    "swim": "For example: Summarize today's swim heart rate, duration, and distance."
+  },
   "submit": "Ask",
   "another": "Ask another question",
   "suggestions": {
     "title": "Try asking",
-    "1": "How was my training volume this week?",
-    "2": "Compare my last 28 days with the previous 28 days."
+    "bike": {
+      "1": "Show my weekly cycling fitness, fatigue, and form trends over the last 8 weeks with evidence so the changes are easy to see.",
+      "2": "Summarize today's cycling average power, heart rate, and cadence with supporting evidence.",
+      "3": "Compare this week's cycling duration and total TSS with last week, and show the differences clearly with evidence."
+    },
+    "run": {
+      "1": "Show my weekly running fitness, fatigue, and form trends over the last 8 weeks with evidence so the changes are easy to see.",
+      "2": "Show today's running average heart rate and cadence, and summarize total duration and distance with supporting evidence.",
+      "3": "Compare this week's running duration and total distance with last week, and show the differences clearly with evidence."
+    },
+    "swim": {
+      "1": "Show my weekly swimming fitness, fatigue, and form trends over the last 8 weeks with evidence so the changes are easy to see.",
+      "2": "Show today's swimming average heart rate, and summarize total duration and distance with supporting evidence.",
+      "3": "Compare this week's swimming duration and total distance with last week, and show the differences clearly with evidence."
+    }
   },
   "discipline": { "bike": "Cycling", "run": "Running", "swim": "Swimming" },
   "period": { "default": "Period resolved from the question", "current7d": "Last 7 days", "current28d": "Last 28 days", "previous28d": "Previous 28 days" },
