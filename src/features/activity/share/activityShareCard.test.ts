@@ -27,12 +27,24 @@ function context() {
     closePath: vi.fn(),
     fill: vi.fn(),
     stroke: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    translate: vi.fn(),
+    scale: vi.fn(),
     fillRectStyles: [] as string[],
     fillTextStyles: [] as string[],
   };
   ctx.fillRect.mockImplementation(() => ctx.fillRectStyles.push(ctx.fillStyle));
   ctx.fillText.mockImplementation(() => ctx.fillTextStyles.push(ctx.fillStyle));
   return ctx as unknown as CanvasRenderingContext2D & { fillRectStyles: string[]; fillTextStyles: string[] };
+}
+
+function stubPath2D() {
+  const paths: string[] = [];
+  vi.stubGlobal("Path2D", class {
+    constructor(path: string) { paths.push(path); }
+  });
+  return paths;
 }
 
 describe("drawActivityShareCard privacy", () => {
@@ -47,7 +59,7 @@ describe("drawActivityShareCard privacy", () => {
       distanceLabel: "Distance", durationLabel: "Time", elevationLabel: "Elevation",
       elevationProfileLabel: "Elevation profile",
       performanceLabel: "Ride performance",
-      footer: "O-Rider", routeImageUrl: "https://example.com/static-route.png", backgroundImageUrl: "https://example.com/precise-route.png",
+      footer: "O-Rider", backgroundImageUrl: "https://example.com/precise-route.png",
       includeRouteImage: false,
     });
 
@@ -136,25 +148,29 @@ describe("drawActivityShareCard privacy", () => {
     expect(ctx.fillTextStyles[activityLineCall]).toBe("#FFFFFF");
   });
 
-  it("draws the route map once without a map-wide shade overlay", async () => {
+  it("draws a fresh RouteMap canvas once without a map-wide shade overlay", async () => {
     const ctx = context();
+    const paths = stubPath2D();
+    const routeCanvas = document.createElement("canvas");
+    routeCanvas.width = 2160;
+    routeCanvas.height = 1200;
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
-    class LoadedImage {
-      crossOrigin = ""; naturalWidth = 1080; naturalHeight = 600;
-      onload: (() => void) | null = null; onerror: (() => void) | null = null; private value = "";
-      set src(value: string) { this.value = value; if (value) queueMicrotask(() => this.onload?.()); }
-      get src() { return this.value; }
-    }
-    vi.stubGlobal("Image", LoadedImage);
-    const canvas = await drawActivityShareCard({ ...cardInput(), includeRouteImage: true, routeImageUrl: "https://example.com/map.png" });
+    const image = vi.spyOn(globalThis, "Image");
+    const canvas = await drawActivityShareCard({ ...cardInput(), includeRouteImage: true, routeCanvas });
     expect(canvas.height).toBe(600);
     expect(ctx.drawImage).toHaveBeenCalledOnce();
+    expect(ctx.drawImage).toHaveBeenCalledWith(routeCanvas, 0, 0, 1080, 600);
+    expect(image).not.toHaveBeenCalled();
     expect(ctx.createLinearGradient).not.toHaveBeenCalled();
-    expect(ctx.fillText).not.toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 1056, 558);
+    expect(paths).toHaveLength(2);
+    expect(ctx.translate).toHaveBeenCalledWith(774, 544);
+    expect(ctx.scale).toHaveBeenCalledWith(53 / 88, 53 / 88);
+    expect(ctx.fillText).toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 1056, 558);
   });
 
   it("adds map attribution when the non-static fallback image is used", async () => {
     const ctx = context();
+    const paths = stubPath2D();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     class FallbackImage {
       crossOrigin = ""; naturalWidth = 1080; naturalHeight = 600;
@@ -168,10 +184,10 @@ describe("drawActivityShareCard privacy", () => {
     vi.stubGlobal("Image", FallbackImage);
     await drawActivityShareCard({
       ...cardInput(), includeRouteImage: true,
-      routeImageUrl: "https://example.com/static-map.png",
       backgroundImageUrl: "https://example.com/canvas-map.png",
     });
     expect(ctx.drawImage).toHaveBeenCalledOnce();
+    expect(paths).toHaveLength(2);
     expect(ctx.fillText).toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 1056, 558);
   });
 

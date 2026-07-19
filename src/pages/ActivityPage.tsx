@@ -63,7 +63,6 @@ import { RideActivityRouteButton } from "../features/activity/detail/RideActivit
 import { selectActualCoRiders } from "../utils/coRiders";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { ActivityShareButton } from "../features/activity/share/ActivityShareButton";
-import { buildActivityShareMapUrl } from "../features/activity/share/activityShareMap";
 import type { ActivityShareMetric } from "../features/activity/share/activityShareCard";
 import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features/activity/detail/ActivityInsightCards";
 import type { LayoutOutletContext } from "../components/Layout";
@@ -122,10 +121,6 @@ export default function ActivityPage() {
     shareDiscipline,
   );
   const { pdc: bikePdc } = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
-  const shareMapUrl = useMemo(
-    () => activity?.visibility === "everyone" ? buildActivityShareMapUrl(activity.thumbnailTrack) : null,
-    [activity?.thumbnailTrack, activity?.visibility],
-  );
   // 가상 파워 즉석 재계산 미리보기 (Firestore 저장 안 함). 자전거 활동에서만 구독.
   const isRide = activity ? getSportCategory(activity.type) === "ride" : false;
   const { active: activeBike } = useActiveBikeProfile(isRide ? (user?.uid ?? null) : null);
@@ -902,7 +897,6 @@ export default function ActivityPage() {
                   elevationProfileLabel: t("page.share.elevationProfile"),
                   performanceLabel: t("page.share.performanceLabel"),
                   footer: t("page.share.footer"),
-                  routeImageUrl: shareMapUrl,
                   backgroundImageUrl: activity.mapImageUrl,
                   includeRouteImage: activity.visibility === "everyone",
                   performanceMetrics: sharePerformanceMetrics,
@@ -913,6 +907,7 @@ export default function ActivityPage() {
                 url={window.location.href}
                 activityId={activity.id}
                 visibility={activity.visibility}
+                routeTrack={activity.visibility === "everyone" ? activity.thumbnailTrack : null}
                 onFeedback={showToast}
               />
               {activity.visibility !== "everyone" && (
