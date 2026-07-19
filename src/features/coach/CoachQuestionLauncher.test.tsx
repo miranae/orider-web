@@ -72,6 +72,34 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.status).not.toHaveBeenCalled(); expect(mocks.policy).not.toHaveBeenCalled(); expect(mocks.ask).not.toHaveBeenCalled();
   });
 
+  it("uses the design-system composer hierarchy without duplicating a selected quick prompt", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+
+    expect(screen.getByText("내 운동 기록을 근거로 답합니다.")).toBeInTheDocument();
+    expect(screen.getByText("이전 질문의 맥락은 이어지지 않아요.")).toBeInTheDocument();
+    expect(screen.getByText("사이클 기록 분석")).toBeInTheDocument();
+    expect(screen.queryByText("서버가 질문에서 기간 확인")).not.toBeInTheDocument();
+    expect(screen.queryByText("0/1000")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveAttribute("aria-describedby", "coach-question-note");
+
+    const composer = screen.getByLabelText("내 운동에 대한 질문");
+    const quickPromptTitle = screen.getByRole("heading", { name: "이런 질문을 해보세요" });
+    expect(composer.compareDocumentPosition(quickPromptTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(composer);
+    expect(screen.getByText("0/1000")).toBeInTheDocument();
+    expect(composer).toHaveAttribute("aria-describedby", "coach-question-note coach-question-counter");
+
+    const submit = screen.getByRole("button", { name: "질문하기" });
+    expect(submit).toHaveClass("ds-btn--primary", "ds-btn--block");
+    await userEvent.click(screen.getByRole("button", { name: "이번 주 운동량이 어땠나요?" }));
+    expect(composer).toHaveValue("이번 주 운동량이 어땠나요?");
+    expect(composer).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "이번 주 운동량이 어땠나요?" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "최근 28일과 직전 28일을 비교해줘." })).toBeInTheDocument();
+  });
+
   it("retries initial status and consent loading in the same sheet without exposing raw errors", async () => {
     mocks.status.mockRejectedValueOnce(new Error("private backend detail")).mockResolvedValueOnce({ status: "available", quota });
     setup();
@@ -259,7 +287,7 @@ describe("CoachQuestionLauncher", () => {
     await screen.findByText("오늘 3회 남음");
     const heading = screen.getByRole("heading", { name: "O·RIDER Coach" });
     heading.focus(); await userEvent.tab({ shift: true });
-    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveFocus();
+    expect(screen.getByRole("button", { name: "최근 28일과 직전 28일을 비교해줘." })).toHaveFocus();
     const outside = document.createElement("button"); document.body.appendChild(outside); outside.focus();
     await userEvent.tab();
     expect(within(screen.getByRole("dialog", { name: "O·RIDER Coach" })).getByRole("button", { name: "AI 코치 닫기" })).toHaveFocus();

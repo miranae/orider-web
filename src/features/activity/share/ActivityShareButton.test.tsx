@@ -27,6 +27,8 @@ const card = {
   distanceLabel: "Distance",
   durationLabel: "Time",
   elevationLabel: "Elevation",
+  performanceLabel: "Ride performance",
+  elevationProfileLabel: "Elevation profile",
   footer: "Ride card",
   includeRouteImage: true,
 };
@@ -40,7 +42,7 @@ afterEach(() => {
 });
 
 describe("ActivityShareButton", () => {
-  it("shares the generated PNG file when file sharing is supported", async () => {
+  it("downloads the generated PNG even when native file sharing is supported", async () => {
     const blob = new Blob(["png"], { type: "image/png" });
     vi.mocked(cardModule.drawActivityShareCard).mockResolvedValue(document.createElement("canvas"));
     vi.mocked(cardModule.canvasToPng).mockResolvedValue(blob);
@@ -52,10 +54,10 @@ describe("ActivityShareButton", () => {
     render(<ActivityShareButton {...props} />);
     fireEvent.click(screen.getByRole("button"));
 
-    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
-    expect(share.mock.calls[0][0].files[0]).toBeInstanceOf(File);
-    expect(canShare).toHaveBeenCalledWith(share.mock.calls[0][0]);
-    expect(track).toHaveBeenCalledWith("activity_share_native", { activityId: "a1", visibility: "everyone" });
+    await waitFor(() => expect(cardModule.downloadShareCard).toHaveBeenCalledWith(blob, "ride.png"));
+    expect(share).not.toHaveBeenCalled();
+    expect(canShare).not.toHaveBeenCalled();
+    expect(track).toHaveBeenCalledWith("activity_share_download", { activityId: "a1", visibility: "everyone" });
   });
 
   it("downloads once when native file sharing is unavailable and blocks duplicate clicks", async () => {

@@ -1,5 +1,25 @@
 import { saveAs } from "file-saver";
 
+export interface ActivityShareMetric {
+  label: string;
+  value: string;
+  unit?: string;
+}
+
+export interface ActivityShareElevationPoint {
+  distance: number;
+  elevation: number;
+}
+
+export interface ActivityShareWeather {
+  temperature?: number;
+  feelsLike?: number;
+  humidity?: number;
+  windSpeed?: number;
+  windDirection?: number;
+  weatherCode?: number;
+}
+
 export interface ActivityShareCardInput {
   title: string;
   athlete: string;
@@ -11,24 +31,35 @@ export interface ActivityShareCardInput {
   distanceLabel: string;
   durationLabel: string;
   elevationLabel: string;
+  elevationProfileLabel: string;
+  performanceLabel: string;
   footer: string;
+  routeImageUrl?: string | null;
   backgroundImageUrl?: string | null;
   includeRouteImage: boolean;
-}
-
-function token(name: string, fallback: string): string {
-  if (typeof document === "undefined") return fallback;
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  performanceMetrics?: ActivityShareMetric[];
+  elevationProfile?: ActivityShareElevationPoint[];
+  weather?: ActivityShareWeather;
 }
 
 const IMAGE_TIMEOUT_MS = 8_000;
+const WIDTH = 1080;
+const HEIGHT = 600;
+const MAP_HEIGHT = 600;
+const MAX_ELEVATION_POINTS = 240;
+const RIGHT_RAIL_X = WIDTH * 0.7;
+const RIGHT_RAIL_LEFT = RIGHT_RAIL_X + 18;
+const RIGHT_RAIL_RIGHT = WIDTH - 24;
+const RIGHT_RAIL_WIDTH = RIGHT_RAIL_RIGHT - RIGHT_RAIL_LEFT;
+const ORIDER_BRAND = "#008986";
+const ORIDER_BRAND_DARK = "#006F6C";
+const ORIDER_BRAND_LIGHT = "#4FD5D1";
+const KOREAN_MAP_STYLE_ID = "orider/cmp9okm6p006c01snfd3dexqb";
+const KOREAN_MAP_FILTER = "saturate(2) brightness(.91) hue-rotate(-12deg) contrast(1.08)";
 
 function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
-    if (signal?.aborted) {
-      resolve(null);
-      return;
-    }
+    if (signal?.aborted) return resolve(null);
     const image = new Image();
     let settled = false;
     const finish = (value: HTMLImageElement | null) => {
@@ -56,6 +87,20 @@ function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement 
   });
 }
 
+interface LoadedImage {
+  image: HTMLImageElement;
+  url: string;
+}
+
+async function loadFirstImage(urls: Array<string | null | undefined>, signal?: AbortSignal): Promise<LoadedImage | null> {
+  for (const url of urls) {
+    if (!url || signal?.aborted) continue;
+    const image = await loadImage(url, signal);
+    if (image) return { image, url };
+  }
+  return null;
+}
+
 function boundedText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let end = text.length;
@@ -63,95 +108,207 @@ function boundedText(ctx: CanvasRenderingContext2D, text: string, maxWidth: numb
   return end > 0 ? `${text.slice(0, end).trimEnd()}…` : "…";
 }
 
-function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, startSize: number): string {
-  let size = startSize;
-  while (size > 42) {
-    ctx.font = `800 ${size}px ${token("--font-body", "system-ui, sans-serif")}`;
-    if (ctx.measureText(text).width <= maxWidth) return text;
-    size -= 4;
-  }
-  ctx.font = `800 42px ${token("--font-body", "system-ui, sans-serif")}`;
-  return boundedText(ctx, text, maxWidth);
+function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, filter = "none"): void {
+  const scale = Math.min(WIDTH / image.naturalWidth, MAP_HEIGHT / image.naturalHeight);
+  const width = image.naturalWidth * scale;
+  const height = image.naturalHeight * scale;
+  const previousFilter = ctx.filter;
+  ctx.filter = filter;
+  ctx.drawImage(image, (WIDTH - width) / 2, (MAP_HEIGHT - height) / 2, width, height);
+  ctx.filter = previousFilter;
 }
 
-/** Draws a privacy-filtered, share-ready activity poster. Cross-origin images fail closed. */
+function drawOriderMark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+  ctx.fillStyle = ORIDER_BRAND;
+  ctx.fillRect(x, y, size, size);
+  ctx.beginPath();
+  ctx.moveTo(x + size * 0.16, y + size * 0.72);
+  ctx.lineTo(x + size * 0.37, y + size * 0.39);
+  ctx.lineTo(x + size * 0.52, y + size * 0.56);
+  ctx.lineTo(x + size * 0.69, y + size * 0.32);
+  ctx.lineTo(x + size * 0.84, y + size * 0.72);
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = size * 0.16;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.stroke();
+}
+
+function weatherLines(weather: ActivityShareWeather | undefined): string[] {
+  if (!weather) return [];
+  const code = weather.weatherCode;
+  const icon = code == null ? "◌" : code <= 1 ? "☀︎" : code <= 3 ? "☁︎" : code <= 48 ? "≋" : code <= 67 ? "☂︎" : code <= 77 ? "❄︎" : code <= 82 ? "☂︎" : "ϟ";
+  const temperature = [
+    Number.isFinite(weather.temperature) ? `${icon} ${Math.round(weather.temperature!)}°C` : "",
+    Number.isFinite(weather.feelsLike) ? `≈ ${Math.round(weather.feelsLike!)}°C` : "",
+  ].filter(Boolean).join("  ·  ");
+  const direction = Number.isFinite(weather.windDirection)
+    ? ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(weather.windDirection! / 45) % 8]
+    : "↗";
+  const conditions = [
+    Number.isFinite(weather.humidity) ? `RH ${Math.round(weather.humidity!)}%` : "",
+    Number.isFinite(weather.windSpeed) ? `${direction} ${weather.windSpeed!.toFixed(1)} m/s` : "",
+  ].filter(Boolean).join("  ·  ");
+  return [temperature, conditions].filter(Boolean);
+}
+
+function normalizedElevationProfile(points: ActivityShareElevationPoint[] | undefined): ActivityShareElevationPoint[] {
+  const valid = (points ?? []).filter((point) => Number.isFinite(point.distance) && Number.isFinite(point.elevation));
+  if (valid.length <= MAX_ELEVATION_POINTS) return valid;
+  const minIndex = valid.reduce((best, point, index) => point.elevation < valid[best]!.elevation ? index : best, 0);
+  const maxIndex = valid.reduce((best, point, index) => point.elevation > valid[best]!.elevation ? index : best, 0);
+  const indexes = new Set([minIndex, maxIndex]);
+  Array.from({ length: MAX_ELEVATION_POINTS - 2 }, (_, index) =>
+    indexes.add(Math.round(index * (valid.length - 1) / (MAX_ELEVATION_POINTS - 3))),
+  );
+  return [...indexes].sort((a, b) => a - b).map((index) => valid[index]!);
+}
+
+/** Strava 수준의 지도와 O-Rider 훈련 상태를 함께 담는 고정형 PNG 포스터. */
 export async function drawActivityShareCard(input: ActivityShareCardInput, signal?: AbortSignal): Promise<HTMLCanvasElement> {
   const canvas = document.createElement("canvas");
-  canvas.width = 1080;
-  canvas.height = 1350;
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
 
-  const ink = token("--ink-0", "#101817");
-  const muted = token("--ink-3", "#70807d");
-  const accent = token("--lime", "#18c79c");
-  const bg = token("--bg-0", "#f7faf9");
-  const font = token("--font-body", "system-ui, sans-serif");
-  const mono = token("--font-mono", "monospace");
+  const font = "Pretendard, Inter, system-ui, sans-serif";
+  const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
+  const bg = "#071311";
 
   ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  const image = input.includeRouteImage && input.backgroundImageUrl
-    ? await loadImage(input.backgroundImageUrl, signal)
+  const loadedImage = input.includeRouteImage
+    ? await loadFirstImage([input.routeImageUrl, input.backgroundImageUrl], signal)
     : null;
+  const image = loadedImage?.image ?? null;
   if (image) {
-    const scale = Math.max(canvas.width / image.naturalWidth, 650 / image.naturalHeight);
-    const width = image.naturalWidth * scale;
-    const height = image.naturalHeight * scale;
-    ctx.drawImage(image, (canvas.width - width) / 2, (650 - height) / 2, width, height);
-    const shade = ctx.createLinearGradient(0, 180, 0, 650);
-    shade.addColorStop(0, "rgba(0,0,0,.08)");
-    shade.addColorStop(1, "rgba(0,0,0,.64)");
-    ctx.fillStyle = shade;
-    ctx.fillRect(0, 0, canvas.width, 650);
+    ctx.fillStyle = "#dce8e3";
+    ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
+    const mapFilter = loadedImage?.url.includes(KOREAN_MAP_STYLE_ID) ? KOREAN_MAP_FILTER : "none";
+    drawContainedImage(ctx, image, mapFilter);
   } else {
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, 650);
-    gradient.addColorStop(0, accent);
-    gradient.addColorStop(1, "#0b4f4a");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, 650);
+    const mapFallback = ctx.createLinearGradient(0, 0, WIDTH, MAP_HEIGHT);
+    mapFallback.addColorStop(0, "#17695d");
+    mapFallback.addColorStop(1, "#0a2824");
+    ctx.fillStyle = mapFallback;
+    ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
+  }
+  const elevationProfile = normalizedElevationProfile(input.elevationProfile);
+
+  ctx.shadowColor = "rgba(0,0,0,.9)";
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetY = 1;
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "left";
+  ctx.font = `800 14px ${mono}`;
+  drawOriderMark(ctx, 24, 15, 14);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText("O·RIDER", 44, 28);
+  ctx.textAlign = "right";
+  ctx.font = `700 10px ${mono}`;
+  weatherLines(input.weather).forEach((line, index) =>
+    ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 48 + index * 15),
+  );
+
+  ctx.font = `600 10px ${font}`;
+  ctx.fillText(boundedText(ctx, `${input.sport} · ${input.date}`, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 88);
+  ctx.font = `800 20px ${font}`;
+  ctx.fillText(boundedText(ctx, input.title, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 114);
+  ctx.font = `500 10px ${font}`;
+  ctx.fillText(boundedText(ctx, input.athlete, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 132);
+
+  const metrics = (input.performanceMetrics ?? []).filter((metric) => metric.value).slice(0, 6);
+  if (metrics.length > 0) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 8px ${font}`;
+    ctx.fillText(boundedText(ctx, input.performanceLabel, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 158);
+    metrics.forEach((metric, index) => {
+      const x = RIGHT_RAIL_LEFT + (index % 2) * 145 + 132;
+      const y = 178 + Math.floor(index / 2) * 37;
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `600 8px ${font}`;
+      ctx.fillText(boundedText(ctx, metric.label, 132), x, y);
+      ctx.font = `800 12px ${mono}`;
+      const value = metric.unit ? `${metric.value} ${metric.unit}` : metric.value;
+      ctx.fillText(boundedText(ctx, value, 132), x, y + 14);
+    });
   }
 
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `700 34px ${mono}`;
-  ctx.fillText("O-RIDER", 72, 92);
-  ctx.font = `600 30px ${font}`;
-  ctx.fillText(boundedText(ctx, `${input.sport} · ${input.date}`, 936), 72, 448);
-  const title = fitText(ctx, input.title, 936, 76);
-  ctx.fillText(title, 72, 548);
-  ctx.font = `500 30px ${font}`;
-  ctx.fillText(boundedText(ctx, input.athlete, 936), 72, 604);
-
-  const stats: Array<readonly [string, string]> = [
+  const primaryStats: Array<readonly [string, string]> = [
     [input.distance, input.distanceLabel],
     [input.duration, input.durationLabel],
-    [input.elevation, input.elevationLabel],
+    ...(elevationProfile.length >= 2 ? [] : [[input.elevation, input.elevationLabel] as const]),
   ];
-  stats.forEach(([value, label], index) => {
-    const x = 72 + index * 320;
-    ctx.fillStyle = ink;
-    ctx.font = `800 58px ${mono}`;
-    ctx.fillText(boundedText(ctx, value, 280), x, 790);
-    ctx.fillStyle = muted;
-    ctx.font = `500 27px ${font}`;
-    ctx.fillText(boundedText(ctx, label, 280), x, 838);
+  primaryStats.forEach(([value, label], index) => {
+    const columnWidth = RIGHT_RAIL_WIDTH / primaryStats.length;
+    const x = RIGHT_RAIL_LEFT + (index + 1) * columnWidth;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `800 14px ${mono}`;
+    ctx.fillText(boundedText(ctx, value, columnWidth - 8), x, 306);
+    ctx.font = `600 8px ${font}`;
+    ctx.fillText(boundedText(ctx, label, columnWidth - 8), x, 320);
   });
+  ctx.font = `500 10px ${font}`;
+  ctx.fillText(boundedText(ctx, input.footer, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 520);
+  ctx.font = `600 9px ${mono}`;
+  ctx.fillText("orider.co.kr", RIGHT_RAIL_RIGHT, 540);
+  if (image && loadedImage?.url !== input.routeImageUrl) {
+    ctx.font = `500 8px ${font}`;
+    ctx.fillText("© Mapbox · © OpenStreetMap", RIGHT_RAIL_RIGHT, 558);
+  }
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
 
-  ctx.strokeStyle = token("--line-soft", "#dce5e2");
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(72, 920);
-  ctx.lineTo(1008, 920);
-  ctx.stroke();
-  ctx.fillStyle = ink;
-  ctx.font = `700 42px ${font}`;
-  ctx.fillText(boundedText(ctx, input.footer, 936), 72, 1010);
-  ctx.fillStyle = muted;
-  ctx.font = `500 27px ${font}`;
-  ctx.fillText("orider.co.kr", 72, 1252);
-  ctx.fillStyle = accent;
-  ctx.fillRect(0, 1338, canvas.width, 12);
+  const plot = { left: 32, right: 332, top: 490, bottom: 542 };
+  if (elevationProfile.length >= 2) {
+    ctx.fillStyle = "rgba(0,0,0,.10)";
+    ctx.fillRect(plot.left - 8, 464, plot.right - plot.left + 16, 92);
+    ctx.shadowColor = "rgba(0,0,0,.9)";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 9px ${font}`;
+    ctx.fillText(boundedText(ctx, `${input.elevationProfileLabel} · ${input.elevationLabel} ${input.elevation}`, 300), plot.right, 480);
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    const distances = elevationProfile.map((point) => point.distance);
+    const elevations = elevationProfile.map((point) => point.elevation);
+    const minDistance = Math.min(...distances);
+    const distanceRange = Math.max(1, Math.max(...distances) - minDistance);
+    const minElevation = Math.min(...elevations);
+    const maxElevation = Math.max(...elevations);
+    const elevationDelta = maxElevation - minElevation;
+    const elevationRange = Math.max(1, elevationDelta);
+    const isFlat = elevationDelta < 0.5;
+    const coordinates = elevationProfile.map((point) => ({
+      x: plot.left + ((point.distance - minDistance) / distanceRange) * (plot.right - plot.left),
+      y: isFlat ? (plot.top + plot.bottom) / 2 : plot.bottom - ((point.elevation - minElevation) / elevationRange) * (plot.bottom - plot.top),
+    }));
+    const chartFill = ctx.createLinearGradient(0, plot.top, 0, plot.bottom);
+    chartFill.addColorStop(0, "rgba(79,213,209,.38)");
+    chartFill.addColorStop(1, "rgba(79,213,209,.07)");
+    ctx.beginPath();
+    ctx.moveTo(coordinates[0]!.x, plot.bottom);
+    coordinates.forEach((point) => ctx.lineTo(point.x, point.y));
+    ctx.lineTo(coordinates[coordinates.length - 1]!.x, plot.bottom);
+    ctx.closePath();
+    ctx.fillStyle = chartFill;
+    ctx.fill();
+    ctx.beginPath();
+    coordinates.forEach((point, index) => index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y));
+    ctx.strokeStyle = ORIDER_BRAND_DARK;
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.strokeStyle = ORIDER_BRAND_LIGHT;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(79,213,209,.46)";
+    ctx.fillRect(plot.left, 548, plot.right - plot.left, 1);
+  }
   return canvas;
 }
 

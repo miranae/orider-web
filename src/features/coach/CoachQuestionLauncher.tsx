@@ -87,6 +87,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const panelRef = useRef<HTMLElement>(null);
+  const questionRef = useRef<HTMLTextAreaElement>(null);
   const inFlightRef = useRef(false);
   const activeRequestRef = useRef<string | null>(null);
   const activeBodyRef = useRef<CoachV2Request | null>(null);
@@ -107,6 +108,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [feedback, setFeedback] = useState<boolean | null>(null);
   const [submitFailure, setSubmitFailure] = useState<SubmitFailure>(null);
+  const [inputFocused, setInputFocused] = useState(false);
   useEffect(() => { responseRef.current = response; }, [response]);
   useEffect(() => { consentOpenRef.current = consentOpen; }, [consentOpen]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -117,7 +119,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     sessionGenerationRef.current += 1;
     activeRequestRef.current = null;
     activeBodyRef.current = null;
-    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
+    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
     setConsentOpen(false); setPolicy(null); setQuota(null); setPhase("closed");
   }, []);
 
@@ -265,11 +267,12 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
 
   function chooseSuggestion(index: 1 | 2) {
     setDraft(t(`suggestions.${index}`)); setSource(`suggestion_${index}`); setRequestId(null);
+    questionRef.current?.focus();
   }
 
   function startAnother() {
     activeBodyRef.current = null;
-    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setSource("free_text"); setPhase("ready");
+    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
   }
 
   function action(code: CoachActionCode) {
@@ -316,6 +319,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const canRetry = (phase === "network_error" && requestId !== null)
     || (phase === "complete" && response !== null && retryAction !== "none" && !(retryAction === "new" && quota?.remaining === 0));
   const exhausted = quota?.remaining === 0;
+  const showCounter = inputFocused || draft.length >= 900;
+  const suggestions = ([1, 2] as const).filter((index) => source !== `suggestion_${index}`);
   return (
     <>
       <Button ref={triggerRef} block variant="outline" leadingIcon={<Sparkles size={18} />} onClick={() => void openSheet()}>{t("open")}</Button>
@@ -325,7 +330,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
             disabled={phase === "submitting"} onMouseDown={(event) => event.preventDefault()} onClick={closeSheet} />
           <section ref={panelRef} tabIndex={-1} className="coach-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="coach-sheet-title">
             <header className="coach-sheet__header">
-              <div><Text ref={titleRef} tabIndex={-1} id="coach-sheet-title" as="h2" variant="title">{t("title")}</Text><Text as="p" tone="secondary">{t("subtitle")}</Text></div>
+              <div className="coach-sheet__intro"><Text ref={titleRef} tabIndex={-1} id="coach-sheet-title" as="h2" variant="title">{t("title")}</Text>
+                <Text as="p" variant="bodySmall" tone="secondary">{t("subtitle")}</Text></div>
               <Button iconOnly dense variant="ghost" aria-label={t("close")} disabled={phase === "submitting" || consentOpen} onClick={closeSheet}><X size={20} /></Button>
             </header>
             {!user ? <Card><Text as="p">{t("signInRequired")}</Text><Button block onClick={onSignIn}>{t("signIn")}</Button></Card> : (
@@ -333,14 +339,30 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                 {phase === "loading_status" && <p aria-live="polite">{t("loadingStatus")}</p>}
                 {phase === "load_error" && <div><p role="alert">{t("loadError")}</p>
                   <Button onClick={() => void loadInitial(openGenerationRef.current)}>{t("reloadStatus")}</Button></div>}
-                {phase === "ready" && !response && <>
-                  <div className="coach-sheet__chips"><Chip>{t(`discipline.${discipline}`)}</Chip><Chip>{t("period.default")}</Chip></div>
-                  <Text as="h3" variant="subtitle">{t("suggestions.title")}</Text>
-                  <div className="coach-sheet__suggestions">
-                    <Button variant="outline" onClick={() => chooseSuggestion(1)}>{t("suggestions.1")}</Button>
-                    <Button variant="outline" onClick={() => chooseSuggestion(2)}>{t("suggestions.2")}</Button>
+                {phase === "ready" && !response && <div className="coach-sheet__ready">
+                  <Text as="p" variant="eyebrow" tone="accent">{t("context", { discipline: t(`discipline.${discipline}`) })}</Text>
+                  <div className="coach-sheet__composer">
+                    <label htmlFor="coach-question"><Text variant="label">{t("inputLabel")}</Text></label>
+                    <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
+                      placeholder={t("placeholder")} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
+                      onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
+                      onChange={(event) => { setDraft(event.target.value); setSource("free_text"); setRequestId(null); }} />
+                    <div className="coach-sheet__composer-meta">
+                      <Text id="coach-question-note" as="span" variant="caption" tone="tertiary">{t("independentNote")}</Text>
+                      {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
+                    </div>
+                    <Button block variant="primary" disabled={draft.trim().length < 2 || exhausted} onClick={() => void submit()}>{t("submit")}</Button>
+                    {quota && <Text as="p" className="coach-sheet__quota" variant="caption" tone={exhausted ? "warning" : "tertiary"}>
+                      {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
+                    </Text>}
                   </div>
-                </>}
+                  <div className="coach-sheet__quick-prompts">
+                    <Text as="h3" variant="label" tone="secondary">{t("suggestions.title")}</Text>
+                    <div className="coach-sheet__suggestions">
+                      {suggestions.map((index) => <Button key={index} block variant="ghost" onClick={() => chooseSuggestion(index)}>{t(`suggestions.${index}`)}</Button>)}
+                    </div>
+                  </div>
+                </div>}
                 {phase === "submitting" && <div className="coach-sheet__loading" aria-live="polite"><span className="ds-btn__spinner" aria-hidden /><p>{t("loadingAnswer")}</p><small>{t("loadingHonest")}</small></div>}
                 {phase === "network_error" && <div role="alert"><Text as="h3" variant="subtitle">{t("states.network.title")}</Text><p>{t("states.network.body")}</p></div>}
                 {phase === "terminal_error" && <div role="alert"><Text as="h3" variant="subtitle">{t(`states.${submitFailure ?? "terminal"}.title`)}</Text>
@@ -353,25 +375,18 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                   : <CoachResult response={response} evidenceOpen={evidenceOpen} locale={i18n.language}
                     feedback={feedback} onEvidence={() => { setEvidenceOpen((value) => !value); if (!evidenceOpen) coachAnalytics.evidenceExpand(response.status); }}
                     onAction={action} onFeedback={sendFeedback} />)}
-                <div className="coach-sheet__dock">
-                  {phase === "ready" && !response && <div className="coach-sheet__composer">
-                    <label htmlFor="coach-question">{t("inputLabel")}</label>
-                    <Textarea id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
-                      placeholder={t("placeholder")} onChange={(event) => { setDraft(event.target.value); setSource("free_text"); setRequestId(null); }} />
-                    <div className="coach-sheet__counter"><span>{draft.length}/1000</span></div>
-                  </div>}
+                {(phase !== "ready" || response) && <div className="coach-sheet__dock">
                   <footer className="coach-sheet__footer">
                   {quota && <div className="coach-sheet__quota">
                     {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
                     {response?.retry.previousTurnConsumed && <small>{t("quota.previousConsumed")}</small>}
                   </div>}
-                    {!response && phase === "ready" && <Button disabled={draft.trim().length < 2 || exhausted} onClick={() => void submit()}>{t("submit")}</Button>}
                     {canRetry && <Button onClick={() => void retry()}>{retryAction === "new"
                       ? t("retry.newTurnAction") : retryAction === "poll" ? t("retry.poll") : retryAction === "replay" ? t("retry.replay") : t("retry.same")}</Button>}
                     {(response || phase === "network_error" || phase === "terminal_error") && phase !== "submitting"
                       && <Button variant="secondary" onClick={startAnother}>{t("another")}</Button>}
                   </footer>
-                </div>
+                </div>}
               </>
             )}
           </section>
