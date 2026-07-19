@@ -30,8 +30,10 @@ function requireBefore(haystack, before, after, label) {
 
 const firebaseConfig = JSON.parse(readFileSync("firebase.json", "utf8"));
 const stageFirebaseConfig = JSON.parse(readFileSync("firebase.stage.json", "utf8"));
+const PROD_AI_API_ORIGIN = "https://orider-ai-api-h5zqzw3n4a-du.a.run.app";
+const STAGE_AI_API_ORIGIN = "https://orider-ai-api-stage-ldfyfyx5da-du.a.run.app";
 
-function checkHostingConfig(hosting, label) {
+function checkHostingConfig(hosting, label, aiApiOrigin) {
   if (!hosting) {
     fail(`${label} must contain hosting config`);
     return;
@@ -59,7 +61,9 @@ function checkHostingConfig(hosting, label) {
     requireIncludes(csp, "https://*.firebaseapp.com", `${label} Content-Security-Policy frame-src`);
     requireIncludes(csp, "https://www.google.com", `${label} Content-Security-Policy frame-src`);
     requireIncludes(csp, "https://www.recaptcha.net", `${label} Content-Security-Policy frame-src`);
-    requireIncludes(csp, "https://orider-ai-api-h5zqzw3n4a-du.a.run.app", `${label} Content-Security-Policy connect-src`);
+    const connectSrc = csp.split(";").map((directive) => directive.trim())
+      .find((directive) => directive === "connect-src" || directive.startsWith("connect-src ")) ?? "";
+    requireIncludes(connectSrc, aiApiOrigin, `${label} Content-Security-Policy connect-src`);
   }
 
   const rewrites = hosting.rewrites ?? [];
@@ -76,8 +80,8 @@ function checkHostingConfig(hosting, label) {
   }
 }
 
-checkHostingConfig(firebaseConfig.hosting, "firebase.json");
-checkHostingConfig(stageFirebaseConfig.hosting, "firebase.stage.json");
+checkHostingConfig(firebaseConfig.hosting, "firebase.json", PROD_AI_API_ORIGIN);
+checkHostingConfig(stageFirebaseConfig.hosting, "firebase.stage.json", STAGE_AI_API_ORIGIN);
 if (stageFirebaseConfig.hosting?.site !== "miranae-orider-g1-stage") {
   fail("firebase.stage.json hosting.site must be miranae-orider-g1-stage");
 }
