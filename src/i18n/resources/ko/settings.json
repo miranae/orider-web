@@ -442,6 +442,7 @@
     "compactIntro": "동의 전에 사용 데이터, 외부 처리, 저장·철회 방식을 확인해 주세요.",
     "summaryDataTitle": "사용하는 데이터",
     "summaryExternalTitle": "외부 AI 처리 · {{country}}",
+    "country": { "us": "미국", "jp": "일본" },
     "summaryStorageTitle": "저장 및 철회",
     "fullDetailsSummary": "전체 데이터 처리 세부사항과 링크 보기",
     "consentIntro": "답변을 만들기 위해 다음 정보를 사용합니다.",

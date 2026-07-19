@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { User } from "firebase/auth";
 import { Sparkles, X } from "lucide-react";
-import { Button, Card, Chip, Text, Textarea } from "../../theme/components";
+import { Alert, Button, Card, Chip, Text, Textarea } from "../../theme/components";
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 import {
@@ -23,7 +23,7 @@ import "./coach-question.css";
 
 type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
 type Phase = "closed" | "loading_status" | "ready" | "submitting" | "complete" | "network_error" | "terminal_error" | "load_error";
-type SubmitFailure = "compatibility" | "terminal" | null;
+type SubmitFailure = "compatibility" | "serviceUnavailable" | "terminal" | null;
 
 interface Props {
   user: User | null;
@@ -221,9 +221,10 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
       if (sessionGenerationRef.current !== sessionGeneration) return;
       if (isCoachClientError(error) && error.kind === "transport") setPhase("network_error");
       else {
+        const providerUnavailable = isCoachClientError(error) && error.code === "provider_kill_switch";
         const compatibility = isCoachClientError(error)
           && (error.kind === "contract" || error.code === "unsupported_capability" || error.code === "unsupported_capability_version");
-        setSubmitFailure(compatibility ? "compatibility" : "terminal"); setPhase("terminal_error");
+        setSubmitFailure(providerUnavailable ? "serviceUnavailable" : compatibility ? "compatibility" : "terminal"); setPhase("terminal_error");
       }
     }
     finally { if (sessionGenerationRef.current === sessionGeneration) inFlightRef.current = false; }
@@ -319,6 +320,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const canRetry = (phase === "network_error" && requestId !== null)
     || (phase === "complete" && response !== null && retryAction !== "none" && !(retryAction === "new" && quota?.remaining === 0));
   const exhausted = quota?.remaining === 0;
+  const serviceUnavailable = (phase === "terminal_error" && submitFailure === "serviceUnavailable")
+    || (response && "outcome" in response && response.error?.code === "provider_kill_switch");
   const showCounter = inputFocused || draft.length >= 900;
   const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
@@ -334,11 +337,15 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                 <Text as="p" variant="bodySmall" tone="secondary">{t("subtitle")}</Text></div>
               <Button iconOnly dense variant="ghost" aria-label={t("close")} disabled={phase === "submitting" || consentOpen} onClick={closeSheet}><X size={20} /></Button>
             </header>
-            {!user ? <Card><Text as="p">{t("signInRequired")}</Text><Button block onClick={onSignIn}>{t("signIn")}</Button></Card> : (
-              <>
-                {phase === "loading_status" && <p aria-live="polite">{t("loadingStatus")}</p>}
-                {phase === "load_error" && <div><p role="alert">{t("loadError")}</p>
-                  <Button onClick={() => void loadInitial(openGenerationRef.current)}>{t("reloadStatus")}</Button></div>}
+            <div className="coach-sheet__content">
+              {!user ? <Card className="coach-sheet__status"><Text as="p">{t("signInRequired")}</Text><Button block variant="primary" onClick={onSignIn}>{t("signIn")}</Button></Card> : (
+                <>
+                {phase === "loading_status" && <Card className="coach-sheet__status" role="status" aria-live="polite">
+                  <span className="ds-btn__spinner" aria-hidden /><Text as="p" variant="bodySmall">{t("loadingStatus")}</Text>
+                </Card>}
+                {phase === "load_error" && <Alert className="coach-sheet__alert" variant="danger" title={t("loadError")}>
+                  <Button variant="outline" onClick={() => void loadInitial(openGenerationRef.current)}>{t("reloadStatus")}</Button>
+                </Alert>}
                 {phase === "ready" && !response && <div className="coach-sheet__ready">
                   <Text as="p" variant="eyebrow" tone="accent">{t("context", { discipline: t(`discipline.${discipline}`) })}</Text>
                   <div className="coach-sheet__composer">
@@ -359,36 +366,49 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                   <div className="coach-sheet__quick-prompts">
                     <Text as="h3" variant="label" tone="secondary">{t("suggestions.title")}</Text>
                     <div className="coach-sheet__suggestions">
-                      {suggestions.map((index) => <Button key={index} block variant="ghost" onClick={() => chooseSuggestion(index)}>{t(`suggestions.${discipline}.${index}`)}</Button>)}
+                      {suggestions.map((index) => {
+                        const question = t(`suggestions.${discipline}.${index}`);
+                        return <Button key={index} block variant="ghost" aria-label={question} disabled={exhausted} onClick={() => chooseSuggestion(index)}>
+                          <span className="coach-sheet__suggestion-copy">
+                            <Text as="span" variant="caption" tone="accent">{t(`suggestions.labels.${discipline}.${index}`)}</Text>
+                            <Text as="span" variant="bodySmall">{question}</Text>
+                          </span>
+                        </Button>;
+                      })}
                     </div>
                   </div>
                 </div>}
-                {phase === "submitting" && <div className="coach-sheet__loading" aria-live="polite"><span className="ds-btn__spinner" aria-hidden /><p>{t("loadingAnswer")}</p><small>{t("loadingHonest")}</small></div>}
-                {phase === "network_error" && <div role="alert"><Text as="h3" variant="subtitle">{t("states.network.title")}</Text><p>{t("states.network.body")}</p></div>}
-                {phase === "terminal_error" && <div role="alert"><Text as="h3" variant="subtitle">{t(`states.${submitFailure ?? "terminal"}.title`)}</Text>
-                  <p>{t(`states.${submitFailure ?? "terminal"}.body`)}</p></div>}
+                {phase === "submitting" && <Card className="coach-sheet__loading" role="status" aria-live="polite"><span className="ds-btn__spinner" aria-hidden />
+                  <Text as="p" variant="subtitle">{t("loadingAnswer")}</Text><Text as="small" variant="caption" tone="tertiary">{t("loadingHonest")}</Text></Card>}
+                {phase === "network_error" && <Alert className="coach-sheet__alert" variant="warning" title={t("states.network.title")}>
+                  <Text as="p" variant="bodySmall">{t("states.network.body")}</Text></Alert>}
+                {phase === "terminal_error" && <Alert className="coach-sheet__alert" variant={submitFailure === "serviceUnavailable" ? "warning" : "danger"}
+                  title={t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.title" : `states.${submitFailure ?? "terminal"}.title`)}>
+                  <Text as="p" variant="bodySmall">{t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.body" : `states.${submitFailure ?? "terminal"}.body`)}</Text></Alert>}
                 {response && phase !== "submitting" && ("outcome" in response
-                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} feedback={feedback}
+                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} feedback={feedback} exhausted={exhausted}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action} onFeedback={sendFeedback}
                     onReanalyze={startAnother}
                     onSuggested={(query) => { startAnother(); setDraft(query); setSource("free_text"); }} />
                   : <CoachResult response={response} evidenceOpen={evidenceOpen} locale={i18n.language}
                     feedback={feedback} onEvidence={() => { setEvidenceOpen((value) => !value); if (!evidenceOpen) coachAnalytics.evidenceExpand(response.status); }}
                     onAction={action} onFeedback={sendFeedback} />)}
-                {(phase !== "ready" || response) && <div className="coach-sheet__dock">
-                  <footer className="coach-sheet__footer">
+                </>
+              )}
+            </div>
+            {user && (phase !== "ready" || response) && <div className="coach-sheet__dock">
+              <footer className="coach-sheet__footer">
                   {quota && <div className="coach-sheet__quota">
                     {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
                     {response?.retry.previousTurnConsumed && <small>{t("quota.previousConsumed")}</small>}
                   </div>}
-                    {canRetry && <Button onClick={() => void retry()}>{retryAction === "new"
+                    {!serviceUnavailable && canRetry && <Button onClick={() => void retry()}>{retryAction === "new"
                       ? t("retry.newTurnAction") : retryAction === "poll" ? t("retry.poll") : retryAction === "replay" ? t("retry.replay") : t("retry.same")}</Button>}
-                    {(response || phase === "network_error" || phase === "terminal_error") && phase !== "submitting"
+                    {serviceUnavailable && <Button variant="primary" onClick={closeSheet}>{t("serviceUnavailable.close")}</Button>}
+                    {!serviceUnavailable && (response || phase === "network_error" || phase === "terminal_error") && phase !== "submitting"
                       && <Button variant="secondary" onClick={startAnother}>{t("another")}</Button>}
-                  </footer>
-                </div>}
-              </>
-            )}
+              </footer>
+            </div>}
           </section>
         </div>, document.body,
       )}
@@ -429,8 +449,19 @@ function suggestedQuestion(templateId: string, locale: string): string | null {
   return value ? value[ko ? 0 : 1] : null;
 }
 
-function CoachV2Result({ response, locale, selectedOption, feedback, onSelectOption, onClarification, onAction, onFeedback, onSuggested, onReanalyze }: {
-  response: CoachV2Response; locale: string; selectedOption: string | null; feedback: boolean | null;
+function CoachFeedback({ feedback, onFeedback }: { feedback: boolean | null; onFeedback: (helpful: boolean) => void }) {
+  const { t } = useTranslation("coach");
+  return <section className="coach-result__feedback-section">
+    <Text as="p" variant="label">{t("feedback.prompt")}</Text>
+    <div className="coach-result__feedback" role="group" aria-label={t("feedback.label")}>
+      <Button size="sm" variant={feedback === true ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(true)}>{t("feedback.helpful")}</Button>
+      <Button size="sm" variant={feedback === false ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(false)}>{t("feedback.notHelpful")}</Button>
+    </div>
+  </section>;
+}
+
+function CoachV2Result({ response, locale, selectedOption, feedback, exhausted, onSelectOption, onClarification, onAction, onFeedback, onSuggested, onReanalyze }: {
+  response: CoachV2Response; locale: string; selectedOption: string | null; feedback: boolean | null; exhausted: boolean;
   onSelectOption: (option: string) => void; onClarification: () => void;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void; onFeedback: (helpful: boolean) => void;
   onSuggested: (query: string) => void;
@@ -439,6 +470,7 @@ function CoachV2Result({ response, locale, selectedOption, feedback, onSelectOpt
   const { t } = useTranslation("coach");
   const spec = response.clarification;
   const expired = spec ? Date.parse(spec.expiresAt) <= Date.now() : false;
+  const providerUnavailable = response.error?.code === "provider_kill_switch";
   return <div className="coach-result">
     {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} onReanalyze={onReanalyze} />}
     {response.outcome === "clarification_required" && spec && <form className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
@@ -458,16 +490,16 @@ function CoachV2Result({ response, locale, selectedOption, feedback, onSelectOpt
       {response.unsupported.suggestedQueries.length > 0 && <div className="coach-sheet__suggestions" aria-label={t("unsupportedV2.suggestions")}>
         {response.unsupported.suggestedQueries.map((suggestion) => {
           const query = suggestedQuestion(suggestion.queryTemplateId, locale);
-          return query && <Button key={suggestion.queryTemplateId} variant="outline" onClick={() => onSuggested(query)}>{query}</Button>;
+          return query && <Button key={suggestion.queryTemplateId} variant="outline" disabled={exhausted} onClick={() => onSuggested(query)}>{query}</Button>;
         })}
       </div>}
     </div>}
-    {(["quota_exceeded", "budget_blocked", "failed"] as const).includes(response.outcome as "quota_exceeded" | "budget_blocked" | "failed")
-      && <p className="coach-result__state" role="alert">{t(`v2State.${response.outcome}`)}</p>}
-    {(response.outcome === "answer" || Boolean(response.answer)) && <div className="coach-result__feedback" role="group" aria-label={t("feedback.label")}>
-      <Button size="sm" variant={feedback === true ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(true)}>{t("feedback.helpful")}</Button>
-      <Button size="sm" variant={feedback === false ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(false)}>{t("feedback.notHelpful")}</Button>
-    </div>}
+    {providerUnavailable && <Alert className="coach-result__state" variant="warning" title={t("serviceUnavailable.title")}>
+      {t("serviceUnavailable.body")}
+    </Alert>}
+    {!providerUnavailable && (["quota_exceeded", "budget_blocked", "failed"] as const).includes(response.outcome as "quota_exceeded" | "budget_blocked" | "failed")
+      && <Alert className="coach-result__state" variant="warning">{t(`v2State.${response.outcome}`)}</Alert>}
+    {(response.outcome === "answer" || Boolean(response.answer)) && <CoachFeedback feedback={feedback} onFeedback={onFeedback} />}
   </div>;
 }
 
@@ -478,12 +510,14 @@ function CoachResult({ response, evidenceOpen, locale, feedback, onEvidence, onA
   const { t } = useTranslation("coach");
   return <div className="coach-result">
     {response.context && <div className="coach-sheet__chips"><Chip>{t(`discipline.${response.context.discipline}`)}</Chip><Chip>{t(`period.${response.context.period}`)}</Chip><Chip>{t(response.context.goalIncluded ? "goal.included" : "goal.notIncluded")}</Chip></div>}
-    <div className="coach-result__answer">
+    <div className="coach-result__answer coach-result__answer--hero">
       {response.answer.blocks.map((block, index) => <div key={`${block.kind}-${index}`} className={`coach-result__block coach-result__block--${block.kind}`}>
         {block.parts.map((part, partIndex) => <span key={`${part.type}-${partIndex}`}>{part.type === "text" ? part.text : part.displayValue}</span>)}
       </div>)}
     </div>
-    {response.status !== "ok" && <p className="coach-result__state" role={response.status === "fallback" ? "alert" : undefined}>{t(`states.${response.status}.body`)}</p>}
+    {response.status !== "ok" && (["fallback", "quota_exceeded", "budget_blocked"].includes(response.status)
+      ? <Alert className="coach-result__state" variant="warning">{t(`states.${response.status}.body`)}</Alert>
+      : <Card className="coach-result__state" padding="compact" role="status"><Text as="p" variant="bodySmall">{t(`states.${response.status}.body`)}</Text></Card>)}
     {response.answer.actionCode && <Button variant="outline" onClick={() => onAction(response.answer.actionCode!)}>{t(`actions.${response.answer.actionCode}`)}</Button>}
     <button type="button" className="coach-result__evidence-toggle" aria-expanded={evidenceOpen} aria-controls="coach-evidence" onClick={onEvidence}>
       {t("evidence.toggle", { count: response.evidence.length })}
@@ -497,9 +531,6 @@ function CoachResult({ response, evidenceOpen, locale, feedback, onEvidence, onA
       {response.freshness.latestActivityAt && <small>{t("latestActivity", { at: formatDate(response.freshness.latestActivityAt, locale) })}</small>}
       {response.freshness.staleSources.length > 0 && <small>{t("staleSources", { count: response.freshness.staleSources.length })}</small>}
     </div>}
-    <div className="coach-result__feedback" role="group" aria-label={t("feedback.label")}>
-      <Button size="sm" variant={feedback === true ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(true)}>{t("feedback.helpful")}</Button>
-      <Button size="sm" variant={feedback === false ? "primary" : "outline"} disabled={feedback !== null} onClick={() => onFeedback(false)}>{t("feedback.notHelpful")}</Button>
-    </div>
+    <CoachFeedback feedback={feedback} onFeedback={onFeedback} />
   </div>;
 }

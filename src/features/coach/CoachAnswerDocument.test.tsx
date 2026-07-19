@@ -54,7 +54,10 @@ describe("CoachAnswerDocumentView", () => {
     render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
     expect(supportedAnswerBlockKinds(document)).toEqual(["narrative", "metric_grid", "comparison_table", "time_series", "distribution",
       "ranking", "activity_list", "goal_progress", "plan_adherence", "data_gap", "action"]);
+    expect(documentElement().querySelector(".coach-answer__block--narrative")).toBeInTheDocument();
+    expect(documentElement().querySelector(".coach-answer__block--metric_grid")).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "현재 상태 비교" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "현재 상태 비교" }).closest(".coach-answer__table-scroll")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
     expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "추세 데이터 표" })).toBeInTheDocument();
