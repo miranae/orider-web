@@ -43,7 +43,17 @@ describe("coachHistoryClient", () => {
     expect(page.thread.turns.map((turn) => turn.turnId)).toEqual([olderTurnId, turnId]);
     expect(page.thread.turnCount).toBe(75);
     expect(page.nextCursor).toBe("older-page");
+    expect(page.thread.turns.map((turn) => turn.responseFormat)).toEqual(["auto", "auto"]);
     expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [newer, older] }, nextCursor: null } }))
+      .toThrow("INVALID_COACH_HISTORY_RESPONSE");
+  });
+
+  it("parses the closed per-turn response format and rejects unknown values", () => {
+    const turn = { turnId, requestId: turnId, question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z",
+      response, responseFormat: "chart" };
+    expect(parseCoachThread({ data: { thread: { ...summary, turns: [turn] }, nextCursor: null } })
+      .thread.turns[0]?.responseFormat).toBe("chart");
+    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...turn, responseFormat: "markdown" }] }, nextCursor: null } }))
       .toThrow("INVALID_COACH_HISTORY_RESPONSE");
   });
 

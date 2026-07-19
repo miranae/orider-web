@@ -1,6 +1,6 @@
 import { auth, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
-import { parseCoachV2Response, type CoachV2QuestionRequest, type CoachV2Response } from "./coachV2Contract";
+import { COACH_RESPONSE_FORMATS, parseCoachV2Response, type CoachResponseFormat, type CoachV2QuestionRequest, type CoachV2Response } from "./coachV2Contract";
 import type { CoachDiscipline } from "./coachClient";
 
 export interface CoachThreadSummary {
@@ -18,6 +18,7 @@ export interface CoachThreadTurn {
   question: string;
   createdAt: string;
   response: CoachV2Response;
+  responseFormat: CoachResponseFormat;
 }
 
 export interface CoachThread extends CoachThreadSummary {
@@ -110,7 +111,10 @@ export function parseCoachThread(input: unknown, expectedLimit = 20): CoachThrea
     // Detail DTO stores the response document itself; the live endpoint wraps it in { data }.
     const response = parseCoachV2Response({ data: turn.response });
     if (response.requestId !== turn.requestId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
-    return { turnId: turn.turnId, requestId: turn.requestId, question: turn.question, createdAt: turn.createdAt, response };
+    const responseFormat = turn.responseFormat === undefined ? "auto" : turn.responseFormat;
+    if (!COACH_RESPONSE_FORMATS.includes(responseFormat as CoachResponseFormat)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
+    return { turnId: turn.turnId, requestId: turn.requestId, question: turn.question, createdAt: turn.createdAt,
+      response, responseFormat: responseFormat as CoachResponseFormat };
   });
   const chronological = turns.every((turn, index) => index === 0
     || Date.parse(turns[index - 1]!.createdAt) <= Date.parse(turn.createdAt));

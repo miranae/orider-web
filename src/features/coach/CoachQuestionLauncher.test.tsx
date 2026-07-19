@@ -139,6 +139,9 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByText("새 질문은 새 대화로 저장됩니다.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "대화 내역" })).toBeInTheDocument();
     expect(screen.getByText("사이클 기록 분석")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "답변 형식" })).toHaveAccessibleDescription(
+      "답변은 검증된 O·RIDER 형식으로만 표시됩니다. 선택한 형식을 우선하며, 데이터가 지원하지 않으면 기본 형식으로 표시합니다.");
+    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
     expect(screen.queryByText("서버가 질문에서 기간 확인")).not.toBeInTheDocument();
     expect(screen.queryByText("0/1000")).not.toBeInTheDocument();
     expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveAttribute("aria-describedby", "coach-question-note");
@@ -158,6 +161,36 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.queryByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /오늘 운동 기록을 확인하고 잘된 점과 보완할 점/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).toBeInTheDocument();
+  });
+
+  it("keeps the selected response format through a quick prompt and resets it for another independent question", async () => {
+    mocks.ask.mockResolvedValue(answer);
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("radio", { name: "표" }));
+    expect(mocks.ask).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
+    expect(screen.getByRole("radio", { name: "표" })).toBeChecked();
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({ responseFormat: "table" })));
+    await userEvent.click(screen.getByRole("button", { name: "다른 질문하기" }));
+    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
+  });
+
+  it("resets the response format when the launcher session is cleared", async () => {
+    mocks.ask.mockResolvedValue(answer);
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("radio", { name: "표" }));
+    await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await screen.findByText("이번 주 훈련량이 높았습니다.");
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치 닫기" }));
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
   });
 
   it.each(disciplinePrompts)("shows only $discipline prompts and placeholder", async ({ discipline, placeholder, labels, prompts }) => {
@@ -267,6 +300,7 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("radio", { name: "그래프" }));
     await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
@@ -274,6 +308,7 @@ describe("CoachQuestionLauncher", () => {
     await screen.findByText("이번 주 훈련량이 높았습니다.");
     expect(mocks.ask).toHaveBeenCalledTimes(2);
     expect(mocks.ask.mock.calls[0]?.[0].requestId).toBe(mocks.ask.mock.calls[1]?.[0].requestId);
+    expect(mocks.ask.mock.calls.map((call) => call[0].responseFormat)).toEqual(["chart", "chart"]);
     expect(mocks.analytics.submit).toHaveBeenCalledOnce();
   });
 
@@ -571,12 +606,16 @@ describe("CoachQuestionLauncher", () => {
     const atEvidence = { evidenceId: "ev_load_at", source: "load_analysis", sourceId: "load_fixture", field: "week",
       value: "2026-W30", sourceRevision: "load-r1", asOf: "2026-07-18T00:00:00Z", ownerScope: "authenticated_user" };
     const valueEvidence = { ...atEvidence, evidenceId: "ev_load_ctl", field: "ctl", value: 21 };
+    const previousAtEvidence = { ...atEvidence, evidenceId: "ev_load_at_previous", value: "2026-W29" };
+    const previousValueEvidence = { ...valueEvidence, evidenceId: "ev_load_ctl_previous", value: 19 };
     const loadResponse = { ...p1Answer, requestId: answer.requestId, answer: { ...p1Answer.answer,
       blocks: [{ blockId: "block_dynamic_load", sourceSlotIds: ["weekly_ctl"], partial: false, stale: false,
         truncated: false, omittedCount: 0, kind: "time_series", series: [{ seriesId: "weekly_ctl", metricId: "ctl",
-          points: [{ at: { value: atEvidence.value, evidenceId: atEvidence.evidenceId },
+          points: [{ at: { value: previousAtEvidence.value, evidenceId: previousAtEvidence.evidenceId },
+            value: { value: previousValueEvidence.value, unit: "score", evidenceId: previousValueEvidence.evidenceId } },
+          { at: { value: atEvidence.value, evidenceId: atEvidence.evidenceId },
             value: { value: valueEvidence.value, unit: "score", evidenceId: valueEvidence.evidenceId } }] }] }],
-      evidence: [atEvidence, valueEvidence] } };
+      evidence: [previousAtEvidence, previousValueEvidence, atEvidence, valueEvidence] } };
     mocks.ask.mockResolvedValue(loadResponse);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
     await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));

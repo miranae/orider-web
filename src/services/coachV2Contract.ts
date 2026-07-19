@@ -8,6 +8,8 @@ export const COACH_V2_REQUEST_SCHEMA_VERSION = "coach-respond-v2" as const;
 export const COACH_V2_RESPONSE_SCHEMA_VERSION = "coach-response-envelope-v1" as const;
 export const COACH_ANSWER_SCHEMA_VERSION = "coach-answer-document-v1" as const;
 export const COACH_ANSWER_CATALOG_VERSION = "coach-answer-block-catalog-v1" as const;
+export const COACH_RESPONSE_FORMATS = ["auto", "table", "chart"] as const;
+export type CoachResponseFormat = typeof COACH_RESPONSE_FORMATS[number];
 export const COACH_LOAD_MISSING_SIGNALS = [
   "current_fitness_point_missing", "current_week_activities_missing", "fitness_behind_activity_revision", "fitness_behind_latest_activity",
   "fitness_computed_at_missing", "fitness_daily_window_gap", "fitness_discipline_mismatch", "fitness_form_inconsistent",
@@ -220,6 +222,7 @@ export interface CoachV2QuestionRequest {
   schemaVersion: "coach-respond-v2";
   capabilityVersion: "p1";
   contextFilters: Record<string, never>;
+  responseFormat: CoachResponseFormat;
 }
 
 export interface CoachV2ContinueRequest {
