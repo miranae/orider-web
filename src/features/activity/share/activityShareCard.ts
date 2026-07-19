@@ -236,6 +236,8 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
 
   const plot = { left: 32, right: 332, top: 490, bottom: 542 };
   if (elevationProfile.length >= 2) {
+    ctx.fillStyle = "rgba(0,0,0,.10)";
+    ctx.fillRect(plot.left - 8, 464, plot.right - plot.left + 16, 92);
     ctx.shadowColor = "rgba(0,0,0,.9)";
     ctx.shadowBlur = 3;
     ctx.shadowOffsetY = 1;
