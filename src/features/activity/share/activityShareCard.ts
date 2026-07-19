@@ -82,11 +82,16 @@ function loadImage(url: string, signal?: AbortSignal): Promise<HTMLImageElement 
   });
 }
 
-async function loadFirstImage(urls: Array<string | null | undefined>, signal?: AbortSignal): Promise<HTMLImageElement | null> {
+interface LoadedImage {
+  image: HTMLImageElement;
+  url: string;
+}
+
+async function loadFirstImage(urls: Array<string | null | undefined>, signal?: AbortSignal): Promise<LoadedImage | null> {
   for (const url of urls) {
     if (!url || signal?.aborted) continue;
     const image = await loadImage(url, signal);
-    if (image) return image;
+    if (image) return { image, url };
   }
   return null;
 }
@@ -150,9 +155,10 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  const image = input.includeRouteImage
+  const loadedImage = input.includeRouteImage
     ? await loadFirstImage([input.routeImageUrl, input.backgroundImageUrl], signal)
     : null;
+  const image = loadedImage?.image ?? null;
   if (image) {
     ctx.fillStyle = "#dce8e3";
     ctx.fillRect(0, 0, WIDTH, MAP_HEIGHT);
@@ -170,27 +176,28 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.shadowBlur = 5;
   ctx.shadowOffsetY = 1;
   ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "right";
   ctx.font = `800 14px ${mono}`;
-  ctx.fillText("O·RIDER", RIGHT_RAIL_LEFT, 28);
+  ctx.fillText("O·RIDER", RIGHT_RAIL_RIGHT, 28);
   ctx.font = `700 10px ${mono}`;
   weatherLines(input.weather).forEach((line, index) =>
-    ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 48 + index * 15),
+    ctx.fillText(boundedText(ctx, line, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 48 + index * 15),
   );
 
   ctx.font = `600 10px ${font}`;
-  ctx.fillText(boundedText(ctx, `${input.sport} · ${input.date}`, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 88);
+  ctx.fillText(boundedText(ctx, `${input.sport} · ${input.date}`, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 88);
   ctx.font = `800 20px ${font}`;
-  ctx.fillText(boundedText(ctx, input.title, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 114);
+  ctx.fillText(boundedText(ctx, input.title, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 114);
   ctx.font = `500 10px ${font}`;
-  ctx.fillText(boundedText(ctx, input.athlete, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 132);
+  ctx.fillText(boundedText(ctx, input.athlete, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 132);
 
   const metrics = (input.performanceMetrics ?? []).filter((metric) => metric.value).slice(0, 6);
   if (metrics.length > 0) {
     ctx.fillStyle = "#ffffff";
     ctx.font = `700 8px ${font}`;
-    ctx.fillText(boundedText(ctx, input.performanceLabel, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 158);
+    ctx.fillText(boundedText(ctx, input.performanceLabel, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 158);
     metrics.forEach((metric, index) => {
-      const x = RIGHT_RAIL_LEFT + (index % 2) * 145;
+      const x = RIGHT_RAIL_LEFT + (index % 2) * 145 + 132;
       const y = 178 + Math.floor(index / 2) * 37;
       ctx.fillStyle = "#ffffff";
       ctx.font = `600 8px ${font}`;
@@ -204,34 +211,40 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   const primaryStats: Array<readonly [string, string]> = [
     [input.distance, input.distanceLabel],
     [input.duration, input.durationLabel],
-    [input.elevation, input.elevationLabel],
+    ...(elevationProfile.length >= 2 ? [] : [[input.elevation, input.elevationLabel] as const]),
   ];
   primaryStats.forEach(([value, label], index) => {
-    const x = RIGHT_RAIL_LEFT + index * 94;
+    const columnWidth = RIGHT_RAIL_WIDTH / primaryStats.length;
+    const x = RIGHT_RAIL_LEFT + (index + 1) * columnWidth;
     ctx.fillStyle = "#ffffff";
     ctx.font = `800 14px ${mono}`;
-    ctx.fillText(boundedText(ctx, value, 86), x, 306);
+    ctx.fillText(boundedText(ctx, value, columnWidth - 8), x, 306);
     ctx.font = `600 8px ${font}`;
-    ctx.fillText(boundedText(ctx, label, 86), x, 320);
+    ctx.fillText(boundedText(ctx, label, columnWidth - 8), x, 320);
   });
-  if (elevationProfile.length >= 2) {
-    ctx.font = `700 9px ${font}`;
-    ctx.fillText(boundedText(ctx, `${input.elevationProfileLabel} · ${input.elevationLabel} ${input.elevation}`, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 350);
-  }
   ctx.font = `500 10px ${font}`;
-  ctx.fillText(boundedText(ctx, input.footer, RIGHT_RAIL_WIDTH), RIGHT_RAIL_LEFT, 520);
+  ctx.fillText(boundedText(ctx, input.footer, RIGHT_RAIL_WIDTH), RIGHT_RAIL_RIGHT, 520);
   ctx.font = `600 9px ${mono}`;
-  ctx.fillText("orider.co.kr", RIGHT_RAIL_LEFT, 540);
-  if (image) {
+  ctx.fillText("orider.co.kr", RIGHT_RAIL_RIGHT, 540);
+  if (image && loadedImage?.url !== input.routeImageUrl) {
     ctx.font = `500 8px ${font}`;
-    ctx.fillText("© Mapbox · © OpenStreetMap", RIGHT_RAIL_LEFT, 558);
+    ctx.fillText("© Mapbox · © OpenStreetMap", RIGHT_RAIL_RIGHT, 558);
   }
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  const plot = { left: 32, right: 332, top: 504, bottom: 544 };
+  const plot = { left: 32, right: 332, top: 490, bottom: 542 };
   if (elevationProfile.length >= 2) {
+    ctx.shadowColor = "rgba(0,0,0,.9)";
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 9px ${font}`;
+    ctx.fillText(boundedText(ctx, `${input.elevationProfileLabel} · ${input.elevationLabel} ${input.elevation}`, 300), plot.right, 480);
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
     const distances = elevationProfile.map((point) => point.distance);
     const elevations = elevationProfile.map((point) => point.elevation);
     const minDistance = Math.min(...distances);
@@ -246,8 +259,8 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
       y: isFlat ? (plot.top + plot.bottom) / 2 : plot.bottom - ((point.elevation - minElevation) / elevationRange) * (plot.bottom - plot.top),
     }));
     const chartFill = ctx.createLinearGradient(0, plot.top, 0, plot.bottom);
-    chartFill.addColorStop(0, "rgba(35,213,167,.48)");
-    chartFill.addColorStop(1, "rgba(35,213,167,.10)");
+    chartFill.addColorStop(0, "rgba(35,213,167,.38)");
+    chartFill.addColorStop(1, "rgba(35,213,167,.07)");
     ctx.beginPath();
     ctx.moveTo(coordinates[0]!.x, plot.bottom);
     coordinates.forEach((point) => ctx.lineTo(point.x, point.y));
@@ -257,14 +270,14 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.fill();
     ctx.beginPath();
     coordinates.forEach((point, index) => index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y));
-    ctx.strokeStyle = "rgba(0,0,0,.72)";
-    ctx.lineWidth = 7;
+    ctx.strokeStyle = "rgba(0,0,0,.68)";
+    ctx.lineWidth = 5;
     ctx.stroke();
     ctx.strokeStyle = "#b8ffe8";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
-    ctx.fillStyle = "rgba(184,255,232,.55)";
-    ctx.fillRect(plot.left, 546, plot.right - plot.left, 1);
+    ctx.fillStyle = "rgba(184,255,232,.38)";
+    ctx.fillRect(plot.left, 548, plot.right - plot.left, 1);
   }
   return canvas;
 }

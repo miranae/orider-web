@@ -82,11 +82,12 @@ describe("drawActivityShareCard privacy", () => {
     expect(ctx.fill).toHaveBeenCalledOnce();
     expect(coordinates.every(Number.isFinite)).toBe(true);
     expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 332)).toBe(true);
-    expect(vi.mocked(ctx.lineTo).mock.calls.every(([x, y]) => Number(x) >= 32 && Number(x) <= 332 && Number(y) >= 500 && Number(y) <= 548)).toBe(true);
+    expect(vi.mocked(ctx.lineTo).mock.calls.every(([x, y]) => Number(x) >= 32 && Number(x) <= 332 && Number(y) >= 490 && Number(y) <= 542)).toBe(true);
     expect(ctx.stroke).toHaveBeenCalledTimes(2);
     expect(ctx.strokeStyle).toBe("#b8ffe8");
-    expect(ctx.lineWidth).toBe(3);
-    expect(ctx.fillRect).toHaveBeenCalledWith(32, 546, 300, 1);
+    expect(ctx.lineWidth).toBe(2.5);
+    expect(ctx.fillText).toHaveBeenCalledWith("Elevation profile · Elevation 100 m", 332, 480);
+    expect(ctx.fillRect).toHaveBeenCalledWith(32, 548, 300, 1);
   });
 
   it("handles a flat elevation profile without invalid coordinates", async () => {
@@ -94,7 +95,7 @@ describe("drawActivityShareCard privacy", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     await drawActivityShareCard({ ...cardInput(), elevationProfile: [{ distance: 0, elevation: 120 }, { distance: 1_000, elevation: 120 }] });
     expect(vi.mocked(ctx.lineTo).mock.calls.flat().every(Number.isFinite)).toBe(true);
-    expect(vi.mocked(ctx.lineTo).mock.calls.some(([, y]) => y === 524)).toBe(true);
+    expect(vi.mocked(ctx.lineTo).mock.calls.some(([, y]) => y === 516)).toBe(true);
   });
 
   it("renders compact activity weather on the map", async () => {
@@ -123,10 +124,32 @@ describe("drawActivityShareCard privacy", () => {
     expect(canvas.height).toBe(600);
     expect(ctx.drawImage).toHaveBeenCalledOnce();
     expect(ctx.createLinearGradient).not.toHaveBeenCalled();
-    expect(ctx.fillText).toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 774, 558);
+    expect(ctx.fillText).not.toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 1056, 558);
   });
 
-  it("keeps every app-drawn text item inside the rightmost 30 percent", async () => {
+  it("adds map attribution when the non-static fallback image is used", async () => {
+    const ctx = context();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
+    class FallbackImage {
+      crossOrigin = ""; naturalWidth = 1080; naturalHeight = 600;
+      onload: (() => void) | null = null; onerror: (() => void) | null = null; private value = "";
+      set src(value: string) {
+        this.value = value;
+        if (value) queueMicrotask(() => value.includes("static") ? this.onerror?.() : this.onload?.());
+      }
+      get src() { return this.value; }
+    }
+    vi.stubGlobal("Image", FallbackImage);
+    await drawActivityShareCard({
+      ...cardInput(), includeRouteImage: true,
+      routeImageUrl: "https://example.com/static-map.png",
+      backgroundImageUrl: "https://example.com/canvas-map.png",
+    });
+    expect(ctx.drawImage).toHaveBeenCalledOnce();
+    expect(ctx.fillText).toHaveBeenCalledWith("© Mapbox · © OpenStreetMap", 1056, 558);
+  });
+
+  it("keeps non-profile text inside the right rail and groups profile text with its chart", async () => {
     const ctx = context();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(ctx);
     await drawActivityShareCard({
@@ -134,7 +157,13 @@ describe("drawActivityShareCard privacy", () => {
       elevationProfile: [{ distance: 0, elevation: 115 }, { distance: 1_000, elevation: 229 }],
       performanceMetrics: Array.from({ length: 6 }, (_, index) => ({ label: `Metric ${index}`, value: String(index) })),
     });
-    expect(vi.mocked(ctx.fillText).mock.calls.every(([, x]) => Number(x) >= 756)).toBe(true);
+    const localProfileText = "Elevation profile · Elevation 100 m";
+    expect(vi.mocked(ctx.fillText).mock.calls.every(([text, x]) => text === localProfileText ? x === 332 : Number(x) >= 756)).toBe(true);
+    const labels = vi.mocked(ctx.fillText).mock.calls.map(([text]) => String(text));
+    expect(labels.filter((text) => text === "100 m")).toHaveLength(0);
+    expect(labels.filter((text) => text === "Elevation")).toHaveLength(0);
+    expect(labels.filter((text) => text === localProfileText)).toHaveLength(1);
+    expect(ctx.textAlign).toBe("right");
   });
 
   it("does not render an empty elevation section or duplicate the footer", async () => {
