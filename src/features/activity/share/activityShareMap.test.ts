@@ -10,20 +10,21 @@ describe("buildActivityShareMapUrl", () => {
     const url = buildActivityShareMapUrl("37.50,127.00;37.51,127.02;37.53,127.04");
 
     expect(url).toContain("/styles/v1/orider/cmp9okm6p006c01snfd3dexqb/static/");
-    expect(url).toContain("/static/path-6+FC5200-0.95(");
+    expect(url).toContain("/static/path-6+F69E20-0.95(");
     expect(url).toContain("/auto/1080x600@2x");
     expect(url).toContain("padding=64");
     expect(url).toContain("access_token=public-map-token");
   });
 
   it.each([
-    ["ko", "orider/cmp9okm6p006c01snfd3dexqb"],
-    ["ko-KR", "orider/cmp9okm6p006c01snfd3dexqb"],
-    ["en", "mapbox/outdoors-v12"],
-    ["en-US", "mapbox/outdoors-v12"],
-  ])("selects the map label style for %s", (language, style) => {
+    ["ko", "orider/cmp9okm6p006c01snfd3dexqb", "F69E20"],
+    ["ko-KR", "orider/cmp9okm6p006c01snfd3dexqb", "F69E20"],
+    ["en", "mapbox/outdoors-v12", "FC5200"],
+    ["en-US", "mapbox/outdoors-v12", "FC5200"],
+  ])("selects the map label style and route pre-color for %s", (language, style, routeColor) => {
     const url = buildActivityShareMapUrl("37.50,127.00;37.51,127.02", language);
     expect(url).toContain(`/styles/v1/${style}/static/`);
+    expect(url).toContain(`/static/path-6+${routeColor}-0.95(`);
   });
 
   it("does not request a map without a usable route", () => {

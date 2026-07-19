@@ -19,11 +19,13 @@ export function buildActivityShareMapUrl(track: string | null | undefined, langu
   const points = sampleEvenly(decodeTrack(track), MAX_STATIC_PATH_POINTS);
   if (points.length < 2) return null;
   const polyline = encodeURIComponent(encodePolyline(points));
-  const style = language.toLowerCase().startsWith("ko") ? KOREAN_MAP_STYLE : ENGLISH_MAP_STYLE;
+  const isKorean = language.toLowerCase().startsWith("ko");
+  const style = isKorean ? KOREAN_MAP_STYLE : ENGLISH_MAP_STYLE;
+  const routeColor = isKorean ? "F69E20" : "FC5200";
 
   return (
     `https://api.mapbox.com/styles/v1/${style}/static/` +
-    `path-6+FC5200-0.95(${polyline})/auto/1080x600@2x` +
+    `path-6+${routeColor}-0.95(${polyline})/auto/1080x600@2x` +
     `?access_token=${encodeURIComponent(token)}&padding=64`
   );
 }
