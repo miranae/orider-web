@@ -2,6 +2,7 @@
   width: min(100%, var(--site-shell-max));
   margin-inline: auto;
   padding: var(--space-6) var(--space-4);
+  padding-block-end: calc(var(--space-8) + var(--space-6));
 }
 
 .coach-history-page__header,
@@ -42,6 +43,7 @@
 .coach-thread-detail__header > div { flex: 1; min-width: 0; }
 .coach-thread-detail__header h2,
 .coach-thread-detail__header p { margin: 0; }
+.coach-thread-follow-up-jump { display: none; }
 .coach-thread-turns { display: grid; gap: var(--space-6); padding: var(--space-5); }
 .coach-thread-turn { display: grid; gap: var(--space-4); }
 .coach-thread-turn__question { width: min(88%, 42rem); margin-inline-start: auto; }
@@ -53,14 +55,31 @@
 .coach-thread-composer__actions { justify-content: space-between; gap: var(--space-3); }
 
 @media (max-width: 47.999rem) {
-  .coach-history-page { padding: var(--space-4); }
+  .coach-history-page { padding: var(--space-4); padding-block-end: calc(var(--space-8) + var(--space-6) + env(safe-area-inset-bottom)); }
   .coach-history-page__header { align-items: flex-start; }
+  .coach-history-page.has-selection .coach-history-page__header { margin-block-end: var(--space-2); }
+  .coach-history-page.has-selection .coach-history-page__eyebrow,
+  .coach-history-page.has-selection .coach-history-page__title,
+  .coach-history-page.has-selection .coach-history-page__header > .ds-btn { display: none; }
+  .coach-history-page.has-selection .coach-history-page__description {
+    display: block;
+    overflow: hidden;
+    color: var(--ink-3);
+    font-size: var(--fs-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .coach-history-layout { display: block; }
   .coach-history-layout.has-selection .coach-history-list { display: none; }
   .coach-history-layout:not(.has-selection) .coach-thread-detail { display: none; }
-  .coach-thread-detail { border: 0; border-radius: 0; }
-  .coach-thread-turns { padding-inline: 0; }
-  .coach-thread-composer { margin-inline: calc(var(--space-4) * -1); padding-block-end: calc(var(--space-4) + env(safe-area-inset-bottom)); }
+  .coach-thread-detail { overflow: visible; border: 0; border-radius: 0; }
+  .coach-thread-follow-up-jump { display: flex; margin-block: var(--space-3) var(--space-1); }
+  .coach-thread-turns { padding-inline: 0; padding-block-end: calc(var(--space-8) + var(--space-8)); }
+  .coach-thread-composer {
+    inset-block-end: calc(var(--space-8) + var(--space-2) + env(safe-area-inset-bottom));
+    margin-inline: calc(var(--space-4) * -1);
+    padding-block-end: var(--space-4);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

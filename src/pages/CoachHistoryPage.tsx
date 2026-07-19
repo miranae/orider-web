@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Clock3, History, Trash2 } from "lucide-react";
+import { ArrowLeft, Clock3, History, MessageCircle, Trash2 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
@@ -69,6 +69,7 @@ export default function CoachHistoryPage() {
   const userGeneration = generationRef.current;
   const routeGeneration = routeGenerationRef.current;
   const pendingBodyRef = useRef<PendingFollowUp | null>(null);
+  const followUpRef = useRef<HTMLTextAreaElement>(null);
   const [threads, setThreads] = useState<CoachThreadSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [thread, setThread] = useState<CoachThread | null>(null);
@@ -250,13 +251,15 @@ export default function CoachHistoryPage() {
     else navigate(code === "VIEW_TRAINING_LOAD" ? "/fitness" : "/my");
   }
 
+  const followUpUnavailable = submitting || loadingQuota || quotaError || !quota || quota.remaining === 0;
+
   if (!user) return <main className="coach-history-page"><Alert variant="warning">{t("history.signInRequired")}</Alert></main>;
   if (stateUid !== uid) return <main className="coach-history-page"><Card role="status">{t("history.loading")}</Card></main>;
 
-  return <main className="coach-history-page">
+  return <main className={`coach-history-page${threadId ? " has-selection" : ""}`}>
     <header className="coach-history-page__header">
-      <div><Text as="p" variant="eyebrow" tone="accent"><History size={16} aria-hidden /> {t("history.eyebrow")}</Text>
-        <Text as="h1" variant="title">{t("history.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
+      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><History size={16} aria-hidden /> {t("history.eyebrow")}</Text>
+        <Text className="coach-history-page__title" as="h1" variant="title">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
       {threads.length > 0 && <Button variant="ghost" size="sm" leadingIcon={<Trash2 size={16} />} disabled={deleting || submitting} onClick={() => void removeAll()}>{t("history.deleteAll")}</Button>}
     </header>
     <div className={`coach-history-layout${threadId ? " has-selection" : ""}`}>
@@ -289,14 +292,16 @@ export default function CoachHistoryPage() {
             <div><Text id="coach-thread-title" as="h2" variant="subtitle">{thread.title}</Text><Text as="p" variant="caption" tone="tertiary">{t(`discipline.${thread.discipline}`)} · {formatDate(thread.updatedAt, i18n.language)}</Text></div>
             <Button iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: thread.title })} disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={18} /></Button>
           </header>
+          <Button className="coach-thread-follow-up-jump" block variant="outline" size="sm" leadingIcon={<MessageCircle size={16} />}
+            disabled={followUpUnavailable} onClick={() => followUpRef.current?.focus()}>{t("history.jumpToFollowUp")}</Button>
           <div className="coach-thread-turns">{threadCursor && <Button block variant="ghost" loading={loadingEarlierTurns} onClick={() => void loadEarlierTurns()}>{t("history.loadEarlierTurns")}</Button>}
             {thread.turns.map((turn) => <article key={turn.turnId} className="coach-thread-turn">
             <Card variant="inset" className="coach-thread-turn__question"><Text as="p" variant="body">{turn.question}</Text><time dateTime={turn.createdAt}><Text as="span" variant="caption" tone="tertiary">{formatDate(turn.createdAt, i18n.language)}</Text></time></Card>
             <div className="coach-thread-turn__answer"><CoachAnswerDocumentView response={turn.response} locale={i18n.language} onAction={answerAction} /></div>
           </article>)}</div>
           <div className="coach-thread-composer"><label htmlFor="coach-follow-up"><Text variant="label">{t("history.followUpLabel")}</Text></label>
-            <Textarea id="coach-follow-up" rows={3} maxLength={1000} value={draft}
-              disabled={submitting || loadingQuota || quotaError || !quota || quota.remaining === 0}
+            <Textarea ref={followUpRef} id="coach-follow-up" rows={3} maxLength={1000} value={draft}
+              disabled={followUpUnavailable}
               placeholder={t("history.followUpPlaceholder")} onChange={(event) => { setDraft(event.target.value); setFollowUpSuccess(false); }} />
             <div className="coach-thread-composer__meta"><Text variant="caption" tone="tertiary">{t("history.contextNote")}</Text><Text variant="caption" tone="tertiary" mono>{draft.length}/1000</Text></div>
             {quotaError && <Alert variant="warning" title={t("history.quotaLoadFailed")}><Button variant="outline" size="sm" onClick={() => void loadQuota()}>{t("history.retryQuota")}</Button></Alert>}

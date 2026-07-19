@@ -77,7 +77,7 @@
   border: 1px solid var(--line-soft);
   background: var(--bg-1);
   color: var(--ink-1);
-  padding-inline: var(--space-3);
+  padding: var(--space-3);
   text-align: left;
   white-space: normal;
 }
@@ -86,6 +86,13 @@
   display: grid;
   gap: var(--space-1);
   width: 100%;
+}
+
+.coach-sheet__suggestion-copy .ds-text--body-small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .coach-sheet__quick-prompts .coach-sheet__suggestions .ds-btn:hover:not(:disabled) {
