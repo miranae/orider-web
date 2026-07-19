@@ -87,6 +87,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const panelRef = useRef<HTMLElement>(null);
+  const questionRef = useRef<HTMLTextAreaElement>(null);
   const inFlightRef = useRef(false);
   const activeRequestRef = useRef<string | null>(null);
   const activeBodyRef = useRef<CoachV2Request | null>(null);
@@ -266,11 +267,12 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
 
   function chooseSuggestion(index: 1 | 2) {
     setDraft(t(`suggestions.${index}`)); setSource(`suggestion_${index}`); setRequestId(null);
+    questionRef.current?.focus();
   }
 
   function startAnother() {
     activeBodyRef.current = null;
-    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setSource("free_text"); setPhase("ready");
+    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
   }
 
   function action(code: CoachActionCode) {
@@ -341,7 +343,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                   <Text as="p" variant="eyebrow" tone="accent">{t("context", { discipline: t(`discipline.${discipline}`) })}</Text>
                   <div className="coach-sheet__composer">
                     <label htmlFor="coach-question"><Text variant="label">{t("inputLabel")}</Text></label>
-                    <Textarea id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
+                    <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
                       placeholder={t("placeholder")} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
                       onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
                       onChange={(event) => { setDraft(event.target.value); setSource("free_text"); setRequestId(null); }} />

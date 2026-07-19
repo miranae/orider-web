@@ -95,6 +95,7 @@ describe("CoachQuestionLauncher", () => {
     expect(submit).toHaveClass("ds-btn--primary", "ds-btn--block");
     await userEvent.click(screen.getByRole("button", { name: "이번 주 운동량이 어땠나요?" }));
     expect(composer).toHaveValue("이번 주 운동량이 어땠나요?");
+    expect(composer).toHaveFocus();
     expect(screen.queryByRole("button", { name: "이번 주 운동량이 어땠나요?" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "최근 28일과 직전 28일을 비교해줘." })).toBeInTheDocument();
   });
