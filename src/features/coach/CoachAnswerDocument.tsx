@@ -291,11 +291,12 @@ function Evidence({ records, locale, timezone }: { records: CoachEvidenceRecord[
     </li>)}</ol></details>;
 }
 
-export function CoachAnswerDocumentView({ response, locale, onAction, onReanalyze = () => undefined }: {
+export function CoachAnswerDocumentView({ response, locale, onAction, onReanalyze = () => undefined, historical = false }: {
   response: CoachV2Response;
   locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
   onReanalyze?: () => void;
+  historical?: boolean;
 }) {
   const { t } = useTranslation("coach");
   const document = response.answer;
@@ -303,7 +304,7 @@ export function CoachAnswerDocumentView({ response, locale, onAction, onReanalyz
   const fallback = response.outcome !== "answer";
   const loadAnalysis = document.compatibility === "supported" ? collectLoadAnalysisGroup(document) : null;
   return <div className="coach-answer">
-    {fallback && <div className="coach-answer__fallback" role="alert"><strong>{t("answer.fallback.title")}</strong><p>{t("answer.fallback.body")}</p></div>}
+    {fallback && !historical && <div className="coach-answer__fallback" role="alert"><strong>{t("answer.fallback.title")}</strong><p>{t("answer.fallback.body")}</p></div>}
     {document.compatibility === "unsupported_schema" ? <UnsupportedBlockNotice /> : <>
       {document.blocks.map((block) => {
         if (loadAnalysis?.blockIds.has(block.blockId)) {

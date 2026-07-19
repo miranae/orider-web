@@ -8,12 +8,13 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { Alert, Button, Card, Chip, Text, Textarea, buttonClass } from "../theme/components";
 import { CoachAnswerDocumentView } from "../features/coach/CoachAnswerDocument";
+import { safeClarificationText } from "../features/coach/coachClarificationText";
 import { FirstUseCoachConsent } from "../features/coach/FirstUseCoachConsent";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../services/coachConsentClient";
 import { getCoachStatus, type CoachQuota } from "../services/coachClient";
 import {
   COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
-  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest,
+  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest, type CoachV2Response,
 } from "../services/coachV2Contract";
 import {
   continueCoachThread, deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads,
@@ -41,6 +42,33 @@ function consentActive(policy: CoachConsentPolicy): boolean {
 function formatDate(value: string, locale: string): string {
   try { return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
   catch { return value; }
+}
+
+function CoachStoredTurnResult({ response }: { response: CoachV2Response }) {
+  const { t } = useTranslation("coach");
+  if (response.outcome === "answer") return null;
+  if (response.outcome === "unsupported") {
+    return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
+      <Text as="h3" variant="subtitle" tone="warning">{t("unsupportedV2.title")}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{t("unsupportedV2.body")}</Text>
+    </Card>;
+  }
+  if (response.outcome === "clarification_required" && response.clarification) {
+    const prompt = safeClarificationText(response.clarification.promptKey, "prompt", t);
+    return <Card className="coach-thread-turn__outcome" variant="inset">
+      <Text as="h3" variant="subtitle">{t("clarification.title")}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{prompt}</Text>
+      <div className="coach-thread-turn__options" aria-label={prompt}>{response.clarification.options.map((option) => <Chip key={option.optionId}>
+        {safeClarificationText(option.labelKey, "option", t, option.optionId)}
+      </Chip>)}</div>
+    </Card>;
+  }
+  if (["quota_exceeded", "budget_blocked", "failed"].includes(response.outcome)) {
+    return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
+      <Text as="p" variant="bodySmall" tone="warning">{t(`v2State.${response.outcome}`)}</Text>
+    </Card>;
+  }
+  return null;
 }
 
 export default function CoachHistoryPage() {
@@ -297,7 +325,9 @@ export default function CoachHistoryPage() {
           <div className="coach-thread-turns">{threadCursor && <Button block variant="ghost" loading={loadingEarlierTurns} onClick={() => void loadEarlierTurns()}>{t("history.loadEarlierTurns")}</Button>}
             {thread.turns.map((turn) => <article key={turn.turnId} className="coach-thread-turn">
             <Card variant="inset" className="coach-thread-turn__question"><Text as="p" variant="body">{turn.question}</Text><time dateTime={turn.createdAt}><Text as="span" variant="caption" tone="tertiary">{formatDate(turn.createdAt, i18n.language)}</Text></time></Card>
-            <div className="coach-thread-turn__answer"><CoachAnswerDocumentView response={turn.response} locale={i18n.language} onAction={answerAction} /></div>
+            <div className="coach-thread-turn__answer"><CoachAnswerDocumentView response={turn.response} locale={i18n.language} onAction={answerAction} historical />
+              <CoachStoredTurnResult response={turn.response} />
+            </div>
           </article>)}</div>
           <div className="coach-thread-composer"><label htmlFor="coach-follow-up"><Text variant="label">{t("history.followUpLabel")}</Text></label>
             <Textarea ref={followUpRef} id="coach-follow-up" rows={3} maxLength={1000} value={draft}

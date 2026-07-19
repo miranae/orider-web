@@ -109,6 +109,16 @@ describe("CoachAnswerDocumentView", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("일부 결과만 표시합니다");
   });
 
+  it("renders a saved partial answer without replaying its live fallback alert", () => {
+    const { response } = fixture();
+    response.outcome = "failed";
+    response.error = { code: "planner_failed", retryable: false, fallbackAvailable: true };
+    render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} historical />);
+    expect(documentElement().querySelector(".coach-answer__block--narrative")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("일부 결과만 표시합니다")).not.toBeInTheDocument();
+  });
+
   it("groups evidence-bound load comparison, canonical trends and goal without inventing unavailable basis or state", async () => {
     const { response, document, evidence, value, base } = fixture();
     const comparison = (metricId: "ctl" | "atl" | "form", previous: number, current: number, delta: number) => ({
