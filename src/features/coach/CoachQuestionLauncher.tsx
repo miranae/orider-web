@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { User } from "firebase/auth";
-import { Sparkles, X } from "lucide-react";
+import { History, Sparkles, X } from "lucide-react";
 import { Alert, Button, Card, Chip, Text, Textarea } from "../../theme/components";
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
@@ -240,11 +240,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
       capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters: {} };
     activeBodyRef.current = body;
-    let currentPolicy = policy;
-    if (!currentPolicy) {
-      try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
-      catch { setPhase("load_error"); return; }
-    }
+    let currentPolicy: CoachConsentPolicy;
+    try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
+    catch { setPhase("load_error"); return; }
     if (!isConsentActive(currentPolicy)) { setConsentOpen(true); return; }
     await execute(body, submitSource);
   }
@@ -335,7 +333,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
             <header className="coach-sheet__header">
               <div className="coach-sheet__intro"><Text ref={titleRef} tabIndex={-1} id="coach-sheet-title" as="h2" variant="title">{t("title")}</Text>
                 <Text as="p" variant="bodySmall" tone="secondary">{t("subtitle")}</Text></div>
-              <Button iconOnly dense variant="ghost" aria-label={t("close")} disabled={phase === "submitting" || consentOpen} onClick={closeSheet}><X size={20} /></Button>
+              <div className="coach-sheet__header-actions">
+                {user && <Button dense variant="ghost" size="sm" leadingIcon={<History size={17} />} disabled={phase === "submitting" || consentOpen}
+                  onClick={() => { clearSession(); navigate("/coach"); }}>{t("history.open")}</Button>}
+                <Button iconOnly dense variant="ghost" aria-label={t("close")} disabled={phase === "submitting" || consentOpen} onClick={closeSheet}><X size={20} /></Button>
+              </div>
             </header>
             <div className="coach-sheet__content">
               {!user ? <Card className="coach-sheet__status"><Text as="p">{t("signInRequired")}</Text><Button block variant="primary" onClick={onSignIn}>{t("signIn")}</Button></Card> : (

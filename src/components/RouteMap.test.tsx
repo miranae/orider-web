@@ -94,17 +94,21 @@ describe("RouteMap", () => {
     renderWithProviders(
       <RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" pixelRatio={2} />,
     );
+    const container = document.createElement("div");
+    container.style.width = "1280px";
+    vi.spyOn(container, "getBoundingClientRect").mockReturnValue({ width: 1280 } as DOMRect);
     const map = {
       getStyle: vi.fn(() => ({ layers: [] })),
       setLayoutProperty: vi.fn(),
       setPaintProperty: vi.fn(),
-      setPixelRatio: vi.fn(),
       resize: vi.fn(),
       once: vi.fn(),
+      getContainer: vi.fn(() => container),
     };
     mapProps.latest!.onLoad?.({ target: map });
-    expect(map.setPixelRatio).toHaveBeenCalledWith(2);
-    expect(map.resize).toHaveBeenCalledOnce();
+    expect(map.resize).toHaveBeenCalledTimes(2);
+    expect(container.style.width).toBe("1280px");
+    expect(window.devicePixelRatio).not.toBe(2);
   });
 
   it("uses cooperative gestures on interactive maps to preserve mobile page scroll", () => {

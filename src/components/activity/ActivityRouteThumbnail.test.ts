@@ -1,28 +1,107 @@
-import { isClientCapturedUrl } from "./ActivityRouteThumbnail";
+import {
+  blobToBase64,
+  createCanonicalMapThumbnailBlob,
+  getCanonicalMapThumbnailFileName,
+  getPolylineHash,
+  isCanonicalMapThumbnailUrl,
+  isAppCheckRetryable,
+  MAP_THUMBNAIL_VIEWPORT_HEIGHT,
+  MAP_THUMBNAIL_VIEWPORT_WIDTH,
+  shouldReportMapCaptureError,
+} from "./ActivityRouteThumbnail";
 
-describe("isClientCapturedUrl", () => {
-  it.each([
-    "https://firebasestorage.googleapis.com/v0/b/orider/o/map.webp?alt=media&token=test",
-    "https://firebasestorage.googleapis.com:443/v0/b/orider/o/map.webp?alt=media",
-  ])("accepts a Firebase Storage HTTPS download URL: %s", (url) => {
-    expect(isClientCapturedUrl(url)).toBe(true);
+describe("canonical activity map thumbnails", () => {
+  const activityId = "activity-123";
+  const userId = "owner-456";
+  const storageBucket = "orider";
+  const track = "37.5665,126.9780;37.5670,126.9790";
+  const fileName = "activity-123.route-v2-fcfef7dfc9b21144.webp";
+  const encodedPath = encodeURIComponent(`map_thumbnails/${userId}/${fileName}`);
+
+  it("matches the backend SHA-256 known vector and trims the polyline", async () => {
+    const expectedHash = "fcfef7dfc9b21144c954be9193a1c8edd7251b56314ceeff9c0fbe36b1449340";
+    expect(await getPolylineHash(track)).toBe(expectedHash);
+    expect(await getPolylineHash(`  ${track}  `)).toBe(expectedHash);
+    expect(await getCanonicalMapThumbnailFileName(activityId, track)).toBe(fileName);
   });
 
   it.each([
-    "http://firebasestorage.googleapis.com/v0/b/orider/o/map.webp",
-    "https://firebasestorage.googleapis.com:444/v0/b/orider/o/map.webp",
-    "https://firebasestorage.googleapis.com.evil.example/v0/b/orider/o/map.webp",
-    "https://evil-firebasestorage.googleapis.com/v0/b/orider/o/map.webp",
-    "https://firebasestorage.googleapis.com@evil.example/v0/b/orider/o/map.webp",
-    "https://evil.example/firebasestorage.googleapis.com/v0/b/orider/o/map.webp",
+    `https://firebasestorage.googleapis.com/v0/b/orider/o/${encodedPath}?alt=media&token=test`,
+    `https://firebasestorage.googleapis.com:443/v0/b/orider/o/${encodedPath}?alt=media`,
+  ])("accepts only the exact canonical Firebase Storage object: %s", (url) => {
+    expect(isCanonicalMapThumbnailUrl(url, userId, fileName, storageBucket)).toBe(true);
+  });
+
+  it.each([
+    `http://firebasestorage.googleapis.com/v0/b/orider/o/${encodedPath}`,
+    `https://firebasestorage.googleapis.com:444/v0/b/orider/o/${encodedPath}`,
+    `https://firebasestorage.googleapis.com.evil.example/v0/b/orider/o/${encodedPath}`,
+    `https://evil.example/v0/b/orider/o/${encodedPath}`,
+    `https://firebasestorage.googleapis.com/v0/b/another-bucket/o/${encodedPath}`,
+    `https://firebasestorage.googleapis.com/not-v0/b/orider/o/${encodedPath}`,
+    `https://firebasestorage.googleapis.com/v0/b/orider/o/${encodeURIComponent(`map_thumbnails/another-owner/${fileName}`)}`,
+    `https://firebasestorage.googleapis.com/v0/b/orider/o/${encodeURIComponent(`map_thumbnails/${userId}/${activityId}.webp`)}`,
+    `https://firebasestorage.googleapis.com/v0/b/orider/o/${encodeURIComponent(`map_thumbnails/${userId}/${activityId}.route-v2-deadbeefdeadbeef.webp`)}`,
     "not a URL firebasestorage.googleapis.com",
     "",
-  ])("rejects a non-Firebase client capture URL: %s", (url) => {
-    expect(isClientCapturedUrl(url)).toBe(false);
+  ])("rejects a noncanonical thumbnail URL: %s", (url) => {
+    expect(isCanonicalMapThumbnailUrl(url, userId, fileName, storageBucket)).toBe(false);
   });
 
-  it("rejects a missing URL", () => {
-    expect(isClientCapturedUrl(null)).toBe(false);
-    expect(isClientCapturedUrl(undefined)).toBe(false);
+  it("rejects missing URL values", () => {
+    expect(isCanonicalMapThumbnailUrl(null, userId, fileName, storageBucket)).toBe(false);
+    expect(isCanonicalMapThumbnailUrl(undefined, userId, fileName, storageBucket)).toBe(false);
+    expect(isCanonicalMapThumbnailUrl(`https://firebasestorage.googleapis.com/v0/b/orider/o/${encodedPath}`, userId, fileName, undefined)).toBe(false);
+  });
+
+  it("uses one fixed logical viewport on every device", () => {
+    expect(MAP_THUMBNAIL_VIEWPORT_WIDTH).toBe(1280);
+    expect(MAP_THUMBNAIL_VIEWPORT_HEIGHT).toBe(457);
+  });
+
+  it("retries only App Check-related callable failures", () => {
+    expect(isAppCheckRetryable({ code: "functions/unauthenticated" })).toBe(true);
+    expect(isAppCheckRetryable(new Error("App Check token rejected"))).toBe(true);
+    expect(isAppCheckRetryable({ code: "functions/permission-denied" })).toBe(false);
+  });
+
+  it("encodes a bounded WebP blob without a data URL prefix", async () => {
+    expect(await blobToBase64(new Blob([new Uint8Array([0, 1, 2, 3, 255])], { type: "image/webp" })))
+      .toBe("AAECA/8=");
+    await expect(blobToBase64(new Blob([new Uint8Array(1024 * 1024)])))
+      .rejects.toThrow("map-thumbnail/blob-too-large");
+  });
+
+  it.each([
+    { code: "functions/permission-denied" },
+    { code: "functions/failed-precondition" },
+    { code: "functions/not-found" },
+    { code: "permission-denied" },
+    new Error("functions/permission-denied"),
+    new Error("functions/failed-precondition: visibility changed"),
+    new Error("functions/not-found: activity deleted"),
+    new Error("map-thumbnail/stale-prepare"),
+    new Error("map-thumbnail/webp-unsupported"),
+  ])("does not report expected capture refusal: %o", (error) => {
+    expect(shouldReportMapCaptureError(error)).toBe(false);
+  });
+
+  it.each([
+    { code: "functions/internal" },
+    { code: "functions/unavailable" },
+    new Error("network timeout"),
+    new Error("map-thumbnail/webp-encode-failed"),
+  ])("reports unexpected capture failures: %o", (error) => {
+    expect(shouldReportMapCaptureError(error)).toBe(true);
+  });
+
+  it("stops after the first non-WebP encoder fallback", async () => {
+    const toBlob = vi.fn((callback: BlobCallback) => {
+      callback(new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" }));
+    });
+
+    await expect(createCanonicalMapThumbnailBlob({ toBlob } as unknown as HTMLCanvasElement))
+      .rejects.toThrow("map-thumbnail/webp-unsupported");
+    expect(toBlob).toHaveBeenCalledOnce();
   });
 });

@@ -46,6 +46,7 @@ const FriendInvitePage = lazyTimed("FriendInvitePage", () => import("./pages/Fri
 const TermsPage = lazyTimed("TermsPage", () => import("./pages/TermsPage"));
 const PrivacyPage = lazyTimed("PrivacyPage", () => import("./pages/PrivacyPage"));
 const AiCoachPolicyPage = lazyTimed("AiCoachPolicyPage", () => import("./pages/AiCoachPolicyPage"));
+const CoachHistoryPage = lazyTimed("CoachHistoryPage", () => import("./pages/CoachHistoryPage"));
 const CommunityGuidelinesPage = lazyTimed("CommunityGuidelinesPage", () => import("./pages/CommunityGuidelinesPage"));
 const BoardPage = lazyTimed("BoardPage", () => import("./pages/BoardPage"));
 const PostDetailPage = lazyTimed("PostDetailPage", () => import("./pages/PostDetailPage"));
@@ -170,6 +171,8 @@ function AppRoutes() {
           <Route path="my" element={<MyPage />} />
           <Route path="year-recap" element={<YearRecapPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="coach" element={<CoachHistoryPage />} />
+          <Route path="coach/:threadId" element={<CoachHistoryPage />} />
           <Route path="migrate" element={<MigrationPage />} />
           <Route path="board" element={<BoardPage />} />
           <Route path="board/write" element={<CreatePostPage />} />

@@ -149,6 +149,7 @@ function MobileRouteThumbnail({ activity, priority = false }: { activity: Activi
       userId={activity.userId}
       polyline={activity.thumbnailTrack}
       mapImageUrl={activity.mapImageUrl}
+      visibility={activity.visibility}
       priority={priority}
       layout="mobile"
     />

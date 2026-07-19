@@ -13,7 +13,8 @@ import { acceptCoachConsent, getCoachConsentPolicy, revokeCoachConsent } from ".
 
 const policy = {
   policyVersion: "ai-coach-policy-v1", title: "AI Coach", purpose: "answer",
-  dataCategories: ["user_question", "training_summary", "fitness_metrics", "active_goal", "workout_plan"], retention: "no raw logs",
+  dataCategories: ["user_question", "training_summary", "fitness_metrics", "active_goal", "workout_plan",
+    "verified_answer", "answer_evidence", "thread_metadata"], retention: "until user deletion",
   privacyPolicyUrl: "/privacy", policyDocumentUrl: "/policies/ai-coach",
   processor: { name: "Anthropic", service: "Claude", privacyPolicyUrl: "https://example.com/privacy" },
   internationalProcessing: { recipient: "Anthropic", country: "US", purpose: "answer",
@@ -34,7 +35,11 @@ describe("coachConsentClient", () => {
 
   it("uses authoritative policy metadata with Auth and App Check", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: policy })));
-    await expect(getCoachConsentPolicy()).resolves.toMatchObject(policy);
+    const loaded = await getCoachConsentPolicy();
+    expect(loaded).toMatchObject(policy);
+    expect(loaded).toMatchObject({ dataCategories: expect.arrayContaining([
+      "verified_answer", "answer_evidence", "thread_metadata",
+    ]) });
     expect(fetchMock).toHaveBeenCalledWith("https://ai.example/v1/coach/consent-policy", expect.objectContaining({
       headers: expect.objectContaining({ Authorization: "Bearer id-token", "X-Firebase-AppCheck": "app-check-token" }),
     }));

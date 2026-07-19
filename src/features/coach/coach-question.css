@@ -44,6 +44,8 @@
   border-bottom: 1px solid var(--line-soft);
 }
 
+.coach-sheet__header-actions { display: flex; align-items: center; gap: var(--space-1); }
+
 .coach-sheet__content {
   min-height: 0;
   flex: 1 1 auto;
