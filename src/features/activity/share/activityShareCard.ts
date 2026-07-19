@@ -230,7 +230,7 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  const plot = { left: 32, right: 332, top: 500, bottom: 548 };
+  const plot = { left: 32, right: 332, top: 504, bottom: 544 };
   if (elevationProfile.length >= 2) {
     const distances = elevationProfile.map((point) => point.distance);
     const elevations = elevationProfile.map((point) => point.elevation);
@@ -246,8 +246,8 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
       y: isFlat ? (plot.top + plot.bottom) / 2 : plot.bottom - ((point.elevation - minElevation) / elevationRange) * (plot.bottom - plot.top),
     }));
     const chartFill = ctx.createLinearGradient(0, plot.top, 0, plot.bottom);
-    chartFill.addColorStop(0, "rgba(35,213,167,.12)");
-    chartFill.addColorStop(1, "rgba(35,213,167,.01)");
+    chartFill.addColorStop(0, "rgba(35,213,167,.48)");
+    chartFill.addColorStop(1, "rgba(35,213,167,.10)");
     ctx.beginPath();
     ctx.moveTo(coordinates[0]!.x, plot.bottom);
     coordinates.forEach((point) => ctx.lineTo(point.x, point.y));
@@ -257,9 +257,14 @@ export async function drawActivityShareCard(input: ActivityShareCardInput, signa
     ctx.fill();
     ctx.beginPath();
     coordinates.forEach((point, index) => index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y));
-    ctx.strokeStyle = "rgba(35,213,167,.5)";
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(0,0,0,.72)";
+    ctx.lineWidth = 7;
     ctx.stroke();
+    ctx.strokeStyle = "#b8ffe8";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(184,255,232,.55)";
+    ctx.fillRect(plot.left, 546, plot.right - plot.left, 1);
   }
   return canvas;
 }

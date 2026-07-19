@@ -83,6 +83,10 @@ describe("drawActivityShareCard privacy", () => {
     expect(coordinates.every(Number.isFinite)).toBe(true);
     expect(vi.mocked(ctx.lineTo).mock.calls.some(([x]) => x === 332)).toBe(true);
     expect(vi.mocked(ctx.lineTo).mock.calls.every(([x, y]) => Number(x) >= 32 && Number(x) <= 332 && Number(y) >= 500 && Number(y) <= 548)).toBe(true);
+    expect(ctx.stroke).toHaveBeenCalledTimes(2);
+    expect(ctx.strokeStyle).toBe("#b8ffe8");
+    expect(ctx.lineWidth).toBe(3);
+    expect(ctx.fillRect).toHaveBeenCalledWith(32, 546, 300, 1);
   });
 
   it("handles a flat elevation profile without invalid coordinates", async () => {
