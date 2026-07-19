@@ -1,8 +1,9 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MobileFeedPage from "./MobileFeedPage";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
+import { getCanonicalMapThumbnailFileName, isCanonicalMapThumbnailUrl } from "../activity/ActivityRouteThumbnail";
 
 vi.mock("../training/TodaysWorkoutCard", () => ({
   default: () => null,
@@ -130,9 +131,13 @@ describe("MobileFeedPage", () => {
     expect(screen.queryByText("게스트 사이클")).not.toBeInTheDocument();
   });
 
-  it("re-renders legacy map thumbnails for authenticated viewers", async () => {
+  it.each([
+    { label: "anonymous public viewer", authenticated: false, visibility: "everyone" as const },
+    { label: "authenticated friend viewer", authenticated: true, visibility: "friends" as const },
+  ])("uses the shared live fallback and capture path for an $label", async ({ authenticated, visibility }) => {
     const activity = createMockActivity({
       id: "legacy-thumbnail",
+      visibility,
       mapImageUrl: "https://storage.googleapis.com/legacy/map.webp",
     });
 
@@ -146,16 +151,67 @@ describe("MobileFeedPage", () => {
         feedScope="all"
         onFeedScopeChange={vi.fn()}
       />,
-      { authenticated: true },
+      { authenticated },
     );
 
-    expect(await screen.findByTestId("route-map")).toHaveAttribute("data-interactive", "false");
+    await waitFor(() => expect(screen.getAllByTestId("route-map")).toHaveLength(2));
+    const maps = screen.getAllByTestId("route-map");
+    expect(maps.every((map) => map.getAttribute("data-interactive") === "false")).toBe(true);
     expect(container.querySelector(`img[src="${activity.mapImageUrl}"]`)).not.toBeInTheDocument();
   });
 
-  it("keeps client-captured Firebase thumbnails on mobile", () => {
-    const mapImageUrl = "https://firebasestorage.googleapis.com/v0/b/test/o/map.webp?alt=media";
-    const activity = createMockActivity({ id: "current-thumbnail", mapImageUrl });
+  it("does not mount an anonymous capture map for a private activity", async () => {
+    const activity = createMockActivity({
+      id: "private-thumbnail",
+      visibility: "private",
+      mapImageUrl: null,
+    });
+
+    renderWithProviders(
+      <MobileFeedPage
+        activities={[activity]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        feedScope="all"
+        onFeedScopeChange={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getAllByTestId("route-map")).toHaveLength(1));
+  });
+
+  it("also mounts the hidden canonical capture map for the activity owner", async () => {
+    const activity = createMockActivity({
+      id: "owner-legacy-thumbnail",
+      visibility: "private",
+      mapImageUrl: "https://storage.googleapis.com/legacy/map.webp",
+    });
+
+    renderWithProviders(
+      <MobileFeedPage
+        activities={[activity]}
+        loading={false}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={vi.fn()}
+        feedScope="all"
+        onFeedScopeChange={vi.fn()}
+      />,
+      { authenticated: true, user: { uid: activity.userId } },
+    );
+
+    await waitFor(() => expect(screen.getAllByTestId("route-map")).toHaveLength(2));
+  });
+
+  it("keeps the current canonical Firebase thumbnail on mobile", async () => {
+    const activity = createMockActivity({ id: "current-thumbnail" });
+    const fileName = await getCanonicalMapThumbnailFileName(activity.id, activity.thumbnailTrack!);
+    const objectPath = encodeURIComponent(`map_thumbnails/${activity.userId}/${fileName}`);
+    const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${objectPath}?alt=media`;
+    expect(isCanonicalMapThumbnailUrl(mapImageUrl, activity.userId, fileName, "test")).toBe(true);
+    activity.mapImageUrl = mapImageUrl;
 
     const { container } = renderWithProviders(
       <MobileFeedPage
@@ -170,7 +226,10 @@ describe("MobileFeedPage", () => {
       { authenticated: true },
     );
 
-    expect(container.querySelector(`img[src="${mapImageUrl}"]`)).toBeInTheDocument();
+    await waitFor(() => {
+      const imageSources = Array.from(container.querySelectorAll("img"), (image) => image.getAttribute("src"));
+      expect(imageSources).toContain(mapImageUrl);
+    });
     expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
   });
 
