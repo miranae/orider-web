@@ -27,12 +27,16 @@ describe("CoachConsentSheet", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAttribute("aria-describedby", "coach-consent-summary");
+    expect(dialog.querySelector(":scope > .coach-consent-sheet__header")).toBeInTheDocument();
+    expect(dialog.querySelector(":scope > .coach-consent-sheet__body")).toBeInTheDocument();
+    expect(dialog.querySelector(":scope > .coach-consent-sheet__actions")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "사용하는 데이터" })).toBeInTheDocument();
     const externalSummary = screen.getByRole("heading", { name: "외부 AI 처리 · 미국" }).closest(".ds-card");
     const storageSummary = screen.getByRole("heading", { name: "저장 및 철회" }).closest(".ds-card");
     expect(within(storageSummary!).getByText("원문 로그 없음")).toBeInTheDocument();
     expect(screen.queryByText("user_question")).not.toBeInTheDocument();
     expect(within(externalSummary!).getByText(/External LLM · Claude/)).toBeInTheDocument();
+    expect(within(externalSummary!).getAllByText(/External LLM/)).toHaveLength(1);
     expect(document.querySelector(".coach-policy-compact > .ds-text--tone-warning")).toHaveTextContent("처리자가 변경됨");
     const details = screen.getByText("전체 데이터 처리 세부사항과 링크 보기").closest("details");
     expect(details).not.toHaveAttribute("open");
@@ -81,14 +85,28 @@ describe("CoachConsentSheet", () => {
     expect(screen.getByRole("button", { name: "저장 중…" })).toBeDisabled();
   });
 
-  it("renders the authoritative international processing country", () => {
+  it("localizes a known country in the summary while preserving the policy value in full details", async () => {
     const nonUsPolicy = {
       ...policy,
-      internationalProcessing: { ...policy.internationalProcessing, country: "일본" },
+      internationalProcessing: { ...policy.internationalProcessing, country: "Japan" },
     };
     render(<MemoryRouter><CoachConsentSheet open saving={false} policy={nonUsPolicy} onCancel={vi.fn()} onConsented={vi.fn()} /></MemoryRouter>);
     expect(screen.getByRole("heading", { name: "외부 AI 처리 · 일본" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "외부 AI 처리 · 미국" })).not.toBeInTheDocument();
+    const details = screen.getByText("전체 데이터 처리 세부사항과 링크 보기").closest("details");
+    await userEvent.click(within(details!).getByText("전체 데이터 처리 세부사항과 링크 보기"));
+    expect(within(details!).getByText(/External LLM · Japan/)).toBeInTheDocument();
+  });
+
+  it("shows an authoritative recipient only when it differs from the processor", () => {
+    const delegatedPolicy = {
+      ...policy,
+      internationalProcessing: { ...policy.internationalProcessing, recipient: "Regional Processing Partner", country: "Japan" },
+    };
+    render(<MemoryRouter><CoachConsentSheet open saving={false} policy={delegatedPolicy} onCancel={vi.fn()} onConsented={vi.fn()} /></MemoryRouter>);
+    const externalSummary = screen.getByRole("heading", { name: "외부 AI 처리 · 일본" }).closest(".ds-card");
+    expect(within(externalSummary!).getByText("External LLM · Claude")).toBeInTheDocument();
+    expect(within(externalSummary!).getByText("Regional Processing Partner · 일본")).toBeInTheDocument();
   });
 
   it("keeps the full policy disclosure expanded outside the first-use sheet", () => {

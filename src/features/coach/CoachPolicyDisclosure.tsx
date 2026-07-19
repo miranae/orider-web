@@ -54,8 +54,15 @@ export function CoachPolicyDisclosure({ policy, stale = false, mode = "full" }: 
   stale?: boolean;
   mode?: "full" | "compact";
 }) {
-  const { t } = useTranslation("settings");
+  const { t, i18n } = useTranslation("settings");
   if (mode === "full") return <FullPolicyDisclosure policy={policy} stale={stale} />;
+  const countryKey = policy.internationalProcessing.country.trim().toLowerCase();
+  const localizedCountry = i18n.language.startsWith("ko")
+    ? ({ "united states": t("coach.country.us"), "united states of america": t("coach.country.us"), usa: t("coach.country.us"), us: t("coach.country.us"),
+        japan: t("coach.country.jp") }[countryKey] ?? policy.internationalProcessing.country)
+    : policy.internationalProcessing.country;
+  const distinctRecipient = policy.internationalProcessing.recipient.trim().toLocaleLowerCase()
+    !== policy.processor.name.trim().toLocaleLowerCase();
   return (
     <div className="coach-policy-compact">
       <div className="coach-policy-compact__summaries">
@@ -66,11 +73,11 @@ export function CoachPolicyDisclosure({ policy, stale = false, mode = "full" }: 
           </ul>
         </Card>
         <Card variant="inset" padding="compact">
-          <Text as="h3" variant="label">{t("coach.summaryExternalTitle", { country: policy.internationalProcessing.country })}</Text>
+          <Text as="h3" variant="label">{t("coach.summaryExternalTitle", { country: localizedCountry })}</Text>
           <Text as="p" variant="bodySmall">{policy.processor.name} · {policy.processor.service}</Text>
-          <Text as="p" variant="caption" tone="tertiary">
-            {policy.internationalProcessing.recipient} · {policy.internationalProcessing.country}
-          </Text>
+          {distinctRecipient && <Text as="p" variant="caption" tone="tertiary">
+            {policy.internationalProcessing.recipient} · {localizedCountry}
+          </Text>}
         </Card>
         <Card variant="inset" padding="compact">
           <Text as="h3" variant="label">{t("coach.summaryStorageTitle")}</Text>
