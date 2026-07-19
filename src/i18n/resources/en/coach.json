@@ -72,17 +72,17 @@
     },
     "bike": {
       "1": "I want to reach an FTP of 3.5 W/kg. Review my training over the past month, assess the gap to my goal, and coach me on the right training direction.",
-      "2": "Review today's workout, coach me on what went well and what to improve, and prescribe my next workout.",
+      "2": "Review today's workout, coach me on what went well and what to improve, and suggest what I should do in my next workout.",
       "3": "Review my training over the past month and analyze my fitness, fatigue, and recovery."
     },
     "run": {
       "1": "I want to run a 50-minute 10K. Review my running over the past month, assess the gap to my goal, and coach me on the right training direction.",
-      "2": "Review today's run, coach me on what went well and what to improve, and prescribe my next run.",
+      "2": "Review today's run, coach me on what went well and what to improve, and suggest what I should do in my next run.",
       "3": "Review my running over the past month and analyze my fitness, fatigue, and recovery."
     },
     "swim": {
       "1": "I want to swim 1,500 m freestyle in 30 minutes. Review my swimming over the past month, assess the gap to my goal, and coach me on the right training direction.",
-      "2": "Review today's swim, coach me on what went well and what to improve, and prescribe my next swim.",
+      "2": "Review today's swim, coach me on what went well and what to improve, and suggest what I should do in my next swim.",
       "3": "Review my swimming over the past month and analyze my fitness, fatigue, and recovery."
     }
   },

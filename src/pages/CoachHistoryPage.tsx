@@ -251,6 +251,8 @@ export default function CoachHistoryPage() {
     else navigate(code === "VIEW_TRAINING_LOAD" ? "/fitness" : "/my");
   }
 
+  const followUpUnavailable = submitting || loadingQuota || quotaError || !quota || quota.remaining === 0;
+
   if (!user) return <main className="coach-history-page"><Alert variant="warning">{t("history.signInRequired")}</Alert></main>;
   if (stateUid !== uid) return <main className="coach-history-page"><Card role="status">{t("history.loading")}</Card></main>;
 
@@ -291,7 +293,7 @@ export default function CoachHistoryPage() {
             <Button iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: thread.title })} disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={18} /></Button>
           </header>
           <Button className="coach-thread-follow-up-jump" block variant="outline" size="sm" leadingIcon={<MessageCircle size={16} />}
-            onClick={() => followUpRef.current?.focus()}>{t("history.jumpToFollowUp")}</Button>
+            disabled={followUpUnavailable} onClick={() => followUpRef.current?.focus()}>{t("history.jumpToFollowUp")}</Button>
           <div className="coach-thread-turns">{threadCursor && <Button block variant="ghost" loading={loadingEarlierTurns} onClick={() => void loadEarlierTurns()}>{t("history.loadEarlierTurns")}</Button>}
             {thread.turns.map((turn) => <article key={turn.turnId} className="coach-thread-turn">
             <Card variant="inset" className="coach-thread-turn__question"><Text as="p" variant="body">{turn.question}</Text><time dateTime={turn.createdAt}><Text as="span" variant="caption" tone="tertiary">{formatDate(turn.createdAt, i18n.language)}</Text></time></Card>
@@ -299,7 +301,7 @@ export default function CoachHistoryPage() {
           </article>)}</div>
           <div className="coach-thread-composer"><label htmlFor="coach-follow-up"><Text variant="label">{t("history.followUpLabel")}</Text></label>
             <Textarea ref={followUpRef} id="coach-follow-up" rows={3} maxLength={1000} value={draft}
-              disabled={submitting || loadingQuota || quotaError || !quota || quota.remaining === 0}
+              disabled={followUpUnavailable}
               placeholder={t("history.followUpPlaceholder")} onChange={(event) => { setDraft(event.target.value); setFollowUpSuccess(false); }} />
             <div className="coach-thread-composer__meta"><Text variant="caption" tone="tertiary">{t("history.contextNote")}</Text><Text variant="caption" tone="tertiary" mono>{draft.length}/1000</Text></div>
             {quotaError && <Alert variant="warning" title={t("history.quotaLoadFailed")}><Button variant="outline" size="sm" onClick={() => void loadQuota()}>{t("history.retryQuota")}</Button></Alert>}
