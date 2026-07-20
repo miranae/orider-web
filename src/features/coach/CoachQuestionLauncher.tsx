@@ -12,7 +12,7 @@ import {
 } from "../../services/coachClient";
 import {
   COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
-  type CoachAnswerActionCode, type CoachEntityRef, type CoachResponseFormat, type CoachV2QuestionRequest, type CoachV2Request, type CoachV2Response,
+  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest, type CoachV2Request, type CoachV2Response,
 } from "../../services/coachV2Contract";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../../services/coachConsentClient";
 import { FirstUseCoachConsent } from "./FirstUseCoachConsent";
@@ -20,7 +20,6 @@ import { subscribeCoachConsentSessionReset } from "./consentSessionBoundary";
 import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
 import { CoachAnswerDocumentView } from "./CoachAnswerDocument";
 import { safeClarificationText } from "./coachClarificationText";
-import { CoachResponseFormatPicker } from "./CoachResponseFormatPicker";
 import "./coach-question.css";
 
 type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
@@ -100,7 +99,6 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const sessionGenerationRef = useRef(0);
   const [phase, setPhase] = useState<Phase>("closed");
   const [draft, setDraft] = useState("");
-  const [responseFormat, setResponseFormat] = useState<CoachResponseFormat>("auto");
   const [source, setSource] = useState<QuestionSource>("free_text");
   const [requestId, setRequestId] = useState<string | null>(null);
   const [quota, setQuota] = useState<CoachQuota | null>(null);
@@ -122,7 +120,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     sessionGenerationRef.current += 1;
     activeRequestRef.current = null;
     activeBodyRef.current = null;
-    setDraft(""); setResponseFormat("auto"); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
+    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
     setConsentOpen(false); setPolicy(null); setQuota(null); setPhase("closed");
   }, []);
 
@@ -241,7 +239,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     const body: CoachV2QuestionRequest = { requestId: id, question, discipline,
       locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
-      capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters: {}, responseFormat };
+      capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters: {}, responseFormat: "auto" };
     activeBodyRef.current = body;
     let currentPolicy: CoachConsentPolicy;
     try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
@@ -274,7 +272,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
 
   function startAnother() {
     activeBodyRef.current = null;
-    setDraft(""); setResponseFormat("auto"); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
+    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
   }
 
   function action(code: CoachActionCode) {
@@ -311,7 +309,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
     const id = crypto.randomUUID(); setRequestId(id);
     await execute({ requestId: id, question: prompt, discipline, locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION,
-      contextFilters: {}, responseFormat }, source, false);
+      contextFilters: {}, responseFormat: "auto" }, source, false);
   }
 
   const retryReasonCodes = response ? ("outcome" in response
@@ -363,7 +361,6 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                       <Text id="coach-question-note" as="span" variant="caption" tone="tertiary">{t("independentNote")}</Text>
                       {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
                     </div>
-                    <CoachResponseFormatPicker value={responseFormat} onChange={setResponseFormat} disabled={exhausted} />
                     <Button block variant="primary" disabled={draft.trim().length < 2 || exhausted} onClick={() => void submit()}>{t("submit")}</Button>
                     {quota && <Text as="p" className="coach-sheet__quota" variant="caption" tone={exhausted ? "warning" : "tertiary"}>
                       {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
@@ -393,7 +390,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
                   title={t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.title" : `states.${submitFailure ?? "terminal"}.title`)}>
                   <Text as="p" variant="bodySmall">{t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.body" : `states.${submitFailure ?? "terminal"}.body`)}</Text></Alert>}
                 {response && phase !== "submitting" && ("outcome" in response
-                  ? <CoachV2Result response={response} responseFormat={responseFormat} locale={i18n.language} selectedOption={clarificationOption} feedback={feedback} exhausted={exhausted}
+                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} feedback={feedback} exhausted={exhausted}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action} onFeedback={sendFeedback}
                     onReanalyze={startAnother}
                     onSuggested={(query) => { startAnother(); setDraft(query); setSource("free_text"); }} />
@@ -450,8 +447,8 @@ function CoachFeedback({ feedback, onFeedback }: { feedback: boolean | null; onF
   </section>;
 }
 
-function CoachV2Result({ response, responseFormat, locale, selectedOption, feedback, exhausted, onSelectOption, onClarification, onAction, onFeedback, onSuggested, onReanalyze }: {
-  response: CoachV2Response; responseFormat: CoachResponseFormat; locale: string; selectedOption: string | null; feedback: boolean | null; exhausted: boolean;
+function CoachV2Result({ response, locale, selectedOption, feedback, exhausted, onSelectOption, onClarification, onAction, onFeedback, onSuggested, onReanalyze }: {
+  response: CoachV2Response; locale: string; selectedOption: string | null; feedback: boolean | null; exhausted: boolean;
   onSelectOption: (option: string) => void; onClarification: () => void;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void; onFeedback: (helpful: boolean) => void;
   onSuggested: (query: string) => void;
@@ -462,7 +459,7 @@ function CoachV2Result({ response, responseFormat, locale, selectedOption, feedb
   const expired = spec ? Date.parse(spec.expiresAt) <= Date.now() : false;
   const providerUnavailable = response.error?.code === "provider_kill_switch";
   return <div className="coach-result">
-    {response.answer && <CoachAnswerDocumentView response={response} responseFormat={responseFormat} locale={locale} onAction={onAction} onReanalyze={onReanalyze} />}
+    {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} onReanalyze={onReanalyze} />}
     {response.outcome === "clarification_required" && spec && <form className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
       <fieldset disabled={expired}><legend>{safeClarificationText(spec.promptKey, "prompt", t)}</legend>
         {spec.options.map((option) => <label key={option.optionId} className="coach-clarification__option">
