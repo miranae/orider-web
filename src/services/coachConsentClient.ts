@@ -2,8 +2,11 @@ import { auth, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 
 export type CoachConsentState = "missing" | "current" | "stale" | "revoked";
-export type CoachDataCategory = "user_question" | "training_summary" | "fitness_metrics" | "active_goal" | "workout_plan"
-  | "verified_answer" | "answer_evidence" | "thread_metadata";
+const COACH_DATA_CATEGORIES = [
+  "user_question", "verified_answer", "answer_evidence", "thread_metadata", "training_summary",
+  "fitness_metrics", "active_goal", "workout_plan", "subjective_checkin", "readiness_snapshot",
+] as const;
+export type CoachDataCategory = typeof COACH_DATA_CATEGORIES[number];
 
 export interface CoachConsentStatus {
   currentPolicyVersion: string;
@@ -53,10 +56,7 @@ function endpoint(path: string): string {
   return `${base}/v1/coach${path}`;
 }
 
-const DATA_CATEGORIES = new Set<CoachDataCategory>([
-  "user_question", "training_summary", "fitness_metrics", "active_goal", "workout_plan",
-  "verified_answer", "answer_evidence", "thread_metadata",
-]);
+const DATA_CATEGORIES = new Set<CoachDataCategory>(COACH_DATA_CATEGORIES);
 
 function categories(value: unknown): CoachDataCategory[] | null {
   if (!Array.isArray(value) || value.length === 0 || value.length > DATA_CATEGORIES.size) return null;

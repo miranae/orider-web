@@ -456,7 +456,9 @@
       "workoutPlan": "운동 계획",
       "verifiedAnswer": "검증된 AI 코치 답변",
       "answerEvidence": "답변에 사용된 분석 근거",
-      "threadMetadata": "대화 정보(제목·종목·생성 및 수정 시각)"
+      "threadMetadata": "대화 정보(제목·종목·생성 및 수정 시각)",
+      "subjectiveCheckin": "주간 주관적 체크인",
+      "readinessSnapshot": "회복 준비도 스냅샷"
     },
     "dataActivity": "운동 시간·거리·훈련 부하",
     "dataFitness": "체력·회복 지표",

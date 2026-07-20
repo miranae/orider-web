@@ -7,12 +7,13 @@ import type { CoachConsentPolicy } from "../../services/coachConsentClient";
 import { MemoryRouter } from "react-router-dom";
 
 const policy: CoachConsentPolicy = {
-  policyVersion: "v3", title: "AI Coach", purpose: "답변 생성", dataCategories: ["user_question", "training_summary",
-    "verified_answer", "answer_evidence", "thread_metadata"],
+  policyVersion: "v4", title: "AI Coach", purpose: "답변 생성", dataCategories: ["user_question", "training_summary",
+    "verified_answer", "answer_evidence", "thread_metadata", "subjective_checkin", "readiness_snapshot"],
   retention: "원문 로그 없음", privacyPolicyUrl: "/privacy", policyDocumentUrl: "/policies/ai-coach",
   processor: { name: "External LLM", service: "Claude", privacyPolicyUrl: "https://example.com/privacy" },
   internationalProcessing: { recipient: "External LLM", country: "미국", purpose: "답변 생성",
-    dataCategories: ["user_question", "training_summary"], timingAndMethod: "API 전송", retention: "보관하지 않음" },
+    dataCategories: ["user_question", "training_summary", "subjective_checkin", "readiness_snapshot"],
+    timingAndMethod: "API 전송", retention: "보관하지 않음" },
   withdrawal: { method: "설정에서 철회", apiPath: "/v1/coach/consent", effect: "즉시 차단" },
   changeSummary: { effectiveAt: "2026-07-18", summary: "처리자가 변경됨" },
   consent: { currentPolicyVersion: "v2", storedPolicyVersion: "v1", current: false, stale: true,
@@ -35,6 +36,8 @@ describe("CoachConsentSheet", () => {
     expect(within(dataSummary!).getByText("검증된 AI 코치 답변")).toBeInTheDocument();
     expect(within(dataSummary!).getByText("답변에 사용된 분석 근거")).toBeInTheDocument();
     expect(within(dataSummary!).getByText("대화 정보(제목·종목·생성 및 수정 시각)")).toBeInTheDocument();
+    expect(within(dataSummary!).getByText("주간 주관적 체크인")).toBeInTheDocument();
+    expect(within(dataSummary!).getByText("회복 준비도 스냅샷")).toBeInTheDocument();
     const externalSummary = screen.getByRole("heading", { name: "외부 AI 처리 · 미국" }).closest(".ds-card");
     const storageSummary = screen.getByRole("heading", { name: "저장 및 철회" }).closest(".ds-card");
     expect(within(storageSummary!).getByText("원문 로그 없음")).toBeInTheDocument();
