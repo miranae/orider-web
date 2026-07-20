@@ -12,6 +12,8 @@ const categoryKeys: Record<CoachDataCategory, string> = {
   verified_answer: "coach.category.verifiedAnswer",
   answer_evidence: "coach.category.answerEvidence",
   thread_metadata: "coach.category.threadMetadata",
+  subjective_checkin: "coach.category.subjectiveCheckin",
+  readiness_snapshot: "coach.category.readinessSnapshot",
 };
 
 function PolicyLink({ href, children }: { href: string; children: React.ReactNode }) {
