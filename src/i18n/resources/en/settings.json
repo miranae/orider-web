@@ -456,7 +456,9 @@
       "workoutPlan": "Workout plan",
       "verifiedAnswer": "Verified AI Coach answer",
       "answerEvidence": "Analysis evidence used for the answer",
-      "threadMetadata": "Conversation metadata (title, discipline, and timestamps)"
+      "threadMetadata": "Conversation metadata (title, discipline, and timestamps)",
+      "subjectiveCheckin": "Weekly subjective check-in",
+      "readinessSnapshot": "Readiness snapshot"
     },
     "dataActivity": "Training time, distance and training load",
     "dataFitness": "Fitness and recovery metrics",

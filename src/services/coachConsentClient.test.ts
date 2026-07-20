@@ -12,16 +12,19 @@ vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => runtime }));
 import { acceptCoachConsent, getCoachConsentPolicy, revokeCoachConsent } from "./coachConsentClient";
 
 const policy = {
-  policyVersion: "ai-coach-policy-v1", title: "AI Coach", purpose: "answer",
-  dataCategories: ["user_question", "training_summary", "fitness_metrics", "active_goal", "workout_plan",
-    "verified_answer", "answer_evidence", "thread_metadata"], retention: "until user deletion",
+  policyVersion: "ai-coach-policy-v4", title: "AI Coach", purpose: "answer",
+  dataCategories: ["user_question", "verified_answer", "answer_evidence", "thread_metadata", "training_summary",
+    "fitness_metrics", "active_goal", "workout_plan", "subjective_checkin", "readiness_snapshot"],
+  retention: "until user deletion",
   privacyPolicyUrl: "/privacy", policyDocumentUrl: "/policies/ai-coach",
   processor: { name: "Anthropic", service: "Claude", privacyPolicyUrl: "https://example.com/privacy" },
   internationalProcessing: { recipient: "Anthropic", country: "US", purpose: "answer",
-    dataCategories: ["user_question", "training_summary"], timingAndMethod: "API", retention: "zero retention" },
+    dataCategories: ["user_question", "training_summary", "fitness_metrics", "active_goal", "workout_plan",
+      "subjective_checkin", "readiness_snapshot", "verified_answer", "answer_evidence"],
+    timingAndMethod: "API", retention: "zero retention" },
   withdrawal: { method: "Settings", apiPath: "/v1/coach/consent", effect: "immediate" },
   changeSummary: null,
-  consent: { currentPolicyVersion: "ai-coach-policy-v1", storedPolicyVersion: null, current: false,
+  consent: { currentPolicyVersion: "ai-coach-policy-v4", storedPolicyVersion: null, current: false,
     stale: false, consented: false, revoked: false, active: false, consentedAt: null, revokedAt: null, revision: null },
 };
 
@@ -33,13 +36,18 @@ describe("coachConsentClient", () => {
     runtime.aiApiBase = "https://ai.example";
   });
 
-  it("uses authoritative policy metadata with Auth and App Check", async () => {
+  it("accepts the authoritative v4 category shape with Auth and App Check", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: policy })));
     const loaded = await getCoachConsentPolicy();
     expect(loaded).toMatchObject(policy);
-    expect(loaded).toMatchObject({ dataCategories: expect.arrayContaining([
-      "verified_answer", "answer_evidence", "thread_metadata",
-    ]) });
+    expect(loaded.dataCategories).toEqual([
+      "user_question", "verified_answer", "answer_evidence", "thread_metadata", "training_summary",
+      "fitness_metrics", "active_goal", "workout_plan", "subjective_checkin", "readiness_snapshot",
+    ]);
+    expect(loaded.internationalProcessing.dataCategories).toEqual([
+      "user_question", "training_summary", "fitness_metrics", "active_goal", "workout_plan",
+      "subjective_checkin", "readiness_snapshot", "verified_answer", "answer_evidence",
+    ]);
     expect(fetchMock).toHaveBeenCalledWith("https://ai.example/v1/coach/consent-policy", expect.objectContaining({
       headers: expect.objectContaining({ Authorization: "Bearer id-token", "X-Firebase-AppCheck": "app-check-token" }),
     }));
@@ -47,9 +55,9 @@ describe("coachConsentClient", () => {
 
   it("accepts the server version and revokes through server APIs only", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({ data: policy })));
-    await acceptCoachConsent("ai-coach-policy-v1");
+    await acceptCoachConsent("ai-coach-policy-v4");
     await revokeCoachConsent();
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "PUT", body: JSON.stringify({ policyVersion: "ai-coach-policy-v1" }) });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "PUT", body: JSON.stringify({ policyVersion: "ai-coach-policy-v4" }) });
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "DELETE" });
   });
 
@@ -60,6 +68,17 @@ describe("coachConsentClient", () => {
 
   it("rejects a response outside the strict data envelope", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(policy)));
+    await expect(getCoachConsentPolicy()).rejects.toThrow("INVALID_COACH_CONSENT_RESPONSE");
+  });
+
+  it.each([
+    { ...policy, dataCategories: [...policy.dataCategories.slice(0, -1), "raw_health_record"] },
+    { ...policy, internationalProcessing: {
+      ...policy.internationalProcessing,
+      dataCategories: [...policy.internationalProcessing.dataCategories.slice(0, -1), "raw_health_record"],
+    } },
+  ])("rejects unknown top-level and international data categories", async (unknown) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: unknown })));
     await expect(getCoachConsentPolicy()).rejects.toThrow("INVALID_COACH_CONSENT_RESPONSE");
   });
 
