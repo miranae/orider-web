@@ -10,6 +10,7 @@ export interface CoachThreadSummary {
   createdAt: string;
   updatedAt: string;
   turnCount: number;
+  revision: number;
 }
 
 export interface CoachThreadTurn {
@@ -19,6 +20,7 @@ export interface CoachThreadTurn {
   createdAt: string;
   response: CoachV2Response;
   responseFormat: CoachResponseFormat;
+  sessionRevision: number;
 }
 
 export interface CoachThread extends CoachThreadSummary {
@@ -66,7 +68,8 @@ function parseSummary(value: unknown): CoachThreadSummary {
       || typeof item.title !== "string" || item.title.length < 1 || item.title.length > 200
       || !["bike", "run", "swim"].includes(String(item.discipline))
       || !iso(item.createdAt) || !iso(item.updatedAt)
-      || !Number.isSafeInteger(item.turnCount) || Number(item.turnCount) < 1) {
+      || !Number.isSafeInteger(item.turnCount) || Number(item.turnCount) < 1
+      || !Number.isSafeInteger(item.revision) || Number(item.revision) < 1) {
     throw new Error("INVALID_COACH_HISTORY_RESPONSE");
   }
   return {
@@ -76,6 +79,7 @@ function parseSummary(value: unknown): CoachThreadSummary {
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     turnCount: item.turnCount as number,
+    revision: item.revision as number,
   };
 }
 
@@ -107,14 +111,15 @@ export function parseCoachThread(input: unknown, expectedLimit = 20): CoachThrea
     if (!turn || typeof turn.turnId !== "string" || !UUID.test(turn.turnId)
         || typeof turn.requestId !== "string" || !UUID.test(turn.requestId)
         || typeof turn.question !== "string" || turn.question.length < 2 || turn.question.length > 1000
-        || !iso(turn.createdAt)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
+        || !iso(turn.createdAt) || !Number.isSafeInteger(turn.sessionRevision)
+        || Number(turn.sessionRevision) < 0) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     // Detail DTO stores the response document itself; the live endpoint wraps it in { data }.
     const response = parseCoachV2Response({ data: turn.response });
     if (response.requestId !== turn.requestId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     const responseFormat = turn.responseFormat === undefined ? "auto" : turn.responseFormat;
     if (!COACH_RESPONSE_FORMATS.includes(responseFormat as CoachResponseFormat)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     return { turnId: turn.turnId, requestId: turn.requestId, question: turn.question, createdAt: turn.createdAt,
-      response, responseFormat: responseFormat as CoachResponseFormat };
+      response, responseFormat: responseFormat as CoachResponseFormat, sessionRevision: turn.sessionRevision as number };
   });
   const chronological = turns.every((turn, index) => index === 0
     || Date.parse(turns[index - 1]!.createdAt) <= Date.parse(turn.createdAt));

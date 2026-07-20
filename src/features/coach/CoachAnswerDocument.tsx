@@ -151,7 +151,10 @@ function SeriesGraphic({ block, locale }: { block: TimeSeriesBlock; locale: stri
           points={points} className={`coach-answer__line coach-answer__line--${segment.seriesIndex % 3}`} />;
       })}
     </svg>
-    <TimeSeriesTable block={block} locale={locale} />
+    <details className="coach-answer__series-data">
+      <summary>{t("answer.chart.dataToggle")}</summary>
+      <TimeSeriesTable block={block} locale={locale} />
+    </details>
   </div>;
 }
 

@@ -14,7 +14,7 @@ const threadId = "123e4567-e89b-42d3-a456-426614174000";
 const turnId = "223e4567-e89b-42d3-a456-426614174001";
 const olderTurnId = "323e4567-e89b-42d3-a456-426614174002";
 const summary = { threadId, title: "이번 주 운동량", discipline: "bike", createdAt: "2026-07-19T01:00:00Z",
-  updatedAt: "2026-07-19T02:00:00Z", turnCount: 75 };
+  updatedAt: "2026-07-19T02:00:00Z", turnCount: 75, revision: 75 };
 const response = { apiVersion: "v2", capabilityVersion: "p1", schemaVersion: "coach-response-envelope-v1", requestId: turnId,
   outcome: "unsupported", unsupported: { reasonCodes: ["unsupported_question"], missingCapabilities: [],
     suggestedQueries: [{ queryTemplateId: "show_weekly_trend", labelKey: "coach.followup.weekly" }] },
@@ -29,7 +29,8 @@ describe("coachHistoryClient", () => {
   });
 
   it("parses cursor-paged summaries and rejects duplicate thread ids", () => {
-    expect(parseCoachThreadPage({ data: { threads: [summary], nextCursor: "next" } })).toMatchObject({ nextCursor: "next" });
+    expect(parseCoachThreadPage({ data: { threads: [summary], nextCursor: "next" } }))
+      .toMatchObject({ threads: [{ revision: 75 }], nextCursor: "next" });
     expect(() => parseCoachThreadPage({ data: { threads: [summary, summary], nextCursor: null } })).toThrow("INVALID_COACH_HISTORY_RESPONSE");
     expect(() => parseCoachThreadPage({ data: { threads: [summary, { ...summary, threadId: olderTurnId }], nextCursor: null } }, 1))
       .toThrow("INVALID_COACH_HISTORY_RESPONSE");
@@ -37,23 +38,30 @@ describe("coachHistoryClient", () => {
 
   it("parses a partial chronological turn page without equating it to total turnCount", () => {
     const older = { turnId: olderTurnId, requestId: olderTurnId, question: "지난주 운동량은?", createdAt: "2026-07-19T01:30:00Z",
-      response: { ...response, requestId: olderTurnId } };
-    const newer = { turnId, requestId: turnId, question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z", response };
+      response: { ...response, requestId: olderTurnId }, sessionRevision: 74 };
+    const newer = { turnId, requestId: turnId, question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z",
+      response, sessionRevision: 75 };
     const page = parseCoachThread({ data: { thread: { ...summary, turns: [older, newer] }, nextCursor: "older-page" } });
     expect(page.thread.turns.map((turn) => turn.turnId)).toEqual([olderTurnId, turnId]);
     expect(page.thread.turnCount).toBe(75);
+    expect(page.thread.revision).toBe(75);
     expect(page.nextCursor).toBe("older-page");
     expect(page.thread.turns.map((turn) => turn.responseFormat)).toEqual(["auto", "auto"]);
+    expect(page.thread.turns.map((turn) => turn.sessionRevision)).toEqual([74, 75]);
     expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [newer, older] }, nextCursor: null } }))
       .toThrow("INVALID_COACH_HISTORY_RESPONSE");
   });
 
   it("parses the closed per-turn response format and rejects unknown values", () => {
     const turn = { turnId, requestId: turnId, question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z",
-      response, responseFormat: "chart" };
+      response, responseFormat: "chart", sessionRevision: 75 };
     expect(parseCoachThread({ data: { thread: { ...summary, turns: [turn] }, nextCursor: null } })
       .thread.turns[0]?.responseFormat).toBe("chart");
     expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...turn, responseFormat: "markdown" }] }, nextCursor: null } }))
+      .toThrow("INVALID_COACH_HISTORY_RESPONSE");
+    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...turn, sessionRevision: undefined }] }, nextCursor: null } }))
+      .toThrow("INVALID_COACH_HISTORY_RESPONSE");
+    expect(() => parseCoachThreadPage({ data: { threads: [{ ...summary, revision: undefined }], nextCursor: null } }))
       .toThrow("INVALID_COACH_HISTORY_RESPONSE");
   });
 
@@ -81,7 +89,8 @@ describe("coachHistoryClient", () => {
   });
 
   it("enforces the detail-page limit, bounded cursors, and canonical UTC timestamps", async () => {
-    const turn = { turnId, requestId: turnId, question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z", response };
+    const turn = { turnId, requestId: turnId, question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z",
+      response, sessionRevision: 75 };
     expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [turn, { ...turn, turnId: olderTurnId, requestId: olderTurnId,
       response: { ...response, requestId: olderTurnId } }] }, nextCursor: null } }, 1)).toThrow("INVALID_COACH_HISTORY_RESPONSE");
     expect(() => parseCoachThreadPage({ data: { threads: [{ ...summary, updatedAt: "2026-07-19T02:00:00+00:00" }], nextCursor: null } }))

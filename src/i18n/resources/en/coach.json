@@ -14,9 +14,6 @@
   "loadingHonest": "The server returns only a completed answer, so detailed processing stages are not shown.",
   "inputLabel": "Question about my training",
   "responseFormat": {
-    "label": "Answer format",
-    "option": { "auto": "Default", "table": "Table", "chart": "Chart" },
-    "helper": "Answers are shown only in verified O·RIDER formats. We prioritize your selection and use the default format when the data does not support it.",
     "tableCaption": "Training record table",
     "category": "Category",
     "distributionChartLabel": "Training record distribution chart",
@@ -180,7 +177,7 @@
         "unknown": "Unknown band", "unknownExplanation": "This policy band is not supported by this app version."
       }
     },
-    "chart": { "visualLabel": "Trend chart from the server-provided series", "tableCaption": "Trend data table", "series": "Metric", "at": "At", "value": "Value" },
+    "chart": { "visualLabel": "Trend chart from the server-provided series", "dataToggle": "View raw time-series data", "tableCaption": "Trend data table", "series": "Metric", "at": "At", "value": "Value" },
     "goal": { "current": "Current", "target": "Target", "progress": "Progress" },
     "plan": { "planned": "Planned", "completed": "Completed", "missed": "{{count}} missed plan items", "replacements": "{{count}} replacement activities" },
     "gap": { "title": "Some data needs attention", "body": "Review items that are missing or still refreshing." },

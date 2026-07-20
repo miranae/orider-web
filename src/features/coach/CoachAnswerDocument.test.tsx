@@ -69,6 +69,24 @@ describe("CoachAnswerDocumentView", () => {
     expect(within(fallback.container).getByText("현재 상태")).toBeInTheDocument();
   });
 
+  it("uses the planner-selected time-series block in auto mode and collapses duplicate raw rows", async () => {
+    const { response, document, value, base } = fixture();
+    document.blocks = [{ ...base("distance_trend"), kind: "time_series", series: [{
+      seriesId: "distance", metricId: "distance", points: Array.from({ length: 12 }, (_, index) => ({
+        at: value(`2026-07-${String(index + 1).padStart(2, "0")}`), value: value(index + 20, "kilometers"),
+      })),
+    }] }];
+
+    render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
+    expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
+    const toggle = screen.getByText("원시 시계열 데이터 보기");
+    const details = toggle.closest("details");
+    expect(details).not.toHaveAttribute("open");
+    expect(within(details!).getByRole("table", { name: "추세 데이터 표" })).toBeInTheDocument();
+    await userEvent.click(toggle);
+    expect(details).toHaveAttribute("open");
+  });
+
   it("keeps load-analysis grouping deduplicated while applying table and chart defaults", () => {
     const tableFixture = fixture();
     const tableView = render(<CoachAnswerDocumentView response={tableFixture.response} responseFormat="table" locale="ko-KR" onAction={vi.fn()} />);
