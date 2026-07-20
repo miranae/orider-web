@@ -139,9 +139,7 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByText("새 질문은 새 대화로 저장됩니다.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "대화 내역" })).toBeInTheDocument();
     expect(screen.getByText("사이클 기록 분석")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "답변 형식" })).toHaveAccessibleDescription(
-      "답변은 검증된 O·RIDER 형식으로만 표시됩니다. 선택한 형식을 우선하며, 데이터가 지원하지 않으면 기본 형식으로 표시합니다.");
-    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
+    expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
     expect(screen.queryByText("서버가 질문에서 기간 확인")).not.toBeInTheDocument();
     expect(screen.queryByText("0/1000")).not.toBeInTheDocument();
     expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveAttribute("aria-describedby", "coach-question-note");
@@ -163,34 +161,31 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).toBeInTheDocument();
   });
 
-  it("keeps the selected response format through a quick prompt and resets it for another independent question", async () => {
+  it("always requests the planner-selected automatic response format", async () => {
     mocks.ask.mockResolvedValue(answer);
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("radio", { name: "표" }));
-    expect(mocks.ask).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
-    expect(screen.getByRole("radio", { name: "표" })).toBeChecked();
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
-    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({ responseFormat: "table" })));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({ responseFormat: "auto" })));
     await userEvent.click(screen.getByRole("button", { name: "다른 질문하기" }));
-    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
+    expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
   });
 
-  it("resets the response format when the launcher session is cleared", async () => {
+  it("keeps the format picker removed when the launcher session is cleared", async () => {
     mocks.ask.mockResolvedValue(answer);
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("radio", { name: "표" }));
     await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await screen.findByText("이번 주 훈련량이 높았습니다.");
     await userEvent.click(screen.getByRole("button", { name: "AI 코치 닫기" }));
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
+    expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
+    expect(mocks.ask.mock.calls[0]?.[0].responseFormat).toBe("auto");
   });
 
   it.each(disciplinePrompts)("shows only $discipline prompts and placeholder", async ({ discipline, placeholder, labels, prompts }) => {
@@ -300,7 +295,6 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("radio", { name: "그래프" }));
     await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
@@ -308,7 +302,7 @@ describe("CoachQuestionLauncher", () => {
     await screen.findByText("이번 주 훈련량이 높았습니다.");
     expect(mocks.ask).toHaveBeenCalledTimes(2);
     expect(mocks.ask.mock.calls[0]?.[0].requestId).toBe(mocks.ask.mock.calls[1]?.[0].requestId);
-    expect(mocks.ask.mock.calls.map((call) => call[0].responseFormat)).toEqual(["chart", "chart"]);
+    expect(mocks.ask.mock.calls.map((call) => call[0].responseFormat)).toEqual(["auto", "auto"]);
     expect(mocks.analytics.submit).toHaveBeenCalledOnce();
   });
 

@@ -24,7 +24,7 @@ vi.mock("../features/coach/FirstUseCoachConsent", () => ({ FirstUseCoachConsent:
 const threadId = "123e4567-e89b-42d3-a456-426614174000";
 const requestId = "223e4567-e89b-42d3-a456-426614174001";
 const summary = { threadId, title: "이번 주 운동량", discipline: "bike", createdAt: "2026-07-19T01:00:00Z",
-  updatedAt: "2026-07-19T02:00:00Z", turnCount: 2 };
+  updatedAt: "2026-07-19T02:00:00Z", turnCount: 2, revision: 2 };
 const response = { requestId, outcome: "unsupported", unsupported: { reasonCodes: ["unsupported_question"], missingCapabilities: [], suggestedQueries: [] },
   quota: { remaining: 2, resetAt: "2026-07-20T00:00:00Z" } };
 
@@ -50,7 +50,7 @@ describe("CoachHistoryPage", () => {
     mocks.list.mockResolvedValue({ threads: [summary], nextCursor: null });
     mocks.status.mockResolvedValue({ quota: { limit: 3, remaining: 3, resetAt: "2026-07-20T00:00:00Z", timezone: "Asia/Seoul" } });
     mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
-      createdAt: "2026-07-19T02:00:00Z", response }] }, nextCursor: null });
+      createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null });
     mocks.policy.mockResolvedValue({ policyVersion: "v1", consent: { active: true, current: true, revoked: false, currentPolicyVersion: "v1", storedPolicyVersion: "v1" } });
     mocks.confirm.mockResolvedValue(true);
   });
@@ -67,11 +67,11 @@ describe("CoachHistoryPage", () => {
     vi.spyOn(crypto, "randomUUID").mockReturnValue("323e4567-e89b-42d3-a456-426614174002");
     mocks.more.mockResolvedValue({ ...response, requestId: "323e4567-e89b-42d3-a456-426614174002" });
     const originalPage = { thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
-      createdAt: "2026-07-19T02:00:00Z", response }] }, nextCursor: null };
+      createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null };
     const followUpId = "323e4567-e89b-42d3-a456-426614174002";
-    const canonicalPage = { thread: { ...summary, turnCount: 3, updatedAt: "2026-07-19T03:00:00Z", turns: [
+    const canonicalPage = { thread: { ...summary, turnCount: 3, revision: 3, updatedAt: "2026-07-19T03:00:00Z", turns: [
       ...originalPage.thread.turns, { turnId: followUpId, requestId: followUpId, question: "지난주와 비교해줘",
-        createdAt: "2026-07-19T03:00:00Z", response: { ...response, requestId: followUpId } },
+        createdAt: "2026-07-19T03:00:00Z", response: { ...response, requestId: followUpId }, sessionRevision: 3 },
     ] }, nextCursor: null };
     mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockResolvedValueOnce(canonicalPage);
     setup(`/ko/coach/${threadId}`);
@@ -83,16 +83,16 @@ describe("CoachHistoryPage", () => {
     await userEvent.click(jump);
     expect(screen.getByLabelText("이 대화에서 이어 묻기")).toHaveFocus();
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
-    await userEvent.click(screen.getByRole("radio", { name: "그래프" }));
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
     await waitFor(() => expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({
-      requestId: "323e4567-e89b-42d3-a456-426614174002", question: "지난주와 비교해줘", discipline: "bike", responseFormat: "chart",
+      requestId: "323e4567-e89b-42d3-a456-426614174002", question: "지난주와 비교해줘", discipline: "bike", responseFormat: "auto",
+      expectedSessionRevision: 2,
     })));
     const original = screen.getByText(`answer ${requestId}`);
     const appended = await screen.findByText("answer 323e4567-e89b-42d3-a456-426614174002");
     expect(original.compareDocumentPosition(appended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("status")).toHaveTextContent("답변을 저장하고 최신 대화를 불러왔습니다.");
-    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
+    expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
   });
 
   it("drops a late user A list response after the authenticated user changes to B", async () => {
@@ -113,13 +113,13 @@ describe("CoachHistoryPage", () => {
     const followUp = deferred<typeof response>();
     const bId = "323e4567-e89b-42d3-a456-426614174002";
     const bRequestId = "423e4567-e89b-42d3-a456-426614174003";
-    const bSummary = { ...summary, threadId: bId, title: "회복 상태", turnCount: 1 };
+    const bSummary = { ...summary, threadId: bId, title: "회복 상태", turnCount: 1, revision: 1 };
     mocks.list.mockResolvedValue({ threads: [summary, bSummary], nextCursor: null });
     mocks.detail.mockImplementation(async (id: string) => ({ thread: {
       ...(id === bId ? bSummary : summary),
       turns: [{ turnId: id === bId ? bRequestId : requestId, requestId: id === bId ? bRequestId : requestId,
         question: id === bId ? "회복은 어때?" : "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z",
-        response: { ...response, requestId: id === bId ? bRequestId : requestId } }],
+        response: { ...response, requestId: id === bId ? bRequestId : requestId }, sessionRevision: id === bId ? 1 : 2 }],
     }, nextCursor: null }));
     mocks.more.mockReturnValue(followUp.promise);
     setup(`/ko/coach/${threadId}`);
@@ -139,11 +139,11 @@ describe("CoachHistoryPage", () => {
   it("does not render the previous thread during a route transition", async () => {
     const bId = "323e4567-e89b-42d3-a456-426614174002";
     const bRequestId = "423e4567-e89b-42d3-a456-426614174003";
-    const bSummary = { ...summary, threadId: bId, title: "회복 상태", turnCount: 1 };
+    const bSummary = { ...summary, threadId: bId, title: "회복 상태", turnCount: 1, revision: 1 };
     const delayedB = deferred<{ thread: typeof bSummary & { turns: Array<Record<string, unknown>> }; nextCursor: null }>();
     mocks.list.mockResolvedValue({ threads: [summary, bSummary], nextCursor: null });
     mocks.detail.mockResolvedValueOnce({ thread: { ...summary, turns: [{ turnId: requestId, requestId,
-      question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z", response }] }, nextCursor: null })
+      question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null })
       .mockReturnValueOnce(delayedB.promise);
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${requestId}`);
@@ -151,7 +151,7 @@ describe("CoachHistoryPage", () => {
     await waitFor(() => expect(mocks.detail).toHaveBeenLastCalledWith(bId, 20));
     expect(screen.queryByText(`answer ${requestId}`)).not.toBeInTheDocument();
     delayedB.resolve({ thread: { ...bSummary, turns: [{ turnId: bRequestId, requestId: bRequestId,
-      question: "회복은 어때?", createdAt: "2026-07-19T03:00:00Z", response: { ...response, requestId: bRequestId } }] }, nextCursor: null });
+      question: "회복은 어때?", createdAt: "2026-07-19T03:00:00Z", response: { ...response, requestId: bRequestId }, sessionRevision: 1 }] }, nextCursor: null });
     expect(await screen.findByText(`answer ${bRequestId}`)).toBeInTheDocument();
   });
 
@@ -168,14 +168,13 @@ describe("CoachHistoryPage", () => {
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith(threadId));
   });
 
-  it("retries an unknown follow-up completion with the same request id and response format", async () => {
+  it("retries an unknown follow-up completion with the same request id and automatic format", async () => {
     const followUpId = "323e4567-e89b-42d3-a456-426614174002";
     vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
     mocks.more.mockRejectedValueOnce(new Error("transport unknown")).mockResolvedValueOnce({ ...response, requestId: followUpId });
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${requestId}`);
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
-    await userEvent.click(screen.getByRole("radio", { name: "그래프" }));
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
     expect(await screen.findByRole("button", { name: "같은 요청 결과 다시 확인" })).toBeInTheDocument();
     expect(screen.getByText(/동일한 요청 ID와 답변 형식.*새 사용 횟수를 요청하지 않으며.*서버 응답/)).toBeInTheDocument();
@@ -184,11 +183,11 @@ describe("CoachHistoryPage", () => {
     await waitFor(() => expect(mocks.more).toHaveBeenCalledTimes(2));
     expect(mocks.more.mock.calls.map((call) => call[0])).toEqual([threadId, threadId]);
     expect(mocks.more.mock.calls.map((call) => call[1])).toEqual([
-      expect.objectContaining({ requestId: followUpId, responseFormat: "chart" }),
-      expect.objectContaining({ requestId: followUpId, responseFormat: "chart" }),
+      expect.objectContaining({ requestId: followUpId, responseFormat: "auto", expectedSessionRevision: 2 }),
+      expect.objectContaining({ requestId: followUpId, responseFormat: "auto", expectedSessionRevision: 2 }),
     ]);
     expect(screen.queryByRole("button", { name: "같은 요청 결과 다시 확인" })).not.toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "기본" })).toBeChecked();
+    expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
   });
 
   it("disables the follow-up jump when today's quota is exhausted", async () => {
@@ -203,7 +202,7 @@ describe("CoachHistoryPage", () => {
   it("keeps a saved partial answer's failed outcome visible without announcing historical content as a live alert", async () => {
     mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [{ turnId: requestId, requestId,
       question: "훈련 방향을 알려줘", createdAt: "2026-07-19T02:00:00Z",
-      response: { ...response, outcome: "failed", answer: { status: "partial" } } }] }, nextCursor: null });
+      response: { ...response, outcome: "failed", answer: { status: "partial" } }, sessionRevision: 2 }] }, nextCursor: null });
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
     expect(screen.getByText("답변을 완성하지 못했습니다. 표시된 일부 결과가 있다면 안전하게 확인된 범위입니다.")).toBeInTheDocument();
@@ -218,7 +217,7 @@ describe("CoachHistoryPage", () => {
             { optionId: "bike", labelKey: "coach.clarification.swim" },
             { optionId: "custom_option", labelKey: "untrusted.label" },
           ],
-        } } }] }, nextCursor: null });
+        } }, sessionRevision: 2 }] }, nextCursor: null });
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByText("어느 종목을 분석할까요?")).toBeInTheDocument();
     const outcome = screen.getByText("질문을 조금 더 구체화해 주세요").closest(".coach-thread-turn__outcome")!;
@@ -231,13 +230,13 @@ describe("CoachHistoryPage", () => {
   it("prepends cursor-loaded older turns above the latest chronological page and removes overlap", async () => {
     const olderId = "323e4567-e89b-42d3-a456-426614174002";
     const newestId = "423e4567-e89b-42d3-a456-426614174003";
-    const turn = (id: string, question: string, createdAt: string) => ({ turnId: id, requestId: id, question, createdAt,
-      response: { ...response, requestId: id } });
-    const middle = turn(requestId, "중간 질문", "2026-07-19T02:00:00Z");
-    mocks.detail.mockResolvedValueOnce({ thread: { ...summary, turnCount: 3,
-      turns: [middle, turn(newestId, "최신 질문", "2026-07-19T03:00:00Z")] }, nextCursor: "older-cursor" })
-      .mockResolvedValueOnce({ thread: { ...summary, turnCount: 3,
-        turns: [turn(olderId, "가장 오래된 질문", "2026-07-19T01:00:00Z"), middle] }, nextCursor: null });
+    const turn = (id: string, question: string, createdAt: string, sessionRevision: number) => ({ turnId: id, requestId: id, question, createdAt,
+      response: { ...response, requestId: id }, sessionRevision });
+    const middle = turn(requestId, "중간 질문", "2026-07-19T02:00:00Z", 2);
+    mocks.detail.mockResolvedValueOnce({ thread: { ...summary, turnCount: 3, revision: 3,
+      turns: [middle, turn(newestId, "최신 질문", "2026-07-19T03:00:00Z", 3)] }, nextCursor: "older-cursor" })
+      .mockResolvedValueOnce({ thread: { ...summary, turnCount: 3, revision: 3,
+        turns: [turn(olderId, "가장 오래된 질문", "2026-07-19T01:00:00Z", 1), middle] }, nextCursor: null });
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${newestId}`);
     await userEvent.click(screen.getByRole("button", { name: "이전 대화 더 보기" }));

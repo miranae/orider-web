@@ -223,6 +223,7 @@ export interface CoachV2QuestionRequest {
   capabilityVersion: "p1";
   contextFilters: Record<string, never>;
   responseFormat: CoachResponseFormat;
+  expectedSessionRevision?: number;
 }
 
 export interface CoachV2ContinueRequest {
