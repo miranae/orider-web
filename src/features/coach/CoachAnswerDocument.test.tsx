@@ -1,6 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
+import i18n from "i18next";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import enCoach from "../../i18n/resources/en/coach.json";
 import type { CoachAnswerBlock, CoachAnswerDocument, CoachDisplayValue, CoachEvidenceRecord, CoachUnit, CoachV2Response } from "../../services/coachV2Contract";
 import { CoachAnswerDocumentView, supportedAnswerBlockKinds } from "./CoachAnswerDocument";
 
@@ -49,56 +51,42 @@ function fixture() {
 }
 
 describe("CoachAnswerDocumentView", () => {
-  it("marks stored answers for the compact history skin and omits empty evidence", () => {
+  beforeEach(async () => {
+    i18n.addResourceBundle("en", "coach", enCoach, true, true);
+    await i18n.changeLanguage("ko");
+  });
+
+  it.each([
+    { language: "ko", locale: "ko-KR", historical: false, heading: "코칭 요약", body: "회복을 우선하세요.",
+      evidenceToggle: "분석 근거 1개", freshness: "데이터 기준", timezone: "시간대 Asia/Seoul", partial: "일부 데이터" },
+    { language: "ko", locale: "ko-KR", historical: true, heading: "코칭 요약", body: "회복을 우선하세요.",
+      evidenceToggle: "분석 근거 1개", freshness: "데이터 기준", timezone: "시간대 Asia/Seoul", partial: "일부 데이터" },
+    { language: "en", locale: "en-US", historical: false, heading: "Coaching summary", body: "Prioritize recovery.",
+      evidenceToggle: /evidence items?/iu, freshness: "Data as of", timezone: "Timezone Asia/Seoul", partial: "Partial data" },
+    { language: "en", locale: "en-US", historical: true, heading: "Coaching summary", body: "Prioritize recovery.",
+      evidenceToggle: /evidence items?/iu, freshness: "Data as of", timezone: "Timezone Asia/Seoul", partial: "Partial data" },
+  ])("keeps the $language answer and metadata visible without exposing evidence when historical=$historical",
+    async ({ language, locale, historical, heading, body, evidenceToggle, freshness, timezone, partial }) => {
+    await i18n.changeLanguage(language);
     const { response, document, evidence, base } = fixture();
-    document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown: "## 코칭 요약\n\n회복을 우선하세요.",
+    document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown: `## ${heading}\n\n${body}`,
       evidenceIds: [evidence[0]!.evidenceId] }];
-    document.evidence = [evidence[0]!, { ...evidence[0]!, evidenceId: "ev_empty", value: null }];
-    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} historical />);
-    expect(view.container.querySelector(".coach-answer--historical")).toBeInTheDocument();
-    expect(screen.getByText("분석 근거 1개")).toBeInTheDocument();
-    expect(view.container.querySelector('[data-evidence-id="ev_empty"]')).not.toBeInTheDocument();
-  });
+    const privateEvidence = { ...evidence[0]!, evidenceId: "ev_private", field: "private_only", value: "PRIVATE_EVIDENCE_VALUE_7319",
+      asOf: "2026-07-11T09:17:00.000Z" };
+    document.evidence = [privateEvidence];
 
-  it("preserves the complete evidence manifest outside the historical view", () => {
-    const { response, document, evidence, base } = fixture();
-    document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown: "## 코칭 요약", evidenceIds: [] }];
-    document.evidence = [evidence[0]!, { ...evidence[0]!, evidenceId: "ev_null", value: null },
-      { ...evidence[0]!, evidenceId: "ev_empty", value: "" }, { ...evidence[0]!, evidenceId: "ev_object", value: { raw: true } }];
-
-    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
-
-    expect(screen.getByText("분석 근거 4개")).toBeInTheDocument();
-    expect(view.container.querySelectorAll(".coach-answer__evidence li")).toHaveLength(4);
-    expect(view.container.querySelector('[data-evidence-id="ev_null"]')).toHaveTextContent("—");
-    expect(view.container.querySelector('[data-evidence-id="ev_empty"]')).toBeInTheDocument();
-    expect(view.container.querySelector('[data-evidence-id="ev_object"]')).toBeInTheDocument();
-  });
-
-  it("uses exact canonical metric fields and adds units only to finite numeric evidence", () => {
-    const { response, document, evidence, base } = fixture();
-    const record = (evidenceId: string, field: string, value: unknown, sourceId = "source") =>
-      ({ ...evidence[0]!, evidenceId, field, value, sourceId });
-    document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown: "## 코칭 요약", evidenceIds: [] }];
-    document.evidence = [
-      record("ev_ftp", "ftp_watts", 161),
-      { ...record("ev_target_ratio", "target_w_per_kg", 3.5), asOf: "2026-07-18T03:00:00Z" },
-      record("ev_lookalike", "power_to_weight", 3.2, "target_w_per_kg_projection"),
-      record("ev_string", "ftp_watts", "unknown"),
-      record("ev_boolean", "target_w_per_kg", true),
-    ];
-
-    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} historical />);
-
-    expect(view.container.querySelector('[data-evidence-id="ev_ftp"]')).toHaveTextContent("현재 FTP161 W");
-    expect(view.container.querySelector('[data-evidence-id="ev_target_ratio"]')).toHaveTextContent("목표 W/kg3.5 W/kg");
-    expect(view.container.querySelector('[data-evidence-id="ev_lookalike"]')).toHaveTextContent("근거 33.2");
-    expect(view.container.querySelector('[data-evidence-id="ev_string"]')).toHaveTextContent("근거 4unknown");
-    expect(view.container.querySelector('[data-evidence-id="ev_boolean"]')).toHaveTextContent("근거 5✓");
-    expect(view.container.querySelector('[data-evidence-id="ev_lookalike"]')).not.toHaveTextContent("W/kg");
-    expect(view.container.querySelector('[data-evidence-id="ev_string"]')).not.toHaveTextContent(" W");
-    expect(view.container.querySelector('[data-evidence-id="ev_boolean"]')).not.toHaveTextContent("W/kg");
-    expect(view.container.querySelector('[data-evidence-id="ev_target_ratio"] small')).not.toBeInTheDocument();
+    const view = render(<CoachAnswerDocumentView response={response} locale={locale} onAction={vi.fn()} historical={historical} />);
+    expect(view.container.querySelector(".coach-answer--historical")).toBe(historical ? view.container.firstElementChild : null);
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(screen.getByText(body)).toBeInTheDocument();
+    expect(view.container).toHaveTextContent(freshness);
+    expect(view.container).toHaveTextContent(timezone);
+    expect(view.container).toHaveTextContent(partial);
+    expect(view.container).not.toHaveTextContent(evidenceToggle);
+    expect(view.container).not.toHaveTextContent("PRIVATE_EVIDENCE_VALUE_7319");
+    expect(view.container).not.toHaveTextContent(formatEvidenceDate(privateEvidence.asOf, locale, document.freshness.timezone));
+    expect(view.container.querySelector(".coach-answer__evidence")).not.toBeInTheDocument();
+    expect(view.container.querySelector('[data-evidence-id="ev_private"]')).not.toBeInTheDocument();
   });
 
   it("renders grounded Markdown as semantic prose and lists without creating links or charts", () => {
@@ -458,4 +446,8 @@ describe("CoachAnswerDocumentView", () => {
 
 function documentElement(): HTMLElement {
   return window.document.documentElement;
+}
+
+function formatEvidenceDate(value: string, locale: string, timezone: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: timezone }).format(new Date(value));
 }

@@ -192,12 +192,7 @@
     "fallback": { "title": "일부 결과만 표시합니다", "body": "요청은 완료되지 않았지만 서버가 안전하다고 확인한 결정론적 블록만 표시합니다." },
     "unsupportedBlock": { "title": "지원되지 않는 결과 블록", "body": "이 블록의 원문 데이터는 표시하지 않았습니다. 웹을 업데이트한 뒤 다시 확인해 주세요." },
     "prescriptionDisabled": { "title": "처방 결과는 아직 지원하지 않습니다", "body": "P1에서는 운동 처방을 실행하거나 표시하지 않습니다." },
-    "freshness": "데이터 기준 {{at}}", "timezone": "시간대 {{timezone}}",
-    "evidence": {
-      "toggle": "분석 근거 {{count}}개", "item": "근거 {{index}}",
-      "label": { "currentFtp": "현재 FTP", "targetFtp": "목표 FTP", "weight": "체중", "currentWPerKg": "현재 W/kg", "targetWPerKg": "목표 W/kg" },
-      "unit": { "watts": "W", "kilograms": "kg", "wPerKg": "W/kg" }
-    }
+    "freshness": "데이터 기준 {{at}}", "timezone": "시간대 {{timezone}}"
   },
   "prescription": {
     "title": "다음 7일 조정안", "validUntil": "{{at}}까지 유효", "proposalNotice": "이 내용은 제안이며 확인 전에는 운동 계획에 저장되지 않습니다.",
