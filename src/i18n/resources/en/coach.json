@@ -53,7 +53,7 @@
     "followUpLabel": "Continue this conversation",
     "jumpToFollowUp": "Jump to follow-up",
     "followUpPlaceholder": "For example: What changed compared with last week?",
-    "contextNote": "For a follow-up, up to 3 recent questions and answers from this conversation (up to 12 KiB combined) may be used for external AI processing.",
+    "contextNote": "For a follow-up, up to 3 recent questions and answers from this conversation (up to 5 KiB combined) may be used for external AI processing.",
     "followUp": "Ask follow-up",
     "loadingQuota": "Checking today's available uses…",
     "quotaLoadFailed": "AI Coach availability could not be checked",

@@ -15,6 +15,7 @@ vi.mock("../services/coachHistoryClient", () => ({
   getCoachThreads: (...args: unknown[]) => mocks.list(...args), getCoachThread: (...args: unknown[]) => mocks.detail(...args),
   continueCoachThread: (...args: unknown[]) => mocks.more(...args), deleteCoachThread: (...args: unknown[]) => mocks.remove(...args),
   deleteAllCoachThreads: (...args: unknown[]) => mocks.removeAll(...args),
+  isCoachHistoryTransportError: (error: unknown) => error instanceof Error && error.name === "CoachHistoryTransportError",
 }));
 vi.mock("../services/coachClient", () => ({ getCoachStatus: () => mocks.status() }));
 vi.mock("../services/coachConsentClient", () => ({ getCoachConsentPolicy: () => mocks.policy() }));
@@ -77,7 +78,7 @@ describe("CoachHistoryPage", () => {
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
     expect(screen.getByText("현재 지원하지 않는 질문입니다")).toBeInTheDocument();
-    expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 12 KiB\).*외부 AI 처리/)).toBeInTheDocument();
+    expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 5 KiB\).*외부 AI 처리/)).toBeInTheDocument();
     const jump = screen.getByRole("button", { name: "이어 묻기로 이동" });
     await waitFor(() => expect(jump).toBeEnabled());
     await userEvent.click(jump);
@@ -93,6 +94,48 @@ describe("CoachHistoryPage", () => {
     expect(original.compareDocumentPosition(appended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("status")).toHaveTextContent("답변을 저장하고 최신 대화를 불러왔습니다.");
     expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
+  });
+
+  it("treats a stored terminal follow-up as confirmed instead of offering a transport retry", async () => {
+    const followUpId = "323e4567-e89b-42d3-a456-426614174002";
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
+    const failed = { ...response, requestId: followUpId, outcome: "failed",
+      error: { code: "token_cap_exceeded", retryable: false, fallbackAvailable: false } };
+    const originalPage = { thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
+      createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null };
+    const canonicalPage = { thread: { ...summary, turnCount: 3, revision: 3, turns: [
+      ...originalPage.thread.turns, { turnId: followUpId, requestId: followUpId, question: "지난주와 비교해줘",
+        createdAt: "2026-07-19T03:00:00Z", response: failed, sessionRevision: 3 },
+    ] }, nextCursor: null };
+    mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockResolvedValueOnce(canonicalPage);
+    mocks.more.mockResolvedValue(failed);
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    expect(await screen.findByText("답변을 완성하지 못했습니다. 표시된 일부 결과가 있다면 안전하게 확인된 범위입니다.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "같은 요청 결과 다시 확인" })).not.toBeInTheDocument();
+    expect(mocks.more).toHaveBeenCalledOnce();
+  });
+
+  it("reloads only the thread after a confirmed follow-up cannot refresh its canonical history", async () => {
+    const followUpId = "323e4567-e89b-42d3-a456-426614174002";
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
+    const originalPage = { thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
+      createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null };
+    const canonicalPage = { thread: { ...summary, turnCount: 3, revision: 3, turns: originalPage.thread.turns }, nextCursor: null };
+    mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockRejectedValueOnce(new Error("refresh failed"))
+      .mockResolvedValueOnce(canonicalPage);
+    mocks.more.mockResolvedValue({ ...response, requestId: followUpId });
+    setup(`/ko/coach/${threadId}`);
+    await screen.findByText(`answer ${requestId}`);
+    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    const retryReload = await screen.findByRole("button", { name: "다시 시도" });
+    expect(screen.queryByRole("button", { name: "같은 요청 결과 다시 확인" })).not.toBeInTheDocument();
+    await userEvent.click(retryReload);
+    await waitFor(() => expect(mocks.detail).toHaveBeenCalledTimes(3));
+    expect(mocks.more).toHaveBeenCalledOnce();
   });
 
   it("drops a late user A list response after the authenticated user changes to B", async () => {
@@ -168,10 +211,11 @@ describe("CoachHistoryPage", () => {
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith(threadId));
   });
 
-  it("retries an unknown follow-up completion with the same request id and automatic format", async () => {
+  it("retries a fetch or response-body ambiguity with the same request id and automatic format", async () => {
     const followUpId = "323e4567-e89b-42d3-a456-426614174002";
     vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
-    mocks.more.mockRejectedValueOnce(new Error("transport unknown")).mockResolvedValueOnce({ ...response, requestId: followUpId });
+    const transportError = new Error("transport unknown"); transportError.name = "CoachHistoryTransportError";
+    mocks.more.mockRejectedValueOnce(transportError).mockResolvedValueOnce({ ...response, requestId: followUpId });
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${requestId}`);
     await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
