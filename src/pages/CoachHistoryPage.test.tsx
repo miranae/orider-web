@@ -79,11 +79,11 @@ describe("CoachHistoryPage", () => {
     expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
     expect(screen.getByText("현재 지원하지 않는 질문입니다")).toBeInTheDocument();
     expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 5 KiB\).*외부 AI 처리/)).toBeInTheDocument();
-    const jump = screen.getByRole("button", { name: "이어 묻기로 이동" });
-    await waitFor(() => expect(jump).toBeEnabled());
-    await userEvent.click(jump);
-    expect(screen.getByLabelText("이 대화에서 이어 묻기")).toHaveFocus();
-    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    const followUp = screen.getByLabelText("이 대화에서 이어 묻기");
+    await waitFor(() => expect(followUp).toBeEnabled());
+    await userEvent.click(followUp);
+    expect(followUp).toHaveFocus();
+    await userEvent.type(followUp, "지난주와 비교해줘");
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
     await waitFor(() => expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({
       requestId: "323e4567-e89b-42d3-a456-426614174002", question: "지난주와 비교해줘", discipline: "bike", responseFormat: "auto",
@@ -221,7 +221,6 @@ describe("CoachHistoryPage", () => {
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByRole("link", { name: /이번 주 운동량/ })).toBeInTheDocument();
     expect(await screen.findByText("AI 코치 사용 가능 횟수를 확인하지 못했습니다")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "이어 묻기로 이동" })).toBeDisabled();
     expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeDisabled();
     const deleteButton = screen.getAllByRole("button", { name: "이번 주 운동량 대화 삭제" })[0]!;
     expect(deleteButton).toBeEnabled();
@@ -252,12 +251,11 @@ describe("CoachHistoryPage", () => {
     expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
   });
 
-  it("disables the follow-up jump when today's quota is exhausted", async () => {
+  it("disables the follow-up composer when today's quota is exhausted", async () => {
     mocks.status.mockResolvedValue({ quota: { limit: 3, remaining: 0, resetAt: "2026-07-20T00:00:00Z", timezone: "Asia/Seoul" } });
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${requestId}`);
     await waitFor(() => expect(screen.getByText("오늘 0회 남음")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "이어 묻기로 이동" })).toBeDisabled();
     expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeDisabled();
   });
 

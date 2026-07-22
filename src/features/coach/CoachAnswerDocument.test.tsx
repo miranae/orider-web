@@ -82,7 +82,7 @@ describe("CoachAnswerDocumentView", () => {
     document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown: "## 코칭 요약", evidenceIds: [] }];
     document.evidence = [
       record("ev_ftp", "ftp_watts", 161),
-      record("ev_target_ratio", "target_w_per_kg", 3.5),
+      { ...record("ev_target_ratio", "target_w_per_kg", 3.5), asOf: "2026-07-18T03:00:00Z" },
       record("ev_lookalike", "power_to_weight", 3.2, "target_w_per_kg_projection"),
       record("ev_string", "ftp_watts", "unknown"),
       record("ev_boolean", "target_w_per_kg", true),
@@ -98,6 +98,7 @@ describe("CoachAnswerDocumentView", () => {
     expect(view.container.querySelector('[data-evidence-id="ev_lookalike"]')).not.toHaveTextContent("W/kg");
     expect(view.container.querySelector('[data-evidence-id="ev_string"]')).not.toHaveTextContent(" W");
     expect(view.container.querySelector('[data-evidence-id="ev_boolean"]')).not.toHaveTextContent("W/kg");
+    expect(view.container.querySelector('[data-evidence-id="ev_target_ratio"] small')).not.toBeInTheDocument();
   });
 
   it("renders grounded Markdown as semantic prose and lists without creating links or charts", () => {

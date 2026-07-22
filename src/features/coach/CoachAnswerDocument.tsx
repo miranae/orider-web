@@ -495,6 +495,7 @@ function Evidence({ records, locale, timezone, historical }: { records: CoachEvi
     ["string", "number", "boolean"].includes(typeof record.value) && record.value !== "");
   if (visibleRecords.length === 0) return null;
   const sharedAsOf = visibleRecords[0]!.asOf;
+  const sharedAsOfTime = Date.parse(sharedAsOf);
   const descriptor = (record: CoachEvidenceRecord, index: number) => {
     if (typeof record.value !== "number" || !Number.isFinite(record.value))
       return { label: t("answer.evidence.item", { index: index + 1 }), unit: "" };
@@ -517,7 +518,8 @@ function Evidence({ records, locale, timezone, historical }: { records: CoachEvi
       return <li key={record.evidenceId} data-evidence-id={record.evidenceId}>
         <span>{label}</span>
         <strong>{primitiveText(record.value, locale)}{unit && ` ${unit}`}</strong>
-        {record.asOf !== sharedAsOf && <small>{formatDate(record.asOf, locale, timezone)}</small>}
+        {record.asOf !== sharedAsOf && (!Number.isFinite(sharedAsOfTime) || Date.parse(record.asOf) !== sharedAsOfTime)
+          && <small>{formatDate(record.asOf, locale, timezone)}</small>}
       </li>;
     })}</ol></details>;
 }

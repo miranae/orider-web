@@ -34,7 +34,7 @@ describe("AI Coach P0 home-only boundary", () => {
     expect(consent).toMatch(/\.coach-consent-sheet__body\s*{[^}]*padding-block-end:\s*calc\(var\(--space-8\) \+ var\(--space-8\)\)/s);
     expect(history).toMatch(/\.coach-history-page\s*{[^}]*padding-block-end:/s);
     expect(history).toMatch(/\.coach-thread-composer\s*{[^}]*inset-block-end:[^}]*safe-area-inset-bottom/s);
-    expect(history).toMatch(/\.coach-thread-follow-up-jump\s*{[^}]*display:\s*flex/s);
+    expect(history).toMatch(/\.coach-thread-turns\s*{[^}]*padding-block-end:\s*calc\(var\(--space-8\) \* 3\)/s);
     expect(history).toMatch(/\.coach-history-page\.has-selection \.coach-history-page__header\s*{[^}]*display:\s*none/);
     expect(history).toMatch(/\.coach-thread-composer__meta > :last-child\s*{[^}]*white-space:\s*nowrap/);
     expect(launcher).toMatch(/\.coach-sheet__suggestion-copy \.ds-text--body-small\s*{[^}]*-webkit-line-clamp:\s*2;/s);
