@@ -232,14 +232,20 @@ test.describe("CoachPage", () => {
     await page.screenshot({ path: testInfo.outputPath("coach-page-dark.png"), fullPage: true });
   });
 
-  test("contains the long-answer and 21-evidence stress state inside the conversation workspace", async ({ page }, testInfo) => {
+  test("contains the long answer without exposing its internal evidence manifest", async ({ page }, testInfo) => {
     test.skip(!["desktop", "tablet", "mobile"].includes(testInfo.project.name));
     await page.setViewportSize(testInfo.project.name === "desktop" ? { width: 1440, height: 1000 }
       : testInfo.project.name === "tablet" ? { width: 768, height: 1024 } : { width: 390, height: 844 });
     await openCoach(page, true, true);
     await expect(page.getByRole("heading", { name: "FTP 3.5 W/kg 목표를 위한 최근 한 달 상세 코칭과 훈련 방향" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "FTP 3.5 W/kg 목표 도달 코칭" })).toBeVisible();
-    await expect(page.getByText("분석 근거 21개")).toBeVisible();
+    const answer = page.locator(".coach-answer").first();
+    await expect(answer.locator(".coach-answer__markdown")).toContainText("현재 FTP는 161 W");
+    await expect(answer.locator(".coach-answer__metadata")).toContainText("데이터 기준");
+    await expect(answer.locator(".coach-answer__metadata")).toContainText("시간대 Asia/Seoul");
+    await expect(answer.locator(".coach-answer__evidence")).toHaveCount(0);
+    await expect(answer.getByText(/분석 근거/u)).toHaveCount(0);
+    await expect(answer.getByText("최근 훈련 데이터 1", { exact: true })).toHaveCount(0);
     await expect(page.getByText("답변을 완성하지 못했습니다.", { exact: false }).first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     const list = page.locator(".coach-history-list");
@@ -263,10 +269,6 @@ test.describe("CoachPage", () => {
     }
     await expect(page.locator(".coach-history-item__link > strong").first()).toHaveText(/FTP 3.5 W\/kg/);
     await page.screenshot({ path: testInfo.outputPath(`coach-detail-stress-${testInfo.project.name}.png`) });
-    const evidenceToggle = page.getByText("분석 근거 21개");
-    await evidenceToggle.click();
-    await expect(page.locator(".coach-answer__evidence ol")).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath(`coach-detail-evidence-${testInfo.project.name}.png`) });
     const lastTurn = page.getByRole("heading", { name: "대화 4" });
     if (testInfo.project.name === "desktop") {
       await page.locator(".coach-thread-turns").evaluate((element) => { element.scrollTop = element.scrollHeight; });

@@ -192,12 +192,7 @@
     "fallback": { "title": "Only part of the result is shown", "body": "The request did not complete, so only deterministic blocks approved by the server are displayed." },
     "unsupportedBlock": { "title": "Unsupported result block", "body": "The raw block payload was not displayed. Update the web app and try again." },
     "prescriptionDisabled": { "title": "Prescriptions are not supported yet", "body": "P1 does not execute or display training prescriptions." },
-    "freshness": "Data as of {{at}}", "timezone": "Timezone {{timezone}}",
-    "evidence": {
-      "toggle": "{{count}} evidence items", "item": "Evidence {{index}}",
-      "label": { "currentFtp": "Current FTP", "targetFtp": "Target FTP", "weight": "Weight", "currentWPerKg": "Current W/kg", "targetWPerKg": "Target W/kg" },
-      "unit": { "watts": "W", "kilograms": "kg", "wPerKg": "W/kg" }
-    }
+    "freshness": "Data as of {{at}}", "timezone": "Timezone {{timezone}}"
   },
   "prescription": {
     "title": "Next 7-day adjustment", "validUntil": "Valid until {{at}}", "proposalNotice": "This is a proposal and is not saved to your training plan until you confirm it.",

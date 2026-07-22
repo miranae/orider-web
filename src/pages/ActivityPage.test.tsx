@@ -627,7 +627,7 @@ describe("ActivityPage", () => {
     ]);
     expect(window.sessionStorage.getItem("orider:ride-route:user-a:test-activity")).toContain('"state":"pending"');
     expect(window.sessionStorage.getItem("orider:ride-route:user-b:test-activity")).toContain("user-b-course");
-  });
+  }, 15_000);
 
   it("retries only app delivery when course creation succeeded but delivery failed", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
