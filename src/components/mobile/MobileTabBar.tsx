@@ -1,11 +1,11 @@
 import { NavLink, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { HUBS, type HubKey } from "../../config/navHubs";
+import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
 
 const mobileTabFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--lime)]";
 
-// 모바일 5탭 = 5 허브 (이슈 #385). 데스크톱 nav 와 동일한 단일 진실원(config/navHubs.ts)을
+// 모바일 5탭 = 5개 기본 허브. 데스크톱 nav 와 동일한 단일 진실원(config/navHubs.ts)을
 // 공유해 cross-device 일관성 보장. active 는 허브 매칭(서브 경로 포함)으로 판정 — 예: /plan·/log
 // 진입 시에도 "내 운동" 탭이 활성.
 export default function MobileTabBar({
@@ -48,7 +48,7 @@ export default function MobileTabBar({
       }}
     >
       <nav className="flex items-start pt-1.5" role="tablist" aria-label={t("nav.mainNavAria")} style={{ minHeight: 46 }}>
-        {HUBS.map(({ key, to, icon: Icon, labelKey }) => {
+        {PRIMARY_HUBS.map(({ key, to, icon: Icon, labelKey }) => {
           const label = t(labelKey);
           const isActive = active === key;
           return (

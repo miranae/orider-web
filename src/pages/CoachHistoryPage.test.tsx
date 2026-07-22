@@ -6,9 +6,11 @@ import CoachHistoryPage from "./CoachHistoryPage";
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(), detail: vi.fn(), more: vi.fn(), remove: vi.fn(), removeAll: vi.fn(), status: vi.fn(), policy: vi.fn(),
-  navigate: vi.fn(), confirm: vi.fn(), user: { uid: "u1" },
+  navigate: vi.fn(), confirm: vi.fn(), signIn: vi.fn(), user: { uid: "u1" } as { uid: string } | null,
 }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({
+  user: mocks.user, profile: { primaryDiscipline: "run" }, signInWithGoogle: mocks.signIn,
+}) }));
 vi.mock("../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: mocks.confirm }) }));
 vi.mock("../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => mocks.navigate, useLocalizedPath: (path: string) => `/ko${path}` }));
 vi.mock("../services/coachHistoryClient", () => ({
@@ -47,13 +49,25 @@ function deferred<T>() {
 describe("CoachHistoryPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.user.uid = "u1";
+    mocks.user = { uid: "u1" };
     mocks.list.mockResolvedValue({ threads: [summary], nextCursor: null });
     mocks.status.mockResolvedValue({ quota: { limit: 3, remaining: 3, resetAt: "2026-07-20T00:00:00Z", timezone: "Asia/Seoul" } });
     mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
       createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null });
     mocks.policy.mockResolvedValue({ policyVersion: "v1", consent: { active: true, current: true, revoked: false, currentPolicyVersion: "v1", storedPolicyVersion: "v1" } });
     mocks.confirm.mockResolvedValue(true);
+  });
+
+  it("offers the real Coach launcher and sign-in action on the signed-out tab entry", async () => {
+    mocks.user = null;
+    setup();
+
+    expect(screen.getByRole("heading", { name: "AI 코치에게 물어보세요" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await userEvent.click(screen.getByRole("button", { name: "로그인하기" }));
+
+    expect(mocks.signIn).toHaveBeenCalledTimes(1);
+    expect(mocks.list).not.toHaveBeenCalled();
   });
 
   it("renders the saved list and performs a confirmed permanent thread delete", async () => {
@@ -79,11 +93,11 @@ describe("CoachHistoryPage", () => {
     expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
     expect(screen.getByText("현재 지원하지 않는 질문입니다")).toBeInTheDocument();
     expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 5 KiB\).*외부 AI 처리/)).toBeInTheDocument();
-    const jump = screen.getByRole("button", { name: "이어 묻기로 이동" });
-    await waitFor(() => expect(jump).toBeEnabled());
-    await userEvent.click(jump);
-    expect(screen.getByLabelText("이 대화에서 이어 묻기")).toHaveFocus();
-    await userEvent.type(screen.getByLabelText("이 대화에서 이어 묻기"), "지난주와 비교해줘");
+    const followUp = screen.getByLabelText("이 대화에서 이어 묻기");
+    await waitFor(() => expect(followUp).toBeEnabled());
+    await userEvent.click(followUp);
+    expect(followUp).toHaveFocus();
+    await userEvent.type(followUp, "지난주와 비교해줘");
     await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
     await waitFor(() => expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({
       requestId: "323e4567-e89b-42d3-a456-426614174002", question: "지난주와 비교해줘", discipline: "bike", responseFormat: "auto",
@@ -94,6 +108,24 @@ describe("CoachHistoryPage", () => {
     expect(original.compareDocumentPosition(appended) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("status")).toHaveTextContent("답변을 저장하고 최신 대화를 불러왔습니다.");
     expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
+  });
+
+  it("labels each saved turn with chronology and explicit speaker identity", async () => {
+    const firstId = "323e4567-e89b-42d3-a456-426614174002";
+    mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [
+      { turnId: firstId, requestId: firstId, question: "지난주 운동량은 어땠어?", createdAt: "2026-07-18T02:00:00Z",
+        response: { ...response, requestId: firstId }, sessionRevision: 1 },
+      { turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 },
+    ] }, nextCursor: null });
+    setup(`/ko/coach/${threadId}`);
+    expect(await screen.findByRole("heading", { name: "대화 1" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "대화 2" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "나" })).toHaveLength(2);
+    expect(screen.getAllByRole("heading", { name: "O·RIDER 코치" })).toHaveLength(2);
+    expect(screen.getByRole("region", { name: "대화 1 · 나" })).toHaveTextContent("지난주 운동량은 어땠어?");
+    expect(screen.getByRole("region", { name: "대화 1 · O·RIDER 코치" })).toHaveTextContent(`answer ${firstId}`);
+    expect(screen.getByRole("region", { name: "대화 2 · 나" })).toHaveTextContent("이번 주 운동량이 어땠어?");
+    expect(screen.getByRole("region", { name: "대화 2 · O·RIDER 코치" })).toHaveTextContent(`answer ${requestId}`);
   });
 
   it("treats a stored terminal follow-up as confirmed instead of offering a transport retry", async () => {
@@ -141,11 +173,11 @@ describe("CoachHistoryPage", () => {
   it("drops a late user A list response after the authenticated user changes to B", async () => {
     const lateA = deferred<{ threads: (typeof summary)[]; nextCursor: null }>();
     const bSummary = { ...summary, threadId: "323e4567-e89b-42d3-a456-426614174002", title: "B의 대화" };
-    mocks.user.uid = "A";
+    mocks.user!.uid = "A";
     mocks.list.mockReset().mockReturnValueOnce(lateA.promise).mockResolvedValueOnce({ threads: [bSummary], nextCursor: null });
     const view = setup();
     await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(1));
-    mocks.user.uid = "B";
+    mocks.user!.uid = "B";
     view.rerender(app());
     expect(await screen.findByRole("link", { name: /B의 대화/ })).toBeInTheDocument();
     lateA.resolve({ threads: [summary], nextCursor: null });
@@ -203,7 +235,6 @@ describe("CoachHistoryPage", () => {
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByRole("link", { name: /이번 주 운동량/ })).toBeInTheDocument();
     expect(await screen.findByText("AI 코치 사용 가능 횟수를 확인하지 못했습니다")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "이어 묻기로 이동" })).toBeDisabled();
     expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeDisabled();
     const deleteButton = screen.getAllByRole("button", { name: "이번 주 운동량 대화 삭제" })[0]!;
     expect(deleteButton).toBeEnabled();
@@ -234,12 +265,11 @@ describe("CoachHistoryPage", () => {
     expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
   });
 
-  it("disables the follow-up jump when today's quota is exhausted", async () => {
+  it("disables the follow-up composer when today's quota is exhausted", async () => {
     mocks.status.mockResolvedValue({ quota: { limit: 3, remaining: 0, resetAt: "2026-07-20T00:00:00Z", timezone: "Asia/Seoul" } });
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${requestId}`);
     await waitFor(() => expect(screen.getByText("오늘 0회 남음")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "이어 묻기로 이동" })).toBeDisabled();
     expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeDisabled();
   });
 
@@ -283,6 +313,11 @@ describe("CoachHistoryPage", () => {
         turns: [turn(olderId, "가장 오래된 질문", "2026-07-19T01:00:00Z", 1), middle] }, nextCursor: null });
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${newestId}`);
+    expect(screen.getByRole("heading", { name: "대화 2" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "대화 3" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "대화 1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "대화 2 · 나" })).toHaveTextContent("중간 질문");
+    expect(screen.getByRole("region", { name: "대화 3 · O·RIDER 코치" })).toHaveTextContent(`answer ${newestId}`);
     await userEvent.click(screen.getByRole("button", { name: "이전 대화 더 보기" }));
     const older = await screen.findByText(`answer ${olderId}`);
     const middleAnswer = screen.getByText(`answer ${requestId}`);
@@ -290,6 +325,10 @@ describe("CoachHistoryPage", () => {
     expect(older.compareDocumentPosition(middleAnswer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(middleAnswer.compareDocumentPosition(newest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByText(`answer ${requestId}`)).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "대화 1" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "대화 2" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "대화 3" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "대화 2 · 나" })).toHaveTextContent("중간 질문");
     expect(screen.queryByRole("button", { name: "이전 대화 더 보기" })).not.toBeInTheDocument();
   });
 });

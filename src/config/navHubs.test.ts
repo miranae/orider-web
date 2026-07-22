@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getActiveHub, getHub, isHubSubRoute } from "./navHubs";
+import { getActiveHub, getHub, isHubSubRoute, PRIMARY_HUBS } from "./navHubs";
 
 describe("navHubs", () => {
   describe("getActiveHub", () => {
@@ -9,6 +9,7 @@ describe("navHubs", () => {
       expect(getActiveHub("/plan")).toBe("train");
       expect(getActiveHub("/log")).toBe("train");
       expect(getActiveHub("/goal-setup")).toBe("train");
+      expect(getActiveHub("/coach")).toBe("coach");
       expect(getActiveHub("/courses")).toBe("explore");
       expect(getActiveHub("/explore")).toBe("explore");
       expect(getActiveHub("/discover")).toBe("explore");
@@ -34,6 +35,8 @@ describe("navHubs", () => {
       expect(getActiveHub("/event/e1")).toBe("community");
       expect(getActiveHub("/athlete/u1")).toBe("community");
       expect(getActiveHub("/friend/invite-code")).toBe("community");
+      expect(getActiveHub("/coach/thread-1")).toBe("coach");
+      expect(getActiveHub("/policies/ai-coach")).toBe("home");
     });
 
     it("활동 상세는 확인된 소유권에 따라 홈 또는 내 운동으로 매핑", () => {
@@ -69,5 +72,13 @@ describe("navHubs", () => {
     expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/discover", "/explore", "/leaderboard", "/courses"]);
     expect(getHub("community").subs.map((s) => s.to)).toEqual(["/board", "/creator", "/groups", "/events", "/friends", "/about"]);
     expect(getHub("home").subs).toHaveLength(0);
+    expect(getHub("coach").subs).toHaveLength(0);
+  });
+
+  it("exposes exactly five ordered primary hubs while keeping settings utility-only", () => {
+    expect(PRIMARY_HUBS.map((hub) => hub.key)).toEqual(["home", "train", "coach", "explore", "community"]);
+    expect(PRIMARY_HUBS.map((hub) => hub.to)).toEqual(["/", "/fitness", "/coach", "/discover", "/board"]);
+    expect(PRIMARY_HUBS.some((hub) => hub.key === "settings")).toBe(false);
+    expect(getActiveHub("/settings")).toBe("settings");
   });
 });

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Clock3, History, MessageCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Bot, Clock3, History, Trash2, UserRound } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { Alert, Button, Card, Chip, Text, Textarea, buttonClass } from "../theme/components";
 import { CoachAnswerDocumentView } from "../features/coach/CoachAnswerDocument";
+import { CoachQuestionLauncher } from "../features/coach/CoachQuestionLauncher";
 import { safeClarificationText } from "../features/coach/coachClarificationText";
 import { FirstUseCoachConsent } from "../features/coach/FirstUseCoachConsent";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../services/coachConsentClient";
@@ -74,7 +75,7 @@ function CoachStoredTurnResult({ response }: { response: CoachV2Response }) {
 
 export default function CoachHistoryPage() {
   const { t, i18n } = useTranslation("coach");
-  const { user } = useAuth();
+  const { user, profile, signInWithGoogle } = useAuth();
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
   const { threadId } = useParams<{ threadId?: string }>();
@@ -311,15 +312,35 @@ export default function CoachHistoryPage() {
   }
 
   const followUpUnavailable = submitting || loadingQuota || quotaError || threadError || !quota || quota.remaining === 0;
+  const coachDiscipline = profile?.primaryDiscipline && profile.primaryDiscipline !== "tri"
+    ? profile.primaryDiscipline
+    : "bike";
+  const launcher = <CoachQuestionLauncher
+    user={user}
+    discipline={coachDiscipline}
+    onSignIn={signInWithGoogle}
+    triggerBlock={false}
+  />;
 
-  if (!user) return <main className="coach-history-page"><Alert variant="warning">{t("history.signInRequired")}</Alert></main>;
+  if (!user) return <main className="coach-history-page coach-history-page--signed-out">
+    <header className="coach-history-page__header">
+      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><Bot size={16} aria-hidden /> {t("history.eyebrow")}</Text>
+        <Text className="coach-history-page__title" as="h1" variant="title">{t("history.entryTitle")}</Text>
+        <Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.entryDescription")}</Text></div>
+      {launcher}
+    </header>
+    <Card className="coach-history-entry"><Bot aria-hidden /><Text as="h2" variant="subtitle">{t("history.signInTitle")}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{t("history.signInRequired")}</Text></Card>
+  </main>;
   if (stateUid !== uid) return <main className="coach-history-page"><Card role="status">{t("history.loading")}</Card></main>;
 
   return <main className={`coach-history-page${threadId ? " has-selection" : ""}`}>
     <header className="coach-history-page__header">
       <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><History size={16} aria-hidden /> {t("history.eyebrow")}</Text>
         <Text className="coach-history-page__title" as="h1" variant="title">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
-      {threads.length > 0 && <Button variant="ghost" size="sm" leadingIcon={<Trash2 size={16} />} disabled={deleting || submitting} onClick={() => void removeAll()}>{t("history.deleteAll")}</Button>}
+      <div className="coach-history-page__actions">{launcher}
+        {threads.length > 0 && <Button className="coach-history-page__delete-all" variant="ghost" size="sm"
+          disabled={deleting || submitting} onClick={() => void removeAll()}>{t("history.deleteAll")}</Button>}</div>
     </header>
     <div className={`coach-history-layout${threadId ? " has-selection" : ""}`}>
       <section className="coach-history-list" aria-labelledby="coach-history-list-title">
@@ -334,7 +355,7 @@ export default function CoachHistoryPage() {
             <Text as="strong" variant="body">{item.title}</Text>
             <span className="coach-history-item__meta"><Chip>{t(`discipline.${item.discipline}`)}</Chip><span><Clock3 size={14} aria-hidden />{formatDate(item.updatedAt, i18n.language)}</span><span>{t("history.turnCount", { count: item.turnCount })}</span></span>
           </LocalizedLink>
-          <Button iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: item.title })}
+          <Button className="coach-history-item__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: item.title })}
             disabled={deleting || (submitting && threadId === item.threadId)} onClick={() => void removeThread(item)}><Trash2 size={18} /></Button>
         </article>)}</div>
         {cursor && <Button block variant="ghost" loading={loadingMore} onClick={() => void loadMore()}>{t("history.loadMore")}</Button>}
@@ -349,18 +370,36 @@ export default function CoachHistoryPage() {
           <header className="coach-thread-detail__header">
             <LocalizedLink to="/coach" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("history.back")}><ArrowLeft aria-hidden /></LocalizedLink>
             <div><Text id="coach-thread-title" as="h2" variant="subtitle">{thread.title}</Text><Text as="p" variant="caption" tone="tertiary">{t(`discipline.${thread.discipline}`)} · {formatDate(thread.updatedAt, i18n.language)}</Text></div>
-            <Button iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: thread.title })} disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={18} /></Button>
+            <Button className="coach-thread-detail__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: thread.title })}
+              disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={18} /></Button>
           </header>
-          <Button className="coach-thread-follow-up-jump" block variant="outline" size="sm" leadingIcon={<MessageCircle size={16} />}
-            disabled={followUpUnavailable} onClick={() => followUpRef.current?.focus()}>{t("history.jumpToFollowUp")}</Button>
           <div className="coach-thread-turns">{threadCursor && <Button block variant="ghost" loading={loadingEarlierTurns} onClick={() => void loadEarlierTurns()}>{t("history.loadEarlierTurns")}</Button>}
-            {thread.turns.map((turn) => <article key={turn.turnId} className="coach-thread-turn">
-            <Card variant="inset" className="coach-thread-turn__question"><Text as="p" variant="body">{turn.question}</Text><time dateTime={turn.createdAt}><Text as="span" variant="caption" tone="tertiary">{formatDate(turn.createdAt, i18n.language)}</Text></time></Card>
-            <div className="coach-thread-turn__answer"><CoachAnswerDocumentView response={turn.response}
-              locale={i18n.language} onAction={answerAction} historical />
-              <CoachStoredTurnResult response={turn.response} />
-            </div>
-          </article>)}</div>
+            {thread.turns.map((turn, index) => {
+              const turnNumber = thread.turnCount - thread.turns.length + index + 1;
+              const turnLabel = t("history.turnNumber", { count: turnNumber });
+              return <article key={turn.turnId} className="coach-thread-turn"
+              aria-labelledby={`coach-turn-${turn.turnId}`}>
+              <header className="coach-thread-turn__chronology">
+                <Text id={`coach-turn-${turn.turnId}`} as="h3" variant="eyebrow" tone="tertiary">
+                  {turnLabel}
+                </Text>
+                <time dateTime={turn.createdAt}><Text as="span" variant="caption" tone="tertiary">{formatDate(turn.createdAt, i18n.language)}</Text></time>
+              </header>
+              <section className="coach-thread-message coach-thread-message--user" aria-label={`${turnLabel} · ${t("history.you")}`}>
+                <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><UserRound size={16} /></span>
+                  <Text as="h4" variant="label">{t("history.you")}</Text></div>
+                <Card variant="inset" className="coach-thread-turn__question"><Text as="p" variant="body">{turn.question}</Text></Card>
+              </section>
+              <section className="coach-thread-message coach-thread-message--coach" aria-label={`${turnLabel} · ${t("history.coachName")}`}>
+                <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><Bot size={16} /></span>
+                  <Text as="h4" variant="label">{t("history.coachName")}</Text></div>
+                <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !turn.response.answer ? " coach-thread-turn__answer--terminal" : ""}`}><CoachAnswerDocumentView response={turn.response}
+                  locale={i18n.language} onAction={answerAction} historical />
+                  <CoachStoredTurnResult response={turn.response} />
+                </div>
+              </section>
+            </article>;
+            })}</div>
           <div className="coach-thread-composer"><label htmlFor="coach-follow-up"><Text variant="label">{t("history.followUpLabel")}</Text></label>
             <Textarea ref={followUpRef} id="coach-follow-up" rows={3} maxLength={1000} value={draft}
               disabled={followUpUnavailable}

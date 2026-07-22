@@ -482,14 +482,46 @@ function GroundedMarkdown({ markdown }: { markdown: string }) {
   return <article className="coach-answer__markdown">{nodes}</article>;
 }
 
-function Evidence({ records, locale, timezone }: { records: CoachEvidenceRecord[]; locale: string; timezone: string }) {
+function Evidence({ records, locale, timezone, historical }: { records: CoachEvidenceRecord[]; locale: string; timezone: string;
+  historical: boolean }) {
   const { t } = useTranslation("coach");
-  return <details className="coach-answer__evidence"><summary>{t("answer.evidence.toggle", { count: records.length })}</summary>
+  if (!historical) return <details className="coach-answer__evidence"><summary>{t("answer.evidence.toggle", { count: records.length })}</summary>
     <ol>{records.map((record, index) => <li key={record.evidenceId} data-evidence-id={record.evidenceId}>
       <span>{t("answer.evidence.item", { index: index + 1 })}</span>
       {(["string", "number", "boolean"].includes(typeof record.value) || record.value === null) && <strong>{primitiveText(record.value, locale)}</strong>}
       <small>{formatDate(record.asOf, locale, timezone)}</small>
     </li>)}</ol></details>;
+  const visibleRecords = records.filter((record): record is CoachEvidenceRecord & { value: string | number | boolean } =>
+    ["string", "number", "boolean"].includes(typeof record.value) && record.value !== "");
+  if (visibleRecords.length === 0) return null;
+  const sharedAsOf = visibleRecords[0]!.asOf;
+  const sharedAsOfTime = Date.parse(sharedAsOf);
+  const descriptor = (record: CoachEvidenceRecord, index: number) => {
+    if (typeof record.value !== "number" || !Number.isFinite(record.value))
+      return { label: t("answer.evidence.item", { index: index + 1 }), unit: "" };
+    if (record.field === "weight_kg")
+      return { label: t("answer.evidence.label.weight"), unit: t("answer.evidence.unit.kilograms") };
+    if (record.field === "current_w_per_kg")
+      return { label: t("answer.evidence.label.currentWPerKg"), unit: t("answer.evidence.unit.wPerKg") };
+    if (record.field === "target_w_per_kg")
+      return { label: t("answer.evidence.label.targetWPerKg"), unit: t("answer.evidence.unit.wPerKg") };
+    if (record.field === "ftp_watts")
+      return { label: t("answer.evidence.label.currentFtp"), unit: t("answer.evidence.unit.watts") };
+    if (record.field === "target_ftp_watts")
+      return { label: t("answer.evidence.label.targetFtp"), unit: t("answer.evidence.unit.watts") };
+    return { label: t("answer.evidence.item", { index: index + 1 }), unit: "" };
+  };
+  return <details className="coach-answer__evidence"><summary><span>{t("answer.evidence.toggle", { count: visibleRecords.length })}</span>
+    <small>{formatDate(sharedAsOf, locale, timezone)}</small></summary>
+    <ol>{visibleRecords.map((record, index) => {
+      const { label, unit } = descriptor(record, index);
+      return <li key={record.evidenceId} data-evidence-id={record.evidenceId}>
+        <span>{label}</span>
+        <strong>{primitiveText(record.value, locale)}{unit && ` ${unit}`}</strong>
+        {record.asOf !== sharedAsOf && (!Number.isFinite(sharedAsOfTime) || Date.parse(record.asOf) !== sharedAsOfTime)
+          && <small>{formatDate(record.asOf, locale, timezone)}</small>}
+      </li>;
+    })}</ol></details>;
 }
 
 export function CoachAnswerDocumentView({ response, responseFormat = "auto", locale, onAction, onReanalyze = () => undefined, historical = false }: {
@@ -515,7 +547,7 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
       && block.categories.every((item) => typeof item.value.value === "number");
     return false;
   });
-  return <div className="coach-answer">
+  return <div className={`coach-answer${historical ? " coach-answer--historical" : ""}`}>
     {fallback && !historical && <div className="coach-answer__fallback" role="alert"><strong>{t("answer.fallback.title")}</strong><p>{t("answer.fallback.body")}</p></div>}
     {responseFormat === "chart" && !chartable && !hasGroundedMarkdown && <FormatFallbackNotice />}
     {document.compatibility === "unsupported_schema" ? <UnsupportedBlockNotice /> : <>
@@ -536,7 +568,7 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
       <footer className="coach-answer__metadata"><span>{t("answer.freshness", { at: formatDate(document.freshness.asOf, locale, document.freshness.timezone) })}</span>
         <span>{t("answer.timezone", { timezone: document.freshness.timezone })}</span>
         {document.status === "partial" && <span>{t("answer.state.partial")}</span>}</footer>
-      <Evidence records={document.evidence} locale={locale} timezone={document.freshness.timezone} />
+      <Evidence records={document.evidence} locale={locale} timezone={document.freshness.timezone} historical={historical} />
     </>}
   </div>;
 }

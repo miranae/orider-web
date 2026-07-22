@@ -22,7 +22,7 @@ import HubSubNav from "./HubSubNav";
 import { getActiveHub, getActivityIdFromDetailPath, isHubSubRoute } from "../config/navHubs";
 import { logClientError } from "../services/errorLogger";
 import { recordRouteRedirect } from "../services/routeLoopTelemetry";
-// 네비 IA(5 허브)는 단일 진실원 config/navHubs.ts 가 보유 — TopNav·MobileTabBar·HubSubNav 공유.
+// 네비 IA는 5개 기본 허브와 설정 유틸리티 허브를 config/navHubs.ts 에서 공유한다.
 const NotifSheet = lazy(() => import("./mobile/NotifSheet"));
 
 export function shouldBypassOnboardingRedirect(path: string): boolean {

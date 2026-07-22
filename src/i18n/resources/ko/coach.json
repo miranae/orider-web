@@ -33,6 +33,9 @@
   "history": {
     "open": "대화 내역",
     "eyebrow": "AI 코치",
+    "entryTitle": "AI 코치에게 물어보세요",
+    "entryDescription": "내 운동 기록을 바탕으로 훈련 상태와 다음 계획을 함께 살펴봅니다.",
+    "signInTitle": "내 기록으로 코칭을 시작하세요",
     "title": "대화 내역",
     "description": "질문과 답변은 대화 또는 계정을 삭제할 때까지 내 계정에 저장됩니다.",
     "signInRequired": "AI 코치 대화 내역을 보려면 로그인해 주세요.",
@@ -41,17 +44,19 @@
     "loadFailed": "대화 내역을 불러오지 못했습니다.",
     "retry": "다시 시도",
     "emptyTitle": "아직 저장된 대화가 없습니다",
-    "emptyBody": "홈에서 AI 코치에게 질문하면 여기에 대화가 저장됩니다.",
+    "emptyBody": "AI 코치에게 질문하면 여기에 대화가 저장됩니다.",
     "selectTitle": "확인할 대화를 선택해 주세요",
     "selectBody": "선택한 대화의 질문과 답변을 확인하고 이어서 물을 수 있습니다.",
     "turnCount": "질문 {{count}}개",
+    "turnNumber": "대화 {{count}}",
+    "you": "나",
+    "coachName": "O·RIDER 코치",
     "loadMore": "대화 더 보기",
     "loadEarlierTurns": "이전 대화 더 보기",
     "loadingThread": "선택한 대화를 불러오고 있습니다…",
     "threadLoadFailed": "선택한 대화를 불러오지 못했습니다.",
     "back": "대화 목록으로 돌아가기",
     "followUpLabel": "이 대화에서 이어 묻기",
-    "jumpToFollowUp": "이어 묻기로 이동",
     "followUpPlaceholder": "예: 지난주와 비교하면 어떤 점이 달라졌어?",
     "contextNote": "이어 묻기 시 이 대화의 최근 질문과 답변 최대 3개(합산 최대 5 KiB)가 외부 AI 처리에 사용될 수 있습니다.",
     "followUp": "이어 묻기",
@@ -188,7 +193,11 @@
     "unsupportedBlock": { "title": "지원되지 않는 결과 블록", "body": "이 블록의 원문 데이터는 표시하지 않았습니다. 웹을 업데이트한 뒤 다시 확인해 주세요." },
     "prescriptionDisabled": { "title": "처방 결과는 아직 지원하지 않습니다", "body": "P1에서는 운동 처방을 실행하거나 표시하지 않습니다." },
     "freshness": "데이터 기준 {{at}}", "timezone": "시간대 {{timezone}}",
-    "evidence": { "toggle": "분석 근거 {{count}}개", "item": "근거 {{index}}" }
+    "evidence": {
+      "toggle": "분석 근거 {{count}}개", "item": "근거 {{index}}",
+      "label": { "currentFtp": "현재 FTP", "targetFtp": "목표 FTP", "weight": "체중", "currentWPerKg": "현재 W/kg", "targetWPerKg": "목표 W/kg" },
+      "unit": { "watts": "W", "kilograms": "kg", "wPerKg": "W/kg" }
+    }
   },
   "prescription": {
     "title": "다음 7일 조정안", "validUntil": "{{at}}까지 유효", "proposalNotice": "이 내용은 제안이며 확인 전에는 운동 계획에 저장되지 않습니다.",

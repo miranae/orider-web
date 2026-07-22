@@ -41,18 +41,16 @@ describe("Layout", () => {
     });
   });
 
-  it("shows 5-hub nav labels", async () => {
+  it("shows the five primary hub labels and keeps settings out of primary navigation", async () => {
     renderWithProviders(<Layout />);
-    // 9평면 → 5허브 재편(#385): 데스크톱 nav·모바일 탭바가 동일 5허브(홈/내 운동/탐색/커뮤니티/설정)를
-    // 공유한다. 같은 라벨이 데스크톱 nav 와 모바일 탭바 양쪽에 렌더되므로(jsdom 은 CSS hidden 도 DOM 에
-    // 둠) getAllByText 로 "최소 1개 존재"를 단언한다. 서브 기능(계획/기록/코스/그룹/이벤트)은 허브
-    // 진입 후 서브탭(HubSubNav)·햄버거 메뉴에서 노출되므로 홈 화면 기본 렌더엔 없다.
     await waitFor(() => {
       expect(screen.getAllByText("내 운동").length).toBeGreaterThan(0);
     });
+    expect(screen.getAllByText("AI 코치").length).toBeGreaterThan(0);
     expect(screen.getAllByText("탐색").length).toBeGreaterThan(0);
     expect(screen.getAllByText("커뮤니티").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("설정").length).toBeGreaterThan(0);
+    const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
+    expect(within(tabBar).queryByRole("tab", { name: "설정" })).not.toBeInTheDocument();
   });
 
   it("shows Google login button when not authenticated", async () => {
@@ -258,16 +256,30 @@ describe("Layout", () => {
     expect(footer.className).toContain("lg:hidden");
   });
 
-  it("has mobile bottom tab bar with 5 hub tabs", async () => {
-    // 9평면 → 5허브 재편(#385): 모바일 탭 바는 홈/내 운동/탐색/커뮤니티/설정 5개 허브 탭.
-    // 허브 라벨은 데스크톱 nav 와 공유되므로(getByText 충돌) role 기반으로 탭 5개 존재를 단언한다.
+  it("has five ordered localized mobile tabs including AI Coach", async () => {
     renderWithProviders(<Layout />);
     // 페이지 내 다른 tablist(예: DisciplineTabs)와 구분하기 위해 접근성 이름으로 모바일 탭바를 스코프.
     await waitFor(() => {
       expect(screen.getByRole("tablist", { name: "메인 내비게이션" })).toBeInTheDocument();
     });
     const tabBar = screen.getByRole("tablist", { name: "메인 내비게이션" });
-    expect(within(tabBar).getAllByRole("tab")).toHaveLength(5);
+    const tabs = within(tabBar).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["홈", "내 운동", "AI 코치", "탐색", "커뮤니티"]);
+    expect(within(tabBar).getByRole("tab", { name: "AI 코치" })).toHaveAttribute("href", "/ko/coach");
+  });
+
+  it("selects AI Coach routes but no primary tab on settings routes", async () => {
+    const coachView = renderWithProviders(<Layout />, { route: "/ko/coach/thread-1" });
+    const coachTabBar = await screen.findByRole("tablist", { name: "메인 내비게이션" });
+    expect(within(coachTabBar).getByRole("tab", { name: "AI 코치" })).toHaveAttribute("aria-selected", "true");
+    coachView.unmount();
+
+    renderWithProviders(<Layout />, { route: "/ko/settings", authenticated: true, user: { uid: "viewer" } });
+    const settingsTabBar = await screen.findByRole("tablist", { name: "메인 내비게이션" });
+    expect(within(settingsTabBar).getAllByRole("tab").every((tab) => tab.getAttribute("aria-selected") === "false")).toBe(true);
+    expect(screen.getByRole("link", { name: "설정" })).toHaveAttribute("aria-current", "page");
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getAllByRole("link", { name: "설정" }).every((link) => link.getAttribute("aria-current") === "page")).toBe(true);
   });
 
   it("closes the mobile slide menu when browser back is pressed", async () => {

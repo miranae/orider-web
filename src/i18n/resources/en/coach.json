@@ -33,6 +33,9 @@
   "history": {
     "open": "Conversation history",
     "eyebrow": "AI Coach",
+    "entryTitle": "Ask AI Coach",
+    "entryDescription": "Review your training status and next steps using your activity history.",
+    "signInTitle": "Start coaching with your activity data",
     "title": "Conversation history",
     "description": "Questions and answers are stored in your account until you delete the conversation or your account.",
     "signInRequired": "Sign in to view your AI Coach conversation history.",
@@ -41,17 +44,19 @@
     "loadFailed": "Conversation history could not be loaded.",
     "retry": "Try again",
     "emptyTitle": "No saved conversations yet",
-    "emptyBody": "Ask AI Coach from Home and the conversation will be saved here.",
+    "emptyBody": "Ask AI Coach and the conversation will be saved here.",
     "selectTitle": "Select a conversation",
     "selectBody": "Review its questions and answers, then continue from that context.",
     "turnCount": "{{count}} questions",
+    "turnNumber": "Turn {{count}}",
+    "you": "You",
+    "coachName": "O·RIDER Coach",
     "loadMore": "Load more conversations",
     "loadEarlierTurns": "Load earlier messages",
     "loadingThread": "Loading the selected conversation…",
     "threadLoadFailed": "The selected conversation could not be loaded.",
     "back": "Back to conversation list",
     "followUpLabel": "Continue this conversation",
-    "jumpToFollowUp": "Jump to follow-up",
     "followUpPlaceholder": "For example: What changed compared with last week?",
     "contextNote": "For a follow-up, up to 3 recent questions and answers from this conversation (up to 5 KiB combined) may be used for external AI processing.",
     "followUp": "Ask follow-up",
@@ -188,7 +193,11 @@
     "unsupportedBlock": { "title": "Unsupported result block", "body": "The raw block payload was not displayed. Update the web app and try again." },
     "prescriptionDisabled": { "title": "Prescriptions are not supported yet", "body": "P1 does not execute or display training prescriptions." },
     "freshness": "Data as of {{at}}", "timezone": "Timezone {{timezone}}",
-    "evidence": { "toggle": "{{count}} evidence items", "item": "Evidence {{index}}" }
+    "evidence": {
+      "toggle": "{{count}} evidence items", "item": "Evidence {{index}}",
+      "label": { "currentFtp": "Current FTP", "targetFtp": "Target FTP", "weight": "Weight", "currentWPerKg": "Current W/kg", "targetWPerKg": "Target W/kg" },
+      "unit": { "watts": "W", "kilograms": "kg", "wPerKg": "W/kg" }
+    }
   },
   "prescription": {
     "title": "Next 7-day adjustment", "validUntil": "Valid until {{at}}", "proposalNotice": "This is a proposal and is not saved to your training plan until you confirm it.",

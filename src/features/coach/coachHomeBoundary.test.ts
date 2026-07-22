@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("AI Coach P0 home-only boundary", () => {
-  it("mounts the launcher only in desktop and mobile home surfaces", () => {
+describe("AI Coach entry-surface boundary", () => {
+  it("mounts the launcher in desktop home, mobile home, and the Coach entry page", () => {
     const dashboard = readFileSync("src/pages/DashboardPage.tsx", "utf8");
     const mobileHome = readFileSync("src/components/mobile/MobileFeedPage.tsx", "utf8");
+    const coachPage = readFileSync("src/pages/CoachHistoryPage.tsx", "utf8");
     expect(dashboard).toContain("<CoachQuestionLauncher");
     expect(mobileHome).toContain("<CoachQuestionLauncher");
+    expect(coachPage).toContain("<CoachQuestionLauncher");
   });
 
   it.each([
@@ -34,7 +36,7 @@ describe("AI Coach P0 home-only boundary", () => {
     expect(consent).toMatch(/\.coach-consent-sheet__body\s*{[^}]*padding-block-end:\s*calc\(var\(--space-8\) \+ var\(--space-8\)\)/s);
     expect(history).toMatch(/\.coach-history-page\s*{[^}]*padding-block-end:/s);
     expect(history).toMatch(/\.coach-thread-composer\s*{[^}]*inset-block-end:[^}]*safe-area-inset-bottom/s);
-    expect(history).toMatch(/\.coach-thread-follow-up-jump\s*{[^}]*display:\s*flex/s);
+    expect(history).toMatch(/\.coach-thread-turns\s*{[^}]*padding-block-end:\s*calc\(var\(--space-8\) \* 3\)/s);
     expect(history).toMatch(/\.coach-history-page\.has-selection \.coach-history-page__header\s*{[^}]*display:\s*none/);
     expect(history).toMatch(/\.coach-thread-composer__meta > :last-child\s*{[^}]*white-space:\s*nowrap/);
     expect(launcher).toMatch(/\.coach-sheet__suggestion-copy \.ds-text--body-small\s*{[^}]*-webkit-line-clamp:\s*2;/s);

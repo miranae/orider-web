@@ -1,7 +1,7 @@
-import { Home, Activity, Map, Users, Settings, type LucideIcon } from "lucide-react";
+import { Home, Activity, Bot, Map, Users, Settings, type LucideIcon } from "lucide-react";
 
 /**
- * 웹 IA 단일 진실원 — "9 평면 → 5 허브" 재편 (이슈 #385, 설계 docs/design/ux-ia.md §2-2).
+ * 웹 IA 단일 진실원 — 5개 기본 허브와 설정 유틸리티 허브.
  *
  * 위계 없이 평면 나열되던 9개 기능을 5개 허브로 묶고, 각 허브 내부를 서브탭으로 깊이를 준다.
  * 데스크톱 TopNav · 모바일 MobileTabBar · Layout active 판정 · 허브 서브탭바(HubSubNav)가
@@ -10,16 +10,17 @@ import { Home, Activity, Map, Users, Settings, type LucideIcon } from "lucide-re
  * 허브 구성:
  *  - 홈        : 대시보드(/)                                  — 단일, 서브탭 없음
  *  - 내 운동   : 피트니스(/fitness) · 계획(/plan) · 기록(/log)  — "내 데이터" 성격
+ *  - AI 코치   : 새 질문·대화 내역(/coach)
  *  - 탐색      : 도전(/discover) · 세그먼트(/explore) · 리더보드(/leaderboard) · 코스(/courses)
  *               — '발견→처방→도전' 동선(#486). 데이터 출처가 아니라 사용자 의도로 서열화.
   *  - 커뮤니티  : 게시판(/board) · 그룹(/groups) · 이벤트(/events) · 친구(/friends) — "사람·소통"
- *  - 설정      : 프로필(/my) · 계정(/settings)
+ *  - 설정      : 프로필(/my) · 계정(/settings) — 기본 탭이 아닌 유틸리티 허브
  *
  * 친구(/friends)는 시안 미명시였으나 "사람·소통" 동질성으로 커뮤니티 허브에 편입(이슈 #385 결정).
  * 기존 고아 경로였던 /friends·/social 진입점을 동시에 복구한다.
  */
 
-export type HubKey = "home" | "train" | "explore" | "community" | "settings";
+export type HubKey = "home" | "train" | "coach" | "explore" | "community" | "settings";
 
 export interface ActiveHubContext {
   /** 현재 로그인 사용자. 비로그인 상태는 null. */
@@ -85,6 +86,14 @@ export const HUBS: Hub[] = [
       p === "/log",
   },
   {
+    key: "coach",
+    labelKey: "nav.coach",
+    icon: Bot,
+    to: "/coach",
+    subs: [],
+    match: (p) => p === "/coach" || p.startsWith("/coach/"),
+  },
+  {
     key: "explore",
     labelKey: "nav.explore",
     icon: Map,
@@ -145,6 +154,9 @@ export const HUBS: Hub[] = [
     match: (p) => p === "/my" || p === "/settings",
   },
 ];
+
+/** 데스크톱·모바일 기본 내비게이션에 노출되는 정확히 5개 허브. */
+export const PRIMARY_HUBS: Hub[] = HUBS.filter((hub) => hub.key !== "settings");
 
 /** 경로와 상세 화면 문맥 → 활성 허브 key (매칭 없으면 home 폴백). */
 export function getActiveHub(path: string, context: ActiveHubContext = {}): HubKey {
