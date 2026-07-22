@@ -440,7 +440,7 @@
     "consentTitle": "AI Coach data use notice",
     "staleTitle": "Updated AI Coach data use notice",
     "compactIntro": "Before consenting, review the data used, external processing, storage, and withdrawal.",
-    "conversationContextNote": "For a follow-up, up to 3 recent questions and answers from this conversation (up to 12 KiB combined) may be used for external AI processing.",
+    "conversationContextNote": "For a follow-up, up to 3 recent questions and answers from this conversation (up to 5 KiB combined) may be used for external AI processing.",
     "consentPersistenceNote": "After you consent, this notice will not appear again unless processing changes or you revoke consent in Settings.",
     "summaryDataTitle": "Data used",
     "summaryExternalTitle": "External AI processing · {{country}}",

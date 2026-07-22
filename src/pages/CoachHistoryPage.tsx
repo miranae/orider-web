@@ -18,6 +18,7 @@ import {
 } from "../services/coachV2Contract";
 import {
   continueCoachThread, deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads,
+  isCoachHistoryTransportError,
   type CoachThread, type CoachThreadSummary,
 } from "../services/coachHistoryClient";
 import "../features/coach/coach-question.css";
@@ -110,7 +111,7 @@ export default function CoachHistoryPage() {
   const [threadError, setThreadError] = useState(false);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(false);
+  const [submitError, setSubmitError] = useState<"transport" | "rejected" | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [policy, setPolicy] = useState<CoachConsentPolicy | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
@@ -164,14 +165,14 @@ export default function CoachHistoryPage() {
     pendingBodyRef.current = null;
     setThreads([]); setCursor(null); setThread(null); setThreadCursor(null); setQuota(null); setPolicy(null);
     setLoadingList(Boolean(uid)); setLoadingThread(false); setLoadingMore(false); setLoadingEarlierTurns(false); setLoadingQuota(false);
-    setLoadError(false); setThreadError(false); setQuotaError(false); setDraft(""); setSubmitError(false); setFollowUpSuccess(false);
+    setLoadError(false); setThreadError(false); setQuotaError(false); setDraft(""); setSubmitError(null); setFollowUpSuccess(false);
     setSubmitting(false); setDeleting(false); setConsentOpen(false);
     if (uid) { void loadList(generation, uid); void loadQuota(generation, uid); }
   }, [loadList, loadQuota, uid, userGeneration]);
 
   useEffect(() => {
     pendingBodyRef.current = null;
-    setThread(null); setThreadCursor(null); setThreadError(false); setDraft(""); setSubmitError(false); setFollowUpSuccess(false);
+    setThread(null); setThreadCursor(null); setThreadError(false); setDraft(""); setSubmitError(null); setFollowUpSuccess(false);
     setSubmitting(false); setConsentOpen(false);
     if (uid && threadId) void loadThread(threadId, userGeneration, uid, routeGeneration);
   }, [loadThread, routeGeneration, threadId, uid, userGeneration]);
@@ -239,19 +240,31 @@ export default function CoachHistoryPage() {
 
   async function executeFollowUp(pending: PendingFollowUp) {
     if (submitting || !current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
-    setSubmitting(true); setSubmitError(false); setFollowUpSuccess(false);
+    setSubmitting(true); setSubmitError(null); setFollowUpSuccess(false);
     try {
       const response = await continueCoachThread(pending.threadId, pending.body);
       if (!current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
-      const canonical = await getCoachThread(pending.threadId, PAGE_SIZE);
-      if (!current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
-      setThread(canonical.thread); setThreadCursor(canonical.nextCursor); setDraft(""); pendingBodyRef.current = null;
+      setDraft(""); pendingBodyRef.current = null;
       setQuota((current) => current ? { ...current, remaining: response.quota.remaining, resetAt: response.quota.resetAt } : current);
+      let canonical: Awaited<ReturnType<typeof getCoachThread>>;
+      try {
+        canonical = await getCoachThread(pending.threadId, PAGE_SIZE);
+      } catch {
+        if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) setThreadError(true);
+        return;
+      }
+      if (!current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) return;
+      setThread(canonical.thread); setThreadCursor(canonical.nextCursor);
       setThreads((items) => items.map((item) => item.threadId === canonical.thread.threadId
         ? { ...item, updatedAt: canonical.thread.updatedAt, turnCount: canonical.thread.turnCount,
           revision: canonical.thread.revision, title: canonical.thread.title } : item));
       setFollowUpSuccess(true);
-    } catch { if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) setSubmitError(true); }
+    } catch (error) {
+      if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) {
+        if (isCoachHistoryTransportError(error)) setSubmitError("transport");
+        else { pendingBodyRef.current = null; setSubmitError("rejected"); }
+      }
+    }
     finally { if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) setSubmitting(false); }
   }
 
@@ -273,7 +286,11 @@ export default function CoachHistoryPage() {
       setPolicy(loadedPolicy);
       if (!consentActive(loadedPolicy)) { setConsentOpen(true); return; }
       await executeFollowUp(pending);
-    } catch { if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) setSubmitError(true); }
+    } catch {
+      if (current(pending.generation, pending.uid, pending.threadId, pending.routeGeneration)) {
+        pendingBodyRef.current = null; setSubmitError("rejected");
+      }
+    }
   }
 
   async function retryPendingFollowUp() {
@@ -284,7 +301,7 @@ export default function CoachHistoryPage() {
 
   function startEditedFollowUp() {
     pendingBodyRef.current = null;
-    setSubmitError(false);
+    setSubmitError(null);
     setFollowUpSuccess(false);
   }
 
@@ -293,7 +310,7 @@ export default function CoachHistoryPage() {
     else navigate(code === "VIEW_TRAINING_LOAD" ? "/fitness" : "/my");
   }
 
-  const followUpUnavailable = submitting || loadingQuota || quotaError || !quota || quota.remaining === 0;
+  const followUpUnavailable = submitting || loadingQuota || quotaError || threadError || !quota || quota.remaining === 0;
 
   if (!user) return <main className="coach-history-page"><Alert variant="warning">{t("history.signInRequired")}</Alert></main>;
   if (stateUid !== uid) return <main className="coach-history-page"><Card role="status">{t("history.loading")}</Card></main>;
@@ -350,10 +367,12 @@ export default function CoachHistoryPage() {
               placeholder={t("history.followUpPlaceholder")} onChange={(event) => { startEditedFollowUp(); setDraft(event.target.value); }} />
             <div className="coach-thread-composer__meta"><Text variant="caption" tone="tertiary">{t("history.contextNote")}</Text><Text variant="caption" tone="tertiary" mono>{draft.length}/1000</Text></div>
             {quotaError && <Alert variant="warning" title={t("history.quotaLoadFailed")}><Button variant="outline" size="sm" onClick={() => void loadQuota()}>{t("history.retryQuota")}</Button></Alert>}
-            {submitError && pendingBodyRef.current && <div className="coach-thread-composer__retry">
+            {submitError && <div className="coach-thread-composer__retry">
               <Text as="p" variant="bodySmall" tone="danger" role="alert">{t("history.submitFailed")}</Text>
-              <Text as="p" variant="caption" tone="tertiary">{t("history.sameRequestRetryNote")}</Text>
-              <Button variant="outline" size="sm" disabled={submitting} onClick={() => void retryPendingFollowUp()}>{t("history.sameRequestRetry")}</Button>
+              {submitError === "transport" && pendingBodyRef.current && <>
+                <Text as="p" variant="caption" tone="tertiary">{t("history.sameRequestRetryNote")}</Text>
+                <Button variant="outline" size="sm" disabled={submitting} onClick={() => void retryPendingFollowUp()}>{t("history.sameRequestRetry")}</Button>
+              </>}
             </div>}
             {followUpSuccess && <Text as="p" variant="bodySmall" tone="success" role="status" aria-live="polite">{t("history.followUpSaved")}</Text>}
             <div className="coach-thread-composer__actions">{loadingQuota && <Text variant="caption" tone="tertiary">{t("history.loadingQuota")}</Text>}
