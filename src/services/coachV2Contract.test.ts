@@ -40,10 +40,10 @@ describe("coachV2Contract", () => {
     expect(v1WithV2Block.answer?.blocks[0]).toEqual({ kind: "unsupported_block", blockId: "block_distance", reason: "invalid_block" });
 
     for (const markdown of [
-      "<script>alert('text only')</script>",
+      "<script>window.__coach_text_only = true</script>",
       "[링크](https://example.com)",
       "![이미지](data:image/svg+xml,unsafe)",
-      "javascript:alert('text only')",
+      "javascript:window.__coach_text_only=true",
       "zero\u200Bwidth",
       "x".repeat(8_000),
     ]) {
