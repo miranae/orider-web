@@ -69,10 +69,10 @@ describe("CoachAnswerDocumentView", () => {
     const { response, document, evidence, base } = fixture();
     const markdown = [
       "## Provider text",
-      "<script>alert('not executed')</script>",
+      "<script>window.__coach_not_executed = true</script>",
       "[Markdown link](https://example.com)",
       "![Markdown image](data:image/svg+xml,unsafe)",
-      "javascript:alert('not executed')",
+      "javascript:window.__coach_not_executed=true",
       "zero\u200Bwidth",
     ].join("\n\n");
     document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown,
@@ -80,10 +80,10 @@ describe("CoachAnswerDocumentView", () => {
 
     const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
 
-    expect(view.container).toHaveTextContent("<script>alert('not executed')</script>");
+    expect(view.container).toHaveTextContent("<script>window.__coach_not_executed = true</script>");
     expect(view.container).toHaveTextContent("[Markdown link](https://example.com)");
     expect(view.container).toHaveTextContent("![Markdown image](data:image/svg+xml,unsafe)");
-    expect(view.container).toHaveTextContent("javascript:alert('not executed')");
+    expect(view.container).toHaveTextContent("javascript:window.__coach_not_executed=true");
     expect(view.container.textContent).toContain("zero\u200Bwidth");
     expect(view.container.querySelector("script")).not.toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
