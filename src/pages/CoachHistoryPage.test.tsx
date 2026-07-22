@@ -78,7 +78,7 @@ describe("CoachHistoryPage", () => {
     setup(`/ko/coach/${threadId}`);
     expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
     expect(screen.getByText("현재 지원하지 않는 질문입니다")).toBeInTheDocument();
-    expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 8 KiB\).*외부 AI 처리/)).toBeInTheDocument();
+    expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 5 KiB\).*외부 AI 처리/)).toBeInTheDocument();
     const jump = screen.getByRole("button", { name: "이어 묻기로 이동" });
     await waitFor(() => expect(jump).toBeEnabled());
     await userEvent.click(jump);
@@ -211,7 +211,7 @@ describe("CoachHistoryPage", () => {
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith(threadId));
   });
 
-  it("retries an unknown follow-up completion with the same request id and automatic format", async () => {
+  it("retries a fetch or response-body ambiguity with the same request id and automatic format", async () => {
     const followUpId = "323e4567-e89b-42d3-a456-426614174002";
     vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
     const transportError = new Error("transport unknown"); transportError.name = "CoachHistoryTransportError";

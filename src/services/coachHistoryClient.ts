@@ -167,7 +167,14 @@ async function request(path: string, init?: RequestInit, acceptTerminalData = fa
   } catch (cause) {
     throw new CoachHistoryTransportError(cause);
   }
-  const payload: unknown = await response.json().catch(() => ({}));
+  if (response.status === 204) return {};
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (cause) {
+    // The server may have committed the request even when its response body was truncated in transit.
+    throw new CoachHistoryTransportError(cause);
+  }
   if (!response.ok && !(acceptTerminalData && record(payload)?.data)) {
     const error = record(record(payload)?.error);
     throw new Error(typeof error?.code === "string" ? error.code : `HTTP_${response.status}`);

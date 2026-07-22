@@ -53,7 +53,7 @@
     "followUpLabel": "이 대화에서 이어 묻기",
     "jumpToFollowUp": "이어 묻기로 이동",
     "followUpPlaceholder": "예: 지난주와 비교하면 어떤 점이 달라졌어?",
-    "contextNote": "이어 묻기 시 이 대화의 최근 질문과 답변 최대 3개(합산 최대 8 KiB)가 외부 AI 처리에 사용될 수 있습니다.",
+    "contextNote": "이어 묻기 시 이 대화의 최근 질문과 답변 최대 3개(합산 최대 5 KiB)가 외부 AI 처리에 사용될 수 있습니다.",
     "followUp": "이어 묻기",
     "loadingQuota": "오늘의 사용 가능 횟수를 확인하고 있습니다…",
     "quotaLoadFailed": "AI 코치 사용 가능 횟수를 확인하지 못했습니다",

@@ -8,6 +8,7 @@ vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.runtime }));
 
 import {
   continueCoachThread, deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads, parseCoachThread, parseCoachThreadPage,
+  isCoachHistoryTransportError,
 } from "./coachHistoryClient";
 
 const threadId = "123e4567-e89b-42d3-a456-426614174000";
@@ -110,6 +111,16 @@ describe("coachHistoryClient", () => {
       apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1",
       contextFilters: {}, responseFormat: "auto", expectedSessionRevision: 75,
     })).rejects.toThrow("coach_session_revision_conflict");
+  });
+
+  it("classifies an undecodable continuation body as transport ambiguity", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("truncated-json", { status: 200 }));
+    const result = continueCoachThread(threadId, {
+      requestId: turnId, question: "지난주와 비교해줘", discipline: "bike", locale: "ko-KR",
+      apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1",
+      contextFilters: {}, responseFormat: "auto", expectedSessionRevision: 75,
+    });
+    await expect(result).rejects.toSatisfy(isCoachHistoryTransportError);
   });
 
   it("enforces the detail-page limit, bounded cursors, and canonical UTC timestamps", async () => {
