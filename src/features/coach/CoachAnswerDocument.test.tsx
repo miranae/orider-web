@@ -65,6 +65,31 @@ describe("CoachAnswerDocumentView", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
+  it("renders active-looking grounded Markdown as inert text", () => {
+    const { response, document, evidence, base } = fixture();
+    const markdown = [
+      "## Provider text",
+      "<script>window.__coach_not_executed = true</script>",
+      "[Markdown link](https://example.com)",
+      "![Markdown image](data:image/svg+xml,unsafe)",
+      "javascript:window.__coach_not_executed=true",
+      "zero\u200Bwidth",
+    ].join("\n\n");
+    document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown,
+      evidenceIds: [evidence[0]!.evidenceId] }];
+
+    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
+
+    expect(view.container).toHaveTextContent("<script>window.__coach_not_executed = true</script>");
+    expect(view.container).toHaveTextContent("[Markdown link](https://example.com)");
+    expect(view.container).toHaveTextContent("![Markdown image](data:image/svg+xml,unsafe)");
+    expect(view.container).toHaveTextContent("javascript:window.__coach_not_executed=true");
+    expect(view.container.textContent).toContain("zero\u200Bwidth");
+    expect(view.container.querySelector("script")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
   it("renders supported metric, series, and distribution blocks as native tables when table is requested", () => {
     const { response } = fixture();
     render(<CoachAnswerDocumentView response={response} responseFormat="table" locale="ko-KR" onAction={vi.fn()} />);

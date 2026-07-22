@@ -26,7 +26,7 @@ describe("coachV2Contract", () => {
     expect(parsed.answer?.blocks[0]).toMatchObject({ kind: "metric_grid", items: [{ current: { value: 42, evidenceId: "ev_distance" } }] });
   });
 
-  it("accepts evidence-bound v2 grounded Markdown and rejects links or unknown evidence block-locally", () => {
+  it("accepts evidence-bound v2 grounded Markdown without filtering its text content", () => {
     const reportBlock = { ...baseBlock, kind: "grounded_markdown", markdown: "## 현재 위치\n\n**3.30 W/kg**입니다.\n\n- 다음 훈련을 진행하세요.",
       evidenceIds: [evidence.evidenceId] };
     const reportEnvelope = { ...envelope,
@@ -39,11 +39,22 @@ describe("coachV2Contract", () => {
     const v1WithV2Block = parseCoachV2Response({ data: { ...envelope, answer: { ...answer, blocks: [reportBlock] } } });
     expect(v1WithV2Block.answer?.blocks[0]).toEqual({ kind: "unsupported_block", blockId: "block_distance", reason: "invalid_block" });
 
+    for (const markdown of [
+      "<script>window.__coach_text_only = true</script>",
+      "[링크](https://example.com)",
+      "![이미지](data:image/svg+xml,unsafe)",
+      "javascript:window.__coach_text_only=true",
+      "zero\u200Bwidth",
+      "x".repeat(8_000),
+    ]) {
+      const parsed = parseCoachV2Response({ data: { ...reportEnvelope,
+        answer: { ...reportEnvelope.answer, blocks: [{ ...reportBlock, markdown }] } } });
+      expect(parsed.answer?.blocks[0]).toMatchObject({ kind: "grounded_markdown", markdown });
+    }
+
     for (const changed of [
-      { ...reportBlock, markdown: "[잘못된 링크](https://example.com)" },
-      { ...reportBlock, markdown: "www.example.com" },
-      { ...reportBlock, markdown: "![이미지][ref]" },
-      { ...reportBlock, markdown: "[](relative-target)" },
+      { ...reportBlock, markdown: "" },
+      { ...reportBlock, markdown: "x".repeat(8_001) },
       { ...reportBlock, evidenceIds: ["ev_not_present"] },
     ]) {
       const parsed = parseCoachV2Response({ data: { ...reportEnvelope,
