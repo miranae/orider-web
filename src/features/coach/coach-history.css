@@ -293,51 +293,6 @@
   padding-block-start: var(--space-3);
 }
 
-.coach-thread-detail .coach-answer--historical .coach-answer__evidence {
-  padding-block: 0;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-md);
-  background: var(--bg-1);
-  overflow: hidden;
-}
-
-.coach-thread-detail .coach-answer--historical .coach-answer__evidence summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: auto;
-  padding: var(--space-3);
-  color: var(--ink-2);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-
-.coach-thread-detail .coach-answer--historical .coach-answer__evidence summary small {
-  color: var(--ink-3);
-  font-size: var(--fs-xs);
-  font-weight: 400;
-}
-
-.coach-thread-detail .coach-answer--historical .coach-answer__evidence ol {
-  max-height: calc(var(--space-8) * 5);
-  padding: 0 var(--space-3) var(--space-3);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
-
-.coach-thread-detail .coach-answer--historical .coach-answer__evidence li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-1) var(--space-3);
-  padding-block: var(--space-2);
-}
-
-.coach-thread-detail .coach-answer--historical .coach-answer__evidence li > span { grid-column: 1; }
-.coach-thread-detail .coach-answer--historical .coach-answer__evidence li > strong { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
-.coach-thread-detail .coach-answer--historical .coach-answer__evidence li > small { grid-column: 1; }
-
 .coach-thread-composer {
   grid-row: 4;
   position: sticky;

@@ -377,8 +377,7 @@
 .coach-answer__line--1 { color: var(--color-warning); }
 .coach-answer__line--2 { color: var(--color-success); }
 
-.coach-answer__list,
-.coach-answer__evidence ol {
+.coach-answer__list {
   display: grid;
   gap: var(--space-2);
   margin: 0;
@@ -478,7 +477,6 @@
 
 .coach-answer__list > li,
 .coach-answer__more li,
-.coach-answer__evidence li,
 .coach-answer__goal > div {
   display: flex;
   align-items: baseline;
@@ -495,8 +493,7 @@
 }
 
 .coach-answer__entity small,
-.coach-answer__metadata,
-.coach-answer__evidence small { color: var(--ink-3); font-size: var(--fs-xs); }
+.coach-answer__metadata { color: var(--ink-3); font-size: var(--fs-xs); }
 
 .coach-answer__metadata {
   padding-block-start: var(--space-2);
@@ -513,7 +510,6 @@
 .coach-result__feedback-section p { margin: 0; }
 
 .coach-answer__more,
-.coach-answer__evidence,
 .coach-answer__plan details {
   padding-block: var(--space-2);
 }
@@ -530,8 +526,7 @@
 }
 
 .coach-answer__goal,
-.coach-answer__plan,
-.coach-answer__evidence ol { display: grid; gap: var(--space-2); }
+.coach-answer__plan { display: grid; gap: var(--space-2); }
 
 .coach-answer__notice,
 .coach-answer__fallback {
