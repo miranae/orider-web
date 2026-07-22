@@ -6,9 +6,11 @@ import CoachHistoryPage from "./CoachHistoryPage";
 
 const mocks = vi.hoisted(() => ({
   list: vi.fn(), detail: vi.fn(), more: vi.fn(), remove: vi.fn(), removeAll: vi.fn(), status: vi.fn(), policy: vi.fn(),
-  navigate: vi.fn(), confirm: vi.fn(), user: { uid: "u1" },
+  navigate: vi.fn(), confirm: vi.fn(), signIn: vi.fn(), user: { uid: "u1" } as { uid: string } | null,
 }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({
+  user: mocks.user, profile: { primaryDiscipline: "run" }, signInWithGoogle: mocks.signIn,
+}) }));
 vi.mock("../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: mocks.confirm }) }));
 vi.mock("../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => mocks.navigate, useLocalizedPath: (path: string) => `/ko${path}` }));
 vi.mock("../services/coachHistoryClient", () => ({
@@ -47,13 +49,25 @@ function deferred<T>() {
 describe("CoachHistoryPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.user.uid = "u1";
+    mocks.user = { uid: "u1" };
     mocks.list.mockResolvedValue({ threads: [summary], nextCursor: null });
     mocks.status.mockResolvedValue({ quota: { limit: 3, remaining: 3, resetAt: "2026-07-20T00:00:00Z", timezone: "Asia/Seoul" } });
     mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [{ turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?",
       createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 }] }, nextCursor: null });
     mocks.policy.mockResolvedValue({ policyVersion: "v1", consent: { active: true, current: true, revoked: false, currentPolicyVersion: "v1", storedPolicyVersion: "v1" } });
     mocks.confirm.mockResolvedValue(true);
+  });
+
+  it("offers the real Coach launcher and sign-in action on the signed-out tab entry", async () => {
+    mocks.user = null;
+    setup();
+
+    expect(screen.getByRole("heading", { name: "AI 코치에게 물어보세요" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await userEvent.click(screen.getByRole("button", { name: "로그인하기" }));
+
+    expect(mocks.signIn).toHaveBeenCalledTimes(1);
+    expect(mocks.list).not.toHaveBeenCalled();
   });
 
   it("renders the saved list and performs a confirmed permanent thread delete", async () => {
@@ -159,11 +173,11 @@ describe("CoachHistoryPage", () => {
   it("drops a late user A list response after the authenticated user changes to B", async () => {
     const lateA = deferred<{ threads: (typeof summary)[]; nextCursor: null }>();
     const bSummary = { ...summary, threadId: "323e4567-e89b-42d3-a456-426614174002", title: "B의 대화" };
-    mocks.user.uid = "A";
+    mocks.user!.uid = "A";
     mocks.list.mockReset().mockReturnValueOnce(lateA.promise).mockResolvedValueOnce({ threads: [bSummary], nextCursor: null });
     const view = setup();
     await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(1));
-    mocks.user.uid = "B";
+    mocks.user!.uid = "B";
     view.rerender(app());
     expect(await screen.findByRole("link", { name: /B의 대화/ })).toBeInTheDocument();
     lateA.resolve({ threads: [summary], nextCursor: null });

@@ -130,6 +130,17 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.status).not.toHaveBeenCalled(); expect(mocks.policy).not.toHaveBeenCalled(); expect(mocks.ask).not.toHaveBeenCalled();
   });
 
+  it("supports an inline trigger without changing the default block trigger", () => {
+    const defaultView = setup();
+    expect(screen.getByRole("button", { name: "AI 코치에게 물어보기" })).toHaveClass("ds-btn--block");
+    defaultView.unmount();
+
+    render(<MemoryRouter><DialogProvider>
+      <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()} triggerBlock={false} />
+    </DialogProvider></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "AI 코치에게 물어보기" })).not.toHaveClass("ds-btn--block");
+  });
+
   it("uses the design-system composer hierarchy without duplicating a selected quick prompt", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));

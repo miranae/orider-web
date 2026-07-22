@@ -10,7 +10,7 @@ import { useGlobalSearch } from "../../hooks/useGlobalSearch";
 import { LanguageToggle } from "../i18n/LanguageToggle";
 import type { Notification } from "@shared/types";
 import { Button, Text } from "../../theme/components";
-import { HUBS, type HubKey } from "../../config/navHubs";
+import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
 import { timeAgo } from "../../utils/timeAgo";
 
 const navFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
@@ -18,7 +18,7 @@ const navFocusWithinClass = "focus-within:outline focus-within:outline-2 focus-w
 const navIconButtonClass = `flex items-center justify-center ${navFocusClass}`;
 const mobileMenuItemClass = `rounded-[var(--r-md)] ${navFocusClass}`;
 
-// 네비 IA(5 허브)는 단일 진실원 config/navHubs.ts 가 보유 (이슈 #385). 데스크톱 nav 행은
+// 네비 IA(5개 기본 허브)는 단일 진실원 config/navHubs.ts 가 보유. 데스크톱 nav 행은
 // 허브만 노출하고, 모바일 슬라이드 메뉴는 허브+서브를 펼쳐 9개 목적지를 모두 발견 가능하게 한다.
 interface TopNavProps {
   active: HubKey;
@@ -36,9 +36,10 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   const { showToast } = useToast();
   const navigate = useNavigate();
   const NAV_ITEMS = useMemo(
-    () => HUBS.map(({ key, labelKey, to }) => ({ key, label: t(labelKey), to })),
+    () => PRIMARY_HUBS.map(({ key, labelKey, to }) => ({ key, label: t(labelKey), to })),
     [t]
   );
+  const settingsActive = active === "settings";
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -509,10 +510,13 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 to="/settings"
                 className={`hidden lg:flex ${navFocusClass}`}
                 aria-label={t('label.settings')}
+                aria-current={settingsActive ? 'page' : undefined}
                 style={{
                   width: 44, height: 44,
                   alignItems: 'center', justifyContent: 'center',
-                  borderRadius: "var(--r-md)", color: 'var(--ink-3)',
+                  borderRadius: "var(--r-md)",
+                  color: settingsActive ? 'var(--lime)' : 'var(--ink-3)',
+                  backgroundColor: settingsActive ? 'var(--bg-2)' : 'transparent',
                 }}
               >
                 <Settings size={16} />
@@ -724,7 +728,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
             {/* 네비게이션 링크 — 허브별 섹션 + 서브 펼침 (9개 목적지 모두 발견 가능) */}
             <div style={{ padding: 'var(--space-2)' }}>
-              {HUBS.map((hub) => {
+              {PRIMARY_HUBS.map((hub) => {
                 const hubActive = active === hub.key;
                 // 단일 허브(홈) — 서브 없이 바로 링크
                 if (hub.subs.length === 0) {
@@ -824,13 +828,15 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                     to="/settings"
                     onClick={closeMobileMenuForNavigation}
                     className={mobileMenuItemClass}
+                    aria-current={settingsActive ? 'page' : undefined}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                      padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--ink-1)',
+                      padding: '10px 12px', fontSize: "var(--fs-sm)", color: settingsActive ? 'var(--lime)' : 'var(--ink-1)',
                       borderRadius: 'var(--r-md)', textDecoration: 'none',
+                      backgroundColor: settingsActive ? 'var(--bg-2)' : 'transparent',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    onMouseEnter={e => { if (!settingsActive) e.currentTarget.style.backgroundColor = 'var(--bg-2)'; }}
+                    onMouseLeave={e => { if (!settingsActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
                     <Settings size={15} /> {t('label.settings')}
                   </Link>

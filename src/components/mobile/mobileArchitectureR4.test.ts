@@ -11,7 +11,7 @@ describe("mobile architecture r4", () => {
     const tabBar = read("src/components/mobile/MobileTabBar.tsx");
     const hubs = read("src/config/navHubs.ts");
 
-    expect(tabBar).toContain("HUBS.map");
+    expect(tabBar).toContain("PRIMARY_HUBS.map");
     expect(hubs).toContain('key: "community"');
     expect(hubs).toContain('{ labelKey: "nav.groups", to: "/groups" }');
   });
