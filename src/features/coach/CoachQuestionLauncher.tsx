@@ -30,6 +30,7 @@ interface Props {
   user: User | null;
   discipline: CoachDiscipline;
   onSignIn: () => void;
+  triggerBlock?: boolean;
 }
 
 const actionRoutes: Record<CoachActionCode, string> = {
@@ -81,7 +82,7 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
   return ko ? `${question} 추가 조건은 ${safeOption}(으)로 해줘.` : `${question} Use ${safeOption} as the additional condition.`;
 }
 
-export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
+export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true }: Props) {
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
@@ -325,7 +326,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn }: Props) {
   const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
     <>
-      <Button ref={triggerRef} block variant="outline" leadingIcon={<Sparkles size={18} />} onClick={() => void openSheet()}>{t("open")}</Button>
+      <Button ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={18} />} onClick={() => void openSheet()}>{t("open")}</Button>
       {open && createPortal(
         <div className="coach-sheet" role="presentation">
           <button type="button" className="coach-sheet__backdrop" tabIndex={-1} aria-hidden="true" aria-label={t("close")}

@@ -33,6 +33,9 @@
   "history": {
     "open": "Conversation history",
     "eyebrow": "AI Coach",
+    "entryTitle": "Ask AI Coach",
+    "entryDescription": "Review your training status and next steps using your activity history.",
+    "signInTitle": "Start coaching with your activity data",
     "title": "Conversation history",
     "description": "Questions and answers are stored in your account until you delete the conversation or your account.",
     "signInRequired": "Sign in to view your AI Coach conversation history.",
@@ -41,7 +44,7 @@
     "loadFailed": "Conversation history could not be loaded.",
     "retry": "Try again",
     "emptyTitle": "No saved conversations yet",
-    "emptyBody": "Ask AI Coach from Home and the conversation will be saved here.",
+    "emptyBody": "Ask AI Coach and the conversation will be saved here.",
     "selectTitle": "Select a conversation",
     "selectBody": "Review its questions and answers, then continue from that context.",
     "turnCount": "{{count}} questions",

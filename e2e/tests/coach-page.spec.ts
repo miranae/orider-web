@@ -157,6 +157,15 @@ test.describe("CoachPage", () => {
     await openCoach(page);
     await expect(page.getByRole("heading", { name: "대화 내역" })).toBeVisible();
     await expect(page.getByRole("link", { name: /최근 한 달 훈련과 몸 상태/ })).toBeVisible();
+    let coachEntry = page.locator('a[href="/ko/coach"]:visible').first();
+    if (await coachEntry.count() === 0) {
+      await page.getByRole("button", { name: "더보기" }).first().click();
+      coachEntry = page.locator('a[href="/ko/coach"]:visible').first();
+    }
+    await expect(coachEntry).toBeVisible();
+    expect(await coachEntry.evaluate((element) => element.getAttribute("aria-current") === "page"
+      || element.getAttribute("aria-selected") === "true")).toBe(true);
+    await expect(page.getByRole("button", { name: "AI 코치에게 물어보기" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   });
 

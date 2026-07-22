@@ -8,6 +8,7 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { Alert, Button, Card, Chip, Text, Textarea, buttonClass } from "../theme/components";
 import { CoachAnswerDocumentView } from "../features/coach/CoachAnswerDocument";
+import { CoachQuestionLauncher } from "../features/coach/CoachQuestionLauncher";
 import { safeClarificationText } from "../features/coach/coachClarificationText";
 import { FirstUseCoachConsent } from "../features/coach/FirstUseCoachConsent";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../services/coachConsentClient";
@@ -74,7 +75,7 @@ function CoachStoredTurnResult({ response }: { response: CoachV2Response }) {
 
 export default function CoachHistoryPage() {
   const { t, i18n } = useTranslation("coach");
-  const { user } = useAuth();
+  const { user, profile, signInWithGoogle } = useAuth();
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
   const { threadId } = useParams<{ threadId?: string }>();
@@ -311,16 +312,35 @@ export default function CoachHistoryPage() {
   }
 
   const followUpUnavailable = submitting || loadingQuota || quotaError || threadError || !quota || quota.remaining === 0;
+  const coachDiscipline = profile?.primaryDiscipline && profile.primaryDiscipline !== "tri"
+    ? profile.primaryDiscipline
+    : "bike";
+  const launcher = <CoachQuestionLauncher
+    user={user}
+    discipline={coachDiscipline}
+    onSignIn={signInWithGoogle}
+    triggerBlock={false}
+  />;
 
-  if (!user) return <main className="coach-history-page"><Alert variant="warning">{t("history.signInRequired")}</Alert></main>;
+  if (!user) return <main className="coach-history-page coach-history-page--signed-out">
+    <header className="coach-history-page__header">
+      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><Bot size={16} aria-hidden /> {t("history.eyebrow")}</Text>
+        <Text className="coach-history-page__title" as="h1" variant="title">{t("history.entryTitle")}</Text>
+        <Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.entryDescription")}</Text></div>
+      {launcher}
+    </header>
+    <Card className="coach-history-entry"><Bot aria-hidden /><Text as="h2" variant="subtitle">{t("history.signInTitle")}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{t("history.signInRequired")}</Text></Card>
+  </main>;
   if (stateUid !== uid) return <main className="coach-history-page"><Card role="status">{t("history.loading")}</Card></main>;
 
   return <main className={`coach-history-page${threadId ? " has-selection" : ""}`}>
     <header className="coach-history-page__header">
       <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><History size={16} aria-hidden /> {t("history.eyebrow")}</Text>
         <Text className="coach-history-page__title" as="h1" variant="title">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
-      {threads.length > 0 && <Button className="coach-history-page__delete-all" variant="ghost" size="sm"
-        disabled={deleting || submitting} onClick={() => void removeAll()}>{t("history.deleteAll")}</Button>}
+      <div className="coach-history-page__actions">{launcher}
+        {threads.length > 0 && <Button className="coach-history-page__delete-all" variant="ghost" size="sm"
+          disabled={deleting || submitting} onClick={() => void removeAll()}>{t("history.deleteAll")}</Button>}</div>
     </header>
     <div className={`coach-history-layout${threadId ? " has-selection" : ""}`}>
       <section className="coach-history-list" aria-labelledby="coach-history-list-title">

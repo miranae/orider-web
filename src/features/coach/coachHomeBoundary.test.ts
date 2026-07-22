@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("AI Coach P0 home-only boundary", () => {
-  it("mounts the launcher only in desktop and mobile home surfaces", () => {
+describe("AI Coach entry-surface boundary", () => {
+  it("mounts the launcher in desktop home, mobile home, and the Coach entry page", () => {
     const dashboard = readFileSync("src/pages/DashboardPage.tsx", "utf8");
     const mobileHome = readFileSync("src/components/mobile/MobileFeedPage.tsx", "utf8");
+    const coachPage = readFileSync("src/pages/CoachHistoryPage.tsx", "utf8");
     expect(dashboard).toContain("<CoachQuestionLauncher");
     expect(mobileHome).toContain("<CoachQuestionLauncher");
+    expect(coachPage).toContain("<CoachQuestionLauncher");
   });
 
   it.each([
