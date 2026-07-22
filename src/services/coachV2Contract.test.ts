@@ -26,6 +26,32 @@ describe("coachV2Contract", () => {
     expect(parsed.answer?.blocks[0]).toMatchObject({ kind: "metric_grid", items: [{ current: { value: 42, evidenceId: "ev_distance" } }] });
   });
 
+  it("accepts evidence-bound v2 grounded Markdown and rejects links or unknown evidence block-locally", () => {
+    const reportBlock = { ...baseBlock, kind: "grounded_markdown", markdown: "## 현재 위치\n\n**3.30 W/kg**입니다.\n\n- 다음 훈련을 진행하세요.",
+      evidenceIds: [evidence.evidenceId] };
+    const reportEnvelope = { ...envelope,
+      answer: { ...answer, schemaVersion: "coach-answer-document-v2", catalogVersion: "coach-answer-block-catalog-v2", blocks: [reportBlock] },
+      budget: { blocked: false, providerCalls: 1, inputTokens: 800, outputTokens: 500 },
+      execution: { ...envelope.execution, parser: "report_provider" } };
+    expect(parseCoachV2Response({ data: reportEnvelope }).answer?.blocks[0]).toMatchObject({ kind: "grounded_markdown" });
+    expect(parseCoachV2Response({ data: { ...reportEnvelope, answer: { ...reportEnvelope.answer,
+      catalogVersion: "coach-answer-block-catalog-v1" } } }).answer?.compatibility).toBe("unsupported_schema");
+    const v1WithV2Block = parseCoachV2Response({ data: { ...envelope, answer: { ...answer, blocks: [reportBlock] } } });
+    expect(v1WithV2Block.answer?.blocks[0]).toEqual({ kind: "unsupported_block", blockId: "block_distance", reason: "invalid_block" });
+
+    for (const changed of [
+      { ...reportBlock, markdown: "[잘못된 링크](https://example.com)" },
+      { ...reportBlock, markdown: "www.example.com" },
+      { ...reportBlock, markdown: "![이미지][ref]" },
+      { ...reportBlock, markdown: "[](relative-target)" },
+      { ...reportBlock, evidenceIds: ["ev_not_present"] },
+    ]) {
+      const parsed = parseCoachV2Response({ data: { ...reportEnvelope,
+        answer: { ...reportEnvelope.answer, blocks: [changed] } } });
+      expect(parsed.answer?.blocks[0]).toEqual({ kind: "unsupported_block", blockId: "block_distance", reason: "invalid_block" });
+    }
+  });
+
   it("accepts the strict load-analysis projection and fails closed on nested evidence drift", () => {
     const records: typeof evidence[] = [];
     let index = 0;

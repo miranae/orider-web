@@ -49,6 +49,22 @@ function fixture() {
 }
 
 describe("CoachAnswerDocumentView", () => {
+  it("renders grounded Markdown as semantic prose and lists without creating links or charts", () => {
+    const { response, document, evidence, base } = fixture();
+    document.blocks = [{ ...base("report"), kind: "grounded_markdown",
+      markdown: "## 목표까지의 차이\n\n현재는 **3.30 W/kg**입니다.\n\n### 훈련 방향\n\n- 역치 훈련은 주 1회\n- 회복 상태를 먼저 확인",
+      evidenceIds: [evidence[0]!.evidenceId] }];
+    render(<CoachAnswerDocumentView response={response} responseFormat="chart" locale="ko-KR" onAction={vi.fn()} />);
+    const reportHeading = screen.getByRole("heading", { name: "목표까지의 차이" });
+    expect(reportHeading).toBeInTheDocument();
+    expect(reportHeading.closest("section")).not.toHaveAttribute("aria-labelledby");
+    expect(screen.getByRole("heading", { name: "훈련 방향" })).toBeInTheDocument();
+    expect(screen.getByText("3.30 W/kg").tagName).toBe("STRONG");
+    expect(within(screen.getByRole("heading", { name: "훈련 방향" }).closest("article")!).getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
   it("renders supported metric, series, and distribution blocks as native tables when table is requested", () => {
     const { response } = fixture();
     render(<CoachAnswerDocumentView response={response} responseFormat="table" locale="ko-KR" onAction={vi.fn()} />);

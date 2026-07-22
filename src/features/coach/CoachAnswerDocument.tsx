@@ -391,7 +391,9 @@ function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale
     showLocalFormatFallback={showLocalFormatFallback} locale={locale} onAction={onAction} />;
   let body: ReactNode;
   let formatFallback = false;
-  if (block.kind === "narrative") {
+  if (block.kind === "grounded_markdown") {
+    body = <GroundedMarkdown markdown={block.markdown} />;
+  } else if (block.kind === "narrative") {
     const order = block.templateKey.endsWith("comparison_summary") ? ["current", "previous", "delta"] : ["current"];
     body = <div className="coach-answer__narrative"><Text id={`coach-block-${block.blockId}`} as="h3" variant="subtitle">{t(`answer.template.${block.templateKey.split(".").slice(-1)[0]}`)}</Text>
       <div className="coach-answer__narrative-values">{order.flatMap((key) => block.placeholders[key] ? [<Display key={key} item={block.placeholders[key]} locale={locale} className="coach-answer__strong" />] : [])}</div></div>;
@@ -440,10 +442,44 @@ function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale
   } else {
     body = <Button variant="outline" onClick={() => onAction(block.actionCode, block.entity)}>{t(`answer.action.${block.actionCode}`)}</Button>;
   }
-  return <section className={`coach-answer__block coach-answer__block--${block.kind}`} aria-labelledby={`coach-block-${block.blockId}`}>
-    {block.kind !== "narrative" && <h3 id={`coach-block-${block.blockId}`} className="coach-answer__block-title">{t(`answer.block.${block.kind}`)}</h3>}
+  return <section className={`coach-answer__block coach-answer__block--${block.kind}`}
+    {...(block.kind === "grounded_markdown" ? {} : { "aria-labelledby": `coach-block-${block.blockId}` })}>
+    {block.kind !== "narrative" && block.kind !== "grounded_markdown"
+      && <h3 id={`coach-block-${block.blockId}`} className="coach-answer__block-title">{t(`answer.block.${block.kind}`)}</h3>}
     {showLocalFormatFallback && formatFallback && <FormatFallbackNotice local />}{body}<BlockState block={block} />
   </section>;
+}
+
+function MarkdownInline({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*\n]+\*\*)/u);
+  return <>{parts.map((part, index) => part.startsWith("**") && part.endsWith("**")
+    ? <strong key={index}>{part.slice(2, -2)}</strong> : <Fragment key={index}>{part}</Fragment>)}</>;
+}
+
+function GroundedMarkdown({ markdown }: { markdown: string }) {
+  const rows = markdown.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+  const nodes: ReactNode[] = [];
+  for (let index = 0; index < rows.length;) {
+    const line = rows[index]!;
+    if (line.startsWith("### ")) {
+      nodes.push(<h4 key={index}><MarkdownInline text={line.slice(4)} /></h4>); index += 1; continue;
+    }
+    if (line.startsWith("## ")) {
+      nodes.push(<h3 key={index}><MarkdownInline text={line.slice(3)} /></h3>); index += 1; continue;
+    }
+    if (line.startsWith("- ")) {
+      const items: string[] = [];
+      while (rows[index]?.startsWith("- ")) items.push(rows[index++]!.slice(2));
+      nodes.push(<ul key={`u-${index}`}>{items.map((item, itemIndex) => <li key={itemIndex}><MarkdownInline text={item} /></li>)}</ul>); continue;
+    }
+    if (/^\d+[.]\s/u.test(line)) {
+      const items: string[] = [];
+      while (rows[index] && /^\d+[.]\s/u.test(rows[index]!)) items.push(rows[index++]!.replace(/^\d+[.]\s/u, ""));
+      nodes.push(<ol key={`o-${index}`}>{items.map((item, itemIndex) => <li key={itemIndex}><MarkdownInline text={item} /></li>)}</ol>); continue;
+    }
+    nodes.push(<p key={index}><MarkdownInline text={line} /></p>); index += 1;
+  }
+  return <article className="coach-answer__markdown">{nodes}</article>;
 }
 
 function Evidence({ records, locale, timezone }: { records: CoachEvidenceRecord[]; locale: string; timezone: string }) {
@@ -469,6 +505,7 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
   if (!document) return null;
   const fallback = response.outcome !== "answer";
   const loadAnalysis = document.compatibility === "supported" ? collectLoadAnalysisGroup(document) : null;
+  const hasGroundedMarkdown = document.blocks.some((block) => block.kind === "grounded_markdown");
   const loadChartable = loadAnalysis?.typed ? isChartableTimeSeries(typedLoadTrendBlock(loadAnalysis.typed))
     : loadAnalysis?.trends.some(isChartableTimeSeries) ?? false;
   const chartable = loadChartable || document.blocks.some((block) => {
@@ -480,7 +517,7 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
   });
   return <div className="coach-answer">
     {fallback && !historical && <div className="coach-answer__fallback" role="alert"><strong>{t("answer.fallback.title")}</strong><p>{t("answer.fallback.body")}</p></div>}
-    {responseFormat === "chart" && !chartable && <FormatFallbackNotice />}
+    {responseFormat === "chart" && !chartable && !hasGroundedMarkdown && <FormatFallbackNotice />}
     {document.compatibility === "unsupported_schema" ? <UnsupportedBlockNotice /> : <>
       {document.blocks.map((block) => {
         if (loadAnalysis?.blockIds.has(block.blockId)) {
