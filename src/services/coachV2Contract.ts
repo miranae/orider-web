@@ -319,9 +319,7 @@ const schemas = {
     "coach.answer.narrative.metric_summary", "coach.answer.narrative.comparison_summary",
   ]), placeholders: z.record(z.string().max(100), displayValue) }).strict(),
   grounded_markdown: z.object({ ...base, kind: z.literal("grounded_markdown"),
-    markdown: z.string().min(1).max(8_000).refine((value) =>
-      !/(?:https?:\/\/|www[.]|javascript:|data:|<[^>]+>|!\[|!?\[[^\]]*\]\([^)]*\))/iu.test(value),
-    ),
+    markdown: z.string().min(1).max(8_000),
     evidenceIds: z.array(id).min(1).max(64).refine(unique),
   }).strict(),
   metric_grid: z.object({ ...base, kind: z.literal("metric_grid"), items: z.array(z.object({ metricId, current: displayValue }).strict()).max(500) }).strict(),
