@@ -45,6 +45,9 @@
     "selectTitle": "Select a conversation",
     "selectBody": "Review its questions and answers, then continue from that context.",
     "turnCount": "{{count}} questions",
+    "turnNumber": "Turn {{count}}",
+    "you": "You",
+    "coachName": "O·RIDER Coach",
     "loadMore": "Load more conversations",
     "loadEarlierTurns": "Load earlier messages",
     "loadingThread": "Loading the selected conversation…",
@@ -63,6 +66,7 @@
     "sameRequestRetry": "Check the same request again",
     "sameRequestRetryNote": "Checks the result with the same request ID and answer format. It does not request a new use; actual usage is confirmed only by the server response.",
     "delete": "Delete conversation",
+    "deleteShort": "Delete",
     "deleteNamed": "Delete {{title}} conversation",
     "deleteTitle": "Delete this conversation?",
     "deleteConfirm": "All questions and answers in ‘{{title}}’ will be permanently deleted and cannot be recovered.",
@@ -188,7 +192,11 @@
     "unsupportedBlock": { "title": "Unsupported result block", "body": "The raw block payload was not displayed. Update the web app and try again." },
     "prescriptionDisabled": { "title": "Prescriptions are not supported yet", "body": "P1 does not execute or display training prescriptions." },
     "freshness": "Data as of {{at}}", "timezone": "Timezone {{timezone}}",
-    "evidence": { "toggle": "{{count}} evidence items", "item": "Evidence {{index}}" }
+    "evidence": {
+      "toggle": "{{count}} evidence items", "item": "Evidence {{index}}",
+      "label": { "currentFtp": "Current FTP", "targetFtp": "Target FTP", "weight": "Weight", "currentWPerKg": "Current W/kg", "targetWPerKg": "Target W/kg" },
+      "unit": { "watts": "W", "kilograms": "kg", "wPerKg": "W/kg" }
+    }
   },
   "prescription": {
     "title": "Next 7-day adjustment", "validUntil": "Valid until {{at}}", "proposalNotice": "This is a proposal and is not saved to your training plan until you confirm it.",
