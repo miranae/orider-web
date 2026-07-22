@@ -62,6 +62,20 @@ function data(input: unknown): Record<string, unknown> {
   return payload;
 }
 
+export class CoachHistoryTransportError extends Error {
+  readonly cause: unknown;
+
+  constructor(cause: unknown) {
+    super("COACH_HISTORY_TRANSPORT_UNKNOWN");
+    this.name = "CoachHistoryTransportError";
+    this.cause = cause;
+  }
+}
+
+export function isCoachHistoryTransportError(error: unknown): error is CoachHistoryTransportError {
+  return error instanceof CoachHistoryTransportError;
+}
+
 function parseSummary(value: unknown): CoachThreadSummary {
   const item = record(value);
   if (!item || typeof item.threadId !== "string" || !UUID.test(item.threadId)
@@ -135,21 +149,26 @@ function endpoint(path: string): string {
   return `${configured.replace(/\/$/, "")}/v1/coach${path}`;
 }
 
-async function request(path: string, init?: RequestInit): Promise<unknown> {
+async function request(path: string, init?: RequestInit, acceptTerminalData = false): Promise<unknown> {
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error("SIGN_IN_REQUIRED");
   const appCheckToken = await getAppCheckToken();
-  const response = await fetch(endpoint(path), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${idToken}`,
-      ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}),
-      ...init?.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(endpoint(path), {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+        ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch (cause) {
+    throw new CoachHistoryTransportError(cause);
+  }
   const payload: unknown = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  if (!response.ok && !(acceptTerminalData && record(payload)?.data)) {
     const error = record(record(payload)?.error);
     throw new Error(typeof error?.code === "string" ? error.code : `HTTP_${response.status}`);
   }
@@ -179,7 +198,7 @@ export async function getCoachThread(threadId: string, limit = 20, cursor?: stri
 export async function continueCoachThread(threadId: string, body: CoachV2QuestionRequest): Promise<CoachV2Response> {
   const response = parseCoachV2Response(await request(`/threads/${encodeURIComponent(threadId)}/respond`, {
     method: "POST", body: JSON.stringify(body),
-  }));
+  }, true));
   if (response.requestId !== body.requestId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
   return response;
 }

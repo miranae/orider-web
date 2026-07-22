@@ -44,7 +44,7 @@ describe("CoachConsentSheet", () => {
     expect(screen.queryByText("user_question")).not.toBeInTheDocument();
     expect(within(externalSummary!).getByText(/External LLM · Claude/)).toBeInTheDocument();
     expect(within(externalSummary!).getAllByText(/External LLM/)).toHaveLength(1);
-    expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 12 KiB\).*외부 AI 처리/)).toBeInTheDocument();
+    expect(screen.getByText(/최근 질문과 답변 최대 3개\(합산 최대 8 KiB\).*외부 AI 처리/)).toBeInTheDocument();
     expect(screen.getByText(/처리 내용이 변경되거나 설정에서 동의를 철회하기 전까지/)).toBeInTheDocument();
     expect(document.querySelector(".coach-policy-compact > .ds-text--tone-warning")).toHaveTextContent("처리자가 변경됨");
     const details = screen.getByText("전체 데이터 처리 세부사항과 링크 보기").closest("details");

@@ -7,7 +7,7 @@ vi.mock("./firebase", () => ({ auth: { currentUser: { getIdToken: mocks.getIdTok
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.runtime }));
 
 import {
-  deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads, parseCoachThread, parseCoachThreadPage,
+  continueCoachThread, deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads, parseCoachThread, parseCoachThreadPage,
 } from "./coachHistoryClient";
 
 const threadId = "123e4567-e89b-42d3-a456-426614174000";
@@ -86,6 +86,30 @@ describe("coachHistoryClient", () => {
   it("rejects every non-2xx response even when the body contains data", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: { threads: [summary], nextCursor: null } }), { status: 500 }));
     await expect(getCoachThreads()).rejects.toThrow("HTTP_500");
+  });
+
+  it("accepts a valid terminal continuation envelope carried by a non-2xx response", async () => {
+    const { unsupported: _unsupported, ...base } = response;
+    const failed = { ...base, outcome: "failed", error: {
+      code: "token_cap_exceeded", retryable: false, fallbackAvailable: false,
+    }, retry: { ...response.retry, mode: "same_request_replay", reasonCode: "token_cap_exceeded" } };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: failed }), { status: 500 }));
+    await expect(continueCoachThread(threadId, {
+      requestId: turnId, question: "지난주와 비교해줘", discipline: "bike", locale: "ko-KR",
+      apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1",
+      contextFilters: {}, responseFormat: "auto", expectedSessionRevision: 75,
+    })).resolves.toMatchObject({ requestId: turnId, outcome: "failed", error: { code: "token_cap_exceeded" } });
+  });
+
+  it("rejects an error-only non-2xx continuation response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "coach_session_revision_conflict" },
+    }), { status: 409 }));
+    await expect(continueCoachThread(threadId, {
+      requestId: turnId, question: "지난주와 비교해줘", discipline: "bike", locale: "ko-KR",
+      apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1",
+      contextFilters: {}, responseFormat: "auto", expectedSessionRevision: 75,
+    })).rejects.toThrow("coach_session_revision_conflict");
   });
 
   it("enforces the detail-page limit, bounded cursors, and canonical UTC timestamps", async () => {

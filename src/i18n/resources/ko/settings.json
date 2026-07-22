@@ -440,7 +440,7 @@
     "consentTitle": "AI 코치 데이터 사용 안내",
     "staleTitle": "변경된 AI 코치 데이터 사용 안내",
     "compactIntro": "동의 전에 사용 데이터, 외부 처리, 저장·철회 방식을 확인해 주세요.",
-    "conversationContextNote": "이어 묻기 시 이 대화의 최근 질문과 답변 최대 3개(합산 최대 12 KiB)가 외부 AI 처리에 사용될 수 있습니다.",
+    "conversationContextNote": "이어 묻기 시 이 대화의 최근 질문과 답변 최대 3개(합산 최대 8 KiB)가 외부 AI 처리에 사용될 수 있습니다.",
     "consentPersistenceNote": "동의하면 처리 내용이 변경되거나 설정에서 동의를 철회하기 전까지 이 안내는 다시 표시되지 않습니다.",
     "summaryDataTitle": "사용하는 데이터",
     "summaryExternalTitle": "외부 AI 처리 · {{country}}",
