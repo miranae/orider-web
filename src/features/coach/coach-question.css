@@ -386,6 +386,26 @@
   list-style: none;
 }
 
+.coach-answer__markdown {
+  display: grid;
+  gap: var(--space-3);
+  color: var(--ink-1);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.coach-answer__markdown h3,
+.coach-answer__markdown h4,
+.coach-answer__markdown p,
+.coach-answer__markdown ul,
+.coach-answer__markdown ol { margin: 0; }
+
+.coach-answer__markdown h3 { font-size: var(--fs-lg); }
+.coach-answer__markdown h4 { font-size: var(--fs-md); }
+.coach-answer__markdown ul,
+.coach-answer__markdown ol { padding-inline-start: var(--space-5); }
+.coach-answer__markdown li + li { margin-block-start: var(--space-2); }
+
 .coach-prescription {
   display: grid;
   gap: var(--space-3);

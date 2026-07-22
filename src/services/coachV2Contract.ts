@@ -6,8 +6,8 @@ export const COACH_V2_API_VERSION = "v2" as const;
 export const COACH_P1_CAPABILITY_VERSION = "p1" as const;
 export const COACH_V2_REQUEST_SCHEMA_VERSION = "coach-respond-v2" as const;
 export const COACH_V2_RESPONSE_SCHEMA_VERSION = "coach-response-envelope-v1" as const;
-export const COACH_ANSWER_SCHEMA_VERSION = "coach-answer-document-v1" as const;
-export const COACH_ANSWER_CATALOG_VERSION = "coach-answer-block-catalog-v1" as const;
+export const COACH_ANSWER_SCHEMA_VERSIONS = ["coach-answer-document-v1", "coach-answer-document-v2"] as const;
+export const COACH_ANSWER_CATALOG_VERSIONS = ["coach-answer-block-catalog-v1", "coach-answer-block-catalog-v2"] as const;
 export const COACH_RESPONSE_FORMATS = ["auto", "table", "chart"] as const;
 export type CoachResponseFormat = typeof COACH_RESPONSE_FORMATS[number];
 export const COACH_LOAD_MISSING_SIGNALS = [
@@ -57,6 +57,11 @@ export interface NarrativeBlock extends BlockBase {
   kind: "narrative";
   templateKey: "coach.answer.narrative.metric_summary" | "coach.answer.narrative.comparison_summary";
   placeholders: Record<string, CoachDisplayValue>;
+}
+export interface GroundedMarkdownBlock extends BlockBase {
+  kind: "grounded_markdown";
+  markdown: string;
+  evidenceIds: string[];
 }
 export interface MetricGridBlock extends BlockBase {
   kind: "metric_grid";
@@ -151,7 +156,7 @@ export interface UnsupportedBlock {
   reason: "unknown_kind" | "invalid_block" | "prescription_feature_disabled";
 }
 
-export type CoachAnswerBlock = NarrativeBlock | MetricGridBlock | ComparisonTableBlock | TimeSeriesBlock |
+export type CoachAnswerBlock = NarrativeBlock | GroundedMarkdownBlock | MetricGridBlock | ComparisonTableBlock | TimeSeriesBlock |
   DistributionBlock | RankingBlock | ActivityListBlock | GoalProgressBlock | PlanAdherenceBlock |
   LoadAnalysisBlock | DataGapBlock | ActionBlock | PrescriptionBlock | UnsupportedBlock;
 
@@ -210,7 +215,7 @@ export interface CoachV2Response {
   quota: { limit: 3; remaining: number; resetAt: string; consumed: boolean };
   budget: { blocked: boolean; providerCalls: 0 | 1; inputTokens: number; outputTokens: number };
   retry: CoachRetryDisposition;
-  execution: { parser: "deterministic" | "provider"; queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string };
+  execution: { parser: "deterministic" | "provider" | "report_provider"; queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string };
 }
 
 export interface CoachV2QuestionRequest {
@@ -313,6 +318,12 @@ const schemas = {
   narrative: z.object({ ...base, kind: z.literal("narrative"), templateKey: z.enum([
     "coach.answer.narrative.metric_summary", "coach.answer.narrative.comparison_summary",
   ]), placeholders: z.record(z.string().max(100), displayValue) }).strict(),
+  grounded_markdown: z.object({ ...base, kind: z.literal("grounded_markdown"),
+    markdown: z.string().min(1).max(8_000).refine((value) =>
+      !/(?:https?:\/\/|www[.]|javascript:|data:|<[^>]+>|!\[|!?\[[^\]]*\]\([^)]*\))/iu.test(value),
+    ),
+    evidenceIds: z.array(id).min(1).max(64).refine(unique),
+  }).strict(),
   metric_grid: z.object({ ...base, kind: z.literal("metric_grid"), items: z.array(z.object({ metricId, current: displayValue }).strict()).max(500) }).strict(),
   comparison_table: z.object({ ...base, kind: z.literal("comparison_table"), columns: z.array(z.object({
     id: z.enum(["current", "previous", "delta"]), labelKey,
@@ -376,7 +387,7 @@ const quota = z.object({ limit: z.literal(3), remaining: z.number().int().min(0)
 const budget = z.object({ blocked: z.boolean(), providerCalls: z.union([z.literal(0), z.literal(1)]), inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
 }).strict();
-const execution = z.object({ parser: z.enum(["deterministic", "provider"]), queryPlanHash: id.optional(), catalogVersion: id.optional(),
+const execution = z.object({ parser: z.enum(["deterministic", "provider", "report_provider"]), queryPlanHash: id.optional(), catalogVersion: id.optional(),
   factsId: id.optional(), asOf: iso,
 }).strict();
 const clarification = z.object({ clarificationId: z.string().regex(/^[A-Za-z0-9_-]{8,96}$/), promptKey: labelKey,
@@ -407,6 +418,7 @@ function sameValue(left: unknown, right: unknown): boolean {
 
 function displayValues(block: Exclude<CoachAnswerBlock, UnsupportedBlock>): CoachDisplayValue[] {
   if (block.kind === "narrative") return Object.values(block.placeholders);
+  if (block.kind === "grounded_markdown") return [];
   if (block.kind === "metric_grid") return block.items.map((item) => item.current);
   if (block.kind === "comparison_table") return block.rows.flatMap((row) => Object.values(row.cells));
   if (block.kind === "time_series") return block.series.flatMap((series) => series.points.flatMap((point) => [point.at, point.value]));
@@ -434,9 +446,12 @@ function displayValues(block: Exclude<CoachAnswerBlock, UnsupportedBlock>): Coac
   return [];
 }
 
-function parseBlock(value: unknown, index: number, evidenceById: Map<string, CoachEvidenceRecord>): CoachAnswerBlock {
+function parseBlock(value: unknown, index: number, evidenceById: Map<string, CoachEvidenceRecord>, allowGroundedMarkdown: boolean): CoachAnswerBlock {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
   const safeId = typeof raw?.blockId === "string" && raw.blockId.length <= 160 ? raw.blockId : `unsupported_${index}`;
+  if (raw?.kind === "grounded_markdown" && !allowGroundedMarkdown) {
+    return { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
+  }
   if (typeof raw?.kind !== "string" || !(raw.kind in schemas)) {
     return { kind: "unsupported_block", blockId: safeId, reason: "unknown_kind" };
   }
@@ -449,14 +464,18 @@ function parseBlock(value: unknown, index: number, evidenceById: Map<string, Coa
   });
   const relationEvidence = block.kind !== "plan_adherence" || [...block.missed, ...block.replacements]
     .flatMap((item) => item.evidenceIds).every((evidenceId) => evidenceById.has(evidenceId));
+  const markdownEvidence = block.kind !== "grounded_markdown"
+    || block.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId));
   const goalEvidence = block.kind !== "load_analysis" || !block.assessment.goalAssessment
     || block.assessment.goalAssessment.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId));
-  return validEvidence && relationEvidence && goalEvidence ? block : { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
+  return validEvidence && relationEvidence && markdownEvidence && goalEvidence ? block : { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
 }
 
 function parseAnswer(value: unknown): CoachAnswerDocument {
   const raw = answerRaw.parse(value);
-  if (raw.schemaVersion !== COACH_ANSWER_SCHEMA_VERSION || raw.catalogVersion !== COACH_ANSWER_CATALOG_VERSION) {
+  const compatibleVersion = COACH_ANSWER_SCHEMA_VERSIONS.some((schemaVersion, index) =>
+    raw.schemaVersion === schemaVersion && raw.catalogVersion === COACH_ANSWER_CATALOG_VERSIONS[index]);
+  if (!compatibleVersion) {
     return { compatibility: "unsupported_schema", answerId: raw.answerId, sourceFactsId: raw.sourceFactsId,
       questionSummary: raw.questionSummary, status: raw.status, blocks: [{ kind: "unsupported_block", blockId: "answer_schema", reason: "invalid_block" }],
       evidence: [], warnings: [], freshness: raw.freshness, followUps: [] };
@@ -464,7 +483,8 @@ function parseAnswer(value: unknown): CoachAnswerDocument {
   const evidenceById = new Map(raw.evidence.map((item) => [item.evidenceId, item]));
   if (evidenceById.size !== raw.evidence.length) throw new Error("INVALID_COACH_V2_RESPONSE");
   return { compatibility: "supported", answerId: raw.answerId, sourceFactsId: raw.sourceFactsId,
-    questionSummary: raw.questionSummary, status: raw.status, blocks: raw.blocks.map((block, index) => parseBlock(block, index, evidenceById)),
+    questionSummary: raw.questionSummary, status: raw.status, blocks: raw.blocks.map((block, index) =>
+      parseBlock(block, index, evidenceById, raw.schemaVersion === "coach-answer-document-v2")),
     evidence: raw.evidence, warnings: raw.warnings, freshness: raw.freshness, followUps: raw.followUps };
 }
 
@@ -488,7 +508,7 @@ export function parseCoachV2Response(input: unknown): CoachV2Response {
       || (raw.retry.mode === "same_request_replay" && raw.retry.retryable)
       || (raw.error && raw.error.retryable !== raw.retry.retryable)
       || (raw.budget.providerCalls === 0 && (raw.budget.inputTokens !== 0 || raw.budget.outputTokens !== 0))
-      || !providerBinding || (raw.budget.providerCalls === 1 && raw.execution.parser !== "provider")
+      || !providerBinding || (raw.budget.providerCalls === 1 && !["provider", "report_provider"].includes(raw.execution.parser))
       || (raw.outcome === "answer" && (!hasProvenance || answer?.sourceFactsId !== raw.execution.factsId))
       || (raw.outcome !== "answer" && hasAnyProvenance)
       || (raw.outcome === "quota_exceeded" && (raw.quota.remaining !== 0 || raw.quota.consumed || raw.budget.providerCalls !== 0))
