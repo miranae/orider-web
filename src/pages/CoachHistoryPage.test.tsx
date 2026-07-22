@@ -96,6 +96,24 @@ describe("CoachHistoryPage", () => {
     expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
   });
 
+  it("labels each saved turn with chronology and explicit speaker identity", async () => {
+    const firstId = "323e4567-e89b-42d3-a456-426614174002";
+    mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [
+      { turnId: firstId, requestId: firstId, question: "지난주 운동량은 어땠어?", createdAt: "2026-07-18T02:00:00Z",
+        response: { ...response, requestId: firstId }, sessionRevision: 1 },
+      { turnId: requestId, requestId, question: "이번 주 운동량이 어땠어?", createdAt: "2026-07-19T02:00:00Z", response, sessionRevision: 2 },
+    ] }, nextCursor: null });
+    setup(`/ko/coach/${threadId}`);
+    expect(await screen.findByRole("heading", { name: "대화 1" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "대화 2" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "나" })).toHaveLength(2);
+    expect(screen.getAllByRole("heading", { name: "O·RIDER 코치" })).toHaveLength(2);
+    expect(screen.getByRole("region", { name: "대화 1 · 나" })).toHaveTextContent("지난주 운동량은 어땠어?");
+    expect(screen.getByRole("region", { name: "대화 1 · O·RIDER 코치" })).toHaveTextContent(`answer ${firstId}`);
+    expect(screen.getByRole("region", { name: "대화 2 · 나" })).toHaveTextContent("이번 주 운동량이 어땠어?");
+    expect(screen.getByRole("region", { name: "대화 2 · O·RIDER 코치" })).toHaveTextContent(`answer ${requestId}`);
+  });
+
   it("treats a stored terminal follow-up as confirmed instead of offering a transport retry", async () => {
     const followUpId = "323e4567-e89b-42d3-a456-426614174002";
     vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
@@ -283,6 +301,11 @@ describe("CoachHistoryPage", () => {
         turns: [turn(olderId, "가장 오래된 질문", "2026-07-19T01:00:00Z", 1), middle] }, nextCursor: null });
     setup(`/ko/coach/${threadId}`);
     await screen.findByText(`answer ${newestId}`);
+    expect(screen.getByRole("heading", { name: "대화 2" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "대화 3" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "대화 1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "대화 2 · 나" })).toHaveTextContent("중간 질문");
+    expect(screen.getByRole("region", { name: "대화 3 · O·RIDER 코치" })).toHaveTextContent(`answer ${newestId}`);
     await userEvent.click(screen.getByRole("button", { name: "이전 대화 더 보기" }));
     const older = await screen.findByText(`answer ${olderId}`);
     const middleAnswer = screen.getByText(`answer ${requestId}`);
@@ -290,6 +313,10 @@ describe("CoachHistoryPage", () => {
     expect(older.compareDocumentPosition(middleAnswer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(middleAnswer.compareDocumentPosition(newest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByText(`answer ${requestId}`)).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "대화 1" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "대화 2" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "대화 3" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "대화 2 · 나" })).toHaveTextContent("중간 질문");
     expect(screen.queryByRole("button", { name: "이전 대화 더 보기" })).not.toBeInTheDocument();
   });
 });

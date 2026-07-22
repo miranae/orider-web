@@ -49,6 +49,57 @@ function fixture() {
 }
 
 describe("CoachAnswerDocumentView", () => {
+  it("marks stored answers for the compact history skin and omits empty evidence", () => {
+    const { response, document, evidence, base } = fixture();
+    document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown: "## 코칭 요약\n\n회복을 우선하세요.",
+      evidenceIds: [evidence[0]!.evidenceId] }];
+    document.evidence = [evidence[0]!, { ...evidence[0]!, evidenceId: "ev_empty", value: null }];
+    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} historical />);
+    expect(view.container.querySelector(".coach-answer--historical")).toBeInTheDocument();
+    expect(screen.getByText("분석 근거 1개")).toBeInTheDocument();
+    expect(view.container.querySelector('[data-evidence-id="ev_empty"]')).not.toBeInTheDocument();
+  });
+
+  it("preserves the complete evidence manifest outside the historical view", () => {
+    const { response, document, evidence, base } = fixture();
+    document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown: "## 코칭 요약", evidenceIds: [] }];
+    document.evidence = [evidence[0]!, { ...evidence[0]!, evidenceId: "ev_null", value: null },
+      { ...evidence[0]!, evidenceId: "ev_empty", value: "" }, { ...evidence[0]!, evidenceId: "ev_object", value: { raw: true } }];
+
+    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
+
+    expect(screen.getByText("분석 근거 4개")).toBeInTheDocument();
+    expect(view.container.querySelectorAll(".coach-answer__evidence li")).toHaveLength(4);
+    expect(view.container.querySelector('[data-evidence-id="ev_null"]')).toHaveTextContent("—");
+    expect(view.container.querySelector('[data-evidence-id="ev_empty"]')).toBeInTheDocument();
+    expect(view.container.querySelector('[data-evidence-id="ev_object"]')).toBeInTheDocument();
+  });
+
+  it("uses exact canonical metric fields and adds units only to finite numeric evidence", () => {
+    const { response, document, evidence, base } = fixture();
+    const record = (evidenceId: string, field: string, value: unknown, sourceId = "source") =>
+      ({ ...evidence[0]!, evidenceId, field, value, sourceId });
+    document.blocks = [{ ...base("report"), kind: "grounded_markdown", markdown: "## 코칭 요약", evidenceIds: [] }];
+    document.evidence = [
+      record("ev_ftp", "ftp_watts", 161),
+      record("ev_target_ratio", "target_w_per_kg", 3.5),
+      record("ev_lookalike", "power_to_weight", 3.2, "target_w_per_kg_projection"),
+      record("ev_string", "ftp_watts", "unknown"),
+      record("ev_boolean", "target_w_per_kg", true),
+    ];
+
+    const view = render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} historical />);
+
+    expect(view.container.querySelector('[data-evidence-id="ev_ftp"]')).toHaveTextContent("현재 FTP161 W");
+    expect(view.container.querySelector('[data-evidence-id="ev_target_ratio"]')).toHaveTextContent("목표 W/kg3.5 W/kg");
+    expect(view.container.querySelector('[data-evidence-id="ev_lookalike"]')).toHaveTextContent("근거 33.2");
+    expect(view.container.querySelector('[data-evidence-id="ev_string"]')).toHaveTextContent("근거 4unknown");
+    expect(view.container.querySelector('[data-evidence-id="ev_boolean"]')).toHaveTextContent("근거 5✓");
+    expect(view.container.querySelector('[data-evidence-id="ev_lookalike"]')).not.toHaveTextContent("W/kg");
+    expect(view.container.querySelector('[data-evidence-id="ev_string"]')).not.toHaveTextContent(" W");
+    expect(view.container.querySelector('[data-evidence-id="ev_boolean"]')).not.toHaveTextContent("W/kg");
+  });
+
   it("renders grounded Markdown as semantic prose and lists without creating links or charts", () => {
     const { response, document, evidence, base } = fixture();
     document.blocks = [{ ...base("report"), kind: "grounded_markdown",
