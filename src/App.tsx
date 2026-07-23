@@ -22,6 +22,8 @@ import { isoWeek, activityCountBucket30d } from "./utils/cohort";
 import Layout from "./components/Layout";
 import { LocaleProvider } from "./contexts/LocaleContext";
 import { useAuth } from "./contexts/AuthContext";
+import { useToast } from "./contexts/ToastContext";
+import { didHandoffFail } from "./services/appHandoff";
 import { LocaleRoot } from "./components/i18n/LocaleRoot";
 import { LocaleRedirect } from "./components/i18n/LocaleRedirect";
 import { firestore } from "./services/firebase";
@@ -210,6 +212,14 @@ function AppRoutes() {
 export default function App() {
   const location = useLocation();
   const { user, profile } = useAuth();
+  const { showToast } = useToast();
+  const { t: tAuth } = useTranslation("auth");
+
+  // 앱→웹 로그인 인계가 실패(만료/재사용/타임아웃)했으면 마운트 직후 1회 안내 —
+  // 앱에서 넘어온 사용자가 이유 없이 비로그인 화면을 보는 무음 실패 방지(리뷰 MINOR).
+  useEffect(() => {
+    if (didHandoffFail()) showToast(tAuth("appHandoffFailed"), "error");
+  }, [showToast, tAuth]);
 
   // 라우트 로드 타이밍 시작점 — **렌더 단계**에서 navStart/pending 을 세팅한다(effect 아님).
   // 캐시된 청크 재방문 시 자식 RouteProbe 의 layout effect 가 부모 effect 보다 먼저 실행되므로,
