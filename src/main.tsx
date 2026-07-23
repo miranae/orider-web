@@ -8,7 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { DialogProvider } from "./contexts/DialogContext";
 import { OriderThemeProvider } from "./theme";
 import { ensureAppCheckReady, initFirebase } from "./services/firebase";
-import { consumeAppHandoffCode } from "./services/appHandoff";
+import { consumeAppHandoffCode, stashHandoffCode } from "./services/appHandoff";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
@@ -21,6 +21,10 @@ import App from "./App";
 // 느린 fetch (>= 2s) 자동 기록 — Firebase / Firestore SDK 가 fetch 참조를 캡쳐하기
 // 전에 install 해야 Firestore 슬로우 쿼리까지 wrap 됨. analytics 미초기화 시점 호출은
 // track() 의 null-guard 가 흡수.
+// 앱→웹 로그인 인계 코드는 **모듈 본문 첫 문장**에서 URL 로부터 제거해 보관 —
+// 에러 리스너/Sentry/후속 리소스 로드가 코드 포함 URL 을 관측하는 창을 최소화(리뷰 MINOR).
+stashHandoffCode();
+
 installSlowFetchTracker();
 
 // modulepreload 실패(vite:preloadError) 자동 복구 — 새 배포 후 옛 탭이 사라진
