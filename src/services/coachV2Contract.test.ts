@@ -63,6 +63,73 @@ describe("coachV2Contract", () => {
     }
   });
 
+  it("accepts a two-round agent answer with general Markdown and no evidence records", () => {
+    const agentBlock = {
+      ...baseBlock,
+      blockId: "block_agent_text",
+      sourceSlotIds: [],
+      kind: "grounded_markdown",
+      markdown: "오늘은 아주 가볍게 시작하고, 피로가 커지면 쉬세요.",
+      evidenceIds: [],
+    };
+    const agentEnvelope = {
+      ...envelope,
+      answer: {
+        ...answer,
+        schemaVersion: "coach-answer-document-v2",
+        catalogVersion: "coach-answer-block-catalog-v2",
+        questionSummary: "coach.answer.summary.agent_text",
+        blocks: [agentBlock],
+        evidence: [],
+      },
+      budget: { blocked: false, providerCalls: 2, inputTokens: 1_875, outputTokens: 713 },
+      execution: { ...envelope.execution, parser: "provider" },
+    };
+
+    expect(parseCoachV2Response({ data: agentEnvelope })).toMatchObject({
+      outcome: "answer",
+      budget: { providerCalls: 2 },
+      answer: { blocks: [{ kind: "grounded_markdown", evidenceIds: [] }] },
+    });
+
+    expect(() => parseCoachV2Response({ data: {
+      ...agentEnvelope,
+      answer: { ...agentEnvelope.answer, questionSummary: "coach.answer.summary.report" },
+    } })).toThrow();
+
+    for (const changed of [
+      { sourceSlotIds: ["tool_metric_1"] },
+      { partial: true },
+      { stale: true },
+      { truncated: true },
+      { omittedCount: 1 },
+    ]) {
+      expect(() => parseCoachV2Response({ data: {
+        ...agentEnvelope,
+        answer: { ...agentEnvelope.answer, blocks: [{ ...agentBlock, ...changed }] },
+      } })).toThrow();
+    }
+
+    expect(() => parseCoachV2Response({ data: {
+      ...agentEnvelope,
+      execution: { ...agentEnvelope.execution, parser: "report_provider" },
+    } })).toThrow();
+    expect(() => parseCoachV2Response({ data: {
+      ...agentEnvelope,
+      budget: { blocked: false, providerCalls: 1, inputTokens: 1_875, outputTokens: 713 },
+      execution: { ...agentEnvelope.execution, parser: "report_provider" },
+    } })).toThrow();
+    expect(() => parseCoachV2Response({ data: {
+      ...agentEnvelope,
+      budget: { blocked: false, providerCalls: 0, inputTokens: 0, outputTokens: 0 },
+      execution: { ...agentEnvelope.execution, parser: "deterministic" },
+    } })).toThrow();
+    expect(() => parseCoachV2Response({ data: {
+      ...agentEnvelope,
+      answer: { ...agentEnvelope.answer, blocks: answer.blocks, evidence: answer.evidence },
+    } })).toThrow();
+  });
+
   it("accepts the strict load-analysis projection and fails closed on nested evidence drift", () => {
     const records: typeof evidence[] = [];
     let index = 0;

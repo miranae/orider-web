@@ -213,7 +213,7 @@ export interface CoachV2Response {
   unsupported?: CoachUnsupportedPayload;
   error?: { code: string; retryable: boolean; fallbackAvailable: boolean };
   quota: { limit: 3; remaining: number; resetAt: string; consumed: boolean };
-  budget: { blocked: boolean; providerCalls: 0 | 1; inputTokens: number; outputTokens: number };
+  budget: { blocked: boolean; providerCalls: 0 | 1 | 2; inputTokens: number; outputTokens: number };
   retry: CoachRetryDisposition;
   execution: { parser: "deterministic" | "provider" | "report_provider"; queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string };
 }
@@ -320,7 +320,7 @@ const schemas = {
   ]), placeholders: z.record(z.string().max(100), displayValue) }).strict(),
   grounded_markdown: z.object({ ...base, kind: z.literal("grounded_markdown"),
     markdown: z.string().min(1).max(8_000),
-    evidenceIds: z.array(id).min(1).max(64).refine(unique),
+    evidenceIds: z.array(id).max(64).refine(unique),
   }).strict(),
   metric_grid: z.object({ ...base, kind: z.literal("metric_grid"), items: z.array(z.object({ metricId, current: displayValue }).strict()).max(500) }).strict(),
   comparison_table: z.object({ ...base, kind: z.literal("comparison_table"), columns: z.array(z.object({
@@ -382,7 +382,7 @@ const retry = z.object({ mode: z.enum(["same_request_resume", "same_request_poll
   retryable: z.boolean(), reasonCode,
 }).strict();
 const quota = z.object({ limit: z.literal(3), remaining: z.number().int().min(0).max(3), resetAt: iso, consumed: z.boolean() }).strict();
-const budget = z.object({ blocked: z.boolean(), providerCalls: z.union([z.literal(0), z.literal(1)]), inputTokens: z.number().int().nonnegative(),
+const budget = z.object({ blocked: z.boolean(), providerCalls: z.union([z.literal(0), z.literal(1), z.literal(2)]), inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
 }).strict();
 const execution = z.object({ parser: z.enum(["deterministic", "provider", "report_provider"]), queryPlanHash: id.optional(), catalogVersion: id.optional(),
@@ -444,7 +444,8 @@ function displayValues(block: Exclude<CoachAnswerBlock, UnsupportedBlock>): Coac
   return [];
 }
 
-function parseBlock(value: unknown, index: number, evidenceById: Map<string, CoachEvidenceRecord>, allowGroundedMarkdown: boolean): CoachAnswerBlock {
+function parseBlock(value: unknown, index: number, evidenceById: Map<string, CoachEvidenceRecord>,
+  allowGroundedMarkdown: boolean, allowUnboundMarkdown: boolean): CoachAnswerBlock {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
   const safeId = typeof raw?.blockId === "string" && raw.blockId.length <= 160 ? raw.blockId : `unsupported_${index}`;
   if (raw?.kind === "grounded_markdown" && !allowGroundedMarkdown) {
@@ -463,13 +464,15 @@ function parseBlock(value: unknown, index: number, evidenceById: Map<string, Coa
   const relationEvidence = block.kind !== "plan_adherence" || [...block.missed, ...block.replacements]
     .flatMap((item) => item.evidenceIds).every((evidenceId) => evidenceById.has(evidenceId));
   const markdownEvidence = block.kind !== "grounded_markdown"
-    || block.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId));
+    || (block.evidenceIds.length > 0 && block.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId)))
+    || (allowUnboundMarkdown && block.evidenceIds.length === 0 && block.sourceSlotIds.length === 0
+      && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0);
   const goalEvidence = block.kind !== "load_analysis" || !block.assessment.goalAssessment
     || block.assessment.goalAssessment.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId));
   return validEvidence && relationEvidence && markdownEvidence && goalEvidence ? block : { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
 }
 
-function parseAnswer(value: unknown): CoachAnswerDocument {
+function parseAnswer(value: unknown, allowProviderAgentAnswer: boolean): CoachAnswerDocument {
   const raw = answerRaw.parse(value);
   const compatibleVersion = COACH_ANSWER_SCHEMA_VERSIONS.some((schemaVersion, index) =>
     raw.schemaVersion === schemaVersion && raw.catalogVersion === COACH_ANSWER_CATALOG_VERSIONS[index]);
@@ -480,16 +483,32 @@ function parseAnswer(value: unknown): CoachAnswerDocument {
   }
   const evidenceById = new Map(raw.evidence.map((item) => [item.evidenceId, item]));
   if (evidenceById.size !== raw.evidence.length) throw new Error("INVALID_COACH_V2_RESPONSE");
+  const allowUnboundMarkdown = allowProviderAgentAnswer
+    && raw.schemaVersion === "coach-answer-document-v2"
+    && raw.catalogVersion === "coach-answer-block-catalog-v2"
+    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(raw.questionSummary)
+    && raw.evidence.length === 0;
   return { compatibility: "supported", answerId: raw.answerId, sourceFactsId: raw.sourceFactsId,
     questionSummary: raw.questionSummary, status: raw.status, blocks: raw.blocks.map((block, index) =>
-      parseBlock(block, index, evidenceById, raw.schemaVersion === "coach-answer-document-v2")),
+      parseBlock(block, index, evidenceById, raw.schemaVersion === "coach-answer-document-v2", allowUnboundMarkdown)),
     evidence: raw.evidence, warnings: raw.warnings, freshness: raw.freshness, followUps: raw.followUps };
+}
+
+function isUnboundAgentAnswer(answer: CoachAnswerDocument | undefined): boolean {
+  if (!answer || answer.compatibility !== "supported"
+      || !["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary)
+      || answer.evidence.length !== 0 || answer.blocks.length !== 1) return false;
+  const block = answer.blocks[0];
+  return block?.kind === "grounded_markdown" && block.evidenceIds.length === 0 && block.sourceSlotIds.length === 0
+    && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
 }
 
 export function parseCoachV2Response(input: unknown): CoachV2Response {
   const wrapper = z.object({ data: z.unknown() }).passthrough().parse(input);
   const raw = envelopeRaw.parse(wrapper.data);
-  const answer = raw.answer === undefined ? undefined : parseAnswer(raw.answer);
+  const allowProviderAgentAnswer = raw.execution.parser === "provider"
+    && (raw.budget.providerCalls === 1 || raw.budget.providerCalls === 2);
+  const answer = raw.answer === undefined ? undefined : parseAnswer(raw.answer, allowProviderAgentAnswer);
   const has = (name: "answer" | "clarification" | "unsupported" | "error") => raw[name] !== undefined;
   const validOutcome = raw.outcome === "answer" ? has("answer") && !has("clarification") && !has("unsupported") && !has("error")
     : raw.outcome === "clarification_required" ? has("clarification") && !has("answer") && !has("unsupported") && !has("error")
@@ -499,14 +518,21 @@ export function parseCoachV2Response(input: unknown): CoachV2Response {
     && typeof raw.execution.catalogVersion === "string" && typeof raw.execution.factsId === "string";
   const hasAnyProvenance = [raw.execution.queryPlanHash, raw.execution.catalogVersion, raw.execution.factsId]
     .some((value) => typeof value === "string");
-  const providerBinding = raw.execution.parser === "deterministic" ? raw.budget.providerCalls === 0
-    : raw.budget.providerCalls === 1 || raw.outcome !== "answer";
+  const declaresUnboundAgentAnswer = answer?.compatibility === "supported"
+    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary)
+    && answer.evidence.length === 0;
+  const providerBinding = raw.outcome !== "answer"
+    ? raw.execution.parser !== "deterministic" || raw.budget.providerCalls === 0
+    : raw.execution.parser === "deterministic" ? raw.budget.providerCalls === 0 && !declaresUnboundAgentAnswer
+      : raw.execution.parser === "report_provider" ? raw.budget.providerCalls === 1 && !declaresUnboundAgentAnswer
+        : (raw.budget.providerCalls === 1 && (!declaresUnboundAgentAnswer || isUnboundAgentAnswer(answer)))
+          || (raw.budget.providerCalls === 2 && isUnboundAgentAnswer(answer));
   if (!validOutcome || raw.quota.consumed !== raw.retry.previousTurnConsumed
       || (raw.retry.mode === "new_request_required") !== (raw.retry.quotaImpact === "one_new_turn")
       || (raw.retry.mode === "same_request_replay" && raw.retry.retryable)
       || (raw.error && raw.error.retryable !== raw.retry.retryable)
       || (raw.budget.providerCalls === 0 && (raw.budget.inputTokens !== 0 || raw.budget.outputTokens !== 0))
-      || !providerBinding || (raw.budget.providerCalls === 1 && !["provider", "report_provider"].includes(raw.execution.parser))
+      || !providerBinding || (raw.budget.providerCalls > 0 && !["provider", "report_provider"].includes(raw.execution.parser))
       || (raw.outcome === "answer" && (!hasProvenance || answer?.sourceFactsId !== raw.execution.factsId))
       || (raw.outcome !== "answer" && hasAnyProvenance)
       || (raw.outcome === "quota_exceeded" && (raw.quota.remaining !== 0 || raw.quota.consumed || raw.budget.providerCalls !== 0))
