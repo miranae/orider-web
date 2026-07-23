@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { DialogProvider } from "./contexts/DialogContext";
 import { OriderThemeProvider } from "./theme";
 import { ensureAppCheckReady, initFirebase } from "./services/firebase";
+import { consumeAppHandoffCode, stashHandoffCode } from "./services/appHandoff";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
@@ -20,6 +21,10 @@ import App from "./App";
 // 느린 fetch (>= 2s) 자동 기록 — Firebase / Firestore SDK 가 fetch 참조를 캡쳐하기
 // 전에 install 해야 Firestore 슬로우 쿼리까지 wrap 됨. analytics 미초기화 시점 호출은
 // track() 의 null-guard 가 흡수.
+// 앱→웹 로그인 인계 코드는 **모듈 본문 첫 문장**에서 URL 로부터 제거해 보관 —
+// 에러 리스너/Sentry/후속 리소스 로드가 코드 포함 URL 을 관측하는 창을 최소화(리뷰 MINOR).
+stashHandoffCode();
+
 installSlowFetchTracker();
 
 // modulepreload 실패(vite:preloadError) 자동 복구 — 새 배포 후 옛 탭이 사라진
@@ -110,6 +115,9 @@ function mountApp() {
 
 loadRuntimeConfig()
   .then(initFirebase)
+  // 앱 → 웹 로그인 인계: ?handoff= 일회용 코드가 있으면 AuthProvider 마운트 전에
+  // custom token 로그인까지 끝낸다 (코드 없으면 즉시 통과 — 초기 로딩 영향 없음).
+  .then(consumeAppHandoffCode)
   .then(mountApp)
   .catch((err) => {
     captureError(err, { tags: { source: "firebase-init" } });
