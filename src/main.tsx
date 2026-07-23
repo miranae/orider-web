@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { DialogProvider } from "./contexts/DialogContext";
 import { OriderThemeProvider } from "./theme";
 import { ensureAppCheckReady, initFirebase } from "./services/firebase";
+import { consumeAppHandoffCode } from "./services/appHandoff";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
@@ -110,6 +111,9 @@ function mountApp() {
 
 loadRuntimeConfig()
   .then(initFirebase)
+  // 앱 → 웹 로그인 인계: ?handoff= 일회용 코드가 있으면 AuthProvider 마운트 전에
+  // custom token 로그인까지 끝낸다 (코드 없으면 즉시 통과 — 초기 로딩 영향 없음).
+  .then(consumeAppHandoffCode)
   .then(mountApp)
   .catch((err) => {
     captureError(err, { tags: { source: "firebase-init" } });
