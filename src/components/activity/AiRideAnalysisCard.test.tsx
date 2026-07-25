@@ -27,17 +27,20 @@ describe("AiRideAnalysisCard", () => {
   });
 
   it("keeps the saved AI summary and hides raw auth errors when detail reload is unauthenticated", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ hit: false }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        error: { code: "unauthenticated", message: "Coach request was rejected." },
-      }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      }));
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body ?? "{}")) as { cacheOnly?: boolean };
+      return request.cacheOnly
+        ? new Response(JSON.stringify({ hit: false }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        : new Response(JSON.stringify({
+            error: { code: "unauthenticated", message: "Coach request was rejected." },
+          }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     renderWithProviders(
