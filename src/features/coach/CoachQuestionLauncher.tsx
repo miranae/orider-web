@@ -322,7 +322,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const exhausted = quota?.remaining === 0;
   const serviceUnavailable = (phase === "terminal_error" && submitFailure === "serviceUnavailable")
     || (response && "outcome" in response && response.error?.code === "provider_kill_switch");
-  const canRateResponse = Boolean(response && ("outcome" in response
+  const canRateResponse = phase !== "submitting" && Boolean(response && ("outcome" in response
     ? response.outcome === "answer" || response.answer
     : response.answer));
   const showCounter = inputFocused || draft.length >= 900;

@@ -676,7 +676,7 @@
   }
 }
 
-@media (max-width: 360px) {
+@media (max-width: 22.5rem) {
   .coach-sheet__actions {
     grid-template-columns: 1fr;
   }
