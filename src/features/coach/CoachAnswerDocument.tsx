@@ -461,6 +461,10 @@ function GroundedMarkdown({ markdown }: { markdown: string }) {
   const nodes: ReactNode[] = [];
   for (let index = 0; index < rows.length;) {
     const line = rows[index]!;
+    const emphasizedHeading = line.match(/^\*\*([^*\n]+)\*\*$/u);
+    if (emphasizedHeading) {
+      nodes.push(<h4 key={index}><MarkdownInline text={emphasizedHeading[1]!} /></h4>); index += 1; continue;
+    }
     if (line.startsWith("### ")) {
       nodes.push(<h4 key={index}><MarkdownInline text={line.slice(4)} /></h4>); index += 1; continue;
     }

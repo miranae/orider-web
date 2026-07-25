@@ -265,9 +265,12 @@ describe("CoachQuestionLauncher", () => {
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("이번 주 훈련량이 높았습니다.")).toBeInTheDocument();
     expect(screen.getByText("이번 주 훈련량이 높았습니다.").closest(".coach-result__answer")).toHaveClass("coach-result__answer--hero");
-    expect(screen.getByText("이 답변이 도움됐나요?")).toBeInTheDocument();
+    const feedbackPrompt = screen.getByText("이 답변이 도움됐나요?");
+    expect(feedbackPrompt.closest(".coach-sheet__dock")).toBeInTheDocument();
+    expect(document.querySelector(".coach-sheet__content")).not.toContainElement(feedbackPrompt);
     expect(document.querySelector(".coach-sheet__content")).not.toContainElement(document.querySelector(".coach-sheet__dock"));
     expect(screen.getByText("오늘 2회 남음")).toBeInTheDocument();
+    expect(screen.getByText("이 요청은 이미 오늘 사용 횟수 1회를 사용했습니다.")).toBeInTheDocument();
     const calls = mocks.ask.mock.calls.length;
     await userEvent.click(screen.getByRole("button", { name: "분석 근거 1개 보기" }));
     expect(screen.getByText("훈련 부하")).toBeInTheDocument();
@@ -419,6 +422,24 @@ describe("CoachQuestionLauncher", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "다른 질문하기" }));
     mocks.ask.mockResolvedValue({ ...answer, requestId: "323e4567-e89b-42d3-a456-426614174002" });
+  });
+
+  it("hides feedback for the previous answer while checking the same request", async () => {
+    let resolveRetry!: (value: typeof answer) => void;
+    mocks.ask.mockResolvedValueOnce({ ...answer, retry: { ...answer.retry, mode: "same_request_resume" } })
+      .mockReturnValueOnce(new Promise((done) => { resolveRetry = done; }));
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await screen.findByText("이 답변이 도움됐나요?");
+
+    await userEvent.click(screen.getByRole("button", { name: "같은 요청 다시 확인" }));
+
+    expect(screen.queryByText("이 답변이 도움됐나요?")).not.toBeInTheDocument();
+    await act(async () => resolveRetry(answer));
+    expect(await screen.findByText("이 답변이 도움됐나요?")).toBeInTheDocument();
   });
 
   it("treats a response requestId mismatch as a non-retry compatibility failure", async () => {

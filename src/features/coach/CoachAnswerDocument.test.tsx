@@ -105,6 +105,17 @@ describe("CoachAnswerDocumentView", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
+  it("promotes an emphasized-only Markdown line to a semantic subsection heading", () => {
+    const { response, document, evidence, base } = fixture();
+    document.blocks = [{ ...base("report"), kind: "grounded_markdown",
+      markdown: "지난 7일간의 몸 상태입니다.\n\n**추천 라이딩 코스:**\n\n현재 컨디션에는 회복 라이딩이 적합합니다.",
+      evidenceIds: [evidence[0]!.evidenceId] }];
+
+    render(<CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { level: 4, name: "추천 라이딩 코스:" })).toBeInTheDocument();
+  });
+
   it("renders active-looking grounded Markdown as inert text", () => {
     const { response, document, evidence, base } = fixture();
     const markdown = [
