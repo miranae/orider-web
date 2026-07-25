@@ -20,9 +20,23 @@ import {
   resetAllMocks,
 } from "./firebase";
 
+let authCurrentUserOverride: unknown | undefined;
+
 // ─── services/firebase.ts ─────────────────────────────────
 vi.mock("../../services/firebase", () => ({
-  auth: {},
+  auth: {
+    get currentUser() {
+      if (authCurrentUserOverride !== undefined) return authCurrentUserOverride;
+      const user = getCurrentUser();
+      return user ? {
+        ...user,
+        getIdToken: vi.fn().mockResolvedValue("test-id-token"),
+      } : null;
+    },
+    set currentUser(value: unknown) {
+      authCurrentUserOverride = value;
+    },
+  },
   firestore: {},
   storage: { app: { options: { storageBucket: "test" } } },
   functions: {},
@@ -30,6 +44,7 @@ vi.mock("../../services/firebase", () => ({
   analytics: null,
   initFirebase: vi.fn().mockResolvedValue(undefined),
   ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+  getAppCheckToken: vi.fn().mockResolvedValue("test-app-check-token"),
 }));
 
 // ─── firebase/analytics ───────────────────────────────────
@@ -203,5 +218,6 @@ vi.mock("firebase/storage", () => ({
 
 // Reset mock state between tests
 beforeEach(() => {
+  authCurrentUserOverride = undefined;
   resetAllMocks();
 });

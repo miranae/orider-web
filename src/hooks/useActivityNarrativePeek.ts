@@ -12,8 +12,8 @@
  * `${activityId}:${lang}` 로 분리 — 언어 전환 시 다른 언어 결과가 잘못 노출되지 않는다.
  */
 import { useEffect, useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../services/firebase";
+import { logClientError } from "../services/errorLogger";
+import { peekActivityNarrative } from "../services/activityNarrativeApi";
 import type { ActivityNarrative, NarrativeLang } from "./useActivityNarrative";
 
 interface PeekState {
@@ -49,15 +49,9 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
     let cancelled = false;
     setState({ data: null, loading: true, cacheMiss: false });
 
-    const fn = httpsCallable<{ activityId: string; cacheOnly: true; lang: NarrativeLang }, { hit: boolean } & Partial<ActivityNarrative>>(
-      functions,
-      "getActivityNarrative",
-    );
-
-    fn({ activityId, cacheOnly: true, lang })
-      .then((res) => {
+    peekActivityNarrative({ activityId, cacheOnly: true, lang })
+      .then((d) => {
         if (cancelled) return;
-        const d = res.data;
         if (d.hit) {
           // hit: source 포함한 전체 payload 가 온다
           const narrative = d as unknown as ActivityNarrative;
@@ -68,9 +62,10 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
           setState({ data: null, loading: false, cacheMiss: true });
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return;
-        // peek 실패는 조용히 miss 처리 (전체 분석은 사용자가 버튼으로 요청)
+        logClientError("useActivityNarrativePeek", error, { activityId, lang });
+        // peek 실패는 생성 트리거로 이어지지 않게 miss 처리한다.
         setState({ data: null, loading: false, cacheMiss: true });
       });
 

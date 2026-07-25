@@ -4,12 +4,16 @@ import { setCallableResult } from "../../__tests__/mocks/firebase";
 import AiRideAnalysisCard from "./AiRideAnalysisCard";
 
 describe("AiRideAnalysisCard", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
     setCallableResult("getActivityNarrative", { data: { hit: false } });
 
     renderWithProviders(
       <AiRideAnalysisCard
-        activityId="strava_19098693941"
+        activityId="strava_19098693942"
         enabled
         summaryPreview="전반적으로 안정적인 페이스의 라이딩이었습니다."
       />,
@@ -23,7 +27,18 @@ describe("AiRideAnalysisCard", () => {
   });
 
   it("keeps the saved AI summary and hides raw auth errors when detail reload is unauthenticated", async () => {
-    setCallableResult("getActivityNarrative", { data: { hit: false } });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ hit: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        error: { code: "unauthenticated", message: "Coach request was rejected." },
+      }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      }));
+    vi.stubGlobal("fetch", fetchMock);
 
     renderWithProviders(
       <AiRideAnalysisCard
@@ -38,7 +53,6 @@ describe("AiRideAnalysisCard", () => {
       expect(screen.getByText("저장된 요약은 계속 보여야 합니다.")).toBeInTheDocument();
     });
 
-    setCallableResult("getActivityNarrative", Promise.reject(new Error("Unauthenticated")));
     fireEvent.click(screen.getByRole("button", { name: "상세 분석 다시 불러오기" }));
 
     await waitFor(() => {
