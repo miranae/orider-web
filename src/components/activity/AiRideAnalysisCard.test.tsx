@@ -1,15 +1,27 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { setCallableResult } from "../../__tests__/mocks/firebase";
 import AiRideAnalysisCard from "./AiRideAnalysisCard";
 
-describe("AiRideAnalysisCard", () => {
-  it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
-    setCallableResult("getActivityNarrative", { data: { hit: false } });
+const narrativeApiMocks = vi.hoisted(() => ({
+  generate: vi.fn(),
+  peek: vi.fn(),
+}));
 
+vi.mock("../../services/activityNarrativeApi", () => ({
+  generateActivityNarrative: narrativeApiMocks.generate,
+  peekActivityNarrative: narrativeApiMocks.peek,
+}));
+
+describe("AiRideAnalysisCard", () => {
+  beforeEach(() => {
+    narrativeApiMocks.generate.mockReset();
+    narrativeApiMocks.peek.mockReset().mockResolvedValue({ hit: false });
+  });
+
+  it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
     renderWithProviders(
       <AiRideAnalysisCard
-        activityId="strava_19098693941"
+        activityId="strava_19098693942"
         enabled
         summaryPreview="전반적으로 안정적인 페이스의 라이딩이었습니다."
       />,
@@ -23,7 +35,7 @@ describe("AiRideAnalysisCard", () => {
   });
 
   it("keeps the saved AI summary and hides raw auth errors when detail reload is unauthenticated", async () => {
-    setCallableResult("getActivityNarrative", { data: { hit: false } });
+    narrativeApiMocks.generate.mockRejectedValue(new Error("Unauthenticated"));
 
     renderWithProviders(
       <AiRideAnalysisCard
@@ -38,7 +50,6 @@ describe("AiRideAnalysisCard", () => {
       expect(screen.getByText("저장된 요약은 계속 보여야 합니다.")).toBeInTheDocument();
     });
 
-    setCallableResult("getActivityNarrative", Promise.reject(new Error("Unauthenticated")));
     fireEvent.click(screen.getByRole("button", { name: "상세 분석 다시 불러오기" }));
 
     await waitFor(() => {

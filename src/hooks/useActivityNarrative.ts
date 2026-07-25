@@ -1,5 +1,5 @@
 /**
- * 활동 구간 내러티브 (AI 라이딩 분석) — onCall 호출 + 캐시 활용 hook.
+ * 활동 구간 내러티브 (AI 라이딩 분석) — REST 우선 호출 + 캐시 활용 hook.
  *
  * 서버(getActivityNarrative)가 스트림 분할·refiner·Haiku·캐시를 모두 수행하므로,
  * 클라는 activityId 만 넘기고 결과를 받는다. 같은 facts+버전이면 서버가 캐시 반환(LLM skip).
@@ -8,9 +8,8 @@
  * 설계: docs/architecture/RIDE_SEGMENT_NARRATIVE.md
  */
 import { useEffect, useState } from "react";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { generateActivityNarrative } from "../services/activityNarrativeApi";
 
 export type RelWind = "head" | "tail" | "cross";
 export type Terrain = "climb" | "descent" | "flat";
@@ -133,8 +132,11 @@ export function useActivityNarrativeWithOptions(
 
     let promise = inflight.get(key);
     if (!promise) {
-      const fn = httpsCallable<{ activityId: string; lang: NarrativeLang; forceRefresh?: boolean }, ActivityNarrative>(functions, "getActivityNarrative");
-      promise = fn({ activityId, lang, ...(forceRefresh ? { forceRefresh: true } : {}) }).then((res) => res.data);
+      promise = generateActivityNarrative({
+        activityId,
+        lang,
+        ...(forceRefresh ? { forceRefresh: true } : {}),
+      });
       inflight.set(key, promise);
       // 성공 → done 으로 승격, 실패 → inflight 비워 후속 마운트가 재시도 가능
       promise.then((data) => {
