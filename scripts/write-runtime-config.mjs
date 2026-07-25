@@ -53,6 +53,7 @@ const required = [
   "appCheckRecaptchaSiteKey",
   "stravaClientId",
   "stravaRedirectUri",
+  "mapboxToken",
   "aiApiBase",
 ];
 

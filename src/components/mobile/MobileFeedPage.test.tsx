@@ -10,8 +10,14 @@ vi.mock("../training/TodaysWorkoutCard", () => ({
 }));
 
 vi.mock("../RouteMap", () => ({
-  default: ({ interactive }: { interactive?: boolean }) => (
-    <div data-testid="route-map" data-interactive={String(interactive)}>Map</div>
+  default: ({ interactive, fallbackImageUrl }: { interactive?: boolean; fallbackImageUrl?: string | null }) => (
+    <div
+      data-testid="route-map"
+      data-interactive={String(interactive)}
+      data-fallback-image-url={fallbackImageUrl ?? ""}
+    >
+      Map
+    </div>
   ),
 }));
 
@@ -157,6 +163,7 @@ describe("MobileFeedPage", () => {
     await waitFor(() => expect(screen.getAllByTestId("route-map")).toHaveLength(2));
     const maps = screen.getAllByTestId("route-map");
     expect(maps.every((map) => map.getAttribute("data-interactive") === "false")).toBe(true);
+    expect(maps.some((map) => map.getAttribute("data-fallback-image-url") === activity.mapImageUrl)).toBe(true);
     expect(container.querySelector(`img[src="${activity.mapImageUrl}"]`)).not.toBeInTheDocument();
   });
 
