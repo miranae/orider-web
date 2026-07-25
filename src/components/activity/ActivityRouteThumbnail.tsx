@@ -248,6 +248,7 @@ export default function ActivityRouteThumbnail({
               fitPadding={16}
               interactive={false}
               rounded={false}
+              fallbackImageUrl={mapImageUrl}
             />
           </Suspense>
         ) : (

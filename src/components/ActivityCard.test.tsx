@@ -6,8 +6,14 @@ import { setCallableResult, setDocData } from "../__tests__/mocks/firebase";
 
 // Mock RouteMap to avoid Leaflet issues
 vi.mock("./RouteMap", () => ({
-  default: ({ interactive }: { interactive?: boolean }) => (
-    <div data-testid="route-map" data-interactive={String(interactive)}>Map</div>
+  default: ({ interactive, fallbackImageUrl }: { interactive?: boolean; fallbackImageUrl?: string | null }) => (
+    <div
+      data-testid="route-map"
+      data-interactive={String(interactive)}
+      data-fallback-image-url={fallbackImageUrl ?? ""}
+    >
+      Map
+    </div>
   ),
 }));
 
@@ -152,6 +158,20 @@ describe("ActivityCard", () => {
     // RouteMap 은 lazy() 로 분리되어 Suspense 경계 뒤에서 비동기 로드된다.
     await waitFor(() => {
       expect(screen.getByTestId("route-map")).toHaveAttribute("data-interactive", "false");
+    });
+  });
+
+  it("keeps a stored thumbnail as the live map failure fallback", async () => {
+    const activity = createMockActivity({
+      mapImageUrl: "https://storage.googleapis.com/legacy/map.webp",
+    });
+    renderWithProviders(<ActivityCard activity={activity} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("route-map")).toHaveAttribute(
+        "data-fallback-image-url",
+        activity.mapImageUrl,
+      );
     });
   });
 

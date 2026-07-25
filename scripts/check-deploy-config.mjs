@@ -87,15 +87,21 @@ if (stageFirebaseConfig.hosting?.site !== "miranae-orider-g1-stage") {
 }
 
 const ciWorkflow = readFileSync(".github/workflows/ci.yml", "utf8");
+requireIncludes(ciWorkflow, "VITE_MAPBOX_TOKEN: ci-placeholder", "ci.yml placeholder build env");
 requireIncludes(ciWorkflow, "VITE_ORIDER_AI_API_BASE: https://coach.example.run.app", "ci.yml placeholder build env");
 
 const deployWorkflow = readFileSync(".github/workflows/deploy.yml", "utf8");
+const runtimeConfigWriter = readFileSync("scripts/write-runtime-config.mjs", "utf8");
+const envGuard = readFileSync("scripts/check-env.mjs", "utf8");
+requireIncludes(runtimeConfigWriter, '  "mapboxToken",\n  "aiApiBase",', "write-runtime-config required keys");
+requireIncludes(envGuard, '"VITE_MAPBOX_TOKEN"', "check-env production required keys");
 requireIncludes(deployWorkflow, "tags:", "deploy.yml trigger");
 requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
 requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_ORIDER_AI_API_BASE: ${{ vars.VITE_ORIDER_AI_API_BASE }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
 requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
@@ -127,6 +133,7 @@ requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_APP_ID", "depl
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_STRAVA_CLIENT_ID", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_STRAVA_REDIRECT_URI", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE_KEY", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_MAPBOX_TOKEN", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_ORIDER_AI_API_BASE", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-stage.yml verification");
 requireIncludes(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "deploy-stage.yml backend contract gate");
