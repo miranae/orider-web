@@ -1,4 +1,5 @@
 import { httpsCallable } from "firebase/functions";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth, functions, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { track } from "./analytics";
@@ -39,6 +40,7 @@ type CompatibilityFallbackReason =
   | "rest_not_configured"
   | "rest_route_unavailable"
   | "anonymous_peek";
+let authReadyPromise: Promise<void> | null = null;
 
 export class ActivityNarrativeRestError extends Error {
   readonly code?: string;
@@ -73,6 +75,25 @@ function endpoint(path: string): string {
   return `${base}${path}`;
 }
 
+function waitForNarrativeAuthReady(): Promise<void> {
+  if (auth?.currentUser) return Promise.resolve();
+  if (authReadyPromise) return authReadyPromise;
+
+  authReadyPromise = new Promise<void>((resolve, reject) => {
+    const subscription: { unsubscribe?: () => void } = {};
+    const release = () => {
+      resolve();
+      // Firebase는 비동기 통지하지만 테스트 mock은 동기 통지할 수 있어 할당 뒤 해제한다.
+      queueMicrotask(() => subscription.unsubscribe?.());
+    };
+    subscription.unsubscribe = onAuthStateChanged(auth, release, reject);
+  }).catch((error) => {
+    authReadyPromise = null;
+    throw error;
+  });
+  return authReadyPromise;
+}
+
 function operation(request: ActivityNarrativeRequest): "peek" | "generate" {
   return request.cacheOnly === true ? "peek" : "generate";
 }
@@ -98,6 +119,7 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
   // 구형 Hosting 산출물처럼 runtime-config에 AI base가 없으면 인증/App Check 작업 전에
   // 명시적인 compatibility fallback으로 분기할 수 있어야 한다.
   const url = endpoint("/v1/activity-narrative");
+  await waitForNarrativeAuthReady();
   const user = auth?.currentUser;
   if (!user) {
     throw new ActivityNarrativeRestError("Firebase user is not signed in.", {
@@ -183,6 +205,9 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
 async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
 ): Promise<T> {
+  if (activityNarrativeApiEnabled()) {
+    await waitForNarrativeAuthReady();
+  }
   // #1636 완료 전 REST 인증기는 익명 요청을 받지 않는다. 공개 활동 cacheOnly의 기존
   // 익명 읽기 계약만 한 릴리스 호환 callable로 유지하고, 생성 요청은 우회하지 않는다.
   if (!auth?.currentUser && request.cacheOnly === true) {

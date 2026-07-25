@@ -12,6 +12,11 @@ const mocks = vi.hoisted(() => ({
     aiApiBase: "https://ai.example.run.app/" as string | undefined,
   },
   track: vi.fn(),
+  onAuthStateChanged: vi.fn(),
+}));
+
+vi.mock("firebase/auth", () => ({
+  onAuthStateChanged: mocks.onAuthStateChanged,
 }));
 
 vi.mock("firebase/functions", () => ({
@@ -76,6 +81,10 @@ describe("activityNarrativeApi", () => {
     mocks.callable.mockReset();
     mocks.runtime.aiApiBase = "https://ai.example.run.app/";
     mocks.track.mockReset();
+    mocks.onAuthStateChanged.mockReset().mockImplementation((_auth, next) => {
+      next(mocks.auth.currentUser);
+      return vi.fn();
+    });
   });
 
   it("runtime-config AI base URL과 Auth/App Check 헤더로 generate REST를 호출한다", async () => {
@@ -222,6 +231,31 @@ describe("activityNarrativeApi", () => {
     })).rejects.toMatchObject({
       code: "not-found",
       status: 404,
+    });
+    expect(mocks.callable).not.toHaveBeenCalled();
+  });
+
+  it("첫 호출 전에 Firebase Auth 복원을 기다린 뒤 REST 인증 헤더를 만든다", async () => {
+    mocks.auth.currentUser = null;
+    mocks.onAuthStateChanged.mockImplementationOnce((_auth, next) => {
+      mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("restored-id-token") };
+      next(mocks.auth.currentUser);
+      return vi.fn();
+    });
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ hit: false }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(peekActivityNarrative({
+      activityId: "restored-activity",
+      lang: "ko",
+      cacheOnly: true,
+    })).resolves.toEqual({ hit: false });
+
+    expect(mocks.onAuthStateChanged).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: expect.objectContaining({
+        Authorization: "Bearer restored-id-token",
+      }),
     });
     expect(mocks.callable).not.toHaveBeenCalled();
   });
