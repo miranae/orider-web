@@ -14,6 +14,7 @@ export const MAP_THUMBNAIL_WIDTH = 2560;
 export const MAP_THUMBNAIL_HEIGHT = 914;
 export const MAP_THUMBNAIL_VIEWPORT_WIDTH = 1280;
 export const MAP_THUMBNAIL_VIEWPORT_HEIGHT = 457;
+export const MAP_THUMBNAIL_PIXEL_RATIO = 2;
 const MAP_THUMBNAIL_MAX_BYTES = 1024 * 1024;
 const MAP_THUMBNAIL_CAPTURE_TIMEOUT_MS = 20_000;
 const MAP_THUMBNAIL_PROCESS_TIMEOUT_MS = 30_000;
@@ -174,9 +175,6 @@ export default function ActivityRouteThumbnail({
 
     try {
       if (!mapCanvas) throw new Error("map-thumbnail/canvas-not-found");
-      if (mapCanvas.width !== MAP_THUMBNAIL_WIDTH || mapCanvas.height !== MAP_THUMBNAIL_HEIGHT) {
-        throw new Error(`map-thumbnail/canvas-too-small:${mapCanvas.width}x${mapCanvas.height}`);
-      }
       const snapshot = copyCanonicalMapThumbnailCanvas(mapCanvas);
 
       // WebGL 픽셀 복사가 끝나는 즉시 다음 카드가 캡처할 수 있게 슬롯을 넘긴다.
@@ -316,7 +314,7 @@ export default function ActivityRouteThumbnail({
             interactive={false}
             rounded={false}
             preserveDrawingBuffer
-            pixelRatio={2}
+            pixelRatio={MAP_THUMBNAIL_PIXEL_RATIO}
             onLoad={handleMapLoad}
           />
         </Suspense>
@@ -381,14 +379,65 @@ export function isCanonicalMapThumbnailUrl(
   }
 }
 
-function copyCanonicalMapThumbnailCanvas(mapCanvas: HTMLCanvasElement): HTMLCanvasElement {
+interface CanonicalMapThumbnailCrop {
+  sourceX: number;
+  sourceY: number;
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
+/**
+ * Mapbox GL은 fractional CSS viewport를 올림한 뒤 DPR을 곱해 backing canvas를 만든다.
+ * DPR 2에서 가능한 1 logical px 반올림만 중앙 crop으로 제거하고 그 외 크기는 fail-closed한다.
+ */
+export function getCanonicalMapThumbnailCrop(
+  canvasWidth: number,
+  canvasHeight: number,
+): CanonicalMapThumbnailCrop {
+  if (
+    !Number.isInteger(canvasWidth) ||
+    !Number.isInteger(canvasHeight) ||
+    canvasWidth < MAP_THUMBNAIL_WIDTH ||
+    canvasHeight < MAP_THUMBNAIL_HEIGHT
+  ) {
+    throw new Error(`map-thumbnail/canvas-too-small:${canvasWidth}x${canvasHeight}`);
+  }
+
+  const extraWidth = canvasWidth - MAP_THUMBNAIL_WIDTH;
+  const extraHeight = canvasHeight - MAP_THUMBNAIL_HEIGHT;
+  const isExpectedRounding = (extra: number) =>
+    extra === 0 || extra === MAP_THUMBNAIL_PIXEL_RATIO;
+  if (!isExpectedRounding(extraWidth) || !isExpectedRounding(extraHeight)) {
+    throw new Error(`map-thumbnail/canvas-size-invalid:${canvasWidth}x${canvasHeight}`);
+  }
+
+  return {
+    sourceX: extraWidth / 2,
+    sourceY: extraHeight / 2,
+    sourceWidth: MAP_THUMBNAIL_WIDTH,
+    sourceHeight: MAP_THUMBNAIL_HEIGHT,
+  };
+}
+
+export function copyCanonicalMapThumbnailCanvas(mapCanvas: HTMLCanvasElement): HTMLCanvasElement {
+  const crop = getCanonicalMapThumbnailCrop(mapCanvas.width, mapCanvas.height);
   const output = document.createElement("canvas");
   output.width = MAP_THUMBNAIL_WIDTH;
   output.height = MAP_THUMBNAIL_HEIGHT;
   const context = output.getContext("2d");
   if (!context) throw new Error("map-thumbnail/canvas-context-unavailable");
 
-  context.drawImage(mapCanvas, 0, 0, MAP_THUMBNAIL_WIDTH, MAP_THUMBNAIL_HEIGHT);
+  context.drawImage(
+    mapCanvas,
+    crop.sourceX,
+    crop.sourceY,
+    crop.sourceWidth,
+    crop.sourceHeight,
+    0,
+    0,
+    MAP_THUMBNAIL_WIDTH,
+    MAP_THUMBNAIL_HEIGHT,
+  );
   return output;
 }
 
