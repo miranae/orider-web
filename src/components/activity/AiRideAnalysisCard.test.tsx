@@ -1,16 +1,24 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { setCallableResult } from "../../__tests__/mocks/firebase";
 import AiRideAnalysisCard from "./AiRideAnalysisCard";
 
+const narrativeApiMocks = vi.hoisted(() => ({
+  generate: vi.fn(),
+  peek: vi.fn(),
+}));
+
+vi.mock("../../services/activityNarrativeApi", () => ({
+  generateActivityNarrative: narrativeApiMocks.generate,
+  peekActivityNarrative: narrativeApiMocks.peek,
+}));
+
 describe("AiRideAnalysisCard", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  beforeEach(() => {
+    narrativeApiMocks.generate.mockReset();
+    narrativeApiMocks.peek.mockReset().mockResolvedValue({ hit: false });
   });
 
   it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
-    setCallableResult("getActivityNarrative", { data: { hit: false } });
-
     renderWithProviders(
       <AiRideAnalysisCard
         activityId="strava_19098693942"
@@ -27,21 +35,7 @@ describe("AiRideAnalysisCard", () => {
   });
 
   it("keeps the saved AI summary and hides raw auth errors when detail reload is unauthenticated", async () => {
-    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
-      const request = JSON.parse(String(init?.body ?? "{}")) as { cacheOnly?: boolean };
-      return request.cacheOnly
-        ? new Response(JSON.stringify({ hit: false }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          })
-        : new Response(JSON.stringify({
-            error: { code: "unauthenticated", message: "Coach request was rejected." },
-          }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    narrativeApiMocks.generate.mockRejectedValue(new Error("Unauthenticated"));
 
     renderWithProviders(
       <AiRideAnalysisCard

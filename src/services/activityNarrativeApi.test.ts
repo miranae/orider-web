@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   auth: {
@@ -65,6 +65,10 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("activityNarrativeApi", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     vi.restoreAllMocks();
     mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("id-token") };
