@@ -54,7 +54,7 @@ const env = {
 
 const isProductionMode = mode === "production" || mode === "prod";
 
-// 누락 시 앱이 절대 부팅 못하는 핵심 키. Sentry / Mapbox 등 부수 키는 선택.
+// 누락 시 앱이 절대 부팅 못하는 핵심 키.
 const CORE_REQUIRED = [
   "VITE_FIREBASE_API_KEY",
   "VITE_FIREBASE_AUTH_DOMAIN",
@@ -67,6 +67,7 @@ const PRODUCTION_REQUIRED = [
   "VITE_STRAVA_CLIENT_ID",
   "VITE_STRAVA_REDIRECT_URI",
   "VITE_APPCHECK_RECAPTCHA_SITE_KEY",
+  "VITE_MAPBOX_TOKEN",
   "VITE_ORIDER_AI_API_BASE",
 ];
 
@@ -87,7 +88,7 @@ if (missing.length > 0) {
   console.error("  CI:   workflow secrets 확인 (.github/workflows/deploy.yml env: 블록)");
   if (missing.some((k) => PRODUCTION_REQUIRED.includes(k))) {
     console.error("");
-    console.error("  운영 배포에서 Strava env 가 비면 연결 버튼이 런타임 오류를 냅니다.");
+    console.error("  운영 필수 provider env 가 비면 사용자 기능이 런타임에서 중단됩니다.");
     console.error("  로컬 수동 배포 대신 GitHub Actions 태그 배포를 사용하세요.");
   }
   console.error("");
