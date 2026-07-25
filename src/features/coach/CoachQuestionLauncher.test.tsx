@@ -265,9 +265,12 @@ describe("CoachQuestionLauncher", () => {
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(await screen.findByText("이번 주 훈련량이 높았습니다.")).toBeInTheDocument();
     expect(screen.getByText("이번 주 훈련량이 높았습니다.").closest(".coach-result__answer")).toHaveClass("coach-result__answer--hero");
-    expect(screen.getByText("이 답변이 도움됐나요?")).toBeInTheDocument();
+    const feedbackPrompt = screen.getByText("이 답변이 도움됐나요?");
+    expect(feedbackPrompt.closest(".coach-sheet__dock")).toBeInTheDocument();
+    expect(document.querySelector(".coach-sheet__content")).not.toContainElement(feedbackPrompt);
     expect(document.querySelector(".coach-sheet__content")).not.toContainElement(document.querySelector(".coach-sheet__dock"));
     expect(screen.getByText("오늘 2회 남음")).toBeInTheDocument();
+    expect(screen.getByText("이 요청은 이미 오늘 사용 횟수 1회를 사용했습니다.")).toBeInTheDocument();
     const calls = mocks.ask.mock.calls.length;
     await userEvent.click(screen.getByRole("button", { name: "분석 근거 1개 보기" }));
     expect(screen.getByText("훈련 부하")).toBeInTheDocument();

@@ -322,6 +322,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const exhausted = quota?.remaining === 0;
   const serviceUnavailable = (phase === "terminal_error" && submitFailure === "serviceUnavailable")
     || (response && "outcome" in response && response.error?.code === "provider_kill_switch");
+  const canRateResponse = Boolean(response && ("outcome" in response
+    ? response.outcome === "answer" || response.answer
+    : response.answer));
   const showCounter = inputFocused || draft.length >= 900;
   const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
@@ -391,27 +394,31 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   title={t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.title" : `states.${submitFailure ?? "terminal"}.title`)}>
                   <Text as="p" variant="bodySmall">{t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.body" : `states.${submitFailure ?? "terminal"}.body`)}</Text></Alert>}
                 {response && phase !== "submitting" && ("outcome" in response
-                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} feedback={feedback} exhausted={exhausted}
-                    onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action} onFeedback={sendFeedback}
+                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={exhausted}
+                    onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action}
                     onReanalyze={startAnother}
                     onSuggested={(query) => { startAnother(); setDraft(query); setSource("free_text"); }} />
                   : <CoachResult response={response} evidenceOpen={evidenceOpen} locale={i18n.language}
-                    feedback={feedback} onEvidence={() => { setEvidenceOpen((value) => !value); if (!evidenceOpen) coachAnalytics.evidenceExpand(response.status); }}
-                    onAction={action} onFeedback={sendFeedback} />)}
+                    onEvidence={() => { setEvidenceOpen((value) => !value); if (!evidenceOpen) coachAnalytics.evidenceExpand(response.status); }}
+                    onAction={action} />)}
                 </>
               )}
             </div>
             {user && (phase !== "ready" || response) && <div className="coach-sheet__dock">
+              {canRateResponse && <CoachFeedback feedback={feedback} onFeedback={sendFeedback} />}
               <footer className="coach-sheet__footer">
-                  {quota && <div className="coach-sheet__quota">
+                  {quota && <Text as="div" className="coach-sheet__quota" variant="caption" tone={exhausted ? "warning" : "tertiary"}>
                     {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
-                    {response?.retry.previousTurnConsumed && <small>{t("quota.previousConsumed")}</small>}
-                  </div>}
-                    {!serviceUnavailable && canRetry && <Button onClick={() => void retry()}>{retryAction === "new"
+                    {response?.retry.previousTurnConsumed
+                      && <Text as="small" variant="caption" tone="tertiary">{t("quota.previousConsumed")}</Text>}
+                  </Text>}
+                  <div className="coach-sheet__actions">
+                    {!serviceUnavailable && canRetry && <Button size="sm" variant="outline" onClick={() => void retry()}>{retryAction === "new"
                       ? t("retry.newTurnAction") : retryAction === "poll" ? t("retry.poll") : retryAction === "replay" ? t("retry.replay") : t("retry.same")}</Button>}
-                    {serviceUnavailable && <Button variant="primary" onClick={closeSheet}>{t("serviceUnavailable.close")}</Button>}
+                    {serviceUnavailable && <Button size="sm" variant="primary" onClick={closeSheet}>{t("serviceUnavailable.close")}</Button>}
                     {!serviceUnavailable && (response || phase === "network_error" || phase === "terminal_error") && phase !== "submitting"
-                      && <Button variant="secondary" onClick={startAnother}>{t("another")}</Button>}
+                      && <Button size="sm" variant="secondary" onClick={startAnother}>{t("another")}</Button>}
+                  </div>
               </footer>
             </div>}
           </section>
@@ -448,10 +455,10 @@ function CoachFeedback({ feedback, onFeedback }: { feedback: boolean | null; onF
   </section>;
 }
 
-function CoachV2Result({ response, locale, selectedOption, feedback, exhausted, onSelectOption, onClarification, onAction, onFeedback, onSuggested, onReanalyze }: {
-  response: CoachV2Response; locale: string; selectedOption: string | null; feedback: boolean | null; exhausted: boolean;
+function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOption, onClarification, onAction, onSuggested, onReanalyze }: {
+  response: CoachV2Response; locale: string; selectedOption: string | null; exhausted: boolean;
   onSelectOption: (option: string) => void; onClarification: () => void;
-  onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void; onFeedback: (helpful: boolean) => void;
+  onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
   onSuggested: (query: string) => void;
   onReanalyze: () => void;
 }) {
@@ -487,13 +494,12 @@ function CoachV2Result({ response, locale, selectedOption, feedback, exhausted, 
     </Alert>}
     {!providerUnavailable && (["quota_exceeded", "budget_blocked", "failed"] as const).includes(response.outcome as "quota_exceeded" | "budget_blocked" | "failed")
       && <Alert className="coach-result__state" variant="warning">{t(`v2State.${response.outcome}`)}</Alert>}
-    {(response.outcome === "answer" || Boolean(response.answer)) && <CoachFeedback feedback={feedback} onFeedback={onFeedback} />}
   </div>;
 }
 
-function CoachResult({ response, evidenceOpen, locale, feedback, onEvidence, onAction, onFeedback }: {
-  response: CoachResponse; evidenceOpen: boolean; locale: string; feedback: boolean | null;
-  onEvidence: () => void; onAction: (code: CoachActionCode) => void; onFeedback: (helpful: boolean) => void;
+function CoachResult({ response, evidenceOpen, locale, onEvidence, onAction }: {
+  response: CoachResponse; evidenceOpen: boolean; locale: string;
+  onEvidence: () => void; onAction: (code: CoachActionCode) => void;
 }) {
   const { t } = useTranslation("coach");
   return <div className="coach-result">
@@ -519,6 +525,5 @@ function CoachResult({ response, evidenceOpen, locale, feedback, onEvidence, onA
       {response.freshness.latestActivityAt && <small>{t("latestActivity", { at: formatDate(response.freshness.latestActivityAt, locale) })}</small>}
       {response.freshness.staleSources.length > 0 && <small>{t("staleSources", { count: response.freshness.staleSources.length })}</small>}
     </div>}
-    <CoachFeedback feedback={feedback} onFeedback={onFeedback} />
   </div>;
 }
