@@ -6,14 +6,17 @@ import type { User } from "firebase/auth";
 import { DialogProvider } from "../../contexts/DialogContext";
 import { CoachQuestionLauncher, retryActionFor } from "./CoachQuestionLauncher";
 import { CoachClientError } from "../../services/coachClient";
+import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import enCoach from "../../i18n/resources/en/coach.json";
 import koCoach from "../../i18n/resources/ko/coach.json";
+import prescriptionFixture from "./__fixtures__/p2-web-fixture.json";
 
-const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), policy: vi.fn(), analytics: {
+const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), capabilities: vi.fn(), recovery: vi.fn(), policy: vi.fn(), analytics: {
   open: vi.fn(), submit: vi.fn(), complete: vi.fn(), evidenceExpand: vi.fn(), actionClick: vi.fn(), limitSeen: vi.fn(),
 }, feedback: vi.fn() }));
 
-vi.mock("../../services/coachClient", async (original) => ({ ...(await original()), getCoachStatus: mocks.status, askCoachV2: mocks.ask }));
+vi.mock("../../services/coachClient", async (original) => ({ ...(await original()), getCoachStatus: mocks.status, askCoachV2: mocks.ask,
+  getCoachProgressPlannerCapabilities: mocks.capabilities, getCoachProgressProposalRecovery: mocks.recovery }));
 vi.mock("../../services/coachConsentClient", () => ({ getCoachConsentPolicy: mocks.policy }));
 vi.mock("./coachAnalytics", () => ({ coachAnalytics: mocks.analytics, trackCoachFeedback: mocks.feedback }));
 vi.mock("./CoachPmcInsightCard", () => ({
@@ -117,6 +120,16 @@ const p1Answer = {
   answer: { compatibility: "supported", answerId: "answer_1", sourceFactsId: "facts_1", questionSummary: "coach.answer.summary.distance",
     status: "complete", blocks: [], evidence: [], warnings: [], freshness: { asOf: "2026-07-18T00:00:00Z", timezone: "Asia/Seoul", staleSourceSlotIds: [] }, followUps: [] },
 };
+const plannerCapabilities = { schemaVersion: "coach-capabilities-v1", apiVersions: [
+  { apiVersion: "v1", capabilityVersion: "p0", requestSchemaVersion: "coach-respond-v1", responseSchemaVersion: "coach-response-payload-v1" },
+  { apiVersion: "v2", capabilityVersion: "p1", requestSchemaVersion: "coach-respond-v2", responseSchemaVersion: "coach-response-envelope-v1" },
+], defaultCapabilityVersion: "p0", queryCatalogVersion: "query-v1", factsCatalogVersion: "facts-v1",
+answerSchemaVersion: "answer-v1", answerCatalogVersion: "catalog-v1",
+progressPlanner: { read: { enabled: true }, proposal: { enabled: true }, confirm: { enabled: true } },
+prescription: { enabled: true, schemaVersion: "coach-prescription-v1", rulesVersion: "coach-prescription-rules-v1",
+  checkIn: { enabled: true, endpoint: "/v1/coach/prescription/check-in" } } };
+const p1PlannerAnswer = { ...p1Answer, answer: { ...p1Answer.answer,
+  blocks: [{ kind: "prescription", blockId: "progress-rx", prescription: prescriptionFixture }] } };
 
 function setup(currentUser: User | null = user, discipline: "bike" | "run" | "swim" = "bike") {
   return render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
@@ -135,6 +148,12 @@ describe("CoachQuestionLauncher", () => {
     vi.clearAllMocks();
     mocks.status.mockResolvedValue({ status: "available", quota });
     mocks.policy.mockResolvedValue(activePolicy);
+    mocks.capabilities.mockResolvedValue(plannerCapabilities);
+    mocks.recovery.mockResolvedValue({ status: "ok", data: { schemaVersion: "coach-change-proposal-recovery-v1",
+      source: { prescriptionId: prescriptionFixture.prescriptionId, sourceRequestId: p1PlannerAnswer.requestId },
+      proposal: null, receipt: null, confirmNonce: null, rollbackRequestId: null, providerCalls: 0, quotaConsumed: 0 },
+    providerCalls: 0, quotaConsumed: 0 });
+    resetRuntimeConfigForTests({ coachProgressPlannerEnabled: false });
     vi.spyOn(crypto, "randomUUID").mockReturnValue(answer.requestId);
   });
 
@@ -178,6 +197,46 @@ describe("CoachQuestionLauncher", () => {
       contextFilters: { riderSnapshotId: "rider_bbbbbbbbbbbbbbbbbbbbbbbb" },
     })));
     expect(mocks.ask.mock.calls[0]?.[0].contextFilters).not.toHaveProperty("pmcSnapshotId");
+  });
+
+  it("sends exclusive Progress Planner context in the actual v2 payload and retains it for retry and a new-turn clarification", async () => {
+    resetRuntimeConfigForTests({ coachProgressPlannerEnabled: true });
+    const initialId = p1PlannerAnswer.requestId; const plannerId = "323e4567-e89b-42d3-a456-426614174002";
+    const childId = "423e4567-e89b-42d3-a456-426614174003";
+    vi.mocked(crypto.randomUUID).mockReturnValueOnce(initialId).mockReturnValueOnce(plannerId).mockReturnValueOnce(childId);
+    const clarification = { ...p1Base, requestId: plannerId, outcome: "clarification_required",
+      clarification: { clarificationId: "clarify_progress", promptKey: "coach.clarification.time_range",
+        options: [{ optionId: "last_week", labelKey: "coach.clarification.last_week" }], turnToken: "",
+        expiresAt: "2099-07-19T15:00:00Z", resolutionMode: "new_turn_required", consumesQuota: false, providerCalls: 0,
+        reasonCode: "time_range_required" } };
+    mocks.ask.mockResolvedValueOnce(p1PlannerAnswer)
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockResolvedValueOnce(clarification).mockResolvedValueOnce({ ...p1Answer, requestId: childId });
+
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(await screen.findByRole("button", { name: "이번 주 계획에서 가장 중요한 운동은 무엇인가요?" }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문");
+    expect(composer).toHaveValue("이번 주 계획에서 가장 중요한 운동은 무엇인가요?");
+    expect(mocks.ask).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(await screen.findByRole("button", { name: "같은 요청 다시 확인" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "지난주" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
+    const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
+    await userEvent.click(within(confirmation).getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(4));
+
+    const contextFilters = { progressPlanner: { prescriptionId: prescriptionFixture.prescriptionId, sourceRequestId: initialId } };
+    expect(mocks.ask.mock.calls[1]?.[0]).toMatchObject({ requestId: plannerId, contextFilters });
+    expect(mocks.ask.mock.calls[2]?.[0]).toEqual(mocks.ask.mock.calls[1]?.[0]);
+    expect(mocks.ask.mock.calls[3]?.[0]).toMatchObject({ requestId: childId, contextFilters });
+    for (const call of mocks.ask.mock.calls.slice(1)) {
+      expect(call[0].contextFilters).not.toHaveProperty("pmcSnapshotId");
+      expect(call[0].contextFilters).not.toHaveProperty("riderSnapshotId");
+    }
   });
 
   it("clears a Rider snapshot when its draft is manually edited", async () => {

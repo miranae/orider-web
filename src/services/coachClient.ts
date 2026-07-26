@@ -7,6 +7,14 @@ import {
 } from "./coachPrescriptionContract";
 import { parseCoachPmcInsight, type CoachPmcInsight } from "./coachPmcInsightContract";
 import { parseCoachRiderInsight, type CoachRiderInsight } from "./coachRiderInsightContract";
+import {
+  coachProposalConfirmRequestSchema, coachProposalCreateRequestSchema, coachProposalRecoveryQuerySchema,
+  coachProposalRollbackRequestSchema,
+  parseCoachProgressPlannerCapabilities, parseCoachProposalCreateResponse, parseCoachProposalResponse,
+  parseCoachProposalRecoveryResponse, parseCoachReceiptResponse, type CoachProgressPlannerCapabilities, type CoachProposalCreateResponse,
+  type CoachProposalRecoveryResponse,
+  type CoachProposalResponse, type CoachReceiptResponse,
+} from "./coachProgressPlannerContract";
 
 export type CoachDiscipline = "bike" | "run" | "swim";
 export type CoachResponseStatus = "ok" | "insufficient_data" | "stale" | "unsupported" | "quota_exceeded" | "budget_blocked" | "fallback";
@@ -306,6 +314,86 @@ export async function getCoachRiderInsight(): Promise<CoachRiderInsight> {
   } catch (cause) {
     if (isCoachClientError(cause)) throw cause;
     throw new CoachClientError("contract", "INVALID_COACH_RIDER_INSIGHT", { cause });
+  }
+}
+
+export async function getCoachProgressPlannerCapabilities(): Promise<CoachProgressPlannerCapabilities> {
+  try {
+    return parseCoachProgressPlannerCapabilities(await authenticatedFetch("/capabilities", { method: "GET", cache: "no-store" }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_PLANNER_CAPABILITIES", { cause });
+  }
+}
+
+/** Owner-scoped durable recovery; server selects the canonical current proposal and receipt. */
+export async function getCoachProgressProposalRecovery(prescriptionId: string,
+  sourceRequestId: string): Promise<CoachProposalRecoveryResponse> {
+  try {
+    const query = new URLSearchParams(coachProposalRecoveryQuerySchema.parse({ prescriptionId, sourceRequestId }));
+    const parsed = parseCoachProposalRecoveryResponse(await authenticatedFetch(`/change-proposals?${query.toString()}`, {
+      method: "GET", cache: "no-store",
+    }));
+    if (parsed.status === "ok" && (parsed.data.source.prescriptionId !== prescriptionId
+        || parsed.data.source.sourceRequestId !== sourceRequestId)) {
+      throw new CoachClientError("contract", "COACH_PROGRESS_RECOVERY_SOURCE_MISMATCH");
+    }
+    return parsed;
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_RECOVERY", { cause });
+  }
+}
+
+export async function createCoachProgressProposal(input: { requestId: string; checkInRequestId: string;
+  localDates: string[] }): Promise<CoachProposalCreateResponse> {
+  try {
+    const body = coachProposalCreateRequestSchema.parse(input);
+    return parseCoachProposalCreateResponse(await authenticatedFetch("/proposals", {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_PROPOSAL", { cause });
+  }
+}
+
+export async function getCoachProgressProposal(proposalId: string): Promise<CoachProposalResponse> {
+  if (!/^proposal_[0-9a-f]{24}$/u.test(proposalId)) throw new CoachClientError("contract", "INVALID_COACH_PROPOSAL_ID");
+  try {
+    return parseCoachProposalResponse(await authenticatedFetch(`/proposals/${encodeURIComponent(proposalId)}`, {
+      method: "GET", cache: "no-store",
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_PROPOSAL", { cause });
+  }
+}
+
+export async function confirmCoachProgressProposal(proposalId: string, input: { requestId: string;
+  nonce: string }): Promise<CoachReceiptResponse> {
+  if (!/^proposal_[0-9a-f]{24}$/u.test(proposalId)) throw new CoachClientError("contract", "INVALID_COACH_PROPOSAL_ID");
+  try {
+    const body = coachProposalConfirmRequestSchema.parse(input);
+    return parseCoachReceiptResponse(await authenticatedFetch(`/proposals/${encodeURIComponent(proposalId)}/confirm`, {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_RECEIPT", { cause });
+  }
+}
+
+export async function rollbackCoachProgressProposal(proposalId: string, input: { requestId: string }): Promise<CoachReceiptResponse> {
+  if (!/^proposal_[0-9a-f]{24}$/u.test(proposalId)) throw new CoachClientError("contract", "INVALID_COACH_PROPOSAL_ID");
+  try {
+    const body = coachProposalRollbackRequestSchema.parse(input);
+    return parseCoachReceiptResponse(await authenticatedFetch(`/proposals/${encodeURIComponent(proposalId)}/rollback`, {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_RECEIPT", { cause });
   }
 }
 

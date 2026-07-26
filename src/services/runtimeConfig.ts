@@ -16,6 +16,7 @@ export interface RuntimeConfig {
   aiApiBase?: string;
   coachPmcInsightEnabled?: boolean;
   coachRiderInsightEnabled?: boolean;
+  coachProgressPlannerEnabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
   useEmulators?: boolean;
@@ -56,6 +57,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     aiApiBase: import.meta.env.VITE_ORIDER_AI_API_BASE,
     coachPmcInsightEnabled: import.meta.env.VITE_COACH_PMC_INSIGHT_ENABLED === "true",
     coachRiderInsightEnabled: import.meta.env.VITE_COACH_RIDER_INSIGHT_ENABLED === "true",
+    coachProgressPlannerEnabled: import.meta.env.VITE_COACH_PROGRESS_PLANNER_ENABLED === "true",
     sentryDsn: import.meta.env.VITE_SENTRY_DSN,
     appEnvironment: import.meta.env.MODE,
     useEmulators: import.meta.env.VITE_USE_EMULATORS === "true",

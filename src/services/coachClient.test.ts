@@ -6,7 +6,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./firebase", () => ({ auth: { currentUser: { getIdToken: mocks.getIdToken } }, getAppCheckToken: mocks.getAppCheckToken }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.runtime }));
 
-import { askCoach, askCoachV2, CoachClientError, getCoachPmcInsight, getCoachRiderInsight, getCoachStatus, parseCoachInitialStatus, parseCoachResponse, type CoachRespondRequest } from "./coachClient";
+import {
+  askCoach, askCoachV2, CoachClientError, confirmCoachProgressProposal, createCoachProgressProposal,
+  getCoachPmcInsight, getCoachProgressPlannerCapabilities, getCoachProgressProposal, getCoachProgressProposalRecovery, getCoachRiderInsight,
+  getCoachStatus, parseCoachInitialStatus, parseCoachResponse, rollbackCoachProgressProposal, type CoachRespondRequest,
+} from "./coachClient";
 import parity from "../features/coach/__fixtures__/pmc-fitness-parity.json";
 import riderParity from "../features/coach/__fixtures__/rider-insight-parity.json";
 
@@ -140,6 +144,51 @@ describe("coachClient", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(CoachClientError);
       expect(error).toMatchObject({ kind: "contract", code: "INVALID_COACH_RESPONSE" });
+    }
+  });
+
+  it("uses authenticated no-store Progress Planner capability, proposal, confirm, GET, and rollback routes", async () => {
+    const capabilities = { schemaVersion: "coach-capabilities-v1", apiVersions: [
+      { apiVersion: "v1", capabilityVersion: "p0", requestSchemaVersion: "coach-respond-v1", responseSchemaVersion: "coach-response-payload-v1" },
+      { apiVersion: "v2", capabilityVersion: "p1", requestSchemaVersion: "coach-respond-v2", responseSchemaVersion: "coach-response-envelope-v1" },
+    ], defaultCapabilityVersion: "p0",
+      queryCatalogVersion: "catalog-query", factsCatalogVersion: "catalog-facts", answerSchemaVersion: "answer-schema",
+      answerCatalogVersion: "answer-catalog",
+      progressPlanner: { read: { enabled: true }, proposal: { enabled: true }, confirm: { enabled: true } },
+      prescription: { enabled: true, schemaVersion: "coach-prescription-v1", rulesVersion: "coach-prescription-rules-v1",
+        checkIn: { enabled: true, endpoint: "/v1/coach/prescription/check-in" } } };
+    const errorResponse = () => new Response(JSON.stringify({ error: { code: "proposal_not_found" } }), { status: 404 });
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: capabilities })))
+      .mockResolvedValueOnce(errorResponse()).mockResolvedValueOnce(errorResponse())
+      .mockResolvedValueOnce(errorResponse()).mockResolvedValueOnce(errorResponse()).mockResolvedValueOnce(errorResponse());
+    await expect(getCoachProgressPlannerCapabilities()).resolves.toMatchObject({ progressPlanner: { read: { enabled: true } } });
+    const proposalId = `proposal_${"d".repeat(24)}`;
+    const createRequest = { requestId: "123e4567-e89b-42d3-a456-426614174000",
+      checkInRequestId: "018f47a2-3c4d-7abc-8def-000000000201", localDates: ["2026-07-27"] };
+    await expect(createCoachProgressProposal(createRequest)).rejects.toMatchObject({ code: "proposal_not_found" });
+    await expect(getCoachProgressProposal(proposalId)).rejects.toMatchObject({ code: "proposal_not_found" });
+    const confirmRequest = { requestId: "123e4567-e89b-42d3-a456-426614174001", nonce: "n".repeat(32) };
+    await expect(confirmCoachProgressProposal(proposalId, confirmRequest)).rejects.toMatchObject({ code: "proposal_not_found" });
+    const rollbackRequest = { requestId: "123e4567-e89b-42d3-a456-426614174002" };
+    await expect(rollbackCoachProgressProposal(proposalId, rollbackRequest)).rejects.toMatchObject({ code: "proposal_not_found" });
+    const prescriptionId = `rx_${"e".repeat(24)}`; const sourceRequestId = "018f47a2-3c4d-7abc-8def-000000000201";
+    await expect(getCoachProgressProposalRecovery(prescriptionId, sourceRequestId)).rejects.toMatchObject({ code: "proposal_not_found" });
+
+    expect(fetchMock.mock.calls).toEqual(expect.arrayContaining([
+      ["https://coach.example.run.app/v1/coach/capabilities", expect.objectContaining({ method: "GET", cache: "no-store" })],
+      ["https://coach.example.run.app/v1/coach/proposals", expect.objectContaining({ method: "POST", cache: "no-store",
+        body: JSON.stringify(createRequest) })],
+      [`https://coach.example.run.app/v1/coach/proposals/${proposalId}`, expect.objectContaining({ method: "GET", cache: "no-store" })],
+      [`https://coach.example.run.app/v1/coach/proposals/${proposalId}/confirm`, expect.objectContaining({ method: "POST",
+        cache: "no-store", body: JSON.stringify(confirmRequest) })],
+      [`https://coach.example.run.app/v1/coach/proposals/${proposalId}/rollback`, expect.objectContaining({ method: "POST",
+        cache: "no-store", body: JSON.stringify(rollbackRequest) })],
+      [`https://coach.example.run.app/v1/coach/change-proposals?prescriptionId=${prescriptionId}&sourceRequestId=${sourceRequestId}`,
+        expect.objectContaining({ method: "GET", cache: "no-store" })],
+    ]));
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init?.headers).toEqual(expect.objectContaining({ Authorization: "Bearer id-token", "X-Firebase-AppCheck": "app-check" }));
     }
   });
 

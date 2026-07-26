@@ -283,6 +283,15 @@
     "insufficient": { "title": "처방에 필요한 데이터가 부족합니다", "body": "누락된 데이터를 확인하거나 기존 계획을 이용해 주세요." }, "existingPlan": "기존 계획 확인",
     "safety": { "title": "운동 처방을 표시하지 않습니다", "body": "통증이나 질병이 있으면 운동을 중단하고, 필요하면 의료 전문가의 도움을 받으세요." }
   },
+  "progress": {
+    "origin": { "aiCoach": "AI Coach 제안", "separate": "자동 주간 조정과 구분된 제안입니다. 서버가 현재 계획과 충돌 여부를 다시 확인합니다." },
+    "review": { "title": "계획 변경 검토", "body": "적용할 날짜를 고른 뒤 서버가 만든 변경 전·후와 근거를 확인하세요.", "selectDates": "적용 후보 날짜", "create": "변경안 미리보기", "creating": "변경안 확인 중…", "before": "변경 전", "after": "변경 후", "reasons": "변경 이유", "refresh": "현재 상태 새로고침", "noCharge": "조회와 미리보기는 AI 호출 0회 · 사용 횟수 0 · 계획 저장 0회" },
+    "confirm": { "review": "적용 검토", "final": "확인하고 계획에 적용", "title": "마지막 확인", "body": "다음 버튼을 누를 때만 서버가 현재 리비전과 동의를 다시 확인하고 계획을 변경합니다." },
+    "rollback": { "action": "적용 내용 되돌리기" },
+    "states": { "loading": "계획 기능을 확인하는 중입니다.", "unavailable": "계획 기능 상태를 확인할 수 없습니다", "proposalDisabled": "현재 변경안 생성이 꺼져 있습니다. 기존 계획은 그대로 유지됩니다.", "confirmDisabled": "현재 적용 기능이 꺼져 있어 계획은 변경되지 않습니다.", "confirmRecoveryUnavailable": "복구된 변경안은 적용 확인 정보가 없어 조회만 가능합니다.", "applied": "계획에 한 번만 적용했습니다", "reverted": "감사 기록의 변경 전 상태로 복구했습니다", "receipt": "감사 기록 {{id}}", "stale": "계획·주간 체크인·동의가 변경되어 이 변경안을 적용할 수 없습니다.", "disabled": "현재 이 변경 기능이 꺼져 있습니다.", "conflict": "이후 계획 변경과 충돌하여 안전하게 처리하지 않았습니다.", "error": "변경 상태를 확인하지 못했습니다. 기존 계획은 유지됩니다.", "reanalyze": "새 분석으로 다시 확인", "retryConfirm": "같은 적용 요청 다시 확인", "retryRollback": "같은 되돌리기 요청 다시 확인" },
+    "questions": { "label": "이 결과에 이어서 물어보기", "priority": "이번 주 계획에서 가장 중요한 운동은 무엇인가요?", "changed": "최근 수행 결과 때문에 바뀐 부분을 설명해 주세요.", "linked": "이 결과의 요청에 연결된 질문" },
+    "reason": {}
+  },
   "clarification": {
     "title": "질문을 조금 더 구체화해 주세요", "policy": "이 선택은 {{quota}} · AI 호출 {{provider}}회",
     "policyContinue": "이 선택은 추가 사용 없음 · AI 호출 {{provider}}회",
