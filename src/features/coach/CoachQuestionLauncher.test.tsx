@@ -16,6 +16,11 @@ const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), policy: vi.fn()
 vi.mock("../../services/coachClient", async (original) => ({ ...(await original()), getCoachStatus: mocks.status, askCoachV2: mocks.ask }));
 vi.mock("../../services/coachConsentClient", () => ({ getCoachConsentPolicy: mocks.policy }));
 vi.mock("./coachAnalytics", () => ({ coachAnalytics: mocks.analytics, trackCoachFeedback: mocks.feedback }));
+vi.mock("./CoachPmcInsightCard", () => ({
+  CoachPmcInsightCard: ({ onQuestionSelect }: { onQuestionSelect: (value: { question: string; snapshotId: string }) => void }) =>
+    <button type="button" onClick={() => onQuestionSelect({ question: "최근 7일 동안 훈련 부하는 어떻게 달라졌어?",
+      snapshotId: "pmc_aaaaaaaaaaaaaaaaaaaaaaaa" })}>PMC example</button>,
+}));
 vi.mock("./FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, policy, onConsented }: {
   open: boolean; policy: unknown; onConsented: (value: unknown) => void;
 }) => open ? <button data-testid="complete-consent" onClick={() => onConsented(policy)}>complete consent</button> : null }));
@@ -114,6 +119,12 @@ function setup(currentUser: User | null = user, discipline: "bike" | "run" | "sw
   </DialogProvider></MemoryRouter>);
 }
 
+function setupPmc() {
+  return render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
+    <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()} showPmcInsight />
+  </DialogProvider></MemoryRouter>);
+}
+
 describe("CoachQuestionLauncher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -139,6 +150,51 @@ describe("CoachQuestionLauncher", () => {
       <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()} triggerBlock={false} />
     </DialogProvider></MemoryRouter>);
     expect(screen.getByRole("button", { name: "AI 코치에게 물어보기" })).not.toHaveClass("ds-btn--block");
+  });
+
+  it("opens through authoritative status loading, focuses the PMC draft, and never auto-sends it", async () => {
+    setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "PMC example" }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문");
+    await waitFor(() => expect(composer).toHaveFocus());
+    expect(composer).toHaveValue("최근 7일 동안 훈련 부하는 어떻게 달라졌어?");
+    expect(mocks.status).toHaveBeenCalledTimes(1); expect(mocks.policy).toHaveBeenCalledTimes(1);
+    expect(mocks.ask).not.toHaveBeenCalled();
+  });
+
+  it("clears the selected snapshot when the user manually edits its draft", async () => {
+    mocks.ask.mockResolvedValue(answer);
+    setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "PMC example" }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문");
+    await userEvent.type(composer, " 직접 수정");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({ contextFilters: {} })));
+  });
+
+  it("keeps the draft and snapshot paired across close and reopen", async () => {
+    mocks.ask.mockResolvedValue(answer);
+    setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "PMC example" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치 닫기" }));
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문");
+    expect(composer).toHaveValue("최근 7일 동안 훈련 부하는 어떻게 달라졌어?");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({
+      contextFilters: { pmcSnapshotId: "pmc_aaaaaaaaaaaaaaaaaaaaaaaa" },
+    })));
+  });
+
+  it("keeps the card visible while authoritative quota exhaustion disables its selected composer", async () => {
+    mocks.status.mockResolvedValue({ status: "quota_exhausted", quota: { ...quota, consumed: 3, remaining: 0 } });
+    setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "PMC example" }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문");
+    expect(composer).toBeDisabled();
+    expect(screen.getByRole("button", { name: "PMC example", hidden: true })).toBeInTheDocument();
+    expect(mocks.ask).not.toHaveBeenCalled();
   });
 
   it("uses the design-system composer hierarchy without duplicating a selected quick prompt", async () => {
@@ -603,6 +659,28 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.ask.mock.calls[1]?.[0]).toMatchObject({ requestId: childId, question: expect.stringContaining("분석 기간은 지난주"),
       apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1", contextFilters: {} });
     expect(mocks.ask.mock.calls[1]?.[0]).not.toHaveProperty("turnToken");
+  });
+
+  it("keeps the selected PMC snapshot on a confirmed new-turn clarification", async () => {
+    const parentId = answer.requestId; const childId = p1Answer.requestId;
+    vi.mocked(crypto.randomUUID).mockReturnValueOnce(parentId).mockReturnValueOnce(childId);
+    const clarification = { ...p1Base, requestId: parentId, outcome: "clarification_required",
+      clarification: { clarificationId: "clarify_pmc", promptKey: "coach.clarification.time_range",
+        options: [{ optionId: "last_week", labelKey: "coach.clarification.last_week" }], turnToken: "",
+        expiresAt: "2099-07-19T15:00:00Z", resolutionMode: "new_turn_required", consumesQuota: false, providerCalls: 0,
+        reasonCode: "time_range_required" } };
+    mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
+    setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "PMC example" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "지난주" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
+    const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
+    await userEvent.click(within(confirmation).getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
+    expect(mocks.ask.mock.calls[1]?.[0]).toMatchObject({ requestId: childId,
+      contextFilters: { pmcSnapshotId: "pmc_aaaaaaaaaaaaaaaaaaaaaaaa" } });
   });
 
   it("keeps an unknown valid clarification actionable without claiming a free provider call", async () => {

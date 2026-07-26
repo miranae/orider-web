@@ -5,6 +5,41 @@
   "subtitle": "내 운동 기록을 근거로 답합니다.",
   "independentNote": "새 질문은 새 대화로 저장됩니다.",
   "context": "{{discipline}} 기록 분석",
+  "pmc": {
+    "title": "훈련 부하와 폼",
+    "subtitle": "{{discipline}} 정본 데이터",
+    "loading": "훈련 부하를 확인하고 있습니다…",
+    "unavailable": "훈련 부하 카드를 지금 불러올 수 없습니다. 기존 피트니스 화면은 그대로 이용할 수 있습니다.",
+    "accessibleStatus": "데이터 상태 {{status}}, 신선도 {{freshness}}, 출처 품질 {{quality}}",
+    "metrics": { "ctl": "체력 (CTL)", "atl": "피로 (ATL)", "form": "폼 (Form)" },
+    "delta7d": "7일 변화 {{value}}",
+    "asOf": "기준 {{value}}",
+    "sourceQuality": "신선도 {{freshness}} · 출처 {{quality}}",
+    "questionsLabel": "현재 훈련 부하에 대해 물어볼 예시 질문",
+    "questions": {
+      "pmc_recent_load_change": "최근 7일 동안 훈련 부하는 어떻게 달라졌어?",
+      "pmc_current_form_intensity": "현재 폼을 기준으로 이번 주 강도를 어떻게 가져가야 해?"
+    },
+    "status": { "ok": "확인됨", "partial": "일부 데이터", "stale": "갱신 필요", "missing": "데이터 부족" },
+    "freshness": { "fresh": "최신", "stale": "오래됨", "missing": "확인 불가" },
+    "quality": { "complete": "완전", "estimated": "일부 추정", "incomplete": "불완전", "unavailable": "확인 불가" },
+    "interpretation": {
+      "normal_load": "현재 부하는 일반 범위로 분류되었습니다.",
+      "productive_load": "현재 부하는 생산적 부하 범위로 분류되었습니다.",
+      "high_load": "최근 부하가 높은 범위로 분류되었습니다.",
+      "recovery_review": "운동 강도를 정하기 전에 회복 상태를 함께 점검해 주세요.",
+      "insufficient_history": "판단에 필요한 기록이 충분하지 않습니다.",
+      "incomplete_data": "일부 데이터가 없어 확정적인 해석을 제공하지 않습니다.",
+      "refresh_required": "데이터 갱신 후 상태를 다시 확인해 주세요.",
+      "data_unavailable": "현재 해석할 수 있는 데이터가 없습니다."
+    },
+    "safe": {
+      "partial": "일부 데이터만 있어 확정적인 해석은 제공하지 않습니다. 질문을 선택하면 이 데이터 상태가 함께 전달됩니다.",
+      "stale": "오래된 데이터이므로 확정적인 해석과 질문 연결을 제공하지 않습니다.",
+      "missing": "필요한 데이터가 없어 확정적인 해석과 질문 연결을 제공하지 않습니다.",
+      "ok": ""
+    }
+  },
   "signInRequired": "AI 코치가 내 운동 기록을 분석하려면 로그인이 필요합니다.",
   "signIn": "로그인하기",
   "loadingStatus": "오늘의 사용 가능 횟수를 확인하고 있습니다…",

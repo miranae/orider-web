@@ -1,0 +1,80 @@
+.coach-pmc-card {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin-block-end: var(--space-3);
+}
+
+.coach-pmc-card__header,
+.coach-pmc-card__heading,
+.coach-pmc-card__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.coach-pmc-card__header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.coach-pmc-card__heading {
+  min-width: 0;
+}
+
+.coach-pmc-card__heading > svg {
+  flex: 0 0 auto;
+  color: var(--lime);
+}
+
+.coach-pmc-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.coach-pmc-card__metric {
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+}
+
+.coach-pmc-card__metric dd {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+}
+
+.coach-pmc-card__meta {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.coach-pmc-card__interpretation {
+  margin: 0;
+}
+
+.coach-pmc-card__questions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.coach-pmc-card__questions .ds-btn {
+  min-width: 0;
+  height: auto;
+  white-space: normal;
+  text-align: start;
+}
+
+@media (max-width: 32rem) {
+  .coach-pmc-card__metrics,
+  .coach-pmc-card__questions {
+    grid-template-columns: 1fr;
+  }
+}

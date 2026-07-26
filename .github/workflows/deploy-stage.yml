@@ -36,6 +36,7 @@ jobs:
       VITE_MAPBOX_TOKEN: ${{ secrets.STAGE_VITE_MAPBOX_TOKEN }}
       VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE_KEY }}
       VITE_ORIDER_AI_API_BASE: ${{ vars.STAGE_VITE_ORIDER_AI_API_BASE }}
+      VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6

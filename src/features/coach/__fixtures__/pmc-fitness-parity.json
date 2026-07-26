@@ -1,0 +1,38 @@
+{
+  "fitness": {
+    "discipline": "bike",
+    "schemaVersion": 1,
+    "computedAt": 1784343600000,
+    "startDate": "2026-07-11",
+    "endDate": "2026-07-18",
+    "pointCount": 8,
+    "points": [
+      { "date": "2026-07-11", "ctl": 40.5, "atl": 62, "tsb": -21.5, "dailyLoad": 48 },
+      { "date": "2026-07-12", "ctl": 40.6, "atl": 57.6, "tsb": -17, "dailyLoad": 0 },
+      { "date": "2026-07-13", "ctl": 40.7, "atl": 53.5, "tsb": -12.8, "dailyLoad": 0 },
+      { "date": "2026-07-14", "ctl": 40.9, "atl": 49.7, "tsb": -8.8, "dailyLoad": 0 },
+      { "date": "2026-07-15", "ctl": 41.1, "atl": 46.1, "tsb": -5, "dailyLoad": 0 },
+      { "date": "2026-07-16", "ctl": 41.4, "atl": 42.8, "tsb": -1.4, "dailyLoad": 0 },
+      { "date": "2026-07-17", "ctl": 41.7, "atl": 39.7, "tsb": 2, "dailyLoad": 0 },
+      { "date": "2026-07-18", "ctl": 43, "atl": 70, "tsb": -27, "dailyLoad": 75 }
+    ]
+  },
+  "cardEnvelope": {
+    "data": {
+      "schemaVersion": "coach-pmc-insight-v1",
+      "status": "ok",
+      "discipline": "bike",
+      "snapshotId": "pmc_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceRevision": "pmcr_bbbbbbbbbbbbbbbbbbbbbbbb",
+      "asOf": "2026-07-18T03:00:00.000Z",
+      "current": { "ctl": 43, "atl": 70, "form": -27 },
+      "delta7d": { "ctl": 2.5, "atl": 8, "form": -5.5 },
+      "freshness": { "status": "fresh", "maxAgeHours": 36, "reasonCodes": [] },
+      "sourceQuality": { "level": "complete", "estimatedLoad": false, "reasonCodes": [] },
+      "classification": "high_load",
+      "interpretationCode": "high_load",
+      "exampleQuestionCodes": ["pmc_recent_load_change", "pmc_current_form_intensity"],
+      "execution": { "providerCalls": 0, "quotaConsumed": false, "writes": 0 }
+    }
+  }
+}

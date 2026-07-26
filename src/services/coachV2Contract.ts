@@ -226,7 +226,7 @@ export interface CoachV2QuestionRequest {
   apiVersion: "v2";
   schemaVersion: "coach-respond-v2";
   capabilityVersion: "p1";
-  contextFilters: Record<string, never>;
+  contextFilters: { pmcSnapshotId?: string };
   responseFormat: CoachResponseFormat;
   expectedSessionRevision?: number;
 }

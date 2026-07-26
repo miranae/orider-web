@@ -5,6 +5,7 @@ import {
   coachPrescriptionCheckInRequestSchema, parseCoachPrescriptionCheckInResponse,
   type CoachPrescriptionCheckInRequest, type CoachPrescriptionCheckInResponse,
 } from "./coachPrescriptionContract";
+import { parseCoachPmcInsight, type CoachPmcInsight } from "./coachPmcInsightContract";
 
 export type CoachDiscipline = "bike" | "run" | "swim";
 export type CoachResponseStatus = "ok" | "insufficient_data" | "stale" | "unsupported" | "quota_exceeded" | "budget_blocked" | "fallback";
@@ -282,6 +283,19 @@ async function authenticatedFetch(path: string, init?: RequestInit): Promise<unk
 
 export async function getCoachStatus(): Promise<CoachInitialStatus> {
   return parseCoachInitialStatus(await authenticatedFetch("/status"));
+}
+
+/** Canonical server projection only; this GET never invokes a provider, consumes quota, or writes. */
+export async function getCoachPmcInsight(discipline: CoachDiscipline): Promise<CoachPmcInsight> {
+  try {
+    const payload = await authenticatedFetch(`/insights/pmc?discipline=${encodeURIComponent(discipline)}`, {
+      method: "GET", cache: "no-store",
+    });
+    return parseCoachPmcInsight(payload, discipline);
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PMC_INSIGHT", { cause });
+  }
 }
 
 export async function askCoach(request: CoachRespondRequest): Promise<CoachResponse> {
