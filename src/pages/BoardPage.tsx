@@ -324,9 +324,9 @@ const BoardPage: React.FC = () => {
         )}
       </div>
 
-      {/* Posts List — 데스크톱 읽기 폭 840px 제한 + xl 에서 인기 태그 사이드바 2열 (#401) */}
-      <div className="relative z-0 xl:flex xl:justify-center xl:gap-6">
-      <div className="min-w-0 md:max-w-[840px] md:mx-auto md:w-full xl:mx-0 xl:flex-none xl:w-[840px]">
+      {/* Posts List — 공통 셸 너비를 채우고 xl 에서 인기 태그 사이드바와 2열 구성 */}
+      <div className="relative z-0 xl:flex xl:gap-6">
+      <div className="min-w-0 w-full xl:flex-1">
         {submittedPostId && selectedBoard === 'inquiry' && (
           <Card padding="none" className="mb-4 p-4! md:p-5! rounded-[var(--r-lg)] border-[var(--lime)]/40">
             <div className="flex items-start justify-between gap-3">
