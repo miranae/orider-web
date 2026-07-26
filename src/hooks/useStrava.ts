@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../services/firebase";
 import { getRuntimeConfig } from "../services/runtimeConfig";
+import { track } from "../services/analytics";
+import { logClientError } from "../services/errorLogger";
 
 export function useStrava() {
   const [loading, setLoading] = useState(false);
@@ -96,15 +98,22 @@ export function useStrava() {
     }
   }, []);
 
-  const disconnectStrava = async () => {
+  const disconnectStrava = async (operationId: string) => {
     setLoading(true);
     setError(null);
     try {
       const fn = httpsCallable(functions, "stravaDisconnect");
-      await fn();
+      await fn({ operationId, source: "web" });
+      track("strava_disconnect_success", { operationId, source: "web" });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Disconnect failed";
       setError(msg);
+      track("strava_disconnect_failure", { operationId, source: "web" });
+      logClientError(
+        "useStrava.disconnectStrava",
+        new Error("Strava disconnect callable failed"),
+        { operationId, source: "web" },
+      );
       throw e;
     } finally {
       setLoading(false);

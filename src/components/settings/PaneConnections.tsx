@@ -8,6 +8,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { useStrava } from "../../hooks/useStrava";
 import { functions } from "../../services/firebase";
+import { track } from "../../services/analytics";
 
 import { SettingsCard, InlineRow, Toggle } from "./_primitives";
 import { Button, Text } from "../../theme/components";
@@ -126,9 +127,18 @@ export function PaneConnections() {
   const autoUpload = profile?.autoUpload ?? false;
 
   async function handleStravaDisconnect() {
-    if (!(await dialog.confirm(t("strava.disconnectConfirm"), { destructive: true }))) return;
+    const operationId = crypto.randomUUID();
+    const analyticsParams = { operationId, source: "web" };
+    track("strava_disconnect_intent", analyticsParams);
+
+    if (!(await dialog.confirm(t("strava.disconnectConfirm"), { destructive: true }))) {
+      track("strava_disconnect_cancel", analyticsParams);
+      return;
+    }
+    track("strava_disconnect_confirm", analyticsParams);
+
     try {
-      await disconnectStrava();
+      await disconnectStrava(operationId);
       showToast(t("strava.disconnected"));
     } catch {
       /* hook 내부에서 토스트 처리 */
