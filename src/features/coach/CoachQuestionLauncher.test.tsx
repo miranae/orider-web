@@ -21,6 +21,11 @@ vi.mock("./CoachPmcInsightCard", () => ({
     <button type="button" onClick={() => onQuestionSelect({ question: "최근 7일 동안 훈련 부하는 어떻게 달라졌어?",
       snapshotId: "pmc_aaaaaaaaaaaaaaaaaaaaaaaa" })}>PMC example</button>,
 }));
+vi.mock("./CoachRiderInsightCard", () => ({
+  CoachRiderInsightCard: ({ onQuestionSelect }: { onQuestionSelect: (value: { question: string; snapshotId: string }) => void }) =>
+    <button type="button" onClick={() => onQuestionSelect({ question: "내 라이더 유형과 강점·보완점을 설명해줘.",
+      snapshotId: "rider_bbbbbbbbbbbbbbbbbbbbbbbb" })}>Rider example</button>,
+}));
 vi.mock("./FirstUseCoachConsent", () => ({ FirstUseCoachConsent: ({ open, policy, onConsented }: {
   open: boolean; policy: unknown; onConsented: (value: unknown) => void;
 }) => open ? <button data-testid="complete-consent" onClick={() => onConsented(policy)}>complete consent</button> : null }));
@@ -160,6 +165,27 @@ describe("CoachQuestionLauncher", () => {
     expect(composer).toHaveValue("최근 7일 동안 훈련 부하는 어떻게 달라졌어?");
     expect(mocks.status).toHaveBeenCalledTimes(1); expect(mocks.policy).toHaveBeenCalledTimes(1);
     expect(mocks.ask).not.toHaveBeenCalled();
+  });
+
+  it("fills but never auto-sends a Rider question and submits only its pinned snapshot", async () => {
+    mocks.ask.mockResolvedValue(answer); setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "Rider example" }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문");
+    await waitFor(() => expect(composer).toHaveFocus());
+    expect(composer).toHaveValue("내 라이더 유형과 강점·보완점을 설명해줘."); expect(mocks.ask).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({
+      contextFilters: { riderSnapshotId: "rider_bbbbbbbbbbbbbbbbbbbbbbbb" },
+    })));
+    expect(mocks.ask.mock.calls[0]?.[0].contextFilters).not.toHaveProperty("pmcSnapshotId");
+  });
+
+  it("clears a Rider snapshot when its draft is manually edited", async () => {
+    mocks.ask.mockResolvedValue(answer); setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "Rider example" }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문"); await userEvent.type(composer, " 직접 수정");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({ contextFilters: {} })));
   });
 
   it("clears the selected snapshot when the user manually edits its draft", async () => {
@@ -639,6 +665,26 @@ describe("CoachQuestionLauncher", () => {
       turnToken: clarification.clarification.turnToken, optionId: "this_week", apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1" });
   });
 
+  it("keeps a Rider snapshot out of a signed continue_no_charge child DTO", async () => {
+    const parentId = answer.requestId; const childId = p1Answer.requestId;
+    vi.mocked(crypto.randomUUID).mockReturnValueOnce(parentId).mockReturnValueOnce(childId);
+    const clarification = { ...p1Base, requestId: parentId, outcome: "clarification_required",
+      clarification: { clarificationId: "clarify_rider_continue", promptKey: "coach.clarification.time_range",
+        options: [{ optionId: "this_week", labelKey: "coach.clarification.this_week" }], turnToken: "signed-token-abcdefghijklmnopqrstuvwxyz",
+        expiresAt: "2099-07-19T15:00:00Z", resolutionMode: "continue_no_charge", consumesQuota: false, providerCalls: 0,
+        reasonCode: "time_range_required" } };
+    mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
+    setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "Rider example" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "이번 주" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
+    expect(mocks.ask.mock.calls[1]?.[0]).toEqual({ requestId: childId, parentRequestId: parentId,
+      turnToken: clarification.clarification.turnToken, optionId: "this_week", apiVersion: "v2", schemaVersion: "coach-respond-v2", capabilityVersion: "p1" });
+  });
+
   it("requires confirmation before a new-turn clarification and sends a new natural-language request", async () => {
     const parentId = answer.requestId; const childId = p1Answer.requestId;
     vi.mocked(crypto.randomUUID).mockReturnValueOnce(parentId).mockReturnValueOnce(childId);
@@ -681,6 +727,29 @@ describe("CoachQuestionLauncher", () => {
     await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
     expect(mocks.ask.mock.calls[1]?.[0]).toMatchObject({ requestId: childId,
       contextFilters: { pmcSnapshotId: "pmc_aaaaaaaaaaaaaaaaaaaaaaaa" } });
+  });
+
+  it("keeps the selected Rider snapshot on a confirmed new-turn clarification", async () => {
+    const parentId = answer.requestId; const childId = p1Answer.requestId;
+    vi.mocked(crypto.randomUUID).mockReturnValueOnce(parentId).mockReturnValueOnce(childId);
+    const clarification = { ...p1Base, requestId: parentId, outcome: "clarification_required",
+      clarification: { clarificationId: "clarify_rider", promptKey: "coach.clarification.time_range",
+        options: [{ optionId: "last_week", labelKey: "coach.clarification.last_week" }], turnToken: "",
+        expiresAt: "2099-07-19T15:00:00Z", resolutionMode: "new_turn_required", consumesQuota: false, providerCalls: 0,
+        reasonCode: "time_range_required" } };
+    mocks.ask.mockResolvedValueOnce(clarification).mockResolvedValueOnce(p1Answer);
+    setupPmc();
+    await userEvent.click(screen.getByRole("button", { name: "Rider example" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "지난주" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
+    const confirmation = await screen.findByRole("dialog", { name: "새 질문으로 다시 시도" });
+    await userEvent.click(within(confirmation).getByRole("button", { name: "1회 사용하고 다시 질문" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledTimes(2));
+    expect(mocks.ask.mock.calls[1]?.[0]).toMatchObject({ requestId: childId,
+      contextFilters: { riderSnapshotId: "rider_bbbbbbbbbbbbbbbbbbbbbbbb" } });
+    expect(mocks.ask.mock.calls[1]?.[0].contextFilters).not.toHaveProperty("pmcSnapshotId");
   });
 
   it("keeps an unknown valid clarification actionable without claiming a free provider call", async () => {

@@ -40,6 +40,43 @@
       "ok": ""
     }
   },
+  "rider": {
+    "title": "Rider Insight",
+    "subtitle": "O·RIDER 파워-지속시간 정본 결과",
+    "loading": "라이더 특성을 확인하고 있습니다…",
+    "unavailable": "Rider Insight를 지금 불러올 수 없습니다. 기존 피트니스 PDC 결과는 그대로 이용할 수 있습니다.",
+    "accessibleStatus": "라이더 분석 상태 {{status}}, 정본 활동 {{count}}개",
+    "resultLabel": "나의 라이더 유형",
+    "confidence": "신뢰도 {{value}}%",
+    "ability": "종합 역량 {{value}}백분위",
+    "axis": {
+      "endurance": "지속 성향 · 폭발 − / 지속 +",
+      "weight": "출력 성향 · 절대파워 − / W/kg +"
+    },
+    "durationTitle": "지속시간별 역량",
+    "duration": { "5s": "5초", "1m": "1분", "5m": "5분", "20m": "20분" },
+    "strength": "강점",
+    "improve": "보완",
+    "asOf": "기준 {{value}}",
+    "sourceNote": "O·RIDER 실측 파워 PDC 정본을 사용하며, 활동 ID·날짜·기록 이력은 AI 요청에 전달하지 않습니다.",
+    "questionsLabel": "현재 Rider Insight에 대해 물어볼 예시 질문",
+    "questions": {
+      "RIDER_TYPE_STRENGTHS": "내 라이더 유형과 강점·보완점을 설명해줘.",
+      "RIDER_DURATION_PRIORITY": "어떤 지속시간 영역을 우선 훈련해야 해?"
+    },
+    "status": {
+      "ok": "확인됨", "missing": "PDC 없음", "missing_weight": "체중 필요",
+      "insufficient_activity": "활동 부족", "low_confidence": "신뢰도 부족", "unsupported": "미지원"
+    },
+    "safe": {
+      "missing": "분류에 필요한 실측 파워 PDC가 아직 없습니다. 라이더 유형을 확정하지 않습니다.",
+      "missing_weight": "W/kg 계산에 필요한 체중이 없어 라이더 유형을 확정하지 않습니다.",
+      "insufficient_activity": "정본 활동이 {{count}}개입니다. 5개 이상 쌓일 때까지 라이더 유형을 확정하지 않습니다.",
+      "low_confidence": "분류 신뢰도가 기준에 미치지 않아 라이더 유형과 강점·보완점을 확정하지 않습니다.",
+      "unsupported": "Rider Insight는 현재 사이클에서만 지원합니다.",
+      "ok": ""
+    }
+  },
   "signInRequired": "AI 코치가 내 운동 기록을 분석하려면 로그인이 필요합니다.",
   "signIn": "로그인하기",
   "loadingStatus": "오늘의 사용 가능 횟수를 확인하고 있습니다…",

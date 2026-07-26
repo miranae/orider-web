@@ -1,0 +1,85 @@
+{
+  "persistedPdc": {
+    "discipline": "bike",
+    "version": 5,
+    "computedAt": 1785117600000,
+    "activityCount": 12,
+    "weightKgSnapshot": 70,
+    "mmpAll": {
+      "5s": { "value": 1050, "activityId": "private-ride-5s", "date": "2026-07-20", "startTime": 1784505600000, "source": "strava_api", "cohortEligible": true },
+      "1m": { "value": 560, "activityId": "private-ride-1m", "date": "2026-07-20", "startTime": 1784505600000, "source": "strava_api", "cohortEligible": true },
+      "5m": { "value": 350, "activityId": "private-ride-5m", "date": "2026-07-20", "startTime": 1784505600000, "source": "strava_api", "cohortEligible": true },
+      "20m": { "value": 280, "activityId": "private-ride-20m", "date": "2026-07-20", "startTime": 1784505600000, "source": "strava_api", "cohortEligible": true }
+    },
+    "cp": { "value": 270, "wPrime": 18000, "r2": 0.96, "computedAt": 1785117600000 },
+    "pdcModel": { "pmax": 1200, "frc": 18000, "ftpEst": 262, "cpEst": 270, "tteMin": 45 },
+    "stamina": 0.8,
+    "powerProfile": "all_rounder",
+    "wPerKgAtKey": { "5s": 15, "1m": 8, "5m": 5, "20m": 4 },
+    "riderType": { "type": "AllRounder", "axisX": 0.12, "axisY": 0.11, "confidence": 0.91 },
+    "ability": {
+      "overallPercentile": 73,
+      "byDuration": [
+        { "duration": "5s", "wPerKg": 15, "percentile": 82 },
+        { "duration": "1m", "wPerKg": 8, "percentile": 76 },
+        { "duration": "5m", "wPerKg": 5, "percentile": 70 },
+        { "duration": "20m", "wPerKg": 4, "percentile": 64 }
+      ]
+    },
+    "sustainablePower": [{ "minutes": 20, "watts": 285, "basis": "cp_w_prime" }],
+    "history": [],
+    "vo2maxEst": 56,
+    "provenance": {
+      "version": 2,
+      "power": "measured",
+      "excludesVirtualPower": true,
+      "byDuration": {
+        "5s": { "source": "strava_api", "cohortEligible": true },
+        "1m": { "source": "strava_api", "cohortEligible": true },
+        "5m": { "source": "strava_api", "cohortEligible": true },
+        "20m": { "source": "strava_api", "cohortEligible": true }
+      },
+      "derived": { "ftpEst": false, "vo2maxEst": false }
+    }
+  },
+  "cardEnvelope": {
+    "data": {
+      "schemaVersion": "coach-rider-insight-v1",
+      "status": "ok",
+      "discipline": "bike",
+      "snapshotId": "rider_aaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceRevision": "pdcr_bbbbbbbbbbbbbbbbbbbbbbbb",
+      "asOf": "2026-07-27T02:00:00.000Z",
+      "mmpWatts": { "5s": 1050, "1m": 560, "5m": 350, "20m": 280 },
+      "criticalPower": { "cpWatts": 270, "wPrimeJoules": 18000, "r2": 0.96 },
+      "model": { "pmaxWatts": 1200, "frcJoules": 18000, "ftpEstWatts": 262, "cpEstWatts": 270, "tteMinutes": 45 },
+      "profile": { "type": "AllRounder", "axisX": 0.12, "axisY": 0.11, "confidence": 0.91 },
+      "ability": {
+        "overallPercentile": 73,
+        "byDuration": [
+          { "duration": "5s", "wPerKg": 15, "percentile": 82 },
+          { "duration": "1m", "wPerKg": 8, "percentile": 76 },
+          { "duration": "5m", "wPerKg": 5, "percentile": 70 },
+          { "duration": "20m", "wPerKg": 4, "percentile": 64 }
+        ]
+      },
+      "activityCount": 12,
+      "weightKgSnapshot": 70,
+      "reasonCodes": [],
+      "exampleQuestionCodes": ["RIDER_TYPE_STRENGTHS", "RIDER_DURATION_PRIORITY"],
+      "execution": { "providerCalls": 0, "quotaConsumed": false, "writes": 0 }
+    }
+  },
+  "typeFixtures": [
+    { "type": "RoadSprinter", "axisX": -0.5, "axisY": 0.1, "confidence": 0.9 },
+    { "type": "TrackSprinter", "axisX": -0.6, "axisY": -0.4, "confidence": 0.9 },
+    { "type": "AllRounder", "axisX": 0.1, "axisY": 0.1, "confidence": 0.9 },
+    { "type": "Puncher", "axisX": 0.1, "axisY": -0.1, "confidence": 0.9 },
+    { "type": "Climber", "axisX": 0.5, "axisY": 0.5, "confidence": 0.9 },
+    { "type": "TimeTrialist", "axisX": 0.5, "axisY": -0.1, "confidence": 0.9 }
+  ],
+  "gateFixtures": [
+    { "status": "low_confidence", "reasonCodes": ["classification_low_confidence"] },
+    { "status": "missing_weight", "reasonCodes": ["weight_missing"] }
+  ]
+}

@@ -4,22 +4,29 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
+import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
+import { parseCoachRiderInsight } from "../services/coachRiderInsightContract";
 import FitnessPage from "./FitnessPage";
 
 const viewport = vi.hoisted(() => ({ isMobile: true }));
+const riderInsight = vi.hoisted(() => ({ enabled: false, insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false }));
 
 vi.mock("../hooks/useMobile", () => ({
   useMobile: () => viewport.isMobile,
 }));
+vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ coachRiderInsightEnabled: riderInsight.enabled }) }));
+vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => riderInsight }));
 
 vi.mock("../components/mobile/MobileFitnessPage", () => ({
-  default: ({ data }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number } } }) => (
+  default: ({ data }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number }; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null } }) => (
     <div>
       mobile fitness dashboard: {data.discipline}
       <span>selected {data.ctl}/{data.atl}/{data.tsb}</span>
       <span>integrated {data.combinedLoad?.ctl ?? "none"}</span>
       <span>contributions {data.combinedLoad?.contributions.length ?? 0}</span>
       <span>focus {data.loadFocus.totalLoad}</span>
+      <span>cycling ability {data.cyclingAbility?.activityCount ?? "none"}/{data.cyclingAbility?.axes[0]?.score ?? "none"}</span>
+      <span>PDC summary {data.pdcSummary?.abilityScore ?? "none"}/{data.pdcSummary?.activityCount ?? "none"}/{data.pdcSummary?.riderType?.type ?? "none"}</span>
     </div>
   ),
 }));
@@ -36,6 +43,10 @@ vi.mock("./fitness/TriFitnessView", () => ({
 describe("FitnessPage", () => {
   beforeEach(() => {
     viewport.isMobile = true;
+    riderInsight.enabled = false;
+    riderInsight.insight = null;
+    riderInsight.loading = false;
+    riderInsight.unavailable = false;
   });
 
   it("never carries a single-sport projection into the integrated mobile PMC", () => {
@@ -136,5 +147,42 @@ describe("FitnessPage", () => {
     expect(screen.getByText("integrated none")).toBeInTheDocument();
     expect(screen.getByText("contributions 0")).toBeInTheDocument();
     expect(screen.getByText("focus 40")).toBeInTheDocument();
+  });
+
+  it.each([
+    { loading: true, unavailable: false, label: "loading" },
+    { loading: false, unavailable: true, label: "failure" },
+    { loading: false, unavailable: false, label: "parity-null" },
+  ])("keeps canonical PDC Fitness data while Rider Insight is $label", async ({ loading, unavailable }) => {
+    riderInsight.enabled = true;
+    riderInsight.loading = loading;
+    riderInsight.unavailable = unavailable;
+    setDocData("users/test-uid/fitness/pdc_bike", parity.persistedPdc);
+    setCollectionDocs("activities", [{
+      id: "bike-1", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null,
+      summary: { distance: 20_000, ridingTimeMillis: 3_600_000 },
+    }]);
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("cycling ability 12/79")).toBeInTheDocument();
+    expect(screen.getByText("PDC summary 73/12/AllRounder")).toBeInTheDocument();
+  });
+
+  it("fails closed when a returned Rider Insight does not match the persisted PDC", async () => {
+    riderInsight.enabled = true;
+    const mismatched = structuredClone(parity.cardEnvelope);
+    mismatched.data.asOf = "2026-07-26T02:00:00.000Z";
+    riderInsight.insight = parseCoachRiderInsight(mismatched);
+    setDocData("users/test-uid/fitness/pdc_bike", parity.persistedPdc);
+    setCollectionDocs("activities", [{
+      id: "bike-1", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null,
+      summary: { distance: 20_000, ridingTimeMillis: 3_600_000 },
+    }]);
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("cycling ability none/none")).toBeInTheDocument();
+    expect(screen.getByText("PDC summary none/none/none")).toBeInTheDocument();
   });
 });

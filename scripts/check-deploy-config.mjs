@@ -104,6 +104,7 @@ requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.V
 requireIncludes(deployWorkflow, "VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_ORIDER_AI_API_BASE: ${{ vars.VITE_ORIDER_AI_API_BASE }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.VITE_COACH_PMC_INSIGHT_ENABLED }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.VITE_COACH_RIDER_INSIGHT_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
 requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
@@ -137,6 +138,7 @@ requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_MAPBOX_TOKEN", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_ORIDER_AI_API_BASE", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-stage.yml verification");
 requireIncludes(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "deploy-stage.yml backend contract gate");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");

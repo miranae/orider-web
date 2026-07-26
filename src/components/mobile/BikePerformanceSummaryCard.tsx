@@ -12,6 +12,12 @@ export interface MobileFitnessPdcSummary {
   abilityScore: number | null;
   vo2maxEst: number | null;
   activityCount: number | null;
+  weightKgSnapshot: number | null;
+  version: number | null;
+  provenanceVersion: number | null;
+  measuredPower: boolean;
+  sourceRevision?: string;
+  asOf?: string;
 }
 
 interface BikePerformanceSummaryCardProps {
@@ -45,7 +51,11 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
   const ftpEvidence = activeFtp == null
     ? t("mobileFitness.performance.ftpMissingEvidence")
     : wkg != null ? t("mobileFitness.snapshot.ftpSource") : t("mobileFitness.snapshot.ftpWeightMissing");
-  const riderType = pdc?.riderType && pdc.riderType.confidence >= 0.5 && RIDER_TYPE_KEYS.has(pdc.riderType.type)
+  const definitive = pdc?.version === 5 && pdc.provenanceVersion === 2 && pdc.measuredPower
+    && (pdc.activityCount ?? 0) >= 5 && pdc.weightKgSnapshot != null
+    && pdc.riderType != null && pdc.riderType.confidence >= 0.75 && RIDER_TYPE_KEYS.has(pdc.riderType.type)
+    && pdc.riderType.type !== "Unclassified";
+  const riderType = definitive && pdc?.riderType
     ? t(`fitness:riderType.type.${pdc.riderType.type}.label`)
     : null;
   const vo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : estimateVo2max(activeFtp, weightKg);
