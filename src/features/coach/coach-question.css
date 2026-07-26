@@ -490,6 +490,69 @@
 .coach-prescription__meta dd { margin: 0; overflow-wrap: anywhere; }
 .coach-prescription--safety { border-color: var(--color-warning); }
 
+.coach-progress-review {
+  display: grid;
+  gap: var(--space-3);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--line-soft);
+}
+
+.coach-progress-review__heading,
+.coach-progress-review__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.coach-progress-review fieldset,
+.coach-progress-review__change {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+}
+
+.coach-progress-review__dates,
+.coach-progress-review__changes,
+.coach-progress-review__questions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.coach-progress-review__dates {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  margin-block: var(--space-2) var(--space-3);
+}
+
+.coach-progress-review__dates label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+.coach-progress-review__before-after {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+
+.coach-progress-review__before-after > div {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-2);
+  overflow-wrap: anywhere;
+}
+
+.coach-progress-review__questions .ds-btn { justify-content: flex-start; text-align: start; white-space: normal; }
+
 .coach-checkin__signal {
   min-width: 0;
   margin: 0;
@@ -649,6 +712,8 @@
   .coach-answer__more li,
   .coach-answer__goal > div { align-items: flex-start; flex-direction: column; gap: var(--space-1); }
   .coach-answer table { min-width: 18rem; }
+  .coach-progress-review__before-after { grid-template-columns: minmax(0, 1fr); }
+  .coach-progress-review__actions .ds-btn { width: 100%; }
 }
 
 @media (max-width: 47.999rem) {

@@ -42,6 +42,7 @@ const config = {
   aiApiBase: readEnv("VITE_ORIDER_AI_API_BASE"),
   coachPmcInsightEnabled: readBoolEnv("VITE_COACH_PMC_INSIGHT_ENABLED") ?? false,
   coachRiderInsightEnabled: readBoolEnv("VITE_COACH_RIDER_INSIGHT_ENABLED") ?? false,
+  coachProgressPlannerEnabled: readBoolEnv("VITE_COACH_PROGRESS_PLANNER_ENABLED") ?? false,
   sentryDsn: readEnv("VITE_SENTRY_DSN"),
   appEnvironment: readEnv("VITE_MODE") ?? readEnv("MODE") ?? "production",
   useEmulators: readBoolEnv("VITE_USE_EMULATORS"),

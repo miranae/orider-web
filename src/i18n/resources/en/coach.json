@@ -283,6 +283,15 @@
     "insufficient": { "title": "More data is needed for a prescription", "body": "Review the missing data or continue with your existing plan." }, "existingPlan": "View existing plan",
     "safety": { "title": "No workout prescription is shown", "body": "Stop exercising if you have pain or illness and seek medical help when needed." }
   },
+  "progress": {
+    "origin": { "aiCoach": "AI Coach proposal", "separate": "This proposal is distinct from automatic weekly adjustments. The server rechecks the current plan for conflicts." },
+    "review": { "title": "Review plan changes", "body": "Choose dates, then review the server-derived before, after, reasons, and evidence.", "selectDates": "Candidate dates", "create": "Preview changes", "creating": "Checking changes…", "before": "Before", "after": "After", "reasons": "Reasons", "refresh": "Refresh current status", "noCharge": "Reading and preview: 0 AI calls · 0 quota · 0 plan writes" },
+    "confirm": { "review": "Review apply action", "final": "Confirm and apply to plan", "title": "Final confirmation", "body": "Only the next button press asks the server to recheck consent and revisions and change the plan." },
+    "rollback": { "action": "Roll back applied changes" },
+    "states": { "loading": "Checking plan capabilities.", "unavailable": "Plan capability status is unavailable", "proposalDisabled": "Proposal creation is currently disabled. Your existing plan remains unchanged.", "confirmDisabled": "Apply is currently disabled, so your plan will not change.", "confirmRecoveryUnavailable": "The recovered proposal has no confirmation credential and is read-only.", "applied": "Applied to the plan exactly once", "reverted": "Restored the audited before state", "receipt": "Audit record {{id}}", "stale": "The plan, weekly check-in, or consent changed, so this proposal cannot be applied.", "disabled": "This change capability is currently disabled.", "conflict": "A later plan change conflicts with this action, so nothing was changed.", "error": "The change state could not be verified. Your existing plan remains unchanged.", "reanalyze": "Recheck with a new analysis", "retryConfirm": "Retry the same apply request", "retryRollback": "Retry the same rollback request" },
+    "questions": { "label": "Ask about this result", "priority": "What is the most important workout in this week's plan?", "changed": "Explain what changed because of my recent completion results.", "linked": "Question linked to this result request" },
+    "reason": {}
+  },
   "clarification": {
     "title": "Please make the question a little more specific", "policy": "This choice: {{quota}} · {{provider}} AI calls",
     "policyContinue": "No additional turn · {{provider}} AI calls",

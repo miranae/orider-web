@@ -12,7 +12,8 @@ import {
 } from "../../services/coachClient";
 import {
   COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
-  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest, type CoachV2Request, type CoachV2Response,
+  type CoachAnswerActionCode, type CoachContextFilters, type CoachEntityRef, type CoachProgressPlannerContext,
+  type CoachV2QuestionRequest, type CoachV2Request, type CoachV2Response,
 } from "../../services/coachV2Contract";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../../services/coachConsentClient";
 import { FirstUseCoachConsent } from "./FirstUseCoachConsent";
@@ -117,6 +118,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const [inputFocused, setInputFocused] = useState(false);
   const [pmcSnapshotId, setPmcSnapshotId] = useState<string | null>(null);
   const [riderSnapshotId, setRiderSnapshotId] = useState<string | null>(null);
+  const [plannerContext, setPlannerContext] = useState<CoachProgressPlannerContext | null>(null);
   useEffect(() => { responseRef.current = response; }, [response]);
   useEffect(() => { consentOpenRef.current = consentOpen; }, [consentOpen]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -134,7 +136,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     activeRequestRef.current = null;
     activeBodyRef.current = null;
     pendingPmcFocusRef.current = false;
-    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
+    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
     setConsentOpen(false); setPolicy(null); setQuota(null); setPhase("closed");
   }, []);
 
@@ -254,7 +256,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
       capabilityVersion: COACH_P1_CAPABILITY_VERSION,
-      contextFilters: riderSnapshotId ? { riderSnapshotId } : pmcSnapshotId ? { pmcSnapshotId } : {}, responseFormat: "auto" };
+      contextFilters: currentContextFilters(), responseFormat: "auto" };
     activeBodyRef.current = body;
     let currentPolicy: CoachConsentPolicy;
     try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
@@ -281,7 +283,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function chooseSuggestion(index: 1 | 2 | 3) {
-    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setRiderSnapshotId(null); setSource(`suggestion_${index}`); setRequestId(null);
+    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setSource(`suggestion_${index}`); setRequestId(null);
     questionRef.current?.focus();
   }
 
@@ -289,6 +291,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     if (!user) return;
     activeRequestRef.current = null; activeBodyRef.current = null;
     setDraft(selection.question); setPmcSnapshotId(selection.snapshotId); setRiderSnapshotId(null); setSource("free_text"); setRequestId(null);
+    setPlannerContext(null);
     setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
     pendingPmcFocusRef.current = true;
     void openSheet();
@@ -298,6 +301,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     if (!user) return;
     activeRequestRef.current = null; activeBodyRef.current = null;
     setDraft(selection.question); setRiderSnapshotId(selection.snapshotId); setPmcSnapshotId(null); setSource("free_text"); setRequestId(null);
+    setPlannerContext(null);
     setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
     pendingPmcFocusRef.current = true;
     void openSheet();
@@ -305,7 +309,19 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
 
   function startAnother() {
     activeBodyRef.current = null;
-    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
+    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
+  }
+
+  function choosePlannerQuestion(question: string, prescriptionId: string, sourceRequestId: string) {
+    startAnother(); setDraft(question); setPlannerContext({ prescriptionId, sourceRequestId }); setSource("free_text");
+    queueMicrotask(() => questionRef.current?.focus());
+  }
+
+  function currentContextFilters(): CoachContextFilters {
+    if (plannerContext) return { progressPlanner: plannerContext };
+    if (riderSnapshotId) return { riderSnapshotId };
+    if (pmcSnapshotId) return { pmcSnapshotId };
+    return {};
   }
 
   function action(code: CoachActionCode) {
@@ -342,7 +358,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     const id = crypto.randomUUID(); setRequestId(id);
     await execute({ requestId: id, question: prompt, discipline, locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION,
-      contextFilters: riderSnapshotId ? { riderSnapshotId } : pmcSnapshotId ? { pmcSnapshotId } : {}, responseFormat: "auto" }, source, false);
+      contextFilters: currentContextFilters(), responseFormat: "auto" }, source, false);
   }
 
   const retryReasonCodes = response ? ("outcome" in response
@@ -394,9 +410,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                     <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
                       placeholder={t(`placeholder.${discipline}`)} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
                       onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
-                      onChange={(event) => { setDraft(event.target.value); setPmcSnapshotId(null); setRiderSnapshotId(null); setSource("free_text"); setRequestId(null); }} />
+                      onChange={(event) => { setDraft(event.target.value); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setSource("free_text"); setRequestId(null); }} />
                     <div className="coach-sheet__composer-meta">
                       <Text id="coach-question-note" as="span" variant="caption" tone="tertiary">{t("independentNote")}</Text>
+                      {plannerContext && <Text as="span" variant="caption" tone="accent"
+                        data-prescription-id={plannerContext.prescriptionId} data-source-request-id={plannerContext.sourceRequestId}>{t("progress.questions.linked")}</Text>}
                       {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
                     </div>
                     <Button block variant="primary" disabled={draft.trim().length < 2 || exhausted} onClick={() => void submit()}>{t("submit")}</Button>
@@ -431,7 +449,10 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={exhausted}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action}
                     onReanalyze={startAnother}
-                    onSuggested={(query) => { startAnother(); setDraft(query); setSource("free_text"); }} />
+                    onSuggested={(query, prescriptionId, sourceRequestId) => {
+                      if (prescriptionId && sourceRequestId) choosePlannerQuestion(query, prescriptionId, sourceRequestId);
+                      else { startAnother(); setDraft(query); setSource("free_text"); }
+                    }} />
                   : <CoachResult response={response} evidenceOpen={evidenceOpen} locale={i18n.language}
                     onEvidence={() => { setEvidenceOpen((value) => !value); if (!evidenceOpen) coachAnalytics.evidenceExpand(response.status); }}
                     onAction={action} />)}
@@ -493,7 +514,7 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
   response: CoachV2Response; locale: string; selectedOption: string | null; exhausted: boolean;
   onSelectOption: (option: string) => void; onClarification: () => void;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
-  onSuggested: (query: string) => void;
+  onSuggested: (query: string, prescriptionId?: string, sourceRequestId?: string) => void;
   onReanalyze: () => void;
 }) {
   const { t } = useTranslation("coach");
@@ -501,7 +522,9 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
   const expired = spec ? Date.parse(spec.expiresAt) <= Date.now() : false;
   const providerUnavailable = response.error?.code === "provider_kill_switch";
   return <div className="coach-result">
-    {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction} onReanalyze={onReanalyze} />}
+    {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
+      onReanalyze={onReanalyze}
+      onPlannerQuestion={(question, prescriptionId, sourceRequestId) => onSuggested(question, prescriptionId, sourceRequestId)} />}
     {response.outcome === "clarification_required" && spec && <form className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
       <fieldset disabled={expired}><legend>{safeClarificationText(spec.promptKey, "prompt", t)}</legend>
         {spec.options.map((option) => <label key={option.optionId} className="coach-clarification__option">
