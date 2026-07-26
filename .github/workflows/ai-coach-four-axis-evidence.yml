@@ -1,0 +1,97 @@
+name: AI Coach four-axis web evidence
+run-name: four-axis-${{ inputs.correlation_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      correlation_id:
+        description: Immutable orchestrator correlation identifier
+        required: true
+        type: string
+      evidence_request:
+        description: Exact JSON or base64url JSON dispatch request (never printed)
+        required: true
+        type: string
+      request_sha256:
+        description: SHA-256 hex of decoded evidence_request JSON bytes
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: ai-coach-four-axis-web-evidence-${{ inputs.correlation_id }}
+  cancel-in-progress: false
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ai-coach-four-axis-evidence
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+      - run: npm ci
+      - name: Install the pinned Chromium runtime
+        run: npx playwright install --with-deps chromium
+      - name: Observe immutable production and tagged-stage evidence
+        env:
+          CORRELATION_ID: ${{ inputs.correlation_id }}
+          EVIDENCE_REQUEST: ${{ inputs.evidence_request }}
+          REQUEST_SHA256: ${{ inputs.request_sha256 }}
+          AI_COACH_EVIDENCE_PRODUCTION_ORIGIN: ${{ secrets.AI_COACH_EVIDENCE_PRODUCTION_ORIGIN }}
+          AI_COACH_EVIDENCE_CANDIDATE_ORIGIN: ${{ secrets.AI_COACH_EVIDENCE_CANDIDATE_ORIGIN }}
+          AI_COACH_EVIDENCE_AUTHORIZATION: ${{ secrets.AI_COACH_EVIDENCE_AUTHORIZATION }}
+          AI_COACH_EVIDENCE_TEST_IDENTITY: ${{ secrets.AI_COACH_EVIDENCE_TEST_IDENTITY }}
+          AI_COACH_ORCHESTRATOR_READ_TOKEN: ${{ secrets.AI_COACH_ORCHESTRATOR_READ_TOKEN }}
+        run: node scripts/run-ai-coach-four-axis-web-evidence.mjs
+      - name: Reverify the immutable dispatch artifact
+        env:
+          CORRELATION_ID: ${{ inputs.correlation_id }}
+          EVIDENCE_REQUEST: ${{ inputs.evidence_request }}
+          REQUEST_SHA256: ${{ inputs.request_sha256 }}
+          AI_COACH_EVIDENCE_PRODUCTION_ORIGIN: ${{ secrets.AI_COACH_EVIDENCE_PRODUCTION_ORIGIN }}
+          AI_COACH_EVIDENCE_CANDIDATE_ORIGIN: ${{ secrets.AI_COACH_EVIDENCE_CANDIDATE_ORIGIN }}
+          AI_COACH_ORCHESTRATOR_READ_TOKEN: ${{ secrets.AI_COACH_ORCHESTRATOR_READ_TOKEN }}
+        run: >-
+          node scripts/verify-ai-coach-four-axis-web-evidence.mjs
+          "artifacts/ai-coach-four-axis-web-evidence-${GITHUB_SHA}-${{ inputs.correlation_id }}/ai-coach-four-axis-web-evidence-${GITHUB_SHA}-${{ inputs.correlation_id }}.json"
+      - run: npm run lint:budget
+      - run: npm run quality:budget
+      - name: Build with non-secret compile placeholders
+        env:
+          VITE_FIREBASE_API_KEY: ci-placeholder
+          VITE_FIREBASE_AUTH_DOMAIN: example.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-placeholder
+          VITE_FIREBASE_APP_ID: "1:0:web:ci"
+          VITE_FIREBASE_FUNCTIONS_REGION: asia-northeast3
+          VITE_STRAVA_CLIENT_ID: ci-placeholder
+          VITE_STRAVA_REDIRECT_URI: https://example.com/strava/callback
+          VITE_APPCHECK_RECAPTCHA_SITE_KEY: ci-placeholder
+          VITE_MAPBOX_TOKEN: ci-placeholder
+          VITE_ORIDER_AI_API_BASE: https://coach.example.run.app
+        run: npm run build
+      - uses: github/codeql-action/analyze@v4
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-coach-four-axis-web-evidence-${{ github.sha }}-${{ inputs.correlation_id }}
+          path: artifacts/ai-coach-four-axis-web-evidence-${{ github.sha }}-${{ inputs.correlation_id }}/ai-coach-four-axis-web-evidence-${{ github.sha }}-${{ inputs.correlation_id }}.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish bounded artifact identity
+        run: |
+          test '${{ steps.upload.outputs.artifact-id }}' -gt 0
+          test '${{ steps.upload.outputs.artifact-digest }}' != ''
+          printf 'artifact-id=%s\nartifact-digest=%s\n' \
+            '${{ steps.upload.outputs.artifact-id }}' '${{ steps.upload.outputs.artifact-digest }}' >> "$GITHUB_STEP_SUMMARY"
