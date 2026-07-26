@@ -40,6 +40,43 @@
       "ok": ""
     }
   },
+  "rider": {
+    "title": "Rider Insight",
+    "subtitle": "Canonical O·RIDER power-duration result",
+    "loading": "Checking your rider characteristics…",
+    "unavailable": "Rider Insight is unavailable right now. Your existing Fitness PDC result remains available.",
+    "accessibleStatus": "Rider analysis status {{status}}, {{count}} canonical activities",
+    "resultLabel": "Your rider type",
+    "confidence": "{{value}}% confidence",
+    "ability": "Overall ability · percentile {{value}}",
+    "axis": {
+      "endurance": "Duration tendency · explosive − / sustained +",
+      "weight": "Output tendency · raw power − / W/kg +"
+    },
+    "durationTitle": "Ability by duration",
+    "duration": { "5s": "5 sec", "1m": "1 min", "5m": "5 min", "20m": "20 min" },
+    "strength": "Strength",
+    "improve": "Improve",
+    "asOf": "As of {{value}}",
+    "sourceNote": "Uses the canonical O·RIDER measured-power PDC. Activity IDs, dates, and history are not sent with AI requests.",
+    "questionsLabel": "Example questions about your current Rider Insight",
+    "questions": {
+      "RIDER_TYPE_STRENGTHS": "Explain my rider type, strengths, and areas to improve.",
+      "RIDER_DURATION_PRIORITY": "Which duration range should I train first?"
+    },
+    "status": {
+      "ok": "Verified", "missing": "No PDC", "missing_weight": "Weight needed",
+      "insufficient_activity": "Not enough activities", "low_confidence": "Low confidence", "unsupported": "Unsupported"
+    },
+    "safe": {
+      "missing": "There is no measured-power PDC to classify yet. No rider type is asserted.",
+      "missing_weight": "Weight is required for W/kg, so no rider type is asserted.",
+      "insufficient_activity": "There are {{count}} canonical activities. No rider type is asserted until at least five are available.",
+      "low_confidence": "Classification confidence is below the threshold, so no rider type, strength, or improvement claim is asserted.",
+      "unsupported": "Rider Insight is currently available for cycling only.",
+      "ok": ""
+    }
+  },
   "signInRequired": "Sign in so AI Coach can analyze your training records.",
   "signIn": "Sign in",
   "loadingStatus": "Checking today's available uses…",

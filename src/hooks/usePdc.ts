@@ -12,6 +12,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import type { PdcDoc } from "@shared/types/pdc";
+import { parsePersistedPdc } from "../services/pdcContract";
 
 export type UsePdcState =
   | { status: "loading"; pdc: null }
@@ -37,7 +38,12 @@ export function usePdc(uid: string | null | undefined): UsePdcState {
           setState({ status: "missing", pdc: null });
           return;
         }
-        setState({ status: "ready", pdc: snap.data() as PdcDoc });
+        try {
+          setState({ status: "ready", pdc: parsePersistedPdc(snap.data()) });
+        } catch (error) {
+          logClientError("usePdc.invalidContract", error, { uid });
+          setState({ status: "missing", pdc: null });
+        }
       },
       (err) => {
         logClientError("usePdc", err, { uid });

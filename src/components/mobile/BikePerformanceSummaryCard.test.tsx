@@ -21,7 +21,8 @@ describe("BikePerformanceSummaryCard", () => {
     const { container } = renderWithProviders(
       <BikePerformanceSummaryCard
         decision={completeDecision}
-        pdc={{ riderType: { type: "Climber", confidence: 0.8 }, abilityScore: 82, vo2maxEst: 58.4, activityCount: 14 }}
+        pdc={{ riderType: { type: "Climber", confidence: 0.8 }, abilityScore: 82, vo2maxEst: 58.4, activityCount: 14,
+          weightKgSnapshot: 70, version: 5, provenanceVersion: 2, measuredPower: true }}
         weightKg={70}
         progression={[{ period: "2026-06", ftpW: 255, source: "20m" }, { period: "2026-07", ftpW: 265, source: "20m" }]}
         applying={false}
@@ -59,11 +60,23 @@ describe("BikePerformanceSummaryCard", () => {
     expect(container.querySelectorAll("[data-performance-metric]")).toHaveLength(4);
   });
 
+  it.each([
+    ["low confidence", { riderType: { type: "Climber", confidence: 0.74 }, activityCount: 14, weightKgSnapshot: 70, version: 5, provenanceVersion: 2, measuredPower: true }],
+    ["missing weight", { riderType: { type: "Climber", confidence: 0.9 }, activityCount: 14, weightKgSnapshot: null, version: 5, provenanceVersion: 2, measuredPower: true }],
+    ["too few activities", { riderType: { type: "Climber", confidence: 0.9 }, activityCount: 4, weightKgSnapshot: 70, version: 5, provenanceVersion: 2, measuredPower: true }],
+    ["legacy version", { riderType: { type: "Climber", confidence: 0.9 }, activityCount: 14, weightKgSnapshot: 70, version: 4, provenanceVersion: 2, measuredPower: true }],
+  ])("does not expose a definitive RiderType for %s", (_label, gate) => {
+    renderWithProviders(<BikePerformanceSummaryCard pdc={{ ...gate, abilityScore: null, vo2maxEst: null }} applying={false} onApplyCandidate={vi.fn()} />);
+    expect(screen.queryByText("클라이머")).not.toBeInTheDocument();
+    expect(screen.getByText("라이더 유형 근거 부족")).toBeInTheDocument();
+  });
+
   it("keeps VO2max as an estimate without a comparison meter", () => {
     const { container } = renderWithProviders(
       <BikePerformanceSummaryCard
         decision={{ ...completeDecision, automaticCandidateW: null, latestMonthlyEstimate: null, tteMin: null, cpW: 245 }}
-        pdc={{ riderType: null, abilityScore: null, vo2maxEst: 52.2, activityCount: 4 }}
+        pdc={{ riderType: null, abilityScore: null, vo2maxEst: 52.2, activityCount: 4,
+          weightKgSnapshot: null, version: 5, provenanceVersion: 2, measuredPower: true }}
         applying={false}
         onApplyCandidate={vi.fn()}
       />,

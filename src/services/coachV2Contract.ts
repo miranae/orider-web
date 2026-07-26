@@ -10,6 +10,9 @@ export const COACH_ANSWER_SCHEMA_VERSIONS = ["coach-answer-document-v1", "coach-
 export const COACH_ANSWER_CATALOG_VERSIONS = ["coach-answer-block-catalog-v1", "coach-answer-block-catalog-v2"] as const;
 export const COACH_RESPONSE_FORMATS = ["auto", "table", "chart"] as const;
 export type CoachResponseFormat = typeof COACH_RESPONSE_FORMATS[number];
+export type CoachContextFilters =
+  | { pmcSnapshotId?: string; riderSnapshotId?: never }
+  | { riderSnapshotId: string; pmcSnapshotId?: never };
 export const COACH_LOAD_MISSING_SIGNALS = [
   "current_fitness_point_missing", "current_week_activities_missing", "fitness_behind_activity_revision", "fitness_behind_latest_activity",
   "fitness_computed_at_missing", "fitness_daily_window_gap", "fitness_discipline_mismatch", "fitness_form_inconsistent",
@@ -226,7 +229,7 @@ export interface CoachV2QuestionRequest {
   apiVersion: "v2";
   schemaVersion: "coach-respond-v2";
   capabilityVersion: "p1";
-  contextFilters: { pmcSnapshotId?: string };
+  contextFilters: CoachContextFilters;
   responseFormat: CoachResponseFormat;
   expectedSessionRevision?: number;
 }

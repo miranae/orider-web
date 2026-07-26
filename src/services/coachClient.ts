@@ -6,6 +6,7 @@ import {
   type CoachPrescriptionCheckInRequest, type CoachPrescriptionCheckInResponse,
 } from "./coachPrescriptionContract";
 import { parseCoachPmcInsight, type CoachPmcInsight } from "./coachPmcInsightContract";
+import { parseCoachRiderInsight, type CoachRiderInsight } from "./coachRiderInsightContract";
 
 export type CoachDiscipline = "bike" | "run" | "swim";
 export type CoachResponseStatus = "ok" | "insufficient_data" | "stale" | "unsupported" | "quota_exceeded" | "budget_blocked" | "fallback";
@@ -295,6 +296,16 @@ export async function getCoachPmcInsight(discipline: CoachDiscipline): Promise<C
   } catch (cause) {
     if (isCoachClientError(cause)) throw cause;
     throw new CoachClientError("contract", "INVALID_COACH_PMC_INSIGHT", { cause });
+  }
+}
+
+/** Canonical persisted PDC v5 projection; zero provider calls/quota/writes. */
+export async function getCoachRiderInsight(): Promise<CoachRiderInsight> {
+  try {
+    return parseCoachRiderInsight(await authenticatedFetch("/insights/rider?discipline=bike", { method: "GET", cache: "no-store" }), "bike");
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_RIDER_INSIGHT", { cause });
   }
 }
 

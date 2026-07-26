@@ -21,6 +21,7 @@ import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
 import { CoachAnswerDocumentView } from "./CoachAnswerDocument";
 import { safeClarificationText } from "./coachClarificationText";
 import { CoachPmcInsightCard, type CoachPmcQuestionSelection } from "./CoachPmcInsightCard";
+import { CoachRiderInsightCard, type CoachRiderQuestionSelection } from "./CoachRiderInsightCard";
 import "./coach-question.css";
 
 type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
@@ -115,15 +116,16 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const [submitFailure, setSubmitFailure] = useState<SubmitFailure>(null);
   const [inputFocused, setInputFocused] = useState(false);
   const [pmcSnapshotId, setPmcSnapshotId] = useState<string | null>(null);
+  const [riderSnapshotId, setRiderSnapshotId] = useState<string | null>(null);
   useEffect(() => { responseRef.current = response; }, [response]);
   useEffect(() => { consentOpenRef.current = consentOpen; }, [consentOpen]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => {
-    if (phase === "ready" && pmcSnapshotId && pendingPmcFocusRef.current) {
+    if (phase === "ready" && (pmcSnapshotId || riderSnapshotId) && pendingPmcFocusRef.current) {
       pendingPmcFocusRef.current = false;
       questionRef.current?.focus();
     }
-  }, [phase, pmcSnapshotId]);
+  }, [phase, pmcSnapshotId, riderSnapshotId]);
 
   const clearSession = useCallback(() => {
     inFlightRef.current = false;
@@ -132,7 +134,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     activeRequestRef.current = null;
     activeBodyRef.current = null;
     pendingPmcFocusRef.current = false;
-    setDraft(""); setPmcSnapshotId(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
+    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
     setConsentOpen(false); setPolicy(null); setQuota(null); setPhase("closed");
   }, []);
 
@@ -252,7 +254,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
       capabilityVersion: COACH_P1_CAPABILITY_VERSION,
-      contextFilters: pmcSnapshotId ? { pmcSnapshotId } : {}, responseFormat: "auto" };
+      contextFilters: riderSnapshotId ? { riderSnapshotId } : pmcSnapshotId ? { pmcSnapshotId } : {}, responseFormat: "auto" };
     activeBodyRef.current = body;
     let currentPolicy: CoachConsentPolicy;
     try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
@@ -279,14 +281,23 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function chooseSuggestion(index: 1 | 2 | 3) {
-    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setSource(`suggestion_${index}`); setRequestId(null);
+    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setRiderSnapshotId(null); setSource(`suggestion_${index}`); setRequestId(null);
     questionRef.current?.focus();
   }
 
   function choosePmcQuestion(selection: CoachPmcQuestionSelection) {
     if (!user) return;
     activeRequestRef.current = null; activeBodyRef.current = null;
-    setDraft(selection.question); setPmcSnapshotId(selection.snapshotId); setSource("free_text"); setRequestId(null);
+    setDraft(selection.question); setPmcSnapshotId(selection.snapshotId); setRiderSnapshotId(null); setSource("free_text"); setRequestId(null);
+    setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
+    pendingPmcFocusRef.current = true;
+    void openSheet();
+  }
+
+  function chooseRiderQuestion(selection: CoachRiderQuestionSelection) {
+    if (!user) return;
+    activeRequestRef.current = null; activeBodyRef.current = null;
+    setDraft(selection.question); setRiderSnapshotId(selection.snapshotId); setPmcSnapshotId(null); setSource("free_text"); setRequestId(null);
     setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
     pendingPmcFocusRef.current = true;
     void openSheet();
@@ -294,7 +305,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
 
   function startAnother() {
     activeBodyRef.current = null;
-    setDraft(""); setPmcSnapshotId(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
+    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
   }
 
   function action(code: CoachActionCode) {
@@ -331,7 +342,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     const id = crypto.randomUUID(); setRequestId(id);
     await execute({ requestId: id, question: prompt, discipline, locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION,
-      contextFilters: pmcSnapshotId ? { pmcSnapshotId } : {}, responseFormat: "auto" }, source, false);
+      contextFilters: riderSnapshotId ? { riderSnapshotId } : pmcSnapshotId ? { pmcSnapshotId } : {}, responseFormat: "auto" }, source, false);
   }
 
   const retryReasonCodes = response ? ("outcome" in response
@@ -350,6 +361,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
     <>
+      {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
       {showPmcInsight && user && <CoachPmcInsightCard user={user} discipline={discipline} onQuestionSelect={choosePmcQuestion} />}
       <Button ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={18} />} onClick={() => void openSheet()}>{t("open")}</Button>
       {open && createPortal(
@@ -382,7 +394,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                     <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
                       placeholder={t(`placeholder.${discipline}`)} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
                       onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
-                      onChange={(event) => { setDraft(event.target.value); setPmcSnapshotId(null); setSource("free_text"); setRequestId(null); }} />
+                      onChange={(event) => { setDraft(event.target.value); setPmcSnapshotId(null); setRiderSnapshotId(null); setSource("free_text"); setRequestId(null); }} />
                     <div className="coach-sheet__composer-meta">
                       <Text id="coach-question-note" as="span" variant="caption" tone="tertiary">{t("independentNote")}</Text>
                       {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
