@@ -6,7 +6,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./firebase", () => ({ auth: { currentUser: { getIdToken: mocks.getIdToken } }, getAppCheckToken: mocks.getAppCheckToken }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.runtime }));
 
-import { askCoach, askCoachV2, CoachClientError, getCoachStatus, parseCoachInitialStatus, parseCoachResponse, type CoachRespondRequest } from "./coachClient";
+import { askCoach, askCoachV2, CoachClientError, getCoachPmcInsight, getCoachStatus, parseCoachInitialStatus, parseCoachResponse, type CoachRespondRequest } from "./coachClient";
+import parity from "../features/coach/__fixtures__/pmc-fitness-parity.json";
 
 const request: CoachRespondRequest = {
   requestId: "123e4567-e89b-42d3-a456-426614174000", question: "최근 운동을 요약해줘", discipline: "bike",
@@ -40,6 +41,18 @@ describe("coachClient", () => {
     expect(fetchMock).toHaveBeenCalledWith("https://coach.example.run.app/v1/coach/status", expect.objectContaining({
       headers: expect.objectContaining({ Authorization: "Bearer id-token", "X-Firebase-AppCheck": "app-check" }),
     }));
+  });
+
+  it("loads a private no-store canonical PMC projection without status, quota, or provider calls", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(parity.cardEnvelope)));
+    await expect(getCoachPmcInsight("bike")).resolves.toMatchObject({ discipline: "bike",
+      execution: { providerCalls: 0, quotaConsumed: false, writes: 0 } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://coach.example.run.app/v1/coach/insights/pmc?discipline=bike",
+      expect.objectContaining({ method: "GET", cache: "no-store",
+        headers: expect.objectContaining({ Authorization: "Bearer id-token", "X-Firebase-AppCheck": "app-check" }) }),
+    );
   });
 
   it("posts only the merged P0 request DTO and accepts terminal 429 data", async () => {

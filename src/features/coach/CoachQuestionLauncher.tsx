@@ -20,6 +20,7 @@ import { subscribeCoachConsentSessionReset } from "./consentSessionBoundary";
 import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
 import { CoachAnswerDocumentView } from "./CoachAnswerDocument";
 import { safeClarificationText } from "./coachClarificationText";
+import { CoachPmcInsightCard, type CoachPmcQuestionSelection } from "./CoachPmcInsightCard";
 import "./coach-question.css";
 
 type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
@@ -31,6 +32,7 @@ interface Props {
   discipline: CoachDiscipline;
   onSignIn: () => void;
   triggerBlock?: boolean;
+  showPmcInsight?: boolean;
 }
 
 const actionRoutes: Record<CoachActionCode, string> = {
@@ -82,7 +84,7 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
   return ko ? `${question} 추가 조건은 ${safeOption}(으)로 해줘.` : `${question} Use ${safeOption} as the additional condition.`;
 }
 
-export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true }: Props) {
+export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false }: Props) {
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
@@ -96,6 +98,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const responseRef = useRef<CoachResponse | CoachV2Response | null>(null);
   const consentOpenRef = useRef(false);
   const phaseRef = useRef<Phase>("closed");
+  const pendingPmcFocusRef = useRef(false);
   const openGenerationRef = useRef(0);
   const sessionGenerationRef = useRef(0);
   const [phase, setPhase] = useState<Phase>("closed");
@@ -111,9 +114,16 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const [feedback, setFeedback] = useState<boolean | null>(null);
   const [submitFailure, setSubmitFailure] = useState<SubmitFailure>(null);
   const [inputFocused, setInputFocused] = useState(false);
+  const [pmcSnapshotId, setPmcSnapshotId] = useState<string | null>(null);
   useEffect(() => { responseRef.current = response; }, [response]);
   useEffect(() => { consentOpenRef.current = consentOpen; }, [consentOpen]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => {
+    if (phase === "ready" && pmcSnapshotId && pendingPmcFocusRef.current) {
+      pendingPmcFocusRef.current = false;
+      questionRef.current?.focus();
+    }
+  }, [phase, pmcSnapshotId]);
 
   const clearSession = useCallback(() => {
     inFlightRef.current = false;
@@ -121,7 +131,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     sessionGenerationRef.current += 1;
     activeRequestRef.current = null;
     activeBodyRef.current = null;
-    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
+    pendingPmcFocusRef.current = false;
+    setDraft(""); setPmcSnapshotId(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
     setConsentOpen(false); setPolicy(null); setQuota(null); setPhase("closed");
   }, []);
 
@@ -240,7 +251,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     const body: CoachV2QuestionRequest = { requestId: id, question, discipline,
       locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
-      capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters: {}, responseFormat: "auto" };
+      capabilityVersion: COACH_P1_CAPABILITY_VERSION,
+      contextFilters: pmcSnapshotId ? { pmcSnapshotId } : {}, responseFormat: "auto" };
     activeBodyRef.current = body;
     let currentPolicy: CoachConsentPolicy;
     try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
@@ -267,13 +279,22 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function chooseSuggestion(index: 1 | 2 | 3) {
-    setDraft(t(`suggestions.${discipline}.${index}`)); setSource(`suggestion_${index}`); setRequestId(null);
+    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setSource(`suggestion_${index}`); setRequestId(null);
     questionRef.current?.focus();
+  }
+
+  function choosePmcQuestion(selection: CoachPmcQuestionSelection) {
+    if (!user) return;
+    activeRequestRef.current = null; activeBodyRef.current = null;
+    setDraft(selection.question); setPmcSnapshotId(selection.snapshotId); setSource("free_text"); setRequestId(null);
+    setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
+    pendingPmcFocusRef.current = true;
+    void openSheet();
   }
 
   function startAnother() {
     activeBodyRef.current = null;
-    setDraft(""); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
+    setDraft(""); setPmcSnapshotId(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
   }
 
   function action(code: CoachActionCode) {
@@ -310,7 +331,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     const id = crypto.randomUUID(); setRequestId(id);
     await execute({ requestId: id, question: prompt, discipline, locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
       apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P1_CAPABILITY_VERSION,
-      contextFilters: {}, responseFormat: "auto" }, source, false);
+      contextFilters: pmcSnapshotId ? { pmcSnapshotId } : {}, responseFormat: "auto" }, source, false);
   }
 
   const retryReasonCodes = response ? ("outcome" in response
@@ -329,6 +350,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
     <>
+      {showPmcInsight && user && <CoachPmcInsightCard user={user} discipline={discipline} onQuestionSelect={choosePmcQuestion} />}
       <Button ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={18} />} onClick={() => void openSheet()}>{t("open")}</Button>
       {open && createPortal(
         <div className="coach-sheet" role="presentation">
@@ -360,7 +382,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                     <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
                       placeholder={t(`placeholder.${discipline}`)} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
                       onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
-                      onChange={(event) => { setDraft(event.target.value); setSource("free_text"); setRequestId(null); }} />
+                      onChange={(event) => { setDraft(event.target.value); setPmcSnapshotId(null); setSource("free_text"); setRequestId(null); }} />
                     <div className="coach-sheet__composer-meta">
                       <Text id="coach-question-note" as="span" variant="caption" tone="tertiary">{t("independentNote")}</Text>
                       {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
