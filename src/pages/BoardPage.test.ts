@@ -30,3 +30,25 @@ describe("BoardPage source defaults", () => {
     expect(source).toContain("activeTag !== 'AI'");
   });
 });
+
+describe("BoardPage desktop width contract", () => {
+  it("fills the shared content shell while preserving the popular-tags sidebar", async () => {
+    const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
+
+    expect(source).toContain('className="relative z-0 xl:flex xl:gap-6"');
+    expect(source).toContain('className="min-w-0 w-full xl:flex-1"');
+    expect(source).toContain('className="hidden xl:block xl:w-[240px] xl:flex-none"');
+    expect(source).not.toContain("md:max-w-[840px]");
+    expect(source).not.toContain("xl:w-[840px]");
+  });
+
+  it("keeps the narrower reading and authoring widths", async () => {
+    const [detailSource, createSource] = await Promise.all([
+      readFile(`${process.cwd()}/src/pages/PostDetailPage.tsx`, "utf8"),
+      readFile(`${process.cwd()}/src/pages/CreatePostPage.tsx`, "utf8"),
+    ]);
+
+    expect(detailSource).toContain('className="mx-auto max-w-[896px] space-y-6"');
+    expect(createSource).toContain('className="mx-auto max-w-[1120px] space-y-6"');
+  });
+});
