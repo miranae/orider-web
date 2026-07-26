@@ -306,5 +306,6 @@
     "quota_exceeded": "You have used all questions available today.",
     "budget_blocked": "A response cannot be generated due to the current AI budget limit.",
     "failed": "The answer could not be completed. Any partial result shown is limited to the safely verified scope."
-  }
+  },
+  "ridePlan": { "questions": { "linked": "Linked to this exact Ride Plan input revision" } }
 }

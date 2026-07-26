@@ -7,9 +7,10 @@ vi.mock("./firebase", () => ({ auth: { currentUser: { getIdToken: mocks.getIdTok
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.runtime }));
 
 import {
-  askCoach, askCoachV2, CoachClientError, confirmCoachProgressProposal, createCoachProgressProposal,
+  askCoach, askCoachV2, CoachClientError, confirmCoachProgressProposal, createCoachProgressProposal, createCoachRidePlanToken,
   getCoachPmcInsight, getCoachProgressPlannerCapabilities, getCoachProgressProposal, getCoachProgressProposalRecovery, getCoachRiderInsight,
-  getCoachStatus, parseCoachInitialStatus, parseCoachResponse, rollbackCoachProgressProposal, type CoachRespondRequest,
+  getCoachRidePlan, getCoachRidePlanAiContext, getCoachStatus, loadCoachRidePlan, parseCoachInitialStatus, parseCoachResponse,
+  rollbackCoachProgressProposal, type CoachRespondRequest,
 } from "./coachClient";
 import parity from "../features/coach/__fixtures__/pmc-fitness-parity.json";
 import riderParity from "../features/coach/__fixtures__/rider-insight-parity.json";
@@ -190,6 +191,60 @@ describe("coachClient", () => {
     for (const [, init] of fetchMock.mock.calls) {
       expect(init?.headers).toEqual(expect.objectContaining({ Authorization: "Bearer id-token", "X-Firebase-AppCheck": "app-check" }));
     }
+  });
+
+  it("posts owner-bound Ride Plan identity only in JSON and enforces token/snapshot revision parity", async () => {
+    const contextToken = `ride2.${"a".repeat(100)}.${"b".repeat(43)}`;
+    const inputRevision = `ridein_${"c".repeat(24)}`;
+    const execution = { providerCalls: 0, quotaConsumed: false, writes: 0 };
+    const token = { data: { contextToken, inputRevision, expiresAt: "2026-07-27T00:15:00.000Z",
+      secretVersion: "ride-plan-v2", execution } };
+    const plan = { data: { schemaVersion: "coach-ride-plan-v1", status: "ok", contextToken, inputRevision,
+      course: { distanceM: 5_000, elevationGainM: 200 }, estimate: { totalTimeSec: 973, averageSpeedKph: 18.5 },
+      segments: [{ index: 0, startDistanceM: 0, endDistanceM: 5_000, averageGradePct: 4,
+        estimatedSpeedKph: 18.5, estimatedTimeSec: 973 }], assumptions: { model: "cp-wprime-whole-course-v1",
+        weather: "not_modeled", stops: "not_modeled", fueling: "not_generated", optimalSegmentPower: "not_generated" },
+      exampleQuestionCodes: ["HARDEST_SECTION", "PERSONAL_PACING"], execution } };
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify(token))).mockResolvedValueOnce(new Response(JSON.stringify(plan)))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { schemaVersion: "coach-ride-plan-v1", inputRevision,
+        questionCode: "HARDEST_SECTION", course: plan.data.course, estimate: plan.data.estimate,
+        segments: plan.data.segments, assumptions: plan.data.assumptions } })));
+    await expect(loadCoachRidePlan("private-course")).resolves.toMatchObject({ inputRevision, estimate: { totalTimeSec: 973 } });
+    await expect(getCoachRidePlanAiContext("private-course", contextToken, "HARDEST_SECTION"))
+      .resolves.toMatchObject({ inputRevision, questionCode: "HARDEST_SECTION" });
+    expect(fetchMock.mock.calls[0]).toEqual(["https://coach.example.run.app/v1/coach/ride-plan/token",
+      expect.objectContaining({ method: "POST", cache: "no-store", body: JSON.stringify({ courseId: "private-course" }) })]);
+    expect(fetchMock.mock.calls[1]).toEqual(["https://coach.example.run.app/v1/coach/ride-plan",
+      expect.objectContaining({ method: "POST", cache: "no-store",
+        body: JSON.stringify({ courseId: "private-course", contextToken }) })]);
+    expect(fetchMock.mock.calls[2]).toEqual(["https://coach.example.run.app/v1/coach/ride-plan/ai-context",
+      expect.objectContaining({ method: "POST", cache: "no-store",
+        body: JSON.stringify({ courseId: "private-course", contextToken, questionCode: "HARDEST_SECTION" }) })]);
+    expect(fetchMock.mock.calls.every(([url]) => !String(url).includes("private-course") && !String(url).includes(contextToken))).toBe(true);
+  });
+
+  it("fails closed when Ride Plan token and snapshot revisions differ", async () => {
+    const contextToken = `ride2.${"a".repeat(100)}.${"b".repeat(43)}`;
+    const execution = { providerCalls: 0, quotaConsumed: false, writes: 0 };
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { contextToken, inputRevision: `ridein_${"c".repeat(24)}`,
+        expiresAt: "2026-07-27T00:15:00.000Z", secretVersion: "ride-plan-v2", execution } })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { schemaVersion: "coach-ride-plan-v1", status: "missing_pdc",
+        contextToken, inputRevision: `ridein_${"d".repeat(24)}`, course: { distanceM: 5_000, elevationGainM: 200 },
+        estimate: null, segments: [], assumptions: { model: "cp-wprime-whole-course-v1", weather: "not_modeled",
+          stops: "not_modeled", fueling: "not_generated", optimalSegmentPower: "not_generated" },
+        exampleQuestionCodes: ["HARDEST_SECTION", "PERSONAL_PACING"], execution } })));
+    await expect(loadCoachRidePlan("private-course")).rejects.toMatchObject({
+      kind: "contract", code: "COACH_RIDE_PLAN_REVISION_MISMATCH",
+    });
+  });
+
+  it("strictly validates individual Ride Plan request bodies before network access", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    await expect(createCoachRidePlanToken(" ")).rejects.toMatchObject({ code: "INVALID_COACH_RIDE_PLAN_TOKEN" });
+    await expect(getCoachRidePlan("private-course", "raw-token")).rejects.toMatchObject({ code: "INVALID_COACH_RIDE_PLAN" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("fails closed without an explicit HTTPS AI API base", async () => {

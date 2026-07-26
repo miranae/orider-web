@@ -12,6 +12,10 @@ interface ImportMetaEnv {
   readonly VITE_COACH_PMC_INSIGHT_ENABLED?: string;
   readonly VITE_COACH_RIDER_INSIGHT_ENABLED?: string;
   readonly VITE_COACH_PROGRESS_PLANNER_ENABLED?: string;
+  readonly VITE_COACH_RIDE_PLAN_TOKEN_ENABLED?: string;
+  readonly VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED?: string;
+  readonly VITE_COACH_RIDE_PLAN_AI_ENABLED?: string;
+  readonly VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED?: string;
   readonly VITE_STRAVA_CLIENT_ID: string;
   readonly VITE_STRAVA_REDIRECT_URI: string;
   readonly VITE_SEGMENT_TILES_BASE: string;
