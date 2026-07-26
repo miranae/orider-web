@@ -153,7 +153,8 @@ describe("CoachQuestionLauncher", () => {
       source: { prescriptionId: prescriptionFixture.prescriptionId, sourceRequestId: p1PlannerAnswer.requestId },
       proposal: null, receipt: null, confirmNonce: null, rollbackRequestId: null, providerCalls: 0, quotaConsumed: 0 },
     providerCalls: 0, quotaConsumed: 0 });
-    resetRuntimeConfigForTests({ coachProgressPlannerEnabled: false });
+    resetRuntimeConfigForTests({ coachProgressPlannerEnabled: false, coachRidePlanSnapshotEnabled: true,
+      coachRidePlanAiEnabled: true, coachRidePlanRespondV2Enabled: true });
     vi.spyOn(crypto, "randomUUID").mockReturnValue(answer.requestId);
   });
 
@@ -197,6 +198,55 @@ describe("CoachQuestionLauncher", () => {
       contextFilters: { riderSnapshotId: "rider_bbbbbbbbbbbbbbbbbbbbbbbb" },
     })));
     expect(mocks.ask.mock.calls[0]?.[0].contextFilters).not.toHaveProperty("pmcSnapshotId");
+  });
+
+  it("fills a Ride Plan question without auto-send and submits only its opaque token and input revision", async () => {
+    mocks.ask.mockResolvedValue(answer);
+    const context = { contextToken: `ride2.${"a".repeat(100)}.${"b".repeat(43)}` as const,
+      inputRevision: `ridein_${"c".repeat(24)}`, questionCode: "HARDEST_SECTION" as const };
+    const renderLauncher = (ridePlanSelection: { selectionId: string; question: string; context: typeof context } | null) =>
+      <MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="bike"
+        onSignIn={vi.fn()} ridePlanSelection={ridePlanSelection} /></DialogProvider></MemoryRouter>;
+    const view = render(renderLauncher(null));
+    view.rerender(renderLauncher({ selectionId: "selection-1", question: "이 코스에서 가장 힘든 구간은 어디인가요?", context }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문");
+    expect(composer).toHaveValue("이 코스에서 가장 힘든 구간은 어디인가요?");
+    expect(screen.getByText("이 Ride Plan의 동일한 입력 버전에 연결됨")).toBeInTheDocument();
+    expect(mocks.ask).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({
+      contextFilters: { ridePlan: context },
+    })));
+    const serialized = JSON.stringify(mocks.ask.mock.calls[0]?.[0]);
+    expect(serialized).not.toMatch(/courseId|polyline|latitude|longitude|private-course/u);
+  });
+
+  it.each([
+    [false, true, true],
+    [true, false, true],
+    [true, true, false],
+  ] as const)("ignores Ride Plan launcher selection unless snapshot, AI, and respond-v2 are all enabled",
+    async (snapshot, ai, respond) => {
+      resetRuntimeConfigForTests({ coachRidePlanSnapshotEnabled: snapshot, coachRidePlanAiEnabled: ai,
+        coachRidePlanRespondV2Enabled: respond });
+      const context = { contextToken: `ride2.${"a".repeat(100)}.${"b".repeat(43)}` as const,
+        inputRevision: `ridein_${"c".repeat(24)}`, questionCode: "HARDEST_SECTION" as const };
+      render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="bike"
+        onSignIn={vi.fn()} ridePlanSelection={{ selectionId: "selection-off", question: "blocked", context }} />
+      </DialogProvider></MemoryRouter>);
+      expect(screen.queryByLabelText("내 운동에 대한 질문")).not.toBeInTheDocument();
+      expect(mocks.status).not.toHaveBeenCalled();
+    });
+
+  it("rejects a legacy ride1 token from the central composer during the snapshot bridge", () => {
+    const context = { contextToken: `ride1.${"a".repeat(100)}.${"b".repeat(43)}` as `ride2.${string}.${string}`,
+      inputRevision: `ridein_${"c".repeat(24)}`, questionCode: "HARDEST_SECTION" as const };
+    render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="bike"
+      onSignIn={vi.fn()} ridePlanSelection={{ selectionId: "legacy-selection", question: "blocked", context }} />
+    </DialogProvider></MemoryRouter>);
+    expect(screen.queryByLabelText("내 운동에 대한 질문")).not.toBeInTheDocument();
+    expect(mocks.status).not.toHaveBeenCalled();
   });
 
   it("sends exclusive Progress Planner context in the actual v2 payload and retains it for retry and a new-turn clarification", async () => {

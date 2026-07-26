@@ -306,5 +306,6 @@
     "quota_exceeded": "오늘 사용할 수 있는 질문을 모두 사용했습니다.",
     "budget_blocked": "현재 AI 분석 예산 제한으로 답변을 만들 수 없습니다.",
     "failed": "답변을 완성하지 못했습니다. 표시된 일부 결과가 있다면 안전하게 확인된 범위입니다."
-  }
+  },
+  "ridePlan": { "questions": { "linked": "이 Ride Plan의 동일한 입력 버전에 연결됨" } }
 }

@@ -17,6 +17,10 @@ export interface RuntimeConfig {
   coachPmcInsightEnabled?: boolean;
   coachRiderInsightEnabled?: boolean;
   coachProgressPlannerEnabled?: boolean;
+  coachRidePlanTokenEnabled?: boolean;
+  coachRidePlanSnapshotEnabled?: boolean;
+  coachRidePlanAiEnabled?: boolean;
+  coachRidePlanRespondV2Enabled?: boolean;
   sentryDsn?: string;
   appEnvironment?: string;
   useEmulators?: boolean;
@@ -58,6 +62,10 @@ function readBuildFallbackConfig(): RuntimeConfig {
     coachPmcInsightEnabled: import.meta.env.VITE_COACH_PMC_INSIGHT_ENABLED === "true",
     coachRiderInsightEnabled: import.meta.env.VITE_COACH_RIDER_INSIGHT_ENABLED === "true",
     coachProgressPlannerEnabled: import.meta.env.VITE_COACH_PROGRESS_PLANNER_ENABLED === "true",
+    coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",
+    coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
+    coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",
+    coachRidePlanRespondV2Enabled: import.meta.env.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED === "true",
     sentryDsn: import.meta.env.VITE_SENTRY_DSN,
     appEnvironment: import.meta.env.MODE,
     useEmulators: import.meta.env.VITE_USE_EMULATORS === "true",

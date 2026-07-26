@@ -8,6 +8,11 @@ import {
 import { parseCoachPmcInsight, type CoachPmcInsight } from "./coachPmcInsightContract";
 import { parseCoachRiderInsight, type CoachRiderInsight } from "./coachRiderInsightContract";
 import {
+  coachRidePlanAiRequestSchema, coachRidePlanPinnedRequestSchema, coachRidePlanTokenRequestSchema,
+  parseCoachRidePlan, parseCoachRidePlanAiProjection, parseCoachRidePlanToken,
+  type CoachRidePlan, type CoachRidePlanAiProjection, type CoachRidePlanQuestionCode, type CoachRidePlanToken,
+} from "./coachRidePlanContract";
+import {
   coachProposalConfirmRequestSchema, coachProposalCreateRequestSchema, coachProposalRecoveryQuerySchema,
   coachProposalRollbackRequestSchema,
   parseCoachProgressPlannerCapabilities, parseCoachProposalCreateResponse, parseCoachProposalResponse,
@@ -314,6 +319,56 @@ export async function getCoachRiderInsight(): Promise<CoachRiderInsight> {
   } catch (cause) {
     if (isCoachClientError(cause)) throw cause;
     throw new CoachClientError("contract", "INVALID_COACH_RIDER_INSIGHT", { cause });
+  }
+}
+
+/** Issues an owner-bound opaque token. Course identity stays in the authenticated JSON body and out of URLs/logs. */
+export async function createCoachRidePlanToken(courseId: string): Promise<CoachRidePlanToken> {
+  try {
+    const body = coachRidePlanTokenRequestSchema.parse({ courseId });
+    return parseCoachRidePlanToken(await authenticatedFetch("/ride-plan/token", {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_RIDE_PLAN_TOKEN", { cause });
+  }
+}
+
+/** Reads only the server-computed snapshot; the browser never reconstructs course physics. */
+export async function getCoachRidePlan(courseId: string, contextToken: string): Promise<CoachRidePlan> {
+  try {
+    const body = coachRidePlanPinnedRequestSchema.parse({ courseId, contextToken });
+    return parseCoachRidePlan(await authenticatedFetch("/ride-plan", {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_RIDE_PLAN", { cause });
+  }
+}
+
+/** Token and card must be the exact same server revision before the UI can expose either one. */
+export async function loadCoachRidePlan(courseId: string): Promise<CoachRidePlan> {
+  const token = await createCoachRidePlanToken(courseId);
+  const plan = await getCoachRidePlan(courseId, token.contextToken);
+  if (plan.contextToken !== token.contextToken || plan.inputRevision !== token.inputRevision) {
+    throw new CoachClientError("contract", "COACH_RIDE_PLAN_REVISION_MISMATCH");
+  }
+  return plan;
+}
+
+/** Builds the provider-safe, zero-provider projection pinned to the card token. */
+export async function getCoachRidePlanAiContext(courseId: string, contextToken: string,
+  questionCode: CoachRidePlanQuestionCode, signal?: AbortSignal): Promise<CoachRidePlanAiProjection> {
+  try {
+    const body = coachRidePlanAiRequestSchema.parse({ courseId, contextToken, questionCode });
+    return parseCoachRidePlanAiProjection(await authenticatedFetch("/ride-plan/ai-context", {
+      method: "POST", cache: "no-store", body: JSON.stringify(body), signal,
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_RIDE_PLAN_AI_CONTEXT", { cause });
   }
 }
 

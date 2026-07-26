@@ -37,6 +37,38 @@
     "addMetrics": "Add FTP and weight to see my estimate",
     "disclaimer": "A physics-model estimate using average grade and your FTP or power-duration curve. Wind, surface, and traffic are not included."
   },
+  "ridePlan": {
+    "eyebrow": "Pre-ride AI coach",
+    "title": "My Ride Plan",
+    "loading": "Preparing your server-computed course plan…",
+    "retry": "Load a fresh plan",
+    "eta": "Estimated ride time",
+    "averageSpeed": "Estimated average speed",
+    "distance": "Analyzed distance",
+    "elevation": "Elevation gain",
+    "segments": "Segment estimates",
+    "segment": "Segment {{number}}",
+    "state": {
+      "missingPdc": "A measured-power PDC is required. Sync power activities and try again.",
+      "missingWeight": "Your weight snapshot is missing. Check your profile to personalize the estimate.",
+      "missingElevation": "This course does not have enough elevation data to build a Ride Plan.",
+      "stale": "The course or rider data changed. Load a new plan from the latest inputs.",
+      "unavailable": "A Ride Plan is unavailable for this course.",
+      "error": "The Ride Plan could not be verified safely. Your existing course information is unchanged."
+    },
+    "assumptions": {
+      "title": "Model assumptions",
+      "description": "Uses the whole-course CP and W′ model. Weather and stops are not modeled; fueling timing and optimal segment power are not generated."
+    },
+    "questions": {
+      "title": "Ask AI Coach about this plan",
+      "HARDEST_SECTION": "Which section of this course will be the hardest?",
+      "PERSONAL_PACING": "How should I pace this course for my ability?",
+      "loading": "Verifying the same input revision used by the card…",
+      "error": "The question context did not match this card and was not filled. Load a fresh plan and try again.",
+      "note": "Selecting a question only verifies the pinned revision and fills the composer. No natural-language submission, provider call, or quota is used until you submit."
+    }
+  },
   "tagSection": "Tags",
   "courseSegments": "Segments on this course",
   "difficulty.easy": "Easy",
