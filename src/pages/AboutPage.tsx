@@ -1,33 +1,33 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { PageHeader } from "../components/redesign";
+import { useParams } from "react-router-dom";
 
-export default function AboutPage() {
-  const { t } = useTranslation("common");
-  const points = t("about.points", { returnObjects: true }) as string[];
+export function getAboutDocumentPath(language: string): string {
+  return language.startsWith("en") ? "/en/about/index.html" : "/ko/about/index.html";
+}
+
+export function redirectToAboutDocument(
+  language: string,
+  replace: (path: string) => void = (path) => window.location.replace(path),
+): void {
+  replace(getAboutDocumentPath(language));
+}
+
+type AboutPageProps = {
+  replace?: (path: string) => void;
+};
+
+export default function AboutPage({ replace }: AboutPageProps) {
+  const { t, i18n } = useTranslation("common");
+  const { lang } = useParams<{ lang: string }>();
+
+  useEffect(() => {
+    redirectToAboutDocument(lang ?? i18n.language, replace);
+  }, [i18n.language, lang, replace]);
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        eyebrow={t("nav.aboutOrider")}
-        title={t("about.title")}
-        subtitle={t("about.subtitle")}
-      />
-      <section
-        className="grid gap-3 md:grid-cols-3"
-        aria-label={t("about.pointsAria")}
-      >
-        {points.map((point) => (
-          <div
-            key={point}
-            className="rounded-[var(--r-lg)] border p-4"
-            style={{ background: "var(--bg-1)", borderColor: "var(--line-soft)" }}
-          >
-            <p className="m-0 text-[length:var(--fs-sm)] leading-6" style={{ color: "var(--ink-1)" }}>
-              {point}
-            </p>
-          </div>
-        ))}
-      </section>
+    <div className="flex min-h-48 items-center justify-center text-[var(--ink-3)]" role="status">
+      {t("button.loading")}
     </div>
   );
 }
