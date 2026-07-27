@@ -4,11 +4,13 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import Ajv from "ajv";
 import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidence.mjs";
-import { collectLiveComparison, collectStageBaselineComparison, decodeEvidenceRequest, FOUR_AXIS_CASES,
+import { bindLocalContextToRequest, collectLiveComparison, collectStageBaselineComparison, createLocalEvidenceEnvelope,
+  decodeEvidenceRequest, decodeLocalOperatorContext, FOUR_AXIS_CASES, localWebEvidenceArtifactName,
   parseOrchestratorActorAllowlist, prefixedEvidenceDigest, privacyScan, MAX_HTTP_RESPONSE_BYTES,
   REQUIRED_RENDER_ASSERTIONS, targetFingerprint,
-  validateDispatchRequest, validateStageBaselineDispatchRequest, validateWebEvidenceArtifact,
-  validateWebStageBaselineEvidenceArtifact,
+  validateDispatchRequest, validateLocalEvidenceEnvelope, validateLocalOperatorContext,
+  validateLocalWebStageBaselineEvidenceArtifact, validateStageBaselineDispatchRequest, validateWebEvidenceArtifact,
+  validateWebStageBaselineEvidenceArtifact, verifyLocalGoogleIdentity, verifyLocalRepositoryState,
   verifyOrchestratorRun, WEB_EVIDENCE_TEST_FILES, webEvidenceArtifactName } from "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 const SHA = "a".repeat(40); const HASH = "b".repeat(64); const CORRELATION = "four-axis-contract-0001";
@@ -31,6 +33,25 @@ function v3Context() { return { correlationId: CORRELATION, repository: "miranae
     .update("---orider-ai-api-stage-ldfyfyx5da-du.a.run.app").digest("hex"),
   orchestratorActors: ["ansrudska", "approved-automation[bot]"],
   nowMs: Date.parse("2026-07-27T00:00:00.000Z") }; }
+
+function localContext() {
+  return { schemaVersion: "ai-coach-four-axis-web-local-context-v1",
+    contextId: "123e4567-e89b-42d3-a456-426614174000", repository: "miranae/orider-web", commitSha: SHA,
+    treeSha: "c".repeat(40), operator: { osAccount: "operator", gitAuthor: "Operator <operator@example.com>",
+      cloudAccount: "operator@example.com" },
+    identity: { serviceAccount: "ai-coach-stage-collector@orider-dev.iam.gserviceaccount.com",
+      orchestratorActor: "ansrudska" },
+    issuedAt: "2026-07-26T23:55:00.000Z", expiresAt: v3Request.expiresAt,
+    request: { path: "request.json", sha256: createHash("sha256").update(v3RequestText).digest("hex") },
+    stage: { hostSuffix: v3Context().stageHostSuffix, hostSuffixSha256: v3Context().stageHostSuffixSha256,
+      targets: { baseline: { targetFingerprint: v3Request.targets.baseline.targetFingerprint,
+        tag: v3Request.targets.baseline.tag, revision: v3Request.targets.baseline.revision,
+        imageDigest: v3Request.targets.baseline.imageDigest, stageRunId: v3Request.targets.baseline.stageRunId,
+        productionAuditDigest: v3Request.targets.baseline.productionAuditDigest },
+      candidate: { targetFingerprint: v3Request.targets.candidate.targetFingerprint,
+        tag: v3Request.targets.candidate.tag, revision: v3Request.targets.candidate.revision,
+        imageDigest: v3Request.targets.candidate.imageDigest, stageRunId: v3Request.targets.candidate.stageRunId } } } };
+}
 
 function orchestratorFetch(url) {
   if (url.endsWith("/actions/runs/42001")) return Promise.resolve({ ok: true, json: async () => ({ id: 42001,
@@ -246,6 +267,51 @@ test("observes exact GitHub orchestrator run and workflow rather than trusting d
     { token: "test", fetchImpl: orchestratorFetch, expectedActor: "wrong-actor" }), /orchestrator_observation/u);
 });
 
+test("local operator context binds exact bytes, clean HEAD/tree, active identity, expiry and stage targets", () => {
+  const contextValue = localContext(); const bytes = Buffer.from(JSON.stringify(contextValue));
+  const contextSha = createHash("sha256").update(bytes).digest("hex");
+  assert.deepEqual(decodeLocalOperatorContext(bytes, contextSha).value, contextValue);
+  assert.equal(validateLocalOperatorContext(contextValue, { repository: "miranae/orider-web", sha: SHA,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), contextValue);
+  const results = [{ status: 0, stdout: `${SHA}\n` }, { status: 0, stdout: "" },
+    { status: 0, stdout: `${contextValue.treeSha}\n` }];
+  assert.deepEqual(verifyLocalRepositoryState("/repo", SHA, contextValue.treeSha, () => results.shift()),
+    { commitSha: SHA, treeSha: contextValue.treeSha, cleanTree: true });
+  assert.deepEqual(verifyLocalGoogleIdentity(contextValue,
+    (_command, args) => ({ status: 0, stdout: `${args[0] === "-un" ? "operator"
+      : args[1] === "user.name" ? "Operator" : args[1] === "user.email" ? "operator@example.com"
+        : "operator@example.com"}\n` })),
+  { operator: contextValue.operator, serviceAccount: contextValue.identity.serviceAccount });
+  assert.deepEqual(bindLocalContextToRequest(contextValue, v3Request,
+    "scripts/fixtures/ai-coach-four-axis-stage-baseline-dispatch-request-v2.json"), contextValue.stage.targets);
+  for (const mutate of [(value) => { value.contextId = "not-a-uuid"; },
+    (value) => { value.treeSha = "bad"; }, (value) => { value.expiresAt = "2026-07-27T01:00:00.000Z"; },
+    (value) => { value.identity.serviceAccount = "other-evidence@orider-dev.iam.gserviceaccount.com"; },
+    (value) => { value.identity.orchestratorActor = "unapproved-user"; },
+    (value) => { value.stage.targets.candidate.imageDigest = digest("0"); }]) {
+    const changed = structuredClone(contextValue); mutate(changed);
+    if (changed.stage.targets.candidate.imageDigest === digest("0")
+        || changed.identity.orchestratorActor !== contextValue.identity.orchestratorActor) {
+      assert.throws(() => bindLocalContextToRequest(changed, v3Request,
+        "scripts/fixtures/ai-coach-four-axis-stage-baseline-dispatch-request-v2.json"), /local_request_binding/u);
+    } else {
+      assert.throws(() => validateLocalOperatorContext(changed, { repository: "miranae/orider-web", sha: SHA,
+        nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /local_/u);
+    }
+  }
+  assert.throws(() => verifyLocalRepositoryState("/repo", SHA, contextValue.treeSha,
+    (_command, args) => args[0] === "status" ? { status: 0, stdout: "?? local-secret.json\n" }
+      : { status: 0, stdout: `${args[1] === "HEAD^{tree}" ? contextValue.treeSha : SHA}\n` }), /local_clean_tree/u);
+  const outputResults = [{ status: 0, stdout: `${SHA}\n` },
+    { status: 0, stdout: "?? artifacts/evidence.json\n?? artifacts/evidence.local-file.json\n" },
+    { status: 0, stdout: `${contextValue.treeSha}\n` }];
+  assert.equal(verifyLocalRepositoryState("/repo", SHA, contextValue.treeSha, () => outputResults.shift(),
+    ["artifacts/evidence.json", "artifacts/evidence.local-file.json"]).cleanTree, true);
+  assert.throws(() => verifyLocalGoogleIdentity(contextValue,
+    () => ({ status: 0, stdout: "other@example.com\n" })),
+    /local_operator_identity/u);
+});
+
 test("validates v3 stage baseline request and uses OIDC attestation plus short per-target leases", async () => {
   assert.equal(validateStageBaselineDispatchRequest(v3Request, v3Context()), v3Request);
   assert.deepEqual(parseOrchestratorActorAllowlist('["ansrudska","approved-automation[bot]"]'),
@@ -283,6 +349,7 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: (token) => masked.push(token),
     requestSha256: `sha256:${"9".repeat(64)}`, nowMs: Date.parse("2026-07-27T00:00:00.000Z") });
   assert.equal(live.evidence.baseline.length, 10); assert.equal(live.evidence.candidate.length, 10);
+  assert.deepEqual(live.evidenceLeaseDigests, { baseline: digest("8"), candidate: digest("9") });
   assert.deepEqual(live.evidence.warmups.map(({ receiptDigest: _receiptDigest, ...warmup }) => warmup), [
     { environment: "tagged-stage-baseline", path: "/v1/coach/status", httpStatus: 200,
       providerCalls: 0, quotaConsumed: 0, userDataWrites: 0 },
@@ -333,6 +400,7 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
   for (const mutate of [
     (value) => { value.revision = "tampered-revision"; },
     (value) => { value.expiresAt = "2026-07-27T00:05:00.000Z"; },
+    (value) => { delete value.evidenceLeaseDigest; },
     (value) => { value.appCheckToken = "unsafe\ntoken"; },
     (value) => { value.progress.fixtureDigest = "sha256:invalid"; },
   ]) {
@@ -535,6 +603,23 @@ test("workflow is dispatch-only and binds protected HTTP/browser evidence to imm
   assert.match(workflow, /github\/codeql-action\/init@v4/u); assert.match(workflow, /npm run build/u);
 });
 
+test("local operator CLI is separate from Actions and preserves live, browser, lease and privacy evidence", () => {
+  const runner = readFileSync("scripts/run-ai-coach-four-axis-web-evidence-local.mjs", "utf8");
+  const verifier = readFileSync("scripts/verify-ai-coach-four-axis-web-evidence-local.mjs", "utf8");
+  for (const source of [runner, verifier]) {
+    assert.doesNotMatch(source, /GITHUB_[A-Z_]+|api\.github\.com|verifyOrchestratorRun/u);
+    assert.match(source, /--local-context/u); assert.match(source, /--context-sha256/u);
+    assert.match(source, /verifyLocalRepositoryState/u); assert.match(source, /verifyLocalGoogleIdentity/u);
+  }
+  assert.match(runner, /collectBrowserEvidence/u); assert.match(runner, /collectStageBaselineComparison/u);
+  assert.match(runner, /privacyScan/u); assert.match(runner, /--impersonate-service-account=/u);
+  assert.match(runner, /createLocalEvidenceEnvelope/u); assert.match(runner, /mode: 0o600/u);
+  assert.equal(runner.match(/flag: "wx"/gu)?.length, 3);
+  assert.doesNotMatch(runner, /::add-mask::/u);
+  assert.match(verifier, /validateLocalWebStageBaselineEvidenceArtifact/u);
+  assert.match(verifier, /validateLocalEvidenceEnvelope/u);
+});
+
 test("publishes a backend-cross-checkable representative v3 schema and artifact", () => {
   const path = "scripts/fixtures/ai-coach-four-axis-stage-baseline-evidence-v3.json";
   const artifact = JSON.parse(readFileSync(path, "utf8"));
@@ -586,6 +671,48 @@ test("publishes a backend-cross-checkable representative v3 schema and artifact"
   assert.equal(schema.properties.schemaVersion.const, "ai-coach-four-axis-web-stage-baseline-evidence-v3");
   assert.deepEqual(schema.required, ["schemaVersion", "artifactName", "repository", "commitSha", "workflowPath",
     "dispatch", "targets", "staticEvidence", "browserEvidence", "liveComparison", "privacyScan"]);
+});
+
+test("local evidence preserves the semantic v3 payload and emits the backend exact local-file envelope", () => {
+  const canonical = JSON.parse(readFileSync("scripts/fixtures/ai-coach-four-axis-stage-baseline-evidence-v3.json", "utf8"));
+  const contextValue = localContext();
+  const contextSha256 = `sha256:${createHash("sha256").update(JSON.stringify(contextValue)).digest("hex")}`;
+  const artifactName = localWebEvidenceArtifactName(SHA, contextValue.contextId);
+  const artifact = { schemaVersion: "ai-coach-four-axis-web-stage-baseline-local-evidence-v1", artifactName,
+    repository: "miranae/orider-web", commitSha: SHA,
+    producerPath: "scripts/run-ai-coach-four-axis-web-evidence-local.mjs",
+    localExecution: { contextId: contextValue.contextId, contextSha256, operator: contextValue.operator,
+      identity: contextValue.identity, issuedAt: contextValue.issuedAt, expiresAt: contextValue.expiresAt,
+      treeSha: contextValue.treeSha, statusClean: true },
+    request: { correlationId: v3Request.correlationId,
+      requestSha256: `sha256:${contextValue.request.sha256}`, expiresAt: v3Request.expiresAt,
+      consumer: v3Request.consumer, orchestrator: v3Request.orchestrator }, targets: canonical.targets,
+    evidenceLeaseDigests: { baseline: digest("8"), candidate: digest("9") },
+    staticEvidence: canonical.staticEvidence, browserEvidence: canonical.browserEvidence,
+    liveComparison: canonical.liveComparison, privacyScan: canonical.privacyScan };
+  assert.equal(validateLocalWebStageBaselineEvidenceArtifact(artifact, { sha: SHA, context: contextValue,
+    contextSha256, request: v3Request, targets: canonical.targets,
+    fileShas: canonical.staticEvidence.testFileSha256 }), artifact);
+  const evidencePath = `artifacts/${artifactName}/${artifactName}.json`;
+  const envelope = createLocalEvidenceEnvelope({ headSha: SHA, treeSha: contextValue.treeSha,
+    evidencePath, evidenceBytes: 42_001, evidenceSha256: digest("d") });
+  assert.deepEqual(envelope, { executionMode: "local-file-v1", headSha: SHA, treeSha: contextValue.treeSha,
+    statusClean: true, evidence: { path: evidencePath, bytes: 42_001, sha256: digest("d") } });
+  assert.equal(validateLocalEvidenceEnvelope(envelope, envelope), envelope);
+  for (const mutate of [(value) => { value.statusClean = false; }, (value) => { value.evidence.bytes += 1; },
+    (value) => { value.evidence.sha256 = "invalid"; }, (value) => { value.executionMode = "github-actions"; }]) {
+    const changed = structuredClone(envelope); mutate(changed);
+    assert.throws(() => validateLocalEvidenceEnvelope(changed, envelope), /local_envelope/u);
+  }
+  const drift = structuredClone(artifact); drift.targets.candidate.imageDigest = digest("0");
+  assert.throws(() => validateLocalWebStageBaselineEvidenceArtifact(drift, { sha: SHA, context: contextValue,
+    contextSha256, request: v3Request, targets: canonical.targets,
+    fileShas: canonical.staticEvidence.testFileSha256 }), /local_artifact_target_binding/u);
+  const reusedLease = structuredClone(artifact);
+  reusedLease.evidenceLeaseDigests.candidate = reusedLease.evidenceLeaseDigests.baseline;
+  assert.throws(() => validateLocalWebStageBaselineEvidenceArtifact(reusedLease, { sha: SHA, context: contextValue,
+    contextSha256, request: v3Request, targets: canonical.targets,
+    fileShas: canonical.staticEvidence.testFileSha256 }), /local_lease_binding/u);
 });
 
 test("publishes a complete backend-readable representative v2 artifact with an exact fixture hash", () => {

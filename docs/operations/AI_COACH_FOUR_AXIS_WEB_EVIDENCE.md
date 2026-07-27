@@ -118,6 +118,85 @@ attestation body/response를 출력하거나 artifact에 저장하지 않는다.
 이 값이나 HTTP receipt endpoint가 없으면 실제 10+10 run 및 canonical artifact 생성은 fail-closed다.
 GitHub Actions billing 또는 spending-limit로 job이 시작되지 않은 경우도 로컬/정적 결과로 대체하지 않는다.
 
+## 별도 local operator 증거 경로
+
+GitHub Actions 실행 경계는 그대로 유지한다. 로컬 실행은 workflow 환경 변수를 흉내 내거나 GitHub Actions API를
+호출하지 않고, 별도 `scripts/run-ai-coach-four-axis-web-evidence-local.mjs`와
+`scripts/verify-ai-coach-four-axis-web-evidence-local.mjs`만 사용한다. 따라서 로컬 artifact는 workflow 실행 성공을
+주장하지 않으며 schema도 `ai-coach-four-axis-web-stage-baseline-local-evidence-v1`로 분리된다.
+이 경로의 기능 변경 PR도 저장소 통합 규칙에 따라 먼저 `dev`를 base로 삼고, `main`에는 별도 `dev` 승격으로만
+반영한다.
+
+local context와 request JSON은 clean-tree 검사에 포함되지 않도록 저장소 밖의 같은 디렉터리에 둔다. context는 exact
+key만 허용하며 다음 값에 결속된다.
+
+- RFC 4122 v4 `contextId`, `issuedAt`, 30분 이내 `expiresAt`
+- `miranae/orider-web`, exact 40자 `commitSha`, `git rev-parse HEAD^{tree}`의 `treeSha`
+- 현재 OS 계정, Git 작성자, `gcloud auth list`의 활성 계정과 정확히 같은 `operator`
+- stage attestation용 고정 collector `identity.serviceAccount`와 backend가 승인해 context에 넣은 단일
+  `identity.orchestratorActor`; ID token은 collector 계정을 impersonate해 target origin audience로 발급
+- 같은 디렉터리 request 파일명과 exact byte SHA-256
+- canonical stage host suffix/digest와 baseline/candidate의 target fingerprint, tag, revision, image digest, stage run ID
+
+context exact shape는 다음과 같다. target 값은 같은 디렉터리의 immutable request에서 그대로 복사해야 하며 runner가
+독립 비교한다.
+
+```json
+{
+  "schemaVersion": "ai-coach-four-axis-web-local-context-v1",
+  "contextId": "<uuid-v4>",
+  "repository": "miranae/orider-web",
+  "commitSha": "<40-hex>",
+  "treeSha": "<40-hex>",
+  "operator": { "osAccount": "<id -un>", "gitAuthor": "Name <email@example.com>", "cloudAccount": "<active-google-account>" },
+  "identity": { "serviceAccount": "ai-coach-stage-collector@orider-dev.iam.gserviceaccount.com", "orchestratorActor": "<backend-approved-actor>" },
+  "issuedAt": "<ISO-8601>",
+  "expiresAt": "<same-as-request>",
+  "request": { "path": "request.json", "sha256": "<exact-request-bytes-64-hex>" },
+  "stage": {
+    "hostSuffix": "---orider-ai-api-stage-ldfyfyx5da-du.a.run.app",
+    "hostSuffixSha256": "<64-hex>",
+    "targets": { "baseline": { "targetFingerprint": "sha256:<64-hex>", "tag": "<tag>", "revision": "<revision>", "imageDigest": "sha256:<64-hex>", "stageRunId": "<stage-id>", "productionAuditDigest": "sha256:<64-hex>" }, "candidate": { "targetFingerprint": "sha256:<64-hex>", "tag": "<tag>", "revision": "<revision>", "imageDigest": "sha256:<64-hex>", "stageRunId": "<stage-id>" } }
+  }
+}
+```
+
+실행 시 context 파일 자체의 exact byte SHA-256도 별도 인자로 제공한다.
+
+```bash
+node scripts/run-ai-coach-four-axis-web-evidence-local.mjs \
+  --local-context /secure/operator/context.json \
+  --context-sha256 <context-file-sha256-hex>
+```
+
+runner는 실행 직전에 HEAD, tree SHA, untracked 파일을 포함한 empty porcelain status, 활성 Google operator 계정을
+재검사한다. 같은 9개 정적 테스트, 실제 Chromium reflow/keyboard/accessibility 관측, baseline/candidate 10+10 제품
+HTTP 호출 및 전체 privacy scan을 수행한다. attestation에서 target별 Firebase identity, App Check token 또는 evidence
+lease digest가 하나라도 없거나 만료·target binding이 다르면 실패한다. 장기 키나 token은 파일, 로그, artifact에
+기록하지 않는다.
+
+semantic artifact의 top-level `evidenceLeaseDigests`는 exact `{baseline,candidate}`이며 두 값은 서로 다른
+`sha256:<64-hex>`여야 한다. artifact, local-file envelope, envelope SHA-256 sidecar는 모두 exclusive create(`wx`)로
+기록하여 기존 증거를 덮어쓰지 않는다.
+
+backend 전달 envelope는 한 줄 canonical JSON이며 exact contract는 다음과 같다.
+
+```json
+{"executionMode":"local-file-v1","headSha":"<40-hex>","treeSha":"<40-hex>","statusClean":true,"evidence":{"path":"artifacts/<local-artifact>/<local-artifact>.json","bytes":12345,"sha256":"sha256:<64-hex>"}}
+```
+
+동일 디렉터리에 `<artifact>.local-file.json.sha256`이 생성된다. backend는 envelope 값을 신뢰하지 않고 evidence 파일의
+exact bytes와 SHA-256을 독립 재계산한다. verifier도 context/request/repository/Google identity/stage targets를 다시
+결속한 뒤 artifact byte 수·SHA-256과 envelope exact bytes digest를 검증한다.
+
+```bash
+node scripts/verify-ai-coach-four-axis-web-evidence-local.mjs \
+  --local-context /secure/operator/context.json --context-sha256 <context-file-sha256-hex> \
+  --artifact artifacts/<name>/<name>.json \
+  --envelope artifacts/<name>/<name>.local-file.json \
+  --envelope-sha256 <envelope-file-sha256-hex>
+```
+
 ## #1668 consumer와 schema 전환
 
 #1668 consumer의 `validateWebStageBaselineProducerEvidence`와 동일하게 v3는 `targets.baseline/candidate`,
