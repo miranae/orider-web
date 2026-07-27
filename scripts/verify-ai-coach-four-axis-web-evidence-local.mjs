@@ -4,8 +4,9 @@ import { readFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { bindLocalContextToRequest, decodeEvidenceRequest, decodeLocalOperatorContext, evidenceFileSha256,
   localWebEvidenceArtifactName, validateLocalEvidenceEnvelope, validateLocalOperatorContext,
-  validateLocalWebStageBaselineEvidenceArtifact, validateStageBaselineDispatchRequest, verifyLocalGoogleIdentity,
-  verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from "./lib/ai-coach-four-axis-web-evidence.mjs";
+  validateLocalOperatorRequest, validateLocalWebStageBaselineEvidenceArtifact, verifyLocalCheckpointBinding,
+  verifyLocalGoogleIdentity, verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
+  "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 function argument(name) {
   const index = process.argv.indexOf(name);
@@ -15,6 +16,7 @@ function argument(name) {
   return process.argv[index + 1];
 }
 function sha256(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
+function required(name) { const value = process.env[name]; if (!value) throw new Error(`web_evidence:env_${name}`); return value; }
 
 const root = process.cwd();
 const contextPath = resolve(argument("--local-context"));
@@ -23,11 +25,12 @@ const context = validateLocalOperatorContext(decodedContext.value,
   { repository: "miranae/orider-web", sha: decodedContext.value.commitSha });
 verifyLocalGoogleIdentity(context);
 const requestPath = resolve(dirname(contextPath), context.request.path);
-const decodedRequest = decodeEvidenceRequest(readFileSync(requestPath, "utf8"), context.request.sha256);
-const request = validateStageBaselineDispatchRequest(decodedRequest.value, { correlationId: decodedRequest.value.correlationId,
-  repository: context.repository, sha: context.commitSha, stageHostSuffix: context.stage.hostSuffix,
-  stageHostSuffixSha256: context.stage.hostSuffixSha256,
-  orchestratorActors: [context.identity.orchestratorActor] });
+const decodedRequest = decodeEvidenceRequest(readFileSync(requestPath, "utf8"), context.request.sha256.slice(7));
+const request = validateLocalOperatorRequest(decodedRequest.value, { repository: context.repository,
+  sha: context.commitSha, treeSha: context.treeSha, operator: context.operator, identity: context.identity,
+  backend: context.backend, stageHostSuffix: context.stage.hostSuffix });
+verifyLocalCheckpointBinding(request, required("AI_COACH_LOCAL_CHECKPOINT_PATH"),
+  required("AI_COACH_LOCAL_CHECKPOINT_SHA256"));
 const targets = bindLocalContextToRequest(context, request, requestPath);
 const artifactName = localWebEvidenceArtifactName(context.commitSha, context.contextId);
 const expectedDirectory = resolve(root, "artifacts", artifactName);

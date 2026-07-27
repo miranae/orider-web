@@ -9,8 +9,8 @@ import { bindLocalContextToRequest, collectStageBaselineComparison, createLocalE
   decodeEvidenceRequest, decodeLocalOperatorContext, evidenceFileSha256,
   localWebEvidenceArtifactName,
   passedVitestAssertions, prefixedEvidenceDigest, privacyScan, REQUIRED_RENDER_ASSERTIONS,
-  validateLocalOperatorContext, validateLocalWebStageBaselineEvidenceArtifact, validateStageBaselineDispatchRequest,
-  verifyLocalGoogleIdentity, verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
+  validateLocalOperatorContext, validateLocalOperatorRequest, validateLocalWebStageBaselineEvidenceArtifact,
+  verifyLocalCheckpointBinding, verifyLocalGoogleIdentity, verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
   "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 function argument(name) {
@@ -32,11 +32,12 @@ const context = validateLocalOperatorContext(decodedContext.value,
 verifyLocalRepositoryState(root, context.commitSha, context.treeSha);
 verifyLocalGoogleIdentity(context);
 const requestPath = resolve(dirname(contextPath), context.request.path);
-const decodedRequest = decodeEvidenceRequest(readFileSync(requestPath, "utf8"), context.request.sha256);
-const request = validateStageBaselineDispatchRequest(decodedRequest.value, { correlationId: decodedRequest.value.correlationId,
-  repository: context.repository, sha: context.commitSha, stageHostSuffix: context.stage.hostSuffix,
-  stageHostSuffixSha256: context.stage.hostSuffixSha256,
-  orchestratorActors: [context.identity.orchestratorActor] });
+const decodedRequest = decodeEvidenceRequest(readFileSync(requestPath, "utf8"), context.request.sha256.slice(7));
+const request = validateLocalOperatorRequest(decodedRequest.value, { repository: context.repository,
+  sha: context.commitSha, treeSha: context.treeSha, operator: context.operator, identity: context.identity,
+  backend: context.backend, stageHostSuffix: context.stage.hostSuffix });
+verifyLocalCheckpointBinding(request, required("AI_COACH_LOCAL_CHECKPOINT_PATH"),
+  required("AI_COACH_LOCAL_CHECKPOINT_SHA256"));
 const targets = bindLocalContextToRequest(context, request, requestPath);
 
 const identityTokenFor = async (audience) => {
@@ -72,10 +73,11 @@ try {
     repository: context.repository, commitSha: context.commitSha,
     producerPath: "scripts/run-ai-coach-four-axis-web-evidence-local.mjs",
     localExecution: { contextId: context.contextId, contextSha256: decodedContext.contextSha256,
-      operator: context.operator, identity: context.identity, issuedAt: context.issuedAt, expiresAt: context.expiresAt,
-      treeSha: context.treeSha, statusClean: true },
+      operator: context.operator, identity: context.identity, backend: context.backend, issuedAt: context.issuedAt,
+      expiresAt: context.expiresAt, treeSha: context.treeSha, statusClean: true },
     request: { correlationId: request.correlationId, requestSha256: decodedRequest.requestSha256,
-      expiresAt: request.expiresAt, consumer: request.consumer, orchestrator: request.orchestrator },
+      issuedAt: request.issuedAt, expiresAt: request.expiresAt, consumer: request.consumer,
+      backend: request.backend, operator: request.operator, identity: request.identity },
     targets, evidenceLeaseDigests: live.evidenceLeaseDigests,
     staticEvidence: { testFiles: WEB_EVIDENCE_TEST_FILES, testFileSha256: fileShas,
       results: { passed: machineResult.numPassedTests, failed: machineResult.numFailedTests,

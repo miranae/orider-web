@@ -8,13 +8,14 @@ import { bindLocalContextToRequest, collectLiveComparison, collectStageBaselineC
   decodeEvidenceRequest, decodeLocalOperatorContext, FOUR_AXIS_CASES, localWebEvidenceArtifactName,
   parseOrchestratorActorAllowlist, prefixedEvidenceDigest, privacyScan, MAX_HTTP_RESPONSE_BYTES,
   REQUIRED_RENDER_ASSERTIONS, targetFingerprint,
-  validateDispatchRequest, validateLocalEvidenceEnvelope, validateLocalOperatorContext,
+  validateDispatchRequest, validateLocalEvidenceEnvelope, validateLocalOperatorContext, validateLocalOperatorRequest,
   validateLocalWebStageBaselineEvidenceArtifact, validateStageBaselineDispatchRequest, validateWebEvidenceArtifact,
-  validateWebStageBaselineEvidenceArtifact, verifyLocalGoogleIdentity, verifyLocalRepositoryState,
+  validateWebStageBaselineEvidenceArtifact, verifyLocalCheckpointBinding, verifyLocalGoogleIdentity, verifyLocalRepositoryState,
   verifyOrchestratorRun, WEB_EVIDENCE_TEST_FILES, webEvidenceArtifactName } from "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 const SHA = "a".repeat(40); const HASH = "b".repeat(64); const CORRELATION = "four-axis-contract-0001";
 const FIREBASE_API_KEY = "firebase-web-api-key-1234567890";
+const GOOGLE_EMAIL = /^[A-Za-z0-9][A-Za-z0-9._%+-]{0,127}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,63}$/u;
 const fixtureText = readFileSync("scripts/fixtures/ai-coach-four-axis-dispatch-request.json", "utf8");
 const fixtureHash = createHash("sha256").update(fixtureText).digest("hex");
 const request = JSON.parse(fixtureText);
@@ -35,14 +36,17 @@ function v3Context() { return { correlationId: CORRELATION, repository: "miranae
   nowMs: Date.parse("2026-07-27T00:00:00.000Z") }; }
 
 function localContext() {
-  return { schemaVersion: "ai-coach-four-axis-web-local-context-v1",
+  return { schemaVersion: "ai-coach-four-axis-web-local-context-v2",
     contextId: "123e4567-e89b-42d3-a456-426614174000", repository: "miranae/orider-web", commitSha: SHA,
-    treeSha: "c".repeat(40), operator: { osAccount: "operator", gitAuthor: "Operator <operator@example.com>",
+    treeSha: "c".repeat(40), statusClean: true,
+    operator: { osAccount: "operator", gitAuthor: "Operator <operator@example.com>",
       cloudAccount: "operator@example.com" },
     identity: { serviceAccount: "ai-coach-stage-collector@orider-dev.iam.gserviceaccount.com",
-      orchestratorActor: "ansrudska" },
+      localActor: "operator@example.com" },
+    backend: { repository: "miranae/orider-g1-web", commitSha: "b".repeat(40), treeSha: "d".repeat(40),
+      stageRunId: v3Request.targets.candidate.stageRunId, checkpointSha256: digest("e") },
     issuedAt: "2026-07-26T23:55:00.000Z", expiresAt: v3Request.expiresAt,
-    request: { path: "request.json", sha256: createHash("sha256").update(v3RequestText).digest("hex") },
+    request: { path: "request.json", sha256: `sha256:${createHash("sha256").update(v3RequestText).digest("hex")}` },
     stage: { hostSuffix: v3Context().stageHostSuffix, hostSuffixSha256: v3Context().stageHostSuffixSha256,
       targets: { baseline: { targetFingerprint: v3Request.targets.baseline.targetFingerprint,
         tag: v3Request.targets.baseline.tag, revision: v3Request.targets.baseline.revision,
@@ -51,6 +55,16 @@ function localContext() {
       candidate: { targetFingerprint: v3Request.targets.candidate.targetFingerprint,
         tag: v3Request.targets.candidate.tag, revision: v3Request.targets.candidate.revision,
         imageDigest: v3Request.targets.candidate.imageDigest, stageRunId: v3Request.targets.candidate.stageRunId } } } };
+}
+
+function localRequest() {
+  const contextValue = localContext();
+  return { schemaVersion: "ai-coach-four-axis-web-local-operator-v1", correlationId: v3Request.correlationId,
+    issuedAt: contextValue.issuedAt, expiresAt: contextValue.expiresAt,
+    consumer: { repository: contextValue.repository, commitSha: contextValue.commitSha,
+      treeSha: contextValue.treeSha, statusClean: true }, backend: contextValue.backend,
+    operator: contextValue.operator, identity: contextValue.identity, fixture: v3Request.fixture,
+    targets: v3Request.targets };
 }
 
 function orchestratorFetch(url) {
@@ -77,9 +91,10 @@ function productExecution(item, targetName) {
     cardResponseDigest: cardPath === null ? null : rawDigest(`${targetName}:${item.caseId}:card`) };
 }
 
-function observedStageHttp(calls = []) {
+function observedStageHttp(calls = [], stageRequest = v3Request, requestDigest = `sha256:${"9".repeat(64)}`) {
   const exchangeTargets = [];
-  const uid = `coach-evidence-${createHash("sha256").update(v3Request.correlationId).digest("hex").slice(0, 32)}`;
+  const actor = stageRequest.identity?.localActor ?? stageRequest.orchestrator.actor;
+  const uid = `coach-evidence-${createHash("sha256").update(stageRequest.correlationId).digest("hex").slice(0, 32)}`;
   const jwt = (targetName) => `eyJhbGciOiJSUzI1NiJ9.${Buffer.from(JSON.stringify({ sub: uid, targetName })).toString("base64url")}.${"s".repeat(43)}`;
   const progressByTarget = {
     baseline: { prescriptionId: `rx_${"1".repeat(24)}`,
@@ -140,21 +155,20 @@ function observedStageHttp(calls = []) {
   };
   return async (url, options) => {
     const parsed = new URL(url); const target = parsed.hostname.startsWith("baseline---")
-      ? v3Request.targets.baseline : v3Request.targets.candidate;
-    const targetName = target === v3Request.targets.baseline ? "baseline" : "candidate";
+      ? stageRequest.targets.baseline : stageRequest.targets.candidate;
+    const targetName = target === stageRequest.targets.baseline ? "baseline" : "candidate";
     const progress = progressByTarget[targetName];
     calls.push({ targetName, path: parsed.pathname, body: options.body ?? null });
     if (parsed.pathname === "/v1/evidence/four-axis/attestation") {
       assert.equal(options.headers.authorization, `Bearer ${oidcFor(parsed.origin)}`);
       const body = JSON.parse(options.body);
       assert.deepEqual(body, { schemaVersion: "ai-coach-four-axis-attestation-v1",
-        correlationId: v3Request.correlationId, stageRunId: target.stageRunId, revision: target.revision,
-        imageDigest: target.imageDigest, requestDigest: `sha256:${"9".repeat(64)}`,
-        orchestratorActor: "ansrudska", providerPhase: "enabled" });
+        correlationId: stageRequest.correlationId, stageRunId: target.stageRunId, revision: target.revision,
+        imageDigest: target.imageDigest, requestDigest, orchestratorActor: actor, providerPhase: "enabled" });
       return new Response(JSON.stringify({ schemaVersion: "ai-coach-four-axis-attestation-response-v3",
-        correlationId: v3Request.correlationId, stageRunId: target.stageRunId, revision: target.revision,
+        correlationId: stageRequest.correlationId, stageRunId: target.stageRunId, revision: target.revision,
         imageDigest: target.imageDigest, evidenceLeaseDigest: digest(targetName === "baseline" ? "8" : "9"),
-        orchestratorActor: "ansrudska", expiresAt: v3Request.expiresAt,
+        orchestratorActor: actor, expiresAt: stageRequest.expiresAt,
         firebaseCustomToken: `firebase-custom-${targetName}`, appCheckToken: `app-check-${targetName}`,
         courseId: `course-evidence-${"3".repeat(32)}`, progress }),
       { status: 200, headers: { "content-type": "application/json" } });
@@ -172,8 +186,8 @@ function observedStageHttp(calls = []) {
     assert.equal(options.headers.authorization, `Bearer ${jwt(targetName)}`);
     assert.equal(options.headers["X-Firebase-AppCheck"], `app-check-${targetName}`);
     assert.equal(options.headers["x-orider-evidence-lease"], digest(targetName === "baseline" ? "8" : "9"));
-    assert.equal(options.headers["x-orider-evidence-correlation"], v3Request.correlationId);
-    assert.equal(options.headers["x-orider-evidence-orchestrator-actor"], "ansrudska");
+    assert.equal(options.headers["x-orider-evidence-correlation"], stageRequest.correlationId);
+    assert.equal(options.headers["x-orider-evidence-orchestrator-actor"], actor);
     assert.equal(options.headers["x-orider-test-identity"], undefined);
     assert.deepEqual(exchangeTargets, targetName === "baseline" ? ["baseline"] : ["baseline", "candidate"]);
     const body = options.body ? JSON.parse(options.body) : null;
@@ -268,7 +282,7 @@ test("observes exact GitHub orchestrator run and workflow rather than trusting d
 });
 
 test("local operator context binds exact bytes, clean HEAD/tree, active identity, expiry and stage targets", () => {
-  const contextValue = localContext(); const bytes = Buffer.from(JSON.stringify(contextValue));
+  const contextValue = localContext(); const requestValue = localRequest(); const bytes = Buffer.from(JSON.stringify(contextValue));
   const contextSha = createHash("sha256").update(bytes).digest("hex");
   assert.deepEqual(decodeLocalOperatorContext(bytes, contextSha).value, contextValue);
   assert.equal(validateLocalOperatorContext(contextValue, { repository: "miranae/orider-web", sha: SHA,
@@ -282,17 +296,21 @@ test("local operator context binds exact bytes, clean HEAD/tree, active identity
       : args[1] === "user.name" ? "Operator" : args[1] === "user.email" ? "operator@example.com"
         : "operator@example.com"}\n` })),
   { operator: contextValue.operator, serviceAccount: contextValue.identity.serviceAccount });
-  assert.deepEqual(bindLocalContextToRequest(contextValue, v3Request,
+  assert.equal(validateLocalOperatorRequest(requestValue, { repository: contextValue.repository, sha: SHA,
+    treeSha: contextValue.treeSha, operator: contextValue.operator, identity: contextValue.identity,
+    backend: contextValue.backend, stageHostSuffix: contextValue.stage.hostSuffix,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), requestValue);
+  assert.deepEqual(bindLocalContextToRequest(contextValue, requestValue,
     "scripts/fixtures/ai-coach-four-axis-stage-baseline-dispatch-request-v2.json"), contextValue.stage.targets);
   for (const mutate of [(value) => { value.contextId = "not-a-uuid"; },
     (value) => { value.treeSha = "bad"; }, (value) => { value.expiresAt = "2026-07-27T01:00:00.000Z"; },
     (value) => { value.identity.serviceAccount = "other-evidence@orider-dev.iam.gserviceaccount.com"; },
-    (value) => { value.identity.orchestratorActor = "unapproved-user"; },
+    (value) => { value.identity.localActor = "unapproved-user"; },
     (value) => { value.stage.targets.candidate.imageDigest = digest("0"); }]) {
     const changed = structuredClone(contextValue); mutate(changed);
     if (changed.stage.targets.candidate.imageDigest === digest("0")
-        || changed.identity.orchestratorActor !== contextValue.identity.orchestratorActor) {
-      assert.throws(() => bindLocalContextToRequest(changed, v3Request,
+        || changed.identity.localActor !== contextValue.identity.localActor) {
+      assert.throws(() => bindLocalContextToRequest(changed, requestValue,
         "scripts/fixtures/ai-coach-four-axis-stage-baseline-dispatch-request-v2.json"), /local_request_binding/u);
     } else {
       assert.throws(() => validateLocalOperatorContext(changed, { repository: "miranae/orider-web", sha: SHA,
@@ -310,6 +328,41 @@ test("local operator context binds exact bytes, clean HEAD/tree, active identity
   assert.throws(() => verifyLocalGoogleIdentity(contextValue,
     () => ({ status: 0, stdout: "other@example.com\n" })),
     /local_operator_identity/u);
+});
+
+test("local operator request schema excludes Actions identity and binds backend checkpoint provenance", () => {
+  const value = localRequest();
+  const schema = JSON.parse(readFileSync(
+    "scripts/fixtures/ai-coach-four-axis-web-local-operator-v1.schema.json", "utf8"));
+  const validateSchema = new Ajv({ allErrors: true, formats: {
+    "date-time": (item) => Number.isFinite(Date.parse(item)), email: (item) => GOOGLE_EMAIL.test(item),
+  } }).compile(schema);
+  assert.equal(validateSchema(value), true, JSON.stringify(validateSchema.errors));
+  const reorderedTurns = structuredClone(value); [reorderedTurns.fixture.turns[0], reorderedTurns.fixture.turns[1]] =
+    [reorderedTurns.fixture.turns[1], reorderedTurns.fixture.turns[0]];
+  assert.equal(validateSchema(reorderedTurns), false);
+  const driftedFixtureDigest = structuredClone(value); driftedFixtureDigest.fixture.digest = digest("0");
+  assert.equal(validateSchema(driftedFixtureDigest), false);
+  assert.doesNotMatch(JSON.stringify(value), /runId|runAttempt|workflowPath|orchestrator/u);
+  const expected = { repository: "miranae/orider-web", sha: SHA, treeSha: value.consumer.treeSha,
+    operator: value.operator, identity: value.identity, backend: value.backend,
+    stageHostSuffix: localContext().stage.hostSuffix,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z") };
+  for (const mutate of [(item) => { item.consumer.statusClean = false; },
+    (item) => { item.backend.commitSha = "0".repeat(40); },
+    (item) => { item.backend.stageRunId = "stage_other-0001"; },
+    (item) => { item.identity.localActor = "other@example.com"; },
+    (item) => { item.runId = 42; }]) {
+    const changed = structuredClone(value); mutate(changed);
+    assert.throws(() => validateLocalOperatorRequest(changed, expected), /local_request/u);
+  }
+  const fixturePath = "scripts/fixtures/ai-coach-four-axis-stage-baseline-dispatch-request-v2.json";
+  const fixtureDigest = `sha256:${createHash("sha256").update(readFileSync(fixturePath)).digest("hex")}`;
+  const checkpointBound = structuredClone(value); checkpointBound.backend.checkpointSha256 = fixtureDigest;
+  assert.deepEqual(verifyLocalCheckpointBinding(checkpointBound, fixturePath, fixtureDigest),
+    { checkpointSha256: fixtureDigest });
+  assert.throws(() => verifyLocalCheckpointBinding(checkpointBound, fixturePath, digest("0")),
+    /local_checkpoint_binding/u);
 });
 
 test("validates v3 stage baseline request and uses OIDC attestation plus short per-target leases", async () => {
@@ -477,6 +530,38 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
   }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
   firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
   nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /firebase_exchange_binding/u);
+});
+
+test("local operator request directly binds email actor, attestation response and per-target product lease", async () => {
+  const requestValue = localRequest(); const calls = []; const requestDigest = digest("a");
+  let tick = 0;
+  const live = await collectStageBaselineComparison(requestValue, {
+    fetchImpl: observedStageHttp(calls, requestValue, requestDigest),
+    clock: () => { tick += 5; return tick; }, identityTokenFor: async (audience) => oidcFor(audience),
+    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
+  });
+  assert.deepEqual(live.evidenceLeaseDigests, { baseline: digest("8"), candidate: digest("9") });
+  assert.equal(live.evidence.baseline.length, 10); assert.equal(live.evidence.candidate.length, 10);
+  const attestations = calls.filter((call) => call.path === "/v1/evidence/four-axis/attestation")
+    .map((call) => JSON.parse(call.body));
+  assert.deepEqual(attestations.map((item) => [item.orchestratorActor, item.requestDigest]), [
+    [requestValue.identity.localActor, requestDigest], [requestValue.identity.localActor, requestDigest],
+  ]);
+
+  const upstream = observedStageHttp([], requestValue, requestDigest);
+  const actorDrift = async (url, options) => {
+    const response = await upstream(url, options);
+    if (new URL(url).pathname !== "/v1/evidence/four-axis/attestation") return response;
+    const body = await response.json(); body.orchestratorActor = "other@example.com";
+    return new Response(JSON.stringify(body), { status: response.status,
+      headers: { "content-type": "application/json" } });
+  };
+  await assert.rejects(() => collectStageBaselineComparison(requestValue, {
+    fetchImpl: actorDrift, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
+  }), /v3_attestation_binding/u);
 });
 
 test("derives warm-excluded 10+10 HTTP evidence, card counters and separate card/AI parity receipts", async () => {
@@ -675,23 +760,24 @@ test("publishes a backend-cross-checkable representative v3 schema and artifact"
 
 test("local evidence preserves the semantic v3 payload and emits the backend exact local-file envelope", () => {
   const canonical = JSON.parse(readFileSync("scripts/fixtures/ai-coach-four-axis-stage-baseline-evidence-v3.json", "utf8"));
-  const contextValue = localContext();
+  const contextValue = localContext(); const requestValue = localRequest();
   const contextSha256 = `sha256:${createHash("sha256").update(JSON.stringify(contextValue)).digest("hex")}`;
   const artifactName = localWebEvidenceArtifactName(SHA, contextValue.contextId);
   const artifact = { schemaVersion: "ai-coach-four-axis-web-stage-baseline-local-evidence-v1", artifactName,
     repository: "miranae/orider-web", commitSha: SHA,
     producerPath: "scripts/run-ai-coach-four-axis-web-evidence-local.mjs",
     localExecution: { contextId: contextValue.contextId, contextSha256, operator: contextValue.operator,
-      identity: contextValue.identity, issuedAt: contextValue.issuedAt, expiresAt: contextValue.expiresAt,
-      treeSha: contextValue.treeSha, statusClean: true },
-    request: { correlationId: v3Request.correlationId,
-      requestSha256: `sha256:${contextValue.request.sha256}`, expiresAt: v3Request.expiresAt,
-      consumer: v3Request.consumer, orchestrator: v3Request.orchestrator }, targets: canonical.targets,
+      identity: contextValue.identity, backend: contextValue.backend, issuedAt: contextValue.issuedAt,
+      expiresAt: contextValue.expiresAt, treeSha: contextValue.treeSha, statusClean: true },
+    request: { correlationId: requestValue.correlationId, requestSha256: contextValue.request.sha256,
+      issuedAt: requestValue.issuedAt, expiresAt: requestValue.expiresAt, consumer: requestValue.consumer,
+      backend: requestValue.backend, operator: requestValue.operator, identity: requestValue.identity },
+    targets: canonical.targets,
     evidenceLeaseDigests: { baseline: digest("8"), candidate: digest("9") },
     staticEvidence: canonical.staticEvidence, browserEvidence: canonical.browserEvidence,
     liveComparison: canonical.liveComparison, privacyScan: canonical.privacyScan };
   assert.equal(validateLocalWebStageBaselineEvidenceArtifact(artifact, { sha: SHA, context: contextValue,
-    contextSha256, request: v3Request, targets: canonical.targets,
+    contextSha256, request: requestValue, targets: canonical.targets,
     fileShas: canonical.staticEvidence.testFileSha256 }), artifact);
   const evidencePath = `artifacts/${artifactName}/${artifactName}.json`;
   const envelope = createLocalEvidenceEnvelope({ headSha: SHA, treeSha: contextValue.treeSha,
@@ -706,12 +792,12 @@ test("local evidence preserves the semantic v3 payload and emits the backend exa
   }
   const drift = structuredClone(artifact); drift.targets.candidate.imageDigest = digest("0");
   assert.throws(() => validateLocalWebStageBaselineEvidenceArtifact(drift, { sha: SHA, context: contextValue,
-    contextSha256, request: v3Request, targets: canonical.targets,
+    contextSha256, request: requestValue, targets: canonical.targets,
     fileShas: canonical.staticEvidence.testFileSha256 }), /local_artifact_target_binding/u);
   const reusedLease = structuredClone(artifact);
   reusedLease.evidenceLeaseDigests.candidate = reusedLease.evidenceLeaseDigests.baseline;
   assert.throws(() => validateLocalWebStageBaselineEvidenceArtifact(reusedLease, { sha: SHA, context: contextValue,
-    contextSha256, request: v3Request, targets: canonical.targets,
+    contextSha256, request: requestValue, targets: canonical.targets,
     fileShas: canonical.staticEvidence.testFileSha256 }), /local_lease_binding/u);
 });
 
