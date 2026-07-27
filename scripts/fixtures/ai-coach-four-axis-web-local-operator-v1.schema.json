@@ -21,13 +21,14 @@
     },
     "backend": {
       "type": "object", "additionalProperties": false,
-      "required": ["repository", "commitSha", "treeSha", "stageRunId", "checkpointSha256"],
+      "required": ["repository", "commitSha", "treeSha", "stageRunId", "checkpointSha256", "leaseGuard"],
       "properties": {
         "repository": { "const": "miranae/orider-g1-web" },
         "commitSha": { "$ref": "#/definitions/sha" },
         "treeSha": { "$ref": "#/definitions/sha" },
         "stageRunId": { "type": "string", "pattern": "^stage_[a-z0-9-]{8,64}$" },
-        "checkpointSha256": { "$ref": "#/definitions/digest" }
+        "checkpointSha256": { "$ref": "#/definitions/digest" },
+        "leaseGuard": { "$ref": "#/definitions/leaseGuard" }
       }
     },
     "operator": { "$ref": "#/definitions/operator" },
@@ -70,6 +71,17 @@
   "definitions": {
     "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "leaseGuard": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "commitSha", "treeSha", "relativePath", "sha256"],
+      "properties": {
+        "repository": { "const": "miranae/orider-g1-web" },
+        "commitSha": { "$ref": "#/definitions/sha" },
+        "treeSha": { "$ref": "#/definitions/sha" },
+        "relativePath": { "const": "scripts/assert-ai-coach-local-stage-lease.mjs" },
+        "sha256": { "$ref": "#/definitions/digest" }
+      }
+    },
     "operator": {
       "type": "object", "additionalProperties": false,
       "required": ["osAccount", "gitAuthor", "cloudAccount"],

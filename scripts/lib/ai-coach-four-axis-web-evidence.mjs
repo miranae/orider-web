@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { isAbsolute, relative, resolve } from "node:path";
 
 export const WEB_EVIDENCE_TEST_FILES = Object.freeze([
   "src/features/coach/aiCoachFourAxisWebEvidence.test.ts",
@@ -83,6 +84,7 @@ const SERVICE_ACCOUNT = /^[a-z][a-z0-9-]{4,28}@[a-z][a-z0-9-]{4,28}\.iam\.gservi
 const LOCAL_CONTEXT_SCHEMA = "ai-coach-four-axis-web-local-context-v2";
 const LOCAL_REQUEST_SCHEMA = "ai-coach-four-axis-web-local-operator-v1";
 const LOCAL_ARTIFACT_SCHEMA = "ai-coach-four-axis-web-stage-baseline-local-evidence-v1";
+const LOCAL_LEASE_GUARD_PATH = "scripts/assert-ai-coach-local-stage-lease.mjs";
 export const APPROVED_LOCAL_EVIDENCE_SERVICE_ACCOUNT =
   "ai-coach-stage-collector@orider-dev.iam.gserviceaccount.com";
 
@@ -105,6 +107,14 @@ function p95(values) { return [...values].sort((left, right) => left - right)[Ma
 
 function verifiedSecret(value, code) {
   if (typeof value !== "string" || !AUTH_TOKEN.test(value) || /[\r\n]/u.test(value)) throw new Error(code);
+  return value;
+}
+
+function validateLocalLeaseGuard(value, backend, code) {
+  exactKeys(value, ["repository", "commitSha", "treeSha", "relativePath", "sha256"], code);
+  if (value.repository !== "miranae/orider-g1-web" || value.repository !== backend.repository
+      || value.commitSha !== backend.commitSha || value.treeSha !== backend.treeSha
+      || value.relativePath !== LOCAL_LEASE_GUARD_PATH || !DIGEST.test(value.sha256)) throw new Error(code);
   return value;
 }
 
@@ -158,8 +168,9 @@ export function validateLocalOperatorContext(value, expected) {
     "backend", "issuedAt", "expiresAt", "request", "stage"], "web_evidence:local_context_keys");
   exactKeys(value.operator, ["osAccount", "gitAuthor", "cloudAccount"], "web_evidence:local_operator_keys");
   exactKeys(value.identity, ["serviceAccount", "localActor"], "web_evidence:local_identity_keys");
-  exactKeys(value.backend, ["repository", "commitSha", "treeSha", "stageRunId", "checkpointSha256"],
+  exactKeys(value.backend, ["repository", "commitSha", "treeSha", "stageRunId", "checkpointSha256", "leaseGuard"],
     "web_evidence:local_backend_keys");
+  validateLocalLeaseGuard(value.backend.leaseGuard, value.backend, "web_evidence:local_lease_guard_binding");
   exactKeys(value.request, ["path", "sha256"], "web_evidence:local_context_request_keys");
   exactKeys(value.stage, ["hostSuffix", "hostSuffixSha256", "targets"], "web_evidence:local_stage_keys");
   exactKeys(value.stage.targets, ["baseline", "candidate"], "web_evidence:local_target_keys");
@@ -198,8 +209,9 @@ export function validateLocalOperatorRequest(value, context) {
     "identity", "fixture", "targets"], "web_evidence:local_request_keys");
   exactKeys(value.consumer, ["repository", "commitSha", "treeSha", "statusClean"],
     "web_evidence:local_request_consumer_keys");
-  exactKeys(value.backend, ["repository", "commitSha", "treeSha", "stageRunId", "checkpointSha256"],
+  exactKeys(value.backend, ["repository", "commitSha", "treeSha", "stageRunId", "checkpointSha256", "leaseGuard"],
     "web_evidence:local_request_backend_keys");
+  validateLocalLeaseGuard(value.backend.leaseGuard, value.backend, "web_evidence:local_request_lease_guard");
   exactKeys(value.operator, ["osAccount", "gitAuthor", "cloudAccount"], "web_evidence:local_request_operator_keys");
   exactKeys(value.identity, ["serviceAccount", "localActor"], "web_evidence:local_request_identity_keys");
   exactKeys(value.fixture, ["digest", "turns"], "web_evidence:local_request_fixture_keys");
@@ -272,7 +284,57 @@ export function verifyLocalCheckpointBinding(request, path, expectedSha256) {
       || `sha256:${evidenceFileSha256(path)}` !== expectedSha256) {
     throw new Error("web_evidence:local_checkpoint_binding");
   }
-  return { checkpointSha256: expectedSha256 };
+  let checkpoint; try { checkpoint = JSON.parse(readFileSync(path, "utf8")); }
+  catch { throw new Error("web_evidence:local_checkpoint_json"); }
+  const leaseGuard = validateLocalLeaseGuard(checkpoint?.leaseGuard, request.backend,
+    "web_evidence:local_checkpoint_lease_guard");
+  if (JSON.stringify(leaseGuard) !== JSON.stringify(request.backend.leaseGuard)) {
+    throw new Error("web_evidence:local_checkpoint_lease_guard");
+  }
+  return { checkpointSha256: expectedSha256, leaseGuard };
+}
+
+export function verifyLocalLeaseGuardBinding(backendRoot, guardPath, binding, runner = spawnSync) {
+  if (!isAbsolute(backendRoot ?? "") || !isAbsolute(guardPath ?? "")) {
+    throw new Error("web_evidence:local_lease_guard_path");
+  }
+  exactKeys(binding, ["repository", "commitSha", "treeSha", "relativePath", "sha256"],
+    "web_evidence:local_lease_guard_binding");
+  if (binding.repository !== "miranae/orider-g1-web" || !SHA.test(binding.commitSha)
+      || !SHA.test(binding.treeSha) || !DIGEST.test(binding.sha256)) {
+    throw new Error("web_evidence:local_lease_guard_binding");
+  }
+  let canonicalRoot; let canonicalGuard; let guardStat;
+  try {
+    canonicalRoot = realpathSync(backendRoot); canonicalGuard = realpathSync(guardPath);
+    guardStat = lstatSync(guardPath);
+  } catch { throw new Error("web_evidence:local_lease_guard_fs"); }
+  const boundGuard = resolve(canonicalRoot, binding?.relativePath ?? "");
+  const guardRelative = relative(canonicalRoot, canonicalGuard);
+  if (canonicalRoot !== resolve(backendRoot) || canonicalGuard !== resolve(guardPath)
+      || binding?.relativePath !== LOCAL_LEASE_GUARD_PATH || boundGuard !== canonicalGuard
+      || guardRelative.startsWith("..") || isAbsolute(guardRelative) || guardRelative === ""
+      || !guardStat.isFile() || guardStat.isSymbolicLink()
+      || typeof process.getuid !== "function" || guardStat.uid !== process.getuid()
+      || (guardStat.mode & 0o022) !== 0
+      || `sha256:${createHash("sha256").update(readFileSync(canonicalGuard)).digest("hex")}` !== binding.sha256) {
+    throw new Error("web_evidence:local_lease_guard_fs_binding");
+  }
+  const git = (args, code) => {
+    const result = runner("git", args, { cwd: canonicalRoot, encoding: "utf8", maxBuffer: 64_000 });
+    if (result.status !== 0 || result.signal || result.error) throw new Error(code);
+    return result.stdout.trim();
+  };
+  const head = git(["rev-parse", "HEAD"], "web_evidence:local_lease_guard_git");
+  const tree = git(["rev-parse", "HEAD^{tree}"], "web_evidence:local_lease_guard_git");
+  const status = git(["status", "--porcelain=v1", "--untracked-files=all"], "web_evidence:local_lease_guard_git");
+  const origin = git(["remote", "get-url", "origin"], "web_evidence:local_lease_guard_git");
+  if (binding.repository !== "miranae/orider-g1-web" || binding.commitSha !== head || binding.treeSha !== tree
+      || status !== "" || !/^(?:https:\/\/github\.com\/|git@github\.com:)miranae\/orider-g1-web(?:\.git)?$/u.test(origin)) {
+    throw new Error("web_evidence:local_lease_guard_repository");
+  }
+  return { repository: binding.repository, commitSha: head, treeSha: tree,
+    relativePath: binding.relativePath, sha256: binding.sha256 };
 }
 
 export function verifyLocalRepositoryState(root, sha, treeSha, runner = spawnSync, allowedUntracked = []) {
@@ -527,6 +589,10 @@ function productHeaders(options) {
     "x-orider-evidence-orchestrator-actor": options.orchestratorActor };
 }
 
+async function assertStageLease(options, operation) {
+  if (typeof options.assertStageLease === "function") await options.assertStageLease(operation);
+}
+
 async function observeLegacyTarget(request, target, options) {
   const observations = []; const captures = []; let fiveXx = 0;
   for (let ordinal = -1; ordinal < FOUR_AXIS_CASES.length; ordinal += 1) {
@@ -563,6 +629,7 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
   if (!path.startsWith("/v1/coach/") || path.includes("#")) throw new Error("web_evidence:v3_product_path");
   if (options.expiresAtMs <= (options.nowMs ?? Date.now())) throw new Error("web_evidence:v3_product_credential_expired");
   const started = options.clock();
+  await assertStageLease(options, { kind: "product-http", target: options.targetName, method, path });
   const response = await options.fetchImpl(new URL(path, origin), { method, redirect: "error",
     headers: productHeaders(options), ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(30_000) });
@@ -868,6 +935,8 @@ async function attestStageTarget(request, target, options) {
   const body = { schemaVersion: "ai-coach-four-axis-attestation-v1", correlationId: request.correlationId,
     stageRunId: target.stageRunId, revision: target.revision, imageDigest: target.imageDigest,
     requestDigest: options.requestSha256, orchestratorActor: localActor, providerPhase: "enabled" };
+  await assertStageLease(options, { kind: "attestation-http", target: target.tag, method: "POST",
+    path: "/v1/evidence/four-axis/attestation" });
   const response = await options.fetchImpl(new URL("/v1/evidence/four-axis/attestation", origin), {
     method: "POST", redirect: "error", headers: { "content-type": "application/json",
       authorization: `Bearer ${identityToken}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000),
@@ -908,6 +977,8 @@ async function exchangeFirebaseCustomToken(authentication, options) {
   if (!FIREBASE_WEB_API_KEY.test(options.firebaseWebApiKey ?? "")) throw new Error("web_evidence:v3_firebase_api_key");
   const url = new URL("https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken");
   url.searchParams.set("key", options.firebaseWebApiKey);
+  await assertStageLease(options, { kind: "firebase-auth", target: options.targetName, method: "POST",
+    path: "/v1/accounts:signInWithCustomToken" });
   const response = await options.fetchImpl(url, { method: "POST", redirect: "error",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ token: authentication.firebaseCustomToken, returnSecureToken: true }),
@@ -943,12 +1014,12 @@ export async function collectStageBaselineComparison(request, options) {
       throw new Error("web_evidence:v3_progress_target_reuse");
     }
   }
-  const baselineAuth = await exchangeFirebaseCustomToken(baselineAttestation, options);
+  const baselineAuth = await exchangeFirebaseCustomToken(baselineAttestation, { ...options, targetName: "baseline" });
   const baseline = await observeTarget(request, request.targets.baseline,
-    { ...options, ...baselineAuth, warmups });
-  const candidateAuth = await exchangeFirebaseCustomToken(candidateAttestation, options);
+    { ...options, ...baselineAuth, targetName: "baseline", warmups });
+  const candidateAuth = await exchangeFirebaseCustomToken(candidateAttestation, { ...options, targetName: "candidate" });
   const candidate = await observeTarget(request, request.targets.candidate,
-    { ...options, ...candidateAuth, warmups });
+    { ...options, ...candidateAuth, targetName: "candidate", warmups });
   const baselineP95Ms = p95(baseline.observations.map((item) => item.latencyMs));
   const candidateP95Ms = p95(candidate.observations.map((item) => item.latencyMs));
   for (let index = 0; index < FOUR_AXIS_CASES.length; index += 1) {
