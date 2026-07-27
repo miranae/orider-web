@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidence.mjs";
 import { bindLocalContextToRequest, collectStageBaselineComparison, createLocalEvidenceEnvelope,
@@ -10,7 +10,8 @@ import { bindLocalContextToRequest, collectStageBaselineComparison, createLocalE
   localWebEvidenceArtifactName,
   passedVitestAssertions, prefixedEvidenceDigest, privacyScan, REQUIRED_RENDER_ASSERTIONS,
   validateLocalOperatorContext, validateLocalOperatorRequest, validateLocalWebStageBaselineEvidenceArtifact,
-  verifyLocalCheckpointBinding, verifyLocalGoogleIdentity, verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
+  verifyLocalCheckpointBinding, verifyLocalGoogleIdentity, verifyLocalLeaseGuardBinding,
+  verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
   "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 function argument(name) {
@@ -24,6 +25,20 @@ function required(name) { const value = process.env[name]; if (!value) throw new
 function sha256(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
 
 const root = process.cwd();
+const leaseGuardPath = required("AI_COACH_LOCAL_STAGE_LEASE_GUARD");
+for (const name of ["AI_COACH_LOCAL_STAGE_MANIFEST_PATH", "AI_COACH_LOCAL_STAGE_RUN_ID",
+  "AI_COACH_LOCAL_STAGE_LEASE_TOKEN", "AI_COACH_LOCAL_STAGE_BACKEND_ROOT"]) required(name);
+if (!isAbsolute(leaseGuardPath)) throw new Error("web_evidence:local_lease_guard_path");
+const backendRoot = required("AI_COACH_LOCAL_STAGE_BACKEND_ROOT");
+let leaseGuardBinding;
+const assertStageLease = async () => {
+  if (!leaseGuardBinding) throw new Error("web_evidence:local_stage_lease_unbound");
+  verifyLocalLeaseGuardBinding(backendRoot, leaseGuardPath, leaseGuardBinding);
+  const guarded = spawnSync(process.execPath, [leaseGuardPath], { cwd: root, env: process.env,
+    stdio: "ignore", timeout: 30_000 });
+  if (guarded.status !== 0 || guarded.signal || guarded.error) throw new Error("web_evidence:local_stage_lease_lost");
+};
+
 const contextPath = resolve(argument("--local-context"));
 const expectedContextSha256 = argument("--context-sha256");
 const decodedContext = decodeLocalOperatorContext(readFileSync(contextPath), expectedContextSha256);
@@ -36,8 +51,10 @@ const decodedRequest = decodeEvidenceRequest(readFileSync(requestPath, "utf8"), 
 const request = validateLocalOperatorRequest(decodedRequest.value, { repository: context.repository,
   sha: context.commitSha, treeSha: context.treeSha, operator: context.operator, identity: context.identity,
   backend: context.backend, stageHostSuffix: context.stage.hostSuffix });
-verifyLocalCheckpointBinding(request, required("AI_COACH_LOCAL_CHECKPOINT_PATH"),
+const checkpoint = verifyLocalCheckpointBinding(request, required("AI_COACH_LOCAL_CHECKPOINT_PATH"),
   required("AI_COACH_LOCAL_CHECKPOINT_SHA256"));
+leaseGuardBinding = checkpoint.leaseGuard;
+verifyLocalLeaseGuardBinding(backendRoot, leaseGuardPath, leaseGuardBinding);
 const targets = bindLocalContextToRequest(context, request, requestPath);
 
 const identityTokenFor = async (audience) => {
@@ -64,7 +81,8 @@ try {
   const browser = await collectBrowserEvidence(root);
   const live = await collectStageBaselineComparison(request, { fetchImpl: fetch,
     clock: performance.now.bind(performance), identityTokenFor, maskSecret: () => undefined,
-    firebaseWebApiKey: required("AI_COACH_STAGE_FIREBASE_WEB_API_KEY"), requestSha256: decodedRequest.requestSha256 });
+    firebaseWebApiKey: required("AI_COACH_STAGE_FIREBASE_WEB_API_KEY"), requestSha256: decodedRequest.requestSha256,
+    assertStageLease });
   validateLocalOperatorContext(context, { repository: context.repository, sha: context.commitSha });
   verifyLocalRepositoryState(root, context.commitSha, context.treeSha);
   verifyLocalGoogleIdentity(context);

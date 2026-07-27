@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import test from "node:test";
 import Ajv from "ajv";
 import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidence.mjs";
@@ -11,7 +14,8 @@ import { bindLocalContextToRequest, collectLiveComparison, collectStageBaselineC
   validateDispatchRequest, validateLocalEvidenceEnvelope, validateLocalOperatorContext, validateLocalOperatorRequest,
   validateLocalWebStageBaselineEvidenceArtifact, validateStageBaselineDispatchRequest, validateWebEvidenceArtifact,
   validateWebStageBaselineEvidenceArtifact, verifyLocalCheckpointBinding, verifyLocalGoogleIdentity, verifyLocalRepositoryState,
-  verifyOrchestratorRun, WEB_EVIDENCE_TEST_FILES, webEvidenceArtifactName } from "./lib/ai-coach-four-axis-web-evidence.mjs";
+  verifyLocalLeaseGuardBinding, verifyOrchestratorRun, WEB_EVIDENCE_TEST_FILES, webEvidenceArtifactName } from
+  "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 const SHA = "a".repeat(40); const HASH = "b".repeat(64); const CORRELATION = "four-axis-contract-0001";
 const FIREBASE_API_KEY = "firebase-web-api-key-1234567890";
@@ -44,7 +48,9 @@ function localContext() {
     identity: { serviceAccount: "ai-coach-stage-collector@orider-dev.iam.gserviceaccount.com",
       localActor: "operator@example.com" },
     backend: { repository: "miranae/orider-g1-web", commitSha: "b".repeat(40), treeSha: "d".repeat(40),
-      stageRunId: v3Request.targets.candidate.stageRunId, checkpointSha256: digest("e") },
+      stageRunId: v3Request.targets.candidate.stageRunId, checkpointSha256: digest("e"),
+      leaseGuard: { repository: "miranae/orider-g1-web", commitSha: "b".repeat(40), treeSha: "d".repeat(40),
+        relativePath: "scripts/assert-ai-coach-local-stage-lease.mjs", sha256: digest("f") } },
     issuedAt: "2026-07-26T23:55:00.000Z", expiresAt: v3Request.expiresAt,
     request: { path: "request.json", sha256: `sha256:${createHash("sha256").update(v3RequestText).digest("hex")}` },
     stage: { hostSuffix: v3Context().stageHostSuffix, hostSuffixSha256: v3Context().stageHostSuffixSha256,
@@ -306,6 +312,7 @@ test("local operator context binds exact bytes, clean HEAD/tree, active identity
     (value) => { value.treeSha = "bad"; }, (value) => { value.expiresAt = "2026-07-27T01:00:00.000Z"; },
     (value) => { value.identity.serviceAccount = "other-evidence@orider-dev.iam.gserviceaccount.com"; },
     (value) => { value.identity.localActor = "unapproved-user"; },
+    (value) => { value.backend.leaseGuard.treeSha = "0".repeat(40); },
     (value) => { value.stage.targets.candidate.imageDigest = digest("0"); }]) {
     const changed = structuredClone(contextValue); mutate(changed);
     if (changed.stage.targets.candidate.imageDigest === digest("0")
@@ -350,19 +357,71 @@ test("local operator request schema excludes Actions identity and binds backend 
     nowMs: Date.parse("2026-07-27T00:00:00.000Z") };
   for (const mutate of [(item) => { item.consumer.statusClean = false; },
     (item) => { item.backend.commitSha = "0".repeat(40); },
+    (item) => { item.backend.leaseGuard.commitSha = "0".repeat(40); },
     (item) => { item.backend.stageRunId = "stage_other-0001"; },
     (item) => { item.identity.localActor = "other@example.com"; },
     (item) => { item.runId = 42; }]) {
     const changed = structuredClone(value); mutate(changed);
     assert.throws(() => validateLocalOperatorRequest(changed, expected), /local_request/u);
   }
-  const fixturePath = "scripts/fixtures/ai-coach-four-axis-stage-baseline-dispatch-request-v2.json";
-  const fixtureDigest = `sha256:${createHash("sha256").update(readFileSync(fixturePath)).digest("hex")}`;
-  const checkpointBound = structuredClone(value); checkpointBound.backend.checkpointSha256 = fixtureDigest;
-  assert.deepEqual(verifyLocalCheckpointBinding(checkpointBound, fixturePath, fixtureDigest),
-    { checkpointSha256: fixtureDigest });
-  assert.throws(() => verifyLocalCheckpointBinding(checkpointBound, fixturePath, digest("0")),
-    /local_checkpoint_binding/u);
+  const temporary = mkdtempSync(resolve(tmpdir(), "web-lease-checkpoint-"));
+  try {
+    const checkpointPath = resolve(temporary, "checkpoint.json");
+    const checkpointBytes = Buffer.from(JSON.stringify({ leaseGuard: value.backend.leaseGuard }));
+    writeFileSync(checkpointPath, checkpointBytes, { mode: 0o600 });
+    const checkpointDigest = `sha256:${createHash("sha256").update(checkpointBytes).digest("hex")}`;
+    const checkpointBound = structuredClone(value); checkpointBound.backend.checkpointSha256 = checkpointDigest;
+    assert.deepEqual(verifyLocalCheckpointBinding(checkpointBound, checkpointPath, checkpointDigest),
+      { checkpointSha256: checkpointDigest, leaseGuard: value.backend.leaseGuard });
+    assert.throws(() => verifyLocalCheckpointBinding(checkpointBound, checkpointPath, digest("0")),
+      /local_checkpoint_binding/u);
+    const forged = structuredClone(checkpointBound); forged.backend.leaseGuard.sha256 = digest("0");
+    assert.throws(() => verifyLocalCheckpointBinding(forged, checkpointPath, checkpointDigest),
+      /local_checkpoint_lease_guard/u);
+  } finally { rmSync(temporary, { recursive: true, force: true }); }
+});
+
+test("local lease guard binds an owned immutable file to the exact clean backend checkout", () => {
+  const backendRoot = realpathSync(mkdtempSync(resolve(tmpdir(), "web-lease-backend-")));
+  const externalRoot = mkdtempSync("/tmp/web-lease-external-");
+  const runGit = (args) => spawnSync("git", args, { cwd: backendRoot, encoding: "utf8" });
+  try {
+    const guardPath = resolve(backendRoot, "scripts/assert-ai-coach-local-stage-lease.mjs");
+    mkdirSync(resolve(backendRoot, "scripts"));
+    writeFileSync(guardPath, "#!/usr/bin/env node\nprocess.exit(0);\n", { mode: 0o600 });
+    for (const args of [["init", "-q"], ["config", "user.name", "Lease Test"],
+      ["config", "user.email", "lease@example.com"], ["add", "."], ["commit", "-qm", "add guard"],
+      ["remote", "add", "origin", "https://github.com/miranae/orider-g1-web.git"]]) {
+      assert.equal(runGit(args).status, 0);
+    }
+    chmodSync(guardPath, 0o600);
+    const commitSha = runGit(["rev-parse", "HEAD"]).stdout.trim();
+    const treeSha = runGit(["rev-parse", "HEAD^{tree}"]).stdout.trim();
+    const sha256 = `sha256:${createHash("sha256").update(readFileSync(guardPath)).digest("hex")}`;
+    const binding = { repository: "miranae/orider-g1-web", commitSha, treeSha,
+      relativePath: "scripts/assert-ai-coach-local-stage-lease.mjs", sha256 };
+    assert.deepEqual(verifyLocalLeaseGuardBinding(backendRoot, guardPath, binding), binding);
+
+    const alwaysPass = resolve(externalRoot, "always-pass.mjs");
+    writeFileSync(alwaysPass, "process.exit(0);\n", { mode: 0o600 }); chmodSync(alwaysPass, 0o600);
+    assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, alwaysPass, binding),
+      /local_lease_guard_fs_binding/u);
+    const alternatePath = resolve(backendRoot, "scripts/alternate-guard.mjs");
+    writeFileSync(alternatePath, readFileSync(guardPath), { mode: 0o600 });
+    assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, alternatePath, binding),
+      /local_lease_guard_fs_binding/u);
+    rmSync(alternatePath);
+    assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, guardPath, { ...binding, sha256: digest("0") }),
+      /local_lease_guard_fs_binding/u);
+    assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, guardPath, { ...binding, treeSha: "0".repeat(40) }),
+      /local_lease_guard_repository/u);
+    writeFileSync(resolve(backendRoot, "untracked.txt"), "dirty\n");
+    assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, guardPath, binding),
+      /local_lease_guard_repository/u);
+  } finally {
+    rmSync(backendRoot, { recursive: true, force: true });
+    rmSync(externalRoot, { recursive: true, force: true });
+  }
 });
 
 test("validates v3 stage baseline request and uses OIDC attestation plus short per-target leases", async () => {
@@ -562,6 +621,46 @@ test("local operator request directly binds email actor, attestation response an
     firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
   }), /v3_attestation_binding/u);
+});
+
+test("local stage lease fence runs immediately before each shared request and fails before the next candidate request", async () => {
+  const requestValue = localRequest(); const requestDigest = digest("a"); const events = [];
+  const upstream = observedStageHttp([], requestValue, requestDigest);
+  await collectStageBaselineComparison(requestValue, {
+    fetchImpl: async (url, options) => { events.push({ type: "fetch", url: String(url) }); return upstream(url, options); },
+    assertStageLease: async (operation) => { events.push({ type: "guard", operation }); },
+    clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
+  });
+  assert.ok(events.length > 0);
+  for (let index = 0; index < events.length; index += 2) {
+    assert.equal(events[index].type, "guard");
+    assert.equal(events[index + 1].type, "fetch");
+  }
+  const candidateProductFetches = [];
+  const failClosedUpstream = observedStageHttp([], requestValue, requestDigest);
+  await assert.rejects(() => collectStageBaselineComparison(requestValue, {
+    fetchImpl: async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.hostname.startsWith("candidate---") && parsed.pathname.startsWith("/v1/coach/")) {
+        candidateProductFetches.push(parsed.pathname);
+      }
+      return failClosedUpstream(url, options);
+    },
+    assertStageLease: async (operation) => {
+      if (operation.kind === "product-http" && operation.target === "candidate") {
+        throw new Error("lease_lost");
+      }
+    },
+    clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
+  }), /lease_lost/u);
+  assert.deepEqual(candidateProductFetches, []);
+  const localProducer = readFileSync("scripts/run-ai-coach-four-axis-web-evidence-local.mjs", "utf8");
+  assert.match(localProducer, /stdio:\s*"ignore"/u);
+  assert.doesNotMatch(localProducer, /(?:console|stdout|stderr).*AI_COACH_LOCAL_STAGE_LEASE_TOKEN/iu);
 });
 
 test("derives warm-excluded 10+10 HTTP evidence, card counters and separate card/AI parity receipts", async () => {
