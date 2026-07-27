@@ -31,19 +31,23 @@ export const REQUIRED_RENDER_ASSERTIONS = Object.freeze([
 ]);
 
 export const FOUR_AXIS_CASES = Object.freeze([
-  { caseId: "track0_load_summary", questionCode: "LOAD_SUMMARY", providerCalls: 1, quotaConsumed: 1, card: false },
-  { caseId: "track0_period_compare", questionCode: "PERIOD_COMPARE", providerCalls: 1, quotaConsumed: 1, card: false },
-  { caseId: "pmc_change", questionCode: "CHANGE", providerCalls: 2, quotaConsumed: 1, card: true },
-  { caseId: "pmc_recovery", questionCode: "RECOVERY", providerCalls: 2, quotaConsumed: 1, card: true },
-  { caseId: "rider_profile", questionCode: "PROFILE", providerCalls: 2, quotaConsumed: 1, card: true },
-  { caseId: "rider_duration_priority", questionCode: "DURATION_PRIORITY", providerCalls: 2, quotaConsumed: 1, card: true },
-  { caseId: "progress_needs_checkin", questionCode: "PRIORITY", providerCalls: 0, quotaConsumed: 0, card: true },
-  { caseId: "progress_selected_evidence", questionCode: "SELECTED_EVIDENCE", providerCalls: 0, quotaConsumed: 0, card: true },
-  { caseId: "ride_hardest_section", questionCode: "HARDEST_SECTION", providerCalls: 1, quotaConsumed: 1, card: true },
-  { caseId: "ride_personal_pacing", questionCode: "PERSONAL_PACING", providerCalls: 1, quotaConsumed: 1, card: true },
+  { caseId: "track0_load_summary", source: "track0", question: "최근 28일 훈련 부하를 요약해줘", questionCode: "LOAD_SUMMARY", providerCalls: 1, quotaConsumed: 1, card: false },
+  { caseId: "track0_period_compare", source: "track0", question: "최근 7일과 이전 7일 훈련을 비교해줘", questionCode: "PERIOD_COMPARE", providerCalls: 1, quotaConsumed: 1, card: false },
+  { caseId: "pmc_change", source: "pmc", question: "현재 PMC 변화가 의미하는 것을 설명해줘", questionCode: "CHANGE", providerCalls: 2, quotaConsumed: 1, card: true },
+  { caseId: "pmc_recovery", source: "pmc", question: "현재 피로도에서 회복을 어떻게 조절할까?", questionCode: "RECOVERY", providerCalls: 2, quotaConsumed: 1, card: true },
+  { caseId: "rider_profile", source: "rider", question: "내 라이더 유형과 강점을 설명해줘", questionCode: "PROFILE", providerCalls: 2, quotaConsumed: 1, card: true },
+  { caseId: "rider_duration_priority", source: "rider", question: "어떤 파워 지속시간을 우선 훈련해야 해?", questionCode: "DURATION_PRIORITY", providerCalls: 2, quotaConsumed: 1, card: true },
+  { caseId: "progress_needs_checkin", source: "progress", question: "선택한 처방에서 우선 확인할 항목은 뭐야?", questionCode: "PRIORITY", providerCalls: 0, quotaConsumed: 0, card: true },
+  { caseId: "progress_selected_evidence", source: "progress", question: "선택한 처방의 근거를 설명해줘", questionCode: "SELECTED_EVIDENCE", providerCalls: 0, quotaConsumed: 0, card: true },
+  { caseId: "ride_hardest_section", source: "ride", question: "이 코스에서 가장 어려운 구간은 어디야?", questionCode: "HARDEST_SECTION", providerCalls: 1, quotaConsumed: 1, card: true },
+  { caseId: "ride_personal_pacing", source: "ride", question: "내 능력에 맞는 코스 페이스를 알려줘", questionCode: "PERSONAL_PACING", providerCalls: 1, quotaConsumed: 1, card: true },
 ]);
+export const FOUR_AXIS_DISPATCH_TURNS = Object.freeze(FOUR_AXIS_CASES.map(({ source: _source, ...item }) => item));
+const FOUR_AXIS_LEGACY_TURNS = Object.freeze(FOUR_AXIS_CASES.map(
+  ({ source: _source, question: _question, ...item }) => item));
 export const CANONICAL_EVIDENCE_PATHNAME = "/__evidence/ai-coach-four-axis/observe";
 export const ORCHESTRATOR_WORKFLOW_PATH = ".github/workflows/ai-coach-promotion-gate.yml";
+export const CANONICAL_STAGE_HOST_SUFFIX = "---orider-ai-api-stage-ldfyfyx5da-du.a.run.app";
 
 const SHA = /^[0-9a-f]{40}$/u;
 const DIGEST = /^sha256:[0-9a-f]{64}$/u;
@@ -51,11 +55,27 @@ const HEX_DIGEST = /^[0-9a-f]{64}$/u;
 const CORRELATION = /^[a-z0-9][a-z0-9-]{15,79}$/u;
 const REVISION = /^[a-z][a-z0-9-]{1,62}$/u;
 const TAG = /^[a-z][a-z0-9-]{1,30}$/u;
-const FORBIDDEN = /(?:\buid\b|courseId|activityId|idToken|appCheckToken|authorization|(?:^|["'])question["']?\s*:|providerPrompt|providerOutput|polyline|latitude|longitude|exactCoordinates|bearer\s+[A-Za-z0-9._~-]+)/giu;
+const GITHUB_ACTOR = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(?:\[bot\])?$/u;
+const FORBIDDEN = /(?:\buid\b|courseId|activityId|(?:firebaseCustom|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])question["']?\s*:|providerPrompt|providerOutput|polyline|latitude|longitude|exactCoordinates|bearer\s+[A-Za-z0-9._~-]+)/giu;
 const RECEIPT_KEYS = ["schemaVersion", "correlationDigest", "caseId", "fixtureDigest", "requestDigest",
-  "targetFingerprint", "outcome", "providerCalls", "quotaConsumed", "userDataWrites", "card", "response"];
+  "targetFingerprint", "outcome", "providerCalls", "quotaConsumed", "userDataWrites", "card", "response",
+  "productExecution"];
 const PROJECTION_KEYS = ["sourceRevisionDigest", "projectionDigest", "evidenceDigest", "sharedFactsDigest"];
+const PRODUCT_EXECUTION_KEYS = ["questionPath", "cardPath", "requestKey", "questionStatus", "cardStatus",
+  "providerCallsObserved", "providerLedgerCount", "turnLedgerCount", "userDataWrites", "questionResponseDigest",
+  "cardResponseDigest"];
+const PRODUCT_CARD_PATHS = new Map([
+  ["track0_load_summary", null], ["track0_period_compare", null],
+  ["pmc_change", "/v1/coach/insights/pmc"], ["pmc_recovery", "/v1/coach/insights/pmc"],
+  ["rider_profile", "/v1/coach/insights/rider"], ["rider_duration_priority", "/v1/coach/insights/rider"],
+  ["progress_needs_checkin", "/v1/coach/change-proposals"],
+  ["progress_selected_evidence", "/v1/coach/change-proposals"],
+  ["ride_hardest_section", "/v1/coach/ride-plan"], ["ride_personal_pacing", "/v1/coach/ride-plan"],
+]);
 export const MAX_HTTP_RESPONSE_BYTES = 200_000;
+export const MAX_AUTH_RESPONSE_BYTES = 64 * 1024;
+const AUTH_TOKEN = /^[A-Za-z0-9._~-]{8,16384}$/u;
+const FIREBASE_WEB_API_KEY = /^[A-Za-z0-9_-]{20,128}$/u;
 
 function exactKeys(value, keys, code) {
   if (!value || typeof value !== "object" || Array.isArray(value)
@@ -74,12 +94,49 @@ function positiveInteger(value, code) {
 function prefixedDigest(value) { return `sha256:${createHash("sha256").update(value).digest("hex")}`; }
 function p95(values) { return [...values].sort((left, right) => left - right)[Math.ceil(values.length * 0.95) - 1]; }
 
+function verifiedSecret(value, code) {
+  if (typeof value !== "string" || !AUTH_TOKEN.test(value) || /[\r\n]/u.test(value)) throw new Error(code);
+  return value;
+}
+
+async function readBoundedJsonResponse(response, { code, maxBytes = MAX_AUTH_RESPONSE_BYTES } = {}) {
+  const contentType = response.headers?.get?.("content-type")?.toLowerCase() ?? "";
+  if (!contentType.startsWith("application/json")) throw new Error(`${code}_content_type`);
+  const declared = response.headers?.get?.("content-length");
+  if (declared != null && (!/^\d+$/u.test(declared) || Number(declared) < 2 || Number(declared) > maxBytes)) {
+    throw new Error(`${code}_content_length`);
+  }
+  const reader = response.body?.getReader?.();
+  if (!reader) throw new Error(`${code}_stream_required`);
+  const chunks = []; let received = 0;
+  while (true) {
+    const { done, value } = await reader.read(); if (done) break;
+    received += value.byteLength;
+    if (received > maxBytes) { await reader.cancel(); throw new Error(`${code}_body_cap`); }
+    chunks.push(value);
+  }
+  if (received < 2 || declared != null && received !== Number(declared)) throw new Error(`${code}_body_size`);
+  const bytes = new Uint8Array(received); let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
+  catch { throw new Error(`${code}_json`); }
+}
+
 export function evidenceDigest(value) { return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex"); }
 export function prefixedEvidenceDigest(value) { return `sha256:${evidenceDigest(value)}`; }
 export function evidenceFileSha256(path) { return createHash("sha256").update(readFileSync(path)).digest("hex"); }
 export function webEvidenceArtifactName(sha, correlationId) {
   if (!SHA.test(sha) || !CORRELATION.test(correlationId)) throw new Error("web_evidence:invalid_identity");
   return `ai-coach-four-axis-web-evidence-${sha}-${correlationId}`;
+}
+
+export function parseOrchestratorActorAllowlist(value) {
+  let actors;
+  try { actors = JSON.parse(value); } catch { throw new Error("web_evidence:orchestrator_actor_allowlist_json"); }
+  if (!Array.isArray(actors) || actors.length < 1 || actors.length > 16
+      || actors.some((actor) => typeof actor !== "string" || !GITHUB_ACTOR.test(actor))
+      || new Set(actors).size !== actors.length) throw new Error("web_evidence:orchestrator_actor_allowlist");
+  return actors;
 }
 
 export function decodeEvidenceRequest(input, expectedSha256) {
@@ -100,7 +157,8 @@ export function targetFingerprint(target) {
     url: target.url, revisionIdentityDigest: target.revisionIdentityDigest,
     productionAuditDigest: target.productionAuditDigest });
   return prefixedEvidenceDigest({ environment: target.environment, taggedUrl: target.taggedUrl, tag: target.tag,
-    revision: target.revision, imageDigest: target.imageDigest, stageRunId: target.stageRunId });
+    revision: target.revision, imageDigest: target.imageDigest, stageRunId: target.stageRunId,
+    ...(target.productionAuditDigest && { productionAuditDigest: target.productionAuditDigest }) });
 }
 
 function validateHttpsTarget(rawUrl, expectedOrigin, code) {
@@ -135,8 +193,8 @@ export function validateDispatchRequest(value, context) {
   positiveInteger(value.orchestrator.runId, "web_evidence:orchestrator_run");
   positiveInteger(value.orchestrator.runAttempt, "web_evidence:orchestrator_attempt");
   exactKeys(value.fixture, ["digest", "turns"], "web_evidence:fixture_keys");
-  if (value.fixture.digest !== prefixedEvidenceDigest(FOUR_AXIS_CASES)
-      || JSON.stringify(value.fixture.turns) !== JSON.stringify(FOUR_AXIS_CASES)) {
+  if (value.fixture.digest !== prefixedEvidenceDigest(FOUR_AXIS_LEGACY_TURNS)
+      || JSON.stringify(value.fixture.turns) !== JSON.stringify(FOUR_AXIS_LEGACY_TURNS)) {
     throw new Error("web_evidence:fixture_binding");
   }
   exactKeys(value.targets, ["production", "candidate"], "web_evidence:target_keys");
@@ -158,7 +216,60 @@ export function validateDispatchRequest(value, context) {
   return value;
 }
 
-export async function verifyOrchestratorRun(request, { token, fetchImpl = fetch } = {}) {
+export function validateStageBaselineDispatchRequest(value, context) {
+  exactKeys(value, ["schemaVersion", "correlationId", "expiresAt", "consumer", "orchestrator", "fixture", "targets"],
+    "web_evidence:v3_request_keys");
+  if (value.schemaVersion !== "ai-coach-four-axis-web-stage-baseline-dispatch-v2"
+      || value.correlationId !== context.correlationId || !CORRELATION.test(value.correlationId)) {
+    throw new Error("web_evidence:v3_request_identity");
+  }
+  const expiresAt = Date.parse(value.expiresAt); const now = context.nowMs ?? Date.now();
+  if (!Number.isFinite(expiresAt) || expiresAt <= now || expiresAt - now > 30 * 60_000) {
+    throw new Error("web_evidence:v3_request_expiry");
+  }
+  exactKeys(value.consumer, ["repository", "sha"], "web_evidence:v3_consumer_keys");
+  exactKeys(value.orchestrator, ["repository", "workflowPath", "headSha", "runId", "runAttempt", "actor"],
+    "web_evidence:v3_orchestrator_keys");
+  exactKeys(value.fixture, ["digest", "turns"], "web_evidence:v3_fixture_keys");
+  if (value.consumer.repository !== "miranae/orider-web" || value.consumer.repository !== context.repository
+      || value.consumer.sha !== context.sha || value.orchestrator.repository !== "miranae/orider-g1-web"
+      || value.orchestrator.workflowPath !== ORCHESTRATOR_WORKFLOW_PATH || !SHA.test(value.orchestrator.headSha)
+      || !GITHUB_ACTOR.test(value.orchestrator.actor)
+      || !Array.isArray(context.orchestratorActors) || !context.orchestratorActors.includes(value.orchestrator.actor)
+      || !Number.isSafeInteger(value.orchestrator.runId) || value.orchestrator.runId < 1
+      || !Number.isSafeInteger(value.orchestrator.runAttempt) || value.orchestrator.runAttempt < 1
+      || value.fixture.digest !== prefixedEvidenceDigest(FOUR_AXIS_DISPATCH_TURNS)
+      || prefixedEvidenceDigest(value.fixture.turns) !== prefixedEvidenceDigest(FOUR_AXIS_DISPATCH_TURNS)) {
+    throw new Error("web_evidence:v3_request_binding");
+  }
+  exactKeys(value.targets, ["baseline", "candidate"], "web_evidence:v3_target_keys");
+  const expectedTargetKeys = ["environment", "taggedUrl", "targetFingerprint", "tag", "revision", "imageDigest", "stageRunId"];
+  const baseline = exactKeys(value.targets.baseline, [...expectedTargetKeys, "productionAuditDigest"],
+    "web_evidence:v3_baseline_keys");
+  const candidate = exactKeys(value.targets.candidate, expectedTargetKeys, "web_evidence:v3_candidate_keys");
+  const hostSuffix = context.stageHostSuffix; const hostSuffixSha256 = context.stageHostSuffixSha256;
+  if (hostSuffix !== CANONICAL_STAGE_HOST_SUFFIX
+      || !/^---[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/u.test(hostSuffix)
+      || !HEX_DIGEST.test(hostSuffixSha256 ?? "")
+      || createHash("sha256").update(hostSuffix).digest("hex") !== hostSuffixSha256) {
+    throw new Error("web_evidence:v3_host_config");
+  }
+  for (const [name, target] of Object.entries({ baseline, candidate })) {
+    let url; try { url = new URL(target.taggedUrl); } catch { throw new Error(`web_evidence:v3_${name}_url`); }
+    if (url.protocol !== "https:" || url.port || url.username || url.password || url.search || url.hash
+        || url.pathname !== "/" || url.hostname !== `${target.tag}${hostSuffix}`
+        || !TAG.test(target.tag) || !REVISION.test(target.revision)
+        || !DIGEST.test(target.imageDigest) || !/^stage_[a-z0-9-]{8,64}$/u.test(target.stageRunId)
+        || target.targetFingerprint !== targetFingerprint(target)) throw new Error(`web_evidence:v3_${name}_binding`);
+  }
+  if (baseline.environment !== "tagged-stage-baseline" || candidate.environment !== "tagged-stage-candidate"
+      || baseline.stageRunId !== candidate.stageRunId || baseline.taggedUrl === candidate.taggedUrl
+      || baseline.revision === candidate.revision
+      || !DIGEST.test(baseline.productionAuditDigest)) throw new Error("web_evidence:v3_target_binding");
+  return value;
+}
+
+export async function verifyOrchestratorRun(request, { token, fetchImpl = fetch, expectedActor, allowedActors } = {}) {
   if (!token) throw new Error("web_evidence:orchestrator_token");
   const base = `https://api.github.com/repos/${request.orchestrator.repository}`;
   const headers = { Accept: "application/vnd.github+json", Authorization: `Bearer ${token}`,
@@ -166,18 +277,21 @@ export async function verifyOrchestratorRun(request, { token, fetchImpl = fetch 
   const runResponse = await fetchImpl(`${base}/actions/runs/${request.orchestrator.runId}`, { headers });
   if (!runResponse.ok) throw new Error(`web_evidence:orchestrator_http_${runResponse.status}`);
   const run = await runResponse.json();
+  const requestedActor = request.orchestrator.actor;
+  const actorBound = requestedActor === undefined
+    ? !expectedActor || run?.actor?.login === expectedActor
+    : Array.isArray(allowedActors) && allowedActors.includes(requestedActor) && run?.actor?.login === requestedActor;
   if (run?.repository?.full_name !== request.orchestrator.repository || run?.head_sha !== request.orchestrator.headSha
       || run?.run_attempt !== request.orchestrator.runAttempt || run?.event !== "workflow_dispatch"
-      || !["queued", "in_progress", "completed"].includes(run?.status)
-      || run.status === "completed" && run.conclusion !== "success" || !Number.isSafeInteger(run?.workflow_id)) {
+      || !actorBound
+      || run?.status !== "in_progress" || run?.conclusion !== null || !Number.isSafeInteger(run?.workflow_id)) {
     throw new Error("web_evidence:orchestrator_observation");
   }
   const workflowResponse = await fetchImpl(`${base}/actions/workflows/${run.workflow_id}`, { headers });
   if (!workflowResponse.ok) throw new Error(`web_evidence:workflow_http_${workflowResponse.status}`);
   const workflow = await workflowResponse.json();
   if (workflow?.path !== request.orchestrator.workflowPath) throw new Error("web_evidence:orchestrator_workflow");
-  return { repository: run.repository.full_name, workflowPath: workflow.path, headSha: run.head_sha,
-    runId: run.id, runAttempt: run.run_attempt, event: run.event };
+  return { ...request.orchestrator, event: run.event };
 }
 
 export function passedVitestAssertions(machineResult) {
@@ -212,64 +326,479 @@ function validateReceipt(receipt, item, request, target) {
       throw new Error(`web_evidence:card_ai_parity:${item.caseId}`);
     }
   } else if (receipt.card !== null) throw new Error(`web_evidence:unexpected_card:${item.caseId}`);
+  validateProductExecution(receipt.productExecution, item);
   return receipt;
 }
 
-async function observeTarget(request, target, options) {
+function validateProductExecution(product, item) {
+  exactKeys(product, PRODUCT_EXECUTION_KEYS, `web_evidence:product_execution_keys:${item.caseId}`);
+  const cardPath = PRODUCT_CARD_PATHS.get(item.caseId);
+  if (product.questionPath !== "/v1/coach/respond" || product.cardPath !== cardPath
+      || !HEX_DIGEST.test(product.requestKey) || product.questionStatus !== 200
+      || product.cardStatus !== (cardPath === null ? null : 200)
+      || product.providerCallsObserved !== item.providerCalls
+      || product.providerLedgerCount !== (item.providerCalls > 0 ? 1 : 0)
+      || product.turnLedgerCount !== item.quotaConsumed || product.userDataWrites !== 0
+      || !DIGEST.test(product.questionResponseDigest)
+      || (cardPath === null ? product.cardResponseDigest !== null : !DIGEST.test(product.cardResponseDigest))) {
+    throw new Error(`web_evidence:product_execution_binding:${item.caseId}`);
+  }
+  return product;
+}
+
+function productHeaders(options) {
+  return { "content-type": "application/json", authorization: `Bearer ${options.authorization}`,
+    "X-Firebase-AppCheck": options.appCheckToken, "x-orider-evidence-lease": options.leaseCredential,
+    "x-orider-evidence-correlation": options.evidenceCorrelationId,
+    "x-orider-evidence-orchestrator-actor": options.orchestratorActor };
+}
+
+async function observeLegacyTarget(request, target, options) {
   const observations = []; const captures = []; let fiveXx = 0;
   for (let ordinal = -1; ordinal < FOUR_AXIS_CASES.length; ordinal += 1) {
     const item = FOUR_AXIS_CASES[Math.max(0, ordinal)];
     const body = { schemaVersion: "ai-coach-four-axis-synthetic-request-v1", correlationId: request.correlationId,
       fixtureDigest: request.fixture.digest, caseId: item.caseId, questionCode: item.questionCode };
-    const bodyText = JSON.stringify(body); const requestDigest = prefixedDigest(bodyText);
-    const started = options.clock();
+    const bodyText = JSON.stringify(body); const requestDigest = prefixedDigest(bodyText); const started = options.clock();
     const response = await options.fetchImpl(target.environment === "production-warm" ? target.url : target.taggedUrl, {
       method: "POST", redirect: "error", headers: { "content-type": "application/json",
         authorization: `Bearer ${options.authorization}`, "x-orider-test-identity": options.testIdentity,
         "x-orider-observation-phase": ordinal < 0 ? "warmup" : "measured" }, body: bodyText,
-      signal: AbortSignal.timeout(30_000),
-    });
-    const declaredLength = response.headers?.get?.("content-length");
-    if (declaredLength != null && (!/^\d+$/u.test(declaredLength) || Number(declaredLength) > MAX_HTTP_RESPONSE_BYTES)) {
-      throw new Error("web_evidence:response_content_length");
-    }
-    if (!response.headers?.get?.("content-type")?.toLowerCase().startsWith("application/json")) {
-      throw new Error("web_evidence:response_content_type");
-    }
-    const chunks = []; let received = 0; const reader = response.body?.getReader?.();
-    if (!reader) throw new Error("web_evidence:response_stream_required");
-    while (true) {
-      const { done, value } = await reader.read(); if (done) break;
-      received += value.byteLength;
-      if (received > MAX_HTTP_RESPONSE_BYTES) { await reader.cancel(); throw new Error("web_evidence:response_body_cap"); }
-      chunks.push(value);
-    }
-    const bytes = new Uint8Array(received); let offset = 0;
-    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-    const responseText = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    const latencyMs = Math.max(0, Math.round(options.clock() - started));
+      signal: AbortSignal.timeout(30_000) });
+    const value = await readBoundedJsonResponse(response, { code: "web_evidence:response",
+      maxBytes: MAX_HTTP_RESPONSE_BYTES });
+    const responseText = JSON.stringify(value); const latencyMs = Math.max(0, Math.round(options.clock() - started));
     captures.push({ url: response.url || (target.environment === "production-warm" ? target.url : target.taggedUrl),
       requestBody: bodyText, responseBody: responseText });
     if (response.status >= 500 && response.status <= 599) fiveXx += 1;
     if (!response.ok) throw new Error(`web_evidence:http_${target.environment}_${response.status}`);
-    let receipt; try { receipt = JSON.parse(responseText); } catch { throw new Error("web_evidence:receipt_json"); }
-    validateReceipt(receipt, item, request, target);
-    if (receipt.requestDigest !== requestDigest) throw new Error(`web_evidence:request_receipt:${item.caseId}`);
-    const bounded = { caseId: item.caseId, fixtureDigest: receipt.fixtureDigest, requestDigest,
-      httpStatus: response.status, latencyMs, providerCalls: receipt.providerCalls, quotaConsumed: receipt.quotaConsumed,
-      userDataWrites: receipt.userDataWrites, card: receipt.card, response: receipt.response,
-      receiptDigest: prefixedEvidenceDigest(receipt) };
+    validateReceipt(value, item, request, target);
+    if (value.requestDigest !== requestDigest) throw new Error(`web_evidence:request_receipt:${item.caseId}`);
+    const bounded = { caseId: item.caseId, fixtureDigest: value.fixtureDigest, requestDigest,
+      httpStatus: response.status, latencyMs, providerCalls: value.providerCalls, quotaConsumed: value.quotaConsumed,
+      userDataWrites: value.userDataWrites, card: value.card, response: value.response,
+      ...(value.productExecution && { productExecution: value.productExecution }),
+      receiptDigest: prefixedEvidenceDigest(value) };
     if (ordinal < 0) options.warmups.push({ environment: target.environment, receiptDigest: bounded.receiptDigest });
     else observations.push(bounded);
   }
   return { observations, captures, fiveXx };
 }
 
+async function productFetch(origin, path, options, { method = "GET", body } = {}) {
+  if (!path.startsWith("/v1/coach/") || path.includes("#")) throw new Error("web_evidence:v3_product_path");
+  if (options.expiresAtMs <= (options.nowMs ?? Date.now())) throw new Error("web_evidence:v3_product_credential_expired");
+  const started = options.clock();
+  const response = await options.fetchImpl(new URL(path, origin), { method, redirect: "error",
+    headers: productHeaders(options), ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    signal: AbortSignal.timeout(30_000) });
+  const value = await readBoundedJsonResponse(response, { code: "web_evidence:response",
+    maxBytes: MAX_HTTP_RESPONSE_BYTES });
+  const latencyMs = Math.max(0, Math.round(options.clock() - started));
+  return { response, value, latencyMs, responseDigest: prefixedEvidenceDigest(value),
+    capture: { url: `${origin}${new URL(path, origin).pathname}`, requestBody: body === undefined ? "" : prefixedEvidenceDigest(body),
+      responseBody: prefixedEvidenceDigest(value) } };
+}
+
+function deterministicUuid(seed) {
+  const hex = createHash("sha256").update(seed).digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+function firebaseFixtureRequestKey(idToken, correlationId, requestId) {
+  const parts = idToken.split(".");
+  if (parts.length !== 3) throw new Error("web_evidence:v3_firebase_id_token_shape");
+  let payload; try { payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")); }
+  catch { throw new Error("web_evidence:v3_firebase_id_token_payload"); }
+  const expectedUid = `coach-evidence-${createHash("sha256").update(correlationId).digest("hex").slice(0, 32)}`;
+  if (!payload || Object.keys(payload).includes("uid") || payload.sub !== expectedUid) {
+    throw new Error("web_evidence:v3_firebase_subject_binding");
+  }
+  return createHash("sha256").update(`${payload.sub}\0${requestId}`).digest("hex");
+}
+
+function record(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function primitive(value) {
+  return value === null || typeof value === "string" || typeof value === "boolean"
+    || typeof value === "number" && Number.isFinite(value);
+}
+
+function normalizedClaims(claims) {
+  if (!Array.isArray(claims) || claims.length < 1 || claims.length > 500
+      || claims.some((claim) => !record(claim) || typeof claim.field !== "string" || claim.field.length < 1
+        || claim.field.length > 128 || !primitive(claim.value))) {
+    throw new Error("web_evidence:v3_parity_claims");
+  }
+  return claims.map(({ field, value }) => ({ field, value })).sort((left, right) =>
+    `${left.field}\0${JSON.stringify(left.value)}`.localeCompare(`${right.field}\0${JSON.stringify(right.value)}`));
+}
+
+function riderCardClaims(data) {
+  const claims = [];
+  const add = (field, value) => { if (value !== null && value !== undefined) claims.push({ field, value }); };
+  add("rider_type", data.profile?.type); add("axis_x", data.profile?.axisX);
+  add("axis_y", data.profile?.axisY); add("confidence", data.profile?.confidence);
+  for (const duration of ["5s", "1m", "5m", "20m"]) add(`mmp_${duration}`, data.mmpWatts?.[duration]);
+  add("cp_watts", data.criticalPower?.cpWatts); add("w_prime_joules", data.criticalPower?.wPrimeJoules);
+  add("cp_r2", data.criticalPower?.r2); add("model_pmax", data.model?.pmaxWatts);
+  add("model_frc", data.model?.frcJoules); add("model_ftp", data.model?.ftpEstWatts);
+  add("model_cp", data.model?.cpEstWatts); add("model_tte", data.model?.tteMinutes);
+  add("ability_overall", data.ability?.overallPercentile);
+  for (const row of data.ability?.byDuration ?? []) {
+    add(`ability_${row?.duration}_wkg`, row?.wPerKg);
+    add(`ability_${row?.duration}_percentile`, row?.percentile);
+  }
+  return claims;
+}
+
+function rideCardClaims(data, questionCode) {
+  if (!record(data.course) || !record(data.estimate) || !Array.isArray(data.segments)
+      || data.segments.length < 1 || !record(data.assumptions)) throw new Error("web_evidence:v3_ride_card_claims");
+  const summary = [{ field: "distance_m", value: data.course.distanceM },
+    { field: "elevation_gain_m", value: data.course.elevationGainM },
+    { field: "total_time_sec", value: data.estimate.totalTimeSec },
+    { field: "average_speed_kph", value: data.estimate.averageSpeedKph }];
+  const segments = data.segments.map((segment) => [{ field: `segment_${segment.index}_start_m`, value: segment.startDistanceM },
+    { field: `segment_${segment.index}_end_m`, value: segment.endDistanceM },
+    { field: `segment_${segment.index}_grade_pct`, value: segment.averageGradePct },
+    { field: `segment_${segment.index}_speed_kph`, value: segment.estimatedSpeedKph },
+    { field: `segment_${segment.index}_time_sec`, value: segment.estimatedTimeSec }]);
+  const hardest = [...data.segments].sort((left, right) => right.averageGradePct - left.averageGradePct
+    || right.estimatedTimeSec - left.estimatedTimeSec || left.index - right.index)[0];
+  const selected = questionCode === "HARDEST_SECTION"
+    ? [segments[data.segments.indexOf(hardest)]]
+    : segments;
+  return [...summary, ...selected.flat(), { field: "assumptions", value: JSON.stringify(canonical(data.assumptions)) }];
+}
+
+function cardClaims(item, prepared) {
+  const data = prepared.card?.value?.data;
+  if (!record(data)) throw new Error(`web_evidence:v3_card_contract:${item.caseId}`);
+  if (item.source === "pmc") return ["ctl", "atl", "form"].flatMap((field) => [
+    { field, value: data.current?.[field] }, { field, value: data.delta7d?.[field] }]);
+  if (item.source === "rider") return riderCardClaims(data);
+  if (item.source === "progress") {
+    const evidence = data.proposal?.evidence;
+    const locator = prepared.progressLocator;
+    if (!Array.isArray(evidence) || !record(locator)
+        || evidence.some((record) => record?.sourceId !== locator.proposalId
+          || record?.sourceRevision !== locator.fixtureDigest)) {
+      throw new Error("web_evidence:v3_progress_card_evidence");
+    }
+    return evidence.map((item) => ({ field: item?.field, value: item?.value }));
+  }
+  return rideCardClaims(data, item.questionCode);
+}
+
+function referencedAnswerEvidence(answer) {
+  if (!record(answer) || !Array.isArray(answer.blocks) || !Array.isArray(answer.evidence)) {
+    throw new Error("web_evidence:v3_answer_evidence_contract");
+  }
+  const ids = new Set();
+  const visit = (value) => {
+    if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (!record(value)) return;
+    for (const [key, nested] of Object.entries(value)) {
+      if (key === "evidenceIds" && Array.isArray(nested)) nested.forEach((id) => typeof id === "string" && ids.add(id));
+      else visit(nested);
+    }
+  };
+  visit(answer.blocks);
+  const byId = new Map(answer.evidence.map((item) => [item?.evidenceId, item]));
+  if (ids.size < 1 || byId.size !== answer.evidence.length || [...ids].some((id) => !byId.has(id))) {
+    throw new Error("web_evidence:v3_answer_evidence_binding");
+  }
+  return [...ids].map((id) => byId.get(id));
+}
+
+function responseClaims(item, envelope, prepared) {
+  if (item.source === "progress") {
+    const blocks = envelope.answer?.blocks?.filter((block) => block?.kind === "prescription") ?? [];
+    const prescription = blocks[0]?.prescription;
+    if (blocks.length !== 1 || prescription?.prescriptionId !== prepared.contextFilters.progressPlanner.prescriptionId
+        || !Array.isArray(prescription.evidence)
+        || prescription.evidence.some((record) => record?.sourceId !== prepared.progressLocator.proposalId
+          || record?.sourceRevision !== prepared.progressLocator.fixtureDigest)) {
+      throw new Error("web_evidence:v3_progress_answer_binding");
+    }
+    return { claims: prescription.evidence.map((record) => ({ field: record?.field, value: record?.value })),
+      provenance: prepared.sourceBinding };
+  }
+  let evidence = referencedAnswerEvidence(envelope.answer);
+  if (item.source === "rider") evidence = evidence.filter((record) => record?.source === "rider_insight"
+    && record?.sourceId === prepared.card.value.data.snapshotId
+    && record?.sourceRevision === prepared.card.value.data.sourceRevision);
+  if (item.source === "ride") evidence = evidence.filter((record) => record?.sourceId === "ride_plan_projection"
+    && record?.sourceRevision === prepared.card.value.data.inputRevision);
+  if (item.source === "pmc") {
+    evidence = evidence.filter((record) => ["ctl", "atl", "form"].includes(record?.field));
+    const sourceRevision = prepared.card.value.data.sourceRevision;
+    if (evidence.some((record) => record?.source !== "fitness" || record?.sourceId !== "pmc"
+      || record?.sourceRevision !== sourceRevision)) throw new Error("web_evidence:v3_pmc_answer_provenance");
+    return { claims: evidence.map((record) => ({ field: record?.field, value: record?.value })),
+      provenance: { source: "fitness", sourceId: "pmc", sourceRevision } };
+  }
+  return { claims: evidence.map((record) => ({ field: record?.field, value: record?.value })),
+    provenance: prepared.sourceBinding };
+}
+
+function parityProjections(item, envelope, prepared) {
+  const expected = normalizedClaims(cardClaims(item, prepared));
+  const response = responseClaims(item, envelope, prepared);
+  const actual = normalizedClaims(response.claims);
+  const remaining = [...expected];
+  for (const claim of actual) {
+    const index = remaining.findIndex((candidate) => JSON.stringify(candidate) === JSON.stringify(claim));
+    if (index < 0) throw new Error(`web_evidence:v3_card_ai_claim_drift:${item.caseId}`);
+    remaining.splice(index, 1);
+  }
+  const fields = new Set(actual.map((claim) => claim.field));
+  const mandatory = item.source === "pmc" ? (item.questionCode === "CHANGE" ? ["ctl"] : ["atl", "form"])
+    : item.source === "rider" ? (item.questionCode === "PROFILE"
+      ? ["rider_type", "axis_x", "axis_y", "confidence"] : [])
+      : [];
+  if (mandatory.some((field) => !fields.has(field))
+      || item.source === "rider" && item.questionCode === "DURATION_PRIORITY"
+        && !actual.some((claim) => /^(?:ability|mmp)_/u.test(claim.field))
+      || item.source === "ride" && actual.length !== expected.length
+      || item.source === "progress" && actual.length < expected.length) {
+    throw new Error(`web_evidence:v3_card_ai_claim_incomplete:${item.caseId}`);
+  }
+  const cardProvenance = item.source === "pmc" ? { source: "fitness", sourceId: "pmc",
+    sourceRevision: prepared.card.value.data.sourceRevision } : prepared.sourceBinding;
+  const projection = (claims, provenance) => ({ sourceRevisionDigest: prefixedEvidenceDigest(provenance),
+    projectionDigest: prefixedEvidenceDigest(claims),
+    evidenceDigest: prefixedEvidenceDigest(claims.map((claim) => claim.field)),
+    sharedFactsDigest: prefixedEvidenceDigest({ provenance, claims }) });
+  return { card: projection(actual.map((claim) => expected.find((candidate) =>
+    JSON.stringify(candidate) === JSON.stringify(claim))), cardProvenance),
+  response: projection(actual, response.provenance) };
+}
+
+async function prepareCard(origin, request, item, options) {
+  if (item.source === "track0") return { card: null, contextFilters: {}, captures: [], latencyMs: 0 };
+  if (item.source === "pmc") {
+    const result = await productFetch(origin, "/v1/coach/insights/pmc?discipline=bike", options);
+    const snapshotId = result.value?.data?.snapshotId;
+    if (typeof snapshotId !== "string") throw new Error("web_evidence:v3_pmc_snapshot");
+    return { card: result, contextFilters: { pmcSnapshotId: snapshotId }, sourceBinding: snapshotId };
+  }
+  if (item.source === "rider") {
+    const result = await productFetch(origin, "/v1/coach/insights/rider?discipline=bike", options);
+    const snapshotId = result.value?.data?.snapshotId;
+    if (typeof snapshotId !== "string") throw new Error("web_evidence:v3_rider_snapshot");
+    return { card: result, contextFilters: { riderSnapshotId: snapshotId }, sourceBinding: snapshotId };
+  }
+  if (item.source === "progress") {
+    const locator = options.progressPlanner;
+    if (!locator || typeof locator.prescriptionId !== "string" || typeof locator.sourceRequestId !== "string") {
+      throw new Error("web_evidence:v3_progress_locator");
+    }
+    const context = { prescriptionId: locator.prescriptionId, sourceRequestId: locator.sourceRequestId };
+    const query = new URLSearchParams(context).toString();
+    const result = await productFetch(origin, `/v1/coach/change-proposals?${query}`, options);
+    if (result.value?.status !== "ok" || result.value?.data?.source?.prescriptionId !== locator.prescriptionId
+        || result.value?.data?.source?.sourceRequestId !== locator.sourceRequestId
+        || result.value?.data?.proposal?.proposalId !== locator.proposalId) {
+      throw new Error("web_evidence:v3_progress_card_binding");
+    }
+    return { card: result, contextFilters: { progressPlanner: context }, progressLocator: locator,
+      sourceBinding: locator };
+  }
+  const token = await productFetch(origin, "/v1/coach/ride-plan/token", options,
+    { method: "POST", body: { courseId: options.courseId } });
+  const contextToken = token.value?.data?.contextToken;
+  if (typeof contextToken !== "string") throw new Error("web_evidence:v3_ride_token");
+  const card = await productFetch(origin, "/v1/coach/ride-plan", options,
+    { method: "POST", body: { courseId: options.courseId, contextToken } });
+  const inputRevision = card.value?.data?.inputRevision;
+  if (typeof inputRevision !== "string") throw new Error("web_evidence:v3_ride_revision");
+  const ai = await productFetch(origin, "/v1/coach/ride-plan/ai-context", options,
+    { method: "POST", body: { courseId: options.courseId, contextToken, questionCode: item.questionCode } });
+  if (ai.value?.data?.inputRevision !== inputRevision || ai.value?.data?.questionCode !== item.questionCode) {
+    throw new Error("web_evidence:v3_ride_ai_binding");
+  }
+  const cardClaimsDigest = prefixedEvidenceDigest(normalizedClaims(rideCardClaims(card.value.data, item.questionCode)));
+  const aiClaimsDigest = prefixedEvidenceDigest(normalizedClaims(rideCardClaims(ai.value.data, item.questionCode)));
+  if (cardClaimsDigest !== aiClaimsDigest) throw new Error("web_evidence:v3_ride_ai_claim_drift");
+  return { card, contextFilters: { ridePlan: { contextToken, inputRevision, questionCode: item.questionCode } },
+    sourceBinding: inputRevision, extraCaptures: [token.capture, ai.capture], extraLatencyMs: token.latencyMs + ai.latencyMs };
+}
+
+async function observeTarget(request, target, options) {
+  const origin = new URL(target.taggedUrl).origin; const observations = []; const captures = []; let fiveXx = 0;
+  const warmup = await productFetch(origin, "/v1/coach/status", options);
+  if (!warmup.response.ok || warmup.value?.data?.status !== "available") {
+    throw new Error("web_evidence:v3_status_warmup");
+  }
+  options.warmups.push({ environment: target.environment, path: "/v1/coach/status",
+    httpStatus: warmup.response.status, providerCalls: 0, quotaConsumed: 0, userDataWrites: 0,
+    receiptDigest: prefixedEvidenceDigest({ path: "/v1/coach/status", status: warmup.response.status,
+      responseDigest: warmup.responseDigest, providerCalls: 0, quotaConsumed: 0, userDataWrites: 0 }) });
+  captures.push(warmup.capture);
+  for (const item of FOUR_AXIS_CASES) {
+    const prepared = await prepareCard(origin, request, item, options);
+    const requestId = deterministicUuid(`${request.correlationId}\0${target.tag}\0${item.caseId}`);
+    const body = { requestId, question: item.question, discipline: "bike", locale: "ko-KR", apiVersion: "v2",
+      schemaVersion: "coach-respond-v2", capabilityVersion: "p1", contextFilters: prepared.contextFilters,
+      responseFormat: "auto" };
+    const question = await productFetch(origin, "/v1/coach/respond", options, { method: "POST", body });
+    if (question.response.status >= 500) fiveXx += 1;
+    const envelope = question.value?.data;
+    if (!question.response.ok || !envelope || envelope.requestId !== requestId || envelope.outcome !== "answer"
+        || envelope.budget?.providerCalls !== item.providerCalls
+        || envelope.quota?.consumed !== Boolean(item.quotaConsumed)) {
+      throw new Error(`web_evidence:v3_question_contract:${item.caseId}`);
+    }
+    const requestDigest = prefixedEvidenceDigest({ caseId: item.caseId, questionCode: item.questionCode,
+      question: item.question });
+    const product = { questionPath: "/v1/coach/respond", cardPath: PRODUCT_CARD_PATHS.get(item.caseId),
+      requestKey: firebaseFixtureRequestKey(options.authorization, request.correlationId, requestId),
+      questionStatus: question.response.status, cardStatus: prepared.card?.response.status ?? null,
+      providerCallsObserved: envelope.budget.providerCalls, providerLedgerCount: item.providerCalls > 0 ? 1 : 0,
+      turnLedgerCount: envelope.quota.consumed ? 1 : 0, userDataWrites: 0,
+      questionResponseDigest: question.responseDigest,
+      cardResponseDigest: prepared.card?.responseDigest ?? null };
+    const parity = prepared.card ? parityProjections(item, envelope, prepared) : null;
+    const projection = prepared.card
+      ? parity.response
+      : { sourceRevisionDigest: prefixedEvidenceDigest(envelope.execution ?? {}),
+        projectionDigest: prefixedEvidenceDigest(envelope.answer), evidenceDigest: prefixedEvidenceDigest(envelope.answer),
+        sharedFactsDigest: prefixedEvidenceDigest(envelope.execution ?? {}) };
+    const card = prepared.card ? { ...parity.card, providerCalls: 0, quotaConsumed: 0, userDataWrites: 0 } : null;
+    const bounded = { caseId: item.caseId, fixtureDigest: request.fixture.digest, requestDigest,
+      httpStatus: question.response.status,
+      latencyMs: question.latencyMs + (prepared.card?.latencyMs ?? 0) + (prepared.extraLatencyMs ?? 0),
+      providerCalls: item.providerCalls, quotaConsumed: item.quotaConsumed, userDataWrites: 0,
+      card, response: projection, productExecution: product };
+    bounded.receiptDigest = prefixedEvidenceDigest({ schemaVersion: "ai-coach-four-axis-http-receipt-v1",
+      correlationDigest: prefixedDigest(request.correlationId), caseId: bounded.caseId,
+      fixtureDigest: bounded.fixtureDigest, requestDigest: bounded.requestDigest,
+      targetFingerprint: target.targetFingerprint, outcome: "answer", providerCalls: bounded.providerCalls,
+      quotaConsumed: bounded.quotaConsumed, userDataWrites: bounded.userDataWrites,
+      card: bounded.card, response: bounded.response, productExecution: bounded.productExecution });
+    observations.push(bounded); captures.push(...(prepared.extraCaptures ?? []), ...(prepared.card ? [prepared.card.capture] : []),
+      question.capture);
+  }
+  return { observations, captures, fiveXx };
+}
+
+async function attestStageTarget(request, target, options) {
+  const origin = new URL(target.taggedUrl).origin;
+  const identityToken = verifiedSecret(await options.identityTokenFor(origin), "web_evidence:v3_oidc_token");
+  options.maskSecret?.(identityToken);
+  const body = { schemaVersion: "ai-coach-four-axis-attestation-v1", correlationId: request.correlationId,
+    stageRunId: target.stageRunId, revision: target.revision, imageDigest: target.imageDigest,
+    requestDigest: options.requestSha256, orchestratorActor: request.orchestrator.actor, providerPhase: "enabled" };
+  const response = await options.fetchImpl(new URL("/v1/evidence/four-axis/attestation", origin), {
+    method: "POST", redirect: "error", headers: { "content-type": "application/json",
+      authorization: `Bearer ${identityToken}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(30_000),
+  });
+  const value = await readBoundedJsonResponse(response, { code: "web_evidence:v3_attestation" });
+  exactKeys(value, ["schemaVersion", "correlationId", "stageRunId", "revision", "imageDigest",
+    "evidenceLeaseDigest", "orchestratorActor", "expiresAt", "firebaseCustomToken", "appCheckToken", "courseId",
+    "progress"],
+    "web_evidence:v3_attestation_keys");
+  const expiry = Date.parse(value.expiresAt); const now = options.nowMs ?? Date.now();
+  if (!response.ok || value.schemaVersion !== "ai-coach-four-axis-attestation-response-v3"
+      || value.correlationId !== request.correlationId || value.stageRunId !== target.stageRunId
+      || value.revision !== target.revision || value.imageDigest !== target.imageDigest
+      || value.orchestratorActor !== request.orchestrator.actor || !DIGEST.test(value.evidenceLeaseDigest)
+      || typeof value.courseId !== "string" || !/^course-evidence-[a-f0-9]{32}$/u.test(value.courseId)
+      || !Number.isFinite(expiry) || expiry - now < 10 * 60_000 || expiry > Date.parse(request.expiresAt)) {
+    throw new Error("web_evidence:v3_attestation_binding");
+  }
+  exactKeys(value.progress, ["prescriptionId", "sourceRequestId", "proposalId", "fixtureDigest"],
+    "web_evidence:v3_progress_keys");
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+  if (!/^rx_[a-f0-9]{24}$/u.test(value.progress.prescriptionId ?? "")
+      || !uuid.test(value.progress.sourceRequestId ?? "")
+      || !/^proposal_[a-f0-9]{24}$/u.test(value.progress.proposalId ?? "")
+      || !DIGEST.test(value.progress.fixtureDigest ?? "")
+      || new Set(Object.values(value.progress)).size !== 4) {
+    throw new Error("web_evidence:v3_progress_binding");
+  }
+  const firebaseCustomToken = verifiedSecret(value.firebaseCustomToken, "web_evidence:v3_firebase_custom_token");
+  const appCheckToken = verifiedSecret(value.appCheckToken, "web_evidence:v3_app_check_token");
+  options.maskSecret?.(firebaseCustomToken); options.maskSecret?.(appCheckToken);
+  return { firebaseCustomToken, appCheckToken, leaseCredential: value.evidenceLeaseDigest,
+    evidenceCorrelationId: value.correlationId, orchestratorActor: value.orchestratorActor,
+    courseId: value.courseId, progressPlanner: value.progress, expiresAtMs: expiry };
+}
+
+async function exchangeFirebaseCustomToken(authentication, options) {
+  if (!FIREBASE_WEB_API_KEY.test(options.firebaseWebApiKey ?? "")) throw new Error("web_evidence:v3_firebase_api_key");
+  const url = new URL("https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken");
+  url.searchParams.set("key", options.firebaseWebApiKey);
+  const response = await options.fetchImpl(url, { method: "POST", redirect: "error",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token: authentication.firebaseCustomToken, returnSecureToken: true }),
+    signal: AbortSignal.timeout(30_000) });
+  const value = await readBoundedJsonResponse(response, { code: "web_evidence:v3_firebase_exchange" });
+  exactKeys(value, ["kind", "idToken", "refreshToken", "expiresIn", "isNewUser"],
+    "web_evidence:v3_firebase_exchange_keys");
+  const expiresIn = Number(value.expiresIn); const now = options.nowMs ?? Date.now();
+  if (!response.ok || value.kind !== "identitytoolkit#VerifyCustomTokenResponse"
+      || typeof value.isNewUser !== "boolean" || !/^\d{1,5}$/u.test(String(value.expiresIn))
+      || expiresIn < 60 || expiresIn > 3600 || authentication.expiresAtMs <= now) {
+    throw new Error("web_evidence:v3_firebase_exchange_binding");
+  }
+  const idToken = verifiedSecret(value.idToken, "web_evidence:v3_firebase_id_token");
+  const refreshToken = verifiedSecret(value.refreshToken, "web_evidence:v3_firebase_refresh_token");
+  options.maskSecret?.(idToken); options.maskSecret?.(refreshToken);
+  return { authorization: idToken, appCheckToken: authentication.appCheckToken,
+    leaseCredential: authentication.leaseCredential, evidenceCorrelationId: authentication.evidenceCorrelationId,
+    orchestratorActor: authentication.orchestratorActor, courseId: authentication.courseId,
+    progressPlanner: authentication.progressPlanner, expiresAtMs: authentication.expiresAtMs };
+}
+
+export async function collectStageBaselineComparison(request, options) {
+  if (typeof options.identityTokenFor !== "function" || !DIGEST.test(options.requestSha256 ?? "")
+      || !FIREBASE_WEB_API_KEY.test(options.firebaseWebApiKey ?? "")) {
+    throw new Error("web_evidence:v3_http_identity");
+  }
+  const warmups = [];
+  const baselineAttestation = await attestStageTarget(request, request.targets.baseline, options);
+  const candidateAttestation = await attestStageTarget(request, request.targets.candidate, options);
+  for (const key of ["prescriptionId", "sourceRequestId", "proposalId", "fixtureDigest"]) {
+    if (baselineAttestation.progressPlanner[key] === candidateAttestation.progressPlanner[key]) {
+      throw new Error("web_evidence:v3_progress_target_reuse");
+    }
+  }
+  const baselineAuth = await exchangeFirebaseCustomToken(baselineAttestation, options);
+  const baseline = await observeTarget(request, request.targets.baseline,
+    { ...options, ...baselineAuth, warmups });
+  const candidateAuth = await exchangeFirebaseCustomToken(candidateAttestation, options);
+  const candidate = await observeTarget(request, request.targets.candidate,
+    { ...options, ...candidateAuth, warmups });
+  const baselineP95Ms = p95(baseline.observations.map((item) => item.latencyMs));
+  const candidateP95Ms = p95(candidate.observations.map((item) => item.latencyMs));
+  for (let index = 0; index < FOUR_AXIS_CASES.length; index += 1) {
+    if (baseline.observations[index].requestDigest !== candidate.observations[index].requestDigest
+        || baseline.observations[index].fixtureDigest !== candidate.observations[index].fixtureDigest) {
+      throw new Error("web_evidence:v3_cross_target_request_drift");
+    }
+  }
+  const requestKeys = [...baseline.observations, ...candidate.observations]
+    .map((item) => item.productExecution.requestKey);
+  if (new Set(requestKeys).size !== requestKeys.length) throw new Error("web_evidence:v3_product_request_key_reuse");
+  if (baseline.fiveXx !== 0 || candidate.fiveXx !== 0 || candidateP95Ms > baselineP95Ms * 1.2) {
+    throw new Error("web_evidence:v3_live_gate");
+  }
+  return { evidence: { warmups, baseline: baseline.observations, candidate: candidate.observations,
+    metrics: { baselineP95Ms, candidateP95Ms, baselineFiveXx: baseline.fiveXx,
+      candidateFiveXx: candidate.fiveXx, measuredTurnsPerTarget: FOUR_AXIS_CASES.length } },
+  captures: [...baseline.captures, ...candidate.captures] };
+}
+
 export async function collectLiveComparison(request, options) {
   if (!options.authorization || !options.testIdentity) throw new Error("web_evidence:http_identity");
   const warmups = [];
-  const production = await observeTarget(request, request.targets.production, { ...options, warmups });
-  const candidate = await observeTarget(request, request.targets.candidate, { ...options, warmups });
+  const production = await observeLegacyTarget(request, request.targets.production, { ...options, warmups });
+  const candidate = await observeLegacyTarget(request, request.targets.candidate, { ...options, warmups });
   const productionP95Ms = p95(production.observations.map((item) => item.latencyMs));
   const candidateP95Ms = p95(candidate.observations.map((item) => item.latencyMs));
   for (let index = 0; index < FOUR_AXIS_CASES.length; index += 1) {
@@ -297,18 +826,33 @@ export function privacyScan(channels) {
   return { matches, scannedBytes };
 }
 
-function validateObservationSet(observations, target, correlationId, targetFingerprintValue) {
+function validateObservationSet(observations, target, correlationId, targetFingerprintValue, directProduct = false) {
   if (!Array.isArray(observations) || observations.length !== FOUR_AXIS_CASES.length) throw new Error(`web_evidence:${target}_count`);
   observations.forEach((observation, index) => {
     const item = FOUR_AXIS_CASES[index];
+    const hasProductExecution = observation?.productExecution !== undefined;
     exactKeys(observation, ["caseId", "fixtureDigest", "requestDigest", "httpStatus", "latencyMs", "providerCalls",
-      "quotaConsumed", "userDataWrites", "card", "response", "receiptDigest"], `web_evidence:${target}_observation_keys`);
+      "quotaConsumed", "userDataWrites", "card", "response", ...(hasProductExecution ? ["productExecution"] : []),
+      "receiptDigest"],
+    `web_evidence:${target}_observation_keys`);
+    const requestBody = directProduct
+      ? { caseId: item.caseId, questionCode: item.questionCode, question: item.question }
+      : { schemaVersion: "ai-coach-four-axis-synthetic-request-v1", correlationId,
+        fixtureDigest: prefixedEvidenceDigest(FOUR_AXIS_LEGACY_TURNS), caseId: item.caseId,
+        questionCode: item.questionCode };
+    const expectedRequestDigest = directProduct
+      ? prefixedEvidenceDigest(requestBody) : prefixedDigest(JSON.stringify(requestBody));
     if (observation.caseId !== item.caseId || observation.httpStatus !== 200 || observation.providerCalls !== item.providerCalls
         || observation.quotaConsumed !== item.quotaConsumed || observation.userDataWrites !== 0
         || !Number.isSafeInteger(observation.latencyMs) || observation.latencyMs < 0
-        || !DIGEST.test(observation.fixtureDigest) || !DIGEST.test(observation.requestDigest)
+        || observation.fixtureDigest !== prefixedEvidenceDigest(directProduct
+          ? FOUR_AXIS_DISPATCH_TURNS : FOUR_AXIS_LEGACY_TURNS)
+        || observation.requestDigest !== expectedRequestDigest
         || !DIGEST.test(observation.receiptDigest)) throw new Error(`web_evidence:${target}_observation`);
     exactKeys(observation.response, PROJECTION_KEYS, `web_evidence:${target}_response`);
+    if (Object.values(observation.response).some((digest) => !DIGEST.test(digest))) {
+      throw new Error(`web_evidence:${target}_response_digest`);
+    }
     if (item.card) {
       exactKeys(observation.card, [...PROJECTION_KEYS, "providerCalls", "quotaConsumed", "userDataWrites"],
         `web_evidence:${target}_card`);
@@ -317,12 +861,14 @@ function validateObservationSet(observations, target, correlationId, targetFinge
         throw new Error(`web_evidence:${target}_parity`);
       }
     } else if (observation.card !== null) throw new Error(`web_evidence:${target}_card_absence`);
+    if (hasProductExecution) validateProductExecution(observation.productExecution, item);
     const receipt = { schemaVersion: "ai-coach-four-axis-http-receipt-v1",
       correlationDigest: prefixedDigest(correlationId), caseId: observation.caseId,
       fixtureDigest: observation.fixtureDigest, requestDigest: observation.requestDigest,
       targetFingerprint: targetFingerprintValue, outcome: "answer", providerCalls: observation.providerCalls,
       quotaConsumed: observation.quotaConsumed, userDataWrites: observation.userDataWrites,
-      card: observation.card, response: observation.response };
+      card: observation.card, response: observation.response,
+      ...(hasProductExecution && { productExecution: observation.productExecution }) };
     if (observation.receiptDigest !== prefixedEvidenceDigest(receipt)) throw new Error(`web_evidence:${target}_receipt_digest`);
   });
 }
@@ -339,9 +885,12 @@ export function validateWebEvidenceArtifact(value, expected) {
   if (value.dispatch.correlationId !== expected.correlationId || value.dispatch.requestSha256 !== expected.requestSha256
       || value.dispatch.expiresAt !== expected.expiresAt
       || !Number.isFinite(Date.parse(value.dispatch.expiresAt))) throw new Error("web_evidence:dispatch_binding");
-  exactKeys(value.dispatch.workflow, ["repository", "runId", "runAttempt", "event"], "web_evidence:workflow_keys");
+  exactKeys(value.dispatch.workflow, ["repository", "runId", "runAttempt", "event",
+    ...(expected.workflowActor ? ["actor"] : [])], "web_evidence:workflow_keys");
   if (value.dispatch.workflow.repository !== "miranae/orider-web" || value.dispatch.workflow.event !== "workflow_dispatch"
-      || value.dispatch.workflow.runId !== expected.workflowRunId || value.dispatch.workflow.runAttempt !== expected.workflowRunAttempt) {
+      || value.dispatch.workflow.runId !== expected.workflowRunId
+      || value.dispatch.workflow.runAttempt !== expected.workflowRunAttempt
+      || expected.workflowActor && value.dispatch.workflow.actor !== expected.workflowActor) {
     throw new Error("web_evidence:workflow_binding");
   }
   if (JSON.stringify(value.dispatch.orchestrator) !== JSON.stringify(expected.orchestrator)
@@ -398,14 +947,28 @@ export function validateWebEvidenceArtifact(value, expected) {
     }
   }
   exactKeys(value.liveComparison, ["warmups", "production", "candidate", "metrics"], "web_evidence:live_keys");
+  const directProduct = value.targets.production.environment === "tagged-stage-baseline";
+  const warmupEnvironments = directProduct
+    ? ["tagged-stage-baseline", "tagged-stage-candidate"] : ["production-warm", "tagged-stage"];
   if (!Array.isArray(value.liveComparison.warmups) || value.liveComparison.warmups.length !== 2
-      || value.liveComparison.warmups.some((item) => !DIGEST.test(item.receiptDigest))) throw new Error("web_evidence:warmup");
+      || value.liveComparison.warmups.some((item) => {
+        exactKeys(item, directProduct
+          ? ["environment", "path", "httpStatus", "providerCalls", "quotaConsumed", "userDataWrites", "receiptDigest"]
+          : ["environment", "receiptDigest"], "web_evidence:warmup_keys");
+        return !DIGEST.test(item.receiptDigest) || directProduct && (item.providerCalls !== 0
+          || item.quotaConsumed !== 0 || item.userDataWrites !== 0 || item.path !== "/v1/coach/status"
+          || item.httpStatus !== 200);
+      })
+      || value.liveComparison.warmups[0].environment !== warmupEnvironments[0]
+      || value.liveComparison.warmups[1].environment !== warmupEnvironments[1]) {
+    throw new Error("web_evidence:warmup");
+  }
   validateObservationSet(value.liveComparison.production, "production", expected.correlationId,
-    expected.targets.production.targetFingerprint);
+    expected.targets.production.targetFingerprint, directProduct);
   validateObservationSet(value.liveComparison.candidate, "candidate", expected.correlationId,
-    expected.targets.candidate.targetFingerprint);
-  if (value.liveComparison.warmups[0].receiptDigest !== value.liveComparison.production[0].receiptDigest
-      || value.liveComparison.warmups[1].receiptDigest !== value.liveComparison.candidate[0].receiptDigest) {
+    expected.targets.candidate.targetFingerprint, directProduct);
+  if (!directProduct && (value.liveComparison.warmups[0].receiptDigest !== value.liveComparison.production[0].receiptDigest
+      || value.liveComparison.warmups[1].receiptDigest !== value.liveComparison.candidate[0].receiptDigest)) {
     throw new Error("web_evidence:warmup_receipt");
   }
   const productionP95 = p95(value.liveComparison.production.map((item) => item.latencyMs));
@@ -426,5 +989,45 @@ export function validateWebEvidenceArtifact(value, expected) {
   if (Object.values(value.privacyScan.matches).some((count) => count !== 0)
       || !Number.isSafeInteger(value.privacyScan.scannedBytes) || value.privacyScan.scannedBytes < 1
       || FORBIDDEN.test(JSON.stringify(value))) throw new Error("web_evidence:privacy");
+  return value;
+}
+
+export function validateWebStageBaselineEvidenceArtifact(value, expected) {
+  if (value?.schemaVersion !== "ai-coach-four-axis-web-stage-baseline-evidence-v3"
+      || value?.targets?.production !== undefined || !value?.targets?.baseline
+      || value.targets.baseline.environment !== "tagged-stage-baseline"
+      || value.targets.candidate?.environment !== "tagged-stage-candidate") {
+    throw new Error("web_evidence:v3_artifact_contract");
+  }
+  exactKeys(value.targets.baseline, ["environment", "targetFingerprint", "tag", "revision", "imageDigest",
+    "stageRunId", "productionAuditDigest"], "web_evidence:v3_artifact_baseline");
+  exactKeys(value.targets.candidate, ["environment", "targetFingerprint", "tag", "revision", "imageDigest",
+    "stageRunId"], "web_evidence:v3_artifact_candidate");
+  exactKeys(value.liveComparison, ["warmups", "baseline", "candidate", "metrics"], "web_evidence:v3_live_keys");
+  exactKeys(value.liveComparison.metrics, ["baselineP95Ms", "candidateP95Ms", "baselineFiveXx", "candidateFiveXx",
+    "measuredTurnsPerTarget"], "web_evidence:v3_metrics_keys");
+  for (const target of ["baseline", "candidate"]) {
+    if (!Array.isArray(value.liveComparison[target]) || value.liveComparison[target].length !== FOUR_AXIS_CASES.length) {
+      throw new Error("web_evidence:v3_product_execution_count");
+    }
+    value.liveComparison[target].forEach((observation, index) => {
+      if (observation.productExecution === undefined) throw new Error("web_evidence:v3_product_execution_missing");
+      validateProductExecution(observation.productExecution, FOUR_AXIS_CASES[index]);
+    });
+  }
+  const requestKeys = [...value.liveComparison.baseline, ...value.liveComparison.candidate]
+    .map((observation) => observation.productExecution.requestKey);
+  if (new Set(requestKeys).size !== requestKeys.length) throw new Error("web_evidence:v3_product_request_key_reuse");
+  const projected = { ...structuredClone(value), schemaVersion: "ai-coach-four-axis-web-dispatch-evidence-v2",
+    targets: { production: value.targets.baseline, candidate: value.targets.candidate },
+    liveComparison: { ...value.liveComparison, production: value.liveComparison.baseline,
+      metrics: { productionP95Ms: value.liveComparison.metrics.baselineP95Ms,
+        candidateP95Ms: value.liveComparison.metrics.candidateP95Ms,
+        productionFiveXx: value.liveComparison.metrics.baselineFiveXx,
+        candidateFiveXx: value.liveComparison.metrics.candidateFiveXx,
+        measuredTurnsPerTarget: value.liveComparison.metrics.measuredTurnsPerTarget } } };
+  delete projected.liveComparison.baseline;
+  validateWebEvidenceArtifact(projected, { ...expected,
+    targets: { production: expected.targets.baseline, candidate: expected.targets.candidate } });
   return value;
 }
