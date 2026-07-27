@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 export const WEB_EVIDENCE_TEST_FILES = Object.freeze([
@@ -76,6 +77,13 @@ export const MAX_HTTP_RESPONSE_BYTES = 200_000;
 export const MAX_AUTH_RESPONSE_BYTES = 64 * 1024;
 const AUTH_TOKEN = /^[A-Za-z0-9._~-]{8,16384}$/u;
 const FIREBASE_WEB_API_KEY = /^[A-Za-z0-9_-]{20,128}$/u;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const GOOGLE_ACCOUNT = /^[A-Za-z0-9][A-Za-z0-9._%+-]{0,127}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,63}$/u;
+const SERVICE_ACCOUNT = /^[a-z][a-z0-9-]{4,28}@[a-z][a-z0-9-]{4,28}\.iam\.gserviceaccount\.com$/u;
+const LOCAL_CONTEXT_SCHEMA = "ai-coach-four-axis-web-local-context-v1";
+const LOCAL_ARTIFACT_SCHEMA = "ai-coach-four-axis-web-stage-baseline-local-evidence-v1";
+export const APPROVED_LOCAL_EVIDENCE_SERVICE_ACCOUNT =
+  "ai-coach-stage-collector@orider-dev.iam.gserviceaccount.com";
 
 function exactKeys(value, keys, code) {
   if (!value || typeof value !== "object" || Array.isArray(value)
@@ -128,6 +136,102 @@ export function evidenceFileSha256(path) { return createHash("sha256").update(re
 export function webEvidenceArtifactName(sha, correlationId) {
   if (!SHA.test(sha) || !CORRELATION.test(correlationId)) throw new Error("web_evidence:invalid_identity");
   return `ai-coach-four-axis-web-evidence-${sha}-${correlationId}`;
+}
+
+export function localWebEvidenceArtifactName(sha, contextId) {
+  if (!SHA.test(sha) || !UUID.test(contextId)) throw new Error("web_evidence:local_identity");
+  return `ai-coach-four-axis-web-local-evidence-${sha}-${contextId}`;
+}
+
+export function decodeLocalOperatorContext(bytes, expectedSha256) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 2 || bytes.length > 64_000 || !HEX_DIGEST.test(expectedSha256 ?? "")
+      || createHash("sha256").update(bytes).digest("hex") !== expectedSha256) {
+    throw new Error("web_evidence:local_context_digest");
+  }
+  try { return { value: JSON.parse(bytes.toString("utf8")), contextSha256: `sha256:${expectedSha256}` }; }
+  catch { throw new Error("web_evidence:local_context_json"); }
+}
+
+export function validateLocalOperatorContext(value, expected) {
+  exactKeys(value, ["schemaVersion", "contextId", "repository", "commitSha", "treeSha", "operator", "identity",
+    "issuedAt", "expiresAt", "request", "stage"], "web_evidence:local_context_keys");
+  exactKeys(value.operator, ["osAccount", "gitAuthor", "cloudAccount"], "web_evidence:local_operator_keys");
+  exactKeys(value.identity, ["serviceAccount", "orchestratorActor"], "web_evidence:local_identity_keys");
+  exactKeys(value.request, ["path", "sha256"], "web_evidence:local_request_keys");
+  exactKeys(value.stage, ["hostSuffix", "hostSuffixSha256", "targets"], "web_evidence:local_stage_keys");
+  exactKeys(value.stage.targets, ["baseline", "candidate"], "web_evidence:local_target_keys");
+  const baselineKeys = ["targetFingerprint", "tag", "revision", "imageDigest", "stageRunId", "productionAuditDigest"];
+  const candidateKeys = ["targetFingerprint", "tag", "revision", "imageDigest", "stageRunId"];
+  exactKeys(value.stage.targets.baseline, baselineKeys, "web_evidence:local_baseline_keys");
+  exactKeys(value.stage.targets.candidate, candidateKeys, "web_evidence:local_candidate_keys");
+  const issuedAt = Date.parse(value.issuedAt); const expiresAt = Date.parse(value.expiresAt);
+  const now = expected.nowMs ?? Date.now();
+  if (value.schemaVersion !== LOCAL_CONTEXT_SCHEMA || !UUID.test(value.contextId)
+      || value.repository !== "miranae/orider-web" || value.repository !== expected.repository
+      || value.commitSha !== expected.sha || !SHA.test(value.treeSha)
+      || Object.values(value.operator).some((identity) => typeof identity !== "string" || identity.length < 1
+        || identity.length > 320 || /[\r\n\0]/u.test(identity))
+      || !GOOGLE_ACCOUNT.test(value.operator.cloudAccount) || !GITHUB_ACTOR.test(value.identity.orchestratorActor)
+      || !SERVICE_ACCOUNT.test(value.identity.serviceAccount)
+      || value.identity.serviceAccount !== APPROVED_LOCAL_EVIDENCE_SERVICE_ACCOUNT
+      || !Number.isFinite(issuedAt) || !Number.isFinite(expiresAt) || issuedAt > now + 60_000
+      || expiresAt <= now || expiresAt - issuedAt > 30 * 60_000
+      || typeof value.request.path !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$/u.test(value.request.path)
+      || !HEX_DIGEST.test(value.request.sha256)
+      || value.stage.hostSuffix !== CANONICAL_STAGE_HOST_SUFFIX
+      || !HEX_DIGEST.test(value.stage.hostSuffixSha256)
+      || createHash("sha256").update(value.stage.hostSuffix).digest("hex") !== value.stage.hostSuffixSha256) {
+    throw new Error("web_evidence:local_context_binding");
+  }
+  return value;
+}
+
+export function bindLocalContextToRequest(context, request, requestPath) {
+  const projectedTargets = {
+    baseline: { targetFingerprint: request.targets.baseline.targetFingerprint, tag: request.targets.baseline.tag,
+      revision: request.targets.baseline.revision, imageDigest: request.targets.baseline.imageDigest,
+      stageRunId: request.targets.baseline.stageRunId,
+      productionAuditDigest: request.targets.baseline.productionAuditDigest },
+    candidate: { targetFingerprint: request.targets.candidate.targetFingerprint, tag: request.targets.candidate.tag,
+      revision: request.targets.candidate.revision, imageDigest: request.targets.candidate.imageDigest,
+      stageRunId: request.targets.candidate.stageRunId },
+  };
+  if (context.request.sha256 !== evidenceFileSha256(requestPath)
+      || context.expiresAt !== request.expiresAt
+      || request.orchestrator?.actor !== context.identity.orchestratorActor
+      || JSON.stringify(context.stage.targets) !== JSON.stringify(projectedTargets)) {
+    throw new Error("web_evidence:local_request_binding");
+  }
+  return projectedTargets;
+}
+
+export function verifyLocalRepositoryState(root, sha, treeSha, runner = spawnSync, allowedUntracked = []) {
+  const head = runner("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8", maxBuffer: 64_000 });
+  if (head.status !== 0 || head.stdout.trim() !== sha) throw new Error("web_evidence:local_head_binding");
+  const status = runner("git", ["status", "--porcelain=v1", "--untracked-files=all"],
+    { cwd: root, encoding: "utf8", maxBuffer: 1_000_000 });
+  const allowed = new Set(allowedUntracked);
+  const entries = status.stdout.split("\n").filter(Boolean);
+  if (status.status !== 0 || entries.some((entry) => !entry.startsWith("?? ") || !allowed.has(entry.slice(3)))) {
+    throw new Error("web_evidence:local_clean_tree");
+  }
+  const tree = runner("git", ["rev-parse", "HEAD^{tree}"], { cwd: root, encoding: "utf8", maxBuffer: 64_000 });
+  if (tree.status !== 0 || tree.stdout.trim() !== treeSha) throw new Error("web_evidence:local_tree_binding");
+  return { commitSha: sha, treeSha, cleanTree: true };
+}
+
+export function verifyLocalGoogleIdentity(context, runner = spawnSync, root = process.cwd()) {
+  const invoke = (command, args) => runner(command, args, { cwd: root, encoding: "utf8", maxBuffer: 64_000 });
+  const os = invoke("id", ["-un"]); const name = invoke("git", ["config", "user.name"]);
+  const email = invoke("git", ["config", "user.email"]);
+  const active = invoke("gcloud", ["auth", "list", "--filter=status:ACTIVE", "--format=value(account)"]);
+  const actual = { osAccount: os.stdout?.trim(), gitAuthor: `${name.stdout?.trim()} <${email.stdout?.trim()}>`,
+    cloudAccount: active.stdout?.trim() };
+  if ([os, name, email, active].some((result) => result.status !== 0)
+      || JSON.stringify(actual) !== JSON.stringify(context.operator)) {
+    throw new Error("web_evidence:local_operator_identity");
+  }
+  return { operator: context.operator, serviceAccount: context.identity.serviceAccount };
 }
 
 export function parseOrchestratorActorAllowlist(value) {
@@ -791,6 +895,8 @@ export async function collectStageBaselineComparison(request, options) {
   return { evidence: { warmups, baseline: baseline.observations, candidate: candidate.observations,
     metrics: { baselineP95Ms, candidateP95Ms, baselineFiveXx: baseline.fiveXx,
       candidateFiveXx: candidate.fiveXx, measuredTurnsPerTarget: FOUR_AXIS_CASES.length } },
+  evidenceLeaseDigests: { baseline: baselineAttestation.leaseCredential,
+    candidate: candidateAttestation.leaseCredential },
   captures: [...baseline.captures, ...candidate.captures] };
 }
 
@@ -897,6 +1003,11 @@ export function validateWebEvidenceArtifact(value, expected) {
       || JSON.stringify(value.dispatch.consumer) !== JSON.stringify({ repository: "miranae/orider-web", sha: expected.sha })) {
     throw new Error("web_evidence:request_provenance");
   }
+  validateWebEvidenceSubstance(value, expected);
+  return value;
+}
+
+function validateWebEvidenceSubstance(value, expected) {
   exactKeys(value.targets, ["production", "candidate"], "web_evidence:artifact_targets");
   if (JSON.stringify(value.targets) !== JSON.stringify(expected.targets)) throw new Error("web_evidence:artifact_target_binding");
   exactKeys(value.staticEvidence, ["testFiles", "testFileSha256", "results", "assertionReceiptDigests"],
@@ -1029,5 +1140,95 @@ export function validateWebStageBaselineEvidenceArtifact(value, expected) {
   delete projected.liveComparison.baseline;
   validateWebEvidenceArtifact(projected, { ...expected,
     targets: { production: expected.targets.baseline, candidate: expected.targets.candidate } });
+  return value;
+}
+
+export function validateLocalWebStageBaselineEvidenceArtifact(value, expected) {
+  exactKeys(value, ["schemaVersion", "artifactName", "repository", "commitSha", "producerPath", "localExecution",
+    "request", "targets", "staticEvidence", "browserEvidence", "evidenceLeaseDigests", "liveComparison", "privacyScan"],
+  "web_evidence:local_artifact_keys");
+  if (value.schemaVersion !== LOCAL_ARTIFACT_SCHEMA
+      || value.artifactName !== localWebEvidenceArtifactName(expected.sha, expected.context.contextId)
+      || value.repository !== "miranae/orider-web" || value.commitSha !== expected.sha
+      || value.producerPath !== "scripts/run-ai-coach-four-axis-web-evidence-local.mjs") {
+    throw new Error("web_evidence:local_artifact_provenance");
+  }
+  exactKeys(value.localExecution, ["contextId", "contextSha256", "operator", "identity", "issuedAt", "expiresAt",
+    "treeSha", "statusClean"], "web_evidence:local_execution_keys");
+  if (value.localExecution.contextId !== expected.context.contextId
+      || value.localExecution.contextSha256 !== expected.contextSha256
+      || JSON.stringify(value.localExecution.operator) !== JSON.stringify(expected.context.operator)
+      || JSON.stringify(value.localExecution.identity) !== JSON.stringify(expected.context.identity)
+      || value.localExecution.issuedAt !== expected.context.issuedAt
+      || value.localExecution.expiresAt !== expected.context.expiresAt
+      || value.localExecution.treeSha !== expected.context.treeSha || value.localExecution.statusClean !== true) {
+    throw new Error("web_evidence:local_execution_binding");
+  }
+  exactKeys(value.request, ["correlationId", "requestSha256", "expiresAt", "consumer", "orchestrator"],
+    "web_evidence:local_artifact_request_keys");
+  if (value.request.correlationId !== expected.request.correlationId
+      || value.request.requestSha256 !== `sha256:${expected.context.request.sha256}`
+      || value.request.expiresAt !== expected.request.expiresAt
+      || JSON.stringify(value.request.consumer) !== JSON.stringify(expected.request.consumer)
+      || JSON.stringify(value.request.orchestrator) !== JSON.stringify(expected.request.orchestrator)) {
+    throw new Error("web_evidence:local_artifact_request_binding");
+  }
+  exactKeys(value.targets, ["baseline", "candidate"], "web_evidence:local_artifact_targets");
+  exactKeys(value.evidenceLeaseDigests, ["baseline", "candidate"], "web_evidence:local_lease_keys");
+  if (Object.values(value.evidenceLeaseDigests).some((digest) => !DIGEST.test(digest))
+      || value.evidenceLeaseDigests.baseline === value.evidenceLeaseDigests.candidate) {
+    throw new Error("web_evidence:local_lease_binding");
+  }
+  exactKeys(value.liveComparison, ["warmups", "baseline", "candidate", "metrics"], "web_evidence:local_live_keys");
+  exactKeys(value.liveComparison.metrics, ["baselineP95Ms", "candidateP95Ms", "baselineFiveXx", "candidateFiveXx",
+    "measuredTurnsPerTarget"], "web_evidence:local_metrics_keys");
+  if (JSON.stringify(value.targets) !== JSON.stringify(expected.targets)) {
+    throw new Error("web_evidence:local_artifact_target_binding");
+  }
+  for (const target of ["baseline", "candidate"]) {
+    if (!Array.isArray(value.liveComparison[target]) || value.liveComparison[target].length !== FOUR_AXIS_CASES.length) {
+      throw new Error("web_evidence:local_product_execution_count");
+    }
+    value.liveComparison[target].forEach((observation, index) => {
+      if (observation.productExecution === undefined) throw new Error("web_evidence:local_product_execution_missing");
+      validateProductExecution(observation.productExecution, FOUR_AXIS_CASES[index]);
+    });
+  }
+  const requestKeys = [...value.liveComparison.baseline, ...value.liveComparison.candidate]
+    .map((observation) => observation.productExecution.requestKey);
+  if (new Set(requestKeys).size !== requestKeys.length) throw new Error("web_evidence:local_product_request_key_reuse");
+  const projected = { ...value, targets: { production: value.targets.baseline, candidate: value.targets.candidate },
+    liveComparison: { ...value.liveComparison, production: value.liveComparison.baseline,
+      metrics: { productionP95Ms: value.liveComparison.metrics.baselineP95Ms,
+        candidateP95Ms: value.liveComparison.metrics.candidateP95Ms,
+        productionFiveXx: value.liveComparison.metrics.baselineFiveXx,
+        candidateFiveXx: value.liveComparison.metrics.candidateFiveXx,
+        measuredTurnsPerTarget: value.liveComparison.metrics.measuredTurnsPerTarget } } };
+  delete projected.liveComparison.baseline;
+  validateWebEvidenceSubstance(projected, { correlationId: expected.request.correlationId,
+    targets: { production: expected.targets.baseline, candidate: expected.targets.candidate },
+    fileShas: expected.fileShas });
+  return value;
+}
+
+export function createLocalEvidenceEnvelope({ headSha, treeSha, evidencePath, evidenceBytes, evidenceSha256 }) {
+  const value = { executionMode: "local-file-v1", headSha, treeSha, statusClean: true,
+    evidence: { path: evidencePath, bytes: evidenceBytes, sha256: evidenceSha256 } };
+  validateLocalEvidenceEnvelope(value, value);
+  return value;
+}
+
+export function validateLocalEvidenceEnvelope(value, expected) {
+  exactKeys(value, ["executionMode", "headSha", "treeSha", "statusClean", "evidence"],
+    "web_evidence:local_envelope_keys");
+  exactKeys(value.evidence, ["path", "bytes", "sha256"], "web_evidence:local_envelope_evidence_keys");
+  if (value.executionMode !== "local-file-v1" || value.headSha !== expected.headSha || !SHA.test(value.headSha)
+      || value.treeSha !== expected.treeSha || !SHA.test(value.treeSha) || value.statusClean !== true
+      || value.evidence.path !== expected.evidence.path
+      || !/^artifacts\/ai-coach-four-axis-web-local-evidence-[0-9a-f-]+\/ai-coach-four-axis-web-local-evidence-[0-9a-f-]+\.json$/u
+        .test(value.evidence.path)
+      || value.evidence.bytes !== expected.evidence.bytes || !Number.isSafeInteger(value.evidence.bytes)
+      || value.evidence.bytes < 2 || value.evidence.sha256 !== expected.evidence.sha256
+      || !DIGEST.test(value.evidence.sha256)) throw new Error("web_evidence:local_envelope_binding");
   return value;
 }
