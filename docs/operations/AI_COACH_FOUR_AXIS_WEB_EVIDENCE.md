@@ -124,6 +124,8 @@ GitHub Actions 실행 경계는 그대로 유지한다. 로컬 실행은 workflo
 호출하지 않고, 별도 `scripts/run-ai-coach-four-axis-web-evidence-local.mjs`와
 `scripts/verify-ai-coach-four-axis-web-evidence-local.mjs`만 사용한다. 따라서 로컬 artifact는 workflow 실행 성공을
 주장하지 않으며 schema도 `ai-coach-four-axis-web-stage-baseline-local-evidence-v1`로 분리된다.
+이 경로의 기능 변경 PR도 저장소 통합 규칙에 따라 먼저 `dev`를 base로 삼고, `main`에는 별도 `dev` 승격으로만
+반영한다.
 
 local context와 request JSON은 clean-tree 검사에 포함되지 않도록 저장소 밖의 같은 디렉터리에 둔다. context는 exact
 key만 허용하며 다음 값에 결속된다.
