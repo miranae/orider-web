@@ -133,8 +133,9 @@ key만 허용하며 다음 값에 결속된다.
 - RFC 4122 v4 `contextId`, `issuedAt`, 30분 이내 `expiresAt`
 - `miranae/orider-web`, exact 40자 `commitSha`, `git rev-parse HEAD^{tree}`의 `treeSha`
 - 현재 OS 계정, Git 작성자, `gcloud auth list`의 활성 계정과 정확히 같은 `operator`
-- stage attestation용 고정 collector `identity.serviceAccount`와 backend가 승인해 context에 넣은 단일
-  `identity.orchestratorActor`; ID token은 collector 계정을 impersonate해 target origin audience로 발급
+- stage attestation용 고정 collector `identity.serviceAccount`와 현재 Google 계정과 같은 `identity.localActor`;
+  ID token은 collector 계정을 impersonate해 target origin audience로 발급
+- backend의 clean checkout commit/tree, stage run, Web checkpoint exact-byte digest
 - 같은 디렉터리 request 파일명과 exact byte SHA-256
 - canonical stage host suffix/digest와 baseline/candidate의 target fingerprint, tag, revision, image digest, stage run ID
 
@@ -143,16 +144,18 @@ context exact shape는 다음과 같다. target 값은 같은 디렉터리의 im
 
 ```json
 {
-  "schemaVersion": "ai-coach-four-axis-web-local-context-v1",
+  "schemaVersion": "ai-coach-four-axis-web-local-context-v2",
   "contextId": "<uuid-v4>",
   "repository": "miranae/orider-web",
   "commitSha": "<40-hex>",
   "treeSha": "<40-hex>",
+  "statusClean": true,
   "operator": { "osAccount": "<id -un>", "gitAuthor": "Name <email@example.com>", "cloudAccount": "<active-google-account>" },
-  "identity": { "serviceAccount": "ai-coach-stage-collector@orider-dev.iam.gserviceaccount.com", "orchestratorActor": "<backend-approved-actor>" },
+  "identity": { "serviceAccount": "ai-coach-stage-collector@orider-dev.iam.gserviceaccount.com", "localActor": "<active-google-account>" },
+  "backend": { "repository": "miranae/orider-g1-web", "commitSha": "<40-hex>", "treeSha": "<40-hex>", "stageRunId": "<stage-id>", "checkpointSha256": "sha256:<64-hex>" },
   "issuedAt": "<ISO-8601>",
   "expiresAt": "<same-as-request>",
-  "request": { "path": "request.json", "sha256": "<exact-request-bytes-64-hex>" },
+  "request": { "path": "web-local-request.json", "sha256": "sha256:<exact-request-bytes-64-hex>" },
   "stage": {
     "hostSuffix": "---orider-ai-api-stage-ldfyfyx5da-du.a.run.app",
     "hostSuffixSha256": "<64-hex>",
@@ -161,9 +164,16 @@ context exact shape는 다음과 같다. target 값은 같은 디렉터리의 im
 }
 ```
 
+같은 디렉터리의 request는
+`scripts/fixtures/ai-coach-four-axis-web-local-operator-v1.schema.json`을 따르며 Web commit/tree/clean 상태,
+backend commit/tree/stage run/checkpoint digest, operator/collector identity, canonical 10-turn fixture와 두 stage target만
+허용한다. `runId`, `runAttempt`, `workflowPath`, `orchestrator` 같은 GitHub Actions 필드는 허용하지 않는다.
+
 실행 시 context 파일 자체의 exact byte SHA-256도 별도 인자로 제공한다.
 
 ```bash
+AI_COACH_LOCAL_CHECKPOINT_PATH=/secure/operator/web-checkpoint.json \
+AI_COACH_LOCAL_CHECKPOINT_SHA256=sha256:<checkpoint-file-sha256> \
 node scripts/run-ai-coach-four-axis-web-evidence-local.mjs \
   --local-context /secure/operator/context.json \
   --context-sha256 <context-file-sha256-hex>
@@ -190,6 +200,8 @@ exact bytes와 SHA-256을 독립 재계산한다. verifier도 context/request/re
 결속한 뒤 artifact byte 수·SHA-256과 envelope exact bytes digest를 검증한다.
 
 ```bash
+AI_COACH_LOCAL_CHECKPOINT_PATH=/secure/operator/web-checkpoint.json \
+AI_COACH_LOCAL_CHECKPOINT_SHA256=sha256:<checkpoint-file-sha256> \
 node scripts/verify-ai-coach-four-axis-web-evidence-local.mjs \
   --local-context /secure/operator/context.json --context-sha256 <context-file-sha256-hex> \
   --artifact artifacts/<name>/<name>.json \
