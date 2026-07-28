@@ -653,14 +653,14 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
   const response = await options.fetchImpl(new URL(path, origin), { method, redirect: "error",
     headers: productHeaders(options), ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(30_000) });
-  const value = await readBoundedJsonResponse(response, { code: "web_evidence:response",
-    maxBytes: MAX_HTTP_RESPONSE_BYTES });
-  const latencyMs = Math.max(0, Math.round(options.clock() - started));
   const pathname = new URL(path, origin).pathname;
   if (response.status >= 500 && response.status <= 599) options.httpMetrics.fiveXx += 1;
   if (!response.ok) {
     throw new Error(`web_evidence:v3_product_http_${response.status}:${pathname}:five_xx_${options.httpMetrics.fiveXx}`);
   }
+  const value = await readBoundedJsonResponse(response, { code: "web_evidence:response",
+    maxBytes: MAX_HTTP_RESPONSE_BYTES });
+  const latencyMs = Math.max(0, Math.round(options.clock() - started));
   return { response, value, latencyMs, responseDigest: prefixedEvidenceDigest(value),
     userDataWrites: observedProductUserDataWrites(method, path, response, value),
     capture: { url: `${origin}${pathname}`, requestBody: body === undefined ? "" : prefixedEvidenceDigest(body),
