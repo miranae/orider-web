@@ -245,7 +245,8 @@ MERGE_VERDICT: PASS"
     review_effort="low"
   fi
   REVIEW_CMD=(codex exec review --base "origin/$BASE" --ephemeral \
-    -c "model_reasoning_effort=\"$review_effort\"" -o "$REVIEW_OUT" "$REVIEW_PROMPT")
+    -c "model_reasoning_effort=\"$review_effort\"" \
+    -c 'sandbox_mode="read-only"' -o "$REVIEW_OUT" "$REVIEW_PROMPT")
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
   start_codex_review
 fi

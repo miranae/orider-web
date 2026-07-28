@@ -69,6 +69,7 @@ grep -qx "origin/main" "$MOCK_ARGS_FILE"
 grep -qx -- "--ephemeral" "$MOCK_ARGS_FILE"
 grep -qx -- "-o" "$MOCK_ARGS_FILE"
 grep -qx 'model_reasoning_effort="low"' "$MOCK_ARGS_FILE"
+awk 'previous == "-c" && $0 == "sandbox_mode=\"read-only\"" { found++ } { previous=$0 } END { exit found == 1 ? 0 : 1 }' "$MOCK_ARGS_FILE"
 if grep -Eq '^-m$|^--model$' "$MOCK_ARGS_FILE"; then
   echo "fast review must not pin a model" >&2
   exit 1
