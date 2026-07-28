@@ -203,6 +203,54 @@ describe("ActivityPage", () => {
     }));
   });
 
+  it.each([
+    ["explicit", {
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [140, 141, 142],
+        watts: [200, 210, 220],
+      },
+    }],
+    ["legacy", { time: [0, 1, 2], watts: [200, 210, 220] }],
+  ])("keeps server TSS and NP when %s stream power matches the saved summary", async (_source, powerStreams) => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "user-1",
+      source: "orider",
+      summary: createMockSummary({ averagePower: 210, maxPower: 220, normalizedPower: 250 }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_metrics/test-activity", { np: 333, tss: 444 });
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        altitude: [10, 10, 10],
+        ...powerStreams,
+      }),
+    });
+    shareButtonProps.mockClear();
+
+    renderWithProviders(<ActivityPage />, {
+      authenticated: true,
+      user: { uid: "user-1" },
+    });
+
+    await waitFor(() => {
+      const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
+        card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
+      } | undefined;
+      expect(latest?.card?.performanceMetrics).toEqual(expect.arrayContaining([
+        { label: "훈련 부하 TSS", value: "444", unit: undefined },
+        { label: "정규화 파워 NP", value: "333", unit: "W" },
+      ]));
+    });
+  });
+
   it("does not export stale server TSS or NP without revision proof after stream power replaces the summary", async () => {
     const activity = createMockActivity({
       id: "test-activity",

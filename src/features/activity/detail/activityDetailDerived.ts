@@ -73,12 +73,16 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
     const finiteValues = explicit.watts.filter(
       (value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0,
     );
-    return {
-      source: finiteValues.length > 0 ? "sensorStreamsV1" : null,
-      values: finiteValues.length > 0 ? explicit.watts : null,
-      finiteValues,
-      hasCandidate: finiteValues.length > 0 || hasLegacyCandidate,
-    };
+    // Measured V1 power is authoritative. HR-only V1 payloads still need the
+    // legacy fallback because virtual power remains on the top-level axis.
+    if (finiteValues.length > 0) {
+      return {
+        source: "sensorStreamsV1",
+        values: explicit.watts,
+        finiteValues,
+        hasCandidate: true,
+      };
+    }
   }
 
   const trustedWatts = trustedLegacyPower(streams.watts);
@@ -142,6 +146,30 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
   };
 }
 
+interface SavedPowerSummary {
+  averagePower?: number | null;
+  maxPower?: number | null;
+}
+
+function matchesSavedPower(actual: number | null, saved: number | null | undefined): boolean {
+  return actual != null
+    && saved != null
+    && Number.isFinite(actual)
+    && Number.isFinite(saved)
+    && Math.round(actual) === Math.round(saved);
+}
+
+export function streamPowerReplacesSavedSummary(
+  streamSummary: StreamSensorSummary | null,
+  savedSummary: SavedPowerSummary,
+): boolean {
+  if (!streamSummary) return false;
+  if (streamSummary.hasRejectedPowerStream) return true;
+  if (!streamSummary.hasPowerStream) return false;
+  return !matchesSavedPower(streamSummary.averagePower, savedSummary.averagePower)
+    || !matchesSavedPower(streamSummary.maxPower, savedSummary.maxPower);
+}
+
 function measuredSeries(
   values: readonly (number | null)[],
   time: readonly number[],
@@ -200,17 +228,18 @@ export function buildActivityAnalysisProjection(
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const selectedPower = selectActivityPowerStream(streams);
   if (explicit) {
+    const usesExplicitPower = !preferTopLevelPower && selectedPower.source === "sensorStreamsV1";
     return {
       streams: {
         ...streams,
         heartrate: undefined,
-        watts: preferTopLevelPower ? streams.watts : undefined,
-        watts_calc: undefined,
+        watts: preferTopLevelPower || selectedPower.source === "watts" ? streams.watts : undefined,
+        watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc" ? streams.watts_calc : undefined,
       },
       heartRate: measuredSeries(explicit.heartrate, explicit.time, (value) => value > 0, explicit.resolutionSeconds),
-      power: preferTopLevelPower
-        ? undefined
-        : measuredSeries(explicit.watts, explicit.time, (value) => value >= 0, explicit.resolutionSeconds),
+      power: usesExplicitPower
+        ? measuredSeries(explicit.watts, explicit.time, (value) => value >= 0, explicit.resolutionSeconds)
+        : undefined,
     };
   }
 
@@ -255,7 +284,9 @@ export function buildSampledData(streams: ActivityStreams | null): SampledPoint[
   const interval = Math.max(1, Math.floor(len / 300));
   const hasIndependentSensors = streams.sensorStreamsV1?.version === 1;
   const selectedPower = selectActivityPowerStream(streams);
-  const chartPower = hasIndependentSensors ? null : selectedPower.values;
+  const chartPower = selectedPower.source === "watts" || selectedPower.source === "watts_calc"
+    ? selectedPower.values
+    : null;
   const selectedIndexes = new Set<number>();
   for (let i = 0; i < len; i += interval) selectedIndexes.add(i);
   const chartChannels: Array<readonly (number | null)[] | undefined> = [
@@ -305,9 +336,6 @@ export function buildSummaryStats(
   sensorSummary: StreamSensorSummary | null,
 ): { minElev: number; maxElev: number; overlays: Record<string, { avg: number; max: number }> } | null {
   const altitude = streams?.altitude?.filter(Number.isFinite) ?? [];
-  if (altitude.length === 0) return null;
-  const minElev = altitude.reduce((result, value) => Math.min(result, value), Infinity);
-  const maxElev = maximum(altitude);
   const stats: Record<string, { avg: number; max: number }> = {};
   const speed = positiveValues(streams?.velocity_smooth).map((value) => value * 3.6);
   if (speed.length > 0) stats.speed = { avg: average(speed), max: maximum(speed) };
@@ -320,6 +348,11 @@ export function buildSummaryStats(
   if (sensorSummary?.averageCadence != null && sensorSummary.maxCadence != null) {
     stats.cadence = { avg: sensorSummary.averageCadence, max: sensorSummary.maxCadence };
   }
+  if (altitude.length === 0 && Object.keys(stats).length === 0) return null;
+  const minElev = altitude.length > 0
+    ? altitude.reduce((result, value) => Math.min(result, value), Infinity)
+    : 0;
+  const maxElev = altitude.length > 0 ? maximum(altitude) : 0;
   return { minElev, maxElev, overlays: stats };
 }
 

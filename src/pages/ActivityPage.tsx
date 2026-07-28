@@ -56,6 +56,7 @@ import {
   getChartHighlightRange,
   getSegmentEfforts,
   getStreamPhotos,
+  streamPowerReplacesSavedSummary,
 } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
@@ -606,6 +607,9 @@ export default function ActivityPage() {
   }
 
   const s = activity.summary;
+  const streamPowerReplacesSaved = streams
+    ? streamPowerReplacesSavedSummary(streamSensorSummary, s)
+    : false;
   const displayedSummary = streams && streamSensorSummary
     ? {
         ...s,
@@ -622,7 +626,7 @@ export default function ActivityPage() {
   const avgPowerValue = streams && hasStreamPowerCandidate
     ? streamSensorSummary?.averagePower ?? null
     : s.averagePower ?? activity.avgPower ?? null;
-  const normalizedPowerValue = streams && hasStreamPowerCandidate
+  const normalizedPowerValue = streamPowerReplacesSaved
     ? null
     : s.normalizedPower ?? activity.weightedAvgPower ?? null;
   const activityDate = Number.isFinite(activity.startTime)
@@ -640,10 +644,10 @@ export default function ActivityPage() {
   // activity_metrics has no stream revision/fingerprint contract yet. Once a trusted stream
   // power channel replaces the saved summary, server NP/TSS may belong to an older revision
   // and must not be mixed into the exported card.
-  const activityTss = hasStreamPowerCandidate
+  const activityTss = streamPowerReplacesSaved
     ? null
     : serverMetrics.metrics?.tss ?? s.tss;
-  const activityNp = hasStreamPowerCandidate
+  const activityNp = streamPowerReplacesSaved
     ? null
     : serverMetrics.metrics?.np ?? normalizedPowerValue;
   const sharePerformanceMetrics = [

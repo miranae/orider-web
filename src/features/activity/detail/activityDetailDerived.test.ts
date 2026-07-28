@@ -10,6 +10,7 @@ import {
   getChartHighlightRange,
   getSegmentEfforts,
   getStreamPhotos,
+  streamPowerReplacesSavedSummary,
 } from "./activityDetailDerived";
 
 describe("activityDetailDerived", () => {
@@ -103,6 +104,7 @@ describe("activityDetailDerived", () => {
     const explicitStreams = {
       heartrate: [20, 20],
       watts: Array(100).fill(0),
+      watts_calc: [300, 300, 300],
       sensorStreamsV1: {
         version: 1,
         timeUnit: "relative_seconds",
@@ -132,6 +134,35 @@ describe("activityDetailDerived", () => {
       distance: [0, 10],
       altitude: [1, 2],
     } as never)).map((overlay) => overlay.key)).not.toEqual(expect.arrayContaining(["hr", "power"]));
+  });
+
+  it("falls back to valid virtual power when sensorStreamsV1 only measured heart rate", () => {
+    const streams = {
+      distance: [0, 10, 20],
+      watts_calc: [150, 160, 170],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [140, 141, 142],
+        watts: [null, null, null],
+      },
+    };
+    const summary = deriveStreamSensorSummary(streams as never);
+
+    expect(summary).toMatchObject({
+      powerSource: "watts_calc",
+      averagePower: 160,
+      maxPower: 170,
+      averageHeartRate: 141,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { watts: undefined, watts_calc: streams.watts_calc },
+      power: undefined,
+    });
+    expect(buildSampledData(streams as never).map((point) => point.power)).toEqual(streams.watts_calc);
   });
 
   it.each([5, 6])("never forwards a %i/1077 sparse legacy power stream to analysis", (positiveCount) => {
@@ -218,6 +249,48 @@ describe("activityDetailDerived", () => {
     const sampled = buildSampledData(streams as never);
     expect(sampled.map((point) => point.power)).toEqual(streams.watts_calc);
     expect(getAvailableOverlays(sampled).map((overlay) => overlay.key)).toContain("power");
+  });
+
+  it("only replaces saved power metadata for rejected or mismatched streams", () => {
+    const explicit = deriveStreamSensorSummary({
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [140, 141, 142],
+        watts: [200, 210, 220],
+      },
+    } as never);
+    const legacy = deriveStreamSensorSummary({ watts: [100, 100, 200] } as never);
+    const rejected = deriveStreamSensorSummary({ watts: [200, ...Array(20).fill(0)] } as never);
+
+    expect(streamPowerReplacesSavedSummary(explicit, { averagePower: 210, maxPower: 220 })).toBe(false);
+    expect(streamPowerReplacesSavedSummary(legacy, { averagePower: 400 / 3, maxPower: 200 })).toBe(false);
+    expect(streamPowerReplacesSavedSummary(legacy, { averagePower: 133, maxPower: 200 })).toBe(false);
+    expect(streamPowerReplacesSavedSummary(explicit, { averagePower: 120, maxPower: 300 })).toBe(true);
+    expect(streamPowerReplacesSavedSummary(rejected, { averagePower: 10, maxPower: 200 })).toBe(true);
+  });
+
+  it("keeps sensor overlay stats for indoor streams without altitude", () => {
+    const streams = {
+      distance: [0, 10, 20],
+      heartrate: [140, 150, 160],
+      watts: [200, 210, 220],
+      cadence: [80, 85, 90],
+    };
+    const summary = deriveStreamSensorSummary(streams as never);
+
+    expect(buildSummaryStats(streams as never, summary)).toEqual({
+      minElev: 0,
+      maxElev: 0,
+      overlays: {
+        hr: { avg: 150, max: 160 },
+        power: { avg: 210, max: 220 },
+        cadence: { avg: 85, max: 90 },
+      },
+    });
   });
 
   it("lets an owner preview override explicit sensor power", () => {
