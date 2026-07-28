@@ -66,28 +66,78 @@ export function calculateEF(watts: number[], heartrate: number[], timing?: Sampl
   return np / avg;
 }
 
+interface TimedSeriesHalf {
+  watts: number[];
+  heartrate: number[];
+  timing: { durationsSec: number[]; segmentStarts: boolean[] };
+}
+
+function splitSeriesAtDurationMidpoint(
+  watts: number[],
+  heartrate: number[],
+  durationsSec: number[],
+  segmentStarts: readonly boolean[] | undefined,
+  midpointSec: number,
+): [TimedSeriesHalf, TimedSeriesHalf] {
+  const first: TimedSeriesHalf = {
+    watts: [], heartrate: [], timing: { durationsSec: [], segmentStarts: [] },
+  };
+  const second: TimedSeriesHalf = {
+    watts: [], heartrate: [], timing: { durationsSec: [], segmentStarts: [] },
+  };
+  let elapsedSec = 0;
+  const append = (
+    half: TimedSeriesHalf,
+    index: number,
+    durationSec: number,
+    startsSegment: boolean,
+  ) => {
+    half.watts.push(watts[index]!);
+    half.heartrate.push(heartrate[index]!);
+    half.timing.durationsSec.push(durationSec);
+    half.timing.segmentStarts.push(startsSegment);
+  };
+
+  for (let index = 0; index < durationsSec.length; index++) {
+    const durationSec = durationsSec[index]!;
+    if (!Number.isFinite(durationSec) || durationSec <= 0) continue;
+    const firstDurationSec = Math.max(0, Math.min(durationSec, midpointSec - elapsedSec));
+    const secondDurationSec = durationSec - firstDurationSec;
+    const sourceSegmentStart = segmentStarts?.[index] === true;
+    if (firstDurationSec > 0) {
+      append(first, index, firstDurationSec, sourceSegmentStart || first.watts.length === 0);
+    }
+    if (secondDurationSec > 0) {
+      append(
+        second,
+        index,
+        secondDurationSec,
+        second.watts.length === 0 || (firstDurationSec === 0 && sourceSegmentStart),
+      );
+    }
+    elapsedSec += durationSec;
+  }
+  return [first, second];
+}
+
 /**
  * Aerobic Decoupling (Pw:Hr) — 전반/후반 EF 변화율(%).
  * <5%: 우수한 유산소 내구성, >5%: 카디악 드리프트 발생.
  */
 export function calculateDecoupling(watts: number[], heartrate: number[], timing?: SampleTiming): number | null {
   const n = Math.min(watts.length, heartrate.length);
-  if (n < 600) return null; // 최소 10분
-  const half = Math.floor(n / 2);
-  const w1 = watts.slice(0, half);
-  const w2 = watts.slice(half, n);
-  const h1 = heartrate.slice(0, half);
-  const h2 = heartrate.slice(half, n);
-  const timing1 = timing ? {
-    durationsSec: timing.durationsSec?.slice(0, half),
-    segmentStarts: timing.segmentStarts?.slice(0, half),
-  } : undefined;
-  const timing2 = timing ? {
-    durationsSec: timing.durationsSec?.slice(half, n),
-    segmentStarts: timing.segmentStarts?.slice(half, n),
-  } : undefined;
-  const ef1 = calculateEF(w1, h1, timing1);
-  const ef2 = calculateEF(w2, h2, timing2);
+  const durationsSec = sampleDurationsSec(n, undefined, timing);
+  const totalDurationSec = durationsSec.reduce((sum, duration) => sum + duration, 0);
+  if (totalDurationSec < 600) return null; // 최소 10분
+  const [first, second] = splitSeriesAtDurationMidpoint(
+    watts,
+    heartrate,
+    durationsSec,
+    timing?.segmentStarts,
+    totalDurationSec / 2,
+  );
+  const ef1 = calculateEF(first.watts, first.heartrate, first.timing);
+  const ef2 = calculateEF(second.watts, second.heartrate, second.timing);
   if (ef1 == null || ef2 == null || ef1 === 0) return null;
   return ((ef1 - ef2) / ef1) * 100;
 }
