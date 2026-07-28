@@ -113,6 +113,7 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
   const confirmRequestId = useRef<string | null>(null);
   const evidenceById = useMemo(() => new Map(proposal?.evidence.map((item) => [item.evidenceId, item]) ?? []), [proposal]);
   const busy = state === "creating" || state === "confirming";
+  const createTerminal = !proposal && (state === "stale" || state === "disabled");
 
   useEffect(() => {
     let active = true;
@@ -157,7 +158,8 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
   }
 
   async function createProposal() {
-    if (!capabilities.progressPlanner.proposal.enabled || selectedDates.length === 0 || busy || recovering || recoveryFailed) return;
+    if (!capabilities.progressPlanner.proposal.enabled || selectedDates.length === 0 || busy || recovering
+        || recoveryFailed || createTerminal) return;
     setView((current) => ({ ...current, state: "creating" })); setConfirmArmed(false); setConfirmRetryable(false);
     try {
       createRequestId.current ??= crypto.randomUUID();
@@ -235,7 +237,8 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
       <Text as="p" variant="bodySmall" tone="secondary">{t("progress.review.body")}</Text>
     </div><Chip variant="accent">{t("progress.origin.aiCoach")}</Chip></div>
     <Text as="p" variant="caption" tone="secondary">{t("progress.origin.separate")}</Text>
-    {!proposal && !recovering && eligible.length > 0 && <fieldset disabled={!capabilities.progressPlanner.proposal.enabled || busy || recoveryFailed}>
+    {!proposal && !recovering && !createTerminal && eligible.length > 0
+      && <fieldset disabled={!capabilities.progressPlanner.proposal.enabled || busy || recoveryFailed}>
       <legend>{t("progress.review.selectDates")}</legend>
       <div className="coach-progress-review__dates">{eligible.map((item) => <label key={item.localDate}>
         <input type="checkbox" checked={selectedDates.includes(item.localDate)} onChange={(event) => {

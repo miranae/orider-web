@@ -108,6 +108,7 @@ export function CourseRidePlanSection({ courseId, isOwner, user, onSignIn }: Pro
     const controller = new AbortController();
     aiRequestRef.current?.abort();
     aiRequestRef.current = controller;
+    setSelection(null);
     setQuestionState("loading");
     try {
       const projection = await getCoachRidePlanAiContext(requestCourseId, requestPlan.contextToken, code, controller.signal);
