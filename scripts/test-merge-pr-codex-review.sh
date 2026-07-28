@@ -46,7 +46,7 @@ out=""
 prompt=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --sandbox|-C|-c) shift 2 ;;
+    --sandbox|-C|-c|--output-schema) shift 2 ;;
     -o|--output-last-message) out="$2"; shift 2 ;;
     --ephemeral) shift ;;
     -*) echo "unexpected option: $1" >&2; exit 64 ;;
@@ -54,13 +54,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 printf '%s\n' "$prompt" >"$MOCK_PROMPT_FILE"
-case "${MOCK_RESPONSE_MODE:-verdict}" in
-  verdict) printf 'mock Codex comment\nMERGE_VERDICT: %s\n' "${MOCK_VERDICT:-PASS}" >"$out" ;;
-  crlf) printf 'mock Codex comment\r\nMERGE_VERDICT: PASS\r\n' >"$out" ;;
-  postscript) printf 'mock Codex comment\nMERGE_VERDICT: PASS\ntrailing postscript\n' >"$out" ;;
-  embedded) printf 'summary contains MERGE_VERDICT: PASS\n' >"$out" ;;
-  quoted) printf '"MERGE_VERDICT: PASS"\n' >"$out" ;;
-  case_mismatch) printf 'MERGE_VERDICT: pass\n' >"$out" ;;
+case "${MOCK_RESPONSE_MODE:-valid}" in
+  valid) printf '{"findings":"mock Codex comment","verdict":"%s"}\n' "${MOCK_VERDICT:-PASS}" >"$out" ;;
+  malformed) printf '{"findings":"broken"' >"$out" ;;
+  trailing) printf '{"findings":"mock","verdict":"PASS"}\ntrailing postscript\n' >"$out" ;;
+  missing) printf '{"findings":"mock"}\n' >"$out" ;;
+  extra) printf '{"findings":"mock","verdict":"PASS","extra":true}\n' >"$out" ;;
+  invalid_verdict) printf '{"findings":"mock","verdict":"UNKNOWN"}\n' >"$out" ;;
   *) exit 65 ;;
 esac
 echo "mock Codex execution log" >&2
@@ -82,12 +82,15 @@ grep -q "리뷰 PASS" <<<"$pass_output"
 grep -qx "exec" "$MOCK_ARGS_FILE"
 grep -qx -- "--ephemeral" "$MOCK_ARGS_FILE"
 grep -qx -- "-o" "$MOCK_ARGS_FILE"
+grep -qx -- "--output-schema" "$MOCK_ARGS_FILE"
 grep -qx 'model_reasoning_effort="low"' "$MOCK_ARGS_FILE"
 awk 'previous == "--sandbox" && $0 == "read-only" { found++ } { previous=$0 } END { exit found == 1 ? 0 : 1 }' "$MOCK_ARGS_FILE"
 awk -v root="$REPO_ROOT" 'previous == "-C" && $0 == root { found++ } { previous=$0 } END { exit found == 1 ? 0 : 1 }' "$MOCK_ARGS_FILE"
+awk -v schema="$REPO_ROOT/scripts/codex-review-output.schema.json" 'previous == "--output-schema" && $0 == schema { found++ } { previous=$0 } END { exit found == 1 ? 0 : 1 }' "$MOCK_ARGS_FILE"
 grep -q "당신은 머지 직전 엄격한 코드 리뷰어다" "$MOCK_PROMPT_FILE"
 grep -q 'origin/main\.\.\.HEAD' "$MOCK_PROMPT_FILE"
-grep -q "MERGE_VERDICT: PASS" "$MOCK_PROMPT_FILE"
+grep -q "findings" "$MOCK_PROMPT_FILE"
+grep -q "verdict" "$MOCK_PROMPT_FILE"
 if grep -Eq '^-m$|^--model$' "$MOCK_ARGS_FILE"; then
   echo "fast review must not pin a model" >&2
   exit 1
@@ -96,9 +99,6 @@ fi
 full_output="$(MOCK_CHANGED=src/example.ts MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$full_output"
 grep -qx 'model_reasoning_effort="medium"' "$MOCK_ARGS_FILE"
-
-crlf_output="$(MOCK_RESPONSE_MODE=crlf run_gate)"
-grep -q "리뷰 PASS" <<<"$crlf_output"
 
 set +e
 failure_output="$(MOCK_EXIT=42 run_gate)"
@@ -116,20 +116,16 @@ set -e
 grep -q "mock Codex comment" <<<"$block_output"
 grep -q "코드 리뷰 BLOCK" <<<"$block_output"
 
-set +e
-missing_output="$(MOCK_VERDICT=UNKNOWN run_gate)"
-missing_rc=$?
-set -e
-[[ "$missing_rc" -ne 0 ]]
-grep -q "MERGE_VERDICT.*누락" <<<"$missing_output"
-
-for invalid_mode in postscript embedded quoted case_mismatch; do
+for invalid_mode in malformed trailing missing extra invalid_verdict; do
   set +e
   invalid_output="$(MOCK_RESPONSE_MODE="$invalid_mode" run_gate)"
   invalid_rc=$?
   set -e
   [[ "$invalid_rc" -ne 0 ]]
-  grep -q "MERGE_VERDICT.*누락" <<<"$invalid_output"
+  grep -q "구조화 출력 JSON 검증 실패" <<<"$invalid_output"
 done
+
+node -e 'const s=require(process.argv[1]); if (s.additionalProperties !== false || s.properties.findings.type !== "string" || s.properties.verdict.enum.join(",") !== "PASS,BLOCK") process.exit(1)' \
+  "$REPO_ROOT/scripts/codex-review-output.schema.json"
 
 echo "merge-pr Codex review tests passed"

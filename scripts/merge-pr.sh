@@ -172,10 +172,10 @@ fi
 
 # 변경 분류 — AI 리뷰 강도를 diff 성격에 맞춘다. 미분류 경로는 안전하게 '코드'.
 #   docs    (docs/·*.md·LICENSE 등)        → 리뷰 생략
-#   tooling (scripts/*.sh·.github/)        → low reasoning 리뷰
+#   tooling (merge gate scripts/schema·.github/) → low reasoning 리뷰
 #   code    (그 외 전부)                   → 풀 리뷰
 DOCS_PAT='^docs/|\.md$|^LICENSE|^\.gitignore$|^\.gitattributes$'
-TOOLING_PAT='^scripts/[^/]+\.sh$|^\.github/'
+TOOLING_PAT='^scripts/[^/]+\.sh$|^scripts/codex-review-output\.schema\.json$|^\.github/'
 code_changes=0; review_mode="skip"
 if [[ -n "$CHANGED" ]]; then
   if grep -qEv "($DOCS_PAT)|($TOOLING_PAT)" <<<"$CHANGED"; then
@@ -233,11 +233,10 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
 - 운영 가시성이 필요한 프론트 에러가 logClientError/Sentry 경로 없이 raw console 또는 무시로 끝나는지.
 - 새 외부 호출/Firebase IO가 실패 맥락을 남기는지.
 
-출력 형식:
-1) 발견 목록. 각 항목은 BLOCKER / MAJOR / MINOR 중 하나로 시작하고 file:line을 포함한다. 없으면 '결함 없음'.
-2) 마지막 줄은 반드시 정확히 하나:
-MERGE_VERDICT: BLOCK
-MERGE_VERDICT: PASS"
+제공된 JSON Schema에 정확히 맞는 객체만 출력하라:
+- findings: 발견 목록 문자열. 각 항목은 BLOCKER / MAJOR / MINOR 중 하나로 시작하고 file:line을 포함한다. 없으면 '결함 없음'.
+- verdict: 중대한 결함이 있으면 BLOCK, 없으면 PASS.
+다른 키, Markdown 코드 펜스, JSON 앞뒤의 설명은 출력하지 말라."
 
   review_effort="medium"
   if [[ "$review_mode" == "fast" ]]; then
@@ -246,6 +245,7 @@ MERGE_VERDICT: PASS"
   fi
   REVIEW_CMD=(codex exec --ephemeral --sandbox read-only -C "$REPO_ROOT" \
     -c "model_reasoning_effort=\"$review_effort\"" \
+    --output-schema "$REPO_ROOT/scripts/codex-review-output.schema.json" \
     -o "$REVIEW_OUT" "$REVIEW_PROMPT")
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
   start_codex_review
@@ -318,21 +318,44 @@ if [[ "$REVIEW_STARTED" == 1 ]]; then
     echo "  실행 로그: $REVIEW_LOG"
     die "Codex 코드 리뷰 실행 실패 또는 시간 초과 (exit=$review_rc, timeout=${CODEX_REVIEW_TIMEOUT_SEC:-900}s)"
   fi
-  verdict="$(awk 'NF { line=$0 } END { sub(/\r$/, "", line); print line }' "$REVIEW_OUT")"
-  if [[ "$verdict" == "MERGE_VERDICT: BLOCK" ]]; then
-    sed 's/^/  │ /' "$REVIEW_OUT"
+  REVIEW_FINDINGS="$(mktemp -t orider-merge-review-findings)"
+  REVIEW_PARSE_LOG="$(mktemp -t orider-merge-review-parse)"
+  verdict=""
+  if ! verdict="$(node - "$REVIEW_OUT" "$REVIEW_FINDINGS" <<'NODE' 2>"$REVIEW_PARSE_LOG"
+const fs = require('node:fs');
+const [inputPath, findingsPath] = process.argv.slice(2);
+const fail = (message) => { console.error(message); process.exit(1); };
+let value;
+try {
+  value = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
+} catch (error) {
+  fail(`JSON parse failed: ${error.message}`);
+}
+if (value === null || Array.isArray(value) || typeof value !== 'object') fail('review output must be an object');
+const keys = Object.keys(value).sort();
+if (keys.length !== 2 || keys[0] !== 'findings' || keys[1] !== 'verdict') fail('review output must contain only findings and verdict');
+if (typeof value.findings !== 'string') fail('findings must be a string');
+if (value.verdict !== 'PASS' && value.verdict !== 'BLOCK') fail('verdict must be PASS or BLOCK');
+fs.writeFileSync(findingsPath, value.findings);
+process.stdout.write(value.verdict);
+NODE
+  )"; then
+    sed 's/^/  │ /' "$REVIEW_OUT" || true
+    sed 's/^/  │ /' "$REVIEW_PARSE_LOG" || true
+    echo "  리뷰 답변: $REVIEW_OUT"
+    echo "  JSON 검증 로그: $REVIEW_PARSE_LOG"
+    die "Codex 코드 리뷰 구조화 출력 JSON 검증 실패"
+  fi
+  if [[ "$verdict" == "BLOCK" ]]; then
+    sed 's/^/  │ /' "$REVIEW_FINDINGS"
     echo "  리뷰 로그: $REVIEW_OUT"
     die "코드 리뷰 BLOCK — 머지 중단"
-  elif [[ "$verdict" == "MERGE_VERDICT: PASS" ]]; then
-    grep -vE '^[[:space:]]*MERGE_VERDICT:' "$REVIEW_OUT" | tail -60 | sed 's/^/  │ /' || true
+  elif [[ "$verdict" == "PASS" ]]; then
+    tail -60 "$REVIEW_FINDINGS" | sed 's/^/  │ /' || true
     printf '  \033[1;32m리뷰 PASS\033[0m\n'
-    rm -f "$REVIEW_OUT" "$REVIEW_LOG"
+    rm -f "$REVIEW_OUT" "$REVIEW_LOG" "$REVIEW_FINDINGS" "$REVIEW_PARSE_LOG"
   else
-    sed 's/^/  │ /' "$REVIEW_OUT" || true
-    [[ ! -s "$REVIEW_LOG" ]] || { echo "  Codex 실행 로그:"; tail -80 "$REVIEW_LOG" | sed 's/^/  │ /'; }
-    echo "  리뷰 답변: $REVIEW_OUT"
-    echo "  실행 로그: $REVIEW_LOG"
-    die "Codex 코드 리뷰 판정(MERGE_VERDICT) 누락"
+    die "Codex 코드 리뷰 verdict 누락"
   fi
 else
   [[ "$RUN_REVIEW" == 0 ]] && log "로컬 AI 코드리뷰 생략 (--no-review)" || log "문서 전용 변경 — 로컬 AI 코드리뷰 생략"
