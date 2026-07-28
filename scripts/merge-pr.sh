@@ -347,6 +347,8 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox danger-full-access --skip-git-repo-check -C "$REVIEW_DIR" \
     --disable shell_tool --disable unified_exec --disable code_mode_host --disable multi_agent \
     --disable browser_use --disable in_app_browser --disable computer_use --disable image_generation \
+    --disable apps --disable plugins --disable skill_search --disable skill_mcp_dependency_install \
+    --disable auth_elicitation --disable goals \
     -c 'shell_environment_policy.inherit="none"' \
     -c "model_reasoning_effort=\"$review_effort\"" \
     --output-schema "$REVIEW_DIR/scripts/codex-review-output.schema.json" \

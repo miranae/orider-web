@@ -6,6 +6,7 @@
 (allow syscall*)
 (allow mach*)
 (allow ipc*)
+(allow network*)
 (allow sysctl-read)
 
 (allow file-read* file-test-existence file-map-executable
@@ -21,15 +22,9 @@
   (subpath (param "CODEX_RUNTIME_DIR"))
   (subpath (param "CODEX_LAUNCHER_RUNTIME_DIR"))
   (literal (param "CODEX_BIN"))
+  (subpath (param "REVIEW_TMP"))
+  (literal (param "CODEX_AUTH_FILE"))
   (subpath (param "REVIEW_DIR")))
-
-; Only the Codex process may authenticate, persist ephemeral runtime state, or use the network.
-; Tool children inherit the sandbox but can read only REVIEW_DIR and system/runtime binaries.
-(with-filter (process-path (param "CODEX_BIN"))
-  (allow network*)
-  (allow file-read* file-test-existence
-    (subpath (param "REVIEW_TMP"))
-    (literal (param "CODEX_AUTH_FILE"))))
 
 (allow file-read-metadata file-test-existence
   (literal "/etc")

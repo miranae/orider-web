@@ -85,7 +85,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ "$ignore_user_config" == 1 && "$read_only" == 1 && "$skip_git" == 1 ]] || exit 73
-for feature in shell_tool unified_exec code_mode_host multi_agent browser_use in_app_browser computer_use image_generation; do
+for feature in shell_tool unified_exec code_mode_host multi_agent browser_use in_app_browser computer_use image_generation \
+  apps plugins skill_search skill_mcp_dependency_install auth_elicitation goals; do
   [[ " $disabled " == *" $feature "* ]] || exit 83
 done
 expected_effort='model_reasoning_effort="low"'
@@ -93,6 +94,7 @@ expected_effort='model_reasoning_effort="low"'
 [[ "$effort" == "$expected_effort" ]] || exit 74
 [[ -n "$review_dir" && "$review_dir" != "$REPO_ROOT" ]] || exit 66
 [[ "$schema" == "$review_dir/scripts/codex-review-output.schema.json" && -f "$schema" ]] || exit 67
+/bin/cat "$CODEX_HOME/auth.json" >/dev/null || exit 82
 [[ ! -e "$review_dir/.env" && ! -e "$review_dir/$SECRET_FIXTURE_NAME/.env" ]] || exit 68
 [[ -s "$review_dir/.codex-review/diff.patch" ]] || exit 69
 grep -q '^base=origin/main$' "$review_dir/.codex-review/metadata.txt" || exit 70
@@ -121,11 +123,16 @@ cat >"$TEST_TMP/bin/npm" <<'MOCK'
 echo "mock npm PASS"
 exit 0
 MOCK
-mkdir -p "$TEST_TMP/node_modules/@openai/codex/bin"
-mv "$TEST_TMP/bin/codex" "$TEST_TMP/node_modules/@openai/codex/bin/codex"
+mkdir -p "$TEST_TMP/node_modules/@openai/codex/bin" "$TEST_TMP/node_modules/@openai/codex-darwin-arm64/bin"
+mv "$TEST_TMP/bin/codex" "$TEST_TMP/node_modules/@openai/codex-darwin-arm64/bin/codex"
+cat >"$TEST_TMP/node_modules/@openai/codex/bin/codex" <<'MOCK'
+#!/usr/bin/env bash
+exec "$(dirname "$0")/../../codex-darwin-arm64/bin/codex" "$@"
+MOCK
 printf '{"name":"@openai/codex"}\n' >"$TEST_TMP/node_modules/@openai/codex/package.json"
 ln -s ../node_modules/@openai/codex/bin/codex "$TEST_TMP/bin/codex"
-chmod +x "$TEST_TMP/bin/git" "$TEST_TMP/bin/gh" "$TEST_TMP/bin/codex" "$TEST_TMP/bin/npm"
+chmod +x "$TEST_TMP/bin/git" "$TEST_TMP/bin/gh" "$TEST_TMP/bin/codex" "$TEST_TMP/bin/npm" \
+  "$TEST_TMP/node_modules/@openai/codex-darwin-arm64/bin/codex"
 
 run_gate() {
   local rc=0
