@@ -147,8 +147,6 @@ JSON
     || { cleanup_review_workspace; die "reserved 상대 symlink가 외부 sentinel을 변경함"; }
   [[ -L "$REVIEW_DIR/scripts/codex-review-external-link.fixture" ]] \
     || { cleanup_review_workspace; die "tracked snapshot에 sandbox symlink fixture 없음"; }
-  [[ -L "$REVIEW_DIR/.codex-review/diff.patch" && -L "$REVIEW_DIR/.codex-review/metadata.txt" && -L "$REVIEW_DIR/.codex-review/input.txt" ]] \
-    || { cleanup_review_workspace; die "tracked snapshot에 reserved-path symlink fixtures 없음"; }
 }
 
 assert_trusted_review_input() {

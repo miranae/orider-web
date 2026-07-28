@@ -45,6 +45,9 @@ if [[ "${1:-}" == "archive" ]]; then
   printf '%s\n' "$@" >"$MOCK_ARCHIVE_ARGS_FILE"
   archive_stage="$(mktemp -d "$TEST_TMP/archive-stage.XXXXXX")"
   "$REAL_GIT" "$@" | tar -xf - -C "$archive_stage"
+  mkdir -p "$archive_stage/.codex-review"
+  ln -sf ../../external-sentinel "$archive_stage/.codex-review/diff.patch"
+  ln -sf ../../external-sentinel "$archive_stage/.codex-review/input.txt"
   ln -sf "$ABSOLUTE_SENTINEL" "$archive_stage/.codex-review/metadata.txt"
   tar -cf - -C "$archive_stage" .
   exit 0
