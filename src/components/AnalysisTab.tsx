@@ -388,6 +388,17 @@ export function resolvePowerAnalysisDurationSec({
   return normalizedPowerTime ? totalDurationSec(powerLength, normalizedPowerTime) : 0;
 }
 
+export function mergeTrustedFullSessionDurationSec(
+  ...durations: Array<number | undefined>
+): number | undefined {
+  const trusted = durations.filter(
+    (duration): duration is number => typeof duration === "number"
+      && Number.isFinite(duration)
+      && duration > 0,
+  );
+  return trusted.length > 0 ? Math.max(...trusted) : undefined;
+}
+
 export function calculateKjPerHour(workKj: number | null, durationSec: number): number | null {
   if (workKj == null || durationSec <= 0) return null;
   return (workKj / durationSec) * 3600;
@@ -528,7 +539,10 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
       heartRateTime,
       streams,
       summary,
-      selectedPowerSeries.fullSessionDurationSec ?? selectedHeartRateSeries.fullSessionDurationSec,
+      mergeTrustedFullSessionDurationSec(
+        selectedPowerSeries.fullSessionDurationSec,
+        selectedHeartRateSeries.fullSessionDurationSec,
+      ),
     ),
     [powerTime, watts.length, heartRateTime, hr.length, streams, summary, selectedPowerSeries.fullSessionDurationSec, selectedHeartRateSeries.fullSessionDurationSec],
   );

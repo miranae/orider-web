@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateKjPerHour,
+  mergeTrustedFullSessionDurationSec,
   resolveAnalysisDurationSec,
   resolvePowerAnalysisDurationSec,
   selectWholeSessionSensorSeries,
@@ -61,6 +62,14 @@ describe("AnalysisTab sensor axis", () => {
     )).toBe(3_600);
   });
 
+  it("merges trusted power and heart-rate session durations for the general display", () => {
+    expect(mergeTrustedFullSessionDurationSec(3_600, 5_400)).toBe(5_400);
+    expect(mergeTrustedFullSessionDurationSec(5_400, 3_600)).toBe(5_400);
+    expect(mergeTrustedFullSessionDurationSec(undefined, 5_400)).toBe(5_400);
+    expect(mergeTrustedFullSessionDurationSec(3_600, undefined)).toBe(3_600);
+    expect(mergeTrustedFullSessionDurationSec(Number.NaN, -1, 0)).toBeUndefined();
+  });
+
   it("uses only the trusted moving power clock for kJ/h across a paused route", () => {
     const watts = Array(3_600).fill(200);
     const powerTime = Array.from({ length: 3_600 }, (_, index) => index);
@@ -111,6 +120,18 @@ describe("AnalysisTab sensor axis", () => {
     );
 
     expect(heartRate.fullSessionDurationSec).toBe(5_400);
+    expect(resolveAnalysisDurationSec(
+      power.values.length,
+      power.time,
+      heartRate.values.length,
+      heartRate.time,
+      projection.streams,
+      undefined,
+      mergeTrustedFullSessionDurationSec(
+        power.fullSessionDurationSec,
+        heartRate.fullSessionDurationSec,
+      ),
+    )).toBe(5_400);
     expect(calculateKjPerHour(
       calculateWorkKj(power.values, power.time),
       resolvePowerAnalysisDurationSec({
