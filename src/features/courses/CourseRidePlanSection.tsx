@@ -82,7 +82,10 @@ export function CourseRidePlanSection({ courseId, isOwner, user, onSignIn }: Pro
       setPlan(value); setState("ready");
     }).catch((error) => {
       if (!active || planGenerationRef.current !== generation) return;
-      logClientError("CourseRidePlanSection.load", error, { courseId });
+      logClientError("CourseRidePlanSection.load", error, {
+        phase: "plan",
+        code: isCoachClientError(error) ? error.code : "unknown",
+      });
       setState(boundedState(error));
     });
     return () => {
@@ -118,7 +121,11 @@ export function CourseRidePlanSection({ courseId, isOwner, user, onSignIn }: Pro
       setQuestionState("idle");
     } catch (error) {
       if (!controller.signal.aborted && planGenerationRef.current === generation) {
-        logClientError("CourseRidePlanSection.loadAiContext", error, { courseId: requestCourseId, questionCode: code });
+        logClientError("CourseRidePlanSection.loadAiContext", error, {
+          phase: "ai-context",
+          code: isCoachClientError(error) ? error.code : "unknown",
+          questionCode: code,
+        });
         setQuestionState("error");
       }
     } finally {

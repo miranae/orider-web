@@ -59,6 +59,7 @@ describe("useCoachPmcInsight", () => {
     const { result } = renderHook(() => useCoachPmcInsight("owner-a", "bike", true));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mocks.log).toHaveBeenCalledWith("useCoachPmcInsight.load", error,
-      { uid: "owner-a", discipline: "bike" });
+      { phase: "load", code: "unknown", discipline: "bike" });
+    expect(JSON.stringify(mocks.log.mock.calls)).not.toContain("owner-a");
   });
 });
