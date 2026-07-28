@@ -109,6 +109,8 @@ prepare_codex_review_workspace() {
   mkdir -p "$REVIEW_DIR/.codex-review" "$REVIEW_TMP"
   : >"$REVIEW_PARENT/.codex-review-parent.marker"
   printf 'sandbox external sentinel\n' >"$REVIEW_PARENT/external-sentinel"
+  install -m 400 "$REPO_ROOT/scripts/codex-review.sb" "$REVIEW_PARENT/codex-review.sb" \
+    || { cleanup_review_workspace; die "guarded Codex sandbox profile 생성 실패"; }
   if ! git archive "$HEAD_OID" | tar -x -C "$REVIEW_DIR"; then
     cleanup_review_workspace
     die "PR head tracked snapshot 생성 실패"
@@ -121,8 +123,6 @@ prepare_codex_review_workspace() {
   } >"$REVIEW_DIR/.codex-review/metadata.txt"
   [[ -f "$REVIEW_DIR/scripts/codex-review-output.schema.json" ]] \
     || { cleanup_review_workspace; die "tracked snapshot에 Codex 리뷰 schema 없음"; }
-  [[ -f "$REVIEW_DIR/scripts/codex-review.sb" ]] \
-    || { cleanup_review_workspace; die "tracked snapshot에 Codex sandbox profile 없음"; }
   [[ -L "$REVIEW_DIR/scripts/codex-review-external-link.fixture" ]] \
     || { cleanup_review_workspace; die "tracked snapshot에 sandbox symlink fixture 없음"; }
 }
@@ -154,7 +154,7 @@ configure_codex_sandbox() {
   cp "$CODEX_AUTH_SOURCE" "$SANDBOX_CODEX_HOME/auth.json"
   chmod 600 "$SANDBOX_CODEX_HOME/auth.json"
   CODEX_AUTH_FILE="$SANDBOX_CODEX_HOME/auth.json"
-  SANDBOX_PROFILE="$REVIEW_DIR/scripts/codex-review.sb"
+  SANDBOX_PROFILE="$REVIEW_PARENT/codex-review.sb"
   SANDBOX_CMD=(/usr/bin/sandbox-exec
     -D "REVIEW_DIR=$REVIEW_DIR"
     -D "REVIEW_TMP=$REVIEW_TMP"
@@ -170,6 +170,9 @@ configure_codex_sandbox() {
     || die "Codex sandbox가 리뷰 snapshot 읽기를 허용하지 않음"
   if "${SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then
     die "Codex sandbox symlink 외부 읽기 차단 실패"
+  fi
+  if "${SANDBOX_CMD[@]}" /bin/cat "$REVIEW_PARENT/external-sentinel" >/dev/null 2>&1; then
+    die "Codex sandbox 외부 sentinel 읽기 차단 실패"
   fi
   if [[ -e "$REPO_ROOT/.env" ]] && "${SANDBOX_CMD[@]}" /bin/cat "$REPO_ROOT/.env" >/dev/null 2>&1; then
     die "Codex sandbox 원본 저장소 .env 읽기 차단 실패"
