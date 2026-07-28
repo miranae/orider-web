@@ -58,7 +58,7 @@ const CORRELATION = /^[a-z0-9][a-z0-9-]{15,79}$/u;
 const REVISION = /^[a-z][a-z0-9-]{1,62}$/u;
 const TAG = /^[a-z][a-z0-9-]{1,30}$/u;
 const GITHUB_ACTOR = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(?:\[bot\])?$/u;
-const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|\\*["'](?:exactCoordinates|coordinates|latitude|longitude)\\*["']\s*:|bearer\s+[A-Za-z0-9._~-]+)/giu;
+const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|\\*["'](?:exactCoordinates|coordinates|latitude|longitude)\\*["']\s*:|(?:latitude|longitude|lat|lon)\s*[:=]\s*-?\d{1,3}\.\d+|(?:lat(?:itude)?\s*[/,]\s*lon(?:gitude)?)\s*[:=]?\s*-?\d{1,2}\.\d+\s*[,/]\s*-?\d{1,3}\.\d+|[([]\s*-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+\s*[)\]]|bearer\s+[A-Za-z0-9._~-]+)/giu;
 const RAW_PRIVATE_VALUE = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}|\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b|\bAIza[A-Za-z0-9_-]{20,}\b|bearer\s+[A-Za-z0-9._~-]+)/iu;
 const RECEIPT_KEYS = ["schemaVersion", "correlationDigest", "caseId", "fixtureDigest", "requestDigest",
   "targetFingerprint", "outcome", "providerCalls", "quotaConsumed", "userDataWrites", "card", "response",
@@ -1009,8 +1009,21 @@ const PRODUCT_ENUM_RULES = [
   [/^response\.data\.execution\.parser$/u, new Set(["deterministic", "provider", "report_provider"])],
   [/^request\.discipline$/u, new Set(["bike"])],
   [/^request\.responseFormat$/u, new Set(["auto", "table", "chart"])],
-  [/^request\.(?:apiVersion|capabilityVersion|schemaVersion)$/u,
-    new Set(["v2", "p1", "coach-respond-v2"])],
+  [/^request\.apiVersion$/u, new Set(["v2"])],
+  [/^request\.capabilityVersion$/u, new Set(["p1"])],
+  [/^request\.schemaVersion$/u, new Set(["coach-respond-v2"])],
+  [/^response\.data\.apiVersion$/u, new Set(["v2"]), "/v1/coach/respond"],
+  [/^response\.data\.capabilityVersion$/u, new Set(["p1"]), "/v1/coach/respond"],
+  [/^response\.data\.schemaVersion$/u, new Set(["coach-response-envelope-v1"]), "/v1/coach/respond"],
+  [/^response\.data\.schemaVersion$/u, new Set(["coach-pmc-insight-v1"]), "/v1/coach/insights/pmc"],
+  [/^response\.data\.schemaVersion$/u, new Set(["coach-rider-insight-v1"]), "/v1/coach/insights/rider"],
+  [/^response\.data\.schemaVersion$/u, new Set(["coach-change-proposal-recovery-v1"]),
+    "/v1/coach/change-proposals"],
+  [/^response\.data\.schemaVersion$/u, new Set(["coach-ride-plan-v1"]), /^\/v1\/coach\/ride-plan(?:\/ai-context)?$/u],
+  [/^response\.data\.proposal\.schemaVersion$/u, new Set(["coach-change-proposal-v1"])],
+  [/^response\.data\.receipt\.schemaVersion$/u, new Set(["coach-change-receipt-v1"])],
+  [/^response\.data\.answer\.blocks\.\d+\.prescription\.schemaVersion$/u,
+    new Set(["coach-prescription-v1"])],
 ];
 
 function assertProductScalar(value, path, pathname, options) {
@@ -1038,7 +1051,11 @@ function assertProductScalar(value, path, pathname, options) {
       || /(?:Percentile|\.percentile)$/u.test(path) && (typeof value !== "number" || value < 0 || value > 100)) {
     throw new Error(`web_evidence:v3_product_semantic:${path}`);
   }
-  const enumRule = PRODUCT_ENUM_RULES.find(([pattern]) => pattern.test(path));
+  const enumRule = PRODUCT_ENUM_RULES.find(([pattern, _values, endpoint]) => {
+    if (!pattern.test(path)) return false;
+    if (!endpoint) return true;
+    return typeof endpoint === "string" ? endpoint === pathname : endpoint.test(pathname);
+  });
   if (enumRule && !enumRule[1].has(value)) throw new Error(`web_evidence:v3_product_semantic:${path}`);
   const statusValues = pathname === "/v1/coach/status" ? ["available"]
     : pathname === "/v1/coach/insights/pmc" ? ["ok", "partial", "stale", "missing"]

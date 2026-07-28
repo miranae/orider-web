@@ -404,12 +404,35 @@ test("scans raw product URL and bodies but retains only redacted capture digests
   const headlineResponse = { data: { ...responseEnvelope, answer: { blocks: [{ kind: "headline", blockId: "headline-1",
     sourceSlotIds: ["slot-1"], partial: false, stale: false, truncated: false, omittedCount: 0 }] } } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, headlineResponse, options));
+  for (const [field, value] of [["apiVersion", "p1"], ["capabilityVersion", "coach-respond-v2"],
+    ["schemaVersion", "v2"]]) {
+    const swapped = structuredClone(headlineRequest); swapped[field] = value;
+    assert.throws(() => assertProductNetworkPrivacy(headlineUrl, swapped, undefined, options, "request-preflight"),
+      /v3_product_semantic/u);
+  }
+  const versionedResponse = structuredClone(headlineResponse);
+  Object.assign(versionedResponse.data, { apiVersion: "v2", capabilityVersion: "p1",
+    schemaVersion: "coach-response-envelope-v1" });
+  assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, versionedResponse, options));
+  for (const [field, value] of [["apiVersion", "p1"], ["capabilityVersion", "v2"],
+    ["schemaVersion", "coach-pmc-insight-v1"]]) {
+    const swapped = structuredClone(versionedResponse); swapped.data[field] = value;
+    assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, swapped, options),
+      /v3_product_semantic/u);
+  }
   const headlineLeak = structuredClone(headlineResponse); headlineLeak.data.answer.blocks[0].displayName = "private";
   assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, headlineLeak, options),
     /v3_product_schema/u);
   const markdownResponse = { data: { ...responseEnvelope, answer: { blocks: [{ kind: "grounded_markdown",
     markdown: "Route coordinates are intentionally omitted from this summary.", evidenceIds: [] }] } } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, markdownResponse, options));
+  for (const coordinateText of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0",
+    "Exact point (37.5, 127.0)"]) {
+    const coordinateTextLeak = structuredClone(markdownResponse);
+    coordinateTextLeak.data.answer.blocks[0].markdown = coordinateText;
+    assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, coordinateTextLeak, options),
+      /v3_product_privacy/u);
+  }
   const statusUrl = new URL("https://candidate---stage.example.com/v1/coach/status");
   assert.doesNotThrow(() => assertProductNetworkPrivacy(statusUrl, undefined,
     { data: { status: "available" } }, options));
@@ -1237,6 +1260,9 @@ test("privacy scan covers final JSON, DOM, URLs, bodies, logs and provider sidec
     .matches.providerSidecars, 1);
   for (const key of ["latitude", "longitude"]) {
     assert.equal(privacyScan({ testLogs: JSON.stringify({ [key]: 37.5 }) }).matches.testLogs, 1);
+  }
+  for (const text of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0", "(37.5, 127.0)"]) {
+    assert.ok(privacyScan({ renderedDom: text }).matches.renderedDom >= 1);
   }
   assert.equal(privacyScan({ renderedDom: "The route coordinates are intentionally omitted." })
     .matches.renderedDom, 0);
