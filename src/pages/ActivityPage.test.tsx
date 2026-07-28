@@ -538,6 +538,7 @@ describe("ActivityPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
     await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);
     expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(0);
   }, 15_000);
