@@ -360,10 +360,10 @@ test("scans raw product URL and bodies but retains only redacted capture digests
   const options = { courseId: `course-evidence-${"3".repeat(32)}`, progressPlanner };
   const url = new URL(`https://candidate---stage.example.com/v1/coach/change-proposals?prescriptionId=${progressPlanner.prescriptionId}`
     + `&sourceRequestId=${progressPlanner.sourceRequestId}`);
-  const requestBody = { question: FOUR_AXIS_CASES[0].question, courseId: options.courseId,
-    contextFilters: { progressPlanner: { prescriptionId: progressPlanner.prescriptionId,
-      sourceRequestId: progressPlanner.sourceRequestId } } };
-  const responseBody = { data: { proposalId: progressPlanner.proposalId, status: "ready" } };
+  const requestBody = undefined;
+  const responseBody = { data: { source: { prescriptionId: progressPlanner.prescriptionId,
+    sourceRequestId: progressPlanner.sourceRequestId },
+  proposal: { proposalId: progressPlanner.proposalId }, status: "ready" } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(url, requestBody, responseBody, options));
 
   for (const [name, value] of [["prescriptionId", "rx_private-user-record"],
@@ -371,11 +371,13 @@ test("scans raw product URL and bodies but retains only redacted capture digests
     const leakedQuery = new URL(url); leakedQuery.searchParams.append(name, value);
     assert.throws(() => assertProductNetworkPrivacy(leakedQuery, requestBody, responseBody, options), /v3_product_privacy/u);
   }
-  for (const leak of [{ uid: "private-user" }, { identityToken: "secret-token" },
-    { coordinates: { latitude: 37.5, longitude: 127 } }]) {
+  for (const leak of [{ uid: "private-user" }, { contact: "rider@example.com" },
+    { healthData: { weightKg: 72 } }, { credential: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1MSJ9.signature" },
+    { apiKey: `AIza${"a".repeat(35)}` }, { sessionCookie: "session-secret" },
+    { identityToken: "secret-token" }, { coordinates: { latitude: 37.5, longitude: 127 } }]) {
     assert.throws(() => assertProductNetworkPrivacy(url, requestBody, leak, options), /v3_product_privacy/u);
   }
-  const capture = { url: `${url.origin}${url.pathname}`, requestBody: prefixedEvidenceDigest(requestBody),
+  const capture = { url: `${url.origin}${url.pathname}`, requestBody: "",
     responseBody: prefixedEvidenceDigest(responseBody) };
   assert.doesNotMatch(JSON.stringify(capture), /rx_private|22222222|course-evidence|private-user|secret-token/u);
 });

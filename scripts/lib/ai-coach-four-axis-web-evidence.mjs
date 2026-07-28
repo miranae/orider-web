@@ -59,6 +59,8 @@ const REVISION = /^[a-z][a-z0-9-]{1,62}$/u;
 const TAG = /^[a-z][a-z0-9-]{1,30}$/u;
 const GITHUB_ACTOR = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(?:\[bot\])?$/u;
 const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|latitude|longitude|(?:exact)?coordinates|bearer\s+[A-Za-z0-9._~-]+)/giu;
+const RAW_PRIVATE_KEY = /^(?:uid|email|healthData|snapshot|name|credential|credentials|secret|secrets|apiKey|sessionCookie|cookie|authorization|token|accessToken|refreshToken|identityToken|idToken|appCheckToken|firebaseCustomToken)$/iu;
+const RAW_PRIVATE_VALUE = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}|\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b|\bAIza[A-Za-z0-9_-]{20,}\b|bearer\s+[A-Za-z0-9._~-]+)/iu;
 const RECEIPT_KEYS = ["schemaVersion", "correlationDigest", "caseId", "fixtureDigest", "requestDigest",
   "targetFingerprint", "outcome", "providerCalls", "quotaConsumed", "userDataWrites", "card", "response",
   "productExecution"];
@@ -783,29 +785,57 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
 }
 
 export function assertProductNetworkPrivacy(url, requestBody, responseBody, options = {}) {
-  const observedUrl = new URL(url); const progress = options.progressPlanner ?? {};
+  const observedUrl = new URL(url); const progress = options.progressPlanner ?? {}; const pathname = observedUrl.pathname;
   for (const [name, expected] of [["prescriptionId", progress.prescriptionId],
     ["sourceRequestId", progress.sourceRequestId]]) {
     const values = observedUrl.searchParams.getAll(name);
-    if (values.length === 1 && typeof expected === "string" && values[0] === expected) {
+    if (pathname === "/v1/coach/change-proposals" && values.length === 1
+        && typeof expected === "string" && values[0] === expected) {
       observedUrl.searchParams.delete(name);
     }
   }
-  const allowed = new Map([["courseId", options.courseId], ["prescriptionId", progress.prescriptionId],
-    ["sourceRequestId", progress.sourceRequestId], ["proposalId", progress.proposalId]]);
-  const redactApproved = (value) => {
-    if (Array.isArray(value)) return value.map(redactApproved);
+  for (const [key, value] of observedUrl.searchParams) {
+    if (RAW_PRIVATE_KEY.test(key) || RAW_PRIVATE_VALUE.test(value)) throw new Error("web_evidence:v3_product_privacy");
+  }
+  const approvedField = (direction, path, key, value) => {
+    if (direction === "request" && pathname === "/v1/coach/respond" && path === "" && key === "question") {
+      return FOUR_AXIS_CASES.some((entry) => entry.question === value);
+    }
+    if (direction === "request" && ["/v1/coach/ride-plan/token", "/v1/coach/ride-plan",
+      "/v1/coach/ride-plan/ai-context"].includes(pathname) && path === "" && key === "courseId") {
+      return typeof options.courseId === "string" && value === options.courseId;
+    }
+    if (direction === "request" && pathname === "/v1/coach/respond"
+        && path === "contextFilters.progressPlanner") {
+      return key === "prescriptionId" && value === progress.prescriptionId
+        || key === "sourceRequestId" && value === progress.sourceRequestId;
+    }
+    if (direction === "response" && pathname === "/v1/coach/change-proposals" && path === "data.source") {
+      return key === "prescriptionId" && value === progress.prescriptionId
+        || key === "sourceRequestId" && value === progress.sourceRequestId;
+    }
+    if (direction === "response" && pathname === "/v1/coach/change-proposals"
+        && path === "data.proposal" && key === "proposalId") return value === progress.proposalId;
+    return direction === "response" && pathname === "/v1/coach/respond"
+      && /^data\.answer\.blocks\.\d+\.prescription$/u.test(path) && key === "prescriptionId"
+      && value === progress.prescriptionId;
+  };
+  const inspectAndRedact = (value, direction, path = "") => {
+    if (typeof value === "string" && RAW_PRIVATE_VALUE.test(value)) throw new Error("web_evidence:v3_product_privacy");
+    if (Array.isArray(value)) return value.map((item, index) => inspectAndRedact(item, direction,
+      path ? `${path}.${index}` : String(index)));
     if (!value || typeof value !== "object") return value;
     const result = {};
     for (const [key, item] of Object.entries(value)) {
-      if (key === "question" && FOUR_AXIS_CASES.some((entry) => entry.question === item)) continue;
-      if (allowed.has(key) && typeof allowed.get(key) === "string" && item === allowed.get(key)) continue;
-      result[key] = redactApproved(item);
+      if (approvedField(direction, path, key, item)) continue;
+      if (RAW_PRIVATE_KEY.test(key)) throw new Error("web_evidence:v3_product_privacy");
+      result[key] = inspectAndRedact(item, direction, path ? `${path}.${key}` : key);
     }
     return result;
   };
   const scan = privacyScan({ networkUrls: observedUrl.toString(),
-    networkBodies: [JSON.stringify(redactApproved(requestBody)), JSON.stringify(redactApproved(responseBody))] });
+    networkBodies: [JSON.stringify(inspectAndRedact(requestBody, "request")),
+      JSON.stringify(inspectAndRedact(responseBody, "response"))] });
   if (scan.matches.networkUrls !== 0 || scan.matches.networkBodies !== 0) {
     throw new Error("web_evidence:v3_product_privacy");
   }
