@@ -71,6 +71,11 @@ function responseErrorState(error: { code: string; retryable: boolean }): "stale
   return error.retryable ? "error" : "stale";
 }
 
+function rollbackResponseErrorState(error: { code: string; retryable: boolean }): "disabled" | "conflict" | "error" {
+  if (error.code.includes("disabled")) return "disabled";
+  return error.retryable ? "error" : "conflict";
+}
+
 function logProgressError(stage: "capabilities" | "recovery" | "create" | "confirm" | "rollback", error: unknown,
   context: Record<string, unknown>) {
   logClientError(`CoachPrescription.${stage}`, error, { stage, ...context });
@@ -211,7 +216,9 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
       if (result.status === "error") {
         logProgressError("rollback", new Error(result.error.code), { operation: "rollback", prescriptionId: prescription.prescriptionId,
           sourceRequestId, proposalId: proposal.proposalId, requestId: rollbackRequestId });
-        setView((current) => ({ ...current, state: "conflict" })); return;
+        const nextState = rollbackResponseErrorState(result.error);
+        setRollbackRetryable(nextState === "error");
+        setView((current) => ({ ...current, state: nextState })); return;
       }
       await hydrateRecovery("post-rollback");
     } catch (error) {

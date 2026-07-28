@@ -427,6 +427,36 @@ describe("CoachPrescription", () => {
     expect(await screen.findByText("감사 기록의 변경 전 상태로 복구했습니다")).toBeInTheDocument();
   });
 
+  it.each([
+    ["proposal_confirm_feature_disabled", "현재 이 변경 기능이 꺼져 있습니다."],
+    ["rollback_conflict", "이후 계획 변경과 충돌하여 안전하게 처리하지 않았습니다."],
+  ] as const)("keeps a non-retryable rollback %s response terminal", async (code, message) => {
+    recoverProposal.mockResolvedValue(appliedRecovery);
+    rollbackProposal.mockResolvedValue({ status: "error", error: { code, retryable: false }, providerCalls: 0, quotaConsumed: 0 });
+    render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "적용 내용 되돌리기" }));
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "같은 되돌리기 요청 다시 확인" })).not.toBeInTheDocument();
+    expect(rollbackProposal).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a normal retryable rollback response with the same idempotency UUID", async () => {
+    recoverProposal.mockResolvedValueOnce(appliedRecovery).mockResolvedValue(revertedRecovery);
+    rollbackProposal.mockResolvedValueOnce({ status: "error", error: { code: "temporarily_unavailable", retryable: true },
+      providerCalls: 0, quotaConsumed: 0 })
+      .mockResolvedValueOnce({ status: "ok", data: { ...receipt, status: "reverted", revertedAt: "2026-07-20T00:02:00.000Z" },
+        providerCalls: 0, quotaConsumed: 0 });
+    render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "적용 내용 되돌리기" }));
+    await user.click(await screen.findByRole("button", { name: "같은 되돌리기 요청 다시 확인" }));
+    expect(rollbackProposal).toHaveBeenCalledTimes(2);
+    expect(rollbackProposal.mock.calls[1]![1].requestId).toBe(rollbackProposal.mock.calls[0]![1].requestId);
+    expect(await screen.findByText("감사 기록의 변경 전 상태로 복구했습니다")).toBeInTheDocument();
+  });
+
   it("rehydrates an applied proposal after remount and retries rollback with one stable UUID while confirm is off", async () => {
     const appliedProposal = { ...proposal, status: "applied" as const };
     recoverProposal.mockResolvedValueOnce({ ...appliedRecovery, data: { ...appliedRecovery.data, proposal: appliedProposal } })
