@@ -897,6 +897,75 @@ describe("ActivityPage", () => {
     });
   });
 
+  it("keeps saved HR and cadence when legacy sensor arrays are truncated", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({
+        averageHeartRate: 145,
+        maxHeartRate: 178,
+        averageCadence: 85,
+        maxCadence: 110,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: Array.from({ length: 200 }, (_, index) => index),
+        time: Array.from({ length: 200 }, (_, index) => index),
+        heartrate: [190, 195],
+        cadence: [120],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => {
+      expect(stats).toHaveTextContent("평균 심박145bpm최고 178");
+      expect(stats).toHaveTextContent("평균 케이던스85rpm");
+    });
+    expect(stats).not.toHaveTextContent("평균 심박193bpm");
+    expect(stats).not.toHaveTextContent("평균 케이던스120rpm");
+  });
+
+  it("keeps saved HR and cadence while falling back from malformed legacy watts", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({
+        averageHeartRate: 145,
+        maxHeartRate: 178,
+        averageCadence: 85,
+        maxCadence: 110,
+        averagePower: 200,
+        maxPower: 450,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: Array.from({ length: 20 }, (_, index) => index),
+        time: Array.from({ length: 20 }, (_, index) => index),
+        watts: [200, null, ...Array(18).fill(0)],
+        watts_calc: Array(20).fill(175),
+        heartrate: [190, null, ...Array(18).fill(0)],
+        cadence: [120, null, ...Array(18).fill(0)],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => {
+      expect(stats).toHaveTextContent("평균 파워175W");
+      expect(stats).toHaveTextContent("평균 심박145bpm최고 178");
+      expect(stats).toHaveTextContent("평균 케이던스85rpm");
+    });
+  });
+
   it("preserves short legacy power that satisfies the backend coverage threshold", async () => {
     const activity = createMockActivity({
       id: "test-activity",

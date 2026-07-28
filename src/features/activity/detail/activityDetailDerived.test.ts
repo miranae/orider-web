@@ -71,6 +71,106 @@ describe("activityDetailDerived", () => {
     expect(sampled.some((point) => point.altitude === 999 && point.heartRate === 190 && point.cadence === 110)).toBe(true);
   });
 
+  it("does not derive sensor summaries from truncated legacy HR or cadence", () => {
+    const streams = {
+      distance: Array.from({ length: 200 }, (_, index) => index),
+      time: Array.from({ length: 200 }, (_, index) => index),
+      heartrate: [190, 195],
+      cadence: [120],
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      hasHeartRateStream: false,
+      heartRateSource: null,
+      averageHeartRate: null,
+      maxHeartRate: null,
+      hasCadenceStream: false,
+      averageCadence: null,
+      maxCadence: null,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { heartrate: undefined },
+      heartRate: undefined,
+    });
+  });
+
+  it("does not project aligned malformed legacy HR even when most samples are positive", () => {
+    const streams = {
+      distance: Array.from({ length: 20 }, (_, index) => index),
+      time: Array.from({ length: 20 }, (_, index) => index),
+      heartrate: [...Array(11).fill(190), null, ...Array(8).fill(0)],
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      hasHeartRateStream: false,
+      heartRateSource: null,
+      averageHeartRate: null,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { heartrate: undefined },
+      heartRate: undefined,
+    });
+  });
+
+  it.each([
+    ["null", null],
+    ["string", "200"],
+    ["object", { value: 200 }],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["negative", -1],
+  ])("rejects a %s slot in every legacy sensor channel", (_case, malformedValue) => {
+    const base = {
+      distance: Array.from({ length: 20 }, (_, index) => index),
+      time: Array.from({ length: 20 }, (_, index) => index),
+    };
+    const malformed = [200, malformedValue, ...Array(18).fill(0)];
+
+    expect(deriveStreamSensorSummary({ ...base, watts: malformed } as never)).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      powerSource: null,
+    });
+    expect(deriveStreamSensorSummary({ ...base, watts_calc: malformed } as never)).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      powerSource: null,
+    });
+    expect(deriveStreamSensorSummary({ ...base, heartrate: malformed } as never)).toMatchObject({
+      hasHeartRateStream: false,
+      heartRateSource: null,
+      averageHeartRate: null,
+    });
+    expect(deriveStreamSensorSummary({ ...base, cadence: malformed } as never)).toMatchObject({
+      hasCadenceStream: false,
+      averageCadence: null,
+    });
+  });
+
+  it("falls back to valid calculated power while rejecting aligned legacy null slots", () => {
+    const streams = {
+      distance: Array.from({ length: 20 }, (_, index) => index),
+      time: Array.from({ length: 20 }, (_, index) => index),
+      watts: [200, null, ...Array(18).fill(0)],
+      watts_calc: Array(20).fill(175),
+      heartrate: [190, null, ...Array(18).fill(0)],
+      cadence: [120, null, ...Array(18).fill(0)],
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      powerSource: "watts_calc",
+      averagePower: 175,
+      maxPower: 175,
+      heartRateSource: null,
+      averageHeartRate: null,
+      averageCadence: null,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)?.streams).toMatchObject({
+      watts: undefined,
+      watts_calc: streams.watts_calc,
+    });
+  });
+
   it("suppresses sparse legacy power but includes real zero watts once coverage is reliable", () => {
     const sparse = deriveStreamSensorSummary({
       distance: Array.from({ length: 200 }, (_, index) => index),
@@ -221,7 +321,7 @@ describe("activityDetailDerived", () => {
         resolutionSeconds: 1,
         timeOriginEpochMs: 1_700_000_000_000,
         time: [0, 1, 2],
-        heartrate: [null, 0, Number.NaN],
+        heartrate: [null, 0, null],
         watts: [200, 210, 220],
       },
     };
@@ -343,6 +443,38 @@ describe("activityDetailDerived", () => {
     });
     expect(() => buildActivityAnalysisProjection(streams as never)).not.toThrow();
     expect(() => buildSampledData(streams as never)).not.toThrow();
+  });
+
+  it.each([
+    ["string", "210"],
+    ["object", { watts: 210 }],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["negative", -1],
+  ])("rejects V1 power containing a %s slot", (_case, malformedValue) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      watts_calc: [300, 310, 320],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [null, null, null],
+        watts: [200, malformedValue, 220],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      powerSource: null,
+      hasRejectedPowerStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { watts: undefined, watts_calc: undefined },
+      power: undefined,
+    });
   });
 
   it.each([
@@ -485,6 +617,38 @@ describe("activityDetailDerived", () => {
     });
     expect(() => buildActivityAnalysisProjection(streams as never)).not.toThrow();
     expect(() => buildSampledData(streams as never)).not.toThrow();
+  });
+
+  it.each([
+    ["string", "141"],
+    ["object", { bpm: 141 }],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+    ["negative", -1],
+  ])("rejects V1 heart rate containing a %s slot", (_case, malformedValue) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      heartrate: [150, 155, 160],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [140, malformedValue, 142],
+        watts: [null, null, null],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      heartRateSource: null,
+      hasRejectedHeartRateStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { heartrate: undefined },
+      heartRate: undefined,
+    });
   });
 
   it.each([

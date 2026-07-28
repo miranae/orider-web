@@ -83,18 +83,32 @@ function hasDenseArraySlots(values: readonly unknown[]): boolean {
   return true;
 }
 
+function hasValidExplicitSensorChannelValues(values: readonly unknown[]): values is readonly (number | null)[] {
+  if (!hasDenseArraySlots(values)) return false;
+  return values.every((value) => value === null
+    || (typeof value === "number" && Number.isFinite(value) && value >= 0));
+}
+
+function hasValidLegacySensorChannelValues(values: readonly unknown[]): values is readonly number[] {
+  if (!hasDenseArraySlots(values)) return false;
+  return values.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0);
+}
+
+function hasSufficientAxisCoverage(valuesLength: number, expectedCount: number): boolean {
+  return expectedCount <= 0
+    || Math.abs(valuesLength - expectedCount) <= 1
+    || Math.min(valuesLength, expectedCount) / Math.max(valuesLength, expectedCount) >= LEGACY_POWER_MIN_AXIS_COVERAGE;
+}
+
 function runtimeArray<T>(value: unknown): T[] | undefined {
   return Array.isArray(value) ? value as T[] : undefined;
 }
 
 function trustedLegacyPower(values: readonly number[] | undefined, expectedCount: number): number[] | null {
   if (!values?.length) return null;
-  if (!values.every((value) => Number.isFinite(value) && value >= 0)) return null;
+  if (!hasValidLegacySensorChannelValues(values)) return null;
 
-  const axisAligned = expectedCount <= 0
-    || Math.abs(values.length - expectedCount) <= 1
-    || Math.min(values.length, expectedCount) / Math.max(values.length, expectedCount) >= LEGACY_POWER_MIN_AXIS_COVERAGE;
-  if (!axisAligned) return null;
+  if (!hasSufficientAxisCoverage(values.length, expectedCount)) return null;
 
   const positiveCount = values.filter((value) => value > 0).length;
   const coverageDenominator = Math.max(values.length, expectedCount, 1);
@@ -119,7 +133,7 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
       return { source: null, values: null, finiteValues: [], hasCandidate: true };
     }
     const explicitWatts = runtimeArray<number | null>(rawWatts);
-    if (explicitWatts && !hasDenseArraySlots(explicitWatts)) {
+    if (explicitWatts && !hasValidExplicitSensorChannelValues(explicitWatts)) {
       return { source: null, values: null, finiteValues: [], hasCandidate: true };
     }
     const finiteValues = explicitWatts?.filter(
@@ -166,6 +180,13 @@ function positiveValues(values: readonly (number | null | undefined)[] | undefin
   return values?.filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0) ?? [];
 }
 
+function trustedLegacySensor(values: readonly number[] | undefined, expectedCount: number): number[] | null {
+  if (!values?.length || !hasValidLegacySensorChannelValues(values)) return null;
+  if (!hasSufficientAxisCoverage(values.length, expectedCount)) return null;
+  const positive = positiveValues(values);
+  return positive.length > 0 ? positive : null;
+}
+
 export function selectActivityHeartRateStream(streams: ActivityStreams | null): SelectedHeartRateStream {
   if (!streams) return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: false };
 
@@ -177,7 +198,7 @@ export function selectActivityHeartRateStream(streams: ActivityStreams | null): 
     return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
   }
   const explicitHeartRate = runtimeArray<number | null>(rawExplicitHeartRate);
-  if (explicitHeartRate && !hasDenseArraySlots(explicitHeartRate)) {
+  if (explicitHeartRate && !hasValidExplicitSensorChannelValues(explicitHeartRate)) {
     return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
   }
   const explicitPositive = positiveValues(explicitHeartRate);
@@ -195,8 +216,11 @@ export function selectActivityHeartRateStream(streams: ActivityStreams | null): 
   }
 
   const legacyHeartRate = runtimeArray<number>(streams.heartrate);
-  const legacyPositive = positiveValues(legacyHeartRate);
-  if (legacyPositive.length > 0) {
+  const legacyTime = runtimeArray<number>(streams.time);
+  const legacyDistance = runtimeArray<number>(streams.distance);
+  const expectedLegacyCount = Math.max(legacyTime?.length ?? 0, legacyDistance?.length ?? 0);
+  const legacyPositive = trustedLegacySensor(legacyHeartRate, expectedLegacyCount);
+  if (legacyPositive) {
     return {
       source: "heartrate",
       values: legacyHeartRate ?? null,
@@ -220,7 +244,13 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
 
   const selectedHeartRate = selectActivityHeartRateStream(streams);
   const heartRate = selectedHeartRate.positiveValues;
-  const cadence = positiveValues(streams.cadence);
+  const legacyTime = runtimeArray<number>(streams.time);
+  const legacyDistance = runtimeArray<number>(streams.distance);
+  const cadenceValues = runtimeArray<number>(streams.cadence);
+  const cadence = trustedLegacySensor(
+    cadenceValues,
+    Math.max(legacyTime?.length ?? 0, legacyDistance?.length ?? 0),
+  ) ?? [];
   const hasHeartRateStream = heartRate.length > 0;
   const hasCadenceStream = cadence.length > 0;
   const selectedPower = selectActivityPowerStream(streams);
@@ -327,14 +357,20 @@ export function buildActivityAnalysisProjection(
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const selectedPower = selectActivityPowerStream(streams);
   const selectedHeartRate = selectActivityHeartRateStream(streams);
-  const legacyTime = streams.time?.length
-    ? streams.time
-    : streams.heartrate?.map((_, index) => index) ?? [];
-  const validLegacyHeartRateCount = positiveValues(streams.heartrate).length;
-  const shouldRepairLegacyHeartRate = !!streams.heartrate?.length
-    && validLegacyHeartRateCount / streams.heartrate.length <= 0.5;
-  const legacyHeartRate = shouldRepairLegacyHeartRate && streams.heartrate
-    ? measuredSeries(streams.heartrate, legacyTime, (value) => value > 0)
+  const legacyHeartRateValues = selectedHeartRate.source === "heartrate"
+    ? runtimeArray<number>(streams.heartrate)
+    : undefined;
+  const topLevelTime = runtimeArray<number>(streams.time);
+  const legacyTime = topLevelTime?.length
+    ? topLevelTime
+    : legacyHeartRateValues?.map((_, index) => index) ?? [];
+  const shouldRepairLegacyHeartRate = !!legacyHeartRateValues?.length
+    && selectedHeartRate.positiveValues.length / legacyHeartRateValues.length <= 0.5;
+  const legacyHeartRate = shouldRepairLegacyHeartRate && legacyHeartRateValues
+    ? measuredSeries(legacyHeartRateValues, legacyTime, (value) => value > 0)
+    : undefined;
+  const projectedLegacyHeartRate = legacyHeartRateValues && !shouldRepairLegacyHeartRate
+    ? legacyHeartRateValues
     : undefined;
   if (explicit) {
     const usesExplicitPower = !preferTopLevelPower && selectedPower.source === "sensorStreamsV1";
@@ -342,9 +378,7 @@ export function buildActivityAnalysisProjection(
     return {
       streams: {
         ...streams,
-        heartrate: selectedHeartRate.source === "heartrate" && !shouldRepairLegacyHeartRate
-          ? streams.heartrate
-          : undefined,
+        heartrate: projectedLegacyHeartRate,
         watts: preferTopLevelPower || selectedPower.source === "watts" ? streams.watts : undefined,
         watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc" ? streams.watts_calc : undefined,
       },
@@ -372,7 +406,7 @@ export function buildActivityAnalysisProjection(
     return {
       streams: {
         ...streams,
-        heartrate: shouldRepairLegacyHeartRate ? undefined : streams.heartrate,
+        heartrate: projectedLegacyHeartRate,
         watts: undefined,
         watts_calc: undefined,
       },
@@ -383,14 +417,16 @@ export function buildActivityAnalysisProjection(
     return {
       streams: {
         ...streams,
-        heartrate: shouldRepairLegacyHeartRate ? undefined : streams.heartrate,
+        heartrate: projectedLegacyHeartRate,
         watts: undefined,
       },
       heartRate,
     };
   }
   return {
-    streams: shouldRepairLegacyHeartRate ? { ...streams, heartrate: undefined } : streams,
+    streams: projectedLegacyHeartRate === streams.heartrate
+      ? streams
+      : { ...streams, heartrate: projectedLegacyHeartRate },
     heartRate,
   };
 }
