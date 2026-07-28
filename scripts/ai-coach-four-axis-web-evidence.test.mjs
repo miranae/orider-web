@@ -363,19 +363,29 @@ test("scans raw product URL and bodies but retains only redacted capture digests
   const requestBody = undefined;
   const responseBody = { data: { source: { prescriptionId: progressPlanner.prescriptionId,
     sourceRequestId: progressPlanner.sourceRequestId },
-  proposal: { proposalId: progressPlanner.proposalId }, status: "ready" } };
+  proposal: { proposalId: progressPlanner.proposalId }, recoveryStatus: "pending" } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(url, requestBody, responseBody, options));
 
   for (const [name, value] of [["prescriptionId", "rx_private-user-record"],
     ["sourceRequestId", "private-source-request"]]) {
     const leakedQuery = new URL(url); leakedQuery.searchParams.append(name, value);
-    assert.throws(() => assertProductNetworkPrivacy(leakedQuery, requestBody, responseBody, options), /v3_product_privacy/u);
+    assert.throws(() => assertProductNetworkPrivacy(leakedQuery, requestBody, responseBody, options), /v3_product_schema/u);
   }
   for (const leak of [{ uid: "private-user" }, { contact: "rider@example.com" },
     { healthData: { weightKg: 72 } }, { credential: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1MSJ9.signature" },
     { apiKey: `AIza${"a".repeat(35)}` }, { sessionCookie: "session-secret" },
     { identityToken: "secret-token" }, { coordinates: { latitude: 37.5, longitude: 127 } }]) {
-    assert.throws(() => assertProductNetworkPrivacy(url, requestBody, leak, options), /v3_product_privacy/u);
+    assert.throws(() => assertProductNetworkPrivacy(url, requestBody, leak, options), /v3_product_schema/u);
+  }
+  for (const key of ["displayName", "fullName", "phoneNumber", "homeAddress", "clientSecret",
+    "sessionToken", "setCookie", "api_key", "medicalRecord"]) {
+    const leak = structuredClone(responseBody); leak.data[key] = "private-value";
+    assert.throws(() => assertProductNetworkPrivacy(url, requestBody, leak, options), /v3_product_schema/u);
+  }
+  for (const value of ["rider@example.com", "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1MSJ9.signature",
+    `AIza${"a".repeat(35)}`]) {
+    const shapedLeak = structuredClone(responseBody); shapedLeak.data.recoveryStatus = value;
+    assert.throws(() => assertProductNetworkPrivacy(url, requestBody, shapedLeak, options), /v3_product_privacy/u);
   }
   const capture = { url: `${url.origin}${url.pathname}`, requestBody: "",
     responseBody: prefixedEvidenceDigest(responseBody) };
@@ -703,7 +713,7 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
   }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
   ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
   requestSha256: `sha256:${"9".repeat(64)}`, nowMs: Date.parse("2026-07-27T00:00:00.000Z") }),
-  /v3_product_privacy/u);
+  /v3_product_schema/u);
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(),
     clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
     ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: "short",

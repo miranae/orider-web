@@ -59,7 +59,6 @@ const REVISION = /^[a-z][a-z0-9-]{1,62}$/u;
 const TAG = /^[a-z][a-z0-9-]{1,30}$/u;
 const GITHUB_ACTOR = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(?:\[bot\])?$/u;
 const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|latitude|longitude|(?:exact)?coordinates|bearer\s+[A-Za-z0-9._~-]+)/giu;
-const RAW_PRIVATE_KEY = /^(?:uid|email|healthData|snapshot|name|credential|credentials|secret|secrets|apiKey|sessionCookie|cookie|authorization|token|accessToken|refreshToken|identityToken|idToken|appCheckToken|firebaseCustomToken)$/iu;
 const RAW_PRIVATE_VALUE = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}|\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b|\bAIza[A-Za-z0-9_-]{20,}\b|bearer\s+[A-Za-z0-9._~-]+)/iu;
 const RECEIPT_KEYS = ["schemaVersion", "correlationDigest", "caseId", "fixtureDigest", "requestDigest",
   "targetFingerprint", "outcome", "providerCalls", "quotaConsumed", "userDataWrites", "card", "response",
@@ -784,19 +783,169 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
       responseBody: prefixedEvidenceDigest(value) } };
 }
 
+const PRODUCT_SCALAR = Symbol("product-scalar");
+const productExecutionSchema = { providerCalls: PRODUCT_SCALAR, quotaConsumed: PRODUCT_SCALAR, writes: PRODUCT_SCALAR };
+const productEvidenceSchema = { evidenceId: PRODUCT_SCALAR, source: PRODUCT_SCALAR, sourceId: PRODUCT_SCALAR,
+  sourceRevision: PRODUCT_SCALAR, field: PRODUCT_SCALAR, value: PRODUCT_SCALAR, asOf: PRODUCT_SCALAR,
+  ownerScope: PRODUCT_SCALAR };
+const nullableProductSchema = (schema) => (value) => value === null ? PRODUCT_SCALAR : schema;
+const productPrescriptionSchema = { schemaVersion: PRODUCT_SCALAR, prescriptionId: PRODUCT_SCALAR,
+  factsId: PRODUCT_SCALAR, snapshotRevision: PRODUCT_SCALAR, planRevision: PRODUCT_SCALAR,
+  rulesVersion: PRODUCT_SCALAR, validFrom: PRODUCT_SCALAR, validUntil: PRODUCT_SCALAR,
+  confidence: PRODUCT_SCALAR, status: PRODUCT_SCALAR, nextDays: [{ localDate: PRODUCT_SCALAR,
+    action: PRODUCT_SCALAR, workout: { kind: PRODUCT_SCALAR, durationMin: PRODUCT_SCALAR,
+      zone: PRODUCT_SCALAR, targetTss: PRODUCT_SCALAR }, reasonCodes: [PRODUCT_SCALAR],
+    evidenceIds: [PRODUCT_SCALAR], reassessBefore: [{ metric: PRODUCT_SCALAR, operator: PRODUCT_SCALAR,
+      threshold: { value: PRODUCT_SCALAR, evidenceId: PRODUCT_SCALAR }, maxAgeHours: PRODUCT_SCALAR,
+      evidenceIds: [PRODUCT_SCALAR], ruleId: PRODUCT_SCALAR }] }],
+  nextWeekLoad: { minTss: PRODUCT_SCALAR, maxTss: PRODUCT_SCALAR, evidenceIds: [PRODUCT_SCALAR] },
+  missingSignals: [PRODUCT_SCALAR], requiredSignals: [PRODUCT_SCALAR], checkInToken: PRODUCT_SCALAR,
+  evidence: [productEvidenceSchema], providerCalls: PRODUCT_SCALAR, quotaConsumed: PRODUCT_SCALAR };
+const productAnswerBlockSchema = (value) => {
+  const base = { blockId: PRODUCT_SCALAR, kind: PRODUCT_SCALAR, sourceSlotIds: [PRODUCT_SCALAR],
+    partial: PRODUCT_SCALAR, stale: PRODUCT_SCALAR, truncated: PRODUCT_SCALAR, omittedCount: PRODUCT_SCALAR };
+  if (value?.kind === "headline") return { kind: PRODUCT_SCALAR };
+  if (value?.kind === "grounded_markdown") return { ...base, markdown: PRODUCT_SCALAR,
+    evidenceIds: [PRODUCT_SCALAR] };
+  if (value?.kind === "prescription") return { ...base, prescription: productPrescriptionSchema };
+  throw new Error("web_evidence:v3_product_schema:response.data.answer.blocks.kind");
+};
+const productAnswerSchema = { schemaVersion: PRODUCT_SCALAR, catalogVersion: PRODUCT_SCALAR,
+  answerId: PRODUCT_SCALAR, sourceFactsId: PRODUCT_SCALAR, questionSummary: PRODUCT_SCALAR,
+  status: PRODUCT_SCALAR, blocks: [productAnswerBlockSchema], evidence: [productEvidenceSchema],
+  warnings: [{ code: PRODUCT_SCALAR, sourceSlotId: PRODUCT_SCALAR, metricId: PRODUCT_SCALAR }],
+  freshness: { asOf: PRODUCT_SCALAR, timezone: PRODUCT_SCALAR, staleSourceSlotIds: [PRODUCT_SCALAR] },
+  followUps: [{ queryTemplateId: PRODUCT_SCALAR, labelKey: PRODUCT_SCALAR }] };
+const ridePlanSchema = { schemaVersion: PRODUCT_SCALAR, status: PRODUCT_SCALAR, contextToken: PRODUCT_SCALAR,
+  inputRevision: PRODUCT_SCALAR, questionCode: PRODUCT_SCALAR,
+  course: { distanceM: PRODUCT_SCALAR, elevationGainM: PRODUCT_SCALAR },
+  estimate: nullableProductSchema({ totalTimeSec: PRODUCT_SCALAR, averageSpeedKph: PRODUCT_SCALAR }),
+  segments: [{ index: PRODUCT_SCALAR, startDistanceM: PRODUCT_SCALAR, endDistanceM: PRODUCT_SCALAR,
+    averageGradePct: PRODUCT_SCALAR, estimatedSpeedKph: PRODUCT_SCALAR, estimatedTimeSec: PRODUCT_SCALAR }],
+  assumptions: { model: PRODUCT_SCALAR, weather: PRODUCT_SCALAR, stops: PRODUCT_SCALAR,
+    fueling: PRODUCT_SCALAR, optimalSegmentPower: PRODUCT_SCALAR, riderMassKg: PRODUCT_SCALAR,
+    rollingResistance: PRODUCT_SCALAR }, exampleQuestionCodes: [PRODUCT_SCALAR], execution: productExecutionSchema };
+const proposalRevisionSchema = { goalId: PRODUCT_SCALAR, goalHash: PRODUCT_SCALAR,
+  planRevision: PRODUCT_SCALAR, weeks: [{ weekId: PRODUCT_SCALAR, hash: PRODUCT_SCALAR }] };
+const proposalSchema = { schemaVersion: PRODUCT_SCALAR, proposalId: PRODUCT_SCALAR, status: PRODUCT_SCALAR,
+  source: { checkInRequestId: PRODUCT_SCALAR, prescriptionId: PRODUCT_SCALAR, factsId: PRODUCT_SCALAR,
+    snapshotRevision: PRODUCT_SCALAR, rulesVersion: PRODUCT_SCALAR, weeklyCheckInId: PRODUCT_SCALAR,
+    weeklyCheckInRevision: PRODUCT_SCALAR }, targetRevision: proposalRevisionSchema,
+  changes: [{ weekId: PRODUCT_SCALAR, dayIndex: PRODUCT_SCALAR, localDate: PRODUCT_SCALAR,
+    action: PRODUCT_SCALAR, before: { action: PRODUCT_SCALAR,
+      workout: { kind: PRODUCT_SCALAR, durationMin: PRODUCT_SCALAR, targetTss: PRODUCT_SCALAR } },
+    workout: { kind: PRODUCT_SCALAR, durationMin: PRODUCT_SCALAR, targetTss: PRODUCT_SCALAR },
+    reasonCodes: [PRODUCT_SCALAR], evidenceIds: [PRODUCT_SCALAR] }], evidence: [productEvidenceSchema],
+  consent: { policyVersion: PRODUCT_SCALAR, revision: PRODUCT_SCALAR }, createdAt: PRODUCT_SCALAR,
+  expiresAt: PRODUCT_SCALAR, providerCalls: PRODUCT_SCALAR, quotaConsumed: PRODUCT_SCALAR };
+const PRODUCT_REQUEST_SCHEMAS = new Map([
+  ["/v1/coach/ride-plan/token", { courseId: PRODUCT_SCALAR }],
+  ["/v1/coach/ride-plan", { courseId: PRODUCT_SCALAR, contextToken: PRODUCT_SCALAR }],
+  ["/v1/coach/ride-plan/ai-context", { courseId: PRODUCT_SCALAR, contextToken: PRODUCT_SCALAR,
+    questionCode: PRODUCT_SCALAR }],
+  ["/v1/coach/respond", { requestId: PRODUCT_SCALAR, question: PRODUCT_SCALAR, discipline: PRODUCT_SCALAR,
+    locale: PRODUCT_SCALAR, apiVersion: PRODUCT_SCALAR, schemaVersion: PRODUCT_SCALAR,
+    capabilityVersion: PRODUCT_SCALAR, contextFilters: { pmcSnapshotId: PRODUCT_SCALAR,
+      riderSnapshotId: PRODUCT_SCALAR, progressPlanner: { prescriptionId: PRODUCT_SCALAR,
+        sourceRequestId: PRODUCT_SCALAR }, ridePlan: { contextToken: PRODUCT_SCALAR,
+        inputRevision: PRODUCT_SCALAR, questionCode: PRODUCT_SCALAR } },
+    responseFormat: PRODUCT_SCALAR, expectedSessionRevision: PRODUCT_SCALAR }],
+]);
+const PRODUCT_RESPONSE_SCHEMAS = new Map([
+  ["/v1/coach/status", { data: { status: PRODUCT_SCALAR } }],
+  ["/v1/coach/insights/pmc", { data: { schemaVersion: PRODUCT_SCALAR, status: PRODUCT_SCALAR,
+    discipline: PRODUCT_SCALAR, snapshotId: PRODUCT_SCALAR, sourceRevision: PRODUCT_SCALAR, asOf: PRODUCT_SCALAR,
+    current: { ctl: PRODUCT_SCALAR, atl: PRODUCT_SCALAR, form: PRODUCT_SCALAR },
+    delta7d: { ctl: PRODUCT_SCALAR, atl: PRODUCT_SCALAR, form: PRODUCT_SCALAR },
+    freshness: { status: PRODUCT_SCALAR, maxAgeHours: PRODUCT_SCALAR, reasonCodes: [PRODUCT_SCALAR] },
+    sourceQuality: { level: PRODUCT_SCALAR, estimatedLoad: PRODUCT_SCALAR, reasonCodes: [PRODUCT_SCALAR] },
+    classification: PRODUCT_SCALAR, interpretationCode: PRODUCT_SCALAR,
+    exampleQuestionCodes: [PRODUCT_SCALAR], execution: productExecutionSchema } }],
+  ["/v1/coach/insights/rider", { data: { schemaVersion: PRODUCT_SCALAR, status: PRODUCT_SCALAR,
+    discipline: PRODUCT_SCALAR, snapshotId: PRODUCT_SCALAR, sourceRevision: PRODUCT_SCALAR, asOf: PRODUCT_SCALAR,
+    profile: nullableProductSchema({ type: PRODUCT_SCALAR, axisX: PRODUCT_SCALAR, axisY: PRODUCT_SCALAR,
+      confidence: PRODUCT_SCALAR }), mmpWatts: { "5s": PRODUCT_SCALAR, "1m": PRODUCT_SCALAR,
+      "5m": PRODUCT_SCALAR, "20m": PRODUCT_SCALAR },
+    criticalPower: nullableProductSchema({ cpWatts: PRODUCT_SCALAR, wPrimeJoules: PRODUCT_SCALAR,
+      r2: PRODUCT_SCALAR }), model: nullableProductSchema({ pmaxWatts: PRODUCT_SCALAR,
+      frcJoules: PRODUCT_SCALAR, ftpEstWatts: PRODUCT_SCALAR, cpEstWatts: PRODUCT_SCALAR,
+      tteMinutes: PRODUCT_SCALAR }), ability: nullableProductSchema({ overallPercentile: PRODUCT_SCALAR,
+      byDuration: [{ duration: PRODUCT_SCALAR, wPerKg: PRODUCT_SCALAR, percentile: PRODUCT_SCALAR }] }),
+    activityCount: PRODUCT_SCALAR, weightKgSnapshot: PRODUCT_SCALAR, reasonCodes: [PRODUCT_SCALAR],
+    exampleQuestionCodes: [PRODUCT_SCALAR], execution: productExecutionSchema } }],
+  ["/v1/coach/change-proposals", { status: PRODUCT_SCALAR, providerCalls: PRODUCT_SCALAR,
+    quotaConsumed: PRODUCT_SCALAR, data: { schemaVersion: PRODUCT_SCALAR,
+      source: { prescriptionId: PRODUCT_SCALAR, sourceRequestId: PRODUCT_SCALAR },
+      recoveryStatus: PRODUCT_SCALAR, reasonCode: PRODUCT_SCALAR,
+      proposal: nullableProductSchema(proposalSchema), receipt: nullableProductSchema({ schemaVersion: PRODUCT_SCALAR,
+        proposalId: PRODUCT_SCALAR, auditId: PRODUCT_SCALAR, status: PRODUCT_SCALAR,
+        appliedAt: PRODUCT_SCALAR, revertedAt: PRODUCT_SCALAR, beforeRevision: proposalRevisionSchema,
+        afterRevision: proposalRevisionSchema, providerCalls: PRODUCT_SCALAR, quotaConsumed: PRODUCT_SCALAR }),
+      confirmNonce: PRODUCT_SCALAR, rollbackRequestId: PRODUCT_SCALAR,
+      providerCalls: PRODUCT_SCALAR, quotaConsumed: PRODUCT_SCALAR } }],
+  ["/v1/coach/ride-plan/token", { data: { contextToken: PRODUCT_SCALAR, inputRevision: PRODUCT_SCALAR,
+    expiresAt: PRODUCT_SCALAR, secretVersion: PRODUCT_SCALAR, execution: productExecutionSchema } }],
+  ["/v1/coach/ride-plan", { data: ridePlanSchema }],
+  ["/v1/coach/ride-plan/ai-context", { data: ridePlanSchema }],
+  ["/v1/coach/respond", { data: { apiVersion: PRODUCT_SCALAR, capabilityVersion: PRODUCT_SCALAR,
+    schemaVersion: PRODUCT_SCALAR, requestId: PRODUCT_SCALAR, outcome: PRODUCT_SCALAR,
+    answer: nullableProductSchema(productAnswerSchema), clarification: { clarificationId: PRODUCT_SCALAR,
+      promptKey: PRODUCT_SCALAR, options: [{ optionId: PRODUCT_SCALAR, labelKey: PRODUCT_SCALAR }],
+      turnToken: PRODUCT_SCALAR, expiresAt: PRODUCT_SCALAR, resolutionMode: PRODUCT_SCALAR,
+      consumesQuota: PRODUCT_SCALAR, providerCalls: PRODUCT_SCALAR, reasonCode: PRODUCT_SCALAR },
+    unsupported: { reasonCodes: [PRODUCT_SCALAR], missingCapabilities: [{ domain: PRODUCT_SCALAR,
+      metricId: PRODUCT_SCALAR, operationId: PRODUCT_SCALAR }], suggestedQueries: [{ queryTemplateId: PRODUCT_SCALAR,
+      labelKey: PRODUCT_SCALAR }] }, error: { code: PRODUCT_SCALAR, retryable: PRODUCT_SCALAR,
+      fallbackAvailable: PRODUCT_SCALAR }, quota: { limit: PRODUCT_SCALAR, remaining: PRODUCT_SCALAR,
+      resetAt: PRODUCT_SCALAR, consumed: PRODUCT_SCALAR }, budget: { blocked: PRODUCT_SCALAR,
+      providerCalls: PRODUCT_SCALAR, inputTokens: PRODUCT_SCALAR, outputTokens: PRODUCT_SCALAR },
+    retry: { mode: PRODUCT_SCALAR, quotaImpact: PRODUCT_SCALAR, previousTurnConsumed: PRODUCT_SCALAR,
+      providerCallAllowed: PRODUCT_SCALAR, retryable: PRODUCT_SCALAR, reasonCode: PRODUCT_SCALAR },
+    execution: { parser: PRODUCT_SCALAR, queryPlanHash: PRODUCT_SCALAR, catalogVersion: PRODUCT_SCALAR,
+      factsId: PRODUCT_SCALAR, prescriptionId: PRODUCT_SCALAR, prescriptionRulesVersion: PRODUCT_SCALAR,
+      asOf: PRODUCT_SCALAR } } }],
+]);
+
+function assertProductShape(value, schema, path) {
+  if (typeof schema === "function") return assertProductShape(value, schema(value), path);
+  if (schema === PRODUCT_SCALAR) {
+    if (value !== null && typeof value === "object" || typeof value === "undefined") {
+      throw new Error(`web_evidence:v3_product_schema:${path}`);
+    }
+    return;
+  }
+  if (Array.isArray(schema)) {
+    if (!Array.isArray(value)) throw new Error(`web_evidence:v3_product_schema:${path}`);
+    value.forEach((item, index) => assertProductShape(item, schema[0], `${path}.${index}`)); return;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`web_evidence:v3_product_schema:${path}`);
+  }
+  for (const [key, item] of Object.entries(value)) {
+    if (!Object.hasOwn(schema, key)) throw new Error(`web_evidence:v3_product_schema:${path}.${key}`);
+    assertProductShape(item, schema[key], `${path}.${key}`);
+  }
+}
+
 export function assertProductNetworkPrivacy(url, requestBody, responseBody, options = {}) {
   const observedUrl = new URL(url); const progress = options.progressPlanner ?? {}; const pathname = observedUrl.pathname;
-  for (const [name, expected] of [["prescriptionId", progress.prescriptionId],
-    ["sourceRequestId", progress.sourceRequestId]]) {
-    const values = observedUrl.searchParams.getAll(name);
-    if (pathname === "/v1/coach/change-proposals" && values.length === 1
-        && typeof expected === "string" && values[0] === expected) {
-      observedUrl.searchParams.delete(name);
-    }
+  const allowedQuery = pathname === "/v1/coach/change-proposals"
+    ? { prescriptionId: progress.prescriptionId, sourceRequestId: progress.sourceRequestId }
+    : ["/v1/coach/insights/pmc", "/v1/coach/insights/rider"].includes(pathname) ? { discipline: "bike" } : {};
+  if ([...observedUrl.searchParams.keys()].length !== Object.keys(allowedQuery).length
+      || Object.entries(allowedQuery).some(([key, expected]) => observedUrl.searchParams.getAll(key).length !== 1
+        || observedUrl.searchParams.get(key) !== expected)) {
+    throw new Error("web_evidence:v3_product_schema:query");
   }
-  for (const [key, value] of observedUrl.searchParams) {
-    if (RAW_PRIVATE_KEY.test(key) || RAW_PRIVATE_VALUE.test(value)) throw new Error("web_evidence:v3_product_privacy");
-  }
+  observedUrl.search = "";
+  const requestSchema = PRODUCT_REQUEST_SCHEMAS.get(pathname);
+  if (requestBody !== undefined) {
+    if (!requestSchema) throw new Error("web_evidence:v3_product_schema:request");
+    assertProductShape(requestBody, requestSchema, "request");
+  } else if (requestSchema) throw new Error("web_evidence:v3_product_schema:request");
+  const responseSchema = PRODUCT_RESPONSE_SCHEMAS.get(pathname);
+  if (!responseSchema) throw new Error("web_evidence:v3_product_schema:response");
+  if (responseBody && Object.keys(responseBody).length > 0) assertProductShape(responseBody, responseSchema, "response");
   const approvedField = (direction, path, key, value) => {
     if (direction === "request" && pathname === "/v1/coach/respond" && path === "" && key === "question") {
       return FOUR_AXIS_CASES.some((entry) => entry.question === value);
@@ -816,6 +965,10 @@ export function assertProductNetworkPrivacy(url, requestBody, responseBody, opti
     }
     if (direction === "response" && pathname === "/v1/coach/change-proposals"
         && path === "data.proposal" && key === "proposalId") return value === progress.proposalId;
+    if (direction === "response" && pathname === "/v1/coach/change-proposals"
+        && path === "data.proposal.source" && key === "prescriptionId") return value === progress.prescriptionId;
+    if (direction === "response" && pathname === "/v1/coach/respond"
+        && path === "data.execution" && key === "prescriptionId") return value === progress.prescriptionId;
     return direction === "response" && pathname === "/v1/coach/respond"
       && /^data\.answer\.blocks\.\d+\.prescription$/u.test(path) && key === "prescriptionId"
       && value === progress.prescriptionId;
@@ -828,7 +981,6 @@ export function assertProductNetworkPrivacy(url, requestBody, responseBody, opti
     const result = {};
     for (const [key, item] of Object.entries(value)) {
       if (approvedField(direction, path, key, item)) continue;
-      if (RAW_PRIVATE_KEY.test(key)) throw new Error("web_evidence:v3_product_privacy");
       result[key] = inspectAndRedact(item, direction, path ? `${path}.${key}` : key);
     }
     return result;
