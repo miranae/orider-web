@@ -37,6 +37,38 @@
     "addMetrics": "FTP와 체중을 입력해 예상 기록 보기",
     "disclaimer": "평균 경사와 내 FTP 또는 파워 지속곡선을 사용한 물리 모델 추정치예요. 바람·노면·교통은 반영하지 않아요."
   },
+  "ridePlan": {
+    "eyebrow": "출발 전 AI 코치",
+    "title": "내 Ride Plan",
+    "loading": "서버에서 내 코스 계획을 준비하는 중입니다…",
+    "retry": "새 계획 다시 불러오기",
+    "eta": "예상 주행 시간",
+    "averageSpeed": "예상 평균 속도",
+    "distance": "분석 거리",
+    "elevation": "획득 고도",
+    "segments": "구간별 예상",
+    "segment": "구간 {{number}}",
+    "state": {
+      "missingPdc": "측정 파워 기반 PDC가 필요합니다. 파워 기록을 동기화한 뒤 다시 확인해 주세요.",
+      "missingWeight": "개인화된 예상에 필요한 체중 snapshot이 없습니다. 프로필을 확인해 주세요.",
+      "missingElevation": "이 코스의 고도 정보가 부족해 Ride Plan을 만들 수 없습니다.",
+      "stale": "코스 또는 라이더 데이터가 변경되었습니다. 최신 입력으로 다시 불러와 주세요.",
+      "unavailable": "이 코스의 Ride Plan을 사용할 수 없습니다.",
+      "error": "Ride Plan을 안전하게 확인하지 못했습니다. 기존 코스 정보는 그대로 유지됩니다."
+    },
+    "assumptions": {
+      "title": "모델 가정",
+      "description": "CP·W′ 전체 코스 모델을 사용합니다. 날씨와 정차는 반영하지 않으며 보급 시점과 최적 구간 파워는 생성하지 않습니다."
+    },
+    "questions": {
+      "title": "이 계획을 AI 코치에게 물어보기",
+      "HARDEST_SECTION": "이 코스에서 가장 힘든 구간은 어디인가요?",
+      "PERSONAL_PACING": "제 능력에 맞춰 어떻게 나눠 타면 될까요?",
+      "loading": "카드와 동일한 입력 버전을 확인하는 중입니다…",
+      "error": "질문 컨텍스트가 카드와 일치하지 않아 입력하지 않았습니다. 최신 계획을 다시 불러와 주세요.",
+      "note": "질문을 선택하면 동일 입력 버전만 확인하고 입력창을 채웁니다. 전송 버튼을 누르기 전에는 자연어 질문 전송·provider 호출·할당량 사용이 없습니다."
+    }
+  },
   "tagSection": "태그",
   "courseSegments": "이 코스의 세그먼트",
   "difficulty.easy": "쉬움",

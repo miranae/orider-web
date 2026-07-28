@@ -4,6 +4,7 @@ import type { PdcDoc } from "@shared/types/pdc";
 import type { RunDistanceKey, RunPrTable } from "@shared/types/personal-records";
 import { estimateLoad, isSaneTss } from "@shared/training/activityLoad";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
+import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 
 export const LOAD_FOCUS_WINDOW_DAYS = 28;
 export const MIN_ZONE_COVERAGE = 0.5;
@@ -37,6 +38,8 @@ export interface CyclingAbilityResult {
   axes: CyclingAbilityAxis[];
   confidence: EvidenceConfidence;
   activityCount: number;
+  sourceRevision?: string;
+  asOf?: string;
 }
 
 export interface RunEvidence {
@@ -205,7 +208,7 @@ function axisConfidence(evidenceCount: number, expected: number, activityCount: 
 }
 
 export function computeCyclingAbility(pdc: PdcDoc | null | undefined): CyclingAbilityResult | null {
-  if (!pdc) return null;
+  if (!hasDefinitiveRiderProfile(pdc)) return null;
   const mmpAll = pdc.mmpAll ?? {};
   const percentileByDuration = new Map(
     (pdc.ability?.byDuration ?? []).map((entry) => [entry.duration, entry.percentile]),

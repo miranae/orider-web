@@ -28,6 +28,7 @@ import type { PdcDoc } from "@shared/types/pdc";
 import { usePdc } from "../hooks/usePdc";
 import { Button, Card, Chip, Text } from "../theme/components";
 import SafeImage from "../components/SafeImage";
+import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 
 function formatHours(ms: number): string {
   const hours = Math.floor(ms / 3600000);
@@ -35,10 +36,6 @@ function formatHours(ms: number): string {
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
 }
-
-const RIDER_TYPE_KEYS = new Set([
-  "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified",
-]);
 
 function mostUrgentGear(activities: Activity[]): Activity["gear"] | null {
   const byName = new Map<string, NonNullable<Activity["gear"]>>();
@@ -63,11 +60,10 @@ function AthleteIdentityChips({
   const { t: tFitness } = useTranslation("fitness");
   const chips: ReactNode[] = [];
 
-  if (pdc?.riderType && pdc.riderType.confidence >= 0.5) {
-    const type = RIDER_TYPE_KEYS.has(pdc.riderType.type) ? pdc.riderType.type : "Unclassified";
+  if (hasDefinitiveRiderProfile(pdc)) {
     chips.push(
       <Chip key="riderType" variant="accent" dot>
-        {tFitness(`riderType.type.${type}.label`)}
+        {tFitness(`riderType.type.${pdc.riderType.type}.label`)}
       </Chip>,
     );
   }

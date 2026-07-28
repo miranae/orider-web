@@ -521,7 +521,7 @@ export default function DashboardPage() {
           </div>
         )}
         <div style={{ marginTop: 'var(--space-3)' }}>
-          <CoachQuestionLauncher user={user} discipline={coachDiscipline} onSignIn={signInWithGoogle} />
+          <CoachQuestionLauncher user={user} discipline={coachDiscipline} onSignIn={signInWithGoogle} showPmcInsight />
         </div>
 
         {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}

@@ -348,6 +348,7 @@ export default function MobileFeedPage({
             ? sportFilter
             : (profile?.primaryDiscipline && profile.primaryDiscipline !== "tri" ? profile.primaryDiscipline : "bike")}
           onSignIn={signInWithGoogle}
+          showPmcInsight
         />
       </div>
 

@@ -5,6 +5,78 @@
   "subtitle": "Answers based on your training records.",
   "independentNote": "A new question is saved as a new conversation.",
   "context": "{{discipline}} record analysis",
+  "pmc": {
+    "title": "Training load and form",
+    "subtitle": "Canonical {{discipline}} data",
+    "loading": "Checking training load…",
+    "unavailable": "The training-load card is unavailable right now. Your existing Fitness view remains available.",
+    "accessibleStatus": "Data status {{status}}, freshness {{freshness}}, source quality {{quality}}",
+    "metrics": { "ctl": "Fitness (CTL)", "atl": "Fatigue (ATL)", "form": "Form" },
+    "delta7d": "7-day change {{value}}",
+    "asOf": "As of {{value}}",
+    "sourceQuality": "Freshness {{freshness}} · source {{quality}}",
+    "questionsLabel": "Example questions about your current training load",
+    "questions": {
+      "pmc_recent_load_change": "How has my training load changed over the last 7 days?",
+      "pmc_current_form_intensity": "How should I set this week’s intensity based on my current form?"
+    },
+    "status": { "ok": "Verified", "partial": "Partial data", "stale": "Refresh needed", "missing": "Data missing" },
+    "freshness": { "fresh": "Current", "stale": "Stale", "missing": "Unavailable" },
+    "quality": { "complete": "Complete", "estimated": "Partly estimated", "incomplete": "Incomplete", "unavailable": "Unavailable" },
+    "interpretation": {
+      "normal_load": "Your current load is classified in the normal range.",
+      "productive_load": "Your current load is classified in the productive-load range.",
+      "high_load": "Your recent load is classified in the high-load range.",
+      "recovery_review": "Review your recovery state before choosing workout intensity.",
+      "insufficient_history": "There is not enough history for a conclusion.",
+      "incomplete_data": "Some data is missing, so no definitive interpretation is shown.",
+      "refresh_required": "Refresh the data before reviewing this state again.",
+      "data_unavailable": "There is no data available to interpret right now."
+    },
+    "safe": {
+      "partial": "Only partial data is available, so no definitive interpretation is shown. A selected question carries this data state.",
+      "stale": "This data is stale, so definitive interpretation and linked questions are disabled.",
+      "missing": "Required data is missing, so definitive interpretation and linked questions are disabled.",
+      "ok": ""
+    }
+  },
+  "rider": {
+    "title": "Rider Insight",
+    "subtitle": "Canonical O·RIDER power-duration result",
+    "loading": "Checking your rider characteristics…",
+    "unavailable": "Rider Insight is unavailable right now. Your existing Fitness PDC result remains available.",
+    "accessibleStatus": "Rider analysis status {{status}}, {{count}} canonical activities",
+    "resultLabel": "Your rider type",
+    "confidence": "{{value}}% confidence",
+    "ability": "Overall ability · percentile {{value}}",
+    "axis": {
+      "endurance": "Duration tendency · explosive − / sustained +",
+      "weight": "Output tendency · raw power − / W/kg +"
+    },
+    "durationTitle": "Ability by duration",
+    "duration": { "5s": "5 sec", "1m": "1 min", "5m": "5 min", "20m": "20 min" },
+    "strength": "Strength",
+    "improve": "Improve",
+    "asOf": "As of {{value}}",
+    "sourceNote": "Uses the canonical O·RIDER measured-power PDC. Activity IDs, dates, and history are not sent with AI requests.",
+    "questionsLabel": "Example questions about your current Rider Insight",
+    "questions": {
+      "RIDER_TYPE_STRENGTHS": "Explain my rider type, strengths, and areas to improve.",
+      "RIDER_DURATION_PRIORITY": "Which duration range should I train first?"
+    },
+    "status": {
+      "ok": "Verified", "missing": "No PDC", "missing_weight": "Weight needed",
+      "insufficient_activity": "Not enough activities", "low_confidence": "Low confidence", "unsupported": "Unsupported"
+    },
+    "safe": {
+      "missing": "There is no measured-power PDC to classify yet. No rider type is asserted.",
+      "missing_weight": "Weight is required for W/kg, so no rider type is asserted.",
+      "insufficient_activity": "There are {{count}} canonical activities. No rider type is asserted until at least five are available.",
+      "low_confidence": "Classification confidence is below the threshold, so no rider type, strength, or improvement claim is asserted.",
+      "unsupported": "Rider Insight is currently available for cycling only.",
+      "ok": ""
+    }
+  },
   "signInRequired": "Sign in so AI Coach can analyze your training records.",
   "signIn": "Sign in",
   "loadingStatus": "Checking today's available uses…",
@@ -211,6 +283,15 @@
     "insufficient": { "title": "More data is needed for a prescription", "body": "Review the missing data or continue with your existing plan." }, "existingPlan": "View existing plan",
     "safety": { "title": "No workout prescription is shown", "body": "Stop exercising if you have pain or illness and seek medical help when needed." }
   },
+  "progress": {
+    "origin": { "aiCoach": "AI Coach proposal", "separate": "This proposal is distinct from automatic weekly adjustments. The server rechecks the current plan for conflicts." },
+    "review": { "title": "Review plan changes", "body": "Choose dates, then review the server-derived before, after, reasons, and evidence.", "selectDates": "Candidate dates", "create": "Preview changes", "creating": "Checking changes…", "before": "Before", "after": "After", "reasons": "Reasons", "refresh": "Refresh current status", "noCharge": "Reading and preview: 0 AI calls · 0 quota · 0 plan writes" },
+    "confirm": { "review": "Review apply action", "final": "Confirm and apply to plan", "title": "Final confirmation", "body": "Only the next button press asks the server to recheck consent and revisions and change the plan." },
+    "rollback": { "action": "Roll back applied changes" },
+    "states": { "loading": "Checking plan capabilities.", "unavailable": "Plan capability status is unavailable", "proposalDisabled": "Proposal creation is currently disabled. Your existing plan remains unchanged.", "confirmDisabled": "Apply is currently disabled, so your plan will not change.", "confirmRecoveryUnavailable": "The recovered proposal has no confirmation credential and is read-only.", "applied": "Applied to the plan exactly once", "reverted": "Restored the audited before state", "receipt": "Audit record {{id}}", "stale": "The plan, weekly check-in, or consent changed, so this proposal cannot be applied.", "disabled": "This change capability is currently disabled.", "conflict": "A later plan change conflicts with this action, so nothing was changed.", "error": "The change state could not be verified. Your existing plan remains unchanged.", "reanalyze": "Recheck with a new analysis", "retryConfirm": "Retry the same apply request", "retryRollback": "Retry the same rollback request" },
+    "questions": { "label": "Ask about this result", "priority": "What is the most important workout in this week's plan?", "changed": "Explain what changed because of my recent completion results.", "linked": "Question linked to this result request" },
+    "reason": {}
+  },
   "clarification": {
     "title": "Please make the question a little more specific", "policy": "This choice: {{quota}} · {{provider}} AI calls",
     "policyContinue": "No additional turn · {{provider}} AI calls",
@@ -225,5 +306,6 @@
     "quota_exceeded": "You have used all questions available today.",
     "budget_blocked": "A response cannot be generated due to the current AI budget limit.",
     "failed": "The answer could not be completed. Any partial result shown is limited to the safely verified scope."
-  }
+  },
+  "ridePlan": { "questions": { "linked": "Linked to this exact Ride Plan input revision" } }
 }

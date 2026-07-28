@@ -34,6 +34,7 @@ import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
 import { Button, buttonClass, Card, Chip, Text } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
+import { CourseRidePlanSection } from "../features/courses/CourseRidePlanSection";
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
 import { formatClimbDuration, predictClimb, type ClimbPrediction } from "@shared/sim/climbPrediction";
@@ -1289,6 +1290,9 @@ export default function CoursePage() {
           )}
         </div>
       </Card>
+
+      <CourseRidePlanSection courseId={courseId ?? course.id} isOwner={isOwner} user={user}
+        onSignIn={() => { void signInWithGoogle(); }} />
 
       {/* Back */}
       <div className="flex items-center">

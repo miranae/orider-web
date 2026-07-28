@@ -12,6 +12,7 @@ public/locales/
 .env
 .env.local
 .env.*.local
+gha-creds-*.json
 
 # Test / coverage
 coverage/

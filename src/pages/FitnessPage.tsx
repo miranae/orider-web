@@ -88,6 +88,10 @@ import { useFitnessClock } from "../hooks/useFitnessClock";
 import { useDialog } from "../contexts/DialogContext";
 import { useToast } from "../contexts/ToastContext";
 import { persistRiderMetrics } from "../services/syncRiderMetrics";
+import { useCoachRiderInsight } from "../hooks/useCoachRiderInsight";
+import { getRuntimeConfig } from "../services/runtimeConfig";
+import { buildCanonicalRiderFitnessView, cyclingAbilityFromCanonicalRider } from "../features/fitness/riderInsightParity";
+import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -115,15 +119,17 @@ export default function FitnessPage() {
   // 사용하지 않지만 effect 내부 호환을 위해 setter 만 남기고 read 는 제거.
   const [, setGoalQueryDone] = useState(false);
   const isMobile = useMobile();
+  const [searchParams] = useSearchParams();
+  const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
   const { pdc } = usePdc(user?.uid);
+  const riderInsightEnabled = getRuntimeConfig().coachRiderInsightEnabled === true && discipline === "bike";
+  const { insight: coachRiderInsight } = useCoachRiderInsight(user?.uid, riderInsightEnabled);
   const { fitness: userFitness } = useUserFitness(!!user);
   const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
-  const [searchParams] = useSearchParams();
-  const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
   const canonicalFtpW = appliedFtpW ?? profile?.ftp ?? null;
   const thresholdDecision = useMemo(
     () => resolveBikeThresholdDecision(canonicalFtpW, pdc),
@@ -540,7 +546,16 @@ export default function FitnessPage() {
     () => computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
     [activities, metricsMap, fitnessClock],
   );
-  const cyclingAbility = useMemo(() => computeCyclingAbility(pdc), [pdc]);
+  const canonicalRiderView = useMemo(
+    () => buildCanonicalRiderFitnessView(pdc, coachRiderInsight),
+    [coachRiderInsight, pdc],
+  );
+  const mayUsePersistedPdcFallback = !riderInsightEnabled || coachRiderInsight === null;
+  const cyclingAbility = useMemo(
+    () => cyclingAbilityFromCanonicalRider(canonicalRiderView)
+      ?? (mayUsePersistedPdcFallback ? computeCyclingAbility(pdc) : null),
+    [canonicalRiderView, mayUsePersistedPdcFallback, pdc],
+  );
   const runEvidence = useMemo(
     () => buildRunEvidence(userFitness?.thresholds?.run?.thresholdPace ?? profile?.thresholdPace, runRecords),
     [userFitness, profile?.thresholdPace, runRecords],
@@ -722,12 +737,27 @@ export default function FitnessPage() {
           cyclingAbility,
           runEvidence,
           swimEvidence,
-          pdcSummary: discipline === "bike" ? {
-            riderType: pdc?.riderType ?? null,
-            abilityScore: pdc?.ability?.overallPercentile ?? null,
+          pdcSummary: discipline === "bike" ? canonicalRiderView ? {
+            riderType: canonicalRiderView.profile,
+            abilityScore: canonicalRiderView.ability?.overallPercentile ?? null,
+            vo2maxEst: canonicalRiderView.vo2maxEst,
+            activityCount: canonicalRiderView.activityCount,
+            weightKgSnapshot: canonicalRiderView.weightKgSnapshot,
+            version: 5,
+            provenanceVersion: 2,
+            measuredPower: true,
+            sourceRevision: canonicalRiderView.sourceRevision,
+            asOf: canonicalRiderView.asOf,
+          } : mayUsePersistedPdcFallback ? {
+            riderType: hasDefinitiveRiderProfile(pdc) ? pdc.riderType : null,
+            abilityScore: hasDefinitiveRiderProfile(pdc) ? pdc.ability?.overallPercentile ?? null : null,
             vo2maxEst: pdc?.vo2maxEst ?? null,
             activityCount: pdc?.activityCount ?? null,
-          } : null,
+            weightKgSnapshot: pdc?.weightKgSnapshot ?? null,
+            version: pdc?.version ?? null,
+            provenanceVersion: pdc?.provenance?.version ?? null,
+            measuredPower: pdc?.provenance?.power === "measured" && pdc?.provenance?.excludesVirtualPower === true,
+          } : null : null,
           zones,
           zoneSource,
           powerCurve,
