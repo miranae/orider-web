@@ -7,7 +7,7 @@ trap 'rm -rf "$TEST_TMP"' EXIT
 
 export REAL_GIT="$(command -v git)"
 export MOCK_ARGS_FILE="$TEST_TMP/codex-args"
-export MOCK_STDIN_FILE="$TEST_TMP/codex-stdin"
+export MOCK_PROMPT_FILE="$TEST_TMP/codex-prompt"
 
 mkdir -p "$TEST_TMP/bin"
 cat >"$TEST_TMP/bin/git" <<'MOCK'
@@ -40,18 +40,20 @@ MOCK
 cat >"$TEST_TMP/bin/codex" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$@" >"$MOCK_ARGS_FILE"
-cat >"$MOCK_STDIN_FILE"
-[[ "${1:-}" == "exec" && "${2:-}" == "review" ]] || exit 64
-shift 2
+[[ "${1:-}" == "exec" ]] || exit 64
+shift
 out=""
+prompt=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --base|-c) shift 2 ;;
+    --sandbox|-C|-c) shift 2 ;;
     -o|--output-last-message) out="$2"; shift 2 ;;
     --ephemeral) shift ;;
-    *) echo "unexpected positional argument: $1" >&2; exit 64 ;;
+    -*) echo "unexpected option: $1" >&2; exit 64 ;;
+    *) [[ -z "$prompt" && $# -eq 1 ]] || { echo "unexpected positional argument: $1" >&2; exit 64; }; prompt="$1"; shift ;;
   esac
 done
+printf '%s\n' "$prompt" >"$MOCK_PROMPT_FILE"
 printf 'mock Codex comment\nMERGE_VERDICT: %s\n' "${MOCK_VERDICT:-PASS}" >"$out"
 echo "mock Codex execution log" >&2
 exit "${MOCK_EXIT:-0}"
@@ -70,18 +72,14 @@ run_gate() {
 pass_output="$(MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$pass_output"
 grep -qx "exec" "$MOCK_ARGS_FILE"
-grep -qx "review" "$MOCK_ARGS_FILE"
-grep -qx "origin/main" "$MOCK_ARGS_FILE"
 grep -qx -- "--ephemeral" "$MOCK_ARGS_FILE"
 grep -qx -- "-o" "$MOCK_ARGS_FILE"
 grep -qx 'model_reasoning_effort="low"' "$MOCK_ARGS_FILE"
-awk 'previous == "-c" && $0 == "sandbox_mode=\"read-only\"" { found++ } { previous=$0 } END { exit found == 1 ? 0 : 1 }' "$MOCK_ARGS_FILE"
-grep -q "당신은 머지 직전 엄격한 코드 리뷰어다" "$MOCK_STDIN_FILE"
-grep -q "MERGE_VERDICT: PASS" "$MOCK_STDIN_FILE"
-if grep -q "당신은 머지 직전 엄격한 코드 리뷰어다" "$MOCK_ARGS_FILE"; then
-  echo "review prompt must be passed through stdin, not as a positional argument" >&2
-  exit 1
-fi
+awk 'previous == "--sandbox" && $0 == "read-only" { found++ } { previous=$0 } END { exit found == 1 ? 0 : 1 }' "$MOCK_ARGS_FILE"
+awk -v root="$REPO_ROOT" 'previous == "-C" && $0 == root { found++ } { previous=$0 } END { exit found == 1 ? 0 : 1 }' "$MOCK_ARGS_FILE"
+grep -q "당신은 머지 직전 엄격한 코드 리뷰어다" "$MOCK_PROMPT_FILE"
+grep -q 'origin/main\.\.\.HEAD' "$MOCK_PROMPT_FILE"
+grep -q "MERGE_VERDICT: PASS" "$MOCK_PROMPT_FILE"
 if grep -Eq '^-m$|^--model$' "$MOCK_ARGS_FILE"; then
   echo "fast review must not pin a model" >&2
   exit 1

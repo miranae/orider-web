@@ -93,16 +93,7 @@ assert_local_head_matches_pr() {
 REVIEW_STARTED=0
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  (
-    set -o pipefail
-    printf '%s\n' "$REVIEW_PROMPT" | "${REVIEW_CMD[@]}" &
-    codex_pipeline_pid=$!
-    trap 'kill "$codex_pipeline_pid" 2>/dev/null || true' TERM INT EXIT
-    review_pipeline_rc=0
-    wait "$codex_pipeline_pid" || review_pipeline_rc=$?
-    trap - TERM INT EXIT
-    exit "$review_pipeline_rc"
-  ) >"$REVIEW_LOG" 2>&1 &
+  "${REVIEW_CMD[@]}" >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
     sleep "$timeout_s" &
@@ -253,9 +244,9 @@ MERGE_VERDICT: PASS"
     # 툴링 전용 diff — 모델은 설치된 기본값을 따르고 추론 강도만 낮춘다.
     review_effort="low"
   fi
-  REVIEW_CMD=(codex exec review --base "origin/$BASE" --ephemeral \
+  REVIEW_CMD=(codex exec --ephemeral --sandbox read-only -C "$REPO_ROOT" \
     -c "model_reasoning_effort=\"$review_effort\"" \
-    -c 'sandbox_mode="read-only"' -o "$REVIEW_OUT")
+    -o "$REVIEW_OUT" "$REVIEW_PROMPT")
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
   start_codex_review
 fi
