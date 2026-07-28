@@ -105,8 +105,8 @@ prepare_codex_review_workspace() {
   REVIEW_PARENT="$(mktemp -d -t orider-codex-review-parent)" || die "Codex 리뷰 임시 디렉터리 생성 실패"
   REVIEW_PARENT="$(realpath "$REVIEW_PARENT")"
   REVIEW_DIR="$REVIEW_PARENT/workspace"
-  REVIEW_TMP="$REVIEW_DIR/.codex-review/tmp"
-  mkdir -p "$REVIEW_TMP"
+  REVIEW_TMP="$REVIEW_PARENT/runtime"
+  mkdir -p "$REVIEW_DIR/.codex-review" "$REVIEW_TMP"
   : >"$REVIEW_PARENT/.codex-review-parent.marker"
   printf 'sandbox external sentinel\n' >"$REVIEW_PARENT/external-sentinel"
   if ! git archive "$HEAD_OID" | tar -x -C "$REVIEW_DIR"; then
@@ -163,7 +163,8 @@ configure_codex_sandbox() {
 
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  (cd "$REVIEW_DIR" && CODEX_HOME="$SANDBOX_CODEX_HOME" HOME="$SANDBOX_HOME" TMPDIR="$REVIEW_TMP" "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}") >"$REVIEW_LOG" 2>&1 &
+  (cd "$REVIEW_DIR" && CODEX_HOME="$SANDBOX_CODEX_HOME" HOME="$SANDBOX_HOME" TMPDIR="$REVIEW_TMP" \
+    "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}" <"$REVIEW_INPUT") >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
     sleep "$timeout_s" &
@@ -317,13 +318,24 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
     review_effort="low"
   fi
   prepare_codex_review_workspace
+  REVIEW_INPUT="$REVIEW_DIR/.codex-review/input.txt"
+  {
+    printf '%s\n\n' "$REVIEW_PROMPT"
+    printf '%s\n' '도구는 비활성화되어 있다. 아래 metadata와 diff 본문만 직접 검토하라.'
+    printf '%s\n' '--- metadata ---'
+    cat "$REVIEW_DIR/.codex-review/metadata.txt"
+    printf '%s\n' '--- diff ---'
+    cat "$REVIEW_DIR/.codex-review/diff.patch"
+  } >"$REVIEW_INPUT"
   configure_codex_sandbox
   # 외부 sandbox-exec가 실제 보안 경계다. 중첩 Seatbelt는 macOS가 forbidden-sandbox-reinit로 거부한다.
   REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox danger-full-access --skip-git-repo-check -C "$REVIEW_DIR" \
+    --disable shell_tool --disable unified_exec --disable code_mode_host --disable multi_agent \
+    --disable browser_use --disable in_app_browser --disable computer_use --disable image_generation \
     -c 'shell_environment_policy.inherit="none"' \
     -c "model_reasoning_effort=\"$review_effort\"" \
     --output-schema "$REVIEW_DIR/scripts/codex-review-output.schema.json" \
-    -o "$REVIEW_OUT" "$REVIEW_PROMPT")
+    -o "$REVIEW_OUT" -)
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
   start_codex_review
 fi

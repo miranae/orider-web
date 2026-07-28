@@ -60,6 +60,7 @@ out=""
 prompt=""
 review_dir=""
 schema=""
+disabled=""
 ignore_user_config=0
 read_only=0
 skip_git=0
@@ -73,15 +74,20 @@ while [[ $# -gt 0 ]]; do
       ;;
     -C) review_dir="$2"; shift 2 ;;
     --output-schema) schema="$2"; shift 2 ;;
+    --disable) disabled="$disabled $2"; shift 2 ;;
     -o|--output-last-message) out="$2"; shift 2 ;;
     --ignore-user-config) ignore_user_config=1; shift ;;
     --skip-git-repo-check) skip_git=1; shift ;;
     --ephemeral) shift ;;
+    -) prompt="$(/bin/cat)"; shift ;;
     -*) echo "unexpected option: $1" >&2; exit 64 ;;
     *) [[ -z "$prompt" && $# -eq 1 ]] || { echo "unexpected positional argument: $1" >&2; exit 64; }; prompt="$1"; shift ;;
   esac
 done
 [[ "$ignore_user_config" == 1 && "$read_only" == 1 && "$skip_git" == 1 ]] || exit 73
+for feature in shell_tool unified_exec code_mode_host multi_agent browser_use in_app_browser computer_use image_generation; do
+  [[ " $disabled " == *" $feature "* ]] || exit 83
+done
 expected_effort='model_reasoning_effort="low"'
 [[ "${MOCK_CHANGED:-scripts/merge-pr.sh}" == src/* ]] && expected_effort='model_reasoning_effort="medium"'
 [[ "$effort" == "$expected_effort" ]] || exit 74
