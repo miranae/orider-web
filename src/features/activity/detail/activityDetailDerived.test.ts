@@ -97,6 +97,82 @@ describe("activityDetailDerived", () => {
     });
   });
 
+  it("rejects truncated legacy sensors using indoor summary duration without route time or distance", () => {
+    const streams = {
+      watts: Array(60).fill(200),
+      heartrate: Array(60).fill(150),
+      cadence: Array(60).fill(85),
+    };
+
+    expect(deriveStreamSensorSummary(streams as never, 3_600)).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
+      hasCadenceStream: false,
+      hasRejectedCadenceStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never, false, 3_600)).toMatchObject({
+      streams: { watts: undefined, heartrate: undefined, cadence: undefined },
+    });
+  });
+
+  it("accepts full-length 1 Hz legacy sensors without treating a 2 Hz route axis as seconds", () => {
+    const streams = {
+      velocity_smooth: Array(7_200).fill(8),
+      watts: Array(3_600).fill(200),
+      heartrate: Array(3_600).fill(150),
+      cadence: Array(3_600).fill(85),
+    };
+
+    expect(deriveStreamSensorSummary(streams as never, 3_600)).toMatchObject({
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+      hasCadenceStream: true,
+      hasRejectedCadenceStream: false,
+      averagePower: 200,
+      averageHeartRate: 150,
+      averageCadence: 85,
+    });
+    expect(buildActivityAnalysisProjection(streams as never, false, 3_600)).toMatchObject({
+      streams: {
+        watts: streams.watts,
+        heartrate: streams.heartrate,
+        cadence: streams.cadence,
+      },
+    });
+  });
+
+  it("uses every validated route axis when summary duration is unavailable", () => {
+    const base = {
+      velocity_smooth: Array(100).fill(8),
+      distance: Array(80).fill(0),
+    };
+
+    expect(deriveStreamSensorSummary({
+      ...base,
+      watts: Array(94).fill(200),
+      heartrate: Array(94).fill(150),
+      cadence: Array(94).fill(85),
+    } as never)).toMatchObject({
+      hasPowerStream: false,
+      hasHeartRateStream: false,
+      hasCadenceStream: false,
+    });
+    expect(deriveStreamSensorSummary({
+      ...base,
+      watts: Array(95).fill(200),
+      heartrate: Array(95).fill(150),
+      cadence: Array(95).fill(85),
+    } as never)).toMatchObject({
+      hasPowerStream: true,
+      hasHeartRateStream: true,
+      hasCadenceStream: true,
+    });
+  });
+
   it("does not project aligned malformed legacy HR even when most samples are positive", () => {
     const streams = {
       distance: Array.from({ length: 20 }, (_, index) => index),

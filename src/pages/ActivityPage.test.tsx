@@ -904,6 +904,8 @@ describe("ActivityPage", () => {
         normalizedPower: 160,
         averageCadence: 25,
         maxCadence: 103,
+        elapsedTimeMillis: 200_000,
+        ridingTimeMillis: 200_000,
       }),
     });
     const distance = Array.from({ length: 200 }, (_, index) => index * 10);
@@ -961,7 +963,11 @@ describe("ActivityPage", () => {
   });
 
   it("does not crash when persisted altitude and speed are non-array values", async () => {
-    const activity = createMockActivity({ id: "test-activity", source: "orider" });
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({ elapsedTimeMillis: 3_000, ridingTimeMillis: 3_000 }),
+    });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_streams/test-activity", {
       userId: "user-1",
@@ -981,7 +987,11 @@ describe("ActivityPage", () => {
   });
 
   it("opens the analysis tab with malformed persisted numeric arrays", async () => {
-    const activity = createMockActivity({ id: "test-activity", source: "orider" });
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({ elapsedTimeMillis: 3_000, ridingTimeMillis: 3_000 }),
+    });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_streams/test-activity", {
       userId: "user-1",
@@ -1045,6 +1055,8 @@ describe("ActivityPage", () => {
         maxCadence: 110,
         averagePower: 200,
         maxPower: 450,
+        elapsedTimeMillis: 20_000,
+        ridingTimeMillis: 20_000,
       }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
@@ -1074,7 +1086,13 @@ describe("ActivityPage", () => {
     const activity = createMockActivity({
       id: "test-activity",
       source: "orider",
-      summary: createMockSummary({ averagePower: 80, maxPower: 200, normalizedPower: 95 }),
+      summary: createMockSummary({
+        averagePower: 80,
+        maxPower: 200,
+        normalizedPower: 95,
+        elapsedTimeMillis: 20_000,
+        ridingTimeMillis: 20_000,
+      }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_streams/test-activity", {
@@ -1136,6 +1154,7 @@ describe("ActivityPage", () => {
       id: "test-activity",
       source: "orider",
       thumbnailTrack: null,
+      summary: createMockSummary({ elapsedTimeMillis: 120_000, ridingTimeMillis: 120_000 }),
     });
     const { latlng: _latlng, ...streamsWithoutRoute } = createMockStreams();
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
@@ -1189,6 +1208,7 @@ describe("ActivityPage", () => {
       id: "test-activity",
       source: "orider",
       thumbnailTrack: null,
+      summary: createMockSummary({ elapsedTimeMillis: 120_000, ridingTimeMillis: 120_000 }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
 

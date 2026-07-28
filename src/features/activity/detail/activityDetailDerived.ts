@@ -102,7 +102,14 @@ function hasValidLegacySensorChannelValues(values: readonly unknown[]): values i
   return values.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0);
 }
 
-function hasSufficientAxisCoverage(valuesLength: number, expectedCount: number): boolean {
+function hasSufficientAxisCoverage(
+  valuesLength: number,
+  expectedCount: number,
+  expectedIsMinimum = false,
+): boolean {
+  if (expectedIsMinimum) {
+    return expectedCount <= 0 || valuesLength / expectedCount >= LEGACY_POWER_MIN_AXIS_COVERAGE;
+  }
   return expectedCount <= 0
     || Math.abs(valuesLength - expectedCount) <= 1
     || Math.min(valuesLength, expectedCount) / Math.max(valuesLength, expectedCount) >= LEGACY_POWER_MIN_AXIS_COVERAGE;
@@ -138,14 +145,85 @@ export function expectedActivityDurationSec(
     runtimeArray<unknown>(streams.velocity_smooth)?.length ?? 0,
     runtimeArray<unknown>(streams.cadence)?.length ?? 0,
   );
-  const routeDuration = timeDuration ?? (routeAxisLength > 0 ? routeAxisLength : undefined);
   const validSummaryDuration = typeof summaryDurationSec === "number"
     && Number.isFinite(summaryDurationSec)
     && summaryDurationSec > 0
     ? summaryDurationSec
     : undefined;
-  if (routeDuration == null) return validSummaryDuration;
-  return validSummaryDuration == null ? routeDuration : Math.max(routeDuration, validSummaryDuration);
+  if (timeDuration != null) {
+    return validSummaryDuration == null ? timeDuration : Math.max(timeDuration, validSummaryDuration);
+  }
+  // Raw route-axis counts are only a last resort. With a summary duration available,
+  // treating a 2 Hz distance/velocity axis length as seconds would double the activity.
+  if (validSummaryDuration != null) return validSummaryDuration;
+  return routeAxisLength > 0 ? routeAxisLength : undefined;
+}
+
+interface LegacyCoverageExpectation {
+  count: number;
+  minimumOnly: boolean;
+  summaryDurationSec?: number;
+  timeAxisLength: number;
+  timeDurationSec?: number;
+}
+
+function reliableRouteAxisLength(value: unknown): number {
+  const axis = runtimeArray<unknown>(value);
+  if (!axis?.length || !hasDenseArraySlots(axis)) return 0;
+  return axis.every((sample) => typeof sample === "number" && Number.isFinite(sample) && sample >= 0)
+    ? axis.length
+    : 0;
+}
+
+function legacyCoverageExpectation(
+  streams: ActivityStreams,
+  summaryDurationSec?: number,
+  excludeCadence = false,
+): LegacyCoverageExpectation {
+  const timeDurationSec = validTimeDurationSec(streams.time);
+  const timeAxisLength = timeDurationSec != null ? reliableRouteAxisLength(streams.time) : 0;
+  const validSummaryDuration = typeof summaryDurationSec === "number"
+    && Number.isFinite(summaryDurationSec)
+    && summaryDurationSec > 0
+    ? summaryDurationSec
+    : undefined;
+  if (validSummaryDuration != null) {
+    // Legacy sensor streams may be sampled faster than 1 Hz. Summary duration is therefore
+    // a lower bound on samples, not an axis whose count must match symmetrically.
+    return {
+      count: Math.ceil(validSummaryDuration),
+      minimumOnly: true,
+      summaryDurationSec: validSummaryDuration,
+      timeAxisLength,
+      timeDurationSec,
+    };
+  }
+  return {
+    count: Math.max(
+      timeAxisLength,
+      reliableRouteAxisLength(streams.distance),
+      reliableRouteAxisLength(streams.velocity_smooth),
+      excludeCadence ? 0 : reliableRouteAxisLength(streams.cadence),
+    ),
+    minimumOnly: false,
+    timeAxisLength,
+    timeDurationSec,
+  };
+}
+
+function usesLegacyTimeCoverage(valuesLength: number, expectation: LegacyCoverageExpectation): boolean {
+  return (
+    expectation.summaryDurationSec != null
+    && expectation.timeDurationSec != null
+    && hasSufficientAxisCoverage(valuesLength, expectation.timeAxisLength)
+  );
+}
+
+function hasLegacyCoverage(valuesLength: number, expectation: LegacyCoverageExpectation): boolean {
+  if (usesLegacyTimeCoverage(valuesLength, expectation)) {
+    return expectation.timeDurationSec! / expectation.summaryDurationSec! >= LEGACY_POWER_MIN_AXIS_COVERAGE;
+  }
+  return hasSufficientAxisCoverage(valuesLength, expectation.count, expectation.minimumOnly);
 }
 
 function hasWholeActivityExplicitCoverage(
@@ -191,14 +269,19 @@ function persistedTimeArray(value: unknown): number[] | undefined {
   return values?.every((sample) => Number.isSafeInteger(sample)) ? values : undefined;
 }
 
-function trustedLegacyPower(values: readonly number[] | undefined, expectedCount: number): number[] | null {
+function trustedLegacyPower(
+  values: readonly number[] | undefined,
+  expectation: LegacyCoverageExpectation,
+): number[] | null {
   if (!values?.length) return null;
   if (!hasValidLegacySensorChannelValues(values)) return null;
 
-  if (!hasSufficientAxisCoverage(values.length, expectedCount)) return null;
+  if (!hasLegacyCoverage(values.length, expectation)) return null;
 
   const positiveCount = values.filter((value) => value > 0).length;
-  const coverageDenominator = Math.max(values.length, expectedCount, 1);
+  const coverageDenominator = usesLegacyTimeCoverage(values.length, expectation)
+    ? Math.max(values.length, 1)
+    : Math.max(values.length, expectation.count, 1);
   return positiveCount / coverageDenominator >= LEGACY_POWER_MIN_POSITIVE_COVERAGE
     ? [...values]
     : null;
@@ -214,10 +297,8 @@ export function selectActivityPowerStream(
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const legacyWatts = runtimeArray<number>(streams.watts);
   const legacyCalculatedWatts = runtimeArray<number>(streams.watts_calc);
-  const legacyTime = runtimeArray<number>(streams.time);
-  const legacyDistance = runtimeArray<number>(streams.distance);
   const hasLegacyCandidate = !!legacyWatts?.length || !!legacyCalculatedWatts?.length;
-  const expectedLegacyCount = Math.max(legacyTime?.length ?? 0, legacyDistance?.length ?? 0);
+  const legacyExpectation = legacyCoverageExpectation(streams, summaryDurationSec);
   if (explicit) {
     const rawWatts = (explicit as unknown as Record<string, unknown>).watts;
     if (rawWatts != null && !Array.isArray(rawWatts)) {
@@ -251,7 +332,7 @@ export function selectActivityPowerStream(
     }
   }
 
-  const trustedWatts = trustedLegacyPower(legacyWatts, expectedLegacyCount);
+  const trustedWatts = trustedLegacyPower(legacyWatts, legacyExpectation);
   if (trustedWatts) {
     return {
       source: "watts",
@@ -260,7 +341,7 @@ export function selectActivityPowerStream(
       hasCandidate: true,
     };
   }
-  const trustedCalculatedWatts = trustedLegacyPower(legacyCalculatedWatts, expectedLegacyCount);
+  const trustedCalculatedWatts = trustedLegacyPower(legacyCalculatedWatts, legacyExpectation);
   if (trustedCalculatedWatts) {
     return {
       source: "watts_calc",
@@ -279,9 +360,12 @@ function positiveValues(values: unknown): number[] {
   );
 }
 
-function trustedLegacySensor(values: readonly number[] | undefined, expectedCount: number): number[] | null {
+function trustedLegacySensor(
+  values: readonly number[] | undefined,
+  expectation: LegacyCoverageExpectation,
+): number[] | null {
   if (!values?.length || !hasValidLegacySensorChannelValues(values)) return null;
-  if (!hasSufficientAxisCoverage(values.length, expectedCount)) return null;
+  if (!hasLegacyCoverage(values.length, expectation)) return null;
   const positive = positiveValues(values);
   return positive.length > 0 ? positive : null;
 }
@@ -327,10 +411,10 @@ export function selectActivityHeartRateStream(
   const legacyHeartRate = runtimeArray<number>(rawLegacyHeartRate);
   const hasLegacyHeartRateCandidate = rawLegacyHeartRate != null
     && (!Array.isArray(rawLegacyHeartRate) || rawLegacyHeartRate.length > 0);
-  const legacyTime = runtimeArray<number>(streams.time);
-  const legacyDistance = runtimeArray<number>(streams.distance);
-  const expectedLegacyCount = Math.max(legacyTime?.length ?? 0, legacyDistance?.length ?? 0);
-  const legacyPositive = trustedLegacySensor(legacyHeartRate, expectedLegacyCount);
+  const legacyPositive = trustedLegacySensor(
+    legacyHeartRate,
+    legacyCoverageExpectation(streams, summaryDurationSec),
+  );
   if (legacyPositive) {
     return {
       source: "heartrate",
@@ -364,13 +448,11 @@ export function deriveStreamSensorSummary(
 
   const selectedHeartRate = selectActivityHeartRateStream(streams, summaryDurationSec, activityStartTime);
   const heartRate = selectedHeartRate.positiveValues;
-  const legacyTime = runtimeArray<number>(streams.time);
-  const legacyDistance = runtimeArray<number>(streams.distance);
   const rawCadence = (streams as unknown as Record<string, unknown>).cadence;
   const cadenceValues = runtimeArray<number>(rawCadence);
   const cadence = trustedLegacySensor(
     cadenceValues,
-    Math.max(legacyTime?.length ?? 0, legacyDistance?.length ?? 0),
+    legacyCoverageExpectation(streams, summaryDurationSec, true),
   ) ?? [];
   const hasHeartRateStream = heartRate.length > 0;
   const hasCadenceStream = cadence.length > 0;
@@ -469,17 +551,14 @@ export function buildActivityAnalysisProjection(
   const normalizedTime = persistedTimeArray(streams.time);
   const normalizedDistance = persistedNumericArray(streams.distance, false);
   const normalizedCadence = persistedNumericArray(streams.cadence, false);
-  const expectedLegacyCount = Math.max(
-    runtimeArray<unknown>(streams.time)?.length ?? 0,
-    runtimeArray<unknown>(streams.distance)?.length ?? 0,
-  );
+  const cadenceExpectation = legacyCoverageExpectation(streams, summaryDurationSec, true);
   const normalizedStreams: ActivityStreams = {
     ...streams,
     altitude: persistedNumericArray(streams.altitude, true),
     distance: normalizedDistance,
     time: normalizedTime,
     velocity_smooth: persistedNumericArray(streams.velocity_smooth, false),
-    cadence: normalizedCadence && trustedLegacySensor(normalizedCadence, expectedLegacyCount)
+    cadence: normalizedCadence && trustedLegacySensor(normalizedCadence, cadenceExpectation)
       ? normalizedCadence
       : undefined,
     heartrate: undefined,
