@@ -18,7 +18,20 @@ describe("usePdc", () => {
     act(() => mocks.callback?.({ exists: () => true, data: () => structuredClone(parity.persistedPdc) }));
     expect(result.current).toMatchObject({ status: "ready", pdc: { version: 5, activityCount: 12 } });
   });
-  it("fails closed and logs malformed or legacy documents", () => {
+  it("publishes safely migrated persisted PDC v1 data", () => {
+    const { result } = renderHook(() => usePdc("owner"));
+    const legacy = structuredClone(parity.persistedPdc) as any;
+    legacy.version = 1; delete legacy.provenance;
+    for (const entry of Object.values(legacy.mmpAll) as any[]) {
+      delete entry.source; delete entry.cohortEligible;
+    }
+    act(() => mocks.callback?.({ exists: () => true, data: () => legacy }));
+    expect(result.current).toMatchObject({ status: "ready", pdc: { version: 5, activityCount: 12,
+      cp: { value: 270 }, pdcModel: null, riderType: null, ability: null, vo2maxEst: null,
+      provenance: { version: 2, power: "unknown", excludesVirtualPower: false, migration: "legacy_v1" } } });
+    expect(mocks.log).not.toHaveBeenCalled();
+  });
+  it("fails closed and logs malformed or unsupported documents", () => {
     const { result } = renderHook(() => usePdc("owner"));
     const invalid = structuredClone(parity.persistedPdc) as any; invalid.version = 4;
     act(() => mocks.callback?.({ exists: () => true, data: () => invalid }));

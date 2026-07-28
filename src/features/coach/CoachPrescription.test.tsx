@@ -11,6 +11,7 @@ import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import fixtureJson from "./__fixtures__/p2-web-fixture.json";
 import { CoachPrescription } from "./CoachPrescription";
 
+const errorLog = vi.hoisted(() => vi.fn());
 vi.mock("../../services/coachClient", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../services/coachClient")>(),
   submitCoachPrescriptionCheckIn: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock("../../services/coachClient", async (importOriginal) => ({
   createCoachProgressProposal: vi.fn(), getCoachProgressProposal: vi.fn(), confirmCoachProgressProposal: vi.fn(),
   getCoachProgressProposalRecovery: vi.fn(), rollbackCoachProgressProposal: vi.fn(),
 }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: errorLog }));
 
 const submit = vi.mocked(submitCoachPrescriptionCheckIn);
 const capabilities = vi.mocked(getCoachProgressPlannerCapabilities);
@@ -83,6 +85,7 @@ describe("CoachPrescription", () => {
   beforeEach(() => {
     submit.mockReset(); capabilities.mockReset(); capabilities.mockResolvedValue(enabledCapabilities);
     createProposal.mockReset(); getProposal.mockReset(); recoverProposal.mockReset(); confirmProposal.mockReset(); rollbackProposal.mockReset();
+    errorLog.mockReset();
     recoverProposal.mockResolvedValue(emptyRecovery);
     resetRuntimeConfigForTests({ coachProgressPlannerEnabled: true });
   });
@@ -133,7 +136,8 @@ describe("CoachPrescription", () => {
   });
 
   it("keeps check-in disabled and preserves the unavailable state when capability loading fails", async () => {
-    capabilities.mockRejectedValue(new Error("capability unavailable"));
+    const error = new Error("capability unavailable");
+    capabilities.mockRejectedValue(error);
     render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
       locale="ko-KR" onReanalyze={vi.fn()} />);
     const user = userEvent.setup();
@@ -142,6 +146,9 @@ describe("CoachPrescription", () => {
     await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
     expect(await screen.findByRole("alert")).toHaveTextContent("계획 기능 상태를 확인할 수 없습니다");
     expect(screen.getByRole("button", { name: "확인" })).toBeDisabled();
+    expect(errorLog).toHaveBeenCalledWith("CoachPrescription.capabilities", error, expect.objectContaining({
+      stage: "capabilities", operation: "load", prescriptionId: "rx_111111111111111111111111",
+    }));
   });
 
   it("keeps check-in disabled when the server capability is explicitly false", async () => {
@@ -281,6 +288,21 @@ describe("CoachPrescription", () => {
     expect(confirmProposal).not.toHaveBeenCalled();
   });
 
+  it("retries an initial transient recovery failure instead of remaining permanently blocked", async () => {
+    const error = new CoachClientError("transport", "NETWORK_ERROR");
+    recoverProposal.mockRejectedValueOnce(error);
+    render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const retry = await screen.findByRole("button", { name: "현재 상태 새로고침" });
+    expect(screen.getByRole("button", { name: "변경안 미리보기" })).toBeDisabled();
+    await userEvent.setup().click(retry);
+    expect(await screen.findByRole("button", { name: "변경안 미리보기" })).toBeEnabled();
+    expect(recoverProposal).toHaveBeenCalledTimes(2);
+    expect(errorLog).toHaveBeenCalledWith("CoachPrescription.recovery", error, expect.objectContaining({
+      stage: "recovery", operation: "initial", prescriptionId: ready.prescriptionId,
+    }));
+  });
+
   it.each(["expired", "superseded", "consent_revoked"] as const)(
     "maps a canonical remounted %s proposal directly to stale reanalysis", async (status) => {
       const reasonCode = { expired: "proposal_expired", superseded: "proposal_revision_changed",
@@ -298,12 +320,16 @@ describe("CoachPrescription", () => {
     });
 
   it("maps automatic adjustment conflicts to a stale safe state with no confirm replay", async () => {
-    createProposal.mockRejectedValue(new CoachClientError("http", "proposal_weekly_checkin_changed"));
+    const error = new CoachClientError("http", "proposal_weekly_checkin_changed");
+    createProposal.mockRejectedValue(error);
     render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
       locale="ko-KR" onReanalyze={vi.fn()} />);
     await userEvent.setup().click(await screen.findByRole("button", { name: "변경안 미리보기" }));
     expect(await screen.findByText(/계획·주간 체크인·동의가 변경/u)).toBeInTheDocument();
     expect(confirmProposal).not.toHaveBeenCalled();
+    expect(errorLog).toHaveBeenCalledWith("CoachPrescription.create", error, expect.objectContaining({
+      stage: "create", operation: "create", prescriptionId: ready.prescriptionId, requestId: expect.any(String),
+    }));
   });
 
   it("keeps cross-owner proposal failures generic and never exposes or mutates another plan", async () => {
@@ -319,7 +345,8 @@ describe("CoachPrescription", () => {
   it("replays a transport-uncertain confirmation with the same UUID and shows one receipt", async () => {
     recoverProposal.mockResolvedValueOnce(emptyRecovery).mockResolvedValueOnce(pendingRecovery).mockResolvedValue(appliedRecovery);
     createProposal.mockResolvedValue({ status: "ok", data: { proposal, nonce: "n".repeat(32) }, providerCalls: 0, quotaConsumed: 0 });
-    confirmProposal.mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+    const error = new CoachClientError("transport", "NETWORK_ERROR");
+    confirmProposal.mockRejectedValueOnce(error)
       .mockResolvedValueOnce({ status: "ok", data: receipt, providerCalls: 0, quotaConsumed: 0 });
     render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
       locale="ko-KR" onReanalyze={vi.fn()} />);
@@ -331,6 +358,9 @@ describe("CoachPrescription", () => {
     expect(confirmProposal).toHaveBeenCalledTimes(2);
     expect(confirmProposal.mock.calls[1]![1].requestId).toBe(confirmProposal.mock.calls[0]![1].requestId);
     expect(await screen.findAllByText("계획에 한 번만 적용했습니다")).toHaveLength(1);
+    expect(errorLog).toHaveBeenCalledWith("CoachPrescription.confirm", error, expect.objectContaining({
+      stage: "confirm", operation: "confirm", proposalId: proposal.proposalId, requestId: expect.any(String),
+    }));
   });
 
   it("rolls back an applied receipt independently of the confirm capability", async () => {
@@ -355,7 +385,8 @@ describe("CoachPrescription", () => {
     recoverProposal.mockResolvedValueOnce({ ...appliedRecovery, data: { ...appliedRecovery.data, proposal: appliedProposal } })
       .mockResolvedValueOnce({ ...appliedRecovery, data: { ...appliedRecovery.data, proposal: appliedProposal } })
       .mockResolvedValue(revertedRecovery);
-    rollbackProposal.mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+    const error = new CoachClientError("transport", "NETWORK_ERROR");
+    rollbackProposal.mockRejectedValueOnce(error)
       .mockResolvedValueOnce({ status: "ok", data: { ...receipt, status: "reverted", revertedAt: "2026-07-20T00:02:00.000Z" },
         providerCalls: 0, quotaConsumed: 0 });
     const firstMount = render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
@@ -375,6 +406,9 @@ describe("CoachPrescription", () => {
     expect(rollbackProposal.mock.calls[1]![1].requestId).toBe(rollbackProposal.mock.calls[0]![1].requestId);
     expect(await screen.findByText("감사 기록의 변경 전 상태로 복구했습니다")).toBeInTheDocument();
     expect(recoverProposal).toHaveBeenLastCalledWith(ready.prescriptionId, "018f47a2-3c4d-7abc-8def-000000000201");
+    expect(errorLog).toHaveBeenCalledWith("CoachPrescription.rollback", error, expect.objectContaining({
+      stage: "rollback", operation: "rollback", proposalId: proposal.proposalId, requestId: rollbackRequestId,
+    }));
   });
 
   it("fills an example question without submitting and clears the link in the parent composer contract", async () => {

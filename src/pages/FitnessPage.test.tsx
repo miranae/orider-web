@@ -169,6 +169,24 @@ describe("FitnessPage", () => {
     expect(screen.getByText("PDC summary 73/12/AllRounder")).toBeInTheDocument();
   });
 
+  it("shows validated legacy CP/MMP without displaying non-canonical derived PDC values", async () => {
+    const legacy = structuredClone(parity.persistedPdc) as any;
+    legacy.version = 1;
+    delete legacy.provenance;
+    for (const entry of Object.values(legacy.mmpAll) as any[]) {
+      delete entry.source;
+      delete entry.cohortEligible;
+    }
+    setDocData("users/test-uid/fitness/pdc_bike", legacy);
+    setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
+      startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("cycling ability none/none")).toBeInTheDocument();
+    expect(screen.getByText("PDC summary none/12/none")).toBeInTheDocument();
+  });
+
   it("fails closed when a returned Rider Insight does not match the persisted PDC", async () => {
     riderInsight.enabled = true;
     const mismatched = structuredClone(parity.cardEnvelope);

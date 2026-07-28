@@ -105,13 +105,21 @@ export interface PdcDoc {
   /** VO2max 추정치 (ml/kg/min) — CP 또는 5분 최대파워 + 체중 기반 Storer/ACSM 공식. 체중 없거나 합리성 범위(20~95) 벗어나면 null. */
   vo2maxEst: number | null;
 
-  /** v5 정본은 실측 파워만 사용하며 duration별 유입 경로를 함께 고정한다. */
+  /** v5 정본은 실측 파워만 사용하며 duration별 유입 경로를 함께 고정한다.
+   * v1 마이그레이션은 비정본 provenance로 표시해 기존 CP/MMP만 안전하게 사용한다. */
   provenance: {
     version: 2;
     power: "measured";
     excludesVirtualPower: true;
     byDuration: Partial<Record<PowerDurationKey, PdcDurationProvenance>>;
     derived: { ftpEst: boolean; vo2maxEst: boolean };
+  } | {
+    version: 2;
+    power: "unknown";
+    excludesVirtualPower: false;
+    migration: "legacy_v1";
+    byDuration: Partial<Record<PowerDurationKey, PdcDurationProvenance>>;
+    derived: { ftpEst: false; vo2maxEst: false };
   };
 
   /** 입력 활동 수 (90d 윈도우). 5 미만 시 fit 신뢰도 낮음. */
@@ -119,7 +127,7 @@ export interface PdcDoc {
   /** 사용된 weight 스냅샷 (W/kg 계산 시). */
   weightKgSnapshot: number | null;
   computedAt: number;
-  version: number;
+  version: 5;
 }
 
 export const PDC_VERSION = 5;
