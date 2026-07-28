@@ -147,6 +147,20 @@ interface AnalysisTabProps {
   };
 }
 
+export function sensorSeriesShareCompleteAxis(
+  power: AnalysisSensorSeries | undefined,
+  heartRate: AnalysisSensorSeries | undefined,
+): boolean {
+  if (!power || !heartRate || power.complete !== true || heartRate.complete !== true) return false;
+  if (
+    power.values.length === 0
+    || power.values.length !== power.time.length
+    || heartRate.values.length !== heartRate.time.length
+    || power.time.length !== heartRate.time.length
+  ) return false;
+  return power.time.every((timestamp, index) => Number.isFinite(timestamp) && timestamp === heartRate.time[index]);
+}
+
 /** #458 W'bal 잔량 궤적 미니 차트 — amber 라인 + 최저점(rose) 마커. */
 function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPrimeMaxJ: number; idxMin: number }) {
   const w = 480, h = 110;
@@ -254,7 +268,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   // 심박 메트릭
   const hrStats = useMemo(() => avgMax(hr, { ignoreZero: true }), [hr]);
   const hrDrift = useMemo(() => hasHr ? calculateHrDrift(hr) : null, [hr, hasHr]);
-  const sensorsShareAxis = !sensorPower && !sensorHeartRate;
+  const sensorsShareAxis = (!sensorPower && !sensorHeartRate)
+    || sensorSeriesShareCompleteAxis(sensorPower, sensorHeartRate);
   const ef = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateEF(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
   const decoupling = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateDecoupling(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
   const trimp = useMemo(() => hasHr ? calculateTRIMP(hr, maxHr, restHr, "male", heartRateTime) : null, [hr, maxHr, restHr, heartRateTime, hasHr]);

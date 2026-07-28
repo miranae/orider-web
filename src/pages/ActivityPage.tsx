@@ -516,9 +516,11 @@ export default function ActivityPage() {
   const sampledData = useMemo(() => buildSampledData(streams), [streams]);
 
   const streamSensorSummary = useMemo(() => deriveStreamSensorSummary(streams), [streams]);
+  const hasStreamPowerCandidate = !!streamSensorSummary
+    && (streamSensorSummary.hasPowerStream || streamSensorSummary.hasRejectedPowerStream);
   const analysisProjection = useMemo(
-    () => buildActivityAnalysisProjection(effectiveStreams, streamSensorSummary, wattsOverride != null),
-    [effectiveStreams, streamSensorSummary, wattsOverride],
+    () => buildActivityAnalysisProjection(effectiveStreams, wattsOverride != null),
+    [effectiveStreams, wattsOverride],
   );
 
   const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
@@ -611,16 +613,16 @@ export default function ActivityPage() {
         maxHeartRate: streamSensorSummary.hasHeartRateStream ? streamSensorSummary.maxHeartRate : s.maxHeartRate,
         averageCadence: streamSensorSummary.hasCadenceStream ? streamSensorSummary.averageCadence : s.averageCadence,
         maxCadence: streamSensorSummary.hasCadenceStream ? streamSensorSummary.maxCadence : s.maxCadence,
-        averagePower: streamSensorSummary.hasPowerStream ? streamSensorSummary.averagePower : s.averagePower,
-        maxPower: streamSensorSummary.hasPowerStream ? streamSensorSummary.maxPower : s.maxPower,
+        averagePower: hasStreamPowerCandidate ? streamSensorSummary.averagePower : s.averagePower,
+        maxPower: hasStreamPowerCandidate ? streamSensorSummary.maxPower : s.maxPower,
       }
     : s;
   // 가상파워 결과는 백엔드에서 summary.*에 함께 기록되지만, 아직 백필되지 않은
   // 과거 활동을 위해 활동 문서 top-level(`avgPower`, `weightedAvgPower`)을 fallback으로 사용.
-  const avgPowerValue = streams && streamSensorSummary?.hasPowerStream
+  const avgPowerValue = streams && hasStreamPowerCandidate
     ? streamSensorSummary?.averagePower ?? null
     : s.averagePower ?? activity.avgPower ?? null;
-  const normalizedPowerValue = streams && streamSensorSummary?.hasPowerStream && !streamSensorSummary.hasReliablePower
+  const normalizedPowerValue = streams && hasStreamPowerCandidate
     ? null
     : s.normalizedPower ?? activity.weightedAvgPower ?? null;
   const activityDate = Number.isFinite(activity.startTime)
@@ -635,8 +637,15 @@ export default function ActivityPage() {
     const rounded = Math.round(value);
     return { label, value: `${signed && rounded > 0 ? "+" : ""}${rounded}`, unit };
   };
-  const activityTss = serverMetrics.metrics?.tss ?? s.tss;
-  const activityNp = serverMetrics.metrics?.np ?? normalizedPowerValue;
+  // activity_metrics has no stream revision/fingerprint contract yet. Once a trusted stream
+  // power channel replaces the saved summary, server NP/TSS may belong to an older revision
+  // and must not be mixed into the exported card.
+  const activityTss = hasStreamPowerCandidate
+    ? null
+    : serverMetrics.metrics?.tss ?? s.tss;
+  const activityNp = hasStreamPowerCandidate
+    ? null
+    : serverMetrics.metrics?.np ?? normalizedPowerValue;
   const sharePerformanceMetrics = [
     shareMetric(t("page.share.tss"), activityTss),
     shareMetric(activityNp != null ? t("page.share.normalizedPower") : t("stat.avgPower"), activityNp ?? avgPowerValue, "W"),

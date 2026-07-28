@@ -203,6 +203,58 @@ describe("ActivityPage", () => {
     }));
   });
 
+  it("does not export stale server TSS or NP without revision proof after stream power replaces the summary", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "user-1",
+      source: "orider",
+      summary: createMockSummary({ averagePower: 120, maxPower: 300, normalizedPower: 250 }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_metrics/test-activity", { np: 333, tss: 444 });
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        altitude: [10, 10, 10],
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: 1_700_000_000_000,
+          time: [0, 1, 2],
+          heartrate: [140, 141, 142],
+          watts: [200, 210, 220],
+        },
+      }),
+    });
+    shareButtonProps.mockClear();
+
+    renderWithProviders(<ActivityPage />, {
+      authenticated: true,
+      user: { uid: "user-1" },
+    });
+
+    await waitFor(() => {
+      const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
+        card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
+      } | undefined;
+      const metrics = latest?.card?.performanceMetrics ?? [];
+      expect(metrics).toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: "평균 파워", value: "210", unit: "W" }),
+      ]));
+      expect(metrics).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ value: "333" }),
+      ]));
+      expect(metrics).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ value: "444" }),
+      ]));
+      expect(metrics).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: "TSS" }),
+      ]));
+    });
+  });
+
   it("shows activity stats when loaded", async () => {
     const activity = createMockActivity({
       id: "test-activity",
@@ -758,6 +810,60 @@ describe("ActivityPage", () => {
     expect(stats).toHaveTextContent("평균 케이던스95rpm");
     expect(stats).not.toHaveTextContent("평균 파워");
     expect(stats).not.toHaveTextContent("127W");
+  });
+
+  it("preserves short legacy power that satisfies the backend coverage threshold", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({ averagePower: 80, maxPower: 200, normalizedPower: 95 }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: Array.from({ length: 20 }, (_, index) => index * 10),
+        altitude: Array(20).fill(10),
+        time: Array.from({ length: 20 }, (_, index) => index),
+        watts: [...Array(8).fill(200), ...Array(12).fill(0)],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).toHaveTextContent("평균 파워80W"));
+  });
+
+  it("does not mix stale normalized power into a summary replaced by explicit sensor power", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({ averagePower: 120, maxPower: 300, normalizedPower: 250 }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        altitude: [10, 10, 10],
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: 1_700_000_000_000,
+          time: [0, 1, 2],
+          heartrate: [140, 141, 142],
+          watts: [200, 210, 220],
+        },
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).toHaveTextContent("평균 파워210W"));
+    expect(stats).not.toHaveTextContent("NP 250 W");
   });
 
   it("shows AI ride analysis for indoor-like streams without route latlng", async () => {

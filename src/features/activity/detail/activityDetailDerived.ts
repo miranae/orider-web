@@ -27,11 +27,15 @@ export interface StreamSensorSummary {
   averagePower: number | null;
   maxPower: number | null;
   hasReliablePower: boolean;
+  hasRejectedPowerStream: boolean;
+  powerSource: "sensorStreamsV1" | "watts" | "watts_calc" | null;
 }
 
 export interface AnalysisSensorSeries {
   values: number[];
   time: number[];
+  /** True only when every sample on the source sensor axis was measured. */
+  complete?: boolean;
 }
 
 export interface ActivityAnalysisProjection {
@@ -40,8 +44,63 @@ export interface ActivityAnalysisProjection {
   power?: AnalysisSensorSeries;
 }
 
-const LEGACY_POWER_MIN_POSITIVE_SAMPLES = 25;
-const LEGACY_POWER_MIN_POSITIVE_COVERAGE = 0.2;
+const LEGACY_POWER_MIN_POSITIVE_COVERAGE = 0.05;
+
+export interface SelectedPowerStream {
+  source: StreamSensorSummary["powerSource"];
+  /** Original samples, kept on their source axis for charts and analysis. */
+  values: readonly (number | null)[] | null;
+  /** Finite, non-negative samples used for summary statistics. */
+  finiteValues: number[];
+  hasCandidate: boolean;
+}
+
+function trustedLegacyPower(values: readonly number[] | undefined): number[] | null {
+  if (!values) return null;
+  const finite = values.filter((value) => Number.isFinite(value) && value >= 0);
+  const positiveCount = finite.filter((value) => value > 0).length;
+  return positiveCount / Math.max(finite.length, 1) >= LEGACY_POWER_MIN_POSITIVE_COVERAGE
+    ? finite
+    : null;
+}
+
+export function selectActivityPowerStream(streams: ActivityStreams | null): SelectedPowerStream {
+  if (!streams) return { source: null, values: null, finiteValues: [], hasCandidate: false };
+
+  const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
+  const hasLegacyCandidate = !!streams.watts?.length || !!streams.watts_calc?.length;
+  if (explicit) {
+    const finiteValues = explicit.watts.filter(
+      (value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0,
+    );
+    return {
+      source: finiteValues.length > 0 ? "sensorStreamsV1" : null,
+      values: finiteValues.length > 0 ? explicit.watts : null,
+      finiteValues,
+      hasCandidate: finiteValues.length > 0 || hasLegacyCandidate,
+    };
+  }
+
+  const trustedWatts = trustedLegacyPower(streams.watts);
+  if (trustedWatts) {
+    return {
+      source: "watts",
+      values: streams.watts ?? null,
+      finiteValues: trustedWatts,
+      hasCandidate: true,
+    };
+  }
+  const trustedCalculatedWatts = trustedLegacyPower(streams.watts_calc);
+  if (trustedCalculatedWatts) {
+    return {
+      source: "watts_calc",
+      values: streams.watts_calc ?? null,
+      finiteValues: trustedCalculatedWatts,
+      hasCandidate: true,
+    };
+  }
+  return { source: null, values: null, finiteValues: [], hasCandidate: hasLegacyCandidate };
+}
 
 function positiveValues(values: readonly (number | null | undefined)[] | undefined): number[] {
   return values?.filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0) ?? [];
@@ -63,39 +122,14 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
   const cadence = positiveValues(streams.cadence);
   const hasHeartRateStream = heartRate.length > 0;
   const hasCadenceStream = cadence.length > 0;
-  const hasLegacyMeasuredWatts = !!streams.watts?.length;
-  const legacyPowerSource = hasLegacyMeasuredWatts ? streams.watts! : streams.watts_calc ?? [];
-  const hasPowerStream = explicit
-    ? explicit.watts.some((value) => typeof value === "number" && Number.isFinite(value) && value >= 0)
-    : legacyPowerSource.length > 0;
-
-  let power: number[] = [];
-  let hasReliablePower = false;
-  if (explicit) {
-    power = explicit.watts.filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0);
-    hasReliablePower = power.length > 0;
-  } else if (hasLegacyMeasuredWatts) {
-    const finitePower = legacyPowerSource.filter((value) => Number.isFinite(value) && value >= 0);
-    const positiveCount = finitePower.filter((value) => value > 0).length;
-    const expectedCount = Math.max(
-      legacyPowerSource.length,
-      streams.time?.length ?? 0,
-      streams.distance?.length ?? 0,
-    );
-    // Legacy Orider streams encoded both missing power and real coasting as 0.
-    // Only a sufficiently populated stream is safe to interpret those zeros as measured 0 W.
-    hasReliablePower = positiveCount >= LEGACY_POWER_MIN_POSITIVE_SAMPLES
-      && positiveCount / expectedCount >= LEGACY_POWER_MIN_POSITIVE_COVERAGE;
-    if (hasReliablePower) power = finitePower;
-  } else if (legacyPowerSource.length) {
-    power = legacyPowerSource.filter((value) => Number.isFinite(value) && value >= 0);
-    hasReliablePower = power.length > 0;
-  }
+  const selectedPower = selectActivityPowerStream(streams);
+  const power = selectedPower.finiteValues;
+  const hasReliablePower = selectedPower.source != null;
 
   return {
     hasHeartRateStream,
     hasCadenceStream,
-    hasPowerStream,
+    hasPowerStream: hasReliablePower,
     averageHeartRate: heartRate.length > 0 ? average(heartRate) : null,
     maxHeartRate: heartRate.length > 0 ? maximum(heartRate) : null,
     averageCadence: cadence.length > 0 ? average(cadence) : null,
@@ -103,6 +137,8 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
     averagePower: hasReliablePower ? average(power) : null,
     maxPower: hasReliablePower ? maximum(power) : null,
     hasReliablePower,
+    hasRejectedPowerStream: selectedPower.hasCandidate && !hasReliablePower,
+    powerSource: selectedPower.source,
   };
 }
 
@@ -114,7 +150,8 @@ function measuredSeries(
 ): AnalysisSensorSeries | undefined {
   const length = Math.min(values.length, time.length);
   let currentValues: number[] = [];
-  const runs: number[][] = [];
+  let currentTimes: number[] = [];
+  const runs: Array<{ values: number[]; time: number[] }> = [];
   for (let index = 0; index <= length; index++) {
     const value = values[index];
     const timestamp = time[index];
@@ -126,33 +163,42 @@ function measuredSeries(
       && isMeasured(value)
     ) {
       currentValues.push(value);
+      currentTimes.push(timestamp);
     } else {
-      if (currentValues.length > 0) runs.push(currentValues);
+      if (currentValues.length > 0) runs.push({ values: currentValues, time: currentTimes });
       currentValues = [];
+      currentTimes = [];
     }
   }
   // 여러 측정 run을 이어 붙이면 가짜 rolling window가 되고 하나만 고르면 부하를
   // 과소평가한다. run-aware 집계가 도입되기 전에는 분석 지표를 숨기는 편이 안전하다.
   if (runs.length !== 1) return undefined;
-  const measuredValues = runs[0]!;
+  const measured = runs[0]!;
   const positiveDiffs = time.slice(1)
     .map((value, index) => value - (time[index] ?? value))
     .filter((value) => Number.isFinite(value) && value > 0)
     .sort((a, b) => a - b);
   const step = fixedStep ?? positiveDiffs[(positiveDiffs.length - 1) >> 1] ?? 1;
-  // 결측 구간의 벽시계 시간을 직전 측정값의 지속시간으로 오인하지 않도록,
-  // 유일한 연속 측정 구간만 대표 간격으로 재배치한다.
-  return { values: measuredValues, time: measuredValues.map((_, index) => index * step) };
+  // Keep the source timestamps so independently compacted HR/power runs cannot appear aligned.
+  // A defensive fixed-step fallback remains for a degenerate one-sample source.
+  const measuredTime = measured.time.length > 1
+    ? measured.time
+    : measured.values.map((_, index) => (measured.time[0] ?? 0) + index * step);
+  return {
+    values: measured.values,
+    time: measuredTime,
+    complete: values.length === time.length && measured.values.length === values.length,
+  };
 }
 
 export function buildActivityAnalysisProjection(
   streams: ActivityStreams | null,
-  sensorSummary: StreamSensorSummary | null,
   preferTopLevelPower = false,
 ): ActivityAnalysisProjection | null {
   if (!streams) return null;
 
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
+  const selectedPower = selectActivityPowerStream(streams);
   if (explicit) {
     return {
       streams: {
@@ -175,13 +221,23 @@ export function buildActivityAnalysisProjection(
   const heartRate = shouldRepairLegacyHeartRate && streams.heartrate
     ? measuredSeries(streams.heartrate, legacyTime, (value) => value > 0)
     : undefined;
-  if (!preferTopLevelPower && sensorSummary?.hasPowerStream && !sensorSummary.hasReliablePower) {
+  if (!preferTopLevelPower && selectedPower.hasCandidate && selectedPower.source == null) {
     return {
       streams: {
         ...streams,
         heartrate: shouldRepairLegacyHeartRate ? undefined : streams.heartrate,
         watts: undefined,
         watts_calc: undefined,
+      },
+      heartRate,
+    };
+  }
+  if (!preferTopLevelPower && selectedPower.source === "watts_calc" && streams.watts?.length) {
+    return {
+      streams: {
+        ...streams,
+        heartrate: shouldRepairLegacyHeartRate ? undefined : streams.heartrate,
+        watts: undefined,
       },
       heartRate,
     };
@@ -198,13 +254,15 @@ export function buildSampledData(streams: ActivityStreams | null): SampledPoint[
   const len = dist.length;
   const interval = Math.max(1, Math.floor(len / 300));
   const hasIndependentSensors = streams.sensorStreamsV1?.version === 1;
+  const selectedPower = selectActivityPowerStream(streams);
+  const chartPower = hasIndependentSensors ? null : selectedPower.values;
   const selectedIndexes = new Set<number>();
   for (let i = 0; i < len; i += interval) selectedIndexes.add(i);
-  const chartChannels: Array<readonly number[] | undefined> = [
+  const chartChannels: Array<readonly (number | null)[] | undefined> = [
     streams.altitude,
     streams.velocity_smooth,
     hasIndependentSensors ? undefined : streams.heartrate,
-    hasIndependentSensors ? undefined : (streams.watts?.length ? streams.watts : streams.watts_calc),
+    chartPower ?? undefined,
     streams.cadence,
   ];
   for (const channel of chartChannels) {
@@ -230,7 +288,7 @@ export function buildSampledData(streams: ActivityStreams | null): SampledPoint[
       altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
       speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
       heartRate: hasIndependentSensors ? 0 : streams.heartrate?.[i] ?? 0,
-      power: hasIndependentSensors ? 0 : (streams.watts?.[i] ?? streams.watts_calc?.[i]) ?? 0,
+      power: chartPower?.[i] ?? 0,
       cadence: streams.cadence?.[i] ?? 0,
     });
   }
