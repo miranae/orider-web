@@ -26,6 +26,7 @@
   (literal (param "CODEX_BIN"))
   (subpath (param "REVIEW_TMP"))
   (literal (param "CODEX_AUTH_FILE"))
+  (subpath (param "REVIEW_INPUT_DIR"))
   (subpath (param "REVIEW_DIR")))
 
 (allow file-read-metadata file-test-existence
@@ -35,6 +36,7 @@
   (path-ancestors (param "CODEX_AUTH_FILE"))
   (path-ancestors (param "CODEX_BIN"))
   (path-ancestors (param "REVIEW_DIR"))
+  (path-ancestors (param "REVIEW_INPUT_DIR"))
   (path-ancestors (param "REVIEW_LOG"))
   (path-ancestors (param "REVIEW_OUT"))
   (path-ancestors (param "REVIEW_TMP")))

@@ -106,7 +106,9 @@ prepare_codex_review_workspace() {
   REVIEW_PARENT="$(realpath "$REVIEW_PARENT")"
   REVIEW_DIR="$REVIEW_PARENT/workspace"
   REVIEW_TMP="$REVIEW_PARENT/runtime"
-  mkdir -p "$REVIEW_DIR/.codex-review" "$REVIEW_TMP"
+  REVIEW_INPUT_DIR="$REVIEW_PARENT/input"
+  mkdir -p "$REVIEW_DIR" "$REVIEW_TMP"
+  install -d -m 700 "$REVIEW_INPUT_DIR"
   : >"$REVIEW_PARENT/.codex-review-parent.marker"
   printf 'sandbox external sentinel\n' >"$REVIEW_PARENT/external-sentinel"
   if git cat-file -e "origin/$BASE:scripts/codex-review.sb" 2>/dev/null; then
@@ -127,16 +129,33 @@ prepare_codex_review_workspace() {
     cleanup_review_workspace
     die "PR head tracked snapshot 생성 실패"
   fi
-  git diff --binary --no-ext-diff "origin/$BASE...$HEAD_OID" >"$REVIEW_DIR/.codex-review/diff.patch" \
+  REVIEW_DIFF="$REVIEW_INPUT_DIR/diff.patch"
+  REVIEW_METADATA="$REVIEW_INPUT_DIR/metadata.txt"
+  REVIEW_INPUT="$REVIEW_INPUT_DIR/input.txt"
+  REVIEW_SCHEMA="$REVIEW_INPUT_DIR/output.schema.json"
+  git diff --binary --no-ext-diff "origin/$BASE...$HEAD_OID" >"$REVIEW_DIFF" \
     || { cleanup_review_workspace; die "PR head diff 생성 실패"; }
   {
     printf 'base=origin/%s\n' "$BASE"
     printf 'head=%s\n' "$HEAD_OID"
-  } >"$REVIEW_DIR/.codex-review/metadata.txt"
-  [[ -f "$REVIEW_DIR/scripts/codex-review-output.schema.json" ]] \
-    || { cleanup_review_workspace; die "tracked snapshot에 Codex 리뷰 schema 없음"; }
+  } >"$REVIEW_METADATA"
+  cat >"$REVIEW_SCHEMA" <<'JSON'
+{"type":"object","properties":{"findings":{"type":"string"},"verdict":{"type":"string","enum":["PASS","BLOCK"]}},"required":["findings","verdict"],"additionalProperties":false}
+JSON
+  chmod 600 "$REVIEW_DIFF" "$REVIEW_METADATA" "$REVIEW_SCHEMA"
+  [[ "$(<"$REVIEW_PARENT/external-sentinel")" == "sandbox external sentinel" ]] \
+    || { cleanup_review_workspace; die "reserved 상대 symlink가 외부 sentinel을 변경함"; }
   [[ -L "$REVIEW_DIR/scripts/codex-review-external-link.fixture" ]] \
     || { cleanup_review_workspace; die "tracked snapshot에 sandbox symlink fixture 없음"; }
+  [[ -L "$REVIEW_DIR/.codex-review/diff.patch" && -L "$REVIEW_DIR/.codex-review/metadata.txt" && -L "$REVIEW_DIR/.codex-review/input.txt" ]] \
+    || { cleanup_review_workspace; die "tracked snapshot에 reserved-path symlink fixtures 없음"; }
+}
+
+assert_trusted_review_input() {
+  local path="$1" resolved
+  [[ -f "$path" && ! -L "$path" ]] || die "trusted Codex input이 regular file이 아님: $path"
+  resolved="$(realpath "$path")"
+  [[ "$resolved" == "$REVIEW_INPUT_DIR/"* ]] || die "trusted Codex input root 이탈: $path"
 }
 
 configure_codex_sandbox() {
@@ -172,6 +191,7 @@ configure_codex_sandbox() {
   SANDBOX_CMD=(/usr/bin/sandbox-exec
     -D "REVIEW_DIR=$REVIEW_DIR"
     -D "REVIEW_TMP=$REVIEW_TMP"
+    -D "REVIEW_INPUT_DIR=$REVIEW_INPUT_DIR"
     -D "REVIEW_OUT=$REVIEW_OUT"
     -D "REVIEW_LOG=$REVIEW_LOG"
     -D "CODEX_RUNTIME_DIR=$CODEX_RUNTIME_DIR"
@@ -181,6 +201,7 @@ configure_codex_sandbox() {
   PROBE_SANDBOX_CMD=(/usr/bin/sandbox-exec
     -D "REVIEW_DIR=$REVIEW_DIR"
     -D "REVIEW_TMP=$REVIEW_TMP"
+    -D "REVIEW_INPUT_DIR=$REVIEW_INPUT_DIR"
     -D "REVIEW_OUT=$REVIEW_OUT"
     -D "REVIEW_LOG=$REVIEW_LOG"
     -D "CODEX_RUNTIME_DIR=/bin"
@@ -188,7 +209,7 @@ configure_codex_sandbox() {
     -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
     -f "$SANDBOX_PROFILE")
 
-  "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/.codex-review/diff.patch" >/dev/null \
+  "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIFF" >/dev/null \
     || die "Codex sandbox가 리뷰 snapshot 읽기를 허용하지 않음"
   if "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then
     die "Codex sandbox symlink 외부 읽기 차단 실패"
@@ -364,15 +385,19 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
     review_effort="low"
   fi
   prepare_codex_review_workspace
-  REVIEW_INPUT="$REVIEW_DIR/.codex-review/input.txt"
   {
     printf '%s\n\n' "$REVIEW_PROMPT"
     printf '%s\n' '도구는 비활성화되어 있다. 아래 metadata와 diff 본문만 직접 검토하라.'
     printf '%s\n' '--- metadata ---'
-    cat "$REVIEW_DIR/.codex-review/metadata.txt"
+    cat "$REVIEW_METADATA"
     printf '%s\n' '--- diff ---'
-    cat "$REVIEW_DIR/.codex-review/diff.patch"
+    cat "$REVIEW_DIFF"
   } >"$REVIEW_INPUT"
+  chmod 600 "$REVIEW_INPUT"
+  assert_trusted_review_input "$REVIEW_DIFF"
+  assert_trusted_review_input "$REVIEW_METADATA"
+  assert_trusted_review_input "$REVIEW_INPUT"
+  assert_trusted_review_input "$REVIEW_SCHEMA"
   configure_codex_sandbox
   # 외부 sandbox-exec가 실제 보안 경계다. 중첩 Seatbelt는 macOS가 forbidden-sandbox-reinit로 거부한다.
   REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox danger-full-access --skip-git-repo-check -C "$SANDBOX_CWD" \
@@ -382,7 +407,7 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
     --disable auth_elicitation --disable goals \
     -c 'shell_environment_policy.inherit="none"' \
     -c "model_reasoning_effort=\"$review_effort\"" \
-    --output-schema "$REVIEW_DIR/scripts/codex-review-output.schema.json" \
+    --output-schema "$REVIEW_SCHEMA" \
     -o "$REVIEW_OUT" -)
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
   start_codex_review

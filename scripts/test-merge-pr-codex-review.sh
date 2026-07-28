@@ -4,12 +4,16 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_TMP="$(mktemp -d -t orider-codex-review-test)"
 SECRET_FIXTURE_DIR="$REPO_ROOT/.codex-review-secret-fixture-$$"
+ABSOLUTE_SENTINEL=/tmp/orider-codex-review-external-sentinel-web
+[[ ! -e "$ABSOLUTE_SENTINEL" ]] || { echo "reserved test sentinel already exists: $ABSOLUTE_SENTINEL" >&2; exit 1; }
 cleanup_test() {
   rm -rf -- "$TEST_TMP" "$SECRET_FIXTURE_DIR"
+  rm -f -- "$ABSOLUTE_SENTINEL"
 }
 trap cleanup_test EXIT
 mkdir -p "$SECRET_FIXTURE_DIR"
 printf 'must-not-be-archived\n' >"$SECRET_FIXTURE_DIR/.env"
+printf 'must-not-be-overwritten\n' >"$ABSOLUTE_SENTINEL"
 
 export REAL_GIT="$(command -v git)"
 export REPO_ROOT
@@ -96,15 +100,13 @@ int main(int argc, char **argv) {
     else if ((!strcmp(argv[i], "-o") || !strcmp(argv[i], "--output-last-message")) && i + 1 < argc) out = argv[++i];
   }
   if (required < 4 || disabled < 14 || !out || !schema || !cwd || !strstr(cwd, "/runtime/cwd")) return 64;
-  char *snapshot = strdup(schema);
-  char *suffix = strstr(snapshot, "/scripts/codex-review-output.schema.json");
+  char *input_dir = strdup(schema);
+  char *suffix = strstr(input_dir, "/input/output.schema.json");
   if (!suffix) return 67;
   *suffix = '\0';
   char path[4096];
-  snprintf(path, sizeof(path), "%s/.codex-review/diff.patch", snapshot);
+  snprintf(path, sizeof(path), "%s/input/diff.patch", input_dir);
   if (access(path, R_OK) != 0) return 69;
-  snprintf(path, sizeof(path), "%s/scripts/codex-review-external-link.fixture", snapshot);
-  if (access(path, R_OK) == 0) return 77;
   char *prompt = read_all(stdin);
   if (!strstr(prompt, "origin/main...HEAD") || !strstr(prompt, "--- diff ---")) return 79;
   const char *codex_home = getenv("CODEX_HOME");
@@ -146,6 +148,7 @@ run_gate() {
     REVIEW_ENV_SECRET_SENTINEL=must-not-reach-codex GH_TOKEN=must-not-reach-codex VITE_SECRET_SENTINEL=must-not-reach-codex \
     TMPDIR="$TEST_TMP" PATH="$TEST_TMP/bin:$PATH" \
     "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build 2>&1 || rc=$?
+  grep -qx 'must-not-be-overwritten' "$ABSOLUTE_SENTINEL" || return 97
   ! compgen -G "$TEST_TMP/orider-codex-review-parent.*" >/dev/null || return 98
   return "$rc"
 }
