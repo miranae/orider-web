@@ -244,6 +244,21 @@ describe("CoachQuestionLauncher", () => {
     expect(await screen.findByLabelText("내 운동에 대한 질문")).toHaveValue("다시 연 질문");
   });
 
+  it("does not consume a Ride Plan selection before the user becomes valid", async () => {
+    const context = { contextToken: `ride2.${"a".repeat(100)}.${"b".repeat(43)}` as const,
+      inputRevision: `ridein_${"c".repeat(24)}`, questionCode: "HARDEST_SECTION" as const };
+    const selection = { selectionId: "selection-after-auth", question: "로그인 뒤 질문", context };
+    const renderLauncher = (currentUser: typeof user | null) =>
+      <MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={currentUser} discipline="bike"
+        onSignIn={vi.fn()} ridePlanSelection={selection} /></DialogProvider></MemoryRouter>;
+    const view = render(renderLauncher(null));
+    expect(screen.queryByLabelText("내 운동에 대한 질문")).not.toBeInTheDocument();
+
+    view.rerender(renderLauncher(user));
+    expect(await screen.findByLabelText("내 운동에 대한 질문")).toHaveValue("로그인 뒤 질문");
+    expect(screen.getByText("이 Ride Plan의 동일한 입력 버전에 연결됨")).toBeInTheDocument();
+  });
+
   it.each([
     [false, true, true],
     [true, false, true],

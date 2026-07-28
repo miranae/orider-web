@@ -218,17 +218,19 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
 
   useEffect(() => {
     const selectionId = ridePlanSelection?.selectionId ?? null;
-    if (selectionId === ridePlanSelectionRef.current) return;
-    ridePlanSelectionRef.current = selectionId;
+    const validSelection = ridePlanRespondEnabled && ridePlanSelection && user
+      && isCoachRidePlanRespondToken(ridePlanSelection.context.contextToken);
+    if (validSelection && selectionId === ridePlanSelectionRef.current) return;
     openGenerationRef.current += 1; sessionGenerationRef.current += 1; inFlightRef.current = false;
     activeRequestRef.current = null; activeBodyRef.current = null;
     setDraft(""); setRidePlanContext(null); setRequestId(null); setResponse(null); setClarificationOption(null);
     setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
-    if (!ridePlanRespondEnabled || !ridePlanSelection || !user
-      || !isCoachRidePlanRespondToken(ridePlanSelection.context.contextToken)) {
+    if (!validSelection) {
+      ridePlanSelectionRef.current = null;
       setPhase("closed");
       return;
     }
+    ridePlanSelectionRef.current = selectionId;
     setDraft(ridePlanSelection.question); setRidePlanContext(ridePlanSelection.context);
     setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setSource("free_text"); setRequestId(null);
     pendingPmcFocusRef.current = true;
