@@ -1332,7 +1332,7 @@ describe("ActivityPage", () => {
     });
   });
 
-  it("excludes legacy zero sentinels from accepted short power", async () => {
+  it("preserves zero-watt coasting in accepted short legacy power", async () => {
     const activity = createMockActivity({
       id: "test-activity",
       source: "orider",
@@ -1358,7 +1358,7 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />);
 
     const stats = await screen.findByTestId("activity-stats-grid");
-    await waitFor(() => expect(stats).toHaveTextContent("평균 파워200W"));
+    await waitFor(() => expect(stats).toHaveTextContent("평균 파워80W"));
   });
 
   it("does not mix stale normalized power into a summary replaced by explicit sensor power", async () => {

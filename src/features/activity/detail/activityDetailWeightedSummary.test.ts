@@ -9,7 +9,7 @@ import {
 import { timeWeightedLegacySensorSummary } from "./legacySensorCoverage";
 
 describe("legacy sensor time-weighted summaries", () => {
-  it("weights irregular slots and keeps legacy power zero as a missing sentinel", () => {
+  it("weights irregular slots and keeps accepted legacy zero as measured coasting", () => {
     const time = Array.from({ length: 40 }, (_, index) => index < 2 ? index : index + 2);
     const heartrate = Array(40).fill(100);
     const cadence = Array(40).fill(60);
@@ -29,7 +29,7 @@ describe("legacy sensor time-weighted summaries", () => {
     const summary = deriveStreamSensorSummary(streams as never)!;
     expect(summary.averageHeartRate).toBeCloseTo(4_500 / 42, 8);
     expect(summary.averageCadence).toBeCloseTo(2_700 / 42, 8);
-    expect(summary.averagePower).toBeCloseTo(4_400 / 41, 8);
+    expect(summary.averagePower).toBeCloseTo(4_400 / 42, 8);
     expect(summary.maxHeartRate).toBe(200);
     expect(summary.maxCadence).toBe(120);
     expect(summary.maxPower).toBe(200);
@@ -37,7 +37,7 @@ describe("legacy sensor time-weighted summaries", () => {
     const projection = buildActivityAnalysisProjection(streams as never)!;
     const heartRateDurations = sampleDurationsSec(heartrate.length, time);
     expect(heartRateDurations.slice(0, 4)).toEqual([1, 3, 1, 1]);
-    expect(projection.power?.values).toHaveLength(39);
+    expect(projection.power?.values).toHaveLength(40);
     expect(projection.power?.durationsSec?.slice(0, 4)).toEqual([1, 3, 1, 1]);
     expect(weightedAvgMax(
       heartrate,

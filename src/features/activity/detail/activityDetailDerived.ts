@@ -560,9 +560,8 @@ function trustedLegacyPower(
 
   if (!hasLegacyCoverage(values.length, expectation)) return null;
 
-  // Top-level legacy watts/watts_calc are GPS-aligned pre-V1 channels where zero
-  // is the missing-value sentinel. No persisted provenance distinguishes a real
-  // power-meter coast here; only SensorStreamsV1 guarantees measured zero watts.
+  // Positive coverage remains the corruption/sparsity gate. Once the whole
+  // legacy channel passes, finite zero watts are measured coasting samples.
   const positiveCount = values.filter((value) => value > 0).length;
   const coverageDenominator = usesLegacyTimeCoverage(values.length, expectation)
     ? Math.max(values.length, 1)
@@ -1006,7 +1005,7 @@ export function deriveStreamSensorSummary(
   const powerStats = legacyPowerValues
     ? timeWeightedLegacySensorSummary(
         legacySensorAxisInput(legacyPowerValues, legacyCoverageExpectation(streams, context.legacyDurationSec)),
-        (value) => value > 0,
+        (value) => value >= 0,
       )
     : hasReliablePower ? { average: average(power), maximum: maximum(power) } : null;
 
@@ -1196,7 +1195,7 @@ export function buildActivityAnalysisProjection(
     ? measuredSeries(
         legacyPowerValues,
         legacyPowerAxis?.time ?? legacyPowerValues.map((_, index) => index),
-        (value) => value > 0,
+        (value) => value >= 0,
         undefined,
         legacyTimeOriginEpochMs,
         true,
