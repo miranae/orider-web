@@ -23,7 +23,7 @@
 #   --keep-worktree           Do not remove the current worktree/branch after merge.
 #
 # 속도 설계 (2026-07-10):
-#   - 변경 분류는 AI 리뷰 강도만 결정한다: 제품 코드=full, 툴링=fast, 문서=skip.
+#   - 변경 분류는 AI 리뷰 강도만 결정한다: 제품 코드=full(medium), 툴링=fast(low), 문서=skip.
 #     로컬 검증은 별도로 feature→dev(변경 영향 테스트+타입체크) / dev→main(full) 2단계다.
 #   - AI 리뷰는 npm 게이트와 **병렬** 실행 — 리뷰(수 분)가 크리티컬 패스에서 빠진다.
 #   - base 전진(BEHIND)은 게이트 시작 시 자동으로 origin/base 머지+푸시 — CI 재실행이
@@ -91,12 +91,16 @@ assert_local_head_matches_pr() {
 
 # AI 리뷰를 백그라운드로 시작 (npm 게이트와 병렬) — 결과 처리는 아래 join 블록에서.
 REVIEW_STARTED=0
-start_claude_review() {
-  local timeout_s="${CLAUDE_REVIEW_TIMEOUT_SEC:-900}"
-  "${REVIEW_CMD[@]}" >"$REVIEW_OUT" 2>&1 &
+start_codex_review() {
+  local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
+  "${REVIEW_CMD[@]}" >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
-    sleep "$timeout_s"
+    sleep "$timeout_s" &
+    watchdog_sleep_pid=$!
+    trap 'kill "$watchdog_sleep_pid" 2>/dev/null || true' EXIT
+    trap 'exit 0' TERM INT
+    wait "$watchdog_sleep_pid" || exit 0
     if kill -0 "$REVIEW_PID" 2>/dev/null; then
       kill "$REVIEW_PID" 2>/dev/null || true
       sleep 2
@@ -106,7 +110,7 @@ start_claude_review() {
   REVIEW_WATCHDOG=$!
   REVIEW_STARTED=1
 }
-# 게이트가 중간에 die 해도 백그라운드 claude 를 고아로 남기지 않는다
+# 게이트가 중간에 die 해도 백그라운드 Codex를 고아로 남기지 않는다.
 cleanup_review() {
   # 주의: kill 의 인자가 빈값/0 이면 프로세스 그룹 전체가 죽는다 — 반드시 변수 존재를 확인.
   [[ "${REVIEW_STARTED:-0}" == 1 ]] || return 0
@@ -168,7 +172,7 @@ fi
 
 # 변경 분류 — AI 리뷰 강도를 diff 성격에 맞춘다. 미분류 경로는 안전하게 '코드'.
 #   docs    (docs/·*.md·LICENSE 등)        → 리뷰 생략
-#   tooling (scripts/*.sh·.github/)        → 경량(sonnet) 리뷰
+#   tooling (scripts/*.sh·.github/)        → low reasoning 리뷰
 #   code    (그 외 전부)                   → 풀 리뷰
 DOCS_PAT='^docs/|\.md$|^LICENSE|^\.gitignore$|^\.gitattributes$'
 TOOLING_PAT='^scripts/[^/]+\.sh$|^\.github/'
@@ -218,9 +222,10 @@ echo "  gate_tier=$GATE_TIER code_changes=$code_changes review_mode=$review_mode
 
 # ── AI 리뷰 시작 (npm 게이트와 병렬) ─────────────────────────────────────────
 if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
-  command -v claude >/dev/null 2>&1 || die "claude CLI 없음 — 코드 리뷰 게이트 실행 불가. 설치하거나 --no-review 로 우회하세요."
+  command -v codex >/dev/null 2>&1 || die "Codex CLI 없음 — 코드 리뷰 게이트 실행 불가. 설치하거나 --no-review 로 우회하세요."
 
   REVIEW_OUT="$(mktemp -t orider-merge-review)"
+  REVIEW_LOG="$(mktemp -t orider-merge-review-log)"
   REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 이 브랜치의 origin/$BASE 대비 diff(\`git diff origin/$BASE...HEAD\`)만 리뷰하라. 필요한 맥락은 허용된 git diff/show/log/status 출력만 사용하고, 일반 파일 읽기는 사용하지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
 
 로깅/관측성도 점검하라:
@@ -234,14 +239,15 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
 MERGE_VERDICT: BLOCK
 MERGE_VERDICT: PASS"
 
-  REVIEW_CMD=(claude -p "$REVIEW_PROMPT" \
-    --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*)")
+  review_effort="medium"
   if [[ "$review_mode" == "fast" ]]; then
-    # 툴링 전용 diff — 경량 모델(sonnet)로 빠르게 — 안전망 유지, 비용·시간 절감
-    REVIEW_CMD+=(--model claude-sonnet-5)
+    # 툴링 전용 diff — 모델은 설치된 기본값을 따르고 추론 강도만 낮춘다.
+    review_effort="low"
   fi
+  REVIEW_CMD=(codex exec review --base "origin/$BASE" --ephemeral \
+    -c "model_reasoning_effort=\"$review_effort\"" -o "$REVIEW_OUT" "$REVIEW_PROMPT")
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
-  start_claude_review
+  start_codex_review
 fi
 
 if [[ "$GATE_TIER" == "feature" ]]; then
@@ -304,6 +310,13 @@ if [[ "$REVIEW_STARTED" == 1 ]]; then
   kill "$REVIEW_WATCHDOG" 2>/dev/null || true
   wait "$REVIEW_WATCHDOG" 2>/dev/null || true
   REVIEW_STARTED=0
+  if [[ "$review_rc" -ne 0 ]]; then
+    [[ ! -s "$REVIEW_OUT" ]] || sed 's/^/  │ /' "$REVIEW_OUT"
+    [[ ! -s "$REVIEW_LOG" ]] || { echo "  Codex 실행 로그:"; tail -80 "$REVIEW_LOG" | sed 's/^/  │ /'; }
+    echo "  리뷰 답변: $REVIEW_OUT"
+    echo "  실행 로그: $REVIEW_LOG"
+    die "Codex 코드 리뷰 실행 실패 또는 시간 초과 (exit=$review_rc, timeout=${CODEX_REVIEW_TIMEOUT_SEC:-900}s)"
+  fi
   verdict="$(grep -oE 'MERGE_VERDICT:[[:space:]]*(BLOCK|PASS)' "$REVIEW_OUT" | tail -1 || true)"
   if [[ "$verdict" == *BLOCK ]]; then
     sed 's/^/  │ /' "$REVIEW_OUT"
@@ -312,12 +325,13 @@ if [[ "$REVIEW_STARTED" == 1 ]]; then
   elif [[ "$verdict" == *PASS ]]; then
     grep -vE '^[[:space:]]*MERGE_VERDICT:' "$REVIEW_OUT" | tail -60 | sed 's/^/  │ /' || true
     printf '  \033[1;32m리뷰 PASS\033[0m\n'
-    rm -f "$REVIEW_OUT"
+    rm -f "$REVIEW_OUT" "$REVIEW_LOG"
   else
     sed 's/^/  │ /' "$REVIEW_OUT" || true
-    echo "  리뷰 로그: $REVIEW_OUT"
-    [[ "$review_rc" -eq 0 ]] || die "코드 리뷰 실행 실패 (claude exit=$review_rc)"
-    die "코드 리뷰 판정(MERGE_VERDICT) 누락"
+    [[ ! -s "$REVIEW_LOG" ]] || { echo "  Codex 실행 로그:"; tail -80 "$REVIEW_LOG" | sed 's/^/  │ /'; }
+    echo "  리뷰 답변: $REVIEW_OUT"
+    echo "  실행 로그: $REVIEW_LOG"
+    die "Codex 코드 리뷰 판정(MERGE_VERDICT) 누락"
   fi
 else
   [[ "$RUN_REVIEW" == 0 ]] && log "로컬 AI 코드리뷰 생략 (--no-review)" || log "문서 전용 변경 — 로컬 AI 코드리뷰 생략"
