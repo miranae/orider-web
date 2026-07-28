@@ -58,7 +58,7 @@ const CORRELATION = /^[a-z0-9][a-z0-9-]{15,79}$/u;
 const REVISION = /^[a-z][a-z0-9-]{1,62}$/u;
 const TAG = /^[a-z][a-z0-9-]{1,30}$/u;
 const GITHUB_ACTOR = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(?:\[bot\])?$/u;
-const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|\\*["'](?:exactCoordinates|coordinates|latitude|longitude)\\*["']\s*:|(?:latitude|longitude|lat|lon)\s*[:=]\s*-?\d{1,3}\.\d+|(?:lat(?:itude)?\s*[/,]\s*lon(?:gitude)?)\s*[:=]?\s*-?\d{1,2}\.\d+\s*[,/]\s*-?\d{1,3}\.\d+|bearer\s+[A-Za-z0-9._~-]+)/giu;
+const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|\\*["'](?:exactCoordinates|coordinates|latitude|longitude)\\*["']\s*:|(?:latitude|longitude|lat|lon)\s*[:=]\s*-?\d{1,3}(?:\.\d+)?|(?:lat(?:itude)?\s*[/,]\s*lon(?:gitude)?)\s*[:=]?\s*-?\d{1,2}(?:\.\d+)?\s*[,/]\s*-?\d{1,3}(?:\.\d+)?|bearer\s+[A-Za-z0-9._~-]+)/giu;
 const RAW_PRIVATE_VALUE = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}|\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b|\bAIza[A-Za-z0-9_-]{20,}\b|bearer\s+[A-Za-z0-9._~-]+)/iu;
 const RECEIPT_KEYS = ["schemaVersion", "correlationDigest", "caseId", "fixtureDigest", "requestDigest",
   "targetFingerprint", "outcome", "providerCalls", "quotaConsumed", "userDataWrites", "card", "response",
@@ -1071,15 +1071,41 @@ function assertProductScalar(value, path, pathname, options) {
     throw new Error(`web_evidence:v3_product_semantic:${path}`);
   }
   const progress = options.progressPlanner ?? {};
-  if (/\.prescriptionId$/u.test(path) && value !== progress.prescriptionId
+  if (/\.prescriptionId$/u.test(path) && (typeof value !== "string" || !/^rx_[0-9a-f]{24}$/u.test(value))
       || /\.sourceRequestId$/u.test(path) && value !== progress.sourceRequestId
       || /\.proposalId$/u.test(path) && value !== progress.proposalId) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  if ((path === "request.contextFilters.progressPlanner.prescriptionId"
+      || pathname === "/v1/coach/change-proposals" && /\.prescriptionId$/u.test(path))
+      && (typeof progress.prescriptionId !== "string" || value !== progress.prescriptionId)) {
     throw new Error(`web_evidence:v3_product_semantic:${path}`);
   }
   if (path === "request.requestId" && !UUID.test(value)
       || /\.contextToken$/u.test(path) && typeof value === "string" && !/^ride2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u.test(value)) {
     throw new Error(`web_evidence:v3_product_semantic:${path}`);
   }
+}
+
+function productResponsePrescriptionId(pathname, requestBody, responseBody, options) {
+  if (pathname !== "/v1/coach/respond") return undefined;
+  const ids = [];
+  for (const block of responseBody?.data?.answer?.blocks ?? []) {
+    if (block?.kind === "prescription" && typeof block.prescription?.prescriptionId === "string") {
+      ids.push(block.prescription.prescriptionId);
+    }
+  }
+  if (typeof responseBody?.data?.execution?.prescriptionId === "string") {
+    ids.push(responseBody.data.execution.prescriptionId);
+  }
+  if (ids.some((value) => !/^rx_[0-9a-f]{24}$/u.test(value)) || new Set(ids).size > 1) {
+    throw new Error("web_evidence:v3_product_semantic:response.prescriptionId");
+  }
+  const expected = requestBody?.contextFilters?.progressPlanner ? options.progressPlanner?.prescriptionId : undefined;
+  if (expected !== undefined && (ids.length === 0 || ids.some((value) => value !== expected))) {
+    throw new Error("web_evidence:v3_product_semantic:response.prescriptionId");
+  }
+  return ids[0];
 }
 
 function assertProductShape(value, schema, path, pathname, options) {
@@ -1134,6 +1160,8 @@ export function assertProductNetworkPrivacy(url, requestBody, responseBody, opti
         || Object.keys(responseBody).length === 0) throw new Error("web_evidence:v3_product_schema:response");
     assertProductShape(responseBody, responseSchema, "response", pathname, options);
   }
+  const responsePrescriptionId = phase === "response"
+    ? productResponsePrescriptionId(pathname, requestBody, responseBody, options) : undefined;
   const approvedField = (direction, path, key, value) => {
     if (direction === "request" && pathname === "/v1/coach/respond" && path === "" && key === "question") {
       return FOUR_AXIS_CASES.some((entry) => entry.question === value);
@@ -1156,10 +1184,10 @@ export function assertProductNetworkPrivacy(url, requestBody, responseBody, opti
     if (direction === "response" && pathname === "/v1/coach/change-proposals"
         && path === "data.proposal.source" && key === "prescriptionId") return value === progress.prescriptionId;
     if (direction === "response" && pathname === "/v1/coach/respond"
-        && path === "data.execution" && key === "prescriptionId") return value === progress.prescriptionId;
+        && path === "data.execution" && key === "prescriptionId") return value === responsePrescriptionId;
     return direction === "response" && pathname === "/v1/coach/respond"
       && /^data\.answer\.blocks\.\d+\.prescription$/u.test(path) && key === "prescriptionId"
-      && value === progress.prescriptionId;
+      && value === responsePrescriptionId;
   };
   const inspectAndRedact = (value, direction, path = "") => {
     if (typeof value === "string" && RAW_PRIVATE_VALUE.test(value)) throw new Error("web_evidence:v3_product_privacy");

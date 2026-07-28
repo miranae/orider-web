@@ -420,13 +420,29 @@ test("scans raw product URL and bodies but retains only redacted capture digests
     assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, swapped, options),
       /v3_product_semantic/u);
   }
+  const generatedPrescriptionId = `rx_${"a".repeat(24)}`;
+  const generatedPrescriptionResponse = { data: { ...responseEnvelope,
+    execution: { parser: "deterministic", prescriptionId: generatedPrescriptionId },
+    answer: { blocks: [{ kind: "prescription", prescription: { status: "ready",
+      prescriptionId: generatedPrescriptionId, evidence: [] } }] } } };
+  assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest,
+    generatedPrescriptionResponse, options));
+  const mismatchedPrescription = structuredClone(generatedPrescriptionResponse);
+  mismatchedPrescription.data.execution.prescriptionId = `rx_${"b".repeat(24)}`;
+  assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest,
+    mismatchedPrescription, options), /v3_product_semantic/u);
+  const malformedPrescription = structuredClone(generatedPrescriptionResponse);
+  malformedPrescription.data.answer.blocks[0].prescription.prescriptionId = "rx_invalid";
+  assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest,
+    malformedPrescription, options), /v3_product_semantic/u);
   const headlineLeak = structuredClone(headlineResponse); headlineLeak.data.answer.blocks[0].displayName = "private";
   assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, headlineLeak, options),
     /v3_product_schema/u);
   const markdownResponse = { data: { ...responseEnvelope, answer: { blocks: [{ kind: "grounded_markdown",
     markdown: "Route coordinates are intentionally omitted from this summary.", evidenceIds: [] }] } } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, markdownResponse, options));
-  for (const coordinateText of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0"]) {
+  for (const coordinateText of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0",
+    "latitude: 37, longitude: 127", "lat/lon: 37, 127"]) {
     const coordinateTextLeak = structuredClone(markdownResponse);
     coordinateTextLeak.data.answer.blocks[0].markdown = coordinateText;
     assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, coordinateTextLeak, options),
@@ -1265,7 +1281,8 @@ test("privacy scan covers final JSON, DOM, URLs, bodies, logs and provider sidec
   for (const key of ["latitude", "longitude"]) {
     assert.equal(privacyScan({ testLogs: JSON.stringify({ [key]: 37.5 }) }).matches.testLogs, 1);
   }
-  for (const text of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0"]) {
+  for (const text of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0",
+    "latitude: 37, longitude: 127", "lat/lon: 37, 127"]) {
     assert.ok(privacyScan({ renderedDom: text }).matches.renderedDom >= 1);
   }
   for (const text of ["Power ratio (3.5, 20.0)", "Expected range 3.5-20.0 watts/kg"]) {
