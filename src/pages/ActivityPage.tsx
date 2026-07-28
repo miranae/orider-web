@@ -518,6 +518,10 @@ export default function ActivityPage() {
   const streamSensorSummary = useMemo(() => deriveStreamSensorSummary(streams), [streams]);
   const hasStreamPowerCandidate = !!streamSensorSummary
     && (streamSensorSummary.hasPowerStream || streamSensorSummary.hasRejectedPowerStream);
+  const hasStreamHeartRateCandidate = !!streamSensorSummary
+    && (streamSensorSummary.hasHeartRateStream || streamSensorSummary.hasRejectedHeartRateStream);
+  const hasStreamCadenceCandidate = !!streamSensorSummary
+    && (streamSensorSummary.hasCadenceStream || streamSensorSummary.hasRejectedCadenceStream);
   const analysisProjection = useMemo(
     () => buildActivityAnalysisProjection(effectiveStreams, wattsOverride != null),
     [effectiveStreams, wattsOverride],
@@ -1072,6 +1076,8 @@ export default function ActivityPage() {
             sensorHeartRate={analysisProjection.heartRate}
             sensorPower={analysisProjection.power}
             hasStreamPowerCandidate={hasStreamPowerCandidate}
+            hasStreamHeartRateCandidate={hasStreamHeartRateCandidate}
+            hasStreamCadenceCandidate={hasStreamCadenceCandidate}
             summary={displayedSummary}
             sport={sport}
             isVirtualPower={activity.isVirtualPower}

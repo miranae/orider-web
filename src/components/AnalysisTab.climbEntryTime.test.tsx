@@ -19,6 +19,10 @@ vi.mock("../hooks/useActivityMetrics", () => ({
   useActivityMetrics: () => ({
     status: "ready",
     metrics: {
+      workoutType: "endurance",
+      workoutTypeConfidence: 0.9,
+      computedAt: 1_700_000_000_000,
+      version: 1,
       climbs: [{
         startKm: 2,
         lengthKm: 1,
@@ -34,7 +38,6 @@ vi.mock("../hooks/useActivityMetrics", () => ({
   }),
 }));
 
-vi.mock("./activity/ServerMetricsBanner", () => ({ default: () => null }));
 vi.mock("./ZoneDistributionChart", () => ({ default: () => null }));
 vi.mock("./PowerCurveChart", () => ({ default: () => null }));
 vi.mock("./MetabolismCard", () => ({ default: () => null }));
@@ -86,4 +89,47 @@ describe("AnalysisTab climb entry time", () => {
     const row = within(table).getAllByRole("row")[1]!;
     expect(within(row).getByRole("cell", { name: "—" })).toBeInTheDocument();
   });
+
+  it("preserves server climb geometry while removing stale server power fields", () => {
+    render(<AnalysisTab
+      hasStreamPowerCandidate
+      streams={{
+        userId: "rider",
+        watts: [180, 180, 180, 180],
+        altitude: [0, 10, 20, 30],
+        distance: [0, 1_000, 2_000, 3_000],
+        time: [0, 60, 120, 180],
+      }}
+      sport="ride"
+    />);
+
+    const table = screen.getByRole("table", { name: "클라임 (1)" });
+    const cells = within(table).getAllByRole("row")[1]!.querySelectorAll("td");
+    expect(cells[1]).toHaveTextContent("2.0 km");
+    expect(cells[2]).toHaveTextContent("1.00 km");
+    expect(cells[3]).toHaveTextContent("70 m");
+    expect(cells[4]).toHaveTextContent("7.0 %");
+    expect(cells[5]).toHaveTextContent("5:00");
+    expect(cells[7]).toHaveTextContent("840");
+    expect(cells[8]).toHaveTextContent("—");
+    expect(cells[9]).toHaveTextContent("—");
+  });
+
+  it.each(["accepted", "rejected"])(
+    "keeps server workout classification for a cadence-only %s candidate",
+    () => {
+      render(<AnalysisTab
+        hasStreamCadenceCandidate
+        streams={{
+          userId: "rider",
+          cadence: [80, 82, 84],
+          watts: [180, 185, 190],
+          time: [0, 1, 2],
+        }}
+        sport="ride"
+      />);
+
+      expect(screen.getByText("지구력")).toBeInTheDocument();
+    },
+  );
 });

@@ -13,6 +13,7 @@ import type { UseActivityMetricsState } from "../../hooks/useActivityMetrics";
 interface ServerMetricsBannerProps {
   state: UseActivityMetricsState;
   suppressPowerMetrics?: boolean;
+  suppressHeartRateMetrics?: boolean;
 }
 
 /** 신뢰도 임계 — 이 아래면 type label de-emphasize + hint hide. */
@@ -34,7 +35,11 @@ function peakHrSummary(p: { "1m"?: number; "5m"?: number; "20m"?: number } | und
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-export default function ServerMetricsBanner({ state, suppressPowerMetrics = false }: ServerMetricsBannerProps) {
+export default function ServerMetricsBanner({
+  state,
+  suppressPowerMetrics = false,
+  suppressHeartRateMetrics = false,
+}: ServerMetricsBannerProps) {
   const { t } = useTranslation("activity");
 
   const WORKOUT_TYPE_LABEL: Record<string, string> = {
@@ -64,10 +69,10 @@ export default function ServerMetricsBanner({ state, suppressPowerMetrics = fals
   const items: Array<{ label: string; value: string; hint?: string; tone?: "default" | "muted" }> = [];
   if (!suppressPowerMetrics && m.tss != null) items.push({ label: "TSS", value: String(Math.round(m.tss)) });
   if (!suppressPowerMetrics && m.np != null) items.push({ label: "NP", value: `${Math.round(m.np)} W` });
-  if (m.if != null) items.push({ label: "IF", value: m.if.toFixed(2) });
-  if (m.vi != null) items.push({ label: "VI", value: m.vi.toFixed(2) });
-  if (m.trimp != null) items.push({ label: "TRIMP", value: String(Math.round(m.trimp)) });
-  if (m.workoutType) {
+  if (!suppressPowerMetrics && m.if != null) items.push({ label: "IF", value: m.if.toFixed(2) });
+  if (!suppressPowerMetrics && m.vi != null) items.push({ label: "VI", value: m.vi.toFixed(2) });
+  if (!suppressHeartRateMetrics && m.trimp != null) items.push({ label: "TRIMP", value: String(Math.round(m.trimp)) });
+  if (!suppressPowerMetrics && !suppressHeartRateMetrics && m.workoutType) {
     items.push({
       label: t("serverMetrics.workoutTypeLabel"),
       value: WORKOUT_TYPE_LABEL[m.workoutType] ?? m.workoutType,
@@ -80,7 +85,7 @@ export default function ServerMetricsBanner({ state, suppressPowerMetrics = fals
     });
   }
   const peakHrSum = peakHrSummary(m.peakHr);
-  if (peakHrSum) items.push({ label: "peakHR bpm", value: peakHrSum });
+  if (!suppressHeartRateMetrics && peakHrSum) items.push({ label: "peakHR bpm", value: peakHrSum });
   if (m.movingTimeSec != null && m.pauseTimeSec != null && m.pauseTimeSec >= 30) {
     items.push({ label: t("serverMetrics.movingTimeLabel"), value: fmtSec(m.movingTimeSec), hint: t("serverMetrics.pauseHint", { time: fmtSec(m.pauseTimeSec) }) });
   }

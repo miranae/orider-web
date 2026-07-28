@@ -20,6 +20,7 @@ export interface StreamSensorSummary {
   hasHeartRateStream: boolean;
   hasRejectedHeartRateStream: boolean;
   hasCadenceStream: boolean;
+  hasRejectedCadenceStream: boolean;
   hasPowerStream: boolean;
   averageHeartRate: number | null;
   maxHeartRate: number | null;
@@ -249,7 +250,10 @@ export function selectActivityHeartRateStream(streams: ActivityStreams | null): 
     };
   }
 
-  const legacyHeartRate = runtimeArray<number>(streams.heartrate);
+  const rawLegacyHeartRate = (streams as unknown as Record<string, unknown>).heartrate;
+  const legacyHeartRate = runtimeArray<number>(rawLegacyHeartRate);
+  const hasLegacyHeartRateCandidate = rawLegacyHeartRate != null
+    && (!Array.isArray(rawLegacyHeartRate) || rawLegacyHeartRate.length > 0);
   const legacyTime = runtimeArray<number>(streams.time);
   const legacyDistance = runtimeArray<number>(streams.distance);
   const expectedLegacyCount = Math.max(legacyTime?.length ?? 0, legacyDistance?.length ?? 0);
@@ -262,7 +266,12 @@ export function selectActivityHeartRateStream(streams: ActivityStreams | null): 
       hasRejectedMeasurement: false,
     };
   }
-  return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: false };
+  return {
+    source: null,
+    values: null,
+    positiveValues: [],
+    hasRejectedMeasurement: hasLegacyHeartRateCandidate,
+  };
 }
 
 function average(values: readonly number[]): number {
@@ -280,7 +289,8 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
   const heartRate = selectedHeartRate.positiveValues;
   const legacyTime = runtimeArray<number>(streams.time);
   const legacyDistance = runtimeArray<number>(streams.distance);
-  const cadenceValues = runtimeArray<number>(streams.cadence);
+  const rawCadence = (streams as unknown as Record<string, unknown>).cadence;
+  const cadenceValues = runtimeArray<number>(rawCadence);
   const cadence = trustedLegacySensor(
     cadenceValues,
     Math.max(legacyTime?.length ?? 0, legacyDistance?.length ?? 0),
@@ -295,6 +305,9 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
     hasHeartRateStream,
     hasRejectedHeartRateStream: selectedHeartRate.hasRejectedMeasurement,
     hasCadenceStream,
+    hasRejectedCadenceStream: (rawCadence != null
+      && (!Array.isArray(rawCadence) || rawCadence.length > 0))
+      && !hasCadenceStream,
     hasPowerStream: hasReliablePower,
     averageHeartRate: heartRate.length > 0 ? average(heartRate) : null,
     maxHeartRate: heartRate.length > 0 ? maximum(heartRate) : null,

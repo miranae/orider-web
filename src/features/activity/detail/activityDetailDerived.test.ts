@@ -62,6 +62,8 @@ describe("activityDetailDerived", () => {
       maxHeartRate: 190,
       averageCadence: 100,
       maxCadence: 110,
+      hasCadenceStream: true,
+      hasRejectedCadenceStream: false,
     });
     expect(buildSummaryStats(longStreams as never, summary)).toMatchObject({
       maxElev: 999,
@@ -80,10 +82,12 @@ describe("activityDetailDerived", () => {
 
     expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
       hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
       heartRateSource: null,
       averageHeartRate: null,
       maxHeartRate: null,
       hasCadenceStream: false,
+      hasRejectedCadenceStream: true,
       averageCadence: null,
       maxCadence: null,
     });
@@ -102,6 +106,7 @@ describe("activityDetailDerived", () => {
 
     expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
       hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
       heartRateSource: null,
       averageHeartRate: null,
     });
@@ -170,12 +175,31 @@ describe("activityDetailDerived", () => {
     });
     expect(deriveStreamSensorSummary({ ...base, heartrate: malformed } as never)).toMatchObject({
       hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
       heartRateSource: null,
       averageHeartRate: null,
     });
     expect(deriveStreamSensorSummary({ ...base, cadence: malformed } as never)).toMatchObject({
       hasCadenceStream: false,
+      hasRejectedCadenceStream: true,
       averageCadence: null,
+    });
+  });
+
+  it.each([
+    ["missing", undefined, false],
+    ["null", null, false],
+    ["empty", [], false],
+    ["non-array", { bpm: 140 }, true],
+    ["untrusted nonempty", [140], true],
+  ])("tracks %s legacy heart-rate presence as rejected=%s", (_case, heartrate, rejected) => {
+    expect(deriveStreamSensorSummary({
+      distance: Array.from({ length: 20 }, (_, index) => index),
+      time: Array.from({ length: 20 }, (_, index) => index),
+      heartrate,
+    } as never)).toMatchObject({
+      hasHeartRateStream: false,
+      hasRejectedHeartRateStream: rejected,
     });
   });
 

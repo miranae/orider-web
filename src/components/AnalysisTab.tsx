@@ -33,7 +33,7 @@ import MetabolismCard from "./MetabolismCard";
 import InfoTip from "./InfoTip";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
 import { Chip, Text } from "../theme/components";
-import { useActivityMetrics } from "../hooks/useActivityMetrics";
+import { useActivityMetrics, type ActivityMetricsDoc } from "../hooks/useActivityMetrics";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
@@ -137,6 +137,8 @@ interface AnalysisTabProps {
   sensorHeartRate?: AnalysisSensorSeries;
   sensorPower?: AnalysisSensorSeries;
   hasStreamPowerCandidate?: boolean;
+  hasStreamHeartRateCandidate?: boolean;
+  hasStreamCadenceCandidate?: boolean;
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
   isVirtualPower?: boolean;
@@ -189,6 +191,44 @@ export interface WholeSessionSensorSeries {
   time: number[] | undefined;
   source: "explicit" | "legacy";
   timeOriginEpochMs?: number;
+}
+
+interface SensorCandidateFlags {
+  power: boolean;
+  heartRate: boolean;
+  cadence: boolean;
+}
+
+export function filterServerMetricsForSensorCandidates(
+  metrics: ActivityMetricsDoc | null,
+  candidates: SensorCandidateFlags,
+): ActivityMetricsDoc | null {
+  if (!metrics) return null;
+  const cyclingMetrics = metrics.cyclingMetrics
+    ? {
+        ...metrics.cyclingMetrics,
+        longestZ4PlusSec: candidates.power ? null : metrics.cyclingMetrics.longestZ4PlusSec,
+        cadenceStdDev: candidates.cadence ? null : metrics.cyclingMetrics.cadenceStdDev,
+      }
+    : undefined;
+
+  return {
+    ...metrics,
+    sufferScore: candidates.heartRate ? null : metrics.sufferScore,
+    quadrant: candidates.power || candidates.cadence ? null : metrics.quadrant,
+    cyclingMetrics,
+    zoneKj: candidates.power ? undefined : metrics.zoneKj,
+    lrBalance: candidates.power ? undefined : metrics.lrBalance,
+    cyclingDynamics: metrics.cyclingDynamics,
+    climbs: candidates.power && Array.isArray(metrics.climbs)
+      ? metrics.climbs.map((climb) => ({
+          ...climb,
+          avgPower: null,
+          wPerKg: null,
+          normalizedPower: null,
+        }))
+      : metrics.climbs,
+  };
 }
 
 export function normalizeActivityStartTimeMs(startTime: number | null | undefined): number | undefined {
@@ -245,12 +285,16 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
   );
 }
 
-export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, sensorHeartRate, sensorPower, hasStreamPowerCandidate = false, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
+export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, sensorHeartRate, sensorPower, hasStreamPowerCandidate = false, hasStreamHeartRateCandidate = false, hasStreamCadenceCandidate = false, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
   // Phase A.7: server-computed metrics 구독 (있으면 배너로 표시).
   // 현재는 client 재계산 결과와 병렬 표시 — 향후 점진적으로 server 우선 + 폴백 패턴으로 전환.
   // owner 가 아니면 구독 차단(owner-only doc) → permission-denied 회피.
   const serverMetrics = useActivityMetrics(activityId ?? null, isOwner);
-  const sm = serverMetrics.metrics; // ready 일 때만 non-null (서버 사전계산 doc)
+  const sm = useMemo(() => filterServerMetricsForSensorCandidates(serverMetrics.metrics, {
+    power: hasStreamPowerCandidate,
+    heartRate: hasStreamHeartRateCandidate,
+    cadence: hasStreamCadenceCandidate,
+  }), [hasStreamCadenceCandidate, hasStreamHeartRateCandidate, hasStreamPowerCandidate, serverMetrics.metrics]);
   const { t } = useTranslation("activity");
   const { profile, user } = useAuth();
   // #463 회복시간 개인화: owner 의 정본 CTL 시계열에서 현재 CTL 을 끌어와 추정에 주입.
@@ -507,7 +551,11 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   return (
     <div className="space-y-6">
       {/* Phase A.7: 서버 메트릭 배너 (있으면 표시) */}
-      <ServerMetricsBanner state={serverMetrics} suppressPowerMetrics={hasStreamPowerCandidate} />
+      <ServerMetricsBanner
+        state={serverMetrics}
+        suppressPowerMetrics={hasStreamPowerCandidate}
+        suppressHeartRateMetrics={hasStreamHeartRateCandidate}
+      />
 
       {/* FTP/maxHR 기본값 경고 */}
       {hasPower && !hasFtp && (
