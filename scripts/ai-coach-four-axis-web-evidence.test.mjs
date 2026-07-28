@@ -9,13 +9,14 @@ import Ajv from "ajv";
 import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidence.mjs";
 import { bindLocalContextToRequest, collectLiveComparison, collectStageBaselineComparison, createLocalEvidenceEnvelope,
   decodeEvidenceRequest, decodeLocalOperatorContext, FOUR_AXIS_CASES, localWebEvidenceArtifactName,
-  observedProductUserDataWrites,
+  observedProductUserDataWrites, readStageProductLedgerReceipts,
   parseOrchestratorActorAllowlist, prefixedEvidenceDigest, privacyScan, MAX_HTTP_RESPONSE_BYTES,
   REQUIRED_RENDER_ASSERTIONS, targetFingerprint,
   validateDispatchRequest, validateLocalEvidenceEnvelope, validateLocalOperatorContext, validateLocalOperatorRequest,
   validateLocalWebStageBaselineEvidenceArtifact, validateStageBaselineDispatchRequest, validateWebEvidenceArtifact,
   validateWebStageBaselineEvidenceArtifact, verifyLocalCheckpointBinding, verifyLocalGoogleIdentity, verifyLocalRepositoryState,
-  verifyLocalLeaseGuardBinding, verifyOrchestratorRun, WEB_EVIDENCE_TEST_FILES, webEvidenceArtifactName } from
+  validateProductLedgerReceipts, verifyLocalEnvelopeSidecar, verifyLocalLeaseGuardBinding, verifyOrchestratorRun,
+  WEB_EVIDENCE_TEST_FILES, webEvidenceArtifactName } from
   "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 const SHA = "a".repeat(40); const HASH = "b".repeat(64); const CORRELATION = "four-axis-contract-0001";
@@ -97,6 +98,54 @@ function productExecution(item, targetName) {
     questionResponseDigest: rawDigest(`${targetName}:${item.caseId}:question`),
     cardResponseDigest: cardPath === null ? null : rawDigest(`${targetName}:${item.caseId}:card`) };
 }
+
+function observedLedgerReceipts(requestKey, item) {
+  return { providers: item.providerCalls > 0
+    ? [{ path: `coach_provider_budget_charges/${requestKey}`, requestKey }] : [],
+  turns: item.quotaConsumed > 0 ? [{ path: `coach_user_turn_charges/${requestKey}`, requestKey }] : [] };
+}
+
+test("binds local envelope bytes, CLI digest, and a regular sha256 sidecar", () => {
+  const directory = mkdtempSync(resolve(tmpdir(), "web-envelope-sidecar-"));
+  try {
+    const envelopePath = resolve(directory, "evidence.local-file.json");
+    const bytes = Buffer.from("{\"ok\":true}\n");
+    const sha = createHash("sha256").update(bytes).digest("hex");
+    assert.throws(() => verifyLocalEnvelopeSidecar(bytes, envelopePath, sha), /sidecar_missing/u);
+    writeFileSync(`${envelopePath}.sha256`, `${"0".repeat(64)}\n`);
+    assert.throws(() => verifyLocalEnvelopeSidecar(bytes, envelopePath, sha), /local_envelope_digest/u);
+    writeFileSync(`${envelopePath}.sha256`, `${sha}\n`);
+    assert.equal(verifyLocalEnvelopeSidecar(bytes, envelopePath, sha), sha);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("accepts only unique backend-cross-checkable ledger receipts", () => {
+  const requestKey = "a".repeat(64); const receipt = observedLedgerReceipts(requestKey, { providerCalls: 1, quotaConsumed: 1 });
+  assert.deepEqual(validateProductLedgerReceipts(receipt, requestKey),
+    { providerLedgerCount: 1, turnLedgerCount: 1 });
+  assert.throws(() => validateProductLedgerReceipts({ ...receipt, providers: [...receipt.providers, ...receipt.providers] },
+    requestKey), /ledger_receipt_binding/u);
+  assert.deepEqual(validateProductLedgerReceipts({ providers: [], turns: [] }, requestKey),
+    { providerLedgerCount: 0, turnLedgerCount: 0 });
+});
+
+test("observes ledger receipts from the exact Firestore documents", async () => {
+  const requestKey = "a".repeat(64); const calls = [];
+  const receipts = await readStageProductLedgerReceipts(requestKey, { accessToken: "access-token-123",
+    targetName: "baseline", assertStageLease: async (operation) => calls.push(operation),
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname.split("/documents/")[1];
+      if (path.startsWith("coach_user_turn_charges/")) return new Response("{}", { status: 404,
+        headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ name: `projects/orider-dev/databases/(default)/documents/${path}`,
+        fields: { requestKey: { stringValue: requestKey } } }),
+      { status: 200, headers: { "content-type": "application/json" } });
+    } });
+  assert.deepEqual(receipts, { turns: [], providers: [{ path: `coach_provider_budget_charges/${requestKey}`,
+    requestKey }] });
+  assert.deepEqual(calls.map((call) => call.path), [
+    `coach_user_turn_charges/${requestKey}`, `coach_provider_budget_charges/${requestKey}`]);
+});
 
 function observedStageHttp(calls = [], stageRequest = v3Request, requestDigest = `sha256:${"9".repeat(64)}`) {
   const exchangeTargets = [];
@@ -483,7 +532,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
   const masked = []; const calls = [];
   const live = await collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(calls),
     clock: () => { tick += 5; return tick; }, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: (token) => masked.push(token),
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    maskSecret: (token) => masked.push(token),
     requestSha256: `sha256:${"9".repeat(64)}`, nowMs: Date.parse("2026-07-27T00:00:00.000Z") });
   assert.equal(live.evidence.baseline.length, 10); assert.equal(live.evidence.candidate.length, 10);
   assert.deepEqual(live.evidenceLeaseDigests, { baseline: digest("8"), candidate: digest("9") });
@@ -512,6 +562,16 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     "firebase-refresh-candidate"]) assert.ok(masked.includes(token));
   assert.equal(masked.filter((token) => token.split(".").length === 3).length, 2);
   assert.doesNotMatch(JSON.stringify(live), /(?:oidc-|firebase-custom-|app-check-|firebase-id-|firebase-refresh-)/u);
+  for (const [ledgerReceiptsFor, expected] of [
+    [async () => ({ providers: [], turns: [] }), /v3_ledger_count:track0_load_summary/u],
+    [async (requestKey, item) => { const receipt = observedLedgerReceipts(requestKey, item);
+      return { ...receipt, providers: [...receipt.providers, ...receipt.providers] }; }, /v3_ledger_receipt_binding/u],
+  ]) {
+    await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(),
+      ledgerReceiptsFor, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+      firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+      nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), expected);
+  }
   for (const [failedPath, status, expectedFiveXx] of [
     ["/v1/coach/insights/pmc", 400, 0],
     ["/v1/coach/status", 500, 1],
@@ -529,7 +589,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
       if (new URL(url).pathname !== failedPath) return response;
       return new Response(await response.text(), { status, headers: { "content-type": "application/json" } });
     }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    requestSha256: `sha256:${"9".repeat(64)}`,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), (error) => {
       assert.equal(error.message, `web_evidence:v3_product_http_${status}:${failedPath}:five_xx_${expectedFiveXx}`);
       return true;
@@ -548,14 +609,17 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
       }
       return upstream(url, options);
     }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    requestSha256: `sha256:${"9".repeat(64)}`,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), new RegExp(expected, "u"));
   }
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(),
-    clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience), firebaseWebApiKey: "short",
+    clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: "short",
     requestSha256: `sha256:${"9".repeat(64)}` }), /v3_http_identity/u);
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(),
-    clock: () => 1, identityTokenFor: async () => "", firebaseWebApiKey: FIREBASE_API_KEY,
+    clock: () => 1, identityTokenFor: async () => "", ledgerReceiptsFor: observedLedgerReceipts,
+    firebaseWebApiKey: FIREBASE_API_KEY,
     requestSha256: `sha256:${"9".repeat(64)}` }), /oidc_token/u);
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: async (url, options) => {
     if (new URL(url).pathname === "/v1/evidence/four-axis/attestation") {
@@ -563,7 +627,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     }
     return observedStageHttp()(url, options);
   }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-  firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}` }), /attestation_content_type/u);
+  ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+  requestSha256: `sha256:${"9".repeat(64)}` }), /attestation_content_type/u);
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: async (url, options) => {
     if (new URL(url).pathname === "/v1/evidence/four-axis/attestation") {
       return new Response("{}", { status: 200, headers: { "content-type": "application/json",
@@ -571,7 +636,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     }
     return observedStageHttp()(url, options);
   }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-  firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}` }), /attestation_content_length/u);
+  ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+  requestSha256: `sha256:${"9".repeat(64)}` }), /attestation_content_length/u);
 
   for (const mutate of [
     (value) => { value.revision = "tampered-revision"; },
@@ -587,7 +653,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
       const value = JSON.parse(await response.text()); mutate(value);
       return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
     }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    requestSha256: `sha256:${"9".repeat(64)}`,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /web_evidence:v3_/u);
   }
   const reusedLocator = observedStageHttp();
@@ -599,7 +666,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     value.progress.sourceRequestId = "22222222-2222-4222-8222-222222222222";
     return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
   }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-  firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+  ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+  requestSha256: `sha256:${"9".repeat(64)}`,
   nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /v3_progress_target_reuse/u);
 
   const driftedResponse = observedStageHttp();
@@ -612,7 +680,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     if (riderType) riderType.value = "Climber";
     return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
   }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-  firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+  ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+  requestSha256: `sha256:${"9".repeat(64)}`,
   nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /v3_card_ai_claim_drift:rider_profile/u);
 
   for (const mutatePmcProvenance of [
@@ -628,7 +697,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
       if (record) mutatePmcProvenance(record);
       return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
     }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    requestSha256: `sha256:${"9".repeat(64)}`,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /v3_pmc_answer_provenance/u);
   }
 
@@ -640,7 +710,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     value.data.proposal.evidence[0].sourceRevision = digest("0");
     return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
   }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-  firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+  ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+  requestSha256: `sha256:${"9".repeat(64)}`,
   nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /v3_progress_card_evidence/u);
   const exchangeFailure = observedStageHttp();
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: async (url, options) => {
@@ -651,7 +722,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     }
     return exchangeFailure(url, options);
   }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-  firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+  ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+  requestSha256: `sha256:${"9".repeat(64)}`,
   nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /firebase_exchange_binding/u);
 });
 
@@ -661,7 +733,8 @@ test("local operator request directly binds email actor, attestation response an
   const live = await collectStageBaselineComparison(requestValue, {
     fetchImpl: observedStageHttp(calls, requestValue, requestDigest),
     clock: () => { tick += 5; return tick; }, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    maskSecret: () => undefined, requestSha256: requestDigest,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
   });
   assert.deepEqual(live.evidenceLeaseDigests, { baseline: digest("8"), candidate: digest("9") });
@@ -682,7 +755,8 @@ test("local operator request directly binds email actor, attestation response an
   };
   await assert.rejects(() => collectStageBaselineComparison(requestValue, {
     fetchImpl: actorDrift, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    maskSecret: () => undefined, requestSha256: requestDigest,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
   }), /v3_attestation_binding/u);
 });
@@ -694,7 +768,8 @@ test("local stage lease fence runs immediately before each shared request and fa
     fetchImpl: async (url, options) => { events.push({ type: "fetch", url: String(url) }); return upstream(url, options); },
     assertStageLease: async (operation) => { events.push({ type: "guard", operation }); },
     clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    maskSecret: () => undefined, requestSha256: requestDigest,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
   });
   assert.ok(events.length > 0);
@@ -718,7 +793,8 @@ test("local stage lease fence runs immediately before each shared request and fa
       }
     },
     clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
-    firebaseWebApiKey: FIREBASE_API_KEY, maskSecret: () => undefined, requestSha256: requestDigest,
+    ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+    maskSecret: () => undefined, requestSha256: requestDigest,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z"),
   }), /lease_lost/u);
   assert.deepEqual(candidateProductFetches, []);
@@ -866,6 +942,7 @@ test("local operator CLI is separate from Actions and preserves live, browser, l
   assert.doesNotMatch(runner, /::add-mask::/u);
   assert.match(verifier, /validateLocalWebStageBaselineEvidenceArtifact/u);
   assert.match(verifier, /validateLocalEvidenceEnvelope/u);
+  assert.match(verifier, /verifyLocalEnvelopeSidecar/u);
   assert.match(verifier, /verifyLocalLeaseGuardBinding/u);
   assert.ok(verifier.indexOf("validateLocalEvidenceEnvelope(envelope")
     < verifier.lastIndexOf("verifyLocalLeaseGuardBinding("));

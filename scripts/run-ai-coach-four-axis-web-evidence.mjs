@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidence.mjs";
 import { collectStageBaselineComparison, decodeEvidenceRequest, evidenceFileSha256, passedVitestAssertions,
   parseOrchestratorActorAllowlist, prefixedEvidenceDigest, privacyScan, REQUIRED_RENDER_ASSERTIONS,
+  readStageProductLedgerReceipts,
   validateStageBaselineDispatchRequest,
   validateWebStageBaselineEvidenceArtifact,
   verifyOrchestratorRun, WEB_EVIDENCE_TEST_FILES, webEvidenceArtifactName } from "./lib/ai-coach-four-axis-web-evidence.mjs";
@@ -38,6 +39,13 @@ const identityTokenFor = async (audience) => {
   return token;
 };
 const maskSecret = (token) => process.stdout.write(`::add-mask::${token}\n`);
+const accessTokenResult = spawnSync("gcloud", ["auth", "print-access-token"],
+  { cwd: root, encoding: "utf8", maxBuffer: 64_000 });
+const accessToken = accessTokenResult.stdout.trim();
+if (accessTokenResult.status !== 0 || accessToken.length < 8 || accessToken.length > 16_384 || /\s/u.test(accessToken)) {
+  throw new Error("web_evidence:access_token_mint");
+}
+maskSecret(accessToken);
 
 const temporary = mkdtempSync(resolve(tmpdir(), "four-axis-web-evidence-")); const resultFile = resolve(temporary, "vitest.json");
 try {
@@ -50,7 +58,9 @@ try {
   const browser = await collectBrowserEvidence(root);
   const live = await collectStageBaselineComparison(request, { fetchImpl: fetch,
     clock: performance.now.bind(performance), identityTokenFor, maskSecret,
-    firebaseWebApiKey: required("AI_COACH_STAGE_FIREBASE_WEB_API_KEY"), requestSha256: decoded.requestSha256 });
+    firebaseWebApiKey: required("AI_COACH_STAGE_FIREBASE_WEB_API_KEY"), requestSha256: decoded.requestSha256,
+    ledgerReceiptsFor: (requestKey, _item, target) => readStageProductLedgerReceipts(requestKey,
+      { fetchImpl: fetch, accessToken, targetName: target.tag }) });
   const artifactName = webEvidenceArtifactName(commitSha, correlationId);
   const targets = { baseline: { targetFingerprint: request.targets.baseline.targetFingerprint,
     environment: request.targets.baseline.environment, tag: request.targets.baseline.tag,

@@ -222,6 +222,28 @@ describe("CoachQuestionLauncher", () => {
     expect(serialized).not.toMatch(/courseId|polyline|latitude|longitude|private-course/u);
   });
 
+  it("clears a removed Ride Plan selection and replaces its draft, token, and input revision atomically", async () => {
+    const first = { contextToken: `ride2.${"a".repeat(100)}.${"b".repeat(43)}` as const,
+      inputRevision: `ridein_${"c".repeat(24)}`, questionCode: "HARDEST_SECTION" as const };
+    const second = { contextToken: `ride2.${"d".repeat(100)}.${"e".repeat(43)}` as const,
+      inputRevision: `ridein_${"f".repeat(24)}`, questionCode: "PERSONAL_PACING" as const };
+    const renderLauncher = (ridePlanSelection: { selectionId: string; question: string;
+      context: typeof first | typeof second } | null) =>
+      <MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="bike"
+        onSignIn={vi.fn()} ridePlanSelection={ridePlanSelection} /></DialogProvider></MemoryRouter>;
+    const view = render(renderLauncher({ selectionId: "selection-1", question: "첫 질문", context: first }));
+    expect(await screen.findByLabelText("내 운동에 대한 질문")).toHaveValue("첫 질문");
+
+    view.rerender(renderLauncher({ selectionId: "selection-2", question: "교체 질문", context: second }));
+    expect(await screen.findByLabelText("내 운동에 대한 질문")).toHaveValue("교체 질문");
+    expect(screen.getByText("이 Ride Plan의 동일한 입력 버전에 연결됨")).toBeInTheDocument();
+
+    view.rerender(renderLauncher(null));
+    await waitFor(() => expect(screen.queryByLabelText("내 운동에 대한 질문")).not.toBeInTheDocument());
+    view.rerender(renderLauncher({ selectionId: "selection-2", question: "다시 연 질문", context: second }));
+    expect(await screen.findByLabelText("내 운동에 대한 질문")).toHaveValue("다시 연 질문");
+  });
+
   it.each([
     [false, true, true],
     [true, false, true],

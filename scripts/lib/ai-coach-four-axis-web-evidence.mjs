@@ -609,6 +609,66 @@ export function observedProductUserDataWrites(method, path, response, value) {
   return count;
 }
 
+export function verifyLocalEnvelopeSidecar(envelopeBytes, envelopePath, expectedSha256) {
+  const sidecarPath = `${envelopePath}.sha256`;
+  let stat; let sidecar;
+  try { stat = lstatSync(sidecarPath); sidecar = readFileSync(sidecarPath, "utf8"); }
+  catch { throw new Error("web_evidence:local_envelope_sidecar_missing"); }
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("web_evidence:local_envelope_sidecar_file");
+  const sidecarSha256 = sidecar.match(/^([0-9a-f]{64})\n$/u)?.[1];
+  const actualSha256 = createHash("sha256").update(envelopeBytes).digest("hex");
+  if (!sidecarSha256 || !HEX_DIGEST.test(expectedSha256)
+      || sidecarSha256 !== expectedSha256 || actualSha256 !== expectedSha256) {
+    throw new Error("web_evidence:local_envelope_digest");
+  }
+  return actualSha256;
+}
+
+export function validateProductLedgerReceipts(value, requestKey) {
+  exactKeys(value, ["providers", "turns"], "web_evidence:v3_ledger_receipt_keys");
+  const validate = (records, collection) => {
+    if (!Array.isArray(records)) throw new Error("web_evidence:v3_ledger_receipt_array");
+    const paths = new Set();
+    for (const record of records) {
+      exactKeys(record, ["path", "requestKey"], "web_evidence:v3_ledger_receipt_record");
+      const expectedPath = `${collection}/${requestKey}`;
+      if (record.requestKey !== requestKey || record.path !== expectedPath || paths.has(record.path)) {
+        throw new Error("web_evidence:v3_ledger_receipt_binding");
+      }
+      paths.add(record.path);
+    }
+    return records.length;
+  };
+  return { providerLedgerCount: validate(value.providers, "coach_provider_budget_charges"),
+    turnLedgerCount: validate(value.turns, "coach_user_turn_charges") };
+}
+
+export async function readStageProductLedgerReceipts(requestKey, options) {
+  if (!HEX_DIGEST.test(requestKey) || !AUTH_TOKEN.test(options?.accessToken ?? "")
+      || typeof options?.fetchImpl !== "function") throw new Error("web_evidence:v3_ledger_observer_config");
+  const records = { providers: [], turns: [] };
+  for (const [key, collection] of [["turns", "coach_user_turn_charges"],
+    ["providers", "coach_provider_budget_charges"]]) {
+    await options.assertStageLease?.({ kind: "ledger-http", target: options.targetName, method: "GET",
+      path: `${collection}/${requestKey}` });
+    const path = `${collection}/${requestKey}`;
+    const url = `https://firestore.googleapis.com/v1/projects/orider-dev/databases/(default)/documents/${path}`;
+    const response = await options.fetchImpl(url, { method: "GET",
+      headers: { authorization: `Bearer ${options.accessToken}` } });
+    if (response.status === 404) continue;
+    if (!response.ok || !response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+      throw new Error(`web_evidence:v3_ledger_http:${collection}:${response.status}`);
+    }
+    const value = await response.json();
+    if (value?.name !== `projects/orider-dev/databases/(default)/documents/${path}`
+        || value?.fields?.requestKey?.stringValue !== requestKey) {
+      throw new Error(`web_evidence:v3_ledger_document_binding:${collection}`);
+    }
+    records[key].push({ path, requestKey });
+  }
+  return records;
+}
+
 async function assertStageLease(options, operation) {
   if (typeof options.assertStageLease === "function") await options.assertStageLease(operation);
 }
@@ -924,12 +984,17 @@ async function observeTarget(request, target, options) {
     const requestDigest = prefixedEvidenceDigest({ caseId: item.caseId, questionCode: item.questionCode,
       question: item.question });
     const providerCallsObserved = envelope.budget.providerCalls;
-    const providerLedgerCount = Number(providerCallsObserved > 0);
-    const turnLedgerCount = Number(envelope.quota.consumed);
+    if (typeof options.ledgerReceiptsFor !== "function") throw new Error("web_evidence:v3_ledger_observer");
+    const requestKey = firebaseFixtureRequestKey(options.authorization, request.correlationId, requestId);
+    const { providerLedgerCount, turnLedgerCount } = validateProductLedgerReceipts(
+      await options.ledgerReceiptsFor(requestKey, item, target), requestKey);
+    if (providerLedgerCount !== Number(item.providerCalls > 0) || turnLedgerCount !== item.quotaConsumed) {
+      throw new Error(`web_evidence:v3_ledger_count:${item.caseId}`);
+    }
     const userDataWrites = question.userDataWrites + (prepared.card?.userDataWrites ?? 0)
       + (prepared.extraUserDataWrites ?? 0);
     const product = { questionPath: "/v1/coach/respond", cardPath: PRODUCT_CARD_PATHS.get(item.caseId),
-      requestKey: firebaseFixtureRequestKey(options.authorization, request.correlationId, requestId),
+      requestKey,
       questionStatus: question.response.status, cardStatus: prepared.card?.response.status ?? null,
       providerCallsObserved, providerLedgerCount, turnLedgerCount, userDataWrites,
       questionResponseDigest: question.responseDigest,
