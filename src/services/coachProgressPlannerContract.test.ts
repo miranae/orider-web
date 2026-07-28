@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  coachProposalConfirmRequestSchema, coachProposalRollbackRequestSchema,
   parseCoachProgressPlannerCapabilities, parseCoachProposalCreateResponse, parseCoachProposalResponse,
   parseCoachProposalRecoveryResponse, parseCoachReceiptResponse,
 } from "./coachProgressPlannerContract";
@@ -131,11 +132,25 @@ describe("Progress Planner backend contract", () => {
       { ...base, recoveryStatus: "applied", proposal: { ...proposal, status: "applied" }, receipt,
         confirmNonce: null, rollbackRequestId: "523e4567-e89b-52d3-a456-426614174004",
         privateNonce: "n".repeat(32) },
+      { ...base, source: { ...base.source, prescriptionId: `rx_${"0".repeat(24)}` } },
+      { ...base, source: { ...base.source, sourceRequestId: "623e4567-e89b-42d3-a456-426614174005" } },
     ];
     for (const data of invalid) {
       expect(() => parseCoachProposalRecoveryResponse({ status: "ok", data, providerCalls: 0, quotaConsumed: 0 })).toThrow();
     }
     expect(() => parseCoachProposalRecoveryResponse({ status: "ok", data: base,
       providerCalls: 0, quotaConsumed: 0, privateOwner: "uid" })).toThrow();
+  });
+
+  it("does not expose recovery source identifiers to confirm or rollback requests", () => {
+    const requestId = "523e4567-e89b-42d3-a456-426614174004";
+    expect(coachProposalConfirmRequestSchema.parse({ requestId, nonce: "n".repeat(32) }))
+      .toEqual({ requestId, nonce: "n".repeat(32) });
+    expect(coachProposalRollbackRequestSchema.parse({ requestId })).toEqual({ requestId });
+    for (const schema of [coachProposalConfirmRequestSchema, coachProposalRollbackRequestSchema]) {
+      expect(() => schema.parse({ requestId, prescriptionId: proposal.source.prescriptionId,
+        checkInRequestId: proposal.source.checkInRequestId, sourceRequestId: proposal.source.checkInRequestId,
+        ...(schema === coachProposalConfirmRequestSchema ? { nonce: "n".repeat(32) } : {}) })).toThrow();
+    }
   });
 });
