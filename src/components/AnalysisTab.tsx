@@ -40,6 +40,7 @@ import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from ".
 import { LocalizedLink as Link } from "./LocalizedLink";
 import { buildClimbSegmentProposalPath } from "../features/segmentCreation/climbPromotion";
 import { resolveActivityHrZones } from "../utils/hrZones";
+import type { AnalysisSensorSeries } from "../features/activity/detail/activityDetailDerived";
 
 type AccentColor = "lime" | "aqua" | "amber" | "rose" | "violet" | "ink";
 const ACCENT: Record<AccentColor, string> = {
@@ -133,6 +134,8 @@ interface AnalysisTabProps {
   /** 활동 시작 epoch (초 또는 밀리초). 클라임 진입 실제 현지 시각 계산에 사용. */
   startTime?: number | null;
   streams: ActivityStreams;
+  sensorHeartRate?: AnalysisSensorSeries;
+  sensorPower?: AnalysisSensorSeries;
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
   isVirtualPower?: boolean;
@@ -163,7 +166,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
   );
 }
 
-export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
+export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, sensorHeartRate, sensorPower, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
   // Phase A.7: server-computed metrics 구독 (있으면 배너로 표시).
   // 현재는 client 재계산 결과와 병렬 표시 — 향후 점진적으로 server 우선 + 폴백 패턴으로 전환.
   // owner 가 아니면 구독 차단(owner-only doc) → permission-denied 회피.
@@ -203,19 +206,22 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   // 서버(activity-metrics)와 동일하게 plausibleWatts 로 정제(#532) — 비현실 파워(평균/5분>2×FTP)
   // 는 []→파워지표 미표시, 고립 스파이크는 2000W 클램프. 서버 사전계산값과 발산 방지.
   const watts = useMemo(() => {
-    const raw = (streams.watts && streams.watts.length > 0 ? streams.watts : streams.watts_calc) ?? [];
+    const raw = sensorPower?.values
+      ?? (streams.watts && streams.watts.length > 0 ? streams.watts : streams.watts_calc)
+      ?? [];
     return plausibleWatts(raw, ftp) ?? [];
-  }, [streams.watts, streams.watts_calc, ftp]);
-  const hr = streams.heartrate ?? [];
+  }, [streams.watts, streams.watts_calc, sensorPower?.values, ftp]);
+  const hr = sensorHeartRate?.values ?? streams.heartrate ?? [];
   const hasPower = watts.length > 0;
   const hasHr = hr.length > 0;
-  const time = streams.time;
+  const powerTime = sensorPower?.time ?? streams.time;
+  const heartRateTime = sensorHeartRate?.time ?? streams.time;
 
   // 파워 메트릭
-  const np = useMemo(() => hasPower ? calculateNP(watts, time) : null, [watts, time, hasPower]);
-  const ifactor = useMemo(() => hasPower ? calculateIF(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
-  const tss = useMemo(() => hasPower ? calculateTSS(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
-  const vi = useMemo(() => hasPower ? calculateVI(watts, time) : null, [watts, time, hasPower]);
+  const np = useMemo(() => hasPower ? calculateNP(watts, powerTime) : null, [watts, powerTime, hasPower]);
+  const ifactor = useMemo(() => hasPower ? calculateIF(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower]);
+  const tss = useMemo(() => hasPower ? calculateTSS(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower]);
+  const vi = useMemo(() => hasPower ? calculateVI(watts, powerTime) : null, [watts, powerTime, hasPower]);
   const powerStats = useMemo(() => {
     const base = avgMax(watts, { ignoreZero: false });
     // 최대 파워는 3초 평활값으로 — 파워미터 단발 스파이크 제거
@@ -231,13 +237,15 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     }
     return base;
   }, [watts]);
-  const workKj = useMemo(() => hasPower ? calculateWorkKj(watts, time) : null, [watts, time, hasPower]);
+  const workKj = useMemo(() => hasPower ? calculateWorkKj(watts, powerTime) : null, [watts, powerTime, hasPower]);
   const durationSec = useMemo(() => {
-    const sampleLen = Math.max(watts.length, hr.length, streams.cadence?.length ?? 0, streams.velocity_smooth?.length ?? 0);
-    if (sampleLen > 0) return totalDurationSec(sampleLen, time);
-    if (time?.length) return totalDurationSec(time.length, time);
-    return 0;
-  }, [time, watts.length, hr.length, streams.cadence?.length, streams.velocity_smooth?.length]);
+    const sensorDuration = Math.max(
+      totalDurationSec(watts.length, powerTime),
+      totalDurationSec(hr.length, heartRateTime),
+    );
+    const routeLength = Math.max(streams.cadence?.length ?? 0, streams.velocity_smooth?.length ?? 0);
+    return Math.max(sensorDuration, totalDurationSec(routeLength, streams.time));
+  }, [powerTime, watts.length, heartRateTime, hr.length, streams.cadence?.length, streams.velocity_smooth?.length, streams.time]);
   const kjPerHr = useMemo(() => {
     if (workKj == null || durationSec <= 0) return null;
     return (workKj / durationSec) * 3600;
@@ -246,9 +254,10 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   // 심박 메트릭
   const hrStats = useMemo(() => avgMax(hr, { ignoreZero: true }), [hr]);
   const hrDrift = useMemo(() => hasHr ? calculateHrDrift(hr) : null, [hr, hasHr]);
-  const ef = useMemo(() => hasPower && hasHr ? calculateEF(watts, hr) : null, [watts, hr, hasPower, hasHr]);
-  const decoupling = useMemo(() => hasPower && hasHr ? calculateDecoupling(watts, hr) : null, [watts, hr, hasPower, hasHr]);
-  const trimp = useMemo(() => hasHr ? calculateTRIMP(hr, maxHr, restHr, "male", time) : null, [hr, maxHr, restHr, time, hasHr]);
+  const sensorsShareAxis = !sensorPower && !sensorHeartRate;
+  const ef = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateEF(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
+  const decoupling = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateDecoupling(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
+  const trimp = useMemo(() => hasHr ? calculateTRIMP(hr, maxHr, restHr, "male", heartRateTime) : null, [hr, maxHr, restHr, heartRateTime, hasHr]);
   // 회복시간 추정 — 세션 부하(TSS 우선, 없으면 TRIMP)를 만성 체력(CTL)에 상대화.
   // #463: owner 면 정본 CTL 주입(비개인화 DEFAULT_CTL=35 제거), 아니면 기본값 폴백.
   const recovery = useMemo(() => {
@@ -275,21 +284,21 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const elevGain = useMemo(() => calculateElevationGain(streams.altitude), [streams.altitude]);
 
   // 존 분포 + 임계 영역
-  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, derivedHrZones, time) : null, [hr, derivedHrZones, time, hasHr]);
-  const powerZones = useMemo(() => hasPower ? calculatePowerZoneDistribution(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
+  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, derivedHrZones, heartRateTime) : null, [hr, derivedHrZones, heartRateTime, hasHr]);
+  const powerZones = useMemo(() => hasPower ? calculatePowerZoneDistribution(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower]);
   // Seiler 3존 (자전거 + 파워 있을 때만)
-  const seilerZones = useMemo(() => (hasPower && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, time) : null, [watts, ftp, time, hasPower, sport]);
+  const seilerZones = useMemo(() => (hasPower && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, sport]);
   const polarization = useMemo(() => seilerZones ? polarizationIndex(seilerZones) : null, [seilerZones]);
-  const criticalBands = useMemo(() => hasPower ? calculateCriticalBands(watts, ftp, time) : null, [watts, ftp, time, hasPower]);
-  const powerCurve = useMemo(() => hasPower ? calculatePowerCurve(watts, time) : [], [watts, time, hasPower]);
-  const xPower = useMemo(() => hasPower ? calculateXPower(watts, time) : null, [watts, time, hasPower]);
-  const matches = useMemo(() => hasPower ? analyzeMatches(watts, ftp, 30, time) : null, [watts, ftp, time, hasPower]);
+  const criticalBands = useMemo(() => hasPower ? calculateCriticalBands(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower]);
+  const powerCurve = useMemo(() => hasPower ? calculatePowerCurve(watts, powerTime) : [], [watts, powerTime, hasPower]);
+  const xPower = useMemo(() => hasPower ? calculateXPower(watts, powerTime) : null, [watts, powerTime, hasPower]);
+  const matches = useMemo(() => hasPower ? analyzeMatches(watts, ftp, 30, powerTime) : null, [watts, ftp, powerTime, hasPower]);
   // 가상파워는 CP/W' fit 스킵(서버 activity-metrics 와 동일 게이트, #532) — 추정파워로 임계파워 산정 금지.
   const cp = useMemo(() => (hasPower && !isVirtualPower) ? estimateCriticalPower(powerCurve) : null, [powerCurve, hasPower, isVirtualPower]);
   // #458 W'bal 잔량 궤적 (Skiba 2015, 클라 계산). streams.time 기반 dt 보정.
   const wbal = useMemo(
-    () => (hasPower && cp ? wPrimeBalanceSeries(watts, cp.cp, cp.wPrime, sampleDurationsSec(watts.length, time)) : null),
-    [watts, time, cp, hasPower],
+    () => (hasPower && cp ? wPrimeBalanceSeries(watts, cp.cp, cp.wPrime, sampleDurationsSec(watts.length, powerTime)) : null),
+    [watts, powerTime, cp, hasPower],
   );
 
   // 클라임 자동 탐지 (수영 제외)

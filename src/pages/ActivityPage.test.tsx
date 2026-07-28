@@ -724,6 +724,42 @@ describe("ActivityPage", () => {
     expect(screen.getByText("NP 147 W")).toBeInTheDocument();
   });
 
+  it("replaces diluted legacy sensor summaries and suppresses sparse zero-filled power", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({
+        averageHeartRate: 55,
+        maxHeartRate: 162,
+        averagePower: 127,
+        maxPower: 1_004,
+        normalizedPower: 160,
+        averageCadence: 25,
+        maxCadence: 103,
+      }),
+    });
+    const distance = Array.from({ length: 200 }, (_, index) => index * 10);
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance,
+        altitude: Array(200).fill(10),
+        heartrate: [150, 160, ...Array(198).fill(0)],
+        cadence: [90, 100, ...Array(198).fill(0)],
+        watts: [250, 300, 350, ...Array(197).fill(0)],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).toHaveTextContent("평균 심박155bpm최고 160"));
+    expect(stats).toHaveTextContent("평균 케이던스95rpm");
+    expect(stats).not.toHaveTextContent("평균 파워");
+    expect(stats).not.toHaveTextContent("127W");
+  });
+
   it("shows AI ride analysis for indoor-like streams without route latlng", async () => {
     const activity = createMockActivity({
       id: "test-activity",

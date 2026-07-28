@@ -48,8 +48,10 @@ import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPan
 import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
 import {
   buildChartOverlays,
+  buildActivityAnalysisProjection,
   buildSampledData,
   buildSummaryStats,
+  deriveStreamSensorSummary,
   getAvailableOverlays,
   getChartHighlightRange,
   getSegmentEfforts,
@@ -513,11 +515,17 @@ export default function ActivityPage() {
 
   const sampledData = useMemo(() => buildSampledData(streams), [streams]);
 
+  const streamSensorSummary = useMemo(() => deriveStreamSensorSummary(streams), [streams]);
+  const analysisProjection = useMemo(
+    () => buildActivityAnalysisProjection(effectiveStreams, streamSensorSummary, wattsOverride != null),
+    [effectiveStreams, streamSensorSummary, wattsOverride],
+  );
+
   const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
 
   const summaryStats = useMemo(() => {
-    return buildSummaryStats(sampledData, activity?.summary?.averagePower ?? activity?.avgPower);
-  }, [sampledData, activity?.summary?.averagePower, activity?.avgPower]);
+    return buildSummaryStats(streams, streamSensorSummary);
+  }, [streamSensorSummary, streams]);
 
   const markerPosition = useMemo(() => {
     if (hoverIndex == null || !sampledData[hoverIndex]) return null;
@@ -596,10 +604,25 @@ export default function ActivityPage() {
   }
 
   const s = activity.summary;
+  const displayedSummary = streams && streamSensorSummary
+    ? {
+        ...s,
+        averageHeartRate: streamSensorSummary.hasHeartRateStream ? streamSensorSummary.averageHeartRate : s.averageHeartRate,
+        maxHeartRate: streamSensorSummary.hasHeartRateStream ? streamSensorSummary.maxHeartRate : s.maxHeartRate,
+        averageCadence: streamSensorSummary.hasCadenceStream ? streamSensorSummary.averageCadence : s.averageCadence,
+        maxCadence: streamSensorSummary.hasCadenceStream ? streamSensorSummary.maxCadence : s.maxCadence,
+        averagePower: streamSensorSummary.hasPowerStream ? streamSensorSummary.averagePower : s.averagePower,
+        maxPower: streamSensorSummary.hasPowerStream ? streamSensorSummary.maxPower : s.maxPower,
+      }
+    : s;
   // 가상파워 결과는 백엔드에서 summary.*에 함께 기록되지만, 아직 백필되지 않은
   // 과거 활동을 위해 활동 문서 top-level(`avgPower`, `weightedAvgPower`)을 fallback으로 사용.
-  const avgPowerValue = s.averagePower ?? activity.avgPower ?? null;
-  const normalizedPowerValue = s.normalizedPower ?? activity.weightedAvgPower ?? null;
+  const avgPowerValue = streams && streamSensorSummary?.hasPowerStream
+    ? streamSensorSummary?.averagePower ?? null
+    : s.averagePower ?? activity.avgPower ?? null;
+  const normalizedPowerValue = streams && streamSensorSummary?.hasPowerStream && !streamSensorSummary.hasReliablePower
+    ? null
+    : s.normalizedPower ?? activity.weightedAvgPower ?? null;
   const activityDate = Number.isFinite(activity.startTime)
     ? new Date(activity.startTime).toISOString().slice(0, 10)
     : null;
@@ -628,9 +651,8 @@ export default function ActivityPage() {
   const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
   const hasStreams = sampledData.length > 0;
   const hasAnalysisStreams = !!streams && (
-    (streams.watts?.length ?? 0) > 0 ||
-    (streams.watts_calc?.length ?? 0) > 0 ||
-    (streams.heartrate?.length ?? 0) > 0 ||
+    !!streamSensorSummary?.hasReliablePower ||
+    streamSensorSummary?.averageHeartRate != null ||
     (streams.distance?.length ?? 0) > 0 ||
     (streams.laps?.length ?? 0) > 0
   );
@@ -721,12 +743,12 @@ export default function ActivityPage() {
     }
   };
   const summarySensorMetrics = ([
-    s.averageHeartRate != null
+    displayedSummary.averageHeartRate != null
       ? {
           label: t("stat.avgHr"),
-          value: String(Math.round(s.averageHeartRate)),
+          value: String(Math.round(displayedSummary.averageHeartRate)),
           unit: "bpm",
-          sub: s.maxHeartRate != null ? `${t("page.max")} ${Math.round(s.maxHeartRate)} bpm` : undefined,
+          sub: displayedSummary.maxHeartRate != null ? `${t("page.max")} ${Math.round(displayedSummary.maxHeartRate)} bpm` : undefined,
         }
       : null,
     avgPowerValue != null && (sport === "ride" || sport === "run")
@@ -737,17 +759,17 @@ export default function ActivityPage() {
           sub: normalizedPowerValue != null ? `NP ${Math.round(normalizedPowerValue)} W` : undefined,
         }
       : null,
-    s.maxPower != null && (sport === "ride" || sport === "run")
+    displayedSummary.maxPower != null && (sport === "ride" || sport === "run")
       ? {
           label: t("stat.maxPower"),
-          value: String(Math.round(s.maxPower)),
+          value: String(Math.round(displayedSummary.maxPower)),
           unit: "W",
         }
       : null,
-    s.averageCadence != null
+    displayedSummary.averageCadence != null
       ? {
           label: sport === "swim" ? t("stat.avgStroke") : t("stat.avgCadence"),
-          value: String(Math.round(s.averageCadence)),
+          value: String(Math.round(displayedSummary.averageCadence)),
           unit: sport === "run" || sport === "swim" ? "spm" : "rpm",
         }
       : null,
@@ -763,7 +785,7 @@ export default function ActivityPage() {
   const keyStatsStrip = (
     <Card padding="none" style={{ padding: 0 }}>
       <ActivityStatsGrid
-        summary={s}
+        summary={displayedSummary}
         sport={sport}
         interpretationContext={runDetail.interpretationContext}
         avgPowerValue={avgPowerValue}
@@ -1000,7 +1022,7 @@ export default function ActivityPage() {
           <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void handleRetryStreams(); }} retryLabel={t("page.retry")} />
         </div>
       )}
-      {activeTab === "analysis" && hasAnalysisStreams && streams && (
+      {activeTab === "analysis" && hasAnalysisStreams && streams && analysisProjection && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               activeBike 는 뷰어(user.uid)의 자전거 프로필이라, 비소유자에게 보이면
@@ -1030,7 +1052,18 @@ export default function ActivityPage() {
               )}
             </div>
           )}
-          <AnalysisTab activityId={activityId ?? null} isOwner={isActivityOwner} startTime={activity.startTime} streams={effectiveStreams ?? streams} summary={activity.summary} sport={sport} isVirtualPower={activity.isVirtualPower} virtualPowerParams={activity.virtualPowerParams} />
+          <AnalysisTab
+            activityId={activityId ?? null}
+            isOwner={isActivityOwner}
+            startTime={activity.startTime}
+            streams={analysisProjection.streams}
+            sensorHeartRate={analysisProjection.heartRate}
+            sensorPower={analysisProjection.power}
+            summary={displayedSummary}
+            sport={sport}
+            isVirtualPower={activity.isVirtualPower}
+            virtualPowerParams={activity.virtualPowerParams}
+          />
         </Card>
       )}
 
