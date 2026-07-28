@@ -112,6 +112,71 @@ function runtimeArray<T>(value: unknown): T[] | undefined {
   return Array.isArray(value) ? value as T[] : undefined;
 }
 
+function validTimeDurationSec(value: unknown): number | undefined {
+  const time = runtimeArray<unknown>(value);
+  if (!time?.length || !hasDenseArraySlots(time)) return undefined;
+  if (!time.every((sample) => typeof sample === "number" && Number.isFinite(sample) && sample >= 0)) {
+    return undefined;
+  }
+  const numericTime = time as number[];
+  const divisor = numericTime[0]! >= 1_000_000_000_000 ? 1000 : 1;
+  const deltas = numericTime.slice(1).map((sample, index) => sample - numericTime[index]!);
+  if (deltas.some((delta) => delta <= 0)) return undefined;
+  const sortedDeltas = [...deltas].sort((a, b) => a - b);
+  const representativeStep = (sortedDeltas[Math.floor(sortedDeltas.length / 2)] ?? divisor) / divisor;
+  return (numericTime[numericTime.length - 1]! - numericTime[0]!) / divisor + representativeStep;
+}
+
+export function expectedActivityDurationSec(
+  streams: ActivityStreams,
+  summaryDurationSec?: number,
+): number | undefined {
+  const timeDuration = validTimeDurationSec(streams.time);
+  const routeAxisLength = Math.max(
+    runtimeArray<unknown>(streams.distance)?.length ?? 0,
+    runtimeArray<unknown>(streams.time)?.length ?? 0,
+    runtimeArray<unknown>(streams.velocity_smooth)?.length ?? 0,
+    runtimeArray<unknown>(streams.cadence)?.length ?? 0,
+  );
+  const routeDuration = timeDuration ?? (routeAxisLength > 0 ? routeAxisLength : undefined);
+  const validSummaryDuration = typeof summaryDurationSec === "number"
+    && Number.isFinite(summaryDurationSec)
+    && summaryDurationSec > 0
+    ? summaryDurationSec
+    : undefined;
+  if (routeDuration == null) return validSummaryDuration;
+  return validSummaryDuration == null ? routeDuration : Math.max(routeDuration, validSummaryDuration);
+}
+
+function hasWholeActivityExplicitCoverage(
+  streams: ActivityStreams,
+  explicitTime: readonly number[],
+  summaryDurationSec?: number,
+  activityStartTime?: number,
+): boolean {
+  const rawOrigin = (streams.sensorStreamsV1 as unknown as Record<string, unknown> | undefined)
+    ?.timeOriginEpochMs;
+  if (typeof rawOrigin !== "number" || !Number.isSafeInteger(rawOrigin) || rawOrigin < 0) return false;
+  const expectedDuration = expectedActivityDurationSec(streams, summaryDurationSec);
+  if (expectedDuration != null) {
+    const measuredDuration = explicitTime[explicitTime.length - 1]! - explicitTime[0]! + 1;
+    if (measuredDuration / expectedDuration < 0.95) return false;
+  }
+
+  const routeTime = runtimeArray<number>(streams.time);
+  const routeStart = routeTime?.[0];
+  const normalizeEpochMs = (value: unknown): number | undefined => {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 1_000_000_000) return undefined;
+    const epochMs = value < 1_000_000_000_000 ? value * 1000 : value;
+    return Number.isSafeInteger(epochMs) ? epochMs : undefined;
+  };
+  const expectedStartEpochMs = normalizeEpochMs(routeStart) ?? normalizeEpochMs(activityStartTime);
+  if (expectedStartEpochMs == null) return true;
+  const explicitStartEpochMs = rawOrigin + explicitTime[0]! * 1000;
+  return Number.isSafeInteger(explicitStartEpochMs)
+    && Math.abs(explicitStartEpochMs - expectedStartEpochMs) <= 1000;
+}
+
 function persistedNumericArray(value: unknown, allowNegative: boolean): number[] | undefined {
   const values = runtimeArray<unknown>(value);
   if (!values || !hasDenseArraySlots(values)) return undefined;
@@ -139,7 +204,11 @@ function trustedLegacyPower(values: readonly number[] | undefined, expectedCount
     : null;
 }
 
-export function selectActivityPowerStream(streams: ActivityStreams | null): SelectedPowerStream {
+export function selectActivityPowerStream(
+  streams: ActivityStreams | null,
+  summaryDurationSec?: number,
+  activityStartTime?: number,
+): SelectedPowerStream {
   if (!streams) return { source: null, values: null, finiteValues: [], hasCandidate: false };
 
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
@@ -170,7 +239,7 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
         explicitWatts?.length ?? 0,
         explicit.timeUnit,
         explicit.resolutionSeconds,
-      )) {
+      ) || !hasWholeActivityExplicitCoverage(streams, explicitTime, summaryDurationSec, activityStartTime)) {
         return { source: null, values: null, finiteValues: [], hasCandidate: true };
       }
       return {
@@ -217,7 +286,11 @@ function trustedLegacySensor(values: readonly number[] | undefined, expectedCoun
   return positive.length > 0 ? positive : null;
 }
 
-export function selectActivityHeartRateStream(streams: ActivityStreams | null): SelectedHeartRateStream {
+export function selectActivityHeartRateStream(
+  streams: ActivityStreams | null,
+  summaryDurationSec?: number,
+  activityStartTime?: number,
+): SelectedHeartRateStream {
   if (!streams) return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: false };
 
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
@@ -239,7 +312,7 @@ export function selectActivityHeartRateStream(streams: ActivityStreams | null): 
       explicitHeartRate.length,
       explicit.timeUnit,
       explicit.resolutionSeconds,
-    )) {
+    ) || !hasWholeActivityExplicitCoverage(streams, explicitTime, summaryDurationSec, activityStartTime)) {
       return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
     }
     return {
@@ -282,10 +355,14 @@ function maximum(values: readonly number[]): number {
   return values.reduce((result, value) => Math.max(result, value), -Infinity);
 }
 
-export function deriveStreamSensorSummary(streams: ActivityStreams | null): StreamSensorSummary | null {
+export function deriveStreamSensorSummary(
+  streams: ActivityStreams | null,
+  summaryDurationSec?: number,
+  activityStartTime?: number,
+): StreamSensorSummary | null {
   if (!streams) return null;
 
-  const selectedHeartRate = selectActivityHeartRateStream(streams);
+  const selectedHeartRate = selectActivityHeartRateStream(streams, summaryDurationSec, activityStartTime);
   const heartRate = selectedHeartRate.positiveValues;
   const legacyTime = runtimeArray<number>(streams.time);
   const legacyDistance = runtimeArray<number>(streams.distance);
@@ -297,7 +374,7 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
   ) ?? [];
   const hasHeartRateStream = heartRate.length > 0;
   const hasCadenceStream = cadence.length > 0;
-  const selectedPower = selectActivityPowerStream(streams);
+  const selectedPower = selectActivityPowerStream(streams, summaryDurationSec, activityStartTime);
   const power = selectedPower.finiteValues;
   const hasReliablePower = selectedPower.source != null;
 
@@ -381,12 +458,14 @@ function measuredSeries(
 export function buildActivityAnalysisProjection(
   streams: ActivityStreams | null,
   preferTopLevelPower = false,
+  summaryDurationSec?: number,
+  activityStartTime?: number,
 ): ActivityAnalysisProjection | null {
   if (!streams) return null;
 
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
-  const selectedPower = selectActivityPowerStream(streams);
-  const selectedHeartRate = selectActivityHeartRateStream(streams);
+  const selectedPower = selectActivityPowerStream(streams, summaryDurationSec, activityStartTime);
+  const selectedHeartRate = selectActivityHeartRateStream(streams, summaryDurationSec, activityStartTime);
   const normalizedTime = persistedTimeArray(streams.time);
   const normalizedDistance = persistedNumericArray(streams.distance, false);
   const normalizedCadence = persistedNumericArray(streams.cadence, false);

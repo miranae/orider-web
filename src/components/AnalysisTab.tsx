@@ -266,6 +266,36 @@ export function wholeSessionSeriesShareAxis(
   });
 }
 
+export function resolveAnalysisDurationSec(
+  powerLength: number,
+  powerTime: number[] | undefined,
+  heartRateLength: number,
+  heartRateTime: number[] | undefined,
+  streams: ActivityStreams,
+  summary?: ActivitySummary,
+): number {
+  const sensorDuration = Math.max(
+    totalDurationSec(powerLength, powerTime),
+    totalDurationSec(heartRateLength, heartRateTime),
+  );
+  const routeLength = Math.max(
+    streams.distance?.length ?? 0,
+    streams.time?.length ?? 0,
+    streams.cadence?.length ?? 0,
+    streams.velocity_smooth?.length ?? 0,
+  );
+  const summaryDuration = Math.max(
+    (summary?.elapsedTimeMillis ?? 0) / 1000,
+    (summary?.ridingTimeMillis ?? 0) / 1000,
+  );
+  return Math.max(sensorDuration, totalDurationSec(routeLength, streams.time), summaryDuration);
+}
+
+export function calculateKjPerHour(workKj: number | null, durationSec: number): number | null {
+  if (workKj == null || durationSec <= 0) return null;
+  return (workKj / durationSec) * 3600;
+}
+
 /** #458 W'bal 잔량 궤적 미니 차트 — amber 라인 + 최저점(rose) 마커. */
 function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPrimeMaxJ: number; idxMin: number }) {
   const w = 480, h = 110;
@@ -372,18 +402,11 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     return base;
   }, [watts]);
   const workKj = useMemo(() => hasPower ? calculateWorkKj(watts, powerTime) : null, [watts, powerTime, hasPower]);
-  const durationSec = useMemo(() => {
-    const sensorDuration = Math.max(
-      totalDurationSec(watts.length, powerTime),
-      totalDurationSec(hr.length, heartRateTime),
-    );
-    const routeLength = Math.max(streams.cadence?.length ?? 0, streams.velocity_smooth?.length ?? 0);
-    return Math.max(sensorDuration, totalDurationSec(routeLength, streams.time));
-  }, [powerTime, watts.length, heartRateTime, hr.length, streams.cadence?.length, streams.velocity_smooth?.length, streams.time]);
-  const kjPerHr = useMemo(() => {
-    if (workKj == null || durationSec <= 0) return null;
-    return (workKj / durationSec) * 3600;
-  }, [workKj, durationSec]);
+  const durationSec = useMemo(
+    () => resolveAnalysisDurationSec(watts.length, powerTime, hr.length, heartRateTime, streams, summary),
+    [powerTime, watts.length, heartRateTime, hr.length, streams, summary],
+  );
+  const kjPerHr = useMemo(() => calculateKjPerHour(workKj, durationSec), [workKj, durationSec]);
 
   // 심박 메트릭
   const hrStats = useMemo(() => avgMax(hr, { ignoreZero: true }), [hr]);

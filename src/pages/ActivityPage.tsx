@@ -515,7 +515,14 @@ export default function ActivityPage() {
 
   const sampledData = useMemo(() => buildSampledData(streams), [streams]);
 
-  const streamSensorSummary = useMemo(() => deriveStreamSensorSummary(streams), [streams]);
+  const streamExpectedDurationSec = Math.max(
+    (activity?.summary?.elapsedTimeMillis ?? 0) / 1000,
+    (activity?.summary?.ridingTimeMillis ?? 0) / 1000,
+  );
+  const streamSensorSummary = useMemo(
+    () => deriveStreamSensorSummary(streams, streamExpectedDurationSec, activity?.startTime),
+    [activity?.startTime, streamExpectedDurationSec, streams],
+  );
   const hasStreamPowerCandidate = !!streamSensorSummary
     && (streamSensorSummary.hasPowerStream || streamSensorSummary.hasRejectedPowerStream);
   const hasStreamHeartRateCandidate = !!streamSensorSummary
@@ -523,8 +530,13 @@ export default function ActivityPage() {
   const hasStreamCadenceCandidate = !!streamSensorSummary
     && (streamSensorSummary.hasCadenceStream || streamSensorSummary.hasRejectedCadenceStream);
   const analysisProjection = useMemo(
-    () => buildActivityAnalysisProjection(effectiveStreams, wattsOverride != null),
-    [effectiveStreams, wattsOverride],
+    () => buildActivityAnalysisProjection(
+      effectiveStreams,
+      wattsOverride != null,
+      streamExpectedDurationSec,
+      activity?.startTime,
+    ),
+    [activity?.startTime, effectiveStreams, streamExpectedDurationSec, wattsOverride],
   );
 
   const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);

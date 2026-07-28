@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calculateKjPerHour,
+  resolveAnalysisDurationSec,
   selectWholeSessionSensorSeries,
   normalizeActivityStartTimeMs,
   sensorSeriesShareCompleteAxis,
@@ -8,6 +10,27 @@ import {
 } from "./AnalysisTab";
 
 describe("AnalysisTab sensor axis", () => {
+  it("uses route and summary duration for whole-activity rates", () => {
+    const distanceOnly = resolveAnalysisDurationSec(
+      60,
+      Array.from({ length: 60 }, (_, index) => index),
+      0,
+      undefined,
+      { userId: "rider", distance: Array(3_600).fill(0) },
+    );
+    expect(distanceOnly).toBe(3_600);
+    expect(calculateKjPerHour(120, distanceOnly)).toBe(120);
+
+    expect(resolveAnalysisDurationSec(
+      60,
+      Array.from({ length: 60 }, (_, index) => index),
+      0,
+      undefined,
+      { userId: "rider" },
+      { elapsedTimeMillis: 7_200_000 } as never,
+    )).toBe(7_200);
+  });
+
   it("allows complete HR and power series on the same explicit time axis", () => {
     expect(sensorSeriesShareCompleteAxis(
       { values: [180, 190, 200], time: [0, 1, 2], complete: true, timeOriginEpochMs: 1_700_000_000_000 },

@@ -226,7 +226,14 @@ describe("ActivityPage", () => {
       id: "test-activity",
       userId: "user-1",
       source: "orider",
-      summary: createMockSummary({ averagePower: 210, maxPower: 220, normalizedPower: 250 }),
+      startTime: 1_700_000_000_000,
+      summary: createMockSummary({
+        averagePower: 210,
+        maxPower: 220,
+        normalizedPower: 250,
+        elapsedTimeMillis: 3_000,
+        ridingTimeMillis: 3_000,
+      }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_metrics/test-activity", { np: 333, tss: 444 });
@@ -264,7 +271,14 @@ describe("ActivityPage", () => {
       id: "test-activity",
       userId: "user-1",
       source: "orider",
-      summary: createMockSummary({ averagePower: 120, maxPower: 300, normalizedPower: 250 }),
+      startTime: 1_700_000_000_000,
+      summary: createMockSummary({
+        averagePower: 120,
+        maxPower: 300,
+        normalizedPower: 250,
+        elapsedTimeMillis: 3_000,
+        ridingTimeMillis: 3_000,
+      }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_metrics/test-activity", { np: 333, tss: 444 });
@@ -309,6 +323,52 @@ describe("ActivityPage", () => {
         expect.objectContaining({ label: "TSS" }),
       ]));
     });
+  });
+
+  it("hides saved sensor stats and client analysis for a one-minute V1 slice of a one-hour activity", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      startTime: 1_700_000_000_000,
+      summary: createMockSummary({
+        averageHeartRate: 145,
+        maxHeartRate: 178,
+        averagePower: 210,
+        maxPower: 400,
+        normalizedPower: 230,
+        elapsedTimeMillis: 3_600_000,
+        ridingTimeMillis: 3_600_000,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        time: Array.from({ length: 3_600 }, (_, index) => index),
+        distance: Array.from({ length: 3_600 }, (_, index) => index * 10),
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: 1_700_000_000_000,
+          time: Array.from({ length: 60 }, (_, index) => index),
+          heartrate: Array(60).fill(150),
+          watts: Array(60).fill(200),
+        },
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    expect(stats).not.toHaveTextContent("평균 심박");
+    expect(stats).not.toHaveTextContent("평균 파워");
+    expect(stats).not.toHaveTextContent("NP 230");
+
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(await screen.findByText("분석 차트를 만들 스트림 데이터가 아직 없어요")).toBeInTheDocument();
+    expect(screen.queryByText("파워 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
   });
 
   it("shows activity stats when loaded", async () => {
@@ -1037,7 +1097,14 @@ describe("ActivityPage", () => {
     const activity = createMockActivity({
       id: "test-activity",
       source: "orider",
-      summary: createMockSummary({ averagePower: 120, maxPower: 300, normalizedPower: 250 }),
+      startTime: 1_700_000_000_000,
+      summary: createMockSummary({
+        averagePower: 120,
+        maxPower: 300,
+        normalizedPower: 250,
+        elapsedTimeMillis: 3_000,
+        ridingTimeMillis: 3_000,
+      }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_streams/test-activity", {

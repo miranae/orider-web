@@ -366,6 +366,186 @@ describe("activityDetailDerived", () => {
     } as never)).map((overlay) => overlay.key)).not.toEqual(expect.arrayContaining(["hr", "power"]));
   });
 
+  it("rejects a one-minute V1 sensor slice for a one-hour route", () => {
+    const streams = {
+      time: Array.from({ length: 3_600 }, (_, index) => index),
+      distance: Array.from({ length: 3_600 }, (_, index) => index * 10),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: Array.from({ length: 60 }, (_, index) => index),
+        heartrate: Array(60).fill(150),
+        watts: Array(60).fill(200),
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      averageHeartRate: null,
+      averagePower: null,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      heartRate: undefined,
+      power: undefined,
+    });
+  });
+
+  it("accepts V1 sensor coverage at the 95-percent activity boundary", () => {
+    const explicitLength = 3_420;
+    const streams = {
+      time: Array.from({ length: 3_600 }, (_, index) => index),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: Array.from({ length: explicitLength }, (_, index) => index),
+        heartrate: Array(explicitLength).fill(150),
+        watts: Array(explicitLength).fill(200),
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      heartRate: { complete: true },
+      power: { complete: true },
+    });
+  });
+
+  it("accepts complete V1 sensors when no route axis or summary duration exists", () => {
+    const streams = {
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [140, 145, 150],
+        watts: [180, 190, 200],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      hasHeartRateStream: true,
+      hasPowerStream: true,
+    });
+  });
+
+  it.each([
+    ["relative route with epoch seconds", [0, 1, 2], 1_700_000_000, 1_700_000_000_000, true],
+    ["no route with epoch milliseconds", undefined, 1_700_000_000_000, 1_700_000_000_000, true],
+    ["relative route with mismatched activity start", [0, 1, 2], 1_700_000_010, 1_700_000_000_000, false],
+    ["missing origin", [0, 1, 2], 1_700_000_000, undefined, false],
+    ["negative origin", [0, 1, 2], 1_700_000_000, -1, false],
+    ["fractional origin", [0, 1, 2], 1_700_000_000, 1_700_000_000_000.5, false],
+  ])("validates V1 origin for %s", (_case, routeTime, activityStartTime, origin, accepted) => {
+    const streams = {
+      ...(routeTime ? { time: routeTime } : {}),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: origin,
+        time: [0, 1, 2],
+        heartrate: [140, 145, 150],
+        watts: [180, 190, 200],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never, undefined, activityStartTime)).toMatchObject({
+      hasHeartRateStream: accepted,
+      hasRejectedHeartRateStream: !accepted,
+      hasPowerStream: accepted,
+      hasRejectedPowerStream: !accepted,
+    });
+    expect(buildActivityAnalysisProjection(streams as never, false, undefined, activityStartTime))
+      .toMatchObject(accepted
+        ? { heartRate: { complete: true }, power: { complete: true } }
+        : { heartRate: undefined, power: undefined });
+  });
+
+  it("prefers an absolute route start over a mismatched activity start", () => {
+    const routeStartSec = 1_700_000_000;
+    const streams = {
+      time: [routeStartSec, routeStartSec + 1, routeStartSec + 2],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: routeStartSec * 1000,
+        time: [0, 1, 2],
+        heartrate: [140, 145, 150],
+        watts: [180, 190, 200],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never, undefined, routeStartSec + 60)).toMatchObject({
+      hasHeartRateStream: true,
+      hasPowerStream: true,
+    });
+  });
+
+  it("rejects otherwise complete V1 sensors when an absolute route start disproves their origin", () => {
+    const routeStartSec = 1_700_000_000;
+    const streams = {
+      time: Array.from({ length: 100 }, (_, index) => routeStartSec + index),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: routeStartSec * 1000 + 600_000,
+        time: Array.from({ length: 100 }, (_, index) => index),
+        heartrate: Array(100).fill(150),
+        watts: Array(100).fill(200),
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+    });
+  });
+
+  it("uses a distance-only route axis and an indoor summary duration as coverage evidence", () => {
+    const makeStreams = (length: number) => ({
+      distance: Array.from({ length: 100 }, (_, index) => index * 10),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: Array.from({ length }, (_, index) => index),
+        heartrate: Array(length).fill(150),
+        watts: Array(length).fill(200),
+      },
+    });
+
+    expect(deriveStreamSensorSummary(makeStreams(94) as never)).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+    });
+    expect(deriveStreamSensorSummary(makeStreams(95) as never)).toMatchObject({
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+    });
+    expect(deriveStreamSensorSummary(makeStreams(95) as never, 3_600)).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+    });
+  });
+
   it("falls back to valid top-level HR when sensorStreamsV1 has no measured heart rate", () => {
     const streams = {
       distance: [0, 10, 20],
