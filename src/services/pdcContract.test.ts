@@ -68,6 +68,15 @@ describe("persisted PDC v5 contract", () => {
     expect(() => parsePersistedPdc(legacy)).toThrow("INVALID_PERSISTED_PDC_V5");
   });
 
+  it("accepts an incomplete v5 curve only when no definitive rider classification is claimed", () => {
+    const value = fixture();
+    value.riderType = null; value.ability = null; value.wPerKgAtKey = null; value.powerProfile = "unclassified";
+    delete value.mmpAll["20m"]; delete value.provenance.byDuration["20m"];
+    const parsed = parsePersistedPdc(value);
+    expect(parsed.riderType).toBeNull();
+    expect(hasCanonicalPdcV5Source(parsed)).toBe(false);
+  });
+
   it.each([
     ["unknown top-level field", (value: any) => { value.rawActivities = []; }],
     ["legacy version", (value: any) => { value.version = 4; }],
@@ -78,6 +87,21 @@ describe("persisted PDC v5 contract", () => {
     ["CP/model drift", (value: any) => { value.pdcModel.cpEst = 200; }],
     ["weight/ability drift", (value: any) => { value.ability.byDuration[0].wPerKg = 10; }],
     ["provenance/source drift", (value: any) => { value.provenance.byDuration["5s"].source = "direct_file"; }],
+    ["unknown rider evidence", (value: any) => {
+      value.mmpAll["5s"].source = "unknown"; value.mmpAll["5s"].cohortEligible = false;
+      value.provenance.byDuration["5s"] = { source: "unknown", cohortEligible: false };
+    }],
+    ["cohort-ineligible rider evidence", (value: any) => {
+      value.mmpAll["1m"].cohortEligible = false;
+      value.provenance.byDuration["1m"].cohortEligible = false;
+    }],
+    ["empty rider MMP evidence", (value: any) => {
+      delete value.mmpAll["20m"]; delete value.provenance.byDuration["20m"];
+      delete value.wPerKgAtKey["20m"];
+      value.ability.byDuration = value.ability.byDuration.filter((row: any) => row.duration !== "20m");
+    }],
+    ["invalid rider MMP activity evidence", (value: any) => { value.mmpAll["5m"].activityId = ""; }],
+    ["invalid rider MMP date evidence", (value: any) => { value.mmpAll["5m"].date = "2026-02-30"; }],
     ["classification out of range", (value: any) => { value.riderType.confidence = 1.1; }],
     ["missing required field", (value: any) => { delete value.activityCount; }],
   ] as Array<[string, (value: any) => void]>)("rejects %s fail-closed", (_label, mutate) => {

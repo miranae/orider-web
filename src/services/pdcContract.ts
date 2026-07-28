@@ -1,5 +1,6 @@
 import { PDC_VERSION, type PdcDoc, type PdcPowerSource, type PowerProfile, type RiderType } from "@shared/types/pdc";
 import type { PowerDurationKey } from "@shared/types/personal-records";
+import { hasCanonicalPdcV5Source } from "@shared/training/pdcRiderGate";
 
 const DURATIONS: PowerDurationKey[] = ["1s", "5s", "10s", "30s", "1m", "2m", "5m", "10m", "20m", "30m", "1h"];
 const RIDER_DURATIONS = ["5s", "1m", "5m", "20m"] as const;
@@ -138,5 +139,7 @@ export function parsePersistedPdc(input: unknown): PdcDoc {
     return !row || !exact(row, ["mmp", "period"]) || typeof row.period !== "string" || !/^\d{4}-\d{2}$/u.test(row.period)
       || !mmp || !subset(mmp, DURATIONS) || !Object.values(mmp).every((value) => finite(value, 1, 3_000));
   })) invalid();
-  return raw as unknown as PdcDoc;
+  const parsed = raw as unknown as PdcDoc;
+  if (riderType && riderType.type !== "Unclassified" && !hasCanonicalPdcV5Source(parsed)) invalid();
+  return parsed;
 }
