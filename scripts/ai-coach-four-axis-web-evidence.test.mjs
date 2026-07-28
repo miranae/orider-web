@@ -99,7 +99,8 @@ function productExecution(item, targetName) {
     cardResponseDigest: cardPath === null ? null : rawDigest(`${targetName}:${item.caseId}:card`) };
 }
 
-function observedLedgerReceipts(requestKey, item) {
+function observedLedgerReceipts(requestKey, item, _target, observation) {
+  if (observation?.phase === "before") return { providers: [], turns: [] };
   return { providers: item.providerCalls > 0
     ? [{ path: `coach_provider_budget_charges/${requestKey}`, requestKey }] : [],
   turns: item.quotaConsumed > 0 ? [{ path: `coach_user_turn_charges/${requestKey}`, requestKey }] : [] };
@@ -120,12 +121,17 @@ test("binds local envelope bytes, CLI digest, and a regular sha256 sidecar", () 
 });
 
 test("accepts only unique backend-cross-checkable ledger receipts", () => {
-  const requestKey = "a".repeat(64); const receipt = observedLedgerReceipts(requestKey, { providerCalls: 1, quotaConsumed: 1 });
-  assert.deepEqual(validateProductLedgerReceipts(receipt, requestKey),
+  const requestKey = "a".repeat(64); const binding = { correlationDigest: digest("1"), requestDigest: digest("2"),
+    requestId: "123e4567-e89b-42d3-a456-426614174000", revision: "coach-stage-00042",
+    targetFingerprint: digest("3") };
+  const receipt = { ...observedLedgerReceipts(requestKey, { providerCalls: 1, quotaConsumed: 1 }), binding };
+  assert.deepEqual(validateProductLedgerReceipts(receipt, requestKey, binding),
     { providerLedgerCount: 1, turnLedgerCount: 1 });
   assert.throws(() => validateProductLedgerReceipts({ ...receipt, providers: [...receipt.providers, ...receipt.providers] },
-    requestKey), /ledger_receipt_binding/u);
-  assert.deepEqual(validateProductLedgerReceipts({ providers: [], turns: [] }, requestKey),
+    requestKey, binding), /ledger_receipt_binding/u);
+  assert.throws(() => validateProductLedgerReceipts({ ...receipt,
+    binding: { ...binding, revision: "stale-revision" } }, requestKey, binding), /ledger_execution_binding/u);
+  assert.deepEqual(validateProductLedgerReceipts({ binding, providers: [], turns: [] }, requestKey, binding),
     { providerLedgerCount: 0, turnLedgerCount: 0 });
 });
 
@@ -564,7 +570,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
   assert.doesNotMatch(JSON.stringify(live), /(?:oidc-|firebase-custom-|app-check-|firebase-id-|firebase-refresh-)/u);
   for (const [ledgerReceiptsFor, expected] of [
     [async () => ({ providers: [], turns: [] }), /v3_ledger_count:track0_load_summary/u],
-    [async (requestKey, item) => { const receipt = observedLedgerReceipts(requestKey, item);
+    [async (requestKey, item, target, observation) => { const receipt = observedLedgerReceipts(
+      requestKey, item, target, observation);
       return { ...receipt, providers: [...receipt.providers, ...receipt.providers] }; }, /v3_ledger_receipt_binding/u],
   ]) {
     await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(),
@@ -572,6 +579,13 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
       firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
       nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), expected);
   }
+  const staleCalls = [];
+  await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(staleCalls),
+    ledgerReceiptsFor: async (requestKey, item) => observedLedgerReceipts(requestKey, item),
+    clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+    firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /v3_ledger_preexisting:track0_load_summary/u);
+  assert.equal(staleCalls.filter((call) => call.path === "/v1/coach/respond").length, 0);
   for (const [failedPath, status, expectedFiveXx] of [
     ["/v1/coach/insights/pmc", 400, 0],
     ["/v1/coach/status", 500, 1],

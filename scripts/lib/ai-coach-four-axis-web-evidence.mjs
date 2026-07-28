@@ -624,8 +624,13 @@ export function verifyLocalEnvelopeSidecar(envelopeBytes, envelopePath, expected
   return actualSha256;
 }
 
-export function validateProductLedgerReceipts(value, requestKey) {
-  exactKeys(value, ["providers", "turns"], "web_evidence:v3_ledger_receipt_keys");
+export function validateProductLedgerReceipts(value, requestKey, expectedBinding) {
+  exactKeys(value, ["binding", "providers", "turns"], "web_evidence:v3_ledger_receipt_keys");
+  exactKeys(value.binding, ["correlationDigest", "requestDigest", "requestId", "revision", "targetFingerprint"],
+    "web_evidence:v3_ledger_binding_keys");
+  if (!expectedBinding || Object.keys(value.binding).some((key) => value.binding[key] !== expectedBinding[key])) {
+    throw new Error("web_evidence:v3_ledger_execution_binding");
+  }
   const validate = (records, collection) => {
     if (!Array.isArray(records)) throw new Error("web_evidence:v3_ledger_receipt_array");
     const paths = new Set();
@@ -974,6 +979,19 @@ async function observeTarget(request, target, options) {
     const body = { requestId, question: item.question, discipline: "bike", locale: "ko-KR", apiVersion: "v2",
       schemaVersion: "coach-respond-v2", capabilityVersion: "p1", contextFilters: prepared.contextFilters,
       responseFormat: "auto" };
+    const requestDigest = prefixedEvidenceDigest({ caseId: item.caseId, questionCode: item.questionCode,
+      question: item.question });
+    const requestKey = firebaseFixtureRequestKey(options.authorization, request.correlationId, requestId);
+    const ledgerBinding = { correlationDigest: prefixedDigest(request.correlationId), requestDigest, requestId,
+      revision: target.revision, targetFingerprint: target.targetFingerprint };
+    if (typeof options.ledgerReceiptsFor !== "function") throw new Error("web_evidence:v3_ledger_observer");
+    const priorReceipt = await options.ledgerReceiptsFor(requestKey, item, target,
+      { phase: "before", binding: ledgerBinding });
+    const priorLedgers = validateProductLedgerReceipts({ ...priorReceipt, binding: ledgerBinding },
+      requestKey, ledgerBinding);
+    if (priorLedgers.providerLedgerCount !== 0 || priorLedgers.turnLedgerCount !== 0) {
+      throw new Error(`web_evidence:v3_ledger_preexisting:${item.caseId}`);
+    }
     const question = await productFetch(origin, "/v1/coach/respond", productOptions, { method: "POST", body });
     const envelope = question.value?.data;
     if (!envelope || envelope.requestId !== requestId || envelope.outcome !== "answer"
@@ -981,13 +999,11 @@ async function observeTarget(request, target, options) {
         || envelope.quota?.consumed !== Boolean(item.quotaConsumed)) {
       throw new Error(`web_evidence:v3_question_contract:${item.caseId}`);
     }
-    const requestDigest = prefixedEvidenceDigest({ caseId: item.caseId, questionCode: item.questionCode,
-      question: item.question });
     const providerCallsObserved = envelope.budget.providerCalls;
-    if (typeof options.ledgerReceiptsFor !== "function") throw new Error("web_evidence:v3_ledger_observer");
-    const requestKey = firebaseFixtureRequestKey(options.authorization, request.correlationId, requestId);
+    const ledgerReceipt = await options.ledgerReceiptsFor(requestKey, item, target,
+      { phase: "after", binding: ledgerBinding });
     const { providerLedgerCount, turnLedgerCount } = validateProductLedgerReceipts(
-      await options.ledgerReceiptsFor(requestKey, item, target), requestKey);
+      { ...ledgerReceipt, binding: ledgerBinding }, requestKey, ledgerBinding);
     if (providerLedgerCount !== Number(item.providerCalls > 0) || turnLedgerCount !== item.quotaConsumed) {
       throw new Error(`web_evidence:v3_ledger_count:${item.caseId}`);
     }
