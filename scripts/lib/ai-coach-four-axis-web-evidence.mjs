@@ -804,7 +804,7 @@ const productPrescriptionSchema = { schemaVersion: PRODUCT_SCALAR, prescriptionI
 const productAnswerBlockSchema = (value) => {
   const base = { blockId: PRODUCT_SCALAR, kind: PRODUCT_SCALAR, sourceSlotIds: [PRODUCT_SCALAR],
     partial: PRODUCT_SCALAR, stale: PRODUCT_SCALAR, truncated: PRODUCT_SCALAR, omittedCount: PRODUCT_SCALAR };
-  if (value?.kind === "headline") return { kind: PRODUCT_SCALAR };
+  if (value?.kind === "headline") return base;
   if (value?.kind === "grounded_markdown") return { ...base, markdown: PRODUCT_SCALAR,
     evidenceIds: [PRODUCT_SCALAR] };
   if (value?.kind === "prescription") return { ...base, prescription: productPrescriptionSchema };

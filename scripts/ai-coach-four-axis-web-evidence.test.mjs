@@ -387,6 +387,14 @@ test("scans raw product URL and bodies but retains only redacted capture digests
     const shapedLeak = structuredClone(responseBody); shapedLeak.data.recoveryStatus = value;
     assert.throws(() => assertProductNetworkPrivacy(url, requestBody, shapedLeak, options), /v3_product_privacy/u);
   }
+  const headlineUrl = new URL("https://candidate---stage.example.com/v1/coach/respond");
+  const headlineRequest = { question: FOUR_AXIS_CASES[0].question };
+  const headlineResponse = { data: { answer: { blocks: [{ kind: "headline", blockId: "headline-1",
+    sourceSlotIds: ["slot-1"], partial: false, stale: false, truncated: false, omittedCount: 0 }] } } };
+  assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, headlineResponse, options));
+  const headlineLeak = structuredClone(headlineResponse); headlineLeak.data.answer.blocks[0].displayName = "private";
+  assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, headlineLeak, options),
+    /v3_product_schema/u);
   const capture = { url: `${url.origin}${url.pathname}`, requestBody: "",
     responseBody: prefixedEvidenceDigest(responseBody) };
   assert.doesNotMatch(JSON.stringify(capture), /rx_private|22222222|course-evidence|private-user|secret-token/u);
