@@ -626,16 +626,28 @@ describe("ActivityPage", () => {
     }));
     setCallableResult("sendCourseToApp", { data: {} });
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    const first = renderWithProviders(<ActivityPage />, { authenticated: true });
+    const firstButton = await screen.findByRole("button", { name: "이 경로로 라이드" });
+    await waitFor(() => expect(firstButton).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
+    first.unmount();
 
-    expect(await findSentButton()).toBeDisabled();
-    expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(0);
-    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
-    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
-      { name: "sendCourseToApp", data: { courseId: "persisted-course" } },
-    ]);
-  });
+    const second = renderWithProviders(<ActivityPage />, { authenticated: true });
+    try {
+      const secondButton = await screen.findByRole("button", { name: "이 경로로 라이드" });
+      await waitFor(() => expect(secondButton).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
+      fireEvent.click(secondButton);
+      await waitForCallableCount("sendCourseToApp", 1);
+
+      expect(await findSentButton()).toBeDisabled();
+      expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(0);
+      expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
+      expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+        { name: "sendCourseToApp", data: { courseId: "persisted-course" } },
+      ]);
+    } finally {
+      second.unmount();
+    }
+  }, 15_000);
 
   it("recovers the created course after a lost create response without creating again", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
