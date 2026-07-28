@@ -764,7 +764,7 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
   const started = options.clock();
   await assertStageLease(options, { kind: "product-http", target: options.targetName, method, path });
   const requestUrl = new URL(path, origin);
-  assertProductNetworkPrivacy(requestUrl, body, {}, options);
+  assertProductNetworkPrivacy(requestUrl, body, undefined, options, "request-preflight");
   const response = await options.fetchImpl(requestUrl, { method, redirect: "error",
     headers: productHeaders(options), ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(30_000) });
@@ -1007,7 +1007,8 @@ function assertProductShape(value, schema, path, pathname, options) {
   }
 }
 
-export function assertProductNetworkPrivacy(url, requestBody, responseBody, options = {}) {
+export function assertProductNetworkPrivacy(url, requestBody, responseBody, options = {}, phase = "response") {
+  if (!["request-preflight", "response"].includes(phase)) throw new Error("web_evidence:v3_product_phase");
   const observedUrl = new URL(url); const progress = options.progressPlanner ?? {}; const pathname = observedUrl.pathname;
   const allowedQuery = pathname === "/v1/coach/change-proposals"
     ? { prescriptionId: progress.prescriptionId, sourceRequestId: progress.sourceRequestId }
@@ -1025,7 +1026,9 @@ export function assertProductNetworkPrivacy(url, requestBody, responseBody, opti
   } else if (requestSchema) throw new Error("web_evidence:v3_product_schema:request");
   const responseSchema = PRODUCT_RESPONSE_SCHEMAS.get(pathname);
   if (!responseSchema) throw new Error("web_evidence:v3_product_schema:response");
-  if (responseBody && Object.keys(responseBody).length > 0) {
+  if (phase === "response") {
+    if (!responseBody || typeof responseBody !== "object" || Array.isArray(responseBody)
+        || Object.keys(responseBody).length === 0) throw new Error("web_evidence:v3_product_schema:response");
     assertProductShape(responseBody, responseSchema, "response", pathname, options);
   }
   const approvedField = (direction, path, key, value) => {

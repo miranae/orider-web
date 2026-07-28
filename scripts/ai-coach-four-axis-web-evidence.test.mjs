@@ -401,6 +401,10 @@ test("scans raw product URL and bodies but retains only redacted capture digests
   const statusUrl = new URL("https://candidate---stage.example.com/v1/coach/status");
   assert.doesNotThrow(() => assertProductNetworkPrivacy(statusUrl, undefined,
     { data: { status: "available" } }, options));
+  for (const malformed of [null, {}, [], "", false, 0]) {
+    assert.throws(() => assertProductNetworkPrivacy(statusUrl, undefined, malformed, options),
+      /v3_product_schema/u);
+  }
   assert.throws(() => assertProductNetworkPrivacy(statusUrl, undefined,
     { data: { status: "session-secret" } }, options), /v3_product_(?:semantic|privacy)/u);
   for (const [field, value] of [["markdown", "Call 010-1234-5678 after the ride."],
