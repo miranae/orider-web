@@ -426,12 +426,16 @@ test("scans raw product URL and bodies but retains only redacted capture digests
   const markdownResponse = { data: { ...responseEnvelope, answer: { blocks: [{ kind: "grounded_markdown",
     markdown: "Route coordinates are intentionally omitted from this summary.", evidenceIds: [] }] } } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, markdownResponse, options));
-  for (const coordinateText of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0",
-    "Exact point (37.5, 127.0)"]) {
+  for (const coordinateText of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0"]) {
     const coordinateTextLeak = structuredClone(markdownResponse);
     coordinateTextLeak.data.answer.blocks[0].markdown = coordinateText;
     assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, coordinateTextLeak, options),
       /v3_product_privacy/u);
+  }
+  for (const metricText of ["Power ratio (3.5, 20.0)", "Expected range 3.5-20.0 watts/kg"]) {
+    const metricResponse = structuredClone(markdownResponse);
+    metricResponse.data.answer.blocks[0].markdown = metricText;
+    assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, metricResponse, options));
   }
   const statusUrl = new URL("https://candidate---stage.example.com/v1/coach/status");
   assert.doesNotThrow(() => assertProductNetworkPrivacy(statusUrl, undefined,
@@ -1261,8 +1265,11 @@ test("privacy scan covers final JSON, DOM, URLs, bodies, logs and provider sidec
   for (const key of ["latitude", "longitude"]) {
     assert.equal(privacyScan({ testLogs: JSON.stringify({ [key]: 37.5 }) }).matches.testLogs, 1);
   }
-  for (const text of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0", "(37.5, 127.0)"]) {
+  for (const text of ["latitude: 37.5, longitude: 127.0", "lat/lon: 37.5, 127.0"]) {
     assert.ok(privacyScan({ renderedDom: text }).matches.renderedDom >= 1);
+  }
+  for (const text of ["Power ratio (3.5, 20.0)", "Expected range 3.5-20.0 watts/kg"]) {
+    assert.equal(privacyScan({ renderedDom: text }).matches.renderedDom, 0);
   }
   assert.equal(privacyScan({ renderedDom: "The route coordinates are intentionally omitted." })
     .matches.renderedDom, 0);
