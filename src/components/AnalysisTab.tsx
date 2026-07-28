@@ -5,6 +5,7 @@ import { estimateRecoveryHours } from "@shared/training/recoveryTime";
 import { calculateNP, calculateIF, calculateTSS, calculateVI } from "../utils/powerMetrics";
 import { calculateHrZoneDistribution, calculatePowerZoneDistribution, calculateSeilerZones, polarizationIndex } from "../utils/zoneAnalysis";
 import { calculatePowerCurve } from "../utils/powerCurve";
+import { calculateThreeSecondPowerMax } from "../utils/powerStats";
 import { plausibleWatts } from "../utils/plausibleWatts";
 import {
   weightedAvgMax,
@@ -522,17 +523,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const powerStats = useMemo(() => {
     const base = weightedAvgMax(watts, powerTiming, { ignoreZero: false });
     // 최대 파워는 3초 평활값으로 — 파워미터 단발 스파이크 제거
-    if (watts.length >= 3) {
-      let smoothMax: number | null = null;
-      for (let i = 2; i < watts.length; i++) {
-        if (powerTiming.segmentStarts?.[i] || powerTiming.segmentStarts?.[i - 1]) continue;
-        const a = (watts[i - 2]! + watts[i - 1]! + watts[i]!) / 3;
-        if (smoothMax == null || a > smoothMax) smoothMax = a;
-      }
-      return { ...base, max: smoothMax ?? base.max };
-    }
-    return base;
-  }, [watts, powerTiming.segmentStarts]);
+    return { ...base, max: calculateThreeSecondPowerMax(watts, powerTime, powerTiming) };
+  }, [watts, powerTime, powerTiming]);
   const workKj = useMemo(() => hasPower && hasPowerTime ? calculateWorkKj(watts, powerTime, powerTiming) : null, [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
   const durationSec = useMemo(
     () => resolveAnalysisDurationSec(

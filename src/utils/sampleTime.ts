@@ -97,36 +97,71 @@ export function maxWeightedAverage(
 ): number | null {
   const n = Math.min(values.length, durations.length);
   if (n === 0 || windowSec <= 0) return null;
-
-  let best: number | null = null;
-  let start = 0;
-  let weightedSum = 0;
-  let total = 0;
-
-  for (let end = 0; end < n; end++) {
-    if (end > 0 && segmentStarts?.[end]) {
-      start = end;
-      weightedSum = 0;
-      total = 0;
-    }
-    const v = values[end]!;
-    const dt = durations[end]!;
-    if (!Number.isFinite(v) || !Number.isFinite(dt) || dt <= 0) return null;
-    weightedSum += v * dt;
-    total += dt;
-
-    while (start <= end && total - durations[start]! >= windowSec) {
-      weightedSum -= values[start]! * durations[start]!;
-      total -= durations[start]!;
-      start++;
-    }
-
-    if (total >= windowSec) {
-      const avg = weightedSum / total;
-      best = best == null ? avg : Math.max(best, avg);
-    }
+  for (let index = 0; index < n; index++) {
+    if (!Number.isFinite(values[index])
+      || !Number.isFinite(durations[index])
+      || durations[index]! <= 0) return null;
   }
 
+  const maxFromSampleBoundaries = (
+    segmentValues: readonly number[],
+    segmentDurations: readonly number[],
+  ): number | null => {
+    const durationEpsilon = Number.EPSILON
+      * Math.max(1, windowSec)
+      * Math.max(4, segmentValues.length);
+    let best: number | null = null;
+    let end = 0;
+    let fullDuration = 0;
+    let fullWeightedSum = 0;
+    for (let start = 0; start < segmentValues.length; start++) {
+      while (
+        end < segmentValues.length
+        && fullDuration + segmentDurations[end]! < windowSec - durationEpsilon
+      ) {
+        fullDuration += segmentDurations[end]!;
+        fullWeightedSum += segmentValues[end]! * segmentDurations[end]!;
+        end++;
+      }
+      if (end < segmentValues.length) {
+        const remainingDuration = windowSec - fullDuration;
+        if (remainingDuration <= segmentDurations[end]! + durationEpsilon) {
+          const average = (
+            fullWeightedSum + segmentValues[end]! * remainingDuration
+          ) / windowSec;
+          best = best == null ? average : Math.max(best, average);
+        }
+      }
+      if (end === start) {
+        end++;
+      } else {
+        fullDuration -= segmentDurations[start]!;
+        fullWeightedSum -= segmentValues[start]! * segmentDurations[start]!;
+        if (Math.abs(fullDuration) <= durationEpsilon) fullDuration = 0;
+        if (Math.abs(fullWeightedSum) <= durationEpsilon) fullWeightedSum = 0;
+      }
+    }
+    return best;
+  };
+
+  let best: number | null = null;
+  let segmentStart = 0;
+  for (let segmentEnd = 1; segmentEnd <= n; segmentEnd++) {
+    if (segmentEnd < n && !segmentStarts?.[segmentEnd]) continue;
+    const segmentValues = values.slice(segmentStart, segmentEnd);
+    const segmentDurations = durations.slice(segmentStart, segmentEnd);
+    const candidates = [
+      maxFromSampleBoundaries(segmentValues, segmentDurations),
+      maxFromSampleBoundaries(
+        [...segmentValues].reverse(),
+        [...segmentDurations].reverse(),
+      ),
+    ];
+    for (const candidate of candidates) {
+      if (candidate != null) best = best == null ? candidate : Math.max(best, candidate);
+    }
+    segmentStart = segmentEnd;
+  }
   return best;
 }
 
