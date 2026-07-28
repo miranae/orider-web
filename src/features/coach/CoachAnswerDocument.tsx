@@ -524,7 +524,7 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
         return block.kind === "unsupported_block"
           ? <UnsupportedBlockNotice key={block.blockId} prescription={block.reason === "prescription_feature_disabled"} />
           : block.kind === "prescription"
-            ? <CoachPrescription key={block.blockId} initial={block.prescription} parentRequestId={response.requestId}
+            ? <CoachPrescription key={`${response.requestId}:${block.blockId}`} initial={block.prescription} parentRequestId={response.requestId}
               locale={locale} onReanalyze={onReanalyze} onQuestionSelect={onPlannerQuestion} />
           : <SupportedBlock key={block.blockId} block={block} responseFormat={responseFormat}
             showLocalFormatFallback={responseFormat === "chart" && chartable} locale={locale} onAction={onAction} />;
