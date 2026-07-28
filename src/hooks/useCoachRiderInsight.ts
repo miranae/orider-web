@@ -26,7 +26,10 @@ export function useCoachRiderInsight(uid: string | undefined, enabled: boolean):
       (insight) => { if (generationRef.current === generation) setState({ key, insight, loading: false, unavailable: false }); },
       (error: unknown) => {
         if (generationRef.current !== generation) return;
-        logClientError("useCoachRiderInsight.load", error, { uid });
+        logClientError("useCoachRiderInsight.load", error, {
+          phase: "load",
+          code: isCoachClientError(error) ? error.code : "unknown",
+        });
         const hidden = isCoachClientError(error) && error.kind === "http"
           && ["rider_insight_unsupported", "not-found", "HTTP_404"].includes(error.code);
         setState({ key, insight: null, loading: false, unavailable: !hidden });

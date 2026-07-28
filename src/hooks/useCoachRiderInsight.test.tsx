@@ -29,6 +29,8 @@ describe("useCoachRiderInsight", () => {
     const error = new Error("rider insight failed"); mocks.get.mockRejectedValue(error);
     const { result } = renderHook(() => useCoachRiderInsight("owner-a", true));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(mocks.log).toHaveBeenCalledWith("useCoachRiderInsight.load", error, { uid: "owner-a" });
+    expect(mocks.log).toHaveBeenCalledWith("useCoachRiderInsight.load", error,
+      { phase: "load", code: "unknown" });
+    expect(JSON.stringify(mocks.log.mock.calls)).not.toContain("owner-a");
   });
 });

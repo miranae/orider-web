@@ -36,7 +36,11 @@ export function useCoachPmcInsight(
       },
       (error: unknown) => {
         if (generationRef.current !== generation) return;
-        logClientError("useCoachPmcInsight.load", error, { uid, discipline });
+        logClientError("useCoachPmcInsight.load", error, {
+          phase: "load",
+          code: isCoachClientError(error) ? error.code : "unknown",
+          discipline,
+        });
         const unsupported = isCoachClientError(error) && error.kind === "http"
           && ["pmc_insight_unsupported", "not-found", "HTTP_404"].includes(error.code);
         setState({ key, insight: null, loading: false, unavailable: !unsupported });

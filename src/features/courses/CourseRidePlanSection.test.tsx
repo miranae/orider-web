@@ -101,7 +101,8 @@ describe("CourseRidePlanSection", () => {
     expect(await screen.findByText(/질문 컨텍스트가 카드와 일치하지 않아/u)).toBeInTheDocument();
     expect(mocks.launcher).toHaveBeenLastCalledWith(expect.objectContaining({ ridePlanSelection: null }));
     expect(mocks.log).toHaveBeenCalledWith("CourseRidePlanSection.loadAiContext", expect.any(Error),
-      { courseId: "private-course", questionCode: "HARDEST_SECTION" });
+      { phase: "ai-context", code: "unknown", questionCode: "HARDEST_SECTION" });
+    expect(JSON.stringify(mocks.log.mock.calls)).not.toContain("private-course");
   });
 
   it("ignores a deferred route A projection after route B replaces its plan", async () => {
@@ -153,7 +154,9 @@ describe("CourseRidePlanSection", () => {
     const { container } = renderSection();
     expect(await screen.findByText("이 코스의 Ride Plan을 사용할 수 없습니다.")).toBeInTheDocument();
     expect(container).not.toHaveTextContent("not-found");
-    expect(mocks.log).toHaveBeenCalledWith("CourseRidePlanSection.load", error, { courseId: "private-course" });
+    expect(mocks.log).toHaveBeenCalledWith("CourseRidePlanSection.load", error,
+      { phase: "plan", code: "not-found" });
+    expect(JSON.stringify(mocks.log.mock.calls)).not.toContain("private-course");
   });
 
   it("maps missing elevation without exposing backend codes", async () => {
