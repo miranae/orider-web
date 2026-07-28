@@ -8,6 +8,7 @@ import {
   timestampDivisor,
 } from "../../../utils/timestampUnit";
 import {
+  legacySensorDurationsAgree,
   legacySensorMeasurementsCoverSession,
   resolveLegacySensorMeasurementAxis,
   timeWeightedLegacySensorSummary,
@@ -367,7 +368,10 @@ function usesLegacyTimeCoverage(valuesLength: number, expectation: LegacyCoverag
 
 function hasLegacyCoverage(valuesLength: number, expectation: LegacyCoverageExpectation): boolean {
   if (usesLegacyTimeCoverage(valuesLength, expectation)) {
-    return expectation.timeDurationSec! / expectation.summaryDurationSec! >= LEGACY_POWER_MIN_AXIS_COVERAGE;
+    return legacySensorDurationsAgree(
+      expectation.timeDurationSec!,
+      expectation.summaryDurationSec!,
+    );
   }
   return hasSufficientAxisCoverage(valuesLength, expectation.count, expectation.minimumOnly);
 }

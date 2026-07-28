@@ -30,6 +30,19 @@ const COVERAGE_RULES = {
 } as const;
 const MIN_TRUSTED_DURATION_AGREEMENT = 0.95;
 
+export function legacySensorDurationsAgree(
+  routeDurationSec: number,
+  trustedDurationSec: number,
+): boolean {
+  const comparisonEpsilon = Number.EPSILON
+    * Math.max(1, Math.abs(routeDurationSec), Math.abs(trustedDurationSec))
+    * 4;
+  return routeDurationSec + comparisonEpsilon
+      >= trustedDurationSec * MIN_TRUSTED_DURATION_AGREEMENT
+    && routeDurationSec
+      <= trustedDurationSec / MIN_TRUSTED_DURATION_AGREEMENT + comparisonEpsilon;
+}
+
 function validDuration(value: number | undefined): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
@@ -67,10 +80,8 @@ export function resolveLegacySensorMeasurementAxis({
   const summaryDuration = validDuration(trustedDurationSec);
   const trustedDuration = summaryDuration ?? routeAxis?.durationSec;
   if (routeAxis?.time.length === values.length && trustedDuration != null) {
-    const durationRatio = routeAxis.durationSec / trustedDuration;
-    if (summaryDuration == null || (durationRatio >= MIN_TRUSTED_DURATION_AGREEMENT
-      && durationRatio <= 1 / MIN_TRUSTED_DURATION_AGREEMENT)) {
-      return { ...routeAxis, durationSec: trustedDuration };
+    if (summaryDuration == null || legacySensorDurationsAgree(routeAxis.durationSec, trustedDuration)) {
+      return routeAxis;
     }
   }
   return trustedDuration == null ? undefined : inferredTimeAxis(values.length, trustedDuration);

@@ -86,4 +86,31 @@ describe("legacy sensor time-weighted summaries", () => {
     expect(summary.averageHeartRate).toBe(150);
     expect(summary.averagePower).toBe(150);
   });
+
+  it.each([1, 2, 4])("preserves a matched %i Hz route axis for duration metrics", (rateHz) => {
+    const durationSec = 60;
+    const length = durationSec * rateHz;
+    const time = Array.from({ length }, (_, index) => index / rateHz);
+    const watts = Array.from({ length }, (_, index) => index % 2 === 0 ? 0 : 200);
+
+    const projection = buildActivityAnalysisProjection({ time, watts } as never, durationSec)!;
+
+    expect(projection.power?.durationsSec).toHaveLength(length);
+    expect(projection.power?.durationsSec?.reduce((sum, duration) => sum + duration, 0))
+      .toBeCloseTo(durationSec, 8);
+    expect(projection.power?.fullSessionDurationSec).toBeCloseTo(durationSec, 8);
+  });
+
+  it("keeps actual irregular route durations at the symmetric upper boundary", () => {
+    const time = [0, 10, 40, 70];
+    const watts = [100, 300, 0, 100];
+    const streams = { time, watts };
+
+    const summary = deriveStreamSensorSummary(streams as never, 95)!;
+    const projection = buildActivityAnalysisProjection(streams as never, 95)!;
+
+    expect(summary.averagePower).toBe(130);
+    expect(projection.power?.durationsSec).toEqual([10, 30, 30, 30]);
+    expect(projection.power?.fullSessionDurationSec).toBe(100);
+  });
 });
