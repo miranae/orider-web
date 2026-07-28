@@ -84,4 +84,15 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
     expect(screen.getByText("60:00")).toBeInTheDocument();
   });
+
+  it("keeps workout classification for a cadence-only candidate", () => {
+    render(<ServerMetricsBanner
+      state={readyState as never}
+      suppressPowerMetrics={false}
+      suppressHeartRateMetrics={false}
+    />);
+
+    expect(screen.getByText("지구력")).toBeInTheDocument();
+    expect(screen.getByText("신뢰도 90%")).toBeInTheDocument();
+  });
 });

@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import type { ActivitySummary } from "@shared/types";
 import AnalysisTab from "./AnalysisTab";
 import { formatClimbEntryTime } from "../utils/climbMetrics";
+import { buildActivityAnalysisProjection } from "../features/activity/detail/activityDetailDerived";
 
 vi.mock("../contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, profile: { ftp: 250, weightKg: 70 } }),
@@ -145,5 +146,40 @@ describe("AnalysisTab climb entry time", () => {
     const hrDriftLabel = screen.getByText("HR 드리프트");
     expect(hrDriftLabel.closest("div")?.parentElement).toHaveTextContent("—");
     expect(screen.queryByText("+50.0%")).not.toBeInTheDocument();
+  });
+
+  it("renders metrics from an explicit channel accepted at 95% measured coverage", () => {
+    const time = Array.from({ length: 20 }, (_, index) => index);
+    const context = {
+      legacyDurationSec: 20,
+      explicitDurationSec: 20,
+      activityStartTime: 1_700_000_000_000,
+    };
+    const projection = buildActivityAnalysisProjection({
+      userId: "rider",
+      time,
+      watts: Array(20).fill(500),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: context.activityStartTime,
+        time,
+        watts: [200, null, ...Array(18).fill(200)],
+      },
+    }, context)!;
+
+    render(<AnalysisTab
+      startTime={context.activityStartTime}
+      streams={projection.streams}
+      sensorPower={projection.power}
+      sensorSelectionContext={context}
+      summary={{ elapsedTimeMillis: 20_000, ridingTimeMillis: 20_000 } as ActivitySummary}
+      sport="ride"
+    />);
+
+    const averagePowerCard = screen.getByText("평균 파워").closest("div")?.parentElement;
+    expect(averagePowerCard).toHaveTextContent("평균 파워200W");
+    expect(averagePowerCard).not.toHaveTextContent("500W");
   });
 });

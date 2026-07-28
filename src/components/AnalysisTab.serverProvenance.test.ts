@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { filterServerMetricsForSensorCandidates } from "./AnalysisTab";
 
 const metrics = {
+  workoutType: "endurance",
+  workoutTypeConfidence: 0.9,
   sufferScore: 81,
   quadrant: { q1Pct: 25, q2Pct: 25, q3Pct: 25, q4Pct: 25 },
   cyclingMetrics: { longestZ4PlusSec: 420, cadenceStdDev: 7 },
@@ -43,6 +45,10 @@ describe("AnalysisTab server metric provenance", () => {
       })!;
 
       expect(filtered.quadrant).toBeNull();
+      expect(filtered.workoutType).toBeUndefined();
+      expect(filtered.workoutTypeConfidence).toBeUndefined();
+      expect(filtered).not.toHaveProperty("workoutType");
+      expect(filtered).not.toHaveProperty("workoutTypeConfidence");
       expect(filtered.cyclingMetrics).toMatchObject({ longestZ4PlusSec: null, cadenceStdDev: 7 });
       expect(filtered.zoneKj).toBeUndefined();
       expect(filtered.lrBalance).toBeUndefined();
@@ -68,6 +74,10 @@ describe("AnalysisTab server metric provenance", () => {
 
     expect(filtered.sufferScore).toBeNull();
     expect(filtered.quadrant).toEqual(metrics.quadrant);
+    expect(filtered.workoutType).toBeUndefined();
+    expect(filtered.workoutTypeConfidence).toBeUndefined();
+    expect(filtered).not.toHaveProperty("workoutType");
+    expect(filtered).not.toHaveProperty("workoutTypeConfidence");
   });
 
   it.each(["accepted", "rejected"])(
@@ -81,6 +91,8 @@ describe("AnalysisTab server metric provenance", () => {
       expect(filtered.cyclingMetrics).toMatchObject({ longestZ4PlusSec: 420, cadenceStdDev: null });
       expect(filtered.quadrant).toBeNull();
       expect(filtered.cyclingDynamics).toEqual(metrics.cyclingDynamics);
+      expect(filtered.workoutType).toBe("endurance");
+      expect(filtered.workoutTypeConfidence).toBe(0.9);
     },
   );
 

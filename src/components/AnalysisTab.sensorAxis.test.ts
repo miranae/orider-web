@@ -97,6 +97,13 @@ describe("AnalysisTab sensor axis", () => {
     )).toBe(false);
   });
 
+  it("allows aligned explicit axes that passed whole-session coverage", () => {
+    expect(sensorSeriesShareCompleteAxis(
+      { values: [180, 200], time: [0, 2], complete: false, wholeSessionCoverageAccepted: true, timeOriginEpochMs: 1_700_000_000_000 },
+      { values: [140, 145], time: [0, 2], complete: false, wholeSessionCoverageAccepted: true, timeOriginEpochMs: 1_700_000_000_000 },
+    )).toBe(true);
+  });
+
   it("does not fall back to top-level power for an incomplete explicit power run", () => {
     expect(selectWholeSessionSensorSeries(
       { values: [200, 210], time: [1, 2], complete: false },

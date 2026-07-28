@@ -160,7 +160,9 @@ export function sensorSeriesShareCompleteAxis(
   power: AnalysisSensorSeries | undefined,
   heartRate: AnalysisSensorSeries | undefined,
 ): boolean {
-  if (!power || !heartRate || power.complete !== true || heartRate.complete !== true) return false;
+  if (!power || !heartRate
+    || (power.complete !== true && power.wholeSessionCoverageAccepted !== true)
+    || (heartRate.complete !== true && heartRate.wholeSessionCoverageAccepted !== true)) return false;
   return wholeSessionSeriesShareAxis(
     { ...power, source: "explicit" },
     { ...heartRate, source: "explicit" },
@@ -185,7 +187,7 @@ export function selectWholeSessionSensorSeries(
       timeOriginEpochMs: routeAxis?.timeOriginEpochMs ?? fallbackTimeOriginEpochMs,
     };
   }
-  if (sensorSeries.complete !== true) {
+  if (sensorSeries.complete !== true && sensorSeries.wholeSessionCoverageAccepted !== true) {
     return { values: [], time: undefined, source: "explicit", timeOriginEpochMs: sensorSeries.timeOriginEpochMs };
   }
   return {
@@ -244,11 +246,21 @@ interface SensorCandidateFlags {
   cadence: boolean;
 }
 
+type FilteredActivityMetricsDoc = Omit<ActivityMetricsDoc, "workoutType" | "workoutTypeConfidence"> & {
+  workoutType?: ActivityMetricsDoc["workoutType"];
+  workoutTypeConfidence?: number;
+};
+
 export function filterServerMetricsForSensorCandidates(
   metrics: ActivityMetricsDoc | null,
   candidates: SensorCandidateFlags,
-): ActivityMetricsDoc | null {
+): FilteredActivityMetricsDoc | null {
   if (!metrics) return null;
+  const filteredMetrics: FilteredActivityMetricsDoc = { ...metrics };
+  if (candidates.power || candidates.heartRate) {
+    delete filteredMetrics.workoutType;
+    delete filteredMetrics.workoutTypeConfidence;
+  }
   const cyclingMetrics = metrics.cyclingMetrics
     ? {
         ...metrics.cyclingMetrics,
@@ -258,7 +270,7 @@ export function filterServerMetricsForSensorCandidates(
     : undefined;
 
   return {
-    ...metrics,
+    ...filteredMetrics,
     sufferScore: candidates.heartRate ? null : metrics.sufferScore,
     quadrant: candidates.power || candidates.cadence ? null : metrics.quadrant,
     cyclingMetrics,

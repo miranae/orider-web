@@ -68,25 +68,26 @@ describe("activity detail chart clocks", () => {
 
   it("maps explicit V1 by its trusted origin without filling nulls or the uncovered tail", () => {
     const context = buildActivitySensorSelectionContext({
-      ridingTimeMillis: 3_500,
-      elapsedTimeMillis: 3_500,
+      ridingTimeMillis: 20_500,
+      elapsedTimeMillis: 20_500,
     } as never, 1_700_000_000_000);
     const streams = {
-      distance: Array.from({ length: 7 }, (_, index) => index * 0.5),
-      time: Array.from({ length: 7 }, (_, index) => index * 0.5),
+      distance: Array.from({ length: 41 }, (_, index) => index * 0.5),
+      time: Array.from({ length: 41 }, (_, index) => index * 0.5),
       sensorStreamsV1: {
         version: 1,
         timeUnit: "relative_seconds",
         resolutionSeconds: 1,
         timeOriginEpochMs: 1_700_000_000_000,
-        time: [0, 1, 2],
-        heartrate: [140, null, 160],
-        watts: [200, null, 300],
+        time: Array.from({ length: 20 }, (_, index) => index),
+        heartrate: [140, null, ...Array(18).fill(160)],
+        watts: [200, null, ...Array(18).fill(300)],
       },
     };
 
-    expect(buildSampledData(streams as never, context).map(({ heartRate, power }) => [heartRate, power]))
-      .toEqual([[140, 200], [140, 200], [0, 0], [0, 0], [160, 300], [160, 300], [0, 0]]);
+    const chart = buildSampledData(streams as never, context).map(({ heartRate, power }) => [heartRate, power]);
+    expect(chart.slice(0, 6)).toEqual([[140, 200], [140, 200], [0, 0], [0, 0], [160, 300], [160, 300]]);
+    expect(chart.at(-1)).toEqual([0, 0]);
   });
 
   it("fails explicit chart alignment closed when a relative route has no absolute origin", () => {

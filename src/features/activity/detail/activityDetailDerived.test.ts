@@ -504,7 +504,7 @@ describe("activityDetailDerived", () => {
       .toMatchObject({ averagePower: 25, maxPower: 250, hasReliablePower: true });
   });
 
-  it("prefers explicit sensor stream null semantics and preserves measured zero watts", () => {
+  it("prefers explicit sensor streams and preserves measured zero watts", () => {
     const explicitStreams = {
       time: [0, 1, 2],
       heartrate: [20, 20],
@@ -516,8 +516,8 @@ describe("activityDetailDerived", () => {
         resolutionSeconds: 1,
         timeOriginEpochMs: 1_700_000_000_000,
         time: [0, 1, 2],
-        heartrate: [140, null, 160],
-        watts: [null, 0, 200],
+        heartrate: [140, 150, 160],
+        watts: [0, 0, 200],
       },
     };
     const summary = deriveStreamSensorSummary(explicitStreams as never);
@@ -526,14 +526,14 @@ describe("activityDetailDerived", () => {
       heartRateSource: "sensorStreamsV1",
       averageHeartRate: 150,
       maxHeartRate: 160,
-      averagePower: 100,
+      averagePower: 200 / 3,
       maxPower: 200,
       hasReliablePower: true,
     });
     expect(buildActivityAnalysisProjection(explicitStreams as never)).toMatchObject({
       streams: { heartrate: undefined, watts: undefined },
-      heartRate: undefined,
-      power: { values: [0, 200], time: [1, 2], complete: false },
+      heartRate: { values: [140, 150, 160], time: [0, 1, 2], complete: true },
+      power: { values: [0, 0, 200], time: [0, 1, 2], complete: true },
     });
     expect(getAvailableOverlays(buildSampledData({
       ...explicitStreams,
@@ -877,7 +877,7 @@ describe("activityDetailDerived", () => {
         resolutionSeconds: 1,
         timeOriginEpochMs: 1_700_000_000_000,
         time: [0, 1, 2],
-        heartrate: [null, 0, null],
+        heartrate: [null, null, null],
         watts: [200, 210, 220],
       },
     };
@@ -1048,7 +1048,7 @@ describe("activityDetailDerived", () => {
       sensorStreamsV1: {
         version: 1,
         time: [0, 1000, 2000],
-        heartrate: [null, 0, null],
+        heartrate: [null, null, null],
         watts: [null, null, null],
       },
     };
@@ -1554,16 +1554,16 @@ describe("activityDetailDerived", () => {
   });
   it("preserves explicit sensor timestamps and marks missing channels incomplete", () => {
     const streams = {
-      time: [0, 1, 2],
+      time: Array.from({ length: 20 }, (_, index) => index),
       heartrate: [150, 151, 152],
       sensorStreamsV1: {
         version: 1,
         timeUnit: "relative_seconds",
         resolutionSeconds: 1,
         timeOriginEpochMs: 1_700_000_000_000,
-        time: [0, 1, 2],
-        heartrate: [null, 140, 141],
-        watts: [200, 210, null],
+        time: Array.from({ length: 20 }, (_, index) => index),
+        heartrate: [null, ...Array(19).fill(140)],
+        watts: [...Array(19).fill(200), null],
       },
     };
     const projection = buildActivityAnalysisProjection(streams as never);
@@ -1571,10 +1571,10 @@ describe("activityDetailDerived", () => {
     expect(deriveStreamSensorSummary(streams as never)?.heartRateSource).toBe("sensorStreamsV1");
     expect(projection?.streams.heartrate).toBeUndefined();
     expect(projection?.heartRate).toEqual({
-      values: [140, 141], time: [1, 2], complete: false, timeOriginEpochMs: 1_700_000_000_000,
+      values: Array(19).fill(140), time: Array.from({ length: 19 }, (_, index) => index + 1), complete: false, wholeSessionCoverageAccepted: true, timeOriginEpochMs: 1_700_000_000_000,
     });
     expect(projection?.power).toEqual({
-      values: [200, 210], time: [0, 1], complete: false, timeOriginEpochMs: 1_700_000_000_000,
+      values: Array(19).fill(200), time: Array.from({ length: 19 }, (_, index) => index), complete: false, wholeSessionCoverageAccepted: true, timeOriginEpochMs: 1_700_000_000_000,
     });
   });
 

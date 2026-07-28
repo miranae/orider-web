@@ -18,6 +18,8 @@ const activity = {
     elapsedTimeMillis: 4_000,
     averagePower: 175,
     normalizedPower: 185,
+    averageHeartRate: 155,
+    maxHeartRate: 165,
   },
 } as unknown as Activity;
 
@@ -188,5 +190,46 @@ describe("useActivitySensorDetail", () => {
       powerSource: null,
     });
     expect(result.current.sampledData.map(({ power }) => power)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("keeps sparse explicit channels out of summary, chart, analysis, and share inputs", () => {
+    const streams = {
+      time: [0, 1, 2, 3],
+      distance: [0, 10, 20, 30],
+      watts: [250, 250, 250, 250],
+      heartrate: [150, 150, 150, 150],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: activity.startTime,
+        time: [0, 1, 2, 3],
+        watts: [200, null, null, null],
+        heartrate: [145, null, null, null],
+      },
+    } as unknown as ActivityStreams;
+    const { result } = renderSensorDetail(streams);
+
+    expect(result.current.streamSensorSummary).toMatchObject({
+      averagePower: null,
+      averageHeartRate: null,
+      hasRejectedPowerStream: true,
+      hasRejectedHeartRateStream: true,
+    });
+    expect(result.current.displayedSummary).toMatchObject({
+      averagePower: null,
+      maxPower: null,
+      averageHeartRate: null,
+      maxHeartRate: null,
+    });
+    expect(result.current.analysisProjection).toMatchObject({
+      streams: { watts: undefined, heartrate: undefined },
+      power: undefined,
+      heartRate: undefined,
+    });
+    expect(result.current.availableOverlays.map(({ key }) => key))
+      .not.toEqual(expect.arrayContaining(["power", "hr"]));
+    expect(result.current.hasStreamPowerCandidate).toBe(true);
+    expect(result.current.hasStreamHeartRateCandidate).toBe(true);
   });
 });

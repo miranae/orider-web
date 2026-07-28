@@ -77,6 +77,8 @@ export interface AnalysisSensorSeries {
   timeOriginEpochMs?: number;
   /** True only when every sample on the source sensor axis was measured. */
   complete?: boolean;
+  /** True when selection already validated conservative whole-session slot coverage. */
+  wholeSessionCoverageAccepted?: boolean;
 }
 
 export interface ActivityAnalysisProjection {
@@ -88,6 +90,7 @@ export interface ActivityAnalysisProjection {
 const LEGACY_POWER_MIN_POSITIVE_COVERAGE = 0.05;
 const LEGACY_POWER_MIN_AXIS_COVERAGE = 0.95;
 const EXPLICIT_SENSOR_DURATION_TOLERANCE = 0.05;
+const EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE = 0.95;
 
 export interface SelectedPowerStream {
   source: StreamSensorSummary["powerSource"];
@@ -175,6 +178,11 @@ function hasValidExplicitSensorChannelValues(values: readonly unknown[]): boolea
 function hasValidLegacySensorChannelValues(values: readonly unknown[]): boolean {
   if (!hasDenseArraySlots(values)) return false;
   return values.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0);
+}
+
+function hasWholeSessionMeasurementCoverage(measuredSlots: number, totalSlots: number): boolean {
+  return totalSlots > 0
+    && measuredSlots >= Math.ceil(totalSlots * EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE);
 }
 
 function hasSufficientAxisCoverage(
@@ -641,6 +649,15 @@ export function selectActivityPowerStream(
           },
         };
       }
+      if (!hasWholeSessionMeasurementCoverage(finiteValues.length, explicitWatts?.length ?? 0)) {
+        return {
+          source: null, values: null, finiteValues: [], hasCandidate: true,
+          rejection: {
+            channel: "power", source: "sensorStreamsV1", reason: "insufficient_measurements",
+            axisLength: explicitTime.length, channelLength: explicitWatts?.length,
+          },
+        };
+      }
       return {
         source: "sensorStreamsV1",
         values: explicitWatts ?? null,
@@ -752,7 +769,8 @@ export function selectActivityHeartRateStream(
     };
   }
   const explicitPositive = positiveValues(explicitHeartRate);
-  if (explicit && explicitHeartRate && explicitPositive.length > 0) {
+  const hasExplicitHeartRateAttempt = explicitHeartRate?.some((value) => value !== null) ?? false;
+  if (explicit && explicitHeartRate && hasExplicitHeartRateAttempt) {
     const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
     if (explicit.timeUnit !== "relative_seconds" || explicit.resolutionSeconds !== 1) {
       return {
@@ -788,6 +806,15 @@ export function selectActivityHeartRateStream(
         source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
         rejection: {
           channel: "heart_rate", source: "sensorStreamsV1", reason: coverageRejection,
+          axisLength: explicitTime.length, channelLength: explicitHeartRate.length,
+        },
+      };
+    }
+    if (!hasWholeSessionMeasurementCoverage(explicitPositive.length, explicitHeartRate.length)) {
+      return {
+        source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
+        rejection: {
+          channel: "heart_rate", source: "sensorStreamsV1", reason: "insufficient_measurements",
           axisLength: explicitTime.length, channelLength: explicitHeartRate.length,
         },
       };
@@ -913,6 +940,7 @@ function measuredSeries(
   isMeasured: (value: number) => boolean,
   fixedStep?: number,
   timeOriginEpochMs?: unknown,
+  wholeSessionCoverageAccepted = false,
 ): AnalysisSensorSeries | undefined {
   const length = Math.min(values.length, time.length);
   let currentValues: number[] = [];
@@ -936,10 +964,14 @@ function measuredSeries(
       currentTimes = [];
     }
   }
-  // 여러 측정 run을 이어 붙이면 가짜 rolling window가 되고 하나만 고르면 부하를
-  // 과소평가한다. run-aware 집계가 도입되기 전에는 분석 지표를 숨기는 편이 안전하다.
-  if (runs.length !== 1) return undefined;
-  const measured = runs[0]!;
+  // Only channels that already passed the conservative whole-session coverage gate may
+  // retain multiple measured runs. Other partial sources remain fail-closed.
+  if (runs.length !== 1 && !wholeSessionCoverageAccepted) return undefined;
+  const measured = runs.length === 1 ? runs[0]! : {
+    values: runs.flatMap((run) => run.values),
+    time: runs.flatMap((run) => run.time),
+  };
+  if (!measured.values.length) return undefined;
   const positiveDiffs = time.slice(1)
     .map((value, index) => value - (time[index] ?? value))
     .filter((value) => Number.isFinite(value) && value > 0)
@@ -959,6 +991,7 @@ function measuredSeries(
     values: measured.values,
     time: measuredTime,
     complete: values.length === time.length && measured.values.length === values.length,
+    ...(wholeSessionCoverageAccepted ? { wholeSessionCoverageAccepted: true } : {}),
     ...(validTimeOriginEpochMs != null ? { timeOriginEpochMs: validTimeOriginEpochMs } : {}),
   };
 }
@@ -1063,6 +1096,7 @@ export function buildActivityAnalysisProjection(
             (value) => value > 0,
             explicit.resolutionSeconds,
             explicit.timeOriginEpochMs,
+            true,
           )
         : selectedHeartRate.source === "heartrate" ? legacyHeartRate : undefined,
       power: overridePower ?? (usesExplicitPower
@@ -1072,6 +1106,7 @@ export function buildActivityAnalysisProjection(
             (value) => value >= 0,
             explicit.resolutionSeconds,
             explicit.timeOriginEpochMs,
+            true,
           )
         : undefined),
     };
