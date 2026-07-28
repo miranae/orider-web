@@ -106,7 +106,7 @@ describe("CoachPrescription", () => {
     expect(capabilities).toHaveBeenCalledOnce();
   });
 
-  it("keeps safety and check-in UI available when the progress planner flag is off", () => {
+  it("keeps safety and check-in UI available when the progress planner flag is off", async () => {
     resetRuntimeConfigForTests({ coachProgressPlannerEnabled: false });
     const safety = render(<CoachPrescription initial={parseCoachPrescription({ ...ready,
       prescriptionId: "rx_222222222222222222222222", status: "safety_blocked", nextDays: [], nextWeekLoad: undefined,
@@ -118,7 +118,40 @@ describe("CoachPrescription", () => {
     render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
       locale="ko-KR" onReanalyze={vi.fn()} />);
     expect(screen.getByRole("heading", { name: "회복 판단에 필요한 정보가 부족합니다" })).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    expect(screen.getByRole("button", { name: "확인" })).toBeEnabled();
     expect(capabilities).not.toHaveBeenCalled();
+  });
+
+  it("enables check-in only after the backend capability is explicitly confirmed", async () => {
+    let resolveCapabilities!: (value: typeof enabledCapabilities) => void;
+    capabilities.mockReturnValue(new Promise((resolve) => { resolveCapabilities = resolve; }));
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    const checkIn = screen.getByRole("button", { name: "확인" });
+    expect(checkIn).toBeDisabled();
+
+    resolveCapabilities(enabledCapabilities);
+    await vi.waitFor(() => expect(checkIn).toBeEnabled());
+  });
+
+  it("keeps check-in disabled and preserves the unavailable state when capability loading fails", async () => {
+    capabilities.mockRejectedValue(new Error("capability unavailable"));
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    expect(await screen.findByRole("alert")).toHaveTextContent("계획 기능 상태를 확인할 수 없습니다");
+    expect(screen.getByRole("button", { name: "확인" })).toBeDisabled();
   });
 
   it("renders the canonical backend fixture as exactly seven server-provided days and weekly TSS", async () => {

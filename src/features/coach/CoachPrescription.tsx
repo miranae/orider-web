@@ -319,6 +319,7 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   const complete = required.every((signal) => signal === "subjective_fatigue" ? answers.subjectiveFatigue !== undefined
     : signal === "soreness" ? answers.soreness !== undefined : answers.painOrIllness !== undefined);
   const locallyEnabled = getRuntimeConfig().coachProgressPlannerEnabled === true;
+  const checkInEnabled = !locallyEnabled || capabilities?.prescription.checkIn.enabled === true;
 
   useEffect(() => {
     let active = true;
@@ -363,7 +364,7 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
     {required.map((signal) => <Signal key={signal} signal={signal} answers={answers} onChange={(next) => {
       setAnswers(next); requestRef.current = null; setState("idle");
     }} />)}
-    <Button disabled={!complete || state === "submitting" || capabilities?.prescription.checkIn.enabled === false} onClick={() => void submit()}>{state === "submitting" ? t("prescription.checkin.submitting") : t("prescription.checkin.submit")}</Button>
+    <Button disabled={!complete || state === "submitting" || !checkInEnabled} onClick={() => void submit()}>{state === "submitting" ? t("prescription.checkin.submitting") : t("prescription.checkin.submit")}</Button>
     {capabilities?.prescription.checkIn.enabled === false && <Text as="p" variant="caption" tone="warning">{t("progress.states.proposalDisabled")}</Text>}
     {locallyEnabled && capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
     {state === "network_error" && <div role="alert"><p>{t("prescription.checkin.networkError")}</p><Button variant="outline" onClick={() => void submit(true)}>{t("prescription.checkin.retry")}</Button></div>}
