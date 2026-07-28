@@ -66,6 +66,11 @@ function errorState(error: unknown): "stale" | "disabled" | "conflict" | "error"
   return "error";
 }
 
+function responseErrorState(error: { code: string; retryable: boolean }): "stale" | "disabled" | "error" {
+  if (error.code.includes("disabled")) return "disabled";
+  return error.retryable ? "error" : "stale";
+}
+
 function logProgressError(stage: "capabilities" | "recovery" | "create" | "confirm" | "rollback", error: unknown,
   context: Record<string, unknown>) {
   logClientError(`CoachPrescription.${stage}`, error, { stage, ...context });
@@ -156,7 +161,7 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
       if (result.status === "error") {
         logProgressError("create", new Error(result.error.code), { operation: "create", prescriptionId: prescription.prescriptionId,
           sourceRequestId, requestId: createRequestId.current });
-        setView((current) => ({ ...current, state: result.error.code.includes("disabled") ? "disabled" : "stale" })); return;
+        setView((current) => ({ ...current, state: responseErrorState(result.error) })); return;
       }
       await hydrateRecovery("post-create");
     } catch (error) {
@@ -184,7 +189,9 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
       if (result.status === "error") {
         logProgressError("confirm", new Error(result.error.code), { operation: "confirm", prescriptionId: prescription.prescriptionId,
           sourceRequestId, proposalId: proposal.proposalId, requestId: confirmRequestId.current });
-        setView((current) => ({ ...current, state: result.error.code.includes("disabled") ? "disabled" : "stale" })); return;
+        const nextState = responseErrorState(result.error);
+        setConfirmRetryable(nextState === "error");
+        setView((current) => ({ ...current, state: nextState })); return;
       }
       await hydrateRecovery("post-confirm");
     } catch (error) {

@@ -74,6 +74,8 @@ const PRODUCT_CARD_PATHS = new Map([
   ["progress_selected_evidence", "/v1/coach/change-proposals"],
   ["ride_hardest_section", "/v1/coach/ride-plan"], ["ride_personal_pacing", "/v1/coach/ride-plan"],
 ]);
+const PRODUCT_USER_DATA_WRITE_PATHS = [/^\/v1\/coach\/change-proposals\/[^/]+\/(?:confirm|rollback)$/u,
+  /^\/v1\/coach\/(?:profile|weekly-check-in)$/u];
 export const MAX_HTTP_RESPONSE_BYTES = 200_000;
 export const MAX_AUTH_RESPONSE_BYTES = 64 * 1024;
 const AUTH_TOKEN = /^[A-Za-z0-9._~-]{8,16384}$/u;
@@ -636,8 +638,10 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
   const value = await readBoundedJsonResponse(response, { code: "web_evidence:response",
     maxBytes: MAX_HTTP_RESPONSE_BYTES });
   const latencyMs = Math.max(0, Math.round(options.clock() - started));
+  const pathname = new URL(path, origin).pathname;
   return { response, value, latencyMs, responseDigest: prefixedEvidenceDigest(value),
-    capture: { url: `${origin}${new URL(path, origin).pathname}`, requestBody: body === undefined ? "" : prefixedEvidenceDigest(body),
+    userDataWrites: Number(method !== "GET" && PRODUCT_USER_DATA_WRITE_PATHS.some((pattern) => pattern.test(pathname))),
+    capture: { url: `${origin}${pathname}`, requestBody: body === undefined ? "" : prefixedEvidenceDigest(body),
       responseBody: prefixedEvidenceDigest(value) } };
 }
 
@@ -866,7 +870,8 @@ async function prepareCard(origin, request, item, options) {
   const aiClaimsDigest = prefixedEvidenceDigest(normalizedClaims(rideCardClaims(ai.value.data, item.questionCode)));
   if (cardClaimsDigest !== aiClaimsDigest) throw new Error("web_evidence:v3_ride_ai_claim_drift");
   return { card, contextFilters: { ridePlan: { contextToken, inputRevision, questionCode: item.questionCode } },
-    sourceBinding: inputRevision, extraCaptures: [token.capture, ai.capture], extraLatencyMs: token.latencyMs + ai.latencyMs };
+    sourceBinding: inputRevision, extraCaptures: [token.capture, ai.capture], extraLatencyMs: token.latencyMs + ai.latencyMs,
+    extraUserDataWrites: token.userDataWrites + ai.userDataWrites };
 }
 
 async function observeTarget(request, target, options) {
@@ -896,11 +901,15 @@ async function observeTarget(request, target, options) {
     }
     const requestDigest = prefixedEvidenceDigest({ caseId: item.caseId, questionCode: item.questionCode,
       question: item.question });
+    const providerCallsObserved = envelope.budget.providerCalls;
+    const providerLedgerCount = Number(providerCallsObserved > 0);
+    const turnLedgerCount = Number(envelope.quota.consumed);
+    const userDataWrites = question.userDataWrites + (prepared.card?.userDataWrites ?? 0)
+      + (prepared.extraUserDataWrites ?? 0);
     const product = { questionPath: "/v1/coach/respond", cardPath: PRODUCT_CARD_PATHS.get(item.caseId),
       requestKey: firebaseFixtureRequestKey(options.authorization, request.correlationId, requestId),
       questionStatus: question.response.status, cardStatus: prepared.card?.response.status ?? null,
-      providerCallsObserved: envelope.budget.providerCalls, providerLedgerCount: item.providerCalls > 0 ? 1 : 0,
-      turnLedgerCount: envelope.quota.consumed ? 1 : 0, userDataWrites: 0,
+      providerCallsObserved, providerLedgerCount, turnLedgerCount, userDataWrites,
       questionResponseDigest: question.responseDigest,
       cardResponseDigest: prepared.card?.responseDigest ?? null };
     const parity = prepared.card ? parityProjections(item, envelope, prepared) : null;
@@ -913,7 +922,7 @@ async function observeTarget(request, target, options) {
     const bounded = { caseId: item.caseId, fixtureDigest: request.fixture.digest, requestDigest,
       httpStatus: question.response.status,
       latencyMs: question.latencyMs + (prepared.card?.latencyMs ?? 0) + (prepared.extraLatencyMs ?? 0),
-      providerCalls: item.providerCalls, quotaConsumed: item.quotaConsumed, userDataWrites: 0,
+      providerCalls: providerCallsObserved, quotaConsumed: turnLedgerCount, userDataWrites,
       card, response: projection, productExecution: product };
     bounded.receiptDigest = prefixedEvidenceDigest({ schemaVersion: "ai-coach-four-axis-http-receipt-v1",
       correlationDigest: prefixedDigest(request.correlationId), caseId: bounded.caseId,

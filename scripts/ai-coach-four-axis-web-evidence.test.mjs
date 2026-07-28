@@ -826,6 +826,9 @@ test("publishes a backend-cross-checkable representative v3 schema and artifact"
     (value) => { value.liveComparison.candidate[1].response.evidenceDigest = "invalid"; },
     (value) => { value.liveComparison.baseline[2].productExecution.cardPath = "/v1/coach/insights/rider"; },
     (value) => { value.liveComparison.candidate[3].productExecution.requestKey = value.liveComparison.baseline[3].productExecution.requestKey; },
+    (value) => { value.liveComparison.baseline[0].productExecution.providerLedgerCount = 2; },
+    (value) => { value.liveComparison.candidate[0].productExecution.turnLedgerCount = 2; },
+    (value) => { value.liveComparison.baseline[0].productExecution.userDataWrites = 1; },
     (value) => { value.liveComparison.warmups[0].providerCalls = 1; },
     (value) => { value.liveComparison.warmups.reverse(); },
   ]) {

@@ -332,6 +332,35 @@ describe("CoachPrescription", () => {
     }));
   });
 
+  it.each([
+    ["proposal_feature_disabled", "현재 이 변경 기능이 꺼져 있습니다.", false],
+    ["proposal_weekly_checkin_changed", "계획·주간 체크인·동의가 변경되어 이 변경안을 적용할 수 없습니다.", true],
+  ] as const)("maps a non-retryable %s response without presenting it as transient", async (code, message, reanalyze) => {
+    createProposal.mockResolvedValue({ status: "error", error: { code, retryable: false }, providerCalls: 0, quotaConsumed: 0 });
+    render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "변경안 미리보기" }));
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    if (reanalyze) expect(screen.getByRole("button", { name: "새 분석으로 다시 확인" })).toBeInTheDocument();
+    else expect(screen.queryByRole("button", { name: "새 분석으로 다시 확인" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a normal retryable create response retryable with the same UUID", async () => {
+    recoverProposal.mockResolvedValueOnce(emptyRecovery).mockResolvedValueOnce(pendingRecovery);
+    createProposal.mockResolvedValueOnce({ status: "error", error: { code: "temporarily_unavailable", retryable: true },
+      providerCalls: 0, quotaConsumed: 0 })
+      .mockResolvedValueOnce({ status: "ok", data: { proposal, nonce: "n".repeat(32) }, providerCalls: 0, quotaConsumed: 0 });
+    render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "변경안 미리보기" }));
+    expect(await screen.findByText("변경 상태를 확인하지 못했습니다. 기존 계획은 유지됩니다.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "변경안 미리보기" }));
+    expect(createProposal).toHaveBeenCalledTimes(2);
+    expect(createProposal.mock.calls[1]![0].requestId).toBe(createProposal.mock.calls[0]![0].requestId);
+    expect(await screen.findByText("변경 전")).toBeInTheDocument();
+  });
+
   it("keeps cross-owner proposal failures generic and never exposes or mutates another plan", async () => {
     createProposal.mockRejectedValue(new CoachClientError("http", "proposal_not_found"));
     render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
@@ -361,6 +390,24 @@ describe("CoachPrescription", () => {
     expect(errorLog).toHaveBeenCalledWith("CoachPrescription.confirm", error, expect.objectContaining({
       stage: "confirm", operation: "confirm", proposalId: proposal.proposalId, requestId: expect.any(String),
     }));
+  });
+
+  it("keeps a normal retryable confirmation response retryable with the same UUID", async () => {
+    recoverProposal.mockResolvedValueOnce(emptyRecovery).mockResolvedValueOnce(pendingRecovery).mockResolvedValue(appliedRecovery);
+    createProposal.mockResolvedValue({ status: "ok", data: { proposal, nonce: "n".repeat(32) }, providerCalls: 0, quotaConsumed: 0 });
+    confirmProposal.mockResolvedValueOnce({ status: "error", error: { code: "temporarily_unavailable", retryable: true },
+      providerCalls: 0, quotaConsumed: 0 })
+      .mockResolvedValueOnce({ status: "ok", data: receipt, providerCalls: 0, quotaConsumed: 0 });
+    render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "변경안 미리보기" }));
+    await user.click(screen.getByRole("button", { name: "적용 검토" }));
+    await user.click(screen.getByRole("button", { name: "확인하고 계획에 적용" }));
+    await user.click(await screen.findByRole("button", { name: "같은 적용 요청 다시 확인" }));
+    expect(confirmProposal).toHaveBeenCalledTimes(2);
+    expect(confirmProposal.mock.calls[1]![1].requestId).toBe(confirmProposal.mock.calls[0]![1].requestId);
+    expect(await screen.findByText("계획에 한 번만 적용했습니다")).toBeInTheDocument();
   });
 
   it("rolls back an applied receipt independently of the confirm capability", async () => {
