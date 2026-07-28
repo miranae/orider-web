@@ -905,6 +905,82 @@ const PRODUCT_RESPONSE_SCHEMAS = new Map([
       factsId: PRODUCT_SCALAR, prescriptionId: PRODUCT_SCALAR, prescriptionRulesVersion: PRODUCT_SCALAR,
       asOf: PRODUCT_SCALAR } } }],
 ]);
+const PRODUCT_REQUIRED_RULES = [
+  { pathname: /^\/v1\/coach\//u, path: "response", keys: ["data"] },
+  { pathname: "/v1/coach/status", path: "response.data", keys: ["status"] },
+  { pathname: "/v1/coach/insights/pmc", path: "response.data",
+    keys: ["snapshotId", "sourceRevision", "current", "delta7d", "execution"] },
+  { pathname: "/v1/coach/insights/pmc", path: /^response\.data\.(?:current|delta7d)$/u,
+    keys: ["ctl", "atl", "form"] },
+  { pathname: "/v1/coach/insights/pmc", path: "response.data.execution",
+    keys: ["providerCalls", "quotaConsumed", "writes"] },
+  { pathname: "/v1/coach/insights/rider", path: "response.data",
+    keys: ["snapshotId", "sourceRevision", "profile", "mmpWatts", "criticalPower", "model", "ability", "execution"] },
+  { pathname: "/v1/coach/insights/rider", path: "response.data.profile",
+    keys: ["type", "axisX", "axisY", "confidence"] },
+  { pathname: "/v1/coach/insights/rider", path: "response.data.mmpWatts", keys: ["5s", "1m", "5m", "20m"] },
+  { pathname: "/v1/coach/insights/rider", path: "response.data.criticalPower",
+    keys: ["cpWatts", "wPrimeJoules", "r2"] },
+  { pathname: "/v1/coach/insights/rider", path: "response.data.model",
+    keys: ["pmaxWatts", "frcJoules", "ftpEstWatts", "cpEstWatts", "tteMinutes"] },
+  { pathname: "/v1/coach/insights/rider", path: "response.data.ability",
+    keys: ["overallPercentile", "byDuration"] },
+  { pathname: "/v1/coach/insights/rider", path: /^response\.data\.ability\.byDuration\.\d+$/u,
+    keys: ["duration", "wPerKg", "percentile"] },
+  { pathname: "/v1/coach/insights/rider", path: "response.data.execution",
+    keys: ["providerCalls", "quotaConsumed", "writes"] },
+  { pathname: "/v1/coach/change-proposals", path: "response", keys: ["status", "data"] },
+  { pathname: "/v1/coach/change-proposals", path: "response.data",
+    keys: ["source", "recoveryStatus", "proposal", "providerCalls", "quotaConsumed"] },
+  { pathname: "/v1/coach/change-proposals", path: "response.data.source",
+    keys: ["prescriptionId", "sourceRequestId"] },
+  { pathname: "/v1/coach/change-proposals", path: "response.data.proposal", keys: ["proposalId", "evidence"] },
+  { pathname: "/v1/coach/ride-plan/token", path: "request", keys: ["courseId"] },
+  { pathname: "/v1/coach/ride-plan/token", path: "response.data", keys: ["contextToken", "inputRevision"] },
+  { pathname: "/v1/coach/ride-plan", path: "request", keys: ["courseId", "contextToken"] },
+  { pathname: "/v1/coach/ride-plan", path: "response.data",
+    keys: ["inputRevision", "course", "estimate", "segments", "assumptions", "execution"] },
+  { pathname: "/v1/coach/ride-plan/ai-context", path: "request", keys: ["courseId", "contextToken", "questionCode"] },
+  { pathname: "/v1/coach/ride-plan/ai-context", path: "response.data",
+    keys: ["inputRevision", "questionCode", "course", "estimate", "segments", "assumptions"] },
+  { pathname: /^\/v1\/coach\/ride-plan(?:\/ai-context)?$/u, path: "response.data.course",
+    keys: ["distanceM", "elevationGainM"] },
+  { pathname: /^\/v1\/coach\/ride-plan(?:\/ai-context)?$/u, path: "response.data.estimate",
+    keys: ["totalTimeSec", "averageSpeedKph"] },
+  { pathname: /^\/v1\/coach\/ride-plan(?:\/ai-context)?$/u, path: /^response\.data\.segments\.\d+$/u,
+    keys: ["index", "startDistanceM", "endDistanceM", "averageGradePct", "estimatedSpeedKph", "estimatedTimeSec"] },
+  { pathname: /^\/v1\/coach\/ride-plan(?:\/ai-context)?$/u, path: "response.data", keys: [],
+    validate: (value) => Array.isArray(value.segments) && value.segments.length > 0 },
+  { pathname: "/v1/coach/ride-plan", path: "response.data.execution",
+    keys: ["providerCalls", "quotaConsumed", "writes"] },
+  { pathname: "/v1/coach/respond", path: "request", keys: ["requestId", "question", "discipline", "locale",
+    "apiVersion", "schemaVersion", "capabilityVersion", "contextFilters", "responseFormat"] },
+  { pathname: "/v1/coach/respond", path: "request.contextFilters.progressPlanner",
+    keys: ["prescriptionId", "sourceRequestId"] },
+  { pathname: "/v1/coach/respond", path: "request.contextFilters.ridePlan",
+    keys: ["contextToken", "inputRevision", "questionCode"] },
+  { pathname: "/v1/coach/respond", path: "request.contextFilters", keys: [],
+    validate: (value) => Object.keys(value).length <= 1 },
+  { pathname: "/v1/coach/respond", path: "response.data",
+    keys: ["requestId", "outcome", "budget", "quota", "execution"] },
+  { pathname: "/v1/coach/respond", path: "response.data.budget", keys: ["providerCalls"] },
+  { pathname: "/v1/coach/respond", path: "response.data.quota", keys: ["consumed"] },
+  { pathname: "/v1/coach/respond", path: "response.data.execution", keys: ["parser"] },
+  { pathname: "/v1/coach/respond", path: "response.data.answer", keys: ["blocks"],
+    validate: (value) => Array.isArray(value.blocks) && value.blocks.length > 0 },
+  { pathname: "/v1/coach/respond", path: /^response\.data\.answer\.blocks\.\d+$/u,
+    keys: (value) => value.kind === "grounded_markdown" ? ["kind", "evidenceIds"]
+      : value.kind === "prescription" ? ["kind", "prescription"] : ["kind"] },
+  { pathname: "/v1/coach/respond", path: /^response\.data\.answer\.blocks\.\d+\.prescription$/u,
+    keys: ["status", "prescriptionId", "evidence"] },
+  { pathname: /^\/v1\/coach\/(?:change-proposals|respond)$/u,
+    path: /(?:\.proposal|\.prescription)?\.evidence\.\d+$/u,
+    keys: ["evidenceId", "source", "sourceId", "sourceRevision", "field", "value", "asOf"] },
+  { pathname: "/v1/coach/respond", path: "response.data",
+    keys: (value) => value.outcome === "answer" ? ["answer"] : [],
+    validate: (value) => value.outcome !== "answer"
+      || Boolean(value.answer) && typeof value.answer === "object" && !Array.isArray(value.answer) },
+];
 
 const PRODUCT_PRIVATE_TEXT = [
   RAW_PRIVATE_VALUE,
@@ -1000,6 +1076,16 @@ function assertProductShape(value, schema, path, pathname, options) {
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`web_evidence:v3_product_schema:${path}`);
+  }
+  for (const rule of PRODUCT_REQUIRED_RULES) {
+    const pathnameMatches = typeof rule.pathname === "string" ? rule.pathname === pathname : rule.pathname.test(pathname);
+    const pathMatches = typeof rule.path === "string" ? rule.path === path : rule.path.test(path);
+    if (!pathnameMatches || !pathMatches) continue;
+    const keys = typeof rule.keys === "function" ? rule.keys(value) : rule.keys;
+    for (const key of keys) {
+      if (!Object.hasOwn(value, key)) throw new Error(`web_evidence:v3_product_schema_required:${path}.${key}`);
+    }
+    if (rule.validate && !rule.validate(value)) throw new Error(`web_evidence:v3_product_schema_required:${path}`);
   }
   for (const [key, item] of Object.entries(value)) {
     if (!Object.hasOwn(schema, key)) throw new Error(`web_evidence:v3_product_schema:${path}.${key}`);

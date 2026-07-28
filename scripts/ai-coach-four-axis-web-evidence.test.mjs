@@ -361,9 +361,10 @@ test("scans raw product URL and bodies but retains only redacted capture digests
   const url = new URL(`https://candidate---stage.example.com/v1/coach/change-proposals?prescriptionId=${progressPlanner.prescriptionId}`
     + `&sourceRequestId=${progressPlanner.sourceRequestId}`);
   const requestBody = undefined;
-  const responseBody = { data: { source: { prescriptionId: progressPlanner.prescriptionId,
+  const responseBody = { status: "ok", data: { source: { prescriptionId: progressPlanner.prescriptionId,
     sourceRequestId: progressPlanner.sourceRequestId },
-  proposal: { proposalId: progressPlanner.proposalId }, recoveryStatus: "pending" } };
+  proposal: { proposalId: progressPlanner.proposalId, evidence: [] }, recoveryStatus: "pending",
+  providerCalls: 0, quotaConsumed: 0 } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(url, requestBody, responseBody, options));
 
   for (const [name, value] of [["prescriptionId", "rx_private-user-record"],
@@ -388,19 +389,32 @@ test("scans raw product URL and bodies but retains only redacted capture digests
     assert.throws(() => assertProductNetworkPrivacy(url, requestBody, shapedLeak, options), /v3_product_privacy/u);
   }
   const headlineUrl = new URL("https://candidate---stage.example.com/v1/coach/respond");
-  const headlineRequest = { question: FOUR_AXIS_CASES[0].question };
-  const headlineResponse = { data: { answer: { blocks: [{ kind: "headline", blockId: "headline-1",
+  const headlineRequest = { requestId: "123e4567-e89b-42d3-a456-426614174000",
+    question: FOUR_AXIS_CASES[0].question, discipline: "bike", locale: "ko-KR", apiVersion: "v2",
+    schemaVersion: "coach-respond-v2", capabilityVersion: "p1", contextFilters: {}, responseFormat: "auto" };
+  const responseEnvelope = { requestId: headlineRequest.requestId, outcome: "answer",
+    budget: { providerCalls: 0 }, quota: { consumed: false }, execution: { parser: "deterministic" } };
+  assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest,
+    { data: { outcome: "answer", answer: {} } }, options), /v3_product_schema_required/u);
+  assert.throws(() => assertProductNetworkPrivacy(headlineUrl, {}, undefined, options, "request-preflight"),
+    /v3_product_schema_required/u);
+  const truncatedRequest = structuredClone(headlineRequest); delete truncatedRequest.responseFormat;
+  assert.throws(() => assertProductNetworkPrivacy(headlineUrl, truncatedRequest, undefined, options,
+    "request-preflight"), /v3_product_schema_required/u);
+  const headlineResponse = { data: { ...responseEnvelope, answer: { blocks: [{ kind: "headline", blockId: "headline-1",
     sourceSlotIds: ["slot-1"], partial: false, stale: false, truncated: false, omittedCount: 0 }] } } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, headlineResponse, options));
   const headlineLeak = structuredClone(headlineResponse); headlineLeak.data.answer.blocks[0].displayName = "private";
   assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, headlineLeak, options),
     /v3_product_schema/u);
-  const markdownResponse = { data: { answer: { blocks: [{ kind: "grounded_markdown",
+  const markdownResponse = { data: { ...responseEnvelope, answer: { blocks: [{ kind: "grounded_markdown",
     markdown: "Route coordinates are intentionally omitted from this summary.", evidenceIds: [] }] } } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, markdownResponse, options));
   const statusUrl = new URL("https://candidate---stage.example.com/v1/coach/status");
   assert.doesNotThrow(() => assertProductNetworkPrivacy(statusUrl, undefined,
     { data: { status: "available" } }, options));
+  assert.throws(() => assertProductNetworkPrivacy(statusUrl, undefined, { data: {} }, options),
+    /v3_product_schema_required/u);
   for (const malformed of [null, {}, [], "", false, 0]) {
     assert.throws(() => assertProductNetworkPrivacy(statusUrl, undefined, malformed, options),
       /v3_product_schema/u);
