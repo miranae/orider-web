@@ -10,7 +10,7 @@ import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidenc
 import { bindLocalContextToRequest, collectLiveComparison, collectStageBaselineComparison, createLocalEvidenceEnvelope,
   decodeEvidenceRequest, decodeLocalOperatorContext, FOUR_AXIS_CASES, localWebEvidenceArtifactName,
   observedProductUserDataWrites, readStageProductLedgerReceipts,
-  parseOrchestratorActorAllowlist, prefixedEvidenceDigest, privacyScan, MAX_HTTP_RESPONSE_BYTES,
+  parseOrchestratorActorAllowlist, prefixedEvidenceDigest, privacyScan, MAX_AUTH_RESPONSE_BYTES, MAX_HTTP_RESPONSE_BYTES,
   REQUIRED_RENDER_ASSERTIONS, targetFingerprint,
   validateDispatchRequest, validateLocalEvidenceEnvelope, validateLocalOperatorContext, validateLocalOperatorRequest,
   validateLocalWebStageBaselineEvidenceArtifact, validateStageBaselineDispatchRequest, validateWebEvidenceArtifact,
@@ -153,7 +153,8 @@ test("observes ledger receipts from the exact Firestore documents", async () => 
   const requestKey = "a".repeat(64); const calls = [];
   const receipts = await readStageProductLedgerReceipts(requestKey, { accessToken: "access-token-123",
     targetName: "baseline", assertStageLease: async (operation) => calls.push(operation),
-    fetchImpl: async (url) => {
+    fetchImpl: async (url, options) => {
+      assert.equal(options.redirect, "error"); assert.ok(options.signal instanceof AbortSignal);
       const path = new URL(url).pathname.split("/documents/")[1];
       if (path.startsWith("coach_user_turn_charges/")) return new Response("{}", { status: 404,
         headers: { "content-type": "application/json" } });
@@ -172,6 +173,19 @@ test("observes ledger receipts from the exact Firestore documents", async () => 
   assert.deepEqual(calls.map((call) => call.path), [
     `coach_requests/${requestKey}`, `coach_user_turn_charges/${requestKey}`,
     `coach_provider_budget_charges/${requestKey}`]);
+});
+
+test("bounds and times out Firestore ledger receipt reads with collection context", async () => {
+  const requestKey = "a".repeat(64); const base = { accessToken: "access-token-123", targetName: "baseline" };
+  await assert.rejects(() => readStageProductLedgerReceipts(requestKey, { ...base,
+    fetchImpl: async (_url, options) => {
+      assert.equal(options.redirect, "error"); assert.ok(options.signal instanceof AbortSignal);
+      throw new DOMException("timed out", "TimeoutError");
+    } }), /v3_ledger_network:coach_requests/u);
+  await assert.rejects(() => readStageProductLedgerReceipts(requestKey, { ...base,
+    fetchImpl: async () => new Response("{}", { status: 200, headers: { "content-type": "application/json",
+      "content-length": String(MAX_AUTH_RESPONSE_BYTES + 1) } }) }),
+  /v3_ledger_response:coach_requests:.*v3_ledger_response_content_length/u);
 });
 
 function observedStageHttp(calls = [], stageRequest = v3Request, requestDigest = `sha256:${"9".repeat(64)}`) {

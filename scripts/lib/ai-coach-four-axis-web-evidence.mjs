@@ -680,13 +680,24 @@ export async function readStageProductLedgerReceipts(requestKey, options) {
       path: `${collection}/${requestKey}` });
     const path = `${collection}/${requestKey}`;
     const url = `https://firestore.googleapis.com/v1/projects/orider-dev/databases/(default)/documents/${path}`;
-    const response = await options.fetchImpl(url, { method: "GET",
-      headers: { authorization: `Bearer ${options.accessToken}` } });
+    let response;
+    try {
+      response = await options.fetchImpl(url, { method: "GET", redirect: "error",
+        headers: { authorization: `Bearer ${options.accessToken}` }, signal: AbortSignal.timeout(30_000) });
+    } catch (error) {
+      throw new Error(`web_evidence:v3_ledger_network:${collection}`, { cause: error });
+    }
     if (response.status === 404) continue;
-    if (!response.ok || !response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+    if (!response.ok) {
       throw new Error(`web_evidence:v3_ledger_http:${collection}:${response.status}`);
     }
-    const value = await response.json();
+    let value;
+    try {
+      value = await readBoundedJsonResponse(response,
+        { code: "web_evidence:v3_ledger_response", maxBytes: MAX_AUTH_RESPONSE_BYTES });
+    } catch (error) {
+      throw new Error(`web_evidence:v3_ledger_response:${collection}:${error.message}`, { cause: error });
+    }
     if (value?.name !== `projects/orider-dev/databases/(default)/documents/${path}`
         || value?.fields?.requestKey?.stringValue !== requestKey
         || !Number.isFinite(Date.parse(value.createTime)) || !Number.isFinite(Date.parse(value.updateTime))) {
