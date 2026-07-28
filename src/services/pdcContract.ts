@@ -15,33 +15,52 @@ const subset = (value: Record<string, unknown>, keys: readonly string[]) => Obje
 const finite = (value: unknown, min: number, max: number): value is number => typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
 const integer = (value: unknown, min: number, max: number): value is number => Number.isInteger(value) && finite(value, min, max);
 const nullable = (value: unknown, min: number, max: number) => value === null || finite(value, min, max);
-const date = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00.000Z`));
+const date = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00.000Z`));
 
 function invalid(): never { throw new Error("INVALID_PERSISTED_PDC_V5"); }
 
-function migrateLegacyPdcV1(raw: Record<string, unknown>): Record<string, unknown> {
-  if (!exact(raw, LEGACY_TOP_KEYS) || raw.discipline !== "bike") invalid();
+function migrateLegacyPdcV1(raw: Record<string, unknown>): PdcDoc {
+  if (!exact(raw, LEGACY_TOP_KEYS) || raw.discipline !== "bike" || raw.version !== 1
+      || !integer(raw.computedAt, 0, Number.MAX_SAFE_INTEGER) || !integer(raw.activityCount, 0, 10_000)) invalid();
   const legacyMmp = object(raw.mmpAll);
   if (!legacyMmp || !subset(legacyMmp, DURATIONS)) invalid();
-  const mmpAll = Object.fromEntries(Object.entries(legacyMmp).map(([duration, value]) => {
+  const mmpAll: PdcDoc["mmpAll"] = {};
+  for (const [duration, value] of Object.entries(legacyMmp)) {
     const entry = object(value);
-    if (!entry || !subset(entry, ["activityId", "context", "date", "startTime", "value"])
+    if (!DURATIONS.includes(duration as PowerDurationKey) || !entry
+        || !subset(entry, ["activityId", "context", "date", "startTime", "value"])
         || !exact(entry, "context" in entry
           ? ["activityId", "context", "date", "startTime", "value"] : ["activityId", "date", "startTime", "value"])
+        || !finite(entry.value, 1, 3_000) || typeof entry.activityId !== "string"
+        || entry.activityId.length < 1 || entry.activityId.length > 256 || !date(entry.date)
+        || !integer(entry.startTime, 0, Number.MAX_SAFE_INTEGER)
         || ("context" in entry && (typeof entry.context !== "string" || entry.context.length > 128))) invalid();
-    return [duration, { value: entry.value, activityId: entry.activityId, date: entry.date, startTime: entry.startTime,
-      source: "unknown", cohortEligible: false }];
-  }));
+    mmpAll[duration as PowerDurationKey] = { value: entry.value, activityId: entry.activityId,
+      date: entry.date, startTime: entry.startTime, ...(typeof entry.context === "string" ? { context: entry.context } : {}),
+      source: "unknown", cohortEligible: false };
+  }
+  const curve = DURATIONS.flatMap((duration) => mmpAll[duration] ? [mmpAll[duration]!.value] : []);
+  if (curve.some((value, index) => index > 0 && value > curve[index - 1]!)) invalid();
+
+  const legacyCp = raw.cp === null ? null : object(raw.cp);
+  if (!(legacyCp === null || (exact(legacyCp, ["computedAt", "r2", "value", "wPrime"])
+      && finite(legacyCp.value, 1, 1_500) && finite(legacyCp.wPrime, 0, 100_000)
+      && finite(legacyCp.r2, 0, 1) && integer(legacyCp.computedAt, 0, Number.MAX_SAFE_INTEGER)))) invalid();
+  const cp: PdcDoc["cp"] = legacyCp === null ? null : { value: Number(legacyCp.value), wPrime: Number(legacyCp.wPrime),
+    r2: Number(legacyCp.r2), computedAt: Number(legacyCp.computedAt) };
   const byDuration = Object.fromEntries(Object.keys(mmpAll).map((duration) => [duration,
-    { source: "unknown", cohortEligible: false }]));
-  return { ...raw, version: PDC_VERSION, mmpAll, provenance: { version: 2, power: "measured",
-    excludesVirtualPower: true, byDuration, derived: { ftpEst: false, vo2maxEst: false } } };
+    { source: "unknown" as const, cohortEligible: false }]));
+
+  return { discipline: "bike", mmpAll, cp, pdcModel: null, stamina: null, powerProfile: "unclassified",
+    wPerKgAtKey: null, riderType: null, ability: null, sustainablePower: [], history: [], vo2maxEst: null,
+    provenance: { version: 2, power: "unknown", excludesVirtualPower: false, migration: "legacy_v1",
+      byDuration, derived: { ftpEst: false, vo2maxEst: false } }, activityCount: raw.activityCount,
+    weightKgSnapshot: null, computedAt: raw.computedAt, version: PDC_VERSION };
 }
 
 export function parsePersistedPdc(input: unknown): PdcDoc {
-  const inputRaw = object(input);
-  const legacy = inputRaw?.version === 1;
-  const raw = legacy ? migrateLegacyPdcV1(inputRaw) : inputRaw;
+  const raw = object(input);
+  if (raw?.version === 1) return migrateLegacyPdcV1(raw);
   if (!raw || !exact(raw, TOP_KEYS) || raw.discipline !== "bike" || raw.version !== PDC_VERSION
       || !integer(raw.computedAt, 0, Number.MAX_SAFE_INTEGER) || !integer(raw.activityCount, 0, 10_000)
       || !nullable(raw.weightKgSnapshot, 25, 250) || !nullable(raw.stamina, 0, 1)
@@ -116,13 +135,5 @@ export function parsePersistedPdc(input: unknown): PdcDoc {
     return !row || !exact(row, ["mmp", "period"]) || typeof row.period !== "string" || !/^\d{4}-\d{2}$/u.test(row.period)
       || !mmp || !subset(mmp, DURATIONS) || !Object.values(mmp).every((value) => finite(value, 1, 3_000));
   })) invalid();
-  if (!legacy) return raw as unknown as PdcDoc;
-  const legacyMmp = object(inputRaw.mmpAll)!;
-  const migratedMmp = object(raw.mmpAll)!;
-  const compatibleMmpAll = Object.fromEntries(Object.entries(migratedMmp).map(([duration, value]) => {
-    const context = object(legacyMmp[duration])?.context;
-    return [duration, { ...object(value), ...(typeof context === "string" ? { context } : {}) }];
-  }));
-  return { ...raw, mmpAll: compatibleMmpAll, version: 1, provenance: { ...raw.provenance as Record<string, unknown>,
-    version: 1, power: "unknown", excludesVirtualPower: false } } as unknown as PdcDoc;
+  return raw as unknown as PdcDoc;
 }

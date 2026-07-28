@@ -26,8 +26,9 @@ describe("usePdc", () => {
       delete entry.source; delete entry.cohortEligible;
     }
     act(() => mocks.callback?.({ exists: () => true, data: () => legacy }));
-    expect(result.current).toMatchObject({ status: "ready", pdc: { version: 1, activityCount: 12,
-      provenance: { version: 1, power: "unknown", excludesVirtualPower: false } } });
+    expect(result.current).toMatchObject({ status: "ready", pdc: { version: 5, activityCount: 12,
+      cp: { value: 270 }, pdcModel: null, riderType: null, ability: null, vo2maxEst: null,
+      provenance: { version: 2, power: "unknown", excludesVirtualPower: false, migration: "legacy_v1" } } });
     expect(mocks.log).not.toHaveBeenCalled();
   });
   it("fails closed and logs malformed or unsupported documents", () => {

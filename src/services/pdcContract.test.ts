@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import type { PdcDoc } from "@shared/types/pdc";
+import { hasCanonicalPdcV5Source } from "@shared/training/pdcRiderGate";
 import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
 import { parsePersistedPdc } from "./pdcContract";
 
@@ -21,13 +23,18 @@ describe("persisted PDC v5 contract", () => {
       activityCount: 12, weightKgSnapshot: 70, riderType: { type: "AllRounder", confidence: 0.91 } });
   });
 
-  it("safely migrates persisted v1 MMP without context and without granting v5 provenance", () => {
+  it("reconstructs persisted v1 as a non-canonical v5 document using only validated CP and MMP", () => {
     const legacy = legacyFixture();
     const parsed = parsePersistedPdc(legacy);
-    expect(parsed).toMatchObject({ version: 1, activityCount: 12, cp: { value: 270 },
-      provenance: { version: 1, power: "unknown", excludesVirtualPower: false } });
+    expectTypeOf(parsed).toEqualTypeOf<PdcDoc>();
+    expectTypeOf(parsed.version).toEqualTypeOf<5>();
+    expect(parsed).toMatchObject({ version: 5, activityCount: 12, cp: { value: 270 },
+      provenance: { version: 2, power: "unknown", excludesVirtualPower: false, migration: "legacy_v1" },
+      pdcModel: null, stamina: null, powerProfile: "unclassified", wPerKgAtKey: null,
+      riderType: null, ability: null, sustainablePower: [], history: [], vo2maxEst: null, weightKgSnapshot: null });
     expect(parsed.mmpAll["5s"]).toMatchObject({ source: "unknown", cohortEligible: false });
     expect(parsed.mmpAll["5s"]).not.toHaveProperty("context");
+    expect(hasCanonicalPdcV5Source(parsed)).toBe(false);
   });
 
   it("preserves a valid optional v1 MMP context during migration", () => {
