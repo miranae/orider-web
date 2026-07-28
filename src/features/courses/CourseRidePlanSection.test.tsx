@@ -5,14 +5,15 @@ import { CoachClientError, getCoachRidePlanAiContext, loadCoachRidePlan } from "
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { CourseRidePlanSection, formatRidePlanDuration } from "./CourseRidePlanSection";
 
-const launcher = vi.hoisted(() => vi.fn(() => null));
+const mocks = vi.hoisted(() => ({ launcher: vi.fn(() => null), log: vi.fn() }));
 vi.mock("../../services/coachClient", async (importOriginal) => ({
   ...await importOriginal<typeof import("../../services/coachClient")>(),
   loadCoachRidePlan: vi.fn(), getCoachRidePlanAiContext: vi.fn(),
 }));
 vi.mock("../coach/CoachQuestionLauncher", () => ({
-  CoachQuestionLauncher: (props: unknown) => { launcher(props); return null; },
+  CoachQuestionLauncher: (props: unknown) => { mocks.launcher(props); return null; },
 }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: mocks.log }));
 
 const load = vi.mocked(loadCoachRidePlan);
 const loadAiContext = vi.mocked(getCoachRidePlanAiContext);
@@ -37,7 +38,7 @@ function renderSection(isOwner = true) {
 
 describe("CourseRidePlanSection", () => {
   beforeEach(() => {
-    load.mockReset(); launcher.mockClear(); load.mockResolvedValue(plan);
+    load.mockReset(); mocks.launcher.mockClear(); mocks.log.mockClear(); load.mockResolvedValue(plan);
     loadAiContext.mockReset(); loadAiContext.mockResolvedValue({ schemaVersion: plan.schemaVersion, inputRevision,
       questionCode: "HARDEST_SECTION", course: plan.course, estimate: plan.estimate,
       segments: plan.segments, assumptions: plan.assumptions });
@@ -68,7 +69,7 @@ describe("CourseRidePlanSection", () => {
     await vi.waitFor(() => expect(loadAiContext).toHaveBeenCalledWith(
       "private-course", contextToken, "HARDEST_SECTION", expect.any(AbortSignal),
     ));
-    expect(launcher).toHaveBeenLastCalledWith(expect.objectContaining({ ridePlanSelection: expect.objectContaining({
+    expect(mocks.launcher).toHaveBeenLastCalledWith(expect.objectContaining({ ridePlanSelection: expect.objectContaining({
       question: "이 코스에서 가장 힘든 구간은 어디인가요?",
       context: { contextToken, inputRevision, questionCode: "HARDEST_SECTION" },
     }) }));
@@ -85,7 +86,7 @@ describe("CourseRidePlanSection", () => {
       questionCode: "PERSONAL_PACING", course: plan.course, estimate: plan.estimate,
       segments: plan.segments, assumptions: plan.assumptions });
     button.focus(); await userEvent.keyboard("{Enter}");
-    await vi.waitFor(() => expect(launcher).toHaveBeenLastCalledWith(expect.objectContaining({
+    await vi.waitFor(() => expect(mocks.launcher).toHaveBeenLastCalledWith(expect.objectContaining({
       ridePlanSelection: expect.objectContaining({ context: expect.objectContaining({ questionCode: "PERSONAL_PACING" }) }),
     })));
   });
@@ -98,7 +99,9 @@ describe("CourseRidePlanSection", () => {
     renderSection();
     await userEvent.setup().click(await screen.findByRole("button", { name: "이 코스에서 가장 힘든 구간은 어디인가요?" }));
     expect(await screen.findByText(/질문 컨텍스트가 카드와 일치하지 않아/u)).toBeInTheDocument();
-    expect(launcher).toHaveBeenLastCalledWith(expect.objectContaining({ ridePlanSelection: null }));
+    expect(mocks.launcher).toHaveBeenLastCalledWith(expect.objectContaining({ ridePlanSelection: null }));
+    expect(mocks.log).toHaveBeenCalledWith("CourseRidePlanSection.loadAiContext", expect.any(Error),
+      { courseId: "private-course", questionCode: "HARDEST_SECTION" });
   });
 
   it("ignores a deferred route A projection after route B replaces its plan", async () => {
@@ -122,8 +125,8 @@ describe("CourseRidePlanSection", () => {
     resolveRouteA?.({ schemaVersion: plan.schemaVersion, inputRevision, questionCode: "HARDEST_SECTION",
       course: plan.course, estimate: plan.estimate, segments: plan.segments, assumptions: plan.assumptions });
     await vi.waitFor(() => expect(load).toHaveBeenCalledWith("route-b"));
-    expect(launcher.mock.calls.some(([props]) => (props as { ridePlanSelection?: unknown }).ridePlanSelection != null)).toBe(false);
-    expect(launcher).toHaveBeenLastCalledWith(expect.objectContaining({ ridePlanSelection: null }));
+    expect(mocks.launcher.mock.calls.some(([props]) => (props as { ridePlanSelection?: unknown }).ridePlanSelection != null)).toBe(false);
+    expect(mocks.launcher).toHaveBeenLastCalledWith(expect.objectContaining({ ridePlanSelection: null }));
   });
 
   it.each([
@@ -145,10 +148,12 @@ describe("CourseRidePlanSection", () => {
   });
 
   it.each(["deleted", "cross-owner"])("keeps %s failures indistinguishable and bounded", async () => {
-    load.mockRejectedValue(new CoachClientError("http", "not-found"));
+    const error = new CoachClientError("http", "not-found");
+    load.mockRejectedValue(error);
     const { container } = renderSection();
     expect(await screen.findByText("이 코스의 Ride Plan을 사용할 수 없습니다.")).toBeInTheDocument();
     expect(container).not.toHaveTextContent("not-found");
+    expect(mocks.log).toHaveBeenCalledWith("CourseRidePlanSection.load", error, { courseId: "private-course" });
   });
 
   it("maps missing elevation without exposing backend codes", async () => {
@@ -171,13 +176,13 @@ describe("CourseRidePlanSection", () => {
       coachRidePlanAiEnabled: false });
     renderSection(); await screen.findByText("1시간 1분");
     expect(screen.queryByRole("button", { name: /힘든 구간/u })).not.toBeInTheDocument();
-    expect(launcher).not.toHaveBeenCalled();
+    expect(mocks.launcher).not.toHaveBeenCalled();
 
     resetRuntimeConfigForTests({ coachRidePlanTokenEnabled: true, coachRidePlanSnapshotEnabled: true,
       coachRidePlanAiEnabled: true, coachRidePlanRespondV2Enabled: false });
     const respondOff = renderSection(); await screen.findByText("1시간 1분");
     expect(screen.queryByRole("button", { name: /힘든 구간/u })).not.toBeInTheDocument();
-    expect(launcher).not.toHaveBeenCalled(); respondOff.unmount();
+    expect(mocks.launcher).not.toHaveBeenCalled(); respondOff.unmount();
   });
 
   it("does not request an owner-bound plan for signed-out or non-owner course views", () => {

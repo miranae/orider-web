@@ -4,10 +4,11 @@ import parity from "../features/coach/__fixtures__/pmc-fitness-parity.json";
 import { parseCoachPmcInsight } from "../services/coachPmcInsightContract";
 import { useCoachPmcInsight } from "./useCoachPmcInsight";
 
-const mocks = vi.hoisted(() => ({ get: vi.fn() }));
+const mocks = vi.hoisted(() => ({ get: vi.fn(), log: vi.fn() }));
 vi.mock("../services/coachClient", async (original) => ({
   ...(await original()), getCoachPmcInsight: mocks.get,
 }));
+vi.mock("../services/errorLogger", () => ({ logClientError: mocks.log }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -50,5 +51,14 @@ describe("useCoachPmcInsight", () => {
 
     rerender({ uid: "owner-b", discipline: "run" });
     expect(result.current.insight).toBeNull();
+  });
+
+  it("logs current request failures with rider and discipline context", async () => {
+    const error = new Error("pmc failed");
+    mocks.get.mockRejectedValue(error);
+    const { result } = renderHook(() => useCoachPmcInsight("owner-a", "bike", true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mocks.log).toHaveBeenCalledWith("useCoachPmcInsight.load", error,
+      { uid: "owner-a", discipline: "bike" });
   });
 });

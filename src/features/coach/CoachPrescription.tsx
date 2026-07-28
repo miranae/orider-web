@@ -78,9 +78,10 @@ function proposalViewFromRecovery(recovered: CoachProposalRecovery): ProposalVie
     rollbackRequestId: recovered.rollbackRequestId, state };
 }
 
-function ProposalReview({ prescription, locale, sourceRequestId, capabilities, onQuestionSelect }: {
+function ProposalReview({ prescription, locale, sourceRequestId, capabilities, onReanalyze, onQuestionSelect }: {
   prescription: CoachPrescriptionDTO; locale: string; sourceRequestId: string;
-  capabilities: CoachProgressPlannerCapabilities; onQuestionSelect?: Props["onQuestionSelect"] }) {
+  capabilities: CoachProgressPlannerCapabilities; onReanalyze: Props["onReanalyze"];
+  onQuestionSelect?: Props["onQuestionSelect"] }) {
   const { t } = useTranslation("coach");
   const eligible = prescription.nextDays.filter((item) => ["rest", "recovery", "modified_workout"].includes(item.action));
   const [selectedDates, setSelectedDates] = useState<string[]>(eligible.map((item) => item.localDate));
@@ -228,9 +229,8 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
     {state === "applied" && receipt && <Alert variant="success" title={t("progress.states.applied")}>{t("progress.states.receipt", { id: receipt.auditId })}</Alert>}
     {state === "reverted" && receipt && <Alert variant="success" title={t("progress.states.reverted")}>{t("progress.states.receipt", { id: receipt.auditId })}</Alert>}
     {["stale", "disabled", "conflict", "error"].includes(state) && <Alert variant="warning" title={t(`progress.states.${state}`)}>
-      {state === "stale" ? <Button type="button" variant="outline" onClick={() => {
-        setView({ proposal: null, nonce: null, receipt: null, rollbackRequestId: null, state: "idle" });
-        setConfirmRetryable(false); createRequestId.current = null; }}>{t("progress.states.reanalyze")}</Button> : null}</Alert>}
+      {state === "stale" ? <Button type="button" variant="outline" onClick={onReanalyze}>
+        {t("progress.states.reanalyze")}</Button> : null}</Alert>}
     <div className="coach-progress-review__questions" aria-label={t("progress.questions.label")}>{[
       t("progress.questions.priority"), t("progress.questions.changed"),
     ].map((question) => <Button key={question} type="button" variant="ghost"
@@ -239,9 +239,10 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
   </section>;
 }
 
-function PrescriptionDetails({ prescription, locale, sourceRequestId, capabilities, onQuestionSelect }: {
+function PrescriptionDetails({ prescription, locale, sourceRequestId, capabilities, onReanalyze, onQuestionSelect }: {
   prescription: CoachPrescriptionDTO; locale: string; sourceRequestId: string;
-  capabilities: CoachProgressPlannerCapabilities; onQuestionSelect?: Props["onQuestionSelect"] }) {
+  capabilities: CoachProgressPlannerCapabilities | null; onReanalyze: Props["onReanalyze"];
+  onQuestionSelect?: Props["onQuestionSelect"] }) {
   const { t } = useTranslation("coach");
   const evidenceById = useMemo(() => new Map(prescription.evidence.map((item) => [item.evidenceId, item])), [prescription.evidence]);
   return <section className="coach-prescription" aria-labelledby={`prescription-${prescription.prescriptionId}`}>
@@ -283,8 +284,9 @@ function PrescriptionDetails({ prescription, locale, sourceRequestId, capabiliti
       <div><dt>{t("prescription.planRevision")}</dt><dd>{prescription.planRevision ?? t("prescription.none")}</dd></div>
       <div><dt>{t("prescription.rulesVersion")}</dt><dd>{prescription.rulesVersion}</dd></div>
     </dl>
-    <ProposalReview prescription={prescription} locale={locale} sourceRequestId={sourceRequestId}
-      capabilities={capabilities} onQuestionSelect={onQuestionSelect} />
+    {capabilities?.progressPlanner.read.enabled && <ProposalReview prescription={prescription} locale={locale}
+      sourceRequestId={sourceRequestId} capabilities={capabilities} onReanalyze={onReanalyze}
+      onQuestionSelect={onQuestionSelect} />}
   </section>;
 }
 
@@ -342,12 +344,11 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
     } finally { inFlightRef.current = false; }
   }
 
-  if (!locallyEnabled) return null;
-  if (capabilityFailed) return <Alert variant="warning" title={t("progress.states.unavailable")} />;
-  if (!capabilities) return <section className="coach-prescription" role="status" aria-live="polite"><span className="ds-btn__spinner" aria-hidden />{t("progress.states.loading")}</section>;
-  if (!capabilities.progressPlanner.read.enabled) return null;
-  if (prescription.status === "ready") return <PrescriptionDetails prescription={prescription} locale={locale}
-    sourceRequestId={sourceRequestId} capabilities={capabilities} onQuestionSelect={onQuestionSelect} />;
+  if (prescription.status === "ready") return <>
+    <PrescriptionDetails prescription={prescription} locale={locale} sourceRequestId={sourceRequestId}
+      capabilities={capabilities} onReanalyze={onReanalyze} onQuestionSelect={onQuestionSelect} />
+    {locallyEnabled && capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
+  </>;
   if (prescription.status === "safety_blocked") return <section className="coach-prescription coach-prescription--safety" role="alert">
     <Text as="h3" variant="subtitle">{t("prescription.safety.title")}</Text><p>{t("prescription.safety.body")}</p>
   </section>;
@@ -362,8 +363,9 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
     {required.map((signal) => <Signal key={signal} signal={signal} answers={answers} onChange={(next) => {
       setAnswers(next); requestRef.current = null; setState("idle");
     }} />)}
-    <Button disabled={!complete || state === "submitting" || !capabilities.prescription.checkIn.enabled} onClick={() => void submit()}>{state === "submitting" ? t("prescription.checkin.submitting") : t("prescription.checkin.submit")}</Button>
-    {!capabilities.prescription.checkIn.enabled && <Text as="p" variant="caption" tone="warning">{t("progress.states.proposalDisabled")}</Text>}
+    <Button disabled={!complete || state === "submitting" || capabilities?.prescription.checkIn.enabled === false} onClick={() => void submit()}>{state === "submitting" ? t("prescription.checkin.submitting") : t("prescription.checkin.submit")}</Button>
+    {capabilities?.prescription.checkIn.enabled === false && <Text as="p" variant="caption" tone="warning">{t("progress.states.proposalDisabled")}</Text>}
+    {locallyEnabled && capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
     {state === "network_error" && <div role="alert"><p>{t("prescription.checkin.networkError")}</p><Button variant="outline" onClick={() => void submit(true)}>{t("prescription.checkin.retry")}</Button></div>}
     {state === "reanalyze" && <div role="alert"><p>{t("prescription.checkin.reanalyze")}</p><Button variant="outline" onClick={onReanalyze}>{t("prescription.checkin.newAnalysis")}</Button></div>}
     {state === "error" && <p role="alert">{t("prescription.checkin.error")}</p>}
