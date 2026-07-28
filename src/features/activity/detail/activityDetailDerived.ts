@@ -28,6 +28,7 @@ export interface StreamSensorSummary {
   maxPower: number | null;
   hasReliablePower: boolean;
   hasRejectedPowerStream: boolean;
+  heartRateSource: "sensorStreamsV1" | "heartrate" | null;
   powerSource: "sensorStreamsV1" | "watts" | "watts_calc" | null;
 }
 
@@ -54,6 +55,12 @@ export interface SelectedPowerStream {
   /** Finite, non-negative samples used for summary statistics. */
   finiteValues: number[];
   hasCandidate: boolean;
+}
+
+export interface SelectedHeartRateStream {
+  source: StreamSensorSummary["heartRateSource"];
+  values: readonly (number | null)[] | null;
+  positiveValues: number[];
 }
 
 function trustedLegacyPower(values: readonly number[] | undefined, expectedCount: number): number[] | null {
@@ -119,6 +126,22 @@ function positiveValues(values: readonly (number | null | undefined)[] | undefin
   return values?.filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0) ?? [];
 }
 
+export function selectActivityHeartRateStream(streams: ActivityStreams | null): SelectedHeartRateStream {
+  if (!streams) return { source: null, values: null, positiveValues: [] };
+
+  const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
+  const explicitPositive = positiveValues(explicit?.heartrate);
+  if (explicit && explicitPositive.length > 0) {
+    return { source: "sensorStreamsV1", values: explicit.heartrate, positiveValues: explicitPositive };
+  }
+
+  const legacyPositive = positiveValues(streams.heartrate);
+  if (legacyPositive.length > 0) {
+    return { source: "heartrate", values: streams.heartrate ?? null, positiveValues: legacyPositive };
+  }
+  return { source: null, values: null, positiveValues: [] };
+}
+
 function average(values: readonly number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
@@ -130,8 +153,8 @@ function maximum(values: readonly number[]): number {
 export function deriveStreamSensorSummary(streams: ActivityStreams | null): StreamSensorSummary | null {
   if (!streams) return null;
 
-  const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
-  const heartRate = positiveValues(explicit?.heartrate ?? streams.heartrate);
+  const selectedHeartRate = selectActivityHeartRateStream(streams);
+  const heartRate = selectedHeartRate.positiveValues;
   const cadence = positiveValues(streams.cadence);
   const hasHeartRateStream = heartRate.length > 0;
   const hasCadenceStream = cadence.length > 0;
@@ -151,6 +174,7 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
     maxPower: hasReliablePower ? maximum(power) : null,
     hasReliablePower,
     hasRejectedPowerStream: selectedPower.hasCandidate && !hasReliablePower,
+    heartRateSource: selectedHeartRate.source,
     powerSource: selectedPower.source,
   };
 }
@@ -236,31 +260,38 @@ export function buildActivityAnalysisProjection(
 
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const selectedPower = selectActivityPowerStream(streams);
-  if (explicit) {
-    const usesExplicitPower = !preferTopLevelPower && selectedPower.source === "sensorStreamsV1";
-    return {
-      streams: {
-        ...streams,
-        heartrate: undefined,
-        watts: preferTopLevelPower || selectedPower.source === "watts" ? streams.watts : undefined,
-        watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc" ? streams.watts_calc : undefined,
-      },
-      heartRate: measuredSeries(explicit.heartrate, explicit.time, (value) => value > 0, explicit.resolutionSeconds),
-      power: usesExplicitPower
-        ? measuredSeries(explicit.watts, explicit.time, (value) => value >= 0, explicit.resolutionSeconds)
-        : undefined,
-    };
-  }
-
+  const selectedHeartRate = selectActivityHeartRateStream(streams);
   const legacyTime = streams.time?.length
     ? streams.time
     : streams.heartrate?.map((_, index) => index) ?? [];
   const validLegacyHeartRateCount = positiveValues(streams.heartrate).length;
   const shouldRepairLegacyHeartRate = !!streams.heartrate?.length
     && validLegacyHeartRateCount / streams.heartrate.length <= 0.5;
-  const heartRate = shouldRepairLegacyHeartRate && streams.heartrate
+  const legacyHeartRate = shouldRepairLegacyHeartRate && streams.heartrate
     ? measuredSeries(streams.heartrate, legacyTime, (value) => value > 0)
     : undefined;
+  if (explicit) {
+    const usesExplicitPower = !preferTopLevelPower && selectedPower.source === "sensorStreamsV1";
+    const usesExplicitHeartRate = selectedHeartRate.source === "sensorStreamsV1";
+    return {
+      streams: {
+        ...streams,
+        heartrate: selectedHeartRate.source === "heartrate" && !shouldRepairLegacyHeartRate
+          ? streams.heartrate
+          : undefined,
+        watts: preferTopLevelPower || selectedPower.source === "watts" ? streams.watts : undefined,
+        watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc" ? streams.watts_calc : undefined,
+      },
+      heartRate: usesExplicitHeartRate
+        ? measuredSeries(explicit.heartrate, explicit.time, (value) => value > 0, explicit.resolutionSeconds)
+        : selectedHeartRate.source === "heartrate" ? legacyHeartRate : undefined,
+      power: usesExplicitPower
+        ? measuredSeries(explicit.watts, explicit.time, (value) => value >= 0, explicit.resolutionSeconds)
+        : undefined,
+    };
+  }
+
+  const heartRate = legacyHeartRate;
   if (!preferTopLevelPower && selectedPower.hasCandidate && selectedPower.source == null) {
     return {
       streams: {
@@ -293,8 +324,8 @@ export function buildSampledData(streams: ActivityStreams | null): SampledPoint[
   const dist = streams.distance;
   const len = dist.length;
   const interval = Math.max(1, Math.floor(len / 300));
-  const hasIndependentSensors = streams.sensorStreamsV1?.version === 1;
   const selectedPower = selectActivityPowerStream(streams);
+  const selectedHeartRate = selectActivityHeartRateStream(streams);
   const chartPower = selectedPower.source === "watts" || selectedPower.source === "watts_calc"
     ? selectedPower.values
     : null;
@@ -303,7 +334,7 @@ export function buildSampledData(streams: ActivityStreams | null): SampledPoint[
   const chartChannels: Array<readonly (number | null)[] | undefined> = [
     streams.altitude,
     streams.velocity_smooth,
-    hasIndependentSensors ? undefined : streams.heartrate,
+    selectedHeartRate.source === "heartrate" ? streams.heartrate : undefined,
     chartPower ?? undefined,
     streams.cadence,
   ];
@@ -329,7 +360,7 @@ export function buildSampledData(streams: ActivityStreams | null): SampledPoint[
       distance: dist[i] ?? 0,
       altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
       speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
-      heartRate: hasIndependentSensors ? 0 : streams.heartrate?.[i] ?? 0,
+      heartRate: selectedHeartRate.source === "heartrate" ? streams.heartrate?.[i] ?? 0 : 0,
       power: chartPower?.[i] ?? 0,
       cadence: streams.cadence?.[i] ?? 0,
     });

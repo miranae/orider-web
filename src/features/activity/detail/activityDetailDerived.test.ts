@@ -183,6 +183,7 @@ describe("activityDetailDerived", () => {
     const summary = deriveStreamSensorSummary(explicitStreams as never);
 
     expect(summary).toMatchObject({
+      heartRateSource: "sensorStreamsV1",
       averageHeartRate: 150,
       maxHeartRate: 160,
       averagePower: 100,
@@ -199,6 +200,38 @@ describe("activityDetailDerived", () => {
       distance: [0, 10],
       altitude: [1, 2],
     } as never)).map((overlay) => overlay.key)).not.toEqual(expect.arrayContaining(["hr", "power"]));
+  });
+
+  it("falls back to valid top-level HR when sensorStreamsV1 has no measured heart rate", () => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      heartrate: [150, 155, 160],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [null, 0, Number.NaN],
+        watts: [200, 210, 220],
+      },
+    };
+    const summary = deriveStreamSensorSummary(streams as never);
+    const projection = buildActivityAnalysisProjection(streams as never);
+
+    expect(summary).toMatchObject({
+      heartRateSource: "heartrate",
+      averageHeartRate: 155,
+      maxHeartRate: 160,
+      powerSource: "sensorStreamsV1",
+    });
+    expect(projection).toMatchObject({
+      streams: { heartrate: streams.heartrate },
+      heartRate: undefined,
+      power: { values: [200, 210, 220], time: [0, 1, 2], complete: true },
+    });
+    expect(buildSampledData(streams as never).map((point) => point.heartRate)).toEqual(streams.heartrate);
   });
 
   it("falls back to valid virtual power when sensorStreamsV1 only measured heart rate", () => {
@@ -392,6 +425,7 @@ describe("activityDetailDerived", () => {
 
   it("preserves explicit sensor timestamps and marks missing channels incomplete", () => {
     const streams = {
+      heartrate: [150, 151, 152],
       sensorStreamsV1: {
         version: 1,
         timeUnit: "relative_seconds",
@@ -404,6 +438,8 @@ describe("activityDetailDerived", () => {
     };
     const projection = buildActivityAnalysisProjection(streams as never);
 
+    expect(deriveStreamSensorSummary(streams as never)?.heartRateSource).toBe("sensorStreamsV1");
+    expect(projection?.streams.heartrate).toBeUndefined();
     expect(projection?.heartRate).toEqual({ values: [140, 141], time: [1, 2], complete: false });
     expect(projection?.power).toEqual({ values: [200, 210], time: [0, 1], complete: false });
   });
