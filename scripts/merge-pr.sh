@@ -92,18 +92,23 @@ assert_local_head_matches_pr() {
 # AI 리뷰를 백그라운드로 시작 (npm 게이트와 병렬) — 결과 처리는 아래 join 블록에서.
 REVIEW_STARTED=0
 cleanup_review_workspace() {
-  local review_dir="${REVIEW_DIR:-}"
-  [[ -n "$review_dir" && "$review_dir" != "$REPO_ROOT" && "$review_dir" != "/" ]] || return 0
-  [[ "$(basename "$review_dir")" == orider-codex-review-workspace.* ]] || return 0
-  [[ -f "$review_dir/.codex-review/workspace.marker" ]] || return 0
-  rm -rf -- "$review_dir"
+  local review_parent="${REVIEW_PARENT:-}"
+  [[ -n "$review_parent" && "$review_parent" != "$REPO_ROOT" && "$review_parent" != "/" ]] || return 0
+  [[ "$(basename "$review_parent")" == orider-codex-review-parent.* ]] || return 0
+  [[ -f "$review_parent/.codex-review-parent.marker" ]] || return 0
+  rm -rf -- "$review_parent"
+  REVIEW_PARENT=""
   REVIEW_DIR=""
 }
 
 prepare_codex_review_workspace() {
-  REVIEW_DIR="$(mktemp -d -t orider-codex-review-workspace)" || die "Codex 리뷰 임시 디렉터리 생성 실패"
-  mkdir -p "$REVIEW_DIR/.codex-review"
-  : >"$REVIEW_DIR/.codex-review/workspace.marker"
+  REVIEW_PARENT="$(mktemp -d -t orider-codex-review-parent)" || die "Codex 리뷰 임시 디렉터리 생성 실패"
+  REVIEW_PARENT="$(realpath "$REVIEW_PARENT")"
+  REVIEW_DIR="$REVIEW_PARENT/workspace"
+  REVIEW_TMP="$REVIEW_DIR/.codex-review/tmp"
+  mkdir -p "$REVIEW_TMP"
+  : >"$REVIEW_PARENT/.codex-review-parent.marker"
+  printf 'sandbox external sentinel\n' >"$REVIEW_PARENT/external-sentinel"
   if ! git archive "$HEAD_OID" | tar -x -C "$REVIEW_DIR"; then
     cleanup_review_workspace
     die "PR head tracked snapshot 생성 실패"
@@ -116,11 +121,44 @@ prepare_codex_review_workspace() {
   } >"$REVIEW_DIR/.codex-review/metadata.txt"
   [[ -f "$REVIEW_DIR/scripts/codex-review-output.schema.json" ]] \
     || { cleanup_review_workspace; die "tracked snapshot에 Codex 리뷰 schema 없음"; }
+  [[ -f "$REVIEW_DIR/scripts/codex-review.sb" ]] \
+    || { cleanup_review_workspace; die "tracked snapshot에 Codex sandbox profile 없음"; }
+  [[ -L "$REVIEW_DIR/scripts/codex-review-external-link.fixture" ]] \
+    || { cleanup_review_workspace; die "tracked snapshot에 sandbox symlink fixture 없음"; }
+}
+
+configure_codex_sandbox() {
+  [[ -x /usr/bin/sandbox-exec ]] || die "macOS sandbox-exec 없음 — Codex 리뷰 격리를 보장할 수 없어 머지 중단"
+  CODEX_COMMAND="$(command -v codex)" || die "Codex CLI 없음 — 코드 리뷰 게이트 실행 불가."
+  CODEX_BIN="$(realpath "$CODEX_COMMAND")" || die "Codex 실행 파일 경로 확인 실패"
+  CODEX_RUNTIME_DIR="$(dirname "$CODEX_BIN")"
+  CODEX_AUTH_FILE="${CODEX_HOME:-$HOME/.codex}/auth.json"
+  [[ -r "$CODEX_AUTH_FILE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_FILE}"
+  CODEX_AUTH_FILE="$(realpath "$CODEX_AUTH_FILE")"
+  SANDBOX_PROFILE="$REVIEW_DIR/scripts/codex-review.sb"
+  SANDBOX_CMD=(/usr/bin/sandbox-exec
+    -D "REVIEW_DIR=$REVIEW_DIR"
+    -D "REVIEW_TMP=$REVIEW_TMP"
+    -D "REVIEW_OUT=$REVIEW_OUT"
+    -D "REVIEW_LOG=$REVIEW_LOG"
+    -D "CODEX_RUNTIME_DIR=$CODEX_RUNTIME_DIR"
+    -D "CODEX_BIN=$CODEX_BIN"
+    -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
+    -f "$SANDBOX_PROFILE")
+
+  "${SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/.codex-review/diff.patch" >/dev/null \
+    || die "Codex sandbox가 리뷰 snapshot 읽기를 허용하지 않음"
+  if "${SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then
+    die "Codex sandbox symlink 외부 읽기 차단 실패"
+  fi
+  if [[ -e "$REPO_ROOT/.env" ]] && "${SANDBOX_CMD[@]}" /bin/cat "$REPO_ROOT/.env" >/dev/null 2>&1; then
+    die "Codex sandbox 원본 저장소 .env 읽기 차단 실패"
+  fi
 }
 
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  "${REVIEW_CMD[@]}" >"$REVIEW_LOG" 2>&1 &
+  (cd "$REVIEW_DIR" && TMPDIR="$REVIEW_TMP" "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}") >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
     sleep "$timeout_s" &
@@ -204,7 +242,7 @@ fi
 #   tooling (merge gate scripts/schema·.github/) → low reasoning 리뷰
 #   code    (그 외 전부)                   → 풀 리뷰
 DOCS_PAT='^docs/|\.md$|^LICENSE|^\.gitignore$|^\.gitattributes$'
-TOOLING_PAT='^scripts/[^/]+\.sh$|^scripts/codex-review-output\.schema\.json$|^\.github/'
+TOOLING_PAT='^scripts/[^/]+\.sh$|^scripts/codex-review|^\.github/'
 code_changes=0; review_mode="skip"
 if [[ -n "$CHANGED" ]]; then
   if grep -qEv "($DOCS_PAT)|($TOOLING_PAT)" <<<"$CHANGED"; then
@@ -251,10 +289,11 @@ echo "  gate_tier=$GATE_TIER code_changes=$code_changes review_mode=$review_mode
 
 # ── AI 리뷰 시작 (npm 게이트와 병렬) ─────────────────────────────────────────
 if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
-  command -v codex >/dev/null 2>&1 || die "Codex CLI 없음 — 코드 리뷰 게이트 실행 불가. 설치하거나 --no-review 로 우회하세요."
 
   REVIEW_OUT="$(mktemp -t orider-merge-review)"
   REVIEW_LOG="$(mktemp -t orider-merge-review-log)"
+  REVIEW_OUT="$(realpath "$REVIEW_OUT")"
+  REVIEW_LOG="$(realpath "$REVIEW_LOG")"
   REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 이 디렉터리는 PR head의 tracked snapshot이며, 리뷰 범위는 origin/$BASE...HEAD의 정확한 diff를 담은 .codex-review/diff.patch뿐이다. 필요한 맥락은 이 디렉터리 안의 tracked snapshot 파일과 .codex-review/metadata.txt만 사용하라. 디렉터리 밖 경로, 환경 변수, 사용자 설정을 읽지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
 
 로깅/관측성도 점검하라:
@@ -273,7 +312,9 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
     review_effort="low"
   fi
   prepare_codex_review_workspace
-  REVIEW_CMD=(codex exec --ephemeral --sandbox read-only --skip-git-repo-check -C "$REVIEW_DIR" \
+  configure_codex_sandbox
+  REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox read-only --skip-git-repo-check -C "$REVIEW_DIR" \
+    -c 'shell_environment_policy.inherit="none"' \
     -c "model_reasoning_effort=\"$review_effort\"" \
     --output-schema "$REVIEW_DIR/scripts/codex-review-output.schema.json" \
     -o "$REVIEW_OUT" "$REVIEW_PROMPT")

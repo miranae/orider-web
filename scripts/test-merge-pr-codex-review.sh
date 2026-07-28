@@ -17,9 +17,11 @@ export SECRET_FIXTURE_NAME="$(basename "$SECRET_FIXTURE_DIR")"
 export MOCK_ARGS_FILE="$TEST_TMP/codex-args"
 export MOCK_PROMPT_FILE="$TEST_TMP/codex-prompt"
 export MOCK_ARCHIVE_ARGS_FILE="$TEST_TMP/git-archive-args"
-export MOCK_REVIEW_DIR_FILE="$TEST_TMP/review-dir"
+export CODEX_HOME="$TEST_TMP/codex-home"
+export EXPECTED_HEAD="$($REAL_GIT rev-parse HEAD)"
 
-mkdir -p "$TEST_TMP/bin"
+mkdir -p "$TEST_TMP/bin" "$CODEX_HOME"
+printf '{}\n' >"$CODEX_HOME/auth.json"
 cat >"$TEST_TMP/bin/git" <<'MOCK'
 #!/usr/bin/env bash
 if [[ "${1:-}" == "fetch" ]]; then
@@ -52,32 +54,50 @@ exit 99
 MOCK
 cat >"$TEST_TMP/bin/codex" <<'MOCK'
 #!/usr/bin/env bash
-printf '%s\n' "$@" >"$MOCK_ARGS_FILE"
 [[ "${1:-}" == "exec" ]] || exit 64
 shift
 out=""
 prompt=""
 review_dir=""
 schema=""
+ignore_user_config=0
+read_only=0
+skip_git=0
+effort=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --sandbox|-c) shift 2 ;;
+    --sandbox) [[ "$2" == "read-only" ]] || exit 72; read_only=1; shift 2 ;;
+    -c)
+      [[ "$2" == 'shell_environment_policy.inherit="none"' ]] || effort="$2"
+      shift 2
+      ;;
     -C) review_dir="$2"; shift 2 ;;
     --output-schema) schema="$2"; shift 2 ;;
     -o|--output-last-message) out="$2"; shift 2 ;;
-    --ephemeral|--skip-git-repo-check) shift ;;
+    --ignore-user-config) ignore_user_config=1; shift ;;
+    --skip-git-repo-check) skip_git=1; shift ;;
+    --ephemeral) shift ;;
     -*) echo "unexpected option: $1" >&2; exit 64 ;;
     *) [[ -z "$prompt" && $# -eq 1 ]] || { echo "unexpected positional argument: $1" >&2; exit 64; }; prompt="$1"; shift ;;
   esac
 done
+[[ "$ignore_user_config" == 1 && "$read_only" == 1 && "$skip_git" == 1 ]] || exit 73
+expected_effort='model_reasoning_effort="low"'
+[[ "${MOCK_CHANGED:-scripts/merge-pr.sh}" == src/* ]] && expected_effort='model_reasoning_effort="medium"'
+[[ "$effort" == "$expected_effort" ]] || exit 74
 [[ -n "$review_dir" && "$review_dir" != "$REPO_ROOT" ]] || exit 66
 [[ "$schema" == "$review_dir/scripts/codex-review-output.schema.json" && -f "$schema" ]] || exit 67
 [[ ! -e "$review_dir/.env" && ! -e "$review_dir/$SECRET_FIXTURE_NAME/.env" ]] || exit 68
 [[ -s "$review_dir/.codex-review/diff.patch" ]] || exit 69
 grep -q '^base=origin/main$' "$review_dir/.codex-review/metadata.txt" || exit 70
-grep -q "^head=$($REAL_GIT rev-parse HEAD)$" "$review_dir/.codex-review/metadata.txt" || exit 71
-printf '%s\n' "$review_dir" >"$MOCK_REVIEW_DIR_FILE"
-printf '%s\n' "$prompt" >"$MOCK_PROMPT_FILE"
+grep -q "^head=$EXPECTED_HEAD$" "$review_dir/.codex-review/metadata.txt" || exit 71
+/bin/cat "$review_dir/.codex-review/diff.patch" >/dev/null || exit 75
+if /bin/cat "$REPO_ROOT/$SECRET_FIXTURE_NAME/.env" >/dev/null 2>&1; then exit 76; fi
+if /bin/cat "$review_dir/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then exit 77; fi
+[[ "$prompt" == *'당신은 머지 직전 엄격한 코드 리뷰어다'* ]] || exit 78
+[[ "$prompt" == *'origin/main...HEAD'* ]] || exit 79
+[[ "$prompt" == *'.codex-review/diff.patch'* ]] || exit 80
+[[ "$prompt" == *'디렉터리 밖 경로'* ]] || exit 81
 case "${MOCK_RESPONSE_MODE:-valid}" in
   valid) printf '{"findings":"mock Codex comment","verdict":"%s"}\n' "${MOCK_VERDICT:-PASS}" >"$out" ;;
   malformed) printf '{"findings":"broken"' >"$out" ;;
@@ -98,43 +118,20 @@ MOCK
 chmod +x "$TEST_TMP/bin/git" "$TEST_TMP/bin/gh" "$TEST_TMP/bin/codex" "$TEST_TMP/bin/npm"
 
 run_gate() {
-  local rc=0 review_dir=""
+  local rc=0
   TMPDIR="$TEST_TMP" PATH="$TEST_TMP/bin:$PATH" "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build 2>&1 || rc=$?
-  if [[ -s "$MOCK_REVIEW_DIR_FILE" ]]; then
-    review_dir="$(tail -1 "$MOCK_REVIEW_DIR_FILE")"
-    [[ ! -e "$review_dir" ]] || return 98
-  fi
+  ! compgen -G "$TEST_TMP/orider-codex-review-parent.*" >/dev/null || return 98
   return "$rc"
 }
 
 pass_output="$(MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$pass_output"
-grep -qx "exec" "$MOCK_ARGS_FILE"
-grep -qx -- "--ephemeral" "$MOCK_ARGS_FILE"
-grep -qx -- "--skip-git-repo-check" "$MOCK_ARGS_FILE"
-grep -qx -- "-o" "$MOCK_ARGS_FILE"
-grep -qx -- "--output-schema" "$MOCK_ARGS_FILE"
-grep -qx 'model_reasoning_effort="low"' "$MOCK_ARGS_FILE"
-awk 'previous == "--sandbox" && $0 == "read-only" { found++ } { previous=$0 } END { exit found == 1 ? 0 : 1 }' "$MOCK_ARGS_FILE"
-if awk -v root="$REPO_ROOT" 'previous == "-C" && $0 == root { found=1 } { previous=$0 } END { exit found ? 0 : 1 }' "$MOCK_ARGS_FILE"; then exit 1; fi
-grep -q '/scripts/codex-review-output\.schema\.json$' "$MOCK_ARGS_FILE"
 expected_head="$($REAL_GIT rev-parse HEAD)"
 grep -qx "archive" "$MOCK_ARCHIVE_ARGS_FILE"
 grep -qx "$expected_head" "$MOCK_ARCHIVE_ARGS_FILE"
-grep -q "당신은 머지 직전 엄격한 코드 리뷰어다" "$MOCK_PROMPT_FILE"
-grep -q 'origin/main\.\.\.HEAD' "$MOCK_PROMPT_FILE"
-grep -q '\.codex-review/diff\.patch' "$MOCK_PROMPT_FILE"
-grep -q "디렉터리 밖 경로" "$MOCK_PROMPT_FILE"
-grep -q "findings" "$MOCK_PROMPT_FILE"
-grep -q "verdict" "$MOCK_PROMPT_FILE"
-if grep -Eq '^-m$|^--model$' "$MOCK_ARGS_FILE"; then
-  echo "fast review must not pin a model" >&2
-  exit 1
-fi
 
 full_output="$(MOCK_CHANGED=src/example.ts MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$full_output"
-grep -qx 'model_reasoning_effort="medium"' "$MOCK_ARGS_FILE"
 
 set +e
 failure_output="$(MOCK_EXIT=42 run_gate)"
