@@ -96,20 +96,21 @@ done
 expected_effort='model_reasoning_effort="low"'
 [[ "${MOCK_CHANGED:-scripts/merge-pr.sh}" == src/* ]] && expected_effort='model_reasoning_effort="medium"'
 [[ "$effort" == "$expected_effort" ]] || exit 74
-[[ -n "$review_dir" && "$review_dir" != "$REPO_ROOT" ]] || exit 66
-[[ "$schema" == "$review_dir/scripts/codex-review-output.schema.json" && -f "$schema" ]] || exit 67
+[[ -n "$review_dir" && "$review_dir" != "$REPO_ROOT" && "$review_dir" == */runtime/cwd ]] || exit 66
+snapshot_dir="${schema%/scripts/codex-review-output.schema.json}"
+[[ -n "$snapshot_dir" && "$snapshot_dir" != "$review_dir" && -f "$schema" ]] || exit 67
 /bin/cat "$CODEX_HOME/auth.json" >/dev/null || exit 82
-[[ ! -e "$review_dir/.env" && ! -e "$review_dir/$SECRET_FIXTURE_NAME/.env" ]] || exit 68
-[[ -s "$review_dir/.codex-review/diff.patch" ]] || exit 69
-grep -q '^base=origin/main$' "$review_dir/.codex-review/metadata.txt" || exit 70
-grep -q "^head=$EXPECTED_HEAD$" "$review_dir/.codex-review/metadata.txt" || exit 71
-/bin/cat "$review_dir/.codex-review/diff.patch" >/dev/null || exit 75
+[[ ! -e "$snapshot_dir/.env" && ! -e "$snapshot_dir/$SECRET_FIXTURE_NAME/.env" ]] || exit 68
+[[ -s "$snapshot_dir/.codex-review/diff.patch" ]] || exit 69
+grep -q '^base=origin/main$' "$snapshot_dir/.codex-review/metadata.txt" || exit 70
+grep -q "^head=$EXPECTED_HEAD$" "$snapshot_dir/.codex-review/metadata.txt" || exit 71
+/bin/cat "$snapshot_dir/.codex-review/diff.patch" >/dev/null || exit 75
 if /bin/cat "$REPO_ROOT/$SECRET_FIXTURE_NAME/.env" >/dev/null 2>&1; then exit 76; fi
-if /bin/cat "$review_dir/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then exit 77; fi
+if /bin/cat "$snapshot_dir/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then exit 77; fi
 [[ "$prompt" == *'당신은 머지 직전 엄격한 코드 리뷰어다'* ]] || exit 78
 [[ "$prompt" == *'origin/main...HEAD'* ]] || exit 79
-[[ "$prompt" == *'.codex-review/diff.patch'* ]] || exit 80
-[[ "$prompt" == *'디렉터리 밖 경로'* ]] || exit 81
+[[ "$prompt" == *'--- diff ---'* ]] || exit 80
+[[ "$prompt" == *'프로젝트 설정을 읽지 말라'* ]] || exit 81
 case "${MOCK_RESPONSE_MODE:-valid}" in
   valid) printf '{"findings":"mock Codex comment","verdict":"%s"}\n' "${MOCK_VERDICT:-PASS}" >"$out" ;;
   malformed) printf '{"findings":"broken"' >"$out" ;;

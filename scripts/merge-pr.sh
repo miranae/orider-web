@@ -162,7 +162,8 @@ configure_codex_sandbox() {
   [[ -r "$CODEX_AUTH_SOURCE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_SOURCE}"
   SANDBOX_CODEX_HOME="$REVIEW_TMP/codex-home"
   SANDBOX_HOME="$REVIEW_TMP/home"
-  mkdir -p "$SANDBOX_CODEX_HOME" "$SANDBOX_HOME"
+  SANDBOX_CWD="$REVIEW_TMP/cwd"
+  mkdir -p "$SANDBOX_CODEX_HOME" "$SANDBOX_HOME" "$SANDBOX_CWD"
   cp "$CODEX_AUTH_SOURCE" "$SANDBOX_CODEX_HOME/auth.json"
   chmod 600 "$SANDBOX_CODEX_HOME/auth.json"
   CODEX_AUTH_FILE="$SANDBOX_CODEX_HOME/auth.json"
@@ -193,7 +194,7 @@ configure_codex_sandbox() {
 
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  (cd "$REVIEW_DIR" && CODEX_HOME="$SANDBOX_CODEX_HOME" HOME="$SANDBOX_HOME" TMPDIR="$REVIEW_TMP" \
+  (cd "$SANDBOX_CWD" && CODEX_HOME="$SANDBOX_CODEX_HOME" HOME="$SANDBOX_HOME" TMPDIR="$REVIEW_TMP" \
     "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}" <"$REVIEW_INPUT") >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
@@ -330,7 +331,7 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   REVIEW_LOG="$(mktemp -t orider-merge-review-log)"
   REVIEW_OUT="$(realpath "$REVIEW_OUT")"
   REVIEW_LOG="$(realpath "$REVIEW_LOG")"
-  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 이 디렉터리는 PR head의 tracked snapshot이며, 리뷰 범위는 origin/$BASE...HEAD의 정확한 diff를 담은 .codex-review/diff.patch뿐이다. 필요한 맥락은 이 디렉터리 안의 tracked snapshot 파일과 .codex-review/metadata.txt만 사용하라. 디렉터리 밖 경로, 환경 변수, 사용자 설정을 읽지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
+  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 아래 입력은 PR head의 metadata와 origin/$BASE...HEAD의 정확한 diff다. 제공된 입력만 사용하고 작업 디렉터리, 환경 변수, 사용자 또는 프로젝트 설정을 읽지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
 
 로깅/관측성도 점검하라:
 - 신규 무음 에러 스왈로우(catch {}, .catch(() => {}), 실패 숨김)가 있는지.
@@ -359,7 +360,7 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   } >"$REVIEW_INPUT"
   configure_codex_sandbox
   # 외부 sandbox-exec가 실제 보안 경계다. 중첩 Seatbelt는 macOS가 forbidden-sandbox-reinit로 거부한다.
-  REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox danger-full-access --skip-git-repo-check -C "$REVIEW_DIR" \
+  REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox danger-full-access --skip-git-repo-check -C "$SANDBOX_CWD" \
     --disable shell_tool --disable unified_exec --disable code_mode_host --disable multi_agent \
     --disable browser_use --disable in_app_browser --disable computer_use --disable image_generation \
     --disable apps --disable plugins --disable skill_search --disable skill_mcp_dependency_install \
