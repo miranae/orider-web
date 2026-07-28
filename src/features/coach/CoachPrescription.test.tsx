@@ -87,20 +87,88 @@ describe("CoachPrescription", () => {
     resetRuntimeConfigForTests({ coachProgressPlannerEnabled: true });
   });
 
-  it("preserves the existing coach UI when the local or backend read capability is off", async () => {
+  it("preserves the existing coach UI while limiting proposal review when the local or backend read capability is off", async () => {
     resetRuntimeConfigForTests({ coachProgressPlannerEnabled: false });
     const localOff = render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
       locale="ko-KR" onReanalyze={vi.fn()} />);
-    expect(localOff.container).toBeEmptyDOMElement();
-    expect(capabilities).not.toHaveBeenCalled();
+    expect(localOff.container.querySelectorAll(".coach-prescription__day")).toHaveLength(7);
+    expect(screen.queryByRole("heading", { name: "계획 변경안 검토" })).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(capabilities).toHaveBeenCalledOnce());
     localOff.unmount();
 
     resetRuntimeConfigForTests({ coachProgressPlannerEnabled: true });
+    capabilities.mockReset();
     capabilities.mockResolvedValue(readDisabledCapabilities);
     const backendOff = render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
       locale="ko-KR" onReanalyze={vi.fn()} />);
-    await vi.waitFor(() => expect(backendOff.container).toBeEmptyDOMElement());
+    expect(backendOff.container.querySelectorAll(".coach-prescription__day")).toHaveLength(7);
+    await vi.waitFor(() => expect(capabilities).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("heading", { name: "계획 변경안 검토" })).not.toBeInTheDocument();
     expect(capabilities).toHaveBeenCalledOnce();
+  });
+
+  it("keeps safety UI available when the progress planner flag is off", () => {
+    resetRuntimeConfigForTests({ coachProgressPlannerEnabled: false });
+    render(<CoachPrescription initial={parseCoachPrescription({ ...ready,
+      prescriptionId: "rx_222222222222222222222222", status: "safety_blocked", nextDays: [], nextWeekLoad: undefined,
+      missingSignals: ["pain_or_illness"] })} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("운동 처방을 표시하지 않습니다");
+  });
+
+  it("enables check-in only after the backend capability is explicitly confirmed", async () => {
+    let resolveCapabilities!: (value: typeof enabledCapabilities) => void;
+    capabilities.mockReturnValue(new Promise((resolve) => { resolveCapabilities = resolve; }));
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    const checkIn = screen.getByRole("button", { name: "확인" });
+    expect(checkIn).toBeDisabled();
+
+    resolveCapabilities(enabledCapabilities);
+    await vi.waitFor(() => expect(checkIn).toBeEnabled());
+  });
+
+  it("keeps check-in disabled and preserves the unavailable state when capability loading fails", async () => {
+    capabilities.mockRejectedValue(new Error("capability unavailable"));
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    expect(await screen.findByRole("alert")).toHaveTextContent("계획 기능 상태를 확인할 수 없습니다");
+    expect(screen.getByRole("button", { name: "확인" })).toBeDisabled();
+  });
+
+  it("keeps check-in disabled when the server capability is explicitly false", async () => {
+    capabilities.mockResolvedValue(readDisabledCapabilities);
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    await vi.waitFor(() => expect(capabilities).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: "확인" })).toBeDisabled();
+  });
+
+  it.each([
+    ["true", enabledCapabilities, true], ["false", readDisabledCapabilities, false],
+  ] as const)("uses server check-in capability %s while the local progress planner flag is off", async (_, serverCapabilities, expected) => {
+    resetRuntimeConfigForTests({ coachProgressPlannerEnabled: false });
+    capabilities.mockResolvedValue(serverCapabilities);
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "보통" }));
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
+    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
+    await vi.waitFor(() => expect(capabilities).toHaveBeenCalledOnce());
+    expect(screen.getByRole("button", { name: "확인" })).toHaveProperty("disabled", !expected);
   });
 
   it("renders the canonical backend fixture as exactly seven server-provided days and weekly TSS", async () => {
@@ -219,10 +287,12 @@ describe("CoachPrescription", () => {
         consent_revoked: "consent_not_active" }[status] as "proposal_expired" | "proposal_revision_changed" | "consent_not_active";
       recoverProposal.mockResolvedValue({ ...emptyRecovery, data: { ...emptyRecovery.data,
         recoveryStatus: "inactive", reasonCode, proposal: { ...proposal, status }, confirmNonce: null } });
+      const onReanalyze = vi.fn();
       render(<CoachPrescription initial={ready} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
-        locale="ko-KR" onReanalyze={vi.fn()} />);
+        locale="ko-KR" onReanalyze={onReanalyze} />);
       expect(await screen.findByText(/계획·주간 체크인·동의가 변경/u)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "새 분석으로 다시 확인" })).toBeInTheDocument();
+      await userEvent.setup().click(screen.getByRole("button", { name: "새 분석으로 다시 확인" }));
+      expect(onReanalyze).toHaveBeenCalledOnce();
       expect(screen.queryByText(/변경 상태를 확인하지 못/u)).not.toBeInTheDocument();
       expect(confirmProposal).not.toHaveBeenCalled(); expect(rollbackProposal).not.toHaveBeenCalled();
     });

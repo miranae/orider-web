@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   getCoachPmcInsight, isCoachClientError, type CoachDiscipline,
 } from "../services/coachClient";
+import { logClientError } from "../services/errorLogger";
 import type { CoachPmcInsight } from "../services/coachPmcInsightContract";
 
 export interface CoachPmcInsightState {
@@ -35,6 +36,7 @@ export function useCoachPmcInsight(
       },
       (error: unknown) => {
         if (generationRef.current !== generation) return;
+        logClientError("useCoachPmcInsight.load", error, { uid, discipline });
         const unsupported = isCoachClientError(error) && error.kind === "http"
           && ["pmc_insight_unsupported", "not-found", "HTTP_404"].includes(error.code);
         setState({ key, insight: null, loading: false, unavailable: !unsupported });

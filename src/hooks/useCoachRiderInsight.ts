@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { getCoachRiderInsight, isCoachClientError } from "../services/coachClient";
+import { logClientError } from "../services/errorLogger";
 import type { CoachRiderInsight } from "../services/coachRiderInsightContract";
 
 export interface CoachRiderInsightState {
@@ -25,6 +26,7 @@ export function useCoachRiderInsight(uid: string | undefined, enabled: boolean):
       (insight) => { if (generationRef.current === generation) setState({ key, insight, loading: false, unavailable: false }); },
       (error: unknown) => {
         if (generationRef.current !== generation) return;
+        logClientError("useCoachRiderInsight.load", error, { uid });
         const hidden = isCoachClientError(error) && error.kind === "http"
           && ["rider_insight_unsupported", "not-found", "HTTP_404"].includes(error.code);
         setState({ key, insight: null, loading: false, unavailable: !hidden });

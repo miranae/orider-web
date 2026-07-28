@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button, Card, Text } from "../../theme/components";
 import { getCoachRidePlanAiContext, isCoachClientError, loadCoachRidePlan } from "../../services/coachClient";
+import { logClientError } from "../../services/errorLogger";
 import { isCoachRidePlanRespondToken,
   type CoachRidePlan, type CoachRidePlanAiProjection, type CoachRidePlanQuestionCode } from "../../services/coachRidePlanContract";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
@@ -81,6 +82,7 @@ export function CourseRidePlanSection({ courseId, isOwner, user, onSignIn }: Pro
       setPlan(value); setState("ready");
     }).catch((error) => {
       if (!active || planGenerationRef.current !== generation) return;
+      logClientError("CourseRidePlanSection.load", error, { courseId });
       setState(boundedState(error));
     });
     return () => {
@@ -114,8 +116,11 @@ export function CourseRidePlanSection({ courseId, isOwner, user, onSignIn }: Pro
       setSelection({ selectionId: crypto.randomUUID(), question,
         context: { contextToken, inputRevision: requestPlan.inputRevision, questionCode: code } });
       setQuestionState("idle");
-    } catch {
-      if (!controller.signal.aborted && planGenerationRef.current === generation) setQuestionState("error");
+    } catch (error) {
+      if (!controller.signal.aborted && planGenerationRef.current === generation) {
+        logClientError("CourseRidePlanSection.loadAiContext", error, { courseId: requestCourseId, questionCode: code });
+        setQuestionState("error");
+      }
     } finally {
       if (aiRequestRef.current === controller) aiRequestRef.current = null;
     }
