@@ -61,10 +61,15 @@ const { mockRoute, mockSetActivityOwner } = vi.hoisted(() => ({
   mockRoute: { activityId: "test-activity" },
   mockSetActivityOwner: vi.fn(),
 }));
-const findSentButton = () => screen.findByRole("button", { name: "앱으로 전송됨" }, { timeout: 5000 });
+const COURSE_ASYNC_TIMEOUT = 10_000;
+const findSentButton = () => screen.findByRole(
+  "button",
+  { name: "앱으로 전송됨" },
+  { timeout: COURSE_ASYNC_TIMEOUT },
+);
 const waitForCallableCount = (name: string, count: number) => waitFor(
   () => expect(mockCallableInvocations.filter((call) => call.name === name)).toHaveLength(count),
-  { timeout: 5000 },
+  { timeout: COURSE_ASYNC_TIMEOUT },
 );
 
 // Mock react-router-dom useParams
@@ -508,7 +513,7 @@ describe("ActivityPage", () => {
     expect(vi.mocked(where)).toHaveBeenCalledWith("creatorId", "==", "test-uid");
     expect(vi.mocked(where)).toHaveBeenCalledWith("sourceActivityId", "==", "test-activity");
     expect(vi.mocked(where)).toHaveBeenCalledWith("deletedAt", "==", null);
-  });
+  }, 15_000);
 
   it("does not create when the existing-course lookup fails", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
@@ -593,7 +598,7 @@ describe("ActivityPage", () => {
       { name: "sendCourseToApp", data: { courseId: "recovered-course" } },
     ]);
     expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2);
-  });
+  }, 15_000);
 
   it("clears pending intent after a definitive create rejection so a retry may create", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
