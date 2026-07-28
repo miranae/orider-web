@@ -416,6 +416,11 @@ test("local lease guard binds an owned immutable file to the exact clean backend
       relativePath: "scripts/assert-ai-coach-local-stage-lease.mjs", sha256 };
     assert.deepEqual(verifyLocalLeaseGuardBinding(backendRoot, guardPath, binding), binding);
 
+    writeFileSync(guardPath, "#!/usr/bin/env node\nprocess.exit(1);\n", { mode: 0o600 });
+    assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, guardPath, binding),
+      /local_lease_guard_fs_binding/u);
+    assert.equal(runGit(["restore", "scripts/assert-ai-coach-local-stage-lease.mjs"]).status, 0);
+
     const alwaysPass = resolve(externalRoot, "always-pass.mjs");
     writeFileSync(alwaysPass, "process.exit(0);\n", { mode: 0o600 }); chmodSync(alwaysPass, 0o600);
     assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, alwaysPass, binding),
@@ -430,6 +435,12 @@ test("local lease guard binds an owned immutable file to the exact clean backend
     assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, guardPath, { ...binding, treeSha: "0".repeat(40) }),
       /local_lease_guard_repository/u);
     writeFileSync(resolve(backendRoot, "untracked.txt"), "dirty\n");
+    assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, guardPath, binding),
+      /local_lease_guard_repository/u);
+    rmSync(resolve(backendRoot, "untracked.txt"));
+    writeFileSync(resolve(backendRoot, "tracked.txt"), "new commit\n");
+    assert.equal(runGit(["add", "tracked.txt"]).status, 0);
+    assert.equal(runGit(["commit", "-qm", "change backend head"]).status, 0);
     assert.throws(() => verifyLocalLeaseGuardBinding(backendRoot, guardPath, binding),
       /local_lease_guard_repository/u);
   } finally {
@@ -855,6 +866,9 @@ test("local operator CLI is separate from Actions and preserves live, browser, l
   assert.doesNotMatch(runner, /::add-mask::/u);
   assert.match(verifier, /validateLocalWebStageBaselineEvidenceArtifact/u);
   assert.match(verifier, /validateLocalEvidenceEnvelope/u);
+  assert.match(verifier, /verifyLocalLeaseGuardBinding/u);
+  assert.ok(verifier.indexOf("validateLocalEvidenceEnvelope(envelope")
+    < verifier.lastIndexOf("verifyLocalLeaseGuardBinding("));
 });
 
 test("publishes a backend-cross-checkable representative v3 schema and artifact", () => {

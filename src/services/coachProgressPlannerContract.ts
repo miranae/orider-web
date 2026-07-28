@@ -116,6 +116,10 @@ const recoveryData = z.discriminatedUnion("recoveryStatus", [
   if (value.proposal.status !== expectedProposalStatus) {
     context.addIssue({ code: "custom", message: "proposal recovery state mismatch" });
   }
+  if (value.source.prescriptionId !== value.proposal.source.prescriptionId
+      || value.source.sourceRequestId !== value.proposal.source.checkInRequestId) {
+    context.addIssue({ code: "custom", message: "proposal recovery source mismatch" });
+  }
   if ((value.recoveryStatus === "applied" || value.recoveryStatus === "reverted")
       && (value.receipt.status !== value.recoveryStatus || value.receipt.proposalId !== value.proposal.proposalId)) {
     context.addIssue({ code: "custom", message: "proposal recovery receipt mismatch" });

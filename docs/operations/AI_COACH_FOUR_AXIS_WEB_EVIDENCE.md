@@ -202,6 +202,8 @@ exact bytes와 SHA-256을 독립 재계산한다. verifier도 context/request/re
 ```bash
 AI_COACH_LOCAL_CHECKPOINT_PATH=/secure/operator/web-checkpoint.json \
 AI_COACH_LOCAL_CHECKPOINT_SHA256=sha256:<checkpoint-file-sha256> \
+AI_COACH_LOCAL_STAGE_BACKEND_ROOT=/path/to/orider-g1-web \
+AI_COACH_LOCAL_STAGE_LEASE_GUARD=/path/to/orider-g1-web/scripts/assert-ai-coach-local-stage-lease.mjs \
 node scripts/verify-ai-coach-four-axis-web-evidence-local.mjs \
   --local-context /secure/operator/context.json --context-sha256 <context-file-sha256-hex> \
   --artifact artifacts/<name>/<name>.json \

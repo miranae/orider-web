@@ -5,7 +5,7 @@ import { dirname, relative, resolve } from "node:path";
 import { bindLocalContextToRequest, decodeEvidenceRequest, decodeLocalOperatorContext, evidenceFileSha256,
   localWebEvidenceArtifactName, validateLocalEvidenceEnvelope, validateLocalOperatorContext,
   validateLocalOperatorRequest, validateLocalWebStageBaselineEvidenceArtifact, verifyLocalCheckpointBinding,
-  verifyLocalGoogleIdentity, verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
+  verifyLocalGoogleIdentity, verifyLocalLeaseGuardBinding, verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
   "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 function argument(name) {
@@ -29,7 +29,7 @@ const decodedRequest = decodeEvidenceRequest(readFileSync(requestPath, "utf8"), 
 const request = validateLocalOperatorRequest(decodedRequest.value, { repository: context.repository,
   sha: context.commitSha, treeSha: context.treeSha, operator: context.operator, identity: context.identity,
   backend: context.backend, stageHostSuffix: context.stage.hostSuffix });
-verifyLocalCheckpointBinding(request, required("AI_COACH_LOCAL_CHECKPOINT_PATH"),
+const checkpoint = verifyLocalCheckpointBinding(request, required("AI_COACH_LOCAL_CHECKPOINT_PATH"),
   required("AI_COACH_LOCAL_CHECKPOINT_SHA256"));
 const targets = bindLocalContextToRequest(context, request, requestPath);
 const artifactName = localWebEvidenceArtifactName(context.commitSha, context.contextId);
@@ -57,4 +57,6 @@ validateLocalEvidenceEnvelope(envelope, { headSha: context.commitSha, treeSha: c
   statusClean: true, executionMode: "local-file-v1",
   evidence: { path: relative(root, artifactPath), bytes: artifactBytes.length,
     sha256: `sha256:${sha256(artifactBytes)}` } });
+verifyLocalLeaseGuardBinding(required("AI_COACH_LOCAL_STAGE_BACKEND_ROOT"),
+  required("AI_COACH_LOCAL_STAGE_LEASE_GUARD"), checkpoint.leaseGuard);
 process.stdout.write(`${relative(root, envelopePath)} verified sha256:${expectedEnvelopeSha256}\n`);
