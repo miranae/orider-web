@@ -132,9 +132,13 @@ configure_codex_sandbox() {
   CODEX_COMMAND="$(command -v codex)" || die "Codex CLI 없음 — 코드 리뷰 게이트 실행 불가."
   CODEX_BIN="$(realpath "$CODEX_COMMAND")" || die "Codex 실행 파일 경로 확인 실패"
   CODEX_RUNTIME_DIR="$(dirname "$CODEX_BIN")"
-  CODEX_AUTH_FILE="${CODEX_HOME:-$HOME/.codex}/auth.json"
-  [[ -r "$CODEX_AUTH_FILE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_FILE}"
-  CODEX_AUTH_FILE="$(realpath "$CODEX_AUTH_FILE")"
+  CODEX_AUTH_SOURCE="${CODEX_HOME:-$HOME/.codex}/auth.json"
+  [[ -r "$CODEX_AUTH_SOURCE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_SOURCE}"
+  SANDBOX_CODEX_HOME="$REVIEW_TMP/codex-home"
+  mkdir -p "$SANDBOX_CODEX_HOME"
+  cp "$CODEX_AUTH_SOURCE" "$SANDBOX_CODEX_HOME/auth.json"
+  chmod 600 "$SANDBOX_CODEX_HOME/auth.json"
+  CODEX_AUTH_FILE="$SANDBOX_CODEX_HOME/auth.json"
   SANDBOX_PROFILE="$REVIEW_DIR/scripts/codex-review.sb"
   SANDBOX_CMD=(/usr/bin/sandbox-exec
     -D "REVIEW_DIR=$REVIEW_DIR"
@@ -158,7 +162,7 @@ configure_codex_sandbox() {
 
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  (cd "$REVIEW_DIR" && TMPDIR="$REVIEW_TMP" "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}") >"$REVIEW_LOG" 2>&1 &
+  (cd "$REVIEW_DIR" && CODEX_HOME="$SANDBOX_CODEX_HOME" TMPDIR="$REVIEW_TMP" "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}") >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
     sleep "$timeout_s" &
