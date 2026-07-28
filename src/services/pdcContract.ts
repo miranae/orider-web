@@ -117,6 +117,12 @@ export function parsePersistedPdc(input: unknown): PdcDoc {
       || !mmp || !subset(mmp, DURATIONS) || !Object.values(mmp).every((value) => finite(value, 1, 3_000));
   })) invalid();
   if (!legacy) return raw as unknown as PdcDoc;
-  return { ...raw, version: 1, provenance: { ...raw.provenance as Record<string, unknown>,
+  const legacyMmp = object(inputRaw.mmpAll)!;
+  const migratedMmp = object(raw.mmpAll)!;
+  const compatibleMmpAll = Object.fromEntries(Object.entries(migratedMmp).map(([duration, value]) => {
+    const context = object(legacyMmp[duration])?.context;
+    return [duration, { ...object(value), ...(typeof context === "string" ? { context } : {}) }];
+  }));
+  return { ...raw, mmpAll: compatibleMmpAll, version: 1, provenance: { ...raw.provenance as Record<string, unknown>,
     version: 1, power: "unknown", excludesVirtualPower: false } } as unknown as PdcDoc;
 }

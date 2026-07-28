@@ -3,6 +3,16 @@ import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
 import { parsePersistedPdc } from "./pdcContract";
 
 const fixture = () => structuredClone(parity.persistedPdc) as any;
+const legacyFixture = () => {
+  const legacy = fixture();
+  legacy.version = 1;
+  delete legacy.provenance;
+  for (const entry of Object.values(legacy.mmpAll) as any[]) {
+    delete entry.source;
+    delete entry.cohortEligible;
+  }
+  return legacy;
+};
 
 describe("persisted PDC v5 contract", () => {
   it("accepts only the canonical v5 measured-power provenance source", () => {
@@ -11,24 +21,30 @@ describe("persisted PDC v5 contract", () => {
       activityCount: 12, weightKgSnapshot: 70, riderType: { type: "AllRounder", confidence: 0.91 } });
   });
 
-  it("safely migrates a valid persisted v1 document without granting v5 provenance", () => {
-    const legacy = fixture();
-    legacy.version = 1;
-    delete legacy.provenance;
-    for (const entry of Object.values(legacy.mmpAll) as any[]) {
-      delete entry.source;
-      delete entry.cohortEligible;
-    }
+  it("safely migrates persisted v1 MMP without context and without granting v5 provenance", () => {
+    const legacy = legacyFixture();
     const parsed = parsePersistedPdc(legacy);
     expect(parsed).toMatchObject({ version: 1, activityCount: 12, cp: { value: 270 },
       provenance: { version: 1, power: "unknown", excludesVirtualPower: false } });
     expect(parsed.mmpAll["5s"]).toMatchObject({ source: "unknown", cohortEligible: false });
+    expect(parsed.mmpAll["5s"]).not.toHaveProperty("context");
+  });
+
+  it("preserves a valid optional v1 MMP context during migration", () => {
+    const legacy = legacyFixture();
+    legacy.mmpAll["5s"].context = "race";
+    expect(parsePersistedPdc(legacy).mmpAll["5s"]).toMatchObject({ context: "race",
+      source: "unknown", cohortEligible: false });
+  });
+
+  it("rejects an invalid v1 MMP context", () => {
+    const legacy = legacyFixture();
+    legacy.mmpAll["5s"].context = 42;
+    expect(() => parsePersistedPdc(legacy)).toThrow("INVALID_PERSISTED_PDC_V5");
   });
 
   it("rejects malformed persisted v1 documents", () => {
-    const legacy = fixture();
-    legacy.version = 1;
-    delete legacy.provenance;
+    const legacy = legacyFixture();
     delete legacy.mmpAll["5s"].activityId;
     expect(() => parsePersistedPdc(legacy)).toThrow("INVALID_PERSISTED_PDC_V5");
   });
