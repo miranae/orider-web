@@ -100,10 +100,16 @@ function productExecution(item, targetName) {
 }
 
 function observedLedgerReceipts(requestKey, item, _target, observation) {
-  if (observation?.phase === "before") return { providers: [], turns: [] };
-  return { providers: item.providerCalls > 0
-    ? [{ path: `coach_provider_budget_charges/${requestKey}`, requestKey }] : [],
-  turns: item.quotaConsumed > 0 ? [{ path: `coach_user_turn_charges/${requestKey}`, requestKey }] : [] };
+  if (observation?.phase === "before") return { request: null, providers: [], turns: [] };
+  const createTime = "2026-07-27T00:00:01.000Z"; const updateTime = "2026-07-27T00:00:02.000Z";
+  return { request: { path: `coach_requests/${requestKey}`, requestKey,
+    requestId: observation?.provenance.requestId, normalizedQuestionDigest: observation?.provenance.questionDigest,
+    state: "completed", finalizedAtMs: Date.parse(updateTime),
+    createTime, updateTime },
+  providers: item.providerCalls > 0 ? [{ path: `coach_provider_budget_charges/${requestKey}`, requestKey,
+    usageStatus: "settled", settledAtMs: Date.parse(updateTime), createTime, updateTime }] : [],
+  turns: item.quotaConsumed > 0 ? [{ path: `coach_user_turn_charges/${requestKey}`, requestKey,
+    chargeStatus: "charged", chargedAtMs: Date.parse(updateTime), createTime, updateTime }] : [] };
 }
 
 test("binds local envelope bytes, CLI digest, and a regular sha256 sidecar", () => {
@@ -121,18 +127,26 @@ test("binds local envelope bytes, CLI digest, and a regular sha256 sidecar", () 
 });
 
 test("accepts only unique backend-cross-checkable ledger receipts", () => {
-  const requestKey = "a".repeat(64); const binding = { correlationDigest: digest("1"), requestDigest: digest("2"),
-    requestId: "123e4567-e89b-42d3-a456-426614174000", revision: "coach-stage-00042",
-    targetFingerprint: digest("3") };
-  const receipt = { ...observedLedgerReceipts(requestKey, { providerCalls: 1, quotaConsumed: 1 }), binding };
-  assert.deepEqual(validateProductLedgerReceipts(receipt, requestKey, binding),
-    { providerLedgerCount: 1, turnLedgerCount: 1 });
+  const requestKey = "a".repeat(64); const provenance = { requestId: "123e4567-e89b-42d3-a456-426614174000",
+    questionDigest: "4".repeat(64),
+    notBeforeMs: Date.parse("2026-07-27T00:00:00.000Z"), expiresAtMs: Date.parse("2026-07-27T00:20:00.000Z") };
+  const receipt = observedLedgerReceipts(requestKey, { providerCalls: 1, quotaConsumed: 1 }, null,
+    { phase: "after", provenance });
+  assert.deepEqual(validateProductLedgerReceipts(receipt, requestKey, provenance),
+    { requestObserved: true, providerLedgerCount: 1, turnLedgerCount: 1 });
+  assert.doesNotThrow(() => validateProductLedgerReceipts({ ...receipt,
+    providers: [{ ...receipt.providers[0], settledAtMs: Date.parse(receipt.providers[0].createTime) - 1 }] },
+  requestKey, provenance));
   assert.throws(() => validateProductLedgerReceipts({ ...receipt, providers: [...receipt.providers, ...receipt.providers] },
-    requestKey, binding), /ledger_receipt_binding/u);
+    requestKey, provenance), /ledger_receipt_binding/u);
   assert.throws(() => validateProductLedgerReceipts({ ...receipt,
-    binding: { ...binding, revision: "stale-revision" } }, requestKey, binding), /ledger_execution_binding/u);
-  assert.deepEqual(validateProductLedgerReceipts({ binding, providers: [], turns: [] }, requestKey, binding),
-    { providerLedgerCount: 0, turnLedgerCount: 0 });
+    request: { ...receipt.request, requestId: "223e4567-e89b-42d3-a456-426614174001" } },
+  requestKey, provenance), /ledger_request_binding/u);
+  assert.throws(() => validateProductLedgerReceipts({ ...receipt,
+    providers: [{ ...receipt.providers[0], settledAtMs: provenance.expiresAtMs + 1 }] },
+  requestKey, provenance), /ledger_receipt_binding/u);
+  assert.deepEqual(validateProductLedgerReceipts({ request: null, providers: [], turns: [] }, requestKey, provenance),
+    { requestObserved: false, providerLedgerCount: 0, turnLedgerCount: 0 });
 });
 
 test("observes ledger receipts from the exact Firestore documents", async () => {
@@ -143,14 +157,21 @@ test("observes ledger receipts from the exact Firestore documents", async () => 
       const path = new URL(url).pathname.split("/documents/")[1];
       if (path.startsWith("coach_user_turn_charges/")) return new Response("{}", { status: 404,
         headers: { "content-type": "application/json" } });
+      const fields = path.startsWith("coach_requests/")
+        ? { requestKey: { stringValue: requestKey }, requestId: { stringValue: "123e4567-e89b-42d3-a456-426614174000" },
+          normalizedQuestionDigest: { stringValue: "4".repeat(64) }, state: { stringValue: "completed" },
+          finalizedAtMs: { integerValue: "1785110402000" } }
+        : { requestKey: { stringValue: requestKey }, usageStatus: { stringValue: "settled" },
+          settledAtMs: { integerValue: "1785110402000" } };
       return new Response(JSON.stringify({ name: `projects/orider-dev/databases/(default)/documents/${path}`,
-        fields: { requestKey: { stringValue: requestKey } } }),
+        createTime: "2026-07-27T00:00:01.000Z", updateTime: "2026-07-27T00:00:02.000Z", fields }),
       { status: 200, headers: { "content-type": "application/json" } });
     } });
-  assert.deepEqual(receipts, { turns: [], providers: [{ path: `coach_provider_budget_charges/${requestKey}`,
-    requestKey }] });
+  assert.equal(receipts.request.requestId, "123e4567-e89b-42d3-a456-426614174000");
+  assert.deepEqual(receipts.turns, []); assert.equal(receipts.providers[0].usageStatus, "settled");
   assert.deepEqual(calls.map((call) => call.path), [
-    `coach_user_turn_charges/${requestKey}`, `coach_provider_budget_charges/${requestKey}`]);
+    `coach_requests/${requestKey}`, `coach_user_turn_charges/${requestKey}`,
+    `coach_provider_budget_charges/${requestKey}`]);
 });
 
 function observedStageHttp(calls = [], stageRequest = v3Request, requestDigest = `sha256:${"9".repeat(64)}`) {
@@ -569,7 +590,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
   assert.equal(masked.filter((token) => token.split(".").length === 3).length, 2);
   assert.doesNotMatch(JSON.stringify(live), /(?:oidc-|firebase-custom-|app-check-|firebase-id-|firebase-refresh-)/u);
   for (const [ledgerReceiptsFor, expected] of [
-    [async () => ({ providers: [], turns: [] }), /v3_ledger_count:track0_load_summary/u],
+    [async () => ({ request: null, providers: [], turns: [] }),
+    /v3_ledger_request_missing:track0_load_summary/u],
     [async (requestKey, item, target, observation) => { const receipt = observedLedgerReceipts(
       requestKey, item, target, observation);
       return { ...receipt, providers: [...receipt.providers, ...receipt.providers] }; }, /v3_ledger_receipt_binding/u],
@@ -581,7 +603,8 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
   }
   const staleCalls = [];
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(staleCalls),
-    ledgerReceiptsFor: async (requestKey, item) => observedLedgerReceipts(requestKey, item),
+    ledgerReceiptsFor: async (requestKey, item, target, observation) => observedLedgerReceipts(
+      requestKey, item, target, { ...observation, phase: "after" }),
     clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
     firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), /v3_ledger_preexisting:track0_load_summary/u);
