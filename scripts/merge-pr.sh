@@ -315,7 +315,7 @@ fi
 #   tooling (merge gate scripts/schema·.github/) → low reasoning 리뷰
 #   code    (그 외 전부)                   → 풀 리뷰
 DOCS_PAT='^docs/|\.md$|^LICENSE|^\.gitignore$|^\.gitattributes$'
-TOOLING_PAT='^scripts/[^/]+\.sh$|^scripts/codex-review-output\.schema\.json$|^scripts/codex-review\.sb$|^scripts/codex-review-external-link\.fixture$|^\.github/'
+TOOLING_PAT='^scripts/[^/]+\.sh$|^scripts/codex-review-output\.schema\.json$|^scripts/codex-review-external-link\.fixture$|^\.github/'
 code_changes=0; review_mode="skip"
 if [[ -n "$CHANGED" ]]; then
   if grep -qEv "($DOCS_PAT)|($TOOLING_PAT)" <<<"$CHANGED"; then
