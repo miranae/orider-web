@@ -791,24 +791,42 @@ describe("ActivityPage", () => {
     const definitiveError = Object.assign(new Error("invalid activity state"), {
       code: "functions/failed-precondition",
     });
-    const rejectedCreate = Promise.reject(definitiveError);
-    void rejectedCreate.catch(() => undefined);
-    setCallableResult("createCourseFromActivity", rejectedCreate);
+    let rejectCreate!: (reason: Error) => void;
+    const createResponse = new Promise((_resolve, reject) => { rejectCreate = reject; });
+    void createResponse.catch(() => undefined);
+    setCallableResult("createCourseFromActivity", createResponse);
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("코스를 만들지 못했습니다");
-    expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toBeNull();
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    try {
+      const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
+      await waitFor(() => expect(button).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
+      fireEvent.click(button);
+      await waitForCallableCount("createCourseFromActivity", 1);
+      await waitFor(() => {
+        expect(button).toBeDisabled();
+        expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toContain('"state":"pending"');
+      }, { timeout: COURSE_ASYNC_TIMEOUT });
+      rejectCreate(definitiveError);
 
-    setCallableResult("createCourseFromActivity", { data: { courseId: "retry-course" } });
-    setCallableResult("sendCourseToApp", { data: {} });
-    fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
+      await waitFor(() => {
+        expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toBeNull();
+        expect(button).toBeEnabled();
+      }, { timeout: COURSE_ASYNC_TIMEOUT });
+      expect(screen.getByRole("alert")).toHaveTextContent("코스를 만들지 못했습니다");
 
-    expect(await findSentButton()).toBeDisabled();
-    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(2);
-    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
-      { name: "sendCourseToApp", data: { courseId: "retry-course" } },
-    ]);
+      setCallableResult("createCourseFromActivity", { data: { courseId: "retry-course" } });
+      setCallableResult("sendCourseToApp", { data: {} });
+      fireEvent.click(button);
+      await waitForCallableCount("createCourseFromActivity", 2);
+      await waitForCallableCount("sendCourseToApp", 1);
+
+      expect(await findSentButton()).toBeDisabled();
+      expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+        { name: "sendCourseToApp", data: { courseId: "retry-course" } },
+      ]);
+    } finally {
+      view.unmount();
+    }
   }, 15_000);
 
   it("keeps pending intent after an unavailable create response and never duplicates it", async () => {
