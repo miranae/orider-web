@@ -132,6 +132,20 @@ configure_codex_sandbox() {
   CODEX_COMMAND="$(command -v codex)" || die "Codex CLI 없음 — 코드 리뷰 게이트 실행 불가."
   CODEX_BIN="$(realpath "$CODEX_COMMAND")" || die "Codex 실행 파일 경로 확인 실패"
   CODEX_RUNTIME_DIR="$(dirname "$CODEX_BIN")"
+  runtime_probe="$CODEX_RUNTIME_DIR"
+  while [[ "$runtime_probe" != "/" ]]; do
+    if [[ -f "$runtime_probe/package.json" ]] \
+      && grep -Eq '"name"[[:space:]]*:[[:space:]]*"@openai/codex"' "$runtime_probe/package.json"; then
+      CODEX_RUNTIME_DIR="$(dirname "$runtime_probe")"
+      break
+    fi
+    runtime_probe="$(dirname "$runtime_probe")"
+  done
+  CODEX_LAUNCHER_RUNTIME_DIR="$CODEX_RUNTIME_DIR"
+  IFS= read -r codex_shebang <"$CODEX_BIN" || true
+  if [[ "$codex_shebang" == '#!'*node* ]]; then
+    CODEX_LAUNCHER_RUNTIME_DIR="$(dirname "$(realpath "$(command -v node)")")"
+  fi
   CODEX_AUTH_SOURCE="${CODEX_HOME:-$HOME/.codex}/auth.json"
   [[ -r "$CODEX_AUTH_SOURCE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_SOURCE}"
   SANDBOX_CODEX_HOME="$REVIEW_TMP/codex-home"
@@ -147,6 +161,7 @@ configure_codex_sandbox() {
     -D "REVIEW_OUT=$REVIEW_OUT"
     -D "REVIEW_LOG=$REVIEW_LOG"
     -D "CODEX_RUNTIME_DIR=$CODEX_RUNTIME_DIR"
+    -D "CODEX_LAUNCHER_RUNTIME_DIR=$CODEX_LAUNCHER_RUNTIME_DIR"
     -D "CODEX_BIN=$CODEX_BIN"
     -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
     -f "$SANDBOX_PROFILE")

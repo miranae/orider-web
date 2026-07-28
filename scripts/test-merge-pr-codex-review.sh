@@ -121,6 +121,10 @@ cat >"$TEST_TMP/bin/npm" <<'MOCK'
 echo "mock npm PASS"
 exit 0
 MOCK
+mkdir -p "$TEST_TMP/node_modules/@openai/codex/bin"
+mv "$TEST_TMP/bin/codex" "$TEST_TMP/node_modules/@openai/codex/bin/codex"
+printf '{"name":"@openai/codex"}\n' >"$TEST_TMP/node_modules/@openai/codex/package.json"
+ln -s ../node_modules/@openai/codex/bin/codex "$TEST_TMP/bin/codex"
 chmod +x "$TEST_TMP/bin/git" "$TEST_TMP/bin/gh" "$TEST_TMP/bin/codex" "$TEST_TMP/bin/npm"
 
 run_gate() {

@@ -19,6 +19,7 @@
   (subpath "/private/var/db/timezone")
   (subpath "/dev")
   (subpath (param "CODEX_RUNTIME_DIR"))
+  (subpath (param "CODEX_LAUNCHER_RUNTIME_DIR"))
   (literal (param "CODEX_BIN"))
   (subpath (param "REVIEW_DIR")))
 
