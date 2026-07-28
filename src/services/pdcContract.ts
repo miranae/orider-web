@@ -7,6 +7,7 @@ const SOURCES: PdcPowerSource[] = ["strava_api", "direct_file", "orider_native",
 const RIDER_TYPES: RiderType[] = ["RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified"];
 const POWER_PROFILES: PowerProfile[] = ["sprinter", "pursuiter", "tt_specialist", "all_rounder", "climber", "unclassified"];
 const TOP_KEYS = ["ability", "activityCount", "computedAt", "cp", "discipline", "history", "mmpAll", "pdcModel", "powerProfile", "provenance", "riderType", "stamina", "sustainablePower", "version", "vo2maxEst", "wPerKgAtKey", "weightKgSnapshot"];
+const LEGACY_TOP_KEYS = TOP_KEYS.filter((key) => key !== "provenance");
 
 const object = (value: unknown): Record<string, unknown> | null => value != null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).sort().join(",") === [...keys].sort().join(",");
@@ -18,8 +19,29 @@ const date = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2
 
 function invalid(): never { throw new Error("INVALID_PERSISTED_PDC_V5"); }
 
+function migrateLegacyPdcV1(raw: Record<string, unknown>): Record<string, unknown> {
+  if (!exact(raw, LEGACY_TOP_KEYS) || raw.discipline !== "bike") invalid();
+  const legacyMmp = object(raw.mmpAll);
+  if (!legacyMmp || !subset(legacyMmp, DURATIONS)) invalid();
+  const mmpAll = Object.fromEntries(Object.entries(legacyMmp).map(([duration, value]) => {
+    const entry = object(value);
+    if (!entry || !subset(entry, ["activityId", "context", "date", "startTime", "value"])
+        || !exact(entry, "context" in entry
+          ? ["activityId", "context", "date", "startTime", "value"] : ["activityId", "date", "startTime", "value"])
+        || ("context" in entry && (typeof entry.context !== "string" || entry.context.length > 128))) invalid();
+    return [duration, { value: entry.value, activityId: entry.activityId, date: entry.date, startTime: entry.startTime,
+      source: "unknown", cohortEligible: false }];
+  }));
+  const byDuration = Object.fromEntries(Object.keys(mmpAll).map((duration) => [duration,
+    { source: "unknown", cohortEligible: false }]));
+  return { ...raw, version: PDC_VERSION, mmpAll, provenance: { version: 2, power: "measured",
+    excludesVirtualPower: true, byDuration, derived: { ftpEst: false, vo2maxEst: false } } };
+}
+
 export function parsePersistedPdc(input: unknown): PdcDoc {
-  const raw = object(input);
+  const inputRaw = object(input);
+  const legacy = inputRaw?.version === 1;
+  const raw = legacy ? migrateLegacyPdcV1(inputRaw) : inputRaw;
   if (!raw || !exact(raw, TOP_KEYS) || raw.discipline !== "bike" || raw.version !== PDC_VERSION
       || !integer(raw.computedAt, 0, Number.MAX_SAFE_INTEGER) || !integer(raw.activityCount, 0, 10_000)
       || !nullable(raw.weightKgSnapshot, 25, 250) || !nullable(raw.stamina, 0, 1)
@@ -94,5 +116,7 @@ export function parsePersistedPdc(input: unknown): PdcDoc {
     return !row || !exact(row, ["mmp", "period"]) || typeof row.period !== "string" || !/^\d{4}-\d{2}$/u.test(row.period)
       || !mmp || !subset(mmp, DURATIONS) || !Object.values(mmp).every((value) => finite(value, 1, 3_000));
   })) invalid();
-  return raw as unknown as PdcDoc;
+  if (!legacy) return raw as unknown as PdcDoc;
+  return { ...raw, version: 1, provenance: { ...raw.provenance as Record<string, unknown>,
+    version: 1, power: "unknown", excludesVirtualPower: false } } as unknown as PdcDoc;
 }

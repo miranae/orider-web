@@ -6,6 +6,7 @@ import {
   getCoachProgressProposalRecovery, isCoachClientError, rollbackCoachProgressProposal,
   submitCoachPrescriptionCheckIn,
 } from "../../services/coachClient";
+import { logClientError } from "../../services/errorLogger";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type {
   CoachChangeProposal, CoachChangeReceipt, CoachProgressPlannerCapabilities, CoachProposalRecovery,
@@ -65,6 +66,11 @@ function errorState(error: unknown): "stale" | "disabled" | "conflict" | "error"
   return "error";
 }
 
+function logProgressError(stage: "capabilities" | "recovery" | "create" | "confirm" | "rollback", error: unknown,
+  context: Record<string, unknown>) {
+  logClientError(`CoachPrescription.${stage}`, error, { stage, ...context });
+}
+
 type ProposalUiState = "idle" | "creating" | "review" | "confirming" | "applied" | "reverted" |
   "stale" | "disabled" | "conflict" | "error";
 interface ProposalView { proposal: CoachChangeProposal | null; nonce: string | null; receipt: CoachChangeReceipt | null;
@@ -103,25 +109,41 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
     void getCoachProgressProposalRecovery(prescription.prescriptionId, sourceRequestId).then((result) => {
       if (!active) return;
       if (result.status === "error") {
+        logProgressError("recovery", new Error(result.error.code), { operation: "initial",
+          prescriptionId: prescription.prescriptionId, sourceRequestId });
         setRecoveryFailed(true);
         setView((current) => ({ ...current, state: result.error.code === "proposal_recovery_revision_invalid" ? "stale" : "error" }));
         return;
       }
+      setRecoveryFailed(false);
       setView(proposalViewFromRecovery(result.data));
-    }).catch((error) => { if (active) { setRecoveryFailed(true); setView((current) => ({ ...current, state: errorState(error) })); } })
+    }).catch((error) => { if (active) {
+      logProgressError("recovery", error, { operation: "initial", prescriptionId: prescription.prescriptionId, sourceRequestId });
+      setRecoveryFailed(true); setView((current) => ({ ...current, state: errorState(error) }));
+    } })
       .finally(() => { if (active) setRecovering(false); });
     return () => { active = false; };
   }, [prescription.prescriptionId, sourceRequestId]);
 
-  async function hydrateRecovery(): Promise<boolean> {
-    const result = await getCoachProgressProposalRecovery(prescription.prescriptionId, sourceRequestId);
-    if (result.status === "error") {
-      setView((current) => ({ ...current, state: result.error.code === "proposal_recovery_revision_invalid" ? "stale" : "error" }));
+  async function hydrateRecovery(operation: string): Promise<boolean> {
+    try {
+      const result = await getCoachProgressProposalRecovery(prescription.prescriptionId, sourceRequestId);
+      if (result.status === "error") {
+        logProgressError("recovery", new Error(result.error.code), { operation,
+          prescriptionId: prescription.prescriptionId, sourceRequestId });
+        setRecoveryFailed(true);
+        setView((current) => ({ ...current, state: result.error.code === "proposal_recovery_revision_invalid" ? "stale" : "error" }));
+        return false;
+      }
+      setView(proposalViewFromRecovery(result.data));
+      setRecoveryFailed(false);
+      setConfirmArmed(false); setConfirmRetryable(false); setRollbackRetryable(false);
+      return true;
+    } catch (error) {
+      logProgressError("recovery", error, { operation, prescriptionId: prescription.prescriptionId, sourceRequestId });
+      setRecoveryFailed(true); setView((current) => ({ ...current, state: errorState(error) }));
       return false;
     }
-    setView(proposalViewFromRecovery(result.data));
-    setConfirmArmed(false); setConfirmRetryable(false); setRollbackRetryable(false);
-    return true;
   }
 
   async function createProposal() {
@@ -131,17 +153,24 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
       createRequestId.current ??= crypto.randomUUID();
       const result = await createCoachProgressProposal({ requestId: createRequestId.current,
         checkInRequestId: sourceRequestId, localDates: selectedDates });
-      if (result.status === "error") { setView((current) => ({ ...current,
-        state: result.error.code.includes("disabled") ? "disabled" : "stale" })); return; }
-      await hydrateRecovery();
-    } catch (error) { setView((current) => ({ ...current, state: errorState(error) })); }
+      if (result.status === "error") {
+        logProgressError("create", new Error(result.error.code), { operation: "create", prescriptionId: prescription.prescriptionId,
+          sourceRequestId, requestId: createRequestId.current });
+        setView((current) => ({ ...current, state: result.error.code.includes("disabled") ? "disabled" : "stale" })); return;
+      }
+      await hydrateRecovery("post-create");
+    } catch (error) {
+      logProgressError("create", error, { operation: "create", prescriptionId: prescription.prescriptionId,
+        sourceRequestId, requestId: createRequestId.current });
+      setView((current) => ({ ...current, state: errorState(error) }));
+    }
   }
 
   async function refreshProposal() {
-    if (busy) return;
-    try {
-      await hydrateRecovery();
-    } catch (error) { setView((current) => ({ ...current, state: errorState(error) })); }
+    if (busy || recovering) return;
+    setRecovering(true);
+    await hydrateRecovery("refresh");
+    setRecovering(false);
   }
 
   async function confirmProposal() {
@@ -152,10 +181,15 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
       confirmRequestId.current ??= crypto.randomUUID();
       const result = await confirmCoachProgressProposal(proposal.proposalId,
         { requestId: confirmRequestId.current, nonce });
-      if (result.status === "error") { setView((current) => ({ ...current,
-        state: result.error.code.includes("disabled") ? "disabled" : "stale" })); return; }
-      await hydrateRecovery();
+      if (result.status === "error") {
+        logProgressError("confirm", new Error(result.error.code), { operation: "confirm", prescriptionId: prescription.prescriptionId,
+          sourceRequestId, proposalId: proposal.proposalId, requestId: confirmRequestId.current });
+        setView((current) => ({ ...current, state: result.error.code.includes("disabled") ? "disabled" : "stale" })); return;
+      }
+      await hydrateRecovery("post-confirm");
     } catch (error) {
+      logProgressError("confirm", error, { operation: "confirm", prescriptionId: prescription.prescriptionId,
+        sourceRequestId, proposalId: proposal.proposalId, requestId: confirmRequestId.current });
       const nextState = errorState(error);
       setConfirmRetryable(nextState === "error");
       setView((current) => ({ ...current, state: nextState }));
@@ -167,9 +201,15 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
     setView((current) => ({ ...current, state: "confirming" }));
     try {
       const result = await rollbackCoachProgressProposal(proposal.proposalId, { requestId: rollbackRequestId });
-      if (result.status === "error") { setView((current) => ({ ...current, state: "conflict" })); return; }
-      await hydrateRecovery();
+      if (result.status === "error") {
+        logProgressError("rollback", new Error(result.error.code), { operation: "rollback", prescriptionId: prescription.prescriptionId,
+          sourceRequestId, proposalId: proposal.proposalId, requestId: rollbackRequestId });
+        setView((current) => ({ ...current, state: "conflict" })); return;
+      }
+      await hydrateRecovery("post-rollback");
     } catch (error) {
+      logProgressError("rollback", error, { operation: "rollback", prescriptionId: prescription.prescriptionId,
+        sourceRequestId, proposalId: proposal.proposalId, requestId: rollbackRequestId });
       const nextState = errorState(error);
       setRollbackRetryable(nextState === "error"); setView((current) => ({ ...current, state: nextState }));
     }
@@ -210,7 +250,8 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
             ? displayEvidence(evidenceById.get(evidenceId)!, locale) : evidenceId}</li>)}</ul></details>
       </article>)}
       <div className="coach-progress-review__actions">
-        <Button type="button" variant="outline" onClick={() => void refreshProposal()}>{t("progress.review.refresh")}</Button>
+        <Button type="button" variant="outline" disabled={recovering}
+          onClick={() => void refreshProposal()}>{t("progress.review.refresh")}</Button>
         {state === "review" && <Button type="button" variant={confirmArmed ? "primary" : "secondary"}
           disabled={!capabilities.progressPlanner.confirm.enabled || !nonce} onClick={() => void confirmProposal()}>
           {confirmArmed ? t("progress.confirm.final") : t("progress.confirm.review")}</Button>}
@@ -230,7 +271,9 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
     {state === "reverted" && receipt && <Alert variant="success" title={t("progress.states.reverted")}>{t("progress.states.receipt", { id: receipt.auditId })}</Alert>}
     {["stale", "disabled", "conflict", "error"].includes(state) && <Alert variant="warning" title={t(`progress.states.${state}`)}>
       {state === "stale" ? <Button type="button" variant="outline" onClick={onReanalyze}>
-        {t("progress.states.reanalyze")}</Button> : null}</Alert>}
+        {t("progress.states.reanalyze")}</Button> : state === "error" && recoveryFailed
+        ? <Button type="button" variant="outline" disabled={recovering} onClick={() => void refreshProposal()}>
+          {t("progress.review.refresh")}</Button> : null}</Alert>}
     <div className="coach-progress-review__questions" aria-label={t("progress.questions.label")}>{[
       t("progress.questions.priority"), t("progress.questions.changed"),
     ].map((question) => <Button key={question} type="button" variant="ghost"
@@ -326,7 +369,11 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   useEffect(() => {
     let active = true;
     void getCoachProgressPlannerCapabilities().then((value) => { if (active) setCapabilities(value); })
-      .catch(() => { if (active) setCapabilityFailed(true); });
+      .catch((error) => { if (active) {
+        logProgressError("capabilities", error, { operation: "load", prescriptionId: initial.prescriptionId,
+          sourceRequestId: parentRequestId });
+        setCapabilityFailed(true);
+      } });
     return () => { active = false; };
   }, []);
 

@@ -11,6 +11,28 @@ describe("persisted PDC v5 contract", () => {
       activityCount: 12, weightKgSnapshot: 70, riderType: { type: "AllRounder", confidence: 0.91 } });
   });
 
+  it("safely migrates a valid persisted v1 document without granting v5 provenance", () => {
+    const legacy = fixture();
+    legacy.version = 1;
+    delete legacy.provenance;
+    for (const entry of Object.values(legacy.mmpAll) as any[]) {
+      delete entry.source;
+      delete entry.cohortEligible;
+    }
+    const parsed = parsePersistedPdc(legacy);
+    expect(parsed).toMatchObject({ version: 1, activityCount: 12, cp: { value: 270 },
+      provenance: { version: 1, power: "unknown", excludesVirtualPower: false } });
+    expect(parsed.mmpAll["5s"]).toMatchObject({ source: "unknown", cohortEligible: false });
+  });
+
+  it("rejects malformed persisted v1 documents", () => {
+    const legacy = fixture();
+    legacy.version = 1;
+    delete legacy.provenance;
+    delete legacy.mmpAll["5s"].activityId;
+    expect(() => parsePersistedPdc(legacy)).toThrow("INVALID_PERSISTED_PDC_V5");
+  });
+
   it.each([
     ["unknown top-level field", (value: any) => { value.rawActivities = []; }],
     ["legacy version", (value: any) => { value.version = 4; }],
