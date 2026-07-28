@@ -152,13 +152,7 @@ export function sensorSeriesShareCompleteAxis(
   heartRate: AnalysisSensorSeries | undefined,
 ): boolean {
   if (!power || !heartRate || power.complete !== true || heartRate.complete !== true) return false;
-  if (
-    power.values.length === 0
-    || power.values.length !== power.time.length
-    || heartRate.values.length !== heartRate.time.length
-    || power.time.length !== heartRate.time.length
-  ) return false;
-  return power.time.every((timestamp, index) => Number.isFinite(timestamp) && timestamp === heartRate.time[index]);
+  return wholeSessionSeriesShareAxis(power, heartRate);
 }
 
 export function selectWholeSessionSensorSeries(
@@ -169,6 +163,21 @@ export function selectWholeSessionSensorSeries(
   if (!sensorSeries) return { values: fallbackValues ?? [], time: fallbackTime };
   if (sensorSeries.complete !== true) return { values: [], time: undefined };
   return { values: sensorSeries.values, time: sensorSeries.time };
+}
+
+export function wholeSessionSeriesShareAxis(
+  power: { values: number[]; time: number[] | undefined },
+  heartRate: { values: number[]; time: number[] | undefined },
+): boolean {
+  if (!power.time || !heartRate.time || power.values.length === 0 || heartRate.values.length === 0) return false;
+  if (
+    power.values.length !== power.time.length
+    || heartRate.values.length !== heartRate.time.length
+    || power.time.length !== heartRate.time.length
+  ) return false;
+  return power.time.every((timestamp, index) => Number.isFinite(timestamp)
+    && Number.isFinite(heartRate.time![index])
+    && timestamp === heartRate.time![index]);
 }
 
 /** #458 W'bal 잔량 궤적 미니 차트 — amber 라인 + 최저점(rose) 마커. */
@@ -286,8 +295,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   // 심박 메트릭
   const hrStats = useMemo(() => avgMax(hr, { ignoreZero: true }), [hr]);
   const hrDrift = useMemo(() => hasHr ? calculateHrDrift(hr) : null, [hr, hasHr]);
-  const sensorsShareAxis = (!sensorPower && !sensorHeartRate)
-    || sensorSeriesShareCompleteAxis(sensorPower, sensorHeartRate);
+  const sensorsShareAxis = wholeSessionSeriesShareAxis(selectedPowerSeries, selectedHeartRateSeries);
   const ef = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateEF(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
   const decoupling = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateDecoupling(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
   const trimp = useMemo(() => hasHr ? calculateTRIMP(hr, maxHr, restHr, "male", heartRateTime) : null, [hr, maxHr, restHr, heartRateTime, hasHr]);
