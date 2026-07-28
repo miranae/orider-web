@@ -8,7 +8,8 @@ import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidenc
 import { bindLocalContextToRequest, collectStageBaselineComparison, createLocalEvidenceEnvelope,
   decodeEvidenceRequest, decodeLocalOperatorContext, evidenceFileSha256,
   localWebEvidenceArtifactName,
-  passedVitestAssertions, prefixedEvidenceDigest, privacyScan, REQUIRED_RENDER_ASSERTIONS,
+  passedVitestAssertions, prefixedEvidenceDigest, privacyScan, readStageProductLedgerReceipts,
+  REQUIRED_RENDER_ASSERTIONS,
   validateLocalOperatorContext, validateLocalOperatorRequest, validateLocalWebStageBaselineEvidenceArtifact,
   verifyLocalCheckpointBinding, verifyLocalGoogleIdentity, verifyLocalLeaseGuardBinding,
   verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
@@ -67,6 +68,13 @@ const identityTokenFor = async (audience) => {
   }
   return token;
 };
+const accessTokenResult = spawnSync("gcloud", ["auth", "print-access-token",
+  `--impersonate-service-account=${context.identity.serviceAccount}`],
+{ cwd: root, encoding: "utf8", maxBuffer: 64_000 });
+const accessToken = accessTokenResult.stdout.trim();
+if (accessTokenResult.status !== 0 || accessToken.length < 8 || accessToken.length > 16_384 || /\s/u.test(accessToken)) {
+  throw new Error("web_evidence:local_access_token_mint");
+}
 
 const temporary = mkdtempSync(resolve(tmpdir(), "four-axis-web-local-evidence-"));
 const resultFile = resolve(temporary, "vitest.json");
@@ -82,7 +90,8 @@ try {
   const live = await collectStageBaselineComparison(request, { fetchImpl: fetch,
     clock: performance.now.bind(performance), identityTokenFor, maskSecret: () => undefined,
     firebaseWebApiKey: required("AI_COACH_STAGE_FIREBASE_WEB_API_KEY"), requestSha256: decodedRequest.requestSha256,
-    assertStageLease });
+    assertStageLease, ledgerReceiptsFor: (requestKey, _item, target) => readStageProductLedgerReceipts(requestKey,
+      { fetchImpl: fetch, accessToken, assertStageLease, targetName: target.tag }) });
   validateLocalOperatorContext(context, { repository: context.repository, sha: context.commitSha });
   verifyLocalRepositoryState(root, context.commitSha, context.treeSha);
   verifyLocalGoogleIdentity(context);

@@ -5,7 +5,8 @@ import { dirname, relative, resolve } from "node:path";
 import { bindLocalContextToRequest, decodeEvidenceRequest, decodeLocalOperatorContext, evidenceFileSha256,
   localWebEvidenceArtifactName, validateLocalEvidenceEnvelope, validateLocalOperatorContext,
   validateLocalOperatorRequest, validateLocalWebStageBaselineEvidenceArtifact, verifyLocalCheckpointBinding,
-  verifyLocalGoogleIdentity, verifyLocalLeaseGuardBinding, verifyLocalRepositoryState, WEB_EVIDENCE_TEST_FILES } from
+  verifyLocalEnvelopeSidecar, verifyLocalGoogleIdentity, verifyLocalLeaseGuardBinding, verifyLocalRepositoryState,
+  WEB_EVIDENCE_TEST_FILES } from
   "./lib/ai-coach-four-axis-web-evidence.mjs";
 
 function argument(name) {
@@ -49,9 +50,7 @@ validateLocalWebStageBaselineEvidenceArtifact(artifact, { sha: context.commitSha
   contextSha256: decodedContext.contextSha256, request, targets, fileShas });
 const envelopeBytes = readFileSync(envelopePath);
 const expectedEnvelopeSha256 = argument("--envelope-sha256");
-if (!/^[0-9a-f]{64}$/u.test(expectedEnvelopeSha256) || sha256(envelopeBytes) !== expectedEnvelopeSha256) {
-  throw new Error("web_evidence:local_envelope_digest");
-}
+verifyLocalEnvelopeSidecar(envelopeBytes, envelopePath, expectedEnvelopeSha256);
 const envelope = JSON.parse(envelopeBytes.toString("utf8"));
 validateLocalEvidenceEnvelope(envelope, { headSha: context.commitSha, treeSha: context.treeSha,
   statusClean: true, executionMode: "local-file-v1",

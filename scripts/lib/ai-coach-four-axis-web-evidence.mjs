@@ -78,6 +78,7 @@ const PRODUCT_USER_DATA_WRITE_PATHS = [/^\/v1\/coach\/change-proposals\/[^/]+\/(
   /^\/v1\/coach\/(?:profile|weekly-check-in)$/u];
 export const MAX_HTTP_RESPONSE_BYTES = 200_000;
 export const MAX_AUTH_RESPONSE_BYTES = 64 * 1024;
+const MAX_LEDGER_PROVENANCE_AGE_MS = 90 * 60_000;
 const AUTH_TOKEN = /^[A-Za-z0-9._~-]{8,16384}$/u;
 const FIREBASE_WEB_API_KEY = /^[A-Za-z0-9_-]{20,128}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -609,6 +610,117 @@ export function observedProductUserDataWrites(method, path, response, value) {
   return count;
 }
 
+export function verifyLocalEnvelopeSidecar(envelopeBytes, envelopePath, expectedSha256) {
+  const sidecarPath = `${envelopePath}.sha256`;
+  let stat; let sidecar;
+  try { stat = lstatSync(sidecarPath); sidecar = readFileSync(sidecarPath, "utf8"); }
+  catch { throw new Error("web_evidence:local_envelope_sidecar_missing"); }
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("web_evidence:local_envelope_sidecar_file");
+  const sidecarSha256 = sidecar.match(/^([0-9a-f]{64})\n$/u)?.[1];
+  const actualSha256 = createHash("sha256").update(envelopeBytes).digest("hex");
+  if (!sidecarSha256 || !HEX_DIGEST.test(expectedSha256)
+      || sidecarSha256 !== expectedSha256 || actualSha256 !== expectedSha256) {
+    throw new Error("web_evidence:local_envelope_digest");
+  }
+  return actualSha256;
+}
+
+export function validateProductLedgerReceipts(value, requestKey, expected) {
+  exactKeys(value, ["providers", "request", "turns"], "web_evidence:v3_ledger_receipt_keys");
+  if (!expected || !UUID.test(expected.requestId ?? "") || !HEX_DIGEST.test(expected.questionDigest ?? "")
+      || !Number.isSafeInteger(expected.notBeforeMs)
+      || !Number.isSafeInteger(expected.expiresAtMs) || expected.expiresAtMs <= expected.notBeforeMs) {
+    throw new Error("web_evidence:v3_ledger_expected_provenance");
+  }
+  const inWindow = (iso, millis) => Number.isSafeInteger(millis) && Number.isFinite(Date.parse(iso))
+    && Date.parse(iso) >= expected.notBeforeMs && Date.parse(iso) <= expected.expiresAtMs
+    && millis >= expected.notBeforeMs && millis <= expected.expiresAtMs;
+  const validUpdate = (createTime, updateTime) => Number.isFinite(Date.parse(updateTime))
+    && Date.parse(updateTime) >= Date.parse(createTime) && Date.parse(updateTime) <= expected.expiresAtMs;
+  if (value.request !== null) {
+    exactKeys(value.request, ["createTime", "finalizedAtMs", "normalizedQuestionDigest", "path", "requestId",
+      "requestKey", "state", "updateTime"], "web_evidence:v3_ledger_request_record");
+    if (value.request.path !== `coach_requests/${requestKey}` || value.request.requestKey !== requestKey
+        || value.request.requestId !== expected.requestId
+        || value.request.normalizedQuestionDigest !== expected.questionDigest || value.request.state !== "completed"
+        || !inWindow(value.request.createTime, value.request.finalizedAtMs)
+        || !validUpdate(value.request.createTime, value.request.updateTime)) {
+      throw new Error("web_evidence:v3_ledger_request_binding");
+    }
+  }
+  const validate = (records, collection, statusKey, expectedStatus) => {
+    if (!Array.isArray(records)) throw new Error("web_evidence:v3_ledger_receipt_array");
+    const paths = new Set();
+    for (const record of records) {
+      const timeKey = collection === "coach_provider_budget_charges" ? "settledAtMs" : "chargedAtMs";
+      exactKeys(record, ["createTime", "path", "requestKey", statusKey, timeKey, "updateTime"],
+        "web_evidence:v3_ledger_receipt_record");
+      const expectedPath = `${collection}/${requestKey}`;
+      if (record.requestKey !== requestKey || record.path !== expectedPath || paths.has(record.path)
+          || record[statusKey] !== expectedStatus || !inWindow(record.createTime, record[timeKey])
+          || !validUpdate(record.createTime, record.updateTime)) {
+        throw new Error("web_evidence:v3_ledger_receipt_binding");
+      }
+      paths.add(record.path);
+    }
+    return records.length;
+  };
+  return { requestObserved: value.request !== null,
+    providerLedgerCount: validate(value.providers, "coach_provider_budget_charges", "usageStatus", "settled"),
+    turnLedgerCount: validate(value.turns, "coach_user_turn_charges", "chargeStatus", "charged") };
+}
+
+export async function readStageProductLedgerReceipts(requestKey, options) {
+  if (!HEX_DIGEST.test(requestKey) || !AUTH_TOKEN.test(options?.accessToken ?? "")
+      || typeof options?.fetchImpl !== "function") throw new Error("web_evidence:v3_ledger_observer_config");
+  const records = { request: null, providers: [], turns: [] };
+  for (const [key, collection] of [["request", "coach_requests"], ["turns", "coach_user_turn_charges"],
+    ["providers", "coach_provider_budget_charges"]]) {
+    await options.assertStageLease?.({ kind: "ledger-http", target: options.targetName, method: "GET",
+      path: `${collection}/${requestKey}` });
+    const path = `${collection}/${requestKey}`;
+    const url = `https://firestore.googleapis.com/v1/projects/orider-dev/databases/(default)/documents/${path}`;
+    let response;
+    try {
+      response = await options.fetchImpl(url, { method: "GET", redirect: "error",
+        headers: { authorization: `Bearer ${options.accessToken}` }, signal: AbortSignal.timeout(30_000) });
+    } catch (error) {
+      throw new Error(`web_evidence:v3_ledger_network:${collection}`, { cause: error });
+    }
+    if (response.status === 404) continue;
+    if (!response.ok) {
+      throw new Error(`web_evidence:v3_ledger_http:${collection}:${response.status}`);
+    }
+    let value;
+    try {
+      value = await readBoundedJsonResponse(response,
+        { code: "web_evidence:v3_ledger_response", maxBytes: MAX_AUTH_RESPONSE_BYTES });
+    } catch (error) {
+      throw new Error(`web_evidence:v3_ledger_response:${collection}:${error.message}`, { cause: error });
+    }
+    if (value?.name !== `projects/orider-dev/databases/(default)/documents/${path}`
+        || value?.fields?.requestKey?.stringValue !== requestKey
+        || !Number.isFinite(Date.parse(value.createTime)) || !Number.isFinite(Date.parse(value.updateTime))) {
+      throw new Error(`web_evidence:v3_ledger_document_binding:${collection}`);
+    }
+    const integer = (name) => {
+      const parsed = Number(value.fields?.[name]?.integerValue);
+      if (!Number.isSafeInteger(parsed)) throw new Error(`web_evidence:v3_ledger_document_binding:${collection}`);
+      return parsed;
+    };
+    if (key === "request") records.request = { path, requestKey,
+      requestId: value.fields?.requestId?.stringValue, state: value.fields?.state?.stringValue,
+      normalizedQuestionDigest: value.fields?.normalizedQuestionDigest?.stringValue,
+      finalizedAtMs: integer("finalizedAtMs"), createTime: value.createTime, updateTime: value.updateTime };
+    else if (key === "turns") records.turns.push({ path, requestKey,
+      chargeStatus: value.fields?.chargeStatus?.stringValue, chargedAtMs: integer("chargedAtMs"),
+      createTime: value.createTime, updateTime: value.updateTime });
+    else records.providers.push({ path, requestKey, usageStatus: value.fields?.usageStatus?.stringValue,
+      settledAtMs: integer("settledAtMs"), createTime: value.createTime, updateTime: value.updateTime });
+  }
+  return records;
+}
+
 async function assertStageLease(options, operation) {
   if (typeof options.assertStageLease === "function") await options.assertStageLease(operation);
 }
@@ -914,6 +1026,20 @@ async function observeTarget(request, target, options) {
     const body = { requestId, question: item.question, discipline: "bike", locale: "ko-KR", apiVersion: "v2",
       schemaVersion: "coach-respond-v2", capabilityVersion: "p1", contextFilters: prepared.contextFilters,
       responseFormat: "auto" };
+    const requestDigest = prefixedEvidenceDigest({ caseId: item.caseId, questionCode: item.questionCode,
+      question: item.question });
+    const requestKey = firebaseFixtureRequestKey(options.authorization, request.correlationId, requestId);
+    const ledgerExpiresAtMs = Date.parse(request.expiresAt);
+    const ledgerProvenance = { requestId,
+      questionDigest: createHash("sha256").update(item.question.normalize("NFKC").replace(/\s+/gu, " ").trim()).digest("hex"),
+      notBeforeMs: ledgerExpiresAtMs - MAX_LEDGER_PROVENANCE_AGE_MS, expiresAtMs: ledgerExpiresAtMs };
+    if (typeof options.ledgerReceiptsFor !== "function") throw new Error("web_evidence:v3_ledger_observer");
+    const priorReceipt = await options.ledgerReceiptsFor(requestKey, item, target,
+      { phase: "before", provenance: ledgerProvenance });
+    const priorLedgers = validateProductLedgerReceipts(priorReceipt, requestKey, ledgerProvenance);
+    if (priorLedgers.requestObserved || priorLedgers.providerLedgerCount !== 0 || priorLedgers.turnLedgerCount !== 0) {
+      throw new Error(`web_evidence:v3_ledger_preexisting:${item.caseId}`);
+    }
     const question = await productFetch(origin, "/v1/coach/respond", productOptions, { method: "POST", body });
     const envelope = question.value?.data;
     if (!envelope || envelope.requestId !== requestId || envelope.outcome !== "answer"
@@ -921,15 +1047,21 @@ async function observeTarget(request, target, options) {
         || envelope.quota?.consumed !== Boolean(item.quotaConsumed)) {
       throw new Error(`web_evidence:v3_question_contract:${item.caseId}`);
     }
-    const requestDigest = prefixedEvidenceDigest({ caseId: item.caseId, questionCode: item.questionCode,
-      question: item.question });
     const providerCallsObserved = envelope.budget.providerCalls;
-    const providerLedgerCount = Number(providerCallsObserved > 0);
-    const turnLedgerCount = Number(envelope.quota.consumed);
+    const ledgerReceipt = await options.ledgerReceiptsFor(requestKey, item, target,
+      { phase: "after", provenance: ledgerProvenance });
+    const { requestObserved, providerLedgerCount, turnLedgerCount } = validateProductLedgerReceipts(
+      ledgerReceipt, requestKey, ledgerProvenance);
+    if (!requestObserved) {
+      throw new Error(`web_evidence:v3_ledger_request_missing:${item.caseId}`);
+    }
+    if (providerLedgerCount !== Number(item.providerCalls > 0) || turnLedgerCount !== item.quotaConsumed) {
+      throw new Error(`web_evidence:v3_ledger_count:${item.caseId}`);
+    }
     const userDataWrites = question.userDataWrites + (prepared.card?.userDataWrites ?? 0)
       + (prepared.extraUserDataWrites ?? 0);
     const product = { questionPath: "/v1/coach/respond", cardPath: PRODUCT_CARD_PATHS.get(item.caseId),
-      requestKey: firebaseFixtureRequestKey(options.authorization, request.correlationId, requestId),
+      requestKey,
       questionStatus: question.response.status, cardStatus: prepared.card?.response.status ?? null,
       providerCallsObserved, providerLedgerCount, turnLedgerCount, userDataWrites,
       questionResponseDigest: question.responseDigest,
