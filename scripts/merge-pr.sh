@@ -93,7 +93,16 @@ assert_local_head_matches_pr() {
 REVIEW_STARTED=0
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  "${REVIEW_CMD[@]}" >"$REVIEW_LOG" 2>&1 &
+  (
+    set -o pipefail
+    printf '%s\n' "$REVIEW_PROMPT" | "${REVIEW_CMD[@]}" &
+    codex_pipeline_pid=$!
+    trap 'kill "$codex_pipeline_pid" 2>/dev/null || true' TERM INT EXIT
+    review_pipeline_rc=0
+    wait "$codex_pipeline_pid" || review_pipeline_rc=$?
+    trap - TERM INT EXIT
+    exit "$review_pipeline_rc"
+  ) >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
     sleep "$timeout_s" &
@@ -246,7 +255,7 @@ MERGE_VERDICT: PASS"
   fi
   REVIEW_CMD=(codex exec review --base "origin/$BASE" --ephemeral \
     -c "model_reasoning_effort=\"$review_effort\"" \
-    -c 'sandbox_mode="read-only"' -o "$REVIEW_OUT" "$REVIEW_PROMPT")
+    -c 'sandbox_mode="read-only"' -o "$REVIEW_OUT")
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
   start_codex_review
 fi
