@@ -91,6 +91,33 @@ assert_local_head_matches_pr() {
 
 # AI 리뷰를 백그라운드로 시작 (npm 게이트와 병렬) — 결과 처리는 아래 join 블록에서.
 REVIEW_STARTED=0
+cleanup_review_workspace() {
+  local review_dir="${REVIEW_DIR:-}"
+  [[ -n "$review_dir" && "$review_dir" != "$REPO_ROOT" && "$review_dir" != "/" ]] || return 0
+  [[ "$(basename "$review_dir")" == orider-codex-review-workspace.* ]] || return 0
+  [[ -f "$review_dir/.codex-review/workspace.marker" ]] || return 0
+  rm -rf -- "$review_dir"
+  REVIEW_DIR=""
+}
+
+prepare_codex_review_workspace() {
+  REVIEW_DIR="$(mktemp -d -t orider-codex-review-workspace)" || die "Codex 리뷰 임시 디렉터리 생성 실패"
+  mkdir -p "$REVIEW_DIR/.codex-review"
+  : >"$REVIEW_DIR/.codex-review/workspace.marker"
+  if ! git archive "$HEAD_OID" | tar -x -C "$REVIEW_DIR"; then
+    cleanup_review_workspace
+    die "PR head tracked snapshot 생성 실패"
+  fi
+  git diff --binary --no-ext-diff "origin/$BASE...$HEAD_OID" >"$REVIEW_DIR/.codex-review/diff.patch" \
+    || { cleanup_review_workspace; die "PR head diff 생성 실패"; }
+  {
+    printf 'base=origin/%s\n' "$BASE"
+    printf 'head=%s\n' "$HEAD_OID"
+  } >"$REVIEW_DIR/.codex-review/metadata.txt"
+  [[ -f "$REVIEW_DIR/scripts/codex-review-output.schema.json" ]] \
+    || { cleanup_review_workspace; die "tracked snapshot에 Codex 리뷰 schema 없음"; }
+}
+
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
   "${REVIEW_CMD[@]}" >"$REVIEW_LOG" 2>&1 &
@@ -113,9 +140,11 @@ start_codex_review() {
 # 게이트가 중간에 die 해도 백그라운드 Codex를 고아로 남기지 않는다.
 cleanup_review() {
   # 주의: kill 의 인자가 빈값/0 이면 프로세스 그룹 전체가 죽는다 — 반드시 변수 존재를 확인.
-  [[ "${REVIEW_STARTED:-0}" == 1 ]] || return 0
-  [[ -n "${REVIEW_PID:-}" ]] && { kill "$REVIEW_PID" 2>/dev/null || true; }
-  [[ -n "${REVIEW_WATCHDOG:-}" ]] && { kill "$REVIEW_WATCHDOG" 2>/dev/null || true; }
+  if [[ "${REVIEW_STARTED:-0}" == 1 ]]; then
+    [[ -n "${REVIEW_PID:-}" ]] && { kill "$REVIEW_PID" 2>/dev/null || true; wait "$REVIEW_PID" 2>/dev/null || true; }
+    [[ -n "${REVIEW_WATCHDOG:-}" ]] && { kill "$REVIEW_WATCHDOG" 2>/dev/null || true; wait "$REVIEW_WATCHDOG" 2>/dev/null || true; }
+  fi
+  cleanup_review_workspace
   return 0
 }
 trap cleanup_review EXIT
@@ -226,7 +255,7 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
 
   REVIEW_OUT="$(mktemp -t orider-merge-review)"
   REVIEW_LOG="$(mktemp -t orider-merge-review-log)"
-  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 이 브랜치의 origin/$BASE 대비 diff(\`git diff origin/$BASE...HEAD\`)만 리뷰하라. 필요한 맥락은 허용된 git diff/show/log/status 출력만 사용하고, 일반 파일 읽기는 사용하지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
+  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 이 디렉터리는 PR head의 tracked snapshot이며, 리뷰 범위는 origin/$BASE...HEAD의 정확한 diff를 담은 .codex-review/diff.patch뿐이다. 필요한 맥락은 이 디렉터리 안의 tracked snapshot 파일과 .codex-review/metadata.txt만 사용하라. 디렉터리 밖 경로, 환경 변수, 사용자 설정을 읽지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
 
 로깅/관측성도 점검하라:
 - 신규 무음 에러 스왈로우(catch {}, .catch(() => {}), 실패 숨김)가 있는지.
@@ -243,9 +272,10 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
     # 툴링 전용 diff — 모델은 설치된 기본값을 따르고 추론 강도만 낮춘다.
     review_effort="low"
   fi
-  REVIEW_CMD=(codex exec --ephemeral --sandbox read-only -C "$REPO_ROOT" \
+  prepare_codex_review_workspace
+  REVIEW_CMD=(codex exec --ephemeral --sandbox read-only --skip-git-repo-check -C "$REVIEW_DIR" \
     -c "model_reasoning_effort=\"$review_effort\"" \
-    --output-schema "$REPO_ROOT/scripts/codex-review-output.schema.json" \
+    --output-schema "$REVIEW_DIR/scripts/codex-review-output.schema.json" \
     -o "$REVIEW_OUT" "$REVIEW_PROMPT")
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
   start_codex_review
@@ -311,6 +341,7 @@ if [[ "$REVIEW_STARTED" == 1 ]]; then
   kill "$REVIEW_WATCHDOG" 2>/dev/null || true
   wait "$REVIEW_WATCHDOG" 2>/dev/null || true
   REVIEW_STARTED=0
+  cleanup_review_workspace
   if [[ "$review_rc" -ne 0 ]]; then
     [[ ! -s "$REVIEW_OUT" ]] || sed 's/^/  │ /' "$REVIEW_OUT"
     [[ ! -s "$REVIEW_LOG" ]] || { echo "  Codex 실행 로그:"; tail -80 "$REVIEW_LOG" | sed 's/^/  │ /'; }
