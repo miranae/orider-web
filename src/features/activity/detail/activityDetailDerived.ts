@@ -45,6 +45,7 @@ export interface ActivityAnalysisProjection {
 }
 
 const LEGACY_POWER_MIN_POSITIVE_COVERAGE = 0.05;
+const LEGACY_POWER_MIN_AXIS_COVERAGE = 0.95;
 
 export interface SelectedPowerStream {
   source: StreamSensorSummary["powerSource"];
@@ -56,12 +57,18 @@ export interface SelectedPowerStream {
 }
 
 function trustedLegacyPower(values: readonly number[] | undefined, expectedCount: number): number[] | null {
-  if (!values) return null;
-  const finite = values.filter((value) => Number.isFinite(value) && value >= 0);
-  const positiveCount = finite.filter((value) => value > 0).length;
+  if (!values?.length) return null;
+  if (!values.every((value) => Number.isFinite(value) && value >= 0)) return null;
+
+  const axisAligned = expectedCount <= 0
+    || Math.abs(values.length - expectedCount) <= 1
+    || Math.min(values.length, expectedCount) / Math.max(values.length, expectedCount) >= LEGACY_POWER_MIN_AXIS_COVERAGE;
+  if (!axisAligned) return null;
+
+  const positiveCount = values.filter((value) => value > 0).length;
   const coverageDenominator = Math.max(values.length, expectedCount, 1);
   return positiveCount / coverageDenominator >= LEGACY_POWER_MIN_POSITIVE_COVERAGE
-    ? finite
+    ? [...values]
     : null;
 }
 
@@ -245,7 +252,9 @@ export function buildActivityAnalysisProjection(
     };
   }
 
-  const legacyTime = streams.time ?? streams.heartrate?.map((_, index) => index) ?? [];
+  const legacyTime = streams.time?.length
+    ? streams.time
+    : streams.heartrate?.map((_, index) => index) ?? [];
   const validLegacyHeartRateCount = positiveValues(streams.heartrate).length;
   const shouldRepairLegacyHeartRate = !!streams.heartrate?.length
     && validLegacyHeartRateCount / streams.heartrate.length <= 0.5;

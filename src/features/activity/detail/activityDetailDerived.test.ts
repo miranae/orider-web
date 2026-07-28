@@ -83,10 +83,10 @@ describe("activityDetailDerived", () => {
     expect(covered).toMatchObject({ averagePower: 40, maxPower: 200, hasReliablePower: true });
   });
 
-  it("counts non-finite legacy samples in the coverage denominator", () => {
+  it("rejects legacy power containing non-finite samples", () => {
     const streams = {
       distance: Array.from({ length: 200 }, (_, index) => index),
-      watts: [200, 250, 300, ...Array(197).fill(Number.NaN)],
+      watts: [...Array(10).fill(200), ...Array(190).fill(Number.NaN)],
     };
     const summary = deriveStreamSensorSummary(streams as never);
     const projection = buildActivityAnalysisProjection(streams as never);
@@ -103,11 +103,27 @@ describe("activityDetailDerived", () => {
     expect(getAvailableOverlays(sampled).map((overlay) => overlay.key)).not.toContain("power");
   });
 
+  it("accepts a fully valid legacy stream at the five-percent boundary", () => {
+    const streams = {
+      distance: Array.from({ length: 200 }, (_, index) => index),
+      watts: [...Array(10).fill(200), ...Array(190).fill(0)],
+    };
+    const summary = deriveStreamSensorSummary(streams as never);
+
+    expect(summary).toMatchObject({
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      powerSource: "watts",
+      averagePower: 10,
+      maxPower: 200,
+    });
+  });
+
   it("rejects power truncated against the activity axis and falls back to complete watts_calc", () => {
     const base = {
       distance: Array.from({ length: 200 }, (_, index) => index),
       time: Array.from({ length: 200 }, (_, index) => index),
-      watts: [200, 220, 240],
+      watts: Array(10).fill(200),
     };
     const rejectedSummary = deriveStreamSensorSummary(base as never);
     expect(rejectedSummary).toMatchObject({
@@ -238,6 +254,18 @@ describe("activityDetailDerived", () => {
     expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
       streams: { heartrate: undefined },
       heartRate: undefined,
+    });
+  });
+
+  it("uses an index axis to repair sparse legacy heart rate when time is empty", () => {
+    const streams = {
+      time: [],
+      heartrate: [0, 140, 150, 0],
+    };
+
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { heartrate: undefined },
+      heartRate: { values: [140, 150], time: [1, 2], complete: false },
     });
   });
 
