@@ -83,6 +83,55 @@ describe("activityDetailDerived", () => {
     expect(covered).toMatchObject({ averagePower: 40, maxPower: 200, hasReliablePower: true });
   });
 
+  it("counts non-finite legacy samples in the coverage denominator", () => {
+    const streams = {
+      distance: Array.from({ length: 200 }, (_, index) => index),
+      watts: [200, 250, 300, ...Array(197).fill(Number.NaN)],
+    };
+    const summary = deriveStreamSensorSummary(streams as never);
+    const projection = buildActivityAnalysisProjection(streams as never);
+    const sampled = buildSampledData(streams as never);
+
+    expect(summary).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      averagePower: null,
+      maxPower: null,
+      powerSource: null,
+    });
+    expect(projection?.streams.watts).toBeUndefined();
+    expect(getAvailableOverlays(sampled).map((overlay) => overlay.key)).not.toContain("power");
+  });
+
+  it("rejects power truncated against the activity axis and falls back to complete watts_calc", () => {
+    const base = {
+      distance: Array.from({ length: 200 }, (_, index) => index),
+      time: Array.from({ length: 200 }, (_, index) => index),
+      watts: [200, 220, 240],
+    };
+    const rejectedSummary = deriveStreamSensorSummary(base as never);
+    expect(rejectedSummary).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      powerSource: null,
+    });
+    expect(buildActivityAnalysisProjection(base as never)?.streams.watts).toBeUndefined();
+
+    const withFallback = { ...base, watts_calc: Array(200).fill(175) };
+    const fallbackSummary = deriveStreamSensorSummary(withFallback as never);
+    const fallbackProjection = buildActivityAnalysisProjection(withFallback as never);
+    const sampled = buildSampledData(withFallback as never);
+    expect(fallbackSummary).toMatchObject({
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      powerSource: "watts_calc",
+      averagePower: 175,
+      maxPower: 175,
+    });
+    expect(fallbackProjection?.streams).toMatchObject({ watts: undefined, watts_calc: withFallback.watts_calc });
+    expect(sampled.every((point) => point.power === 175)).toBe(true);
+  });
+
   it("keeps short or coast-heavy legacy power at backend-consistent coverage", () => {
     const short = {
       time: Array.from({ length: 20 }, (_, index) => index),

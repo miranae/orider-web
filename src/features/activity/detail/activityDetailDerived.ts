@@ -55,11 +55,12 @@ export interface SelectedPowerStream {
   hasCandidate: boolean;
 }
 
-function trustedLegacyPower(values: readonly number[] | undefined): number[] | null {
+function trustedLegacyPower(values: readonly number[] | undefined, expectedCount: number): number[] | null {
   if (!values) return null;
   const finite = values.filter((value) => Number.isFinite(value) && value >= 0);
   const positiveCount = finite.filter((value) => value > 0).length;
-  return positiveCount / Math.max(finite.length, 1) >= LEGACY_POWER_MIN_POSITIVE_COVERAGE
+  const coverageDenominator = Math.max(values.length, expectedCount, 1);
+  return positiveCount / coverageDenominator >= LEGACY_POWER_MIN_POSITIVE_COVERAGE
     ? finite
     : null;
 }
@@ -69,6 +70,7 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
 
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const hasLegacyCandidate = !!streams.watts?.length || !!streams.watts_calc?.length;
+  const expectedLegacyCount = Math.max(streams.time?.length ?? 0, streams.distance?.length ?? 0);
   if (explicit) {
     const finiteValues = explicit.watts.filter(
       (value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0,
@@ -85,7 +87,7 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
     }
   }
 
-  const trustedWatts = trustedLegacyPower(streams.watts);
+  const trustedWatts = trustedLegacyPower(streams.watts, expectedLegacyCount);
   if (trustedWatts) {
     return {
       source: "watts",
@@ -94,7 +96,7 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
       hasCandidate: true,
     };
   }
-  const trustedCalculatedWatts = trustedLegacyPower(streams.watts_calc);
+  const trustedCalculatedWatts = trustedLegacyPower(streams.watts_calc, expectedLegacyCount);
   if (trustedCalculatedWatts) {
     return {
       source: "watts_calc",
