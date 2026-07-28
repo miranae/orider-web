@@ -906,24 +906,104 @@ const PRODUCT_RESPONSE_SCHEMAS = new Map([
       asOf: PRODUCT_SCALAR } } }],
 ]);
 
-function assertProductShape(value, schema, path) {
-  if (typeof schema === "function") return assertProductShape(value, schema(value), path);
-  if (schema === PRODUCT_SCALAR) {
-    if (value !== null && typeof value === "object" || typeof value === "undefined") {
-      throw new Error(`web_evidence:v3_product_schema:${path}`);
+const PRODUCT_PRIVATE_TEXT = [
+  RAW_PRIVATE_VALUE,
+  /(?<!\d)(?:\+?82[- .]?)?0?1[016789][- .]?\d{3,4}[- .]?\d{4}(?!\d)/u,
+  /(?:서울(?:특별시)?|부산(?:광역시)?|대구(?:광역시)?|인천(?:광역시)?|광주(?:광역시)?|대전(?:광역시)?|울산(?:광역시)?|세종(?:특별자치시)?|경기(?:도)?|강원(?:도)?|충청[남북]도|전라[남북]도|경상[남북]도|제주(?:특별자치도)?)\s+\S+(?:구|군|시)\s+\S+(?:로|길|동)\s*\d*/u,
+  /\b\d{1,6}\s+(?:[A-Za-z0-9.'-]+\s+){0,5}(?:street|st|road|rd|avenue|ave|boulevard|blvd|lane|ln)\b/iu,
+  /(?:user\s*name|full\s*name|display\s*name|이름)\s*[:=]\s*[^,;\n]{2,80}/iu,
+  /\b(?:session|client)[-_ ]?secret\b/iu,
+  /\b(?:secret|token|cookie|credential)[-_][A-Za-z0-9._~-]{8,}\b/iu,
+  /(?:credential|client[-_ ]?secret|session[-_ ]?(?:secret|token|cookie)|set[-_ ]?cookie|api[-_ ]?key)\s*[:=]?\s*[A-Za-z0-9._~-]{4,}/iu,
+];
+const PRODUCT_BOOLEAN_PATH = /\.(?:partial|stale|truncated|estimatedLoad|consumed|blocked|retryable|fallbackAvailable|previousTurnConsumed|providerCallAllowed)$/u;
+const PRODUCT_ID_PATH = /\.(?:requestId|answerId|sourceFactsId|snapshotId|sourceRevision|evidenceId|sourceId|blockId|sourceSlotId|factsId|proposalId|auditId|goalId|weekId|ruleId|inputRevision|catalogVersion|prescriptionRulesVersion)$/u;
+const PRODUCT_ENUM_RULES = [
+  [/^response\.status$/u, new Set(["ok"])],
+  [/^response\.data\.recoveryStatus$/u, new Set(["not_found", "pending", "applied", "reverted", "inactive"])],
+  [/^response\.data\.outcome$/u, new Set(["answer", "clarification_required", "unsupported", "quota_exceeded", "budget_blocked", "failed"])],
+  [/^response\.data\.answer\.status$/u, new Set(["complete", "partial"])],
+  [/^response\.data\.proposal\.status$/u,
+    new Set(["pending", "applied", "expired", "superseded", "consent_revoked", "reverted"])],
+  [/^response\.data\.answer\.blocks\.\d+\.prescription\.status$/u,
+    new Set(["ready", "needs_checkin", "insufficient_data", "safety_blocked"])],
+  [/^response\.data\.answer\.blocks\.\d+\.kind$/u, new Set(["headline", "grounded_markdown", "prescription"])],
+  [/^response\.data\.profile\.type$/u,
+    new Set(["RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist"])],
+  [/^response\.data\.execution\.parser$/u, new Set(["deterministic", "provider", "report_provider"])],
+  [/^request\.discipline$/u, new Set(["bike"])],
+  [/^request\.responseFormat$/u, new Set(["auto", "table", "chart"])],
+  [/^request\.(?:apiVersion|capabilityVersion|schemaVersion)$/u,
+    new Set(["v2", "p1", "coach-respond-v2"])],
+];
+
+function assertProductScalar(value, path, pathname, options) {
+  if (value !== null && typeof value === "object" || typeof value === "undefined"
+      || typeof value === "number" && !Number.isFinite(value)) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  if (typeof value === "string") {
+    if (PRODUCT_PRIVATE_TEXT.some((pattern) => pattern.test(value))) {
+      throw new Error(`web_evidence:v3_product_privacy:${path}`);
     }
-    return;
+    if (PRODUCT_ID_PATH.test(path) && (!/^[A-Za-z0-9_.:-]{1,256}$/u.test(value))) {
+      throw new Error(`web_evidence:v3_product_semantic:${path}`);
+    }
+  }
+  if (PRODUCT_BOOLEAN_PATH.test(path) && typeof value !== "boolean") {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  if (/\.(?:providerCalls|writes|omittedCount|inputTokens|outputTokens)$/u.test(path)
+      && (!Number.isInteger(value) || value < 0)) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  if (/\.providerCalls$/u.test(path) && value > 2
+      || /\.(?:confidence|r2)$/u.test(path) && (typeof value !== "number" || value < 0 || value > 1)
+      || /(?:Percentile|\.percentile)$/u.test(path) && (typeof value !== "number" || value < 0 || value > 100)) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  const enumRule = PRODUCT_ENUM_RULES.find(([pattern]) => pattern.test(path));
+  if (enumRule && !enumRule[1].has(value)) throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  const statusValues = pathname === "/v1/coach/status" ? ["available"]
+    : pathname === "/v1/coach/insights/pmc" ? ["ok", "partial", "stale", "missing"]
+      : pathname === "/v1/coach/insights/rider"
+        ? ["missing", "missing_weight", "insufficient_activity", "low_confidence", "ok", "unsupported"] : null;
+  if (path === "response.data.status" && statusValues && !statusValues.includes(value)) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  if (path === "request.question" && !FOUR_AXIS_CASES.some((entry) => entry.question === value)) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  if (path === "request.courseId" && value !== options.courseId) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  const progress = options.progressPlanner ?? {};
+  if (/\.prescriptionId$/u.test(path) && value !== progress.prescriptionId
+      || /\.sourceRequestId$/u.test(path) && value !== progress.sourceRequestId
+      || /\.proposalId$/u.test(path) && value !== progress.proposalId) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+  if (path === "request.requestId" && !UUID.test(value)
+      || /\.contextToken$/u.test(path) && typeof value === "string" && !/^ride2\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u.test(value)) {
+    throw new Error(`web_evidence:v3_product_semantic:${path}`);
+  }
+}
+
+function assertProductShape(value, schema, path, pathname, options) {
+  if (typeof schema === "function") return assertProductShape(value, schema(value), path, pathname, options);
+  if (schema === PRODUCT_SCALAR) {
+    assertProductScalar(value, path, pathname, options); return;
   }
   if (Array.isArray(schema)) {
     if (!Array.isArray(value)) throw new Error(`web_evidence:v3_product_schema:${path}`);
-    value.forEach((item, index) => assertProductShape(item, schema[0], `${path}.${index}`)); return;
+    value.forEach((item, index) => assertProductShape(item, schema[0], `${path}.${index}`, pathname, options)); return;
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`web_evidence:v3_product_schema:${path}`);
   }
   for (const [key, item] of Object.entries(value)) {
     if (!Object.hasOwn(schema, key)) throw new Error(`web_evidence:v3_product_schema:${path}.${key}`);
-    assertProductShape(item, schema[key], `${path}.${key}`);
+    assertProductShape(item, schema[key], `${path}.${key}`, pathname, options);
   }
 }
 
@@ -941,11 +1021,13 @@ export function assertProductNetworkPrivacy(url, requestBody, responseBody, opti
   const requestSchema = PRODUCT_REQUEST_SCHEMAS.get(pathname);
   if (requestBody !== undefined) {
     if (!requestSchema) throw new Error("web_evidence:v3_product_schema:request");
-    assertProductShape(requestBody, requestSchema, "request");
+    assertProductShape(requestBody, requestSchema, "request", pathname, options);
   } else if (requestSchema) throw new Error("web_evidence:v3_product_schema:request");
   const responseSchema = PRODUCT_RESPONSE_SCHEMAS.get(pathname);
   if (!responseSchema) throw new Error("web_evidence:v3_product_schema:response");
-  if (responseBody && Object.keys(responseBody).length > 0) assertProductShape(responseBody, responseSchema, "response");
+  if (responseBody && Object.keys(responseBody).length > 0) {
+    assertProductShape(responseBody, responseSchema, "response", pathname, options);
+  }
   const approvedField = (direction, path, key, value) => {
     if (direction === "request" && pathname === "/v1/coach/respond" && path === "" && key === "question") {
       return FOUR_AXIS_CASES.some((entry) => entry.question === value);

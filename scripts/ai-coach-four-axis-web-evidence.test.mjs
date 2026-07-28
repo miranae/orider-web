@@ -398,6 +398,20 @@ test("scans raw product URL and bodies but retains only redacted capture digests
   const markdownResponse = { data: { answer: { blocks: [{ kind: "grounded_markdown",
     markdown: "Route coordinates are intentionally omitted from this summary.", evidenceIds: [] }] } } };
   assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, markdownResponse, options));
+  const statusUrl = new URL("https://candidate---stage.example.com/v1/coach/status");
+  assert.doesNotThrow(() => assertProductNetworkPrivacy(statusUrl, undefined,
+    { data: { status: "available" } }, options));
+  assert.throws(() => assertProductNetworkPrivacy(statusUrl, undefined,
+    { data: { status: "session-secret" } }, options), /v3_product_(?:semantic|privacy)/u);
+  for (const [field, value] of [["markdown", "Call 010-1234-5678 after the ride."],
+    ["questionSummary", "서울특별시 강남구 테헤란로 123"],
+    ["markdown", "User name: Hong Gil Dong"], ["questionSummary", "credential_OpaqueValue123456"]]) {
+    const textLeak = structuredClone(markdownResponse);
+    if (field === "markdown") textLeak.data.answer.blocks[0].markdown = value;
+    else textLeak.data.answer[field] = value;
+    assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, textLeak, options),
+      /v3_product_privacy/u);
+  }
   for (const key of ["coordinate", "coordinates", "exactCoordinates"]) {
     const coordinateLeak = structuredClone(markdownResponse);
     coordinateLeak.data.answer.blocks[0][key] = { latitude: 37.5, longitude: 127 };
