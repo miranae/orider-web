@@ -9,6 +9,7 @@ import Ajv from "ajv";
 import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidence.mjs";
 import { bindLocalContextToRequest, collectLiveComparison, collectStageBaselineComparison, createLocalEvidenceEnvelope,
   decodeEvidenceRequest, decodeLocalOperatorContext, FOUR_AXIS_CASES, localWebEvidenceArtifactName,
+  observedProductUserDataWrites,
   parseOrchestratorActorAllowlist, prefixedEvidenceDigest, privacyScan, MAX_HTTP_RESPONSE_BYTES,
   REQUIRED_RENDER_ASSERTIONS, targetFingerprint,
   validateDispatchRequest, validateLocalEvidenceEnvelope, validateLocalOperatorContext, validateLocalOperatorRequest,
@@ -248,6 +249,19 @@ function observedHttp() {
     return new Response(JSON.stringify(receipt), { status: 200, headers: { "content-type": "application/json" } });
   };
 }
+
+test("counts user writes only from a successful server write receipt and explicit count", () => {
+  const path = `/v1/coach/change-proposals/proposal_${"d".repeat(24)}/confirm`;
+  const receipt = { status: "ok", userDataWrites: 1, data: { schemaVersion: "coach-change-receipt-v1",
+    proposalId: `proposal_${"d".repeat(24)}`, auditId: `audit_${"f".repeat(24)}`, status: "applied" } };
+  assert.equal(observedProductUserDataWrites("POST", path, { ok: false, status: 400 }, receipt), 0);
+  assert.equal(observedProductUserDataWrites("POST", path, { ok: false, status: 500 }, receipt), 0);
+  assert.equal(observedProductUserDataWrites("POST", path, { ok: true }, { ...receipt, userDataWrites: 0 }), 0);
+  assert.equal(observedProductUserDataWrites("POST", path, { ok: true }, receipt), 1);
+  assert.equal(observedProductUserDataWrites("POST", path, { ok: true }, { status: "ok", data: receipt.data }), 0);
+  assert.throws(() => observedProductUserDataWrites("POST", path, { ok: true },
+    { status: "ok", userDataWrites: 1, data: { status: "applied" } }), /v3_user_write_receipt/u);
+});
 
 test("validates immutable JSON/base64url dispatch, expiry, consumer SHA and target fingerprints", () => {
   assert.deepEqual(decodeEvidenceRequest(fixtureText, fixtureHash).value, request);
@@ -835,6 +849,18 @@ test("publishes a backend-cross-checkable representative v3 schema and artifact"
     const changed = structuredClone(artifact); mutate(changed);
     assert.throws(() => validateWebStageBaselineEvidenceArtifact(changed, semanticExpected), /web_evidence:/u);
   }
+  const writeObserved = structuredClone(artifact);
+  const observation = writeObserved.liveComparison.baseline[0];
+  observation.userDataWrites = 1; observation.productExecution.userDataWrites = 1;
+  observation.receiptDigest = prefixedEvidenceDigest({ schemaVersion: "ai-coach-four-axis-http-receipt-v1",
+    correlationDigest: rawDigest(CORRELATION), caseId: observation.caseId,
+    fixtureDigest: observation.fixtureDigest, requestDigest: observation.requestDigest,
+    targetFingerprint: writeObserved.targets.baseline.targetFingerprint, outcome: "answer",
+    providerCalls: observation.providerCalls, quotaConsumed: observation.quotaConsumed,
+    userDataWrites: observation.userDataWrites, card: observation.card, response: observation.response,
+    productExecution: observation.productExecution });
+  assert.notEqual(observation.receiptDigest, artifact.liveComparison.baseline[0].receiptDigest);
+  assert.throws(() => validateWebStageBaselineEvidenceArtifact(writeObserved, semanticExpected), /web_evidence:/u);
   const schema = JSON.parse(readFileSync("scripts/fixtures/ai-coach-four-axis-stage-baseline-evidence-v3.schema.json", "utf8"));
   const validateSchema = new Ajv({ allErrors: true }).compile(schema);
   assert.equal(validateSchema(artifact), true, JSON.stringify(validateSchema.errors));

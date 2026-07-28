@@ -591,6 +591,24 @@ function productHeaders(options) {
     "x-orider-evidence-orchestrator-actor": options.orchestratorActor };
 }
 
+export function observedProductUserDataWrites(method, path, response, value) {
+  const pathname = new URL(path, "https://evidence.invalid").pathname;
+  if (method === "GET" || !response?.ok
+      || !PRODUCT_USER_DATA_WRITE_PATHS.some((pattern) => pattern.test(pathname))) return 0;
+  const count = value?.userDataWrites;
+  if (count === undefined) return 0;
+  if (!Number.isSafeInteger(count) || count < 0) throw new Error("web_evidence:v3_user_write_count");
+  if (count === 0) return 0;
+  const receipt = value?.status === "ok" ? value.data : null;
+  if (receipt?.schemaVersion !== "coach-change-receipt-v1"
+      || !/^proposal_[0-9a-f]{24}$/u.test(receipt.proposalId ?? "")
+      || !/^audit_[0-9a-f]{24}$/u.test(receipt.auditId ?? "")
+      || !["applied", "reverted"].includes(receipt.status)) {
+    throw new Error("web_evidence:v3_user_write_receipt");
+  }
+  return count;
+}
+
 async function assertStageLease(options, operation) {
   if (typeof options.assertStageLease === "function") await options.assertStageLease(operation);
 }
@@ -640,7 +658,7 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
   const latencyMs = Math.max(0, Math.round(options.clock() - started));
   const pathname = new URL(path, origin).pathname;
   return { response, value, latencyMs, responseDigest: prefixedEvidenceDigest(value),
-    userDataWrites: Number(method !== "GET" && PRODUCT_USER_DATA_WRITE_PATHS.some((pattern) => pattern.test(pathname))),
+    userDataWrites: observedProductUserDataWrites(method, path, response, value),
     capture: { url: `${origin}${pathname}`, requestBody: body === undefined ? "" : prefixedEvidenceDigest(body),
       responseBody: prefixedEvidenceDigest(value) } };
 }
