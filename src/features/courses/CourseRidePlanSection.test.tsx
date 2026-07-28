@@ -105,6 +105,28 @@ describe("CourseRidePlanSection", () => {
     expect(JSON.stringify(mocks.log.mock.calls)).not.toContain("private-course");
   });
 
+  it.each(["failure", "projection mismatch"] as const)(
+    "clears an old selection before a new AI-context %s and never restores its context", async (outcome) => {
+      loadAiContext.mockResolvedValueOnce({ schemaVersion: plan.schemaVersion, inputRevision,
+        questionCode: "HARDEST_SECTION", course: plan.course, estimate: plan.estimate,
+        segments: plan.segments, assumptions: plan.assumptions });
+      if (outcome === "failure") loadAiContext.mockRejectedValueOnce(new Error("projection failed"));
+      else loadAiContext.mockResolvedValueOnce({ schemaVersion: plan.schemaVersion, inputRevision,
+        questionCode: "PERSONAL_PACING", course: plan.course,
+        estimate: { ...plan.estimate!, totalTimeSec: plan.estimate!.totalTimeSec + 1 },
+        segments: plan.segments, assumptions: plan.assumptions });
+      renderSection();
+      const userEventInstance = userEvent.setup();
+      await userEventInstance.click(await screen.findByRole("button", { name: "이 코스에서 가장 힘든 구간은 어디인가요?" }));
+      await vi.waitFor(() => expect(mocks.launcher).toHaveBeenLastCalledWith(expect.objectContaining({
+        ridePlanSelection: expect.objectContaining({ context: expect.objectContaining({ questionCode: "HARDEST_SECTION" }) }),
+      })));
+
+      await userEventInstance.click(screen.getByRole("button", { name: "제 능력에 맞춰 어떻게 나눠 타면 될까요?" }));
+      expect(await screen.findByText(/질문 컨텍스트가 카드와 일치하지 않아/u)).toBeInTheDocument();
+      expect(mocks.launcher).toHaveBeenLastCalledWith(expect.objectContaining({ ridePlanSelection: null }));
+    });
+
   it("ignores a deferred route A projection after route B replaces its plan", async () => {
     let resolveRouteA: ((value: Awaited<ReturnType<typeof getCoachRidePlanAiContext>>) => void) | undefined;
     const routeAProjection = new Promise<Awaited<ReturnType<typeof getCoachRidePlanAiContext>>>((resolve) => {

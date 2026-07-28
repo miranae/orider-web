@@ -341,6 +341,9 @@ describe("CoachPrescription", () => {
       locale="ko-KR" onReanalyze={vi.fn()} />);
     await userEvent.setup().click(await screen.findByRole("button", { name: "변경안 미리보기" }));
     expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "변경안 미리보기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "적용 후보 날짜" })).not.toBeInTheDocument();
+    expect(createProposal).toHaveBeenCalledTimes(1);
     if (reanalyze) expect(screen.getByRole("button", { name: "새 분석으로 다시 확인" })).toBeInTheDocument();
     else expect(screen.queryByRole("button", { name: "새 분석으로 다시 확인" })).not.toBeInTheDocument();
   });
