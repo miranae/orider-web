@@ -478,8 +478,11 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     legacyDurationSec,
   ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc, legacyDurationSec]);
   const watts = useMemo(
-    () => plausibleWatts(selectedPowerSeries.values, ftp, selectedPowerSeries.segmentStarts) ?? [],
-    [selectedPowerSeries.values, selectedPowerSeries.segmentStarts, ftp],
+    () => plausibleWatts(selectedPowerSeries.values, ftp, {
+      durationsSec: selectedPowerSeries.durationsSec,
+      segmentStarts: selectedPowerSeries.segmentStarts,
+    }) ?? [],
+    [selectedPowerSeries.durationsSec, selectedPowerSeries.segmentStarts, selectedPowerSeries.values, ftp],
   );
   const selectedHeartRateSeries = useMemo(() => selectWholeSessionSensorSeries(
     sensorHeartRate,

@@ -6,17 +6,24 @@
  * 클라/서버 동일 정제를 위해 같은 룰을 적용한다. (functions 는 런타임 shared import 불가라
  * 분석 클라/서버 미러 패턴 — CLAUDE.md "분석: 클라 vs 서버" — 을 따른다.)
  */
+import {
+  maxWeightedAverage,
+  sampleDurationsSec,
+  type SampleTiming,
+} from "./sampleTime";
+
 const MAX_PLAUSIBLE_WATTS = 2000;
 
 /**
  * @param raw 원본 파워 스트림. 비거나 없으면 그대로 반환.
  * @param ftp 임계파워(W). cap 판정 기준(없으면 600/700 폴백).
+ * @param timing 샘플별 실제 소유 시간과 결측 구간 경계.
  * @returns 신뢰 가능하면 고립 스파이크만 2000W 클램프한 배열, 비현실(평균/5분>2×FTP)이면 undefined.
  */
 export function plausibleWatts(
   raw: number[] | undefined,
   ftp: number | undefined,
-  segmentStarts?: readonly boolean[],
+  timing?: SampleTiming,
 ): number[] | undefined {
   if (!raw || raw.length === 0) return raw;
 
@@ -29,22 +36,14 @@ export function plausibleWatts(
   if (cnt > 0 && sum / cnt > cap) return undefined; // 평균 비현실 → 파워 신뢰 불가
 
   // 5분(≈300s) 최대 롤링평균이 2×FTP(또는 700W) 초과면 어떤 라이더도 불가능.
-  const W5 = 300;
-  if (raw.length >= W5) {
-    const cap5 = typeof ftp === "number" && ftp > 0 ? ftp * 2 : 700;
-    let win = 0, runLength = 0, maxWin = 0;
-    for (let i = 0; i < raw.length; i++) {
-      if (i > 0 && segmentStarts?.[i]) { win = 0; runLength = 0; }
-      win += Number.isFinite(raw[i]!) && raw[i]! > 0 ? raw[i]! : 0;
-      runLength++;
-      if (runLength > W5) {
-        win -= Number.isFinite(raw[i - W5]!) && raw[i - W5]! > 0 ? raw[i - W5]! : 0;
-        runLength--;
-      }
-      if (runLength === W5 && win > maxWin) maxWin = win;
-    }
-    if (maxWin / W5 > cap5) return undefined; // 5분 지속파워 비현실 → 파워 신뢰 불가
-  }
+  const fiveMinuteMax = maxWeightedAverage(
+    raw.map((watts) => Number.isFinite(watts) && watts > 0 ? watts : 0),
+    sampleDurationsSec(raw.length, undefined, timing),
+    300,
+    timing?.segmentStarts,
+  );
+  const cap5 = typeof ftp === "number" && ftp > 0 ? ftp * 2 : 700;
+  if (fiveMinuteMax != null && fiveMinuteMax > cap5) return undefined;
 
   // 신뢰 가능 → 고립 스파이크만 per-sample 클램프.
   return raw.map((w) => (typeof w === "number" && w > MAX_PLAUSIBLE_WATTS ? MAX_PLAUSIBLE_WATTS : w));

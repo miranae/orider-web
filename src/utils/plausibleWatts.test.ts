@@ -42,4 +42,33 @@ describe("plausibleWatts", () => {
     // 유효 평균 = (100+200)/2 = 150, FTP 200 → cap 400, 통과. 클램프 없음.
     expect(plausibleWatts(raw, 200)).toEqual([100, -5, NaN, 200]);
   });
+
+  it.each([1, 2, 4])("%i Hz에서 300초보다 짧은 고출력 구간을 5분으로 오인하지 않는다", (rateHz) => {
+    const raw = Array(1_200 * rateHz).fill(100);
+    raw.fill(500, 0, 150 * rateHz);
+    const durationsSec = Array(raw.length).fill(1 / rateHz);
+
+    expect(plausibleWatts(raw, 200, { durationsSec })).toEqual(raw);
+  });
+
+  it.each([1, 2, 4])("%i Hz에서 실제 300초 지속 고출력을 거부한다", (rateHz) => {
+    const raw = Array(1_200 * rateHz).fill(100);
+    raw.fill(500, 0, 300 * rateHz);
+    const durationsSec = Array(raw.length).fill(1 / rateHz);
+
+    expect(plausibleWatts(raw, 200, { durationsSec })).toBeUndefined();
+  });
+
+  it("결측 구간 경계를 넘어 두 고출력 구간을 하나의 5분 창으로 잇지 않는다", () => {
+    const rateHz = 2;
+    const raw = Array(1_200 * rateHz).fill(100);
+    raw.fill(500, 0, 300 * rateHz);
+    const segmentStarts = Array(raw.length).fill(false);
+    segmentStarts[150 * rateHz] = true;
+
+    expect(plausibleWatts(raw, 200, {
+      durationsSec: Array(raw.length).fill(1 / rateHz),
+      segmentStarts,
+    })).toEqual(raw);
+  });
 });
