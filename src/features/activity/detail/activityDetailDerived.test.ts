@@ -112,6 +112,39 @@ describe("activityDetailDerived", () => {
     });
   });
 
+  it("normalizes malformed persisted numeric arrays before analysis", () => {
+    const streams = {
+      altitude: { malformed: true },
+      distance: "0,10,20",
+      time: withSparseSlot([0, 1, 2], 1),
+      velocity_smooth: "5,6,7",
+      cadence: [80, null, 90],
+    };
+
+    expect(buildActivityAnalysisProjection(streams as never)?.streams).toMatchObject({
+      altitude: undefined,
+      distance: undefined,
+      time: undefined,
+      velocity_smooth: undefined,
+      cadence: undefined,
+      heartrate: undefined,
+      watts: undefined,
+      watts_calc: undefined,
+    });
+  });
+
+  it("keeps valid persisted analysis arrays including negative altitude", () => {
+    const streams = {
+      altitude: [-5, 0, 10],
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      velocity_smooth: [0, 5, 6],
+      cadence: [0, 80, 90],
+    };
+
+    expect(buildActivityAnalysisProjection(streams as never)?.streams).toMatchObject(streams);
+  });
+
   it.each([
     ["null", null],
     ["string", "200"],
@@ -347,6 +380,8 @@ describe("activityDetailDerived", () => {
     ["short", [0, 1]],
     ["non-finite", [0, Number.NaN, 2]],
     ["non-monotonic", [0, 2, 1]],
+    ["unsafe integer", [0, 1, 1e308]],
+    ["repeated max-safe integer", [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
   ])("rejects measured V1 power on a %s axis without legacy fallback", (_case, explicitTime) => {
     const streams = {
       distance: [0, 10, 20],
@@ -385,6 +420,8 @@ describe("activityDetailDerived", () => {
     ["short", [0, 1]],
     ["non-finite", [0, Number.POSITIVE_INFINITY, 2]],
     ["non-monotonic", [0, 2, 2]],
+    ["unsafe integer", [0, 1, 1e308]],
+    ["repeated max-safe integer", [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
   ])("rejects measured V1 heart rate on a %s axis without legacy fallback", (_case, explicitTime) => {
     const streams = {
       distance: [0, 10, 20],
@@ -413,6 +450,95 @@ describe("activityDetailDerived", () => {
     });
     expect(projection).toMatchObject({ streams: { heartrate: undefined }, heartRate: undefined });
     expect(sampled.every((point) => point.heartRate === 0)).toBe(true);
+  });
+
+  it.each([
+    ["missing timeUnit", undefined, 1, [0, 1, 2]],
+    ["wrong timeUnit", "milliseconds", 1, [0, 1, 2]],
+    ["missing resolution", "relative_seconds", undefined, [0, 1, 2]],
+    ["wrong resolution", "relative_seconds", 2, [0, 1, 2]],
+    ["irregular millisecond-like time", "relative_seconds", 1, [0, 1000, 2000]],
+  ])("rejects measured V1 power with %s", (_case, timeUnit, resolutionSeconds, explicitTime) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      watts_calc: [300, 310, 320],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit,
+        resolutionSeconds,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        heartrate: [null, null, null],
+        watts: [200, 210, 220],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      powerSource: null,
+      hasRejectedPowerStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { watts: undefined, watts_calc: undefined },
+      power: undefined,
+    });
+  });
+
+  it.each([
+    ["missing timeUnit", undefined, 1, [0, 1, 2]],
+    ["wrong timeUnit", "milliseconds", 1, [0, 1, 2]],
+    ["missing resolution", "relative_seconds", undefined, [0, 1, 2]],
+    ["wrong resolution", "relative_seconds", 2, [0, 1, 2]],
+    ["irregular millisecond-like time", "relative_seconds", 1, [0, 1000, 2000]],
+  ])("rejects measured V1 heart rate with %s", (_case, timeUnit, resolutionSeconds, explicitTime) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      heartrate: [150, 155, 160],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit,
+        resolutionSeconds,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        heartrate: [140, 141, 142],
+        watts: [null, null, null],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      heartRateSource: null,
+      hasRejectedHeartRateStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { heartrate: undefined },
+      heartRate: undefined,
+    });
+  });
+
+  it("allows legacy fallback when V1 has no measured channels despite invalid metadata", () => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      heartrate: [150, 155, 160],
+      watts_calc: [300, 310, 320],
+      sensorStreamsV1: {
+        version: 1,
+        time: [0, 1000, 2000],
+        heartrate: [null, 0, null],
+        watts: [null, null, null],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      heartRateSource: "heartrate",
+      powerSource: "watts_calc",
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { heartrate: streams.heartrate, watts_calc: streams.watts_calc },
+      heartRate: undefined,
+      power: undefined,
+    });
   });
 
   it.each([
@@ -851,6 +977,26 @@ describe("activityDetailDerived", () => {
       },
     });
   });
+
+  it.each([null, { malformed: true }, "10,20,30"])(
+    "keeps sensor stats without throwing when persisted chart arrays are %j",
+    (malformedArray) => {
+      const streams = {
+        distance: [0, 10, 20],
+        altitude: malformedArray,
+        velocity_smooth: malformedArray,
+        heartrate: [140, 150, 160],
+      };
+      const summary = deriveStreamSensorSummary(streams as never);
+
+      expect(() => buildSummaryStats(streams as never, summary)).not.toThrow();
+      expect(buildSummaryStats(streams as never, summary)).toEqual({
+        minElev: 0,
+        maxElev: 0,
+        overlays: { hr: { avg: 150, max: 160 } },
+      });
+    },
+  );
 
   it("lets an owner preview override explicit sensor power", () => {
     const streams = {

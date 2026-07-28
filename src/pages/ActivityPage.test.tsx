@@ -897,6 +897,47 @@ describe("ActivityPage", () => {
     });
   });
 
+  it("does not crash when persisted altitude and speed are non-array values", async () => {
+    const activity = createMockActivity({ id: "test-activity", source: "orider" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        time: [0, 1, 2],
+        altitude: { malformed: true },
+        velocity_smooth: "not-an-array",
+        heartrate: [140, 150, 160],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).toHaveTextContent("평균 심박150bpm최고 160"));
+  });
+
+  it("opens the analysis tab with malformed persisted numeric arrays", async () => {
+    const activity = createMockActivity({ id: "test-activity", source: "orider" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: { malformed: true },
+        altitude: "not-an-array",
+        time: { malformed: true },
+        velocity_smooth: "not-an-array",
+        cadence: { malformed: true },
+        heartrate: [140, 150, 160],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
+
+    expect(await screen.findByText("심박 분석")).toBeInTheDocument();
+  });
+
   it("keeps saved HR and cadence when legacy sensor arrays are truncated", async () => {
     const activity = createMockActivity({
       id: "test-activity",

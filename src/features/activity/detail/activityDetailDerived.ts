@@ -65,13 +65,19 @@ export interface SelectedHeartRateStream {
   hasRejectedMeasurement: boolean;
 }
 
-function hasValidExplicitAxis(time: readonly number[], channelLength: number): boolean {
+function hasValidExplicitAxis(
+  time: readonly number[],
+  channelLength: number,
+  timeUnit: unknown,
+  resolutionSeconds: unknown,
+): boolean {
   if (channelLength === 0 || channelLength !== time.length) return false;
+  if (timeUnit !== "relative_seconds" || resolutionSeconds !== 1 || !Number.isFinite(resolutionSeconds)) return false;
   for (let index = 0; index < time.length; index++) {
     if (!Object.prototype.hasOwnProperty.call(time, index)) return false;
     const timestamp = time[index];
-    if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) return false;
-    if (index > 0 && timestamp <= time[index - 1]!) return false;
+    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) return false;
+    if (index > 0 && timestamp - time[index - 1]! !== resolutionSeconds) return false;
   }
   return true;
 }
@@ -102,6 +108,20 @@ function hasSufficientAxisCoverage(valuesLength: number, expectedCount: number):
 
 function runtimeArray<T>(value: unknown): T[] | undefined {
   return Array.isArray(value) ? value as T[] : undefined;
+}
+
+function persistedNumericArray(value: unknown, allowNegative: boolean): number[] | undefined {
+  const values = runtimeArray<unknown>(value);
+  if (!values || !hasDenseArraySlots(values)) return undefined;
+  if (!values.every((sample) => typeof sample === "number"
+    && Number.isFinite(sample)
+    && (allowNegative || sample >= 0))) return undefined;
+  return values as number[];
+}
+
+function persistedTimeArray(value: unknown): number[] | undefined {
+  const values = persistedNumericArray(value, false);
+  return values?.every((sample) => Number.isSafeInteger(sample)) ? values : undefined;
 }
 
 function trustedLegacyPower(values: readonly number[] | undefined, expectedCount: number): number[] | null {
@@ -143,7 +163,12 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
     // legacy fallback because virtual power remains on the top-level axis.
     if (finiteValues.length > 0) {
       const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
-      if (!explicitTime || !hasValidExplicitAxis(explicitTime, explicitWatts?.length ?? 0)) {
+      if (!explicitTime || !hasValidExplicitAxis(
+        explicitTime,
+        explicitWatts?.length ?? 0,
+        explicit.timeUnit,
+        explicit.resolutionSeconds,
+      )) {
         return { source: null, values: null, finiteValues: [], hasCandidate: true };
       }
       return {
@@ -176,8 +201,11 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
   return { source: null, values: null, finiteValues: [], hasCandidate: hasLegacyCandidate };
 }
 
-function positiveValues(values: readonly (number | null | undefined)[] | undefined): number[] {
-  return values?.filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0) ?? [];
+function positiveValues(values: unknown): number[] {
+  if (!Array.isArray(values)) return [];
+  return values.filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0,
+  );
 }
 
 function trustedLegacySensor(values: readonly number[] | undefined, expectedCount: number): number[] | null {
@@ -204,7 +232,12 @@ export function selectActivityHeartRateStream(streams: ActivityStreams | null): 
   const explicitPositive = positiveValues(explicitHeartRate);
   if (explicit && explicitHeartRate && explicitPositive.length > 0) {
     const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
-    if (!explicitTime || !hasValidExplicitAxis(explicitTime, explicitHeartRate.length)) {
+    if (!explicitTime || !hasValidExplicitAxis(
+      explicitTime,
+      explicitHeartRate.length,
+      explicit.timeUnit,
+      explicit.resolutionSeconds,
+    )) {
       return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
     }
     return {
@@ -357,6 +390,26 @@ export function buildActivityAnalysisProjection(
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const selectedPower = selectActivityPowerStream(streams);
   const selectedHeartRate = selectActivityHeartRateStream(streams);
+  const normalizedTime = persistedTimeArray(streams.time);
+  const normalizedDistance = persistedNumericArray(streams.distance, false);
+  const normalizedCadence = persistedNumericArray(streams.cadence, false);
+  const expectedLegacyCount = Math.max(
+    runtimeArray<unknown>(streams.time)?.length ?? 0,
+    runtimeArray<unknown>(streams.distance)?.length ?? 0,
+  );
+  const normalizedStreams: ActivityStreams = {
+    ...streams,
+    altitude: persistedNumericArray(streams.altitude, true),
+    distance: normalizedDistance,
+    time: normalizedTime,
+    velocity_smooth: persistedNumericArray(streams.velocity_smooth, false),
+    cadence: normalizedCadence && trustedLegacySensor(normalizedCadence, expectedLegacyCount)
+      ? normalizedCadence
+      : undefined,
+    heartrate: undefined,
+    watts: undefined,
+    watts_calc: undefined,
+  };
   const legacyHeartRateValues = selectedHeartRate.source === "heartrate"
     ? runtimeArray<number>(streams.heartrate)
     : undefined;
@@ -377,10 +430,14 @@ export function buildActivityAnalysisProjection(
     const usesExplicitHeartRate = selectedHeartRate.source === "sensorStreamsV1";
     return {
       streams: {
-        ...streams,
+        ...normalizedStreams,
         heartrate: projectedLegacyHeartRate,
-        watts: preferTopLevelPower || selectedPower.source === "watts" ? streams.watts : undefined,
-        watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc" ? streams.watts_calc : undefined,
+        watts: preferTopLevelPower
+          ? persistedNumericArray(streams.watts, false)
+          : selectedPower.source === "watts" ? runtimeArray<number>(selectedPower.values) : undefined,
+        watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc"
+          ? runtimeArray<number>(selectedPower.values)
+          : undefined,
       },
       heartRate: usesExplicitHeartRate
         ? measuredSeries(
@@ -405,7 +462,7 @@ export function buildActivityAnalysisProjection(
   if (!preferTopLevelPower && selectedPower.hasCandidate && selectedPower.source == null) {
     return {
       streams: {
-        ...streams,
+        ...normalizedStreams,
         heartrate: projectedLegacyHeartRate,
         watts: undefined,
         watts_calc: undefined,
@@ -416,17 +473,25 @@ export function buildActivityAnalysisProjection(
   if (!preferTopLevelPower && selectedPower.source === "watts_calc" && streams.watts?.length) {
     return {
       streams: {
-        ...streams,
+        ...normalizedStreams,
         heartrate: projectedLegacyHeartRate,
         watts: undefined,
+        watts_calc: runtimeArray<number>(selectedPower.values),
       },
       heartRate,
     };
   }
   return {
-    streams: projectedLegacyHeartRate === streams.heartrate
-      ? streams
-      : { ...streams, heartrate: projectedLegacyHeartRate },
+    streams: {
+      ...normalizedStreams,
+      heartrate: projectedLegacyHeartRate,
+      watts: preferTopLevelPower
+        ? persistedNumericArray(streams.watts, false)
+        : selectedPower.source === "watts" ? runtimeArray<number>(selectedPower.values) : undefined,
+      watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc"
+        ? runtimeArray<number>(selectedPower.values)
+        : undefined,
+    },
     heartRate,
   };
 }
@@ -489,7 +554,9 @@ export function buildSummaryStats(
   streams: ActivityStreams | null,
   sensorSummary: StreamSensorSummary | null,
 ): { minElev: number; maxElev: number; overlays: Record<string, { avg: number; max: number }> } | null {
-  const altitude = streams?.altitude?.filter(Number.isFinite) ?? [];
+  const altitude = (runtimeArray<unknown>(streams?.altitude) ?? []).filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value),
+  );
   const stats: Record<string, { avg: number; max: number }> = {};
   const speed = positiveValues(streams?.velocity_smooth).map((value) => value * 3.6);
   if (speed.length > 0) stats.speed = { avg: average(speed), max: maximum(speed) };
