@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildChartOverlays,
   buildActivityAnalysisProjection,
+  buildActivitySensorSelectionContext,
   buildSampledData,
   buildSummaryStats,
   deriveStreamSensorSummary,
@@ -143,6 +144,104 @@ describe("activityDetailDerived", () => {
         cadence: streams.cadence,
       },
     });
+  });
+
+  it("uses one shared moving-sensor context for chart, summary, and analysis across a cafe pause", () => {
+    const context = buildActivitySensorSelectionContext({
+      ridingTimeMillis: 3_600_000,
+      elapsedTimeMillis: 5_400_000,
+    } as never, 1_700_000_000_000);
+    const streams = {
+      distance: Array.from({ length: 7_200 }, (_, index) => index * 4),
+      velocity_smooth: Array(7_200).fill(8),
+      watts: Array(3_600).fill(200),
+      heartrate: Array(3_600).fill(150),
+      cadence: Array(3_600).fill(85),
+    };
+
+    expect(context).toEqual({
+      legacyDurationSec: 3_600,
+      explicitDurationSec: 5_400,
+      activityStartTime: 1_700_000_000_000,
+    });
+    expect(deriveStreamSensorSummary(streams as never, context)).toMatchObject({
+      hasPowerStream: true,
+      hasHeartRateStream: true,
+      hasCadenceStream: true,
+      rejections: [],
+    });
+    expect(buildActivityAnalysisProjection(streams as never, false, context)).toMatchObject({
+      streams: {
+        watts: streams.watts,
+        heartrate: streams.heartrate,
+        cadence: streams.cadence,
+      },
+    });
+    const chartOverlays = getAvailableOverlays(buildSampledData(streams as never, context))
+      .map((overlay) => overlay.key);
+    expect(chartOverlays).toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
+    expect(getAvailableOverlays(buildSampledData(streams as never)).map((overlay) => overlay.key))
+      .not.toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
+  });
+
+  it("keeps explicit V1 on wall-clock duration while legacy sensors use riding duration", () => {
+    const context = buildActivitySensorSelectionContext({
+      ridingTimeMillis: 3_600_000,
+      elapsedTimeMillis: 5_400_000,
+    } as never, 1_700_000_000_000);
+    const makeStreams = (length: number) => ({
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: Array.from({ length }, (_, index) => index),
+        heartrate: Array(length).fill(150),
+        watts: Array(length).fill(200),
+      },
+    });
+
+    expect(deriveStreamSensorSummary(makeStreams(3_600) as never, context)).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
+    });
+    expect(deriveStreamSensorSummary(makeStreams(5_400) as never, context)).toMatchObject({
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+    });
+  });
+
+  it.each([
+    ["metadata", { timeUnit: "milliseconds" }, "invalid_metadata"],
+    ["axis", { time: [0, 1] }, "invalid_axis"],
+    ["channel", { watts: [200, Number.NaN, 220] }, "invalid_channel"],
+  ])("classifies corrupt explicit power %s without retaining raw samples", (_case, override, reason) => {
+    const streams = {
+      time: [0, 1, 2],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [140, 141, 142],
+        watts: [200, 210, 220],
+        ...override,
+      },
+    };
+
+    const rejection = deriveStreamSensorSummary(streams as never)?.rejections
+      .find((candidate) => candidate.channel === "power");
+    expect(rejection).toMatchObject({
+      channel: "power",
+      source: "sensorStreamsV1",
+      reason,
+    });
+    expect(Object.keys(rejection ?? {})).not.toEqual(expect.arrayContaining(["values", "time"]));
   });
 
   it("uses every validated route axis when summary duration is unavailable", () => {

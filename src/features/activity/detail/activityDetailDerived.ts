@@ -1,5 +1,5 @@
 import type { OverlayDataset } from "../../../components/ElevationChart";
-import type { ActivityStreams } from "@shared/types";
+import type { ActivityStreams, ActivitySummary } from "@shared/types";
 
 import {
   OVERLAY_CONFIGS,
@@ -32,6 +32,33 @@ export interface StreamSensorSummary {
   hasRejectedPowerStream: boolean;
   heartRateSource: "sensorStreamsV1" | "heartrate" | null;
   powerSource: "sensorStreamsV1" | "watts" | "watts_calc" | null;
+  rejections: SensorRejectionDiagnostic[];
+}
+
+export interface ActivitySensorSelectionContext {
+  /** Moving-time duration used by compact legacy sensor arrays. */
+  legacyDurationSec?: number;
+  /** Wall-clock duration used by null-filled explicit V1 axes. */
+  explicitDurationSec?: number;
+  activityStartTime?: number;
+}
+
+export type SensorRejectionReason =
+  | "invalid_channel"
+  | "invalid_metadata"
+  | "invalid_axis"
+  | "missing_duration"
+  | "duration_mismatch"
+  | "origin_mismatch"
+  | "insufficient_coverage"
+  | "insufficient_measurements";
+
+export interface SensorRejectionDiagnostic {
+  channel: "power" | "heart_rate" | "cadence";
+  source: "sensorStreamsV1" | "legacy";
+  reason: SensorRejectionReason;
+  axisLength?: number;
+  channelLength?: number;
 }
 
 export interface AnalysisSensorSeries {
@@ -59,6 +86,7 @@ export interface SelectedPowerStream {
   /** Finite, non-negative samples used for summary statistics. */
   finiteValues: number[];
   hasCandidate: boolean;
+  rejection?: SensorRejectionDiagnostic;
 }
 
 export interface SelectedHeartRateStream {
@@ -66,6 +94,40 @@ export interface SelectedHeartRateStream {
   values: readonly (number | null)[] | null;
   positiveValues: number[];
   hasRejectedMeasurement: boolean;
+  rejection?: SensorRejectionDiagnostic;
+}
+
+function validDurationMillis(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value / 1000
+    : undefined;
+}
+
+export function buildActivitySensorSelectionContext(
+  summary: Pick<ActivitySummary, "ridingTimeMillis" | "elapsedTimeMillis"> | null | undefined,
+  activityStartTime?: number,
+): ActivitySensorSelectionContext {
+  const ridingDurationSec = validDurationMillis(summary?.ridingTimeMillis);
+  const elapsedDurationSec = validDurationMillis(summary?.elapsedTimeMillis);
+  return {
+    legacyDurationSec: ridingDurationSec ?? elapsedDurationSec,
+    explicitDurationSec: elapsedDurationSec ?? ridingDurationSec,
+    activityStartTime,
+  };
+}
+
+function normalizeSelectionContext(
+  contextOrDuration?: ActivitySensorSelectionContext | number,
+  activityStartTime?: number,
+): ActivitySensorSelectionContext {
+  if (typeof contextOrDuration === "number") {
+    return {
+      legacyDurationSec: contextOrDuration,
+      explicitDurationSec: contextOrDuration,
+      activityStartTime,
+    };
+  }
+  return contextOrDuration ?? { activityStartTime };
 }
 
 function hasValidExplicitAxis(
@@ -92,13 +154,13 @@ function hasDenseArraySlots(values: readonly unknown[]): boolean {
   return true;
 }
 
-function hasValidExplicitSensorChannelValues(values: readonly unknown[]): values is readonly (number | null)[] {
+function hasValidExplicitSensorChannelValues(values: readonly unknown[]): boolean {
   if (!hasDenseArraySlots(values)) return false;
   return values.every((value) => value === null
     || (typeof value === "number" && Number.isFinite(value) && value >= 0));
 }
 
-function hasValidLegacySensorChannelValues(values: readonly unknown[]): values is readonly number[] {
+function hasValidLegacySensorChannelValues(values: readonly unknown[]): boolean {
   if (!hasDenseArraySlots(values)) return false;
   return values.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0);
 }
@@ -118,6 +180,10 @@ function hasSufficientAxisCoverage(
 
 function runtimeArray<T>(value: unknown): T[] | undefined {
   return Array.isArray(value) ? value as T[] : undefined;
+}
+
+function hasRuntimeCandidate(value: unknown): boolean {
+  return value != null && (!Array.isArray(value) || value.length > 0);
 }
 
 function validTimeDurationSec(value: unknown): number | undefined {
@@ -221,17 +287,19 @@ function hasLegacyCoverage(valuesLength: number, expectation: LegacyCoverageExpe
   return hasSufficientAxisCoverage(valuesLength, expectation.count, expectation.minimumOnly);
 }
 
-function hasWholeActivityExplicitCoverage(
+function explicitCoverageRejectionReason(
   streams: ActivityStreams,
   explicitTime: readonly number[],
   summaryDurationSec?: number,
   activityStartTime?: number,
-): boolean {
+): SensorRejectionReason | null {
   const rawOrigin = (streams.sensorStreamsV1 as unknown as Record<string, unknown> | undefined)
     ?.timeOriginEpochMs;
-  if (typeof rawOrigin !== "number" || !Number.isSafeInteger(rawOrigin) || rawOrigin <= 0) return false;
+  if (typeof rawOrigin !== "number" || !Number.isSafeInteger(rawOrigin) || rawOrigin <= 0) {
+    return "invalid_metadata";
+  }
   const expectedDuration = expectedActivityDurationSec(streams, summaryDurationSec);
-  if (expectedDuration == null) return false;
+  if (expectedDuration == null) return "missing_duration";
   const measuredDuration = explicitTime[explicitTime.length - 1]! - explicitTime[0]! + 1;
   const roundingEpsilon = Math.max(1, expectedDuration) * Number.EPSILON;
   // V1 is validated as a contiguous 1 Hz axis. Expand the percentage bounds to
@@ -240,7 +308,9 @@ function hasWholeActivityExplicitCoverage(
     1,
     expectedDuration * EXPLICIT_SENSOR_DURATION_TOLERANCE,
   );
-  if (Math.abs(measuredDuration - expectedDuration) > allowedDifference + roundingEpsilon) return false;
+  if (Math.abs(measuredDuration - expectedDuration) > allowedDifference + roundingEpsilon) {
+    return "duration_mismatch";
+  }
 
   const routeTime = runtimeArray<number>(streams.time);
   const routeStart = routeTime?.[0];
@@ -250,10 +320,12 @@ function hasWholeActivityExplicitCoverage(
     return Number.isSafeInteger(epochMs) ? epochMs : undefined;
   };
   const expectedStartEpochMs = normalizeEpochMs(routeStart) ?? normalizeEpochMs(activityStartTime);
-  if (expectedStartEpochMs == null) return true;
+  if (expectedStartEpochMs == null) return null;
   const explicitStartEpochMs = rawOrigin + explicitTime[0]! * 1000;
   return Number.isSafeInteger(explicitStartEpochMs)
-    && Math.abs(explicitStartEpochMs - expectedStartEpochMs) <= 1000;
+    && Math.abs(explicitStartEpochMs - expectedStartEpochMs) <= 1000
+    ? null
+    : "origin_mismatch";
 }
 
 function persistedNumericArray(value: unknown, allowNegative: boolean): number[] | undefined {
@@ -290,24 +362,37 @@ function trustedLegacyPower(
 
 export function selectActivityPowerStream(
   streams: ActivityStreams | null,
-  summaryDurationSec?: number,
+  contextOrDuration?: ActivitySensorSelectionContext | number,
   activityStartTime?: number,
 ): SelectedPowerStream {
   if (!streams) return { source: null, values: null, finiteValues: [], hasCandidate: false };
 
+  const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
-  const legacyWatts = runtimeArray<number>(streams.watts);
-  const legacyCalculatedWatts = runtimeArray<number>(streams.watts_calc);
-  const hasLegacyCandidate = !!legacyWatts?.length || !!legacyCalculatedWatts?.length;
-  const legacyExpectation = legacyCoverageExpectation(streams, summaryDurationSec);
+  const rawLegacyWatts = (streams as unknown as Record<string, unknown>).watts;
+  const rawLegacyCalculatedWatts = (streams as unknown as Record<string, unknown>).watts_calc;
+  const legacyWatts = runtimeArray<number>(rawLegacyWatts);
+  const legacyCalculatedWatts = runtimeArray<number>(rawLegacyCalculatedWatts);
+  const hasLegacyCandidate = hasRuntimeCandidate(rawLegacyWatts)
+    || hasRuntimeCandidate(rawLegacyCalculatedWatts);
+  const legacyExpectation = legacyCoverageExpectation(streams, context.legacyDurationSec);
   if (explicit) {
     const rawWatts = (explicit as unknown as Record<string, unknown>).watts;
     if (rawWatts != null && !Array.isArray(rawWatts)) {
-      return { source: null, values: null, finiteValues: [], hasCandidate: true };
+      return {
+        source: null, values: null, finiteValues: [], hasCandidate: true,
+        rejection: { channel: "power", source: "sensorStreamsV1", reason: "invalid_channel" },
+      };
     }
     const explicitWatts = runtimeArray<number | null>(rawWatts);
     if (explicitWatts && !hasValidExplicitSensorChannelValues(explicitWatts)) {
-      return { source: null, values: null, finiteValues: [], hasCandidate: true };
+      return {
+        source: null, values: null, finiteValues: [], hasCandidate: true,
+        rejection: {
+          channel: "power", source: "sensorStreamsV1", reason: "invalid_channel",
+          channelLength: explicitWatts.length,
+        },
+      };
     }
     const finiteValues = explicitWatts?.filter(
       (value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0,
@@ -316,13 +401,43 @@ export function selectActivityPowerStream(
     // legacy fallback because virtual power remains on the top-level axis.
     if (finiteValues.length > 0) {
       const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
+      if (explicit.timeUnit !== "relative_seconds" || explicit.resolutionSeconds !== 1) {
+        return {
+          source: null, values: null, finiteValues: [], hasCandidate: true,
+          rejection: {
+            channel: "power", source: "sensorStreamsV1", reason: "invalid_metadata",
+            axisLength: explicitTime?.length, channelLength: explicitWatts?.length,
+          },
+        };
+      }
       if (!explicitTime || !hasValidExplicitAxis(
         explicitTime,
         explicitWatts?.length ?? 0,
         explicit.timeUnit,
         explicit.resolutionSeconds,
-      ) || !hasWholeActivityExplicitCoverage(streams, explicitTime, summaryDurationSec, activityStartTime)) {
-        return { source: null, values: null, finiteValues: [], hasCandidate: true };
+      )) {
+        return {
+          source: null, values: null, finiteValues: [], hasCandidate: true,
+          rejection: {
+            channel: "power", source: "sensorStreamsV1", reason: "invalid_axis",
+            axisLength: explicitTime?.length, channelLength: explicitWatts?.length,
+          },
+        };
+      }
+      const coverageRejection = explicitCoverageRejectionReason(
+        streams,
+        explicitTime,
+        context.explicitDurationSec,
+        context.activityStartTime,
+      );
+      if (coverageRejection) {
+        return {
+          source: null, values: null, finiteValues: [], hasCandidate: true,
+          rejection: {
+            channel: "power", source: "sensorStreamsV1", reason: coverageRejection,
+            axisLength: explicitTime.length, channelLength: explicitWatts?.length,
+          },
+        };
       }
       return {
         source: "sensorStreamsV1",
@@ -351,7 +466,32 @@ export function selectActivityPowerStream(
       hasCandidate: true,
     };
   }
-  return { source: null, values: null, finiteValues: [], hasCandidate: hasLegacyCandidate };
+  const invalidLegacyChannel = (hasRuntimeCandidate(rawLegacyWatts)
+    && (!legacyWatts || !hasValidLegacySensorChannelValues(legacyWatts)))
+    || (hasRuntimeCandidate(rawLegacyCalculatedWatts)
+      && (!legacyCalculatedWatts || !hasValidLegacySensorChannelValues(legacyCalculatedWatts)));
+  const hasCoveredLegacyPower = [legacyWatts, legacyCalculatedWatts]
+    .some((values) => values != null
+      && hasValidLegacySensorChannelValues(values)
+      && hasLegacyCoverage(values.length, legacyExpectation));
+  return {
+    source: null,
+    values: null,
+    finiteValues: [],
+    hasCandidate: hasLegacyCandidate,
+    ...(hasLegacyCandidate ? {
+      rejection: {
+        channel: "power" as const,
+        source: "legacy" as const,
+        reason: invalidLegacyChannel
+          ? "invalid_channel" as const
+          : hasCoveredLegacyPower
+            ? "insufficient_measurements" as const
+            : "insufficient_coverage" as const,
+        channelLength: Math.max(legacyWatts?.length ?? 0, legacyCalculatedWatts?.length ?? 0),
+      },
+    } : {}),
+  };
 }
 
 function positiveValues(values: unknown): number[] {
@@ -373,32 +513,72 @@ function trustedLegacySensor(
 
 export function selectActivityHeartRateStream(
   streams: ActivityStreams | null,
-  summaryDurationSec?: number,
+  contextOrDuration?: ActivitySensorSelectionContext | number,
   activityStartTime?: number,
 ): SelectedHeartRateStream {
   if (!streams) return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: false };
 
+  const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const rawExplicitHeartRate = explicit
     ? (explicit as unknown as Record<string, unknown>).heartrate
     : null;
   if (rawExplicitHeartRate != null && !Array.isArray(rawExplicitHeartRate)) {
-    return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
+    return {
+      source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
+      rejection: { channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_channel" },
+    };
   }
   const explicitHeartRate = runtimeArray<number | null>(rawExplicitHeartRate);
   if (explicitHeartRate && !hasValidExplicitSensorChannelValues(explicitHeartRate)) {
-    return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
+    return {
+      source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
+      rejection: {
+        channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_channel",
+        channelLength: explicitHeartRate.length,
+      },
+    };
   }
   const explicitPositive = positiveValues(explicitHeartRate);
   if (explicit && explicitHeartRate && explicitPositive.length > 0) {
     const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
+    if (explicit.timeUnit !== "relative_seconds" || explicit.resolutionSeconds !== 1) {
+      return {
+        source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
+        rejection: {
+          channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_metadata",
+          axisLength: explicitTime?.length, channelLength: explicitHeartRate.length,
+        },
+      };
+    }
     if (!explicitTime || !hasValidExplicitAxis(
       explicitTime,
       explicitHeartRate.length,
       explicit.timeUnit,
       explicit.resolutionSeconds,
-    ) || !hasWholeActivityExplicitCoverage(streams, explicitTime, summaryDurationSec, activityStartTime)) {
-      return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
+    )) {
+      return {
+        source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
+        rejection: {
+          channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_axis",
+          axisLength: explicitTime?.length, channelLength: explicitHeartRate.length,
+        },
+      };
+    }
+    const coverageRejection = explicitCoverageRejectionReason(
+      streams,
+      explicitTime,
+      context.explicitDurationSec,
+      context.activityStartTime,
+    );
+    if (coverageRejection) {
+      return {
+        source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
+        rejection: {
+          channel: "heart_rate", source: "sensorStreamsV1", reason: coverageRejection,
+          axisLength: explicitTime.length, channelLength: explicitHeartRate.length,
+        },
+      };
     }
     return {
       source: "sensorStreamsV1",
@@ -414,7 +594,7 @@ export function selectActivityHeartRateStream(
     && (!Array.isArray(rawLegacyHeartRate) || rawLegacyHeartRate.length > 0);
   const legacyPositive = trustedLegacySensor(
     legacyHeartRate,
-    legacyCoverageExpectation(streams, summaryDurationSec),
+    legacyCoverageExpectation(streams, context.legacyDurationSec),
   );
   if (legacyPositive) {
     return {
@@ -429,6 +609,21 @@ export function selectActivityHeartRateStream(
     values: null,
     positiveValues: [],
     hasRejectedMeasurement: hasLegacyHeartRateCandidate,
+    ...(hasLegacyHeartRateCandidate ? {
+      rejection: {
+        channel: "heart_rate" as const,
+        source: "legacy" as const,
+        reason: !legacyHeartRate || !hasValidLegacySensorChannelValues(legacyHeartRate)
+          ? "invalid_channel" as const
+          : hasLegacyCoverage(
+              legacyHeartRate.length,
+              legacyCoverageExpectation(streams, context.legacyDurationSec),
+            )
+            ? "insufficient_measurements" as const
+            : "insufficient_coverage" as const,
+        channelLength: legacyHeartRate?.length,
+      },
+    } : {}),
   };
 }
 
@@ -442,32 +637,48 @@ function maximum(values: readonly number[]): number {
 
 export function deriveStreamSensorSummary(
   streams: ActivityStreams | null,
-  summaryDurationSec?: number,
+  contextOrDuration?: ActivitySensorSelectionContext | number,
   activityStartTime?: number,
 ): StreamSensorSummary | null {
   if (!streams) return null;
 
-  const selectedHeartRate = selectActivityHeartRateStream(streams, summaryDurationSec, activityStartTime);
+  const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  const selectedHeartRate = selectActivityHeartRateStream(streams, context);
   const heartRate = selectedHeartRate.positiveValues;
   const rawCadence = (streams as unknown as Record<string, unknown>).cadence;
   const cadenceValues = runtimeArray<number>(rawCadence);
   const cadence = trustedLegacySensor(
     cadenceValues,
-    legacyCoverageExpectation(streams, summaryDurationSec, true),
+    legacyCoverageExpectation(streams, context.legacyDurationSec, true),
   ) ?? [];
   const hasHeartRateStream = heartRate.length > 0;
   const hasCadenceStream = cadence.length > 0;
-  const selectedPower = selectActivityPowerStream(streams, summaryDurationSec, activityStartTime);
+  const selectedPower = selectActivityPowerStream(streams, context);
   const power = selectedPower.finiteValues;
   const hasReliablePower = selectedPower.source != null;
+  const hasCadenceCandidate = rawCadence != null
+    && (!Array.isArray(rawCadence) || rawCadence.length > 0);
+  const cadenceRejection: SensorRejectionDiagnostic | undefined = hasCadenceCandidate && !hasCadenceStream
+    ? {
+        channel: "cadence",
+        source: "legacy",
+        reason: !cadenceValues || !hasValidLegacySensorChannelValues(cadenceValues)
+          ? "invalid_channel"
+          : hasLegacyCoverage(
+              cadenceValues.length,
+              legacyCoverageExpectation(streams, context.legacyDurationSec, true),
+            )
+            ? "insufficient_measurements"
+            : "insufficient_coverage",
+        channelLength: cadenceValues?.length,
+      }
+    : undefined;
 
   return {
     hasHeartRateStream,
     hasRejectedHeartRateStream: selectedHeartRate.hasRejectedMeasurement,
     hasCadenceStream,
-    hasRejectedCadenceStream: (rawCadence != null
-      && (!Array.isArray(rawCadence) || rawCadence.length > 0))
-      && !hasCadenceStream,
+    hasRejectedCadenceStream: hasCadenceCandidate && !hasCadenceStream,
     hasPowerStream: hasReliablePower,
     averageHeartRate: heartRate.length > 0 ? average(heartRate) : null,
     maxHeartRate: heartRate.length > 0 ? maximum(heartRate) : null,
@@ -479,6 +690,8 @@ export function deriveStreamSensorSummary(
     hasRejectedPowerStream: selectedPower.hasCandidate && !hasReliablePower,
     heartRateSource: selectedHeartRate.source,
     powerSource: selectedPower.source,
+    rejections: [selectedHeartRate.rejection, selectedPower.rejection, cadenceRejection]
+      .filter((rejection): rejection is SensorRejectionDiagnostic => rejection != null),
   };
 }
 
@@ -541,18 +754,19 @@ function measuredSeries(
 export function buildActivityAnalysisProjection(
   streams: ActivityStreams | null,
   preferTopLevelPower = false,
-  summaryDurationSec?: number,
+  contextOrDuration?: ActivitySensorSelectionContext | number,
   activityStartTime?: number,
 ): ActivityAnalysisProjection | null {
   if (!streams) return null;
 
+  const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
-  const selectedPower = selectActivityPowerStream(streams, summaryDurationSec, activityStartTime);
-  const selectedHeartRate = selectActivityHeartRateStream(streams, summaryDurationSec, activityStartTime);
+  const selectedPower = selectActivityPowerStream(streams, context);
+  const selectedHeartRate = selectActivityHeartRateStream(streams, context);
   const normalizedTime = persistedTimeArray(streams.time);
   const normalizedDistance = persistedNumericArray(streams.distance, false);
   const normalizedCadence = persistedNumericArray(streams.cadence, false);
-  const cadenceExpectation = legacyCoverageExpectation(streams, summaryDurationSec, true);
+  const cadenceExpectation = legacyCoverageExpectation(streams, context.legacyDurationSec, true);
   const normalizedStreams: ActivityStreams = {
     ...streams,
     altitude: persistedNumericArray(streams.altitude, true),
@@ -654,13 +868,23 @@ export function buildActivityAnalysisProjection(
   };
 }
 
-export function buildSampledData(streams: ActivityStreams | null): SampledPoint[] {
+export function buildSampledData(
+  streams: ActivityStreams | null,
+  contextOrDuration?: ActivitySensorSelectionContext | number,
+  activityStartTime?: number,
+): SampledPoint[] {
   if (!streams?.distance) return [];
+  const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
   const dist = streams.distance;
   const len = dist.length;
   const interval = Math.max(1, Math.floor(len / 300));
-  const selectedPower = selectActivityPowerStream(streams);
-  const selectedHeartRate = selectActivityHeartRateStream(streams);
+  const selectedPower = selectActivityPowerStream(streams, context);
+  const selectedHeartRate = selectActivityHeartRateStream(streams, context);
+  const cadenceValues = runtimeArray<number>(streams.cadence);
+  const chartCadence = cadenceValues && trustedLegacySensor(
+    cadenceValues,
+    legacyCoverageExpectation(streams, context.legacyDurationSec, true),
+  ) ? cadenceValues : undefined;
   const chartPower = selectedPower.source === "watts" || selectedPower.source === "watts_calc"
     ? selectedPower.values
     : null;
@@ -671,7 +895,7 @@ export function buildSampledData(streams: ActivityStreams | null): SampledPoint[
     streams.velocity_smooth,
     selectedHeartRate.source === "heartrate" ? streams.heartrate : undefined,
     chartPower ?? undefined,
-    streams.cadence,
+    chartCadence,
   ];
   for (const channel of chartChannels) {
     if (!channel?.length) continue;
@@ -697,7 +921,7 @@ export function buildSampledData(streams: ActivityStreams | null): SampledPoint[
       speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
       heartRate: selectedHeartRate.source === "heartrate" ? streams.heartrate?.[i] ?? 0 : 0,
       power: chartPower?.[i] ?? 0,
-      cadence: streams.cadence?.[i] ?? 0,
+      cadence: chartCadence?.[i] ?? 0,
     });
   }
   return points;

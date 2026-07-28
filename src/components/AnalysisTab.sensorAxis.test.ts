@@ -13,7 +13,7 @@ import { calculateTSS } from "../utils/powerMetrics";
 import { calculatePowerZoneDistribution } from "../utils/zoneAnalysis";
 
 describe("AnalysisTab sensor axis", () => {
-  it("uses route and summary duration for whole-activity rates", () => {
+  it("does not treat a distance-axis count as duration for whole-activity rates", () => {
     const distanceOnly = resolveAnalysisDurationSec(
       60,
       Array.from({ length: 60 }, (_, index) => index),
@@ -21,8 +21,8 @@ describe("AnalysisTab sensor axis", () => {
       undefined,
       { userId: "rider", distance: Array(3_600).fill(0) },
     );
-    expect(distanceOnly).toBe(3_600);
-    expect(calculateKjPerHour(120, distanceOnly)).toBe(120);
+    expect(distanceOnly).toBe(60);
+    expect(calculateKjPerHour(120, distanceOnly)).toBe(7_200);
 
     expect(resolveAnalysisDurationSec(
       60,
@@ -32,6 +32,17 @@ describe("AnalysisTab sensor axis", () => {
       { userId: "rider" },
       { elapsedTimeMillis: 7_200_000 } as never,
     )).toBe(7_200);
+  });
+
+  it("uses riding duration for moving-sensor rates when elapsed time includes a pause", () => {
+    expect(resolveAnalysisDurationSec(
+      3_600,
+      Array.from({ length: 3_600 }, (_, index) => index),
+      0,
+      undefined,
+      { userId: "rider" },
+      { ridingTimeMillis: 3_600_000, elapsedTimeMillis: 5_400_000 } as never,
+    )).toBe(3_600);
   });
 
   it("allows complete HR and power series on the same explicit time axis", () => {

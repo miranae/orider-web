@@ -49,6 +49,7 @@ import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } 
 import {
   buildChartOverlays,
   buildActivityAnalysisProjection,
+  buildActivitySensorSelectionContext,
   buildSampledData,
   buildSummaryStats,
   deriveStreamSensorSummary,
@@ -57,6 +58,10 @@ import {
   getSegmentEfforts,
   getStreamPhotos,
 } from "../features/activity/detail/activityDetailDerived";
+import {
+  createSensorRejectionLogState,
+  reportSensorRejectionsOnce,
+} from "../features/activity/detail/activitySensorRejectionLogging";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
@@ -83,6 +88,7 @@ export default function ActivityPage() {
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
+  const sensorRejectionLogState = useRef(createSensorRejectionLogState());
   const dialog = useDialog();
   const { getStreams } = useStrava();
   const [activity, setActivity] = useState<Activity | null>(null);
@@ -513,16 +519,26 @@ export default function ActivityPage() {
     });
   }, []);
 
-  const sampledData = useMemo(() => buildSampledData(streams), [streams]);
-
-  const streamExpectedDurationSec = Math.max(
-    (activity?.summary?.elapsedTimeMillis ?? 0) / 1000,
-    (activity?.summary?.ridingTimeMillis ?? 0) / 1000,
+  const sensorSelectionContext = useMemo(
+    () => buildActivitySensorSelectionContext(activity?.summary, activity?.startTime),
+    [activity?.startTime, activity?.summary?.elapsedTimeMillis, activity?.summary?.ridingTimeMillis],
+  );
+  const sampledData = useMemo(
+    () => buildSampledData(streams, sensorSelectionContext),
+    [sensorSelectionContext, streams],
   );
   const streamSensorSummary = useMemo(
-    () => deriveStreamSensorSummary(streams, streamExpectedDurationSec, activity?.startTime),
-    [activity?.startTime, streamExpectedDurationSec, streams],
+    () => deriveStreamSensorSummary(streams, sensorSelectionContext),
+    [sensorSelectionContext, streams],
   );
+  useEffect(() => {
+    if (!activityId || !streamSensorSummary?.rejections.length) return;
+    reportSensorRejectionsOnce(
+      activityId,
+      streamSensorSummary.rejections,
+      sensorRejectionLogState.current,
+    );
+  }, [activityId, streamSensorSummary]);
   const hasStreamPowerCandidate = !!streamSensorSummary
     && (streamSensorSummary.hasPowerStream || streamSensorSummary.hasRejectedPowerStream);
   const hasStreamHeartRateCandidate = !!streamSensorSummary
@@ -533,10 +549,9 @@ export default function ActivityPage() {
     () => buildActivityAnalysisProjection(
       effectiveStreams,
       wattsOverride != null,
-      streamExpectedDurationSec,
-      activity?.startTime,
+      sensorSelectionContext,
     ),
-    [activity?.startTime, effectiveStreams, streamExpectedDurationSec, wattsOverride],
+    [effectiveStreams, sensorSelectionContext, wattsOverride],
   );
 
   const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
@@ -1087,6 +1102,7 @@ export default function ActivityPage() {
             streams={analysisProjection.streams}
             sensorHeartRate={analysisProjection.heartRate}
             sensorPower={analysisProjection.power}
+            sensorSelectionContext={sensorSelectionContext}
             hasStreamPowerCandidate={hasStreamPowerCandidate}
             hasStreamHeartRateCandidate={hasStreamHeartRateCandidate}
             hasStreamCadenceCandidate={hasStreamCadenceCandidate}

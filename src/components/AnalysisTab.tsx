@@ -41,7 +41,11 @@ import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from ".
 import { LocalizedLink as Link } from "./LocalizedLink";
 import { buildClimbSegmentProposalPath } from "../features/segmentCreation/climbPromotion";
 import { resolveActivityHrZones } from "../utils/hrZones";
-import type { AnalysisSensorSeries } from "../features/activity/detail/activityDetailDerived";
+import {
+  buildActivitySensorSelectionContext,
+  type ActivitySensorSelectionContext,
+  type AnalysisSensorSeries,
+} from "../features/activity/detail/activityDetailDerived";
 
 type AccentColor = "lime" | "aqua" | "amber" | "rose" | "violet" | "ink";
 const ACCENT: Record<AccentColor, string> = {
@@ -137,6 +141,7 @@ interface AnalysisTabProps {
   streams: ActivityStreams;
   sensorHeartRate?: AnalysisSensorSeries;
   sensorPower?: AnalysisSensorSeries;
+  sensorSelectionContext?: ActivitySensorSelectionContext;
   hasStreamPowerCandidate?: boolean;
   hasStreamHeartRateCandidate?: boolean;
   hasStreamCadenceCandidate?: boolean;
@@ -321,17 +326,26 @@ export function resolveAnalysisDurationSec(
     totalDurationSec(powerLength, powerTime),
     totalDurationSec(heartRateLength, heartRateTime),
   );
-  const routeLength = Math.max(
-    streams.distance?.length ?? 0,
-    streams.time?.length ?? 0,
-    streams.cadence?.length ?? 0,
-    streams.velocity_smooth?.length ?? 0,
-  );
-  const summaryDuration = Math.max(
-    (summary?.elapsedTimeMillis ?? 0) / 1000,
-    (summary?.ridingTimeMillis ?? 0) / 1000,
-  );
-  return Math.max(sensorDuration, totalDurationSec(routeLength, streams.time), summaryDuration);
+  const routeTime = streams.time;
+  const relSecAt = makeRelSecAt(routeTime);
+  let routeDuration = 0;
+  if (routeTime && routeTime.length >= 2) {
+    let previous: number | null = null;
+    let valid = true;
+    for (let index = 0; index < routeTime.length; index++) {
+      const current = relSecAt(index);
+      if (current == null || !Number.isFinite(current) || (previous != null && current <= previous)) {
+        valid = false;
+        break;
+      }
+      previous = current;
+    }
+    if (valid) routeDuration = totalDurationSec(routeTime.length, routeTime);
+  }
+  const summaryDuration = summary?.ridingTimeMillis && summary.ridingTimeMillis > 0
+    ? summary.ridingTimeMillis / 1000
+    : (summary?.elapsedTimeMillis ?? 0) / 1000;
+  return Math.max(sensorDuration, routeDuration, summaryDuration);
 }
 
 export function calculateKjPerHour(workKj: number | null, durationSec: number): number | null {
@@ -358,7 +372,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
   );
 }
 
-export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, sensorHeartRate, sensorPower, hasStreamPowerCandidate = false, hasStreamHeartRateCandidate = false, hasStreamCadenceCandidate = false, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
+export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, sensorHeartRate, sensorPower, sensorSelectionContext, hasStreamPowerCandidate = false, hasStreamHeartRateCandidate = false, hasStreamCadenceCandidate = false, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
   // Phase A.7: server-computed metrics 구독 (있으면 배너로 표시).
   // 현재는 client 재계산 결과와 병렬 표시 — 향후 점진적으로 server 우선 + 폴백 패턴으로 전환.
   // owner 가 아니면 구독 차단(owner-only doc) → permission-denied 회피.
@@ -399,10 +413,9 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const hasFtp = !!profile?.ftp || !!streams.ftp;
   const hasMaxHr = hrResolution.maxHrSource !== "default";
   const activityTimeOriginEpochMs = normalizeActivityStartTimeMs(startTime);
-  const summaryDurationSec = Math.max(
-    (summary?.elapsedTimeMillis ?? 0) / 1000,
-    (summary?.ridingTimeMillis ?? 0) / 1000,
-  ) || undefined;
+  const resolvedSensorSelectionContext = sensorSelectionContext
+    ?? buildActivitySensorSelectionContext(summary, startTime ?? undefined);
+  const legacyDurationSec = resolvedSensorSelectionContext.legacyDurationSec;
 
   // 서버(activity-metrics)와 동일하게 plausibleWatts 로 정제(#532) — 비현실 파워(평균/5분>2×FTP)
   // 는 []→파워지표 미표시, 고립 스파이크는 2000W 클램프. 서버 사전계산값과 발산 방지.
@@ -411,8 +424,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     streams.watts && streams.watts.length > 0 ? streams.watts : streams.watts_calc,
     streams.time,
     activityTimeOriginEpochMs,
-    summaryDurationSec,
-  ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc, summaryDurationSec]);
+    legacyDurationSec,
+  ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc, legacyDurationSec]);
   const watts = useMemo(
     () => plausibleWatts(selectedPowerSeries.values, ftp) ?? [],
     [selectedPowerSeries.values, ftp],
@@ -422,15 +435,15 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     streams.heartrate,
     streams.time,
     activityTimeOriginEpochMs,
-    summaryDurationSec,
-  ), [activityTimeOriginEpochMs, sensorHeartRate, streams.heartrate, streams.time, summaryDurationSec]);
+    legacyDurationSec,
+  ), [activityTimeOriginEpochMs, sensorHeartRate, streams.heartrate, streams.time, legacyDurationSec]);
   const selectedCadenceSeries = useMemo(() => selectWholeSessionSensorSeries(
     undefined,
     streams.cadence,
     streams.time,
     activityTimeOriginEpochMs,
-    summaryDurationSec,
-  ), [activityTimeOriginEpochMs, streams.cadence, streams.time, summaryDurationSec]);
+    legacyDurationSec,
+  ), [activityTimeOriginEpochMs, streams.cadence, streams.time, legacyDurationSec]);
   const hr = selectedHeartRateSeries.values;
   const hasPower = watts.length > 0;
   const hasHr = hr.length > 0;
