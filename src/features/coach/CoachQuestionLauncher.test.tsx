@@ -259,6 +259,21 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByText("이 Ride Plan의 동일한 입력 버전에 연결됨")).toBeInTheDocument();
   });
 
+  it("preserves a general draft when Ride Plan flags change without a consumed selection", async () => {
+    const renderLauncher = () =>
+      <MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="bike"
+        onSignIn={vi.fn()} ridePlanSelection={null} /></DialogProvider></MemoryRouter>;
+    const view = render(renderLauncher());
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    const composer = await screen.findByLabelText("내 운동에 대한 질문");
+    await userEvent.type(composer, "일반 질문 초안");
+
+    resetRuntimeConfigForTests({ coachRidePlanSnapshotEnabled: false, coachRidePlanAiEnabled: true,
+      coachRidePlanRespondV2Enabled: true });
+    view.rerender(renderLauncher());
+    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveValue("일반 질문 초안");
+  });
+
   it.each([
     [false, true, true],
     [true, false, true],

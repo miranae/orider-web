@@ -221,6 +221,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     const validSelection = ridePlanRespondEnabled && ridePlanSelection && user
       && isCoachRidePlanRespondToken(ridePlanSelection.context.contextToken);
     if (validSelection && selectionId === ridePlanSelectionRef.current) return;
+    if (!validSelection && ridePlanSelectionRef.current === null) return;
     openGenerationRef.current += 1; sessionGenerationRef.current += 1; inFlightRef.current = false;
     activeRequestRef.current = null; activeBodyRef.current = null;
     setDraft(""); setRidePlanContext(null); setRequestId(null); setResponse(null); setClarificationOption(null);
