@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateKjPerHour,
   resolveAnalysisDurationSec,
+  resolvePowerAnalysisDurationSec,
   selectWholeSessionSensorSeries,
   normalizeActivityStartTimeMs,
   sensorSeriesShareCompleteAxis,
@@ -15,16 +16,10 @@ import { calculateHrZoneDistribution, calculatePowerZoneDistribution } from "../
 
 describe("AnalysisTab sensor axis", () => {
   it("does not treat unclocked heart-rate sample count as elapsed seconds", () => {
-    expect(resolveAnalysisDurationSec(
-      0,
-      undefined,
-      3_600,
-      undefined,
-      { userId: "rider" },
-    )).toBe(0);
+    expect(resolveAnalysisDurationSec(0, undefined, 3_600, undefined, { userId: "rider" })).toBe(0);
   });
 
-  it("uses heart-rate duration only when its clock is trusted", () => {
+  it("keeps heart-rate duration available for the general activity duration", () => {
     expect(resolveAnalysisDurationSec(
       0,
       undefined,
@@ -69,21 +64,105 @@ describe("AnalysisTab sensor axis", () => {
   it("uses only the trusted moving power clock for kJ/h across a paused route", () => {
     const watts = Array(3_600).fill(200);
     const powerTime = Array.from({ length: 3_600 }, (_, index) => index);
-    const durationSec = resolveAnalysisDurationSec(
-      watts.length,
+    const durationSec = resolvePowerAnalysisDurationSec({
+      powerLength: watts.length,
       powerTime,
-      5_400,
-      Array.from({ length: 5_400 }, (_, index) => index),
-      {
-        userId: "rider",
-        time: Array.from({ length: 10_800 }, (_, index) => index * 0.5),
-      },
-      { ridingTimeMillis: 3_600_000, elapsedTimeMillis: 5_400_000 } as never,
-    );
+      trustedPowerDurationSec: 3_600,
+    });
 
     expect(calculateWorkKj(watts, powerTime)).toBe(720);
     expect(durationSec).toBe(3_600);
     expect(calculateKjPerHour(720, durationSec)).toBe(720);
+  });
+
+  it("keeps legacy power riding time separate from a longer explicit HR pause clock", () => {
+    const routeTime = Array.from({ length: 10_800 }, (_, index) => index * 0.5);
+    const watts = Array(3_600).fill(200);
+    const explicitTime = Array.from({ length: 5_400 }, (_, index) => index);
+    const projection = buildActivityAnalysisProjection({
+      time: routeTime,
+      watts,
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        heartrate: Array(5_400).fill(150),
+      },
+    } as never, {
+      legacyDurationSec: 3_600,
+      explicitDurationSec: 5_400,
+      activityStartTime: 1_700_000_000_000,
+    })!;
+    const power = selectWholeSessionSensorSeries(
+      projection.power,
+      projection.streams.watts,
+      projection.streams.time,
+      1_700_000_000_000,
+      3_600,
+    );
+    const heartRate = selectWholeSessionSensorSeries(
+      projection.heartRate,
+      projection.streams.heartrate,
+      projection.streams.time,
+      1_700_000_000_000,
+      5_400,
+    );
+
+    expect(heartRate.fullSessionDurationSec).toBe(5_400);
+    expect(calculateKjPerHour(
+      calculateWorkKj(power.values, power.time),
+      resolvePowerAnalysisDurationSec({
+        powerLength: power.values.length,
+        powerTime: power.time,
+        trustedPowerDurationSec: power.fullSessionDurationSec,
+      }),
+    )).toBe(720);
+  });
+
+  it("uses an explicit power clock instead of a shorter legacy heart-rate session", () => {
+    const routeTime = Array.from({ length: 3_600 }, (_, index) => index);
+    const explicitTime = Array.from({ length: 5_400 }, (_, index) => index);
+    const projection = buildActivityAnalysisProjection({
+      time: routeTime,
+      heartrate: Array(3_600).fill(150),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        watts: Array(5_400).fill(200),
+      },
+    } as never, {
+      legacyDurationSec: 3_600,
+      explicitDurationSec: 5_400,
+      activityStartTime: 1_700_000_000_000,
+    })!;
+    const power = selectWholeSessionSensorSeries(
+      projection.power,
+      projection.streams.watts,
+      projection.streams.time,
+      1_700_000_000_000,
+      5_400,
+    );
+
+    expect(projection.streams.heartrate).toHaveLength(3_600);
+    expect(calculateKjPerHour(
+      calculateWorkKj(power.values, power.time),
+      resolvePowerAnalysisDurationSec({
+        powerLength: power.values.length,
+        powerTime: power.time,
+        trustedPowerDurationSec: power.fullSessionDurationSec,
+      }),
+    )).toBe(720);
+  });
+
+  it("makes kJ/h unavailable when power has neither a clock nor trusted duration", () => {
+    const durationSec = resolvePowerAnalysisDurationSec({ powerLength: 60, powerTime: undefined });
+    expect(durationSec).toBe(0);
+    expect(calculateKjPerHour(12, durationSec)).toBeNull();
   });
 
   it("allows complete HR and power series on the same explicit time axis", () => {
@@ -205,13 +284,10 @@ describe("AnalysisTab sensor axis", () => {
       const heartRate = Array(durationSec * rateHz).fill(150);
       const power = selectWholeSessionSensorSeries(undefined, watts, undefined, undefined, durationSec);
       const hr = selectWholeSessionSensorSeries(undefined, heartRate, undefined, undefined, durationSec);
-      const analysisDurationSec = resolveAnalysisDurationSec(
-        power.values.length,
-        power.time,
-        hr.values.length,
-        hr.time,
-        { userId: "rider" },
-      );
+      const analysisDurationSec = resolvePowerAnalysisDurationSec({
+        powerLength: power.values.length,
+        powerTime: power.time,
+      });
 
       expect(power.time).toHaveLength(durationSec * rateHz);
       expect(power.time?.[1]).toBe(1 / rateHz);
@@ -262,7 +338,7 @@ describe("AnalysisTab sensor axis", () => {
     expect(selected.time?.[1]).toBe(0.5);
     expect(selected.time?.at(-1)).toBe(3_599.5);
     expect(calculateWorkKj(watts, selected.time)).toBe(720);
-    expect(resolveAnalysisDurationSec(watts.length, selected.time, 0, undefined, { userId: "rider" }))
+    expect(resolvePowerAnalysisDurationSec({ powerLength: watts.length, powerTime: selected.time }))
       .toBe(3_600);
   });
 

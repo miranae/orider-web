@@ -11,7 +11,7 @@ import {
 } from "./activityDetailDerived";
 import {
   calculateKjPerHour,
-  resolveAnalysisDurationSec,
+  resolvePowerAnalysisDurationSec,
   selectWholeSessionSensorSeries,
 } from "../../../components/AnalysisTab";
 import { calculateTRIMP, calculateWorkKj } from "../../../utils/advancedMetrics";
@@ -199,15 +199,11 @@ describe("explicit V1 measured-slot coverage", () => {
     const hr = selectWholeSessionSensorSeries(projection.heartRate, streams.heartrate, streams.time, undefined, 20);
     const powerTiming = { durationsSec: power.durationsSec, segmentStarts: power.segmentStarts };
     const hrTiming = { durationsSec: hr.durationsSec, segmentStarts: hr.segmentStarts };
-    const durationSec = resolveAnalysisDurationSec(
-      power.values.length,
-      power.time,
-      hr.values.length,
-      hr.time,
-      streams as never,
-      undefined,
-      power.fullSessionDurationSec,
-    );
+    const durationSec = resolvePowerAnalysisDurationSec({
+      powerLength: power.values.length,
+      powerTime: power.time,
+      trustedPowerDurationSec: power.fullSessionDurationSec,
+    });
 
     expect(calculateWorkKj(power.values, power.time, powerTiming)).toBeCloseTo(3.8, 10);
     expect(calculatePowerZoneDistribution(power.values, 250, power.time, powerTiming)

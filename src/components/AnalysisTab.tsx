@@ -371,6 +371,23 @@ export function resolveAnalysisDurationSec(
   return Math.max(sensorDuration, routeDuration, summaryDuration);
 }
 
+export function resolvePowerAnalysisDurationSec({
+  powerLength,
+  powerTime,
+  trustedPowerDurationSec,
+}: {
+  powerLength: number;
+  powerTime: number[] | undefined;
+  trustedPowerDurationSec?: number;
+}): number {
+  if (powerLength <= 0) return 0;
+  if (typeof trustedPowerDurationSec === "number"
+    && Number.isFinite(trustedPowerDurationSec)
+    && trustedPowerDurationSec > 0) return trustedPowerDurationSec;
+  const normalizedPowerTime = normalizeSensorTimeAxis(powerLength, powerTime)?.time;
+  return normalizedPowerTime ? totalDurationSec(powerLength, normalizedPowerTime) : 0;
+}
+
 export function calculateKjPerHour(workKj: number | null, durationSec: number): number | null {
   if (workKj == null || durationSec <= 0) return null;
   return (workKj / durationSec) * 3600;
@@ -515,7 +532,15 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     ),
     [powerTime, watts.length, heartRateTime, hr.length, streams, summary, selectedPowerSeries.fullSessionDurationSec, selectedHeartRateSeries.fullSessionDurationSec],
   );
-  const kjPerHr = useMemo(() => calculateKjPerHour(workKj, durationSec), [workKj, durationSec]);
+  const powerDurationSec = useMemo(() => resolvePowerAnalysisDurationSec({
+    powerLength: watts.length,
+    powerTime,
+    trustedPowerDurationSec: selectedPowerSeries.fullSessionDurationSec,
+  }), [powerTime, selectedPowerSeries.fullSessionDurationSec, watts.length]);
+  const kjPerHr = useMemo(
+    () => calculateKjPerHour(workKj, powerDurationSec),
+    [workKj, powerDurationSec],
+  );
 
   // 심박 메트릭
   const hrStats = useMemo(
