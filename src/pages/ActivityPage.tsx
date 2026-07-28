@@ -46,22 +46,7 @@ import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
-import {
-  buildChartOverlays,
-  buildActivityAnalysisProjection,
-  buildActivitySensorSelectionContext,
-  buildSampledData,
-  buildSummaryStats,
-  deriveStreamSensorSummary,
-  getAvailableOverlays,
-  getChartHighlightRange,
-  getSegmentEfforts,
-  getStreamPhotos,
-} from "../features/activity/detail/activityDetailDerived";
-import {
-  createSensorRejectionLogState,
-  reportSensorRejectionsOnce,
-} from "../features/activity/detail/activitySensorRejectionLogging";
+import { buildChartOverlays } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
@@ -74,7 +59,7 @@ import type { ActivityShareMetric } from "../features/activity/share/activitySha
 import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features/activity/detail/ActivityInsightCards";
 import type { LayoutOutletContext } from "../components/Layout";
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
-
+import { useActivitySensorDetail } from "../features/activity/detail/useActivitySensorDetail";
 
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
@@ -88,7 +73,6 @@ export default function ActivityPage() {
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
-  const sensorRejectionLogState = useRef(createSensorRejectionLogState());
   const dialog = useDialog();
   const { getStreams } = useStrava();
   const [activity, setActivity] = useState<Activity | null>(null);
@@ -519,61 +503,33 @@ export default function ActivityPage() {
     });
   }, []);
 
-  const sensorSelectionContext = useMemo(
-    () => buildActivitySensorSelectionContext(activity?.summary, activity?.startTime),
-    [activity?.startTime, activity?.summary?.elapsedTimeMillis, activity?.summary?.ridingTimeMillis],
-  );
-  const sampledData = useMemo(
-    () => buildSampledData(streams, sensorSelectionContext),
-    [sensorSelectionContext, streams],
-  );
-  const streamSensorSummary = useMemo(
-    () => deriveStreamSensorSummary(streams, sensorSelectionContext),
-    [sensorSelectionContext, streams],
-  );
-  useEffect(() => {
-    if (!activityId || !streamSensorSummary?.rejections.length) return;
-    reportSensorRejectionsOnce(
-      activityId,
-      streamSensorSummary.rejections,
-      sensorRejectionLogState.current,
-    );
-  }, [activityId, streamSensorSummary]);
-  const hasStreamPowerCandidate = !!streamSensorSummary
-    && (streamSensorSummary.hasPowerStream || streamSensorSummary.hasRejectedPowerStream);
-  const hasStreamHeartRateCandidate = !!streamSensorSummary
-    && (streamSensorSummary.hasHeartRateStream || streamSensorSummary.hasRejectedHeartRateStream);
-  const hasStreamCadenceCandidate = !!streamSensorSummary
-    && (streamSensorSummary.hasCadenceStream || streamSensorSummary.hasRejectedCadenceStream);
-  const analysisProjection = useMemo(
-    () => buildActivityAnalysisProjection(
-      effectiveStreams,
-      wattsOverride != null,
-      sensorSelectionContext,
-    ),
-    [effectiveStreams, sensorSelectionContext, wattsOverride],
-  );
-
-  const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
-
-  const summaryStats = useMemo(() => {
-    return buildSummaryStats(streams, streamSensorSummary);
-  }, [streamSensorSummary, streams]);
-
-  const markerPosition = useMemo(() => {
-    if (hoverIndex == null || !sampledData[hoverIndex]) return null;
-    return sampledData[hoverIndex].latlng;
-  }, [hoverIndex, sampledData]);
-
-  const segmentEfforts: SegmentEffortData[] = useMemo(() => getSegmentEfforts(streams), [streams]);
-
-  const chartHighlightRange: [number, number] | undefined = useMemo(() => {
-    return getChartHighlightRange(hoveredSegment, streams);
-  }, [hoveredSegment, streams]);
-
-  const photos = useMemo(() => getStreamPhotos(streams), [streams]);
-
-  // 러닝 전용 상태 — 기준선 페이스·거리 기록·해설 컨텍스트 (features/activity/detail 참조)
+  const {
+    analysisProjection,
+    availableOverlays,
+    avgPowerValue,
+    chartHighlightRange,
+    displayedSummary: selectedSummary,
+    hasAnalysisStreams,
+    hasStreamCadenceCandidate,
+    hasStreamHeartRateCandidate,
+    hasStreamPowerCandidate,
+    hasStreams,
+    markerPosition,
+    normalizedPowerValue,
+    photos,
+    sampledData,
+    segmentEfforts,
+    selectionContext: sensorSelectionContext,
+    summaryStats,
+  } = useActivitySensorDetail({
+    activityId,
+    activity,
+    streams,
+    effectiveStreams,
+    preferTopLevelPower: wattsOverride != null,
+    hoverIndex,
+    hoveredSegment,
+  });
   const runDetail = useRunActivityDetail(activity, profile);
 
   if (loadingActivity) {
@@ -637,29 +593,7 @@ export default function ActivityPage() {
   }
 
   const s = activity.summary;
-  const displayedSummary = streams && streamSensorSummary
-    ? {
-        ...s,
-        averageHeartRate: streamSensorSummary.hasHeartRateStream || streamSensorSummary.hasRejectedHeartRateStream
-          ? streamSensorSummary.averageHeartRate
-          : s.averageHeartRate,
-        maxHeartRate: streamSensorSummary.hasHeartRateStream || streamSensorSummary.hasRejectedHeartRateStream
-          ? streamSensorSummary.maxHeartRate
-          : s.maxHeartRate,
-        averageCadence: streamSensorSummary.hasCadenceStream ? streamSensorSummary.averageCadence : s.averageCadence,
-        maxCadence: streamSensorSummary.hasCadenceStream ? streamSensorSummary.maxCadence : s.maxCadence,
-        averagePower: hasStreamPowerCandidate ? streamSensorSummary.averagePower : s.averagePower,
-        maxPower: hasStreamPowerCandidate ? streamSensorSummary.maxPower : s.maxPower,
-      }
-    : s;
-  // 가상파워 결과는 백엔드에서 summary.*에 함께 기록되지만, 아직 백필되지 않은
-  // 과거 활동을 위해 활동 문서 top-level(`avgPower`, `weightedAvgPower`)을 fallback으로 사용.
-  const avgPowerValue = streams && hasStreamPowerCandidate
-    ? streamSensorSummary?.averagePower ?? null
-    : s.averagePower ?? activity.avgPower ?? null;
-  const normalizedPowerValue = streams && hasStreamPowerCandidate
-    ? null
-    : s.normalizedPower ?? activity.weightedAvgPower ?? null;
+  const displayedSummary = selectedSummary ?? s;
   const activityDate = Number.isFinite(activity.startTime)
     ? new Date(activity.startTime).toISOString().slice(0, 10)
     : null;
@@ -692,13 +626,6 @@ export default function ActivityPage() {
   const stravaActivityId = getStravaActivityId(activity);
   const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
   const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
-  const hasStreams = sampledData.length > 0;
-  const hasAnalysisStreams = !!streams && (
-    !!streamSensorSummary?.hasReliablePower ||
-    streamSensorSummary?.averageHeartRate != null ||
-    (streams.distance?.length ?? 0) > 0 ||
-    (streams.laps?.length ?? 0) > 0
-  );
   const hasAnalysisRoute = !!streams?.latlng?.length;
   const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute);
   const sport = getSportCategory(activity.type || (isStrava ? undefined : "Ride"));
