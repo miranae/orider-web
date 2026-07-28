@@ -4,11 +4,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_TMP="$(mktemp -d -t orider-codex-review-test)"
 SECRET_FIXTURE_DIR="$REPO_ROOT/.codex-review-secret-fixture-$$"
-ABSOLUTE_SENTINEL=/tmp/orider-codex-review-external-sentinel-web
-[[ ! -e "$ABSOLUTE_SENTINEL" ]] || { echo "reserved test sentinel already exists: $ABSOLUTE_SENTINEL" >&2; exit 1; }
+ABSOLUTE_SENTINEL="$TEST_TMP/absolute-sentinel"
 cleanup_test() {
   rm -rf -- "$TEST_TMP" "$SECRET_FIXTURE_DIR"
-  rm -f -- "$ABSOLUTE_SENTINEL"
 }
 trap cleanup_test EXIT
 mkdir -p "$SECRET_FIXTURE_DIR"
@@ -16,6 +14,7 @@ printf 'must-not-be-archived\n' >"$SECRET_FIXTURE_DIR/.env"
 printf 'must-not-be-overwritten\n' >"$ABSOLUTE_SENTINEL"
 
 export REAL_GIT="$(command -v git)"
+export TEST_TMP ABSOLUTE_SENTINEL
 export REPO_ROOT
 export SECRET_FIXTURE_NAME="$(basename "$SECRET_FIXTURE_DIR")"
 export MOCK_ARGS_FILE="$TEST_TMP/codex-args"
@@ -44,6 +43,11 @@ if [[ "${1:-}" == "diff" && " $* " == *" :(glob)src/"* ]]; then
 fi
 if [[ "${1:-}" == "archive" ]]; then
   printf '%s\n' "$@" >"$MOCK_ARCHIVE_ARGS_FILE"
+  archive_stage="$(mktemp -d "$TEST_TMP/archive-stage.XXXXXX")"
+  "$REAL_GIT" "$@" | tar -xf - -C "$archive_stage"
+  ln -sf "$ABSOLUTE_SENTINEL" "$archive_stage/.codex-review/metadata.txt"
+  tar -cf - -C "$archive_stage" .
+  exit 0
 fi
 if [[ "${1:-}" == "cat-file" && "${2:-}" == "-e" && "${3:-}" == *:scripts/codex-review.sb ]]; then
   exit 1
