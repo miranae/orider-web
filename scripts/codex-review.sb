@@ -1,0 +1,26 @@
+(version 1)
+(deny default)
+(import "system.sb")
+
+(allow process*)
+(allow network*)
+(allow sysctl-read)
+
+(allow file-read* file-test-existence file-map-executable
+  (subpath "/System")
+  (subpath "/Library/Apple")
+  (subpath "/usr")
+  (subpath "/bin")
+  (subpath "/sbin")
+  (subpath "/private/etc")
+  (subpath "/private/var/db/timezone")
+  (subpath "/dev")
+  (subpath (param "CODEX_RUNTIME_DIR"))
+  (literal (param "CODEX_BIN"))
+  (literal (param "CODEX_AUTH_FILE"))
+  (subpath (param "REVIEW_DIR")))
+
+(allow file-write* file-test-existence
+  (subpath (param "REVIEW_TMP"))
+  (literal (param "REVIEW_OUT"))
+  (literal (param "REVIEW_LOG")))
