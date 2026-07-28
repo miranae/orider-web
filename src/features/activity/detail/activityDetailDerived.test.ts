@@ -23,7 +23,7 @@ function withSparseSlot(values: number[], missingIndex: number): number[] {
 
 describe("activityDetailDerived", () => {
   const streams = {
-    distance: [0, 100, 200],
+    distance: [0, 100, 200], time: [0, 1, 2],
     altitude: [10, 20, 15],
     velocity_smooth: [0, 5, 10],
     heartrate: [0, 140, 150],
@@ -50,7 +50,7 @@ describe("activityDetailDerived", () => {
 
   it("excludes missing HR/cadence zeros and derives extrema from the full stream", () => {
     const longStreams = {
-      distance: Array.from({ length: 601 }, (_, index) => index),
+      distance: Array.from({ length: 601 }, (_, index) => index), time: Array.from({ length: 601 }, (_, index) => index),
       altitude: Array.from({ length: 601 }, (_, index) => index === 301 ? 999 : 10),
       heartrate: Array.from({ length: 601 }, (_, index) => index === 301 ? 190 : index === 302 ? 150 : 0),
       cadence: Array.from({ length: 601 }, (_, index) => index === 301 ? 110 : index === 302 ? 90 : 0),
@@ -1450,7 +1450,7 @@ describe("activityDetailDerived", () => {
 
   it("uses valid watts_calc for the chart when measured watts is sparse", () => {
     const streams = {
-      distance: Array.from({ length: 21 }, (_, index) => index),
+      distance: Array.from({ length: 21 }, (_, index) => index), time: Array.from({ length: 21 }, (_, index) => index),
       watts: [200, ...Array(20).fill(0)],
       watts_calc: Array.from({ length: 21 }, (_, index) => 150 + index),
     };

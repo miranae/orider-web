@@ -132,6 +132,68 @@ describe("activity detail chart clocks", () => {
       .not.toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
   });
 
+  it.each([
+    ["relative", [0, 2, 4, 6]],
+    ["epoch seconds", [1_700_000_000, 1_700_000_002, 1_700_000_004, 1_700_000_006]],
+    ["epoch milliseconds", [1_700_000_000_000, 1_700_000_002_000, 1_700_000_004_000, 1_700_000_006_000]],
+  ])("does not trust equal legacy and route lengths on a mismatched %s clock", (_case, time) => {
+    const context = buildActivitySensorSelectionContext({
+      ridingTimeMillis: 4_000,
+      elapsedTimeMillis: 8_000,
+    } as never, 1_700_000_000_000);
+    const streams = {
+      distance: [0, 1, 2, 3],
+      time,
+      watts: [100, 200, 300, 400],
+      heartrate: [140, 150, 160, 170],
+      cadence: [80, 81, 82, 83],
+    };
+
+    expect(getAvailableOverlays(buildSampledData(streams as never, context)).map(({ key }) => key))
+      .not.toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
+  });
+
+  it.each([
+    ["relative", [0, 1, 2, 3]],
+    ["epoch seconds", [1_700_000_000, 1_700_000_001, 1_700_000_002, 1_700_000_003]],
+    ["epoch milliseconds", [1_700_000_000_000, 1_700_000_001_000, 1_700_000_002_000, 1_700_000_003_000]],
+  ])("keeps truly aligned equal-length legacy data on a %s clock", (_case, time) => {
+    const context = buildActivitySensorSelectionContext({
+      ridingTimeMillis: 4_000,
+      elapsedTimeMillis: 4_000,
+    } as never, 1_700_000_000_000);
+    const streams = { distance: [0, 1, 2, 3], time, watts: [100, 200, 300, 400] };
+
+    expect(buildSampledData(streams as never, context).map(({ power }) => power))
+      .toEqual([100, 200, 300, 400]);
+  });
+
+  it("fails equal-length legacy chart alignment closed when absolute origins differ", () => {
+    const context = buildActivitySensorSelectionContext({
+      ridingTimeMillis: 4_000,
+      elapsedTimeMillis: 4_000,
+    } as never, 1_700_000_100_000);
+    const streams = {
+      distance: [0, 1, 2, 3],
+      time: [1_700_000_000, 1_700_000_001, 1_700_000_002, 1_700_000_003],
+      watts: [100, 200, 300, 400],
+    };
+
+    expect(getAvailableOverlays(buildSampledData(streams as never, context)).map(({ key }) => key))
+      .not.toContain("power");
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["non-monotonic", [0, 1, 1, 3]],
+  ])("fails equal-length legacy chart alignment closed for a %s route clock", (_case, time) => {
+    const streams = { distance: [0, 1, 2, 3], time, watts: [100, 200, 300, 400] };
+    expect(getAvailableOverlays(buildSampledData(streams as never, {
+      legacyDurationSec: 4,
+      activityStartTime: 1_700_000_000_000,
+    })).map(({ key }) => key)).not.toContain("power");
+  });
+
   it("preserves a finite increasing fractional relative route clock", () => {
     const streams = { distance: [0, 5, 10], time: [0, 0.5, 1], watts: [200, 210, 220] };
     expect(buildActivityAnalysisProjection(streams as never)?.streams.time).toEqual([0, 0.5, 1]);

@@ -8,7 +8,8 @@ import {
   sensorSeriesShareCompleteAxis,
   wholeSessionSeriesShareAxis,
 } from "./AnalysisTab";
-import { calculateTRIMP, calculateWorkKj } from "../utils/advancedMetrics";
+import { calculateDecoupling, calculateEF, calculateTRIMP, calculateWorkKj } from "../utils/advancedMetrics";
+import { buildActivityAnalysisProjection } from "../features/activity/detail/activityDetailDerived";
 import { calculateNP, calculateTSS } from "../utils/powerMetrics";
 import { calculateHrZoneDistribution, calculatePowerZoneDistribution } from "../utils/zoneAnalysis";
 
@@ -400,6 +401,92 @@ describe("AnalysisTab sensor axis", () => {
     const legacyPower = selectWholeSessionSensorSeries(undefined, [200, 210, 220], [0, 1, 2]);
     const legacyHeartRate = selectWholeSessionSensorSeries(undefined, [140, 142, 144], [0, 1, 2]);
     expect(wholeSessionSeriesShareAxis(legacyPower, legacyHeartRate)).toBe(true);
+  });
+
+  it.each([
+    ["relative", (index: number) => index],
+    ["epoch seconds", (index: number) => 1_700_000_000 + index],
+    ["epoch milliseconds", (index: number) => 1_700_000_000_000 + index * 1000],
+  ])("carries an aligned override origin into EF and decoupling on a %s route", (_case, at) => {
+    const time = Array.from({ length: 600 }, (_, index) => at(index));
+    const streams = {
+      time,
+      watts: Array.from({ length: 600 }, (_, index) => index < 300 ? 200 : 190),
+      heartrate: Array.from({ length: 600 }, (_, index) => index < 300 ? 140 : 145),
+    };
+    const projection = buildActivityAnalysisProjection(streams as never, {
+      legacyDurationSec: 600,
+      explicitDurationSec: 600,
+      activityStartTime: 1_700_000_000_000,
+      powerOverride: { source: "virtualPowerOverride", time },
+    })!;
+    const power = selectWholeSessionSensorSeries(
+      projection.power,
+      projection.streams.watts,
+      projection.streams.time,
+      1_700_000_000_000,
+      600,
+    );
+    const heartRate = selectWholeSessionSensorSeries(
+      projection.heartRate,
+      projection.streams.heartrate,
+      projection.streams.time,
+      1_700_000_000_000,
+      600,
+    );
+
+    expect(wholeSessionSeriesShareAxis(power, heartRate)).toBe(true);
+    expect(calculateEF(power.values, heartRate.values)).not.toBeNull();
+    expect(calculateDecoupling(power.values, heartRate.values)).not.toBeNull();
+  });
+
+  it("aligns override power with explicit HR only when their absolute origins match", () => {
+    const time = Array.from({ length: 600 }, (_, index) => index);
+    const makeProjection = (heartRateOrigin: number) => buildActivityAnalysisProjection({
+      time,
+      watts: Array(600).fill(200),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: heartRateOrigin,
+        time,
+        heartrate: Array(600).fill(145),
+      },
+    } as never, {
+      legacyDurationSec: 600,
+      explicitDurationSec: 600,
+      activityStartTime: 1_700_000_000_000,
+      powerOverride: { source: "virtualPowerOverride", time },
+    })!;
+    const aligned = makeProjection(1_700_000_000_000);
+    const alignedPower = selectWholeSessionSensorSeries(aligned.power, undefined, undefined);
+    const alignedHeartRate = selectWholeSessionSensorSeries(aligned.heartRate, undefined, undefined);
+    expect(wholeSessionSeriesShareAxis(alignedPower, alignedHeartRate)).toBe(true);
+    expect(calculateEF(alignedPower.values, alignedHeartRate.values)).not.toBeNull();
+    expect(calculateDecoupling(alignedPower.values, alignedHeartRate.values)).not.toBeNull();
+
+    const mismatched = makeProjection(1_700_000_002_000);
+    const mismatchedPower = selectWholeSessionSensorSeries(mismatched.power, undefined, undefined);
+    const mismatchedHeartRate = selectWholeSessionSensorSeries(mismatched.heartRate, undefined, undefined);
+    expect(wholeSessionSeriesShareAxis(mismatchedPower, mismatchedHeartRate)).toBe(false);
+  });
+
+  it("fails mixed-source override analysis closed when a relative route has no origin", () => {
+    const time = Array.from({ length: 600 }, (_, index) => index);
+    const projection = buildActivityAnalysisProjection({
+      time,
+      watts: Array(600).fill(200),
+      heartrate: Array(600).fill(145),
+    } as never, {
+      legacyDurationSec: 600,
+      powerOverride: { source: "virtualPowerOverride", time },
+    })!;
+
+    expect(wholeSessionSeriesShareAxis(
+      selectWholeSessionSensorSeries(projection.power, undefined, undefined),
+      selectWholeSessionSensorSeries(undefined, projection.streams.heartrate, projection.streams.time),
+    )).toBe(false);
   });
 
   it("normalizes activity start time seconds and milliseconds", () => {

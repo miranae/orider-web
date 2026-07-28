@@ -198,6 +198,29 @@ function hasRuntimeCandidate(value: unknown): boolean {
   return value != null && (!Array.isArray(value) || value.length > 0);
 }
 
+function hasAttemptedExplicitChannel(value: unknown): boolean {
+  if (value == null) return false;
+  if (!Array.isArray(value)) return true;
+  if (value.length === 0) return false;
+  if (!hasDenseArraySlots(value)) return true;
+  return value.some((sample) => sample !== null);
+}
+
+function invalidVersionExplicitChannel(
+  streams: ActivityStreams,
+  channel: "watts" | "heartrate",
+): { axisLength?: number; channelLength?: number } | null {
+  const rawPayload = (streams as unknown as Record<string, unknown>).sensorStreamsV1;
+  if (rawPayload == null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) return null;
+  const payload = rawPayload as Record<string, unknown>;
+  const rawChannel = payload[channel];
+  if (payload.version === 1 || !hasAttemptedExplicitChannel(rawChannel)) return null;
+  return {
+    axisLength: Array.isArray(payload.time) ? payload.time.length : undefined,
+    channelLength: Array.isArray(rawChannel) ? rawChannel.length : undefined,
+  };
+}
+
 function validTimeDurationSec(value: unknown): number | undefined {
   const time = runtimeArray<unknown>(value);
   if (!time || time.length < 2 || !hasDenseArraySlots(time)) return undefined;
@@ -347,8 +370,15 @@ function persistedNumericArray(value: unknown, allowNegative: boolean): number[]
 function persistedTimeArray(value: unknown): number[] | undefined {
   const values = persistedNumericArray(value, false);
   if (!values) return undefined;
+  const firstUnit = values[0]! >= 1_000_000_000_000
+    ? "epoch_ms"
+    : values[0]! >= 1_000_000_000 ? "epoch_sec" : "relative";
   for (let index = 0; index < values.length; index++) {
     const sample = values[index]!;
+    const sampleUnit = sample >= 1_000_000_000_000
+      ? "epoch_ms"
+      : sample >= 1_000_000_000 ? "epoch_sec" : "relative";
+    if (sampleUnit !== firstUnit) return undefined;
     if (index > 0 && sample <= values[index - 1]!) return undefined;
     // Fractional relative seconds are valid for routes sampled above 1 Hz. Keep
     // absolute epoch axes integer-safe so later millisecond normalization is exact.
@@ -427,7 +457,6 @@ function alignSensorChannelForChart(
   routeLength: number,
 ): Array<number | null> | undefined {
   if (!values?.length) return undefined;
-  if (source === "legacy" && values.length === routeLength) return [...values];
   if (source === "override") {
     const overrideTime = persistedTimeArray(context.powerOverride?.time);
     const routeTime = persistedTimeArray(streams.time);
@@ -454,7 +483,7 @@ function alignSensorChannelForChart(
     sensorStepSec = explicit?.resolutionSeconds ?? 0;
     originOffsetSec = (explicitOrigin - routeAxis.originEpochMs) / 1000;
   } else {
-    const durationSec = context.legacyDurationSec;
+    const durationSec = context.legacyDurationSec ?? routeAxis.durationSec;
     if (durationSec == null || !Number.isFinite(durationSec) || durationSec <= 0) return undefined;
     sensorTime = inferUniformSampleTimeAxis(values.length, durationSec) ?? [];
     if (!sensorTime.length) return undefined;
@@ -462,6 +491,10 @@ function alignSensorChannelForChart(
     if (durationRatio < LEGACY_POWER_MIN_AXIS_COVERAGE
       || durationRatio > 1 / LEGACY_POWER_MIN_AXIS_COVERAGE) return undefined;
     sensorStepSec = durationSec / values.length;
+    const sensorOrigin = normalizeEpochMs(context.activityStartTime);
+    if (sensorOrigin != null && routeAxis.originEpochMs != null) {
+      originOffsetSec = (sensorOrigin - routeAxis.originEpochMs) / 1000;
+    }
   }
   if (!Number.isFinite(sensorStepSec) || sensorStepSec <= 0) return undefined;
   return routeAxis.relativeSec.map((routeSec) => stepSensorValue(
@@ -506,6 +539,16 @@ export function selectActivityPowerStream(
   const hasLegacyCandidate = hasRuntimeCandidate(rawLegacyWatts)
     || hasRuntimeCandidate(rawLegacyCalculatedWatts);
   const legacyExpectation = legacyCoverageExpectation(streams, context.legacyDurationSec);
+  const invalidVersionPower = invalidVersionExplicitChannel(streams, "watts");
+  if (invalidVersionPower) {
+    return {
+      source: null, values: null, finiteValues: [], hasCandidate: true,
+      rejection: {
+        channel: "power", source: "sensorStreamsV1", reason: "invalid_metadata",
+        ...invalidVersionPower,
+      },
+    };
+  }
   if (context.powerOverride) {
     const overrideTime = persistedTimeArray(context.powerOverride.time);
     const routeTime = persistedTimeArray(streams.time);
@@ -679,6 +722,16 @@ export function selectActivityHeartRateStream(
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
+  const invalidVersionHeartRate = invalidVersionExplicitChannel(streams, "heartrate");
+  if (invalidVersionHeartRate) {
+    return {
+      source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
+      rejection: {
+        channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_metadata",
+        ...invalidVersionHeartRate,
+      },
+    };
+  }
   const rawExplicitHeartRate = explicit
     ? (explicit as unknown as Record<string, unknown>).heartrate
     : null;
@@ -910,6 +963,29 @@ function measuredSeries(
   };
 }
 
+function canonicalOverrideAxis(
+  time: readonly number[],
+  activityStartTime?: number,
+): { time: number[]; timeOriginEpochMs?: number } | undefined {
+  const normalized = persistedTimeArray(time);
+  if (!normalized?.length) return undefined;
+  const epochOrigin = normalizeEpochMs(normalized[0]);
+  if (epochOrigin != null) {
+    const relativeTime = normalized.map((sample) => {
+      const epochMs = normalizeEpochMs(sample);
+      return epochMs == null ? Number.NaN : (epochMs - epochOrigin) / 1000;
+    });
+    return relativeTime.every(Number.isFinite)
+      ? { time: relativeTime, timeOriginEpochMs: epochOrigin }
+      : undefined;
+  }
+  const activityOrigin = normalizeEpochMs(activityStartTime);
+  return {
+    time: [...normalized],
+    ...(activityOrigin != null ? { timeOriginEpochMs: activityOrigin } : {}),
+  };
+}
+
 export function buildActivityAnalysisProjection(
   streams: ActivityStreams | null,
   contextOrDuration?: ActivitySensorSelectionContext | number,
@@ -954,11 +1030,16 @@ export function buildActivityAnalysisProjection(
     ? legacyHeartRateValues
     : undefined;
   const usesOverridePower = selectedPower.source === "virtualPowerOverride";
-  const overridePower = usesOverridePower && context.powerOverride
+  const overrideAxis = usesOverridePower && context.powerOverride
+    ? canonicalOverrideAxis(context.powerOverride.time, context.activityStartTime)
+    : undefined;
+  const overridePower = usesOverridePower && overrideAxis
     ? measuredSeries(
         selectedPower.values ?? [],
-        context.powerOverride.time,
+        overrideAxis.time,
         (value) => value >= 0,
+        undefined,
+        overrideAxis.timeOriginEpochMs,
       )
     : undefined;
   if (explicit) {

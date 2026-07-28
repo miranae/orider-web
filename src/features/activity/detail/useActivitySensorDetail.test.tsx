@@ -86,6 +86,40 @@ describe("useActivitySensorDetail", () => {
     );
   });
 
+  it.each([
+    ["power", "watts", [0, 200, 210, 220]],
+    ["heart_rate", "heartrate", [140, 150, 160, 170]],
+  ] as const)("reports invalid-version %s metadata only once", (diagnosticChannel, field, values) => {
+    const streams = {
+      time: [0, 1, 2, 3],
+      watts: [200, 210, 220, 230],
+      heartrate: [140, 150, 160, 170],
+      sensorStreamsV1: {
+        version: "tampered",
+        time: [0, 1, 2, 3],
+        [field]: values,
+      },
+    } as unknown as ActivityStreams;
+    const { result, rerender } = renderSensorDetail(streams);
+
+    rerender({ currentStreams: { ...streams }, currentPowerOverride: null });
+
+    if (diagnosticChannel === "power") {
+      expect(result.current.displayedSummary?.averagePower).toBeNull();
+    }
+    expect(mocks.logClientError).toHaveBeenCalledTimes(1);
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      `ActivityPage.sensorStreamRejected.${diagnosticChannel}.invalid_metadata`,
+      expect.any(Error),
+      expect.objectContaining({
+        activityId: activity.id,
+        channel: diagnosticChannel,
+        sensorSource: "sensorStreamsV1",
+        reason: "invalid_metadata",
+      }),
+    );
+  });
+
   it("switches every power consumer to a validated override and restores the rejected base source", () => {
     const streams = {
       time: [0, 1, 2, 3],
