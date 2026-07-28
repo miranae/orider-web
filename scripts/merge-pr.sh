@@ -23,7 +23,7 @@
 #   --keep-worktree           Do not remove the current worktree/branch after merge.
 #
 # 속도 설계 (2026-07-10):
-#   - 변경 분류는 AI 리뷰 강도만 결정한다: 제품 코드=full, 툴링=fast, 문서=skip.
+#   - 변경 분류는 AI 리뷰 강도만 결정한다: 제품 코드=full(medium), 툴링=fast(low), 문서=skip.
 #     로컬 검증은 별도로 feature→dev(변경 영향 테스트+타입체크) / dev→main(full) 2단계다.
 #   - AI 리뷰는 npm 게이트와 **병렬** 실행 — 리뷰(수 분)가 크리티컬 패스에서 빠진다.
 #   - base 전진(BEHIND)은 게이트 시작 시 자동으로 origin/base 머지+푸시 — CI 재실행이
@@ -91,12 +91,152 @@ assert_local_head_matches_pr() {
 
 # AI 리뷰를 백그라운드로 시작 (npm 게이트와 병렬) — 결과 처리는 아래 join 블록에서.
 REVIEW_STARTED=0
-start_claude_review() {
-  local timeout_s="${CLAUDE_REVIEW_TIMEOUT_SEC:-900}"
-  "${REVIEW_CMD[@]}" >"$REVIEW_OUT" 2>&1 &
+cleanup_review_workspace() {
+  local review_parent="${REVIEW_PARENT:-}"
+  [[ -n "$review_parent" && "$review_parent" != "$REPO_ROOT" && "$review_parent" != "/" ]] || return 0
+  [[ "$(basename "$review_parent")" == orider-codex-review-parent.* ]] || return 0
+  [[ -f "$review_parent/.codex-review-parent.marker" ]] || return 0
+  rm -rf -- "$review_parent"
+  REVIEW_PARENT=""
+  REVIEW_DIR=""
+}
+
+prepare_codex_review_workspace() {
+  REVIEW_PARENT="$(mktemp -d -t orider-codex-review-parent)" || die "Codex 리뷰 임시 디렉터리 생성 실패"
+  REVIEW_PARENT="$(realpath "$REVIEW_PARENT")"
+  REVIEW_DIR="$REVIEW_PARENT/workspace"
+  REVIEW_TMP="$REVIEW_PARENT/runtime"
+  REVIEW_INPUT_DIR="$REVIEW_PARENT/input"
+  mkdir -p "$REVIEW_DIR" "$REVIEW_TMP"
+  install -d -m 700 "$REVIEW_INPUT_DIR"
+  : >"$REVIEW_PARENT/.codex-review-parent.marker"
+  printf 'sandbox external sentinel\n' >"$REVIEW_PARENT/external-sentinel"
+  if git cat-file -e "origin/$BASE:scripts/codex-review.sb" 2>/dev/null; then
+    git show "origin/$BASE:scripts/codex-review.sb" >"$REVIEW_PARENT/codex-review.sb" \
+      || { cleanup_review_workspace; die "trusted base Codex sandbox profile 추출 실패"; }
+  else
+    bootstrap_hash="${CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256:-}"
+    [[ -n "$bootstrap_hash" ]] \
+      || { cleanup_review_workspace; die "trusted base에 Codex sandbox profile 없음 — 최초 도입은 CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256 필요"; }
+    actual_hash="$(shasum -a 256 "$REPO_ROOT/scripts/codex-review.sb" | awk '{print $1}')"
+    [[ "$actual_hash" == "$bootstrap_hash" ]] \
+      || { cleanup_review_workspace; die "Codex sandbox bootstrap profile SHA-256 불일치"; }
+    cp "$REPO_ROOT/scripts/codex-review.sb" "$REVIEW_PARENT/codex-review.sb"
+  fi
+  chmod 400 "$REVIEW_PARENT/codex-review.sb" \
+    || { cleanup_review_workspace; die "guarded Codex sandbox profile 권한 설정 실패"; }
+  if ! git archive "$HEAD_OID" | tar -x -C "$REVIEW_DIR"; then
+    cleanup_review_workspace
+    die "PR head tracked snapshot 생성 실패"
+  fi
+  REVIEW_DIFF="$REVIEW_INPUT_DIR/diff.patch"
+  REVIEW_METADATA="$REVIEW_INPUT_DIR/metadata.txt"
+  REVIEW_INPUT="$REVIEW_INPUT_DIR/input.txt"
+  REVIEW_SCHEMA="$REVIEW_INPUT_DIR/output.schema.json"
+  git diff --binary --no-ext-diff "origin/$BASE...$HEAD_OID" >"$REVIEW_DIFF" \
+    || { cleanup_review_workspace; die "PR head diff 생성 실패"; }
+  {
+    printf 'base=origin/%s\n' "$BASE"
+    printf 'head=%s\n' "$HEAD_OID"
+  } >"$REVIEW_METADATA"
+  cat >"$REVIEW_SCHEMA" <<'JSON'
+{"type":"object","properties":{"findings":{"type":"string"},"verdict":{"type":"string","enum":["PASS","BLOCK"]}},"required":["findings","verdict"],"additionalProperties":false}
+JSON
+  chmod 600 "$REVIEW_DIFF" "$REVIEW_METADATA" "$REVIEW_SCHEMA"
+  [[ "$(<"$REVIEW_PARENT/external-sentinel")" == "sandbox external sentinel" ]] \
+    || { cleanup_review_workspace; die "reserved 상대 symlink가 외부 sentinel을 변경함"; }
+  [[ -L "$REVIEW_DIR/scripts/codex-review-external-link.fixture" ]] \
+    || { cleanup_review_workspace; die "tracked snapshot에 sandbox symlink fixture 없음"; }
+}
+
+assert_trusted_review_input() {
+  local path="$1" resolved
+  [[ -f "$path" && ! -L "$path" ]] || die "trusted Codex input이 regular file이 아님: $path"
+  resolved="$(realpath "$path")"
+  [[ "$resolved" == "$REVIEW_INPUT_DIR/"* ]] || die "trusted Codex input root 이탈: $path"
+}
+
+configure_codex_sandbox() {
+  [[ -x /usr/bin/sandbox-exec ]] || die "macOS sandbox-exec 없음 — Codex 리뷰 격리를 보장할 수 없어 머지 중단"
+  CODEX_COMMAND="$(command -v codex)" || die "Codex CLI 없음 — 코드 리뷰 게이트 실행 불가."
+  codex_candidate="$(realpath "$CODEX_COMMAND")" || die "Codex 실행 파일 경로 확인 실패"
+  if file "$codex_candidate" | grep -q 'Mach-O'; then
+    CODEX_BIN="$codex_candidate"
+  else
+    codex_package_dir="$(dirname "$codex_candidate")"
+    while [[ "$codex_package_dir" != "/" && "$(basename "$codex_package_dir")" != "@openai" ]]; do
+      codex_package_dir="$(dirname "$codex_package_dir")"
+    done
+    [[ "$(basename "$codex_package_dir")" == "@openai" ]] || die "native Codex package root 확인 실패"
+    CODEX_BIN=""
+    while IFS= read -r native_candidate; do
+      if file "$native_candidate" | grep -q 'Mach-O'; then CODEX_BIN="$native_candidate"; break; fi
+    done < <(find "$codex_package_dir" -type f -name codex -perm -111 2>/dev/null)
+    [[ -n "$CODEX_BIN" ]] || die "native Mach-O Codex 실행 파일 없음"
+    CODEX_BIN="$(realpath "$CODEX_BIN")"
+  fi
+  CODEX_RUNTIME_DIR="$(dirname "$CODEX_BIN")"
+  CODEX_AUTH_SOURCE="${CODEX_HOME:-$HOME/.codex}/auth.json"
+  [[ -r "$CODEX_AUTH_SOURCE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_SOURCE}"
+  SANDBOX_CODEX_HOME="$REVIEW_TMP/codex-home"
+  SANDBOX_HOME="$REVIEW_TMP/home"
+  SANDBOX_CWD="$REVIEW_TMP/cwd"
+  mkdir -p "$SANDBOX_CODEX_HOME" "$SANDBOX_HOME" "$SANDBOX_CWD"
+  cp "$CODEX_AUTH_SOURCE" "$SANDBOX_CODEX_HOME/auth.json"
+  chmod 600 "$SANDBOX_CODEX_HOME/auth.json"
+  CODEX_AUTH_FILE="$SANDBOX_CODEX_HOME/auth.json"
+  SANDBOX_PROFILE="$REVIEW_PARENT/codex-review.sb"
+  SANDBOX_CMD=(/usr/bin/sandbox-exec
+    -D "REVIEW_DIR=$REVIEW_DIR"
+    -D "REVIEW_TMP=$REVIEW_TMP"
+    -D "REVIEW_INPUT_DIR=$REVIEW_INPUT_DIR"
+    -D "REVIEW_OUT=$REVIEW_OUT"
+    -D "REVIEW_LOG=$REVIEW_LOG"
+    -D "CODEX_RUNTIME_DIR=$CODEX_RUNTIME_DIR"
+    -D "CODEX_BIN=$CODEX_BIN"
+    -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
+    -f "$SANDBOX_PROFILE")
+  PROBE_SANDBOX_CMD=(/usr/bin/sandbox-exec
+    -D "REVIEW_DIR=$REVIEW_DIR"
+    -D "REVIEW_TMP=$REVIEW_TMP"
+    -D "REVIEW_INPUT_DIR=$REVIEW_INPUT_DIR"
+    -D "REVIEW_OUT=$REVIEW_OUT"
+    -D "REVIEW_LOG=$REVIEW_LOG"
+    -D "CODEX_RUNTIME_DIR=/bin"
+    -D "CODEX_BIN=/bin/cat"
+    -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
+    -f "$SANDBOX_PROFILE")
+
+  "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIFF" >/dev/null \
+    || die "Codex sandbox가 리뷰 snapshot 읽기를 허용하지 않음"
+  if "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then
+    die "Codex sandbox symlink 외부 읽기 차단 실패"
+  fi
+  if "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_PARENT/external-sentinel" >/dev/null 2>&1; then
+    die "Codex sandbox 외부 sentinel 읽기 차단 실패"
+  fi
+  if [[ -e "$REPO_ROOT/.env" ]] && "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REPO_ROOT/.env" >/dev/null 2>&1; then
+    die "Codex sandbox 원본 저장소 .env 읽기 차단 실패"
+  fi
+  for denied_exec in /bin/sh /bin/zsh /usr/bin/env; do
+    if "${SANDBOX_CMD[@]}" "$denied_exec" -c true >/dev/null 2>&1; then
+      die "Codex sandbox 예상 밖 프로세스 실행 차단 실패: $denied_exec"
+    fi
+  done
+}
+
+start_codex_review() {
+  local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
+  (cd "$SANDBOX_CWD" && /usr/bin/env -i \
+    HOME="$SANDBOX_HOME" CODEX_HOME="$SANDBOX_CODEX_HOME" TMPDIR="$REVIEW_TMP" PATH="/usr/bin:/bin" \
+    "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}" <"$REVIEW_INPUT") >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
-    sleep "$timeout_s"
+    sleep "$timeout_s" &
+    watchdog_sleep_pid=$!
+    trap 'kill "$watchdog_sleep_pid" 2>/dev/null || true' EXIT
+    trap 'exit 0' TERM INT
+    wait "$watchdog_sleep_pid" || exit 0
     if kill -0 "$REVIEW_PID" 2>/dev/null; then
       kill "$REVIEW_PID" 2>/dev/null || true
       sleep 2
@@ -106,12 +246,14 @@ start_claude_review() {
   REVIEW_WATCHDOG=$!
   REVIEW_STARTED=1
 }
-# 게이트가 중간에 die 해도 백그라운드 claude 를 고아로 남기지 않는다
+# 게이트가 중간에 die 해도 백그라운드 Codex를 고아로 남기지 않는다.
 cleanup_review() {
   # 주의: kill 의 인자가 빈값/0 이면 프로세스 그룹 전체가 죽는다 — 반드시 변수 존재를 확인.
-  [[ "${REVIEW_STARTED:-0}" == 1 ]] || return 0
-  [[ -n "${REVIEW_PID:-}" ]] && { kill "$REVIEW_PID" 2>/dev/null || true; }
-  [[ -n "${REVIEW_WATCHDOG:-}" ]] && { kill "$REVIEW_WATCHDOG" 2>/dev/null || true; }
+  if [[ "${REVIEW_STARTED:-0}" == 1 ]]; then
+    [[ -n "${REVIEW_PID:-}" ]] && { kill "$REVIEW_PID" 2>/dev/null || true; wait "$REVIEW_PID" 2>/dev/null || true; }
+    [[ -n "${REVIEW_WATCHDOG:-}" ]] && { kill "$REVIEW_WATCHDOG" 2>/dev/null || true; wait "$REVIEW_WATCHDOG" 2>/dev/null || true; }
+  fi
+  cleanup_review_workspace
   return 0
 }
 trap cleanup_review EXIT
@@ -168,10 +310,10 @@ fi
 
 # 변경 분류 — AI 리뷰 강도를 diff 성격에 맞춘다. 미분류 경로는 안전하게 '코드'.
 #   docs    (docs/·*.md·LICENSE 등)        → 리뷰 생략
-#   tooling (scripts/*.sh·.github/)        → 경량(sonnet) 리뷰
+#   tooling (merge gate scripts/schema·.github/) → low reasoning 리뷰
 #   code    (그 외 전부)                   → 풀 리뷰
 DOCS_PAT='^docs/|\.md$|^LICENSE|^\.gitignore$|^\.gitattributes$'
-TOOLING_PAT='^scripts/[^/]+\.sh$|^\.github/'
+TOOLING_PAT='^scripts/[^/]+\.sh$|^scripts/codex-review-output\.schema\.json$|^scripts/codex-review-external-link\.fixture$|^\.github/'
 code_changes=0; review_mode="skip"
 if [[ -n "$CHANGED" ]]; then
   if grep -qEv "($DOCS_PAT)|($TOOLING_PAT)" <<<"$CHANGED"; then
@@ -218,30 +360,55 @@ echo "  gate_tier=$GATE_TIER code_changes=$code_changes review_mode=$review_mode
 
 # ── AI 리뷰 시작 (npm 게이트와 병렬) ─────────────────────────────────────────
 if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
-  command -v claude >/dev/null 2>&1 || die "claude CLI 없음 — 코드 리뷰 게이트 실행 불가. 설치하거나 --no-review 로 우회하세요."
 
   REVIEW_OUT="$(mktemp -t orider-merge-review)"
-  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 이 브랜치의 origin/$BASE 대비 diff(\`git diff origin/$BASE...HEAD\`)만 리뷰하라. 필요한 맥락은 허용된 git diff/show/log/status 출력만 사용하고, 일반 파일 읽기는 사용하지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
+  REVIEW_LOG="$(mktemp -t orider-merge-review-log)"
+  REVIEW_OUT="$(realpath "$REVIEW_OUT")"
+  REVIEW_LOG="$(realpath "$REVIEW_LOG")"
+  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 아래 입력은 PR head의 metadata와 origin/$BASE...HEAD의 정확한 diff다. 제공된 입력만 사용하고 작업 디렉터리, 환경 변수, 사용자 또는 프로젝트 설정을 읽지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
 
 로깅/관측성도 점검하라:
 - 신규 무음 에러 스왈로우(catch {}, .catch(() => {}), 실패 숨김)가 있는지.
 - 운영 가시성이 필요한 프론트 에러가 logClientError/Sentry 경로 없이 raw console 또는 무시로 끝나는지.
 - 새 외부 호출/Firebase IO가 실패 맥락을 남기는지.
 
-출력 형식:
-1) 발견 목록. 각 항목은 BLOCKER / MAJOR / MINOR 중 하나로 시작하고 file:line을 포함한다. 없으면 '결함 없음'.
-2) 마지막 줄은 반드시 정확히 하나:
-MERGE_VERDICT: BLOCK
-MERGE_VERDICT: PASS"
+제공된 JSON Schema에 정확히 맞는 객체만 출력하라:
+- findings: 발견 목록 문자열. 각 항목은 BLOCKER / MAJOR / MINOR 중 하나로 시작하고 file:line을 포함한다. 없으면 '결함 없음'.
+- verdict: 중대한 결함이 있으면 BLOCK, 없으면 PASS.
+다른 키, Markdown 코드 펜스, JSON 앞뒤의 설명은 출력하지 말라."
 
-  REVIEW_CMD=(claude -p "$REVIEW_PROMPT" \
-    --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*)")
+  review_effort="medium"
   if [[ "$review_mode" == "fast" ]]; then
-    # 툴링 전용 diff — 경량 모델(sonnet)로 빠르게 — 안전망 유지, 비용·시간 절감
-    REVIEW_CMD+=(--model claude-sonnet-5)
+    # 툴링 전용 diff — 모델은 설치된 기본값을 따르고 추론 강도만 낮춘다.
+    review_effort="low"
   fi
+  prepare_codex_review_workspace
+  {
+    printf '%s\n\n' "$REVIEW_PROMPT"
+    printf '%s\n' '도구는 비활성화되어 있다. 아래 metadata와 diff 본문만 직접 검토하라.'
+    printf '%s\n' '--- metadata ---'
+    cat "$REVIEW_METADATA"
+    printf '%s\n' '--- diff ---'
+    cat "$REVIEW_DIFF"
+  } >"$REVIEW_INPUT"
+  chmod 600 "$REVIEW_INPUT"
+  assert_trusted_review_input "$REVIEW_DIFF"
+  assert_trusted_review_input "$REVIEW_METADATA"
+  assert_trusted_review_input "$REVIEW_INPUT"
+  assert_trusted_review_input "$REVIEW_SCHEMA"
+  configure_codex_sandbox
+  # 외부 sandbox-exec가 실제 보안 경계다. 중첩 Seatbelt는 macOS가 forbidden-sandbox-reinit로 거부한다.
+  REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox danger-full-access --skip-git-repo-check -C "$SANDBOX_CWD" \
+    --disable shell_tool --disable unified_exec --disable code_mode_host --disable multi_agent \
+    --disable browser_use --disable in_app_browser --disable computer_use --disable image_generation \
+    --disable apps --disable plugins --disable skill_search --disable skill_mcp_dependency_install \
+    --disable auth_elicitation --disable goals \
+    -c 'shell_environment_policy.inherit="none"' \
+    -c "model_reasoning_effort=\"$review_effort\"" \
+    --output-schema "$REVIEW_SCHEMA" \
+    -o "$REVIEW_OUT" -)
   log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
-  start_claude_review
+  start_codex_review
 fi
 
 if [[ "$GATE_TIER" == "feature" ]]; then
@@ -304,20 +471,52 @@ if [[ "$REVIEW_STARTED" == 1 ]]; then
   kill "$REVIEW_WATCHDOG" 2>/dev/null || true
   wait "$REVIEW_WATCHDOG" 2>/dev/null || true
   REVIEW_STARTED=0
-  verdict="$(grep -oE 'MERGE_VERDICT:[[:space:]]*(BLOCK|PASS)' "$REVIEW_OUT" | tail -1 || true)"
-  if [[ "$verdict" == *BLOCK ]]; then
-    sed 's/^/  │ /' "$REVIEW_OUT"
+  cleanup_review_workspace
+  if [[ "$review_rc" -ne 0 ]]; then
+    [[ ! -s "$REVIEW_OUT" ]] || sed 's/^/  │ /' "$REVIEW_OUT"
+    [[ ! -s "$REVIEW_LOG" ]] || { echo "  Codex 실행 로그:"; tail -80 "$REVIEW_LOG" | sed 's/^/  │ /'; }
+    echo "  리뷰 답변: $REVIEW_OUT"
+    echo "  실행 로그: $REVIEW_LOG"
+    die "Codex 코드 리뷰 실행 실패 또는 시간 초과 (exit=$review_rc, timeout=${CODEX_REVIEW_TIMEOUT_SEC:-900}s)"
+  fi
+  REVIEW_FINDINGS="$(mktemp -t orider-merge-review-findings)"
+  REVIEW_PARSE_LOG="$(mktemp -t orider-merge-review-parse)"
+  verdict=""
+  if ! verdict="$(node - "$REVIEW_OUT" "$REVIEW_FINDINGS" <<'NODE' 2>"$REVIEW_PARSE_LOG"
+const fs = require('node:fs');
+const [inputPath, findingsPath] = process.argv.slice(2);
+const fail = (message) => { console.error(message); process.exit(1); };
+let value;
+try {
+  value = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
+} catch (error) {
+  fail(`JSON parse failed: ${error.message}`);
+}
+if (value === null || Array.isArray(value) || typeof value !== 'object') fail('review output must be an object');
+const keys = Object.keys(value).sort();
+if (keys.length !== 2 || keys[0] !== 'findings' || keys[1] !== 'verdict') fail('review output must contain only findings and verdict');
+if (typeof value.findings !== 'string') fail('findings must be a string');
+if (value.verdict !== 'PASS' && value.verdict !== 'BLOCK') fail('verdict must be PASS or BLOCK');
+fs.writeFileSync(findingsPath, value.findings);
+process.stdout.write(value.verdict);
+NODE
+  )"; then
+    sed 's/^/  │ /' "$REVIEW_OUT" || true
+    sed 's/^/  │ /' "$REVIEW_PARSE_LOG" || true
+    echo "  리뷰 답변: $REVIEW_OUT"
+    echo "  JSON 검증 로그: $REVIEW_PARSE_LOG"
+    die "Codex 코드 리뷰 구조화 출력 JSON 검증 실패"
+  fi
+  if [[ "$verdict" == "BLOCK" ]]; then
+    sed 's/^/  │ /' "$REVIEW_FINDINGS"
     echo "  리뷰 로그: $REVIEW_OUT"
     die "코드 리뷰 BLOCK — 머지 중단"
-  elif [[ "$verdict" == *PASS ]]; then
-    grep -vE '^[[:space:]]*MERGE_VERDICT:' "$REVIEW_OUT" | tail -60 | sed 's/^/  │ /' || true
+  elif [[ "$verdict" == "PASS" ]]; then
+    tail -60 "$REVIEW_FINDINGS" | sed 's/^/  │ /' || true
     printf '  \033[1;32m리뷰 PASS\033[0m\n'
-    rm -f "$REVIEW_OUT"
+    rm -f "$REVIEW_OUT" "$REVIEW_LOG" "$REVIEW_FINDINGS" "$REVIEW_PARSE_LOG"
   else
-    sed 's/^/  │ /' "$REVIEW_OUT" || true
-    echo "  리뷰 로그: $REVIEW_OUT"
-    [[ "$review_rc" -eq 0 ]] || die "코드 리뷰 실행 실패 (claude exit=$review_rc)"
-    die "코드 리뷰 판정(MERGE_VERDICT) 누락"
+    die "Codex 코드 리뷰 verdict 누락"
   fi
 else
   [[ "$RUN_REVIEW" == 0 ]] && log "로컬 AI 코드리뷰 생략 (--no-review)" || log "문서 전용 변경 — 로컬 AI 코드리뷰 생략"
