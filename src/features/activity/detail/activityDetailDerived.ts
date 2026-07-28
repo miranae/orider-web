@@ -50,6 +50,7 @@ export interface ActivityAnalysisProjection {
 
 const LEGACY_POWER_MIN_POSITIVE_COVERAGE = 0.05;
 const LEGACY_POWER_MIN_AXIS_COVERAGE = 0.95;
+const EXPLICIT_SENSOR_DURATION_TOLERANCE = 0.05;
 
 export interface SelectedPowerStream {
   source: StreamSensorSummary["powerSource"];
@@ -121,7 +122,7 @@ function runtimeArray<T>(value: unknown): T[] | undefined {
 
 function validTimeDurationSec(value: unknown): number | undefined {
   const time = runtimeArray<unknown>(value);
-  if (!time?.length || !hasDenseArraySlots(time)) return undefined;
+  if (!time || time.length < 2 || !hasDenseArraySlots(time)) return undefined;
   if (!time.every((sample) => typeof sample === "number" && Number.isFinite(sample) && sample >= 0)) {
     return undefined;
   }
@@ -139,12 +140,6 @@ export function expectedActivityDurationSec(
   summaryDurationSec?: number,
 ): number | undefined {
   const timeDuration = validTimeDurationSec(streams.time);
-  const routeAxisLength = Math.max(
-    runtimeArray<unknown>(streams.distance)?.length ?? 0,
-    runtimeArray<unknown>(streams.time)?.length ?? 0,
-    runtimeArray<unknown>(streams.velocity_smooth)?.length ?? 0,
-    runtimeArray<unknown>(streams.cadence)?.length ?? 0,
-  );
   const validSummaryDuration = typeof summaryDurationSec === "number"
     && Number.isFinite(summaryDurationSec)
     && summaryDurationSec > 0
@@ -153,10 +148,10 @@ export function expectedActivityDurationSec(
   if (timeDuration != null) {
     return validSummaryDuration == null ? timeDuration : Math.max(timeDuration, validSummaryDuration);
   }
-  // Raw route-axis counts are only a last resort. With a summary duration available,
-  // treating a 2 Hz distance/velocity axis length as seconds would double the activity.
   if (validSummaryDuration != null) return validSummaryDuration;
-  return routeAxisLength > 0 ? routeAxisLength : undefined;
+  // Explicit V1 is fixed at 1 Hz, but unrelated route channels may have any sampling
+  // frequency. Without a valid clock or positive summary they provide no duration evidence.
+  return undefined;
 }
 
 interface LegacyCoverageExpectation {
@@ -234,12 +229,18 @@ function hasWholeActivityExplicitCoverage(
 ): boolean {
   const rawOrigin = (streams.sensorStreamsV1 as unknown as Record<string, unknown> | undefined)
     ?.timeOriginEpochMs;
-  if (typeof rawOrigin !== "number" || !Number.isSafeInteger(rawOrigin) || rawOrigin < 0) return false;
+  if (typeof rawOrigin !== "number" || !Number.isSafeInteger(rawOrigin) || rawOrigin <= 0) return false;
   const expectedDuration = expectedActivityDurationSec(streams, summaryDurationSec);
-  if (expectedDuration != null) {
-    const measuredDuration = explicitTime[explicitTime.length - 1]! - explicitTime[0]! + 1;
-    if (measuredDuration / expectedDuration < 0.95) return false;
-  }
+  if (expectedDuration == null) return false;
+  const measuredDuration = explicitTime[explicitTime.length - 1]! - explicitTime[0]! + 1;
+  const roundingEpsilon = Math.max(1, expectedDuration) * Number.EPSILON;
+  // V1 is validated as a contiguous 1 Hz axis. Expand the percentage bounds to
+  // an absolute second on short rides so endpoint rounding cannot reject a valid sample.
+  const allowedDifference = Math.max(
+    1,
+    expectedDuration * EXPLICIT_SENSOR_DURATION_TOLERANCE,
+  );
+  if (Math.abs(measuredDuration - expectedDuration) > allowedDifference + roundingEpsilon) return false;
 
   const routeTime = runtimeArray<number>(streams.time);
   const routeStart = routeTime?.[0];

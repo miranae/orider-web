@@ -407,6 +407,7 @@ describe("activityDetailDerived", () => {
 
   it("prefers explicit sensor stream null semantics and preserves measured zero watts", () => {
     const explicitStreams = {
+      time: [0, 1, 2],
       heartrate: [20, 20],
       watts: Array(100).fill(0),
       watts_calc: [300, 300, 300],
@@ -498,7 +499,58 @@ describe("activityDetailDerived", () => {
     });
   });
 
-  it("accepts complete V1 sensors when no route axis or summary duration exists", () => {
+  it.each([
+    ["exact lower boundary", 3_600, undefined, 3_420, true],
+    ["below lower boundary", 3_600, undefined, 3_419, false],
+    ["exact upper boundary", 3_600, undefined, 3_780, true],
+    ["above upper boundary", 3_600, undefined, 3_781, false],
+    ["clearly overlong stream", 3_600, undefined, 4_000, false],
+    ["short activity lower rounding", 10, undefined, 9, true],
+    ["short activity upper rounding", 10, undefined, 11, true],
+    ["short activity outside rounding", 10, undefined, 12, false],
+    ["fractional short activity rounding", 10.1, undefined, 11, true],
+    ["fractional short activity below rounding", 10.1, undefined, 9, false],
+    ["fractional short activity outside rounding", 10.1, undefined, 12, false],
+    ["one-sample lower endpoint rounding", 2, undefined, 1, true],
+    ["one-sample upper endpoint rounding", 2, undefined, 3, true],
+    ["larger summary wins disagreement", 4_000, 3_600, 3_600, false],
+    ["larger route wins disagreement", 3_600, 4_000, 3_600, false],
+    ["matches conservative disagreement duration", 4_000, 3_600, 4_000, true],
+  ])("applies bidirectional V1 duration coverage for %s", (
+    _case,
+    summaryDurationSec,
+    routeLength,
+    explicitLength,
+    accepted,
+  ) => {
+    const streams = {
+      ...(routeLength == null
+        ? {}
+        : { time: Array.from({ length: routeLength }, (_, index) => index) }),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: Array.from({ length: explicitLength }, (_, index) => index),
+        heartrate: Array(explicitLength).fill(150),
+        watts: Array(explicitLength).fill(200),
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never, summaryDurationSec)).toMatchObject({
+      hasHeartRateStream: accepted,
+      hasRejectedHeartRateStream: !accepted,
+      hasPowerStream: accepted,
+      hasRejectedPowerStream: !accepted,
+    });
+    expect(buildActivityAnalysisProjection(streams as never, false, summaryDurationSec))
+      .toMatchObject(accepted
+        ? { heartRate: { complete: true }, power: { complete: true } }
+        : { heartRate: undefined, power: undefined });
+  });
+
+  it("rejects complete V1 sensors when no route clock or summary duration exists", () => {
     const streams = {
       sensorStreamsV1: {
         version: 1,
@@ -512,16 +564,52 @@ describe("activityDetailDerived", () => {
     };
 
     expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
-      hasHeartRateStream: true,
-      hasPowerStream: true,
+      hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      heartRate: undefined,
+      power: undefined,
     });
   });
 
   it.each([
+    ["without summary evidence", undefined, false],
+    ["with a positive one-second summary", 1, true],
+  ])("handles a one-timestamp route %s", (_case, summaryDurationSec, accepted) => {
+    const streams = {
+      time: [0],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0],
+        heartrate: [150],
+        watts: [200],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never, summaryDurationSec)).toMatchObject({
+      hasHeartRateStream: accepted,
+      hasRejectedHeartRateStream: !accepted,
+      hasPowerStream: accepted,
+      hasRejectedPowerStream: !accepted,
+    });
+    expect(buildActivityAnalysisProjection(streams as never, false, summaryDurationSec))
+      .toMatchObject(accepted
+        ? { heartRate: { complete: true }, power: { complete: true } }
+        : { heartRate: undefined, power: undefined });
+  });
+
+  it.each([
     ["relative route with epoch seconds", [0, 1, 2], 1_700_000_000, 1_700_000_000_000, true],
-    ["no route with epoch milliseconds", undefined, 1_700_000_000_000, 1_700_000_000_000, true],
+    ["no duration evidence with epoch milliseconds", undefined, 1_700_000_000_000, 1_700_000_000_000, false],
     ["relative route with mismatched activity start", [0, 1, 2], 1_700_000_010, 1_700_000_000_000, false],
     ["missing origin", [0, 1, 2], 1_700_000_000, undefined, false],
+    ["zero origin", [0, 1, 2], 1_700_000_000, 0, false],
     ["negative origin", [0, 1, 2], 1_700_000_000, -1, false],
     ["fractional origin", [0, 1, 2], 1_700_000_000, 1_700_000_000_000.5, false],
   ])("validates V1 origin for %s", (_case, routeTime, activityStartTime, origin, accepted) => {
@@ -594,7 +682,7 @@ describe("activityDetailDerived", () => {
     });
   });
 
-  it("uses a distance-only route axis and an indoor summary duration as coverage evidence", () => {
+  it("never treats a distance-only route count as explicit V1 duration evidence", () => {
     const makeStreams = (length: number) => ({
       distance: Array.from({ length: 100 }, (_, index) => index * 10),
       sensorStreamsV1: {
@@ -613,12 +701,69 @@ describe("activityDetailDerived", () => {
       hasRejectedPowerStream: true,
     });
     expect(deriveStreamSensorSummary(makeStreams(95) as never)).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+    });
+    expect(deriveStreamSensorSummary(makeStreams(100) as never, 100)).toMatchObject({
       hasPowerStream: true,
       hasRejectedPowerStream: false,
     });
     expect(deriveStreamSensorSummary(makeStreams(95) as never, 3_600)).toMatchObject({
       hasPowerStream: false,
       hasRejectedPowerStream: true,
+    });
+  });
+
+  it("fails V1 closed for a 2 Hz route channel when no clock or summary exists", () => {
+    const explicitLength = 3_600;
+    const streams = {
+      velocity_smooth: Array(7_200).fill(8),
+      distance: Array(7_200).fill(0),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: Array.from({ length: explicitLength }, (_, index) => index),
+        heartrate: Array(explicitLength).fill(150),
+        watts: Array(explicitLength).fill(200),
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      heartRate: undefined,
+      power: undefined,
+    });
+  });
+
+  it("uses elapsed duration from a valid 2 Hz route clock without treating its count as seconds", () => {
+    const explicitLength = 3_600;
+    const routeLength = 7_200;
+    const streams = {
+      time: Array.from({ length: routeLength }, (_, index) => index / 2),
+      velocity_smooth: Array(routeLength).fill(8),
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: Array.from({ length: explicitLength }, (_, index) => index),
+        heartrate: Array(explicitLength).fill(150),
+        watts: Array(explicitLength).fill(200),
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
     });
   });
 
@@ -1090,6 +1235,7 @@ describe("activityDetailDerived", () => {
 
   it("falls back to valid virtual power when sensorStreamsV1 only measured heart rate", () => {
     const streams = {
+      time: [0, 1, 2],
       distance: [0, 10, 20],
       watts_calc: [150, 160, 170],
       sensorStreamsV1: {
@@ -1277,6 +1423,7 @@ describe("activityDetailDerived", () => {
 
   it("preserves explicit sensor timestamps and marks missing channels incomplete", () => {
     const streams = {
+      time: [0, 1, 2],
       heartrate: [150, 151, 152],
       sensorStreamsV1: {
         version: 1,
