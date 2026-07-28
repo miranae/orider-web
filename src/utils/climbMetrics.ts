@@ -1,5 +1,6 @@
 import type { ClimbMetric } from "@shared/types/activity-metrics";
 import type { ClimbSegment } from "./advancedMetrics";
+import { normalizeEpochMilliseconds } from "./timestampUnit";
 
 export interface ClimbTableRow {
   startKm: number;
@@ -50,10 +51,8 @@ function nonNegativeOrNull(value: unknown): number | null {
 }
 
 function epochSeconds(value: unknown): number | null {
-  if (!finite(value)) return null;
-  if (value >= 1e11) return value / 1000;
-  if (value >= 1e9) return value;
-  return null;
+  const epochMs = normalizeEpochMilliseconds(value);
+  return epochMs == null ? null : epochMs / 1000;
 }
 
 /** epoch 초/밀리초 활동 시작시각 + 경과 초를 브라우저 현지 시각으로 표시한다. */

@@ -1,9 +1,9 @@
 import { inferUniformSampleTimeAxis } from "../../../utils/sampleTime";
+import { detectTimestampUnit, timestampDivisor } from "../../../utils/timestampUnit";
 
 export type LegacySensorCoverageChannel = "heart_rate" | "cadence";
 
-interface LegacySensorCoverageInput {
-  channel: LegacySensorCoverageChannel;
+export interface LegacySensorAxisInput {
   hasAlignedShapeEvidence?: boolean;
   hasInvalidTimeEvidence?: boolean;
   values: readonly number[];
@@ -11,10 +11,15 @@ interface LegacySensorCoverageInput {
   trustedDurationSec?: number;
 }
 
-interface RelativeTimeAxis {
+export interface LegacySensorCoverageInput extends LegacySensorAxisInput {
+  channel: LegacySensorCoverageChannel;
+}
+
+export interface LegacySensorMeasurementAxis {
   time: number[];
   durationSec: number;
   stepSec: number;
+  durationsSec: number[];
 }
 
 const COVERAGE_RULES = {
@@ -29,29 +34,35 @@ function validDuration(value: number | undefined): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
-function routeTimeAxis(routeTime: readonly number[] | undefined): RelativeTimeAxis | undefined {
+function routeTimeAxis(routeTime: readonly number[] | undefined): LegacySensorMeasurementAxis | undefined {
   if (!routeTime || routeTime.length < 2) return undefined;
   if (routeTime.some((sample) => !Number.isFinite(sample) || sample < 0)) return undefined;
-  const divisor = routeTime[0]! >= 1_000_000_000_000 ? 1000 : 1;
+  const divisor = timestampDivisor(detectTimestampUnit(routeTime[0]!));
   const time = routeTime.map((sample) => (sample - routeTime[0]!) / divisor);
   const deltas = time.slice(1).map((sample, index) => sample - time[index]!);
   if (deltas.some((delta) => delta <= 0)) return undefined;
   const sortedDeltas = [...deltas].sort((a, b) => a - b);
   const stepSec = sortedDeltas[Math.floor(sortedDeltas.length / 2)]!;
-  return { time, durationSec: time[time.length - 1]! + stepSec, stepSec };
+  return {
+    time,
+    durationSec: time[time.length - 1]! + stepSec,
+    stepSec,
+    durationsSec: [...deltas, stepSec],
+  };
 }
 
-function inferredTimeAxis(length: number, durationSec: number): RelativeTimeAxis | undefined {
+function inferredTimeAxis(length: number, durationSec: number): LegacySensorMeasurementAxis | undefined {
   const time = inferUniformSampleTimeAxis(length, durationSec);
   if (!time) return undefined;
-  return { time, durationSec, stepSec: durationSec / length };
+  const stepSec = durationSec / length;
+  return { time, durationSec, stepSec, durationsSec: Array(length).fill(stepSec) };
 }
 
-function measurementAxis({
+export function resolveLegacySensorMeasurementAxis({
   values,
   routeTime,
   trustedDurationSec,
-}: LegacySensorCoverageInput): RelativeTimeAxis | undefined {
+}: LegacySensorAxisInput): LegacySensorMeasurementAxis | undefined {
   const routeAxis = routeTimeAxis(routeTime);
   const summaryDuration = validDuration(trustedDurationSec);
   const trustedDuration = summaryDuration ?? routeAxis?.durationSec;
@@ -75,7 +86,7 @@ export function legacySensorMeasurementsCoverSession(input: LegacySensorCoverage
   const positiveIndexes = values.flatMap((value, index) => value > 0 ? [index] : []);
   if (positiveIndexes.length < 2) return false;
 
-  const axis = measurementAxis(input);
+  const axis = resolveLegacySensorMeasurementAxis(input);
   // A fully measured channel has no sentinel ambiguity even when old data omitted
   // both route time and summary duration. Mixed zero channels need temporal proof.
   if (!axis) {
@@ -108,4 +119,32 @@ export function legacySensorMeasurementsCoverSession(input: LegacySensorCoverage
     maxMissingGapSec = Math.max(maxMissingGapSec, missingGapSec);
   }
   return maxMissingGapSec / axis.durationSec <= gapRatio;
+}
+
+export interface LegacySensorWeightedSummary {
+  average: number;
+  maximum: number;
+}
+
+/** Weights retained slots by their original interval without spanning rejected slots. */
+export function timeWeightedLegacySensorSummary(
+  input: LegacySensorAxisInput,
+  isMeasured: (value: number) => boolean,
+): LegacySensorWeightedSummary | null {
+  const axis = resolveLegacySensorMeasurementAxis(input);
+  let weightedSum = 0;
+  let measuredDurationSec = 0;
+  let maximum = -Infinity;
+  for (let index = 0; index < input.values.length; index++) {
+    const value = input.values[index]!;
+    if (!isMeasured(value)) continue;
+    const durationSec = axis?.durationsSec[index] ?? 1;
+    if (!Number.isFinite(durationSec) || durationSec <= 0) continue;
+    weightedSum += value * durationSec;
+    measuredDurationSec += durationSec;
+    maximum = Math.max(maximum, value);
+  }
+  return measuredDurationSec > 0
+    ? { average: weightedSum / measuredDurationSec, maximum }
+    : null;
 }

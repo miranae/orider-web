@@ -7,7 +7,7 @@ import { calculateHrZoneDistribution, calculatePowerZoneDistribution, calculateS
 import { calculatePowerCurve } from "../utils/powerCurve";
 import { plausibleWatts } from "../utils/plausibleWatts";
 import {
-  avgMax,
+  weightedAvgMax,
   calculateWorkKj,
   calculateEF,
   calculateDecoupling,
@@ -25,6 +25,7 @@ import {
 import { calculateRunSplits, calculateOverallGap } from "../utils/runMetrics";
 import { inferUniformSampleTimeAxis, sampleDurationsSec, totalDurationSec, type SampleTiming } from "../utils/sampleTime";
 import { makeRelSecAt } from "../utils/streamTime";
+import { detectTimestampUnit, normalizeEpochMilliseconds } from "../utils/timestampUnit";
 import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
@@ -226,14 +227,12 @@ function normalizeSensorTimeAxis(
   }
 
   const first = time[0]!;
-  if (first > 1e12) {
+  if (detectTimestampUnit(first) === "epoch_ms") {
     return { time: normalized, timeOriginEpochMs: first };
   }
-  if (first > 1e9) {
-    const timeOriginEpochMs = first * 1000;
-    return Number.isSafeInteger(timeOriginEpochMs)
-      ? { time: normalized, timeOriginEpochMs }
-      : undefined;
+  if (detectTimestampUnit(first) === "epoch_sec") {
+    const timeOriginEpochMs = normalizeEpochMilliseconds(first);
+    return timeOriginEpochMs != null ? { time: normalized, timeOriginEpochMs } : undefined;
   }
   return { time };
 }
@@ -297,9 +296,7 @@ export function filterServerMetricsForSensorCandidates(
 }
 
 export function normalizeActivityStartTimeMs(startTime: number | null | undefined): number | undefined {
-  if (typeof startTime !== "number" || !Number.isFinite(startTime) || startTime < 0) return undefined;
-  const epochMs = startTime < 1_000_000_000_000 ? startTime * 1000 : startTime;
-  return Number.isSafeInteger(epochMs) ? epochMs : undefined;
+  return normalizeEpochMilliseconds(startTime);
 }
 
 export function wholeSessionSeriesShareAxis(
@@ -492,7 +489,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const tss = useMemo(() => hasPower && hasPowerTime ? calculateTSS(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
   const vi = useMemo(() => hasPower && hasPowerTime ? calculateVI(watts, powerTime, powerTiming) : null, [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
   const powerStats = useMemo(() => {
-    const base = avgMax(watts, { ignoreZero: false });
+    const base = weightedAvgMax(watts, powerTiming, { ignoreZero: false });
     // 최대 파워는 3초 평활값으로 — 파워미터 단발 스파이크 제거
     if (watts.length >= 3) {
       let smoothMax: number | null = null;
@@ -521,7 +518,10 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const kjPerHr = useMemo(() => calculateKjPerHour(workKj, durationSec), [workKj, durationSec]);
 
   // 심박 메트릭
-  const hrStats = useMemo(() => avgMax(hr, { ignoreZero: true }), [hr]);
+  const hrStats = useMemo(
+    () => weightedAvgMax(hr, heartRateTiming, { ignoreZero: true }),
+    [hr, heartRateTiming],
+  );
   const hrDrift = useMemo(
     () => hasHr && hasHeartRateTime ? calculateHrDrift(hr) : null,
     [hr, hasHr, hasHeartRateTime],
@@ -538,7 +538,17 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   }, [tss, trimp, currentCtl]);
 
   // 케이던스/속도/거리/고도
-  const cadenceStats = useMemo(() => avgMax(selectedCadenceSeries.values, { ignoreZero: true }), [selectedCadenceSeries.values]);
+  const cadenceStats = useMemo(
+    () => weightedAvgMax(
+      selectedCadenceSeries.values,
+      { durationsSec: selectedCadenceSeries.durationsSec ?? sampleDurationsSec(
+        selectedCadenceSeries.values.length,
+        selectedCadenceSeries.time,
+      ) },
+      { ignoreZero: true },
+    ),
+    [selectedCadenceSeries.durationsSec, selectedCadenceSeries.time, selectedCadenceSeries.values],
+  );
   const speed = useMemo(() => {
     const stream = calculateAvgSpeed(streams);
     // 요약값(휠센서/FIT 우선)이 있으면 사용

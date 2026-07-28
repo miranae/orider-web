@@ -3,8 +3,17 @@ import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
 import { inferUniformSampleTimeAxis } from "../../../utils/sampleTime";
 import {
+  detectTimestampUnit,
+  normalizeEpochMilliseconds,
+  timestampDivisor,
+} from "../../../utils/timestampUnit";
+import {
   legacySensorMeasurementsCoverSession,
+  resolveLegacySensorMeasurementAxis,
+  timeWeightedLegacySensorSummary,
+  type LegacySensorAxisInput,
   type LegacySensorCoverageChannel,
+  type LegacySensorCoverageInput,
 } from "./legacySensorCoverage";
 
 import {
@@ -250,7 +259,7 @@ function validTimeDurationSec(value: unknown): number | undefined {
     return undefined;
   }
   const numericTime = time as number[];
-  const divisor = numericTime[0]! >= 1_000_000_000_000 ? 1000 : 1;
+  const divisor = timestampDivisor(detectTimestampUnit(numericTime[0]!));
   const deltas = numericTime.slice(1).map((sample, index) => sample - numericTime[index]!);
   if (deltas.some((delta) => delta <= 0)) return undefined;
   const sortedDeltas = [...deltas].sort((a, b) => a - b);
@@ -411,21 +420,16 @@ function persistedNumericArray(value: unknown, allowNegative: boolean): number[]
 function persistedTimeArray(value: unknown): number[] | undefined {
   const values = persistedNumericArray(value, false);
   if (!values) return undefined;
-  const firstUnit = values[0]! >= 1_000_000_000_000
-    ? "epoch_ms"
-    : values[0]! >= 1_000_000_000 ? "epoch_sec" : "relative";
+  const firstUnit = detectTimestampUnit(values[0]!);
   for (let index = 0; index < values.length; index++) {
     const sample = values[index]!;
-    const sampleUnit = sample >= 1_000_000_000_000
-      ? "epoch_ms"
-      : sample >= 1_000_000_000 ? "epoch_sec" : "relative";
+    const sampleUnit = detectTimestampUnit(sample);
     if (sampleUnit !== firstUnit) return undefined;
     if (index > 0 && sample <= values[index - 1]!) return undefined;
     // Fractional relative seconds are valid for routes sampled above 1 Hz. Keep
     // absolute epoch axes integer-safe so later millisecond normalization is exact.
-    if (values[0]! >= 1_000_000_000_000 && !Number.isSafeInteger(sample)) return undefined;
-    if (values[0]! >= 1_000_000_000 && values[0]! < 1_000_000_000_000
-      && !Number.isSafeInteger(sample * 1000)) return undefined;
+    if (firstUnit === "epoch_ms" && !Number.isSafeInteger(sample)) return undefined;
+    if (firstUnit === "epoch_sec" && !Number.isSafeInteger(sample * 1000)) return undefined;
   }
   return values;
 }
@@ -437,9 +441,7 @@ interface ChartTimeAxis {
 }
 
 function normalizeEpochMs(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 1_000_000_000) return undefined;
-  const epochMs = value < 1_000_000_000_000 ? value * 1000 : value;
-  return Number.isSafeInteger(epochMs) ? epochMs : undefined;
+  return normalizeEpochMilliseconds(value);
 }
 
 function chartRouteTimeAxis(
@@ -761,15 +763,33 @@ function trustedLegacySensor(
   if (!values?.length || !hasValidLegacySensorChannelValues(values)) return null;
   if (!hasLegacyCoverage(values.length, expectation)) return null;
   const positive = positiveValues(values);
-  return legacySensorMeasurementsCoverSession({
+  return legacySensorMeasurementsCoverSession(legacySensorCoverageInput(values, expectation, channel))
+    ? positive : null;
+}
+
+function legacySensorCoverageInput(
+  values: readonly number[],
+  expectation: LegacyCoverageExpectation,
+  channel: LegacySensorCoverageChannel,
+): LegacySensorCoverageInput {
+  return {
     channel,
+    ...legacySensorAxisInput(values, expectation),
+  };
+}
+
+function legacySensorAxisInput(
+  values: readonly number[],
+  expectation: LegacyCoverageExpectation,
+): LegacySensorAxisInput {
+  return {
     hasAlignedShapeEvidence: expectation.shapeCount > 0
       && hasSufficientAxisCoverage(values.length, expectation.shapeCount),
     hasInvalidTimeEvidence: expectation.hasInvalidTimeEvidence,
     values,
     routeTime: expectation.routeTime,
-    trustedDurationSec: expectation.summaryDurationSec ?? expectation.timeDurationSec,
-  }) ? positive : null;
+    trustedDurationSec: expectation.summaryDurationSec,
+  };
 }
 
 export function selectActivityHeartRateStream(
@@ -927,11 +947,16 @@ export function deriveStreamSensorSummary(
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
   const heartRate = selectedHeartRate.positiveValues;
+  const legacyHeartRate = selectedHeartRate.source === "heartrate"
+    ? runtimeArray<number>(selectedHeartRate.values)
+    : undefined;
+  const legacyHeartRateExpectation = legacyCoverageExpectation(streams, context.legacyDurationSec);
   const rawCadence = (streams as unknown as Record<string, unknown>).cadence;
   const cadenceValues = runtimeArray<number>(rawCadence);
+  const cadenceExpectation = legacyCoverageExpectation(streams, context.legacyDurationSec, true);
   const cadence = trustedLegacySensor(
     cadenceValues,
-    legacyCoverageExpectation(streams, context.legacyDurationSec, true),
+    cadenceExpectation,
     "cadence",
   ) ?? [];
   const hasHeartRateStream = heartRate.length > 0;
@@ -956,6 +981,27 @@ export function deriveStreamSensorSummary(
         channelLength: cadenceValues?.length,
       }
     : undefined;
+  const heartRateStats = legacyHeartRate
+    ? timeWeightedLegacySensorSummary(
+        legacySensorCoverageInput(legacyHeartRate, legacyHeartRateExpectation, "heart_rate"),
+        (value) => value > 0,
+      )
+    : heartRate.length > 0 ? { average: average(heartRate), maximum: maximum(heartRate) } : null;
+  const cadenceStats = cadenceValues && hasCadenceStream
+    ? timeWeightedLegacySensorSummary(
+        legacySensorCoverageInput(cadenceValues, cadenceExpectation, "cadence"),
+        (value) => value > 0,
+      )
+    : null;
+  const legacyPowerValues = selectedPower.source === "watts" || selectedPower.source === "watts_calc"
+    ? runtimeArray<number>(selectedPower.values)
+    : undefined;
+  const powerStats = legacyPowerValues
+    ? timeWeightedLegacySensorSummary(
+        legacySensorAxisInput(legacyPowerValues, legacyCoverageExpectation(streams, context.legacyDurationSec)),
+        (value) => value > 0,
+      )
+    : hasReliablePower ? { average: average(power), maximum: maximum(power) } : null;
 
   return {
     hasHeartRateStream,
@@ -963,12 +1009,12 @@ export function deriveStreamSensorSummary(
     hasCadenceStream,
     hasRejectedCadenceStream: hasCadenceCandidate && !hasCadenceStream,
     hasPowerStream: hasReliablePower,
-    averageHeartRate: heartRate.length > 0 ? average(heartRate) : null,
-    maxHeartRate: heartRate.length > 0 ? maximum(heartRate) : null,
-    averageCadence: cadence.length > 0 ? average(cadence) : null,
-    maxCadence: cadence.length > 0 ? maximum(cadence) : null,
-    averagePower: hasReliablePower ? average(power) : null,
-    maxPower: hasReliablePower ? maximum(power) : null,
+    averageHeartRate: heartRateStats?.average ?? null,
+    maxHeartRate: heartRateStats?.maximum ?? null,
+    averageCadence: cadenceStats?.average ?? null,
+    maxCadence: cadenceStats?.maximum ?? null,
+    averagePower: powerStats?.average ?? null,
+    maxPower: powerStats?.maximum ?? null,
     hasReliablePower,
     hasRejectedPowerStream: selectedPower.hasCandidate && !hasReliablePower,
     heartRateSource: selectedHeartRate.source,
@@ -985,11 +1031,18 @@ function measuredSeries(
   fixedStep?: number,
   timeOriginEpochMs?: unknown,
   wholeSessionCoverageAccepted = false,
+  slotDurationsSec?: readonly number[],
 ): AnalysisSensorSeries | undefined {
   const length = Math.min(values.length, time.length);
+  const positiveDiffs = time.slice(1)
+    .map((value, index) => value - (time[index] ?? value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((a, b) => a - b);
+  const step = fixedStep ?? positiveDiffs[(positiveDiffs.length - 1) >> 1] ?? 1;
   let currentValues: number[] = [];
   let currentTimes: number[] = [];
-  const runs: Array<{ values: number[]; time: number[] }> = [];
+  let currentDurations: number[] = [];
+  const runs: Array<{ values: number[]; time: number[]; durationsSec: number[] }> = [];
   for (let index = 0; index <= length; index++) {
     const value = values[index];
     const timestamp = time[index];
@@ -1002,10 +1055,14 @@ function measuredSeries(
     ) {
       currentValues.push(value);
       currentTimes.push(timestamp);
+      currentDurations.push(slotDurationsSec?.[index] ?? step);
     } else {
-      if (currentValues.length > 0) runs.push({ values: currentValues, time: currentTimes });
+      if (currentValues.length > 0) {
+        runs.push({ values: currentValues, time: currentTimes, durationsSec: currentDurations });
+      }
       currentValues = [];
       currentTimes = [];
+      currentDurations = [];
     }
   }
   // Only channels that already passed the conservative whole-session coverage gate may
@@ -1014,13 +1071,9 @@ function measuredSeries(
   const measured = runs.length === 1 ? runs[0]! : {
     values: runs.flatMap((run) => run.values),
     time: runs.flatMap((run) => run.time),
+    durationsSec: runs.flatMap((run) => run.durationsSec),
   };
   if (!measured.values.length) return undefined;
-  const positiveDiffs = time.slice(1)
-    .map((value, index) => value - (time[index] ?? value))
-    .filter((value) => Number.isFinite(value) && value > 0)
-    .sort((a, b) => a - b);
-  const step = fixedStep ?? positiveDiffs[(positiveDiffs.length - 1) >> 1] ?? 1;
   // Keep the source timestamps so independently compacted HR/power runs cannot appear aligned.
   // A defensive fixed-step fallback remains for a degenerate one-sample source.
   const measuredTime = measured.time.length > 1
@@ -1035,9 +1088,11 @@ function measuredSeries(
     values: measured.values,
     time: measuredTime,
     ...(wholeSessionCoverageAccepted ? {
-      durationsSec: measured.values.map(() => step),
+      durationsSec: measured.durationsSec,
       segmentStarts: runs.flatMap((run) => run.values.map((_, index) => index === 0)),
-      fullSessionDurationSec: length * step,
+      fullSessionDurationSec: slotDurationsSec?.length === length
+        ? slotDurationsSec.reduce((sum, duration) => sum + duration, 0)
+        : length * step,
     } : {}),
     complete: values.length === time.length && measured.values.length === values.length,
     ...(wholeSessionCoverageAccepted ? { wholeSessionCoverageAccepted: true } : {}),
@@ -1100,13 +1155,46 @@ export function buildActivityAnalysisProjection(
     ? runtimeArray<number>(streams.heartrate)
     : undefined;
   const topLevelTime = runtimeArray<number>(streams.time);
-  const legacyTime = topLevelTime?.length
-    ? topLevelTime
-    : legacyHeartRateValues?.map((_, index) => index) ?? [];
+  const legacyHeartRateAxis = legacyHeartRateValues
+    ? resolveLegacySensorMeasurementAxis(legacySensorAxisInput(
+        legacyHeartRateValues,
+        legacyCoverageExpectation(streams, context.legacyDurationSec),
+      ))
+    : undefined;
+  const legacyPowerValues = selectedPower.source === "watts" || selectedPower.source === "watts_calc"
+    ? runtimeArray<number>(selectedPower.values)
+    : undefined;
+  const legacyPowerAxis = legacyPowerValues
+    ? resolveLegacySensorMeasurementAxis(legacySensorAxisInput(
+        legacyPowerValues,
+        legacyCoverageExpectation(streams, context.legacyDurationSec),
+      ))
+    : undefined;
+  const legacyTimeOriginEpochMs = normalizeEpochMs(topLevelTime?.[0])
+    ?? normalizeEpochMs(context.activityStartTime);
   const shouldRepairLegacyHeartRate = !!legacyHeartRateValues?.length
     && selectedHeartRate.positiveValues.length / legacyHeartRateValues.length <= 0.5;
   const legacyHeartRate = shouldRepairLegacyHeartRate && legacyHeartRateValues
-    ? measuredSeries(legacyHeartRateValues, legacyTime, (value) => value > 0)
+    ? measuredSeries(
+        legacyHeartRateValues,
+        legacyHeartRateAxis?.time ?? legacyHeartRateValues.map((_, index) => index),
+        (value) => value > 0,
+        undefined,
+        legacyTimeOriginEpochMs,
+        true,
+        legacyHeartRateAxis?.durationsSec,
+      )
+    : undefined;
+  const legacyPower = legacyPowerValues?.some((value) => value === 0)
+    ? measuredSeries(
+        legacyPowerValues,
+        legacyPowerAxis?.time ?? legacyPowerValues.map((_, index) => index),
+        (value) => value > 0,
+        undefined,
+        legacyTimeOriginEpochMs,
+        true,
+        legacyPowerAxis?.durationsSec,
+      )
     : undefined;
   const projectedLegacyHeartRate = legacyHeartRateValues && !shouldRepairLegacyHeartRate
     ? legacyHeartRateValues
@@ -1157,7 +1245,7 @@ export function buildActivityAnalysisProjection(
             explicit.timeOriginEpochMs,
             true,
           )
-        : undefined),
+        : legacyPower),
     };
   }
 
@@ -1171,6 +1259,7 @@ export function buildActivityAnalysisProjection(
         watts_calc: undefined,
       },
       heartRate,
+      power: legacyPower,
     };
   }
   if (selectedPower.source === "watts_calc" && streams.watts?.length) {
@@ -1182,6 +1271,7 @@ export function buildActivityAnalysisProjection(
         watts_calc: runtimeArray<number>(selectedPower.values),
       },
       heartRate,
+      power: legacyPower,
     };
   }
   return {
@@ -1196,7 +1286,7 @@ export function buildActivityAnalysisProjection(
         : undefined,
     },
     heartRate,
-    power: overridePower,
+    power: overridePower ?? legacyPower,
   };
 }
 

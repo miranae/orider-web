@@ -20,6 +20,31 @@ export function avgMax(arr: number[] | undefined, opts?: { ignoreZero?: boolean 
   return { avg: sum / n, max, count: n };
 }
 
+/** Time-weighted average plus the unchanged unweighted maximum. */
+export function weightedAvgMax(
+  arr: number[] | undefined,
+  timing?: SampleTiming,
+  opts?: { ignoreZero?: boolean },
+): { avg: number | null; max: number | null; count: number } {
+  if (!arr?.length) return { avg: null, max: null, count: 0 };
+  const durations = sampleDurationsSec(arr.length, undefined, timing);
+  const values: number[] = [];
+  const measuredDurations: number[] = [];
+  let max = -Infinity;
+  for (let index = 0; index < arr.length; index++) {
+    const value = arr[index]!;
+    if (!Number.isFinite(value) || (opts?.ignoreZero && value === 0)) continue;
+    values.push(value);
+    measuredDurations.push(durations[index] ?? 0);
+    max = Math.max(max, value);
+  }
+  return {
+    avg: weightedMean(values, measuredDurations),
+    max: values.length > 0 ? max : null,
+    count: values.length,
+  };
+}
+
 /** 총 일 (kJ) — Σwatts × dt / 1000 */
 export function calculateWorkKj(watts: number[], time?: StreamTimeArray, timing?: SampleTiming): number {
   const durations = sampleDurationsSec(watts.length, time, timing);
@@ -36,7 +61,7 @@ export function calculateWorkKj(watts: number[], time?: StreamTimeArray, timing?
 export function calculateEF(watts: number[], heartrate: number[], timing?: SampleTiming): number | null {
   const np = calculateNP(watts, undefined, timing);
   if (np === null) return null;
-  const { avg } = avgMax(heartrate, { ignoreZero: true });
+  const { avg } = weightedAvgMax(heartrate, timing, { ignoreZero: true });
   if (!avg || avg <= 0) return null;
   return np / avg;
 }
