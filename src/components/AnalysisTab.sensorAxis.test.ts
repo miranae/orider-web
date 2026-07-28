@@ -8,9 +8,9 @@ import {
   sensorSeriesShareCompleteAxis,
   wholeSessionSeriesShareAxis,
 } from "./AnalysisTab";
-import { calculateWorkKj } from "../utils/advancedMetrics";
-import { calculateTSS } from "../utils/powerMetrics";
-import { calculatePowerZoneDistribution } from "../utils/zoneAnalysis";
+import { calculateTRIMP, calculateWorkKj } from "../utils/advancedMetrics";
+import { calculateNP, calculateTSS } from "../utils/powerMetrics";
+import { calculateHrZoneDistribution, calculatePowerZoneDistribution } from "../utils/zoneAnalysis";
 
 describe("AnalysisTab sensor axis", () => {
   it("does not treat a distance-axis count as duration for whole-activity rates", () => {
@@ -167,6 +167,97 @@ describe("AnalysisTab sensor axis", () => {
     expect(calculateTSS(watts, 250, selected.time)).toBeCloseTo(64, 6);
     expect(calculatePowerZoneDistribution(watts, 250, selected.time)
       .reduce((seconds, zone) => seconds + zone.seconds, 0)).toBe(3_600);
+  });
+
+  it.each([1, 2, 4])(
+    "integrates clockless legacy work, zones, TRIMP, and kJ/h exactly at %s Hz",
+    (rateHz) => {
+      const durationSec = 60;
+      const watts = Array(durationSec * rateHz).fill(200);
+      const heartRate = Array(durationSec * rateHz).fill(150);
+      const power = selectWholeSessionSensorSeries(undefined, watts, undefined, undefined, durationSec);
+      const hr = selectWholeSessionSensorSeries(undefined, heartRate, undefined, undefined, durationSec);
+      const analysisDurationSec = resolveAnalysisDurationSec(
+        power.values.length,
+        power.time,
+        hr.values.length,
+        hr.time,
+        { userId: "rider" },
+      );
+
+      expect(power.time).toHaveLength(durationSec * rateHz);
+      expect(power.time?.[1]).toBe(1 / rateHz);
+      expect(calculateWorkKj(watts, power.time)).toBeCloseTo(12, 10);
+      expect(calculateNP(watts, power.time)).toBeCloseTo(200, 10);
+      expect(calculateTSS(watts, 250, power.time)).toBeCloseTo(
+        calculateTSS(Array(durationSec).fill(200), 250, Array.from({ length: durationSec }, (_, index) => index))!,
+        10,
+      );
+      expect(calculatePowerZoneDistribution(watts, 250, power.time)
+        .reduce((seconds, zone) => seconds + zone.seconds, 0)).toBeCloseTo(durationSec, 10);
+      expect(calculateHrZoneDistribution(heartRate, 190, hr.time)
+        .reduce((seconds, zone) => seconds + zone.seconds, 0)).toBeCloseTo(durationSec, 10);
+      expect(calculateTRIMP(heartRate, 190, 60, "male", hr.time)).toBeCloseTo(
+        calculateTRIMP(Array(durationSec).fill(150), 190, 60, "male", Array.from({ length: durationSec }, (_, index) => index))!,
+        10,
+      );
+      expect(analysisDurationSec).toBeCloseTo(durationSec, 10);
+      expect(calculateKjPerHour(12, analysisDurationSec)).toBeCloseTo(720, 10);
+    },
+  );
+
+  it("integrates a short fractional trusted duration without a one-second tail", () => {
+    const durationSec = 1.25;
+    const watts = Array(5).fill(200);
+    const selected = selectWholeSessionSensorSeries(undefined, watts, undefined, undefined, durationSec);
+
+    expect(selected.time).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    expect(calculateWorkKj(watts, selected.time)).toBeCloseTo(0.25, 10);
+    expect(calculatePowerZoneDistribution(watts, 250, selected.time)
+      .reduce((seconds, zone) => seconds + zone.seconds, 0)).toBeCloseTo(durationSec, 10);
+
+    const subSecond = selectWholeSessionSensorSeries(undefined, [200, 200, 200], undefined, undefined, 0.75);
+    expect(subSecond.time).toEqual([0, 0.25, 0.5]);
+    expect(calculateWorkKj(subSecond.values, subSecond.time)).toBeCloseTo(0.15, 10);
+  });
+
+  it("keeps a compact 2 Hz legacy sensor on riding time across a longer paused route", () => {
+    const watts = Array(7_200).fill(200);
+    const selected = selectWholeSessionSensorSeries(
+      undefined,
+      watts,
+      Array.from({ length: 10_800 }, (_, index) => index * 0.5),
+      1_700_000_000_000,
+      3_600,
+    );
+
+    expect(selected.time?.[1]).toBe(0.5);
+    expect(selected.time?.at(-1)).toBe(3_599.5);
+    expect(calculateWorkKj(watts, selected.time)).toBe(720);
+    expect(resolveAnalysisDurationSec(watts.length, selected.time, 0, undefined, { userId: "rider" }))
+      .toBe(3_600);
+  });
+
+  it.each([
+    ["an implausible over-dense rate", Array(5).fill(200), 1],
+    ["just above the 4 Hz ceiling", Array(241).fill(200), 60],
+    ["insufficient duration coverage", Array(2).fill(200), 10],
+    ["just below 95 percent coverage", Array(56).fill(200), 60],
+    ["too few samples", [200], 0.5],
+    ["no trusted duration", Array(4).fill(200), undefined],
+  ])("fails clockless legacy timing closed for %s", (_case, values, durationSec) => {
+    expect(selectWholeSessionSensorSeries(undefined, values, undefined, undefined, durationSec).time)
+      .toBeUndefined();
+  });
+
+  it("accepts the 95 percent coverage boundary for a trusted duration", () => {
+    expect(selectWholeSessionSensorSeries(
+      undefined,
+      Array(57).fill(200),
+      undefined,
+      undefined,
+      60,
+    ).time).toHaveLength(57);
   });
 
   it.each([

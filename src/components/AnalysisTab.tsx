@@ -23,7 +23,7 @@ import {
   wPrimeBalanceSeries,
 } from "../utils/advancedMetrics";
 import { calculateRunSplits, calculateOverallGap } from "../utils/runMetrics";
-import { sampleDurationsSec, totalDurationSec } from "../utils/sampleTime";
+import { inferUniformSampleTimeAxis, sampleDurationsSec, totalDurationSec } from "../utils/sampleTime";
 import { makeRelSecAt } from "../utils/streamTime";
 import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
 import { useAuth } from "../contexts/AuthContext";
@@ -177,13 +177,10 @@ export function selectWholeSessionSensorSeries(
   if (!sensorSeries) {
     const values = fallbackValues ?? [];
     const routeAxis = normalizeSensorTimeAxis(values.length, fallbackTime, fallbackExpectedDurationSec);
-    const hasOneHzProvenance = values.length > 0
-      && typeof fallbackExpectedDurationSec === "number"
-      && Number.isFinite(fallbackExpectedDurationSec)
-      && Math.abs(values.length - fallbackExpectedDurationSec) <= 1;
+    const inferredTime = inferUniformSampleTimeAxis(values.length, fallbackExpectedDurationSec);
     return {
       values,
-      time: routeAxis?.time ?? (hasOneHzProvenance ? values.map((_, index) => index) : undefined),
+      time: routeAxis?.time ?? inferredTime,
       source: "legacy",
       timeOriginEpochMs: routeAxis?.timeOriginEpochMs ?? fallbackTimeOriginEpochMs,
     };

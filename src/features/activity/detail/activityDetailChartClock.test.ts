@@ -33,6 +33,21 @@ describe("activity detail chart clocks", () => {
     });
   });
 
+  it("uses the same trusted uniform axis for a 4 Hz sensor on a 2 Hz chart", () => {
+    const context = buildActivitySensorSelectionContext({
+      ridingTimeMillis: 2_000,
+      elapsedTimeMillis: 2_000,
+    } as never, 1_700_000_000_000);
+    const streams = {
+      distance: [0, 1, 2, 3],
+      time: [0, 0.5, 1, 1.5],
+      watts: [100, 101, 102, 103, 104, 105, 106, 107],
+    };
+
+    expect(buildSampledData(streams as never, context).map(({ power }) => power))
+      .toEqual([100, 102, 104, 106]);
+  });
+
   it.each([
     ["epoch milliseconds", 1_700_000_000_000, 500],
     ["fractional epoch seconds", 1_700_000_000, 0.5],

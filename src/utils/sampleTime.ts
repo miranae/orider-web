@@ -1,6 +1,28 @@
 import { makeRelSecAt, type StreamTimeArray } from "./streamTime";
 
 const DEFAULT_DT_SEC = 1;
+export const MAX_INFERRED_SENSOR_RATE_HZ = 4;
+const MIN_INFERRED_SENSOR_COVERAGE = 0.95;
+
+/**
+ * Builds an interval-start clock only when a trusted duration makes the implied
+ * dense sensor rate plausible. The final sample owns the final interval, so the
+ * N returned timestamps integrate to exactly durationSec.
+ */
+export function inferUniformSampleTimeAxis(
+  length: number,
+  durationSec: number | undefined,
+): number[] | undefined {
+  if (!Number.isSafeInteger(length) || length < 2
+    || typeof durationSec !== "number" || !Number.isFinite(durationSec) || durationSec <= 0) {
+    return undefined;
+  }
+  const rateHz = length / durationSec;
+  const coverage = length / Math.ceil(durationSec);
+  if (coverage < MIN_INFERRED_SENSOR_COVERAGE || rateHz > MAX_INFERRED_SENSOR_RATE_HZ) return undefined;
+  const intervalSec = durationSec / length;
+  return Array.from({ length }, (_, index) => index * intervalSec);
+}
 
 function normalizedTimes(length: number, time: StreamTimeArray): number[] | null {
   if (length <= 0 || !time?.length) return null;

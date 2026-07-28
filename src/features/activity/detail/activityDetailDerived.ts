@@ -1,5 +1,6 @@
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
+import { inferUniformSampleTimeAxis } from "../../../utils/sampleTime";
 
 import {
   OVERLAY_CONFIGS,
@@ -434,11 +435,12 @@ function alignSensorChannelForChart(
   } else {
     const durationSec = context.legacyDurationSec;
     if (durationSec == null || !Number.isFinite(durationSec) || durationSec <= 0) return undefined;
+    sensorTime = inferUniformSampleTimeAxis(values.length, durationSec) ?? [];
+    if (!sensorTime.length) return undefined;
     const durationRatio = routeAxis.durationSec / durationSec;
     if (durationRatio < LEGACY_POWER_MIN_AXIS_COVERAGE
       || durationRatio > 1 / LEGACY_POWER_MIN_AXIS_COVERAGE) return undefined;
     sensorStepSec = durationSec / values.length;
-    sensorTime = values.map((_, index) => index * sensorStepSec);
   }
   if (!Number.isFinite(sensorStepSec) || sensorStepSec <= 0) return undefined;
   return routeAxis.relativeSec.map((routeSec) => stepSensorValue(
