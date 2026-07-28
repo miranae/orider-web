@@ -7,7 +7,8 @@ import { resolve } from "node:path";
 import test from "node:test";
 import Ajv from "ajv";
 import { collectBrowserEvidence } from "./lib/ai-coach-four-axis-browser-evidence.mjs";
-import { bindLocalContextToRequest, collectLiveComparison, collectStageBaselineComparison, createLocalEvidenceEnvelope,
+import { assertProductNetworkPrivacy, bindLocalContextToRequest, collectLiveComparison, collectStageBaselineComparison,
+  createLocalEvidenceEnvelope,
   decodeEvidenceRequest, decodeLocalOperatorContext, FOUR_AXIS_CASES, localWebEvidenceArtifactName,
   observedProductUserDataWrites, readStageProductLedgerReceipts,
   parseOrchestratorActorAllowlist, prefixedEvidenceDigest, privacyScan, MAX_AUTH_RESPONSE_BYTES, MAX_HTTP_RESPONSE_BYTES,
@@ -353,6 +354,32 @@ test("counts user writes only from a successful server write receipt and explici
     { status: "ok", userDataWrites: 1, data: { status: "applied" } }), /v3_user_write_receipt/u);
 });
 
+test("scans raw product URL and bodies but retains only redacted capture digests", () => {
+  const progressPlanner = { prescriptionId: `rx_${"1".repeat(24)}`,
+    sourceRequestId: "22222222-2222-4222-8222-222222222222", proposalId: `proposal_${"2".repeat(24)}` };
+  const options = { courseId: `course-evidence-${"3".repeat(32)}`, progressPlanner };
+  const url = new URL(`https://candidate---stage.example.com/v1/coach/change-proposals?prescriptionId=${progressPlanner.prescriptionId}`
+    + `&sourceRequestId=${progressPlanner.sourceRequestId}`);
+  const requestBody = { question: FOUR_AXIS_CASES[0].question, courseId: options.courseId,
+    contextFilters: { progressPlanner: { prescriptionId: progressPlanner.prescriptionId,
+      sourceRequestId: progressPlanner.sourceRequestId } } };
+  const responseBody = { data: { proposalId: progressPlanner.proposalId, status: "ready" } };
+  assert.doesNotThrow(() => assertProductNetworkPrivacy(url, requestBody, responseBody, options));
+
+  for (const [name, value] of [["prescriptionId", "rx_private-user-record"],
+    ["sourceRequestId", "private-source-request"]]) {
+    const leakedQuery = new URL(url); leakedQuery.searchParams.append(name, value);
+    assert.throws(() => assertProductNetworkPrivacy(leakedQuery, requestBody, responseBody, options), /v3_product_privacy/u);
+  }
+  for (const leak of [{ uid: "private-user" }, { identityToken: "secret-token" },
+    { coordinates: { latitude: 37.5, longitude: 127 } }]) {
+    assert.throws(() => assertProductNetworkPrivacy(url, requestBody, leak, options), /v3_product_privacy/u);
+  }
+  const capture = { url: `${url.origin}${url.pathname}`, requestBody: prefixedEvidenceDigest(requestBody),
+    responseBody: prefixedEvidenceDigest(responseBody) };
+  assert.doesNotMatch(JSON.stringify(capture), /rx_private|22222222|course-evidence|private-user|secret-token/u);
+});
+
 test("validates immutable JSON/base64url dispatch, expiry, consumer SHA and target fingerprints", () => {
   assert.deepEqual(decodeEvidenceRequest(fixtureText, fixtureHash).value, request);
   assert.deepEqual(decodeEvidenceRequest(Buffer.from(fixtureText).toString("base64url"), fixtureHash).value, request);
@@ -603,6 +630,7 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     "firebase-refresh-candidate"]) assert.ok(masked.includes(token));
   assert.equal(masked.filter((token) => token.split(".").length === 3).length, 2);
   assert.doesNotMatch(JSON.stringify(live), /(?:oidc-|firebase-custom-|app-check-|firebase-id-|firebase-refresh-)/u);
+  assert.doesNotMatch(JSON.stringify(live), /(?:course-evidence-|"prescriptionId"|"sourceRequestId"|private-user)/u);
   for (const [ledgerReceiptsFor, expected] of [
     [async () => ({ request: null, providers: [], turns: [] }),
     /v3_ledger_request_missing:track0_load_summary/u],
@@ -664,6 +692,16 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     requestSha256: `sha256:${"9".repeat(64)}`,
     nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), new RegExp(expected, "u"));
   }
+  const privateResponse = observedStageHttp();
+  await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: async (url, options) => {
+    const response = await privateResponse(url, options);
+    if (new URL(url).pathname !== "/v1/coach/respond") return response;
+    const value = JSON.parse(await response.text()); value.data.uid = "private-user";
+    return new Response(JSON.stringify(value), { status: 200, headers: { "content-type": "application/json" } });
+  }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+  ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: FIREBASE_API_KEY,
+  requestSha256: `sha256:${"9".repeat(64)}`, nowMs: Date.parse("2026-07-27T00:00:00.000Z") }),
+  /v3_product_privacy/u);
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(),
     clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
     ledgerReceiptsFor: observedLedgerReceipts, firebaseWebApiKey: "short",

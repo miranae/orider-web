@@ -58,7 +58,7 @@ const CORRELATION = /^[a-z0-9][a-z0-9-]{15,79}$/u;
 const REVISION = /^[a-z][a-z0-9-]{1,62}$/u;
 const TAG = /^[a-z][a-z0-9-]{1,30}$/u;
 const GITHUB_ACTOR = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(?:\[bot\])?$/u;
-const FORBIDDEN = /(?:\buid\b|courseId|activityId|(?:firebaseCustom|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])question["']?\s*:|providerPrompt|providerOutput|polyline|latitude|longitude|exactCoordinates|bearer\s+[A-Za-z0-9._~-]+)/giu;
+const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|latitude|longitude|(?:exact)?coordinates|bearer\s+[A-Za-z0-9._~-]+)/giu;
 const RECEIPT_KEYS = ["schemaVersion", "correlationDigest", "caseId", "fixtureDigest", "requestDigest",
   "targetFingerprint", "outcome", "providerCalls", "quotaConsumed", "userDataWrites", "card", "response",
   "productExecution"];
@@ -762,7 +762,9 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
   if (options.expiresAtMs <= (options.nowMs ?? Date.now())) throw new Error("web_evidence:v3_product_credential_expired");
   const started = options.clock();
   await assertStageLease(options, { kind: "product-http", target: options.targetName, method, path });
-  const response = await options.fetchImpl(new URL(path, origin), { method, redirect: "error",
+  const requestUrl = new URL(path, origin);
+  assertProductNetworkPrivacy(requestUrl, body, {}, options);
+  const response = await options.fetchImpl(requestUrl, { method, redirect: "error",
     headers: productHeaders(options), ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(30_000) });
   const pathname = new URL(path, origin).pathname;
@@ -772,11 +774,41 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
   }
   const value = await readBoundedJsonResponse(response, { code: "web_evidence:response",
     maxBytes: MAX_HTTP_RESPONSE_BYTES });
+  assertProductNetworkPrivacy(requestUrl, body, value, options);
   const latencyMs = Math.max(0, Math.round(options.clock() - started));
   return { response, value, latencyMs, responseDigest: prefixedEvidenceDigest(value),
     userDataWrites: observedProductUserDataWrites(method, path, response, value),
     capture: { url: `${origin}${pathname}`, requestBody: body === undefined ? "" : prefixedEvidenceDigest(body),
       responseBody: prefixedEvidenceDigest(value) } };
+}
+
+export function assertProductNetworkPrivacy(url, requestBody, responseBody, options = {}) {
+  const observedUrl = new URL(url); const progress = options.progressPlanner ?? {};
+  for (const [name, expected] of [["prescriptionId", progress.prescriptionId],
+    ["sourceRequestId", progress.sourceRequestId]]) {
+    const values = observedUrl.searchParams.getAll(name);
+    if (values.length === 1 && typeof expected === "string" && values[0] === expected) {
+      observedUrl.searchParams.delete(name);
+    }
+  }
+  const allowed = new Map([["courseId", options.courseId], ["prescriptionId", progress.prescriptionId],
+    ["sourceRequestId", progress.sourceRequestId], ["proposalId", progress.proposalId]]);
+  const redactApproved = (value) => {
+    if (Array.isArray(value)) return value.map(redactApproved);
+    if (!value || typeof value !== "object") return value;
+    const result = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (key === "question" && FOUR_AXIS_CASES.some((entry) => entry.question === item)) continue;
+      if (allowed.has(key) && typeof allowed.get(key) === "string" && item === allowed.get(key)) continue;
+      result[key] = redactApproved(item);
+    }
+    return result;
+  };
+  const scan = privacyScan({ networkUrls: observedUrl.toString(),
+    networkBodies: [JSON.stringify(redactApproved(requestBody)), JSON.stringify(redactApproved(responseBody))] });
+  if (scan.matches.networkUrls !== 0 || scan.matches.networkBodies !== 0) {
+    throw new Error("web_evidence:v3_product_privacy");
+  }
 }
 
 function deterministicUuid(seed) {
