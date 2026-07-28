@@ -657,6 +657,10 @@ async function productFetch(origin, path, options, { method = "GET", body } = {}
     maxBytes: MAX_HTTP_RESPONSE_BYTES });
   const latencyMs = Math.max(0, Math.round(options.clock() - started));
   const pathname = new URL(path, origin).pathname;
+  if (response.status >= 500 && response.status <= 599) options.httpMetrics.fiveXx += 1;
+  if (!response.ok) {
+    throw new Error(`web_evidence:v3_product_http_${response.status}:${pathname}:five_xx_${options.httpMetrics.fiveXx}`);
+  }
   return { response, value, latencyMs, responseDigest: prefixedEvidenceDigest(value),
     userDataWrites: observedProductUserDataWrites(method, path, response, value),
     capture: { url: `${origin}${pathname}`, requestBody: body === undefined ? "" : prefixedEvidenceDigest(body),
@@ -893,9 +897,10 @@ async function prepareCard(origin, request, item, options) {
 }
 
 async function observeTarget(request, target, options) {
-  const origin = new URL(target.taggedUrl).origin; const observations = []; const captures = []; let fiveXx = 0;
-  const warmup = await productFetch(origin, "/v1/coach/status", options);
-  if (!warmup.response.ok || warmup.value?.data?.status !== "available") {
+  const origin = new URL(target.taggedUrl).origin; const observations = []; const captures = [];
+  const httpMetrics = { fiveXx: 0 }; const productOptions = { ...options, httpMetrics };
+  const warmup = await productFetch(origin, "/v1/coach/status", productOptions);
+  if (warmup.value?.data?.status !== "available") {
     throw new Error("web_evidence:v3_status_warmup");
   }
   options.warmups.push({ environment: target.environment, path: "/v1/coach/status",
@@ -904,15 +909,14 @@ async function observeTarget(request, target, options) {
       responseDigest: warmup.responseDigest, providerCalls: 0, quotaConsumed: 0, userDataWrites: 0 }) });
   captures.push(warmup.capture);
   for (const item of FOUR_AXIS_CASES) {
-    const prepared = await prepareCard(origin, request, item, options);
+    const prepared = await prepareCard(origin, request, item, productOptions);
     const requestId = deterministicUuid(`${request.correlationId}\0${target.tag}\0${item.caseId}`);
     const body = { requestId, question: item.question, discipline: "bike", locale: "ko-KR", apiVersion: "v2",
       schemaVersion: "coach-respond-v2", capabilityVersion: "p1", contextFilters: prepared.contextFilters,
       responseFormat: "auto" };
-    const question = await productFetch(origin, "/v1/coach/respond", options, { method: "POST", body });
-    if (question.response.status >= 500) fiveXx += 1;
+    const question = await productFetch(origin, "/v1/coach/respond", productOptions, { method: "POST", body });
     const envelope = question.value?.data;
-    if (!question.response.ok || !envelope || envelope.requestId !== requestId || envelope.outcome !== "answer"
+    if (!envelope || envelope.requestId !== requestId || envelope.outcome !== "answer"
         || envelope.budget?.providerCalls !== item.providerCalls
         || envelope.quota?.consumed !== Boolean(item.quotaConsumed)) {
       throw new Error(`web_evidence:v3_question_contract:${item.caseId}`);
@@ -951,7 +955,7 @@ async function observeTarget(request, target, options) {
     observations.push(bounded); captures.push(...(prepared.extraCaptures ?? []), ...(prepared.card ? [prepared.card.capture] : []),
       question.capture);
   }
-  return { observations, captures, fiveXx };
+  return { observations, captures, fiveXx: httpMetrics.fiveXx };
 }
 
 async function attestStageTarget(request, target, options) {

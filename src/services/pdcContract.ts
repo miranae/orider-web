@@ -71,10 +71,13 @@ export function parsePersistedPdc(input: unknown): PdcDoc {
   for (const [duration, value] of Object.entries(mmpAll)) {
     const entry = object(value);
     if (!DURATIONS.includes(duration as PowerDurationKey) || !entry
-        || !exact(entry, ["activityId", "cohortEligible", "date", "source", "startTime", "value"])
+        || !exact(entry, "context" in entry
+          ? ["activityId", "cohortEligible", "context", "date", "source", "startTime", "value"]
+          : ["activityId", "cohortEligible", "date", "source", "startTime", "value"])
         || !finite(entry.value, 1, 3_000) || typeof entry.activityId !== "string" || entry.activityId.length < 1 || entry.activityId.length > 256
         || !date(entry.date) || !integer(entry.startTime, 0, Number.MAX_SAFE_INTEGER)
-        || !SOURCES.includes(entry.source as PdcPowerSource) || typeof entry.cohortEligible !== "boolean") invalid();
+        || !SOURCES.includes(entry.source as PdcPowerSource) || typeof entry.cohortEligible !== "boolean"
+        || ("context" in entry && (typeof entry.context !== "string" || entry.context.length > 128))) invalid();
   }
   const curve = DURATIONS.flatMap((duration) => {
     const entry = object(mmpAll[duration]); return entry ? [Number(entry.value)] : [];

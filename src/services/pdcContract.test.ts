@@ -23,6 +23,18 @@ describe("persisted PDC v5 contract", () => {
       activityCount: 12, weightKgSnapshot: 70, riderType: { type: "AllRounder", confidence: 0.91 } });
   });
 
+  it("preserves a valid optional v5 MMP context", () => {
+    const value = fixture();
+    value.mmpAll["5s"].context = "race";
+    expect(parsePersistedPdc(value).mmpAll["5s"]).toMatchObject({ context: "race" });
+  });
+
+  it.each([42, "x".repeat(129)])("rejects an invalid v5 MMP context", (context) => {
+    const value = fixture();
+    value.mmpAll["5s"].context = context;
+    expect(() => parsePersistedPdc(value)).toThrow("INVALID_PERSISTED_PDC_V5");
+  });
+
   it("reconstructs persisted v1 as a non-canonical v5 document using only validated CP and MMP", () => {
     const legacy = legacyFixture();
     const parsed = parsePersistedPdc(legacy);
