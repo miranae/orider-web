@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Activity, UserFitness } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { PdcDoc } from "@shared/types/pdc";
+import riderParity from "../coach/__fixtures__/rider-insight-parity.json";
+import { parsePersistedPdc } from "../../services/pdcContract";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 import {
   authoritativeCombinedLoad,
@@ -133,58 +135,34 @@ describe("computeIntegratedLoadFocus", () => {
 
 describe("computeCyclingAbility", () => {
   it("builds three PDC axes from measured evidence and duration percentiles", () => {
-    const pdc = {
-      activityCount: 12,
-      mmpAll: {
-        "5s": { value: 900 }, "1m": { value: 500 }, "5m": { value: 340 }, "20m": { value: 270 },
-      },
-      wPerKgAtKey: { "5s": 12, "1m": 7, "5m": 4.8, "20m": 3.8 },
-      ability: { overallPercentile: 70, byDuration: [
-        { duration: "5s", wPerKg: 12, percentile: 80 },
-        { duration: "1m", wPerKg: 7, percentile: 60 },
-        { duration: "5m", wPerKg: 4.8, percentile: 75 },
-        { duration: "20m", wPerKg: 3.8, percentile: 65 },
-      ] },
-    } as unknown as PdcDoc;
+    const pdc = parsePersistedPdc(riderParity.persistedPdc);
 
     const result = computeCyclingAbility(pdc)!;
-    expect(result.axes.map((axis) => axis.score)).toEqual([70, 75, 65]);
+    expect(result.axes.map((axis) => axis.score)).toEqual([79, 70, 64]);
     expect(result.axes.every((axis) => axis.confidence === "high")).toBe(true);
     expect(result.confidence).toBe("high");
   });
 
-  it("keeps missing axes unscored and lowers confidence instead of inventing zeros", () => {
+  it("suppresses ability when there are fewer than five canonical activities", () => {
     const pdc = {
       activityCount: 3,
       mmpAll: { "5m": { value: 300 } },
       wPerKgAtKey: { "5m": 4.2 },
       ability: { overallPercentile: 55, byDuration: [{ duration: "5m", wPerKg: 4.2, percentile: 55 }] },
     } as unknown as PdcDoc;
-    const result = computeCyclingAbility(pdc)!;
-
-    expect(result.axes.map((axis) => axis.score)).toEqual([null, 55, null]);
-    expect(result.axes[0]!.evidence).toEqual([]);
-    expect(result.confidence).toBe("low");
+    expect(computeCyclingAbility(pdc)).toBeNull();
   });
 
-  it("treats a legacy PDC without mmpAll as missing evidence", () => {
-    const result = computeCyclingAbility({ activityCount: 4 } as PdcDoc)!;
-
-    expect(result.axes.every((axis) => axis.score == null && axis.evidence.length === 0)).toBe(true);
-    expect(result.confidence).toBe("none");
+  it("rejects a legacy PDC before it reaches the ability surface", () => {
+    expect(computeCyclingAbility({ activityCount: 4 } as PdcDoc)).toBeNull();
   });
 
-  it("does not award confidence for raw PDC evidence without percentile scores", () => {
-    const result = computeCyclingAbility({
+  it("rejects raw evidence without the canonical classification gate", () => {
+    expect(computeCyclingAbility({
       activityCount: 20,
       mmpAll: { "5s": { value: 900 }, "1m": { value: 500 } },
       wPerKgAtKey: { "5s": 12, "1m": 7 },
-    } as PdcDoc)!;
-
-    expect(result.axes[0]!.evidence).toHaveLength(2);
-    expect(result.axes[0]!.score).toBeNull();
-    expect(result.axes[0]!.confidence).toBe("none");
-    expect(result.confidence).toBe("none");
+    } as PdcDoc)).toBeNull();
   });
 });
 

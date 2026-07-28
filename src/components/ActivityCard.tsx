@@ -18,6 +18,7 @@ import { Card, Chip } from "../theme/components";
 import ActivityAiSummary from "./activity/ActivityAiSummary";
 import ActivitySocialFooter from "./activity/ActivitySocialFooter";
 import ActivityRouteThumbnail, { shouldReportMapCaptureError } from "./activity/ActivityRouteThumbnail";
+import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 
 export { shouldReportMapCaptureError };
 
@@ -51,10 +52,6 @@ const EMPTY_ACTIVITY_SUMMARY: Activity["summary"] = {
   tss: null,
   swolf: null,
 };
-
-const RIDER_TYPE_KEYS = new Set([
-  "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist",
-]);
 
 function formatDuration(ms: number): string {
   const hours = Math.floor(ms / 3600000);
@@ -210,11 +207,10 @@ function GearMaintenanceChip({ gear }: { gear?: Activity["gear"] }) {
 function IdentityDataChips({ pdc }: { pdc?: PdcDoc | null }) {
   const { t: tFitness } = useTranslation("fitness");
   const chips: ReactNode[] = [];
-  const riderType = pdc?.riderType;
-  if (riderType && riderType.confidence >= 0.5 && RIDER_TYPE_KEYS.has(riderType.type)) {
+  if (hasDefinitiveRiderProfile(pdc)) {
     chips.push(
       <Chip key="riderType" variant="accent" dot>
-        {tFitness(`riderType.type.${riderType.type}.label`)}
+        {tFitness(`riderType.type.${pdc.riderType.type}.label`)}
       </Chip>,
     );
   }

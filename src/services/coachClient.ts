@@ -5,6 +5,21 @@ import {
   coachPrescriptionCheckInRequestSchema, parseCoachPrescriptionCheckInResponse,
   type CoachPrescriptionCheckInRequest, type CoachPrescriptionCheckInResponse,
 } from "./coachPrescriptionContract";
+import { parseCoachPmcInsight, type CoachPmcInsight } from "./coachPmcInsightContract";
+import { parseCoachRiderInsight, type CoachRiderInsight } from "./coachRiderInsightContract";
+import {
+  coachRidePlanAiRequestSchema, coachRidePlanPinnedRequestSchema, coachRidePlanTokenRequestSchema,
+  parseCoachRidePlan, parseCoachRidePlanAiProjection, parseCoachRidePlanToken,
+  type CoachRidePlan, type CoachRidePlanAiProjection, type CoachRidePlanQuestionCode, type CoachRidePlanToken,
+} from "./coachRidePlanContract";
+import {
+  coachProposalConfirmRequestSchema, coachProposalCreateRequestSchema, coachProposalRecoveryQuerySchema,
+  coachProposalRollbackRequestSchema,
+  parseCoachProgressPlannerCapabilities, parseCoachProposalCreateResponse, parseCoachProposalResponse,
+  parseCoachProposalRecoveryResponse, parseCoachReceiptResponse, type CoachProgressPlannerCapabilities, type CoachProposalCreateResponse,
+  type CoachProposalRecoveryResponse,
+  type CoachProposalResponse, type CoachReceiptResponse,
+} from "./coachProgressPlannerContract";
 
 export type CoachDiscipline = "bike" | "run" | "swim";
 export type CoachResponseStatus = "ok" | "insufficient_data" | "stale" | "unsupported" | "quota_exceeded" | "budget_blocked" | "fallback";
@@ -282,6 +297,159 @@ async function authenticatedFetch(path: string, init?: RequestInit): Promise<unk
 
 export async function getCoachStatus(): Promise<CoachInitialStatus> {
   return parseCoachInitialStatus(await authenticatedFetch("/status"));
+}
+
+/** Canonical server projection only; this GET never invokes a provider, consumes quota, or writes. */
+export async function getCoachPmcInsight(discipline: CoachDiscipline): Promise<CoachPmcInsight> {
+  try {
+    const payload = await authenticatedFetch(`/insights/pmc?discipline=${encodeURIComponent(discipline)}`, {
+      method: "GET", cache: "no-store",
+    });
+    return parseCoachPmcInsight(payload, discipline);
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PMC_INSIGHT", { cause });
+  }
+}
+
+/** Canonical persisted PDC v5 projection; zero provider calls/quota/writes. */
+export async function getCoachRiderInsight(): Promise<CoachRiderInsight> {
+  try {
+    return parseCoachRiderInsight(await authenticatedFetch("/insights/rider?discipline=bike", { method: "GET", cache: "no-store" }), "bike");
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_RIDER_INSIGHT", { cause });
+  }
+}
+
+/** Issues an owner-bound opaque token. Course identity stays in the authenticated JSON body and out of URLs/logs. */
+export async function createCoachRidePlanToken(courseId: string): Promise<CoachRidePlanToken> {
+  try {
+    const body = coachRidePlanTokenRequestSchema.parse({ courseId });
+    return parseCoachRidePlanToken(await authenticatedFetch("/ride-plan/token", {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_RIDE_PLAN_TOKEN", { cause });
+  }
+}
+
+/** Reads only the server-computed snapshot; the browser never reconstructs course physics. */
+export async function getCoachRidePlan(courseId: string, contextToken: string): Promise<CoachRidePlan> {
+  try {
+    const body = coachRidePlanPinnedRequestSchema.parse({ courseId, contextToken });
+    return parseCoachRidePlan(await authenticatedFetch("/ride-plan", {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_RIDE_PLAN", { cause });
+  }
+}
+
+/** Token and card must be the exact same server revision before the UI can expose either one. */
+export async function loadCoachRidePlan(courseId: string): Promise<CoachRidePlan> {
+  const token = await createCoachRidePlanToken(courseId);
+  const plan = await getCoachRidePlan(courseId, token.contextToken);
+  if (plan.contextToken !== token.contextToken || plan.inputRevision !== token.inputRevision) {
+    throw new CoachClientError("contract", "COACH_RIDE_PLAN_REVISION_MISMATCH");
+  }
+  return plan;
+}
+
+/** Builds the provider-safe, zero-provider projection pinned to the card token. */
+export async function getCoachRidePlanAiContext(courseId: string, contextToken: string,
+  questionCode: CoachRidePlanQuestionCode, signal?: AbortSignal): Promise<CoachRidePlanAiProjection> {
+  try {
+    const body = coachRidePlanAiRequestSchema.parse({ courseId, contextToken, questionCode });
+    return parseCoachRidePlanAiProjection(await authenticatedFetch("/ride-plan/ai-context", {
+      method: "POST", cache: "no-store", body: JSON.stringify(body), signal,
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_RIDE_PLAN_AI_CONTEXT", { cause });
+  }
+}
+
+export async function getCoachProgressPlannerCapabilities(): Promise<CoachProgressPlannerCapabilities> {
+  try {
+    return parseCoachProgressPlannerCapabilities(await authenticatedFetch("/capabilities", { method: "GET", cache: "no-store" }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_PLANNER_CAPABILITIES", { cause });
+  }
+}
+
+/** Owner-scoped durable recovery; server selects the canonical current proposal and receipt. */
+export async function getCoachProgressProposalRecovery(prescriptionId: string,
+  sourceRequestId: string): Promise<CoachProposalRecoveryResponse> {
+  try {
+    const query = new URLSearchParams(coachProposalRecoveryQuerySchema.parse({ prescriptionId, sourceRequestId }));
+    const parsed = parseCoachProposalRecoveryResponse(await authenticatedFetch(`/change-proposals?${query.toString()}`, {
+      method: "GET", cache: "no-store",
+    }));
+    if (parsed.status === "ok" && (parsed.data.source.prescriptionId !== prescriptionId
+        || parsed.data.source.sourceRequestId !== sourceRequestId)) {
+      throw new CoachClientError("contract", "COACH_PROGRESS_RECOVERY_SOURCE_MISMATCH");
+    }
+    return parsed;
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_RECOVERY", { cause });
+  }
+}
+
+export async function createCoachProgressProposal(input: { requestId: string; checkInRequestId: string;
+  localDates: string[] }): Promise<CoachProposalCreateResponse> {
+  try {
+    const body = coachProposalCreateRequestSchema.parse(input);
+    return parseCoachProposalCreateResponse(await authenticatedFetch("/proposals", {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_PROPOSAL", { cause });
+  }
+}
+
+export async function getCoachProgressProposal(proposalId: string): Promise<CoachProposalResponse> {
+  if (!/^proposal_[0-9a-f]{24}$/u.test(proposalId)) throw new CoachClientError("contract", "INVALID_COACH_PROPOSAL_ID");
+  try {
+    return parseCoachProposalResponse(await authenticatedFetch(`/proposals/${encodeURIComponent(proposalId)}`, {
+      method: "GET", cache: "no-store",
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_PROPOSAL", { cause });
+  }
+}
+
+export async function confirmCoachProgressProposal(proposalId: string, input: { requestId: string;
+  nonce: string }): Promise<CoachReceiptResponse> {
+  if (!/^proposal_[0-9a-f]{24}$/u.test(proposalId)) throw new CoachClientError("contract", "INVALID_COACH_PROPOSAL_ID");
+  try {
+    const body = coachProposalConfirmRequestSchema.parse(input);
+    return parseCoachReceiptResponse(await authenticatedFetch(`/proposals/${encodeURIComponent(proposalId)}/confirm`, {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_RECEIPT", { cause });
+  }
+}
+
+export async function rollbackCoachProgressProposal(proposalId: string, input: { requestId: string }): Promise<CoachReceiptResponse> {
+  if (!/^proposal_[0-9a-f]{24}$/u.test(proposalId)) throw new CoachClientError("contract", "INVALID_COACH_PROPOSAL_ID");
+  try {
+    const body = coachProposalRollbackRequestSchema.parse(input);
+    return parseCoachReceiptResponse(await authenticatedFetch(`/proposals/${encodeURIComponent(proposalId)}/rollback`, {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_RECEIPT", { cause });
+  }
 }
 
 export async function askCoach(request: CoachRespondRequest): Promise<CoachResponse> {

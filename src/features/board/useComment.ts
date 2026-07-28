@@ -4,6 +4,14 @@ import { firestore } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { track } from "../../services/analytics";
 
+export async function softDeleteBoardComment(postId: string, commentId: string): Promise<void> {
+  const { doc, updateDoc } = await import("firebase/firestore");
+  // commentCount 감소는 백엔드 onBoardCommentUpdate 트리거가 deletedAt 변경을 보고 처리한다.
+  await updateDoc(doc(firestore, `board_posts/${postId}/comments`, commentId), {
+    deletedAt: Date.now(),
+  });
+}
+
 /**
  * 댓글 작성을 위한 훅
  */
@@ -18,7 +26,7 @@ export function useCreateComment(postId: string) {
 
     setSubmitting(true);
     try {
-      const { addDoc, collection, doc, updateDoc, increment } = await import("firebase/firestore");
+      const { addDoc, collection } = await import("firebase/firestore");
       
       const commentData = {
         userId: user.uid,
@@ -29,12 +37,8 @@ export function useCreateComment(postId: string) {
         deletedAt: null,
       };
 
+      // commentCount 증가와 글 작성자 알림은 백엔드 onBoardCommentCreate 트리거 소유다.
       const docRef = await addDoc(collection(firestore, `board_posts/${postId}/comments`), commentData);
-
-      // 게시글의 댓글 수 업데이트
-      await updateDoc(doc(firestore, "board_posts", postId), {
-        commentCount: increment(1)
-      });
 
       track("board_comment_send", { post_id: postId, text_len: commentData.text.length });
 

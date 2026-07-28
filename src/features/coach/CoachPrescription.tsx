@@ -1,13 +1,23 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Text } from "../../theme/components";
-import { isCoachClientError, submitCoachPrescriptionCheckIn } from "../../services/coachClient";
+import { Alert, Button, Chip, Text } from "../../theme/components";
+import {
+  confirmCoachProgressProposal, createCoachProgressProposal, getCoachProgressPlannerCapabilities,
+  getCoachProgressProposalRecovery, isCoachClientError, rollbackCoachProgressProposal,
+  submitCoachPrescriptionCheckIn,
+} from "../../services/coachClient";
+import { logClientError } from "../../services/errorLogger";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
+import type {
+  CoachChangeProposal, CoachChangeReceipt, CoachProgressPlannerCapabilities, CoachProposalRecovery,
+} from "../../services/coachProgressPlannerContract";
 import type {
   CoachCheckInSignal, CoachPrescriptionCheckInRequest, CoachPrescriptionDTO, CoachPrescriptionEvidence,
   CoachReassessmentCondition,
 } from "../../services/coachPrescriptionContract";
 
-interface Props { initial: CoachPrescriptionDTO; parentRequestId: string; locale: string; onReanalyze: () => void }
+interface Props { initial: CoachPrescriptionDTO; parentRequestId: string; locale: string; onReanalyze: () => void;
+  onQuestionSelect?: (question: string, prescriptionId: string, sourceRequestId: string) => void }
 type Answers = CoachPrescriptionCheckInRequest["answers"];
 type SubmitState = "idle" | "submitting" | "network_error" | "reanalyze" | "error";
 
@@ -45,7 +55,256 @@ function Condition({ condition, evidenceById, locale }: { condition: CoachReasse
   </ul></details></li>;
 }
 
-function PrescriptionDetails({ prescription, locale }: { prescription: CoachPrescriptionDTO; locale: string }) {
+const STALE_CODES = new Set(["proposal_expired", "proposal_revision_changed", "proposal_weekly_checkin_changed",
+  "consent_not_active", "proposal_source_terminal_invalid", "proposal_source_invalid", "proposal_nonce_invalid"]);
+
+function errorState(error: unknown): "stale" | "disabled" | "conflict" | "error" {
+  const code = isCoachClientError(error) ? error.code : "";
+  if (STALE_CODES.has(code)) return "stale";
+  if (code === "proposal_feature_disabled" || code === "proposal_confirm_feature_disabled") return "disabled";
+  if (code === "rollback_conflict" || code === "confirm_request_mismatch") return "conflict";
+  return "error";
+}
+
+function responseErrorState(error: { code: string; retryable: boolean }): "stale" | "disabled" | "error" {
+  if (error.code.includes("disabled")) return "disabled";
+  return error.retryable ? "error" : "stale";
+}
+
+function rollbackResponseErrorState(error: { code: string; retryable: boolean }): "disabled" | "conflict" | "error" {
+  if (error.code.includes("disabled")) return "disabled";
+  return error.retryable ? "error" : "conflict";
+}
+
+function logProgressError(stage: "capabilities" | "recovery" | "create" | "confirm" | "rollback", error: unknown,
+  context: Record<string, unknown>) {
+  logClientError(`CoachPrescription.${stage}`, error, { stage, ...context });
+}
+
+type ProposalUiState = "idle" | "creating" | "review" | "confirming" | "applied" | "reverted" |
+  "stale" | "disabled" | "conflict" | "error";
+interface ProposalView { proposal: CoachChangeProposal | null; nonce: string | null; receipt: CoachChangeReceipt | null;
+  rollbackRequestId: string | null; state: ProposalUiState }
+
+function proposalViewFromRecovery(recovered: CoachProposalRecovery): ProposalView {
+  const state: ProposalUiState = recovered.recoveryStatus === "not_found" ? "idle"
+    : recovered.recoveryStatus === "pending" ? "review" : recovered.recoveryStatus === "applied" ? "applied"
+      : recovered.recoveryStatus === "reverted" ? "reverted" : "stale";
+  return { proposal: recovered.proposal, nonce: recovered.confirmNonce, receipt: recovered.receipt,
+    rollbackRequestId: recovered.rollbackRequestId, state };
+}
+
+function ProposalReview({ prescription, locale, sourceRequestId, capabilities, onReanalyze, onQuestionSelect }: {
+  prescription: CoachPrescriptionDTO; locale: string; sourceRequestId: string;
+  capabilities: CoachProgressPlannerCapabilities; onReanalyze: Props["onReanalyze"];
+  onQuestionSelect?: Props["onQuestionSelect"] }) {
+  const { t } = useTranslation("coach");
+  const eligible = prescription.nextDays.filter((item) => ["rest", "recovery", "modified_workout"].includes(item.action));
+  const [selectedDates, setSelectedDates] = useState<string[]>(eligible.map((item) => item.localDate));
+  const [view, setView] = useState<ProposalView>({ proposal: null, nonce: null, receipt: null,
+    rollbackRequestId: null, state: "idle" });
+  const { proposal, nonce, receipt, rollbackRequestId, state } = view;
+  const [confirmArmed, setConfirmArmed] = useState(false);
+  const [confirmRetryable, setConfirmRetryable] = useState(false);
+  const [rollbackRetryable, setRollbackRetryable] = useState(false);
+  const [recovering, setRecovering] = useState(true);
+  const [recoveryFailed, setRecoveryFailed] = useState(false);
+  const createRequestId = useRef<string | null>(null);
+  const confirmRequestId = useRef<string | null>(null);
+  const evidenceById = useMemo(() => new Map(proposal?.evidence.map((item) => [item.evidenceId, item]) ?? []), [proposal]);
+  const busy = state === "creating" || state === "confirming";
+  const createTerminal = !proposal && (state === "stale" || state === "disabled");
+
+  useEffect(() => {
+    let active = true;
+    void getCoachProgressProposalRecovery(prescription.prescriptionId, sourceRequestId).then((result) => {
+      if (!active) return;
+      if (result.status === "error") {
+        logProgressError("recovery", new Error(result.error.code), { operation: "initial",
+          prescriptionId: prescription.prescriptionId, sourceRequestId });
+        setRecoveryFailed(true);
+        setView((current) => ({ ...current, state: result.error.code === "proposal_recovery_revision_invalid" ? "stale" : "error" }));
+        return;
+      }
+      setRecoveryFailed(false);
+      setView(proposalViewFromRecovery(result.data));
+    }).catch((error) => { if (active) {
+      logProgressError("recovery", error, { operation: "initial", prescriptionId: prescription.prescriptionId, sourceRequestId });
+      setRecoveryFailed(true); setView((current) => ({ ...current, state: errorState(error) }));
+    } })
+      .finally(() => { if (active) setRecovering(false); });
+    return () => { active = false; };
+  }, [prescription.prescriptionId, sourceRequestId]);
+
+  async function hydrateRecovery(operation: string): Promise<boolean> {
+    try {
+      const result = await getCoachProgressProposalRecovery(prescription.prescriptionId, sourceRequestId);
+      if (result.status === "error") {
+        logProgressError("recovery", new Error(result.error.code), { operation,
+          prescriptionId: prescription.prescriptionId, sourceRequestId });
+        setRecoveryFailed(true);
+        setView((current) => ({ ...current, state: result.error.code === "proposal_recovery_revision_invalid" ? "stale" : "error" }));
+        return false;
+      }
+      setView(proposalViewFromRecovery(result.data));
+      setRecoveryFailed(false);
+      setConfirmArmed(false); setConfirmRetryable(false); setRollbackRetryable(false);
+      return true;
+    } catch (error) {
+      logProgressError("recovery", error, { operation, prescriptionId: prescription.prescriptionId, sourceRequestId });
+      setRecoveryFailed(true); setView((current) => ({ ...current, state: errorState(error) }));
+      return false;
+    }
+  }
+
+  async function createProposal() {
+    if (!capabilities.progressPlanner.proposal.enabled || selectedDates.length === 0 || busy || recovering
+        || recoveryFailed || createTerminal) return;
+    setView((current) => ({ ...current, state: "creating" })); setConfirmArmed(false); setConfirmRetryable(false);
+    try {
+      createRequestId.current ??= crypto.randomUUID();
+      const result = await createCoachProgressProposal({ requestId: createRequestId.current,
+        checkInRequestId: sourceRequestId, localDates: selectedDates });
+      if (result.status === "error") {
+        logProgressError("create", new Error(result.error.code), { operation: "create", prescriptionId: prescription.prescriptionId,
+          sourceRequestId, requestId: createRequestId.current });
+        setView((current) => ({ ...current, state: responseErrorState(result.error) })); return;
+      }
+      await hydrateRecovery("post-create");
+    } catch (error) {
+      logProgressError("create", error, { operation: "create", prescriptionId: prescription.prescriptionId,
+        sourceRequestId, requestId: createRequestId.current });
+      setView((current) => ({ ...current, state: errorState(error) }));
+    }
+  }
+
+  async function refreshProposal() {
+    if (busy || recovering) return;
+    setRecovering(true);
+    await hydrateRecovery("refresh");
+    setRecovering(false);
+  }
+
+  async function confirmProposal() {
+    if (!proposal || !nonce || !capabilities.progressPlanner.confirm.enabled || busy) return;
+    if (!confirmArmed) { setConfirmArmed(true); return; }
+    setView((current) => ({ ...current, state: "confirming" }));
+    try {
+      confirmRequestId.current ??= crypto.randomUUID();
+      const result = await confirmCoachProgressProposal(proposal.proposalId,
+        { requestId: confirmRequestId.current, nonce });
+      if (result.status === "error") {
+        logProgressError("confirm", new Error(result.error.code), { operation: "confirm", prescriptionId: prescription.prescriptionId,
+          sourceRequestId, proposalId: proposal.proposalId, requestId: confirmRequestId.current });
+        const nextState = responseErrorState(result.error);
+        setConfirmRetryable(nextState === "error");
+        setView((current) => ({ ...current, state: nextState })); return;
+      }
+      await hydrateRecovery("post-confirm");
+    } catch (error) {
+      logProgressError("confirm", error, { operation: "confirm", prescriptionId: prescription.prescriptionId,
+        sourceRequestId, proposalId: proposal.proposalId, requestId: confirmRequestId.current });
+      const nextState = errorState(error);
+      setConfirmRetryable(nextState === "error");
+      setView((current) => ({ ...current, state: nextState }));
+    }
+  }
+
+  async function rollbackProposal() {
+    if (!proposal || !rollbackRequestId || (state !== "applied" && !rollbackRetryable) || busy) return;
+    setView((current) => ({ ...current, state: "confirming" }));
+    try {
+      const result = await rollbackCoachProgressProposal(proposal.proposalId, { requestId: rollbackRequestId });
+      if (result.status === "error") {
+        logProgressError("rollback", new Error(result.error.code), { operation: "rollback", prescriptionId: prescription.prescriptionId,
+          sourceRequestId, proposalId: proposal.proposalId, requestId: rollbackRequestId });
+        const nextState = rollbackResponseErrorState(result.error);
+        setRollbackRetryable(nextState === "error");
+        setView((current) => ({ ...current, state: nextState })); return;
+      }
+      await hydrateRecovery("post-rollback");
+    } catch (error) {
+      logProgressError("rollback", error, { operation: "rollback", prescriptionId: prescription.prescriptionId,
+        sourceRequestId, proposalId: proposal.proposalId, requestId: rollbackRequestId });
+      const nextState = errorState(error);
+      setRollbackRetryable(nextState === "error"); setView((current) => ({ ...current, state: nextState }));
+    }
+  }
+
+  return <section className="coach-progress-review" aria-labelledby={`proposal-review-${prescription.prescriptionId}`}>
+    <div className="coach-progress-review__heading"><div>
+      <Text id={`proposal-review-${prescription.prescriptionId}`} as="h4" variant="subtitle">{t("progress.review.title")}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{t("progress.review.body")}</Text>
+    </div><Chip variant="accent">{t("progress.origin.aiCoach")}</Chip></div>
+    <Text as="p" variant="caption" tone="secondary">{t("progress.origin.separate")}</Text>
+    {!proposal && !recovering && !createTerminal && eligible.length > 0
+      && <fieldset disabled={!capabilities.progressPlanner.proposal.enabled || busy || recoveryFailed}>
+      <legend>{t("progress.review.selectDates")}</legend>
+      <div className="coach-progress-review__dates">{eligible.map((item) => <label key={item.localDate}>
+        <input type="checkbox" checked={selectedDates.includes(item.localDate)} onChange={(event) => {
+          createRequestId.current = null;
+          setSelectedDates((current) => event.target.checked ? [...current, item.localDate]
+            : current.filter((dateValue) => dateValue !== item.localDate));
+        }} /><time dateTime={item.localDate}>{date(item.localDate, locale)}</time>
+      </label>)}</div>
+      <Button type="button" variant="outline" disabled={selectedDates.length === 0 || !capabilities.progressPlanner.proposal.enabled || recovering || recoveryFailed}
+        onClick={() => void createProposal()}>{state === "creating" ? t("progress.review.creating") : t("progress.review.create")}</Button>
+      {!capabilities.progressPlanner.proposal.enabled && <Text as="p" variant="caption" tone="warning">{t("progress.states.proposalDisabled")}</Text>}
+    </fieldset>}
+    {proposal && <div className="coach-progress-review__changes" aria-live="polite">
+      {proposal.changes.map((change) => <article key={`${change.weekId}-${change.dayIndex}`} className="coach-progress-review__change">
+        <Text as="h5" variant="label"><time dateTime={change.localDate}>{date(change.localDate, locale)}</time></Text>
+        <div className="coach-progress-review__before-after">
+          <div><Text as="strong" variant="caption">{t("progress.review.before")}</Text><span>{t(`prescription.workout.${change.before.workout.kind}`)}</span>
+            <span>{t("prescription.duration", { minutes: change.before.workout.durationMin })}</span><span>{t("prescription.targetTss", { value: change.before.workout.targetTss })}</span></div>
+          <div><Text as="strong" variant="caption">{t("progress.review.after")}</Text><span>{t(`prescription.workout.${change.workout.kind}`)}</span>
+            <span>{t("prescription.duration", { minutes: change.workout.durationMin })}</span>
+            {change.workout.targetTss !== undefined && <span>{t("prescription.targetTss", { value: change.workout.targetTss })}</span>}</div>
+        </div>
+        <Text as="p" variant="caption">{t("progress.review.reasons")}: {change.reasonCodes.map((code) => t(`progress.reason.${code}`, { defaultValue: code })).join(", ")}</Text>
+        <details><summary>{t("prescription.evidence", { count: change.evidenceIds.length })}</summary><ul>
+          {change.evidenceIds.map((evidenceId) => <li key={evidenceId}>{evidenceById.has(evidenceId)
+            ? displayEvidence(evidenceById.get(evidenceId)!, locale) : evidenceId}</li>)}</ul></details>
+      </article>)}
+      <div className="coach-progress-review__actions">
+        <Button type="button" variant="outline" disabled={recovering}
+          onClick={() => void refreshProposal()}>{t("progress.review.refresh")}</Button>
+        {state === "review" && <Button type="button" variant={confirmArmed ? "primary" : "secondary"}
+          disabled={!capabilities.progressPlanner.confirm.enabled || !nonce} onClick={() => void confirmProposal()}>
+          {confirmArmed ? t("progress.confirm.final") : t("progress.confirm.review")}</Button>}
+        {state === "error" && confirmRetryable && <Button type="button" variant="outline"
+          onClick={() => void confirmProposal()}>{t("progress.states.retryConfirm")}</Button>}
+        {state === "error" && rollbackRetryable && <Button type="button" variant="outline"
+          onClick={() => void rollbackProposal()}>{t("progress.states.retryRollback")}</Button>}
+        {state === "applied" && <Button type="button" variant="outline" disabled={!rollbackRequestId}
+          onClick={() => void rollbackProposal()}>{t("progress.rollback.action")}</Button>}
+      </div>
+      {!capabilities.progressPlanner.confirm.enabled && state === "review" && <Alert variant="warning" title={t("progress.states.confirmDisabled")} />}
+      {capabilities.progressPlanner.confirm.enabled && state === "review" && !nonce
+        && <Alert variant="warning" title={t("progress.states.confirmRecoveryUnavailable")} />}
+      {confirmArmed && <Alert variant="warning" title={t("progress.confirm.title")}>{t("progress.confirm.body")}</Alert>}
+    </div>}
+    {state === "applied" && receipt && <Alert variant="success" title={t("progress.states.applied")}>{t("progress.states.receipt", { id: receipt.auditId })}</Alert>}
+    {state === "reverted" && receipt && <Alert variant="success" title={t("progress.states.reverted")}>{t("progress.states.receipt", { id: receipt.auditId })}</Alert>}
+    {["stale", "disabled", "conflict", "error"].includes(state) && <Alert variant="warning" title={t(`progress.states.${state}`)}>
+      {state === "stale" ? <Button type="button" variant="outline" onClick={onReanalyze}>
+        {t("progress.states.reanalyze")}</Button> : state === "error" && recoveryFailed
+        ? <Button type="button" variant="outline" disabled={recovering} onClick={() => void refreshProposal()}>
+          {t("progress.review.refresh")}</Button> : null}</Alert>}
+    <div className="coach-progress-review__questions" aria-label={t("progress.questions.label")}>{[
+      t("progress.questions.priority"), t("progress.questions.changed"),
+    ].map((question) => <Button key={question} type="button" variant="ghost"
+      onClick={() => onQuestionSelect?.(question, prescription.prescriptionId, sourceRequestId)}>{question}</Button>)}</div>
+    <Text as="p" variant="caption" tone="tertiary">{t("progress.review.noCharge")}</Text>
+  </section>;
+}
+
+function PrescriptionDetails({ prescription, locale, sourceRequestId, capabilities, progressPlannerEnabled, onReanalyze,
+  onQuestionSelect }: {
+  prescription: CoachPrescriptionDTO; locale: string; sourceRequestId: string;
+  capabilities: CoachProgressPlannerCapabilities | null; progressPlannerEnabled: boolean;
+  onReanalyze: Props["onReanalyze"];
+  onQuestionSelect?: Props["onQuestionSelect"] }) {
   const { t } = useTranslation("coach");
   const evidenceById = useMemo(() => new Map(prescription.evidence.map((item) => [item.evidenceId, item])), [prescription.evidence]);
   return <section className="coach-prescription" aria-labelledby={`prescription-${prescription.prescriptionId}`}>
@@ -87,6 +346,9 @@ function PrescriptionDetails({ prescription, locale }: { prescription: CoachPres
       <div><dt>{t("prescription.planRevision")}</dt><dd>{prescription.planRevision ?? t("prescription.none")}</dd></div>
       <div><dt>{t("prescription.rulesVersion")}</dt><dd>{prescription.rulesVersion}</dd></div>
     </dl>
+    {progressPlannerEnabled && capabilities?.progressPlanner.read.enabled && <ProposalReview prescription={prescription} locale={locale}
+      sourceRequestId={sourceRequestId} capabilities={capabilities} onReanalyze={onReanalyze}
+      onQuestionSelect={onQuestionSelect} />}
   </section>;
 }
 
@@ -105,16 +367,32 @@ function Signal({ signal, answers, onChange }: { signal: CoachCheckInSignal; ans
   </fieldset>;
 }
 
-export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze }: Props) {
+export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect }: Props) {
   const { t } = useTranslation("coach");
   const [prescription, setPrescription] = useState(initial);
   const [answers, setAnswers] = useState<Answers>({});
   const [state, setState] = useState<SubmitState>("idle");
+  const [sourceRequestId, setSourceRequestId] = useState(parentRequestId);
+  const [capabilities, setCapabilities] = useState<CoachProgressPlannerCapabilities | null>(null);
+  const [capabilityFailed, setCapabilityFailed] = useState(false);
   const requestRef = useRef<CoachPrescriptionCheckInRequest | null>(null);
   const inFlightRef = useRef(false);
   const required = prescription.requiredSignals ?? [];
   const complete = required.every((signal) => signal === "subjective_fatigue" ? answers.subjectiveFatigue !== undefined
     : signal === "soreness" ? answers.soreness !== undefined : answers.painOrIllness !== undefined);
+  const locallyEnabled = getRuntimeConfig().coachProgressPlannerEnabled === true;
+  const checkInEnabled = capabilities?.prescription.checkIn.enabled === true;
+
+  useEffect(() => {
+    let active = true;
+    void getCoachProgressPlannerCapabilities().then((value) => { if (active) setCapabilities(value); })
+      .catch((error) => { if (active) {
+        logProgressError("capabilities", error, { operation: "load", prescriptionId: initial.prescriptionId,
+          sourceRequestId: parentRequestId });
+        setCapabilityFailed(true);
+      } });
+    return () => { active = false; };
+  }, []);
 
   async function submit(retry = false) {
     if (inFlightRef.current || prescription.status !== "needs_checkin" || !prescription.checkInToken || !complete) return;
@@ -124,7 +402,7 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
     requestRef.current = request; inFlightRef.current = true; setState("submitting");
     try {
       const result = await submitCoachPrescriptionCheckIn(request);
-      if (result.status === "ok") { setPrescription(result.prescription); setState("idle"); }
+      if (result.status === "ok") { setPrescription(result.prescription); setSourceRequestId(request.requestId); setState("idle"); }
       else setState(REANALYZE_CODES.has(result.error.code) ? "reanalyze" : result.error.retryable ? "network_error" : "error");
     } catch (error) {
       if (isCoachClientError(error) && error.kind === "http" && REANALYZE_CODES.has(error.code)) setState("reanalyze");
@@ -132,7 +410,12 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
     } finally { inFlightRef.current = false; }
   }
 
-  if (prescription.status === "ready") return <PrescriptionDetails prescription={prescription} locale={locale} />;
+  if (prescription.status === "ready") return <>
+    <PrescriptionDetails prescription={prescription} locale={locale} sourceRequestId={sourceRequestId}
+      capabilities={capabilities} progressPlannerEnabled={locallyEnabled} onReanalyze={onReanalyze}
+      onQuestionSelect={onQuestionSelect} />
+    {locallyEnabled && capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
+  </>;
   if (prescription.status === "safety_blocked") return <section className="coach-prescription coach-prescription--safety" role="alert">
     <Text as="h3" variant="subtitle">{t("prescription.safety.title")}</Text><p>{t("prescription.safety.body")}</p>
   </section>;
@@ -147,7 +430,9 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
     {required.map((signal) => <Signal key={signal} signal={signal} answers={answers} onChange={(next) => {
       setAnswers(next); requestRef.current = null; setState("idle");
     }} />)}
-    <Button disabled={!complete || state === "submitting"} onClick={() => void submit()}>{state === "submitting" ? t("prescription.checkin.submitting") : t("prescription.checkin.submit")}</Button>
+    <Button disabled={!complete || state === "submitting" || !checkInEnabled} onClick={() => void submit()}>{state === "submitting" ? t("prescription.checkin.submitting") : t("prescription.checkin.submit")}</Button>
+    {capabilities?.prescription.checkIn.enabled === false && <Text as="p" variant="caption" tone="warning">{t("progress.states.proposalDisabled")}</Text>}
+    {capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
     {state === "network_error" && <div role="alert"><p>{t("prescription.checkin.networkError")}</p><Button variant="outline" onClick={() => void submit(true)}>{t("prescription.checkin.retry")}</Button></div>}
     {state === "reanalyze" && <div role="alert"><p>{t("prescription.checkin.reanalyze")}</p><Button variant="outline" onClick={onReanalyze}>{t("prescription.checkin.newAnalysis")}</Button></div>}
     {state === "error" && <p role="alert">{t("prescription.checkin.error")}</p>}

@@ -1,0 +1,88 @@
+.course-ride-plan {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.course-ride-plan__header,
+.course-ride-plan__notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.course-ride-plan__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+
+.course-ride-plan__summary > div,
+.course-ride-plan__segments li {
+  min-width: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+  background: var(--bg-2);
+  padding: var(--space-3);
+}
+
+.course-ride-plan__summary dt {
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+
+.course-ride-plan__summary dd {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-0);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.course-ride-plan__segments,
+.course-ride-plan__assumptions,
+.course-ride-plan__questions {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  min-width: 0;
+}
+
+.course-ride-plan__segments ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.course-ride-plan__segments li {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1) var(--space-2);
+  color: var(--ink-2);
+  font-size: var(--fs-xs);
+}
+
+.course-ride-plan__segments li > :first-child {
+  grid-column: 1 / -1;
+  color: var(--ink-0);
+}
+
+.course-ride-plan__questions .ds-btn {
+  width: 100%;
+  min-height: var(--control-h-lg);
+  height: auto;
+  white-space: normal;
+  text-align: start;
+}
+
+@media (max-width: 24rem) {
+  .course-ride-plan__header,
+  .course-ride-plan__notice {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

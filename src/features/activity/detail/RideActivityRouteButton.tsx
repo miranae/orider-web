@@ -63,6 +63,7 @@ export function RideActivityRouteButton({
   const { showToast } = useToast();
   const [courseId, setCourseId] = useState<string | null>(null);
   const [status, setStatus] = useState<RideRouteStatus>("idle");
+  const [flowAlert, setFlowAlert] = useState<string | null>(null);
   const busyRef = useRef(false);
   const generationRef = useRef(0);
 
@@ -70,6 +71,7 @@ export function RideActivityRouteButton({
     const generation = ++generationRef.current;
     setCourseId(null);
     setStatus("idle");
+    setFlowAlert(null);
     busyRef.current = false;
     return () => {
       if (generationRef.current === generation) generationRef.current += 1;
@@ -99,6 +101,7 @@ export function RideActivityRouteButton({
     }
 
     busyRef.current = true;
+    setFlowAlert(null);
     let targetCourseId = courseId;
     try {
       if (!targetCourseId) {
@@ -235,6 +238,7 @@ export function RideActivityRouteButton({
       await sendCourse({ courseId: targetCourseId });
       if (!isCurrent()) return;
       setStatus("sent");
+      setFlowAlert(null);
       track("activity_route_send_app_ok", { activity_id: activityId, course_id: targetCourseId });
       showToast(t("page.rideThisRoute.sent"));
     } catch (err) {
@@ -247,7 +251,7 @@ export function RideActivityRouteButton({
         stage: courseWasCreated ? "send" : "create",
       });
       const reason = err instanceof RideRouteFlowError ? err.reason : null;
-      showToast(t(
+      setFlowAlert(t(
         reason === "lookup"
           ? "page.rideThisRoute.lookupFailed"
           : reason === "ambiguous"
@@ -255,7 +259,7 @@ export function RideActivityRouteButton({
             : courseWasCreated
               ? "page.rideThisRoute.sendFailed"
               : "page.rideThisRoute.createFailed",
-      ), "error");
+      ));
     } finally {
       if (isCurrent()) busyRef.current = false;
     }
@@ -272,18 +276,21 @@ export function RideActivityRouteButton({
           : t("page.rideThisRoute.signInButton");
 
   return (
-    <Button
-      onClick={handleClick}
-      variant="primary"
-      disabled={status !== "idle"}
-      aria-busy={status === "creating" || status === "sending"}
-      className="w-full justify-center"
-    >
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.5V6.8a1 1 0 011.45-.9L10 8.2l4-2 4.55 2.3a1 1 0 01.55.9v8.8a1 1 0 01-1.45.9L14 17.2l-4 2-5.45-2.7A1 1 0 014 17.5zM10 8.2v11M14 6.2v11" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M17 3l3 3-3 3M20 6h-5" />
-      </svg>
-      {label}
-    </Button>
+    <>
+      <Button
+        onClick={handleClick}
+        variant="primary"
+        disabled={status !== "idle"}
+        aria-busy={status === "creating" || status === "sending"}
+        className="w-full justify-center"
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.5V6.8a1 1 0 011.45-.9L10 8.2l4-2 4.55 2.3a1 1 0 01.55.9v8.8a1 1 0 01-1.45.9L14 17.2l-4 2-5.45-2.7A1 1 0 014 17.5zM10 8.2v11M14 6.2v11" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 3l3 3-3 3M20 6h-5" />
+        </svg>
+        {label}
+      </Button>
+      {flowAlert && <p role="alert" className="mt-2 text-[length:var(--fs-sm)] text-[var(--color-error)]">{flowAlert}</p>}
+    </>
   );
 }

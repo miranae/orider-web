@@ -94,6 +94,9 @@ const deployWorkflow = readFileSync(".github/workflows/deploy.yml", "utf8");
 const runtimeConfigWriter = readFileSync("scripts/write-runtime-config.mjs", "utf8");
 const envGuard = readFileSync("scripts/check-env.mjs", "utf8");
 requireIncludes(runtimeConfigWriter, '  "mapboxToken",\n  "aiApiBase",', "write-runtime-config required keys");
+requireIncludes(runtimeConfigWriter,
+  'coachRidePlanRespondV2Enabled: readBoolEnv("VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED") ?? false',
+  "write-runtime-config Ride Plan respond-v2 default-off flag");
 requireIncludes(envGuard, '"VITE_MAPBOX_TOKEN"', "check-env production required keys");
 requireIncludes(deployWorkflow, "tags:", "deploy.yml trigger");
 requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
@@ -103,6 +106,15 @@ requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_
 requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_MAPBOX_TOKEN: ${{ secrets.VITE_MAPBOX_TOKEN }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_ORIDER_AI_API_BASE: ${{ vars.VITE_ORIDER_AI_API_BASE }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.VITE_COACH_PMC_INSIGHT_ENABLED }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.VITE_COACH_RIDER_INSIGHT_ENABLED }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.VITE_COACH_PROGRESS_PLANNER_ENABLED }}", "deploy.yml env");
+for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
+  requireIncludes(deployWorkflow, `VITE_COACH_RIDE_PLAN_${name}_ENABLED: \${{ vars.VITE_COACH_RIDE_PLAN_${name}_ENABLED }}`,
+    "deploy.yml env");
+}
+requireIncludes(deployWorkflow, "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}",
+  "deploy.yml env");
 requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
 requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
@@ -116,6 +128,13 @@ if (deployWorkflow.includes("npm run build")) {
 }
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
+for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
+  requireIncludes(stageDeployWorkflow, `VITE_COACH_RIDE_PLAN_${name}_ENABLED: \${{ vars.STAGE_VITE_COACH_RIDE_PLAN_${name}_ENABLED }}`,
+    "deploy-stage.yml env");
+}
+requireIncludes(stageDeployWorkflow,
+  "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}",
+  "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
@@ -135,6 +154,8 @@ requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_STRAVA_REDIRECT_URI", "dep
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE_KEY", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_MAPBOX_TOKEN", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_ORIDER_AI_API_BASE", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-stage.yml verification");
 requireIncludes(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "deploy-stage.yml backend contract gate");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");

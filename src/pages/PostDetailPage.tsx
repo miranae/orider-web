@@ -5,7 +5,8 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useDocument, useCollection, where, orderBy } from '../hooks/useFirestore';
-import { useCreateComment } from '../features/board/useComment';
+import { softDeleteBoardComment, useCreateComment } from '../features/board/useComment';
+import { BoardCommentComposer, BoardCommentText } from '../features/board/BoardCommentUi';
 import { useBoardLike } from '../features/board/useBoardLike';
 import { useDeletePost, useReportBoardContent } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
@@ -90,13 +91,7 @@ const PostDetailPage: React.FC = () => {
   const handleDeleteComment = async (commentId: string) => {
     if (!(await dialog.confirm(t('message.commentDeleteConfirm'), { destructive: true }))) return;
     try {
-      const { doc, updateDoc, increment } = await import("firebase/firestore");
-      await updateDoc(doc(firestore, `board_posts/${postId}/comments`, commentId), {
-        deletedAt: Date.now()
-      });
-      await updateDoc(doc(firestore, "board_posts", postId!), {
-        commentCount: increment(-1)
-      });
+      await softDeleteBoardComment(postId!, commentId);
     } catch {
       showToast(t('message.commentDeleteFailed'), "error");
     }
@@ -387,25 +382,14 @@ const PostDetailPage: React.FC = () => {
 
         {/* Comment Input */}
         {user ? (
-          <form onSubmit={handleCommentSubmit} className="mb-6">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder={t('placeholder.comment')}
-                aria-label={t('placeholder.comment')}
-                className="flex-1 p-2.5 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)] focus:border-transparent"
-                style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', color: 'var(--ink-1)' }}
-              />
-              <Button
-                type="submit"
-                disabled={commentSubmitting || !commentText.trim()} variant="secondary" className="px-5 py-2 rounded-[var(--r-lg)] text-[length:var(--fs-sm)] font-bold disabled:opacity-50"
-              >
-                {commentSubmitting ? '...' : t('button.submit')}
-              </Button>
-            </div>
-          </form>
+          <BoardCommentComposer
+            value={commentText}
+            onChange={setCommentText}
+            onSubmit={handleCommentSubmit}
+            submitting={commentSubmitting}
+            placeholder={t('placeholder.comment')}
+            submitLabel={t('button.submit')}
+          />
         ) : (
           <Card className="mb-6" padding="compact">
             <div className="flex items-center justify-between gap-3">
@@ -452,7 +436,7 @@ const PostDetailPage: React.FC = () => {
                   </button>
                 )}
               </div>
-              <p className="text-[length:var(--fs-sm)] text-[var(--ink-1)] leading-relaxed">{comment.text}</p>
+              <BoardCommentText>{comment.text}</BoardCommentText>
             </Card>
           ))}
         </div>
