@@ -21,6 +21,8 @@ const activity = {
     normalizedPower: 185,
     averageHeartRate: 155,
     maxHeartRate: 165,
+    averageCadence: 88,
+    maxCadence: 110,
   },
 } as unknown as Activity;
 
@@ -280,5 +282,34 @@ describe("useActivitySensorDetail", () => {
       .not.toEqual(expect.arrayContaining(["power", "hr"]));
     expect(result.current.hasStreamPowerCandidate).toBe(true);
     expect(result.current.hasStreamHeartRateCandidate).toBe(true);
+  });
+
+  it("clears stale stored HR and cadence when legacy candidates fail temporal coverage", () => {
+    const streams = {
+      time: [0, 1, 2, 3],
+      distance: [0, 10, 20, 30],
+      heartrate: [0, 150, 151, 0],
+      cadence: [0, 85, 86, 0],
+    } as unknown as ActivityStreams;
+    const { result } = renderSensorDetail(streams);
+
+    expect(result.current.streamSensorSummary).toMatchObject({
+      hasRejectedHeartRateStream: true,
+      hasRejectedCadenceStream: true,
+      averageHeartRate: null,
+      averageCadence: null,
+    });
+    expect(result.current.displayedSummary).toMatchObject({
+      averageHeartRate: null,
+      maxHeartRate: null,
+      averageCadence: null,
+      maxCadence: null,
+    });
+    expect(result.current.analysisProjection?.streams).toMatchObject({
+      heartrate: undefined,
+      cadence: undefined,
+    });
+    expect(result.current.hasStreamHeartRateCandidate).toBe(true);
+    expect(result.current.hasStreamCadenceCandidate).toBe(true);
   });
 });

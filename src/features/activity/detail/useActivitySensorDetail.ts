@@ -112,10 +112,10 @@ export function useActivitySensorDetail({
         ? streamSensorSummary.averageHeartRate
         : summary.averageHeartRate,
       maxHeartRate: hasHeartRateCandidate ? streamSensorSummary.maxHeartRate : summary.maxHeartRate,
-      averageCadence: streamSensorSummary.hasCadenceStream
+      averageCadence: hasStreamCadenceCandidate
         ? streamSensorSummary.averageCadence
         : summary.averageCadence,
-      maxCadence: streamSensorSummary.hasCadenceStream
+      maxCadence: hasStreamCadenceCandidate
         ? streamSensorSummary.maxCadence
         : summary.maxCadence,
       averagePower: hasStreamPowerCandidate ? streamSensorSummary.averagePower : summary.averagePower,
@@ -123,7 +123,7 @@ export function useActivitySensorDetail({
       normalizedPower: hasStreamPowerCandidate ? null : summary.normalizedPower,
       tss: hasStreamPowerCandidate ? null : summary.tss,
     };
-  }, [activity?.summary, effectiveStreams, hasStreamPowerCandidate, streamSensorSummary]);
+  }, [activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, streamSensorSummary]);
 
   // Older virtual-power activities keep these values at the document top level.
   const avgPowerValue = effectiveStreams && hasStreamPowerCandidate

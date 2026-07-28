@@ -2,6 +2,10 @@ import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
 import { inferUniformSampleTimeAxis } from "../../../utils/sampleTime";
+import {
+  legacySensorMeasurementsCoverSession,
+  type LegacySensorCoverageChannel,
+} from "./legacySensorCoverage";
 
 import {
   OVERLAY_CONFIGS,
@@ -275,10 +279,13 @@ export function expectedActivityDurationSec(
 
 interface LegacyCoverageExpectation {
   count: number;
+  hasInvalidTimeEvidence: boolean;
   minimumOnly: boolean;
+  shapeCount: number;
   summaryDurationSec?: number;
   timeAxisLength: number;
   timeDurationSec?: number;
+  routeTime?: number[];
 }
 
 function reliableRouteAxisLength(value: unknown): number {
@@ -296,6 +303,16 @@ function legacyCoverageExpectation(
 ): LegacyCoverageExpectation {
   const timeDurationSec = validTimeDurationSec(streams.time);
   const timeAxisLength = timeDurationSec != null ? reliableRouteAxisLength(streams.time) : 0;
+  const routeTime = timeAxisLength > 0 ? runtimeArray<number>(streams.time) : undefined;
+  const rawTime = (streams as unknown as Record<string, unknown>).time;
+  const hasInvalidTimeEvidence = rawTime != null
+    && (!Array.isArray(rawTime) || rawTime.length > 0)
+    && timeDurationSec == null;
+  const shapeCount = Math.max(
+    timeAxisLength,
+    reliableRouteAxisLength(streams.distance),
+    reliableRouteAxisLength(streams.velocity_smooth),
+  );
   const validSummaryDuration = typeof summaryDurationSec === "number"
     && Number.isFinite(summaryDurationSec)
     && summaryDurationSec > 0
@@ -307,9 +324,12 @@ function legacyCoverageExpectation(
     return {
       count: Math.ceil(validSummaryDuration),
       minimumOnly: true,
+      hasInvalidTimeEvidence,
+      shapeCount,
       summaryDurationSec: validSummaryDuration,
       timeAxisLength,
       timeDurationSec,
+      routeTime,
     };
   }
   return {
@@ -320,8 +340,11 @@ function legacyCoverageExpectation(
       excludeCadence ? 0 : reliableRouteAxisLength(streams.cadence),
     ),
     minimumOnly: false,
+    hasInvalidTimeEvidence,
+    shapeCount,
     timeAxisLength,
     timeDurationSec,
+    routeTime,
   };
 }
 
@@ -733,11 +756,20 @@ function positiveValues(values: unknown): number[] {
 function trustedLegacySensor(
   values: readonly number[] | undefined,
   expectation: LegacyCoverageExpectation,
+  channel: LegacySensorCoverageChannel,
 ): number[] | null {
   if (!values?.length || !hasValidLegacySensorChannelValues(values)) return null;
   if (!hasLegacyCoverage(values.length, expectation)) return null;
   const positive = positiveValues(values);
-  return positive.length > 0 ? positive : null;
+  return legacySensorMeasurementsCoverSession({
+    channel,
+    hasAlignedShapeEvidence: expectation.shapeCount > 0
+      && hasSufficientAxisCoverage(values.length, expectation.shapeCount),
+    hasInvalidTimeEvidence: expectation.hasInvalidTimeEvidence,
+    values,
+    routeTime: expectation.routeTime,
+    trustedDurationSec: expectation.summaryDurationSec ?? expectation.timeDurationSec,
+  }) ? positive : null;
 }
 
 export function selectActivityHeartRateStream(
@@ -844,6 +876,7 @@ export function selectActivityHeartRateStream(
   const legacyPositive = trustedLegacySensor(
     legacyHeartRate,
     legacyCoverageExpectation(streams, context.legacyDurationSec),
+    "heart_rate",
   );
   if (legacyPositive) {
     return {
@@ -899,6 +932,7 @@ export function deriveStreamSensorSummary(
   const cadence = trustedLegacySensor(
     cadenceValues,
     legacyCoverageExpectation(streams, context.legacyDurationSec, true),
+    "cadence",
   ) ?? [];
   const hasHeartRateStream = heartRate.length > 0;
   const hasCadenceStream = cadence.length > 0;
@@ -1055,7 +1089,7 @@ export function buildActivityAnalysisProjection(
     distance: normalizedDistance,
     time: normalizedTime,
     velocity_smooth: persistedNumericArray(streams.velocity_smooth, false),
-    cadence: normalizedCadence && trustedLegacySensor(normalizedCadence, cadenceExpectation)
+    cadence: normalizedCadence && trustedLegacySensor(normalizedCadence, cadenceExpectation, "cadence")
       ? normalizedCadence
       : undefined,
     heartrate: undefined,
@@ -1182,6 +1216,7 @@ export function buildSampledData(
   const chartCadence = cadenceValues && trustedLegacySensor(
     cadenceValues,
     legacyCoverageExpectation(streams, context.legacyDurationSec, true),
+    "cadence",
   ) ? cadenceValues : undefined;
   const chartHeartRate = alignSensorChannelForChart(
     selectedHeartRate.values,

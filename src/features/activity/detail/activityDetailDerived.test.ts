@@ -26,9 +26,9 @@ describe("activityDetailDerived", () => {
     distance: [0, 100, 200], time: [0, 1, 2],
     altitude: [10, 20, 15],
     velocity_smooth: [0, 5, 10],
-    heartrate: [0, 140, 150],
+    heartrate: [130, 140, 150],
     watts: [0, 210, 220],
-    cadence: [0, 85, 88],
+    cadence: [80, 85, 88],
     latlng: [[37, 127], [37.1, 127.1], [37.2, 127.2]],
     segment_efforts: [
       { id: "b", startIndex: 2, endIndex: 3 },
@@ -48,7 +48,7 @@ describe("activityDetailDerived", () => {
       .toEqual({ avg: (210 + 220) / 3, max: 220 });
   });
 
-  it("excludes missing HR/cadence zeros and derives extrema from the full stream", () => {
+  it("rejects HR/cadence measurements clustered in one session fragment", () => {
     const longStreams = {
       distance: Array.from({ length: 601 }, (_, index) => index), time: Array.from({ length: 601 }, (_, index) => index),
       altitude: Array.from({ length: 601 }, (_, index) => index === 301 ? 999 : 10),
@@ -59,20 +59,20 @@ describe("activityDetailDerived", () => {
     const summary = deriveStreamSensorSummary(longStreams as never);
     const sampled = buildSampledData(longStreams as never);
     expect(summary).toMatchObject({
-      averageHeartRate: 170,
-      maxHeartRate: 190,
-      averageCadence: 100,
-      maxCadence: 110,
-      hasCadenceStream: true,
-      hasRejectedCadenceStream: false,
+      averageHeartRate: null,
+      maxHeartRate: null,
+      averageCadence: null,
+      maxCadence: null,
+      hasCadenceStream: false,
+      hasRejectedCadenceStream: true,
     });
     expect(buildSummaryStats(longStreams as never, summary)).toMatchObject({
       maxElev: 999,
-      overlays: { hr: { avg: 170, max: 190 }, cadence: { avg: 100, max: 110 } },
+      overlays: {},
     });
-    expect(sampled.some((point) => point.altitude === 999 && point.heartRate === 190 && point.cadence === 110)).toBe(true);
+    expect(getAvailableOverlays(sampled).map(({ key }) => key))
+      .not.toEqual(expect.arrayContaining(["hr", "cadence"]));
   });
-
   it("does not derive sensor summaries from truncated legacy HR or cadence", () => {
     const streams = {
       distance: Array.from({ length: 200 }, (_, index) => index),
@@ -318,7 +318,7 @@ describe("activityDetailDerived", () => {
       distance: [0, 10, 20],
       time: [0, 1, 2],
       velocity_smooth: [0, 5, 6],
-      cadence: [0, 80, 90],
+      cadence: [75, 80, 90],
     };
 
     expect(buildActivityAnalysisProjection(streams as never)?.streams).toMatchObject(streams);
@@ -1389,7 +1389,7 @@ describe("activityDetailDerived", () => {
     });
   });
 
-  it("uses an index axis to repair sparse legacy heart rate when time is empty", () => {
+  it("rejects sparse legacy heart rate when trusted time is empty", () => {
     const streams = {
       time: [],
       heartrate: [0, 140, 150, 0],
@@ -1397,7 +1397,7 @@ describe("activityDetailDerived", () => {
 
     expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
       streams: { heartrate: undefined },
-      heartRate: { values: [140, 150], time: [1, 2], complete: false },
+      heartRate: undefined,
     });
   });
 

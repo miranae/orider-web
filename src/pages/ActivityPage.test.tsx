@@ -832,7 +832,7 @@ describe("ActivityPage", () => {
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
     expect(screen.getByRole("button", { name: "이 경로로 라이드" })).toBeEnabled();
     second.unmount();
-  });
+  }, COURSE_ASYNC_TIMEOUT + 5_000);
 
   it("reuses a persisted created course after remount without creating or looking it up", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
@@ -1142,7 +1142,7 @@ describe("ActivityPage", () => {
     expect(screen.getByText("NP 147 W")).toBeInTheDocument();
   });
 
-  it("replaces diluted legacy sensor summaries and suppresses sparse zero-filled power", async () => {
+  it("suppresses legacy sensor summaries measured only in the opening fragment", async () => {
     const activity = createMockActivity({
       id: "test-activity",
       source: "orider",
@@ -1174,8 +1174,8 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />);
 
     const stats = await screen.findByTestId("activity-stats-grid");
-    await waitFor(() => expect(stats).toHaveTextContent("평균 심박155bpm최고 160"));
-    expect(stats).toHaveTextContent("평균 케이던스95rpm");
+    await waitFor(() => expect(stats).not.toHaveTextContent("평균 심박"));
+    expect(stats).not.toHaveTextContent("평균 케이던스");
     expect(stats).not.toHaveTextContent("평균 파워");
     expect(stats).not.toHaveTextContent("127W");
   });
@@ -1261,7 +1261,7 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("심박 분석")).toBeInTheDocument();
   });
 
-  it("suppresses saved HR but keeps cadence when legacy sensor arrays are truncated", async () => {
+  it("suppresses saved HR and cadence when legacy sensor arrays are truncated", async () => {
     const activity = createMockActivity({
       id: "test-activity",
       source: "orider",
@@ -1288,13 +1288,13 @@ describe("ActivityPage", () => {
     const stats = await screen.findByTestId("activity-stats-grid");
     await waitFor(() => {
       expect(stats).not.toHaveTextContent("평균 심박");
-      expect(stats).toHaveTextContent("평균 케이던스85rpm");
+      expect(stats).not.toHaveTextContent("평균 케이던스");
     });
     expect(stats).not.toHaveTextContent("평균 심박193bpm");
     expect(stats).not.toHaveTextContent("평균 케이던스120rpm");
   });
 
-  it("suppresses malformed legacy HR while retaining independent cadence and power fallback", async () => {
+  it("suppresses malformed legacy sensors while retaining independent power fallback", async () => {
     const activity = createMockActivity({
       id: "test-activity",
       source: "orider",
@@ -1328,7 +1328,7 @@ describe("ActivityPage", () => {
     await waitFor(() => {
       expect(stats).toHaveTextContent("평균 파워175W");
       expect(stats).not.toHaveTextContent("평균 심박");
-      expect(stats).toHaveTextContent("평균 케이던스85rpm");
+      expect(stats).not.toHaveTextContent("평균 케이던스");
     });
   });
 
