@@ -31,7 +31,7 @@ describe("AnalysisTab sensor axis", () => {
       undefined,
       { userId: "rider" },
       { elapsedTimeMillis: 7_200_000 } as never,
-    )).toBe(7_200);
+    )).toBe(60);
   });
 
   it("uses riding duration for moving-sensor rates when elapsed time includes a pause", () => {
@@ -43,6 +43,26 @@ describe("AnalysisTab sensor axis", () => {
       { userId: "rider" },
       { ridingTimeMillis: 3_600_000, elapsedTimeMillis: 5_400_000 } as never,
     )).toBe(3_600);
+  });
+
+  it("uses only the trusted moving power clock for kJ/h across a paused route", () => {
+    const watts = Array(3_600).fill(200);
+    const powerTime = Array.from({ length: 3_600 }, (_, index) => index);
+    const durationSec = resolveAnalysisDurationSec(
+      watts.length,
+      powerTime,
+      5_400,
+      Array.from({ length: 5_400 }, (_, index) => index),
+      {
+        userId: "rider",
+        time: Array.from({ length: 10_800 }, (_, index) => index * 0.5),
+      },
+      { ridingTimeMillis: 3_600_000, elapsedTimeMillis: 5_400_000 } as never,
+    );
+
+    expect(calculateWorkKj(watts, powerTime)).toBe(720);
+    expect(durationSec).toBe(3_600);
+    expect(calculateKjPerHour(720, durationSec)).toBe(720);
   });
 
   it("allows complete HR and power series on the same explicit time axis", () => {

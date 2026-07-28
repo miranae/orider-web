@@ -322,10 +322,9 @@ export function resolveAnalysisDurationSec(
   streams: ActivityStreams,
   summary?: ActivitySummary,
 ): number {
-  const sensorDuration = Math.max(
-    totalDurationSec(powerLength, powerTime),
-    totalDurationSec(heartRateLength, heartRateTime),
-  );
+  const normalizedPowerTime = normalizeSensorTimeAxis(powerLength, powerTime)?.time;
+  if (normalizedPowerTime) return totalDurationSec(powerLength, normalizedPowerTime);
+  const sensorDuration = totalDurationSec(heartRateLength, heartRateTime);
   const routeTime = streams.time;
   const relSecAt = makeRelSecAt(routeTime);
   let routeDuration = 0;

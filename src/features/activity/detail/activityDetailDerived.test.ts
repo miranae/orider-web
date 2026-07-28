@@ -146,7 +146,7 @@ describe("activityDetailDerived", () => {
     });
   });
 
-  it("uses one shared moving-sensor context for chart, summary, and analysis across a cafe pause", () => {
+  it("keeps validated mismatched legacy sensors out of the chart when no route clock exists", () => {
     const context = buildActivitySensorSelectionContext({
       ridingTimeMillis: 3_600_000,
       elapsedTimeMillis: 5_400_000,
@@ -179,7 +179,7 @@ describe("activityDetailDerived", () => {
     });
     const chartOverlays = getAvailableOverlays(buildSampledData(streams as never, context))
       .map((overlay) => overlay.key);
-    expect(chartOverlays).toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
+    expect(chartOverlays).not.toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
     expect(getAvailableOverlays(buildSampledData(streams as never)).map((overlay) => overlay.key))
       .not.toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
   });

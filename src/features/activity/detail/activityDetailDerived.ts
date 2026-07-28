@@ -314,11 +314,6 @@ function explicitCoverageRejectionReason(
 
   const routeTime = runtimeArray<number>(streams.time);
   const routeStart = routeTime?.[0];
-  const normalizeEpochMs = (value: unknown): number | undefined => {
-    if (typeof value !== "number" || !Number.isFinite(value) || value < 1_000_000_000) return undefined;
-    const epochMs = value < 1_000_000_000_000 ? value * 1000 : value;
-    return Number.isSafeInteger(epochMs) ? epochMs : undefined;
-  };
   const expectedStartEpochMs = normalizeEpochMs(routeStart) ?? normalizeEpochMs(activityStartTime);
   if (expectedStartEpochMs == null) return null;
   const explicitStartEpochMs = rawOrigin + explicitTime[0]! * 1000;
@@ -339,7 +334,119 @@ function persistedNumericArray(value: unknown, allowNegative: boolean): number[]
 
 function persistedTimeArray(value: unknown): number[] | undefined {
   const values = persistedNumericArray(value, false);
-  return values?.every((sample) => Number.isSafeInteger(sample)) ? values : undefined;
+  if (!values) return undefined;
+  for (let index = 0; index < values.length; index++) {
+    const sample = values[index]!;
+    if (index > 0 && sample <= values[index - 1]!) return undefined;
+    // Fractional relative seconds are valid for routes sampled above 1 Hz. Keep
+    // absolute epoch axes integer-safe so later millisecond normalization is exact.
+    if (values[0]! >= 1_000_000_000_000 && !Number.isSafeInteger(sample)) return undefined;
+    if (values[0]! >= 1_000_000_000 && values[0]! < 1_000_000_000_000
+      && !Number.isSafeInteger(sample * 1000)) return undefined;
+  }
+  return values;
+}
+
+interface ChartTimeAxis {
+  relativeSec: number[];
+  originEpochMs?: number;
+  durationSec: number;
+}
+
+function normalizeEpochMs(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 1_000_000_000) return undefined;
+  const epochMs = value < 1_000_000_000_000 ? value * 1000 : value;
+  return Number.isSafeInteger(epochMs) ? epochMs : undefined;
+}
+
+function chartRouteTimeAxis(
+  streams: ActivityStreams,
+  routeLength: number,
+  activityStartTime?: number,
+): ChartTimeAxis | undefined {
+  const time = persistedTimeArray(streams.time);
+  if (!time?.length || time.length !== routeLength) return undefined;
+  const first = time[0]!;
+  const epochOrigin = normalizeEpochMs(first);
+  const relativeSec = time.map((sample) => epochOrigin == null
+    ? sample - first
+    : (normalizeEpochMs(sample)! - epochOrigin) / 1000);
+  if (relativeSec.some((sample, index) => !Number.isFinite(sample)
+    || (index > 0 && sample <= relativeSec[index - 1]!))) return undefined;
+  const durationSec = validTimeDurationSec(time);
+  if (durationSec == null) return undefined;
+  const activityOrigin = normalizeEpochMs(activityStartTime);
+  const relativeOrigin = activityOrigin == null ? undefined : activityOrigin + first * 1000;
+  return {
+    relativeSec,
+    durationSec,
+    ...(epochOrigin != null
+      ? { originEpochMs: epochOrigin }
+      : Number.isSafeInteger(relativeOrigin) ? { originEpochMs: relativeOrigin } : {}),
+  };
+}
+
+function stepSensorValue(
+  values: readonly (number | null)[],
+  sensorTime: readonly number[],
+  targetSec: number,
+  sampleStepSec: number,
+): number | null {
+  const epsilon = Number.EPSILON * Math.max(1, Math.abs(targetSec));
+  if (targetSec < sensorTime[0]! - epsilon
+    || targetSec >= sensorTime[sensorTime.length - 1]! + sampleStepSec - epsilon) {
+    return null;
+  }
+  let low = 0;
+  let high = sensorTime.length - 1;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (sensorTime[mid]! <= targetSec + epsilon) low = mid;
+    else high = mid - 1;
+  }
+  return targetSec < sensorTime[low]! + sampleStepSec - epsilon ? values[low] ?? null : null;
+}
+
+function alignSensorChannelForChart(
+  values: readonly (number | null)[] | null | undefined,
+  source: "legacy" | "explicit",
+  streams: ActivityStreams,
+  context: ActivitySensorSelectionContext,
+  routeLength: number,
+): Array<number | null> | undefined {
+  if (!values?.length) return undefined;
+  if (source === "legacy" && values.length === routeLength) return [...values];
+  const routeAxis = chartRouteTimeAxis(streams, routeLength, context.activityStartTime);
+  if (!routeAxis) return undefined;
+
+  let sensorTime: number[];
+  let sensorStepSec: number;
+  let originOffsetSec = 0;
+  if (source === "explicit") {
+    const explicit = streams.sensorStreamsV1;
+    const explicitTime = persistedTimeArray(explicit?.time);
+    const explicitOrigin = normalizeEpochMs(explicit?.timeOriginEpochMs);
+    if (!explicitTime || explicitTime.length !== values.length || explicitOrigin == null
+      || routeAxis.originEpochMs == null) return undefined;
+    sensorTime = explicitTime;
+    sensorStepSec = explicit?.resolutionSeconds ?? 0;
+    originOffsetSec = (explicitOrigin - routeAxis.originEpochMs) / 1000;
+  } else {
+    const durationSec = context.legacyDurationSec;
+    if (durationSec == null || !Number.isFinite(durationSec) || durationSec <= 0) return undefined;
+    const durationRatio = routeAxis.durationSec / durationSec;
+    if (durationRatio < LEGACY_POWER_MIN_AXIS_COVERAGE
+      || durationRatio > 1 / LEGACY_POWER_MIN_AXIS_COVERAGE) return undefined;
+    sensorStepSec = durationSec / values.length;
+    sensorTime = values.map((_, index) => index * sensorStepSec);
+  }
+  if (!Number.isFinite(sensorStepSec) || sensorStepSec <= 0) return undefined;
+  return routeAxis.relativeSec.map((routeSec) => stepSensorValue(
+    values,
+    sensorTime,
+    routeSec - originOffsetSec,
+    sensorStepSec,
+  ));
 }
 
 function trustedLegacyPower(
@@ -885,17 +992,29 @@ export function buildSampledData(
     cadenceValues,
     legacyCoverageExpectation(streams, context.legacyDurationSec, true),
   ) ? cadenceValues : undefined;
-  const chartPower = selectedPower.source === "watts" || selectedPower.source === "watts_calc"
-    ? selectedPower.values
-    : null;
+  const chartHeartRate = alignSensorChannelForChart(
+    selectedHeartRate.values,
+    selectedHeartRate.source === "sensorStreamsV1" ? "explicit" : "legacy",
+    streams,
+    context,
+    len,
+  );
+  const chartPower = alignSensorChannelForChart(
+    selectedPower.values,
+    selectedPower.source === "sensorStreamsV1" ? "explicit" : "legacy",
+    streams,
+    context,
+    len,
+  );
+  const alignedCadence = alignSensorChannelForChart(chartCadence, "legacy", streams, context, len);
   const selectedIndexes = new Set<number>();
   for (let i = 0; i < len; i += interval) selectedIndexes.add(i);
   const chartChannels: Array<readonly (number | null)[] | undefined> = [
     streams.altitude,
     streams.velocity_smooth,
-    selectedHeartRate.source === "heartrate" ? streams.heartrate : undefined,
-    chartPower ?? undefined,
-    chartCadence,
+    chartHeartRate,
+    chartPower,
+    alignedCadence,
   ];
   for (const channel of chartChannels) {
     if (!channel?.length) continue;
@@ -919,9 +1038,9 @@ export function buildSampledData(
       distance: dist[i] ?? 0,
       altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
       speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
-      heartRate: selectedHeartRate.source === "heartrate" ? streams.heartrate?.[i] ?? 0 : 0,
+      heartRate: chartHeartRate?.[i] ?? 0,
       power: chartPower?.[i] ?? 0,
-      cadence: chartCadence?.[i] ?? 0,
+      cadence: alignedCadence?.[i] ?? 0,
     });
   }
   return points;
