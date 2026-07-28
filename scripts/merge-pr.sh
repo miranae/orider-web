@@ -135,7 +135,8 @@ configure_codex_sandbox() {
   CODEX_AUTH_SOURCE="${CODEX_HOME:-$HOME/.codex}/auth.json"
   [[ -r "$CODEX_AUTH_SOURCE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_SOURCE}"
   SANDBOX_CODEX_HOME="$REVIEW_TMP/codex-home"
-  mkdir -p "$SANDBOX_CODEX_HOME"
+  SANDBOX_HOME="$REVIEW_TMP/home"
+  mkdir -p "$SANDBOX_CODEX_HOME" "$SANDBOX_HOME"
   cp "$CODEX_AUTH_SOURCE" "$SANDBOX_CODEX_HOME/auth.json"
   chmod 600 "$SANDBOX_CODEX_HOME/auth.json"
   CODEX_AUTH_FILE="$SANDBOX_CODEX_HOME/auth.json"
@@ -162,7 +163,7 @@ configure_codex_sandbox() {
 
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  (cd "$REVIEW_DIR" && CODEX_HOME="$SANDBOX_CODEX_HOME" TMPDIR="$REVIEW_TMP" "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}") >"$REVIEW_LOG" 2>&1 &
+  (cd "$REVIEW_DIR" && CODEX_HOME="$SANDBOX_CODEX_HOME" HOME="$SANDBOX_HOME" TMPDIR="$REVIEW_TMP" "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}") >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (
     sleep "$timeout_s" &
@@ -317,7 +318,8 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   fi
   prepare_codex_review_workspace
   configure_codex_sandbox
-  REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox read-only --skip-git-repo-check -C "$REVIEW_DIR" \
+  # 외부 sandbox-exec가 실제 보안 경계다. 중첩 Seatbelt는 macOS가 forbidden-sandbox-reinit로 거부한다.
+  REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox danger-full-access --skip-git-repo-check -C "$REVIEW_DIR" \
     -c 'shell_environment_policy.inherit="none"' \
     -c "model_reasoning_effort=\"$review_effort\"" \
     --output-schema "$REVIEW_DIR/scripts/codex-review-output.schema.json" \

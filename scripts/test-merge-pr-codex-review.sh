@@ -66,7 +66,7 @@ skip_git=0
 effort=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --sandbox) [[ "$2" == "read-only" ]] || exit 72; read_only=1; shift 2 ;;
+    --sandbox) [[ "$2" == "danger-full-access" ]] || exit 72; read_only=1; shift 2 ;;
     -c)
       [[ "$2" == 'shell_environment_policy.inherit="none"' ]] || effort="$2"
       shift 2

@@ -2,6 +2,7 @@
 (deny default)
 
 (allow process*)
+(allow signal (target children))
 (allow syscall*)
 (allow mach*)
 (allow ipc*)
