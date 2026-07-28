@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -46,7 +46,7 @@ import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
-import { buildChartOverlays } from "../features/activity/detail/activityDetailDerived";
+import { buildChartOverlays, type ActivityPowerOverride } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
@@ -116,12 +116,7 @@ export default function ActivityPage() {
   // 가상 파워 즉석 재계산 미리보기 (Firestore 저장 안 함). 자전거 활동에서만 구독.
   const isRide = activity ? getSportCategory(activity.type) === "ride" : false;
   const { active: activeBike } = useActiveBikeProfile(isRide ? (user?.uid ?? null) : null);
-  const [wattsOverride, setWattsOverride] = useState<number[] | null>(null);
-  const effectiveStreams = useMemo(() => {
-    if (!streams) return streams;
-    if (!wattsOverride) return streams;
-    return { ...streams, watts: wattsOverride };
-  }, [streams, wattsOverride]);
+  const [wattsOverride, setWattsOverride] = useState<ActivityPowerOverride | null>(null);
   function recalcPreview() {
     if (!activeBike || !streams) return;
     if (!streams.time || !streams.velocity_smooth) return;
@@ -133,7 +128,7 @@ export default function ActivityPage() {
       },
       activeBike.virtualPower,
     );
-    setWattsOverride(w);
+    setWattsOverride({ source: "virtualPowerOverride", values: w, time: [...streams.time] });
   }
   // Inline description editing
   const [editingDescription, setEditingDescription] = useState(false);
@@ -525,8 +520,7 @@ export default function ActivityPage() {
     activityId,
     activity,
     streams,
-    effectiveStreams,
-    preferTopLevelPower: wattsOverride != null,
+    powerOverride: wattsOverride,
     hoverIndex,
     hoveredSegment,
   });
@@ -1035,8 +1029,8 @@ export default function ActivityPage() {
             hasStreamCadenceCandidate={hasStreamCadenceCandidate}
             summary={displayedSummary}
             sport={sport}
-            isVirtualPower={activity.isVirtualPower}
-            virtualPowerParams={activity.virtualPowerParams}
+            isVirtualPower={activity.isVirtualPower || wattsOverride != null}
+            virtualPowerParams={wattsOverride ? activeBike?.virtualPower : activity.virtualPowerParams}
           />
         </Card>
       )}

@@ -12,6 +12,7 @@ import {
   getSegmentEfforts,
   getStreamPhotos,
 } from "./activityDetailDerived";
+import type { ActivityPowerOverride } from "./activityDetailDerived";
 import type { SegmentEffortData } from "./activityDetailUtils";
 import {
   createSensorRejectionLogState,
@@ -22,8 +23,7 @@ interface UseActivitySensorDetailOptions {
   activityId?: string;
   activity: Activity | null;
   streams: ActivityStreams | null;
-  effectiveStreams: ActivityStreams | null;
-  preferTopLevelPower: boolean;
+  powerOverride?: ActivityPowerOverride | null;
   hoverIndex: number | null;
   hoveredSegment: SegmentEffortData | null;
 }
@@ -33,23 +33,29 @@ export function useActivitySensorDetail({
   activityId,
   activity,
   streams,
-  effectiveStreams,
-  preferTopLevelPower,
+  powerOverride,
   hoverIndex,
   hoveredSegment,
 }: UseActivitySensorDetailOptions) {
   const rejectionLogState = useRef(createSensorRejectionLogState());
+  const effectiveStreams = useMemo(() => {
+    if (!streams || !powerOverride) return streams;
+    return { ...streams, watts: powerOverride.values };
+  }, [powerOverride, streams]);
+  const powerOverrideProvenance = useMemo(() => powerOverride
+    ? { source: powerOverride.source, time: powerOverride.time }
+    : undefined, [powerOverride]);
   const selectionContext = useMemo(
-    () => buildActivitySensorSelectionContext(activity?.summary, activity?.startTime),
-    [activity?.startTime, activity?.summary?.elapsedTimeMillis, activity?.summary?.ridingTimeMillis],
+    () => buildActivitySensorSelectionContext(activity?.summary, activity?.startTime, powerOverrideProvenance),
+    [activity?.startTime, activity?.summary?.elapsedTimeMillis, activity?.summary?.ridingTimeMillis, powerOverrideProvenance],
   );
   const sampledData = useMemo(
-    () => buildSampledData(streams, selectionContext),
-    [selectionContext, streams],
+    () => buildSampledData(effectiveStreams, selectionContext),
+    [effectiveStreams, selectionContext],
   );
   const streamSensorSummary = useMemo(
-    () => deriveStreamSensorSummary(streams, selectionContext),
-    [selectionContext, streams],
+    () => deriveStreamSensorSummary(effectiveStreams, selectionContext),
+    [effectiveStreams, selectionContext],
   );
 
   useEffect(() => {
@@ -64,13 +70,13 @@ export function useActivitySensorDetail({
   const hasStreamCadenceCandidate = !!streamSensorSummary
     && (streamSensorSummary.hasCadenceStream || streamSensorSummary.hasRejectedCadenceStream);
   const analysisProjection = useMemo(
-    () => buildActivityAnalysisProjection(effectiveStreams, preferTopLevelPower, selectionContext),
-    [effectiveStreams, preferTopLevelPower, selectionContext],
+    () => buildActivityAnalysisProjection(effectiveStreams, selectionContext),
+    [effectiveStreams, selectionContext],
   );
   const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
   const summaryStats = useMemo(
-    () => buildSummaryStats(streams, streamSensorSummary),
-    [streamSensorSummary, streams],
+    () => buildSummaryStats(effectiveStreams, streamSensorSummary),
+    [effectiveStreams, streamSensorSummary],
   );
   const markerPosition = useMemo(() => {
     if (hoverIndex == null || !sampledData[hoverIndex]) return null;
@@ -83,16 +89,16 @@ export function useActivitySensorDetail({
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const hasStreams = sampledData.length > 0;
-  const hasAnalysisStreams = !!streams && (
+  const hasAnalysisStreams = !!effectiveStreams && (
     !!streamSensorSummary?.hasReliablePower
     || streamSensorSummary?.averageHeartRate != null
-    || (streams.distance?.length ?? 0) > 0
-    || (streams.laps?.length ?? 0) > 0
+    || (effectiveStreams.distance?.length ?? 0) > 0
+    || (effectiveStreams.laps?.length ?? 0) > 0
   );
 
   const displayedSummary = useMemo(() => {
     const summary = activity?.summary;
-    if (!summary || !streams || !streamSensorSummary) return summary ?? null;
+    if (!summary || !effectiveStreams || !streamSensorSummary) return summary ?? null;
     const hasHeartRateCandidate = streamSensorSummary.hasHeartRateStream
       || streamSensorSummary.hasRejectedHeartRateStream;
     return {
@@ -109,14 +115,16 @@ export function useActivitySensorDetail({
         : summary.maxCadence,
       averagePower: hasStreamPowerCandidate ? streamSensorSummary.averagePower : summary.averagePower,
       maxPower: hasStreamPowerCandidate ? streamSensorSummary.maxPower : summary.maxPower,
+      normalizedPower: hasStreamPowerCandidate ? null : summary.normalizedPower,
+      tss: hasStreamPowerCandidate ? null : summary.tss,
     };
-  }, [activity?.summary, hasStreamPowerCandidate, streamSensorSummary, streams]);
+  }, [activity?.summary, effectiveStreams, hasStreamPowerCandidate, streamSensorSummary]);
 
   // Older virtual-power activities keep these values at the document top level.
-  const avgPowerValue = streams && hasStreamPowerCandidate
+  const avgPowerValue = effectiveStreams && hasStreamPowerCandidate
     ? streamSensorSummary?.averagePower ?? null
     : activity?.summary.averagePower ?? activity?.avgPower ?? null;
-  const normalizedPowerValue = streams && hasStreamPowerCandidate
+  const normalizedPowerValue = effectiveStreams && hasStreamPowerCandidate
     ? null
     : activity?.summary.normalizedPower ?? activity?.weightedAvgPower ?? null;
 

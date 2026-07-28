@@ -32,7 +32,7 @@ export interface StreamSensorSummary {
   hasReliablePower: boolean;
   hasRejectedPowerStream: boolean;
   heartRateSource: "sensorStreamsV1" | "heartrate" | null;
-  powerSource: "sensorStreamsV1" | "watts" | "watts_calc" | null;
+  powerSource: "sensorStreamsV1" | "virtualPowerOverride" | "watts" | "watts_calc" | null;
   rejections: SensorRejectionDiagnostic[];
 }
 
@@ -42,7 +42,16 @@ export interface ActivitySensorSelectionContext {
   /** Wall-clock duration used by null-filled explicit V1 axes. */
   explicitDurationSec?: number;
   activityStartTime?: number;
+  powerOverride?: ActivityPowerOverrideProvenance;
 }
+
+export interface ActivityPowerOverride {
+  source: "virtualPowerOverride";
+  values: number[];
+  time: number[];
+}
+
+export type ActivityPowerOverrideProvenance = Pick<ActivityPowerOverride, "source" | "time">;
 
 export type SensorRejectionReason =
   | "invalid_channel"
@@ -56,7 +65,7 @@ export type SensorRejectionReason =
 
 export interface SensorRejectionDiagnostic {
   channel: "power" | "heart_rate" | "cadence";
-  source: "sensorStreamsV1" | "legacy";
+  source: "sensorStreamsV1" | "virtualPowerOverride" | "legacy";
   reason: SensorRejectionReason;
   axisLength?: number;
   channelLength?: number;
@@ -107,6 +116,7 @@ function validDurationMillis(value: unknown): number | undefined {
 export function buildActivitySensorSelectionContext(
   summary: Pick<ActivitySummary, "ridingTimeMillis" | "elapsedTimeMillis"> | null | undefined,
   activityStartTime?: number,
+  powerOverride?: ActivityPowerOverrideProvenance,
 ): ActivitySensorSelectionContext {
   const ridingDurationSec = validDurationMillis(summary?.ridingTimeMillis);
   const elapsedDurationSec = validDurationMillis(summary?.elapsedTimeMillis);
@@ -114,6 +124,7 @@ export function buildActivitySensorSelectionContext(
     legacyDurationSec: ridingDurationSec ?? elapsedDurationSec,
     explicitDurationSec: elapsedDurationSec ?? ridingDurationSec,
     activityStartTime,
+    ...(powerOverride ? { powerOverride } : {}),
   };
 }
 
@@ -410,13 +421,23 @@ function stepSensorValue(
 
 function alignSensorChannelForChart(
   values: readonly (number | null)[] | null | undefined,
-  source: "legacy" | "explicit",
+  source: "legacy" | "explicit" | "override",
   streams: ActivityStreams,
   context: ActivitySensorSelectionContext,
   routeLength: number,
 ): Array<number | null> | undefined {
   if (!values?.length) return undefined;
   if (source === "legacy" && values.length === routeLength) return [...values];
+  if (source === "override") {
+    const overrideTime = persistedTimeArray(context.powerOverride?.time);
+    const routeTime = persistedTimeArray(streams.time);
+    return values.length === routeLength
+      && overrideTime?.length === values.length
+      && routeTime?.length === routeLength
+      && overrideTime.every((sample, index) => sample === routeTime[index])
+      ? [...values]
+      : undefined;
+  }
   const routeAxis = chartRouteTimeAxis(streams, routeLength, context.activityStartTime);
   if (!routeAxis) return undefined;
 
@@ -485,6 +506,35 @@ export function selectActivityPowerStream(
   const hasLegacyCandidate = hasRuntimeCandidate(rawLegacyWatts)
     || hasRuntimeCandidate(rawLegacyCalculatedWatts);
   const legacyExpectation = legacyCoverageExpectation(streams, context.legacyDurationSec);
+  if (context.powerOverride) {
+    const overrideTime = persistedTimeArray(context.powerOverride.time);
+    const routeTime = persistedTimeArray(streams.time);
+    const invalidChannel = !legacyWatts || !hasValidLegacySensorChannelValues(legacyWatts);
+    const invalidAxis = !overrideTime
+      || overrideTime.length !== legacyWatts?.length
+      || routeTime?.length !== overrideTime.length
+      || !overrideTime.every((sample, index) => sample === routeTime[index]);
+    const hasEnoughMeasurements = !!legacyWatts?.length
+      && legacyWatts.filter((value) => value > 0).length / legacyWatts.length >= LEGACY_POWER_MIN_POSITIVE_COVERAGE;
+    if (invalidChannel || invalidAxis || !hasEnoughMeasurements) {
+      return {
+        source: null, values: null, finiteValues: [], hasCandidate: true,
+        rejection: {
+          channel: "power",
+          source: "virtualPowerOverride",
+          reason: invalidChannel ? "invalid_channel" : invalidAxis ? "invalid_axis" : "insufficient_measurements",
+          axisLength: overrideTime?.length,
+          channelLength: legacyWatts?.length,
+        },
+      };
+    }
+    return {
+      source: "virtualPowerOverride",
+      values: legacyWatts,
+      finiteValues: [...legacyWatts],
+      hasCandidate: true,
+    };
+  }
   if (explicit) {
     const rawWatts = (explicit as unknown as Record<string, unknown>).watts;
     if (rawWatts != null && !Array.isArray(rawWatts)) {
@@ -862,7 +912,6 @@ function measuredSeries(
 
 export function buildActivityAnalysisProjection(
   streams: ActivityStreams | null,
-  preferTopLevelPower = false,
   contextOrDuration?: ActivitySensorSelectionContext | number,
   activityStartTime?: number,
 ): ActivityAnalysisProjection | null {
@@ -904,17 +953,25 @@ export function buildActivityAnalysisProjection(
   const projectedLegacyHeartRate = legacyHeartRateValues && !shouldRepairLegacyHeartRate
     ? legacyHeartRateValues
     : undefined;
+  const usesOverridePower = selectedPower.source === "virtualPowerOverride";
+  const overridePower = usesOverridePower && context.powerOverride
+    ? measuredSeries(
+        selectedPower.values ?? [],
+        context.powerOverride.time,
+        (value) => value >= 0,
+      )
+    : undefined;
   if (explicit) {
-    const usesExplicitPower = !preferTopLevelPower && selectedPower.source === "sensorStreamsV1";
+    const usesExplicitPower = selectedPower.source === "sensorStreamsV1";
     const usesExplicitHeartRate = selectedHeartRate.source === "sensorStreamsV1";
     return {
       streams: {
         ...normalizedStreams,
         heartrate: projectedLegacyHeartRate,
-        watts: preferTopLevelPower
-          ? persistedNumericArray(streams.watts, false)
-          : selectedPower.source === "watts" ? runtimeArray<number>(selectedPower.values) : undefined,
-        watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc"
+        watts: selectedPower.source === "watts" || usesOverridePower
+          ? runtimeArray<number>(selectedPower.values)
+          : undefined,
+        watts_calc: selectedPower.source === "watts_calc"
           ? runtimeArray<number>(selectedPower.values)
           : undefined,
       },
@@ -927,7 +984,7 @@ export function buildActivityAnalysisProjection(
             explicit.timeOriginEpochMs,
           )
         : selectedHeartRate.source === "heartrate" ? legacyHeartRate : undefined,
-      power: usesExplicitPower
+      power: overridePower ?? (usesExplicitPower
         ? measuredSeries(
             selectedPower.values ?? [],
             runtimeArray<number>((explicit as unknown as Record<string, unknown>).time) ?? [],
@@ -935,12 +992,12 @@ export function buildActivityAnalysisProjection(
             explicit.resolutionSeconds,
             explicit.timeOriginEpochMs,
           )
-        : undefined,
+        : undefined),
     };
   }
 
   const heartRate = legacyHeartRate;
-  if (!preferTopLevelPower && selectedPower.hasCandidate && selectedPower.source == null) {
+  if (selectedPower.hasCandidate && selectedPower.source == null) {
     return {
       streams: {
         ...normalizedStreams,
@@ -951,7 +1008,7 @@ export function buildActivityAnalysisProjection(
       heartRate,
     };
   }
-  if (!preferTopLevelPower && selectedPower.source === "watts_calc" && streams.watts?.length) {
+  if (selectedPower.source === "watts_calc" && streams.watts?.length) {
     return {
       streams: {
         ...normalizedStreams,
@@ -966,14 +1023,15 @@ export function buildActivityAnalysisProjection(
     streams: {
       ...normalizedStreams,
       heartrate: projectedLegacyHeartRate,
-      watts: preferTopLevelPower
-        ? persistedNumericArray(streams.watts, false)
-        : selectedPower.source === "watts" ? runtimeArray<number>(selectedPower.values) : undefined,
-      watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc"
+      watts: selectedPower.source === "watts" || usesOverridePower
+        ? runtimeArray<number>(selectedPower.values)
+        : undefined,
+      watts_calc: selectedPower.source === "watts_calc"
         ? runtimeArray<number>(selectedPower.values)
         : undefined,
     },
     heartRate,
+    power: overridePower,
   };
 }
 
@@ -1003,7 +1061,9 @@ export function buildSampledData(
   );
   const chartPower = alignSensorChannelForChart(
     selectedPower.values,
-    selectedPower.source === "sensorStreamsV1" ? "explicit" : "legacy",
+    selectedPower.source === "sensorStreamsV1"
+      ? "explicit"
+      : selectedPower.source === "virtualPowerOverride" ? "override" : "legacy",
     streams,
     context,
     len,

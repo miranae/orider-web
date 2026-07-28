@@ -113,7 +113,7 @@ describe("activityDetailDerived", () => {
       hasCadenceStream: false,
       hasRejectedCadenceStream: true,
     });
-    expect(buildActivityAnalysisProjection(streams as never, false, 3_600)).toMatchObject({
+    expect(buildActivityAnalysisProjection(streams as never, 3_600)).toMatchObject({
       streams: { watts: undefined, heartrate: undefined, cadence: undefined },
     });
   });
@@ -137,7 +137,7 @@ describe("activityDetailDerived", () => {
       averageHeartRate: 150,
       averageCadence: 85,
     });
-    expect(buildActivityAnalysisProjection(streams as never, false, 3_600)).toMatchObject({
+    expect(buildActivityAnalysisProjection(streams as never, 3_600)).toMatchObject({
       streams: {
         watts: streams.watts,
         heartrate: streams.heartrate,
@@ -170,7 +170,7 @@ describe("activityDetailDerived", () => {
       hasCadenceStream: true,
       rejections: [],
     });
-    expect(buildActivityAnalysisProjection(streams as never, false, context)).toMatchObject({
+    expect(buildActivityAnalysisProjection(streams as never, context)).toMatchObject({
       streams: {
         watts: streams.watts,
         heartrate: streams.heartrate,
@@ -643,7 +643,7 @@ describe("activityDetailDerived", () => {
       hasPowerStream: accepted,
       hasRejectedPowerStream: !accepted,
     });
-    expect(buildActivityAnalysisProjection(streams as never, false, summaryDurationSec))
+    expect(buildActivityAnalysisProjection(streams as never, summaryDurationSec))
       .toMatchObject(accepted
         ? { heartRate: { complete: true }, power: { complete: true } }
         : { heartRate: undefined, power: undefined });
@@ -697,7 +697,7 @@ describe("activityDetailDerived", () => {
       hasPowerStream: accepted,
       hasRejectedPowerStream: !accepted,
     });
-    expect(buildActivityAnalysisProjection(streams as never, false, summaryDurationSec))
+    expect(buildActivityAnalysisProjection(streams as never, summaryDurationSec))
       .toMatchObject(accepted
         ? { heartRate: { complete: true }, power: { complete: true } }
         : { heartRate: undefined, power: undefined });
@@ -731,7 +731,7 @@ describe("activityDetailDerived", () => {
       hasPowerStream: accepted,
       hasRejectedPowerStream: !accepted,
     });
-    expect(buildActivityAnalysisProjection(streams as never, false, undefined, activityStartTime))
+    expect(buildActivityAnalysisProjection(streams as never, undefined, activityStartTime))
       .toMatchObject(accepted
         ? { heartRate: { complete: true }, power: { complete: true } }
         : { heartRate: undefined, power: undefined });
@@ -1499,10 +1499,9 @@ describe("activityDetailDerived", () => {
       });
     },
   );
-
   it("lets an owner preview override explicit sensor power", () => {
     const streams = {
-      watts: [120, 130],
+      time: [0, 1], watts: [120, 130],
       sensorStreamsV1: {
         version: 1,
         timeUnit: "relative_seconds",
@@ -1513,13 +1512,46 @@ describe("activityDetailDerived", () => {
         watts: [200, 210],
       },
     };
-    const summary = deriveStreamSensorSummary(streams as never);
-    expect(buildActivityAnalysisProjection(streams as never, true)).toMatchObject({
+    const context = buildActivitySensorSelectionContext(
+      undefined, undefined, { source: "virtualPowerOverride", time: [0, 1] },
+    );
+    expect(deriveStreamSensorSummary(streams as never, context)).toMatchObject({
+      powerSource: "virtualPowerOverride",
+      averagePower: 125,
+      hasRejectedPowerStream: false,
+    });
+    expect(buildActivityAnalysisProjection(streams as never, context)).toMatchObject({
       streams: { watts: [120, 130], watts_calc: undefined },
+      power: { values: [120, 130], time: [0, 1], complete: true },
+    });
+  });
+  it("fails a malformed owner override closed instead of falling back to persisted power", () => {
+    const streams = {
+      time: [0, 1],
+      watts: [120],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1],
+        watts: [200, 210],
+      },
+    };
+    const context = buildActivitySensorSelectionContext(
+      undefined, undefined, { source: "virtualPowerOverride", time: [0, 1] },
+    );
+    expect(deriveStreamSensorSummary(streams as never, context)).toMatchObject({
+      powerSource: null,
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      rejections: [expect.objectContaining({ source: "virtualPowerOverride", reason: "invalid_axis" })],
+    });
+    expect(buildActivityAnalysisProjection(streams as never, context)).toMatchObject({
+      streams: { watts: undefined, watts_calc: undefined },
       power: undefined,
     });
   });
-
   it("preserves explicit sensor timestamps and marks missing channels incomplete", () => {
     const streams = {
       time: [0, 1, 2],
