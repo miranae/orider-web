@@ -395,6 +395,15 @@ test("scans raw product URL and bodies but retains only redacted capture digests
   const headlineLeak = structuredClone(headlineResponse); headlineLeak.data.answer.blocks[0].displayName = "private";
   assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, headlineLeak, options),
     /v3_product_schema/u);
+  const markdownResponse = { data: { answer: { blocks: [{ kind: "grounded_markdown",
+    markdown: "Route coordinates are intentionally omitted from this summary.", evidenceIds: [] }] } } };
+  assert.doesNotThrow(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, markdownResponse, options));
+  for (const key of ["coordinate", "coordinates", "exactCoordinates"]) {
+    const coordinateLeak = structuredClone(markdownResponse);
+    coordinateLeak.data.answer.blocks[0][key] = { latitude: 37.5, longitude: 127 };
+    assert.throws(() => assertProductNetworkPrivacy(headlineUrl, headlineRequest, coordinateLeak, options),
+      /v3_product_schema/u);
+  }
   const capture = { url: `${url.origin}${url.pathname}`, requestBody: "",
     responseBody: prefixedEvidenceDigest(responseBody) };
   assert.doesNotMatch(JSON.stringify(capture), /rx_private|22222222|course-evidence|private-user|secret-token/u);
