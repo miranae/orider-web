@@ -132,4 +132,18 @@ describe("AnalysisTab climb entry time", () => {
       expect(screen.getByText("지구력")).toBeInTheDocument();
     },
   );
+
+  it("renders HR drift unavailable when legacy HR has no trustworthy clock", () => {
+    render(<AnalysisTab
+      streams={{
+        userId: "rider",
+        heartrate: [100, 100, 150, 150],
+      }}
+      sport="ride"
+    />);
+
+    const hrDriftLabel = screen.getByText("HR 드리프트");
+    expect(hrDriftLabel.closest("div")?.parentElement).toHaveTextContent("—");
+    expect(screen.queryByText("+50.0%")).not.toBeInTheDocument();
+  });
 });

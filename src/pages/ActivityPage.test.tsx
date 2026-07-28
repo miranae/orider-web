@@ -361,9 +361,11 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />);
 
     const stats = await screen.findByTestId("activity-stats-grid");
-    expect(stats).not.toHaveTextContent("평균 심박");
-    expect(stats).not.toHaveTextContent("평균 파워");
-    expect(stats).not.toHaveTextContent("NP 230");
+    await waitFor(() => {
+      expect(stats).not.toHaveTextContent("평균 심박");
+      expect(stats).not.toHaveTextContent("평균 파워");
+      expect(stats).not.toHaveTextContent("NP 230");
+    });
 
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(await screen.findByText("분석 차트를 만들 스트림 데이터가 아직 없어요")).toBeInTheDocument();

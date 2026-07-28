@@ -24,6 +24,7 @@ import {
 } from "../utils/advancedMetrics";
 import { calculateRunSplits, calculateOverallGap } from "../utils/runMetrics";
 import { sampleDurationsSec, totalDurationSec } from "../utils/sampleTime";
+import { makeRelSecAt } from "../utils/streamTime";
 import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
@@ -166,13 +167,20 @@ export function selectWholeSessionSensorSeries(
   fallbackValues: number[] | undefined,
   fallbackTime: number[] | undefined,
   fallbackTimeOriginEpochMs?: number,
+  fallbackExpectedDurationSec?: number,
 ): WholeSessionSensorSeries {
   if (!sensorSeries) {
+    const values = fallbackValues ?? [];
+    const routeAxis = normalizeSensorTimeAxis(values.length, fallbackTime, fallbackExpectedDurationSec);
+    const hasOneHzProvenance = values.length > 0
+      && typeof fallbackExpectedDurationSec === "number"
+      && Number.isFinite(fallbackExpectedDurationSec)
+      && Math.abs(values.length - fallbackExpectedDurationSec) <= 1;
     return {
-      values: fallbackValues ?? [],
-      time: fallbackTime,
+      values,
+      time: routeAxis?.time ?? (hasOneHzProvenance ? values.map((_, index) => index) : undefined),
       source: "legacy",
-      timeOriginEpochMs: fallbackTimeOriginEpochMs,
+      timeOriginEpochMs: routeAxis?.timeOriginEpochMs ?? fallbackTimeOriginEpochMs,
     };
   }
   if (sensorSeries.complete !== true) {
@@ -180,10 +188,45 @@ export function selectWholeSessionSensorSeries(
   }
   return {
     values: sensorSeries.values,
-    time: sensorSeries.time,
+    time: normalizeSensorTimeAxis(sensorSeries.values.length, sensorSeries.time)?.time,
     source: "explicit",
     timeOriginEpochMs: sensorSeries.timeOriginEpochMs,
   };
+}
+
+function normalizeSensorTimeAxis(
+  valuesLength: number,
+  time: number[] | undefined,
+  expectedDurationSec?: number,
+): { time: number[]; timeOriginEpochMs?: number } | undefined {
+  if (valuesLength === 0 || time?.length !== valuesLength) return undefined;
+  const relSecAt = makeRelSecAt(time);
+  const normalized: number[] = [];
+  for (let index = 0; index < time.length; index++) {
+    if (!Object.prototype.hasOwnProperty.call(time, index)) return undefined;
+    const timestamp = time[index];
+    const relSec = relSecAt(index);
+    if (typeof timestamp !== "number" || !Number.isFinite(timestamp)
+      || relSec == null || !Number.isFinite(relSec)
+      || (index > 0 && relSec <= normalized[index - 1]!)) return undefined;
+    normalized.push(relSec);
+  }
+  if (typeof expectedDurationSec === "number" && Number.isFinite(expectedDurationSec) && expectedDurationSec > 0) {
+    const axisDurationSec = totalDurationSec(valuesLength, normalized);
+    if (axisDurationSec / expectedDurationSec < 0.95 || axisDurationSec / expectedDurationSec > 1.05) return undefined;
+  }
+
+  const first = time[0]!;
+  if (first > 1e12) {
+    return { time: normalized, timeOriginEpochMs: first };
+  }
+  if (first > 1e9) {
+    const timeOriginEpochMs = first * 1000;
+    return Number.isSafeInteger(timeOriginEpochMs)
+      ? { time: normalized, timeOriginEpochMs }
+      : undefined;
+  }
+  return { time };
 }
 
 export interface WholeSessionSensorSeries {
@@ -356,6 +399,10 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const hasFtp = !!profile?.ftp || !!streams.ftp;
   const hasMaxHr = hrResolution.maxHrSource !== "default";
   const activityTimeOriginEpochMs = normalizeActivityStartTimeMs(startTime);
+  const summaryDurationSec = Math.max(
+    (summary?.elapsedTimeMillis ?? 0) / 1000,
+    (summary?.ridingTimeMillis ?? 0) / 1000,
+  ) || undefined;
 
   // 서버(activity-metrics)와 동일하게 plausibleWatts 로 정제(#532) — 비현실 파워(평균/5분>2×FTP)
   // 는 []→파워지표 미표시, 고립 스파이크는 2000W 클램프. 서버 사전계산값과 발산 방지.
@@ -364,7 +411,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     streams.watts && streams.watts.length > 0 ? streams.watts : streams.watts_calc,
     streams.time,
     activityTimeOriginEpochMs,
-  ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc]);
+    summaryDurationSec,
+  ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc, summaryDurationSec]);
   const watts = useMemo(
     () => plausibleWatts(selectedPowerSeries.values, ftp) ?? [],
     [selectedPowerSeries.values, ftp],
@@ -374,7 +422,15 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     streams.heartrate,
     streams.time,
     activityTimeOriginEpochMs,
-  ), [activityTimeOriginEpochMs, sensorHeartRate, streams.heartrate, streams.time]);
+    summaryDurationSec,
+  ), [activityTimeOriginEpochMs, sensorHeartRate, streams.heartrate, streams.time, summaryDurationSec]);
+  const selectedCadenceSeries = useMemo(() => selectWholeSessionSensorSeries(
+    undefined,
+    streams.cadence,
+    streams.time,
+    activityTimeOriginEpochMs,
+    summaryDurationSec,
+  ), [activityTimeOriginEpochMs, streams.cadence, streams.time, summaryDurationSec]);
   const hr = selectedHeartRateSeries.values;
   const hasPower = watts.length > 0;
   const hasHr = hr.length > 0;
@@ -382,10 +438,12 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const heartRateTime = selectedHeartRateSeries.time;
 
   // 파워 메트릭
-  const np = useMemo(() => hasPower ? calculateNP(watts, powerTime) : null, [watts, powerTime, hasPower]);
-  const ifactor = useMemo(() => hasPower ? calculateIF(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower]);
-  const tss = useMemo(() => hasPower ? calculateTSS(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower]);
-  const vi = useMemo(() => hasPower ? calculateVI(watts, powerTime) : null, [watts, powerTime, hasPower]);
+  const hasPowerTime = powerTime != null;
+  const hasHeartRateTime = heartRateTime != null;
+  const np = useMemo(() => hasPower && hasPowerTime ? calculateNP(watts, powerTime) : null, [watts, powerTime, hasPower, hasPowerTime]);
+  const ifactor = useMemo(() => hasPower && hasPowerTime ? calculateIF(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
+  const tss = useMemo(() => hasPower && hasPowerTime ? calculateTSS(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
+  const vi = useMemo(() => hasPower && hasPowerTime ? calculateVI(watts, powerTime) : null, [watts, powerTime, hasPower, hasPowerTime]);
   const powerStats = useMemo(() => {
     const base = avgMax(watts, { ignoreZero: false });
     // 최대 파워는 3초 평활값으로 — 파워미터 단발 스파이크 제거
@@ -401,7 +459,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     }
     return base;
   }, [watts]);
-  const workKj = useMemo(() => hasPower ? calculateWorkKj(watts, powerTime) : null, [watts, powerTime, hasPower]);
+  const workKj = useMemo(() => hasPower && hasPowerTime ? calculateWorkKj(watts, powerTime) : null, [watts, powerTime, hasPower, hasPowerTime]);
   const durationSec = useMemo(
     () => resolveAnalysisDurationSec(watts.length, powerTime, hr.length, heartRateTime, streams, summary),
     [powerTime, watts.length, heartRateTime, hr.length, streams, summary],
@@ -410,11 +468,14 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
 
   // 심박 메트릭
   const hrStats = useMemo(() => avgMax(hr, { ignoreZero: true }), [hr]);
-  const hrDrift = useMemo(() => hasHr ? calculateHrDrift(hr) : null, [hr, hasHr]);
+  const hrDrift = useMemo(
+    () => hasHr && hasHeartRateTime ? calculateHrDrift(hr) : null,
+    [hr, hasHr, hasHeartRateTime],
+  );
   const sensorsShareAxis = wholeSessionSeriesShareAxis(selectedPowerSeries, selectedHeartRateSeries);
   const ef = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateEF(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
   const decoupling = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateDecoupling(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
-  const trimp = useMemo(() => hasHr ? calculateTRIMP(hr, maxHr, restHr, "male", heartRateTime) : null, [hr, maxHr, restHr, heartRateTime, hasHr]);
+  const trimp = useMemo(() => hasHr && hasHeartRateTime ? calculateTRIMP(hr, maxHr, restHr, "male", heartRateTime) : null, [hr, maxHr, restHr, heartRateTime, hasHr, hasHeartRateTime]);
   // 회복시간 추정 — 세션 부하(TSS 우선, 없으면 TRIMP)를 만성 체력(CTL)에 상대화.
   // #463: owner 면 정본 CTL 주입(비개인화 DEFAULT_CTL=35 제거), 아니면 기본값 폴백.
   const recovery = useMemo(() => {
@@ -423,7 +484,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   }, [tss, trimp, currentCtl]);
 
   // 케이던스/속도/거리/고도
-  const cadenceStats = useMemo(() => avgMax(streams.cadence, { ignoreZero: true }), [streams.cadence]);
+  const cadenceStats = useMemo(() => avgMax(selectedCadenceSeries.values, { ignoreZero: true }), [selectedCadenceSeries.values]);
   const speed = useMemo(() => {
     const stream = calculateAvgSpeed(streams);
     // 요약값(휠센서/FIT 우선)이 있으면 사용
@@ -441,15 +502,15 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const elevGain = useMemo(() => calculateElevationGain(streams.altitude), [streams.altitude]);
 
   // 존 분포 + 임계 영역
-  const hrZones = useMemo(() => hasHr ? calculateHrZoneDistribution(hr, derivedHrZones, heartRateTime) : null, [hr, derivedHrZones, heartRateTime, hasHr]);
-  const powerZones = useMemo(() => hasPower ? calculatePowerZoneDistribution(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower]);
+  const hrZones = useMemo(() => hasHr && hasHeartRateTime ? calculateHrZoneDistribution(hr, derivedHrZones, heartRateTime) : null, [hr, derivedHrZones, heartRateTime, hasHr, hasHeartRateTime]);
+  const powerZones = useMemo(() => hasPower && hasPowerTime ? calculatePowerZoneDistribution(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
   // Seiler 3존 (자전거 + 파워 있을 때만)
-  const seilerZones = useMemo(() => (hasPower && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, sport]);
+  const seilerZones = useMemo(() => (hasPower && hasPowerTime && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime, sport]);
   const polarization = useMemo(() => seilerZones ? polarizationIndex(seilerZones) : null, [seilerZones]);
-  const criticalBands = useMemo(() => hasPower ? calculateCriticalBands(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower]);
-  const powerCurve = useMemo(() => hasPower ? calculatePowerCurve(watts, powerTime) : [], [watts, powerTime, hasPower]);
-  const xPower = useMemo(() => hasPower ? calculateXPower(watts, powerTime) : null, [watts, powerTime, hasPower]);
-  const matches = useMemo(() => hasPower ? analyzeMatches(watts, ftp, 30, powerTime) : null, [watts, ftp, powerTime, hasPower]);
+  const criticalBands = useMemo(() => hasPower && hasPowerTime ? calculateCriticalBands(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
+  const powerCurve = useMemo(() => hasPower && hasPowerTime ? calculatePowerCurve(watts, powerTime) : [], [watts, powerTime, hasPower, hasPowerTime]);
+  const xPower = useMemo(() => hasPower && hasPowerTime ? calculateXPower(watts, powerTime) : null, [watts, powerTime, hasPower, hasPowerTime]);
+  const matches = useMemo(() => hasPower && hasPowerTime ? analyzeMatches(watts, ftp, 30, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
   // 가상파워는 CP/W' fit 스킵(서버 activity-metrics 와 동일 게이트, #532) — 추정파워로 임계파워 산정 금지.
   const cp = useMemo(() => (hasPower && !isVirtualPower) ? estimateCriticalPower(powerCurve) : null, [powerCurve, hasPower, isVirtualPower]);
   // #458 W'bal 잔량 궤적 (Skiba 2015, 클라 계산). streams.time 기반 dt 보정.
