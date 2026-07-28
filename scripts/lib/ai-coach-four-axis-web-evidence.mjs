@@ -58,7 +58,7 @@ const CORRELATION = /^[a-z0-9][a-z0-9-]{15,79}$/u;
 const REVISION = /^[a-z][a-z0-9-]{1,62}$/u;
 const TAG = /^[a-z][a-z0-9-]{1,30}$/u;
 const GITHUB_ACTOR = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(?:\[bot\])?$/u;
-const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|latitude|longitude|bearer\s+[A-Za-z0-9._~-]+)/giu;
+const FORBIDDEN = /(?:\buid\b|courseId|activityId|prescriptionId|sourceRequestId|(?:firebaseCustom|access|refresh|identity|id|appCheck)Token|authorization|oidc-[A-Za-z0-9._~-]+|(?:^|["'])(?:question|token)["']?\s*:|providerPrompt|providerOutput|polyline|\\*["'](?:exactCoordinates|coordinates|latitude|longitude)\\*["']\s*:|bearer\s+[A-Za-z0-9._~-]+)/giu;
 const RAW_PRIVATE_VALUE = /(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,63}|\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b|\bAIza[A-Za-z0-9_-]{20,}\b|bearer\s+[A-Za-z0-9._~-]+)/iu;
 const RECEIPT_KEYS = ["schemaVersion", "correlationDigest", "caseId", "fixtureDigest", "requestDigest",
   "targetFingerprint", "outcome", "providerCalls", "quotaConsumed", "userDataWrites", "card", "response",

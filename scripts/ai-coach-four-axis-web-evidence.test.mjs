@@ -1218,6 +1218,14 @@ test("privacy scan covers final JSON, DOM, URLs, bodies, logs and provider sidec
   assert.equal(privacyScan({ finalArtifact: "safe", renderedDom: "safe", networkUrls: "safe",
     networkBodies: '{"firebaseCustomToken":"raw"}', testLogs: "safe", providerSidecars: "safe" })
     .matches.networkBodies, 1);
+  assert.equal(privacyScan({ finalArtifact: '{"exactCoordinates":[37.5,127]}' }).matches.finalArtifact, 1);
+  assert.equal(privacyScan({ providerSidecars: JSON.stringify('{"coordinates":[37.5,127]}') })
+    .matches.providerSidecars, 1);
+  for (const key of ["latitude", "longitude"]) {
+    assert.equal(privacyScan({ testLogs: JSON.stringify({ [key]: 37.5 }) }).matches.testLogs, 1);
+  }
+  assert.equal(privacyScan({ renderedDom: "The route coordinates are intentionally omitted." })
+    .matches.renderedDom, 0);
 });
 
 test("operations contract documents the v3 OIDC stage-baseline boundary and fail-closed inputs", () => {
