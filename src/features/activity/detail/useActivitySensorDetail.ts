@@ -14,6 +14,7 @@ import {
 } from "./activityDetailDerived";
 import type { ActivityPowerOverride } from "./activityDetailDerived";
 import type { SegmentEffortData } from "./activityDetailUtils";
+import { resolveActiveActivityPowerOverride } from "./activityPowerOverride";
 import {
   createSensorRejectionLogState,
   reportSensorRejectionsOnce,
@@ -38,13 +39,17 @@ export function useActivitySensorDetail({
   hoveredSegment,
 }: UseActivitySensorDetailOptions) {
   const rejectionLogState = useRef(createSensorRejectionLogState());
+  const activePowerOverride = useMemo(
+    () => resolveActiveActivityPowerOverride(activityId, activity?.id, streams, powerOverride),
+    [activity?.id, activityId, powerOverride, streams],
+  );
   const effectiveStreams = useMemo(() => {
-    if (!streams || !powerOverride) return streams;
-    return { ...streams, watts: powerOverride.values };
-  }, [powerOverride, streams]);
-  const powerOverrideProvenance = useMemo(() => powerOverride
-    ? { source: powerOverride.source, time: powerOverride.time }
-    : undefined, [powerOverride]);
+    if (!streams || !activePowerOverride) return streams;
+    return { ...streams, watts: activePowerOverride.values };
+  }, [activePowerOverride, streams]);
+  const powerOverrideProvenance = useMemo(() => activePowerOverride
+    ? { source: activePowerOverride.source, time: activePowerOverride.time }
+    : undefined, [activePowerOverride]);
   const selectionContext = useMemo(
     () => buildActivitySensorSelectionContext(activity?.summary, activity?.startTime, powerOverrideProvenance),
     [activity?.startTime, activity?.summary?.elapsedTimeMillis, activity?.summary?.ridingTimeMillis, powerOverrideProvenance],
@@ -129,6 +134,7 @@ export function useActivitySensorDetail({
     : activity?.summary.normalizedPower ?? activity?.weightedAvgPower ?? null;
 
   return {
+    activePowerOverride,
     analysisProjection,
     availableOverlays,
     avgPowerValue,

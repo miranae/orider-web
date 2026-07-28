@@ -1,5 +1,6 @@
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
+import type { VirtualPowerParams } from "../../../utils/virtualPower";
 import { inferUniformSampleTimeAxis } from "../../../utils/sampleTime";
 
 import {
@@ -47,6 +48,9 @@ export interface ActivitySensorSelectionContext {
 
 export interface ActivityPowerOverride {
   source: "virtualPowerOverride";
+  activityId: string;
+  sourceFingerprint: string;
+  params: VirtualPowerParams;
   values: number[];
   time: number[];
 }

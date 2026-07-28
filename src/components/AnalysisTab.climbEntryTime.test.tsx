@@ -147,6 +147,8 @@ describe("AnalysisTab climb entry time", () => {
     const hrDriftLabel = screen.getByText("HR 드리프트");
     expect(hrDriftLabel.closest("div")?.parentElement).toHaveTextContent("—");
     expect(screen.queryByText("+50.0%")).not.toBeInTheDocument();
+    expect(screen.getByText("시간").closest("div")?.parentElement).toHaveTextContent("—");
+    expect(screen.queryByText("0:00:04")).not.toBeInTheDocument();
   });
 
   it.each([

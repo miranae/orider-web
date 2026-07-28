@@ -37,7 +37,6 @@ import KudosCommentsCard from "../components/activity/KudosCommentsCard";
 import AiRideAnalysisCard from "../components/activity/AiRideAnalysisCard";
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
 import { useActiveBikeProfile } from "../hooks/useActiveBikeProfile";
-import { calcVirtualPowerStream } from "../utils/virtualPower";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
@@ -60,6 +59,10 @@ import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features
 import type { LayoutOutletContext } from "../components/Layout";
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
 import { useActivitySensorDetail } from "../features/activity/detail/useActivitySensorDetail";
+import {
+  createActivityPowerOverride,
+  resolveActiveActivityPowerOverride,
+} from "../features/activity/detail/activityPowerOverride";
 
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
@@ -118,17 +121,8 @@ export default function ActivityPage() {
   const { active: activeBike } = useActiveBikeProfile(isRide ? (user?.uid ?? null) : null);
   const [wattsOverride, setWattsOverride] = useState<ActivityPowerOverride | null>(null);
   function recalcPreview() {
-    if (!activeBike || !streams) return;
-    if (!streams.time || !streams.velocity_smooth) return;
-    const w = calcVirtualPowerStream(
-      {
-        time: streams.time,
-        velocity_smooth: streams.velocity_smooth,
-        altitude: streams.altitude ?? new Array(streams.time.length).fill(0),
-      },
-      activeBike.virtualPower,
-    );
-    setWattsOverride({ source: "virtualPowerOverride", values: w, time: [...streams.time] });
+    if (!activityId || !activeBike || !streams) return;
+    setWattsOverride(createActivityPowerOverride(activityId, streams, activeBike.virtualPower));
   }
   // Inline description editing
   const [editingDescription, setEditingDescription] = useState(false);
@@ -498,7 +492,15 @@ export default function ActivityPage() {
     });
   }, []);
 
+  const renderPowerOverride = resolveActiveActivityPowerOverride(
+    activityId,
+    activity?.id,
+    streams,
+    wattsOverride,
+    activeBike?.virtualPower.enabled ? activeBike.virtualPower : null,
+  );
   const {
+    activePowerOverride,
     analysisProjection,
     availableOverlays,
     avgPowerValue,
@@ -520,10 +522,13 @@ export default function ActivityPage() {
     activityId,
     activity,
     streams,
-    powerOverride: wattsOverride,
+    powerOverride: renderPowerOverride,
     hoverIndex,
     hoveredSegment,
   });
+  useEffect(() => {
+    if (wattsOverride && !activePowerOverride) setWattsOverride(null);
+  }, [activePowerOverride, wattsOverride]);
   const runDetail = useRunActivityDetail(activity, profile);
 
   if (loadingActivity) {
@@ -1003,15 +1008,15 @@ export default function ActivityPage() {
                 <Button size="sm" variant="outline" onClick={recalcPreview}>
                   {t("page.vp.recalcBtn")}
                 </Button>
-                {wattsOverride && (
+                {activePowerOverride && (
                   <Button size="sm" variant="ghost" onClick={() => setWattsOverride(null)}>
                     {t("page.vp.revertBtn")}
                   </Button>
                 )}
               </div>
-              {wattsOverride && (
+              {activePowerOverride && (
                 <Text variant="caption" tone="tertiary" as="p" mono>
-                  {t("page.vp.params", { riderKg: activeBike.virtualPower.riderWeightKg, bikeKg: activeBike.virtualPower.bikeWeightKg, cda: activeBike.virtualPower.cdA })}
+                  {t("page.vp.params", { riderKg: activePowerOverride.params.riderWeightKg, bikeKg: activePowerOverride.params.bikeWeightKg, cda: activePowerOverride.params.cdA })}
                 </Text>
               )}
             </div>
@@ -1029,8 +1034,8 @@ export default function ActivityPage() {
             hasStreamCadenceCandidate={hasStreamCadenceCandidate}
             summary={displayedSummary}
             sport={sport}
-            isVirtualPower={activity.isVirtualPower || wattsOverride != null}
-            virtualPowerParams={wattsOverride ? activeBike?.virtualPower : activity.virtualPowerParams}
+            isVirtualPower={activity.isVirtualPower || activePowerOverride != null}
+            virtualPowerParams={activePowerOverride?.params ?? activity.virtualPowerParams}
           />
         </Card>
       )}

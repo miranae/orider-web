@@ -4,6 +4,7 @@ import type { Activity, ActivityStreams } from "@shared/types";
 
 import { useActivitySensorDetail } from "./useActivitySensorDetail";
 import type { ActivityPowerOverride } from "./activityDetailDerived";
+import { buildActivityPowerSourceFingerprint } from "./activityPowerOverride";
 
 const mocks = vi.hoisted(() => ({ logClientError: vi.fn() }));
 vi.mock("../../../services/errorLogger", () => ({ logClientError: mocks.logClientError }));
@@ -46,6 +47,7 @@ describe("useActivitySensorDetail", () => {
       distance: [0, 10, 20, 30],
       latlng: [[37, 127], [37.1, 127.1], [37.2, 127.2], [37.3, 127.3]],
       altitude: [10, 11, 12, 13],
+      velocity_smooth: [5, 5, 5, 5],
       watts: [100, 200, 300, 400],
     } as ActivityStreams;
 
@@ -128,12 +130,16 @@ describe("useActivitySensorDetail", () => {
       distance: [0, 10, 20, 30],
       latlng: [[37, 127], [37.1, 127.1], [37.2, 127.2], [37.3, 127.3]],
       altitude: [10, 11, 12, 13],
+      velocity_smooth: [5, 5, 5, 5],
       heartrate: [140, 141, 142, 143],
       cadence: [80, 81, 82, 83],
       watts: [900, 901],
     } as ActivityStreams;
     const powerOverride: ActivityPowerOverride = {
       source: "virtualPowerOverride",
+      activityId: activity.id,
+      sourceFingerprint: buildActivityPowerSourceFingerprint(streams)!,
+      params: { riderWeightKg: 70, bikeWeightKg: 9, rollingResistance: 0.005, cdA: 0.32 },
       values: [100, 200, 300, 400],
       time: [0, 1, 2, 3],
     };
@@ -190,6 +196,49 @@ describe("useActivitySensorDetail", () => {
       powerSource: null,
     });
     expect(result.current.sampledData.map(({ power }) => power)).toEqual([null, null, null, null]);
+  });
+
+  it("rejects an override during render when activity identity or source revision changes", () => {
+    const streamsA = {
+      time: [0, 1, 2, 3],
+      distance: [0, 10, 20, 30],
+      velocity_smooth: [5, 5, 5, 5],
+      altitude: [10, 11, 12, 13],
+      watts: [10, 20, 30, 40],
+    } as ActivityStreams;
+    const streamsB = { ...streamsA, velocity_smooth: [6, 6, 6, 6], watts: [50, 60, 70, 80] };
+    const override: ActivityPowerOverride = {
+      source: "virtualPowerOverride",
+      activityId: "activity-a",
+      sourceFingerprint: buildActivityPowerSourceFingerprint(streamsA)!,
+      params: { riderWeightKg: 70, bikeWeightKg: 9, rollingResistance: 0.005, cdA: 0.32 },
+      values: [100, 200, 300, 400],
+      time: [0, 1, 2, 3],
+    };
+    const activityA = { ...activity, id: "activity-a" } as Activity;
+    const activityB = { ...activity, id: "activity-b" } as Activity;
+    const { result, rerender } = renderHook(
+      ({ activityId, currentActivity, currentStreams }) => useActivitySensorDetail({
+        activityId,
+        activity: currentActivity,
+        streams: currentStreams,
+        powerOverride: override,
+        hoverIndex: null,
+        hoveredSegment: null,
+      }),
+      { initialProps: { activityId: "activity-a", currentActivity: activityA, currentStreams: streamsA } },
+    );
+
+    expect(result.current.activePowerOverride).toBe(override);
+    expect(result.current.avgPowerValue).toBe(250);
+    rerender({ activityId: "activity-b", currentActivity: activityB, currentStreams: streamsA });
+    expect(result.current.activePowerOverride).toBeNull();
+    expect(result.current.avgPowerValue).toBe(25);
+    expect(result.current.analysisProjection?.streams.watts).toEqual(streamsA.watts);
+    rerender({ activityId: "activity-a", currentActivity: activityA, currentStreams: streamsB });
+    expect(result.current.activePowerOverride).toBeNull();
+    expect(result.current.avgPowerValue).toBe(65);
+    expect(result.current.analysisProjection?.streams.watts).toEqual(streamsB.watts);
   });
 
   it("keeps sparse explicit channels out of summary, chart, analysis, and share inputs", () => {

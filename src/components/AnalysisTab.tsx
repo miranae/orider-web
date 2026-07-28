@@ -348,7 +348,10 @@ export function resolveAnalysisDurationSec(
     return Math.max(powerDuration, trustedFullSessionDurationSec);
   }
   if (normalizedPowerTime) return powerDuration;
-  const sensorDuration = totalDurationSec(heartRateLength, heartRateTime);
+  const normalizedHeartRateTime = normalizeSensorTimeAxis(heartRateLength, heartRateTime)?.time;
+  const sensorDuration = normalizedHeartRateTime
+    ? totalDurationSec(heartRateLength, normalizedHeartRateTime)
+    : 0;
   const routeTime = streams.time;
   const relSecAt = makeRelSecAt(routeTime);
   let routeDuration = 0;

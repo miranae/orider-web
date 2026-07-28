@@ -387,7 +387,7 @@ describe("ActivityPage", () => {
     });
     mockVirtualPowerStream.mockReturnValue(overrideWatts);
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
 
     const stats = await screen.findByTestId("activity-stats-grid");
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
@@ -426,11 +426,119 @@ describe("ActivityPage", () => {
       ]));
     });
 
+    mockActiveBikeProfile.mockReturnValue({
+      active: {
+        id: "bike-1",
+        virtualPower: {
+          enabled: false,
+          riderWeightKg: 70,
+          bikeWeightKg: 9,
+          rollingResistance: 0.005,
+          cdA: 0.32,
+        },
+      },
+    });
+    view.rerender(<ActivityPage />);
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    fireEvent.click(screen.getByRole("button", { name: "되돌리기" }));
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
     expect(screen.queryByRole("button", { name: "파워" })).not.toBeInTheDocument();
+    expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "평균 파워", value: "250" }),
+    ]));
+    mockActiveBikeProfile.mockReturnValue({
+      active: {
+        id: "bike-1",
+        virtualPower: {
+          enabled: true,
+          riderWeightKg: 70,
+          bikeWeightKg: 9,
+          rollingResistance: 0.005,
+          cdA: 0.32,
+        },
+      },
+    });
+    view.rerender(<ActivityPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
+  }, 15_000);
+
+  it("does not carry a virtual-power preview across A to B to A navigation", async () => {
+    const time = Array.from({ length: 60 }, (_, index) => index);
+    const streamDoc = {
+      userId: "test-uid",
+      json: JSON.stringify({
+        time,
+        distance: time.map((index) => index * 10),
+        altitude: Array(60).fill(10),
+        velocity_smooth: Array(60).fill(8),
+        heartrate: Array(60).fill(150),
+        watts: [900, 901],
+      }),
+    };
+    for (const [id, description] of [["test-activity", "활동 A"], ["next-activity", "활동 B"]]) {
+      setDocData(`activities/${id}`, createMockActivity({
+        id,
+        userId: "test-uid",
+        source: "orider",
+        description,
+        summary: createMockSummary({ elapsedTimeMillis: 60_000, ridingTimeMillis: 60_000 }),
+      }) as unknown as Record<string, unknown>);
+      setDocData(`activity_streams/${id}`, streamDoc);
+      setDocData(`activity_metrics/${id}`, {
+        version: 1,
+        computedAt: 0,
+        np: 180,
+        tss: 50,
+      });
+    }
+    mockActiveBikeProfile.mockReturnValue({
+      active: {
+        id: "bike-1",
+        virtualPower: {
+          enabled: true,
+          riderWeightKg: 70,
+          bikeWeightKg: 9,
+          rollingResistance: 0.005,
+          cdA: 0.32,
+        },
+      },
+    });
+    mockVirtualPowerStream.mockReturnValue(Array(60).fill(250));
+    const latestShareMetrics = () => {
+      const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
+        card?: { performanceMetrics?: Array<{ label: string; value: string }> };
+      } | undefined;
+      return latest?.card?.performanceMetrics ?? [];
+    };
+
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    await screen.findByText("활동 A");
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    fireEvent.click(await screen.findByRole("button", { name: "재계산 미리보기" }));
+    await screen.findByRole("button", { name: "되돌리기" });
+
+    mockRoute.activityId = "next-activity";
+    view.rerender(<ActivityPage />);
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    await screen.findByText("활동 B");
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
+    expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "평균 파워", value: "250" }),
+    ]));
+
+    mockRoute.activityId = "test-activity";
+    view.rerender(<ActivityPage />);
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    await screen.findByText("활동 A");
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "평균 파워", value: "250" }),
+    ]));
   }, 15_000);
 
   it("hides saved sensor stats and client analysis for a one-minute V1 slice of a one-hour activity", async () => {
@@ -711,14 +819,16 @@ describe("ActivityPage", () => {
 
     const first = renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
+    expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
+      .toHaveTextContent("코스 생성 결과를 확인 중입니다");
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
     first.unmount();
 
     const second = renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
-    await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
+      .toHaveTextContent("코스 생성 결과를 확인 중입니다");
+    await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2), { timeout: COURSE_ASYNC_TIMEOUT });
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
     expect(screen.getByRole("button", { name: "이 경로로 라이드" })).toBeEnabled();
     second.unmount();

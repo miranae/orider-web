@@ -14,6 +14,26 @@ import { calculateNP, calculateTSS } from "../utils/powerMetrics";
 import { calculateHrZoneDistribution, calculatePowerZoneDistribution } from "../utils/zoneAnalysis";
 
 describe("AnalysisTab sensor axis", () => {
+  it("does not treat unclocked heart-rate sample count as elapsed seconds", () => {
+    expect(resolveAnalysisDurationSec(
+      0,
+      undefined,
+      3_600,
+      undefined,
+      { userId: "rider" },
+    )).toBe(0);
+  });
+
+  it("uses heart-rate duration only when its clock is trusted", () => {
+    expect(resolveAnalysisDurationSec(
+      0,
+      undefined,
+      60,
+      Array.from({ length: 60 }, (_, index) => index),
+      { userId: "rider" },
+    )).toBe(60);
+  });
+
   it("does not treat a distance-axis count as duration for whole-activity rates", () => {
     const distanceOnly = resolveAnalysisDurationSec(
       60,
