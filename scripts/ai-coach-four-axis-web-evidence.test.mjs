@@ -501,6 +501,45 @@ test("validates v3 stage baseline request and uses OIDC attestation plus short p
     "firebase-refresh-candidate"]) assert.ok(masked.includes(token));
   assert.equal(masked.filter((token) => token.split(".").length === 3).length, 2);
   assert.doesNotMatch(JSON.stringify(live), /(?:oidc-|firebase-custom-|app-check-|firebase-id-|firebase-refresh-)/u);
+  for (const [failedPath, status, expectedFiveXx] of [
+    ["/v1/coach/insights/pmc", 400, 0],
+    ["/v1/coach/status", 500, 1],
+    ["/v1/coach/insights/pmc", 500, 1],
+    ["/v1/coach/insights/rider", 500, 1],
+    ["/v1/coach/change-proposals", 500, 1],
+    ["/v1/coach/ride-plan/token", 500, 1],
+    ["/v1/coach/ride-plan", 500, 1],
+    ["/v1/coach/ride-plan/ai-context", 500, 1],
+    ["/v1/coach/respond", 500, 1],
+  ]) {
+    const contractJson = observedStageHttp();
+    await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: async (url, options) => {
+      const response = await contractJson(url, options);
+      if (new URL(url).pathname !== failedPath) return response;
+      return new Response(await response.text(), { status, headers: { "content-type": "application/json" } });
+    }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+    firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), (error) => {
+      assert.equal(error.message, `web_evidence:v3_product_http_${status}:${failedPath}:five_xx_${expectedFiveXx}`);
+      return true;
+    });
+  }
+  for (const [body, status, contentType, expected] of [
+    ["", 400, undefined, "web_evidence:v3_product_http_400:/v1/coach/status:five_xx_0"],
+    ["<html>unavailable</html>", 500, "text/html", "web_evidence:v3_product_http_500:/v1/coach/status:five_xx_1"],
+    ["{invalid", 500, "application/json", "web_evidence:v3_product_http_500:/v1/coach/status:five_xx_1"],
+    ["{invalid", 200, "application/json", "web_evidence:response_json"],
+  ]) {
+    const upstream = observedStageHttp();
+    await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: async (url, options) => {
+      if (new URL(url).pathname === "/v1/coach/status") {
+        return new Response(body, { status, ...(contentType ? { headers: { "content-type": contentType } } : {}) });
+      }
+      return upstream(url, options);
+    }, clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience),
+    firebaseWebApiKey: FIREBASE_API_KEY, requestSha256: `sha256:${"9".repeat(64)}`,
+    nowMs: Date.parse("2026-07-27T00:00:00.000Z") }), new RegExp(expected, "u"));
+  }
   await assert.rejects(() => collectStageBaselineComparison(v3Request, { fetchImpl: observedStageHttp(),
     clock: () => 1, identityTokenFor: async (audience) => oidcFor(audience), firebaseWebApiKey: "short",
     requestSha256: `sha256:${"9".repeat(64)}` }), /v3_http_identity/u);
