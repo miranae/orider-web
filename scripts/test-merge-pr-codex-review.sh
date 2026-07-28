@@ -56,80 +56,79 @@ fi
 echo "unexpected gh invocation: $*" >&2
 exit 99
 MOCK
-cat >"$TEST_TMP/bin/codex" <<'MOCK'
-#!/usr/bin/env bash
-[[ "${1:-}" == "exec" ]] || exit 64
-shift
-out=""
-prompt=""
-review_dir=""
-schema=""
-disabled=""
-ignore_user_config=0
-read_only=0
-skip_git=0
-effort=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --sandbox) [[ "$2" == "danger-full-access" ]] || exit 72; read_only=1; shift 2 ;;
-    -c)
-      [[ "$2" == 'shell_environment_policy.inherit="none"' ]] || effort="$2"
-      shift 2
-      ;;
-    -C) review_dir="$2"; shift 2 ;;
-    --output-schema) schema="$2"; shift 2 ;;
-    --disable) disabled="$disabled $2"; shift 2 ;;
-    -o|--output-last-message) out="$2"; shift 2 ;;
-    --ignore-user-config) ignore_user_config=1; shift ;;
-    --skip-git-repo-check) skip_git=1; shift ;;
-    --ephemeral) shift ;;
-    -) prompt="$(/bin/cat)"; shift ;;
-    -*) echo "unexpected option: $1" >&2; exit 64 ;;
-    *) [[ -z "$prompt" && $# -eq 1 ]] || { echo "unexpected positional argument: $1" >&2; exit 64; }; prompt="$1"; shift ;;
-  esac
-done
-[[ "$ignore_user_config" == 1 && "$read_only" == 1 && "$skip_git" == 1 ]] || exit 73
-for feature in shell_tool unified_exec code_mode_host multi_agent browser_use in_app_browser computer_use image_generation \
-  apps plugins skill_search skill_mcp_dependency_install auth_elicitation goals; do
-  [[ " $disabled " == *" $feature "* ]] || exit 83
-done
-expected_effort='model_reasoning_effort="low"'
-[[ "${MOCK_CHANGED:-scripts/merge-pr.sh}" == src/* ]] && expected_effort='model_reasoning_effort="medium"'
-[[ "$effort" == "$expected_effort" ]] || exit 74
-[[ -n "$review_dir" && "$review_dir" != "$REPO_ROOT" && "$review_dir" == */runtime/cwd ]] || exit 66
-snapshot_dir="${schema%/scripts/codex-review-output.schema.json}"
-[[ -n "$snapshot_dir" && "$snapshot_dir" != "$review_dir" && -f "$schema" ]] || exit 67
-/bin/cat "$CODEX_HOME/auth.json" >/dev/null || exit 82
-[[ ! -e "$snapshot_dir/.env" && ! -e "$snapshot_dir/$SECRET_FIXTURE_NAME/.env" ]] || exit 68
-[[ -s "$snapshot_dir/.codex-review/diff.patch" ]] || exit 69
-grep -q '^base=origin/main$' "$snapshot_dir/.codex-review/metadata.txt" || exit 70
-grep -q "^head=$EXPECTED_HEAD$" "$snapshot_dir/.codex-review/metadata.txt" || exit 71
-/bin/cat "$snapshot_dir/.codex-review/diff.patch" >/dev/null || exit 75
-if /bin/cat "$REPO_ROOT/$SECRET_FIXTURE_NAME/.env" >/dev/null 2>&1; then exit 76; fi
-if /bin/cat "$snapshot_dir/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then exit 77; fi
-[[ "$prompt" == *'당신은 머지 직전 엄격한 코드 리뷰어다'* ]] || exit 78
-[[ "$prompt" == *'origin/main...HEAD'* ]] || exit 79
-[[ "$prompt" == *'--- diff ---'* ]] || exit 80
-[[ "$prompt" == *'프로젝트 설정을 읽지 말라'* ]] || exit 81
-case "${MOCK_RESPONSE_MODE:-valid}" in
-  valid) printf '{"findings":"mock Codex comment","verdict":"%s"}\n' "${MOCK_VERDICT:-PASS}" >"$out" ;;
-  malformed) printf '{"findings":"broken"' >"$out" ;;
-  trailing) printf '{"findings":"mock","verdict":"PASS"}\ntrailing postscript\n' >"$out" ;;
-  missing) printf '{"findings":"mock"}\n' >"$out" ;;
-  extra) printf '{"findings":"mock","verdict":"PASS","extra":true}\n' >"$out" ;;
-  invalid_verdict) printf '{"findings":"mock","verdict":"UNKNOWN"}\n' >"$out" ;;
-  *) exit 65 ;;
-esac
-echo "mock Codex execution log" >&2
-exit "${MOCK_EXIT:-0}"
-MOCK
 cat >"$TEST_TMP/bin/npm" <<'MOCK'
 #!/usr/bin/env bash
 echo "mock npm PASS"
 exit 0
 MOCK
 mkdir -p "$TEST_TMP/node_modules/@openai/codex/bin" "$TEST_TMP/node_modules/@openai/codex-darwin-arm64/bin"
-mv "$TEST_TMP/bin/codex" "$TEST_TMP/node_modules/@openai/codex-darwin-arm64/bin/codex"
+cat >"$TEST_TMP/codex-mock.c" <<'MOCK'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+static char *read_all(FILE *f) {
+  size_t cap = 4096, len = 0;
+  char *buf = malloc(cap);
+  if (!buf) exit(90);
+  for (;;) {
+    if (len + 2048 > cap) { cap *= 2; buf = realloc(buf, cap); if (!buf) exit(90); }
+    size_t n = fread(buf + len, 1, cap - len - 1, f);
+    len += n;
+    if (n == 0) break;
+  }
+  buf[len] = '\0';
+  return buf;
+}
+
+int main(int argc, char **argv) {
+  if (getenv("REVIEW_ENV_SECRET_SENTINEL") || getenv("GH_TOKEN") || getenv("VITE_SECRET_SENTINEL")) return 91;
+  const char *out = NULL, *schema = NULL, *cwd = NULL;
+  int disabled = 0, required = 0;
+  for (int i = 1; i < argc; i++) {
+    if (!strcmp(argv[i], "exec")) required++;
+    else if (!strcmp(argv[i], "--ignore-user-config") || !strcmp(argv[i], "--skip-git-repo-check") || !strcmp(argv[i], "--ephemeral")) required++;
+    else if (!strcmp(argv[i], "--disable") && i + 1 < argc) { disabled++; i++; }
+    else if ((!strcmp(argv[i], "--sandbox") || !strcmp(argv[i], "-c")) && i + 1 < argc) i++;
+    else if (!strcmp(argv[i], "-C") && i + 1 < argc) cwd = argv[++i];
+    else if (!strcmp(argv[i], "--output-schema") && i + 1 < argc) schema = argv[++i];
+    else if ((!strcmp(argv[i], "-o") || !strcmp(argv[i], "--output-last-message")) && i + 1 < argc) out = argv[++i];
+  }
+  if (required < 4 || disabled < 14 || !out || !schema || !cwd || !strstr(cwd, "/runtime/cwd")) return 64;
+  char *snapshot = strdup(schema);
+  char *suffix = strstr(snapshot, "/scripts/codex-review-output.schema.json");
+  if (!suffix) return 67;
+  *suffix = '\0';
+  char path[4096];
+  snprintf(path, sizeof(path), "%s/.codex-review/diff.patch", snapshot);
+  if (access(path, R_OK) != 0) return 69;
+  snprintf(path, sizeof(path), "%s/scripts/codex-review-external-link.fixture", snapshot);
+  if (access(path, R_OK) == 0) return 77;
+  char *prompt = read_all(stdin);
+  if (!strstr(prompt, "origin/main...HEAD") || !strstr(prompt, "--- diff ---")) return 79;
+  const char *codex_home = getenv("CODEX_HOME");
+  if (!codex_home) return 82;
+  snprintf(path, sizeof(path), "%s/auth.json", codex_home);
+  FILE *auth = fopen(path, "r");
+  if (!auth) return 82;
+  char *mode = read_all(auth);
+  fclose(auth);
+  if (strstr(mode, "exit42")) { fprintf(stderr, "mock Codex execution log\n"); return 42; }
+  FILE *output = fopen(out, "w");
+  if (!output) return 84;
+  if (strstr(mode, "malformed")) fputs("{\"findings\":\"broken\"", output);
+  else if (strstr(mode, "trailing")) fputs("{\"findings\":\"mock\",\"verdict\":\"PASS\"}\ntrailing postscript\n", output);
+  else if (strstr(mode, "missing")) fputs("{\"findings\":\"mock\"}\n", output);
+  else if (strstr(mode, "extra")) fputs("{\"findings\":\"mock\",\"verdict\":\"PASS\",\"extra\":true}\n", output);
+  else if (strstr(mode, "invalid_verdict")) fputs("{\"findings\":\"mock\",\"verdict\":\"UNKNOWN\"}\n", output);
+  else fprintf(output, "{\"findings\":\"mock Codex comment\",\"verdict\":\"%s\"}\n", strstr(mode, "BLOCK") ? "BLOCK" : "PASS");
+  fclose(output);
+  fprintf(stderr, "mock Codex execution log\n");
+  return 0;
+}
+MOCK
+cc -O2 -o "$TEST_TMP/node_modules/@openai/codex-darwin-arm64/bin/codex" "$TEST_TMP/codex-mock.c"
 cat >"$TEST_TMP/node_modules/@openai/codex/bin/codex" <<'MOCK'
 #!/usr/bin/env bash
 exec "$(dirname "$0")/../../codex-darwin-arm64/bin/codex" "$@"
@@ -141,7 +140,10 @@ chmod +x "$TEST_TMP/bin/git" "$TEST_TMP/bin/gh" "$TEST_TMP/bin/codex" "$TEST_TMP
 
 run_gate() {
   local rc=0
+  printf '%s|%s|%s\n' "${MOCK_RESPONSE_MODE:-valid}" "${MOCK_VERDICT:-PASS}" "${MOCK_EXIT:-0}" >"$CODEX_HOME/auth.json"
+  [[ "${MOCK_EXIT:-0}" == 42 ]] && printf 'exit42\n' >"$CODEX_HOME/auth.json"
   CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256="$BOOTSTRAP_PROFILE_SHA256" \
+    REVIEW_ENV_SECRET_SENTINEL=must-not-reach-codex GH_TOKEN=must-not-reach-codex VITE_SECRET_SENTINEL=must-not-reach-codex \
     TMPDIR="$TEST_TMP" PATH="$TEST_TMP/bin:$PATH" \
     "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build 2>&1 || rc=$?
   ! compgen -G "$TEST_TMP/orider-codex-review-parent.*" >/dev/null || return 98

@@ -142,22 +142,23 @@ prepare_codex_review_workspace() {
 configure_codex_sandbox() {
   [[ -x /usr/bin/sandbox-exec ]] || die "macOS sandbox-exec 없음 — Codex 리뷰 격리를 보장할 수 없어 머지 중단"
   CODEX_COMMAND="$(command -v codex)" || die "Codex CLI 없음 — 코드 리뷰 게이트 실행 불가."
-  CODEX_BIN="$(realpath "$CODEX_COMMAND")" || die "Codex 실행 파일 경로 확인 실패"
-  CODEX_RUNTIME_DIR="$(dirname "$CODEX_BIN")"
-  runtime_probe="$CODEX_RUNTIME_DIR"
-  while [[ "$runtime_probe" != "/" ]]; do
-    if [[ -f "$runtime_probe/package.json" ]] \
-      && grep -Eq '"name"[[:space:]]*:[[:space:]]*"@openai/codex"' "$runtime_probe/package.json"; then
-      CODEX_RUNTIME_DIR="$(dirname "$runtime_probe")"
-      break
-    fi
-    runtime_probe="$(dirname "$runtime_probe")"
-  done
-  CODEX_LAUNCHER_RUNTIME_DIR="$CODEX_RUNTIME_DIR"
-  IFS= read -r codex_shebang <"$CODEX_BIN" || true
-  if [[ "$codex_shebang" == '#!'*node* ]]; then
-    CODEX_LAUNCHER_RUNTIME_DIR="$(dirname "$(realpath "$(command -v node)")")"
+  codex_candidate="$(realpath "$CODEX_COMMAND")" || die "Codex 실행 파일 경로 확인 실패"
+  if file "$codex_candidate" | grep -q 'Mach-O'; then
+    CODEX_BIN="$codex_candidate"
+  else
+    codex_package_dir="$(dirname "$codex_candidate")"
+    while [[ "$codex_package_dir" != "/" && "$(basename "$codex_package_dir")" != "@openai" ]]; do
+      codex_package_dir="$(dirname "$codex_package_dir")"
+    done
+    [[ "$(basename "$codex_package_dir")" == "@openai" ]] || die "native Codex package root 확인 실패"
+    CODEX_BIN=""
+    while IFS= read -r native_candidate; do
+      if file "$native_candidate" | grep -q 'Mach-O'; then CODEX_BIN="$native_candidate"; break; fi
+    done < <(find "$codex_package_dir" -type f -name codex -perm -111 2>/dev/null)
+    [[ -n "$CODEX_BIN" ]] || die "native Mach-O Codex 실행 파일 없음"
+    CODEX_BIN="$(realpath "$CODEX_BIN")"
   fi
+  CODEX_RUNTIME_DIR="$(dirname "$CODEX_BIN")"
   CODEX_AUTH_SOURCE="${CODEX_HOME:-$HOME/.codex}/auth.json"
   [[ -r "$CODEX_AUTH_SOURCE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_SOURCE}"
   SANDBOX_CODEX_HOME="$REVIEW_TMP/codex-home"
@@ -174,27 +175,41 @@ configure_codex_sandbox() {
     -D "REVIEW_OUT=$REVIEW_OUT"
     -D "REVIEW_LOG=$REVIEW_LOG"
     -D "CODEX_RUNTIME_DIR=$CODEX_RUNTIME_DIR"
-    -D "CODEX_LAUNCHER_RUNTIME_DIR=$CODEX_LAUNCHER_RUNTIME_DIR"
     -D "CODEX_BIN=$CODEX_BIN"
     -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
     -f "$SANDBOX_PROFILE")
+  PROBE_SANDBOX_CMD=(/usr/bin/sandbox-exec
+    -D "REVIEW_DIR=$REVIEW_DIR"
+    -D "REVIEW_TMP=$REVIEW_TMP"
+    -D "REVIEW_OUT=$REVIEW_OUT"
+    -D "REVIEW_LOG=$REVIEW_LOG"
+    -D "CODEX_RUNTIME_DIR=/bin"
+    -D "CODEX_BIN=/bin/cat"
+    -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
+    -f "$SANDBOX_PROFILE")
 
-  "${SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/.codex-review/diff.patch" >/dev/null \
+  "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/.codex-review/diff.patch" >/dev/null \
     || die "Codex sandbox가 리뷰 snapshot 읽기를 허용하지 않음"
-  if "${SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then
+  if "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then
     die "Codex sandbox symlink 외부 읽기 차단 실패"
   fi
-  if "${SANDBOX_CMD[@]}" /bin/cat "$REVIEW_PARENT/external-sentinel" >/dev/null 2>&1; then
+  if "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_PARENT/external-sentinel" >/dev/null 2>&1; then
     die "Codex sandbox 외부 sentinel 읽기 차단 실패"
   fi
-  if [[ -e "$REPO_ROOT/.env" ]] && "${SANDBOX_CMD[@]}" /bin/cat "$REPO_ROOT/.env" >/dev/null 2>&1; then
+  if [[ -e "$REPO_ROOT/.env" ]] && "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REPO_ROOT/.env" >/dev/null 2>&1; then
     die "Codex sandbox 원본 저장소 .env 읽기 차단 실패"
   fi
+  for denied_exec in /bin/sh /bin/zsh /usr/bin/env; do
+    if "${SANDBOX_CMD[@]}" "$denied_exec" -c true >/dev/null 2>&1; then
+      die "Codex sandbox 예상 밖 프로세스 실행 차단 실패: $denied_exec"
+    fi
+  done
 }
 
 start_codex_review() {
   local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  (cd "$SANDBOX_CWD" && CODEX_HOME="$SANDBOX_CODEX_HOME" HOME="$SANDBOX_HOME" TMPDIR="$REVIEW_TMP" \
+  (cd "$SANDBOX_CWD" && /usr/bin/env -i \
+    HOME="$SANDBOX_HOME" CODEX_HOME="$SANDBOX_CODEX_HOME" TMPDIR="$REVIEW_TMP" PATH="/usr/bin:/bin" \
     "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}" <"$REVIEW_INPUT") >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
   (

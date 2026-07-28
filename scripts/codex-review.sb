@@ -1,13 +1,16 @@
 (version 1)
 (deny default)
 
-(allow process*)
-(allow signal (target children))
+(allow process-exec (literal (param "CODEX_BIN")))
+(allow process-info*)
+(allow signal (target self))
 (allow syscall*)
 (allow mach*)
 (allow ipc*)
-(allow network*)
 (allow sysctl-read)
+
+(with-filter (process-path (param "CODEX_BIN"))
+  (allow network*))
 
 (allow file-read* file-test-existence file-map-executable
   (literal "/")
@@ -20,7 +23,6 @@
   (subpath "/private/var/db/timezone")
   (subpath "/dev")
   (subpath (param "CODEX_RUNTIME_DIR"))
-  (subpath (param "CODEX_LAUNCHER_RUNTIME_DIR"))
   (literal (param "CODEX_BIN"))
   (subpath (param "REVIEW_TMP"))
   (literal (param "CODEX_AUTH_FILE"))
