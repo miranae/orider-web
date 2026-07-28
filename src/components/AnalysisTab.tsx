@@ -161,6 +161,16 @@ export function sensorSeriesShareCompleteAxis(
   return power.time.every((timestamp, index) => Number.isFinite(timestamp) && timestamp === heartRate.time[index]);
 }
 
+export function selectWholeSessionSensorSeries(
+  sensorSeries: AnalysisSensorSeries | undefined,
+  fallbackValues: number[] | undefined,
+  fallbackTime: number[] | undefined,
+): { values: number[]; time: number[] | undefined } {
+  if (!sensorSeries) return { values: fallbackValues ?? [], time: fallbackTime };
+  if (sensorSeries.complete !== true) return { values: [], time: undefined };
+  return { values: sensorSeries.values, time: sensorSeries.time };
+}
+
 /** #458 W'bal 잔량 궤적 미니 차트 — amber 라인 + 최저점(rose) 마커. */
 function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPrimeMaxJ: number; idxMin: number }) {
   const w = 480, h = 110;
@@ -219,17 +229,25 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
 
   // 서버(activity-metrics)와 동일하게 plausibleWatts 로 정제(#532) — 비현실 파워(평균/5분>2×FTP)
   // 는 []→파워지표 미표시, 고립 스파이크는 2000W 클램프. 서버 사전계산값과 발산 방지.
-  const watts = useMemo(() => {
-    const raw = sensorPower?.values
-      ?? (streams.watts && streams.watts.length > 0 ? streams.watts : streams.watts_calc)
-      ?? [];
-    return plausibleWatts(raw, ftp) ?? [];
-  }, [streams.watts, streams.watts_calc, sensorPower?.values, ftp]);
-  const hr = sensorHeartRate?.values ?? streams.heartrate ?? [];
+  const selectedPowerSeries = useMemo(() => selectWholeSessionSensorSeries(
+    sensorPower,
+    streams.watts && streams.watts.length > 0 ? streams.watts : streams.watts_calc,
+    streams.time,
+  ), [sensorPower, streams.time, streams.watts, streams.watts_calc]);
+  const watts = useMemo(
+    () => plausibleWatts(selectedPowerSeries.values, ftp) ?? [],
+    [selectedPowerSeries.values, ftp],
+  );
+  const selectedHeartRateSeries = useMemo(() => selectWholeSessionSensorSeries(
+    sensorHeartRate,
+    streams.heartrate,
+    streams.time,
+  ), [sensorHeartRate, streams.heartrate, streams.time]);
+  const hr = selectedHeartRateSeries.values;
   const hasPower = watts.length > 0;
   const hasHr = hr.length > 0;
-  const powerTime = sensorPower?.time ?? streams.time;
-  const heartRateTime = sensorHeartRate?.time ?? streams.time;
+  const powerTime = selectedPowerSeries.time;
+  const heartRateTime = selectedHeartRateSeries.time;
 
   // 파워 메트릭
   const np = useMemo(() => hasPower ? calculateNP(watts, powerTime) : null, [watts, powerTime, hasPower]);
