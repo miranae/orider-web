@@ -13,6 +13,14 @@ import {
   streamPowerReplacesSavedSummary,
 } from "./activityDetailDerived";
 
+function withSparseSlot(values: number[], missingIndex: number): number[] {
+  const sparse = Array<number>(values.length);
+  values.forEach((value, index) => {
+    if (index !== missingIndex) sparse[index] = value;
+  });
+  return sparse;
+}
+
 describe("activityDetailDerived", () => {
   const streams = {
     distance: [0, 100, 200],
@@ -232,6 +240,283 @@ describe("activityDetailDerived", () => {
       power: { values: [200, 210, 220], time: [0, 1, 2], complete: true },
     });
     expect(buildSampledData(streams as never).map((point) => point.heartRate)).toEqual(streams.heartrate);
+  });
+
+  it.each([
+    ["empty", []],
+    ["short", [0, 1]],
+    ["non-finite", [0, Number.NaN, 2]],
+    ["non-monotonic", [0, 2, 1]],
+  ])("rejects measured V1 power on a %s axis without legacy fallback", (_case, explicitTime) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      watts_calc: [300, 310, 320],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        heartrate: [null, null, null],
+        watts: [200, 210, 220],
+      },
+    };
+    const summary = deriveStreamSensorSummary(streams as never);
+    const projection = buildActivityAnalysisProjection(streams as never);
+    const sampled = buildSampledData(streams as never);
+
+    expect(summary).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+      powerSource: null,
+      averagePower: null,
+      maxPower: null,
+    });
+    expect(projection).toMatchObject({
+      streams: { watts: undefined, watts_calc: undefined },
+      power: undefined,
+    });
+    expect(sampled.every((point) => point.power === 0)).toBe(true);
+  });
+
+  it.each([
+    ["empty", []],
+    ["short", [0, 1]],
+    ["non-finite", [0, Number.POSITIVE_INFINITY, 2]],
+    ["non-monotonic", [0, 2, 2]],
+  ])("rejects measured V1 heart rate on a %s axis without legacy fallback", (_case, explicitTime) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      heartrate: [150, 155, 160],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        heartrate: [140, 141, 142],
+        watts: [null, null, null],
+      },
+    };
+    const summary = deriveStreamSensorSummary(streams as never);
+    const projection = buildActivityAnalysisProjection(streams as never);
+    const sampled = buildSampledData(streams as never);
+
+    expect(summary).toMatchObject({
+      hasHeartRateStream: false,
+      hasRejectedHeartRateStream: true,
+      heartRateSource: null,
+      averageHeartRate: null,
+      maxHeartRate: null,
+    });
+    expect(projection).toMatchObject({ streams: { heartrate: undefined }, heartRate: undefined });
+    expect(sampled.every((point) => point.heartRate === 0)).toBe(true);
+  });
+
+  it.each([
+    ["missing", undefined, "watts_calc", false],
+    ["null", null, "watts_calc", false],
+    ["object", { value: 200 }, null, true],
+    ["string", "200", null, true],
+  ])("handles a %s V1 power channel without throwing", (_case, explicitWatts, source, rejected) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      watts_calc: [300, 310, 320],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [null, null, null],
+        watts: explicitWatts,
+      },
+    };
+
+    expect(() => deriveStreamSensorSummary(streams as never)).not.toThrow();
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      powerSource: source,
+      hasRejectedPowerStream: rejected,
+    });
+    expect(() => buildActivityAnalysisProjection(streams as never)).not.toThrow();
+    expect(() => buildSampledData(streams as never)).not.toThrow();
+  });
+
+  it.each([
+    ["a missing middle slot", withSparseSlot([0, 1, 2, 3], 2)],
+    ["only holes", Array<number>(4)],
+  ])("rejects measured V1 power when time has %s", (_case, explicitTime) => {
+    const streams = {
+      distance: [0, 10, 20, 30],
+      time: [0, 1, 2, 3],
+      watts_calc: [300, 310, 320, 330],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        heartrate: [null, null, null, null],
+        watts: [200, 210, 220, 230],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      powerSource: null,
+      hasRejectedPowerStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { watts: undefined, watts_calc: undefined },
+      power: undefined,
+    });
+    expect(buildSampledData(streams as never).every((point) => point.power === 0)).toBe(true);
+  });
+
+  it("rejects a sparse V1 power channel as malformed", () => {
+    const sparseWatts = withSparseSlot([200, 210, 220, 230], 2);
+    const streams = {
+      distance: [0, 10, 20, 30],
+      time: [0, 1, 2, 3],
+      watts_calc: [300, 310, 320, 330],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2, 3],
+        heartrate: [null, null, null, null],
+        watts: sparseWatts,
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      powerSource: null,
+      hasRejectedPowerStream: true,
+    });
+    expect(() => buildActivityAnalysisProjection(streams as never)).not.toThrow();
+    expect(() => buildSampledData(streams as never)).not.toThrow();
+  });
+
+  it("rejects a sparse V1 heart-rate channel as malformed", () => {
+    const sparseHeartRate = withSparseSlot([140, 141, 142, 143], 2);
+    const streams = {
+      distance: [0, 10, 20, 30],
+      time: [0, 1, 2, 3],
+      heartrate: [150, 155, 160, 165],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2, 3],
+        heartrate: sparseHeartRate,
+        watts: [null, null, null, null],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      heartRateSource: null,
+      hasRejectedHeartRateStream: true,
+    });
+    expect(() => buildActivityAnalysisProjection(streams as never)).not.toThrow();
+    expect(() => buildSampledData(streams as never)).not.toThrow();
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["null", null],
+    ["object", { seconds: [0, 1, 2] }],
+    ["string", "0,1,2"],
+  ])("rejects measured V1 power when time is %s", (_case, explicitTime) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      watts_calc: [300, 310, 320],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        heartrate: [null, null, null],
+        watts: [200, 210, 220],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      powerSource: null,
+      hasRejectedPowerStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { watts: undefined, watts_calc: undefined },
+      power: undefined,
+    });
+    expect(() => buildSampledData(streams as never)).not.toThrow();
+  });
+
+  it.each([
+    ["missing", undefined, "heartrate", false],
+    ["null", null, "heartrate", false],
+    ["object", { value: 140 }, null, true],
+    ["string", "140", null, true],
+  ])("handles a %s V1 heart-rate channel without throwing", (_case, explicitHeartRate, source, rejected) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      heartrate: [150, 155, 160],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: explicitHeartRate,
+        watts: [null, null, null],
+      },
+    };
+
+    expect(() => deriveStreamSensorSummary(streams as never)).not.toThrow();
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      heartRateSource: source,
+      hasRejectedHeartRateStream: rejected,
+    });
+    expect(() => buildActivityAnalysisProjection(streams as never)).not.toThrow();
+    expect(() => buildSampledData(streams as never)).not.toThrow();
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["null", null],
+    ["object", { seconds: [0, 1, 2] }],
+    ["string", "0,1,2"],
+  ])("rejects measured V1 heart rate when time is %s", (_case, explicitTime) => {
+    const streams = {
+      distance: [0, 10, 20],
+      time: [0, 1, 2],
+      heartrate: [150, 155, 160],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: explicitTime,
+        heartrate: [140, 141, 142],
+        watts: [null, null, null],
+      },
+    };
+
+    expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
+      heartRateSource: null,
+      hasRejectedHeartRateStream: true,
+    });
+    expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
+      streams: { heartrate: undefined },
+      heartRate: undefined,
+    });
+    expect(() => buildSampledData(streams as never)).not.toThrow();
   });
 
   it("falls back to valid virtual power when sensorStreamsV1 only measured heart rate", () => {

@@ -18,6 +18,7 @@ export interface PhotoData {
 
 export interface StreamSensorSummary {
   hasHeartRateStream: boolean;
+  hasRejectedHeartRateStream: boolean;
   hasCadenceStream: boolean;
   hasPowerStream: boolean;
   averageHeartRate: number | null;
@@ -61,6 +62,29 @@ export interface SelectedHeartRateStream {
   source: StreamSensorSummary["heartRateSource"];
   values: readonly (number | null)[] | null;
   positiveValues: number[];
+  hasRejectedMeasurement: boolean;
+}
+
+function hasValidExplicitAxis(time: readonly number[], channelLength: number): boolean {
+  if (channelLength === 0 || channelLength !== time.length) return false;
+  for (let index = 0; index < time.length; index++) {
+    if (!Object.prototype.hasOwnProperty.call(time, index)) return false;
+    const timestamp = time[index];
+    if (typeof timestamp !== "number" || !Number.isFinite(timestamp)) return false;
+    if (index > 0 && timestamp <= time[index - 1]!) return false;
+  }
+  return true;
+}
+
+function hasDenseArraySlots(values: readonly unknown[]): boolean {
+  for (let index = 0; index < values.length; index++) {
+    if (!Object.prototype.hasOwnProperty.call(values, index)) return false;
+  }
+  return true;
+}
+
+function runtimeArray<T>(value: unknown): T[] | undefined {
+  return Array.isArray(value) ? value as T[] : undefined;
 }
 
 function trustedLegacyPower(values: readonly number[] | undefined, expectedCount: number): number[] | null {
@@ -83,38 +107,54 @@ export function selectActivityPowerStream(streams: ActivityStreams | null): Sele
   if (!streams) return { source: null, values: null, finiteValues: [], hasCandidate: false };
 
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
-  const hasLegacyCandidate = !!streams.watts?.length || !!streams.watts_calc?.length;
-  const expectedLegacyCount = Math.max(streams.time?.length ?? 0, streams.distance?.length ?? 0);
+  const legacyWatts = runtimeArray<number>(streams.watts);
+  const legacyCalculatedWatts = runtimeArray<number>(streams.watts_calc);
+  const legacyTime = runtimeArray<number>(streams.time);
+  const legacyDistance = runtimeArray<number>(streams.distance);
+  const hasLegacyCandidate = !!legacyWatts?.length || !!legacyCalculatedWatts?.length;
+  const expectedLegacyCount = Math.max(legacyTime?.length ?? 0, legacyDistance?.length ?? 0);
   if (explicit) {
-    const finiteValues = explicit.watts.filter(
+    const rawWatts = (explicit as unknown as Record<string, unknown>).watts;
+    if (rawWatts != null && !Array.isArray(rawWatts)) {
+      return { source: null, values: null, finiteValues: [], hasCandidate: true };
+    }
+    const explicitWatts = runtimeArray<number | null>(rawWatts);
+    if (explicitWatts && !hasDenseArraySlots(explicitWatts)) {
+      return { source: null, values: null, finiteValues: [], hasCandidate: true };
+    }
+    const finiteValues = explicitWatts?.filter(
       (value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0,
-    );
+    ) ?? [];
     // Measured V1 power is authoritative. HR-only V1 payloads still need the
     // legacy fallback because virtual power remains on the top-level axis.
     if (finiteValues.length > 0) {
+      const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
+      if (!explicitTime || !hasValidExplicitAxis(explicitTime, explicitWatts?.length ?? 0)) {
+        return { source: null, values: null, finiteValues: [], hasCandidate: true };
+      }
       return {
         source: "sensorStreamsV1",
-        values: explicit.watts,
+        values: explicitWatts ?? null,
         finiteValues,
         hasCandidate: true,
       };
     }
   }
 
-  const trustedWatts = trustedLegacyPower(streams.watts, expectedLegacyCount);
+  const trustedWatts = trustedLegacyPower(legacyWatts, expectedLegacyCount);
   if (trustedWatts) {
     return {
       source: "watts",
-      values: streams.watts ?? null,
+      values: legacyWatts ?? null,
       finiteValues: trustedWatts,
       hasCandidate: true,
     };
   }
-  const trustedCalculatedWatts = trustedLegacyPower(streams.watts_calc, expectedLegacyCount);
+  const trustedCalculatedWatts = trustedLegacyPower(legacyCalculatedWatts, expectedLegacyCount);
   if (trustedCalculatedWatts) {
     return {
       source: "watts_calc",
-      values: streams.watts_calc ?? null,
+      values: legacyCalculatedWatts ?? null,
       finiteValues: trustedCalculatedWatts,
       hasCandidate: true,
     };
@@ -127,19 +167,44 @@ function positiveValues(values: readonly (number | null | undefined)[] | undefin
 }
 
 export function selectActivityHeartRateStream(streams: ActivityStreams | null): SelectedHeartRateStream {
-  if (!streams) return { source: null, values: null, positiveValues: [] };
+  if (!streams) return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: false };
 
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
-  const explicitPositive = positiveValues(explicit?.heartrate);
-  if (explicit && explicitPositive.length > 0) {
-    return { source: "sensorStreamsV1", values: explicit.heartrate, positiveValues: explicitPositive };
+  const rawExplicitHeartRate = explicit
+    ? (explicit as unknown as Record<string, unknown>).heartrate
+    : null;
+  if (rawExplicitHeartRate != null && !Array.isArray(rawExplicitHeartRate)) {
+    return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
+  }
+  const explicitHeartRate = runtimeArray<number | null>(rawExplicitHeartRate);
+  if (explicitHeartRate && !hasDenseArraySlots(explicitHeartRate)) {
+    return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
+  }
+  const explicitPositive = positiveValues(explicitHeartRate);
+  if (explicit && explicitHeartRate && explicitPositive.length > 0) {
+    const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
+    if (!explicitTime || !hasValidExplicitAxis(explicitTime, explicitHeartRate.length)) {
+      return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true };
+    }
+    return {
+      source: "sensorStreamsV1",
+      values: explicitHeartRate,
+      positiveValues: explicitPositive,
+      hasRejectedMeasurement: false,
+    };
   }
 
-  const legacyPositive = positiveValues(streams.heartrate);
+  const legacyHeartRate = runtimeArray<number>(streams.heartrate);
+  const legacyPositive = positiveValues(legacyHeartRate);
   if (legacyPositive.length > 0) {
-    return { source: "heartrate", values: streams.heartrate ?? null, positiveValues: legacyPositive };
+    return {
+      source: "heartrate",
+      values: legacyHeartRate ?? null,
+      positiveValues: legacyPositive,
+      hasRejectedMeasurement: false,
+    };
   }
-  return { source: null, values: null, positiveValues: [] };
+  return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: false };
 }
 
 function average(values: readonly number[]): number {
@@ -164,6 +229,7 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
 
   return {
     hasHeartRateStream,
+    hasRejectedHeartRateStream: selectedHeartRate.hasRejectedMeasurement,
     hasCadenceStream,
     hasPowerStream: hasReliablePower,
     averageHeartRate: heartRate.length > 0 ? average(heartRate) : null,
@@ -283,10 +349,20 @@ export function buildActivityAnalysisProjection(
         watts_calc: !preferTopLevelPower && selectedPower.source === "watts_calc" ? streams.watts_calc : undefined,
       },
       heartRate: usesExplicitHeartRate
-        ? measuredSeries(explicit.heartrate, explicit.time, (value) => value > 0, explicit.resolutionSeconds)
+        ? measuredSeries(
+            selectedHeartRate.values ?? [],
+            runtimeArray<number>((explicit as unknown as Record<string, unknown>).time) ?? [],
+            (value) => value > 0,
+            explicit.resolutionSeconds,
+          )
         : selectedHeartRate.source === "heartrate" ? legacyHeartRate : undefined,
       power: usesExplicitPower
-        ? measuredSeries(explicit.watts, explicit.time, (value) => value >= 0, explicit.resolutionSeconds)
+        ? measuredSeries(
+            selectedPower.values ?? [],
+            runtimeArray<number>((explicit as unknown as Record<string, unknown>).time) ?? [],
+            (value) => value >= 0,
+            explicit.resolutionSeconds,
+          )
         : undefined,
     };
   }

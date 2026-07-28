@@ -865,6 +865,38 @@ describe("ActivityPage", () => {
     expect(stats).not.toHaveTextContent("127W");
   });
 
+  it("does not crash on malformed sensorStreamsV1 runtime arrays", async () => {
+    const activity = createMockActivity({ id: "test-activity", source: "orider" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        altitude: [10, 10, 10],
+        time: [0, 1, 2],
+        heartrate: [150, 155, 160],
+        watts_calc: [200, 210, 220],
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: 1_700_000_000_000,
+          time: { malformed: true },
+          heartrate: [140, 141, 142],
+          watts: [200, 210, 220],
+        },
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => {
+      expect(stats).not.toHaveTextContent("평균 파워");
+      expect(stats).not.toHaveTextContent("평균 심박");
+    });
+  });
+
   it("preserves short legacy power that satisfies the backend coverage threshold", async () => {
     const activity = createMockActivity({
       id: "test-activity",

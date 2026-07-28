@@ -613,8 +613,12 @@ export default function ActivityPage() {
   const displayedSummary = streams && streamSensorSummary
     ? {
         ...s,
-        averageHeartRate: streamSensorSummary.hasHeartRateStream ? streamSensorSummary.averageHeartRate : s.averageHeartRate,
-        maxHeartRate: streamSensorSummary.hasHeartRateStream ? streamSensorSummary.maxHeartRate : s.maxHeartRate,
+        averageHeartRate: streamSensorSummary.hasHeartRateStream || streamSensorSummary.hasRejectedHeartRateStream
+          ? streamSensorSummary.averageHeartRate
+          : s.averageHeartRate,
+        maxHeartRate: streamSensorSummary.hasHeartRateStream || streamSensorSummary.hasRejectedHeartRateStream
+          ? streamSensorSummary.maxHeartRate
+          : s.maxHeartRate,
         averageCadence: streamSensorSummary.hasCadenceStream ? streamSensorSummary.averageCadence : s.averageCadence,
         maxCadence: streamSensorSummary.hasCadenceStream ? streamSensorSummary.maxCadence : s.maxCadence,
         averagePower: hasStreamPowerCandidate ? streamSensorSummary.averagePower : s.averagePower,
