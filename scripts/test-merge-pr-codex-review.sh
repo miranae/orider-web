@@ -19,6 +19,7 @@ export MOCK_PROMPT_FILE="$TEST_TMP/codex-prompt"
 export MOCK_ARCHIVE_ARGS_FILE="$TEST_TMP/git-archive-args"
 export CODEX_HOME="$TEST_TMP/codex-home"
 export EXPECTED_HEAD="$($REAL_GIT rev-parse HEAD)"
+export BOOTSTRAP_PROFILE_SHA256="$(shasum -a 256 "$REPO_ROOT/scripts/codex-review.sb" | awk '{print $1}')"
 
 mkdir -p "$TEST_TMP/bin" "$CODEX_HOME"
 printf '{}\n' >"$CODEX_HOME/auth.json"
@@ -39,6 +40,9 @@ if [[ "${1:-}" == "diff" && " $* " == *" :(glob)src/"* ]]; then
 fi
 if [[ "${1:-}" == "archive" ]]; then
   printf '%s\n' "$@" >"$MOCK_ARCHIVE_ARGS_FILE"
+fi
+if [[ "${1:-}" == "cat-file" && "${2:-}" == "-e" && "${3:-}" == *:scripts/codex-review.sb ]]; then
+  exit 1
 fi
 exec "$REAL_GIT" "$@"
 MOCK
@@ -136,10 +140,20 @@ chmod +x "$TEST_TMP/bin/git" "$TEST_TMP/bin/gh" "$TEST_TMP/bin/codex" "$TEST_TMP
 
 run_gate() {
   local rc=0
-  TMPDIR="$TEST_TMP" PATH="$TEST_TMP/bin:$PATH" "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build 2>&1 || rc=$?
+  CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256="$BOOTSTRAP_PROFILE_SHA256" \
+    TMPDIR="$TEST_TMP" PATH="$TEST_TMP/bin:$PATH" \
+    "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build 2>&1 || rc=$?
   ! compgen -G "$TEST_TMP/orider-codex-review-parent.*" >/dev/null || return 98
   return "$rc"
 }
+
+set +e
+missing_bootstrap_output="$(TMPDIR="$TEST_TMP" PATH="$TEST_TMP/bin:$PATH" \
+  "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build 2>&1)"
+missing_bootstrap_rc=$?
+set -e
+[[ "$missing_bootstrap_rc" -ne 0 ]]
+grep -q 'CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256 필요' <<<"$missing_bootstrap_output"
 
 pass_output="$(MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$pass_output"

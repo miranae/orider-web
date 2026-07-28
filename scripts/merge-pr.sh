@@ -109,8 +109,20 @@ prepare_codex_review_workspace() {
   mkdir -p "$REVIEW_DIR/.codex-review" "$REVIEW_TMP"
   : >"$REVIEW_PARENT/.codex-review-parent.marker"
   printf 'sandbox external sentinel\n' >"$REVIEW_PARENT/external-sentinel"
-  install -m 400 "$REPO_ROOT/scripts/codex-review.sb" "$REVIEW_PARENT/codex-review.sb" \
-    || { cleanup_review_workspace; die "guarded Codex sandbox profile 생성 실패"; }
+  if git cat-file -e "origin/$BASE:scripts/codex-review.sb" 2>/dev/null; then
+    git show "origin/$BASE:scripts/codex-review.sb" >"$REVIEW_PARENT/codex-review.sb" \
+      || { cleanup_review_workspace; die "trusted base Codex sandbox profile 추출 실패"; }
+  else
+    bootstrap_hash="${CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256:-}"
+    [[ -n "$bootstrap_hash" ]] \
+      || { cleanup_review_workspace; die "trusted base에 Codex sandbox profile 없음 — 최초 도입은 CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256 필요"; }
+    actual_hash="$(shasum -a 256 "$REPO_ROOT/scripts/codex-review.sb" | awk '{print $1}')"
+    [[ "$actual_hash" == "$bootstrap_hash" ]] \
+      || { cleanup_review_workspace; die "Codex sandbox bootstrap profile SHA-256 불일치"; }
+    cp "$REPO_ROOT/scripts/codex-review.sb" "$REVIEW_PARENT/codex-review.sb"
+  fi
+  chmod 400 "$REVIEW_PARENT/codex-review.sb" \
+    || { cleanup_review_workspace; die "guarded Codex sandbox profile 권한 설정 실패"; }
   if ! git archive "$HEAD_OID" | tar -x -C "$REVIEW_DIR"; then
     cleanup_review_workspace
     die "PR head tracked snapshot 생성 실패"
