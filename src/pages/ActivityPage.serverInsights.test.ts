@@ -15,7 +15,10 @@ describe("activity detail server insights", () => {
     expect(insightCards).not.toContain("Server insights");
     expect(activityPage).toContain("startTime={activity.startTime}");
     expect(analysisTab).toContain("const sm = serverMetrics.metrics");
-    expect(analysisTab).toContain("<ServerMetricsBanner state={serverMetrics} />");
+    expect(activityPage).toContain("hasStreamPowerCandidate={hasStreamPowerCandidate}");
+    expect(analysisTab).toContain(
+      "<ServerMetricsBanner state={serverMetrics} suppressPowerMetrics={hasStreamPowerCandidate} />",
+    );
     expect(analysisTab).toContain("const climbRows = useMemo");
     expect(analysisTab).toContain("sm?.climbs");
     expect(analysisTab).toContain("c.wPerKg");

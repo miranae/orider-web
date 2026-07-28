@@ -136,6 +136,7 @@ interface AnalysisTabProps {
   streams: ActivityStreams;
   sensorHeartRate?: AnalysisSensorSeries;
   sensorPower?: AnalysisSensorSeries;
+  hasStreamPowerCandidate?: boolean;
   summary?: ActivitySummary;
   sport?: "ride" | "run" | "swim" | "other";
   isVirtualPower?: boolean;
@@ -152,22 +153,53 @@ export function sensorSeriesShareCompleteAxis(
   heartRate: AnalysisSensorSeries | undefined,
 ): boolean {
   if (!power || !heartRate || power.complete !== true || heartRate.complete !== true) return false;
-  return wholeSessionSeriesShareAxis(power, heartRate);
+  return wholeSessionSeriesShareAxis(
+    { ...power, source: "explicit" },
+    { ...heartRate, source: "explicit" },
+  );
 }
 
 export function selectWholeSessionSensorSeries(
   sensorSeries: AnalysisSensorSeries | undefined,
   fallbackValues: number[] | undefined,
   fallbackTime: number[] | undefined,
-): { values: number[]; time: number[] | undefined } {
-  if (!sensorSeries) return { values: fallbackValues ?? [], time: fallbackTime };
-  if (sensorSeries.complete !== true) return { values: [], time: undefined };
-  return { values: sensorSeries.values, time: sensorSeries.time };
+  fallbackTimeOriginEpochMs?: number,
+): WholeSessionSensorSeries {
+  if (!sensorSeries) {
+    return {
+      values: fallbackValues ?? [],
+      time: fallbackTime,
+      source: "legacy",
+      timeOriginEpochMs: fallbackTimeOriginEpochMs,
+    };
+  }
+  if (sensorSeries.complete !== true) {
+    return { values: [], time: undefined, source: "explicit", timeOriginEpochMs: sensorSeries.timeOriginEpochMs };
+  }
+  return {
+    values: sensorSeries.values,
+    time: sensorSeries.time,
+    source: "explicit",
+    timeOriginEpochMs: sensorSeries.timeOriginEpochMs,
+  };
+}
+
+export interface WholeSessionSensorSeries {
+  values: number[];
+  time: number[] | undefined;
+  source: "explicit" | "legacy";
+  timeOriginEpochMs?: number;
+}
+
+export function normalizeActivityStartTimeMs(startTime: number | null | undefined): number | undefined {
+  if (typeof startTime !== "number" || !Number.isFinite(startTime) || startTime < 0) return undefined;
+  const epochMs = startTime < 1_000_000_000_000 ? startTime * 1000 : startTime;
+  return Number.isSafeInteger(epochMs) ? epochMs : undefined;
 }
 
 export function wholeSessionSeriesShareAxis(
-  power: { values: number[]; time: number[] | undefined },
-  heartRate: { values: number[]; time: number[] | undefined },
+  power: WholeSessionSensorSeries,
+  heartRate: WholeSessionSensorSeries,
 ): boolean {
   if (!power.time || !heartRate.time || power.values.length === 0 || heartRate.values.length === 0) return false;
   if (
@@ -175,9 +207,23 @@ export function wholeSessionSeriesShareAxis(
     || heartRate.values.length !== heartRate.time.length
     || power.time.length !== heartRate.time.length
   ) return false;
-  return power.time.every((timestamp, index) => Number.isFinite(timestamp)
-    && Number.isFinite(heartRate.time![index])
-    && timestamp === heartRate.time![index]);
+  if (power.source === "legacy" && heartRate.source === "legacy") {
+    return power.time.every((timestamp, index) => Number.isFinite(timestamp)
+      && Number.isFinite(heartRate.time![index])
+      && timestamp === heartRate.time![index]);
+  }
+  if (power.timeOriginEpochMs == null || heartRate.timeOriginEpochMs == null) return false;
+  return power.time.every((timestamp, index) => {
+    const heartRateTimestamp = heartRate.time![index];
+    if (typeof heartRateTimestamp !== "number"
+      || !Number.isFinite(timestamp)
+      || !Number.isFinite(heartRateTimestamp)) return false;
+    const powerEpochMs = power.timeOriginEpochMs! + timestamp * 1000;
+    const heartRateEpochMs = heartRate.timeOriginEpochMs! + heartRateTimestamp * 1000;
+    return Number.isSafeInteger(powerEpochMs)
+      && Number.isSafeInteger(heartRateEpochMs)
+      && powerEpochMs === heartRateEpochMs;
+  });
 }
 
 /** #458 W'bal 잔량 궤적 미니 차트 — amber 라인 + 최저점(rose) 마커. */
@@ -199,7 +245,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
   );
 }
 
-export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, sensorHeartRate, sensorPower, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
+export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, sensorHeartRate, sensorPower, hasStreamPowerCandidate = false, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
   // Phase A.7: server-computed metrics 구독 (있으면 배너로 표시).
   // 현재는 client 재계산 결과와 병렬 표시 — 향후 점진적으로 server 우선 + 폴백 패턴으로 전환.
   // owner 가 아니면 구독 차단(owner-only doc) → permission-denied 회피.
@@ -235,6 +281,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const weightKg = profile?.weightKg ?? null;
   const hasFtp = !!profile?.ftp || !!streams.ftp;
   const hasMaxHr = hrResolution.maxHrSource !== "default";
+  const activityTimeOriginEpochMs = normalizeActivityStartTimeMs(startTime);
 
   // 서버(activity-metrics)와 동일하게 plausibleWatts 로 정제(#532) — 비현실 파워(평균/5분>2×FTP)
   // 는 []→파워지표 미표시, 고립 스파이크는 2000W 클램프. 서버 사전계산값과 발산 방지.
@@ -242,7 +289,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     sensorPower,
     streams.watts && streams.watts.length > 0 ? streams.watts : streams.watts_calc,
     streams.time,
-  ), [sensorPower, streams.time, streams.watts, streams.watts_calc]);
+    activityTimeOriginEpochMs,
+  ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc]);
   const watts = useMemo(
     () => plausibleWatts(selectedPowerSeries.values, ftp) ?? [],
     [selectedPowerSeries.values, ftp],
@@ -251,7 +299,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     sensorHeartRate,
     streams.heartrate,
     streams.time,
-  ), [sensorHeartRate, streams.heartrate, streams.time]);
+    activityTimeOriginEpochMs,
+  ), [activityTimeOriginEpochMs, sensorHeartRate, streams.heartrate, streams.time]);
   const hr = selectedHeartRateSeries.values;
   const hasPower = watts.length > 0;
   const hasHr = hr.length > 0;
@@ -458,7 +507,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   return (
     <div className="space-y-6">
       {/* Phase A.7: 서버 메트릭 배너 (있으면 표시) */}
-      <ServerMetricsBanner state={serverMetrics} />
+      <ServerMetricsBanner state={serverMetrics} suppressPowerMetrics={hasStreamPowerCandidate} />
 
       {/* FTP/maxHR 기본값 경고 */}
       {hasPower && !hasFtp && (

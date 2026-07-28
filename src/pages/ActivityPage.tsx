@@ -56,7 +56,6 @@ import {
   getChartHighlightRange,
   getSegmentEfforts,
   getStreamPhotos,
-  streamPowerReplacesSavedSummary,
 } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
@@ -607,9 +606,6 @@ export default function ActivityPage() {
   }
 
   const s = activity.summary;
-  const streamPowerReplacesSaved = streams
-    ? streamPowerReplacesSavedSummary(streamSensorSummary, s)
-    : false;
   const displayedSummary = streams && streamSensorSummary
     ? {
         ...s,
@@ -630,7 +626,7 @@ export default function ActivityPage() {
   const avgPowerValue = streams && hasStreamPowerCandidate
     ? streamSensorSummary?.averagePower ?? null
     : s.averagePower ?? activity.avgPower ?? null;
-  const normalizedPowerValue = streamPowerReplacesSaved
+  const normalizedPowerValue = streams && hasStreamPowerCandidate
     ? null
     : s.normalizedPower ?? activity.weightedAvgPower ?? null;
   const activityDate = Number.isFinite(activity.startTime)
@@ -645,13 +641,12 @@ export default function ActivityPage() {
     const rounded = Math.round(value);
     return { label, value: `${signed && rounded > 0 ? "+" : ""}${rounded}`, unit };
   };
-  // activity_metrics has no stream revision/fingerprint contract yet. Once a trusted stream
-  // power channel replaces the saved summary, server NP/TSS may belong to an older revision
-  // and must not be mixed into the exported card.
-  const activityTss = streamPowerReplacesSaved
+  // Until streams and activity_metrics share a revision fingerprint, any raw power candidate
+  // makes saved/server NP and TSS provenance unprovable. Keep trusted stream avg/max only.
+  const activityTss = hasStreamPowerCandidate
     ? null
     : serverMetrics.metrics?.tss ?? s.tss;
-  const activityNp = streamPowerReplacesSaved
+  const activityNp = hasStreamPowerCandidate
     ? null
     : serverMetrics.metrics?.np ?? normalizedPowerValue;
   const sharePerformanceMetrics = [
@@ -1076,6 +1071,7 @@ export default function ActivityPage() {
             streams={analysisProjection.streams}
             sensorHeartRate={analysisProjection.heartRate}
             sensorPower={analysisProjection.power}
+            hasStreamPowerCandidate={hasStreamPowerCandidate}
             summary={displayedSummary}
             sport={sport}
             isVirtualPower={activity.isVirtualPower}

@@ -221,7 +221,7 @@ describe("ActivityPage", () => {
       },
     }],
     ["legacy", { time: [0, 1, 2], watts: [200, 210, 220] }],
-  ])("keeps server TSS and NP when %s stream power matches the saved summary", async (_source, powerStreams) => {
+  ])("hides unversioned server TSS and NP for normal %s stream power", async (_source, powerStreams) => {
     const activity = createMockActivity({
       id: "test-activity",
       userId: "user-1",
@@ -249,10 +249,13 @@ describe("ActivityPage", () => {
       const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
         card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
       } | undefined;
-      expect(latest?.card?.performanceMetrics).toEqual(expect.arrayContaining([
-        { label: "훈련 부하 TSS", value: "444", unit: undefined },
-        { label: "정규화 파워 NP", value: "333", unit: "W" },
+      const metrics = latest?.card?.performanceMetrics ?? [];
+      expect(metrics).toEqual(expect.arrayContaining([
+        { label: "평균 파워", value: "210", unit: "W" },
       ]));
+      expect(metrics).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "333" })]));
+      expect(metrics).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "444" })]));
+      expect(metrics).not.toEqual(expect.arrayContaining([expect.objectContaining({ label: "훈련 부하 TSS" })]));
     });
   });
 

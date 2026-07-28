@@ -36,6 +36,7 @@ export interface StreamSensorSummary {
 export interface AnalysisSensorSeries {
   values: number[];
   time: number[];
+  timeOriginEpochMs?: number;
   /** True only when every sample on the source sensor axis was measured. */
   complete?: boolean;
 }
@@ -308,35 +309,12 @@ export function deriveStreamSensorSummary(streams: ActivityStreams | null): Stre
   };
 }
 
-interface SavedPowerSummary {
-  averagePower?: number | null;
-  maxPower?: number | null;
-}
-
-function matchesSavedPower(actual: number | null, saved: number | null | undefined): boolean {
-  return actual != null
-    && saved != null
-    && Number.isFinite(actual)
-    && Number.isFinite(saved)
-    && Math.round(actual) === Math.round(saved);
-}
-
-export function streamPowerReplacesSavedSummary(
-  streamSummary: StreamSensorSummary | null,
-  savedSummary: SavedPowerSummary,
-): boolean {
-  if (!streamSummary) return false;
-  if (streamSummary.hasRejectedPowerStream) return true;
-  if (!streamSummary.hasPowerStream) return false;
-  return !matchesSavedPower(streamSummary.averagePower, savedSummary.averagePower)
-    || !matchesSavedPower(streamSummary.maxPower, savedSummary.maxPower);
-}
-
 function measuredSeries(
   values: readonly (number | null)[],
   time: readonly number[],
   isMeasured: (value: number) => boolean,
   fixedStep?: number,
+  timeOriginEpochMs?: unknown,
 ): AnalysisSensorSeries | undefined {
   const length = Math.min(values.length, time.length);
   let currentValues: number[] = [];
@@ -374,10 +352,16 @@ function measuredSeries(
   const measuredTime = measured.time.length > 1
     ? measured.time
     : measured.values.map((_, index) => (measured.time[0] ?? 0) + index * step);
+  const validTimeOriginEpochMs = typeof timeOriginEpochMs === "number"
+    && Number.isSafeInteger(timeOriginEpochMs)
+    && timeOriginEpochMs >= 0
+    ? timeOriginEpochMs
+    : undefined;
   return {
     values: measured.values,
     time: measuredTime,
     complete: values.length === time.length && measured.values.length === values.length,
+    ...(validTimeOriginEpochMs != null ? { timeOriginEpochMs: validTimeOriginEpochMs } : {}),
   };
 }
 
@@ -445,6 +429,7 @@ export function buildActivityAnalysisProjection(
             runtimeArray<number>((explicit as unknown as Record<string, unknown>).time) ?? [],
             (value) => value > 0,
             explicit.resolutionSeconds,
+            explicit.timeOriginEpochMs,
           )
         : selectedHeartRate.source === "heartrate" ? legacyHeartRate : undefined,
       power: usesExplicitPower
@@ -453,6 +438,7 @@ export function buildActivityAnalysisProjection(
             runtimeArray<number>((explicit as unknown as Record<string, unknown>).time) ?? [],
             (value) => value >= 0,
             explicit.resolutionSeconds,
+            explicit.timeOriginEpochMs,
           )
         : undefined,
     };
