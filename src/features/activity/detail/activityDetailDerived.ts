@@ -399,7 +399,10 @@ function explicitCoverageRejectionReason(
 
   const routeTime = runtimeArray<number>(streams.time);
   const routeStart = routeTime?.[0];
-  const expectedStartEpochMs = normalizeEpochMs(routeStart) ?? normalizeEpochMs(activityStartTime);
+  // SensorStreamsV1 is recorded independently of GPS acquisition. The activity
+  // start is therefore authoritative; an absolute first GPS fix is only a
+  // fallback when the activity record cannot provide a usable start time.
+  const expectedStartEpochMs = normalizeEpochMs(activityStartTime) ?? normalizeEpochMs(routeStart);
   if (expectedStartEpochMs == null) return null;
   const explicitStartEpochMs = rawOrigin + explicitTime[0]! * 1000;
   return Number.isSafeInteger(explicitStartEpochMs)
@@ -557,6 +560,9 @@ function trustedLegacyPower(
 
   if (!hasLegacyCoverage(values.length, expectation)) return null;
 
+  // Top-level legacy watts/watts_calc are GPS-aligned pre-V1 channels where zero
+  // is the missing-value sentinel. No persisted provenance distinguishes a real
+  // power-meter coast here; only SensorStreamsV1 guarantees measured zero watts.
   const positiveCount = values.filter((value) => value > 0).length;
   const coverageDenominator = usesLegacyTimeCoverage(values.length, expectation)
     ? Math.max(values.length, 1)
@@ -639,6 +645,7 @@ export function selectActivityPowerStream(
         },
       };
     }
+    // V1 null is missing, while zero is an authoritative measured coast.
     const finiteValues = explicitWatts?.filter(
       (value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0,
     ) ?? [];

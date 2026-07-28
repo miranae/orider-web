@@ -737,22 +737,22 @@ describe("activityDetailDerived", () => {
         : { heartRate: undefined, power: undefined });
   });
 
-  it("prefers an absolute route start over a mismatched activity start", () => {
-    const routeStartSec = 1_700_000_000;
+  it("prefers the activity start when the first absolute GPS fix is delayed", () => {
+    const activityStartSec = 1_700_000_000, routeStartSec = activityStartSec + 5;
     const streams = {
       time: [routeStartSec, routeStartSec + 1, routeStartSec + 2],
       sensorStreamsV1: {
         version: 1,
         timeUnit: "relative_seconds",
         resolutionSeconds: 1,
-        timeOriginEpochMs: routeStartSec * 1000,
+        timeOriginEpochMs: activityStartSec * 1000,
         time: [0, 1, 2],
         heartrate: [140, 145, 150],
         watts: [180, 190, 200],
       },
     };
 
-    expect(deriveStreamSensorSummary(streams as never, undefined, routeStartSec + 60)).toMatchObject({
+    expect(deriveStreamSensorSummary(streams as never, undefined, activityStartSec)).toMatchObject({
       hasHeartRateStream: true,
       hasPowerStream: true,
     });
