@@ -13,7 +13,11 @@ const MAX_PLAUSIBLE_WATTS = 2000;
  * @param ftp 임계파워(W). cap 판정 기준(없으면 600/700 폴백).
  * @returns 신뢰 가능하면 고립 스파이크만 2000W 클램프한 배열, 비현실(평균/5분>2×FTP)이면 undefined.
  */
-export function plausibleWatts(raw: number[] | undefined, ftp: number | undefined): number[] | undefined {
+export function plausibleWatts(
+  raw: number[] | undefined,
+  ftp: number | undefined,
+  segmentStarts?: readonly boolean[],
+): number[] | undefined {
   if (!raw || raw.length === 0) return raw;
 
   // 평균은 RAW 기준 — 클램프 후 평균은 스파이크가 깎여 garbage 가 통과.
@@ -28,13 +32,16 @@ export function plausibleWatts(raw: number[] | undefined, ftp: number | undefine
   const W5 = 300;
   if (raw.length >= W5) {
     const cap5 = typeof ftp === "number" && ftp > 0 ? ftp * 2 : 700;
-    let win = 0;
-    for (let i = 0; i < W5; i++) win += Number.isFinite(raw[i]!) && raw[i]! > 0 ? raw[i]! : 0;
-    let maxWin = win;
-    for (let i = W5; i < raw.length; i++) {
-      win += (Number.isFinite(raw[i]!) && raw[i]! > 0 ? raw[i]! : 0)
-           - (Number.isFinite(raw[i - W5]!) && raw[i - W5]! > 0 ? raw[i - W5]! : 0);
-      if (win > maxWin) maxWin = win;
+    let win = 0, runLength = 0, maxWin = 0;
+    for (let i = 0; i < raw.length; i++) {
+      if (i > 0 && segmentStarts?.[i]) { win = 0; runLength = 0; }
+      win += Number.isFinite(raw[i]!) && raw[i]! > 0 ? raw[i]! : 0;
+      runLength++;
+      if (runLength > W5) {
+        win -= Number.isFinite(raw[i - W5]!) && raw[i - W5]! > 0 ? raw[i - W5]! : 0;
+        runLength--;
+      }
+      if (runLength === W5 && win > maxWin) maxWin = win;
     }
     if (maxWin / W5 > cap5) return undefined; // 5분 지속파워 비현실 → 파워 신뢰 불가
   }

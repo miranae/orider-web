@@ -84,8 +84,8 @@ export interface SampledPoint {
   distance: number;
   altitude: number;
   speed: number;
-  heartRate: number;
-  power: number;
+  heartRate: number | null;
+  power: number | null;
   cadence: number;
 }
 
@@ -96,7 +96,7 @@ export interface OverlayConfig {
   color: string;
   dotColor: string;
   yAxisID: string;
-  getValue: (d: SampledPoint) => number;
+  getValue: (d: SampledPoint) => number | null;
 }
 
 export const OVERLAY_CONFIGS: OverlayConfig[] = [

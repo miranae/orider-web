@@ -148,7 +148,7 @@ describe("useActivitySensorDetail", () => {
     });
     expect(result.current.displayedSummary?.averagePower).toBeNull();
     expect(result.current.analysisProjection?.streams.watts).toBeUndefined();
-    expect(result.current.sampledData.map(({ power }) => power)).toEqual([0, 0, 0, 0]);
+    expect(result.current.sampledData.map(({ power }) => power)).toEqual([null, null, null, null]);
 
     rerender({ currentStreams: streams, currentPowerOverride: powerOverride });
 
@@ -189,7 +189,7 @@ describe("useActivitySensorDetail", () => {
       hasRejectedPowerStream: true,
       powerSource: null,
     });
-    expect(result.current.sampledData.map(({ power }) => power)).toEqual([0, 0, 0, 0]);
+    expect(result.current.sampledData.map(({ power }) => power)).toEqual([null, null, null, null]);
   });
 
   it("keeps sparse explicit channels out of summary, chart, analysis, and share inputs", () => {

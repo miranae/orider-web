@@ -74,6 +74,12 @@ export interface SensorRejectionDiagnostic {
 export interface AnalysisSensorSeries {
   values: number[];
   time: number[];
+  /** Duration owned by each retained value; missing slots are intentionally absent. */
+  durationsSec?: number[];
+  /** Run boundaries retained after compacting missing slots. */
+  segmentStarts?: boolean[];
+  /** Complete validated source-axis duration, including missing slots. */
+  fullSessionDurationSec?: number;
   timeOriginEpochMs?: number;
   /** True only when every sample on the source sensor axis was measured. */
   complete?: boolean;
@@ -990,6 +996,11 @@ function measuredSeries(
   return {
     values: measured.values,
     time: measuredTime,
+    ...(wholeSessionCoverageAccepted ? {
+      durationsSec: measured.values.map(() => step),
+      segmentStarts: runs.flatMap((run) => run.values.map((_, index) => index === 0)),
+      fullSessionDurationSec: length * step,
+    } : {}),
     complete: values.length === time.length && measured.values.length === values.length,
     ...(wholeSessionCoverageAccepted ? { wholeSessionCoverageAccepted: true } : {}),
     ...(validTimeOriginEpochMs != null ? { timeOriginEpochMs: validTimeOriginEpochMs } : {}),
@@ -1202,7 +1213,13 @@ export function buildSampledData(
     let maxValue = -Infinity;
     for (let index = 0; index < Math.min(channel.length, len); index++) {
       const value = channel[index];
-      if (typeof value !== "number" || !Number.isFinite(value)) continue;
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        const previous = channel[index - 1];
+        const next = channel[index + 1];
+        if ((typeof previous === "number" && Number.isFinite(previous))
+          || (typeof next === "number" && Number.isFinite(next))) selectedIndexes.add(index);
+        continue;
+      }
       if (value < minValue) { minValue = value; minIndex = index; }
       if (value > maxValue) { maxValue = value; maxIndex = index; }
     }
@@ -1216,8 +1233,8 @@ export function buildSampledData(
       distance: dist[i] ?? 0,
       altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
       speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
-      heartRate: chartHeartRate?.[i] ?? 0,
-      power: chartPower?.[i] ?? 0,
+      heartRate: chartHeartRate ? chartHeartRate[i] ?? null : null,
+      power: chartPower ? chartPower[i] ?? null : null,
       cadence: alignedCadence?.[i] ?? 0,
     });
   }
@@ -1226,7 +1243,7 @@ export function buildSampledData(
 
 export function getAvailableOverlays(sampledData: SampledPoint[]): OverlayConfig[] {
   if (sampledData.length === 0) return [];
-  return OVERLAY_CONFIGS.filter((cfg) => sampledData.some((d) => cfg.getValue(d) > 0));
+  return OVERLAY_CONFIGS.filter((cfg) => sampledData.some((d) => (cfg.getValue(d) ?? 0) > 0));
 }
 
 export function buildSummaryStats(

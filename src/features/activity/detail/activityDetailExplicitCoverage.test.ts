@@ -9,7 +9,15 @@ import {
   selectActivityHeartRateStream,
   selectActivityPowerStream,
 } from "./activityDetailDerived";
-import { selectWholeSessionSensorSeries } from "../../../components/AnalysisTab";
+import {
+  calculateKjPerHour,
+  resolveAnalysisDurationSec,
+  selectWholeSessionSensorSeries,
+} from "../../../components/AnalysisTab";
+import { calculateTRIMP, calculateWorkKj } from "../../../utils/advancedMetrics";
+import { calculateNP } from "../../../utils/powerMetrics";
+import { calculatePowerCurve } from "../../../utils/powerCurve";
+import { calculateHrZoneDistribution, calculatePowerZoneDistribution } from "../../../utils/zoneAnalysis";
 
 const length = 20;
 const time = Array.from({ length }, (_, index) => index);
@@ -57,8 +65,14 @@ describe("explicit V1 measured-slot coverage", () => {
     expect(selectWholeSessionSensorSeries(projection.power, streams.watts, streams.time)).toMatchObject({
       values: Array(18).fill(200).concat(0),
       time: [0, ...Array.from({ length: 18 }, (_, index) => index + 2)],
+      durationsSec: Array(19).fill(1),
+      segmentStarts: [true, true, ...Array(17).fill(false)],
+      fullSessionDurationSec: 20,
       source: "explicit",
     });
+    const chart = buildSampledData(streams as never, context);
+    expect(chart[1]?.power).toBeNull();
+    expect(chart.at(-1)?.power).toBe(0);
   });
 
   it.each([
@@ -169,4 +183,86 @@ describe("explicit V1 measured-slot coverage", () => {
       expect(selectActivityHeartRateStream(heartRateStreams as never, context).source).toBe("heartrate");
     },
   );
+
+  it.each([
+    ["start", 0],
+    ["middle", 10],
+    ["end", 19],
+  ])("keeps 19/20 work, zones, TRIMP, and kJ/h invariant for a %s gap", (_case, gapIndex) => {
+    const watts: Array<number | null> = Array(20).fill(200);
+    const heartrate: Array<number | null> = Array(20).fill(150);
+    watts[gapIndex] = null;
+    heartrate[gapIndex] = null;
+    const streams = explicitStreams({ watts, heartrate });
+    const projection = buildActivityAnalysisProjection(streams as never, context)!;
+    const power = selectWholeSessionSensorSeries(projection.power, streams.watts, streams.time, undefined, 20);
+    const hr = selectWholeSessionSensorSeries(projection.heartRate, streams.heartrate, streams.time, undefined, 20);
+    const powerTiming = { durationsSec: power.durationsSec, segmentStarts: power.segmentStarts };
+    const hrTiming = { durationsSec: hr.durationsSec, segmentStarts: hr.segmentStarts };
+    const durationSec = resolveAnalysisDurationSec(
+      power.values.length,
+      power.time,
+      hr.values.length,
+      hr.time,
+      streams as never,
+      undefined,
+      power.fullSessionDurationSec,
+    );
+
+    expect(calculateWorkKj(power.values, power.time, powerTiming)).toBeCloseTo(3.8, 10);
+    expect(calculatePowerZoneDistribution(power.values, 250, power.time, powerTiming)
+      .reduce((seconds, zone) => seconds + zone.seconds, 0)).toBe(19);
+    expect(calculateHrZoneDistribution(hr.values, 190, hr.time, hrTiming)
+      .reduce((seconds, zone) => seconds + zone.seconds, 0)).toBe(19);
+    expect(calculateTRIMP(hr.values, 190, 60, "male", hr.time, hrTiming)).toBeCloseTo(
+      calculateTRIMP(Array(19).fill(150), 190)!,
+      10,
+    );
+    expect(durationSec).toBe(20);
+    expect(calculateKjPerHour(3.8, durationSec)).toBe(684);
+  });
+
+  it("keeps multiple gaps as separate runs and never builds rolling windows across them", () => {
+    const axis = Array.from({ length: 40 }, (_, index) => index);
+    const watts: Array<number | null> = Array(40).fill(200);
+    watts[10] = null;
+    watts[25] = null;
+    const streams = {
+      distance: axis,
+      time: axis,
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: context.activityStartTime,
+        time: axis,
+        watts,
+      },
+    };
+    const projection = buildActivityAnalysisProjection(streams as never, {
+      ...context,
+      legacyDurationSec: 40,
+      explicitDurationSec: 40,
+    })!;
+    const power = selectWholeSessionSensorSeries(projection.power, undefined, axis, undefined, 40);
+    const timing = { durationsSec: power.durationsSec, segmentStarts: power.segmentStarts };
+
+    expect(power.values).toHaveLength(38);
+    expect(power.segmentStarts?.filter(Boolean)).toHaveLength(3);
+    expect(calculateNP(power.values, power.time, timing)).toBeNull();
+    expect(calculatePowerCurve(power.values, power.time, timing)
+      .map(({ durationSeconds }) => durationSeconds)).not.toContain(30);
+  });
+
+  it("keeps an exact 100% channel as one fully measured run", () => {
+    const streams = explicitStreams({ watts: Array(20).fill(200) });
+    const power = buildActivityAnalysisProjection(streams as never, context)!.power!;
+
+    expect(power).toMatchObject({
+      complete: true,
+      durationsSec: Array(20).fill(1),
+      segmentStarts: [true, ...Array(19).fill(false)],
+      fullSessionDurationSec: 20,
+    });
+  });
 });

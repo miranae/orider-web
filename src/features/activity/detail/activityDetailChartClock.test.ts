@@ -86,8 +86,34 @@ describe("activity detail chart clocks", () => {
     };
 
     const chart = buildSampledData(streams as never, context).map(({ heartRate, power }) => [heartRate, power]);
-    expect(chart.slice(0, 6)).toEqual([[140, 200], [140, 200], [0, 0], [0, 0], [160, 300], [160, 300]]);
-    expect(chart.at(-1)).toEqual([0, 0]);
+    expect(chart.slice(0, 6)).toEqual([[140, 200], [140, 200], [null, null], [null, null], [160, 300], [160, 300]]);
+    expect(chart.at(-1)).toEqual([null, null]);
+  });
+
+  it("retains a missing explicit slot when chart downsampling would otherwise skip it", () => {
+    const axis = Array.from({ length: 600 }, (_, index) => index);
+    const watts: Array<number | null> = Array(600).fill(200);
+    watts[101] = null;
+    const sampled = buildSampledData({
+      distance: axis,
+      time: axis,
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: axis,
+        watts,
+      },
+    } as never, {
+      legacyDurationSec: 600,
+      explicitDurationSec: 600,
+      activityStartTime: 1_700_000_000_000,
+    });
+
+    expect(sampled.find(({ distance }) => distance === 101)?.power).toBeNull();
+    expect(sampled.find(({ distance }) => distance === 100)?.power).toBe(200);
+    expect(sampled.find(({ distance }) => distance === 102)?.power).toBe(200);
   });
 
   it("fails explicit chart alignment closed when a relative route has no absolute origin", () => {

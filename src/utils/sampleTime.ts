@@ -4,6 +4,13 @@ const DEFAULT_DT_SEC = 1;
 export const MAX_INFERRED_SENSOR_RATE_HZ = 4;
 const MIN_INFERRED_SENSOR_COVERAGE = 0.95;
 
+export interface SampleTiming {
+  /** Explicit duration owned by each retained sample. */
+  durationsSec?: readonly number[];
+  /** True at the first retained sample after a missing interval. */
+  segmentStarts?: readonly boolean[];
+}
+
 /**
  * Builds an interval-start clock only when a trusted duration makes the implied
  * dense sensor rate plausible. The final sample owns the final interval, so the
@@ -39,8 +46,17 @@ function normalizedTimes(length: number, time: StreamTimeArray): number[] | null
   return out;
 }
 
-export function sampleDurationsSec(length: number, time: StreamTimeArray): number[] {
+export function sampleDurationsSec(
+  length: number,
+  time: StreamTimeArray,
+  timing?: SampleTiming,
+): number[] {
   if (length <= 0) return [];
+  if (timing?.durationsSec?.length === length) {
+    return timing.durationsSec.map((duration) => (
+      Number.isFinite(duration) && duration > 0 ? duration : 0
+    ));
+  }
   const times = normalizedTimes(length, time);
   if (!times || times.length < 2) return Array(length).fill(DEFAULT_DT_SEC);
 
@@ -55,8 +71,8 @@ export function sampleDurationsSec(length: number, time: StreamTimeArray): numbe
   return [...deltas, median];
 }
 
-export function totalDurationSec(length: number, time: StreamTimeArray): number {
-  return sampleDurationsSec(length, time).reduce((sum, dt) => sum + dt, 0);
+export function totalDurationSec(length: number, time: StreamTimeArray, timing?: SampleTiming): number {
+  return sampleDurationsSec(length, time, timing).reduce((sum, dt) => sum + dt, 0);
 }
 
 export function weightedMean(values: number[], durations: number[]): number | null {
@@ -73,7 +89,12 @@ export function weightedMean(values: number[], durations: number[]): number | nu
   return total > 0 ? weightedSum / total : null;
 }
 
-export function maxWeightedAverage(values: number[], durations: number[], windowSec: number): number | null {
+export function maxWeightedAverage(
+  values: number[],
+  durations: number[],
+  windowSec: number,
+  segmentStarts?: readonly boolean[],
+): number | null {
   const n = Math.min(values.length, durations.length);
   if (n === 0 || windowSec <= 0) return null;
 
@@ -83,6 +104,11 @@ export function maxWeightedAverage(values: number[], durations: number[], window
   let total = 0;
 
   for (let end = 0; end < n; end++) {
+    if (end > 0 && segmentStarts?.[end]) {
+      start = end;
+      weightedSum = 0;
+      total = 0;
+    }
     const v = values[end]!;
     const dt = durations[end]!;
     if (!Number.isFinite(v) || !Number.isFinite(dt) || dt <= 0) return null;
@@ -104,12 +130,19 @@ export function maxWeightedAverage(values: number[], durations: number[], window
   return best;
 }
 
-export function weightedAverageFrom(values: number[], durations: number[], start: number, windowSec: number): number | null {
+export function weightedAverageFrom(
+  values: number[],
+  durations: number[],
+  start: number,
+  windowSec: number,
+  segmentStarts?: readonly boolean[],
+): number | null {
   if (windowSec <= 0) return null;
   let weightedSum = 0;
   let total = 0;
   const n = Math.min(values.length, durations.length);
   for (let i = start; i < n && total < windowSec; i++) {
+    if (i > start && segmentStarts?.[i]) break;
     const v = values[i]!;
     const dt = durations[i]!;
     if (!Number.isFinite(v) || !Number.isFinite(dt) || dt <= 0) return null;

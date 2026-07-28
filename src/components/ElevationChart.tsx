@@ -175,7 +175,7 @@ const segmentHighlightPlugin: Plugin<"line"> = {
 
 export interface OverlayDataset {
   label: string;
-  data: number[];
+  data: Array<number | null>;
   color: string;
   yAxisID: string;
   unit?: string;
@@ -387,16 +387,14 @@ export default function ElevationChart({
       },
       ...(overlays ?? []).map((o) => ({
         label: o.label,
-        data: o.data
-          .map((v, i) => ({ x: distancesKm[i], y: v }))
-          .filter((point): point is { x: number; y: number } =>
-            Number.isFinite(point.x) && Number.isFinite(point.y)),
+        data: o.data.map((v, i) => ({ x: distancesKm[i], y: v })),
         borderColor: o.color,
         backgroundColor: "transparent",
         borderWidth: 1.5,
         pointRadius: 0,
         tension: 0.3,
         fill: false,
+        spanGaps: false,
         yAxisID: o.yAxisID,
       })),
     ],

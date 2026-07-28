@@ -23,7 +23,7 @@ import {
   wPrimeBalanceSeries,
 } from "../utils/advancedMetrics";
 import { calculateRunSplits, calculateOverallGap } from "../utils/runMetrics";
-import { inferUniformSampleTimeAxis, sampleDurationsSec, totalDurationSec } from "../utils/sampleTime";
+import { inferUniformSampleTimeAxis, sampleDurationsSec, totalDurationSec, type SampleTiming } from "../utils/sampleTime";
 import { makeRelSecAt } from "../utils/streamTime";
 import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics";
 import { useAuth } from "../contexts/AuthContext";
@@ -195,6 +195,11 @@ export function selectWholeSessionSensorSeries(
     time: normalizeSensorTimeAxis(sensorSeries.values.length, sensorSeries.time)?.time,
     source: "explicit",
     timeOriginEpochMs: sensorSeries.timeOriginEpochMs,
+    durationsSec: sensorSeries.durationsSec,
+    segmentStarts: sensorSeries.segmentStarts,
+    fullSessionDurationSec: sensorSeries.wholeSessionCoverageAccepted === true
+      ? sensorSeries.fullSessionDurationSec ?? fallbackExpectedDurationSec
+      : undefined,
   };
 }
 
@@ -238,6 +243,9 @@ export interface WholeSessionSensorSeries {
   time: number[] | undefined;
   source: "explicit" | "legacy";
   timeOriginEpochMs?: number;
+  durationsSec?: number[];
+  segmentStarts?: boolean[];
+  fullSessionDurationSec?: number;
 }
 
 interface SensorCandidateFlags {
@@ -330,9 +338,16 @@ export function resolveAnalysisDurationSec(
   heartRateTime: number[] | undefined,
   streams: ActivityStreams,
   summary?: ActivitySummary,
+  trustedFullSessionDurationSec?: number,
 ): number {
   const normalizedPowerTime = normalizeSensorTimeAxis(powerLength, powerTime)?.time;
-  if (normalizedPowerTime) return totalDurationSec(powerLength, normalizedPowerTime);
+  const powerDuration = normalizedPowerTime ? totalDurationSec(powerLength, normalizedPowerTime) : 0;
+  if (typeof trustedFullSessionDurationSec === "number"
+    && Number.isFinite(trustedFullSessionDurationSec)
+    && trustedFullSessionDurationSec > 0) {
+    return Math.max(powerDuration, trustedFullSessionDurationSec);
+  }
+  if (normalizedPowerTime) return powerDuration;
   const sensorDuration = totalDurationSec(heartRateLength, heartRateTime);
   const routeTime = streams.time;
   const relSecAt = makeRelSecAt(routeTime);
@@ -435,8 +450,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     legacyDurationSec,
   ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc, legacyDurationSec]);
   const watts = useMemo(
-    () => plausibleWatts(selectedPowerSeries.values, ftp) ?? [],
-    [selectedPowerSeries.values, ftp],
+    () => plausibleWatts(selectedPowerSeries.values, ftp, selectedPowerSeries.segmentStarts) ?? [],
+    [selectedPowerSeries.values, selectedPowerSeries.segmentStarts, ftp],
   );
   const selectedHeartRateSeries = useMemo(() => selectWholeSessionSensorSeries(
     sensorHeartRate,
@@ -457,33 +472,48 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const hasHr = hr.length > 0;
   const powerTime = selectedPowerSeries.time;
   const heartRateTime = selectedHeartRateSeries.time;
+  const powerTiming = useMemo<SampleTiming>(() => ({
+    durationsSec: selectedPowerSeries.durationsSec,
+    segmentStarts: selectedPowerSeries.segmentStarts,
+  }), [selectedPowerSeries.durationsSec, selectedPowerSeries.segmentStarts]);
+  const heartRateTiming = useMemo<SampleTiming>(() => ({
+    durationsSec: selectedHeartRateSeries.durationsSec,
+    segmentStarts: selectedHeartRateSeries.segmentStarts,
+  }), [selectedHeartRateSeries.durationsSec, selectedHeartRateSeries.segmentStarts]);
 
   // 파워 메트릭
   const hasPowerTime = powerTime != null;
   const hasHeartRateTime = heartRateTime != null;
-  const np = useMemo(() => hasPower && hasPowerTime ? calculateNP(watts, powerTime) : null, [watts, powerTime, hasPower, hasPowerTime]);
-  const ifactor = useMemo(() => hasPower && hasPowerTime ? calculateIF(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
-  const tss = useMemo(() => hasPower && hasPowerTime ? calculateTSS(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
-  const vi = useMemo(() => hasPower && hasPowerTime ? calculateVI(watts, powerTime) : null, [watts, powerTime, hasPower, hasPowerTime]);
+  const np = useMemo(() => hasPower && hasPowerTime ? calculateNP(watts, powerTime, powerTiming) : null, [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
+  const ifactor = useMemo(() => hasPower && hasPowerTime ? calculateIF(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
+  const tss = useMemo(() => hasPower && hasPowerTime ? calculateTSS(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
+  const vi = useMemo(() => hasPower && hasPowerTime ? calculateVI(watts, powerTime, powerTiming) : null, [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
   const powerStats = useMemo(() => {
     const base = avgMax(watts, { ignoreZero: false });
     // 최대 파워는 3초 평활값으로 — 파워미터 단발 스파이크 제거
     if (watts.length >= 3) {
-      let sum = watts[0]! + watts[1]! + watts[2]!;
-      let smoothMax = sum / 3;
-      for (let i = 3; i < watts.length; i++) {
-        sum += watts[i]! - watts[i - 3]!;
-        const a = sum / 3;
-        if (a > smoothMax) smoothMax = a;
+      let smoothMax: number | null = null;
+      for (let i = 2; i < watts.length; i++) {
+        if (powerTiming.segmentStarts?.[i] || powerTiming.segmentStarts?.[i - 1]) continue;
+        const a = (watts[i - 2]! + watts[i - 1]! + watts[i]!) / 3;
+        if (smoothMax == null || a > smoothMax) smoothMax = a;
       }
-      return { ...base, max: smoothMax };
+      return { ...base, max: smoothMax ?? base.max };
     }
     return base;
-  }, [watts]);
-  const workKj = useMemo(() => hasPower && hasPowerTime ? calculateWorkKj(watts, powerTime) : null, [watts, powerTime, hasPower, hasPowerTime]);
+  }, [watts, powerTiming.segmentStarts]);
+  const workKj = useMemo(() => hasPower && hasPowerTime ? calculateWorkKj(watts, powerTime, powerTiming) : null, [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
   const durationSec = useMemo(
-    () => resolveAnalysisDurationSec(watts.length, powerTime, hr.length, heartRateTime, streams, summary),
-    [powerTime, watts.length, heartRateTime, hr.length, streams, summary],
+    () => resolveAnalysisDurationSec(
+      watts.length,
+      powerTime,
+      hr.length,
+      heartRateTime,
+      streams,
+      summary,
+      selectedPowerSeries.fullSessionDurationSec ?? selectedHeartRateSeries.fullSessionDurationSec,
+    ),
+    [powerTime, watts.length, heartRateTime, hr.length, streams, summary, selectedPowerSeries.fullSessionDurationSec, selectedHeartRateSeries.fullSessionDurationSec],
   );
   const kjPerHr = useMemo(() => calculateKjPerHour(workKj, durationSec), [workKj, durationSec]);
 
@@ -494,9 +524,9 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     [hr, hasHr, hasHeartRateTime],
   );
   const sensorsShareAxis = wholeSessionSeriesShareAxis(selectedPowerSeries, selectedHeartRateSeries);
-  const ef = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateEF(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
-  const decoupling = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateDecoupling(watts, hr) : null, [watts, hr, hasPower, hasHr, sensorsShareAxis]);
-  const trimp = useMemo(() => hasHr && hasHeartRateTime ? calculateTRIMP(hr, maxHr, restHr, "male", heartRateTime) : null, [hr, maxHr, restHr, heartRateTime, hasHr, hasHeartRateTime]);
+  const ef = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateEF(watts, hr, powerTiming) : null, [watts, hr, powerTiming, hasPower, hasHr, sensorsShareAxis]);
+  const decoupling = useMemo(() => hasPower && hasHr && sensorsShareAxis ? calculateDecoupling(watts, hr, powerTiming) : null, [watts, hr, powerTiming, hasPower, hasHr, sensorsShareAxis]);
+  const trimp = useMemo(() => hasHr && hasHeartRateTime ? calculateTRIMP(hr, maxHr, restHr, "male", heartRateTime, heartRateTiming) : null, [hr, maxHr, restHr, heartRateTime, heartRateTiming, hasHr, hasHeartRateTime]);
   // 회복시간 추정 — 세션 부하(TSS 우선, 없으면 TRIMP)를 만성 체력(CTL)에 상대화.
   // #463: owner 면 정본 CTL 주입(비개인화 DEFAULT_CTL=35 제거), 아니면 기본값 폴백.
   const recovery = useMemo(() => {
@@ -523,21 +553,21 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const elevGain = useMemo(() => calculateElevationGain(streams.altitude), [streams.altitude]);
 
   // 존 분포 + 임계 영역
-  const hrZones = useMemo(() => hasHr && hasHeartRateTime ? calculateHrZoneDistribution(hr, derivedHrZones, heartRateTime) : null, [hr, derivedHrZones, heartRateTime, hasHr, hasHeartRateTime]);
-  const powerZones = useMemo(() => hasPower && hasPowerTime ? calculatePowerZoneDistribution(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
+  const hrZones = useMemo(() => hasHr && hasHeartRateTime ? calculateHrZoneDistribution(hr, derivedHrZones, heartRateTime, heartRateTiming) : null, [hr, derivedHrZones, heartRateTime, heartRateTiming, hasHr, hasHeartRateTime]);
+  const powerZones = useMemo(() => hasPower && hasPowerTime ? calculatePowerZoneDistribution(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
   // Seiler 3존 (자전거 + 파워 있을 때만)
-  const seilerZones = useMemo(() => (hasPower && hasPowerTime && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime, sport]);
+  const seilerZones = useMemo(() => (hasPower && hasPowerTime && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime, sport]);
   const polarization = useMemo(() => seilerZones ? polarizationIndex(seilerZones) : null, [seilerZones]);
-  const criticalBands = useMemo(() => hasPower && hasPowerTime ? calculateCriticalBands(watts, ftp, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
-  const powerCurve = useMemo(() => hasPower && hasPowerTime ? calculatePowerCurve(watts, powerTime) : [], [watts, powerTime, hasPower, hasPowerTime]);
-  const xPower = useMemo(() => hasPower && hasPowerTime ? calculateXPower(watts, powerTime) : null, [watts, powerTime, hasPower, hasPowerTime]);
-  const matches = useMemo(() => hasPower && hasPowerTime ? analyzeMatches(watts, ftp, 30, powerTime) : null, [watts, ftp, powerTime, hasPower, hasPowerTime]);
+  const criticalBands = useMemo(() => hasPower && hasPowerTime ? calculateCriticalBands(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
+  const powerCurve = useMemo(() => hasPower && hasPowerTime ? calculatePowerCurve(watts, powerTime, powerTiming) : [], [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
+  const xPower = useMemo(() => hasPower && hasPowerTime ? calculateXPower(watts, powerTime, powerTiming) : null, [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
+  const matches = useMemo(() => hasPower && hasPowerTime ? analyzeMatches(watts, ftp, 30, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
   // 가상파워는 CP/W' fit 스킵(서버 activity-metrics 와 동일 게이트, #532) — 추정파워로 임계파워 산정 금지.
   const cp = useMemo(() => (hasPower && !isVirtualPower) ? estimateCriticalPower(powerCurve) : null, [powerCurve, hasPower, isVirtualPower]);
   // #458 W'bal 잔량 궤적 (Skiba 2015, 클라 계산). streams.time 기반 dt 보정.
   const wbal = useMemo(
-    () => (hasPower && cp ? wPrimeBalanceSeries(watts, cp.cp, cp.wPrime, sampleDurationsSec(watts.length, powerTime)) : null),
-    [watts, powerTime, cp, hasPower],
+    () => (hasPower && cp ? wPrimeBalanceSeries(watts, cp.cp, cp.wPrime, sampleDurationsSec(watts.length, powerTime, powerTiming)) : null),
+    [watts, powerTime, powerTiming, cp, hasPower],
   );
 
   // 클라임 자동 탐지 (수영 제외)

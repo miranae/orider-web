@@ -1150,7 +1150,7 @@ export default function ActivityPage() {
                   {availableOverlays.flatMap((cfg) => {
                     if (!activeOverlays.has(cfg.key)) return [];
                     const val = cfg.getValue(hoverPoint);
-                    if (val <= 0) return [];
+                    if (val == null || val <= 0) return [];
                     return [
                       <span key={`${cfg.key}-sep`} style={{ color: 'var(--line)' }}>|</span>,
                       <span key={cfg.key} style={{ color: cfg.dotColor }}>

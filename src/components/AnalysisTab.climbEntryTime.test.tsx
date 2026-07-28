@@ -3,6 +3,7 @@ import type { ActivitySummary } from "@shared/types";
 import AnalysisTab from "./AnalysisTab";
 import { formatClimbEntryTime } from "../utils/climbMetrics";
 import { buildActivityAnalysisProjection } from "../features/activity/detail/activityDetailDerived";
+import { calculateTRIMP } from "../utils/advancedMetrics";
 
 vi.mock("../contexts/AuthContext", () => ({
   useAuth: () => ({ user: null, profile: { ftp: 250, weightKg: 70 } }),
@@ -148,8 +149,16 @@ describe("AnalysisTab climb entry time", () => {
     expect(screen.queryByText("+50.0%")).not.toBeInTheDocument();
   });
 
-  it("renders metrics from an explicit channel accepted at 95% measured coverage", () => {
+  it.each([
+    ["start", 0],
+    ["middle", 10],
+    ["end", 19],
+  ])("renders invariant metrics from a 95%% explicit channel with a %s gap", (_case, gapIndex) => {
     const time = Array.from({ length: 20 }, (_, index) => index);
+    const watts: Array<number | null> = Array(20).fill(200);
+    const heartrate: Array<number | null> = Array(20).fill(150);
+    watts[gapIndex] = null;
+    heartrate[gapIndex] = null;
     const context = {
       legacyDurationSec: 20,
       explicitDurationSec: 20,
@@ -159,13 +168,15 @@ describe("AnalysisTab climb entry time", () => {
       userId: "rider",
       time,
       watts: Array(20).fill(500),
+      heartrate: Array(20).fill(180),
       sensorStreamsV1: {
         version: 1,
         timeUnit: "relative_seconds",
         resolutionSeconds: 1,
         timeOriginEpochMs: context.activityStartTime,
         time,
-        watts: [200, null, ...Array(18).fill(200)],
+        watts,
+        heartrate,
       },
     }, context)!;
 
@@ -173,6 +184,7 @@ describe("AnalysisTab climb entry time", () => {
       startTime={context.activityStartTime}
       streams={projection.streams}
       sensorPower={projection.power}
+      sensorHeartRate={projection.heartRate}
       sensorSelectionContext={context}
       summary={{ elapsedTimeMillis: 20_000, ridingTimeMillis: 20_000 } as ActivitySummary}
       sport="ride"
@@ -181,5 +193,11 @@ describe("AnalysisTab climb entry time", () => {
     const averagePowerCard = screen.getByText("평균 파워").closest("div")?.parentElement;
     expect(averagePowerCard).toHaveTextContent("평균 파워200W");
     expect(averagePowerCard).not.toHaveTextContent("500W");
+    expect(screen.getByText("일량").closest("div")?.parentElement).toHaveTextContent("일량4kJ");
+    expect(screen.getByText("kJ/시간").closest("div")?.parentElement).toHaveTextContent("kJ/시간684kJ/h");
+    expect(screen.getByText("TRIMP").closest("div")?.parentElement).toHaveTextContent(
+      `TRIMP${Math.round(calculateTRIMP(Array(19).fill(150), 190)!)}`,
+    );
+    expect(screen.getByText("시간").closest("div")?.parentElement).toHaveTextContent("시간0:00:20");
   });
 });

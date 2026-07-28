@@ -935,7 +935,7 @@ describe("activityDetailDerived", () => {
       streams: { watts: undefined, watts_calc: undefined },
       power: undefined,
     });
-    expect(sampled.every((point) => point.power === 0)).toBe(true);
+    expect(sampled.every((point) => point.power === null)).toBe(true);
   });
 
   it.each([
@@ -972,7 +972,7 @@ describe("activityDetailDerived", () => {
       maxHeartRate: null,
     });
     expect(projection).toMatchObject({ streams: { heartrate: undefined }, heartRate: undefined });
-    expect(sampled.every((point) => point.heartRate === 0)).toBe(true);
+    expect(sampled.every((point) => point.heartRate === null)).toBe(true);
   });
 
   it.each([
@@ -1153,7 +1153,7 @@ describe("activityDetailDerived", () => {
       streams: { watts: undefined, watts_calc: undefined },
       power: undefined,
     });
-    expect(buildSampledData(streams as never).every((point) => point.power === 0)).toBe(true);
+    expect(buildSampledData(streams as never).every((point) => point.power === null)).toBe(true);
   });
 
   it("rejects a sparse V1 power channel as malformed", () => {
@@ -1570,10 +1570,10 @@ describe("activityDetailDerived", () => {
 
     expect(deriveStreamSensorSummary(streams as never)?.heartRateSource).toBe("sensorStreamsV1");
     expect(projection?.streams.heartrate).toBeUndefined();
-    expect(projection?.heartRate).toEqual({
+    expect(projection?.heartRate).toMatchObject({
       values: Array(19).fill(140), time: Array.from({ length: 19 }, (_, index) => index + 1), complete: false, wholeSessionCoverageAccepted: true, timeOriginEpochMs: 1_700_000_000_000,
     });
-    expect(projection?.power).toEqual({
+    expect(projection?.power).toMatchObject({
       values: Array(19).fill(200), time: Array.from({ length: 19 }, (_, index) => index), complete: false, wholeSessionCoverageAccepted: true, timeOriginEpochMs: 1_700_000_000_000,
     });
   });
