@@ -54,7 +54,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 printf '%s\n' "$prompt" >"$MOCK_PROMPT_FILE"
-printf 'mock Codex comment\nMERGE_VERDICT: %s\n' "${MOCK_VERDICT:-PASS}" >"$out"
+case "${MOCK_RESPONSE_MODE:-verdict}" in
+  verdict) printf 'mock Codex comment\nMERGE_VERDICT: %s\n' "${MOCK_VERDICT:-PASS}" >"$out" ;;
+  crlf) printf 'mock Codex comment\r\nMERGE_VERDICT: PASS\r\n' >"$out" ;;
+  postscript) printf 'mock Codex comment\nMERGE_VERDICT: PASS\ntrailing postscript\n' >"$out" ;;
+  embedded) printf 'summary contains MERGE_VERDICT: PASS\n' >"$out" ;;
+  quoted) printf '"MERGE_VERDICT: PASS"\n' >"$out" ;;
+  case_mismatch) printf 'MERGE_VERDICT: pass\n' >"$out" ;;
+  *) exit 65 ;;
+esac
 echo "mock Codex execution log" >&2
 exit "${MOCK_EXIT:-0}"
 MOCK
@@ -89,6 +97,9 @@ full_output="$(MOCK_CHANGED=src/example.ts MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$full_output"
 grep -qx 'model_reasoning_effort="medium"' "$MOCK_ARGS_FILE"
 
+crlf_output="$(MOCK_RESPONSE_MODE=crlf run_gate)"
+grep -q "리뷰 PASS" <<<"$crlf_output"
+
 set +e
 failure_output="$(MOCK_EXIT=42 run_gate)"
 failure_rc=$?
@@ -111,5 +122,14 @@ missing_rc=$?
 set -e
 [[ "$missing_rc" -ne 0 ]]
 grep -q "MERGE_VERDICT.*누락" <<<"$missing_output"
+
+for invalid_mode in postscript embedded quoted case_mismatch; do
+  set +e
+  invalid_output="$(MOCK_RESPONSE_MODE="$invalid_mode" run_gate)"
+  invalid_rc=$?
+  set -e
+  [[ "$invalid_rc" -ne 0 ]]
+  grep -q "MERGE_VERDICT.*누락" <<<"$invalid_output"
+done
 
 echo "merge-pr Codex review tests passed"

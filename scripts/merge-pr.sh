@@ -318,12 +318,12 @@ if [[ "$REVIEW_STARTED" == 1 ]]; then
     echo "  실행 로그: $REVIEW_LOG"
     die "Codex 코드 리뷰 실행 실패 또는 시간 초과 (exit=$review_rc, timeout=${CODEX_REVIEW_TIMEOUT_SEC:-900}s)"
   fi
-  verdict="$(grep -oE 'MERGE_VERDICT:[[:space:]]*(BLOCK|PASS)' "$REVIEW_OUT" | tail -1 || true)"
-  if [[ "$verdict" == *BLOCK ]]; then
+  verdict="$(awk 'NF { line=$0 } END { sub(/\r$/, "", line); print line }' "$REVIEW_OUT")"
+  if [[ "$verdict" == "MERGE_VERDICT: BLOCK" ]]; then
     sed 's/^/  │ /' "$REVIEW_OUT"
     echo "  리뷰 로그: $REVIEW_OUT"
     die "코드 리뷰 BLOCK — 머지 중단"
-  elif [[ "$verdict" == *PASS ]]; then
+  elif [[ "$verdict" == "MERGE_VERDICT: PASS" ]]; then
     grep -vE '^[[:space:]]*MERGE_VERDICT:' "$REVIEW_OUT" | tail -60 | sed 's/^/  │ /' || true
     printf '  \033[1;32m리뷰 PASS\033[0m\n'
     rm -f "$REVIEW_OUT" "$REVIEW_LOG"
