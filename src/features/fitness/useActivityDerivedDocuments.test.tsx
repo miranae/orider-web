@@ -3,10 +3,14 @@ import { getDoc, onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import { mockDocData, setDocData } from "../../__tests__/mocks/firebase";
+import * as errorLogger from "../../services/errorLogger";
 import {
+  DERIVED_DOCUMENT_CREATION_RETRY_MS,
   DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND,
   useActivityDerivedDocuments,
 } from "./useActivityDerivedDocuments";
+
+const defaultOnSnapshotImplementation = vi.mocked(onSnapshot).getMockImplementation();
 
 function activity(id: string, userId: string, averagePower: number | null = 180): Activity {
   return {
@@ -35,6 +39,9 @@ describe("useActivityDerivedDocuments", () => {
       } as Awaited<ReturnType<typeof getDoc>>;
     });
     vi.mocked(getDoc).mockClear();
+    if (defaultOnSnapshotImplementation) {
+      vi.mocked(onSnapshot).mockImplementation(defaultOnSnapshotImplementation);
+    }
     vi.mocked(onSnapshot).mockClear();
   });
 
@@ -132,5 +139,100 @@ describe("useActivityDerivedDocuments", () => {
     ));
     expect(derivedWatchPaths()).not.toContain("activity_metrics/ride-0");
     expect(derivedWatchPaths()).toContain(`activity_metrics/ride-${activities.length - 1}`);
+  });
+
+  it("contains malformed stream JSON, logs it, and releases the listener", async () => {
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    const current = activity("malformed", "user-a");
+    const hook = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
+    await waitFor(() => expect(vi.mocked(onSnapshot).mock.calls.some(
+      ([reference]) => (reference as { path?: string }).path === "activity_streams/malformed",
+    )).toBe(true));
+
+    act(() => setDocData("activity_streams/malformed", { json: "{broken" }));
+
+    await waitFor(() => expect(logSpy).toHaveBeenCalledWith(
+      "useActivityDerivedDocuments.creationWatch.parse",
+      expect.any(SyntaxError),
+      { kind: "stream", activityId: "malformed" },
+    ));
+    expect(hook.result.current.streamsMap.has("malformed")).toBe(false);
+
+    act(() => setDocData("activity_streams/malformed", { watts: [210] }));
+    expect(hook.result.current.streamsMap.has("malformed")).toBe(false);
+    logSpy.mockRestore();
+  });
+
+  it("logs listener errors and performs only one bounded backoff retry", async () => {
+    vi.useFakeTimers();
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    vi.mocked(onSnapshot).mockImplementation(((
+      _reference: unknown,
+      _next: unknown,
+      error: ((value: unknown) => void) | undefined,
+    ) => {
+      error?.(new Error("listener unavailable"));
+      return vi.fn();
+    }) as typeof onSnapshot);
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("retry", "user-a", null)],
+    ));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(vi.mocked(onSnapshot)).toHaveBeenCalledTimes(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(vi.mocked(onSnapshot)).toHaveBeenCalledTimes(2);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS * 2));
+    expect(vi.mocked(onSnapshot)).toHaveBeenCalledTimes(2);
+    expect(logSpy).toHaveBeenCalledWith(
+      "useActivityDerivedDocuments.creationWatch.error",
+      expect.any(Error),
+      expect.objectContaining({ kind: "metrics", activityId: "retry" }),
+    );
+
+    hook.unmount();
+    logSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("awaits each batch so stream and metrics concurrency stay at 10 and 20", async () => {
+    const active = { stream: 0, metrics: 0 };
+    const maximum = { stream: 0, metrics: 0 };
+    const pending: Array<() => void> = [];
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      const kind = path.startsWith("activity_streams/") ? "stream" : "metrics";
+      active[kind] += 1;
+      maximum[kind] = Math.max(maximum[kind], active[kind]);
+      return new Promise((resolve) => {
+        pending.push(() => {
+          active[kind] -= 1;
+          const data = kind === "stream" ? { watts: [200] } : { tss: 40 };
+          resolve({ exists: () => true, data: () => data, ref: reference });
+        });
+      }) as ReturnType<typeof getDoc>;
+    });
+    const activities = Array.from({ length: 25 }, (_, index) => (
+      { ...activity(`concurrency-${index}`, "user-a"), startTime: index }
+    ));
+    renderHook(() => useActivityDerivedDocuments("user-a", activities));
+
+    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(30));
+    expect(active).toEqual({ stream: 10, metrics: 20 });
+    expect(maximum).toEqual({ stream: 10, metrics: 20 });
+
+    await act(async () => pending.splice(0).forEach((resolve) => resolve()));
+    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(45));
+    expect(maximum).toEqual({ stream: 10, metrics: 20 });
+
+    await act(async () => pending.splice(0).forEach((resolve) => resolve()));
+    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(50));
+    await act(async () => pending.splice(0).forEach((resolve) => resolve()));
+    expect(maximum).toEqual({ stream: 10, metrics: 20 });
   });
 });

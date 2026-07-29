@@ -3,6 +3,7 @@ import { doc, getDoc, onSnapshot, type DocumentReference } from "firebase/firest
 import type { Activity, ActivityStreams } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 import {
   activityDerivedDocumentRevision,
   invalidateDerivedDocumentReadAttempt,
@@ -15,6 +16,8 @@ import {
 // lifecycle 변경이 있을 때 다시 확인해 장기 listener/read 비용을 만들지 않는다.
 export const DERIVED_DOCUMENT_CREATION_WATCH_MS = 60_000;
 export const DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND = 24;
+export const DERIVED_DOCUMENT_CREATION_RETRY_MS = 5_000;
+export const DERIVED_DOCUMENT_CREATION_MAX_RETRIES = 1;
 
 type DerivedState = {
   ownerUid: string | null;
@@ -122,11 +125,14 @@ export function useActivityDerivedDocuments(
     });
     if (normalizedUid == null || scopedActivities.length === 0) return;
 
-    const isCurrent = (activity: Activity, attempts: DerivedDocumentReadAttempts, revision: string) => (
+    const isGenerationCurrent = (activity: Activity) => (
       resources.active &&
       currentUidRef.current === normalizedUid &&
       generationRef.current === generation &&
-      resources.activeIds.has(activity.id) &&
+      resources.activeIds.has(activity.id)
+    );
+    const isCurrent = (activity: Activity, attempts: DerivedDocumentReadAttempts, revision: string) => (
+      isGenerationCurrent(activity) &&
       attempts.get(activity.id) === revision
     );
 
@@ -137,6 +143,8 @@ export function useActivityDerivedDocuments(
       watches: Map<string, () => void>,
       parse: (data: Record<string, unknown>) => T,
       apply: (id: string, value: T) => void,
+      kind: "stream" | "metrics",
+      retryCount = 0,
     ) => {
       const revision = activityDerivedDocumentRevision(activity);
       if (!isCurrent(activity, attempts, revision) || watches.has(activity.id) ||
@@ -147,20 +155,54 @@ export function useActivityDerivedDocuments(
       const timeout = setTimeout(() => stop(), DERIVED_DOCUMENT_CREATION_WATCH_MS);
       const stop = () => {
         clearTimeout(timeout);
-        watches.delete(activity.id);
+        if (watches.get(activity.id) === stop) watches.delete(activity.id);
         if (unsubscribeReady) unsubscribe();
         else stopRequested = true;
+      };
+      const scheduleRetry = () => {
+        let retryTimer: ReturnType<typeof setTimeout> | null = null;
+        const cancelRetry = () => {
+          if (retryTimer != null) clearTimeout(retryTimer);
+          if (watches.get(activity.id) === cancelRetry) watches.delete(activity.id);
+        };
+        retryTimer = setTimeout(() => {
+          cancelRetry();
+          if (!isGenerationCurrent(activity) || attempts.has(activity.id)) return;
+          markDerivedDocumentReadAttempt(attempts, activity);
+          watchCreation(activity, reference, attempts, watches, parse, apply, kind, retryCount + 1);
+        }, DERIVED_DOCUMENT_CREATION_RETRY_MS);
+        watches.set(activity.id, cancelRetry);
       };
       watches.set(activity.id, stop);
       unsubscribe = onSnapshot(reference, (snapshot) => {
         if (!snapshot.exists()) return;
-        if (isCurrent(activity, attempts, revision)) apply(activity.id, parse(snapshot.data()));
-        stop();
-      }, () => {
-        if (isCurrent(activity, attempts, revision)) {
-          invalidateDerivedDocumentReadAttempt(attempts, activity.id);
+        if (!isCurrent(activity, attempts, revision)) {
+          stop();
+          return;
         }
+        try {
+          apply(activity.id, parse(snapshot.data()));
+        } catch (error) {
+          invalidateDerivedDocumentReadAttempt(attempts, activity.id);
+          logClientError("useActivityDerivedDocuments.creationWatch.parse", error, {
+            kind,
+            activityId: activity.id,
+          });
+        } finally {
+          stop();
+        }
+      }, (error) => {
+        const wasCurrent = isCurrent(activity, attempts, revision);
+        const retryAllowed = retryCount < DERIVED_DOCUMENT_CREATION_MAX_RETRIES &&
+          wasCurrent;
+        if (wasCurrent) invalidateDerivedDocumentReadAttempt(attempts, activity.id);
         stop();
+        if (retryAllowed) scheduleRetry();
+        logClientError("useActivityDerivedDocuments.creationWatch.error", error, {
+          kind,
+          activityId: activity.id,
+          retryCount,
+        });
       });
       unsubscribeReady = true;
       if (stopRequested) unsubscribe();
@@ -174,16 +216,17 @@ export function useActivityDerivedDocuments(
       parse: (data: Record<string, unknown>) => T,
       apply: (id: string, value: T) => void,
       watchIfMissing: boolean,
+      kind: "stream" | "metrics",
     ) => {
       const revision = activityDerivedDocumentRevision(activity);
+      if (!isCurrent(activity, attempts, revision)) return;
       watches.get(activity.id)?.();
-      markDerivedDocumentReadAttempt(attempts, activity);
       const reference = doc(firestore, collectionName, activity.id);
       try {
         const snapshot = await getDoc(reference);
         if (!isCurrent(activity, attempts, revision)) return;
         if (snapshot.exists()) apply(activity.id, parse(snapshot.data()));
-        else if (watchIfMissing) watchCreation(activity, reference, attempts, watches, parse, apply);
+        else if (watchIfMissing) watchCreation(activity, reference, attempts, watches, parse, apply, kind);
       } catch {
         if (isCurrent(activity, attempts, revision)) {
           invalidateDerivedDocumentReadAttempt(attempts, activity.id);
@@ -220,20 +263,30 @@ export function useActivityDerivedDocuments(
     );
     const streamWatchableIds = newestIds(streamActivities);
     const metricWatchableIds = newestIds(metricActivities);
-    for (let index = 0; index < streamActivities.length; index += 10) {
-      const batch = streamActivities.slice(index, index + 10);
-      void Promise.all(batch.map((activity) => loadOne(
-        activity, "activity_streams", resources.streamAttempts, resources.streamWatches,
-        parseStreams, applyStream, streamWatchableIds.has(activity.id),
-      )));
-    }
-    for (let index = 0; index < metricActivities.length; index += 20) {
-      const batch = metricActivities.slice(index, index + 20);
-      void Promise.all(batch.map((activity) => loadOne(
-        activity, "activity_metrics", resources.metricAttempts, resources.metricWatches,
-        (data) => data as unknown as ActivityMetrics, applyMetric, metricWatchableIds.has(activity.id),
-      )));
-    }
+    streamActivities.forEach((activity) => markDerivedDocumentReadAttempt(resources.streamAttempts, activity));
+    metricActivities.forEach((activity) => markDerivedDocumentReadAttempt(resources.metricAttempts, activity));
+    const loadStreams = async () => {
+      for (let index = 0; index < streamActivities.length; index += 10) {
+        if (!resources.active || generationRef.current !== generation) return;
+        const batch = streamActivities.slice(index, index + 10);
+        await Promise.all(batch.map((activity) => loadOne(
+          activity, "activity_streams", resources.streamAttempts, resources.streamWatches,
+          parseStreams, applyStream, streamWatchableIds.has(activity.id), "stream",
+        )));
+      }
+    };
+    const loadMetrics = async () => {
+      for (let index = 0; index < metricActivities.length; index += 20) {
+        if (!resources.active || generationRef.current !== generation) return;
+        const batch = metricActivities.slice(index, index + 20);
+        await Promise.all(batch.map((activity) => loadOne(
+          activity, "activity_metrics", resources.metricAttempts, resources.metricWatches,
+          (data) => data as unknown as ActivityMetrics, applyMetric, metricWatchableIds.has(activity.id), "metrics",
+        )));
+      }
+    };
+    void loadStreams();
+    void loadMetrics();
   }, [activities, generation, normalizedUid, resources]);
 
   return state.ownerUid === normalizedUid
