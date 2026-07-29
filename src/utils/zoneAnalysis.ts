@@ -1,4 +1,4 @@
-import { sampleDurationsSec } from "./sampleTime";
+import { sampleDurationsSec, type SampleTiming } from "./sampleTime";
 import type { StreamTimeArray } from "./streamTime";
 import type { DerivedHrZones } from "./hrZones";
 
@@ -31,11 +31,16 @@ const POWER_ZONES = [
   { zone: 7, name: "신경근", nameKey: "fitness:zone.neurological", min: 1.50, max: Infinity, color: "var(--zone-5)" },
 ];
 
-export function calculateHrZoneDistribution(heartrates: number[], maxHrOrZones: number | DerivedHrZones, time?: StreamTimeArray): ZoneDistribution[] {
+export function calculateHrZoneDistribution(
+  heartrates: number[],
+  maxHrOrZones: number | DerivedHrZones,
+  time?: StreamTimeArray,
+  timing?: SampleTiming,
+): ZoneDistribution[] {
   const derived = typeof maxHrOrZones === "number" ? null : maxHrOrZones;
   const maxHr = typeof maxHrOrZones === "number" ? maxHrOrZones : null;
   const counts = new Array(HR_ZONES.length).fill(0);
-  const durations = sampleDurationsSec(heartrates.length, time);
+  const durations = sampleDurationsSec(heartrates.length, time, timing);
   for (let sampleIdx = 0; sampleIdx < heartrates.length; sampleIdx++) {
     const hr = heartrates[sampleIdx]!;
     const dt = durations[sampleIdx] ?? 0;
@@ -65,9 +70,14 @@ export function calculateHrZoneDistribution(heartrates: number[], maxHrOrZones: 
   }));
 }
 
-export function calculatePowerZoneDistribution(watts: number[], ftp: number, time?: StreamTimeArray): ZoneDistribution[] {
+export function calculatePowerZoneDistribution(
+  watts: number[],
+  ftp: number,
+  time?: StreamTimeArray,
+  timing?: SampleTiming,
+): ZoneDistribution[] {
   const counts = new Array(POWER_ZONES.length).fill(0);
-  const durations = sampleDurationsSec(watts.length, time);
+  const durations = sampleDurationsSec(watts.length, time, timing);
   for (let sampleIdx = 0; sampleIdx < watts.length; sampleIdx++) {
     const w = watts[sampleIdx]!;
     const dt = durations[sampleIdx] ?? 0;
@@ -109,9 +119,14 @@ export interface SeilerZoneDistribution {
   color: string;
 }
 
-export function calculateSeilerZones(watts: number[], ftp: number, time?: StreamTimeArray): SeilerZoneDistribution[] {
+export function calculateSeilerZones(
+  watts: number[],
+  ftp: number,
+  time?: StreamTimeArray,
+  timing?: SampleTiming,
+): SeilerZoneDistribution[] {
   const counts: [number, number, number] = [0, 0, 0];
-  const durations = sampleDurationsSec(watts.length, time);
+  const durations = sampleDurationsSec(watts.length, time, timing);
   for (let sampleIdx = 0; sampleIdx < watts.length; sampleIdx++) {
     const w = watts[sampleIdx]!;
     const dt = durations[sampleIdx] ?? 0;

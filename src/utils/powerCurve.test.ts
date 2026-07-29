@@ -39,4 +39,14 @@ describe("calculatePowerCurve", () => {
     const p60 = calculatePowerCurve(watts, time).find((p) => p.durationSeconds === 60)!;
     expect(p60.maxPower).toBe(300);
   });
+
+  it("omits durations that exist only by joining separate measured runs", () => {
+    const watts = Array(40).fill(200);
+    const timing = {
+      durationsSec: Array(40).fill(1),
+      segmentStarts: [true, ...Array(19).fill(false), true, ...Array(19).fill(false)],
+    };
+    expect(calculatePowerCurve(watts, undefined, timing).map(({ durationSeconds }) => durationSeconds))
+      .not.toContain(30);
+  });
 });
