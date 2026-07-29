@@ -1,8 +1,9 @@
 import type { TFunction } from "i18next";
+import { normalizeEpochMilliseconds } from "./timestampUnit";
 
 export function toMillis(ts: unknown): number {
   if (ts == null) return NaN;
-  if (typeof ts === "number") return ts < 1e12 ? ts * 1000 : ts;
+  if (typeof ts === "number") return normalizeEpochMilliseconds(ts) ?? ts * 1000;
   if (typeof ts === "string") return Date.parse(ts);
   if (typeof ts === "object") {
     const value = ts as { toMillis?: () => number; toDate?: () => Date; seconds?: number; nanoseconds?: number };

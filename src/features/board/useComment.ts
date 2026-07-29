@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { firestore } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { track } from "../../services/analytics";
+import { logClientError } from "../../services/errorLogger";
 
 export async function softDeleteBoardComment(postId: string, commentId: string): Promise<void> {
   const { doc, updateDoc } = await import("firebase/firestore");
@@ -40,7 +41,12 @@ export function useCreateComment(postId: string) {
       // commentCount 증가와 글 작성자 알림은 백엔드 onBoardCommentCreate 트리거 소유다.
       const docRef = await addDoc(collection(firestore, `board_posts/${postId}/comments`), commentData);
 
-      track("board_comment_send", { post_id: postId, text_len: commentData.text.length });
+      try {
+        track("board_comment_send", { post_id: postId, text_len: commentData.text.length });
+      } catch (error) {
+        // Analytics is best-effort; record the failure without changing the persisted submission result.
+        logClientError("useCreateComment.analytics", error, { postId });
+      }
 
       return docRef.id;
     } finally {

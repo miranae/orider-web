@@ -1,3 +1,5 @@
+import { detectTimestampUnit } from "./timestampUnit";
+
 /**
  * streams.time 단위 정규화 헬퍼 — 내보내기(TCX/GPX/FIT/CSV) 공용.
  *
@@ -16,8 +18,9 @@ export type StreamTimeArray = ReadonlyArray<number | null | undefined> | undefin
 /** time 배열 → `(i) => 시작 기준 상대 초 | null` 접근자. */
 export function makeRelSecAt(time: StreamTimeArray): (i: number) => number | null {
   const first = time?.find((v) => v != null) ?? undefined;
-  const mode: "absMs" | "absSec" | "rel" =
-    first == null ? "rel" : first > 1e12 ? "absMs" : first > 1e9 ? "absSec" : "rel";
+  const unit = first == null ? "relative_sec" : detectTimestampUnit(first);
+  const mode: "absMs" | "absSec" | "rel" = unit === "epoch_ms"
+    ? "absMs" : unit === "epoch_sec" ? "absSec" : "rel";
   const base = first ?? 0;
   return (i: number): number | null => {
     const raw = time?.[i];

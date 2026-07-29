@@ -671,6 +671,16 @@ export interface ActivityStreams {
   watts?: number[];
   watts_calc?: number[];      // 가상 파워 (파워미터 없는 활동)
   cadence?: number[];
+  /** GPS와 독립적으로 기록한 1초 센서 스트림. null은 결측, power 0은 실측 0W다. */
+  sensorStreamsV1?: {
+    version: 1;
+    timeUnit: "relative_seconds";
+    resolutionSeconds: 1;
+    timeOriginEpochMs: number;
+    time: number[];
+    heartrate: Array<number | null>;
+    watts: Array<number | null>;
+  };
   velocity_smooth?: number[];
   time?: number[];
   distance?: number[];

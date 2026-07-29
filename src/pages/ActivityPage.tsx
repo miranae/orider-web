@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -37,7 +37,6 @@ import KudosCommentsCard from "../components/activity/KudosCommentsCard";
 import AiRideAnalysisCard from "../components/activity/AiRideAnalysisCard";
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
 import { useActiveBikeProfile } from "../hooks/useActiveBikeProfile";
-import { calcVirtualPowerStream } from "../utils/virtualPower";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
@@ -46,15 +45,7 @@ import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
-import {
-  buildChartOverlays,
-  buildSampledData,
-  buildSummaryStats,
-  getAvailableOverlays,
-  getChartHighlightRange,
-  getSegmentEfforts,
-  getStreamPhotos,
-} from "../features/activity/detail/activityDetailDerived";
+import { buildChartOverlays, type ActivityPowerOverride } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
@@ -67,7 +58,11 @@ import type { ActivityShareMetric } from "../features/activity/share/activitySha
 import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features/activity/detail/ActivityInsightCards";
 import type { LayoutOutletContext } from "../components/Layout";
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
-
+import { useActivitySensorDetail } from "../features/activity/detail/useActivitySensorDetail";
+import {
+  createActivityPowerOverride,
+  resolveActiveActivityPowerOverride,
+} from "../features/activity/detail/activityPowerOverride";
 
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
@@ -124,24 +119,10 @@ export default function ActivityPage() {
   // 가상 파워 즉석 재계산 미리보기 (Firestore 저장 안 함). 자전거 활동에서만 구독.
   const isRide = activity ? getSportCategory(activity.type) === "ride" : false;
   const { active: activeBike } = useActiveBikeProfile(isRide ? (user?.uid ?? null) : null);
-  const [wattsOverride, setWattsOverride] = useState<number[] | null>(null);
-  const effectiveStreams = useMemo(() => {
-    if (!streams) return streams;
-    if (!wattsOverride) return streams;
-    return { ...streams, watts: wattsOverride };
-  }, [streams, wattsOverride]);
+  const [wattsOverride, setWattsOverride] = useState<ActivityPowerOverride | null>(null);
   function recalcPreview() {
-    if (!activeBike || !streams) return;
-    if (!streams.time || !streams.velocity_smooth) return;
-    const w = calcVirtualPowerStream(
-      {
-        time: streams.time,
-        velocity_smooth: streams.velocity_smooth,
-        altitude: streams.altitude ?? new Array(streams.time.length).fill(0),
-      },
-      activeBike.virtualPower,
-    );
-    setWattsOverride(w);
+    if (!activityId || !activeBike || !streams) return;
+    setWattsOverride(createActivityPowerOverride(activityId, streams, activeBike.virtualPower));
   }
   // Inline description editing
   const [editingDescription, setEditingDescription] = useState(false);
@@ -511,28 +492,43 @@ export default function ActivityPage() {
     });
   }, []);
 
-  const sampledData = useMemo(() => buildSampledData(streams), [streams]);
-
-  const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
-
-  const summaryStats = useMemo(() => {
-    return buildSummaryStats(sampledData, activity?.summary?.averagePower ?? activity?.avgPower);
-  }, [sampledData, activity?.summary?.averagePower, activity?.avgPower]);
-
-  const markerPosition = useMemo(() => {
-    if (hoverIndex == null || !sampledData[hoverIndex]) return null;
-    return sampledData[hoverIndex].latlng;
-  }, [hoverIndex, sampledData]);
-
-  const segmentEfforts: SegmentEffortData[] = useMemo(() => getSegmentEfforts(streams), [streams]);
-
-  const chartHighlightRange: [number, number] | undefined = useMemo(() => {
-    return getChartHighlightRange(hoveredSegment, streams);
-  }, [hoveredSegment, streams]);
-
-  const photos = useMemo(() => getStreamPhotos(streams), [streams]);
-
-  // 러닝 전용 상태 — 기준선 페이스·거리 기록·해설 컨텍스트 (features/activity/detail 참조)
+  const renderPowerOverride = resolveActiveActivityPowerOverride(
+    activityId,
+    activity?.id,
+    streams,
+    wattsOverride,
+    activeBike?.virtualPower.enabled ? activeBike.virtualPower : null,
+  );
+  const {
+    activePowerOverride,
+    analysisProjection,
+    availableOverlays,
+    avgPowerValue,
+    chartHighlightRange,
+    displayedSummary: selectedSummary,
+    hasAnalysisStreams,
+    hasStreamCadenceCandidate,
+    hasStreamHeartRateCandidate,
+    hasStreamPowerCandidate,
+    hasStreams,
+    markerPosition,
+    normalizedPowerValue,
+    photos,
+    sampledData,
+    segmentEfforts,
+    selectionContext: sensorSelectionContext,
+    summaryStats,
+  } = useActivitySensorDetail({
+    activityId,
+    activity,
+    streams,
+    powerOverride: renderPowerOverride,
+    hoverIndex,
+    hoveredSegment,
+  });
+  useEffect(() => {
+    if (wattsOverride && !activePowerOverride) setWattsOverride(null);
+  }, [activePowerOverride, wattsOverride]);
   const runDetail = useRunActivityDetail(activity, profile);
 
   if (loadingActivity) {
@@ -596,10 +592,7 @@ export default function ActivityPage() {
   }
 
   const s = activity.summary;
-  // 가상파워 결과는 백엔드에서 summary.*에 함께 기록되지만, 아직 백필되지 않은
-  // 과거 활동을 위해 활동 문서 top-level(`avgPower`, `weightedAvgPower`)을 fallback으로 사용.
-  const avgPowerValue = s.averagePower ?? activity.avgPower ?? null;
-  const normalizedPowerValue = s.normalizedPower ?? activity.weightedAvgPower ?? null;
+  const displayedSummary = selectedSummary ?? s;
   const activityDate = Number.isFinite(activity.startTime)
     ? new Date(activity.startTime).toISOString().slice(0, 10)
     : null;
@@ -612,8 +605,14 @@ export default function ActivityPage() {
     const rounded = Math.round(value);
     return { label, value: `${signed && rounded > 0 ? "+" : ""}${rounded}`, unit };
   };
-  const activityTss = serverMetrics.metrics?.tss ?? s.tss;
-  const activityNp = serverMetrics.metrics?.np ?? normalizedPowerValue;
+  // Until streams and activity_metrics share a revision fingerprint, any raw power candidate
+  // makes saved/server NP and TSS provenance unprovable. Keep trusted stream avg/max only.
+  const activityTss = hasStreamPowerCandidate
+    ? null
+    : serverMetrics.metrics?.tss ?? s.tss;
+  const activityNp = hasStreamPowerCandidate
+    ? null
+    : serverMetrics.metrics?.np ?? normalizedPowerValue;
   const sharePerformanceMetrics = [
     shareMetric(t("page.share.tss"), activityTss),
     shareMetric(activityNp != null ? t("page.share.normalizedPower") : t("stat.avgPower"), activityNp ?? avgPowerValue, "W"),
@@ -626,14 +625,6 @@ export default function ActivityPage() {
   const stravaActivityId = getStravaActivityId(activity);
   const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
   const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
-  const hasStreams = sampledData.length > 0;
-  const hasAnalysisStreams = !!streams && (
-    (streams.watts?.length ?? 0) > 0 ||
-    (streams.watts_calc?.length ?? 0) > 0 ||
-    (streams.heartrate?.length ?? 0) > 0 ||
-    (streams.distance?.length ?? 0) > 0 ||
-    (streams.laps?.length ?? 0) > 0
-  );
   const hasAnalysisRoute = !!streams?.latlng?.length;
   const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute);
   const sport = getSportCategory(activity.type || (isStrava ? undefined : "Ride"));
@@ -721,12 +712,12 @@ export default function ActivityPage() {
     }
   };
   const summarySensorMetrics = ([
-    s.averageHeartRate != null
+    displayedSummary.averageHeartRate != null
       ? {
           label: t("stat.avgHr"),
-          value: String(Math.round(s.averageHeartRate)),
+          value: String(Math.round(displayedSummary.averageHeartRate)),
           unit: "bpm",
-          sub: s.maxHeartRate != null ? `${t("page.max")} ${Math.round(s.maxHeartRate)} bpm` : undefined,
+          sub: displayedSummary.maxHeartRate != null ? `${t("page.max")} ${Math.round(displayedSummary.maxHeartRate)} bpm` : undefined,
         }
       : null,
     avgPowerValue != null && (sport === "ride" || sport === "run")
@@ -737,17 +728,17 @@ export default function ActivityPage() {
           sub: normalizedPowerValue != null ? `NP ${Math.round(normalizedPowerValue)} W` : undefined,
         }
       : null,
-    s.maxPower != null && (sport === "ride" || sport === "run")
+    displayedSummary.maxPower != null && (sport === "ride" || sport === "run")
       ? {
           label: t("stat.maxPower"),
-          value: String(Math.round(s.maxPower)),
+          value: String(Math.round(displayedSummary.maxPower)),
           unit: "W",
         }
       : null,
-    s.averageCadence != null
+    displayedSummary.averageCadence != null
       ? {
           label: sport === "swim" ? t("stat.avgStroke") : t("stat.avgCadence"),
-          value: String(Math.round(s.averageCadence)),
+          value: String(Math.round(displayedSummary.averageCadence)),
           unit: sport === "run" || sport === "swim" ? "spm" : "rpm",
         }
       : null,
@@ -763,7 +754,7 @@ export default function ActivityPage() {
   const keyStatsStrip = (
     <Card padding="none" style={{ padding: 0 }}>
       <ActivityStatsGrid
-        summary={s}
+        summary={displayedSummary}
         sport={sport}
         interpretationContext={runDetail.interpretationContext}
         avgPowerValue={avgPowerValue}
@@ -1000,7 +991,7 @@ export default function ActivityPage() {
           <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void handleRetryStreams(); }} retryLabel={t("page.retry")} />
         </div>
       )}
-      {activeTab === "analysis" && hasAnalysisStreams && streams && (
+      {activeTab === "analysis" && hasAnalysisStreams && streams && analysisProjection && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               activeBike 는 뷰어(user.uid)의 자전거 프로필이라, 비소유자에게 보이면
@@ -1017,20 +1008,35 @@ export default function ActivityPage() {
                 <Button size="sm" variant="outline" onClick={recalcPreview}>
                   {t("page.vp.recalcBtn")}
                 </Button>
-                {wattsOverride && (
+                {activePowerOverride && (
                   <Button size="sm" variant="ghost" onClick={() => setWattsOverride(null)}>
                     {t("page.vp.revertBtn")}
                   </Button>
                 )}
               </div>
-              {wattsOverride && (
+              {activePowerOverride && (
                 <Text variant="caption" tone="tertiary" as="p" mono>
-                  {t("page.vp.params", { riderKg: activeBike.virtualPower.riderWeightKg, bikeKg: activeBike.virtualPower.bikeWeightKg, cda: activeBike.virtualPower.cdA })}
+                  {t("page.vp.params", { riderKg: activePowerOverride.params.riderWeightKg, bikeKg: activePowerOverride.params.bikeWeightKg, cda: activePowerOverride.params.cdA })}
                 </Text>
               )}
             </div>
           )}
-          <AnalysisTab activityId={activityId ?? null} isOwner={isActivityOwner} startTime={activity.startTime} streams={effectiveStreams ?? streams} summary={activity.summary} sport={sport} isVirtualPower={activity.isVirtualPower} virtualPowerParams={activity.virtualPowerParams} />
+          <AnalysisTab
+            activityId={activityId ?? null}
+            isOwner={isActivityOwner}
+            startTime={activity.startTime}
+            streams={analysisProjection.streams}
+            sensorHeartRate={analysisProjection.heartRate}
+            sensorPower={analysisProjection.power}
+            sensorSelectionContext={sensorSelectionContext}
+            hasStreamPowerCandidate={hasStreamPowerCandidate}
+            hasStreamHeartRateCandidate={hasStreamHeartRateCandidate}
+            hasStreamCadenceCandidate={hasStreamCadenceCandidate}
+            summary={displayedSummary}
+            sport={sport}
+            isVirtualPower={activity.isVirtualPower || activePowerOverride != null}
+            virtualPowerParams={activePowerOverride?.params ?? activity.virtualPowerParams}
+          />
         </Card>
       )}
 
@@ -1149,7 +1155,7 @@ export default function ActivityPage() {
                   {availableOverlays.flatMap((cfg) => {
                     if (!activeOverlays.has(cfg.key)) return [];
                     const val = cfg.getValue(hoverPoint);
-                    if (val <= 0) return [];
+                    if (val == null || val <= 0) return [];
                     return [
                       <span key={`${cfg.key}-sep`} style={{ color: 'var(--line)' }}>|</span>,
                       <span key={cfg.key} style={{ color: cfg.dotColor }}>

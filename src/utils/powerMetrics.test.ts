@@ -13,6 +13,15 @@ describe("calculateNP", () => {
     watts[10] = NaN;
     expect(calculateNP(watts)!).toBeCloseTo(200, 5);
   });
+  it("does not assemble a 30-second window across measured-run boundaries", () => {
+    const watts = Array(40).fill(200);
+    const timing = {
+      durationsSec: Array(40).fill(1),
+      segmentStarts: [true, ...Array(19).fill(false), true, ...Array(19).fill(false)],
+    };
+    expect(calculateNP(watts, undefined, timing)).toBeNull();
+    expect(calculateTSS(watts, 250, undefined, timing)).toBeNull();
+  });
 });
 
 describe("calculateVI (#538 near-zero·NaN 가드)", () => {

@@ -175,10 +175,25 @@ const segmentHighlightPlugin: Plugin<"line"> = {
 
 export interface OverlayDataset {
   label: string;
-  data: number[];
+  data: Array<number | null>;
   color: string;
   yAxisID: string;
   unit?: string;
+}
+
+interface OverlayChartPoint {
+  x: number;
+  y: number | null;
+}
+
+export function buildFiniteOverlayPoints(
+  values: readonly (number | null)[],
+  distancesKm: readonly (number | undefined)[],
+): OverlayChartPoint[] {
+  return values
+    .map((y, index) => ({ x: distancesKm[index], y }))
+    .filter((point): point is OverlayChartPoint => Number.isFinite(point.x)
+      && (point.y === null || Number.isFinite(point.y)));
 }
 
 interface ElevationChartProps {
@@ -387,16 +402,14 @@ export default function ElevationChart({
       },
       ...(overlays ?? []).map((o) => ({
         label: o.label,
-        data: o.data
-          .map((v, i) => ({ x: distancesKm[i], y: v }))
-          .filter((point): point is { x: number; y: number } =>
-            Number.isFinite(point.x) && Number.isFinite(point.y)),
+        data: buildFiniteOverlayPoints(o.data, distancesKm),
         borderColor: o.color,
         backgroundColor: "transparent",
         borderWidth: 1.5,
         pointRadius: 0,
         tension: 0.3,
         fill: false,
+        spanGaps: false,
         yAxisID: o.yAxisID,
       })),
     ],

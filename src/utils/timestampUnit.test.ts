@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+
+import { normalizeActivityStartTimeMs } from "../components/AnalysisTab";
+import {
+  buildSampledData,
+  deriveStreamSensorSummary,
+} from "../features/activity/detail/activityDetailDerived";
+import { calculateEF } from "./advancedMetrics";
+import { makeRelSecAt } from "./streamTime";
+import { detectTimestampUnit, normalizeEpochMilliseconds } from "./timestampUnit";
+
+const EPOCH_MILLISECONDS = [
+  Date.UTC(1990, 0, 1),
+  Date.UTC(2000, 0, 1),
+  Date.UTC(2001, 0, 1),
+  Date.UTC(2026, 6, 29),
+];
+
+describe("timestamp unit normalization", () => {
+  it.each(EPOCH_MILLISECONDS)("recognizes %i as epoch milliseconds", (epochMs) => {
+    expect(detectTimestampUnit(epochMs)).toBe("epoch_ms");
+    expect(normalizeEpochMilliseconds(epochMs)).toBe(epochMs);
+    expect(normalizeActivityStartTimeMs(epochMs)).toBe(epochMs);
+  });
+
+  it.each(EPOCH_MILLISECONDS)("recognizes the seconds form of %i", (epochMs) => {
+    const epochSec = epochMs / 1000;
+    expect(detectTimestampUnit(epochSec)).toBe("epoch_sec");
+    expect(normalizeEpochMilliseconds(epochSec)).toBe(epochMs);
+    expect(normalizeActivityStartTimeMs(epochSec)).toBe(epochMs);
+  });
+
+  it("normalizes pre-2001 millisecond route clocks for duration and sensor selection", () => {
+    const origin = Date.UTC(1990, 0, 1);
+    const relativeTime = Array.from({ length: 40 }, (_, index) => index < 2 ? index : index + 2);
+    const time = relativeTime.map((seconds) => origin + seconds * 1000);
+    const relSecAt = makeRelSecAt(time);
+    expect(time.map((_, index) => relSecAt(index))).toEqual(relativeTime);
+
+    const heartrate = Array(40).fill(100);
+    heartrate[1] = 200;
+
+    const summary = deriveStreamSensorSummary({
+      time,
+      distance: relativeTime.map((seconds) => seconds * 10),
+      heartrate,
+    } as never);
+    expect(summary?.averageHeartRate).toBeCloseTo(4_500 / 42, 8);
+    const sampled = buildSampledData({
+      time,
+      distance: relativeTime.map((seconds) => seconds * 10),
+      heartrate,
+    } as never);
+    expect(sampled).toHaveLength(40);
+    expect(sampled[0]?.heartRate).toBe(100);
+  });
+
+  it("uses owned durations for EF instead of a simple heart-rate mean", () => {
+    const watts = Array(40).fill(200);
+    const heartrate = Array(40).fill(100);
+    const durationsSec = Array(40).fill(1);
+    heartrate[1] = 200;
+    durationsSec[1] = 3;
+    expect(calculateEF(watts, heartrate, { durationsSec }))
+      .toBeCloseTo(200 / (4_500 / 42), 8);
+  });
+});
