@@ -484,7 +484,9 @@ function parseBlock(value: unknown, index: number, evidenceById: Map<string, Coa
   return validEvidence && relationEvidence && markdownEvidence && goalEvidence ? block : { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
 }
 
-function parseAnswer(value: unknown, allowProviderAgentAnswer: boolean): CoachAnswerDocument {
+type UnboundMarkdownMode = "none" | "provider" | "deterministic_general_guidance";
+
+function parseAnswer(value: unknown, unboundMarkdownMode: UnboundMarkdownMode): CoachAnswerDocument {
   const raw = answerRaw.parse(value);
   const compatibleVersion = COACH_ANSWER_SCHEMA_VERSIONS.some((schemaVersion, index) =>
     raw.schemaVersion === schemaVersion && raw.catalogVersion === COACH_ANSWER_CATALOG_VERSIONS[index]);
@@ -495,10 +497,12 @@ function parseAnswer(value: unknown, allowProviderAgentAnswer: boolean): CoachAn
   }
   const evidenceById = new Map(raw.evidence.map((item) => [item.evidenceId, item]));
   if (evidenceById.size !== raw.evidence.length) throw new Error("INVALID_COACH_V2_RESPONSE");
-  const allowUnboundMarkdown = allowProviderAgentAnswer
+  const allowUnboundMarkdown = unboundMarkdownMode !== "none"
     && raw.schemaVersion === "coach-answer-document-v2"
     && raw.catalogVersion === "coach-answer-block-catalog-v2"
-    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(raw.questionSummary)
+    && (unboundMarkdownMode === "provider"
+      ? ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(raw.questionSummary)
+      : raw.questionSummary === "coach.answer.summary.general_guidance")
     && raw.evidence.length === 0;
   return { compatibility: "supported", answerId: raw.answerId, sourceFactsId: raw.sourceFactsId,
     questionSummary: raw.questionSummary, status: raw.status, blocks: raw.blocks.map((block, index) =>
@@ -515,12 +519,26 @@ function isUnboundAgentAnswer(answer: CoachAnswerDocument | undefined): boolean 
     && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
 }
 
+function isServerOwnedGeneralGuidanceAnswer(answer: CoachAnswerDocument | undefined): boolean {
+  if (!answer || answer.compatibility !== "supported"
+      || answer.questionSummary !== "coach.answer.summary.general_guidance"
+      || answer.status !== "complete" || answer.evidence.length !== 0 || answer.warnings.length !== 0
+      || answer.freshness.staleSourceSlotIds.length !== 0 || answer.followUps.length !== 0
+      || answer.blocks.length !== 1) return false;
+  const block = answer.blocks[0];
+  return block?.kind === "grounded_markdown" && block.blockId === "block_general_guidance"
+    && block.evidenceIds.length === 0 && block.sourceSlotIds.length === 0
+    && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
+}
+
 export function parseCoachV2Response(input: unknown): CoachV2Response {
   const wrapper = z.object({ data: z.unknown() }).passthrough().parse(input);
   const raw = envelopeRaw.parse(wrapper.data);
-  const allowProviderAgentAnswer = raw.execution.parser === "provider"
-    && (raw.budget.providerCalls === 1 || raw.budget.providerCalls === 2);
-  const answer = raw.answer === undefined ? undefined : parseAnswer(raw.answer, allowProviderAgentAnswer);
+  const unboundMarkdownMode: UnboundMarkdownMode = raw.execution.parser === "deterministic" && raw.budget.providerCalls === 0
+    ? "deterministic_general_guidance"
+    : raw.execution.parser === "provider" && (raw.budget.providerCalls === 1 || raw.budget.providerCalls === 2)
+      ? "provider" : "none";
+  const answer = raw.answer === undefined ? undefined : parseAnswer(raw.answer, unboundMarkdownMode);
   const has = (name: "answer" | "clarification" | "unsupported" | "error") => raw[name] !== undefined;
   const validOutcome = raw.outcome === "answer" ? has("answer") && !has("clarification") && !has("unsupported") && !has("error")
     : raw.outcome === "clarification_required" ? has("clarification") && !has("answer") && !has("unsupported") && !has("error")
@@ -533,9 +551,14 @@ export function parseCoachV2Response(input: unknown): CoachV2Response {
   const declaresUnboundAgentAnswer = answer?.compatibility === "supported"
     && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary)
     && answer.evidence.length === 0;
+  const deterministicGeneralGuidanceBinding = isServerOwnedGeneralGuidanceAnswer(answer)
+    && !raw.quota.consumed && raw.retry.mode === "same_request_replay"
+    && !raw.retry.previousTurnConsumed && !raw.retry.providerCallAllowed && !raw.retry.retryable
+    && raw.retry.reasonCode === "answer_too_short_no_charge";
   const providerBinding = raw.outcome !== "answer"
     ? raw.execution.parser !== "deterministic" || raw.budget.providerCalls === 0
-    : raw.execution.parser === "deterministic" ? raw.budget.providerCalls === 0 && !declaresUnboundAgentAnswer
+    : raw.execution.parser === "deterministic" ? raw.budget.providerCalls === 0
+      && (!declaresUnboundAgentAnswer || deterministicGeneralGuidanceBinding)
       : raw.execution.parser === "report_provider" ? raw.budget.providerCalls === 1 && !declaresUnboundAgentAnswer
         : (raw.budget.providerCalls === 1 && (!declaresUnboundAgentAnswer || isUnboundAgentAnswer(answer)))
           || (raw.budget.providerCalls === 2 && isUnboundAgentAnswer(answer));
