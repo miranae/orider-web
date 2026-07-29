@@ -1401,13 +1401,12 @@ describe("activityDetailDerived", () => {
     });
   });
 
-  it("keeps dense legacy HR and power on their shared axis", () => {
+  it("keeps all-positive legacy HR and power on their shared axis", () => {
     const streams = {
       time: Array.from({ length: 30 }, (_, index) => index),
-      heartrate: [0, ...Array.from({ length: 29 }, (_, index) => 140 + index)],
+      heartrate: Array.from({ length: 30 }, (_, index) => 140 + index),
       watts: Array.from({ length: 30 }, (_, index) => 100 + index),
     };
-    const summary = deriveStreamSensorSummary(streams as never);
 
     expect(buildActivityAnalysisProjection(streams as never)).toEqual({ streams });
   });

@@ -519,6 +519,13 @@ function alignSensorChannelForChart(
   }
   const routeAxis = chartRouteTimeAxis(streams, routeLength, context.activityStartTime);
   if (!routeAxis) return undefined;
+  const legacyOrigin = normalizeEpochMs(context.activityStartTime);
+  const hasCompatibleLegacyOrigin = legacyOrigin == null
+    || routeAxis.originEpochMs == null
+    || legacyOrigin === routeAxis.originEpochMs;
+  if (source === "legacy" && values.length === routeLength && hasCompatibleLegacyOrigin) {
+    return [...values];
+  }
 
   let sensorTime: number[];
   let sensorStepSec: number;
@@ -1182,9 +1189,8 @@ export function buildActivityAnalysisProjection(
     : undefined;
   const legacyTimeOriginEpochMs = normalizeEpochMs(topLevelTime?.[0])
     ?? normalizeEpochMs(context.activityStartTime);
-  const shouldRepairLegacyHeartRate = !!legacyHeartRateValues?.length
-    && selectedHeartRate.positiveValues.length / legacyHeartRateValues.length <= 0.5;
-  const legacyHeartRate = shouldRepairLegacyHeartRate && legacyHeartRateValues
+  const hasMissingLegacyHeartRate = legacyHeartRateValues?.some((value) => value === 0) === true;
+  const legacyHeartRate = hasMissingLegacyHeartRate && legacyHeartRateValues
     ? measuredSeries(
         legacyHeartRateValues,
         legacyHeartRateAxis?.time ?? legacyHeartRateValues.map((_, index) => index),
@@ -1206,7 +1212,7 @@ export function buildActivityAnalysisProjection(
         legacyPowerAxis?.durationsSec,
       )
     : undefined;
-  const projectedLegacyHeartRate = legacyHeartRateValues && !shouldRepairLegacyHeartRate
+  const projectedLegacyHeartRate = legacyHeartRateValues && !hasMissingLegacyHeartRate
     ? legacyHeartRateValues
     : undefined;
   const usesOverridePower = selectedPower.source === "virtualPowerOverride";
@@ -1318,8 +1324,11 @@ export function buildSampledData(
     legacyCoverageExpectation(streams, context.legacyDurationSec, true),
     "cadence",
   ) ? cadenceValues : undefined;
+  const chartHeartRateValues = selectedHeartRate.values?.map((value) => (
+    typeof value === "number" && value > 0 ? value : null
+  ));
   const chartHeartRate = alignSensorChannelForChart(
-    selectedHeartRate.values,
+    chartHeartRateValues,
     selectedHeartRate.source === "sensorStreamsV1" ? "explicit" : "legacy",
     streams,
     context,
