@@ -137,8 +137,58 @@ describe("useActivityDerivedDocuments", () => {
     await waitFor(() => expect(derivedWatchPaths()).toHaveLength(
       DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND * 2,
     ));
+    expect(derivedWatchPaths().filter((path) => path.startsWith("activity_streams/"))).toHaveLength(
+      DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND,
+    );
+    expect(derivedWatchPaths().filter((path) => path.startsWith("activity_metrics/"))).toHaveLength(
+      DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND,
+    );
     expect(derivedWatchPaths()).not.toContain("activity_metrics/ride-0");
     expect(derivedWatchPaths()).toContain(`activity_metrics/ride-${activities.length - 1}`);
+  });
+
+  it("replaces the oldest active watcher when a newer activity arrives at the cap", async () => {
+    type Listener = (snapshot: { exists: () => boolean; data: () => Record<string, unknown> }) => void;
+    const listeners = new Map<string, Listener>();
+    const unsubscribeByPath = new Map<string, ReturnType<typeof vi.fn>>();
+    const activePaths = new Set<string>();
+    vi.mocked(onSnapshot).mockImplementation(((reference: { path: string }, next: Listener) => {
+      const path = reference.path;
+      const unsubscribe = vi.fn(() => activePaths.delete(path));
+      listeners.set(path, next);
+      unsubscribeByPath.set(path, unsubscribe);
+      activePaths.add(path);
+      next({ exists: () => false, data: () => ({}) });
+      return unsubscribe;
+    }) as typeof onSnapshot);
+    const initialActivities = Array.from(
+      { length: DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND },
+      (_, index) => ({ ...activity(`metric-${String(index).padStart(2, "0")}`, "user-a", null), startTime: index }),
+    );
+    const hook = renderHook(
+      ({ activities }) => useActivityDerivedDocuments("user-a", activities),
+      { initialProps: { activities: initialActivities } },
+    );
+    await waitFor(() => expect(activePaths.size).toBe(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND));
+
+    const newest = { ...activity("metric-newest", "user-a", null), startTime: 100 };
+    hook.rerender({ activities: [...initialActivities, newest] });
+
+    const oldestPath = "activity_metrics/metric-00";
+    const newestPath = "activity_metrics/metric-newest";
+    await waitFor(() => expect(listeners.has(newestPath)).toBe(true));
+    expect(unsubscribeByPath.get(oldestPath)).toHaveBeenCalledTimes(1);
+    expect(activePaths.has(oldestPath)).toBe(false);
+    expect(activePaths.has(newestPath)).toBe(true);
+    expect(activePaths.size).toBe(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND);
+
+    act(() => {
+      listeners.get(oldestPath)?.({ exists: () => true, data: () => ({ tss: 99 }) });
+      listeners.get(newestPath)?.({ exists: () => true, data: () => ({ tss: 64 }) });
+    });
+    expect(hook.result.current.metricsMap.has("metric-00")).toBe(false);
+    expect(hook.result.current.metricsMap.get("metric-newest")).toEqual({ tss: 64 });
+    expect(activePaths.size).toBe(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND - 1);
   });
 
   it("contains malformed stream JSON, logs it, and releases the listener", async () => {

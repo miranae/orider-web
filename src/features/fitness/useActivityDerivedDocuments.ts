@@ -75,6 +75,13 @@ function parseStreams(data: Record<string, unknown>): ActivityStreams {
     : data as unknown as ActivityStreams;
 }
 
+function compareActivityRecency(left: Activity, right: Activity): number {
+  const startTimeDifference = left.startTime - right.startTime;
+  if (startTimeDifference !== 0) return startTimeDifference;
+  if (left.id === right.id) return 0;
+  return left.id < right.id ? -1 : 1;
+}
+
 export function useActivityDerivedDocuments(
   uid: string | null | undefined,
   activities: readonly Activity[],
@@ -136,6 +143,33 @@ export function useActivityDerivedDocuments(
       isGenerationCurrent(activity) &&
       attempts.get(activity.id) === revision
     );
+    const activitiesById = new Map(scopedActivities.map((activity) => [activity.id, activity]));
+    const reserveWatchSlot = (
+      activity: Activity,
+      attempts: DerivedDocumentReadAttempts,
+      watches: Map<string, () => void>,
+    ) => {
+      if (watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND) return true;
+      let oldestId: string | null = null;
+      let oldestActivity: Activity | null = null;
+      for (const id of watches.keys()) {
+        const watchedActivity = activitiesById.get(id);
+        if (watchedActivity == null) {
+          oldestId = id;
+          oldestActivity = null;
+          break;
+        }
+        if (oldestActivity == null || compareActivityRecency(watchedActivity, oldestActivity) < 0) {
+          oldestId = id;
+          oldestActivity = watchedActivity;
+        }
+      }
+      if (oldestId == null ||
+          (oldestActivity != null && compareActivityRecency(activity, oldestActivity) <= 0)) return false;
+      invalidateDerivedDocumentReadAttempt(attempts, oldestId);
+      watches.get(oldestId)?.();
+      return watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND;
+    };
 
     const watchCreation = <T,>(
       activity: Activity,
@@ -149,7 +183,7 @@ export function useActivityDerivedDocuments(
     ) => {
       const revision = activityDerivedDocumentRevision(activity);
       if (!isCurrent(activity, attempts, revision) || watches.has(activity.id) ||
-          watches.size >= DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND) return;
+          !reserveWatchSlot(activity, attempts, watches)) return;
       let unsubscribe: () => void = () => undefined;
       let unsubscribeReady = false;
       let stopRequested = false;
@@ -283,7 +317,7 @@ export function useActivityDerivedDocuments(
     ));
     const newestIds = (values: readonly Activity[]) => new Set(
       [...values]
-        .sort((left, right) => right.startTime - left.startTime)
+        .sort((left, right) => compareActivityRecency(right, left))
         .slice(0, DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND)
         .map((activity) => activity.id),
     );
