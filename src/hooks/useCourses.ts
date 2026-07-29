@@ -10,14 +10,25 @@ import type { Course } from "@shared/types";
 let cachedCourses: Course[] | null = null;
 let cacheUid: string | null = null;
 
-export function useCourses() {
+export interface UseCoursesOptions {
+  enabled?: boolean;
+}
+
+export function useCourses(options: UseCoursesOptions = {}) {
+  const enabled = options.enabled ?? true;
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const hasUsableCache = cachedCourses !== null && cacheUid === uid;
   const [courses, setCourses] = useState<Course[]>(() => (hasUsableCache ? cachedCourses ?? [] : []));
-  const [loading, setLoading] = useState(!hasUsableCache);
+  const [loading, setLoading] = useState(enabled && !hasUsableCache);
 
   useEffect(() => {
+    if (!enabled) {
+      setCourses([]);
+      setLoading(false);
+      return;
+    }
+
     if (cacheUid !== uid) {
       cachedCourses = null;
       cacheUid = null;
@@ -83,7 +94,7 @@ export function useCourses() {
     };
     load();
     return () => { cancelled = true; };
-  }, [user, uid]);
+  }, [enabled, user, uid]);
 
   /** 이름+지역 텍스트 검색 */
   function search(q: string): Course[] {

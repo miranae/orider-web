@@ -152,7 +152,16 @@ async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity
   }
 }
 
-export function useActivities(scope: ActivityFeedScope = "all", friendIds: readonly string[] = []) {
+export interface UseActivitiesOptions {
+  enabled?: boolean;
+}
+
+export function useActivities(
+  scope: ActivityFeedScope = "all",
+  friendIds: readonly string[] = [],
+  options: UseActivitiesOptions = {},
+) {
+  const enabled = options.enabled ?? true;
   const { user, loading: authLoading } = useAuth();
   const friendIdsKey = useMemo(
     () => Array.from(new Set(friendIds.filter(Boolean))).sort().join("\u0000"),
@@ -180,7 +189,7 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [feedCursor, setFeedCursor] = useState<FeedCursor | null>(null);
@@ -216,6 +225,10 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
   // 첫 피드/LCP 경로와 같은 Firestore 연결을 두고 경쟁하지 않도록 idle 이후로 미룬다.
   // 카운트는 보조 표시라 첫 화면 렌더 완료 뒤 갱신돼도 사용자 흐름에 영향이 없다.
   useEffect(() => {
+    if (!enabled) {
+      setTotalCount(0);
+      return;
+    }
     if (authLoading) return;
 
     let cancelled = false;
@@ -243,7 +256,7 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
       cancelled = true;
       if (timerId != null) clearTimeout(timerId);
     };
-  }, [authLoading, user, buildSourceQueries, scope]);
+  }, [enabled, authLoading, user, buildSourceQueries, scope]);
 
   const fetchPageRequest = useCallback(async (
     uid: string | null,
@@ -345,6 +358,14 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
 
   // 초기 로드 + 유저 변경 시 리셋
   useEffect(() => {
+    if (!enabled) {
+      setActivities([]);
+      setFeedCursor(null);
+      setHasMore(false);
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
     if (authLoading) return;
 
     let cancelled = false;
@@ -430,10 +451,10 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
 
     load();
     return () => { cancelled = true; };
-  }, [authLoading, user, fetchPage]);
+  }, [enabled, authLoading, user, fetchPage]);
 
   const loadMore = useCallback(async () => {
-    if (!feedCursor || loadingMore) return;
+    if (!enabled || !feedCursor || loadingMore) return;
     const requestKey = feedRequestKey;
     const requestGeneration = feedRequestGenerationRef.current;
     setLoadingMore(true);
@@ -452,7 +473,7 @@ export function useActivities(scope: ActivityFeedScope = "all", friendIds: reado
         setLoadingMore(false);
       }
     }
-  }, [feedCursor, loadingMore, user, fetchPage, feedRequestKey]);
+  }, [enabled, feedCursor, loadingMore, user, fetchPage, feedRequestKey]);
 
   return {
     activities,

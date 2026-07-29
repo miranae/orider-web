@@ -16,7 +16,7 @@ import {
   type Discipline,
 } from "../utils/disciplineFilter";
 import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
-import { collection, query, where, doc, getDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, doc, onSnapshot, orderBy, limit } from "firebase/firestore";
 
 import { toLocalDate } from "../utils/dateUtils";
 import { firestore } from "../services/firebase";
@@ -29,7 +29,7 @@ import {
   type ActivityLoadEntry,
   type DailyLoad,
 } from "../utils/fitnessMetrics";
-import type { Activity, ActivityStreams } from "@shared/types";
+import type { Activity } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { Goal, FitnessProjection } from "@shared/types/goal";
 import FitnessChart from "../components/FitnessChart";
@@ -92,6 +92,7 @@ import { useCoachRiderInsight } from "../hooks/useCoachRiderInsight";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { buildCanonicalRiderFitnessView, cyclingAbilityFromCanonicalRider } from "../features/fitness/riderInsightParity";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
+import { useActivityDerivedDocuments } from "../features/fitness/useActivityDerivedDocuments";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -104,12 +105,12 @@ export default function FitnessPage() {
   const { showToast } = useToast();
   const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
   const [applyingFtp, setApplyingFtp] = useState(false);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [streamsMap, setStreamsMap] = useState<Map<string, ActivityStreams>>(new Map());
-  // 활동별 분석 메트릭 (서버에서 GCS 스트림까지 파싱·계산해둠). FitnessPage 가 직접 stream 을
-  // 읽으면 GCS 스트림(이 사용자 298개 중 256개)은 못 받아 zone/파워커브가 거의 빈 결과 →
-  // metrics 컬렉션으로 우회. mmp(파워커브)·powerZoneSec·hrZoneSec·tss 활용.
-  const [metricsMap, setMetricsMap] = useState<Map<string, ActivityMetrics>>(new Map());
+  const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
+    ownerUid: user?.uid ?? null,
+    items: [],
+  });
+  const activities = activityState.ownerUid === (user?.uid ?? null) ? activityState.items : [];
+  const { streamsMap, metricsMap } = useActivityDerivedDocuments(user?.uid, activities);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<RangeOption>(90);
@@ -188,7 +189,15 @@ export default function FitnessPage() {
   const projectionGoalIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
+    if (!user) {
+      setActivityState({ ownerUid: null, items: [] });
+      setLoading(false);
+      return;
+    }
+    const uid = user.uid;
+    let active = true;
+    setActivityState({ ownerUid: uid, items: [] });
+    setLoading(true);
     // 초기 쿼리는 "표시 범위 + 42일 CTL 워밍업"만 받는다 — 콜드 진입(빈 캐시)에서
     // 활동 전체(365+42=407일)를 받느라 첫 페인트(LCP)가 지연되던 문제 해소.
     // range 가 커지면(90→365) 아래 deps 로 재구독해 그때 더 받는다(지연 확장).
@@ -203,112 +212,33 @@ export default function FitnessPage() {
     );
 
     // onSnapshot 구독 — 신규 활동 ingest 시 자동 반영 (getDocs 1회 대신)
-    const streamsLoadedFor = new Set<string>();
     const unsub = onSnapshot(
       q,
-      async (snap) => {
+      (snap) => {
+        if (!active) return;
         try {
           const acts = snap.docs
             .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-            .filter((a) => a.summary != null);
-          setActivities(acts);
+            .filter((activity) => activity.userId === uid && activity.summary != null);
+          setActivityState({ ownerUid: uid, items: acts });
           setLoading(false);
-
-          // 신규 활동만 스트림 추가 로드 (이미 로드된 건 스킵).
-          // 파워 커브(bike)는 파워>0 활동, 러닝 임계페이스 커브는 velocity_smooth, 수영 CSS
-          // 커브는 laps 스트림이 필요한데 러닝/수영은 통상 파워가 없다. 파워>0 만 적재하면
-          // run/swim 커브가 거의 항상 비므로(#536), 활동 종목으로 분류해 run/swim 도 적재한다.
-          // (현재 view 가 아닌 활동 종목 기준 — 효과 deps 에 discipline 이 없어 종목 전환 시
-          //  재구독되지 않으므로, 어느 종목으로 전환해도 커브가 뜨도록 미리 적재한다.)
-          const runSwimIds = new Set([
-            ...filterByDiscipline(acts, "run").map((a) => a.id),
-            ...filterByDiscipline(acts, "swim").map((a) => a.id),
-          ]);
-          const needStreams = acts.filter((a) => {
-            if (streamsLoadedFor.has(a.id)) return false;
-            const p = a.summary.averagePower ?? a.avgPower ?? null;
-            if (p != null && p > 0) return true;
-            return runSwimIds.has(a.id);
-          });
-          if (needStreams.length === 0) return;
-
-          const newMap = new Map<string, ActivityStreams>();
-          for (let i = 0; i < needStreams.length; i += 10) {
-            const batch = needStreams.slice(i, i + 10);
-            const results = await Promise.all(
-              batch.map(async (a) => {
-                try {
-                  const streamDoc = await getDoc(doc(firestore, "activity_streams", a.id));
-                  if (!streamDoc.exists()) return null;
-                  const data = streamDoc.data();
-                  if (typeof data?.json === "string") {
-                    return { id: a.id, stream: JSON.parse(data.json) as ActivityStreams };
-                  }
-                  return { id: a.id, stream: data as unknown as ActivityStreams };
-                } catch { return null; }
-              }),
-            );
-            for (const r of results) {
-              if (r) {
-                newMap.set(r.id, r.stream);
-                streamsLoadedFor.add(r.id);
-              }
-            }
-          }
-          if (newMap.size > 0) {
-            setStreamsMap((prev) => {
-              const merged = new Map(prev);
-              for (const [k, v] of newMap) merged.set(k, v);
-              return merged;
-            });
-          }
         } catch (err) {
           setError(err instanceof Error ? err.message : t("error.loadFailed"));
           setLoading(false);
         }
       },
       (err) => {
+        if (!active) return;
         logClientError("FitnessPage.activitiesSubscription", err, { range });
         setError(t("error.loadFailed"));
         setLoading(false);
       },
     );
-    return () => unsub();
+    return () => {
+      active = false;
+      unsub();
+    };
   }, [user, t, range]);
-
-  // 활동별 분석 메트릭 배치 로드 (서버가 GCS 스트림까지 파싱해둠) — activities 가 갱신될 때
-  // 새 활동만 추가 fetch. metrics 가 없는 활동은 누락 처리(빈 결과로 fallback).
-  const metricsLoadedFor = useRef<Set<string>>(new Set()).current;
-  useEffect(() => {
-    if (!user || activities.length === 0) return;
-    let cancelled = false;
-    const need = activities.filter((a) => !metricsLoadedFor.has(a.id)).map((a) => a.id);
-    if (need.length === 0) return;
-    (async () => {
-      const newMap = new Map<string, ActivityMetrics>();
-      for (let i = 0; i < need.length; i += 20) {
-        const batch = need.slice(i, i + 20);
-        const results = await Promise.all(
-          batch.map(async (id) => {
-            try {
-              const m = await getDoc(doc(firestore, "activity_metrics", id));
-              return m.exists() ? { id, data: m.data() as ActivityMetrics } : null;
-            } catch { return null; }
-          }),
-        );
-        for (const r of results) {
-          if (r) { newMap.set(r.id, r.data); metricsLoadedFor.add(r.id); }
-        }
-      }
-      if (cancelled || newMap.size === 0) return;
-      setMetricsMap((prev) => {
-        const merged = new Map(prev);
-        for (const [k, v] of newMap) merged.set(k, v);
-        return merged;
-      });
-    })();
-    return () => { cancelled = true; };
-  }, [user, activities, metricsLoadedFor]);
 
   // 활성 목표 + 예측 로드
   useEffect(() => {
