@@ -159,13 +159,19 @@ describe("coachV2Contract", () => {
         factsId: fallbackAnswer.sourceFactsId },
     };
 
-    expect(parseCoachV2Response({ data: fallbackEnvelope })).toMatchObject({
-      outcome: "answer",
-      budget: { providerCalls: 0 },
-      quota: { consumed: false },
-      answer: { questionSummary: "coach.answer.summary.general_guidance",
-        blocks: [{ kind: "grounded_markdown", blockId: "block_general_guidance", evidenceIds: [] }] },
-    });
+    for (const markdown of [
+      fallbackAnswer.blocks[0].markdown,
+      "## Training data answer unavailable\n\nThe current safety setting does not allow an answer using private training data.\n\n### Next step\n\nAsk for general training guidance or try again later.",
+    ]) {
+      expect(parseCoachV2Response({ data: { ...fallbackEnvelope,
+        answer: { ...fallbackAnswer, blocks: [{ ...fallbackAnswer.blocks[0], markdown }] } } })).toMatchObject({
+        outcome: "answer",
+        budget: { providerCalls: 0 },
+        quota: { consumed: false },
+        answer: { questionSummary: "coach.answer.summary.general_guidance",
+          blocks: [{ kind: "grounded_markdown", blockId: "block_general_guidance", evidenceIds: [] }] },
+      });
+    }
 
     const forgedEvidence = { ...evidence, evidenceId: "ev_forged_guidance", value: "forged" };
     for (const questionSummary of ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"]) {
@@ -179,6 +185,7 @@ describe("coachV2Contract", () => {
     for (const changed of [
       { answer: { ...fallbackAnswer, questionSummary: "coach.answer.summary.agent_text" } },
       { answer: { ...fallbackAnswer, blocks: [{ ...fallbackAnswer.blocks[0], blockId: "block_agent_text" }] } },
+      { answer: { ...fallbackAnswer, blocks: [{ ...fallbackAnswer.blocks[0], markdown: "## 임의 답변\n\n서버가 생성하지 않은 문구" }] } },
       { answer: { ...fallbackAnswer, followUps: [{ queryTemplateId: "show_recent_activities", labelKey: "coach.follow_up.recent" }] } },
       { answer: { ...fallbackAnswer, freshness: { ...fallbackAnswer.freshness, asOf: "2026-07-18T03:00:01.000Z" } } },
       { answer: { ...fallbackAnswer, answerId: "not_server_owned" } },

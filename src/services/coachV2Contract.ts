@@ -521,6 +521,10 @@ function isUnboundAgentAnswer(answer: CoachAnswerDocument | undefined): boolean 
 
 const serverOwnedId = (value: string, prefix: "answer" | "facts" | "general"): boolean =>
   new RegExp(`^${prefix}_[0-9a-f]{24}$`, "u").test(value);
+const deterministicGeneralGuidanceMarkdown = new Set([
+  "## 기록 기반 답변 제한\n\n현재 안전 설정에서는 개인 훈련 기록을 사용한 답변을 제공할 수 없습니다.\n\n### 다음 단계\n\n일반적인 훈련 원칙을 질문하거나 나중에 다시 시도해 주세요.",
+  "## Training data answer unavailable\n\nThe current safety setting does not allow an answer using private training data.\n\n### Next step\n\nAsk for general training guidance or try again later.",
+]);
 
 function isServerOwnedGeneralGuidanceAnswer(answer: CoachAnswerDocument | undefined, execution: {
   queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string;
@@ -536,6 +540,7 @@ function isServerOwnedGeneralGuidanceAnswer(answer: CoachAnswerDocument | undefi
       || answer.blocks.length !== 1) return false;
   const block = answer.blocks[0];
   return block?.kind === "grounded_markdown" && block.blockId === "block_general_guidance"
+    && deterministicGeneralGuidanceMarkdown.has(block.markdown)
     && block.evidenceIds.length === 0 && block.sourceSlotIds.length === 0
     && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
 }
