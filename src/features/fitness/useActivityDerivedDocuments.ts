@@ -7,7 +7,6 @@ import { logClientError } from "../../services/errorLogger";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import {
   activityDerivedDocumentRevision,
-  invalidateDerivedDocumentReadAttempt,
   isDerivedDocumentReadCurrent,
   markDerivedDocumentMissing,
   markDerivedDocumentReadComplete,
@@ -375,15 +374,12 @@ export function useActivityDerivedDocuments(
           markDerivedDocumentReadComplete(attempts, activity);
           cancelRecheck(rechecks, activity.id);
           apply(activity.id, value);
+          stop();
         } catch (error) {
-          invalidateDerivedDocumentReadAttempt(attempts, activity.id);
-          cancelRecheck(rechecks, activity.id);
           logClientError("useActivityDerivedDocuments.creationWatch.parse", error, {
             kind,
             activityId: activity.id,
           });
-        } finally {
-          stop();
         }
       }, (error) => {
         const wasCurrent = isCurrent(activity, attempts, revision, attemptToken);
