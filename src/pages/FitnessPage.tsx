@@ -92,6 +92,12 @@ import { useCoachRiderInsight } from "../hooks/useCoachRiderInsight";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { buildCanonicalRiderFitnessView, cyclingAbilityFromCanonicalRider } from "../features/fitness/riderInsightParity";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
+import {
+  invalidateDerivedDocumentReadAttempt,
+  markDerivedDocumentReadAttempt,
+  shouldReadDerivedDocument,
+  type DerivedDocumentReadAttempts,
+} from "../features/fitness/derivedDocumentReadAttempts";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -110,6 +116,8 @@ export default function FitnessPage() {
   // 읽으면 GCS 스트림(이 사용자 298개 중 256개)은 못 받아 zone/파워커브가 거의 빈 결과 →
   // metrics 컬렉션으로 우회. mmp(파워커브)·powerZoneSec·hrZoneSec·tss 활용.
   const [metricsMap, setMetricsMap] = useState<Map<string, ActivityMetrics>>(new Map());
+  const streamReadAttempts = useMemo<DerivedDocumentReadAttempts>(() => new Map(), [user?.uid]);
+  const metricsReadAttempts = useMemo<DerivedDocumentReadAttempts>(() => new Map(), [user?.uid]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<RangeOption>(90);
@@ -188,6 +196,11 @@ export default function FitnessPage() {
   const projectionGoalIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    setStreamsMap(new Map());
+    setMetricsMap(new Map());
+  }, [user?.uid, streamReadAttempts, metricsReadAttempts]);
+
+  useEffect(() => {
     if (!user) { setLoading(false); return; }
     // 초기 쿼리는 "표시 범위 + 42일 CTL 워밍업"만 받는다 — 콜드 진입(빈 캐시)에서
     // 활동 전체(365+42=407일)를 받느라 첫 페인트(LCP)가 지연되던 문제 해소.
@@ -203,7 +216,6 @@ export default function FitnessPage() {
     );
 
     // onSnapshot 구독 — 신규 활동 ingest 시 자동 반영 (getDocs 1회 대신)
-    const streamsLoadedFor = new Set<string>();
     const unsub = onSnapshot(
       q,
       async (snap) => {
@@ -225,12 +237,13 @@ export default function FitnessPage() {
             ...filterByDiscipline(acts, "swim").map((a) => a.id),
           ]);
           const needStreams = acts.filter((a) => {
-            if (streamsLoadedFor.has(a.id)) return false;
+            if (!shouldReadDerivedDocument(streamReadAttempts, a)) return false;
             const p = a.summary.averagePower ?? a.avgPower ?? null;
             if (p != null && p > 0) return true;
             return runSwimIds.has(a.id);
           });
           if (needStreams.length === 0) return;
+          needStreams.forEach((activity) => markDerivedDocumentReadAttempt(streamReadAttempts, activity));
 
           const newMap = new Map<string, ActivityStreams>();
           for (let i = 0; i < needStreams.length; i += 10) {
@@ -245,13 +258,15 @@ export default function FitnessPage() {
                     return { id: a.id, stream: JSON.parse(data.json) as ActivityStreams };
                   }
                   return { id: a.id, stream: data as unknown as ActivityStreams };
-                } catch { return null; }
+                } catch {
+                  invalidateDerivedDocumentReadAttempt(streamReadAttempts, a.id);
+                  return null;
+                }
               }),
             );
             for (const r of results) {
               if (r) {
                 newMap.set(r.id, r.stream);
-                streamsLoadedFor.add(r.id);
               }
             }
           }
@@ -274,30 +289,33 @@ export default function FitnessPage() {
       },
     );
     return () => unsub();
-  }, [user, t, range]);
+  }, [user, t, range, streamReadAttempts]);
 
   // 활동별 분석 메트릭 배치 로드 (서버가 GCS 스트림까지 파싱해둠) — activities 가 갱신될 때
   // 새 활동만 추가 fetch. metrics 가 없는 활동은 누락 처리(빈 결과로 fallback).
-  const metricsLoadedFor = useRef<Set<string>>(new Set()).current;
   useEffect(() => {
     if (!user || activities.length === 0) return;
     let cancelled = false;
-    const need = activities.filter((a) => !metricsLoadedFor.has(a.id)).map((a) => a.id);
+    const need = activities.filter((activity) => shouldReadDerivedDocument(metricsReadAttempts, activity));
     if (need.length === 0) return;
+    need.forEach((activity) => markDerivedDocumentReadAttempt(metricsReadAttempts, activity));
     (async () => {
       const newMap = new Map<string, ActivityMetrics>();
       for (let i = 0; i < need.length; i += 20) {
         const batch = need.slice(i, i + 20);
         const results = await Promise.all(
-          batch.map(async (id) => {
+          batch.map(async (activity) => {
             try {
-              const m = await getDoc(doc(firestore, "activity_metrics", id));
-              return m.exists() ? { id, data: m.data() as ActivityMetrics } : null;
-            } catch { return null; }
+              const m = await getDoc(doc(firestore, "activity_metrics", activity.id));
+              return m.exists() ? { id: activity.id, data: m.data() as ActivityMetrics } : null;
+            } catch {
+              invalidateDerivedDocumentReadAttempt(metricsReadAttempts, activity.id);
+              return null;
+            }
           }),
         );
         for (const r of results) {
-          if (r) { newMap.set(r.id, r.data); metricsLoadedFor.add(r.id); }
+          if (r) newMap.set(r.id, r.data);
         }
       }
       if (cancelled || newMap.size === 0) return;
@@ -308,7 +326,7 @@ export default function FitnessPage() {
       });
     })();
     return () => { cancelled = true; };
-  }, [user, activities, metricsLoadedFor]);
+  }, [user, activities, metricsReadAttempts]);
 
   // 활성 목표 + 예측 로드
   useEffect(() => {
