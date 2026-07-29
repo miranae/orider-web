@@ -11,6 +11,7 @@ import {
   isDerivedDocumentReadCurrent,
   markDerivedDocumentMissing,
   markDerivedDocumentReadComplete,
+  markDerivedDocumentReadFailed,
   markDerivedDocumentReadAttempt,
   shouldReadDerivedDocument,
   type DerivedDocumentReadAttempts,
@@ -24,6 +25,9 @@ export const DERIVED_DOCUMENT_CREATION_RETRY_MS = 5_000;
 export const DERIVED_DOCUMENT_CREATION_MAX_RETRIES = 1;
 export const DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS = 60_000;
 export const DERIVED_DOCUMENT_MAX_MISSING_READS = 3;
+export const DERIVED_DOCUMENT_MAX_FAILURE_READS = 3;
+
+type StopWatch = (recoverAfterEviction?: boolean) => void;
 
 type RecheckTask = {
   activity: Activity;
@@ -59,8 +63,8 @@ type ReadResources = {
   activeIds: Set<string>;
   streamAttempts: DerivedDocumentReadAttempts;
   metricAttempts: DerivedDocumentReadAttempts;
-  streamWatches: Map<string, () => void>;
-  metricWatches: Map<string, () => void>;
+  streamWatches: Map<string, StopWatch>;
+  metricWatches: Map<string, StopWatch>;
   streamRechecks: RecheckQueue;
   metricRechecks: RecheckQueue;
   streamLimiter: ReadLimiter;
@@ -97,8 +101,8 @@ function createResources(): ReadResources {
   };
 }
 
-function stopWatches(watches: Map<string, () => void>): void {
-  for (const stop of watches.values()) stop();
+function stopWatches(watches: Map<string, StopWatch>): void {
+  for (const stop of watches.values()) stop(false);
   watches.clear();
 }
 
@@ -131,7 +135,7 @@ function pruneResources(resources: ReadResources, activeIds: ReadonlySet<string>
   for (const watches of [resources.streamWatches, resources.metricWatches]) {
     for (const [id, stop] of watches) {
       if (!activeIds.has(id)) {
-        stop();
+        stop(false);
         watches.delete(id);
       }
     }
@@ -294,7 +298,7 @@ export function useActivityDerivedDocuments(
     const activitiesById = new Map(scopedActivities.map((activity) => [activity.id, activity]));
     const reserveWatchSlot = (
       activity: Activity,
-      watches: Map<string, () => void>,
+      watches: Map<string, StopWatch>,
     ) => {
       if (watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND) return true;
       let oldestId: string | null = null;
@@ -313,7 +317,7 @@ export function useActivityDerivedDocuments(
       }
       if (oldestId == null ||
           (oldestActivity != null && compareActivityRecency(activity, oldestActivity) <= 0)) return false;
-      watches.get(oldestId)?.();
+      watches.get(oldestId)?.(true);
       return watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND;
     };
 
@@ -321,7 +325,7 @@ export function useActivityDerivedDocuments(
       activity: Activity,
       reference: DocumentReference,
       attempts: DerivedDocumentReadAttempts,
-      watches: Map<string, () => void>,
+      watches: Map<string, StopWatch>,
       parse: (data: Record<string, unknown>) => T,
       apply: (id: string, value: T) => void,
       kind: "stream" | "metrics",
@@ -401,7 +405,7 @@ export function useActivityDerivedDocuments(
       activity: Activity,
       collectionName: "activity_streams" | "activity_metrics",
       attempts: DerivedDocumentReadAttempts,
-      watches: Map<string, () => void>,
+      watches: Map<string, StopWatch>,
       parse: (data: Record<string, unknown>) => T,
       apply: (id: string, value: T) => void,
       watchIfMissing: boolean,
@@ -457,26 +461,59 @@ export function useActivityDerivedDocuments(
       } catch (error) {
         const wasCurrent = isCurrent(activity, attempts, revision, attemptToken);
         if (wasCurrent) {
-          watches.get(activity.id)?.();
+          watches.get(activity.id)?.(false);
           cancelRecheck(rechecks, activity.id);
         }
-        if (wasCurrent && retryCount < DERIVED_DOCUMENT_CREATION_MAX_RETRIES &&
-            watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND) {
+        if (wasCurrent) {
+          const previous = attempts.get(activity.id);
+          const failureCount = previous?.revision === revision ? previous.failureCount + 1 : 1;
+          const canRecover = failureCount < DERIVED_DOCUMENT_MAX_FAILURE_READS;
+          const recoveryDelay = failureCount === 1
+            ? DERIVED_DOCUMENT_CREATION_RETRY_MS
+            : DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 2 ** (failureCount - 2);
+          const nextEligibleAt = canRecover
+            ? Date.now() + recoveryDelay
+            : Number.POSITIVE_INFINITY;
+          const failedAttempt = markDerivedDocumentReadFailed(attempts, activity, nextEligibleAt);
+          const scheduleFailureRecheck = () => {
+            if (!canRecover || !isCurrent(activity, attempts, revision, failedAttempt.token)) return;
+            scheduleRecheck(rechecks, {
+              activity,
+              nextEligibleAt,
+              run: async () => {
+                if (!isGenerationCurrent(activity) ||
+                    !isCurrent(activity, attempts, revision, failedAttempt.token) ||
+                    !shouldReadDerivedDocument(attempts, activity)) return;
+                const retryAttempt = markDerivedDocumentReadAttempt(attempts, activity);
+                await loadOne(
+                  activity, collectionName, attempts, watches, parse, apply,
+                  watchIfMissing, kind, retryCount + 1, retryAttempt.token,
+                );
+              },
+            });
+          };
+          if (canRecover && failureCount === 1 &&
+              watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND) {
           let retryTimer: ReturnType<typeof setTimeout> | null = null;
-          const cancelRetry = () => {
+          const cancelRetry: StopWatch = (recoverAfterEviction = false) => {
             if (retryTimer != null) clearTimeout(retryTimer);
             if (watches.get(activity.id) === cancelRetry) watches.delete(activity.id);
+            if (recoverAfterEviction) scheduleFailureRecheck();
           };
           retryTimer = setTimeout(() => {
-            cancelRetry();
-            if (!isCurrent(activity, attempts, revision, attemptToken)) return;
+            cancelRetry(false);
+            if (!isCurrent(activity, attempts, revision, failedAttempt.token) ||
+                !shouldReadDerivedDocument(attempts, activity)) return;
             const retryAttempt = markDerivedDocumentReadAttempt(attempts, activity);
             void loadOne(
               activity, collectionName, attempts, watches, parse, apply,
               watchIfMissing, kind, retryCount + 1, retryAttempt.token,
             );
-          }, DERIVED_DOCUMENT_CREATION_RETRY_MS);
+          }, recoveryDelay);
           watches.set(activity.id, cancelRetry);
+          } else {
+            scheduleFailureRecheck();
+          }
         }
         logClientError("useActivityDerivedDocuments.initialRead.error", error, {
           kind,

@@ -4,6 +4,7 @@ import {
   invalidateDerivedDocumentReadAttempt,
   markDerivedDocumentMissing,
   markDerivedDocumentReadComplete,
+  markDerivedDocumentReadFailed,
   markDerivedDocumentReadAttempt,
   shouldReadDerivedDocument,
 } from "./derivedDocumentReadAttempts";
@@ -41,6 +42,16 @@ describe("derivedDocumentReadAttempts", () => {
 
     expect(shouldReadDerivedDocument(attempts, current, 1_999)).toBe(false);
     expect(shouldReadDerivedDocument(attempts, current, 2_000)).toBe(true);
+  });
+
+  it("makes a failed read eligible only after its bounded recovery time", () => {
+    const attempts = new Map();
+    const current = activity();
+    markDerivedDocumentReadAttempt(attempts, current);
+    markDerivedDocumentReadFailed(attempts, current, 5_000);
+
+    expect(shouldReadDerivedDocument(attempts, current, 4_999)).toBe(false);
+    expect(shouldReadDerivedDocument(attempts, current, 5_000)).toBe(true);
   });
 
   it("allows a later backend document after the activity lifecycle changes", () => {

@@ -233,6 +233,34 @@ describe("useActivityDerivedDocuments", () => {
     vi.useRealTimers();
   });
 
+  it("discards a failed retry timer on account cleanup without scheduling a requery", async () => {
+    vi.useFakeTimers();
+    let oldReads = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      if (path === "activity_metrics/failed-cleanup") {
+        oldReads += 1;
+        return Promise.reject(new Error("temporary failure"));
+      }
+      return Promise.resolve({ exists: () => false, data: () => null, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(
+      ({ uid, activities }) => useActivityDerivedDocuments(uid, activities),
+      { initialProps: { uid: "user-a", activities: [activity("failed-cleanup", "user-a", null)] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(oldReads).toBe(1);
+
+    hook.rerender({ uid: "user-b", activities: [] });
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(oldReads).toBe(1);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
   it("rejects an old in-flight result after range removal and same-revision re-add", async () => {
     const pending: Array<(snapshot: unknown) => void> = [];
     vi.mocked(getDoc).mockImplementation(() => new Promise((resolve) => {
@@ -567,6 +595,124 @@ describe("useActivityDerivedDocuments", () => {
 
     hook.unmount();
     logSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("recovers the same revision after both the initial read and retry fail", async () => {
+    vi.useFakeTimers();
+    let requestCount = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      requestCount += 1;
+      if (requestCount <= 2) return Promise.reject(new Error(`temporary failure ${requestCount}`));
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ tss: 69 }),
+        ref: reference,
+      }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("double-failure", "user-a", null)],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(requestCount).toBe(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(requestCount).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS - 1));
+    expect(requestCount).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(requestCount).toBe(3);
+    expect(hook.result.current.metricsMap.get("double-failure")).toEqual({ tss: 69 });
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(requestCount).toBe(3);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("recovers after repeated initial stream parse failures without an immediate loop", async () => {
+    vi.useFakeTimers();
+    let streamReads = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      if (path.startsWith("activity_metrics/")) {
+        return Promise.resolve({ exists: () => true, data: () => ({ tss: 10 }), ref: reference }) as ReturnType<typeof getDoc>;
+      }
+      streamReads += 1;
+      const data = streamReads <= 2 ? { json: "{broken" } : { watts: [201, 208] };
+      return Promise.resolve({ exists: () => true, data: () => data, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("parse-recovery", "user-a")],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(streamReads).toBe(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(streamReads).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
+    expect(streamReads).toBe(3);
+    expect(hook.result.current.streamsMap.get("parse-recovery")).toEqual({ watts: [201, 208] });
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("keeps an evicted old retry timer eligible when a newer activity takes the capped slot", async () => {
+    vi.useFakeTimers();
+    const oldId = "old-failed";
+    const readsByPath = new Map<string, number>();
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      const reads = (readsByPath.get(path) ?? 0) + 1;
+      readsByPath.set(path, reads);
+      if (path === `activity_metrics/${oldId}` && reads === 1) {
+        return Promise.reject(new Error("old initial failure"));
+      }
+      const data = path === `activity_metrics/${oldId}` ? { tss: 77 } : null;
+      return Promise.resolve({ exists: () => data !== null, data: () => data, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const initialActivities = [
+      { ...activity(oldId, "user-a", null), startTime: 0 },
+      ...Array.from(
+        { length: DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND - 1 },
+        (_, index) => ({ ...activity(`watched-${index}`, "user-a", null), startTime: index + 1 }),
+      ),
+    ];
+    const hook = renderHook(
+      ({ activities }) => useActivityDerivedDocuments("user-a", activities),
+      { initialProps: { activities: initialActivities } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(readsByPath.get(`activity_metrics/${oldId}`)).toBe(1);
+
+    const newest = { ...activity("newest-missing", "user-a", null), startTime: 100 };
+    hook.rerender({ activities: [...initialActivities, newest] });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const metricWatchPaths = vi.mocked(onSnapshot).mock.calls
+      .map(([reference]) => (reference as { path: string }).path)
+      .filter((path) => path.startsWith("activity_metrics/"));
+    expect(metricWatchPaths).toHaveLength(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(readsByPath.get(`activity_metrics/${oldId}`)).toBe(2);
+    expect(hook.result.current.metricsMap.get(oldId)).toEqual({ tss: 77 });
+    expect(metricWatchPaths).toHaveLength(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND);
+    hook.unmount();
     vi.useRealTimers();
   });
 
