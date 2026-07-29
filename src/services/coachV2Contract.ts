@@ -484,7 +484,9 @@ function parseBlock(value: unknown, index: number, evidenceById: Map<string, Coa
   return validEvidence && relationEvidence && markdownEvidence && goalEvidence ? block : { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
 }
 
-function parseAnswer(value: unknown, allowProviderAgentAnswer: boolean): CoachAnswerDocument {
+type UnboundMarkdownMode = "none" | "provider" | "deterministic_general_guidance";
+
+function parseAnswer(value: unknown, unboundMarkdownMode: UnboundMarkdownMode): CoachAnswerDocument {
   const raw = answerRaw.parse(value);
   const compatibleVersion = COACH_ANSWER_SCHEMA_VERSIONS.some((schemaVersion, index) =>
     raw.schemaVersion === schemaVersion && raw.catalogVersion === COACH_ANSWER_CATALOG_VERSIONS[index]);
@@ -495,10 +497,12 @@ function parseAnswer(value: unknown, allowProviderAgentAnswer: boolean): CoachAn
   }
   const evidenceById = new Map(raw.evidence.map((item) => [item.evidenceId, item]));
   if (evidenceById.size !== raw.evidence.length) throw new Error("INVALID_COACH_V2_RESPONSE");
-  const allowUnboundMarkdown = allowProviderAgentAnswer
+  const allowUnboundMarkdown = unboundMarkdownMode !== "none"
     && raw.schemaVersion === "coach-answer-document-v2"
     && raw.catalogVersion === "coach-answer-block-catalog-v2"
-    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(raw.questionSummary)
+    && (unboundMarkdownMode === "provider"
+      ? ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(raw.questionSummary)
+      : raw.questionSummary === "coach.answer.summary.general_guidance")
     && raw.evidence.length === 0;
   return { compatibility: "supported", answerId: raw.answerId, sourceFactsId: raw.sourceFactsId,
     questionSummary: raw.questionSummary, status: raw.status, blocks: raw.blocks.map((block, index) =>
@@ -515,12 +519,40 @@ function isUnboundAgentAnswer(answer: CoachAnswerDocument | undefined): boolean 
     && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
 }
 
+const serverOwnedId = (value: string, prefix: "answer" | "facts" | "general"): boolean =>
+  new RegExp(`^${prefix}_[0-9a-f]{24}$`, "u").test(value);
+const deterministicGeneralGuidanceMarkdown = new Set([
+  "## 기록 기반 답변 제한\n\n현재 안전 설정에서는 개인 훈련 기록을 사용한 답변을 제공할 수 없습니다.\n\n### 다음 단계\n\n일반적인 훈련 원칙을 질문하거나 나중에 다시 시도해 주세요.",
+  "## Training data answer unavailable\n\nThe current safety setting does not allow an answer using private training data.\n\n### Next step\n\nAsk for general training guidance or try again later.",
+]);
+
+function isServerOwnedGeneralGuidanceAnswer(answer: CoachAnswerDocument | undefined, execution: {
+  queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string;
+}): boolean {
+  if (!answer || answer.compatibility !== "supported"
+      || answer.questionSummary !== "coach.answer.summary.general_guidance"
+      || answer.status !== "complete" || answer.evidence.length !== 0 || answer.warnings.length !== 0
+      || answer.freshness.staleSourceSlotIds.length !== 0 || answer.followUps.length !== 0
+      || !serverOwnedId(answer.answerId, "answer") || !serverOwnedId(answer.sourceFactsId, "facts")
+      || execution.factsId !== answer.sourceFactsId || execution.catalogVersion !== "coach-query-catalog-v1"
+      || typeof execution.queryPlanHash !== "string" || !serverOwnedId(execution.queryPlanHash, "general")
+      || execution.asOf !== answer.freshness.asOf
+      || answer.blocks.length !== 1) return false;
+  const block = answer.blocks[0];
+  return block?.kind === "grounded_markdown" && block.blockId === "block_general_guidance"
+    && deterministicGeneralGuidanceMarkdown.has(block.markdown)
+    && block.evidenceIds.length === 0 && block.sourceSlotIds.length === 0
+    && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
+}
+
 export function parseCoachV2Response(input: unknown): CoachV2Response {
   const wrapper = z.object({ data: z.unknown() }).passthrough().parse(input);
   const raw = envelopeRaw.parse(wrapper.data);
-  const allowProviderAgentAnswer = raw.execution.parser === "provider"
-    && (raw.budget.providerCalls === 1 || raw.budget.providerCalls === 2);
-  const answer = raw.answer === undefined ? undefined : parseAnswer(raw.answer, allowProviderAgentAnswer);
+  const unboundMarkdownMode: UnboundMarkdownMode = raw.execution.parser === "deterministic" && raw.budget.providerCalls === 0
+    ? "deterministic_general_guidance"
+    : raw.execution.parser === "provider" && (raw.budget.providerCalls === 1 || raw.budget.providerCalls === 2)
+      ? "provider" : "none";
+  const answer = raw.answer === undefined ? undefined : parseAnswer(raw.answer, unboundMarkdownMode);
   const has = (name: "answer" | "clarification" | "unsupported" | "error") => raw[name] !== undefined;
   const validOutcome = raw.outcome === "answer" ? has("answer") && !has("clarification") && !has("unsupported") && !has("error")
     : raw.outcome === "clarification_required" ? has("clarification") && !has("answer") && !has("unsupported") && !has("error")
@@ -530,14 +562,18 @@ export function parseCoachV2Response(input: unknown): CoachV2Response {
     && typeof raw.execution.catalogVersion === "string" && typeof raw.execution.factsId === "string";
   const hasAnyProvenance = [raw.execution.queryPlanHash, raw.execution.catalogVersion, raw.execution.factsId]
     .some((value) => typeof value === "string");
-  const declaresUnboundAgentAnswer = answer?.compatibility === "supported"
-    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary)
-    && answer.evidence.length === 0;
+  const declaresReservedAgentSummary = answer?.compatibility === "supported"
+    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary);
+  const deterministicGeneralGuidanceBinding = isServerOwnedGeneralGuidanceAnswer(answer, raw.execution)
+    && !raw.budget.blocked && !raw.quota.consumed && raw.retry.mode === "same_request_replay"
+    && !raw.retry.previousTurnConsumed && !raw.retry.providerCallAllowed && !raw.retry.retryable
+    && raw.retry.reasonCode === "answer_too_short_no_charge";
   const providerBinding = raw.outcome !== "answer"
     ? raw.execution.parser !== "deterministic" || raw.budget.providerCalls === 0
-    : raw.execution.parser === "deterministic" ? raw.budget.providerCalls === 0 && !declaresUnboundAgentAnswer
-      : raw.execution.parser === "report_provider" ? raw.budget.providerCalls === 1 && !declaresUnboundAgentAnswer
-        : (raw.budget.providerCalls === 1 && (!declaresUnboundAgentAnswer || isUnboundAgentAnswer(answer)))
+    : raw.execution.parser === "deterministic" ? raw.budget.providerCalls === 0
+      && (!declaresReservedAgentSummary || deterministicGeneralGuidanceBinding)
+      : raw.execution.parser === "report_provider" ? raw.budget.providerCalls === 1 && !declaresReservedAgentSummary
+        : (raw.budget.providerCalls === 1 && (!declaresReservedAgentSummary || isUnboundAgentAnswer(answer)))
           || (raw.budget.providerCalls === 2 && isUnboundAgentAnswer(answer));
   if (!validOutcome || raw.quota.consumed !== raw.retry.previousTurnConsumed
       || (raw.retry.mode === "new_request_required") !== (raw.retry.quotaImpact === "one_new_turn")

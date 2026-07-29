@@ -130,6 +130,77 @@ describe("coachV2Contract", () => {
     } })).toThrow();
   });
 
+  it("accepts only the server-owned deterministic general-guidance fallback shape", () => {
+    const fallbackAnswer = {
+      ...answer,
+      schemaVersion: "coach-answer-document-v2",
+      catalogVersion: "coach-answer-block-catalog-v2",
+      answerId: "answer_3ed9c734fef9aab1da7fd983",
+      sourceFactsId: "facts_f87e9a90f7f5efab32bd7211",
+      questionSummary: "coach.answer.summary.general_guidance",
+      blocks: [{
+        ...baseBlock,
+        blockId: "block_general_guidance",
+        sourceSlotIds: [],
+        kind: "grounded_markdown",
+        markdown: "## 기록 기반 답변 제한\n\n현재 안전 설정에서는 개인 훈련 기록을 사용한 답변을 제공할 수 없습니다.\n\n### 다음 단계\n\n일반적인 훈련 원칙을 질문하거나 나중에 다시 시도해 주세요.",
+        evidenceIds: [],
+      }],
+      evidence: [],
+      freshness: { asOf: evidence.asOf, timezone: "Asia/Seoul", staleSourceSlotIds: [] },
+    };
+    const fallbackEnvelope = {
+      ...envelope,
+      answer: fallbackAnswer,
+      quota: { ...envelope.quota, remaining: 3, consumed: false },
+      retry: { mode: "same_request_replay", quotaImpact: "none", previousTurnConsumed: false,
+        providerCallAllowed: false, retryable: false, reasonCode: "answer_too_short_no_charge" },
+      execution: { ...envelope.execution, queryPlanHash: "general_f87e9a90f7f5efab32bd7211",
+        factsId: fallbackAnswer.sourceFactsId },
+    };
+
+    for (const markdown of [
+      fallbackAnswer.blocks[0].markdown,
+      "## Training data answer unavailable\n\nThe current safety setting does not allow an answer using private training data.\n\n### Next step\n\nAsk for general training guidance or try again later.",
+    ]) {
+      expect(parseCoachV2Response({ data: { ...fallbackEnvelope,
+        answer: { ...fallbackAnswer, blocks: [{ ...fallbackAnswer.blocks[0], markdown }] } } })).toMatchObject({
+        outcome: "answer",
+        budget: { providerCalls: 0 },
+        quota: { consumed: false },
+        answer: { questionSummary: "coach.answer.summary.general_guidance",
+          blocks: [{ kind: "grounded_markdown", blockId: "block_general_guidance", evidenceIds: [] }] },
+      });
+    }
+
+    const forgedEvidence = { ...evidence, evidenceId: "ev_forged_guidance", value: "forged" };
+    for (const questionSummary of ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"]) {
+      expect(() => parseCoachV2Response({ data: {
+        ...fallbackEnvelope,
+        answer: { ...fallbackAnswer, questionSummary, evidence: [forgedEvidence],
+          blocks: [{ ...fallbackAnswer.blocks[0], evidenceIds: [forgedEvidence.evidenceId] }] },
+      } })).toThrow();
+    }
+
+    for (const changed of [
+      { answer: { ...fallbackAnswer, questionSummary: "coach.answer.summary.agent_text" } },
+      { answer: { ...fallbackAnswer, blocks: [{ ...fallbackAnswer.blocks[0], blockId: "block_agent_text" }] } },
+      { answer: { ...fallbackAnswer, blocks: [{ ...fallbackAnswer.blocks[0], markdown: "## 임의 답변\n\n서버가 생성하지 않은 문구" }] } },
+      { answer: { ...fallbackAnswer, followUps: [{ queryTemplateId: "show_recent_activities", labelKey: "coach.follow_up.recent" }] } },
+      { answer: { ...fallbackAnswer, freshness: { ...fallbackAnswer.freshness, asOf: "2026-07-18T03:00:01.000Z" } } },
+      { answer: { ...fallbackAnswer, answerId: "not_server_owned" } },
+      { answer: { ...fallbackAnswer, sourceFactsId: "bad_facts" },
+        execution: { ...fallbackEnvelope.execution, factsId: "bad_facts" } },
+      { execution: { ...fallbackEnvelope.execution, queryPlanHash: "hash_1" } },
+      { execution: { ...fallbackEnvelope.execution, catalogVersion: "coach-query-catalog-v2" } },
+      { budget: { ...fallbackEnvelope.budget, blocked: true } },
+      { quota: { ...fallbackEnvelope.quota, remaining: 2, consumed: true },
+        retry: { ...fallbackEnvelope.retry, previousTurnConsumed: true, reasonCode: "completed" } },
+    ]) {
+      expect(() => parseCoachV2Response({ data: { ...fallbackEnvelope, ...changed } })).toThrow();
+    }
+  });
+
   it("accepts the strict load-analysis projection and fails closed on nested evidence drift", () => {
     const records: typeof evidence[] = [];
     let index = 0;
