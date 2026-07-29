@@ -1,6 +1,6 @@
 // 고급 활동 분석 메트릭 (intervals.icu 스타일)
 import { calculateNP } from "./powerMetrics";
-import { sampleDurationsSec, weightedMean } from "./sampleTime";
+import { sampleDurationsSec, weightedMean, type SampleTiming } from "./sampleTime";
 import type { StreamTimeArray } from "./streamTime";
 
 /** 평균/최대값 + 유효 샘플 수 (0 제외 옵션) */
@@ -20,9 +20,34 @@ export function avgMax(arr: number[] | undefined, opts?: { ignoreZero?: boolean 
   return { avg: sum / n, max, count: n };
 }
 
+/** Time-weighted average plus the unchanged unweighted maximum. */
+export function weightedAvgMax(
+  arr: number[] | undefined,
+  timing?: SampleTiming,
+  opts?: { ignoreZero?: boolean },
+): { avg: number | null; max: number | null; count: number } {
+  if (!arr?.length) return { avg: null, max: null, count: 0 };
+  const durations = sampleDurationsSec(arr.length, undefined, timing);
+  const values: number[] = [];
+  const measuredDurations: number[] = [];
+  let max = -Infinity;
+  for (let index = 0; index < arr.length; index++) {
+    const value = arr[index]!;
+    if (!Number.isFinite(value) || (opts?.ignoreZero && value === 0)) continue;
+    values.push(value);
+    measuredDurations.push(durations[index] ?? 0);
+    max = Math.max(max, value);
+  }
+  return {
+    avg: weightedMean(values, measuredDurations),
+    max: values.length > 0 ? max : null,
+    count: values.length,
+  };
+}
+
 /** 총 일 (kJ) — Σwatts × dt / 1000 */
-export function calculateWorkKj(watts: number[], time?: StreamTimeArray): number {
-  const durations = sampleDurationsSec(watts.length, time);
+export function calculateWorkKj(watts: number[], time?: StreamTimeArray, timing?: SampleTiming): number {
+  const durations = sampleDurationsSec(watts.length, time, timing);
   let sum = 0;
   for (let i = 0; i < watts.length; i++) {
     const w = watts[i]!;
@@ -33,28 +58,86 @@ export function calculateWorkKj(watts: number[], time?: StreamTimeArray): number
 }
 
 /** Efficiency Factor — NP / avgHR. 같은 사람의 추세 비교용 (높을수록 효율 ↑) */
-export function calculateEF(watts: number[], heartrate: number[]): number | null {
-  const np = calculateNP(watts);
+export function calculateEF(watts: number[], heartrate: number[], timing?: SampleTiming): number | null {
+  const np = calculateNP(watts, undefined, timing);
   if (np === null) return null;
-  const { avg } = avgMax(heartrate, { ignoreZero: true });
+  const { avg } = weightedAvgMax(heartrate, timing, { ignoreZero: true });
   if (!avg || avg <= 0) return null;
   return np / avg;
+}
+
+interface TimedSeriesHalf {
+  watts: number[];
+  heartrate: number[];
+  timing: { durationsSec: number[]; segmentStarts: boolean[] };
+}
+
+function splitSeriesAtDurationMidpoint(
+  watts: number[],
+  heartrate: number[],
+  durationsSec: number[],
+  segmentStarts: readonly boolean[] | undefined,
+  midpointSec: number,
+): [TimedSeriesHalf, TimedSeriesHalf] {
+  const first: TimedSeriesHalf = {
+    watts: [], heartrate: [], timing: { durationsSec: [], segmentStarts: [] },
+  };
+  const second: TimedSeriesHalf = {
+    watts: [], heartrate: [], timing: { durationsSec: [], segmentStarts: [] },
+  };
+  let elapsedSec = 0;
+  const append = (
+    half: TimedSeriesHalf,
+    index: number,
+    durationSec: number,
+    startsSegment: boolean,
+  ) => {
+    half.watts.push(watts[index]!);
+    half.heartrate.push(heartrate[index]!);
+    half.timing.durationsSec.push(durationSec);
+    half.timing.segmentStarts.push(startsSegment);
+  };
+
+  for (let index = 0; index < durationsSec.length; index++) {
+    const durationSec = durationsSec[index]!;
+    if (!Number.isFinite(durationSec) || durationSec <= 0) continue;
+    const firstDurationSec = Math.max(0, Math.min(durationSec, midpointSec - elapsedSec));
+    const secondDurationSec = durationSec - firstDurationSec;
+    const sourceSegmentStart = segmentStarts?.[index] === true;
+    if (firstDurationSec > 0) {
+      append(first, index, firstDurationSec, sourceSegmentStart || first.watts.length === 0);
+    }
+    if (secondDurationSec > 0) {
+      append(
+        second,
+        index,
+        secondDurationSec,
+        second.watts.length === 0 || (firstDurationSec === 0 && sourceSegmentStart),
+      );
+    }
+    elapsedSec += durationSec;
+  }
+  return [first, second];
 }
 
 /**
  * Aerobic Decoupling (Pw:Hr) — 전반/후반 EF 변화율(%).
  * <5%: 우수한 유산소 내구성, >5%: 카디악 드리프트 발생.
  */
-export function calculateDecoupling(watts: number[], heartrate: number[]): number | null {
+export function calculateDecoupling(watts: number[], heartrate: number[], timing?: SampleTiming): number | null {
   const n = Math.min(watts.length, heartrate.length);
-  if (n < 600) return null; // 최소 10분
-  const half = Math.floor(n / 2);
-  const w1 = watts.slice(0, half);
-  const w2 = watts.slice(half, n);
-  const h1 = heartrate.slice(0, half);
-  const h2 = heartrate.slice(half, n);
-  const ef1 = calculateEF(w1, h1);
-  const ef2 = calculateEF(w2, h2);
+  const durationsSec = sampleDurationsSec(n, undefined, timing);
+  const totalDurationSec = durationsSec.reduce((sum, duration) => sum + duration, 0);
+  if (totalDurationSec < 600) return null; // 최소 10분
+  const [first, second] = splitSeriesAtDurationMidpoint(
+    watts,
+    heartrate,
+    durationsSec,
+    timing?.segmentStarts,
+    totalDurationSec / 2,
+  );
+  const ef1 = calculateEF(first.watts, first.heartrate, first.timing);
+  const ef2 = calculateEF(second.watts, second.heartrate, second.timing);
   if (ef1 == null || ef2 == null || ef1 === 0) return null;
   return ((ef1 - ef2) / ef1) * 100;
 }
@@ -82,11 +165,12 @@ export function calculateTRIMP(
   restHr = 60,
   gender: "male" | "female" = "male",
   time?: StreamTimeArray,
+  timing?: SampleTiming,
 ): number | null {
   if (!heartrate.length || maxHr <= restHr) return null;
   const k = gender === "female" ? 1.67 : 1.92;
   const c = gender === "female" ? 0.86 : 0.64;
-  const durations = sampleDurationsSec(heartrate.length, time);
+  const durations = sampleDurationsSec(heartrate.length, time, timing);
   let sum = 0;
   for (let i = 0; i < heartrate.length; i++) {
     const hr = heartrate[i]!;
@@ -160,7 +244,7 @@ export interface CriticalBand {
   seconds: number;
   color: string;
 }
-export function calculateCriticalBands(watts: number[], ftp: number, time?: StreamTimeArray): CriticalBand[] {
+export function calculateCriticalBands(watts: number[], ftp: number, time?: StreamTimeArray, timing?: SampleTiming): CriticalBand[] {
   const bands = [
     { label: "Sweet Spot", lo: 0.83, hi: 0.95, color: "var(--zone-3)" },
     { label: "Threshold", lo: 0.95, hi: 1.06, color: "var(--zone-4)" },
@@ -168,7 +252,7 @@ export function calculateCriticalBands(watts: number[], ftp: number, time?: Stre
     { label: "Anaerobic", lo: 1.20, hi: Infinity, color: "var(--zone-5)" },
   ];
   const counts = bands.map(() => 0);
-  const durations = sampleDurationsSec(watts.length, time);
+  const durations = sampleDurationsSec(watts.length, time, timing);
   for (let sampleIdx = 0; sampleIdx < watts.length; sampleIdx++) {
     const w = watts[sampleIdx]!;
     const dt = durations[sampleIdx] ?? 0;
@@ -243,8 +327,8 @@ const MAX_REALISTIC_MPS = 33;
  * Skiba xPower — 25초 지수가중 평균 후 4승 평균의 4제곱근.
  * 가변 강도 활동(MTB, 산악, 인터벌)에서 NP 대안.
  */
-export function calculateXPower(watts: number[], time?: StreamTimeArray): number | null {
-  const durations = sampleDurationsSec(watts.length, time);
+export function calculateXPower(watts: number[], time?: StreamTimeArray, timing?: SampleTiming): number | null {
+  const durations = sampleDurationsSec(watts.length, time, timing);
   const totalDuration = durations.reduce((sum, dt) => sum + dt, 0);
   if (totalDuration < 25) return null;
   const tau = 25;
@@ -252,6 +336,11 @@ export function calculateXPower(watts: number[], time?: StreamTimeArray): number
   let prev = watts[0]!;
   ewma.push(prev);
   for (let i = 1; i < watts.length; i++) {
+    if (timing?.segmentStarts?.[i]) {
+      prev = watts[i]!;
+      ewma.push(prev);
+      continue;
+    }
     const dt = durations[i] ?? 1;
     const alpha = 1 - Math.exp(-dt / tau);
     prev = prev + alpha * ((watts[i] ?? 0) - prev);
@@ -270,8 +359,14 @@ export interface MatchStats {
   longestSeconds: number;
   longestAvgPower: number | null;
 }
-export function analyzeMatches(watts: number[], ftp: number, minSeconds = 30, time?: StreamTimeArray): MatchStats {
-  const durations = sampleDurationsSec(watts.length, time);
+export function analyzeMatches(
+  watts: number[],
+  ftp: number,
+  minSeconds = 30,
+  time?: StreamTimeArray,
+  timing?: SampleTiming,
+): MatchStats {
+  const durations = sampleDurationsSec(watts.length, time, timing);
   let count = 0;
   let totalS = 0;
   let cumPowerSum = 0;
@@ -285,7 +380,7 @@ export function analyzeMatches(watts: number[], ftp: number, minSeconds = 30, ti
       let j = i;
       let sum = 0;
       let dur = 0;
-      while (j < watts.length && (watts[j] ?? 0) > ftp) {
+      while (j < watts.length && (watts[j] ?? 0) > ftp && (j === i || !timing?.segmentStarts?.[j])) {
         const dt = durations[j] ?? 0;
         sum += (watts[j] ?? 0) * dt;
         dur += dt;

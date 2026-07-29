@@ -9,21 +9,22 @@ interface SearchResults {
 }
 
 export function useGlobalSearch(query: string): { results: SearchResults; loading: boolean } {
-  const { activities, loading: activitiesLoading } = useActivities();
-  const { courses, loading: coursesLoading } = useCourses();
+  const normalizedQuery = query.trim().toLowerCase();
+  const enabled = normalizedQuery.length > 0;
+  const { activities, loading: activitiesLoading } = useActivities("all", [], { enabled });
+  const { courses, loading: coursesLoading } = useCourses({ enabled });
 
   const results = useMemo(() => {
-    if (!query.trim()) return { activities: [], courses: [] };
-    const q = query.toLowerCase();
+    if (!enabled) return { activities: [], courses: [] };
     return {
       activities: activities
-        .filter(a => (a.description || "").toLowerCase().includes(q) || (a.nickname || "").toLowerCase().includes(q))
+        .filter(a => (a.description || "").toLowerCase().includes(normalizedQuery) || (a.nickname || "").toLowerCase().includes(normalizedQuery))
         .slice(0, 3),
       courses: courses
-        .filter(c => c.name.toLowerCase().includes(q) || (c.regions?.join(" ") || "").toLowerCase().includes(q))
+        .filter(c => c.name.toLowerCase().includes(normalizedQuery) || (c.regions?.join(" ") || "").toLowerCase().includes(normalizedQuery))
         .slice(0, 3),
     };
-  }, [query, activities, courses]);
+  }, [enabled, normalizedQuery, activities, courses]);
 
-  return { results, loading: activitiesLoading || coursesLoading };
+  return { results, loading: enabled && (activitiesLoading || coursesLoading) };
 }

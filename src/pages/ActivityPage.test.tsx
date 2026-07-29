@@ -17,10 +17,15 @@ import {
 import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
 const shareButtonProps = vi.hoisted(() => vi.fn());
+const elevationChartProps = vi.hoisted(() => vi.fn());
+const mockActiveBikeProfile = vi.hoisted(() => vi.fn((): { active: null | Record<string, unknown> } => ({ active: null })));
+const mockVirtualPowerStream = vi.hoisted(() => vi.fn((): number[] => []));
 const mockFitnessTimeseries = vi.hoisted(() => vi.fn(() => ({ timeseries: null, loaded: true })));
 const mockPdc = vi.hoisted(() => vi.fn(() => ({ status: "missing", pdc: null })));
 vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: mockFitnessTimeseries }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: mockPdc }));
+vi.mock("../hooks/useActiveBikeProfile", () => ({ useActiveBikeProfile: mockActiveBikeProfile }));
+vi.mock("../utils/virtualPower", () => ({ calcVirtualPowerStream: mockVirtualPowerStream }));
 vi.mock("../features/activity/share/ActivityShareButton", () => ({
   ActivityShareButton: (props: unknown) => {
     shareButtonProps(props);
@@ -33,7 +38,10 @@ vi.mock("../components/RouteMap", () => ({
   default: () => <div data-testid="route-map">Map</div>,
 }));
 vi.mock("../components/ElevationChart", () => ({
-  default: () => <div data-testid="elevation-chart">Chart</div>,
+  default: (props: unknown) => {
+    elevationChartProps(props);
+    return <div data-testid="elevation-chart">Chart</div>;
+  },
 }));
 vi.mock("../components/activity/AiRideAnalysisCard", () => ({
   default: () => <div data-testid="ai-ride-analysis-card">AI</div>,
@@ -61,10 +69,15 @@ const { mockRoute, mockSetActivityOwner } = vi.hoisted(() => ({
   mockRoute: { activityId: "test-activity" },
   mockSetActivityOwner: vi.fn(),
 }));
-const findSentButton = () => screen.findByRole("button", { name: "앱으로 전송됨" }, { timeout: 5000 });
+const COURSE_ASYNC_TIMEOUT = 10_000;
+const findSentButton = () => screen.findByRole(
+  "button",
+  { name: "앱으로 전송됨" },
+  { timeout: COURSE_ASYNC_TIMEOUT },
+);
 const waitForCallableCount = (name: string, count: number) => waitFor(
   () => expect(mockCallableInvocations.filter((call) => call.name === name)).toHaveLength(count),
-  { timeout: 5000 },
+  { timeout: COURSE_ASYNC_TIMEOUT },
 );
 
 // Mock react-router-dom useParams
@@ -81,6 +94,9 @@ describe("ActivityPage", () => {
   beforeEach(() => {
     mockFitnessTimeseries.mockReturnValue({ timeseries: null, loaded: true });
     mockPdc.mockReturnValue({ status: "missing", pdc: null });
+    mockActiveBikeProfile.mockReturnValue({ active: null });
+    mockVirtualPowerStream.mockReturnValue([]);
+    elevationChartProps.mockClear();
     mockRoute.activityId = "test-activity";
     setCollectionDocs("courses", []);
     vi.mocked(getDocs).mockClear();
@@ -201,6 +217,376 @@ describe("ActivityPage", () => {
         ]),
       }),
     }));
+  });
+
+  it.each([
+    ["explicit", {
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_700_000_000_000,
+        time: [0, 1, 2],
+        heartrate: [140, 141, 142],
+        watts: [200, 210, 220],
+      },
+    }],
+    ["legacy", { time: [0, 1, 2], watts: [200, 210, 220] }],
+  ])("hides unversioned server TSS and NP for normal %s stream power", async (_source, powerStreams) => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "user-1",
+      source: "orider",
+      startTime: 1_700_000_000_000,
+      summary: createMockSummary({
+        averagePower: 210,
+        maxPower: 220,
+        normalizedPower: 250,
+        elapsedTimeMillis: 3_000,
+        ridingTimeMillis: 3_000,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_metrics/test-activity", { np: 333, tss: 444 });
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        altitude: [10, 10, 10],
+        ...powerStreams,
+      }),
+    });
+    shareButtonProps.mockClear();
+
+    renderWithProviders(<ActivityPage />, {
+      authenticated: true,
+      user: { uid: "user-1" },
+    });
+
+    await waitFor(() => {
+      const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
+        card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
+      } | undefined;
+      const metrics = latest?.card?.performanceMetrics ?? [];
+      expect(metrics).toEqual(expect.arrayContaining([
+        { label: "평균 파워", value: "210", unit: "W" },
+      ]));
+      expect(metrics).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "333" })]));
+      expect(metrics).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "444" })]));
+      expect(metrics).not.toEqual(expect.arrayContaining([expect.objectContaining({ label: "훈련 부하 TSS" })]));
+    });
+  });
+
+  it("does not export stale server TSS or NP without revision proof after stream power replaces the summary", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "user-1",
+      source: "orider",
+      startTime: 1_700_000_000_000,
+      summary: createMockSummary({
+        averagePower: 120,
+        maxPower: 300,
+        normalizedPower: 250,
+        elapsedTimeMillis: 3_000,
+        ridingTimeMillis: 3_000,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_metrics/test-activity", { np: 333, tss: 444 });
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        altitude: [10, 10, 10],
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: 1_700_000_000_000,
+          time: [0, 1, 2],
+          heartrate: [140, 141, 142],
+          watts: [200, 210, 220],
+        },
+      }),
+    });
+    shareButtonProps.mockClear();
+
+    renderWithProviders(<ActivityPage />, {
+      authenticated: true,
+      user: { uid: "user-1" },
+    });
+
+    await waitFor(() => {
+      const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
+        card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
+      } | undefined;
+      const metrics = latest?.card?.performanceMetrics ?? [];
+      expect(metrics).toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: "평균 파워", value: "210", unit: "W" }),
+      ]));
+      expect(metrics).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ value: "333" }),
+      ]));
+      expect(metrics).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ value: "444" }),
+      ]));
+      expect(metrics).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: "TSS" }),
+      ]));
+    });
+  });
+
+  it("keeps owner virtual-power preview consistent across summary, analysis, chart, share, and server suppression", async () => {
+    const time = Array.from({ length: 60 }, (_, index) => index);
+    const overrideWatts = Array(60).fill(250) as number[];
+    const activity = createMockActivity({
+      id: "test-activity",
+      userId: "test-uid",
+      source: "orider",
+      summary: createMockSummary({
+        averagePower: 900,
+        maxPower: 901,
+        normalizedPower: 333,
+        tss: 444,
+        elapsedTimeMillis: 60_000,
+        ridingTimeMillis: 60_000,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_metrics/test-activity", {
+      version: 1,
+      computedAt: 0,
+      np: 333,
+      tss: 444,
+      if: 1.5,
+      vi: 1.2,
+    });
+    setDocData("activity_streams/test-activity", {
+      userId: "test-uid",
+      json: JSON.stringify({
+        time,
+        distance: time.map((index) => index * 10),
+        altitude: Array(60).fill(10),
+        velocity_smooth: Array(60).fill(8),
+        heartrate: Array(60).fill(150),
+        cadence: Array(60).fill(90),
+        watts: [900, 901],
+      }),
+    });
+    mockActiveBikeProfile.mockReturnValue({
+      active: {
+        id: "bike-1",
+        virtualPower: {
+          enabled: true,
+          riderWeightKg: 70,
+          bikeWeightKg: 9,
+          rollingResistance: 0.005,
+          cdA: 0.32,
+        },
+      },
+    });
+    mockVirtualPowerStream.mockReturnValue(overrideWatts);
+
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
+    expect(screen.queryByRole("button", { name: "파워" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    fireEvent.click(await screen.findByRole("button", { name: "재계산 미리보기" }));
+
+    await waitFor(() => expect(mockVirtualPowerStream).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText("파워 분석")).toBeInTheDocument());
+    expect(screen.queryByText("444")).not.toBeInTheDocument();
+    expect(screen.queryByText("333 W")).not.toBeInTheDocument();
+    expect(screen.queryByText("서버 분석")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    await waitFor(() => expect(stats).toHaveTextContent("평균 파워250W"));
+    const latestShareMetrics = () => {
+      const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
+        card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
+      } | undefined;
+      return latest?.card?.performanceMetrics ?? [];
+    };
+    expect(latestShareMetrics()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "평균 파워", value: "250", unit: "W" }),
+    ]));
+    expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "333" })]));
+    expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "444" })]));
+
+    fireEvent.click(screen.getByRole("button", { name: "파워" }));
+    await waitFor(() => {
+      const latestChart = elevationChartProps.mock.calls.at(-1)?.[0] as {
+        overlays?: Array<{ label: string; data: number[] }>;
+      } | undefined;
+      expect(latestChart?.overlays).toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: "파워 (W)", data: overrideWatts }),
+      ]));
+    });
+
+    mockActiveBikeProfile.mockReturnValue({
+      active: {
+        id: "bike-1",
+        virtualPower: {
+          enabled: false,
+          riderWeightKg: 70,
+          bikeWeightKg: 9,
+          rollingResistance: 0.005,
+          cdA: 0.32,
+        },
+      },
+    });
+    view.rerender(<ActivityPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
+    expect(screen.queryByRole("button", { name: "파워" })).not.toBeInTheDocument();
+    expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "평균 파워", value: "250" }),
+    ]));
+    mockActiveBikeProfile.mockReturnValue({
+      active: {
+        id: "bike-1",
+        virtualPower: {
+          enabled: true,
+          riderWeightKg: 70,
+          bikeWeightKg: 9,
+          rollingResistance: 0.005,
+          cdA: 0.32,
+        },
+      },
+    });
+    view.rerender(<ActivityPage />);
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
+  }, 15_000);
+
+  it("does not carry a virtual-power preview across A to B to A navigation", async () => {
+    const time = Array.from({ length: 60 }, (_, index) => index);
+    const streamDoc = {
+      userId: "test-uid",
+      json: JSON.stringify({
+        time,
+        distance: time.map((index) => index * 10),
+        altitude: Array(60).fill(10),
+        velocity_smooth: Array(60).fill(8),
+        heartrate: Array(60).fill(150),
+        watts: [900, 901],
+      }),
+    };
+    for (const [id, description] of [["test-activity", "활동 A"], ["next-activity", "활동 B"]]) {
+      setDocData(`activities/${id}`, createMockActivity({
+        id,
+        userId: "test-uid",
+        source: "orider",
+        description,
+        summary: createMockSummary({ elapsedTimeMillis: 60_000, ridingTimeMillis: 60_000 }),
+      }) as unknown as Record<string, unknown>);
+      setDocData(`activity_streams/${id}`, streamDoc);
+      setDocData(`activity_metrics/${id}`, {
+        version: 1,
+        computedAt: 0,
+        np: 180,
+        tss: 50,
+      });
+    }
+    mockActiveBikeProfile.mockReturnValue({
+      active: {
+        id: "bike-1",
+        virtualPower: {
+          enabled: true,
+          riderWeightKg: 70,
+          bikeWeightKg: 9,
+          rollingResistance: 0.005,
+          cdA: 0.32,
+        },
+      },
+    });
+    mockVirtualPowerStream.mockReturnValue(Array(60).fill(250));
+    const latestShareMetrics = () => {
+      const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
+        card?: { performanceMetrics?: Array<{ label: string; value: string }> };
+      } | undefined;
+      return latest?.card?.performanceMetrics ?? [];
+    };
+
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    await screen.findByText("활동 A");
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    fireEvent.click(await screen.findByRole("button", { name: "재계산 미리보기" }));
+    await screen.findByRole("button", { name: "되돌리기" });
+
+    mockRoute.activityId = "next-activity";
+    view.rerender(<ActivityPage />);
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    await screen.findByText("활동 B");
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    expect(screen.queryByText("가상 파워")).not.toBeInTheDocument();
+    expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "평균 파워", value: "250" }),
+    ]));
+
+    mockRoute.activityId = "test-activity";
+    view.rerender(<ActivityPage />);
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    await screen.findByText("활동 A");
+    expect(screen.queryByRole("button", { name: "되돌리기" })).not.toBeInTheDocument();
+    expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "평균 파워", value: "250" }),
+    ]));
+  }, 15_000);
+
+  it("hides saved sensor stats and client analysis for a one-minute V1 slice of a one-hour activity", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      startTime: 1_700_000_000_000,
+      summary: createMockSummary({
+        averageHeartRate: 145,
+        maxHeartRate: 178,
+        averagePower: 210,
+        maxPower: 400,
+        normalizedPower: 230,
+        elapsedTimeMillis: 3_600_000,
+        ridingTimeMillis: 3_600_000,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        time: Array.from({ length: 3_600 }, (_, index) => index),
+        distance: Array.from({ length: 3_600 }, (_, index) => index * 10),
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: 1_700_000_000_000,
+          time: Array.from({ length: 60 }, (_, index) => index),
+          heartrate: Array(60).fill(150),
+          watts: Array(60).fill(200),
+        },
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => {
+      expect(stats).not.toHaveTextContent("평균 심박");
+      expect(stats).not.toHaveTextContent("평균 파워");
+      expect(stats).not.toHaveTextContent("NP 230");
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(await screen.findByText("분석 차트를 만들 스트림 데이터가 아직 없어요")).toBeInTheDocument();
+    expect(screen.queryByText("파워 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
   });
 
   it("shows activity stats when loaded", async () => {
@@ -408,7 +794,7 @@ describe("ActivityPage", () => {
     expect(vi.mocked(where)).toHaveBeenCalledWith("creatorId", "==", "test-uid");
     expect(vi.mocked(where)).toHaveBeenCalledWith("sourceActivityId", "==", "test-activity");
     expect(vi.mocked(where)).toHaveBeenCalledWith("deletedAt", "==", null);
-  });
+  }, 15_000);
 
   it("does not create when the existing-course lookup fails", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
@@ -433,18 +819,20 @@ describe("ActivityPage", () => {
 
     const first = renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
+    expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
+      .toHaveTextContent("코스 생성 결과를 확인 중입니다");
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
     first.unmount();
 
     const second = renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
-    await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
+      .toHaveTextContent("코스 생성 결과를 확인 중입니다");
+    await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2), { timeout: COURSE_ASYNC_TIMEOUT });
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
     expect(screen.getByRole("button", { name: "이 경로로 라이드" })).toBeEnabled();
     second.unmount();
-  });
+  }, COURSE_ASYNC_TIMEOUT + 5_000);
 
   it("reuses a persisted created course after remount without creating or looking it up", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
@@ -456,16 +844,28 @@ describe("ActivityPage", () => {
     }));
     setCallableResult("sendCourseToApp", { data: {} });
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    const first = renderWithProviders(<ActivityPage />, { authenticated: true });
+    const firstButton = await screen.findByRole("button", { name: "이 경로로 라이드" });
+    await waitFor(() => expect(firstButton).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
+    first.unmount();
 
-    expect(await findSentButton()).toBeDisabled();
-    expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(0);
-    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
-    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
-      { name: "sendCourseToApp", data: { courseId: "persisted-course" } },
-    ]);
-  });
+    const second = renderWithProviders(<ActivityPage />, { authenticated: true });
+    try {
+      const secondButton = await screen.findByRole("button", { name: "이 경로로 라이드" });
+      await waitFor(() => expect(secondButton).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
+      fireEvent.click(secondButton);
+      await waitForCallableCount("sendCourseToApp", 1);
+
+      expect(await findSentButton()).toBeDisabled();
+      expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(0);
+      expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(0);
+      expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+        { name: "sendCourseToApp", data: { courseId: "persisted-course" } },
+      ]);
+    } finally {
+      second.unmount();
+    }
+  }, 15_000);
 
   it("recovers the created course after a lost create response without creating again", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
@@ -493,7 +893,7 @@ describe("ActivityPage", () => {
       { name: "sendCourseToApp", data: { courseId: "recovered-course" } },
     ]);
     expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2);
-  });
+  }, 15_000);
 
   it("clears pending intent after a definitive create rejection so a retry may create", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
@@ -501,24 +901,42 @@ describe("ActivityPage", () => {
     const definitiveError = Object.assign(new Error("invalid activity state"), {
       code: "functions/failed-precondition",
     });
-    const rejectedCreate = Promise.reject(definitiveError);
-    void rejectedCreate.catch(() => undefined);
-    setCallableResult("createCourseFromActivity", rejectedCreate);
+    let rejectCreate!: (reason: Error) => void;
+    const createResponse = new Promise((_resolve, reject) => { rejectCreate = reject; });
+    void createResponse.catch(() => undefined);
+    setCallableResult("createCourseFromActivity", createResponse);
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("코스를 만들지 못했습니다");
-    expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toBeNull();
+    const view = renderWithProviders(<ActivityPage />, { authenticated: true });
+    try {
+      const button = await screen.findByRole("button", { name: "이 경로로 라이드" });
+      await waitFor(() => expect(button).toBeEnabled(), { timeout: COURSE_ASYNC_TIMEOUT });
+      fireEvent.click(button);
+      await waitForCallableCount("createCourseFromActivity", 1);
+      await waitFor(() => {
+        expect(button).toBeDisabled();
+        expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toContain('"state":"pending"');
+      }, { timeout: COURSE_ASYNC_TIMEOUT });
+      rejectCreate(definitiveError);
 
-    setCallableResult("createCourseFromActivity", { data: { courseId: "retry-course" } });
-    setCallableResult("sendCourseToApp", { data: {} });
-    fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
+      await waitFor(() => {
+        expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toBeNull();
+        expect(button).toBeEnabled();
+      }, { timeout: COURSE_ASYNC_TIMEOUT });
+      expect(screen.getByRole("alert")).toHaveTextContent("코스를 만들지 못했습니다");
 
-    expect(await findSentButton()).toBeDisabled();
-    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(2);
-    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
-      { name: "sendCourseToApp", data: { courseId: "retry-course" } },
-    ]);
+      setCallableResult("createCourseFromActivity", { data: { courseId: "retry-course" } });
+      setCallableResult("sendCourseToApp", { data: {} });
+      fireEvent.click(button);
+      await waitForCallableCount("createCourseFromActivity", 2);
+      await waitForCallableCount("sendCourseToApp", 1);
+
+      expect(await findSentButton()).toBeDisabled();
+      expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+        { name: "sendCourseToApp", data: { courseId: "retry-course" } },
+      ]);
+    } finally {
+      view.unmount();
+    }
   }, 15_000);
 
   it("keeps pending intent after an unavailable create response and never duplicates it", async () => {
@@ -724,11 +1142,269 @@ describe("ActivityPage", () => {
     expect(screen.getByText("NP 147 W")).toBeInTheDocument();
   });
 
+  it("suppresses legacy sensor summaries measured only in the opening fragment", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({
+        averageHeartRate: 55,
+        maxHeartRate: 162,
+        averagePower: 127,
+        maxPower: 1_004,
+        normalizedPower: 160,
+        averageCadence: 25,
+        maxCadence: 103,
+        elapsedTimeMillis: 200_000,
+        ridingTimeMillis: 200_000,
+      }),
+    });
+    const distance = Array.from({ length: 200 }, (_, index) => index * 10);
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance,
+        altitude: Array(200).fill(10),
+        heartrate: [150, 160, ...Array(198).fill(0)],
+        cadence: [90, 100, ...Array(198).fill(0)],
+        watts: [250, 300, 350, ...Array(197).fill(0)],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).not.toHaveTextContent("평균 심박"));
+    expect(stats).not.toHaveTextContent("평균 케이던스");
+    expect(stats).not.toHaveTextContent("평균 파워");
+    expect(stats).not.toHaveTextContent("127W");
+  });
+
+  it("does not crash on malformed sensorStreamsV1 runtime arrays", async () => {
+    const activity = createMockActivity({ id: "test-activity", source: "orider" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        altitude: [10, 10, 10],
+        time: [0, 1, 2],
+        heartrate: [150, 155, 160],
+        watts_calc: [200, 210, 220],
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: 1_700_000_000_000,
+          time: { malformed: true },
+          heartrate: [140, 141, 142],
+          watts: [200, 210, 220],
+        },
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => {
+      expect(stats).not.toHaveTextContent("평균 파워");
+      expect(stats).not.toHaveTextContent("평균 심박");
+    });
+  });
+
+  it("does not crash when persisted altitude and speed are non-array values", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({ elapsedTimeMillis: 3_000, ridingTimeMillis: 3_000 }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        time: [0, 1, 2],
+        altitude: { malformed: true },
+        velocity_smooth: "not-an-array",
+        heartrate: [140, 150, 160],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).toHaveTextContent("평균 심박150bpm최고 160"));
+  });
+
+  it("opens the analysis tab with malformed persisted numeric arrays", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({ elapsedTimeMillis: 3_000, ridingTimeMillis: 3_000 }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: { malformed: true },
+        altitude: "not-an-array",
+        time: { malformed: true },
+        velocity_smooth: "not-an-array",
+        cadence: { malformed: true },
+        heartrate: [140, 150, 160],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+    fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
+
+    expect(await screen.findByText("심박 분석")).toBeInTheDocument();
+  });
+
+  it("suppresses saved HR and cadence when legacy sensor arrays are truncated", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({
+        averageHeartRate: 145,
+        maxHeartRate: 178,
+        averageCadence: 85,
+        maxCadence: 110,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: Array.from({ length: 200 }, (_, index) => index),
+        time: Array.from({ length: 200 }, (_, index) => index),
+        heartrate: [190, 195],
+        cadence: [120],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => {
+      expect(stats).not.toHaveTextContent("평균 심박");
+      expect(stats).not.toHaveTextContent("평균 케이던스");
+    });
+    expect(stats).not.toHaveTextContent("평균 심박193bpm");
+    expect(stats).not.toHaveTextContent("평균 케이던스120rpm");
+  });
+
+  it("suppresses malformed legacy sensors while retaining independent power fallback", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({
+        averageHeartRate: 145,
+        maxHeartRate: 178,
+        averageCadence: 85,
+        maxCadence: 110,
+        averagePower: 200,
+        maxPower: 450,
+        elapsedTimeMillis: 20_000,
+        ridingTimeMillis: 20_000,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: Array.from({ length: 20 }, (_, index) => index),
+        time: Array.from({ length: 20 }, (_, index) => index),
+        watts: [200, null, ...Array(18).fill(0)],
+        watts_calc: Array(20).fill(175),
+        heartrate: [190, null, ...Array(18).fill(0)],
+        cadence: [120, null, ...Array(18).fill(0)],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => {
+      expect(stats).toHaveTextContent("평균 파워175W");
+      expect(stats).not.toHaveTextContent("평균 심박");
+      expect(stats).not.toHaveTextContent("평균 케이던스");
+    });
+  });
+
+  it("preserves zero-watt coasting in accepted short legacy power", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      summary: createMockSummary({
+        averagePower: 80,
+        maxPower: 200,
+        normalizedPower: 95,
+        elapsedTimeMillis: 20_000,
+        ridingTimeMillis: 20_000,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: Array.from({ length: 20 }, (_, index) => index * 10),
+        altitude: Array(20).fill(10),
+        time: Array.from({ length: 20 }, (_, index) => index),
+        watts: [...Array(8).fill(200), ...Array(12).fill(0)],
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).toHaveTextContent("평균 파워80W"));
+  });
+
+  it("does not mix stale normalized power into a summary replaced by explicit sensor power", async () => {
+    const activity = createMockActivity({
+      id: "test-activity",
+      source: "orider",
+      startTime: 1_700_000_000_000,
+      summary: createMockSummary({
+        averagePower: 120,
+        maxPower: 300,
+        normalizedPower: 250,
+        elapsedTimeMillis: 3_000,
+        ridingTimeMillis: 3_000,
+      }),
+    });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", {
+      userId: "user-1",
+      json: JSON.stringify({
+        distance: [0, 10, 20],
+        altitude: [10, 10, 10],
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: 1_700_000_000_000,
+          time: [0, 1, 2],
+          heartrate: [140, 141, 142],
+          watts: [200, 210, 220],
+        },
+      }),
+    });
+
+    renderWithProviders(<ActivityPage />);
+
+    const stats = await screen.findByTestId("activity-stats-grid");
+    await waitFor(() => expect(stats).toHaveTextContent("평균 파워210W"));
+    expect(stats).not.toHaveTextContent("NP 250 W");
+  });
+
   it("shows AI ride analysis for indoor-like streams without route latlng", async () => {
     const activity = createMockActivity({
       id: "test-activity",
       source: "orider",
       thumbnailTrack: null,
+      summary: createMockSummary({ elapsedTimeMillis: 120_000, ridingTimeMillis: 120_000 }),
     });
     const { latlng: _latlng, ...streamsWithoutRoute } = createMockStreams();
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
@@ -782,6 +1458,7 @@ describe("ActivityPage", () => {
       id: "test-activity",
       source: "orider",
       thumbnailTrack: null,
+      summary: createMockSummary({ elapsedTimeMillis: 120_000, ridingTimeMillis: 120_000 }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
 

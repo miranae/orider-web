@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   doc: vi.fn((...segments: unknown[]) => ({ kind: "doc", segments })),
   updateDoc: vi.fn(),
   track: vi.fn(),
+  logClientError: vi.fn(),
 }));
 
 vi.mock("firebase/firestore", () => ({
@@ -25,6 +26,7 @@ vi.mock("../../contexts/AuthContext", () => ({
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("../../services/analytics", () => ({ track: mocks.track }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: mocks.logClientError }));
 
 import { softDeleteBoardComment, useCreateComment } from "./useComment";
 
@@ -83,5 +85,25 @@ describe("board comment mutations", () => {
     expect(result.current.submitting).toBe(false);
     expect(mocks.updateDoc).not.toHaveBeenCalled();
     expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("resolves after the comment write when analytics throws", async () => {
+    mocks.track.mockImplementationOnce(() => {
+      throw new Error("analytics unavailable");
+    });
+    const { result } = renderHook(() => useCreateComment("post-1"));
+
+    await act(async () => {
+      await expect(result.current.createComment("댓글")).resolves.toBe("comment-1");
+    });
+
+    expect(result.current.submitting).toBe(false);
+    expect(mocks.addDoc).toHaveBeenCalledTimes(1);
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      "useCreateComment.analytics",
+      expect.objectContaining({ message: "analytics unavailable" }),
+      { postId: "post-1" },
+    );
   });
 });

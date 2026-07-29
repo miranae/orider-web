@@ -1,4 +1,5 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { getDoc } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -82,6 +83,44 @@ describe("FitnessPage", () => {
 
     expect(await screen.findByText("mobile fitness dashboard: tri")).toBeInTheDocument();
     expect(screen.queryByText("desktop tri fitness dashboard")).not.toBeInTheDocument();
+  });
+
+  it("attempts missing stream and metrics documents only once until activity lifecycle changes", async () => {
+    const baseActivity = {
+      id: "pending-analysis",
+      userId: "test-uid",
+      type: "Ride",
+      startTime: Date.now(),
+      deletedAt: null,
+      summary: { distance: 20_000, ridingTimeMillis: 3_600_000, averagePower: 180 },
+    };
+    setCollectionDocs("activities", [baseActivity]);
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    const readsFor = (path: string) => vi.mocked(getDoc).mock.calls
+      .filter(([ref]) => (ref as { path?: string }).path === path).length;
+    await waitFor(() => {
+      expect(readsFor("activity_streams/pending-analysis")).toBe(1);
+      expect(readsFor("activity_metrics/pending-analysis")).toBe(1);
+    });
+
+    setCollectionDocs("activities", [{ ...baseActivity }]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(readsFor("activity_streams/pending-analysis")).toBe(1);
+    expect(readsFor("activity_metrics/pending-analysis")).toBe(1);
+
+    setDocData("activity_streams/pending-analysis", { watts: [180, 190] });
+    setDocData("activity_metrics/pending-analysis", { tss: 45 });
+    setCollectionDocs("activities", [{
+      ...baseActivity,
+      summary: { ...baseActivity.summary, movingTimeSec: 3_500 },
+    }]);
+
+    await waitFor(() => {
+      expect(readsFor("activity_streams/pending-analysis")).toBe(2);
+      expect(readsFor("activity_metrics/pending-analysis")).toBe(2);
+    });
   });
 
   it("keeps the dedicated tri dashboard on desktop", async () => {
