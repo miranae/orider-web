@@ -410,26 +410,99 @@ describe("useActivityDerivedDocuments", () => {
     expect(activePaths.size).toBe(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND - 1);
   });
 
-  it("contains malformed stream JSON, logs it, and releases the listener", async () => {
+  it("keeps the creation watcher after malformed JSON and reflects a corrected document", async () => {
+    vi.useFakeTimers();
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
     const current = activity("malformed", "user-a");
     const hook = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
-    await waitFor(() => expect(vi.mocked(onSnapshot).mock.calls.some(
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(vi.mocked(onSnapshot).mock.calls.some(
       ([reference]) => (reference as { path?: string }).path === "activity_streams/malformed",
-    )).toBe(true));
+    )).toBe(true);
 
     act(() => setDocData("activity_streams/malformed", { json: "{broken" }));
 
-    await waitFor(() => expect(logSpy).toHaveBeenCalledWith(
+    expect(logSpy).toHaveBeenCalledWith(
       "useActivityDerivedDocuments.creationWatch.parse",
       expect.any(SyntaxError),
       { kind: "stream", activityId: "malformed" },
-    ));
+    );
     expect(hook.result.current.streamsMap.has("malformed")).toBe(false);
 
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
     act(() => setDocData("activity_streams/malformed", { watts: [210] }));
-    expect(hook.result.current.streamsMap.has("malformed")).toBe(false);
+    expect(hook.result.current.streamsMap.get("malformed")).toEqual({ watts: [210] });
+    hook.unmount();
     logSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("bounds repeated malformed creation documents after watcher TTL", async () => {
+    vi.useFakeTimers();
+    let streamReads = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      if (path.startsWith("activity_metrics/")) {
+        return Promise.resolve({ exists: () => true, data: () => ({ tss: 12 }), ref: reference }) as ReturnType<typeof getDoc>;
+      }
+      streamReads += 1;
+      const data = streamReads === 1 ? null : { json: "{still-broken" };
+      return Promise.resolve({ exists: () => data !== null, data: () => data, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("malformed-bounded", "user-a")],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => setDocData("activity_streams/malformed-bounded", { json: "{broken-watcher" }));
+    expect(streamReads).toBe(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_WATCH_MS));
+    expect(streamReads).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(streamReads).toBe(3);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
+    expect(streamReads).toBe(4);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(streamReads).toBe(4);
+    expect(hook.result.current.streamsMap.has("malformed-bounded")).toBe(false);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("does not recover a malformed creation watcher after account cleanup", async () => {
+    vi.useFakeTimers();
+    let streamReads = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      if (path === "activity_streams/malformed-cleanup") streamReads += 1;
+      return Promise.resolve({ exists: () => false, data: () => null, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const current = activity("malformed-cleanup", "user-a");
+    const hook = renderHook(
+      ({ uid, activities }) => useActivityDerivedDocuments(uid, activities),
+      { initialProps: { uid: "user-a", activities: [current] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => setDocData("activity_streams/malformed-cleanup", { json: "{broken" }));
+    expect(streamReads).toBe(1);
+
+    hook.rerender({ uid: "user-b", activities: [] });
+    act(() => setDocData("activity_streams/malformed-cleanup", { watts: [222] }));
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(streamReads).toBe(1);
+    expect(hook.result.current.streamsMap.has("malformed-cleanup")).toBe(false);
+    hook.unmount();
+    vi.useRealTimers();
   });
 
   it("logs listener errors and performs only one bounded backoff retry", async () => {
