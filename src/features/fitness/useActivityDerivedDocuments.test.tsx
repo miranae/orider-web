@@ -5,8 +5,10 @@ import type { Activity } from "@shared/types";
 import { mockDocData, setDocData } from "../../__tests__/mocks/firebase";
 import * as errorLogger from "../../services/errorLogger";
 import {
+  DERIVED_DOCUMENT_CREATION_WATCH_MS,
   DERIVED_DOCUMENT_CREATION_RETRY_MS,
   DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND,
+  DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS,
   useActivityDerivedDocuments,
 } from "./useActivityDerivedDocuments";
 
@@ -63,6 +65,223 @@ describe("useActivityDerivedDocuments", () => {
       expect(hook.result.current.metricsMap.get("late")).toEqual({ tss: 42 });
     });
     expect(vi.mocked(getDoc).mock.calls.length).toBe(2);
+  });
+
+  it("rechecks a missing document once after watcher TTL without an activity snapshot change", async () => {
+    vi.useFakeTimers();
+    let reads = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      reads += 1;
+      const data = reads === 1 ? null : { tss: 57 };
+      return Promise.resolve({
+        exists: () => data !== null,
+        data: () => data,
+        ref: reference,
+      }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("ttl-recheck", "user-a", null)],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(reads).toBe(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_WATCH_MS - 1));
+    expect(reads).toBe(1);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(reads).toBe(2);
+    expect(hook.result.current.metricsMap.get("ttl-recheck")).toEqual({ tss: 57 });
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 4));
+    expect(reads).toBe(2);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("bounded-rechecks the oldest activity outside the 24-watcher window", async () => {
+    vi.useFakeTimers();
+    const oldestId = "outside-window";
+    const activities = [
+      { ...activity(oldestId, "user-a", null), startTime: 0 },
+      ...Array.from(
+        { length: DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND },
+        (_, index) => ({ ...activity(`recent-${index}`, "user-a", null), startTime: index + 1 }),
+      ),
+    ];
+    const readsByPath = new Map<string, number>();
+    const recheckOrder: string[] = [];
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      const reads = (readsByPath.get(path) ?? 0) + 1;
+      readsByPath.set(path, reads);
+      if (reads === 2) recheckOrder.push(path);
+      const data = path === `activity_metrics/${oldestId}` && reads === 2 ? { tss: 33 } : null;
+      return Promise.resolve({ exists: () => data !== null, data: () => data, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments("user-a", activities));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(vi.mocked(onSnapshot).mock.calls.some(
+      ([reference]) => (reference as { path: string }).path === `activity_metrics/${oldestId}`,
+    )).toBe(false);
+    expect(readsByPath.get(`activity_metrics/${oldestId}`)).toBe(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
+    expect(readsByPath.get(`activity_metrics/${oldestId}`)).toBe(2);
+    expect(hook.result.current.metricsMap.get(oldestId)).toEqual({ tss: 33 });
+    expect(recheckOrder[0]).toBe("activity_metrics/recent-23");
+    expect(recheckOrder.at(-1)).toBe(`activity_metrics/${oldestId}`);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("stops rechecking a persistently missing revision after the bounded attempts", async () => {
+    vi.useFakeTimers();
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("bounded-missing", "user-a", null)],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
+    expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(2);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 2));
+    expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(3);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(3);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("preserves the missing budget across a transient recheck error", async () => {
+    vi.useFakeTimers();
+    let reads = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      reads += 1;
+      if (reads === 2) return Promise.reject(new Error("transient recheck failure"));
+      return Promise.resolve({ exists: () => false, data: () => null, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("missing-with-error", "user-a", null)],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
+    expect(reads).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(reads).toBe(3);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 2));
+    expect(reads).toBe(4);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(reads).toBe(4);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("does not re-read an existing document for the same activity revision", async () => {
+    vi.useFakeTimers();
+    setDocData("activity_metrics/complete", { tss: 48 });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("complete", "user-a", null)],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(hook.result.current.metricsMap.get("complete")).toEqual({ tss: 48 });
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(1);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("cancels missing rechecks when account or activity range changes", async () => {
+    vi.useFakeTimers();
+    const old = activity("removed-before-recheck", "user-a", null);
+    const hook = renderHook(
+      ({ uid, activities }) => useActivityDerivedDocuments(uid, activities),
+      { initialProps: { uid: "user-a", activities: [old] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const oldReadCount = () => vi.mocked(getDoc).mock.calls.filter(
+      ([reference]) => (reference as { path: string }).path === "activity_metrics/removed-before-recheck",
+    ).length;
+    expect(oldReadCount()).toBe(1);
+
+    hook.rerender({ uid: "user-b", activities: [] });
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 3));
+    expect(oldReadCount()).toBe(1);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("discards a failed retry timer on account cleanup without scheduling a requery", async () => {
+    vi.useFakeTimers();
+    let oldReads = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      if (path === "activity_metrics/failed-cleanup") {
+        oldReads += 1;
+        return Promise.reject(new Error("temporary failure"));
+      }
+      return Promise.resolve({ exists: () => false, data: () => null, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(
+      ({ uid, activities }) => useActivityDerivedDocuments(uid, activities),
+      { initialProps: { uid: "user-a", activities: [activity("failed-cleanup", "user-a", null)] } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(oldReads).toBe(1);
+
+    hook.rerender({ uid: "user-b", activities: [] });
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(oldReads).toBe(1);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("rejects an old in-flight result after range removal and same-revision re-add", async () => {
+    const pending: Array<(snapshot: unknown) => void> = [];
+    vi.mocked(getDoc).mockImplementation(() => new Promise((resolve) => {
+      pending.push(resolve);
+    }) as ReturnType<typeof getDoc>);
+    const current = activity("range-aba", "user-a", null);
+    const hook = renderHook(
+      ({ activities }) => useActivityDerivedDocuments("user-a", activities),
+      { initialProps: { activities: [current] } },
+    );
+    await waitFor(() => expect(pending).toHaveLength(1));
+
+    hook.rerender({ activities: [] });
+    hook.rerender({ activities: [{ ...current }] });
+    await waitFor(() => expect(pending).toHaveLength(2));
+    await act(async () => pending[1]?.({ exists: () => true, data: () => ({ tss: 71 }) }));
+    expect(hook.result.current.metricsMap.get("range-aba")).toEqual({ tss: 71 });
+
+    await act(async () => pending[0]?.({ exists: () => false, data: () => null }));
+    expect(hook.result.current.metricsMap.get("range-aba")).toEqual({ tss: 71 });
+    expect(vi.mocked(onSnapshot)).not.toHaveBeenCalled();
   });
 
   it("drops pending results from the previous UID generation", async () => {
@@ -286,6 +505,61 @@ describe("useActivityDerivedDocuments", () => {
     expect(maximum).toEqual({ stream: 10, metrics: 20 });
   });
 
+  it("shares the metrics concurrency cap between active rechecks and new activities", async () => {
+    vi.useFakeTimers();
+    let initialReads = 0;
+    let active = 0;
+    let maximum = 0;
+    const pending: Array<() => void> = [];
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      if (initialReads < 20) {
+        initialReads += 1;
+        return Promise.resolve({ exists: () => false, data: () => null, ref: reference }) as ReturnType<typeof getDoc>;
+      }
+      active += 1;
+      maximum = Math.max(maximum, active);
+      return new Promise((resolve) => {
+        pending.push(() => {
+          active -= 1;
+          resolve({ exists: () => false, data: () => null, ref: reference });
+        });
+      }) as ReturnType<typeof getDoc>;
+    });
+    const original = Array.from(
+      { length: 20 },
+      (_, index) => ({ ...activity(`recheck-${index}`, "user-a", null), startTime: index }),
+    );
+    const hook = renderHook(
+      ({ activities }) => useActivityDerivedDocuments("user-a", activities),
+      { initialProps: { activities: original } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
+    expect(active).toBe(20);
+    const added = Array.from(
+      { length: 20 },
+      (_, index) => ({ ...activity(`new-${index}`, "user-a", null), startTime: 100 + index }),
+    );
+    hook.rerender({ activities: [...original, ...added] });
+    expect(active).toBe(20);
+
+    await act(async () => {
+      pending.splice(0).forEach((resolve) => resolve());
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(active).toBe(20);
+    expect(maximum).toBe(20);
+    await act(async () => pending.splice(0).forEach((resolve) => resolve()));
+    expect(maximum).toBe(20);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
   it("logs a transient initial read failure and retries once without an activity snapshot change", async () => {
     vi.useFakeTimers();
     const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
@@ -321,6 +595,124 @@ describe("useActivityDerivedDocuments", () => {
 
     hook.unmount();
     logSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("recovers the same revision after both the initial read and retry fail", async () => {
+    vi.useFakeTimers();
+    let requestCount = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      requestCount += 1;
+      if (requestCount <= 2) return Promise.reject(new Error(`temporary failure ${requestCount}`));
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ tss: 69 }),
+        ref: reference,
+      }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("double-failure", "user-a", null)],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(requestCount).toBe(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(requestCount).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS - 1));
+    expect(requestCount).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(1));
+    expect(requestCount).toBe(3);
+    expect(hook.result.current.metricsMap.get("double-failure")).toEqual({ tss: 69 });
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 10));
+    expect(requestCount).toBe(3);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("recovers after repeated initial stream parse failures without an immediate loop", async () => {
+    vi.useFakeTimers();
+    let streamReads = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      if (path.startsWith("activity_metrics/")) {
+        return Promise.resolve({ exists: () => true, data: () => ({ tss: 10 }), ref: reference }) as ReturnType<typeof getDoc>;
+      }
+      streamReads += 1;
+      const data = streamReads <= 2 ? { json: "{broken" } : { watts: [201, 208] };
+      return Promise.resolve({ exists: () => true, data: () => data, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("parse-recovery", "user-a")],
+    ));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(streamReads).toBe(1);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(streamReads).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS));
+    expect(streamReads).toBe(3);
+    expect(hook.result.current.streamsMap.get("parse-recovery")).toEqual({ watts: [201, 208] });
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("keeps an evicted old retry timer eligible when a newer activity takes the capped slot", async () => {
+    vi.useFakeTimers();
+    const oldId = "old-failed";
+    const readsByPath = new Map<string, number>();
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      const path = (reference as { path: string }).path;
+      const reads = (readsByPath.get(path) ?? 0) + 1;
+      readsByPath.set(path, reads);
+      if (path === `activity_metrics/${oldId}` && reads === 1) {
+        return Promise.reject(new Error("old initial failure"));
+      }
+      const data = path === `activity_metrics/${oldId}` ? { tss: 77 } : null;
+      return Promise.resolve({ exists: () => data !== null, data: () => data, ref: reference }) as ReturnType<typeof getDoc>;
+    });
+    const initialActivities = [
+      { ...activity(oldId, "user-a", null), startTime: 0 },
+      ...Array.from(
+        { length: DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND - 1 },
+        (_, index) => ({ ...activity(`watched-${index}`, "user-a", null), startTime: index + 1 }),
+      ),
+    ];
+    const hook = renderHook(
+      ({ activities }) => useActivityDerivedDocuments("user-a", activities),
+      { initialProps: { activities: initialActivities } },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(readsByPath.get(`activity_metrics/${oldId}`)).toBe(1);
+
+    const newest = { ...activity("newest-missing", "user-a", null), startTime: 100 };
+    hook.rerender({ activities: [...initialActivities, newest] });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const metricWatchPaths = vi.mocked(onSnapshot).mock.calls
+      .map(([reference]) => (reference as { path: string }).path)
+      .filter((path) => path.startsWith("activity_metrics/"));
+    expect(metricWatchPaths).toHaveLength(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND);
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(readsByPath.get(`activity_metrics/${oldId}`)).toBe(2);
+    expect(hook.result.current.metricsMap.get(oldId)).toEqual({ tss: 77 });
+    expect(metricWatchPaths).toHaveLength(DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND);
+    hook.unmount();
     vi.useRealTimers();
   });
 
