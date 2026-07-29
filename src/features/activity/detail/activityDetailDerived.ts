@@ -1,7 +1,10 @@
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
-import { inferUniformSampleTimeAxis } from "../../../utils/sampleTime";
+import {
+  inferUniformSampleTimeAxis,
+  MAX_INFERRED_SENSOR_RATE_HZ,
+} from "../../../utils/sampleTime";
 import {
   detectConsistentTimestampUnit,
   normalizeEpochMilliseconds,
@@ -213,9 +216,11 @@ function hasSufficientAxisCoverage(
   valuesLength: number,
   expectedCount: number,
   expectedIsMinimum = false,
+  maximumCount?: number,
 ): boolean {
   if (expectedIsMinimum) {
-    return expectedCount <= 0 || valuesLength / expectedCount >= LEGACY_POWER_MIN_AXIS_COVERAGE;
+    return (expectedCount <= 0 || valuesLength / expectedCount >= LEGACY_POWER_MIN_AXIS_COVERAGE)
+      && (maximumCount == null || valuesLength <= maximumCount);
   }
   return expectedCount <= 0
     || Math.abs(valuesLength - expectedCount) <= 1
@@ -292,6 +297,8 @@ export function expectedActivityDurationSec(
 interface LegacyCoverageExpectation {
   count: number;
   hasInvalidTimeEvidence: boolean;
+  inferenceDurationSec?: number;
+  maximumCount?: number;
   minimumOnly: boolean;
   shapeCount: number;
   summaryDurationSec?: number;
@@ -332,9 +339,16 @@ function legacyCoverageExpectation(
     : undefined;
   if (validSummaryDuration != null) {
     // Legacy sensor streams may be sampled faster than 1 Hz. Summary duration is therefore
-    // a lower bound on samples, not an axis whose count must match symmetrically.
+    // a lower bound on samples, not an axis whose count must match symmetrically. A valid
+    // route clock can span pauses beyond moving time, so use its longer elapsed duration
+    // for the inference ceiling while keeping summary-only payloads fail-closed at 4 Hz.
+    // timeDurationSec already includes the final representative sample interval; ceil only
+    // protects a fractional duration boundary from dropping its final valid sample.
+    const maximumDurationSec = Math.max(validSummaryDuration, timeDurationSec ?? 0);
     return {
       count: Math.ceil(validSummaryDuration),
+      inferenceDurationSec: maximumDurationSec,
+      maximumCount: Math.ceil(maximumDurationSec * MAX_INFERRED_SENSOR_RATE_HZ),
       minimumOnly: true,
       hasInvalidTimeEvidence,
       shapeCount,
@@ -376,7 +390,12 @@ function hasLegacyCoverage(valuesLength: number, expectation: LegacyCoverageExpe
       expectation.summaryDurationSec!,
     );
   }
-  return hasSufficientAxisCoverage(valuesLength, expectation.count, expectation.minimumOnly);
+  return hasSufficientAxisCoverage(
+    valuesLength,
+    expectation.count,
+    expectation.minimumOnly,
+    expectation.maximumCount,
+  );
 }
 
 function explicitCoverageRejectionReason(
@@ -803,7 +822,7 @@ function legacySensorAxisInput(
     hasInvalidTimeEvidence: expectation.hasInvalidTimeEvidence,
     values,
     routeTime: expectation.routeTime,
-    trustedDurationSec: expectation.summaryDurationSec,
+    trustedDurationSec: expectation.inferenceDurationSec ?? expectation.summaryDurationSec,
   };
 }
 
