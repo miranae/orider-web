@@ -167,10 +167,26 @@ describe("coachV2Contract", () => {
         blocks: [{ kind: "grounded_markdown", blockId: "block_general_guidance", evidenceIds: [] }] },
     });
 
+    const forgedEvidence = { ...evidence, evidenceId: "ev_forged_guidance", value: "forged" };
+    for (const questionSummary of ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"]) {
+      expect(() => parseCoachV2Response({ data: {
+        ...fallbackEnvelope,
+        answer: { ...fallbackAnswer, questionSummary, evidence: [forgedEvidence],
+          blocks: [{ ...fallbackAnswer.blocks[0], evidenceIds: [forgedEvidence.evidenceId] }] },
+      } })).toThrow();
+    }
+
     for (const changed of [
       { answer: { ...fallbackAnswer, questionSummary: "coach.answer.summary.agent_text" } },
       { answer: { ...fallbackAnswer, blocks: [{ ...fallbackAnswer.blocks[0], blockId: "block_agent_text" }] } },
       { answer: { ...fallbackAnswer, followUps: [{ queryTemplateId: "show_recent_activities", labelKey: "coach.follow_up.recent" }] } },
+      { answer: { ...fallbackAnswer, freshness: { ...fallbackAnswer.freshness, asOf: "2026-07-18T03:00:01.000Z" } } },
+      { answer: { ...fallbackAnswer, answerId: "not_server_owned" } },
+      { answer: { ...fallbackAnswer, sourceFactsId: "bad_facts" },
+        execution: { ...fallbackEnvelope.execution, factsId: "bad_facts" } },
+      { execution: { ...fallbackEnvelope.execution, queryPlanHash: "hash_1" } },
+      { execution: { ...fallbackEnvelope.execution, catalogVersion: "coach-query-catalog-v2" } },
+      { budget: { ...fallbackEnvelope.budget, blocked: true } },
       { quota: { ...fallbackEnvelope.quota, remaining: 2, consumed: true },
         retry: { ...fallbackEnvelope.retry, previousTurnConsumed: true, reasonCode: "completed" } },
     ]) {

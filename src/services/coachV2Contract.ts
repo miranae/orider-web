@@ -519,11 +519,20 @@ function isUnboundAgentAnswer(answer: CoachAnswerDocument | undefined): boolean 
     && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
 }
 
-function isServerOwnedGeneralGuidanceAnswer(answer: CoachAnswerDocument | undefined): boolean {
+const serverOwnedId = (value: string, prefix: "answer" | "facts" | "general"): boolean =>
+  new RegExp(`^${prefix}_[0-9a-f]{24}$`, "u").test(value);
+
+function isServerOwnedGeneralGuidanceAnswer(answer: CoachAnswerDocument | undefined, execution: {
+  queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string;
+}): boolean {
   if (!answer || answer.compatibility !== "supported"
       || answer.questionSummary !== "coach.answer.summary.general_guidance"
       || answer.status !== "complete" || answer.evidence.length !== 0 || answer.warnings.length !== 0
       || answer.freshness.staleSourceSlotIds.length !== 0 || answer.followUps.length !== 0
+      || !serverOwnedId(answer.answerId, "answer") || !serverOwnedId(answer.sourceFactsId, "facts")
+      || execution.factsId !== answer.sourceFactsId || execution.catalogVersion !== "coach-query-catalog-v1"
+      || typeof execution.queryPlanHash !== "string" || !serverOwnedId(execution.queryPlanHash, "general")
+      || execution.asOf !== answer.freshness.asOf
       || answer.blocks.length !== 1) return false;
   const block = answer.blocks[0];
   return block?.kind === "grounded_markdown" && block.blockId === "block_general_guidance"
@@ -548,19 +557,18 @@ export function parseCoachV2Response(input: unknown): CoachV2Response {
     && typeof raw.execution.catalogVersion === "string" && typeof raw.execution.factsId === "string";
   const hasAnyProvenance = [raw.execution.queryPlanHash, raw.execution.catalogVersion, raw.execution.factsId]
     .some((value) => typeof value === "string");
-  const declaresUnboundAgentAnswer = answer?.compatibility === "supported"
-    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary)
-    && answer.evidence.length === 0;
-  const deterministicGeneralGuidanceBinding = isServerOwnedGeneralGuidanceAnswer(answer)
-    && !raw.quota.consumed && raw.retry.mode === "same_request_replay"
+  const declaresReservedAgentSummary = answer?.compatibility === "supported"
+    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary);
+  const deterministicGeneralGuidanceBinding = isServerOwnedGeneralGuidanceAnswer(answer, raw.execution)
+    && !raw.budget.blocked && !raw.quota.consumed && raw.retry.mode === "same_request_replay"
     && !raw.retry.previousTurnConsumed && !raw.retry.providerCallAllowed && !raw.retry.retryable
     && raw.retry.reasonCode === "answer_too_short_no_charge";
   const providerBinding = raw.outcome !== "answer"
     ? raw.execution.parser !== "deterministic" || raw.budget.providerCalls === 0
     : raw.execution.parser === "deterministic" ? raw.budget.providerCalls === 0
-      && (!declaresUnboundAgentAnswer || deterministicGeneralGuidanceBinding)
-      : raw.execution.parser === "report_provider" ? raw.budget.providerCalls === 1 && !declaresUnboundAgentAnswer
-        : (raw.budget.providerCalls === 1 && (!declaresUnboundAgentAnswer || isUnboundAgentAnswer(answer)))
+      && (!declaresReservedAgentSummary || deterministicGeneralGuidanceBinding)
+      : raw.execution.parser === "report_provider" ? raw.budget.providerCalls === 1 && !declaresReservedAgentSummary
+        : (raw.budget.providerCalls === 1 && (!declaresReservedAgentSummary || isUnboundAgentAnswer(answer)))
           || (raw.budget.providerCalls === 2 && isUnboundAgentAnswer(answer));
   if (!validOutcome || raw.quota.consumed !== raw.retry.previousTurnConsumed
       || (raw.retry.mode === "new_request_required") !== (raw.retry.quotaImpact === "one_new_turn")
