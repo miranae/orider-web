@@ -235,4 +235,61 @@ describe("useActivityDerivedDocuments", () => {
     await act(async () => pending.splice(0).forEach((resolve) => resolve()));
     expect(maximum).toEqual({ stream: 10, metrics: 20 });
   });
+
+  it("logs a transient initial read failure and retries once without an activity snapshot change", async () => {
+    vi.useFakeTimers();
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    let requestCount = 0;
+    vi.mocked(getDoc).mockImplementation((reference) => {
+      requestCount += 1;
+      if (requestCount === 1) return Promise.reject(new Error("temporary getDoc failure"));
+      return Promise.resolve({
+        exists: () => true,
+        data: () => ({ tss: 61 }),
+        ref: reference,
+      }) as ReturnType<typeof getDoc>;
+    });
+    const hook = renderHook(() => useActivityDerivedDocuments(
+      "user-a",
+      [activity("initial-retry", "user-a", null)],
+    ));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(requestCount).toBe(1);
+    expect(logSpy).toHaveBeenCalledWith(
+      "useActivityDerivedDocuments.initialRead.error",
+      expect.any(Error),
+      { kind: "metrics", activityId: "initial-retry", retryCount: 0 },
+    );
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_CREATION_RETRY_MS));
+    expect(requestCount).toBe(2);
+    expect(hook.result.current.metricsMap.get("initial-retry")).toEqual({ tss: 61 });
+
+    hook.unmount();
+    logSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("uses canonical discipline mapping for run and swim subtype stream eligibility", async () => {
+    const activities = [
+      { ...activity("trail", "user-a", null), type: "TrailRun" },
+      { ...activity("virtual-run", "user-a", null), type: "VirtualRun" },
+      { ...activity("open-water", "user-a", null), type: "OpenWaterSwim" },
+      { ...activity("pool", "user-a", null), type: "PoolSwim" },
+      { ...activity("virtual-ride", "user-a", null), type: "VirtualRide" },
+    ] as Activity[];
+    renderHook(() => useActivityDerivedDocuments("user-a", activities));
+
+    const streamReadIds = () => vi.mocked(getDoc).mock.calls
+      .map(([reference]) => (reference as { path: string }).path)
+      .filter((path) => path.startsWith("activity_streams/"))
+      .map((path) => path.split("/").at(-1));
+    await waitFor(() => expect(streamReadIds()).toHaveLength(4));
+    expect(new Set(streamReadIds())).toEqual(new Set(["trail", "virtual-run", "open-water", "pool"]));
+    expect(streamReadIds()).not.toContain("virtual-ride");
+  });
 });

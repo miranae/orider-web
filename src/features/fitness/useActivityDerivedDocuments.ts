@@ -4,6 +4,7 @@ import type { Activity, ActivityStreams } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
+import { getDiscipline } from "../../utils/disciplineFilter";
 import {
   activityDerivedDocumentRevision,
   invalidateDerivedDocumentReadAttempt,
@@ -217,6 +218,7 @@ export function useActivityDerivedDocuments(
       apply: (id: string, value: T) => void,
       watchIfMissing: boolean,
       kind: "stream" | "metrics",
+      retryCount = 0,
     ) => {
       const revision = activityDerivedDocumentRevision(activity);
       if (!isCurrent(activity, attempts, revision)) return;
@@ -227,10 +229,33 @@ export function useActivityDerivedDocuments(
         if (!isCurrent(activity, attempts, revision)) return;
         if (snapshot.exists()) apply(activity.id, parse(snapshot.data()));
         else if (watchIfMissing) watchCreation(activity, reference, attempts, watches, parse, apply, kind);
-      } catch {
-        if (isCurrent(activity, attempts, revision)) {
-          invalidateDerivedDocumentReadAttempt(attempts, activity.id);
+      } catch (error) {
+        const wasCurrent = isCurrent(activity, attempts, revision);
+        watches.get(activity.id)?.();
+        if (wasCurrent) invalidateDerivedDocumentReadAttempt(attempts, activity.id);
+        if (wasCurrent && retryCount < DERIVED_DOCUMENT_CREATION_MAX_RETRIES &&
+            watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND) {
+          let retryTimer: ReturnType<typeof setTimeout> | null = null;
+          const cancelRetry = () => {
+            if (retryTimer != null) clearTimeout(retryTimer);
+            if (watches.get(activity.id) === cancelRetry) watches.delete(activity.id);
+          };
+          retryTimer = setTimeout(() => {
+            cancelRetry();
+            if (!isGenerationCurrent(activity) || attempts.has(activity.id)) return;
+            markDerivedDocumentReadAttempt(attempts, activity);
+            void loadOne(
+              activity, collectionName, attempts, watches, parse, apply,
+              watchIfMissing, kind, retryCount + 1,
+            );
+          }, DERIVED_DOCUMENT_CREATION_RETRY_MS);
+          watches.set(activity.id, cancelRetry);
         }
+        logClientError("useActivityDerivedDocuments.initialRead.error", error, {
+          kind,
+          activityId: activity.id,
+          retryCount,
+        });
       }
     };
 
@@ -250,7 +275,8 @@ export function useActivityDerivedDocuments(
     const streamActivities = scopedActivities.filter((activity) => {
       if (!shouldReadDerivedDocument(resources.streamAttempts, activity)) return false;
       const power = activity.summary.averagePower ?? activity.avgPower ?? null;
-      return power != null && power > 0 || activity.type === "Run" || activity.type === "Swim";
+      const discipline = getDiscipline(activity.type);
+      return power != null && power > 0 || discipline === "run" || discipline === "swim";
     });
     const metricActivities = scopedActivities.filter((activity) => (
       shouldReadDerivedDocument(resources.metricAttempts, activity)
