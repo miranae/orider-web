@@ -513,10 +513,10 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const hasHr = hr.length > 0;
   const powerTime = selectedPowerSeries.time;
   const heartRateTime = selectedHeartRateSeries.time;
-  const heartRateTiming = useMemo<SampleTiming>(() => ({
-    durationsSec: selectedHeartRateSeries.durationsSec,
-    segmentStarts: selectedHeartRateSeries.segmentStarts,
-  }), [selectedHeartRateSeries.durationsSec, selectedHeartRateSeries.segmentStarts]);
+  const heartRateTiming = useMemo<SampleTiming>(
+    () => wholeSessionSampleTiming(selectedHeartRateSeries),
+    [selectedHeartRateSeries],
+  );
 
   // 파워 메트릭
   const hasPowerTime = powerTime != null;

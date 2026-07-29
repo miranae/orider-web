@@ -1,5 +1,5 @@
 import { inferUniformSampleTimeAxis } from "../../../utils/sampleTime";
-import { detectTimestampUnit, timestampDivisor } from "../../../utils/timestampUnit";
+import { detectConsistentTimestampUnit, timestampDivisor } from "../../../utils/timestampUnit";
 
 export type LegacySensorCoverageChannel = "heart_rate" | "cadence";
 
@@ -49,8 +49,9 @@ function validDuration(value: number | undefined): number | undefined {
 
 function routeTimeAxis(routeTime: readonly number[] | undefined): LegacySensorMeasurementAxis | undefined {
   if (!routeTime || routeTime.length < 2) return undefined;
-  if (routeTime.some((sample) => !Number.isFinite(sample) || sample < 0)) return undefined;
-  const divisor = timestampDivisor(detectTimestampUnit(routeTime[0]!));
+  const unit = detectConsistentTimestampUnit(routeTime);
+  if (unit == null) return undefined;
+  const divisor = timestampDivisor(unit);
   const time = routeTime.map((sample) => (sample - routeTime[0]!) / divisor);
   const deltas = time.slice(1).map((sample, index) => sample - time[index]!);
   if (deltas.some((delta) => delta <= 0)) return undefined;

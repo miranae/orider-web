@@ -3,7 +3,7 @@ import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
 import { inferUniformSampleTimeAxis } from "../../../utils/sampleTime";
 import {
-  detectTimestampUnit,
+  detectConsistentTimestampUnit,
   normalizeEpochMilliseconds,
   timestampDivisor,
 } from "../../../utils/timestampUnit";
@@ -260,7 +260,9 @@ function validTimeDurationSec(value: unknown): number | undefined {
     return undefined;
   }
   const numericTime = time as number[];
-  const divisor = timestampDivisor(detectTimestampUnit(numericTime[0]!));
+  const unit = detectConsistentTimestampUnit(numericTime);
+  if (unit == null) return undefined;
+  const divisor = timestampDivisor(unit);
   const deltas = numericTime.slice(1).map((sample, index) => sample - numericTime[index]!);
   if (deltas.some((delta) => delta <= 0)) return undefined;
   const sortedDeltas = [...deltas].sort((a, b) => a - b);
@@ -367,6 +369,7 @@ function usesLegacyTimeCoverage(valuesLength: number, expectation: LegacyCoverag
 }
 
 function hasLegacyCoverage(valuesLength: number, expectation: LegacyCoverageExpectation): boolean {
+  if (expectation.hasInvalidTimeEvidence && expectation.summaryDurationSec == null) return false;
   if (usesLegacyTimeCoverage(valuesLength, expectation)) {
     return legacySensorDurationsAgree(
       expectation.timeDurationSec!,
@@ -427,16 +430,12 @@ function persistedNumericArray(value: unknown, allowNegative: boolean): number[]
 function persistedTimeArray(value: unknown): number[] | undefined {
   const values = persistedNumericArray(value, false);
   if (!values) return undefined;
-  const firstUnit = detectTimestampUnit(values[0]!);
+  if (values.length === 0) return values;
+  const unit = detectConsistentTimestampUnit(values);
+  if (unit == null) return undefined;
   for (let index = 0; index < values.length; index++) {
     const sample = values[index]!;
-    const sampleUnit = detectTimestampUnit(sample);
-    if (sampleUnit !== firstUnit) return undefined;
     if (index > 0 && sample <= values[index - 1]!) return undefined;
-    // Fractional relative seconds are valid for routes sampled above 1 Hz. Keep
-    // absolute epoch axes integer-safe so later millisecond normalization is exact.
-    if (firstUnit === "epoch_ms" && !Number.isSafeInteger(sample)) return undefined;
-    if (firstUnit === "epoch_sec" && !Number.isSafeInteger(sample * 1000)) return undefined;
   }
   return values;
 }

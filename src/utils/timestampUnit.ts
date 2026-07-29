@@ -12,6 +12,20 @@ export function detectTimestampUnit(value: number): TimestampUnit {
   return value >= MIN_EPOCH_SECONDS ? "epoch_sec" : "relative_sec";
 }
 
+export function detectConsistentTimestampUnit(
+  values: readonly number[],
+): TimestampUnit | undefined {
+  if (values.length === 0) return undefined;
+  const unit = detectTimestampUnit(values[0]!);
+  return values.every((value) => Number.isFinite(value)
+    && value >= 0
+    && detectTimestampUnit(value) === unit
+    && (unit !== "epoch_ms" || Number.isSafeInteger(value))
+    && (unit !== "epoch_sec" || Number.isSafeInteger(value * 1000)))
+    ? unit
+    : undefined;
+}
+
 export function timestampDivisor(unit: TimestampUnit): number {
   return unit === "epoch_ms" ? 1000 : 1;
 }
