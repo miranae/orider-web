@@ -8,17 +8,45 @@ import { getDiscipline } from "../../utils/disciplineFilter";
 import {
   activityDerivedDocumentRevision,
   invalidateDerivedDocumentReadAttempt,
+  isDerivedDocumentReadCurrent,
+  markDerivedDocumentMissing,
+  markDerivedDocumentReadComplete,
   markDerivedDocumentReadAttempt,
   shouldReadDerivedDocument,
   type DerivedDocumentReadAttempts,
 } from "./derivedDocumentReadAttempts";
 
-// 누락 문서는 backend 파생 작업이 끝나는 일반적인 구간만 감시한다. 이후에는 activity
-// lifecycle 변경이 있을 때 다시 확인해 장기 listener/read 비용을 만들지 않는다.
+// 누락 문서는 backend 파생 작업이 끝나는 일반적인 구간만 감시한다. 감시 종료 뒤에도
+// 동일 revision을 제한된 backoff로 재확인하되, listener/read 비용은 종류별 상한을 지킨다.
 export const DERIVED_DOCUMENT_CREATION_WATCH_MS = 60_000;
 export const DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND = 24;
 export const DERIVED_DOCUMENT_CREATION_RETRY_MS = 5_000;
 export const DERIVED_DOCUMENT_CREATION_MAX_RETRIES = 1;
+export const DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS = 60_000;
+export const DERIVED_DOCUMENT_MAX_MISSING_READS = 3;
+
+type RecheckTask = {
+  activity: Activity;
+  nextEligibleAt: number;
+  run: () => Promise<void>;
+};
+
+type RecheckQueue = {
+  scheduled: Map<string, RecheckTask>;
+  wakeAt: number;
+  wakeTimer: ReturnType<typeof setTimeout> | null;
+};
+
+type ReadPermitWaiter = {
+  activity: Activity;
+  resolve: (release: () => void) => void;
+};
+
+type ReadLimiter = {
+  active: number;
+  concurrency: number;
+  pending: ReadPermitWaiter[];
+};
 
 type DerivedState = {
   ownerUid: string | null;
@@ -33,10 +61,26 @@ type ReadResources = {
   metricAttempts: DerivedDocumentReadAttempts;
   streamWatches: Map<string, () => void>;
   metricWatches: Map<string, () => void>;
+  streamRechecks: RecheckQueue;
+  metricRechecks: RecheckQueue;
+  streamLimiter: ReadLimiter;
+  metricLimiter: ReadLimiter;
 };
 
 const EMPTY_STREAMS = new Map<string, ActivityStreams>();
 const EMPTY_METRICS = new Map<string, ActivityMetrics>();
+
+function createRecheckQueue(): RecheckQueue {
+  return {
+    scheduled: new Map(),
+    wakeAt: Number.POSITIVE_INFINITY,
+    wakeTimer: null,
+  };
+}
+
+function createReadLimiter(concurrency: number): ReadLimiter {
+  return { active: 0, concurrency, pending: [] };
+}
 
 function createResources(): ReadResources {
   return {
@@ -46,12 +90,37 @@ function createResources(): ReadResources {
     metricAttempts: new Map(),
     streamWatches: new Map(),
     metricWatches: new Map(),
+    streamRechecks: createRecheckQueue(),
+    metricRechecks: createRecheckQueue(),
+    streamLimiter: createReadLimiter(10),
+    metricLimiter: createReadLimiter(20),
   };
 }
 
 function stopWatches(watches: Map<string, () => void>): void {
   for (const stop of watches.values()) stop();
   watches.clear();
+}
+
+function cancelRecheck(queue: RecheckQueue, activityId: string): void {
+  queue.scheduled.delete(activityId);
+  scheduleRecheckWake(queue);
+}
+
+function stopRechecks(queue: RecheckQueue): void {
+  if (queue.wakeTimer != null) clearTimeout(queue.wakeTimer);
+  queue.wakeTimer = null;
+  queue.wakeAt = Number.POSITIVE_INFINITY;
+  queue.scheduled.clear();
+}
+
+function cancelReadWaiters(limiter: ReadLimiter, keep?: ReadonlySet<string>): void {
+  const retained: ReadPermitWaiter[] = [];
+  for (const waiter of limiter.pending) {
+    if (keep?.has(waiter.activity.id)) retained.push(waiter);
+    else waiter.resolve(() => undefined);
+  }
+  limiter.pending = retained;
 }
 
 function pruneResources(resources: ReadResources, activeIds: ReadonlySet<string>): void {
@@ -67,6 +136,13 @@ function pruneResources(resources: ReadResources, activeIds: ReadonlySet<string>
       }
     }
   }
+  for (const queue of [resources.streamRechecks, resources.metricRechecks]) {
+    for (const id of queue.scheduled.keys()) {
+      if (!activeIds.has(id)) cancelRecheck(queue, id);
+    }
+  }
+  cancelReadWaiters(resources.streamLimiter, activeIds);
+  cancelReadWaiters(resources.metricLimiter, activeIds);
 }
 
 function parseStreams(data: Record<string, unknown>): ActivityStreams {
@@ -80,6 +156,69 @@ function compareActivityRecency(left: Activity, right: Activity): number {
   if (startTimeDifference !== 0) return startTimeDifference;
   if (left.id === right.id) return 0;
   return left.id < right.id ? -1 : 1;
+}
+
+function scheduleRecheck(queue: RecheckQueue, task: RecheckTask): void {
+  cancelRecheck(queue, task.activity.id);
+  queue.scheduled.set(task.activity.id, task);
+  scheduleRecheckWake(queue);
+}
+
+function scheduleRecheckWake(queue: RecheckQueue): void {
+  const nextEligibleAt = Math.min(
+    ...[...queue.scheduled.values()].map((task) => task.nextEligibleAt),
+  );
+  if (queue.wakeTimer != null && queue.wakeAt === nextEligibleAt) return;
+  if (queue.wakeTimer != null) clearTimeout(queue.wakeTimer);
+  queue.wakeTimer = null;
+  queue.wakeAt = nextEligibleAt;
+  if (!Number.isFinite(nextEligibleAt)) return;
+  queue.wakeTimer = setTimeout(() => {
+    queue.wakeTimer = null;
+    queue.wakeAt = Number.POSITIVE_INFINITY;
+    const now = Date.now();
+    const eligible = [...queue.scheduled.values()]
+      .filter((task) => task.nextEligibleAt <= now)
+      .sort((left, right) => compareActivityRecency(right.activity, left.activity));
+    for (const task of eligible) {
+      queue.scheduled.delete(task.activity.id);
+      void task.run();
+    }
+    scheduleRecheckWake(queue);
+  }, Math.max(0, nextEligibleAt - Date.now()));
+}
+
+function acquireReadPermit(limiter: ReadLimiter, activity: Activity): Promise<() => void> {
+  return new Promise((resolve) => {
+    const grant = () => {
+      limiter.active += 1;
+      let released = false;
+      resolve(() => {
+        if (released) return;
+        released = true;
+        limiter.active -= 1;
+        const next = limiter.pending.shift();
+        if (next != null) grantReadPermit(limiter, next);
+      });
+    };
+    if (limiter.active < limiter.concurrency) grant();
+    else {
+      limiter.pending.push({ activity, resolve });
+      limiter.pending.sort((left, right) => compareActivityRecency(right.activity, left.activity));
+    }
+  });
+}
+
+function grantReadPermit(limiter: ReadLimiter, waiter: ReadPermitWaiter): void {
+  limiter.active += 1;
+  let released = false;
+  waiter.resolve(() => {
+    if (released) return;
+    released = true;
+    limiter.active -= 1;
+    const next = limiter.pending.shift();
+    if (next != null) grantReadPermit(limiter, next);
+  });
 }
 
 export function useActivityDerivedDocuments(
@@ -109,6 +248,10 @@ export function useActivityDerivedDocuments(
       for (const id of resources.metricWatches.keys()) resources.metricAttempts.delete(id);
       stopWatches(resources.streamWatches);
       stopWatches(resources.metricWatches);
+      stopRechecks(resources.streamRechecks);
+      stopRechecks(resources.metricRechecks);
+      cancelReadWaiters(resources.streamLimiter);
+      cancelReadWaiters(resources.metricLimiter);
     };
   }, [resources]);
 
@@ -139,14 +282,18 @@ export function useActivityDerivedDocuments(
       generationRef.current === generation &&
       resources.activeIds.has(activity.id)
     );
-    const isCurrent = (activity: Activity, attempts: DerivedDocumentReadAttempts, revision: string) => (
+    const isCurrent = (
+      activity: Activity,
+      attempts: DerivedDocumentReadAttempts,
+      revision: string,
+      attemptToken?: number,
+    ) => (
       isGenerationCurrent(activity) &&
-      attempts.get(activity.id) === revision
+      isDerivedDocumentReadCurrent(attempts, activity.id, revision, attemptToken)
     );
     const activitiesById = new Map(scopedActivities.map((activity) => [activity.id, activity]));
     const reserveWatchSlot = (
       activity: Activity,
-      attempts: DerivedDocumentReadAttempts,
       watches: Map<string, () => void>,
     ) => {
       if (watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND) return true;
@@ -166,7 +313,6 @@ export function useActivityDerivedDocuments(
       }
       if (oldestId == null ||
           (oldestActivity != null && compareActivityRecency(activity, oldestActivity) <= 0)) return false;
-      invalidateDerivedDocumentReadAttempt(attempts, oldestId);
       watches.get(oldestId)?.();
       return watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND;
     };
@@ -180,10 +326,12 @@ export function useActivityDerivedDocuments(
       apply: (id: string, value: T) => void,
       kind: "stream" | "metrics",
       retryCount = 0,
+      attemptToken = attempts.get(activity.id)?.token,
     ) => {
       const revision = activityDerivedDocumentRevision(activity);
-      if (!isCurrent(activity, attempts, revision) || watches.has(activity.id) ||
-          !reserveWatchSlot(activity, attempts, watches)) return;
+      const rechecks = kind === "stream" ? resources.streamRechecks : resources.metricRechecks;
+      if (!isCurrent(activity, attempts, revision, attemptToken) || watches.has(activity.id) ||
+          !reserveWatchSlot(activity, watches)) return;
       let unsubscribe: () => void = () => undefined;
       let unsubscribeReady = false;
       let stopRequested = false;
@@ -202,23 +350,30 @@ export function useActivityDerivedDocuments(
         };
         retryTimer = setTimeout(() => {
           cancelRetry();
-          if (!isGenerationCurrent(activity) || attempts.has(activity.id)) return;
-          markDerivedDocumentReadAttempt(attempts, activity);
-          watchCreation(activity, reference, attempts, watches, parse, apply, kind, retryCount + 1);
+          if (!isCurrent(activity, attempts, revision, attemptToken)) return;
+          watchCreation(
+            activity, reference, attempts, watches, parse, apply,
+            kind, retryCount + 1, attemptToken,
+          );
         }, DERIVED_DOCUMENT_CREATION_RETRY_MS);
         watches.set(activity.id, cancelRetry);
       };
       watches.set(activity.id, stop);
       unsubscribe = onSnapshot(reference, (snapshot) => {
         if (!snapshot.exists()) return;
-        if (!isCurrent(activity, attempts, revision)) {
+        if (watches.get(activity.id) !== stop ||
+            !isCurrent(activity, attempts, revision, attemptToken)) {
           stop();
           return;
         }
         try {
-          apply(activity.id, parse(snapshot.data()));
+          const value = parse(snapshot.data());
+          markDerivedDocumentReadComplete(attempts, activity);
+          cancelRecheck(rechecks, activity.id);
+          apply(activity.id, value);
         } catch (error) {
           invalidateDerivedDocumentReadAttempt(attempts, activity.id);
+          cancelRecheck(rechecks, activity.id);
           logClientError("useActivityDerivedDocuments.creationWatch.parse", error, {
             kind,
             activityId: activity.id,
@@ -227,10 +382,9 @@ export function useActivityDerivedDocuments(
           stop();
         }
       }, (error) => {
-        const wasCurrent = isCurrent(activity, attempts, revision);
+        const wasCurrent = isCurrent(activity, attempts, revision, attemptToken);
         const retryAllowed = retryCount < DERIVED_DOCUMENT_CREATION_MAX_RETRIES &&
           wasCurrent;
-        if (wasCurrent) invalidateDerivedDocumentReadAttempt(attempts, activity.id);
         stop();
         if (retryAllowed) scheduleRetry();
         logClientError("useActivityDerivedDocuments.creationWatch.error", error, {
@@ -253,20 +407,59 @@ export function useActivityDerivedDocuments(
       watchIfMissing: boolean,
       kind: "stream" | "metrics",
       retryCount = 0,
+      attemptToken = attempts.get(activity.id)?.token,
     ) => {
       const revision = activityDerivedDocumentRevision(activity);
-      if (!isCurrent(activity, attempts, revision)) return;
+      if (!isCurrent(activity, attempts, revision, attemptToken)) return;
+      const rechecks = kind === "stream" ? resources.streamRechecks : resources.metricRechecks;
+      const limiter = kind === "stream" ? resources.streamLimiter : resources.metricLimiter;
+      cancelRecheck(rechecks, activity.id);
       watches.get(activity.id)?.();
       const reference = doc(firestore, collectionName, activity.id);
       try {
-        const snapshot = await getDoc(reference);
-        if (!isCurrent(activity, attempts, revision)) return;
-        if (snapshot.exists()) apply(activity.id, parse(snapshot.data()));
-        else if (watchIfMissing) watchCreation(activity, reference, attempts, watches, parse, apply, kind);
+        const release = await acquireReadPermit(limiter, activity);
+        if (!isCurrent(activity, attempts, revision, attemptToken)) {
+          release();
+          return;
+        }
+        const snapshot = await getDoc(reference).finally(release);
+        if (!isCurrent(activity, attempts, revision, attemptToken)) return;
+        if (snapshot.exists()) {
+          const value = parse(snapshot.data());
+          markDerivedDocumentReadComplete(attempts, activity);
+          apply(activity.id, value);
+          return;
+        }
+        const previous = attempts.get(activity.id);
+        const missingCount = previous?.revision === revision ? previous.missingCount + 1 : 1;
+        const canRecheck = missingCount < DERIVED_DOCUMENT_MAX_MISSING_READS;
+        const nextEligibleAt = canRecheck
+          ? Date.now() + DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 2 ** (missingCount - 1)
+          : Number.POSITIVE_INFINITY;
+        markDerivedDocumentMissing(attempts, activity, nextEligibleAt);
+        if (watchIfMissing) {
+          watchCreation(activity, reference, attempts, watches, parse, apply, kind);
+        }
+        if (canRecheck) {
+          scheduleRecheck(rechecks, {
+            activity,
+            nextEligibleAt,
+            run: async () => {
+              if (!isGenerationCurrent(activity) || !shouldReadDerivedDocument(attempts, activity)) return;
+              const recheckAttempt = markDerivedDocumentReadAttempt(attempts, activity);
+              await loadOne(
+                activity, collectionName, attempts, watches, parse, apply,
+                watchIfMissing, kind, 0, recheckAttempt.token,
+              );
+            },
+          });
+        }
       } catch (error) {
-        const wasCurrent = isCurrent(activity, attempts, revision);
-        watches.get(activity.id)?.();
-        if (wasCurrent) invalidateDerivedDocumentReadAttempt(attempts, activity.id);
+        const wasCurrent = isCurrent(activity, attempts, revision, attemptToken);
+        if (wasCurrent) {
+          watches.get(activity.id)?.();
+          cancelRecheck(rechecks, activity.id);
+        }
         if (wasCurrent && retryCount < DERIVED_DOCUMENT_CREATION_MAX_RETRIES &&
             watches.size < DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND) {
           let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -276,11 +469,11 @@ export function useActivityDerivedDocuments(
           };
           retryTimer = setTimeout(() => {
             cancelRetry();
-            if (!isGenerationCurrent(activity) || attempts.has(activity.id)) return;
-            markDerivedDocumentReadAttempt(attempts, activity);
+            if (!isCurrent(activity, attempts, revision, attemptToken)) return;
+            const retryAttempt = markDerivedDocumentReadAttempt(attempts, activity);
             void loadOne(
               activity, collectionName, attempts, watches, parse, apply,
-              watchIfMissing, kind, retryCount + 1,
+              watchIfMissing, kind, retryCount + 1, retryAttempt.token,
             );
           }, DERIVED_DOCUMENT_CREATION_RETRY_MS);
           watches.set(activity.id, cancelRetry);
@@ -323,8 +516,14 @@ export function useActivityDerivedDocuments(
     );
     const streamWatchableIds = newestIds(streamActivities);
     const metricWatchableIds = newestIds(metricActivities);
-    streamActivities.forEach((activity) => markDerivedDocumentReadAttempt(resources.streamAttempts, activity));
-    metricActivities.forEach((activity) => markDerivedDocumentReadAttempt(resources.metricAttempts, activity));
+    const streamAttemptTokens = new Map(streamActivities.map((activity) => [
+      activity.id,
+      markDerivedDocumentReadAttempt(resources.streamAttempts, activity).token,
+    ]));
+    const metricAttemptTokens = new Map(metricActivities.map((activity) => [
+      activity.id,
+      markDerivedDocumentReadAttempt(resources.metricAttempts, activity).token,
+    ]));
     const loadStreams = async () => {
       for (let index = 0; index < streamActivities.length; index += 10) {
         if (!resources.active || generationRef.current !== generation) return;
@@ -332,6 +531,7 @@ export function useActivityDerivedDocuments(
         await Promise.all(batch.map((activity) => loadOne(
           activity, "activity_streams", resources.streamAttempts, resources.streamWatches,
           parseStreams, applyStream, streamWatchableIds.has(activity.id), "stream",
+          0, streamAttemptTokens.get(activity.id)!,
         )));
       }
     };
@@ -342,6 +542,7 @@ export function useActivityDerivedDocuments(
         await Promise.all(batch.map((activity) => loadOne(
           activity, "activity_metrics", resources.metricAttempts, resources.metricWatches,
           (data) => data as unknown as ActivityMetrics, applyMetric, metricWatchableIds.has(activity.id), "metrics",
+          0, metricAttemptTokens.get(activity.id)!,
         )));
       }
     };
