@@ -518,11 +518,10 @@ function alignSensorChannelForChart(
   }
   const routeAxis = chartRouteTimeAxis(streams, routeLength, context.activityStartTime);
   if (!routeAxis) return undefined;
-  const legacyOrigin = normalizeEpochMs(context.activityStartTime);
-  const hasCompatibleLegacyOrigin = legacyOrigin == null
-    || routeAxis.originEpochMs == null
-    || legacyOrigin === routeAxis.originEpochMs;
-  if (source === "legacy" && values.length === routeLength && hasCompatibleLegacyOrigin) {
+  // Legacy top-level channels share the route array's index contract. The first GPS fix
+  // may be later than the activity start, but that delay does not shift an already exact,
+  // route-length channel. V1 and override streams retain their independent clock rules.
+  if (source === "legacy" && values.length === routeLength) {
     return [...values];
   }
 

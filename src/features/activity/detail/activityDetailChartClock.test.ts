@@ -195,19 +195,62 @@ describe("activity detail chart clocks", () => {
       .toEqual([100, 200, 300, 400]);
   });
 
-  it("fails equal-length legacy chart alignment closed when absolute origins differ", () => {
+  it.each([
+    ["seconds", 5_000],
+    ["minutes", 120_000],
+  ])("keeps exact route-index legacy channels when the first GPS fix is delayed by %s", (_case, delayMs) => {
+    const activityStartMs = 1_700_000_000_000;
+    const routeStartSec = (activityStartMs + delayMs) / 1000;
     const context = buildActivitySensorSelectionContext({
-      ridingTimeMillis: 4_000,
-      elapsedTimeMillis: 4_000,
-    } as never, 1_700_000_100_000);
+      ridingTimeMillis: 10_000,
+      elapsedTimeMillis: 10_000,
+    } as never, activityStartMs);
     const streams = {
-      distance: [0, 1, 2, 3],
-      time: [1_700_000_000, 1_700_000_001, 1_700_000_002, 1_700_000_003],
-      watts: [100, 200, 300, 400],
+      distance: Array.from({ length: 10 }, (_, index) => index),
+      time: Array.from({ length: 10 }, (_, index) => routeStartSec + index),
+      watts: [100, 0, 300, 400, 500, 600, 700, 800, 900, 1_000],
+      heartrate: [140, 0, 142, 143, 144, 145, 146, 147, 148, 149],
+      cadence: [80, 0, 82, 83, 84, 85, 86, 87, 88, 89],
     };
 
-    expect(getAvailableOverlays(buildSampledData(streams as never, context)).map(({ key }) => key))
-      .not.toContain("power");
+    const sampled = buildSampledData(streams as never, context);
+    expect(getAvailableOverlays(sampled).map(({ key }) => key))
+      .toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
+    expect(sampled[0]).toMatchObject({ power: 100, heartRate: 140, cadence: 80 });
+    expect(sampled[1]).toMatchObject({ power: 0, heartRate: null, cadence: 0 });
+    expect(sampled[9]).toMatchObject({ power: 1_000, heartRate: 149, cadence: 89 });
+  });
+
+  it("fails legacy chart alignment closed when channel and route lengths differ", () => {
+    const streams = {
+      distance: [0, 1, 2, 3],
+      time: [1_700_000_005, 1_700_000_006, 1_700_000_007, 1_700_000_008],
+      watts: [100, 200, 300],
+      heartrate: [140, 150, 160],
+      cadence: [80, 81, 82],
+    };
+
+    const overlays = getAvailableOverlays(buildSampledData(streams as never, {
+      legacyDurationSec: 4,
+      activityStartTime: 1_700_000_000_000,
+    })).map(({ key }) => key);
+    expect(overlays.filter((key) => ["power", "hr", "cadence"].includes(key))).toEqual([]);
+  });
+
+  it("fails exact-length legacy chart alignment closed for a mixed-unit route clock", () => {
+    const streams = {
+      distance: [0, 1, 2, 3],
+      time: [0, 1, 2, 1_700_000_003],
+      watts: [100, 200, 300, 400],
+      heartrate: [140, 150, 160, 170],
+      cadence: [80, 81, 82, 83],
+    };
+
+    const overlays = getAvailableOverlays(buildSampledData(streams as never, {
+      legacyDurationSec: 4,
+      activityStartTime: 1_700_000_000_000,
+    })).map(({ key }) => key);
+    expect(overlays.filter((key) => ["power", "hr", "cadence"].includes(key))).toEqual([]);
   });
 
   it.each([
