@@ -36,9 +36,14 @@ export function plausibleWatts(
   if (cnt > 0 && sum / cnt > cap) return undefined; // 평균 비현실 → 파워 신뢰 불가
 
   // 5분(≈300s) 최대 롤링평균이 2×FTP(또는 700W) 초과면 어떤 라이더도 불가능.
+  if (timing?.durationsSec != null && (
+    timing.durationsSec.length !== raw.length
+    || timing.durationsSec.some((duration) => !Number.isFinite(duration) || duration <= 0)
+  )) return undefined;
+  const durationsSec = sampleDurationsSec(raw.length, undefined, timing);
   const fiveMinuteMax = maxWeightedAverage(
     raw.map((watts) => Number.isFinite(watts) && watts > 0 ? watts : 0),
-    sampleDurationsSec(raw.length, undefined, timing),
+    durationsSec,
     300,
     timing?.segmentStarts,
   );

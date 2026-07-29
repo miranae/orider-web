@@ -32,6 +32,17 @@ describe("plausibleWatts", () => {
     expect(plausibleWatts(raw, 200)).toBeUndefined();
   });
 
+  it.each([Number.NaN, Number.POSITIVE_INFINITY])(
+    "비유한 raw 샘플 %s가 있어도 5분 지속 고출력을 거부한다",
+    (nonFinite) => {
+      const raw = Array.from({ length: 4_000 }, () => 100);
+      raw.fill(1_700, 0, 300);
+      raw[100] = nonFinite;
+
+      expect(plausibleWatts(raw, 200)).toBeUndefined();
+    },
+  );
+
   it("FTP 미상이면 600W(평균)/700W(5분) 폴백 cap", () => {
     expect(plausibleWatts(Array.from({ length: 50 }, () => 700), undefined)).toBeUndefined(); // 700>600
     expect(plausibleWatts(Array.from({ length: 50 }, () => 500), undefined)).toEqual(Array.from({ length: 50 }, () => 500));
@@ -70,5 +81,25 @@ describe("plausibleWatts", () => {
       durationsSec: Array(raw.length).fill(1 / rateHz),
       segmentStarts,
     })).toEqual(raw);
+  });
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "명시 duration에 유효하지 않은 값 %s가 있으면 fail closed 한다",
+    (invalidDuration) => {
+      const raw = Array(4_000).fill(100);
+      raw.fill(1_700, 0, 300);
+      const durationsSec = Array(raw.length).fill(1);
+      durationsSec[1_000] = invalidDuration;
+
+      expect(plausibleWatts(raw, 200, { durationsSec })).toBeUndefined();
+    },
+  );
+
+  it("명시 duration 길이가 power stream과 다르면 fail closed 한다", () => {
+    expect(plausibleWatts(
+      Array(600).fill(100),
+      200,
+      { durationsSec: Array(599).fill(1) },
+    )).toBeUndefined();
   });
 });

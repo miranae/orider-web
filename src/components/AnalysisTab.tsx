@@ -248,6 +248,14 @@ export interface WholeSessionSensorSeries {
   fullSessionDurationSec?: number;
 }
 
+export function wholeSessionSampleTiming(series: WholeSessionSensorSeries): SampleTiming {
+  return {
+    durationsSec: series.durationsSec
+      ?? sampleDurationsSec(series.values.length, series.time),
+    segmentStarts: series.segmentStarts,
+  };
+}
+
 interface SensorCandidateFlags {
   power: boolean;
   heartRate: boolean;
@@ -478,12 +486,13 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     activityTimeOriginEpochMs,
     legacyDurationSec,
   ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc, legacyDurationSec]);
+  const powerTiming = useMemo<SampleTiming>(
+    () => wholeSessionSampleTiming(selectedPowerSeries),
+    [selectedPowerSeries],
+  );
   const watts = useMemo(
-    () => plausibleWatts(selectedPowerSeries.values, ftp, {
-      durationsSec: selectedPowerSeries.durationsSec,
-      segmentStarts: selectedPowerSeries.segmentStarts,
-    }) ?? [],
-    [selectedPowerSeries.durationsSec, selectedPowerSeries.segmentStarts, selectedPowerSeries.values, ftp],
+    () => plausibleWatts(selectedPowerSeries.values, ftp, powerTiming) ?? [],
+    [selectedPowerSeries.values, ftp, powerTiming],
   );
   const selectedHeartRateSeries = useMemo(() => selectWholeSessionSensorSeries(
     sensorHeartRate,
@@ -504,10 +513,6 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const hasHr = hr.length > 0;
   const powerTime = selectedPowerSeries.time;
   const heartRateTime = selectedHeartRateSeries.time;
-  const powerTiming = useMemo<SampleTiming>(() => ({
-    durationsSec: selectedPowerSeries.durationsSec,
-    segmentStarts: selectedPowerSeries.segmentStarts,
-  }), [selectedPowerSeries.durationsSec, selectedPowerSeries.segmentStarts]);
   const heartRateTiming = useMemo<SampleTiming>(() => ({
     durationsSec: selectedHeartRateSeries.durationsSec,
     segmentStarts: selectedHeartRateSeries.segmentStarts,
