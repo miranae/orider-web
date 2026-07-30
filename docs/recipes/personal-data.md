@@ -51,6 +51,7 @@ demo/mock data 기반 결과를 넣습니다.
 
 - [리포트형 레시피 템플릿](report-template.md)
 - [AI Ride Diary](ai-ride-diary.md)
+- [자전거 출퇴근 일기](commute-diary.md)
 - [Weekly Load Report](weekly-load-report.md)
 - [Hard-Day Streak Alert](hard-day-streak-alert.md)
 - [Long-Ride Log Package](long-ride-log-package.md)

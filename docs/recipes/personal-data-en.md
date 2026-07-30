@@ -89,11 +89,12 @@ Describe what a rider can safely share inside Orider:
 
 Use [Report Recipe Template](report-template-en.md) when a recipe should produce a polished analysis report rather than a simple alert.
 
-These five recipes are the first polished examples for Creator Hub:
+These recipes are polished examples for Creator Hub:
 
 | Recipe | Result | Email support |
 |---|---|---|
 | [AI Ride Diary](ai-ride-diary-en.md) | Private diary draft plus redacted share card. | Sends the private-safe summary to the signed-in rider. |
+| [Bike Commute Diary](commute-diary-en.md) | Private daily commute check-ins plus a weekly pattern review. | Sends the private weekly template to the signed-in rider without home/work or exact routes. |
 | [Weekly Load Report](weekly-load-report-en.md) | Weekly training load digest and chart card. | Sends aggregate weekly report. |
 | [Hard-Day Streak Alert](hard-day-streak-alert-en.md) | Recovery warning when hard days stack up. | Sends explicit email-to-self alert. |
 | [Long-Ride Log Package](long-ride-log-package-en.md) | GPX/private export path plus coach-ready notes. | Sends summary/checklist, not route files. |
