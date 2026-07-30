@@ -1,5 +1,5 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useActivities, useWeeklyStats, useActivitySearch, useMonthlyActivityDistance } from "./useActivities";
+import { useActivities, useWeeklyStats, useActivitySearch } from "./useActivities";
 import { simulateLogin, simulateLogout, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 import { MemoryRouter } from "react-router-dom";
@@ -8,7 +8,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import React from "react";
 import * as publicProfiles from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
-import { getDocs, where } from "firebase/firestore";
+import { getDocs, onSnapshot, where } from "firebase/firestore";
 import {
   __resetFirestoreSessionRecoveryForTests,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
@@ -422,6 +422,75 @@ describe("useWeeklyStats", () => {
     });
   });
 
+  it("derives the monthly distance from the complete 12-week response without another query", async () => {
+    const now = new Date(2026, 6, 14, 12, 0, 0);
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      {
+        id: "july-ride",
+        ...createMockActivity({
+          id: "july-ride",
+          userId: "user-1",
+          startTime: new Date(2026, 6, 10, 8, 0, 0).getTime(),
+          summary: createMockSummary({ distance: 31_000 }),
+        }),
+      },
+      {
+        id: "june-ride",
+        ...createMockActivity({
+          id: "june-ride",
+          userId: "user-1",
+          startTime: new Date(2026, 5, 30, 8, 0, 0).getTime(),
+          summary: createMockSummary({ distance: 99_000 }),
+        }),
+      },
+    ]);
+    vi.mocked(getDocs).mockClear();
+
+    const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+
+    await waitFor(() => expect(result.current.monthlyActivityDistance).toBe(31_000));
+    expect(getDocs).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the exact monthly query when the 12-week response reaches its limit", async () => {
+    const now = new Date(2026, 6, 14, 12, 0, 0);
+    const cappedDocs = Array.from({ length: 200 }, (_, index) => ({
+      id: `capped-${index}`,
+      data: () => createMockActivity({
+        id: `capped-${index}`,
+        userId: "user-1",
+        startTime: new Date(2026, 5, 20, 8, 0, 0).getTime(),
+      }),
+    }));
+    const monthlyDocs = [{
+      id: "monthly-full-result",
+      data: () => createMockActivity({
+        id: "monthly-full-result",
+        userId: "user-1",
+        startTime: new Date(2026, 6, 10, 8, 0, 0).getTime(),
+        summary: createMockSummary({ distance: 42_000 }),
+      }),
+    }];
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockReset();
+    mockedGetDocs
+      .mockResolvedValueOnce({ docs: cappedDocs } as never)
+      .mockResolvedValueOnce({ docs: monthlyDocs } as never);
+
+    try {
+      simulateLogin({ uid: "user-1" });
+      const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+
+      await waitFor(() => expect(result.current.monthlyActivityDistance).toBe(42_000));
+      expect(mockedGetDocs).toHaveBeenCalledTimes(2);
+    } finally {
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
+  });
+
   it("keeps weekly totals finite when a recent activity has incomplete summary metrics", async () => {
     const now = new Date(2026, 6, 14, 12, 0, 0);
     simulateLogin({ uid: "user-1" });
@@ -535,24 +604,20 @@ describe("useWeeklyStats", () => {
   });
 });
 
-describe("useMonthlyActivityDistance", () => {
-  it("sums monthly activity distances and ignores summary-less documents", async () => {
-    simulateLogin({ uid: "user-1" });
-    setCollectionDocs("activities", [
-      { id: "a1", ...createMockActivity({ id: "a1", userId: "user-1", summary: createMockSummary({ distance: 12_000 }) }) },
-      { id: "broken", userId: "user-1", startTime: Date.now(), deletedAt: null },
-      { id: "a2", ...createMockActivity({ id: "a2", userId: "user-1", summary: createMockSummary({ distance: 8_000 }) }) },
-    ]);
-
-    const { result } = renderHook(() => useMonthlyActivityDistance(new Date(2026, 6, 7)), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current).toBe(20_000);
-    });
-  });
-});
-
 describe("useActivitySearch", () => {
+  it("does not open duplicate friend listeners before search", () => {
+    simulateLogin({ uid: "user-1" });
+    vi.mocked(onSnapshot).mockClear();
+
+    renderHook(() => useActivitySearch(new Set(["friend-1"])), { wrapper });
+
+    const subscribedPaths = vi.mocked(onSnapshot).mock.calls.map(([reference]) => (
+      (reference as { path?: string }).path ?? ""
+    ));
+    expect(subscribedPaths).not.toContain("friends/user-1/users");
+    expect(subscribedPaths).not.toContain("friend_requests/user-1/items");
+  });
+
   it("starts in inactive state", () => {
     const { result } = renderHook(() => useActivitySearch(), { wrapper });
     expect(result.current.active).toBe(false);

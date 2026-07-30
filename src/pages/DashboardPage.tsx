@@ -25,7 +25,7 @@ import ActivityCard from "../components/ActivityCard";
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance } from "../utils/units";
-import { useActivities, useWeeklyStats, useActivitySearch, useMonthlyActivityDistance } from "../hooks/useActivities";
+import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
 import type { ActivityFeedScope, DatePreset } from "../hooks/useActivities";
 import { useFriends } from "../hooks/useFriends";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
@@ -184,9 +184,8 @@ export default function DashboardPage() {
   const feedScope: ActivityFeedScope = dashboardPreferences.feedScope;
   const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities(feedScope, [...friendIds]);
-  const { weeklyStats, thisWeek, recent7DayDistances } = useWeeklyStats();
-  const monthlyActivityDistance = useMonthlyActivityDistance();
-  const activitySearch = useActivitySearch();
+  const { weeklyStats, thisWeek, recent7DayDistances, monthlyActivityDistance } = useWeeklyStats();
+  const activitySearch = useActivitySearch(friendIds);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
   const [searchParams] = useSearchParams();
