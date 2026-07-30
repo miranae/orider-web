@@ -20,6 +20,12 @@ The current Creator Hub email reads the signed-in rider's Orider activities on t
 
 Exact route coordinates are not needed, so the recipe does not request `streams:read`.
 
+## Web Release Dependency
+
+- Deploy the backend `commute-diary` handler in `sendCreatorRecipeEmail` before creating a web production tag.
+- In the deployed environment, pass an authenticated smoke test from request through delivery to the rider's own email.
+- Confirm that the smoke test creates no share card and sends only the last-7-day totals and fixed reflection prompts to the rider.
+
 ## Currently Available
 
 - Recalculates a rolling 7-day window each time the rider requests the report.

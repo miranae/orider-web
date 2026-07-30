@@ -18,6 +18,12 @@
 
 현재 Creator Hub 이메일은 로그인한 라이더의 Orider 활동을 서버에서 읽으며 Personal Data API key를 요구하지 않습니다.
 
+## 웹 릴리스 선행 조건
+
+- 웹 프로덕션 태그를 만들기 전에 backend `sendCreatorRecipeEmail`의 `commute-diary` handler를 먼저 배포합니다.
+- 배포된 환경에서 로그인한 테스트 계정으로 요청부터 본인 이메일 수신까지 smoke test를 통과해야 합니다.
+- smoke test에서는 공유 카드가 생성되지 않고, 최근 7일 합계와 고정 회고 질문만 본인 이메일로 전달되는지 확인합니다.
+
 ## 현재 제공 범위
 
 - 요청 시점을 기준으로 최근 7일을 매번 새로 계산합니다.
