@@ -130,6 +130,94 @@ describe("coachV2Contract", () => {
     } })).toThrow();
   });
 
+  it("accepts only provenance-bound grounded answers from the two-call tool flow", () => {
+    const groundedEvidence = { ...evidence, evidenceId: "ev_grounded_distance",
+      sourceId: "activity_summary_distance", sourceRevision: "activity_revision_1" };
+    const groundedBlock = {
+      ...baseBlock,
+      blockId: "block_agent_text",
+      kind: "grounded_markdown",
+      markdown: "확인된 기록입니다.\n\n- 최근 거리는 42 km입니다.",
+      evidenceIds: [groundedEvidence.evidenceId],
+    };
+    const groundedAnswer = {
+      ...answer,
+      schemaVersion: "coach-answer-document-v2",
+      catalogVersion: "coach-answer-block-catalog-v2",
+      answerId: `answer_${"a".repeat(24)}`,
+      sourceFactsId: `facts_${"b".repeat(24)}`,
+      questionSummary: "coach.answer.summary.agent_text",
+      blocks: [groundedBlock],
+      evidence: [groundedEvidence],
+      followUps: [],
+    };
+    const groundedEnvelope = {
+      ...envelope,
+      answer: groundedAnswer,
+      budget: { blocked: false, providerCalls: 2, inputTokens: 1_875, outputTokens: 713 },
+      execution: { parser: "provider", queryPlanHash: "c".repeat(64),
+        catalogVersion: "coach-query-catalog-v1", factsId: groundedAnswer.sourceFactsId, asOf: evidence.asOf },
+    };
+
+    expect(parseCoachV2Response({ data: groundedEnvelope })).toMatchObject({
+      outcome: "answer",
+      budget: { providerCalls: 2 },
+      answer: { blocks: [{ kind: "grounded_markdown", sourceSlotIds: ["slot_distance"],
+        evidenceIds: [groundedEvidence.evidenceId] }] },
+    });
+    expect(parseCoachV2Response({ data: { ...groundedEnvelope,
+      execution: { ...groundedEnvelope.execution, queryPlanHash: "future_query_plan_v2" },
+      answer: { ...groundedAnswer, blocks: [{ ...groundedBlock,
+        markdown: "요약 형식이 바뀌어도 근거가 연결된 서버 응답은 표시합니다." }] },
+    } })).toMatchObject({ outcome: "answer", budget: { providerCalls: 2 } });
+
+    const riderEvidence = { ...groundedEvidence, evidenceId: "ev_rider_type", source: "rider_insight",
+      sourceId: `rider_${"d".repeat(24)}`, field: "type", value: "Climber",
+      sourceRevision: `pdcr_${"e".repeat(24)}` };
+    const riderEnvelope = {
+      ...groundedEnvelope,
+      answer: { ...groundedAnswer,
+        blocks: [{ ...groundedBlock, sourceSlotIds: ["rider_insight"],
+          evidenceIds: [riderEvidence.evidenceId] }],
+        evidence: [riderEvidence] },
+    };
+    expect(parseCoachV2Response({ data: riderEnvelope })).toMatchObject({
+      outcome: "answer",
+      budget: { providerCalls: 2 },
+      answer: { evidence: [{ source: "rider_insight", evidenceId: riderEvidence.evidenceId }],
+        blocks: [{ sourceSlotIds: ["rider_insight"], evidenceIds: [riderEvidence.evidenceId] }] },
+    });
+
+    const { source: _source, ...missingSourceEvidence } = riderEvidence;
+    expect(() => parseCoachV2Response({ data: {
+      ...riderEnvelope,
+      answer: { ...riderEnvelope.answer, evidence: [missingSourceEvidence] },
+    } })).toThrow();
+    expect(() => parseCoachV2Response({ data: {
+      ...riderEnvelope,
+      answer: { ...riderEnvelope.answer,
+        evidence: [{ ...riderEvidence, source: "provider_claim" }] },
+    } })).toThrow();
+
+    expect(() => parseCoachV2Response({ data: {
+      ...groundedEnvelope,
+      execution: { ...groundedEnvelope.execution, queryPlanHash: undefined },
+    } })).toThrow();
+    expect(() => parseCoachV2Response({ data: {
+      ...groundedEnvelope,
+      execution: { ...groundedEnvelope.execution, factsId: `facts_${"0".repeat(24)}` },
+    } })).toThrow();
+    expect(() => parseCoachV2Response({ data: {
+      ...groundedEnvelope,
+      answer: { ...groundedAnswer, evidence: [groundedEvidence,
+        { ...groundedEvidence, evidenceId: "ev_unbound_extra" }] },
+    } })).toThrow();
+    expect(() => parseCoachV2Response({ data: {
+      ...groundedEnvelope,
+      budget: { ...groundedEnvelope.budget, providerCalls: 1 },
+    } })).toThrow();
+  });
+
   it("accepts only the server-owned deterministic general-guidance fallback shape", () => {
     const fallbackAnswer = {
       ...answer,
