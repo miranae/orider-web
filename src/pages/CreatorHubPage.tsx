@@ -48,6 +48,7 @@ interface CreatorItem {
   scopes: string[];
   channels: string[];
   labels: string[];
+  scopeLabel: string;
   shareMode: string;
   deployMode: string;
   status: string;
@@ -522,6 +523,7 @@ export default function CreatorHubPage() {
         scopes: recipe.scopes,
         channels: recipe.channels,
         labels: localized.labels,
+        scopeLabel: localized.scopeLabel ?? "Scopes",
         shareMode: localized.shareMode,
         deployMode: localized.deployMode,
         status: localized.status,
@@ -1015,7 +1017,7 @@ export default function CreatorHubPage() {
 
                 <div className="mt-4 grid gap-3 text-[length:var(--fs-xs)] min-[420px]:grid-cols-2" style={{ color: "var(--ink-3)" }}>
                   <div>
-                    <Text as="div" variant="eyebrow">Scopes</Text>
+                    <Text as="div" variant="eyebrow">{item.scopeLabel}</Text>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {item.scopes.map((scope) => <code key={scope} className={metadataCodeClass} style={{ background: "var(--bg-2)", color: "var(--ink-2)" }}>{scope}</code>)}
                     </div>
