@@ -7,12 +7,14 @@ export interface CreatorRecipeMeta {
   icon: CreatorRecipeIcon;
   scopes: string[];
   channels: string[];
+  showShareCardPreview: boolean;
   ko: {
     title: string;
     summary: string;
     outcome: string;
     detail: string;
     labels: string[];
+    scopeLabel?: string;
     shareMode: string;
     deployMode: string;
     status: string;
@@ -23,6 +25,7 @@ export interface CreatorRecipeMeta {
     outcome: string;
     detail: string;
     labels: string[];
+    scopeLabel?: string;
     shareMode: string;
     deployMode: string;
     status: string;
@@ -36,6 +39,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
     icon: "bot",
     scopes: ["activities:read", "streams:read", "fitness:read"],
     channels: ["orider-ai-credit", "share-card", "community-post"],
+    showShareCardPreview: true,
     ko: {
       title: "AI 자동 라이딩 일기",
       summary: "이번 주 라이딩을 자동으로 읽고, 혼자 보는 훈련 일기와 커뮤니티에 올릴 수 있는 짧은 자랑 카드를 따로 만듭니다.",
@@ -58,11 +62,42 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
     },
   },
   {
+    id: "commute-diary",
+    kind: "diary",
+    icon: "fileText",
+    scopes: ["activities:read"],
+    channels: ["weekly-review", "email-report"],
+    showShareCardPreview: false,
+    ko: {
+      title: "자전거 출퇴근 일기",
+      summary: "최근 7일의 자전거 출퇴근 합계와 Orider가 제공하는 고정 회고 질문을 본인 이메일로 받아봅니다.",
+      outcome: "자출 횟수·총 거리·총 이동 시간·총 상승고도와 회고 질문을 담은 비공개 이메일 리포트가 나옵니다.",
+      detail: "Strava의 출퇴근 표시나 명확한 활동명으로 자출을 찾고 거리와 이동 시간을 집계합니다. 몸 상태·날씨·교통을 추정하거나 저장하지 않으며, 일기 입력·보관함·공유 카드는 현재 제공하지 않습니다.",
+      labels: ["최근 7일", "본인 이메일", "자출 집계", "회고 질문"],
+      scopeLabel: "Scopes · 직접 만드는 확장판",
+      shareMode: "private email",
+      deployMode: "오라이더 안에서 직접 요청하면 최근 7일 자출 합계와 직접 답할 회고 질문을 본인 계정 이메일로 보냅니다. 현재 이메일에는 Personal Data API key가 필요하지 않고 답변은 저장하지 않으며, 정기 발송은 별도 동의가 필요합니다.",
+      status: "이메일 리포트",
+    },
+    en: {
+      title: "Bike commute diary",
+      summary: "Email yourself the last 7 days of bike commute totals and a fixed set of guided reflection prompts.",
+      outcome: "A private email report with commute count, total distance, total moving time, total elevation gain, and reflection prompts.",
+      detail: "Commutes are identified from Strava's commute flag or a clear activity name, then distance and moving time are totaled. Orider does not infer or store condition, weather, or traffic, and currently provides no diary entry, archive, or share card.",
+      labels: ["Last 7 days", "Email to self", "Commute totals", "Reflection prompts"],
+      scopeLabel: "Scopes · extension only",
+      shareMode: "private email",
+      deployMode: "Request it inside Orider to send the last 7 days of commute totals and guided reflection prompts to your account email. The current email requires no Personal Data API key, answers are not stored, and recurring delivery requires separate consent.",
+      status: "Email report",
+    },
+  },
+  {
     id: "weekly-load",
     kind: "chart",
     icon: "lineChart",
     scopes: ["activities:read", "fitness:read"],
     channels: ["dashboard", "share-card", "email-digest-ready"],
+    showShareCardPreview: true,
     ko: {
       title: "주간 부하 리포트",
       summary: "최근 7일 훈련 부하를 유료 분석 리포트처럼 정리해 전주 대비 변화, 강도 분포, 대표 활동 썸네일, 다음 행동을 한 번에 보여줍니다.",
@@ -90,6 +125,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
     icon: "bell",
     scopes: ["activities:read"],
     channels: ["in-app-alert", "email-opt-in", "discord-webhook"],
+    showShareCardPreview: true,
     ko: {
       title: "3일 연속 고강도 알림",
       summary: "강한 운동이 며칠째 이어질 때 오늘은 회복주로 돌릴지, Z1/Z2로 낮출지 알려주는 안전장치입니다.",
@@ -117,6 +153,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
     icon: "fileText",
     scopes: ["activities:read", "streams:read", "exports:read"],
     channels: ["download", "notion-log", "coach-report"],
+    showShareCardPreview: true,
     ko: {
       title: "롱라이드 기록 패키지",
       summary: "긴 라이딩 하나를 코치/Notion에 바로 붙일 수 있는 기록 초안, 보급 회고, 다음 라이딩 질문으로 정리합니다.",
@@ -144,6 +181,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
     icon: "trophy",
     scopes: ["activities:read"],
     channels: ["share-card", "email-report", "personal-archive"],
+    showShareCardPreview: true,
     ko: {
       title: "Ride Story",
       summary: "사진이나 경로가 있는 활동 하나를 9:16 공유용 포스터로 정리합니다. 거리, 상승고도, 시간, 경로 실루엣, 오라이더 브랜딩을 한 장에 담습니다.",
@@ -171,6 +209,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
     icon: "trophy",
     scopes: ["activities:read"],
     channels: ["public-widget", "personal-site", "share-card"],
+    showShareCardPreview: true,
     ko: {
       title: "월간 라이딩 배지",
       summary: "이번 달 거리, 상승고도, 활동 수, 최장 라이딩을 배지처럼 만들어 프로필이나 커뮤니티에 올립니다.",
@@ -193,3 +232,7 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
     },
   },
 ];
+
+export function hasShareCardPreview(recipe: Pick<CreatorRecipeMeta, "showShareCardPreview">): boolean {
+  return recipe.showShareCardPreview;
+}

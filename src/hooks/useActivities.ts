@@ -485,18 +485,32 @@ export function useActivities(
   };
 }
 
-export function useWeeklyStats(now: Date = new Date()) {
+type WeeklyStatsOptions = {
+  includeMonthlyDistance?: boolean;
+  now?: Date;
+};
+
+export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Date()) {
   const { user } = useAuth();
+  const options = nowOrOptions instanceof Date ? null : nowOrOptions;
+  const now = nowOrOptions instanceof Date ? nowOrOptions : (nowOrOptions.now ?? new Date());
+  const includeMonthlyDistance = options?.includeMonthlyDistance ?? false;
 
   const [activities, setActivities] = useState<Activity[]>([]);
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const statsKey = user ? `${user.uid}:${year}-${month}` : null;
+  const [monthlyDistanceState, setMonthlyDistanceState] = useState<{ key: string; distance: number } | null>(null);
 
   useEffect(() => {
     if (!user) {
       setActivities([]);
+      setMonthlyDistanceState(null);
       return;
     }
     let cancelled = false;
     const uid = user.uid;
+    const requestStatsKey = `${uid}:${year}-${month}`;
 
     const load = async () => {
       try {
@@ -517,14 +531,48 @@ export function useWeeklyStats(now: Date = new Date()) {
         );
         const snap = await getDocs(q);
         if (cancelled) return;
+        const loadedActivities = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity);
         // summary 누락 문서는 통계 계산에서 크래시를 유발하므로 제외
         setActivities(
-          snap.docs
-            .map((d) => ({ id: d.id, ...d.data() }) as Activity)
+          loadedActivities
             // 쿼리 자체도 userId 로 제한하지만, 집계 경계에서도 소유자를 확인해 공개 피드나
             // 잘못 합쳐진 응답이 개인 주간 통계에 섞이지 않게 한다.
             .filter((a) => a.userId === uid && a.summary != null),
         );
+
+        if (!includeMonthlyDistance) return;
+
+        const monthStart = new Date(year, month, 1).getTime();
+        const monthEnd = new Date(year, month + 1, 1).getTime();
+        if (snap.docs.length < 200) {
+          // 현재 달은 12주 창 안에 있으므로 상한에 닿지 않은 응답은 월간 거리에도 완전하다.
+          // 대시보드의 별도 월간 쿼리를 없애고 같은 문서로 정확히 집계한다.
+          setMonthlyDistanceState({ key: requestStatsKey, distance: loadedActivities.reduce((sum, activity) => (
+            activity.userId === uid &&
+            activity.startTime >= monthStart &&
+            activity.startTime < monthEnd
+              ? sum + (activity.summary?.distance ?? 0)
+              : sum
+          ), 0) });
+          return;
+        }
+
+        // 200개 상한에 닿은 고활동 계정은 12주 응답이 잘렸을 수 있다. 이 경우에만 기존
+        // 월간 쿼리를 실행해 월간 목표 진행률의 정확도를 그대로 보존한다.
+        const monthlyQuery = query(
+          collection(firestore, "activities"),
+          where("deletedAt", "==", null),
+          where("userId", "==", uid),
+          where("startTime", ">=", monthStart),
+          where("startTime", "<", monthEnd),
+          orderBy("startTime", "desc"),
+        );
+        const monthlySnap = await getDocs(monthlyQuery);
+        if (cancelled) return;
+        setMonthlyDistanceState({ key: requestStatsKey, distance: monthlySnap.docs.reduce((sum, d) => {
+          const activity = { id: d.id, ...d.data() } as Activity;
+          return sum + (activity.summary?.distance ?? 0);
+        }, 0) });
       } catch (err) {
         if (!cancelled) logClientError("useWeeklyStats.load", err, { userId: uid });
       }
@@ -532,18 +580,26 @@ export function useWeeklyStats(now: Date = new Date()) {
 
     load();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, year, month, includeMonthlyDistance]);
 
   const emptyWeeks: WeeklyStat[] = [];
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };
   const emptyRecent7DayDistances = { bike: 0, run: 0, swim: 0 };
 
   if (!user) {
-    return { weeklyStats: emptyWeeks, thisWeek: emptyThisWeek, recent7DayDistances: emptyRecent7DayDistances };
+    return {
+      weeklyStats: emptyWeeks,
+      thisWeek: emptyThisWeek,
+      recent7DayDistances: emptyRecent7DayDistances,
+      monthlyActivityDistance: 0,
+    };
   }
 
   // 계정 전환 직후 이전 effect 결과가 잠깐 남아도 새 사용자의 통계로 노출하지 않는다.
   const all = activities.filter((activity) => activity.userId === user.uid);
+  const monthlyActivityDistance = includeMonthlyDistance && monthlyDistanceState?.key === statsKey
+    ? monthlyDistanceState.distance
+    : 0;
   const summaryNumber = (value: unknown): number => (
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0
   );
@@ -603,52 +659,8 @@ export function useWeeklyStats(now: Date = new Date()) {
       elevation: Math.round(thisWeekActivities.reduce((s, a) => s + activityElevation(a), 0)),
     },
     recent7DayDistances,
+    monthlyActivityDistance,
   };
-}
-
-export function useMonthlyActivityDistance(now: Date = new Date()) {
-  const { user } = useAuth();
-  const [distance, setDistance] = useState(0);
-  const year = now.getFullYear();
-  const month = now.getMonth();
-
-  useEffect(() => {
-    if (!user) {
-      setDistance(0);
-      return;
-    }
-
-    let cancelled = false;
-    const start = new Date(year, month, 1).getTime();
-    const end = new Date(year, month + 1, 0, 23, 59, 59, 999).getTime();
-
-    const load = async () => {
-      try {
-        const q = query(
-          collection(firestore, "activities"),
-          where("deletedAt", "==", null),
-          where("userId", "==", user.uid),
-          where("startTime", ">=", start),
-          where("startTime", "<=", end),
-          orderBy("startTime", "desc"),
-        );
-        const snap = await getDocs(q);
-        const totalDistance = snap.docs.reduce((sum, d) => {
-          const activity = { id: d.id, ...d.data() } as Activity;
-          return sum + (activity.summary?.distance ?? 0);
-        }, 0);
-        if (!cancelled) setDistance(totalDistance);
-      } catch (err) {
-        logClientError("useMonthlyActivityDistance.load", err, { userId: user.uid, start, end });
-        if (!cancelled) setDistance(0);
-      }
-    };
-
-    load();
-    return () => { cancelled = true; };
-  }, [user, year, month]);
-
-  return distance;
 }
 
 function getDateFrom(preset: DatePreset): number | null {
@@ -667,8 +679,6 @@ function getDateFrom(preset: DatePreset): number | null {
     }
   }
 }
-
-import { useFriends } from "./useFriends";
 
 export type OwnerPreset = "all" | "friends" | "me";
 
@@ -771,11 +781,11 @@ async function fetchActivitySearchResults(
   return hydrateActivityProfileImages(merged);
 }
 
-export function useActivitySearch() {
+export function useActivitySearch(friendIds: ReadonlySet<string>) {
   const { user } = useAuth();
-  const { friends } = useFriends();
 
-  const [searchResults, setSearchResults] = useState<Activity[]>([]);
+  const searchOwnerKey = user?.uid ?? "anonymous";
+  const [searchResultState, setSearchResultState] = useState<{ ownerKey: string; results: Activity[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(false);
   const [searchedKeyword, setSearchedKeyword] = useState("");
@@ -808,18 +818,18 @@ export function useActivitySearch() {
 
     fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom)
       .then((results) => {
-        if (!cancelled) setSearchResults(results);
+        if (!cancelled) setSearchResultState({ ownerKey: searchOwnerKey, results });
       })
       .catch((err) => {
         logClientError("useActivitySearch.search", err, { datePreset });
-        if (!cancelled) setSearchResults([]);
+        if (!cancelled) setSearchResultState({ ownerKey: searchOwnerKey, results: [] });
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [active, searchedKeyword, datePreset, user]);
+  }, [active, searchedKeyword, datePreset, user, searchOwnerKey]);
 
   // Reset displayCount when filters change
   useEffect(() => {
@@ -830,19 +840,18 @@ export function useActivitySearch() {
   const results = useMemo(() => {
     if (!active) return [];
 
-    let filtered = searchResults;
+    let filtered = searchResultState?.ownerKey === searchOwnerKey ? searchResultState.results : [];
 
     if (user && ownerPreset !== "all") {
       if (ownerPreset === "me") {
         filtered = filtered.filter((a) => a.userId === user.uid);
       } else if (ownerPreset === "friends") {
-        const friendIds = new Set(friends.map(f => f.userId));
         filtered = filtered.filter((a) => friendIds.has(a.userId));
       }
     }
 
     return filtered;
-  }, [active, searchResults, ownerPreset, user, friends]);
+  }, [active, searchResultState, searchOwnerKey, ownerPreset, user, friendIds]);
 
   const loadMore = useCallback(() => setDisplayCount((prev) => prev + 20), []);
   const hasMore = displayCount < results.length;
@@ -852,7 +861,7 @@ export function useActivitySearch() {
     setSearchedKeyword("");
     setDatePreset("all");
     setOwnerPreset("all");
-    setSearchResults([]);
+    setSearchResultState(null);
   }, []);
 
   return {
