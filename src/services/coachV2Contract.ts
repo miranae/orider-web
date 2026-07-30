@@ -174,7 +174,8 @@ export type CoachAnswerBlock = NarrativeBlock | GroundedMarkdownBlock | MetricGr
 
 export interface CoachEvidenceRecord {
   evidenceId: string;
-  source: "activity" | "activity_metrics" | "fitness" | "goal" | "plan" | "policy" | "load_analysis" | "derived";
+  source: "activity" | "activity_metrics" | "fitness" | "goal" | "plan" | "policy" | "load_analysis" |
+    "rider_insight" | "derived";
   sourceId: string;
   field: string;
   value: unknown;
@@ -373,7 +374,8 @@ const schemas = {
   prescription: z.object({ ...base, kind: z.literal("prescription"), prescription: coachPrescriptionSchema }).strict(),
 } as const;
 
-const evidence = z.object({ evidenceId: id, source: z.enum(["activity", "activity_metrics", "fitness", "goal", "plan", "policy", "load_analysis", "derived"]),
+const evidence = z.object({ evidenceId: id, source: z.enum(["activity", "activity_metrics", "fitness", "goal", "plan", "policy", "load_analysis",
+  "rider_insight", "derived"]),
   sourceId: id, field: id, value: z.unknown(), sourceRevision: id, asOf: iso, ownerScope: z.literal("authenticated_user"),
 }).strict();
 const warning = z.object({ code: z.enum(["partial_fact", "stale_fact", "missing_fact", "truncated_fact", "fallback_only"]),
@@ -519,6 +521,24 @@ function isUnboundAgentAnswer(answer: CoachAnswerDocument | undefined): boolean 
     && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
 }
 
+function isEvidenceBoundAgentAnswer(answer: CoachAnswerDocument | undefined, execution: {
+  queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string;
+}): boolean {
+  if (!answer || answer.compatibility !== "supported"
+      || answer.questionSummary !== "coach.answer.summary.agent_text"
+      || answer.evidence.length === 0 || answer.blocks.length !== 1 || answer.followUps.length !== 0
+      || execution.factsId !== answer.sourceFactsId
+      || execution.asOf !== answer.freshness.asOf
+      || execution.catalogVersion === undefined || execution.queryPlanHash === undefined) return false;
+  const block = answer.blocks[0];
+  if (block?.kind !== "grounded_markdown" || block.blockId !== "block_agent_text"
+      || block.sourceSlotIds.length === 0 || block.evidenceIds.length === 0) return false;
+  const answerEvidenceIds = answer.evidence.map((record) => record.evidenceId).sort();
+  const blockEvidenceIds = [...block.evidenceIds].sort();
+  return answerEvidenceIds.length === blockEvidenceIds.length
+    && answerEvidenceIds.every((evidenceId, index) => evidenceId === blockEvidenceIds[index]);
+}
+
 const serverOwnedId = (value: string, prefix: "answer" | "facts" | "general"): boolean =>
   new RegExp(`^${prefix}_[0-9a-f]{24}$`, "u").test(value);
 const deterministicGeneralGuidanceMarkdown = new Set([
@@ -574,7 +594,8 @@ export function parseCoachV2Response(input: unknown): CoachV2Response {
       && (!declaresReservedAgentSummary || deterministicGeneralGuidanceBinding)
       : raw.execution.parser === "report_provider" ? raw.budget.providerCalls === 1 && !declaresReservedAgentSummary
         : (raw.budget.providerCalls === 1 && (!declaresReservedAgentSummary || isUnboundAgentAnswer(answer)))
-          || (raw.budget.providerCalls === 2 && isUnboundAgentAnswer(answer));
+          || (raw.budget.providerCalls === 2
+            && (isUnboundAgentAnswer(answer) || isEvidenceBoundAgentAnswer(answer, raw.execution)));
   if (!validOutcome || raw.quota.consumed !== raw.retry.previousTurnConsumed
       || (raw.retry.mode === "new_request_required") !== (raw.retry.quotaImpact === "one_new_turn")
       || (raw.retry.mode === "same_request_replay" && raw.retry.retryable)
