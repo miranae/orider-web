@@ -13,6 +13,7 @@ export interface CreatorRecipeMeta {
     outcome: string;
     detail: string;
     labels: string[];
+    scopeLabel?: string;
     shareMode: string;
     deployMode: string;
     status: string;
@@ -23,6 +24,7 @@ export interface CreatorRecipeMeta {
     outcome: string;
     detail: string;
     labels: string[];
+    scopeLabel?: string;
     shareMode: string;
     deployMode: string;
     status: string;
@@ -62,26 +64,28 @@ export const creatorRecipes: CreatorRecipeMeta[] = [
     kind: "diary",
     icon: "fileText",
     scopes: ["activities:read"],
-    channels: ["personal-archive", "weekly-review", "email-report", "aggregate-share-card"],
+    channels: ["weekly-review", "email-report"],
     ko: {
       title: "자전거 출퇴근 일기",
-      summary: "비슷한 출퇴근 코스에 매일 달라지는 몸 상태·날씨·교통·짧은 일기를 쌓고, 한 주의 반복 패턴을 돌아봅니다.",
-      outcome: "출발 전 60초 체크인, 도착 후 2분 회고, 같은 코스의 이동 시간과 체감 변화를 묶은 비공개 주간 요약이 나옵니다.",
-      detail: "수면·에너지·기분, 날씨, 교통 체감, 자전거 상태와 기억할 장면을 활동 기록 옆에 남깁니다. 집과 직장, 정확한 경로, 위험 지점, 건강 메모는 기본 비공개이며 공유 카드에는 자출 일수·총 거리·평균 체감 같은 집계만 사용합니다.",
-      labels: ["비공개 일기", "주간 패턴", "집·직장 숨김", "집계만 공유"],
-      shareMode: "private diary / aggregate-only card",
-      deployMode: "활동마다 출발 전과 도착 후에 짧게 기록하고, 주 1회 같은 코스의 시간·피로·날씨·교통 패턴을 돌아봅니다. 휴식이나 대중교통 이용은 실패로 표시하지 않습니다.",
-      status: "직접 만들기",
+      summary: "최근 7일의 자전거 출퇴근 합계와 Orider가 제공하는 고정 회고 질문을 본인 이메일로 받아봅니다.",
+      outcome: "자출 횟수·총 거리·총 이동 시간·총 상승고도와 회고 질문을 담은 비공개 이메일 리포트가 나옵니다.",
+      detail: "Strava의 출퇴근 표시나 명확한 활동명으로 자출을 찾고 거리와 이동 시간을 집계합니다. 몸 상태·날씨·교통을 추정하거나 저장하지 않으며, 일기 입력·보관함·공유 카드는 현재 제공하지 않습니다.",
+      labels: ["최근 7일", "본인 이메일", "자출 집계", "회고 질문"],
+      scopeLabel: "Scopes · 직접 만드는 확장판",
+      shareMode: "private email",
+      deployMode: "오라이더 안에서 직접 요청하면 최근 7일 자출 합계와 직접 답할 회고 질문을 본인 계정 이메일로 보냅니다. 현재 이메일에는 Personal Data API key가 필요하지 않고 답변은 저장하지 않으며, 정기 발송은 별도 동의가 필요합니다.",
+      status: "이메일 리포트",
     },
     en: {
       title: "Bike commute diary",
-      summary: "Layer daily condition, weather, traffic, and a short journal over familiar commute routes, then review recurring weekly patterns.",
-      outcome: "A 60-second pre-ride check-in, a 2-minute arrival reflection, and a private weekly summary comparing time and perceived effort on similar routes.",
-      detail: "Keep sleep, energy, mood, weather, traffic feel, bike condition, and one memorable moment beside each owned activity. Home, workplace, exact routes, hazard locations, and health notes stay private by default; shared cards use aggregates such as commute days, total distance, and average feel only.",
-      labels: ["Private diary", "Weekly patterns", "Home/work hidden", "Aggregates only"],
-      shareMode: "private diary / aggregate-only card",
-      deployMode: "Add a short check-in before and after each commute, then review time, fatigue, weather, and traffic patterns once a week. Rest days and transit days are not treated as failures.",
-      status: "Build recipe",
+      summary: "Email yourself the last 7 days of bike commute totals and a fixed set of guided reflection prompts.",
+      outcome: "A private email report with commute count, total distance, total moving time, total elevation gain, and reflection prompts.",
+      detail: "Commutes are identified from Strava's commute flag or a clear activity name, then distance and moving time are totaled. Orider does not infer or store condition, weather, or traffic, and currently provides no diary entry, archive, or share card.",
+      labels: ["Last 7 days", "Email to self", "Commute totals", "Reflection prompts"],
+      scopeLabel: "Scopes · extension only",
+      shareMode: "private email",
+      deployMode: "Request it inside Orider to send the last 7 days of commute totals and guided reflection prompts to your account email. The current email requires no Personal Data API key, answers are not stored, and recurring delivery requires separate consent.",
+      status: "Email report",
     },
   },
   {
