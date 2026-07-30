@@ -33,6 +33,7 @@ Exact route coordinates are not needed, so the recipe does not request `streams:
 
 - Automatic summary: date, departure/arrival time, distance, moving/elapsed/stopped time, speed, and elevation
 - Optional metrics already present in the activity summary, such as average heart rate, power, or cadence
+- Safety feel: rate the overall sense of safety on a simple five-point scale
 - Perceived fatigue, breathing, pain, focus, and arrival mood
 - Traffic feel, detours, near misses, or equipment issues
 - One thing that went well, one change for the next trip, and one moment worth remembering
