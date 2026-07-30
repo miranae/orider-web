@@ -647,7 +647,7 @@ describe("useActivitySearch", () => {
   });
 
   it("starts in inactive state", () => {
-    const { result } = renderHook(() => useActivitySearch(), { wrapper });
+    const { result } = renderHook(() => useActivitySearch(new Set()), { wrapper });
     expect(result.current.active).toBe(false);
     expect(result.current.results).toEqual([]);
   });
@@ -657,7 +657,7 @@ describe("useActivitySearch", () => {
       { id: "a1", ...createMockActivity({ description: "한강 라이딩" }) },
     ]);
 
-    const { result } = renderHook(() => useActivitySearch(), { wrapper });
+    const { result } = renderHook(() => useActivitySearch(new Set()), { wrapper });
 
     act(() => { result.current.search("한강"); });
 
@@ -699,7 +699,7 @@ describe("useActivitySearch", () => {
     const mockedGetDocs = vi.mocked(getDocs);
     const defaultImplementation = mockedGetDocs.getMockImplementation();
 
-    const { result } = renderHook(() => useActivitySearch(), { wrapper });
+    const { result } = renderHook(() => useActivitySearch(new Set()), { wrapper });
     act(() => { result.current.search("ride"); });
     await waitFor(() => expect(result.current.totalResults).toBe(1));
 
@@ -719,7 +719,7 @@ describe("useActivitySearch", () => {
   });
 
   it("resets search state on reset()", async () => {
-    const { result } = renderHook(() => useActivitySearch(), { wrapper });
+    const { result } = renderHook(() => useActivitySearch(new Set()), { wrapper });
 
     act(() => { result.current.search("test"); });
     expect(result.current.active).toBe(true);

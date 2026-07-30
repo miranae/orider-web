@@ -781,9 +781,7 @@ async function fetchActivitySearchResults(
   return hydrateActivityProfileImages(merged);
 }
 
-const EMPTY_FRIEND_IDS: ReadonlySet<string> = new Set();
-
-export function useActivitySearch(friendIds: ReadonlySet<string> = EMPTY_FRIEND_IDS) {
+export function useActivitySearch(friendIds: ReadonlySet<string>) {
   const { user } = useAuth();
 
   const searchOwnerKey = user?.uid ?? "anonymous";
