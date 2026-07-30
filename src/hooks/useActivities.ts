@@ -485,8 +485,16 @@ export function useActivities(
   };
 }
 
-export function useWeeklyStats(now: Date = new Date()) {
+type WeeklyStatsOptions = {
+  includeMonthlyDistance?: boolean;
+  now?: Date;
+};
+
+export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Date()) {
   const { user } = useAuth();
+  const options = nowOrOptions instanceof Date ? null : nowOrOptions;
+  const now = nowOrOptions instanceof Date ? nowOrOptions : (nowOrOptions.now ?? new Date());
+  const includeMonthlyDistance = options?.includeMonthlyDistance ?? false;
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const year = now.getFullYear();
@@ -532,6 +540,8 @@ export function useWeeklyStats(now: Date = new Date()) {
             .filter((a) => a.userId === uid && a.summary != null),
         );
 
+        if (!includeMonthlyDistance) return;
+
         const monthStart = new Date(year, month, 1).getTime();
         const monthEnd = new Date(year, month + 1, 1).getTime();
         if (snap.docs.length < 200) {
@@ -570,7 +580,7 @@ export function useWeeklyStats(now: Date = new Date()) {
 
     load();
     return () => { cancelled = true; };
-  }, [user, year, month]);
+  }, [user, year, month, includeMonthlyDistance]);
 
   const emptyWeeks: WeeklyStat[] = [];
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };
@@ -587,7 +597,9 @@ export function useWeeklyStats(now: Date = new Date()) {
 
   // 계정 전환 직후 이전 effect 결과가 잠깐 남아도 새 사용자의 통계로 노출하지 않는다.
   const all = activities.filter((activity) => activity.userId === user.uid);
-  const monthlyActivityDistance = monthlyDistanceState?.key === statsKey ? monthlyDistanceState.distance : 0;
+  const monthlyActivityDistance = includeMonthlyDistance && monthlyDistanceState?.key === statsKey
+    ? monthlyDistanceState.distance
+    : 0;
   const summaryNumber = (value: unknown): number => (
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0
   );
@@ -774,7 +786,8 @@ const EMPTY_FRIEND_IDS: ReadonlySet<string> = new Set();
 export function useActivitySearch(friendIds: ReadonlySet<string> = EMPTY_FRIEND_IDS) {
   const { user } = useAuth();
 
-  const [searchResults, setSearchResults] = useState<Activity[]>([]);
+  const searchOwnerKey = user?.uid ?? "anonymous";
+  const [searchResultState, setSearchResultState] = useState<{ ownerKey: string; results: Activity[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(false);
   const [searchedKeyword, setSearchedKeyword] = useState("");
@@ -807,18 +820,18 @@ export function useActivitySearch(friendIds: ReadonlySet<string> = EMPTY_FRIEND_
 
     fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom)
       .then((results) => {
-        if (!cancelled) setSearchResults(results);
+        if (!cancelled) setSearchResultState({ ownerKey: searchOwnerKey, results });
       })
       .catch((err) => {
         logClientError("useActivitySearch.search", err, { datePreset });
-        if (!cancelled) setSearchResults([]);
+        if (!cancelled) setSearchResultState({ ownerKey: searchOwnerKey, results: [] });
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [active, searchedKeyword, datePreset, user]);
+  }, [active, searchedKeyword, datePreset, user, searchOwnerKey]);
 
   // Reset displayCount when filters change
   useEffect(() => {
@@ -829,7 +842,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string> = EMPTY_FRIEND_
   const results = useMemo(() => {
     if (!active) return [];
 
-    let filtered = searchResults;
+    let filtered = searchResultState?.ownerKey === searchOwnerKey ? searchResultState.results : [];
 
     if (user && ownerPreset !== "all") {
       if (ownerPreset === "me") {
@@ -840,7 +853,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string> = EMPTY_FRIEND_
     }
 
     return filtered;
-  }, [active, searchResults, ownerPreset, user, friendIds]);
+  }, [active, searchResultState, searchOwnerKey, ownerPreset, user, friendIds]);
 
   const loadMore = useCallback(() => setDisplayCount((prev) => prev + 20), []);
   const hasMore = displayCount < results.length;
@@ -850,7 +863,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string> = EMPTY_FRIEND_
     setSearchedKeyword("");
     setDatePreset("all");
     setOwnerPreset("all");
-    setSearchResults([]);
+    setSearchResultState(null);
   }, []);
 
   return {

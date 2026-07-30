@@ -447,7 +447,7 @@ describe("useWeeklyStats", () => {
     ]);
     vi.mocked(getDocs).mockClear();
 
-    const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+    const { result } = renderHook(() => useWeeklyStats({ now, includeMonthlyDistance: true }), { wrapper });
 
     await waitFor(() => expect(result.current.monthlyActivityDistance).toBe(31_000));
     expect(getDocs).toHaveBeenCalledTimes(1);
@@ -481,10 +481,38 @@ describe("useWeeklyStats", () => {
 
     try {
       simulateLogin({ uid: "user-1" });
-      const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+      const { result } = renderHook(() => useWeeklyStats({ now, includeMonthlyDistance: true }), { wrapper });
 
       await waitFor(() => expect(result.current.monthlyActivityDistance).toBe(42_000));
       expect(mockedGetDocs).toHaveBeenCalledTimes(2);
+    } finally {
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
+  });
+
+  it("does not run the monthly fallback for weekly-only consumers at the 200-document cap", async () => {
+    const now = new Date(2026, 6, 14, 12, 0, 0);
+    const cappedDocs = Array.from({ length: 200 }, (_, index) => ({
+      id: `weekly-only-${index}`,
+      data: () => createMockActivity({
+        id: `weekly-only-${index}`,
+        userId: "user-1",
+        startTime: now.getTime() - 86400000,
+      }),
+    }));
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockReset();
+    mockedGetDocs.mockResolvedValueOnce({ docs: cappedDocs } as never);
+
+    try {
+      simulateLogin({ uid: "user-1" });
+      const { result } = renderHook(() => useWeeklyStats(now), { wrapper });
+
+      await waitFor(() => expect(result.current.weeklyStats.at(-1)?.rides).toBe(200));
+      expect(result.current.monthlyActivityDistance).toBe(0);
+      expect(mockedGetDocs).toHaveBeenCalledTimes(1);
     } finally {
       mockedGetDocs.mockReset();
       if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
@@ -636,6 +664,58 @@ describe("useActivitySearch", () => {
     await waitFor(() => {
       expect(result.current.active).toBe(true);
     });
+  });
+
+  it("updates the friends filter from new IDs without repeating the activity query", async () => {
+    simulateLogin({ uid: "user-1" });
+    setCollectionDocs("activities", [
+      { id: "friend-a-ride", ...createMockActivity({ id: "friend-a-ride", userId: "friend-a" }) },
+      { id: "friend-b-ride", ...createMockActivity({ id: "friend-b-ride", userId: "friend-b" }) },
+    ]);
+    const mockedGetDocs = vi.mocked(getDocs);
+    mockedGetDocs.mockClear();
+
+    const { result, rerender } = renderHook(
+      ({ friendIds }: { friendIds: ReadonlySet<string> }) => useActivitySearch(friendIds),
+      { wrapper, initialProps: { friendIds: new Set(["friend-a"]) } },
+    );
+    act(() => { result.current.search("ride"); });
+    await waitFor(() => expect(result.current.totalResults).toBe(2));
+    act(() => { result.current.setOwnerPreset("friends"); });
+    await waitFor(() => expect(result.current.results.map((activity) => activity.userId)).toEqual(["friend-a"]));
+    const queryCount = mockedGetDocs.mock.calls.length;
+
+    rerender({ friendIds: new Set(["friend-b"]) });
+
+    await waitFor(() => expect(result.current.results.map((activity) => activity.userId)).toEqual(["friend-b"]));
+    expect(mockedGetDocs).toHaveBeenCalledTimes(queryCount);
+  });
+
+  it("hides the previous account's search results while the new account query is pending", async () => {
+    simulateLogin({ uid: "user-a" });
+    setCollectionDocs("activities", [
+      { id: "user-a-ride", ...createMockActivity({ id: "user-a-ride", userId: "user-a" }) },
+    ]);
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+
+    const { result } = renderHook(() => useActivitySearch(), { wrapper });
+    act(() => { result.current.search("ride"); });
+    await waitFor(() => expect(result.current.totalResults).toBe(1));
+
+    const pending = new Promise<never>(() => {});
+    mockedGetDocs
+      .mockImplementationOnce(() => pending)
+      .mockImplementationOnce(() => pending);
+
+    try {
+      act(() => { simulateLogin({ uid: "user-b" }); });
+      expect(result.current.results).toEqual([]);
+      expect(result.current.totalResults).toBe(0);
+    } finally {
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
   });
 
   it("resets search state on reset()", async () => {

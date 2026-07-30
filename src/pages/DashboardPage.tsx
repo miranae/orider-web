@@ -184,7 +184,9 @@ export default function DashboardPage() {
   const feedScope: ActivityFeedScope = dashboardPreferences.feedScope;
   const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount } = useActivities(feedScope, [...friendIds]);
-  const { weeklyStats, thisWeek, recent7DayDistances, monthlyActivityDistance } = useWeeklyStats();
+  const { weeklyStats, thisWeek, recent7DayDistances, monthlyActivityDistance } = useWeeklyStats({
+    includeMonthlyDistance: true,
+  });
   const activitySearch = useActivitySearch(friendIds);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
