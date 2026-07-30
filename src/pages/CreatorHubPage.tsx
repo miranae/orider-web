@@ -28,7 +28,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useWeeklyStats } from "../hooks/useActivities";
 import { buildCreatorHubDetailLinks } from "../data/creatorHubDetailLinks";
-import { creatorRecipes, type CreatorRecipeIcon, type CreatorRecipeKind } from "../data/creatorRecipes";
+import {
+  creatorRecipes,
+  hasShareCardPreview,
+  type CreatorRecipeIcon,
+  type CreatorRecipeKind,
+} from "../data/creatorRecipes";
 import { functions } from "../services/firebase";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { formatCreatorEmailQuotaLabel, useCreatorRecipeEmail } from "../hooks/useCreatorRecipeEmail";
@@ -47,6 +52,7 @@ interface CreatorItem {
   detail: string;
   scopes: string[];
   channels: string[];
+  showShareCardPreview: boolean;
   labels: string[];
   scopeLabel: string;
   shareMode: string;
@@ -522,6 +528,7 @@ export default function CreatorHubPage() {
         detail: localized.detail,
         scopes: recipe.scopes,
         channels: recipe.channels,
+        showShareCardPreview: recipe.showShareCardPreview,
         labels: localized.labels,
         scopeLabel: localized.scopeLabel ?? "Scopes",
         shareMode: localized.shareMode,
@@ -1041,18 +1048,20 @@ export default function CreatorHubPage() {
                 </div>
 
                 <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
-                  <Button
-                    className={recipeActionClass}
-                    size="sm"
-                    variant={item.id === "ai-diary" ? "primary" : "secondary"}
-                    onClick={() => {
-                      setTab("share", "share");
-                      showToast(copy.actions.previewOpened, "info");
-                    }}
-                  >
-                    <ShieldCheck size={15} />
-                    {copy.actions.preview}
-                  </Button>
+                  {hasShareCardPreview(item) && (
+                    <Button
+                      className={recipeActionClass}
+                      size="sm"
+                      variant={item.id === "ai-diary" ? "primary" : "secondary"}
+                      onClick={() => {
+                        setTab("share", "share");
+                        showToast(copy.actions.previewOpened, "info");
+                      }}
+                    >
+                      <ShieldCheck size={15} />
+                      {copy.actions.preview}
+                    </Button>
+                  )}
                   <Button
                     className={recipeActionClass}
                     size="sm"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { creatorRecipes } from "./creatorRecipes";
+import { creatorRecipes, hasShareCardPreview } from "./creatorRecipes";
 
 describe("creatorRecipes", () => {
   it("defines unique recipe ids", () => {
@@ -31,5 +31,14 @@ describe("creatorRecipes", () => {
     expect(recipe?.en.deployMode).toContain("requires no Personal Data API key");
     expect(recipe?.ko.detail).toContain("현재 제공하지 않습니다");
     expect(recipe?.en.detail).toContain("currently provides no diary entry");
+    expect(recipe?.showShareCardPreview).toBe(false);
+    expect(hasShareCardPreview(recipe!)).toBe(false);
+  });
+
+  it("keeps share-card recipes on the existing preview action", () => {
+    const shareCardRecipes = creatorRecipes.filter((recipe) => recipe.channels.includes("share-card"));
+
+    expect(shareCardRecipes.length).toBeGreaterThan(0);
+    expect(shareCardRecipes.every(hasShareCardPreview)).toBe(true);
   });
 });
