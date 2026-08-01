@@ -210,19 +210,19 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }, [open]);
 
   async function loadInitial(generation: number) {
-    setPhase("loading_status");
+    setPhase("loading_status"); setP2Advertised(false);
+    void getCoachProgressPlannerCapabilities().then((capabilities) => {
+      if (openGenerationRef.current !== generation) return;
+      setP2Advertised(capabilities.apiVersions.some((entry) => entry.apiVersion === "v2"
+        && entry.capabilityVersion === "p2" && entry.requestSchemaVersion === COACH_P2_REQUEST_SCHEMA_VERSION
+        && entry.responseSchemaVersion === COACH_P2_RESPONSE_SCHEMA_VERSION));
+    }).catch((error) => {
+      logClientError("CoachQuestionLauncher.capabilityDiscovery", error, { capabilityVersion: "p2" });
+    });
     try {
-      const [status, loadedPolicy, capabilities] = await Promise.all([
-        getCoachStatus(), getCoachConsentPolicy(), getCoachProgressPlannerCapabilities().catch((error) => {
-          logClientError("CoachQuestionLauncher.capabilityDiscovery", error, { capabilityVersion: "p2" });
-          return null;
-        }),
-      ]);
+      const [status, loadedPolicy] = await Promise.all([getCoachStatus(), getCoachConsentPolicy()]);
       if (openGenerationRef.current !== generation) return;
       setQuota(status.quota); setPolicy(loadedPolicy);
-      setP2Advertised(capabilities?.apiVersions.some((entry) => entry.apiVersion === "v2"
-        && entry.capabilityVersion === "p2" && entry.requestSchemaVersion === COACH_P2_REQUEST_SCHEMA_VERSION
-        && entry.responseSchemaVersion === COACH_P2_RESPONSE_SCHEMA_VERSION) ?? false);
       setPhase("ready");
       if (status.quota.remaining === 0) coachAnalytics.limitSeen(0);
     } catch { if (openGenerationRef.current === generation) setPhase("load_error"); }
@@ -279,23 +279,26 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       const legacy = !("outcome" in result) ? result as unknown as CoachResponse : null;
       setResponse(legacy ?? result); setClarificationOption(null);
       let remaining: number | null;
-      let quotaVerified = true;
       let analyticsStatus: CoachResponse["status"];
       if (legacy) {
         remaining = legacy.quota.remaining; analyticsStatus = legacy.status; setQuota(legacy.quota);
       } else if (result.capabilityVersion === "p2") {
         analyticsStatus = result.outcome === "answer" && result.answer.status !== "partial" ? "ok" : "fallback";
+        remaining = result.quota.consumed ? null : quota?.remaining ?? null;
+        setPhase("complete");
+        coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, remaining);
         if (result.quota.consumed) {
-          try {
-            const refreshedStatus = await getCoachStatus();
+          void getCoachStatus().then((refreshedStatus) => {
             if (sessionGenerationRef.current !== sessionGeneration) return;
-            remaining = refreshedStatus.quota.remaining; setQuota(refreshedStatus.quota);
-          } catch (error) {
+            setQuota(refreshedStatus.quota);
+            if (refreshedStatus.quota.remaining === 0) coachAnalytics.limitSeen(0);
+          }).catch((error) => {
             if (sessionGenerationRef.current !== sessionGeneration) return;
             logClientError("CoachQuestionLauncher.refreshP2Quota", error, { capabilityVersion: "p2" });
-            remaining = null; quotaVerified = false; setQuota(null);
-          }
-        } else remaining = quota?.remaining ?? null;
+            setQuota(null);
+          });
+        }
+        return;
       } else {
         remaining = result.quota.remaining;
         analyticsStatus = result.outcome === "answer" ? (result.answer?.status === "partial" ? "fallback" : "ok")
@@ -307,9 +310,12 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       if (sessionGenerationRef.current !== sessionGeneration) return;
       setPhase("complete");
       coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, remaining);
-      if (quotaVerified && remaining === 0) coachAnalytics.limitSeen(0);
+      if (remaining === 0) coachAnalytics.limitSeen(0);
     } catch (error) {
       if (sessionGenerationRef.current !== sessionGeneration) return;
+      if (body.capabilityVersion === COACH_P2_CAPABILITY_VERSION) {
+        logClientError("CoachQuestionLauncher.askP2", error, { capabilityVersion: "p2" });
+      }
       if (isCoachClientError(error) && error.kind === "transport") setPhase("network_error");
       else {
         const providerUnavailable = isCoachClientError(error) && error.code === "provider_kill_switch";

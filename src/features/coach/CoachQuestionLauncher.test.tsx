@@ -232,6 +232,14 @@ describe("CoachQuestionLauncher", () => {
       { capabilityVersion: "p2" });
   });
 
+  it("does not block the P1 composer when capability discovery never settles", async () => {
+    mocks.capabilities.mockReturnValue(new Promise(() => undefined));
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /FTP 목표 코칭:/ })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /오늘 운동 리뷰:/ })).not.toBeInTheDocument();
+  });
+
   it("makes P2 routing explicit and lets the user clear the mode without changing the question", async () => {
     mocks.capabilities.mockResolvedValue(p2Capabilities); mocks.ask.mockResolvedValue(p1Answer);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
@@ -296,7 +304,8 @@ describe("CoachQuestionLauncher", () => {
     resolveStatus({ status: "available", quota: { ...quota, consumed: 1, remaining: 2 } });
     await act(async () => { await Promise.resolve(); });
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
-    expect(mocks.analytics.complete).not.toHaveBeenCalled();
+    expect(mocks.analytics.complete).toHaveBeenCalledOnce();
+    expect(mocks.analytics.limitSeen).not.toHaveBeenCalled();
   });
 
   it("uses the same P2 requestId after a transport failure and accepts only the refreshed server quota", async () => {
@@ -314,6 +323,18 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByText("오늘 2회 남음")).toBeInTheDocument();
     expect(mocks.status).toHaveBeenCalledTimes(2);
     expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.logError).toHaveBeenCalledWith("CoachQuestionLauncher.askP2", expect.any(CoachClientError),
+      { capabilityVersion: "p2" });
+  });
+
+  it("shows a completed P2 answer without waiting for a stalled quota refresh", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockReturnValueOnce(new Promise(() => undefined));
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    expect(await screen.findByRole("button", { name: "다른 질문하기" })).toBeInTheDocument();
   });
 
   it("supports an inline trigger without changing the default block trigger", () => {
