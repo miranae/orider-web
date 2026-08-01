@@ -110,6 +110,18 @@ describe("CoachHistoryPage", () => {
     expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
   });
 
+  it("renders a stored P2 AnswerDocument through the existing answer renderer", async () => {
+    const p2Stored = { requestId, capabilityVersion: "p2", outcome: "answer",
+      answer: { compatibility: "supported", blocks: [], evidence: [], freshness: { asOf: "2026-08-01T02:23:00Z", timezone: "Asia/Seoul" } },
+      quota: { consumed: true }, retry: { mode: "none", retryable: false, reasonCode: "answer_generated" } };
+    mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [{ turnId: requestId, requestId,
+      question: "내 마지막 운동 기록을 코칭해줘.", createdAt: "2026-08-01T02:23:00Z", response: p2Stored,
+      sessionRevision: 2 }] }, nextCursor: null });
+    setup(`/ko/coach/${threadId}`);
+    expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
+    expect(screen.queryByText("현재 지원하지 않는 질문입니다")).not.toBeInTheDocument();
+  });
+
   it("labels each saved turn with chronology and explicit speaker identity", async () => {
     const firstId = "323e4567-e89b-42d3-a456-426614174002";
     mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [

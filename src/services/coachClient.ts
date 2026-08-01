@@ -1,6 +1,7 @@
 import { auth, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { parseCoachV2Response, type CoachV2Request, type CoachV2Response } from "./coachV2Contract";
+import { parseCoachP2Response, type CoachP2Request, type CoachP2Response } from "./coachP2Contract";
 import {
   coachPrescriptionCheckInRequestSchema, parseCoachPrescriptionCheckInResponse,
   type CoachPrescriptionCheckInRequest, type CoachPrescriptionCheckInResponse,
@@ -463,6 +464,16 @@ export async function askCoachV2(request: CoachV2Request): Promise<CoachV2Respon
   } catch (cause) {
     if (isCoachClientError(cause)) throw cause;
     throw new CoachClientError("contract", "INVALID_COACH_V2_RESPONSE", { cause });
+  }
+}
+
+/** P2 is selected only from an advertised product slice and never retries through P1. */
+export async function askCoachP2(request: CoachP2Request): Promise<CoachP2Response> {
+  try {
+    return parseCoachP2Response(await authenticatedFetch("/respond", { method: "POST", body: JSON.stringify(request) }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_P2_RESPONSE", { cause });
   }
 }
 

@@ -22,6 +22,8 @@ const apiVersions = [
   { apiVersion: "v1", capabilityVersion: "p0", requestSchemaVersion: "coach-respond-v1", responseSchemaVersion: "coach-response-payload-v1" },
   { apiVersion: "v2", capabilityVersion: "p1", requestSchemaVersion: "coach-respond-v2", responseSchemaVersion: "coach-response-envelope-v1" },
 ];
+const p2ApiVersion = { apiVersion: "v2", capabilityVersion: "p2", requestSchemaVersion: "coach-respond-graph-v1",
+  responseSchemaVersion: "coach-graph-response-envelope-v1" };
 
 describe("Progress Planner backend contract", () => {
   it("keeps read, proposal, and confirm capabilities separate and synchronized", () => {
@@ -52,6 +54,19 @@ describe("Progress Planner backend contract", () => {
     expect(() => parseCoachProgressPlannerCapabilities({ ...base, apiVersions: [apiVersions[0], apiVersions[0]] })).toThrow();
     expect(() => parseCoachProgressPlannerCapabilities({ ...base,
       apiVersions: [{ ...apiVersions[1], capabilityVersion: "p0" }] })).toThrow();
+  });
+
+  it("accepts P2 only as the exact advertised graph tuple while keeping P0 and P1 independent", () => {
+    const value = { schemaVersion: "coach-capabilities-v1", apiVersions: [...apiVersions, p2ApiVersion],
+      defaultCapabilityVersion: "p0", queryCatalogVersion: "query-v1", factsCatalogVersion: "facts-v1",
+      answerSchemaVersion: "answer-v1", answerCatalogVersion: "catalog-v1",
+      progressPlanner: { read: { enabled: true }, proposal: { enabled: true }, confirm: { enabled: true } },
+      prescription: { enabled: true, schemaVersion: "coach-prescription-v1", rulesVersion: "coach-prescription-rules-v1",
+        checkIn: { enabled: true, endpoint: "/v1/coach/prescription/check-in" } } };
+    expect(parseCoachProgressPlannerCapabilities({ data: value }).apiVersions).toEqual(value.apiVersions);
+    expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value, apiVersions: [
+      ...apiVersions, { ...p2ApiVersion, responseSchemaVersion: "coach-response-envelope-v1" },
+    ] } })).toThrow();
   });
 
   it("strictly accepts pending proposal before/after evidence and rejects write/extra drift", () => {
