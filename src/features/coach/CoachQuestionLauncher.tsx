@@ -24,6 +24,7 @@ import {
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../../services/coachConsentClient";
 import { isCoachRidePlanRespondToken } from "../../services/coachRidePlanContract";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
+import { logClientError } from "../../services/errorLogger";
 import { FirstUseCoachConsent } from "./FirstUseCoachConsent";
 import { subscribeCoachConsentSessionReset } from "./consentSessionBoundary";
 import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
@@ -212,7 +213,10 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     setPhase("loading_status");
     try {
       const [status, loadedPolicy, capabilities] = await Promise.all([
-        getCoachStatus(), getCoachConsentPolicy(), getCoachProgressPlannerCapabilities().catch(() => null),
+        getCoachStatus(), getCoachConsentPolicy(), getCoachProgressPlannerCapabilities().catch((error) => {
+          logClientError("CoachQuestionLauncher.capabilityDiscovery", error, { capabilityVersion: "p2" });
+          return null;
+        }),
       ]);
       if (openGenerationRef.current !== generation) return;
       setQuota(status.quota); setPolicy(loadedPolicy);
@@ -284,8 +288,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         if (result.quota.consumed) {
           try {
             const refreshedStatus = await getCoachStatus();
+            if (sessionGenerationRef.current !== sessionGeneration) return;
             remaining = refreshedStatus.quota.remaining; setQuota(refreshedStatus.quota);
-          } catch {
+          } catch (error) {
+            if (sessionGenerationRef.current !== sessionGeneration) return;
+            logClientError("CoachQuestionLauncher.refreshP2Quota", error, { capabilityVersion: "p2" });
             remaining = null; quotaVerified = false; setQuota(null);
           }
         } else remaining = quota?.remaining ?? null;
@@ -297,6 +304,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         setQuota((previous) => ({ limit: result.quota.limit, remaining: result.quota.remaining, resetAt: result.quota.resetAt,
           timezone: result.answer?.freshness.timezone ?? previous?.timezone ?? "UTC" }));
       }
+      if (sessionGenerationRef.current !== sessionGeneration) return;
       setPhase("complete");
       coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, remaining);
       if (quotaVerified && remaining === 0) coachAnalytics.limitSeen(0);

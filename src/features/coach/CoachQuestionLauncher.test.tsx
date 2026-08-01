@@ -11,13 +11,14 @@ import enCoach from "../../i18n/resources/en/coach.json";
 import koCoach from "../../i18n/resources/ko/coach.json";
 import prescriptionFixture from "./__fixtures__/p2-web-fixture.json";
 
-const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), askP2: vi.fn(), capabilities: vi.fn(), recovery: vi.fn(), policy: vi.fn(), analytics: {
+const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), askP2: vi.fn(), capabilities: vi.fn(), recovery: vi.fn(), policy: vi.fn(), logError: vi.fn(), analytics: {
   open: vi.fn(), submit: vi.fn(), complete: vi.fn(), evidenceExpand: vi.fn(), actionClick: vi.fn(), limitSeen: vi.fn(),
 }, feedback: vi.fn() }));
 
 vi.mock("../../services/coachClient", async (original) => ({ ...(await original()), getCoachStatus: mocks.status, askCoachV2: mocks.ask, askCoachP2: mocks.askP2,
   getCoachProgressPlannerCapabilities: mocks.capabilities, getCoachProgressProposalRecovery: mocks.recovery }));
 vi.mock("../../services/coachConsentClient", () => ({ getCoachConsentPolicy: mocks.policy }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: mocks.logError }));
 vi.mock("./coachAnalytics", () => ({ coachAnalytics: mocks.analytics, trackCoachFeedback: mocks.feedback }));
 vi.mock("./CoachPmcInsightCard", () => ({
   CoachPmcInsightCard: ({ onQuestionSelect }: { onQuestionSelect: (value: { question: string; snapshotId: string }) => void }) =>
@@ -227,6 +228,8 @@ describe("CoachQuestionLauncher", () => {
     expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /오늘 운동 리뷰:/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /FTP 목표 코칭:/ })).toBeEnabled();
+    expect(mocks.logError).toHaveBeenCalledWith("CoachQuestionLauncher.capabilityDiscovery", expect.any(Error),
+      { capabilityVersion: "p2" });
   });
 
   it("makes P2 routing explicit and lets the user clear the mode without changing the question", async () => {
@@ -272,6 +275,28 @@ describe("CoachQuestionLauncher", () => {
     await waitFor(() => expect(mocks.askP2).toHaveBeenCalledOnce());
     expect(screen.queryByText(/오늘 [0-9]회 남음/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다른 질문하기" })).toBeInTheDocument();
+    expect(mocks.logError).toHaveBeenCalledWith("CoachQuestionLauncher.refreshP2Quota", expect.any(Error),
+      { capabilityVersion: "p2" });
+  });
+
+  it("discards a completed P2 continuation when the session changes during quota refresh", async () => {
+    let resolveStatus!: (value: { status: string; quota: typeof quota }) => void;
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockReturnValueOnce(
+      new Promise((resolve) => { resolveStatus = resolve; }));
+    const view = setup(user, "bike");
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.askP2).toHaveBeenCalledOnce());
+    view.rerender(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
+      <CoachQuestionLauncher user={user} discipline="run" onSignIn={vi.fn()} />
+    </DialogProvider></MemoryRouter>);
+    resolveStatus({ status: "available", quota: { ...quota, consumed: 1, remaining: 2 } });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
+    expect(mocks.analytics.complete).not.toHaveBeenCalled();
   });
 
   it("uses the same P2 requestId after a transport failure and accepts only the refreshed server quota", async () => {
