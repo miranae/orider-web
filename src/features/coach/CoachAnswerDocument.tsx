@@ -5,6 +5,7 @@ import type {
   CoachAnswerActionCode, CoachAnswerBlock, CoachAnswerDocument, CoachDisplayValue, CoachEntityRef,
   CoachLoadAssessment, CoachMetricId, CoachResponseFormat, CoachV2Response,
 } from "../../services/coachV2Contract";
+import type { CoachP2Response } from "../../services/coachP2Contract";
 import { CoachPrescription } from "./CoachPrescription";
 
 const PRIMARY_COUNT = 5;
@@ -488,7 +489,7 @@ function GroundedMarkdown({ markdown }: { markdown: string }) {
 
 export function CoachAnswerDocumentView({ response, responseFormat = "auto", locale, onAction, onReanalyze = () => undefined,
   onPlannerQuestion, historical = false }: {
-  response: CoachV2Response;
+  response: CoachV2Response | CoachP2Response;
   responseFormat?: CoachResponseFormat;
   locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
@@ -497,7 +498,9 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
   historical?: boolean;
 }) {
   const { t } = useTranslation("coach");
-  const document = response.answer;
+  const document = response.capabilityVersion === "p2"
+    ? response.outcome === "answer" ? response.answer : undefined
+    : response.answer;
   if (!document) return null;
   const fallback = response.outcome !== "answer";
   const loadAnalysis = document.compatibility === "supported" ? collectLoadAnalysisGroup(document) : null;

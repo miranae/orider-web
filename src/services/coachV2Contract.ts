@@ -512,6 +512,11 @@ function parseAnswer(value: unknown, unboundMarkdownMode: UnboundMarkdownMode): 
     evidence: raw.evidence, warnings: raw.warnings, freshness: raw.freshness, followUps: raw.followUps };
 }
 
+/** Shared strict AnswerDocument boundary for response envelopes with a different execution contract. */
+export function parseCoachAnswerDocument(value: unknown): CoachAnswerDocument {
+  return parseAnswer(value, "none");
+}
+
 function isUnboundAgentAnswer(answer: CoachAnswerDocument | undefined): boolean {
   if (!answer || answer.compatibility !== "supported"
       || !["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary)

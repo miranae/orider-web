@@ -1,6 +1,7 @@
 import { auth, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { COACH_RESPONSE_FORMATS, parseCoachV2Response, type CoachResponseFormat, type CoachV2QuestionRequest, type CoachV2Response } from "./coachV2Contract";
+import { parseCoachP2Response, type CoachP2Response } from "./coachP2Contract";
 import type { CoachDiscipline } from "./coachClient";
 
 export interface CoachThreadSummary {
@@ -18,7 +19,7 @@ export interface CoachThreadTurn {
   requestId: string;
   question: string;
   createdAt: string;
-  response: CoachV2Response;
+  response: CoachV2Response | CoachP2Response;
   responseFormat: CoachResponseFormat;
   sessionRevision: number;
 }
@@ -128,7 +129,9 @@ export function parseCoachThread(input: unknown, expectedLimit = 20): CoachThrea
         || !iso(turn.createdAt) || !Number.isSafeInteger(turn.sessionRevision)
         || Number(turn.sessionRevision) < 0) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     // Detail DTO stores the response document itself; the live endpoint wraps it in { data }.
-    const response = parseCoachV2Response({ data: turn.response });
+    const storedResponse = record(turn.response);
+    const response = storedResponse?.capabilityVersion === "p2"
+      ? parseCoachP2Response({ data: turn.response }) : parseCoachV2Response({ data: turn.response });
     if (response.requestId !== turn.requestId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     const responseFormat = turn.responseFormat === undefined ? "auto" : turn.responseFormat;
     if (!COACH_RESPONSE_FORMATS.includes(responseFormat as CoachResponseFormat)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
