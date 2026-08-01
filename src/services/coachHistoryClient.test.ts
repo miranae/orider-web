@@ -23,6 +23,15 @@ const response = { apiVersion: "v2", capabilityVersion: "p1", schemaVersion: "co
   budget: { blocked: false, providerCalls: 0, inputTokens: 0, outputTokens: 0 },
   retry: { mode: "none", quotaImpact: "none", previousTurnConsumed: true, providerCallAllowed: false, retryable: false, reasonCode: "unsupported_question" },
   execution: { parser: "deterministic", asOf: "2026-07-19T02:00:00Z" } };
+const p2Response = { apiVersion: "v2", capabilityVersion: "p2", schemaVersion: "coach-graph-response-envelope-v1",
+  requestId: turnId, outcome: "answer", quota: { consumed: true },
+  budget: { providerCalls: 3, inputTokens: 120, outputTokens: 80 },
+  retry: { mode: "none", providerCallAllowed: false, retryable: false, reasonCode: "answer_generated" },
+  execution: { graphVersion: "p2-v1", started: true, delivery: "terminal_artifact" },
+  answer: { schemaVersion: "coach-answer-document-v2", catalogVersion: "coach-answer-block-catalog-v2",
+    answerId: "answer_latest", sourceFactsId: "facts_latest",
+    questionSummary: "coach.answer.summary.coaching_report_today_review_bike", status: "complete", blocks: [], evidence: [],
+    warnings: [], freshness: { asOf: "2026-08-01T02:23:00.000Z", timezone: "Asia/Seoul", staleSourceSlotIds: [] }, followUps: [] } };
 
 describe("coachHistoryClient", () => {
   beforeEach(() => {
@@ -51,6 +60,20 @@ describe("coachHistoryClient", () => {
     expect(page.thread.turns.map((turn) => turn.sessionRevision)).toEqual([74, 75]);
     expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [newer, older] }, nextCursor: null } }))
       .toThrow("INVALID_COACH_HISTORY_RESPONSE");
+  });
+
+  it("strictly parses a stored P2 success envelope without changing adjacent P1 turns", () => {
+    const p1Turn = { turnId: olderTurnId, requestId: olderTurnId, question: "지난주 운동량은?", createdAt: "2026-07-19T01:30:00Z",
+      response: { ...response, requestId: olderTurnId }, sessionRevision: 74 };
+    const p2Turn = { turnId, requestId: turnId,
+      question: "내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘.",
+      createdAt: "2026-07-19T02:00:00Z", response: p2Response, sessionRevision: 75 };
+    const turns = parseCoachThread({ data: { thread: { ...summary, turns: [p1Turn, p2Turn] }, nextCursor: null } }).thread.turns;
+    expect(turns[0]?.response).toMatchObject({ capabilityVersion: "p1", outcome: "unsupported" });
+    expect(turns[1]?.response).toMatchObject({ capabilityVersion: "p2", outcome: "answer",
+      answer: { compatibility: "supported" } });
+    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...p2Turn,
+      response: { ...p2Response, execution: { ...p2Response.execution, delivery: "live" } } }] }, nextCursor: null } })).toThrow();
   });
 
   it("parses the closed per-turn response format and rejects unknown values", () => {

@@ -4,6 +4,8 @@
   "title": "O·RIDER Coach",
   "subtitle": "Answers based on your training records.",
   "independentNote": "A new question is saved as a new conversation.",
+  "latestActivityReviewLinked": "Latest workout coaching mode",
+  "latestActivityReviewClear": "Exit latest workout coaching mode",
   "context": "{{discipline}} record analysis",
   "pmc": {
     "title": "Training load and form",
@@ -202,6 +204,13 @@
     "quota_exceeded": { "body": "You have used all AI Coach questions available today." },
     "budget_blocked": { "body": "An AI explanation cannot be generated right now. Please check again later." },
     "fallback": { "body": "Only guidance within the safely verified scope is shown." }
+  },
+  "p2Unavailable": {
+    "title": "Latest workout coaching could not be completed yet",
+    "graph_feature_disabled": "This coaching path is currently disabled. No new question was submitted automatically.",
+    "rollout_ineligible": "This coaching path is not available for this account. No new question was submitted automatically.",
+    "rollout_dependency_unavailable": "Check the same request again after the required component is ready.",
+    "graph_execution_unavailable": "Check the same request again for the result. The request was not switched to another coaching path automatically."
   },
   "actions": {
     "FOLLOW_EXISTING_PLAN": "View existing plan",

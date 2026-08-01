@@ -17,6 +17,7 @@ import {
   COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
   type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest, type CoachV2Response,
 } from "../services/coachV2Contract";
+import type { CoachP2Response } from "../services/coachP2Contract";
 import {
   continueCoachThread, deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads,
   isCoachHistoryTransportError,
@@ -46,9 +47,19 @@ function formatDate(value: string, locale: string): string {
   catch { return value; }
 }
 
-function CoachStoredTurnResult({ response }: { response: CoachV2Response }) {
+function hasStoredAnswer(response: CoachV2Response | CoachP2Response): boolean {
+  return response.capabilityVersion === "p2" ? response.outcome === "answer" : Boolean(response.answer);
+}
+
+function CoachStoredTurnResult({ response }: { response: CoachV2Response | CoachP2Response }) {
   const { t } = useTranslation("coach");
   if (response.outcome === "answer") return null;
+  if (response.capabilityVersion === "p2") {
+    return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
+      <Text as="h3" variant="subtitle" tone="warning">{t("p2Unavailable.title")}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{t(`p2Unavailable.${response.error.code}`)}</Text>
+    </Card>;
+  }
   if (response.outcome === "unsupported") {
     return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
       <Text as="h3" variant="subtitle" tone="warning">{t("unsupportedV2.title")}</Text>
@@ -393,7 +404,7 @@ export default function CoachHistoryPage() {
               <section className="coach-thread-message coach-thread-message--coach" aria-label={`${turnLabel} · ${t("history.coachName")}`}>
                 <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><Bot size={16} /></span>
                   <Text as="h4" variant="label">{t("history.coachName")}</Text></div>
-                <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !turn.response.answer ? " coach-thread-turn__answer--terminal" : ""}`}><CoachAnswerDocumentView response={turn.response}
+                <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !hasStoredAnswer(turn.response) ? " coach-thread-turn__answer--terminal" : ""}`}><CoachAnswerDocumentView response={turn.response}
                   locale={i18n.language} onAction={answerAction} historical />
                   <CoachStoredTurnResult response={turn.response} />
                 </div>

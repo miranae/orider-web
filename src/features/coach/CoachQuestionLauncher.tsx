@@ -7,18 +7,24 @@ import { Alert, Button, Card, Chip, Text, Textarea } from "../../theme/component
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 import {
-  askCoachV2, CoachClientError, getCoachStatus, isCoachClientError, type CoachActionCode, type CoachDiscipline,
+  askCoachP2, askCoachV2, CoachClientError, getCoachProgressPlannerCapabilities, getCoachStatus, isCoachClientError,
+  type CoachActionCode, type CoachDiscipline,
   type CoachQuota, type CoachResponse, type CoachRetryMode,
 } from "../../services/coachClient";
+import {
+  COACH_P2_CAPABILITY_VERSION, COACH_P2_REQUEST_SCHEMA_VERSION, COACH_P2_RESPONSE_SCHEMA_VERSION,
+  type CoachP2Request, type CoachP2Response,
+} from "../../services/coachP2Contract";
 import {
   COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
   type CoachAnswerActionCode, type CoachContextFilters, type CoachEntityRef, type CoachProgressPlannerContext,
   type CoachRidePlanContext,
-  type CoachV2QuestionRequest, type CoachV2Request, type CoachV2Response,
+  type CoachV2Request, type CoachV2Response,
 } from "../../services/coachV2Contract";
 import { getCoachConsentPolicy, type CoachConsentPolicy } from "../../services/coachConsentClient";
 import { isCoachRidePlanRespondToken } from "../../services/coachRidePlanContract";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
+import { logClientError } from "../../services/errorLogger";
 import { FirstUseCoachConsent } from "./FirstUseCoachConsent";
 import { subscribeCoachConsentSessionReset } from "./consentSessionBoundary";
 import { coachAnalytics, trackCoachFeedback } from "./coachAnalytics";
@@ -31,6 +37,8 @@ import "./coach-question.css";
 type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
 type Phase = "closed" | "loading_status" | "ready" | "submitting" | "complete" | "network_error" | "terminal_error" | "load_error";
 type SubmitFailure = "compatibility" | "serviceUnavailable" | "terminal" | null;
+type CoachRequest = CoachV2Request | CoachP2Request;
+type CoachResponseEnvelope = CoachV2Response | CoachP2Response;
 
 interface Props {
   user: User | null;
@@ -104,8 +112,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const inFlightRef = useRef(false);
   const activeRequestRef = useRef<string | null>(null);
-  const activeBodyRef = useRef<CoachV2Request | null>(null);
-  const responseRef = useRef<CoachResponse | CoachV2Response | null>(null);
+  const activeBodyRef = useRef<CoachRequest | null>(null);
+  const responseRef = useRef<CoachResponse | CoachResponseEnvelope | null>(null);
   const consentOpenRef = useRef(false);
   const phaseRef = useRef<Phase>("closed");
   const pendingPmcFocusRef = useRef(false);
@@ -118,7 +126,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const [quota, setQuota] = useState<CoachQuota | null>(null);
   const [policy, setPolicy] = useState<CoachConsentPolicy | null>(null);
   const [consentOpen, setConsentOpen] = useState(false);
-  const [response, setResponse] = useState<CoachResponse | CoachV2Response | null>(null);
+  const [response, setResponse] = useState<CoachResponse | CoachResponseEnvelope | null>(null);
+  const [p2Advertised, setP2Advertised] = useState(false);
+  const [productSlice, setProductSlice] = useState<"latest_activity_review" | null>(null);
   const [clarificationOption, setClarificationOption] = useState<string | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [feedback, setFeedback] = useState<boolean | null>(null);
@@ -146,7 +156,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     activeRequestRef.current = null;
     activeBodyRef.current = null;
     pendingPmcFocusRef.current = false;
-    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
+    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setP2Advertised(false); setProductSlice(null);
     setConsentOpen(false); setPolicy(null); setQuota(null); setPhase("closed");
   }, []);
 
@@ -200,11 +210,20 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }, [open]);
 
   async function loadInitial(generation: number) {
-    setPhase("loading_status");
+    setPhase("loading_status"); setP2Advertised(false);
+    void getCoachProgressPlannerCapabilities().then((capabilities) => {
+      if (openGenerationRef.current !== generation) return;
+      setP2Advertised(capabilities.apiVersions.some((entry) => entry.apiVersion === "v2"
+        && entry.capabilityVersion === "p2" && entry.requestSchemaVersion === COACH_P2_REQUEST_SCHEMA_VERSION
+        && entry.responseSchemaVersion === COACH_P2_RESPONSE_SCHEMA_VERSION));
+    }).catch((error) => {
+      logClientError("CoachQuestionLauncher.capabilityDiscovery", error, { capabilityVersion: "p2" });
+    });
     try {
       const [status, loadedPolicy] = await Promise.all([getCoachStatus(), getCoachConsentPolicy()]);
       if (openGenerationRef.current !== generation) return;
-      setQuota(status.quota); setPolicy(loadedPolicy); setPhase("ready");
+      setQuota(status.quota); setPolicy(loadedPolicy);
+      setPhase("ready");
       if (status.quota.remaining === 0) coachAnalytics.limitSeen(0);
     } catch { if (openGenerationRef.current === generation) setPhase("load_error"); }
   }
@@ -224,7 +243,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     if (!validSelection && ridePlanSelectionRef.current === null) return;
     openGenerationRef.current += 1; sessionGenerationRef.current += 1; inFlightRef.current = false;
     activeRequestRef.current = null; activeBodyRef.current = null;
-    setDraft(""); setRidePlanContext(null); setRequestId(null); setResponse(null); setClarificationOption(null);
+    setDraft(""); setRidePlanContext(null); setRequestId(null); setResponse(null); setClarificationOption(null); setProductSlice(null);
     setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false);
     if (!validSelection) {
       ridePlanSelectionRef.current = null;
@@ -245,29 +264,59 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     if (responseRef.current) clearSession(); else setPhase("closed");
   }
 
-  async function execute(body: CoachV2Request, submitSource: QuestionSource, trackSubmit = true) {
+  async function execute(body: CoachRequest, submitSource: QuestionSource, trackSubmit = true) {
     if (inFlightRef.current) return;
     const id = body.requestId;
     const sessionGeneration = sessionGenerationRef.current;
     inFlightRef.current = true; activeRequestRef.current = id; activeBodyRef.current = body; setSubmitFailure(null); setPhase("submitting");
     const startedAt = Date.now();
-    if (trackSubmit) coachAnalytics.submit(submitSource);
+    if (trackSubmit) coachAnalytics.submit(submitSource, body.capabilityVersion);
     try {
-      const result = await askCoachV2(body);
+      const result = body.capabilityVersion === COACH_P2_CAPABILITY_VERSION ? await askCoachP2(body) : await askCoachV2(body);
       if (sessionGenerationRef.current !== sessionGeneration) return;
       if (result.requestId !== id || activeRequestRef.current !== id) throw new CoachClientError("contract", "REQUEST_ID_MISMATCH");
       // Runtime parser only returns V2. This guard preserves mounted P0 fixtures during a rolling web rollout.
       const legacy = !("outcome" in result) ? result as unknown as CoachResponse : null;
       setResponse(legacy ?? result); setClarificationOption(null);
-      setQuota((previous) => legacy ? legacy.quota : ({ limit: result.quota.limit, remaining: result.quota.remaining, resetAt: result.quota.resetAt,
-        timezone: result.answer?.freshness.timezone ?? previous?.timezone ?? "UTC" })); setPhase("complete");
-      const analyticsStatus = legacy ? legacy.status : result.outcome === "answer" ? (result.answer?.status === "partial" ? "fallback" : "ok")
-        : result.outcome === "clarification_required" ? "insufficient_data"
-          : result.outcome === "failed" ? "fallback" : result.outcome;
-      coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, result.quota.remaining);
-      if (result.quota.remaining === 0) coachAnalytics.limitSeen(0);
+      let remaining: number | null;
+      let analyticsStatus: CoachResponse["status"];
+      if (legacy) {
+        remaining = legacy.quota.remaining; analyticsStatus = legacy.status; setQuota(legacy.quota);
+      } else if (result.capabilityVersion === "p2") {
+        analyticsStatus = result.outcome === "answer" && result.answer.status !== "partial" ? "ok" : "fallback";
+        remaining = result.quota.consumed ? null : quota?.remaining ?? null;
+        if (result.quota.consumed) setQuota(null);
+        setPhase("complete");
+        coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, remaining);
+        if (result.quota.consumed) {
+          void getCoachStatus().then((refreshedStatus) => {
+            if (sessionGenerationRef.current !== sessionGeneration) return;
+            setQuota(refreshedStatus.quota);
+            if (refreshedStatus.quota.remaining === 0) coachAnalytics.limitSeen(0);
+          }).catch((error) => {
+            if (sessionGenerationRef.current !== sessionGeneration) return;
+            logClientError("CoachQuestionLauncher.refreshP2Quota", error, { capabilityVersion: "p2" });
+            setQuota(null);
+          });
+        }
+        return;
+      } else {
+        remaining = result.quota.remaining;
+        analyticsStatus = result.outcome === "answer" ? (result.answer?.status === "partial" ? "fallback" : "ok")
+          : result.outcome === "clarification_required" ? "insufficient_data"
+            : result.outcome === "failed" ? "fallback" : result.outcome;
+        setQuota((previous) => ({ limit: result.quota.limit, remaining: result.quota.remaining, resetAt: result.quota.resetAt,
+          timezone: result.answer?.freshness.timezone ?? previous?.timezone ?? "UTC" }));
+      }
+      if (sessionGenerationRef.current !== sessionGeneration) return;
+      setPhase("complete");
+      coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, remaining);
+      if (remaining === 0) coachAnalytics.limitSeen(0);
     } catch (error) {
       if (sessionGenerationRef.current !== sessionGeneration) return;
+      if (body.capabilityVersion === COACH_P2_CAPABILITY_VERSION) {
+        logClientError("CoachQuestionLauncher.askP2", error, { capabilityVersion: "p2" });
+      }
       if (isCoachClientError(error) && error.kind === "transport") setPhase("network_error");
       else {
         const providerUnavailable = isCoachClientError(error) && error.code === "provider_kill_switch";
@@ -281,14 +330,20 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
 
   async function submit(submitSource = source, forceNew = false) {
     const question = draft.trim();
-    if (inFlightRef.current || question.length < 2 || question.length > 1000 || !user || quota?.remaining === 0) return;
+    if (inFlightRef.current || question.length < 2 || question.length > 1000 || !user || !quota || quota.remaining === 0) return;
     const id = forceNew || !requestId ? crypto.randomUUID() : requestId;
     setRequestId(id); setSource(submitSource);
-    const body: CoachV2QuestionRequest = { requestId: id, question, discipline,
-      locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
-      apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
-      capabilityVersion: COACH_P1_CAPABILITY_VERSION,
-      contextFilters: currentContextFilters(), responseFormat: "auto" };
+    const contextFilters = currentContextFilters();
+    const useP2 = productSlice === "latest_activity_review";
+    if (useP2 && (!p2Advertised || Object.keys(contextFilters).length > 0)) {
+      setSubmitFailure("compatibility"); setPhase("terminal_error"); return;
+    }
+    const body: CoachRequest = useP2 ? { requestId: id, question, discipline,
+      locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US", apiVersion: COACH_V2_API_VERSION,
+      schemaVersion: COACH_P2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P2_CAPABILITY_VERSION, contextFilters: {} }
+      : { requestId: id, question, discipline, locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US",
+        apiVersion: COACH_V2_API_VERSION, schemaVersion: COACH_V2_REQUEST_SCHEMA_VERSION,
+        capabilityVersion: COACH_P1_CAPABILITY_VERSION, contextFilters, responseFormat: "auto" };
     activeBodyRef.current = body;
     let currentPolicy: CoachConsentPolicy;
     try { currentPolicy = await getCoachConsentPolicy(); setPolicy(currentPolicy); }
@@ -302,8 +357,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       if (activeBodyRef.current) await execute(activeBodyRef.current, source, false);
       return;
     }
-    const reasonCodes = "outcome" in response ? [response.error?.code, response.clarification?.reasonCode,
-      response.unsupported?.reasonCodes[0], response.retry.reasonCode].filter((item): item is string => Boolean(item))
+    const reasonCodes = "outcome" in response ? [response.capabilityVersion === "p2"
+      ? response.outcome === "unavailable" ? response.error.code : undefined : response.error?.code,
+      response.capabilityVersion === "p1" ? response.clarification?.reasonCode : undefined,
+      response.capabilityVersion === "p1" ? response.unsupported?.reasonCodes[0] : undefined,
+      response.retry.reasonCode].filter((item): item is string => Boolean(item))
       : [response.reasonCode, response.retry.reasonCode];
     const action = retryActionFor(response.retry.mode, ...reasonCodes);
     if (action === "new") {
@@ -315,7 +373,14 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function chooseSuggestion(index: 1 | 2 | 3) {
-    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setSource(`suggestion_${index}`); setRequestId(null);
+    if (index === 2 && !p2Advertised) return;
+    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setProductSlice(index === 2 ? "latest_activity_review" : null); setSource(`suggestion_${index}`); setRequestId(null);
+    questionRef.current?.focus();
+  }
+
+  function clearLatestActivityReviewMode() {
+    activeRequestRef.current = null; activeBodyRef.current = null;
+    setProductSlice(null); setSource("free_text"); setRequestId(null);
     questionRef.current?.focus();
   }
 
@@ -323,7 +388,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     if (!user) return;
     activeRequestRef.current = null; activeBodyRef.current = null;
     setDraft(selection.question); setPmcSnapshotId(selection.snapshotId); setRiderSnapshotId(null); setSource("free_text"); setRequestId(null);
-    setPlannerContext(null);
+    setPlannerContext(null); setProductSlice(null);
     setRidePlanContext(null);
     setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
     pendingPmcFocusRef.current = true;
@@ -334,7 +399,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     if (!user) return;
     activeRequestRef.current = null; activeBodyRef.current = null;
     setDraft(selection.question); setRiderSnapshotId(selection.snapshotId); setPmcSnapshotId(null); setSource("free_text"); setRequestId(null);
-    setPlannerContext(null);
+    setPlannerContext(null); setProductSlice(null);
     setRidePlanContext(null);
     setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
     pendingPmcFocusRef.current = true;
@@ -342,12 +407,14 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function startAnother() {
+    const reloadQuota = quota === null;
     activeBodyRef.current = null;
-    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
+    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setProductSlice(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text");
+    if (reloadQuota) void openSheet(); else setPhase("ready");
   }
 
   function choosePlannerQuestion(question: string, prescriptionId: string, sourceRequestId: string) {
-    startAnother(); setDraft(question); setPlannerContext({ prescriptionId, sourceRequestId }); setSource("free_text");
+    startAnother(); setDraft(question); setPlannerContext({ prescriptionId, sourceRequestId }); setProductSlice(null); setSource("free_text");
     queueMicrotask(() => questionRef.current?.focus());
   }
 
@@ -375,12 +442,13 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   function sendFeedback(helpful: boolean) {
     if (!response || feedback !== null) return;
     setFeedback(helpful); trackCoachFeedback(helpful, "outcome" in response
-      ? response.outcome === "answer" ? "ok" : response.outcome === "failed" ? "fallback" : response.outcome === "clarification_required" ? "insufficient_data" : response.outcome
+      ? response.outcome === "answer" ? "ok" : response.outcome === "failed" || response.outcome === "unavailable" ? "fallback" : response.outcome === "clarification_required" ? "insufficient_data" : response.outcome
       : response.status);
   }
 
   async function submitClarification() {
-    if (!(response && "outcome" in response && response.outcome === "clarification_required" && response.clarification) || !clarificationOption) return;
+    if (!(response && "outcome" in response && response.capabilityVersion === "p1"
+      && response.outcome === "clarification_required" && response.clarification) || !clarificationOption) return;
     const spec = response.clarification;
     if (Date.parse(spec.expiresAt) <= Date.now()) { setSubmitFailure("terminal"); return; }
     if (spec.resolutionMode === "continue_no_charge") {
@@ -399,19 +467,24 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   const retryReasonCodes = response ? ("outcome" in response
-    ? [response.error?.code, response.clarification?.reasonCode, response.unsupported?.reasonCodes[0], response.retry.reasonCode].filter((item): item is string => Boolean(item))
+    ? [response.capabilityVersion === "p2" ? response.outcome === "unavailable" ? response.error.code : undefined : response.error?.code,
+      response.capabilityVersion === "p1" ? response.clarification?.reasonCode : undefined,
+      response.capabilityVersion === "p1" ? response.unsupported?.reasonCodes[0] : undefined,
+      response.retry.reasonCode].filter((item): item is string => Boolean(item))
     : [response.reasonCode, response.retry.reasonCode]) : [];
   const retryAction = response ? retryActionFor(response.retry.mode, ...retryReasonCodes) : "none";
   const canRetry = (phase === "network_error" && requestId !== null)
-    || (phase === "complete" && response !== null && retryAction !== "none" && !(retryAction === "new" && quota?.remaining === 0));
+    || (phase === "complete" && response !== null && retryAction !== "none" && !(retryAction === "new" && (!quota || quota.remaining === 0)));
   const exhausted = quota?.remaining === 0;
+  const submissionBlocked = !quota || exhausted;
   const serviceUnavailable = (phase === "terminal_error" && submitFailure === "serviceUnavailable")
-    || (response && "outcome" in response && response.error?.code === "provider_kill_switch");
+    || (response && "outcome" in response && response.capabilityVersion === "p1" && response.error?.code === "provider_kill_switch");
   const canRateResponse = phase !== "submitting" && Boolean(response && ("outcome" in response
-    ? response.outcome === "answer" || response.answer
+    ? response.outcome === "answer"
     : response.answer));
   const showCounter = inputFocused || draft.length >= 900;
-  const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
+  const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`
+    && (index !== 2 || p2Advertised));
   return (
     <>
       {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
@@ -444,7 +517,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   <Text as="p" variant="eyebrow" tone="accent">{t("context", { discipline: t(`discipline.${discipline}`) })}</Text>
                   <div className="coach-sheet__composer">
                     <label htmlFor="coach-question"><Text variant="label">{t("inputLabel")}</Text></label>
-                    <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
+                    <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={submissionBlocked}
                       placeholder={t(`placeholder.${discipline}`)} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
                       onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
                       onChange={(event) => { setDraft(event.target.value); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setSource("free_text"); setRequestId(null); }} />
@@ -453,9 +526,13 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                       {plannerContext && <Text as="span" variant="caption" tone="accent"
                         data-prescription-id={plannerContext.prescriptionId} data-source-request-id={plannerContext.sourceRequestId}>{t("progress.questions.linked")}</Text>}
                       {ridePlanContext && <Text as="span" variant="caption" tone="accent">{t("ridePlan.questions.linked")}</Text>}
+                      {productSlice === "latest_activity_review" && <Chip variant="accent" icon={<Sparkles size={12} />}
+                        aria-label={t("latestActivityReviewClear")} onClick={clearLatestActivityReviewMode}>
+                        {t("latestActivityReviewLinked")} <X size={12} aria-hidden />
+                      </Chip>}
                       {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
                     </div>
-                    <Button block variant="primary" disabled={draft.trim().length < 2 || exhausted} onClick={() => void submit()}>{t("submit")}</Button>
+                    <Button block variant="primary" disabled={draft.trim().length < 2 || submissionBlocked} onClick={() => void submit()}>{t("submit")}</Button>
                     {quota && <Text as="p" className="coach-sheet__quota" variant="caption" tone={exhausted ? "warning" : "tertiary"}>
                       {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
                     </Text>}
@@ -466,7 +543,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                       {suggestions.map((index) => {
                         const question = t(`suggestions.${discipline}.${index}`);
                         const label = t(`suggestions.labels.${discipline}.${index}`);
-                        return <Button key={index} block variant="ghost" aria-label={`${label}: ${question}`} disabled={exhausted} onClick={() => chooseSuggestion(index)}>
+                        return <Button key={index} block variant="ghost" aria-label={`${label}: ${question}`} disabled={submissionBlocked} onClick={() => chooseSuggestion(index)}>
                           <span className="coach-sheet__suggestion-copy">
                             <Text as="span" variant="caption" tone="accent">{label}</Text>
                             <Text as="span" variant="bodySmall">{question}</Text>
@@ -484,7 +561,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   title={t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.title" : `states.${submitFailure ?? "terminal"}.title`)}>
                   <Text as="p" variant="bodySmall">{t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.body" : `states.${submitFailure ?? "terminal"}.body`)}</Text></Alert>}
                 {response && phase !== "submitting" && ("outcome" in response
-                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={exhausted}
+                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={submissionBlocked}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action}
                     onReanalyze={startAnother}
                     onSuggested={(query, prescriptionId, sourceRequestId) => {
@@ -502,7 +579,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
               <footer className="coach-sheet__footer">
                   {quota && <Text as="div" className="coach-sheet__quota" variant="caption" tone={exhausted ? "warning" : "tertiary"}>
                     {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
-                    {response?.retry.previousTurnConsumed
+                    {(response && ("outcome" in response
+                      ? response.capabilityVersion === "p2" ? response.quota.consumed : response.retry.previousTurnConsumed
+                      : response.retry.previousTurnConsumed))
                       && <Text as="small" variant="caption" tone="tertiary">{t("quota.previousConsumed")}</Text>}
                   </Text>}
                   <div className="coach-sheet__actions">
@@ -549,13 +628,21 @@ function CoachFeedback({ feedback, onFeedback }: { feedback: boolean | null; onF
 }
 
 function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOption, onClarification, onAction, onSuggested, onReanalyze }: {
-  response: CoachV2Response; locale: string; selectedOption: string | null; exhausted: boolean;
+  response: CoachResponseEnvelope; locale: string; selectedOption: string | null; exhausted: boolean;
   onSelectOption: (option: string) => void; onClarification: () => void;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
   onSuggested: (query: string, prescriptionId?: string, sourceRequestId?: string) => void;
   onReanalyze: () => void;
 }) {
   const { t } = useTranslation("coach");
+  if (response.capabilityVersion === "p2") {
+    return <div className="coach-result">
+      {response.outcome === "answer" && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
+        onReanalyze={onReanalyze} />}
+      {response.outcome === "unavailable" && <Alert className="coach-result__state" variant="warning"
+        title={t("p2Unavailable.title")}>{t(`p2Unavailable.${response.error.code}`)}</Alert>}
+    </div>;
+  }
   const spec = response.clarification;
   const expired = spec ? Date.parse(spec.expiresAt) <= Date.now() : false;
   const providerUnavailable = response.error?.code === "provider_kill_switch";

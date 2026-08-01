@@ -7,11 +7,13 @@ const iso = z.string().datetime({ offset: true });
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u);
 const hash = z.string().regex(/^doc_[0-9a-f]{32}$/u);
 const zeroExecution = { providerCalls: z.literal(0), quotaConsumed: z.literal(0) };
-const apiVersion = z.discriminatedUnion("apiVersion", [
+const apiVersion = z.discriminatedUnion("capabilityVersion", [
   z.object({ apiVersion: z.literal("v1"), capabilityVersion: z.literal("p0"),
     requestSchemaVersion: z.literal("coach-respond-v1"), responseSchemaVersion: z.literal("coach-response-payload-v1") }).strict(),
   z.object({ apiVersion: z.literal("v2"), capabilityVersion: z.literal("p1"),
     requestSchemaVersion: z.literal("coach-respond-v2"), responseSchemaVersion: z.literal("coach-response-envelope-v1") }).strict(),
+  z.object({ apiVersion: z.literal("v2"), capabilityVersion: z.literal("p2"),
+    requestSchemaVersion: z.literal("coach-respond-graph-v1"), responseSchemaVersion: z.literal("coach-graph-response-envelope-v1") }).strict(),
 ]);
 const workoutKind = z.enum(["rest", "recovery", "z2", "tempo", "sweet_spot", "threshold", "vo2max", "planned"]);
 const workout = z.object({ kind: workoutKind, durationMin: z.number().int().min(0).max(10_080),
@@ -31,8 +33,8 @@ const change = z.object({ weekId: id, dayIndex: z.number().int().min(0).max(366)
 }).strict();
 
 export const coachProgressPlannerCapabilitiesSchema = z.object({
-  schemaVersion: z.literal("coach-capabilities-v1"), apiVersions: z.array(apiVersion).min(1).max(2)
-    .refine((items) => new Set(items.map((item) => item.apiVersion)).size === items.length),
+  schemaVersion: z.literal("coach-capabilities-v1"), apiVersions: z.array(apiVersion).min(1).max(3)
+    .refine((items) => new Set(items.map((item) => item.capabilityVersion)).size === items.length),
   defaultCapabilityVersion: z.literal("p0"), queryCatalogVersion: id, factsCatalogVersion: id,
   answerSchemaVersion: id, answerCatalogVersion: id,
   progressPlanner: z.object({ read: z.object({ enabled: z.boolean() }).strict(),
