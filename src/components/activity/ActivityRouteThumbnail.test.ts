@@ -7,6 +7,8 @@ import {
   getPolylineHash,
   isCanonicalMapThumbnailUrl,
   isAppCheckRetryable,
+  isMapThumbnailCoordinatorRetryable,
+  invokeMapThumbnailCoordinatorWithRetry,
   MAP_THUMBNAIL_HEIGHT,
   MAP_THUMBNAIL_PIXEL_RATIO,
   MAP_THUMBNAIL_VIEWPORT_HEIGHT,
@@ -112,6 +114,41 @@ describe("canonical activity map thumbnails", () => {
     expect(isAppCheckRetryable({ code: "functions/unauthenticated" })).toBe(true);
     expect(isAppCheckRetryable(new Error("App Check token rejected"))).toBe(true);
     expect(isAppCheckRetryable({ code: "functions/permission-denied" })).toBe(false);
+  });
+
+  it.each([
+    "functions/internal",
+    "functions/unavailable",
+    "functions/deadline-exceeded",
+  ])("retries one transient coordinator failure: %s", async (code) => {
+    const operation = vi.fn()
+      .mockRejectedValueOnce({ code })
+      .mockResolvedValueOnce("ok");
+
+    await expect(invokeMapThumbnailCoordinatorWithRetry(operation)).resolves.toBe("ok");
+    expect(operation).toHaveBeenNthCalledWith(1, false);
+    expect(operation).toHaveBeenNthCalledWith(2, true);
+  });
+
+  it("stops after the bounded transient retry", async () => {
+    const error = { code: "functions/internal" };
+    const operation = vi.fn().mockRejectedValue(error);
+
+    await expect(invokeMapThumbnailCoordinatorWithRetry(operation)).rejects.toBe(error);
+    expect(operation).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    "functions/permission-denied",
+    "functions/failed-precondition",
+    "functions/not-found",
+  ])("does not retry an expected coordinator refusal: %s", async (code) => {
+    const error = { code };
+    const operation = vi.fn().mockRejectedValue(error);
+
+    expect(isMapThumbnailCoordinatorRetryable(error)).toBe(false);
+    await expect(invokeMapThumbnailCoordinatorWithRetry(operation)).rejects.toBe(error);
+    expect(operation).toHaveBeenCalledOnce();
   });
 
   it("encodes a bounded WebP blob without a data URL prefix", async () => {

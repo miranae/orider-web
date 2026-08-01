@@ -1,4 +1,4 @@
-import { logClientError } from "../../../services/errorLogger";
+import { debugLog, logClientError } from "../../../services/errorLogger";
 import type { SensorRejectionDiagnostic } from "./activityDetailDerived";
 
 const MAX_REJECTIONS_PER_ACTIVITY = 32;
@@ -16,6 +16,15 @@ type SensorRejectionLogger = (
   context: Record<string, unknown>,
 ) => void;
 
+type SensorRejectionDiagnosticLogger = (
+  scope: string,
+  payload: Record<string, unknown>,
+) => void;
+
+function isExpectedDataAbsence(reason: SensorRejectionDiagnostic["reason"]): boolean {
+  return reason === "insufficient_measurements" || reason === "insufficient_coverage";
+}
+
 export function createSensorRejectionLogState(): SensorRejectionLogState {
   return { activityId: null, keys: new Set() };
 }
@@ -30,6 +39,7 @@ export function reportSensorRejectionsOnce(
   rejections: readonly SensorRejectionDiagnostic[],
   state: SensorRejectionLogState,
   logger: SensorRejectionLogger = logClientError,
+  diagnosticLogger: SensorRejectionDiagnosticLogger = debugLog,
 ): void {
   const boundedActivityId = activityId.slice(0, MAX_ACTIVITY_ID_LENGTH);
   if (state.activityId !== activityId) {
@@ -41,17 +51,21 @@ export function reportSensorRejectionsOnce(
     const key = `${rejection.channel}:${rejection.source}:${rejection.reason}`;
     if (state.keys.has(key) || state.keys.size >= MAX_REJECTIONS_PER_ACTIVITY) continue;
     state.keys.add(key);
-    logger(
-      `ActivityPage.sensorStreamRejected.${rejection.channel}.${rejection.reason}`,
-      new Error("Rejected activity sensor stream"),
-      {
-        activityId: boundedActivityId,
-        channel: rejection.channel,
-        sensorSource: rejection.source,
-        reason: rejection.reason,
-        axisLength: boundedLength(rejection.axisLength),
-        channelLength: boundedLength(rejection.channelLength),
-      },
-    );
+    const source = `ActivityPage.sensorStreamRejected.${rejection.channel}.${rejection.reason}`;
+    const context = {
+      activityId: boundedActivityId,
+      channel: rejection.channel,
+      sensorSource: rejection.source,
+      reason: rejection.reason,
+      axisLength: boundedLength(rejection.axisLength),
+      channelLength: boundedLength(rejection.channelLength),
+    };
+    // Sparse legacy channels are expected data quality, not application errors.
+    // Keep them available to local diagnostics without writing error_logs/Sentry.
+    if (isExpectedDataAbsence(rejection.reason)) {
+      diagnosticLogger(source, context);
+    } else {
+      logger(source, new Error("Rejected activity sensor stream"), context);
+    }
   }
 }

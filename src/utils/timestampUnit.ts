@@ -26,6 +26,39 @@ export function detectConsistentTimestampUnit(
     : undefined;
 }
 
+/** Repairs only isolated equal timestamps from legacy recorders. */
+export function normalizeIsolatedTimestampEqualities(
+  values: readonly number[],
+): number[] | undefined {
+  const unit = detectConsistentTimestampUnit(values);
+  if (unit == null) return undefined;
+  const normalized = [...values];
+  const minimumStep = unit === "epoch_ms" ? 1 : 0.001;
+  let hasPositiveProgress = false;
+  for (let index = 1; index < normalized.length; index++) {
+    const previous = normalized[index - 1]!;
+    const current = normalized[index]!;
+    if (current < previous) return undefined;
+    if (current > previous) {
+      hasPositiveProgress = true;
+      continue;
+    }
+    if (index === normalized.length - 1
+      || (index > 1 && values[index - 1] === values[index - 2])
+      || values[index + 1]! <= current) return undefined;
+    const next = normalized[index + 1]!;
+    if (next - current > minimumStep) {
+      normalized[index] = current + minimumStep;
+    } else {
+      const beforePair = normalized[index - 2];
+      if (beforePair == null || current - beforePair <= minimumStep) return undefined;
+      normalized[index - 1] = current - minimumStep;
+    }
+    hasPositiveProgress = true;
+  }
+  return values.length <= 1 || hasPositiveProgress ? normalized : undefined;
+}
+
 export function timestampDivisor(unit: TimestampUnit): number {
   return unit === "epoch_ms" ? 1000 : 1;
 }

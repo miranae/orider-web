@@ -19,6 +19,7 @@ const MAP_THUMBNAIL_MAX_BYTES = 1024 * 1024;
 const MAP_THUMBNAIL_CAPTURE_TIMEOUT_MS = 20_000;
 const MAP_THUMBNAIL_PROCESS_TIMEOUT_MS = 30_000;
 const MAP_THUMBNAIL_WEBP_QUALITIES = [0.85, 0.78, 0.7, 0.62, 0.52, 0.4, 0.28, 0.16];
+type MapThumbnailPhase = "capture" | "encode" | "prepare" | "finalize";
 
 let activeCaptureToken: symbol | null = null;
 const waitingCaptureTokens: symbol[] = [];
@@ -173,6 +174,7 @@ export default function ActivityRouteThumbnail({
 
     const mapCanvas = captureRef.current?.querySelector("canvas");
 
+    let phase: MapThumbnailPhase = "capture";
     try {
       if (!mapCanvas) throw new Error("map-thumbnail/canvas-not-found");
       const snapshot = copyCanonicalMapThumbnailCanvas(mapCanvas);
@@ -181,6 +183,7 @@ export default function ActivityRouteThumbnail({
       releaseCaptureSlot(captureToken.current);
       if (mounted.current) setHasCaptureSlot(false);
 
+      phase = "encode";
       const blob = await withTimeout(
         createCanonicalMapThumbnailBlob(snapshot),
         MAP_THUMBNAIL_PROCESS_TIMEOUT_MS,
@@ -188,6 +191,7 @@ export default function ActivityRouteThumbnail({
       );
       const imageBase64 = await blobToBase64(blob);
 
+      phase = "prepare";
       const prepared = await prepareActivityMapThumbnailUpload(activityId, canonicalFileName);
       if (prepared.expectedFileName !== canonicalFileName) {
         throw new Error("map-thumbnail/stale-prepare");
@@ -195,6 +199,7 @@ export default function ActivityRouteThumbnail({
 
       if (activeCanonicalKey.current !== `${canonicalFileName}:${canonicalVersion}`) return;
       if (!mounted.current) return;
+      phase = "finalize";
       const finalized = await finalizeActivityMapThumbnailUpload(
         activityId,
         canonicalFileName,
@@ -205,7 +210,7 @@ export default function ActivityRouteThumbnail({
       setImageUrl(finalized.mapImageUrl);
     } catch (err) {
       if (shouldReportMapCaptureError(err)) {
-        logClientError("ActivityRouteThumbnail.captureMap", err, { activityId });
+        logClientError("ActivityRouteThumbnail.captureMap", err, { activityId, phase });
       }
     } finally {
       releaseCaptureSlot(captureToken.current);
@@ -499,16 +504,26 @@ async function invokeMapThumbnailCoordinator<TInput, TOutput>(
   name: "prepareActivityMapThumbnailUpload" | "finalizeActivityMapThumbnailUpload",
   payload: TInput,
 ): Promise<TOutput> {
+  return invokeMapThumbnailCoordinatorWithRetry(
+    async (forceRefresh) => {
+      // enforceAppCheck callable과 auth 직후 캡처가 경쟁하지 않도록 token 준비를 직접 보장한다.
+      await ensureAppCheckReady(forceRefresh);
+      const callable = httpsCallable<TInput, TOutput>(functions, name);
+      return (await callable(payload)).data;
+    },
+  );
+}
+
+export async function invokeMapThumbnailCoordinatorWithRetry<T>(
+  operation: (forceAppCheckRefresh: boolean) => Promise<T>,
+): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      // enforceAppCheck callable과 auth 직후 캡처가 경쟁하지 않도록 token 준비를 직접 보장한다.
-      await ensureAppCheckReady(attempt === 1);
-      const callable = httpsCallable<TInput, TOutput>(functions, name);
-      return (await callable(payload)).data;
+      return await operation(attempt === 1);
     } catch (error) {
       lastError = error;
-      if (attempt > 0 || !isAppCheckRetryable(error)) break;
+      if (attempt > 0 || !isMapThumbnailCoordinatorRetryable(error)) break;
     }
   }
   throw lastError;
@@ -523,6 +538,14 @@ export function isAppCheckRetryable(error: unknown): boolean {
     message.includes("app check") ||
     message.includes("appcheck") ||
     message.includes("app-check/token");
+}
+
+export function isMapThumbnailCoordinatorRetryable(error: unknown): boolean {
+  if (isAppCheckRetryable(error)) return true;
+  const code = getErrorCode(error)?.toLowerCase() ?? "";
+  return code === "functions/internal"
+    || code === "functions/unavailable"
+    || code === "functions/deadline-exceeded";
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorCode: string): Promise<T> {

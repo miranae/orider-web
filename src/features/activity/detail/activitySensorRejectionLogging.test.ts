@@ -65,6 +65,7 @@ describe("activity sensor rejection logging", () => {
 
   it("resets dedupe for a different activity without growing unbounded", () => {
     const logger = vi.fn();
+    const diagnosticLogger = vi.fn();
     const state = createSensorRejectionLogState();
     const rejection = {
       channel: "cadence" as const,
@@ -72,10 +73,15 @@ describe("activity sensor rejection logging", () => {
       reason: "insufficient_coverage" as const,
     };
 
-    reportSensorRejectionsOnce("activity-1", [rejection], state, logger);
-    reportSensorRejectionsOnce("activity-2", [rejection], state, logger);
+    reportSensorRejectionsOnce("activity-1", [rejection], state, logger, diagnosticLogger);
+    reportSensorRejectionsOnce("activity-2", [rejection], state, logger, diagnosticLogger);
 
-    expect(logger).toHaveBeenCalledTimes(2);
+    expect(logger).not.toHaveBeenCalled();
+    expect(diagnosticLogger).toHaveBeenCalledTimes(2);
+    expect(diagnosticLogger).toHaveBeenCalledWith(
+      "ActivityPage.sensorStreamRejected.cadence.insufficient_coverage",
+      expect.objectContaining({ activityId: "activity-1", reason: "insufficient_coverage" }),
+    );
     expect(state.activityId).toBe("activity-2");
     expect(state.keys.size).toBe(1);
   });
