@@ -255,7 +255,7 @@ describe("activity detail chart clocks", () => {
 
   it.each([
     ["missing", undefined],
-    ["non-monotonic", [0, 1, 1, 3]],
+    ["decreasing", [0, 2, 1, 3]],
   ])("fails equal-length legacy chart alignment closed for a %s route clock", (_case, time) => {
     const streams = { distance: [0, 1, 2, 3], time, watts: [100, 200, 300, 400] };
     expect(getAvailableOverlays(buildSampledData(streams as never, {

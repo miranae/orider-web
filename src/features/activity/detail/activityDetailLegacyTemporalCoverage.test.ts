@@ -70,12 +70,19 @@ describe("activity detail legacy temporal coverage integration", () => {
       heartrate: valuesAt(length, [40, 41, 42], 187),
     } as never)!;
     const logger = vi.fn();
+    const diagnosticLogger = vi.fn();
 
-    reportSensorRejectionsOnce("activity-temporal", summary.rejections, createSensorRejectionLogState(), logger);
+    reportSensorRejectionsOnce(
+      "activity-temporal",
+      summary.rejections,
+      createSensorRejectionLogState(),
+      logger,
+      diagnosticLogger,
+    );
 
-    expect(logger).toHaveBeenCalledWith(
+    expect(logger).not.toHaveBeenCalled();
+    expect(diagnosticLogger).toHaveBeenCalledWith(
       "ActivityPage.sensorStreamRejected.heart_rate.insufficient_measurements",
-      expect.any(Error),
       expect.objectContaining({
         activityId: "activity-temporal",
         channel: "heart_rate",
@@ -83,7 +90,7 @@ describe("activity detail legacy temporal coverage integration", () => {
         channelLength: length,
       }),
     );
-    expect(JSON.stringify(logger.mock.calls)).not.toContain("187");
+    expect(JSON.stringify(diagnosticLogger.mock.calls)).not.toContain("187");
   });
 
   it.each([

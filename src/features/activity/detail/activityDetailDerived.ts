@@ -7,6 +7,7 @@ import {
 } from "../../../utils/sampleTime";
 import {
   detectConsistentTimestampUnit,
+  normalizeIsolatedTimestampEqualities,
   normalizeEpochMilliseconds,
   timestampDivisor,
 } from "../../../utils/timestampUnit";
@@ -264,12 +265,13 @@ function validTimeDurationSec(value: unknown): number | undefined {
   if (!time.every((sample) => typeof sample === "number" && Number.isFinite(sample) && sample >= 0)) {
     return undefined;
   }
-  const numericTime = time as number[];
+  const numericTime = normalizeIsolatedTimestampEqualities(time as number[]);
+  if (!numericTime) return undefined;
   const unit = detectConsistentTimestampUnit(numericTime);
   if (unit == null) return undefined;
   const divisor = timestampDivisor(unit);
   const deltas = numericTime.slice(1).map((sample, index) => sample - numericTime[index]!);
-  if (deltas.some((delta) => delta <= 0)) return undefined;
+  if (deltas.some((delta) => delta < 0)) return undefined;
   const sortedDeltas = [...deltas].sort((a, b) => a - b);
   const representativeStep = (sortedDeltas[Math.floor(sortedDeltas.length / 2)] ?? divisor) / divisor;
   return (numericTime[numericTime.length - 1]! - numericTime[0]!) / divisor + representativeStep;
@@ -446,7 +448,7 @@ function persistedNumericArray(value: unknown, allowNegative: boolean): number[]
   return values as number[];
 }
 
-function persistedTimeArray(value: unknown): number[] | undefined {
+function persistedTimeArray(value: unknown, allowIsolatedEqual = false): number[] | undefined {
   const values = persistedNumericArray(value, false);
   if (!values) return undefined;
   if (values.length === 0) return values;
@@ -454,9 +456,11 @@ function persistedTimeArray(value: unknown): number[] | undefined {
   if (unit == null) return undefined;
   for (let index = 0; index < values.length; index++) {
     const sample = values[index]!;
-    if (index > 0 && sample <= values[index - 1]!) return undefined;
+    if (index > 0 && sample < values[index - 1]!) return undefined;
+    if (!allowIsolatedEqual && index > 0 && sample === values[index - 1]!) return undefined;
   }
-  return values;
+  if (!allowIsolatedEqual) return values;
+  return normalizeIsolatedTimestampEqualities(values);
 }
 
 interface ChartTimeAxis {
@@ -474,7 +478,7 @@ function chartRouteTimeAxis(
   routeLength: number,
   activityStartTime?: number,
 ): ChartTimeAxis | undefined {
-  const time = persistedTimeArray(streams.time);
+  const time = persistedTimeArray(streams.time, true);
   if (!time?.length || time.length !== routeLength) return undefined;
   const first = time[0]!;
   const epochOrigin = normalizeEpochMs(first);
@@ -482,7 +486,7 @@ function chartRouteTimeAxis(
     ? sample - first
     : (normalizeEpochMs(sample)! - epochOrigin) / 1000);
   if (relativeSec.some((sample, index) => !Number.isFinite(sample)
-    || (index > 0 && sample <= relativeSec[index - 1]!))) return undefined;
+    || (index > 0 && sample < relativeSec[index - 1]!))) return undefined;
   const durationSec = validTimeDurationSec(time);
   if (durationSec == null) return undefined;
   const activityOrigin = normalizeEpochMs(activityStartTime);
@@ -526,8 +530,8 @@ function alignSensorChannelForChart(
 ): Array<number | null> | undefined {
   if (!values?.length) return undefined;
   if (source === "override") {
-    const overrideTime = persistedTimeArray(context.powerOverride?.time);
-    const routeTime = persistedTimeArray(streams.time);
+    const overrideTime = persistedTimeArray(context.powerOverride?.time, true);
+    const routeTime = persistedTimeArray(streams.time, true);
     return values.length === routeLength
       && overrideTime?.length === values.length
       && routeTime?.length === routeLength
@@ -626,8 +630,8 @@ export function selectActivityPowerStream(
     };
   }
   if (context.powerOverride) {
-    const overrideTime = persistedTimeArray(context.powerOverride.time);
-    const routeTime = persistedTimeArray(streams.time);
+    const overrideTime = persistedTimeArray(context.powerOverride.time, true);
+    const routeTime = persistedTimeArray(streams.time, true);
     const invalidChannel = !legacyWatts || !hasValidLegacySensorChannelValues(legacyWatts);
     const invalidAxis = !overrideTime
       || overrideTime.length !== legacyWatts?.length
@@ -1138,7 +1142,7 @@ function canonicalOverrideAxis(
   time: readonly number[],
   activityStartTime?: number,
 ): { time: number[]; timeOriginEpochMs?: number } | undefined {
-  const normalized = persistedTimeArray(time);
+  const normalized = persistedTimeArray(time, true);
   if (!normalized?.length) return undefined;
   const epochOrigin = normalizeEpochMs(normalized[0]);
   if (epochOrigin != null) {
@@ -1168,7 +1172,7 @@ export function buildActivityAnalysisProjection(
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const selectedPower = selectActivityPowerStream(streams, context);
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
-  const normalizedTime = persistedTimeArray(streams.time);
+  const normalizedTime = persistedTimeArray(streams.time, true);
   const normalizedDistance = persistedNumericArray(streams.distance, false);
   const normalizedCadence = persistedNumericArray(streams.cadence, false);
   const cadenceExpectation = legacyCoverageExpectation(streams, context.legacyDurationSec, true);

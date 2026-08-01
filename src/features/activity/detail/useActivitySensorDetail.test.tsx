@@ -6,8 +6,11 @@ import { useActivitySensorDetail } from "./useActivitySensorDetail";
 import type { ActivityPowerOverride } from "./activityDetailDerived";
 import { buildActivityPowerSourceFingerprint } from "./activityPowerOverride";
 
-const mocks = vi.hoisted(() => ({ logClientError: vi.fn() }));
-vi.mock("../../../services/errorLogger", () => ({ logClientError: mocks.logClientError }));
+const mocks = vi.hoisted(() => ({ debugLog: vi.fn(), logClientError: vi.fn() }));
+vi.mock("../../../services/errorLogger", () => ({
+  debugLog: mocks.debugLog,
+  logClientError: mocks.logClientError,
+}));
 
 const activity = {
   id: "activity-1",

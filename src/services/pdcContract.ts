@@ -1,6 +1,5 @@
 import { PDC_VERSION, type PdcDoc, type PdcPowerSource, type PowerProfile, type RiderType } from "@shared/types/pdc";
 import type { PowerDurationKey } from "@shared/types/personal-records";
-import { hasCanonicalPdcV5Source } from "@shared/training/pdcRiderGate";
 
 const DURATIONS: PowerDurationKey[] = ["1s", "5s", "10s", "30s", "1m", "2m", "5m", "10m", "20m", "30m", "1h"];
 const RIDER_DURATIONS = ["5s", "1m", "5m", "20m"] as const;
@@ -16,7 +15,11 @@ const subset = (value: Record<string, unknown>, keys: readonly string[]) => Obje
 const finite = (value: unknown, min: number, max: number): value is number => typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
 const integer = (value: unknown, min: number, max: number): value is number => Number.isInteger(value) && finite(value, min, max);
 const nullable = (value: unknown, min: number, max: number) => value === null || finite(value, min, max);
-const date = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00.000Z`));
+const date = (value: unknown): value is string => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) return false;
+  const parsed = Date.parse(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value;
+};
 
 function invalid(): never { throw new Error("INVALID_PERSISTED_PDC_V5"); }
 
@@ -139,7 +142,12 @@ export function parsePersistedPdc(input: unknown): PdcDoc {
     return !row || !exact(row, ["mmp", "period"]) || typeof row.period !== "string" || !/^\d{4}-\d{2}$/u.test(row.period)
       || !mmp || !subset(mmp, DURATIONS) || !Object.values(mmp).every((value) => finite(value, 1, 3_000));
   })) invalid();
-  const parsed = raw as unknown as PdcDoc;
-  if (riderType && riderType.type !== "Unclassified" && !hasCanonicalPdcV5Source(parsed)) invalid();
-  return parsed;
+  if (riderType && riderType.type !== "Unclassified" && RIDER_DURATIONS.some((duration) => {
+    const entry = object(mmpAll[duration]);
+    return !entry || entry.source === "unknown";
+  })) invalid();
+  // Cohort eligibility is a presentation/aggregation gate, not a persistence
+  // contract. Personal PDCs may legitimately be computed from measured Strava
+  // power while remaining ineligible for the public cohort.
+  return raw as unknown as PdcDoc;
 }

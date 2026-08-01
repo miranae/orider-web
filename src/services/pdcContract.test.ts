@@ -77,6 +77,19 @@ describe("persisted PDC v5 contract", () => {
     expect(hasCanonicalPdcV5Source(parsed)).toBe(false);
   });
 
+  it("accepts a structurally valid personal Strava PDC without promoting it to the public cohort", () => {
+    const value = fixture();
+    for (const duration of ["5s", "1m", "5m", "20m"]) {
+      value.mmpAll[duration].source = "strava_api";
+      value.mmpAll[duration].cohortEligible = false;
+      value.provenance.byDuration[duration] = { source: "strava_api", cohortEligible: false };
+    }
+
+    const parsed = parsePersistedPdc(value);
+    expect(parsed.riderType).toMatchObject({ type: "AllRounder" });
+    expect(hasCanonicalPdcV5Source(parsed)).toBe(false);
+  });
+
   it.each([
     ["unknown top-level field", (value: any) => { value.rawActivities = []; }],
     ["legacy version", (value: any) => { value.version = 4; }],
@@ -90,10 +103,6 @@ describe("persisted PDC v5 contract", () => {
     ["unknown rider evidence", (value: any) => {
       value.mmpAll["5s"].source = "unknown"; value.mmpAll["5s"].cohortEligible = false;
       value.provenance.byDuration["5s"] = { source: "unknown", cohortEligible: false };
-    }],
-    ["cohort-ineligible rider evidence", (value: any) => {
-      value.mmpAll["1m"].cohortEligible = false;
-      value.provenance.byDuration["1m"].cohortEligible = false;
     }],
     ["empty rider MMP evidence", (value: any) => {
       delete value.mmpAll["20m"]; delete value.provenance.byDuration["20m"];

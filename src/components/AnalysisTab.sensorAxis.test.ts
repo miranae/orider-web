@@ -8,11 +8,13 @@ import {
   selectWholeSessionSensorSeries,
   normalizeActivityStartTimeMs,
   sensorSeriesShareCompleteAxis,
+  wholeSessionSampleTiming,
   wholeSessionSeriesShareAxis,
 } from "./AnalysisTab";
 import { calculateDecoupling, calculateEF, calculateTRIMP, calculateWorkKj } from "../utils/advancedMetrics";
 import { buildActivityAnalysisProjection } from "../features/activity/detail/activityDetailDerived";
-import { calculateNP, calculateTSS } from "../utils/powerMetrics";
+import { calculateIF, calculateNP, calculateTSS, calculateVI } from "../utils/powerMetrics";
+import { plausibleWatts } from "../utils/plausibleWatts";
 import { calculateHrZoneDistribution, calculatePowerZoneDistribution } from "../utils/zoneAnalysis";
 
 describe("AnalysisTab sensor axis", () => {
@@ -594,6 +596,59 @@ describe("AnalysisTab sensor axis", () => {
     const mismatchedPower = selectWholeSessionSensorSeries(mismatched.power, undefined, undefined);
     const mismatchedHeartRate = selectWholeSessionSensorSeries(mismatched.heartRate, undefined, undefined);
     expect(wholeSessionSeriesShareAxis(mismatchedPower, mismatchedHeartRate)).toBe(false);
+  });
+
+  it("keeps time-based power metrics for a production-shaped isolated duplicate timestamp", () => {
+    const length = 3_127;
+    const durationMs = 3_605_722;
+    const originMs = Date.UTC(2026, 6, 30, 10, 0, 0);
+    const time = Array.from(
+      { length },
+      (_, index) => originMs + Math.round(index * durationMs / (length - 1)),
+    );
+    time[3_067] = time[3_066]!;
+    const watts = Array(length).fill(125);
+    const projection = buildActivityAnalysisProjection({ time, watts } as never, {
+      legacyDurationSec: durationMs / 1000,
+      activityStartTime: originMs,
+      powerOverride: { source: "virtualPowerOverride", time },
+    })!;
+    const selected = selectWholeSessionSensorSeries(projection.power, undefined, undefined);
+
+    expect(selected.time).toHaveLength(length);
+    expect(selected.time![3_067]).toBeGreaterThan(selected.time![3_066]!);
+    expect(selected.time![3_067]).toBeLessThan(selected.time![3_068]!);
+    expect(selected.time!.at(-1)).toBe((time.at(-1)! - originMs) / 1000);
+    expect(calculateNP(selected.values, selected.time)).toBeCloseTo(125, 8);
+    expect(calculateIF(selected.values, 250, selected.time)).toBeCloseTo(0.5, 8);
+    expect(calculateTSS(selected.values, 250, selected.time)).not.toBeNull();
+    expect(calculateVI(selected.values, selected.time)).toBeCloseTo(1, 8);
+  });
+
+  it("keeps coasting legacy power and strictly positive owned durations across an isolated duplicate", () => {
+    const length = 3_127;
+    const durationMs = 3_605_722;
+    const originMs = Date.UTC(2026, 6, 30, 10, 0, 0);
+    const time = Array.from(
+      { length },
+      (_, index) => originMs + Math.round(index * durationMs / (length - 1)),
+    );
+    time[3_067] = time[3_066]!;
+    const watts = Array.from({ length }, (_, index) => index % 20 === 0 ? 0 : 180);
+    const projection = buildActivityAnalysisProjection({ time, watts } as never, {
+      legacyDurationSec: durationMs / 1000,
+      activityStartTime: originMs,
+    })!;
+    const selected = selectWholeSessionSensorSeries(projection.power, undefined, undefined);
+    const timing = wholeSessionSampleTiming(selected);
+
+    expect(selected.values).toEqual(watts);
+    expect(selected.time).toHaveLength(length);
+    expect(timing.durationsSec).toHaveLength(length);
+    expect(timing.durationsSec!.every((duration) => duration > 0)).toBe(true);
+    expect(plausibleWatts(selected.values, 180, timing)).toEqual(watts);
+    expect(calculateNP(selected.values, selected.time, timing)).not.toBeNull();
+    expect(calculateTSS(selected.values, 250, selected.time, timing)).not.toBeNull();
   });
 
   it("fails mixed-source override analysis closed when a relative route has no origin", () => {
