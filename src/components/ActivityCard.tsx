@@ -13,7 +13,11 @@ import Avatar from "./Avatar";
 import { getSportLabelKey } from "../utils/sportType";
 import DisciplineBadge from "./redesign/DisciplineBadge";
 import { getDiscipline } from "../utils/disciplineFilter";
-import { isImplausibleActivity, isImplausibleAvgSpeed } from "../utils/activitySanity";
+import {
+  isImplausibleActivity,
+  isImplausibleActivityHeartRate,
+  isImplausibleAvgSpeed,
+} from "../utils/activitySanity";
 import { Card, Chip } from "../theme/components";
 import ActivityAiSummary from "./activity/ActivityAiSummary";
 import ActivitySocialFooter from "./activity/ActivitySocialFooter";
@@ -322,6 +326,7 @@ export default function ActivityCard({
               durationMs: s.ridingTimeMillis,
               avgKph: s.averageSpeed,
               maxKph: s.maxSpeed,
+              averageHeartRate: s.averageHeartRate,
               discipline: getDiscipline(activity.type),
             }) && (
               <span
@@ -405,7 +410,9 @@ export default function ActivityCard({
                 <StatBlock label={t("stat.powerShort")} value={`${Math.round(pw)} W`} />
               ) : null;
             })()}
-            {s.averageHeartRate != null && s.averageHeartRate > 0 && (
+            {s.averageHeartRate != null &&
+              s.averageHeartRate > 0 &&
+              !isImplausibleActivityHeartRate(s.averageHeartRate) && (
               <StatBlock label={t("stat.avgHrShort")} value={`${s.averageHeartRate} bpm`} />
             )}
           </div>
