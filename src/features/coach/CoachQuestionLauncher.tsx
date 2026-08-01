@@ -285,6 +285,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       } else if (result.capabilityVersion === "p2") {
         analyticsStatus = result.outcome === "answer" && result.answer.status !== "partial" ? "ok" : "fallback";
         remaining = result.quota.consumed ? null : quota?.remaining ?? null;
+        if (result.quota.consumed) setQuota(null);
         setPhase("complete");
         coachAnalytics.complete(analyticsStatus, Date.now() - startedAt, remaining);
         if (result.quota.consumed) {
@@ -329,7 +330,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
 
   async function submit(submitSource = source, forceNew = false) {
     const question = draft.trim();
-    if (inFlightRef.current || question.length < 2 || question.length > 1000 || !user || quota?.remaining === 0) return;
+    if (inFlightRef.current || question.length < 2 || question.length > 1000 || !user || !quota || quota.remaining === 0) return;
     const id = forceNew || !requestId ? crypto.randomUUID() : requestId;
     setRequestId(id); setSource(submitSource);
     const contextFilters = currentContextFilters();
@@ -406,8 +407,10 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function startAnother() {
+    const reloadQuota = quota === null;
     activeBodyRef.current = null;
-    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setProductSlice(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text"); setPhase("ready");
+    setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setProductSlice(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text");
+    if (reloadQuota) void openSheet(); else setPhase("ready");
   }
 
   function choosePlannerQuestion(question: string, prescriptionId: string, sourceRequestId: string) {
@@ -471,8 +474,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     : [response.reasonCode, response.retry.reasonCode]) : [];
   const retryAction = response ? retryActionFor(response.retry.mode, ...retryReasonCodes) : "none";
   const canRetry = (phase === "network_error" && requestId !== null)
-    || (phase === "complete" && response !== null && retryAction !== "none" && !(retryAction === "new" && quota?.remaining === 0));
+    || (phase === "complete" && response !== null && retryAction !== "none" && !(retryAction === "new" && (!quota || quota.remaining === 0)));
   const exhausted = quota?.remaining === 0;
+  const submissionBlocked = !quota || exhausted;
   const serviceUnavailable = (phase === "terminal_error" && submitFailure === "serviceUnavailable")
     || (response && "outcome" in response && response.capabilityVersion === "p1" && response.error?.code === "provider_kill_switch");
   const canRateResponse = phase !== "submitting" && Boolean(response && ("outcome" in response
@@ -513,7 +517,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   <Text as="p" variant="eyebrow" tone="accent">{t("context", { discipline: t(`discipline.${discipline}`) })}</Text>
                   <div className="coach-sheet__composer">
                     <label htmlFor="coach-question"><Text variant="label">{t("inputLabel")}</Text></label>
-                    <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={exhausted}
+                    <Textarea ref={questionRef} id="coach-question" value={draft} maxLength={1000} rows={4} disabled={submissionBlocked}
                       placeholder={t(`placeholder.${discipline}`)} aria-describedby={showCounter ? "coach-question-note coach-question-counter" : "coach-question-note"}
                       onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)}
                       onChange={(event) => { setDraft(event.target.value); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setSource("free_text"); setRequestId(null); }} />
@@ -528,7 +532,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                       </Chip>}
                       {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
                     </div>
-                    <Button block variant="primary" disabled={draft.trim().length < 2 || exhausted} onClick={() => void submit()}>{t("submit")}</Button>
+                    <Button block variant="primary" disabled={draft.trim().length < 2 || submissionBlocked} onClick={() => void submit()}>{t("submit")}</Button>
                     {quota && <Text as="p" className="coach-sheet__quota" variant="caption" tone={exhausted ? "warning" : "tertiary"}>
                       {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
                     </Text>}
@@ -539,7 +543,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                       {suggestions.map((index) => {
                         const question = t(`suggestions.${discipline}.${index}`);
                         const label = t(`suggestions.labels.${discipline}.${index}`);
-                        return <Button key={index} block variant="ghost" aria-label={`${label}: ${question}`} disabled={exhausted} onClick={() => chooseSuggestion(index)}>
+                        return <Button key={index} block variant="ghost" aria-label={`${label}: ${question}`} disabled={submissionBlocked} onClick={() => chooseSuggestion(index)}>
                           <span className="coach-sheet__suggestion-copy">
                             <Text as="span" variant="caption" tone="accent">{label}</Text>
                             <Text as="span" variant="bodySmall">{question}</Text>
@@ -557,7 +561,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   title={t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.title" : `states.${submitFailure ?? "terminal"}.title`)}>
                   <Text as="p" variant="bodySmall">{t(submitFailure === "serviceUnavailable" ? "serviceUnavailable.body" : `states.${submitFailure ?? "terminal"}.body`)}</Text></Alert>}
                 {response && phase !== "submitting" && ("outcome" in response
-                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={exhausted}
+                  ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={submissionBlocked}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action}
                     onReanalyze={startAnother}
                     onSuggested={(query, prescriptionId, sourceRequestId) => {
