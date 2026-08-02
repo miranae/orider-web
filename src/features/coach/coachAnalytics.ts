@@ -18,8 +18,8 @@ type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_t
 /** These functions intentionally accept no raw question, answer, evidence, requestId or health fields. */
 export const coachAnalytics = {
   open: () => track("coach_open"),
-  submit: (source: QuestionSource) => track("coach_question_submit", { source, capability: "p1" }),
-  complete: (status: CoachResponseStatus, latencyMs: number, remaining: number) =>
+  submit: (source: QuestionSource, capability: "p1" | "p2") => track("coach_question_submit", { source, capability }),
+  complete: (status: CoachResponseStatus, latencyMs: number, remaining: number | null) =>
     track("coach_response_complete", { status, latencyMs, remaining }),
   evidenceExpand: (status: CoachResponseStatus) => track("coach_evidence_expand", { status }),
   actionClick: (actionCode: CoachActionCode | CoachAnswerActionCode) => track("coach_action_click", { actionCode }),

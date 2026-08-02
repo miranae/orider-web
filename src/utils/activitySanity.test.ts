@@ -5,6 +5,7 @@ import {
   isMicroActivity,
   isImplausibleActivity,
   isImplausibleSegmentElevation,
+  isImplausibleActivityHeartRate,
 } from "./activitySanity";
 
 describe("activitySanity", () => {
@@ -33,6 +34,28 @@ describe("activitySanity", () => {
     });
   });
 
+  describe("isImplausibleActivityHeartRate", () => {
+    it("accepts physiologically credible activity averages at the boundaries", () => {
+      expect(isImplausibleActivityHeartRate(30)).toBe(false);
+      expect(isImplausibleActivityHeartRate(145)).toBe(false);
+      expect(isImplausibleActivityHeartRate(250)).toBe(false);
+    });
+
+    it("rejects corrupt low, high, and malformed values", () => {
+      expect(isImplausibleActivityHeartRate(5)).toBe(true);
+      expect(isImplausibleActivityHeartRate(29.9)).toBe(true);
+      expect(isImplausibleActivityHeartRate(250.1)).toBe(true);
+      expect(isImplausibleActivityHeartRate(Number.NaN)).toBe(true);
+      expect(isImplausibleActivityHeartRate(Number.POSITIVE_INFINITY)).toBe(true);
+    });
+
+    it("preserves null and zero as missing sensor data", () => {
+      expect(isImplausibleActivityHeartRate(null)).toBe(false);
+      expect(isImplausibleActivityHeartRate(undefined)).toBe(false);
+      expect(isImplausibleActivityHeartRate(0)).toBe(false);
+    });
+  });
+
   describe("isMicroActivity", () => {
     it("거리 100m 미만 또는 시간 60s 미만이면 true", () => {
       expect(isMicroActivity(50, 120_000)).toBe(true);   // 거리 부족
@@ -55,6 +78,15 @@ describe("activitySanity", () => {
       expect(isImplausibleActivity({
         distanceM: 41_000, durationMs: 11_400_000, avgKph: 13.1, maxKph: 40,
       })).toBe(false);
+    });
+    it("정상 활동이어도 평균 심박이 손상됐으면 invalid", () => {
+      expect(isImplausibleActivity({
+        distanceM: 41_000,
+        durationMs: 11_400_000,
+        avgKph: 13.1,
+        maxKph: 40,
+        averageHeartRate: 5,
+      })).toBe(true);
     });
   });
 
