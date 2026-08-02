@@ -259,7 +259,10 @@ function invalidVersionExplicitChannel(
   };
 }
 
-function validTimeDurationSec(value: unknown): number | undefined {
+function validTimeDurationsSec(value: unknown): {
+  elapsed: number;
+  sampled?: number;
+} | undefined {
   const time = runtimeArray<unknown>(value);
   if (!time || time.length < 2 || !hasDenseArraySlots(time)) return undefined;
   if (!time.every((sample) => typeof sample === "number" && Number.isFinite(sample) && sample >= 0)) {
@@ -270,11 +273,44 @@ function validTimeDurationSec(value: unknown): number | undefined {
   const unit = detectConsistentTimestampUnit(numericTime);
   if (unit == null) return undefined;
   const divisor = timestampDivisor(unit);
-  const deltas = numericTime.slice(1).map((sample, index) => sample - numericTime[index]!);
+  const deltas = numericTime.slice(1).map(
+    (sample, index) => (sample - numericTime[index]!) / divisor,
+  );
   if (deltas.some((delta) => delta < 0)) return undefined;
   const sortedDeltas = [...deltas].sort((a, b) => a - b);
-  const representativeStep = (sortedDeltas[Math.floor(sortedDeltas.length / 2)] ?? divisor) / divisor;
-  return (numericTime[numericTime.length - 1]! - numericTime[0]!) / divisor + representativeStep;
+  const representativeStep = sortedDeltas[Math.floor(sortedDeltas.length / 2)] ?? 1;
+  const stableStepTolerance = Math.max(
+    representativeStep * 0.05,
+    Number.EPSILON * Math.max(1, representativeStep) * 4,
+  );
+  const stableDeltas = deltas.filter(
+    (delta) => Math.abs(delta - representativeStep) <= stableStepTolerance,
+  );
+  const hasOnlyStableStepsAndPauseGaps = deltas.every(
+    (delta) => Math.abs(delta - representativeStep) <= stableStepTolerance
+      || delta > representativeStep + stableStepTolerance,
+  );
+  const hasStableSampleCadence = hasOnlyStableStepsAndPauseGaps
+    && stableDeltas.length >= Math.ceil(deltas.length * 0.95);
+  return {
+    elapsed: (numericTime[numericTime.length - 1]! - numericTime[0]!) / divisor + representativeStep,
+    ...(hasStableSampleCadence
+      ? {
+          sampled: deltas.reduce(
+            (sum, delta) => sum + (
+              Math.abs(delta - representativeStep) <= stableStepTolerance
+                ? delta
+                : representativeStep
+            ),
+            representativeStep,
+          ),
+        }
+      : {}),
+  };
+}
+
+function validTimeDurationSec(value: unknown): number | undefined {
+  return validTimeDurationsSec(value)?.elapsed;
 }
 
 export function expectedActivityDurationSec(
@@ -306,6 +342,7 @@ interface LegacyCoverageExpectation {
   summaryDurationSec?: number;
   timeAxisLength: number;
   timeDurationSec?: number;
+  timeSampledDurationSec?: number;
   routeTime?: number[];
 }
 
@@ -322,7 +359,8 @@ function legacyCoverageExpectation(
   summaryDurationSec?: number,
   excludeCadence = false,
 ): LegacyCoverageExpectation {
-  const timeDurationSec = validTimeDurationSec(streams.time);
+  const timeDurationsSec = validTimeDurationsSec(streams.time);
+  const timeDurationSec = timeDurationsSec?.elapsed;
   const timeAxisLength = timeDurationSec != null ? reliableRouteAxisLength(streams.time) : 0;
   const routeTime = timeAxisLength > 0 ? runtimeArray<number>(streams.time) : undefined;
   const rawTime = (streams as unknown as Record<string, unknown>).time;
@@ -357,6 +395,7 @@ function legacyCoverageExpectation(
       summaryDurationSec: validSummaryDuration,
       timeAxisLength,
       timeDurationSec,
+      timeSampledDurationSec: timeDurationsSec?.sampled,
       routeTime,
     };
   }
@@ -372,6 +411,7 @@ function legacyCoverageExpectation(
     shapeCount,
     timeAxisLength,
     timeDurationSec,
+    timeSampledDurationSec: timeDurationsSec?.sampled,
     routeTime,
   };
 }
@@ -390,6 +430,13 @@ function hasLegacyCoverage(valuesLength: number, expectation: LegacyCoverageExpe
     return legacySensorDurationsAgree(
       expectation.timeDurationSec!,
       expectation.summaryDurationSec!,
+    ) || (
+      expectation.timeDurationSec! > expectation.summaryDurationSec!
+      && expectation.timeSampledDurationSec != null
+      && legacySensorDurationsAgree(
+        expectation.timeSampledDurationSec,
+        expectation.summaryDurationSec!,
+      )
     );
   }
   return hasSufficientAxisCoverage(
@@ -820,13 +867,21 @@ function legacySensorAxisInput(
   values: readonly number[],
   expectation: LegacyCoverageExpectation,
 ): LegacySensorAxisInput {
+  const useMovingTimeAxis = expectation.summaryDurationSec != null
+    && expectation.timeDurationSec != null
+    && expectation.timeSampledDurationSec != null
+    && expectation.timeDurationSec > expectation.summaryDurationSec
+    && !legacySensorDurationsAgree(expectation.timeDurationSec, expectation.summaryDurationSec)
+    && legacySensorDurationsAgree(expectation.timeSampledDurationSec, expectation.summaryDurationSec);
   return {
     hasAlignedShapeEvidence: expectation.shapeCount > 0
       && hasSufficientAxisCoverage(values.length, expectation.shapeCount),
     hasInvalidTimeEvidence: expectation.hasInvalidTimeEvidence,
     values,
-    routeTime: expectation.routeTime,
-    trustedDurationSec: expectation.inferenceDurationSec ?? expectation.summaryDurationSec,
+    routeTime: useMovingTimeAxis ? undefined : expectation.routeTime,
+    trustedDurationSec: useMovingTimeAxis
+      ? expectation.summaryDurationSec
+      : expectation.inferenceDurationSec ?? expectation.summaryDurationSec,
   };
 }
 
