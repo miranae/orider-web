@@ -11,13 +11,14 @@ import enCoach from "../../i18n/resources/en/coach.json";
 import koCoach from "../../i18n/resources/ko/coach.json";
 import prescriptionFixture from "./__fixtures__/p2-web-fixture.json";
 
-const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), capabilities: vi.fn(), recovery: vi.fn(), policy: vi.fn(), analytics: {
+const mocks = vi.hoisted(() => ({ status: vi.fn(), ask: vi.fn(), askP2: vi.fn(), capabilities: vi.fn(), recovery: vi.fn(), policy: vi.fn(), logError: vi.fn(), analytics: {
   open: vi.fn(), submit: vi.fn(), complete: vi.fn(), evidenceExpand: vi.fn(), actionClick: vi.fn(), limitSeen: vi.fn(),
 }, feedback: vi.fn() }));
 
-vi.mock("../../services/coachClient", async (original) => ({ ...(await original()), getCoachStatus: mocks.status, askCoachV2: mocks.ask,
+vi.mock("../../services/coachClient", async (original) => ({ ...(await original()), getCoachStatus: mocks.status, askCoachV2: mocks.ask, askCoachP2: mocks.askP2,
   getCoachProgressPlannerCapabilities: mocks.capabilities, getCoachProgressProposalRecovery: mocks.recovery }));
 vi.mock("../../services/coachConsentClient", () => ({ getCoachConsentPolicy: mocks.policy }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: mocks.logError }));
 vi.mock("./coachAnalytics", () => ({ coachAnalytics: mocks.analytics, trackCoachFeedback: mocks.feedback }));
 vi.mock("./CoachPmcInsightCard", () => ({
   CoachPmcInsightCard: ({ onQuestionSelect }: { onQuestionSelect: (value: { question: string; snapshotId: string }) => void }) =>
@@ -48,7 +49,7 @@ const disciplinePrompts = [
     labels: ["FTP 목표 코칭", "오늘 운동 리뷰", "한 달 몸 상태"],
     prompts: [
       "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.",
-      "오늘 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘.",
+      "내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘.",
       "최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태를 분석해줘.",
     ],
   },
@@ -128,6 +129,17 @@ answerSchemaVersion: "answer-v1", answerCatalogVersion: "catalog-v1",
 progressPlanner: { read: { enabled: true }, proposal: { enabled: true }, confirm: { enabled: true } },
 prescription: { enabled: true, schemaVersion: "coach-prescription-v1", rulesVersion: "coach-prescription-rules-v1",
   checkIn: { enabled: true, endpoint: "/v1/coach/prescription/check-in" } } };
+const p2Capabilities = { ...plannerCapabilities, apiVersions: [...plannerCapabilities.apiVersions,
+  { apiVersion: "v2", capabilityVersion: "p2", requestSchemaVersion: "coach-respond-graph-v1",
+    responseSchemaVersion: "coach-graph-response-envelope-v1" }] };
+const p2Answer = { apiVersion: "v2", capabilityVersion: "p2", schemaVersion: "coach-graph-response-envelope-v1",
+  requestId: answer.requestId, outcome: "answer", quota: { consumed: true },
+  budget: { providerCalls: 3, inputTokens: 120, outputTokens: 80 },
+  retry: { mode: "none", providerCallAllowed: false, retryable: false, reasonCode: "answer_generated" },
+  execution: { graphVersion: "p2-v1", started: true, delivery: "terminal_artifact" },
+  answer: { compatibility: "supported", answerId: "answer_latest", sourceFactsId: "facts_latest",
+    questionSummary: "coach.answer.summary.coaching_report_today_review_bike", status: "complete", blocks: [], evidence: [],
+    warnings: [], freshness: { asOf: "2026-08-01T02:23:00.000Z", timezone: "Asia/Seoul", staleSourceSlotIds: [] }, followUps: [] } };
 const p1PlannerAnswer = { ...p1Answer, answer: { ...p1Answer.answer,
   blocks: [{ kind: "prescription", blockId: "progress-rx", prescription: prescriptionFixture }] } };
 
@@ -149,6 +161,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.status.mockResolvedValue({ status: "available", quota });
     mocks.policy.mockResolvedValue(activePolicy);
     mocks.capabilities.mockResolvedValue(plannerCapabilities);
+    mocks.askP2.mockResolvedValue(p2Answer);
     mocks.recovery.mockResolvedValue({ status: "ok", data: { schemaVersion: "coach-change-proposal-recovery-v1",
       source: { prescriptionId: prescriptionFixture.prescriptionId, sourceRequestId: p1PlannerAnswer.requestId },
       proposal: null, receipt: null, confirmNonce: null, rollbackRequestId: null, providerCalls: 0, quotaConsumed: 0 },
@@ -164,6 +177,196 @@ describe("CoachQuestionLauncher", () => {
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     expect(screen.getByText("AI 코치가 내 운동 기록을 분석하려면 로그인이 필요합니다.")).toBeInTheDocument();
     expect(mocks.status).not.toHaveBeenCalled(); expect(mocks.policy).not.toHaveBeenCalled(); expect(mocks.ask).not.toHaveBeenCalled();
+  });
+
+  it("uses advertised P2 for the explicit latest-activity review suggestion and preserves the exact Korean question", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockResolvedValueOnce({ status: "available",
+      quota: { ...quota, consumed: 1, remaining: 2 } });
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰: 내 마지막 운동 기록을 확인하고/ }));
+    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveValue(
+      "내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘.");
+    expect(screen.getByText("마지막 운동 코칭 모드")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.askP2).toHaveBeenCalledOnce());
+    expect(mocks.askP2.mock.calls[0]?.[0]).toEqual({ requestId: answer.requestId,
+      question: "내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘.",
+      discipline: "bike", locale: "ko-KR", apiVersion: "v2", schemaVersion: "coach-respond-graph-v1",
+      capabilityVersion: "p2", contextFilters: {} });
+    expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.analytics.submit).toHaveBeenCalledWith("suggestion_2", "p2");
+    expect(mocks.status).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("오늘 2회 남음")).toBeInTheDocument();
+  });
+
+  it("keeps the explicit latest-activity mode when the user naturally edits its wording", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), " 강도도 함께 봐줘.");
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.askP2).toHaveBeenCalledOnce());
+    expect(mocks.askP2.mock.calls[0]?.[0]).toMatchObject({ capabilityVersion: "p2",
+      question: expect.stringContaining("강도도 함께 봐줘") });
+  });
+
+  it("keeps the latest-activity suggestion on P1 until the exact P2 tuple is advertised", async () => {
+    mocks.ask.mockResolvedValue(p1Answer);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
+    expect(mocks.ask.mock.calls[0]?.[0]).toMatchObject({ capabilityVersion: "p1", schemaVersion: "coach-respond-v2",
+      question: "내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘." });
+    expect(mocks.askP2).not.toHaveBeenCalled();
+  });
+
+  it("routes the latest-activity suggestion through P1 before request when discovery fails", async () => {
+    mocks.capabilities.mockRejectedValue(new Error("capability discovery unavailable"));
+    mocks.ask.mockResolvedValue(p1Answer);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
+    expect(mocks.ask.mock.calls[0]?.[0]).toMatchObject({ capabilityVersion: "p1", schemaVersion: "coach-respond-v2" });
+    expect(mocks.askP2).not.toHaveBeenCalled();
+    expect(mocks.logError).toHaveBeenCalledWith("CoachQuestionLauncher.capabilityDiscovery", expect.any(Error),
+      { capabilityVersion: "p2" });
+  });
+
+  it("does not block the P1 composer when capability discovery never settles", async () => {
+    mocks.capabilities.mockReturnValue(new Promise(() => undefined));
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /FTP 목표 코칭:/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /오늘 운동 리뷰:/ })).toBeEnabled();
+  });
+
+  it("keeps run latest-activity review on P1 even when P2 is advertised", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities); mocks.ask.mockResolvedValue(p1Answer);
+    setup(user, "run");
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
+    expect(mocks.ask.mock.calls[0]?.[0]).toMatchObject({ discipline: "run", capabilityVersion: "p1" });
+    expect(mocks.askP2).not.toHaveBeenCalled();
+  });
+
+  it("makes P2 routing explicit and lets the user clear the mode without changing the question", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities); mocks.ask.mockResolvedValue(p1Answer);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    const question = screen.getByLabelText("내 운동에 대한 질문");
+    const selectedQuestion = (question as HTMLTextAreaElement).value;
+    expect(screen.getByRole("button", { name: "마지막 운동 코칭 모드 해제" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "마지막 운동 코칭 모드 해제" }));
+    expect(screen.queryByRole("button", { name: "마지막 운동 코칭 모드 해제" })).not.toBeInTheDocument();
+    expect(question).toHaveValue(selectedQuestion);
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
+    expect(mocks.ask.mock.calls[0]?.[0]).toMatchObject({ capabilityVersion: "p1", question: selectedQuestion });
+    expect(mocks.askP2).not.toHaveBeenCalled();
+  });
+
+  it("resumes a retryable P2 unavailable result with the identical requestId and never falls back to P1", async () => {
+    const unavailable = { ...p2Answer, outcome: "unavailable", answer: undefined, quota: { consumed: false },
+      budget: { providerCalls: 0, inputTokens: 0, outputTokens: 0 },
+      error: { code: "graph_execution_unavailable", retryable: true, fallbackAvailable: false },
+      retry: { mode: "same_request_resume", providerCallAllowed: false, retryable: true, reasonCode: "graph_execution_unavailable" },
+      execution: { graphVersion: "p2-v1", started: false } };
+    mocks.capabilities.mockResolvedValue(p2Capabilities); mocks.askP2.mockResolvedValue(unavailable);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    expect(await screen.findByText("실행 결과를 확인한 뒤 같은 요청으로 다시 확인해 주세요. 다른 코칭 경로로 자동 전환하지 않았습니다.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "같은 요청 다시 확인" }));
+    await waitFor(() => expect(mocks.askP2).toHaveBeenCalledTimes(2));
+    expect(mocks.askP2.mock.calls[1]?.[0].requestId).toBe(mocks.askP2.mock.calls[0]?.[0].requestId);
+    expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.status).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes authoritative quota after a post-start P2 unavailable result without falling back", async () => {
+    const unavailable = { ...p2Answer, outcome: "unavailable", answer: undefined, quota: { consumed: true },
+      budget: { providerCalls: 2, inputTokens: 120, outputTokens: 20 },
+      error: { code: "graph_execution_unavailable", retryable: true, fallbackAvailable: false },
+      retry: { mode: "same_request_resume", providerCallAllowed: false, retryable: true, reasonCode: "graph_execution_unavailable" },
+      execution: { graphVersion: "p2-v1", started: true } };
+    mocks.capabilities.mockResolvedValue(p2Capabilities); mocks.askP2.mockResolvedValue(unavailable);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockResolvedValueOnce({ status: "available",
+      quota: { ...quota, consumed: 1, remaining: 2 } });
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.status).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("오늘 2회 남음")).toBeInTheDocument();
+    expect(mocks.askP2).toHaveBeenCalledOnce(); expect(mocks.ask).not.toHaveBeenCalled();
+  });
+
+  it("keeps a completed P2 answer visible without estimating quota when the authoritative refresh fails", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockRejectedValueOnce(new Error("status unavailable"));
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.askP2).toHaveBeenCalledOnce());
+    expect(screen.queryByText(/오늘 [0-9]회 남음/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다른 질문하기" })).toBeInTheDocument();
+    expect(mocks.logError).toHaveBeenCalledWith("CoachQuestionLauncher.refreshP2Quota", expect.any(Error),
+      { capabilityVersion: "p2" });
+  });
+
+  it("discards a completed P2 continuation when the session changes during quota refresh", async () => {
+    let resolveStatus!: (value: { status: string; quota: typeof quota }) => void;
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockReturnValueOnce(
+      new Promise((resolve) => { resolveStatus = resolve; }));
+    const view = setup(user, "bike");
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.askP2).toHaveBeenCalledOnce());
+    view.rerender(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
+      <CoachQuestionLauncher user={user} discipline="run" onSignIn={vi.fn()} />
+    </DialogProvider></MemoryRouter>);
+    resolveStatus({ status: "available", quota: { ...quota, consumed: 1, remaining: 2 } });
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
+    expect(mocks.analytics.complete).toHaveBeenCalledOnce();
+    expect(mocks.analytics.limitSeen).not.toHaveBeenCalled();
+  });
+
+  it("uses the same P2 requestId after a transport failure and accepts only the refreshed server quota", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    mocks.askP2.mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR")).mockResolvedValueOnce(p2Answer);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockResolvedValueOnce({ status: "available",
+      quota: { ...quota, consumed: 1, remaining: 2 } });
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    expect(await screen.findByText("같은 requestId로 결과를 다시 확인할 수 있습니다. 추가 사용 여부는 서버 응답으로만 판단합니다.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "같은 요청 다시 확인" }));
+    await waitFor(() => expect(mocks.askP2).toHaveBeenCalledTimes(2));
+    expect(mocks.askP2.mock.calls[1]?.[0].requestId).toBe(mocks.askP2.mock.calls[0]?.[0].requestId);
+    expect(screen.getByText("오늘 2회 남음")).toBeInTheDocument();
+    expect(mocks.status).toHaveBeenCalledTimes(2);
+    expect(mocks.ask).not.toHaveBeenCalled();
+    expect(mocks.logError).toHaveBeenCalledWith("CoachQuestionLauncher.askP2", expect.any(CoachClientError),
+      { capabilityVersion: "p2" });
+  });
+
+  it("shows a completed P2 answer without waiting for a stalled quota refresh", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockReturnValueOnce(new Promise(() => undefined));
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    expect(await screen.findByRole("button", { name: "다른 질문하기" })).toBeInTheDocument();
   });
 
   it("supports an inline trigger without changing the default block trigger", () => {
@@ -411,7 +614,7 @@ describe("CoachQuestionLauncher", () => {
     expect(composer).toHaveValue("FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.");
     expect(composer).toHaveFocus();
     expect(screen.queryByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /오늘 운동 기록을 확인하고 잘된 점과 보완할 점/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).toBeInTheDocument();
   });
 
@@ -443,6 +646,7 @@ describe("CoachQuestionLauncher", () => {
   });
 
   it.each(disciplinePrompts)("shows only $discipline prompts and placeholder", async ({ discipline, placeholder, labels, prompts }) => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities);
     setup(user, discipline);
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
@@ -518,14 +722,14 @@ describe("CoachQuestionLauncher", () => {
     await userEvent.click(screen.getByRole("button", { name: "분석 근거 1개 보기" }));
     expect(screen.getByText("훈련 부하")).toBeInTheDocument();
     expect(mocks.ask).toHaveBeenCalledTimes(calls);
-    expect(mocks.analytics.submit).toHaveBeenCalledWith("suggestion_1");
+    expect(mocks.analytics.submit).toHaveBeenCalledWith("suggestion_1", "p1");
     expect(JSON.stringify(mocks.analytics.submit.mock.calls)).not.toContain("FTP 3.5 W/kg");
   });
 
   it("announces a non-urgent stale legacy answer as status rather than an assertive alert", async () => {
     mocks.ask.mockResolvedValue({ ...answer, status: "stale", reasonCode: "stale" });
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 기록을 확인하고 잘된 점과 보완할 점/ }));
+    await userEvent.click(screen.getByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("일부 최신 계산을 기다리는 중입니다");

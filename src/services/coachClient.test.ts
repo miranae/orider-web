@@ -7,7 +7,7 @@ vi.mock("./firebase", () => ({ auth: { currentUser: { getIdToken: mocks.getIdTok
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.runtime }));
 
 import {
-  askCoach, askCoachV2, CoachClientError, confirmCoachProgressProposal, createCoachProgressProposal, createCoachRidePlanToken,
+  askCoach, askCoachP2, askCoachV2, CoachClientError, confirmCoachProgressProposal, createCoachProgressProposal, createCoachRidePlanToken,
   getCoachPmcInsight, getCoachProgressPlannerCapabilities, getCoachProgressProposal, getCoachProgressProposalRecovery, getCoachRiderInsight,
   getCoachRidePlan, getCoachRidePlanAiContext, getCoachStatus, loadCoachRidePlan, parseCoachInitialStatus, parseCoachResponse,
   rollbackCoachProgressProposal, type CoachRespondRequest,
@@ -91,6 +91,33 @@ describe("coachClient", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data })));
     await expect(askCoachV2(p1Request)).resolves.toMatchObject({ outcome: "unsupported", quota: { remaining: 3 } });
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST", body: JSON.stringify(p1Request) });
+  });
+
+  it("posts the advertised P2 tuple and preserves its structured unavailable envelope", async () => {
+    const p2Request = { requestId: request.requestId,
+      question: "내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘.",
+      discipline: "bike" as const, locale: "ko-KR", apiVersion: "v2" as const,
+      schemaVersion: "coach-respond-graph-v1" as const, capabilityVersion: "p2" as const, contextFilters: {} };
+    const data = { apiVersion: "v2", capabilityVersion: "p2", schemaVersion: "coach-graph-response-envelope-v1",
+      requestId: request.requestId, outcome: "unavailable", error: { code: "graph_execution_unavailable", retryable: true,
+        fallbackAvailable: false }, quota: { consumed: false }, budget: { providerCalls: 0, inputTokens: 0, outputTokens: 0 },
+      retry: { mode: "same_request_resume", providerCallAllowed: false, retryable: true, reasonCode: "graph_execution_unavailable" },
+      execution: { graphVersion: "p2-v1", started: false } };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data }), { status: 503 }));
+    await expect(askCoachP2(p2Request)).resolves.toMatchObject({ outcome: "unavailable",
+      retry: { mode: "same_request_resume" } });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST", body: JSON.stringify(p2Request) });
+  });
+
+  it("rejects an invalid P2 request before transport and classifies it as a request contract error", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const invalid = { requestId: request.requestId, question: request.question, discipline: "bike" as const,
+      locale: "ko-KR", apiVersion: "v2" as const, schemaVersion: "coach-respond-graph-v1" as const,
+      capabilityVersion: "p2" as const, contextFilters: { pmcSnapshotId: "private" } };
+    await expect(askCoachP2(invalid as unknown as Parameters<typeof askCoachP2>[0])).rejects.toMatchObject({
+      kind: "contract", code: "INVALID_COACH_P2_REQUEST",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects unknown blocks, actions, evidence references and non-data envelopes", () => {
