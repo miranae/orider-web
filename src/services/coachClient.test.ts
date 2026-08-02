@@ -109,6 +109,17 @@ describe("coachClient", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST", body: JSON.stringify(p2Request) });
   });
 
+  it("rejects an invalid P2 request before transport and classifies it as a request contract error", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const invalid = { requestId: request.requestId, question: request.question, discipline: "bike" as const,
+      locale: "ko-KR", apiVersion: "v2" as const, schemaVersion: "coach-respond-graph-v1" as const,
+      capabilityVersion: "p2" as const, contextFilters: { pmcSnapshotId: "private" } };
+    await expect(askCoachP2(invalid as unknown as Parameters<typeof askCoachP2>[0])).rejects.toMatchObject({
+      kind: "contract", code: "INVALID_COACH_P2_REQUEST",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects unknown blocks, actions, evidence references and non-data envelopes", () => {
     expect(() => parseCoachResponse(response)).toThrow("INVALID_COACH_RESPONSE");
     expect(() => parseCoachResponse({ data: { ...response, answer: { ...response.answer, actionCode: "OPEN_URL" } } })).toThrow();
