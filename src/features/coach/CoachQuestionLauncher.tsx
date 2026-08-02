@@ -334,10 +334,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     const id = forceNew || !requestId ? crypto.randomUUID() : requestId;
     setRequestId(id); setSource(submitSource);
     const contextFilters = currentContextFilters();
-    const useP2 = productSlice === "latest_activity_review";
-    if (useP2 && (!p2Advertised || Object.keys(contextFilters).length > 0)) {
-      setSubmitFailure("compatibility"); setPhase("terminal_error"); return;
-    }
+    // P2 is an explicit, pre-request routing choice for the first supported product slice only.
+    // If discovery is absent/stale, retain the established P1 path. Once a P2 body exists,
+    // execute/retry always keeps that exact body and never downgrades it through P1.
+    const useP2 = productSlice === "latest_activity_review" && discipline === "bike" && p2Advertised
+      && Object.keys(contextFilters).length === 0;
     const body: CoachRequest = useP2 ? { requestId: id, question, discipline,
       locale: i18n.language.startsWith("ko") ? "ko-KR" : "en-US", apiVersion: COACH_V2_API_VERSION,
       schemaVersion: COACH_P2_REQUEST_SCHEMA_VERSION, capabilityVersion: COACH_P2_CAPABILITY_VERSION, contextFilters: {} }
@@ -373,8 +374,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function chooseSuggestion(index: 1 | 2 | 3) {
-    if (index === 2 && !p2Advertised) return;
-    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setProductSlice(index === 2 ? "latest_activity_review" : null); setSource(`suggestion_${index}`); setRequestId(null);
+    setDraft(t(`suggestions.${discipline}.${index}`)); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null);
+    setProductSlice(index === 2 && discipline === "bike" && p2Advertised ? "latest_activity_review" : null);
+    setSource(`suggestion_${index}`); setRequestId(null);
     questionRef.current?.focus();
   }
 
@@ -483,8 +485,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     ? response.outcome === "answer"
     : response.answer));
   const showCounter = inputFocused || draft.length >= 900;
-  const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`
-    && (index !== 2 || p2Advertised));
+  const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
     <>
       {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
@@ -640,7 +641,7 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
       {response.outcome === "answer" && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
         onReanalyze={onReanalyze} />}
       {response.outcome === "unavailable" && <Alert className="coach-result__state" variant="warning"
-        title={t("p2Unavailable.title")}>{t(`p2Unavailable.${response.error.code}`)}</Alert>}
+        title={t("p2Unavailable.title")}>{t(`p2Unavailable.${response.retry.reasonCode}`)}</Alert>}
     </div>;
   }
   const spec = response.clarification;

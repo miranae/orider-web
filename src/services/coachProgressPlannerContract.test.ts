@@ -54,6 +54,7 @@ describe("Progress Planner backend contract", () => {
     expect(() => parseCoachProgressPlannerCapabilities({ ...base, apiVersions: [apiVersions[0], apiVersions[0]] })).toThrow();
     expect(() => parseCoachProgressPlannerCapabilities({ ...base,
       apiVersions: [{ ...apiVersions[1], capabilityVersion: "p0" }] })).toThrow();
+    expect(() => parseCoachProgressPlannerCapabilities({ ...base, apiVersions: [p2ApiVersion] })).toThrow();
   });
 
   it("accepts P2 only as the exact advertised graph tuple while keeping P0 and P1 independent", () => {
@@ -64,6 +65,14 @@ describe("Progress Planner backend contract", () => {
       prescription: { enabled: true, schemaVersion: "coach-prescription-v1", rulesVersion: "coach-prescription-rules-v1",
         checkIn: { enabled: true, endpoint: "/v1/coach/prescription/check-in" } } };
     expect(parseCoachProgressPlannerCapabilities({ data: value }).apiVersions).toEqual(value.apiVersions);
+    expect(parseCoachProgressPlannerCapabilities({ data: { ...value, apiVersions: [apiVersions[0]] } }).apiVersions)
+      .toEqual([apiVersions[0]]);
+    expect(parseCoachProgressPlannerCapabilities({ data: { ...value, apiVersions: [apiVersions[1]] } }).apiVersions)
+      .toEqual([apiVersions[1]]);
+    expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value,
+      apiVersions: [apiVersions[0], p2ApiVersion] } })).toThrow();
+    expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value,
+      apiVersions: [apiVersions[1], p2ApiVersion] } })).toThrow();
     expect(() => parseCoachProgressPlannerCapabilities({ data: { ...value, apiVersions: [
       ...apiVersions, { ...p2ApiVersion, responseSchemaVersion: "coach-response-envelope-v1" },
     ] } })).toThrow();
