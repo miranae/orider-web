@@ -34,7 +34,9 @@ const change = z.object({ weekId: id, dayIndex: z.number().int().min(0).max(366)
 
 export const coachProgressPlannerCapabilitiesSchema = z.object({
   schemaVersion: z.literal("coach-capabilities-v1"), apiVersions: z.array(apiVersion).min(1).max(3)
-    .refine((items) => new Set(items.map((item) => item.capabilityVersion)).size === items.length),
+    .refine((items) => new Set(items.map((item) => item.capabilityVersion)).size === items.length)
+    .refine((items) => items.some((item) => item.capabilityVersion === "p0")
+      && items.some((item) => item.capabilityVersion === "p1")),
   defaultCapabilityVersion: z.literal("p0"), queryCatalogVersion: id, factsCatalogVersion: id,
   answerSchemaVersion: id, answerCatalogVersion: id,
   progressPlanner: z.object({ read: z.object({ enabled: z.boolean() }).strict(),

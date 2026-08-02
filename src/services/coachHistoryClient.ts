@@ -132,6 +132,11 @@ export function parseCoachThread(input: unknown, expectedLimit = 20): CoachThrea
     const storedResponse = record(turn.response);
     const response = storedResponse?.capabilityVersion === "p2"
       ? parseCoachP2Response({ data: turn.response }) : parseCoachV2Response({ data: turn.response });
+    // P2 outbox persists only terminal answers. An unavailable envelope in history is contract drift,
+    // not a renderable turn, and must not poison follow-up/session semantics.
+    if (response.capabilityVersion === "p2" && response.outcome !== "answer") {
+      throw new Error("INVALID_COACH_HISTORY_RESPONSE");
+    }
     if (response.requestId !== turn.requestId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     const responseFormat = turn.responseFormat === undefined ? "auto" : turn.responseFormat;
     if (!COACH_RESPONSE_FORMATS.includes(responseFormat as CoachResponseFormat)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");

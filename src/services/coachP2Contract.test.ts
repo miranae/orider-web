@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCoachP2Response } from "./coachP2Contract";
+import { parseCoachP2Request, parseCoachP2Response } from "./coachP2Contract";
 
 const requestId = "123e4567-e89b-42d3-a456-426614174000";
 const unavailable = { apiVersion: "v2", capabilityVersion: "p2", schemaVersion: "coach-graph-response-envelope-v1",
@@ -29,9 +29,55 @@ describe("coach P2 contract", () => {
     expect(() => parseCoachP2Response({ data: { ...unavailable, retry: { ...unavailable.retry, mode: "none" } } })).toThrow();
   });
 
-  it("rejects started unavailable, response drift, and more than five calls", () => {
-    expect(() => parseCoachP2Response({ data: { ...unavailable, execution: { graphVersion: "p2-v1", started: true } } })).toThrow();
+  it("accepts a server-valid post-start unavailable result without hiding consumed quota", () => {
+    const postStart = { ...unavailable, quota: { consumed: true },
+      budget: { providerCalls: 2, inputTokens: 80, outputTokens: 20 },
+      execution: { graphVersion: "p2-v1", started: true } };
+    expect(parseCoachP2Response({ data: postStart })).toMatchObject({ outcome: "unavailable",
+      quota: { consumed: true }, budget: { providerCalls: 2 }, execution: { started: true } });
+  });
+
+  it("accepts latest-activity-missing as the server's non-retryable terminal reason", () => {
+    const missing = { ...unavailable,
+      error: { code: "graph_execution_unavailable", retryable: false, fallbackAvailable: false },
+      budget: { providerCalls: 1, inputTokens: 50, outputTokens: 0 },
+      retry: { mode: "none", providerCallAllowed: false, retryable: false, reasonCode: "latest_activity_missing" },
+      execution: { graphVersion: "p2-v1", started: true } };
+    expect(parseCoachP2Response({ data: missing })).toMatchObject({ outcome: "unavailable",
+      error: { code: "graph_execution_unavailable" }, retry: { reasonCode: "latest_activity_missing" } });
+  });
+
+  it.each([
+    ["graph_feature_disabled", false, "none"],
+    ["rollout_ineligible", false, "none"],
+    ["rollout_dependency_unavailable", true, "same_request_resume"],
+  ] as const)("requires admission-only %s to remain pre-start with zero usage", (reasonCode, retryable, mode) => {
+    const admission = { ...unavailable, error: { code: reasonCode, retryable, fallbackAvailable: false },
+      retry: { mode, providerCallAllowed: false, retryable, reasonCode } };
+    expect(parseCoachP2Response({ data: admission })).toMatchObject({ outcome: "unavailable",
+      execution: { started: false }, quota: { consumed: false } });
+    expect(() => parseCoachP2Response({ data: { ...admission,
+      execution: { graphVersion: "p2-v1", started: true } } })).toThrow();
+    expect(() => parseCoachP2Response({ data: { ...admission,
+      budget: { providerCalls: 1, inputTokens: 1, outputTokens: 0 },
+      execution: { graphVersion: "p2-v1", started: true } } })).toThrow();
+    expect(() => parseCoachP2Response({ data: { ...admission, quota: { consumed: true },
+      execution: { graphVersion: "p2-v1", started: true } } })).toThrow();
+  });
+
+  it("rejects impossible progress, response drift, and more than five calls", () => {
+    expect(() => parseCoachP2Response({ data: { ...unavailable, quota: { consumed: true } } })).toThrow();
+    expect(() => parseCoachP2Response({ data: { ...unavailable,
+      budget: { providerCalls: 1, inputTokens: 10, outputTokens: 0 } } })).toThrow();
     expect(() => parseCoachP2Response({ data: { ...answer, extra: true } })).toThrow();
     expect(() => parseCoachP2Response({ data: { ...answer, budget: { ...answer.budget, providerCalls: 6 } } })).toThrow();
+  });
+
+  it("strictly validates the empty-context P2 request tuple", () => {
+    const request = { requestId, question: "마지막 운동을 코칭해줘", discipline: "bike", locale: "ko-KR",
+      apiVersion: "v2", schemaVersion: "coach-respond-graph-v1", capabilityVersion: "p2", contextFilters: {} };
+    expect(parseCoachP2Request(request)).toEqual(request);
+    expect(() => parseCoachP2Request({ ...request, contextFilters: { pmcSnapshotId: "pmc_private" } })).toThrow();
+    expect(() => parseCoachP2Request({ ...request, responseFormat: "auto" })).toThrow();
   });
 });

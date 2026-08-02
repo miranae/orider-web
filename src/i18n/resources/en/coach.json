@@ -210,7 +210,8 @@
     "graph_feature_disabled": "This coaching path is currently disabled. No new question was submitted automatically.",
     "rollout_ineligible": "This coaching path is not available for this account. No new question was submitted automatically.",
     "rollout_dependency_unavailable": "Check the same request again after the required component is ready.",
-    "graph_execution_unavailable": "Check the same request again for the result. The request was not switched to another coaching path automatically."
+    "graph_execution_unavailable": "Check the same request again for the result. The request was not switched to another coaching path automatically.",
+    "latest_activity_missing": "No recent workout record is available to review. The request was not switched to another coaching path automatically."
   },
   "actions": {
     "FOLLOW_EXISTING_PLAN": "View existing plan",

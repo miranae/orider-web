@@ -54,6 +54,7 @@ describe("Progress Planner backend contract", () => {
     expect(() => parseCoachProgressPlannerCapabilities({ ...base, apiVersions: [apiVersions[0], apiVersions[0]] })).toThrow();
     expect(() => parseCoachProgressPlannerCapabilities({ ...base,
       apiVersions: [{ ...apiVersions[1], capabilityVersion: "p0" }] })).toThrow();
+    expect(() => parseCoachProgressPlannerCapabilities({ ...base, apiVersions: [p2ApiVersion] })).toThrow();
   });
 
   it("accepts P2 only as the exact advertised graph tuple while keeping P0 and P1 independent", () => {

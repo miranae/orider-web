@@ -74,6 +74,14 @@ describe("coachHistoryClient", () => {
       answer: { compatibility: "supported" } });
     expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...p2Turn,
       response: { ...p2Response, execution: { ...p2Response.execution, delivery: "live" } } }] }, nextCursor: null } })).toThrow();
+    const { answer: _answer, ...p2Envelope } = p2Response;
+    const unavailable = { ...p2Envelope, outcome: "unavailable", quota: { consumed: false },
+      budget: { providerCalls: 0, inputTokens: 0, outputTokens: 0 },
+      error: { code: "rollout_ineligible", retryable: false, fallbackAvailable: false },
+      retry: { mode: "none", providerCallAllowed: false, retryable: false, reasonCode: "rollout_ineligible" },
+      execution: { graphVersion: "p2-v1", started: false } };
+    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...p2Turn, response: unavailable }] },
+      nextCursor: null } })).toThrow("INVALID_COACH_HISTORY_RESPONSE");
   });
 
   it("parses the closed per-turn response format and rejects unknown values", () => {

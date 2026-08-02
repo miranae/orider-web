@@ -211,23 +211,27 @@ describe("CoachQuestionLauncher", () => {
       question: expect.stringContaining("강도도 함께 봐줘") });
   });
 
-  it("hides the P2-only latest-activity suggestion until the exact tuple is advertised", async () => {
+  it("keeps the latest-activity suggestion on P1 until the exact P2 tuple is advertised", async () => {
     mocks.ask.mockResolvedValue(p1Answer);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    expect(screen.queryByRole("button", { name: /오늘 운동 리뷰:/ })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /FTP 목표 코칭:/ }));
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
+    expect(mocks.ask.mock.calls[0]?.[0]).toMatchObject({ capabilityVersion: "p1", schemaVersion: "coach-respond-v2",
+      question: "내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘." });
+    expect(mocks.askP2).not.toHaveBeenCalled();
+  });
+
+  it("routes the latest-activity suggestion through P1 before request when discovery fails", async () => {
+    mocks.capabilities.mockRejectedValue(new Error("capability discovery unavailable"));
+    mocks.ask.mockResolvedValue(p1Answer);
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
     expect(mocks.ask.mock.calls[0]?.[0]).toMatchObject({ capabilityVersion: "p1", schemaVersion: "coach-respond-v2" });
     expect(mocks.askP2).not.toHaveBeenCalled();
-  });
-
-  it("keeps ordinary P1 questions available but hides the P2-only suggestion when discovery fails", async () => {
-    mocks.capabilities.mockRejectedValue(new Error("capability discovery unavailable"));
-    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
-    expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /오늘 운동 리뷰:/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /FTP 목표 코칭:/ })).toBeEnabled();
     expect(mocks.logError).toHaveBeenCalledWith("CoachQuestionLauncher.capabilityDiscovery", expect.any(Error),
       { capabilityVersion: "p2" });
   });
@@ -237,7 +241,18 @@ describe("CoachQuestionLauncher", () => {
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     expect(await screen.findByText("오늘 3회 남음")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /FTP 목표 코칭:/ })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: /오늘 운동 리뷰:/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /오늘 운동 리뷰:/ })).toBeEnabled();
+  });
+
+  it("keeps run latest-activity review on P1 even when P2 is advertised", async () => {
+    mocks.capabilities.mockResolvedValue(p2Capabilities); mocks.ask.mockResolvedValue(p1Answer);
+    setup(user, "run");
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
+    expect(mocks.ask.mock.calls[0]?.[0]).toMatchObject({ discipline: "run", capabilityVersion: "p1" });
+    expect(mocks.askP2).not.toHaveBeenCalled();
   });
 
   it("makes P2 routing explicit and lets the user clear the mode without changing the question", async () => {
@@ -272,6 +287,23 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.askP2.mock.calls[1]?.[0].requestId).toBe(mocks.askP2.mock.calls[0]?.[0].requestId);
     expect(mocks.ask).not.toHaveBeenCalled();
     expect(mocks.status).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes authoritative quota after a post-start P2 unavailable result without falling back", async () => {
+    const unavailable = { ...p2Answer, outcome: "unavailable", answer: undefined, quota: { consumed: true },
+      budget: { providerCalls: 2, inputTokens: 120, outputTokens: 20 },
+      error: { code: "graph_execution_unavailable", retryable: true, fallbackAvailable: false },
+      retry: { mode: "same_request_resume", providerCallAllowed: false, retryable: true, reasonCode: "graph_execution_unavailable" },
+      execution: { graphVersion: "p2-v1", started: true } };
+    mocks.capabilities.mockResolvedValue(p2Capabilities); mocks.askP2.mockResolvedValue(unavailable);
+    mocks.status.mockResolvedValueOnce({ status: "available", quota }).mockResolvedValueOnce({ status: "available",
+      quota: { ...quota, consumed: 1, remaining: 2 } });
+    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
+    await userEvent.click(screen.getByRole("button", { name: /오늘 운동 리뷰:/ }));
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.status).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("오늘 2회 남음")).toBeInTheDocument();
+    expect(mocks.askP2).toHaveBeenCalledOnce(); expect(mocks.ask).not.toHaveBeenCalled();
   });
 
   it("keeps a completed P2 answer visible without estimating quota when the authoritative refresh fails", async () => {
@@ -582,7 +614,7 @@ describe("CoachQuestionLauncher", () => {
     expect(composer).toHaveValue("FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.");
     expect(composer).toHaveFocus();
     expect(screen.queryByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).toBeInTheDocument();
   });
 
