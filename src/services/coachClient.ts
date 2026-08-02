@@ -469,8 +469,13 @@ export async function askCoachV2(request: CoachV2Request): Promise<CoachV2Respon
 
 /** P2 is selected only from an advertised product slice and never retries through P1. */
 export async function askCoachP2(request: CoachP2Request): Promise<CoachP2Response> {
+  let body: CoachP2Request;
   try {
-    const body = parseCoachP2Request(request);
+    body = parseCoachP2Request(request);
+  } catch (cause) {
+    throw new CoachClientError("contract", "INVALID_COACH_P2_REQUEST", { cause });
+  }
+  try {
     return parseCoachP2Response(await authenticatedFetch("/respond", { method: "POST", body: JSON.stringify(body) }));
   } catch (cause) {
     if (isCoachClientError(cause)) throw cause;
