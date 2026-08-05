@@ -50,9 +50,25 @@ export function useActivitySensorDetail({
   const powerOverrideProvenance = useMemo(() => activePowerOverride
     ? { source: activePowerOverride.source, time: activePowerOverride.time }
     : undefined, [activePowerOverride]);
+  const selectionSummary = useMemo(() => {
+    const summary = activity?.summary;
+    if (!summary || summary.elapsedTimeMillis != null) return summary;
+
+    // 일부 Strava 활동은 elapsedTimeMillis 없이 ridingTimeMillis만 저장한다.
+    // 스트림 시계는 정차 구간을 포함한 start/end 경과시간을 사용하므로, 이 경우
+    // moving time만으로 센서 커버리지를 판정하면 유효한 파워/심박 스트림을 거부한다.
+    const startTime = activity.startTime;
+    const endTime = activity.endTime;
+    const elapsedTimeMillis = typeof startTime === "number" && typeof endTime === "number"
+      ? endTime - startTime
+      : 0;
+    const ridingTimeMillis = summary.ridingTimeMillis ?? 0;
+    if (!Number.isFinite(elapsedTimeMillis) || elapsedTimeMillis <= ridingTimeMillis) return summary;
+    return { ...summary, ridingTimeMillis: elapsedTimeMillis };
+  }, [activity?.endTime, activity?.startTime, activity?.summary]);
   const selectionContext = useMemo(
-    () => buildActivitySensorSelectionContext(activity?.summary, activity?.startTime, powerOverrideProvenance),
-    [activity?.startTime, activity?.summary?.elapsedTimeMillis, activity?.summary?.ridingTimeMillis, powerOverrideProvenance],
+    () => buildActivitySensorSelectionContext(selectionSummary, activity?.startTime, powerOverrideProvenance),
+    [activity?.startTime, powerOverrideProvenance, selectionSummary],
   );
   const sampledData = useMemo(
     () => buildSampledData(effectiveStreams, selectionContext),
