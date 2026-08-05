@@ -49,6 +49,7 @@ describe("BoardPage desktop width contract", () => {
     ]);
 
     expect(detailSource).toContain('className="mx-auto max-w-[1440px] space-y-6"');
+    expect(detailSource).not.toContain("max-w-[896px]");
     expect(createSource).toContain('className="mx-auto max-w-[1120px] space-y-6"');
   });
 });
