@@ -73,6 +73,18 @@ describe("ActivityCard", () => {
     expect(screen.getByText("145 bpm")).toBeInTheDocument();
   });
 
+  it("hides corrupt average heart rate and shows the data warning", () => {
+    const base = createMockActivity();
+    const activity = createMockActivity({
+      summary: { ...base.summary, averageHeartRate: 5 },
+    });
+
+    renderWithProviders(<ActivityCard activity={activity} showMap={false} />);
+
+    expect(screen.queryByText("5 bpm")).not.toBeInTheDocument();
+    expect(screen.getByText("⚠ 데이터 이상")).toBeInTheDocument();
+  });
+
   it("shows matched segment count when there are no PR/KOM achievements", () => {
     const activity = createMockActivity({
       segmentEffortCount: 3,

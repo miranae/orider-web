@@ -57,6 +57,14 @@ export function isImplausibleMaxSpeed(
   return maxKph > MAX_SPEED_CEILING_KPH[normalize(discipline)];
 }
 
+/** 활동 평균 심박의 보수적인 생리 범위. null/0 은 센서 미측정으로 간주한다. */
+export function isImplausibleActivityHeartRate(
+  averageHeartRate: number | null | undefined,
+): boolean {
+  if (averageHeartRate == null || averageHeartRate === 0) return false;
+  return !Number.isFinite(averageHeartRate) || averageHeartRate < 30 || averageHeartRate > 250;
+}
+
 /** 마이크로 활동 판정 임계 — 이보다 짧으면 비정상으로 간주. */
 const MICRO_MIN_DISTANCE_M = 100;
 const MICRO_MIN_DURATION_MS = 60_000;
@@ -108,18 +116,20 @@ export function isImplausibleSegmentElevation(args: {
   return gain > expectedGain * 3 || (distanceM > 0 && gain / distanceM > 0.3);
 }
 
-/** 종합 판정: 평균속도/최고속도/마이크로 중 하나라도 해당하면 true. */
+/** 종합 판정: 평균속도/최고속도/평균심박/마이크로 중 하나라도 해당하면 true. */
 export function isImplausibleActivity(args: {
   distanceM?: number | null;
   durationMs?: number | null;
   avgKph?: number | null;
   maxKph?: number | null;
+  averageHeartRate?: number | null;
   discipline?: Discipline;
 }): boolean {
   const disc = args.discipline ?? "bike";
   return (
     isImplausibleAvgSpeed(args.avgKph, disc) ||
     isImplausibleMaxSpeed(args.maxKph, disc) ||
+    isImplausibleActivityHeartRate(args.averageHeartRate) ||
     isMicroActivity(args.distanceM, args.durationMs)
   );
 }
