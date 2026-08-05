@@ -70,6 +70,31 @@ describe("useActivitySensorDetail", () => {
     expect(result.current.markerPosition).toEqual([37.2, 127.2]);
   });
 
+  it("uses Strava wall-clock duration when elapsed time is missing", () => {
+    const activityWithoutElapsed = {
+      ...activity,
+      startTime: 1_700_000_000_000,
+      endTime: 1_700_010_000_000,
+      summary: { ...activity.summary, elapsedTimeMillis: undefined, ridingTimeMillis: 4_000 },
+    } as unknown as Activity;
+    const streams = {
+      time: [0, 5_000, 10_000],
+      distance: [0, 10, 20],
+      watts: [100, 200, 300],
+    } as ActivityStreams;
+    const { result } = renderHook(() => useActivitySensorDetail({
+      activityId: activityWithoutElapsed.id,
+      activity: activityWithoutElapsed,
+      streams,
+      hoverIndex: 1,
+      hoveredSegment: null,
+    }));
+
+    expect(result.current.selectionContext.legacyDurationSec).toBe(10_000);
+    expect(result.current.hasStreamPowerCandidate).toBe(true);
+    expect(result.current.hasAnalysisStreams).toBe(true);
+  });
+
   it("reports the same rejection only once across stream object refreshes", () => {
     const streams = {
       time: [0, 1, 2, 3],
