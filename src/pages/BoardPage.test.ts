@@ -42,13 +42,13 @@ describe("BoardPage desktop width contract", () => {
     expect(source).not.toContain("xl:w-[840px]");
   });
 
-  it("keeps the narrower reading and authoring widths", async () => {
+  it("keeps the shared reading width and authoring width", async () => {
     const [detailSource, createSource] = await Promise.all([
       readFile(`${process.cwd()}/src/pages/PostDetailPage.tsx`, "utf8"),
       readFile(`${process.cwd()}/src/pages/CreatePostPage.tsx`, "utf8"),
     ]);
 
-    expect(detailSource).toContain('className="mx-auto max-w-[896px] space-y-6"');
+    expect(detailSource).toContain('className="mx-auto max-w-[1440px] space-y-6"');
     expect(createSource).toContain('className="mx-auto max-w-[1120px] space-y-6"');
   });
 });
