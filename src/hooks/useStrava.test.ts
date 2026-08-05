@@ -1,4 +1,4 @@
-import { renderHook, act, waitFor } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useStrava } from "./useStrava";
 import {
   mockCallableInvocations,
@@ -98,6 +98,49 @@ describe("useStrava", () => {
       missingActivityCount: 5,
       missingStreamCount: 3,
     });
+  });
+
+  it("accepts a callable stream response using the legacy result envelope", async () => {
+    setCallableResult("stravaGetActivityStreams", {
+      result: { watts: [120, 130], heartrate: [140, 142], time: [0, 1] },
+    });
+
+    const { result } = renderHook(() => useStrava());
+
+    let streams: unknown;
+    await act(async () => {
+      streams = await result.current.getStreams(19606422424);
+    });
+
+    expect(streams).toEqual({ watts: [120, 130], heartrate: [140, 142], time: [0, 1] });
+    expect(result.current.error).toBeNull();
+  });
+
+  it("retries a transient callable JSON parse failure once", async () => {
+    let attempts = 0;
+    setCallableImplementation("stravaGetActivityStreams", () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("Response is not valid JSON object.");
+      return { data: { watts: [100], time: [0] } };
+    });
+
+    const { result } = renderHook(() => useStrava());
+
+    await expect(act(async () => result.current.getStreams(19609562627))).resolves.toEqual({
+      watts: [100],
+      time: [0],
+    });
+    expect(attempts).toBe(2);
+  });
+
+  it("rejects an empty callable stream response instead of returning undefined", async () => {
+    setCallableResult("stravaGetActivityStreams", { data: null });
+
+    const { result } = renderHook(() => useStrava());
+
+    await expect(act(async () => result.current.getStreams(19606422424))).rejects.toThrow(
+      "STREAMS_INVALID",
+    );
   });
 
   it("disconnectStrava passes an operation ID and records success", async () => {

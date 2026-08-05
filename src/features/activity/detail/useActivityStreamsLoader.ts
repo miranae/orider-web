@@ -106,7 +106,8 @@ export function useActivityStreamsLoader({
           visibility: (activity as Activity & { visibility?: string }).visibility ?? null,
           isOwn: !!userId && activity.userId === userId,
         });
-        setStreamsError(err instanceof Error ? err.message : t("page.streamsErrorFallback"));
+        const message = err instanceof Error ? err.message : "";
+        setStreamsError(message === "STREAMS_INVALID" ? t("page.streamsErrorFallback") : message || t("page.streamsErrorFallback"));
       }
     }).finally(() => {
       clearTimeout(timer);
