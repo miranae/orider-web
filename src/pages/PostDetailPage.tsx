@@ -201,8 +201,7 @@ const PostDetailPage: React.FC = () => {
   }
 
   return (
-    /* 게시글 본문은 긴 줄로 인한 가독성 저하를 막기 위해 데이터 화면보다 좁게 유지한다. */
-    <div className="mx-auto max-w-[896px] space-y-6">
+    <div className="mx-auto max-w-[1440px] space-y-6">
       <div className="mb-4">
         <button
           onClick={() => navigate(-1)}
