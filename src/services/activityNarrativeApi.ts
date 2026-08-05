@@ -1,6 +1,6 @@
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, functions, getAppCheckToken } from "./firebase";
+import { auth, ensureAppCheckReady, functions, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { track } from "./analytics";
 import type { ActivityNarrative, NarrativeLang } from "../hooks/useActivityNarrative";
@@ -191,6 +191,13 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
   request: ActivityNarrativeRequest,
   fallbackReason: CompatibilityFallbackReason,
 ): Promise<T> {
+  // getActivityNarrative 는 enforceAppCheck 이라 App Check 초기화 전에 호출하면 SDK 가 토큰을
+  // 아예 붙이지 않아 핸들러 진입 전 플랫폼이 영문 "Unauthenticated" 로 거부한다. main.tsx 의
+  // warmup 은 LCP 보호를 위해 2.5s 지연되므로, 다른 callable 호출부와 동일하게 호출 직전에
+  // 준비를 await 한다. (2026-08-05 익명 peek 오류: uid=null 방문자에게서만 재현)
+  // 준비 실패는 삼킨다(main.tsx warmup 과 동일) — 토큰 없이라도 시도하고 다음 호출에서 재시도된다.
+  // 실패 시 뒤따르는 callable 오류가 observeTransport + 호출부 logClientError 로 그대로 관측된다.
+  await ensureAppCheckReady().catch(() => {});
   const fn = httpsCallable<ActivityNarrativeRequest, T>(functions, "getActivityNarrative");
   try {
     const response = await fn(request);

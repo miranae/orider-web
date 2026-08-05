@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
     } as { getIdToken: ReturnType<typeof vi.fn> } | null,
   },
   getAppCheckToken: vi.fn(),
+  ensureAppCheckReady: vi.fn(),
   callable: vi.fn(),
   runtime: {
     aiApiBase: "https://ai.example.run.app/" as string | undefined,
@@ -27,6 +28,7 @@ vi.mock("./firebase", () => ({
   auth: mocks.auth,
   functions: {},
   getAppCheckToken: mocks.getAppCheckToken,
+  ensureAppCheckReady: mocks.ensureAppCheckReady,
 }));
 
 vi.mock("./runtimeConfig", () => ({
@@ -78,6 +80,7 @@ describe("activityNarrativeApi", () => {
     vi.restoreAllMocks();
     mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("id-token") };
     mocks.getAppCheckToken.mockReset().mockResolvedValue("app-check-token");
+    mocks.ensureAppCheckReady.mockReset().mockResolvedValue(undefined);
     mocks.callable.mockReset();
     mocks.runtime.aiApiBase = "https://ai.example.run.app/";
     mocks.track.mockReset();
@@ -288,5 +291,42 @@ describe("activityNarrativeApi", () => {
       outcome: "error",
       lang: "ko",
     });
+  });
+
+  it("익명 peek callable 은 App Check 준비를 기다린 뒤 호출한다", async () => {
+    mocks.auth.currentUser = null;
+    let releaseAppCheck: (() => void) | undefined;
+    mocks.ensureAppCheckReady.mockReturnValue(new Promise<void>((resolve) => {
+      releaseAppCheck = resolve;
+    }));
+    mocks.callable.mockResolvedValue({ data: { hit: false } });
+
+    const pending = peekActivityNarrative({
+      activityId: "public-activity",
+      lang: "ko",
+      cacheOnly: true,
+    });
+    await Promise.resolve();
+
+    // 준비 전에는 절대 호출하지 않는다 — enforceAppCheck 이 토큰 없는 요청을 "Unauthenticated" 로 거부한다.
+    expect(mocks.callable).not.toHaveBeenCalled();
+    releaseAppCheck!();
+
+    await expect(pending).resolves.toEqual({ hit: false });
+    expect(mocks.ensureAppCheckReady).toHaveBeenCalledOnce();
+    expect(mocks.callable).toHaveBeenCalledTimes(1);
+  });
+
+  it("App Check 준비가 실패해도 익명 peek callable 은 시도한다", async () => {
+    mocks.auth.currentUser = null;
+    mocks.ensureAppCheckReady.mockRejectedValue(new Error("app-check/token-timeout"));
+    mocks.callable.mockResolvedValue({ data: { hit: false } });
+
+    await expect(peekActivityNarrative({
+      activityId: "public-activity",
+      lang: "ko",
+      cacheOnly: true,
+    })).resolves.toEqual({ hit: false });
+    expect(mocks.callable).toHaveBeenCalledTimes(1);
   });
 });
