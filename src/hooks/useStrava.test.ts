@@ -100,6 +100,22 @@ describe("useStrava", () => {
     });
   });
 
+  it("accepts a callable stream response using the legacy result envelope", async () => {
+    setCallableResult("stravaGetActivityStreams", {
+      result: { watts: [120, 130], heartrate: [140, 142], time: [0, 1] },
+    });
+
+    const { result } = renderHook(() => useStrava());
+
+    let streams: unknown;
+    await act(async () => {
+      streams = await result.current.getStreams(19606422424);
+    });
+
+    expect(streams).toEqual({ watts: [120, 130], heartrate: [140, 142], time: [0, 1] });
+    expect(result.current.error).toBeNull();
+  });
+
   it("disconnectStrava passes an operation ID and records success", async () => {
     setCallableResult("stravaDisconnect", { data: {} });
 

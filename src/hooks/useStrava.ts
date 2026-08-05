@@ -88,7 +88,11 @@ export function useStrava() {
     try {
       const fn = httpsCallable(functions, "stravaGetActivityStreams");
       const result = await fn({ stravaActivityId });
-      return result.data as Record<string, unknown>;
+      // Firebase callable 응답은 보통 `data`로 오지만, 런타임이 섞인 배포에서는
+      // 같은 payload가 `result`로 노출될 수 있다. 성공한 스트림 응답이
+      // undefined로 바뀌어 분석 없음 상태가 되는 것을 막는다.
+      const callableResult = result as { data?: unknown; result?: unknown };
+      return (callableResult.data ?? callableResult.result) as Record<string, unknown>;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Stream fetch failed";
       setError(msg);
