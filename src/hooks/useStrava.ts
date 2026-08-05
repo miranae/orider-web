@@ -87,12 +87,26 @@ export function useStrava() {
     setError(null);
     try {
       const fn = httpsCallable(functions, "stravaGetActivityStreams");
-      const result = await fn({ stravaActivityId });
+      let result: unknown;
+      try {
+        result = await fn({ stravaActivityId });
+      } catch (firstError) {
+        // Callable 응답 파싱은 네트워크/런타임 경계에서 간헐적으로 실패할 수
+        // 있다. 스트림 읽기는 멱등이므로 같은 요청을 한 번만 재시도한다.
+        if (!(firstError instanceof Error) || !firstError.message.includes("Response is not valid JSON object")) {
+          throw firstError;
+        }
+        result = await fn({ stravaActivityId });
+      }
       // Firebase callable 응답은 보통 `data`로 오지만, 런타임이 섞인 배포에서는
       // 같은 payload가 `result`로 노출될 수 있다. 성공한 스트림 응답이
       // undefined로 바뀌어 분석 없음 상태가 되는 것을 막는다.
       const callableResult = result as { data?: unknown; result?: unknown };
-      return (callableResult.data ?? callableResult.result) as Record<string, unknown>;
+      const streams = callableResult.data ?? callableResult.result;
+      if (!streams || typeof streams !== "object" || Array.isArray(streams)) {
+        throw new Error("STREAMS_INVALID");
+      }
+      return streams as Record<string, unknown>;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Stream fetch failed";
       setError(msg);
