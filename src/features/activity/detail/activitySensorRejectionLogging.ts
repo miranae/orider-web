@@ -22,7 +22,10 @@ type SensorRejectionDiagnosticLogger = (
 ) => void;
 
 function isExpectedDataAbsence(reason: SensorRejectionDiagnostic["reason"]): boolean {
-  return reason === "insufficient_measurements" || reason === "insufficient_coverage";
+  return reason === "insufficient_measurements"
+    || reason === "insufficient_coverage"
+    // A too-thin V1 axis is an upload-size or sensor-dropout artifact, not a bug.
+    || reason === "sparse_axis";
 }
 
 export function createSensorRejectionLogState(): SensorRejectionLogState {

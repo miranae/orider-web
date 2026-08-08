@@ -1,6 +1,14 @@
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
+
+import {
+  explicitAxisRejectionReason,
+  hasDenseArraySlots,
+  hasValidExplicitSensorChannelValues,
+  hasValidLegacySensorChannelValues,
+  hasRetainedSlotMeasurementCoverage,
+} from "./sensorChannelContract";
 import {
   inferUniformSampleTimeAxis,
   MAX_INFERRED_SENSOR_RATE_HZ,
@@ -83,7 +91,8 @@ export type SensorRejectionReason =
   | "duration_mismatch"
   | "origin_mismatch"
   | "insufficient_coverage"
-  | "insufficient_measurements";
+  | "insufficient_measurements"
+  | "sparse_axis";
 
 export interface SensorRejectionDiagnostic {
   channel: "power" | "heart_rate" | "cadence";
@@ -118,7 +127,6 @@ export interface ActivityAnalysisProjection {
 const LEGACY_POWER_MIN_POSITIVE_COVERAGE = 0.05;
 const LEGACY_POWER_MIN_AXIS_COVERAGE = 0.95;
 const EXPLICIT_SENSOR_DURATION_TOLERANCE = 0.05;
-const EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE = 0.95;
 
 export interface SelectedPowerStream {
   source: StreamSensorSummary["powerSource"];
@@ -204,46 +212,6 @@ function fallbackHeartRateAfterRejectedV1(
   return fallback.source != null
     ? { ...fallback, rejection }
     : { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true, rejection };
-}
-
-function hasValidExplicitAxis(
-  time: readonly number[],
-  channelLength: number,
-  timeUnit: unknown,
-  resolutionSeconds: unknown,
-): boolean {
-  if (channelLength === 0 || channelLength !== time.length) return false;
-  if (timeUnit !== "relative_seconds" || resolutionSeconds !== 1 || !Number.isFinite(resolutionSeconds)) return false;
-  for (let index = 0; index < time.length; index++) {
-    if (!Object.prototype.hasOwnProperty.call(time, index)) return false;
-    const timestamp = time[index];
-    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) return false;
-    if (index > 0 && timestamp - time[index - 1]! !== resolutionSeconds) return false;
-  }
-  return true;
-}
-
-function hasDenseArraySlots(values: readonly unknown[]): boolean {
-  for (let index = 0; index < values.length; index++) {
-    if (!Object.prototype.hasOwnProperty.call(values, index)) return false;
-  }
-  return true;
-}
-
-function hasValidExplicitSensorChannelValues(values: readonly unknown[]): boolean {
-  if (!hasDenseArraySlots(values)) return false;
-  return values.every((value) => value === null
-    || (typeof value === "number" && Number.isFinite(value) && value >= 0));
-}
-
-function hasValidLegacySensorChannelValues(values: readonly unknown[]): boolean {
-  if (!hasDenseArraySlots(values)) return false;
-  return values.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0);
-}
-
-function hasWholeSessionMeasurementCoverage(measuredSlots: number, totalSlots: number): boolean {
-  return totalSlots > 0
-    && measuredSlots >= Math.ceil(totalSlots * EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE);
 }
 
 function hasSufficientAxisCoverage(
@@ -495,8 +463,9 @@ function explicitCoverageRejectionReason(
   if (expectedDuration == null) return "missing_duration";
   const measuredDuration = explicitTime[explicitTime.length - 1]! - explicitTime[0]! + 1;
   const roundingEpsilon = Math.max(1, expectedDuration) * Number.EPSILON;
-  // V1 is validated as a contiguous 1 Hz axis. Expand the percentage bounds to
-  // an absolute second on short rides so endpoint rounding cannot reject a valid sample.
+  // The V1 axis spans the session even when slots are missing, so compare spans.
+  // Expand the percentage bounds to an absolute second on short rides so endpoint
+  // rounding cannot reject a valid sample.
   const allowedDifference = Math.max(
     1,
     expectedDuration * EXPLICIT_SENSOR_DURATION_TOLERANCE,
@@ -773,14 +742,21 @@ export function selectActivityPowerStream(
           },
         };
       }
-      if (!explicitTime || !hasValidExplicitAxis(
+      if (!explicitTime) {
+        return fallbackPowerAfterRejectedV1(streams, context, {
+          channel: "power", source: "sensorStreamsV1", reason: "invalid_axis",
+          channelLength: explicitWatts?.length,
+        });
+      }
+      const axisRejection = explicitAxisRejectionReason(
         explicitTime,
         explicitWatts?.length ?? 0,
         explicit.timeUnit,
         explicit.resolutionSeconds,
-      )) {
+      );
+      if (axisRejection) {
         return fallbackPowerAfterRejectedV1(streams, context, {
-          channel: "power", source: "sensorStreamsV1", reason: "invalid_axis",
+          channel: "power", source: "sensorStreamsV1", reason: axisRejection,
           axisLength: explicitTime?.length, channelLength: explicitWatts?.length,
         });
       }
@@ -799,7 +775,7 @@ export function selectActivityPowerStream(
           },
         };
       }
-      if (!hasWholeSessionMeasurementCoverage(finiteValues.length, explicitWatts?.length ?? 0)) {
+      if (!hasRetainedSlotMeasurementCoverage(finiteValues.length, explicitWatts?.length ?? 0)) {
         return {
           source: null, values: null, finiteValues: [], hasCandidate: true,
           rejection: {
@@ -966,14 +942,21 @@ export function selectActivityHeartRateStream(
         },
       };
     }
-    if (!explicitTime || !hasValidExplicitAxis(
+    if (!explicitTime) {
+      return fallbackHeartRateAfterRejectedV1(streams, context, {
+        channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_axis",
+        channelLength: explicitHeartRate.length,
+      });
+    }
+    const axisRejection = explicitAxisRejectionReason(
       explicitTime,
       explicitHeartRate.length,
       explicit.timeUnit,
       explicit.resolutionSeconds,
-    )) {
+    );
+    if (axisRejection) {
       return fallbackHeartRateAfterRejectedV1(streams, context, {
-        channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_axis",
+        channel: "heart_rate", source: "sensorStreamsV1", reason: axisRejection,
         axisLength: explicitTime?.length, channelLength: explicitHeartRate.length,
       });
     }
@@ -992,7 +975,7 @@ export function selectActivityHeartRateStream(
         },
       };
     }
-    if (!hasWholeSessionMeasurementCoverage(explicitPositive.length, explicitHeartRate.length)) {
+    if (!hasRetainedSlotMeasurementCoverage(explicitPositive.length, explicitHeartRate.length)) {
       return {
         source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
         rejection: {
@@ -1144,6 +1127,17 @@ export function deriveStreamSensorSummary(
   };
 }
 
+/** Seconds an ascending axis covers, falling back to the slot count. */
+function axisSpanSec(time: readonly number[], length: number, step: number): number {
+  const first = time[0];
+  const last = time[length - 1];
+  if (typeof first !== "number" || typeof last !== "number"
+    || !Number.isFinite(first) || !Number.isFinite(last) || last < first) {
+    return length * step;
+  }
+  return Math.max(last - first + step, length * step);
+}
+
 function measuredSeries(
   values: readonly (number | null)[],
   time: readonly number[],
@@ -1173,6 +1167,17 @@ function measuredSeries(
       && Number.isFinite(timestamp)
       && isMeasured(value)
     ) {
+      // A declared fixed-step axis may skip seconds (auto-pause, dropout, upload
+      // thinning). A skipped slot is unmeasured time exactly like a null value, so
+      // it must break the run — otherwise a rolling window would splice two efforts
+      // separated by a pause into one continuous effort.
+      const previousTime = currentTimes[currentTimes.length - 1];
+      if (fixedStep != null && previousTime != null && timestamp - previousTime > fixedStep) {
+        runs.push({ values: currentValues, time: currentTimes, durationsSec: currentDurations });
+        currentValues = [];
+        currentTimes = [];
+        currentDurations = [];
+      }
       currentValues.push(value);
       currentTimes.push(timestamp);
       currentDurations.push(slotDurationsSec?.[index] ?? step);
@@ -1210,9 +1215,12 @@ function measuredSeries(
     ...(wholeSessionCoverageAccepted ? {
       durationsSec: measured.durationsSec,
       segmentStarts: runs.flatMap((run) => run.values.map((_, index) => index === 0)),
+      // 세션 길이는 elapsed 다. 구멍 있는 축도 세션 전체를 가로지르므로 남은 슬롯을
+      // 세면 3시간 라이드가 1시간 50분으로 보고된다. durationsSec 합(=측정된 초)과는
+      // 의도적으로 다르다 — 존 분포·TSS 는 측정 구간만, 주행시간은 실제 경과다.
       fullSessionDurationSec: slotDurationsSec?.length === length
         ? slotDurationsSec.reduce((sum, duration) => sum + duration, 0)
-        : length * step,
+        : axisSpanSec(time, length, step),
     } : {}),
     complete: values.length === time.length && measured.values.length === values.length,
     ...(wholeSessionCoverageAccepted ? { wholeSessionCoverageAccepted: true } : {}),
