@@ -6,6 +6,7 @@ import ElevationChart from "../components/ElevationChart";
 import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
 import AnalysisTab from "../components/AnalysisTab";
+import { resolveAnalysisSummaryTiming } from "../features/activity/detail/analysisSummaryTiming";
 import LapTable from "../components/LapTable";
 import ExportTab from "../components/ExportTab";
 import { useAuth } from "../contexts/AuthContext";
@@ -1028,7 +1029,7 @@ export default function ActivityPage() {
             hasStreamPowerCandidate={hasStreamPowerCandidate}
             hasStreamHeartRateCandidate={hasStreamHeartRateCandidate}
             hasStreamCadenceCandidate={hasStreamCadenceCandidate}
-            summary={displayedSummary}
+            summary={resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics)}
             sport={sport}
             isVirtualPower={activity.isVirtualPower || activePowerOverride != null}
             virtualPowerParams={activePowerOverride?.params ?? activity.virtualPowerParams}
