@@ -31,6 +31,33 @@ const POWER_ZONES = [
   { zone: 7, name: "신경근", nameKey: "fitness:zone.neurological", min: 1.50, max: Infinity, color: "var(--zone-5)" },
 ];
 
+/** Returns a one-based UI zone, or null when the sample cannot be classified. */
+export function resolvePowerZone(watts: number, ftp: number): number | null {
+  if (!Number.isFinite(watts) || !Number.isFinite(ftp) || ftp <= 0) return null;
+  const ratio = watts / ftp;
+  for (let index = POWER_ZONES.length - 1; index >= 0; index--) {
+    if (ratio >= POWER_ZONES[index]!.min) return POWER_ZONES[index]!.zone;
+  }
+  return null;
+}
+
+/** Returns a one-based UI zone using the same boundaries as HR distribution. */
+export function resolveHrZone(heartRate: number, maxHrOrZones: number | DerivedHrZones): number | null {
+  if (!Number.isFinite(heartRate)) return null;
+  if (typeof maxHrOrZones !== "number") {
+    for (let index = maxHrOrZones.zones.length - 1; index >= 0; index--) {
+      if (heartRate >= maxHrOrZones.zones[index]!.minBpm) return index + 1;
+    }
+    return null;
+  }
+  if (!Number.isFinite(maxHrOrZones) || maxHrOrZones <= 0) return null;
+  const ratio = heartRate / maxHrOrZones;
+  for (let index = HR_ZONES.length - 1; index >= 0; index--) {
+    if (ratio >= HR_ZONES[index]!.min) return index + 1;
+  }
+  return null;
+}
+
 export function calculateHrZoneDistribution(
   heartrates: number[],
   maxHrOrZones: number | DerivedHrZones,
@@ -81,10 +108,8 @@ export function calculatePowerZoneDistribution(
   for (let sampleIdx = 0; sampleIdx < watts.length; sampleIdx++) {
     const w = watts[sampleIdx]!;
     const dt = durations[sampleIdx] ?? 0;
-    const ratio = w / ftp;
-    for (let i = POWER_ZONES.length - 1; i >= 0; i--) {
-      if (ratio >= POWER_ZONES[i]!.min) { counts[i] += dt; break; }
-    }
+    const zone = resolvePowerZone(w, ftp);
+    if (zone != null) counts[zone - 1] += dt;
   }
   const total = counts.reduce((sum, v) => sum + v, 0);
   return POWER_ZONES.map((z, i) => ({
