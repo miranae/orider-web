@@ -45,7 +45,7 @@ import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
-import { buildChartOverlays, type ActivityPowerOverride } from "../features/activity/detail/activityDetailDerived";
+import { buildChartOverlays, selectChartOverlay, type ActivityPowerOverride } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
@@ -95,6 +95,7 @@ export default function ActivityPage() {
   const [hoveredSegment, setHoveredSegment] = useState<SegmentEffortData | null>(null);
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set());
+  const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
   const {
     streams,
     setStreams,
@@ -478,20 +479,14 @@ export default function ActivityPage() {
     await updateDoc(doc(firestore, "activity_photos", activityId, "photos", photo.id), { deletedAt: Date.now() });
     showToast(t("page.photoToast.deleted"));
   };
-
-  const handleElevHover = useCallback((index: number | null) => {
-    setHoverIndex(index);
-  }, []);
-
+  const handleElevHover = useCallback((index: number | null) => setHoverIndex(index), []);
   const toggleOverlay = useCallback((key: string) => {
     setActiveOverlays((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
+      const next = selectChartOverlay(prev, key);
+      setFocusedOverlayKey(next.focusedOverlayKey);
+      return next.activeOverlays;
     });
   }, []);
-
   const renderPowerOverride = resolveActiveActivityPowerOverride(
     activityId,
     activity?.id,
@@ -658,6 +653,7 @@ export default function ActivityPage() {
 
   // Build chart overlays from active toggles
   const chartOverlays = buildChartOverlays(availableOverlays, activeOverlays, sampledData, (label) => t(`overlay.${label}`));
+  const focusedOverlay = availableOverlays.find((cfg) => cfg.key === focusedOverlayKey) ?? null;
 
   const hoverPoint = hoverIndex != null ? sampledData[hoverIndex] ?? null : null;
 
@@ -1114,7 +1110,7 @@ export default function ActivityPage() {
 
           {/* Overlay toggle buttons */}
           {hasStreams && availableOverlays.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full cursor-default" style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)', color: 'var(--lime)', border: '1px solid color-mix(in srgb, var(--lime) 30%, transparent)' }}>
                 <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
                 {t("page.elevation")}
@@ -1123,6 +1119,8 @@ export default function ActivityPage() {
                 <button
                   key={cfg.key}
                   onClick={() => toggleOverlay(cfg.key)}
+                  aria-pressed={activeOverlays.has(cfg.key)}
+                  aria-label={`${t(`overlay.${cfg.label}`)}${cfg.key === focusedOverlayKey ? `, ${t("page.chartCurrentScale", { metric: t(`overlay.${cfg.label}`) })}` : ""}`}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full border transition-colors"
                   style={activeOverlays.has(cfg.key) ? {
                     color: cfg.dotColor,
@@ -1143,7 +1141,7 @@ export default function ActivityPage() {
               ))}
             </div>
           )}
-
+          {focusedOverlay && <p className="sr-only" aria-live="polite">{t("page.chartCurrentScale", { metric: t(`overlay.${focusedOverlay.label}`) })}</p>}
           {/* Hover data panel */}
           {hasStreams && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--fs-xs)] mb-2 min-h-[20px]" style={{ color: 'var(--ink-2)' }}>
@@ -1184,9 +1182,11 @@ export default function ActivityPage() {
 
           <ElevationChart
             data={elevData}
-            height={chartOverlays.length > 0 ? 320 : 200}
+            height={chartOverlays.length > 0 ? 150 : 200}
             onHoverIndex={hasStreams ? handleElevHover : undefined}
             overlays={chartOverlays.length > 0 ? chartOverlays : undefined}
+            focusedOverlayKey={focusedOverlayKey}
+            separateOverlayLanes={chartOverlays.length > 0}
             highlightRange={chartHighlightRange}
           />
         </Card>

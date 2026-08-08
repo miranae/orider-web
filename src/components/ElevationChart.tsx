@@ -174,6 +174,7 @@ const segmentHighlightPlugin: Plugin<"line"> = {
 };
 
 export interface OverlayDataset {
+  key?: string;
   label: string;
   data: Array<number | null>;
   color: string;
@@ -201,6 +202,10 @@ interface ElevationChartProps {
   height?: number;
   onHoverIndex?: (index: number | null) => void;
   overlays?: OverlayDataset[];
+  /** 강조할 성능 지표. 해당 지표의 축과 선을 선명하게 표시한다. */
+  focusedOverlayKey?: string | null;
+  /** 서로 다른 단위의 성능 지표를 별도 레인으로 표시한다. */
+  separateOverlayLanes?: boolean;
   /** Enable range selection mode */
   rangeMode?: boolean;
   /** Current selected range [startIndex, endIndex] */
@@ -216,6 +221,8 @@ export default function ElevationChart({
   height = 180,
   onHoverIndex,
   overlays,
+  focusedOverlayKey,
+  separateOverlayLanes = false,
   rangeMode,
   range,
   onRangeChange,
@@ -382,47 +389,64 @@ export default function ElevationChart({
   // X축 값을 km 단위 숫자로 변환
   const distancesKm = data.map((d) => d.distance / 1000);
 
+  const elevationDataset = {
+    label: "고도 (m)",
+    data: data.map((d, i) => ({ x: distancesKm[i], y: d.elevation })),
+    fill: true,
+    backgroundColor: "rgba(199, 247, 58, 0.08)",
+    borderColor: "#A9CC39",
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 5,
+    pointHoverBackgroundColor: "#C7F73A",
+    pointHoverBorderColor: pointHoverBorder,
+    pointHoverBorderWidth: 2,
+    tension: 0.4,
+    yAxisID: "yElev",
+  };
   const chartData = {
     labels: distancesKm,
     datasets: [
-      {
-        label: "\uACE0\uB3C4 (m)",
-        data: data.map((d, i) => ({ x: distancesKm[i], y: d.elevation })),
-        fill: true,
-        backgroundColor: "rgba(199, 247, 58, 0.12)",
-        borderColor: "#C7F73A",
-        borderWidth: 2,
-        pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHoverBackgroundColor: "#C7F73A",
-        pointHoverBorderColor: pointHoverBorder,
-        pointHoverBorderWidth: 2,
-        tension: 0.4,
-        yAxisID: "yElev",
-      },
-      ...(overlays ?? []).map((o) => ({
+      elevationDataset,
+      ...(separateOverlayLanes ? [] : (overlays ?? []).map((o) => {
+        const focused = o.key != null && o.key === focusedOverlayKey;
+        return {
         label: o.label,
         data: buildFiniteOverlayPoints(o.data, distancesKm),
-        borderColor: o.color,
         backgroundColor: "transparent",
-        borderWidth: 1.5,
+        borderWidth: focused ? 2.5 : 1.25,
+        borderDash: focused ? [] : [4, 3],
+        borderColor: o.color,
         pointRadius: 0,
         tension: 0.3,
         fill: false,
         spanGaps: false,
         yAxisID: o.yAxisID,
+        };
       })),
     ],
   };
 
   // Build dynamic scales for overlays
   const overlayScales: Record<string, object> = {};
-  if (overlays) {
+  if (overlays && !separateOverlayLanes) {
     for (const o of overlays) {
+      const focused = o.key != null && o.key === focusedOverlayKey;
       overlayScales[o.yAxisID] = {
         type: "linear" as const,
         position: "right" as const,
-        display: false,
+        display: focused,
+        grid: { drawOnChartArea: false },
+        border: { display: false },
+        ticks: {
+          color: o.color,
+          font: { size: 11, weight: focused ? "600" : "400" },
+          maxTicksLimit: 4,
+          callback: (value: string | number) => `${value}${o.unit ? ` ${o.unit}` : ""}`,
+        },
+        title: focused && o.unit
+          ? { display: true, text: o.unit, color: o.color, font: { size: 11, weight: "600" } }
+          : { display: false },
       };
     }
   }
@@ -438,21 +462,23 @@ export default function ElevationChart({
   const segmentHighlightOpts = !rangeMode && highlightRange
     ? { start: indexToKm(highlightRange[0]), end: indexToKm(highlightRange[1]) }
     : undefined;
+  const showLanes = separateOverlayLanes && (overlays?.length ?? 0) > 0;
 
   return (
     <div
       ref={wrapperRef}
-      style={{ height, touchAction: rangeMode ? "none" : "pan-y" }}
+      style={{ touchAction: rangeMode ? "none" : "pan-y", paddingBottom: showLanes ? 8 : 0 }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerLeave={handleLeave}
       onPointerCancel={handleLeave}
     >
-      <Line
-        ref={chartRef}
-        data={chartData}
-        plugins={plugins}
-        options={{
+      <div style={{ height }}>
+        <Line
+          ref={chartRef}
+          data={chartData}
+          plugins={plugins}
+          options={{
           responsive: true,
           maintainAspectRatio: false,
           interaction: { mode: "index", intersect: false },
@@ -480,6 +506,7 @@ export default function ElevationChart({
             yElev: {
               type: "linear",
               position: "left",
+              afterFit: (scale: { width: number }) => { scale.width = 54; },
               grid: { color: gridColor },
               ticks: {
                 font: { size: 12 },
@@ -487,10 +514,67 @@ export default function ElevationChart({
                 callback: (v) => `${v}m`,
               },
             },
+            ...(showLanes ? {
+              yElevSpacer: {
+                type: "linear" as const,
+                position: "right" as const,
+                afterFit: (scale: { width: number }) => { scale.width = 54; },
+                grid: { display: false }, border: { display: false },
+                ticks: { color: "transparent", callback: () => "" },
+              },
+            } : {}),
             ...overlayScales,
           },
-        }}
-      />
+          }}
+        />
+      </div>
+      {showLanes && overlays?.map((overlay) => {
+        const focused = overlay.key === focusedOverlayKey;
+        return (
+          <div key={overlay.key ?? overlay.label} style={{ height: 84, marginTop: "var(--space-2)" }}>
+            <Line
+              data={{
+                labels: distancesKm,
+                datasets: [{
+                  label: overlay.label,
+                  data: buildFiniteOverlayPoints(overlay.data, distancesKm),
+                  borderColor: overlay.color,
+                  backgroundColor: "transparent",
+                  borderWidth: focused ? 2.25 : 1.75,
+                  pointRadius: 0,
+                  pointHoverRadius: 4,
+                  pointHoverBackgroundColor: overlay.color,
+                  pointHoverBorderColor: pointHoverBorder,
+                  pointHoverBorderWidth: 2,
+                  tension: 0.3,
+                  fill: false,
+                  spanGaps: false,
+                  yAxisID: "yMetric",
+                }],
+              }}
+              plugins={[crosshairPlugin]}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                onHover: handleHover,
+                plugins: { tooltip: { enabled: false }, legend: { display: false } },
+                scales: {
+                  x: { type: "linear", min: 0, max: distancesKm[distancesKm.length - 1], display: false },
+                  yMetricSpacer: {
+                    type: "linear", position: "left", afterFit: (scale: { width: number }) => { scale.width = 54; },
+                    grid: { display: false }, border: { display: false }, ticks: { color: "transparent", callback: () => "" },
+                  },
+                  yMetric: {
+                    type: "linear", position: "right", afterFit: (scale: { width: number }) => { scale.width = 54; }, grid: { color: gridColor }, border: { display: false },
+                    ticks: { color: overlay.color, font: { size: 12, weight: "bold" }, maxTicksLimit: 3, callback: (value: string | number) => `${value} ${overlay.unit ?? ""}` },
+                  },
+                },
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

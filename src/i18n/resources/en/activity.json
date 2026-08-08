@@ -234,6 +234,7 @@
     "elevation": "Elevation",
     "elevationLabel": "Elev {{value}}m",
     "elevationRange": "Elev {{min}} ~ {{max}}m",
+    "chartCurrentScale": "Current chart scale: {{metric}}",
     "avgPrefix": "Avg",
     "max": "Max",
     "photos": "Photos",

@@ -1557,10 +1557,30 @@ export function buildChartOverlays(
   return availableOverlays
     .filter((cfg) => activeOverlays.has(cfg.key))
     .map((cfg) => ({
+      key: cfg.key,
       label: `${labelFor(cfg.label)} (${cfg.unit})`,
       data: sampledData.map((d) => cfg.getValue(d)),
       color: resolveCssColor(cfg.color),
       yAxisID: cfg.yAxisID,
       unit: cfg.unit,
     }));
+}
+
+/**
+ * 서로 다른 단위의 선을 한 차트에서 읽을 수 있도록 비교 지표는 두 개까지만 유지한다.
+ * 새 지표를 고르면 가장 먼저 선택한 지표를 교체하고, 마지막 선택을 축의 기준으로 삼는다.
+ */
+export function selectChartOverlay(
+  activeOverlays: ReadonlySet<string>,
+  key: string,
+): { activeOverlays: Set<string>; focusedOverlayKey: string | null } {
+  const next = new Set(activeOverlays);
+  if (next.has(key)) {
+    next.delete(key);
+    const remainingKeys = [...next];
+    return { activeOverlays: next, focusedOverlayKey: remainingKeys[remainingKeys.length - 1] ?? null };
+  }
+  if (next.size >= 2) next.delete(next.values().next().value as string);
+  next.add(key);
+  return { activeOverlays: next, focusedOverlayKey: key };
 }
