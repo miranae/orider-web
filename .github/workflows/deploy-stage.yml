@@ -17,7 +17,10 @@ concurrency:
 
 jobs:
   deploy-stage:
-    runs-on: ubuntu-latest
+    # 수동 실행도 main으로 제한해 PR/임의 ref 코드를 영구 러너에서 실행하지 않는다.
+    if: github.ref == 'refs/heads/main'
+    # main 승격 산출물만 실행하는 전용 로컬 Hosting 러너.
+    runs-on: [self-hosted, macOS, ARM64, web-hosting]
     environment: stage
     env:
       # Stage uses STAGE_* values only. Do not fall back to production repository

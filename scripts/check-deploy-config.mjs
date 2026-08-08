@@ -93,6 +93,7 @@ requireIncludes(ciWorkflow, "VITE_ORIDER_AI_API_BASE: https://coach.example.run.
 const deployWorkflow = readFileSync(".github/workflows/deploy.yml", "utf8");
 const runtimeConfigWriter = readFileSync("scripts/write-runtime-config.mjs", "utf8");
 const envGuard = readFileSync("scripts/check-env.mjs", "utf8");
+const hostingRunner = "runs-on: [self-hosted, macOS, ARM64, web-hosting]";
 requireIncludes(runtimeConfigWriter, '  "mapboxToken",\n  "aiApiBase",', "write-runtime-config required keys");
 requireIncludes(runtimeConfigWriter,
   'coachRidePlanRespondV2Enabled: readBoolEnv("VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED") ?? false',
@@ -101,6 +102,7 @@ requireIncludes(envGuard, '"VITE_MAPBOX_TOKEN"', "check-env production required 
 requireIncludes(deployWorkflow, "tags:", "deploy.yml trigger");
 requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
 requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
+requireIncludes(deployWorkflow, hostingRunner, "deploy.yml dedicated Hosting runner");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
@@ -138,6 +140,8 @@ requireIncludes(stageDeployWorkflow,
 requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
+requireIncludes(stageDeployWorkflow, "if: github.ref == 'refs/heads/main'", "deploy-stage.yml main ref guard");
+requireIncludes(stageDeployWorkflow, hostingRunner, "deploy-stage.yml dedicated Hosting runner");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
 requireIncludes(stageDeployWorkflow, "actions/upload-artifact", "deploy-stage.yml verified artifact upload");

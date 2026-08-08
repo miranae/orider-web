@@ -19,7 +19,8 @@ concurrency:
 jobs:
   deploy:
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    # production Environment 승인 후에만 실행하는 전용 로컬 Hosting 러너.
+    runs-on: [self-hosted, macOS, ARM64, web-hosting]
     environment: production # GitHub Environment 보호(필수 리뷰어)로 게이트
     env:
       # 빌드·predeploy(check-env) 공통 env.
