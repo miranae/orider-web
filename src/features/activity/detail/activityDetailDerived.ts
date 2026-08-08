@@ -1,6 +1,14 @@
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
+
+import {
+  explicitAxisRejectionReason,
+  hasDenseArraySlots,
+  hasValidExplicitSensorChannelValues,
+  hasValidLegacySensorChannelValues,
+  hasWholeSessionMeasurementCoverage,
+} from "./sensorChannelContract";
 import {
   inferUniformSampleTimeAxis,
   MAX_INFERRED_SENSOR_RATE_HZ,
@@ -119,12 +127,6 @@ export interface ActivityAnalysisProjection {
 const LEGACY_POWER_MIN_POSITIVE_COVERAGE = 0.05;
 const LEGACY_POWER_MIN_AXIS_COVERAGE = 0.95;
 const EXPLICIT_SENSOR_DURATION_TOLERANCE = 0.05;
-const EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE = 0.95;
-// A V1 axis carries one slot per recorded second, so pauses, sensor dropouts and
-// upload-size thinning all leave legitimate gaps. Keep the axis usable while the
-// retained seconds still describe most of the span; below that the samples are too
-// thin to represent the session and the legacy fallback stays in charge.
-const EXPLICIT_SENSOR_MIN_AXIS_COVERAGE = 0.5;
 
 export interface SelectedPowerStream {
   source: StreamSensorSummary["powerSource"];
@@ -210,57 +212,6 @@ function fallbackHeartRateAfterRejectedV1(
   return fallback.source != null
     ? { ...fallback, rejection }
     : { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true, rejection };
-}
-
-/**
- * A V1 axis is a list of recorded second slots, not a dense range: auto-pause,
- * sensor dropouts and the uploader's size-driven thinning all remove slots while
- * every retained timestamp stays exact. Require a strictly ascending integer axis
- * and reject only when the retained seconds no longer describe the span.
- */
-function explicitAxisRejectionReason(
-  time: readonly number[],
-  channelLength: number,
-  timeUnit: unknown,
-  resolutionSeconds: unknown,
-): SensorRejectionReason | null {
-  if (channelLength === 0 || channelLength !== time.length) return "invalid_axis";
-  if (timeUnit !== "relative_seconds" || resolutionSeconds !== 1 || !Number.isFinite(resolutionSeconds)) {
-    return "invalid_axis";
-  }
-  for (let index = 0; index < time.length; index++) {
-    if (!Object.prototype.hasOwnProperty.call(time, index)) return "invalid_axis";
-    const timestamp = time[index];
-    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) return "invalid_axis";
-    if (index > 0 && timestamp - time[index - 1]! < resolutionSeconds) return "invalid_axis";
-  }
-  const spanSec = time[time.length - 1]! - time[0]! + resolutionSeconds;
-  return time.length * resolutionSeconds >= spanSec * EXPLICIT_SENSOR_MIN_AXIS_COVERAGE
-    ? null
-    : "sparse_axis";
-}
-
-function hasDenseArraySlots(values: readonly unknown[]): boolean {
-  for (let index = 0; index < values.length; index++) {
-    if (!Object.prototype.hasOwnProperty.call(values, index)) return false;
-  }
-  return true;
-}
-
-function hasValidExplicitSensorChannelValues(values: readonly unknown[]): boolean {
-  if (!hasDenseArraySlots(values)) return false;
-  return values.every((value) => value === null
-    || (typeof value === "number" && Number.isFinite(value) && value >= 0));
-}
-
-function hasValidLegacySensorChannelValues(values: readonly unknown[]): boolean {
-  if (!hasDenseArraySlots(values)) return false;
-  return values.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0);
-}
-
-function hasWholeSessionMeasurementCoverage(measuredSlots: number, totalSlots: number): boolean {
-  return totalSlots > 0
-    && measuredSlots >= Math.ceil(totalSlots * EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE);
 }
 
 function hasSufficientAxisCoverage(
