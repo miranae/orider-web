@@ -531,7 +531,7 @@ export default function ElevationChart({
       {showLanes && overlays?.map((overlay) => {
         const focused = overlay.key === focusedOverlayKey;
         return (
-          <div key={overlay.key ?? overlay.label} style={{ height: 84, marginTop: 8 }}>
+          <div key={overlay.key ?? overlay.label} style={{ height: 84, marginTop: "var(--space-2)" }}>
             <Line
               data={{
                 labels: distancesKm,
