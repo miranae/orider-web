@@ -5,6 +5,8 @@ import {
   mergeTrustedFullSessionDurationSec,
   resolveAnalysisDurationSec,
   resolvePowerAnalysisDurationSec,
+  resolveMovingTimeSampleTiming,
+  selectMovingAnalysisSeries,
   selectWholeSessionSensorSeries,
   normalizeActivityStartTimeMs,
   sensorSeriesShareCompleteAxis,
@@ -84,6 +86,45 @@ describe("AnalysisTab sensor axis", () => {
     expect(calculateWorkKj(watts, powerTime)).toBe(720);
     expect(durationSec).toBe(3_600);
     expect(calculateKjPerHour(720, durationSec)).toBe(720);
+  });
+
+  it("uses moving time for metrics while retaining the elapsed stream axis for charts", () => {
+    const series = {
+      values: Array(60).fill(200),
+      // The middle timestamp gap is a 79-minute rest, intentionally retained for chart display.
+      time: Array.from({ length: 60 }, (_, index) => index < 30 ? index : index + 4_740),
+      source: "legacy" as const,
+    };
+    const elapsedTiming = wholeSessionSampleTiming(series);
+    const movingTiming = resolveMovingTimeSampleTiming(series, {
+      elapsedTimeMillis: 4_800_000,
+      movingTimeSec: 60,
+      ridingTimeMillis: 4_800_000,
+    });
+
+    expect(series.time[30]).toBe(4_770);
+    expect(calculateWorkKj(series.values, series.time, elapsedTiming)).toBeGreaterThan(900);
+    expect(calculateWorkKj(series.values, series.time, movingTiming)).toBeCloseTo(12, 8);
+    expect(calculateTSS(series.values, 200, series.time, movingTiming)).toBeCloseTo(100 / 60, 8);
+    expect(calculatePowerZoneDistribution(series.values, 200, series.time, movingTiming)
+      .reduce((total, zone) => total + zone.seconds, 0)).toBe(60);
+    expect(movingTiming.durationsSec?.reduce((total, duration) => total + duration, 0)).toBe(60);
+  });
+
+  it("excludes stopped samples from zones on an aligned motion axis", () => {
+    const series = { values: [100, 100, 400, 400], time: [0, 1, 2, 3], source: "legacy" as const };
+    const moving = selectMovingAnalysisSeries(series, [5, 5, 0, 0], undefined);
+    const timing = resolveMovingTimeSampleTiming(moving, { ridingTimeMillis: 4_000, movingTimeSec: 2 });
+
+    expect(moving.values).toEqual([100, 100]);
+    expect(calculatePowerZoneDistribution(moving.values, 200, moving.time, timing)
+      .reduce((total, zone) => total + zone.seconds, 0)).toBe(2);
+  });
+
+  it("keeps the source timing when no moving-time summary is available", () => {
+    const series = { values: [200, 200, 200], time: [0, 2, 5], source: "legacy" as const };
+    expect(resolveMovingTimeSampleTiming(series, { ridingTimeMillis: 6_000 }))
+      .toEqual(wholeSessionSampleTiming(series));
   });
 
   it("keeps legacy power riding time separate from a longer explicit HR pause clock", () => {
