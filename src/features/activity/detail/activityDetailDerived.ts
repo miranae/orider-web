@@ -7,7 +7,7 @@ import {
   hasDenseArraySlots,
   hasValidExplicitSensorChannelValues,
   hasValidLegacySensorChannelValues,
-  hasWholeSessionMeasurementCoverage,
+  hasRetainedSlotMeasurementCoverage,
 } from "./sensorChannelContract";
 import {
   inferUniformSampleTimeAxis,
@@ -775,7 +775,7 @@ export function selectActivityPowerStream(
           },
         };
       }
-      if (!hasWholeSessionMeasurementCoverage(finiteValues.length, explicitWatts?.length ?? 0)) {
+      if (!hasRetainedSlotMeasurementCoverage(finiteValues.length, explicitWatts?.length ?? 0)) {
         return {
           source: null, values: null, finiteValues: [], hasCandidate: true,
           rejection: {
@@ -975,7 +975,7 @@ export function selectActivityHeartRateStream(
         },
       };
     }
-    if (!hasWholeSessionMeasurementCoverage(explicitPositive.length, explicitHeartRate.length)) {
+    if (!hasRetainedSlotMeasurementCoverage(explicitPositive.length, explicitHeartRate.length)) {
       return {
         source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
         rejection: {
@@ -1127,6 +1127,17 @@ export function deriveStreamSensorSummary(
   };
 }
 
+/** Seconds an ascending axis covers, falling back to the slot count. */
+function axisSpanSec(time: readonly number[], length: number, step: number): number {
+  const first = time[0];
+  const last = time[length - 1];
+  if (typeof first !== "number" || typeof last !== "number"
+    || !Number.isFinite(first) || !Number.isFinite(last) || last < first) {
+    return length * step;
+  }
+  return Math.max(last - first + step, length * step);
+}
+
 function measuredSeries(
   values: readonly (number | null)[],
   time: readonly number[],
@@ -1204,9 +1215,12 @@ function measuredSeries(
     ...(wholeSessionCoverageAccepted ? {
       durationsSec: measured.durationsSec,
       segmentStarts: runs.flatMap((run) => run.values.map((_, index) => index === 0)),
+      // 세션 길이는 elapsed 다. 구멍 있는 축도 세션 전체를 가로지르므로 남은 슬롯을
+      // 세면 3시간 라이드가 1시간 50분으로 보고된다. durationsSec 합(=측정된 초)과는
+      // 의도적으로 다르다 — 존 분포·TSS 는 측정 구간만, 주행시간은 실제 경과다.
       fullSessionDurationSec: slotDurationsSec?.length === length
         ? slotDurationsSec.reduce((sum, duration) => sum + duration, 0)
-        : length * step,
+        : axisSpanSec(time, length, step),
     } : {}),
     complete: values.length === time.length && measured.values.length === values.length,
     ...(wholeSessionCoverageAccepted ? { wholeSessionCoverageAccepted: true } : {}),
