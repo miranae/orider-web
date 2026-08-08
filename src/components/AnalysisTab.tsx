@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { ActivityStreams, ActivitySummary, LapData } from "@shared/types";
 import { estimateRecoveryHours } from "@shared/training/recoveryTime";
 import { calculateNP, calculateIF, calculateTSS, calculateVI } from "../utils/powerMetrics";
-import { calculateHrZoneDistribution, calculatePowerZoneDistribution, calculateSeilerZones, polarizationIndex } from "../utils/zoneAnalysis";
+import { calculateHrZoneDistribution, calculatePowerZoneDistribution, calculateSeilerZones, polarizationIndex, resolveHrZone, resolvePowerZone } from "../utils/zoneAnalysis";
 import { calculatePowerCurve } from "../utils/powerCurve";
 import { calculateThreeSecondPowerMax } from "../utils/powerStats";
 import { plausibleWatts } from "../utils/plausibleWatts";
@@ -31,6 +31,7 @@ import { buildClimbTableRows, formatClimbEntryTime } from "../utils/climbMetrics
 import { useAuth } from "../contexts/AuthContext";
 import { useLocale } from "../contexts/LocaleContext";
 import ZoneDistributionChart from "./ZoneDistributionChart";
+import ZoneTimeline from "./ZoneTimeline";
 import PowerCurveChart from "./PowerCurveChart";
 import MetabolismCard from "./MetabolismCard";
 import InfoTip from "./InfoTip";
@@ -686,6 +687,30 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   // 존 분포 + 임계 영역
   const hrZones = useMemo(() => hasHr && hasHeartRateTime ? calculateHrZoneDistribution(movingHeartRateSeries.values, derivedHrZones, movingHeartRateSeries.time, movingHeartRateTiming) : null, [movingHeartRateSeries, derivedHrZones, movingHeartRateTiming, hasHr, hasHeartRateTime]);
   const powerZones = useMemo(() => hasPower && hasPowerTime ? calculatePowerZoneDistribution(movingPowerSeries.values, ftp, movingPowerSeries.time, movingPowerTiming) : null, [movingPowerSeries, ftp, movingPowerTiming, hasPower, hasPowerTime]);
+  const zoneTimelineSeries = useMemo(() => [
+    ...(hasHr && hasHeartRateTime ? [{
+      id: "hr" as const,
+      label: t("analysis.zones.hr"),
+      values: movingHeartRateSeries.values,
+      time: movingHeartRateSeries.time,
+      timing: movingHeartRateTiming,
+      resolveZone: (value: number) => resolveHrZone(value, derivedHrZones),
+      maxZone: derivedHrZones.zones.length,
+    }] : []),
+    ...(hasPower && hasPowerTime ? [{
+      id: "power" as const,
+      label: t("analysis.zones.power"),
+      values: movingPowerSeries.values,
+      time: movingPowerSeries.time,
+      timing: movingPowerTiming,
+      resolveZone: (value: number) => resolvePowerZone(value, ftp),
+      maxZone: 7,
+    }] : []),
+  ], [derivedHrZones, ftp, hasHeartRateTime, hasHr, hasPower, hasPowerTime, movingHeartRateSeries.time, movingHeartRateSeries.values, movingHeartRateTiming, movingPowerSeries.time, movingPowerSeries.values, movingPowerTiming, t]);
+  const zoneTimelineMovingDurationSec = useMemo(
+    () => resolveProvidedMovingDurationSec(summary),
+    [summary],
+  );
   // Seiler 3존 (자전거 + 파워 있을 때만)
   const seilerZones = useMemo(() => (hasPower && hasPowerTime && sport !== "run" && sport !== "swim") ? calculateSeilerZones(movingPowerSeries.values, ftp, movingPowerSeries.time, movingPowerTiming) : null, [movingPowerSeries, ftp, movingPowerTiming, hasPower, hasPowerTime, sport]);
   const polarization = useMemo(() => seilerZones ? polarizationIndex(seilerZones) : null, [seilerZones]);
@@ -1174,6 +1199,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
               </div>
             )}
           </div>
+          <ZoneTimeline series={zoneTimelineSeries} movingDurationSec={zoneTimelineMovingDurationSec} />
         </div>
       )}
 
