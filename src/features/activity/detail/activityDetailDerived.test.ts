@@ -11,6 +11,7 @@ import {
   getChartHighlightRange,
   getSegmentEfforts,
   getStreamPhotos,
+  selectChartOverlay,
 } from "./activityDetailDerived";
 
 function withSparseSlot(values: number[], missingIndex: number): number[] {
@@ -46,6 +47,19 @@ describe("activityDetailDerived", () => {
     expect(getAvailableOverlays(sampled).map((cfg) => cfg.key)).toEqual(["speed", "hr", "power", "cadence"]);
     expect(buildSummaryStats(streams as never, sensorSummary)?.overlays.power)
       .toEqual({ avg: (210 + 220) / 3, max: 220 });
+  });
+
+  it("keeps multi-metric comparison to two visible metrics and focuses the last selection", () => {
+    const speed = selectChartOverlay(new Set(), "speed");
+    const speedAndHr = selectChartOverlay(speed.activeOverlays, "hr");
+    const powerReplacesSpeed = selectChartOverlay(speedAndHr.activeOverlays, "power");
+
+    expect([...powerReplacesSpeed.activeOverlays]).toEqual(["hr", "power"]);
+    expect(powerReplacesSpeed.focusedOverlayKey).toBe("power");
+
+    const removesFocus = selectChartOverlay(powerReplacesSpeed.activeOverlays, "power");
+    expect([...removesFocus.activeOverlays]).toEqual(["hr"]);
+    expect(removesFocus.focusedOverlayKey).toBe("hr");
   });
 
   it("rejects HR/cadence measurements clustered in one session fragment", () => {

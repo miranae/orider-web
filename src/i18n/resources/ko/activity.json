@@ -234,6 +234,7 @@
     "elevation": "고도",
     "elevationLabel": "고도 {{value}}m",
     "elevationRange": "고도 {{min}} ~ {{max}}m",
+    "chartCurrentScale": "현재 차트 눈금: {{metric}}",
     "avgPrefix": "평균",
     "max": "최고",
     "photos": "사진",
