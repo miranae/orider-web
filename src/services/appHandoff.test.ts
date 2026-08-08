@@ -84,14 +84,33 @@ describe("stash → consume", () => {
     expect(didHandoffFail()).toBe(false); // 1회 읽으면 리셋
   });
 
-  it("App Check hang 시 타임아웃으로 resolve 한다 — 마운트 무한 블로킹 방지", async () => {
+  it("5초를 넘는 App Check 준비도 완료되면 인계를 계속한다", async () => {
+    vi.useFakeTimers();
+    setPageUrl(`/?${HANDOFF_PARAM}=${VALID}`);
+    let resolveAppCheck!: () => void;
+    vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise<void>((resolve) => { resolveAppCheck = resolve; }));
+    const redeem = vi.fn().mockResolvedValue({ data: { token: "custom-token" } });
+    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+
+    stashHandoffCode();
+    const consume = consumeAppHandoffCode();
+    await vi.advanceTimersByTimeAsync(5_001);
+    resolveAppCheck();
+    await consume;
+
+    expect(redeem).toHaveBeenCalledWith({ code: VALID });
+    expect(signInWithCustomToken).toHaveBeenCalledWith({}, "custom-token");
+    expect(didHandoffFail()).toBe(false);
+  });
+
+  it("App Check hang 시 상한 이후 마운트를 진행한다", async () => {
     vi.useFakeTimers();
     setPageUrl(`/?${HANDOFF_PARAM}=${VALID}`);
     vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise(() => {})); // 영원히 pending
 
     stashHandoffCode();
     const consume = consumeAppHandoffCode();
-    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(15_000);
     await expect(consume).resolves.toBeUndefined();
     expect(didHandoffFail()).toBe(true);
   });
