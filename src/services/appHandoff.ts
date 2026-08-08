@@ -24,8 +24,10 @@ import { logClientError } from "./errorLogger";
 export const HANDOFF_PARAM = "handoff";
 // base64url 32바이트 = 43자 (functions/web-auth-handoff.ts 와 동일 계약)
 const CODE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-// 인계 실패가 마운트 지연으로 체감되지 않는 상한. hang 은 catch 로 못 잡으므로 race 필수.
-const CONSUME_TIMEOUT_MS = 5_000;
+// App Check 토큰 획득 자체가 최대 12초를 기다린다(firebase.ts). 그보다 짧으면 정상적인
+// 인계가 먼저 timeout 처리되므로, callable·custom-token 로그인을 위한 여유를 더한다.
+// hang 은 catch 로 못 잡으므로 race 는 유지한다.
+const CONSUME_TIMEOUT_MS = 15_000;
 
 let stashedCode: string | null = null;
 let handoffFailed = false;
