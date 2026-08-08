@@ -479,11 +479,7 @@ export default function ActivityPage() {
     await updateDoc(doc(firestore, "activity_photos", activityId, "photos", photo.id), { deletedAt: Date.now() });
     showToast(t("page.photoToast.deleted"));
   };
-
-  const handleElevHover = useCallback((index: number | null) => {
-    setHoverIndex(index);
-  }, []);
-
+  const handleElevHover = useCallback((index: number | null) => setHoverIndex(index), []);
   const toggleOverlay = useCallback((key: string) => {
     setActiveOverlays((prev) => {
       const next = selectChartOverlay(prev, key);
@@ -491,7 +487,6 @@ export default function ActivityPage() {
       return next.activeOverlays;
     });
   }, []);
-
   const renderPowerOverride = resolveActiveActivityPowerOverride(
     activityId,
     activity?.id,
@@ -1146,12 +1141,7 @@ export default function ActivityPage() {
               ))}
             </div>
           )}
-          {focusedOverlay && (
-            <p className="sr-only" aria-live="polite">
-              {t("page.chartCurrentScale", { metric: t(`overlay.${focusedOverlay.label}`) })}
-            </p>
-          )}
-
+          {focusedOverlay && <p className="sr-only" aria-live="polite">{t("page.chartCurrentScale", { metric: t(`overlay.${focusedOverlay.label}`) })}</p>}
           {/* Hover data panel */}
           {hasStreams && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--fs-xs)] mb-2 min-h-[20px]" style={{ color: 'var(--ink-2)' }}>
