@@ -173,6 +173,39 @@ function normalizeSelectionContext(
   return contextOrDuration ?? { activityStartTime };
 }
 
+/**
+ * V1 is a preferred sensor source only after its per-channel contract passes.
+ * A bad auxiliary V1 payload must not hide an independently valid persisted
+ * sensor stream; removing it here also keeps the normal legacy trust gates in
+ * charge of the fallback.
+ */
+function withoutSensorStreamsV1(streams: ActivityStreams): ActivityStreams {
+  const { sensorStreamsV1: _sensorStreamsV1, ...legacyStreams } = streams;
+  return legacyStreams;
+}
+
+function fallbackPowerAfterRejectedV1(
+  streams: ActivityStreams,
+  context: ActivitySensorSelectionContext,
+  rejection: SensorRejectionDiagnostic,
+): SelectedPowerStream {
+  const fallback = selectActivityPowerStream(withoutSensorStreamsV1(streams), context);
+  return fallback.source != null
+    ? { ...fallback, rejection }
+    : { source: null, values: null, finiteValues: [], hasCandidate: true, rejection };
+}
+
+function fallbackHeartRateAfterRejectedV1(
+  streams: ActivityStreams,
+  context: ActivitySensorSelectionContext,
+  rejection: SensorRejectionDiagnostic,
+): SelectedHeartRateStream {
+  const fallback = selectActivityHeartRateStream(withoutSensorStreamsV1(streams), context);
+  return fallback.source != null
+    ? { ...fallback, rejection }
+    : { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true, rejection };
+}
+
 function hasValidExplicitAxis(
   time: readonly number[],
   channelLength: number,
@@ -746,13 +779,10 @@ export function selectActivityPowerStream(
         explicit.timeUnit,
         explicit.resolutionSeconds,
       )) {
-        return {
-          source: null, values: null, finiteValues: [], hasCandidate: true,
-          rejection: {
-            channel: "power", source: "sensorStreamsV1", reason: "invalid_axis",
-            axisLength: explicitTime?.length, channelLength: explicitWatts?.length,
-          },
-        };
+        return fallbackPowerAfterRejectedV1(streams, context, {
+          channel: "power", source: "sensorStreamsV1", reason: "invalid_axis",
+          axisLength: explicitTime?.length, channelLength: explicitWatts?.length,
+        });
       }
       const coverageRejection = explicitCoverageRejectionReason(
         streams,
@@ -942,13 +972,10 @@ export function selectActivityHeartRateStream(
       explicit.timeUnit,
       explicit.resolutionSeconds,
     )) {
-      return {
-        source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
-        rejection: {
-          channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_axis",
-          axisLength: explicitTime?.length, channelLength: explicitHeartRate.length,
-        },
-      };
+      return fallbackHeartRateAfterRejectedV1(streams, context, {
+        channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_axis",
+        axisLength: explicitTime?.length, channelLength: explicitHeartRate.length,
+      });
     }
     const coverageRejection = explicitCoverageRejectionReason(
       streams,

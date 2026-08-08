@@ -917,9 +917,10 @@ describe("activityDetailDerived", () => {
     ["short", [0, 1]],
     ["non-finite", [0, Number.NaN, 2]],
     ["non-monotonic", [0, 2, 1]],
+    ["millisecond-like", [0, 1000, 2000]],
     ["unsafe integer", [0, 1, 1e308]],
     ["repeated max-safe integer", [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
-  ])("rejects measured V1 power on a %s axis without legacy fallback", (_case, explicitTime) => {
+  ])("falls back to trusted legacy power when the V1 axis is %s", (_case, explicitTime) => {
     const streams = {
       distance: [0, 10, 20],
       time: [0, 1, 2],
@@ -939,17 +940,17 @@ describe("activityDetailDerived", () => {
     const sampled = buildSampledData(streams as never);
 
     expect(summary).toMatchObject({
-      hasPowerStream: false,
-      hasRejectedPowerStream: true,
-      powerSource: null,
-      averagePower: null,
-      maxPower: null,
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      powerSource: "watts_calc",
+      averagePower: 310,
+      maxPower: 320,
     });
     expect(projection).toMatchObject({
-      streams: { watts: undefined, watts_calc: undefined },
+      streams: { watts: undefined, watts_calc: streams.watts_calc },
       power: undefined,
     });
-    expect(sampled.every((point) => point.power === null)).toBe(true);
+    expect(sampled.map((point) => point.power)).toEqual(streams.watts_calc);
   });
 
   it.each([
@@ -957,9 +958,10 @@ describe("activityDetailDerived", () => {
     ["short", [0, 1]],
     ["non-finite", [0, Number.POSITIVE_INFINITY, 2]],
     ["non-monotonic", [0, 2, 2]],
+    ["millisecond-like", [0, 1000, 2000]],
     ["unsafe integer", [0, 1, 1e308]],
     ["repeated max-safe integer", [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
-  ])("rejects measured V1 heart rate on a %s axis without legacy fallback", (_case, explicitTime) => {
+  ])("falls back to trusted legacy heart rate when the V1 axis is %s", (_case, explicitTime) => {
     const streams = {
       distance: [0, 10, 20],
       time: [0, 1, 2],
@@ -979,14 +981,14 @@ describe("activityDetailDerived", () => {
     const sampled = buildSampledData(streams as never);
 
     expect(summary).toMatchObject({
-      hasHeartRateStream: false,
-      hasRejectedHeartRateStream: true,
-      heartRateSource: null,
-      averageHeartRate: null,
-      maxHeartRate: null,
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+      heartRateSource: "heartrate",
+      averageHeartRate: 155,
+      maxHeartRate: 160,
     });
-    expect(projection).toMatchObject({ streams: { heartrate: undefined }, heartRate: undefined });
-    expect(sampled.every((point) => point.heartRate === null)).toBe(true);
+    expect(projection).toMatchObject({ streams: { heartrate: streams.heartrate }, heartRate: undefined });
+    expect(sampled.map((point) => point.heartRate)).toEqual(streams.heartrate);
   });
 
   it.each([
@@ -994,7 +996,6 @@ describe("activityDetailDerived", () => {
     ["wrong timeUnit", "milliseconds", 1, [0, 1, 2]],
     ["missing resolution", "relative_seconds", undefined, [0, 1, 2]],
     ["wrong resolution", "relative_seconds", 2, [0, 1, 2]],
-    ["irregular millisecond-like time", "relative_seconds", 1, [0, 1000, 2000]],
   ])("rejects measured V1 power with %s", (_case, timeUnit, resolutionSeconds, explicitTime) => {
     const streams = {
       distance: [0, 10, 20],
@@ -1026,7 +1027,6 @@ describe("activityDetailDerived", () => {
     ["wrong timeUnit", "milliseconds", 1, [0, 1, 2]],
     ["missing resolution", "relative_seconds", undefined, [0, 1, 2]],
     ["wrong resolution", "relative_seconds", 2, [0, 1, 2]],
-    ["irregular millisecond-like time", "relative_seconds", 1, [0, 1000, 2000]],
   ])("rejects measured V1 heart rate with %s", (_case, timeUnit, resolutionSeconds, explicitTime) => {
     const streams = {
       distance: [0, 10, 20],
@@ -1143,7 +1143,7 @@ describe("activityDetailDerived", () => {
   it.each([
     ["a missing middle slot", withSparseSlot([0, 1, 2, 3], 2)],
     ["only holes", Array<number>(4)],
-  ])("rejects measured V1 power when time has %s", (_case, explicitTime) => {
+  ])("falls back to trusted legacy power when V1 time has %s", (_case, explicitTime) => {
     const streams = {
       distance: [0, 10, 20, 30],
       time: [0, 1, 2, 3],
@@ -1160,14 +1160,14 @@ describe("activityDetailDerived", () => {
     };
 
     expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
-      powerSource: null,
-      hasRejectedPowerStream: true,
+      powerSource: "watts_calc",
+      hasRejectedPowerStream: false,
     });
     expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
-      streams: { watts: undefined, watts_calc: undefined },
+      streams: { watts: undefined, watts_calc: streams.watts_calc },
       power: undefined,
     });
-    expect(buildSampledData(streams as never).every((point) => point.power === null)).toBe(true);
+    expect(buildSampledData(streams as never).map((point) => point.power)).toEqual(streams.watts_calc);
   });
 
   it("rejects a sparse V1 power channel as malformed", () => {
@@ -1225,7 +1225,7 @@ describe("activityDetailDerived", () => {
     ["null", null],
     ["object", { seconds: [0, 1, 2] }],
     ["string", "0,1,2"],
-  ])("rejects measured V1 power when time is %s", (_case, explicitTime) => {
+  ])("falls back to trusted legacy power when V1 time is %s", (_case, explicitTime) => {
     const streams = {
       distance: [0, 10, 20],
       time: [0, 1, 2],
@@ -1242,11 +1242,11 @@ describe("activityDetailDerived", () => {
     };
 
     expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
-      powerSource: null,
-      hasRejectedPowerStream: true,
+      powerSource: "watts_calc",
+      hasRejectedPowerStream: false,
     });
     expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
-      streams: { watts: undefined, watts_calc: undefined },
+      streams: { watts: undefined, watts_calc: streams.watts_calc },
       power: undefined,
     });
     expect(() => buildSampledData(streams as never)).not.toThrow();
@@ -1319,7 +1319,7 @@ describe("activityDetailDerived", () => {
     ["null", null],
     ["object", { seconds: [0, 1, 2] }],
     ["string", "0,1,2"],
-  ])("rejects measured V1 heart rate when time is %s", (_case, explicitTime) => {
+  ])("falls back to trusted legacy heart rate when V1 time is %s", (_case, explicitTime) => {
     const streams = {
       distance: [0, 10, 20],
       time: [0, 1, 2],
@@ -1336,11 +1336,11 @@ describe("activityDetailDerived", () => {
     };
 
     expect(deriveStreamSensorSummary(streams as never)).toMatchObject({
-      heartRateSource: null,
-      hasRejectedHeartRateStream: true,
+      heartRateSource: "heartrate",
+      hasRejectedHeartRateStream: false,
     });
     expect(buildActivityAnalysisProjection(streams as never)).toMatchObject({
-      streams: { heartrate: undefined },
+      streams: { heartrate: streams.heartrate },
       heartRate: undefined,
     });
     expect(() => buildSampledData(streams as never)).not.toThrow();
