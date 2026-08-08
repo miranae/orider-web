@@ -83,7 +83,8 @@ export type SensorRejectionReason =
   | "duration_mismatch"
   | "origin_mismatch"
   | "insufficient_coverage"
-  | "insufficient_measurements";
+  | "insufficient_measurements"
+  | "sparse_axis";
 
 export interface SensorRejectionDiagnostic {
   channel: "power" | "heart_rate" | "cadence";
@@ -119,6 +120,11 @@ const LEGACY_POWER_MIN_POSITIVE_COVERAGE = 0.05;
 const LEGACY_POWER_MIN_AXIS_COVERAGE = 0.95;
 const EXPLICIT_SENSOR_DURATION_TOLERANCE = 0.05;
 const EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE = 0.95;
+// A V1 axis carries one slot per recorded second, so pauses, sensor dropouts and
+// upload-size thinning all leave legitimate gaps. Keep the axis usable while the
+// retained seconds still describe most of the span; below that the samples are too
+// thin to represent the session and the legacy fallback stays in charge.
+const EXPLICIT_SENSOR_MIN_AXIS_COVERAGE = 0.5;
 
 export interface SelectedPowerStream {
   source: StreamSensorSummary["powerSource"];
@@ -206,21 +212,32 @@ function fallbackHeartRateAfterRejectedV1(
     : { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true, rejection };
 }
 
-function hasValidExplicitAxis(
+/**
+ * A V1 axis is a list of recorded second slots, not a dense range: auto-pause,
+ * sensor dropouts and the uploader's size-driven thinning all remove slots while
+ * every retained timestamp stays exact. Require a strictly ascending integer axis
+ * and reject only when the retained seconds no longer describe the span.
+ */
+function explicitAxisRejectionReason(
   time: readonly number[],
   channelLength: number,
   timeUnit: unknown,
   resolutionSeconds: unknown,
-): boolean {
-  if (channelLength === 0 || channelLength !== time.length) return false;
-  if (timeUnit !== "relative_seconds" || resolutionSeconds !== 1 || !Number.isFinite(resolutionSeconds)) return false;
-  for (let index = 0; index < time.length; index++) {
-    if (!Object.prototype.hasOwnProperty.call(time, index)) return false;
-    const timestamp = time[index];
-    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) return false;
-    if (index > 0 && timestamp - time[index - 1]! !== resolutionSeconds) return false;
+): SensorRejectionReason | null {
+  if (channelLength === 0 || channelLength !== time.length) return "invalid_axis";
+  if (timeUnit !== "relative_seconds" || resolutionSeconds !== 1 || !Number.isFinite(resolutionSeconds)) {
+    return "invalid_axis";
   }
-  return true;
+  for (let index = 0; index < time.length; index++) {
+    if (!Object.prototype.hasOwnProperty.call(time, index)) return "invalid_axis";
+    const timestamp = time[index];
+    if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) return "invalid_axis";
+    if (index > 0 && timestamp - time[index - 1]! < resolutionSeconds) return "invalid_axis";
+  }
+  const spanSec = time[time.length - 1]! - time[0]! + resolutionSeconds;
+  return time.length * resolutionSeconds >= spanSec * EXPLICIT_SENSOR_MIN_AXIS_COVERAGE
+    ? null
+    : "sparse_axis";
 }
 
 function hasDenseArraySlots(values: readonly unknown[]): boolean {
@@ -495,8 +512,9 @@ function explicitCoverageRejectionReason(
   if (expectedDuration == null) return "missing_duration";
   const measuredDuration = explicitTime[explicitTime.length - 1]! - explicitTime[0]! + 1;
   const roundingEpsilon = Math.max(1, expectedDuration) * Number.EPSILON;
-  // V1 is validated as a contiguous 1 Hz axis. Expand the percentage bounds to
-  // an absolute second on short rides so endpoint rounding cannot reject a valid sample.
+  // The V1 axis spans the session even when slots are missing, so compare spans.
+  // Expand the percentage bounds to an absolute second on short rides so endpoint
+  // rounding cannot reject a valid sample.
   const allowedDifference = Math.max(
     1,
     expectedDuration * EXPLICIT_SENSOR_DURATION_TOLERANCE,
@@ -773,14 +791,17 @@ export function selectActivityPowerStream(
           },
         };
       }
-      if (!explicitTime || !hasValidExplicitAxis(
-        explicitTime,
-        explicitWatts?.length ?? 0,
-        explicit.timeUnit,
-        explicit.resolutionSeconds,
-      )) {
+      const axisRejection = explicitTime
+        ? explicitAxisRejectionReason(
+            explicitTime,
+            explicitWatts?.length ?? 0,
+            explicit.timeUnit,
+            explicit.resolutionSeconds,
+          )
+        : "invalid_axis";
+      if (axisRejection) {
         return fallbackPowerAfterRejectedV1(streams, context, {
-          channel: "power", source: "sensorStreamsV1", reason: "invalid_axis",
+          channel: "power", source: "sensorStreamsV1", reason: axisRejection,
           axisLength: explicitTime?.length, channelLength: explicitWatts?.length,
         });
       }
@@ -966,14 +987,17 @@ export function selectActivityHeartRateStream(
         },
       };
     }
-    if (!explicitTime || !hasValidExplicitAxis(
-      explicitTime,
-      explicitHeartRate.length,
-      explicit.timeUnit,
-      explicit.resolutionSeconds,
-    )) {
+    const axisRejection = explicitTime
+      ? explicitAxisRejectionReason(
+          explicitTime,
+          explicitHeartRate.length,
+          explicit.timeUnit,
+          explicit.resolutionSeconds,
+        )
+      : "invalid_axis";
+    if (axisRejection) {
       return fallbackHeartRateAfterRejectedV1(streams, context, {
-        channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_axis",
+        channel: "heart_rate", source: "sensorStreamsV1", reason: axisRejection,
         axisLength: explicitTime?.length, channelLength: explicitHeartRate.length,
       });
     }
@@ -1144,6 +1168,17 @@ export function deriveStreamSensorSummary(
   };
 }
 
+/** Seconds covered by an ascending axis, falling back to the slot count. */
+function axisSpanSec(time: readonly number[], length: number, step: number): number {
+  const first = time[0];
+  const last = time[length - 1];
+  if (typeof first !== "number" || typeof last !== "number"
+    || !Number.isFinite(first) || !Number.isFinite(last) || last < first) {
+    return length * step;
+  }
+  return Math.max(last - first + step, length * step);
+}
+
 function measuredSeries(
   values: readonly (number | null)[],
   time: readonly number[],
@@ -1210,9 +1245,11 @@ function measuredSeries(
     ...(wholeSessionCoverageAccepted ? {
       durationsSec: measured.durationsSec,
       segmentStarts: runs.flatMap((run) => run.values.map((_, index) => index === 0)),
+      // A source axis with missing slots still owns the whole span it covers, so
+      // measure the axis endpoints rather than counting the retained slots.
       fullSessionDurationSec: slotDurationsSec?.length === length
         ? slotDurationsSec.reduce((sum, duration) => sum + duration, 0)
-        : length * step,
+        : axisSpanSec(time, length, step),
     } : {}),
     complete: values.length === time.length && measured.values.length === values.length,
     ...(wholeSessionCoverageAccepted ? { wholeSessionCoverageAccepted: true } : {}),

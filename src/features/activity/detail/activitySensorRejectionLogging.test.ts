@@ -85,4 +85,29 @@ describe("activity sensor rejection logging", () => {
     expect(state.activityId).toBe("activity-2");
     expect(state.keys.size).toBe(1);
   });
+
+  it("keeps a thinned V1 axis out of the error log", () => {
+    const logger = vi.fn();
+    const diagnosticLogger = vi.fn();
+
+    reportSensorRejectionsOnce(
+      "activity-1",
+      [{
+        channel: "power" as const,
+        source: "sensorStreamsV1" as const,
+        reason: "sparse_axis" as const,
+        axisLength: 6_635,
+        channelLength: 6_635,
+      }],
+      createSensorRejectionLogState(),
+      logger,
+      diagnosticLogger,
+    );
+
+    expect(logger).not.toHaveBeenCalled();
+    expect(diagnosticLogger).toHaveBeenCalledWith(
+      "ActivityPage.sensorStreamRejected.power.sparse_axis",
+      expect.objectContaining({ reason: "sparse_axis", axisLength: 6_635 }),
+    );
+  });
 });
