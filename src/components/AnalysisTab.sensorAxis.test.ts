@@ -18,6 +18,7 @@ import { buildActivityAnalysisProjection } from "../features/activity/detail/act
 import { calculateIF, calculateNP, calculateTSS, calculateVI } from "../utils/powerMetrics";
 import { plausibleWatts } from "../utils/plausibleWatts";
 import { calculateHrZoneDistribution, calculatePowerZoneDistribution } from "../utils/zoneAnalysis";
+import { buildZoneTimeline } from "../utils/zoneTimeline";
 
 describe("AnalysisTab sensor axis", () => {
   it("does not treat unclocked heart-rate sample count as elapsed seconds", () => {
@@ -111,6 +112,30 @@ describe("AnalysisTab sensor axis", () => {
     expect(movingTiming.durationsSec?.reduce((total, duration) => total + duration, 0)).toBe(60);
   });
 
+  it("preserves explicit sensor gaps for the moving-time zone timeline", () => {
+    const series = {
+      values: [100, 200, 300, 400],
+      time: [0, 10, 40, 50],
+      durationsSec: [10, 10, 10, 10],
+      segmentStarts: [true, false, true, false],
+      source: "explicit" as const,
+    };
+    const timing = resolveMovingTimeSampleTiming(series, {
+      elapsedTimeMillis: 80_000,
+      movingTimeSec: 80,
+    });
+
+    expect(timing.segmentStarts).toEqual(series.segmentStarts);
+    expect(buildZoneTimeline(
+      series.values,
+      series.time,
+      (value) => Math.ceil(value / 100),
+      timing,
+      6,
+      { sourceStartSec: 0, sourceEndSec: 50, durationSec: 80 },
+    ).some((bucket) => bucket.zone == null)).toBe(true);
+  });
+
   it("excludes stopped samples from zones on an aligned motion axis", () => {
     const series = { values: [100, 100, 400, 400], time: [0, 1, 2, 3], source: "legacy" as const };
     const moving = selectMovingAnalysisSeries(series, [5, 5, 0, 0], undefined);
@@ -119,6 +144,23 @@ describe("AnalysisTab sensor axis", () => {
     expect(moving.values).toEqual([100, 100]);
     expect(calculatePowerZoneDistribution(moving.values, 200, moving.time, timing)
       .reduce((total, zone) => total + zone.seconds, 0)).toBe(2);
+  });
+
+  it("starts a new measured run after motion filtering removes samples", () => {
+    const series = {
+      values: [100, 200, 300, 400],
+      time: [0, 1, 2, 3],
+      durationsSec: [1, 1, 1, 1],
+      segmentStarts: [true, false, false, false],
+      source: "legacy" as const,
+    };
+
+    expect(selectMovingAnalysisSeries(series, [5, 0, 0, 5], undefined)).toMatchObject({
+      values: [100, 400],
+      time: [0, 3],
+      durationsSec: [1, 1],
+      segmentStarts: [true, true],
+    });
   });
 
   it("keeps the source timing when no moving-time summary is available", () => {

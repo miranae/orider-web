@@ -68,8 +68,23 @@ function segmentGapDurationsSec(
     if (index === 0 || segmentStarts?.[index] !== true) return 0;
     const previousTime = relativeTimes[index - 1];
     const startTime = relativeTimes[index];
-    const previousDuration = durations[index - 1];
-    if (previousTime == null || startTime == null || !validDuration(previousDuration)) return 0;
+    if (previousTime == null || startTime == null) return 0;
+    // Moving-time summaries can replace supplied durations with uniform effort
+    // durations. Prefer an adjacent raw interval from either measured run to
+    // recover the elapsed sensor hole; fall back to the sample duration when
+    // neither run contains a neighbouring timestamp.
+    const neighbouringIntervals = [
+      index > 1 && segmentStarts?.[index - 1] !== true
+        ? previousTime - relativeTimes[index - 2]!
+        : undefined,
+      index + 1 < relativeTimes.length && segmentStarts?.[index + 1] !== true
+        ? relativeTimes[index + 1]! - startTime
+        : undefined,
+    ].filter(validDuration);
+    const previousDuration = neighbouringIntervals.length > 0
+      ? Math.min(...neighbouringIntervals)
+      : durations[index - 1];
+    if (!validDuration(previousDuration)) return 0;
     return Math.max(0, startTime - previousTime - previousDuration);
   });
 }
