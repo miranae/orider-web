@@ -57,19 +57,21 @@ describe("sparse V1 sensor axis", () => {
     );
   });
 
-  it("keeps durationsSec, its sum and fullSessionDurationSec self-consistent", () => {
+  it("reports elapsed session length while weighting only the measured seconds", () => {
     const projection = buildActivityAnalysisProjection(sparseStreams([0, 1, 2, 4, 5, 6, 8, 9]) as never);
     const power = projection?.power;
 
+    // 존 분포·TSS 는 측정된 8초만 가중한다.
     expect(power?.durationsSec).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
-    expect(power?.durationsSec?.reduce((sum, value) => sum + value, 0))
-      .toBe(power?.fullSessionDurationSec);
-    expect(power?.fullSessionDurationSec).toBe(8);
+    expect(power?.durationsSec?.reduce((sum, value) => sum + value, 0)).toBe(8);
+    // 주행시간은 실제 경과(10초)다 — 남은 슬롯을 세면 라이드가 짧게 보고된다.
+    expect(power?.fullSessionDurationSec).toBe(10);
   });
 
-  it("leaves a contiguous axis as a single run", () => {
+  it("leaves a contiguous axis as a single run with matching totals", () => {
     const projection = buildActivityAnalysisProjection(sparseStreams([0, 1, 2, 3, 4]) as never);
 
+    // 연속 축에서는 경과와 측정이 같으므로 두 값이 일치한다.
     expect(projection?.power).toMatchObject({
       fullSessionDurationSec: 5,
       segmentStarts: [true, false, false, false, false],

@@ -2,7 +2,7 @@ import type { SensorRejectionReason } from "./activityDetailDerived";
 
 /** Retained slots must describe this share of the axis span to stay trustworthy. */
 export const EXPLICIT_SENSOR_MIN_AXIS_COVERAGE = 0.5;
-/** Measured (non-null) slots required within an accepted explicit channel. */
+/** Measured (non-null) share required among the slots an axis actually retained. */
 export const EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE = 0.95;
 
 export function hasDenseArraySlots(values: readonly unknown[]): boolean {
@@ -23,7 +23,12 @@ export function hasValidLegacySensorChannelValues(values: readonly unknown[]): b
   return values.every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0);
 }
 
-export function hasWholeSessionMeasurementCoverage(measuredSlots: number, totalSlots: number): boolean {
+/**
+ * Density of measurements *within the retained slots*. Whether the axis itself
+ * covers the session is a separate gate (`explicitAxisRejectionReason`), so this
+ * deliberately does not speak for the whole session.
+ */
+export function hasRetainedSlotMeasurementCoverage(measuredSlots: number, totalSlots: number): boolean {
   return totalSlots > 0
     && measuredSlots >= Math.ceil(totalSlots * EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE);
 }
