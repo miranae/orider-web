@@ -791,14 +791,18 @@ export function selectActivityPowerStream(
           },
         };
       }
-      const axisRejection = explicitTime
-        ? explicitAxisRejectionReason(
-            explicitTime,
-            explicitWatts?.length ?? 0,
-            explicit.timeUnit,
-            explicit.resolutionSeconds,
-          )
-        : "invalid_axis";
+      if (!explicitTime) {
+        return fallbackPowerAfterRejectedV1(streams, context, {
+          channel: "power", source: "sensorStreamsV1", reason: "invalid_axis",
+          channelLength: explicitWatts?.length,
+        });
+      }
+      const axisRejection = explicitAxisRejectionReason(
+        explicitTime,
+        explicitWatts?.length ?? 0,
+        explicit.timeUnit,
+        explicit.resolutionSeconds,
+      );
       if (axisRejection) {
         return fallbackPowerAfterRejectedV1(streams, context, {
           channel: "power", source: "sensorStreamsV1", reason: axisRejection,
@@ -987,14 +991,18 @@ export function selectActivityHeartRateStream(
         },
       };
     }
-    const axisRejection = explicitTime
-      ? explicitAxisRejectionReason(
-          explicitTime,
-          explicitHeartRate.length,
-          explicit.timeUnit,
-          explicit.resolutionSeconds,
-        )
-      : "invalid_axis";
+    if (!explicitTime) {
+      return fallbackHeartRateAfterRejectedV1(streams, context, {
+        channel: "heart_rate", source: "sensorStreamsV1", reason: "invalid_axis",
+        channelLength: explicitHeartRate.length,
+      });
+    }
+    const axisRejection = explicitAxisRejectionReason(
+      explicitTime,
+      explicitHeartRate.length,
+      explicit.timeUnit,
+      explicit.resolutionSeconds,
+    );
     if (axisRejection) {
       return fallbackHeartRateAfterRejectedV1(streams, context, {
         channel: "heart_rate", source: "sensorStreamsV1", reason: axisRejection,
@@ -1168,17 +1176,6 @@ export function deriveStreamSensorSummary(
   };
 }
 
-/** Seconds covered by an ascending axis, falling back to the slot count. */
-function axisSpanSec(time: readonly number[], length: number, step: number): number {
-  const first = time[0];
-  const last = time[length - 1];
-  if (typeof first !== "number" || typeof last !== "number"
-    || !Number.isFinite(first) || !Number.isFinite(last) || last < first) {
-    return length * step;
-  }
-  return Math.max(last - first + step, length * step);
-}
-
 function measuredSeries(
   values: readonly (number | null)[],
   time: readonly number[],
@@ -1208,6 +1205,17 @@ function measuredSeries(
       && Number.isFinite(timestamp)
       && isMeasured(value)
     ) {
+      // A declared fixed-step axis may skip seconds (auto-pause, dropout, upload
+      // thinning). A skipped slot is unmeasured time exactly like a null value, so
+      // it must break the run — otherwise a rolling window would splice two efforts
+      // separated by a pause into one continuous effort.
+      const previousTime = currentTimes[currentTimes.length - 1];
+      if (fixedStep != null && previousTime != null && timestamp - previousTime > fixedStep) {
+        runs.push({ values: currentValues, time: currentTimes, durationsSec: currentDurations });
+        currentValues = [];
+        currentTimes = [];
+        currentDurations = [];
+      }
       currentValues.push(value);
       currentTimes.push(timestamp);
       currentDurations.push(slotDurationsSec?.[index] ?? step);
@@ -1245,11 +1253,9 @@ function measuredSeries(
     ...(wholeSessionCoverageAccepted ? {
       durationsSec: measured.durationsSec,
       segmentStarts: runs.flatMap((run) => run.values.map((_, index) => index === 0)),
-      // A source axis with missing slots still owns the whole span it covers, so
-      // measure the axis endpoints rather than counting the retained slots.
       fullSessionDurationSec: slotDurationsSec?.length === length
         ? slotDurationsSec.reduce((sum, duration) => sum + duration, 0)
-        : axisSpanSec(time, length, step),
+        : length * step,
     } : {}),
     complete: values.length === time.length && measured.values.length === values.length,
     ...(wholeSessionCoverageAccepted ? { wholeSessionCoverageAccepted: true } : {}),

@@ -43,20 +43,47 @@ describe("sparse V1 sensor axis", () => {
     expect(heartRate.rejection).toBeUndefined();
   });
 
-  it("keeps the gap seconds in the analysis span instead of counting retained slots", () => {
+  it("breaks the measured runs at every axis gap", () => {
     const projection = buildActivityAnalysisProjection(sparseStreams([0, 1, 2, 4, 5, 6, 8, 9]) as never);
 
+    // 구멍은 null 값과 똑같이 미측정 시간이다 — 끊지 않으면 롤링 윈도우가 일시정지를
+    // 사이에 둔 두 구간을 하나의 연속 노력으로 이어붙인다.
     expect(projection?.power).toMatchObject({
       time: [0, 1, 2, 4, 5, 6, 8, 9],
-      fullSessionDurationSec: 10,
+      segmentStarts: [true, false, false, true, false, false, true, false],
     });
-    expect(projection?.heartRate).toMatchObject({ fullSessionDurationSec: 10 });
+    expect(projection?.heartRate?.segmentStarts).toEqual(
+      [true, false, false, true, false, false, true, false],
+    );
   });
 
-  it("reports a contiguous axis span unchanged", () => {
+  it("keeps durationsSec, its sum and fullSessionDurationSec self-consistent", () => {
+    const projection = buildActivityAnalysisProjection(sparseStreams([0, 1, 2, 4, 5, 6, 8, 9]) as never);
+    const power = projection?.power;
+
+    expect(power?.durationsSec).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
+    expect(power?.durationsSec?.reduce((sum, value) => sum + value, 0))
+      .toBe(power?.fullSessionDurationSec);
+    expect(power?.fullSessionDurationSec).toBe(8);
+  });
+
+  it("leaves a contiguous axis as a single run", () => {
     const projection = buildActivityAnalysisProjection(sparseStreams([0, 1, 2, 3, 4]) as never);
 
-    expect(projection?.power).toMatchObject({ fullSessionDurationSec: 5 });
+    expect(projection?.power).toMatchObject({
+      fullSessionDurationSec: 5,
+      segmentStarts: [true, false, false, false, false],
+    });
+  });
+
+  it("accepts an axis exactly at the coverage boundary and rejects one slot below", () => {
+    // span 9, 남은 초 5 → 5 >= 4.5 수용. 같은 span 에 4 슬롯이면 4 < 4.5 거절.
+    expect(selectActivityPowerStream(sparseStreams([0, 2, 4, 6, 8], 9) as never).source)
+      .toBe("sensorStreamsV1");
+    expect(selectActivityPowerStream(sparseStreams([0, 2, 4, 8], 9) as never)).toMatchObject({
+      source: null,
+      rejection: { reason: "sparse_axis" },
+    });
   });
 
   it("rejects an axis whose retained seconds no longer cover the span", () => {
