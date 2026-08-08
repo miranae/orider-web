@@ -256,6 +256,68 @@ export function wholeSessionSampleTiming(series: WholeSessionSensorSeries): Samp
   };
 }
 
+/**
+ * 분석 수치는 서버와 마찬가지로 실제 이동 시간을 센서 샘플에 배분한다.
+ *
+ * 레거시 Strava 스트림의 time 축은 차트에는 필요한 경과 시간(휴식 포함)이다. 이를
+ * 그대로 적분하면 한 번의 긴 휴식이 마지막 측정 파워/심박에 붙어 NP, TSS, 존 시간이
+ * 부풀려진다. summary.movingTimeSec 가 있으면 계산 전용 축만 연속된 노력 시간으로
+ * 재구성한다. 원본 time 배열은 바꾸지 않으므로 차트와 클라임 진입 시각은 경과시간을
+ * 계속 표시한다.
+ */
+export function resolveMovingTimeSampleTiming(
+  series: WholeSessionSensorSeries,
+  summary?: Pick<ActivitySummary, "elapsedTimeMillis" | "ridingTimeMillis" | "movingTimeSec">,
+): SampleTiming {
+  const fallback = wholeSessionSampleTiming(series);
+  const effortDurationSec = resolveProvidedMovingDurationSec(summary);
+  if (series.values.length === 0 || effortDurationSec == null) return fallback;
+
+  return { durationsSec: Array(series.values.length).fill(effortDurationSec / series.values.length) };
+}
+
+export function resolveProvidedMovingDurationSec(
+  summary?: Pick<ActivitySummary, "elapsedTimeMillis" | "ridingTimeMillis" | "movingTimeSec">,
+): number | undefined {
+  const movingTimeSec = summary?.movingTimeSec;
+  if (typeof movingTimeSec !== "number" || !Number.isFinite(movingTimeSec) || movingTimeSec <= 0) return undefined;
+  const elapsedMs = summary?.elapsedTimeMillis != null && summary.elapsedTimeMillis > 0
+    ? summary.elapsedTimeMillis
+    : summary?.ridingTimeMillis;
+  const elapsedSec = typeof elapsedMs === "number" && Number.isFinite(elapsedMs) && elapsedMs > 0
+    ? elapsedMs / 1000
+    : undefined;
+  // 서버도 provided moving time을 총 경과시간보다 길게 쓰지 않는다.
+  const effortDurationSec = elapsedSec == null ? movingTimeSec : Math.min(movingTimeSec, elapsedSec);
+  return Number.isFinite(effortDurationSec) && effortDurationSec > 0 ? effortDurationSec : undefined;
+}
+
+/** Server zone semantics only mask samples when the sensor and motion axes align. */
+export function selectMovingAnalysisSeries(
+  series: WholeSessionSensorSeries,
+  velocitySmooth: number[] | undefined,
+  distance: number[] | undefined,
+): WholeSessionSensorSeries {
+  const motion = velocitySmooth?.length
+    ? velocitySmooth.map((speed) => Number.isFinite(speed) && speed > 0.3)
+    : distance && distance.length > 1
+      ? distance.map((point, index) => index > 0
+        && Number.isFinite(point - distance[index - 1]!)
+        && point - distance[index - 1]! > 0.3)
+      : undefined;
+  // Explicit streams can use an independent sensor axis. Never apply a route-index
+  // mask unless every index has the same meaning.
+  if (!motion || motion.length !== series.values.length) return series;
+  const keep = <T,>(values: readonly T[] | undefined) => values?.filter((_, index) => motion[index]);
+  return {
+    ...series,
+    values: keep(series.values) ?? [],
+    time: keep(series.time),
+    durationsSec: keep(series.durationsSec),
+    segmentStarts: undefined,
+  };
+}
+
 interface SensorCandidateFlags {
   power: boolean;
   heartRate: boolean;
@@ -487,8 +549,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     legacyDurationSec,
   ), [activityTimeOriginEpochMs, sensorPower, streams.time, streams.watts, streams.watts_calc, legacyDurationSec]);
   const powerTiming = useMemo<SampleTiming>(
-    () => wholeSessionSampleTiming(selectedPowerSeries),
-    [selectedPowerSeries],
+    () => resolveMovingTimeSampleTiming(selectedPowerSeries, summary),
+    [selectedPowerSeries, summary],
   );
   const watts = useMemo(
     () => plausibleWatts(selectedPowerSeries.values, ftp, powerTiming) ?? [],
@@ -514,8 +576,24 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const powerTime = selectedPowerSeries.time;
   const heartRateTime = selectedHeartRateSeries.time;
   const heartRateTiming = useMemo<SampleTiming>(
-    () => wholeSessionSampleTiming(selectedHeartRateSeries),
-    [selectedHeartRateSeries],
+    () => resolveMovingTimeSampleTiming(selectedHeartRateSeries, summary),
+    [selectedHeartRateSeries, summary],
+  );
+  const movingPowerSeries = useMemo(
+    () => selectMovingAnalysisSeries(selectedPowerSeries, streams.velocity_smooth, streams.distance),
+    [selectedPowerSeries, streams.distance, streams.velocity_smooth],
+  );
+  const movingHeartRateSeries = useMemo(
+    () => selectMovingAnalysisSeries(selectedHeartRateSeries, streams.velocity_smooth, streams.distance),
+    [selectedHeartRateSeries, streams.distance, streams.velocity_smooth],
+  );
+  const movingPowerTiming = useMemo(
+    () => resolveMovingTimeSampleTiming(movingPowerSeries, summary),
+    [movingPowerSeries, summary],
+  );
+  const movingHeartRateTiming = useMemo(
+    () => resolveMovingTimeSampleTiming(movingHeartRateSeries, summary),
+    [movingHeartRateSeries, summary],
   );
 
   // 파워 메트릭
@@ -549,8 +627,9 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const powerDurationSec = useMemo(() => resolvePowerAnalysisDurationSec({
     powerLength: watts.length,
     powerTime,
-    trustedPowerDurationSec: selectedPowerSeries.fullSessionDurationSec,
-  }), [powerTime, selectedPowerSeries.fullSessionDurationSec, watts.length]);
+    trustedPowerDurationSec: resolveProvidedMovingDurationSec(summary)
+      ?? selectedPowerSeries.fullSessionDurationSec,
+  }), [powerTime, summary, selectedPowerSeries.fullSessionDurationSec, watts.length]);
   const kjPerHr = useMemo(
     () => calculateKjPerHour(workKj, powerDurationSec),
     [workKj, powerDurationSec],
@@ -605,12 +684,12 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   const elevGain = useMemo(() => calculateElevationGain(streams.altitude), [streams.altitude]);
 
   // 존 분포 + 임계 영역
-  const hrZones = useMemo(() => hasHr && hasHeartRateTime ? calculateHrZoneDistribution(hr, derivedHrZones, heartRateTime, heartRateTiming) : null, [hr, derivedHrZones, heartRateTime, heartRateTiming, hasHr, hasHeartRateTime]);
-  const powerZones = useMemo(() => hasPower && hasPowerTime ? calculatePowerZoneDistribution(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
+  const hrZones = useMemo(() => hasHr && hasHeartRateTime ? calculateHrZoneDistribution(movingHeartRateSeries.values, derivedHrZones, movingHeartRateSeries.time, movingHeartRateTiming) : null, [movingHeartRateSeries, derivedHrZones, movingHeartRateTiming, hasHr, hasHeartRateTime]);
+  const powerZones = useMemo(() => hasPower && hasPowerTime ? calculatePowerZoneDistribution(movingPowerSeries.values, ftp, movingPowerSeries.time, movingPowerTiming) : null, [movingPowerSeries, ftp, movingPowerTiming, hasPower, hasPowerTime]);
   // Seiler 3존 (자전거 + 파워 있을 때만)
-  const seilerZones = useMemo(() => (hasPower && hasPowerTime && sport !== "run" && sport !== "swim") ? calculateSeilerZones(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime, sport]);
+  const seilerZones = useMemo(() => (hasPower && hasPowerTime && sport !== "run" && sport !== "swim") ? calculateSeilerZones(movingPowerSeries.values, ftp, movingPowerSeries.time, movingPowerTiming) : null, [movingPowerSeries, ftp, movingPowerTiming, hasPower, hasPowerTime, sport]);
   const polarization = useMemo(() => seilerZones ? polarizationIndex(seilerZones) : null, [seilerZones]);
-  const criticalBands = useMemo(() => hasPower && hasPowerTime ? calculateCriticalBands(watts, ftp, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
+  const criticalBands = useMemo(() => hasPower && hasPowerTime ? calculateCriticalBands(movingPowerSeries.values, ftp, movingPowerSeries.time, movingPowerTiming) : null, [movingPowerSeries, ftp, movingPowerTiming, hasPower, hasPowerTime]);
   const powerCurve = useMemo(() => hasPower && hasPowerTime ? calculatePowerCurve(watts, powerTime, powerTiming) : [], [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
   const xPower = useMemo(() => hasPower && hasPowerTime ? calculateXPower(watts, powerTime, powerTiming) : null, [watts, powerTime, powerTiming, hasPower, hasPowerTime]);
   const matches = useMemo(() => hasPower && hasPowerTime ? analyzeMatches(watts, ftp, 30, powerTime, powerTiming) : null, [watts, ftp, powerTime, powerTiming, hasPower, hasPowerTime]);
