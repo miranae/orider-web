@@ -40,7 +40,12 @@ type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekRespon
 type CompatibilityFallbackReason =
   | "rest_not_configured"
   | "rest_route_unavailable"
+  | "rest_network_unreachable"
   | "anonymous_peek";
+
+/** 회선 순단 재시도 횟수. 요청이 서버에 닿지도 못한 실패에만 쓴다. */
+const REST_NETWORK_RETRIES = 1;
+const REST_NETWORK_RETRY_DELAY_MS = 400;
 let authReadyPromise: Promise<void> | null = null;
 
 export class ActivityNarrativeRestError extends Error {
@@ -175,6 +180,15 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
   return response.json() as Promise<T>;
 }
 
+/** fetch 가 응답 자체를 못 받은 실패 — HTTP 상태가 없으므로 서버엔 아무 흔적도 남지 않는다. */
+function isRestNetworkError(error: unknown): boolean {
+  return error instanceof ActivityNarrativeRestError && error.code === "rest-network";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
 function restCompatibilityFallbackReason(
   error: unknown,
 ): CompatibilityFallbackReason | null {
@@ -230,18 +244,40 @@ async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
     return callActivityNarrativeCallable<T>(request, "anonymous_peek");
   }
 
-  try {
-    const response = await fetchActivityNarrativeRest<T>(request);
-    observeTransport(request, "rest", "success");
-    return response;
-  } catch (error) {
-    const fallbackReason = restCompatibilityFallbackReason(error);
-    if (!fallbackReason) {
-      observeTransport(request, "rest", "error");
-      throw error;
+  // AI API 는 Hosting 과 다른 호스트(run.app)라 그 호스트만 끊겨도 분석이 통째로 실패한다.
+  // 2026-08-08~09 모바일 회귀: fetch 가 "Failed to fetch" 로 죽는 동안 같은 세션의
+  // logClientError callable(cloudfunctions.net)은 성공해 회선 자체는 살아 있었다. 서버엔
+  // 요청 흔적이 전혀 없어 사후 추적도 불가능했다. 그래서 (1) 짧게 재시도하고 (2) 그래도 안 되면
+  // 호스트가 다른 callable 로 우회한다. generate 재요청은 서버가 facts fingerprint 로 캐시를
+  // 반환하므로 LLM 이 중복 과금되지 않는다.
+  let networkError: unknown;
+  for (let attempt = 0; attempt <= REST_NETWORK_RETRIES; attempt += 1) {
+    if (attempt > 0) {
+      logClientError("activityNarrativeApi.restNetworkRetry", networkError, {
+        operation: operation(request),
+        lang: request.lang,
+        attempt,
+      });
+      await sleep(REST_NETWORK_RETRY_DELAY_MS * attempt);
     }
-    return callActivityNarrativeCallable<T>(request, fallbackReason);
+    try {
+      const response = await fetchActivityNarrativeRest<T>(request);
+      observeTransport(request, "rest", "success");
+      return response;
+    } catch (error) {
+      if (isRestNetworkError(error)) {
+        networkError = error;
+        continue;
+      }
+      const fallbackReason = restCompatibilityFallbackReason(error);
+      if (!fallbackReason) {
+        observeTransport(request, "rest", "error");
+        throw error;
+      }
+      return callActivityNarrativeCallable<T>(request, fallbackReason);
+    }
   }
+  return callActivityNarrativeCallable<T>(request, "rest_network_unreachable");
 }
 
 export function generateActivityNarrative(

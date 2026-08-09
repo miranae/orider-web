@@ -200,10 +200,10 @@ describe("activityNarrativeApi", () => {
     },
   );
 
-  it("quota·서버·network 오류는 callable로 우회하지 않는다", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(jsonResponse({
+  it("quota·서버 오류는 callable로 우회하지 않는다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({
       error: { code: "resource-exhausted", message: "daily cap" },
-    }, 429)).mockRejectedValueOnce(new TypeError("network failed")));
+    }, 429)));
 
     await expect(generateActivityNarrative({
       activityId: "activity-5",
@@ -212,20 +212,80 @@ describe("activityNarrativeApi", () => {
       code: "resource-exhausted",
       status: 429,
     });
-    await expect(generateActivityNarrative({
-      activityId: "activity-6",
-      lang: "ko",
-    })).rejects.toMatchObject({
-      code: "rest-network",
-    });
 
     expect(mocks.callable).not.toHaveBeenCalled();
-    expect(mocks.track).toHaveBeenCalledTimes(2);
+    expect(mocks.track).toHaveBeenCalledTimes(1);
     expect(mocks.track).toHaveBeenNthCalledWith(1, "activity_narrative_transport", {
       operation: "generate",
       transport: "rest",
       outcome: "error",
       lang: "ko",
+    });
+  });
+
+  it("회선 순단은 한 번 재시도하고, 회복되면 REST 그대로 성공한다", async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(jsonResponse(narrative));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(generateActivityNarrative({
+      activityId: "activity-6",
+      lang: "ko",
+    })).resolves.toEqual(narrative);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mocks.callable).not.toHaveBeenCalled();
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      "activityNarrativeApi.restNetworkRetry",
+      expect.objectContaining({ code: "rest-network" }),
+      { operation: "generate", lang: "ko", attempt: 1 },
+    );
+    expect(mocks.track).toHaveBeenCalledWith("activity_narrative_transport", {
+      operation: "generate",
+      transport: "rest",
+      outcome: "success",
+      lang: "ko",
+    });
+  });
+
+  it("재시도 후에도 AI API 호스트가 안 닿으면 callable로 우회한다", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+    mocks.callable.mockResolvedValue({ data: narrative });
+
+    await expect(generateActivityNarrative({
+      activityId: "activity-7",
+      lang: "ko",
+    })).resolves.toEqual(narrative);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mocks.callable).toHaveBeenCalledOnce();
+    expect(mocks.track).toHaveBeenCalledWith("activity_narrative_transport", {
+      operation: "generate",
+      transport: "callable",
+      outcome: "success",
+      lang: "ko",
+      fallbackReason: "rest_network_unreachable",
+    });
+  });
+
+  it("REST·callable 양쪽 다 실패하면 callable 오류를 그대로 올린다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    mocks.callable.mockRejectedValue(new Error("unavailable"));
+
+    await expect(peekActivityNarrative({
+      activityId: "activity-8",
+      lang: "ko",
+      cacheOnly: true,
+    })).rejects.toThrow("unavailable");
+
+    expect(mocks.track).toHaveBeenCalledWith("activity_narrative_transport", {
+      operation: "peek",
+      transport: "callable",
+      outcome: "error",
+      lang: "ko",
+      fallbackReason: "rest_network_unreachable",
     });
   });
 
