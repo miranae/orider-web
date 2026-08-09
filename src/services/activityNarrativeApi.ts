@@ -232,8 +232,9 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
 }
 
 /**
- * 첫 요청이 서버에서 이미 완료됐는지 부작용 없이 확인한다. cacheOnly 조회는 LLM 을 태우지
- * 않으므로 재전송 판단에 안전하게 쓸 수 있다. 프로브 자체가 실패하면 판단을 포기하고 null.
+ * 첫 generate 의 산출물이 이미 서버에 있는지 부작용 없이 확인한다. cacheOnly 조회는 LLM 을
+ * 태우지 않는다. 실패하면 확인을 포기하고 null — 단, 인증·quota 같은 실패가 cache miss 로
+ * 뭉개지지 않도록 사유는 남긴다.
  */
 async function probeGeneratedNarrative(
   request: ActivityNarrativeGenerateRequest,
@@ -247,7 +248,11 @@ async function probeGeneratedNarrative(
     if (probe.hit !== true) return null;
     const { hit: _hit, ...narrative } = probe;
     return narrative;
-  } catch {
+  } catch (probeError) {
+    logClientError("activityNarrativeApi.restRecoveryProbeFailed", probeError, {
+      operation: operation(request),
+      lang: request.lang,
+    });
     return null;
   }
 }
@@ -256,13 +261,15 @@ async function probeGeneratedNarrative(
  * fetch 가 응답 자체를 못 받은 실패의 복구.
  *
  * 클라이언트는 "요청이 서버에 닿지 않았다"와 "닿았는데 응답만 유실됐다"를 구분할 수 없다.
- * 서버(activity-narrative)에는 idempotency key 도 단일 실행 잠금도 없어서(2026-08-09 확인)
- * generate 를 그냥 재전송하면 LLM 이 중복 실행·과금될 수 있다. 그래서 재전송 전에 부작용 없는
- * cacheOnly 프로브로 첫 요청의 산출물이 이미 있는지부터 확인한다.
+ * 그래서 부작용 유무로 복구 범위를 가른다.
  *
- * 남는 위험: 첫 요청이 서버에서 "아직 실행 중"인 순간에는 프로브가 miss 라 재전송이 겹칠 수
- * 있다. 창이 좁고 비용은 activity-narrative-cap 으로 상한이 걸려 있어 감수한다. 사용자가 명시한
- * forceRefresh 재생성은 캐시로 대체할 수도 없고 중복 과금 위험만 남아 자동 복구하지 않는다.
+ * - peek(cacheOnly): 순수 조회라 재전송이 안전하다. 재시도하고, 그래도 안 되면 호스트가 다른
+ *   callable 로 우회한다.
+ * - generate: 서버(activity-narrative)에 idempotency key 도 단일 실행 잠금도 없어서
+ *   (2026-08-09 확인) 재전송하면 첫 요청이 처리 중이거나 응답만 유실된 경우 LLM 이 중복
+ *   실행·과금된다. 그래서 **자동 재전송하지 않는다.** 응답만 유실된 경우를 건지는
+ *   cacheOnly 조회까지만 하고, 산출물이 없으면 오류를 그대로 올려 UI 가 재시도를 노출하게 한다.
+ *   (사용자가 명시한 forceRefresh 는 캐시로 대체할 수 없으므로 조회도 건너뛴다.)
  */
 async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
@@ -275,22 +282,18 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
     forceRefresh: request.cacheOnly === true ? false : !!request.forceRefresh,
   });
 
-  if (request.cacheOnly !== true && request.forceRefresh) {
-    observeTransport(request, "rest", "error");
-    throw error;
-  }
-
   await sleep(REST_NETWORK_RETRY_DELAY_MS);
 
   if (request.cacheOnly !== true) {
-    const generated = await probeGeneratedNarrative(request);
+    const generated = request.forceRefresh ? null : await probeGeneratedNarrative(request);
     if (generated) {
       observeTransport(request, "rest", "success");
       return generated as unknown as T;
     }
+    observeTransport(request, "rest", "error");
+    throw error;
   }
 
-  // 산출물이 없다 = 첫 요청이 아무것도 남기지 않았다. 여기서만 재전송한다.
   try {
     const retried = await fetchActivityNarrativeRest<T>(request);
     observeTransport(request, "rest", "success");

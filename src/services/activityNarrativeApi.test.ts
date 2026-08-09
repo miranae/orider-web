@@ -244,7 +244,7 @@ describe("activityNarrativeApi", () => {
     );
   });
 
-  it("generate 회선 순단은 재전송 전에 cacheOnly로 첫 요청 산출물부터 확인한다", async () => {
+  it("generate 회선 순단은 cacheOnly로 첫 요청 산출물만 확인하고 재전송하지 않는다", async () => {
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockResolvedValueOnce(jsonResponse({ hit: true, ...narrative }));
@@ -265,31 +265,48 @@ describe("activityNarrativeApi", () => {
     expect(mocks.callable).not.toHaveBeenCalled();
   });
 
-  it("프로브가 miss면 산출물이 없다는 뜻이라 generate를 재전송한다", async () => {
+  it("프로브가 miss면 LLM 중복 실행 대신 오류를 올려 사용자 재시도에 맡긴다", async () => {
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
-      .mockResolvedValueOnce(jsonResponse({ hit: false }))
-      .mockResolvedValueOnce(jsonResponse(narrative));
+      .mockResolvedValueOnce(jsonResponse({ hit: false }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(generateActivityNarrative({
       activityId: "activity-8",
       lang: "ko",
-    })).resolves.toEqual(narrative);
+    })).rejects.toMatchObject({ code: "rest-network" });
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(JSON.parse(fetchMock.mock.calls[2]?.[1]?.body as string)).toEqual({
-      activityId: "activity-8",
-      lang: "ko",
-    });
+    // generate 재전송은 없어야 한다 — 프로브 1회가 끝.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mocks.callable).not.toHaveBeenCalled();
   });
 
-  it("사용자가 명시한 forceRefresh 재생성은 자동 복구하지 않는다", async () => {
-    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+  it("프로브 실패는 cache miss로 뭉개지 않고 사유를 남긴다", async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(jsonResponse({
+        error: { code: "resource-exhausted", message: "daily cap" },
+      }, 429));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(generateActivityNarrative({
       activityId: "activity-9",
+      lang: "ko",
+    })).rejects.toMatchObject({ code: "rest-network" });
+
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      "activityNarrativeApi.restRecoveryProbeFailed",
+      expect.objectContaining({ code: "resource-exhausted" }),
+      { operation: "generate", lang: "ko" },
+    );
+  });
+
+  it("사용자가 명시한 forceRefresh 재생성은 프로브 없이 오류를 올린다", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(generateActivityNarrative({
+      activityId: "activity-10",
       lang: "ko",
       forceRefresh: true,
     })).rejects.toMatchObject({ code: "rest-network" });
@@ -304,19 +321,20 @@ describe("activityNarrativeApi", () => {
     });
   });
 
-  it("재시도 후에도 AI API 호스트가 안 닿으면 callable로 우회한다", async () => {
+  it("peek 재시도 후에도 AI API 호스트가 안 닿으면 callable로 우회한다", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
     vi.stubGlobal("fetch", fetchMock);
-    mocks.callable.mockResolvedValue({ data: narrative });
+    mocks.callable.mockResolvedValue({ data: { hit: true, ...narrative } });
 
-    await expect(generateActivityNarrative({
-      activityId: "activity-10",
+    await expect(peekActivityNarrative({
+      activityId: "activity-11",
       lang: "ko",
-    })).resolves.toEqual(narrative);
+      cacheOnly: true,
+    })).resolves.toEqual({ hit: true, ...narrative });
 
     expect(mocks.callable).toHaveBeenCalledOnce();
     expect(mocks.track).toHaveBeenCalledWith("activity_narrative_transport", {
-      operation: "generate",
+      operation: "peek",
       transport: "callable",
       outcome: "success",
       lang: "ko",
@@ -329,7 +347,7 @@ describe("activityNarrativeApi", () => {
     mocks.callable.mockRejectedValue(new Error("unavailable"));
 
     await expect(peekActivityNarrative({
-      activityId: "activity-11",
+      activityId: "activity-12",
       lang: "ko",
       cacheOnly: true,
     })).rejects.toThrow("unavailable");
