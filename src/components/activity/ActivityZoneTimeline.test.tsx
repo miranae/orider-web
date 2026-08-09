@@ -19,6 +19,11 @@ describe("ActivityZoneTimeline", () => {
     );
 
     expect(screen.getByRole("region", { name: "존 타임라인" })).toBeInTheDocument();
-    expect(screen.getAllByRole("img", { name: /Z7$/ })[0]).toHaveStyle({ background: "var(--violet)" });
+    const z7Intervals = screen.getAllByRole("img", { name: /Z7 100%$/ });
+    expect(z7Intervals).not.toHaveLength(0);
+    z7Intervals.forEach((interval) => {
+      expect(interval).toHaveAttribute("title", expect.stringContaining("Z7 100%"));
+      expect(interval.firstElementChild).toHaveStyle({ background: "var(--violet)" });
+    });
   });
 });
