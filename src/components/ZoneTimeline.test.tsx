@@ -1,9 +1,16 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import ZoneTimeline from "./ZoneTimeline";
+import ZoneTimeline, { zoneColor } from "./ZoneTimeline";
 
 describe("ZoneTimeline", () => {
+  it("uses distinct existing tokens for the highest seven power zones without changing HR mapping", () => {
+    expect(zoneColor("power", 5, 7)).toBe("var(--zone-4)");
+    expect(zoneColor("power", 6, 7)).toBe("var(--zone-5)");
+    expect(zoneColor("power", 7, 7)).toBe("var(--violet)");
+    expect(zoneColor("hr", 7, 7)).toBe("var(--zone-5)");
+  });
+
   it("exposes pause-safe effort-time intervals for each rendered zone segment", () => {
     renderWithProviders(
       <ZoneTimeline bucketCount={2} series={[{
