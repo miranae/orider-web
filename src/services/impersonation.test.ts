@@ -223,6 +223,29 @@ describe("impersonation token consumer", () => {
     );
   });
 
+  it("treats an object issuer as corrupt instead of crashing the banner", () => {
+    window.localStorage.setItem(
+      "orider:impersonation",
+      JSON.stringify({ targetUid: "target-uid", by: {}, at: 1 }),
+    );
+
+    expect(readImpersonation()).toEqual({ status: "corrupt" });
+  });
+
+  it("reports an empty impersonation link instead of doing nothing", async () => {
+    setUrl("?impersonateToken=");
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+
+    expect(signInWithCustomToken).not.toHaveBeenCalled();
+    expect(takeImpersonationFailure()).toContain("토큰이 없습니다");
+    expect(logClientError).toHaveBeenCalledWith(
+      "Impersonation.emptyToken",
+      expect.any(Error),
+      {},
+    );
+  });
+
   it("treats state without a target uid as corrupt", () => {
     window.localStorage.setItem("orider:impersonation", JSON.stringify({ by: "moon", at: 1 }));
 

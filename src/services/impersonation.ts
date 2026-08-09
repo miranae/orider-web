@@ -65,7 +65,12 @@ export function readImpersonation(): ImpersonationRead {
   }
   try {
     const state = JSON.parse(raw) as ImpersonationState;
-    if (typeof state?.targetUid !== "string" || !state.targetUid) {
+    // by/at 까지 검증한다 — by 가 객체면 배너가 React 자식으로 렌더하다 앱이 죽는다.
+    if (
+      typeof state?.targetUid !== "string" || !state.targetUid ||
+      typeof state.by !== "string" ||
+      typeof state.at !== "number" || !Number.isFinite(state.at)
+    ) {
       throw new Error("impersonation/state-malformed");
     }
     return { status: "active", state };
@@ -86,7 +91,9 @@ function writeImpersonationState(state: ImpersonationState): boolean {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     return window.localStorage.getItem(STORAGE_KEY) !== null;
-  } catch {
+  } catch (e) {
+    // 호출자는 합성 에러만 기록하므로 QuotaExceededError·SecurityError 원본을 여기서 남긴다.
+    logClientError("Impersonation.stateWriteThrew", e, { targetUid: state.targetUid });
     return false;
   }
 }
@@ -131,7 +138,14 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
   if (stashedToken === null) stashImpersonationToken();
   const token = stashedToken;
   stashedToken = null;
-  if (!token) return;
+  if (token === null) return;
+  if (!token) {
+    // `?impersonateToken=` 처럼 빈 값 — 잘못 만들어진 링크다. 조용히 넘기면 다른 실패와
+    // 달리 아무 흔적이 남지 않는다.
+    logClientError("Impersonation.emptyToken", new Error("impersonation/empty-token"), {});
+    notifyImpersonationFailure("위임 링크에 토큰이 없습니다. 관리자 페이지에서 다시 발급해 주세요.");
+    return;
+  }
 
   // 기존 세션이 있으면 먼저 signOut — 새 위임 세션으로 깔끔하게 전환.
   // 실패하면 여기서 중단한다. 그대로 진행했다가 토큰 로그인까지 실패하면 이전 계정
