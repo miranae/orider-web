@@ -27,6 +27,8 @@ export function explicitOriginRejectionReason(
   if (activityStartEpochMs != null) {
     if (Math.abs(rawOrigin - activityStartEpochMs) < 1000) return null;
     const matchesLegacyEnrichment = routeStartEpochMs != null
+      // V1 `relative_seconds` slots are integer buckets. The caller validates
+      // the full axis first; keep the helper fail-closed when called directly.
       && Number.isSafeInteger(firstSensorOffsetSec)
       && firstSensorOffsetSec >= 0
       && firstSensorOffsetSec <= LEGACY_GPS_START_REWRITE_MAX_OFFSET_SECONDS

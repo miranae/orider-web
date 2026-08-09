@@ -4,6 +4,7 @@ import {
   buildActivityAnalysisProjection,
   deriveStreamSensorSummary,
 } from "./activityDetailDerived";
+import { explicitOriginRejectionReason } from "./sensorChannelContract";
 
 const relativeTime = Array.from({ length: 20 }, (_, index) => index);
 
@@ -222,6 +223,18 @@ describe("SensorStreamsV1 origin provenance", () => {
       undefined,
       routeStartMs,
     )?.powerSource).toBe(expectedSource);
+  });
+
+  it("rejects a fractional retained offset outside the integer-second V1 axis contract", () => {
+    const originMs = 1_700_000_000_000;
+    const routeStartMs = originMs + 1500;
+
+    expect(explicitOriginRejectionReason(
+      originMs,
+      1.5,
+      routeStartMs,
+      routeStartMs,
+    )).toBe("origin_mismatch");
   });
 
   it("falls back to an absolute route origin when activity start is absent", () => {
