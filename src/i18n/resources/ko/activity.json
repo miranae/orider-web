@@ -499,7 +499,18 @@
     "zones": {
       "hr": "심박 존",
       "power": "파워 존",
-      "powerKj": "존별 일량 (kJ)"
+      "powerKj": "존별 일량 (kJ)",
+      "timelineTitle": "존 타임라인",
+      "timelineDesc": "운동 시간 순서로 본 심박·파워 강도 구간입니다. 휴식 시간은 존 체류 시간에 더하지 않습니다.",
+      "timelineDuration": "운동 시간 {{duration}}",
+      "timelineSeconds": "{{count}}초",
+      "timelineMinutes": "{{count}}분",
+      "timelineHours": "{{count}}시간",
+      "timelineHoursMinutes": "{{hours}}시간 {{minutes}}분",
+      "timelineAria": "운동 시간 {{duration}} 기준 심박 및 파워 존 타임라인",
+      "timelineInterval": "{{start}}–{{end}} · {{zone}}",
+      "timelineNoData": "분류할 수 없는 구간",
+      "timelineAccessible": "각 줄은 왼쪽부터 오른쪽 순서로 진행한 운동 시간이며, 색상은 존 번호가 높을수록 강도가 높습니다."
     },
     "empty": {
       "noStreamsTitle": "분석 차트를 만들 스트림 데이터가 아직 없어요",

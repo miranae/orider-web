@@ -20,9 +20,11 @@ interface ServerMetricsBannerProps {
 const LOW_CONFIDENCE = 0.5;
 
 function fmtSec(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
+  const rounded = Math.round(sec);
+  const h = Math.floor(rounded / 3600);
+  const m = Math.floor((rounded % 3600) / 60);
+  const s = rounded % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 /** peakHr 1/5/20m 중 존재하는 것을 묶어 한 줄에 표시. */

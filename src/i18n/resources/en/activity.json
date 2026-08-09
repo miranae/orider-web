@@ -499,7 +499,18 @@
     "zones": {
       "hr": "HR Zones",
       "power": "Power Zones",
-      "powerKj": "Work per zone (kJ)"
+      "powerKj": "Work per zone (kJ)",
+      "timelineTitle": "Zone timeline",
+      "timelineDesc": "Heart-rate and power intensity in workout-time order. Pauses do not add zone time.",
+      "timelineDuration": "Workout time {{duration}}",
+      "timelineSeconds": "{{count}} sec",
+      "timelineMinutes": "{{count}} min",
+      "timelineHours": "{{count}} hr",
+      "timelineHoursMinutes": "{{hours}} hr {{minutes}} min",
+      "timelineAria": "Heart-rate and power zone timeline over {{duration}} of workout time",
+      "timelineInterval": "{{start}}–{{end}} · {{zone}}",
+      "timelineNoData": "Unclassified interval",
+      "timelineAccessible": "Each row runs from earlier to later workout time; higher zone numbers use higher-intensity colors."
     },
     "empty": {
       "noStreamsTitle": "No analysis stream data yet",
