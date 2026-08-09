@@ -492,7 +492,7 @@ function explicitCoverageRejectionReason(
   if (routeStartEpochMs == null) return null;
   const firstSensorEpochMs = rawOrigin + explicitTime[0]! * 1000;
   return Number.isSafeInteger(firstSensorEpochMs)
-    && Math.abs(firstSensorEpochMs - routeStartEpochMs) < 1000
+    && Math.abs(firstSensorEpochMs - routeStartEpochMs) <= 1000
     ? null
     : "origin_mismatch";
 }

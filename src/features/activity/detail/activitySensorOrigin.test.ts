@@ -213,6 +213,18 @@ describe("SensorStreamsV1 origin provenance", () => {
     expect(deriveStreamSensorSummary(streams as never)?.powerSource).toBe("sensorStreamsV1");
   });
 
+  it.each([
+    [1_000, "sensorStreamsV1"],
+    [1_001, null],
+  ])("keeps the route-only compatibility boundary at %d ms", (offsetMs, expectedSource) => {
+    const originMs = 1_700_000_000_000;
+    const route = relativeTime.map((seconds) => originMs + offsetMs + seconds * 1000);
+
+    expect(deriveStreamSensorSummary(
+      streamsWithOrigin(route, originMs) as never,
+    )?.powerSource).toBe(expectedSource);
+  });
+
   it("accepts self-contained V1 origin metadata when only a relative route exists", () => {
     expect(deriveStreamSensorSummary(
       streamsWithOrigin(relativeTime, 1_700_000_000_000) as never,
