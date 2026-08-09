@@ -40,14 +40,17 @@ function getServerSnapshot(): ImpersonationRead {
 }
 
 export default function ImpersonationBanner() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { showToast } = useToast();
 
   // 로그아웃하면 남은 위임 상태를 정리한다 — 그대로 두면 같은 계정으로 정상 로그인했을
-  // 때 uid 만 맞아 정상 세션이 위임 세션으로 오인된다. (렌더 중이 아니라 effect 에서)
+  // 때 uid 만 맞아 정상 세션이 위임 세션으로 오인된다. 단 인증 복원 중(loading)에는
+  // user 가 잠시 비므로 건드리지 않는다 — 새로고침 직후 표식을 지워버리면 복원된 위임
+  // 세션에 배너가 없다.
   useEffect(() => {
+    if (loading) return;
     if (!user && readImpersonation().status !== "none") clearImpersonationState();
-  }, [user]);
+  }, [loading, user]);
   // 렌더 시점 1회 읽기로는 다른 탭의 로그인·상태 기록을 놓쳐 "배너 없는 위임 세션" 이
   // 다음 우연한 렌더까지 지속된다. storage 이벤트와 자체 변경 알림을 함께 구독한다.
   const read = useSyncExternalStore(subscribeImpersonation, readImpersonationSnapshot, getServerSnapshot);
@@ -56,7 +59,7 @@ export default function ImpersonationBanner() {
   // 단 값이 깨진 경우(corrupt)는 대상 uid 를 대조할 수 없어도 배너를 띄운다 —
   // 위임 중인데 배너가 없는 상태가 이 컴포넌트가 막으려는 최악의 경우다.
   const state = read.status === "active" ? read.state : null;
-  if (!user) return null;
+  if (loading || !user) return null;
   if (read.status === "none") return null;
   if (state && state.targetUid !== user.uid) return null;
 

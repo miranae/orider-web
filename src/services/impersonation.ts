@@ -22,9 +22,6 @@ import { logClientError } from "./errorLogger";
 
 const TOKEN_PARAM = "impersonateToken";
 const STORAGE_KEY = "orider:impersonation";
-// 위임 토큰 TTL 이 1시간이라 그보다 오래된 상태는 그 세션의 것이 아니다. 일반 로그아웃
-// 뒤 같은 계정으로 정상 로그인했을 때 옛 상태가 되살아나 배너가 뜨는 것을 막는다.
-const STATE_MAX_AGE_MS = 60 * 60 * 1000;
 
 export interface ImpersonationState {
   /** 위임을 시작한 관리자 식별자 (CLI=쉘 USER, 웹=adminUid). */
@@ -92,10 +89,6 @@ export function readImpersonation(): ImpersonationRead {
     ) {
       throw new Error("impersonation/state-malformed");
     }
-    if (Date.now() - state.at > STATE_MAX_AGE_MS) {
-      clearImpersonationState();
-      return { status: "none" };
-    }
     return { status: "active", state };
   } catch (e) {
     logClientError("Impersonation.readCorrupt", e, { rawLength: raw.length });
@@ -156,27 +149,28 @@ export function stashImpersonationToken(): void {
   // 쿼리스트링보다 유출면이 좁다. admin 링크가 fragment 로 옮겨가면 쿼리 경로는 뺀다.
   const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
   const hashToken = hashParams.get(TOKEN_PARAM);
+  const queryToken = url.searchParams.get(TOKEN_PARAM);
+  if (hashToken === null && queryToken === null) return;
+
+  // 둘 다 실려 있어도 양쪽 모두 지운다 — 한쪽만 지우면 남은 자격증명이 주소창·Referer 로
+  // 계속 노출된다. 사용할 값은 유출면이 좁은 fragment 를 우선한다.
+  stashedToken = hashToken ?? queryToken;
   if (hashToken !== null) {
-    stashedToken = hashToken;
     hashParams.delete(TOKEN_PARAM);
     const rest = hashParams.toString();
     url.hash = rest ? `#${rest}` : "";
-    window.history.replaceState(window.history.state, "", url.toString());
-    return;
   }
-
-  const token = url.searchParams.get(TOKEN_PARAM);
-  if (token === null) return;
-  stashedToken = token;
   url.searchParams.delete(TOKEN_PARAM);
   window.history.replaceState(window.history.state, "", url.toString());
   // 쿼리로 온 토큰은 이미 호스팅/CDN 접근 로그에 남았다 — 발급측(admin)이 fragment 로
   // 옮기도록 추적한다. 여기서 지우는 건 주소창·Referer·클라이언트 관측만 막는다.
-  logClientError(
-    "Impersonation.tokenInQueryString",
-    new Error("impersonation/token-in-query"),
-    { tokenLength: token.length },
-  );
+  if (queryToken !== null) {
+    logClientError(
+      "Impersonation.tokenInQueryString",
+      new Error("impersonation/token-in-query"),
+      { tokenLength: queryToken.length },
+    );
+  }
 }
 
 export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> {
@@ -251,6 +245,7 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
         new Error("impersonation/state-write-failed"),
         { tokenLength, targetUid: cred.user.uid },
       );
+      notifyImpersonationFailure("위임 상태를 저장하지 못해 로그아웃했습니다. 브라우저 저장소 설정을 확인해 주세요.");
     }
   } catch (e) {
     // 만료(TTL 1시간)·잘못된 토큰이 대부분이라 사용자에게는 로그인 화면이 그대로 남는다.

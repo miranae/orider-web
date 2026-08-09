@@ -225,15 +225,27 @@ describe("impersonation token consumer", () => {
     );
   });
 
-  // 위임 토큰 TTL 이 1시간 — 그보다 오래된 상태는 그 세션의 것이 아니다.
-  it("expires impersonation state older than the token ttl", () => {
+  // 세션은 남는데 배너만 사라지는 상태를 만들지 않는다 — 정리는 로그아웃 시점에 한다.
+  it("keeps an old impersonation state while the session is still active", () => {
     window.localStorage.setItem(
       "orider:impersonation",
       JSON.stringify({ targetUid: "target-uid", by: "moon", at: Date.now() - 2 * 60 * 60 * 1000 }),
     );
 
-    expect(readImpersonation()).toEqual({ status: "none" });
-    expect(window.localStorage.getItem("orider:impersonation")).toBeNull();
+    expect(readImpersonation()).toMatchObject({ status: "active" });
+  });
+
+  it("clears both token locations when the link carries each", async () => {
+    window.history.replaceState({}, "", "/ko/?impersonateToken=q-tok#impersonateToken=h-tok");
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+
+    stashImpersonationToken();
+
+    expect(window.location.search).toBe("");
+    expect(window.location.hash).toBe("");
+    // stash 는 모듈 상태다 — 다음 케이스로 새지 않게 소비한다.
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+    expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "h-tok");
   });
 
   it("treats an object issuer as corrupt instead of crashing the banner", () => {
@@ -277,7 +289,7 @@ describe("impersonation token consumer", () => {
     expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "tok-hash");
   });
 
-  it("flags a token that arrived in the query string", () => {
+  it("flags a token that arrived in the query string", async () => {
     setUrl("?impersonateToken=tok-123");
 
     stashImpersonationToken();
@@ -287,6 +299,8 @@ describe("impersonation token consumer", () => {
       expect.any(Error),
       expect.objectContaining({ tokenLength: 7 }),
     );
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never); // stash 소비
   });
 
   it("notifies subscribers when the session state changes", async () => {
