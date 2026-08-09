@@ -152,25 +152,29 @@ export function stashImpersonationToken(): void {
   const queryToken = url.searchParams.get(TOKEN_PARAM);
   if (hashToken === null && queryToken === null) return;
 
-  // 둘 다 실려 있어도 양쪽 모두 지운다 — 한쪽만 지우면 남은 자격증명이 주소창·Referer 로
-  // 계속 노출된다. 사용할 값은 유출면이 좁은 fragment 를 우선한다.
-  stashedToken = hashToken ?? queryToken;
+  // 토큰은 fragment 로만 받는다. 쿼리스트링은 최초 문서 요청에 실려 호스팅·CDN·프록시
+  // 접근 로그와 Referer 에 1시간 유효한 자격증명을 남기므로, 여기서 지운다고 이미 나간
+  // 노출이 되돌려지지 않는다 — 쓰지 않고 거부한다(발급측은 fragment 로 보낸다).
   if (hashToken !== null) {
+    stashedToken = hashToken;
     hashParams.delete(TOKEN_PARAM);
     const rest = hashParams.toString();
     url.hash = rest ? `#${rest}` : "";
   }
-  url.searchParams.delete(TOKEN_PARAM);
-  window.history.replaceState(window.history.state, "", url.toString());
-  // 쿼리로 온 토큰은 이미 호스팅/CDN 접근 로그에 남았다 — 발급측(admin)이 fragment 로
-  // 옮기도록 추적한다. 여기서 지우는 건 주소창·Referer·클라이언트 관측만 막는다.
   if (queryToken !== null) {
+    url.searchParams.delete(TOKEN_PARAM);
     logClientError(
       "Impersonation.tokenInQueryString",
-      new Error("impersonation/token-in-query"),
-      { tokenLength: queryToken.length },
+      new Error("impersonation/token-in-query-rejected"),
+      { tokenLength: queryToken.length, usedFragment: hashToken !== null },
     );
+    if (hashToken === null) {
+      notifyImpersonationFailure(
+        "이 위임 링크는 더 이상 사용할 수 없습니다(토큰이 주소에 노출되는 옛 형식). 관리자 페이지에서 다시 발급해 주세요.",
+      );
+    }
   }
+  window.history.replaceState(window.history.state, "", url.toString());
 }
 
 export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> {

@@ -30,6 +30,11 @@ function setUrl(search: string) {
   window.history.replaceState({}, "", `/ko/${search}`);
 }
 
+/** 토큰은 fragment 로만 받는다 — 대부분의 케이스는 이 경로다. */
+function setTokenUrl(token: string) {
+  window.history.replaceState({}, "", `/ko/#impersonateToken=${token}`);
+}
+
 function credential(claims: Record<string, unknown>, uid = "target-uid") {
   return { user: { uid, getIdTokenResult: async () => ({ claims }) } };
 }
@@ -51,7 +56,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("signs in with the token and records who issued the session", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     signInWithCustomToken.mockResolvedValue(
       credential({ impersonated: true, impersonatedBy: "moon" }),
     );
@@ -63,17 +68,17 @@ describe("impersonation token consumer", () => {
   });
 
   it("strips the token from the url so it cannot leak via address bar or referer", async () => {
-    setUrl("?impersonateToken=tok-123&sport=run");
+    window.history.replaceState({}, "", "/ko/?sport=run#impersonateToken=tok-123");
     signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
 
     await applyImpersonationTokenFromUrl({ currentUser: null } as never);
 
     expect(window.location.search).toBe("?sport=run");
-    expect(hasImpersonationTokenInUrl()).toBe(false);
+    expect(window.location.hash).toBe("");
   });
 
   it("signs out an existing session before switching", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
 
     await applyImpersonationTokenFromUrl({ currentUser: { uid: "someone" } } as never);
@@ -82,7 +87,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("logs a failed sign-in instead of silently doing nothing", async () => {
-    setUrl("?impersonateToken=expired");
+    setTokenUrl("expired");
     signInWithCustomToken.mockRejectedValue(new Error("auth/invalid-custom-token"));
 
     await applyImpersonationTokenFromUrl({ currentUser: null } as never);
@@ -98,7 +103,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("does not record state when the token carries no impersonation claim", async () => {
-    setUrl("?impersonateToken=plain");
+    setTokenUrl("plain");
     signInWithCustomToken.mockResolvedValue(credential({}));
 
     await applyImpersonationTokenFromUrl({ currentUser: null } as never);
@@ -108,7 +113,7 @@ describe("impersonation token consumer", () => {
 
   // 배너 없는 위임 세션이 최악 — 위임임을 확정 못한 로그인은 세션째 끊는다.
   it("signs the session out when the token has no impersonation claim", async () => {
-    setUrl("?impersonateToken=plain");
+    setTokenUrl("plain");
     signInWithCustomToken.mockResolvedValue(credential({}));
 
     await applyImpersonationTokenFromUrl({ currentUser: null } as never);
@@ -122,7 +127,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("signs the session out when claims cannot be read", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     signInWithCustomToken.mockResolvedValue({
       user: { uid: "target-uid", getIdTokenResult: async () => { throw new Error("network"); } },
     });
@@ -141,7 +146,7 @@ describe("impersonation token consumer", () => {
   // 전환 로그아웃이 실패했는데 계속 진행하면, 토큰 로그인까지 실패했을 때 기존
   // (관리자) 세션이 남은 채 마운트돼 위임된 줄 알고 자기 계정을 만지게 된다.
   it("aborts when the pre-switch sign-out fails", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     signOut.mockRejectedValueOnce(new Error("auth/network-request-failed"));
     await applyImpersonationTokenFromUrl({ currentUser: { uid: "someone" } } as never);
 
@@ -158,7 +163,7 @@ describe("impersonation token consumer", () => {
 
   // 정리 로그아웃까지 실패하면 인증된 세션이 남는다 — 배너가 뜨도록 상태를 남긴다.
   it("keeps the banner visible when the cleanup sign-out also fails", async () => {
-    setUrl("?impersonateToken=plain");
+    setTokenUrl("plain");
     signInWithCustomToken.mockResolvedValue(credential({}));
     signOut.mockRejectedValue(new Error("auth/network-request-failed"));
 
@@ -171,7 +176,7 @@ describe("impersonation token consumer", () => {
 
   // 스토리지 쓰기까지 막힌 환경 — 메모리 fallback 으로라도 배너를 띄운다.
   it("falls back to memory when the banner state cannot be stored at all", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
     signOut.mockRejectedValue(new Error("auth/network-request-failed"));
     const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
@@ -192,7 +197,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("tells the admin why an expired impersonation link did nothing", async () => {
-    setUrl("?impersonateToken=expired");
+    setTokenUrl("expired");
     signInWithCustomToken.mockRejectedValue(new Error("auth/invalid-custom-token"));
 
     await applyImpersonationTokenFromUrl({ currentUser: null } as never);
@@ -258,7 +263,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("reports an empty impersonation link instead of doing nothing", async () => {
-    setUrl("?impersonateToken=");
+    setTokenUrl("");
 
     await applyImpersonationTokenFromUrl({ currentUser: null } as never);
 
@@ -289,22 +294,25 @@ describe("impersonation token consumer", () => {
     expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "tok-hash");
   });
 
-  it("flags a token that arrived in the query string", async () => {
+  // 쿼리 토큰은 이미 접근 로그·Referer 에 남은 자격증명이라 쓰지 않고 거부한다.
+  it("rejects a token that arrived in the query string", async () => {
     setUrl("?impersonateToken=tok-123");
 
     stashImpersonationToken();
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
 
+    expect(signInWithCustomToken).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("");
+    expect(takeImpersonationFailure()).toContain("다시 발급");
     expect(logClientError).toHaveBeenCalledWith(
       "Impersonation.tokenInQueryString",
       expect.any(Error),
       expect.objectContaining({ tokenLength: 7 }),
     );
-    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
-    await applyImpersonationTokenFromUrl({ currentUser: null } as never); // stash 소비
   });
 
   it("notifies subscribers when the session state changes", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
     const listener = vi.fn();
     const unsubscribe = subscribeImpersonation(listener);
@@ -326,7 +334,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("consumes a token stashed earlier by the module body", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     stashImpersonationToken();
     signInWithCustomToken.mockResolvedValue(credential({ impersonated: true, impersonatedBy: "moon" }));
 
@@ -337,7 +345,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("signs out when the impersonation state cannot be stored", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
     const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("QuotaExceededError");
@@ -356,7 +364,7 @@ describe("impersonation token consumer", () => {
   });
 
   it("removes the token from the url before awaiting any async auth work", async () => {
-    setUrl("?impersonateToken=tok-123");
+    setTokenUrl("tok-123");
     let urlDuringSignIn = "";
     signInWithCustomToken.mockImplementation(async () => {
       urlDuringSignIn = window.location.search;
