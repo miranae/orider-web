@@ -32,12 +32,43 @@ export interface ImpersonationState {
   targetUid: string;
 }
 
-export function readImpersonationState(): ImpersonationState | null {
-  if (typeof window === "undefined") return null;
+/**
+ * 저장된 위임 상태 읽기 결과.
+ *
+ * `corrupt` 를 별도로 돌려주는 이유: 값이 깨졌다고 배너를 숨기면 이 기능이 막으려던
+ * "배너 없는 위임 세션" 이 그대로 재현된다. 대상 uid 를 모르더라도 위임 중임은 알린다.
+ */
+export type ImpersonationRead =
+  | { status: "none" }
+  | { status: "active"; state: ImpersonationState }
+  | { status: "corrupt" };
+
+export function readImpersonation(): ImpersonationRead {
+  if (typeof window === "undefined") return { status: "none" };
+  let raw: string | null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as ImpersonationState) : null;
-  } catch { return null; }
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    // 스토리지 접근 자체가 막힌 환경 — 위임 여부를 판단할 근거가 없으므로 기록만 남긴다.
+    logClientError("Impersonation.readBlocked", e, {});
+    return { status: "none" };
+  }
+  if (!raw) return { status: "none" };
+  try {
+    const state = JSON.parse(raw) as ImpersonationState;
+    if (typeof state?.targetUid !== "string" || !state.targetUid) {
+      throw new Error("impersonation/state-malformed");
+    }
+    return { status: "active", state };
+  } catch (e) {
+    logClientError("Impersonation.readCorrupt", e, { rawLength: raw.length });
+    return { status: "corrupt" };
+  }
+}
+
+export function readImpersonationState(): ImpersonationState | null {
+  const read = readImpersonation();
+  return read.status === "active" ? read.state : null;
 }
 
 /** 저장 성공 여부를 돌려준다 — 상태 없이 세션만 남으면 배너가 뜨지 않는다. */
@@ -88,12 +119,17 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
   if (!token) return;
 
   // 기존 세션이 있으면 먼저 signOut — 새 위임 세션으로 깔끔하게 전환.
+  // 실패하면 여기서 중단한다. 그대로 진행했다가 토큰 로그인까지 실패하면 이전 계정
+  // (대개 관리자 본인) 세션이 남은 채 마운트돼, 위임된 줄 알고 자기 계정을 만지게 된다.
   if (auth.currentUser) {
     try {
       await signOut(auth);
     } catch (e) {
-      // 전환 실패를 삼키면 이전 계정 세션이 남은 채 위임이 시작된 것처럼 보인다.
       logClientError("Impersonation.signOutBeforeSwitch", e, { hadUser: true });
+      notifyImpersonationFailure(
+        "이전 세션 로그아웃에 실패해 위임 로그인을 중단했습니다. 아직 기존 계정으로 로그인된 상태입니다.",
+      );
+      return;
     }
   }
   clearImpersonationState();
@@ -143,6 +179,16 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
       tokenLength,
     });
   }
+}
+
+/**
+ * 위임 실패는 조용히 넘기지 않는다 — 이 경로는 마운트 전(토스트 컨텍스트 없음)이라
+ * 관리자에게 즉시 보이는 수단이 alert 뿐이다. 관리자 전용 흐름이라 일반 사용자에게는
+ * 뜨지 않는다(토큰이 URL 에 있을 때만 도달).
+ */
+function notifyImpersonationFailure(message: string): void {
+  if (typeof window === "undefined") return;
+  window.alert(message);
 }
 
 /** 위임임을 확정하지 못한 세션은 남기지 않는다 — 배너 없는 위임 세션이 최악의 상태다. */

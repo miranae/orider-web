@@ -19,6 +19,7 @@ const {
   applyImpersonationTokenFromUrl,
   clearImpersonationState,
   hasImpersonationTokenInUrl,
+  readImpersonation,
   readImpersonationState,
   stashImpersonationToken,
 } = await import("./impersonation");
@@ -134,18 +135,41 @@ describe("impersonation token consumer", () => {
     );
   });
 
-  it("logs a failed pre-switch sign-out instead of swallowing it", async () => {
+  // 전환 로그아웃이 실패했는데 계속 진행하면, 토큰 로그인까지 실패했을 때 기존
+  // (관리자) 세션이 남은 채 마운트돼 위임된 줄 알고 자기 계정을 만지게 된다.
+  it("aborts when the pre-switch sign-out fails", async () => {
     setUrl("?impersonateToken=tok-123");
     signOut.mockRejectedValueOnce(new Error("auth/network-request-failed"));
-    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
 
     await applyImpersonationTokenFromUrl({ currentUser: { uid: "someone" } } as never);
 
+    expect(signInWithCustomToken).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalled();
+    alert.mockRestore();
     expect(logClientError).toHaveBeenCalledWith(
       "Impersonation.signOutBeforeSwitch",
       expect.any(Error),
       expect.objectContaining({ hadUser: true }),
     );
+  });
+
+  it("reports corrupt stored state instead of hiding the session", () => {
+    window.localStorage.setItem("orider:impersonation", "{not-json");
+
+    expect(readImpersonation()).toEqual({ status: "corrupt" });
+    expect(readImpersonationState()).toBeNull();
+    expect(logClientError).toHaveBeenCalledWith(
+      "Impersonation.readCorrupt",
+      expect.any(Error),
+      expect.objectContaining({ rawLength: expect.any(Number) }),
+    );
+  });
+
+  it("treats state without a target uid as corrupt", () => {
+    window.localStorage.setItem("orider:impersonation", JSON.stringify({ by: "moon", at: 1 }));
+
+    expect(readImpersonation()).toEqual({ status: "corrupt" });
   });
 
   // Sentry Replay 는 init 시점 URL 을 녹화한다 — main.tsx 모듈 본문에서 먼저 걷어낸다.

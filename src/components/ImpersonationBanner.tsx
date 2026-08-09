@@ -10,16 +10,22 @@ import { signOut } from "firebase/auth";
 import { useAuth } from "../contexts/AuthContext";
 import { logClientError } from "../services/errorLogger";
 import { auth } from "../services/firebase";
-import { clearImpersonationState, readImpersonationState } from "../services/impersonation";
+import { clearImpersonationState, readImpersonation } from "../services/impersonation";
 
 export default function ImpersonationBanner() {
   const { user, profile } = useAuth();
-  const state = readImpersonationState();
+  const read = readImpersonation();
 
   // 로그아웃했거나 다른 계정으로 갈아탄 뒤 남은 stale 상태는 배너를 띄우지 않는다.
-  if (!state || !user || state.targetUid !== user.uid) return null;
+  // 단 값이 깨진 경우(corrupt)는 대상 uid 를 대조할 수 없어도 배너를 띄운다 —
+  // 위임 중인데 배너가 없는 상태가 이 컴포넌트가 막으려는 최악의 경우다.
+  const state = read.status === "active" ? read.state : null;
+  if (!user) return null;
+  if (read.status === "none") return null;
+  if (state && state.targetUid !== user.uid) return null;
 
   const name = profile?.nickname ?? user.email ?? user.uid;
+  const issuedBy = state?.by ?? "확인 불가";
 
   async function onExit() {
     // 로그아웃이 성공해야 상태를 지운다 — 먼저 지우면 signOut 실패 시 위임 계정으로
@@ -42,7 +48,7 @@ export default function ImpersonationBanner() {
       style={{ color: "var(--ink-0)", fontSize: "var(--fs-sm)" }}
     >
       <span className="flex-1">
-        위임 세션 — <strong>{name}</strong> 으로 로그인 중 (발급: {state.by})
+        위임 세션 — <strong>{name}</strong> 으로 로그인 중 (발급: {issuedBy})
       </span>
       <button
         type="button"
