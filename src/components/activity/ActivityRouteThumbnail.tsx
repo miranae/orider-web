@@ -393,7 +393,9 @@ interface CanonicalMapThumbnailCrop {
 
 /**
  * Mapbox GL은 fractional CSS viewport를 올림한 뒤 DPR을 곱해 backing canvas를 만든다.
- * DPR 2에서 가능한 1 logical px 반올림만 중앙 crop으로 제거하고 그 외 크기는 fail-closed한다.
+ * 캡처 DPR을 2로 낮추는 시도가 통하지 않는 기기(예: DPR 3 iOS Safari)도 있으므로,
+ * canonical 종횡비를 유지한 중앙 영역을 잡아 고정 해상도로 축소한다.
+ * 1 logical px 반올림을 넘는 종횡비 어긋남만 fail-closed한다.
  */
 export function getCanonicalMapThumbnailCrop(
   canvasWidth: number,
@@ -408,19 +410,26 @@ export function getCanonicalMapThumbnailCrop(
     throw new Error(`map-thumbnail/canvas-too-small:${canvasWidth}x${canvasHeight}`);
   }
 
-  const extraWidth = canvasWidth - MAP_THUMBNAIL_WIDTH;
-  const extraHeight = canvasHeight - MAP_THUMBNAIL_HEIGHT;
-  const isExpectedRounding = (extra: number) =>
-    extra === 0 || extra === MAP_THUMBNAIL_PIXEL_RATIO;
-  if (!isExpectedRounding(extraWidth) || !isExpectedRounding(extraHeight)) {
+  // 실제 캡처 DPR — 두 축 모두를 덮는 정수 배율. 요청한 2를 무시하는 기기는 3(iOS)으로 잡힌다.
+  const capturedPixelRatio = Math.floor(Math.min(
+    canvasWidth / MAP_THUMBNAIL_VIEWPORT_WIDTH,
+    canvasHeight / MAP_THUMBNAIL_VIEWPORT_HEIGHT,
+  ));
+  const scale = capturedPixelRatio / MAP_THUMBNAIL_PIXEL_RATIO;
+  const sourceWidth = MAP_THUMBNAIL_WIDTH * scale;
+  const sourceHeight = MAP_THUMBNAIL_HEIGHT * scale;
+  const extraWidth = canvasWidth - sourceWidth;
+  const extraHeight = canvasHeight - sourceHeight;
+  // 남는 폭은 1 logical px 반올림(= DPR device px)까지만. 그 이상이면 다른 뷰포트에서 찍힌 캔버스다.
+  if (extraWidth > capturedPixelRatio || extraHeight > capturedPixelRatio) {
     throw new Error(`map-thumbnail/canvas-size-invalid:${canvasWidth}x${canvasHeight}`);
   }
 
   return {
     sourceX: extraWidth / 2,
     sourceY: extraHeight / 2,
-    sourceWidth: MAP_THUMBNAIL_WIDTH,
-    sourceHeight: MAP_THUMBNAIL_HEIGHT,
+    sourceWidth,
+    sourceHeight,
   };
 }
 
@@ -432,6 +441,9 @@ export function copyCanonicalMapThumbnailCanvas(mapCanvas: HTMLCanvasElement): H
   const context = output.getContext("2d");
   if (!context) throw new Error("map-thumbnail/canvas-context-unavailable");
 
+  // DPR 3 캡처는 canonical 해상도로 축소되므로 다운스케일 품질을 명시한다.
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
   context.drawImage(
     mapCanvas,
     crop.sourceX,
