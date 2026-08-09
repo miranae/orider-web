@@ -100,6 +100,65 @@ describe("impersonation token consumer", () => {
 
     expect(readImpersonationState()).toBeNull();
   });
+
+  // 배너 없는 위임 세션이 최악 — 위임임을 확정 못한 로그인은 세션째 끊는다.
+  it("signs the session out when the token has no impersonation claim", async () => {
+    setUrl("?impersonateToken=plain");
+    signInWithCustomToken.mockResolvedValue(credential({}));
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+
+    expect(signOut).toHaveBeenCalled();
+    expect(logClientError).toHaveBeenCalledWith(
+      "Impersonation.missingClaim",
+      expect.any(Error),
+      expect.anything(),
+    );
+  });
+
+  it("signs the session out when claims cannot be read", async () => {
+    setUrl("?impersonateToken=tok-123");
+    signInWithCustomToken.mockResolvedValue({
+      user: { uid: "target-uid", getIdTokenResult: async () => { throw new Error("network"); } },
+    });
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+
+    expect(signOut).toHaveBeenCalled();
+    expect(readImpersonationState()).toBeNull();
+    expect(logClientError).toHaveBeenCalledWith(
+      "Impersonation.getIdTokenResult",
+      expect.any(Error),
+      expect.anything(),
+    );
+  });
+
+  it("logs a failed pre-switch sign-out instead of swallowing it", async () => {
+    setUrl("?impersonateToken=tok-123");
+    signOut.mockRejectedValueOnce(new Error("auth/network-request-failed"));
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+
+    await applyImpersonationTokenFromUrl({ currentUser: { uid: "someone" } } as never);
+
+    expect(logClientError).toHaveBeenCalledWith(
+      "Impersonation.signOutBeforeSwitch",
+      expect.any(Error),
+      expect.objectContaining({ hadUser: true }),
+    );
+  });
+
+  it("removes the token from the url before awaiting any async auth work", async () => {
+    setUrl("?impersonateToken=tok-123");
+    let urlDuringSignIn = "";
+    signInWithCustomToken.mockImplementation(async () => {
+      urlDuringSignIn = window.location.search;
+      return credential({ impersonated: true });
+    });
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+
+    expect(urlDuringSignIn).not.toContain("impersonateToken");
+  });
 });
 
 describe("scrubUrlCredentials", () => {

@@ -8,6 +8,7 @@
 import { signOut } from "firebase/auth";
 
 import { useAuth } from "../contexts/AuthContext";
+import { logClientError } from "../services/errorLogger";
 import { auth } from "../services/firebase";
 import { clearImpersonationState, readImpersonationState } from "../services/impersonation";
 
@@ -21,12 +22,17 @@ export default function ImpersonationBanner() {
   const name = profile?.nickname ?? user.email ?? user.uid;
 
   async function onExit() {
-    clearImpersonationState();
+    // 로그아웃이 성공해야 상태를 지운다 — 먼저 지우면 signOut 실패 시 위임 계정으로
+    // 인증된 채 배너만 사라져, 관리자가 남의 계정임을 모르고 작업하게 된다.
     try {
       await signOut(auth);
-    } finally {
-      window.location.href = "/";
+    } catch (e) {
+      logClientError("ImpersonationBanner.exit", e, { targetUid: state?.targetUid });
+      window.alert("위임 세션 종료에 실패했습니다. 아직 위임 계정으로 로그인된 상태이니 다시 시도해 주세요.");
+      return;
     }
+    clearImpersonationState();
+    window.location.href = "/";
   }
 
   return (
