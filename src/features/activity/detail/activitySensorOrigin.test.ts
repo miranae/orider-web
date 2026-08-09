@@ -206,6 +206,24 @@ describe("SensorStreamsV1 origin provenance", () => {
     )?.powerSource).toBe("sensorStreamsV1");
   });
 
+  it.each([
+    ["upper boundary", 300, "sensorStreamsV1"],
+    ["one second beyond the boundary", 301, null],
+    ["huge compensating offset", 1_000_000_000, null],
+  ])("bounds GPS-rewritten legacy origin compatibility at the %s", (_case, offsetSec, expectedSource) => {
+    const originMs = 1_700_000_000_000;
+    const routeStartMs = originMs + offsetSec * 1000;
+    const route = relativeTime.map((seconds) => routeStartMs + seconds * 1000);
+    const streams = streamsWithOrigin(route, originMs);
+    streams.sensorStreamsV1.time = relativeTime.map((seconds) => seconds + offsetSec);
+
+    expect(deriveStreamSensorSummary(
+      streams as never,
+      undefined,
+      routeStartMs,
+    )?.powerSource).toBe(expectedSource);
+  });
+
   it("falls back to an absolute route origin when activity start is absent", () => {
     const routeStartMs = 1_700_000_000_000;
     const route = relativeTime.map((seconds) => routeStartMs + seconds * 1000);
