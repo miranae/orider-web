@@ -20,6 +20,7 @@ const {
   clearImpersonationState,
   hasImpersonationTokenInUrl,
   readImpersonationState,
+  stashImpersonationToken,
 } = await import("./impersonation");
 
 function setUrl(search: string) {
@@ -144,6 +145,46 @@ describe("impersonation token consumer", () => {
       "Impersonation.signOutBeforeSwitch",
       expect.any(Error),
       expect.objectContaining({ hadUser: true }),
+    );
+  });
+
+  // Sentry Replay 는 init 시점 URL 을 녹화한다 — main.tsx 모듈 본문에서 먼저 걷어낸다.
+  it("stashes the token out of the url synchronously before any async work", () => {
+    setUrl("?impersonateToken=tok-123&sport=run");
+
+    stashImpersonationToken();
+
+    expect(window.location.search).toBe("?sport=run");
+    expect(hasImpersonationTokenInUrl()).toBe(false);
+  });
+
+  it("consumes a token stashed earlier by the module body", async () => {
+    setUrl("?impersonateToken=tok-123");
+    stashImpersonationToken();
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true, impersonatedBy: "moon" }));
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+
+    expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "tok-123");
+    expect(readImpersonationState()).toMatchObject({ by: "moon" });
+  });
+
+  it("signs out when the impersonation state cannot be stored", async () => {
+    setUrl("?impersonateToken=tok-123");
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+    setItem.mockRestore();
+
+    expect(signOut).toHaveBeenCalled();
+    expect(readImpersonationState()).toBeNull();
+    expect(logClientError).toHaveBeenCalledWith(
+      "Impersonation.stateWriteFailed",
+      expect.any(Error),
+      expect.anything(),
     );
   });
 

@@ -40,9 +40,15 @@ export function readImpersonationState(): ImpersonationState | null {
   } catch { return null; }
 }
 
-function writeImpersonationState(state: ImpersonationState) {
-  if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* ignore */ }
+/** 저장 성공 여부를 돌려준다 — 상태 없이 세션만 남으면 배너가 뜨지 않는다. */
+function writeImpersonationState(state: ImpersonationState): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return window.localStorage.getItem(STORAGE_KEY) !== null;
+  } catch {
+    return false;
+  }
 }
 
 export function clearImpersonationState() {
@@ -56,16 +62,30 @@ export function hasImpersonationTokenInUrl(): boolean {
   return new URLSearchParams(window.location.search).has(TOKEN_PARAM);
 }
 
-export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> {
+let stashedToken: string | null = null;
+
+/**
+ * 모듈 로드 직후 동기 호출(main.tsx 본문): URL 에서 위임 토큰을 꺼내 내부 보관하고
+ * 주소에서 제거한다. Sentry(특히 Replay) · 에러 리스너 · 후속 리소스 로드가 토큰이
+ * 실린 URL 을 관측하는 창을 없앤다 — handoff 코드와 같은 계약이다.
+ */
+export function stashImpersonationToken(): void {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   const token = url.searchParams.get(TOKEN_PARAM);
-  if (!token) return;
-
-  // 토큰은 읽은 즉시 주소에서 지운다 — 아래 비동기 구간(수 초) 동안 주소창·Referer·
-  // 관측 시스템에 실제 자격증명이 남아 있지 않게 한다.
+  if (token === null) return;
+  stashedToken = token;
   url.searchParams.delete(TOKEN_PARAM);
-  window.history.replaceState({}, "", url.toString());
+  window.history.replaceState(window.history.state, "", url.toString());
+}
+
+export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> {
+  if (typeof window === "undefined") return;
+  // stash 를 놓친 경로(테스트·직접 호출)도 여기서 동기적으로 URL 을 정리한다.
+  if (stashedToken === null) stashImpersonationToken();
+  const token = stashedToken;
+  stashedToken = null;
+  if (!token) return;
 
   // 기존 세션이 있으면 먼저 signOut — 새 위임 세션으로 깔끔하게 전환.
   if (auth.currentUser) {
@@ -100,11 +120,21 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
       );
       return;
     }
-    writeImpersonationState({
+    const recorded = writeImpersonationState({
       by: typeof claims.impersonatedBy === "string" ? claims.impersonatedBy : "admin",
       at: Date.now(),
       targetUid: cred.user.uid,
     });
+    if (!recorded) {
+      // localStorage 가 막힌 환경(사파리 프라이빗·용량 초과·정책 차단)에서는 배너가 읽을
+      // 상태가 없다. 세션만 남기면 위임 중임을 알 수 없으므로 시작하지 않는다.
+      await abandonUnverifiedImpersonation(
+        auth,
+        "Impersonation.stateWriteFailed",
+        new Error("impersonation/state-write-failed"),
+        { tokenLength },
+      );
+    }
   } catch (e) {
     // 만료(TTL 1시간)·잘못된 토큰이 대부분이라 사용자에게는 로그인 화면이 그대로 남는다.
     // 조용히 삼키면 "눌렀는데 아무 일도 없다"가 되므로 반드시 기록한다.

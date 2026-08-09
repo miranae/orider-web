@@ -9,7 +9,7 @@ import { DialogProvider } from "./contexts/DialogContext";
 import { OriderThemeProvider } from "./theme";
 import { auth, ensureAppCheckReady, initFirebase } from "./services/firebase";
 import { consumeAppHandoffCode, stashHandoffCode } from "./services/appHandoff";
-import { applyImpersonationTokenFromUrl } from "./services/impersonation";
+import { applyImpersonationTokenFromUrl, stashImpersonationToken } from "./services/impersonation";
 import ImpersonationBanner from "./components/ImpersonationBanner";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
@@ -26,6 +26,9 @@ import App from "./App";
 // 앱→웹 로그인 인계 코드는 **모듈 본문 첫 문장**에서 URL 로부터 제거해 보관 —
 // 에러 리스너/Sentry/후속 리소스 로드가 코드 포함 URL 을 관측하는 창을 최소화(리뷰 MINOR).
 stashHandoffCode();
+// 위임 로그인 토큰도 같은 이유로 모듈 본문에서 즉시 URL 에서 제거해 보관한다 —
+// TTL 1시간짜리 실제 자격증명이라 Sentry Replay 초기 녹화에 남으면 그대로 유출된다.
+stashImpersonationToken();
 
 installSlowFetchTracker();
 
