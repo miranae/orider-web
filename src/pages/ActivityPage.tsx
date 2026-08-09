@@ -6,6 +6,7 @@ import ElevationChart from "../components/ElevationChart";
 import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
 import AnalysisTab from "../components/AnalysisTab";
+import { ActivityZoneTimeline } from "../components/activity/ActivityZoneTimeline";
 import { resolveAnalysisSummaryTiming } from "../features/activity/detail/analysisSummaryTiming";
 import LapTable from "../components/LapTable";
 import ExportTab from "../components/ExportTab";
@@ -1190,6 +1191,18 @@ export default function ActivityPage() {
             separateOverlayLanes={chartOverlays.length > 0}
             highlightRange={chartHighlightRange}
           />
+          {analysisProjection && (
+            <ActivityZoneTimeline
+              streams={analysisProjection.streams}
+              sensorHeartRate={analysisProjection.heartRate}
+              sensorPower={analysisProjection.power}
+              sensorSelectionContext={sensorSelectionContext}
+              summary={resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics)}
+              sport={sport}
+              startTime={activity.startTime}
+              isOwner={isActivityOwner}
+            />
+          )}
         </Card>
       )}
 
