@@ -22,6 +22,7 @@ const {
   readImpersonation,
   readImpersonationState,
   stashImpersonationToken,
+  subscribeImpersonation,
   takeImpersonationFailure,
 } = await import("./impersonation");
 
@@ -250,6 +251,42 @@ describe("impersonation token consumer", () => {
     window.localStorage.setItem("orider:impersonation", JSON.stringify({ by: "moon", at: 1 }));
 
     expect(readImpersonation()).toEqual({ status: "corrupt" });
+  });
+
+  // fragment 는 최초 문서 요청·Referer 에 실리지 않아 쿼리스트링보다 유출면이 좁다.
+  it("prefers a token delivered in the url fragment", async () => {
+    window.history.replaceState({}, "", "/ko/#impersonateToken=tok-hash&tab=a");
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+
+    stashImpersonationToken();
+    expect(window.location.hash).toBe("#tab=a");
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+    expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "tok-hash");
+  });
+
+  it("flags a token that arrived in the query string", () => {
+    setUrl("?impersonateToken=tok-123");
+
+    stashImpersonationToken();
+
+    expect(logClientError).toHaveBeenCalledWith(
+      "Impersonation.tokenInQueryString",
+      expect.any(Error),
+      expect.objectContaining({ tokenLength: 7 }),
+    );
+  });
+
+  it("notifies subscribers when the session state changes", async () => {
+    setUrl("?impersonateToken=tok-123");
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+    const listener = vi.fn();
+    const unsubscribe = subscribeImpersonation(listener);
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+    unsubscribe();
+
+    expect(listener).toHaveBeenCalled();
   });
 
   // Sentry Replay 는 init 시점 URL 을 녹화한다 — main.tsx 모듈 본문에서 먼저 걷어낸다.

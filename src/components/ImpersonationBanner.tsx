@@ -5,18 +5,46 @@
  * 데이터를 수정할 수 있다. 그래서 Layout 이 아니라 앱 최상위에서 렌더해 모든 페이지에
  * 일관되게 뜨도록 한다.
  */
+import { useSyncExternalStore } from "react";
 import { signOut } from "firebase/auth";
 
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { logClientError } from "../services/errorLogger";
 import { auth } from "../services/firebase";
-import { clearImpersonationState, readImpersonation } from "../services/impersonation";
+import {
+  clearImpersonationState,
+  readImpersonation,
+  subscribeImpersonation,
+  type ImpersonationRead,
+} from "../services/impersonation";
+
+const NONE: ImpersonationRead = { status: "none" };
+let snapshot: ImpersonationRead = NONE;
+
+/** useSyncExternalStore 는 안정된 참조를 요구한다 — 값이 같으면 이전 객체를 그대로 준다. */
+function readImpersonationSnapshot(): ImpersonationRead {
+  const next = readImpersonation();
+  if (
+    next.status !== snapshot.status ||
+    (next.status === "active" && snapshot.status === "active" &&
+      (next.state.targetUid !== snapshot.state.targetUid || next.state.by !== snapshot.state.by))
+  ) {
+    snapshot = next;
+  }
+  return snapshot;
+}
+
+function getServerSnapshot(): ImpersonationRead {
+  return NONE;
+}
 
 export default function ImpersonationBanner() {
   const { user, profile } = useAuth();
   const { showToast } = useToast();
-  const read = readImpersonation();
+  // 렌더 시점 1회 읽기로는 다른 탭의 로그인·상태 기록을 놓쳐 "배너 없는 위임 세션" 이
+  // 다음 우연한 렌더까지 지속된다. storage 이벤트와 자체 변경 알림을 함께 구독한다.
+  const read = useSyncExternalStore(subscribeImpersonation, readImpersonationSnapshot, getServerSnapshot);
 
   // 로그아웃했거나 다른 계정으로 갈아탄 뒤 남은 stale 상태는 배너를 띄우지 않는다.
   // 단 값이 깨진 경우(corrupt)는 대상 uid 를 대조할 수 없어도 배너를 띄운다 —

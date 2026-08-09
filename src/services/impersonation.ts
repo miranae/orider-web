@@ -50,6 +50,22 @@ export type ImpersonationRead =
  */
 let memoryFallback: ImpersonationState | null = null;
 
+const listeners = new Set<() => void>();
+
+/** 상태 변화 구독 — 배너가 렌더 시점 1회 읽기에 머물지 않게 한다. */
+export function subscribeImpersonation(listener: () => void): () => void {
+  listeners.add(listener);
+  if (typeof window !== "undefined") window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    if (typeof window !== "undefined") window.removeEventListener("storage", listener);
+  };
+}
+
+function notifyImpersonationChanged() {
+  for (const listener of listeners) listener();
+}
+
 export function readImpersonation(): ImpersonationRead {
   if (typeof window === "undefined") return { status: "none" };
   let raw: string | null;
@@ -90,7 +106,9 @@ function writeImpersonationState(state: ImpersonationState): boolean {
   if (typeof window === "undefined") return false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return window.localStorage.getItem(STORAGE_KEY) !== null;
+    const stored = window.localStorage.getItem(STORAGE_KEY) !== null;
+    if (stored) notifyImpersonationChanged();
+    return stored;
   } catch (e) {
     // 호출자는 합성 에러만 기록하므로 QuotaExceededError·SecurityError 원본을 여기서 남긴다.
     logClientError("Impersonation.stateWriteThrew", e, { targetUid: state.targetUid });
@@ -100,6 +118,7 @@ function writeImpersonationState(state: ImpersonationState): boolean {
 
 export function clearImpersonationState() {
   memoryFallback = null;
+  notifyImpersonationChanged();
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(STORAGE_KEY);
@@ -125,11 +144,32 @@ let stashedToken: string | null = null;
 export function stashImpersonationToken(): void {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
+
+  // 우선순위: URL fragment. fragment 는 최초 문서 요청에도, Referer 에도 실리지 않아
+  // 쿼리스트링보다 유출면이 좁다. admin 링크가 fragment 로 옮겨가면 쿼리 경로는 뺀다.
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+  const hashToken = hashParams.get(TOKEN_PARAM);
+  if (hashToken !== null) {
+    stashedToken = hashToken;
+    hashParams.delete(TOKEN_PARAM);
+    const rest = hashParams.toString();
+    url.hash = rest ? `#${rest}` : "";
+    window.history.replaceState(window.history.state, "", url.toString());
+    return;
+  }
+
   const token = url.searchParams.get(TOKEN_PARAM);
   if (token === null) return;
   stashedToken = token;
   url.searchParams.delete(TOKEN_PARAM);
   window.history.replaceState(window.history.state, "", url.toString());
+  // 쿼리로 온 토큰은 이미 호스팅/CDN 접근 로그에 남았다 — 발급측(admin)이 fragment 로
+  // 옮기도록 추적한다. 여기서 지우는 건 주소창·Referer·클라이언트 관측만 막는다.
+  logClientError(
+    "Impersonation.tokenInQueryString",
+    new Error("impersonation/token-in-query"),
+    { tokenLength: token.length },
+  );
 }
 
 export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> {
@@ -252,6 +292,7 @@ async function abandonUnverifiedImpersonation(
       // 떠야 하므로 메모리 fallback 을 함께 세운다.
       memoryFallback = state;
       writeImpersonationState(state);
+      notifyImpersonationChanged();
     }
     notifyImpersonationFailure(
       "위임 세션 정리에 실패했습니다. 아직 대상 사용자로 로그인된 상태이니 즉시 로그아웃해 주세요.",
