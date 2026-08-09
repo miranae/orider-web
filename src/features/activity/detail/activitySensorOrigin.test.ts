@@ -4,6 +4,7 @@ import {
   buildActivityAnalysisProjection,
   deriveStreamSensorSummary,
 } from "./activityDetailDerived";
+import { explicitOriginRejectionReason } from "./sensorChannelContract";
 
 const relativeTime = Array.from({ length: 20 }, (_, index) => index);
 
@@ -204,6 +205,36 @@ describe("SensorStreamsV1 origin provenance", () => {
       undefined,
       routeStartMs,
     )?.powerSource).toBe("sensorStreamsV1");
+  });
+
+  it.each([
+    ["upper boundary", 300, "sensorStreamsV1"],
+    ["one second beyond the boundary", 301, null],
+    ["huge compensating offset", 1_000_000_000, null],
+  ])("bounds GPS-rewritten legacy origin compatibility at the %s", (_case, offsetSec, expectedSource) => {
+    const originMs = 1_700_000_000_000;
+    const routeStartMs = originMs + offsetSec * 1000;
+    const route = relativeTime.map((seconds) => routeStartMs + seconds * 1000);
+    const streams = streamsWithOrigin(route, originMs);
+    streams.sensorStreamsV1.time = relativeTime.map((seconds) => seconds + offsetSec);
+
+    expect(deriveStreamSensorSummary(
+      streams as never,
+      undefined,
+      routeStartMs,
+    )?.powerSource).toBe(expectedSource);
+  });
+
+  it("rejects a fractional retained offset outside the integer-second V1 axis contract", () => {
+    const originMs = 1_700_000_000_000;
+    const routeStartMs = originMs + 1500;
+
+    expect(explicitOriginRejectionReason(
+      originMs,
+      1.5,
+      routeStartMs,
+      routeStartMs,
+    )).toBe("origin_mismatch");
   });
 
   it("falls back to an absolute route origin when activity start is absent", () => {

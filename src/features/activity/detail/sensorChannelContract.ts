@@ -5,6 +5,8 @@ import { normalizeEpochMilliseconds } from "../../../utils/timestampUnit";
 export const EXPLICIT_SENSOR_MIN_AXIS_COVERAGE = 0.5;
 /** Measured (non-null) share required among the slots an axis actually retained. */
 export const EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE = 0.95;
+/** Maximum plausible delay before the first GPS fix in rewritten legacy uploads. */
+export const LEGACY_GPS_START_REWRITE_MAX_OFFSET_SECONDS = 300;
 
 /**
  * App uploads bind both values to session start, but legacy server enrichment
@@ -25,6 +27,11 @@ export function explicitOriginRejectionReason(
   if (activityStartEpochMs != null) {
     if (Math.abs(rawOrigin - activityStartEpochMs) < 1000) return null;
     const matchesLegacyEnrichment = routeStartEpochMs != null
+      // V1 `relative_seconds` slots are integer buckets. The caller validates
+      // the full axis first; keep the helper fail-closed when called directly.
+      && Number.isSafeInteger(firstSensorOffsetSec)
+      && firstSensorOffsetSec >= 0
+      && firstSensorOffsetSec <= LEGACY_GPS_START_REWRITE_MAX_OFFSET_SECONDS
       && Math.abs(activityStartEpochMs - routeStartEpochMs) <= 1000
       && Math.abs(firstSensorEpochMs - routeStartEpochMs) <= 1000;
     return matchesLegacyEnrichment ? null : "origin_mismatch";
