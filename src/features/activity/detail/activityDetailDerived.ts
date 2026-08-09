@@ -480,9 +480,9 @@ function explicitCoverageRejectionReason(
   // first retained bucket and must not participate in the provenance check.
   const activityStartEpochMs = normalizeEpochMs(activityStartTime);
   if (activityStartEpochMs != null) {
-    // The activity document can be recomputed from the first GPS point while
-    // the V1 baseline comes from the session start. They may land on opposite
-    // sides of one epoch-second boundary, but not a full second apart.
+    // The parent activity owns the canonical session start; a delayed GPS fix
+    // must not override it. Persistence and epoch-second bucketing may straddle
+    // one boundary, but cannot move the session by a full second.
     return Math.abs(rawOrigin - activityStartEpochMs) < 1000
       ? null
       : "origin_mismatch";
