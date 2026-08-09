@@ -476,12 +476,8 @@ function explicitCoverageRejectionReason(
 
   const routeTime = runtimeArray<number>(streams.time);
   const routeStart = routeTime?.[0];
-  // SensorStreamsV1 is recorded independently of GPS acquisition. The activity
-  // start is therefore authoritative; an absolute first GPS fix is only a
-  // fallback when the activity record cannot provide a usable start time.
-  // The app stores an epoch-second baseline independently from the retained
-  // samples. `time[0]` is the first bucket that survived merging, so it may be
-  // greater than zero and must not be treated as the stream's provenance.
+  // V1 origin is the app's epoch-second session baseline. `time[0]` is only the
+  // first retained bucket and must not participate in the provenance check.
   const activityStartEpochMs = normalizeEpochMs(activityStartTime);
   if (activityStartEpochMs != null) {
     // The activity document can be recomputed from the first GPS point while
@@ -491,10 +487,7 @@ function explicitCoverageRejectionReason(
       ? null
       : "origin_mismatch";
   }
-
-  // Without the authoritative activity start, retain the legacy compatibility
-  // check against the first absolute GPS sample. A delayed GPS fix may line up
-  // with a later retained sensor bucket even though the V1 baseline is earlier.
+  // Without activity start, retain first-sensor/route correlation for compatibility.
   const routeStartEpochMs = normalizeEpochMs(routeStart);
   if (routeStartEpochMs == null) return null;
   const firstSensorEpochMs = rawOrigin + explicitTime[0]! * 1000;
@@ -783,10 +776,8 @@ export function selectActivityPowerStream(
         context.activityStartTime,
       );
       if (coverageRejection) {
-        const rejection: SensorRejectionDiagnostic = {
-          channel: "power", source: "sensorStreamsV1", reason: coverageRejection,
-          axisLength: explicitTime.length, channelLength: explicitWatts?.length,
-        };
+        const rejection: SensorRejectionDiagnostic = { channel: "power", source: "sensorStreamsV1",
+          reason: coverageRejection, axisLength: explicitTime.length, channelLength: explicitWatts?.length };
         return coverageRejection === "origin_mismatch"
           ? fallbackPowerAfterRejectedV1(streams, context, rejection)
           : { source: null, values: null, finiteValues: [], hasCandidate: true, rejection };
@@ -983,19 +974,11 @@ export function selectActivityHeartRateStream(
       context.activityStartTime,
     );
     if (coverageRejection) {
-      const rejection: SensorRejectionDiagnostic = {
-        channel: "heart_rate", source: "sensorStreamsV1", reason: coverageRejection,
-        axisLength: explicitTime.length, channelLength: explicitHeartRate.length,
-      };
+      const rejection: SensorRejectionDiagnostic = { channel: "heart_rate", source: "sensorStreamsV1",
+        reason: coverageRejection, axisLength: explicitTime.length, channelLength: explicitHeartRate.length };
       return coverageRejection === "origin_mismatch"
         ? fallbackHeartRateAfterRejectedV1(streams, context, rejection)
-        : {
-          source: null,
-          values: null,
-          positiveValues: [],
-          hasRejectedMeasurement: true,
-          rejection,
-        };
+        : { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true, rejection };
     }
     if (!hasRetainedSlotMeasurementCoverage(explicitPositive.length, explicitHeartRate.length)) {
       return {
