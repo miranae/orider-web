@@ -1201,6 +1201,8 @@ export default function ActivityPage() {
               sport={sport}
               startTime={activity.startTime}
               isOwner={isActivityOwner}
+              activityContextMaxHr={serverMetrics.metrics?.contextSnapshot?.maxHr}
+              activityContextLthr={serverMetrics.metrics?.contextSnapshot?.lthr}
             />
           )}
         </Card>

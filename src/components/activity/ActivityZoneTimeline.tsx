@@ -28,11 +28,14 @@ interface ActivityZoneTimelineProps {
   sport?: "ride" | "run" | "swim" | "other";
   startTime?: number | null;
   isOwner: boolean;
+  activityContextMaxHr?: number;
+  activityContextLthr?: number;
 }
 
 /** Overview-only zone sequence, sharing the analysis tab's sensor selection rules. */
 export function ActivityZoneTimeline({
   streams, sensorHeartRate, sensorPower, sensorSelectionContext, summary, sport, startTime, isOwner,
+  activityContextMaxHr, activityContextLthr,
 }: ActivityZoneTimelineProps) {
   const { t } = useTranslation("activity");
   const { profile } = useAuth();
@@ -46,6 +49,8 @@ export function ActivityZoneTimeline({
     sport,
     profileMaxHr: profile?.maxHr,
     profileLthr: profile?.lthr,
+    activityContextMaxHr,
+    activityContextLthr,
     streamMaxHr: streams.maxHr,
     summaryPeakHr: summary?.maxHeartRate,
   }).zones;
