@@ -4,6 +4,7 @@ import type { VirtualPowerParams } from "../../../utils/virtualPower";
 
 import {
   explicitAxisRejectionReason,
+  explicitOriginRejectionReason,
   hasDenseArraySlots,
   hasValidExplicitSensorChannelValues,
   hasValidLegacySensorChannelValues,
@@ -475,26 +476,12 @@ function explicitCoverageRejectionReason(
   }
 
   const routeTime = runtimeArray<number>(streams.time);
-  const routeStart = routeTime?.[0];
-  // V1 origin is the app's epoch-second session baseline. `time[0]` is only the
-  // first retained bucket and must not participate in the provenance check.
-  const activityStartEpochMs = normalizeEpochMs(activityStartTime);
-  if (activityStartEpochMs != null) {
-    // The parent activity owns the canonical session start; a delayed GPS fix
-    // must not override it. Persistence and epoch-second bucketing may straddle
-    // one boundary, but cannot move the session by a full second.
-    return Math.abs(rawOrigin - activityStartEpochMs) < 1000
-      ? null
-      : "origin_mismatch";
-  }
-  // Without activity start, retain first-sensor/route correlation for compatibility.
-  const routeStartEpochMs = normalizeEpochMs(routeStart);
-  if (routeStartEpochMs == null) return null;
-  const firstSensorEpochMs = rawOrigin + explicitTime[0]! * 1000;
-  return Number.isSafeInteger(firstSensorEpochMs)
-    && Math.abs(firstSensorEpochMs - routeStartEpochMs) <= 1000
-    ? null
-    : "origin_mismatch";
+  return explicitOriginRejectionReason(
+    rawOrigin,
+    explicitTime[0]!,
+    activityStartTime,
+    routeTime?.[0],
+  );
 }
 
 function persistedNumericArray(value: unknown, allowNegative: boolean): number[] | undefined {

@@ -191,6 +191,21 @@ describe("SensorStreamsV1 origin provenance", () => {
     expect(summary.rejections).toContainEqual(expect.objectContaining({ reason: "origin_mismatch" }));
   });
 
+  it("accepts a legacy parent start rewritten to the correlated first GPS fix", () => {
+    const originMs = 1_700_000_000_000;
+    const delayedRelativeTime = relativeTime.map((seconds) => seconds + 5);
+    const routeStartMs = originMs + 5_000;
+    const route = relativeTime.map((seconds) => routeStartMs + seconds * 1000);
+    const streams = streamsWithOrigin(route, originMs);
+    streams.sensorStreamsV1.time = delayedRelativeTime;
+
+    expect(deriveStreamSensorSummary(
+      streams as never,
+      undefined,
+      routeStartMs,
+    )?.powerSource).toBe("sensorStreamsV1");
+  });
+
   it("falls back to an absolute route origin when activity start is absent", () => {
     const routeStartMs = 1_700_000_000_000;
     const route = relativeTime.map((seconds) => routeStartMs + seconds * 1000);
