@@ -1,6 +1,13 @@
 import "@testing-library/jest-dom/vitest";
+import { configure } from "@testing-library/react";
 import "./mocks/firebaseMockSetup";
 import "./mocks/i18nTestSetup";
+
+// findBy*/waitFor 기본 대기는 1초라, 무거운 페이지(ActivityPage 등)를 렌더하는 테스트가
+// 러너 부하에 따라 "Unable to find role=..." 로 간헐 실패한다 — 실행마다 케이스가 바뀌어
+// 코드 회귀로 오해하기 쉽다 (2026-08-09 CI check 가 승격을 반복 차단). 테스트 자체의
+// testTimeout 과 균형을 맞춰 5초로 올린다.
+configure({ asyncUtilTimeout: 5_000 });
 
 // matchMedia mock (for dark mode, responsive)
 Object.defineProperty(window, "matchMedia", {

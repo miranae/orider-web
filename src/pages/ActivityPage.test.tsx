@@ -974,16 +974,21 @@ describe("ActivityPage", () => {
     setCallableResult("createCourseFromActivity", { data: { courseId: "memory-course" } });
     setCallableResult("sendCourseToApp", { data: {} });
 
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    // 이 테스트가 도중에 실패하면 Storage 스파이가 남아 뒤따르는 테스트가 전부 "blocked" 로
+    // 죽는다 — 원인 케이스를 가리므로 복원은 finally 에서 보장한다.
+    try {
+      renderWithProviders(<ActivityPage />, { authenticated: true });
+      fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
 
-    expect(await findSentButton()).toBeDisabled();
-    expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);
-    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
-      { name: "sendCourseToApp", data: { courseId: "memory-course" } },
-    ]);
-    getItem.mockRestore();
-    setItem.mockRestore();
+      expect(await findSentButton()).toBeDisabled();
+      expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);
+      expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+        { name: "sendCourseToApp", data: { courseId: "memory-course" } },
+      ]);
+    } finally {
+      getItem.mockRestore();
+      setItem.mockRestore();
+    }
   }, 15_000);
 
   it("discards a pending create result when the activity route changes", async () => {
