@@ -1,17 +1,23 @@
 /**
  * 관리자 위임 로그인 — URL 토큰 핸들러 + 세션 상태.
  *
- * `?impersonateToken=<customToken>` 쿼리가 있으면 Firebase signInWithCustomToken 으로 그
- * 토큰의 사용자(=위임 대상)로 로그인하고 URL 에서 쿼리를 제거한다.
+ * `#impersonateToken=<customToken>` **fragment** 가 있으면 Firebase signInWithCustomToken
+ * 으로 그 토큰의 사용자(=위임 대상)로 로그인하고 URL 에서 제거한다.
+ *
+ * fragment 전용인 이유: 쿼리스트링은 최초 문서 요청에 실려 호스팅·CDN·프록시 접근 로그와
+ * same-origin Referer 에 1시간 유효한 실제 자격증명을 남긴다. 클라이언트에서 지워도 이미
+ * 나간 뒤라 되돌릴 수 없으므로, 옛 형식(`?impersonateToken=`)은 쓰지 않고 거부한다.
  *
  * 위임 상태는 localStorage 에 저장한다 — Firebase 는 토큰 자동 갱신 시 custom token 의
  * claims 를 보존하지 않아, 토큰 기반 검출은 새로고침·갱신 후 사라진다(영구 보존은
  * setCustomUserClaims 뿐). 그래서 sign-in 직후 claims 가 아직 살아있을 때 추출해 둔다.
  *
- * 토큰 발급 경로:
+ * 토큰 발급 경로 (둘 다 fragment 로 링크를 만든다):
  *   - 웹: admin.orider.co.kr `/admin/impersonate` → CF `adminImpersonate`
  *     (admin claim 검증 + admin_audit 감사로그) → 이 앱으로 리다이렉트
+ *     (miranae/orider-admin-web#12 에서 fragment 전환)
  *   - CLI: `node functions/admin-impersonate.mjs <email>` (admin SDK 직접 발급)
+ *     (miranae/orider-g1-web#1917 에서 fragment 전환)
  *
  * 보안 경계는 이 파일이 아니다 — 토큰 발급은 CF 의 admin claim 검증이, 데이터 접근은
  * Firestore rules 가 강제한다. 여기서는 발급된 토큰을 소비하고 위임 중임을 노출한다.
