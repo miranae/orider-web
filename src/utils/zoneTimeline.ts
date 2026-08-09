@@ -2,12 +2,24 @@ import { sampleDurationsSec, type SampleTiming } from "./sampleTime";
 import { makeRelSecAt, type StreamTimeArray } from "./streamTime";
 
 export interface ZoneTimelineBucket {
-  /** One-based zones represented in this effort-time interval; null means no valid sample. */
+  /** Dominant zone retained for programmatic consumers; null means no valid sample. */
   zone: number | null;
+  /**
+   * Duration-weighted zone composition of this effort-time interval. Missing
+   * coverage is explicitly represented by a null segment.
+   */
+  segments: ZoneTimelineSegment[];
   /** Pause-safe, cumulative effort-time bounds for this bucket. */
   startSec: number;
   endSec: number;
   /** Common axis duration: keeps every series column-aligned. */
+  durationSec: number;
+}
+
+export interface ZoneTimelineSegment {
+  /** One-based zone, or null when the sensor did not provide a valid value. */
+  zone: number | null;
+  /** Amount of the parent bucket occupied by this zone. */
   durationSec: number;
 }
 
@@ -199,6 +211,14 @@ export function buildZoneTimeline(
   }
 
   return buckets.map((candidates, index) => {
+    const durationSec = resolvedAxis.durationSec / bucketCount;
+    const classifiedDurationSec = [...candidates.values()].reduce((sum, seconds) => sum + seconds, 0);
+    // A stream can begin/end inside a bucket. Account for that uncovered part
+    // here so the UI never paints it as an adjacent measured zone.
+    const uncoveredDurationSec = Math.max(0, durationSec - classifiedDurationSec);
+    if (uncoveredDurationSec > 0) {
+      candidates.set(null, (candidates.get(null) ?? 0) + uncoveredDurationSec);
+    }
     let zone: number | null = null;
     let longestSec = -1;
     for (const [candidate, seconds] of candidates) {
@@ -208,11 +228,20 @@ export function buildZoneTimeline(
         longestSec = seconds;
       }
     }
+    const segments = [...candidates.entries()]
+      .filter(([, seconds]) => validDuration(seconds))
+      .sort(([left], [right]) => {
+        if (left == null) return right == null ? 0 : -1;
+        if (right == null) return 1;
+        return left - right;
+      })
+      .map(([candidate, seconds]) => ({ zone: candidate, durationSec: seconds }));
     return {
       zone,
+      segments,
       startSec: (index / bucketCount) * resolvedAxis.durationSec,
       endSec: ((index + 1) / bucketCount) * resolvedAxis.durationSec,
-      durationSec: resolvedAxis.durationSec / bucketCount,
+      durationSec,
     };
   });
 }
