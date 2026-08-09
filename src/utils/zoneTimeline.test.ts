@@ -73,6 +73,33 @@ describe("buildZoneTimeline", () => {
       .toEqual(power.map(({ startSec, endSec }) => ({ startSec, endSec })));
   });
 
+  it("keeps an explicit intermediate sensor gap unclassified on a summary moving-time axis", () => {
+    const timeline = buildZoneTimeline(
+      [100, 200, 300, 400],
+      [0, 10, 40, 50],
+      (value) => Math.ceil(value / 100),
+      { durationsSec: [10, 10, 10, 10], segmentStarts: [true, false, true, false] },
+      6,
+      { sourceStartSec: 0, sourceEndSec: 50, durationSec: 80 },
+    );
+
+    expect(timeline.map((bucket) => bucket.zone)).toEqual([1, 2, null, null, 3, 4]);
+    expect(timeline.every((bucket) => bucket.durationSec === 80 / 6)).toBe(true);
+  });
+
+  it("keeps the trailing portion unclassified when a stream ends before the shared axis", () => {
+    const timeline = buildZoneTimeline(
+      [100, 200],
+      [0, 10],
+      (value) => Math.ceil(value / 100),
+      { durationsSec: [10, 10] },
+      4,
+      { sourceStartSec: 0, sourceEndSec: 20, durationSec: 40 },
+    );
+
+    expect(timeline.map((bucket) => bucket.zone)).toEqual([1, 2, null, null]);
+  });
+
   it("lets a longer missing-value interval win its bucket over a shorter zone sample", () => {
     const timeline = buildZoneTimeline(
       [Number.NaN, 200],

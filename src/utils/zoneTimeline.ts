@@ -55,6 +55,41 @@ function hasTrustedRawCoverage(
 }
 
 /**
+ * Adds the elapsed hole between explicitly separate measured runs. The stream
+ * duration intentionally stays on the moving-time axis; this extra interval is
+ * only a display candidate, so a missing sensor run cannot inherit a zone.
+ */
+function segmentGapDurationsSec(
+  relativeTimes: readonly (number | null)[],
+  durations: readonly number[],
+  segmentStarts: readonly boolean[] | undefined,
+): number[] {
+  return durations.map((_, index) => {
+    if (index === 0 || segmentStarts?.[index] !== true) return 0;
+    const previousTime = relativeTimes[index - 1];
+    const startTime = relativeTimes[index];
+    if (previousTime == null || startTime == null) return 0;
+    // Moving-time summaries can replace supplied durations with uniform effort
+    // durations. Prefer an adjacent raw interval from either measured run to
+    // recover the elapsed sensor hole; fall back to the sample duration when
+    // neither run contains a neighbouring timestamp.
+    const neighbouringIntervals = [
+      index > 1 && segmentStarts?.[index - 1] !== true
+        ? previousTime - relativeTimes[index - 2]!
+        : undefined,
+      index + 1 < relativeTimes.length && segmentStarts?.[index + 1] !== true
+        ? relativeTimes[index + 1]! - startTime
+        : undefined,
+    ].filter(validDuration);
+    const previousDuration = neighbouringIntervals.length > 0
+      ? Math.min(...neighbouringIntervals)
+      : durations[index - 1];
+    if (!validDuration(previousDuration)) return 0;
+    return Math.max(0, startTime - previousTime - previousDuration);
+  });
+}
+
+/**
  * Finds one pause-safe effort axis for all sensor rows. Source timestamps retain
  * each stream's start/end and gaps; their span is scaled into moving time rather
  * than allowing an elapsed pause to become zone time.
@@ -135,11 +170,20 @@ export function buildZoneTimeline(
     const coverageEndSec = Math.max(coverageStartSec, Math.min(resolvedAxis.durationSec,
       ((Math.max(...validTimes) - resolvedAxis.sourceStartSec) / sourceSpanSec) * resolvedAxis.durationSec));
     const coverageDurationSec = coverageEndSec - coverageStartSec;
+    const gaps = segmentGapDurationsSec(relativeTimes, durations, timing?.segmentStarts);
+    const gapDurationSec = gaps.reduce((sum, duration) => sum + duration, 0);
+    const sourceDurationSec = timingDurationSec + gapDurationSec;
     let cursorSec = coverageStartSec;
     values.forEach((value, index) => {
       const durationSec = durations[index];
       if (!validDuration(durationSec)) return;
-      const nextSec = cursorSec + (durationSec / timingDurationSec) * coverageDurationSec;
+      const gapDuration = gaps[index] ?? 0;
+      if (gapDuration > 0 && validDuration(sourceDurationSec)) {
+        const nextGapSec = cursorSec + (gapDuration / sourceDurationSec) * coverageDurationSec;
+        addCandidate(null, cursorSec, nextGapSec);
+        cursorSec = nextGapSec;
+      }
+      const nextSec = cursorSec + (durationSec / sourceDurationSec) * coverageDurationSec;
       addCandidate(Number.isFinite(value) ? resolveZone(value) : null, cursorSec, nextSec);
       cursorSec = nextSec;
     });

@@ -274,7 +274,10 @@ export function resolveMovingTimeSampleTiming(
   const effortDurationSec = resolveProvidedMovingDurationSec(summary);
   if (series.values.length === 0 || effortDurationSec == null) return fallback;
 
-  return { durationsSec: Array(series.values.length).fill(effortDurationSec / series.values.length) };
+  return {
+    durationsSec: Array(series.values.length).fill(effortDurationSec / series.values.length),
+    segmentStarts: series.segmentStarts,
+  };
 }
 
 export function resolveProvidedMovingDurationSec(
@@ -309,13 +312,19 @@ export function selectMovingAnalysisSeries(
   // Explicit streams can use an independent sensor axis. Never apply a route-index
   // mask unless every index has the same meaning.
   if (!motion || motion.length !== series.values.length) return series;
+  const keptIndexes = motion.flatMap((isMoving, index) => isMoving ? [index] : []);
   const keep = <T,>(values: readonly T[] | undefined) => values?.filter((_, index) => motion[index]);
+  const segmentStarts = series.segmentStarts == null ? undefined : keptIndexes.map((sourceIndex, index) => (
+    index === 0
+      || series.segmentStarts?.[sourceIndex] === true
+      || sourceIndex !== keptIndexes[index - 1]! + 1
+  ));
   return {
     ...series,
     values: keep(series.values) ?? [],
     time: keep(series.time),
     durationsSec: keep(series.durationsSec),
-    segmentStarts: undefined,
+    segmentStarts,
   };
 }
 
