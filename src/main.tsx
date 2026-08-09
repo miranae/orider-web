@@ -7,8 +7,10 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { DialogProvider } from "./contexts/DialogContext";
 import { OriderThemeProvider } from "./theme";
-import { ensureAppCheckReady, initFirebase } from "./services/firebase";
+import { auth, ensureAppCheckReady, initFirebase } from "./services/firebase";
 import { consumeAppHandoffCode, stashHandoffCode } from "./services/appHandoff";
+import { applyImpersonationTokenFromUrl } from "./services/impersonation";
+import ImpersonationBanner from "./components/ImpersonationBanner";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
@@ -80,6 +82,7 @@ function mountApp() {
           <OriderThemeProvider>
             <AuthProvider>
               <ToastProvider>
+                <ImpersonationBanner />
                 <DialogProvider>
                   <App />
                 </DialogProvider>
@@ -118,6 +121,9 @@ loadRuntimeConfig()
   // 앱 → 웹 로그인 인계: ?handoff= 일회용 코드가 있으면 AuthProvider 마운트 전에
   // custom token 로그인까지 끝낸다 (코드 없으면 즉시 통과 — 초기 로딩 영향 없음).
   .then(consumeAppHandoffCode)
+  // 관리자 위임 로그인: ?impersonateToken= 이 있으면 마운트 전에 그 사용자로 로그인한다
+  // (토큰 없으면 즉시 통과). admin.orider.co.kr 의 지원 접근 페이지가 이 URL 로 보낸다.
+  .then(() => applyImpersonationTokenFromUrl(auth))
   .then(mountApp)
   .catch((err) => {
     captureError(err, { tags: { source: "firebase-init" } });
