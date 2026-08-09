@@ -5,7 +5,7 @@
  * 데이터를 수정할 수 있다. 그래서 Layout 이 아니라 앱 최상위에서 렌더해 모든 페이지에
  * 일관되게 뜨도록 한다.
  */
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { signOut } from "firebase/auth";
 
 import { useAuth } from "../contexts/AuthContext";
@@ -42,6 +42,12 @@ function getServerSnapshot(): ImpersonationRead {
 export default function ImpersonationBanner() {
   const { user, profile } = useAuth();
   const { showToast } = useToast();
+
+  // 로그아웃하면 남은 위임 상태를 정리한다 — 그대로 두면 같은 계정으로 정상 로그인했을
+  // 때 uid 만 맞아 정상 세션이 위임 세션으로 오인된다. (렌더 중이 아니라 effect 에서)
+  useEffect(() => {
+    if (!user && readImpersonation().status !== "none") clearImpersonationState();
+  }, [user]);
   // 렌더 시점 1회 읽기로는 다른 탭의 로그인·상태 기록을 놓쳐 "배너 없는 위임 세션" 이
   // 다음 우연한 렌더까지 지속된다. storage 이벤트와 자체 변경 알림을 함께 구독한다.
   const read = useSyncExternalStore(subscribeImpersonation, readImpersonationSnapshot, getServerSnapshot);

@@ -38,6 +38,7 @@ describe("impersonation token consumer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearImpersonationState();
+    takeImpersonationFailure(); // 모듈 상태 — 케이스 간 누수 차단
     setUrl("");
   });
 
@@ -222,6 +223,17 @@ describe("impersonation token consumer", () => {
       expect.any(Error),
       expect.objectContaining({ rawLength: expect.any(Number) }),
     );
+  });
+
+  // 위임 토큰 TTL 이 1시간 — 그보다 오래된 상태는 그 세션의 것이 아니다.
+  it("expires impersonation state older than the token ttl", () => {
+    window.localStorage.setItem(
+      "orider:impersonation",
+      JSON.stringify({ targetUid: "target-uid", by: "moon", at: Date.now() - 2 * 60 * 60 * 1000 }),
+    );
+
+    expect(readImpersonation()).toEqual({ status: "none" });
+    expect(window.localStorage.getItem("orider:impersonation")).toBeNull();
   });
 
   it("treats an object issuer as corrupt instead of crashing the banner", () => {

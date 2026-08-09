@@ -22,6 +22,9 @@ import { logClientError } from "./errorLogger";
 
 const TOKEN_PARAM = "impersonateToken";
 const STORAGE_KEY = "orider:impersonation";
+// 위임 토큰 TTL 이 1시간이라 그보다 오래된 상태는 그 세션의 것이 아니다. 일반 로그아웃
+// 뒤 같은 계정으로 정상 로그인했을 때 옛 상태가 되살아나 배너가 뜨는 것을 막는다.
+const STATE_MAX_AGE_MS = 60 * 60 * 1000;
 
 export interface ImpersonationState {
   /** 위임을 시작한 관리자 식별자 (CLI=쉘 USER, 웹=adminUid). */
@@ -88,6 +91,10 @@ export function readImpersonation(): ImpersonationRead {
       typeof state.at !== "number" || !Number.isFinite(state.at)
     ) {
       throw new Error("impersonation/state-malformed");
+    }
+    if (Date.now() - state.at > STATE_MAX_AGE_MS) {
+      clearImpersonationState();
+      return { status: "none" };
     }
     return { status: "active", state };
   } catch (e) {
@@ -216,6 +223,7 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
         tokenLength,
         targetUid: cred.user.uid,
       });
+      notifyImpersonationFailure("위임 세션을 확인하지 못해 로그아웃했습니다. 다시 시도해 주세요.");
       return;
     }
     if (claims.impersonated !== true) {
@@ -226,6 +234,7 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
         new Error("impersonation/claim-missing"),
         { tokenLength, targetUid: cred.user.uid },
       );
+      notifyImpersonationFailure("위임 토큰이 아니어서 로그아웃했습니다. 관리자 페이지에서 다시 발급해 주세요.");
       return;
     }
     const recorded = writeImpersonationState({
@@ -262,7 +271,8 @@ let failureMessage: string | null = null;
  * handoff 와 같은 계약으로 플래그만 세우고, App 이 마운트 직후 1회 읽어 노출한다.
  */
 function notifyImpersonationFailure(message: string): void {
-  failureMessage = message;
+  // 먼저 잡힌 실패가 더 구체적이고 심각하다(예: 정리 로그아웃 실패). 덮어쓰지 않는다.
+  if (failureMessage === null) failureMessage = message;
 }
 
 /** 마운트 후 1회 읽고 리셋 — 읽지 않으면 다음 렌더에서 중복 노출된다. */
