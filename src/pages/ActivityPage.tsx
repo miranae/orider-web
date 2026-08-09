@@ -1066,8 +1066,6 @@ export default function ActivityPage() {
       {/* ── Two-column layout: Main | Sidebar (개요 탭) ── */}
       {activeTab === "overview" && (
       <div className="flex flex-col lg:flex-row gap-6">
-
-
       {/* ── Left: 분석 / 스탯 / 사진 / 댓글 ── */}
       <div className="flex-1 min-w-0 space-y-6">
 
@@ -1191,20 +1189,7 @@ export default function ActivityPage() {
             separateOverlayLanes={chartOverlays.length > 0}
             highlightRange={chartHighlightRange}
           />
-          {analysisProjection && (
-            <ActivityZoneTimeline
-              streams={analysisProjection.streams}
-              sensorHeartRate={analysisProjection.heartRate}
-              sensorPower={analysisProjection.power}
-              sensorSelectionContext={sensorSelectionContext}
-              summary={resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics)}
-              sport={sport}
-              startTime={activity.startTime}
-              isOwner={isActivityOwner}
-              activityContextMaxHr={serverMetrics.metrics?.contextSnapshot?.maxHr}
-              activityContextLthr={serverMetrics.metrics?.contextSnapshot?.lthr}
-            />
-          )}
+          {analysisProjection && <ActivityZoneTimeline streams={analysisProjection.streams} sensorHeartRate={analysisProjection.heartRate} sensorPower={analysisProjection.power} sensorSelectionContext={sensorSelectionContext} summary={resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics)} sport={sport} startTime={activity.startTime} isOwner={isActivityOwner} activityContextMaxHr={serverMetrics.metrics?.contextSnapshot?.maxHr} activityContextLthr={serverMetrics.metrics?.contextSnapshot?.lthr} />}
         </Card>
       )}
 
