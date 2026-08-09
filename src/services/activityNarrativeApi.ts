@@ -282,10 +282,14 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
     forceRefresh: request.cacheOnly === true ? false : !!request.forceRefresh,
   });
 
-  await sleep(REST_NETWORK_RETRY_DELAY_MS);
-
   if (request.cacheOnly !== true) {
-    const generated = request.forceRefresh ? null : await probeGeneratedNarrative(request);
+    // forceRefresh 는 캐시로 대체할 수 없어 복구할 게 없다. 대기 없이 바로 오류를 노출한다.
+    if (request.forceRefresh) {
+      observeTransport(request, "rest", "error");
+      throw error;
+    }
+    await sleep(REST_NETWORK_RETRY_DELAY_MS);
+    const generated = await probeGeneratedNarrative(request);
     if (generated) {
       observeTransport(request, "rest", "success");
       return generated as unknown as T;
@@ -294,6 +298,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
     throw error;
   }
 
+  await sleep(REST_NETWORK_RETRY_DELAY_MS);
   try {
     const retried = await fetchActivityNarrativeRest<T>(request);
     observeTransport(request, "rest", "success");

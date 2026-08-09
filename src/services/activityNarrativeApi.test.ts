@@ -301,16 +301,19 @@ describe("activityNarrativeApi", () => {
     );
   });
 
-  it("사용자가 명시한 forceRefresh 재생성은 프로브 없이 오류를 올린다", async () => {
+  it("사용자가 명시한 forceRefresh 재생성은 프로브도 대기도 없이 오류를 올린다", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
     vi.stubGlobal("fetch", fetchMock);
 
+    const startedAt = Date.now();
     await expect(generateActivityNarrative({
       activityId: "activity-10",
       lang: "ko",
       forceRefresh: true,
     })).rejects.toMatchObject({ code: "rest-network" });
 
+    // 복구할 게 없는 분기라 회선 순단 대기(400ms)를 타면 안 된다.
+    expect(Date.now() - startedAt).toBeLessThan(200);
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(mocks.callable).not.toHaveBeenCalled();
     expect(mocks.track).toHaveBeenCalledWith("activity_narrative_transport", {
