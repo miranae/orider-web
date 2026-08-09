@@ -33,7 +33,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.getByText("TRIMP")).toBeInTheDocument();
     expect(screen.getByText("peakHR bpm")).toBeInTheDocument();
     expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
-    expect(screen.getByText("60:00")).toBeInTheDocument();
+    expect(screen.getByText("1:00:00")).toBeInTheDocument();
   });
 
   it("hides heart-rate-derived server metrics for an HR-only candidate", () => {
@@ -47,7 +47,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.queryByText("peakHR bpm")).not.toBeInTheDocument();
     expect(screen.queryByText("지구력")).not.toBeInTheDocument();
     expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
-    expect(screen.getByText("60:00")).toBeInTheDocument();
+    expect(screen.getByText("1:00:00")).toBeInTheDocument();
   });
 
   it.each(["power and HR accepted", "power and HR rejected"])(
@@ -67,7 +67,7 @@ describe("ServerMetricsBanner sensor provenance", () => {
       expect(screen.queryByText("peakHR bpm")).not.toBeInTheDocument();
       expect(screen.queryByText("지구력")).not.toBeInTheDocument();
       expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
-      expect(screen.getByText("60:00")).toBeInTheDocument();
+      expect(screen.getByText("1:00:00")).toBeInTheDocument();
     },
   );
 
@@ -82,7 +82,21 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.getByText("peakHR bpm")).toBeInTheDocument();
     expect(screen.getByText("지구력")).toBeInTheDocument();
     expect(screen.getByText("분석상 이동시간")).toBeInTheDocument();
-    expect(screen.getByText("60:00")).toBeInTheDocument();
+    expect(screen.getByText("1:00:00")).toBeInTheDocument();
+  });
+
+  it("shows server moving and pause time in hours, minutes, and seconds", () => {
+    render(<ServerMetricsBanner state={{
+      ...readyState,
+      metrics: {
+        ...readyState.metrics,
+        movingTimeSec: 2 * 3_600 + 23 * 60 + 56,
+        pauseTimeSec: 3 * 3_600 + 4 * 60 + 47,
+      },
+    } as never} />);
+
+    expect(screen.getByText("2:23:56")).toBeInTheDocument();
+    expect(screen.getByText("분석상 정지시간 3:04:47")).toBeInTheDocument();
   });
 
   it("keeps workout classification for a cadence-only candidate", () => {
