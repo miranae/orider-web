@@ -56,6 +56,16 @@ describe("SensorStreamsV1 origin provenance", () => {
     )?.rejections).toContainEqual(expect.objectContaining({ reason: "origin_mismatch" }));
   });
 
+  it("keeps the first retained sensor bucket correlated with a delayed GPS fix when activity start is absent", () => {
+    const originMs = 1_700_000_000_000;
+    const delayedRelativeTime = relativeTime.map((seconds) => seconds + 5);
+    const delayedRoute = relativeTime.map((seconds) => originMs + 5_000 + seconds * 1000);
+    const streams = streamsWithOrigin(delayedRoute, originMs);
+    streams.sensorStreamsV1.time = delayedRelativeTime;
+
+    expect(deriveStreamSensorSummary(streams as never)?.powerSource).toBe("sensorStreamsV1");
+  });
+
   it("accepts self-contained V1 origin metadata when only a relative route exists", () => {
     expect(deriveStreamSensorSummary(
       streamsWithOrigin(relativeTime, 1_700_000_000_000) as never,

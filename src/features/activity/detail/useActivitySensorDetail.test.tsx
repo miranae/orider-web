@@ -95,6 +95,45 @@ describe("useActivitySensorDetail", () => {
     expect(result.current.hasAnalysisStreams).toBe(true);
   });
 
+  it("keeps analysis available for an app origin bucket just after the stored activity start", () => {
+    const productionActivity = {
+      ...activity,
+      startTime: 1_786_271_559_903,
+      summary: { ...activity.summary, ridingTimeMillis: 3_000, elapsedTimeMillis: 3_000 },
+    } as Activity;
+    const streams = {
+      time: [1_786_271_559_903, 1_786_271_560_903, 1_786_271_561_903],
+      distance: [0, 10, 20],
+      sensorStreamsV1: {
+        version: 1,
+        timeUnit: "relative_seconds",
+        resolutionSeconds: 1,
+        timeOriginEpochMs: 1_786_271_560_000,
+        time: [1, 2, 3],
+        heartrate: [null, null, null],
+        watts: [180, 190, 200],
+      },
+    } as unknown as ActivityStreams;
+    const { result } = renderHook(() => useActivitySensorDetail({
+      activityId: productionActivity.id,
+      activity: productionActivity,
+      streams,
+      hoverIndex: null,
+      hoveredSegment: null,
+    }));
+
+    expect(result.current.hasAnalysisStreams).toBe(true);
+    expect(result.current.streamSensorSummary).toMatchObject({
+      powerSource: "sensorStreamsV1",
+      averagePower: 190,
+      hasRejectedPowerStream: false,
+    });
+    expect(result.current.analysisProjection?.power).toMatchObject({
+      values: [180, 190, 200],
+      time: [1, 2, 3],
+    });
+  });
+
   it("reports the same rejection only once across stream object refreshes", () => {
     const streams = {
       time: [0, 1, 2, 3],
