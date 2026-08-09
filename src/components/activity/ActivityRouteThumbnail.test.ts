@@ -83,13 +83,25 @@ describe("canonical activity map thumbnails", () => {
     });
   });
 
+  // 캡처 DPR 강등이 통하지 않는 기기(DPR 3 iOS Safari 등)는 배율만 다른 같은 종횡비로 들어온다.
+  it.each([
+    { width: 3840, height: 1371, sourceX: 0, sourceY: 0, sourceWidth: 3840, sourceHeight: 1371 },
+    { width: 3843, height: 1371, sourceX: 1.5, sourceY: 0, sourceWidth: 3840, sourceHeight: 1371 },
+    { width: 3840, height: 1374, sourceX: 0, sourceY: 1.5, sourceWidth: 3840, sourceHeight: 1371 },
+  ])("scales higher-DPR captures into the canonical output: $width×$height", (expected) => {
+    const { width, height, ...crop } = expected;
+    expect(getCanonicalMapThumbnailCrop(width, height)).toEqual(crop);
+  });
+
   it.each([
     { width: 2559, height: 914, error: "canvas-too-small" },
     { width: 2560, height: 913, error: "canvas-too-small" },
-    { width: 2561, height: 914, error: "canvas-size-invalid" },
-    { width: 2560, height: 915, error: "canvas-size-invalid" },
     { width: 2564, height: 914, error: "canvas-size-invalid" },
     { width: 2560, height: 918, error: "canvas-size-invalid" },
+    { width: 3844, height: 1371, error: "canvas-size-invalid" },
+    { width: 3840, height: 1375, error: "canvas-size-invalid" },
+    { width: 3840, height: 914, error: "canvas-size-invalid" },
+    { width: 2560, height: 1371, error: "canvas-size-invalid" },
   ])("rejects noncanonical canvas geometry: $width×$height", ({ width, height, error }) => {
     expect(() => getCanonicalMapThumbnailCrop(width, height)).toThrow(error);
   });
@@ -107,6 +119,22 @@ describe("canonical activity map thumbnails", () => {
     expect(output.width).toBe(2560);
     expect(output.height).toBe(914);
     expect(drawImage).toHaveBeenCalledWith(input, 0, 1, 2560, 914, 0, 0, 2560, 914);
+    createElement.mockRestore();
+  });
+
+  it("downscales a DPR 3 capture into the exact canonical output", () => {
+    const input = document.createElement("canvas");
+    input.width = 3840;
+    input.height = 1371;
+    const output = document.createElement("canvas");
+    const drawImage = vi.fn();
+    vi.spyOn(output, "getContext").mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
+    const createElement = vi.spyOn(document, "createElement").mockReturnValueOnce(output);
+
+    expect(copyCanonicalMapThumbnailCanvas(input)).toBe(output);
+    expect(output.width).toBe(2560);
+    expect(output.height).toBe(914);
+    expect(drawImage).toHaveBeenCalledWith(input, 0, 0, 3840, 1371, 0, 0, 2560, 914);
     createElement.mockRestore();
   });
 
