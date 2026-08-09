@@ -40,7 +40,11 @@ type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekRespon
 type CompatibilityFallbackReason =
   | "rest_not_configured"
   | "rest_route_unavailable"
+  | "rest_network_unreachable"
   | "anonymous_peek";
+
+/** 회선 순단 복구 전 대기. 짧은 순단이면 이 사이에 회복된다. */
+const REST_NETWORK_RETRY_DELAY_MS = 400;
 let authReadyPromise: Promise<void> | null = null;
 
 export class ActivityNarrativeRestError extends Error {
@@ -175,6 +179,15 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
   return response.json() as Promise<T>;
 }
 
+/** fetch 가 응답 자체를 못 받은 실패 — HTTP 상태가 없으므로 서버엔 아무 흔적도 남지 않는다. */
+function isRestNetworkError(error: unknown): boolean {
+  return error instanceof ActivityNarrativeRestError && error.code === "rest-network";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
 function restCompatibilityFallbackReason(
   error: unknown,
 ): CompatibilityFallbackReason | null {
@@ -218,6 +231,106 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
   }
 }
 
+/**
+ * 첫 generate 의 산출물이 이미 서버에 있는지 부작용 없이 확인한다. cacheOnly 조회는 LLM 을
+ * 태우지 않는다. 실패하면 확인을 포기하고 null — 단, 인증·quota 같은 실패가 cache miss 로
+ * 뭉개지지 않도록 사유는 남긴다.
+ */
+async function probeGeneratedNarrative(
+  request: ActivityNarrativeGenerateRequest,
+): Promise<ActivityNarrative | null> {
+  try {
+    const probe = await fetchActivityNarrativeRest<ActivityNarrativePeekResponse>({
+      activityId: request.activityId,
+      lang: request.lang,
+      cacheOnly: true,
+    });
+    if (probe.hit !== true) return null;
+    const { hit: _hit, ...narrative } = probe;
+    return narrative;
+  } catch (probeError) {
+    logClientError("activityNarrativeApi.restRecoveryProbeFailed", probeError, {
+      operation: operation(request),
+      lang: request.lang,
+    });
+    // 서버가 돌려준 구조화된 오류(인증·quota 등)는 사용자가 알아야 할 실패다. 오래된 회선
+    // 오류로 뭉개면 무의미한 재시도를 유도하므로 그대로 올린다. 판단 근거가 없는 실패
+    // (회선 순단·구버전 route 미배포)만 "확인 불가"로 보고 null.
+    if (isRestNetworkError(probeError)) return null;
+    if (restCompatibilityFallbackReason(probeError)) return null;
+    throw probeError;
+  }
+}
+
+/**
+ * fetch 가 응답 자체를 못 받은 실패의 복구.
+ *
+ * 클라이언트는 "요청이 서버에 닿지 않았다"와 "닿았는데 응답만 유실됐다"를 구분할 수 없다.
+ * 그래서 부작용 유무로 복구 범위를 가른다.
+ *
+ * - peek(cacheOnly): 순수 조회라 재전송이 안전하다. 재시도하고, 그래도 안 되면 호스트가 다른
+ *   callable 로 우회한다.
+ * - generate: 서버(activity-narrative)에 idempotency key 도 단일 실행 잠금도 없어서
+ *   (2026-08-09 확인) 재전송하면 첫 요청이 처리 중이거나 응답만 유실된 경우 LLM 이 중복
+ *   실행·과금된다. 그래서 **자동 재전송하지 않는다.** 응답만 유실된 경우를 건지는
+ *   cacheOnly 조회까지만 하고, 산출물이 없으면 오류를 그대로 올려 UI 가 재시도를 노출하게 한다.
+ *   (사용자가 명시한 forceRefresh 는 캐시로 대체할 수 없으므로 조회도 건너뛴다.)
+ *
+ * 조회가 인증·quota 같은 구조화된 서버 오류를 받으면 그 오류를 올린다 — 회선 오류로 뭉개면
+ * 사용자가 무의미한 재시도를 반복하게 된다.
+ */
+async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse>(
+  request: ActivityNarrativeRequest,
+  error: unknown,
+): Promise<T> {
+  // 서버엔 요청 흔적이 남지 않는 실패라 이 클라 로그가 유일한 추적 수단이다.
+  logClientError("activityNarrativeApi.restNetworkRecovery", error, {
+    operation: operation(request),
+    lang: request.lang,
+    forceRefresh: request.cacheOnly === true ? false : !!request.forceRefresh,
+  });
+
+  if (request.cacheOnly !== true) {
+    // forceRefresh 는 캐시로 대체할 수 없어 복구할 게 없다. 대기 없이 바로 오류를 노출한다.
+    if (request.forceRefresh) {
+      observeTransport(request, "rest", "error");
+      throw error;
+    }
+    await sleep(REST_NETWORK_RETRY_DELAY_MS);
+    let generated: ActivityNarrative | null;
+    try {
+      generated = await probeGeneratedNarrative(request);
+    } catch (probeError) {
+      observeTransport(request, "rest", "error");
+      throw probeError;
+    }
+    if (generated) {
+      observeTransport(request, "rest", "success");
+      return generated as unknown as T;
+    }
+    observeTransport(request, "rest", "error");
+    throw error;
+  }
+
+  await sleep(REST_NETWORK_RETRY_DELAY_MS);
+  try {
+    const retried = await fetchActivityNarrativeRest<T>(request);
+    observeTransport(request, "rest", "success");
+    return retried;
+  } catch (retryError) {
+    if (!isRestNetworkError(retryError)) {
+      const fallbackReason = restCompatibilityFallbackReason(retryError);
+      if (!fallbackReason) {
+        observeTransport(request, "rest", "error");
+        throw retryError;
+      }
+      return callActivityNarrativeCallable<T>(request, fallbackReason);
+    }
+  }
+  // REST 호스트가 계속 안 닿는다 — 호스트가 다른 callable 로 우회한다.
+  return callActivityNarrativeCallable<T>(request, "rest_network_unreachable");
+}
+
 async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
 ): Promise<T> {
@@ -235,6 +348,7 @@ async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
     observeTransport(request, "rest", "success");
     return response;
   } catch (error) {
+    if (isRestNetworkError(error)) return recoverFromRestNetworkFailure<T>(request, error);
     const fallbackReason = restCompatibilityFallbackReason(error);
     if (!fallbackReason) {
       observeTransport(request, "rest", "error");
