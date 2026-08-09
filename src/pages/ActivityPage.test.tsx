@@ -91,6 +91,11 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 describe("ActivityPage", () => {
+  // ActivityPage 전체 렌더는 무거워서 기본 5초로는 러너 부하에 따라 케이스가 바뀌며 간헐 실패한다
+  // (2026-08-09 CI `check` 에서 승격 차단). 이미 다수 테스트가 개별로 15_000 을 달고 있어
+  // 파일 기본값을 같은 값으로 맞춘다.
+  vi.setConfig({ testTimeout: 15_000 });
+
   beforeEach(() => {
     mockFitnessTimeseries.mockReturnValue({ timeseries: null, loaded: true });
     mockPdc.mockReturnValue({ status: "missing", pdc: null });
