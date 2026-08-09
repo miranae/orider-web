@@ -7,8 +7,10 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { DialogProvider } from "./contexts/DialogContext";
 import { OriderThemeProvider } from "./theme";
-import { ensureAppCheckReady, initFirebase } from "./services/firebase";
+import { auth, ensureAppCheckReady, initFirebase } from "./services/firebase";
 import { consumeAppHandoffCode, stashHandoffCode } from "./services/appHandoff";
+import { applyImpersonationTokenFromUrl, stashImpersonationToken } from "./services/impersonation";
+import ImpersonationBanner from "./components/ImpersonationBanner";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
@@ -24,6 +26,9 @@ import App from "./App";
 // 앱→웹 로그인 인계 코드는 **모듈 본문 첫 문장**에서 URL 로부터 제거해 보관 —
 // 에러 리스너/Sentry/후속 리소스 로드가 코드 포함 URL 을 관측하는 창을 최소화(리뷰 MINOR).
 stashHandoffCode();
+// 위임 로그인 토큰(fragment)도 같은 이유로 모듈 본문에서 즉시 제거해 보관한다 —
+// TTL 1시간짜리 실제 자격증명이라 Sentry Replay 초기 녹화에 남으면 그대로 유출된다.
+stashImpersonationToken();
 
 installSlowFetchTracker();
 
@@ -80,6 +85,7 @@ function mountApp() {
           <OriderThemeProvider>
             <AuthProvider>
               <ToastProvider>
+                <ImpersonationBanner />
                 <DialogProvider>
                   <App />
                 </DialogProvider>
@@ -118,6 +124,10 @@ loadRuntimeConfig()
   // 앱 → 웹 로그인 인계: ?handoff= 일회용 코드가 있으면 AuthProvider 마운트 전에
   // custom token 로그인까지 끝낸다 (코드 없으면 즉시 통과 — 초기 로딩 영향 없음).
   .then(consumeAppHandoffCode)
+  // 관리자 위임 로그인: #impersonateToken= fragment 가 있으면 마운트 전에 그 사용자로
+  // 로그인한다(토큰 없으면 즉시 통과). admin.orider.co.kr 의 지원 접근 페이지와 CLI 가
+  // 이 형식으로 링크를 만든다 — 쿼리스트링 형식은 유출 때문에 거부한다.
+  .then(() => applyImpersonationTokenFromUrl(auth))
   .then(mountApp)
   .catch((err) => {
     captureError(err, { tags: { source: "firebase-init" } });
