@@ -24,6 +24,7 @@ import { LocaleProvider } from "./contexts/LocaleContext";
 import { useAuth } from "./contexts/AuthContext";
 import { useToast } from "./contexts/ToastContext";
 import { didHandoffFail } from "./services/appHandoff";
+import { takeImpersonationFailure } from "./services/impersonation";
 import { LocaleRoot } from "./components/i18n/LocaleRoot";
 import { LocaleRedirect } from "./components/i18n/LocaleRedirect";
 import { firestore } from "./services/firebase";
@@ -220,6 +221,13 @@ export default function App() {
   useEffect(() => {
     if (didHandoffFail()) showToast(tAuth("appHandoffFailed"), "error");
   }, [showToast, tAuth]);
+
+  // 위임 로그인이 중단됐으면 마운트 직후 1회 안내 — 관리자가 전환된 줄 알고
+  // 기존(자기) 계정을 만지는 상황을 막는다.
+  useEffect(() => {
+    const failure = takeImpersonationFailure();
+    if (failure) showToast(failure, "error");
+  }, [showToast]);
 
   // 라우트 로드 타이밍 시작점 — **렌더 단계**에서 navStart/pending 을 세팅한다(effect 아님).
   // 캐시된 청크 재방문 시 자식 RouteProbe 의 layout effect 가 부모 effect 보다 먼저 실행되므로,

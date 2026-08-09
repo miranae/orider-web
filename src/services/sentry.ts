@@ -22,6 +22,43 @@ const pendingErrors: Array<{ error: unknown; tags?: Record<string, string>; extr
 const MAX_PENDING_ERRORS = 20;
 const LOAD_RETRY_DELAY_MS = 30_000;
 
+/**
+ * 위임 로그인 토큰은 URL 쿼리로 전달되는 실제 자격증명(TTL 1시간)이다. browserTracing·
+ * replay 가 URL 을 그대로 실어 보내므로, 전송 직전에 값만 지운다. 토큰은 sign-in 직후
+ * URL 에서 제거되지만 그 사이에 발생한 이벤트는 값을 물고 있다.
+ */
+export function scrubUrlCredentials(value: string): string {
+  return value.replace(
+    /([?&#](?:impersonateToken|handoff|token|access_token|id_token|refresh_token)=)[^&#\s]+/gi,
+    "$1[redacted]",
+  );
+}
+
+interface ScrubbableEvent {
+  transaction?: string;
+  request?: { url?: string };
+  breadcrumbs?: Array<{ data?: Record<string, unknown> }>;
+  spans?: Array<{ description?: string; data?: Record<string, unknown> }>;
+}
+
+/** error·transaction 양쪽에서 URL 이 실리는 자리를 모두 정화한다. */
+function scrubEventUrls<T extends ScrubbableEvent>(event: T): T {
+  if (event.transaction) event.transaction = scrubUrlCredentials(event.transaction);
+  if (event.request?.url) event.request.url = scrubUrlCredentials(event.request.url);
+  for (const crumb of event.breadcrumbs ?? []) {
+    const url = crumb.data?.url;
+    if (typeof url === "string") crumb.data!.url = scrubUrlCredentials(url);
+  }
+  for (const span of event.spans ?? []) {
+    if (span.description) span.description = scrubUrlCredentials(span.description);
+    for (const key of ["url", "http.url"]) {
+      const value = span.data?.[key];
+      if (typeof value === "string") span.data![key] = scrubUrlCredentials(value);
+    }
+  }
+  return event;
+}
+
 function getInitOptions(Sentry: SentryModule) {
   const config = getRuntimeConfig();
   return {
@@ -35,6 +72,14 @@ function getInitOptions(Sentry: SentryModule) {
     replaysOnErrorSampleRate: 1.0,
     environment: config.appEnvironment,
     enabled: !!config.sentryDsn,
+    beforeSend<T extends ScrubbableEvent>(event: T): T {
+      return scrubEventUrls(event);
+    },
+    // transaction 은 beforeSend 를 타지 않는다 — browserTracing 이 pageload/navigation
+    // transaction 이름과 span 에 URL 을 그대로 싣기 때문에 별도로 정화한다.
+    beforeSendTransaction<T extends ScrubbableEvent>(event: T): T {
+      return scrubEventUrls(event);
+    },
   };
 }
 
