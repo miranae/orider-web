@@ -181,14 +181,21 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
   }
 }
 
+let failureMessage: string | null = null;
+
 /**
- * 위임 실패는 조용히 넘기지 않는다 — 이 경로는 마운트 전(토스트 컨텍스트 없음)이라
- * 관리자에게 즉시 보이는 수단이 alert 뿐이다. 관리자 전용 흐름이라 일반 사용자에게는
- * 뜨지 않는다(토큰이 URL 에 있을 때만 도달).
+ * 위임 실패는 조용히 넘기지 않는다. 이 경로는 마운트 전이라 토스트 컨텍스트가 없으므로
+ * handoff 와 같은 계약으로 플래그만 세우고, App 이 마운트 직후 1회 읽어 노출한다.
  */
 function notifyImpersonationFailure(message: string): void {
-  if (typeof window === "undefined") return;
-  window.alert(message);
+  failureMessage = message;
+}
+
+/** 마운트 후 1회 읽고 리셋 — 읽지 않으면 다음 렌더에서 중복 노출된다. */
+export function takeImpersonationFailure(): string | null {
+  const message = failureMessage;
+  failureMessage = null;
+  return message;
 }
 
 /** 위임임을 확정하지 못한 세션은 남기지 않는다 — 배너 없는 위임 세션이 최악의 상태다. */

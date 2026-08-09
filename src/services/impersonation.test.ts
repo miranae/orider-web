@@ -22,6 +22,7 @@ const {
   readImpersonation,
   readImpersonationState,
   stashImpersonationToken,
+  takeImpersonationFailure,
 } = await import("./impersonation");
 
 function setUrl(search: string) {
@@ -140,13 +141,12 @@ describe("impersonation token consumer", () => {
   it("aborts when the pre-switch sign-out fails", async () => {
     setUrl("?impersonateToken=tok-123");
     signOut.mockRejectedValueOnce(new Error("auth/network-request-failed"));
-    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
-
     await applyImpersonationTokenFromUrl({ currentUser: { uid: "someone" } } as never);
 
     expect(signInWithCustomToken).not.toHaveBeenCalled();
-    expect(alert).toHaveBeenCalled();
-    alert.mockRestore();
+    // 마운트 전이라 토스트 컨텍스트가 없다 — handoff 와 같이 플래그로 넘겨 App 이 노출한다.
+    expect(takeImpersonationFailure()).toContain("위임 로그인을 중단");
+    expect(takeImpersonationFailure()).toBeNull();
     expect(logClientError).toHaveBeenCalledWith(
       "Impersonation.signOutBeforeSwitch",
       expect.any(Error),

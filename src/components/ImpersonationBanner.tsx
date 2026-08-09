@@ -8,12 +8,14 @@
 import { signOut } from "firebase/auth";
 
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { logClientError } from "../services/errorLogger";
 import { auth } from "../services/firebase";
 import { clearImpersonationState, readImpersonation } from "../services/impersonation";
 
 export default function ImpersonationBanner() {
   const { user, profile } = useAuth();
+  const { showToast } = useToast();
   const read = readImpersonation();
 
   // 로그아웃했거나 다른 계정으로 갈아탄 뒤 남은 stale 상태는 배너를 띄우지 않는다.
@@ -34,7 +36,7 @@ export default function ImpersonationBanner() {
       await signOut(auth);
     } catch (e) {
       logClientError("ImpersonationBanner.exit", e, { targetUid: state?.targetUid });
-      window.alert("위임 세션 종료에 실패했습니다. 아직 위임 계정으로 로그인된 상태이니 다시 시도해 주세요.");
+      showToast("위임 세션 종료에 실패했습니다. 아직 위임 계정으로 로그인된 상태이니 다시 시도해 주세요.", "error");
       return;
     }
     clearImpersonationState();
