@@ -84,7 +84,12 @@ function writeImpersonationState(state: ImpersonationState): boolean {
 
 export function clearImpersonationState() {
   if (typeof window === "undefined") return;
-  try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    // 삭제 실패를 삼키면 stale 상태가 남아, 이후 같은 uid 의 정상 로그인에 위임 배너가 뜬다.
+    logClientError("Impersonation.clearFailed", e, {});
+  }
 }
 
 /** URL 에 위임 토큰이 실려 있는지 — main 이 마운트 전에 await 할지 판단한다. */
@@ -143,7 +148,10 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
     } catch (e) {
       // claim 을 못 읽으면 위임 여부를 확정할 수 없다. 인증된 세션만 남으면 배너 없는
       // 위임 세션이 되므로 세션을 끊는다.
-      await abandonUnverifiedImpersonation(auth, "Impersonation.getIdTokenResult", e, { tokenLength });
+      await abandonUnverifiedImpersonation(auth, "Impersonation.getIdTokenResult", e, {
+        tokenLength,
+        targetUid: cred.user.uid,
+      });
       return;
     }
     if (claims.impersonated !== true) {
@@ -152,7 +160,7 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
         auth,
         "Impersonation.missingClaim",
         new Error("impersonation/claim-missing"),
-        { tokenLength },
+        { tokenLength, targetUid: cred.user.uid },
       );
       return;
     }
@@ -168,7 +176,7 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
         auth,
         "Impersonation.stateWriteFailed",
         new Error("impersonation/state-write-failed"),
-        { tokenLength },
+        { tokenLength, targetUid: cred.user.uid },
       );
     }
   } catch (e) {
@@ -203,13 +211,21 @@ async function abandonUnverifiedImpersonation(
   auth: Auth,
   source: string,
   error: unknown,
-  context: Record<string, unknown>,
+  context: { tokenLength: number; targetUid?: string },
 ): Promise<void> {
   clearImpersonationState();
   try {
     await signOut(auth);
   } catch (signOutError) {
     logClientError("Impersonation.signOutAfterUnverified", signOutError, context);
+    // 정리 로그아웃까지 실패하면 인증된 세션이 그대로 남는다. 조용히 마운트하면
+    // 배너 없는 위임 세션이 되므로, 배너가 뜨도록 상태를 남기고 실패를 알린다.
+    if (context.targetUid) {
+      writeImpersonationState({ by: "확인 불가", at: Date.now(), targetUid: context.targetUid });
+    }
+    notifyImpersonationFailure(
+      "위임 세션 정리에 실패했습니다. 아직 대상 사용자로 로그인된 상태이니 즉시 로그아웃해 주세요.",
+    );
   }
   logClientError(source, error, context);
 }

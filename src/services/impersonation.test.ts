@@ -154,6 +154,32 @@ describe("impersonation token consumer", () => {
     );
   });
 
+  // 정리 로그아웃까지 실패하면 인증된 세션이 남는다 — 배너가 뜨도록 상태를 남긴다.
+  it("keeps the banner visible when the cleanup sign-out also fails", async () => {
+    setUrl("?impersonateToken=plain");
+    signInWithCustomToken.mockResolvedValue(credential({}));
+    signOut.mockRejectedValue(new Error("auth/network-request-failed"));
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+    signOut.mockReset();
+
+    expect(readImpersonationState()).toMatchObject({ by: "확인 불가", targetUid: "target-uid" });
+    expect(takeImpersonationFailure()).toContain("즉시 로그아웃");
+  });
+
+  it("logs a failed state removal instead of leaving it silent", () => {
+    const removeItem = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    try {
+      clearImpersonationState();
+    } finally {
+      removeItem.mockRestore();
+    }
+
+    expect(logClientError).toHaveBeenCalledWith("Impersonation.clearFailed", expect.any(Error), {});
+  });
+
   it("reports corrupt stored state instead of hiding the session", () => {
     window.localStorage.setItem("orider:impersonation", "{not-json");
 
