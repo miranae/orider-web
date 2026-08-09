@@ -14,7 +14,10 @@ export interface ZoneTimelineSeries {
   maxZone: number;
 }
 
-const zoneColor = (zone: number, maxZone: number) => `var(--zone-${Math.min(5, Math.max(1, Math.ceil((zone / maxZone) * 5)))})`;
+export const zoneColor = (seriesId: ZoneTimelineSeries["id"], zone: number, maxZone: number) => {
+  if (seriesId === "power" && zone === 7) return "var(--violet)";
+  return `var(--zone-${Math.min(5, Math.max(1, Math.ceil((zone / maxZone) * 5)))})`;
+};
 
 function formatTimelineTime(seconds: number): string {
   const rounded = Math.round(seconds);
@@ -68,7 +71,7 @@ export default function ZoneTimeline({ series, bucketCount = 32, movingDurationS
                 <span
                   key={index}
                   className="min-w-0 border-r"
-                  style={{ flex: bucket.durationSec || 1, background: bucket.zone == null ? "var(--bg-3)" : zoneColor(bucket.zone, row.maxZone), borderColor: "var(--bg-0)" }}
+                  style={{ flex: bucket.durationSec || 1, background: bucket.zone == null ? "var(--bg-3)" : zoneColor(row.id, bucket.zone, row.maxZone), borderColor: "var(--bg-0)" }}
                   role="img"
                   aria-label={t("analysis.zones.timelineInterval", {
                     start: formatTimelineTime(bucket.startSec),
