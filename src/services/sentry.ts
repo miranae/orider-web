@@ -22,6 +22,18 @@ const pendingErrors: Array<{ error: unknown; tags?: Record<string, string>; extr
 const MAX_PENDING_ERRORS = 20;
 const LOAD_RETRY_DELAY_MS = 30_000;
 
+/**
+ * 위임 로그인 토큰은 URL 쿼리로 전달되는 실제 자격증명(TTL 1시간)이다. browserTracing·
+ * replay 가 URL 을 그대로 실어 보내므로, 전송 직전에 값만 지운다. 토큰은 sign-in 직후
+ * URL 에서 제거되지만 그 사이에 발생한 이벤트는 값을 물고 있다.
+ */
+export function scrubUrlCredentials(value: string): string {
+  return value.replace(
+    /([?&#](?:impersonateToken|handoff|token|access_token|id_token|refresh_token)=)[^&#\s]+/gi,
+    "$1[redacted]",
+  );
+}
+
 function getInitOptions(Sentry: SentryModule) {
   const config = getRuntimeConfig();
   return {
@@ -35,6 +47,14 @@ function getInitOptions(Sentry: SentryModule) {
     replaysOnErrorSampleRate: 1.0,
     environment: config.appEnvironment,
     enabled: !!config.sentryDsn,
+    beforeSend<T extends { request?: { url?: string }; breadcrumbs?: Array<{ data?: Record<string, unknown> }> }>(event: T): T {
+      if (event.request?.url) event.request.url = scrubUrlCredentials(event.request.url);
+      for (const crumb of event.breadcrumbs ?? []) {
+        const url = crumb.data?.url;
+        if (typeof url === "string") crumb.data!.url = scrubUrlCredentials(url);
+      }
+      return event;
+    },
   };
 }
 
