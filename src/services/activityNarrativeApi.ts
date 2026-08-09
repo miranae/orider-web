@@ -253,7 +253,12 @@ async function probeGeneratedNarrative(
       operation: operation(request),
       lang: request.lang,
     });
-    return null;
+    // 서버가 돌려준 구조화된 오류(인증·quota 등)는 사용자가 알아야 할 실패다. 오래된 회선
+    // 오류로 뭉개면 무의미한 재시도를 유도하므로 그대로 올린다. 판단 근거가 없는 실패
+    // (회선 순단·구버전 route 미배포)만 "확인 불가"로 보고 null.
+    if (isRestNetworkError(probeError)) return null;
+    if (restCompatibilityFallbackReason(probeError)) return null;
+    throw probeError;
   }
 }
 
@@ -270,6 +275,9 @@ async function probeGeneratedNarrative(
  *   실행·과금된다. 그래서 **자동 재전송하지 않는다.** 응답만 유실된 경우를 건지는
  *   cacheOnly 조회까지만 하고, 산출물이 없으면 오류를 그대로 올려 UI 가 재시도를 노출하게 한다.
  *   (사용자가 명시한 forceRefresh 는 캐시로 대체할 수 없으므로 조회도 건너뛴다.)
+ *
+ * 조회가 인증·quota 같은 구조화된 서버 오류를 받으면 그 오류를 올린다 — 회선 오류로 뭉개면
+ * 사용자가 무의미한 재시도를 반복하게 된다.
  */
 async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
@@ -289,7 +297,13 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
       throw error;
     }
     await sleep(REST_NETWORK_RETRY_DELAY_MS);
-    const generated = await probeGeneratedNarrative(request);
+    let generated: ActivityNarrative | null;
+    try {
+      generated = await probeGeneratedNarrative(request);
+    } catch (probeError) {
+      observeTransport(request, "rest", "error");
+      throw probeError;
+    }
     if (generated) {
       observeTransport(request, "rest", "success");
       return generated as unknown as T;

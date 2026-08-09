@@ -281,7 +281,7 @@ describe("activityNarrativeApi", () => {
     expect(mocks.callable).not.toHaveBeenCalled();
   });
 
-  it("프로브 실패는 cache miss로 뭉개지 않고 사유를 남긴다", async () => {
+  it("프로브가 받은 quota 오류는 회선 오류로 뭉개지 않고 그대로 올린다", async () => {
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
       .mockResolvedValueOnce(jsonResponse({
@@ -289,16 +289,40 @@ describe("activityNarrativeApi", () => {
       }, 429));
     vi.stubGlobal("fetch", fetchMock);
 
+    // 회선 오류로 보이면 UI 가 무의미한 재시도를 유도한다 — 실제 원인인 quota 를 노출해야 한다.
     await expect(generateActivityNarrative({
       activityId: "activity-9",
       lang: "ko",
-    })).rejects.toMatchObject({ code: "rest-network" });
+    })).rejects.toMatchObject({ code: "resource-exhausted", status: 429 });
 
     expect(mocks.logClientError).toHaveBeenCalledWith(
       "activityNarrativeApi.restRecoveryProbeFailed",
       expect.objectContaining({ code: "resource-exhausted" }),
       { operation: "generate", lang: "ko" },
     );
+  });
+
+  it("프로브도 회선 오류면 판단 불가라 원래 회선 오류를 올린다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    await expect(generateActivityNarrative({
+      activityId: "activity-13",
+      lang: "ko",
+    })).rejects.toMatchObject({ code: "rest-network" });
+
+    expect(mocks.callable).not.toHaveBeenCalled();
+  });
+
+  it("프로브가 구버전 route 404를 받으면 판단 불가로 보고 원래 오류를 올린다", async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(new Response("not found", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(generateActivityNarrative({
+      activityId: "activity-14",
+      lang: "ko",
+    })).rejects.toMatchObject({ code: "rest-network" });
   });
 
   it("사용자가 명시한 forceRefresh 재생성은 프로브도 대기도 없이 오류를 올린다", async () => {
