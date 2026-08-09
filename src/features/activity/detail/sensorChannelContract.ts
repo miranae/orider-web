@@ -1,9 +1,39 @@
 import type { SensorRejectionReason } from "./activityDetailDerived";
+import { normalizeEpochMilliseconds } from "../../../utils/timestampUnit";
 
 /** Retained slots must describe this share of the axis span to stay trustworthy. */
 export const EXPLICIT_SENSOR_MIN_AXIS_COVERAGE = 0.5;
 /** Measured (non-null) share required among the slots an axis actually retained. */
 export const EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE = 0.95;
+
+/**
+ * App uploads bind both values to session start, but legacy server enrichment
+ * could later replace the parent start with the first GPS timestamp. Accept
+ * that lifecycle only when the parent, route and first retained sensor all
+ * correlate; otherwise the parent session start remains authoritative.
+ */
+export function explicitOriginRejectionReason(
+  rawOrigin: number,
+  firstSensorOffsetSec: number,
+  activityStartTime: unknown,
+  routeStart: unknown,
+): SensorRejectionReason | null {
+  const activityStartEpochMs = normalizeEpochMilliseconds(activityStartTime);
+  const routeStartEpochMs = normalizeEpochMilliseconds(routeStart);
+  const firstSensorEpochMs = rawOrigin + firstSensorOffsetSec * 1000;
+  if (!Number.isSafeInteger(firstSensorEpochMs)) return "origin_mismatch";
+  if (activityStartEpochMs != null) {
+    if (Math.abs(rawOrigin - activityStartEpochMs) < 1000) return null;
+    const matchesLegacyEnrichment = routeStartEpochMs != null
+      && Math.abs(activityStartEpochMs - routeStartEpochMs) <= 1000
+      && Math.abs(firstSensorEpochMs - routeStartEpochMs) <= 1000;
+    return matchesLegacyEnrichment ? null : "origin_mismatch";
+  }
+  if (routeStartEpochMs == null) return null;
+  return Math.abs(firstSensorEpochMs - routeStartEpochMs) <= 1000
+    ? null
+    : "origin_mismatch";
+}
 
 export function hasDenseArraySlots(values: readonly unknown[]): boolean {
   for (let index = 0; index < values.length; index++) {
