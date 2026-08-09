@@ -167,6 +167,37 @@ describe("impersonation token consumer", () => {
     expect(takeImpersonationFailure()).toContain("즉시 로그아웃");
   });
 
+  // 스토리지 쓰기까지 막힌 환경 — 메모리 fallback 으로라도 배너를 띄운다.
+  it("falls back to memory when the banner state cannot be stored at all", async () => {
+    setUrl("?impersonateToken=tok-123");
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+    signOut.mockRejectedValue(new Error("auth/network-request-failed"));
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+    } finally {
+      setItem.mockRestore();
+      signOut.mockReset();
+    }
+
+    expect(readImpersonation()).toEqual({
+      status: "active",
+      state: expect.objectContaining({ by: "확인 불가", targetUid: "target-uid" }),
+    });
+    clearImpersonationState();
+  });
+
+  it("tells the admin why an expired impersonation link did nothing", async () => {
+    setUrl("?impersonateToken=expired");
+    signInWithCustomToken.mockRejectedValue(new Error("auth/invalid-custom-token"));
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+
+    expect(takeImpersonationFailure()).toContain("위임 로그인에 실패");
+  });
+
   it("logs a failed state removal instead of leaving it silent", () => {
     const removeItem = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
       throw new Error("SecurityError");

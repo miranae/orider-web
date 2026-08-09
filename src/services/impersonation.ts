@@ -43,6 +43,13 @@ export type ImpersonationRead =
   | { status: "active"; state: ImpersonationState }
   | { status: "corrupt" };
 
+/**
+ * 스토리지가 막힌 환경의 마지막 방어선 — 저장에 실패해도 이 SPA 세션 동안은 배너가 뜬다.
+ * (새로고침하면 사라지지만, localStorage 를 못 쓰는 브라우저는 Firebase auth 지속성도
+ * 같이 잃어 위임 세션 자체가 남지 않는다.)
+ */
+let memoryFallback: ImpersonationState | null = null;
+
 export function readImpersonation(): ImpersonationRead {
   if (typeof window === "undefined") return { status: "none" };
   let raw: string | null;
@@ -51,9 +58,11 @@ export function readImpersonation(): ImpersonationRead {
   } catch (e) {
     // 스토리지 접근 자체가 막힌 환경 — 위임 여부를 판단할 근거가 없으므로 기록만 남긴다.
     logClientError("Impersonation.readBlocked", e, {});
-    return { status: "none" };
+    return memoryFallback ? { status: "active", state: memoryFallback } : { status: "none" };
   }
-  if (!raw) return { status: "none" };
+  if (!raw) {
+    return memoryFallback ? { status: "active", state: memoryFallback } : { status: "none" };
+  }
   try {
     const state = JSON.parse(raw) as ImpersonationState;
     if (typeof state?.targetUid !== "string" || !state.targetUid) {
@@ -83,6 +92,7 @@ function writeImpersonationState(state: ImpersonationState): boolean {
 }
 
 export function clearImpersonationState() {
+  memoryFallback = null;
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(STORAGE_KEY);
@@ -186,6 +196,8 @@ export async function applyImpersonationTokenFromUrl(auth: Auth): Promise<void> 
       hasToken: true,
       tokenLength,
     });
+    // 만료·오류 사유를 알리지 않으면 관리자에게는 그대로 "눌렀는데 아무 일도 없다" 가 된다.
+    notifyImpersonationFailure("위임 로그인에 실패했습니다. 링크가 만료됐을 수 있으니 다시 발급해 주세요.");
   }
 }
 
@@ -221,7 +233,11 @@ async function abandonUnverifiedImpersonation(
     // 정리 로그아웃까지 실패하면 인증된 세션이 그대로 남는다. 조용히 마운트하면
     // 배너 없는 위임 세션이 되므로, 배너가 뜨도록 상태를 남기고 실패를 알린다.
     if (context.targetUid) {
-      writeImpersonationState({ by: "확인 불가", at: Date.now(), targetUid: context.targetUid });
+      const state: ImpersonationState = { by: "확인 불가", at: Date.now(), targetUid: context.targetUid };
+      // 저장이 실패해도(애초에 stateWriteFailed 로 들어온 경로라면 다시 실패한다) 배너는
+      // 떠야 하므로 메모리 fallback 을 함께 세운다.
+      memoryFallback = state;
+      writeImpersonationState(state);
     }
     notifyImpersonationFailure(
       "위임 세션 정리에 실패했습니다. 아직 대상 사용자로 로그인된 상태이니 즉시 로그아웃해 주세요.",
