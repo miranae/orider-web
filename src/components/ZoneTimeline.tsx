@@ -29,6 +29,17 @@ function formatTimelineTime(seconds: number): string {
     : `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
+function formatBucketComposition(
+  bucket: ReturnType<typeof buildZoneTimeline>[number],
+  noDataLabel: string,
+): string {
+  return bucket.segments.map((segment) => {
+    const label = segment.zone == null ? noDataLabel : `Z${segment.zone}`;
+    const percentage = Math.round((segment.durationSec / bucket.durationSec) * 100);
+    return `${label} ${percentage}%`;
+  }).join(", ");
+}
+
 /** Compact, keyboard/screen-reader-described zone sequence for activity analysis. */
 export default function ZoneTimeline({ series, bucketCount = 32, movingDurationSec }: { series: ZoneTimelineSeries[]; bucketCount?: number; movingDurationSec?: number }) {
   const { t } = useTranslation("activity");
@@ -70,20 +81,32 @@ export default function ZoneTimeline({ series, bucketCount = 32, movingDurationS
               {row.buckets.map((bucket, index) => (
                 <span
                   key={index}
-                  className="min-w-0 border-r"
-                  style={{ flex: bucket.durationSec || 1, background: bucket.zone == null ? "var(--bg-3)" : zoneColor(row.id, bucket.zone, row.maxZone), borderColor: "var(--bg-0)" }}
+                  className="flex min-w-0 overflow-hidden border-r"
+                  style={{ flex: bucket.durationSec || 1, borderColor: "var(--bg-0)" }}
                   role="img"
                   aria-label={t("analysis.zones.timelineInterval", {
                     start: formatTimelineTime(bucket.startSec),
                     end: formatTimelineTime(bucket.endSec),
-                    zone: bucket.zone == null ? t("analysis.zones.timelineNoData") : `Z${bucket.zone}`,
+                    zone: formatBucketComposition(bucket, t("analysis.zones.timelineNoData")),
                   })}
                   title={t("analysis.zones.timelineInterval", {
                     start: formatTimelineTime(bucket.startSec),
                     end: formatTimelineTime(bucket.endSec),
-                    zone: bucket.zone == null ? t("analysis.zones.timelineNoData") : `Z${bucket.zone}`,
+                    zone: formatBucketComposition(bucket, t("analysis.zones.timelineNoData")),
                   })}
-                />
+                >
+                  {bucket.segments.map((segment, segmentIndex) => (
+                    <span
+                      key={`${segment.zone ?? "no-data"}-${segmentIndex}`}
+                      className="min-w-0"
+                      style={{
+                        flex: segment.durationSec,
+                        background: segment.zone == null ? "var(--bg-3)" : zoneColor(row.id, segment.zone, row.maxZone),
+                      }}
+                      aria-hidden="true"
+                    />
+                  ))}
+                </span>
               ))}
             </div>
           </div>
