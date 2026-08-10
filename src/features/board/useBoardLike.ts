@@ -3,8 +3,6 @@ import {
   doc,
   setDoc,
   deleteDoc,
-  updateDoc,
-  increment,
   onSnapshot,
 } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
@@ -53,7 +51,6 @@ export function useBoardLike(postId: string, serverLikeCount = 0) {
     if (!user) throw new Error(t("error.loginRequired"));
 
     const likeRef = doc(firestore, `board_posts/${postId}/likes`, user.uid);
-    const postRef = doc(firestore, "board_posts", postId);
     const action = isLiked ? "off" : "on";
     const previousLiked = isLiked;
     const previousCount = likeCount;
@@ -71,18 +68,11 @@ export function useBoardLike(postId: string, serverLikeCount = 0) {
       if (previousLiked) {
         // 좋아요 취소
         await deleteDoc(likeRef);
-        await updateDoc(postRef, {
-          likeCount: increment(-1)
-        });
       } else {
         // 좋아요 추가
         await setDoc(likeRef, {
           userId: user.uid,
           createdAt: Date.now()
-        });
-
-        await updateDoc(postRef, {
-          likeCount: increment(1)
         });
       }
     } catch (err) {
