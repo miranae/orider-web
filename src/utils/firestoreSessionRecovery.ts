@@ -50,7 +50,10 @@ export function classifyFirestoreFatalError(error: unknown): FirestoreFatalError
   // Firestore 12.16.0의 내부 인덱스 조회 결과를 구조 분해하는 경로에서 먼저 발생한
   // 오류다. 이 예외 뒤 AsyncQueue가 b815로 poison되므로 후속 assertion을 기다리지 않는다.
   // 일반적인 `x.get is not a function`과 구분하기 위해 Chrome의 결합 문구 전체를 요구한다.
-  if (isTypeError && /\.tc\.get is not a function or its return value is not iterable/i.test(message)) {
+  if (
+    isTypeError
+    && /^(?:(?:Uncaught\s+)?TypeError:\s*)?n\.tc\.get is not a function or its return value is not iterable$/.test(message)
+  ) {
     return "internal-get-type-error";
   }
   if (/INTERNAL ASSERTION FAILED[\s\S]*\(ID:\s*b815\)/i.test(message)) return "b815";
