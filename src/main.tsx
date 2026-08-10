@@ -18,6 +18,12 @@ import { captureError } from "./services/sentry";
 import { initAnalytics } from "./services/analytics";
 import { isChunkLoadError } from "./utils/lazyWithRetry";
 import { reloadWhenOnline, shouldReloadChunkOnce } from "./utils/chunkReload";
+import {
+  executeFirestoreSessionRecovery,
+  findFirestoreFatalError,
+  firestoreRecoveryLogContext,
+  prepareFirestoreSessionRecovery,
+} from "./utils/firestoreSessionRecovery";
 import App from "./App";
 
 // 느린 fetch (>= 2s) 자동 기록 — Firebase / Firestore SDK 가 fetch 참조를 캡쳐하기
@@ -66,14 +72,48 @@ import "./theme/components/components.css";
 // Sentry 본체는 초기 화면 로딩 대역에서 받지 않고, 실제 에러가 발생했을 때만
 // captureError 가 lazy-load 후 큐를 flush 한다.
 if (typeof window !== "undefined") {
+  const captureGlobalError = (
+    error: unknown,
+    source: "window.onerror" | "unhandledrejection",
+    recoveryError: unknown = error,
+  ) => {
+    const recovery = prepareFirestoreSessionRecovery(recoveryError);
+    const selectedRecoverySignature = recovery.kind && recoveryError !== error
+      ? {
+          firestoreRecoverySelectedSignature: recovery.kind === "internal-get-type-error"
+            ? "TypeError: *.tc.get-not-callable-or-iterable"
+            : recovery.kind === "b815"
+              ? "Firestore internal assertion b815"
+              : "Firestore AsyncQueue already failed",
+        }
+      : {};
+    captureError(error, {
+      tags: { source },
+      extra: {
+        pathname: window.location.pathname,
+        signedIn: Boolean(auth?.currentUser),
+        ...firestoreRecoveryLogContext(recovery),
+        ...selectedRecoverySignature,
+      },
+    });
+    // Sentry 큐에 진단 정보를 넣은 다음 현재 stack을 벗어나 hard reload한다.
+    // prepare 단계가 세션 마커와 동시 발생 guard를 먼저 설정하므로 error와
+    // unhandledrejection이 연달아 와도 reload는 세션당 한 번만 실행된다.
+    executeFirestoreSessionRecovery(recovery);
+  };
+
   window.addEventListener("error", (e) => {
     // 이미지/아이콘 같은 resource load error 는 e.error 가 없고 target 이 window 가 아니다.
     // 이런 404까지 Sentry lazy-load 를 깨우면 초기/후속 로딩 대역이 불필요하게 커진다.
     if (!e.error && e.target && e.target !== window) return;
-    captureError(e.error ?? e.message, { tags: { source: "window.onerror" } });
+    // 일부 브라우저/확장 환경은 error 객체와 message를 다르게 래핑한다. 한쪽에
+    // Firestore fatal signature가 남아 있으면 그 후보를 진단·복구 대상으로 삼는다.
+    const error = e.error ?? e.message;
+    const recoveryError = findFirestoreFatalError(e.error, e.message) ?? error;
+    captureGlobalError(error, "window.onerror", recoveryError);
   });
   window.addEventListener("unhandledrejection", (e) => {
-    captureError(e.reason, { tags: { source: "unhandledrejection" } });
+    captureGlobalError(e.reason, "unhandledrejection");
   });
 }
 

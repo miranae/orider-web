@@ -2,7 +2,7 @@ import { SDK_VERSION } from "firebase/app";
 
 export const FIRESTORE_B815_RECOVERY_SESSION_KEY = "orider.firestore.b815-recovery.v1";
 
-export type FirestoreFatalErrorKind = "b815" | "async-queue-failed";
+export type FirestoreFatalErrorKind = "internal-get-type-error" | "b815" | "async-queue-failed";
 export type FirestoreRecoveryAction =
   | "reload-ready"
   | "reload-pending"
@@ -41,8 +41,31 @@ function errorText(error: unknown): string {
 /** Firestore가 재사용 불가능한 AsyncQueue 상태에 진입했는지 부작용 없이 판별한다. */
 export function classifyFirestoreFatalError(error: unknown): FirestoreFatalErrorKind | null {
   const message = errorText(error);
+  const isTypeError = error instanceof TypeError
+    || /^(?:Uncaught\s+)?TypeError:/i.test(message)
+    || (error != null
+      && typeof error === "object"
+      && "name" in error
+      && String((error as { name: unknown }).name) === "TypeError");
+  // Firestore 12.16.0의 내부 인덱스 조회 결과를 구조 분해하는 경로에서 먼저 발생한
+  // 오류다. 이 예외 뒤 AsyncQueue가 b815로 poison되므로 후속 assertion을 기다리지 않는다.
+  // 일반적인 `x.get is not a function`과 구분하기 위해 Chrome의 결합 문구 전체를 요구한다.
+  if (
+    isTypeError
+    && /^(?:(?:Uncaught\s+)?TypeError:\s*)?n\.tc\.get is not a function or its return value is not iterable$/.test(message)
+  ) {
+    return "internal-get-type-error";
+  }
   if (/INTERNAL ASSERTION FAILED[\s\S]*\(ID:\s*b815\)/i.test(message)) return "b815";
   if (/AsyncQueue is already failed/i.test(message)) return "async-queue-failed";
+  return null;
+}
+
+/** ErrorEvent처럼 오류 객체와 별도 message를 주는 경우 모든 후보에서 fatal 오류를 찾는다. */
+export function findFirestoreFatalError(...candidates: unknown[]): unknown | null {
+  for (const candidate of candidates) {
+    if (classifyFirestoreFatalError(candidate)) return candidate;
+  }
   return null;
 }
 
