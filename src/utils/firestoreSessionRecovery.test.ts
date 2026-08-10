@@ -41,6 +41,18 @@ describe("Firestore session recovery", () => {
       new TypeError("cache.get is not a function or its return value is not iterable"),
     )).toBeNull();
     expect(classifyFirestoreFatalError(
+      new TypeError("foo.tc.get is not a function or its return value is not iterable"),
+    )).toBeNull();
+    expect(classifyFirestoreFatalError(
+      new TypeError("foo.n.tc.get is not a function or its return value is not iterable"),
+    )).toBeNull();
+    expect(classifyFirestoreFatalError(
+      new TypeError("$n.tc.get is not a function or its return value is not iterable"),
+    )).toBeNull();
+    expect(classifyFirestoreFatalError(
+      new TypeError("N.TC.GET is not a function or its return value is not iterable"),
+    )).toBeNull();
+    expect(classifyFirestoreFatalError(
       new Error("n.tc.get is not a function or its return value is not iterable"),
     )).toBeNull();
   });
