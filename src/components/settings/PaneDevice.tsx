@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Smartphone, Trash2, Users, Smartphone as PhoneIcon } from "lucide-react";
@@ -605,6 +605,8 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
 export function PaneDevice() {
   const { t } = useTranslation("settings");
   const { user, profile } = useAuth();
+  const activeUserUidRef = useRef<string | null>(user?.uid ?? null);
+  activeUserUidRef.current = user?.uid ?? null;
   const { showToast } = useToast();
   const dialog = useDialog();
   const uid = user?.uid ?? null;
@@ -628,6 +630,7 @@ export function PaneDevice() {
   }, [records, selectedDeviceId]);
 
   const [editingCard, setEditingCard] = useState<EditingCard>(null);
+  const [editingOwnerUid, setEditingOwnerUid] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [riderDraft, setRiderDraft] = useState<RiderDraft | null>(null);
@@ -636,6 +639,18 @@ export function PaneDevice() {
   const [dsDraft, setDsDraft] = useState<DisplaySoundDraft | null>(null);
   const [bgDraft, setBgDraft] = useState<BatteryGpsDraft | null>(null);
   const [netDraft, setNetDraft] = useState<NetworkDraft | null>(null);
+
+  useEffect(() => {
+    setSaving(false);
+    setEditingCard(null);
+    setEditingOwnerUid(null);
+    setRiderDraft(null);
+    setAutoDraft(null);
+    setAlertDraft(null);
+    setDsDraft(null);
+    setBgDraft(null);
+    setNetDraft(null);
+  }, [uid]);
 
   useEffect(() => {
     if (!record) return;
@@ -789,12 +804,14 @@ export function PaneDevice() {
   const s: AppSettings = record.settings;
 
   function startEdit(card: NonNullable<EditingCard>) {
+    if (!uid) return;
     setRiderDraft(null);
     setAutoDraft(null);
     setAlertDraft(null);
     setDsDraft(null);
     setBgDraft(null);
     setNetDraft(null);
+    setEditingOwnerUid(uid);
     setEditingCard(card);
   }
   function cancelEdit() {
@@ -805,10 +822,12 @@ export function PaneDevice() {
     setDsDraft(null);
     setBgDraft(null);
     setNetDraft(null);
+    setEditingOwnerUid(null);
   }
 
   async function commit(patch: Partial<AppSettings>, opts?: { broadcast?: boolean }) {
-    if (!uid || !record) return;
+    if (!uid || !record || editingOwnerUid !== uid) return;
+    const expectedUid = uid;
     setSaving(true);
     try {
       if (opts?.broadcast && records.length > 1) {
@@ -826,28 +845,33 @@ export function PaneDevice() {
           const parts: string[] = [t("device.broadcastApplied_other", { count: totalApplied })];
           if (validationFailed > 0) parts.push(t("device.broadcastValidationFailed", { count: validationFailed }));
           if (networkFailed > 0) parts.push(t("device.broadcastNetworkFailed", { count: networkFailed }));
-          showToast(parts.join(" · "));
+          if (activeUserUidRef.current === expectedUid) showToast(parts.join(" · "));
         } else if (totalApplied > 1) {
-          showToast(t("device.broadcastApplied_other", { count: totalApplied }));
+          if (activeUserUidRef.current === expectedUid) {
+            showToast(t("device.broadcastApplied_other", { count: totalApplied }));
+          }
         } else {
-          showToast(t("device.broadcastAppliedSingle"));
+          if (activeUserUidRef.current === expectedUid) showToast(t("device.broadcastAppliedSingle"));
         }
       } else {
         // hook의 update는 putDeviceSettings 후 optimistic local merge를 수행하므로
         // cancelEdit 직후 read 모드가 즉시 새 값을 보여준다 (onSnapshot latency와 무관).
         await update(record.deviceId, patch);
-        showToast(t("device.saved"));
+        if (activeUserUidRef.current === expectedUid) showToast(t("device.saved"));
       }
-      cancelEdit();
+      if (activeUserUidRef.current === expectedUid) cancelEdit();
     } catch (e) {
-      showToast(t("device.saveFailed", { message: e instanceof Error ? e.message : String(e) }));
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(t("device.saveFailed", { message: e instanceof Error ? e.message : String(e) }));
+      }
     } finally {
-      setSaving(false);
+      if (activeUserUidRef.current === expectedUid) setSaving(false);
     }
   }
 
   async function commitRider(draft: RiderDraft, broadcast: boolean) {
-    if (!uid) return;
+    if (!uid || editingOwnerUid !== uid) return;
+    const expectedUid = uid;
     if (
       draft.ftpWatts === "" ||
       !Number.isFinite(draft.ftpWatts) ||
@@ -860,16 +884,19 @@ export function PaneDevice() {
     setSaving(true);
     try {
       if (draft.ftpWatts !== profile?.ftp) {
-        await updateCanonicalFtp(uid, draft.ftpWatts, "manual");
+        await updateCanonicalFtp(expectedUid, draft.ftpWatts, "manual");
       }
     } catch (error) {
-      showToast(t("device.saveFailed", {
-        message: error instanceof Error ? error.message : String(error),
-      }));
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(t("device.saveFailed", {
+          message: error instanceof Error ? error.message : String(error),
+        }));
+      }
       return;
     } finally {
-      setSaving(false);
+      if (activeUserUidRef.current === expectedUid) setSaving(false);
     }
+    if (activeUserUidRef.current !== expectedUid) return;
     await commit(
       {
         maxHeartRate: draft.maxHeartRate,

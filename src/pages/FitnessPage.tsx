@@ -100,11 +100,17 @@ export default function FitnessPage() {
   const { t, i18n } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
+  const activeUserUidRef = useRef<string | null>(user?.uid ?? null);
+  activeUserUidRef.current = user?.uid ?? null;
   const { entries: ftpHistory } = useFtpHistory(user?.uid);
   const dialog = useDialog();
   const { showToast } = useToast();
   const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
   const [applyingFtp, setApplyingFtp] = useState(false);
+  useEffect(() => {
+    setAppliedFtpW(null);
+    setApplyingFtp(false);
+  }, [user?.uid]);
   const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
     ownerUid: user?.uid ?? null,
     items: [],
@@ -139,22 +145,26 @@ export default function FitnessPage() {
 
   async function applyAutomaticFtp(candidateW: number) {
     if (!user || applyingFtp) return;
+    const expectedUid = user.uid;
     if (isConservativeDrop(thresholdDecision.activeFtpW, candidateW)) {
       const confirmed = await dialog.confirm(
         t("thresholdDecision.dropConfirm", { current: thresholdDecision.activeFtpW, candidate: candidateW }),
         { title: t("thresholdDecision.dropConfirmTitle"), destructive: true },
       );
       if (!confirmed) return;
+      if (activeUserUidRef.current !== expectedUid) return;
     }
     setApplyingFtp(true);
     try {
-      await updateCanonicalFtp(user.uid, candidateW, "detected");
+      await updateCanonicalFtp(expectedUid, candidateW, "detected");
+      if (activeUserUidRef.current !== expectedUid) return;
       setAppliedFtpW(candidateW);
       showToast(t("thresholdDecision.applied", { value: candidateW }));
     } catch (error) {
+      if (activeUserUidRef.current !== expectedUid) return;
       showToast(t("thresholdDecision.applyFailed", { message: error instanceof Error ? error.message : String(error) }), "error");
     } finally {
-      setApplyingFtp(false);
+      if (activeUserUidRef.current === expectedUid) setApplyingFtp(false);
     }
   }
 

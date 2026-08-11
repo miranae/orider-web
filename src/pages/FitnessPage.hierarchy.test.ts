@@ -26,7 +26,9 @@ describe("FitnessPage desktop hierarchy", () => {
     expect(source).toContain("<desc>{trendDescription}</desc>");
     expect(source).toContain("isConservativeDrop(thresholdDecision.activeFtpW, candidateW)");
     expect(source).toContain("await dialog.confirm(");
-    expect(source).toContain('await updateCanonicalFtp(user.uid, candidateW, "detected")');
+    expect(source).toContain('await updateCanonicalFtp(expectedUid, candidateW, "detected")');
+    expect(source).toContain("activeUserUidRef.current !== expectedUid");
+    expect(source).toContain("setAppliedFtpW(null)");
     expect(source).not.toContain("persistRiderMetrics(");
   });
 });

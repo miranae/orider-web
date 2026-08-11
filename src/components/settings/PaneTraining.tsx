@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
@@ -78,6 +78,8 @@ function parseBodyValue(value: string, unit: BodyUnit, kind: "weight" | "height"
 export function PaneTraining() {
   const { t } = useTranslation("settings");
   const { user, profile } = useAuth();
+  const activeUserUidRef = useRef<string | null>(user?.uid ?? null);
+  activeUserUidRef.current = user?.uid ?? null;
   const { units } = useLocale();
   const { profiles: bikeProfiles } = useBikeProfiles(user?.uid ?? null);
   const { showToast } = useToast();
@@ -85,6 +87,7 @@ export function PaneTraining() {
 
   const [ftp, setFtp] = useState("");
   const [savedFtp, setSavedFtp] = useState<number | null | undefined>(profile?.ftp);
+  const [formOwnerUid, setFormOwnerUid] = useState<string | null>(null);
   const [ftpChangeSource, setFtpChangeSource] = useState<FtpHistorySource>("manual");
   // FTP 테스트 모드 — 전용 테스트 입력 → FTP 후보 산출(#307).
   const [ftpTestProtocol, setFtpTestProtocol] = useState<FtpTestProtocol>("twenty_min");
@@ -110,8 +113,19 @@ export function PaneTraining() {
 
   // 초기값: profile (onSnapshot)
   useEffect(() => {
-    if (!user) return;
-    void getDoc(doc(firestore, "users", user.uid)).then((snap) => {
+    const ownerUid = user?.uid ?? null;
+    setFormOwnerUid(null);
+    setFtp("");
+    setSavedFtp(null);
+    setMaxHr("");
+    setLthr("");
+    setThresholdPace("");
+    setCss("");
+    setSaving(false);
+    if (!ownerUid) return;
+    let cancelled = false;
+    void getDoc(doc(firestore, "users", ownerUid)).then((snap) => {
+      if (cancelled) return;
       const d = snap.data() ?? {};
       if (typeof d.ftp === "number") {
         setFtp(String(d.ftp));
@@ -123,8 +137,10 @@ export function PaneTraining() {
       if (typeof d.lthr === "number") setLthr(String(d.lthr));
       if (typeof d.thresholdPace === "number") setThresholdPace(secsToMmss(d.thresholdPace));
       if (typeof d.css === "number") setCss(secsToMmss(d.css));
+      setFormOwnerUid(ownerUid);
     });
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user?.uid]);
 
   useEffect(() => {
     setWeightKg(profile?.weightKg ? String(profile.weightKg) : "");
@@ -172,7 +188,8 @@ export function PaneTraining() {
   const hrZonePreview = deriveHrZones({ maxHr: Number(maxHr), lthr: Number(lthr), sport: "bike" });
 
   async function handleSave() {
-    if (!user) return;
+    if (!user || formOwnerUid !== user.uid) return;
+    const expectedUid = user.uid;
     const updates: Record<string, unknown> = {};
 
     if (ftp.trim() === "") {
@@ -278,9 +295,11 @@ export function PaneTraining() {
       const nextFtp = updates.ftp as number | null;
       const ftpChanged = nextFtp !== (savedFtp ?? null);
       if (ftpChanged) {
-        await updateCanonicalFtp(user.uid, nextFtp, ftpChangeSource);
-        setSavedFtp(nextFtp);
-        setFtpChangeSource("manual");
+        await updateCanonicalFtp(expectedUid, nextFtp, ftpChangeSource);
+        if (activeUserUidRef.current === expectedUid) {
+          setSavedFtp(nextFtp);
+          setFtpChangeSource("manual");
+        }
       }
 
       // maxHr/weightKg는 아직 기존 호환 경로를 사용한다. FTP는 위 command에서 분리한다.
@@ -293,7 +312,7 @@ export function PaneTraining() {
 
       const syncErrors: string[] = [];
       if (needDeviceSync) {
-        const result = await persistRiderMetrics(user.uid, {
+        const result = await persistRiderMetrics(expectedUid, {
           maxHr: maxHrForSync,
           weightKg: weightForSync,
         });
@@ -312,36 +331,40 @@ export function PaneTraining() {
       if (maxHrForSync !== undefined) delete rootUpdates.maxHr;
       if (weightForSync !== undefined) delete rootUpdates.weightKg;
       if (Object.keys(rootUpdates).length > 0) {
-        await updateDoc(doc(firestore, "users", user.uid), rootUpdates);
+        await updateDoc(doc(firestore, "users", expectedUid), rootUpdates);
       }
       // 의료/응급 PII → owner-only 서브컬렉션(#524). 루트엔 쓰지 않음(노출 차단).
-      await setDoc(doc(firestore, "users", user.uid, "private", "medical"), medical, { merge: true });
+      await setDoc(doc(firestore, "users", expectedUid, "private", "medical"), medical, { merge: true });
       if (weightForSync !== undefined && bikeProfiles.length > 0) {
         // 자전거가 여러 대일 때 일괄 반영은 가족 공유나 자전거별 다른 라이더 케이스에서
         // 의도치 않은 데이터 손실이 가능하므로 명시적 confirm. 1대만 있으면 자동 동기화.
         const shouldSyncBikes =
           bikeProfiles.length === 1 ||
-          await dialog.confirm(
-            t("training.syncBikeConfirm", { count: bikeProfiles.length }),
+          (
+            activeUserUidRef.current === expectedUid &&
+            await dialog.confirm(t("training.syncBikeConfirm", { count: bikeProfiles.length }))
           );
         if (shouldSyncBikes) {
           try {
-            await syncRiderWeightToBikeProfiles(user.uid, weightForSync);
+            await syncRiderWeightToBikeProfiles(expectedUid, weightForSync);
           } catch (e) {
             syncErrors.push(t("training.syncBikeError", { message: e instanceof Error ? e.message : String(e) }));
           }
         }
       }
 
+      if (activeUserUidRef.current !== expectedUid) return;
       if (syncErrors.length === 0) {
         showToast(t("training.saved"));
       } else {
         showToast(t("training.syncPartialFail", { errors: syncErrors.join(" / ") }));
       }
     } catch (e) {
-      showToast(`${t("training.saveFailed")}: ${e instanceof Error ? e.message : String(e)}`);
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(`${t("training.saveFailed")}: ${e instanceof Error ? e.message : String(e)}`);
+      }
     } finally {
-      setSaving(false);
+      if (activeUserUidRef.current === expectedUid) setSaving(false);
     }
   }
 
