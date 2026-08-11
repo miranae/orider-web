@@ -403,7 +403,7 @@
   "thresholdDecision.action.addZoneData": "Add an activity for power-zone analysis",
   "thresholdDecision.dropConfirmTitle": "Confirm FTP decrease",
   "thresholdDecision.dropConfirm": "This is a large decrease from {{current}}W to {{candidate}}W. Update power zones and device settings too?",
-  "thresholdDecision.applied": "Applied FTP {{value}}W to your profile and devices.",
+  "thresholdDecision.applied": "Applied FTP {{value}}W to your profile; device sync has started.",
   "thresholdDecision.applyFailed": "Could not apply FTP: {{message}}",
   "ftpProgression.breakthroughEyebrow": "Review an FTP update",
   "ftpProgression.breakthroughBody": "Estimated FTP is {{candidate}}W, {{delta}}W above your current {{current}}W. Nothing was changed automatically; review it in training settings.",

@@ -8,6 +8,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
@@ -54,6 +55,28 @@ export interface DeviceNavigationPrefsRecord {
 
 const DEFAULT_DEVICE_SETTINGS_VERSION = 1;
 const DEFAULT_NAV_PREFS_VERSION = 1;
+
+export function preserveCanonicalFtpCache(
+  nextJson: string,
+  currentJson: unknown,
+): string {
+  const next = JSON.parse(nextJson) as Record<string, unknown>;
+  let current: Record<string, unknown> = {};
+  if (typeof currentJson === "string") {
+    try {
+      current = JSON.parse(currentJson) as Record<string, unknown>;
+    } catch {
+      // 손상된 legacy JSON의 FTP를 새 문서로 복제하지 않는다.
+    }
+  }
+  const currentFtp = current.ftpWatts;
+  if (typeof currentFtp === "number" && Number.isFinite(currentFtp)) {
+    next.ftpWatts = currentFtp;
+  } else {
+    delete next.ftpWatts;
+  }
+  return JSON.stringify(next);
+}
 
 function readVersion(raw: unknown, fallback: number): number {
   return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : fallback;
@@ -240,17 +263,20 @@ export async function putDeviceSettings(
   version: number = DEFAULT_DEVICE_SETTINGS_VERSION,
 ): Promise<void> {
   const ref = doc(firestore, "users", uid, "settings", deviceId);
-  await setDoc(
-    ref,
-    {
-      data: serializeAppSettings(settings),
+  const nextJson = serializeAppSettings(settings);
+  // device settings는 FTP를 author하지 않는다. 서버 fan-out과 동시에 maxHR/weight 등을
+  // 저장해도 transaction이 최신 문서의 FTP cache를 보존하므로 stale 전체 JSON이
+  // canonical root로 역수입되는 경로를 차단한다.
+  await runTransaction(firestore, async (tx) => {
+    const current = await tx.get(ref);
+    tx.set(ref, {
+      data: preserveCanonicalFtpCache(nextJson, current.data()?.data),
       deviceId,
       deviceName,
       updatedAt: serverTimestamp(),
       version,
-    },
-    { merge: true },
-  );
+    }, { merge: true });
+  });
 }
 
 /**
