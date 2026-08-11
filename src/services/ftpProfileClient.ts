@@ -20,14 +20,15 @@ export interface UpdateFtpResult {
  * 정본을 되돌릴 수 있으므로 여기서는 canonical command만 호출한다.
  */
 export async function updateCanonicalFtp(
+  expectedUid: string,
   ftp: number | null,
   source: FtpChangeSource,
   mutationId = crypto.randomUUID(),
 ): Promise<UpdateFtpResult> {
   const callable = httpsCallable<
-    { ftp: number | null; source: FtpChangeSource; mutationId: string },
+    { expectedUid: string; ftp: number | null; source: FtpChangeSource; mutationId: string },
     UpdateFtpResult
   >(functions, "updateFtp");
-  const result = await callable({ ftp, source, mutationId });
+  const result = await callable({ expectedUid, ftp, source, mutationId });
   return result.data;
 }

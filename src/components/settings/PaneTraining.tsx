@@ -278,7 +278,7 @@ export function PaneTraining() {
       const nextFtp = updates.ftp as number | null;
       const ftpChanged = nextFtp !== (savedFtp ?? null);
       if (ftpChanged) {
-        await updateCanonicalFtp(nextFtp, ftpChangeSource);
+        await updateCanonicalFtp(user.uid, nextFtp, ftpChangeSource);
         setSavedFtp(nextFtp);
         setFtpChangeSource("manual");
       }

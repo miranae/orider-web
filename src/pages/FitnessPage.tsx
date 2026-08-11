@@ -148,7 +148,7 @@ export default function FitnessPage() {
     }
     setApplyingFtp(true);
     try {
-      await updateCanonicalFtp(candidateW, "detected");
+      await updateCanonicalFtp(user.uid, candidateW, "detected");
       setAppliedFtpW(candidateW);
       showToast(t("thresholdDecision.applied", { value: candidateW }));
     } catch (error) {

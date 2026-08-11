@@ -847,6 +847,7 @@ export function PaneDevice() {
   }
 
   async function commitRider(draft: RiderDraft, broadcast: boolean) {
+    if (!uid) return;
     if (
       draft.ftpWatts === "" ||
       !Number.isFinite(draft.ftpWatts) ||
@@ -859,7 +860,7 @@ export function PaneDevice() {
     setSaving(true);
     try {
       if (draft.ftpWatts !== profile?.ftp) {
-        await updateCanonicalFtp(draft.ftpWatts, "manual");
+        await updateCanonicalFtp(uid, draft.ftpWatts, "manual");
       }
     } catch (error) {
       showToast(t("device.saveFailed", {

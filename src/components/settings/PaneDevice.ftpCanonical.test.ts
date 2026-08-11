@@ -10,7 +10,7 @@ describe("PaneDevice canonical FTP contract", () => {
       "utf8",
     );
 
-    expect(source).toContain('updateCanonicalFtp(draft.ftpWatts, "manual")');
+    expect(source).toContain('updateCanonicalFtp(uid, draft.ftpWatts, "manual")');
     expect(source).toContain('typeof profile?.ftp === "number" ? `${profile.ftp} W` : "-"');
     expect(source).not.toContain("ftpWatts: riderDraft.ftpWatts");
   });

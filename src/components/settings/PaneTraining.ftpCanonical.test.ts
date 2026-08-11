@@ -9,7 +9,7 @@ describe("PaneTraining canonical FTP writes", () => {
   );
 
   it("sends both updates and clears through the canonical command", () => {
-    expect(source).toContain("await updateCanonicalFtp(nextFtp, ftpChangeSource)");
+    expect(source).toContain("await updateCanonicalFtp(user.uid, nextFtp, ftpChangeSource)");
     expect(source).toContain("const nextFtp = updates.ftp as number | null");
     expect(source).toContain("delete rootUpdates.ftp");
   });
