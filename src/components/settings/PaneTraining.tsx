@@ -10,6 +10,7 @@ import {
   persistRiderMetrics,
   syncRiderWeightToBikeProfiles,
 } from "../../services/syncRiderMetrics";
+import { updateCanonicalFtp } from "../../services/ftpProfileClient";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
@@ -29,7 +30,6 @@ import { ThresholdSuggestionBanner } from "./ThresholdSuggestionBanner";
 import { Button, Text } from "../../theme/components";
 import { estimateFtpFromTest, isConservativeDrop, type FtpTestProtocol } from "@shared/training/ftpTest";
 import {
-  ftpHistorySourceForChange,
   type FtpHistorySource,
 } from "@shared/training/ftpHistory";
 import { deriveHrZones, isValidHrThresholdRelationship } from "../../utils/hrZones";
@@ -130,6 +130,16 @@ export function PaneTraining() {
     setWeightKg(profile?.weightKg ? String(profile.weightKg) : "");
     setHeightCm(profile?.heightCm ? String(profile.heightCm) : "");
   }, [profile?.weightKg, profile?.heightCm]);
+
+  // 다른 화면의 자동 적용이나 앱 변경도 같은 canonical profile 구독으로 즉시 반영한다.
+  // profile 자체가 아직 로드되지 않은 초기 상태에서는 getDoc 초기화를 덮지 않는다.
+  useEffect(() => {
+    if (!profile) return;
+    const canonicalFtp = typeof profile.ftp === "number" ? profile.ftp : null;
+    setFtp(canonicalFtp == null ? "" : String(canonicalFtp));
+    setSavedFtp(canonicalFtp);
+    setFtpChangeSource("manual");
+  }, [profile?.ftp, user?.uid]);
 
   useEffect(() => {
     setBodyUnit(units === "imperial" ? "imperial" : "metric");
@@ -263,39 +273,30 @@ export function PaneTraining() {
 
     setSaving(true);
     try {
-      // 라이더 임계값(ftp/maxHr/weightKg)은 프로필 root 정본과 디바이스 settings JSON을
-      // 한 동작으로 갱신한다. CF 미러 지연과 무관하게 저장 직후 웹 정본도 일치해야 한다.
-      // null(클리어) 은 디바이스가 "기본값 사용" 의미와 다르므로 root 에는 직접 null 로 쓴다.
-      const ftpForSync = typeof updates.ftp === "number" ? updates.ftp : undefined;
+      // FTP는 서버 canonical command만 변경한다. root 정본 커밋 뒤 Functions가
+      // training profile과 기기 캐시를 단방향 전파하므로 클라이언트가 기기부터 쓰지 않는다.
+      const nextFtp = updates.ftp as number | null;
+      const ftpChanged = nextFtp !== (savedFtp ?? null);
+      if (ftpChanged) {
+        await updateCanonicalFtp(nextFtp, ftpChangeSource);
+        setSavedFtp(nextFtp);
+        setFtpChangeSource("manual");
+      }
+
+      // maxHr/weightKg는 아직 기존 호환 경로를 사용한다. FTP는 위 command에서 분리한다.
       const maxHrForSync = typeof updates.maxHr === "number" ? updates.maxHr : undefined;
       const weightForSync =
         typeof updates.weightKg === "number" ? updates.weightKg : undefined;
       const needDeviceSync =
-        ftpForSync !== undefined ||
         maxHrForSync !== undefined ||
         weightForSync !== undefined;
 
       const syncErrors: string[] = [];
       if (needDeviceSync) {
-        const ftpHistorySource = ftpHistorySourceForChange(
-          savedFtp,
-          ftpForSync,
-          ftpChangeSource,
-        );
-        // persistRiderMetrics 내부의 device 실패는 result.failures 로 반환되지만,
-        // 프로필+이력 batch 실패는 throw한다. 후자는 아래 저장 흐름을 중단해야 재시도 때
-        // audit source가 보존되고, FTP만 별도 저장되는 부분 성공이 생기지 않는다.
         const result = await persistRiderMetrics(user.uid, {
-          ftp: ftpForSync,
           maxHr: maxHrForSync,
           weightKg: weightForSync,
-        }, { ftpHistorySource });
-        if (ftpForSync !== undefined) {
-          // FTP 정본+이력 커밋은 여기서 이미 완료됐다. 이후 다른 프로필/의료 저장이
-          // 실패해도 재시도가 같은 FTP 이력을 다시 append하지 않도록 기준을 즉시 확정한다.
-          setSavedFtp(ftpForSync);
-          setFtpChangeSource("manual");
-        }
+        });
         if (result.failures.length > 0) {
           const failedNames = result.failures
             .map((f) => f.deviceName || f.deviceId)
@@ -307,7 +308,7 @@ export function PaneTraining() {
       // persistRiderMetrics가 기기 동기화와 root 정본 갱신을 함께 처리하므로,
       // 나머지 프로필 필드만 이 update에 포함한다.
       const rootUpdates: Record<string, unknown> = { ...updates };
-      if (ftpForSync !== undefined) delete rootUpdates.ftp;
+      delete rootUpdates.ftp;
       if (maxHrForSync !== undefined) delete rootUpdates.maxHr;
       if (weightForSync !== undefined) delete rootUpdates.weightKg;
       if (Object.keys(rootUpdates).length > 0) {
@@ -336,10 +337,6 @@ export function PaneTraining() {
         showToast(t("training.saved"));
       } else {
         showToast(t("training.syncPartialFail", { errors: syncErrors.join(" / ") }));
-      }
-      if (ftpForSync === undefined) {
-        setSavedFtp(null);
-        setFtpChangeSource("manual");
       }
     } catch (e) {
       showToast(`${t("training.saveFailed")}: ${e instanceof Error ? e.message : String(e)}`);

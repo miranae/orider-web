@@ -74,7 +74,7 @@ import {
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
 import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
-import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
+import { aggregateRecentZoneSeconds, FITNESS_ZONE_WINDOW_DAYS } from "../features/fitness/mobileFitnessMetrics";
 import { deriveMonthlyCyclingVo2maxTrend } from "../features/fitness/deriveMonthlyCyclingVo2maxTrend";
 import { useUserFitness } from "../hooks/useUserFitness";
 import {
@@ -87,7 +87,7 @@ import {
 import { useFitnessClock } from "../hooks/useFitnessClock";
 import { useDialog } from "../contexts/DialogContext";
 import { useToast } from "../contexts/ToastContext";
-import { persistRiderMetrics } from "../services/syncRiderMetrics";
+import { updateCanonicalFtp } from "../services/ftpProfileClient";
 import { useCoachRiderInsight } from "../hooks/useCoachRiderInsight";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { buildCanonicalRiderFitnessView, cyclingAbilityFromCanonicalRider } from "../features/fitness/riderInsightParity";
@@ -148,17 +148,9 @@ export default function FitnessPage() {
     }
     setApplyingFtp(true);
     try {
-      const result = await persistRiderMetrics(
-        user.uid,
-        { ftp: candidateW },
-        { ftpHistorySource: "detected" },
-      );
+      await updateCanonicalFtp(candidateW, "detected");
       setAppliedFtpW(candidateW);
-      if (result.failures.length > 0) {
-        showToast(t("thresholdDecision.partial", { count: result.failures.length }), "error");
-      } else {
-        showToast(t("thresholdDecision.applied", { value: candidateW }));
-      }
+      showToast(t("thresholdDecision.applied", { value: candidateW }));
     } catch (error) {
       showToast(t("thresholdDecision.applyFailed", { message: error instanceof Error ? error.message : String(error) }), "error");
     } finally {
@@ -579,7 +571,15 @@ export default function FitnessPage() {
     // 파워 존 분포 — 서버 계산 metrics.powerZoneSec(z1..z7 누적 초) 합산. z2~z7 을 z1~z6
     // 으로 매핑 (서버 z1=Active Recovery 는 클라 z1=Recovery 와 동일). bike 전용.
     const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
-      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", 6)
+      ? aggregateRecentZoneSeconds(
+          disciplineActivities,
+          metricsMap,
+          "powerZoneSec",
+          6,
+          Date.now(),
+          FITNESS_ZONE_WINDOW_DAYS,
+          ftp,
+        )
       : { counts: [0, 0, 0, 0, 0, 0], total: 0 };
 
     type MobZone = { name: string; pct: number; color: string; rangeLabel: string; percentLabel: string };

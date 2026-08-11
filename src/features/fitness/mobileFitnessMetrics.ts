@@ -13,6 +13,7 @@ export function aggregateRecentZoneSeconds(
   zoneCount: number,
   now = Date.now(),
   windowDays = FITNESS_ZONE_WINDOW_DAYS,
+  expectedFtp?: number,
 ): { counts: number[]; total: number } {
   const cutoff = now - windowDays * 24 * 60 * 60 * 1000;
   const counts = Array.from({ length: zoneCount }, () => 0);
@@ -20,7 +21,15 @@ export function aggregateRecentZoneSeconds(
 
   for (const activity of activities) {
     if (activity.startTime < cutoff || activity.startTime > now) continue;
-    const values = metricsMap.get(activity.id)?.[metricKey];
+    const metrics = metricsMap.get(activity.id);
+    // 파워 존은 계산 당시 FTP에 종속된다. 현재 정본과 다른 버킷을 현재 FTP의
+    // 와트 범위로 설명하지 않도록, 같은 FTP로 계산된 메트릭만 합산한다.
+    if (
+      metricKey === "powerZoneSec" &&
+      expectedFtp != null &&
+      metrics?.contextSnapshot?.ftp !== expectedFtp
+    ) continue;
+    const values = metrics?.[metricKey];
     if (!values || values.length < zoneCount) continue;
     for (let i = 0; i < zoneCount; i++) {
       const value = values[i] ?? 0;

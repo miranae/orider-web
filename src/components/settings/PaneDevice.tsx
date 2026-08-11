@@ -7,6 +7,7 @@ import {
   deleteDevice,
   renameDevice,
 } from "../../services/deviceSettingsClient";
+import { updateCanonicalFtp } from "../../services/ftpProfileClient";
 
 import {
   type AlertMetric,
@@ -558,7 +559,7 @@ type EditingCard =
   | null;
 
 interface RiderDraft {
-  ftpWatts: number;
+  ftpWatts: number | "";
   maxHeartRate: number;
   riderWeightKg: number;
 }
@@ -570,8 +571,13 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
       <Field label={t("device.fieldFtp")} hint={t("device.fieldFtpHint")}>
         <input
           type="number"
+          min={50}
+          max={2000}
           value={draft.ftpWatts}
-          onChange={(e) => setDraft({ ...draft, ftpWatts: Number(e.target.value) })}
+          onChange={(e) => setDraft({
+            ...draft,
+            ftpWatts: e.target.value === "" ? "" : Number(e.target.value),
+          })}
           style={monoInputStyle}
         />
       </Field>
@@ -598,7 +604,7 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
 
 export function PaneDevice() {
   const { t } = useTranslation("settings");
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { showToast } = useToast();
   const dialog = useDialog();
   const uid = user?.uid ?? null;
@@ -636,7 +642,7 @@ export function PaneDevice() {
     const s = record.settings;
     if (editingCard === "rider" && !riderDraft) {
       setRiderDraft({
-        ftpWatts: s.ftpWatts,
+        ftpWatts: typeof profile?.ftp === "number" ? profile.ftp : "",
         maxHeartRate: s.maxHeartRate,
         riderWeightKg: s.riderWeightKg,
       });
@@ -673,7 +679,7 @@ export function PaneDevice() {
         stravaUploadNetworkMode: s.stravaUploadNetworkMode,
       });
     }
-  }, [editingCard, record, riderDraft, autoDraft, alertDraft, dsDraft, bgDraft, netDraft]);
+  }, [editingCard, record, profile?.ftp, riderDraft, autoDraft, alertDraft, dsDraft, bgDraft, netDraft]);
 
   // Translated label helpers (called at render, not in module scope)
   const gpsModeLabel = (m: GpsMode): string => {
@@ -840,6 +846,38 @@ export function PaneDevice() {
     }
   }
 
+  async function commitRider(draft: RiderDraft, broadcast: boolean) {
+    if (
+      draft.ftpWatts === "" ||
+      !Number.isFinite(draft.ftpWatts) ||
+      draft.ftpWatts < 50 ||
+      draft.ftpWatts > 2000
+    ) {
+      showToast(t("device.saveFailed", { message: t("device.fieldFtpHint") }));
+      return;
+    }
+    setSaving(true);
+    try {
+      if (draft.ftpWatts !== profile?.ftp) {
+        await updateCanonicalFtp(draft.ftpWatts, "manual");
+      }
+    } catch (error) {
+      showToast(t("device.saveFailed", {
+        message: error instanceof Error ? error.message : String(error),
+      }));
+      return;
+    } finally {
+      setSaving(false);
+    }
+    await commit(
+      {
+        maxHeartRate: draft.maxHeartRate,
+        riderWeightKg: draft.riderWeightKg,
+      },
+      { broadcast },
+    );
+  }
+
   return (
     <>
       <Card padding="none"
@@ -996,20 +1034,13 @@ export function PaneDevice() {
           onCancel={cancelEdit}
           onSave={({ broadcast }) =>
             riderDraft
-              ? commit(
-                  {
-                    ftpWatts: riderDraft.ftpWatts,
-                    maxHeartRate: riderDraft.maxHeartRate,
-                    riderWeightKg: riderDraft.riderWeightKg,
-                  },
-                  { broadcast },
-                )
+              ? commitRider(riderDraft, broadcast)
               : Promise.resolve()
           }
           read={
             <KVList
               rows={[
-                { k: "FTP", v: `${s.ftpWatts} W` },
+                { k: "FTP", v: typeof profile?.ftp === "number" ? `${profile.ftp} W` : "-" },
                 { k: t("device.fieldMaxHr"), v: `${s.maxHeartRate} bpm` },
                 { k: t("device.fieldWeight"), v: `${s.riderWeightKg} kg` },
               ]}
