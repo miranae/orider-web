@@ -105,10 +105,10 @@ export default function FitnessPage() {
   const { entries: ftpHistory } = useFtpHistory(user?.uid);
   const dialog = useDialog();
   const { showToast } = useToast();
-  const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
+  const [appliedFtp, setAppliedFtp] = useState<{ ownerUid: string; value: number } | null>(null);
   const [applyingFtp, setApplyingFtp] = useState(false);
   useEffect(() => {
-    setAppliedFtpW(null);
+    setAppliedFtp(null);
     setApplyingFtp(false);
   }, [user?.uid]);
   const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
@@ -137,7 +137,9 @@ export default function FitnessPage() {
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
-  const canonicalFtpW = appliedFtpW ?? profile?.ftp ?? null;
+  const canonicalFtpW = appliedFtp && appliedFtp.ownerUid === user?.uid
+    ? appliedFtp.value
+    : profile?.ftp ?? null;
   const thresholdDecision = useMemo(
     () => resolveBikeThresholdDecision(canonicalFtpW, pdc),
     [canonicalFtpW, pdc],
@@ -158,7 +160,7 @@ export default function FitnessPage() {
     try {
       await updateCanonicalFtp(expectedUid, candidateW, "detected");
       if (activeUserUidRef.current !== expectedUid) return;
-      setAppliedFtpW(candidateW);
+      setAppliedFtp({ ownerUid: expectedUid, value: candidateW });
       showToast(t("thresholdDecision.applied", { value: candidateW }));
     } catch (error) {
       if (activeUserUidRef.current !== expectedUid) return;

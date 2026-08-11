@@ -28,7 +28,8 @@ describe("FitnessPage desktop hierarchy", () => {
     expect(source).toContain("await dialog.confirm(");
     expect(source).toContain('await updateCanonicalFtp(expectedUid, candidateW, "detected")');
     expect(source).toContain("activeUserUidRef.current !== expectedUid");
-    expect(source).toContain("setAppliedFtpW(null)");
+    expect(source).toContain("appliedFtp && appliedFtp.ownerUid === user?.uid");
+    expect(source).toContain("setAppliedFtp({ ownerUid: expectedUid, value: candidateW })");
     expect(source).not.toContain("persistRiderMetrics(");
   });
 });
