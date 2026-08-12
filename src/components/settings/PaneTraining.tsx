@@ -92,6 +92,8 @@ export function PaneTraining() {
     ownerUid: string;
     data: Partial<UserProfile>;
   } | null>(null);
+  const [profileLoadErrorOwnerUid, setProfileLoadErrorOwnerUid] = useState<string | null>(null);
+  const [profileLoadAttempt, setProfileLoadAttempt] = useState(0);
   const [ftpChangeSource, setFtpChangeSource] = useState<FtpHistorySource>("manual");
   // FTP 테스트 모드 — 전용 테스트 입력 → FTP 후보 산출(#307).
   const [ftpTestProtocol, setFtpTestProtocol] = useState<FtpTestProtocol>("twenty_min");
@@ -128,6 +130,7 @@ export function PaneTraining() {
     setWeightKg("");
     setHeightCm("");
     setOwnerProfile(null);
+    setProfileLoadErrorOwnerUid(null);
     setSaving(false);
     if (!ownerUid) return;
     let cancelled = false;
@@ -147,13 +150,14 @@ export function PaneTraining() {
       setFormOwnerUid(ownerUid);
     }).catch((error) => {
       if (cancelled) return;
+      setProfileLoadErrorOwnerUid(ownerUid);
       logClientError("PaneTraining.loadProfile", error, {
         operation: "getUserProfile",
         ownerUid,
       });
     });
     return () => { cancelled = true; };
-  }, [user?.uid]);
+  }, [user?.uid, profileLoadAttempt]);
 
   const verifiedProfile = ownerProfile && ownerProfile.ownerUid === user?.uid
     ? ownerProfile.data
@@ -190,9 +194,21 @@ export function PaneTraining() {
 
   if (!user) return null;
   if (formOwnerUid !== user.uid) {
+    const failedForCurrentOwner = profileLoadErrorOwnerUid === user.uid;
     return (
       <SettingsCard title={t("training.cardThresholds")} dense>
-        <Text variant="eyebrow">{t("common.loading")}</Text>
+        <Text variant="eyebrow">
+          {failedForCurrentOwner ? t("common.loadFailed") : t("common.loading")}
+        </Text>
+        {failedForCurrentOwner && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setProfileLoadAttempt((attempt) => attempt + 1)}
+          >
+            {t("common.retry")}
+          </Button>
+        )}
       </SettingsCard>
     );
   }
@@ -373,6 +389,25 @@ export function PaneTraining() {
       }
 
       if (activeUserUidRef.current !== expectedUid) return;
+      setOwnerProfile((current) => {
+        if (current?.ownerUid !== expectedUid) return current;
+        const data = { ...current.data };
+        const assignNumber = (key: keyof Pick<UserProfile,
+          "ftp" | "maxHr" | "lthr" | "thresholdPace" | "css" | "weightKg" | "heightCm"
+        >) => {
+          const value = updates[key];
+          if (typeof value === "number") data[key] = value;
+          else delete data[key];
+        };
+        assignNumber("ftp");
+        assignNumber("maxHr");
+        assignNumber("lthr");
+        assignNumber("thresholdPace");
+        assignNumber("css");
+        assignNumber("weightKg");
+        assignNumber("heightCm");
+        return { ownerUid: expectedUid, data };
+      });
       if (syncErrors.length === 0) {
         showToast(t("training.saved"));
       } else {

@@ -101,4 +101,28 @@ describe("PaneDevice canonical FTP owner fencing", () => {
       .closest("label")?.querySelector("input") as HTMLInputElement;
     expect(ftpInput.value).toBe("");
   });
+
+  it("hydrates an untouched early draft but preserves a user-edited FTP", async () => {
+    const first = deferred<{ data: () => { ftp: number } }>();
+    mocks.getDoc.mockReturnValueOnce(first.promise);
+    const view = render(<PaneDevice />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "device.editAriaLabel" })[0]);
+    const ftpInput = screen.getByText("device.fieldFtpHint")
+      .closest("label")?.querySelector("input") as HTMLInputElement;
+    expect(ftpInput.value).toBe("");
+    await act(async () => { first.resolve({ data: () => ({ ftp: 310 }) }); });
+    expect(ftpInput.value).toBe("310");
+
+    view.unmount();
+    const second = deferred<{ data: () => { ftp: number } }>();
+    mocks.getDoc.mockReturnValueOnce(second.promise);
+    render(<PaneDevice />);
+    fireEvent.click(screen.getAllByRole("button", { name: "device.editAriaLabel" })[0]);
+    const editedInput = screen.getByText("device.fieldFtpHint")
+      .closest("label")?.querySelector("input") as HTMLInputElement;
+    fireEvent.change(editedInput, { target: { value: "275" } });
+    await act(async () => { second.resolve({ data: () => ({ ftp: 320 }) }); });
+    expect(editedInput.value).toBe("275");
+  });
 });

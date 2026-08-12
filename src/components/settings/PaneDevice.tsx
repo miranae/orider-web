@@ -567,7 +567,11 @@ interface RiderDraft {
   riderWeightKg: number;
 }
 
-function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
+function RiderEdit({
+  draft,
+  setDraft,
+  onFtpChange,
+}: CardEditProps<RiderDraft> & { onFtpChange: () => void }) {
   const { t } = useTranslation("settings");
   return (
     <FieldGrid cols={3}>
@@ -577,10 +581,13 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
           min={50}
           max={2000}
           value={draft.ftpWatts}
-          onChange={(e) => setDraft({
-            ...draft,
-            ftpWatts: e.target.value === "" ? "" : Number(e.target.value),
-          })}
+          onChange={(e) => {
+            onFtpChange();
+            setDraft({
+              ...draft,
+              ftpWatts: e.target.value === "" ? "" : Number(e.target.value),
+            });
+          }}
           style={monoInputStyle}
         />
       </Field>
@@ -641,6 +648,7 @@ export function PaneDevice() {
   const [saving, setSaving] = useState(false);
 
   const [riderDraft, setRiderDraft] = useState<RiderDraft | null>(null);
+  const [riderFtpDirty, setRiderFtpDirty] = useState(false);
   const [autoDraft, setAutoDraft] = useState<AutoDraft | null>(null);
   const [alertDraft, setAlertDraft] = useState<AlertSettings | null>(null);
   const [dsDraft, setDsDraft] = useState<DisplaySoundDraft | null>(null);
@@ -652,6 +660,7 @@ export function PaneDevice() {
     setEditingCard(null);
     setEditingOwnerUid(null);
     setRiderDraft(null);
+    setRiderFtpDirty(false);
     setAutoDraft(null);
     setAlertDraft(null);
     setDsDraft(null);
@@ -682,6 +691,21 @@ export function PaneDevice() {
   }, [uid]);
 
   const verifiedFtp = ftpProfile?.ownerUid === uid ? ftpProfile.ftp : null;
+
+  useEffect(() => {
+    if (
+      editingCard !== "rider" ||
+      editingOwnerUid !== uid ||
+      !riderDraft ||
+      riderFtpDirty ||
+      !ftpProfile ||
+      ftpProfile.ownerUid !== uid
+    ) return;
+    const nextFtp = verifiedFtp ?? "";
+    setRiderDraft((current) => current && current.ftpWatts !== nextFtp
+      ? { ...current, ftpWatts: nextFtp }
+      : current);
+  }, [editingCard, editingOwnerUid, ftpProfile, riderDraft, riderFtpDirty, uid, verifiedFtp]);
 
   useEffect(() => {
     if (!record) return;
@@ -838,6 +862,7 @@ export function PaneDevice() {
   function startEdit(card: NonNullable<EditingCard>) {
     if (!uid) return;
     setRiderDraft(null);
+    setRiderFtpDirty(false);
     setAutoDraft(null);
     setAlertDraft(null);
     setDsDraft(null);
@@ -849,6 +874,7 @@ export function PaneDevice() {
   function cancelEdit() {
     setEditingCard(null);
     setRiderDraft(null);
+    setRiderFtpDirty(false);
     setAutoDraft(null);
     setAlertDraft(null);
     setDsDraft(null);
@@ -1110,7 +1136,11 @@ export function PaneDevice() {
             />
           }
           edit={isEditingForCurrentOwner && riderDraft
-            ? <RiderEdit draft={riderDraft} setDraft={setRiderDraft} />
+            ? <RiderEdit
+                draft={riderDraft}
+                setDraft={setRiderDraft}
+                onFtpChange={() => setRiderFtpDirty(true)}
+              />
             : null}
         />
       </div>
