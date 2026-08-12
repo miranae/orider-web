@@ -33,6 +33,9 @@ interface LikersAvatarStackProps {
 const OVERLAP_PX = -8;
 const TIP_MAX_WIDTH = 220;
 const VIEWPORT_MARGIN = 8;
+/** PointerEvent 가 싣는 정상 값 — 이외(빈 값·환경별 잡값)는 정보 없음으로 취급한다. */
+const KNOWN_POINTER_TYPES = ["mouse", "touch", "pen"];
+
 /** 툴팁에 나열할 이름 최대 개수 — 초과분은 "외 N명" 한 줄로 접는다. */
 const TIP_MAX_NAMES = 15;
 
@@ -125,6 +128,9 @@ export default function LikersAvatarStack({
       //  포커스가 툴팁을 열고, 이어지는 클릭 토글이 그걸 도로 닫는다.)
       onPointerCancel={() => {
         pointerFocusRef.current = false;
+        // 취소되면 click 이 오지 않아 아래 판정이 표식을 못 푼다 — 여기서 되돌리지 않으면
+        // 이후 합성 click 이 터치로 오인된다.
+        pointerTypeRef.current = "mouse";
       }}
       onPointerLeave={(e) => {
         // 툴팁은 래퍼의 자식이라 툴팁으로 들어가는 이동은 leave 가 아니다. 다만 6px 시각
@@ -158,12 +164,27 @@ export default function LikersAvatarStack({
         // 상호작용 종료 — 표식은 어느 분기로 빠지든 반드시 푼다(캡처에서 전파를 끊으면
         // 아래 onClick 이 실행되지 않아, 여기서 안 풀면 이후 키보드 포커스가 막힌다).
         pointerFocusRef.current = false;
-        // 판정 직후 기본값으로 되돌린다 — 스크린리더·스위치 제어는 선행 pointerdown 없이
-        // click 만 합성하므로, 표식이 남아 있으면 직전 터치로 오인해 링크 이동을 막는다
-        // (접근성 사용자에게는 아바타가 유일한 직접 프로필 경로다).
-        const pointerType = pointerTypeRef.current;
+        // 브라우저의 click 은 PointerEvent 라 입력 종류가 이벤트 자체에 실려 온다 —
+        // 그 값을 신뢰한다(스크린리더·스위치 제어의 합성 click 은 빈 문자열이라 자연히
+        // 통과). 기억해 둔 표식은 pointerType 이 없는 환경(jsdom 등) 폴백일 뿐이고,
+        // 판정 직후 기본값으로 되돌려 다음 클릭까지 끌고 가지 않는다.
+        // 값이 있으면 그대로 신뢰하고(실제 마우스 클릭은 "mouse", 터치는 "touch"),
+        // 비어 있으면 — 합성 click 이거나 pointerType 을 안 싣는 환경 — 기억해 둔 표식으로
+        // 폴백한다. 표식은 판정 직후와 pointercancel 에서 기본값으로 되돌리므로,
+        // 정상적으로 끝난 터치 뒤의 합성 click 은 "mouse" 로 읽혀 링크 이동이 유지된다.
+        // click 에 실려 온 입력 종류를 우선 신뢰하되, 알려진 값일 때만 쓴다 — 환경에 따라
+        // 빈 문자열이나 엉뚱한 값이 실려 오므로(테스트 환경은 문자열 "undefined"),
+        // 그럴 땐 직전 pointerdown 에서 기억해 둔 표식으로 폴백한다.
+        // 표식은 판정 직후와 pointercancel 에서 기본값으로 되돌린다.
+        const nativePointerType = (e.nativeEvent as Partial<PointerEvent>).pointerType;
+        const pointerType = nativePointerType && KNOWN_POINTER_TYPES.includes(nativePointerType)
+          ? nativePointerType
+          : pointerTypeRef.current;
         pointerTypeRef.current = "mouse";
-        if (pointerType === "mouse") return; // 마우스·합성 클릭은 링크 이동 그대로
+        // **터치/펜이라고 확신할 때만** 가로챈다. 마우스는 물론이고, 스크린리더·스위치
+        // 제어가 합성한 click(pointerType 이 비었거나 알 수 없는 값)도 그대로 통과시켜
+        // 링크 이동을 보장한다 — 접근성 사용자에겐 아바타가 유일한 직접 프로필 경로다.
+        if (pointerType !== "touch" && pointerType !== "pen") return;
         // 툴팁 안 이름 링크는 그대로 이동시킨다 — 여기까지 막으면 터치 사용자는
         // 프로필로 갈 방법이 아예 없어진다.
         if (tipRef.current?.contains(e.target as Node)) return;

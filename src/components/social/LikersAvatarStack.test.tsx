@@ -121,6 +121,26 @@ describe("LikersAvatarStack", () => {
     expect(await screen.findByText("프로필 화면")).toBeInTheDocument();
   });
 
+  it("스크롤로 제스처가 취소된 뒤의 합성 클릭도 프로필로 이동한다", async () => {
+    // 취소되면 click 이 오지 않아 판정이 표식을 풀 기회가 없다 — 여기서 안 되돌리면
+    // 이후 합성 클릭이 터치로 오인된다.
+    render(
+      <MemoryRouter initialEntries={["/ko"]}>
+        <Routes>
+          <Route path="/ko" element={<LikersAvatarStack likers={[liker(1), liker(2)]} />} />
+          <Route path="/ko/athlete/:id" element={<div>프로필 화면</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const link = screen.getAllByRole("link")[0];
+
+    fireEvent.pointerDown(link, { pointerType: "touch" });
+    fireEvent.pointerCancel(link, { pointerType: "touch" }); // 스크롤로 취소
+    fireEvent.click(link);
+
+    expect(await screen.findByText("프로필 화면")).toBeInTheDocument();
+  });
+
   it("터치로 연 뒤에도 키보드 포커스로 목록을 열 수 있다", async () => {
     // 캡처에서 전파를 끊으면 버블 onClick 이 안 돌아 포인터-포커스 표식이 남는다.
     // 그러면 이후 Tab 포커스가 툴팁을 못 여는 회귀가 생긴다.
