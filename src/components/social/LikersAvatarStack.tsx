@@ -1,6 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Avatar from "../Avatar";
+import { LocalizedLink as Link } from "../LocalizedLink";
 
 export interface LikerAvatarItem {
   userId: string;
@@ -55,6 +56,13 @@ export default function LikersAvatarStack({
 }: LikersAvatarStackProps) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
+  // 터치 기기에선 아바타를 링크로 만들지 않는다 — 탭 한 번이 프로필 이동으로 먹혀
+  // "탭하면 누가 눌렀는지" 동선이 아예 동작하지 않기 때문. 대신 툴팁의 이름을 링크로
+  // 제공해 프로필로 갈 길을 남긴다(마우스는 아바타 직접 클릭 + hover 툴팁 그대로).
+  const coarsePointer = useMemo(
+    () => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true,
+    [],
+  );
   const tipId = useId();
   const wrapRef = useRef<HTMLSpanElement>(null);
   // 직전 입력 종류 — click 핸들러에서 마우스/터치를 갈라 쓰기 위해 기억한다.
@@ -143,7 +151,7 @@ export default function LikersAvatarStack({
               name={k.nickname}
               imageUrl={k.profileImage}
               size="sm"
-              userId={linkToProfile ? k.userId : undefined}
+              userId={linkToProfile && !coarsePointer ? k.userId : undefined}
               // 겹쳐 쌓이므로 44px 타깃 확장은 끔 (이웃 아바타를 덮어 오탭 유발)
               tapTarget={false}
             />
@@ -172,7 +180,10 @@ export default function LikersAvatarStack({
         <span
           id={tipId}
           role="tooltip"
-          aria-hidden
+          // 이름이 링크일 땐 숨기지 않는다 — 터치에서 프로필로 가는 유일한 통로라
+          // aria-hidden 이면 스크린리더 사용자만 길이 막힌다. 링크가 없으면 래퍼
+          // aria-label 이 같은 내용을 이미 읽어 주므로 중복을 피해 숨긴다.
+          aria-hidden={linkToProfile ? undefined : true}
           style={{
             position: "absolute",
             bottom: "calc(100% + 6px)",
@@ -192,7 +203,8 @@ export default function LikersAvatarStack({
             textAlign: "left",
             wordBreak: "keep-all",
             overflowWrap: "anywhere",
-            pointerEvents: "none",
+            // 터치에선 이 목록이 프로필로 가는 유일한 통로라 클릭을 받아야 한다.
+            pointerEvents: linkToProfile ? "auto" : "none",
           }}
         >
           <span style={{ display: "block", color: "var(--ink-3)", marginBottom: 2 }}>
@@ -200,7 +212,13 @@ export default function LikersAvatarStack({
           </span>
           {named.map((k) => (
             <span key={k.userId} style={{ display: "block" }}>
-              {k.nickname}
+              {linkToProfile ? (
+                <Link to={`/athlete/${k.userId}`} style={{ color: "inherit" }}>
+                  {k.nickname}
+                </Link>
+              ) : (
+                k.nickname
+              )}
             </span>
           ))}
           {namedOverflow > 0 && (

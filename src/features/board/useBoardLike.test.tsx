@@ -129,6 +129,47 @@ describe("useBoardLike", () => {
       expect(screen.getByRole("button", { name: "not-liked:5" })).toBeInTheDocument();
     });
     expect(screen.getByTestId("likers")).not.toHaveTextContent("Test User");
+    // 남들 목록은 토글과 무관하게 유지돼야 한다(내 아바타만 isLiked 에서 파생).
+    expect(screen.getByTestId("likers")).toHaveTextContent("라이더1");
+  });
+
+  it("조회가 끝나기 전에 눌러도 남들 목록이 나중에 합류한다", async () => {
+    // 과거엔 토글이 진행 중 조회를 무효화해, 먼저 누르면 남들 이름이 다음 진입까지 사라졌다.
+    setCollectionDocs("board_posts/post-1/likes", [{ id: "u1", userId: "u1", createdAt: 1 }]);
+    setDocData("users_public/u1", { nickname: "라이더1", photoURL: null });
+
+    renderWithProviders(<LikeHarness />, { authenticated: true });
+    await userEvent.click(await screen.findByRole("button", { name: "not-liked:5" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "liked:6" })).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      // 내가 맨 앞 + 남들도 유지
+      expect(screen.getByTestId("likers")).toHaveTextContent("Test User");
+      expect(screen.getByTestId("likers")).toHaveTextContent("라이더1");
+    });
+  });
+
+  it("좋아요를 취소하면 서버 목록을 다시 읽지 않아도 내 아바타만 빠진다", async () => {
+    setDocData("board_posts/post-1/likes/test-uid", { userId: "test-uid", createdAt: 2 });
+    setCollectionDocs("board_posts/post-1/likes", [
+      { id: "test-uid", userId: "test-uid", createdAt: 2 },
+      { id: "u1", userId: "u1", createdAt: 1 },
+    ]);
+    setDocData("users_public/u1", { nickname: "라이더1", photoURL: null });
+
+    renderWithProviders(<LikeHarness />, { authenticated: true });
+    await waitFor(() => {
+      expect(screen.getByTestId("likers")).toHaveTextContent("Test User");
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "liked:5" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("likers")).not.toHaveTextContent("Test User");
+    });
+    expect(screen.getByTestId("likers")).toHaveTextContent("라이더1");
   });
 
   it("게시글이 바뀌면 이전 글의 좋아요 목록이 남거나 섞이지 않는다", async () => {
