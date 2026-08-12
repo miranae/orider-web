@@ -1,23 +1,23 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import KudosAvatarStack from "./KudosAvatarStack";
+import LikersAvatarStack from "./LikersAvatarStack";
 
-function kudo(n: number) {
+function liker(n: number) {
   return { userId: `u${n}`, nickname: `라이더${n}`, profileImage: null };
 }
 
-function renderStack(props: Partial<React.ComponentProps<typeof KudosAvatarStack>> = {}) {
+function renderStack(props: Partial<React.ComponentProps<typeof LikersAvatarStack>> = {}) {
   return render(
     <MemoryRouter>
-      <KudosAvatarStack kudos={[kudo(1), kudo(2)]} {...props} />
+      <LikersAvatarStack likers={[liker(1), liker(2)]} {...props} />
     </MemoryRouter>,
   );
 }
 
-describe("KudosAvatarStack", () => {
+describe("LikersAvatarStack", () => {
   it("좋아요 누른 사람이 없으면 아무것도 렌더하지 않는다", () => {
-    const { container } = renderStack({ kudos: [] });
+    const { container } = renderStack({ likers: [] });
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -27,13 +27,13 @@ describe("KudosAvatarStack", () => {
   });
 
   it("max 를 넘는 인원은 +N 으로 접는다", () => {
-    renderStack({ kudos: [kudo(1), kudo(2), kudo(3)], max: 2 });
+    renderStack({ likers: [liker(1), liker(2), liker(3)], max: 2 });
     expect(screen.getByText("+1")).toBeInTheDocument();
   });
 
   it("목록에 없는 인원까지 totalCount 로 세어 +N 에 반영한다", () => {
     // 피드 카드의 recentKudos 는 상위 N 명만 내려온다 — 나머지는 이름 없이 카운트로만.
-    renderStack({ kudos: [kudo(1), kudo(2)], totalCount: 7, max: 5 });
+    renderStack({ likers: [liker(1), liker(2)], totalCount: 7, max: 5 });
     expect(screen.getByText("+5")).toBeInTheDocument();
   });
 
@@ -74,7 +74,7 @@ describe("KudosAvatarStack", () => {
 
   it("이름을 모르는 나머지 인원은 툴팁에 '외 N명' 으로만 적는다", async () => {
     const user = userEvent.setup();
-    renderStack({ kudos: [kudo(1)], totalCount: 4 });
+    renderStack({ likers: [liker(1)], totalCount: 4 });
     await user.hover(screen.getByRole("group"));
     expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent("외 3명");
   });

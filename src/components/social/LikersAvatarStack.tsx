@@ -2,20 +2,25 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Avatar from "../Avatar";
 
-export interface KudosAvatarItem {
+export interface LikerAvatarItem {
   userId: string;
   nickname: string;
   profileImage?: string | null;
 }
 
-interface KudosAvatarStackProps {
+interface LikersAvatarStackProps {
   /** 좋아요 누른 사람 (표시 순서 그대로 — 보통 최신순) */
-  kudos: readonly KudosAvatarItem[];
+  likers: readonly LikerAvatarItem[];
   /**
-   * 전체 좋아요 수. `kudos` 는 서버가 상위 N 명만 비정규화해 준 목록일 수 있어
-   * 실제 카운트와 다를 수 있다(피드 카드의 `recentKudos`). 생략 시 `kudos.length`.
+   * 전체 좋아요 수. `likers` 는 서버가 상위 N 명만 비정규화해 준 목록일 수 있어
+   * 실제 카운트와 다를 수 있다(피드 카드의 `recentKudos`). 생략 시 `likers.length`.
    */
   totalCount?: number;
+  /**
+   * 문구 변형 — 활동은 "쿠도스"(en: kudos), 게시판은 "좋아요"(en: likes).
+   * 한국어는 양쪽 다 "좋아요" 라 차이가 없고 영어만 갈린다.
+   */
+  variant?: "kudos" | "like";
   /** 겹쳐 보여줄 최대 아바타 수 (초과분은 +N 원형으로 축약) */
   max?: number;
   /** 아바타 각각을 프로필로 링크할지 — 카드 전체가 링크인 피드에선 false 로 끈다 */
@@ -31,22 +36,24 @@ const VIEWPORT_MARGIN = 8;
 const TIP_MAX_NAMES = 15;
 
 /**
- * 좋아요(쿠도스) 누른 사람 아바타 스택 — 겹쳐 쌓고, hover/focus/tap 시 누른 사람
- * 닉네임 목록을 툴팁으로 보여준다. 피드 푸터(`ActivitySocialFooter`)와 상세
- * (`KudosCommentsCard`)가 공유하며, 앱(Android `ActivityKudosAvatarStack` /
- * iOS `KudosAvatarStack`)과 같은 규칙: 최대 `max` 명 겹침 + 초과분 `+N` + 이름 목록.
+ * 좋아요 누른 사람 아바타 스택 — 겹쳐 쌓고, hover/focus/tap 시 누른 사람 닉네임
+ * 목록을 툴팁으로 보여준다. 활동 쿠도스(피드 `ActivitySocialFooter` / 상세
+ * `KudosCommentsCard`)와 게시판 좋아요(`PostDetailPage`)가 공유하며, 앱(Android
+ * `KudosAvatarStack.kt` / iOS `KudosAvatarStack.swift`)과 같은 규칙:
+ * 최대 `max` 명 겹침 + 초과분 `+N` + 이름 목록.
  *
  * 툴팁은 시각 보조일 뿐이고, 스크린리더에는 래퍼의 aria-label 로 같은 내용을 한 번에
  * 읽어 준다(아바타를 하나씩 훑지 않아도 누가 눌렀는지 알 수 있게).
  */
-export default function KudosAvatarStack({
-  kudos,
+export default function LikersAvatarStack({
+  likers,
   totalCount,
+  variant = "kudos",
   max = 5,
   linkToProfile = true,
   ringColor = "var(--bg-1)",
-}: KudosAvatarStackProps) {
-  const { t } = useTranslation("activity");
+}: LikersAvatarStackProps) {
+  const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const tipId = useId();
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -75,17 +82,17 @@ export default function KudosAvatarStack({
     return () => document.removeEventListener("pointerdown", onOutside);
   }, [open]);
 
-  if (kudos.length === 0) return null;
+  if (likers.length === 0) return null;
 
-  const total = Math.max(totalCount ?? kudos.length, kudos.length);
-  const shown = kudos.slice(0, max);
+  const total = Math.max(totalCount ?? likers.length, likers.length);
+  const shown = likers.slice(0, max);
   // 아바타는 max 까지만 겹치고 나머지는 +N 원형으로 축약.
   const avatarOverflow = Math.max(0, total - shown.length);
   // 툴팁은 아바타 상한과 무관하게 아는 이름을 모두 나열(너무 길어지지 않게 상한만 둠).
   // 이름을 모르는 나머지(서버가 상위 N 명만 내려준 경우)는 "외 N명" 으로만 표기.
-  const named = kudos.slice(0, TIP_MAX_NAMES);
+  const named = likers.slice(0, TIP_MAX_NAMES);
   const namedOverflow = Math.max(0, total - named.length);
-  const ariaLabel = t("kudosStack.aria", {
+  const ariaLabel = t(`likers.${variant}.aria`, {
     count: total,
     names: named.map((k) => k.nickname).join(", "),
   });
@@ -156,7 +163,7 @@ export default function KudosAvatarStack({
               boxShadow: `0 0 0 2px ${ringColor}`,
             }}
           >
-            {t("kudosStack.more", { count: avatarOverflow })}
+            {t("likers.more", { count: avatarOverflow })}
           </span>
         )}
       </span>
@@ -189,7 +196,7 @@ export default function KudosAvatarStack({
           }}
         >
           <span style={{ display: "block", color: "var(--ink-3)", marginBottom: 2 }}>
-            {t("kudosStack.title", { count: total })}
+            {t(`likers.${variant}.title`, { count: total })}
           </span>
           {named.map((k) => (
             <span key={k.userId} style={{ display: "block" }}>
@@ -198,7 +205,7 @@ export default function KudosAvatarStack({
           ))}
           {namedOverflow > 0 && (
             <span style={{ display: "block", color: "var(--ink-3)" }}>
-              {t("card.kudosAndOthers", { count: namedOverflow })}
+              {t("likers.andOthers", { count: namedOverflow })}
             </span>
           )}
         </span>

@@ -265,5 +265,17 @@
       "predicted": "예상 {{time}}",
       "faster": "−{{sec}}초 단축"
     }
+  },
+  "likers": {
+    "more": "+{{count}}",
+    "andOthers": "외 {{count}}명",
+    "kudos": {
+      "title": "좋아요 {{count}}명",
+      "aria": "좋아요 {{count}}명: {{names}}"
+    },
+    "like": {
+      "title": "좋아요 {{count}}명",
+      "aria": "좋아요 {{count}}명: {{names}}"
+    }
   }
 }

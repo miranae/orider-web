@@ -265,5 +265,17 @@
       "predicted": "Est. {{time}}",
       "faster": "−{{sec}}s faster"
     }
+  },
+  "likers": {
+    "more": "+{{count}}",
+    "andOthers": "+{{count}} more",
+    "kudos": {
+      "title": "{{count}} kudos",
+      "aria": "{{count}} kudos: {{names}}"
+    },
+    "like": {
+      "title": "{{count}} likes",
+      "aria": "{{count}} likes: {{names}}"
+    }
   }
 }

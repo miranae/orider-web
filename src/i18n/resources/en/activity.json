@@ -317,11 +317,6 @@
       "rank": "Rank"
     }
   },
-  "kudosStack": {
-    "title": "{{count}} kudos",
-    "more": "+{{count}}",
-    "aria": "{{count}} kudos: {{names}}"
-  },
   "kudosCard": {
     "kudos": "Kudos",
     "kudosWithCount": "Kudos {{count}}",

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, MessageCircle } from "lucide-react";
 import type { Activity } from "@shared/types";
-import KudosAvatarStack from "./KudosAvatarStack";
+import LikersAvatarStack from "../social/LikersAvatarStack";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -141,7 +141,7 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
         </button>
 
         {/* 누른 사람 아바타 스택 — hover/focus/tap 시 누른 사람 이름 툴팁 */}
-        <KudosAvatarStack kudos={hydratedRecent} totalCount={localKudos} />
+        <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} />
 
         {/* 댓글 — 카드 안 입력칸 토글 */}
         <button
