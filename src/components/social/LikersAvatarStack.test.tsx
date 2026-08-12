@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import LikersAvatarStack from "./LikersAvatarStack";
 
 function liker(n: number) {
@@ -80,14 +80,39 @@ describe("LikersAvatarStack", () => {
     expect(screen.getAllByRole("link")[0]).toBeInTheDocument();
   });
 
-  it("툴팁 안 이름은 프로필 링크라 터치에서도 프로필로 갈 수 있다", async () => {
+  it("툴팁 안 이름을 터치하면 실제로 프로필로 이동한다", async () => {
+    // href 만 보면 안 된다 — 래퍼의 캡처 핸들러가 툴팁 안 링크까지 preventDefault 하면
+    // 터치 사용자는 프로필로 갈 방법이 아예 없어진다(회귀로 실제 발생).
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/ko"]}>
+        <Routes>
+          <Route path="/ko" element={<LikersAvatarStack likers={[liker(1), liker(2)]} />} />
+          <Route path="/ko/athlete/:id" element={<div>프로필 화면</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await user.pointer({ keys: "[TouchA]", target: screen.getByRole("group") });
+    const tip = screen.getByRole("tooltip", { hidden: true });
+    await user.pointer({ keys: "[TouchA]", target: within(tip).getByRole("link", { name: "라이더1" }) });
+
+    expect(await screen.findByText("프로필 화면")).toBeInTheDocument();
+  });
+
+  it("터치로 연 뒤에도 키보드 포커스로 목록을 열 수 있다", async () => {
+    // 캡처에서 전파를 끊으면 버블 onClick 이 안 돌아 포인터-포커스 표식이 남는다.
+    // 그러면 이후 Tab 포커스가 툴팁을 못 여는 회귀가 생긴다.
     const user = userEvent.setup();
     renderStack();
-    await user.pointer({ keys: "[TouchA]", target: screen.getByRole("group") });
+    const group = screen.getByRole("group");
 
-    const tip = screen.getByRole("tooltip", { hidden: true });
-    const nameLink = within(tip).getByRole("link", { name: "라이더1" });
-    expect(nameLink).toHaveAttribute("href", "/ko/athlete/u1");
+    await user.pointer({ keys: "[TouchA]", target: group });
+    await user.pointer({ keys: "[TouchA]", target: group }); // 닫기
+    expect(screen.queryByRole("tooltip", { hidden: true })).not.toBeInTheDocument();
+
+    await user.tab();
+    expect(screen.getByRole("tooltip", { hidden: true })).toBeInTheDocument();
   });
 
   it("마우스 클릭은 hover 로 열린 툴팁을 닫지 않는다", async () => {

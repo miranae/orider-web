@@ -58,6 +58,8 @@ export default function LikersAvatarStack({
   const [open, setOpen] = useState(false);
   const tipId = useId();
   const wrapRef = useRef<HTMLSpanElement>(null);
+  // 툴팁 노드 — 툴팁 안 이름 링크 탭은 가로채면 안 된다(터치에서 프로필로 가는 유일한 통로).
+  const tipRef = useRef<HTMLSpanElement>(null);
   // 직전 입력 종류 — click 핸들러에서 마우스/터치를 갈라 쓰기 위해 기억한다.
   const pointerTypeRef = useRef<string>("mouse");
   // 포인터로 눌러서 생긴 포커스인지 — 키보드 Tab 포커스와 구분하려고 둔다.
@@ -141,17 +143,25 @@ export default function LikersAvatarStack({
       // 트랙패드 붙인 태블릿·터치 노트북은 주 포인터가 fine 이지만 손가락 터치도 되므로
       // 기기로 나누면 그런 조합에서 동선이 깨진다. 프로필로 갈 길은 툴팁의 이름 링크.
       onClickCapture={(e) => {
+        // 상호작용 종료 — 표식은 어느 분기로 빠지든 반드시 푼다(캡처에서 전파를 끊으면
+        // 아래 onClick 이 실행되지 않아, 여기서 안 풀면 이후 키보드 포커스가 막힌다).
+        pointerFocusRef.current = false;
         if (pointerTypeRef.current === "mouse") return; // 마우스는 링크 이동 그대로
+        // 툴팁 안 이름 링크는 그대로 이동시킨다 — 여기까지 막으면 터치 사용자는
+        // 프로필로 갈 방법이 아예 없어진다.
+        if (tipRef.current?.contains(e.target as Node)) return;
         e.preventDefault();
         e.stopPropagation();
         setOpen((v) => !v);
       }}
-      // 마우스 클릭이 카드 전체 클릭(상세 이동)까지 번지지 않게만 막는다.
-      // 상호작용이 끝났으므로 포인터-포커스 표식도 여기서 해제한다.
-      onClick={(e) => {
-        e.stopPropagation();
+      // 키보드 조작은 포인터 입력이 아니다 — 직전 터치의 흔적이 남아 Enter 활성화까지
+      // 가로채지 않도록 초기화한다.
+      onKeyDown={() => {
+        pointerTypeRef.current = "mouse";
         pointerFocusRef.current = false;
       }}
+      // 마우스 클릭이 카드 전체 클릭(상세 이동)까지 번지지 않게만 막는다.
+      onClick={(e) => e.stopPropagation()}
     >
       <span style={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}>
         {shown.map((k, i) => (
@@ -196,6 +206,7 @@ export default function LikersAvatarStack({
 
       {open && (
         <span
+          ref={tipRef}
           id={tipId}
           role="tooltip"
           // 이름이 링크일 땐 숨기지 않는다 — 터치에서 프로필로 가는 유일한 통로라
