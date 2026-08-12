@@ -8,6 +8,7 @@ import { useDocument, useCollection, where, orderBy } from '../hooks/useFirestor
 import { softDeleteBoardComment, useCreateComment } from '../features/board/useComment';
 import { BoardCommentComposer, BoardCommentText } from '../features/board/BoardCommentUi';
 import { useBoardLike } from '../features/board/useBoardLike';
+import LikersAvatarStack from '../components/social/LikersAvatarStack';
 import { useDeletePost, useReportBoardContent } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -44,7 +45,7 @@ const PostDetailPage: React.FC = () => {
     [where('deletedAt', '==', null), orderBy('createdAt', 'asc')]
   );
   const { createComment, submitting: commentSubmitting } = useCreateComment(postId || '');
-  const { isLiked, likeCount, toggleLike } = useBoardLike(postId || '', post?.likeCount ?? 0);
+  const { isLiked, likeCount, likers, toggleLike } = useBoardLike(postId || '', post?.likeCount ?? 0);
   const safeSourceUrl = normalizeUserContentUrl(post?.sourceUrl);
 
   useEffect(() => {
@@ -366,6 +367,9 @@ const PostDetailPage: React.FC = () => {
             <span>{isLiked ? '🧡' : '👍'}</span>
             {t('likes')} {likeCount}
           </button>
+
+          {/* 누른 사람 아바타 스택 — hover/focus/tap 시 이름 툴팁 (활동 쿠도스와 동일 컴포넌트) */}
+          <LikersAvatarStack likers={likers} totalCount={likeCount} variant="like" />
           <span className="text-[var(--ink-3)] flex items-center gap-1.5 text-[length:var(--fs-sm)] font-medium">
             <span>💬</span>
             {t('comments')} {post.commentCount}
