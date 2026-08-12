@@ -67,24 +67,35 @@ export function useBoardLike(postId: string, serverLikeCount = 0) {
   }, [user, postId]);
 
   // 누른 사람 목록 — 규칙상 로그인 사용자만 likes 서브컬렉션을 읽을 수 있어(비로그인은 카운트만).
-  // 실시간 구독 대신 진입 시 1회 + 토글 후에만 재조회 — 목록은 보조 정보라 read 를 아낀다.
+  // 실시간 구독 대신 진입 시 1회만 조회하고, 이후 내 토글은 낙관적으로 반영한다 —
+  // 목록은 보조 정보라 read 를 아낀다(남이 누른 건 다음 진입에 반영).
+  //
+  // 조회는 두 번 await 하므로(서브컬렉션 → 공개 프로필) 늦게 끝난 이전 요청이 최신 상태를
+  // 덮어쓸 수 있다. 세대 번호로 자기 차례가 아닌 응답은 버린다:
+  //  - 게시글/사용자가 바뀐 뒤 도착한 이전 게시글의 목록 (다른 글 좋아요가 섞여 보임)
+  //  - 진행 중이던 초기 조회가 토글의 낙관적 목록을 되돌리는 경우
+  const likersRequestRef = useRef(0);
+
   const loadLikers = useCallback(async () => {
-    if (!user || !postId) {
-      setLikers([]);
-      return;
-    }
+    const seq = ++likersRequestRef.current;
+    // 대상이 바뀌면 이전 목록을 즉시 비운다 — 새 조회가 실패해도 남의 목록이 남지 않도록.
+    setLikers([]);
+    if (!user || !postId) return;
+
+    const isStale = () => seq !== likersRequestRef.current;
     try {
       const snap = await getDocs(query(
         collection(firestore, `board_posts/${postId}/likes`),
         orderBy("createdAt", "desc"),
         limit(LIKERS_FETCH_LIMIT),
       ));
+      if (isStale()) return;
       const userIds = snap.docs.map((d) => d.id);
-      if (userIds.length === 0) {
-        setLikers([]);
-        return;
-      }
+      if (userIds.length === 0) return;
+
       const profiles = await getPublicUserProfiles(userIds);
+      // 토글이 진행 중이면 낙관적 목록이 최신 의도 — 조회 결과로 되돌리지 않는다.
+      if (isStale() || pendingRef.current) return;
       // 프로필이 없거나(탈퇴·비공개) 조회에 실패한 사람은 이름을 모르므로 아바타에서 뺀다 —
       // 전체 인원 수는 likeCount 로 표시되고, 스택은 "이름 아는 사람" 만 보여 준다.
       setLikers(userIds.flatMap((userId) => {
@@ -94,8 +105,12 @@ export function useBoardLike(postId: string, serverLikeCount = 0) {
           : [];
       }));
     } catch (err) {
-      if (isPermissionDeniedError(err)) return;
-      logClientError("useBoardLike.loadLikers", err, { postId });
+      // 비로그인은 위에서 걸렀으므로, 여기서의 권한 거부는 규칙 변경·인증 이상 같은 운영
+      // 문제일 수 있다 — 조용히 삼키지 않고 남긴다(화면은 카운트만으로 계속 동작).
+      logClientError("useBoardLike.loadLikers", err, {
+        postId,
+        permissionDenied: isPermissionDeniedError(err),
+      });
     }
   }, [user, postId]);
 

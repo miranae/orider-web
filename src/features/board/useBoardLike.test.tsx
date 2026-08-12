@@ -131,6 +131,30 @@ describe("useBoardLike", () => {
     expect(screen.getByTestId("likers")).not.toHaveTextContent("Test User");
   });
 
+  it("게시글이 바뀌면 이전 글의 좋아요 목록이 남거나 섞이지 않는다", async () => {
+    // 조회는 서브컬렉션 → 공개 프로필 2단계라 이전 요청이 늦게 끝날 수 있다.
+    setCollectionDocs("board_posts/post-1/likes", [{ id: "u1", userId: "u1", createdAt: 1 }]);
+    setCollectionDocs("board_posts/post-2/likes", [{ id: "u2", userId: "u2", createdAt: 1 }]);
+    setDocData("users_public/u1", { nickname: "라이더1", photoURL: null });
+    setDocData("users_public/u2", { nickname: "라이더2", photoURL: null });
+
+    function SwitchHarness({ postId }: { postId: string }) {
+      const { likers } = useBoardLike(postId, 5);
+      return <output data-testid="likers">{likers.map((l) => l.nickname).join(",")}</output>;
+    }
+
+    const { rerender } = renderWithProviders(<SwitchHarness postId="post-1" />, { authenticated: true });
+    await waitFor(() => {
+      expect(screen.getByTestId("likers")).toHaveTextContent("라이더1");
+    });
+
+    rerender(<SwitchHarness postId="post-2" />);
+    await waitFor(() => {
+      expect(screen.getByTestId("likers")).toHaveTextContent("라이더2");
+    });
+    expect(screen.getByTestId("likers")).not.toHaveTextContent("라이더1");
+  });
+
   it("rolls back optimistic unlike state and count when the delete fails", async () => {
     setDocData("board_posts/post-1/likes/test-uid", {
       userId: "test-uid",
