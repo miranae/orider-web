@@ -2,12 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Smartphone, Trash2, Users, Smartphone as PhoneIcon } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
 
 import {
   deleteDevice,
   renameDevice,
 } from "../../services/deviceSettingsClient";
 import { updateCanonicalFtp } from "../../services/ftpProfileClient";
+import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 
 import {
   type AlertMetric,
@@ -604,7 +607,7 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
 
 export function PaneDevice() {
   const { t } = useTranslation("settings");
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const activeUserUidRef = useRef<string | null>(user?.uid ?? null);
   activeUserUidRef.current = user?.uid ?? null;
   const { showToast } = useToast();
@@ -631,6 +634,10 @@ export function PaneDevice() {
 
   const [editingCard, setEditingCard] = useState<EditingCard>(null);
   const [editingOwnerUid, setEditingOwnerUid] = useState<string | null>(null);
+  const [ftpProfile, setFtpProfile] = useState<{
+    ownerUid: string;
+    ftp: number | null;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [riderDraft, setRiderDraft] = useState<RiderDraft | null>(null);
@@ -653,11 +660,35 @@ export function PaneDevice() {
   }, [uid]);
 
   useEffect(() => {
+    const ownerUid = uid;
+    setFtpProfile(null);
+    if (!ownerUid) return;
+    let cancelled = false;
+    void getDoc(doc(firestore, "users", ownerUid)).then((snap) => {
+      if (cancelled) return;
+      const value = snap.data()?.ftp;
+      setFtpProfile({
+        ownerUid,
+        ftp: typeof value === "number" && Number.isFinite(value) ? value : null,
+      });
+    }).catch((error) => {
+      if (cancelled) return;
+      logClientError("PaneDevice.loadFtpProfile", error, {
+        operation: "getUserProfile",
+        ownerUid,
+      });
+    });
+    return () => { cancelled = true; };
+  }, [uid]);
+
+  const verifiedFtp = ftpProfile?.ownerUid === uid ? ftpProfile.ftp : null;
+
+  useEffect(() => {
     if (!record) return;
     const s = record.settings;
     if (editingCard === "rider" && !riderDraft) {
       setRiderDraft({
-        ftpWatts: typeof profile?.ftp === "number" ? profile.ftp : "",
+        ftpWatts: typeof verifiedFtp === "number" ? verifiedFtp : "",
         maxHeartRate: s.maxHeartRate,
         riderWeightKg: s.riderWeightKg,
       });
@@ -694,7 +725,7 @@ export function PaneDevice() {
         stravaUploadNetworkMode: s.stravaUploadNetworkMode,
       });
     }
-  }, [editingCard, record, profile?.ftp, riderDraft, autoDraft, alertDraft, dsDraft, bgDraft, netDraft]);
+  }, [editingCard, record, verifiedFtp, riderDraft, autoDraft, alertDraft, dsDraft, bgDraft, netDraft]);
 
   // Translated label helpers (called at render, not in module scope)
   const gpsModeLabel = (m: GpsMode): string => {
@@ -802,6 +833,7 @@ export function PaneDevice() {
   }
 
   const s: AppSettings = record.settings;
+  const isEditingForCurrentOwner = editingOwnerUid === uid;
 
   function startEdit(card: NonNullable<EditingCard>) {
     if (!uid) return;
@@ -883,8 +915,11 @@ export function PaneDevice() {
     }
     setSaving(true);
     try {
-      if (draft.ftpWatts !== profile?.ftp) {
+      if (draft.ftpWatts !== verifiedFtp) {
         await updateCanonicalFtp(expectedUid, draft.ftpWatts, "manual");
+        if (activeUserUidRef.current === expectedUid) {
+          setFtpProfile({ ownerUid: expectedUid, ftp: draft.ftpWatts });
+        }
       }
     } catch (error) {
       if (activeUserUidRef.current === expectedUid) {
@@ -1056,7 +1091,7 @@ export function PaneDevice() {
           title={t("device.cardRider")}
           scope="user"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "rider"}
+          isEditing={editingCard === "rider" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("rider")}
           onCancel={cancelEdit}
@@ -1068,13 +1103,15 @@ export function PaneDevice() {
           read={
             <KVList
               rows={[
-                { k: "FTP", v: typeof profile?.ftp === "number" ? `${profile.ftp} W` : "-" },
+                { k: "FTP", v: typeof verifiedFtp === "number" ? `${verifiedFtp} W` : "-" },
                 { k: t("device.fieldMaxHr"), v: `${s.maxHeartRate} bpm` },
                 { k: t("device.fieldWeight"), v: `${s.riderWeightKg} kg` },
               ]}
             />
           }
-          edit={riderDraft && <RiderEdit draft={riderDraft} setDraft={setRiderDraft} />}
+          edit={isEditingForCurrentOwner && riderDraft
+            ? <RiderEdit draft={riderDraft} setDraft={setRiderDraft} />
+            : null}
         />
       </div>
 
@@ -1083,7 +1120,7 @@ export function PaneDevice() {
           title={t("device.cardAuto")}
           scope="user"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "auto"}
+          isEditing={editingCard === "auto" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("auto")}
           onCancel={cancelEdit}
@@ -1120,14 +1157,14 @@ export function PaneDevice() {
               ]}
             />
           }
-          edit={autoDraft && <AutoEdit draft={autoDraft} setDraft={setAutoDraft} />}
+          edit={isEditingForCurrentOwner && autoDraft && <AutoEdit draft={autoDraft} setDraft={setAutoDraft} />}
         />
 
         <EditableCard
           title={t("device.cardAlert")}
           scope="user"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "alert"}
+          isEditing={editingCard === "alert" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("alert")}
           onCancel={cancelEdit}
@@ -1146,14 +1183,14 @@ export function PaneDevice() {
               }))}
             />
           }
-          edit={alertDraft && <AlertEdit draft={alertDraft} setDraft={setAlertDraft} />}
+          edit={isEditingForCurrentOwner && alertDraft && <AlertEdit draft={alertDraft} setDraft={setAlertDraft} />}
         />
 
         <EditableCard
           title={t("device.cardDisplaySound")}
           scope="mixed"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "displaySound"}
+          isEditing={editingCard === "displaySound" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("displaySound")}
           onCancel={cancelEdit}
@@ -1198,14 +1235,14 @@ export function PaneDevice() {
               ]}
             />
           }
-          edit={dsDraft && <DisplaySoundEdit draft={dsDraft} setDraft={setDsDraft} />}
+          edit={isEditingForCurrentOwner && dsDraft && <DisplaySoundEdit draft={dsDraft} setDraft={setDsDraft} />}
         />
 
         <EditableCard
           title={t("device.cardBatteryGps")}
           scope="device"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "batteryGps"}
+          isEditing={editingCard === "batteryGps" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("batteryGps")}
           onCancel={cancelEdit}
@@ -1222,14 +1259,14 @@ export function PaneDevice() {
               ]}
             />
           }
-          edit={bgDraft && <BatteryGpsEdit draft={bgDraft} setDraft={setBgDraft} />}
+          edit={isEditingForCurrentOwner && bgDraft && <BatteryGpsEdit draft={bgDraft} setDraft={setBgDraft} />}
         />
 
         <EditableCard
           title={t("device.cardNetwork")}
           scope="mixed"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "network"}
+          isEditing={editingCard === "network" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("network")}
           onCancel={cancelEdit}
@@ -1252,7 +1289,7 @@ export function PaneDevice() {
               ]}
             />
           }
-          edit={netDraft && <NetworkEdit draft={netDraft} setDraft={setNetDraft} />}
+          edit={isEditingForCurrentOwner && netDraft && <NetworkEdit draft={netDraft} setDraft={setNetDraft} />}
         />
       </div>
 

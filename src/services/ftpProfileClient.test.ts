@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ callable: vi.fn(), httpsCallable: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  callable: vi.fn(),
+  httpsCallable: vi.fn(),
+  logClientError: vi.fn(),
+}));
 
 vi.mock("firebase/functions", () => ({ httpsCallable: mocks.httpsCallable }));
 vi.mock("./firebase", () => ({ functions: { app: "functions" } }));
+vi.mock("./errorLogger", () => ({
+  logClientError: (...args: unknown[]) => mocks.logClientError(...args),
+}));
 
 import { updateCanonicalFtp } from "./ftpProfileClient";
 
@@ -41,5 +48,25 @@ describe("updateCanonicalFtp", () => {
       source: "manual",
       mutationId: "mutation-clear",
     });
+  });
+
+  it("logs command provenance before rethrowing a callable failure", async () => {
+    const error = new Error("offline");
+    mocks.callable.mockRejectedValue(error);
+
+    await expect(
+      updateCanonicalFtp("uid-1", 260, "test", "mutation-failed"),
+    ).rejects.toThrow("offline");
+    expect(mocks.logClientError).toHaveBeenCalledWith(
+      "ftpProfileClient.updateCanonicalFtp",
+      error,
+      {
+        operation: "updateFtp",
+        expectedUid: "uid-1",
+        ftp: 260,
+        source: "test",
+        mutationId: "mutation-failed",
+      },
+    );
   });
 });

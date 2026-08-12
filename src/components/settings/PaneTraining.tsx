@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
-import type { BloodType, EmergencyContact, MedicalProfile } from "@shared/types";
+import type { BloodType, EmergencyContact, MedicalProfile, UserProfile } from "@shared/types";
 
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -77,7 +77,7 @@ function parseBodyValue(value: string, unit: BodyUnit, kind: "weight" | "height"
 
 export function PaneTraining() {
   const { t } = useTranslation("settings");
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const activeUserUidRef = useRef<string | null>(user?.uid ?? null);
   activeUserUidRef.current = user?.uid ?? null;
   const { units } = useLocale();
@@ -86,8 +86,12 @@ export function PaneTraining() {
   const dialog = useDialog();
 
   const [ftp, setFtp] = useState("");
-  const [savedFtp, setSavedFtp] = useState<number | null | undefined>(profile?.ftp);
+  const [savedFtp, setSavedFtp] = useState<number | null>(null);
   const [formOwnerUid, setFormOwnerUid] = useState<string | null>(null);
+  const [ownerProfile, setOwnerProfile] = useState<{
+    ownerUid: string;
+    data: Partial<UserProfile>;
+  } | null>(null);
   const [ftpChangeSource, setFtpChangeSource] = useState<FtpHistorySource>("manual");
   // FTP 테스트 모드 — 전용 테스트 입력 → FTP 후보 산출(#307).
   const [ftpTestProtocol, setFtpTestProtocol] = useState<FtpTestProtocol>("twenty_min");
@@ -121,41 +125,39 @@ export function PaneTraining() {
     setLthr("");
     setThresholdPace("");
     setCss("");
+    setWeightKg("");
+    setHeightCm("");
+    setOwnerProfile(null);
     setSaving(false);
     if (!ownerUid) return;
     let cancelled = false;
     void getDoc(doc(firestore, "users", ownerUid)).then((snap) => {
       if (cancelled) return;
-      const d = snap.data() ?? {};
-      if (typeof d.ftp === "number") {
-        setFtp(String(d.ftp));
-        setSavedFtp(d.ftp);
-      } else {
-        setSavedFtp(null);
-      }
-      if (typeof d.maxHr === "number") setMaxHr(String(d.maxHr));
-      if (typeof d.lthr === "number") setLthr(String(d.lthr));
-      if (typeof d.thresholdPace === "number") setThresholdPace(secsToMmss(d.thresholdPace));
-      if (typeof d.css === "number") setCss(secsToMmss(d.css));
+      const d = (snap.data() ?? {}) as Partial<UserProfile>;
+      // 모든 값을 명시적으로 대입해 B 문서에 필드가 없을 때 A 값이 남지 않게 한다.
+      setFtp(typeof d.ftp === "number" ? String(d.ftp) : "");
+      setSavedFtp(typeof d.ftp === "number" ? d.ftp : null);
+      setMaxHr(typeof d.maxHr === "number" ? String(d.maxHr) : "");
+      setLthr(typeof d.lthr === "number" ? String(d.lthr) : "");
+      setThresholdPace(typeof d.thresholdPace === "number" ? secsToMmss(d.thresholdPace) : "");
+      setCss(typeof d.css === "number" ? secsToMmss(d.css) : "");
+      setWeightKg(typeof d.weightKg === "number" ? String(d.weightKg) : "");
+      setHeightCm(typeof d.heightCm === "number" ? String(d.heightCm) : "");
+      setOwnerProfile({ ownerUid, data: d });
       setFormOwnerUid(ownerUid);
+    }).catch((error) => {
+      if (cancelled) return;
+      logClientError("PaneTraining.loadProfile", error, {
+        operation: "getUserProfile",
+        ownerUid,
+      });
     });
     return () => { cancelled = true; };
   }, [user?.uid]);
 
-  useEffect(() => {
-    setWeightKg(profile?.weightKg ? String(profile.weightKg) : "");
-    setHeightCm(profile?.heightCm ? String(profile.heightCm) : "");
-  }, [profile?.weightKg, profile?.heightCm]);
-
-  // 다른 화면의 자동 적용이나 앱 변경도 같은 canonical profile 구독으로 즉시 반영한다.
-  // profile 자체가 아직 로드되지 않은 초기 상태에서는 getDoc 초기화를 덮지 않는다.
-  useEffect(() => {
-    if (!profile) return;
-    const canonicalFtp = typeof profile.ftp === "number" ? profile.ftp : null;
-    setFtp(canonicalFtp == null ? "" : String(canonicalFtp));
-    setSavedFtp(canonicalFtp);
-    setFtpChangeSource("manual");
-  }, [profile?.ftp, user?.uid]);
+  const verifiedProfile = ownerProfile && ownerProfile.ownerUid === user?.uid
+    ? ownerProfile.data
+    : null;
 
   useEffect(() => {
     setBodyUnit(units === "imperial" ? "imperial" : "metric");
@@ -163,23 +165,37 @@ export function PaneTraining() {
 
   // 의료/응급 PII — owner-only 서브컬렉션에서 로드(#524). 미마이그레이션 레거시는 루트 폴백.
   useEffect(() => {
-    if (!user) return;
+    const ownerUid = user?.uid ?? null;
+    setBloodType("UNKNOWN");
+    setMedications("");
+    setAllergies("");
+    setEmergency({ name: "", phone: "", relationship: "" });
+    if (!ownerUid) return;
     let cancelled = false;
-    getDoc(doc(firestore, "users", user.uid, "private", "medical"))
+    getDoc(doc(firestore, "users", ownerUid, "private", "medical"))
       .then((snap) => {
         if (cancelled) return;
         const m = (snap.exists() ? snap.data() : null) as MedicalProfile | null;
-        setBloodType(m?.bloodType ?? profile?.bloodType ?? "UNKNOWN");
-        setMedications(m?.medications ?? profile?.medications ?? "");
-        setAllergies(m?.allergies ?? profile?.allergies ?? "");
-        const ec = m?.emergencyContact ?? profile?.emergencyContact ?? null;
+        setBloodType(m?.bloodType ?? verifiedProfile?.bloodType ?? "UNKNOWN");
+        setMedications(m?.medications ?? verifiedProfile?.medications ?? "");
+        setAllergies(m?.allergies ?? verifiedProfile?.allergies ?? "");
+        const ec = m?.emergencyContact ?? verifiedProfile?.emergencyContact ?? null;
         setEmergency({ name: ec?.name ?? "", phone: ec?.phone ?? "", relationship: ec?.relationship ?? "" });
       })
-      .catch((err) => { logClientError("PaneTraining.loadMedical", err, {}); });
+      .catch((err) => {
+        if (!cancelled) logClientError("PaneTraining.loadMedical", err, { ownerUid });
+      });
     return () => { cancelled = true; };
-  }, [user, profile?.bloodType, profile?.medications, profile?.allergies, profile?.emergencyContact]);
+  }, [user?.uid, verifiedProfile]);
 
   if (!user) return null;
+  if (formOwnerUid !== user.uid) {
+    return (
+      <SettingsCard title={t("training.cardThresholds")} dense>
+        <Text variant="eyebrow">{t("common.loading")}</Text>
+      </SettingsCard>
+    );
+  }
 
   const ftpN = Number(ftp) || 0;
   const wN = Number(weightKg) || 0;
@@ -298,6 +314,9 @@ export function PaneTraining() {
         await updateCanonicalFtp(expectedUid, nextFtp, ftpChangeSource);
         if (activeUserUidRef.current === expectedUid) {
           setSavedFtp(nextFtp);
+          setOwnerProfile((current) => current?.ownerUid === expectedUid
+            ? { ownerUid: expectedUid, data: { ...current.data, ftp: nextFtp ?? undefined } }
+            : current);
           setFtpChangeSource("manual");
         }
       }
@@ -369,22 +388,23 @@ export function PaneTraining() {
   }
 
   function handleReset() {
-    setFtp(profile?.ftp ? String(profile.ftp) : "");
-    setSavedFtp(profile?.ftp ?? null);
+    if (!verifiedProfile) return;
+    setFtp(typeof verifiedProfile.ftp === "number" ? String(verifiedProfile.ftp) : "");
+    setSavedFtp(typeof verifiedProfile.ftp === "number" ? verifiedProfile.ftp : null);
     setFtpChangeSource("manual");
-    setMaxHr(profile?.maxHr ? String(profile.maxHr) : "");
-    setLthr(profile?.lthr ? String(profile.lthr) : "");
-    setThresholdPace(profile?.thresholdPace ? secsToMmss(profile.thresholdPace) : "");
-    setCss(profile?.css ? secsToMmss(profile.css) : "");
-    setWeightKg(profile?.weightKg ? String(profile.weightKg) : "");
-    setHeightCm(profile?.heightCm ? String(profile.heightCm) : "");
-    setBloodType(profile?.bloodType ?? "UNKNOWN");
-    setMedications(profile?.medications ?? "");
-    setAllergies(profile?.allergies ?? "");
+    setMaxHr(verifiedProfile.maxHr ? String(verifiedProfile.maxHr) : "");
+    setLthr(verifiedProfile.lthr ? String(verifiedProfile.lthr) : "");
+    setThresholdPace(verifiedProfile.thresholdPace ? secsToMmss(verifiedProfile.thresholdPace) : "");
+    setCss(verifiedProfile.css ? secsToMmss(verifiedProfile.css) : "");
+    setWeightKg(verifiedProfile.weightKg ? String(verifiedProfile.weightKg) : "");
+    setHeightCm(verifiedProfile.heightCm ? String(verifiedProfile.heightCm) : "");
+    setBloodType(verifiedProfile.bloodType ?? "UNKNOWN");
+    setMedications(verifiedProfile.medications ?? "");
+    setAllergies(verifiedProfile.allergies ?? "");
     setEmergency({
-      name: profile?.emergencyContact?.name ?? "",
-      phone: profile?.emergencyContact?.phone ?? "",
-      relationship: profile?.emergencyContact?.relationship ?? "",
+      name: verifiedProfile.emergencyContact?.name ?? "",
+      phone: verifiedProfile.emergencyContact?.phone ?? "",
+      relationship: verifiedProfile.emergencyContact?.relationship ?? "",
     });
   }
 
@@ -459,6 +479,11 @@ export function PaneTraining() {
             // 폼의 저장 기준도 즉시 맞춰 이후 무관한 설정 저장 시 manual 이력이
             // 중복 생성되지 않도록 한다.
             setSavedFtp(applied.ftp);
+            if (user) {
+              setOwnerProfile((current) => current?.ownerUid === user.uid
+                ? { ownerUid: user.uid, data: { ...current.data, ftp: applied.ftp } }
+                : current);
+            }
             setFtpChangeSource("manual");
           }
           if (applied.lthr != null) setLthr(String(applied.lthr));

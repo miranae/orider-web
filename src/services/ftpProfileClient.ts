@@ -1,6 +1,7 @@
 import { httpsCallable } from "firebase/functions";
 
 import { functions } from "./firebase";
+import { logClientError } from "./errorLogger";
 
 export type FtpChangeSource = "manual" | "test" | "detected";
 
@@ -29,6 +30,17 @@ export async function updateCanonicalFtp(
     { expectedUid: string; ftp: number | null; source: FtpChangeSource; mutationId: string },
     UpdateFtpResult
   >(functions, "updateFtp");
-  const result = await callable({ expectedUid, ftp, source, mutationId });
-  return result.data;
+  try {
+    const result = await callable({ expectedUid, ftp, source, mutationId });
+    return result.data;
+  } catch (error) {
+    logClientError("ftpProfileClient.updateCanonicalFtp", error, {
+      operation: "updateFtp",
+      expectedUid,
+      ftp,
+      source,
+      mutationId,
+    });
+    throw error;
+  }
 }

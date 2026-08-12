@@ -27,6 +27,7 @@ import {
 } from "@shared/types/deviceSettings";
 
 import { firestore } from "./firebase";
+import { logClientError } from "./errorLogger";
 
 /**
  * Firestore users/{uid}/settings/{deviceId} 및 users/{uid}/navigation_preferences/{deviceId}
@@ -65,8 +66,13 @@ export function preserveCanonicalFtpCache(
   if (typeof currentJson === "string") {
     try {
       current = JSON.parse(currentJson) as Record<string, unknown>;
-    } catch {
+    } catch (error) {
       // 손상된 legacy JSON의 FTP를 새 문서로 복제하지 않는다.
+      logClientError("deviceSettingsClient.malformedJson", error, {
+        operation: "preserveCanonicalFtpCache",
+        source: "device_settings",
+        jsonRole: "current",
+      });
     }
   }
   const currentFtp = current.ftpWatts;
@@ -88,19 +94,41 @@ function timestampToMillis(value: unknown): number {
   return 0;
 }
 
-function parseSettingsSnapshot(
-  docSnap: QueryDocumentSnapshot<DocumentData>,
+export function parseDeviceSettingsData(
+  data: DocumentData,
+  fallbackDeviceId: string,
+  operation: string,
+  uid: string,
 ): DeviceSettingsRecord | null {
-  const data = docSnap.data();
   const jsonStr = data.data as string | undefined;
   if (!jsonStr) return null;
-  return {
-    deviceId: (data.deviceId as string) ?? docSnap.id,
-    deviceName: (data.deviceName as string) ?? "",
-    updatedAt: timestampToMillis(data.updatedAt),
-    version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
-    settings: parseAppSettings(jsonStr),
-  };
+  try {
+    const settings = parseAppSettings(jsonStr);
+    return {
+      deviceId: (data.deviceId as string) ?? fallbackDeviceId,
+      deviceName: (data.deviceName as string) ?? "",
+      updatedAt: timestampToMillis(data.updatedAt),
+      version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
+      settings,
+    };
+  } catch (error) {
+    logClientError("deviceSettingsClient.malformedJson", error, {
+      operation,
+      source: "device_settings",
+      uid,
+      deviceId: fallbackDeviceId,
+      jsonRole: "data",
+    });
+    return null;
+  }
+}
+
+function parseSettingsSnapshot(
+  docSnap: QueryDocumentSnapshot<DocumentData>,
+  operation: string,
+  uid: string,
+): DeviceSettingsRecord | null {
+  return parseDeviceSettingsData(docSnap.data(), docSnap.id, operation, uid);
 }
 
 function parseNavPrefsSnapshot(
@@ -134,7 +162,7 @@ export function subscribeLatestDeviceSettings(
     q,
     (snap) => {
       const docSnap = snap.docs[0];
-      onChange(docSnap ? parseSettingsSnapshot(docSnap) : null);
+      onChange(docSnap ? parseSettingsSnapshot(docSnap, "subscribeLatestDeviceSettings", uid) : null);
     },
     (err) => onError?.(err),
   );
@@ -153,7 +181,7 @@ export function subscribeAllDeviceSettings(
     q,
     (snap) => {
       const records = snap.docs.flatMap((docSnap) => {
-        const r = parseSettingsSnapshot(docSnap);
+        const r = parseSettingsSnapshot(docSnap, "subscribeAllDeviceSettings", uid);
         return r ? [r] : [];
       });
       onChange(records);
@@ -194,13 +222,7 @@ export async function fetchDeviceSettings(
   const data = snap.data();
   const jsonStr = data.data as string | undefined;
   if (!jsonStr) return null;
-  return {
-    deviceId: (data.deviceId as string) ?? deviceId,
-    deviceName: (data.deviceName as string) ?? "",
-    updatedAt: timestampToMillis(data.updatedAt),
-    version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
-    settings: parseAppSettings(jsonStr),
-  };
+  return parseDeviceSettingsData(data, deviceId, "fetchDeviceSettings", uid);
 }
 
 /** 가장 최근에 업데이트된 기기의 설정 (단일 기기 모드용 — 모바일 fetchLatestSettings와 동일) */
@@ -215,13 +237,7 @@ export async function fetchLatestDeviceSettings(
   const data = docSnap.data();
   const jsonStr = data.data as string | undefined;
   if (!jsonStr) return null;
-  return {
-    deviceId: (data.deviceId as string) ?? docSnap.id,
-    deviceName: (data.deviceName as string) ?? "",
-    updatedAt: timestampToMillis(data.updatedAt),
-    version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
-    settings: parseAppSettings(jsonStr),
-  };
+  return parseDeviceSettingsData(data, docSnap.id, "fetchLatestDeviceSettings", uid);
 }
 
 /** 사용자가 동기화한 모든 기기 목록 (다중 기기 UI용) */
@@ -235,15 +251,8 @@ export async function fetchAllDeviceSettings(
     const data = docSnap.data();
     const jsonStr = data.data as string | undefined;
     if (!jsonStr) return [];
-    return [
-      {
-        deviceId: (data.deviceId as string) ?? docSnap.id,
-        deviceName: (data.deviceName as string) ?? "",
-        updatedAt: timestampToMillis(data.updatedAt),
-        version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
-        settings: parseAppSettings(jsonStr),
-      },
-    ];
+    const record = parseDeviceSettingsData(data, docSnap.id, "fetchAllDeviceSettings", uid);
+    return record ? [record] : [];
   });
 }
 
