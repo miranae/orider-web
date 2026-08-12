@@ -132,6 +132,10 @@ export function useBoardLike(postId: string, serverLikeCount = 0) {
     track("board_like_tap", { action, post_id: postId });
 
     const previousLikers = likers;
+    // 진행 중인 목록 조회를 무효화 — 세대를 올리지 않으면 쓰기가 끝나 pendingRef 가 풀린 뒤
+    // 뒤늦게 도착한 조회 결과가 낙관적 목록을 덮어(누른 내 아바타가 사라지거나, 취소했는데
+    // 다시 나타나) 실제 상태와 어긋난다.
+    likersRequestRef.current += 1;
     pendingRef.current = true;
     setIsLiked(nextLiked);
     setLikeCount(nextCount);
