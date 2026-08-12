@@ -120,6 +120,12 @@ export default function LikersAvatarStack({
         pointerTypeRef.current = e.pointerType;
         pointerFocusRef.current = true;
       }}
+      // 스크롤·드래그로 제스처가 취소되면 click 이 오지 않는다 — 표식이 남지 않게 정리.
+      // (pointerup 에서는 풀지 않는다 — 포커스가 그 뒤에 오는 경우 표식이 먼저 사라져
+      //  포커스가 툴팁을 열고, 이어지는 클릭 토글이 그걸 도로 닫는다.)
+      onPointerCancel={() => {
+        pointerFocusRef.current = false;
+      }}
       onPointerLeave={(e) => {
         // 툴팁은 래퍼의 자식이라 툴팁으로 들어가는 이동은 leave 가 아니다. 다만 6px 시각
         // 간격을 지나갈 때 leave 가 나므로, 아래 툴팁이 간격만큼 hit 영역을 덮어 끊기지 않게 한다.
@@ -128,7 +134,13 @@ export default function LikersAvatarStack({
       // 키보드로 아바타 링크에 닿으면 목록이 보이도록 (focus 는 React 에서 버블링).
       // 포인터로 눌러 생긴 포커스는 제외 — 아래 클릭 처리와 겹쳐 서로 상쇄된다.
       onFocus={() => {
-        if (!pointerFocusRef.current) setOpen(true);
+        // 표식은 여기서 소비한다 — 클릭이 오지 않은 제스처(롱프레스 등)로 남아 있어도
+        // 다음 포커스 한 번에 풀려 영구히 막히지 않는다.
+        if (pointerFocusRef.current) {
+          pointerFocusRef.current = false;
+          return;
+        }
+        setOpen(true);
       }}
       // 툴팁 안 이름 링크로 포커스가 넘어가는 건 이탈이 아니다 — 닫으면 키보드로
       // 프로필에 닿을 수 없다.
