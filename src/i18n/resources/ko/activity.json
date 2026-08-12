@@ -317,6 +317,11 @@
     "matched_one": "이 라이딩에서 매칭된 {{count}}개 구간",
     "matched_other": "이 라이딩에서 매칭된 {{count}}개 구간"
   },
+  "kudosStack": {
+    "title": "좋아요 {{count}}명",
+    "more": "+{{count}}",
+    "aria": "좋아요 {{count}}명: {{names}}"
+  },
   "kudosCard": {
     "kudos": "좋아요",
     "kudosWithCount": "좋아요 {{count}}",

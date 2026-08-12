@@ -3,6 +3,7 @@ import { LocalizedLink as Link } from "../LocalizedLink";
 import type { User } from "firebase/auth";
 import type { UserProfile } from "@shared/types";
 import Avatar from "../Avatar";
+import KudosAvatarStack from "./KudosAvatarStack";
 import { Card, buttonClass } from "../../theme/components";
 import { useDialog } from "../../contexts/DialogContext";
 import { useHydratedSocialProfiles } from "./useHydratedSocialProfiles";
@@ -97,11 +98,13 @@ export default function KudosCommentsCard({
 
       {hydratedKudos.length > 0 && (
         <div className="py-3" style={{ borderBottom: '1px solid var(--line-soft)' }}>
-          <div className="flex -space-x-1">
-            {hydratedKudos.map((k) => (
-              <Avatar key={k.userId} name={k.nickname} imageUrl={k.profileImage} size="sm" userId={k.userId} />
-            ))}
-          </div>
+          {/* 상세는 목록 전체를 받으므로 피드보다 많이 펼쳐 보여준다(초과분은 +N + 툴팁) */}
+          <KudosAvatarStack
+            kudos={hydratedKudos}
+            totalCount={displayedKudosCount}
+            max={12}
+            ringColor="var(--bg-1)"
+          />
         </div>
       )}
 
