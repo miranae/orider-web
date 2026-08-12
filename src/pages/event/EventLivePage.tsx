@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, firestore, functions } from "../../services/firebase";
@@ -473,11 +472,13 @@ export default function EventLivePage() {
   const fetchSnapshot = useCallback(async () => {
     if (!eventId) return;
     try {
-      const storage = getStorage();
-      const fileRef = ref(storage, `snapshots/${eventId}/latest.json`);
-      const url = await getDownloadURL(fileRef);
-      const response = await fetch(url);
-      const data = normalizeSnapshotData(await response.json() as Partial<SnapshotData>);
+      const latest = await getDoc(doc(firestore, "events", eventId, "snapshots", "latest"));
+      if (!latest.exists()) {
+        setSnapshot(null);
+        setLoadError(null);
+        return;
+      }
+      const data = normalizeSnapshotData(latest.data() as Partial<SnapshotData>);
       setSnapshot(data);
       setLoadError(null);
 
@@ -546,14 +547,8 @@ export default function EventLivePage() {
         setHighlights((prev) => [...newHighlights, ...prev].slice(0, 20));
       }
     } catch (err) {
-      const code = (err as { code?: string })?.code ?? "";
-      if (code === "storage/object-not-found") {
-        setSnapshot(null);
-        setLoadError(null);
-      } else {
-        logClientError("EventLivePage.fetchSnapshot", err, { eventId });
-        if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
-      }
+      logClientError("EventLivePage.fetchSnapshot", err, { eventId });
+      if (!snapshotRef.current) setLoadError(err instanceof Error ? err.message : t("liveView.snapshotLoadError"));
     } finally {
       setLoading(false);
     }
@@ -564,7 +559,7 @@ export default function EventLivePage() {
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.hidden) return;
       void fetchSnapshot();
-    }, 10000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [fetchSnapshot]);
 
