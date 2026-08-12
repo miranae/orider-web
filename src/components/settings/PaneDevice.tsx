@@ -883,12 +883,13 @@ export function PaneDevice() {
     setEditingOwnerUid(null);
   }
 
-  async function commit(patch: Partial<AppSettings>, opts?: { broadcast?: boolean }) {
-    if (!uid || !record || editingOwnerUid !== uid) return;
-    const expectedUid = uid;
-    setSaving(true);
-    try {
-      if (opts?.broadcast && records.length > 1) {
+  async function persistDevicePatch(
+    patch: Partial<AppSettings>,
+    broadcast: boolean,
+  ): Promise<string[]> {
+    if (!record) throw new Error(t("device.noDevice"));
+    const warnings: string[] = [];
+    if (broadcast && records.length > 1) {
         // broadcast 경로:
         // 1) 현재 디바이스에 patch 전체를 적용 (device-scoped 부분 — screen/gps 등 — 포함).
         // 2) 나머지 디바이스에는 user-scoped 부분만 머지. broadcastUserScoped 가 현재 디바이스를
@@ -903,19 +904,24 @@ export function PaneDevice() {
           const parts: string[] = [t("device.broadcastApplied_other", { count: totalApplied })];
           if (validationFailed > 0) parts.push(t("device.broadcastValidationFailed", { count: validationFailed }));
           if (networkFailed > 0) parts.push(t("device.broadcastNetworkFailed", { count: networkFailed }));
-          if (activeUserUidRef.current === expectedUid) showToast(parts.join(" · "));
-        } else if (totalApplied > 1) {
-          if (activeUserUidRef.current === expectedUid) {
-            showToast(t("device.broadcastApplied_other", { count: totalApplied }));
-          }
-        } else {
-          if (activeUserUidRef.current === expectedUid) showToast(t("device.broadcastAppliedSingle"));
+          warnings.push(parts.join(" · "));
         }
-      } else {
+    } else {
         // hook의 update는 putDeviceSettings 후 optimistic local merge를 수행하므로
         // cancelEdit 직후 read 모드가 즉시 새 값을 보여준다 (onSnapshot latency와 무관).
         await update(record.deviceId, patch);
-        if (activeUserUidRef.current === expectedUid) showToast(t("device.saved"));
+    }
+    return warnings;
+  }
+
+  async function commit(patch: Partial<AppSettings>, opts?: { broadcast?: boolean }) {
+    if (!uid || !record || editingOwnerUid !== uid) return;
+    const expectedUid = uid;
+    setSaving(true);
+    try {
+      const warnings = await persistDevicePatch(patch, Boolean(opts?.broadcast));
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(warnings.length > 0 ? warnings.join(" · ") : t("device.saved"));
       }
       if (activeUserUidRef.current === expectedUid) cancelEdit();
     } catch (e) {
@@ -940,31 +946,39 @@ export function PaneDevice() {
       return;
     }
     setSaving(true);
+    let deviceSettingsSaved = false;
+    let deviceWarnings: string[] = [];
     try {
+      deviceWarnings = await persistDevicePatch(
+        {
+          maxHeartRate: draft.maxHeartRate,
+          riderWeightKg: draft.riderWeightKg,
+        },
+        broadcast,
+      );
+      deviceSettingsSaved = true;
+      if (activeUserUidRef.current !== expectedUid) return;
       if (draft.ftpWatts !== verifiedFtp) {
         await updateCanonicalFtp(expectedUid, draft.ftpWatts, "manual");
         if (activeUserUidRef.current === expectedUid) {
           setFtpProfile({ ownerUid: expectedUid, ftp: draft.ftpWatts });
         }
       }
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(deviceWarnings.length > 0 ? deviceWarnings.join(" · ") : t("device.saved"));
+        cancelEdit();
+      }
     } catch (error) {
       if (activeUserUidRef.current === expectedUid) {
-        showToast(t("device.saveFailed", {
-          message: error instanceof Error ? error.message : String(error),
-        }));
+        const detail = error instanceof Error ? error.message : String(error);
+        const savedDetail = [t("device.saved"), ...deviceWarnings].join(" · ");
+        showToast(deviceSettingsSaved
+          ? `${savedDetail} · FTP ${t("device.saveFailed", { message: detail })}`
+          : t("device.saveFailed", { message: detail }));
       }
-      return;
     } finally {
       if (activeUserUidRef.current === expectedUid) setSaving(false);
     }
-    if (activeUserUidRef.current !== expectedUid) return;
-    await commit(
-      {
-        maxHeartRate: draft.maxHeartRate,
-        riderWeightKg: draft.riderWeightKg,
-      },
-      { broadcast },
-    );
   }
 
   return (

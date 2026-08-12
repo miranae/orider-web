@@ -45,6 +45,18 @@ describe("preserveCanonicalFtpCache", () => {
     );
   });
 
+  it("seeds an absent device document only from verified canonical profile FTP", () => {
+    const draftJson = JSON.stringify({ ftpWatts: 200, maxHeartRate: 190 });
+
+    expect(JSON.parse(preserveCanonicalFtpCache(draftJson, undefined, 285))).toEqual({
+      ftpWatts: 285,
+      maxHeartRate: 190,
+    });
+    expect(JSON.parse(preserveCanonicalFtpCache(draftJson, undefined, null))).toEqual({
+      maxHeartRate: 190,
+    });
+  });
+
   it.each([
     "subscribeLatestDeviceSettings",
     "subscribeAllDeviceSettings",

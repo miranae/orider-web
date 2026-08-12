@@ -9,12 +9,18 @@ const mocks = vi.hoisted(() => ({
   staleProfile: { ftp: 333 },
   getDoc: vi.fn(),
   updateCanonicalFtp: vi.fn(),
+  updateDevice: vi.fn(async () => undefined),
+  broadcastUserScoped: vi.fn(async () => ({ updated: 0, failures: [] })),
+  showToast: vi.fn(),
   logClientError: vi.fn(),
   records: [] as unknown[],
 }));
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, vars?: { message?: string }) =>
+      vars?.message ? `${key}:${vars.message}` : key,
+  }),
 }));
 
 vi.mock("firebase/firestore", () => ({
@@ -37,7 +43,7 @@ vi.mock("../../contexts/AuthContext", () => ({
   useAuth: () => ({ user: mocks.user, profile: mocks.staleProfile }),
 }));
 vi.mock("../../contexts/ToastContext", () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast: mocks.showToast }),
 }));
 vi.mock("../../contexts/DialogContext", () => ({
   useDialog: () => ({
@@ -51,8 +57,8 @@ vi.mock("../../hooks/useDeviceSettings", () => ({
     loading: false,
     error: null,
     reload: vi.fn(),
-    update: vi.fn(async () => undefined),
-    broadcastUserScoped: vi.fn(async () => ({ updated: 0, failures: [] })),
+    update: (...args: unknown[]) => mocks.updateDevice(...args),
+    broadcastUserScoped: (...args: unknown[]) => mocks.broadcastUserScoped(...args),
   }),
 }));
 vi.mock("./LayoutEditorCard", () => ({ LayoutEditorCard: () => null }));
@@ -74,6 +80,9 @@ describe("PaneDevice canonical FTP owner fencing", () => {
       settings: { ...DEFAULT_APP_SETTINGS },
     }];
     vi.clearAllMocks();
+    mocks.updateDevice.mockResolvedValue(undefined);
+    mocks.updateCanonicalFtp.mockResolvedValue({ ok: true });
+    mocks.broadcastUserScoped.mockResolvedValue({ updated: 0, failures: [] });
   });
 
   it("does not seed B's rider draft from stale A profile or A's deferred response", async () => {
@@ -124,5 +133,61 @@ describe("PaneDevice canonical FTP owner fencing", () => {
     fireEvent.change(editedInput, { target: { value: "275" } });
     await act(async () => { second.resolve({ data: () => ({ ftp: 320 }) }); });
     expect(editedInput.value).toBe("275");
+  });
+
+  it("does not commit FTP when the device metrics stage fails", async () => {
+    mocks.getDoc.mockResolvedValue({ data: () => ({ ftp: 250 }) });
+    mocks.updateDevice.mockRejectedValueOnce(new Error("device offline"));
+    render(<PaneDevice />);
+    await screen.findByText("250 W");
+    fireEvent.click(screen.getAllByRole("button", { name: "device.editAriaLabel" })[0]);
+    fireEvent.change(screen.getByDisplayValue("250"), { target: { value: "270" } });
+    fireEvent.click(screen.getByRole("button", { name: "device.save" }));
+
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(
+      "device.saveFailed:device offline",
+    ));
+    expect(mocks.updateCanonicalFtp).not.toHaveBeenCalled();
+  });
+
+  it("reports device metrics as saved when the final FTP stage fails", async () => {
+    mocks.getDoc.mockResolvedValue({ data: () => ({ ftp: 250 }) });
+    mocks.updateCanonicalFtp.mockRejectedValueOnce(new Error("FTP offline"));
+    render(<PaneDevice />);
+    await screen.findByText("250 W");
+    fireEvent.click(screen.getAllByRole("button", { name: "device.editAriaLabel" })[0]);
+    fireEvent.change(screen.getByDisplayValue("250"), { target: { value: "270" } });
+    fireEvent.click(screen.getByRole("button", { name: "device.save" }));
+
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(
+      expect.stringContaining("device.saved · FTP device.saveFailed"),
+    ));
+    expect(mocks.updateDevice).toHaveBeenCalled();
+  });
+
+  it("retains broadcast warnings when the final FTP stage also fails", async () => {
+    mocks.records.push({
+      deviceId: "device-2",
+      deviceName: "Tablet",
+      updatedAt: 1,
+      version: 1,
+      settings: { ...DEFAULT_APP_SETTINGS },
+    });
+    mocks.getDoc.mockResolvedValue({ data: () => ({ ftp: 250 }) });
+    mocks.broadcastUserScoped.mockResolvedValueOnce({
+      updated: 0,
+      failures: [{ deviceId: "device-2", deviceName: "Tablet", kind: "network", error: "offline" }],
+    });
+    mocks.updateCanonicalFtp.mockRejectedValueOnce(new Error("FTP offline"));
+    render(<PaneDevice />);
+    await screen.findByText("250 W");
+    fireEvent.click(screen.getAllByRole("button", { name: "device.editAriaLabel" })[0]);
+    fireEvent.change(screen.getByDisplayValue("250"), { target: { value: "270" } });
+    fireEvent.click(screen.getByRole("button", { name: "device.save" }));
+
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(
+      expect.stringContaining("device.broadcastNetworkFailed"),
+    ));
+    expect(mocks.showToast).toHaveBeenCalledWith(expect.stringContaining("FTP device.saveFailed"));
   });
 });

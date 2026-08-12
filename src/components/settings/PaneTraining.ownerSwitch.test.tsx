@@ -8,33 +8,41 @@ const mocks = vi.hoisted(() => ({
   staleProfile: { ftp: 333, weightKg: 88 },
   getDoc: vi.fn(),
   logClientError: vi.fn(),
+  updateCanonicalFtp: vi.fn(async () => ({ ok: true })),
+  persistRiderMetrics: vi.fn(async () => ({ failures: [] })),
+  updateDoc: vi.fn(async () => undefined),
+  setDoc: vi.fn(async () => undefined),
+  showToast: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, vars?: { errors?: string }) =>
+      vars?.errors ? `${key}:${vars.errors}` : key,
+  }),
 }));
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn((_db: unknown, ...path: string[]) => ({ path })),
   getDoc: (...args: unknown[]) => mocks.getDoc(...args),
-  setDoc: vi.fn(),
-  updateDoc: vi.fn(),
+  setDoc: (...args: unknown[]) => mocks.setDoc(...args),
+  updateDoc: (...args: unknown[]) => mocks.updateDoc(...args),
 }));
 vi.mock("../../services/firebase", () => ({ firestore: {} }));
 vi.mock("../../services/errorLogger", () => ({
   logClientError: (...args: unknown[]) => mocks.logClientError(...args),
 }));
 vi.mock("../../services/syncRiderMetrics", () => ({
-  persistRiderMetrics: vi.fn(async () => ({ failures: [] })),
+  persistRiderMetrics: (...args: unknown[]) => mocks.persistRiderMetrics(...args),
   syncRiderWeightToBikeProfiles: vi.fn(async () => undefined),
 }));
 vi.mock("../../services/ftpProfileClient", () => ({
-  updateCanonicalFtp: vi.fn(async () => ({ ok: true })),
+  updateCanonicalFtp: (...args: unknown[]) => mocks.updateCanonicalFtp(...args),
 }));
 vi.mock("../../contexts/AuthContext", () => ({
   useAuth: () => ({ user: mocks.user, profile: mocks.staleProfile }),
 }));
 vi.mock("../../contexts/ToastContext", () => ({
-  useToast: () => ({ showToast: vi.fn() }),
+  useToast: () => ({ showToast: mocks.showToast }),
 }));
 vi.mock("../../contexts/DialogContext", () => ({
   useDialog: () => ({ confirm: vi.fn(async () => true) }),
@@ -59,6 +67,10 @@ describe("PaneTraining profile owner fencing", () => {
   beforeEach(() => {
     mocks.user = { uid: "owner-a" };
     vi.clearAllMocks();
+    mocks.updateCanonicalFtp.mockResolvedValue({ ok: true });
+    mocks.persistRiderMetrics.mockResolvedValue({ failures: [] });
+    mocks.updateDoc.mockResolvedValue(undefined);
+    mocks.setDoc.mockResolvedValue(undefined);
   });
 
   it("keeps B fields reset when B has no FTP and A's profile resolves later", async () => {
@@ -199,5 +211,159 @@ describe("PaneTraining profile owner fencing", () => {
     expect(lthrInput.value).toBe("");
     expect(paceInput.value).toBe("");
     expect(cssInput.value).toBe("");
+  });
+
+  it("stops before FTP when rider metrics fail without claiming a rollback", async () => {
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => false, data: () => ({}) }
+        : { data: () => ({ ftp: 220, maxHr: 180 }) }),
+    );
+    mocks.persistRiderMetrics.mockRejectedValueOnce(new Error("metrics offline"));
+    render(<PaneTraining />);
+    fireEvent.change(await screen.findByDisplayValue("180"), { target: { value: "190" } });
+    fireEvent.change(screen.getByDisplayValue("220"), { target: { value: "240" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(
+      "training.saveFailed: metrics offline",
+    ));
+    expect(mocks.updateCanonicalFtp).not.toHaveBeenCalled();
+  });
+
+  it("reports the medical stage as partial after profile fields were saved", async () => {
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => false, data: () => ({}) }
+        : { data: () => ({ ftp: 220, lthr: 160 }) }),
+    );
+    mocks.setDoc.mockRejectedValueOnce(new Error("medical offline"));
+    render(<PaneTraining />);
+    fireEvent.change(await screen.findByDisplayValue("160"), { target: { value: "165" } });
+    fireEvent.change(screen.getByDisplayValue("220"), { target: { value: "240" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(
+      "training.syncPartialFail:medical: medical offline",
+    ));
+    expect(mocks.updateCanonicalFtp).not.toHaveBeenCalled();
+  });
+
+  it("reports non-FTP settings as saved when the final FTP command fails", async () => {
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => false, data: () => ({}) }
+        : { data: () => ({ ftp: 220 }) }),
+    );
+    mocks.updateCanonicalFtp.mockRejectedValueOnce(new Error("FTP offline"));
+    render(<PaneTraining />);
+    fireEvent.change(await screen.findByDisplayValue("220"), { target: { value: "240" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(
+      "training.syncPartialFail:FTP: FTP offline",
+    ));
+    expect(mocks.setDoc).toHaveBeenCalled();
+  });
+
+  it("resets and retries from saved private medical data after FTP failure", async () => {
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => true, data: () => ({ medications: "old medicine" }) }
+        : { data: () => ({ ftp: 220 }) }),
+    );
+    mocks.updateCanonicalFtp.mockRejectedValueOnce(new Error("FTP offline"));
+    render(<PaneTraining />);
+    const ftpInput = await screen.findByDisplayValue("220") as HTMLInputElement;
+    const medicationInput = await screen.findByDisplayValue("old medicine") as HTMLInputElement;
+    fireEvent.change(ftpInput, { target: { value: "240" } });
+    fireEvent.change(medicationInput, { target: { value: "saved medicine" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(
+      "training.syncPartialFail:FTP: FTP offline",
+    ));
+
+    fireEvent.change(medicationInput, { target: { value: "stale retry" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnReset" }));
+    expect(medicationInput.value).toBe("saved medicine");
+
+    fireEvent.change(ftpInput, { target: { value: "240" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+    await waitFor(() => expect(mocks.updateCanonicalFtp).toHaveBeenCalledTimes(2));
+    expect(mocks.setDoc).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ medications: "saved medicine" }),
+      { merge: true },
+    );
+  });
+
+  it("stops A's save chain after an account switch during an awaited stage", async () => {
+    const metrics = deferred<{ failures: never[] }>();
+    mocks.persistRiderMetrics.mockReturnValueOnce(metrics.promise);
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => false, data: () => ({}) }
+        : { data: () => ({ ftp: 220, maxHr: 180 }) }),
+    );
+    const view = render(<PaneTraining />);
+    fireEvent.change(await screen.findByDisplayValue("180"), { target: { value: "190" } });
+    fireEvent.change(screen.getByDisplayValue("220"), { target: { value: "240" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+    await waitFor(() => expect(mocks.persistRiderMetrics).toHaveBeenCalled());
+
+    mocks.user = { uid: "owner-b" };
+    view.rerender(<PaneTraining />);
+    await act(async () => { metrics.resolve({ failures: [] }); });
+
+    expect(mocks.updateDoc).not.toHaveBeenCalled();
+    expect(mocks.setDoc).not.toHaveBeenCalled();
+    expect(mocks.updateCanonicalFtp).not.toHaveBeenCalled();
+  });
+
+  it("keeps Save unavailable until private medical data is loaded", async () => {
+    const medical = deferred<{
+      exists: () => boolean;
+      data: () => { medications: string };
+    }>();
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      path.includes("private")
+        ? medical.promise
+        : Promise.resolve({ data: () => ({ ftp: 220 }) }),
+    );
+    render(<PaneTraining />);
+
+    await screen.findByText("common.loading");
+    expect(screen.queryByRole("button", { name: "training.btnSave" })).not.toBeInTheDocument();
+    expect(mocks.setDoc).not.toHaveBeenCalled();
+
+    await act(async () => {
+      medical.resolve({ exists: () => true, data: () => ({ medications: "known medicine" }) });
+    });
+    expect(await screen.findByDisplayValue("known medicine")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "training.btnSave" })).toBeInTheDocument();
+  });
+
+  it("requires a successful medical retry before Save can overwrite private data", async () => {
+    mocks.getDoc.mockImplementationOnce(() => Promise.resolve({ data: () => ({ ftp: 220 }) }));
+    mocks.getDoc.mockImplementationOnce(() => Promise.reject(new Error("medical offline")));
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => true, data: () => ({ medications: "known medicine" }) }
+        : { data: () => ({ ftp: 220 }) }),
+    );
+    render(<PaneTraining />);
+
+    const retry = await screen.findByRole("button", { name: "common.retry" });
+    expect(screen.queryByRole("button", { name: "training.btnSave" })).not.toBeInTheDocument();
+    expect(mocks.setDoc).not.toHaveBeenCalled();
+    fireEvent.click(retry);
+
+    expect(await screen.findByDisplayValue("known medicine")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+    await waitFor(() => expect(mocks.setDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ medications: "known medicine" }),
+      { merge: true },
+    ));
   });
 });

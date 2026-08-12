@@ -60,6 +60,7 @@ const DEFAULT_NAV_PREFS_VERSION = 1;
 export function preserveCanonicalFtpCache(
   nextJson: string,
   currentJson: unknown,
+  canonicalFtp?: number | null,
 ): string {
   const next = JSON.parse(nextJson) as Record<string, unknown>;
   let current: Record<string, unknown> = {};
@@ -78,6 +79,9 @@ export function preserveCanonicalFtpCache(
   const currentFtp = current.ftpWatts;
   if (typeof currentFtp === "number" && Number.isFinite(currentFtp)) {
     next.ftpWatts = currentFtp;
+  } else if (typeof canonicalFtp === "number" && Number.isFinite(canonicalFtp)) {
+    // 새 settings 문서는 device/draft 기본값이 아니라 owner profile 정본으로만 seed한다.
+    next.ftpWatts = canonicalFtp;
   } else {
     delete next.ftpWatts;
   }
@@ -272,14 +276,19 @@ export async function putDeviceSettings(
   version: number = DEFAULT_DEVICE_SETTINGS_VERSION,
 ): Promise<void> {
   const ref = doc(firestore, "users", uid, "settings", deviceId);
+  const profileRef = doc(firestore, "users", uid);
   const nextJson = serializeAppSettings(settings);
   // device settings는 FTP를 author하지 않는다. 서버 fan-out과 동시에 maxHR/weight 등을
   // 저장해도 transaction이 최신 문서의 FTP cache를 보존하므로 stale 전체 JSON이
   // canonical root로 역수입되는 경로를 차단한다.
   await runTransaction(firestore, async (tx) => {
-    const current = await tx.get(ref);
+    const [profile, current] = await Promise.all([tx.get(profileRef), tx.get(ref)]);
+    const profileFtp = profile.data()?.ftp;
+    const canonicalFtp = typeof profileFtp === "number" && Number.isFinite(profileFtp)
+      ? profileFtp
+      : null;
     tx.set(ref, {
-      data: preserveCanonicalFtpCache(nextJson, current.data()?.data),
+      data: preserveCanonicalFtpCache(nextJson, current.data()?.data, canonicalFtp),
       deviceId,
       deviceName,
       updatedAt: serverTimestamp(),

@@ -92,8 +92,16 @@ export function PaneTraining() {
     ownerUid: string;
     data: Partial<UserProfile>;
   } | null>(null);
+  const loadedProfileRef = useRef<{ ownerUid: string; data: Partial<UserProfile> } | null>(null);
   const [profileLoadErrorOwnerUid, setProfileLoadErrorOwnerUid] = useState<string | null>(null);
   const [profileLoadAttempt, setProfileLoadAttempt] = useState(0);
+  const savedMedicalRef = useRef<{
+    ownerUid: string;
+    data: MedicalProfile;
+  } | null>(null);
+  const [medicalReadyOwnerUid, setMedicalReadyOwnerUid] = useState<string | null>(null);
+  const [medicalLoadErrorOwnerUid, setMedicalLoadErrorOwnerUid] = useState<string | null>(null);
+  const [medicalLoadAttempt, setMedicalLoadAttempt] = useState(0);
   const [ftpChangeSource, setFtpChangeSource] = useState<FtpHistorySource>("manual");
   // FTP 테스트 모드 — 전용 테스트 입력 → FTP 후보 산출(#307).
   const [ftpTestProtocol, setFtpTestProtocol] = useState<FtpTestProtocol>("twenty_min");
@@ -130,6 +138,10 @@ export function PaneTraining() {
     setWeightKg("");
     setHeightCm("");
     setOwnerProfile(null);
+    loadedProfileRef.current = null;
+    savedMedicalRef.current = null;
+    setMedicalReadyOwnerUid(null);
+    setMedicalLoadErrorOwnerUid(null);
     setProfileLoadErrorOwnerUid(null);
     setSaving(false);
     if (!ownerUid) return;
@@ -147,6 +159,7 @@ export function PaneTraining() {
       setWeightKg(typeof d.weightKg === "number" ? String(d.weightKg) : "");
       setHeightCm(typeof d.heightCm === "number" ? String(d.heightCm) : "");
       setOwnerProfile({ ownerUid, data: d });
+      loadedProfileRef.current = { ownerUid, data: d };
       setFormOwnerUid(ownerUid);
     }).catch((error) => {
       if (cancelled) return;
@@ -174,37 +187,58 @@ export function PaneTraining() {
     setMedications("");
     setAllergies("");
     setEmergency({ name: "", phone: "", relationship: "" });
-    if (!ownerUid) return;
+    savedMedicalRef.current = null;
+    setMedicalReadyOwnerUid(null);
+    setMedicalLoadErrorOwnerUid(null);
+    if (!ownerUid || formOwnerUid !== ownerUid) return;
     let cancelled = false;
     getDoc(doc(firestore, "users", ownerUid, "private", "medical"))
       .then((snap) => {
         if (cancelled) return;
         const m = (snap.exists() ? snap.data() : null) as MedicalProfile | null;
-        setBloodType(m?.bloodType ?? verifiedProfile?.bloodType ?? "UNKNOWN");
-        setMedications(m?.medications ?? verifiedProfile?.medications ?? "");
-        setAllergies(m?.allergies ?? verifiedProfile?.allergies ?? "");
-        const ec = m?.emergencyContact ?? verifiedProfile?.emergencyContact ?? null;
+        const profileFallback = loadedProfileRef.current?.ownerUid === ownerUid
+          ? loadedProfileRef.current.data
+          : null;
+        const loadedMedical: MedicalProfile = {
+          bloodType: m?.bloodType ?? profileFallback?.bloodType ?? null,
+          medications: m?.medications ?? profileFallback?.medications ?? null,
+          allergies: m?.allergies ?? profileFallback?.allergies ?? null,
+          emergencyContact: m?.emergencyContact ?? profileFallback?.emergencyContact ?? null,
+        };
+        savedMedicalRef.current = { ownerUid, data: loadedMedical };
+        setMedicalReadyOwnerUid(ownerUid);
+        setBloodType(loadedMedical.bloodType ?? "UNKNOWN");
+        setMedications(loadedMedical.medications ?? "");
+        setAllergies(loadedMedical.allergies ?? "");
+        const ec = loadedMedical.emergencyContact;
         setEmergency({ name: ec?.name ?? "", phone: ec?.phone ?? "", relationship: ec?.relationship ?? "" });
       })
       .catch((err) => {
-        if (!cancelled) logClientError("PaneTraining.loadMedical", err, { ownerUid });
+        if (!cancelled) {
+          setMedicalLoadErrorOwnerUid(ownerUid);
+          logClientError("PaneTraining.loadMedical", err, { ownerUid });
+        }
       });
     return () => { cancelled = true; };
-  }, [user?.uid, verifiedProfile]);
+  }, [user?.uid, formOwnerUid, medicalLoadAttempt]);
 
   if (!user) return null;
-  if (formOwnerUid !== user.uid) {
-    const failedForCurrentOwner = profileLoadErrorOwnerUid === user.uid;
+  if (formOwnerUid !== user.uid || medicalReadyOwnerUid !== user.uid) {
+    const profileFailed = profileLoadErrorOwnerUid === user.uid;
+    const medicalFailed = medicalLoadErrorOwnerUid === user.uid;
     return (
       <SettingsCard title={t("training.cardThresholds")} dense>
         <Text variant="eyebrow">
-          {failedForCurrentOwner ? t("common.loadFailed") : t("common.loading")}
+          {profileFailed || medicalFailed ? t("common.loadFailed") : t("common.loading")}
         </Text>
-        {failedForCurrentOwner && (
+        {(profileFailed || medicalFailed) && (
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setProfileLoadAttempt((attempt) => attempt + 1)}
+            onClick={() => {
+              if (profileFailed) setProfileLoadAttempt((attempt) => attempt + 1);
+              if (medicalFailed) setMedicalLoadAttempt((attempt) => attempt + 1);
+            }}
           >
             {t("common.retry")}
           </Button>
@@ -320,24 +354,33 @@ export function PaneTraining() {
       emergencyContact,
     };
 
+    const updateNumericBaseline = (
+      keys: Array<keyof Pick<UserProfile,
+        "ftp" | "maxHr" | "lthr" | "thresholdPace" | "css" | "weightKg" | "heightCm"
+      >>,
+    ) => {
+      if (activeUserUidRef.current !== expectedUid) return;
+      setOwnerProfile((current) => {
+        if (current?.ownerUid !== expectedUid) return current;
+        const data = { ...current.data };
+        for (const key of keys) {
+          const value = updates[key];
+          if (typeof value === "number") data[key] = value;
+          else delete data[key];
+        }
+        return { ownerUid: expectedUid, data };
+      });
+    };
+
     setSaving(true);
+    let nonFtpSaved = false;
+    let activeStage = "profile";
     try {
-      // FTP는 서버 canonical command만 변경한다. root 정본 커밋 뒤 Functions가
-      // training profile과 기기 캐시를 단방향 전파하므로 클라이언트가 기기부터 쓰지 않는다.
       const nextFtp = updates.ftp as number | null;
       const ftpChanged = nextFtp !== (savedFtp ?? null);
-      if (ftpChanged) {
-        await updateCanonicalFtp(expectedUid, nextFtp, ftpChangeSource);
-        if (activeUserUidRef.current === expectedUid) {
-          setSavedFtp(nextFtp);
-          setOwnerProfile((current) => current?.ownerUid === expectedUid
-            ? { ownerUid: expectedUid, data: { ...current.data, ftp: nextFtp ?? undefined } }
-            : current);
-          setFtpChangeSource("manual");
-        }
-      }
 
-      // maxHr/weightKg는 아직 기존 호환 경로를 사용한다. FTP는 위 command에서 분리한다.
+      // 교차 서비스 원자성이 없으므로 기존 프로필/의료 저장을 먼저 완료하고 FTP command를
+      // 마지막에 실행한다. 마지막 단계 실패 시 앞선 저장이 롤백된 것처럼 안내하지 않는다.
       const maxHrForSync = typeof updates.maxHr === "number" ? updates.maxHr : undefined;
       const weightForSync =
         typeof updates.weightKg === "number" ? updates.weightKg : undefined;
@@ -347,10 +390,18 @@ export function PaneTraining() {
 
       const syncErrors: string[] = [];
       if (needDeviceSync) {
+        activeStage = "rider metrics";
+        if (activeUserUidRef.current !== expectedUid) return;
         const result = await persistRiderMetrics(expectedUid, {
           maxHr: maxHrForSync,
           weightKg: weightForSync,
         });
+        if (activeUserUidRef.current !== expectedUid) return;
+        nonFtpSaved = true;
+        updateNumericBaseline([
+          ...(maxHrForSync !== undefined ? ["maxHr" as const] : []),
+          ...(weightForSync !== undefined ? ["weightKg" as const] : []),
+        ]);
         if (result.failures.length > 0) {
           const failedNames = result.failures
             .map((f) => f.deviceName || f.deviceId)
@@ -366,10 +417,25 @@ export function PaneTraining() {
       if (maxHrForSync !== undefined) delete rootUpdates.maxHr;
       if (weightForSync !== undefined) delete rootUpdates.weightKg;
       if (Object.keys(rootUpdates).length > 0) {
+        activeStage = "profile";
+        if (activeUserUidRef.current !== expectedUid) return;
         await updateDoc(doc(firestore, "users", expectedUid), rootUpdates);
+        if (activeUserUidRef.current !== expectedUid) return;
+        nonFtpSaved = true;
+        updateNumericBaseline(
+          ["maxHr", "lthr", "thresholdPace", "css", "weightKg", "heightCm"]
+            .filter((key) => key in rootUpdates) as Array<
+              "maxHr" | "lthr" | "thresholdPace" | "css" | "weightKg" | "heightCm"
+            >,
+        );
       }
       // 의료/응급 PII → owner-only 서브컬렉션(#524). 루트엔 쓰지 않음(노출 차단).
+      activeStage = "medical";
+      if (activeUserUidRef.current !== expectedUid) return;
       await setDoc(doc(firestore, "users", expectedUid, "private", "medical"), medical, { merge: true });
+      if (activeUserUidRef.current !== expectedUid) return;
+      nonFtpSaved = true;
+      savedMedicalRef.current = { ownerUid: expectedUid, data: medical };
       if (weightForSync !== undefined && bikeProfiles.length > 0) {
         // 자전거가 여러 대일 때 일괄 반영은 가족 공유나 자전거별 다른 라이더 케이스에서
         // 의도치 않은 데이터 손실이 가능하므로 명시적 confirm. 1대만 있으면 자동 동기화.
@@ -381,33 +447,28 @@ export function PaneTraining() {
           );
         if (shouldSyncBikes) {
           try {
+            if (activeUserUidRef.current !== expectedUid) return;
             await syncRiderWeightToBikeProfiles(expectedUid, weightForSync);
+            if (activeUserUidRef.current !== expectedUid) return;
           } catch (e) {
             syncErrors.push(t("training.syncBikeError", { message: e instanceof Error ? e.message : String(e) }));
           }
         }
       }
 
+      if (ftpChanged) {
+        activeStage = "FTP";
+        if (activeUserUidRef.current !== expectedUid) return;
+        await updateCanonicalFtp(expectedUid, nextFtp, ftpChangeSource);
+        if (activeUserUidRef.current !== expectedUid) return;
+        if (activeUserUidRef.current === expectedUid) {
+          setSavedFtp(nextFtp);
+          updateNumericBaseline(["ftp"]);
+          setFtpChangeSource("manual");
+        }
+      }
+
       if (activeUserUidRef.current !== expectedUid) return;
-      setOwnerProfile((current) => {
-        if (current?.ownerUid !== expectedUid) return current;
-        const data = { ...current.data };
-        const assignNumber = (key: keyof Pick<UserProfile,
-          "ftp" | "maxHr" | "lthr" | "thresholdPace" | "css" | "weightKg" | "heightCm"
-        >) => {
-          const value = updates[key];
-          if (typeof value === "number") data[key] = value;
-          else delete data[key];
-        };
-        assignNumber("ftp");
-        assignNumber("maxHr");
-        assignNumber("lthr");
-        assignNumber("thresholdPace");
-        assignNumber("css");
-        assignNumber("weightKg");
-        assignNumber("heightCm");
-        return { ownerUid: expectedUid, data };
-      });
       if (syncErrors.length === 0) {
         showToast(t("training.saved"));
       } else {
@@ -415,7 +476,10 @@ export function PaneTraining() {
       }
     } catch (e) {
       if (activeUserUidRef.current === expectedUid) {
-        showToast(`${t("training.saveFailed")}: ${e instanceof Error ? e.message : String(e)}`);
+        const detail = e instanceof Error ? e.message : String(e);
+        showToast(nonFtpSaved
+          ? t("training.syncPartialFail", { errors: `${activeStage}: ${detail}` })
+          : `${t("training.saveFailed")}: ${detail}`);
       }
     } finally {
       if (activeUserUidRef.current === expectedUid) setSaving(false);
@@ -433,13 +497,15 @@ export function PaneTraining() {
     setCss(verifiedProfile.css ? secsToMmss(verifiedProfile.css) : "");
     setWeightKg(verifiedProfile.weightKg ? String(verifiedProfile.weightKg) : "");
     setHeightCm(verifiedProfile.heightCm ? String(verifiedProfile.heightCm) : "");
-    setBloodType(verifiedProfile.bloodType ?? "UNKNOWN");
-    setMedications(verifiedProfile.medications ?? "");
-    setAllergies(verifiedProfile.allergies ?? "");
+    const savedMedical = savedMedicalRef.current;
+    const medicalBaseline = savedMedical?.ownerUid === formOwnerUid ? savedMedical.data : null;
+    setBloodType(medicalBaseline?.bloodType ?? "UNKNOWN");
+    setMedications(medicalBaseline?.medications ?? "");
+    setAllergies(medicalBaseline?.allergies ?? "");
     setEmergency({
-      name: verifiedProfile.emergencyContact?.name ?? "",
-      phone: verifiedProfile.emergencyContact?.phone ?? "",
-      relationship: verifiedProfile.emergencyContact?.relationship ?? "",
+      name: medicalBaseline?.emergencyContact?.name ?? "",
+      phone: medicalBaseline?.emergencyContact?.phone ?? "",
+      relationship: medicalBaseline?.emergencyContact?.relationship ?? "",
     });
   }
 
