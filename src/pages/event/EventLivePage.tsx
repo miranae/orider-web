@@ -472,7 +472,7 @@ export default function EventLivePage() {
   const fetchSnapshot = useCallback(async () => {
     if (!eventId) return;
     try {
-      const latest = await getDoc(doc(firestore, "events", eventId, "snapshots", "latest"));
+      const latest = await getDoc(doc(firestore, "events", eventId, "snapshots", "public_latest"));
       if (!latest.exists()) {
         setSnapshot(null);
         setLoadError(null);
