@@ -158,7 +158,12 @@ export default function LikersAvatarStack({
         // 상호작용 종료 — 표식은 어느 분기로 빠지든 반드시 푼다(캡처에서 전파를 끊으면
         // 아래 onClick 이 실행되지 않아, 여기서 안 풀면 이후 키보드 포커스가 막힌다).
         pointerFocusRef.current = false;
-        if (pointerTypeRef.current === "mouse") return; // 마우스는 링크 이동 그대로
+        // 판정 직후 기본값으로 되돌린다 — 스크린리더·스위치 제어는 선행 pointerdown 없이
+        // click 만 합성하므로, 표식이 남아 있으면 직전 터치로 오인해 링크 이동을 막는다
+        // (접근성 사용자에게는 아바타가 유일한 직접 프로필 경로다).
+        const pointerType = pointerTypeRef.current;
+        pointerTypeRef.current = "mouse";
+        if (pointerType === "mouse") return; // 마우스·합성 클릭은 링크 이동 그대로
         // 툴팁 안 이름 링크는 그대로 이동시킨다 — 여기까지 막으면 터치 사용자는
         // 프로필로 갈 방법이 아예 없어진다.
         if (tipRef.current?.contains(e.target as Node)) return;

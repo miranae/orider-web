@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import LikersAvatarStack from "./LikersAvatarStack";
@@ -96,6 +96,27 @@ describe("LikersAvatarStack", () => {
     await user.pointer({ keys: "[TouchA]", target: screen.getByRole("group") });
     const tip = screen.getByRole("tooltip", { hidden: true });
     await user.pointer({ keys: "[TouchA]", target: within(tip).getByRole("link", { name: "라이더1" }) });
+
+    expect(await screen.findByText("프로필 화면")).toBeInTheDocument();
+  });
+
+  it("선행 포인터 없이 합성된 클릭(스크린리더·스위치 제어)은 프로필로 이동한다", async () => {
+    // 터치 판정 표식이 남아 있으면 합성 클릭을 터치로 오인해 이동을 막는다 —
+    // 접근성 사용자에겐 아바타가 유일한 직접 프로필 경로다.
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/ko"]}>
+        <Routes>
+          <Route path="/ko" element={<LikersAvatarStack likers={[liker(1), liker(2)]} />} />
+          <Route path="/ko/athlete/:id" element={<div>프로필 화면</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // 먼저 터치로 한 번 눌러 표식을 남긴다.
+    await user.pointer({ keys: "[TouchA]", target: screen.getByRole("group") });
+    // 이어서 pointerdown 없이 click 만 합성 — 이동해야 한다.
+    fireEvent.click(screen.getAllByRole("link")[0]);
 
     expect(await screen.findByText("프로필 화면")).toBeInTheDocument();
   });
