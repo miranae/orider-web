@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Avatar from "../Avatar";
 import { LocalizedLink as Link } from "../LocalizedLink";
@@ -56,17 +56,14 @@ export default function LikersAvatarStack({
 }: LikersAvatarStackProps) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
-  // 터치 기기에선 아바타를 링크로 만들지 않는다 — 탭 한 번이 프로필 이동으로 먹혀
-  // "탭하면 누가 눌렀는지" 동선이 아예 동작하지 않기 때문. 대신 툴팁의 이름을 링크로
-  // 제공해 프로필로 갈 길을 남긴다(마우스는 아바타 직접 클릭 + hover 툴팁 그대로).
-  const coarsePointer = useMemo(
-    () => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true,
-    [],
-  );
   const tipId = useId();
   const wrapRef = useRef<HTMLSpanElement>(null);
   // 직전 입력 종류 — click 핸들러에서 마우스/터치를 갈라 쓰기 위해 기억한다.
   const pointerTypeRef = useRef<string>("mouse");
+  // 포인터로 눌러서 생긴 포커스인지 — 키보드 Tab 포커스와 구분하려고 둔다.
+  // 아바타를 탭하면 포커스가 먼저 들어와 툴팁이 열리고, 뒤이은 클릭 토글이 그걸 도로
+  // 닫아 버린다(탭해도 아무 일도 안 일어나는 것처럼 보임). 포인터 포커스는 열지 않는다.
+  const pointerFocusRef = useRef(false);
   // 카드 좌우 끝에서 가운데 정렬 툴팁이 뷰포트를 벗어나지 않도록 하는 수평 보정치(px).
   const [shiftX, setShiftX] = useState(0);
 
@@ -119,26 +116,41 @@ export default function LikersAvatarStack({
       }}
       onPointerDown={(e) => {
         pointerTypeRef.current = e.pointerType;
+        pointerFocusRef.current = true;
       }}
       onPointerLeave={(e) => {
         // 툴팁은 래퍼의 자식이라 툴팁으로 들어가는 이동은 leave 가 아니다. 다만 6px 시각
         // 간격을 지나갈 때 leave 가 나므로, 아래 툴팁이 간격만큼 hit 영역을 덮어 끊기지 않게 한다.
         if (e.pointerType === "mouse") setOpen(false);
       }}
-      // 아바타 링크로 탭 이동해도 목록이 보이도록 (focus 는 React 에서 버블링)
-      onFocus={() => setOpen(true)}
+      // 키보드로 아바타 링크에 닿으면 목록이 보이도록 (focus 는 React 에서 버블링).
+      // 포인터로 눌러 생긴 포커스는 제외 — 아래 클릭 처리와 겹쳐 서로 상쇄된다.
+      onFocus={() => {
+        if (!pointerFocusRef.current) setOpen(true);
+      }}
       // 툴팁 안 이름 링크로 포커스가 넘어가는 건 이탈이 아니다 — 닫으면 키보드로
       // 프로필에 닿을 수 없다.
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
       }}
-      // 터치 기기엔 hover 가 없어 탭으로 토글. 카드 클릭(상세 이동)과 겹치지 않게 전파 차단.
+      // 터치/펜 탭은 "누가 눌렀는지" 를 여는 동작으로 쓴다 — 아바타가 링크라 그냥 두면
+      // 탭이 프로필 이동으로 먹혀 목록을 볼 방법이 없다. 캡처 단계에서 가로채야 앵커의
+      // 클릭 핸들러(react-router 이동)보다 먼저 실행돼 이동을 막을 수 있다.
+      //
+      // 기기 종류(pointer: coarse)가 아니라 **그때 실제로 쓴 입력**으로 가른다 —
+      // 트랙패드 붙인 태블릿·터치 노트북은 주 포인터가 fine 이지만 손가락 터치도 되므로
+      // 기기로 나누면 그런 조합에서 동선이 깨진다. 프로필로 갈 길은 툴팁의 이름 링크.
+      onClickCapture={(e) => {
+        if (pointerTypeRef.current === "mouse") return; // 마우스는 링크 이동 그대로
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen((v) => !v);
+      }}
+      // 마우스 클릭이 카드 전체 클릭(상세 이동)까지 번지지 않게만 막는다.
+      // 상호작용이 끝났으므로 포인터-포커스 표식도 여기서 해제한다.
       onClick={(e) => {
         e.stopPropagation();
-        // 마우스는 hover 로 이미 열려 있으므로 토글하지 않는다(클릭 시 바로 닫힘 방지).
-        // click 이벤트 자체엔 pointerType 이 없는 환경이 있어 직전 포인터 종류를 기억해 쓴다.
-        if (pointerTypeRef.current === "mouse") return;
-        setOpen((v) => !v);
+        pointerFocusRef.current = false;
       }}
     >
       <span style={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}>
@@ -157,7 +169,7 @@ export default function LikersAvatarStack({
               name={k.nickname}
               imageUrl={k.profileImage}
               size="sm"
-              userId={linkToProfile && !coarsePointer ? k.userId : undefined}
+              userId={linkToProfile ? k.userId : undefined}
               // 겹쳐 쌓이므로 44px 타깃 확장은 끔 (이웃 아바타를 덮어 오탭 유발)
               tapTarget={false}
             />
