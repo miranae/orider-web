@@ -121,11 +121,17 @@ export default function LikersAvatarStack({
         pointerTypeRef.current = e.pointerType;
       }}
       onPointerLeave={(e) => {
+        // 툴팁은 래퍼의 자식이라 툴팁으로 들어가는 이동은 leave 가 아니다. 다만 6px 시각
+        // 간격을 지나갈 때 leave 가 나므로, 아래 툴팁이 간격만큼 hit 영역을 덮어 끊기지 않게 한다.
         if (e.pointerType === "mouse") setOpen(false);
       }}
       // 아바타 링크로 탭 이동해도 목록이 보이도록 (focus 는 React 에서 버블링)
       onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
+      // 툴팁 안 이름 링크로 포커스가 넘어가는 건 이탈이 아니다 — 닫으면 키보드로
+      // 프로필에 닿을 수 없다.
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+      }}
       // 터치 기기엔 hover 가 없어 탭으로 토글. 카드 클릭(상세 이동)과 겹치지 않게 전파 차단.
       onClick={(e) => {
         e.stopPropagation();
@@ -186,27 +192,35 @@ export default function LikersAvatarStack({
           aria-hidden={linkToProfile ? undefined : true}
           style={{
             position: "absolute",
-            bottom: "calc(100% + 6px)",
+            // 아래쪽 6px 은 투명 여백 — 시각 간격은 유지하면서 hit 영역만 래퍼에 붙여,
+            // 마우스가 툴팁으로 건너가는 도중 leave 가 터져 닫히는 걸 막는다.
+            bottom: "100%",
+            paddingBottom: 6,
             left: "50%",
             transform: `translateX(calc(-50% + ${shiftX}px))`,
             zIndex: 50,
             maxWidth: TIP_MAX_WIDTH,
-            padding: "8px 10px",
-            borderRadius: "var(--r-md)",
-            background: "var(--bg-0)",
-            border: "1px solid var(--line-soft)",
-            color: "var(--ink-1)",
-            fontSize: "var(--fs-xs)",
-            lineHeight: 1.5,
-            fontWeight: 400,
-            boxShadow: "0 4px 16px color-mix(in oklch, var(--ink-0) 18%, transparent)",
-            textAlign: "left",
-            wordBreak: "keep-all",
-            overflowWrap: "anywhere",
             // 터치에선 이 목록이 프로필로 가는 유일한 통로라 클릭을 받아야 한다.
             pointerEvents: linkToProfile ? "auto" : "none",
           }}
         >
+          <span
+            style={{
+              display: "block",
+              padding: "8px 10px",
+              borderRadius: "var(--r-md)",
+              background: "var(--bg-0)",
+              border: "1px solid var(--line-soft)",
+              color: "var(--ink-1)",
+              fontSize: "var(--fs-xs)",
+              lineHeight: 1.5,
+              fontWeight: 400,
+              boxShadow: "0 4px 16px color-mix(in oklch, var(--ink-0) 18%, transparent)",
+              textAlign: "left",
+              wordBreak: "keep-all",
+              overflowWrap: "anywhere",
+            }}
+          >
           <span style={{ display: "block", color: "var(--ink-3)", marginBottom: 2 }}>
             {t(`likers.${variant}.title`, { count: total })}
           </span>
@@ -226,6 +240,7 @@ export default function LikersAvatarStack({
               {t("likers.andOthers", { count: namedOverflow })}
             </span>
           )}
+          </span>
         </span>
       )}
     </span>
