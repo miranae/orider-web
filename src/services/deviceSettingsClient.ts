@@ -77,12 +77,14 @@ export function preserveCanonicalFtpCache(
     }
   }
   const currentFtp = current.ftpWatts;
-  if (typeof currentFtp === "number" && Number.isFinite(currentFtp)) {
-    next.ftpWatts = currentFtp;
-  } else if (typeof canonicalFtp === "number" && Number.isFinite(canonicalFtp)) {
-    // 새 settings 문서는 device/draft 기본값이 아니라 owner profile 정본으로만 seed한다.
+  if (typeof canonicalFtp === "number" && Number.isFinite(canonicalFtp)) {
+    // root canonical이 유효하면 stale device cache보다 항상 우선한다.
     next.ftpWatts = canonicalFtp;
+  } else if (canonicalFtp === undefined && typeof currentFtp === "number" && Number.isFinite(currentFtp)) {
+    // root 필드가 absent/invalid인 legacy 계정만 기존 cache를 호환 fallback으로 보존한다.
+    next.ftpWatts = currentFtp;
   } else {
+    // canonical null은 명시적 clear이므로 stale cache도 제거한다.
     delete next.ftpWatts;
   }
   return JSON.stringify(next);
@@ -284,9 +286,11 @@ export async function putDeviceSettings(
   await runTransaction(firestore, async (tx) => {
     const [profile, current] = await Promise.all([tx.get(profileRef), tx.get(ref)]);
     const profileFtp = profile.data()?.ftp;
-    const canonicalFtp = typeof profileFtp === "number" && Number.isFinite(profileFtp)
-      ? profileFtp
-      : null;
+    const canonicalFtp = profileFtp === null
+      ? null
+      : typeof profileFtp === "number" && Number.isFinite(profileFtp)
+        ? profileFtp
+        : undefined;
     tx.set(ref, {
       data: preserveCanonicalFtpCache(nextJson, current.data()?.data, canonicalFtp),
       deviceId,

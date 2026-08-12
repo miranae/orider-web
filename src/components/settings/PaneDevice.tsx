@@ -937,10 +937,10 @@ export function PaneDevice() {
     if (!uid || editingOwnerUid !== uid) return;
     const expectedUid = uid;
     if (
-      draft.ftpWatts === "" ||
-      !Number.isFinite(draft.ftpWatts) ||
+      draft.ftpWatts !== "" &&
+      (!Number.isFinite(draft.ftpWatts) ||
       draft.ftpWatts < 50 ||
-      draft.ftpWatts > 2000
+      draft.ftpWatts > 2000)
     ) {
       showToast(t("device.saveFailed", { message: t("device.fieldFtpHint") }));
       return;
@@ -958,7 +958,7 @@ export function PaneDevice() {
       );
       deviceSettingsSaved = true;
       if (activeUserUidRef.current !== expectedUid) return;
-      if (draft.ftpWatts !== verifiedFtp) {
+      if (riderFtpDirty && draft.ftpWatts !== "" && draft.ftpWatts !== verifiedFtp) {
         await updateCanonicalFtp(expectedUid, draft.ftpWatts, "manual");
         if (activeUserUidRef.current === expectedUid) {
           setFtpProfile({ ownerUid: expectedUid, ftp: draft.ftpWatts });

@@ -4,6 +4,7 @@ import { DEFAULT_APP_SETTINGS } from "@shared/types/deviceSettings";
 
 const mocks = vi.hoisted(() => ({
   profileFtp: 285 as number | null,
+  currentFtp: undefined as number | undefined,
   txGet: vi.fn(),
   txSet: vi.fn(),
   runTransaction: vi.fn(),
@@ -36,8 +37,13 @@ describe("putDeviceSettings canonical cache seed", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.profileFtp = 285;
+    mocks.currentFtp = undefined;
     mocks.txGet.mockImplementation(({ path }: { path: string[] }) => ({
-      data: () => path.length === 2 ? { ftp: mocks.profileFtp } : undefined,
+      data: () => path.length === 2
+        ? { ftp: mocks.profileFtp }
+        : mocks.currentFtp === undefined
+          ? undefined
+          : { data: JSON.stringify({ ftpWatts: mocks.currentFtp }) },
     }));
     mocks.runTransaction.mockImplementation(async (
       _db: unknown,
@@ -66,5 +72,19 @@ describe("putDeviceSettings canonical cache seed", () => {
     });
     const payload = mocks.txSet.mock.calls[0]?.[1] as { data: string };
     expect(JSON.parse(payload.data).ftpWatts).toBe(expectedFtp);
+  });
+
+  it("lets canonical root FTP win over a stale existing device cache", async () => {
+    mocks.profileFtp = 285;
+    mocks.currentFtp = 240;
+    await putDeviceSettings(
+      "owner-1",
+      "device-1",
+      "Phone",
+      { ...DEFAULT_APP_SETTINGS, ftpWatts: 200 },
+    );
+
+    const payload = mocks.txSet.mock.calls[0]?.[1] as { data: string };
+    expect(JSON.parse(payload.data).ftpWatts).toBe(285);
   });
 });

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   updateDoc: vi.fn(async () => undefined),
   setDoc: vi.fn(async () => undefined),
   showToast: vi.fn(),
+  thresholdAccept: null as Promise<void> | null,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -54,7 +55,17 @@ vi.mock("../../hooks/useBikeProfiles", () => ({
   useBikeProfiles: () => ({ profiles: [] }),
 }));
 vi.mock("./ThresholdSuggestionBanner", () => ({
-  ThresholdSuggestionBanner: () => null,
+  ThresholdSuggestionBanner: ({ onAccepted }: {
+    onAccepted: (applied: { lthr?: number; maxHr?: number }) => void;
+  }) => (
+    <>
+      <button type="button" onClick={async () => {
+        if (mocks.thresholdAccept) await mocks.thresholdAccept;
+        onAccepted({ lthr: 172 });
+      }}>apply-threshold</button>
+      <button type="button" onClick={() => onAccepted({ maxHr: 192 })}>apply-max-hr</button>
+    </>
+  ),
 }));
 
 function deferred<T>() {
@@ -71,6 +82,7 @@ describe("PaneTraining profile owner fencing", () => {
     mocks.persistRiderMetrics.mockResolvedValue({ failures: [] });
     mocks.updateDoc.mockResolvedValue(undefined);
     mocks.setDoc.mockResolvedValue(undefined);
+    mocks.thresholdAccept = null;
   });
 
   it("keeps B fields reset when B has no FTP and A's profile resolves later", async () => {
@@ -365,5 +377,54 @@ describe("PaneTraining profile owner fencing", () => {
       expect.objectContaining({ medications: "known medicine" }),
       { merge: true },
     ));
+  });
+
+  it("updates the Reset baseline when a threshold suggestion applies LTHR", async () => {
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => false, data: () => ({}) }
+        : { data: () => ({ lthr: 160 }) }),
+    );
+    render(<PaneTraining />);
+    const lthrInput = await screen.findByDisplayValue("160") as HTMLInputElement;
+    fireEvent.click(screen.getByRole("button", { name: "apply-threshold" }));
+    expect(lthrInput.value).toBe("172");
+    fireEvent.change(lthrInput, { target: { value: "150" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnReset" }));
+    expect(lthrInput.value).toBe("172");
+  });
+
+  it("updates the Reset baseline when a threshold suggestion applies max HR", async () => {
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => false, data: () => ({}) }
+        : { data: () => ({ maxHr: 180 }) }),
+    );
+    render(<PaneTraining />);
+    const maxHrInput = await screen.findByDisplayValue("180") as HTMLInputElement;
+    fireEvent.click(screen.getByRole("button", { name: "apply-max-hr" }));
+    expect(maxHrInput.value).toBe("192");
+    fireEvent.change(maxHrInput, { target: { value: "170" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnReset" }));
+    expect(maxHrInput.value).toBe("192");
+  });
+
+  it("ignores a deferred threshold acceptance after switching owners", async () => {
+    const accept = deferred<void>();
+    mocks.thresholdAccept = accept.promise;
+    mocks.getDoc.mockImplementation(({ path }: { path: string[] }) =>
+      Promise.resolve(path.includes("private")
+        ? { exists: () => false, data: () => ({}) }
+        : { data: () => ({ lthr: path[1] === "owner-a" ? 160 : 150 }) }),
+    );
+    const view = render(<PaneTraining />);
+    await screen.findByDisplayValue("160");
+    fireEvent.click(screen.getByRole("button", { name: "apply-threshold" }));
+
+    mocks.user = { uid: "owner-b" };
+    view.rerender(<PaneTraining />);
+    const bLthr = await screen.findByDisplayValue("150") as HTMLInputElement;
+    await act(async () => { accept.resolve(); });
+    expect(bLthr.value).toBe("150");
   });
 });

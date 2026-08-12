@@ -574,21 +574,31 @@ export function PaneTraining() {
 
       <ThresholdSuggestionBanner
         onAccepted={(applied) => {
+          const expectedUid = user.uid;
+          if (activeUserUidRef.current !== expectedUid) return;
           if (applied.ftp != null) {
             setFtp(String(applied.ftp));
             // callable이 이미 profile FTP와 detected 이력을 원자적으로 저장한다.
             // 폼의 저장 기준도 즉시 맞춰 이후 무관한 설정 저장 시 manual 이력이
             // 중복 생성되지 않도록 한다.
             setSavedFtp(applied.ftp);
-            if (user) {
-              setOwnerProfile((current) => current?.ownerUid === user.uid
-                ? { ownerUid: user.uid, data: { ...current.data, ftp: applied.ftp } }
+            setOwnerProfile((current) => current?.ownerUid === expectedUid
+                ? { ownerUid: expectedUid, data: { ...current.data, ftp: applied.ftp } }
                 : current);
-            }
             setFtpChangeSource("manual");
           }
-          if (applied.lthr != null) setLthr(String(applied.lthr));
-          if (applied.maxHr != null) setMaxHr(String(applied.maxHr));
+          if (applied.lthr != null) {
+            setLthr(String(applied.lthr));
+            setOwnerProfile((current) => current?.ownerUid === expectedUid
+                ? { ownerUid: expectedUid, data: { ...current.data, lthr: applied.lthr } }
+                : current);
+          }
+          if (applied.maxHr != null) {
+            setMaxHr(String(applied.maxHr));
+            setOwnerProfile((current) => current?.ownerUid === expectedUid
+              ? { ownerUid: expectedUid, data: { ...current.data, maxHr: applied.maxHr } }
+              : current);
+          }
         }}
       />
 

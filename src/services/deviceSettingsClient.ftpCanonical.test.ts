@@ -57,6 +57,23 @@ describe("preserveCanonicalFtpCache", () => {
     });
   });
 
+  it("lets canonical root FTP replace stale cache and honors explicit clear", () => {
+    const draftJson = JSON.stringify({ ftpWatts: 200, maxHeartRate: 190 });
+    const staleJson = JSON.stringify({ ftpWatts: 240, maxHeartRate: 180 });
+
+    expect(JSON.parse(preserveCanonicalFtpCache(draftJson, staleJson, 285))).toEqual({
+      ftpWatts: 285,
+      maxHeartRate: 190,
+    });
+    expect(JSON.parse(preserveCanonicalFtpCache(draftJson, staleJson, null))).toEqual({
+      maxHeartRate: 190,
+    });
+    expect(JSON.parse(preserveCanonicalFtpCache(draftJson, staleJson, undefined))).toEqual({
+      ftpWatts: 240,
+      maxHeartRate: 190,
+    });
+  });
+
   it.each([
     "subscribeLatestDeviceSettings",
     "subscribeAllDeviceSettings",

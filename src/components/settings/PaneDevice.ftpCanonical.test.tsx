@@ -190,4 +190,24 @@ describe("PaneDevice canonical FTP owner fencing", () => {
     ));
     expect(mocks.showToast).toHaveBeenCalledWith(expect.stringContaining("FTP device.saveFailed"));
   });
+
+  it("saves max HR and weight without mutating FTP when canonical load fails", async () => {
+    mocks.getDoc.mockRejectedValueOnce(new Error("profile offline"));
+    render(<PaneDevice />);
+    await waitFor(() => expect(mocks.logClientError).toHaveBeenCalled());
+    fireEvent.click(screen.getAllByRole("button", { name: "device.editAriaLabel" })[0]);
+    const ftpInput = screen.getByText("device.fieldFtpHint")
+      .closest("label")?.querySelector("input") as HTMLInputElement;
+    expect(ftpInput.value).toBe("");
+    fireEvent.change(screen.getByDisplayValue(String(DEFAULT_APP_SETTINGS.maxHeartRate)), {
+      target: { value: "195" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "device.save" }));
+
+    await waitFor(() => expect(mocks.updateDevice).toHaveBeenCalledWith(
+      "device-1",
+      expect.objectContaining({ maxHeartRate: 195 }),
+    ));
+    expect(mocks.updateCanonicalFtp).not.toHaveBeenCalled();
+  });
 });
