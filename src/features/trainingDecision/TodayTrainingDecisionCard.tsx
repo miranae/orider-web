@@ -4,6 +4,7 @@ import type { User } from "firebase/auth";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import TodayPlanLink from "../../components/training/TodayPlanLink";
+import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import { Alert, Button, Card, Chip, Text, buttonClass } from "../../theme/components";
 import {
   canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedSession, primaryScheduledSession,
@@ -12,6 +13,7 @@ import { TrainingDecisionSessionView } from "./TrainingDecisionSessionView";
 import { useTrainingProposalController } from "./useTrainingProposalController";
 import { CoachQuestionLauncher } from "../coach/CoachQuestionLauncher";
 import { TrainingExecutionPanel } from "./TrainingExecutionPanel";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 import "./training-decision.css";
 
 export type TrainingDecisionSurface = "home" | "fitness" | "plan";
@@ -61,6 +63,9 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   const { t } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailable, refresh } = useTodayTrainingDecision(user?.uid, discipline);
   if (!user) return null;
+  if (getRuntimeConfig().trainingDecisionEnabled !== true) {
+    return surface === "fitness" ? null : <TodaysWorkoutCard />;
+  }
   if (loading) return <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
   if (!decision) return <div className="training-decision-fallback" data-training-decision-fallback={unavailable ? "unavailable" : "empty"}>
     <TodayPlanLink discipline={discipline} />

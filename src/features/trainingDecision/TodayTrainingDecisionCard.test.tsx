@@ -4,15 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
 import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import TodayTrainingDecisionCard from "./TodayTrainingDecisionCard";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), coach: vi.fn(() => <button>코치 분석</button>),
   execution: vi.fn(() => <div>실행 패널</div>),
+  legacy: vi.fn(() => <div>기존 오늘 운동</div>),
   proposal: { state: "unavailable", proposal: null, create: vi.fn(), confirm: vi.fn(), decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() } }));
 vi.mock("../../hooks/useTodayTrainingDecision", () => ({ useTodayTrainingDecision: mocks.hook }));
 vi.mock("../coach/CoachQuestionLauncher", () => ({ CoachQuestionLauncher: mocks.coach }));
 vi.mock("./useTrainingProposalController", () => ({ useTrainingProposalController: () => mocks.proposal }));
 vi.mock("./TrainingExecutionPanel", () => ({ TrainingExecutionPanel: (props: unknown) => mocks.execution(props) }));
+vi.mock("../../components/training/TodaysWorkoutCard", () => ({ default: () => mocks.legacy() }));
 
 const user = { uid: "owner" } as never;
 const appliedRevision = { goalId: "goal_123", goalHash: `doc_${"a".repeat(32)}`,
@@ -23,8 +26,16 @@ const appliedReceipt = { schemaVersion: "coach-change-receipt-v1" as const, prop
   providerCalls: 0 as const, quotaConsumed: 0 as const };
 
 describe("TodayTrainingDecisionCard", () => {
-  beforeEach(() => { vi.clearAllMocks(); mocks.proposal = { state: "unavailable", proposal: null, create: vi.fn(), confirm: vi.fn(),
+  beforeEach(() => { vi.clearAllMocks(); resetRuntimeConfigForTests({ trainingDecisionEnabled: true });
+    mocks.proposal = { state: "unavailable", proposal: null, create: vi.fn(), confirm: vi.fn(),
     decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() }; });
+  it("keeps the existing workout card when the decision rollout is disabled", () => {
+    resetRuntimeConfigForTests({ trainingDecisionEnabled: false });
+    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    expect(screen.getByText("기존 오늘 운동")).toBeInTheDocument();
+    expect(mocks.legacy).toHaveBeenCalled();
+  });
   it("separates the scheduled and recommended sessions from one projection", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });

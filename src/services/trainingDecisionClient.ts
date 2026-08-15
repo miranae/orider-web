@@ -32,7 +32,12 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
   } catch (cause) {
     throw new CoachClientError("transport", "NETWORK_ERROR", { cause });
   }
-  const payload: unknown = await response.json().catch(() => ({}));
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch (cause) {
+    throw new CoachClientError(response.ok ? "contract" : "http", `INVALID_JSON_HTTP_${response.status}`, { cause });
+  }
   if (!response.ok) {
     const code = payload && typeof payload === "object" && "error" in payload
       && payload.error && typeof payload.error === "object" && "code" in payload.error
