@@ -4,7 +4,17 @@
     "details": [
       {
         "appID": "44UCACQVM5.com.miranae.orider",
-        "paths": ["/course/*", "/friend/*", "/group/*"]
+        "paths": [
+          "/course/*",
+          "/friend/*",
+          "/group/*",
+          "/ko/course/*",
+          "/ko/friend/*",
+          "/ko/group/join/*",
+          "/en/course/*",
+          "/en/friend/*",
+          "/en/group/join/*"
+        ]
       }
     ]
   }
