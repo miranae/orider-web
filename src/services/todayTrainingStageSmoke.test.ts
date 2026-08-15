@@ -8,6 +8,9 @@ const json = (status: number, body: unknown) => ({ status, json: async () => bod
 const session = { sessionId: "ss_aaaaaaaaaaaaaaaaaaaaaaaa", scheduledSessionId: "ss_aaaaaaaaaaaaaaaaaaaaaaaa",
   scheduledSessionRevision: "ssr_bbbbbbbbbbbbbbbbbbbbbbbb",
   dayRef: { goalId: "goal_1", weekId: "week_1", dayIndex: 2, localDate: "2026-08-15" } };
+const ineligibleSession = { sessionId: "ss_dddddddddddddddddddddddd", scheduledSessionId: "ss_dddddddddddddddddddddddd",
+  scheduledSessionRevision: "ssr_eeeeeeeeeeeeeeeeeeeeeeee",
+  dayRef: { goalId: "goal_2", weekId: "week_2", dayIndex: 3, localDate: "2026-08-16" } };
 
 describe("today training stage smoke", () => {
   it("reserves once, then reuses the current execution across a different commit", async () => {
@@ -16,14 +19,18 @@ describe("today training stage smoke", () => {
       effectiveSessions: [session], planSource: { planRevision: "plan_1" },
       sourceRefs: { prescriptionId: "rx_1", proposalId: null, receiptAuditId: null },
       prescription: { validFrom: "2026-08-15T00:00:00.000Z" }, capabilities: { execution: { reserve: "available" } } };
+    const ineligibleDecision = { ...decision, projectionId: "today_ffffffffffffffffffffffff",
+      representativeSessionId: ineligibleSession.sessionId, effectiveSessions: [ineligibleSession],
+      planSource: { planRevision: "plan_2" }, sourceRefs: { prescriptionId: "rx_2", proposalId: null, receiptAuditId: null } };
     const execution = { executionId: "exec_1", status: "reserved", discipline: "bike",
       scheduledSessionId: session.sessionId, scheduledSessionRevision: session.scheduledSessionRevision,
       dayRef: session.dayRef,
       planRevision: "plan_1", projectionId: decision.projectionId, prescriptionId: "rx_1",
       prescriptionValidFrom: decision.prescription.validFrom, proposalId: null, receiptAuditId: null };
     let executions: typeof execution[] = [{ ...execution, executionId: "exec_old", status: "invalidated" }]; let reserveCalls = 0;
-    const fetchImpl = vi.fn(async (url: string, options: { headers?: Record<string, string> } = {}) => {
-      if (url.includes("/training-decisions/today")) return json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: decision });
+    const fetchImpl = vi.fn(async (url: string, options: { headers?: Record<string, string>; body?: string } = {}) => {
+      if (url.includes("/training-decisions/today")) return json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0,
+        data: options.headers?.authorization === "Bearer id-ineligible" ? ineligibleDecision : decision });
       if (url.includes("listSessionExecutions")) return json(200, { result: { executions } });
       if (options.headers?.authorization === "Bearer id-ineligible") return json(404, { error: { code: "not-found" } });
       reserveCalls += 1; executions = [execution]; return json(200, { status: "ok", data: execution });
@@ -45,6 +52,14 @@ describe("today training stage smoke", () => {
     expect(listCalls).toHaveLength(3);
     expect(listCalls[0]?.[1]).toEqual(expect.objectContaining({ body: JSON.stringify({ data: { discipline: "bike", limit: 20 } }),
       headers: expect.objectContaining({ authorization: "Bearer id-eligible", "x-firebase-appcheck": "app-check" }) }));
+    const ineligibleReserveCalls = fetchImpl.mock.calls.filter(([url, options]) => String(url).includes("session-executions/reserve")
+      && options?.headers?.authorization === "Bearer id-ineligible");
+    expect(ineligibleReserveCalls).toHaveLength(2);
+    for (const call of ineligibleReserveCalls) {
+      expect(JSON.parse(String(call[1]?.body))).toMatchObject({ scheduledSessionId: ineligibleSession.scheduledSessionId,
+        scheduledSessionRevision: ineligibleSession.scheduledSessionRevision, dayRef: ineligibleSession.dayRef,
+        planRevision: "plan_2", projectionId: ineligibleDecision.projectionId });
+    }
     expect(JSON.stringify([first, second])).not.toContain("exec_1");
     expect(JSON.stringify([first, second])).not.toContain(session.sessionId);
     const ajv = new Ajv2020({ strict: true }); addFormats(ajv);
@@ -53,15 +68,27 @@ describe("today training stage smoke", () => {
   });
 
   it("fails closed when the rollout-ineligible reserve is not 404", async () => {
+    const decision = { schemaVersion: "today-training-decision-v1", discipline: "bike", projectionId: "today_cccccccccccccccccccccccc",
+      representativeSessionId: session.sessionId, effectiveSessions: [session], planSource: { planRevision: "plan_1" },
+      sourceRefs: {}, prescription: {}, capabilities: { execution: { reserve: "available" } } };
+    const ineligibleDecision = { ...decision, representativeSessionId: ineligibleSession.sessionId,
+      effectiveSessions: [ineligibleSession], planSource: { planRevision: "plan_2" } };
     const fetchImpl = vi.fn()
-      .mockResolvedValueOnce(json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: {
-        schemaVersion: "today-training-decision-v1", discipline: "bike", projectionId: "today_cccccccccccccccccccccccc",
-        representativeSessionId: session.sessionId, effectiveSessions: [session], planSource: { planRevision: "plan_1" },
-        sourceRefs: {}, prescription: {}, capabilities: { execution: { reserve: "available" } },
-      } })).mockResolvedValueOnce(json(200, { result: { executions: [] } })).mockResolvedValueOnce(json(200, {}));
+      .mockResolvedValueOnce(json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: decision }))
+      .mockResolvedValueOnce(json(200, { result: { executions: [] } }))
+      .mockResolvedValueOnce(json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: ineligibleDecision }))
+      .mockResolvedValueOnce(json(200, {}));
     await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
       serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
       credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
     })).rejects.toThrow("stage_smoke:execution_not_fail_closed");
+  });
+
+  it("reports the response context when a stage endpoint returns invalid JSON", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ status: 502, json: async () => { throw new SyntaxError("invalid JSON"); } });
+    await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
+      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
+      credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
+    })).rejects.toThrow("stage_smoke:response_json_invalid:502:https://stage.example.test/v1/coach/training-decisions/today?discipline=bike");
   });
 });

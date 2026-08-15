@@ -96,6 +96,14 @@ jobs:
           node scripts/run-today-training-stage-smoke.mjs .artifacts/today-training-stage-smoke.json
           node scripts/verify-today-training-stage-evidence.mjs \
             .artifacts/today-training-stage-smoke.json "$GITHUB_SHA" "$TODAY_TRAINING_STAGE_PROJECT_ID"
+      - name: Restore stage deploy authentication
+        id: deploy-auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+          create_credentials_file: true
       - name: Deploy stage Hosting only
         run: |
           set -euo pipefail
@@ -106,7 +114,7 @@ jobs:
             --only hosting \
             --project "${{ vars.STAGE_FIREBASE_PROJECT_ID }}" \
             --non-interactive \
-            --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-stage-deploy.log
+            --token "${{ steps.deploy-auth.outputs.access_token }}" 2>&1 | tee firebase-stage-deploy.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-stage-deploy.log; then

@@ -107,6 +107,21 @@ describe("TodayTrainingDecisionCard", () => {
     expect(buttons[1]).toHaveFocus();
   });
 
+  it("keeps the original plan but hides and blocks a pending recommendation during a health stop", () => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      healthGate: { state: "stop", reasonCodes: ["self_reported_pain_or_illness"], sourceFreshness: "current" },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    mocks.proposal = { ...mocks.proposal, state: "pending" };
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    expect(screen.getByText(/운동 중단 사유가 있습니다/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "오늘 예정된 계획" })).toBeInTheDocument();
+    expect(screen.queryByText("조정 권고")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "이 변경 적용" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "원래 계획 유지" })).toBeInTheDocument();
+    expect(mocks.proposal.confirm).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["pending", "승인 대기", "이 변경 적용"], ["applied", "적용됨", "원래 계획으로 되돌리기"],
     ["declined", "원래 계획 유지", "원래 계획을 유지했습니다."], ["stale", "새 검토 필요", "새로 확인"],

@@ -5,12 +5,25 @@ const digest = (value) => `sha256:${createHash("sha256").update(value).digest("h
 
 async function requestJson(fetchImpl, url, options) {
   const response = await fetchImpl(url, { ...options, signal: timeout() });
-  const body = await response.json().catch(() => null);
+  let body;
+  try {
+    body = await response.json();
+  } catch (cause) {
+    throw new Error(`stage_smoke:response_json_invalid:${response.status}:${url}`, { cause });
+  }
   return { status: response.status, body };
 }
 
 const headers = (credential) => ({ authorization: `Bearer ${credential.idToken}`,
   "x-firebase-appcheck": credential.appCheckToken, "content-type": "application/json" });
+
+const reservePayloadFor = (decision, session, idempotencyKey) => ({
+  dayRef: session.dayRef, scheduledSessionId: session.scheduledSessionId,
+  scheduledSessionRevision: session.scheduledSessionRevision, planRevision: decision.planSource.planRevision,
+  projectionId: decision.projectionId, prescriptionId: decision.sourceRefs?.prescriptionId ?? null,
+  prescriptionValidFrom: decision.prescription?.validFrom ?? null, proposalId: decision.sourceRefs?.proposalId ?? null,
+  receiptAuditId: decision.sourceRefs?.receiptAuditId ?? null, discipline: "bike", idempotencyKey,
+});
 
 export async function runTodayTrainingStageSmoke(input, dependencies) {
   if (!/^[a-f0-9]{40}$/u.test(input.commitSha) || !/^https:\/\//u.test(input.serviceUrl)
@@ -32,12 +45,7 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
   }
   const session = decision.effectiveSessions?.find((item) => item.sessionId === decision.representativeSessionId);
   if (!session || !decision.planSource) throw new Error("stage_smoke:representative_session_missing");
-  const reservePayload = { dayRef: session.dayRef, scheduledSessionId: session.scheduledSessionId,
-    scheduledSessionRevision: session.scheduledSessionRevision, planRevision: decision.planSource.planRevision,
-    projectionId: decision.projectionId, prescriptionId: decision.sourceRefs?.prescriptionId ?? null,
-    prescriptionValidFrom: decision.prescription?.validFrom ?? null, proposalId: decision.sourceRefs?.proposalId ?? null,
-    receiptAuditId: decision.sourceRefs?.receiptAuditId ?? null, discipline: "bike",
-    idempotencyKey: `stage-${input.commitSha.slice(0, 24)}` };
+  const reservePayload = reservePayloadFor(decision, session, `stage-${input.commitSha.slice(0, 24)}`);
   const listUrl = `https://asia-northeast3-${input.projectId}.cloudfunctions.net/listSessionExecutions`;
   const listExecutions = async () => {
     const listed = await requestJson(dependencies.fetchImpl, listUrl, {
@@ -59,8 +67,19 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
   const before = await listExecutions();
   const reusable = before.find(matchesCurrentDecision);
   const reserveUrl = `${input.serviceUrl}/v1/coach/session-executions/reserve`;
+  const ineligibleToday = await requestJson(dependencies.fetchImpl,
+    `${input.serviceUrl}/v1/coach/training-decisions/today?discipline=bike`, {
+      method: "GET", headers: headers(ineligible),
+    });
+  const ineligibleDecision = ineligibleToday.body?.data;
+  const ineligibleSession = ineligibleDecision?.effectiveSessions
+    ?.find((item) => item.sessionId === ineligibleDecision.representativeSessionId);
+  if (ineligibleToday.status !== 200 || ineligibleToday.body?.status !== "ok"
+    || ineligibleDecision?.schemaVersion !== "today-training-decision-v1" || ineligibleDecision?.discipline !== "bike"
+    || !ineligibleSession || !ineligibleDecision.planSource) throw new Error("stage_smoke:ineligible_decision_invalid");
   const executionOff = await requestJson(dependencies.fetchImpl, reserveUrl, {
-    method: "POST", headers: headers(ineligible), body: JSON.stringify(reservePayload),
+    method: "POST", headers: headers(ineligible),
+    body: JSON.stringify(reservePayloadFor(ineligibleDecision, ineligibleSession, `stage-off-${input.commitSha.slice(0, 20)}`)),
   });
   if (executionOff.status !== 404) throw new Error("stage_smoke:execution_not_fail_closed");
   let execution = reusable; let reservationMode = "reused";

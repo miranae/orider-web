@@ -21,6 +21,7 @@ function ProposalPanel({ decision, refresh }: { decision: NonNullable<ReturnType
   const { t, i18n } = useTranslation("training");
   const controller = useTrainingProposalController(decision, refresh);
   const hasAdjustments = decision.recommendedAdjustments.length > 0;
+  const canApplyRecommendation = decision.healthGate.state === "clear";
   return <section className="training-decision-proposal" aria-labelledby="training-decision-proposal-title"
     data-proposal-state={controller.state}>
     <div className="training-decision-proposal__heading">
@@ -42,8 +43,8 @@ function ProposalPanel({ decision, refresh }: { decision: NonNullable<ReturnType
       {t(`decision.proposal.state.${controller.state}`, { defaultValue: t("decision.proposal.state.loading") })}
     </Text>
     <div className="training-decision-proposal__actions">
-      {controller.state === "idle" && hasAdjustments && decision.capabilities.proposal === "available" && <Button variant="primary" onClick={() => void controller.create()}>{t("decision.proposal.review")}</Button>}
-      {controller.state === "pending" && decision.capabilities.confirm === "available" && <Button variant="primary" onClick={() => void controller.confirm()}>{t("decision.proposal.confirm")}</Button>}
+      {controller.state === "idle" && canApplyRecommendation && hasAdjustments && decision.capabilities.proposal === "available" && <Button variant="primary" onClick={() => void controller.create()}>{t("decision.proposal.review")}</Button>}
+      {controller.state === "pending" && canApplyRecommendation && decision.capabilities.confirm === "available" && <Button variant="primary" onClick={() => void controller.confirm()}>{t("decision.proposal.confirm")}</Button>}
       {controller.state === "pending" && decision.capabilities.decline === "available" && <Button variant="outline" onClick={() => void controller.decline()}>{t("decision.proposal.keepScheduled")}</Button>}
       {controller.state === "applied" && decision.capabilities.rollback === "available" && <Button variant="outline" onClick={() => void controller.rollback()}>{t("decision.proposal.rollback")}</Button>}
       {controller.state === "applied" && <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.applied")}</Text>}
@@ -66,14 +67,16 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   </div>;
 
   const scheduled = primaryScheduledSession(decision);
-  const recommended = canShowRecommendation(decision) ? primaryRecommendedSession(decision) : null;
+  const recommended = decision.healthGate.state === "clear" && canShowRecommendation(decision)
+    ? primaryRecommendedSession(decision) : null;
   const effective = primaryEffectiveSession(decision);
-  const action = decisionAction(decision);
+  const action = recommended ? decisionAction(decision) : null;
   const applied = decision.receipt?.status === "applied";
   const recommendationPending = Boolean(recommended && !applied);
+  const displayScheduledOnly = !applied && !recommendationPending;
   const homeSessionLayout = recommendationPending ? "comparison" : "single";
   const statusKey = applied ? "applied"
-    : recommendationPending ? "recommendationPending" : scheduledOnly || !action ? "scheduledOnly" : action;
+    : recommendationPending ? "recommendationPending" : displayScheduledOnly || scheduledOnly || !action ? "scheduledOnly" : action;
   const extraCount = Math.max(0, decision.scheduledSessions.length - 1);
   const tupleId = decision.projectionId;
   const reasonCodes = recommended
@@ -91,7 +94,7 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     <header className="training-decision-card__header">
       <div><Text as="span" variant="eyebrow">{t("decision.eyebrow")}</Text><Text as="h2" variant="title">{t(`decision.status.${statusKey}`)}</Text></div>
       <Chip variant={decision.healthGate.state === "stop" ? "danger" : applied ? "accent" : "default"}>
-        {t(recommendationPending ? "decision.mode.not-applied" : `decision.mode.${scheduledOnly ? "scheduled-only" : decision.mode}`)}
+        {t(recommendationPending ? "decision.mode.not-applied" : `decision.mode.${displayScheduledOnly ? "scheduled-only" : decision.mode}`)}
       </Chip>
     </header>
     {decision.healthGate.state === "stop" && <Alert variant="danger" title={t("decision.healthStop")} />}

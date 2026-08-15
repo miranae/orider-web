@@ -188,6 +188,9 @@ requireBefore(stageDeployWorkflow, "node scripts/verify-today-training-stage-evi
 requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");
+requireIncludes(stageDeployWorkflow, "id: deploy-auth", "deploy-stage.yml restored deploy auth");
+requireIncludes(stageDeployWorkflow, "steps.deploy-auth.outputs.access_token", "deploy-stage.yml restored deploy credential");
+requireBefore(stageDeployWorkflow, "id: deploy-auth", "firebase deploy \\", "deploy-stage.yml restored deploy auth");
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_API_KEY", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_AUTH_DOMAIN", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml env");

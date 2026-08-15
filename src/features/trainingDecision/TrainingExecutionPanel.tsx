@@ -161,7 +161,15 @@ function TrainingExecutionPanelBody({ decision, sessions, onChanged }: { decisio
     </Alert>}
     {listState === "ready" && sessions.map((session) => <ExecutionSession key={session.sessionId} decision={decision} session={session}
       initialExecution={executions.find((item) => item.scheduledSessionId === session.scheduledSessionId
-        && item.scheduledSessionRevision === session.scheduledSessionRevision && item.status !== "invalidated") ?? null}
+        && item.scheduledSessionRevision === session.scheduledSessionRevision && item.status !== "invalidated"
+        && item.discipline === decision.targetDiscipline && item.dayRef.goalId === session.dayRef.goalId
+        && item.dayRef.weekId === session.dayRef.weekId && item.dayRef.dayIndex === session.dayRef.dayIndex
+        && item.dayRef.localDate === session.dayRef.localDate && item.planRevision === decision.planSource?.planRevision
+        && item.projectionId === decision.projectionId
+        && item.prescriptionId === decision.sourceRefs.prescriptionId
+        && item.prescriptionValidFrom === decision.prescription.validFrom
+        && item.proposalId === decision.sourceRefs.proposalId
+        && item.receiptAuditId === decision.sourceRefs.receiptAuditId) ?? null}
       onChanged={onChanged} />)}
   </section>;
 }
