@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Search, X, ChevronDown } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -41,15 +41,24 @@ import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import AppInstallLinks from "../components/AppInstallLinks";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
+import TodayPlanLink from "../components/training/TodayPlanLink";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text } from "../theme/components";
 import type { Activity } from "@shared/types";
-import { CoachQuestionLauncher } from "../features/coach/CoachQuestionLauncher";
-import type { CoachDiscipline } from "../services/coachClient";
-
-const TodaysWorkoutCard = lazy(() => import("../components/training/TodaysWorkoutCard"));
 
 type FeedFilterIndex = 0 | 1 | 2;
+
+export function normalizeDashboardDiscipline(value: string | null): Discipline | null {
+  if (value === "bike" || value === "run" || value === "swim" || value === "tri") {
+    return value;
+  }
+  return null;
+}
+
+export function dashboardPlanDiscipline(value: string | null): Exclude<Discipline, "tri"> | undefined {
+  const discipline = normalizeDashboardDiscipline(value);
+  return discipline && discipline !== "tri" ? discipline : undefined;
+}
 
 export function filterFeedActivities(
   activities: Activity[],
@@ -191,11 +200,10 @@ export default function DashboardPage() {
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
   const [searchParams] = useSearchParams();
-  const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
-  const coachDiscipline: CoachDiscipline = discipline === "tri"
-    ? (profile?.primaryDiscipline && profile.primaryDiscipline !== "tri" ? profile.primaryDiscipline : "bike")
-    : discipline;
-
+  const sportParam = searchParams.get("sport");
+  const requestedDiscipline = normalizeDashboardDiscipline(sportParam);
+  const planDiscipline = dashboardPlanDiscipline(sportParam);
+  const discipline: Discipline = requestedDiscipline ?? "bike";
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
   const isRunTab = discipline === "run";
@@ -468,6 +476,7 @@ export default function DashboardPage() {
         onFeedScopeChange={(scope) => updateDashboardPreferences({ feedScope: scope })}
         sportFilter={dashboardPreferences.sportFilter}
         onSportFilterChange={(sportFilter) => updateDashboardPreferences({ sportFilter })}
+        pageDiscipline={planDiscipline}
         datePreset={dashboardPreferences.datePreset}
         onDatePresetChange={(datePreset) => updateDashboardPreferences({ datePreset })}
       />
@@ -513,17 +522,11 @@ export default function DashboardPage() {
             <RunEmptyState stravaConnected={!!profile?.stravaConnected} />
           </div>
         )}
-        {/* 오늘의 워크아웃은 실행 가능한 기본 행동이므로 러닝 정보 카드보다 먼저 둔다. */}
-        {user && !hasNoRuns && (
+        {user && (
           <div style={{ marginTop: 'var(--space-5)' }}>
-            <Suspense fallback={null}>
-              <TodaysWorkoutCard />
-            </Suspense>
+            <TodayPlanLink discipline={planDiscipline} />
           </div>
         )}
-        <div style={{ marginTop: 'var(--space-3)' }}>
-          <CoachQuestionLauncher user={user} discipline={coachDiscipline} onSignIn={signInWithGoogle} showPmcInsight />
-        </div>
 
         {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}
         {isRunTab && showRecap && runRecap && !hasNoRuns && (

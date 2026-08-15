@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Activity } from "@shared/types";
-import { filterFeedActivities } from "./DashboardPage";
+import { dashboardPlanDiscipline, filterFeedActivities, normalizeDashboardDiscipline } from "./DashboardPage";
 
 function activity(id: string, userId: string): Activity {
   return {
@@ -57,21 +57,45 @@ describe("filterFeedActivities", () => {
   });
 });
 
+describe("normalizeDashboardDiscipline", () => {
+  it.each(["bike", "run", "swim", "tri"] as const)("accepts %s", (discipline) => {
+    expect(normalizeDashboardDiscipline(discipline)).toBe(discipline);
+  });
+
+  it.each([null, "all", "rowing", "RUN"])("rejects unsupported value %s", (discipline) => {
+    expect(normalizeDashboardDiscipline(discipline)).toBeNull();
+  });
+
+  it.each([
+    ["bike", "bike"],
+    ["run", "run"],
+    ["swim", "swim"],
+    ["tri", undefined],
+    ["all", undefined],
+    ["rowing", undefined],
+    [null, undefined],
+  ] as const)("maps %s to the safe plan-link discipline", (value, expected) => {
+    expect(dashboardPlanDiscipline(value)).toBe(expected);
+  });
+});
+
 describe("desktop dashboard information hierarchy", () => {
-  it("places today's workout action before running informational cards without changing the mobile branch", () => {
+  it("replaces the workout and coach panels with a plan link before running informational cards", () => {
     const source = readFileSync(join(process.cwd(), "src/pages/DashboardPage.tsx"), "utf8");
     const mobileBranch = source.indexOf("if (isMobile)");
-    const workout = source.indexOf("<TodaysWorkoutCard />", mobileBranch);
+    const planLink = source.indexOf("<TodayPlanLink discipline=", mobileBranch);
     const recap = source.indexOf("<WeeklyRecapCard", mobileBranch);
     const threshold = source.indexOf("<ThresholdPaceNudge", mobileBranch);
     const shoe = source.indexOf("<ShoeReplacementBadge", mobileBranch);
     const crossTraining = source.indexOf("<CrossDisciplineLoadCard", mobileBranch);
 
     expect(mobileBranch).toBeGreaterThan(-1);
-    expect(workout).toBeGreaterThan(mobileBranch);
-    expect(workout).toBeLessThan(recap);
-    expect(workout).toBeLessThan(threshold);
-    expect(workout).toBeLessThan(shoe);
-    expect(workout).toBeLessThan(crossTraining);
+    expect(planLink).toBeGreaterThan(mobileBranch);
+    expect(planLink).toBeLessThan(recap);
+    expect(planLink).toBeLessThan(threshold);
+    expect(planLink).toBeLessThan(shoe);
+    expect(planLink).toBeLessThan(crossTraining);
+    expect(source).not.toContain("TodaysWorkoutCard");
+    expect(source).not.toContain("CoachQuestionLauncher");
   });
 });

@@ -512,7 +512,7 @@
   "conclusion.recoveredLongRest": "{{restDays}}일간 강도 높은 부하가 없었고 회복 상태가 좋아요. 오늘 계획된 워크아웃을 수행해도 좋습니다.",
   "conclusion.recoveredLowRecentLoad": "최근 부하가 평소의 {{loadPct}}% 수준으로 낮고 회복 상태는 좋아요. 오늘 계획된 워크아웃을 수행해도 좋습니다.",
   "conclusion.balancedFollowPlan": "컨디션이 안정적이에요. 오늘은 계획대로 진행하세요.",
-  "conclusion.evidenceToggle": "근거 보기 — 회복 상태·연속성·훈련 상태",
+  "conclusion.evidenceToggle": "상태와 추세 보기 — 회복·연속성·훈련 부하",
   "conclusion.detailToggle": "상세 분석 보기 — 개선 액션·라이더 유형·개인 역량",
   "pmc.interpretation": "선이 위로 갈수록 체력이 쌓이고 있어요 — 굵은 선(체력)이 오르는 동안 얇은 선(피로)이 크게 튀지 않는 흐름이 이상적이에요.",
   "mobile.week.lastWeek": "지난주",

@@ -283,6 +283,7 @@
   },
   "today": {
     "start": "Open workout plan",
+    "viewTodayPlan": "View today's plan",
     "purposePlain": {
       "rest": "Take the day off. Muscle and nervous system rebuild now, so the next session lands better.",
       "recovery": "Run very easy. Clearing accumulated fatigue protects the intensity of your next key session.",
