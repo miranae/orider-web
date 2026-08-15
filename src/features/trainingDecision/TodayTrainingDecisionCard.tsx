@@ -19,12 +19,13 @@ import "./training-decision.css";
 
 export type TrainingDecisionSurface = "home" | "fitness" | "plan";
 
-function ProposalPanel({ decision, refresh }: { decision: NonNullable<ReturnType<typeof useTodayTrainingDecision>["decision"]>;
-  refresh: () => void }) {
+function ProposalPanel({ decision, recommendationVisible, refresh }: {
+  decision: NonNullable<ReturnType<typeof useTodayTrainingDecision>["decision"]>;
+  recommendationVisible: boolean; refresh: () => void }) {
   const { t, i18n } = useTranslation("training");
   const controller = useTrainingProposalController(decision, refresh);
   const hasAdjustments = decision.recommendedAdjustments.length > 0;
-  const canApplyRecommendation = decision.healthGate.state === "clear";
+  const canApplyRecommendation = decision.healthGate.state === "clear" && recommendationVisible;
   return <section className="training-decision-proposal" aria-labelledby="training-decision-proposal-title"
     data-proposal-state={controller.state}>
     <div className="training-decision-proposal__heading">
@@ -34,7 +35,7 @@ function ProposalPanel({ decision, refresh }: { decision: NonNullable<ReturnType
       </Chip>
     </div>
     <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.body")}</Text>
-    {controller.proposal?.changes.map((change) => <article key={`${change.weekId}:${change.dayIndex}`} className="training-decision-proposal__change"
+    {canApplyRecommendation && controller.proposal?.changes.map((change) => <article key={`${change.weekId}:${change.dayIndex}`} className="training-decision-proposal__change"
       data-current-day={change.localDate === decision.localDate ? "true" : undefined}>
       <time dateTime={change.localDate}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${change.localDate}T00:00:00Z`))}</time>
       <div className="training-decision-proposal__comparison">
@@ -156,7 +157,8 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
         triggerBlock={false} triggerLabel={t("decision.askCoach")} progressPlannerSelection={{ question: t("decision.coachQuestion"),
           context: { prescriptionId: decision.recommendationSource.prescriptionId, sourceRequestId: decision.recommendationSource.sourceRequestId } }} />}
     </footer>}
-    {surface === "plan" && (decision.recommendedAdjustments.length > 0 || decision.proposal !== null || decision.receipt !== null)
-      && <ProposalPanel decision={decision} refresh={refresh} />}
+    {surface === "plan" && ((recommendationVisible && decision.recommendedAdjustments.length > 0)
+      || decision.proposal !== null || decision.receipt !== null)
+      && <ProposalPanel decision={decision} recommendationVisible={recommendationVisible} refresh={refresh} />}
   </Card>;
 }

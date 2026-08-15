@@ -178,9 +178,33 @@ describe("TodayTrainingDecisionCard", () => {
     expect(buttons[1]).toHaveFocus();
   });
 
+  it("does not show or apply an expired recommendation from a pending proposal", () => {
+    const base = trainingDecisionEnvelope();
+    const proposalId = `proposal_${"d".repeat(24)}`;
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      recommendationValidUntil: Date.now() - 1,
+      proposal: { proposalId, status: "pending", expiresAt: "2096-08-15T00:00:00.000Z",
+        confirmNonce: "n".repeat(32) },
+      sourceRefs: { ...base.data.sourceRefs, proposalId },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    mocks.proposal = { ...mocks.proposal, state: "pending", proposal: { changes: [{ weekId: "week_01", dayIndex: 2,
+      localDate: "2026-08-15", before: { workout: { kind: "tempo", durationMin: 60 } },
+      workout: { kind: "recovery", durationMin: 40 } }] } } as never;
+    const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    expect(container.querySelector(".training-decision-proposal__change")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "이 변경 적용" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "원래 계획 유지" })).toBeInTheDocument();
+  });
+
   it("keeps the original plan but hides and blocks a pending recommendation during a health stop", () => {
+    const base = trainingDecisionEnvelope();
+    const proposalId = `proposal_${"d".repeat(24)}`;
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
       healthGate: { state: "stop", reasonCodes: ["self_reported_pain_or_illness"], sourceFreshness: "current" },
+      proposal: { proposalId, status: "pending", expiresAt: "2096-08-15T00:00:00.000Z",
+        confirmNonce: "n".repeat(32) },
+      sourceRefs: { ...base.data.sourceRefs, proposalId },
     }));
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
     mocks.proposal = { ...mocks.proposal, state: "pending" };
