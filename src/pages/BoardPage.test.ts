@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { getEffectiveListTotal } from "./BoardPage";
+import { getEffectiveListTotal, getTagExclusion } from "./BoardPage";
+import { parseUserTags } from "./CreatePostPage";
+
+describe("parseUserTags", () => {
+  it("keeps user tags in order", () => {
+    expect(parseUserTags(" 로드바이크 , 훈련 ,, ")).toEqual(["로드바이크", "훈련"]);
+  });
+
+  it("drops the reserved AI tag regardless of casing", () => {
+    expect(parseUserTags("ai, 훈련, Ai, AI")).toEqual(["훈련"]);
+  });
+});
 
 describe("getEffectiveListTotal", () => {
   it("uses server total for paginated search results", () => {
@@ -22,12 +33,22 @@ describe("getEffectiveListTotal", () => {
   });
 });
 
-describe("BoardPage source defaults", () => {
-  it("defaults the public board away from AI-only seed posts", async () => {
+describe("BoardPage tag filter defaults", () => {
+  it("starts with no tag excluded so the filter chips reflect the actual list", async () => {
     const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
 
-    expect(source).toContain('new Set(["AI"])');
-    expect(source).toContain("activeTag !== 'AI'");
+    expect(source).toContain("useState<Set<string>>(() => new Set())");
+    expect(source).not.toContain('new Set(["AI"])');
+  });
+
+  it("filters every unchecked chip by the post tags, never by the source site alone", async () => {
+    const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
+
+    // 제외 집합은 활성 태그만 빼고 전부 tags 기준으로 판정한다(AI 특례 없음).
+    expect(source).toContain("getTagExclusion({ uncheckedTags, activeTag })");
+    expect(source).toContain("listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))");
+    // 제외 태그는 검색 CF 에도 그대로 전달된다 — 총개수·페이지 수가 목록과 맞아야 한다.
+    expect(source).toContain("const excludeTags = [...clientExcluded];");
   });
 });
 
