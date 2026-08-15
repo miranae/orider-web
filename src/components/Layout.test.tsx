@@ -203,12 +203,8 @@ describe("Layout", () => {
       profile: { stravaConnected: true },
     });
 
-    await waitFor(() => {
-      expect(screen.getByAltText("")).toBeInTheDocument();
-    });
-
     // Open profile dropdown
-    await user.click(screen.getByAltText(""));
+    await user.click(await screen.findByRole("button", { name: "프로필" }));
 
     await waitFor(() => {
       expect(screen.getByText("프로필")).toBeInTheDocument();
