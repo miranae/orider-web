@@ -14,8 +14,11 @@ import SafeImage from "../components/SafeImage";
 /**
  * 체크 해제된 태그로부터 실제 제외 집합과 "총개수 보정이 필요한 태그 수"를 계산한다.
  * - 활성 태그(activeTag)는 스스로를 제외할 수 없다 — #AI 태그로 진입하면 AI 글이 보여야 한다.
- * - AI 는 서버 쿼리(sourceSite==null)가 이미 걸러 총개수가 정확하므로 보정 대상에서 뺀다.
- *   나머지 태그는 현재 페이지 안에서만 걸러지므로 총개수를 표시 건수로 낮춰야 한다.
+ * - AI 는 서버 쿼리(sourceSite==null)가 이미 걸러 총개수·페이지네이션이 정확하므로 보정 대상에서
+ *   뺀다. "수집 글 ⟺ AI 태그" 는 크롤러(upload.js·tag_posts.js)와 Firestore rules(사용자 쓰기의
+ *   AI 태그 금지)가 함께 보장한다 — orider-g1-web#2077.
+ *   나머지 태그는 서버가 거르지 못해(Firestore 에 array-not-contains 없음) 현재 페이지 안에서만
+ *   걸러지므로, 총개수를 표시 건수로 낮춘다.
  */
 export function getTagExclusion({
   uncheckedTags,
@@ -27,23 +30,6 @@ export function getTagExclusion({
   const clientExcluded = new Set([...uncheckedTags].filter(t => t !== activeTag));
   const clientOnlyExcludedCount = [...clientExcluded].filter(t => t !== 'AI').length;
   return { clientExcluded, clientOnlyExcludedCount };
-}
-
-/**
- * 서버 총개수(listTotal)를 그대로 믿을 수 없는 경우의 수를 센다.
- * - clientOnlyExcludedCount: 서버가 못 거르는 태그 — 켜져 있으면 페이지마다 더 걸러진다.
- * - droppedOnPage: AI 처럼 서버가 걸렀어야 할 글이 실제로 이 페이지에서 걸러진 경우.
- *   사용자 글에 AI 태그가 붙는 누수(작성 경로에서 막지만 프론트는 보안 경계가 아니다)가
- *   생기면 여기서 잡혀 총개수가 화면 표시 건수로 낮아진다.
- */
-export function getTotalCorrectionCount({
-  clientOnlyExcludedCount,
-  droppedOnPage,
-}: {
-  clientOnlyExcludedCount: number;
-  droppedOnPage: number;
-}): number {
-  return clientOnlyExcludedCount + (droppedOnPage > 0 ? 1 : 0);
 }
 
 export function getEffectiveListTotal({
@@ -160,10 +146,7 @@ const BoardPage: React.FC = () => {
   const filteredOutAllPosts = listPosts.length > 0 && displayedPosts.length === 0;
   const effectiveListTotal = getEffectiveListTotal({
     submittedQuery,
-    clientExcludedCount: getTotalCorrectionCount({
-      clientOnlyExcludedCount,
-      droppedOnPage: listPosts.length - displayedPosts.length,
-    }),
+    clientExcludedCount: clientOnlyExcludedCount,
     displayedCount: displayedPosts.length,
     listTotal,
   });

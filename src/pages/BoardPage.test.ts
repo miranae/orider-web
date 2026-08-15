@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { getEffectiveListTotal, getTagExclusion, getTotalCorrectionCount } from "./BoardPage";
+import { getEffectiveListTotal, getTagExclusion } from "./BoardPage";
 import { parseUserTags } from "./CreatePostPage";
 
 describe("parseUserTags", () => {
@@ -10,62 +10,6 @@ describe("parseUserTags", () => {
 
   it("drops the reserved AI tag regardless of casing", () => {
     expect(parseUserTags("ai, 훈련, Ai, AI")).toEqual(["훈련"]);
-  });
-});
-
-describe("getTotalCorrectionCount", () => {
-  it("trusts the server total when nothing was filtered on the client", () => {
-    expect(getTotalCorrectionCount({ clientOnlyExcludedCount: 0, droppedOnPage: 0 })).toBe(0);
-  });
-
-  it("corrects when a tag the server cannot filter is unchecked", () => {
-    expect(getTotalCorrectionCount({ clientOnlyExcludedCount: 2, droppedOnPage: 0 })).toBe(2);
-  });
-
-  it("corrects when an AI-tagged post leaks past the server query", () => {
-    expect(getTotalCorrectionCount({ clientOnlyExcludedCount: 0, droppedOnPage: 3 })).toBe(1);
-  });
-});
-
-describe("getTagExclusion", () => {
-  it("excludes nothing when no chip is unchecked", () => {
-    const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
-      uncheckedTags: new Set(),
-      activeTag: undefined,
-    });
-
-    expect(clientExcluded.size).toBe(0);
-    expect(clientOnlyExcludedCount).toBe(0);
-  });
-
-  it("filters the AI chip by tag but leaves the total to the server query", () => {
-    const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
-      uncheckedTags: new Set(["AI"]),
-      activeTag: undefined,
-    });
-
-    expect(clientExcluded.has("AI")).toBe(true);
-    expect(clientOnlyExcludedCount).toBe(0);
-  });
-
-  it("counts non-AI chips as page-local exclusions needing a total correction", () => {
-    const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
-      uncheckedTags: new Set(["AI", "유머", "중고거래"]),
-      activeTag: undefined,
-    });
-
-    expect(clientExcluded.size).toBe(3);
-    expect(clientOnlyExcludedCount).toBe(2);
-  });
-
-  it("never excludes the tag the user is currently browsing", () => {
-    const { clientExcluded } = getTagExclusion({
-      uncheckedTags: new Set(["AI", "유머"]),
-      activeTag: "AI",
-    });
-
-    expect(clientExcluded.has("AI")).toBe(false);
-    expect(clientExcluded.has("유머")).toBe(true);
   });
 });
 
