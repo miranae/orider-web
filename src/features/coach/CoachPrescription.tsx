@@ -17,7 +17,7 @@ import type {
 } from "../../services/coachPrescriptionContract";
 
 interface Props { initial: CoachPrescriptionDTO; parentRequestId: string; locale: string; onReanalyze: () => void;
-  onQuestionSelect?: (question: string, prescriptionId: string, sourceRequestId: string) => void }
+  onQuestionSelect?: (question: string, prescriptionId: string, sourceRequestId: string) => void; readOnly?: boolean }
 type Answers = CoachPrescriptionCheckInRequest["answers"];
 type SubmitState = "idle" | "submitting" | "network_error" | "reanalyze" | "error";
 
@@ -367,7 +367,7 @@ function Signal({ signal, answers, onChange }: { signal: CoachCheckInSignal; ans
   </fieldset>;
 }
 
-export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect }: Props) {
+export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect, readOnly = false }: Props) {
   const { t } = useTranslation("coach");
   const [prescription, setPrescription] = useState(initial);
   const [answers, setAnswers] = useState<Answers>({});
@@ -384,6 +384,7 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   const checkInEnabled = capabilities?.prescription.checkIn.enabled === true;
 
   useEffect(() => {
+    if (readOnly) return;
     let active = true;
     void getCoachProgressPlannerCapabilities().then((value) => { if (active) setCapabilities(value); })
       .catch((error) => { if (active) {
@@ -392,7 +393,7 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
         setCapabilityFailed(true);
       } });
     return () => { active = false; };
-  }, []);
+  }, [readOnly]);
 
   async function submit(retry = false) {
     if (inFlightRef.current || prescription.status !== "needs_checkin" || !prescription.checkInToken || !complete) return;
@@ -412,9 +413,9 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
 
   if (prescription.status === "ready") return <>
     <PrescriptionDetails prescription={prescription} locale={locale} sourceRequestId={sourceRequestId}
-      capabilities={capabilities} progressPlannerEnabled={locallyEnabled} onReanalyze={onReanalyze}
-      onQuestionSelect={onQuestionSelect} />
-    {locallyEnabled && capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
+      capabilities={capabilities} progressPlannerEnabled={!readOnly && locallyEnabled} onReanalyze={onReanalyze}
+      onQuestionSelect={readOnly ? undefined : onQuestionSelect} />
+    {!readOnly && locallyEnabled && capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
   </>;
   if (prescription.status === "safety_blocked") return <section className="coach-prescription coach-prescription--safety" role="alert">
     <Text as="h3" variant="subtitle">{t("prescription.safety.title")}</Text><p>{t("prescription.safety.body")}</p>
@@ -422,7 +423,12 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   if (prescription.status === "insufficient_data") return <section className="coach-prescription" role="status">
     <Text as="h3" variant="subtitle">{t("prescription.insufficient.title")}</Text><p>{t("prescription.insufficient.body")}</p>
     {prescription.missingSignals.length > 0 && <ul>{prescription.missingSignals.map((item) => <li key={item}>{item}</li>)}</ul>}
-    <Button variant="outline" onClick={onReanalyze}>{t("prescription.existingPlan")}</Button>
+    {!readOnly && <Button variant="outline" onClick={onReanalyze}>{t("prescription.existingPlan")}</Button>}
+  </section>;
+  if (readOnly) return <section className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
+    <Text id={`checkin-${prescription.prescriptionId}`} as="h3" variant="subtitle">{t("prescription.checkin.title")}</Text>
+    <p>{t("prescription.checkin.body")}</p>
+    <Text as="p" variant="caption" tone="secondary">{t("history.readOnlyPrescription")}</Text>
   </section>;
   return <section className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
     <Text id={`checkin-${prescription.prescriptionId}`} as="h3" variant="subtitle">{t("prescription.checkin.title")}</Text>

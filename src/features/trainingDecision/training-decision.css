@@ -1,0 +1,26 @@
+.training-decision-card { display: grid; gap: var(--space-4); }
+.training-decision-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.training-decision-card__header > div { display: grid; gap: var(--space-1); }
+.training-decision-card__sessions { display: grid; gap: var(--space-2); }
+.training-decision-card__reasons { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.training-decision-card__reasons > div { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.training-decision-session { display: grid; grid-template-columns: minmax(6.5rem, 0.34fr) minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+.training-decision-session--recommended { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 8%, transparent); }
+.training-decision-session--effective { border-color: var(--lime); background: color-mix(in srgb, var(--lime) 7%, transparent); }
+.training-decision-session__summary { display: grid; gap: var(--space-2); min-width: 0; }
+.training-decision-session__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-sm); }
+.training-decision-card__actions, .training-decision-proposal__actions, .training-execution-actions__row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.training-decision-proposal { display: grid; gap: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
+.training-decision-proposal__change { display: grid; gap: var(--space-2); }
+.training-decision-proposal__comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.training-decision-proposal__comparison > div { display: grid; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+.training-execution-actions, .training-execution-actions__manual { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.training-execution-actions__manual label, .training-execution-actions__row label { display: grid; gap: var(--space-1); min-width: min(100%, 16rem); }
+.training-execution-actions__manual select { min-height: 2.75rem; width: 100%; border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-2); color: var(--ink-0); padding: 0 var(--space-3); font: inherit; }
+.training-execution-panel { display: grid; gap: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
+.training-execution-session { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+@media (max-width: 40rem) {
+  .training-decision-session { grid-template-columns: 1fr; gap: var(--space-1); }
+  .training-decision-proposal__comparison { grid-template-columns: 1fr; }
+  .training-decision-card__actions > a { flex: 1; justify-content: center; }
+}

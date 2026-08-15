@@ -124,6 +124,8 @@ requireIncludes(deployWorkflow, "VITE_ORIDER_AI_API_BASE: ${{ vars.VITE_ORIDER_A
 requireIncludes(deployWorkflow, "VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.VITE_COACH_PMC_INSIGHT_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.VITE_COACH_RIDER_INSIGHT_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.VITE_COACH_PROGRESS_PLANNER_ENABLED }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_TRAINING_DECISION_ENABLED: ${{ vars.VITE_TRAINING_DECISION_ENABLED }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.VITE_TRAINING_EXECUTION_ENABLED }}", "deploy.yml env");
 for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
   requireIncludes(deployWorkflow, `VITE_COACH_RIDE_PLAN_${name}_ENABLED: \${{ vars.VITE_COACH_RIDE_PLAN_${name}_ENABLED }}`,
     "deploy.yml env");
@@ -132,7 +134,14 @@ requireIncludes(deployWorkflow, "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ va
   "deploy.yml env");
 requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
 requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
+requireIncludes(deployWorkflow, "node scripts/verify-staged-training-flags.mjs", "deploy.yml staged training flag gate");
+requireIncludes(deployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "deploy.yml staged training smoke evidence gate");
+requireIncludes(deployWorkflow, '.artifacts/today-training-stage-smoke.json "$RELEASE_SHA"', "deploy.yml commit-bound smoke evidence");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
+requireBefore(deployWorkflow, "node scripts/verify-staged-training-flags.mjs", "node scripts/write-runtime-config.mjs",
+  "deploy.yml staged training flag gate");
+requireBefore(deployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "node scripts/write-runtime-config.mjs",
+  "deploy.yml staged training smoke evidence gate");
 requireIncludes(deployWorkflow, "node scripts/verify-social-callables.mjs", "deploy.yml backend contract gate");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_PROJECT_ID', "deploy.yml backend contract project");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_FUNCTIONS_REGION', "deploy.yml backend contract region");
@@ -150,6 +159,12 @@ for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
 requireIncludes(stageDeployWorkflow,
   "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}",
   "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow,
+  "VITE_TRAINING_DECISION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_ENABLED }}",
+  "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow,
+  "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}",
+  "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
@@ -159,6 +174,17 @@ checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
 requireIncludes(stageDeployWorkflow, "actions/upload-artifact", "deploy-stage.yml verified artifact upload");
+requireIncludes(stageDeployWorkflow, "node scripts/run-today-training-stage-smoke.mjs", "deploy-stage.yml training smoke runner");
+requireIncludes(stageDeployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "deploy-stage.yml training smoke schema gate");
+requireIncludes(stageDeployWorkflow, ".artifacts/today-training-stage-smoke.json", "deploy-stage.yml training smoke artifact");
+requireIncludes(stageDeployWorkflow, "STAGE_TRAINING_EXECUTION_ELIGIBLE_UID", "deploy-stage.yml eligible smoke identity");
+requireIncludes(stageDeployWorkflow, "STAGE_TRAINING_EXECUTION_INELIGIBLE_UID", "deploy-stage.yml ineligible smoke identity");
+requireIncludes(stageDeployWorkflow, "vars.AI_COACH_STAGE_COLLECTOR_WIF_PROVIDER", "deploy-stage.yml smoke signer WIF");
+requireIncludes(stageDeployWorkflow, "vars.AI_COACH_STAGE_COLLECTOR_SERVICE_ACCOUNT", "deploy-stage.yml smoke signer identity");
+requireBefore(stageDeployWorkflow, "node scripts/run-today-training-stage-smoke.mjs", "firebase deploy \\",
+  "deploy-stage.yml training smoke gate");
+requireBefore(stageDeployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "tar -czf",
+  "deploy-stage.yml training smoke artifact gate");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");

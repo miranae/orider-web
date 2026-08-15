@@ -92,6 +92,7 @@ import { getRuntimeConfig } from "../services/runtimeConfig";
 import { buildCanonicalRiderFitnessView, cyclingAbilityFromCanonicalRider } from "../features/fitness/riderInsightParity";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 import { useActivityDerivedDocuments } from "../features/fitness/useActivityDerivedDocuments";
+import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 
 /* ---------- 메인 페이지 ---------- */
 
@@ -645,6 +646,10 @@ export default function FitnessPage() {
     }
 
     return (
+      <>
+      {discipline !== "tri" && <div style={{ padding: "var(--space-3) var(--space-4)" }}>
+        <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
+      </div>}
       <MobileFitnessPage
         data={{
           ctl: cp?.ctl ?? 0,
@@ -699,6 +704,7 @@ export default function FitnessPage() {
         applyingFtp={applyingFtp}
         onApplyFtp={applyAutomaticFtp}
       />
+      </>
     );
   }
 
@@ -885,6 +891,9 @@ export default function FitnessPage() {
       {pageHeader}
 
       <div className="site-shell" style={bodyPad}>
+        {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
+        </div>}
         {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
           <DetailsSection title={t("conclusion.evidenceToggle")}>
             {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /plan 으로 이동. */}

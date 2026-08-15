@@ -17,6 +17,8 @@ export interface RuntimeConfig {
   coachPmcInsightEnabled?: boolean;
   coachRiderInsightEnabled?: boolean;
   coachProgressPlannerEnabled?: boolean;
+  trainingDecisionEnabled?: boolean;
+  trainingExecutionEnabled?: boolean;
   coachRidePlanTokenEnabled?: boolean;
   coachRidePlanSnapshotEnabled?: boolean;
   coachRidePlanAiEnabled?: boolean;
@@ -62,6 +64,8 @@ function readBuildFallbackConfig(): RuntimeConfig {
     coachPmcInsightEnabled: import.meta.env.VITE_COACH_PMC_INSIGHT_ENABLED === "true",
     coachRiderInsightEnabled: import.meta.env.VITE_COACH_RIDER_INSIGHT_ENABLED === "true",
     coachProgressPlannerEnabled: import.meta.env.VITE_COACH_PROGRESS_PLANNER_ENABLED === "true",
+    trainingDecisionEnabled: import.meta.env.VITE_TRAINING_DECISION_ENABLED === "true",
+    trainingExecutionEnabled: import.meta.env.VITE_TRAINING_EXECUTION_ENABLED === "true",
     coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",

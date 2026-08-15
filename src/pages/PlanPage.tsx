@@ -16,12 +16,9 @@ import { sumEffectivePlanTSS } from "../utils/planTss";
 import WorkoutEditModal from "../components/training/WorkoutEditModal";
 import AdaptationBanner from "../components/training/AdaptationBanner";
 import AdjustedChip from "../components/training/AdjustedChip";
-import RecoveryDownshiftMarker from "../components/training/RecoveryDownshiftMarker";
-import TodaysWorkoutCard from "../components/training/TodaysWorkoutCard";
+import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useMobile } from "../hooks/useMobile";
 import { useFreshTraining } from "../hooks/useFreshTraining";
-import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
-import { evaluateRecoveryDownshift } from "@shared/training/recoveryDownshift";
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
@@ -32,8 +29,6 @@ import { Button, Card, Text } from "../theme/components";
 import { buildDayNames, buildWorkoutMeta, formatDateLabel, phaseColor, phaseLabel } from "../features/training/plan/planDisplay";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { PlanAdjustmentNarrative } from "../features/trainingHub/TrainingHubOpportunityPanel";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 const PLAN_WEEK_GRID_COLUMNS = '80px repeat(7, minmax(72px, 1fr)) 100px';
 const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
@@ -48,12 +43,10 @@ interface DayCellProps {
   isToday: boolean;
   /** 주 단위 조정 factor (canonical 값). day별 ratio 재계산 대신 사용. */
   weekAdjustmentFactor?: number;
-  /** #365 — 현재 TSB (정본 시계열 최신값). 미래/오늘 하드데이 다운시프트 마커 판정용. null 이면 표시 안 함. */
-  currentTsb?: number | null;
   onClick?: () => void;
 }
 
-function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: DayCellProps) {
+function DayCell({ day, isToday, weekAdjustmentFactor, onClick }: DayCellProps) {
   const { t } = useTranslation('training');
   const WORKOUT_META = useMemo(() => buildWorkoutMeta(t), [t]);
   const meta = WORKOUT_META[day.workout] ?? WORKOUT_META.rest;
@@ -71,12 +64,6 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
   // 완료 달성률: actualTSS / plannedTSS. actualTSS=0(데이터 미수집)은 0%가 아닌 미표시로 처리.
   const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && day.plannedTSS > 0
     ? day.actualTSS / day.plannedTSS
-    : null;
-  // #365 — 달력 회복 다운시프트: 지나지 않은 하드데이만 판정(과거/완료/스킵 제외).
-  // 오늘 TSB 의 유효 지평(daysUntil)은 순수 함수가 단일 관리 — 먼 미래 주차 오경고 방지.
-  const daysUntil = Math.max(0, Math.floor((day.date - Date.now()) / DAY_MS));
-  const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && currentTsb != null
-    ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
 
   // 건너뛴 날은 휴식처럼 흐리게 + 취소선
@@ -223,12 +210,6 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
       {isAdjusted && weekAdjustmentFactor != null && (
         <div style={{ position: 'absolute', bottom: 4, left: 6 }}>
           <AdjustedChip factor={weekAdjustmentFactor} />
-        </div>
-      )}
-      {/* #365 — 회복 다운시프트 제안. 서버가 이미 자동 조정한 날(isAdjusted)은 중복 표시 안 함. */}
-      {!isAdjusted && downshift?.shouldDownshift && downshift.suggestedSwap && (
-        <div style={{ position: 'absolute', bottom: 4, left: 6 }}>
-          <RecoveryDownshiftMarker suggestedSwap={downshift.suggestedSwap} tsb={downshift.reasonTsb} />
         </div>
       )}
       {/* 날짜 + 달성/결근 표시 — 우상단 */}
@@ -537,16 +518,6 @@ export default function PlanPage() {
   const [reloadKey, setReloadKey] = useState(0);
   // lazy revalidate — plan 페이지는 활동/피로도 기반 자동 조정이 가장 직접 보이는 화면
   const { revalidating, justRecomputed } = useFreshTraining(discipline);
-  // #365 — 달력 회복 다운시프트: 정본 시계열의 최신 TSB 로 계획된 하드데이 충돌을 판정.
-  // 시계열이 아직 오늘 근처까지 갱신되지 않았으면(stale — revalidate 완료 전 창) 판정을 보류해
-  // 며칠 전의 과음수 TSB 로 잘못된 '휴식 권장'이 뜨는 것을 막는다.
-  const { timeseries } = useFitnessTimeseries(user?.uid, discipline);
-  const tsbFresh = timeseries?.endDate != null &&
-    (Date.now() - new Date(`${timeseries.endDate}T00:00:00Z`).getTime()) <= 3 * DAY_MS;
-  const currentTsb = tsbFresh && timeseries!.points.length
-    ? timeseries!.points[timeseries!.points.length - 1]!.tsb
-    : null;
-
   // Load active goal
   // TODO: 실시간 업데이트를 위해 getDocs 대신 onSnapshot 사용 권장
   useEffect(() => {
@@ -758,6 +729,9 @@ export default function PlanPage() {
   if (isMobile && !loading) {
     return (
       <>
+        <div style={{ padding: "var(--space-3) var(--space-4)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
+        </div>
         <MobilePlanPage
           currentWeek={mobilePlanViewModel.currentWeek}
           weekLabel={mobilePlanViewModel.weekLabel}
@@ -955,7 +929,7 @@ export default function PlanPage() {
       {/* ── Body ────────────────────────────────────────────────────── */}
       <div style={{ padding: '20px 0 0' }}>
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <TodaysWorkoutCard variant="compact" />
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
         </div>
 
         <PlanAdjustmentNarrative goal={goal} weeks={weeks} t={t} />
@@ -1086,7 +1060,6 @@ export default function PlanPage() {
                           day={day}
                           isToday={isTodayCell(day)}
                           weekAdjustmentFactor={wk.adjustmentFactor}
-                          currentTsb={currentTsb}
                           onClick={() => setSelectedDay({ day, weekId: wk.id, dayIndex: di })}
                         />
                       );

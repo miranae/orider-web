@@ -147,7 +147,8 @@
     "deleteConfirm": "‘{{title}}’의 모든 질문과 답변이 영구 삭제되며 복구할 수 없습니다.",
     "deleteAll": "전체 삭제",
     "deleteAllTitle": "모든 AI 코치 대화를 삭제할까요?",
-    "deleteAllConfirm": "저장된 모든 대화와 질문·답변이 영구 삭제되며 복구할 수 없습니다."
+    "deleteAllConfirm": "저장된 모든 대화와 질문·답변이 영구 삭제되며 복구할 수 없습니다.",
+    "readOnlyPrescription": "과거 답변의 처방은 기록으로만 표시됩니다. 체크인, 적용, 되돌리기는 현재 계획에서 진행하세요."
   },
   "serviceUnavailable": {
     "title": "AI 코치를 준비하고 있습니다",

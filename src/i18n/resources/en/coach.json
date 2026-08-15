@@ -147,7 +147,8 @@
     "deleteConfirm": "All questions and answers in ‘{{title}}’ will be permanently deleted and cannot be recovered.",
     "deleteAll": "Delete all",
     "deleteAllTitle": "Delete all AI Coach conversations?",
-    "deleteAllConfirm": "All saved conversations, questions, and answers will be permanently deleted and cannot be recovered."
+    "deleteAllConfirm": "All saved conversations, questions, and answers will be permanently deleted and cannot be recovered.",
+    "readOnlyPrescription": "A prescription in history is read-only. Check in, apply, or roll back from the current plan."
   },
   "serviceUnavailable": {
     "title": "AI Coach is being prepared",

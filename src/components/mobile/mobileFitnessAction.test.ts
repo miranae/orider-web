@@ -27,13 +27,14 @@ describe("mobile fitness action", () => {
     expect(overview).toContain("<BikePerformanceSummaryCard");
   });
 
-  it("uses a small plan link on mobile home and keeps the plan card compact", () => {
+  it("mounts the authoritative decision card on mobile home and plan without restoring the legacy workout", () => {
     const mobileHome = read("src/components/mobile/MobileFeedPage.tsx");
     const plan = read("src/pages/PlanPage.tsx");
 
-    expect(mobileHome).toContain("<TodayPlanLink");
+    expect(mobileHome).toContain("<TodayTrainingDecisionCard");
     expect(mobileHome).not.toContain("TodaysWorkoutCard");
-    expect(plan).toContain('<TodaysWorkoutCard variant="compact" />');
+    expect(plan).toContain('<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />');
+    expect(plan).not.toContain("TodaysWorkoutCard");
   });
 
   it("removes today's workout from desktop fitness", () => {
@@ -41,6 +42,7 @@ describe("mobile fitness action", () => {
     const triFitness = read("src/pages/fitness/TriFitnessView.tsx");
     expect(fitness).not.toContain("TodaysWorkoutCard");
     expect(fitness).not.toContain("TodayConclusion");
+    expect(fitness).toContain("<TodayTrainingDecisionCard");
     expect(triFitness).not.toContain("TodaysWorkoutCard");
   });
 

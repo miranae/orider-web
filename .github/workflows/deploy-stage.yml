@@ -42,6 +42,8 @@ jobs:
       VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.STAGE_VITE_COACH_PROGRESS_PLANNER_ENABLED }}
       VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED }}
       VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED }}
+      VITE_TRAINING_DECISION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_ENABLED }}
+      VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}
       VITE_COACH_RIDE_PLAN_TOKEN_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_TOKEN_ENABLED }}
       VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED }}
       VITE_COACH_RIDE_PLAN_AI_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_AI_ENABLED }}
@@ -66,6 +68,7 @@ jobs:
           workload_identity_provider: ${{ vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
           token_format: access_token
+          create_credentials_file: true
       - name: Verify stage backend social callable contract
         env:
           SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
@@ -73,6 +76,26 @@ jobs:
           node scripts/verify-social-callables.mjs
           --project "${{ vars.STAGE_VITE_FIREBASE_PROJECT_ID }}"
           --region "${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}"
+      - name: Auth stage smoke signer (Workload Identity Federation)
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.AI_COACH_STAGE_COLLECTOR_WIF_PROVIDER }}
+          service_account: ${{ vars.AI_COACH_STAGE_COLLECTOR_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+      - name: Exercise Today decision and execution contracts with Auth and App Check
+        env:
+          TODAY_TRAINING_STAGE_COMMIT_SHA: ${{ github.sha }}
+          TODAY_TRAINING_STAGE_PROJECT_ID: ${{ vars.STAGE_VITE_FIREBASE_PROJECT_ID }}
+          TODAY_TRAINING_STAGE_SERVICE_URL: ${{ vars.STAGE_VITE_ORIDER_AI_API_BASE }}
+          TODAY_TRAINING_STAGE_SERVICE_ACCOUNT: ${{ vars.AI_COACH_STAGE_COLLECTOR_SERVICE_ACCOUNT }}
+          TODAY_TRAINING_STAGE_APP_ID: ${{ secrets.STAGE_VITE_FIREBASE_APP_ID }}
+          TODAY_TRAINING_STAGE_WEB_API_KEY: ${{ secrets.STAGE_VITE_FIREBASE_API_KEY }}
+          TODAY_TRAINING_STAGE_ELIGIBLE_UID: ${{ vars.STAGE_TRAINING_EXECUTION_ELIGIBLE_UID }}
+          TODAY_TRAINING_STAGE_INELIGIBLE_UID: ${{ vars.STAGE_TRAINING_EXECUTION_INELIGIBLE_UID }}
+        run: |
+          node scripts/run-today-training-stage-smoke.mjs .artifacts/today-training-stage-smoke.json
+          node scripts/verify-today-training-stage-evidence.mjs \
+            .artifacts/today-training-stage-smoke.json "$GITHUB_SHA" "$TODAY_TRAINING_STAGE_PROJECT_ID"
       - name: Deploy stage Hosting only
         run: |
           set -euo pipefail
@@ -109,7 +132,7 @@ jobs:
             exit 1
           fi
       - name: Package verified dist for production promotion
-        run: tar -czf "web-dist-${GITHUB_SHA}.tar.gz" dist
+        run: tar -czf "web-dist-${GITHUB_SHA}.tar.gz" dist .artifacts/today-training-stage-smoke.json
       - name: Upload verified dist artifact
         uses: actions/upload-artifact@v4
         with:
