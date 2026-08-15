@@ -8,6 +8,7 @@ import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
+import type { Discipline } from "../../utils/disciplineFilter";
 import { Button, Card, Text } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
@@ -17,9 +18,8 @@ import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import type { ActivityFeedScope } from "../../hooks/useActivities";
 import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
 import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useDashboardPreferences";
-import { CoachQuestionLauncher } from "../../features/coach/CoachQuestionLauncher";
+import TodayPlanLink from "../training/TodayPlanLink";
 
-const TodaysWorkoutCard = lazy(() => import("../training/TodaysWorkoutCard"));
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const MOBILE_FEED_RENDER_STEP = 40;
 const MOBILE_FEED_RENDER_INITIAL = 60;
@@ -52,6 +52,7 @@ interface MobileFeedPageProps {
   onFeedScopeChange: (scope: ActivityFeedScope) => void;
   sportFilter?: SportFilter;
   onSportFilterChange?: (sportFilter: SportFilter) => void;
+  pageDiscipline?: Exclude<Discipline, "tri">;
   datePreset?: DashboardDatePreset;
   onDatePresetChange?: (datePreset: DashboardDatePreset) => void;
 }
@@ -273,11 +274,12 @@ export default function MobileFeedPage({
   weeklySummary, feedScope, onFeedScopeChange,
   sportFilter: controlledSportFilter,
   onSportFilterChange,
+  pageDiscipline,
   datePreset: controlledDatePreset,
   onDatePresetChange,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
-  const { user, profile, signInWithGoogle } = useAuth();
+  const { user } = useAuth();
   const [localSportFilter, setLocalSportFilter] = useState<SportFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [localDatePreset, setLocalDatePreset] = useState<DashboardDatePreset>("all");
@@ -333,24 +335,13 @@ export default function MobileFeedPage({
 
   return (
     <div style={{ overscrollBehavior: "contain" }}>
-      {/* 오늘의 워크아웃 — 첫 화면 최상단: AI 코치 해설과 오늘 행동을 함께 노출한다. */}
       {user && (
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
-          <Suspense fallback={null}>
-            <TodaysWorkoutCard />
-          </Suspense>
+        <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
+          <TodayPlanLink
+            discipline={sportFilter === "all" ? pageDiscipline : sportFilter}
+          />
         </div>
       )}
-      <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
-        <CoachQuestionLauncher
-          user={user}
-          discipline={sportFilter === "bike" || sportFilter === "run" || sportFilter === "swim"
-            ? sportFilter
-            : (profile?.primaryDiscipline && profile.primaryDiscipline !== "tri" ? profile.primaryDiscipline : "bike")}
-          onSignIn={signInWithGoogle}
-          showPmcInsight
-        />
-      </div>
 
       {!user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>

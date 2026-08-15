@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, MessageCircle } from "lucide-react";
 import type { Activity } from "@shared/types";
-import Avatar from "../Avatar";
+import LikersAvatarStack from "../social/LikersAvatarStack";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -124,8 +124,6 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
     }
   };
 
-  const overflow = Math.max(0, localKudos - hydratedRecent.length);
-
   return (
     <div className="border-t" style={{ borderColor: "var(--line-soft)" }} onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center gap-4 px-4 py-2.5">
@@ -142,27 +140,8 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
           <span className="text-[length:var(--fs-sm)] font-semibold">{localKudos}</span>
         </button>
 
-        {/* 누른 사람 아바타 스택 */}
-        {hydratedRecent.length > 0 && (
-          <div className="flex items-center">
-            <div className="flex items-center">
-              {hydratedRecent.map((k, i) => (
-                <span
-                  key={k.userId}
-                  className="rounded-full"
-                  style={{ marginLeft: i === 0 ? 0 : -8, boxShadow: "0 0 0 2px var(--bg-1)", borderRadius: "9999px" }}
-                >
-                  <Avatar userId={k.userId} name={k.nickname} imageUrl={k.profileImage} size="sm" tapTarget={false} />
-                </span>
-              ))}
-            </div>
-            {overflow > 0 && (
-              <span className="ml-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
-                {t("card.kudosAndOthers", { count: overflow })}
-              </span>
-            )}
-          </div>
-        )}
+        {/* 누른 사람 아바타 스택 — hover/focus/tap 시 누른 사람 이름 툴팁 */}
+        <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} />
 
         {/* 댓글 — 카드 안 입력칸 토글 */}
         <button

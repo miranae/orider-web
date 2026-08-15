@@ -13,7 +13,6 @@ import {
 } from "../../utils/fitnessMetrics";
 import { toLocalDate } from "../../utils/dateUtils";
 import { Card, Text } from "../../theme/components";
-import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import IntegratedLoadCard, { type CombinedLoadStatus } from "../../components/mobile/IntegratedLoadCard";
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
 import { DISCIPLINE_CHART_COLORS, PMC_LINE_PALETTE } from "../../features/fitness/chartPalette";
@@ -760,10 +759,6 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
 
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-8)" }}>
 
-      {/* 통합 탭에서도 오늘의 AI 코치와 authoritative 멀티스포츠 상세를 한 번만 노출한다. */}
-      <div style={{ marginBottom: "var(--space-4)" }}>
-        <TodaysWorkoutCard />
-      </div>
       {combinedLoad && (
         <div style={{ marginBottom: "var(--space-5)" }}>
           <IntegratedLoadCard combined={combinedLoad} focus={loadFocus} />

@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("AI Coach entry-surface boundary", () => {
-  it("mounts the launcher in desktop home, mobile home, and the Coach entry page", () => {
+  it("keeps the launcher on the Coach entry page and removes it from home", () => {
     const dashboard = readFileSync("src/pages/DashboardPage.tsx", "utf8");
     const mobileHome = readFileSync("src/components/mobile/MobileFeedPage.tsx", "utf8");
     const coachPage = readFileSync("src/pages/CoachHistoryPage.tsx", "utf8");
-    expect(dashboard).toContain("<CoachQuestionLauncher");
-    expect(mobileHome).toContain("<CoachQuestionLauncher");
+    expect(dashboard).not.toContain("CoachQuestionLauncher");
+    expect(mobileHome).not.toContain("CoachQuestionLauncher");
     expect(coachPage).toContain("<CoachQuestionLauncher");
   });
 

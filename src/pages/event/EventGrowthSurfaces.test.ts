@@ -17,4 +17,12 @@ describe("event growth contract surfaces", () => {
     expect(source).toContain("<AppInstallLinks");
     expect(source).toContain('t("liveView.guestCta.title")');
   });
+
+  it("reads the canonical Firestore live snapshot at the server cadence", () => {
+    const source = read("EventLivePage.tsx");
+    expect(source).toContain('doc(firestore, "events", eventId, "snapshots", "public_latest")');
+    expect(source).toContain("}, 60000);");
+    expect(source).not.toContain("snapshots/${eventId}/latest.json");
+    expect(source).not.toContain("getStorage");
+  });
 });

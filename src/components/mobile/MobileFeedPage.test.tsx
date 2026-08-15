@@ -5,10 +5,6 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
 import { getCanonicalMapThumbnailFileName, isCanonicalMapThumbnailUrl } from "../activity/ActivityRouteThumbnail";
 
-vi.mock("../training/TodaysWorkoutCard", () => ({
-  default: () => null,
-}));
-
 vi.mock("../RouteMap", () => ({
   default: ({ interactive, fallbackImageUrl }: { interactive?: boolean; fallbackImageUrl?: string | null }) => (
     <div
@@ -26,6 +22,31 @@ vi.mock("../activity/ActivitySocialFooter", () => ({
 }));
 
 describe("MobileFeedPage", () => {
+  it.each([
+    { pageDiscipline: "run" as const, expectedHref: "/ko/plan?sport=run" },
+    { pageDiscipline: "swim" as const, expectedHref: "/ko/plan?sport=swim" },
+    { pageDiscipline: undefined, expectedHref: "/ko/plan" },
+  ])("uses the validated $pageDiscipline page context when the mobile filter is all", ({ pageDiscipline, expectedHref }) => {
+    const props = {
+      activities: [],
+      loading: false,
+      hasMore: false,
+      loadingMore: false,
+      onLoadMore: vi.fn(),
+      feedScope: "all" as const,
+      onFeedScopeChange: vi.fn(),
+      sportFilter: "all" as const,
+      pageDiscipline,
+    };
+
+    renderWithProviders(<MobileFeedPage {...props} />, {
+      authenticated: true,
+      route: "/ko/",
+    });
+
+    expect(screen.getByRole("link", { name: "오늘 계획 보기" })).toHaveAttribute("href", expectedHref);
+  });
+
   it("shows load more when the current filtered page is empty but more pages exist", async () => {
     const user = userEvent.setup();
     const onLoadMore = vi.fn();
