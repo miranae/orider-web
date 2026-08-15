@@ -85,6 +85,29 @@ describe("today training stage smoke", () => {
     })).rejects.toThrow("stage_smoke:execution_not_fail_closed");
   });
 
+  it("rejects evidence when the reserved execution is no longer pending in the final list", async () => {
+    const decision = { schemaVersion: "today-training-decision-v1", discipline: "bike", projectionId: "today_cccccccccccccccccccccccc",
+      representativeSessionId: session.sessionId, effectiveSessions: [session], planSource: { planRevision: "plan_1" },
+      sourceRefs: {}, prescription: {}, capabilities: { execution: { reserve: "available" } } };
+    const ineligibleDecision = { ...decision, representativeSessionId: ineligibleSession.sessionId,
+      effectiveSessions: [ineligibleSession], planSource: { planRevision: "plan_2" } };
+    const execution = { executionId: "exec_1", status: "reserved", outcomeStatus: "pending", discipline: "bike",
+      scheduledSessionId: session.sessionId, scheduledSessionRevision: session.scheduledSessionRevision, dayRef: session.dayRef,
+      planRevision: "plan_1", projectionId: decision.projectionId, prescriptionId: null, prescriptionValidFrom: null,
+      proposalId: null, receiptAuditId: null };
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: decision }))
+      .mockResolvedValueOnce(json(200, { data: { executions: [] } }))
+      .mockResolvedValueOnce(json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: ineligibleDecision }))
+      .mockResolvedValueOnce(json(404, {}))
+      .mockResolvedValueOnce(json(200, { status: "ok", data: execution }))
+      .mockResolvedValueOnce(json(200, { data: { executions: [{ ...execution, status: "started" }] } }));
+    await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
+      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
+      credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
+    })).rejects.toThrow("stage_smoke:list_missing_current_execution");
+  });
+
   it("reports the response context when a stage endpoint returns invalid JSON", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ status: 502, json: async () => { throw new SyntaxError("invalid JSON"); } });
     await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",

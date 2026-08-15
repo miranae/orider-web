@@ -94,7 +94,8 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
   const reservationMode = reusable?.executionId === execution.executionId ? "reused" : "fresh";
   const executions = await listExecutions();
   if (typeof execution?.executionId !== "string" || !matchesCurrentDecision(execution)
-    || !executions.some((item) => item?.executionId === execution.executionId && matchesCurrentDecision(item))) {
+    || !executions.some((item) => item?.executionId === execution.executionId && matchesCurrentDecision(item)
+      && item.status === "reserved" && item.outcomeStatus === "pending")) {
     throw new Error("stage_smoke:list_missing_current_execution");
   }
   return { schemaVersion: "today-training-stage-smoke-v1", commitSha: input.commitSha, projectId: input.projectId,

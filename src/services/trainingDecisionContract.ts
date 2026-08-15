@@ -29,7 +29,11 @@ export const trainingRecommendationSchema = z.object({
   workout: workout.optional(), reasonCodes: z.array(id).max(64).refine((items) => new Set(items).size === items.length),
   evidenceIds: z.array(id).max(128).refine((items) => new Set(items).size === items.length),
   reassessBefore: z.array(reassessment).max(16).optional(),
-}).strict();
+}).strict().superRefine((value, context) => {
+  if ((value.action === "reassess") === Boolean(value.workout)) {
+    context.addIssue({ code: "custom", path: ["workout"], message: "invalid recommendation workout" });
+  }
+});
 export const trainingRecommendedAdjustmentSchema = z.object({ sessionId: scheduledSessionId, recommendation: trainingRecommendationSchema }).strict();
 export const trainingLoadAdjustmentSchema = z.object({
   prescriptionStatus: z.enum(["ready", "needs_checkin", "insufficient_data", "safety_blocked"]),

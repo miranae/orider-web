@@ -58,6 +58,14 @@ describe("today training decision contract", () => {
     });
   });
 
+  it("requires workout metrics for executable actions and forbids them for reassessment", () => {
+    const base = trainingDecisionEnvelope().data.recommendedAdjustments[0]!;
+    expect(() => trainingRecommendedAdjustmentSchema.parse({ ...base,
+      recommendation: { ...base.recommendation, action: "recovery", workout: undefined } })).toThrow("invalid recommendation workout");
+    expect(() => trainingRecommendedAdjustmentSchema.parse({ ...base,
+      recommendation: { ...base.recommendation, action: "reassess" } })).toThrow("invalid recommendation workout");
+  });
+
   it("parses the zero-provider canonical projection and keeps its source tuple", () => {
     const parsed = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     expect(parsed.recommendationSource).toMatchObject({ factsId: "facts_123", planRevision: "plan_123" });
