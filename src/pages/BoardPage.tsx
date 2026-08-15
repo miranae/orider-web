@@ -11,18 +11,45 @@ import { Button, Card } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
 import SafeImage from "../components/SafeImage";
 
+/**
+ * 체크 해제된 태그로부터 실제 제외 집합과 "총개수 보정이 필요한 태그 수"를 계산한다.
+ * - 활성 태그(activeTag)는 스스로를 제외할 수 없다 — #AI 태그로 진입하면 AI 글이 보여야 한다.
+ * - AI 는 Firestore 목록 경로에서만 서버가 거른다(sourceSite==null) — 그때는 총개수·페이지네이션이
+ *   정확하므로 보정 대상에서 뺀다. "수집 글 ⟺ AI 태그" 는 크롤러(upload.js·tag_posts.js)와
+ *   Firestore rules(사용자 쓰기의 AI 태그 금지)가 함께 보장한다 — orider-g1-web#2077.
+ *   검색 경로(CF)는 아직 제외를 적용하지 않으므로(orider-g1-web#2086 배포 대기) AI 도 보정 대상이다.
+ * - 나머지 태그는 서버가 거르지 못해(Firestore 에 array-not-contains 없음) 현재 페이지 안에서만
+ *   걸러지므로, 총개수를 표시 건수로 낮춘다.
+ */
+export function getTagExclusion({
+  uncheckedTags,
+  activeTag,
+  serverFiltersAiTag,
+}: {
+  uncheckedTags: Set<string>;
+  activeTag?: string;
+  serverFiltersAiTag: boolean;
+}): { clientExcluded: Set<string>; clientOnlyExcludedCount: number } {
+  const clientExcluded = new Set([...uncheckedTags].filter(t => t !== activeTag));
+  const clientOnlyExcludedCount = [...clientExcluded]
+    .filter(t => !(serverFiltersAiTag && t === 'AI'))
+    .length;
+  return { clientExcluded, clientOnlyExcludedCount };
+}
+
+/**
+ * 목록 위에 표시할 "N개" — 클라이언트에서 거른 태그가 있으면 서버 총개수는 제외 전 값이라
+ * 쓸 수 없다(검색 결과도 마찬가지). 그때는 화면에 실제로 남은 건수를 쓴다.
+ */
 export function getEffectiveListTotal({
-  submittedQuery,
   clientExcludedCount,
   displayedCount,
   listTotal,
 }: {
-  submittedQuery: string;
   clientExcludedCount: number;
   displayedCount: number;
   listTotal: number;
 }): number {
-  if (submittedQuery) return listTotal;
   if (clientExcludedCount > 0) return displayedCount;
   return listTotal;
 }
@@ -49,16 +76,24 @@ const BoardPage: React.FC = () => {
   const [activeTag, setActiveTag] = useState<string | undefined>();
 
 
-  const [uncheckedTags, setUncheckedTags] = useState<Set<string>>(() => new Set(["AI"]));
+  // 기본값은 "제외 없음" — 태그 제외는 사용자가 칩을 눌러 직접 선택할 때만 걸린다.
+  const [uncheckedTags, setUncheckedTags] = useState<Set<string>>(() => new Set());
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  const excludeAI = uncheckedTags.has('AI') && activeTag !== 'AI';
+  // 제외 태그는 모두 같은 기준(글의 tags)으로 걸러낸다 — 칩 이름과 실제 필터가 어긋나지 않게.
+  const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
+    uncheckedTags,
+    activeTag,
+    // 검색 경로는 CF 가 제외를 적용하지 않는다 — 그때는 AI 도 클라이언트 보정 대상.
+    serverFiltersAiTag: !submittedQuery,
+  });
+  const excludeTags = [...clientExcluded];
 
   const { tags: allTags } = useBoardMeta();
   // 상위 30개만 패널에 표시
   const panelTags = allTags.slice(0, 30);
 
   const urlPage = Number(searchParams.get('page')) || 1;
-  const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeAI, urlPage);
+  const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeTags, urlPage);
   const isMyInquiryView = selectedBoard === 'inquiry' && searchParams.get('view') === 'my';
   const submittedPostId = searchParams.get('submitted');
   const submittedStatus = searchParams.get('status') || 'new';
@@ -112,15 +147,14 @@ const BoardPage: React.FC = () => {
     if (main) setTimeout(() => { main.scrollTop = Number(saved); }, 50);
   }, [loading]);
 
-  // AI 외 태그는 클라이언트 사이드 제외 필터
-  const clientExcluded = new Set([...uncheckedTags].filter(t => t !== 'AI'));
+  // 서버가 이미 거른 뒤에도 한 번 더 확인한다 — 검색 CF 배포 전이거나(구버전 응답)
+  // Firestore 경로에서 sourceSite 사전 축소를 통과한 글이 있으면 여기서 걸린다.
   const displayedPosts = clientExcluded.size > 0 && !isMyInquiryView
     ? listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))
     : listPosts;
   const filteredOutAllPosts = listPosts.length > 0 && displayedPosts.length === 0;
   const effectiveListTotal = getEffectiveListTotal({
-    submittedQuery,
-    clientExcludedCount: clientExcluded.size,
+    clientExcludedCount: clientOnlyExcludedCount,
     displayedCount: displayedPosts.length,
     listTotal,
   });
