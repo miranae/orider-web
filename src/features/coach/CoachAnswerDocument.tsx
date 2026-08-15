@@ -528,7 +528,7 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
           ? <UnsupportedBlockNotice key={block.blockId} prescription={block.reason === "prescription_feature_disabled"} />
           : block.kind === "prescription"
             ? <CoachPrescription key={`${response.requestId}:${block.blockId}`} initial={block.prescription} parentRequestId={response.requestId}
-              locale={locale} onReanalyze={onReanalyze} onQuestionSelect={onPlannerQuestion} />
+              locale={locale} onReanalyze={onReanalyze} onQuestionSelect={historical ? undefined : onPlannerQuestion} readOnly={historical} />
           : <SupportedBlock key={block.blockId} block={block} responseFormat={responseFormat}
             showLocalFormatFallback={responseFormat === "chart" && chartable} locale={locale} onAction={onAction} />;
       })}

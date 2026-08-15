@@ -43,6 +43,8 @@ const config = {
   coachPmcInsightEnabled: readBoolEnv("VITE_COACH_PMC_INSIGHT_ENABLED") ?? false,
   coachRiderInsightEnabled: readBoolEnv("VITE_COACH_RIDER_INSIGHT_ENABLED") ?? false,
   coachProgressPlannerEnabled: readBoolEnv("VITE_COACH_PROGRESS_PLANNER_ENABLED") ?? false,
+  trainingDecisionEnabled: readBoolEnv("VITE_TRAINING_DECISION_ENABLED") ?? false,
+  trainingExecutionEnabled: readBoolEnv("VITE_TRAINING_EXECUTION_ENABLED") ?? false,
   coachRidePlanTokenEnabled: readBoolEnv("VITE_COACH_RIDE_PLAN_TOKEN_ENABLED") ?? false,
   coachRidePlanSnapshotEnabled: readBoolEnv("VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED") ?? false,
   coachRidePlanAiEnabled: readBoolEnv("VITE_COACH_RIDE_PLAN_AI_ENABLED") ?? false,

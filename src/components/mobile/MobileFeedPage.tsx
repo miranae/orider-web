@@ -18,7 +18,7 @@ import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import type { ActivityFeedScope } from "../../hooks/useActivities";
 import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
 import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useDashboardPreferences";
-import TodayPlanLink from "../training/TodayPlanLink";
+import TodayTrainingDecisionCard from "../../features/trainingDecision/TodayTrainingDecisionCard";
 
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const MOBILE_FEED_RENDER_STEP = 40;
@@ -337,9 +337,8 @@ export default function MobileFeedPage({
     <div style={{ overscrollBehavior: "contain" }}>
       {user && (
         <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
-          <TodayPlanLink
-            discipline={sportFilter === "all" ? pageDiscipline : sportFilter}
-          />
+          <TodayTrainingDecisionCard user={user}
+            discipline={sportFilter === "all" ? pageDiscipline ?? "bike" : sportFilter} surface="home" />
         </div>
       )}
 

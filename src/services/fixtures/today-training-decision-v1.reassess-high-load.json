@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "today-training-decision-v1-shared-fixtures",
+  "sourcePrescriptionFixture": "functions/src/coach/prescription/fixtures/p2-web-fixture.json",
+  "highLoad": {
+    "prescriptionStatus": "ready",
+    "classification": "high_load",
+    "reasonCodes": [
+      "high_load_initial_recovery"
+    ],
+    "recommendations": []
+  },
+  "reassessment": {
+    "sessionId": "ss_aaaaaaaaaaaaaaaaaaaaaaaa",
+    "recommendation": {
+      "localDate": "2026-07-19",
+      "action": "reassess",
+      "reasonCodes": [
+        "form_gate_before_intensity"
+      ],
+      "evidenceIds": [
+        "rx_ev_5903410d4c09296af7a8",
+        "rx_ev_8e58d3d6c30ff88657d8",
+        "rx_ev_4b8b2b9f108a1c54fba5",
+        "lev_0fd47a6df9b166a32323"
+      ],
+      "reassessBefore": [
+        {
+          "metric": "form",
+          "operator": "gte",
+          "threshold": {
+            "value": -15,
+            "evidenceId": "rx_ev_b925cd58b64ca98d2cae"
+          },
+          "evidenceIds": [
+            "lev_0fd47a6df9b166a32323",
+            "rx_ev_b925cd58b64ca98d2cae"
+          ],
+          "ruleId": "rx.resume.form.v1"
+        },
+        {
+          "metric": "rhr_delta_pct",
+          "operator": "lte",
+          "threshold": {
+            "value": 5,
+            "evidenceId": "rx_ev_9335c5ccef6b3cb52da3"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_98b724846408b29b638a",
+            "rx_ev_c10ecdef8c5b29ae7349",
+            "rx_ev_9335c5ccef6b3cb52da3"
+          ],
+          "ruleId": "rx.resume.rhr.v1"
+        },
+        {
+          "metric": "hrv_delta_pct",
+          "operator": "gte",
+          "threshold": {
+            "value": -10,
+            "evidenceId": "rx_ev_ef760b015e231a8cfd26"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_d6c84f90166ed6b4d9e2",
+            "rx_ev_c554efd193651765eb3e",
+            "rx_ev_ef760b015e231a8cfd26"
+          ],
+          "ruleId": "rx.resume.hrv.v1"
+        },
+        {
+          "metric": "sleep_hours",
+          "operator": "gte",
+          "threshold": {
+            "value": 7,
+            "evidenceId": "rx_ev_fc588d8d0376b7ad0dc0"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_5500a00d6261334f6a90",
+            "rx_ev_fc588d8d0376b7ad0dc0"
+          ],
+          "ruleId": "rx.resume.sleep.v1"
+        },
+        {
+          "metric": "hours_since_high_intensity",
+          "operator": "gte",
+          "threshold": {
+            "value": 48,
+            "evidenceId": "rx_ev_472e04bb156278c97017"
+          },
+          "maxAgeHours": 30,
+          "evidenceIds": [
+            "rx_ev_6d6805e8277df32647b6",
+            "rx_ev_472e04bb156278c97017"
+          ],
+          "ruleId": "rx.resume.high_intensity_gap.v1"
+        }
+      ]
+    }
+  }
+}
