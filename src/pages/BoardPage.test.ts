@@ -13,24 +13,80 @@ describe("parseUserTags", () => {
   });
 });
 
+describe("getTagExclusion", () => {
+  it("excludes nothing when no chip is unchecked", () => {
+    const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
+      uncheckedTags: new Set(),
+      activeTag: undefined,
+      serverFiltersAiTag: true,
+    });
+
+    expect(clientExcluded.size).toBe(0);
+    expect(clientOnlyExcludedCount).toBe(0);
+  });
+
+  it("filters the AI chip by tag but leaves the total to the Firestore query", () => {
+    const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
+      uncheckedTags: new Set(["AI"]),
+      activeTag: undefined,
+      serverFiltersAiTag: true,
+    });
+
+    expect(clientExcluded.has("AI")).toBe(true);
+    expect(clientOnlyExcludedCount).toBe(0);
+  });
+
+  it("counts AI as a client exclusion while the search function ignores it", () => {
+    const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
+      uncheckedTags: new Set(["AI"]),
+      activeTag: undefined,
+      serverFiltersAiTag: false,
+    });
+
+    expect(clientExcluded.has("AI")).toBe(true);
+    expect(clientOnlyExcludedCount).toBe(1);
+  });
+
+  it("counts non-AI chips as page-local exclusions needing a total correction", () => {
+    const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({
+      uncheckedTags: new Set(["AI", "유머", "중고거래"]),
+      activeTag: undefined,
+      serverFiltersAiTag: true,
+    });
+
+    expect(clientExcluded.size).toBe(3);
+    expect(clientOnlyExcludedCount).toBe(2);
+  });
+
+  it("never excludes the tag the user is currently browsing", () => {
+    const { clientExcluded } = getTagExclusion({
+      uncheckedTags: new Set(["AI", "유머"]),
+      activeTag: "AI",
+      serverFiltersAiTag: true,
+    });
+
+    expect(clientExcluded.has("AI")).toBe(false);
+    expect(clientExcluded.has("유머")).toBe(true);
+  });
+});
+
 describe("getEffectiveListTotal", () => {
-  it("uses server total for paginated search results", () => {
+  it("uses the server total when nothing was excluded on the client", () => {
     expect(getEffectiveListTotal({
-      submittedQuery: "검색어",
       clientExcludedCount: 0,
       displayedCount: 20,
       listTotal: 83,
     })).toBe(83);
   });
 
-  it("uses displayed count only for client-side tag exclusions without server search", () => {
+  it("uses the displayed count for client-side tag exclusions", () => {
     expect(getEffectiveListTotal({
-      submittedQuery: "",
       clientExcludedCount: 1,
       displayedCount: 7,
       listTotal: 20,
     })).toBe(7);
   });
+
 });
 
 describe("BoardPage tag filter defaults", () => {
@@ -45,10 +101,10 @@ describe("BoardPage tag filter defaults", () => {
     const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
 
     // 제외 집합은 활성 태그만 빼고 전부 tags 기준으로 판정한다(AI 특례 없음).
-    expect(source).toContain("getTagExclusion({ uncheckedTags, activeTag })");
+    expect(source).toContain("serverFiltersAiTag: !submittedQuery,");
     expect(source).toContain("listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))");
     // 제외 태그는 검색 CF 에도 그대로 전달된다 — 총개수·페이지 수가 목록과 맞아야 한다.
-    expect(source).toContain("const excludeTags = [...clientExcluded];");
+    expect(source).toContain("const clientExcluded = new Set([...uncheckedTags].filter(t => t !== activeTag));");
   });
 });
 

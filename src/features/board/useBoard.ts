@@ -104,8 +104,8 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
         tag,
         limitCount: pageSize,
       };
-      // 검색은 Firestore 쿼리가 아니라 CF 를 타므로 제외 태그를 그대로 넘긴다 — 서버가 걸러야
-      // 총개수·페이지 수가 화면 목록과 맞는다(클라 필터는 페이지 안에서만 걸린다).
+      // 검색은 Firestore 쿼리가 아니라 CF 를 타므로 제외 태그를 그대로 넘긴다(orider-g1-web#2086).
+      // 그 배포 전까지는 서버가 이 필드를 무시하므로, BoardPage 가 총개수를 화면 기준으로 보정한다.
       if (excludeTags.length > 0) params.excludeTags = [...excludeTags];
       if (trimmed.length > 0) params.keyword = trimmed;
       if (boardType === 'archive') params.page = page;
