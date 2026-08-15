@@ -32,7 +32,7 @@ describe("today training stage smoke", () => {
     const fetchImpl = vi.fn(async (url: string, options: { headers?: Record<string, string>; body?: string } = {}) => {
       if (url.includes("/training-decisions/today")) return json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0,
         data: options.headers?.authorization === "Bearer id-ineligible" ? ineligibleDecision : decision });
-      if (url.includes("listSessionExecutions")) return json(200, { result: { executions } });
+      if (url.includes("listSessionExecutions")) return json(200, { data: { executions } });
       if (options.headers?.authorization === "Bearer id-ineligible") return json(404, { error: { code: "not-found" } });
       reserveCalls += 1; executions = [execution]; return json(200, { status: "ok", data: execution });
     });
@@ -76,7 +76,7 @@ describe("today training stage smoke", () => {
       effectiveSessions: [ineligibleSession], planSource: { planRevision: "plan_2" } };
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: decision }))
-      .mockResolvedValueOnce(json(200, { result: { executions: [] } }))
+      .mockResolvedValueOnce(json(200, { data: { executions: [] } }))
       .mockResolvedValueOnce(json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: ineligibleDecision }))
       .mockResolvedValueOnce(json(200, {}));
     await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",

@@ -14,11 +14,21 @@ const auth = getAuth(app); const appCheck = getAppCheck(app); let appCheckToken;
 async function credentialsForIdentity(uid) {
   appCheckToken ??= (await appCheck.createToken(required("TODAY_TRAINING_STAGE_APP_ID"))).token;
   const customToken = await auth.createCustomToken(uid);
-  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${encodeURIComponent(required("TODAY_TRAINING_STAGE_WEB_API_KEY"))}`, {
+  const identityEndpoint = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken";
+  const identityUrl = `${identityEndpoint}?key=${encodeURIComponent(required("TODAY_TRAINING_STAGE_WEB_API_KEY"))}`;
+  const response = await fetch(identityUrl, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: customToken, returnSecureToken: true }),
     signal: AbortSignal.timeout(10_000),
   });
-  const body = await response.json(); if (!response.ok || typeof body.idToken !== "string") throw new Error("stage_smoke:id_token_exchange_failed");
+  let body;
+  try {
+    body = await response.json();
+  } catch (cause) {
+    throw new Error(`stage_smoke:id_token_exchange_json_invalid:${response.status}:${identityEndpoint}`, { cause });
+  }
+  if (!response.ok || typeof body.idToken !== "string") {
+    throw new Error(`stage_smoke:id_token_exchange_failed:${response.status}:${identityEndpoint}`);
+  }
   return { idToken: body.idToken, appCheckToken };
 }
 const output = process.argv[2] ?? ".artifacts/today-training-stage-smoke.json";

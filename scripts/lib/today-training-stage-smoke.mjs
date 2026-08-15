@@ -51,8 +51,8 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
     const listed = await requestJson(dependencies.fetchImpl, listUrl, {
       method: "POST", headers: headers(eligible), body: JSON.stringify({ data: { discipline: "bike", limit: 20 } }),
     });
-    if (listed.status !== 200 || !Array.isArray(listed.body?.result?.executions)) throw new Error("stage_smoke:list_failed");
-    return listed.body.result.executions;
+    if (listed.status !== 200 || !Array.isArray(listed.body?.data?.executions)) throw new Error("stage_smoke:list_failed");
+    return listed.body.data.executions;
   };
   const matchesCurrentDecision = (item) => item?.status !== "invalidated" && item?.discipline === "bike"
     && item?.scheduledSessionId === session.scheduledSessionId
