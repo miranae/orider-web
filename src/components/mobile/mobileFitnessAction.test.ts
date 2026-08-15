@@ -33,7 +33,7 @@ describe("mobile fitness action", () => {
 
     expect(mobileHome).toContain("<TodayTrainingDecisionCard");
     expect(mobileHome).not.toContain("TodaysWorkoutCard");
-    expect(plan).toContain('<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />');
+    expect(plan).toContain('<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />');
     expect(plan).not.toContain("TodaysWorkoutCard");
   });
 
