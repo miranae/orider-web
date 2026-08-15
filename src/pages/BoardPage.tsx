@@ -35,14 +35,19 @@ export function getTagExclusion({
 export function getEffectiveListTotal({
   submittedQuery,
   clientExcludedCount,
+  droppedOnPage,
   displayedCount,
   listTotal,
 }: {
   submittedQuery: string;
   clientExcludedCount: number;
+  droppedOnPage: number;
   displayedCount: number;
   listTotal: number;
 }): number {
+  // 클라이언트가 실제로 걸러낸 글이 있다면 서버가 제외를 적용하지 않았다는 뜻이다
+  // (검색 CF 미배포 등). 서버 총개수는 제외 전 값이므로 화면 기준으로 낮춘다.
+  if (droppedOnPage > 0) return displayedCount;
   if (submittedQuery) return listTotal;
   if (clientExcludedCount > 0) return displayedCount;
   return listTotal;
@@ -145,6 +150,7 @@ const BoardPage: React.FC = () => {
   const effectiveListTotal = getEffectiveListTotal({
     submittedQuery,
     clientExcludedCount: clientOnlyExcludedCount,
+    droppedOnPage: listPosts.length - displayedPosts.length,
     displayedCount: displayedPosts.length,
     listTotal,
   });
