@@ -1,6 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { readFile } from "node:fs/promises";
-import { getEffectiveListTotal, getTagExclusion } from "./BoardPage";
+import { getEffectiveListTotal, getTagExclusion, getTotalCorrectionCount } from "./BoardPage";
+import { parseUserTags } from "./CreatePostPage";
+
+describe("parseUserTags", () => {
+  it("keeps user tags in order", () => {
+    expect(parseUserTags(" 로드바이크 , 훈련 ,, ")).toEqual(["로드바이크", "훈련"]);
+  });
+
+  it("drops the reserved AI tag regardless of casing", () => {
+    expect(parseUserTags("ai, 훈련, Ai, AI")).toEqual(["훈련"]);
+  });
+});
+
+describe("getTotalCorrectionCount", () => {
+  it("trusts the server total when nothing was filtered on the client", () => {
+    expect(getTotalCorrectionCount({ clientOnlyExcludedCount: 0, droppedOnPage: 0 })).toBe(0);
+  });
+
+  it("corrects when a tag the server cannot filter is unchecked", () => {
+    expect(getTotalCorrectionCount({ clientOnlyExcludedCount: 2, droppedOnPage: 0 })).toBe(2);
+  });
+
+  it("corrects when an AI-tagged post leaks past the server query", () => {
+    expect(getTotalCorrectionCount({ clientOnlyExcludedCount: 0, droppedOnPage: 3 })).toBe(1);
+  });
+});
 
 describe("getTagExclusion", () => {
   it("excludes nothing when no chip is unchecked", () => {

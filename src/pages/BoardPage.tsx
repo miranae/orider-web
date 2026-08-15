@@ -29,6 +29,23 @@ export function getTagExclusion({
   return { clientExcluded, clientOnlyExcludedCount };
 }
 
+/**
+ * 서버 총개수(listTotal)를 그대로 믿을 수 없는 경우의 수를 센다.
+ * - clientOnlyExcludedCount: 서버가 못 거르는 태그 — 켜져 있으면 페이지마다 더 걸러진다.
+ * - droppedOnPage: AI 처럼 서버가 걸렀어야 할 글이 실제로 이 페이지에서 걸러진 경우.
+ *   사용자 글에 AI 태그가 붙는 누수(작성 경로에서 막지만 프론트는 보안 경계가 아니다)가
+ *   생기면 여기서 잡혀 총개수가 화면 표시 건수로 낮아진다.
+ */
+export function getTotalCorrectionCount({
+  clientOnlyExcludedCount,
+  droppedOnPage,
+}: {
+  clientOnlyExcludedCount: number;
+  droppedOnPage: number;
+}): number {
+  return clientOnlyExcludedCount + (droppedOnPage > 0 ? 1 : 0);
+}
+
 export function getEffectiveListTotal({
   submittedQuery,
   clientExcludedCount,
@@ -143,7 +160,10 @@ const BoardPage: React.FC = () => {
   const filteredOutAllPosts = listPosts.length > 0 && displayedPosts.length === 0;
   const effectiveListTotal = getEffectiveListTotal({
     submittedQuery,
-    clientExcludedCount: clientOnlyExcludedCount,
+    clientExcludedCount: getTotalCorrectionCount({
+      clientOnlyExcludedCount,
+      droppedOnPage: listPosts.length - displayedPosts.length,
+    }),
     displayedCount: displayedPosts.length,
     listTotal,
   });

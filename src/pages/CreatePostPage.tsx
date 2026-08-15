@@ -87,6 +87,20 @@ function plainTextToHtml(value: string): string {
   return value.split(/\n/).map((line) => line.trim() ? `<p>${escapeHtml(line)}</p>` : "<p><br></p>").join("");
 }
 
+/**
+ * AI 는 크롤러 수집 글 전용 시스템 태그다 — 사용자가 직접 달 수 없다.
+ * 커뮤니티 목록의 #AI 제외는 서버에서 sourceSite==null 로 좁힌 뒤 태그로 최종 판정하므로,
+ * 사용자 글에 AI 태그가 붙으면 서버가 세어준 총개수와 화면 목록이 어긋난다.
+ * (프론트는 보안 경계가 아니므로 BoardPage 는 누수가 생겨도 총개수를 스스로 보정한다.)
+ */
+export function parseUserTags(raw: string): string[] {
+  return raw
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(Boolean)
+    .filter(tag => tag.toUpperCase() !== 'AI');
+}
+
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation("board");
@@ -133,7 +147,7 @@ const CreatePostPage: React.FC = () => {
   const imageMapRef = useRef<Map<string, File>>(new Map());
   const uploadedImageMapRef = useRef<Map<string, string>>(new Map());
   const restoredDraftKeyRef = useRef<string | null>(null);
-  const tagItems = tags.split(',').map(tag => tag.trim()).filter(Boolean);
+  const tagItems = parseUserTags(tags);
   const draftKey = user ? getPostDraftKey(user.uid, isInquiry ? "inquiry" : "free") : null;
 
   const syncAttachedImages = useCallback(() => {
@@ -693,7 +707,7 @@ const CreatePostPage: React.FC = () => {
         activityId: null,
         tags: isInquiry
           ? [feedbackType === 'bug' ? '버그' : feedbackType === 'feature' ? '기능요청' : feedbackType === 'question' ? '문의' : '기타']
-          : tags.split(',').map(tag => tag.trim()).filter(Boolean),
+          : parseUserTags(tags),
         imageUrls,
         feedbackType: isInquiry ? feedbackType : null,
         isPrivate: isInquiry ? isPrivate : false,
