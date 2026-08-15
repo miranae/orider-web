@@ -121,7 +121,7 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
         {t(`decision.reason.${code}`, { defaultValue: t("decision.reasonFallback") })}
       </Chip>)}</div>
     </section>}
-    {surface === "home" && <TrainingExecutionPanel decision={decision} sessions={effective ? [effective] : []} onChanged={refresh} />}
+    {surface === "home" && <TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={refresh} />}
     {(surface === "home" || surface === "fitness") && <footer className="training-decision-card__actions">
       {surface === "home" && <LocalizedLink to={{ pathname: "/plan", search: `?sport=${discipline}` }} className={buttonClass({ variant: "outline", size: "sm" })}>
         {t("decision.viewPlan")}<ChevronRight size={16} aria-hidden />

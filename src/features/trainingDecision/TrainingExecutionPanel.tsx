@@ -176,7 +176,7 @@ function TrainingExecutionPanelBody({ decision, sessions, onChanged }: { decisio
 
 export function TrainingExecutionPanel({ decision, sessions, onChanged }: { decision: TodayTrainingDecisionProjection;
   sessions: TrainingDecisionSession[]; onChanged: () => void }) {
-  if (getRuntimeConfig().trainingExecutionEnabled !== true || decision.capabilities.execution.reserve !== "available"
+  if (getRuntimeConfig().trainingExecutionEnabled !== true || decision.capabilities.execution.status !== "available"
       || decision.healthGate.state !== "clear" || !decision.planSource || sessions.length === 0) return null;
   return <TrainingExecutionPanelBody decision={decision} sessions={sessions} onChanged={onChanged} />;
 }

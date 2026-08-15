@@ -105,6 +105,18 @@ describe("TrainingExecutionPanel", () => {
     expect(mocks.reserve).not.toHaveBeenCalled();
   });
 
+  it("keeps a recovered execution usable when only new reservations are disabled", async () => {
+    mocks.list.mockResolvedValue([baseExecution]);
+    const envelope = trainingDecisionEnvelope();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ capabilities: {
+      ...envelope.data.capabilities, execution: { ...envelope.data.capabilities.execution, reserve: "disabled" },
+    } }));
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(await screen.findByText(/세션이 예약되었습니다/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "운동 시작" })).toBeInTheDocument();
+    expect(mocks.list).toHaveBeenCalledWith("bike");
+  });
+
   it("does not recover an execution from a stale source tuple", async () => {
     mocks.list.mockResolvedValue([{ ...baseExecution, projectionId: "today_stale_projection_123" }]);
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());

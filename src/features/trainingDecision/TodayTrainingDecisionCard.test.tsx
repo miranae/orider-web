@@ -7,11 +7,12 @@ import { trainingDecisionEnvelope } from "../../services/trainingDecisionContrac
 import TodayTrainingDecisionCard from "./TodayTrainingDecisionCard";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), coach: vi.fn(() => <button>코치 분석</button>),
+  execution: vi.fn(() => <div>실행 패널</div>),
   proposal: { state: "unavailable", proposal: null, create: vi.fn(), confirm: vi.fn(), decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() } }));
 vi.mock("../../hooks/useTodayTrainingDecision", () => ({ useTodayTrainingDecision: mocks.hook }));
 vi.mock("../coach/CoachQuestionLauncher", () => ({ CoachQuestionLauncher: mocks.coach }));
 vi.mock("./useTrainingProposalController", () => ({ useTrainingProposalController: () => mocks.proposal }));
-vi.mock("./TrainingExecutionPanel", () => ({ TrainingExecutionPanel: () => <div>실행 패널</div> }));
+vi.mock("./TrainingExecutionPanel", () => ({ TrainingExecutionPanel: (props: unknown) => mocks.execution(props) }));
 
 const user = { uid: "owner" } as never;
 const appliedRevision = { goalId: "goal_123", goalHash: `doc_${"a".repeat(32)}`,
@@ -79,6 +80,21 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByText("권고 변화 -20분 · -45 TSS")).toBeInTheDocument();
     expect(screen.queryByText(/아직 미적용/u)).not.toBeInTheDocument();
     expect(screen.queryByText("조정 권고")).not.toBeInTheDocument();
+  });
+
+  it("passes every effective Home session to the execution panel", () => {
+    const base = trainingDecisionEnvelope();
+    const secondScheduled = { ...base.data.scheduledSessions[0]!, sessionId: "ss_eeeeeeeeeeeeeeeeeeeeeeee",
+      scheduledSessionId: "ss_eeeeeeeeeeeeeeeeeeeeeeee", scheduledSessionRevision: "ssr_ffffffffffffffffffffffff",
+      sessionRevision: "ssr_ffffffffffffffffffffffff", planItemId: "item_456" };
+    const second = { ...secondScheduled, basis: "scheduled" as const, appliedProposalId: null };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      effectiveSessions: [...base.data.effectiveSessions, second],
+      scheduledSessions: [...base.data.scheduledSessions, secondScheduled],
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(mocks.execution).toHaveBeenCalledWith(expect.objectContaining({ sessions: decision.effectiveSessions }));
   });
 
   it("does not offer proposal review when there are no actual adjustments", () => {

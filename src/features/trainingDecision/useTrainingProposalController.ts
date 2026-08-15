@@ -20,15 +20,23 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
   const confirmRequestId = useRef<string | null>(null);
   const prescriptionId = decision?.recommendationSource?.prescriptionId ?? null;
   const sourceRequestId = decision?.recommendationSource?.sourceRequestId ?? null;
+  const decisionKey = decision ? `${decision.projectionId}:${prescriptionId ?? ""}:${sourceRequestId ?? ""}` : "unavailable";
+  const activeDecisionKey = useRef(decisionKey);
+  const hydrateGeneration = useRef(0);
+  activeDecisionKey.current = decisionKey;
   const locallyEnabled = getRuntimeConfig().coachProgressPlannerEnabled === true;
 
   const hydrate = useCallback(async () => {
+    if (activeDecisionKey.current !== decisionKey) return;
+    const generation = ++hydrateGeneration.current;
+    const isCurrent = () => activeDecisionKey.current === decisionKey && hydrateGeneration.current === generation;
     if (!locallyEnabled || !decision || !prescriptionId || !sourceRequestId) { setState("unavailable"); return; }
     setState("loading");
     try {
       const [capabilities, result] = await Promise.all([
         getCoachProgressPlannerCapabilities(), getCoachProgressProposalRecovery(prescriptionId, sourceRequestId),
       ]);
+      if (!isCurrent()) return;
       if (result.status === "error") { setState(result.error.retryable ? "error" : "stale"); return; }
       const value = result.data;
       setProposal(value.proposal); setReceipt(value.receipt); setNonce(value.confirmNonce); setRollbackRequestId(value.rollbackRequestId);
@@ -38,10 +46,11 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
       if ((mapped === "idle" || mapped === "pending") && !capabilities.progressPlanner.proposal.enabled) setState("unavailable");
       else setState(mapped);
     } catch (error) {
+      if (!isCurrent()) return;
       logClientError("useTrainingProposalController.hydrate", error, { prescriptionId });
       setState("error");
     }
-  }, [decision, locallyEnabled, prescriptionId, sourceRequestId]);
+  }, [decision, decisionKey, locallyEnabled, prescriptionId, sourceRequestId]);
 
   useEffect(() => { void hydrate(); }, [hydrate]);
 

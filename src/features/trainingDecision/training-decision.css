@@ -62,7 +62,6 @@
 @container (max-width: 40rem) {
   .training-decision-card__sessions--compact, .training-decision-card--plan .training-decision-card__sessions { grid-template-columns: 1fr; }
   .training-decision-card--plan .training-decision-proposal__change { grid-template-columns: 1fr; }
-  .training-decision-card--plan .training-decision-proposal__change[data-current-day="true"] { display: none; }
 }
 @container (max-width: 22rem) {
   .training-decision-card__header { align-items: stretch; flex-direction: column; }

@@ -205,6 +205,7 @@ test.describe("Today training decision responsive render", () => {
     await expect(plan.locator('.training-decision-card__sessions [data-session-role="recommended"]')).toBeVisible();
     await expect(plan.locator('.training-decision-card__sessions [data-session-role="effective"]')).toBeVisible();
     await expect(plan.locator('[data-proposal-state="pending"]')).toBeVisible();
+    await expect(plan.locator('.training-decision-proposal__change[data-current-day="true"]')).toBeVisible();
     await expect(plan.getByRole("button", { name: "이 변경 적용" })).toBeVisible();
     await expect(plan.getByRole("button", { name: "원래 계획 유지" })).toBeVisible();
     await expect(plan.getByText("운동 실행")).toHaveCount(0);
