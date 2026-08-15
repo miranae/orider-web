@@ -63,8 +63,9 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   const { t } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailable, refresh } = useTodayTrainingDecision(user?.uid, discipline);
   if (!user) return null;
-  if (getRuntimeConfig().trainingDecisionEnabled !== true) {
-    return surface === "fitness" ? null : <TodaysWorkoutCard />;
+  if (!decision && getRuntimeConfig().trainingDecisionEnabled !== true) {
+    if (surface === "plan") return <TodaysWorkoutCard />;
+    if (surface === "fitness") return null;
   }
   if (loading) return <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
   if (!decision) return <div className="training-decision-fallback" data-training-decision-fallback={unavailable ? "unavailable" : "empty"}>
