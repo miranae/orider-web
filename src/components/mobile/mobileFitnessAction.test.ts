@@ -7,44 +7,41 @@ function read(path: string): string {
 }
 
 describe("mobile fitness action", () => {
-  it("shows today's workout only on integrated mobile fitness and keeps core sections ordered", () => {
+  it("removes today's workout from mobile fitness and keeps core sections ordered", () => {
     const source = read("src/components/mobile/MobileFitnessPage.tsx");
     const overview = source.slice(source.indexOf('{activeTab === "overview"'));
-    const workoutIndex = overview.indexOf("<TodaysWorkoutCard />");
     const coreIndex = overview.indexOf("<BikePerformanceSummaryCard");
     const loadIndex = overview.indexOf("<IntegratedLoadCard");
     const sportIndex = overview.indexOf("<SportPerformanceCard");
     const analysisIndex = overview.indexOf('{activeTab === "analysis"');
 
-    expect(workoutIndex).toBeGreaterThan(-1);
-    expect(overview).toContain('data.discipline === "tri" && (');
-    expect(overview).not.toContain('<TodaysWorkoutCard variant="compact" />');
+    expect(overview).not.toContain("TodaysWorkoutCard");
     expect(coreIndex).toBeGreaterThan(-1);
     expect(loadIndex).toBeGreaterThan(-1);
     expect(overview).toContain('data.discipline === "tri" && data.combinedLoad');
     expect(sportIndex).toBeGreaterThan(-1);
     expect(coreIndex).toBeLessThan(loadIndex);
     expect(loadIndex).toBeLessThan(sportIndex);
-    expect(workoutIndex).toBeLessThan(analysisIndex);
+    expect(analysisIndex).toBeGreaterThan(sportIndex);
     expect(overview).not.toContain("{kpiItems.map");
     expect(overview).toContain("<BikePerformanceSummaryCard");
   });
 
-  it("uses the full AI coach on mobile home and keeps the plan card compact", () => {
+  it("uses a small plan link on mobile home and keeps the plan card compact", () => {
     const mobileHome = read("src/components/mobile/MobileFeedPage.tsx");
     const plan = read("src/pages/PlanPage.tsx");
 
-    expect(mobileHome).toContain("<TodaysWorkoutCard />");
-    expect(mobileHome).not.toContain('<TodaysWorkoutCard variant="compact" />');
+    expect(mobileHome).toContain("<TodayPlanLink");
+    expect(mobileHome).not.toContain("TodaysWorkoutCard");
     expect(plan).toContain('<TodaysWorkoutCard variant="compact" />');
   });
 
-  it("uses the full AI coach only in desktop integrated fitness", () => {
+  it("removes today's workout from desktop fitness", () => {
     const fitness = read("src/pages/FitnessPage.tsx");
     const triFitness = read("src/pages/fitness/TriFitnessView.tsx");
     expect(fitness).not.toContain("TodaysWorkoutCard");
-    expect(triFitness).toContain("<TodaysWorkoutCard />");
-    expect(triFitness.match(/<TodaysWorkoutCard \/>/g)).toHaveLength(1);
+    expect(fitness).not.toContain("TodayConclusion");
+    expect(triFitness).not.toContain("TodaysWorkoutCard");
   });
 
   it("uses shrink-safe grid tracks for the integrated mobile summary", () => {
@@ -66,15 +63,15 @@ describe("mobile fitness action", () => {
   });
 
   it.each([
-    ["ko", "운동 계획 열기"],
-    ["en", "Open workout plan"],
-  ])("defines a user-facing today.start label for %s", (locale, expected) => {
+    ["ko", "오늘 계획 보기"],
+    ["en", "View today's plan"],
+  ])("defines a user-facing today.viewTodayPlan label for %s", (locale, expected) => {
     const resource = JSON.parse(read(`src/i18n/resources/${locale}/training.json`)) as {
-      today?: { start?: string };
+      today?: { viewTodayPlan?: string };
     };
 
-    expect(resource.today?.start).toBe(expected);
-    expect(resource.today?.start).not.toBe("today.start");
+    expect(resource.today?.viewTodayPlan).toBe(expected);
+    expect(resource.today?.viewTodayPlan).not.toBe("today.viewTodayPlan");
   });
 
   it("renders mobile PMC typography as fixed-size HTML overlays outside the SVG", () => {

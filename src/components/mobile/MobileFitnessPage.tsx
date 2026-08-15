@@ -18,7 +18,6 @@ import type { Discipline } from "../../utils/disciplineFilter";
 import { Text } from "../../theme/components";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
-import TodaysWorkoutCard from "../training/TodaysWorkoutCard";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
@@ -546,12 +545,6 @@ export default function MobileFitnessPage({
 
       {activeTab === "overview" && (
         <div style={{ paddingTop: 14 }}>
-          {data.discipline === "tri" && (
-            <div style={{ padding: "0 14px 14px" }}>
-              <TodaysWorkoutCard />
-            </div>
-          )}
-
           {data.discipline === "bike" && (
             <BikePerformanceSummaryCard
               decision={data.thresholdDecision}
