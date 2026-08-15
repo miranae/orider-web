@@ -36,6 +36,11 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByText("기존 오늘 운동")).toBeInTheDocument();
     expect(mocks.legacy).toHaveBeenCalled();
   });
+  it("keeps the existing Plan workout card when the decision API is unavailable", () => {
+    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    expect(screen.getByText("기존 오늘 운동")).toBeInTheDocument();
+  });
   it("separates the scheduled and recommended sessions from one projection", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });

@@ -532,9 +532,10 @@ export default function PlanPage() {
   const [loadError, setLoadError] = useState<unknown>(null);
   const [selectedDay, setSelectedDay] = useState<{ day: PlanDay; weekId: string; dayIndex: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [todayDecisionAvailable, setTodayDecisionAvailable] = useState(false);
   // lazy revalidate — plan 페이지는 활동/피로도 기반 자동 조정이 가장 직접 보이는 화면
   const { revalidating, justRecomputed } = useFreshTraining(discipline);
-  const legacyRecoveryEnabled = getRuntimeConfig().trainingDecisionEnabled !== true;
+  const legacyRecoveryEnabled = getRuntimeConfig().trainingDecisionEnabled !== true || !todayDecisionAvailable;
   const { timeseries } = useFitnessTimeseries(legacyRecoveryEnabled ? user?.uid : undefined, discipline);
   const tsbFresh = timeseries?.endDate != null
     && (Date.now() - new Date(`${timeseries.endDate}T00:00:00Z`).getTime()) <= 3 * DAY_MS;
@@ -698,7 +699,7 @@ export default function PlanPage() {
           <DisciplineTabs />
         </div>
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />
         </div>
         <div style={{ padding: "24px 0" }}>
           <ErrorState title={tCommon("error.title")} onRetry={retryLoad} />
@@ -716,7 +717,7 @@ export default function PlanPage() {
           <DisciplineTabs />
         </div>
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />
         </div>
         <div style={{ padding: "24px 0" }}>
           <EmptyState
@@ -758,7 +759,7 @@ export default function PlanPage() {
     return (
       <>
         <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />
         </div>
         <MobilePlanPage
           currentWeek={mobilePlanViewModel.currentWeek}
@@ -957,7 +958,7 @@ export default function PlanPage() {
       {/* ── Body ────────────────────────────────────────────────────── */}
       <div style={{ padding: '20px 0 0' }}>
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />
         </div>
 
         <PlanAdjustmentNarrative goal={goal} weeks={weeks} t={t} />

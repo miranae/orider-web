@@ -137,6 +137,10 @@ requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
 requireIncludes(deployWorkflow, "node scripts/verify-staged-training-flags.mjs", "deploy.yml staged training flag gate");
 requireIncludes(deployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "deploy.yml staged training smoke evidence gate");
 requireIncludes(deployWorkflow, '.artifacts/today-training-stage-smoke.json "$RELEASE_SHA"', "deploy.yml commit-bound smoke evidence");
+requireIncludes(deployWorkflow, 'STAGE_TRAINING_PROJECT_ID: ${{ vars.STAGE_TRAINING_PROJECT_ID }}',
+  "deploy.yml stage evidence project binding");
+requireIncludes(deployWorkflow, '"$RELEASE_SHA" "$STAGE_TRAINING_PROJECT_ID"',
+  "deploy.yml stage evidence project arguments");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
 requireBefore(deployWorkflow, "node scripts/verify-staged-training-flags.mjs", "node scripts/write-runtime-config.mjs",
   "deploy.yml staged training flag gate");

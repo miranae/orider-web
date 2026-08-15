@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight } from "lucide-react";
 import type { User } from "firebase/auth";
@@ -14,7 +15,6 @@ import { TrainingDecisionSessionView } from "./TrainingDecisionSessionView";
 import { useTrainingProposalController } from "./useTrainingProposalController";
 import { CoachQuestionLauncher } from "../coach/CoachQuestionLauncher";
 import { TrainingExecutionPanel } from "./TrainingExecutionPanel";
-import { getRuntimeConfig } from "../../services/runtimeConfig";
 import "./training-decision.css";
 
 export type TrainingDecisionSurface = "home" | "fitness" | "plan";
@@ -59,12 +59,15 @@ function ProposalPanel({ decision, refresh }: { decision: NonNullable<ReturnType
   </section>;
 }
 
-export default function TodayTrainingDecisionCard({ user, discipline, surface = "home", onSignIn = () => undefined }: { user: User | null;
-  discipline: "bike" | "run" | "swim"; surface?: TrainingDecisionSurface; onSignIn?: () => void }) {
+export default function TodayTrainingDecisionCard({ user, discipline, surface = "home", onSignIn = () => undefined,
+  onAvailabilityChange }: { user: User | null;
+  discipline: "bike" | "run" | "swim"; surface?: TrainingDecisionSurface; onSignIn?: () => void;
+  onAvailabilityChange?: (available: boolean) => void }) {
   const { t } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailable, refresh } = useTodayTrainingDecision(user?.uid, discipline);
+  useEffect(() => onAvailabilityChange?.(!loading && decision !== null), [decision, loading, onAvailabilityChange]);
   if (!user) return null;
-  if (!decision && getRuntimeConfig().trainingDecisionEnabled !== true) {
+  if (!decision && !loading) {
     if (surface === "plan") return <TodaysWorkoutCard />;
     if (surface === "fitness") return null;
   }
