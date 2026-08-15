@@ -7,6 +7,7 @@
  * - COOP too strict for Google popup login.
  * - Local deploy guard accidentally removed.
  * - Production deploy workflow no longer tag/environment gated.
+ * - Self-hosted deploy jobs accidentally restore or save the shared npm cache.
  */
 
 import { readFileSync } from "node:fs";
@@ -94,6 +95,17 @@ const deployWorkflow = readFileSync(".github/workflows/deploy.yml", "utf8");
 const runtimeConfigWriter = readFileSync("scripts/write-runtime-config.mjs", "utf8");
 const envGuard = readFileSync("scripts/check-env.mjs", "utf8");
 const hostingRunner = "runs-on: [self-hosted, macOS, ARM64, web-hosting]";
+const selfHostedSetupNode = `- uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false`;
+
+function checkSelfHostedSetupNodeCache(workflow, label) {
+  requireIncludes(workflow, selfHostedSetupNode, `${label} setup-node cache policy`);
+  if (workflow.includes("cache: npm")) {
+    fail(`${label} must not restore or save the shared npm cache on the self-hosted runner`);
+  }
+}
 requireIncludes(runtimeConfigWriter, '  "mapboxToken",\n  "aiApiBase",', "write-runtime-config required keys");
 requireIncludes(runtimeConfigWriter,
   'coachRidePlanRespondV2Enabled: readBoolEnv("VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED") ?? false',
@@ -103,6 +115,7 @@ requireIncludes(deployWorkflow, "tags:", "deploy.yml trigger");
 requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
 requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
 requireIncludes(deployWorkflow, hostingRunner, "deploy.yml dedicated Hosting runner");
+checkSelfHostedSetupNodeCache(deployWorkflow, "deploy.yml");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
@@ -142,6 +155,7 @@ requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
 requireIncludes(stageDeployWorkflow, "if: github.ref == 'refs/heads/main'", "deploy-stage.yml main ref guard");
 requireIncludes(stageDeployWorkflow, hostingRunner, "deploy-stage.yml dedicated Hosting runner");
+checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
 requireIncludes(stageDeployWorkflow, "actions/upload-artifact", "deploy-stage.yml verified artifact upload");
