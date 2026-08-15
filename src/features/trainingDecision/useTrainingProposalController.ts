@@ -16,6 +16,7 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
   const [receipt, setReceipt] = useState<CoachChangeReceipt | null>(null);
   const [nonce, setNonce] = useState<string | null>(null);
   const [rollbackRequestId, setRollbackRequestId] = useState<string | null>(null);
+  const [hydratedDecisionKey, setHydratedDecisionKey] = useState<string | null>(null);
   const createRequestId = useRef<{ decisionKey: string; value: string } | null>(null);
   const confirmRequestId = useRef<{ decisionKey: string; value: string } | null>(null);
   const prescriptionId = decision?.recommendationSource?.prescriptionId ?? null;
@@ -30,7 +31,9 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
     if (activeDecisionKey.current !== decisionKey) return;
     const generation = ++hydrateGeneration.current;
     const isCurrent = () => activeDecisionKey.current === decisionKey && hydrateGeneration.current === generation;
-    if (!locallyEnabled || !decision || !prescriptionId || !sourceRequestId) { setState("unavailable"); return; }
+    if (!locallyEnabled || !decision || !prescriptionId || !sourceRequestId) {
+      setHydratedDecisionKey(decisionKey); setState("unavailable"); return;
+    }
     setState("loading");
     try {
       const [capabilities, result] = await Promise.all([
@@ -40,6 +43,7 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
       if (result.status === "error") {
         logClientError("useTrainingProposalController.hydrate.response", new Error(result.error.code),
           { prescriptionId, code: result.error.code });
+        setHydratedDecisionKey(decisionKey);
         setState(result.error.retryable ? "error" : "stale");
         return;
       }
@@ -50,9 +54,11 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
           : value.reasonCode === "proposal_declined" ? "declined" : "stale";
       if ((mapped === "idle" || mapped === "pending") && !capabilities.progressPlanner.proposal.enabled) setState("unavailable");
       else setState(mapped);
+      setHydratedDecisionKey(decisionKey);
     } catch (error) {
       if (!isCurrent()) return;
       logClientError("useTrainingProposalController.hydrate", error, { prescriptionId });
+      setHydratedDecisionKey(decisionKey);
       setState("error");
     }
   }, [decision, decisionKey, locallyEnabled, prescriptionId, sourceRequestId]);
@@ -60,7 +66,7 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
   useEffect(() => { void hydrate(); }, [hydrate]);
 
   const create = useCallback(async () => {
-    if (!decision || !sourceRequestId || state !== "idle") return;
+    if (!decision || !sourceRequestId || hydratedDecisionKey !== decisionKey || state !== "idle") return;
     const operationDecisionKey = decisionKey;
     const isCurrent = () => activeDecisionKey.current === operationDecisionKey;
     const dates = decision.recommendedAdjustments.map((item) => item.recommendation.localDate);
@@ -81,10 +87,10 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
       if (!isCurrent()) return;
       await hydrate(); if (isCurrent()) onChanged();
     } catch (error) { logClientError("useTrainingProposalController.create", error, { prescriptionId }); if (isCurrent()) setState("error"); }
-  }, [decision, decisionKey, hydrate, onChanged, prescriptionId, sourceRequestId, state]);
+  }, [decision, decisionKey, hydrate, hydratedDecisionKey, onChanged, prescriptionId, sourceRequestId, state]);
 
   const confirm = useCallback(async () => {
-    if (!decision || !proposal || !nonce || state !== "pending") return;
+    if (!decision || !proposal || !nonce || hydratedDecisionKey !== decisionKey || state !== "pending") return;
     const operationDecisionKey = decisionKey;
     const isCurrent = () => activeDecisionKey.current === operationDecisionKey;
     setState("busy");
@@ -103,10 +109,10 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
       if (!isCurrent()) return;
       await hydrate(); if (isCurrent()) onChanged();
     } catch (error) { logClientError("useTrainingProposalController.confirm", error, { prescriptionId }); if (isCurrent()) setState("error"); }
-  }, [decision, decisionKey, hydrate, nonce, onChanged, prescriptionId, proposal, state]);
+  }, [decision, decisionKey, hydrate, hydratedDecisionKey, nonce, onChanged, prescriptionId, proposal, state]);
 
   const rollback = useCallback(async () => {
-    if (!decision || !proposal || !rollbackRequestId || state !== "applied") return;
+    if (!decision || !proposal || !rollbackRequestId || hydratedDecisionKey !== decisionKey || state !== "applied") return;
     const operationDecisionKey = decisionKey;
     const isCurrent = () => activeDecisionKey.current === operationDecisionKey;
     setState("busy");
@@ -121,10 +127,10 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
       if (!isCurrent()) return;
       await hydrate(); if (isCurrent()) onChanged();
     } catch (error) { logClientError("useTrainingProposalController.rollback", error, { prescriptionId }); if (isCurrent()) setState("error"); }
-  }, [decision, decisionKey, hydrate, onChanged, prescriptionId, proposal, rollbackRequestId, state]);
+  }, [decision, decisionKey, hydrate, hydratedDecisionKey, onChanged, prescriptionId, proposal, rollbackRequestId, state]);
 
   const decline = useCallback(async () => {
-    if (!decision || !proposal || state !== "pending") return;
+    if (!decision || !proposal || hydratedDecisionKey !== decisionKey || state !== "pending") return;
     const operationDecisionKey = decisionKey;
     const isCurrent = () => activeDecisionKey.current === operationDecisionKey;
     setState("busy");
@@ -140,7 +146,9 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
       if (!isCurrent()) return;
       await hydrate(); if (isCurrent()) onChanged();
     } catch (error) { logClientError("useTrainingProposalController.decline", error, { prescriptionId }); if (isCurrent()) setState("error"); }
-  }, [decision, decisionKey, hydrate, onChanged, prescriptionId, proposal, state]);
+  }, [decision, decisionKey, hydrate, hydratedDecisionKey, onChanged, prescriptionId, proposal, state]);
 
-  return { state, proposal, receipt, create, confirm, decline, rollback, refresh: hydrate };
+  const hydrated = hydratedDecisionKey === decisionKey;
+  return { state: hydrated ? state : "loading", proposal: hydrated ? proposal : null,
+    receipt: hydrated ? receipt : null, create, confirm, decline, rollback, refresh: hydrate };
 }

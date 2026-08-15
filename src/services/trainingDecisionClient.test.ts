@@ -6,6 +6,7 @@ vi.mock("./firebase", () => ({ auth: { currentUser: { getIdToken: mocks.getIdTok
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ aiApiBase: "https://coach.example.run.app" }) }));
 
 import { getTodayTrainingDecision } from "./trainingDecisionClient";
+import { trainingDecisionEnvelope } from "./trainingDecisionContract.test";
 
 describe("trainingDecisionClient", () => {
   beforeEach(() => {
@@ -20,6 +21,15 @@ describe("trainingDecisionClient", () => {
       json: async () => { throw parseError; } } as Response);
     await expect(getTodayTrainingDecision("bike")).rejects.toMatchObject({
       kind: "http", code: "INVALID_JSON_HTTP_502", cause: parseError,
+    });
+  });
+
+  it("rejects a valid response for a different requested discipline", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(trainingDecisionEnvelope({
+      discipline: "run", targetDiscipline: "run",
+    }))));
+    await expect(getTodayTrainingDecision("bike")).rejects.toMatchObject({
+      kind: "contract", code: "INVALID_TRAINING_DECISION",
     });
   });
 });

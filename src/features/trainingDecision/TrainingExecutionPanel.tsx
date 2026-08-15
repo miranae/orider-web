@@ -31,6 +31,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const [postponedTo, setPostponedTo] = useState("");
   const reserveKey = useRef(crypto.randomUUID());
   const startKey = useRef(crypto.randomUUID());
+  const mutationKeys = useRef(new Map<string, string>());
   const manualPanelId = `training-execution-manual-${session.sessionId}`;
   const canMutate = decision.healthGate.state === "clear";
   const { activities: ownerActivities, loading: activitiesLoading } = useActivities("self", [], {
@@ -39,6 +40,13 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const activityChoices = ownerActivities.filter((activity) => getDiscipline(activity.type) === decision.targetDiscipline
     && revisionOf(activity) !== null);
   const selectedActivity = activityChoices.find((activity) => activity.id === selectedActivityId) ?? null;
+  const mutationKey = (operation: string) => {
+    const existing = mutationKeys.current.get(operation);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    mutationKeys.current.set(operation, created);
+    return created;
+  };
 
   useEffect(() => setExecution(initialExecution), [initialExecution]);
 
@@ -63,7 +71,8 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     const revision = selectedActivity ? revisionOf(selectedActivity) : null;
     if (!canMutate || !execution || !selectedActivity || !revision || busy) return;
     setBusy(true); setError(false);
-    try { setExecution(await linkSessionExecutionActivity(execution.executionId, selectedActivity.id, revision, crypto.randomUUID())); onChanged(); }
+    try { setExecution(await linkSessionExecutionActivity(execution.executionId, selectedActivity.id, revision,
+      mutationKey(`link:${execution.executionId}:${selectedActivity.id}:${revision}`))); onChanged(); }
     catch (cause) { logClientError("TrainingExecutionPanel.link", cause, { executionId: execution.executionId }); setError(true); } finally { setBusy(false); }
   }
 
@@ -72,7 +81,8 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     if (!canMutate || !execution || busy || (linkedOutcome ? !exactLink : execution.status === "linked" || execution.outcomeStatus !== "pending")
       || (value === "postponed" && !/^\d{4}-\d{2}-\d{2}$/u.test(postponedTo))) return;
     setBusy(true); setError(false);
-    try { setExecution(await setSessionExecutionOutcome(execution.executionId, value, crypto.randomUUID(),
+    try { setExecution(await setSessionExecutionOutcome(execution.executionId, value,
+      mutationKey(`outcome:${execution.executionId}:${value}:${value === "postponed" ? postponedTo : ""}`),
       value === "postponed" ? postponedTo : undefined)); onChanged(); }
     catch (cause) { logClientError("TrainingExecutionPanel.outcome", cause, { executionId: execution.executionId, value }); setError(true); } finally { setBusy(false); }
   }
@@ -80,7 +90,8 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   async function unlink() {
     if (!canMutate || !execution || execution.status !== "linked" || busy) return;
     setBusy(true); setError(false);
-    try { setExecution(await unlinkSessionExecutionActivity(execution.executionId, crypto.randomUUID())); onChanged(); }
+    try { setExecution(await unlinkSessionExecutionActivity(execution.executionId,
+      mutationKey(`unlink:${execution.executionId}`))); onChanged(); }
     catch (cause) { logClientError("TrainingExecutionPanel.unlink", cause, { executionId: execution.executionId }); setError(true); } finally { setBusy(false); }
   }
 

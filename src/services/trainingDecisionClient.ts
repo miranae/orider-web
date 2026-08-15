@@ -49,10 +49,14 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
 
 export async function getTodayTrainingDecision(discipline: "bike" | "run" | "swim", signal?: AbortSignal): Promise<TodayTrainingDecisionProjection> {
   try {
-    return parseTodayTrainingDecisionProjection(await request(
+    const decision = parseTodayTrainingDecisionProjection(await request(
       `/training-decisions/today?discipline=${encodeURIComponent(discipline)}`,
       { method: "GET", signal },
     ));
+    if (decision.discipline !== discipline || decision.targetDiscipline !== discipline) {
+      throw new Error("training decision discipline mismatch");
+    }
+    return decision;
   } catch (cause) {
     if (cause instanceof CoachClientError) throw cause;
     throw new CoachClientError("contract", "INVALID_TRAINING_DECISION", { cause });

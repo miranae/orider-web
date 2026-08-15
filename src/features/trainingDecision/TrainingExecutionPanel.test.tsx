@@ -176,6 +176,24 @@ describe("TrainingExecutionPanel", () => {
     expect(screen.queryByPlaceholderText(/revision/i)).not.toBeInTheDocument();
   });
 
+  it("reuses the same link idempotency key after a lost response", async () => {
+    mocks.list.mockResolvedValue([{ ...baseExecution, status: "started", startedAt: 2 }]);
+    mocks.activities = { activities: [{ id: "activity_123", userId: "owner", type: "Ride", startTime: 1_787_000_000_000,
+      activityRevision: "ar_current" }], loading: false };
+    mocks.link.mockRejectedValueOnce(new Error("response lost")).mockResolvedValueOnce({ ...baseExecution, status: "linked",
+      activityId: "activity_123", activityRevision: "ar_current", startedAt: 2, linkedAt: 3,
+      matchMethod: "manual", matchConfidence: "manual" });
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), { target: { value: "activity_123" } });
+    fireEvent.click(screen.getByRole("button", { name: "연결" }));
+    await waitFor(() => expect(mocks.link).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "연결" }));
+    await waitFor(() => expect(mocks.link).toHaveBeenCalledTimes(2));
+    expect(mocks.link.mock.calls[0]?.[3]).toBe(mocks.link.mock.calls[1]?.[3]);
+  });
+
   it.each([
     { language: "ko", discipline: "사이클" },
     { language: "en", discipline: "Cycling" },

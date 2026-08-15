@@ -5,11 +5,11 @@ import { parseTodayTrainingDecisionProjection } from "../../services/trainingDec
 import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
 import { useTrainingProposalController } from "./useTrainingProposalController";
 
-const mocks = vi.hoisted(() => ({ capabilities: vi.fn(), recovery: vi.fn(), create: vi.fn(), log: vi.fn() }));
+const mocks = vi.hoisted(() => ({ capabilities: vi.fn(), recovery: vi.fn(), create: vi.fn(), confirm: vi.fn(), log: vi.fn() }));
 vi.mock("../../services/coachClient", () => ({
   getCoachProgressPlannerCapabilities: mocks.capabilities,
   getCoachProgressProposalRecovery: mocks.recovery,
-  createCoachProgressProposal: mocks.create, confirmCoachProgressProposal: vi.fn(),
+  createCoachProgressProposal: mocks.create, confirmCoachProgressProposal: mocks.confirm,
   rollbackCoachProgressProposal: vi.fn(), declineCoachProgressProposal: vi.fn(),
 }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: mocks.log }));
@@ -43,7 +43,12 @@ describe("useTrainingProposalController", () => {
     const { result, rerender } = renderHook(({ decision }) => useTrainingProposalController(decision, vi.fn()), {
       initialProps: { decision: first },
     });
+    await waitFor(() => expect(result.current.state).toBe("loading"));
     rerender({ decision: second });
+    expect(result.current.state).toBe("loading");
+    expect(result.current.proposal).toBeNull();
+    await act(async () => { await result.current.confirm(); });
+    expect(mocks.confirm).not.toHaveBeenCalled();
     await waitFor(() => expect(result.current.state).toBe("idle"));
     await act(async () => { oldRecovery.resolve({ status: "ok", data: { recoveryStatus: "pending", reasonCode: null,
       proposal: { proposalId: "proposal_stale" }, receipt: null, confirmNonce: "n".repeat(32), rollbackRequestId: null } }); });
