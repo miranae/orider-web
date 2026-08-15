@@ -48,6 +48,83 @@ import type { Activity } from "@shared/types";
 
 type FeedFilterIndex = 0 | 1 | 2;
 
+export const KOREAN_CYCLING_COMMUNITIES = [
+  { name: "RIDING CLUB LARA", badge: "L", descKey: "lara", url: "https://cafe.naver.com/clublara", logo: "/images/communities/riding-club-lara.webp" },
+  { name: "자출사", badge: "자", descKey: "jachulsa", url: "https://cafe.naver.com/bikecity", logo: "/images/communities/jachulsa.webp" },
+  { name: "도싸", badge: "도", descKey: "dossa", url: "https://corearoadbike.com/", logo: "/images/communities/dossa.webp", logoBg: "white" },
+  { name: "클리앙 자전거당", badge: "클", descKey: "clien", url: "https://www.clien.net/service/board/cm_bike", logo: "/images/communities/clien.webp", logoBg: "white" },
+  { name: "바이크셀", badge: "바", descKey: "bikesell", url: "https://bikesell.co.kr", logo: "/images/communities/bikesell.webp", logoBg: "white" },
+  { name: "더바이크", badge: "더", descKey: "thebike", url: "https://thebike.co.kr", logo: "/images/communities/thebike.webp", logoBg: "black" },
+] as const;
+
+export function CommunityLogo({
+  name,
+  badge,
+  logo,
+  logoBg,
+}: {
+  name: string;
+  badge: string;
+  logo: string;
+  logoBg?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const loggedFailure = useRef(false);
+
+  const handleError = () => {
+    if (!loggedFailure.current) {
+      loggedFailure.current = true;
+      logClientError(
+        "DashboardPage.communityLogoLoad",
+        new Error(`Failed to load community logo: ${logo}`),
+        { communityName: name, logo },
+      );
+    }
+    setFailed(true);
+  };
+
+  return (
+    <div
+      className="flex-shrink-0 overflow-hidden"
+      aria-hidden="true"
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "var(--r-sm)",
+        background: logoBg || "var(--bg-3)",
+      }}
+    >
+      {failed ? (
+        <span
+          style={{
+            width: "100%",
+            height: "100%",
+            color: "var(--lime)",
+            display: "grid",
+            placeItems: "center",
+            fontSize: "var(--fs-xs)",
+            fontWeight: 700,
+          }}
+        >
+          {badge}
+        </span>
+      ) : (
+        <img
+          src={logo}
+          alt=""
+          onError={handleError}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: logoBg ? "contain" : "cover",
+            padding: logoBg ? 2 : 0,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 export function normalizeDashboardDiscipline(value: string | null): Discipline | null {
   if (value === "bike" || value === "run" || value === "swim" || value === "tri") {
     return value;
@@ -915,14 +992,7 @@ export default function DashboardPage() {
             <Card padding="none" style={{ padding: 'var(--space-4)' }}>
               <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("sidebar.community.title")}</Text>
               <div className="flex flex-col gap-2">
-                {[
-                  { name: "RIDING CLUB LARA", badge: "L", descKey: "lara", url: "https://cafe.naver.com/clublara" },
-                  { name: "자출사", badge: "자", descKey: "jachulsa", url: "https://cafe.naver.com/bikecity" },
-                  { name: "도싸", badge: "도", descKey: "dossa", url: "https://corearoadbike.com/" },
-                  { name: "클리앙 자전거당", badge: "클", descKey: "clien", url: "https://www.clien.net/service/board/cm_bike" },
-                  { name: "바이크셀", badge: "바", descKey: "bikesell", url: "https://bikesell.co.kr" },
-                  { name: "더바이크", badge: "더", descKey: "thebike", url: "https://thebike.co.kr" },
-                ].map((c) => (
+                {KOREAN_CYCLING_COMMUNITIES.map((c) => (
                   <a
                     key={c.name}
                     href={c.url}
@@ -933,9 +1003,7 @@ export default function DashboardPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-2)")}
                     onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
                   >
-                    <div className="flex-shrink-0" aria-hidden="true" style={{ width: 28, height: 28, borderRadius: "var(--r-sm)", background: "var(--bg-3)", color: "var(--lime)", display: "grid", placeItems: "center", fontSize: "var(--fs-xs)", fontWeight: 700 }}>
-                      {c.badge}
-                    </div>
+                    <CommunityLogo {...c} />
                     <div className="min-w-0">
                       <div style={{ fontSize: "var(--fs-xs)", fontWeight: 600, color: "var(--ink-0)" }}>{c.name}</div>
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t(`home.communities.${c.descKey}`)}</div>
