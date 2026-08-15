@@ -118,6 +118,23 @@ async function attachFullPageFromTop(page: Page, testInfo: TestInfo, name: strin
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
 
+async function expectProposalKeyboardOrder(page: Page, plan: Locator) {
+  const actions = plan.locator(".training-decision-proposal__actions");
+  await expect.poll(() => actions.locator(":scope > button").evaluateAll((buttons) => buttons.map((button) => ({
+    text: button.textContent?.trim(), disabled: (button as HTMLButtonElement).disabled,
+    tabIndex: (button as HTMLButtonElement).tabIndex,
+  })))).toEqual([
+    { text: "이 변경 적용", disabled: false, tabIndex: 0 },
+    { text: "원래 계획 유지", disabled: false, tabIndex: 0 },
+  ]);
+  const apply = actions.getByRole("button", { name: "이 변경 적용" });
+  const keep = actions.getByRole("button", { name: "원래 계획 유지" });
+  await apply.focus();
+  await expect(apply).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(keep).toBeFocused();
+}
+
 test.describe("Today training decision responsive render", () => {
   test("renders the canonical Home card without horizontal overflow", async ({ page }, testInfo) => {
     await mockTodayTraining(page, { execution: "executable", proposal: "pending" });
@@ -192,9 +209,7 @@ test.describe("Today training decision responsive render", () => {
     await expect(plan.getByRole("button", { name: "원래 계획 유지" })).toBeVisible();
     await expect(plan.getByText("운동 실행")).toHaveCount(0);
     await expect(plan.getByRole("button", { name: /AI 코치/u })).toHaveCount(0);
-    await plan.getByRole("button", { name: "이 변경 적용" }).focus();
-    await page.keyboard.press("Tab");
-    await expect(plan.getByRole("button", { name: "원래 계획 유지" })).toBeFocused();
+    await expectProposalKeyboardOrder(page, plan);
 
     await applyTextScale200(page, plan.getByRole("heading", { name: "변경 권고 · 아직 미적용" }));
     await expectContainedReflow(plan);

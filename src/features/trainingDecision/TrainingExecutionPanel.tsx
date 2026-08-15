@@ -22,7 +22,7 @@ function revisionOf(activity: Activity): string | null {
 
 function ExecutionSession({ decision, session, initialExecution, onChanged }: { decision: TodayTrainingDecisionProjection;
   session: TrainingDecisionSession; initialExecution: SessionExecutionLink | null; onChanged: () => void }) {
-  const { t } = useTranslation("training");
+  const { t, i18n } = useTranslation("training");
   const [execution, setExecution] = useState<SessionExecutionLink | null>(initialExecution);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -106,7 +106,10 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
         <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.activityPicker")}</Text>
           <select value={selectedActivityId} onChange={(event) => setSelectedActivityId(event.target.value)} disabled={activitiesLoading}>
             <option value="">{activitiesLoading ? t("decision.execution.activityLoading") : t("decision.execution.activitySelect")}</option>
-            {activityChoices.map((activity) => <option key={activity.id} value={activity.id}>{new Date(activity.startTime).toLocaleString()} · {activity.type}</option>)}
+            {activityChoices.map((activity) => <option key={activity.id} value={activity.id}>
+              {new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(activity.startTime))}
+              {` · ${t(`discipline.${getDiscipline(activity.type)}`)}`}
+            </option>)}
           </select>
         </label>
         {!activitiesLoading && activityChoices.length === 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.execution.noActivities")}</Text>}

@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
@@ -88,6 +89,22 @@ describe("TodayTrainingDecisionCard", () => {
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
     expect(screen.queryByRole("button", { name: "변경안 만들기" })).not.toBeInTheDocument();
+  });
+
+  it("keeps pending proposal actions enabled in DOM and keyboard order", async () => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    mocks.proposal = { ...mocks.proposal, state: "pending" };
+    const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    const actions = container.querySelector(".training-decision-proposal__actions")!;
+    const buttons = within(actions).getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual(["이 변경 적용", "원래 계획 유지"]);
+    expect(buttons.map((button) => ({ disabled: button.hasAttribute("disabled"), tabIndex: button.tabIndex })))
+      .toEqual([{ disabled: false, tabIndex: 0 }, { disabled: false, tabIndex: 0 }]);
+    buttons[0]!.focus();
+    expect(buttons[0]).toHaveFocus();
+    await userEvent.tab();
+    expect(buttons[1]).toHaveFocus();
   });
 
   it.each([

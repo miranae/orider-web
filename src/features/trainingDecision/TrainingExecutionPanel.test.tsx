@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import i18n from "i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import enTraining from "../../i18n/resources/en/training.json";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
 import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
@@ -25,7 +27,9 @@ const baseExecution = { schemaVersion: 1 as const, executionId: "exec_dddddddddd
   matchConfidence: "exact" as const, outcomeStatus: "pending" as const, outcomeAt: null, postponedToLocalDate: null };
 
 describe("TrainingExecutionPanel", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    i18n.addResourceBundle("en", "training", enTraining, true, true);
+    await i18n.changeLanguage("ko");
     vi.clearAllMocks(); resetRuntimeConfigForTests({ trainingExecutionEnabled: true }); mocks.list.mockResolvedValue([]);
     mocks.activities = { activities: [], loading: false };
     mocks.reserve.mockResolvedValue(baseExecution); mocks.start.mockResolvedValue({ ...baseExecution, status: "started", startedAt: 2 });
@@ -119,6 +123,24 @@ describe("TrainingExecutionPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "연결" }));
     await waitFor(() => expect(mocks.link).toHaveBeenCalledWith("exec_dddddddddddddddddddddddd", "activity_123", "ar_current", expect.any(String)));
     expect(screen.queryByPlaceholderText(/revision/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { language: "ko", discipline: "사이클" },
+    { language: "en", discipline: "Cycling" },
+  ])("formats picker activity metadata in $language without exposing the raw type", async ({ language, discipline }) => {
+    await i18n.changeLanguage(language);
+    mocks.list.mockResolvedValue([{ ...baseExecution, status: "started", startedAt: 2 }]);
+    const startTime = 1_787_000_000_000;
+    mocks.activities = { activities: [{ id: "activity_123", userId: "owner", type: "Ride", startTime,
+      activityRevision: "ar_current" }], loading: false };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: language === "ko" ? "활동 직접 연결" : "Link activity manually" }));
+    const expectedDate = new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(startTime));
+    const picker = screen.getByRole("combobox", { name: language === "ko" ? "연결할 내 최근 활동" : "Your recent activity to link" });
+    expect(picker).toHaveTextContent(`${expectedDate} · ${discipline}`);
+    expect(picker).not.toHaveTextContent("Ride");
   });
 
   it("renders a linked pending state with completion actions", async () => {
