@@ -71,8 +71,9 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     const revision = selectedActivity ? revisionOf(selectedActivity) : null;
     if (!canMutate || !execution || !selectedActivity || !revision || busy) return;
     setBusy(true); setError(false);
+    const operation = `link:${execution.executionId}:${selectedActivity.id}:${revision}`;
     try { setExecution(await linkSessionExecutionActivity(execution.executionId, selectedActivity.id, revision,
-      mutationKey(`link:${execution.executionId}:${selectedActivity.id}:${revision}`))); onChanged(); }
+      mutationKey(operation))); mutationKeys.current.delete(operation); onChanged(); }
     catch (cause) { logClientError("TrainingExecutionPanel.link", cause, { executionId: execution.executionId }); setError(true); } finally { setBusy(false); }
   }
 
@@ -81,17 +82,19 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     if (!canMutate || !execution || busy || (linkedOutcome ? !exactLink : execution.status === "linked" || execution.outcomeStatus !== "pending")
       || (value === "postponed" && !/^\d{4}-\d{2}-\d{2}$/u.test(postponedTo))) return;
     setBusy(true); setError(false);
+    const operation = `outcome:${execution.executionId}:${value}:${value === "postponed" ? postponedTo : ""}`;
     try { setExecution(await setSessionExecutionOutcome(execution.executionId, value,
-      mutationKey(`outcome:${execution.executionId}:${value}:${value === "postponed" ? postponedTo : ""}`),
-      value === "postponed" ? postponedTo : undefined)); onChanged(); }
+      mutationKey(operation), value === "postponed" ? postponedTo : undefined));
+      mutationKeys.current.delete(operation); onChanged(); }
     catch (cause) { logClientError("TrainingExecutionPanel.outcome", cause, { executionId: execution.executionId, value }); setError(true); } finally { setBusy(false); }
   }
 
   async function unlink() {
     if (!canMutate || !execution || execution.status !== "linked" || busy) return;
     setBusy(true); setError(false);
+    const operation = `unlink:${execution.executionId}`;
     try { setExecution(await unlinkSessionExecutionActivity(execution.executionId,
-      mutationKey(`unlink:${execution.executionId}`))); onChanged(); }
+      mutationKey(operation))); mutationKeys.current.delete(operation); onChanged(); }
     catch (cause) { logClientError("TrainingExecutionPanel.unlink", cause, { executionId: execution.executionId }); setError(true); } finally { setBusy(false); }
   }
 

@@ -194,6 +194,30 @@ describe("TrainingExecutionPanel", () => {
     expect(mocks.link.mock.calls[0]?.[3]).toBe(mocks.link.mock.calls[1]?.[3]);
   });
 
+  it("uses a new link idempotency key after a completed link and unlink cycle", async () => {
+    const started = { ...baseExecution, status: "started" as const, startedAt: 2 };
+    const linked = { ...started, status: "linked" as const, activityId: "activity_123", activityRevision: "ar_current",
+      linkedAt: 3, matchMethod: "manual" as const, matchConfidence: "manual" as const };
+    mocks.list.mockResolvedValue([started]);
+    mocks.activities = { activities: [{ id: "activity_123", userId: "owner", type: "Ride", startTime: 1_787_000_000_000,
+      activityRevision: "ar_current" }], loading: false };
+    mocks.link.mockResolvedValue(linked);
+    mocks.unlink.mockResolvedValue(started);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), { target: { value: "activity_123" } });
+    fireEvent.click(screen.getByRole("button", { name: "연결" }));
+    await waitFor(() => expect(mocks.link).toHaveBeenCalledTimes(1));
+    fireEvent.click(await screen.findByRole("button", { name: "활동 연결 해제" }));
+    await waitFor(() => expect(mocks.unlink).toHaveBeenCalledTimes(1));
+    const relink = screen.getByRole("button", { name: "연결" });
+    await waitFor(() => expect(relink).toBeEnabled());
+    fireEvent.click(relink);
+    await waitFor(() => expect(mocks.link).toHaveBeenCalledTimes(2));
+    expect(mocks.link.mock.calls[0]?.[3]).not.toBe(mocks.link.mock.calls[1]?.[3]);
+  });
+
   it.each([
     { language: "ko", discipline: "사이클" },
     { language: "en", discipline: "Cycling" },

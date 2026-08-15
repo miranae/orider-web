@@ -31,6 +31,7 @@ export function useTrainingProposalController(decision: TodayTrainingDecisionPro
     if (activeDecisionKey.current !== decisionKey) return;
     const generation = ++hydrateGeneration.current;
     const isCurrent = () => activeDecisionKey.current === decisionKey && hydrateGeneration.current === generation;
+    setProposal(null); setReceipt(null); setNonce(null); setRollbackRequestId(null);
     if (!locallyEnabled || !decision || !prescriptionId || !sourceRequestId) {
       setHydratedDecisionKey(decisionKey); setState("unavailable"); return;
     }

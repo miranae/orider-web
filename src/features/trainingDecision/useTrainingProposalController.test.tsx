@@ -90,4 +90,28 @@ describe("useTrainingProposalController", () => {
     expect(mocks.log).toHaveBeenCalledWith("useTrainingProposalController.create.response", expect.any(Error),
       expect.objectContaining({ code: "temporarily_unavailable" }));
   });
+
+  it("clears the previous decision proposal when the next recovery fails", async () => {
+    const first = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const second = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      projectionId: "today_eeeeeeeeeeeeeeeeeeeeeeee",
+      recommendationSource: { ...trainingDecisionEnvelope().data.recommendationSource!,
+        sourceRequestId: "018f47a2-3c4d-7abc-8def-000000000202", prescriptionId: "rx_222222222222222222222222" },
+      sourceRefs: { ...trainingDecisionEnvelope().data.sourceRefs, prescriptionId: "rx_222222222222222222222222" },
+    }));
+    mocks.recovery.mockImplementation((prescriptionId: string) => prescriptionId === first.recommendationSource?.prescriptionId
+      ? Promise.resolve({ status: "ok", data: { recoveryStatus: "pending", reasonCode: null,
+        proposal: { proposalId: "proposal_old" }, receipt: { auditId: "audit_old" }, confirmNonce: "n".repeat(32),
+        rollbackRequestId: null } })
+      : Promise.resolve({ status: "error", error: { code: "temporarily_unavailable", retryable: true } }));
+    const { result, rerender } = renderHook(({ decision }) => useTrainingProposalController(decision, vi.fn()), {
+      initialProps: { decision: first },
+    });
+    await waitFor(() => expect(result.current.state).toBe("pending"));
+    expect(result.current.proposal).not.toBeNull();
+    rerender({ decision: second });
+    await waitFor(() => expect(result.current.state).toBe("error"));
+    expect(result.current.proposal).toBeNull();
+    expect(result.current.receipt).toBeNull();
+  });
 });
