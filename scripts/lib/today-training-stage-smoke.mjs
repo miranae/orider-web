@@ -36,14 +36,16 @@ const reservePayloadFor = (decision, session, idempotencyKey) => ({
 
 export async function runTodayTrainingStageSmoke(input, dependencies) {
   if (!/^[a-f0-9]{40}$/u.test(input.commitSha) || !/^https:\/\//u.test(input.serviceUrl)
-    || !/^[a-z][a-z0-9-]{4,62}$/u.test(input.projectId)) throw new Error("stage_smoke:config_invalid");
+    || !/^[a-z][a-z0-9-]{4,62}$/u.test(input.projectId)
+    || !/^[a-z][a-z0-9-]{2,31}[0-9]$/u.test(input.functionsRegion)) throw new Error("stage_smoke:config_invalid");
+  const serviceUrl = input.serviceUrl.replace(/\/+$/u, "");
   const [eligible, ineligible] = await Promise.all([
     dependencies.credentialsForIdentity(input.eligibleUid), dependencies.credentialsForIdentity(input.ineligibleUid),
   ]);
   if (!eligible.idToken || !eligible.appCheckToken || !ineligible.idToken || !ineligible.appCheckToken) {
     throw new Error("stage_smoke:credentials_invalid");
   }
-  const todayUrl = `${input.serviceUrl}/v1/coach/training-decisions/today?discipline=bike`;
+  const todayUrl = `${serviceUrl}/v1/coach/training-decisions/today?discipline=bike`;
   const today = await requestJson(dependencies.fetchImpl, todayUrl, {
     method: "GET", headers: headers(eligible),
   });
@@ -56,7 +58,7 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
   const session = decision.effectiveSessions?.find((item) => item.sessionId === decision.representativeSessionId);
   if (!session || !decision.planSource) throw new Error("stage_smoke:representative_session_missing");
   const reservePayload = reservePayloadFor(decision, session, reserveKeyFor("stage", input.commitSha, decision, session));
-  const listUrl = `https://asia-northeast3-${input.projectId}.cloudfunctions.net/listSessionExecutions`;
+  const listUrl = `https://${input.functionsRegion}-${input.projectId}.cloudfunctions.net/listSessionExecutions`;
   const listExecutions = async () => {
     const listed = await requestJson(dependencies.fetchImpl, listUrl, {
       method: "POST", headers: headers(eligible), body: JSON.stringify({ data: { discipline: "bike", limit: 20 } }),
@@ -79,7 +81,7 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
   const before = await listExecutions();
   const reusable = before.find((item) => matchesCurrentDecision(item)
     && item.status === "reserved" && item.outcomeStatus === "pending");
-  const reserveUrl = `${input.serviceUrl}/v1/coach/session-executions/reserve`;
+  const reserveUrl = `${serviceUrl}/v1/coach/session-executions/reserve`;
   const ineligibleToday = await requestJson(dependencies.fetchImpl, todayUrl, {
       method: "GET", headers: headers(ineligible),
     });

@@ -211,6 +211,9 @@ requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-
 requireIncludes(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "deploy-stage.yml backend contract gate");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION", "deploy-stage.yml backend contract region");
+requireIncludes(stageDeployWorkflow,
+  "TODAY_TRAINING_STAGE_FUNCTIONS_REGION: ${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}",
+  "deploy-stage.yml training smoke functions region");
 requireIncludes(stageDeployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy-stage.yml backend contract credential");
 requireBefore(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy \\", "deploy-stage.yml backend contract gate");
 

@@ -34,6 +34,7 @@ async function credentialsForIdentity(uid) {
 const output = process.argv[2] ?? ".artifacts/today-training-stage-smoke.json";
 const evidence = await runTodayTrainingStageSmoke({ commitSha: required("TODAY_TRAINING_STAGE_COMMIT_SHA"), projectId,
   serviceUrl: required("TODAY_TRAINING_STAGE_SERVICE_URL"), eligibleUid: required("TODAY_TRAINING_STAGE_ELIGIBLE_UID"),
-  ineligibleUid: required("TODAY_TRAINING_STAGE_INELIGIBLE_UID") }, { credentialsForIdentity, fetchImpl: fetch, now: Date.now });
+  ineligibleUid: required("TODAY_TRAINING_STAGE_INELIGIBLE_UID"),
+  functionsRegion: required("TODAY_TRAINING_STAGE_FUNCTIONS_REGION") }, { credentialsForIdentity, fetchImpl: fetch, now: Date.now });
 mkdirSync(dirname(output), { recursive: true }); writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
 console.log(`[today-training-stage-smoke] OK commit=${evidence.commitSha} project=${evidence.projectId}`);

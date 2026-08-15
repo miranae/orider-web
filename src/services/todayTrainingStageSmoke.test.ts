@@ -38,10 +38,10 @@ describe("today training stage smoke", () => {
     });
     const credentialsForIdentity = vi.fn(async (uid: string) => ({ idToken: `id-${uid}`, appCheckToken: "app-check" }));
     const first = await runTodayTrainingStageSmoke({ commitSha: "a".repeat(40), projectId: "orider-stage",
-      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" },
+      functionsRegion: "asia-northeast3", serviceUrl: "https://stage.example.test/", eligibleUid: "eligible", ineligibleUid: "ineligible" },
     { credentialsForIdentity, fetchImpl, now: () => Date.parse("2026-08-15T00:00:00.000Z") });
     const second = await runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
-      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" },
+      functionsRegion: "asia-northeast3", serviceUrl: "https://stage.example.test/", eligibleUid: "eligible", ineligibleUid: "ineligible" },
     { credentialsForIdentity, fetchImpl, now: () => Date.parse("2026-08-15T00:01:00.000Z") });
     expect(first).toMatchObject({ commitSha: "a".repeat(40), auth: { idToken: true, appCheck: true },
       decision: { status: 200 }, executionOff: { status: 404 }, reserve: { status: 200, reservationMode: "fresh" },
@@ -49,6 +49,7 @@ describe("today training stage smoke", () => {
     expect(second.reserve).toMatchObject({ status: 200, reservationMode: "reused",
       executionIdDigest: first.reserve.executionIdDigest, scheduledSessionIdDigest: first.reserve.scheduledSessionIdDigest });
     expect(reserveCalls).toBe(2);
+    expect(fetchImpl.mock.calls.every(([url]) => !String(url).includes("example.test//v1"))).toBe(true);
     const listCalls = fetchImpl.mock.calls.filter(([url]) => String(url).includes("listSessionExecutions"));
     expect(listCalls).toHaveLength(4);
     expect(listCalls[0]?.[1]).toEqual(expect.objectContaining({ body: JSON.stringify({ data: { discipline: "bike", limit: 20 } }),
@@ -90,7 +91,8 @@ describe("today training stage smoke", () => {
       executions = [execution];
       return json(200, { status: "ok", data: execution });
     });
-    const input = { commitSha: "a".repeat(40), projectId: "orider-stage", serviceUrl: "https://stage.example.test",
+    const input = { commitSha: "a".repeat(40), projectId: "orider-stage", functionsRegion: "us-central1",
+      serviceUrl: "https://stage.example.test",
       eligibleUid: "eligible", ineligibleUid: "ineligible" };
     const dependencies = { credentialsForIdentity: async (uid: string) => ({ idToken: `id-${uid}`, appCheckToken: "app" }),
       fetchImpl, now: Date.now };
@@ -100,6 +102,8 @@ describe("today training stage smoke", () => {
     await runTodayTrainingStageSmoke(input, dependencies);
     expect(reservationKeys).toHaveLength(2);
     expect(reservationKeys[0]).not.toBe(reservationKeys[1]);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url)
+      .startsWith("https://us-central1-orider-stage.cloudfunctions.net/"))).toBe(true);
   });
 
   it("fails closed when the rollout-ineligible reserve is not 404", async () => {
@@ -114,7 +118,7 @@ describe("today training stage smoke", () => {
       .mockResolvedValueOnce(json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0, data: ineligibleDecision }))
       .mockResolvedValueOnce(json(200, {}));
     await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
-      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
+      functionsRegion: "asia-northeast3", serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
       credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
     })).rejects.toThrow("stage_smoke:execution_not_fail_closed");
   });
@@ -137,7 +141,7 @@ describe("today training stage smoke", () => {
       .mockResolvedValueOnce(json(200, { status: "ok", data: execution }))
       .mockResolvedValueOnce(json(200, { data: { executions: [{ ...execution, status: "started" }] } }));
     await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
-      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
+      functionsRegion: "asia-northeast3", serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
       credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
     })).rejects.toThrow("stage_smoke:list_missing_current_execution");
   });
@@ -145,7 +149,7 @@ describe("today training stage smoke", () => {
   it("reports the response context when a stage endpoint returns invalid JSON", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({ status: 502, json: async () => { throw new SyntaxError("invalid JSON"); } });
     await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
-      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
+      functionsRegion: "asia-northeast3", serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
       credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
     })).rejects.toThrow("stage_smoke:response_json_invalid:502:https://stage.example.test/v1/coach/training-decisions/today?discipline=bike");
   });
@@ -153,7 +157,7 @@ describe("today training stage smoke", () => {
   it("reports status, endpoint, and server code for an abnormal stage response", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(json(503, { error: { code: "upstream-unavailable" } }));
     await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
-      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
+      functionsRegion: "asia-northeast3", serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
       credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
     })).rejects.toThrow("stage_smoke:decision_not_eligible:503:https://stage.example.test/v1/coach/training-decisions/today?discipline=bike:upstream-unavailable");
   });
