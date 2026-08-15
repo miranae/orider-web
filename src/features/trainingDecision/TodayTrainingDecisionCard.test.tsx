@@ -131,6 +131,27 @@ describe("TodayTrainingDecisionCard", () => {
     expect(mocks.execution).toHaveBeenCalledWith(expect.objectContaining({ sessions: [] }));
   });
 
+  it("blocks only the session that has a rest or reassessment recommendation", () => {
+    const base = trainingDecisionEnvelope();
+    const secondScheduled = { ...base.data.scheduledSessions[0]!, sessionId: "ss_eeeeeeeeeeeeeeeeeeeeeeee",
+      scheduledSessionId: "ss_eeeeeeeeeeeeeeeeeeeeeeee", scheduledSessionRevision: "ssr_ffffffffffffffffffffffff",
+      sessionRevision: "ssr_ffffffffffffffffffffffff", planItemId: "item_456" };
+    const second = { ...secondScheduled, basis: "scheduled" as const, appliedProposalId: null };
+    const reassessment = { sessionId: second.sessionId, recommendation: { localDate: second.localDate,
+      action: "reassess" as const, reasonCodes: ["form_gate_before_intensity"], evidenceIds: [], reassessBefore: [] } };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      scheduledSessions: [...base.data.scheduledSessions, secondScheduled],
+      effectiveSessions: [...base.data.effectiveSessions, second],
+      recommendedAdjustments: [base.data.recommendedAdjustments[0]!, reassessment],
+      loadAdjustment: { ...base.data.loadAdjustment!, recommendations: [base.data.recommendedAdjustments[0]!, reassessment] },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(mocks.execution).toHaveBeenCalledWith(expect.objectContaining({
+      sessions: [expect.objectContaining({ sessionId: base.data.representativeSessionId })],
+    }));
+  });
+
   it("does not offer proposal review when there are no actual adjustments", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
       recommendedAdjustments: [], loadAdjustment: { prescriptionStatus: "ready", classification: "normal",

@@ -99,6 +99,12 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   const durationDelta = deltaTarget && scheduled ? deltaTarget.current.durationMin - scheduled.current.durationMin : 0;
   const tssDelta = deltaTarget && scheduled ? deltaTarget.current.targetTss - scheduled.current.targetTss : 0;
   const signed = (value: number) => `${value > 0 ? "+" : ""}${value}`;
+  const blockedExecutionSessionIds = new Set(recommendationVisible && !applied
+    ? decision.recommendedAdjustments.filter((item) => item.recommendation.action === "rest"
+      || item.recommendation.action === "reassess").map((item) => item.sessionId)
+    : []);
+  const executableSessions = decision.effectiveSessions
+    .filter((session) => !blockedExecutionSessionIds.has(session.sessionId));
 
   return <Card className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
@@ -141,8 +147,7 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
       </Chip>)}</div>
     </section>}
     {surface === "home" && <TrainingExecutionPanel decision={decision}
-      sessions={recommendationPending && (action === "rest" || action === "reassess") ? [] : decision.effectiveSessions}
-      onChanged={refresh} />}
+      sessions={executableSessions} onChanged={refresh} />}
     {(surface === "home" || surface === "fitness") && <footer className="training-decision-card__actions">
       {surface === "home" && <LocalizedLink to={{ pathname: "/plan", search: `?sport=${discipline}` }} className={buttonClass({ variant: "outline", size: "sm" })}>
         {t("decision.viewPlan")}<ChevronRight size={16} aria-hidden />
