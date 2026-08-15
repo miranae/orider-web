@@ -729,7 +729,10 @@
     "noScheduled": "오늘 예정된 세션이 없습니다.",
     "scheduled": "원래 계획",
     "recommended": "조정 권고",
+    "recommendedPending": "조정 권고 · 아직 미적용",
     "effective": "현재 실행안",
+    "effectiveScheduled": "현재 실행안 · 원래 계획 기준",
+    "delta": "권고 변화 {{duration}}분 · {{tss}} TSS",
     "duration": "{{value}}분",
     "tss": "{{value}} TSS",
     "extraSessions": "오늘 예정된 세션이 {{count}}개 더 있어요. 계획에서 각각 확인하세요.",
@@ -754,6 +757,8 @@
     "refresh": "새로 확인",
     "status": {
       "scheduledOnly": "오늘 예정된 계획",
+      "recommendationPending": "변경 권고 · 아직 미적용",
+      "applied": "변경 적용됨",
       "rest": "휴식 권장",
       "recovery": "회복 권장",
       "follow_plan": "계획 유지",
@@ -762,6 +767,7 @@
     },
     "mode": {
       "scheduled-only": "예정 계획",
+      "not-applied": "미적용",
       "current-recommendation": "현재 권고",
       "applied-plan": "적용됨"
     },
@@ -771,14 +777,28 @@
     },
     "proposal": {
       "title": "계획 변경 검토",
+      "body": "원래 계획과 권고를 비교한 뒤 변경 적용 또는 원래 계획 유지를 선택하세요.",
       "review": "변경안 만들기",
       "confirm": "이 변경 적용",
       "keepScheduled": "원래 계획 유지",
       "keptScheduled": "원래 계획을 유지했습니다.",
       "rollback": "원래 계획으로 되돌리기",
+      "applied": "변경이 적용되었습니다. 현재 실행안에 반영됩니다.",
       "busy": "변경 상태를 확인하는 중…",
       "stale": "계획이나 부하 근거가 바뀌었습니다. 최신 변경안을 다시 확인하세요.",
-      "error": "변경 상태를 확인하지 못했습니다. 적용된 것으로 표시하지 않았습니다."
+      "error": "변경 상태를 확인하지 못했습니다. 적용된 것으로 표시하지 않았습니다.",
+      "state": {
+        "unavailable": "변경 기능 확인 불가",
+        "loading": "상태 확인 중",
+        "idle": "검토 전",
+        "pending": "승인 대기",
+        "applied": "적용됨",
+        "reverted": "되돌림",
+        "declined": "원래 계획 유지",
+        "stale": "새 검토 필요",
+        "busy": "처리 중",
+        "error": "확인 오류"
+      }
     },
     "execution": {
       "title": "운동 실행",
@@ -799,6 +819,14 @@
       "link": "연결",
       "unlink": "활동 연결 해제",
       "error": "실행 상태를 저장하지 못했습니다.",
+      "presentation": {
+        "executable": "지금 이 세션을 시작할 수 있습니다.",
+        "reserved": "세션이 예약되었습니다. 시작하면 진행 상태로 바뀝니다.",
+        "in-progress": "세션이 진행 중입니다. 완료된 활동을 연결할 수 있습니다.",
+        "link": "활동이 연결되었습니다. 결과를 확인하세요.",
+        "completed": "이 세션의 실행 결과가 기록되었습니다.",
+        "error": "실행 상태를 저장하지 못했습니다. 다시 시도해 주세요."
+      },
       "state": { "reserved": "시작 대기", "started": "진행 중", "linked": "활동 연결됨", "invalidated": "연결 무효" },
       "outcome": { "pending": "결과 대기", "completed": "완료", "partial": "부분 완료", "skipped": "건너뜀", "postponed": "연기됨" }
     }

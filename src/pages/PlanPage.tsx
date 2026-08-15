@@ -675,6 +675,9 @@ export default function PlanPage() {
         <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
           <DisciplineTabs />
         </div>
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
+        </div>
         <div style={{ padding: "24px 0" }}>
           <ErrorState title={tCommon("error.title")} onRetry={retryLoad} />
         </div>
@@ -689,6 +692,9 @@ export default function PlanPage() {
       <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
         <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
           <DisciplineTabs />
+        </div>
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />
         </div>
         <div style={{ padding: "24px 0" }}>
           <EmptyState

@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({ hook: vi.fn() }));
 vi.mock("../../hooks/useTodayTrainingDecision", () => ({ useTodayTrainingDecision: mocks.hook }));
 vi.mock("../coach/CoachQuestionLauncher", () => ({ CoachQuestionLauncher: () => createElement("button", null, "Coach") }));
 vi.mock("./useTrainingProposalController", () => ({ useTrainingProposalController: () => ({ state: "unavailable", proposal: null }) }));
-vi.mock("./TrainingExecutionPanel", () => ({ TrainingExecutionPanel: () => null }));
+vi.mock("./TrainingExecutionPanel", () => ({ TrainingExecutionPanel: () => createElement("button", null, "Execution") }));
 
 const user = { uid: "owner" } as never;
 
@@ -37,9 +37,27 @@ describe("training decision surface boundary", () => {
   });
 
   it("keeps the visible scheduled and recommended labels separated without local readiness copy", () => {
-    renderSurface("home");
+    renderSurface("plan");
     expect(screen.getByText("원래 계획")).toBeVisible();
     expect(screen.getByText("조정 권고")).toBeVisible();
+    expect(screen.getByText("현재 실행안")).toBeVisible();
     expect(screen.queryByText(/CTL|ATL|TSB|ACWR/i)).not.toBeInTheDocument();
+  });
+
+  it("forbids cross-surface actions in the DOM", () => {
+    const home = renderSurface("home")!;
+    expect(home.querySelector("button")?.textContent).toBe("Execution");
+    expect(home).not.toHaveTextContent("Coach");
+    expect(home).not.toHaveTextContent("계획 변경 검토");
+
+    const fitness = renderSurface("fitness")!;
+    expect(fitness).toHaveTextContent("Coach");
+    expect(fitness).not.toHaveTextContent("Execution");
+    expect(fitness.querySelector("a")).toBeNull();
+
+    const plan = renderSurface("plan")!;
+    expect(plan).not.toHaveTextContent("Coach");
+    expect(plan).not.toHaveTextContent("Execution");
+    expect(plan.querySelector("a")).toBeNull();
   });
 });

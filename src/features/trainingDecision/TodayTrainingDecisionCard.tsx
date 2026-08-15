@@ -21,21 +21,33 @@ function ProposalPanel({ decision, refresh }: { decision: NonNullable<ReturnType
   const { t, i18n } = useTranslation("training");
   const controller = useTrainingProposalController(decision, refresh);
   const hasAdjustments = decision.recommendedAdjustments.length > 0;
-  return <section className="training-decision-proposal" aria-labelledby="training-decision-proposal-title">
-    <Text id="training-decision-proposal-title" as="h3" variant="subtitle">{t("decision.proposal.title")}</Text>
-    {controller.proposal?.changes.map((change) => <article key={`${change.weekId}:${change.dayIndex}`} className="training-decision-proposal__change">
+  return <section className="training-decision-proposal" aria-labelledby="training-decision-proposal-title"
+    data-proposal-state={controller.state}>
+    <div className="training-decision-proposal__heading">
+      <Text id="training-decision-proposal-title" as="h3" variant="subtitle">{t("decision.proposal.title")}</Text>
+      <Chip variant={controller.state === "applied" ? "accent" : "default"}>
+        {t(`decision.proposal.state.${controller.state}`, { defaultValue: t("decision.proposal.state.loading") })}
+      </Chip>
+    </div>
+    <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.body")}</Text>
+    {controller.proposal?.changes.map((change) => <article key={`${change.weekId}:${change.dayIndex}`} className="training-decision-proposal__change"
+      data-current-day={change.localDate === decision.localDate ? "true" : undefined}>
       <time dateTime={change.localDate}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${change.localDate}T00:00:00Z`))}</time>
       <div className="training-decision-proposal__comparison">
         <div><Text as="span" variant="caption" tone="secondary">{t("decision.scheduled")}</Text><strong>{t(`decision.workout.${change.before.workout.kind}`, { defaultValue: change.before.workout.kind })}</strong><span>{t("decision.duration", { value: change.before.workout.durationMin })}</span></div>
         <div><Text as="span" variant="caption" tone="secondary">{t("decision.recommended")}</Text><strong>{t(`decision.workout.${change.workout.kind}`, { defaultValue: change.workout.kind })}</strong><span>{t("decision.duration", { value: change.workout.durationMin })}</span></div>
       </div>
     </article>)}
+    <Text className="sr-only" as="p" role="status" aria-live="polite" aria-atomic="true">
+      {t(`decision.proposal.state.${controller.state}`, { defaultValue: t("decision.proposal.state.loading") })}
+    </Text>
     <div className="training-decision-proposal__actions">
-      {controller.state === "idle" && hasAdjustments && decision.capabilities.proposal === "available" && <Button variant="outline" onClick={() => void controller.create()}>{t("decision.proposal.review")}</Button>}
-      {controller.state === "pending" && decision.capabilities.confirm === "available" && <Button onClick={() => void controller.confirm()}>{t("decision.proposal.confirm")}</Button>}
-      {controller.state === "pending" && decision.capabilities.decline === "available" && <Button variant="ghost" onClick={() => void controller.decline()}>{t("decision.proposal.keepScheduled")}</Button>}
+      {controller.state === "idle" && hasAdjustments && decision.capabilities.proposal === "available" && <Button variant="primary" onClick={() => void controller.create()}>{t("decision.proposal.review")}</Button>}
+      {controller.state === "pending" && decision.capabilities.confirm === "available" && <Button variant="primary" onClick={() => void controller.confirm()}>{t("decision.proposal.confirm")}</Button>}
+      {controller.state === "pending" && decision.capabilities.decline === "available" && <Button variant="outline" onClick={() => void controller.decline()}>{t("decision.proposal.keepScheduled")}</Button>}
       {controller.state === "applied" && decision.capabilities.rollback === "available" && <Button variant="outline" onClick={() => void controller.rollback()}>{t("decision.proposal.rollback")}</Button>}
-      {controller.state === "declined" && <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.keptScheduled")}</Text>}
+      {controller.state === "applied" && <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.applied")}</Text>}
+      {(controller.state === "declined" || controller.state === "reverted") && <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.keptScheduled")}</Text>}
       {controller.state === "busy" && <Text as="span" variant="caption">{t("decision.proposal.busy")}</Text>}
       {controller.state === "stale" && <Alert variant="warning" title={t("decision.proposal.stale")}><Button size="sm" variant="outline" onClick={() => void controller.refresh()}>{t("decision.refresh")}</Button></Alert>}
       {controller.state === "error" && <Alert variant="warning" title={t("decision.proposal.error")}><Button size="sm" variant="outline" onClick={() => void controller.refresh()}>{t("decision.refresh")}</Button></Alert>}
@@ -57,7 +69,11 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   const recommended = canShowRecommendation(decision) ? primaryRecommendedSession(decision) : null;
   const effective = primaryEffectiveSession(decision);
   const action = decisionAction(decision);
-  const statusKey = scheduledOnly || !action ? "scheduledOnly" : action;
+  const applied = decision.receipt?.status === "applied";
+  const recommendationPending = Boolean(recommended && !applied);
+  const homeSessionLayout = recommendationPending ? "comparison" : "single";
+  const statusKey = applied ? "applied"
+    : recommendationPending ? "recommendationPending" : scheduledOnly || !action ? "scheduledOnly" : action;
   const extraCount = Math.max(0, decision.scheduledSessions.length - 1);
   const tupleId = decision.projectionId;
   const reasonCodes = recommended
@@ -65,13 +81,17 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
       ? decision.loadAdjustment.reasonCodes
       : decision.recommendedAdjustments.find((item) => item.sessionId === recommended.sessionId)?.recommendation.reasonCodes) ?? [])].slice(0, 2)
     : [];
+  const deltaTarget = applied ? effective : recommended;
+  const durationDelta = deltaTarget && scheduled ? deltaTarget.current.durationMin - scheduled.current.durationMin : 0;
+  const tssDelta = deltaTarget && scheduled ? deltaTarget.current.targetTss - scheduled.current.targetTss : 0;
+  const signed = (value: number) => `${value > 0 ? "+" : ""}${value}`;
 
   return <Card className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
     <header className="training-decision-card__header">
       <div><Text as="span" variant="eyebrow">{t("decision.eyebrow")}</Text><Text as="h2" variant="title">{t(`decision.status.${statusKey}`)}</Text></div>
-      <Chip variant={decision.healthGate.state === "stop" ? "danger" : scheduledOnly ? "default" : "accent"}>
-        {t(`decision.mode.${scheduledOnly ? "scheduled-only" : decision.mode}`)}
+      <Chip variant={decision.healthGate.state === "stop" ? "danger" : applied ? "accent" : "default"}>
+        {t(recommendationPending ? "decision.mode.not-applied" : `decision.mode.${scheduledOnly ? "scheduled-only" : decision.mode}`)}
       </Chip>
     </header>
     {decision.healthGate.state === "stop" && <Alert variant="danger" title={t("decision.healthStop")} />}
@@ -79,10 +99,17 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     {surface === "fitness" ? <>
       <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
       <Text as="p" variant="caption" tone="secondary">{t("decision.sourceTuple", { classification: decision.loadAdjustment?.classification ?? decision.prescription.status, phase: decision.plan?.phase ?? "unknown" })}</Text>
-    </> : <div className="training-decision-card__sessions">
+    </> : surface === "home" ? <div data-session-layout={homeSessionLayout}
+      className={`training-decision-card__sessions training-decision-card__sessions--compact training-decision-card__sessions--${homeSessionLayout}`}>
+      <TrainingDecisionSessionView label={t(applied ? "decision.effective" : "decision.effectiveScheduled")} session={effective} tone="effective" />
+      {recommendationPending && <TrainingDecisionSessionView label={t("decision.recommendedPending")} session={recommended} tone="recommended" />}
+      {deltaTarget && scheduled && <Text className="training-decision-card__delta" as="p" variant="caption" tone="secondary">
+        {t("decision.delta", { duration: signed(durationDelta), tss: signed(tssDelta) })}
+      </Text>}
+    </div> : <div className="training-decision-card__sessions">
       <TrainingDecisionSessionView label={t("decision.scheduled")} session={scheduled} />
       {recommended && <TrainingDecisionSessionView label={t("decision.recommended")} session={recommended} tone="recommended" />}
-      {decision.receipt && <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />}
+      <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
       {extraCount > 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.extraSessions", { count: extraCount })}</Text>}
     </div>}
     {reasonCodes.length > 0 && <section className="training-decision-card__reasons" aria-label={t("decision.reasonTitle")}>
@@ -91,17 +118,16 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
         {t(`decision.reason.${code}`, { defaultValue: t("decision.reasonFallback") })}
       </Chip>)}</div>
     </section>}
-    <footer className="training-decision-card__actions">
-      <LocalizedLink to={{ pathname: "/plan", search: `?sport=${discipline}` }} className={buttonClass({ variant: "outline", size: "sm" })}>
-        {t(surface === "plan" ? "decision.viewCalendar" : "decision.viewPlan")}<ChevronRight size={16} aria-hidden />
-      </LocalizedLink>
-      {decision.capabilities.explain === "available" && decision.recommendationSource && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
+    {surface === "home" && <TrainingExecutionPanel decision={decision} sessions={effective ? [effective] : []} onChanged={refresh} />}
+    {(surface === "home" || surface === "fitness") && <footer className="training-decision-card__actions">
+      {surface === "home" && <LocalizedLink to={{ pathname: "/plan", search: `?sport=${discipline}` }} className={buttonClass({ variant: "outline", size: "sm" })}>
+        {t("decision.viewPlan")}<ChevronRight size={16} aria-hidden />
+      </LocalizedLink>}
+      {surface === "fitness" && decision.capabilities.explain === "available" && decision.recommendationSource && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
         triggerBlock={false} triggerLabel={t("decision.askCoach")} progressPlannerSelection={{ question: t("decision.coachQuestion"),
           context: { prescriptionId: decision.recommendationSource.prescriptionId, sourceRequestId: decision.recommendationSource.sourceRequestId } }} />}
-    </footer>
+    </footer>}
     {surface === "plan" && (decision.recommendedAdjustments.length > 0 || decision.proposal !== null || decision.receipt !== null)
       && <ProposalPanel decision={decision} refresh={refresh} />}
-    {(surface === "home" || surface === "plan") && <TrainingExecutionPanel decision={decision}
-      sessions={surface === "plan" ? decision.effectiveSessions : effective ? [effective] : []} onChanged={refresh} />}
   </Card>;
 }

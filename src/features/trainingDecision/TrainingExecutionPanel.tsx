@@ -85,14 +85,18 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   }
 
   const exactLink = execution?.status === "linked" && execution.matchConfidence !== "probable";
-  return <article className="training-execution-session">
+  const presentationState = error ? "error" : !execution ? "executable" : execution.outcomeStatus !== "pending" ? "completed"
+    : execution.status === "reserved" ? "reserved" : execution.status === "started" ? "in-progress" : "link";
+  return <article className="training-execution-session" data-execution-state={presentationState}>
     <Text as="h4" variant="label">{t(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })}</Text>
+    <Text as="p" variant="caption" tone={presentationState === "error" ? "warning" : "secondary"}
+      role="status" aria-live="polite" aria-atomic="true">{t(`decision.execution.presentation.${presentationState}`)}</Text>
     {!execution && decision.capabilities.execution.reserve === "available" && decision.capabilities.execution.start === "available"
-      && <Button size="sm" disabled={busy} onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
+      && <Button size="sm" variant="primary" loading={busy} onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
     {execution && <>
       <Text as="p" variant="caption" tone="secondary">{t(`decision.execution.state.${execution.status}`)} · {t(`decision.execution.outcome.${execution.outcomeStatus}`)}</Text>
       {execution.status === "reserved" && decision.capabilities.execution.start === "available"
-        && <Button size="sm" disabled={busy} onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
+        && <Button size="sm" variant="primary" loading={busy} onClick={() => void start()}>{busy ? t("decision.execution.starting") : t("decision.execution.start")}</Button>}
       {decision.capabilities.execution.link === "available" && execution.status === "started" && execution.outcomeStatus === "pending"
         && <Button size="sm" variant="outline" aria-expanded={manual} aria-controls={manualPanelId}
           onClick={() => setManual((value) => !value)}>{t("decision.execution.manualLink")}</Button>}
@@ -108,8 +112,9 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
         {!activitiesLoading && activityChoices.length === 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.execution.noActivities")}</Text>}
         <Button size="sm" disabled={busy || !selectedActivity} onClick={() => void link()}>{t("decision.execution.link")}</Button>
       </div>}
-      {decision.capabilities.execution.outcome === "available" && (exactLink || (execution.status !== "linked" && execution.outcomeStatus === "pending")) && <div className="training-execution-actions__row">
-        {exactLink && <><Button size="sm" onClick={() => void outcome("completed")}>{t("decision.execution.complete")}</Button>
+      {decision.capabilities.execution.outcome === "available" && execution.outcomeStatus === "pending"
+        && (exactLink || execution.status === "started") && <div className="training-execution-actions__row">
+        {exactLink && <><Button size="sm" variant="primary" onClick={() => void outcome("completed")}>{t("decision.execution.complete")}</Button>
           <Button size="sm" variant="outline" onClick={() => void outcome("partial")}>{t("decision.execution.partial")}</Button></>}
         {!exactLink && <><Button size="sm" variant="ghost" onClick={() => void outcome("skipped")}>{t("decision.execution.skip")}</Button>
           <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.postponeDate")}</Text>
@@ -144,9 +149,10 @@ function TrainingExecutionPanelBody({ decision, sessions, onChanged }: { decisio
     return () => { active = false; };
   }, [decision.targetDiscipline, listKey]);
 
-  return <section className="training-execution-panel" aria-labelledby="training-execution-title">
+  return <section className="training-execution-panel" aria-labelledby="training-execution-title"
+    data-execution-state={listState}>
     <Text id="training-execution-title" as="h3" variant="subtitle">{t("decision.execution.title")}</Text>
-    {listState === "loading" && <Text as="p" variant="caption" tone="secondary">{t("decision.execution.loading")}</Text>}
+    {listState === "loading" && <Text as="p" variant="caption" tone="secondary" role="status" aria-live="polite">{t("decision.execution.loading")}</Text>}
     {listState === "error" && <Alert variant="warning" title={t("decision.execution.listError")}>
       <Button size="sm" variant="outline" onClick={() => setListKey((value) => value + 1)}>{t("decision.refresh")}</Button>
     </Alert>}

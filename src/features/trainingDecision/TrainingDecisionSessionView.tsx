@@ -7,7 +7,7 @@ export function TrainingDecisionSessionView({ label, session, tone = "neutral" }
 }) {
   const { t } = useTranslation("training");
   if (!session) return null;
-  return <div className={`training-decision-session training-decision-session--${tone}`}>
+  return <div className={`training-decision-session training-decision-session--${tone}`} data-session-role={tone}>
     <Text as="span" variant="caption" tone="secondary">{label}</Text>
     <div className="training-decision-session__summary">
       <Text as="strong" variant="subtitle">{t(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })}</Text>

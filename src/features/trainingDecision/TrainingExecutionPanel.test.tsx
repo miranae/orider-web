@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
@@ -34,7 +35,10 @@ describe("TrainingExecutionPanel", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     const changed = vi.fn();
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={changed} />);
-    fireEvent.click(await screen.findByRole("button", { name: "운동 시작" }));
+    expect((await screen.findByText("지금 이 세션을 시작할 수 있습니다.")).closest("[data-execution-state]"))
+      .toHaveAttribute("data-execution-state", "executable");
+    expect(screen.getByRole("status", { name: "" })).toHaveAttribute("aria-live", "polite");
+    fireEvent.click(screen.getByRole("button", { name: "운동 시작" }));
     expect(mocks.list).toHaveBeenCalledWith("bike");
     await waitFor(() => expect(mocks.start).toHaveBeenCalled());
     expect(mocks.reserve).toHaveBeenCalledWith(expect.objectContaining({ projectionId: "today_cccccccccccccccccccccccc",
@@ -62,23 +66,37 @@ describe("TrainingExecutionPanel", () => {
     expect(mocks.list).not.toHaveBeenCalled();
   });
 
-  it("does not offer reserve until list resolution and reports list errors", async () => {
-    let rejectList!: (cause: unknown) => void;
-    mocks.list.mockReturnValue(new Promise((_, reject) => { rejectList = reject; }));
+  it.each(["click", "Enter"] as const)("recovers a list error through %s retry activation", async (activation) => {
+    let resolveRetry!: (items: Array<typeof baseExecution>) => void;
+    mocks.list.mockRejectedValueOnce(new Error("list failed"));
+    mocks.list.mockReturnValueOnce(new Promise((resolve) => { resolveRetry = resolve; }));
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "운동 시작" })).not.toBeInTheDocument();
-    rejectList(new Error("list failed"));
     expect(await screen.findByText(/기존 실행 상태를 확인하지 못했습니다/)).toBeInTheDocument();
     expect(mocks.log).toHaveBeenCalledWith("TrainingExecutionPanel.list", expect.any(Error), { discipline: "bike" });
     expect(mocks.reserve).not.toHaveBeenCalled();
+    const retry = screen.getByRole("button", { name: "새로 확인" });
+    const user = userEvent.setup();
+    if (activation === "click") await user.click(retry);
+    else { retry.focus(); await user.keyboard("{Enter}"); }
+    expect(await screen.findByText("기존 실행 상태를 확인하는 중…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "새로 확인" })).not.toBeInTheDocument();
+    resolveRetry([]);
+    expect(await screen.findByText("지금 이 세션을 시작할 수 있습니다.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "운동 시작" })).toBeInTheDocument();
+    expect(mocks.list).toHaveBeenCalledTimes(2);
   });
 
   it("resumes a recovered reservation with Start without reserving again", async () => {
     mocks.list.mockResolvedValue([baseExecution]);
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "운동 시작" }));
+    expect((await screen.findByText(/세션이 예약되었습니다/)).closest("[data-execution-state]"))
+      .toHaveAttribute("data-execution-state", "reserved");
+    expect(screen.queryByRole("button", { name: "건너뜀" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "연기" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "운동 시작" }));
     await waitFor(() => expect(mocks.start).toHaveBeenCalledWith("exec_dddddddddddddddddddddddd", expect.any(String)));
     expect(mocks.reserve).not.toHaveBeenCalled();
   });
@@ -103,14 +121,25 @@ describe("TrainingExecutionPanel", () => {
     expect(screen.queryByPlaceholderText(/revision/i)).not.toBeInTheDocument();
   });
 
-  it("hides skip and postpone once an activity is linked", async () => {
+  it("renders a linked pending state with completion actions", async () => {
     mocks.list.mockResolvedValue([{ ...baseExecution, status: "linked", activityId: "activity_123", activityRevision: "ar_current",
-      startedAt: 2, linkedAt: 3, matchMethod: "manual", matchConfidence: "manual", outcomeStatus: "completed" }]);
+      startedAt: 2, linkedAt: 3, matchMethod: "manual", matchConfidence: "manual", outcomeStatus: "pending" }]);
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
     expect(await screen.findByRole("button", { name: "부분 완료" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "건너뜀" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "연기" })).not.toBeInTheDocument();
+  });
+
+  it("renders a completed state without mutable outcome actions", async () => {
+    mocks.list.mockResolvedValue([{ ...baseExecution, status: "linked", activityId: "activity_123", activityRevision: "ar_current",
+      startedAt: 2, linkedAt: 3, matchMethod: "manual", matchConfidence: "manual", outcomeStatus: "completed" }]);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect((await screen.findByText("이 세션의 실행 결과가 기록되었습니다.")).closest("[data-execution-state]"))
+      .toHaveAttribute("data-execution-state", "completed");
+    expect(screen.queryByRole("button", { name: "완료" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "부분 완료" })).not.toBeInTheDocument();
   });
 
   it("lists once per discipline and distributes recovered executions across multiple sessions", async () => {

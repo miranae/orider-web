@@ -533,6 +533,9 @@ export default function FitnessPage() {
   if (isMobile && activities.length === 0) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
+        {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
+        </div>}
         <EmptyState
           icon="📈"
           title={t("empty.noActivities")}
@@ -873,6 +876,9 @@ export default function FitnessPage() {
       <div>
         {pageHeader}
         <div className="site-shell" style={bodyPad}>
+          {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+            <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
+          </div>}
           <EmptyState
             icon="📈"
             title={t("empty.noActivities")}
