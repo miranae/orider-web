@@ -23,6 +23,7 @@ describe("today training stage smoke", () => {
       representativeSessionId: ineligibleSession.sessionId, effectiveSessions: [ineligibleSession],
       planSource: { planRevision: "plan_2" }, sourceRefs: { prescriptionId: "rx_2", proposalId: null, receiptAuditId: null } };
     const execution = { executionId: "exec_1", status: "reserved", discipline: "bike",
+      outcomeStatus: "pending",
       scheduledSessionId: session.sessionId, scheduledSessionRevision: session.scheduledSessionRevision,
       dayRef: session.dayRef,
       planRevision: "plan_1", projectionId: decision.projectionId, prescriptionId: "rx_1",
@@ -47,9 +48,9 @@ describe("today training stage smoke", () => {
       list: { containsReserved: true } });
     expect(second.reserve).toMatchObject({ status: 200, reservationMode: "reused",
       executionIdDigest: first.reserve.executionIdDigest, scheduledSessionIdDigest: first.reserve.scheduledSessionIdDigest });
-    expect(reserveCalls).toBe(1);
+    expect(reserveCalls).toBe(2);
     const listCalls = fetchImpl.mock.calls.filter(([url]) => String(url).includes("listSessionExecutions"));
-    expect(listCalls).toHaveLength(3);
+    expect(listCalls).toHaveLength(4);
     expect(listCalls[0]?.[1]).toEqual(expect.objectContaining({ body: JSON.stringify({ data: { discipline: "bike", limit: 20 } }),
       headers: expect.objectContaining({ authorization: "Bearer id-eligible", "x-firebase-appcheck": "app-check" }) }));
     const ineligibleReserveCalls = fetchImpl.mock.calls.filter(([url, options]) => String(url).includes("session-executions/reserve")

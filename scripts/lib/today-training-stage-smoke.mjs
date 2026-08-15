@@ -65,7 +65,8 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
     && (item?.proposalId ?? null) === (reservePayload.proposalId ?? null)
     && (item?.receiptAuditId ?? null) === (reservePayload.receiptAuditId ?? null);
   const before = await listExecutions();
-  const reusable = before.find(matchesCurrentDecision);
+  const reusable = before.find((item) => matchesCurrentDecision(item)
+    && item.status === "reserved" && item.outcomeStatus === "pending");
   const reserveUrl = `${input.serviceUrl}/v1/coach/session-executions/reserve`;
   const ineligibleToday = await requestJson(dependencies.fetchImpl,
     `${input.serviceUrl}/v1/coach/training-decisions/today?discipline=bike`, {
@@ -82,16 +83,16 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
     body: JSON.stringify(reservePayloadFor(ineligibleDecision, ineligibleSession, `stage-off-${input.commitSha.slice(0, 20)}`)),
   });
   if (executionOff.status !== 404) throw new Error("stage_smoke:execution_not_fail_closed");
-  let execution = reusable; let reservationMode = "reused";
-  if (!execution) {
-    const reserve = await requestJson(dependencies.fetchImpl, reserveUrl, {
-      method: "POST", headers: headers(eligible), body: JSON.stringify(reservePayload),
-    });
-    execution = reserve.body?.data; reservationMode = "fresh";
-    if (reserve.status !== 200 || reserve.body?.status !== "ok" || typeof execution?.executionId !== "string"
-      || !matchesCurrentDecision(execution)) throw new Error("stage_smoke:reserve_failed");
+  const reserve = await requestJson(dependencies.fetchImpl, reserveUrl, {
+    method: "POST", headers: headers(eligible), body: JSON.stringify(reservePayload),
+  });
+  const execution = reserve.body?.data;
+  if (reserve.status !== 200 || reserve.body?.status !== "ok" || typeof execution?.executionId !== "string"
+    || execution.status !== "reserved" || execution.outcomeStatus !== "pending" || !matchesCurrentDecision(execution)) {
+    throw new Error("stage_smoke:reserve_failed");
   }
-  const executions = reservationMode === "fresh" ? await listExecutions() : before;
+  const reservationMode = reusable?.executionId === execution.executionId ? "reused" : "fresh";
+  const executions = await listExecutions();
   if (typeof execution?.executionId !== "string" || !matchesCurrentDecision(execution)
     || !executions.some((item) => item?.executionId === execution.executionId && matchesCurrentDecision(item))) {
     throw new Error("stage_smoke:list_missing_current_execution");

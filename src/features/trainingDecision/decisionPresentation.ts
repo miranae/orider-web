@@ -7,7 +7,7 @@ export function primaryScheduledSession(decision: TodayTrainingDecisionProjectio
 
 export function primaryRecommendedAdjustment(decision: TodayTrainingDecisionProjection) {
   const id = decision.representativeSessionId;
-  return decision.recommendedAdjustments.find((item) => item.sessionId === id) ?? decision.recommendedAdjustments[0] ?? null;
+  return decision.recommendedAdjustments.find((item) => item.sessionId === id) ?? null;
 }
 
 export function primaryRecommendedSession(decision: TodayTrainingDecisionProjection): TrainingDecisionSession | null {
