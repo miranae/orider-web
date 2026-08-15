@@ -127,6 +127,20 @@ describe("TrainingExecutionPanel", () => {
     await waitFor(() => expect(mocks.reserve).toHaveBeenCalledTimes(1));
   });
 
+  it("re-queries and resets local execution state when the projection changes", async () => {
+    mocks.list.mockResolvedValueOnce([baseExecution]).mockResolvedValueOnce([]);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const { rerender } = render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(await screen.findByText(/세션이 예약되었습니다/)).toBeInTheDocument();
+    const nextDecision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      projectionId: "today_eeeeeeeeeeeeeeeeeeeeeeee",
+    }));
+    rerender(<TrainingExecutionPanel decision={nextDecision} sessions={nextDecision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(await screen.findByText("지금 이 세션을 시작할 수 있습니다.")).toBeInTheDocument();
+    expect(screen.queryByText(/세션이 예약되었습니다/)).not.toBeInTheDocument();
+    expect(mocks.list).toHaveBeenCalledTimes(2);
+  });
+
   it("links a selected owned activity with its current hidden revision", async () => {
     mocks.list.mockResolvedValue([{ ...baseExecution, status: "started", startedAt: 2 }]);
     mocks.activities = { activities: [{ id: "activity_123", userId: "owner", type: "Ride", startTime: 1_787_000_000_000,
