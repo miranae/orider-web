@@ -29,4 +29,18 @@ describe("decisionPresentation", () => {
     expect(primaryRecommendedAdjustment(decision)).toEqual(reassessment);
     expect(primaryRecommendedSession(decision)).toBeNull();
   });
+
+  it("does not inherit the scheduled TSS when a recommendation omits it", () => {
+    const base = trainingDecisionEnvelope();
+    const adjustment = { ...base.data.recommendedAdjustments[0]!, recommendation: {
+      ...base.data.recommendedAdjustments[0]!.recommendation,
+      workout: { kind: "recovery" as const, durationMin: 40, zone: "Z1" as const },
+    } };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      recommendedAdjustments: [adjustment],
+      loadAdjustment: { ...base.data.loadAdjustment!, recommendations: [adjustment] },
+    }));
+    expect(primaryRecommendedSession(decision)?.current).toMatchObject({ workout: "recovery", durationMin: 40,
+      targetTss: null });
+  });
 });

@@ -98,6 +98,44 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.queryByText("조정 권고")).not.toBeInTheDocument();
   });
 
+  it("does not expose an applied rest session as executable", () => {
+    const base = trainingDecisionEnvelope();
+    const restAdjustment = { ...base.data.recommendedAdjustments[0]!, recommendation: {
+      ...base.data.recommendedAdjustments[0]!.recommendation, action: "rest" as const,
+      workout: { kind: "rest" as const, durationMin: 0, targetTss: 0 },
+    } };
+    const effective = { ...base.data.effectiveSessions[0]!, current: { workout: "rest" as const,
+      durationMin: 0, targetTss: 0, completed: false }, basis: "applied_proposal" as const,
+      appliedProposalId: appliedReceipt.proposalId };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ mode: "applied-plan",
+      recommendedAdjustments: [restAdjustment],
+      loadAdjustment: { ...base.data.loadAdjustment!, recommendations: [restAdjustment] }, effectiveSessions: [effective],
+      proposal: { proposalId: appliedReceipt.proposalId, status: "applied",
+        expiresAt: "2096-08-15T00:00:00.000Z", confirmNonce: null }, receipt: appliedReceipt,
+      sourceRefs: { ...base.data.sourceRefs, proposalId: appliedReceipt.proposalId, receiptAuditId: appliedReceipt.auditId } }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(mocks.execution).toHaveBeenCalledWith(expect.objectContaining({ sessions: [] }));
+  });
+
+  it("marks an omitted recommended TSS as pending instead of copying the scheduled load", () => {
+    const base = trainingDecisionEnvelope();
+    const adjustment = { ...base.data.recommendedAdjustments[0]!, recommendation: {
+      ...base.data.recommendedAdjustments[0]!.recommendation,
+      workout: { kind: "recovery" as const, durationMin: 40, zone: "Z1" as const },
+    } };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      recommendedAdjustments: [adjustment],
+      loadAdjustment: { ...base.data.loadAdjustment!, recommendations: [adjustment] },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    const recommended = container.querySelector('[data-session-role="recommended"]')!;
+    expect(within(recommended as HTMLElement).getByText("TSS 산정 전")).toBeInTheDocument();
+    expect(within(recommended as HTMLElement).queryByText("70 TSS")).not.toBeInTheDocument();
+    expect(screen.getByText("권고 변화 -20분 · TSS 산정 전")).toBeInTheDocument();
+  });
+
   it("passes every effective Home session to the execution panel", () => {
     const base = trainingDecisionEnvelope();
     const secondScheduled = { ...base.data.scheduledSessions[0]!, sessionId: "ss_eeeeeeeeeeeeeeeeeeeeeeee",

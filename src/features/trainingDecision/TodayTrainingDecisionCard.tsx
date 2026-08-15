@@ -98,14 +98,15 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     : [];
   const deltaTarget = applied ? effective : recommended;
   const durationDelta = deltaTarget && scheduled ? deltaTarget.current.durationMin - scheduled.current.durationMin : 0;
-  const tssDelta = deltaTarget && scheduled ? deltaTarget.current.targetTss - scheduled.current.targetTss : 0;
+  const tssDelta = deltaTarget && scheduled && deltaTarget.current.targetTss !== null
+    ? deltaTarget.current.targetTss - scheduled.current.targetTss : null;
   const signed = (value: number) => `${value > 0 ? "+" : ""}${value}`;
-  const blockedExecutionSessionIds = new Set(recommendationVisible && !applied
+  const blockedExecutionSessionIds = new Set(applied || recommendationVisible
     ? decision.recommendedAdjustments.filter((item) => item.recommendation.action === "rest"
       || item.recommendation.action === "reassess").map((item) => item.sessionId)
     : []);
   const executableSessions = decision.effectiveSessions
-    .filter((session) => !blockedExecutionSessionIds.has(session.sessionId));
+    .filter((session) => session.current.workout !== "rest" && !blockedExecutionSessionIds.has(session.sessionId));
 
   return <Card className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
@@ -129,7 +130,8 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
         <Text as="strong" variant="subtitle">{t(`decision.status.${action}`)}</Text>
       </div>}
       {deltaTarget && scheduled && <Text className="training-decision-card__delta" as="p" variant="caption" tone="secondary">
-        {t("decision.delta", { duration: signed(durationDelta), tss: signed(tssDelta) })}
+        {tssDelta === null ? t("decision.deltaDurationOnly", { duration: signed(durationDelta) })
+          : t("decision.delta", { duration: signed(durationDelta), tss: signed(tssDelta) })}
       </Text>}
     </div> : <div className="training-decision-card__sessions">
       <TrainingDecisionSessionView label={t("decision.scheduled")} session={scheduled} />

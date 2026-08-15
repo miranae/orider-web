@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Text } from "../../theme/components";
-import type { TrainingDecisionSession } from "../../services/trainingDecisionContract";
+import type { PresentedTrainingDecisionSession } from "./decisionPresentation";
 
 export function TrainingDecisionSessionView({ label, session, tone = "neutral" }: {
-  label: string; session: TrainingDecisionSession | null; tone?: "neutral" | "recommended" | "effective";
+  label: string; session: PresentedTrainingDecisionSession | null; tone?: "neutral" | "recommended" | "effective";
 }) {
   const { t } = useTranslation("training");
   if (!session) return null;
@@ -13,7 +13,8 @@ export function TrainingDecisionSessionView({ label, session, tone = "neutral" }
       <Text as="strong" variant="subtitle">{t(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })}</Text>
       <div className="training-decision-session__meta">
         <span>{t("decision.duration", { value: session.current.durationMin })}</span>
-        <span>{t("decision.tss", { value: session.current.targetTss })}</span>
+        <span>{session.current.targetTss === null ? t("decision.tssUnavailable")
+          : t("decision.tss", { value: session.current.targetTss })}</span>
       </div>
     </div>
   </div>;

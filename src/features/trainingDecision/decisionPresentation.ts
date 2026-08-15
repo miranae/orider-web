@@ -1,5 +1,9 @@
 import type { TodayTrainingDecisionProjection, TrainingDecisionSession } from "../../services/trainingDecisionContract";
 
+export type PresentedTrainingDecisionSession = Omit<TrainingDecisionSession, "current"> & {
+  current: Omit<TrainingDecisionSession["current"], "targetTss"> & { targetTss: number | null };
+};
+
 export function primaryScheduledSession(decision: TodayTrainingDecisionProjection): TrainingDecisionSession | null {
   return decision.scheduledSessions.find((session) => session.sessionId === decision.representativeSessionId)
     ?? decision.scheduledSessions.find((session) => !session.current.completed) ?? decision.scheduledSessions[0] ?? null;
@@ -10,12 +14,12 @@ export function primaryRecommendedAdjustment(decision: TodayTrainingDecisionProj
   return decision.recommendedAdjustments.find((item) => item.sessionId === id) ?? null;
 }
 
-export function primaryRecommendedSession(decision: TodayTrainingDecisionProjection): TrainingDecisionSession | null {
+export function primaryRecommendedSession(decision: TodayTrainingDecisionProjection): PresentedTrainingDecisionSession | null {
   const scheduled = primaryScheduledSession(decision);
   const recommended = primaryRecommendedAdjustment(decision)?.recommendation.workout;
   if (!scheduled || !recommended) return null;
   return { ...scheduled, current: { ...scheduled.current, workout: recommended.kind,
-    durationMin: recommended.durationMin, targetTss: recommended.targetTss ?? scheduled.current.targetTss } };
+    durationMin: recommended.durationMin, targetTss: recommended.targetTss ?? null } };
 }
 
 export function primaryEffectiveSession(decision: TodayTrainingDecisionProjection) {
