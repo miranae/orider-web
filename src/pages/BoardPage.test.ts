@@ -47,7 +47,8 @@ describe("BoardPage tag filter defaults", () => {
     // 제외 집합은 활성 태그만 빼고 전부 tags 기준으로 판정한다(AI 특례 없음).
     expect(source).toContain("getTagExclusion({ uncheckedTags, activeTag })");
     expect(source).toContain("listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))");
-    expect(source).toContain("activeTag !== 'AI'");
+    // 제외 태그는 검색 CF 에도 그대로 전달된다 — 총개수·페이지 수가 목록과 맞아야 한다.
+    expect(source).toContain("const excludeTags = [...clientExcluded];");
   });
 });
 

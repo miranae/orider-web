@@ -73,18 +73,16 @@ const BoardPage: React.FC = () => {
   // 기본값은 "제외 없음" — 태그 제외는 사용자가 칩을 눌러 직접 선택할 때만 걸린다.
   const [uncheckedTags, setUncheckedTags] = useState<Set<string>>(() => new Set());
   const [tagsExpanded, setTagsExpanded] = useState(false);
-  // #AI 칩의 기준은 어디까지나 "AI 태그"다. 다만 Firestore 는 array-not-contains 를 지원하지
-  // 않으므로, 크롤러가 수집 글에 sourceSite 와 AI 태그를 항상 함께 넣는다는 계약
-  // (crawler/scripts/upload.js·tag_posts.js)에 기대어 서버에서 sourceSite==null 로 미리 좁힌다.
-  // 태그 기준 최종 판정은 아래 clientExcluded 가 하므로, 사용자가 직접 AI 태그를 단 글도 제외된다.
-  const excludeAiSourced = uncheckedTags.has('AI') && activeTag !== 'AI';
+  // 제외 태그는 모두 같은 기준(글의 tags)으로 걸러낸다 — 칩 이름과 실제 필터가 어긋나지 않게.
+  const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({ uncheckedTags, activeTag });
+  const excludeTags = [...clientExcluded];
 
   const { tags: allTags } = useBoardMeta();
   // 상위 30개만 패널에 표시
   const panelTags = allTags.slice(0, 30);
 
   const urlPage = Number(searchParams.get('page')) || 1;
-  const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeAiSourced, urlPage);
+  const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeTags, urlPage);
   const isMyInquiryView = selectedBoard === 'inquiry' && searchParams.get('view') === 'my';
   const submittedPostId = searchParams.get('submitted');
   const submittedStatus = searchParams.get('status') || 'new';
@@ -138,8 +136,8 @@ const BoardPage: React.FC = () => {
     if (main) setTimeout(() => { main.scrollTop = Number(saved); }, 50);
   }, [loading]);
 
-  // 제외 태그는 모두 같은 기준(글의 tags)으로 걸러낸다 — 칩 이름과 실제 필터가 어긋나지 않게.
-  const { clientExcluded, clientOnlyExcludedCount } = getTagExclusion({ uncheckedTags, activeTag });
+  // 서버가 이미 거른 뒤에도 한 번 더 확인한다 — 검색 CF 배포 전이거나(구버전 응답)
+  // Firestore 경로에서 sourceSite 사전 축소를 통과한 글이 있으면 여기서 걸린다.
   const displayedPosts = clientExcluded.size > 0 && !isMyInquiryView
     ? listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))
     : listPosts;
