@@ -209,9 +209,12 @@ describe("TrainingExecutionPanel", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "연결할 내 최근 활동" }), { target: { value: "activity_123" } });
     fireEvent.click(screen.getByRole("button", { name: "연결" }));
     await waitFor(() => expect(mocks.link).toHaveBeenCalledTimes(1));
-    fireEvent.click(await screen.findByRole("button", { name: "활동 연결 해제" }));
+    const unlink = await screen.findByRole("button", { name: "활동 연결 해제" });
+    expect(screen.queryByRole("combobox", { name: "연결할 내 최근 활동" })).not.toBeInTheDocument();
+    fireEvent.click(unlink);
     await waitFor(() => expect(mocks.unlink).toHaveBeenCalledTimes(1));
-    const relink = screen.getByRole("button", { name: "연결" });
+    fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
+    const relink = await screen.findByRole("button", { name: "연결" });
     await waitFor(() => expect(relink).toBeEnabled());
     fireEvent.click(relink);
     await waitFor(() => expect(mocks.link).toHaveBeenCalledTimes(2));

@@ -69,11 +69,12 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
 
   async function link() {
     const revision = selectedActivity ? revisionOf(selectedActivity) : null;
-    if (!canMutate || !execution || !selectedActivity || !revision || busy) return;
+    if (!canMutate || !execution || execution.status !== "started" || execution.outcomeStatus !== "pending"
+      || !selectedActivity || !revision || busy) return;
     setBusy(true); setError(false);
     const operation = `link:${execution.executionId}:${selectedActivity.id}:${revision}`;
     try { setExecution(await linkSessionExecutionActivity(execution.executionId, selectedActivity.id, revision,
-      mutationKey(operation))); mutationKeys.current.delete(operation); onChanged(); }
+      mutationKey(operation))); mutationKeys.current.delete(operation); setManual(false); onChanged(); }
     catch (cause) { logClientError("TrainingExecutionPanel.link", cause, { executionId: execution.executionId }); setError(true); } finally { setBusy(false); }
   }
 
