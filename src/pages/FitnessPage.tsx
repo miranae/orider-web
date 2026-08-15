@@ -46,7 +46,6 @@ import { useFtpHistory } from "../hooks/useFtpHistory";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import AdaptationSummary from "../components/training/AdaptationSummary";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
-import TodayConclusion from "../components/training/TodayConclusion";
 import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import DetailsSection from "../components/redesign/DetailsSection";
@@ -886,18 +885,6 @@ export default function FitnessPage() {
       {pageHeader}
 
       <div className="site-shell" style={bodyPad}>
-        {/* 오늘의 결론 (#400 §1·§2) — 경고/회복/주간해석을 모순 없는 한 문장으로
-            합성한다. 워크아웃 추천은 통합 탭에서만 노출하고, 근거가 되는 개별 지표 카드는
-            아래 "근거 보기" 상세로 내려간다. */}
-        {currentPoint && (
-          <TodayConclusion
-            tsb={tsb}
-            restDays={weeklyStats.restDays}
-            thisWeekTSS={weeklyStats.thisWeekTSS}
-            avgWeekTSS={weeklyStats.avgWeekTSS}
-          />
-        )}
-
         {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
           <DetailsSection title={t("conclusion.evidenceToggle")}>
             {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /plan 으로 이동. */}

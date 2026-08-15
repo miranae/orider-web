@@ -512,7 +512,7 @@
   "conclusion.recoveredLongRest": "No hard load for {{restDays}} days and you're well recovered. It's a good day to do today's planned workout.",
   "conclusion.recoveredLowRecentLoad": "Recent load is only {{loadPct}}% of your usual and you're well recovered. It's a good day to do today's planned workout.",
   "conclusion.balancedFollowPlan": "Your condition is steady. Follow today's plan as scheduled.",
-  "conclusion.evidenceToggle": "Show the evidence — recovery, consistency, training status",
+  "conclusion.evidenceToggle": "View status and trends — recovery, consistency, training load",
   "conclusion.detailToggle": "Show detailed analysis — improvement actions, rider type, personal ability",
   "pmc.interpretation": "The higher the lines climb, the more fitness you're building — ideally the thick line (fitness) rises while the thin line (fatigue) stays steady.",
   "mobile.week.lastWeek": "Last week",

@@ -5,15 +5,12 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import TriFitnessView from "./TriFitnessView";
 
-vi.mock("../../components/training/TodaysWorkoutCard", () => ({
-  default: () => <div data-testid="full-ai-coach" />,
-}));
 vi.mock("../../components/mobile/IntegratedLoadCard", () => ({
   default: () => <div data-testid="desktop-integrated-detail" />,
 }));
 
 describe("TriFitnessView parity", () => {
-  it("renders the full AI coach and authoritative integrated detail exactly once", () => {
+  it("renders the authoritative integrated detail exactly once without a workout card", () => {
     renderWithProviders(
       <TriFitnessView
         activities={[]}
@@ -36,8 +33,9 @@ describe("TriFitnessView parity", () => {
       { authenticated: true, route: "/fitness?sport=tri" },
     );
 
-    expect(screen.getAllByTestId("full-ai-coach")).toHaveLength(1);
     expect(screen.getAllByTestId("desktop-integrated-detail")).toHaveLength(1);
+    const source = readFileSync(join(process.cwd(), "src/pages/fitness/TriFitnessView.tsx"), "utf8");
+    expect(source).not.toContain("TodaysWorkoutCard");
   });
 
   it("uses integrated status as the only static snapshot and keeps the PMC trend", () => {
