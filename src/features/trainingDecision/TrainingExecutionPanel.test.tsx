@@ -70,6 +70,21 @@ describe("TrainingExecutionPanel", () => {
     expect(mocks.list).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { status: "completed" as const, completed: true },
+    { status: "skipped" as const, completed: false },
+    { status: "postponed" as const, completed: false },
+  ])("does not expose a $status session as executable", ({ status, completed }) => {
+    const base = trainingDecisionEnvelope();
+    const session = { ...base.data.effectiveSessions[0]!, status, current: {
+      ...base.data.effectiveSessions[0]!.current, completed,
+    } };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ effectiveSessions: [session] }));
+    const { container } = render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(container).toBeEmptyDOMElement();
+    expect(mocks.list).not.toHaveBeenCalled();
+  });
+
   it.each(["click", "Enter"] as const)("recovers a list error through %s retry activation", async (activation) => {
     let resolveRetry!: (items: Array<typeof baseExecution>) => void;
     mocks.list.mockRejectedValueOnce(new Error("list failed"));

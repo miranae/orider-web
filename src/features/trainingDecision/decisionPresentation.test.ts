@@ -15,4 +15,18 @@ describe("decisionPresentation", () => {
     expect(primaryRecommendedAdjustment(decision)).toBeNull();
     expect(primaryRecommendedSession(decision)).toBeNull();
   });
+
+  it("keeps a workout-less reassessment authoritative without inventing session metrics", () => {
+    const base = trainingDecisionEnvelope();
+    const reassessment = { sessionId: base.data.representativeSessionId!, recommendation: {
+      localDate: base.data.localDate, action: "reassess" as const, reasonCodes: ["form_gate_before_intensity"],
+      evidenceIds: [], reassessBefore: [],
+    } };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      recommendedAdjustments: [reassessment],
+      loadAdjustment: { ...base.data.loadAdjustment!, recommendations: [reassessment] },
+    }));
+    expect(primaryRecommendedAdjustment(decision)).toEqual(reassessment);
+    expect(primaryRecommendedSession(decision)).toBeNull();
+  });
 });

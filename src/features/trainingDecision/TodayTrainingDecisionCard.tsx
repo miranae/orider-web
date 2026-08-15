@@ -7,7 +7,8 @@ import TodayPlanLink from "../../components/training/TodayPlanLink";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import { Alert, Button, Card, Chip, Text, buttonClass } from "../../theme/components";
 import {
-  canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedSession, primaryScheduledSession,
+  canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedAdjustment,
+  primaryRecommendedSession, primaryScheduledSession,
 } from "./decisionPresentation";
 import { TrainingDecisionSessionView } from "./TrainingDecisionSessionView";
 import { useTrainingProposalController } from "./useTrainingProposalController";
@@ -73,22 +74,23 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   </div>;
 
   const scheduled = primaryScheduledSession(decision);
-  const recommended = decision.healthGate.state === "clear" && canShowRecommendation(decision)
-    ? primaryRecommendedSession(decision) : null;
+  const recommendationVisible = decision.healthGate.state === "clear" && canShowRecommendation(decision);
+  const recommendedAdjustment = recommendationVisible ? primaryRecommendedAdjustment(decision) : null;
+  const recommended = recommendedAdjustment ? primaryRecommendedSession(decision) : null;
   const effective = primaryEffectiveSession(decision);
-  const action = recommended ? decisionAction(decision) : null;
+  const action = recommendedAdjustment ? decisionAction(decision) : null;
   const applied = decision.receipt?.status === "applied";
-  const recommendationPending = Boolean(recommended && !applied);
+  const recommendationPending = Boolean(recommendedAdjustment && !applied);
   const displayScheduledOnly = !applied && !recommendationPending;
   const homeSessionLayout = recommendationPending ? "comparison" : "single";
   const statusKey = applied ? "applied"
     : recommendationPending ? "recommendationPending" : displayScheduledOnly || scheduledOnly || !action ? "scheduledOnly" : action;
   const extraCount = Math.max(0, decision.scheduledSessions.length - 1);
   const tupleId = decision.projectionId;
-  const reasonCodes = recommended
+  const reasonCodes = recommendedAdjustment
     ? [...new Set((decision.loadAdjustment?.reasonCodes.length
       ? decision.loadAdjustment.reasonCodes
-      : decision.recommendedAdjustments.find((item) => item.sessionId === recommended.sessionId)?.recommendation.reasonCodes) ?? [])].slice(0, 2)
+      : recommendedAdjustment?.recommendation.reasonCodes) ?? [])].slice(0, 2)
     : [];
   const deltaTarget = applied ? effective : recommended;
   const durationDelta = deltaTarget && scheduled ? deltaTarget.current.durationMin - scheduled.current.durationMin : 0;
@@ -112,12 +114,20 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
       className={`training-decision-card__sessions training-decision-card__sessions--compact training-decision-card__sessions--${homeSessionLayout}`}>
       <TrainingDecisionSessionView label={t(applied ? "decision.effective" : "decision.effectiveScheduled")} session={effective} tone="effective" />
       {recommendationPending && <TrainingDecisionSessionView label={t("decision.recommendedPending")} session={recommended} tone="recommended" />}
+      {recommendationPending && !recommended && <div className="training-decision-session training-decision-session--recommended" data-session-role="recommended">
+        <Text as="span" variant="caption" tone="secondary">{t("decision.recommendedPending")}</Text>
+        <Text as="strong" variant="subtitle">{t(`decision.status.${action}`)}</Text>
+      </div>}
       {deltaTarget && scheduled && <Text className="training-decision-card__delta" as="p" variant="caption" tone="secondary">
         {t("decision.delta", { duration: signed(durationDelta), tss: signed(tssDelta) })}
       </Text>}
     </div> : <div className="training-decision-card__sessions">
       <TrainingDecisionSessionView label={t("decision.scheduled")} session={scheduled} />
       {recommended && <TrainingDecisionSessionView label={t("decision.recommended")} session={recommended} tone="recommended" />}
+      {recommendationPending && !recommended && <div className="training-decision-session training-decision-session--recommended" data-session-role="recommended">
+        <Text as="span" variant="caption" tone="secondary">{t("decision.recommended")}</Text>
+        <Text as="strong" variant="subtitle">{t(`decision.status.${action}`)}</Text>
+      </div>}
       <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
       {extraCount > 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.extraSessions", { count: extraCount })}</Text>}
     </div>}
@@ -127,7 +137,9 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
         {t(`decision.reason.${code}`, { defaultValue: t("decision.reasonFallback") })}
       </Chip>)}</div>
     </section>}
-    {surface === "home" && <TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={refresh} />}
+    {surface === "home" && <TrainingExecutionPanel decision={decision}
+      sessions={recommendationPending && (action === "rest" || action === "reassess") ? [] : decision.effectiveSessions}
+      onChanged={refresh} />}
     {(surface === "home" || surface === "fitness") && <footer className="training-decision-card__actions">
       {surface === "home" && <LocalizedLink to={{ pathname: "/plan", search: `?sport=${discipline}` }} className={buttonClass({ variant: "outline", size: "sm" })}>
         {t("decision.viewPlan")}<ChevronRight size={16} aria-hidden />

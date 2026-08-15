@@ -179,7 +179,8 @@ function TrainingExecutionPanelBody({ decision, sessions, onChanged }: { decisio
 
 export function TrainingExecutionPanel({ decision, sessions, onChanged }: { decision: TodayTrainingDecisionProjection;
   sessions: TrainingDecisionSession[]; onChanged: () => void }) {
+  const executableSessions = sessions.filter((session) => session.status === "scheduled" && !session.current.completed);
   if (getRuntimeConfig().trainingExecutionEnabled !== true || decision.capabilities.execution.status !== "available"
-      || decision.healthGate.state !== "clear" || !decision.planSource || sessions.length === 0) return null;
-  return <TrainingExecutionPanelBody decision={decision} sessions={sessions} onChanged={onChanged} />;
+      || decision.healthGate.state !== "clear" || !decision.planSource || executableSessions.length === 0) return null;
+  return <TrainingExecutionPanelBody decision={decision} sessions={executableSessions} onChanged={onChanged} />;
 }

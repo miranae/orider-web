@@ -108,6 +108,24 @@ describe("TodayTrainingDecisionCard", () => {
     expect(mocks.execution).toHaveBeenCalledWith(expect.objectContaining({ sessions: decision.effectiveSessions }));
   });
 
+  it("shows a reassessment recommendation without exposing the original session as executable", () => {
+    const base = trainingDecisionEnvelope();
+    const reassessment = { sessionId: base.data.representativeSessionId!, recommendation: {
+      localDate: base.data.localDate, action: "reassess" as const, reasonCodes: ["form_gate_before_intensity"],
+      evidenceIds: [], reassessBefore: [],
+    } };
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      recommendedAdjustments: [reassessment],
+      loadAdjustment: { ...base.data.loadAdjustment!, reasonCodes: ["form_gate_before_intensity"], recommendations: [reassessment] },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(screen.getByRole("heading", { name: "변경 권고 · 아직 미적용" })).toBeInTheDocument();
+    expect(screen.getByText("상태 확인 필요")).toBeInTheDocument();
+    expect(screen.getByText("강도 운동 전 폼 확인이 필요해요")).toBeInTheDocument();
+    expect(mocks.execution).toHaveBeenCalledWith(expect.objectContaining({ sessions: [] }));
+  });
+
   it("does not offer proposal review when there are no actual adjustments", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
       recommendedAdjustments: [], loadAdjustment: { prescriptionStatus: "ready", classification: "normal",
