@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getIdToken: vi.fn(), getAppCheckToken: vi.fn() }));
 vi.mock("./firebase", () => ({ auth: { currentUser: { getIdToken: mocks.getIdToken } },
@@ -14,6 +14,7 @@ describe("trainingDecisionClient", () => {
     mocks.getIdToken.mockResolvedValue("id-token");
     mocks.getAppCheckToken.mockResolvedValue("app-check");
   });
+  afterEach(() => vi.useRealTimers());
 
   it("preserves HTTP status and JSON parsing context", async () => {
     const parseError = new SyntaxError("invalid JSON");
@@ -31,5 +32,16 @@ describe("trainingDecisionClient", () => {
     await expect(getTodayTrainingDecision("bike")).rejects.toMatchObject({
       kind: "contract", code: "INVALID_TRAINING_DECISION",
     });
+  });
+
+  it("times out a stalled decision request so callers can render the fallback", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+    }));
+    const rejection = expect(getTodayTrainingDecision("bike"))
+      .rejects.toMatchObject({ kind: "transport", code: "REQUEST_TIMEOUT" });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await rejection;
   });
 });

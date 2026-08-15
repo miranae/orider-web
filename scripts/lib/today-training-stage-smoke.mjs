@@ -2,6 +2,15 @@ import { createHash } from "node:crypto";
 
 const timeout = () => AbortSignal.timeout(15_000);
 const digest = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+const responseCode = (body) => typeof body?.error?.code === "string"
+  ? body.error.code.replace(/[^A-Za-z0-9_.-]/gu, "_").slice(0, 80) : "unknown";
+const responseContext = (response, url) => `${response.status}:${url}:${responseCode(response.body)}`;
+const reserveKeyFor = (prefix, commitSha, decision, session) => `${prefix}-${createHash("sha256")
+  .update(JSON.stringify([commitSha, decision.projectionId, decision.planSource?.planRevision,
+    decision.sourceRefs?.prescriptionId ?? null, decision.prescription?.validFrom ?? null,
+    decision.sourceRefs?.proposalId ?? null, decision.sourceRefs?.receiptAuditId ?? null,
+    session.scheduledSessionId, session.scheduledSessionRevision, session.dayRef]))
+  .digest("hex").slice(0, 32)}`;
 
 async function requestJson(fetchImpl, url, options) {
   const response = await fetchImpl(url, { ...options, signal: timeout() });
@@ -34,24 +43,27 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
   if (!eligible.idToken || !eligible.appCheckToken || !ineligible.idToken || !ineligible.appCheckToken) {
     throw new Error("stage_smoke:credentials_invalid");
   }
-  const today = await requestJson(dependencies.fetchImpl, `${input.serviceUrl}/v1/coach/training-decisions/today?discipline=bike`, {
+  const todayUrl = `${input.serviceUrl}/v1/coach/training-decisions/today?discipline=bike`;
+  const today = await requestJson(dependencies.fetchImpl, todayUrl, {
     method: "GET", headers: headers(eligible),
   });
   const decision = today.body?.data;
   if (today.status !== 200 || today.body?.status !== "ok" || decision?.schemaVersion !== "today-training-decision-v1"
     || today.body?.providerCalls !== 0 || today.body?.quotaConsumed !== 0
     || decision?.capabilities?.execution?.reserve !== "available" || decision?.discipline !== "bike") {
-    throw new Error("stage_smoke:decision_not_eligible");
+    throw new Error(`stage_smoke:decision_not_eligible:${responseContext(today, todayUrl)}`);
   }
   const session = decision.effectiveSessions?.find((item) => item.sessionId === decision.representativeSessionId);
   if (!session || !decision.planSource) throw new Error("stage_smoke:representative_session_missing");
-  const reservePayload = reservePayloadFor(decision, session, `stage-${input.commitSha.slice(0, 24)}`);
+  const reservePayload = reservePayloadFor(decision, session, reserveKeyFor("stage", input.commitSha, decision, session));
   const listUrl = `https://asia-northeast3-${input.projectId}.cloudfunctions.net/listSessionExecutions`;
   const listExecutions = async () => {
     const listed = await requestJson(dependencies.fetchImpl, listUrl, {
       method: "POST", headers: headers(eligible), body: JSON.stringify({ data: { discipline: "bike", limit: 20 } }),
     });
-    if (listed.status !== 200 || !Array.isArray(listed.body?.data?.executions)) throw new Error("stage_smoke:list_failed");
+    if (listed.status !== 200 || !Array.isArray(listed.body?.data?.executions)) {
+      throw new Error(`stage_smoke:list_failed:${responseContext(listed, listUrl)}`);
+    }
     return listed.body.data.executions;
   };
   const matchesCurrentDecision = (item) => item?.status !== "invalidated" && item?.discipline === "bike"
@@ -68,8 +80,7 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
   const reusable = before.find((item) => matchesCurrentDecision(item)
     && item.status === "reserved" && item.outcomeStatus === "pending");
   const reserveUrl = `${input.serviceUrl}/v1/coach/session-executions/reserve`;
-  const ineligibleToday = await requestJson(dependencies.fetchImpl,
-    `${input.serviceUrl}/v1/coach/training-decisions/today?discipline=bike`, {
+  const ineligibleToday = await requestJson(dependencies.fetchImpl, todayUrl, {
       method: "GET", headers: headers(ineligible),
     });
   const ineligibleDecision = ineligibleToday.body?.data;
@@ -77,19 +88,24 @@ export async function runTodayTrainingStageSmoke(input, dependencies) {
     ?.find((item) => item.sessionId === ineligibleDecision.representativeSessionId);
   if (ineligibleToday.status !== 200 || ineligibleToday.body?.status !== "ok"
     || ineligibleDecision?.schemaVersion !== "today-training-decision-v1" || ineligibleDecision?.discipline !== "bike"
-    || !ineligibleSession || !ineligibleDecision.planSource) throw new Error("stage_smoke:ineligible_decision_invalid");
+    || !ineligibleSession || !ineligibleDecision.planSource) {
+    throw new Error(`stage_smoke:ineligible_decision_invalid:${responseContext(ineligibleToday, todayUrl)}`);
+  }
   const executionOff = await requestJson(dependencies.fetchImpl, reserveUrl, {
     method: "POST", headers: headers(ineligible),
-    body: JSON.stringify(reservePayloadFor(ineligibleDecision, ineligibleSession, `stage-off-${input.commitSha.slice(0, 20)}`)),
+    body: JSON.stringify(reservePayloadFor(ineligibleDecision, ineligibleSession,
+      reserveKeyFor("stage-off", input.commitSha, ineligibleDecision, ineligibleSession))),
   });
-  if (executionOff.status !== 404) throw new Error("stage_smoke:execution_not_fail_closed");
+  if (executionOff.status !== 404) {
+    throw new Error(`stage_smoke:execution_not_fail_closed:${responseContext(executionOff, reserveUrl)}`);
+  }
   const reserve = await requestJson(dependencies.fetchImpl, reserveUrl, {
     method: "POST", headers: headers(eligible), body: JSON.stringify(reservePayload),
   });
   const execution = reserve.body?.data;
   if (reserve.status !== 200 || reserve.body?.status !== "ok" || typeof execution?.executionId !== "string"
     || execution.status !== "reserved" || execution.outcomeStatus !== "pending" || !matchesCurrentDecision(execution)) {
-    throw new Error("stage_smoke:reserve_failed");
+    throw new Error(`stage_smoke:reserve_failed:${responseContext(reserve, reserveUrl)}`);
   }
   const reservationMode = reusable?.executionId === execution.executionId ? "reused" : "fresh";
   const executions = await listExecutions();

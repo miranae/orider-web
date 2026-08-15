@@ -68,6 +68,40 @@ describe("today training stage smoke", () => {
     expect(ajv.validate(smokeSchema, second), ajv.errorsText()).toBe(true);
   });
 
+  it("uses a different reservation key when the decision tuple changes on the same commit", async () => {
+    const decisionFor = (projectionId: string, currentSession: typeof session, planRevision: string) => ({
+      schemaVersion: "today-training-decision-v1", discipline: "bike", projectionId,
+      representativeSessionId: currentSession.sessionId, effectiveSessions: [currentSession], planSource: { planRevision },
+      sourceRefs: { prescriptionId: "rx_1", proposalId: null, receiptAuditId: null },
+      prescription: { validFrom: "2026-08-15T00:00:00.000Z" }, capabilities: { execution: { reserve: "available" } },
+    });
+    const ineligibleDecision = decisionFor("today_ffffffffffffffffffffffff", ineligibleSession, "plan_2");
+    let decision = decisionFor("today_cccccccccccccccccccccccc", session, "plan_1");
+    let executions: Array<Record<string, unknown>> = [];
+    const reservationKeys: string[] = [];
+    const fetchImpl = vi.fn(async (url: string, options: { headers?: Record<string, string>; body?: string } = {}) => {
+      if (url.includes("/training-decisions/today")) return json(200, { status: "ok", providerCalls: 0, quotaConsumed: 0,
+        data: options.headers?.authorization === "Bearer id-ineligible" ? ineligibleDecision : decision });
+      if (url.includes("listSessionExecutions")) return json(200, { data: { executions } });
+      if (options.headers?.authorization === "Bearer id-ineligible") return json(404, { error: { code: "not-found" } });
+      const payload = JSON.parse(String(options.body)) as Record<string, unknown>;
+      reservationKeys.push(String(payload.idempotencyKey));
+      const execution = { ...payload, executionId: `exec_${reservationKeys.length}`, status: "reserved", outcomeStatus: "pending" };
+      executions = [execution];
+      return json(200, { status: "ok", data: execution });
+    });
+    const input = { commitSha: "a".repeat(40), projectId: "orider-stage", serviceUrl: "https://stage.example.test",
+      eligibleUid: "eligible", ineligibleUid: "ineligible" };
+    const dependencies = { credentialsForIdentity: async (uid: string) => ({ idToken: `id-${uid}`, appCheckToken: "app" }),
+      fetchImpl, now: Date.now };
+    await runTodayTrainingStageSmoke(input, dependencies);
+    decision = decisionFor("today_999999999999999999999999", ineligibleSession, "plan_3");
+    executions = [];
+    await runTodayTrainingStageSmoke(input, dependencies);
+    expect(reservationKeys).toHaveLength(2);
+    expect(reservationKeys[0]).not.toBe(reservationKeys[1]);
+  });
+
   it("fails closed when the rollout-ineligible reserve is not 404", async () => {
     const decision = { schemaVersion: "today-training-decision-v1", discipline: "bike", projectionId: "today_cccccccccccccccccccccccc",
       representativeSessionId: session.sessionId, effectiveSessions: [session], planSource: { planRevision: "plan_1" },
@@ -114,5 +148,13 @@ describe("today training stage smoke", () => {
       serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
       credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
     })).rejects.toThrow("stage_smoke:response_json_invalid:502:https://stage.example.test/v1/coach/training-decisions/today?discipline=bike");
+  });
+
+  it("reports status, endpoint, and server code for an abnormal stage response", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(json(503, { error: { code: "upstream-unavailable" } }));
+    await expect(runTodayTrainingStageSmoke({ commitSha: "b".repeat(40), projectId: "orider-stage",
+      serviceUrl: "https://stage.example.test", eligibleUid: "eligible", ineligibleUid: "ineligible" }, {
+      credentialsForIdentity: async () => ({ idToken: "id", appCheckToken: "app" }), fetchImpl, now: Date.now,
+    })).rejects.toThrow("stage_smoke:decision_not_eligible:503:https://stage.example.test/v1/coach/training-decisions/today?discipline=bike:upstream-unavailable");
   });
 });
