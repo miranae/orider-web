@@ -95,18 +95,16 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       setLoading(true);
       setError(null);
       const search = httpsCallable<
-        { keyword?: string; boardType: string; tag?: string; cursor?: number; page?: number; limitCount: number; excludeTags?: string[] },
+        { keyword?: string; boardType: string; tag?: string; cursor?: number; page?: number; limitCount: number },
         SearchResult
       >(functions, "searchBoardPosts");
 
-      const params: { keyword?: string; boardType: string; tag?: string; page?: number; limitCount: number; excludeTags?: string[] } = {
+      // NOTE: 검색 CF 의 excludeTags 지원은 orider-g1-web#2086 배포 후 붙인다(dev 에는 이미 있다).
+      const params: { keyword?: string; boardType: string; tag?: string; page?: number; limitCount: number } = {
         boardType,
         tag,
         limitCount: pageSize,
       };
-      // 검색은 Firestore 쿼리가 아니라 CF 를 타므로 제외 태그를 그대로 넘긴다 — 서버가 걸러야
-      // 총개수·페이지 수가 화면 목록과 맞는다(클라 필터는 페이지 안에서만 걸린다).
-      if (excludeTags.length > 0) params.excludeTags = [...excludeTags];
       if (trimmed.length > 0) params.keyword = trimmed;
       if (boardType === 'archive') params.page = page;
 

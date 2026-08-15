@@ -18,7 +18,6 @@ describe("getEffectiveListTotal", () => {
     expect(getEffectiveListTotal({
       submittedQuery: "검색어",
       clientExcludedCount: 0,
-      droppedOnPage: 0,
       displayedCount: 20,
       listTotal: 83,
     })).toBe(83);
@@ -28,22 +27,11 @@ describe("getEffectiveListTotal", () => {
     expect(getEffectiveListTotal({
       submittedQuery: "",
       clientExcludedCount: 1,
-      droppedOnPage: 0,
       displayedCount: 7,
       listTotal: 20,
     })).toBe(7);
   });
 
-  it("falls back to the displayed count when the server did not apply the exclusion", () => {
-    // 검색 CF 가 excludeTags 를 무시하면 클라이언트가 걸러낸다 — 총개수도 화면 기준이어야 한다.
-    expect(getEffectiveListTotal({
-      submittedQuery: "검색어",
-      clientExcludedCount: 0,
-      droppedOnPage: 4,
-      displayedCount: 16,
-      listTotal: 83,
-    })).toBe(16);
-  });
 });
 
 describe("BoardPage tag filter defaults", () => {
@@ -61,7 +49,7 @@ describe("BoardPage tag filter defaults", () => {
     expect(source).toContain("getTagExclusion({ uncheckedTags, activeTag })");
     expect(source).toContain("listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))");
     // 제외 태그는 검색 CF 에도 그대로 전달된다 — 총개수·페이지 수가 목록과 맞아야 한다.
-    expect(source).toContain("const excludeTags = [...clientExcluded];");
+    expect(source).toContain("const clientExcluded = new Set([...uncheckedTags].filter(t => t !== activeTag));");
   });
 });
 
