@@ -54,7 +54,8 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   // 여러 번 바뀌어 effect 를 중복 발사(count 쿼리 N회)시키므로, 안정적인 uid 문자열을 dep 로 쓴다.
   const uid = user?.uid ?? null;
   // 제외 태그는 호출부에서 매 렌더 새 배열로 오므로, 값 기준의 안정적인 키를 dep 로 쓴다.
-  const excludeKey = [...excludeTags].sort().join('|');
+  // 태그에 구분자가 들어갈 수 있으니(['a|b'] vs ['a','b']) JSON 으로 직렬화해 충돌을 막는다.
+  const excludeKey = JSON.stringify([...excludeTags].sort());
   // 수집 글(AI)만 서버에서 미리 좁힐 수 있다 — 나머지 태그는 Firestore 가 못 거른다.
   const excludeAiSourced = excludeTags.includes('AI');
   const [posts, setPosts] = useState<BoardPost[]>([]);
@@ -76,7 +77,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   const refresh = () => { setRefreshKey((k) => k + 1); setPage(1); };
 
   // 필터 변경 시 1페이지로 리셋 (실제 값 변경만 감지, strict mode 안전)
-  const filterKey = `${boardType}|${tag}|${keyword}|${excludeKey}|${refreshKey}`;
+  const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey]);
   const prevFilterKey = useRef(filterKey);
   useEffect(() => {
     if (prevFilterKey.current === filterKey) return;
@@ -159,7 +160,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
         // 총 개수(페이지네이션 "N개" 라벨용)는 글 렌더에 불필요 → 비차단으로 발사한다.
         // 목록 쿼리가 count 왕복을 기다리지 않아 콘텐츠가 더 빨리 뜬다(전: count→목록 순차 2왕복).
         // count 실패는 라벨에만 영향이라 무시.
-        const countKey = `${boardType}|${tag}|${keyword}|${excludeKey}|${refreshKey}|${uid ? "1" : "0"}`;
+        const countKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, uid ? "1" : "0"]);
         const cachedCount = countCacheRef.current.get(countKey);
         if (cachedCount !== undefined) {
           // 같은 필터 — 캐시된 총개수 사용, 네트워크 count 생략(중복 발사 제거).
