@@ -48,7 +48,7 @@ export function useBoardMeta() {
  * 페이지 기반 게시글 목록 훅
  * keyword가 있으면 Cloud Function 검색, 없으면 Firestore 페이지 쿼리
  */
-export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?: string, keyword?: string, excludeAI = false, initialPage = 1) {
+export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?: string, keyword?: string, excludeAiSourced = false, initialPage = 1) {
   const { user } = useAuth();
   // 쿼리는 "로그인 여부"에만 의존(비로그인=공개글만). user 객체는 auth init 중 레퍼런스가
   // 여러 번 바뀌어 effect 를 중복 발사(count 쿼리 N회)시키므로, 안정적인 uid 문자열을 dep 로 쓴다.
@@ -72,7 +72,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   const refresh = () => { setRefreshKey((k) => k + 1); setPage(1); };
 
   // 필터 변경 시 1페이지로 리셋 (실제 값 변경만 감지, strict mode 안전)
-  const filterKey = `${boardType}|${tag}|${keyword}|${excludeAI}|${refreshKey}`;
+  const filterKey = `${boardType}|${tag}|${keyword}|${excludeAiSourced}|${refreshKey}`;
   const prevFilterKey = useRef(filterKey);
   useEffect(() => {
     if (prevFilterKey.current === filterKey) return;
@@ -137,7 +137,10 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       if (tag) {
         baseConstraints.push(where("tags", "array-contains", tag));
       }
-      if (excludeAI) {
+      if (excludeAiSourced) {
+        // #AI 제외의 사전 축소 — 크롤러 수집 글은 sourceSite 와 AI 태그를 항상 함께 갖는다.
+        // Firestore 에 array-not-contains 가 없어 태그로는 서버에서 못 거르므로, 이 조건으로
+        // 좁힌 뒤 BoardPage 가 tags 기준으로 최종 판정한다(총개수·페이지네이션은 여기서 정확).
         baseConstraints.push(where("sourceSite", "==", null));
       }
       baseConstraints.push(where("deletedAt", "==", null));
@@ -149,7 +152,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
         // 총 개수(페이지네이션 "N개" 라벨용)는 글 렌더에 불필요 → 비차단으로 발사한다.
         // 목록 쿼리가 count 왕복을 기다리지 않아 콘텐츠가 더 빨리 뜬다(전: count→목록 순차 2왕복).
         // count 실패는 라벨에만 영향이라 무시.
-        const countKey = `${boardType}|${tag}|${keyword}|${excludeAI}|${refreshKey}|${uid ? "1" : "0"}`;
+        const countKey = `${boardType}|${tag}|${keyword}|${excludeAiSourced}|${refreshKey}|${uid ? "1" : "0"}`;
         const cachedCount = countCacheRef.current.get(countKey);
         if (cachedCount !== undefined) {
           // 같은 필터 — 캐시된 총개수 사용, 네트워크 count 생략(중복 발사 제거).
@@ -208,7 +211,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
           }
         } catch (err) {
           if (cancelled) return;
-          logClientError("board:list", err, { boardType, tag, excludeAI, page });
+          logClientError("board:list", err, { boardType, tag, excludeAiSourced, page });
           setError(err as Error);
         } finally {
           if (!cancelled) setLoading(false);
@@ -218,7 +221,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       fetchPage();
       return () => { cancelled = true; };
     }
-  }, [boardType, pageSize, tag, keyword, excludeAI, refreshKey, page, uid]);
+  }, [boardType, pageSize, tag, keyword, excludeAiSourced, refreshKey, page, uid]);
 
   const goToPage = (p: number) => {
     if (p >= 1 && p <= totalPages) setPage(p);
