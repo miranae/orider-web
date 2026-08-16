@@ -119,11 +119,3 @@ jobs:
             echo "::error::stage가 방금 빌드한 번들($built)을 서빙하지 않음 — stale 배포/캐시."
             exit 1
           fi
-      - name: Package verified dist for production promotion
-        run: tar -czf "web-dist-${GITHUB_SHA}.tar.gz" dist
-      - name: Upload verified dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-dist-${{ github.sha }}
-          path: web-dist-${{ github.sha }}.tar.gz
-          retention-days: 90

@@ -132,16 +132,18 @@ for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
 }
 requireIncludes(deployWorkflow, "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}",
   "deploy.yml env");
-requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
-requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
+requireIncludes(deployWorkflow, "npm ci", "deploy.yml dependency install");
+requireIncludes(deployWorkflow, "npm run build", "deploy.yml production build");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
+requireBefore(deployWorkflow, "npm ci", "npm run build", "deploy.yml production build");
+requireBefore(deployWorkflow, "npm run build", "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
 requireIncludes(deployWorkflow, "node scripts/verify-social-callables.mjs", "deploy.yml backend contract gate");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_PROJECT_ID', "deploy.yml backend contract project");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_FUNCTIONS_REGION', "deploy.yml backend contract region");
 requireIncludes(deployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy.yml backend contract credential");
 requireBefore(deployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy --only hosting", "deploy.yml backend contract gate");
-if (deployWorkflow.includes("npm run build")) {
-  fail("deploy.yml must promote the verified stage artifact without npm run build");
+if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh run download") || deployWorkflow.includes("web-dist-")) {
+  fail("deploy.yml must build the production artifact without a stage artifact dependency");
 }
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
@@ -166,7 +168,6 @@ requireIncludes(stageDeployWorkflow, hostingRunner, "deploy-stage.yml dedicated 
 checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
-requireIncludes(stageDeployWorkflow, "actions/upload-artifact", "deploy-stage.yml verified artifact upload");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");
