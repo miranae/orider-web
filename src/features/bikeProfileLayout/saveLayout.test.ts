@@ -199,6 +199,34 @@ describe("saveBikeProfileLayout", () => {
     expect(store.intents.get("m1")?.state).toBe("pending");
   });
 
+  it("does not let intent bookkeeping failures escape the result contract", async () => {
+    // 상태 기록은 부가 기록이다. 여기서 던지면 callable 실패 원인이 덮이거나 결과가 예외로 샌다.
+    store.updateIntentState = vi.fn(async () => {
+      throw new Error("indexeddb closing");
+    });
+
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(new Error("offline")),
+    );
+
+    expect(result.status).toBe("savedPendingSync");
+  });
+
+  it("keeps a synced result when removing the intent fails", async () => {
+    store.removeIntent = vi.fn(async () => {
+      throw new Error("indexeddb closing");
+    });
+
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(committed),
+    );
+
+    // 남은 intent 는 다음 drain 이 멱등 replay 한다.
+    expect(result).toEqual({ status: "synced", revision: 4 });
+  });
+
   it("sends the canonical payload and its matching hash", async () => {
     await saveBikeProfileLayout(
       { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },

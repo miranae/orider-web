@@ -132,7 +132,19 @@ export async function transmitIntent(
     mutationId: intent.mutationId,
   };
 
-  await deps.store.updateIntentState(intent.mutationId, "inFlight");
+  /**
+   * intent 상태 기록은 **부가 기록**이다. 여기서 던지면 callable 실패 원인이 이 실패에 덮이거나
+   * 원격 커밋 뒤 결과가 예외로 새어 나가 `SaveLayoutResult` 계약이 깨진다. 삼키고 로그만 남긴다.
+   */
+  const recordState = async (state: LayoutIntentState) => {
+    try {
+      await deps.store.updateIntentState(intent.mutationId, state);
+    } catch (cause) {
+      log("intent 상태 기록 실패 — 결과 계약은 유지", { ...ctx, state, cause: String(cause) });
+    }
+  };
+
+  await recordState("inFlight");
 
   let response: SaveLayoutCallableResponse;
   try {
@@ -146,7 +158,7 @@ export async function transmitIntent(
     });
   } catch (cause) {
     log("[2/3] call saveBikeProfileLayout — 전송 실패, intent 보존", { ...ctx, cause: String(cause) });
-    await deps.store.updateIntentState(intent.mutationId, "pending");
+    await recordState("pending");
     return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
   }
 
@@ -167,17 +179,22 @@ export async function transmitIntent(
         // 원격은 커밋됐지만 로컬 반영이 실패했다. intent 를 지우면 재시도 근거가 사라진다.
         // 같은 mutationId 재전송은 revision 을 올리지 않으므로 보존한 채 다시 시도하는 편이 안전하다.
         log("[3/3] write indexeddb head(원격 확정본) — 실패, intent 보존", { ...ctx, cause: String(cause) });
-        await deps.store.updateIntentState(intent.mutationId, "pending");
+        await recordState("pending");
         return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
       }
-      await deps.store.removeIntent(intent.mutationId);
-      log("[3/3] write indexeddb head(원격 확정본) — 완료, intent 제거", ctx);
+      try {
+        await deps.store.removeIntent(intent.mutationId);
+      } catch (cause) {
+        // 남은 intent 는 다음 drain 에서 replay 되고, replay 는 revision 을 올리지 않아 안전하다.
+        log("[3/3] intent 제거 실패 — 다음 drain 이 멱등 replay 한다", { ...ctx, cause: String(cause) });
+      }
+      log("[3/3] write indexeddb head(원격 확정본) — 완료", ctx);
       return { status: "synced", revision: response.revision };
     }
 
     case "conflict": {
       log("[2/3] call saveBikeProfileLayout — CAS 충돌", { ...ctx, remoteRevision: response.remoteRevision });
-      await deps.store.updateIntentState(intent.mutationId, "blockedConflict");
+      await recordState("blockedConflict");
       return {
         status: "conflict",
         remoteRevision: response.remoteRevision,
@@ -187,18 +204,18 @@ export async function transmitIntent(
 
     case "integrityError":
       log("[2/3] call saveBikeProfileLayout — 무결성 오류(같은 ID 다른 payload)", ctx);
-      await deps.store.updateIntentState(intent.mutationId, "quarantined");
+      await recordState("quarantined");
       return { status: "integrityError" };
 
     case "profileDeleted":
       log("[2/3] call saveBikeProfileLayout — 대상 프로필 삭제됨, target 잠금", ctx);
-      await deps.store.updateIntentState(intent.mutationId, "blockedConflict");
+      await recordState("blockedConflict");
       return { status: "targetDeleted" };
 
     case "writesDisabled":
       // kill switch 는 신규 write 만 멈춘다. intent 는 보존했다가 해제 뒤 재전송한다.
       log("[2/3] call saveBikeProfileLayout — 서버 kill switch, intent 보존", ctx);
-      await deps.store.updateIntentState(intent.mutationId, "pending");
+      await recordState("pending");
       return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
   }
 }

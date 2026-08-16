@@ -1,6 +1,7 @@
 import { httpsCallable } from "firebase/functions";
 
 import { functions } from "../../services/firebase";
+import { debugLog, logClientError } from "../../services/errorLogger";
 import {
   commitHeadAndIntent,
   listIntents,
@@ -57,6 +58,12 @@ export function browserSaveDeps(overrides: Partial<SaveLayoutDeps> = {}): SaveLa
     callSaveLayout: callSaveBikeProfileLayout,
     newMutationId: () => crypto.randomUUID(),
     nowMs: () => Date.now(),
+    // 기본 no-op 로거를 두면 callable·IndexedDB 실패가 pending 으로 변환되면서 운영에서 사라진다.
+    // 실패 단계는 에러 채널로, 정상 단계는 진단 채널로 나눠 보낸다.
+    log: (message, detail) => {
+      if (message.includes("실패")) logClientError("bikeProfileLayout", message, detail);
+      else debugLog("bikeProfileLayout", { message, ...detail });
+    },
     ...overrides,
   };
 }
@@ -73,9 +80,28 @@ export async function drainLayoutOutbox(
 ): Promise<SaveLayoutResult[]> {
   const intents = await listIntents(ownerKey);
   const results: SaveLayoutResult[] = [];
+
+  /**
+   * 한 프로필에서 차단 결과가 나오면 **그 프로필의 후속 intent 전송을 멈춘다.**
+   *
+   * 오프라인 편집 A(expectedRevision=3)·B(4)가 쌓인 상태에서 A 가 원격 revision 4 와 충돌하면,
+   * 그대로 B 를 보내면 B 의 CAS(expected=4)가 통과해 **사용자의 충돌 선택 없이** 원격 구성을
+   * 덮어쓴다. 차단은 프로필 단위로 전파돼야 한다.
+   */
+  const blockedProfiles = new Set<string>();
+
   for (const intent of intents) {
-    if (intent.state === "blockedConflict" || intent.state === "quarantined") continue;
-    results.push(await transmitIntent(intent, deps));
+    if (intent.state === "blockedConflict" || intent.state === "quarantined") {
+      blockedProfiles.add(intent.profileId);
+      continue;
+    }
+    if (blockedProfiles.has(intent.profileId)) continue;
+
+    const result = await transmitIntent(intent, deps);
+    results.push(result);
+    if (result.status === "conflict" || result.status === "targetDeleted" || result.status === "integrityError") {
+      blockedProfiles.add(intent.profileId);
+    }
   }
   return results;
 }
