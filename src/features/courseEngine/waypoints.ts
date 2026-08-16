@@ -100,12 +100,17 @@ export function resolveWaypointsOnTrack<T extends LatLonPoint>(
     let best = nearestPointIndex(track, waypoint, from);
 
     // 도착점이 출발점과 같은 자리라 인덱스 0 에 붙은 경우에만 끝으로 옮긴다.
+    // 트랙 종점이 지금 고른 점만큼(또는 더) 가까울 때만 적용한다 — 열린 코스에서 도착점이
+    // 직전 경유지와 같은 자리에 있거나 희소 트랙 때문에 같은 점에 스냅된 경우, 근접성을
+    // 보지 않으면 도착점을 전혀 다른 트랙 끝으로 보내 거리·고도·지도 위치가 모두 틀어진다.
     if (ordered && lastIsDestination && order === waypoints.length - 1
         && previousIndex !== null && best.index === previousIndex && previousIndex < lastIndex) {
-      best = {
-        index: lastIndex,
-        distanceM: haversineMeters(waypoint.lat, waypoint.lon, track[lastIndex]!.lat, track[lastIndex]!.lon),
-      };
+      const distanceToEnd = haversineMeters(
+        waypoint.lat, waypoint.lon, track[lastIndex]!.lat, track[lastIndex]!.lon,
+      );
+      if (distanceToEnd <= best.distanceM + 1) {
+        best = { index: lastIndex, distanceM: distanceToEnd };
+      }
     }
 
     const { index, distanceM } = best;

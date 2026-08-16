@@ -204,6 +204,25 @@ describe("resolveWaypointsOnTrack", () => {
     expect(resolved[1]!.distanceFromStartM).toBeCloseTo(cumulative[3]!, 5);
   });
 
+  it("열린 코스에서는 도착점 신호가 있어도 끝으로 옮기지 않는다", () => {
+    // 트랙 종점이 멀리 있으면 보정 대상이 아니다. 근접성을 보지 않으면 도착점이
+    // 코스 반대편 끝으로 날아간다.
+    const openCourse = track(
+      [37.500, 127.0, 0],
+      [37.505, 127.0, 50],
+      [37.510, 127.0, 100],
+    );
+    const cumulative = cumulativeDistances(openCourse);
+    const resolved = resolveWaypointsOnTrack(
+      [{ lat: 37.500, lon: 127.0 }, { lat: 37.500, lon: 127.0 }],
+      openCourse,
+      cumulative,
+      { ordered: true, lastIsDestination: true },
+    );
+    expect(resolved.map((item) => item.trackIndex)).toEqual([0, 0]);
+    expect(resolved[1]!.distanceFromStartM).toBe(0);
+  });
+
   it("도착점 신호가 없으면 순환 코스에서도 마지막 POI 를 끝으로 옮기지 않는다", () => {
     // 출발지에 카페와 화장실이 함께 있는 경우. 데이터만 보고는 "도착점"과 구분할 수 없다.
     const loop = track(
