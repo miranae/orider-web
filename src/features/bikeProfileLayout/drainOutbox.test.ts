@@ -14,9 +14,12 @@ const listIntentsMock = vi.hoisted(() => vi.fn<[], Promise<LayoutIntentRecord[]>
 vi.mock("./outbox", () => ({
   listIntents: listIntentsMock,
   commitHeadAndIntent: vi.fn(),
+  readHead: vi.fn(async () => null),
   putHead: vi.fn(),
   updateIntentState: vi.fn(),
   removeIntent: vi.fn(),
+  headKey: (ownerKey: string, profileId: string) =>
+    `${encodeURIComponent(ownerKey)}|${encodeURIComponent(profileId)}`,
 }));
 
 vi.mock("../../services/firebase", () => ({ functions: {} }));
@@ -42,6 +45,7 @@ function intent(mutationId: string, profileId: string, expectedRevision: number)
 
 const noopStore: LayoutLocalStore = {
   commitHeadAndIntent: vi.fn(),
+  readHead: vi.fn(async () => null),
   putHead: vi.fn(),
   updateIntentState: vi.fn(),
   removeIntent: vi.fn(),
@@ -98,7 +102,7 @@ describe("drainLayoutOutbox", () => {
     listIntentsMock.mockRejectedValueOnce(new Error("indexeddb blocked"));
     const logs: string[] = [];
     const d = depsWith([], []);
-    d.log = (message) => logs.push(message);
+    d.log = (_level, message) => logs.push(message);
 
     await expect(drainLayoutOutbox(OWNER, d)).rejects.toThrow("indexeddb blocked");
     expect(logs.some((m) => m.startsWith("[0/3]"))).toBe(true);

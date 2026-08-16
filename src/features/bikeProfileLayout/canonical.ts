@@ -57,13 +57,28 @@ export type LayoutValidationError =
   | "NON_POSITIVE_SPAN"
   | "PLACEMENT_OUT_OF_BOUNDS"
   | "PLACEMENT_OVERLAP"
-  | "PAYLOAD_TOO_LARGE";
+  | "PAYLOAD_TOO_LARGE"
+  /** JS number 로 왕복할 수 없는 정수 리터럴. 조용히 뭉개는 대신 거절한다. */
+  | "UNSAFE_NUMBER_LITERAL";
 
 export type LayoutValidationIssue = { error: LayoutValidationError; path: string };
 
 export type ParseResult =
   | { ok: true; layout: CanonicalLayout }
   | { ok: false; issues: LayoutValidationIssue[] };
+
+/** 문자열 리터럴 밖의 정수 토큰 중 안전 범위를 넘는 게 있는지. */
+function hasUnsafeIntegerLiteral(raw: string): boolean {
+  // 문자열 리터럴을 먼저 지워 본문 속 숫자를 오탐하지 않는다.
+  const withoutStrings = raw.replace(/"(?:[^"\\]|\\.)*"/gu, '""');
+  for (const match of withoutStrings.matchAll(/-?\d+/gu)) {
+    const literal = match[0];
+    // 지수·소수는 애초에 정밀도 계약 대상이 아니다. 정수 토큰만 본다.
+    if (literal.replace("-", "").length < 16) continue;
+    if (!Number.isSafeInteger(Number(literal))) return true;
+  }
+  return false;
+}
 
 function isInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value);
@@ -80,6 +95,13 @@ function utf8ByteLength(value: string): number {
 export function parseCanonicalLayout(raw: string, expectedSport?: string): ParseResult {
   if (utf8ByteLength(raw) > MAX_PAYLOAD_BYTES) {
     return { ok: false, issues: [{ error: "PAYLOAD_TOO_LARGE", path: "$" }] };
+  }
+
+  // `JSON.parse` 는 2^53 을 넘는 정수를 가장 가까운 double 로 뭉갠다(`9007199254740993` →
+  // `...992`). 그대로 재직렬화하면 opaque 데이터가 손상되고 payloadHash 계약이 깨지므로,
+  // 왕복할 수 없는 리터럴은 **받지 않는다**. 조용한 손상보다 명시적 거절이 안전하다.
+  if (hasUnsafeIntegerLiteral(raw)) {
+    return { ok: false, issues: [{ error: "UNSAFE_NUMBER_LITERAL", path: "$" }] };
   }
 
   let root: unknown;

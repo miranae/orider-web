@@ -51,6 +51,7 @@ export type SaveLayoutResult =
 export type LayoutLocalStore = {
   /** head 와 intent 를 **한 트랜잭션**에 커밋한다. 하나라도 실패하면 둘 다 롤백돼야 한다. */
   commitHeadAndIntent: (head: LayoutHeadRecord, intent: LayoutIntentRecord) => Promise<void>;
+  readHead: (ownerKey: string, profileId: string) => Promise<LayoutHeadRecord | null>;
   putHead: (head: LayoutHeadRecord) => Promise<void>;
   updateIntentState: (mutationId: string, state: LayoutIntentState) => Promise<void>;
   removeIntent: (mutationId: string) => Promise<void>;
@@ -66,8 +67,11 @@ export type SaveLayoutDeps = {
    * 구조화 진단 로깅. **필수다** — optional 로 두면 `browserSaveDeps` 를 거치지 않는 호출에서
    * IndexedDB/callable 실패가 통째로 무음 스왈로우돼 운영 진단 경로가 사라진다.
    * 다단계 IO 라 단계 라벨을 붙여 남긴다.
+   *
+   * `level` 은 호출부가 **명시**한다. 메시지 문자열로 심각도를 추측하면(예: "실패" 포함 여부)
+   * `무결성 오류`·`불일치` 같은 실제 오류가 조용히 debug 채널로 새어 나간다.
    */
-  log: (message: string, detail?: Record<string, unknown>) => void;
+  log: (level: "info" | "error", message: string, detail?: Record<string, unknown>) => void;
 };
 
 export type SaveLayoutInput = {
@@ -87,7 +91,7 @@ export async function saveBikeProfileLayout(
   // 대상과 payload 의 프로필이 어긋난 채 저장하면 **다른 프로필의 로컬 head 가 오염**되고,
   // 서버가 거절해도 이미 끝난 로컬 커밋은 되돌아오지 않는다. 쓰기 전에 막는다.
   if (layout.profileId !== profileId) {
-    log("[0/3] 대상 프로필 불일치 — 아무 것도 쓰지 않음", {
+    log("error", "[0/3] 대상 프로필 불일치 — 아무 것도 쓰지 않음", {
       ownerKey,
       expected: profileId,
       actual: layout.profileId,
@@ -127,9 +131,9 @@ export async function saveBikeProfileLayout(
       },
       intent,
     );
-    log("[1/3] write indexeddb head+intent — 커밋", ctx);
+    log("info", "[1/3] write indexeddb head+intent — 커밋", ctx);
   } catch (cause) {
-    log("[1/3] write indexeddb head+intent — 실패, callable 0건", { ...ctx, cause: String(cause) });
+    log("error", "[1/3] write indexeddb head+intent — 실패, callable 0건", { ...ctx, cause: String(cause) });
     return { status: "localSaveFailed", cause };
   }
 
@@ -160,7 +164,7 @@ export async function transmitIntent(
     try {
       await deps.store.updateIntentState(intent.mutationId, state);
     } catch (cause) {
-      log("intent 상태 기록 실패 — 결과 계약은 유지", { ...ctx, state, cause: String(cause) });
+      log("error", "intent 상태 기록 실패 — 결과 계약은 유지", { ...ctx, state, cause: String(cause) });
     }
   };
 
@@ -177,28 +181,35 @@ export async function transmitIntent(
       installIdHash: deps.installIdHash,
     });
   } catch (cause) {
-    log("[2/3] call saveBikeProfileLayout — 전송 실패, intent 보존", { ...ctx, cause: String(cause) });
+    log("error", "[2/3] call saveBikeProfileLayout — 전송 실패, intent 보존", { ...ctx, cause: String(cause) });
     await recordState("pending");
     return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
   }
 
   switch (response.status) {
     case "committed": {
-      log("[2/3] call saveBikeProfileLayout — 커밋", { ...ctx, revision: response.revision, replay: response.wasReplay });
+      log("info", "[2/3] call saveBikeProfileLayout — 커밋", { ...ctx, revision: response.revision, replay: response.wasReplay });
       try {
-        await deps.store.putHead({
-          key: headKey(intent.ownerKey, intent.profileId),
-          ownerKey: intent.ownerKey,
-          profileId: intent.profileId,
-          revision: response.revision,
-          canonicalPayload: intent.canonicalPayload,
-          payloadHash: response.payloadHash,
-          updatedAtMs: deps.nowMs(),
-        });
+        // head 가 아직 **이 mutation 의 낙관적 값**일 때만 갱신한다. 그 사이 사용자가 다시 편집했다면
+        // 뒤 intent 가 자기 차례에 head 를 세운다 — 여기서 덮으면 최신 draft 가 사라진 것처럼 보인다.
+        const current = await deps.store.readHead(intent.ownerKey, intent.profileId);
+        if (current && current.payloadHash !== intent.payloadHash) {
+          log("info", "[3/3] 더 새 draft 가 있어 head 갱신 생략 — 뒤 intent 가 확정한다", ctx);
+        } else {
+          await deps.store.putHead({
+            key: headKey(intent.ownerKey, intent.profileId),
+            ownerKey: intent.ownerKey,
+            profileId: intent.profileId,
+            revision: response.revision,
+            canonicalPayload: intent.canonicalPayload,
+            payloadHash: response.payloadHash,
+            updatedAtMs: deps.nowMs(),
+          });
+        }
       } catch (cause) {
         // 원격은 커밋됐지만 로컬 반영이 실패했다. intent 를 지우면 재시도 근거가 사라진다.
         // 같은 mutationId 재전송은 revision 을 올리지 않으므로 보존한 채 다시 시도하는 편이 안전하다.
-        log("[3/3] write indexeddb head(원격 확정본) — 실패, intent 보존", { ...ctx, cause: String(cause) });
+        log("error", "[3/3] write indexeddb head(원격 확정본) — 실패, intent 보존", { ...ctx, cause: String(cause) });
         await recordState("pending");
         return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
       }
@@ -206,14 +217,14 @@ export async function transmitIntent(
         await deps.store.removeIntent(intent.mutationId);
       } catch (cause) {
         // 남은 intent 는 다음 drain 에서 replay 되고, replay 는 revision 을 올리지 않아 안전하다.
-        log("[3/3] intent 제거 실패 — 다음 drain 이 멱등 replay 한다", { ...ctx, cause: String(cause) });
+        log("error", "[3/3] intent 제거 실패 — 다음 drain 이 멱등 replay 한다", { ...ctx, cause: String(cause) });
       }
-      log("[3/3] write indexeddb head(원격 확정본) — 완료", ctx);
+      log("info", "[3/3] write indexeddb head(원격 확정본) — 완료", ctx);
       return { status: "synced", revision: response.revision };
     }
 
     case "conflict": {
-      log("[2/3] call saveBikeProfileLayout — CAS 충돌", { ...ctx, remoteRevision: response.remoteRevision });
+      log("info", "[2/3] call saveBikeProfileLayout — CAS 충돌", { ...ctx, remoteRevision: response.remoteRevision });
       await recordState("blockedConflict");
       return {
         status: "conflict",
@@ -223,18 +234,18 @@ export async function transmitIntent(
     }
 
     case "integrityError":
-      log("[2/3] call saveBikeProfileLayout — 무결성 오류(같은 ID 다른 payload)", ctx);
+      log("error", "[2/3] call saveBikeProfileLayout — 무결성 오류(같은 ID 다른 payload)", ctx);
       await recordState("quarantined");
       return { status: "integrityError" };
 
     case "profileDeleted":
-      log("[2/3] call saveBikeProfileLayout — 대상 프로필 삭제됨, target 잠금", ctx);
+      log("info", "[2/3] call saveBikeProfileLayout — 대상 프로필 삭제됨, target 잠금", ctx);
       await recordState("blockedConflict");
       return { status: "targetDeleted" };
 
     case "writesDisabled":
       // kill switch 는 신규 write 만 멈춘다. intent 는 보존했다가 해제 뒤 재전송한다.
-      log("[2/3] call saveBikeProfileLayout — 서버 kill switch, intent 보존", ctx);
+      log("error", "[2/3] call saveBikeProfileLayout — 서버 kill switch, intent 보존", ctx);
       await recordState("pending");
       return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
   }

@@ -175,6 +175,22 @@ describe("canonical layout validation", () => {
     expect(layoutOf(running, "RUNNING").sport).toBe("RUNNING");
   });
 
+  it("rejects integer literals it cannot round-trip instead of silently rounding them", () => {
+    // `JSON.parse` 는 2^53 초과 정수를 가장 가까운 double 로 뭉갠다 — opaque 데이터가 손상되고
+    // payloadHash 계약이 깨진다. 조용한 손상보다 명시적 거절이 안전하다.
+    const raw =
+      '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+      '"fields":[]}],"v2Counter":9007199254740993}';
+    expect(issuesOf(raw)).toEqual(["UNSAFE_NUMBER_LITERAL"]);
+  });
+
+  it("accepts safe integers and numbers inside strings", () => {
+    const raw =
+      '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+      '"fields":[]}],"v2Counter":9007199254740991,"note":"9007199254740993"}';
+    expect(layoutOf(raw).unknownKeys.v2Counter).toBe(9007199254740991);
+  });
+
   it("rejects oversized payloads before parsing", () => {
     expect(issuesOf(" ".repeat(64 * 1024 + 1))).toEqual(["PAYLOAD_TOO_LARGE"]);
   });

@@ -6,6 +6,7 @@ import {
   commitHeadAndIntent,
   listIntents,
   putHead,
+  readHead,
   removeIntent,
   updateIntentState,
 } from "./outbox";
@@ -41,12 +42,23 @@ export async function callDeleteBikeProfileAndLayout(profileId: string, mutation
     functions,
     "deleteBikeProfileAndLayout",
   );
-  await fn({ profileId, mutationId });
+  try {
+    await fn({ profileId, mutationId });
+  } catch (cause) {
+    // 맥락 없이 reject 하면 어느 자전거의 삭제가 왜 막혔는지 운영에서 알 수 없다.
+    logClientError("bikeProfileLayout", cause, {
+      stage: "callDeleteBikeProfileAndLayout",
+      profileId,
+      mutationId,
+    });
+    throw cause;
+  }
 }
 
 /** IndexedDB 를 쓰는 실제 저장소 어댑터. 오케스트레이션은 이 포트만 알면 된다. */
 export const indexedDbLayoutStore: LayoutLocalStore = {
   commitHeadAndIntent,
+  readHead,
   putHead,
   updateIntentState,
   removeIntent,
@@ -59,9 +71,10 @@ export function browserSaveDeps(overrides: Partial<SaveLayoutDeps> = {}): SaveLa
     newMutationId: () => crypto.randomUUID(),
     nowMs: () => Date.now(),
     // 기본 no-op 로거를 두면 callable·IndexedDB 실패가 pending 으로 변환되면서 운영에서 사라진다.
-    // 실패 단계는 에러 채널로, 정상 단계는 진단 채널로 나눠 보낸다.
-    log: (message, detail) => {
-      if (message.includes("실패")) logClientError("bikeProfileLayout", message, detail);
+    // 심각도는 **호출부가 명시한 level** 로 가른다 — 메시지 문자열로 추측하면 `무결성 오류`·
+    // `불일치` 같은 실제 오류가 조용히 debug 채널로 샌다.
+    log: (level, message, detail) => {
+      if (level === "error") logClientError("bikeProfileLayout", message, detail);
       else debugLog("bikeProfileLayout", { message, ...detail });
     },
     ...overrides,
@@ -100,7 +113,7 @@ async function runDrain(ownerKey: string, deps: SaveLayoutDeps): Promise<SaveLay
     intents = await listIntents(ownerKey);
   } catch (cause) {
     // 조회가 실패하면 재시작 후 동기화가 통째로 멈춘다. 조용히 reject 하지 않고 맥락을 남긴다.
-    deps.log("[0/3] read indexeddb intents — 실패, drain 중단", { ownerKey, cause: String(cause) });
+    deps.log("error", "[0/3] read indexeddb intents — 실패, drain 중단", { ownerKey, cause: String(cause) });
     throw cause;
   }
   const results: SaveLayoutResult[] = [];

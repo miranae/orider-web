@@ -43,6 +43,8 @@ class FakeStore implements LayoutLocalStore {
     this.intents.set(intent.mutationId, intent);
   });
 
+  readHead = vi.fn(async (ownerKey: string, profileId: string) => this.heads.get(headKey(ownerKey, profileId)) ?? null);
+
   putHead = vi.fn(async (head: LayoutHeadRecord) => {
     if (this.putHeadFailure) throw this.putHeadFailure;
     this.heads.set(head.key, head);
@@ -72,7 +74,7 @@ function deps(response: SaveLayoutCallableResponse | Error): SaveLayoutDeps {
     },
     newMutationId: () => "m1",
     nowMs: () => 2_000,
-    log: (message) => logs.push(message),
+    log: (_level, message) => logs.push(message),
   };
 }
 
@@ -229,6 +231,32 @@ describe("saveBikeProfileLayout", () => {
 
     // 남은 intent 는 다음 drain 이 멱등 replay 한다.
     expect(result).toEqual({ status: "synced", revision: 4 });
+  });
+
+  it("does not clobber a newer local draft when an earlier intent commits", async () => {
+    // 앞 intent 커밋 응답이 도착했을 때 사용자가 이미 다시 편집했다면, head 를 덮으면 최신 draft 가
+    // outbox 에만 남고 화면에서는 사라진 것처럼 보인다.
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(new Error("offline")),
+    );
+    const newerDraft = { ...store.heads.get(headKey(OWNER, "road"))!, revision: 5, payloadHash: "z".repeat(64) };
+    store.heads.set(newerDraft.key, newerDraft);
+
+    const staleIntent: LayoutIntentRecord = {
+      mutationId: "m1",
+      ownerKey: OWNER,
+      profileId: "road",
+      expectedRevision: 3,
+      canonicalPayload: requests[0].canonicalPayload,
+      payloadHash: requests[0].payloadHash,
+      createdAtMs: 2_000,
+      state: "pending",
+    };
+    await transmitIntent(staleIntent, deps(committed));
+
+    expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(5);
+    expect(store.heads.get(headKey(OWNER, "road"))?.payloadHash).toBe("z".repeat(64));
   });
 
   it("composes the head key through headKey so saves are readable back", async () => {
