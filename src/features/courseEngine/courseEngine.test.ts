@@ -182,6 +182,40 @@ describe("resolveWaypointsOnTrack", () => {
     }
   });
 
+  it("시작·도착 좌표가 같은 순환 코스에서 도착점이 출발점에 붙지 않는다", () => {
+    // 같은 인덱스부터 다시 찾으면 도착점이 인덱스 0 에 매핑되어 전체 거리가 0 이 된다.
+    const loop = track(
+      [37.500, 127.0, 0],
+      [37.505, 127.0, 50],
+      [37.510, 127.0, 100],
+      [37.500, 127.0, 0],
+    );
+    const cumulative = cumulativeDistances(loop);
+    const resolved = resolveWaypointsOnTrack(
+      [{ lat: 37.500, lon: 127.0 }, { lat: 37.500, lon: 127.0 }],
+      loop,
+      cumulative,
+      { ordered: true },
+    );
+
+    expect(resolved[0]!.trackIndex).toBe(0);
+    expect(resolved[1]!.trackIndex).toBe(3);
+    expect(resolved[1]!.distanceFromStartM).toBeGreaterThan(0);
+    expect(resolved[1]!.distanceFromStartM).toBeCloseTo(cumulative[3]!, 5);
+  });
+
+  it("경유지가 트랙 점보다 많아도 인덱스가 뒤로 밀리지 않는다", () => {
+    const short = track([37.500, 127.0, 0], [37.501, 127.0, 10]);
+    const cumulative = cumulativeDistances(short);
+    const resolved = resolveWaypointsOnTrack(
+      [{ lat: 37.5, lon: 127.0 }, { lat: 37.5, lon: 127.0 }, { lat: 37.5, lon: 127.0 }],
+      short,
+      cumulative,
+      { ordered: true },
+    );
+    expect(resolved.map((item) => item.trackIndex)).toEqual([0, 1, 1]);
+  });
+
   it("순서를 신뢰할 수 없는 입력은 거리순으로 정렬한다", () => {
     const cumulative = cumulativeDistances(outAndBack);
     const resolved = resolveWaypointsOnTrack(

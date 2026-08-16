@@ -84,11 +84,15 @@ export function resolveWaypointsOnTrack<T extends LatLonPoint>(
 ): ResolvedWaypoint<T>[] {
   if (track.length === 0) return [];
 
+  const lastIndex = track.length - 1;
   let searchFrom = 0;
   const resolved = waypoints.map((waypoint) => {
-    const { index, distanceM } = nearestPointIndex(track, waypoint, ordered ? searchFrom : 0);
-    const trackIndex = index < 0 ? 0 : index;
-    if (ordered) searchFrom = trackIndex;
+    // 다음 경유지는 반드시 **이전보다 뒤에서** 찾는다. 같은 인덱스부터 다시 찾으면 시작점과
+    // 도착점 좌표가 같은 순환 코스에서 도착점이 인덱스 0 에 붙어 전체 거리가 0 이 된다.
+    const from = ordered ? Math.min(searchFrom, lastIndex) : 0;
+    const { index, distanceM } = nearestPointIndex(track, waypoint, from);
+    const trackIndex = index < 0 ? lastIndex : index;
+    if (ordered) searchFrom = trackIndex + 1;
     return {
       waypoint,
       trackIndex,
