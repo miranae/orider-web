@@ -44,14 +44,21 @@ class FakeStore implements LayoutLocalStore {
     this.intents.set(intent.mutationId, intent);
   });
 
-  putHeadIfUnchanged = vi.fn(async (head: LayoutHeadRecord, expectedPayloadHash: string) => {
+  putHeadIfUnchanged = vi.fn(async (head: LayoutHeadRecord, expectedMutationId: string) => {
     if (this.putHeadFailure) throw this.putHeadFailure;
     const current = this.heads.get(head.key);
     // 확인과 쓰기가 한 트랜잭션이라는 계약을 fake 도 그대로 지킨다.
-    if (current && current.payloadHash !== expectedPayloadHash) return false;
+    if (current && current.lastMutationId !== expectedMutationId) return false;
     this.heads.set(head.key, head);
     return true;
   });
+
+  recordIntentConflict = vi.fn(
+    async (mutationId: string, conflict: { remoteRevision: number; remotePayload: string }) => {
+      const existing = this.intents.get(mutationId);
+      if (existing) this.intents.set(mutationId, { ...existing, state: "blockedConflict", conflict });
+    },
+  );
 
   updateIntentState = vi.fn(async (mutationId: string, state: LayoutIntentState) => {
     const existing = this.intents.get(mutationId);
@@ -215,6 +222,11 @@ describe("saveBikeProfileLayout", () => {
 
     expect(result).toEqual({ status: "conflict", remoteRevision: 9, remotePayload: remoteCanonical });
     expect(store.intents.get("m1")?.state).toBe("blockedConflict");
+    // 새로고침 뒤에도 해소 화면이 쓸 수 있도록 원격 본문을 intent 에 남긴다.
+    expect(store.intents.get("m1")?.conflict).toEqual({
+      remoteRevision: 9,
+      remotePayload: remoteCanonical,
+    });
     expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(4);
   });
 
@@ -262,6 +274,29 @@ describe("saveBikeProfileLayout", () => {
     expect(result.status).toBe("savedPendingSync");
   });
 
+  it("distinguishes an identical repeat save by mutation, not by payload hash", async () => {
+    // 같은 레이아웃을 연속 저장하면 payloadHash 가 같다 — 해시로 판정하면 앞 intent 의 늦은 응답이
+    // revision 을 과거로 되돌린다.
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(new Error("offline")),
+    );
+    const first = store.intents.get("m1")!;
+    // 같은 payload 로 다시 저장 — head 는 m2 의 것이 된다.
+    store.intents.clear();
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 4 },
+      { ...deps(new Error("offline")), newMutationId: () => "m2" },
+    );
+    expect(store.heads.get(headKey(OWNER, "road"))?.lastMutationId).toBe("m2");
+
+    // 이제 앞 intent(m1)의 늦은 성공 응답이 도착한다.
+    await transmitIntent(first, deps({ ...committed, revision: 4 }));
+
+    expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(5);
+    expect(store.heads.get(headKey(OWNER, "road"))?.lastMutationId).toBe("m2");
+  });
+
   it("does not clobber a newer local draft when an earlier intent commits", async () => {
     // 앞 intent 커밋 응답이 도착했을 때 사용자가 이미 다시 편집했다면, head 를 덮으면 최신 draft 가
     // outbox 에만 남고 화면에서는 사라진 것처럼 보인다.
@@ -269,7 +304,7 @@ describe("saveBikeProfileLayout", () => {
       { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
       deps(new Error("offline")),
     );
-    const newerDraft = { ...store.heads.get(headKey(OWNER, "road"))!, revision: 5, payloadHash: "z".repeat(64) };
+    const newerDraft = { ...store.heads.get(headKey(OWNER, "road"))!, revision: 5, lastMutationId: "m-newer" };
     store.heads.set(newerDraft.key, newerDraft);
 
     const staleIntent: LayoutIntentRecord = {
@@ -285,7 +320,7 @@ describe("saveBikeProfileLayout", () => {
     await transmitIntent(staleIntent, deps(committed));
 
     expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(5);
-    expect(store.heads.get(headKey(OWNER, "road"))?.payloadHash).toBe("z".repeat(64));
+    expect(store.heads.get(headKey(OWNER, "road"))?.lastMutationId).toBe("m-newer");
   });
 
   it("composes the head key through headKey so saves are readable back", async () => {
@@ -421,6 +456,9 @@ describe("saveBikeProfileLayout", () => {
     // durable 기록이 실패하면 저장소만 보는 조회는 차단을 못 알아본다 — 그 위로 다음 저장이 나가면
     // 해소되지 않은 충돌을 덮어쓴다. 메모리 백스톱이 이 창을 막는다.
     store.updateIntentState = vi.fn(async () => {
+      throw new Error("indexeddb closing");
+    });
+    store.recordIntentConflict = vi.fn(async () => {
       throw new Error("indexeddb closing");
     });
 

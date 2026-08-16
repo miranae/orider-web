@@ -62,7 +62,12 @@ export type LayoutLocalStore = {
    * head 가 아직 `expectedPayloadHash` 일 때만 갱신하는 **원자** 연산.
    * 읽기와 쓰기를 나누면 그 사이 새 저장이 끼어들어 최신 draft 가 덮인다(TOCTOU).
    */
-  putHeadIfUnchanged: (head: LayoutHeadRecord, expectedPayloadHash: string) => Promise<boolean>;
+  putHeadIfUnchanged: (head: LayoutHeadRecord, expectedMutationId: string) => Promise<boolean>;
+  /** 충돌 본문을 intent 에 durable 하게 남긴다(새로고침 뒤 해소 화면이 쓴다). */
+  recordIntentConflict: (
+    mutationId: string,
+    conflict: { remoteRevision: number; remotePayload: string },
+  ) => Promise<void>;
   /** 이 프로필에 사용자가 아직 해소하지 않은 차단 intent 가 있는지. */
   hasBlockedIntent: (ownerKey: string, profileId: string) => Promise<boolean>;
   /** 이 owner 의 미전송 intent 를 `프로필 → revision` 순으로. */
@@ -211,6 +216,7 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
         canonicalPayload,
         payloadHash: hash,
         updatedAtMs: now,
+        lastMutationId: mutationId,
       },
       intent,
     );
@@ -490,8 +496,9 @@ export async function transmitIntent(
             canonicalPayload: intent.canonicalPayload,
             payloadHash: response.payloadHash,
             updatedAtMs: deps.nowMs(),
+            lastMutationId: intent.mutationId,
           },
-          intent.payloadHash,
+          intent.mutationId,
         );
         if (!applied) log("info", "[3/3] 더 새 draft 가 있어 head 갱신 생략 — 뒤 intent 가 확정한다", ctx);
       } catch (cause) {
@@ -520,7 +527,17 @@ export async function transmitIntent(
 
     case "conflict": {
       log("info", "[2/3] call saveBikeProfileLayout — CAS 충돌", { ...ctx, remoteRevision: response.remoteRevision });
-      await recordState("blockedConflict");
+      try {
+        // 원격 본문을 intent 에 함께 남긴다 — 새로고침 뒤에도 해소 화면이 이걸 쓴다.
+        await deps.store.recordIntentConflict(intent.mutationId, {
+          remoteRevision: response.remoteRevision,
+          remotePayload: response.remotePayload,
+        });
+      } catch (cause) {
+        log("error", "충돌 본문 기록 실패 — 메모리 차단으로 대체", { ...ctx, cause: String(cause) });
+        memoryBlocked.add(blockKey(intent.ownerKey, intent.profileId));
+        await recordState("blockedConflict");
+      }
       return {
         status: "conflict",
         remoteRevision: response.remoteRevision,

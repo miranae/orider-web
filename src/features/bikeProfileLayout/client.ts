@@ -7,6 +7,7 @@ import {
   hasBlockedIntent,
   listIntents,
   putHeadIfUnchanged,
+  recordIntentConflict,
   removeIntent,
   updateIntentState,
 } from "./outbox";
@@ -64,6 +65,7 @@ export async function callDeleteBikeProfileAndLayout(profileId: string, mutation
 export const indexedDbLayoutStore: LayoutLocalStore = {
   commitHeadAndIntent,
   putHeadIfUnchanged,
+  recordIntentConflict,
   hasBlockedIntent,
   listIntents,
   updateIntentState,
@@ -155,6 +157,11 @@ export function drainLayoutOutbox(
   // 신규 저장과 **같은** owner 큐를 탄다 — 그래야 전송 순서와 충돌 판정이 뒤집히지 않는다.
   const started = deps
     .withOwnerLock(ownerKey, () => runDrain(ownerKey, deps))
+    .catch((cause: unknown) => {
+      // 잠금 획득 실패도 운영에서 보여야 한다 — 저장 경로는 기록하는데 drain 만 무음이면 안 된다.
+      deps.log("error", "[0/3] drain owner 잠금 획득 실패", { ownerKey, cause: String(cause) });
+      throw cause;
+    })
     .finally(() => inFlightDrains.delete(ownerKey));
   inFlightDrains.set(ownerKey, started);
   return started;

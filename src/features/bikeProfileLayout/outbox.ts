@@ -20,6 +20,11 @@ export type LayoutHeadRecord = {
   canonicalPayload: string;
   payloadHash: string;
   updatedAtMs: number;
+  /**
+   * 이 head 를 만든 mutation. 같은 레이아웃을 연속 저장하면 payloadHash 가 같아지므로
+   * 해시만으로는 "아직 내 낙관적 값인가" 를 판정할 수 없다 — mutation 으로 판정한다.
+   */
+  lastMutationId: string;
 };
 
 export type LayoutIntentState = "pending" | "inFlight" | "blockedConflict" | "quarantined";
@@ -34,6 +39,11 @@ export type LayoutIntentRecord = {
   payloadHash: string;
   createdAtMs: number;
   state: LayoutIntentState;
+  /**
+   * 충돌로 막힌 intent 에 남기는 원격 본문. 이걸 저장하지 않으면 새로고침 뒤 해소에 필요한
+   * 원격 구성이 사라진 채 프로필만 계속 차단된다.
+   */
+  conflict?: { remoteRevision: number; remotePayload: string };
 };
 
 /**
@@ -122,14 +132,14 @@ export async function putHead(head: LayoutHeadRecord): Promise<void> {
  */
 export async function putHeadIfUnchanged(
   head: LayoutHeadRecord,
-  expectedPayloadHash: string,
+  expectedMutationId: string,
 ): Promise<boolean> {
   const db = await openDatabase();
   try {
     const tx = db.transaction(HEAD_STORE, "readwrite");
     const store = tx.objectStore(HEAD_STORE);
     const current = (await promisify(store.get(head.key))) as LayoutHeadRecord | undefined;
-    const unchanged = !current || current.payloadHash === expectedPayloadHash;
+    const unchanged = !current || current.lastMutationId === expectedMutationId;
     if (unchanged) store.put(head);
     await awaitTransaction(tx);
     return unchanged;
@@ -177,6 +187,23 @@ export async function hasBlockedIntent(ownerKey: string, profileId: string): Pro
   return intents.some(
     (i) => i.profileId === profileId && (i.state === "blockedConflict" || i.state === "quarantined"),
   );
+}
+
+/** 충돌 정보를 intent 에 함께 남긴다 — 새로고침 뒤에도 해소 화면이 원격 본문을 쓸 수 있어야 한다. */
+export async function recordIntentConflict(
+  mutationId: string,
+  conflict: { remoteRevision: number; remotePayload: string },
+): Promise<void> {
+  const db = await openDatabase();
+  try {
+    const tx = db.transaction(INTENT_STORE, "readwrite");
+    const store = tx.objectStore(INTENT_STORE);
+    const existing = (await promisify(store.get(mutationId))) as LayoutIntentRecord | undefined;
+    if (existing) store.put({ ...existing, state: "blockedConflict", conflict });
+    await awaitTransaction(tx);
+  } finally {
+    db.close();
+  }
 }
 
 /** 전송 성공한 **바로 그 intent** 만 제거한다(수용기준 26). */
