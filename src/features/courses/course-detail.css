@@ -72,7 +72,13 @@
 }
 
 /* 통계 스트립 — 부모 폭 기준으로 접는다. 뷰포트 기준이면 좁은 카드 안에 임베드됐을 때
-   넓은 화면인데도 5칸이 찌그러진다. */
+   넓은 화면인데도 5칸이 찌그러진다.
+   컨테이너는 반드시 **바깥 래퍼**에 선언한다. 요소는 자기 자신의 컨테이너 쿼리 대상이
+   될 수 없어서, 스트립 자신에 container-type 을 걸면 전환이 아예 적용되지 않는다. */
+.course-statstrip-wrap {
+  container-type: inline-size;
+}
+
 .course-statstrip {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -81,7 +87,6 @@
   border: 1px solid var(--line-soft);
   border-radius: var(--r-md);
   overflow: hidden;
-  container-type: inline-size;
 }
 
 .course-stat {

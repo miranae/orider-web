@@ -451,11 +451,13 @@ export default function CoursePage() {
     });
   }, [courseId, waypointRows]);
 
-  const activeWaypointIndex = selectedWaypoint ?? hoveredWaypoint;
-  const activeWaypointName = activeWaypointIndex != null
-    ? waypointRows[activeWaypointIndex]?.name ?? t("waypoint.unnamed")
-    : null;
+  // 코스가 바뀌면 이전 인덱스가 새 코스의 엉뚱한 경유지를 가리킨다.
+  useEffect(() => {
+    setSelectedWaypoint(null);
+    setHoveredWaypoint(null);
+  }, [courseId]);
 
+  const activeWaypointIndex = selectedWaypoint ?? hoveredWaypoint;
   const markerPosition = useMemo<[number, number] | null>(() => {
     const profile = course?.elevationProfile;
     if (hoverIndex == null || !profile || points.length < 2 || cumDistances.length < 2) return null;
@@ -923,12 +925,14 @@ export default function CoursePage() {
           rounded={false}
           markerPosition={markerPosition}
           flyToPosition={flyToPosition}
-          waypoints={waypointRows.map((row) => ({
+          waypoints={waypointRows.map((row, index) => ({
             lat: row.location[0],
             lon: row.location[1],
             name: row.name ?? t("waypoint.unnamed"),
             icon: LANE_DEFS[row.lane].icon,
-            active: activeWaypointName === row.name,
+            // 이름으로 비교하면 같은 이름이 여럿일 때 전부 켜지고, 이름 없는 지점은
+            // 선택해도 안 켜진다. 인덱스로 판정한다.
+            active: activeWaypointIndex === index,
           }))}
           photos={[
             ...(course.photos?.map((p, i) => ({
@@ -961,6 +965,7 @@ export default function CoursePage() {
       </div>
 
       {/* 통계 스트립 — 히어로에 용접해 첫 화면에서 규모가 읽히게 한다. */}
+      <div className="course-statstrip-wrap">
       <div className="course-statstrip">
         {[
           { k: t("distance"), v: (course.distance / 1000).toFixed(1), u: "km" },
@@ -974,6 +979,7 @@ export default function CoursePage() {
             <div><Text variant="dataMedium">{cell.v}</Text><Text variant="unit">{cell.u}</Text></div>
           </div>
         ))}
+      </div>
       </div>
 
       {/* 본문 2단 — 넓은 열에 프로필·경유지·사진, 좁은 열에 정보와 액션. */}
