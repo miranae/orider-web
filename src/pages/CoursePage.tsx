@@ -471,6 +471,14 @@ export default function CoursePage() {
 
   useEffect(() => cancelFlyTimer, [cancelFlyTimer]);
 
+  // 출발·도착 경유지는 비율이 0·1 이라 가운데 정렬하면 절반이 트랙 밖으로 나가 잘린다.
+  // 양 끝에서는 앵커를 안쪽으로 바꾼다.
+  const pipEdgeStyle = useCallback((ratio: number): React.CSSProperties => {
+    if (ratio <= 0.02) return { left: 0, transform: "translate(0, -50%)" };
+    if (ratio >= 0.98) return { left: "100%", transform: "translate(-100%, -50%)" };
+    return { left: `${ratio * 100}%` };
+  }, []);
+
   // 코스가 바뀌면 이전 인덱스가 새 코스의 엉뚱한 경유지를 가리킨다.
   useEffect(() => {
     setSelectedWaypoint(null);
@@ -1099,7 +1107,20 @@ export default function CoursePage() {
             data={course.elevationProfile.map((p) => ({ distance: p.d, elevation: p.e }))}
             height={180}
             onHoverIndex={handleElevHover}
+            colorByGrade
           />
+          <ul className="course-grade-legend">
+            {[
+              { key: "flat", label: t("grade.flat"), variable: "--color-info" },
+              { key: "rolling", label: t("grade.rolling"), variable: "--color-warning" },
+              { key: "steep", label: t("grade.steep"), variable: "--color-error" },
+            ].map((band) => (
+              <li key={band.key}>
+                <i aria-hidden="true" style={{ background: `var(${band.variable})` }} />
+                {band.label}
+              </li>
+            ))}
+          </ul>
           {waypointLaneRows.length > 0 && (
             <div className="course-lanes">
               {waypointLaneRows.map((group) => (
@@ -1120,7 +1141,7 @@ export default function CoursePage() {
                           aria-pressed={selected}
                           data-hover={hoveredWaypoint === index ? "1" : undefined}
                           data-selected={selected ? "1" : undefined}
-                          style={{ left: `${item.ratio * 100}%` }}
+                          style={pipEdgeStyle(item.ratio)}
                           onMouseEnter={() => setHoveredWaypoint(index)}
                           onMouseLeave={() => setHoveredWaypoint(null)}
                           onFocus={() => setHoveredWaypoint(index)}

@@ -263,5 +263,8 @@
   "waypoint.colType": "Type",
   "waypoint.unnamed": "Unnamed point",
   "waypoint.tableCaption": "Selecting a waypoint moves the map to that point.",
-  "elevationHigh": "Max elevation"
+  "elevationHigh": "Max elevation",
+  "grade.flat": "Under 3%",
+  "grade.rolling": "3–7%",
+  "grade.steep": "7% and over"
 }

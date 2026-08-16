@@ -263,5 +263,8 @@
   "waypoint.colType": "유형",
   "waypoint.unnamed": "이름 없는 지점",
   "waypoint.tableCaption": "경유지를 선택하면 지도가 해당 지점으로 이동합니다.",
-  "elevationHigh": "최고고도"
+  "elevationHigh": "최고고도",
+  "grade.flat": "3% 미만",
+  "grade.rolling": "3–7%",
+  "grade.steep": "7% 이상"
 }

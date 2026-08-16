@@ -124,6 +124,30 @@
   .course-body { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* 경사 구간 범례 — 색이 무엇을 뜻하는지 밝힌다. 색만으로 정보를 전달하지 않는다. */
+.course-grade-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-2xs);
+  color: var(--ink-3);
+}
+
+.course-grade-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.course-grade-legend i {
+  width: 0.75rem;
+  height: 0.25rem;
+  border-radius: 2px;
+}
+
 /* 경유지 레인 — 고도 프로필 아래에 거리축을 공유하는 띠. */
 .course-lanes {
   display: flex;
