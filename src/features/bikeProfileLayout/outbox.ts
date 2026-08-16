@@ -170,8 +170,13 @@ export async function updateIntentState(mutationId: string, state: LayoutIntentS
  */
 export async function hasBlockedIntent(ownerKey: string, profileId: string): Promise<boolean> {
   const intents = await listIntents(ownerKey);
+  // `inFlight` 도 막는다 — 전송을 시작했는데 결과 기록이 실패하면 상태가 거기서 멈춘다. 그 상태를
+  // 통과시키면 충돌이었을 수도 있는 전송 뒤에 다음 편집이 CAS 를 통과해 원격 구성을 덮어쓴다.
+  // fail-closed 가 옳다: 결과를 모르면 보류한다.
   return intents.some(
-    (i) => i.profileId === profileId && (i.state === "blockedConflict" || i.state === "quarantined"),
+    (i) =>
+      i.profileId === profileId &&
+      (i.state === "blockedConflict" || i.state === "quarantined" || i.state === "inFlight"),
   );
 }
 

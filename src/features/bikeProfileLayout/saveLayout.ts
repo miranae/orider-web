@@ -163,8 +163,18 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
 
   // 차단은 프로필 단위다. drain 지역 상태에만 두면 뒤이어 실행되는 신규 저장이 그대로 CAS 를
   // 통과해 사용자의 충돌 선택 없이 원격 구성을 덮어쓴다.
-  if (await deps.store.hasBlockedIntent(ownerKey, profileId)) {
-    await deps.store.updateIntentState(mutationId, "blockedConflict");
+  //
+  // 이 조회/기록도 로컬 커밋 **이후**의 IO 라 예외가 새면 결과 계약이 깨진다. 조회 자체가 실패하면
+  // 차단 여부를 모르는 것이므로 **보류**한다(fail-closed).
+  let blocked: boolean;
+  try {
+    blocked = await deps.store.hasBlockedIntent(ownerKey, profileId);
+  } catch (cause) {
+    log("error", "[2/3] 차단 상태 조회 실패 — 전송 보류(fail-closed)", { ...ctx, cause: String(cause) });
+    blocked = true;
+  }
+  if (blocked) {
+    await recordIntentState(deps, mutationId, "blockedConflict", ctx, log);
     log("info", "[2/3] 미해소 충돌이 있어 전송 보류 — 사용자 선택 대기", ctx);
     return { status: "blockedByConflict", intent: { ...intent, state: "blockedConflict" } };
   }
@@ -176,6 +186,31 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
  * 저장된 intent 를 전송한다. 새로고침·브라우저 재시작 뒤 replay 도 이 경로를 쓴다 —
  * intent 의 payload 를 **그대로** 보내야 서버가 같은 mutation 으로 알아본다.
  */
+/**
+ * intent 상태를 기록한다. 실패해도 **결과 계약(`SaveLayoutResult`)은 유지**하고 로그만 남긴다 —
+ * 여기서 던지면 callable 실패 원인이 이 실패에 덮이거나 원격 커밋 뒤 결과가 예외로 새어 나간다.
+ *
+ * 차단 상태 기록이 실패해 상태가 `inFlight` 에 멈춰도 안전하다: `hasBlockedIntent` 가 `inFlight`
+ * 도 차단으로 세므로 후속 전송은 여전히 보류된다(fail-closed).
+ */
+async function recordIntentState(
+  deps: SaveLayoutDeps,
+  mutationId: string,
+  state: LayoutIntentState,
+  ctx: Record<string, unknown>,
+  log: SaveLayoutDeps["log"],
+): Promise<void> {
+  try {
+    await deps.store.updateIntentState(mutationId, state);
+  } catch (cause) {
+    log("error", "intent 상태 기록 실패 — inFlight 로 남아 후속 전송은 보류된다", {
+      ...ctx,
+      state,
+      cause: String(cause),
+    });
+  }
+}
+
 export async function transmitIntent(
   intent: LayoutIntentRecord,
   deps: SaveLayoutDeps,
@@ -188,17 +223,8 @@ export async function transmitIntent(
     mutationId: intent.mutationId,
   };
 
-  /**
-   * intent 상태 기록은 **부가 기록**이다. 여기서 던지면 callable 실패 원인이 이 실패에 덮이거나
-   * 원격 커밋 뒤 결과가 예외로 새어 나가 `SaveLayoutResult` 계약이 깨진다. 삼키고 로그만 남긴다.
-   */
-  const recordState = async (state: LayoutIntentState) => {
-    try {
-      await deps.store.updateIntentState(intent.mutationId, state);
-    } catch (cause) {
-      log("error", "intent 상태 기록 실패 — 결과 계약은 유지", { ...ctx, state, cause: String(cause) });
-    }
-  };
+  const recordState = (state: LayoutIntentState) =>
+    recordIntentState(deps, intent.mutationId, state, ctx, log);
 
   await recordState("inFlight");
 

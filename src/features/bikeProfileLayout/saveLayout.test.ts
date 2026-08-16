@@ -63,7 +63,9 @@ class FakeStore implements LayoutLocalStore {
 
   hasBlockedIntent = vi.fn(async (_ownerKey: string, profileId: string) =>
     [...this.intents.values()].some(
-      (i) => i.profileId === profileId && (i.state === "blockedConflict" || i.state === "quarantined"),
+      (i) =>
+        i.profileId === profileId &&
+        (i.state === "blockedConflict" || i.state === "quarantined" || i.state === "inFlight"),
     ),
   );
 }
@@ -296,6 +298,40 @@ describe("saveBikeProfileLayout", () => {
     expect(second.status).toBe("blockedByConflict");
     expect(requests).toHaveLength(before);
     expect(store.intents.get("m2")?.state).toBe("blockedConflict");
+  });
+
+  it("still blocks later sends when recording the conflict state failed", async () => {
+    // 차단 기록이 실패하면 상태가 inFlight 에 멈춘다. 그대로 통과시키면 다음 편집이 CAS 를 지나
+    // 원격 구성을 덮어쓴다 — `inFlight` 도 차단으로 세어 fail-closed 로 만든다.
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps({ status: "conflict", remoteRevision: 4, remotePayload: "{}", remotePayloadHash: "b".repeat(64) }),
+    );
+    store.intents.set("m1", { ...store.intents.get("m1")!, state: "inFlight" });
+    const before = requests.length;
+
+    const second = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 4 },
+      { ...deps(committed), newMutationId: () => "m2" },
+    );
+
+    expect(second.status).toBe("blockedByConflict");
+    expect(requests).toHaveLength(before);
+  });
+
+  it("holds the send when the blocked-state lookup itself fails", async () => {
+    store.hasBlockedIntent = vi.fn(async () => {
+      throw new Error("indexeddb blocked");
+    });
+
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(committed),
+    );
+
+    // 차단 여부를 모르면 보내지 않는다.
+    expect(result.status).toBe("blockedByConflict");
+    expect(requests).toHaveLength(0);
   });
 
   it("refuses to write when the payload targets a different profile", async () => {
