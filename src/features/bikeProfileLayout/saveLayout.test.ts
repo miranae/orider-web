@@ -195,7 +195,12 @@ describe("saveBikeProfileLayout", () => {
   it("blocks the intent on conflict instead of overwriting", async () => {
     const result = await saveBikeProfileLayout(
       { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
-      deps({ status: "conflict", remoteRevision: 9, remotePayload: "{}", remotePayloadHash: "b".repeat(64) }),
+      deps({
+        status: "conflict",
+        remoteRevision: 9,
+        remotePayload: "{}",
+        remotePayloadHash: await payloadHash("{}"),
+      }),
     );
 
     expect(result).toEqual({ status: "conflict", remoteRevision: 9, remotePayload: "{}" });
@@ -339,6 +344,14 @@ describe("saveBikeProfileLayout", () => {
       { status: "committed", revision: 4, payloadHash: "f".repeat(64), wasReplay: false } as never,
     ],
     ["conflict 인데 remoteRevision 누락", { status: "conflict", remotePayload: "{}" } as never],
+    [
+      "conflict 인데 remotePayloadHash 가 본문과 불일치",
+      { status: "conflict", remoteRevision: 9, remotePayload: "{}", remotePayloadHash: "b".repeat(64) } as never,
+    ],
+    [
+      "revision 이 expected+1 이 아님",
+      { status: "committed", revision: 99, payloadHash: "a".repeat(64), wasReplay: false } as never,
+    ],
   ])("keeps the intent when the callable response is malformed (%s)", async (_label, response) => {
     // status 만 보면 필드가 빠진 응답도 성공으로 처리해 undefined 로 head 를 쓰고 intent 를 지운다.
     const result = await saveBikeProfileLayout(
@@ -355,7 +368,12 @@ describe("saveBikeProfileLayout", () => {
     // 사용자의 충돌 선택 없이 원격 구성을 덮어쓴다.
     await saveBikeProfileLayout(
       { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
-      deps({ status: "conflict", remoteRevision: 4, remotePayload: "{}", remotePayloadHash: "b".repeat(64) }),
+      deps({
+        status: "conflict",
+        remoteRevision: 4,
+        remotePayload: "{}",
+        remotePayloadHash: await payloadHash("{}"),
+      }),
     );
     const before = requests.length;
 

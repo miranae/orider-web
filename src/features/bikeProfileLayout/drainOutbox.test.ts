@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { LayoutIntentRecord } from "./outbox";
+import { payloadHash } from "./canonical";
 import type { SaveLayoutCallableResponse, SaveLayoutDeps, LayoutLocalStore } from "./saveLayout";
 
 /**
@@ -74,7 +75,17 @@ describe("drainLayoutOutbox", () => {
 
     const results = await drainLayoutOutbox(
       OWNER,
-      depsWith([{ status: "conflict", remoteRevision: 4, remotePayload: "{}", remotePayloadHash: "b".repeat(64) }], seen),
+      depsWith(
+        [
+          {
+            status: "conflict",
+            remoteRevision: 4,
+            remotePayload: "{}",
+            remotePayloadHash: await payloadHash("{}"),
+          },
+        ],
+        seen,
+      ),
     );
 
     expect(seen).toEqual(["A"]);
@@ -90,7 +101,12 @@ describe("drainLayoutOutbox", () => {
       OWNER,
       depsWith(
         [
-          { status: "conflict", remoteRevision: 4, remotePayload: "{}", remotePayloadHash: "b".repeat(64) },
+          {
+            status: "conflict",
+            remoteRevision: 4,
+            remotePayload: "{}",
+            remotePayloadHash: await payloadHash("{}"),
+          },
           { status: "committed", revision: 2, payloadHash: "c".repeat(64), wasReplay: false },
         ],
         seen,

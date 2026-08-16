@@ -226,7 +226,14 @@ export async function sendProfileQueue(
   profileId: string,
   deps: SaveLayoutDeps,
 ): Promise<SaveLayoutResult[]> {
-  const all = await deps.store.listIntents(ownerKey);
+  let all: LayoutIntentRecord[];
+  try {
+    all = await deps.store.listIntents(ownerKey);
+  } catch (cause) {
+    // 이 조회 실패도 신규 IndexedDB IO 다 — 맥락 없이 reject 하면 운영에서 보이지 않는다.
+    deps.log("error", "프로필 큐 intent 조회 실패", { ownerKey, profileId, cause: String(cause) });
+    throw cause;
+  }
   const queue = all.filter((i) => i.profileId === profileId);
 
   // 차단된 intent 가 하나라도 있으면 **그 프로필은 통째로 멈춘다**. 건너뛰고 뒤를 보내면
@@ -284,15 +291,20 @@ const HEX_64 = /^[0-9a-f]{64}$/u;
  *
  * @returns 문제가 있으면 사유 문자열, 없으면 null.
  */
-function validateResponseShape(
+async function validateResponseShape(
   response: SaveLayoutCallableResponse | undefined,
   intent: LayoutIntentRecord,
-): string | null {
+): Promise<string | null> {
   if (!response || typeof response.status !== "string" || !KNOWN_STATUSES.has(response.status)) {
     return "알 수 없는 응답";
   }
   if (response.status === "committed") {
     if (!Number.isInteger(response.revision)) return "committed 인데 revision 이 정수가 아님";
+    // replay 도 원 커밋의 revision 을 그대로 돌려주므로 두 경우 모두 expected+1 이다.
+    // 음수·과거·비약한 revision 을 그대로 head 에 쓰면 로컬 CAS 기준이 영구 오염된다.
+    if (response.revision !== intent.expectedRevision + 1) {
+      return `committed 인데 revision 이 expected+1 이 아님(${response.revision})`;
+    }
     if (typeof response.payloadHash !== "string" || !HEX_64.test(response.payloadHash)) {
       return "committed 인데 payloadHash 가 64자 hex 가 아님";
     }
@@ -303,6 +315,13 @@ function validateResponseShape(
   if (response.status === "conflict") {
     if (!Number.isInteger(response.remoteRevision)) return "conflict 인데 remoteRevision 이 정수가 아님";
     if (typeof response.remotePayload !== "string") return "conflict 인데 remotePayload 가 문자열이 아님";
+    if (typeof response.remotePayloadHash !== "string" || !HEX_64.test(response.remotePayloadHash)) {
+      return "conflict 인데 remotePayloadHash 가 64자 hex 가 아님";
+    }
+    // 해시가 본문과 어긋나면 충돌 해소에서 **검증되지 않은 원격 레이아웃**을 쓰게 된다.
+    if ((await payloadHash(response.remotePayload)) !== response.remotePayloadHash) {
+      return "conflict 인데 remotePayload 와 remotePayloadHash 가 불일치";
+    }
   }
   return null;
 }
@@ -342,7 +361,7 @@ export async function transmitIntent(
 
   // 버전 불일치·malformed 응답이 오면 exhaustive switch 가 undefined 를 반환하고 intent 가
   // `inFlight` 에 영구 잔류한다. **모양까지** 검증하고, 모르는 응답은 전송 실패와 같게 다룬다.
-  const shapeError = validateResponseShape(response, intent);
+  const shapeError = await validateResponseShape(response, intent);
   if (shapeError) {
     log("error", `[2/3] call saveBikeProfileLayout — ${shapeError}, intent 보존`, {
       ...ctx,
