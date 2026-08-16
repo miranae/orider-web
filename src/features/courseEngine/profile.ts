@@ -40,9 +40,13 @@ export function buildElevationProfile(
     sourceIndex: index,
   });
 
-  if (points.length <= targetPoints || targetPoints < 4) {
+  if (points.length <= targetPoints) {
     return points.map((_, index) => toSample(index));
   }
+  // 아주 작은 목표치에서도 상한은 지킨다. 버킷을 나눌 여지가 없으면 양 끝만 남긴다 —
+  // 전체 트랙을 그대로 돌려주면 호출자가 건 렌더링·메모리 상한이 무시된다.
+  if (targetPoints <= 1) return [toSample(0)];
+  if (targetPoints <= 3) return [toSample(0), toSample(points.length - 1)];
 
   // 첫 점과 끝 점을 따로 확보하고 나머지를 버킷으로 나눈다. 버킷마다 최대 2개(최고·최저)를
   // 남기므로 버킷 수는 목표치의 절반으로 잡는다.

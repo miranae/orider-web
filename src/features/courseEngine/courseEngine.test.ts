@@ -140,6 +140,16 @@ describe("buildElevationProfile", () => {
     }
   });
 
+  it("목표 표본 수가 아주 작아도 상한을 지킨다", () => {
+    const points: TrackPoint[] = Array.from({ length: 100 }, (_, index) => ({
+      lat: 37.5 + index * 0.0001, lon: 127.0, ele: index,
+    }));
+    expect(buildElevationProfile(points, 3)).toHaveLength(2);
+    expect(buildElevationProfile(points, 2)).toHaveLength(2);
+    expect(buildElevationProfile(points, 1)).toHaveLength(1);
+    expect(buildElevationProfile(points, 8).length).toBeLessThanOrEqual(8);
+  });
+
   it("빈 트랙은 빈 프로필", () => {
     expect(buildElevationProfile([], 100)).toEqual([]);
     expect(profileIndexForSourceIndex([], 3)).toBe(-1);
