@@ -183,7 +183,18 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
 
   // 방금 만든 intent 를 곧바로 보내지 않는다. 앞선 저장이 전송 실패로 pending 에 남아 있으면
   // 뒤 편집이 먼저 도착해 거짓 CAS 충돌을 만들고 순서가 뒤집힌다. **프로필 큐를 순서대로** 비운다.
-  const results = await sendProfileQueue(ownerKey, profileId, deps);
+  let results: SaveLayoutResult[];
+  try {
+    results = await sendProfileQueue(ownerKey, profileId, deps);
+  } catch (cause) {
+    // durable 저장은 이미 끝났다. 큐 조회 실패로 예외를 내보내면 결과 계약이 깨진다 —
+    // intent 는 남아 있으니 다음 drain 이 이어받는다.
+    log("error", "[2/3] 프로필 큐 전송 실패 — intent 보존, 다음 drain 이 이어받는다", {
+      ...ctx,
+      cause: String(cause),
+    });
+    return { status: "savedPendingSync", intent };
+  }
   return results.find((r) => r.status !== "synced") ?? results[results.length - 1] ?? { status: "synced", revision: expectedRevision + 1 };
 }
 
@@ -322,8 +333,15 @@ export async function transmitIntent(
       try {
         await deps.store.removeIntent(intent.mutationId);
       } catch (cause) {
-        // 남은 intent 는 다음 drain 에서 replay 되고, replay 는 revision 을 올리지 않아 안전하다.
-        log("error", "[3/3] intent 제거 실패 — 다음 drain 이 멱등 replay 한다", { ...ctx, cause: String(cause) });
+        // 제거에 실패하면 상태가 `inFlight` 로 남는다. `hasBlockedIntent` 가 그걸 차단으로 세므로
+        // 실제 충돌이 없는데도 이 프로필의 동기화가 영구히 막힌다. `pending` 으로 되돌려
+        // 다음 drain 이 멱등 replay(= revision 증가 0) 하도록 둔다.
+        log("error", "[3/3] intent 제거 실패 — pending 으로 되돌려 다음 drain 이 멱등 replay 한다", {
+          ...ctx,
+          cause: String(cause),
+        });
+        await recordState("pending");
+        return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
       }
       log("info", "[3/3] write indexeddb head(원격 확정본) — 완료", ctx);
       return { status: "synced", revision: response.revision };

@@ -241,20 +241,6 @@ describe("saveBikeProfileLayout", () => {
     expect(result.status).toBe("savedPendingSync");
   });
 
-  it("keeps a synced result when removing the intent fails", async () => {
-    store.removeIntent = vi.fn(async () => {
-      throw new Error("indexeddb closing");
-    });
-
-    const result = await saveBikeProfileLayout(
-      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
-      deps(committed),
-    );
-
-    // 남은 intent 는 다음 drain 이 멱등 replay 한다.
-    expect(result).toEqual({ status: "synced", revision: 4 });
-  });
-
   it("does not clobber a newer local draft when an earlier intent commits", async () => {
     // 앞 intent 커밋 응답이 도착했을 때 사용자가 이미 다시 편집했다면, head 를 덮으면 최신 draft 가
     // outbox 에만 남고 화면에서는 사라진 것처럼 보인다.
@@ -308,6 +294,34 @@ describe("saveBikeProfileLayout", () => {
 
     // 앞선 m1 이 먼저 나가야 한다.
     expect(requests.map((r) => r.mutationId)).toEqual(["m1", "m2"]);
+  });
+
+  it("does not leave the profile permanently blocked when intent removal fails", async () => {
+    // 제거 실패로 inFlight 에 남으면 `hasBlockedIntent` 가 차단으로 세어 이후 저장이 영구히 막힌다.
+    store.removeIntent = vi.fn(async () => {
+      throw new Error("indexeddb closing");
+    });
+
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(committed),
+    );
+
+    expect(result.status).toBe("savedPendingSync");
+    expect(store.intents.get("m1")?.state).toBe("pending");
+  });
+
+  it("keeps the result contract when listing the profile queue fails", async () => {
+    store.listIntents = vi.fn(async () => {
+      throw new Error("indexeddb blocked");
+    });
+
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(committed),
+    );
+
+    expect(result.status).toBe("savedPendingSync");
   });
 
   it("treats an unknown callable status as a transport failure instead of returning undefined", async () => {
