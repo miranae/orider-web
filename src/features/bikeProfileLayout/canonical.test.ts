@@ -199,6 +199,14 @@ describe("canonical layout validation", () => {
     expect(issuesOf(raw)).toEqual(["UNSAFE_NUMBER_LITERAL"]);
   });
 
+  it("accepts an integer that survives the double round-trip exactly", () => {
+    // 2^53 은 정확히 표현·재직렬화된다 — `Number.isSafeInteger` 로 자르면 이것까지 막힌다.
+    const raw =
+      '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+      '"fields":[]}],"v2Counter":9007199254740992}';
+    expect(layoutOf(raw).unknownKeys.v2Counter).toBe(9007199254740992);
+  });
+
   it("accepts safe integers and numbers inside strings", () => {
     const raw =
       '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +

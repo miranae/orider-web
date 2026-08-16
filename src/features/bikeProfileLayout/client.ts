@@ -43,7 +43,12 @@ export async function callDeleteBikeProfileAndLayout(profileId: string, mutation
     "deleteBikeProfileAndLayout",
   );
   try {
-    await fn({ profileId, mutationId });
+    const { data } = await fn({ profileId, mutationId });
+    // 서버는 kill switch 같은 비성공 상태를 **데이터로** 돌려준다. resolve 됐다고 성공으로 보면
+    // 지워지지 않은 프로필을 UI 가 삭제됐다고 판단한다.
+    if (data?.status !== "tombstoned") {
+      throw new Error(`deleteBikeProfileAndLayout 비성공 상태: ${String(data?.status)}`);
+    }
   } catch (cause) {
     // 맥락 없이 reject 하면 어느 자전거의 삭제가 왜 막혔는지 운영에서 알 수 없다.
     logClientError("bikeProfileLayout", cause, {

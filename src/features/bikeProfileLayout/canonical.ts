@@ -68,10 +68,31 @@ export type ParseResult =
   | { ok: false; issues: LayoutValidationIssue[] };
 
 /**
- * 문자열 리터럴 밖의 **JSON number 토큰**을 통째로 보고, JS number 로 왕복할 수 없는 게 있는지 본다.
+ * 정수 리터럴을 정확한 [bigint] 로 바꾼다. 지수 표기(`9.007e15`)도 펼친다.
+ * 소수점 이하가 남거나 음의 지수라 정수가 아니면 null.
+ */
+function integerLiteralToBigInt(literal: string): bigint | null {
+  const parts = literal.split(/[eE]/u);
+  const mantissa = parts[0] ?? "";
+  const exponent = parts[1] ? Number(parts[1]) : 0;
+  if (!Number.isInteger(exponent)) return null;
+
+  const negative = mantissa.startsWith("-");
+  const unsigned = negative ? mantissa.slice(1) : mantissa;
+  const [intPart = "", fracPart = ""] = unsigned.split(".");
+  const shift = exponent - fracPart.length;
+  if (shift < 0) return null; // 소수점 이하가 남는다 = 정수가 아니다
+
+  const digits = `${intPart}${fracPart}${"0".repeat(shift)}`;
+  const value = BigInt(digits);
+  return negative ? -value : value;
+}
+
+/**
+ * 문자열 리터럴 밖의 **JSON number 토큰**을 통째로 보고, JS number 로 **왕복할 수 없는** 게 있는지 본다.
  *
- * 연속 숫자만 매칭하면 `0.9007199254740993` 의 소수부를 독립 정수로 오인해 멀쩡한 값을 거절하고,
- * 지수 표기(`9.007199254740993e15`)는 전체 값을 못 봐서 정밀도 손실을 놓친다.
+ * `Number.isSafeInteger` 로 자르면 정확히 표현·재직렬화되는 `9007199254740992`(2^53)까지 거절해
+ * 상위 버전의 opaque 정수 필드를 불필요하게 막는다. 실제 기준은 "double 로 갔다 와도 값이 같은가" 다.
  */
 function hasUnsafeNumberLiteral(raw: string): boolean {
   const withoutStrings = raw.replace(/"(?:[^"\\]|\\.)*"/gu, '""');
@@ -81,8 +102,10 @@ function hasUnsafeNumberLiteral(raw: string): boolean {
     if (!Number.isFinite(value)) return true;
     // 정수로 평가되는 값만 정밀도 계약 대상이다. 소수는 애초에 double 로 표현된다.
     if (!Number.isInteger(value)) continue;
-    // 왕복이 안 되면(재직렬화 결과가 원문 정수와 다르면) 조용히 뭉개진 것이다.
-    if (!Number.isSafeInteger(value)) return true;
+
+    const exact = integerLiteralToBigInt(literal);
+    if (exact === null) continue; // 정수 리터럴이 아니다
+    if (BigInt(value) !== exact) return true; // double 왕복에서 값이 바뀌었다
   }
   return false;
 }
