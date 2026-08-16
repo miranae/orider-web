@@ -63,6 +63,8 @@ export type LayoutLocalStore = {
   putHeadIfUnchanged: (head: LayoutHeadRecord, expectedPayloadHash: string) => Promise<boolean>;
   /** 이 프로필에 사용자가 아직 해소하지 않은 차단 intent 가 있는지. */
   hasBlockedIntent: (ownerKey: string, profileId: string) => Promise<boolean>;
+  /** 이 owner 의 미전송 intent 를 `프로필 → revision` 순으로. */
+  listIntents: (ownerKey: string) => Promise<LayoutIntentRecord[]>;
   updateIntentState: (mutationId: string, state: LayoutIntentState) => Promise<void>;
   removeIntent: (mutationId: string) => Promise<void>;
 };
@@ -179,7 +181,41 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
     return { status: "blockedByConflict", intent: { ...intent, state: "blockedConflict" } };
   }
 
-  return transmitIntent(intent, deps);
+  // 방금 만든 intent 를 곧바로 보내지 않는다. 앞선 저장이 전송 실패로 pending 에 남아 있으면
+  // 뒤 편집이 먼저 도착해 거짓 CAS 충돌을 만들고 순서가 뒤집힌다. **프로필 큐를 순서대로** 비운다.
+  const results = await sendProfileQueue(ownerKey, profileId, deps);
+  return results.find((r) => r.status !== "synced") ?? results[results.length - 1] ?? { status: "synced", revision: expectedRevision + 1 };
+}
+
+/**
+ * 한 프로필의 미전송 intent 를 **revision 순서대로** 보내고, 동기화되지 않은 첫 결과에서 멈춘다.
+ *
+ * 앞 intent 의 결과를 모르는 채(전송 실패·충돌·차단) 뒤 intent 를 보내면, 뒤 intent 의 CAS 가
+ * 거짓으로 통과하거나 거짓 충돌을 만들어 프로필 큐 전체가 막힌다. 신규 저장과 drain 이 같은
+ * 함수를 쓴다 — 두 경로가 다른 순서 규칙을 가지면 그 차이가 곧 사고다.
+ */
+export async function sendProfileQueue(
+  ownerKey: string,
+  profileId: string,
+  deps: SaveLayoutDeps,
+): Promise<SaveLayoutResult[]> {
+  const all = await deps.store.listIntents(ownerKey);
+  const queue = all.filter((i) => i.profileId === profileId);
+
+  // 차단된 intent 가 하나라도 있으면 **그 프로필은 통째로 멈춘다**. 건너뛰고 뒤를 보내면
+  // 뒤 intent 의 CAS 가 통과해 사용자의 충돌 해결 없이 원격 구성을 덮어쓴다.
+  if (queue.some((i) => i.state === "blockedConflict" || i.state === "quarantined")) {
+    deps.log("info", "프로필에 미해소 차단 intent 가 있어 전송하지 않음", { ownerKey, profileId });
+    return [];
+  }
+
+  const results: SaveLayoutResult[] = [];
+  for (const queued of queue) {
+    const result = await transmitIntent(queued, deps);
+    results.push(result);
+    if (result.status !== "synced") break;
+  }
+  return results;
 }
 
 /**
@@ -240,6 +276,18 @@ export async function transmitIntent(
     });
   } catch (cause) {
     log("error", "[2/3] call saveBikeProfileLayout — 전송 실패, intent 보존", { ...ctx, cause: String(cause) });
+    await recordState("pending");
+    return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
+  }
+
+  // 버전 불일치·malformed 응답이 오면 exhaustive switch 가 undefined 를 반환하고 intent 가
+  // `inFlight` 에 영구 잔류한다. 모르는 상태는 전송 실패와 같게 다룬다.
+  const known = new Set(["committed", "conflict", "integrityError", "profileDeleted", "writesDisabled"]);
+  if (!response || typeof response.status !== "string" || !known.has(response.status)) {
+    log("error", "[2/3] call saveBikeProfileLayout — 알 수 없는 응답, intent 보존", {
+      ...ctx,
+      status: String((response as { status?: unknown } | undefined)?.status),
+    });
     await recordState("pending");
     return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
   }

@@ -47,6 +47,7 @@ const noopStore: LayoutLocalStore = {
   commitHeadAndIntent: vi.fn(),
   putHeadIfUnchanged: vi.fn(async () => true),
   hasBlockedIntent: vi.fn(async () => false),
+  listIntents: listIntentsMock,
   updateIntentState: vi.fn(),
   removeIntent: vi.fn(),
 };
@@ -178,6 +179,23 @@ describe("drainLayoutOutbox", () => {
       }),
     ]);
     expect(order).toEqual(["B", "A"]);
+  });
+
+  it("stops a profile queue on any non-synced result, not just conflicts", async () => {
+    // 전송 실패는 앞 요청의 성공 여부를 모른다는 뜻이다. 뒤 intent 를 계속 보내면 거짓 충돌이나
+    // 순서 건너뜀이 생긴다.
+    listIntentsMock.mockResolvedValue([intent("A", "road", 3), intent("B", "road", 4)]);
+    const seen: string[] = [];
+    const d = depsWith([], seen);
+    d.callSaveLayout = async (request) => {
+      seen.push(request.mutationId);
+      throw new Error("offline");
+    };
+
+    const results = await drainLayoutOutbox(OWNER, d);
+
+    expect(seen).toEqual(["A"]);
+    expect(results[0]?.status).toBe("savedPendingSync");
   });
 
   it("skips intents already blocked and everything behind them", async () => {

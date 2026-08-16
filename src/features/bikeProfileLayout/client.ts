@@ -11,7 +11,7 @@ import {
   updateIntentState,
 } from "./outbox";
 import {
-  transmitIntent,
+  sendProfileQueue,
   type LayoutLocalStore,
   type SaveLayoutCallableRequest,
   type SaveLayoutCallableResponse,
@@ -65,6 +65,7 @@ export const indexedDbLayoutStore: LayoutLocalStore = {
   commitHeadAndIntent,
   putHeadIfUnchanged,
   hasBlockedIntent,
+  listIntents,
   updateIntentState,
   removeIntent,
 };
@@ -162,35 +163,18 @@ export function drainLayoutOutbox(
 async function runDrain(ownerKey: string, deps: SaveLayoutDeps): Promise<SaveLayoutResult[]> {
   let intents;
   try {
-    intents = await listIntents(ownerKey);
+    intents = await deps.store.listIntents(ownerKey);
   } catch (cause) {
     // 조회가 실패하면 재시작 후 동기화가 통째로 멈춘다. 조용히 reject 하지 않고 맥락을 남긴다.
     deps.log("error", "[0/3] read indexeddb intents — 실패, drain 중단", { ownerKey, cause: String(cause) });
     throw cause;
   }
+
+  // 프로필별 순서 큐를 그대로 쓴다 — 신규 저장과 같은 규칙이라 두 경로가 갈라지지 않는다.
+  const profileIds = [...new Set(intents.map((i) => i.profileId))];
   const results: SaveLayoutResult[] = [];
-
-  /**
-   * 한 프로필에서 차단 결과가 나오면 **그 프로필의 후속 intent 전송을 멈춘다.**
-   *
-   * 오프라인 편집 A(expectedRevision=3)·B(4)가 쌓인 상태에서 A 가 원격 revision 4 와 충돌하면,
-   * 그대로 B 를 보내면 B 의 CAS(expected=4)가 통과해 **사용자의 충돌 선택 없이** 원격 구성을
-   * 덮어쓴다. 차단은 프로필 단위로 전파돼야 한다.
-   */
-  const blockedProfiles = new Set<string>();
-
-  for (const intent of intents) {
-    if (intent.state === "blockedConflict" || intent.state === "quarantined") {
-      blockedProfiles.add(intent.profileId);
-      continue;
-    }
-    if (blockedProfiles.has(intent.profileId)) continue;
-
-    const result = await transmitIntent(intent, deps);
-    results.push(result);
-    if (result.status === "conflict" || result.status === "targetDeleted" || result.status === "integrityError") {
-      blockedProfiles.add(intent.profileId);
-    }
+  for (const profileId of profileIds) {
+    results.push(...(await sendProfileQueue(ownerKey, profileId, deps)));
   }
   return results;
 }

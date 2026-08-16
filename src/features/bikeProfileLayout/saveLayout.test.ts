@@ -61,6 +61,17 @@ class FakeStore implements LayoutLocalStore {
     this.intents.delete(mutationId);
   });
 
+  listIntents = vi.fn(async (ownerKey: string) =>
+    [...this.intents.values()]
+      .filter((i) => i.ownerKey === ownerKey)
+      .sort(
+        (a, b) =>
+          (a.profileId < b.profileId ? -1 : a.profileId > b.profileId ? 1 : 0) ||
+          a.expectedRevision - b.expectedRevision ||
+          a.createdAtMs - b.createdAtMs,
+      ),
+  );
+
   hasBlockedIntent = vi.fn(async (_ownerKey: string, profileId: string) =>
     [...this.intents.values()].some(
       (i) =>
@@ -279,6 +290,34 @@ describe("saveBikeProfileLayout", () => {
 
     expect([...store.heads.keys()]).toEqual([headKey(OWNER, "road")]);
     expect(store.heads.keys().next().value).not.toBe(`${OWNER}|road`);
+  });
+
+  it("drains an earlier pending intent before the new one so order cannot invert", async () => {
+    // 앞 저장이 전송 실패로 pending 에 남았는데 새 저장을 바로 보내면 순서가 뒤집혀 거짓 충돌이 난다.
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(new Error("offline")),
+    );
+    expect(store.intents.get("m1")?.state).toBe("pending");
+    requests.length = 0;
+
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 4 },
+      { ...deps(committed), newMutationId: () => "m2" },
+    );
+
+    // 앞선 m1 이 먼저 나가야 한다.
+    expect(requests.map((r) => r.mutationId)).toEqual(["m1", "m2"]);
+  });
+
+  it("treats an unknown callable status as a transport failure instead of returning undefined", async () => {
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps({ status: "somethingNew" } as never),
+    );
+
+    expect(result.status).toBe("savedPendingSync");
+    expect(store.intents.get("m1")?.state).toBe("pending");
   });
 
   it("holds a new save while an unresolved conflict exists on that profile", async () => {
