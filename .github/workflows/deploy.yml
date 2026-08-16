@@ -46,6 +46,13 @@ jobs:
       VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED }}
       VITE_COACH_RIDE_PLAN_AI_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_AI_ENABLED }}
       VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}
+    outputs:
+      release_sha: ${{ steps.live-verify.outputs.release_sha }}
+      built_entry: ${{ steps.live-verify.outputs.built_entry }}
+      built_entry_sha256: ${{ steps.live-verify.outputs.built_entry_sha256 }}
+      live_entry: ${{ steps.live-verify.outputs.live_entry }}
+      live_entry_sha256: ${{ steps.live-verify.outputs.live_entry_sha256 }}
+      live_cache_control: ${{ steps.live-verify.outputs.live_cache_control }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -103,6 +110,7 @@ jobs:
 
       # 배포 후 라이브 검증 — "Deploy success인데 옛 번들 서빙" 사고 차단 (백엔드 #728~731 포팅)
       - name: Verify live deploy (no stale HTML / asset cache intact)
+        id: live-verify
         run: |
           set -euo pipefail
           BUILT=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -1)
@@ -137,29 +145,13 @@ jobs:
           echo "LIVE_ENTRY=$LIVE" >> "$GITHUB_ENV"
           echo "LIVE_ENTRY_SHA256=$LIVE_ENTRY_SHA256" >> "$GITHUB_ENV"
           echo "LIVE_CACHE_CONTROL=${CC#*: }" >> "$GITHUB_ENV"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "built_entry=$BUILT" >> "$GITHUB_OUTPUT"
+          echo "built_entry_sha256=$BUILT_ENTRY_SHA256" >> "$GITHUB_OUTPUT"
+          echo "live_entry=$LIVE" >> "$GITHUB_OUTPUT"
+          echo "live_entry_sha256=$LIVE_ENTRY_SHA256" >> "$GITHUB_OUTPUT"
+          echo "live_cache_control=${CC#*: }" >> "$GITHUB_OUTPUT"
           echo "✓ 라이브가 최신 번들 + 자산 immutable 확인"
-
-      - name: Write production Hosting evidence
-        run: >-
-          node scripts/production-hosting-evidence.mjs
-          --output production-hosting-evidence.json
-          --commit-sha "$RELEASE_SHA"
-          --workflow-run-id "$GITHUB_RUN_ID"
-          --workflow-run-attempt "$GITHUB_RUN_ATTEMPT"
-          --project-id "${{ vars.VITE_FIREBASE_PROJECT_ID }}"
-          --site "miranae-orider-g1"
-          --built-entry-asset "$BUILT_ENTRY"
-          --built-entry-sha256 "$BUILT_ENTRY_SHA256"
-          --live-entry-asset "$LIVE_ENTRY"
-          --live-entry-sha256 "$LIVE_ENTRY_SHA256"
-          --live-cache-control "$LIVE_CACHE_CONTROL"
-      - name: Upload production Hosting evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-hosting-evidence-${{ env.RELEASE_SHA }}-${{ github.run_attempt }}
-          path: production-hosting-evidence.json
-          if-no-files-found: error
-          retention-days: 30
 
       - name: Create GitHub Release notes
         env:
@@ -175,3 +167,80 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "$TAG_NAME" \
             --generate-notes
+
+  attest-production-deployment:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Resolve successful production deployment
+        id: deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ needs.deploy.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          deployment_id=""
+          for attempt in $(seq 1 12); do
+            deployment_id="$(gh api \
+              "/repos/$GITHUB_REPOSITORY/deployments?environment=production&sha=$RELEASE_SHA&per_page=100" \
+              | jq -r --arg tag "$GITHUB_REF_NAME" --arg sha "$RELEASE_SHA" '
+                map(select(
+                  .environment == "production"
+                  and .original_environment == "production"
+                  and .ref == $tag
+                  and .sha == $sha
+                  and .task == "deploy"
+                ))
+                | sort_by(.created_at)
+                | last
+                | .id // empty
+              ' )"
+            if [ -n "$deployment_id" ] && [ "$deployment_id" -gt 0 ]; then
+              state="$(gh api "/repos/$GITHUB_REPOSITORY/deployments/$deployment_id/statuses" --jq '.[0].state // empty')"
+              if [ "$state" = "success" ]; then
+                break
+              fi
+            fi
+            deployment_id=""
+            echo "Waiting for the exact production deployment to reach success (attempt $attempt/12)"
+            sleep 5
+          done
+          if [ -z "$deployment_id" ]; then
+            echo "::error::No successful production deployment matched tag $GITHUB_REF, commit $RELEASE_SHA, and environment production."
+            exit 1
+          fi
+          echo "deployment_id=$deployment_id" >> "$GITHUB_OUTPUT"
+
+      - name: Write production Hosting evidence
+        run: >-
+          node scripts/production-hosting-evidence.mjs
+          --output production-hosting-evidence.json
+          --commit-sha "${{ needs.deploy.outputs.release_sha }}"
+          --workflow-event "${{ github.event_name }}"
+          --workflow-ref "${{ github.ref }}"
+          --workflow-run-id "$GITHUB_RUN_ID"
+          --workflow-run-attempt "$GITHUB_RUN_ATTEMPT"
+          --deployment-environment "production"
+          --deployment-id "${{ steps.deployment.outputs.deployment_id }}"
+          --project-id "${{ vars.VITE_FIREBASE_PROJECT_ID }}"
+          --site "miranae-orider-g1"
+          --built-entry-asset "${{ needs.deploy.outputs.built_entry }}"
+          --built-entry-sha256 "${{ needs.deploy.outputs.built_entry_sha256 }}"
+          --live-entry-asset "${{ needs.deploy.outputs.live_entry }}"
+          --live-entry-sha256 "${{ needs.deploy.outputs.live_entry_sha256 }}"
+          --live-cache-control "${{ needs.deploy.outputs.live_cache_control }}"
+      - name: Upload production Hosting evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-hosting-evidence-${{ needs.deploy.outputs.release_sha }}-${{ github.run_attempt }}
+          path: production-hosting-evidence.json
+          if-no-files-found: error
+          retention-days: 30
