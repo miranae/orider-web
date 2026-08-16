@@ -25,6 +25,7 @@ import {
   type CourseRoutingResult,
 } from "../services/courseRouting";
 import { downloadGpx, routeToGpx } from "../utils/routeGpx";
+import { computeStatsFromStreams, parseGpx, parseGpxName, type ParsedGpx } from "../features/courseEngine";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -51,38 +52,20 @@ type CreateMode = "activity" | "section" | "gpx" | "builder";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+/**
+ * 활동 스트림(고도·누적거리 배열)의 통계를 화면 표시 형태로 옮긴다.
+ * 계산 자체는 코스엔진이 담당하므로 GPX·이벤트 상세와 같은 기준을 쓴다.
+ */
 function computeStats(
   altitude: number[],
   distance: number[],
 ): { distance: number; elevationGain: number; avgGrade: number; maxGrade: number } {
-  if (altitude.length < 2) {
-    return { distance: 0, elevationGain: 0, avgGrade: 0, maxGrade: 0 };
-  }
-
-  const firstDist = distance[0] ?? 0;
-  const lastDist = distance[distance.length - 1] ?? 0;
-  const totalDist = lastDist - firstDist;
-  let elevGain = 0;
-  let maxGrade = 0;
-
-  for (let i = 1; i < altitude.length; i++) {
-    const dAlt = (altitude[i] ?? 0) - (altitude[i - 1] ?? 0);
-    const dDist = (distance[i] ?? 0) - (distance[i - 1] ?? 0);
-    if (dAlt > 0) elevGain += dAlt;
-    if (dDist > 0) {
-      const grade = Math.abs((dAlt / dDist) * 100);
-      if (grade > maxGrade && grade < 100) maxGrade = grade;
-    }
-  }
-
-  // 코스는 순환/왕복이 많아 net grade 대신 획득고도/거리 사용
-  const avgGrade = totalDist > 0 ? (elevGain / totalDist) * 100 : 0;
-
+  const stats = computeStatsFromStreams(altitude, distance);
   return {
-    distance: Math.round(totalDist),
-    elevationGain: Math.round(elevGain),
-    avgGrade: Math.round(avgGrade * 10) / 10,
-    maxGrade: Math.round(maxGrade * 10) / 10,
+    distance: stats.distanceM,
+    elevationGain: stats.elevationGainM,
+    avgGrade: stats.avgGradePct,
+    maxGrade: stats.maxGradePct,
   };
 }
 
@@ -170,7 +153,7 @@ export default function CreateCoursePage() {
   const [gpxXml, setGpxXml] = useState<string | null>(null);
   const [gpxFileName, setGpxFileName] = useState<string>("");
   const [gpxLatlng, setGpxLatlng] = useState<[number, number][] | null>(null);
-  const [gpxStats, setGpxStats] = useState<ReturnType<typeof computeStats> | null>(null);
+  const [gpxParsed, setGpxParsed] = useState<ParsedGpx | null>(null);
 
   // Form
   const [name, setName] = useState("");
@@ -272,49 +255,18 @@ export default function CreateCoursePage() {
       const xml = reader.result as string;
       setGpxXml(xml);
 
-      // 간단 파싱하여 미리보기 생성 (DOM 기반)
+      // 파싱은 코스엔진이 담당한다. 이벤트 상세와 같은 파서를 쓰므로 두 화면의 거리·고도 값이
+      // 어긋나지 않고, `<ele>` 결손 여부(hasElevation)도 함께 받는다.
       try {
-        const parser = new DOMParser();
-        const gpxDoc = parser.parseFromString(xml, "text/xml");
-        const trkpts = gpxDoc.querySelectorAll("trkpt");
-        const points: [number, number][] = [];
-        const alts: number[] = [];
+        const parsed = parseGpx(xml);
+        setGpxLatlng(parsed.latlng);
+        setGpxParsed(parsed);
 
-        trkpts.forEach((pt) => {
-          const lat = parseFloat(pt.getAttribute("lat") ?? "0");
-          const lon = parseFloat(pt.getAttribute("lon") ?? "0");
-          if (lat && lon) {
-            points.push([lat, lon]);
-            const ele = pt.querySelector("ele");
-            alts.push(ele ? parseFloat(ele.textContent ?? "0") : 0);
-          }
-        });
-
-        setGpxLatlng(points);
-
-        // 거리 계산 (haversine)
-        const dist: number[] = [0];
-        for (let i = 1; i < points.length; i++) {
-          const [lat1, lon1] = points[i - 1]!;
-          const [lat2, lon2] = points[i]!;
-          const R = 6371000;
-          const dLat = (lat2 - lat1) * Math.PI / 180;
-          const dLon = (lon2 - lon1) * Math.PI / 180;
-          const a = Math.sin(dLat / 2) ** 2 +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-          const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          dist.push(dist[i - 1]! + d);
-        }
-
-        setGpxStats(computeStats(alts, dist));
-
-        // GPX name 자동 채움
-        const nameEl = gpxDoc.querySelector("trk > name") ?? gpxDoc.querySelector("metadata > name");
-        if (nameEl?.textContent && !name) {
-          setName(nameEl.textContent);
-        }
-      } catch {
+        const gpxName = parseGpxName(xml);
+        if (gpxName && !name) setName(gpxName);
+      } catch (err) {
         // preview 실패해도 업로드는 가능
+        logClientError("CreateCoursePage.parseGpx", err, { fileName: file.name });
       }
     };
     reader.readAsText(file);
@@ -339,6 +291,14 @@ export default function CreateCoursePage() {
     const distSlice = streams.distance.slice(lowIdx, highIdx + 1);
     return computeStats(altSlice, distSlice);
   }, [mode, streams, lowIdx, highIdx]);
+
+  // GPX 통계는 엔진이 계산한 값을 화면 표시 형태로만 옮긴다.
+  const gpxStats = useMemo(() => gpxParsed ? {
+    distance: gpxParsed.stats.distanceM,
+    elevationGain: gpxParsed.stats.elevationGainM,
+    avgGrade: gpxParsed.stats.avgGradePct,
+    maxGrade: gpxParsed.stats.maxGradePct,
+  } : null, [gpxParsed]);
 
   const activityStats = useMemo(() => {
     if (mode !== "activity" || !streams?.altitude || !streams?.distance) return null;
@@ -795,7 +755,7 @@ export default function CreateCoursePage() {
                   onClick={() => {
                     setGpxXml(null);
                     setGpxLatlng(null);
-                    setGpxStats(null);
+                    setGpxParsed(null);
                     setGpxFileName("");
                   }}
                   className="text-[length:var(--fs-xs)] text-[var(--ink-2)] hover:text-red-400 transition-colors"

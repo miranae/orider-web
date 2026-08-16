@@ -1,102 +1,50 @@
+/**
+ * 이벤트 상세용 GPX 어댑터.
+ *
+ * 파싱·거리·통계 구현은 전부 코스엔진(`features/courseEngine`)으로 옮겼다. 이 파일은 이벤트
+ * 상세 화면이 쓰던 `CourseData` 형태를 그대로 유지하기 위한 얇은 변환 계층만 남긴다.
+ * 새 코드는 이 파일 대신 `features/courseEngine` 를 직접 쓸 것.
+ */
+
+import { haversineMeters, parseGpx } from "../../courseEngine";
+
 export interface GpxPoint {
   lat: number;
   lon: number;
   ele: number;
 }
 
-export interface GpxWaypoint {
-  lat: number;
-  lon: number;
-  ele: number;
-  name: string;
-  type: string;
-}
+export type { GpxWaypoint } from "../../courseEngine";
 
 export interface CourseData {
   points: GpxPoint[];
-  waypoints: GpxWaypoint[];
+  waypoints: import("../../courseEngine").GpxWaypoint[];
   latlng: [number, number][];
   distance: number;
   elevationGain: number;
   elevationLoss: number;
   maxElevation: number;
   minElevation: number;
+  /** 트랙에 `<ele>` 가 실제로 있었는가. false 면 고도 표시를 감춰야 한다. */
+  hasElevation: boolean;
 }
 
+/** @deprecated `features/courseEngine` 의 `haversineMeters` 를 쓸 것. */
 export function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return haversineMeters(lat1, lon1, lat2, lon2);
 }
 
 export function parseGpxFull(gpxXml: string): CourseData {
-  const parser = new DOMParser();
-  const gpxDoc = parser.parseFromString(gpxXml, "text/xml");
-
-  const childText = (parent: Element, tag: string): string | null => {
-    const els = parent.getElementsByTagName(tag);
-    if (!els.length) return null;
-    return els[0]?.textContent?.trim() ?? null;
-  };
-
-  const points: GpxPoint[] = [];
-  const trkpts = gpxDoc.getElementsByTagName("trkpt");
-  for (let i = 0; i < trkpts.length; i++) {
-    const pt = trkpts[i]!;
-    const lat = parseFloat(pt.getAttribute("lat") || "");
-    const lon = parseFloat(pt.getAttribute("lon") || "");
-    const eleStr = childText(pt, "ele");
-    const ele = eleStr != null ? parseFloat(eleStr) : 0;
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      points.push({ lat, lon, ele: Number.isFinite(ele) ? ele : 0 });
-    }
-  }
-
-  const waypoints: GpxWaypoint[] = [];
-  const wpts = gpxDoc.getElementsByTagName("wpt");
-  for (let i = 0; i < wpts.length; i++) {
-    const wpt = wpts[i]!;
-    const lat = parseFloat(wpt.getAttribute("lat") || "");
-    const lon = parseFloat(wpt.getAttribute("lon") || "");
-    const eleStr = childText(wpt, "ele");
-    const ele = eleStr != null ? parseFloat(eleStr) : 0;
-    const name = childText(wpt, "name") || "";
-    const type = childText(wpt, "type") || "GENERIC";
-    if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      waypoints.push({ lat, lon, ele: Number.isFinite(ele) ? ele : 0, name, type });
-    }
-  }
-
-  let distance = 0;
-  let elevationGain = 0;
-  let elevationLoss = 0;
-  let maxElevation = -Infinity;
-  let minElevation = Infinity;
-
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i]!;
-    if (p.ele > maxElevation) maxElevation = p.ele;
-    if (p.ele < minElevation) minElevation = p.ele;
-    if (i > 0) {
-      const prev = points[i - 1]!;
-      distance += haversine(prev.lat, prev.lon, p.lat, p.lon);
-      const diff = p.ele - prev.ele;
-      if (diff > 0) elevationGain += diff;
-      else elevationLoss += Math.abs(diff);
-    }
-  }
-
+  const parsed = parseGpx(gpxXml);
   return {
-    points,
-    waypoints,
-    latlng: points.map((p) => [p.lat, p.lon]),
-    distance,
-    elevationGain,
-    elevationLoss,
-    maxElevation: maxElevation === -Infinity ? 0 : maxElevation,
-    minElevation: minElevation === Infinity ? 0 : minElevation,
+    points: parsed.points,
+    waypoints: parsed.waypoints,
+    latlng: parsed.latlng,
+    distance: parsed.stats.distanceM,
+    elevationGain: parsed.stats.elevationGainM,
+    elevationLoss: parsed.stats.elevationLossM,
+    maxElevation: parsed.stats.maxElevationM,
+    minElevation: parsed.stats.minElevationM,
+    hasElevation: parsed.hasElevation,
   };
 }

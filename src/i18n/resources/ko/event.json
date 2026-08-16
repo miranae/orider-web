@@ -347,6 +347,7 @@
   "detail.lane.aid": "AID",
   "detail.lane.cut": "CUT OFF",
   "detail.lane.seg": "구간",
+  "detail.lane.amenity": "편의",
   "detail.error.alreadyStarted": "이벤트가 이미 시작되었거나 시작할 수 없는 상태입니다.",
   "detail.error.startFailed": "이벤트 시작에 실패했습니다. 다시 시도해주세요.",
   "detail.confirm.sendCourse": "\"{{name}}\" 코스를 모든 참가자에게 전송하시겠습니까?",

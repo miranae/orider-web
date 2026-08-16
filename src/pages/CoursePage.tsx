@@ -29,6 +29,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
+import { cumulativeDistancesFromLatLng } from "../features/courseEngine";
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
@@ -407,30 +408,10 @@ export default function CoursePage() {
   );
 
   // 폴리라인의 누적 거리(m) — 마커를 거리 기준으로 매핑하기 위해 미리 계산
-  const cumDistances = useMemo<number[]>(() => {
-    if (points.length < 2) return [];
-    const R = 6371000; // 지구 반지름(m)
-    const toRad = (deg: number) => (deg * Math.PI) / 180;
-    const cum = [0];
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      if (!prev || !curr) {
-        cum.push(cum[i - 1] ?? 0);
-        continue;
-      }
-      const [lat1, lng1] = prev;
-      const [lat2, lng2] = curr;
-      const dLat = toRad(lat2 - lat1);
-      const dLng = toRad(lng2 - lng1);
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-      const seg = 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      cum.push((cum[i - 1] ?? 0) + seg);
-    }
-    return cum;
-  }, [points]);
+  const cumDistances = useMemo<number[]>(
+    () => (points.length < 2 ? [] : cumulativeDistancesFromLatLng(points)),
+    [points],
+  );
 
   const markerPosition = useMemo<[number, number] | null>(() => {
     const profile = course?.elevationProfile;
