@@ -255,5 +255,13 @@
   "builder.error.TIMEOUT": "Route calculation timed out. Try again.",
   "builder.error.UPSTREAM_UNAVAILABLE": "The routing service is temporarily unavailable.",
   "builder.error.UPSTREAM_REJECTED": "The routing service could not process this request.",
-  "builder.error.INVALID_RESPONSE": "The route response could not be verified safely."
+  "builder.error.INVALID_RESPONSE": "The route response could not be verified safely.",
+  "kind.course": "Course",
+  "waypoint.section": "Waypoints",
+  "waypoint.count": "{{count}}",
+  "waypoint.colName": "Name",
+  "waypoint.colType": "Type",
+  "waypoint.unnamed": "Unnamed point",
+  "waypoint.tableCaption": "Selecting a waypoint moves the map to that point.",
+  "elevationHigh": "Max elevation"
 }
