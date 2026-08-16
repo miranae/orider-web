@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { LayoutIntentRecord } from "./outbox";
-import { payloadHash } from "./canonical";
+import { encodeCanonicalLayout, payloadHash, type CanonicalLayout } from "./canonical";
 import type { SaveLayoutCallableResponse, SaveLayoutDeps, LayoutLocalStore } from "./saveLayout";
 
 /**
@@ -28,8 +28,20 @@ vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn(), debugLog
 vi.mock("firebase/functions", () => ({ httpsCallable: () => vi.fn() }));
 
 const { drainLayoutOutbox, withOwnerLock } = await import("./client");
+const { __resetLayoutBlockBackstopForTests } = await import("./saveLayout");
 
 const OWNER = "uid:A";
+
+/** 충돌 응답의 원격 payload 는 대상 프로필의 **실제 canonical 문자열**이라야 검증을 통과한다. */
+function remoteLayoutFor(profileId: string): CanonicalLayout {
+  return {
+    schemaVersion: 1,
+    profileId,
+    sport: "CYCLING",
+    pages: [{ columns: 4, rows: 8, fields: [{ type: "POWER", col: 0, row: 0, colSpan: 4, rowSpan: 2 }] }],
+    unknownKeys: {},
+  };
+}
 
 function intent(mutationId: string, profileId: string, expectedRevision: number): LayoutIntentRecord {
   return {
@@ -68,6 +80,10 @@ function depsWith(responses: SaveLayoutCallableResponse[], seen: string[]): Save
   };
 }
 
+beforeEach(() => {
+  __resetLayoutBlockBackstopForTests();
+});
+
 describe("drainLayoutOutbox", () => {
   it("stops sending later intents for a profile once one is blocked by a conflict", async () => {
     listIntentsMock.mockResolvedValue([intent("A", "road", 3), intent("B", "road", 4)]);
@@ -80,8 +96,8 @@ describe("drainLayoutOutbox", () => {
           {
             status: "conflict",
             remoteRevision: 4,
-            remotePayload: "{}",
-            remotePayloadHash: await payloadHash("{}"),
+            remotePayload: encodeCanonicalLayout(remoteLayoutFor("road")),
+            remotePayloadHash: await payloadHash(encodeCanonicalLayout(remoteLayoutFor("road"))),
           },
         ],
         seen,
@@ -104,8 +120,8 @@ describe("drainLayoutOutbox", () => {
           {
             status: "conflict",
             remoteRevision: 4,
-            remotePayload: "{}",
-            remotePayloadHash: await payloadHash("{}"),
+            remotePayload: encodeCanonicalLayout(remoteLayoutFor("road")),
+            remotePayloadHash: await payloadHash(encodeCanonicalLayout(remoteLayoutFor("road"))),
           },
           { status: "committed", revision: 2, payloadHash: "c".repeat(64), wasReplay: false },
         ],

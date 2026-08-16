@@ -225,6 +225,11 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
   //
   // 이 조회/기록도 로컬 커밋 **이후**의 IO 라 예외가 새면 결과 계약이 깨진다. 조회 자체가 실패하면
   // 차단 여부를 모르는 것이므로 **보류**한다(fail-closed).
+  if (memoryBlocked.has(blockKey(ownerKey, profileId))) {
+    await recordIntentState(deps, mutationId, "blockedConflict", ctx, log, { ownerKey, profileId });
+    log("info", "[2/3] 미해소 충돌(메모리 백스톱) — 전송 보류", ctx);
+    return { status: "blockedByConflict", intent: { ...intent, state: "blockedConflict" } };
+  }
   try {
     if (await deps.store.hasBlockedIntent(ownerKey, profileId)) {
       await recordIntentState(deps, mutationId, "blockedConflict", ctx, log);
@@ -280,9 +285,14 @@ export async function sendProfileQueue(
   }
   const queue = all.filter((i) => i.profileId === profileId);
 
+  if (memoryBlocked.has(blockKey(ownerKey, profileId))) {
+    deps.log("info", "프로필이 메모리 백스톱으로 차단됨 — 전송하지 않음", { ownerKey, profileId });
+    return [];
+  }
+
   // 차단된 intent 가 하나라도 있으면 **그 프로필은 통째로 멈춘다**. 건너뛰고 뒤를 보내면
   // 뒤 intent 의 CAS 가 통과해 사용자의 충돌 해결 없이 원격 구성을 덮어쓴다.
-  if (queue.some((i) => i.state === "blockedConflict" || i.state === "quarantined")) {
+  if (queue.some((i) => BLOCKING_STATES.has(i.state))) {
     deps.log("info", "프로필에 미해소 차단 intent 가 있어 전송하지 않음", { ownerKey, profileId });
     return [];
   }
@@ -313,17 +323,44 @@ async function recordIntentState(
   state: LayoutIntentState,
   ctx: Record<string, unknown>,
   log: SaveLayoutDeps["log"],
+  blockScope?: { ownerKey: string; profileId: string },
 ): Promise<void> {
   try {
     await deps.store.updateIntentState(mutationId, state);
   } catch (cause) {
-    log("error", "intent 상태 기록 실패 — inFlight 로 남아 후속 전송은 보류된다", {
+    if (blockScope && BLOCKING_STATES.has(state)) {
+      // durable 기록이 실패했으니 메모리로라도 막는다 — 안 그러면 해소되지 않은 충돌 위로
+      // 다음 저장이 그대로 전송된다.
+      memoryBlocked.add(blockKey(blockScope.ownerKey, blockScope.profileId));
+    }
+    log("error", "intent 상태 기록 실패 — 메모리 차단으로 대체, 재시작 시 재전송으로 복구", {
       ...ctx,
       state,
       cause: String(cause),
     });
   }
 }
+
+/**
+ * durable 차단 기록이 실패했을 때의 **메모리 백스톱**.
+ *
+ * 충돌·무결성 오류·삭제 응답 뒤 IndexedDB 갱신이 실패하면 intent 가 `inFlight` 로 남고, 저장소만
+ * 보는 `hasBlockedIntent` 는 그걸 미해소 충돌로 알아보지 못해 자동 재전송을 허용한다.
+ * 이 세션 동안은 메모리로 막고, 새로고침 뒤에는 남아 있는 intent 가 재전송돼 서버가 같은 충돌을
+ * 다시 돌려주므로 상태가 스스로 복구된다.
+ */
+const memoryBlocked = new Set<string>();
+
+/** 테스트 격리용 — 모듈 수준 백스톱이 케이스 간에 새지 않게 한다(`__resetClientErrorDedupeForTests` 선례). */
+export function __resetLayoutBlockBackstopForTests(): void {
+  memoryBlocked.clear();
+}
+
+function blockKey(ownerKey: string, profileId: string): string {
+  return `${encodeURIComponent(ownerKey)}|${encodeURIComponent(profileId)}`;
+}
+
+const BLOCKING_STATES: ReadonlySet<LayoutIntentState> = new Set(["blockedConflict", "quarantined"]);
 
 const KNOWN_STATUSES = new Set(["committed", "conflict", "integrityError", "profileDeleted", "writesDisabled"]);
 const HEX_64 = /^[0-9a-f]{64}$/u;
@@ -359,12 +396,23 @@ async function validateResponseShape(
   if (response.status === "conflict") {
     if (!Number.isInteger(response.remoteRevision)) return "conflict 인데 remoteRevision 이 정수가 아님";
     if (typeof response.remotePayload !== "string") return "conflict 인데 remotePayload 가 문자열이 아님";
+    if (!Number.isSafeInteger(response.remoteRevision) || response.remoteRevision < 0) {
+      return "conflict 인데 remoteRevision 이 0 이상 안전 정수가 아님";
+    }
     if (typeof response.remotePayloadHash !== "string" || !HEX_64.test(response.remotePayloadHash)) {
       return "conflict 인데 remotePayloadHash 가 64자 hex 가 아님";
     }
     // 해시가 본문과 어긋나면 충돌 해소에서 **검증되지 않은 원격 레이아웃**을 쓰게 된다.
     if ((await payloadHash(response.remotePayload)) !== response.remotePayloadHash) {
       return "conflict 인데 remotePayload 와 remotePayloadHash 가 불일치";
+    }
+    // 해시만 일관된 손상·타 프로필 payload 도 충돌 해소 UI 로 흘러가면 안 된다.
+    const remote = parseCanonicalLayout(response.remotePayload, "CYCLING");
+    if (!remote.ok) {
+      return `conflict 인데 remotePayload 가 canonical v1 위반(${remote.issues.map((i) => i.error).join(",")})`;
+    }
+    if (remote.layout.profileId !== intent.profileId) {
+      return "conflict 인데 remotePayload 의 프로필이 대상과 다름";
     }
   }
   return null;
@@ -383,7 +431,10 @@ export async function transmitIntent(
   };
 
   const recordState = (state: LayoutIntentState) =>
-    recordIntentState(deps, intent.mutationId, state, ctx, log);
+    recordIntentState(deps, intent.mutationId, state, ctx, log, {
+      ownerKey: intent.ownerKey,
+      profileId: intent.profileId,
+    });
 
   await recordState("inFlight");
 

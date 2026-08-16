@@ -4,6 +4,7 @@ import { encodeCanonicalLayout, payloadHash, type CanonicalLayout } from "./cano
 import { headKey } from "./outbox";
 import type { LayoutHeadRecord, LayoutIntentRecord, LayoutIntentState } from "./outbox";
 import {
+  __resetLayoutBlockBackstopForTests,
   saveBikeProfileLayout,
   transmitIntent,
   type LayoutLocalStore,
@@ -82,6 +83,9 @@ class FakeStore implements LayoutLocalStore {
 let store: FakeStore;
 let requests: SaveLayoutCallableRequest[];
 let logs: string[];
+/** 충돌 응답의 원격 payload — 실제 canonical 문자열이라야 새 검증을 통과한다. */
+let remoteCanonical: string;
+let remoteCanonicalHash: string;
 
 function deps(response: SaveLayoutCallableResponse | Error): SaveLayoutDeps {
   return {
@@ -111,12 +115,18 @@ beforeAll(async () => {
     payloadHash: await payloadHash(encodeCanonicalLayout(layout)),
     wasReplay: false,
   };
+  remoteCanonical = encodeCanonicalLayout({
+    ...layout,
+    pages: [{ columns: 4, rows: 8, fields: [{ type: "POWER", col: 0, row: 0, colSpan: 4, rowSpan: 2 }] }],
+  });
+  remoteCanonicalHash = await payloadHash(remoteCanonical);
 });
 
 beforeEach(() => {
   store = new FakeStore();
   requests = [];
   logs = [];
+  __resetLayoutBlockBackstopForTests();
 });
 
 describe("saveBikeProfileLayout", () => {
@@ -198,12 +208,12 @@ describe("saveBikeProfileLayout", () => {
       deps({
         status: "conflict",
         remoteRevision: 9,
-        remotePayload: "{}",
-        remotePayloadHash: await payloadHash("{}"),
+        remotePayload: remoteCanonical,
+        remotePayloadHash: remoteCanonicalHash,
       }),
     );
 
-    expect(result).toEqual({ status: "conflict", remoteRevision: 9, remotePayload: "{}" });
+    expect(result).toEqual({ status: "conflict", remoteRevision: 9, remotePayload: remoteCanonical });
     expect(store.intents.get("m1")?.state).toBe("blockedConflict");
     expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(4);
   });
@@ -348,6 +358,7 @@ describe("saveBikeProfileLayout", () => {
       "conflict 인데 remotePayloadHash 가 본문과 불일치",
       { status: "conflict", remoteRevision: 9, remotePayload: "{}", remotePayloadHash: "b".repeat(64) } as never,
     ],
+    ["conflict 인데 remoteRevision 이 음수", { status: "conflict", remoteRevision: -1, remotePayload: "{}", remotePayloadHash: "b".repeat(64) } as never],
     [
       "revision 이 expected+1 이 아님",
       { status: "committed", revision: 99, payloadHash: "a".repeat(64), wasReplay: false } as never,
@@ -371,8 +382,8 @@ describe("saveBikeProfileLayout", () => {
       deps({
         status: "conflict",
         remoteRevision: 4,
-        remotePayload: "{}",
-        remotePayloadHash: await payloadHash("{}"),
+        remotePayload: remoteCanonical,
+        remotePayloadHash: remoteCanonicalHash,
       }),
     );
     const before = requests.length;
@@ -404,6 +415,33 @@ describe("saveBikeProfileLayout", () => {
 
     // 멈춘 m1 이 먼저 재전송되고, 그 뒤에 m2 가 나간다.
     expect(requests.map((r) => r.mutationId)).toEqual(["m1", "m2"]);
+  });
+
+  it("keeps blocking in memory when the durable conflict record fails to write", async () => {
+    // durable 기록이 실패하면 저장소만 보는 조회는 차단을 못 알아본다 — 그 위로 다음 저장이 나가면
+    // 해소되지 않은 충돌을 덮어쓴다. 메모리 백스톱이 이 창을 막는다.
+    store.updateIntentState = vi.fn(async () => {
+      throw new Error("indexeddb closing");
+    });
+
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps({
+        status: "conflict",
+        remoteRevision: 9,
+        remotePayload: remoteCanonical,
+        remotePayloadHash: remoteCanonicalHash,
+      }),
+    );
+    requests.length = 0;
+
+    const second = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 9 },
+      { ...deps(committed), newMutationId: () => "m2" },
+    );
+
+    expect(second.status).toBe("blockedByConflict");
+    expect(requests).toHaveLength(0);
   });
 
   it("holds the send on a transient blocked-state lookup failure without marking a fake conflict", async () => {
@@ -460,7 +498,7 @@ describe("saveBikeProfileLayout", () => {
     expect(store.commitHeadAndIntent).not.toHaveBeenCalled();
   });
 
-  it.each([Number.NaN, -1, 9007199254740993])(
+  it.each([Number.NaN, -1, Number.MAX_SAFE_INTEGER + 2])(
     "refuses an expectedRevision that is not a non-negative safe integer (%s)",
     async (expectedRevision) => {
       // 2^53 을 넘으면 `expectedRevision + 1` 이 같은 값으로 반올림돼 CAS 기대값이 어긋난다.
