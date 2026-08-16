@@ -722,5 +722,115 @@
       "ow3000":   { "name": "Open Water 3 km",                      "kind": "Open Water",     "tag": "Endurance" },
       "swim5k":   { "name": "Pool / Open Water 5 km",               "kind": "Long Distance",  "tag": "Marathon Swim" }
     }
+  },
+  "decision": {
+    "eyebrow": "Today's plan",
+    "loading": "Checking today's plan…",
+    "noScheduled": "No session is scheduled for today.",
+    "scheduled": "Original plan",
+    "recommended": "Recommended adjustment",
+    "recommendedPending": "Recommended adjustment · not applied",
+    "effective": "Current session",
+    "effectiveScheduled": "Current session · original plan basis",
+    "delta": "Recommended change {{duration}} min · {{tss}} TSS",
+    "deltaDurationOnly": "Recommended change {{duration}} min · TSS pending",
+    "duration": "{{value}} min",
+    "tss": "{{value}} TSS",
+    "tssUnavailable": "TSS pending",
+    "extraSessions": "There are {{count}} more sessions today. Review each one in Plan.",
+    "reasonTitle": "Why this changed",
+    "reasonFallback": "Reflects current load and recovery signals",
+    "reason": {
+      "classification_high_load": "Your recent training load is high",
+      "high_load": "Your recent training load is high",
+      "high_load_initial_recovery": "Recovery is needed after a high load",
+      "high_load_recovery_session": "A recovery session lowers today's load",
+      "high_load_plan_reduction": "Weekly load is reduced toward a safer range",
+      "form_gate_before_intensity": "Check form before another hard session",
+      "readiness_recheck_required": "Current recovery signals need another check",
+      "threshold_stale": "Your threshold needs a current check"
+    },
+    "viewPlan": "View in Plan",
+    "viewCalendar": "View plan calendar",
+    "askCoach": "Ask AI Coach to analyze",
+    "coachQuestion": "Analyze the original plan, recommended adjustment, and current session for this exact decision context.",
+    "healthStop": "A current self-reported signal says to stop. Do not apply the plan until you review your condition.",
+    "sourceTuple": "Load {{classification}} · phase {{phase}} · same today-decision source",
+    "refresh": "Refresh",
+    "status": {
+      "scheduledOnly": "Today's scheduled plan",
+      "recommendationPending": "Change recommended · not applied",
+      "applied": "Change applied",
+      "rest": "Rest recommended",
+      "recovery": "Recovery recommended",
+      "follow_plan": "Keep the plan",
+      "modified_workout": "Lower load recommended",
+      "reassess": "Check your condition"
+    },
+    "mode": {
+      "scheduled-only": "Scheduled plan",
+      "not-applied": "Not applied",
+      "current-recommendation": "Current recommendation",
+      "applied-plan": "Applied"
+    },
+    "workout": {
+      "rest": "Rest", "recovery": "Recovery", "planned": "Scheduled session", "z2": "Z2 endurance",
+      "tempo": "Tempo", "sweet_spot": "Sweet spot", "threshold": "Threshold", "vo2max": "VO₂max"
+    },
+    "proposal": {
+      "title": "Review plan change",
+      "body": "Compare the original plan and recommendation, then apply the change or keep the original plan.",
+      "review": "Create change proposal",
+      "confirm": "Apply this change",
+      "keepScheduled": "Keep original plan",
+      "keptScheduled": "The original plan is unchanged.",
+      "rollback": "Restore original plan",
+      "applied": "The change is applied and reflected in the current session.",
+      "busy": "Checking the change state…",
+      "stale": "The plan or load source changed. Review a fresh proposal.",
+      "error": "The change state could not be verified. Nothing is shown as applied.",
+      "state": {
+        "unavailable": "Change unavailable",
+        "loading": "Checking status",
+        "idle": "Not reviewed",
+        "pending": "Awaiting approval",
+        "applied": "Applied",
+        "reverted": "Restored",
+        "declined": "Original kept",
+        "stale": "Review again",
+        "busy": "Processing",
+        "error": "Status error"
+      }
+    },
+    "execution": {
+      "title": "Workout execution",
+      "start": "Start workout",
+      "starting": "Preparing…",
+      "partial": "Partial completion",
+      "complete": "Complete",
+      "postpone": "Postpone",
+      "postponeDate": "Postpone date",
+      "skip": "Skip",
+      "manualLink": "Link activity manually",
+      "activityPicker": "Your recent activity to link",
+      "activityLoading": "Loading recent activities…",
+      "activitySelect": "Select an activity",
+      "noActivities": "No same-sport activity with a current revision is available.",
+      "loading": "Checking existing execution…",
+      "listError": "Existing execution could not be verified. A new execution will not be created yet.",
+      "link": "Link",
+      "unlink": "Unlink activity",
+      "error": "The execution state could not be saved.",
+      "presentation": {
+        "executable": "This session can be started now.",
+        "reserved": "The session is reserved. Starting it will mark it in progress.",
+        "in-progress": "The session is in progress. You can link a completed activity.",
+        "link": "An activity is linked. Review the outcome.",
+        "completed": "The outcome for this session is recorded.",
+        "error": "The execution state could not be saved. Try again."
+      },
+      "state": { "reserved": "Ready to start", "started": "In progress", "linked": "Activity linked", "invalidated": "Link invalidated" },
+      "outcome": { "pending": "Awaiting result", "completed": "Completed", "partial": "Partially completed", "skipped": "Skipped", "postponed": "Postponed" }
+    }
   }
 }

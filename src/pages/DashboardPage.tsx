@@ -41,7 +41,7 @@ import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import AppInstallLinks from "../components/AppInstallLinks";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
-import TodayPlanLink from "../components/training/TodayPlanLink";
+import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text } from "../theme/components";
 import type { Activity } from "@shared/types";
@@ -135,6 +135,11 @@ export function normalizeDashboardDiscipline(value: string | null): Discipline |
 export function dashboardPlanDiscipline(value: string | null): Exclude<Discipline, "tri"> | undefined {
   const discipline = normalizeDashboardDiscipline(value);
   return discipline && discipline !== "tri" ? discipline : undefined;
+}
+
+export function dashboardDecisionDiscipline(value: string | null,
+  primary: Discipline | null | undefined): Exclude<Discipline, "tri"> {
+  return dashboardPlanDiscipline(value) ?? (primary && primary !== "tri" ? primary : "bike");
 }
 
 export function filterFeedActivities(
@@ -279,7 +284,7 @@ export default function DashboardPage() {
   const [searchParams] = useSearchParams();
   const sportParam = searchParams.get("sport");
   const requestedDiscipline = normalizeDashboardDiscipline(sportParam);
-  const planDiscipline = dashboardPlanDiscipline(sportParam);
+  const planDiscipline = dashboardDecisionDiscipline(sportParam, profile?.primaryDiscipline);
   const discipline: Discipline = requestedDiscipline ?? "bike";
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
@@ -601,7 +606,7 @@ export default function DashboardPage() {
         )}
         {user && (
           <div style={{ marginTop: 'var(--space-5)' }}>
-            <TodayPlanLink discipline={planDiscipline} />
+            <TodayTrainingDecisionCard user={user} discipline={planDiscipline} surface="home" onSignIn={signInWithGoogle} />
           </div>
         )}
 

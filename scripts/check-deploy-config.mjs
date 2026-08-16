@@ -116,6 +116,7 @@ requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
 requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
 requireIncludes(deployWorkflow, hostingRunner, "deploy.yml dedicated Hosting runner");
 checkSelfHostedSetupNodeCache(deployWorkflow, "deploy.yml");
+requireIncludes(deployWorkflow, "fetch-depth: 0", "deploy.yml full history checkout");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
@@ -124,22 +125,30 @@ requireIncludes(deployWorkflow, "VITE_ORIDER_AI_API_BASE: ${{ vars.VITE_ORIDER_A
 requireIncludes(deployWorkflow, "VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.VITE_COACH_PMC_INSIGHT_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.VITE_COACH_RIDER_INSIGHT_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.VITE_COACH_PROGRESS_PLANNER_ENABLED }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_TRAINING_DECISION_ENABLED: ${{ vars.VITE_TRAINING_DECISION_ENABLED }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.VITE_TRAINING_EXECUTION_ENABLED }}", "deploy.yml env");
 for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
   requireIncludes(deployWorkflow, `VITE_COACH_RIDE_PLAN_${name}_ENABLED: \${{ vars.VITE_COACH_RIDE_PLAN_${name}_ENABLED }}`,
     "deploy.yml env");
 }
 requireIncludes(deployWorkflow, "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}",
   "deploy.yml env");
-requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
-requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
+requireIncludes(deployWorkflow, "npm ci", "deploy.yml dependency install");
+requireIncludes(deployWorkflow, "npm run build", "deploy.yml production build");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
+requireIncludes(deployWorkflow, "git fetch --no-tags origin main:refs/remotes/origin/main", "deploy.yml main provenance fetch");
+requireIncludes(deployWorkflow, "git rev-list -n 1 \"$GITHUB_REF\"", "deploy.yml tagged commit resolution");
+requireIncludes(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "deploy.yml main provenance gate");
+requireBefore(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "npm ci", "deploy.yml main provenance gate");
+requireBefore(deployWorkflow, "npm ci", "npm run build", "deploy.yml production build");
+requireBefore(deployWorkflow, "npm run build", "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
 requireIncludes(deployWorkflow, "node scripts/verify-social-callables.mjs", "deploy.yml backend contract gate");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_PROJECT_ID', "deploy.yml backend contract project");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_FUNCTIONS_REGION', "deploy.yml backend contract region");
 requireIncludes(deployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy.yml backend contract credential");
 requireBefore(deployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy --only hosting", "deploy.yml backend contract gate");
-if (deployWorkflow.includes("npm run build")) {
-  fail("deploy.yml must promote the verified stage artifact without npm run build");
+if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh run download") || deployWorkflow.includes("web-dist-")) {
+  fail("deploy.yml must build the production artifact without a stage artifact dependency");
 }
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
@@ -150,6 +159,12 @@ for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
 requireIncludes(stageDeployWorkflow,
   "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}",
   "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow,
+  "VITE_TRAINING_DECISION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_ENABLED }}",
+  "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow,
+  "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}",
+  "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
@@ -158,10 +173,12 @@ requireIncludes(stageDeployWorkflow, hostingRunner, "deploy-stage.yml dedicated 
 checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
-requireIncludes(stageDeployWorkflow, "actions/upload-artifact", "deploy-stage.yml verified artifact upload");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");
+requireIncludes(stageDeployWorkflow, "id: deploy-auth", "deploy-stage.yml restored deploy auth");
+requireIncludes(stageDeployWorkflow, "steps.deploy-auth.outputs.access_token", "deploy-stage.yml restored deploy credential");
+requireBefore(stageDeployWorkflow, "id: deploy-auth", "firebase deploy \\", "deploy-stage.yml restored deploy auth");
 requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_API_KEY", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_AUTH_DOMAIN", "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml env");

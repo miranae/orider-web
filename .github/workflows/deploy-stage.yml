@@ -42,6 +42,8 @@ jobs:
       VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.STAGE_VITE_COACH_PROGRESS_PLANNER_ENABLED }}
       VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED }}
       VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED }}
+      VITE_TRAINING_DECISION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_ENABLED }}
+      VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}
       VITE_COACH_RIDE_PLAN_TOKEN_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_TOKEN_ENABLED }}
       VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED }}
       VITE_COACH_RIDE_PLAN_AI_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_AI_ENABLED }}
@@ -66,6 +68,7 @@ jobs:
           workload_identity_provider: ${{ vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
           token_format: access_token
+          create_credentials_file: true
       - name: Verify stage backend social callable contract
         env:
           SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
@@ -73,6 +76,14 @@ jobs:
           node scripts/verify-social-callables.mjs
           --project "${{ vars.STAGE_VITE_FIREBASE_PROJECT_ID }}"
           --region "${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}"
+      - name: Restore stage deploy authentication
+        id: deploy-auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+          create_credentials_file: true
       - name: Deploy stage Hosting only
         run: |
           set -euo pipefail
@@ -83,7 +94,7 @@ jobs:
             --only hosting \
             --project "${{ vars.STAGE_FIREBASE_PROJECT_ID }}" \
             --non-interactive \
-            --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-stage-deploy.log
+            --token "${{ steps.deploy-auth.outputs.access_token }}" 2>&1 | tee firebase-stage-deploy.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-stage-deploy.log; then
@@ -108,11 +119,3 @@ jobs:
             echo "::error::stage가 방금 빌드한 번들($built)을 서빙하지 않음 — stale 배포/캐시."
             exit 1
           fi
-      - name: Package verified dist for production promotion
-        run: tar -czf "web-dist-${GITHUB_SHA}.tar.gz" dist
-      - name: Upload verified dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-dist-${{ github.sha }}
-          path: web-dist-${{ github.sha }}.tar.gz
-          retention-days: 90

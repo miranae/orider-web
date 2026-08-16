@@ -25,8 +25,8 @@ describe("MobileFeedPage", () => {
   it.each([
     { pageDiscipline: "run" as const, expectedHref: "/ko/plan?sport=run" },
     { pageDiscipline: "swim" as const, expectedHref: "/ko/plan?sport=swim" },
-    { pageDiscipline: undefined, expectedHref: "/ko/plan" },
-  ])("uses the validated $pageDiscipline page context when the mobile filter is all", ({ pageDiscipline, expectedHref }) => {
+    { pageDiscipline: undefined, expectedHref: "/ko/plan?sport=bike" },
+  ])("uses the canonical $pageDiscipline decision context, defaulting to bike, when the mobile filter is all", ({ pageDiscipline, expectedHref }) => {
     const props = {
       activities: [],
       loading: false,

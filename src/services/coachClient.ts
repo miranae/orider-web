@@ -15,9 +15,10 @@ import {
 } from "./coachRidePlanContract";
 import {
   coachProposalConfirmRequestSchema, coachProposalCreateRequestSchema, coachProposalRecoveryQuerySchema,
-  coachProposalRollbackRequestSchema,
+  coachProposalRollbackRequestSchema, coachProposalDeclineRequestSchema,
   parseCoachProgressPlannerCapabilities, parseCoachProposalCreateResponse, parseCoachProposalResponse,
-  parseCoachProposalRecoveryResponse, parseCoachReceiptResponse, type CoachProgressPlannerCapabilities, type CoachProposalCreateResponse,
+  parseCoachProposalRecoveryResponse, parseCoachReceiptResponse, parseCoachDeclineResponse, type CoachProgressPlannerCapabilities, type CoachProposalCreateResponse,
+  type CoachDeclineResponse,
   type CoachProposalRecoveryResponse,
   type CoachProposalResponse, type CoachReceiptResponse,
 } from "./coachProgressPlannerContract";
@@ -450,6 +451,20 @@ export async function rollbackCoachProgressProposal(proposalId: string, input: {
   } catch (cause) {
     if (isCoachClientError(cause)) throw cause;
     throw new CoachClientError("contract", "INVALID_COACH_PROGRESS_RECEIPT", { cause });
+  }
+}
+
+export async function declineCoachProgressProposal(proposalId: string, input: { requestId: string;
+  reasonCode: "keep_scheduled" | "not_today" | "other" }): Promise<CoachDeclineResponse> {
+  if (!/^proposal_[0-9a-f]{24}$/u.test(proposalId)) throw new CoachClientError("contract", "INVALID_COACH_PROPOSAL_ID");
+  try {
+    const body = coachProposalDeclineRequestSchema.parse(input);
+    return parseCoachDeclineResponse(await authenticatedFetch(`/proposals/${encodeURIComponent(proposalId)}/decline`, {
+      method: "POST", cache: "no-store", body: JSON.stringify(body),
+    }));
+  } catch (cause) {
+    if (isCoachClientError(cause)) throw cause;
+    throw new CoachClientError("contract", "INVALID_COACH_DECLINE_RECEIPT", { cause });
   }
 }
 

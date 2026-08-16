@@ -10,8 +10,8 @@ Project stewardship is documented in [../MISSION.md](../MISSION-en.md), [../GOVE
 contributor PR -> CI(lint/test/build) -> review -> main -> tag vX.Y.Z
                                             |                 |
                                             v                 v
-                         deploy-stage.yml builds+verifies   deploy.yml downloads
-                         stage and uploads dist artifact     verified artifact
+                         deploy-stage.yml builds+verifies   deploy.yml builds with
+                         and deploys stage                   production configuration
                                             |                 |
                                             v                 v
                          Firebase Hosting stage              Firebase Hosting production
@@ -19,9 +19,9 @@ contributor PR -> CI(lint/test/build) -> review -> main -> tag vX.Y.Z
 ```
 
 - Pull requests run `ci.yml`: lint, unit tests, and build with placeholder public config. No production secrets are exposed to PRs.
-- Merging to `main` deploys the stage Hosting site and uploads the verified `dist` artifact for that commit.
-- Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: download the verified stage artifact for the tag commit, write production `runtime-config.json`, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
-- Production deploys do not run `npm run build`; the hashed JS/CSS assets are promoted from the stage-verified artifact.
+- Merging to `main` builds, verifies, and deploys the stage Hosting site.
+- Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: verify that the tagged commit is contained in `main`, install dependencies and build with production configuration, write production `runtime-config.json`, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
+- Production deploys are independent of the stage workflow and build their own hashed JS/CSS assets after production-environment approval.
 - Production deploys are protected by the `production` GitHub Environment.
 
 Maintainer release flow:

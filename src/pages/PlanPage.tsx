@@ -17,11 +17,12 @@ import WorkoutEditModal from "../components/training/WorkoutEditModal";
 import AdaptationBanner from "../components/training/AdaptationBanner";
 import AdjustedChip from "../components/training/AdjustedChip";
 import RecoveryDownshiftMarker from "../components/training/RecoveryDownshiftMarker";
-import TodaysWorkoutCard from "../components/training/TodaysWorkoutCard";
+import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useMobile } from "../hooks/useMobile";
 import { useFreshTraining } from "../hooks/useFreshTraining";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { evaluateRecoveryDownshift } from "@shared/training/recoveryDownshift";
+import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
@@ -48,7 +49,6 @@ interface DayCellProps {
   isToday: boolean;
   /** 주 단위 조정 factor (canonical 값). day별 ratio 재계산 대신 사용. */
   weekAdjustmentFactor?: number;
-  /** #365 — 현재 TSB (정본 시계열 최신값). 미래/오늘 하드데이 다운시프트 마커 판정용. null 이면 표시 안 함. */
   currentTsb?: number | null;
   onClick?: () => void;
 }
@@ -72,8 +72,6 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
   const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && day.plannedTSS > 0
     ? day.actualTSS / day.plannedTSS
     : null;
-  // #365 — 달력 회복 다운시프트: 지나지 않은 하드데이만 판정(과거/완료/스킵 제외).
-  // 오늘 TSB 의 유효 지평(daysUntil)은 순수 함수가 단일 관리 — 먼 미래 주차 오경고 방지.
   const daysUntil = Math.max(0, Math.floor((day.date - Date.now()) / DAY_MS));
   const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && currentTsb != null
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
@@ -225,7 +223,6 @@ function DayCell({ day, isToday, weekAdjustmentFactor, currentTsb, onClick }: Da
           <AdjustedChip factor={weekAdjustmentFactor} />
         </div>
       )}
-      {/* #365 — 회복 다운시프트 제안. 서버가 이미 자동 조정한 날(isAdjusted)은 중복 표시 안 함. */}
       {!isAdjusted && downshift?.shouldDownshift && downshift.suggestedSwap && (
         <div style={{ position: 'absolute', bottom: 4, left: 6 }}>
           <RecoveryDownshiftMarker suggestedSwap={downshift.suggestedSwap} tsb={downshift.reasonTsb} />
@@ -535,18 +532,15 @@ export default function PlanPage() {
   const [loadError, setLoadError] = useState<unknown>(null);
   const [selectedDay, setSelectedDay] = useState<{ day: PlanDay; weekId: string; dayIndex: number } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [todayDecisionAvailable, setTodayDecisionAvailable] = useState(false);
   // lazy revalidate — plan 페이지는 활동/피로도 기반 자동 조정이 가장 직접 보이는 화면
   const { revalidating, justRecomputed } = useFreshTraining(discipline);
-  // #365 — 달력 회복 다운시프트: 정본 시계열의 최신 TSB 로 계획된 하드데이 충돌을 판정.
-  // 시계열이 아직 오늘 근처까지 갱신되지 않았으면(stale — revalidate 완료 전 창) 판정을 보류해
-  // 며칠 전의 과음수 TSB 로 잘못된 '휴식 권장'이 뜨는 것을 막는다.
-  const { timeseries } = useFitnessTimeseries(user?.uid, discipline);
-  const tsbFresh = timeseries?.endDate != null &&
-    (Date.now() - new Date(`${timeseries.endDate}T00:00:00Z`).getTime()) <= 3 * DAY_MS;
-  const currentTsb = tsbFresh && timeseries!.points.length
-    ? timeseries!.points[timeseries!.points.length - 1]!.tsb
-    : null;
-
+  const legacyRecoveryEnabled = getRuntimeConfig().trainingDecisionEnabled !== true || !todayDecisionAvailable;
+  const { timeseries } = useFitnessTimeseries(legacyRecoveryEnabled ? user?.uid : undefined, discipline);
+  const tsbFresh = timeseries?.endDate != null
+    && (Date.now() - new Date(`${timeseries.endDate}T00:00:00Z`).getTime()) <= 3 * DAY_MS;
+  const currentTsb = legacyRecoveryEnabled && tsbFresh && timeseries!.points.length
+    ? timeseries!.points[timeseries!.points.length - 1]!.tsb : null;
   // Load active goal
   // TODO: 실시간 업데이트를 위해 getDocs 대신 onSnapshot 사용 권장
   useEffect(() => {
@@ -704,6 +698,9 @@ export default function PlanPage() {
         <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
           <DisciplineTabs />
         </div>
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />
+        </div>
         <div style={{ padding: "24px 0" }}>
           <ErrorState title={tCommon("error.title")} onRetry={retryLoad} />
         </div>
@@ -718,6 +715,9 @@ export default function PlanPage() {
       <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
         <div style={{ padding: "16px 0 12px", borderBottom: "1px solid var(--line-soft)", marginBottom: 'var(--space-7)' }}>
           <DisciplineTabs />
+        </div>
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />
         </div>
         <div style={{ padding: "24px 0" }}>
           <EmptyState
@@ -758,6 +758,9 @@ export default function PlanPage() {
   if (isMobile && !loading) {
     return (
       <>
+        <div style={{ padding: "var(--space-3) var(--space-4)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />
+        </div>
         <MobilePlanPage
           currentWeek={mobilePlanViewModel.currentWeek}
           weekLabel={mobilePlanViewModel.weekLabel}
@@ -955,7 +958,7 @@ export default function PlanPage() {
       {/* ── Body ────────────────────────────────────────────────────── */}
       <div style={{ padding: '20px 0 0' }}>
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <TodaysWorkoutCard variant="compact" />
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />
         </div>
 
         <PlanAdjustmentNarrative goal={goal} weeks={weeks} t={t} />

@@ -42,6 +42,10 @@ export const coachProgressPlannerCapabilitiesSchema = z.object({
   answerSchemaVersion: id, answerCatalogVersion: id,
   progressPlanner: z.object({ read: z.object({ enabled: z.boolean() }).strict(),
     proposal: z.object({ enabled: z.boolean() }).strict(), confirm: z.object({ enabled: z.boolean() }).strict() }).strict(),
+  todayTrainingDecision: z.object({ enabled: z.boolean(), endpoint: z.literal("/v1/coach/training-decisions/today"),
+    schemaVersion: z.literal("today-training-decision-v1"), policyVersion: z.literal("today-training-decision-policy-v1"),
+    policyStage: z.enum(["shadow", "active"]), proposal: z.object({ enabled: z.boolean() }).strict(),
+    confirm: z.object({ enabled: z.boolean() }).strict(), decline: z.object({ enabled: z.boolean() }).strict() }).strict().optional(),
   prescription: z.union([
     z.object({ enabled: z.literal(true), schemaVersion: z.literal("coach-prescription-v1"),
       rulesVersion: z.literal("coach-prescription-rules-v1"), checkIn: z.union([
@@ -62,7 +66,7 @@ export const coachProgressPlannerCapabilitiesSchema = z.object({
 
 export const coachChangeProposalSchema = z.object({ schemaVersion: z.literal("coach-change-proposal-v1"),
   proposalId: z.string().regex(/^proposal_[0-9a-f]{24}$/u),
-  status: z.enum(["pending", "applied", "expired", "superseded", "consent_revoked", "reverted"]),
+  status: z.enum(["pending", "applied", "expired", "superseded", "consent_revoked", "reverted", "declined"]),
   source: z.object({ checkInRequestId: uuid, prescriptionId: z.string().regex(/^rx_[0-9a-f]{24}$/u),
     factsId: id, snapshotRevision: id, rulesVersion: id,
     weeklyCheckInId: z.string().regex(/^(bike|run|swim)_\d{4}-\d{2}-\d{2}$/u),
@@ -81,9 +85,10 @@ export const coachChangeProposalSchema = z.object({ schemaVersion: z.literal("co
 
 export const coachChangeReceiptSchema = z.object({ schemaVersion: z.literal("coach-change-receipt-v1"),
   proposalId: z.string().regex(/^proposal_[0-9a-f]{24}$/u), auditId: z.string().regex(/^audit_[0-9a-f]{24}$/u),
-  status: z.enum(["applied", "reverted"]), appliedAt: iso, revertedAt: iso.optional(),
+  status: z.enum(["applied", "reverted"]), appliedAt: iso.optional(), revertedAt: iso.optional(),
   beforeRevision: targetRevision, afterRevision: targetRevision, ...zeroExecution,
 }).strict().superRefine((value, context) => {
+  if (!value.appliedAt) context.addIssue({ code: "custom", message: "receipt appliedAt missing" });
   if ((value.status === "reverted") !== Boolean(value.revertedAt)) context.addIssue({ code: "custom", message: "receipt status mismatch" });
 });
 
@@ -110,13 +115,13 @@ const recoveryData = z.discriminatedUnion("recoveryStatus", [
     proposal: coachChangeProposalSchema, receipt: coachChangeReceiptSchema,
     confirmNonce: z.null(), rollbackRequestId: uuid }).strict(),
   z.object({ ...recoveryBase, recoveryStatus: z.literal("inactive"),
-    reasonCode: z.enum(["proposal_expired", "proposal_revision_changed", "consent_not_active"]),
+    reasonCode: z.enum(["proposal_expired", "proposal_revision_changed", "consent_not_active", "proposal_declined"]),
     proposal: coachChangeProposalSchema, receipt: z.null(), confirmNonce: z.null(), rollbackRequestId: z.null() }).strict(),
 ]).superRefine((value, context) => {
   if (value.recoveryStatus === "not_found") return;
   const expectedProposalStatus = value.recoveryStatus === "inactive"
     ? { proposal_expired: "expired", proposal_revision_changed: "superseded",
-      consent_not_active: "consent_revoked" }[value.reasonCode]
+      consent_not_active: "consent_revoked", proposal_declined: "declined" }[value.reasonCode]
     : value.recoveryStatus;
   if (value.proposal.status !== expectedProposalStatus) {
     context.addIssue({ code: "custom", message: "proposal recovery state mismatch" });
@@ -131,6 +136,10 @@ const recoveryData = z.discriminatedUnion("recoveryStatus", [
   }
 });
 const recoveryEnvelope = z.object({ status: z.literal("ok"), data: recoveryData, ...zeroExecution }).strict();
+const declineReceipt = z.object({ schemaVersion: z.literal("coach-change-decline-receipt-v1"),
+  proposalId: z.string().regex(/^proposal_[0-9a-f]{24}$/u), status: z.literal("declined"),
+  reasonCode: z.enum(["keep_scheduled", "not_today", "other"]), declinedAt: iso, ...zeroExecution }).strict();
+const declineEnvelope = z.object({ status: z.literal("ok"), data: declineReceipt, ...zeroExecution }).strict();
 
 export type CoachProgressPlannerCapabilities = z.infer<typeof coachProgressPlannerCapabilitiesSchema>;
 export type CoachChangeProposal = z.infer<typeof coachChangeProposalSchema>;
@@ -139,6 +148,7 @@ export type CoachProposalError = z.infer<typeof error>;
 export type CoachProposalCreateResponse = z.infer<typeof createEnvelope> | CoachProposalError;
 export type CoachProposalResponse = z.infer<typeof proposalEnvelope> | CoachProposalError;
 export type CoachReceiptResponse = z.infer<typeof receiptEnvelope> | CoachProposalError;
+export type CoachDeclineResponse = z.infer<typeof declineEnvelope> | CoachProposalError;
 export type CoachProposalRecoveryResponse = z.infer<typeof recoveryEnvelope> | CoachProposalError;
 export type CoachProposalRecovery = z.infer<typeof recoveryData>;
 
@@ -159,6 +169,9 @@ export function parseCoachProposalResponse(value: unknown): CoachProposalRespons
 export function parseCoachReceiptResponse(value: unknown): CoachReceiptResponse {
   return z.union([receiptEnvelope, error]).parse(value);
 }
+export function parseCoachDeclineResponse(value: unknown): CoachDeclineResponse {
+  return z.union([declineEnvelope, error]).parse(value);
+}
 export function parseCoachProposalRecoveryResponse(value: unknown): CoachProposalRecoveryResponse {
   return z.union([recoveryEnvelope, error]).parse(value);
 }
@@ -168,6 +181,8 @@ export const coachProposalCreateRequestSchema = z.object({ requestId: uuid, chec
 export const coachProposalConfirmRequestSchema = z.object({ requestId: uuid,
   nonce: z.string().regex(/^[A-Za-z0-9_-]{32,256}$/u) }).strict();
 export const coachProposalRollbackRequestSchema = z.object({ requestId: uuid }).strict();
+export const coachProposalDeclineRequestSchema = z.object({ requestId: uuid,
+  reasonCode: z.enum(["keep_scheduled", "not_today", "other"]) }).strict();
 export const coachProposalRecoveryQuerySchema = z.object({ prescriptionId: z.string().regex(/^rx_[0-9a-f]{24}$/u),
   sourceRequestId: uuid }).strict();
 

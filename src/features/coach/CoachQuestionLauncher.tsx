@@ -47,6 +47,8 @@ interface Props {
   triggerBlock?: boolean;
   showPmcInsight?: boolean;
   ridePlanSelection?: { selectionId: string; question: string; context: CoachRidePlanContext } | null;
+  progressPlannerSelection?: { question: string; context: CoachProgressPlannerContext } | null;
+  triggerLabel?: string;
 }
 
 const actionRoutes: Record<CoachActionCode, string> = {
@@ -99,7 +101,7 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
 }
 
 export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false,
-  ridePlanSelection = null }: Props) {
+  ridePlanSelection = null, progressPlannerSelection = null, triggerLabel }: Props) {
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
@@ -420,6 +422,17 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     queueMicrotask(() => questionRef.current?.focus());
   }
 
+  function openProgressPlannerQuestion() {
+    if (!progressPlannerSelection) { void openSheet(); return; }
+    activeRequestRef.current = null; activeBodyRef.current = null;
+    setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
+    setDraft(progressPlannerSelection.question);
+    setPlannerContext(progressPlannerSelection.context);
+    setPmcSnapshotId(null); setRiderSnapshotId(null); setRidePlanContext(null); setProductSlice(null);
+    setSource("free_text"); setRequestId(null);
+    void openSheet();
+  }
+
   function currentContextFilters(): CoachContextFilters {
     if (ridePlanRespondEnabled && ridePlanContext && isCoachRidePlanRespondToken(ridePlanContext.contextToken)) {
       return { ridePlan: ridePlanContext };
@@ -490,7 +503,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     <>
       {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
       {showPmcInsight && user && <CoachPmcInsightCard user={user} discipline={discipline} onQuestionSelect={choosePmcQuestion} />}
-      <Button ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={18} />} onClick={() => void openSheet()}>{t("open")}</Button>
+      <Button ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={18} />} onClick={openProgressPlannerQuestion}>{triggerLabel ?? t("open")}</Button>
       {open && createPortal(
         <div className="coach-sheet" role="presentation">
           <button type="button" className="coach-sheet__backdrop" tabIndex={-1} aria-hidden="true" aria-label={t("close")}
