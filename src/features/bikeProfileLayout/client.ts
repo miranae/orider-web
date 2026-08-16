@@ -95,7 +95,14 @@ export function drainLayoutOutbox(
 }
 
 async function runDrain(ownerKey: string, deps: SaveLayoutDeps): Promise<SaveLayoutResult[]> {
-  const intents = await listIntents(ownerKey);
+  let intents;
+  try {
+    intents = await listIntents(ownerKey);
+  } catch (cause) {
+    // 조회가 실패하면 재시작 후 동기화가 통째로 멈춘다. 조용히 reject 하지 않고 맥락을 남긴다.
+    deps.log("[0/3] read indexeddb intents — 실패, drain 중단", { ownerKey, cause: String(cause) });
+    throw cause;
+  }
   const results: SaveLayoutResult[] = [];
 
   /**

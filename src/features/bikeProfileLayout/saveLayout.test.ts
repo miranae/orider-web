@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CanonicalLayout } from "./canonical";
+import { headKey } from "./outbox";
 import type { LayoutHeadRecord, LayoutIntentRecord, LayoutIntentState } from "./outbox";
 import {
   saveBikeProfileLayout,
@@ -110,7 +111,7 @@ describe("saveBikeProfileLayout", () => {
     );
 
     expect(result.status).toBe("savedPendingSync");
-    expect(store.heads.get(`${OWNER}|road`)?.revision).toBe(4);
+    expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(4);
     expect(store.intents.get("m1")?.state).toBe("pending");
   });
 
@@ -122,7 +123,7 @@ describe("saveBikeProfileLayout", () => {
 
     expect(result).toEqual({ status: "synced", revision: 4 });
     expect(store.intents.size).toBe(0);
-    expect(store.heads.get(`${OWNER}|road`)?.revision).toBe(4);
+    expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(4);
   });
 
   it("keeps the intent when writing the server-confirmed head fails", async () => {
@@ -158,7 +159,7 @@ describe("saveBikeProfileLayout", () => {
     expect(replay).toEqual({ status: "synced", revision: 4 });
     expect(requests[1].canonicalPayload).toBe(requests[0].canonicalPayload);
     expect(requests[1].payloadHash).toBe(requests[0].payloadHash);
-    expect(store.heads.get(`${OWNER}|road`)?.revision).toBe(4);
+    expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(4);
   });
 
   it("blocks the intent on conflict instead of overwriting", async () => {
@@ -169,7 +170,7 @@ describe("saveBikeProfileLayout", () => {
 
     expect(result).toEqual({ status: "conflict", remoteRevision: 9, remotePayload: "{}" });
     expect(store.intents.get("m1")?.state).toBe("blockedConflict");
-    expect(store.heads.get(`${OWNER}|road`)?.revision).toBe(4);
+    expect(store.heads.get(headKey(OWNER, "road"))?.revision).toBe(4);
   });
 
   it("quarantines the intent on an integrity error", async () => {
@@ -228,6 +229,17 @@ describe("saveBikeProfileLayout", () => {
 
     // 남은 intent 는 다음 drain 이 멱등 replay 한다.
     expect(result).toEqual({ status: "synced", revision: 4 });
+  });
+
+  it("composes the head key through headKey so saves are readable back", async () => {
+    // 손으로 이어 붙이면 조회 키와 어긋나 저장 직후 읽히지 않는다(`uid:A` 의 `:` 가 인코딩된다).
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(committed),
+    );
+
+    expect([...store.heads.keys()]).toEqual([headKey(OWNER, "road")]);
+    expect(store.heads.keys().next().value).not.toBe(`${OWNER}|road`);
   });
 
   it("refuses to write when the payload targets a different profile", async () => {

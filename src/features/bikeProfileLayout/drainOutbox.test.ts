@@ -94,6 +94,16 @@ describe("drainLayoutOutbox", () => {
     expect(seen).toEqual(["A", "B"]);
   });
 
+  it("surfaces an intent listing failure instead of failing silently", async () => {
+    listIntentsMock.mockRejectedValueOnce(new Error("indexeddb blocked"));
+    const logs: string[] = [];
+    const d = depsWith([], []);
+    d.log = (message) => logs.push(message);
+
+    await expect(drainLayoutOutbox(OWNER, d)).rejects.toThrow("indexeddb blocked");
+    expect(logs.some((m) => m.startsWith("[0/3]"))).toBe(true);
+  });
+
   it("runs a single drain at a time per owner", async () => {
     // 두 drain 이 같은 snapshot 을 읽으면 프로필별 차단이 무력해진다.
     listIntentsMock.mockResolvedValue([intent("A", "road", 3)]);

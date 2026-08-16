@@ -158,7 +158,14 @@ export async function listIntents(ownerKey: string): Promise<LayoutIntentRecord[
     const tx = db.transaction(INTENT_STORE, "readonly");
     const index = tx.objectStore(INTENT_STORE).index("ownerKey");
     const all = (await promisify(index.getAll(ownerKey))) as LayoutIntentRecord[];
-    return all.sort((a, b) => a.createdAtMs - b.createdAtMs);
+    // 같은 밀리초에 만들어진 intent 는 `createdAtMs` 만으로 순서가 정해지지 않는다. 뒤집히면 후속
+    // revision 을 먼저 보내 거짓 충돌로 그 프로필 큐 전체가 막힌다. revision → mutationId 로 확정한다.
+    return all.sort(
+      (a, b) =>
+        a.createdAtMs - b.createdAtMs ||
+        a.expectedRevision - b.expectedRevision ||
+        (a.mutationId < b.mutationId ? -1 : a.mutationId > b.mutationId ? 1 : 0),
+    );
   } finally {
     db.close();
   }

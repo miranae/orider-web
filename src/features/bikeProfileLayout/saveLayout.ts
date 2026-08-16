@@ -1,4 +1,5 @@
 import { encodeCanonicalLayout, payloadHash, type CanonicalLayout } from "./canonical";
+import { headKey } from "./outbox";
 import type { LayoutHeadRecord, LayoutIntentRecord, LayoutIntentState } from "./outbox";
 
 /**
@@ -114,7 +115,9 @@ export async function saveBikeProfileLayout(
   try {
     await deps.store.commitHeadAndIntent(
       {
-        key: `${ownerKey}|${profileId}`,
+        // 키 조합은 반드시 `headKey()` 를 거친다 — 여기서 손으로 이어 붙이면 조회 키와 어긋나
+        // 저장 직후 읽히지 않고, 구분자가 든 조합은 다른 계정의 head 를 덮어쓴다.
+        key: headKey(ownerKey, profileId),
         ownerKey,
         profileId,
         revision: expectedRevision + 1,
@@ -184,7 +187,7 @@ export async function transmitIntent(
       log("[2/3] call saveBikeProfileLayout — 커밋", { ...ctx, revision: response.revision, replay: response.wasReplay });
       try {
         await deps.store.putHead({
-          key: `${intent.ownerKey}|${intent.profileId}`,
+          key: headKey(intent.ownerKey, intent.profileId),
           ownerKey: intent.ownerKey,
           profileId: intent.profileId,
           revision: response.revision,
