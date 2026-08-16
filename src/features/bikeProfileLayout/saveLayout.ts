@@ -42,7 +42,12 @@ export type SaveLayoutResult =
   /** IndexedDB 커밋 실패. 이 경우 callable 은 0건이다. */
   | { status: "localSaveFailed"; cause: unknown }
   /** 요청 대상과 payload 의 프로필이 다르다. 아무 것도 쓰지 않는다. */
-  | { status: "invalidTarget"; expected: string; actual: string };
+  | { status: "invalidTarget"; expected: string; actual: string }
+  /**
+   * 이 프로필에 아직 해소되지 않은 충돌이 있어 전송하지 않았다. draft 는 로컬에 남는다.
+   * 사용자가 §6.1 의 세 선택지 중 하나를 고르기 전까지 전송을 재개하지 않는다.
+   */
+  | { status: "blockedByConflict"; intent: LayoutIntentRecord };
 
 /**
  * 로컬 저장 경계. 실제 구현은 `outbox.ts`(IndexedDB) 지만, 오케스트레이션이 이 포트만 알면
@@ -56,6 +61,8 @@ export type LayoutLocalStore = {
    * 읽기와 쓰기를 나누면 그 사이 새 저장이 끼어들어 최신 draft 가 덮인다(TOCTOU).
    */
   putHeadIfUnchanged: (head: LayoutHeadRecord, expectedPayloadHash: string) => Promise<boolean>;
+  /** 이 프로필에 사용자가 아직 해소하지 않은 차단 intent 가 있는지. */
+  hasBlockedIntent: (ownerKey: string, profileId: string) => Promise<boolean>;
   updateIntentState: (mutationId: string, state: LayoutIntentState) => Promise<void>;
   removeIntent: (mutationId: string) => Promise<void>;
 };
@@ -152,6 +159,14 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
   } catch (cause) {
     log("error", "[1/3] write indexeddb head+intent — 실패, callable 0건", { ...ctx, cause: String(cause) });
     return { status: "localSaveFailed", cause };
+  }
+
+  // 차단은 프로필 단위다. drain 지역 상태에만 두면 뒤이어 실행되는 신규 저장이 그대로 CAS 를
+  // 통과해 사용자의 충돌 선택 없이 원격 구성을 덮어쓴다.
+  if (await deps.store.hasBlockedIntent(ownerKey, profileId)) {
+    await deps.store.updateIntentState(mutationId, "blockedConflict");
+    log("info", "[2/3] 미해소 충돌이 있어 전송 보류 — 사용자 선택 대기", ctx);
+    return { status: "blockedByConflict", intent: { ...intent, state: "blockedConflict" } };
   }
 
   return transmitIntent(intent, deps);

@@ -60,6 +60,12 @@ class FakeStore implements LayoutLocalStore {
   removeIntent = vi.fn(async (mutationId: string) => {
     this.intents.delete(mutationId);
   });
+
+  hasBlockedIntent = vi.fn(async (_ownerKey: string, profileId: string) =>
+    [...this.intents.values()].some(
+      (i) => i.profileId === profileId && (i.state === "blockedConflict" || i.state === "quarantined"),
+    ),
+  );
 }
 
 let store: FakeStore;
@@ -271,6 +277,25 @@ describe("saveBikeProfileLayout", () => {
 
     expect([...store.heads.keys()]).toEqual([headKey(OWNER, "road")]);
     expect(store.heads.keys().next().value).not.toBe(`${OWNER}|road`);
+  });
+
+  it("holds a new save while an unresolved conflict exists on that profile", async () => {
+    // 차단이 drain 지역 상태에만 있으면, 뒤이어 실행되는 신규 저장이 CAS 를 통과해
+    // 사용자의 충돌 선택 없이 원격 구성을 덮어쓴다.
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps({ status: "conflict", remoteRevision: 4, remotePayload: "{}", remotePayloadHash: "b".repeat(64) }),
+    );
+    const before = requests.length;
+
+    const second = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 4 },
+      { ...deps(committed), newMutationId: () => "m2" },
+    );
+
+    expect(second.status).toBe("blockedByConflict");
+    expect(requests).toHaveLength(before);
+    expect(store.intents.get("m2")?.state).toBe("blockedConflict");
   });
 
   it("refuses to write when the payload targets a different profile", async () => {

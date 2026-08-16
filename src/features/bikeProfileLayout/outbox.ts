@@ -162,6 +162,19 @@ export async function updateIntentState(mutationId: string, state: LayoutIntentS
   }
 }
 
+/**
+ * 이 프로필에 사용자가 아직 해소하지 않은 **차단 intent** 가 있는지.
+ *
+ * 차단은 프로필 단위로 전파돼야 한다 — drain 지역 변수에만 두면, 같은 owner 큐에서 뒤이어 실행되는
+ * 신규 저장이 그대로 CAS 를 통과해 사용자의 충돌 선택 없이 원격 구성을 덮어쓴다.
+ */
+export async function hasBlockedIntent(ownerKey: string, profileId: string): Promise<boolean> {
+  const intents = await listIntents(ownerKey);
+  return intents.some(
+    (i) => i.profileId === profileId && (i.state === "blockedConflict" || i.state === "quarantined"),
+  );
+}
+
 /** 전송 성공한 **바로 그 intent** 만 제거한다(수용기준 26). */
 export async function removeIntent(mutationId: string): Promise<void> {
   const db = await openDatabase();
@@ -184,12 +197,14 @@ export async function listIntents(ownerKey: string): Promise<LayoutIntentRecord[
     const tx = db.transaction(INTENT_STORE, "readonly");
     const index = tx.objectStore(INTENT_STORE).index("ownerKey");
     const all = (await promisify(index.getAll(ownerKey))) as LayoutIntentRecord[];
-    // 같은 밀리초에 만들어진 intent 는 `createdAtMs` 만으로 순서가 정해지지 않는다. 뒤집히면 후속
-    // revision 을 먼저 보내 거짓 충돌로 그 프로필 큐 전체가 막힌다. revision → mutationId 로 확정한다.
+    // 프로필 안에서는 **논리적 revision** 이 순서다. `createdAtMs`(= `Date.now()`)는 단조가 아니라
+    // 시계가 뒤로 조정되면 나중 편집이 먼저 전송돼 거짓 충돌로 그 프로필 큐가 막힌다.
+    // 프로필끼리는 순서에 의미가 없으므로 묶어서 안정적으로만 정렬한다.
     return all.sort(
       (a, b) =>
-        a.createdAtMs - b.createdAtMs ||
+        (a.profileId < b.profileId ? -1 : a.profileId > b.profileId ? 1 : 0) ||
         a.expectedRevision - b.expectedRevision ||
+        a.createdAtMs - b.createdAtMs ||
         (a.mutationId < b.mutationId ? -1 : a.mutationId > b.mutationId ? 1 : 0),
     );
   } finally {

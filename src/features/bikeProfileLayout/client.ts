@@ -4,6 +4,7 @@ import { functions } from "../../services/firebase";
 import { debugLog, logClientError } from "../../services/errorLogger";
 import {
   commitHeadAndIntent,
+  hasBlockedIntent,
   listIntents,
   putHeadIfUnchanged,
   removeIntent,
@@ -58,6 +59,7 @@ export async function callDeleteBikeProfileAndLayout(profileId: string, mutation
 export const indexedDbLayoutStore: LayoutLocalStore = {
   commitHeadAndIntent,
   putHeadIfUnchanged,
+  hasBlockedIntent,
   updateIntentState,
   removeIntent,
 };
@@ -74,12 +76,12 @@ export function withOwnerLock<T>(ownerKey: string, operation: () => Promise<T>):
   const previous = ownerQueues.get(ownerKey) ?? Promise.resolve();
   // 앞 작업의 실패가 뒤 작업을 막지 않도록 체인에서는 결과를 흡수한다.
   const next = previous.catch(() => undefined).then(operation);
-  ownerQueues.set(
-    ownerKey,
-    next.catch(() => undefined).finally(() => {
-      if (ownerQueues.get(ownerKey) === next) ownerQueues.delete(ownerKey);
-    }),
-  );
+  // 맵에는 **정리까지 포함한 그 Promise 자체**를 넣는다. 다른 Promise 를 넣고 비교하면 조건이
+  // 영원히 거짓이라 settled Promise 가 owner 마다 계속 쌓인다.
+  const chained: Promise<unknown> = next.catch(() => undefined).then(() => {
+    if (ownerQueues.get(ownerKey) === chained) ownerQueues.delete(ownerKey);
+  });
+  ownerQueues.set(ownerKey, chained);
   return next;
 }
 

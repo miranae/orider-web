@@ -15,6 +15,7 @@ vi.mock("./outbox", () => ({
   listIntents: listIntentsMock,
   commitHeadAndIntent: vi.fn(),
   putHeadIfUnchanged: vi.fn(async () => true),
+  hasBlockedIntent: vi.fn(async () => false),
   updateIntentState: vi.fn(),
   removeIntent: vi.fn(),
   headKey: (ownerKey: string, profileId: string) =>
@@ -45,6 +46,7 @@ function intent(mutationId: string, profileId: string, expectedRevision: number)
 const noopStore: LayoutLocalStore = {
   commitHeadAndIntent: vi.fn(),
   putHeadIfUnchanged: vi.fn(async () => true),
+  hasBlockedIntent: vi.fn(async () => false),
   updateIntentState: vi.fn(),
   removeIntent: vi.fn(),
 };
