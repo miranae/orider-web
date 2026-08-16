@@ -17,12 +17,21 @@ export interface CourseRoutingRequest {
   roundTripSeed?: number;
 }
 
+/** `[lon, lat]` 또는 고도를 포함한 `[lon, lat, ele]`. */
+export type RoutingPosition = [lon: number, lat: number] | [lon: number, lat: number, ele: number];
+
 export interface CourseRoutingResult {
   contractVersion: 1;
   geometry: {
     type: "LineString";
-    coordinates: Array<[lon: number, lat: number]>;
+    coordinates: RoutingPosition[];
   };
+  /**
+   * 모든 좌표가 고도를 갖는가. 좌표 길이로 추측하지 말 것 — 일부만 3D 인 응답을 구분하지
+   * 못한다. 계약 버전을 올리지 않았으므로 배포 후에도 최대 24시간(캐시 TTL) 동안 이 필드가
+   * 없는 옛 응답이 올 수 있고, 그 경우 고도가 없는 것으로 다뤄야 한다.
+   */
+  elevationIncluded?: boolean;
   encodedPolyline?: string;
   distanceM: number;
   durationSeconds: number;
@@ -47,8 +56,17 @@ export class CourseRoutingError extends Error {
   }
 }
 
-function isFiniteCoordinate([lon, lat]: [number, number]): boolean {
-  return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+function isFiniteCoordinate(position: RoutingPosition): boolean {
+  const [lon, lat, ele] = position;
+  return Number.isFinite(lat) && Number.isFinite(lon)
+    && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
+    && (ele === undefined || Number.isFinite(ele));
+}
+
+/** 응답이 실제로 고도를 담고 있는가. 옛 응답(필드 없음)은 고도 없음으로 본다. */
+export function routeHasElevation(result: CourseRoutingResult): boolean {
+  return result.elevationIncluded === true
+    && result.geometry.coordinates.every((position) => position.length === 3);
 }
 
 export function validateCourseRoutingResult(value: CourseRoutingResult): CourseRoutingResult {
