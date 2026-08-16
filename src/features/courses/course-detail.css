@@ -1,0 +1,278 @@
+/**
+ * 코스 상세 격상 레이아웃 — 이벤트 상세에서 검증된 셸(지도 히어로 + 통계 스트립 + 2단 본문)을
+ * 코스에 이식한다. 코스는 날짜·정원 슬롯이 없다는 점이 대회와 형태로 구분되는 지점이다.
+ */
+
+.course-hero {
+  position: relative;
+  isolation: isolate;
+}
+
+/* 지도 위 텍스트 대비 확보. 실제 지도 타일은 지역마다 밝기가 달라서(수면·개활지)
+   아래쪽을 충분히 짙게 잡는다. */
+.course-hero-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in oklch, var(--bg-0) 92%, transparent) 0%,
+    color-mix(in oklch, var(--bg-0) 62%, transparent) 52%,
+    color-mix(in oklch, var(--bg-0) 20%, transparent) 100%
+  );
+}
+
+.course-hero-fallback {
+  height: 20rem;
+  background: linear-gradient(135deg, var(--bg-3), var(--bg-2));
+}
+
+.course-hero-content {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-5) var(--space-6);
+  pointer-events: none;
+}
+
+.course-hero-content > * {
+  pointer-events: auto;
+}
+
+/* 정체성은 속성 칩과 섞지 않는다 — 코스인지 대회인지는 전용 슬롯에서 읽힌다. */
+.course-kind-slot {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-sm);
+  background: var(--ink-0);
+  color: var(--bg-0);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.course-hero-title {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-0);
+  text-wrap: balance;
+}
+
+.course-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+}
+
+/* 통계 스트립 — 부모 폭 기준으로 접는다. 뷰포트 기준이면 좁은 카드 안에 임베드됐을 때
+   넓은 화면인데도 5칸이 찌그러진다. */
+.course-statstrip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: var(--line-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+.course-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-1);
+}
+
+@container (max-width: 46rem) {
+  .course-statstrip { grid-template-columns: repeat(3, 1fr); }
+}
+
+@container (max-width: 28rem) {
+  .course-statstrip { grid-template-columns: repeat(2, 1fr); }
+}
+
+.course-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.course-col,
+.course-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (max-width: 64rem) {
+  .course-body { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 경유지 레인 — 고도 프로필 아래에 거리축을 공유하는 띠. */
+.course-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.course-lane-row {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+}
+
+.course-lane-name {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.course-lane-name i,
+.course-lane-tag i,
+.course-pip i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  flex: none;
+}
+
+.course-lane-track {
+  position: relative;
+  display: block;
+  min-height: 1.75rem;
+  border-top: 1px dashed var(--line);
+  margin-top: var(--space-2);
+}
+
+.course-pip {
+  position: absolute;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 12rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.course-pip > span:not(.course-pip-km) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.course-pip-km {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.course-pip[data-hover="1"] {
+  border-color: var(--line);
+  color: var(--ink-1);
+}
+
+.course-pip[data-selected="1"] {
+  border-color: var(--lime);
+  background: color-mix(in oklch, var(--lime) 12%, var(--bg-2));
+  color: var(--ink-0);
+  font-weight: 600;
+}
+
+.course-wp-table {
+  width: 100%;
+  min-width: 24rem;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.course-wp-table th {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+
+.course-wp-table td {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink-1);
+  vertical-align: top;
+}
+
+.course-wp-table th.r,
+.course-wp-table td.r {
+  text-align: right;
+}
+
+.course-wp-table tbody tr[data-hover="1"] {
+  background: var(--bg-2);
+}
+
+.course-wp-table tbody tr[aria-selected="true"] {
+  background: color-mix(in oklch, var(--lime) 10%, transparent);
+}
+
+.course-wp-idx,
+.course-wp-km {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.course-wp-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--ink-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-wp-btn:hover {
+  text-decoration: underline;
+}
+
+.course-wp-note {
+  margin-top: var(--space-1);
+  font-size: var(--fs-2xs);
+  color: var(--ink-3);
+}
+
+.course-lane-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
