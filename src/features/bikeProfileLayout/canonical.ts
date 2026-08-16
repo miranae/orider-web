@@ -128,7 +128,10 @@ export function parseCanonicalLayout(raw: string, expectedSport?: string): Parse
 
   if (issues.length > 0) return { ok: false, issues };
 
-  const unknownKeys: Record<string, unknown> = {};
+  // `Object.create(null)` 로 만든다 — 일반 객체에 대입하면 JSON 의 유효한 `__proto__` 키가
+  // own property 가 아니라 prototype setter 로 먹혀 인코딩에서 사라지고, 원문 보존과
+  // payloadHash 계약이 함께 깨진다.
+  const unknownKeys: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
   for (const [key, value] of Object.entries(obj)) {
     if (!KNOWN_TOP_LEVEL_KEYS.has(key)) unknownKeys[key] = value;
   }

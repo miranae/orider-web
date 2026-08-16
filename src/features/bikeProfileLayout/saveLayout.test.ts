@@ -59,6 +59,7 @@ class FakeStore implements LayoutLocalStore {
 
 let store: FakeStore;
 let requests: SaveLayoutCallableRequest[];
+let logs: string[];
 
 function deps(response: SaveLayoutCallableResponse | Error): SaveLayoutDeps {
   return {
@@ -70,6 +71,7 @@ function deps(response: SaveLayoutCallableResponse | Error): SaveLayoutDeps {
     },
     newMutationId: () => "m1",
     nowMs: () => 2_000,
+    log: (message) => logs.push(message),
   };
 }
 
@@ -83,6 +85,7 @@ const committed: SaveLayoutCallableResponse = {
 beforeEach(() => {
   store = new FakeStore();
   requests = [];
+  logs = [];
 });
 
 describe("saveBikeProfileLayout", () => {
@@ -225,6 +228,28 @@ describe("saveBikeProfileLayout", () => {
 
     // 남은 intent 는 다음 drain 이 멱등 replay 한다.
     expect(result).toEqual({ status: "synced", revision: 4 });
+  });
+
+  it("refuses to write when the payload targets a different profile", async () => {
+    // 대상이 어긋난 채 저장하면 다른 프로필의 로컬 head 가 오염되고 되돌릴 수 없다.
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "mtb", layout, expectedRevision: 3 },
+      deps(committed),
+    );
+
+    expect(result).toEqual({ status: "invalidTarget", expected: "mtb", actual: "road" });
+    expect(store.commitHeadAndIntent).not.toHaveBeenCalled();
+    expect(requests).toHaveLength(0);
+  });
+
+  it("logs every IO stage so failures are diagnosable in production", async () => {
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps(new Error("offline")),
+    );
+
+    expect(logs.some((m) => m.startsWith("[1/3]"))).toBe(true);
+    expect(logs.some((m) => m.startsWith("[2/3]") && m.includes("실패"))).toBe(true);
   });
 
   it("sends the canonical payload and its matching hash", async () => {

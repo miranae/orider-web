@@ -57,6 +57,7 @@ function depsWith(responses: SaveLayoutCallableResponse[], seen: string[]): Save
     },
     newMutationId: () => "unused",
     nowMs: () => 0,
+    log: () => {},
   };
 }
 
@@ -91,6 +92,18 @@ describe("drainLayoutOutbox", () => {
     );
 
     expect(seen).toEqual(["A", "B"]);
+  });
+
+  it("runs a single drain at a time per owner", async () => {
+    // 두 drain 이 같은 snapshot 을 읽으면 프로필별 차단이 무력해진다.
+    listIntentsMock.mockResolvedValue([intent("A", "road", 3)]);
+    const seen: string[] = [];
+    const d = depsWith([{ status: "committed", revision: 4, payloadHash: "c".repeat(64), wasReplay: false }], seen);
+
+    const [first, second] = await Promise.all([drainLayoutOutbox(OWNER, d), drainLayoutOutbox(OWNER, d)]);
+
+    expect(seen).toEqual(["A"]);
+    expect(second).toBe(first);
   });
 
   it("skips intents already blocked and everything behind them", async () => {

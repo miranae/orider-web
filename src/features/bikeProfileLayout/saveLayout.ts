@@ -39,7 +39,9 @@ export type SaveLayoutResult =
   /** 같은 mutationId 로 다른 payload 를 보냈다 — 서버 write 0건. */
   | { status: "integrityError" }
   /** IndexedDB 커밋 실패. 이 경우 callable 은 0건이다. */
-  | { status: "localSaveFailed"; cause: unknown };
+  | { status: "localSaveFailed"; cause: unknown }
+  /** 요청 대상과 payload 의 프로필이 다르다. 아무 것도 쓰지 않는다. */
+  | { status: "invalidTarget"; expected: string; actual: string };
 
 /**
  * 로컬 저장 경계. 실제 구현은 `outbox.ts`(IndexedDB) 지만, 오케스트레이션이 이 포트만 알면
@@ -59,8 +61,12 @@ export type SaveLayoutDeps = {
   newMutationId: () => string;
   nowMs: () => number;
   installIdHash?: string;
-  /** 구조화 진단 로깅. 다단계 IO 라 단계 라벨을 붙여 남긴다. */
-  log?: (message: string, detail?: Record<string, unknown>) => void;
+  /**
+   * 구조화 진단 로깅. **필수다** — optional 로 두면 `browserSaveDeps` 를 거치지 않는 호출에서
+   * IndexedDB/callable 실패가 통째로 무음 스왈로우돼 운영 진단 경로가 사라진다.
+   * 다단계 IO 라 단계 라벨을 붙여 남긴다.
+   */
+  log: (message: string, detail?: Record<string, unknown>) => void;
 };
 
 export type SaveLayoutInput = {
@@ -75,7 +81,18 @@ export async function saveBikeProfileLayout(
   deps: SaveLayoutDeps,
 ): Promise<SaveLayoutResult> {
   const { ownerKey, profileId, layout, expectedRevision } = input;
-  const log = deps.log ?? (() => {});
+  const log = deps.log;
+
+  // 대상과 payload 의 프로필이 어긋난 채 저장하면 **다른 프로필의 로컬 head 가 오염**되고,
+  // 서버가 거절해도 이미 끝난 로컬 커밋은 되돌아오지 않는다. 쓰기 전에 막는다.
+  if (layout.profileId !== profileId) {
+    log("[0/3] 대상 프로필 불일치 — 아무 것도 쓰지 않음", {
+      ownerKey,
+      expected: profileId,
+      actual: layout.profileId,
+    });
+    return { status: "invalidTarget", expected: profileId, actual: layout.profileId };
+  }
 
   const canonicalPayload = encodeCanonicalLayout(layout);
   const hash = await payloadHash(canonicalPayload);
@@ -124,7 +141,7 @@ export async function transmitIntent(
   intent: LayoutIntentRecord,
   deps: SaveLayoutDeps,
 ): Promise<SaveLayoutResult> {
-  const log = deps.log ?? (() => {});
+  const log = deps.log;
   const ctx = {
     ownerKey: intent.ownerKey,
     profileId: intent.profileId,

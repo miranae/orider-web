@@ -12,7 +12,7 @@ const HEAD_STORE = "heads";
 const INTENT_STORE = "intents";
 
 export type LayoutHeadRecord = {
-  /** `${ownerKey}|${profileId}` — 계정 전환 시 서로 섞이지 않게 owner 를 키에 넣는다. */
+  /** [headKey] 가 만든 owner+profile 복합 키. 계정 전환 시 서로 섞이지 않게 owner 를 키에 넣는다. */
   key: string;
   ownerKey: string;
   profileId: string;
@@ -36,8 +36,15 @@ export type LayoutIntentRecord = {
   state: LayoutIntentState;
 };
 
+/**
+ * owner + profile 복합 키.
+ *
+ * 두 조각 모두 문자열 제약이 없어 그냥 이어 붙이면 서로 다른 (owner, profile) 쌍이 **같은 키**를
+ * 만들 수 있다(예: owner `a|b` + profile `c` 와 owner `a` + profile `b|c`). 그러면 계정 간 head 가
+ * 덮어써지고 남의 레이아웃이 보인다. 각 조각을 인코딩해 구분자를 escape 한다.
+ */
 export function headKey(ownerKey: string, profileId: string): string {
-  return `${ownerKey}|${profileId}`;
+  return `${encodeURIComponent(ownerKey)}|${encodeURIComponent(profileId)}`;
 }
 
 function openDatabase(): Promise<IDBDatabase> {

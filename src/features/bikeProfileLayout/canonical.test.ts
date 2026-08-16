@@ -84,6 +84,17 @@ describe("canonical layout encoding", () => {
     );
   });
 
+  it("preserves a literal __proto__ top-level key", () => {
+    // 일반 객체에 대입하면 prototype setter 로 먹혀 own property 가 되지 않고, 인코딩에서 사라져
+    // 원문 보존과 payloadHash 계약이 함께 깨진다.
+    const raw =
+      '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+      '"fields":[]}],"__proto__":{"a":1}}';
+    const decoded = layoutOf(raw);
+    expect(Object.keys(decoded.unknownKeys)).toContain("__proto__");
+    expect(encodeCanonicalLayout(decoded)).toContain('"__proto__":{"a":1}');
+  });
+
   it("round-trips unknown field types as opaque placements", () => {
     const raw =
       '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":2,' +

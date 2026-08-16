@@ -74,10 +74,27 @@ export function browserSaveDeps(overrides: Partial<SaveLayoutDeps> = {}): SaveLa
  * 충돌·무결성 오류로 **막힌** intent 는 건드리지 않는다 — 사용자가 세 선택지 중 하나를 고르기
  * 전까지 자동 재시도하지 않는 것이 §6.1 의 계약이다. 다른 owner 의 intent 와도 섞지 않는다.
  */
-export async function drainLayoutOutbox(
+/**
+ * owner 별 진행 중 drain. 동시 실행을 막는 single-flight 잠금이다.
+ *
+ * 두 drain 이 같은 snapshot 을 읽으면, 한쪽이 선행 intent 의 충돌을 발견해도 다른 쪽은 이미
+ * 후속 intent 를 보내 버려 아래의 프로필별 차단이 무력해진다.
+ */
+const inFlightDrains = new Map<string, Promise<SaveLayoutResult[]>>();
+
+export function drainLayoutOutbox(
   ownerKey: string,
   deps: SaveLayoutDeps = browserSaveDeps(),
 ): Promise<SaveLayoutResult[]> {
+  const running = inFlightDrains.get(ownerKey);
+  if (running) return running;
+
+  const started = runDrain(ownerKey, deps).finally(() => inFlightDrains.delete(ownerKey));
+  inFlightDrains.set(ownerKey, started);
+  return started;
+}
+
+async function runDrain(ownerKey: string, deps: SaveLayoutDeps): Promise<SaveLayoutResult[]> {
   const intents = await listIntents(ownerKey);
   const results: SaveLayoutResult[] = [];
 
