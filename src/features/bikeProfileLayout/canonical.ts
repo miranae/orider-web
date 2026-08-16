@@ -81,9 +81,19 @@ function integerLiteralToBigInt(literal: string): bigint | null {
   const unsigned = negative ? mantissa.slice(1) : mantissa;
   const [intPart = "", fracPart = ""] = unsigned.split(".");
   const shift = exponent - fracPart.length;
-  if (shift < 0) return null; // 소수점 이하가 남는다 = 정수가 아니다
 
-  const digits = `${intPart}${fracPart}${"0".repeat(shift)}`;
+  let digits: string;
+  if (shift >= 0) {
+    digits = `${intPart}${fracPart}${"0".repeat(shift)}`;
+  } else {
+    // 소수점 아래로 밀려나는 자릿수가 **전부 0** 이면 여전히 정수다(`9007199254740993.0`,
+    // `90071992547409930e-1`). 이걸 "정수 아님" 으로 흘리면 반올림되는 값을 검사에서 놓친다.
+    const all = `${intPart}${fracPart}`;
+    const dropped = all.slice(shift); // shift 는 음수 — 뒤에서 |shift| 자리
+    if (!/^0*$/u.test(dropped)) return null;
+    digits = all.slice(0, shift) || "0";
+  }
+
   const value = BigInt(digits);
   return negative ? -value : value;
 }

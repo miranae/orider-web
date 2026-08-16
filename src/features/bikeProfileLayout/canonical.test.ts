@@ -199,6 +199,23 @@ describe("canonical layout validation", () => {
     expect(issuesOf(raw)).toEqual(["UNSAFE_NUMBER_LITERAL"]);
   });
 
+  it("catches an unsafe integer written with a trailing zero fraction or negative exponent", () => {
+    // `9007199254740993.0` 과 `90071992547409930e-1` 은 수학적으로 정수이고 둘 다 반올림된다.
+    for (const literal of ["9007199254740993.0", "90071992547409930e-1"]) {
+      const raw =
+        '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+        `"fields":[]}],"v2Counter":${literal}}`;
+      expect(issuesOf(raw)).toEqual(["UNSAFE_NUMBER_LITERAL"]);
+    }
+  });
+
+  it("still accepts a genuine fraction that only looks integral", () => {
+    const raw =
+      '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+      '"fields":[]}],"v2Ratio":1.5}';
+    expect(layoutOf(raw).unknownKeys.v2Ratio).toBe(1.5);
+  });
+
   it("accepts an integer that survives the double round-trip exactly", () => {
     // 2^53 은 정확히 표현·재직렬화된다 — `Number.isSafeInteger` 로 자르면 이것까지 막힌다.
     const raw =
