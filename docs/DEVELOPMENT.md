@@ -30,6 +30,10 @@ VITE_FIREBASE_APP_ID=dummy \
 npm run build
 ```
 
+## 프로덕션 배포 증적
+
+`v*` 태그의 production Hosting 배포는 라이브 entry bundle과 immutable cache를 확인한 뒤에만 `production-hosting-evidence-<commit-sha>-<workflow-run-attempt>` GitHub Actions artifact를 업로드합니다. artifact에는 release SHA, workflow run/attempt, Firebase project/site, entry asset 이름과 SHA-256, cache-control, 생성 시각만 저장합니다. 사용자 데이터, credential, token, runtime config는 저장하지 않습니다. 백엔드 검증기는 이 저장소의 `actions:read` 권한 토큰으로 성공한 workflow run attempt를 확인한 뒤 해당 artifact를 읽을 수 있습니다.
+
 ## 주요 명령
 
 | 명령 | 설명 |

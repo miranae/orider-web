@@ -147,6 +147,17 @@ requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_PROJECT_ID', "deploy.yml bac
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_FUNCTIONS_REGION', "deploy.yml backend contract region");
 requireIncludes(deployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy.yml backend contract credential");
 requireBefore(deployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy --only hosting", "deploy.yml backend contract gate");
+requireIncludes(deployWorkflow, "node scripts/production-hosting-evidence.mjs", "deploy.yml production evidence writer");
+requireIncludes(deployWorkflow, "actions/upload-artifact@v4", "deploy.yml production evidence upload");
+requireIncludes(deployWorkflow, "name: production-hosting-evidence-${{ env.RELEASE_SHA }}-${{ github.run_attempt }}", "deploy.yml rerun-safe production evidence artifact name");
+requireIncludes(deployWorkflow, "--commit-sha \"$RELEASE_SHA\"", "deploy.yml production evidence commit binding");
+requireIncludes(deployWorkflow, "--workflow-run-id \"$GITHUB_RUN_ID\"", "deploy.yml production evidence run binding");
+requireIncludes(deployWorkflow, "--workflow-run-attempt \"$GITHUB_RUN_ATTEMPT\"", "deploy.yml production evidence attempt binding");
+requireIncludes(deployWorkflow, "--project-id \"${{ vars.VITE_FIREBASE_PROJECT_ID }}\"", "deploy.yml production evidence project binding");
+requireIncludes(deployWorkflow, "--site \"miranae-orider-g1\"", "deploy.yml production evidence site binding");
+requireIncludes(deployWorkflow, "BUILT_ENTRY_SHA256", "deploy.yml built bundle hash");
+requireIncludes(deployWorkflow, "LIVE_ENTRY_SHA256", "deploy.yml live bundle hash");
+requireBefore(deployWorkflow, "Verify live deploy (no stale HTML / asset cache intact)", "Write production Hosting evidence", "deploy.yml evidence timing");
 if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh run download") || deployWorkflow.includes("web-dist-")) {
   fail("deploy.yml must build the production artifact without a stage artifact dependency");
 }

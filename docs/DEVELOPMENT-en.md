@@ -22,6 +22,7 @@ contributor PR -> CI(lint/test/build) -> review -> main -> tag vX.Y.Z
 - Merging to `main` builds, verifies, and deploys the stage Hosting site.
 - Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: verify that the tagged commit is contained in `main`, install dependencies and build with production configuration, write production `runtime-config.json`, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
 - Production deploys are independent of the stage workflow and build their own hashed JS/CSS assets after production-environment approval.
+- After live entry-bundle and immutable-cache verification succeeds, `deploy.yml` uploads the privacy-safe `production-hosting-evidence-<commit-sha>-<workflow-run-attempt>` artifact. It contains only release provenance, Firebase project/site, entry asset names, SHA-256 values, cache-control, and generation time—never user data, credentials, or runtime configuration. A backend verifier with an Actions token that has `actions:read` on this repository resolves the successful run attempt, then downloads that exact artifact.
 - Production deploys are protected by the `production` GitHub Environment.
 
 Maintainer release flow:

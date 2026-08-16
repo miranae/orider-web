@@ -65,6 +65,7 @@ jobs:
             echo "::error::릴리스 태그 커밋이 origin/main에 포함되지 않음: $release_sha"
             exit 1
           fi
+          echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
           echo "Verified release commit on origin/main: $release_sha"
       - name: Install dependencies
         run: npm ci
@@ -124,7 +125,41 @@ jobs:
             echo "::error::해시 자산이 immutable 캐시가 아님 — 헤더 규칙 회귀 의심: $CC"
             exit 1
           fi
+          curl -fsSL -H 'Cache-Control: no-cache' "https://orider.co.kr/$LIVE" -o live-entry.js
+          BUILT_ENTRY_SHA256=$(shasum -a 256 "dist/$BUILT" | awk '{print $1}')
+          LIVE_ENTRY_SHA256=$(shasum -a 256 live-entry.js | awk '{print $1}')
+          if [ "$BUILT_ENTRY_SHA256" != "$LIVE_ENTRY_SHA256" ]; then
+            echo "::error::라이브 entry bundle 내용이 빌드 산출물과 다름"
+            exit 1
+          fi
+          echo "BUILT_ENTRY=$BUILT" >> "$GITHUB_ENV"
+          echo "BUILT_ENTRY_SHA256=$BUILT_ENTRY_SHA256" >> "$GITHUB_ENV"
+          echo "LIVE_ENTRY=$LIVE" >> "$GITHUB_ENV"
+          echo "LIVE_ENTRY_SHA256=$LIVE_ENTRY_SHA256" >> "$GITHUB_ENV"
+          echo "LIVE_CACHE_CONTROL=${CC#*: }" >> "$GITHUB_ENV"
           echo "✓ 라이브가 최신 번들 + 자산 immutable 확인"
+
+      - name: Write production Hosting evidence
+        run: >-
+          node scripts/production-hosting-evidence.mjs
+          --output production-hosting-evidence.json
+          --commit-sha "$RELEASE_SHA"
+          --workflow-run-id "$GITHUB_RUN_ID"
+          --workflow-run-attempt "$GITHUB_RUN_ATTEMPT"
+          --project-id "${{ vars.VITE_FIREBASE_PROJECT_ID }}"
+          --site "miranae-orider-g1"
+          --built-entry-asset "$BUILT_ENTRY"
+          --built-entry-sha256 "$BUILT_ENTRY_SHA256"
+          --live-entry-asset "$LIVE_ENTRY"
+          --live-entry-sha256 "$LIVE_ENTRY_SHA256"
+          --live-cache-control "$LIVE_CACHE_CONTROL"
+      - name: Upload production Hosting evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-hosting-evidence-${{ env.RELEASE_SHA }}-${{ github.run_attempt }}
+          path: production-hosting-evidence.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Create GitHub Release notes
         env:
