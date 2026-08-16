@@ -21,11 +21,20 @@ import { MAX_BUILDER_WAYPOINTS, tryAddWaypoint, undoWaypoint, type Waypoint } fr
 import {
   CourseRoutingError,
   requestCourseRoute,
+  routeHasElevation,
   type CourseRoutingProfile,
   type CourseRoutingResult,
 } from "../services/courseRouting";
 import { downloadGpx, routeToGpx } from "../utils/routeGpx";
-import { computeStatsFromStreams, parseGpx, parseGpxName, type ParsedGpx } from "../features/courseEngine";
+import {
+  buildElevationProfile,
+  computeStatsFromStreams,
+  computeTrackStats,
+  parseGpx,
+  parseGpxName,
+  toElevationChartData,
+  type ParsedGpx,
+} from "../features/courseEngine";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -49,6 +58,9 @@ interface StreamData {
 }
 
 type CreateMode = "activity" | "section" | "gpx" | "builder";
+
+/** 라우팅 제공자가 프로필별 경로를 주지 못하는 동안 쓰는 고정값. */
+const BUILDER_ROUTING_PROFILE: CourseRoutingProfile = "road";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -129,11 +141,7 @@ export default function CreateCoursePage() {
   const [builderRoute, setBuilderRoute] = useState<CourseRoutingResult | null>(null);
   const [routing, setRouting] = useState(false);
   const [builderError, setBuilderError] = useState<string | null>(null);
-  const [builderProfile, setBuilderProfile] = useState<CourseRoutingProfile>("road");
   const [avoidHighways, setAvoidHighways] = useState(true);
-  const [builderKind, setBuilderKind] = useState<"waypoints" | "loop">("waypoints");
-  const [targetDistanceKm, setTargetDistanceKm] = useState(30);
-  const [roundTripSeed, setRoundTripSeed] = useState(1);
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
   const routeRequestRef = useRef(0);
@@ -305,12 +313,34 @@ export default function CreateCoursePage() {
     return computeStats(streams.altitude, streams.distance);
   }, [mode, streams]);
 
-  const builderStats = useMemo(() => builderRoute ? {
-    distance: Math.round(builderRoute.distanceM),
-    elevationGain: Math.round(builderRoute.ascentM ?? 0),
-    avgGrade: 0,
-    maxGrade: 0,
-  } : null, [builderRoute]);
+  // 고도가 실제로 들어 있는가 — 저장 가능 여부와 경사 통계 노출을 함께 결정한다.
+  const builderRouteHasElevation = useMemo(
+    () => (builderRoute ? routeHasElevation(builderRoute) : false),
+    [builderRoute],
+  );
+
+  const builderStats = useMemo(() => {
+    if (!builderRoute) return null;
+    // 거리·획득고도는 라우팅 제공자 값을 그대로 쓴다(재계산 값과 섞으면 표시가 어긋난다).
+    // 경사는 고도 표본이 있을 때만 계산한다.
+    const base = {
+      distance: Math.round(builderRoute.distanceM),
+      elevationGain: Math.round(builderRoute.ascentM ?? 0),
+      avgGrade: 0,
+      maxGrade: 0,
+    };
+    if (!builderRouteHasElevation) return base;
+    const points = builderRoute.geometry.coordinates.map(([lon, lat, ele]) => ({ lat, lon, ele: ele ?? 0 }));
+    const stats = computeTrackStats(points);
+    return { ...base, avgGrade: stats.avgGradePct, maxGrade: stats.maxGradePct };
+  }, [builderRoute, builderRouteHasElevation]);
+
+  // 빌더 고도 프로필 — 봉우리를 보존해 축약한다.
+  const builderProfileData = useMemo(() => {
+    if (!builderRoute || !builderRouteHasElevation) return [];
+    const points = builderRoute.geometry.coordinates.map(([lon, lat, ele]) => ({ lat, lon, ele: ele ?? 0 }));
+    return toElevationChartData(buildElevationProfile(points));
+  }, [builderRoute, builderRouteHasElevation]);
   const currentStats = mode === "section"
     ? sectionStats
     : mode === "activity"
@@ -346,7 +376,7 @@ export default function CreateCoursePage() {
   const isFormValid = name.length >= 2 && name.length <= 50 && rangeValidation.length === 0;
   const rangeChanged = streams?.latlng ? rangeStart !== 0 || rangeEnd !== streams.latlng.length - 1 : false;
   const isDirty = !createdCourseId && (
-    mode !== initialMode || builderPoints.length > 0 || builderProfile !== "road" || !avoidHighways ||
+    mode !== initialMode || builderPoints.length > 0 || !avoidHighways ||
     Boolean(name.trim()) ||
     Boolean(description.trim()) ||
     Boolean(surface) ||
@@ -363,23 +393,19 @@ export default function CreateCoursePage() {
   });
   const leavePage = () => requestLeave(() => navigate(-1));
 
-  const calculateBuilderRoute = async (seedOverride?: number) => {
-    const requiredPoints = builderKind === "loop" ? 1 : 2;
+  const calculateBuilderRoute = async () => {
+    const requiredPoints = 2;
     if (builderPoints.length < requiredPoints) return;
     const requestId = ++routeRequestRef.current;
     setRouting(true); setBuilderError(null);
     try {
-      const loopStart = builderPoints[0];
       const route = await requestCourseRoute(functions, {
-        waypoints: builderKind === "loop"
-          ? [{ lat: loopStart!.lat, lon: loopStart!.lng }]
-          : builderPoints.map(({ lat, lng }) => ({ lat, lon: lng })),
-        profile: builderProfile,
+        waypoints: builderPoints.map(({ lat, lng }) => ({ lat, lon: lng })),
+        // 라우팅 제공자(OSRM)가 인스턴스당 프로필 하나만 서비스해서 노면별 경로 차이를
+        // 만들지 못한다. 동작하지 않는 선택지를 화면에 두지 않기로 했으므로 고정값을 보낸다.
+        // 프로필별 인스턴스가 생기면 선택 UI 를 되살린다.
+        profile: BUILDER_ROUTING_PROFILE,
         avoidHighways,
-        ...(builderKind === "loop" ? {
-          targetDistanceM: Math.round(targetDistanceKm * 1_000),
-          roundTripSeed: seedOverride ?? roundTripSeed,
-        } : {}),
       });
       if (requestId === routeRequestRef.current) setBuilderRoute(route);
     } catch (err) {
@@ -398,14 +424,6 @@ export default function CreateCoursePage() {
   };
 
   const addBuilderPoint = (point: Waypoint): boolean => {
-    if (builderKind === "loop") {
-      const result = tryAddWaypoint([], point);
-      if (!result.changed) return false;
-      builderPointsRef.current = result.points;
-      invalidateBuilderRoute();
-      setBuilderPoints(result.points);
-      return true;
-    }
     const result = tryAddWaypoint(builderPointsRef.current, point);
     if (!result.changed) return false;
     builderPointsRef.current = result.points;
@@ -421,10 +439,13 @@ export default function CreateCoursePage() {
 
   // ── Submit ──
   const handleSubmit = async () => {
-    // routeCourse currently returns a 2D LineString plus aggregate ascent only.
-    // Saving that geometry through createCourseFromGpx would turn every missing
-    // elevation sample into zero and permanently corrupt course/climb stats.
-    if (mode === "builder") { setSubmitError(t("builder.saveDisabled")); return; }
+    // 빌더 경로는 고도가 실제로 들어 있을 때만 저장한다. 계약 버전을 올리지 않았으므로
+    // 배포 후에도 최대 24시간 동안 캐시에 남은 옛 2D 응답이 올 수 있는데, 그대로 저장하면
+    // 고도 표본이 전부 0 이 되어 코스·클라이밍 통계가 영구히 오염된다.
+    if (mode === "builder" && !builderRouteHasElevation) {
+      setSubmitError(t("builder.saveNeedsElevation"));
+      return;
+    }
     if (!isFormValid || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -458,6 +479,16 @@ export default function CreateCoursePage() {
           activityId: selectedActivity.id,
           startIndex: lowIdx,
           endIndex: highIdx,
+          name,
+          description,
+          surface: surface || null,
+          difficulty,
+        });
+        result = res.data;
+      } else if (mode === "builder" && builderRoute) {
+        const fn = httpsCallable<unknown, { courseId: string }>(functions, "createCourseFromGpx");
+        const res = await fn({
+          gpxXml: routeToGpx(name, builderRoute.geometry.coordinates),
           name,
           description,
           surface: surface || null,
@@ -781,32 +812,10 @@ export default function CreateCoursePage() {
       {mode === "builder" && (
         <Card padding="none" className="p-4 space-y-4">
           <div><h2 className="font-semibold">{t("builder.title")}</h2><p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">{t("builder.description", { max: MAX_BUILDER_WAYPOINTS })}</p></div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <fieldset>
-              <legend className="mb-2 text-[length:var(--fs-sm)] font-medium">{t("builder.routeType")}</legend>
-              <div className="flex gap-2">
-                {(["waypoints", "loop"] as const).map((kind) => <button key={kind} type="button" role="radio" aria-checked={builderKind === kind} className={`ds-btn ds-btn--md ${builderKind === kind ? "bg-[var(--lime)] text-[var(--bg-0)]" : ""}`} onClick={() => { setBuilderKind(kind); invalidateBuilderRoute(); }}>{t(`builder.routeType.${kind}`)}</button>)}
-              </div>
-            </fieldset>
-            <fieldset>
-              <legend className="mb-2 text-[length:var(--fs-sm)] font-medium">{t("builder.profile")}</legend>
-              <div className="flex flex-wrap gap-2">
-                {(["road", "gravel", "mtb", "city"] as const).map((profile) => <button key={profile} type="button" role="radio" aria-checked={builderProfile === profile} className={`ds-btn ds-btn--md ${builderProfile === profile ? "bg-[var(--lime)] text-[var(--bg-0)]" : ""}`} onClick={() => { setBuilderProfile(profile); invalidateBuilderRoute(); }}>{t(`builder.profile.${profile}`)}</button>)}
-              </div>
-            </fieldset>
-          </div>
           <label className="flex min-h-11 items-center gap-3 text-[length:var(--fs-sm)]">
             <input type="checkbox" checked={avoidHighways} onChange={(event) => { setAvoidHighways(event.target.checked); invalidateBuilderRoute(); }} className="h-5 w-5 accent-[var(--lime)]" />
             {t("builder.avoidHighways")}
           </label>
-          {builderKind === "loop" && <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-            <label className="text-[length:var(--fs-sm)]">
-              <span className="mb-1 block font-medium">{t("builder.targetDistance")}</span>
-              <input type="range" min={1} max={300} step={1} value={targetDistanceKm} onChange={(event) => { setTargetDistanceKm(Number(event.target.value)); invalidateBuilderRoute(); }} className="min-h-11 w-full accent-[var(--lime)]" />
-              <span>{t("builder.targetDistanceValue", { distance: targetDistanceKm })}</span>
-            </label>
-            <button type="button" className="ds-btn ds-btn--md" disabled={routing || builderPoints.length < 1} onClick={() => { const nextSeed = roundTripSeed >= 2_147_483_647 ? 0 : roundTripSeed + 1; setRoundTripSeed(nextSeed); invalidateBuilderRoute(); void calculateBuilderRoute(nextSeed); }}>{t("builder.anotherLoop")}</button>
-          </div>}
           <p id="builder-map-instructions" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("builder.instructions")}</p>
           <RouteBuilderMap labels={{ region: t("builder.mapRegion"), unavailable: t("builder.mapUnavailable"), waypoint: t("builder.waypoint") }} waypoints={builderPoints} route={builderRoute?.geometry.coordinates ?? []} onAdd={addBuilderPoint} />
           <div className="flex flex-wrap gap-2" aria-label={t("builder.coordinateEntry")}>
@@ -817,12 +826,23 @@ export default function CreateCoursePage() {
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => { builderPointsRef.current = undoWaypoint(builderPointsRef.current); setBuilderPoints(builderPointsRef.current); invalidateBuilderRoute(); }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.undo")}</button>
             <button type="button" onClick={() => { builderPointsRef.current = []; setBuilderPoints([]); invalidateBuilderRoute(); }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.clear")}</button>
-            <button type="button" onClick={() => void calculateBuilderRoute()} disabled={builderPoints.length < (builderKind === "loop" ? 1 : 2) || routing} className="ds-btn ds-btn--md disabled:opacity-50">{routing ? t("builder.routing") : builderError ? t("builder.retry") : t("builder.calculate")}</button>
+            <button type="button" onClick={() => void calculateBuilderRoute()} disabled={builderPoints.length < 2 || routing} className="ds-btn ds-btn--md disabled:opacity-50">{routing ? t("builder.routing") : builderError ? t("builder.retry") : t("builder.calculate")}</button>
             <button type="button" onClick={() => builderRoute && downloadGpx(routeToGpx(name, builderRoute.geometry.coordinates))} disabled={!builderRoute} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.export")}</button>
           </div>
           <div role={builderError ? "alert" : "status"} aria-live="polite" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">
-            {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distanceM / 1000).toFixed(1), minutes: Math.round(builderRoute.durationSeconds / 60), ascent: Math.round(builderRoute.ascentM ?? 0) }) : t("builder.pointCount", { count: builderPoints.length, max: builderKind === "loop" ? 1 : MAX_BUILDER_WAYPOINTS }))}
+            {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distanceM / 1000).toFixed(1), minutes: Math.round(builderRoute.durationSeconds / 60), ascent: Math.round(builderRoute.ascentM ?? 0) }) : t("builder.pointCount", { count: builderPoints.length, max: MAX_BUILDER_WAYPOINTS }))}
           </div>
+          {builderRoute && (builderProfileData.length > 0 ? (
+            <div>
+              <div className="mb-1 text-[length:var(--fs-sm)] font-medium">{t("builder.elevationProfile")}</div>
+              <ElevationChart data={builderProfileData} height={160} />
+              <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{t("builder.elevationEstimated")}</p>
+            </div>
+          ) : (
+            <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]" role="status">
+              {t("builder.elevationMissing")}
+            </p>
+          ))}
           {builderRoute?.surfaceSummary && builderRoute.surfaceSummary.length > 0 && <div aria-label={t("builder.surfaceSummary")}>
             <div className="mb-1 text-[length:var(--fs-sm)] font-medium">{t("builder.surfaceSummary")}</div>
             <div className="flex h-3 overflow-hidden rounded-full bg-[var(--bg-2)]">{builderRoute.surfaceSummary.map((item, index) => <span key={`${item.surface}-${index}`} title={`${item.surface} ${(item.distanceM / 1000).toFixed(1)}km`} className="h-full bg-[var(--lime)] opacity-[var(--surface-opacity)]" style={{ width: `${Math.max(1, item.distanceM / builderRoute.distanceM * 100)}%`, "--surface-opacity": String(Math.max(0.35, 1 - index * 0.15)) } as CSSProperties} />)}</div>
@@ -928,7 +948,7 @@ export default function CreateCoursePage() {
               <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] font-medium mb-2">
                 {mode === "section" ? t("creation.sectionStats") : t("creation.courseStats")}
               </div>
-              <StatsPanel stats={currentStats} hideGrades={mode === "builder"} />
+              <StatsPanel stats={currentStats} hideGrades={mode === "builder" && !builderRouteHasElevation} />
 
               {/* Errors */}
               {rangeValidation.length > 0 && (
@@ -946,14 +966,14 @@ export default function CreateCoursePage() {
 
               {/* Submit */}
               <div className="mt-auto pt-3 border-t border-[var(--line-soft)] mt-3">
-                {mode === "builder" && (
+                {mode === "builder" && !builderRouteHasElevation && (
                   <p className="mb-2 text-[length:var(--fs-xs)] text-[var(--ink-2)]" role="status">
-                    {t("builder.saveDisabled")}
+                    {t("builder.saveNeedsElevation")}
                   </p>
                 )}
                 <button
                   onClick={handleSubmit}
-                  disabled={mode === "builder" || !isFormValid || submitting}
+                  disabled={(mode === "builder" && !builderRouteHasElevation) || !isFormValid || submitting}
                   className="w-full py-3 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-base)] font-semibold rounded-[var(--r-lg)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? (
