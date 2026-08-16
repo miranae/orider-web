@@ -153,7 +153,7 @@ requireIncludes(deployWorkflow, "name: production-hosting-evidence-${{ env.RELEA
 requireIncludes(deployWorkflow, "--commit-sha \"$RELEASE_SHA\"", "deploy.yml production evidence commit binding");
 requireIncludes(deployWorkflow, "--workflow-run-id \"$GITHUB_RUN_ID\"", "deploy.yml production evidence run binding");
 requireIncludes(deployWorkflow, "--workflow-run-attempt \"$GITHUB_RUN_ATTEMPT\"", "deploy.yml production evidence attempt binding");
-requireIncludes(deployWorkflow, "--project-id \"${{ vars.FIREBASE_PROJECT_ID }}\"", "deploy.yml production evidence project binding");
+requireIncludes(deployWorkflow, "--project-id \"${{ vars.VITE_FIREBASE_PROJECT_ID }}\"", "deploy.yml production evidence project binding");
 requireIncludes(deployWorkflow, "--site \"miranae-orider-g1\"", "deploy.yml production evidence site binding");
 requireIncludes(deployWorkflow, "BUILT_ENTRY_SHA256", "deploy.yml built bundle hash");
 requireIncludes(deployWorkflow, "LIVE_ENTRY_SHA256", "deploy.yml live bundle hash");
