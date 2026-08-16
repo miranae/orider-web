@@ -11,7 +11,7 @@
  * 둘을 같은 목록에 섞으면 저장 시 무엇이 코스 웨이포인트로 들어가야 하는지가 무너진다.
  */
 
-import { nearestPointIndex, type LatLonPoint } from "./geo";
+import { haversineMeters, nearestPointIndex, type LatLonPoint } from "./geo";
 import {
   classifyLane,
   lanesForContext,
@@ -91,24 +91,30 @@ export function resolveWaypointsOnTrack<T extends LatLonPoint>(
   if (track.length === 0) return [];
 
   const lastIndex = track.length - 1;
+  // 트랙이 실제로 닫혀 있는가(출발점과 끝점이 같은 자리인가).
+  const isClosedLoop = track.length > 2
+    && haversineMeters(track[0]!.lat, track[0]!.lon, track[lastIndex]!.lat, track[lastIndex]!.lon)
+      <= LOOP_CLOSURE_TOLERANCE_M;
+
   let previousIndex: number | null = null;
-  const resolved = waypoints.map((waypoint) => {
+  const resolved = waypoints.map((waypoint, order) => {
     const from = ordered && previousIndex !== null ? previousIndex : 0;
     let best = nearestPointIndex(track, waypoint, from);
 
     // 인덱스는 비감소만 강제한다 — 같은 위치의 POI 둘(쉼터의 카페와 화장실)이나 희소한
     // 트랙에서는 여러 경유지가 같은 점에 투영되는 것이 정상이다.
     //
-    // 예외는 순환 코스의 닫힘이다. 시작·도착 좌표가 같으면 도착점도 인덱스 0 에 붙어 전체
-    // 거리가 0 이 된다. 직전과 같은 점에 붙었는데 **뒤쪽에도 트랙 위라 할 만큼 가까운 점이
-    // 있다면** 그쪽을 택한다. 두 후보가 모두 트랙에 붙어 있을 때만 적용하므로, 다음 점이
-    // 멀리 있는 희소 트랙에서는 원래 점에 그대로 남는다.
-    if (ordered && previousIndex !== null && best.index === previousIndex && previousIndex < lastIndex) {
-      const later = nearestPointIndex(track, waypoint, previousIndex + 1);
-      if (later.index >= 0
-          && later.distanceM <= LOOP_CLOSURE_TOLERANCE_M
-          && best.distanceM <= LOOP_CLOSURE_TOLERANCE_M) {
-        best = later;
+    // 예외는 순환 코스의 닫힘 하나뿐이다. 시작·도착 좌표가 같으면 도착 경유지도 인덱스 0 에
+    // 붙어 전체 거리가 0 이 된다. 그래서 **마지막 경유지**가 **실제로 닫힌 트랙**의 폐합점에
+    // 놓였을 때만 끝 인덱스로 옮긴다. 중간 경유지나 열린 코스는 건드리지 않으므로, 촘촘한
+    // 트랙에서 같은 자리의 POI 가 뒤로 밀리는 일이 없다.
+    if (ordered && isClosedLoop && order === waypoints.length - 1
+        && previousIndex !== null && best.index === previousIndex && previousIndex < lastIndex) {
+      const distanceToClosure = haversineMeters(
+        waypoint.lat, waypoint.lon, track[lastIndex]!.lat, track[lastIndex]!.lon,
+      );
+      if (distanceToClosure <= LOOP_CLOSURE_TOLERANCE_M) {
+        best = { index: lastIndex, distanceM: distanceToClosure };
       }
     }
 

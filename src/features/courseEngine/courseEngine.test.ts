@@ -204,6 +204,40 @@ describe("resolveWaypointsOnTrack", () => {
     expect(resolved[1]!.distanceFromStartM).toBeCloseTo(cumulative[3]!, 5);
   });
 
+  it("촘촘한 트랙에서도 같은 자리의 POI 는 같은 점에 남는다", () => {
+    // 점 간격이 10m 안팎인 실제 트랙. 폐합 보정이 여기까지 번지면 쉼터의 카페·화장실이
+    // 서로 다른 점에 붙어 구간 거리가 왜곡된다.
+    const dense: TrackPoint[] = Array.from({ length: 40 }, (_, index) => ({
+      lat: 37.5 + index * 0.0001, lon: 127.0, ele: 10,
+    }));
+    const cumulative = cumulativeDistances(dense);
+    const resolved = resolveWaypointsOnTrack(
+      [{ lat: 37.5, lon: 127.0 }, { lat: 37.5, lon: 127.0 }, { lat: 37.5, lon: 127.0 }],
+      dense,
+      cumulative,
+      { ordered: true },
+    );
+    expect(resolved.map((item) => item.trackIndex)).toEqual([0, 0, 0]);
+  });
+
+  it("닫힌 코스라도 중간 경유지는 폐합 보정을 받지 않는다", () => {
+    const loop = track(
+      [37.500, 127.0, 0],
+      [37.505, 127.0, 50],
+      [37.510, 127.0, 100],
+      [37.500, 127.0, 0],
+    );
+    const cumulative = cumulativeDistances(loop);
+    // 마지막 경유지는 정상 지점 — 폐합점이 아니므로 보정 대상이 아니다.
+    const resolved = resolveWaypointsOnTrack(
+      [{ lat: 37.500, lon: 127.0 }, { lat: 37.500, lon: 127.0 }, { lat: 37.510, lon: 127.0 }],
+      loop,
+      cumulative,
+      { ordered: true },
+    );
+    expect(resolved.map((item) => item.trackIndex)).toEqual([0, 0, 2]);
+  });
+
   it("같은 위치의 경유지 여럿은 같은 점에 투영된다 — 억지로 뒤로 밀지 않는다", () => {
     // 쉼터 하나에 카페·화장실이 같이 있는 경우. 다음 트랙 점이 100m 넘게 떨어진
     // 희소한 트랙에서 억지로 전진시키면 거리·구간 고도가 크게 왜곡된다.
