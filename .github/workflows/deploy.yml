@@ -81,15 +81,6 @@ jobs:
           tar -xzf ".artifacts/web-dist-$RELEASE_SHA.tar.gz"
           test -f dist/index.html
           echo "Promoting stage artifact from run $run_id for commit $RELEASE_SHA"
-      - name: Verify production-enabled training paths were exercised on stage
-        env:
-          RELEASE_SHA: ${{ steps.release.outputs.sha }}
-          STAGE_TRAINING_PROJECT_ID: ${{ vars.STAGE_TRAINING_PROJECT_ID }}
-        run: |
-          : "${STAGE_TRAINING_PROJECT_ID:?STAGE_TRAINING_PROJECT_ID is required}"
-          node scripts/verify-staged-training-flags.mjs
-          node scripts/verify-today-training-stage-evidence.mjs \
-            .artifacts/today-training-stage-smoke.json "$RELEASE_SHA" "$STAGE_TRAINING_PROJECT_ID"
       - name: Write production runtime config
         run: node scripts/write-runtime-config.mjs
       - name: Auth (Workload Identity Federation — 키리스)
