@@ -116,6 +116,7 @@ requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
 requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
 requireIncludes(deployWorkflow, hostingRunner, "deploy.yml dedicated Hosting runner");
 checkSelfHostedSetupNodeCache(deployWorkflow, "deploy.yml");
+requireIncludes(deployWorkflow, "fetch-depth: 0", "deploy.yml full history checkout");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
@@ -132,27 +133,22 @@ for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
 }
 requireIncludes(deployWorkflow, "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}",
   "deploy.yml env");
-requireIncludes(deployWorkflow, "actions: read", "deploy.yml permissions");
-requireIncludes(deployWorkflow, "gh run download", "deploy.yml promotion");
-requireIncludes(deployWorkflow, "node scripts/verify-staged-training-flags.mjs", "deploy.yml staged training flag gate");
-requireIncludes(deployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "deploy.yml staged training smoke evidence gate");
-requireIncludes(deployWorkflow, '.artifacts/today-training-stage-smoke.json "$RELEASE_SHA"', "deploy.yml commit-bound smoke evidence");
-requireIncludes(deployWorkflow, 'STAGE_TRAINING_PROJECT_ID: ${{ vars.STAGE_TRAINING_PROJECT_ID }}',
-  "deploy.yml stage evidence project binding");
-requireIncludes(deployWorkflow, '"$RELEASE_SHA" "$STAGE_TRAINING_PROJECT_ID"',
-  "deploy.yml stage evidence project arguments");
+requireIncludes(deployWorkflow, "npm ci", "deploy.yml dependency install");
+requireIncludes(deployWorkflow, "npm run build", "deploy.yml production build");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
-requireBefore(deployWorkflow, "node scripts/verify-staged-training-flags.mjs", "node scripts/write-runtime-config.mjs",
-  "deploy.yml staged training flag gate");
-requireBefore(deployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "node scripts/write-runtime-config.mjs",
-  "deploy.yml staged training smoke evidence gate");
+requireIncludes(deployWorkflow, "git fetch --no-tags origin main:refs/remotes/origin/main", "deploy.yml main provenance fetch");
+requireIncludes(deployWorkflow, "git rev-list -n 1 \"$GITHUB_REF\"", "deploy.yml tagged commit resolution");
+requireIncludes(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "deploy.yml main provenance gate");
+requireBefore(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "npm ci", "deploy.yml main provenance gate");
+requireBefore(deployWorkflow, "npm ci", "npm run build", "deploy.yml production build");
+requireBefore(deployWorkflow, "npm run build", "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
 requireIncludes(deployWorkflow, "node scripts/verify-social-callables.mjs", "deploy.yml backend contract gate");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_PROJECT_ID', "deploy.yml backend contract project");
 requireIncludes(deployWorkflow, 'vars.VITE_FIREBASE_FUNCTIONS_REGION', "deploy.yml backend contract region");
 requireIncludes(deployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy.yml backend contract credential");
 requireBefore(deployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy --only hosting", "deploy.yml backend contract gate");
-if (deployWorkflow.includes("npm run build")) {
-  fail("deploy.yml must promote the verified stage artifact without npm run build");
+if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh run download") || deployWorkflow.includes("web-dist-")) {
+  fail("deploy.yml must build the production artifact without a stage artifact dependency");
 }
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
@@ -177,18 +173,6 @@ requireIncludes(stageDeployWorkflow, hostingRunner, "deploy-stage.yml dedicated 
 checkSelfHostedSetupNodeCache(stageDeployWorkflow, "deploy-stage.yml");
 requireIncludes(stageDeployWorkflow, "--config firebase.stage.json", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-stage.yml runtime config");
-requireIncludes(stageDeployWorkflow, "actions/upload-artifact", "deploy-stage.yml verified artifact upload");
-requireIncludes(stageDeployWorkflow, "node scripts/run-today-training-stage-smoke.mjs", "deploy-stage.yml training smoke runner");
-requireIncludes(stageDeployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "deploy-stage.yml training smoke schema gate");
-requireIncludes(stageDeployWorkflow, ".artifacts/today-training-stage-smoke.json", "deploy-stage.yml training smoke artifact");
-requireIncludes(stageDeployWorkflow, "STAGE_TRAINING_EXECUTION_ELIGIBLE_UID", "deploy-stage.yml eligible smoke identity");
-requireIncludes(stageDeployWorkflow, "STAGE_TRAINING_EXECUTION_INELIGIBLE_UID", "deploy-stage.yml ineligible smoke identity");
-requireIncludes(stageDeployWorkflow, "vars.AI_COACH_STAGE_COLLECTOR_WIF_PROVIDER", "deploy-stage.yml smoke signer WIF");
-requireIncludes(stageDeployWorkflow, "vars.AI_COACH_STAGE_COLLECTOR_SERVICE_ACCOUNT", "deploy-stage.yml smoke signer identity");
-requireBefore(stageDeployWorkflow, "node scripts/run-today-training-stage-smoke.mjs", "firebase deploy \\",
-  "deploy-stage.yml training smoke gate");
-requireBefore(stageDeployWorkflow, "node scripts/verify-today-training-stage-evidence.mjs", "tar -czf",
-  "deploy-stage.yml training smoke artifact gate");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");
@@ -211,9 +195,6 @@ requireIncludes(stageDeployWorkflow, "miranae-orider-g1-stage.web.app", "deploy-
 requireIncludes(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "deploy-stage.yml backend contract gate");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION", "deploy-stage.yml backend contract region");
-requireIncludes(stageDeployWorkflow,
-  "TODAY_TRAINING_STAGE_FUNCTIONS_REGION: ${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}",
-  "deploy-stage.yml training smoke functions region");
 requireIncludes(stageDeployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy-stage.yml backend contract credential");
 requireBefore(stageDeployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy \\", "deploy-stage.yml backend contract gate");
 
