@@ -9,6 +9,7 @@ import {
   computeTrackStats,
   cumulativeDistances,
   describeWaypoints,
+  fillMissingElevations,
   haversineMeters,
   isLaneVisibleIn,
   isProfileMarkerLane,
@@ -362,6 +363,27 @@ describe("classifyLane", () => {
   });
 });
 
+describe("fillMissingElevations", () => {
+  it("사이가 비면 선형 보간한다", () => {
+    expect(fillMissingElevations([0, null, null, 30]).elevations).toEqual([0, 10, 20, 30]);
+  });
+
+  it("앞뒤 끝이 비면 가장 가까운 유효 값으로 잇는다", () => {
+    const { elevations } = fillMissingElevations([null, null, 50, 60, null]);
+    expect(elevations).toEqual([50, 50, 50, 60, 60]);
+  });
+
+  it("전부 유효하면 그대로 둔다", () => {
+    expect(fillMissingElevations([10, 20, 30])).toEqual({ elevations: [10, 20, 30], hasElevation: true });
+  });
+
+  it("유효 표본이 부족하면 고도 없음으로 본다", () => {
+    expect(fillMissingElevations([null, null])).toEqual({ elevations: [0, 0], hasElevation: false });
+    expect(fillMissingElevations([42, null, null])).toEqual({ elevations: [0, 0, 0], hasElevation: false });
+    expect(fillMissingElevations([])).toEqual({ elevations: [], hasElevation: false });
+  });
+});
+
 describe("parseGpx", () => {
   const gpxWithElevation = `<?xml version="1.0" encoding="UTF-8"?>
     <gpx version="1.1" creator="orider">
@@ -408,7 +430,25 @@ describe("parseGpx", () => {
     expect(parsed.stats.elevationGainM).toBe(0);
   });
 
-  it("일부 포인트만 <ele> 를 가지면 고도가 없는 것으로 본다", () => {
+  it("빠진 <ele> 를 0 으로 채우지 않고 이웃 값으로 보간한다", () => {
+    // 0 으로 채우면 그 지점만 해수면까지 급락했다 복귀하는 절벽이 생겨
+    // 획득·손실고도가 크게 부풀고 프로필이 망가진다.
+    const parsed = parseGpx(`<gpx>
+      <trk><trkseg>
+        <trkpt lat="37.500" lon="127.0"><ele>100</ele></trkpt>
+        <trkpt lat="37.501" lon="127.0" />
+        <trkpt lat="37.502" lon="127.0"><ele>140</ele></trkpt>
+      </trkseg></trk>
+    </gpx>`);
+
+    expect(parsed.hasElevation).toBe(true);
+    expect(parsed.points.map((point) => point.ele)).toEqual([100, 120, 140]);
+    expect(parsed.stats.elevationGainM).toBe(40);
+    expect(parsed.stats.elevationLossM).toBe(0);
+    expect(parsed.stats.minElevationM).toBe(100);
+  });
+
+  it("유효 표본이 2개 미만이면 고도가 없는 것으로 본다", () => {
     const parsed = parseGpx(`<gpx>
       <trk><trkseg>
         <trkpt lat="37.5" lon="127.0"><ele>10</ele></trkpt>
@@ -418,6 +458,7 @@ describe("parseGpx", () => {
     </gpx>`);
 
     expect(parsed.hasElevation).toBe(false);
+    expect(parsed.points.every((point) => point.ele === 0)).toBe(true);
   });
 
   it("고도가 온전하면 hasElevation 이 true", () => {

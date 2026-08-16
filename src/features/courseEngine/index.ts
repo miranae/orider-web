@@ -39,6 +39,7 @@ export {
 export {
   parseGpx,
   parseGpxName,
+  fillMissingElevations,
   type ParsedGpx,
   type GpxWaypoint,
 } from "./gpx";

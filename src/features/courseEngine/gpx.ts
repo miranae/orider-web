@@ -6,13 +6,57 @@
  * 파서를 쓴다.
  *
  * 원본 대비 두 가지가 추가됐다.
- * - `hasElevation` — `<ele>` 가 실제로 있었는지. 없으면 고도를 0 으로 채우므로, 이 플래그가
- *   없으면 고도 없는 GPX 가 "완벽한 평지" 프로필로 그려져 사용자가 오독한다.
+ * - `hasElevation` — 고도 표본이 실제로 있었는지. 없으면 고도가 전부 0 이 되는데, 이 플래그가
+ *   없으면 고도 없는 GPX 가 "완벽한 평지" 프로필로 그려져 사용자가 오독한다. 일부만 빠진
+ *   경우는 버리지 않고 보간한다(`fillMissingElevations`).
  * - `routePoints` — `<rtept>`(라우팅 제어점)를 `<wpt>`(관심 지점)와 분리해 읽는다. 둘을 한
  *   목록에 섞으면 턴바이턴 내비게이션이 뱉은 수백 개의 제어점이 경유지 목록을 뒤덮는다.
  */
 
 import { computeTrackStats, type TrackPoint, type TrackStats } from "./stats";
+
+/**
+ * 빠진 고도를 이웃 값으로 메운다.
+ *
+ * 0 으로 채우면 그 지점만 해수면까지 급락했다 복귀하는 절벽이 생겨 획득·손실고도가 크게
+ * 부풀고 프로필이 망가진다. 실제 GPX 는 점 하나둘이 `<ele>` 를 빠뜨리는 경우가 흔하므로,
+ * 파일 전체를 고도 없음으로 버리지 않고 사이를 선형 보간한다. 앞뒤 끝이 비면 가장 가까운
+ * 유효 값으로 잇는다.
+ *
+ * 유효 표본이 2개 미만이면 메울 근거가 없으므로 고도가 없는 것으로 본다.
+ */
+export function fillMissingElevations(values: readonly (number | null)[]): {
+  elevations: number[];
+  hasElevation: boolean;
+} {
+  const validIndices = values.reduce<number[]>((acc, value, index) => {
+    if (value !== null) acc.push(index);
+    return acc;
+  }, []);
+  if (validIndices.length < 2) {
+    return { elevations: values.map(() => 0), hasElevation: false };
+  }
+
+  const filled = values.slice() as (number | null)[];
+  const first = validIndices[0]!;
+  const last = validIndices[validIndices.length - 1]!;
+  for (let index = 0; index < first; index += 1) filled[index] = values[first]!;
+  for (let index = last + 1; index < filled.length; index += 1) filled[index] = values[last]!;
+
+  for (let step = 1; step < validIndices.length; step += 1) {
+    const from = validIndices[step - 1]!;
+    const to = validIndices[step]!;
+    const gap = to - from;
+    if (gap <= 1) continue;
+    const start = values[from]!;
+    const end = values[to]!;
+    for (let index = from + 1; index < to; index += 1) {
+      filled[index] = start + ((end - start) * (index - from)) / gap;
+    }
+  }
+
+  return { elevations: filled.map((value) => value ?? 0), hasElevation: true };
+}
 
 export interface GpxWaypoint {
   lat: number;
@@ -73,8 +117,8 @@ export function parseGpxName(gpxXml: string): string | null {
 export function parseGpx(gpxXml: string): ParsedGpx {
   const document = new DOMParser().parseFromString(gpxXml, "text/xml");
 
-  const points: TrackPoint[] = [];
-  let elevationSamples = 0;
+  const coordinates: Array<{ lat: number; lon: number }> = [];
+  const rawElevations: (number | null)[] = [];
   const trackPoints = document.getElementsByTagName("trkpt");
   for (let index = 0; index < trackPoints.length; index += 1) {
     const element = trackPoints[index]!;
@@ -82,14 +126,16 @@ export function parseGpx(gpxXml: string): ParsedGpx {
     const lon = parseFloat(element.getAttribute("lon") || "");
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
     const eleText = childText(element, "ele");
-    const ele = eleText != null ? parseFloat(eleText) : NaN;
-    if (Number.isFinite(ele)) elevationSamples += 1;
-    points.push({ lat, lon, ele: Number.isFinite(ele) ? ele : 0 });
+    const ele = eleText != null ? parseFloat(eleText) : Number.NaN;
+    coordinates.push({ lat, lon });
+    rawElevations.push(Number.isFinite(ele) ? ele : null);
   }
 
-  // 일부 포인트만 <ele> 를 가진 파일은 고도 곡선이 0 으로 튀어 오히려 왜곡이 크다.
-  // 대다수가 값을 가질 때만 고도가 있는 것으로 본다.
-  const hasElevation = points.length > 1 && elevationSamples >= points.length * 0.9;
+  const { elevations, hasElevation } = fillMissingElevations(rawElevations);
+  const points: TrackPoint[] = coordinates.map((coordinate, index) => ({
+    ...coordinate,
+    ele: elevations[index] ?? 0,
+  }));
 
   return {
     points,
