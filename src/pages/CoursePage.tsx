@@ -438,24 +438,45 @@ export default function CoursePage() {
 
   // 선택은 지도를 이동시키고 유지된다. 호버는 강조만 하고 지도를 움직이지 않는다 —
   // 목록 위에서 마우스를 옮길 때마다 지도가 튀면 산만하다.
+  //
+  // 부수효과는 상태 updater 밖에서 실행한다. updater 안에 두면 React 가 이를 재실행할 때
+  // 계측 이벤트와 타이머가 중복된다. 타이머는 ref 로 들고 있다가 재선택·해제·코스 전환·
+  // 언마운트에서 취소한다 — 안 그러면 이미 해제한 경유지 좌표가 뒤늦게 지도에 적용된다.
+  const flyTimerRef = useRef<number | null>(null);
+  const cancelFlyTimer = useCallback(() => {
+    if (flyTimerRef.current !== null) {
+      clearTimeout(flyTimerRef.current);
+      flyTimerRef.current = null;
+    }
+  }, []);
+
   const selectWaypoint = useCallback((index: number) => {
-    setSelectedWaypoint((current) => {
-      const next = current === index ? null : index;
-      const target = next == null ? null : waypointRows[next]?.location ?? null;
-      setFlyToPosition(null);
-      if (target) setTimeout(() => setFlyToPosition(target), 10);
-      if (next != null) {
-        track("course_waypoint_select", { course_id: courseId ?? "", lane: waypointRows[next]?.lane ?? "" });
-      }
-      return next;
-    });
-  }, [courseId, waypointRows]);
+    const next = selectedWaypoint === index ? null : index;
+    setSelectedWaypoint(next);
+
+    cancelFlyTimer();
+    setFlyToPosition(null);
+    const target = next == null ? null : waypointRows[next]?.location ?? null;
+    if (target) {
+      // 같은 좌표를 다시 고를 때도 flyTo 가 걸리도록 null 로 비운 뒤 한 틱 뒤에 넣는다.
+      flyTimerRef.current = window.setTimeout(() => {
+        flyTimerRef.current = null;
+        setFlyToPosition(target);
+      }, 10);
+    }
+    if (next != null) {
+      track("course_waypoint_select", { course_id: courseId ?? "", lane: waypointRows[next]?.lane ?? "" });
+    }
+  }, [cancelFlyTimer, courseId, selectedWaypoint, waypointRows]);
+
+  useEffect(() => cancelFlyTimer, [cancelFlyTimer]);
 
   // 코스가 바뀌면 이전 인덱스가 새 코스의 엉뚱한 경유지를 가리킨다.
   useEffect(() => {
     setSelectedWaypoint(null);
     setHoveredWaypoint(null);
-  }, [courseId]);
+    cancelFlyTimer();
+  }, [courseId, cancelFlyTimer]);
 
   const activeWaypointIndex = selectedWaypoint ?? hoveredWaypoint;
   const markerPosition = useMemo<[number, number] | null>(() => {
