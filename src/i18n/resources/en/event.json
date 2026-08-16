@@ -347,6 +347,7 @@
   "detail.lane.aid": "AID",
   "detail.lane.cut": "CUT OFF",
   "detail.lane.seg": "Segment",
+  "detail.lane.amenity": "Amenity",
   "detail.error.alreadyStarted": "The event has already started or cannot be started.",
   "detail.error.startFailed": "Failed to start the event. Please try again.",
   "detail.confirm.sendCourse": "Send the \"{{name}}\" course to all participants?",
