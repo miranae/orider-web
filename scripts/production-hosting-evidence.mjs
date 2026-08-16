@@ -8,6 +8,7 @@ const POSITIVE_DECIMAL = /^[1-9][0-9]*$/;
 const FIREBASE_ID = /^[a-z][a-z0-9-]{4,61}[a-z0-9]$/;
 const ENTRY_ASSET = /^assets\/index-[A-Za-z0-9_-]+\.js$/;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const VERSION_TAG_REF = /^refs\/tags\/v[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 function requireMatch(value, pattern, label) {
   if (typeof value !== "string" || !pattern.test(value)) {
@@ -18,8 +19,12 @@ function requireMatch(value, pattern, label) {
 export function createProductionHostingEvidence(input, now = new Date()) {
   const {
     commitSha,
+    workflowEvent,
+    workflowRef,
     workflowRunId,
     workflowRunAttempt,
+    deploymentEnvironment,
+    deploymentId,
     projectId,
     site,
     builtEntryAsset,
@@ -29,8 +34,12 @@ export function createProductionHostingEvidence(input, now = new Date()) {
     liveCacheControl,
   } = input;
   requireMatch(commitSha, COMMIT_SHA, "commitSha");
+  if (workflowEvent !== "push") throw new Error("workflowEvent must be push");
+  requireMatch(workflowRef, VERSION_TAG_REF, "workflowRef");
   requireMatch(workflowRunId, POSITIVE_DECIMAL, "workflowRunId");
   requireMatch(workflowRunAttempt, POSITIVE_DECIMAL, "workflowRunAttempt");
+  if (deploymentEnvironment !== "production") throw new Error("deploymentEnvironment must be production");
+  requireMatch(deploymentId, POSITIVE_DECIMAL, "deploymentId");
   requireMatch(projectId, FIREBASE_ID, "projectId");
   requireMatch(site, FIREBASE_ID, "site");
   requireMatch(builtEntryAsset, ENTRY_ASSET, "builtEntryAsset");
@@ -47,11 +56,15 @@ export function createProductionHostingEvidence(input, now = new Date()) {
   const generatedAt = now.toISOString();
   requireMatch(generatedAt, ISO_TIMESTAMP, "generatedAt");
   return {
-    schemaVersion: "production-hosting-evidence-v1",
+    schemaVersion: "production-hosting-evidence-v2",
     repository: "miranae/orider-web",
     commitSha,
+    workflowEvent,
+    workflowRef,
     workflowRunId,
     workflowRunAttempt,
+    deploymentEnvironment,
+    deploymentId,
     projectId,
     site,
     builtEntryAsset,
@@ -65,7 +78,8 @@ export function createProductionHostingEvidence(input, now = new Date()) {
 
 function parseArgs(argv) {
   const expected = new Set([
-    "output", "commit-sha", "workflow-run-id", "workflow-run-attempt", "project-id", "site",
+    "output", "commit-sha", "workflow-event", "workflow-ref", "workflow-run-id", "workflow-run-attempt",
+    "deployment-environment", "deployment-id", "project-id", "site",
     "built-entry-asset", "built-entry-sha256", "live-entry-asset", "live-entry-sha256", "live-cache-control",
   ]);
   const values = {};
@@ -86,8 +100,12 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
     const values = parseArgs(process.argv.slice(2));
     const evidence = createProductionHostingEvidence({
       commitSha: values["commit-sha"],
+      workflowEvent: values["workflow-event"],
+      workflowRef: values["workflow-ref"],
       workflowRunId: values["workflow-run-id"],
       workflowRunAttempt: values["workflow-run-attempt"],
+      deploymentEnvironment: values["deployment-environment"],
+      deploymentId: values["deployment-id"],
       projectId: values["project-id"],
       site: values.site,
       builtEntryAsset: values["built-entry-asset"],

@@ -149,15 +149,27 @@ requireIncludes(deployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.o
 requireBefore(deployWorkflow, "node scripts/verify-social-callables.mjs", "firebase deploy --only hosting", "deploy.yml backend contract gate");
 requireIncludes(deployWorkflow, "node scripts/production-hosting-evidence.mjs", "deploy.yml production evidence writer");
 requireIncludes(deployWorkflow, "actions/upload-artifact@v4", "deploy.yml production evidence upload");
-requireIncludes(deployWorkflow, "name: production-hosting-evidence-${{ env.RELEASE_SHA }}-${{ github.run_attempt }}", "deploy.yml rerun-safe production evidence artifact name");
-requireIncludes(deployWorkflow, "--commit-sha \"$RELEASE_SHA\"", "deploy.yml production evidence commit binding");
+requireIncludes(deployWorkflow, "attest-production-deployment:", "deploy.yml production evidence attestation job");
+requireIncludes(deployWorkflow, "needs: deploy", "deploy.yml production evidence deployment dependency");
+requireIncludes(deployWorkflow, "name: production-hosting-evidence-${{ needs.deploy.outputs.release_sha }}-${{ github.run_attempt }}", "deploy.yml rerun-safe production evidence artifact name");
+requireIncludes(deployWorkflow, "--commit-sha \"${{ needs.deploy.outputs.release_sha }}\"", "deploy.yml production evidence commit binding");
+requireIncludes(deployWorkflow, "--workflow-event \"${{ github.event_name }}\"", "deploy.yml production evidence event binding");
+requireIncludes(deployWorkflow, "--workflow-ref \"${{ github.ref }}\"", "deploy.yml production evidence ref binding");
 requireIncludes(deployWorkflow, "--workflow-run-id \"$GITHUB_RUN_ID\"", "deploy.yml production evidence run binding");
 requireIncludes(deployWorkflow, "--workflow-run-attempt \"$GITHUB_RUN_ATTEMPT\"", "deploy.yml production evidence attempt binding");
+requireIncludes(deployWorkflow, "--deployment-environment \"production\"", "deploy.yml production evidence environment binding");
+requireIncludes(deployWorkflow, "--deployment-id \"${{ steps.deployment.outputs.deployment_id }}\"", "deploy.yml production evidence deployment binding");
+requireIncludes(deployWorkflow, "Resolve successful production deployment", "deploy.yml successful deployment resolver");
+requireIncludes(deployWorkflow, ".environment == \"production\"", "deploy.yml production deployment resolver environment");
+requireIncludes(deployWorkflow, ".ref == $tag", "deploy.yml production deployment resolver tag");
+requireIncludes(deployWorkflow, ".sha == $sha", "deploy.yml production deployment resolver commit");
+requireIncludes(deployWorkflow, "if [ \"$state\" = \"success\" ]; then", "deploy.yml production deployment resolver success state");
 requireIncludes(deployWorkflow, "--project-id \"${{ vars.VITE_FIREBASE_PROJECT_ID }}\"", "deploy.yml production evidence project binding");
 requireIncludes(deployWorkflow, "--site \"miranae-orider-g1\"", "deploy.yml production evidence site binding");
 requireIncludes(deployWorkflow, "BUILT_ENTRY_SHA256", "deploy.yml built bundle hash");
 requireIncludes(deployWorkflow, "LIVE_ENTRY_SHA256", "deploy.yml live bundle hash");
 requireBefore(deployWorkflow, "Verify live deploy (no stale HTML / asset cache intact)", "Write production Hosting evidence", "deploy.yml evidence timing");
+requireBefore(deployWorkflow, "Resolve successful production deployment", "Write production Hosting evidence", "deploy.yml successful deployment evidence timing");
 if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh run download") || deployWorkflow.includes("web-dist-")) {
   fail("deploy.yml must build the production artifact without a stage artifact dependency");
 }
