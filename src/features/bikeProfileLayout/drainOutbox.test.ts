@@ -1,0 +1,247 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { LayoutIntentRecord } from "./outbox";
+import { encodeCanonicalLayout, payloadHash, type CanonicalLayout } from "./canonical";
+import type { SaveLayoutCallableResponse, SaveLayoutDeps, LayoutLocalStore } from "./saveLayout";
+
+/**
+ * outbox drain 의 차단 전파 (#1943 §9.1).
+ *
+ * 오프라인 편집이 여러 건 쌓인 상태에서 앞 intent 가 충돌했는데 뒤 intent 를 계속 보내면,
+ * 뒤 intent 의 CAS 가 통과해 **사용자의 충돌 선택 없이** 원격 구성을 덮어쓴다.
+ */
+const listIntentsMock = vi.hoisted(() => vi.fn<[], Promise<LayoutIntentRecord[]>>());
+
+vi.mock("./outbox", () => ({
+  listIntents: listIntentsMock,
+  commitHeadAndIntent: vi.fn(),
+  putHeadIfUnchanged: vi.fn(async () => true),
+  recordIntentConflict: vi.fn(),
+  hasBlockedIntent: vi.fn(async () => false),
+  updateIntentState: vi.fn(),
+  removeIntent: vi.fn(),
+  headKey: (ownerKey: string, profileId: string) =>
+    `${encodeURIComponent(ownerKey)}|${encodeURIComponent(profileId)}`,
+}));
+
+vi.mock("../../services/firebase", () => ({ functions: {} }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn(), debugLog: vi.fn() }));
+vi.mock("firebase/functions", () => ({ httpsCallable: () => vi.fn() }));
+
+const { drainLayoutOutbox, withOwnerLock } = await import("./client");
+const { __resetLayoutBlockBackstopForTests } = await import("./saveLayout");
+
+const OWNER = "uid:A";
+
+/** 충돌 응답의 원격 payload 는 대상 프로필의 **실제 canonical 문자열**이라야 검증을 통과한다. */
+function remoteLayoutFor(profileId: string): CanonicalLayout {
+  return {
+    schemaVersion: 1,
+    profileId,
+    sport: "CYCLING",
+    pages: [{ columns: 4, rows: 8, fields: [{ type: "POWER", col: 0, row: 0, colSpan: 4, rowSpan: 2 }] }],
+    unknownKeys: {},
+  };
+}
+
+function intent(mutationId: string, profileId: string, expectedRevision: number): LayoutIntentRecord {
+  return {
+    mutationId,
+    ownerKey: OWNER,
+    profileId,
+    expectedRevision,
+    canonicalPayload: "{}",
+    payloadHash: "a".repeat(64),
+    createdAtMs: expectedRevision,
+    state: "pending",
+  };
+}
+
+const noopStore: LayoutLocalStore = {
+  commitHeadAndIntent: vi.fn(),
+  putHeadIfUnchanged: vi.fn(async () => true),
+  recordIntentConflict: vi.fn(),
+  hasBlockedIntent: vi.fn(async () => false),
+  listIntents: listIntentsMock,
+  updateIntentState: vi.fn(),
+  removeIntent: vi.fn(),
+};
+
+function depsWith(responses: SaveLayoutCallableResponse[], seen: string[]): SaveLayoutDeps {
+  let index = 0;
+  return {
+    store: noopStore,
+    callSaveLayout: async (request) => {
+      seen.push(request.mutationId);
+      return responses[index++] ?? { status: "writesDisabled" };
+    },
+    newMutationId: () => "unused",
+    nowMs: () => 0,
+    log: () => {},
+    withOwnerLock: (_ownerKey, operation) => operation(),
+  };
+}
+
+beforeEach(() => {
+  __resetLayoutBlockBackstopForTests();
+});
+
+describe("drainLayoutOutbox", () => {
+  it("stops sending later intents for a profile once one is blocked by a conflict", async () => {
+    listIntentsMock.mockResolvedValue([intent("A", "road", 3), intent("B", "road", 4)]);
+    const seen: string[] = [];
+
+    const results = await drainLayoutOutbox(
+      OWNER,
+      depsWith(
+        [
+          {
+            status: "conflict",
+            remoteRevision: 4,
+            remotePayload: encodeCanonicalLayout(remoteLayoutFor("road")),
+            remotePayloadHash: await payloadHash(encodeCanonicalLayout(remoteLayoutFor("road"))),
+          },
+        ],
+        seen,
+      ),
+    );
+
+    expect(seen).toEqual(["A"]);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.status).toBe("conflict");
+  });
+
+  it("keeps draining a different profile after one profile is blocked", async () => {
+    listIntentsMock.mockResolvedValue([intent("A", "road", 3), intent("B", "mtb", 1)]);
+    const seen: string[] = [];
+
+    await drainLayoutOutbox(
+      OWNER,
+      depsWith(
+        [
+          {
+            status: "conflict",
+            remoteRevision: 4,
+            remotePayload: encodeCanonicalLayout(remoteLayoutFor("road")),
+            remotePayloadHash: await payloadHash(encodeCanonicalLayout(remoteLayoutFor("road"))),
+          },
+          { status: "committed", revision: 2, payloadHash: "c".repeat(64), wasReplay: false },
+        ],
+        seen,
+      ),
+    );
+
+    expect(seen).toEqual(["A", "B"]);
+  });
+
+  it("surfaces an intent listing failure instead of failing silently", async () => {
+    listIntentsMock.mockRejectedValueOnce(new Error("indexeddb blocked"));
+    const logs: string[] = [];
+    const d = depsWith([], []);
+    d.log = (_level, message) => logs.push(message);
+
+    await expect(drainLayoutOutbox(OWNER, d)).rejects.toThrow("indexeddb blocked");
+    expect(logs.some((m) => m.startsWith("[0/3]"))).toBe(true);
+  });
+
+  it("runs a single drain at a time per owner", async () => {
+    // 두 drain 이 같은 snapshot 을 읽으면 프로필별 차단이 무력해진다.
+    listIntentsMock.mockResolvedValue([intent("A", "road", 3)]);
+    const seen: string[] = [];
+    const d = depsWith([{ status: "committed", revision: 4, payloadHash: "c".repeat(64), wasReplay: false }], seen);
+
+    const [first, second] = await Promise.all([drainLayoutOutbox(OWNER, d), drainLayoutOutbox(OWNER, d)]);
+
+    expect(seen).toEqual(["A"]);
+    expect(second).toBe(first);
+  });
+
+  it("serializes everything on one owner queue so save and drain cannot interleave", async () => {
+    // drain 끼리만 막으면, 기존 intent 를 보내는 중에 새 저장이 끼어들어 전송 순서와 충돌 판정이
+    // 뒤집힌다. 신규 저장과 drain 이 같은 큐를 타는지 잠금 자체로 검증한다.
+    const order: string[] = [];
+    const slow = (label: string, ms: number) =>
+      withOwnerLock(OWNER, async () => {
+        order.push(`${label}:start`);
+        await new Promise((r) => setTimeout(r, ms));
+        order.push(`${label}:end`);
+      });
+
+    await Promise.all([slow("drain", 20), slow("save", 0)]);
+
+    expect(order).toEqual(["drain:start", "drain:end", "save:start", "save:end"]);
+  });
+
+  it("keeps the queue alive after a failed operation", async () => {
+    await expect(
+      withOwnerLock(OWNER, () => Promise.reject(new Error("boom"))),
+    ).rejects.toThrow("boom");
+    await expect(withOwnerLock(OWNER, () => Promise.resolve("ok"))).resolves.toBe("ok");
+  });
+
+  it("takes a cross-tab Web Lock when the browser provides one", async () => {
+    // 메모리 큐만으로는 같은 탭 안에서만 유효하다 — 두 탭을 열면 전송 순서가 뒤집힌다.
+    const requested: string[] = [];
+    const original = (navigator as { locks?: unknown }).locks;
+    Object.defineProperty(navigator, "locks", {
+      configurable: true,
+      value: {
+        request: async (name: string, cb: () => Promise<unknown>) => {
+          requested.push(name);
+          return cb();
+        },
+      },
+    });
+
+    try {
+      await withOwnerLock(OWNER, async () => "ok");
+      expect(requested).toEqual([`orider-bike-profile-layout:${OWNER}`]);
+    } finally {
+      Object.defineProperty(navigator, "locks", { configurable: true, value: original });
+    }
+  });
+
+  it("does not serialize across different owners", async () => {
+    const order: string[] = [];
+    await Promise.all([
+      withOwnerLock("uid:A", async () => {
+        await new Promise((r) => setTimeout(r, 20));
+        order.push("A");
+      }),
+      withOwnerLock("uid:B", async () => {
+        order.push("B");
+      }),
+    ]);
+    expect(order).toEqual(["B", "A"]);
+  });
+
+  it("stops a profile queue on any non-synced result, not just conflicts", async () => {
+    // 전송 실패는 앞 요청의 성공 여부를 모른다는 뜻이다. 뒤 intent 를 계속 보내면 거짓 충돌이나
+    // 순서 건너뜀이 생긴다.
+    listIntentsMock.mockResolvedValue([intent("A", "road", 3), intent("B", "road", 4)]);
+    const seen: string[] = [];
+    const d = depsWith([], seen);
+    d.callSaveLayout = async (request) => {
+      seen.push(request.mutationId);
+      throw new Error("offline");
+    };
+
+    const results = await drainLayoutOutbox(OWNER, d);
+
+    expect(seen).toEqual(["A"]);
+    expect(results[0]?.status).toBe("savedPendingSync");
+  });
+
+  it("skips intents already blocked and everything behind them", async () => {
+    listIntentsMock.mockResolvedValue([
+      { ...intent("A", "road", 3), state: "blockedConflict" },
+      intent("B", "road", 4),
+    ]);
+    const seen: string[] = [];
+
+    const results = await drainLayoutOutbox(OWNER, depsWith([], seen));
+
+    expect(seen).toEqual([]);
+    expect(results).toEqual([]);
+  });
+});
