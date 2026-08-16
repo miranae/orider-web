@@ -388,7 +388,8 @@ describe("saveBikeProfileLayout", () => {
     expect(requests.map((r) => r.mutationId)).toEqual(["m1", "m2"]);
   });
 
-  it("holds the send when the blocked-state lookup itself fails", async () => {
+  it("holds the send on a transient blocked-state lookup failure without marking a fake conflict", async () => {
+    // 일시 실패를 실제 충돌로 기록하면 해소용 remote payload 도 없이 그 프로필이 영구 정지한다.
     store.hasBlockedIntent = vi.fn(async () => {
       throw new Error("indexeddb blocked");
     });
@@ -398,9 +399,9 @@ describe("saveBikeProfileLayout", () => {
       deps(committed),
     );
 
-    // 차단 여부를 모르면 보내지 않는다.
-    expect(result.status).toBe("blockedByConflict");
+    expect(result.status).toBe("savedPendingSync");
     expect(requests).toHaveLength(0);
+    expect(store.intents.get("m1")?.state).toBe("pending");
   });
 
   it("refuses to write when the payload targets a different profile", async () => {

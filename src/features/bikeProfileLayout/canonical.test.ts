@@ -209,6 +209,16 @@ describe("canonical layout validation", () => {
     }
   });
 
+  it("does not blow up on a huge exponent that is still valid JSON", () => {
+    // `0e1000000000` 은 유효한 JSON 이고 Number 로는 0 이다. 지수를 그대로 펼치면 RangeError 로
+    // 저장된 문서를 여는 경로가 크래시한다 — 격리 계약이 깨진다.
+    const raw =
+      '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+      '"fields":[]}],"v2Counter":0e1000000000}';
+    expect(() => parseCanonicalLayout(raw)).not.toThrow();
+    expect(layoutOf(raw).unknownKeys.v2Counter).toBe(0);
+  });
+
   it("still accepts a genuine fraction that only looks integral", () => {
     const raw =
       '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +

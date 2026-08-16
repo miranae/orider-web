@@ -82,6 +82,12 @@ function integerLiteralToBigInt(literal: string): bigint | null {
   const [intPart = "", fracPart = ""] = unsigned.split(".");
   const shift = exponent - fracPart.length;
 
+  // 유한한 double 로 표현되는 정수는 309자리를 넘지 못한다. 그보다 큰 지수를 그대로 펼치면
+  // `0e1000000000` 같은 **유효한** JSON 에서 `"0".repeat` 이 RangeError 를 던져, payload 를 격리한다는
+  // 계약을 깨고 저장된 문서를 여는 경로를 크래시시킨다. (이 함수는 이미 유한한 값에만 불린다.)
+  const MAX_EXPANSION = 400;
+  if (shift > MAX_EXPANSION) return null;
+
   let digits: string;
   if (shift >= 0) {
     digits = `${intPart}${fracPart}${"0".repeat(shift)}`;

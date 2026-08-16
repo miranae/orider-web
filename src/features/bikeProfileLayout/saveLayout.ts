@@ -125,8 +125,21 @@ export async function saveBikeProfileLayout(
 async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Promise<SaveLayoutResult> {
   const { ownerKey, profileId, layout, expectedRevision } = input;
   const log = deps.log;
-  const canonicalPayload = encodeCanonicalLayout(layout);
-  const hash = await payloadHash(canonicalPayload);
+  // 인코딩·해시도 사용자 영향 저장 경로다. 여기서 reject 하면 결과 계약 밖으로 새고
+  // 오류 채널에도 남지 않는다.
+  let canonicalPayload: string;
+  let hash: string;
+  try {
+    canonicalPayload = encodeCanonicalLayout(layout);
+    hash = await payloadHash(canonicalPayload);
+  } catch (cause) {
+    log("error", "[0/3] canonical 인코딩/해시 실패 — 저장 중단", {
+      ownerKey,
+      profileId,
+      cause: String(cause),
+    });
+    return { status: "localSaveFailed", cause };
+  }
   const mutationId = deps.newMutationId();
   const now = deps.nowMs();
   const ctx = { ownerKey, profileId, expectedRevision, mutationId };
@@ -168,17 +181,20 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
   //
   // 이 조회/기록도 로컬 커밋 **이후**의 IO 라 예외가 새면 결과 계약이 깨진다. 조회 자체가 실패하면
   // 차단 여부를 모르는 것이므로 **보류**한다(fail-closed).
-  let blocked: boolean;
   try {
-    blocked = await deps.store.hasBlockedIntent(ownerKey, profileId);
+    if (await deps.store.hasBlockedIntent(ownerKey, profileId)) {
+      await recordIntentState(deps, mutationId, "blockedConflict", ctx, log);
+      log("info", "[2/3] 미해소 충돌이 있어 전송 보류 — 사용자 선택 대기", ctx);
+      return { status: "blockedByConflict", intent: { ...intent, state: "blockedConflict" } };
+    }
   } catch (cause) {
-    log("error", "[2/3] 차단 상태 조회 실패 — 전송 보류(fail-closed)", { ...ctx, cause: String(cause) });
-    blocked = true;
-  }
-  if (blocked) {
-    await recordIntentState(deps, mutationId, "blockedConflict", ctx, log);
-    log("info", "[2/3] 미해소 충돌이 있어 전송 보류 — 사용자 선택 대기", ctx);
-    return { status: "blockedByConflict", intent: { ...intent, state: "blockedConflict" } };
+    // 일시적 조회 실패를 실제 충돌로 기록하면(= blockedConflict) 해소용 remote payload 도 없이
+    // 그 프로필의 drain 이 영구히 멈춘다. 전송만 보류하고 intent 는 재시도 가능한 pending 으로 둔다.
+    log("error", "[2/3] 차단 상태 조회 실패 — 전송만 보류, intent 는 pending 유지", {
+      ...ctx,
+      cause: String(cause),
+    });
+    return { status: "savedPendingSync", intent };
   }
 
   // 방금 만든 intent 를 곧바로 보내지 않는다. 앞선 저장이 전송 실패로 pending 에 남아 있으면
