@@ -59,6 +59,9 @@ interface StreamData {
 
 type CreateMode = "activity" | "section" | "gpx" | "builder";
 
+/** 라우팅 제공자가 프로필별 경로를 주지 못하는 동안 쓰는 고정값. */
+const BUILDER_ROUTING_PROFILE: CourseRoutingProfile = "road";
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -138,7 +141,6 @@ export default function CreateCoursePage() {
   const [builderRoute, setBuilderRoute] = useState<CourseRoutingResult | null>(null);
   const [routing, setRouting] = useState(false);
   const [builderError, setBuilderError] = useState<string | null>(null);
-  const [builderProfile, setBuilderProfile] = useState<CourseRoutingProfile>("road");
   const [avoidHighways, setAvoidHighways] = useState(true);
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
@@ -374,7 +376,7 @@ export default function CreateCoursePage() {
   const isFormValid = name.length >= 2 && name.length <= 50 && rangeValidation.length === 0;
   const rangeChanged = streams?.latlng ? rangeStart !== 0 || rangeEnd !== streams.latlng.length - 1 : false;
   const isDirty = !createdCourseId && (
-    mode !== initialMode || builderPoints.length > 0 || builderProfile !== "road" || !avoidHighways ||
+    mode !== initialMode || builderPoints.length > 0 || !avoidHighways ||
     Boolean(name.trim()) ||
     Boolean(description.trim()) ||
     Boolean(surface) ||
@@ -399,7 +401,10 @@ export default function CreateCoursePage() {
     try {
       const route = await requestCourseRoute(functions, {
         waypoints: builderPoints.map(({ lat, lng }) => ({ lat, lon: lng })),
-        profile: builderProfile,
+        // 라우팅 제공자(OSRM)가 인스턴스당 프로필 하나만 서비스해서 노면별 경로 차이를
+        // 만들지 못한다. 동작하지 않는 선택지를 화면에 두지 않기로 했으므로 고정값을 보낸다.
+        // 프로필별 인스턴스가 생기면 선택 UI 를 되살린다.
+        profile: BUILDER_ROUTING_PROFILE,
         avoidHighways,
       });
       if (requestId === routeRequestRef.current) setBuilderRoute(route);
@@ -807,14 +812,6 @@ export default function CreateCoursePage() {
       {mode === "builder" && (
         <Card padding="none" className="p-4 space-y-4">
           <div><h2 className="font-semibold">{t("builder.title")}</h2><p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">{t("builder.description", { max: MAX_BUILDER_WAYPOINTS })}</p></div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <fieldset>
-              <legend className="mb-2 text-[length:var(--fs-sm)] font-medium">{t("builder.profile")}</legend>
-              <div className="flex flex-wrap gap-2">
-                {(["road", "gravel", "mtb", "city"] as const).map((profile) => <button key={profile} type="button" role="radio" aria-checked={builderProfile === profile} className={`ds-btn ds-btn--md ${builderProfile === profile ? "bg-[var(--lime)] text-[var(--bg-0)]" : ""}`} onClick={() => { setBuilderProfile(profile); invalidateBuilderRoute(); }}>{t(`builder.profile.${profile}`)}</button>)}
-              </div>
-            </fieldset>
-          </div>
           <label className="flex min-h-11 items-center gap-3 text-[length:var(--fs-sm)]">
             <input type="checkbox" checked={avoidHighways} onChange={(event) => { setAvoidHighways(event.target.checked); invalidateBuilderRoute(); }} className="h-5 w-5 accent-[var(--lime)]" />
             {t("builder.avoidHighways")}
