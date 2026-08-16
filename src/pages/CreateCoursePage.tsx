@@ -21,11 +21,20 @@ import { MAX_BUILDER_WAYPOINTS, tryAddWaypoint, undoWaypoint, type Waypoint } fr
 import {
   CourseRoutingError,
   requestCourseRoute,
+  routeHasElevation,
   type CourseRoutingProfile,
   type CourseRoutingResult,
 } from "../services/courseRouting";
 import { downloadGpx, routeToGpx } from "../utils/routeGpx";
-import { computeStatsFromStreams, parseGpx, parseGpxName, type ParsedGpx } from "../features/courseEngine";
+import {
+  buildElevationProfile,
+  computeStatsFromStreams,
+  computeTrackStats,
+  parseGpx,
+  parseGpxName,
+  toElevationChartData,
+  type ParsedGpx,
+} from "../features/courseEngine";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -305,12 +314,34 @@ export default function CreateCoursePage() {
     return computeStats(streams.altitude, streams.distance);
   }, [mode, streams]);
 
-  const builderStats = useMemo(() => builderRoute ? {
-    distance: Math.round(builderRoute.distanceM),
-    elevationGain: Math.round(builderRoute.ascentM ?? 0),
-    avgGrade: 0,
-    maxGrade: 0,
-  } : null, [builderRoute]);
+  // 고도가 실제로 들어 있는가 — 저장 가능 여부와 경사 통계 노출을 함께 결정한다.
+  const builderRouteHasElevation = useMemo(
+    () => (builderRoute ? routeHasElevation(builderRoute) : false),
+    [builderRoute],
+  );
+
+  const builderStats = useMemo(() => {
+    if (!builderRoute) return null;
+    // 거리·획득고도는 라우팅 제공자 값을 그대로 쓴다(재계산 값과 섞으면 표시가 어긋난다).
+    // 경사는 고도 표본이 있을 때만 계산한다.
+    const base = {
+      distance: Math.round(builderRoute.distanceM),
+      elevationGain: Math.round(builderRoute.ascentM ?? 0),
+      avgGrade: 0,
+      maxGrade: 0,
+    };
+    if (!builderRouteHasElevation) return base;
+    const points = builderRoute.geometry.coordinates.map(([lon, lat, ele]) => ({ lat, lon, ele: ele ?? 0 }));
+    const stats = computeTrackStats(points);
+    return { ...base, avgGrade: stats.avgGradePct, maxGrade: stats.maxGradePct };
+  }, [builderRoute, builderRouteHasElevation]);
+
+  // 빌더 고도 프로필 — 봉우리를 보존해 축약한다.
+  const builderProfileData = useMemo(() => {
+    if (!builderRoute || !builderRouteHasElevation) return [];
+    const points = builderRoute.geometry.coordinates.map(([lon, lat, ele]) => ({ lat, lon, ele: ele ?? 0 }));
+    return toElevationChartData(buildElevationProfile(points));
+  }, [builderRoute, builderRouteHasElevation]);
   const currentStats = mode === "section"
     ? sectionStats
     : mode === "activity"
@@ -421,10 +452,13 @@ export default function CreateCoursePage() {
 
   // ── Submit ──
   const handleSubmit = async () => {
-    // routeCourse currently returns a 2D LineString plus aggregate ascent only.
-    // Saving that geometry through createCourseFromGpx would turn every missing
-    // elevation sample into zero and permanently corrupt course/climb stats.
-    if (mode === "builder") { setSubmitError(t("builder.saveDisabled")); return; }
+    // 빌더 경로는 고도가 실제로 들어 있을 때만 저장한다. 계약 버전을 올리지 않았으므로
+    // 배포 후에도 최대 24시간 동안 캐시에 남은 옛 2D 응답이 올 수 있는데, 그대로 저장하면
+    // 고도 표본이 전부 0 이 되어 코스·클라이밍 통계가 영구히 오염된다.
+    if (mode === "builder" && !builderRouteHasElevation) {
+      setSubmitError(t("builder.saveNeedsElevation"));
+      return;
+    }
     if (!isFormValid || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
@@ -458,6 +492,16 @@ export default function CreateCoursePage() {
           activityId: selectedActivity.id,
           startIndex: lowIdx,
           endIndex: highIdx,
+          name,
+          description,
+          surface: surface || null,
+          difficulty,
+        });
+        result = res.data;
+      } else if (mode === "builder" && builderRoute) {
+        const fn = httpsCallable<unknown, { courseId: string }>(functions, "createCourseFromGpx");
+        const res = await fn({
+          gpxXml: routeToGpx(name, builderRoute.geometry.coordinates),
           name,
           description,
           surface: surface || null,
@@ -823,6 +867,17 @@ export default function CreateCoursePage() {
           <div role={builderError ? "alert" : "status"} aria-live="polite" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">
             {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distanceM / 1000).toFixed(1), minutes: Math.round(builderRoute.durationSeconds / 60), ascent: Math.round(builderRoute.ascentM ?? 0) }) : t("builder.pointCount", { count: builderPoints.length, max: builderKind === "loop" ? 1 : MAX_BUILDER_WAYPOINTS }))}
           </div>
+          {builderRoute && (builderProfileData.length > 0 ? (
+            <div>
+              <div className="mb-1 text-[length:var(--fs-sm)] font-medium">{t("builder.elevationProfile")}</div>
+              <ElevationChart data={builderProfileData} height={160} />
+              <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{t("builder.elevationEstimated")}</p>
+            </div>
+          ) : (
+            <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]" role="status">
+              {t("builder.elevationMissing")}
+            </p>
+          ))}
           {builderRoute?.surfaceSummary && builderRoute.surfaceSummary.length > 0 && <div aria-label={t("builder.surfaceSummary")}>
             <div className="mb-1 text-[length:var(--fs-sm)] font-medium">{t("builder.surfaceSummary")}</div>
             <div className="flex h-3 overflow-hidden rounded-full bg-[var(--bg-2)]">{builderRoute.surfaceSummary.map((item, index) => <span key={`${item.surface}-${index}`} title={`${item.surface} ${(item.distanceM / 1000).toFixed(1)}km`} className="h-full bg-[var(--lime)] opacity-[var(--surface-opacity)]" style={{ width: `${Math.max(1, item.distanceM / builderRoute.distanceM * 100)}%`, "--surface-opacity": String(Math.max(0.35, 1 - index * 0.15)) } as CSSProperties} />)}</div>
@@ -928,7 +983,7 @@ export default function CreateCoursePage() {
               <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] font-medium mb-2">
                 {mode === "section" ? t("creation.sectionStats") : t("creation.courseStats")}
               </div>
-              <StatsPanel stats={currentStats} hideGrades={mode === "builder"} />
+              <StatsPanel stats={currentStats} hideGrades={mode === "builder" && !builderRouteHasElevation} />
 
               {/* Errors */}
               {rangeValidation.length > 0 && (
@@ -946,14 +1001,14 @@ export default function CreateCoursePage() {
 
               {/* Submit */}
               <div className="mt-auto pt-3 border-t border-[var(--line-soft)] mt-3">
-                {mode === "builder" && (
+                {mode === "builder" && !builderRouteHasElevation && (
                   <p className="mb-2 text-[length:var(--fs-xs)] text-[var(--ink-2)]" role="status">
-                    {t("builder.saveDisabled")}
+                    {t("builder.saveNeedsElevation")}
                   </p>
                 )}
                 <button
                   onClick={handleSubmit}
-                  disabled={mode === "builder" || !isFormValid || submitting}
+                  disabled={(mode === "builder" && !builderRouteHasElevation) || !isFormValid || submitting}
                   className="w-full py-3 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-base)] font-semibold rounded-[var(--r-lg)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? (

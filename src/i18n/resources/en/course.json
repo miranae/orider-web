@@ -244,7 +244,6 @@
   "builder.retry": "Try again",
   "builder.routing": "Calculating…",
   "builder.export": "Export GPX",
-  "builder.saveDisabled": "Until elevation data can be preserved safely, export map-built routes as GPX instead of saving them here.",
   "builder.pointCount": "Waypoints {{count}}/{{max}}",
   "builder.stats": "{{distance}}km · about {{minutes}} min · {{ascent}}m ascent",
   "builder.surfaceSummary": "Surface mix",
@@ -255,5 +254,9 @@
   "builder.error.TIMEOUT": "Route calculation timed out. Try again.",
   "builder.error.UPSTREAM_UNAVAILABLE": "The routing service is temporarily unavailable.",
   "builder.error.UPSTREAM_REJECTED": "The routing service could not process this request.",
-  "builder.error.INVALID_RESPONSE": "The route response could not be verified safely."
+  "builder.error.INVALID_RESPONSE": "The route response could not be verified safely.",
+  "builder.saveNeedsElevation": "This route has no elevation data and cannot be saved. Please recalculate the route in a moment.",
+  "builder.elevationProfile": "Elevation profile",
+  "builder.elevationEstimated": "Elevation is a routing estimate. It is replaced by measured data after you ride.",
+  "builder.elevationMissing": "This route has no elevation data."
 }
