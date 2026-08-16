@@ -28,9 +28,21 @@ import {
 } from "chart.js";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { isEventHost } from "../../features/event/eventHost";
-import { haversine, parseGpxFull, type CourseData } from "../../features/event/detail/courseGpx";
+import { parseGpxFull, type CourseData } from "../../features/event/detail/courseGpx";
 import type { EventDetail, RecentParticipant } from "../../features/event/detail/eventDetailTypes";
-import { classifyLane, LANE_DEFS, LANE_ORDER, type WpLane } from "../../features/event/detail/waypointLanes";
+import {
+  buildElevationProfile,
+  classifyLane,
+  cumulativeDistances,
+  haversineMeters as haversine,
+  isProfileMarkerLane,
+  laneLabelKey,
+  lanesForContext,
+  readLaneColor,
+  resolveWaypointsOnTrack,
+  LANE_DEFS,
+  type WpLane,
+} from "../../features/courseEngine";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { buildEventIcs, downloadIcsFile, icsFileName } from "../../features/event/detail/generateIcs";
@@ -61,12 +73,15 @@ export default function EventDetailPage() {
   const { user } = useAuth();
   const dialog = useDialog();
 
-  const LANE_META: Record<WpLane, { label: string; color: string; icon: string }> = {
-    KOM: { label: t(LANE_DEFS.KOM.labelKey), color: LANE_DEFS.KOM.color, icon: LANE_DEFS.KOM.icon },
-    AID: { label: t(LANE_DEFS.AID.labelKey), color: LANE_DEFS.AID.color, icon: LANE_DEFS.AID.icon },
-    CUT: { label: t(LANE_DEFS.CUT.labelKey), color: LANE_DEFS.CUT.color, icon: LANE_DEFS.CUT.icon },
-    SEG: { label: t(LANE_DEFS.SEG.labelKey), color: LANE_DEFS.SEG.color, icon: LANE_DEFS.SEG.icon },
-  };
+  // 이벤트 상세는 대회 문맥 — 컷오프를 포함한 4레인을 쓰고, 보급은 "보급"으로 부른다.
+  const LANE_ORDER = lanesForContext("event");
+  const LANE_META = Object.fromEntries(
+    (Object.keys(LANE_DEFS) as WpLane[]).map((lane) => [lane, {
+      label: t(laneLabelKey(lane, "event")),
+      color: LANE_DEFS[lane].color,
+      icon: LANE_DEFS[lane].icon,
+    }]),
+  ) as Record<WpLane, { label: string; color: string; icon: string }>;
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [isParticipant, setIsParticipant] = useState(false);
@@ -374,52 +389,35 @@ export default function EventDetailPage() {
 
   const courseData = courseDataMap[selectedCourseIdx] || null;
 
-  // 웨이포인트 거리 계산 — 조기 반환 위에서 호출해야 hooks 순서 유지
+  // 웨이포인트 거리 계산 — 조기 반환 위에서 호출해야 hooks 순서 유지.
+  // 투영·정렬은 코스엔진이 담당한다(GPX 파일의 wpt 는 파일 내 순서가 코스 순서와 무관해
+  // ordered 를 켜지 않고, 결과를 거리순으로 정렬한 것을 그대로 쓴다).
   const waypointRows = useMemo(() => {
     if (!courseData || courseData.waypoints.length === 0) return [];
-    const rows = courseData.waypoints.map((w) => {
-      let minD = Infinity;
-      let minIdx = 0;
-      for (let pi = 0; pi < courseData.points.length; pi++) {
-        const p = courseData.points[pi]!;
-        const d = haversine(w.lat, w.lon, p.lat, p.lon);
-        if (d < minD) {
-          minD = d;
-          minIdx = pi;
-        }
-      }
-      let cum = 0;
-      for (let j = 1; j <= minIdx; j++) {
-        const a = courseData.points[j - 1]!;
-        const b = courseData.points[j]!;
-        cum += haversine(a.lat, a.lon, b.lat, b.lon);
-      }
-      return { name: w.name, km: cum / 1000, ele: Math.round(w.ele), lane: classifyLane(w) };
-    });
-    rows.sort((a, b) => a.km - b.km);
-    return rows;
+    const cumulative = cumulativeDistances(courseData.points);
+    return resolveWaypointsOnTrack(courseData.waypoints, courseData.points, cumulative).map((item) => ({
+      name: item.waypoint.name,
+      km: item.distanceFromStartM / 1000,
+      ele: Math.round(item.waypoint.ele),
+      lane: classifyLane(item.waypoint),
+    }));
   }, [courseData]);
 
   // ── Elevation chart ──
   const elevationChart = courseData
     ? (() => {
-        const step = Math.max(1, Math.floor(courseData.points.length / 300));
-        const sampled = courseData.points.filter((_, i) => i % step === 0);
-        let cumDist = 0;
-        const distances: number[] = [0];
-        for (let i = 1; i < sampled.length; i++) {
-          const prev = sampled[i - 1]!;
-          const cur = sampled[i]!;
-          cumDist += haversine(prev.lat, prev.lon, cur.lat, cur.lon);
-          distances.push(cumDist);
-        }
-        const totalDist = cumDist;
+        // 축약은 코스엔진이 담당한다. 예전의 등간격 추출은 표본 사이에 낀 봉우리·골짜기를
+        // 그대로 잘라내서, 정상이 프로필에서 사라지는 왜곡이 있었다.
+        const profile = buildElevationProfile(courseData.points, 300);
+        const sampled = profile.map((sample) => courseData.points[sample.sourceIndex]!);
+        const distances = profile.map((sample) => sample.distanceM);
+        const totalDist = distances[distances.length - 1] ?? 0;
 
         // Calculate waypoint positions on the chart
         // Find nearest sampled point index for each important waypoint
-        const importantWps = courseData.waypoints.filter(
-          (w) => w.type.toUpperCase() === "FOOD" || w.name.includes("정상") || w.name.includes("컷") || w.name.includes("콤")
-        );
+        // 분류는 표·지도와 같은 코스엔진 분류기를 쓴다. 예전에는 여기만 "콤"을 찾고 표는 "KOM"을
+        // 찾아, 같은 지점이 표에는 나오고 차트에는 빠지는 불일치가 있었다.
+        const importantWps = courseData.waypoints.filter((w) => isProfileMarkerLane(classifyLane(w)));
         const wpData: (number | null)[] = new Array(sampled.length).fill(null);
         const wpLabels: (string | null)[] = new Array(sampled.length).fill(null);
         const wpShowLabel: boolean[] = new Array(sampled.length).fill(false);
@@ -427,7 +425,7 @@ export default function EventDetailPage() {
         const wpSymbols: string[] = new Array(sampled.length).fill("circle");
 
         // Collected waypoint info for the legend below the chart
-        const wpLegendItems: { icon: string; name: string; distKm: string; ele: number; color: string; lat: number; lon: number; chartIdx: number }[] = [];
+        const wpLegendItems: { icon: string; name: string; distKm: string; ele: number; color: string; lat: number; lon: number; chartIdx: number; lane: WpLane }[] = [];
 
         const usedIndices = new Set<number>();
         for (const wp of importantWps) {
@@ -446,15 +444,13 @@ export default function EventDetailPage() {
           usedIndices.add(idx);
 
           wpData[idx] = sampled[idx]!.ele;
-          const isFoodWp = wp.type.toUpperCase() === "FOOD";
-          const isSummit = wp.name.includes("정상");
-          const isCutoff = wp.name.includes("컷");
-          const isKom = wp.name.includes("콤");
-          const icon = isFoodWp ? "🍌" : isSummit ? "⛰️" : isCutoff ? "⏱️" : isKom ? "🏔️" : "📍";
-          const color = isFoodWp ? "#eab308" : isSummit ? "#16a34a" : isCutoff ? "#ef4444" : "#6366f1";
-          const symbol = isSummit ? "triangle" : isCutoff ? "rectRot" : isKom ? "star" : "circle";
+          const lane = classifyLane(wp);
+          const icon = LANE_DEFS[lane].icon;
+          // 캔버스는 CSS 변수를 못 읽으므로 토큰을 실제 값으로 읽어 넘긴다(하드코딩 hex 대체).
+          const color = readLaneColor(lane);
+          const symbol = lane === "KOM" ? "triangle" : lane === "CUT" ? "rectRot" : lane === "AID" ? "circle" : "star";
           wpLabels[idx] = `${icon} ${wp.name}`;
-          wpShowLabel[idx] = isCutoff || isKom || isSummit;
+          wpShowLabel[idx] = lane !== "AID";
           wpColors[idx] = color;
           wpSymbols[idx] = symbol;
           wpLegendItems.push({
@@ -466,6 +462,7 @@ export default function EventDetailPage() {
             lat: wp.lat,
             lon: wp.lon,
             chartIdx: idx,
+            lane,
           });
         }
 
@@ -908,9 +905,8 @@ export default function EventDetailPage() {
               {elevationChart.wpLegendItems.length > 0 && (() => {
                 const items = elevationChart.wpLegendItems;
                 const total = elevationChart.totalDist;
-                const laneOrder = ["⛰️", "🍌", "⏱️", "🏔️📍"];
-                const laneLabel: Record<string, string> = { "⛰️": t("detail.lane.kom"), "🍌": t("detail.lane.aid"), "⏱️": t("detail.lane.cut"), "🏔️📍": t("detail.lane.seg") };
-                const getLane = (icon: string) => icon.includes("⛰") ? "⛰️" : icon.includes("🍌") ? "🍌" : icon.includes("⏱") ? "⏱️" : "🏔️📍";
+                // 레인은 아이콘 문자열이 아니라 코스엔진 분류 결과로 나눈다.
+                const laneOrder = LANE_ORDER;
                 const laneH = 34;
                 const connectorH = 12;
                 return (
@@ -925,12 +921,12 @@ export default function EventDetailPage() {
                       })}
                     </svg>
                     {laneOrder.map((lane, li) => {
-                      const laneItems = items.filter((it) => getLane(it.icon) === lane);
+                      const laneItems = items.filter((it) => it.lane === lane);
                       if (laneItems.length === 0) return null;
                       return (
                         <div key={lane} className="relative" style={{ height: laneH }}>
                           <div className="absolute left-0 text-[length:var(--fs-xs)] font-bold" style={{ top: 4, transform: "translateX(-100%)", paddingRight: 6, whiteSpace: "nowrap", color: "var(--ink-3)" }}>
-                            {laneLabel[lane]}
+                            {LANE_META[lane].label}
                           </div>
                           <svg className="absolute inset-0 w-full" style={{ height: laneH }}>
                             <line x1="0" y1={laneH / 2} x2="100%" y2={laneH / 2} stroke="var(--line-soft)" strokeWidth="1" />
