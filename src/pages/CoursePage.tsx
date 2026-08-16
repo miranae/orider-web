@@ -476,6 +476,8 @@ export default function CoursePage() {
     setSelectedWaypoint(null);
     setHoveredWaypoint(null);
     cancelFlyTimer();
+    // 남아 있던 이전 코스 좌표가 새 지도에 전달되면 엉뚱한 위치로 날아간다.
+    setFlyToPosition(null);
   }, [courseId, cancelFlyTimer]);
 
   const activeWaypointIndex = selectedWaypoint ?? hoveredWaypoint;
