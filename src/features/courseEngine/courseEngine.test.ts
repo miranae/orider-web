@@ -204,16 +204,19 @@ describe("resolveWaypointsOnTrack", () => {
     expect(resolved[1]!.distanceFromStartM).toBeCloseTo(cumulative[3]!, 5);
   });
 
-  it("경유지가 트랙 점보다 많아도 인덱스가 뒤로 밀리지 않는다", () => {
-    const short = track([37.500, 127.0, 0], [37.501, 127.0, 10]);
-    const cumulative = cumulativeDistances(short);
+  it("같은 위치의 경유지 여럿은 같은 점에 투영된다 — 억지로 뒤로 밀지 않는다", () => {
+    // 쉼터 하나에 카페·화장실이 같이 있는 경우. 다음 트랙 점이 100m 넘게 떨어진
+    // 희소한 트랙에서 억지로 전진시키면 거리·구간 고도가 크게 왜곡된다.
+    const sparse = track([37.500, 127.0, 0], [37.501, 127.0, 10]);
+    const cumulative = cumulativeDistances(sparse);
     const resolved = resolveWaypointsOnTrack(
       [{ lat: 37.5, lon: 127.0 }, { lat: 37.5, lon: 127.0 }, { lat: 37.5, lon: 127.0 }],
-      short,
+      sparse,
       cumulative,
       { ordered: true },
     );
-    expect(resolved.map((item) => item.trackIndex)).toEqual([0, 1, 1]);
+    expect(resolved.map((item) => item.trackIndex)).toEqual([0, 0, 0]);
+    expect(resolved.every((item) => item.distanceFromStartM === 0)).toBe(true);
   });
 
   it("순서를 신뢰할 수 없는 입력은 거리순으로 정렬한다", () => {

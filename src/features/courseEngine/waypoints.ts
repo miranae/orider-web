@@ -42,6 +42,12 @@ export interface CourseWaypoint extends LatLonPoint {
   ele: number;
 }
 
+/**
+ * 순환 코스 닫힘 판정에 쓰는 거리(m). 두 후보가 모두 이 안쪽이면 "둘 다 트랙 위"로 보고
+ * 뒤쪽을 택한다. 이보다 멀면 원래 점에 남는다.
+ */
+const LOOP_CLOSURE_TOLERANCE_M = 25;
+
 /** 찍은 곳에서 이 거리 이상 스냅되면 사용자에게 알린다(m). */
 export const SNAP_HINT_THRESHOLD_M = 50;
 
@@ -85,14 +91,30 @@ export function resolveWaypointsOnTrack<T extends LatLonPoint>(
   if (track.length === 0) return [];
 
   const lastIndex = track.length - 1;
-  let searchFrom = 0;
+  let previousIndex: number | null = null;
   const resolved = waypoints.map((waypoint) => {
-    // 다음 경유지는 반드시 **이전보다 뒤에서** 찾는다. 같은 인덱스부터 다시 찾으면 시작점과
-    // 도착점 좌표가 같은 순환 코스에서 도착점이 인덱스 0 에 붙어 전체 거리가 0 이 된다.
-    const from = ordered ? Math.min(searchFrom, lastIndex) : 0;
-    const { index, distanceM } = nearestPointIndex(track, waypoint, from);
+    const from = ordered && previousIndex !== null ? previousIndex : 0;
+    let best = nearestPointIndex(track, waypoint, from);
+
+    // 인덱스는 비감소만 강제한다 — 같은 위치의 POI 둘(쉼터의 카페와 화장실)이나 희소한
+    // 트랙에서는 여러 경유지가 같은 점에 투영되는 것이 정상이다.
+    //
+    // 예외는 순환 코스의 닫힘이다. 시작·도착 좌표가 같으면 도착점도 인덱스 0 에 붙어 전체
+    // 거리가 0 이 된다. 직전과 같은 점에 붙었는데 **뒤쪽에도 트랙 위라 할 만큼 가까운 점이
+    // 있다면** 그쪽을 택한다. 두 후보가 모두 트랙에 붙어 있을 때만 적용하므로, 다음 점이
+    // 멀리 있는 희소 트랙에서는 원래 점에 그대로 남는다.
+    if (ordered && previousIndex !== null && best.index === previousIndex && previousIndex < lastIndex) {
+      const later = nearestPointIndex(track, waypoint, previousIndex + 1);
+      if (later.index >= 0
+          && later.distanceM <= LOOP_CLOSURE_TOLERANCE_M
+          && best.distanceM <= LOOP_CLOSURE_TOLERANCE_M) {
+        best = later;
+      }
+    }
+
+    const { index, distanceM } = best;
     const trackIndex = index < 0 ? lastIndex : index;
-    if (ordered) searchFrom = trackIndex + 1;
+    if (ordered) previousIndex = trackIndex;
     return {
       waypoint,
       trackIndex,
