@@ -42,12 +42,6 @@ export interface CourseWaypoint extends LatLonPoint {
   ele: number;
 }
 
-/**
- * 순환 코스 닫힘 판정에 쓰는 거리(m). 두 후보가 모두 이 안쪽이면 "둘 다 트랙 위"로 보고
- * 뒤쪽을 택한다. 이보다 멀면 원래 점에 남는다.
- */
-const LOOP_CLOSURE_TOLERANCE_M = 25;
-
 /** 찍은 곳에서 이 거리 이상 스냅되면 사용자에게 알린다(m). */
 export const SNAP_HINT_THRESHOLD_M = 50;
 
@@ -77,45 +71,41 @@ export interface ResolvedWaypoint<T> {
 /**
  * 경유지들을 트랙에 투영해 시작점 기준 거리를 구한다.
  *
- * `ordered` 가 true 면 경유지가 경로 순서를 따른다고 보고 탐색 시작 인덱스를 전진시킨다.
- * 왕복·순환 코스에서 되돌아오는 구간의 좌표가 거의 같아 전역 최근접 탐색이 인덱스를 역전시키는
- * 문제를 막는다. 순서를 신뢰할 수 없는 입력(GPX 파일의 `<wpt>` 는 파일 내 순서가 코스 순서와
- * 무관할 수 있다)에서는 false 로 두고 결과를 거리순으로 정렬한다.
+ * `ordered` 가 true 면 경유지가 경로 순서를 따른다고 보고 인덱스를 **비감소**로 제한한다.
+ * 왕복·순환 코스에서 되돌아오는 구간의 좌표가 거의 같아 전역 최근접 탐색이 인덱스를
+ * 역전시키는 문제를 막는다. 같은 자리의 POI 여럿(쉼터의 카페와 화장실)이 같은 점에
+ * 투영되는 것은 정상이므로 억지로 전진시키지 않는다.
+ *
+ * 순서를 신뢰할 수 없는 입력(GPX 파일의 `<wpt>` 는 파일 내 순서가 코스 순서와 무관하다)에서는
+ * false 로 두고 결과를 거리순으로 정렬한다.
+ *
+ * `lastIsDestination` 은 **마지막 경유지가 코스의 도착점**임을 호출자가 아는 경우에만 켠다
+ * (예: 경로 빌더의 출발–경유–도착 제어점). 순환 코스는 출발점과 도착점 좌표가 같아서
+ * 도착점도 인덱스 0 에 붙고 전체 거리가 0 이 되는데, 이 신호가 있어야 끝 인덱스로 옮길 수
+ * 있다. 데이터만 보고는 "도착점"과 "출발지에 함께 있는 마지막 POI" 를 구분할 수 없으므로
+ * 추측하지 않는다.
  */
 export function resolveWaypointsOnTrack<T extends LatLonPoint>(
   waypoints: readonly T[],
   track: readonly TrackPoint[],
   cumulativeDistanceM: readonly number[],
-  { ordered = false }: { ordered?: boolean } = {},
+  { ordered = false, lastIsDestination = false }: { ordered?: boolean; lastIsDestination?: boolean } = {},
 ): ResolvedWaypoint<T>[] {
   if (track.length === 0) return [];
 
   const lastIndex = track.length - 1;
-  // 트랙이 실제로 닫혀 있는가(출발점과 끝점이 같은 자리인가).
-  const isClosedLoop = track.length > 2
-    && haversineMeters(track[0]!.lat, track[0]!.lon, track[lastIndex]!.lat, track[lastIndex]!.lon)
-      <= LOOP_CLOSURE_TOLERANCE_M;
-
   let previousIndex: number | null = null;
   const resolved = waypoints.map((waypoint, order) => {
     const from = ordered && previousIndex !== null ? previousIndex : 0;
     let best = nearestPointIndex(track, waypoint, from);
 
-    // 인덱스는 비감소만 강제한다 — 같은 위치의 POI 둘(쉼터의 카페와 화장실)이나 희소한
-    // 트랙에서는 여러 경유지가 같은 점에 투영되는 것이 정상이다.
-    //
-    // 예외는 순환 코스의 닫힘 하나뿐이다. 시작·도착 좌표가 같으면 도착 경유지도 인덱스 0 에
-    // 붙어 전체 거리가 0 이 된다. 그래서 **마지막 경유지**가 **실제로 닫힌 트랙**의 폐합점에
-    // 놓였을 때만 끝 인덱스로 옮긴다. 중간 경유지나 열린 코스는 건드리지 않으므로, 촘촘한
-    // 트랙에서 같은 자리의 POI 가 뒤로 밀리는 일이 없다.
-    if (ordered && isClosedLoop && order === waypoints.length - 1
+    // 도착점이 출발점과 같은 자리라 인덱스 0 에 붙은 경우에만 끝으로 옮긴다.
+    if (ordered && lastIsDestination && order === waypoints.length - 1
         && previousIndex !== null && best.index === previousIndex && previousIndex < lastIndex) {
-      const distanceToClosure = haversineMeters(
-        waypoint.lat, waypoint.lon, track[lastIndex]!.lat, track[lastIndex]!.lon,
-      );
-      if (distanceToClosure <= LOOP_CLOSURE_TOLERANCE_M) {
-        best = { index: lastIndex, distanceM: distanceToClosure };
-      }
+      best = {
+        index: lastIndex,
+        distanceM: haversineMeters(waypoint.lat, waypoint.lon, track[lastIndex]!.lat, track[lastIndex]!.lon),
+      };
     }
 
     const { index, distanceM } = best;
