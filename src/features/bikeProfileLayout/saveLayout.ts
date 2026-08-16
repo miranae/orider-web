@@ -151,6 +151,16 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
     log("error", "[0/3] canonical v1 규칙 위반 — 아무 것도 쓰지 않음", { ownerKey, profileId, reasons });
     return { status: "invalidPayload", reasons };
   }
+  // 인코딩을 거친 **파싱 결과**로 대상을 한 번 더 확인한다. 인코딩 전 객체만 보면, 어떤 경로로든
+  // payload 안의 프로필이 달라졌을 때 로컬 head 키와 payload 내용이 어긋난 채 저장된다.
+  if (parsed.layout.profileId !== profileId) {
+    log("error", "[0/3] 인코딩 후 대상 프로필 불일치 — 아무 것도 쓰지 않음", {
+      ownerKey,
+      expected: profileId,
+      actual: parsed.layout.profileId,
+    });
+    return { status: "invalidTarget", expected: profileId, actual: parsed.layout.profileId };
+  }
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
     const reasons = [`expectedRevision=${String(expectedRevision)}`];
     log("error", "[0/3] expectedRevision 이 0 이상 정수가 아님 — 아무 것도 쓰지 않음", {

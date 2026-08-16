@@ -95,6 +95,22 @@ describe("canonical layout encoding", () => {
     expect(encodeCanonicalLayout(decoded)).toContain('"__proto__":{"a":1}');
   });
 
+  it("never re-emits a reserved key from unknownKeys", () => {
+    // 그대로 붙이면 JSON 에 중복 키가 생기고 `JSON.parse` 가 마지막 값을 채택해, 검증한 profileId 와
+    // 다른 payload 가 저장·전송된다.
+    const forged: CanonicalLayout = {
+      ...golden,
+      unknownKeys: { profileId: "hijacked", sport: "RUNNING", zNote: "keep" },
+    };
+    const encoded = encodeCanonicalLayout(forged);
+
+    expect(encoded.match(/"profileId":/gu)).toHaveLength(1);
+    expect(encoded).toContain('"profileId":"profile-1"');
+    expect(encoded).not.toContain("hijacked");
+    expect(encoded).toContain('"zNote":"keep"');
+    expect(layoutOf(encoded).profileId).toBe("profile-1");
+  });
+
   it("round-trips unknown field types as opaque placements", () => {
     const raw =
       '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":2,' +

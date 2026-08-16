@@ -336,6 +336,10 @@ export function encodeCanonicalLayout(layout: CanonicalLayout): string {
     `"pages":[${normalized.pages.map(encodePage).join(",")}]`,
   ];
   for (const key of Object.keys(normalized.unknownKeys).sort()) {
+    // 예약 키는 절대 다시 쓰지 않는다. 그대로 붙이면 JSON 에 **중복 키**가 생기고, `JSON.parse` 가
+    // 마지막 값을 채택해 우리가 검증한 profileId/sport 와 다른 payload 가 저장·전송된다.
+    // (`parseCanonicalLayout` 은 예약 키를 unknownKeys 에 넣지 않지만, 손으로 만든 객체는 그럴 수 있다.)
+    if (KNOWN_TOP_LEVEL_KEYS.has(key)) continue;
     parts.push(`${JSON.stringify(key)}:${encodeUnknown(normalized.unknownKeys[key])}`);
   }
   return `{${parts.join(",")}}`;
