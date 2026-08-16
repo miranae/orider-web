@@ -51,8 +51,11 @@ export type SaveLayoutResult =
 export type LayoutLocalStore = {
   /** head 와 intent 를 **한 트랜잭션**에 커밋한다. 하나라도 실패하면 둘 다 롤백돼야 한다. */
   commitHeadAndIntent: (head: LayoutHeadRecord, intent: LayoutIntentRecord) => Promise<void>;
-  readHead: (ownerKey: string, profileId: string) => Promise<LayoutHeadRecord | null>;
-  putHead: (head: LayoutHeadRecord) => Promise<void>;
+  /**
+   * head 가 아직 `expectedPayloadHash` 일 때만 갱신하는 **원자** 연산.
+   * 읽기와 쓰기를 나누면 그 사이 새 저장이 끼어들어 최신 draft 가 덮인다(TOCTOU).
+   */
+  putHeadIfUnchanged: (head: LayoutHeadRecord, expectedPayloadHash: string) => Promise<boolean>;
   updateIntentState: (mutationId: string, state: LayoutIntentState) => Promise<void>;
   removeIntent: (mutationId: string) => Promise<void>;
 };
@@ -63,6 +66,14 @@ export type SaveLayoutDeps = {
   newMutationId: () => string;
   nowMs: () => number;
   installIdHash?: string;
+  /**
+   * owner 단위 전송 직렬화.
+   *
+   * drain 끼리만 막으면 부족하다 — 시작 시 기존 intent A 를 보내는 중에 새 편집 B 가 즉시 전송되면
+   * B 가 A 보다 먼저 도착하거나, A 의 충돌 판정 전에 B 의 CAS 가 통과해 **사용자의 충돌 선택 없이**
+   * 원격 구성을 덮어쓴다. 신규 저장과 drain 이 같은 큐를 공유해야 한다.
+   */
+  withOwnerLock: <T>(ownerKey: string, operation: () => Promise<T>) => Promise<T>;
   /**
    * 구조화 진단 로깅. **필수다** — optional 로 두면 `browserSaveDeps` 를 거치지 않는 호출에서
    * IndexedDB/callable 실패가 통째로 무음 스왈로우돼 운영 진단 경로가 사라진다.
@@ -85,7 +96,7 @@ export async function saveBikeProfileLayout(
   input: SaveLayoutInput,
   deps: SaveLayoutDeps,
 ): Promise<SaveLayoutResult> {
-  const { ownerKey, profileId, layout, expectedRevision } = input;
+  const { ownerKey, profileId, layout } = input;
   const log = deps.log;
 
   // 대상과 payload 의 프로필이 어긋난 채 저장하면 **다른 프로필의 로컬 head 가 오염**되고,
@@ -99,6 +110,12 @@ export async function saveBikeProfileLayout(
     return { status: "invalidTarget", expected: profileId, actual: layout.profileId };
   }
 
+  return deps.withOwnerLock(ownerKey, () => commitAndSend(input, deps));
+}
+
+async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Promise<SaveLayoutResult> {
+  const { ownerKey, profileId, layout, expectedRevision } = input;
+  const log = deps.log;
   const canonicalPayload = encodeCanonicalLayout(layout);
   const hash = await payloadHash(canonicalPayload);
   const mutationId = deps.newMutationId();
@@ -190,13 +207,11 @@ export async function transmitIntent(
     case "committed": {
       log("info", "[2/3] call saveBikeProfileLayout — 커밋", { ...ctx, revision: response.revision, replay: response.wasReplay });
       try {
-        // head 가 아직 **이 mutation 의 낙관적 값**일 때만 갱신한다. 그 사이 사용자가 다시 편집했다면
-        // 뒤 intent 가 자기 차례에 head 를 세운다 — 여기서 덮으면 최신 draft 가 사라진 것처럼 보인다.
-        const current = await deps.store.readHead(intent.ownerKey, intent.profileId);
-        if (current && current.payloadHash !== intent.payloadHash) {
-          log("info", "[3/3] 더 새 draft 가 있어 head 갱신 생략 — 뒤 intent 가 확정한다", ctx);
-        } else {
-          await deps.store.putHead({
+        // head 가 아직 **이 mutation 의 낙관적 값**일 때만 갱신한다(한 트랜잭션 안에서 확인+쓰기).
+        // 그 사이 사용자가 다시 편집했다면 뒤 intent 가 자기 차례에 head 를 세운다 —
+        // 여기서 덮으면 최신 draft 가 사라진 것처럼 보인다.
+        const applied = await deps.store.putHeadIfUnchanged(
+          {
             key: headKey(intent.ownerKey, intent.profileId),
             ownerKey: intent.ownerKey,
             profileId: intent.profileId,
@@ -204,8 +219,10 @@ export async function transmitIntent(
             canonicalPayload: intent.canonicalPayload,
             payloadHash: response.payloadHash,
             updatedAtMs: deps.nowMs(),
-          });
-        }
+          },
+          intent.payloadHash,
+        );
+        if (!applied) log("info", "[3/3] 더 새 draft 가 있어 head 갱신 생략 — 뒤 intent 가 확정한다", ctx);
       } catch (cause) {
         // 원격은 커밋됐지만 로컬 반영이 실패했다. intent 를 지우면 재시도 근거가 사라진다.
         // 같은 mutationId 재전송은 revision 을 올리지 않으므로 보존한 채 다시 시도하는 편이 안전하다.

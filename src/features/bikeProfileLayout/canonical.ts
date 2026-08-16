@@ -67,15 +67,22 @@ export type ParseResult =
   | { ok: true; layout: CanonicalLayout }
   | { ok: false; issues: LayoutValidationIssue[] };
 
-/** 문자열 리터럴 밖의 정수 토큰 중 안전 범위를 넘는 게 있는지. */
-function hasUnsafeIntegerLiteral(raw: string): boolean {
-  // 문자열 리터럴을 먼저 지워 본문 속 숫자를 오탐하지 않는다.
+/**
+ * 문자열 리터럴 밖의 **JSON number 토큰**을 통째로 보고, JS number 로 왕복할 수 없는 게 있는지 본다.
+ *
+ * 연속 숫자만 매칭하면 `0.9007199254740993` 의 소수부를 독립 정수로 오인해 멀쩡한 값을 거절하고,
+ * 지수 표기(`9.007199254740993e15`)는 전체 값을 못 봐서 정밀도 손실을 놓친다.
+ */
+function hasUnsafeNumberLiteral(raw: string): boolean {
   const withoutStrings = raw.replace(/"(?:[^"\\]|\\.)*"/gu, '""');
-  for (const match of withoutStrings.matchAll(/-?\d+/gu)) {
+  for (const match of withoutStrings.matchAll(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/gu)) {
     const literal = match[0];
-    // 지수·소수는 애초에 정밀도 계약 대상이 아니다. 정수 토큰만 본다.
-    if (literal.replace("-", "").length < 16) continue;
-    if (!Number.isSafeInteger(Number(literal))) return true;
+    const value = Number(literal);
+    if (!Number.isFinite(value)) return true;
+    // 정수로 평가되는 값만 정밀도 계약 대상이다. 소수는 애초에 double 로 표현된다.
+    if (!Number.isInteger(value)) continue;
+    // 왕복이 안 되면(재직렬화 결과가 원문 정수와 다르면) 조용히 뭉개진 것이다.
+    if (!Number.isSafeInteger(value)) return true;
   }
   return false;
 }
@@ -100,7 +107,7 @@ export function parseCanonicalLayout(raw: string, expectedSport?: string): Parse
   // `JSON.parse` 는 2^53 을 넘는 정수를 가장 가까운 double 로 뭉갠다(`9007199254740993` →
   // `...992`). 그대로 재직렬화하면 opaque 데이터가 손상되고 payloadHash 계약이 깨지므로,
   // 왕복할 수 없는 리터럴은 **받지 않는다**. 조용한 손상보다 명시적 거절이 안전하다.
-  if (hasUnsafeIntegerLiteral(raw)) {
+  if (hasUnsafeNumberLiteral(raw)) {
     return { ok: false, issues: [{ error: "UNSAFE_NUMBER_LITERAL", path: "$" }] };
   }
 

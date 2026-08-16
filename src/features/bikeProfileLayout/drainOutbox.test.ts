@@ -14,8 +14,7 @@ const listIntentsMock = vi.hoisted(() => vi.fn<[], Promise<LayoutIntentRecord[]>
 vi.mock("./outbox", () => ({
   listIntents: listIntentsMock,
   commitHeadAndIntent: vi.fn(),
-  readHead: vi.fn(async () => null),
-  putHead: vi.fn(),
+  putHeadIfUnchanged: vi.fn(async () => true),
   updateIntentState: vi.fn(),
   removeIntent: vi.fn(),
   headKey: (ownerKey: string, profileId: string) =>
@@ -26,7 +25,7 @@ vi.mock("../../services/firebase", () => ({ functions: {} }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn(), debugLog: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: () => vi.fn() }));
 
-const { drainLayoutOutbox } = await import("./client");
+const { drainLayoutOutbox, withOwnerLock } = await import("./client");
 
 const OWNER = "uid:A";
 
@@ -45,8 +44,7 @@ function intent(mutationId: string, profileId: string, expectedRevision: number)
 
 const noopStore: LayoutLocalStore = {
   commitHeadAndIntent: vi.fn(),
-  readHead: vi.fn(async () => null),
-  putHead: vi.fn(),
+  putHeadIfUnchanged: vi.fn(async () => true),
   updateIntentState: vi.fn(),
   removeIntent: vi.fn(),
 };
@@ -62,6 +60,7 @@ function depsWith(responses: SaveLayoutCallableResponse[], seen: string[]): Save
     newMutationId: () => "unused",
     nowMs: () => 0,
     log: () => {},
+    withOwnerLock: (_ownerKey, operation) => operation(),
   };
 }
 
@@ -118,6 +117,43 @@ describe("drainLayoutOutbox", () => {
 
     expect(seen).toEqual(["A"]);
     expect(second).toBe(first);
+  });
+
+  it("serializes everything on one owner queue so save and drain cannot interleave", async () => {
+    // drain 끼리만 막으면, 기존 intent 를 보내는 중에 새 저장이 끼어들어 전송 순서와 충돌 판정이
+    // 뒤집힌다. 신규 저장과 drain 이 같은 큐를 타는지 잠금 자체로 검증한다.
+    const order: string[] = [];
+    const slow = (label: string, ms: number) =>
+      withOwnerLock(OWNER, async () => {
+        order.push(`${label}:start`);
+        await new Promise((r) => setTimeout(r, ms));
+        order.push(`${label}:end`);
+      });
+
+    await Promise.all([slow("drain", 20), slow("save", 0)]);
+
+    expect(order).toEqual(["drain:start", "drain:end", "save:start", "save:end"]);
+  });
+
+  it("keeps the queue alive after a failed operation", async () => {
+    await expect(
+      withOwnerLock(OWNER, () => Promise.reject(new Error("boom"))),
+    ).rejects.toThrow("boom");
+    await expect(withOwnerLock(OWNER, () => Promise.resolve("ok"))).resolves.toBe("ok");
+  });
+
+  it("does not serialize across different owners", async () => {
+    const order: string[] = [];
+    await Promise.all([
+      withOwnerLock("uid:A", async () => {
+        await new Promise((r) => setTimeout(r, 20));
+        order.push("A");
+      }),
+      withOwnerLock("uid:B", async () => {
+        order.push("B");
+      }),
+    ]);
+    expect(order).toEqual(["B", "A"]);
   });
 
   it("skips intents already blocked and everything behind them", async () => {

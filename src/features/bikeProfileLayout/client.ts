@@ -5,8 +5,7 @@ import { debugLog, logClientError } from "../../services/errorLogger";
 import {
   commitHeadAndIntent,
   listIntents,
-  putHead,
-  readHead,
+  putHeadIfUnchanged,
   removeIntent,
   updateIntentState,
 } from "./outbox";
@@ -58,11 +57,31 @@ export async function callDeleteBikeProfileAndLayout(profileId: string, mutation
 /** IndexedDB 를 쓰는 실제 저장소 어댑터. 오케스트레이션은 이 포트만 알면 된다. */
 export const indexedDbLayoutStore: LayoutLocalStore = {
   commitHeadAndIntent,
-  readHead,
-  putHead,
+  putHeadIfUnchanged,
   updateIntentState,
   removeIntent,
 };
+
+/**
+ * owner 별 전송 큐. **신규 저장과 drain 이 같은 체인을 공유한다.**
+ *
+ * drain 끼리만 직렬화하면, 시작 시 기존 intent 를 보내는 중에 새 편집이 즉시 전송돼 순서가
+ * 뒤집히거나 앞 intent 의 충돌 판정 전에 CAS 를 통과해 원격 구성을 덮어쓴다.
+ */
+const ownerQueues = new Map<string, Promise<unknown>>();
+
+export function withOwnerLock<T>(ownerKey: string, operation: () => Promise<T>): Promise<T> {
+  const previous = ownerQueues.get(ownerKey) ?? Promise.resolve();
+  // 앞 작업의 실패가 뒤 작업을 막지 않도록 체인에서는 결과를 흡수한다.
+  const next = previous.catch(() => undefined).then(operation);
+  ownerQueues.set(
+    ownerKey,
+    next.catch(() => undefined).finally(() => {
+      if (ownerQueues.get(ownerKey) === next) ownerQueues.delete(ownerKey);
+    }),
+  );
+  return next;
+}
 
 export function browserSaveDeps(overrides: Partial<SaveLayoutDeps> = {}): SaveLayoutDeps {
   return {
@@ -70,6 +89,7 @@ export function browserSaveDeps(overrides: Partial<SaveLayoutDeps> = {}): SaveLa
     callSaveLayout: callSaveBikeProfileLayout,
     newMutationId: () => crypto.randomUUID(),
     nowMs: () => Date.now(),
+    withOwnerLock,
     // 기본 no-op 로거를 두면 callable·IndexedDB 실패가 pending 으로 변환되면서 운영에서 사라진다.
     // 심각도는 **호출부가 명시한 level** 로 가른다 — 메시지 문자열로 추측하면 `무결성 오류`·
     // `불일치` 같은 실제 오류가 조용히 debug 채널로 샌다.
@@ -102,7 +122,10 @@ export function drainLayoutOutbox(
   const running = inFlightDrains.get(ownerKey);
   if (running) return running;
 
-  const started = runDrain(ownerKey, deps).finally(() => inFlightDrains.delete(ownerKey));
+  // 신규 저장과 **같은** owner 큐를 탄다 — 그래야 전송 순서와 충돌 판정이 뒤집히지 않는다.
+  const started = deps
+    .withOwnerLock(ownerKey, () => runDrain(ownerKey, deps))
+    .finally(() => inFlightDrains.delete(ownerKey));
   inFlightDrains.set(ownerKey, started);
   return started;
 }

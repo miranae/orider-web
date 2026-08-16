@@ -112,6 +112,32 @@ export async function putHead(head: LayoutHeadRecord): Promise<void> {
   }
 }
 
+/**
+ * head 가 아직 [expectedPayloadHash] 일 때만 갱신한다. **읽기와 쓰기가 한 트랜잭션**이다.
+ *
+ * 따로 읽고 쓰면 그 사이에 새 저장이 head 를 갱신할 수 있고(TOCTOU), 늦게 도착한 이전 응답이
+ * 최신 draft 를 도로 덮어써 사용자의 편집이 사라진 것처럼 보인다.
+ *
+ * @returns 갱신했으면 true, 더 새 draft 가 있어 건너뛰었으면 false.
+ */
+export async function putHeadIfUnchanged(
+  head: LayoutHeadRecord,
+  expectedPayloadHash: string,
+): Promise<boolean> {
+  const db = await openDatabase();
+  try {
+    const tx = db.transaction(HEAD_STORE, "readwrite");
+    const store = tx.objectStore(HEAD_STORE);
+    const current = (await promisify(store.get(head.key))) as LayoutHeadRecord | undefined;
+    const unchanged = !current || current.payloadHash === expectedPayloadHash;
+    if (unchanged) store.put(head);
+    await awaitTransaction(tx);
+    return unchanged;
+  } finally {
+    db.close();
+  }
+}
+
 export async function readHead(ownerKey: string, profileId: string): Promise<LayoutHeadRecord | null> {
   const db = await openDatabase();
   try {

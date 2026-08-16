@@ -43,11 +43,13 @@ class FakeStore implements LayoutLocalStore {
     this.intents.set(intent.mutationId, intent);
   });
 
-  readHead = vi.fn(async (ownerKey: string, profileId: string) => this.heads.get(headKey(ownerKey, profileId)) ?? null);
-
-  putHead = vi.fn(async (head: LayoutHeadRecord) => {
+  putHeadIfUnchanged = vi.fn(async (head: LayoutHeadRecord, expectedPayloadHash: string) => {
     if (this.putHeadFailure) throw this.putHeadFailure;
+    const current = this.heads.get(head.key);
+    // 확인과 쓰기가 한 트랜잭션이라는 계약을 fake 도 그대로 지킨다.
+    if (current && current.payloadHash !== expectedPayloadHash) return false;
     this.heads.set(head.key, head);
+    return true;
   });
 
   updateIntentState = vi.fn(async (mutationId: string, state: LayoutIntentState) => {
@@ -75,6 +77,7 @@ function deps(response: SaveLayoutCallableResponse | Error): SaveLayoutDeps {
     newMutationId: () => "m1",
     nowMs: () => 2_000,
     log: (_level, message) => logs.push(message),
+    withOwnerLock: (_ownerKey, operation) => operation(),
   };
 }
 

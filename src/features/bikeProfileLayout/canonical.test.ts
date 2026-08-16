@@ -184,6 +184,21 @@ describe("canonical layout validation", () => {
     expect(issuesOf(raw)).toEqual(["UNSAFE_NUMBER_LITERAL"]);
   });
 
+  it("does not mistake a decimal fraction for an unsafe integer", () => {
+    // 연속 숫자만 매칭하면 `0.9007199254740993` 의 소수부를 독립 정수로 오인해 멀쩡한 값을 거절한다.
+    const raw =
+      '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+      '"fields":[]}],"v2Ratio":0.9007199254740993}';
+    expect(layoutOf(raw).unknownKeys.v2Ratio).toBeCloseTo(0.9007199254740993);
+  });
+
+  it("catches an unsafe integer written in exponent notation", () => {
+    const raw =
+      '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
+      '"fields":[]}],"v2Counter":9.007199254740993e15}';
+    expect(issuesOf(raw)).toEqual(["UNSAFE_NUMBER_LITERAL"]);
+  });
+
   it("accepts safe integers and numbers inside strings", () => {
     const raw =
       '{"schemaVersion":1,"profileId":"p","sport":"CYCLING","pages":[{"columns":4,"rows":1,' +
