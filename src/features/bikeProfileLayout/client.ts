@@ -65,14 +65,14 @@ export const indexedDbLayoutStore: LayoutLocalStore = {
 };
 
 /**
- * owner 별 전송 큐. **신규 저장과 drain 이 같은 체인을 공유한다.**
+ * owner 별 전송 큐(같은 탭 안). **신규 저장과 drain 이 같은 체인을 공유한다.**
  *
  * drain 끼리만 직렬화하면, 시작 시 기존 intent 를 보내는 중에 새 편집이 즉시 전송돼 순서가
  * 뒤집히거나 앞 intent 의 충돌 판정 전에 CAS 를 통과해 원격 구성을 덮어쓴다.
  */
 const ownerQueues = new Map<string, Promise<unknown>>();
 
-export function withOwnerLock<T>(ownerKey: string, operation: () => Promise<T>): Promise<T> {
+function withLocalOwnerQueue<T>(ownerKey: string, operation: () => Promise<T>): Promise<T> {
   const previous = ownerQueues.get(ownerKey) ?? Promise.resolve();
   // 앞 작업의 실패가 뒤 작업을 막지 않도록 체인에서는 결과를 흡수한다.
   const next = previous.catch(() => undefined).then(operation);
@@ -83,6 +83,28 @@ export function withOwnerLock<T>(ownerKey: string, operation: () => Promise<T>):
   });
   ownerQueues.set(ownerKey, chained);
   return next;
+}
+
+const OWNER_LOCK_PREFIX = "orider-bike-profile-layout";
+
+/**
+ * owner 단위 전송 직렬화 — **탭을 넘어서** 건다.
+ *
+ * 메모리 큐만으로는 같은 탭 안에서만 유효하다. 두 탭을 열어 두면 한 탭이 기존 intent A(expected=3)의
+ * 충돌을 판정하는 사이 다른 탭의 B(expected=4)가 먼저 도착해 CAS 를 통과하고, 사용자의 충돌 선택
+ * 없이 원격 구성을 덮어쓴다. Web Locks 는 브라우징 컨텍스트 전체에서 유효하다.
+ *
+ * Web Locks 가 없는 환경(구형 브라우저·테스트)에서는 같은 탭 큐로 물러난다 — 완전한 방어는
+ * 아니지만 서버 CAS 와 프로필별 차단이 그다음 방어선이다.
+ */
+export function withOwnerLock<T>(ownerKey: string, operation: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  if (!locks) return withLocalOwnerQueue(ownerKey, operation);
+  // 탭 안 중복 실행도 함께 막도록 로컬 큐로 한 번 더 감싼다.
+  return withLocalOwnerQueue(
+    ownerKey,
+    () => locks.request(`${OWNER_LOCK_PREFIX}:${ownerKey}`, operation) as Promise<T>,
+  );
 }
 
 export function browserSaveDeps(overrides: Partial<SaveLayoutDeps> = {}): SaveLayoutDeps {

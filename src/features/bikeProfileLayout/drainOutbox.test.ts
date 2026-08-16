@@ -144,6 +144,28 @@ describe("drainLayoutOutbox", () => {
     await expect(withOwnerLock(OWNER, () => Promise.resolve("ok"))).resolves.toBe("ok");
   });
 
+  it("takes a cross-tab Web Lock when the browser provides one", async () => {
+    // 메모리 큐만으로는 같은 탭 안에서만 유효하다 — 두 탭을 열면 전송 순서가 뒤집힌다.
+    const requested: string[] = [];
+    const original = (navigator as { locks?: unknown }).locks;
+    Object.defineProperty(navigator, "locks", {
+      configurable: true,
+      value: {
+        request: async (name: string, cb: () => Promise<unknown>) => {
+          requested.push(name);
+          return cb();
+        },
+      },
+    });
+
+    try {
+      await withOwnerLock(OWNER, async () => "ok");
+      expect(requested).toEqual([`orider-bike-profile-layout:${OWNER}`]);
+    } finally {
+      Object.defineProperty(navigator, "locks", { configurable: true, value: original });
+    }
+  });
+
   it("does not serialize across different owners", async () => {
     const order: string[] = [];
     await Promise.all([
