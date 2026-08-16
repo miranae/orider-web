@@ -146,7 +146,7 @@ jobs:
           --commit-sha "$RELEASE_SHA"
           --workflow-run-id "$GITHUB_RUN_ID"
           --workflow-run-attempt "$GITHUB_RUN_ATTEMPT"
-          --project-id "${{ vars.FIREBASE_PROJECT_ID }}"
+          --project-id "${{ vars.VITE_FIREBASE_PROJECT_ID }}"
           --site "miranae-orider-g1"
           --built-entry-asset "$BUILT_ENTRY"
           --built-entry-sha256 "$BUILT_ENTRY_SHA256"
