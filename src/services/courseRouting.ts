@@ -13,8 +13,6 @@ export interface CourseRoutingRequest {
   waypoints: CourseRoutingWaypoint[];
   profile: CourseRoutingProfile;
   avoidHighways: boolean;
-  targetDistanceM?: number;
-  roundTripSeed?: number;
 }
 
 /** `[lon, lat]` 또는 고도를 포함한 `[lon, lat, ele]`. */

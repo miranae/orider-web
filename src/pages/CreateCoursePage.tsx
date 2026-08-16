@@ -140,9 +140,6 @@ export default function CreateCoursePage() {
   const [builderError, setBuilderError] = useState<string | null>(null);
   const [builderProfile, setBuilderProfile] = useState<CourseRoutingProfile>("road");
   const [avoidHighways, setAvoidHighways] = useState(true);
-  const [builderKind, setBuilderKind] = useState<"waypoints" | "loop">("waypoints");
-  const [targetDistanceKm, setTargetDistanceKm] = useState(30);
-  const [roundTripSeed, setRoundTripSeed] = useState(1);
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
   const routeRequestRef = useRef(0);
@@ -394,23 +391,16 @@ export default function CreateCoursePage() {
   });
   const leavePage = () => requestLeave(() => navigate(-1));
 
-  const calculateBuilderRoute = async (seedOverride?: number) => {
-    const requiredPoints = builderKind === "loop" ? 1 : 2;
+  const calculateBuilderRoute = async () => {
+    const requiredPoints = 2;
     if (builderPoints.length < requiredPoints) return;
     const requestId = ++routeRequestRef.current;
     setRouting(true); setBuilderError(null);
     try {
-      const loopStart = builderPoints[0];
       const route = await requestCourseRoute(functions, {
-        waypoints: builderKind === "loop"
-          ? [{ lat: loopStart!.lat, lon: loopStart!.lng }]
-          : builderPoints.map(({ lat, lng }) => ({ lat, lon: lng })),
+        waypoints: builderPoints.map(({ lat, lng }) => ({ lat, lon: lng })),
         profile: builderProfile,
         avoidHighways,
-        ...(builderKind === "loop" ? {
-          targetDistanceM: Math.round(targetDistanceKm * 1_000),
-          roundTripSeed: seedOverride ?? roundTripSeed,
-        } : {}),
       });
       if (requestId === routeRequestRef.current) setBuilderRoute(route);
     } catch (err) {
@@ -429,14 +419,6 @@ export default function CreateCoursePage() {
   };
 
   const addBuilderPoint = (point: Waypoint): boolean => {
-    if (builderKind === "loop") {
-      const result = tryAddWaypoint([], point);
-      if (!result.changed) return false;
-      builderPointsRef.current = result.points;
-      invalidateBuilderRoute();
-      setBuilderPoints(result.points);
-      return true;
-    }
     const result = tryAddWaypoint(builderPointsRef.current, point);
     if (!result.changed) return false;
     builderPointsRef.current = result.points;
@@ -827,12 +809,6 @@ export default function CreateCoursePage() {
           <div><h2 className="font-semibold">{t("builder.title")}</h2><p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">{t("builder.description", { max: MAX_BUILDER_WAYPOINTS })}</p></div>
           <div className="grid gap-4 sm:grid-cols-2">
             <fieldset>
-              <legend className="mb-2 text-[length:var(--fs-sm)] font-medium">{t("builder.routeType")}</legend>
-              <div className="flex gap-2">
-                {(["waypoints", "loop"] as const).map((kind) => <button key={kind} type="button" role="radio" aria-checked={builderKind === kind} className={`ds-btn ds-btn--md ${builderKind === kind ? "bg-[var(--lime)] text-[var(--bg-0)]" : ""}`} onClick={() => { setBuilderKind(kind); invalidateBuilderRoute(); }}>{t(`builder.routeType.${kind}`)}</button>)}
-              </div>
-            </fieldset>
-            <fieldset>
               <legend className="mb-2 text-[length:var(--fs-sm)] font-medium">{t("builder.profile")}</legend>
               <div className="flex flex-wrap gap-2">
                 {(["road", "gravel", "mtb", "city"] as const).map((profile) => <button key={profile} type="button" role="radio" aria-checked={builderProfile === profile} className={`ds-btn ds-btn--md ${builderProfile === profile ? "bg-[var(--lime)] text-[var(--bg-0)]" : ""}`} onClick={() => { setBuilderProfile(profile); invalidateBuilderRoute(); }}>{t(`builder.profile.${profile}`)}</button>)}
@@ -843,14 +819,6 @@ export default function CreateCoursePage() {
             <input type="checkbox" checked={avoidHighways} onChange={(event) => { setAvoidHighways(event.target.checked); invalidateBuilderRoute(); }} className="h-5 w-5 accent-[var(--lime)]" />
             {t("builder.avoidHighways")}
           </label>
-          {builderKind === "loop" && <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-            <label className="text-[length:var(--fs-sm)]">
-              <span className="mb-1 block font-medium">{t("builder.targetDistance")}</span>
-              <input type="range" min={1} max={300} step={1} value={targetDistanceKm} onChange={(event) => { setTargetDistanceKm(Number(event.target.value)); invalidateBuilderRoute(); }} className="min-h-11 w-full accent-[var(--lime)]" />
-              <span>{t("builder.targetDistanceValue", { distance: targetDistanceKm })}</span>
-            </label>
-            <button type="button" className="ds-btn ds-btn--md" disabled={routing || builderPoints.length < 1} onClick={() => { const nextSeed = roundTripSeed >= 2_147_483_647 ? 0 : roundTripSeed + 1; setRoundTripSeed(nextSeed); invalidateBuilderRoute(); void calculateBuilderRoute(nextSeed); }}>{t("builder.anotherLoop")}</button>
-          </div>}
           <p id="builder-map-instructions" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{t("builder.instructions")}</p>
           <RouteBuilderMap labels={{ region: t("builder.mapRegion"), unavailable: t("builder.mapUnavailable"), waypoint: t("builder.waypoint") }} waypoints={builderPoints} route={builderRoute?.geometry.coordinates ?? []} onAdd={addBuilderPoint} />
           <div className="flex flex-wrap gap-2" aria-label={t("builder.coordinateEntry")}>
@@ -861,11 +829,11 @@ export default function CreateCoursePage() {
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => { builderPointsRef.current = undoWaypoint(builderPointsRef.current); setBuilderPoints(builderPointsRef.current); invalidateBuilderRoute(); }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.undo")}</button>
             <button type="button" onClick={() => { builderPointsRef.current = []; setBuilderPoints([]); invalidateBuilderRoute(); }} disabled={!builderPoints.length} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.clear")}</button>
-            <button type="button" onClick={() => void calculateBuilderRoute()} disabled={builderPoints.length < (builderKind === "loop" ? 1 : 2) || routing} className="ds-btn ds-btn--md disabled:opacity-50">{routing ? t("builder.routing") : builderError ? t("builder.retry") : t("builder.calculate")}</button>
+            <button type="button" onClick={() => void calculateBuilderRoute()} disabled={builderPoints.length < 2 || routing} className="ds-btn ds-btn--md disabled:opacity-50">{routing ? t("builder.routing") : builderError ? t("builder.retry") : t("builder.calculate")}</button>
             <button type="button" onClick={() => builderRoute && downloadGpx(routeToGpx(name, builderRoute.geometry.coordinates))} disabled={!builderRoute} className="ds-btn ds-btn--md disabled:opacity-50">{t("builder.export")}</button>
           </div>
           <div role={builderError ? "alert" : "status"} aria-live="polite" className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">
-            {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distanceM / 1000).toFixed(1), minutes: Math.round(builderRoute.durationSeconds / 60), ascent: Math.round(builderRoute.ascentM ?? 0) }) : t("builder.pointCount", { count: builderPoints.length, max: builderKind === "loop" ? 1 : MAX_BUILDER_WAYPOINTS }))}
+            {builderError || (builderRoute ? t("builder.stats", { distance: (builderRoute.distanceM / 1000).toFixed(1), minutes: Math.round(builderRoute.durationSeconds / 60), ascent: Math.round(builderRoute.ascentM ?? 0) }) : t("builder.pointCount", { count: builderPoints.length, max: MAX_BUILDER_WAYPOINTS }))}
           </div>
           {builderRoute && (builderProfileData.length > 0 ? (
             <div>
