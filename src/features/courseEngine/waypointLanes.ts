@@ -109,23 +109,40 @@ const TYPE_CODE_LANE: Record<string, WpLane> = {
 };
 
 /**
- * 유형 코드가 없을 때만 쓰는 이름 키워드. 한국어·영어를 함께 둔다.
- * 새 표현을 추가할 때는 반드시 양쪽 로케일을 같이 채울 것 — 한쪽만 채우면 예전의 로케일 의존
- * 분류 문제가 그대로 재발한다.
+ * 유형 코드가 없을 때만 쓰는 이름 규칙.
+ *
+ * 라틴 문자는 **단어 단위**로 맞춘다. 부분 문자열로 보면 `Forest Summit` 이 "rest" 때문에
+ * 보급으로, `Shortcut` 이 "cut" 때문에 컷오프로 잘못 분류된다. 한국어는 띄어쓰기 없이 붙는
+ * 경우가 많아(`1차보급소`) 부분 문자열로 본다.
+ *
+ * 새 표현을 추가할 때는 한국어·영어를 같이 채울 것 — 한쪽만 채우면 로케일 의존 분류 문제가
+ * 그대로 재발한다.
  */
-const NAME_KEYWORD_LANES: Array<{ lane: WpLane; keywords: string[] }> = [
+const NAME_RULES: Array<{ lane: WpLane; substrings: string[]; words: string[] }> = [
   {
     lane: "AID",
-    keywords: [
+    substrings: [
       "보급", "급수", "휴게", "편의점", "카페", "식당", "마트", "화장실", "쉼터",
-      "aid", "water", "feed", "rest", "cafe", "coffee", "store", "mart", "food", "toilet",
-      // 국내 코스에서 실제로 가장 많이 적히는 상호들
-      "gs25", "cu ", "세븐일레븐", "이마트24", "스타벅스",
+      "세븐일레븐", "이마트24", "스타벅스",
     ],
+    words: ["aid", "water", "feed", "rest", "cafe", "coffee", "store", "mart", "food", "toilet", "gs25", "cu"],
   },
-  { lane: "KOM", keywords: ["정상", "고개", "업힐", "kom", "summit", "climb", "peak"] },
-  { lane: "CUT", keywords: ["컷", "관문", "제한", "cut", "cutoff", "checkpoint"] },
+  {
+    lane: "KOM",
+    substrings: ["정상", "고개", "업힐"],
+    words: ["kom", "summit", "climb", "peak"],
+  },
+  {
+    lane: "CUT",
+    substrings: ["컷", "관문", "제한"],
+    words: ["cut", "cutoff", "checkpoint"],
+  },
 ];
+
+/** 라틴 문자 토큰만 뽑는다. 한국어는 구분자로 취급되어 떨어져 나간다. */
+function latinTokens(name: string): string[] {
+  return name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
 
 export interface ClassifiableWaypoint {
   name: string;
@@ -139,10 +156,11 @@ export function classifyLane(waypoint: ClassifiableWaypoint): WpLane {
   if (byCode) return byCode;
 
   const name = (waypoint.name || "").toLowerCase();
-  if (name) {
-    for (const { lane, keywords } of NAME_KEYWORD_LANES) {
-      if (keywords.some((keyword) => name.includes(keyword))) return lane;
-    }
+  if (!name) return "SEG";
+  const tokens = new Set(latinTokens(name));
+  for (const { lane, substrings, words } of NAME_RULES) {
+    if (substrings.some((keyword) => name.includes(keyword))) return lane;
+    if (words.some((word) => tokens.has(word))) return lane;
   }
   return "SEG";
 }

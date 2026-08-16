@@ -334,6 +334,28 @@ describe("classifyLane", () => {
     expect(classifyLane({ name: "이름 없음", type: "cafe" })).toBe("AID");
   });
 
+  it("영어 이름은 단어 단위로 맞춘다 — 부분 문자열 오탐을 막는다", () => {
+    // "Forest Summit" 의 rest, "Shortcut" 의 cut 처럼 다른 단어에 끼어 있는 철자를
+    // 키워드로 오인하면 엉뚱한 보급소·컷오프가 화면에 뜬다.
+    expect(classifyLane({ name: "Forest Summit", type: "" })).toBe("KOM");
+    expect(classifyLane({ name: "Shortcut", type: "" })).toBe("SEG");
+    expect(classifyLane({ name: "Crestwood", type: "" })).toBe("SEG");
+    expect(classifyLane({ name: "Restaurant Row", type: "" })).toBe("SEG");
+    expect(classifyLane({ name: "Cucumber Farm", type: "" })).toBe("SEG");
+    expect(classifyLane({ name: "Peakwood Trail", type: "" })).toBe("SEG");
+  });
+
+  it("단어로 떨어져 있으면 정상 분류한다", () => {
+    expect(classifyLane({ name: "Rest Area", type: "" })).toBe("AID");
+    expect(classifyLane({ name: "CU 망월점", type: "" })).toBe("AID");
+    expect(classifyLane({ name: "Cut Off Gate", type: "" })).toBe("CUT");
+  });
+
+  it("한국어는 띄어쓰기 없이 붙어도 잡는다", () => {
+    expect(classifyLane({ name: "1차보급소", type: "" })).toBe("AID");
+    expect(classifyLane({ name: "남한산성정상", type: "" })).toBe("KOM");
+  });
+
   it("판정하지 못하면 SEG 이고 차트 마커에서 제외된다", () => {
     expect(classifyLane({ name: "3번 지점", type: "GENERIC" })).toBe("SEG");
     expect(isProfileMarkerLane("SEG")).toBe(false);
