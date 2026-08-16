@@ -3,8 +3,8 @@ import { normalizeEpochMilliseconds } from "../../../utils/timestampUnit";
 
 /** Retained slots must describe this share of the axis span to stay trustworthy. */
 export const EXPLICIT_SENSOR_MIN_AXIS_COVERAGE = 0.5;
-/** Measured (non-null) share required among the slots an axis actually retained. */
-export const EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE = 0.95;
+/** Measured seconds required against the whole session before a channel is trusted. */
+export const EXPLICIT_SENSOR_MIN_SESSION_COVERAGE = 0.5;
 /** Maximum plausible delay before the first GPS fix in rewritten legacy uploads. */
 export const LEGACY_GPS_START_REWRITE_MAX_OFFSET_SECONDS = 300;
 
@@ -61,13 +61,29 @@ export function hasValidLegacySensorChannelValues(values: readonly unknown[]): b
 }
 
 /**
- * Density of measurements *within the retained slots*. Whether the axis itself
- * covers the session is a separate gate (`explicitAxisRejectionReason`), so this
- * deliberately does not speak for the whole session.
+ * How much of the session the channel actually measured.
+ *
+ * A second can be unmeasured two ways — the slot is absent from the axis, or the
+ * slot is present with a null value — and both mean the same thing: the sensor
+ * had nothing to report. Strap dropouts, a head unit that keeps logging after the
+ * chest strap dies, and auto-pause all produce them, so neither is evidence that
+ * the payload belongs to a different ride. Judge the channel on the seconds it
+ * did measure against the session, and let the axis-shape and origin gates
+ * (`explicitAxisRejectionReason`, `explicitOriginRejectionReason`) speak for
+ * integrity. An all-null or truncated-to-nothing channel still fails here.
+ *
+ * 서버 미러(`orider-g1-web` `stream-track-points.ts` `selectSensorChannel`)는 아직
+ * 옛 ±5% span 대칭 비교 + 95% 측정 비율을 쓴다 — summary 의 평균 심박/파워가 같은
+ * 이유로 비는 건 그쪽을 같이 고쳐야 사라진다.
  */
-export function hasRetainedSlotMeasurementCoverage(measuredSlots: number, totalSlots: number): boolean {
-  return totalSlots > 0
-    && measuredSlots >= Math.ceil(totalSlots * EXPLICIT_SENSOR_MIN_MEASUREMENT_COVERAGE);
+export function hasExplicitSessionMeasurementCoverage(
+  measuredSlots: number,
+  resolutionSeconds: number,
+  sessionDurationSec: number,
+): boolean {
+  if (!(measuredSlots > 0) || !Number.isFinite(resolutionSeconds) || resolutionSeconds <= 0) return false;
+  if (!Number.isFinite(sessionDurationSec) || sessionDurationSec <= 0) return false;
+  return measuredSlots * resolutionSeconds >= sessionDurationSec * EXPLICIT_SENSOR_MIN_SESSION_COVERAGE;
 }
 
 /**
