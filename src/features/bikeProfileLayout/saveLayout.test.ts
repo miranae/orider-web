@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CanonicalLayout } from "./canonical";
+import { encodeCanonicalLayout, payloadHash, type CanonicalLayout } from "./canonical";
 import { headKey } from "./outbox";
 import type { LayoutHeadRecord, LayoutIntentRecord, LayoutIntentState } from "./outbox";
 import {
@@ -74,9 +74,7 @@ class FakeStore implements LayoutLocalStore {
 
   hasBlockedIntent = vi.fn(async (_ownerKey: string, profileId: string) =>
     [...this.intents.values()].some(
-      (i) =>
-        i.profileId === profileId &&
-        (i.state === "blockedConflict" || i.state === "quarantined" || i.state === "inFlight"),
+      (i) => i.profileId === profileId && (i.state === "blockedConflict" || i.state === "quarantined"),
     ),
   );
 }
@@ -100,12 +98,20 @@ function deps(response: SaveLayoutCallableResponse | Error): SaveLayoutDeps {
   };
 }
 
-const committed: SaveLayoutCallableResponse = {
-  status: "committed",
-  revision: 4,
-  payloadHash: "a".repeat(64),
-  wasReplay: false,
-};
+/**
+ * 서버는 자신이 정규화해 계산한 payloadHash 를 돌려준다. 우리가 보낸 것과 같아야 정상이므로
+ * 픽스처도 **진짜 canonical 해시**를 쓴다 — 가짜 해시를 쓰면 응답 모양 검증이 (정당하게) 막는다.
+ */
+let committed: SaveLayoutCallableResponse;
+
+beforeAll(async () => {
+  committed = {
+    status: "committed",
+    revision: 4,
+    payloadHash: await payloadHash(encodeCanonicalLayout(layout)),
+    wasReplay: false,
+  };
+});
 
 beforeEach(() => {
   store = new FakeStore();
@@ -324,10 +330,20 @@ describe("saveBikeProfileLayout", () => {
     expect(result.status).toBe("savedPendingSync");
   });
 
-  it("treats an unknown callable status as a transport failure instead of returning undefined", async () => {
+  it.each([
+    ["알 수 없는 status", { status: "somethingNew" } as never],
+    ["revision 누락", { status: "committed", payloadHash: "a".repeat(64), wasReplay: false } as never],
+    ["payloadHash 누락", { status: "committed", revision: 4, wasReplay: false } as never],
+    [
+      "보낸 것과 다른 payloadHash",
+      { status: "committed", revision: 4, payloadHash: "f".repeat(64), wasReplay: false } as never,
+    ],
+    ["conflict 인데 remoteRevision 누락", { status: "conflict", remotePayload: "{}" } as never],
+  ])("keeps the intent when the callable response is malformed (%s)", async (_label, response) => {
+    // status 만 보면 필드가 빠진 응답도 성공으로 처리해 undefined 로 head 를 쓰고 intent 를 지운다.
     const result = await saveBikeProfileLayout(
       { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
-      deps({ status: "somethingNew" } as never),
+      deps(response),
     );
 
     expect(result.status).toBe("savedPendingSync");
@@ -353,23 +369,23 @@ describe("saveBikeProfileLayout", () => {
     expect(store.intents.get("m2")?.state).toBe("blockedConflict");
   });
 
-  it("still blocks later sends when recording the conflict state failed", async () => {
-    // 차단 기록이 실패하면 상태가 inFlight 에 멈춘다. 그대로 통과시키면 다음 편집이 CAS 를 지나
-    // 원격 구성을 덮어쓴다 — `inFlight` 도 차단으로 세어 fail-closed 로 만든다.
+  it("retries a stuck inFlight intent before the new one instead of deadlocking", async () => {
+    // `inFlight` 는 "결과를 모른다 = 다시 보내라" 다. 이걸 차단으로 세면 새 저장이 스스로를 blocked
+    // 로 만들고, 큐 전체가 멈춰 원래 intent 도 영영 재전송되지 않는다(충돌 없이 동기화 영구 정지).
     await saveBikeProfileLayout(
       { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
-      deps({ status: "conflict", remoteRevision: 4, remotePayload: "{}", remotePayloadHash: "b".repeat(64) }),
+      deps(new Error("offline")),
     );
     store.intents.set("m1", { ...store.intents.get("m1")!, state: "inFlight" });
-    const before = requests.length;
+    requests.length = 0;
 
-    const second = await saveBikeProfileLayout(
+    await saveBikeProfileLayout(
       { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 4 },
       { ...deps(committed), newMutationId: () => "m2" },
     );
 
-    expect(second.status).toBe("blockedByConflict");
-    expect(requests).toHaveLength(before);
+    // 멈춘 m1 이 먼저 재전송되고, 그 뒤에 m2 가 나간다.
+    expect(requests.map((r) => r.mutationId)).toEqual(["m1", "m2"]);
   });
 
   it("holds the send when the blocked-state lookup itself fails", async () => {

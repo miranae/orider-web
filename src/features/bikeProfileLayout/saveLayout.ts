@@ -258,6 +258,39 @@ async function recordIntentState(
   }
 }
 
+const KNOWN_STATUSES = new Set(["committed", "conflict", "integrityError", "profileDeleted", "writesDisabled"]);
+const HEX_64 = /^[0-9a-f]{64}$/u;
+
+/**
+ * callable 응답의 **모양**까지 본다. status 만 보면 `{status:"committed"}` 처럼 필드가 빠진 응답도
+ * 성공으로 처리해 undefined revision/hash 로 head 를 쓰고 durable intent 를 지운다 — 재시도 근거가
+ * 사라진다. 서버가 다른 payloadHash 를 돌려주는 경우도 우리가 보낸 것과 대조한다.
+ *
+ * @returns 문제가 있으면 사유 문자열, 없으면 null.
+ */
+function validateResponseShape(
+  response: SaveLayoutCallableResponse | undefined,
+  intent: LayoutIntentRecord,
+): string | null {
+  if (!response || typeof response.status !== "string" || !KNOWN_STATUSES.has(response.status)) {
+    return "알 수 없는 응답";
+  }
+  if (response.status === "committed") {
+    if (!Number.isInteger(response.revision)) return "committed 인데 revision 이 정수가 아님";
+    if (typeof response.payloadHash !== "string" || !HEX_64.test(response.payloadHash)) {
+      return "committed 인데 payloadHash 가 64자 hex 가 아님";
+    }
+    if (response.payloadHash !== intent.payloadHash) {
+      return "committed 인데 서버 payloadHash 가 보낸 값과 다름";
+    }
+  }
+  if (response.status === "conflict") {
+    if (!Number.isInteger(response.remoteRevision)) return "conflict 인데 remoteRevision 이 정수가 아님";
+    if (typeof response.remotePayload !== "string") return "conflict 인데 remotePayload 가 문자열이 아님";
+  }
+  return null;
+}
+
 export async function transmitIntent(
   intent: LayoutIntentRecord,
   deps: SaveLayoutDeps,
@@ -292,10 +325,10 @@ export async function transmitIntent(
   }
 
   // 버전 불일치·malformed 응답이 오면 exhaustive switch 가 undefined 를 반환하고 intent 가
-  // `inFlight` 에 영구 잔류한다. 모르는 상태는 전송 실패와 같게 다룬다.
-  const known = new Set(["committed", "conflict", "integrityError", "profileDeleted", "writesDisabled"]);
-  if (!response || typeof response.status !== "string" || !known.has(response.status)) {
-    log("error", "[2/3] call saveBikeProfileLayout — 알 수 없는 응답, intent 보존", {
+  // `inFlight` 에 영구 잔류한다. **모양까지** 검증하고, 모르는 응답은 전송 실패와 같게 다룬다.
+  const shapeError = validateResponseShape(response, intent);
+  if (shapeError) {
+    log("error", `[2/3] call saveBikeProfileLayout — ${shapeError}, intent 보존`, {
       ...ctx,
       status: String((response as { status?: unknown } | undefined)?.status),
     });
