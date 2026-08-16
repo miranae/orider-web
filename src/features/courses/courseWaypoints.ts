@@ -30,9 +30,13 @@ export interface CourseWaypointLaneGroup {
   items: Array<CourseWaypointRow & { index: number; ratio: number }>;
 }
 
+// 손상된 저장 데이터가 지도 마커와 flyTo 경로로 그대로 흘러가면 렌더링이 깨지거나
+// 유효 영역 밖으로 지도가 날아간다. 좌표 범위까지 확인한다.
 function isRenderableWaypoint(waypoint: StoredCourseWaypoint): boolean {
   return Number.isFinite(waypoint.latitude)
     && Number.isFinite(waypoint.longitude)
+    && Math.abs(waypoint.latitude) <= 90
+    && Math.abs(waypoint.longitude) <= 180
     && Number.isFinite(waypoint.distanceFromStartMeters)
     && waypoint.distanceFromStartMeters >= 0;
 }

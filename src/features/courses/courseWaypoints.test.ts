@@ -59,6 +59,15 @@ describe("buildCourseWaypointRows", () => {
     ])).toEqual([]);
   });
 
+  it("좌표 범위를 벗어난 경유지도 버린다 — 지도가 유효 영역 밖으로 날아간다", () => {
+    expect(buildCourseWaypointRows([
+      waypoint({ name: "a", latitude: 91 }),
+      waypoint({ name: "b", latitude: -90.5 }),
+      waypoint({ name: "c", longitude: 181 }),
+      waypoint({ name: "d", longitude: -200 }),
+    ])).toEqual([]);
+  });
+
   it("비어 있거나 undefined 면 빈 배열", () => {
     expect(buildCourseWaypointRows(undefined)).toEqual([]);
     expect(buildCourseWaypointRows([])).toEqual([]);
