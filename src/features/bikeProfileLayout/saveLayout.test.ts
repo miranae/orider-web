@@ -460,13 +460,27 @@ describe("saveBikeProfileLayout", () => {
     expect(store.commitHeadAndIntent).not.toHaveBeenCalled();
   });
 
-  it("refuses a non-integer expectedRevision", async () => {
+  it.each([Number.NaN, -1, 9007199254740993])(
+    "refuses an expectedRevision that is not a non-negative safe integer (%s)",
+    async (expectedRevision) => {
+      // 2^53 을 넘으면 `expectedRevision + 1` 이 같은 값으로 반올림돼 CAS 기대값이 어긋난다.
+      const result = await saveBikeProfileLayout(
+        { ownerKey: OWNER, profileId: "road", layout, expectedRevision },
+        deps(committed),
+      );
+
+      expect(result.status).toBe("invalidPayload");
+      expect(store.commitHeadAndIntent).not.toHaveBeenCalled();
+    },
+  );
+
+  it("converts an owner-lock acquisition failure into an explicit result", async () => {
     const result = await saveBikeProfileLayout(
-      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: Number.NaN },
-      deps(committed),
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      { ...deps(committed), withOwnerLock: () => Promise.reject(new Error("lock denied")) },
     );
 
-    expect(result.status).toBe("invalidPayload");
+    expect(result.status).toBe("localSaveFailed");
     expect(store.commitHeadAndIntent).not.toHaveBeenCalled();
   });
 

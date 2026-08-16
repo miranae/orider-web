@@ -121,7 +121,18 @@ export async function saveBikeProfileLayout(
     return { status: "invalidTarget", expected: profileId, actual: layout.profileId };
   }
 
-  return deps.withOwnerLock(ownerKey, () => commitAndSend(input, deps));
+  // 잠금 획득 자체가 거부되면(권한·컨텍스트 종료 등) 로컬 커밋도 못 한 채 rejection 이 밖으로
+  // 새어 저장이 무음으로 실패한다. 경계에서 잡아 명시적 실패 결과로 바꾼다.
+  try {
+    return await deps.withOwnerLock(ownerKey, () => commitAndSend(input, deps));
+  } catch (cause) {
+    deps.log("error", "[0/3] owner 잠금 획득 실패 — 저장하지 못함", {
+      ownerKey,
+      profileId: input.profileId,
+      cause: String(cause),
+    });
+    return { status: "localSaveFailed", cause };
+  }
 }
 
 async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Promise<SaveLayoutResult> {
@@ -161,9 +172,11 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
     });
     return { status: "invalidTarget", expected: profileId, actual: parsed.layout.profileId };
   }
-  if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+  // `Number.isInteger` 만으로는 부족하다 — 2^53 을 넘으면 `expectedRevision + 1` 이 같은 값으로
+  // 반올림돼 낙관적 head revision 과 서버 CAS 기대값이 잘못 구성된다.
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
     const reasons = [`expectedRevision=${String(expectedRevision)}`];
-    log("error", "[0/3] expectedRevision 이 0 이상 정수가 아님 — 아무 것도 쓰지 않음", {
+    log("error", "[0/3] expectedRevision 이 0 이상 안전 정수가 아님 — 아무 것도 쓰지 않음", {
       ownerKey,
       profileId,
       reasons,
