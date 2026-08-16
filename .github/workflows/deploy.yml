@@ -48,12 +48,24 @@ jobs:
       VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           package-manager-cache: false
       - name: Check deploy config
         run: node scripts/check-deploy-config.mjs
+      - name: Verify release commit is on main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          release_sha=$(git rev-list -n 1 "$GITHUB_REF")
+          if ! git merge-base --is-ancestor "$release_sha" origin/main; then
+            echo "::error::릴리스 태그 커밋이 origin/main에 포함되지 않음: $release_sha"
+            exit 1
+          fi
+          echo "Verified release commit on origin/main: $release_sha"
       - name: Install dependencies
         run: npm ci
       - name: Build production artifact

@@ -116,6 +116,7 @@ requireIncludes(deployWorkflow, '- "v*"', "deploy.yml trigger");
 requireIncludes(deployWorkflow, "environment: production", "deploy.yml job");
 requireIncludes(deployWorkflow, hostingRunner, "deploy.yml dedicated Hosting runner");
 checkSelfHostedSetupNodeCache(deployWorkflow, "deploy.yml");
+requireIncludes(deployWorkflow, "fetch-depth: 0", "deploy.yml full history checkout");
 requireIncludes(deployWorkflow, "VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_STRAVA_REDIRECT_URI: ${{ vars.VITE_STRAVA_REDIRECT_URI }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY }}", "deploy.yml env");
@@ -135,6 +136,10 @@ requireIncludes(deployWorkflow, "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ va
 requireIncludes(deployWorkflow, "npm ci", "deploy.yml dependency install");
 requireIncludes(deployWorkflow, "npm run build", "deploy.yml production build");
 requireIncludes(deployWorkflow, "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
+requireIncludes(deployWorkflow, "git fetch --no-tags origin main:refs/remotes/origin/main", "deploy.yml main provenance fetch");
+requireIncludes(deployWorkflow, "git rev-list -n 1 \"$GITHUB_REF\"", "deploy.yml tagged commit resolution");
+requireIncludes(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "deploy.yml main provenance gate");
+requireBefore(deployWorkflow, "git merge-base --is-ancestor \"$release_sha\" origin/main", "npm ci", "deploy.yml main provenance gate");
 requireBefore(deployWorkflow, "npm ci", "npm run build", "deploy.yml production build");
 requireBefore(deployWorkflow, "npm run build", "node scripts/write-runtime-config.mjs", "deploy.yml runtime config");
 requireIncludes(deployWorkflow, "node scripts/verify-social-callables.mjs", "deploy.yml backend contract gate");

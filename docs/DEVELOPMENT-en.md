@@ -20,7 +20,7 @@ contributor PR -> CI(lint/test/build) -> review -> main -> tag vX.Y.Z
 
 - Pull requests run `ci.yml`: lint, unit tests, and build with placeholder public config. No production secrets are exposed to PRs.
 - Merging to `main` builds, verifies, and deploys the stage Hosting site.
-- Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: install dependencies and build with production configuration, write production `runtime-config.json`, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
+- Pushing a version tag such as `v2026.07.01` or `v1.2.3` runs `deploy.yml`: verify that the tagged commit is contained in `main`, install dependencies and build with production configuration, write production `runtime-config.json`, keyless Google auth through Workload Identity Federation, Hosting-only deploy, live verification, and generated GitHub Release notes.
 - Production deploys are independent of the stage workflow and build their own hashed JS/CSS assets after production-environment approval.
 - Production deploys are protected by the `production` GitHub Environment.
 
