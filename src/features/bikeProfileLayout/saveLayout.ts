@@ -1,4 +1,4 @@
-import { encodeCanonicalLayout, payloadHash, type CanonicalLayout } from "./canonical";
+import { encodeCanonicalLayout, parseCanonicalLayout, payloadHash, type CanonicalLayout } from "./canonical";
 import { headKey } from "./outbox";
 import type { LayoutHeadRecord, LayoutIntentRecord, LayoutIntentState } from "./outbox";
 
@@ -43,6 +43,8 @@ export type SaveLayoutResult =
   | { status: "localSaveFailed"; cause: unknown }
   /** 요청 대상과 payload 의 프로필이 다르다. 아무 것도 쓰지 않는다. */
   | { status: "invalidTarget"; expected: string; actual: string }
+  /** canonical v1 규칙을 어긴 payload 또는 잘못된 expectedRevision. 아무 것도 쓰지 않는다. */
+  | { status: "invalidPayload"; reasons: string[] }
   /**
    * 이 프로필에 아직 해소되지 않은 충돌이 있어 전송하지 않았다. draft 는 로컬에 남는다.
    * 사용자가 §6.1 의 세 선택지 중 하나를 고르기 전까지 전송을 재개하지 않는다.
@@ -140,6 +142,25 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
     });
     return { status: "localSaveFailed", cause };
   }
+  // 타입만으로는 NaN·범위 밖 배치·RUNNING 레이아웃을 막지 못한다. 검증 없이 커밋하면 손상된
+  // 로컬 head 와 quarantined intent 가 남아 그 프로필의 동기화가 막힌다 — **커밋 전에** 거른다.
+  // 서버와 같은 검증기를 그대로 돌려 규칙이 갈라지지 않게 한다.
+  const parsed = parseCanonicalLayout(canonicalPayload, "CYCLING");
+  if (!parsed.ok) {
+    const reasons = parsed.issues.map((i) => `${i.error}@${i.path}`);
+    log("error", "[0/3] canonical v1 규칙 위반 — 아무 것도 쓰지 않음", { ownerKey, profileId, reasons });
+    return { status: "invalidPayload", reasons };
+  }
+  if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+    const reasons = [`expectedRevision=${String(expectedRevision)}`];
+    log("error", "[0/3] expectedRevision 이 0 이상 정수가 아님 — 아무 것도 쓰지 않음", {
+      ownerKey,
+      profileId,
+      reasons,
+    });
+    return { status: "invalidPayload", reasons };
+  }
+
   const mutationId = deps.newMutationId();
   const now = deps.nowMs();
   const ctx = { ownerKey, profileId, expectedRevision, mutationId };
@@ -361,7 +382,15 @@ export async function transmitIntent(
 
   // 버전 불일치·malformed 응답이 오면 exhaustive switch 가 undefined 를 반환하고 intent 가
   // `inFlight` 에 영구 잔류한다. **모양까지** 검증하고, 모르는 응답은 전송 실패와 같게 다룬다.
-  const shapeError = await validateResponseShape(response, intent);
+  let shapeError: string | null;
+  try {
+    shapeError = await validateResponseShape(response, intent);
+  } catch (cause) {
+    // 해시 계산·응답 처리 실패도 여기서 새면 intent 가 inFlight 에 남는다.
+    log("error", "[2/3] 응답 검증 실패 — intent 보존", { ...ctx, cause: String(cause) });
+    await recordState("pending");
+    return { status: "savedPendingSync", intent: { ...intent, state: "pending" } };
+  }
   if (shapeError) {
     log("error", `[2/3] call saveBikeProfileLayout — ${shapeError}, intent 보존`, {
       ...ctx,

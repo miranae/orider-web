@@ -422,6 +422,54 @@ describe("saveBikeProfileLayout", () => {
     expect(store.intents.get("m1")?.state).toBe("pending");
   });
 
+  it("refuses to write a layout that breaks canonical v1 rules", async () => {
+    // 검증 없이 커밋하면 손상된 로컬 head 와 quarantined intent 가 남아 프로필 동기화가 막힌다.
+    const overlapping: CanonicalLayout = {
+      ...layout,
+      pages: [
+        {
+          columns: 4,
+          rows: 4,
+          fields: [
+            { type: "SPEED", col: 0, row: 0, colSpan: 2, rowSpan: 2 },
+            { type: "POWER", col: 1, row: 1, colSpan: 1, rowSpan: 1 },
+          ],
+        },
+      ],
+    };
+
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout: overlapping, expectedRevision: 3 },
+      deps(committed),
+    );
+
+    expect(result.status).toBe("invalidPayload");
+    expect(store.commitHeadAndIntent).not.toHaveBeenCalled();
+    expect(requests).toHaveLength(0);
+  });
+
+  it("refuses a running layout on the bike profile path", async () => {
+    const running: CanonicalLayout = { ...layout, sport: "RUNNING" };
+
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout: running, expectedRevision: 3 },
+      deps(committed),
+    );
+
+    expect(result.status).toBe("invalidPayload");
+    expect(store.commitHeadAndIntent).not.toHaveBeenCalled();
+  });
+
+  it("refuses a non-integer expectedRevision", async () => {
+    const result = await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: Number.NaN },
+      deps(committed),
+    );
+
+    expect(result.status).toBe("invalidPayload");
+    expect(store.commitHeadAndIntent).not.toHaveBeenCalled();
+  });
+
   it("refuses to write when the payload targets a different profile", async () => {
     // 대상이 어긋난 채 저장하면 다른 프로필의 로컬 head 가 오염되고 되돌릴 수 없다.
     const result = await saveBikeProfileLayout(
