@@ -340,7 +340,8 @@ describe("TrainingExecutionPanel", () => {
     mocks.list.mockResolvedValue([{ ...probableExecution, status: "invalidated", activityId: null, activityRevision: null }]);
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
-    expect(await screen.findByRole("button", { name: "운동 시작" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "운동 시작" }));
+    await waitFor(() => expect(mocks.reserve).toHaveBeenCalledTimes(1));
   });
 
   it("confirms a probable match with the activity's current revision, not the stale linked one", async () => {

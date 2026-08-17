@@ -71,6 +71,11 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   // invalidated 는 닫힌 실행이다 — 붙들고 있으면 시작도 결과 기록도 못 하므로 없는 것으로 다룬다.
   useEffect(() => {
     const next = initialExecution?.status === "invalidated" ? null : initialExecution;
+    // 다른 탭의 해제나 서버측 무효화로 들어온 경우에도 멱등키를 회전한다 — 그대로 두면 재시작이
+    // 같은 executionId(hash(uid, idempotencyKey))를 되짚어 무효화된 실행으로 돌아간다.
+    if (initialExecution?.status === "invalidated") {
+      reserveKey.current = crypto.randomUUID(); startKey.current = crypto.randomUUID();
+    }
     setExecution(next);
     // 같은 실행이 갱신돼 돌아온 것뿐이면 재시도 정보를 지우지 않는다. partial 실패 직후 부모 재조회가
     // 도착하면서 재시도 버튼이 사라지면, 서버의 completed 를 되돌릴 경로가 없어진다.
