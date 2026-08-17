@@ -562,7 +562,21 @@ export default function ElevationChart({
           interaction: { mode: "index", intersect: false },
           onHover: handleHover,
           plugins: {
-            tooltip: { enabled: false },
+            // 툴팁은 기본적으로 끈다(호버 표시는 부모가 그린다). 다만 지점 마커는 이름을
+            // 알 방법이 이것뿐이라, 마커가 있을 때만 마커 데이터셋에 한해 켠다.
+            tooltip: markerDataset ? {
+              enabled: true,
+              filter: (item: { datasetIndex: number }) => item.datasetIndex === 1,
+              displayColors: false,
+              callbacks: {
+                title: () => "",
+                label: (item: { dataIndex: number; parsed: { y: number } }) => {
+                  const marker = markers?.[item.dataIndex];
+                  const elevation = `${Math.round(item.parsed.y)}m`;
+                  return marker?.label ? `${marker.label} · ${elevation}` : elevation;
+                },
+              },
+            } : { enabled: false },
             legend: { display: false },
             ...(rangeHighlightOpts ? { rangeHighlight: rangeHighlightOpts } : {}),
             ...(segmentHighlightOpts ? { segmentHighlight: segmentHighlightOpts } : {}),

@@ -33,10 +33,13 @@ const GPX = `<?xml version="1.0" encoding="UTF-8"?>
   <wpt lat="37.515" lon="127.000"><ele>200</ele><name>3번 지점</name><type>GENERIC</type></wpt>
 </gpx>`;
 
+const OFF_TRACK_LIMIT_M = 2_000;
+
 function markers(course: ReturnType<typeof parseGpxFull>) {
   const cumulative = cumulativeDistances(course.points);
   return resolveWaypointsOnTrack(course.waypoints, course.points, cumulative)
     .filter((item) => isProfileMarkerLane(classifyLane(item.waypoint)))
+    .filter((item) => item.offTrackM < OFF_TRACK_LIMIT_M)
     .map((item) => ({
       name: item.waypoint.name,
       lane: classifyLane(item.waypoint),
@@ -68,6 +71,16 @@ describe("이벤트 프로필 — 코스엔진 이관", () => {
     const result = markers(course);
     expect(result[0]!.distanceM).toBeGreaterThan(0);
     expect(result[1]!.distanceM).toBeGreaterThan(result[0]!.distanceM);
+  });
+
+  it("코스에서 멀리 떨어진 웨이포인트는 프로필에 찍지 않는다", () => {
+    // 억지로 투영하면 엉뚱한 거리·고도로 찍히고, 선택하면 지도가 코스 밖으로 날아간다.
+    const withStray = parseGpxFull(GPX.replace(
+      "</gpx>",
+      `<wpt lat="37.900" lon="127.400"><ele>50</ele><name>엉뚱한 정상</name><type>KOM</type></wpt></gpx>`,
+    ));
+    expect(withStray.waypoints).toHaveLength(4);
+    expect(markers(withStray).map((marker) => marker.name)).toEqual(["남한산성 정상", "1차 보급"]);
   });
 
   it("표와 차트가 같은 분류기를 쓴다 — 예전에는 KOM 과 콤 으로 갈렸다", () => {

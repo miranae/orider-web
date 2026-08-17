@@ -45,6 +45,9 @@ import { buildEventFollowPayload, followerExists } from "../../features/event/de
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 
+/** 이보다 트랙에서 멀리 떨어진 웨이포인트는 프로필·지도에 찍지 않는다(m). */
+const OFF_TRACK_LIMIT_M = 2_000;
+
 export function shouldShowHostGroupCard(
   groupId: string | undefined,
   loadedGroupId: string | undefined,
@@ -419,6 +422,9 @@ export default function EventDetailPage() {
     const cumulative = cumulativeDistances(courseData.points);
     return resolveWaypointsOnTrack(courseData.waypoints, courseData.points, cumulative)
       .filter((item) => isProfileMarkerLane(classifyLane(item.waypoint)))
+      // 코스에서 멀리 떨어진 웨이포인트는 트랙에 억지로 투영되어 엉뚱한 거리·고도로 찍히고,
+      // 선택하면 지도가 코스 밖으로 날아간다. 이관 전과 같은 2km 기준을 유지한다.
+      .filter((item) => item.offTrackM < OFF_TRACK_LIMIT_M)
       .map((item) => ({
         name: item.waypoint.name,
         lane: classifyLane(item.waypoint),
