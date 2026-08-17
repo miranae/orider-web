@@ -1,8 +1,14 @@
 import type { TodayTrainingDecisionProjection, TrainingDecisionSession } from "../../services/trainingDecisionContract";
 
 export type PresentedTrainingDecisionSession = Omit<TrainingDecisionSession, "current"> & {
-  current: Omit<TrainingDecisionSession["current"], "targetTss"> & { targetTss: number | null };
+  /** 강도 존은 권고 워크아웃에만 존재한다(계약상 optional) — 예정/실행 세션에는 없으므로 null. */
+  current: Omit<TrainingDecisionSession["current"], "targetTss"> & { targetTss: number | null; zone?: Zone | null };
 };
+
+type Zone = NonNullable<TrainingRecommendationWorkout["zone"]>;
+type TrainingRecommendationWorkout = NonNullable<
+  TodayTrainingDecisionProjection["recommendedAdjustments"][number]["recommendation"]["workout"]
+>;
 
 export function primaryScheduledSession(decision: TodayTrainingDecisionProjection): TrainingDecisionSession | null {
   return decision.scheduledSessions.find((session) => session.sessionId === decision.representativeSessionId)
@@ -19,7 +25,8 @@ export function primaryRecommendedSession(decision: TodayTrainingDecisionProject
   const recommended = primaryRecommendedAdjustment(decision)?.recommendation.workout;
   if (!scheduled || !recommended) return null;
   return { ...scheduled, current: { ...scheduled.current, workout: recommended.kind,
-    durationMin: recommended.durationMin, targetTss: recommended.targetTss ?? null } };
+    durationMin: recommended.durationMin, targetTss: recommended.targetTss ?? null,
+    zone: recommended.zone ?? null } };
 }
 
 export function primaryEffectiveSession(decision: TodayTrainingDecisionProjection) {

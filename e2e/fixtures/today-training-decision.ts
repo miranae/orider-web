@@ -74,12 +74,14 @@ export function proposalRecoveryE2eEnvelope(state: ProposalFixtureState) {
     providerCalls: 0, quotaConsumed: 0 }, providerCalls: 0, quotaConsumed: 0 };
 }
 
-export type ExecutionFixtureState = "executable" | "reserved" | "in-progress" | "link" | "completed" | "error";
+export type ExecutionFixtureState = "executable" | "reserved" | "in-progress" | "link" | "probable" | "completed" | "error";
 
 export function executionListE2eEnvelope(state: ExecutionFixtureState) {
   if (state === "error") throw new Error("error state uses a failed callable response");
   if (state === "executable") return { data: { executions: [] } };
   const status = state === "reserved" ? "reserved" : state === "in-progress" ? "started" : "linked";
+  // 시간창 추정 매칭 — 확인 전에는 완료 권한이 없어 탈출 동선이 반드시 있어야 하는 상태.
+  const probable = state === "probable";
   const outcomeStatus = state === "completed" ? "completed" : "pending";
   return { data: { executions: [{ schemaVersion: 1, executionId: `exec_${"7".repeat(24)}`, status,
     scheduledSessionId: session.scheduledSessionId, dayRef: session.dayRef, scheduledSessionRevision: session.scheduledSessionRevision,
@@ -88,7 +90,8 @@ export function executionListE2eEnvelope(state: ExecutionFixtureState) {
     activityId: status === "linked" ? "activity_e2e" : null, activityRevision: status === "linked" ? "activity_revision_e2e" : null,
     discipline: "bike", startedAt: status === "reserved" ? null : 1_787_000_000_200,
     linkedAt: status === "linked" ? 1_787_000_000_300 : null, createdAt: 1_787_000_000_100, updatedAt: 1_787_000_000_300,
-    matchMethod: status === "linked" ? "manual" : "explicit-start", matchConfidence: status === "linked" ? "manual" : "exact",
+    matchMethod: probable ? "legacy-time-window" : status === "linked" ? "manual" : "explicit-start",
+    matchConfidence: probable ? "probable" : status === "linked" ? "manual" : "exact",
     outcomeStatus, outcomeAt: state === "completed" ? 1_787_000_000_400 : null, postponedToLocalDate: null }] } };
 }
 
