@@ -227,6 +227,14 @@ export function gradeBandIndex(gradePct: number): number {
   return GRADE_BANDS.findIndex((band) => gradePct < band.maxGradePct);
 }
 
+export interface ElevationChartMarker {
+  distance: number;
+  elevation: number;
+  color: string;
+  label?: string;
+  active?: boolean;
+}
+
 interface ElevationChartProps {
   data: { distance: number; elevation: number }[];
   height?: number;
@@ -247,6 +255,11 @@ interface ElevationChartProps {
    * 읽기 어렵다. 색이 실제 경사를 함께 전달한다. 기본값 off — 켜는 화면만 바뀐다.
    */
   colorByGrade?: boolean;
+  /**
+   * 프로필 위에 찍을 지점(경유지 등). 거리는 m, 색은 캔버스가 그릴 수 있는 실제 값이어야
+   * 한다(CSS 변수는 해석하지 못한다). `active` 인 지점은 크게 그린다.
+   */
+  markers?: ElevationChartMarker[];
   /** Read-only segment highlight range [startIndex, endIndex] (no drag) */
   highlightRange?: [number, number];
 }
@@ -263,6 +276,7 @@ export default function ElevationChart({
   onRangeChange,
   highlightRange,
   colorByGrade = false,
+  markers,
 }: ElevationChartProps) {
    
   const chartRef = useRef<Chart<"line", any>>(null);
@@ -452,10 +466,26 @@ export default function ElevationChart({
       },
     } : {}),
   };
+  // 지점 표시는 선 없는 산점 데이터셋으로 얹는다. 같은 축을 쓰므로 거리·고도가 그대로 맞는다.
+  const markerDataset = markers && markers.length > 0 ? {
+    label: "지점",
+    data: markers.map((marker) => ({ x: marker.distance / 1000, y: marker.elevation })),
+    showLine: false,
+    fill: false,
+    borderWidth: 0,
+    pointRadius: markers.map((marker) => (marker.active ? 8 : 5)),
+    pointHoverRadius: markers.map((marker) => (marker.active ? 9 : 6)),
+    pointBackgroundColor: markers.map((marker) => marker.color),
+    pointBorderColor: pointHoverBorder,
+    pointBorderWidth: 2,
+    yAxisID: "yElev",
+  } : null;
+
   const chartData = {
     labels: distancesKm,
     datasets: [
       elevationDataset,
+      ...(markerDataset ? [markerDataset] : []),
       ...(separateOverlayLanes ? [] : (overlays ?? []).map((o) => {
         const focused = o.key != null && o.key === focusedOverlayKey;
         return {
