@@ -15,6 +15,7 @@ async function signIn(page: Page) {
 
 async function mockTodayTraining(page: Page, state: {
   execution: ExecutionFixtureState; proposal: ProposalFixtureState; recoverExecutionError?: boolean;
+  decisionUnavailable?: boolean;
 }) {
   await page.route("**/runtime-config.json*", (route) => route.fulfill({ json: {
     aiApiBase: "https://coach.e2e.test", useEmulators: true, trainingDecisionEnabled: true,
@@ -22,6 +23,10 @@ async function mockTodayTraining(page: Page, state: {
   } }));
   await page.route("https://coach.e2e.test/v1/coach/training-decisions/today?discipline=bike", async (route) => {
     expect(route.request().headers().authorization).toMatch(/^Bearer /u);
+    if (state.decisionUnavailable === true) {
+      await route.abort("failed");
+      return;
+    }
     await route.fulfill({ json: todayTrainingDecisionE2eEnvelope({ applied: state.proposal === "applied" }) });
   });
   await page.route("https://coach.e2e.test/v1/coach/capabilities", (route) => route.fulfill({ json: coachCapabilitiesE2eEnvelope() }));
@@ -283,7 +288,7 @@ test.describe("Today training decision responsive render", () => {
     await attachFullPageFromTop(page, testInfo, `today-training-home-applied-${testInfo.project.name}.png`);
 
     mutable.proposal = "pending";
-    for (const state of ["executable", "reserved", "in-progress", "link", "completed", "error"] as const) {
+    for (const state of ["executable", "reserved", "in-progress", "link", "probable", "completed", "error"] as const) {
       mutable.execution = state;
       await page.goto("/ko/");
       const session = page.locator(`.training-decision-card--home [data-execution-state="${state}"]`).first();
@@ -298,6 +303,14 @@ test.describe("Today training decision responsive render", () => {
         await expectContainedReflow(session);
         await session.getByRole("button", { name: "연기" }).scrollIntoViewIfNeeded();
         await expect(session.getByRole("button", { name: "연기" })).toBeVisible();
+      }
+      if (state === "probable") {
+        // 추정 매칭에서 사용자가 빠져나갈 수 있는 세 갈래가 항상 있어야 한다.
+        await expect(session.getByText("이 세션과 시간대가 겹치는 활동을 찾았어요. 이 활동이 맞나요?")).toBeVisible();
+        await expect(session.getByRole("button", { name: "맞아요 · 완료 처리" })).toBeVisible();
+        await expect(session.getByRole("button", { name: "맞지만 부분 완료" })).toBeVisible();
+        await expect(session.getByRole("button", { name: "아니에요 · 연결 해제" })).toBeVisible();
+        await expectContainedReflow(session);
       }
       if (state === "error") {
         await attachFullPageFromTop(page, testInfo, `today-training-execution-error-${testInfo.project.name}.png`);
@@ -315,5 +328,19 @@ test.describe("Today training decision responsive render", () => {
       }
       await attachFullPageFromTop(page, testInfo, `today-training-execution-${state}-${testInfo.project.name}.png`);
     }
+  });
+
+  test("keeps an explaining Home card when the decision call fails", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name === "tablet", "desktop/mobile fixture matrix");
+    await mockTodayTraining(page, { execution: "executable", proposal: "pending", decisionUnavailable: true });
+    await signIn(page);
+    await page.goto("/ko/");
+    const card = page.locator('[data-training-decision-fallback="unavailable"]');
+    await expect(card).toBeVisible();
+    await expect(card.getByRole("heading", { name: "오늘 계획을 불러오지 못했습니다" })).toBeVisible();
+    await expect(card.getByRole("button", { name: "새로 확인" })).toBeVisible();
+    await expect(card.getByRole("link", { name: /오늘 계획 보기/u })).toBeVisible();
+    await expectContainedReflow(card);
+    await attachFullPageFromTop(page, testInfo, `today-training-home-unavailable-${testInfo.project.name}.png`);
   });
 });

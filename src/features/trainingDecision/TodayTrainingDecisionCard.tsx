@@ -73,9 +73,19 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     if (surface === "fitness") return null;
   }
   if (loading) return <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
-  if (!decision) return <div className="training-decision-fallback" data-training-decision-fallback={unavailable ? "unavailable" : "empty"}>
-    <TodayPlanLink discipline={discipline} />
-  </div>;
+  // 결정을 못 받은 상태를 링크 한 줄로 강등하지 않는다 — 왜 비었는지와 다음 행동을 카드로 남긴다.
+  if (!decision) return <Card className="training-decision-card training-decision-card--fallback"
+    data-training-decision-fallback={unavailable ? "unavailable" : "empty"}>
+    <div className="training-decision-card__header">
+      <div><Text as="span" variant="eyebrow">{t("decision.eyebrow")}</Text>
+        <Text as="h2" variant="title">{t(unavailable ? "decision.fallback.unavailableTitle" : "decision.fallback.emptyTitle")}</Text></div>
+    </div>
+    <Text as="p" tone="secondary">{t(unavailable ? "decision.fallback.unavailableBody" : "decision.fallback.emptyBody")}</Text>
+    <footer className="training-decision-card__actions">
+      {unavailable && <Button size="sm" variant="outline" onClick={() => refresh()}>{t("decision.refresh")}</Button>}
+      <TodayPlanLink discipline={discipline} />
+    </footer>
+  </Card>;
 
   const scheduled = primaryScheduledSession(decision);
   const recommendationVisible = decision.healthGate.state === "clear" && canShowRecommendation(decision);
@@ -118,6 +128,10 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     </header>
     {decision.healthGate.state === "stop" && <Alert variant="danger" title={t("decision.healthStop")} />}
     {!scheduled && <Text as="p" tone="secondary">{t("decision.noScheduled")}</Text>}
+    {/* 계약이 내려주는 폴백 사유를 그대로 노출 — "왜 권고가 없는지"를 사용자가 알 수 있어야 한다. */}
+    {decision.fallback.active && decision.fallback.reasonCode
+      && <Text as="p" variant="caption" tone="secondary" data-fallback-reason={decision.fallback.reasonCode}>
+        {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}</Text>}
     {surface === "fitness" ? <>
       <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
       <Text as="p" variant="caption" tone="secondary">{t("decision.sourceTuple", { classification: decision.loadAdjustment?.classification ?? decision.prescription.status, phase: decision.plan?.phase ?? "unknown" })}</Text>

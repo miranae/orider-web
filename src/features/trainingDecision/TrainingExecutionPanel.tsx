@@ -90,6 +90,31 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     catch (cause) { logClientError("TrainingExecutionPanel.outcome", cause, { executionId: execution.executionId, value }); setError(true); } finally { setBusy(false); }
   }
 
+  /**
+   * 시간창 추정(probable) 매칭은 완료·부분 완료도, 건너뛰기·연기도 막혀 교착이 된다.
+   * 사용자가 "이 활동이 맞다" 고 확인하면 같은 활동을 manual 로 다시 링크해 exact 권한으로 승격시킨다.
+   * (백엔드 linkActivity 는 동일 activityId 재링크를 허용하고, manual 은 즉시 completed 로 기록한다.)
+   */
+  async function confirmProbable(then?: "partial") {
+    if (!canMutate || !execution || busy || execution.status !== "linked" || execution.matchConfidence !== "probable"
+      || !execution.activityId || !execution.activityRevision) return;
+    setBusy(true); setError(false);
+    const operation = `confirm:${execution.executionId}:${execution.activityId}:${execution.activityRevision}:${then ?? "completed"}`;
+    try {
+      const confirmed = await linkSessionExecutionActivity(execution.executionId, execution.activityId,
+        execution.activityRevision, mutationKey(operation));
+      const next = then === "partial"
+        ? await setSessionExecutionOutcome(confirmed.executionId, "partial", mutationKey(`${operation}:outcome`))
+        : confirmed;
+      mutationKeys.current.delete(operation); mutationKeys.current.delete(`${operation}:outcome`);
+      setExecution(next); onChanged();
+    } catch (cause) {
+      logClientError("TrainingExecutionPanel.confirmProbable", cause,
+        { executionId: execution.executionId, activityId: execution.activityId, then: then ?? "completed" });
+      setError(true);
+    } finally { setBusy(false); }
+  }
+
   async function unlink() {
     if (!canMutate || !execution || execution.status !== "linked" || busy) return;
     setBusy(true); setError(false);
@@ -100,8 +125,10 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   }
 
   const exactLink = execution?.status === "linked" && execution.matchConfidence !== "probable";
+  const probableLink = execution?.status === "linked" && execution.matchConfidence === "probable";
   const presentationState = error ? "error" : !execution ? "executable" : execution.outcomeStatus !== "pending" ? "completed"
-    : execution.status === "reserved" ? "reserved" : execution.status === "started" ? "in-progress" : "link";
+    : execution.status === "reserved" ? "reserved" : execution.status === "started" ? "in-progress"
+      : probableLink ? "probable" : "link";
   return <article className="training-execution-session" data-execution-state={presentationState}>
     <Text as="h4" variant="label">{t(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })}</Text>
     <Text as="p" variant="caption" tone={presentationState === "error" ? "warning" : "secondary"}
@@ -115,8 +142,17 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
       {decision.capabilities.execution.link === "available" && execution.status === "started" && execution.outcomeStatus === "pending"
         && <Button size="sm" variant="outline" aria-expanded={manual} aria-controls={manualPanelId}
           onClick={() => setManual((value) => !value)}>{t("decision.execution.manualLink")}</Button>}
-      {decision.capabilities.execution.unlink === "available" && execution.status === "linked" && execution.matchMethod === "manual"
-        && <Button size="sm" variant="ghost" onClick={() => void unlink()}>{t("decision.execution.unlink")}</Button>}
+      {/* 추정 매칭 확인 동선 — 확인하면 완료 권한이 열리고, 아니면 해제해서 건너뛰기·연기로 빠져나간다. */}
+      {probableLink && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
+        && <div className="training-execution-actions__row" data-probable-confirm="true">
+          <Text as="p" variant="caption" tone="secondary">{t("decision.execution.probablePrompt")}</Text>
+          <Button size="sm" variant="primary" loading={busy} onClick={() => void confirmProbable()}>{t("decision.execution.confirmMatch")}</Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>
+        </div>}
+      {decision.capabilities.execution.unlink === "available" && execution.status === "linked"
+        && (execution.matchMethod === "manual" || probableLink)
+        && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void unlink()}>
+          {t(probableLink ? "decision.execution.rejectMatch" : "decision.execution.unlink")}</Button>}
       {manual && <div id={manualPanelId} className="training-execution-actions__manual">
         <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.activityPicker")}</Text>
           <select value={selectedActivityId} onChange={(event) => setSelectedActivityId(event.target.value)} disabled={activitiesLoading}>

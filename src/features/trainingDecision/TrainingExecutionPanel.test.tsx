@@ -272,4 +272,60 @@ describe("TrainingExecutionPanel", () => {
     expect(mocks.list).toHaveBeenCalledWith("bike");
     expect(screen.getByText(/시작 대기/)).toBeInTheDocument();
   });
+
+  const probableExecution = { ...baseExecution, status: "linked" as const, activityId: "activity_123",
+    activityRevision: "ar_current", startedAt: 2, linkedAt: 3, matchMethod: "legacy-time-window" as const,
+    matchConfidence: "probable" as const, outcomeStatus: "pending" as const };
+
+  it("offers an escape from a probable auto match instead of a dead end", async () => {
+    mocks.list.mockResolvedValue([probableExecution]);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect((await screen.findByText(/추정으로 연결된 활동이 있습니다/)).closest("[data-execution-state]"))
+      .toHaveAttribute("data-execution-state", "probable");
+    expect(screen.getByRole("button", { name: "맞아요 · 완료 처리" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "맞지만 부분 완료" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "아니에요 · 연결 해제" })).toBeInTheDocument();
+  });
+
+  it("promotes a confirmed probable match to a manual link on the same activity", async () => {
+    mocks.list.mockResolvedValue([probableExecution]);
+    mocks.link.mockResolvedValue({ ...probableExecution, matchMethod: "manual", matchConfidence: "manual",
+      outcomeStatus: "completed" });
+    const changed = vi.fn();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={changed} />);
+    fireEvent.click(await screen.findByRole("button", { name: "맞아요 · 완료 처리" }));
+    await waitFor(() => expect(mocks.link).toHaveBeenCalledWith("exec_dddddddddddddddddddddddd", "activity_123",
+      "ar_current", expect.any(String)));
+    expect(mocks.outcome).not.toHaveBeenCalled();
+    await waitFor(() => expect(changed).toHaveBeenCalled());
+    expect(await screen.findByText("이 세션의 실행 결과가 기록되었습니다.")).toBeInTheDocument();
+  });
+
+  it("records a partial outcome after confirming the probable match", async () => {
+    mocks.list.mockResolvedValue([probableExecution]);
+    mocks.link.mockResolvedValue({ ...probableExecution, matchMethod: "manual", matchConfidence: "manual",
+      outcomeStatus: "completed" });
+    mocks.outcome.mockResolvedValue({ ...probableExecution, matchMethod: "manual", matchConfidence: "manual",
+      outcomeStatus: "partial" });
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "맞지만 부분 완료" }));
+    await waitFor(() => expect(mocks.outcome).toHaveBeenCalledWith("exec_dddddddddddddddddddddddd", "partial", expect.any(String)));
+    expect(mocks.link).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/부분 완료/)).toBeInTheDocument();
+  });
+
+  it("unlinks a rejected probable match so skip and postpone become reachable", async () => {
+    const started = { ...baseExecution, status: "started" as const, startedAt: 2 };
+    mocks.list.mockResolvedValue([probableExecution]);
+    mocks.unlink.mockResolvedValue(started);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "아니에요 · 연결 해제" }));
+    await waitFor(() => expect(mocks.unlink).toHaveBeenCalledWith("exec_dddddddddddddddddddddddd", expect.any(String)));
+    expect(await screen.findByRole("button", { name: "건너뜀" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "연기" })).toBeInTheDocument();
+  });
 });

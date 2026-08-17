@@ -737,6 +737,22 @@
     "duration": "{{value}} min",
     "tss": "{{value}} TSS",
     "tssUnavailable": "TSS pending",
+    "zone": "{{value}} zone",
+    "fallback": {
+      "unavailableTitle": "Today's plan could not be loaded",
+      "unavailableBody": "We could not load today's plan. Try again in a moment, or open your training plan directly.",
+      "emptyTitle": "No session scheduled today",
+      "emptyBody": "Nothing is scheduled for today. Open your training plan to review this week.",
+      "reason": {
+        "feature_disabled": "Today's plan is not enabled yet",
+        "no_active_goal": "No active goal, so no plan could be built",
+        "prescription_not_ready": "Today's prescription is not ready yet",
+        "ambiguous_active_goal": "Multiple active goals, so no single baseline could be chosen",
+        "consent_required": "AI coach consent is required",
+        "canonical_load_unavailable": "Recent training load is unavailable",
+        "dependency_unavailable": "Required data is temporarily unavailable"
+      }
+    },
     "extraSessions": "There are {{count}} more sessions today. Review each one in Plan.",
     "reasonTitle": "Why this changed",
     "reasonFallback": "Reflects current load and recovery signals",
@@ -820,8 +836,13 @@
       "listError": "Existing execution could not be verified. A new execution will not be created yet.",
       "link": "Link",
       "unlink": "Unlink activity",
+      "probablePrompt": "We found an activity overlapping this session. Is this the right one?",
+      "confirmMatch": "Yes · mark complete",
+      "confirmPartial": "Yes, but partial",
+      "rejectMatch": "No · unlink",
       "error": "The execution state could not be saved.",
       "presentation": {
+        "probable": "An activity is linked by estimate. Confirm it to record the outcome.",
         "executable": "This session can be started now.",
         "reserved": "The session is reserved. Starting it will mark it in progress.",
         "in-progress": "The session is in progress. You can link a completed activity.",

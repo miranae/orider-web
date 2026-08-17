@@ -71,6 +71,42 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByText("오늘 예정된 계획")).toBeInTheDocument();
     expect(screen.queryByText("조정 권고")).not.toBeInTheDocument();
     expect(mocks.coach).not.toHaveBeenCalled();
+    expect(screen.getByText("필요한 데이터를 일시적으로 불러오지 못했어요"))
+      .toHaveAttribute("data-fallback-reason", "dependency_unavailable");
+  });
+
+  it("keeps a Home card with a retry when the decision API is unavailable", async () => {
+    const refresh = vi.fn();
+    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    const card = document.querySelector("[data-training-decision-fallback]");
+    expect(card).toHaveAttribute("data-training-decision-fallback", "unavailable");
+    expect(screen.getByText("오늘 계획을 불러오지 못했습니다")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "새로 확인" }));
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("explains an empty Home day instead of degrading to a bare link", () => {
+    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(document.querySelector("[data-training-decision-fallback]"))
+      .toHaveAttribute("data-training-decision-fallback", "empty");
+    expect(screen.getByText("오늘 배정된 세션이 없습니다")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "새로 확인" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
+  });
+
+  it("shows the recommended intensity zone carried by the decision contract", () => {
+    const base = trainingDecisionEnvelope();
+    const adjustment = base.data.recommendedAdjustments[0]!;
+    const decision = parseTodayTrainingDecisionProjection({ ...base, data: { ...base.data,
+      recommendedAdjustments: [{ ...adjustment, recommendation: { ...adjustment.recommendation,
+        workout: { ...adjustment.recommendation.workout!, zone: "Z2" } } }] } });
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    const recommended = document.querySelector("[data-session-role=\"recommended\"]");
+    expect(within(recommended as HTMLElement).getByText("Z2 존")).toBeInTheDocument();
   });
 
   it("renders an applied Home decision from the effective session and scheduled baseline", () => {
