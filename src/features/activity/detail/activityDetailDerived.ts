@@ -8,7 +8,7 @@ import {
   hasDenseArraySlots,
   hasValidExplicitSensorChannelValues,
   hasValidLegacySensorChannelValues,
-  hasRetainedSlotMeasurementCoverage,
+  hasExplicitSessionMeasurementCoverage,
 } from "./sensorChannelContract";
 import {
   inferUniformSampleTimeAxis,
@@ -452,6 +452,8 @@ function hasLegacyCoverage(valuesLength: number, expectation: LegacyCoverageExpe
 function explicitCoverageRejectionReason(
   streams: ActivityStreams,
   explicitTime: readonly number[],
+  measuredSlots: number,
+  resolutionSeconds: number,
   summaryDurationSec?: number,
   activityStartTime?: number,
 ): SensorRejectionReason | null {
@@ -464,15 +466,21 @@ function explicitCoverageRejectionReason(
   if (expectedDuration == null) return "missing_duration";
   const measuredDuration = explicitTime[explicitTime.length - 1]! - explicitTime[0]! + 1;
   const roundingEpsilon = Math.max(1, expectedDuration) * Number.EPSILON;
-  // The V1 axis spans the session even when slots are missing, so compare spans.
   // Expand the percentage bounds to an absolute second on short rides so endpoint
   // rounding cannot reject a valid sample.
   const allowedDifference = Math.max(
     1,
     expectedDuration * EXPLICIT_SENSOR_DURATION_TOLERANCE,
   );
-  if (Math.abs(measuredDuration - expectedDuration) > allowedDifference + roundingEpsilon) {
+  // Only an axis that *overruns* the session is evidence of a foreign clock — it
+  // describes time this activity does not own. Falling short is ordinary hardware
+  // behaviour (the strap dies mid-ride, the sensor reconnects late), so it is a
+  // coverage question, answered below against the seconds actually measured.
+  if (measuredDuration - expectedDuration > allowedDifference + roundingEpsilon) {
     return "duration_mismatch";
+  }
+  if (!hasExplicitSessionMeasurementCoverage(measuredSlots, resolutionSeconds, expectedDuration)) {
+    return "insufficient_coverage";
   }
 
   const routeTime = runtimeArray<number>(streams.time);
@@ -759,6 +767,8 @@ export function selectActivityPowerStream(
       const coverageRejection = explicitCoverageRejectionReason(
         streams,
         explicitTime,
+        finiteValues.length,
+        explicit.resolutionSeconds,
         context.explicitDurationSec,
         context.activityStartTime,
       );
@@ -768,15 +778,6 @@ export function selectActivityPowerStream(
         return coverageRejection === "origin_mismatch"
           ? fallbackPowerAfterRejectedV1(streams, context, rejection)
           : { source: null, values: null, finiteValues: [], hasCandidate: true, rejection };
-      }
-      if (!hasRetainedSlotMeasurementCoverage(finiteValues.length, explicitWatts?.length ?? 0)) {
-        return {
-          source: null, values: null, finiteValues: [], hasCandidate: true,
-          rejection: {
-            channel: "power", source: "sensorStreamsV1", reason: "insufficient_measurements",
-            axisLength: explicitTime.length, channelLength: explicitWatts?.length,
-          },
-        };
       }
       return {
         source: "sensorStreamsV1",
@@ -957,6 +958,8 @@ export function selectActivityHeartRateStream(
     const coverageRejection = explicitCoverageRejectionReason(
       streams,
       explicitTime,
+      explicitPositive.length,
+      explicit.resolutionSeconds,
       context.explicitDurationSec,
       context.activityStartTime,
     );
@@ -966,15 +969,6 @@ export function selectActivityHeartRateStream(
       return coverageRejection === "origin_mismatch"
         ? fallbackHeartRateAfterRejectedV1(streams, context, rejection)
         : { source: null, values: null, positiveValues: [], hasRejectedMeasurement: true, rejection };
-    }
-    if (!hasRetainedSlotMeasurementCoverage(explicitPositive.length, explicitHeartRate.length)) {
-      return {
-        source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,
-        rejection: {
-          channel: "heart_rate", source: "sensorStreamsV1", reason: "insufficient_measurements",
-          axisLength: explicitTime.length, channelLength: explicitHeartRate.length,
-        },
-      };
     }
     return {
       source: "sensorStreamsV1",
