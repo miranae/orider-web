@@ -34,6 +34,9 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const startKey = useRef(crypto.randomUUID());
   const mutationKeys = useRef(new Map<string, string>());
   const manualPanelId = `training-execution-manual-${session.sessionId}`;
+  // 패널 자체가 healthGate clear 가 아니면 렌더되지 않는다(하단 TrainingExecutionPanel 가드).
+  // 즉 여기서 canMutate 는 항상 true 이고, 아래 mutation 함수의 방어 조건으로만 쓴다.
+  // 렌더 조건에는 넣지 않는다 — 잘못된 연결을 거부·해제하는 교정 동선까지 함께 숨어버린다.
   const canMutate = decision.healthGate.state === "clear";
   const probableLink = execution?.status === "linked" && execution.matchConfidence === "probable";
   const probablePending = probableLink && execution?.outcomeStatus === "pending";
@@ -193,7 +196,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
         && <Button size="sm" variant="outline" aria-expanded={manual} aria-controls={manualPanelId}
           onClick={() => setManual((value) => !value)}>{t("decision.execution.manualLink")}</Button>}
       {/* 추정 매칭 확인 동선 — 확인하면 완료 권한이 열리고, 아니면 해제해서 건너뛰기·연기로 빠져나간다. */}
-      {probableLink && canMutate && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
+      {probableLink && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
         && <div className="training-execution-actions__row" data-probable-confirm="true">
           <Text as="p" variant="caption" tone="secondary">{t("decision.execution.probablePrompt")}</Text>
           <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading}
@@ -204,11 +207,11 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
               onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
         </div>}
       {/* 부분 완료가 중간에 끊긴 경우 — 서버는 completed 로 남아 있으므로 되돌릴 경로를 남긴다. */}
-      {partialRetry?.executionId === execution.executionId && canMutate
+      {partialRetry?.executionId === execution.executionId
         && decision.capabilities.execution.outcome === "available"
         && <Button size="sm" variant="outline" loading={busy} onClick={() => void retryPartial()}>
           {t("decision.execution.partialRetry")}</Button>}
-      {decision.capabilities.execution.unlink === "available" && canMutate && execution.status === "linked"
+      {decision.capabilities.execution.unlink === "available" && execution.status === "linked"
         && (execution.matchMethod === "manual" || probableLink)
         && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void unlink()}>
           {t(probableLink ? "decision.execution.rejectMatch" : "decision.execution.unlink")}</Button>}
