@@ -57,6 +57,9 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const selectedActivity = activityChoices.find((activity) => activity.id === selectedActivityId) ?? null;
   const matchedActivity = execution?.activityId
     ? ownerActivities.find((activity) => activity.id === execution.activityId) ?? null : null;
+  // 자동 매칭 당시의 revision 은 활동 재처리로 낡을 수 있다(백엔드가 stale 을 거부) — 현재 값을 우선한다.
+  // 둘 다 없으면(legacy 매칭 등) 확인 자체가 불가능하므로 버튼을 잠그고 사유를 밝힌다.
+  const confirmRevision = (matchedActivity ? revisionOf(matchedActivity) : null) ?? execution?.activityRevision ?? null;
   const mutationKey = (operation: string) => {
     const existing = mutationKeys.current.get(operation);
     if (existing) return existing;
@@ -120,10 +123,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
    * (백엔드 linkActivity 는 동일 activityId 재링크를 허용하고, manual 은 즉시 completed 로 기록한다.)
    */
   async function confirmProbable(then?: "partial") {
-    // 자동 매칭 당시의 revision 은 활동 재처리로 낡을 수 있다(백엔드가 stale 을 거부).
-    // 목록에서 현재 revision 을 찾으면 그것을 쓰고, 목록에 없을 때만 저장된 값으로 시도한다.
-    const currentRevision = matchedActivity ? revisionOf(matchedActivity) : null;
-    const revision = currentRevision ?? execution?.activityRevision ?? null;
+    const revision = confirmRevision;
     if (!canMutate || !execution || busy || activitiesLoading || execution.status !== "linked"
       || execution.matchConfidence !== "probable" || !execution.activityId || !revision) return;
     setBusy(true); setError(false);
@@ -210,11 +210,13 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
       {probableLink && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
         && <div className="training-execution-actions__row" data-probable-confirm="true">
           <Text as="p" variant="caption" tone="secondary">{t("decision.execution.probablePrompt")}</Text>
-          <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading}
+          {confirmRevision === null && !activitiesLoading && <Text as="p" variant="caption" tone="warning">
+            {t("decision.execution.probableRevisionMissing")}</Text>}
+          <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading || confirmRevision === null}
             onClick={() => void confirmProbable()}>{t("decision.execution.confirmMatch")}</Button>
           {/* 부분 완료는 outcome 호출까지 필요하다 — 그 권한이 없으면 반쯤 적용된 상태로 끝난다. */}
           {decision.capabilities.execution.outcome === "available"
-            && <Button size="sm" variant="outline" disabled={busy || activitiesLoading}
+            && <Button size="sm" variant="outline" disabled={busy || activitiesLoading || confirmRevision === null}
               onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
         </div>}
       {/* 부분 완료가 중간에 끊긴 경우 — 서버는 completed 로 남아 있으므로 되돌릴 경로를 남긴다. */}

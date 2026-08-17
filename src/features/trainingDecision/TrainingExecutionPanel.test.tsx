@@ -402,6 +402,17 @@ describe("TrainingExecutionPanel", () => {
     expect(keepPartialRetry(retry, next)).toBe(kept ? retry : null);
   });
 
+  it("locks confirmation instead of failing silently when no revision can be resolved", async () => {
+    mocks.list.mockResolvedValue([{ ...probableExecution, activityRevision: null }]);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "맞아요 · 완료 처리" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "맞지만 부분 완료" })).toBeDisabled();
+    expect(screen.getByText(/최신 정보를 확인하지 못해/)).toBeInTheDocument();
+    // 잠기더라도 빠져나갈 길은 남아 있어야 한다.
+    expect(screen.getByRole("button", { name: "아니에요 · 연결 해제" })).toBeEnabled();
+  });
+
   it("drops the partial retry once the confirmed link is unlinked", async () => {
     mocks.list.mockResolvedValue([probableExecution]);
     const confirmed = { ...probableExecution, matchMethod: "manual" as const, matchConfidence: "manual" as const,

@@ -838,6 +838,7 @@
       "confirmMatch": "Yes · mark complete",
       "confirmPartial": "Yes, but partial",
       "partialRetry": "Retry recording partial",
+      "probableRevisionMissing": "This activity's current revision is unavailable, so it cannot be confirmed now. Unlink and link it manually.",
       "rejectMatch": "No · unlink",
       "error": "The execution state could not be saved.",
       "presentation": {
