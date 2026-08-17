@@ -317,15 +317,70 @@ describe("TrainingExecutionPanel", () => {
     expect(screen.getByText(/부분 완료/)).toBeInTheDocument();
   });
 
-  it("unlinks a rejected probable match so skip and postpone become reachable", async () => {
-    const started = { ...baseExecution, status: "started" as const, startedAt: 2 };
+  it("reopens execution after rejecting a probable match, since unlink invalidates it server-side", async () => {
     mocks.list.mockResolvedValue([probableExecution]);
-    mocks.unlink.mockResolvedValue(started);
+    // 서버는 해제된 실행을 invalidated 로 닫는다 — started 로 돌아오지 않는다.
+    mocks.unlink.mockResolvedValue({ ...probableExecution, status: "invalidated", activityId: null,
+      activityRevision: null, matchMethod: "manual", matchConfidence: "manual" });
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "아니에요 · 연결 해제" }));
     await waitFor(() => expect(mocks.unlink).toHaveBeenCalledWith("exec_dddddddddddddddddddddddd", expect.any(String)));
+    // 교착으로 되돌아가지 않는다: 새 실행을 시작해 건너뛰기·연기까지 갈 수 있어야 한다.
+    expect(await screen.findByRole("button", { name: "운동 시작" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "맞아요 · 완료 처리" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "운동 시작" }));
+    await waitFor(() => expect(mocks.start).toHaveBeenCalled());
+    expect(mocks.reserve.mock.calls[0]?.[0]?.idempotencyKey).toEqual(expect.any(String));
     expect(await screen.findByRole("button", { name: "건너뜀" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "연기" })).toBeInTheDocument();
+  });
+
+  it("ignores an invalidated execution recovered from the list", async () => {
+    mocks.list.mockResolvedValue([{ ...probableExecution, status: "invalidated", activityId: null, activityRevision: null }]);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "운동 시작" })).toBeInTheDocument();
+  });
+
+  it("confirms a probable match with the activity's current revision, not the stale linked one", async () => {
+    mocks.list.mockResolvedValue([probableExecution]);
+    mocks.activities = { activities: [{ id: "activity_123", userId: "owner", type: "Ride", startTime: 1_787_000_000_000,
+      activityRevision: "ar_reprocessed" }], loading: false };
+    mocks.link.mockResolvedValue({ ...probableExecution, activityRevision: "ar_reprocessed",
+      matchMethod: "manual", matchConfidence: "manual", outcomeStatus: "completed" });
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "맞아요 · 완료 처리" }));
+    await waitFor(() => expect(mocks.link).toHaveBeenCalledWith("exec_dddddddddddddddddddddddd", "activity_123",
+      "ar_reprocessed", expect.any(String)));
+  });
+
+  it("hides the partial confirmation when the outcome capability is unavailable", async () => {
+    mocks.list.mockResolvedValue([probableExecution]);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ capabilities: {
+      ...trainingDecisionEnvelope().data.capabilities,
+      execution: { ...trainingDecisionEnvelope().data.capabilities.execution, outcome: "disabled" },
+    } }));
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(await screen.findByRole("button", { name: "맞아요 · 완료 처리" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "맞지만 부분 완료" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the confirmed link applied when the follow-up partial outcome fails", async () => {
+    mocks.list.mockResolvedValue([probableExecution]);
+    mocks.link.mockResolvedValue({ ...probableExecution, matchMethod: "manual", matchConfidence: "manual",
+      outcomeStatus: "completed" });
+    mocks.outcome.mockRejectedValue(new Error("network blip"));
+    const changed = vi.fn();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={changed} />);
+    fireEvent.click(await screen.findByRole("button", { name: "맞지만 부분 완료" }));
+    await waitFor(() => expect(mocks.outcome).toHaveBeenCalled());
+    // 서버에 이미 기록된 링크를 화면이 부정하면 안 된다 — 추정 상태로 되돌아가지 않는다.
+    expect(screen.queryByRole("button", { name: "맞아요 · 완료 처리" })).not.toBeInTheDocument();
+    expect(screen.getByText(/활동 연결됨 · 완료/)).toBeInTheDocument();
+    expect(screen.getByText("실행 상태를 저장하지 못했습니다.")).toBeInTheDocument();
+    expect(changed).toHaveBeenCalled();
   });
 });

@@ -77,7 +77,8 @@ describe("TodayTrainingDecisionCard", () => {
 
   it("keeps a Home card with a retry when the decision API is unavailable", async () => {
     const refresh = vi.fn();
-    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh });
+    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true,
+      unavailableReason: "error", refresh });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
     const card = document.querySelector("[data-training-decision-fallback]");
     expect(card).toHaveAttribute("data-training-decision-fallback", "unavailable");
@@ -85,6 +86,17 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "새로 확인" }));
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("stays quiet on Home while the decision rollout is off", () => {
+    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true,
+      unavailableReason: "disabled", refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(document.querySelector("[data-training-decision-fallback]"))
+      .toHaveAttribute("data-training-decision-fallback", "disabled");
+    expect(screen.queryByText("오늘 계획을 불러오지 못했습니다")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "새로 확인" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
   });
 
   it("explains an empty Home day instead of degrading to a bare link", () => {

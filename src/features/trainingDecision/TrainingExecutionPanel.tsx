@@ -34,12 +34,17 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const mutationKeys = useRef(new Map<string, string>());
   const manualPanelId = `training-execution-manual-${session.sessionId}`;
   const canMutate = decision.healthGate.state === "clear";
+  const probableLink = execution?.status === "linked" && execution.matchConfidence === "probable";
+  const probablePending = probableLink && execution?.outcomeStatus === "pending";
+  // 추정 매칭 확인도 활동 목록이 필요하다 — 저장된 revision 은 재처리로 낡을 수 있어 현재 값을 쓴다.
   const { activities: ownerActivities, loading: activitiesLoading } = useActivities("self", [], {
-    enabled: manual && canMutate && execution?.status === "started",
+    enabled: canMutate && ((manual && execution?.status === "started") || probablePending === true),
   });
   const activityChoices = ownerActivities.filter((activity) => getDiscipline(activity.type) === decision.targetDiscipline
     && revisionOf(activity) !== null);
   const selectedActivity = activityChoices.find((activity) => activity.id === selectedActivityId) ?? null;
+  const matchedActivity = execution?.activityId
+    ? ownerActivities.find((activity) => activity.id === execution.activityId) ?? null : null;
   const mutationKey = (operation: string) => {
     const existing = mutationKeys.current.get(operation);
     if (existing) return existing;
@@ -48,7 +53,8 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     return created;
   };
 
-  useEffect(() => setExecution(initialExecution), [initialExecution]);
+  // invalidated 는 닫힌 실행이다 — 붙들고 있으면 시작도 결과 기록도 못 하므로 없는 것으로 다룬다.
+  useEffect(() => setExecution(initialExecution?.status === "invalidated" ? null : initialExecution), [initialExecution]);
 
   async function start() {
     if (!decision.planSource || !canMutate || busy) return;
@@ -96,18 +102,25 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
    * (백엔드 linkActivity 는 동일 activityId 재링크를 허용하고, manual 은 즉시 completed 로 기록한다.)
    */
   async function confirmProbable(then?: "partial") {
-    if (!canMutate || !execution || busy || execution.status !== "linked" || execution.matchConfidence !== "probable"
-      || !execution.activityId || !execution.activityRevision) return;
+    // 자동 매칭 당시의 revision 은 활동 재처리로 낡을 수 있다(백엔드가 stale 을 거부).
+    // 목록에서 현재 revision 을 찾으면 그것을 쓰고, 목록에 없을 때만 저장된 값으로 시도한다.
+    const currentRevision = matchedActivity ? revisionOf(matchedActivity) : null;
+    const revision = currentRevision ?? execution?.activityRevision ?? null;
+    if (!canMutate || !execution || busy || activitiesLoading || execution.status !== "linked"
+      || execution.matchConfidence !== "probable" || !execution.activityId || !revision) return;
     setBusy(true); setError(false);
-    const operation = `confirm:${execution.executionId}:${execution.activityId}:${execution.activityRevision}:${then ?? "completed"}`;
+    const operation = `confirm:${execution.executionId}:${execution.activityId}:${revision}:${then ?? "completed"}`;
     try {
       const confirmed = await linkSessionExecutionActivity(execution.executionId, execution.activityId,
-        execution.activityRevision, mutationKey(operation));
-      const next = then === "partial"
-        ? await setSessionExecutionOutcome(confirmed.executionId, "partial", mutationKey(`${operation}:outcome`))
-        : confirmed;
-      mutationKeys.current.delete(operation); mutationKeys.current.delete(`${operation}:outcome`);
-      setExecution(next); onChanged();
+        revision, mutationKey(operation));
+      mutationKeys.current.delete(operation);
+      // 링크는 이미 서버에 기록됐다 — 뒤따르는 outcome 이 실패해도 확정된 상태를 먼저 반영한다.
+      setExecution(confirmed); onChanged();
+      if (then === "partial") {
+        const next = await setSessionExecutionOutcome(confirmed.executionId, "partial", mutationKey(`${operation}:outcome`));
+        mutationKeys.current.delete(`${operation}:outcome`);
+        setExecution(next); onChanged();
+      }
     } catch (cause) {
       logClientError("TrainingExecutionPanel.confirmProbable", cause,
         { executionId: execution.executionId, activityId: execution.activityId, then: then ?? "completed" });
@@ -119,13 +132,21 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     if (!canMutate || !execution || execution.status !== "linked" || busy) return;
     setBusy(true); setError(false);
     const operation = `unlink:${execution.executionId}`;
-    try { setExecution(await unlinkSessionExecutionActivity(execution.executionId,
-      mutationKey(operation))); mutationKeys.current.delete(operation); onChanged(); }
+    try {
+      const next = await unlinkSessionExecutionActivity(execution.executionId, mutationKey(operation));
+      mutationKeys.current.delete(operation);
+      // 해제된 실행은 서버에서 invalidated 로 닫힌다. 그 상태로 붙들고 있으면 시작도 결과 기록도 못 하는
+      // 또 다른 교착이 되므로, 실행 없음으로 되돌리고 새 예약을 만들 수 있게 키를 갱신한다.
+      if (next.status === "invalidated") {
+        reserveKey.current = crypto.randomUUID(); startKey.current = crypto.randomUUID();
+        setExecution(null);
+      } else setExecution(next);
+      onChanged();
+    }
     catch (cause) { logClientError("TrainingExecutionPanel.unlink", cause, { executionId: execution.executionId }); setError(true); } finally { setBusy(false); }
   }
 
   const exactLink = execution?.status === "linked" && execution.matchConfidence !== "probable";
-  const probableLink = execution?.status === "linked" && execution.matchConfidence === "probable";
   const presentationState = error ? "error" : !execution ? "executable" : execution.outcomeStatus !== "pending" ? "completed"
     : execution.status === "reserved" ? "reserved" : execution.status === "started" ? "in-progress"
       : probableLink ? "probable" : "link";
@@ -146,8 +167,12 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
       {probableLink && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
         && <div className="training-execution-actions__row" data-probable-confirm="true">
           <Text as="p" variant="caption" tone="secondary">{t("decision.execution.probablePrompt")}</Text>
-          <Button size="sm" variant="primary" loading={busy} onClick={() => void confirmProbable()}>{t("decision.execution.confirmMatch")}</Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>
+          <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading}
+            onClick={() => void confirmProbable()}>{t("decision.execution.confirmMatch")}</Button>
+          {/* 부분 완료는 outcome 호출까지 필요하다 — 그 권한이 없으면 반쯤 적용된 상태로 끝난다. */}
+          {decision.capabilities.execution.outcome === "available"
+            && <Button size="sm" variant="outline" disabled={busy || activitiesLoading}
+              onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
         </div>}
       {decision.capabilities.execution.unlink === "available" && execution.status === "linked"
         && (execution.matchMethod === "manual" || probableLink)
