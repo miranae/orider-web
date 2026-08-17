@@ -475,7 +475,16 @@ export default function ElevationChart({
       },
     } : {}),
   };
-  // 지점 표시는 선 없는 산점 데이터셋으로 얹는다. 같은 축을 쓰므로 거리·고도가 그대로 맞는다.
+  /**
+   * 지점 표시는 선 없는 산점 데이터셋으로 얹는다.
+   *
+   * x축이 `type: "linear"` 이고 고도 데이터셋도 `{x, y}` 객체를 쓰므로(아래 elevationDataset),
+   * 마커의 임의 거리값이 그대로 좌표가 된다. `labels` 는 category 축에서만 위치 계산에 쓰이며
+   * 선형 축에서는 무시되므로, 표본 인덱스에 맞출 필요가 없다.
+   *
+   * 마커 거리와 프로필 거리는 같은 누적 거리 축(코스엔진 cumulativeDistances)에서 나오므로
+   * 같은 원점·같은 단위를 공유한다.
+   */
   const markerDataset = markers && markers.length > 0 ? {
     label: "지점",
     data: markers.map((marker) => ({ x: marker.distance / 1000, y: marker.elevation })),
