@@ -32,7 +32,11 @@ import ElevationChart from "../components/ElevationChart";
 import { track } from "../services/analytics";
 import "../features/courses/course-detail.css";
 import { cumulativeDistancesFromLatLng, laneLabelKey, LANE_DEFS } from "../features/courseEngine";
-import { buildCourseWaypointLaneGroups, buildCourseWaypointRows } from "../features/courses/courseWaypoints";
+import {
+  buildCourseWaypointLaneGroups,
+  buildCourseWaypointRows,
+  waypointPipAnchorStyle,
+} from "../features/courses/courseWaypoints";
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
@@ -470,14 +474,6 @@ export default function CoursePage() {
   }, [cancelFlyTimer, courseId, selectedWaypoint, waypointRows]);
 
   useEffect(() => cancelFlyTimer, [cancelFlyTimer]);
-
-  // 출발·도착 경유지는 비율이 0·1 이라 가운데 정렬하면 절반이 트랙 밖으로 나가 잘린다.
-  // 양 끝에서는 앵커를 안쪽으로 바꾼다.
-  const pipEdgeStyle = useCallback((ratio: number): React.CSSProperties => {
-    if (ratio <= 0.02) return { left: 0, transform: "translate(0, -50%)" };
-    if (ratio >= 0.98) return { left: "100%", transform: "translate(-100%, -50%)" };
-    return { left: `${ratio * 100}%` };
-  }, []);
 
   // 코스가 바뀌면 이전 인덱스가 새 코스의 엉뚱한 경유지를 가리킨다.
   useEffect(() => {
@@ -1141,7 +1137,7 @@ export default function CoursePage() {
                           aria-pressed={selected}
                           data-hover={hoveredWaypoint === index ? "1" : undefined}
                           data-selected={selected ? "1" : undefined}
-                          style={pipEdgeStyle(item.ratio)}
+                          style={waypointPipAnchorStyle(item.ratio)}
                           onMouseEnter={() => setHoveredWaypoint(index)}
                           onMouseLeave={() => setHoveredWaypoint(null)}
                           onFocus={() => setHoveredWaypoint(index)}
