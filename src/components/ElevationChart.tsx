@@ -197,6 +197,36 @@ export function buildFiniteOverlayPoints(
       && (point.y === null || Number.isFinite(point.y)));
 }
 
+/** 경사 구간 색상. 캔버스는 CSS 변수를 못 읽으므로 그릴 때 토큰을 실제 값으로 읽는다. */
+const GRADE_BANDS = [
+  { maxGradePct: 3, variable: "--color-info", fallbackDark: "oklch(0.78 0.13 210)", fallbackLight: "oklch(0.55 0.13 210)" },
+  { maxGradePct: 7, variable: "--color-warning", fallbackDark: "oklch(0.80 0.14 75)", fallbackLight: "oklch(0.66 0.15 75)" },
+  { maxGradePct: Infinity, variable: "--color-error", fallbackDark: "oklch(0.72 0.16 20)", fallbackLight: "oklch(0.58 0.17 20)" },
+] as const;
+
+export function readGradeBandColors(dark: boolean): string[] {
+  const root = typeof document === "undefined" ? null : document.documentElement;
+  return GRADE_BANDS.map((band) => {
+    const fallback = dark ? band.fallbackDark : band.fallbackLight;
+    if (!root) return fallback;
+    return getComputedStyle(root).getPropertyValue(band.variable).trim() || fallback;
+  });
+}
+
+/** 두 표본 사이의 경사(%). 거리가 0이면 0으로 본다. */
+export function segmentGradePct(
+  from: { distance: number; elevation: number },
+  to: { distance: number; elevation: number },
+): number {
+  const deltaDistance = to.distance - from.distance;
+  if (!(deltaDistance > 0)) return 0;
+  return Math.abs(((to.elevation - from.elevation) / deltaDistance) * 100);
+}
+
+export function gradeBandIndex(gradePct: number): number {
+  return GRADE_BANDS.findIndex((band) => gradePct < band.maxGradePct);
+}
+
 interface ElevationChartProps {
   data: { distance: number; elevation: number }[];
   height?: number;
@@ -212,6 +242,11 @@ interface ElevationChartProps {
   range?: [number, number];
   /** Callback when range changes (via chart drag or external) */
   onRangeChange?: (range: [number, number]) => void;
+  /**
+   * 경사 구간을 색으로 구분한다. 프로필은 폭에 따라 종횡이 왜곡되므로 가파름을 형상만으로는
+   * 읽기 어렵다. 색이 실제 경사를 함께 전달한다. 기본값 off — 켜는 화면만 바뀐다.
+   */
+  colorByGrade?: boolean;
   /** Read-only segment highlight range [startIndex, endIndex] (no drag) */
   highlightRange?: [number, number];
 }
@@ -227,6 +262,7 @@ export default function ElevationChart({
   range,
   onRangeChange,
   highlightRange,
+  colorByGrade = false,
 }: ElevationChartProps) {
    
   const chartRef = useRef<Chart<"line", any>>(null);
@@ -388,6 +424,8 @@ export default function ElevationChart({
 
   // X축 값을 km 단위 숫자로 변환
   const distancesKm = data.map((d) => d.distance / 1000);
+  // 세그먼트마다 다시 읽으면 수백 번 getComputedStyle 이 돈다. 한 번만 읽는다.
+  const gradeColors = colorByGrade ? readGradeBandColors(isDark) : [];
 
   const elevationDataset = {
     label: "고도 (m)",
@@ -403,6 +441,16 @@ export default function ElevationChart({
     pointHoverBorderWidth: 2,
     tension: 0.4,
     yAxisID: "yElev",
+    ...(colorByGrade ? {
+      segment: {
+        borderColor: (ctx: { p0DataIndex: number }) => {
+          const from = data[ctx.p0DataIndex];
+          const to = data[ctx.p0DataIndex + 1];
+          if (!from || !to) return gradeColors[0];
+          return gradeColors[gradeBandIndex(segmentGradePct(from, to))] ?? gradeColors[0];
+        },
+      },
+    } : {}),
   };
   const chartData = {
     labels: distancesKm,

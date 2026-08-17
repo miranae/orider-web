@@ -32,7 +32,11 @@ import ElevationChart from "../components/ElevationChart";
 import { track } from "../services/analytics";
 import "../features/courses/course-detail.css";
 import { cumulativeDistancesFromLatLng, laneLabelKey, LANE_DEFS } from "../features/courseEngine";
-import { buildCourseWaypointLaneGroups, buildCourseWaypointRows } from "../features/courses/courseWaypoints";
+import {
+  buildCourseWaypointLaneGroups,
+  buildCourseWaypointRows,
+  waypointPipAnchorStyle,
+} from "../features/courses/courseWaypoints";
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
@@ -1099,7 +1103,20 @@ export default function CoursePage() {
             data={course.elevationProfile.map((p) => ({ distance: p.d, elevation: p.e }))}
             height={180}
             onHoverIndex={handleElevHover}
+            colorByGrade
           />
+          <ul className="course-grade-legend">
+            {[
+              { key: "flat", label: t("grade.flat"), variable: "--color-info" },
+              { key: "rolling", label: t("grade.rolling"), variable: "--color-warning" },
+              { key: "steep", label: t("grade.steep"), variable: "--color-error" },
+            ].map((band) => (
+              <li key={band.key}>
+                <i aria-hidden="true" style={{ background: `var(${band.variable})` }} />
+                {band.label}
+              </li>
+            ))}
+          </ul>
           {waypointLaneRows.length > 0 && (
             <div className="course-lanes">
               {waypointLaneRows.map((group) => (
@@ -1120,7 +1137,7 @@ export default function CoursePage() {
                           aria-pressed={selected}
                           data-hover={hoveredWaypoint === index ? "1" : undefined}
                           data-selected={selected ? "1" : undefined}
-                          style={{ left: `${item.ratio * 100}%` }}
+                          style={waypointPipAnchorStyle(item.ratio)}
                           onMouseEnter={() => setHoveredWaypoint(index)}
                           onMouseLeave={() => setHoveredWaypoint(null)}
                           onFocus={() => setHoveredWaypoint(index)}

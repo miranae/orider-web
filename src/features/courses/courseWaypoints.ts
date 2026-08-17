@@ -25,6 +25,19 @@ export interface CourseWaypointRow {
   lane: WpLane;
 }
 
+/**
+ * 레인 위 핍의 가로 위치.
+ *
+ * 위치(`left`)는 실제 거리 비율 그대로 둔다. 가장자리 근처를 끝점으로 몰아버리면 200km
+ * 코스에서 4km 지점 경유지가 출발점에 겹쳐 표시되어 위치가 거짓이 된다. 정확히 양 끝
+ * (0·1)일 때만 앵커를 안쪽으로 돌려 절반이 잘리는 것을 막는다.
+ */
+export function waypointPipAnchorStyle(ratio: number): { left: string; transform?: string } {
+  if (ratio <= 0) return { left: "0%", transform: "translate(0, -50%)" };
+  if (ratio >= 1) return { left: "100%", transform: "translate(-100%, -50%)" };
+  return { left: `${ratio * 100}%` };
+}
+
 export interface CourseWaypointLaneGroup {
   lane: WpLane;
   items: Array<CourseWaypointRow & { index: number; ratio: number }>;

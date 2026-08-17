@@ -255,5 +255,8 @@
   "builder.saveNeedsElevation": "This route has no elevation data and cannot be saved. Please recalculate the route in a moment.",
   "builder.elevationProfile": "Elevation profile",
   "builder.elevationEstimated": "Elevation is a routing estimate. It is replaced by measured data after you ride.",
-  "builder.elevationMissing": "This route has no elevation data."
+  "builder.elevationMissing": "This route has no elevation data.",
+  "grade.flat": "Under 3%",
+  "grade.rolling": "3–7%",
+  "grade.steep": "7% and over"
 }

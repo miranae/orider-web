@@ -255,5 +255,8 @@
   "builder.saveNeedsElevation": "이 경로에는 고도 정보가 없어 저장할 수 없습니다. 잠시 후 경로를 다시 계산해 주세요.",
   "builder.elevationProfile": "고도 프로필",
   "builder.elevationEstimated": "고도는 라우팅 추정치입니다. 주행 후 실측으로 갱신됩니다.",
-  "builder.elevationMissing": "이 경로에는 고도 정보가 없습니다."
+  "builder.elevationMissing": "이 경로에는 고도 정보가 없습니다.",
+  "grade.flat": "3% 미만",
+  "grade.rolling": "3–7%",
+  "grade.steep": "7% 이상"
 }

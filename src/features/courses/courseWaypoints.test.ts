@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCourseWaypointLaneGroups,
   buildCourseWaypointRows,
+  waypointPipAnchorStyle,
   type StoredCourseWaypoint,
 } from "./courseWaypoints";
 
@@ -71,6 +72,24 @@ describe("buildCourseWaypointRows", () => {
   it("비어 있거나 undefined 면 빈 배열", () => {
     expect(buildCourseWaypointRows(undefined)).toEqual([]);
     expect(buildCourseWaypointRows([])).toEqual([]);
+  });
+});
+
+describe("waypointPipAnchorStyle", () => {
+  it("가운데 지점은 실제 거리 비율을 그대로 쓴다", () => {
+    expect(waypointPipAnchorStyle(0.5)).toEqual({ left: "50%" });
+    expect(waypointPipAnchorStyle(0.02)).toEqual({ left: "2%" });
+    expect(waypointPipAnchorStyle(0.98)).toEqual({ left: "98%" });
+  });
+
+  it("가장자리 근처를 끝점으로 몰지 않는다 — 200km 코스에서 2%는 4km 다", () => {
+    expect(waypointPipAnchorStyle(0.02).transform).toBeUndefined();
+    expect(waypointPipAnchorStyle(0.98).transform).toBeUndefined();
+  });
+
+  it("정확히 양 끝일 때만 앵커를 안쪽으로 돌린다", () => {
+    expect(waypointPipAnchorStyle(0)).toEqual({ left: "0%", transform: "translate(0, -50%)" });
+    expect(waypointPipAnchorStyle(1)).toEqual({ left: "100%", transform: "translate(-100%, -50%)" });
   });
 });
 
