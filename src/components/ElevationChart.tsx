@@ -236,6 +236,22 @@ export function gradeBandIndex(gradePct: number): number {
  */
 export const ELEVATION_PLOT_AXIS_WIDTH = 54;
 
+/**
+ * 오른쪽에도 축 폭만큼 자리를 잡아 플롯 영역을 좌우 대칭으로 만들 것인가.
+ *
+ * 차트 아래에 거리축을 공유하는 띠(경유지 레인)를 그리는 화면은 반드시 참이어야 한다.
+ * 거짓이면 오른쪽 여백이 축 폭과 달라져 띠의 좌표가 프로필과 체계적으로 어긋난다.
+ */
+export function shouldReserveRightGutter(options: {
+  separateOverlayLanes?: boolean;
+  reserveLaneGutter?: boolean;
+  markerCount?: number;
+}): boolean {
+  return Boolean(options.separateOverlayLanes)
+    || Boolean(options.reserveLaneGutter)
+    || (options.markerCount ?? 0) > 0;
+}
+
 export interface ElevationChartMarker {
   distance: number;
   elevation: number;
@@ -269,6 +285,12 @@ interface ElevationChartProps {
    * 한다(CSS 변수는 해석하지 못한다). `active` 인 지점은 크게 그린다.
    */
   markers?: ElevationChartMarker[];
+  /**
+   * 차트 **바깥**(아래)에 거리축을 공유하는 띠를 그릴 때 켠다. 좌우 플롯 폭을 축 폭으로
+   * 고정해서, 바깥 띠가 같은 0~100% 구간을 쓰게 만든다. 켜지 않으면 오른쪽 여백이 축 폭과
+   * 달라져 띠의 좌표가 프로필과 어긋난다.
+   */
+  reserveLaneGutter?: boolean;
   /** Read-only segment highlight range [startIndex, endIndex] (no drag) */
   highlightRange?: [number, number];
 }
@@ -286,6 +308,7 @@ export default function ElevationChart({
   highlightRange,
   colorByGrade = false,
   markers,
+  reserveLaneGutter = false,
 }: ElevationChartProps) {
    
   const chartRef = useRef<Chart<"line", any>>(null);
@@ -629,7 +652,11 @@ export default function ElevationChart({
                 callback: (v) => `${v}m`,
               },
             },
-            ...(showLanes || (markers && markers.length > 0) ? {
+            ...(shouldReserveRightGutter({
+              separateOverlayLanes: showLanes,
+              reserveLaneGutter,
+              markerCount: markers?.length,
+            }) ? {
               yElevSpacer: {
                 type: "linear" as const,
                 position: "right" as const,
