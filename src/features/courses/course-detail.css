@@ -156,22 +156,28 @@
   margin-top: var(--space-3);
 }
 
+/* 트랙을 프로필 플롯 영역에 맞춘다 — 좌우 축 폭만큼 들여쓴다. 격자 열로 나누면 차트의
+   x축 시작점과 어긋나 핍이 실제 거리와 다른 위치에 찍힌다. */
 .course-lane-row {
-  display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr);
-  align-items: start;
-  gap: var(--space-2);
+  position: relative;
+  padding-inline: var(--profile-axis-width, 54px);
 }
 
 .course-lane-name {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--profile-axis-width, 54px);
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-1);
-  padding-top: var(--space-1);
+  padding-top: var(--space-3);
+  padding-right: var(--space-1);
   font-size: var(--fs-2xs);
   font-weight: 600;
   color: var(--ink-2);
+  overflow: hidden;
 }
 
 .course-lane-name i,

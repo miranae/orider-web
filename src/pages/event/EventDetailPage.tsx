@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -15,34 +15,27 @@ import { Course } from "@shared/types";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import { isRegistrationTimeOpen, normalizeStartTime } from "../../utils/event-time";
-import { Line } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-} from "chart.js";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { isEventHost } from "../../features/event/eventHost";
 import { parseGpxFull, type CourseData } from "../../features/event/detail/courseGpx";
 import type { EventDetail, RecentParticipant } from "../../features/event/detail/eventDetailTypes";
 import {
   buildElevationProfile,
+  classifyElevationQuality,
   classifyLane,
   cumulativeDistances,
-  haversineMeters as haversine,
   isProfileMarkerLane,
   laneLabelKey,
   lanesForContext,
   readLaneColor,
   resolveWaypointsOnTrack,
+  toElevationChartData,
   LANE_DEFS,
   type WpLane,
 } from "../../features/courseEngine";
+import ElevationChart, { ELEVATION_PLOT_AXIS_WIDTH } from "../../components/ElevationChart";
+import { waypointPipAnchorStyle } from "../../features/courses/courseWaypoints";
+import "../../features/event/detail/event-profile.css";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { buildEventIcs, downloadIcsFile, icsFileName } from "../../features/event/detail/generateIcs";
@@ -52,7 +45,8 @@ import { buildEventFollowPayload, followerExists } from "../../features/event/de
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+/** 이보다 트랙에서 멀리 떨어진 웨이포인트는 프로필·지도에 찍지 않는다(m). */
+const OFF_TRACK_LIMIT_M = 2_000;
 
 export function shouldShowHostGroupCard(
   groupId: string | undefined,
@@ -201,9 +195,6 @@ export default function EventDetailPage() {
   const [selectedWpIdx, setSelectedWpIdx] = useState<number | null>(null);
   const [flyToPos, setFlyToPos] = useState<[number, number] | null>(null);
    
-  const chartRef = useRef<any>(null);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [chartPad, setChartPad] = useState({ left: 0, right: 0, width: 1 });
 
   // Fetch event data
   useEffect(() => {
@@ -404,139 +395,46 @@ export default function EventDetailPage() {
   }, [courseData]);
 
   // ── Elevation chart ──
-  const elevationChart = courseData
-    ? (() => {
-        // 축약은 코스엔진이 담당한다. 예전의 등간격 추출은 표본 사이에 낀 봉우리·골짜기를
-        // 그대로 잘라내서, 정상이 프로필에서 사라지는 왜곡이 있었다.
-        const profile = buildElevationProfile(courseData.points, 300);
-        const sampled = profile.map((sample) => courseData.points[sample.sourceIndex]!);
-        const distances = profile.map((sample) => sample.distanceM);
-        const totalDist = distances[distances.length - 1] ?? 0;
+  /**
+   * 고도 프로필 — 축약·분류를 코스엔진에 맡기고 렌더는 공유 ElevationChart 로 넘긴다.
+   * 예전에는 이 화면만 react-chartjs-2 를 직접 써서 색을 hex 로 박았고(테마 전환에 무반응),
+   * 등간격 추출로 봉우리를 잘라냈다.
+   */
+  const elevationProfile = useMemo(
+    () => (courseData ? buildElevationProfile(courseData.points, 300) : []),
+    [courseData],
+  );
 
-        // Calculate waypoint positions on the chart
-        // Find nearest sampled point index for each important waypoint
-        // 분류는 표·지도와 같은 코스엔진 분류기를 쓴다. 예전에는 여기만 "콤"을 찾고 표는 "KOM"을
-        // 찾아, 같은 지점이 표에는 나오고 차트에는 빠지는 불일치가 있었다.
-        const importantWps = courseData.waypoints.filter((w) => isProfileMarkerLane(classifyLane(w)));
-        const wpData: (number | null)[] = new Array(sampled.length).fill(null);
-        const wpLabels: (string | null)[] = new Array(sampled.length).fill(null);
-        const wpShowLabel: boolean[] = new Array(sampled.length).fill(false);
-        const wpColors: (string | null)[] = new Array(sampled.length).fill(null);
-        const wpSymbols: string[] = new Array(sampled.length).fill("circle");
+  const elevationData = useMemo(
+    () => toElevationChartData(elevationProfile),
+    [elevationProfile],
+  );
 
-        // Collected waypoint info for the legend below the chart
-        const wpLegendItems: { icon: string; name: string; distKm: string; ele: number; color: string; lat: number; lon: number; chartIdx: number; lane: WpLane }[] = [];
+  const hasUsableElevation = useMemo(() => {
+    if (!courseData) return false;
+    return courseData.hasElevation
+      && classifyElevationQuality(courseData.points.map((point) => point.ele), "measured") !== "none";
+  }, [courseData]);
 
-        const usedIndices = new Set<number>();
-        for (const wp of importantWps) {
-          let minDist = Infinity;
-          let minIdx = 0;
-          for (let i = 0; i < sampled.length; i++) {
-            const s = sampled[i]!;
-            const d = haversine(wp.lat, wp.lon, s.lat, s.lon);
-            if (d < minDist) { minDist = d; minIdx = i; }
-          }
-          if (minDist >= 2000) continue;
-          // Avoid overlapping: shift to adjacent unused index
-          let idx = minIdx;
-          while (usedIndices.has(idx) && idx < sampled.length - 1) idx++;
-          if (usedIndices.has(idx)) { idx = minIdx; while (usedIndices.has(idx) && idx > 0) idx--; }
-          usedIndices.add(idx);
+  /** 프로필 위에 찍을 지점 — 구간(SEG)은 수가 많아 차트를 뒤덮으므로 코스엔진이 걸러낸다. */
+  const profileMarkers = useMemo(() => {
+    if (!courseData || elevationProfile.length === 0) return [];
+    const cumulative = cumulativeDistances(courseData.points);
+    return resolveWaypointsOnTrack(courseData.waypoints, courseData.points, cumulative)
+      .filter((item) => isProfileMarkerLane(classifyLane(item.waypoint)))
+      // 코스에서 멀리 떨어진 웨이포인트는 트랙에 억지로 투영되어 엉뚱한 거리·고도로 찍히고,
+      // 선택하면 지도가 코스 밖으로 날아간다. 이관 전과 같은 2km 기준을 유지한다.
+      .filter((item) => item.offTrackM < OFF_TRACK_LIMIT_M)
+      .map((item) => ({
+        name: item.waypoint.name,
+        lane: classifyLane(item.waypoint),
+        distanceM: item.distanceFromStartM,
+        elevationM: courseData.points[item.trackIndex]?.ele ?? item.waypoint.ele,
+        location: [item.waypoint.lat, item.waypoint.lon] as [number, number],
+      }));
+  }, [courseData, elevationProfile.length]);
 
-          wpData[idx] = sampled[idx]!.ele;
-          const lane = classifyLane(wp);
-          const icon = LANE_DEFS[lane].icon;
-          // 캔버스는 CSS 변수를 못 읽으므로 토큰을 실제 값으로 읽어 넘긴다(하드코딩 hex 대체).
-          const color = readLaneColor(lane);
-          const symbol = lane === "KOM" ? "triangle" : lane === "CUT" ? "rectRot" : lane === "AID" ? "circle" : "star";
-          wpLabels[idx] = `${icon} ${wp.name}`;
-          wpShowLabel[idx] = lane !== "AID";
-          wpColors[idx] = color;
-          wpSymbols[idx] = symbol;
-          wpLegendItems.push({
-            icon,
-            name: wp.name,
-            distKm: (distances[idx]! / 1000).toFixed(1),
-            ele: Math.round(wp.ele),
-            color,
-            lat: wp.lat,
-            lon: wp.lon,
-            chartIdx: idx,
-            lane,
-          });
-        }
-
-        return {
-          data: {
-            labels: distances.map((d) => `${(d / 1000).toFixed(1)}`),
-            datasets: [
-              {
-                data: sampled.map((p) => p.ele),
-                fill: true,
-                // Chart.js canvas는 CSS var/color-mix를 해석하지 못하므로 hex로 고정
-                backgroundColor: "rgba(198, 244, 50, 0.18)",
-                borderColor: "#c6f432",
-                borderWidth: 2,
-                pointRadius: 0,
-                tension: 0.3,
-              },
-              {
-                data: wpData,
-                pointRadius: wpData.map((v, i) => {
-                  if (v === null) return 0;
-                  const activeIdx = hoveredWpIdx ?? selectedWpIdx;
-                  const isActive = activeIdx !== null && wpLegendItems.some((item) => item.chartIdx === i && wpLegendItems.indexOf(item) === activeIdx);
-                  return isActive ? 12 : 7;
-                }),
-                pointBackgroundColor: wpColors.map((c) => c || "transparent"),
-                pointBorderColor: "#fff",
-                pointBorderWidth: 2,
-                pointHoverRadius: 9,
-                pointStyle: wpSymbols,
-                borderWidth: 0,
-                fill: false,
-                showLine: false,
-              },
-            ],
-          },
-          wpLabels,
-          wpShowLabel,
-          wpLegendItems,
-          totalDist,
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  title: (items: { label: string }[]) => `${items[0]?.label} km`,
-                  label: (item: { datasetIndex: number; dataIndex: number; raw: unknown }) => {
-                    if (item.datasetIndex === 1 && wpLabels[item.dataIndex]) {
-                      return `${wpLabels[item.dataIndex]} (${Math.round(item.raw as number)}m)`;
-                    }
-                    return `${Math.round(item.raw as number)} m`;
-                  },
-                },
-              },
-            },
-            scales: {
-              x: {
-                display: true,
-                title: { display: true, text: t("detail.chart.distanceAxis"), font: { size: 11 } },
-                ticks: { maxTicksLimit: 10, font: { size: 10 } },
-              },
-              y: {
-                display: true,
-                title: { display: true, text: t("detail.chart.elevationAxis"), font: { size: 11 } },
-                ticks: { font: { size: 10 } },
-              },
-            },
-          },
-        };
-      })()
-    : null;
+  const totalDistanceM = courseData?.distance ?? 0;
 
   // ── Render helpers ──
 
@@ -574,11 +472,8 @@ export default function EventDetailPage() {
   const isGranFondo = event.type === "GRANFONDO";
   const courses = event.courses || [];
 
-  const activeWpName = (() => {
-    const idx = hoveredWpIdx ?? selectedWpIdx;
-    if (idx === null || !elevationChart) return null;
-    return elevationChart.wpLegendItems[idx]?.name ?? null;
-  })();
+  const activeWpIdx = hoveredWpIdx ?? selectedWpIdx;
+  const activeWpName = activeWpIdx == null ? null : profileMarkers[activeWpIdx]?.name ?? null;
 
   const mapWaypoints: WaypointMarker[] = (courseData?.waypoints || []).map((w) => ({
     lat: w.lat,
@@ -830,25 +725,26 @@ export default function EventDetailPage() {
           )}
 
           {/* 고도 프로필 카드 */}
-          {elevationChart && (
+          {courseData && elevationData.length > 0 && (
             <Card padding="none" style={{ padding: 'var(--space-5)' }}>
               <div className="flex items-start justify-between flex-wrap" style={{ marginBottom: 'var(--space-3)', gap: "var(--space-2)" }}>
                 <div>
                   <h2 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)", margin: 0 }}>{t("label.elevationProfile")}</h2>
                   <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-0-5)", fontFamily: "var(--font-mono)" }}>
-                    {(courses[selectedCourseIdx]?.name) ?? ""} · {courseData ? (courseData.distance / 1000).toFixed(1) : "—"}km · ↑{courseData ? Math.round(courseData.elevationGain) : "—"}m
+                    {(courses[selectedCourseIdx]?.name) ?? ""} · {(courseData.distance / 1000).toFixed(1)}km · ↑{Math.round(courseData.elevationGain)}m
                   </div>
                 </div>
                 <div className="flex flex-wrap" style={{ gap: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-                  {LANE_ORDER.map((l) => (
-                    <span key={l} className="inline-flex items-center" style={{ gap: 'var(--space-1)' }}>
-                      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: LANE_META[l].color, display: "inline-block" }} />
-                      <span aria-hidden="true">{LANE_META[l].icon}</span> {LANE_META[l].label}
+                  {LANE_ORDER.map((lane) => (
+                    <span key={lane} className="inline-flex items-center" style={{ gap: 'var(--space-1)' }}>
+                      <span aria-hidden="true" className="event-lane-swatch" style={{ background: LANE_META[lane].color }} />
+                      {LANE_META[lane].label}
                     </span>
                   ))}
                 </div>
               </div>
-              {courseData && (courseData.maxElevation - courseData.minElevation) < 1 ? (
+
+              {!hasUsableElevation ? (
                 <div
                   className="h-52 flex items-center justify-center"
                   style={{
@@ -856,130 +752,79 @@ export default function EventDetailPage() {
                     fontSize: "var(--fs-xs)",
                     background: "var(--bg-2)",
                     border: "1px solid var(--line-soft)",
-                    borderRadius: "var(--r-md, 6px)",
+                    borderRadius: "var(--r-md)",
                   }}
                 >
                   {t("detail.elevationChart.noElevation")}
                 </div>
               ) : (
-              <div className="h-52" ref={chartContainerRef}>
-                <Line
-                  ref={chartRef}
-                  data={elevationChart.data as any}
-                  options={elevationChart.options as any}
-                  plugins={[{
-                    id: "wpHighlightPlugin",
-                    afterDraw(chart: any) {
-                      const containerW = chartContainerRef.current?.offsetWidth || 1;
-                      const ca = chart.chartArea;
-                      if (ca) {
-                        const newPad = { left: ca.left, right: containerW - ca.right, width: ca.right - ca.left };
-                        if (newPad.left !== chartPad.left || newPad.width !== chartPad.width) {
-                          setTimeout(() => setChartPad(newPad), 0);
-                        }
-                      }
-                      const { ctx } = chart;
-                      const dataset = chart.getDatasetMeta(1);
-                      if (!dataset?.data) return;
-                      const show = elevationChart.wpShowLabel;
-                      ctx.save();
-                      for (let i = 0; i < dataset.data.length; i++) {
-                        if (!show[i]) continue;
-                        const pt = dataset.data[i];
-                        if (!pt || pt.skip) continue;
-                        ctx.beginPath();
-                        ctx.setLineDash([3, 3]);
-                        ctx.strokeStyle = "rgba(0,0,0,0.15)";
-                        ctx.lineWidth = 1;
-                        ctx.moveTo(pt.x, pt.y + 8);
-                        ctx.lineTo(pt.x, chart.chartArea.bottom);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                      }
-                      ctx.restore();
-                    },
-                  }]}
-                />
-              </div>
-              )}
-              {elevationChart.wpLegendItems.length > 0 && (() => {
-                const items = elevationChart.wpLegendItems;
-                const total = elevationChart.totalDist;
-                // 레인은 아이콘 문자열이 아니라 코스엔진 분류 결과로 나눈다.
-                const laneOrder = LANE_ORDER;
-                const laneH = 34;
-                const connectorH = 12;
-                return (
-                  <div className="mt-2 relative" style={{ paddingLeft: chartPad.left, paddingRight: chartPad.right }}>
-                    <svg className="w-full" style={{ height: connectorH }} preserveAspectRatio="none">
-                      {items.map((item, gi) => {
-                        const xPct = (parseFloat(item.distKm) * 1000 / total) * 100;
+                <>
+                  <ElevationChart
+                    data={elevationData}
+                    height={200}
+                    colorByGrade
+                    markers={profileMarkers.map((marker, index) => ({
+                      distance: marker.distanceM,
+                      elevation: marker.elevationM,
+                      color: readLaneColor(marker.lane),
+                      label: marker.name,
+                      active: activeWpIdx === index,
+                    }))}
+                  />
+                  {profileMarkers.length > 0 && (
+                    <div className="event-lanes" style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
+                      {LANE_ORDER.map((lane) => {
+                        const items = profileMarkers
+                          .map((marker, index) => ({ ...marker, index }))
+                          .filter((marker) => marker.lane === lane);
+                        if (items.length === 0) return null;
                         return (
-                          <line key={gi} x1={`${xPct}%`} y1="0" x2={`${xPct}%`} y2={connectorH}
-                            stroke={item.color} strokeWidth="1" strokeDasharray="3,3" opacity="0.5" />
+                          <div key={lane} className="event-lane-row">
+                            <span className="event-lane-name">
+                              <i aria-hidden="true" style={{ background: LANE_META[lane].color }} />
+                              {LANE_META[lane].label}
+                            </span>
+                            <span className="event-lane-track">
+                              {items.map((marker) => {
+                                const ratio = totalDistanceM > 0 ? marker.distanceM / totalDistanceM : 0;
+                                const selected = selectedWpIdx === marker.index;
+                                return (
+                                  <button
+                                    key={marker.index}
+                                    type="button"
+                                    className="event-pip"
+                                    aria-pressed={selected}
+                                    data-hover={hoveredWpIdx === marker.index ? "1" : undefined}
+                                    data-selected={selected ? "1" : undefined}
+                                    style={waypointPipAnchorStyle(ratio)}
+                                    onMouseEnter={() => setHoveredWpIdx(marker.index)}
+                                    onMouseLeave={() => setHoveredWpIdx(null)}
+                                    onFocus={() => setHoveredWpIdx(marker.index)}
+                                    onBlur={() => setHoveredWpIdx(null)}
+                                    onClick={() => {
+                                      if (selected) {
+                                        setSelectedWpIdx(null);
+                                        setFlyToPos(null);
+                                        return;
+                                      }
+                                      setSelectedWpIdx(marker.index);
+                                      setFlyToPos(marker.location);
+                                    }}
+                                  >
+                                    <i aria-hidden="true" style={{ background: LANE_META[lane].color }} />
+                                    <span>{marker.name}</span>
+                                    <span className="event-pip-km">{(marker.distanceM / 1000).toFixed(1)}</span>
+                                  </button>
+                                );
+                              })}
+                            </span>
+                          </div>
                         );
                       })}
-                    </svg>
-                    {laneOrder.map((lane, li) => {
-                      const laneItems = items.filter((it) => it.lane === lane);
-                      if (laneItems.length === 0) return null;
-                      return (
-                        <div key={lane} className="relative" style={{ height: laneH }}>
-                          <div className="absolute left-0 text-[length:var(--fs-xs)] font-bold" style={{ top: 4, transform: "translateX(-100%)", paddingRight: 6, whiteSpace: "nowrap", color: "var(--ink-3)" }}>
-                            {LANE_META[lane].label}
-                          </div>
-                          <svg className="absolute inset-0 w-full" style={{ height: laneH }}>
-                            <line x1="0" y1={laneH / 2} x2="100%" y2={laneH / 2} stroke="var(--line-soft)" strokeWidth="1" />
-                            {laneItems.map((item, idx) => {
-                              const xPct = (parseFloat(item.distKm) * 1000 / total) * 100;
-                              return (
-                                <line key={idx} x1={`${xPct}%`} y1="0" x2={`${xPct}%`} y2={laneH / 2}
-                                  stroke={item.color} strokeWidth="1" strokeDasharray="3,3" opacity="0.4" />
-                              );
-                            })}
-                          </svg>
-                          {laneItems.map((item) => {
-                            const gi = items.indexOf(item);
-                            const xPct = (parseFloat(item.distKm) * 1000 / total) * 100;
-                            const isHovered = hoveredWpIdx === gi;
-                            const isSelected = selectedWpIdx === gi;
-                            const isActive = isHovered || isSelected;
-                            return (
-                              <div
-                                key={gi}
-                                onMouseEnter={() => setHoveredWpIdx(gi)}
-                                onMouseLeave={() => setHoveredWpIdx(null)}
-                                onClick={() => {
-                                  if (isSelected) { setSelectedWpIdx(null); setFlyToPos(null); }
-                                  else { setSelectedWpIdx(gi); setFlyToPos([item.lat, item.lon]); }
-                                }}
-                                className={`absolute cursor-pointer transition-all text-[length:var(--fs-xs)] leading-tight ${isActive ? "z-20 font-bold" : "z-10"}`}
-                                style={{ left: `${xPct}%`, top: li % 2 === 0 ? 2 : 4, transform: "translateX(-50%)" }}
-                              >
-                                <div
-                                  className="whitespace-nowrap rounded-[var(--r-sm)] px-1 py-0.5 transition-colors"
-                                  style={{
-                                    background: isSelected
-                                      ? "color-mix(in oklch, var(--lime) 18%, var(--bg-2))"
-                                      : isActive
-                                      ? "color-mix(in oklch, var(--lime) 10%, var(--bg-2))"
-                                      : undefined,
-                                    outline: isSelected ? "1px solid var(--lime)" : undefined,
-                                    color: isActive ? item.color : "var(--ink-3)",
-                                  }}
-                                >
-                                  <span style={{ color: item.color }}>{item.icon}</span> {item.name}
-                                  <span className="ml-0.5" style={{ color: "var(--ink-3)" }}>{item.distKm}km</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
+                    </div>
+                  )}
+                </>
+              )}
             </Card>
           )}
 

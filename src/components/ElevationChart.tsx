@@ -227,6 +227,23 @@ export function gradeBandIndex(gradePct: number): number {
   return GRADE_BANDS.findIndex((band) => gradePct < band.maxGradePct);
 }
 
+/**
+ * 플롯 영역이 좌우로 들여쓰이는 폭(px). y축이 `afterFit` 으로 이 값에 고정돼 있다.
+ *
+ * 프로필 아래에 거리축을 공유하는 띠(경유지 레인 등)를 그릴 때 이 값만큼 들여써야 x좌표가
+ * 맞는다. 예전에는 Chart.js chartArea 를 그리는 도중에 재서 상태에 넣었는데, 마커가 있으면
+ * 좌우 스페이서가 항상 붙으므로 측정 없이 상수로 맞출 수 있다.
+ */
+export const ELEVATION_PLOT_AXIS_WIDTH = 54;
+
+export interface ElevationChartMarker {
+  distance: number;
+  elevation: number;
+  color: string;
+  label?: string;
+  active?: boolean;
+}
+
 interface ElevationChartProps {
   data: { distance: number; elevation: number }[];
   height?: number;
@@ -247,6 +264,11 @@ interface ElevationChartProps {
    * 읽기 어렵다. 색이 실제 경사를 함께 전달한다. 기본값 off — 켜는 화면만 바뀐다.
    */
   colorByGrade?: boolean;
+  /**
+   * 프로필 위에 찍을 지점(경유지 등). 거리는 m, 색은 캔버스가 그릴 수 있는 실제 값이어야
+   * 한다(CSS 변수는 해석하지 못한다). `active` 인 지점은 크게 그린다.
+   */
+  markers?: ElevationChartMarker[];
   /** Read-only segment highlight range [startIndex, endIndex] (no drag) */
   highlightRange?: [number, number];
 }
@@ -263,6 +285,7 @@ export default function ElevationChart({
   onRangeChange,
   highlightRange,
   colorByGrade = false,
+  markers,
 }: ElevationChartProps) {
    
   const chartRef = useRef<Chart<"line", any>>(null);
@@ -452,10 +475,35 @@ export default function ElevationChart({
       },
     } : {}),
   };
+  /**
+   * 지점 표시는 선 없는 산점 데이터셋으로 얹는다.
+   *
+   * x축이 `type: "linear"` 이고 고도 데이터셋도 `{x, y}` 객체를 쓰므로(아래 elevationDataset),
+   * 마커의 임의 거리값이 그대로 좌표가 된다. `labels` 는 category 축에서만 위치 계산에 쓰이며
+   * 선형 축에서는 무시되므로, 표본 인덱스에 맞출 필요가 없다.
+   *
+   * 마커 거리와 프로필 거리는 같은 누적 거리 축(코스엔진 cumulativeDistances)에서 나오므로
+   * 같은 원점·같은 단위를 공유한다.
+   */
+  const markerDataset = markers && markers.length > 0 ? {
+    label: "지점",
+    data: markers.map((marker) => ({ x: marker.distance / 1000, y: marker.elevation })),
+    showLine: false,
+    fill: false,
+    borderWidth: 0,
+    pointRadius: markers.map((marker) => (marker.active ? 8 : 5)),
+    pointHoverRadius: markers.map((marker) => (marker.active ? 9 : 6)),
+    pointBackgroundColor: markers.map((marker) => marker.color),
+    pointBorderColor: pointHoverBorder,
+    pointBorderWidth: 2,
+    yAxisID: "yElev",
+  } : null;
+
   const chartData = {
     labels: distancesKm,
     datasets: [
       elevationDataset,
+      ...(markerDataset ? [markerDataset] : []),
       ...(separateOverlayLanes ? [] : (overlays ?? []).map((o) => {
         const focused = o.key != null && o.key === focusedOverlayKey;
         return {
@@ -532,7 +580,26 @@ export default function ElevationChart({
           interaction: { mode: "index", intersect: false },
           onHover: handleHover,
           plugins: {
-            tooltip: { enabled: false },
+            // 툴팁은 기본적으로 끈다(호버 표시는 부모가 그린다). 다만 지점 마커는 이름을
+            // 알 방법이 이것뿐이라, 마커가 있을 때만 마커 데이터셋에 한해 켠다.
+            tooltip: markerDataset ? {
+              enabled: true,
+              // 전역 interaction 이 index/intersect:false 라, 필터만 걸면 고도 표본 위에
+              // 있어도 같은 dataIndex 의 마커가 잡힌다. 마커 배열 인덱스는 고도 표본
+              // 인덱스와 무관하므로 엉뚱한 이름이 뜬다. 실제로 마커에 닿았을 때만 띄운다.
+              mode: "nearest" as const,
+              intersect: true,
+              filter: (item: { datasetIndex: number }) => item.datasetIndex === 1,
+              displayColors: false,
+              callbacks: {
+                title: () => "",
+                label: (item: { dataIndex: number; parsed: { y: number } }) => {
+                  const marker = markers?.[item.dataIndex];
+                  const elevation = `${Math.round(item.parsed.y)}m`;
+                  return marker?.label ? `${marker.label} · ${elevation}` : elevation;
+                },
+              },
+            } : { enabled: false },
             legend: { display: false },
             ...(rangeHighlightOpts ? { rangeHighlight: rangeHighlightOpts } : {}),
             ...(segmentHighlightOpts ? { segmentHighlight: segmentHighlightOpts } : {}),
@@ -562,7 +629,7 @@ export default function ElevationChart({
                 callback: (v) => `${v}m`,
               },
             },
-            ...(showLanes ? {
+            ...(showLanes || (markers && markers.length > 0) ? {
               yElevSpacer: {
                 type: "linear" as const,
                 position: "right" as const,
