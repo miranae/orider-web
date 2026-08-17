@@ -135,13 +135,15 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
         revision, mutationKey(operation));
       mutationKeys.current.delete(operation);
       // 링크는 이미 서버에 기록됐다 — 뒤따르는 outcome 이 실패해도 확정된 상태를 먼저 반영한다.
-      setExecution(confirmed); onChanged();
+      // 다만 부모 재조회(onChanged)는 결합 작업이 끝난 뒤 한 번만 — 두 번 부르면 늦게 도착한
+      // completed 스냅샷이 partial 을 덮어쓸 수 있다.
+      setExecution(confirmed);
       if (then === "partial") await recordPartial(confirmed.executionId, operation);
     } catch (cause) {
       logClientError("TrainingExecutionPanel.confirmProbable", cause,
         { executionId: execution.executionId, activityId: execution.activityId, then: then ?? "completed" });
       setError(true);
-    } finally { setBusy(false); }
+    } finally { setBusy(false); onChanged(); }
   }
 
   /**
@@ -153,7 +155,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     try {
       const next = await setSessionExecutionOutcome(executionId, "partial", mutationKey(outcomeOperation));
       mutationKeys.current.delete(outcomeOperation);
-      setExecution(next); setPartialRetry(null); onChanged();
+      setExecution(next); setPartialRetry(null);
     } catch (cause) {
       setPartialRetry({ executionId, operation });
       throw cause;
@@ -167,7 +169,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     catch (cause) {
       logClientError("TrainingExecutionPanel.retryPartial", cause, { executionId: partialRetry.executionId });
       setError(true);
-    } finally { setBusy(false); }
+    } finally { setBusy(false); onChanged(); }
   }
 
   async function unlink() {
