@@ -72,9 +72,9 @@ export function hasValidLegacySensorChannelValues(values: readonly unknown[]): b
  * (`explicitAxisRejectionReason`, `explicitOriginRejectionReason`) speak for
  * integrity. An all-null or truncated-to-nothing channel still fails here.
  *
- * 서버 미러(`orider-g1-web` `stream-track-points.ts` `selectSensorChannel`)는 아직
- * 옛 ±5% span 대칭 비교 + 95% 측정 비율을 쓴다 — summary 의 평균 심박/파워가 같은
- * 이유로 비는 건 그쪽을 같이 고쳐야 사라진다.
+ * 서버 미러(`orider-g1-web` `stream-track-points.ts` `selectSensorChannel`,
+ * `SENSOR_MIN_SESSION_COVERAGE`)도 같은 기준으로 맞춰져 있다 (g1-web#2204) —
+ * 상세 화면과 summary 의 평균 심박/파워가 갈리지 않도록 바꿀 땐 둘을 함께 바꾼다.
  */
 export function hasExplicitSessionMeasurementCoverage(
   measuredSlots: number,
