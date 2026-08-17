@@ -6,7 +6,7 @@ import enTraining from "../../i18n/resources/en/training.json";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
 import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
-import { TrainingExecutionPanel } from "./TrainingExecutionPanel";
+import { TrainingExecutionPanel, keepPartialRetry } from "./TrainingExecutionPanel";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), reserve: vi.fn(), start: vi.fn(), link: vi.fn(), unlink: vi.fn(), outcome: vi.fn(),
   log: vi.fn(), activities: { activities: [] as Array<Record<string, unknown>>, loading: false } }));
@@ -391,6 +391,15 @@ describe("TrainingExecutionPanel", () => {
     expect(screen.queryByRole("button", { name: "부분 완료로 다시 기록" })).not.toBeInTheDocument();
     // 끊긴 호출과 재시도가 같은 멱등키를 쓰는지 — 서버에 중복 기록이 생기면 안 된다.
     expect(mocks.outcome.mock.calls[0]?.[2]).toBe(mocks.outcome.mock.calls[1]?.[2]);
+  });
+
+  it.each([
+    { label: "같은 실행이 갱신돼 돌아오면 유지", next: { executionId: "exec_dddddddddddddddddddddddd" }, kept: true },
+    { label: "다른 실행으로 바뀌면 폐기", next: { executionId: "exec_eeeeeeeeeeeeeeeeeeeeeeee" }, kept: false },
+    { label: "실행이 사라지면 폐기", next: null, kept: false },
+  ])("keepPartialRetry — $label", ({ next, kept }) => {
+    const retry = { executionId: "exec_dddddddddddddddddddddddd", operation: "confirm:x" };
+    expect(keepPartialRetry(retry, next)).toBe(kept ? retry : null);
   });
 
   it("drops the partial retry once the confirmed link is unlinked", async () => {

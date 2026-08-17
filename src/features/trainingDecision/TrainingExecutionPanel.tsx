@@ -15,6 +15,14 @@ import type { Activity } from "@shared/types";
 
 type ActivityWithRevision = Activity & { activityRevision?: unknown };
 
+export interface PartialRetry { executionId: string; operation: string }
+
+/** 재시도는 같은 실행에서만 유효하다 — 실행이 사라지거나 다른 실행으로 바뀌면 폐기한다. */
+export function keepPartialRetry(current: PartialRetry | null,
+  next: Pick<SessionExecutionLink, "executionId"> | null): PartialRetry | null {
+  return current && next && current.executionId === next.executionId ? current : null;
+}
+
 function revisionOf(activity: Activity): string | null {
   const revision = (activity as ActivityWithRevision).activityRevision;
   return typeof revision === "string" && revision.length >= 3 ? revision : null;
@@ -29,7 +37,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const [manual, setManual] = useState(false);
   const [selectedActivityId, setSelectedActivityId] = useState("");
   const [postponedTo, setPostponedTo] = useState("");
-  const [partialRetry, setPartialRetry] = useState<{ executionId: string; operation: string } | null>(null);
+  const [partialRetry, setPartialRetry] = useState<PartialRetry | null>(null);
   const reserveKey = useRef(crypto.randomUUID());
   const startKey = useRef(crypto.randomUUID());
   const mutationKeys = useRef(new Map<string, string>());
@@ -59,8 +67,11 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
 
   // invalidated 는 닫힌 실행이다 — 붙들고 있으면 시작도 결과 기록도 못 하므로 없는 것으로 다룬다.
   useEffect(() => {
-    setExecution(initialExecution?.status === "invalidated" ? null : initialExecution);
-    setPartialRetry(null);
+    const next = initialExecution?.status === "invalidated" ? null : initialExecution;
+    setExecution(next);
+    // 같은 실행이 갱신돼 돌아온 것뿐이면 재시도 정보를 지우지 않는다. partial 실패 직후 부모 재조회가
+    // 도착하면서 재시도 버튼이 사라지면, 서버의 completed 를 되돌릴 경로가 없어진다.
+    setPartialRetry((current) => keepPartialRetry(current, next));
   }, [initialExecution]);
 
   async function start() {
