@@ -30,34 +30,51 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MIRROR_REFS: main-and-tags # 'main-and-tags' | 'all'
+  MIRROR_REFS: main-and-tags # 'main-and-tags' | 'all' — 그 외 값은 실패시킨다
 
 jobs:
   mirror:
     if: github.repository_owner == 'miranae'
     runs-on: ubuntu-latest
     steps:
-      - name: 원본 bare 미러 클론
+      # [1/4] TLS 로 검증된 GitHub API 에서 공식 host key 를 받아 고정한다.
+      #       `ssh-keyscan` 은 실행 시점의 응답을 그대로 신뢰(TOFU)하므로 MITM 을 못 막는다.
+      - name: '[1/4] read: GitHub 공식 SSH host key 고정'
         run: |
           set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          curl -fsSL --retry 3 https://api.github.com/meta \
+            | python3 -c 'import json,sys; print("\n".join("github.com "+k for k in json.load(sys.stdin)["ssh_keys"]))' \
+            > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          echo "host key $(wc -l < ~/.ssh/known_hosts) 개 고정 (api.github.com/meta)"
+
+      - name: '[2/4] read: 원본 bare 미러 클론'
+        run: |
+          set -euo pipefail
+          echo "clone ← ${GITHUB_REPOSITORY} (bare mirror)"
           git clone --mirror \
             "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" src.git
 
-      - name: deploy key 준비
+      - name: '[3/4] deploy key 준비 + 대상 결정'
         env:
           MIRROR_SSH_KEY: ${{ secrets.MIRROR_SSH_KEY }}
+          MIRROR_TARGET: ${{ vars.MIRROR_TARGET }}
         run: |
           set -euo pipefail
           if [ -z "${MIRROR_SSH_KEY:-}" ]; then
-            echo "::error::MIRROR_SSH_KEY secret 이 없다."
+            echo "::error::MIRROR_SSH_KEY secret 이 없다 — 원본 저장소 Settings > Secrets 확인."
             exit 1
           fi
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          case "${MIRROR_REFS}" in
+            all|main-and-tags) : ;;
+            *) echo "::error::MIRROR_REFS='${MIRROR_REFS}' 는 미지원 값이다 (all | main-and-tags). 오타로 백업 ref 가 prune 되는 것을 막기 위해 중단한다."; exit 1 ;;
+          esac
           printf '%s\n' "$MIRROR_SSH_KEY" > ~/.ssh/mirror_key
           chmod 600 ~/.ssh/mirror_key
-          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          echo "target=${MIRROR_TARGET:-ansrudska/${GITHUB_REPOSITORY#*/}} MIRROR_REFS=${MIRROR_REFS}"
 
-      - name: 개인 계정 미러로 push
+      - name: '[4/4] write: 개인 계정 미러로 push'
         env:
           MIRROR_TARGET: ${{ vars.MIRROR_TARGET }}
           GIT_SSH_COMMAND: ssh -i ~/.ssh/mirror_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
@@ -68,16 +85,20 @@ jobs:
           cd src.git
           # 남길 ref 패턴. GitHub 은 refs/pull/* 등 자체 관리 ref 의 push 를 거부하므로
           # clone --mirror 로 함께 받아온 그것들은 어느 모드에서나 제거해야 한다.
-          case "${MIRROR_REFS}" in
-            all) keep='^refs/(heads|tags)/' ;;
-            *)   keep='^(refs/heads/main$|refs/tags/)' ;;
-          esac
+          if [ "${MIRROR_REFS}" = all ]; then
+            keep='^refs/(heads|tags)/'
+          else
+            keep='^(refs/heads/main$|refs/tags/)'
+          fi
 
           drop="$(git for-each-ref --format='%(refname)' | grep -Ev "$keep" || true)"
+          drop_n=$([ -n "$drop" ] && printf '%s\n' "$drop" | wc -l || echo 0)
+          echo "ref 정리: keep='${keep}' 대상 제외 ${drop_n} 개 (미러 대상 아님/GitHub 관리 ref)"
           if [ -n "$drop" ]; then
             printf '%s\n' "$drop" | sed 's|^|delete |' | git update-ref --stdin
           fi
 
+          echo "push → ${target} (mirror, 남은 ref $(git for-each-ref --format='x' | wc -l) 개)"
           # --mirror: 남긴 ref 를 그대로 반영하고, 대상에만 있는 ref 는 prune 한다.
           git push --mirror "git@github.com:${target}.git"
           echo "미러 완료 (MIRROR_REFS=${MIRROR_REFS}) → https://github.com/${target}"
