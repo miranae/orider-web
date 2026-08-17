@@ -28,7 +28,7 @@ import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
 import RouteMap from "../components/RouteMap";
-import ElevationChart from "../components/ElevationChart";
+import ElevationChart, { ELEVATION_PLOT_AXIS_WIDTH } from "../components/ElevationChart";
 import { track } from "../services/analytics";
 import "../features/courses/course-detail.css";
 import { cumulativeDistancesFromLatLng, laneLabelKey, LANE_DEFS } from "../features/courseEngine";
@@ -1118,7 +1118,7 @@ export default function CoursePage() {
             ))}
           </ul>
           {waypointLaneRows.length > 0 && (
-            <div className="course-lanes">
+            <div className="course-lanes" style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
               {waypointLaneRows.map((group) => (
                 <div key={group.lane} className="course-lane-row">
                   <span className="course-lane-name">

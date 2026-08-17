@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -33,7 +33,7 @@ import {
   LANE_DEFS,
   type WpLane,
 } from "../../features/courseEngine";
-import ElevationChart from "../../components/ElevationChart";
+import ElevationChart, { ELEVATION_PLOT_AXIS_WIDTH } from "../../components/ElevationChart";
 import { waypointPipAnchorStyle } from "../../features/courses/courseWaypoints";
 import "../../features/event/detail/event-profile.css";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
@@ -772,7 +772,7 @@ export default function EventDetailPage() {
                     }))}
                   />
                   {profileMarkers.length > 0 && (
-                    <div className="event-lanes">
+                    <div className="event-lanes" style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
                       {LANE_ORDER.map((lane) => {
                         const items = profileMarkers
                           .map((marker, index) => ({ ...marker, index }))

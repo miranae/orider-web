@@ -227,6 +227,15 @@ export function gradeBandIndex(gradePct: number): number {
   return GRADE_BANDS.findIndex((band) => gradePct < band.maxGradePct);
 }
 
+/**
+ * 플롯 영역이 좌우로 들여쓰이는 폭(px). y축이 `afterFit` 으로 이 값에 고정돼 있다.
+ *
+ * 프로필 아래에 거리축을 공유하는 띠(경유지 레인 등)를 그릴 때 이 값만큼 들여써야 x좌표가
+ * 맞는다. 예전에는 Chart.js chartArea 를 그리는 도중에 재서 상태에 넣었는데, 마커가 있으면
+ * 좌우 스페이서가 항상 붙으므로 측정 없이 상수로 맞출 수 있다.
+ */
+export const ELEVATION_PLOT_AXIS_WIDTH = 54;
+
 export interface ElevationChartMarker {
   distance: number;
   elevation: number;
@@ -566,6 +575,11 @@ export default function ElevationChart({
             // 알 방법이 이것뿐이라, 마커가 있을 때만 마커 데이터셋에 한해 켠다.
             tooltip: markerDataset ? {
               enabled: true,
+              // 전역 interaction 이 index/intersect:false 라, 필터만 걸면 고도 표본 위에
+              // 있어도 같은 dataIndex 의 마커가 잡힌다. 마커 배열 인덱스는 고도 표본
+              // 인덱스와 무관하므로 엉뚱한 이름이 뜬다. 실제로 마커에 닿았을 때만 띄운다.
+              mode: "nearest" as const,
+              intersect: true,
               filter: (item: { datasetIndex: number }) => item.datasetIndex === 1,
               displayColors: false,
               callbacks: {
@@ -606,7 +620,7 @@ export default function ElevationChart({
                 callback: (v) => `${v}m`,
               },
             },
-            ...(showLanes ? {
+            ...(showLanes || (markers && markers.length > 0) ? {
               yElevSpacer: {
                 type: "linear" as const,
                 position: "right" as const,

@@ -13,23 +13,29 @@
   margin-top: var(--space-3);
 }
 
+/* 트랙을 프로필 플롯 영역에 정확히 맞춘다 — 좌우 축 폭(54px)만큼 들여쓴다.
+   레인 이름은 왼쪽 축 자리에 겹쳐 둔다. */
 .event-lane-row {
-  display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  align-items: start;
-  gap: var(--space-2);
+  position: relative;
+  padding-inline: var(--profile-axis-width, 54px);
 }
 
 .event-lane-name {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--profile-axis-width, 54px);
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-1);
-  padding-top: var(--space-1);
+  padding-top: var(--space-3);
+  padding-right: var(--space-1);
   font-size: var(--fs-2xs);
   font-weight: 600;
   color: var(--ink-2);
   white-space: nowrap;
+  overflow: hidden;
 }
 
 .event-lane-swatch {
