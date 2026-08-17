@@ -225,7 +225,7 @@ export interface CoachV2Response {
   clarification?: CoachClarification;
   unsupported?: CoachUnsupportedPayload;
   error?: { code: string; retryable: boolean; fallbackAvailable: boolean };
-  quota: { limit: 3; remaining: number; resetAt: string; consumed: boolean };
+  quota: { limit: number; remaining: number; resetAt: string; consumed: boolean };
   budget: { blocked: boolean; providerCalls: 0 | 1 | 2; inputTokens: number; outputTokens: number };
   retry: CoachRetryDisposition;
   execution: { parser: "deterministic" | "provider" | "report_provider"; queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string };
@@ -395,7 +395,19 @@ const retry = z.object({ mode: z.enum(["same_request_resume", "same_request_poll
   quotaImpact: z.enum(["none", "one_new_turn"]), previousTurnConsumed: z.boolean(), providerCallAllowed: z.boolean(),
   retryable: z.boolean(), reasonCode,
 }).strict();
-const quota = z.object({ limit: z.literal(3), remaining: z.number().int().min(0).max(3), resetAt: iso, consumed: z.boolean() }).strict();
+/**
+ * 일일 턴 한도는 **서버가 정한다**. 값을 여기 박아 두면 서버가 바꿀 때마다 앱이 답변을
+ * 통째로 거부한다 — 실제로 서버가 3에서 5로 올린 뒤(g1-web #1977) 이 스키마가 그대로 3 이라
+ * 모든 코치 답변이 "응답 계약이 맞지 않습니다" 로 버려졌다. 서버는 200 으로 답변을 만들어
+ * 저장까지 마친 상태였다.
+ *
+ * 관리자 조정(adminAdjustCoachBudget)으로 사용자마다 달라질 수도 있으므로 특정 숫자를 고정할
+ * 자리가 아니다. 대신 **자체 정합성**만 검사한다: 남은 횟수가 한도를 넘을 수 없다.
+ * 상한(1000)은 형식 검증일 뿐 정책이 아니다 — 터무니없는 값이 화면에 그대로 나가는 것만 막는다.
+ */
+const quota = z.object({ limit: z.number().int().min(1).max(1000), remaining: z.number().int().min(0),
+  resetAt: iso, consumed: z.boolean() }).strict()
+  .refine((value) => value.remaining <= value.limit, { message: "quota remaining exceeds limit", path: ["remaining"] });
 const budget = z.object({ blocked: z.boolean(), providerCalls: z.union([z.literal(0), z.literal(1), z.literal(2)]), inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
 }).strict();

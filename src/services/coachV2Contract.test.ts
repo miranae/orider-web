@@ -447,3 +447,29 @@ describe("coachV2Contract", () => {
       answer: { ...answer, status: "partial" }, error: { ...failure.error, fallbackAvailable: true } } }).answer?.status).toBe("partial");
   });
 });
+
+describe("일일 턴 한도", () => {
+  // 한도는 서버가 정한다. 값을 스키마에 박아 두면 서버가 바꿀 때마다 앱이 답변을 통째로
+  // 거부한다 — 서버가 3에서 5로 올린 뒤 모든 코치 답변이 "응답 계약이 맞지 않습니다" 로
+  // 버려졌다(서버는 200 으로 답변을 만들어 저장까지 마친 상태였다).
+  it("서버가 정한 한도를 그대로 받는다", () => {
+    for (const limit of [3, 5, 10, 50]) {
+      const parsed = parseCoachV2Response({ data: { ...envelope, quota: { ...envelope.quota, limit, remaining: limit } } });
+      expect(parsed.quota.limit).toBe(limit);
+      expect(parsed.quota.remaining).toBe(limit);
+    }
+  });
+
+  it("남은 횟수가 한도를 넘으면 거부한다", () => {
+    // 형식은 맞지만 자체 모순인 값 — 이건 계속 막아야 한다.
+    expect(() => parseCoachV2Response({ data: { ...envelope, quota: { ...envelope.quota, limit: 3, remaining: 4 } } }))
+      .toThrow();
+  });
+
+  it("한도가 0 이하이거나 비정상적으로 크면 거부한다", () => {
+    for (const limit of [0, -1, 1001]) {
+      expect(() => parseCoachV2Response({ data: { ...envelope, quota: { ...envelope.quota, limit, remaining: 0 } } }))
+        .toThrow();
+    }
+  });
+});
