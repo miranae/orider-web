@@ -837,6 +837,7 @@
       "probablePrompt": "We found an activity overlapping this session. Is this the right one?",
       "confirmMatch": "Yes · mark complete",
       "confirmPartial": "Yes, but partial",
+      "partialRetry": "Retry recording partial",
       "rejectMatch": "No · unlink",
       "error": "The execution state could not be saved.",
       "presentation": {

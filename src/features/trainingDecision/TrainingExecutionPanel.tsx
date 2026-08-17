@@ -29,6 +29,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const [manual, setManual] = useState(false);
   const [selectedActivityId, setSelectedActivityId] = useState("");
   const [postponedTo, setPostponedTo] = useState("");
+  const [partialRetry, setPartialRetry] = useState<{ executionId: string; operation: string } | null>(null);
   const reserveKey = useRef(crypto.randomUUID());
   const startKey = useRef(crypto.randomUUID());
   const mutationKeys = useRef(new Map<string, string>());
@@ -118,15 +119,36 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
       mutationKeys.current.delete(operation);
       // 링크는 이미 서버에 기록됐다 — 뒤따르는 outcome 이 실패해도 확정된 상태를 먼저 반영한다.
       setExecution(confirmed); onChanged();
-      if (then === "partial") {
-        const outcomeOperation = `${operation}:outcome:partial`;
-        const next = await setSessionExecutionOutcome(confirmed.executionId, "partial", mutationKey(outcomeOperation));
-        mutationKeys.current.delete(outcomeOperation);
-        setExecution(next); onChanged();
-      }
+      if (then === "partial") await recordPartial(confirmed.executionId, operation);
     } catch (cause) {
       logClientError("TrainingExecutionPanel.confirmProbable", cause,
         { executionId: execution.executionId, activityId: execution.activityId, then: then ?? "completed" });
+      setError(true);
+    } finally { setBusy(false); }
+  }
+
+  /**
+   * 확인 링크는 서버에서 즉시 completed 로 기록된다. 뒤따르는 partial 이 실패하면 사용자의 "부분 완료"
+   * 의도가 completed 로 굳어버리므로, 실패를 기억해 재시도 버튼을 남긴다(멱등키도 그대로 유지).
+   */
+  async function recordPartial(executionId: string, operation: string) {
+    const outcomeOperation = `${operation}:outcome:partial`;
+    try {
+      const next = await setSessionExecutionOutcome(executionId, "partial", mutationKey(outcomeOperation));
+      mutationKeys.current.delete(outcomeOperation);
+      setExecution(next); setPartialRetry(null); onChanged();
+    } catch (cause) {
+      setPartialRetry({ executionId, operation });
+      throw cause;
+    }
+  }
+
+  async function retryPartial() {
+    if (!canMutate || !partialRetry || busy) return;
+    setBusy(true); setError(false);
+    try { await recordPartial(partialRetry.executionId, partialRetry.operation); }
+    catch (cause) {
+      logClientError("TrainingExecutionPanel.retryPartial", cause, { executionId: partialRetry.executionId });
       setError(true);
     } finally { setBusy(false); }
   }
@@ -177,6 +199,10 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
             && <Button size="sm" variant="outline" disabled={busy || activitiesLoading}
               onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
         </div>}
+      {/* 부분 완료가 중간에 끊긴 경우 — 서버는 completed 로 남아 있으므로 되돌릴 경로를 남긴다. */}
+      {partialRetry !== null && decision.capabilities.execution.outcome === "available"
+        && <Button size="sm" variant="outline" loading={busy} onClick={() => void retryPartial()}>
+          {t("decision.execution.partialRetry")}</Button>}
       {decision.capabilities.execution.unlink === "available" && execution.status === "linked"
         && (execution.matchMethod === "manual" || probableLink)
         && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void unlink()}>

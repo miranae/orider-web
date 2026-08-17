@@ -837,6 +837,7 @@
       "probablePrompt": "이 세션과 시간대가 겹치는 활동을 찾았어요. 이 활동이 맞나요?",
       "confirmMatch": "맞아요 · 완료 처리",
       "confirmPartial": "맞지만 부분 완료",
+      "partialRetry": "부분 완료로 다시 기록",
       "rejectMatch": "아니에요 · 연결 해제",
       "error": "실행 상태를 저장하지 못했습니다.",
       "presentation": {

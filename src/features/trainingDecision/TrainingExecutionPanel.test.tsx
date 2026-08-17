@@ -382,5 +382,14 @@ describe("TrainingExecutionPanel", () => {
     expect(screen.getByText(/활동 연결됨 · 완료/)).toBeInTheDocument();
     expect(screen.getByText("실행 상태를 저장하지 못했습니다.")).toBeInTheDocument();
     expect(changed).toHaveBeenCalled();
+    // 사용자의 "부분 완료" 의도가 completed 로 굳지 않도록 재시도 경로가 남아야 한다.
+    const retry = screen.getByRole("button", { name: "부분 완료로 다시 기록" });
+    mocks.outcome.mockResolvedValueOnce({ ...probableExecution, matchMethod: "manual", matchConfidence: "manual",
+      outcomeStatus: "partial" });
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.getByText(/활동 연결됨 · 부분 완료/)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "부분 완료로 다시 기록" })).not.toBeInTheDocument();
+    // 끊긴 호출과 재시도가 같은 멱등키를 쓰는지 — 서버에 중복 기록이 생기면 안 된다.
+    expect(mocks.outcome.mock.calls[0]?.[2]).toBe(mocks.outcome.mock.calls[1]?.[2]);
   });
 });
