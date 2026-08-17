@@ -9,6 +9,8 @@ interface State {
   loading: boolean;
   scheduledOnly: boolean;
   unavailable: boolean;
+  /** 왜 없는지 — 롤아웃 미적용(disabled)과 실제 조회 실패(error)를 화면이 구분해야 한다. */
+  unavailableReason: "disabled" | "error" | null;
   refresh: () => void;
 }
 
@@ -24,19 +26,22 @@ export function useTodayTrainingDecision(uid: string | null | undefined,
   const generation = useRef(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<Omit<State, "refresh">>({
-    decision: null, loading: Boolean(uid), scheduledOnly: true, unavailable: false,
+    decision: null, loading: Boolean(uid), scheduledOnly: true, unavailable: false, unavailableReason: null,
   });
 
   useEffect(() => {
     const currentGeneration = ++generation.current;
     const enabled = getRuntimeConfig().trainingDecisionEnabled === true;
     if (!uid || !enabled) {
-      setState({ decision: null, loading: false, scheduledOnly: true, unavailable: Boolean(uid && !enabled) });
+      const disabled = Boolean(uid && !enabled);
+      setState({ decision: null, loading: false, scheduledOnly: true, unavailable: disabled,
+        unavailableReason: disabled ? "disabled" : null });
       return;
     }
     const controller = new AbortController();
     let expiryTimer: ReturnType<typeof setTimeout> | null = null;
-    setState((current) => ({ ...current, decision: null, loading: true, scheduledOnly: true, unavailable: false }));
+    setState((current) => ({ ...current, decision: null, loading: true, scheduledOnly: true, unavailable: false,
+      unavailableReason: null }));
     void getTodayTrainingDecision(discipline, controller.signal).then((decision) => {
       if (generation.current !== currentGeneration || controller.signal.aborted) return;
       const now = Date.now();
@@ -45,7 +50,7 @@ export function useTodayTrainingDecision(uid: string | null | undefined,
         throw new Error("training decision pending proposal expired");
       }
       const scheduledOnly = !currentTrainingRecommendation(decision);
-      setState({ decision, loading: false, scheduledOnly, unavailable: false });
+      setState({ decision, loading: false, scheduledOnly, unavailable: false, unavailableReason: null });
       const expiresAt = nextTrainingDecisionExpiry(decision, now);
       expiryTimer = setTimeout(() => {
         if (generation.current === currentGeneration && !controller.signal.aborted) {
@@ -55,7 +60,7 @@ export function useTodayTrainingDecision(uid: string | null | undefined,
     }).catch((error) => {
       if (generation.current !== currentGeneration || controller.signal.aborted) return;
       logClientError("useTodayTrainingDecision.load", error, { discipline });
-      setState({ decision: null, loading: false, scheduledOnly: true, unavailable: true });
+      setState({ decision: null, loading: false, scheduledOnly: true, unavailable: true, unavailableReason: "error" });
     });
     return () => {
       controller.abort();

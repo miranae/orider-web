@@ -65,7 +65,7 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   discipline: "bike" | "run" | "swim"; surface?: TrainingDecisionSurface; onSignIn?: () => void;
   onAvailabilityChange?: (available: boolean) => void }) {
   const { t } = useTranslation("training");
-  const { decision, loading, scheduledOnly, unavailable, refresh } = useTodayTrainingDecision(user?.uid, discipline);
+  const { decision, loading, scheduledOnly, unavailableReason, refresh } = useTodayTrainingDecision(user?.uid, discipline);
   useEffect(() => onAvailabilityChange?.(!loading && decision !== null), [decision, loading, onAvailabilityChange]);
   if (!user) return null;
   if (!decision && !loading) {
@@ -73,9 +73,24 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     if (surface === "fitness") return null;
   }
   if (loading) return <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
-  if (!decision) return <div className="training-decision-fallback" data-training-decision-fallback={unavailable ? "unavailable" : "empty"}>
+  // 조회 실패만 카드로 설명한다. 롤아웃 미적용(disabled)은 장애가 아니고, 계획이 없는 날은
+  // 서버가 fallback.reasonCode 를 담은 정상 응답을 주므로 여기까지 오지 않는다 — 둘 다 조용한 링크.
+  if (!decision && unavailableReason !== "error") return <div className="training-decision-fallback"
+    data-training-decision-fallback={unavailableReason ?? "empty"}>
     <TodayPlanLink discipline={discipline} />
   </div>;
+  if (!decision) return <Card className="training-decision-card training-decision-card--fallback"
+    data-training-decision-fallback="unavailable">
+    <div className="training-decision-card__header">
+      <div><Text as="span" variant="eyebrow">{t("decision.eyebrow")}</Text>
+        <Text as="h2" variant="title">{t("decision.fallback.unavailableTitle")}</Text></div>
+    </div>
+    <Text as="p" tone="secondary">{t("decision.fallback.unavailableBody")}</Text>
+    <footer className="training-decision-card__actions">
+      <Button size="sm" variant="outline" onClick={() => refresh()}>{t("decision.refresh")}</Button>
+      <TodayPlanLink discipline={discipline} />
+    </footer>
+  </Card>;
 
   const scheduled = primaryScheduledSession(decision);
   const recommendationVisible = decision.healthGate.state === "clear" && canShowRecommendation(decision);
@@ -118,6 +133,10 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     </header>
     {decision.healthGate.state === "stop" && <Alert variant="danger" title={t("decision.healthStop")} />}
     {!scheduled && <Text as="p" tone="secondary">{t("decision.noScheduled")}</Text>}
+    {/* 계약이 내려주는 폴백 사유를 그대로 노출 — "왜 권고가 없는지"를 사용자가 알 수 있어야 한다. */}
+    {decision.fallback.active && decision.fallback.reasonCode
+      && <Text as="p" variant="caption" tone="secondary" data-fallback-reason={decision.fallback.reasonCode}>
+        {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}</Text>}
     {surface === "fitness" ? <>
       <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
       <Text as="p" variant="caption" tone="secondary">{t("decision.sourceTuple", { classification: decision.loadAdjustment?.classification ?? decision.prescription.status, phase: decision.plan?.phase ?? "unknown" })}</Text>

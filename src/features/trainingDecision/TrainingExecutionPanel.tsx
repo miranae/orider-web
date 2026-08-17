@@ -15,6 +15,14 @@ import type { Activity } from "@shared/types";
 
 type ActivityWithRevision = Activity & { activityRevision?: unknown };
 
+export interface PartialRetry { executionId: string; operation: string }
+
+/** 재시도는 같은 실행에서만 유효하다 — 실행이 사라지거나 다른 실행으로 바뀌면 폐기한다. */
+export function keepPartialRetry(current: PartialRetry | null,
+  next: Pick<SessionExecutionLink, "executionId"> | null): PartialRetry | null {
+  return current && next && current.executionId === next.executionId ? current : null;
+}
+
 function revisionOf(activity: Activity): string | null {
   const revision = (activity as ActivityWithRevision).activityRevision;
   return typeof revision === "string" && revision.length >= 3 ? revision : null;
@@ -29,17 +37,29 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   const [manual, setManual] = useState(false);
   const [selectedActivityId, setSelectedActivityId] = useState("");
   const [postponedTo, setPostponedTo] = useState("");
+  const [partialRetry, setPartialRetry] = useState<PartialRetry | null>(null);
   const reserveKey = useRef(crypto.randomUUID());
   const startKey = useRef(crypto.randomUUID());
   const mutationKeys = useRef(new Map<string, string>());
   const manualPanelId = `training-execution-manual-${session.sessionId}`;
+  // 패널 자체가 healthGate clear 가 아니면 렌더되지 않는다(하단 TrainingExecutionPanel 가드).
+  // 즉 여기서 canMutate 는 항상 true 이고, 아래 mutation 함수의 방어 조건으로만 쓴다.
+  // 렌더 조건에는 넣지 않는다 — 잘못된 연결을 거부·해제하는 교정 동선까지 함께 숨어버린다.
   const canMutate = decision.healthGate.state === "clear";
+  const probableLink = execution?.status === "linked" && execution.matchConfidence === "probable";
+  const probablePending = probableLink && execution?.outcomeStatus === "pending";
+  // 추정 매칭 확인도 활동 목록이 필요하다 — 저장된 revision 은 재처리로 낡을 수 있어 현재 값을 쓴다.
   const { activities: ownerActivities, loading: activitiesLoading } = useActivities("self", [], {
-    enabled: manual && canMutate && execution?.status === "started",
+    enabled: canMutate && ((manual && execution?.status === "started") || probablePending === true),
   });
   const activityChoices = ownerActivities.filter((activity) => getDiscipline(activity.type) === decision.targetDiscipline
     && revisionOf(activity) !== null);
   const selectedActivity = activityChoices.find((activity) => activity.id === selectedActivityId) ?? null;
+  const matchedActivity = execution?.activityId
+    ? ownerActivities.find((activity) => activity.id === execution.activityId) ?? null : null;
+  // 자동 매칭 당시의 revision 은 활동 재처리로 낡을 수 있다(백엔드가 stale 을 거부) — 현재 값을 우선한다.
+  // 둘 다 없으면(legacy 매칭 등) 확인 자체가 불가능하므로 버튼을 잠그고 사유를 밝힌다.
+  const confirmRevision = (matchedActivity ? revisionOf(matchedActivity) : null) ?? execution?.activityRevision ?? null;
   const mutationKey = (operation: string) => {
     const existing = mutationKeys.current.get(operation);
     if (existing) return existing;
@@ -48,7 +68,19 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     return created;
   };
 
-  useEffect(() => setExecution(initialExecution), [initialExecution]);
+  // invalidated 는 닫힌 실행이다 — 붙들고 있으면 시작도 결과 기록도 못 하므로 없는 것으로 다룬다.
+  useEffect(() => {
+    const next = initialExecution?.status === "invalidated" ? null : initialExecution;
+    // 다른 탭의 해제나 서버측 무효화로 들어온 경우에도 멱등키를 회전한다 — 그대로 두면 재시작이
+    // 같은 executionId(hash(uid, idempotencyKey))를 되짚어 무효화된 실행으로 돌아간다.
+    if (initialExecution?.status === "invalidated") {
+      reserveKey.current = crypto.randomUUID(); startKey.current = crypto.randomUUID();
+    }
+    setExecution(next);
+    // 같은 실행이 갱신돼 돌아온 것뿐이면 재시도 정보를 지우지 않는다. partial 실패 직후 부모 재조회가
+    // 도착하면서 재시도 버튼이 사라지면, 서버의 completed 를 되돌릴 경로가 없어진다.
+    setPartialRetry((current) => keepPartialRetry(current, next));
+  }, [initialExecution]);
 
   async function start() {
     if (!decision.planSource || !canMutate || busy) return;
@@ -90,18 +122,84 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     catch (cause) { logClientError("TrainingExecutionPanel.outcome", cause, { executionId: execution.executionId, value }); setError(true); } finally { setBusy(false); }
   }
 
+  /**
+   * 시간창 추정(probable) 매칭은 완료·부분 완료도, 건너뛰기·연기도 막혀 교착이 된다.
+   * 사용자가 "이 활동이 맞다" 고 확인하면 같은 활동을 manual 로 다시 링크해 exact 권한으로 승격시킨다.
+   * (백엔드 linkActivity 는 동일 activityId 재링크를 허용하고, manual 은 즉시 completed 로 기록한다.)
+   */
+  async function confirmProbable(then?: "partial") {
+    const revision = confirmRevision;
+    if (!canMutate || !execution || busy || activitiesLoading || execution.status !== "linked"
+      || execution.matchConfidence !== "probable" || !execution.activityId || !revision) return;
+    setBusy(true); setError(false);
+    // 링크 키에는 then 을 넣지 않는다 — 두 확인 버튼이 만드는 링크 요청은 서버 입장에서 동일하다.
+    // 키가 갈리면 응답 유실 후 다른 버튼을 눌렀을 때 dedup 이 깨져 링크가 재실행된다.
+    const operation = `confirm:${execution.executionId}:${execution.activityId}:${revision}`;
+    try {
+      const confirmed = await linkSessionExecutionActivity(execution.executionId, execution.activityId,
+        revision, mutationKey(operation));
+      mutationKeys.current.delete(operation);
+      // 링크는 이미 서버에 기록됐다 — 뒤따르는 outcome 이 실패해도 확정된 상태를 먼저 반영한다.
+      // 다만 부모 재조회(onChanged)는 결합 작업이 끝난 뒤 한 번만 — 두 번 부르면 늦게 도착한
+      // completed 스냅샷이 partial 을 덮어쓸 수 있다.
+      setExecution(confirmed);
+      if (then === "partial") await recordPartial(confirmed.executionId, operation);
+    } catch (cause) {
+      logClientError("TrainingExecutionPanel.confirmProbable", cause,
+        { executionId: execution.executionId, activityId: execution.activityId, then: then ?? "completed" });
+      setError(true);
+    } finally { setBusy(false); onChanged(); }
+  }
+
+  /**
+   * 확인 링크는 서버에서 즉시 completed 로 기록된다. 뒤따르는 partial 이 실패하면 사용자의 "부분 완료"
+   * 의도가 completed 로 굳어버리므로, 실패를 기억해 재시도 버튼을 남긴다(멱등키도 그대로 유지).
+   */
+  async function recordPartial(executionId: string, operation: string) {
+    const outcomeOperation = `${operation}:outcome:partial`;
+    try {
+      const next = await setSessionExecutionOutcome(executionId, "partial", mutationKey(outcomeOperation));
+      mutationKeys.current.delete(outcomeOperation);
+      setExecution(next); setPartialRetry(null);
+    } catch (cause) {
+      setPartialRetry({ executionId, operation });
+      throw cause;
+    }
+  }
+
+  async function retryPartial() {
+    if (!canMutate || !partialRetry || busy) return;
+    setBusy(true); setError(false);
+    try { await recordPartial(partialRetry.executionId, partialRetry.operation); }
+    catch (cause) {
+      logClientError("TrainingExecutionPanel.retryPartial", cause, { executionId: partialRetry.executionId });
+      setError(true);
+    } finally { setBusy(false); onChanged(); }
+  }
+
   async function unlink() {
     if (!canMutate || !execution || execution.status !== "linked" || busy) return;
     setBusy(true); setError(false);
     const operation = `unlink:${execution.executionId}`;
-    try { setExecution(await unlinkSessionExecutionActivity(execution.executionId,
-      mutationKey(operation))); mutationKeys.current.delete(operation); onChanged(); }
+    try {
+      const next = await unlinkSessionExecutionActivity(execution.executionId, mutationKey(operation));
+      mutationKeys.current.delete(operation);
+      // 해제된 실행은 서버에서 invalidated 로 닫힌다. 그 상태로 붙들고 있으면 시작도 결과 기록도 못 하는
+      // 또 다른 교착이 되므로, 실행 없음으로 되돌리고 새 예약을 만들 수 있게 키를 갱신한다.
+      if (next.status === "invalidated") {
+        reserveKey.current = crypto.randomUUID(); startKey.current = crypto.randomUUID();
+        setExecution(null);
+      } else setExecution(next);
+      setPartialRetry(null);
+      onChanged();
+    }
     catch (cause) { logClientError("TrainingExecutionPanel.unlink", cause, { executionId: execution.executionId }); setError(true); } finally { setBusy(false); }
   }
 
   const exactLink = execution?.status === "linked" && execution.matchConfidence !== "probable";
   const presentationState = error ? "error" : !execution ? "executable" : execution.outcomeStatus !== "pending" ? "completed"
-    : execution.status === "reserved" ? "reserved" : execution.status === "started" ? "in-progress" : "link";
+    : execution.status === "reserved" ? "reserved" : execution.status === "started" ? "in-progress"
+      : probableLink ? "probable" : "link";
   return <article className="training-execution-session" data-execution-state={presentationState}>
     <Text as="h4" variant="label">{t(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })}</Text>
     <Text as="p" variant="caption" tone={presentationState === "error" ? "warning" : "secondary"}
@@ -115,8 +213,28 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
       {decision.capabilities.execution.link === "available" && execution.status === "started" && execution.outcomeStatus === "pending"
         && <Button size="sm" variant="outline" aria-expanded={manual} aria-controls={manualPanelId}
           onClick={() => setManual((value) => !value)}>{t("decision.execution.manualLink")}</Button>}
-      {decision.capabilities.execution.unlink === "available" && execution.status === "linked" && execution.matchMethod === "manual"
-        && <Button size="sm" variant="ghost" onClick={() => void unlink()}>{t("decision.execution.unlink")}</Button>}
+      {/* 추정 매칭 확인 동선 — 확인하면 완료 권한이 열리고, 아니면 해제해서 건너뛰기·연기로 빠져나간다. */}
+      {probableLink && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
+        && <div className="training-execution-actions__row" data-probable-confirm="true">
+          <Text as="p" variant="caption" tone="secondary">{t("decision.execution.probablePrompt")}</Text>
+          {confirmRevision === null && !activitiesLoading && <Text as="p" variant="caption" tone="warning">
+            {t("decision.execution.probableRevisionMissing")}</Text>}
+          <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading || confirmRevision === null}
+            onClick={() => void confirmProbable()}>{t("decision.execution.confirmMatch")}</Button>
+          {/* 부분 완료는 outcome 호출까지 필요하다 — 그 권한이 없으면 반쯤 적용된 상태로 끝난다. */}
+          {decision.capabilities.execution.outcome === "available"
+            && <Button size="sm" variant="outline" disabled={busy || activitiesLoading || confirmRevision === null}
+              onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
+        </div>}
+      {/* 부분 완료가 중간에 끊긴 경우 — 서버는 completed 로 남아 있으므로 되돌릴 경로를 남긴다. */}
+      {partialRetry?.executionId === execution.executionId
+        && decision.capabilities.execution.outcome === "available"
+        && <Button size="sm" variant="outline" loading={busy} onClick={() => void retryPartial()}>
+          {t("decision.execution.partialRetry")}</Button>}
+      {decision.capabilities.execution.unlink === "available" && execution.status === "linked"
+        && (execution.matchMethod === "manual" || probableLink)
+        && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void unlink()}>
+          {t(probableLink ? "decision.execution.rejectMatch" : "decision.execution.unlink")}</Button>}
       {manual && <div id={manualPanelId} className="training-execution-actions__manual">
         <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.activityPicker")}</Text>
           <select value={selectedActivityId} onChange={(event) => setSelectedActivityId(event.target.value)} disabled={activitiesLoading}>
