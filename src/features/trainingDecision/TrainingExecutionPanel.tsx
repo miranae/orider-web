@@ -55,7 +55,10 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
   };
 
   // invalidated 는 닫힌 실행이다 — 붙들고 있으면 시작도 결과 기록도 못 하므로 없는 것으로 다룬다.
-  useEffect(() => setExecution(initialExecution?.status === "invalidated" ? null : initialExecution), [initialExecution]);
+  useEffect(() => {
+    setExecution(initialExecution?.status === "invalidated" ? null : initialExecution);
+    setPartialRetry(null);
+  }, [initialExecution]);
 
   async function start() {
     if (!decision.planSource || !canMutate || busy) return;
@@ -166,6 +169,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
         reserveKey.current = crypto.randomUUID(); startKey.current = crypto.randomUUID();
         setExecution(null);
       } else setExecution(next);
+      setPartialRetry(null);
       onChanged();
     }
     catch (cause) { logClientError("TrainingExecutionPanel.unlink", cause, { executionId: execution.executionId }); setError(true); } finally { setBusy(false); }
@@ -189,7 +193,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
         && <Button size="sm" variant="outline" aria-expanded={manual} aria-controls={manualPanelId}
           onClick={() => setManual((value) => !value)}>{t("decision.execution.manualLink")}</Button>}
       {/* 추정 매칭 확인 동선 — 확인하면 완료 권한이 열리고, 아니면 해제해서 건너뛰기·연기로 빠져나간다. */}
-      {probableLink && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
+      {probableLink && canMutate && execution.outcomeStatus === "pending" && decision.capabilities.execution.link === "available"
         && <div className="training-execution-actions__row" data-probable-confirm="true">
           <Text as="p" variant="caption" tone="secondary">{t("decision.execution.probablePrompt")}</Text>
           <Button size="sm" variant="primary" loading={busy} disabled={activitiesLoading}
@@ -200,10 +204,11 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
               onClick={() => void confirmProbable("partial")}>{t("decision.execution.confirmPartial")}</Button>}
         </div>}
       {/* 부분 완료가 중간에 끊긴 경우 — 서버는 completed 로 남아 있으므로 되돌릴 경로를 남긴다. */}
-      {partialRetry !== null && decision.capabilities.execution.outcome === "available"
+      {partialRetry?.executionId === execution.executionId && canMutate
+        && decision.capabilities.execution.outcome === "available"
         && <Button size="sm" variant="outline" loading={busy} onClick={() => void retryPartial()}>
           {t("decision.execution.partialRetry")}</Button>}
-      {decision.capabilities.execution.unlink === "available" && execution.status === "linked"
+      {decision.capabilities.execution.unlink === "available" && canMutate && execution.status === "linked"
         && (execution.matchMethod === "manual" || probableLink)
         && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void unlink()}>
           {t(probableLink ? "decision.execution.rejectMatch" : "decision.execution.unlink")}</Button>}

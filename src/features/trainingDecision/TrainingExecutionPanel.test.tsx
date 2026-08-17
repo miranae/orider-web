@@ -392,4 +392,21 @@ describe("TrainingExecutionPanel", () => {
     // 끊긴 호출과 재시도가 같은 멱등키를 쓰는지 — 서버에 중복 기록이 생기면 안 된다.
     expect(mocks.outcome.mock.calls[0]?.[2]).toBe(mocks.outcome.mock.calls[1]?.[2]);
   });
+
+  it("drops the partial retry once the confirmed link is unlinked", async () => {
+    mocks.list.mockResolvedValue([probableExecution]);
+    const confirmed = { ...probableExecution, matchMethod: "manual" as const, matchConfidence: "manual" as const,
+      outcomeStatus: "completed" as const };
+    mocks.link.mockResolvedValue(confirmed);
+    mocks.outcome.mockRejectedValue(new Error("network blip"));
+    mocks.unlink.mockResolvedValue({ ...confirmed, status: "invalidated", activityId: null, activityRevision: null });
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "맞지만 부분 완료" }));
+    expect(await screen.findByRole("button", { name: "부분 완료로 다시 기록" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "활동 연결 해제" }));
+    // 해제된(무효화된) 실행에 대고 재시도하면 엉뚱한 실행을 건드린다.
+    expect(await screen.findByRole("button", { name: "운동 시작" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "부분 완료로 다시 기록" })).not.toBeInTheDocument();
+  });
 });
