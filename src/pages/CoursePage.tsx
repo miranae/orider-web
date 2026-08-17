@@ -1104,6 +1104,8 @@ export default function CoursePage() {
             height={180}
             onHoverIndex={handleElevHover}
             colorByGrade
+            // 아래 경유지 레인이 같은 거리축을 쓰므로 좌우 플롯 폭을 고정한다.
+            reserveLaneGutter={waypointLaneRows.length > 0}
           />
           <ul className="course-grade-legend">
             {[
