@@ -1,0 +1,72 @@
+name: mirror-to-personal
+
+# miranae/<repo> → ansrudska/<repo> 단방향 자동 미러 (개인 계정 백업).
+#
+# ⚠️ 단방향이다. 미러 쪽(ansrudska)에 직접 커밋하면 다음 실행의 mirror push 에 덮여 사라진다.
+# ⚠️ 미러 저장소는 Actions 를 꺼뒀다(미러 push 가 그쪽에서 이 워크플로를 재발화하는 루프 방지).
+#     이중 안전장치로 아래 `if: github.repository_owner == 'miranae'` 가드도 둔다.
+#
+# 인증: 저장소별 **deploy key**(미러 저장소 1개에만 write). PAT 아님 = 최소 권한.
+#   - secret  MIRROR_SSH_KEY : ed25519 비밀키 (미러 저장소에 공개키가 write deploy key 로 등록됨)
+#   - var     MIRROR_TARGET  : 대상 `owner/repo` (없으면 ansrudska/<원본 저장소명>)
+#   키 재발급 → `ssh-keygen -t ed25519` 후 미러 저장소 Settings > Deploy keys 교체 + secret 갱신.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  delete:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 18 * * *' # 매일 03:30 KST — push 이벤트를 놓쳤을 때의 안전망
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-to-personal
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    if: github.repository_owner == 'miranae'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 원본 bare 미러 클론
+        run: |
+          set -euo pipefail
+          git clone --mirror \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" src.git
+
+      - name: deploy key 준비
+        env:
+          MIRROR_SSH_KEY: ${{ secrets.MIRROR_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MIRROR_SSH_KEY:-}" ]; then
+            echo "::error::MIRROR_SSH_KEY secret 이 없다."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$MIRROR_SSH_KEY" > ~/.ssh/mirror_key
+          chmod 600 ~/.ssh/mirror_key
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: 개인 계정 미러로 push
+        env:
+          MIRROR_TARGET: ${{ vars.MIRROR_TARGET }}
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/mirror_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+        run: |
+          set -euo pipefail
+          target="${MIRROR_TARGET:-ansrudska/${GITHUB_REPOSITORY#*/}}"
+
+          cd src.git
+          # GitHub 는 refs/pull/* 등 자체 관리 ref 의 push 를 거부한다.
+          # clone --mirror 는 이들을 함께 받아오므로 heads/tags 외 ref 는 제거 후 push.
+          extra="$(git for-each-ref --format='%(refname)' | grep -Ev '^refs/(heads|tags)/' || true)"
+          if [ -n "$extra" ]; then
+            printf '%s\n' "$extra" | sed 's|^|delete |' | git update-ref --stdin
+          fi
+
+          git push --mirror "git@github.com:${target}.git"
+          echo "미러 완료 → https://github.com/${target}"
