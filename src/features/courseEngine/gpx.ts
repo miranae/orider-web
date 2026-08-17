@@ -23,8 +23,17 @@ import { computeTrackStats, type TrackPoint, type TrackStats } from "./stats";
  * 파일 전체를 고도 없음으로 버리지 않고 사이를 선형 보간한다. 앞뒤 끝이 비면 가장 가까운
  * 유효 값으로 잇는다.
  *
- * 유효 표본이 2개 미만이면 메울 근거가 없으므로 고도가 없는 것으로 본다.
+ * 다만 보간에는 한계가 있다. 수천 점짜리 트랙에 시작·끝 두 점만 고도가 있으면, 그 사이를
+ * 직선으로 이어 "실측 고도"로 내놓게 된다 — 언덕이 통째로 사라진 가짜 프로필이다. 그래서
+ * 빠진 구간이 연속으로 길면(`MAX_INTERPOLATION_RUN`) 메울 근거가 없다고 보고 고도 없음으로
+ * 판정한다. 표본이 2개 미만일 때도 마찬가지다.
  */
+/**
+ * 연속으로 이만큼 넘게 비어 있으면 보간하지 않는다(점 개수).
+ * 실제 GPX 는 한두 점이 빠지는 정도가 흔하고, 그 이상 길게 비면 원래 없는 파일로 본다.
+ */
+export const MAX_INTERPOLATION_RUN = 10;
+
 export function fillMissingElevations(values: readonly (number | null)[]): {
   elevations: number[];
   hasElevation: boolean;
@@ -37,9 +46,18 @@ export function fillMissingElevations(values: readonly (number | null)[]): {
     return { elevations: values.map(() => 0), hasElevation: false };
   }
 
-  const filled = values.slice() as (number | null)[];
+  // 앞뒤 끝의 빈 구간도 보간 대상이므로 함께 센다.
   const first = validIndices[0]!;
   const last = validIndices[validIndices.length - 1]!;
+  let longestRun = Math.max(first, values.length - 1 - last);
+  for (let step = 1; step < validIndices.length; step += 1) {
+    longestRun = Math.max(longestRun, validIndices[step]! - validIndices[step - 1]! - 1);
+  }
+  if (longestRun > MAX_INTERPOLATION_RUN) {
+    return { elevations: values.map(() => 0), hasElevation: false };
+  }
+
+  const filled = values.slice() as (number | null)[];
   for (let index = 0; index < first; index += 1) filled[index] = values[first]!;
   for (let index = last + 1; index < filled.length; index += 1) filled[index] = values[last]!;
 

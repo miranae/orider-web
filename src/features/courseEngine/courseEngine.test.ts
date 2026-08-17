@@ -495,6 +495,30 @@ describe("fillMissingElevations", () => {
     expect(fillMissingElevations([10, 20, 30])).toEqual({ elevations: [10, 20, 30], hasElevation: true });
   });
 
+  it("빠진 구간이 길면 보간하지 않는다 — 시작·끝만 있는 트랙은 가짜 프로필이 된다", () => {
+    // 수천 점에 두 점만 고도가 있으면 직선으로 이어져 언덕이 통째로 사라진다.
+    const sparse: (number | null)[] = new Array(200).fill(null);
+    sparse[0] = 10;
+    sparse[199] = 400;
+    expect(fillMissingElevations(sparse)).toEqual({
+      elevations: sparse.map(() => 0),
+      hasElevation: false,
+    });
+  });
+
+  it("한두 점 빠진 정도는 메운다", () => {
+    const values: (number | null)[] = [10, null, 30, 40, null, null, 70];
+    const { elevations, hasElevation } = fillMissingElevations(values);
+    expect(hasElevation).toBe(true);
+    expect(elevations[1]).toBe(20);
+    expect(elevations.every((value) => Number.isFinite(value))).toBe(true);
+  });
+
+  it("앞뒤 끝이 길게 비어도 고도 없음으로 본다", () => {
+    const trailing: (number | null)[] = [10, 20, ...new Array(50).fill(null)];
+    expect(fillMissingElevations(trailing).hasElevation).toBe(false);
+  });
+
   it("유효 표본이 부족하면 고도 없음으로 본다", () => {
     expect(fillMissingElevations([null, null])).toEqual({ elevations: [0, 0], hasElevation: false });
     expect(fillMissingElevations([42, null, null])).toEqual({ elevations: [0, 0, 0], hasElevation: false });
