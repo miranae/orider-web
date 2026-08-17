@@ -1,24 +1,26 @@
 name: mirror-to-personal
 
-# miranae/<repo> → ansrudska/<repo> 단방향 자동 미러 (개인 계정 백업).
+# miranae/<repo> → ansrudska/<repo> 단방향 백업 미러 (개인 계정, private).
+#
+# 목적은 **백업**이다. 따라서 실시간이 아니라 하루 1회 cron 만 돌리고,
+# `main` 과 태그만 가져간다 (feature 브랜치는 백업 대상 아님).
+# → Actions 소모: 저장소당 월 ~30분(job 당 분 단위 올림), 5 저장소 합계 ~150분.
 #
 # ⚠️ 단방향이다. 미러 쪽(ansrudska)에 직접 커밋하면 다음 실행의 mirror push 에 덮여 사라진다.
-# ⚠️ 미러 저장소는 Actions 를 꺼뒀다(미러 push 가 그쪽에서 이 워크플로를 재발화하는 루프 방지).
+# ⚠️ 미러 저장소는 Actions 를 꺼뒀다(미러 push 가 그쪽에서 워크플로를 재발화하는 루프 방지).
 #     이중 안전장치로 아래 `if: github.repository_owner == 'miranae'` 가드도 둔다.
 #
 # 인증: 저장소별 **deploy key**(미러 저장소 1개에만 write). PAT 아님 = 최소 권한.
 #   - secret  MIRROR_SSH_KEY : ed25519 비밀키 (미러 저장소에 공개키가 write deploy key 로 등록됨)
 #   - var     MIRROR_TARGET  : 대상 `owner/repo` (없으면 ansrudska/<원본 저장소명>)
 #   키 재발급 → `ssh-keygen -t ed25519` 후 미러 저장소 Settings > Deploy keys 교체 + secret 갱신.
+#
+# 전체 브랜치까지 백업하려면 아래 MIRROR_REFS 를 'all' 로 바꾼다 (비용 동일 — 실행 횟수가 같다).
 
 on:
-  push:
-    branches: ['**']
-    tags: ['**']
-  delete:
-  workflow_dispatch:
   schedule:
-    - cron: '30 18 * * *' # 매일 03:30 KST — push 이벤트를 놓쳤을 때의 안전망
+    - cron: '30 18 * * *' # 매일 03:30 KST
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,6 +28,9 @@ permissions:
 concurrency:
   group: mirror-to-personal
   cancel-in-progress: false
+
+env:
+  MIRROR_REFS: main-and-tags # 'main-and-tags' | 'all'
 
 jobs:
   mirror:
@@ -61,12 +66,18 @@ jobs:
           target="${MIRROR_TARGET:-ansrudska/${GITHUB_REPOSITORY#*/}}"
 
           cd src.git
-          # GitHub 는 refs/pull/* 등 자체 관리 ref 의 push 를 거부한다.
-          # clone --mirror 는 이들을 함께 받아오므로 heads/tags 외 ref 는 제거 후 push.
-          extra="$(git for-each-ref --format='%(refname)' | grep -Ev '^refs/(heads|tags)/' || true)"
-          if [ -n "$extra" ]; then
-            printf '%s\n' "$extra" | sed 's|^|delete |' | git update-ref --stdin
+          # 남길 ref 패턴. GitHub 은 refs/pull/* 등 자체 관리 ref 의 push 를 거부하므로
+          # clone --mirror 로 함께 받아온 그것들은 어느 모드에서나 제거해야 한다.
+          case "${MIRROR_REFS}" in
+            all) keep='^refs/(heads|tags)/' ;;
+            *)   keep='^(refs/heads/main$|refs/tags/)' ;;
+          esac
+
+          drop="$(git for-each-ref --format='%(refname)' | grep -Ev "$keep" || true)"
+          if [ -n "$drop" ]; then
+            printf '%s\n' "$drop" | sed 's|^|delete |' | git update-ref --stdin
           fi
 
+          # --mirror: 남긴 ref 를 그대로 반영하고, 대상에만 있는 ref 는 prune 한다.
           git push --mirror "git@github.com:${target}.git"
-          echo "미러 완료 → https://github.com/${target}"
+          echo "미러 완료 (MIRROR_REFS=${MIRROR_REFS}) → https://github.com/${target}"
