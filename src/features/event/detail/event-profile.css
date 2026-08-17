@@ -1,0 +1,109 @@
+/**
+ * 이벤트 상세 고도 프로필 아래 경유지 레인.
+ *
+ * 예전에는 Chart.js 인스턴스의 chartArea 를 afterDraw 에서 재서 setTimeout 으로 상태에 넣고,
+ * 그 값으로 좌우 패딩을 맞췄다. 그리는 도중 상태를 바꾸는 방식이라 취약했다. 이제 프로필과
+ * 레인이 같은 거리 축(0~100%)을 공유하므로 측정이 필요 없다.
+ */
+
+.event-lanes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* 트랙을 프로필 플롯 영역에 정확히 맞춘다 — 좌우 축 폭(54px)만큼 들여쓴다.
+   레인 이름은 왼쪽 축 자리에 겹쳐 둔다. */
+.event-lane-row {
+  position: relative;
+  padding-inline: var(--profile-axis-width, 54px);
+}
+
+.event-lane-name {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--profile-axis-width, 54px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  padding-top: var(--space-3);
+  padding-right: var(--space-1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.event-lane-swatch {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--r-sm);
+}
+
+.event-lane-name i,
+.event-pip i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  flex: none;
+}
+
+.event-lane-track {
+  position: relative;
+  display: block;
+  min-height: 1.75rem;
+  margin-top: var(--space-2);
+  border-top: 1px dashed var(--line);
+}
+
+.event-pip {
+  position: absolute;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 12rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--ink-2);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.event-pip > span:not(.event-pip-km) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.event-pip-km {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+/* 호버는 강조만, 선택은 유지 — 지도 이동은 선택에서만 일어난다. */
+.event-pip[data-hover="1"] {
+  border-color: var(--line);
+  color: var(--ink-1);
+}
+
+.event-pip[data-selected="1"] {
+  border-color: var(--lime);
+  background: color-mix(in oklch, var(--lime) 12%, var(--bg-2));
+  color: var(--ink-0);
+  font-weight: 600;
+}
+
+.event-pip:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}

@@ -737,6 +737,20 @@
     "duration": "{{value}}분",
     "tss": "{{value}} TSS",
     "tssUnavailable": "TSS 산정 전",
+    "zone": "{{value}} 존",
+    "fallback": {
+      "unavailableTitle": "오늘 계획을 불러오지 못했습니다",
+      "unavailableBody": "일시적인 문제로 오늘의 계획을 확인하지 못했습니다. 잠시 후 다시 확인하거나 운동 계획에서 직접 확인해 주세요.",
+      "reason": {
+        "feature_disabled": "오늘의 계획 기능이 아직 켜지지 않았어요",
+        "no_active_goal": "진행 중인 목표가 없어 계획을 만들지 못했어요",
+        "prescription_not_ready": "오늘 처방이 아직 준비되지 않았어요",
+        "ambiguous_active_goal": "진행 중인 목표가 여러 개라 기준을 정하지 못했어요",
+        "consent_required": "AI 코치 이용 동의가 필요해요",
+        "canonical_load_unavailable": "최근 훈련 부하를 확인하지 못했어요",
+        "dependency_unavailable": "필요한 데이터를 일시적으로 불러오지 못했어요"
+      }
+    },
     "extraSessions": "오늘 예정된 세션이 {{count}}개 더 있어요. 계획에서 각각 확인하세요.",
     "reasonTitle": "조정 근거",
     "reasonFallback": "현재 부하와 회복 신호 반영",
@@ -820,8 +834,15 @@
       "listError": "기존 실행 상태를 확인하지 못했습니다. 확인 전에는 새 실행을 만들지 않습니다.",
       "link": "연결",
       "unlink": "활동 연결 해제",
+      "probablePrompt": "이 세션과 시간대가 겹치는 활동을 찾았어요. 이 활동이 맞나요?",
+      "confirmMatch": "맞아요 · 완료 처리",
+      "confirmPartial": "맞지만 부분 완료",
+      "partialRetry": "부분 완료로 다시 기록",
+      "probableRevisionMissing": "이 활동의 최신 정보를 확인하지 못해 지금은 확인할 수 없습니다. 연결을 해제한 뒤 직접 연결해 주세요.",
+      "rejectMatch": "아니에요 · 연결 해제",
       "error": "실행 상태를 저장하지 못했습니다.",
       "presentation": {
+        "probable": "추정으로 연결된 활동이 있습니다. 확인하면 완료 처리할 수 있습니다.",
         "executable": "지금 이 세션을 시작할 수 있습니다.",
         "reserved": "세션이 예약되었습니다. 시작하면 진행 상태로 바뀝니다.",
         "in-progress": "세션이 진행 중입니다. 완료된 활동을 연결할 수 있습니다.",

@@ -34,6 +34,46 @@ const stageFirebaseConfig = JSON.parse(readFileSync("firebase.stage.json", "utf8
 const PROD_AI_API_ORIGIN = "https://orider-ai-api-h5zqzw3n4a-du.a.run.app";
 const STAGE_AI_API_ORIGIN = "https://orider-ai-api-stage-ldfyfyx5da-du.a.run.app";
 
+/**
+ * 크롤러가 링크 미리보기·검색 인덱싱을 받으려면 SPA 폴백보다 **먼저** prerender 로 가야 한다.
+ *
+ * source 의 `:param` 세그먼트는 Firebase Hosting 이 해석한다 — glob 전용이 아니다. 기존
+ * `/:lang/design-system.html` 규칙이 프로덕션에서 동작하는 것으로 확인했다(2026-08):
+ *   curl https://orider.co.kr/ko/design-system.html
+ *     → <title>Orider Design System</title>, 130KB (SPA 폴백이면 <title>Orider</title> 가 온다)
+ * 이 rewrite 들이 빠지면 함수가 배포돼 있어도 아무도 도달하지 못한다 — 실제로 seoPrerender·
+ * sitemap 이 배포된 채 호스팅에 연결되지 않아, 공유 카드와 sitemap.xml 이 SPA 셸을
+ * 돌려주고 있었다(2026-08).
+ */
+const CRAWLER_REWRITES = [
+  { source: "/sitemap.xml", functionId: "sitemap" },
+  { source: "/:lang/activity/:activityId", functionId: "seoPrerender" },
+  { source: "/:lang/segment/:segmentId", functionId: "seoPrerender" },
+  { source: "/:lang/course/:courseId", functionId: "seoPrerender" },
+  { source: "/:lang/event/:eventId", functionId: "seoPrerender" },
+];
+
+function checkCrawlerRewrites(hosting, label) {
+  const rewrites = Array.isArray(hosting.rewrites) ? hosting.rewrites : [];
+  const spaFallbackIndex = rewrites.findIndex((rule) => rule.destination === "/index.html");
+
+  for (const expected of CRAWLER_REWRITES) {
+    const index = rewrites.findIndex((rule) => rule.source === expected.source);
+    if (index < 0) {
+      fail(`${label} hosting.rewrites must route ${expected.source} to ${expected.functionId}`);
+      continue;
+    }
+    const target = rewrites[index].function;
+    const functionId = typeof target === "string" ? target : target?.functionId;
+    if (functionId !== expected.functionId) {
+      fail(`${label} hosting.rewrites ${expected.source} must target ${expected.functionId}`);
+    }
+    if (spaFallbackIndex >= 0 && index > spaFallbackIndex) {
+      fail(`${label} hosting.rewrites ${expected.source} must come before the SPA fallback`);
+    }
+  }
+}
+
 function checkHostingConfig(hosting, label, aiApiOrigin) {
   if (!hosting) {
     fail(`${label} must contain hosting config`);
@@ -44,6 +84,8 @@ function checkHostingConfig(hosting, label, aiApiOrigin) {
   requireIncludes(predeploy, "scripts/predeploy-guard.mjs", `${label} hosting.predeploy`);
   requireIncludes(predeploy, "scripts/check-env.mjs", `${label} hosting.predeploy`);
   requireIncludes(predeploy, "scripts/write-runtime-config.mjs", `${label} hosting.predeploy`);
+
+  checkCrawlerRewrites(hosting, label);
 
   const globalHeaderRule = hosting.headers?.find((rule) => rule.source === "**");
   if (!globalHeaderRule) {

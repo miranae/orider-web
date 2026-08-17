@@ -28,7 +28,15 @@ import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
 import RouteMap from "../components/RouteMap";
-import ElevationChart from "../components/ElevationChart";
+import ElevationChart, { ELEVATION_PLOT_AXIS_WIDTH } from "../components/ElevationChart";
+import { track } from "../services/analytics";
+import "../features/courses/course-detail.css";
+import { cumulativeDistancesFromLatLng, laneLabelKey, LANE_DEFS } from "../features/courseEngine";
+import {
+  buildCourseWaypointLaneGroups,
+  buildCourseWaypointRows,
+  waypointPipAnchorStyle,
+} from "../features/courses/courseWaypoints";
 import Avatar from "../components/Avatar";
 import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
@@ -55,6 +63,15 @@ interface CourseData {
   elevationHigh: number;
   elevationLow: number;
   elevationProfile?: { d: number; e: number }[];
+  /** 서버가 GPX <wpt> 를 재투영해 저장한 관심 지점(보급·정상·편의점 등). */
+  waypoints?: {
+    name: string | null;
+    type: string | null;
+    note: string | null;
+    latitude: number;
+    longitude: number;
+    distanceFromStartMeters: number;
+  }[];
   climbs?: { gain: number; dist: number; cat: number }[];
   photos?: {
     source: string;
@@ -407,31 +424,67 @@ export default function CoursePage() {
   );
 
   // 폴리라인의 누적 거리(m) — 마커를 거리 기준으로 매핑하기 위해 미리 계산
-  const cumDistances = useMemo<number[]>(() => {
-    if (points.length < 2) return [];
-    const R = 6371000; // 지구 반지름(m)
-    const toRad = (deg: number) => (deg * Math.PI) / 180;
-    const cum = [0];
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      if (!prev || !curr) {
-        cum.push(cum[i - 1] ?? 0);
-        continue;
-      }
-      const [lat1, lng1] = prev;
-      const [lat2, lng2] = curr;
-      const dLat = toRad(lat2 - lat1);
-      const dLng = toRad(lng2 - lng1);
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-      const seg = 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      cum.push((cum[i - 1] ?? 0) + seg);
-    }
-    return cum;
-  }, [points]);
+  const cumDistances = useMemo<number[]>(
+    () => (points.length < 2 ? [] : cumulativeDistancesFromLatLng(points)),
+    [points],
+  );
 
+  const [hoveredWaypoint, setHoveredWaypoint] = useState<number | null>(null);
+  const [selectedWaypoint, setSelectedWaypoint] = useState<number | null>(null);
+
+  // 경유지 — 파생은 features/courses/courseWaypoints 에서. 서버가 이미 재투영한 거리를
+  // 그대로 쓰고, 분류만 코스엔진에 맡긴다(코스 문맥이라 컷오프는 제외된다).
+  const waypointRows = useMemo(() => buildCourseWaypointRows(course?.waypoints), [course?.waypoints]);
+  const waypointLaneRows = useMemo(
+    () => buildCourseWaypointLaneGroups(waypointRows, course?.distance ?? 0),
+    [waypointRows, course?.distance],
+  );
+
+  // 선택은 지도를 이동시키고 유지된다. 호버는 강조만 하고 지도를 움직이지 않는다 —
+  // 목록 위에서 마우스를 옮길 때마다 지도가 튀면 산만하다.
+  //
+  // 부수효과는 상태 updater 밖에서 실행한다. updater 안에 두면 React 가 이를 재실행할 때
+  // 계측 이벤트와 타이머가 중복된다. 타이머는 ref 로 들고 있다가 재선택·해제·코스 전환·
+  // 언마운트에서 취소한다 — 안 그러면 이미 해제한 경유지 좌표가 뒤늦게 지도에 적용된다.
+  const flyTimerRef = useRef<number | null>(null);
+  const cancelFlyTimer = useCallback(() => {
+    if (flyTimerRef.current !== null) {
+      clearTimeout(flyTimerRef.current);
+      flyTimerRef.current = null;
+    }
+  }, []);
+
+  const selectWaypoint = useCallback((index: number) => {
+    const next = selectedWaypoint === index ? null : index;
+    setSelectedWaypoint(next);
+
+    cancelFlyTimer();
+    setFlyToPosition(null);
+    const target = next == null ? null : waypointRows[next]?.location ?? null;
+    if (target) {
+      // 같은 좌표를 다시 고를 때도 flyTo 가 걸리도록 null 로 비운 뒤 한 틱 뒤에 넣는다.
+      flyTimerRef.current = window.setTimeout(() => {
+        flyTimerRef.current = null;
+        setFlyToPosition(target);
+      }, 10);
+    }
+    if (next != null) {
+      track("course_waypoint_select", { course_id: courseId ?? "", lane: waypointRows[next]?.lane ?? "" });
+    }
+  }, [cancelFlyTimer, courseId, selectedWaypoint, waypointRows]);
+
+  useEffect(() => cancelFlyTimer, [cancelFlyTimer]);
+
+  // 코스가 바뀌면 이전 인덱스가 새 코스의 엉뚱한 경유지를 가리킨다.
+  useEffect(() => {
+    setSelectedWaypoint(null);
+    setHoveredWaypoint(null);
+    cancelFlyTimer();
+    // 남아 있던 이전 코스 좌표가 새 지도에 전달되면 엉뚱한 위치로 날아간다.
+    setFlyToPosition(null);
+  }, [courseId, cancelFlyTimer]);
+
+  const activeWaypointIndex = selectedWaypoint ?? hoveredWaypoint;
   const markerPosition = useMemo<[number, number] | null>(() => {
     const profile = course?.elevationProfile;
     if (hoverIndex == null || !profile || points.length < 2 || cumDistances.length < 2) return null;
@@ -621,6 +674,21 @@ export default function CoursePage() {
   }, [courseId, user]);
 
   // 조회수 증가 (1회, 서버사이드 — 로그인 사용자만)
+  // 코스 상세 조회 — 격상 효과(액션 전환율·공유 발생률)의 분모. 코스가 실제로 그려진
+  // 시점에 1회만 보낸다. 로그인 여부와 무관하다.
+  const viewTrackedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!courseId || !course || viewTrackedRef.current === courseId) return;
+    viewTrackedRef.current = courseId;
+    track("course_detail_view", {
+      course_id: courseId,
+      distance_km: Math.round(course.distance / 100) / 10,
+      elevation_m: Math.round(course.elevationGain),
+      waypoint_count: course.waypoints?.length ?? 0,
+      has_climbs: (course.climbs?.length ?? 0) > 0,
+    });
+  }, [courseId, course]);
+
   useEffect(() => {
     if (!courseId || !user || viewCounted) return;
     setViewCounted(true);
@@ -675,6 +743,7 @@ export default function CoursePage() {
     const payload = buildOriderSharePayload({ title: course?.name ?? t("share.courseTitle"), body, url, language: i18n.language });
 
     const result = await shareOrCopy(payload);
+    track("course_detail_action", { course_id: courseId ?? "", action: "share", result });
     if (result === "copied") showToast(t("link.copied"));
     else if (result === "failed") {
       logClientError("CoursePage.share", new Error("Share unavailable or failed"), { courseId });
@@ -793,6 +862,7 @@ export default function CoursePage() {
 
   const handleExportGpx = () => {
     if (!course) return;
+    track("course_detail_action", { course_id: courseId ?? "", action: "gpx_export" });
     downloadGpx(course);
     showToast(t("gpx.export"));
   };
@@ -868,16 +938,29 @@ export default function CoursePage() {
         document.body,
       )}
 
-      {/* Map */}
+      {/* 히어로 — 지도 위에 코스 정체성을 얹는다. 대회 페이지와 같은 셸이되
+          날짜·정원 슬롯이 없다는 점이 코스임을 형태로 알린다. */}
+      <div className="course-hero" style={{ position: "relative", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
+      {/* 폴리라인이 없는 코스도 제목이 떠 있지 않게 배경을 깔아둔다. */}
+      {!course.polyline && <div className="course-hero-fallback" />}
       {course.polyline && (
         <RouteMap
           polyline={course.polyline}
-          height="h-[28rem]"
+          height="h-80"
           fallbackHeight="h-40 sm:h-48"
           interactive
-          rounded
+          rounded={false}
           markerPosition={markerPosition}
           flyToPosition={flyToPosition}
+          waypoints={waypointRows.map((row, index) => ({
+            lat: row.location[0],
+            lon: row.location[1],
+            name: row.name ?? t("waypoint.unnamed"),
+            icon: LANE_DEFS[row.lane].icon,
+            // 이름으로 비교하면 같은 이름이 여럿일 때 전부 켜지고, 이름 없는 지점은
+            // 선택해도 안 켜진다. 인덱스로 판정한다.
+            active: activeWaypointIndex === index,
+          }))}
           photos={[
             ...(course.photos?.map((p, i) => ({
               id: `course-photo-${i}`,
@@ -891,10 +974,44 @@ export default function CoursePage() {
               location: p.location,
               caption: p.caption ?? p.uploaderNickname,
             })),
-          ]}
+        ]}
         />
       )}
+        <div className="course-hero-overlay" aria-hidden="true" />
+        <div className="course-hero-content">
+          <span className="course-kind-slot">{t("kind.course")}</span>
+          <h1 className="course-hero-title">{course.name}</h1>
+          <div className="course-hero-chips">
+            {officialCourse && <Chip variant="accent">{t("badge.official")}</Chip>}
+            {isAdmin && course.hidden === true && <Chip variant="accent">{t("admin.hiddenBadge")}</Chip>}
+            {course.regions.map((r) => (
+              <Chip key={r} variant="accent">{r}</Chip>
+            ))}
+          </div>
+        </div>
+      </div>
 
+      {/* 통계 스트립 — 히어로에 용접해 첫 화면에서 규모가 읽히게 한다. */}
+      <div className="course-statstrip-wrap">
+      <div className="course-statstrip">
+        {[
+          { k: t("distance"), v: (course.distance / 1000).toFixed(1), u: "km" },
+          { k: t("elevationGainShort"), v: String(Math.round(course.elevationGain)), u: "m" },
+          { k: t("elevationHigh"), v: String(Math.round(course.elevationHigh)), u: "m" },
+          { k: t("averageGrade"), v: course.averageGrade.toFixed(1), u: "%" },
+          { k: t("maxGrade"), v: course.maximumGrade.toFixed(1), u: "%" },
+        ].map((cell) => (
+          <div key={cell.k} className="course-stat">
+            <Text as="div" variant="eyebrow">{cell.k}</Text>
+            <div><Text variant="dataMedium">{cell.v}</Text><Text variant="unit">{cell.u}</Text></div>
+          </div>
+        ))}
+      </div>
+      </div>
+
+      {/* 본문 2단 — 넓은 열에 프로필·경유지·사진, 좁은 열에 정보와 액션. */}
+      <div className="course-body">
+        <div className="course-col">
       {/* Photo Gallery */}
       {((course.photos && course.photos.length > 0) || userPhotos.length > 0 || user) && (
         <Card>
@@ -986,10 +1103,117 @@ export default function CoursePage() {
             data={course.elevationProfile.map((p) => ({ distance: p.d, elevation: p.e }))}
             height={180}
             onHoverIndex={handleElevHover}
+            colorByGrade
+            // 아래 경유지 레인이 같은 거리축을 쓰므로 좌우 플롯 폭을 고정한다.
+            reserveLaneGutter={waypointLaneRows.length > 0}
           />
+          <ul className="course-grade-legend">
+            {[
+              { key: "flat", label: t("grade.flat"), variable: "--color-info" },
+              { key: "rolling", label: t("grade.rolling"), variable: "--color-warning" },
+              { key: "steep", label: t("grade.steep"), variable: "--color-error" },
+            ].map((band) => (
+              <li key={band.key}>
+                <i aria-hidden="true" style={{ background: `var(${band.variable})` }} />
+                {band.label}
+              </li>
+            ))}
+          </ul>
+          {waypointLaneRows.length > 0 && (
+            <div className="course-lanes" style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
+              {waypointLaneRows.map((group) => (
+                <div key={group.lane} className="course-lane-row">
+                  <span className="course-lane-name">
+                    <i aria-hidden="true" style={{ background: LANE_DEFS[group.lane].color }} />
+                    {t(laneLabelKey(group.lane, "course"))}
+                  </span>
+                  <span className="course-lane-track">
+                    {group.items.map((item) => {
+                      const index = item.index;
+                      const selected = selectedWaypoint === index;
+                      return (
+                        <button
+                          key={`${item.index}`}
+                          type="button"
+                          className="course-pip"
+                          aria-pressed={selected}
+                          data-hover={hoveredWaypoint === index ? "1" : undefined}
+                          data-selected={selected ? "1" : undefined}
+                          style={waypointPipAnchorStyle(item.ratio)}
+                          onMouseEnter={() => setHoveredWaypoint(index)}
+                          onMouseLeave={() => setHoveredWaypoint(null)}
+                          onFocus={() => setHoveredWaypoint(index)}
+                          onBlur={() => setHoveredWaypoint(null)}
+                          onClick={() => selectWaypoint(index)}
+                        >
+                          <i aria-hidden="true" style={{ background: LANE_DEFS[group.lane].color }} />
+                          <span>{item.name ?? t("waypoint.unnamed")}</span>
+                          <span className="course-pip-km">{item.km.toFixed(1)}</span>
+                        </button>
+                      );
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
+      {/* 경유지 — 서버에 저장된 관심 지점. 표가 고도 차트의 텍스트 대안 역할을 겸한다. */}
+      {waypointRows.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-3)" }}>
+            <Text as="h2" variant="eyebrow">{t("waypoint.section")}</Text>
+            <Text variant="caption" style={{ color: "var(--ink-3)" }}>
+              {t("waypoint.count", { count: waypointRows.length })}
+            </Text>
+          </div>
+          <div style={{ overflowX: "auto", overscrollBehavior: "contain" }}>
+            <table className="course-wp-table">
+              <caption className="sr-only">{t("waypoint.tableCaption")}</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="r">#</th>
+                  <th scope="col">{t("waypoint.colName")}</th>
+                  <th scope="col">{t("waypoint.colType")}</th>
+                  <th scope="col" className="r">{t("distance")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {waypointRows.map((row, index) => (
+                  <tr
+                    key={`${index}-${row.km}`}
+                    aria-selected={selectedWaypoint === index}
+                    data-hover={hoveredWaypoint === index ? "1" : undefined}
+                    onMouseEnter={() => setHoveredWaypoint(index)}
+                    onMouseLeave={() => setHoveredWaypoint(null)}
+                  >
+                    <td className="r course-wp-idx">{String(index + 1).padStart(2, "0")}</td>
+                    <td>
+                      <button type="button" className="course-wp-btn" onClick={() => selectWaypoint(index)}>
+                        {row.name ?? t("waypoint.unnamed")}
+                      </button>
+                      {row.note && <div className="course-wp-note">{row.note}</div>}
+                    </td>
+                    <td>
+                      <span className="course-lane-tag" style={{ color: LANE_DEFS[row.lane].color }}>
+                        <i aria-hidden="true" style={{ background: LANE_DEFS[row.lane].color }} />
+                        {t(laneLabelKey(row.lane, "course"))}
+                      </span>
+                    </td>
+                    <td className="r course-wp-km">{row.km.toFixed(1)} km</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+        </div>
+
+        <aside className="course-rail">
       {/* Header + Info */}
       <Card>
         {editing ? (
@@ -1038,19 +1262,6 @@ export default function CoursePage() {
           /* ── View Mode ────────────────────────────────────────── */
           <div style={COURSE_INFO_STACK_STYLE}>
             <div style={COURSE_INFO_SECTION_STYLE}>
-              <div style={{ ...COURSE_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
-              <h1 className="text-[length:var(--fs-2xl)] font-bold" style={{ color: "var(--ink-0)" }}>{course.name}</h1>
-              {officialCourse && (
-                <Chip variant="accent">{t("badge.official")}</Chip>
-              )}
-              {isAdmin && course.hidden === true && (
-                <Chip variant="accent">{t("admin.hiddenBadge")}</Chip>
-              )}
-              {course.regions.map((r) => (
-                <Chip key={r} variant="accent">{r}</Chip>
-              ))}
-              </div>
-
               {course.description && (
                 <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{course.description}</p>
               )}
@@ -1098,34 +1309,6 @@ export default function CoursePage() {
             </div>
           </div>
         )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
-          <div style={COURSE_INFO_SECTION_STYLE}>
-            <Text as="div" variant="eyebrow">{t("distance")}</Text>
-            <div>
-              <Text variant="dataMedium">{(course.distance / 1000).toFixed(2)}</Text><Text variant="unit">km</Text>
-            </div>
-          </div>
-          <div style={COURSE_INFO_SECTION_STYLE}>
-            <Text as="div" variant="eyebrow">{t("elevationGainShort")}</Text>
-            <div>
-              <Text variant="dataMedium">{Math.round(course.elevationGain)}</Text><Text variant="unit">m</Text>
-            </div>
-          </div>
-          <div style={COURSE_INFO_SECTION_STYLE}>
-            <Text as="div" variant="eyebrow">{t("elevation")}</Text>
-            <div>
-              <Text variant="dataMedium">{Math.round(course.elevationLow)}–{Math.round(course.elevationHigh)}</Text><Text variant="unit">m</Text>
-            </div>
-          </div>
-          <div style={COURSE_INFO_SECTION_STYLE}>
-            <Text as="div" variant="eyebrow">{t("maxGrade")}</Text>
-            <div>
-              <Text variant="dataMedium">{course.maximumGrade.toFixed(1)}</Text><Text variant="unit">%</Text>
-            </div>
-          </div>
-        </div>
 
         {/* Climb badges */}
         {course.climbs && course.climbs.length > 0 && (
@@ -1290,6 +1473,8 @@ export default function CoursePage() {
           )}
         </div>
       </Card>
+        </aside>
+      </div>
 
       <CourseRidePlanSection courseId={courseId ?? course.id} isOwner={isOwner} user={user}
         onSignIn={() => { void signInWithGoogle(); }} />

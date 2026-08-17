@@ -42,6 +42,11 @@
       { "source": "/api/strava/webhook", "function": { "functionId": "stravaWebhook", "region": "asia-northeast3" } },
       { "source": "/og-thumbnail/**", "function": { "functionId": "ogThumbnail", "region": "asia-northeast3" } },
       { "source": "/:lang/design-system.html", "destination": "/design-system.html" },
+      { "source": "/sitemap.xml", "function": { "functionId": "sitemap", "region": "asia-northeast3" } },
+      { "source": "/:lang/activity/:activityId", "function": { "functionId": "seoPrerender", "region": "asia-northeast3" } },
+      { "source": "/:lang/segment/:segmentId", "function": { "functionId": "seoPrerender", "region": "asia-northeast3" } },
+      { "source": "/:lang/course/:courseId", "function": { "functionId": "seoPrerender", "region": "asia-northeast3" } },
+      { "source": "/:lang/event/:eventId", "function": { "functionId": "seoPrerender", "region": "asia-northeast3" } },
       { "source": "!/@(assets)/**", "destination": "/index.html" }
     ]
   },

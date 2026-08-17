@@ -201,7 +201,9 @@ describe("activityDetailDerived", () => {
       },
     });
 
-    expect(deriveStreamSensorSummary(makeStreams(3_600) as never, context)).toMatchObject({
+    // 2_600 슬롯은 riding(3_600) 기준이면 72% 로 통과하지만 elapsed(5_400) 기준이면
+    // 48% 라 절반 바닥에 걸린다 — 어느 시계를 쓰는지 이 한 값이 갈라준다.
+    expect(deriveStreamSensorSummary(makeStreams(2_600) as never, context)).toMatchObject({
       hasPowerStream: false,
       hasRejectedPowerStream: true,
       hasHeartRateStream: false,
@@ -598,24 +600,27 @@ describe("activityDetailDerived", () => {
     });
   });
 
+  // 축이 세션보다 *길면* 이 활동의 것이 아니다 → 거부. 짧은 건 센서 드롭아웃이므로
+  // 세션의 절반 이상을 측정했는지만 본다.
   it.each([
-    ["exact lower boundary", 3_600, undefined, 3_420, true],
-    ["below lower boundary", 3_600, undefined, 3_419, false],
     ["exact upper boundary", 3_600, undefined, 3_780, true],
     ["above upper boundary", 3_600, undefined, 3_781, false],
     ["clearly overlong stream", 3_600, undefined, 4_000, false],
-    ["short activity lower rounding", 10, undefined, 9, true],
+    ["modest shortfall", 3_600, undefined, 3_419, true],
+    ["sensor died with a quarter left", 3_600, undefined, 2_700, true],
+    ["exact half-session floor", 3_600, undefined, 1_800, true],
+    ["below half-session floor", 3_600, undefined, 1_799, false],
     ["short activity upper rounding", 10, undefined, 11, true],
     ["short activity outside rounding", 10, undefined, 12, false],
     ["fractional short activity rounding", 10.1, undefined, 11, true],
-    ["fractional short activity below rounding", 10.1, undefined, 9, false],
+    ["fractional short activity shortfall", 10.1, undefined, 9, true],
     ["fractional short activity outside rounding", 10.1, undefined, 12, false],
     ["one-sample lower endpoint rounding", 2, undefined, 1, true],
     ["one-sample upper endpoint rounding", 2, undefined, 3, true],
-    ["larger summary wins disagreement", 4_000, 3_600, 3_600, false],
-    ["larger route wins disagreement", 3_600, 4_000, 3_600, false],
+    ["shortfall against the larger summary duration", 4_000, 3_600, 3_600, true],
+    ["shortfall against the larger route duration", 3_600, 4_000, 3_600, true],
     ["matches conservative disagreement duration", 4_000, 3_600, 4_000, true],
-  ])("applies bidirectional V1 duration coverage for %s", (
+  ])("applies one-sided V1 duration coverage for %s", (
     _case,
     summaryDurationSec,
     routeLength,

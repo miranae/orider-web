@@ -45,7 +45,7 @@ function explicitStreams(channels: { watts?: Array<number | null>; heartrate?: A
 }
 
 describe("explicit V1 measured-slot coverage", () => {
-  it("accepts power at the exact 95% boundary and counts zero as measured", () => {
+  it("accepts power that covers most of the session and counts zero as measured", () => {
     const streams = explicitStreams({ watts: [200, null, ...Array(17).fill(200), 0] });
     const selected = selectActivityPowerStream(streams as never, context);
     const summary = deriveStreamSensorSummary(streams as never, context)!;
@@ -77,7 +77,7 @@ describe("explicit V1 measured-slot coverage", () => {
 
   it.each([
     ["one sample", [200, ...Array(19).fill(null)]],
-    ["below boundary", [...Array(18).fill(200), null, null]],
+    ["below half the session", [...Array(9).fill(200), ...Array(11).fill(null)]],
   ])("rejects %s power without legacy, summary, chart, or analysis fallback", (_case, watts) => {
     const streams = explicitStreams({ watts });
     const selected = selectActivityPowerStream(streams as never, context);
@@ -87,7 +87,7 @@ describe("explicit V1 measured-slot coverage", () => {
     expect(selected).toMatchObject({
       source: null,
       hasCandidate: true,
-      rejection: { source: "sensorStreamsV1", reason: "insufficient_measurements" },
+      rejection: { source: "sensorStreamsV1", reason: "insufficient_coverage" },
     });
     expect(summary).toMatchObject({ averagePower: null, hasRejectedPowerStream: true });
     expect(projection).toMatchObject({ streams: { watts: undefined, watts_calc: undefined }, power: undefined });
@@ -96,7 +96,7 @@ describe("explicit V1 measured-slot coverage", () => {
       .not.toContain("power");
   });
 
-  it("accepts heart rate at the exact 95% positive-slot boundary", () => {
+  it("accepts heart rate that covers most of the session", () => {
     const heartrate = [...Array(19).fill(150), null];
     const streams = explicitStreams({ heartrate });
     const selected = selectActivityHeartRateStream(streams as never, context);
@@ -119,7 +119,7 @@ describe("explicit V1 measured-slot coverage", () => {
 
   it.each([
     ["one sample", [150, ...Array(19).fill(null)]],
-    ["below boundary", [...Array(18).fill(150), null, null]],
+    ["below half the session", [...Array(9).fill(150), ...Array(11).fill(null)]],
     ["zero heart rate", Array(20).fill(0)],
   ])("rejects %s heart rate without legacy or stored fallback", (_case, heartrate) => {
     const streams = explicitStreams({ heartrate });
@@ -129,7 +129,7 @@ describe("explicit V1 measured-slot coverage", () => {
     expect(selected).toMatchObject({
       source: null,
       hasRejectedMeasurement: true,
-      rejection: { source: "sensorStreamsV1", reason: "insufficient_measurements" },
+      rejection: { source: "sensorStreamsV1", reason: "insufficient_coverage" },
     });
     expect(deriveStreamSensorSummary(streams as never, context)).toMatchObject({
       averageHeartRate: null,
@@ -248,6 +248,76 @@ describe("explicit V1 measured-slot coverage", () => {
     expect(calculateNP(power.values, power.time, timing)).toBeNull();
     expect(calculatePowerCurve(power.values, power.time, timing)
       .map(({ durationSeconds }) => durationSeconds)).not.toContain(30);
+  });
+
+  describe("a sensor that stops before the ride does", () => {
+    // 실주행 재현: 심박 스트랩/파워미터가 종료 몇 분 전에 끊기면 V1 축 span 이 세션보다
+    // 짧아진다. 하드웨어 정상 동작이므로 남은 측정값은 살려 써야 한다.
+    function truncatedStreams(slots: number, sessionSec: number) {
+      const axis = Array.from({ length: slots }, (_, index) => index);
+      return {
+        distance: Array.from({ length: sessionSec }, (_, index) => index),
+        time: Array.from({ length: sessionSec }, (_, index) => index),
+        sensorStreamsV1: {
+          version: 1,
+          timeUnit: "relative_seconds",
+          resolutionSeconds: 1,
+          timeOriginEpochMs: context.activityStartTime,
+          time: axis,
+          watts: Array(slots).fill(200),
+          heartrate: Array(slots).fill(150),
+        },
+      };
+    }
+
+    it("keeps both channels when the axis falls short but still covers the session", () => {
+      const streams = truncatedStreams(14, 20);
+      const summary = deriveStreamSensorSummary(streams as never, {
+        ...context,
+        legacyDurationSec: 20,
+        explicitDurationSec: 20,
+      })!;
+
+      expect(summary).toMatchObject({
+        powerSource: "sensorStreamsV1",
+        averagePower: 200,
+        hasRejectedPowerStream: false,
+        heartRateSource: "sensorStreamsV1",
+        averageHeartRate: 150,
+        hasRejectedHeartRateStream: false,
+      });
+      expect(summary.rejections).toEqual([]);
+    });
+
+    it("still rejects an axis that overruns the session as a foreign clock", () => {
+      const streams = truncatedStreams(60, 20);
+      const summary = deriveStreamSensorSummary(streams as never, {
+        ...context,
+        legacyDurationSec: 20,
+        explicitDurationSec: 20,
+      })!;
+
+      expect(summary).toMatchObject({ powerSource: null, heartRateSource: null });
+      expect(summary.rejections).toEqual([
+        expect.objectContaining({ channel: "heart_rate", reason: "duration_mismatch" }),
+        expect.objectContaining({ channel: "power", reason: "duration_mismatch" }),
+      ]);
+    });
+
+    it("rejects a stub that measured less than half the session", () => {
+      const streams = truncatedStreams(9, 20);
+      const summary = deriveStreamSensorSummary(streams as never, {
+        ...context,
+        legacyDurationSec: 20,
+        explicitDurationSec: 20,
+      })!;
+
+      expect(summary).toMatchObject({ powerSource: null, heartRateSource: null });
+      expect(summary.rejections).toEqual([
+        expect.objectContaining({ channel: "heart_rate", reason: "insufficient_coverage" }),
+        expect.objectContaining({ channel: "power", reason: "insufficient_coverage" }),
+      ]);
+    });
   });
 
   it("keeps an exact 100% channel as one fully measured run", () => {

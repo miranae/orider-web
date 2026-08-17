@@ -15,6 +15,9 @@ export function TrainingDecisionSessionView({ label, session, tone = "neutral" }
         <span>{t("decision.duration", { value: session.current.durationMin })}</span>
         <span>{session.current.targetTss === null ? t("decision.tssUnavailable")
           : t("decision.tss", { value: session.current.targetTss })}</span>
+        {/* 존은 권고 워크아웃에만 계약상 존재 — 있을 때만 노출한다. */}
+        {session.current.zone && <span data-session-zone={session.current.zone}>
+          {t("decision.zone", { value: session.current.zone })}</span>}
       </div>
     </div>
   </div>;
