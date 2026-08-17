@@ -624,3 +624,21 @@ describe("parseGpx", () => {
     expect(parseGpxName(`<gpx />`)).toBeNull();
   });
 });
+
+describe("코스 레인 라벨 번역 키", () => {
+  // 코스 상세는 course 네임스페이스로 t() 를 호출한다. 키가 event.json 에만 있으면
+  // 화면에 `detail.lane.kom` 같은 원시 키가 그대로 노출된다.
+  it("코스 컨텍스트가 만들 수 있는 모든 키가 ko/en course 리소스에 있다", async () => {
+    const [ko, en] = await Promise.all([
+      import("../../i18n/resources/ko/course.json"),
+      import("../../i18n/resources/en/course.json"),
+    ]);
+    const keys = lanesForContext("course").map((lane) => laneLabelKey(lane, "course"));
+
+    expect(keys.length).toBeGreaterThan(0);
+    for (const key of keys) {
+      expect(Object.keys(ko.default)).toContain(key);
+      expect(Object.keys(en.default)).toContain(key);
+    }
+  });
+});
