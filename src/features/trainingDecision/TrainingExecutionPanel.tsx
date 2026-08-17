@@ -109,7 +109,9 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
     if (!canMutate || !execution || busy || activitiesLoading || execution.status !== "linked"
       || execution.matchConfidence !== "probable" || !execution.activityId || !revision) return;
     setBusy(true); setError(false);
-    const operation = `confirm:${execution.executionId}:${execution.activityId}:${revision}:${then ?? "completed"}`;
+    // 링크 키에는 then 을 넣지 않는다 — 두 확인 버튼이 만드는 링크 요청은 서버 입장에서 동일하다.
+    // 키가 갈리면 응답 유실 후 다른 버튼을 눌렀을 때 dedup 이 깨져 링크가 재실행된다.
+    const operation = `confirm:${execution.executionId}:${execution.activityId}:${revision}`;
     try {
       const confirmed = await linkSessionExecutionActivity(execution.executionId, execution.activityId,
         revision, mutationKey(operation));
@@ -117,8 +119,9 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
       // 링크는 이미 서버에 기록됐다 — 뒤따르는 outcome 이 실패해도 확정된 상태를 먼저 반영한다.
       setExecution(confirmed); onChanged();
       if (then === "partial") {
-        const next = await setSessionExecutionOutcome(confirmed.executionId, "partial", mutationKey(`${operation}:outcome`));
-        mutationKeys.current.delete(`${operation}:outcome`);
+        const outcomeOperation = `${operation}:outcome:partial`;
+        const next = await setSessionExecutionOutcome(confirmed.executionId, "partial", mutationKey(outcomeOperation));
+        mutationKeys.current.delete(outcomeOperation);
         setExecution(next); onChanged();
       }
     } catch (cause) {

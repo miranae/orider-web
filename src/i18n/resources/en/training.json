@@ -741,8 +741,6 @@
     "fallback": {
       "unavailableTitle": "Today's plan could not be loaded",
       "unavailableBody": "We could not load today's plan. Try again in a moment, or open your training plan directly.",
-      "emptyTitle": "No session scheduled today",
-      "emptyBody": "Nothing is scheduled for today. Open your training plan to review this week.",
       "reason": {
         "feature_disabled": "Today's plan is not enabled yet",
         "no_active_goal": "No active goal, so no plan could be built",

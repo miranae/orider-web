@@ -99,12 +99,12 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
   });
 
-  it("explains an empty Home day instead of degrading to a bare link", () => {
-    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+  it("stays quiet when the decision is absent without a failure", () => {
+    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: false,
+      unavailableReason: null, refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
     expect(document.querySelector("[data-training-decision-fallback]"))
       .toHaveAttribute("data-training-decision-fallback", "empty");
-    expect(screen.getByText("오늘 배정된 세션이 없습니다")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "새로 확인" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
   });
