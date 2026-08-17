@@ -258,5 +258,8 @@
   "builder.elevationMissing": "This route has no elevation data.",
   "grade.flat": "Under 3%",
   "grade.rolling": "3–7%",
-  "grade.steep": "7% and over"
+  "grade.steep": "7% and over",
+  "detail.lane.kom": "KOM",
+  "detail.lane.seg": "Segment",
+  "detail.lane.amenity": "Amenity"
 }

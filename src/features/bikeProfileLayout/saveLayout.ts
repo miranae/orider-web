@@ -231,16 +231,20 @@ async function commitAndSend(input: SaveLayoutInput, deps: SaveLayoutDeps): Prom
   //
   // 이 조회/기록도 로컬 커밋 **이후**의 IO 라 예외가 새면 결과 계약이 깨진다. 조회 자체가 실패하면
   // 차단 여부를 모르는 것이므로 **보류**한다(fail-closed).
+  //
+  // 보류하되 intent 는 **pending 으로 둔다**. 여기서 blockedConflict 로 기록하면 해소용 remote
+  // payload 가 없는 차단 intent 가 생기고, 원래 충돌을 해소해도 이 후속 intent 가 계속 큐를 막아
+  // 그 프로필의 동기화가 영구히 멈춘다(조회 실패 분기가 같은 이유로 pending 을 택한다).
+  // 순서 안전은 그대로다 — 원래의 차단 intent 가 `sendProfileQueue` 에서 큐를 멈추고, 큐는
+  // revision 순이라 이 저장이 그보다 먼저 전송되지 않는다.
   if (memoryBlocked.has(blockKey(ownerKey, profileId))) {
-    await recordIntentState(deps, mutationId, "blockedConflict", ctx, log, { ownerKey, profileId });
-    log("info", "[2/3] 미해소 충돌(메모리 백스톱) — 전송 보류", ctx);
-    return { status: "blockedByConflict", intent: { ...intent, state: "blockedConflict" } };
+    log("info", "[2/3] 미해소 충돌(메모리 백스톱) — 전송 보류, intent 는 pending 유지", ctx);
+    return { status: "blockedByConflict", intent };
   }
   try {
     if (await deps.store.hasBlockedIntent(ownerKey, profileId)) {
-      await recordIntentState(deps, mutationId, "blockedConflict", ctx, log);
-      log("info", "[2/3] 미해소 충돌이 있어 전송 보류 — 사용자 선택 대기", ctx);
-      return { status: "blockedByConflict", intent: { ...intent, state: "blockedConflict" } };
+      log("info", "[2/3] 미해소 충돌이 있어 전송 보류 — 사용자 선택 대기, intent 는 pending 유지", ctx);
+      return { status: "blockedByConflict", intent };
     }
   } catch (cause) {
     // 일시적 조회 실패를 실제 충돌로 기록하면(= blockedConflict) 해소용 remote payload 도 없이

@@ -258,5 +258,8 @@
   "builder.elevationMissing": "이 경로에는 고도 정보가 없습니다.",
   "grade.flat": "3% 미만",
   "grade.rolling": "3–7%",
-  "grade.steep": "7% 이상"
+  "grade.steep": "7% 이상",
+  "detail.lane.kom": "KOM",
+  "detail.lane.seg": "구간",
+  "detail.lane.amenity": "편의"
 }

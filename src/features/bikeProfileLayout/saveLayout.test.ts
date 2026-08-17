@@ -6,6 +6,7 @@ import type { LayoutHeadRecord, LayoutIntentRecord, LayoutIntentState } from "./
 import {
   __resetLayoutBlockBackstopForTests,
   saveBikeProfileLayout,
+  sendProfileQueue,
   transmitIntent,
   type LayoutLocalStore,
   type SaveLayoutCallableRequest,
@@ -430,7 +431,37 @@ describe("saveBikeProfileLayout", () => {
 
     expect(second.status).toBe("blockedByConflict");
     expect(requests).toHaveLength(before);
-    expect(store.intents.get("m2")?.state).toBe("blockedConflict");
+    // 후속 저장은 **pending** 으로 남는다. 여기서 blockedConflict 로 기록하면 해소용 remote
+    // payload 없는 차단 intent 가 되어, 원래 충돌을 해소해도 큐가 영영 열리지 않는다.
+    expect(store.intents.get("m2")?.state).toBe("pending");
+  });
+
+  it("drains the follow-up save once the original conflict is resolved", async () => {
+    // 후속 저장을 blockedConflict 로 기록하면 해소용 remote payload 가 없는 차단 intent 가 남아,
+    // 원래 충돌을 해소해도 큐가 영영 열리지 않는다(동기화 영구 정지).
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 3 },
+      deps({
+        status: "conflict",
+        remoteRevision: 4,
+        remotePayload: remoteCanonical,
+        remotePayloadHash: remoteCanonicalHash,
+      }),
+    );
+    await saveBikeProfileLayout(
+      { ownerKey: OWNER, profileId: "road", layout, expectedRevision: 4 },
+      { ...deps(committed), newMutationId: () => "m2" },
+    );
+
+    // 사용자가 원래 충돌을 해소했다 = 그 intent 가 큐에서 사라진다.
+    store.intents.delete("m1");
+    requests.length = 0;
+
+    const results = await sendProfileQueue(OWNER, "road", deps(committed));
+
+    // 핵심은 "큐가 다시 열렸다" 다 — 차단이 남아 있으면 sendProfileQueue 는 아무것도 보내지 않는다.
+    expect(requests).toHaveLength(1);
+    expect(results).not.toHaveLength(0);
   });
 
   it("retries a stuck inFlight intent before the new one instead of deadlocking", async () => {
