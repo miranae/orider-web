@@ -66,12 +66,22 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   onAvailabilityChange?: (available: boolean) => void }) {
   const { t } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailableReason, refresh } = useTodayTrainingDecision(user?.uid, discipline);
-  useEffect(() => onAvailabilityChange?.(!loading && decision !== null), [decision, loading, onAvailabilityChange]);
+  // 판정이 **추천을 담지 않으면** 계획 화면에서는 오늘의 워크아웃 카드를 유지한다.
+  //
+  // 예전에는 "판정이 있으면 판정 카드" 였는데, 판정이 예정 세션만 되풀이하는 상태(처방 대기 등)
+  // 에서도 워크아웃 카드를 밀어냈다. 그 카드에는 시작 CTA·AI 분석·완료 후 활동 보기가 있고
+  // 판정 카드의 버튼은 추천이 있을 때만 나오므로, 사용자가 쓸 수 있는 기능이 오히려 줄었다.
+  // 판정이 실제로 더 나은 것을 줄 때만 승격한다.
+  // 단, 처리할 제안이 남아 있으면 판정 카드를 유지한다 — 워크아웃 카드로 내려가면 대기 중인
+  // 제안을 확인·거절할 방법이 사라진다(적용된 제안의 되돌리기도 마찬가지).
+  const hasOpenProposal = decision?.proposal?.status === "pending"
+    || decision?.capabilities.rollback === "available";
+  const preferWorkoutCard = surface === "plan" && (!decision || (scheduledOnly && !hasOpenProposal));
+  useEffect(() => onAvailabilityChange?.(!loading && decision !== null && !preferWorkoutCard),
+    [decision, loading, preferWorkoutCard, onAvailabilityChange]);
   if (!user) return null;
-  if (!decision && !loading) {
-    if (surface === "plan") return <TodaysWorkoutCard />;
-    if (surface === "fitness") return null;
-  }
+  if (!loading && preferWorkoutCard) return <TodaysWorkoutCard />;
+  if (!decision && !loading && surface === "fitness") return null;
   if (loading) return <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
   // 조회 실패만 카드로 설명한다. 롤아웃 미적용(disabled)은 장애가 아니고, 계획이 없는 날은
   // 서버가 fallback.reasonCode 를 담은 정상 응답을 주므로 여기까지 오지 않는다 — 둘 다 조용한 링크.

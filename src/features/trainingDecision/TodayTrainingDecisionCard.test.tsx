@@ -41,6 +41,35 @@ describe("TodayTrainingDecisionCard", () => {
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
     expect(screen.getByText("기존 오늘 운동")).toBeInTheDocument();
   });
+  it("keeps the workout card when the decision only repeats the scheduled session", () => {
+    // 판정이 예정 세션만 되풀이하면(처방 대기 등) 워크아웃 카드를 유지한다 — 그 카드에는 시작
+    // CTA·AI 분석·완료 후 활동 보기가 있고, 판정 카드의 버튼은 추천이 있을 때만 나온다.
+    // 예전에는 "판정이 있으면 판정 카드" 라서, 장애를 고치자 오히려 쓸 수 있는 기능이 줄었다.
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const availability = vi.fn();
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan"
+      onAvailabilityChange={availability} /></MemoryRouter>);
+
+    expect(screen.getByText("기존 오늘 운동")).toBeInTheDocument();
+    // 워크아웃 카드를 그렸다면 "판정 사용 가능" 이라고 알려선 안 된다 — 계획 화면이 그 신호로
+    // 자체 복구 힌트를 끈다.
+    expect(availability).toHaveBeenCalledWith(false);
+  });
+
+  it("still shows the decision card while a proposal is open, even without a live recommendation", () => {
+    // 워크아웃 카드로 내려가면 대기 중인 제안을 확인·거절할 방법이 사라진다.
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    mocks.proposal = { state: "pending", proposal: null, create: vi.fn(), confirm: vi.fn(),
+      decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() };
+    mocks.hook.mockReturnValue({ decision: { ...decision, proposal: { proposalId: `proposal_${"d".repeat(24)}`,
+      status: "pending" as const, expiresAt: "2026-08-15T01:00:00.000Z", confirmNonce: null } },
+    loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+
+    expect(screen.queryByText("기존 오늘 운동")).not.toBeInTheDocument();
+  });
+
   it("separates the scheduled and recommended sessions from one projection", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
