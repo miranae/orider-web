@@ -70,6 +70,35 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.queryByText("기존 오늘 운동")).not.toBeInTheDocument();
   });
 
+  it("shows what is missing and offers the weekly check-in when the prescription is held", () => {
+    // 처방이 needs_checkin 이면 카드가 "준비되지 않았어요" 만 말하고 끝나서, 사용자가 막힌 이유도
+    // 푸는 방법도 알 수 없었다. 서버는 missingSignals 로 정확히 무엇이 없는지 알려준다.
+    const base = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const decision = { ...base, prescription: { ...base.prescription, status: "needs_checkin" as const,
+      missingSignals: ["subjective_fatigue", "soreness", "pain_or_illness"] },
+    capabilities: { ...base.capabilities, checkIn: "available" as const } };
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+    expect(screen.getByText("주간 체크인이 필요해요")).toBeInTheDocument();
+    expect(screen.getByText("주관적 피로도")).toBeInTheDocument();
+    expect(screen.getByText("근육통")).toBeInTheDocument();
+    expect(screen.getByText("통증 · 질병 여부")).toBeInTheDocument();
+    expect(mocks.coach).toHaveBeenCalled();
+  });
+
+  it("does not offer the check-in when the server says it is unavailable", () => {
+    // 열 수 없는 길을 안내하면 안 된다.
+    const base = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const decision = { ...base, prescription: { ...base.prescription, status: "needs_checkin" as const,
+      missingSignals: ["subjective_fatigue"] },
+    capabilities: { ...base.capabilities, checkIn: "unavailable" as const } };
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+    expect(screen.queryByText("주간 체크인이 필요해요")).not.toBeInTheDocument();
+  });
+
   it("separates the scheduled and recommended sessions from one projection", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });

@@ -48,6 +48,12 @@ interface Props {
   showPmcInsight?: boolean;
   ridePlanSelection?: { selectionId: string; question: string; context: CoachRidePlanContext } | null;
   progressPlannerSelection?: { question: string; context: CoachProgressPlannerContext } | null;
+  /**
+   * 아직 처방이 없어 플래너 컨텍스트를 만들 수 없을 때 쓰는 시작 질문.
+   * 서버는 질문 문구로 플래너 경로를 고르므로(isProgressPlannerQuestion), 사용자가 빈 입력창을
+   * 마주하는 대신 바로 보낼 수 있는 문장을 채워 준다. 편집은 그대로 가능하다.
+   */
+  presetQuestion?: string | null;
   triggerLabel?: string;
 }
 
@@ -101,7 +107,7 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
 }
 
 export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false,
-  ridePlanSelection = null, progressPlannerSelection = null, triggerLabel }: Props) {
+  ridePlanSelection = null, progressPlannerSelection = null, presetQuestion = null, triggerLabel }: Props) {
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
@@ -423,7 +429,16 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function openProgressPlannerQuestion() {
-    if (!progressPlannerSelection) { void openSheet(); return; }
+    if (!progressPlannerSelection) {
+      if (presetQuestion) {
+        activeRequestRef.current = null; activeBodyRef.current = null;
+        setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
+        setDraft(presetQuestion); setPlannerContext(null);
+        setPmcSnapshotId(null); setRiderSnapshotId(null); setRidePlanContext(null); setProductSlice(null);
+        setSource("free_text"); setRequestId(null);
+      }
+      void openSheet(); return;
+    }
     activeRequestRef.current = null; activeBodyRef.current = null;
     setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
     setDraft(progressPlannerSelection.question);

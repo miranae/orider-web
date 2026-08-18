@@ -180,6 +180,19 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     </section>}
     {surface === "home" && <TrainingExecutionPanel decision={decision}
       sessions={executableSessions} onChanged={refresh} />}
+    {decision.prescription.status === "needs_checkin" && decision.capabilities.checkIn === "available"
+      && <section className="training-decision-card__checkin" aria-labelledby="training-decision-checkin-title">
+        <Text id="training-decision-checkin-title" as="h3" variant="subtitle">{t("decision.checkIn.title")}</Text>
+        <Text as="p" tone="secondary">{t("decision.checkIn.body")}</Text>
+        {decision.prescription.missingSignals.length > 0 && <ul className="training-decision-card__checkin-signals">
+          {decision.prescription.missingSignals.map((signal) => <li key={signal}>
+            {t(`decision.checkIn.signal.${signal}`, { defaultValue: signal })}
+          </li>)}
+        </ul>}
+        <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
+          triggerBlock={false} triggerLabel={t("decision.checkIn.start")}
+          presetQuestion={t("decision.checkIn.question")} />
+      </section>}
     {(surface === "home" || surface === "fitness") && <footer className="training-decision-card__actions">
       {surface === "home" && <LocalizedLink to={{ pathname: "/plan", search: `?sport=${discipline}` }} className={buttonClass({ variant: "outline", size: "sm" })}>
         {t("decision.viewPlan")}<ChevronRight size={16} aria-hidden />
