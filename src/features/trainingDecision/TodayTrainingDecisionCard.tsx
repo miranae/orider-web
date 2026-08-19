@@ -191,7 +191,7 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
         </ul>}
         <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
           triggerBlock={false} triggerLabel={t("decision.checkIn.start")}
-          presetQuestion={t("decision.checkIn.question")} />
+          presetQuestion={t("decision.checkIn.question")} presetIntent="check_in" />
       </section>}
     {(surface === "home" || surface === "fitness") && <footer className="training-decision-card__actions">
       {surface === "home" && <LocalizedLink to={{ pathname: "/plan", search: `?sport=${discipline}` }} className={buttonClass({ variant: "outline", size: "sm" })}>
