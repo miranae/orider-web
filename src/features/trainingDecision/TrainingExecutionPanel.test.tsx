@@ -132,28 +132,46 @@ describe("TrainingExecutionPanel", () => {
     expect(mocks.list).toHaveBeenCalledWith("bike");
   });
 
-  it("does not recover an execution from a stale source tuple", async () => {
-    mocks.list.mockResolvedValue([{ ...baseExecution, projectionId: "today_stale_projection_123" }]);
+  it("recovers an execution when only refreshable projection and source metadata drift", async () => {
+    mocks.list.mockResolvedValue([{ ...baseExecution, projectionId: "today_eeeeeeeeeeeeeeeeeeeeeeee",
+      prescriptionId: "rx_222222222222222222222222", prescriptionValidFrom: "2026-08-15T00:00:00.000Z",
+      proposalId: "proposal_333333333333333333333333", receiptAuditId: "audit_444444444444444444444444" }]);
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
-    expect(await screen.findByText("지금 이 세션을 시작할 수 있습니다.")).toBeInTheDocument();
-    expect(screen.queryByText(/세션이 예약되었습니다/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/세션이 예약되었습니다/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "운동 시작" }));
-    await waitFor(() => expect(mocks.reserve).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(1));
+    expect(mocks.reserve).not.toHaveBeenCalled();
   });
 
-  it("re-queries and resets local execution state when the projection changes", async () => {
-    mocks.list.mockResolvedValueOnce([baseExecution]).mockResolvedValueOnce([]);
+  it("keeps recovered execution state when only decision projection metadata refreshes", async () => {
+    mocks.list.mockResolvedValue([baseExecution]);
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     const { rerender } = render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
     expect(await screen.findByText(/세션이 예약되었습니다/)).toBeInTheDocument();
     const nextDecision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
       projectionId: "today_eeeeeeeeeeeeeeeeeeeeeeee",
+      sourceRefs: { ...decision.sourceRefs, prescriptionId: "rx_222222222222222222222222" },
+      prescription: { ...decision.prescription, validFrom: "2026-08-15T00:00:00.000Z" },
     }));
     rerender(<TrainingExecutionPanel decision={nextDecision} sessions={nextDecision.effectiveSessions} onChanged={vi.fn()} />);
+    expect(await screen.findByText(/세션이 예약되었습니다/)).toBeInTheDocument();
+    expect(mocks.list).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["plan revision", { planRevision: "plan_other" }],
+    ["session id", { scheduledSessionId: "ss_other" }],
+    ["session revision", { scheduledSessionRevision: "ssr_other" }],
+    ["day reference", { dayRef: { ...baseExecution.dayRef, dayIndex: 3 } }],
+    ["discipline", { discipline: "run" as const }],
+    ["status", { status: "invalidated" as const }],
+  ])("does not recover an execution with stale %s", async (_label, drift) => {
+    mocks.list.mockResolvedValue([{ ...baseExecution, ...drift }]);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
     expect(await screen.findByText("지금 이 세션을 시작할 수 있습니다.")).toBeInTheDocument();
     expect(screen.queryByText(/세션이 예약되었습니다/)).not.toBeInTheDocument();
-    expect(mocks.list).toHaveBeenCalledTimes(2);
   });
 
   it("links a selected owned activity with its current hidden revision", async () => {
