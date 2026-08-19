@@ -13,7 +13,11 @@
     "loading": "Checking training load…",
     "unavailable": "The training-load card is unavailable right now. Your existing Fitness view remains available.",
     "accessibleStatus": "Data status {{status}}, freshness {{freshness}}, source quality {{quality}}",
-    "metrics": { "ctl": "Fitness (CTL)", "atl": "Fatigue (ATL)", "form": "Form" },
+    "metrics": {
+      "ctl": "Fitness (CTL)",
+      "atl": "Fatigue (ATL)",
+      "form": "Form"
+    },
     "delta7d": "7-day change {{value}}",
     "asOf": "As of {{value}}",
     "sourceQuality": "Freshness {{freshness}} · source {{quality}}",
@@ -22,9 +26,23 @@
       "pmc_recent_load_change": "How has my training load changed over the last 7 days?",
       "pmc_current_form_intensity": "How should I set this week’s intensity based on my current form?"
     },
-    "status": { "ok": "Verified", "partial": "Partial data", "stale": "Refresh needed", "missing": "Data missing" },
-    "freshness": { "fresh": "Current", "stale": "Stale", "missing": "Unavailable" },
-    "quality": { "complete": "Complete", "estimated": "Partly estimated", "incomplete": "Incomplete", "unavailable": "Unavailable" },
+    "status": {
+      "ok": "Verified",
+      "partial": "Partial data",
+      "stale": "Refresh needed",
+      "missing": "Data missing"
+    },
+    "freshness": {
+      "fresh": "Current",
+      "stale": "Stale",
+      "missing": "Unavailable"
+    },
+    "quality": {
+      "complete": "Complete",
+      "estimated": "Partly estimated",
+      "incomplete": "Incomplete",
+      "unavailable": "Unavailable"
+    },
     "interpretation": {
       "normal_load": "Your current load is classified in the normal range.",
       "productive_load": "Your current load is classified in the productive-load range.",
@@ -56,7 +74,12 @@
       "weight": "Output tendency · raw power − / W/kg +"
     },
     "durationTitle": "Ability by duration",
-    "duration": { "5s": "5 sec", "1m": "1 min", "5m": "5 min", "20m": "20 min" },
+    "duration": {
+      "5s": "5 sec",
+      "1m": "1 min",
+      "5m": "5 min",
+      "20m": "20 min"
+    },
     "strength": "Strength",
     "improve": "Improve",
     "asOf": "As of {{value}}",
@@ -67,8 +90,12 @@
       "RIDER_DURATION_PRIORITY": "Which duration range should I train first?"
     },
     "status": {
-      "ok": "Verified", "missing": "No PDC", "missing_weight": "Weight needed",
-      "insufficient_activity": "Not enough activities", "low_confidence": "Low confidence", "unsupported": "Unsupported"
+      "ok": "Verified",
+      "missing": "No PDC",
+      "missing_weight": "Weight needed",
+      "insufficient_activity": "Not enough activities",
+      "low_confidence": "Low confidence",
+      "unsupported": "Unsupported"
     },
     "safe": {
       "missing": "There is no measured-power PDC to classify yet. No rider type is asserted.",
@@ -158,9 +185,21 @@
   "suggestions": {
     "title": "Try asking",
     "labels": {
-      "bike": { "1": "FTP goal coaching", "2": "Today's workout review", "3": "Monthly readiness" },
-      "run": { "1": "10K goal coaching", "2": "Today's workout review", "3": "Monthly readiness" },
-      "swim": { "1": "1,500 m goal coaching", "2": "Today's workout review", "3": "Monthly readiness" }
+      "bike": {
+        "1": "FTP goal coaching",
+        "2": "Today's workout review",
+        "3": "Monthly readiness"
+      },
+      "run": {
+        "1": "10K goal coaching",
+        "2": "Today's workout review",
+        "3": "Monthly readiness"
+      },
+      "swim": {
+        "1": "1,500 m goal coaching",
+        "2": "Today's workout review",
+        "3": "Monthly readiness"
+      }
     },
     "bike": {
       "1": "I want to reach an FTP of 3.5 W/kg. Review my training over the past month, assess the gap to my goal, and coach me on the right training direction.",
@@ -178,9 +217,21 @@
       "3": "Review my swimming over the past month and analyze my fitness, fatigue, and recovery."
     }
   },
-  "discipline": { "bike": "Cycling", "run": "Running", "swim": "Swimming" },
-  "period": { "default": "Period resolved from the question", "current7d": "Last 7 days", "current28d": "Last 28 days", "previous28d": "Previous 28 days" },
-  "goal": { "included": "Goal included", "notIncluded": "Goal not included" },
+  "discipline": {
+    "bike": "Cycling",
+    "run": "Running",
+    "swim": "Swimming"
+  },
+  "period": {
+    "default": "Period resolved from the question",
+    "current7d": "Last 7 days",
+    "current28d": "Last 28 days",
+    "previous28d": "Previous 28 days"
+  },
+  "goal": {
+    "included": "Goal included",
+    "notIncluded": "Goal not included"
+  },
   "quota": {
     "remaining": "{{count}} uses left today",
     "exhausted": "Today's uses are complete · Available again after {{resetAt}}",
@@ -195,16 +246,39 @@
     "newTurnAction": "Use one and ask again"
   },
   "states": {
-    "network": { "title": "The answer could not be confirmed", "body": "You can check the result with the same requestId. Additional usage is determined only by the server response." },
-    "compatibility": { "title": "This answer cannot be displayed safely", "body": "The app and AI Coach response contracts do not match. No new question was submitted automatically." },
-    "terminal": { "title": "This request cannot be processed", "body": "The same request was not retried and no new question was submitted automatically. Please write another question." },
-    "ok": { "body": "" },
-    "insufficient_data": { "body": "There are not enough training records for this analysis." },
-    "stale": { "body": "Some recent calculations are pending. Review the current evidence as well." },
-    "unsupported": { "body": "Recent summaries and 28-day comparison questions are currently supported." },
-    "quota_exceeded": { "body": "You have used all AI Coach questions available today." },
-    "budget_blocked": { "body": "An AI explanation cannot be generated right now. Please check again later." },
-    "fallback": { "body": "Only guidance within the safely verified scope is shown." }
+    "network": {
+      "title": "The answer could not be confirmed",
+      "body": "You can check the result with the same requestId. Additional usage is determined only by the server response."
+    },
+    "compatibility": {
+      "title": "This answer cannot be displayed safely",
+      "body": "The app and AI Coach response contracts do not match. No new question was submitted automatically."
+    },
+    "terminal": {
+      "title": "This request cannot be processed",
+      "body": "The same request was not retried and no new question was submitted automatically. Please write another question."
+    },
+    "ok": {
+      "body": ""
+    },
+    "insufficient_data": {
+      "body": "There are not enough training records for this analysis."
+    },
+    "stale": {
+      "body": "Some recent calculations are pending. Review the current evidence as well."
+    },
+    "unsupported": {
+      "body": "Recent summaries and 28-day comparison questions are currently supported."
+    },
+    "quota_exceeded": {
+      "body": "You have used all AI Coach questions available today."
+    },
+    "budget_blocked": {
+      "body": "An AI explanation cannot be generated right now. Please check again later."
+    },
+    "fallback": {
+      "body": "Only guidance within the safely verified scope is shown."
+    }
   },
   "p2Unavailable": {
     "title": "Latest workout coaching could not be completed yet",
@@ -221,102 +295,360 @@
     "OPEN_PLAN": "Open training plan",
     "NO_ACTIVE_GOAL": "Set a training goal"
   },
-  "evidence": { "toggle": "View {{count}} evidence items" },
+  "evidence": {
+    "toggle": "View {{count}} evidence items"
+  },
   "freshness": "Data as of {{at}}",
   "latestActivity": "Latest activity {{at}}",
   "staleSources": "{{count}} data sources awaiting refresh",
-  "feedback": { "label": "Rate this answer", "prompt": "Was this answer helpful?", "helpful": "Helpful", "notHelpful": "Not helpful" },
+  "feedback": {
+    "label": "Rate this answer",
+    "prompt": "Was this answer helpful?",
+    "helpful": "Helpful",
+    "notHelpful": "Not helpful"
+  },
   "answer": {
     "block": {
-      "narrative": "Conclusion", "metric_grid": "Current status", "comparison_table": "Period comparison",
-      "time_series": "Trend", "distribution": "Distribution", "ranking": "Ranking", "activity_list": "Related activities",
-      "goal_progress": "Goal progress", "plan_adherence": "Plan adherence", "data_gap": "Data check", "action": "Next step"
+      "narrative": "Conclusion",
+      "metric_grid": "Current status",
+      "comparison_table": "Period comparison",
+      "time_series": "Trend",
+      "distribution": "Distribution",
+      "ranking": "Ranking",
+      "activity_list": "Related activities",
+      "goal_progress": "Goal progress",
+      "plan_adherence": "Plan adherence",
+      "data_gap": "Data check",
+      "action": "Next step"
     },
-    "template": { "metric_summary": "Current status summary", "comparison_summary": "Period comparison summary" },
+    "template": {
+      "metric_summary": "Current status summary",
+      "comparison_summary": "Period comparison summary"
+    },
     "metricLabel": "Metric",
     "metric": {
-      "activity_count": "Activities", "duration": "Duration", "distance": "Distance", "tss": "TSS", "ctl": "CTL",
-      "atl": "ATL", "form": "Form", "average_power": "Average power", "heart_rate": "Heart rate", "cadence": "Cadence",
-      "pace": "Pace", "elevation": "Elevation", "calories": "Calories", "zone_time": "Zone time", "readiness": "Readiness",
+      "activity_count": "Activities",
+      "duration": "Duration",
+      "distance": "Distance",
+      "tss": "TSS",
+      "ctl": "CTL",
+      "atl": "ATL",
+      "form": "Form",
+      "average_power": "Average power",
+      "heart_rate": "Heart rate",
+      "cadence": "Cadence",
+      "pace": "Pace",
+      "elevation": "Elevation",
+      "calories": "Calories",
+      "zone_time": "Zone time",
+      "readiness": "Readiness",
       "plan_completion": "Plan completion"
     },
     "unit": {
-      "count": "", "seconds": "sec", "kilometers": "km", "tss": "TSS", "watts": "W", "bpm": "bpm", "rpm": "rpm",
-      "seconds_per_km": "sec/km", "meters": "m", "kcal": "kcal", "percent": "%", "score": "points", "dimensionless": ""
+      "count": "",
+      "seconds": "sec",
+      "kilometers": "km",
+      "tss": "TSS",
+      "watts": "W",
+      "bpm": "bpm",
+      "rpm": "rpm",
+      "seconds_per_km": "sec/km",
+      "meters": "m",
+      "kcal": "kcal",
+      "percent": "%",
+      "score": "points",
+      "dimensionless": ""
     },
-    "column": { "current": "Current", "previous": "Previous comparable", "delta": "Change" },
+    "column": {
+      "current": "Current",
+      "previous": "Previous comparable",
+      "delta": "Change"
+    },
     "load": {
-      "title": "Training load analysis", "comparisonCaption": "Current load comparison",
-      "trendTitle": "Server-canonical trend", "sequenceLabel": "{{metric}} trend values",
-      "showChart": "View chart and table", "hideChart": "Hide chart and table", "chartRegion": "Training-load charts and data tables",
-      "goalTitle": "CTL goal", "previousCanonical": "Canonical daily close 7 days ago",
-      "weeklyTssTitle": "This week's TSS", "weeklyTssBasis": "Monday through now in your timezone",
-      "weeklyTrendCaption": "Weekly canonical CTL, ATL, and Form", "canonicalPeriod": "Canonical UTC period", "inProgress": "In progress",
-      "driversTitle": "Top load-contributing activities this week", "goalResult": "Goal result", "goalAchieved": "Goal achieved",
-      "goalNotAchieved": "Not achieved yet", "goalAchievedAt": "First achieved", "bandTitle": "Form policy bands",
-      "bandMeta": "Policy catalog {{catalog}}", "currentBand": "Current band {{band}}", "none": "No classification",
-      "reasons": "Decision reason codes", "missingSignal": "Data to review: {{signal}}",
-      "confidence": { "low": "Low confidence", "lowBody": "The data is insufficient, so no strong conclusion or training prescription is provided.", "medium": "Medium-confidence analysis", "high": "High-confidence analysis" },
+      "title": "Training load analysis",
+      "comparisonCaption": "Current load comparison",
+      "trendTitle": "Server-canonical trend",
+      "sequenceLabel": "{{metric}} trend values",
+      "showChart": "View chart and table",
+      "hideChart": "Hide chart and table",
+      "chartRegion": "Training-load charts and data tables",
+      "goalTitle": "CTL goal",
+      "previousCanonical": "Canonical daily close 7 days ago",
+      "weeklyTssTitle": "This week's TSS",
+      "weeklyTssBasis": "Monday through now in your timezone",
+      "weeklyTrendCaption": "Weekly canonical CTL, ATL, and Form",
+      "canonicalPeriod": "Canonical UTC period",
+      "inProgress": "In progress",
+      "driversTitle": "Top load-contributing activities this week",
+      "goalResult": "Goal result",
+      "goalAchieved": "Goal achieved",
+      "goalNotAchieved": "Not achieved yet",
+      "goalAchievedAt": "First achieved",
+      "bandTitle": "Form policy bands",
+      "bandMeta": "Policy catalog {{catalog}}",
+      "currentBand": "Current band {{band}}",
+      "none": "No classification",
+      "reasons": "Decision reason codes",
+      "missingSignal": "Data to review: {{signal}}",
+      "confidence": {
+        "low": "Low confidence",
+        "lowBody": "The data is insufficient, so no strong conclusion or training prescription is provided.",
+        "medium": "Medium-confidence analysis",
+        "high": "High-confidence analysis"
+      },
       "band": {
-        "recovery_review": { "label": "Review recovery", "explanation": "Form is very low; review recovery status first." },
-        "high_load": { "label": "High load", "explanation": "Form indicates a high recent training load." },
-        "productive_load": { "label": "Productive load", "explanation": "Training load is accumulating in this range." },
-        "normal": { "label": "Normal", "explanation": "This is the normal Form range in the policy." },
-        "unknown": "Unknown band", "unknownExplanation": "This policy band is not supported by this app version."
+        "recovery_review": {
+          "label": "Review recovery",
+          "explanation": "Form is very low; review recovery status first."
+        },
+        "high_load": {
+          "label": "High load",
+          "explanation": "Form indicates a high recent training load."
+        },
+        "productive_load": {
+          "label": "Productive load",
+          "explanation": "Training load is accumulating in this range."
+        },
+        "normal": {
+          "label": "Normal",
+          "explanation": "This is the normal Form range in the policy."
+        },
+        "unknown": "Unknown band",
+        "unknownExplanation": "This policy band is not supported by this app version."
       }
     },
-    "chart": { "visualLabel": "Trend chart from the server-provided series", "dataToggle": "View raw time-series data", "tableCaption": "Trend data table", "series": "Metric", "at": "At", "value": "Value" },
-    "goal": { "current": "Current", "target": "Target", "progress": "Progress" },
-    "plan": { "planned": "Planned", "completed": "Completed", "missed": "{{count}} missed plan items", "replacements": "{{count}} replacement activities" },
-    "gap": { "title": "Some data needs attention", "body": "Review items that are missing or still refreshing." },
-    "state": { "label": "Answer data status", "partial": "Partial data", "stale": "Awaiting refresh", "omitted": "{{count}} omitted by server" },
+    "chart": {
+      "visualLabel": "Trend chart from the server-provided series",
+      "dataToggle": "View raw time-series data",
+      "tableCaption": "Trend data table",
+      "series": "Metric",
+      "at": "At",
+      "value": "Value"
+    },
+    "goal": {
+      "current": "Current",
+      "target": "Target",
+      "progress": "Progress"
+    },
+    "plan": {
+      "planned": "Planned",
+      "completed": "Completed",
+      "missed": "{{count}} missed plan items",
+      "replacements": "{{count}} replacement activities"
+    },
+    "gap": {
+      "title": "Some data needs attention",
+      "body": "Review items that are missing or still refreshing."
+    },
+    "state": {
+      "label": "Answer data status",
+      "partial": "Partial data",
+      "stale": "Awaiting refresh",
+      "omitted": "{{count}} omitted by server"
+    },
     "more": "Show {{count}} more items",
-    "action": { "OPEN_ACTIVITY": "Open activity", "REVIEW_DATA_GAPS": "Review missing data", "VIEW_TRAINING_LOAD": "View training load" },
-    "fallback": { "title": "Only part of the result is shown", "body": "The request did not complete, so only deterministic blocks approved by the server are displayed." },
-    "unsupportedBlock": { "title": "Unsupported result block", "body": "The raw block payload was not displayed. Update the web app and try again." },
-    "prescriptionDisabled": { "title": "Prescriptions are not supported yet", "body": "P1 does not execute or display training prescriptions." },
-    "freshness": "Data as of {{at}}", "timezone": "Timezone {{timezone}}"
+    "action": {
+      "OPEN_ACTIVITY": "Open activity",
+      "REVIEW_DATA_GAPS": "Review missing data",
+      "VIEW_TRAINING_LOAD": "View training load"
+    },
+    "fallback": {
+      "title": "Only part of the result is shown",
+      "body": "The request did not complete, so only deterministic blocks approved by the server are displayed."
+    },
+    "unsupportedBlock": {
+      "title": "Unsupported result block",
+      "body": "The raw block payload was not displayed. Update the web app and try again."
+    },
+    "prescriptionDisabled": {
+      "title": "Prescriptions are not supported yet",
+      "body": "P1 does not execute or display training prescriptions."
+    },
+    "freshness": "Data as of {{at}}",
+    "timezone": "Timezone {{timezone}}"
   },
   "prescription": {
-    "title": "Next 7-day adjustment", "validUntil": "Valid until {{at}}", "proposalNotice": "This is a proposal and is not saved to your training plan until you confirm it.",
-    "weekTitle": "Recommended TSS next week", "confidenceLabel": "Confidence", "confidence": { "low": "Low", "medium": "Medium", "high": "High" },
-    "dataAsOf": "Data as of", "factsId": "Facts ID", "planRevision": "Plan revision", "rulesVersion": "Rules version", "none": "None",
-    "duration": "{{minutes}} min", "targetTss": "Target TSS {{value}}", "reassessTitle": "Reassess before training", "maxAge": "measured within {{hours}} hours", "evidence": "{{count}} evidence items",
-    "action": { "rest": "Rest", "recovery": "Recovery", "follow_plan": "Follow plan", "modified_workout": "Modified workout", "reassess": "Reassess" },
-    "workout": { "rest": "Rest", "recovery": "Recovery", "z2": "Z2", "tempo": "Tempo", "sweet_spot": "Sweet spot", "threshold": "Threshold", "vo2max": "VO2max", "planned": "Planned workout" },
-    "metric": { "form": "Form", "rhr_delta_pct": "Resting HR change", "hrv_delta_pct": "HRV change", "sleep_hours": "Sleep hours", "hours_since_high_intensity": "Hours since high intensity" },
-    "operator": { "gte": "at least", "gt": "greater than", "lte": "at most", "lt": "less than" },
-    "signal": { "subjective_fatigue": "Fatigue", "soreness": "Soreness", "pain_or_illness": "Pain or illness" },
-    "option": { "subjective_fatigue": { "normal": "Normal", "tired": "Tired" }, "soreness": { "none": "None", "present": "Present" }, "pain_or_illness": { "none": "None", "present": "Present" } },
-    "checkin": { "title": "More information is needed to assess recovery", "body": "Tell us how you feel today.", "submit": "Confirm", "submitting": "Checking…",
-      "networkError": "Your check-in was not sent. You can retry the same request.", "retry": "Retry", "reanalyze": "The data or plan changed, or the check-in window expired.",
-      "newAnalysis": "Start a new analysis", "error": "The check-in could not be applied. Please start a new analysis shortly.", "noCharge": "No additional use · 0 AI calls" },
-    "insufficient": { "title": "More data is needed for a prescription", "body": "Review the missing data or continue with your existing plan." }, "existingPlan": "View existing plan",
-    "safety": { "title": "No workout prescription is shown", "body": "Stop exercising if you have pain or illness and seek medical help when needed." }
+    "title": "Next 7-day adjustment",
+    "validUntil": "Valid until {{at}}",
+    "proposalNotice": "This is a proposal and is not saved to your training plan until you confirm it.",
+    "weekTitle": "Recommended TSS next week",
+    "confidenceLabel": "Confidence",
+    "confidence": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "dataAsOf": "Data as of",
+    "factsId": "Facts ID",
+    "planRevision": "Plan revision",
+    "rulesVersion": "Rules version",
+    "none": "None",
+    "duration": "{{minutes}} min",
+    "targetTss": "Target TSS {{value}}",
+    "reassessTitle": "Reassess before training",
+    "maxAge": "measured within {{hours}} hours",
+    "evidence": "{{count}} evidence items",
+    "action": {
+      "rest": "Rest",
+      "recovery": "Recovery",
+      "follow_plan": "Follow plan",
+      "modified_workout": "Modified workout",
+      "reassess": "Reassess"
+    },
+    "workout": {
+      "rest": "Rest",
+      "recovery": "Recovery",
+      "z2": "Z2",
+      "tempo": "Tempo",
+      "sweet_spot": "Sweet spot",
+      "threshold": "Threshold",
+      "vo2max": "VO2max",
+      "planned": "Planned workout"
+    },
+    "metric": {
+      "form": "Form",
+      "rhr_delta_pct": "Resting HR change",
+      "hrv_delta_pct": "HRV change",
+      "sleep_hours": "Sleep hours",
+      "hours_since_high_intensity": "Hours since high intensity"
+    },
+    "operator": {
+      "gte": "at least",
+      "gt": "greater than",
+      "lte": "at most",
+      "lt": "less than"
+    },
+    "signal": {
+      "subjective_fatigue": "Fatigue",
+      "soreness": "Soreness",
+      "pain_or_illness": "Pain or illness"
+    },
+    "option": {
+      "subjective_fatigue": {
+        "normal": "Normal",
+        "tired": "Tired"
+      },
+      "soreness": {
+        "none": "None",
+        "present": "Present"
+      },
+      "pain_or_illness": {
+        "none": "None",
+        "present": "Present"
+      }
+    },
+    "checkin": {
+      "title": "More information is needed to assess recovery",
+      "body": "Tell us how you feel today.",
+      "submit": "Confirm",
+      "submitting": "Checking…",
+      "networkError": "Your check-in was not sent. You can retry the same request.",
+      "retry": "Retry",
+      "reanalyze": "The data or plan changed, or the check-in window expired.",
+      "newAnalysis": "Start a new analysis",
+      "error": "The check-in could not be applied. Please start a new analysis shortly.",
+      "noCharge": "No additional use · 0 AI calls",
+      "assumedDefaults": "Calculated with your usual state.",
+      "assuming": "Calculating…"
+    },
+    "insufficient": {
+      "title": "More data is needed for a prescription",
+      "body": "Review the missing data or continue with your existing plan."
+    },
+    "existingPlan": "View existing plan",
+    "safety": {
+      "title": "No workout prescription is shown",
+      "body": "Stop exercising if you have pain or illness and seek medical help when needed."
+    }
   },
   "progress": {
-    "origin": { "aiCoach": "AI Coach proposal", "separate": "This proposal is distinct from automatic weekly adjustments. The server rechecks the current plan for conflicts." },
-    "review": { "title": "Review plan changes", "body": "Choose dates, then review the server-derived before, after, reasons, and evidence.", "selectDates": "Candidate dates", "create": "Preview changes", "creating": "Checking changes…", "before": "Before", "after": "After", "reasons": "Reasons", "refresh": "Refresh current status", "noCharge": "Reading and preview: 0 AI calls · 0 quota · 0 plan writes" },
-    "confirm": { "review": "Review apply action", "final": "Confirm and apply to plan", "title": "Final confirmation", "body": "Only the next button press asks the server to recheck consent and revisions and change the plan." },
-    "rollback": { "action": "Roll back applied changes" },
-    "states": { "loading": "Checking plan capabilities.", "unavailable": "Plan capability status is unavailable", "proposalDisabled": "Proposal creation is currently disabled. Your existing plan remains unchanged.", "confirmDisabled": "Apply is currently disabled, so your plan will not change.", "confirmRecoveryUnavailable": "The recovered proposal has no confirmation credential and is read-only.", "applied": "Applied to the plan exactly once", "reverted": "Restored the audited before state", "receipt": "Audit record {{id}}", "stale": "The plan, weekly check-in, or consent changed, so this proposal cannot be applied.", "disabled": "This change capability is currently disabled.", "conflict": "A later plan change conflicts with this action, so nothing was changed.", "error": "The change state could not be verified. Your existing plan remains unchanged.", "reanalyze": "Recheck with a new analysis", "retryConfirm": "Retry the same apply request", "retryRollback": "Retry the same rollback request" },
-    "questions": { "label": "Ask about this result", "priority": "What is the most important workout in this week's plan?", "changed": "Explain what changed because of my recent completion results.", "linked": "Question linked to this result request" },
+    "origin": {
+      "aiCoach": "AI Coach proposal",
+      "separate": "This proposal is distinct from automatic weekly adjustments. The server rechecks the current plan for conflicts."
+    },
+    "review": {
+      "title": "Review plan changes",
+      "body": "Choose dates, then review the server-derived before, after, reasons, and evidence.",
+      "selectDates": "Candidate dates",
+      "create": "Preview changes",
+      "creating": "Checking changes…",
+      "before": "Before",
+      "after": "After",
+      "reasons": "Reasons",
+      "refresh": "Refresh current status",
+      "noCharge": "Reading and preview: 0 AI calls · 0 quota · 0 plan writes"
+    },
+    "confirm": {
+      "review": "Review apply action",
+      "final": "Confirm and apply to plan",
+      "title": "Final confirmation",
+      "body": "Only the next button press asks the server to recheck consent and revisions and change the plan."
+    },
+    "rollback": {
+      "action": "Roll back applied changes"
+    },
+    "states": {
+      "loading": "Checking plan capabilities.",
+      "unavailable": "Plan capability status is unavailable",
+      "proposalDisabled": "Proposal creation is currently disabled. Your existing plan remains unchanged.",
+      "confirmDisabled": "Apply is currently disabled, so your plan will not change.",
+      "confirmRecoveryUnavailable": "The recovered proposal has no confirmation credential and is read-only.",
+      "applied": "Applied to the plan exactly once",
+      "reverted": "Restored the audited before state",
+      "receipt": "Audit record {{id}}",
+      "stale": "The plan, weekly check-in, or consent changed, so this proposal cannot be applied.",
+      "disabled": "This change capability is currently disabled.",
+      "conflict": "A later plan change conflicts with this action, so nothing was changed.",
+      "error": "The change state could not be verified. Your existing plan remains unchanged.",
+      "reanalyze": "Recheck with a new analysis",
+      "retryConfirm": "Retry the same apply request",
+      "retryRollback": "Retry the same rollback request"
+    },
+    "questions": {
+      "label": "Ask about this result",
+      "priority": "What is the most important workout in this week's plan?",
+      "changed": "Explain what changed because of my recent completion results.",
+      "linked": "Question linked to this result request"
+    },
     "reason": {}
   },
   "clarification": {
-    "title": "Please make the question a little more specific", "policy": "This choice: {{quota}} · {{provider}} AI calls",
+    "title": "Please make the question a little more specific",
+    "policy": "This choice: {{quota}} · {{provider}} AI calls",
     "policyContinue": "No additional turn · {{provider}} AI calls",
     "policyNewTurn": "After confirmation, this uses one new question and may make up to one AI call",
-    "noCharge": "no additional use", "newTurn": "one new question", "expired": "The selection has expired. Please check again as a new question.",
-    "submit": "Continue with this choice", "newTurnConfirm": "Submitting this choice as a new question uses one of today's turns. Continue?",
-    "prompt": { "time_range": "Which period should be analyzed?", "discipline": "Which discipline should be analyzed?", "generic": "Choose an additional analysis condition" },
-    "option": { "this_week": "This week", "last_week": "Last week", "bike": "Cycling", "run": "Running", "swim": "Swimming", "generic": "{{value}}" }
+    "noCharge": "no additional use",
+    "newTurn": "one new question",
+    "expired": "The selection has expired. Please check again as a new question.",
+    "submit": "Continue with this choice",
+    "newTurnConfirm": "Submitting this choice as a new question uses one of today's turns. Continue?",
+    "prompt": {
+      "time_range": "Which period should be analyzed?",
+      "discipline": "Which discipline should be analyzed?",
+      "generic": "Choose an additional analysis condition"
+    },
+    "option": {
+      "this_week": "This week",
+      "last_week": "Last week",
+      "bike": "Cycling",
+      "run": "Running",
+      "swim": "Swimming",
+      "generic": "{{value}}"
+    }
   },
-  "unsupportedV2": { "title": "This question is not supported yet", "body": "Try asking about summaries, comparisons, trends, activity rankings, goals, or plan adherence.", "suggestions": "Ways to revise your question" },
+  "unsupportedV2": {
+    "title": "This question is not supported yet",
+    "body": "Try asking about summaries, comparisons, trends, activity rankings, goals, or plan adherence.",
+    "suggestions": "Ways to revise your question"
+  },
   "v2State": {
     "quota_exceeded": "You have used all questions available today.",
     "budget_blocked": "A response cannot be generated due to the current AI budget limit.",
     "failed": "The answer could not be completed. Any partial result shown is limited to the safely verified scope."
   },
-  "ridePlan": { "questions": { "linked": "Linked to this exact Ride Plan input revision" } }
+  "ridePlan": {
+    "questions": {
+      "linked": "Linked to this exact Ride Plan input revision"
+    }
+  }
 }
