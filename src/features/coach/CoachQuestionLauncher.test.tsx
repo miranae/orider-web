@@ -149,6 +149,13 @@ function setup(currentUser: User | null = user, discipline: "bike" | "run" | "sw
   </DialogProvider></MemoryRouter>);
 }
 
+function setupCheckIn(preset = "훈련 처방을 알려줘") {
+  return render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
+    <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()}
+      presetQuestion={preset} triggerLabel="주간 체크인 하기" />
+  </DialogProvider></MemoryRouter>);
+}
+
 function setupPmc() {
   return render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
     <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()} showPmcInsight />
@@ -1163,5 +1170,16 @@ describe("CoachQuestionLauncher", () => {
     await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
     expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
     expect(mocks.ask).toHaveBeenCalledOnce();
+  });
+
+  // 체크인 진입에서 일반 추천 질문이 한 번의 탭으로 프리셋을 덮으면, 서버가 질문 문구로
+  // 플래너 경로를 고르는 특성상 체크인이 조용히 무산된다 (실사용 재현).
+  it("keeps the check-in entry from derailing into the generic suggested questions", async () => {
+    setupCheckIn();
+    await userEvent.click(screen.getByRole("button", { name: "주간 체크인 하기" }));
+    await screen.findByText("오늘 3회 남음");
+    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveValue("훈련 처방을 알려줘");
+    expect(screen.queryByRole("heading", { name: "이런 질문을 해보세요" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).not.toBeInTheDocument();
   });
 });

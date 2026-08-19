@@ -119,6 +119,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const panelRef = useRef<HTMLElement>(null);
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const inFlightRef = useRef(false);
+  // 체크인 진입으로 연 시트인지. 일반 추천 질문을 눌러 프리셋이 덮이면 서버가
+  // 플래너 경로를 고르지 않아(질문 문구로 라우팅) 체크인이 조용히 무산된다.
+  const [checkInIntent, setCheckInIntent] = useState(false);
   const activeRequestRef = useRef<string | null>(null);
   const activeBodyRef = useRef<CoachRequest | null>(null);
   const responseRef = useRef<CoachResponse | CoachResponseEnvelope | null>(null);
@@ -267,6 +270,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
 
   function closeSheet() {
     if (inFlightRef.current || consentOpen) return;
+    setCheckInIntent(false);
     openGenerationRef.current += 1;
     if (!responseRef.current && (phaseRef.current === "network_error" || phaseRef.current === "terminal_error")) setRequestId(null);
     if (responseRef.current) clearSession(); else setPhase("closed");
@@ -435,7 +439,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
         setDraft(presetQuestion); setPlannerContext(null);
         setPmcSnapshotId(null); setRiderSnapshotId(null); setRidePlanContext(null); setProductSlice(null);
-        setSource("free_text"); setRequestId(null);
+        setSource("free_text"); setRequestId(null); setCheckInIntent(true);
       }
       void openSheet(); return;
     }
@@ -444,7 +448,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     setDraft(progressPlannerSelection.question);
     setPlannerContext(progressPlannerSelection.context);
     setPmcSnapshotId(null); setRiderSnapshotId(null); setRidePlanContext(null); setProductSlice(null);
-    setSource("free_text"); setRequestId(null);
+    setSource("free_text"); setRequestId(null); setCheckInIntent(false);
     void openSheet();
   }
 
@@ -513,7 +517,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     ? response.outcome === "answer"
     : response.answer));
   const showCounter = inputFocused || draft.length >= 900;
-  const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
+  const suggestions = checkInIntent ? [] : ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
     <>
       {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
@@ -566,7 +570,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                       {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
                     </Text>}
                   </div>
-                  <div className="coach-sheet__quick-prompts">
+                  {suggestions.length > 0 && <div className="coach-sheet__quick-prompts">
                     <Text as="h3" variant="label" tone="secondary">{t("suggestions.title")}</Text>
                     <div className="coach-sheet__suggestions">
                       {suggestions.map((index) => {
@@ -580,7 +584,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                         </Button>;
                       })}
                     </div>
-                  </div>
+                  </div>}
                 </div>}
                 {phase === "submitting" && <Card className="coach-sheet__loading" role="status" aria-live="polite"><span className="ds-btn__spinner" aria-hidden />
                   <Text as="p" variant="subtitle">{t("loadingAnswer")}</Text><Text as="small" variant="caption" tone="tertiary">{t("loadingHonest")}</Text></Card>}
