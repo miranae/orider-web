@@ -351,12 +351,38 @@ else
   GATE_TIER="full"
 fi
 
+# 같은 커밋에 대해 GitHub CI 가 이미 통과했다면 로컬 풀 게이트는 같은 일을 한 번 더 하는 것이다.
+# ci.yml 의 check 잡은 lint:budget / quality:budget / check:i18n / check:deploy-config /
+# npm test / build 를 모두 돌고, 로컬 풀 게이트는 그중 lint·quality·test·build 를 반복한다.
+#
+# 안전한 이유: 판정을 "이 PR" 이 아니라 "이 정확한 head SHA" 에 묶고, 머지 직전에 head
+# 불변성을 다시 확인하기 때문이다(커밋이 바뀌면 그 지점에서 중단된다).
+# CI 가 아직 안 끝났거나 실패했으면 예전처럼 로컬에서 돌려 빨리 실패한다.
+ci_check_conclusion_for_head() {
+  gh api "repos/{owner}/{repo}/commits/${HEAD_OID}/check-runs" \
+    --jq '[.check_runs[] | select(.name == "check")] | if length == 0 then "absent"
+          elif any(.status != "completed") then "pending"
+          elif all(.conclusion == "success") then "success"
+          else "failure" end' 2>/dev/null || echo "absent"
+}
+
+SKIP_REDUNDANT_LOCAL_GATE=0
+if [[ "$GATE_TIER" == "full" && "$WAIT_CHECKS" == 1 ]]; then
+  case "$(ci_check_conclusion_for_head)" in
+    success) SKIP_REDUNDANT_LOCAL_GATE=1 ;;
+    failure) die "GitHub CI check 가 head ${HEAD_OID:0:12} 에서 실패했습니다. 수정 후 재실행하세요." ;;
+  esac
+fi
+
 log "PR #$PR_NUM 머지 게이트"
 echo "  URL: $PR_URL"
 echo "  base=$BASE head=$HEADREF branch=$BRANCH"
 echo "  headSha=${HEAD_OID:0:12}"
 echo "  reviewDecision=${REVIEW_DECISION:-<none>} mergeState=${MERGE_STATE:-<unknown>}"
 echo "  gate_tier=$GATE_TIER code_changes=$code_changes review_mode=$review_mode"
+if [[ "$SKIP_REDUNDANT_LOCAL_GATE" == 1 ]]; then
+  echo "  ci_check=success@${HEAD_OID:0:12} — 로컬 풀 게이트의 중복 항목을 생략합니다"
+fi
 
 # ── AI 리뷰 시작 (npm 게이트와 병렬) ─────────────────────────────────────────
 if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
@@ -423,35 +449,41 @@ if [[ "$GATE_TIER" == "feature" ]]; then
 
   log "Feature→dev 경량 게이트 완료 — lint/quality/full test/build는 dev→main 승격에서 실행"
 else
-  [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
-
-  log "Full 게이트: ESLint budget"
-  run_step "lint:budget" "error|warning|problem" npm run lint:budget
-
-  log "Full 게이트: Quality budget"
-  run_step "quality:budget" "error|warning|budget|PASS|FAIL" npm run quality:budget
-
-  log "Full 게이트: 전체 Unit tests"
-  run_step "npm test" "Test Files|Tests |FAIL|passed|failed" npm test
-
-  if [[ "$DO_BUILD" == 1 ]]; then
-    log "Full 게이트: Build"
-    if [[ -f .env ]]; then
-      run_step "build" "error TS|built in|✓|error" npm run build
-    else
-      warn ".env 없음 — CI와 동일한 placeholder public config로 build 실행"
-      run_step "build" "error TS|built in|✓|error" env \
-        VITE_FIREBASE_API_KEY=ci-placeholder \
-        VITE_FIREBASE_AUTH_DOMAIN=example.firebaseapp.com \
-        VITE_FIREBASE_PROJECT_ID=ci-placeholder \
-        VITE_FIREBASE_APP_ID=1:0:web:ci \
-        VITE_FIREBASE_FUNCTIONS_REGION=asia-northeast3 \
-        VITE_STRAVA_CLIENT_ID=ci-placeholder \
-        VITE_STRAVA_REDIRECT_URI=https://example.com/strava/callback \
-        npm run build
-    fi
+  if [[ "$SKIP_REDUNDANT_LOCAL_GATE" == 1 ]]; then
+    # CI 가 이 head SHA 에서 이미 lint/quality/test/build 를 통과시켰다. 같은 것을 다시
+    # 돌리지 않는다. 리뷰와 머지 직전 head 재확인은 그대로 남는다.
+    log "Full 게이트 생략 — GitHub CI check 가 head ${HEAD_OID:0:12} 에서 이미 통과"
   else
-    log "Build 생략 (--skip-build)"
+    [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
+
+    log "Full 게이트: ESLint budget"
+    run_step "lint:budget" "error|warning|problem" npm run lint:budget
+
+    log "Full 게이트: Quality budget"
+    run_step "quality:budget" "error|warning|budget|PASS|FAIL" npm run quality:budget
+
+    log "Full 게이트: 전체 Unit tests"
+    run_step "npm test" "Test Files|Tests |FAIL|passed|failed" npm test
+
+    if [[ "$DO_BUILD" == 1 ]]; then
+      log "Full 게이트: Build"
+      if [[ -f .env ]]; then
+        run_step "build" "error TS|built in|✓|error" npm run build
+      else
+        warn ".env 없음 — CI와 동일한 placeholder public config로 build 실행"
+        run_step "build" "error TS|built in|✓|error" env \
+          VITE_FIREBASE_API_KEY=ci-placeholder \
+          VITE_FIREBASE_AUTH_DOMAIN=example.firebaseapp.com \
+          VITE_FIREBASE_PROJECT_ID=ci-placeholder \
+          VITE_FIREBASE_APP_ID=1:0:web:ci \
+          VITE_FIREBASE_FUNCTIONS_REGION=asia-northeast3 \
+          VITE_STRAVA_CLIENT_ID=ci-placeholder \
+          VITE_STRAVA_REDIRECT_URI=https://example.com/strava/callback \
+          npm run build
+      fi
+    else
+      log "Build 생략 (--skip-build)"
+    fi
   fi
 fi
 
