@@ -281,6 +281,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   function closeSheet() {
     if (inFlightRef.current || consentOpen) return;
     setCheckInIntent(false);
+    setManualCheckIn(false);
     openGenerationRef.current += 1;
     if (!responseRef.current && (phaseRef.current === "network_error" || phaseRef.current === "terminal_error")) setRequestId(null);
     if (responseRef.current) clearSession(); else setPhase("closed");
@@ -436,6 +437,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function startAnother() {
+    // 직접 입력 의사는 "지금 이 처방" 한정이다. 새 분석으로 넘어가면 내린다 —
+    // 내리지 않으면 이후 모든 체크인이 영구히 자동 경로를 건너뛴다.
+    setManualCheckIn(false);
     const reloadQuota = quota === null;
     activeBodyRef.current = null;
     setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setProductSlice(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text");
