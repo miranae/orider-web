@@ -521,4 +521,21 @@ describe("서버 실행 회계와의 분리", () => {
         items: [{ metricId: "distance", current: { value: 42, unit: "kilometers", evidenceId: "ev_does_not_exist" } }] }] } } });
     expect(parsed.answer?.blocks[0]).toMatchObject({ kind: "unsupported_block" });
   });
+
+  // 처방 경로가 운영에서 꺼져 있던 동안 서버는 execution 에 prescriptionId /
+  // prescriptionRulesVersion 을 추가했고, strict 스키마가 그걸 몰라 사용자에게는
+  // "앱과 AI 코치 응답 계약이 맞지 않습니다" 로 보였다. 합성 픽스처로는 재현되지
+  // 않았으므로 운영 응답의 구조를 그대로 고정한다.
+  // 공개 저장소이므로 훈련 수치와 활동 날짜는 결정적 합성값으로 치환했다 —
+  // 계약이 검사하는 것은 형태이지 값이 아니다.
+  it("운영에서 받은 needs_checkin 처방 응답을 그대로 파싱한다", async () => {
+    const production = (await import("./__fixtures__/coach-prescription-needs-checkin.json")).default;
+    const parsed = parseCoachV2Response({ data: production });
+    expect(parsed.outcome).toBe("answer");
+    expect(parsed.execution).toMatchObject({
+      prescriptionId: expect.any(String), prescriptionRulesVersion: expect.any(String) });
+    const prescription = parsed.answer?.blocks.find((block) => block.kind === "prescription");
+    expect(prescription).toMatchObject({ prescription: { status: "needs_checkin" } });
+    expect(prescription?.prescription?.checkInToken).toEqual(expect.any(String));
+  });
 });
