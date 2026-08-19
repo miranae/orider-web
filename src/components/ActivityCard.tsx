@@ -232,6 +232,9 @@ export default function ActivityCard({
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
   const s = activity.summary ?? EMPTY_ACTIVITY_SUMMARY;
+  const nickname = typeof activity.nickname === "string" && activity.nickname.trim()
+    ? activity.nickname
+    : tCommon("label.rider");
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const { units } = useLocale();
   const { getStreams } = useStrava();
@@ -289,7 +292,7 @@ export default function ActivityCard({
           ) : (
             <div className="flex items-start gap-3">
               <Avatar
-                name={activity.nickname}
+                name={nickname}
                 imageUrl={activity.profileImage}
                 size="md"
                 userId={activity.userId}
@@ -301,7 +304,7 @@ export default function ActivityCard({
                     className="font-semibold text-[length:var(--fs-sm)] transition-colors hover:opacity-80"
                     style={{ color: 'var(--ink-0)' }}
                   >
-                    {activity.nickname}
+                    {nickname}
                   </Link>
                   {isStrava ? (
                     <svg className="w-3.5 h-3.5 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor">
