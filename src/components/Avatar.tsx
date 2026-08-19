@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "./LocalizedLink";
 // 다크 테마용 아바타 배경색 (채도 낮은 다크 팔레트)
 const COLORS = [
@@ -17,7 +18,7 @@ function colorFor(name: string) {
 }
 
 interface AvatarProps {
-  name: string;
+  name?: string | null;
   imageUrl?: string | null;
   size?: "sm" | "md" | "lg" | "xl";
   userId?: string;
@@ -41,20 +42,22 @@ export default function Avatar({
   className = "",
   tapTarget = true,
 }: AvatarProps) {
+  const { t } = useTranslation("common");
+  const displayName = typeof name === "string" && name.trim() ? name : t("label.rider");
   const sizeClass = SIZES[size];
   const inner = imageUrl ? (
     <img
       src={imageUrl}
-      alt={name}
+      alt={displayName}
       loading="lazy"
       decoding="async"
       className={`${sizeClass} rounded-full object-cover ${className}`}
     />
   ) : (
     <div
-      className={`${sizeClass} rounded-full flex items-center justify-center font-semibold ${colorFor(name)} ${className}`}
+      className={`${sizeClass} rounded-full flex items-center justify-center font-semibold ${colorFor(displayName)} ${className}`}
     >
-      {name.charAt(0)}
+      {displayName.charAt(0)}
     </div>
   );
 

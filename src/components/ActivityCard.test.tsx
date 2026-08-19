@@ -39,6 +39,14 @@ describe("ActivityCard", () => {
     expect(screen.getByText("아침 라이딩")).toBeInTheDocument();
   });
 
+  it("renders the default rider when the stored nickname is missing", () => {
+    const activity = createMockActivity({
+      nickname: undefined as unknown as string,
+    });
+    renderWithProviders(<ActivityCard activity={activity} showMap={false} />);
+    expect(screen.getByText("라이더")).toBeInTheDocument();
+  });
+
   it("renders distance, elevation, and time", () => {
     const activity = createMockActivity({
       startTime: 1_000_000,
