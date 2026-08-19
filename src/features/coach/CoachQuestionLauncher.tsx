@@ -129,6 +129,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   // 체크인 진입으로 연 시트인지. 일반 추천 질문을 눌러 프리셋이 덮이면 서버가
   // 플래너 경로를 고르지 않아(질문 문구로 라우팅) 체크인이 조용히 무산된다.
   const [checkInIntent, setCheckInIntent] = useState(false);
+  // 체크인을 직접 입력하겠다는 의사. 답변 문서는 requestId 로 키가 걸려 새 분석마다
+  // 리마운트되므로 이 의사는 런처가 들고 있어야 살아남는다.
+  const [manualCheckIn, setManualCheckIn] = useState(false);
   const activeRequestRef = useRef<string | null>(null);
   const activeBodyRef = useRef<CoachRequest | null>(null);
   const responseRef = useRef<CoachResponse | CoachResponseEnvelope | null>(null);
@@ -427,6 +430,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     void openSheet();
   }
 
+  function requestManualCheckIn() {
+    setManualCheckIn(true);
+    void submit(source, true);
+  }
+
   function startAnother() {
     const reloadQuota = quota === null;
     activeBodyRef.current = null;
@@ -604,6 +612,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={submissionBlocked}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action}
                     onReanalyze={startAnother}
+                    manualCheckIn={manualCheckIn}
+                    onManualCheckIn={requestManualCheckIn}
                     onSuggested={(query, prescriptionId, sourceRequestId) => {
                       if (prescriptionId && sourceRequestId) choosePlannerQuestion(query, prescriptionId, sourceRequestId);
                       else { startAnother(); setDraft(query); setSource("free_text"); }
@@ -667,18 +677,21 @@ function CoachFeedback({ feedback, onFeedback }: { feedback: boolean | null; onF
   </section>;
 }
 
-function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOption, onClarification, onAction, onSuggested, onReanalyze }: {
+function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOption, onClarification, onAction, onSuggested, onReanalyze,
+  manualCheckIn = false, onManualCheckIn }: {
   response: CoachResponseEnvelope; locale: string; selectedOption: string | null; exhausted: boolean;
   onSelectOption: (option: string) => void; onClarification: () => void;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
   onSuggested: (query: string, prescriptionId?: string, sourceRequestId?: string) => void;
   onReanalyze: () => void;
+  manualCheckIn?: boolean;
+  onManualCheckIn?: () => void;
 }) {
   const { t } = useTranslation("coach");
   if (response.capabilityVersion === "p2") {
     return <div className="coach-result">
       {response.outcome === "answer" && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
-        onReanalyze={onReanalyze} />}
+        onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn} />}
       {response.outcome === "unavailable" && <Alert className="coach-result__state" variant="warning"
         title={t("p2Unavailable.title")}>{t(`p2Unavailable.${response.retry.reasonCode}`)}</Alert>}
     </div>;
@@ -688,7 +701,7 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
   const providerUnavailable = response.error?.code === "provider_kill_switch";
   return <div className="coach-result">
     {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
-      onReanalyze={onReanalyze}
+      onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn}
       onPlannerQuestion={(question, prescriptionId, sourceRequestId) => onSuggested(question, prescriptionId, sourceRequestId)} />}
     {response.outcome === "clarification_required" && spec && <form className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
       <fieldset disabled={expired}><legend>{safeClarificationText(spec.promptKey, "prompt", t)}</legend>

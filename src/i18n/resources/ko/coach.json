@@ -549,7 +549,8 @@
       "error": "상태를 적용하지 못했습니다. 잠시 후 새 분석을 시작해 주세요.",
       "noCharge": "추가 사용 횟수 없음 · AI 호출 0회",
       "assumedDefaults": "평소 컨디션 기준으로 계산했습니다.",
-      "assuming": "계산하는 중…"
+      "assuming": "계산하는 중…",
+      "adjust": "오늘은 다릅니다"
     },
     "insufficient": {
       "title": "처방에 필요한 데이터가 부족합니다",

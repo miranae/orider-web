@@ -518,4 +518,23 @@ describe("CoachPrescription", () => {
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
+
+  // 통증이 있는 사용자가 그 사실을 말할 수 있어야 한다. 자동 확인 뒤에도 직접 입력 경로가 남는다.
+  it("자동 확인 뒤에도 직접 입력을 시작할 수 있다", async () => {
+    submit.mockResolvedValue({ status: "ok", prescription: ready, providerCalls: 0, quotaConsumed: 0 });
+    const onManualCheckIn = vi.fn();
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000401"
+      locale="ko-KR" onReanalyze={vi.fn()} onManualCheckIn={onManualCheckIn} />);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    await userEvent.click(await screen.findByRole("button", { name: "오늘은 다릅니다" }));
+    expect(onManualCheckIn).toHaveBeenCalledTimes(1);
+  });
+
+  // 상위가 직접 입력 의사를 넘기면 자동 확인이 끼어들지 않고 폼이 나타난다.
+  it("직접 입력 의사가 있으면 자동 확인하지 않고 폼을 보여준다", async () => {
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000402"
+      locale="ko-KR" onReanalyze={vi.fn()} manualCheckIn />);
+    expect(await screen.findByRole("radio", { name: "피곤함" })).toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
+  });
 });

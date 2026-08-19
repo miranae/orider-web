@@ -549,7 +549,8 @@
       "error": "The check-in could not be applied. Please start a new analysis shortly.",
       "noCharge": "No additional use · 0 AI calls",
       "assumedDefaults": "Calculated with your usual state.",
-      "assuming": "Calculating…"
+      "assuming": "Calculating…",
+      "adjust": "Today is different"
     },
     "insufficient": {
       "title": "More data is needed for a prescription",

@@ -17,7 +17,14 @@ import type {
 } from "../../services/coachPrescriptionContract";
 
 interface Props { initial: CoachPrescriptionDTO; parentRequestId: string; locale: string; onReanalyze: () => void;
-  onQuestionSelect?: (question: string, prescriptionId: string, sourceRequestId: string) => void; readOnly?: boolean }
+  onQuestionSelect?: (question: string, prescriptionId: string, sourceRequestId: string) => void; readOnly?: boolean;
+  /**
+   * 사용자가 "오늘은 다릅니다" 로 직접 입력을 택했는지. 이 의사는 새 분석에서도 살아 있어야
+   * 하는데 이 컴포넌트는 requestId 로 키가 걸려 리마운트되므로, 상위(런처)가 소유한다.
+   */
+  manualCheckIn?: boolean;
+  /** 직접 입력을 시작한다. 상위가 의사를 기억하고 같은 질문을 다시 보낸다. */
+  onManualCheckIn?: () => void }
 type Answers = CoachPrescriptionCheckInRequest["answers"];
 type SubmitState = "idle" | "submitting" | "network_error" | "reanalyze" | "error";
 
@@ -375,7 +382,8 @@ function Signal({ signal, answers, onChange }: { signal: CoachCheckInSignal; ans
   </fieldset>;
 }
 
-export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect, readOnly = false }: Props) {
+export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect, readOnly = false,
+  manualCheckIn = false, onManualCheckIn }: Props) {
   const { t } = useTranslation("coach");
   const [prescription, setPrescription] = useState(initial);
   const [answers, setAnswers] = useState<Answers>({});
@@ -408,14 +416,14 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   // 비용이 없다. 실패하면 아래 직접 입력 폼이 그대로 나타나므로 사용자가 손으로 넣을 수 있다.
   const autoRef = useRef(false);
   useEffect(() => {
-    if (readOnly || autoRef.current) return;
+    if (readOnly || autoRef.current || manualCheckIn) return;
     if (prescription.status !== "needs_checkin" || !prescription.checkInToken) return;
     if (!checkInEnabled) return;
     autoRef.current = true;
     setAnswers(DEFAULT_CHECK_IN_ANSWERS);
     setAssumedDefaults(true);
     void submit(false, DEFAULT_CHECK_IN_ANSWERS);
-  }, [prescription.status, prescription.checkInToken, checkInEnabled, readOnly]);
+  }, [prescription.status, prescription.checkInToken, checkInEnabled, readOnly, manualCheckIn]);
 
   async function submit(retry = false, override?: Answers) {
     const payload = override ?? answers;
@@ -436,9 +444,10 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   }
 
   if (prescription.status === "ready") return <>
-    {assumedDefaults && !readOnly && <Text as="p" className="coach-checkin__assumed" variant="caption" tone="secondary">
-      {t("prescription.checkin.assumedDefaults")}
-    </Text>}
+    {assumedDefaults && !readOnly && <div className="coach-checkin__assumed">
+      <Text as="p" variant="caption" tone="secondary">{t("prescription.checkin.assumedDefaults")}</Text>
+      {onManualCheckIn && <Button variant="ghost" onClick={onManualCheckIn}>{t("prescription.checkin.adjust")}</Button>}
+    </div>}
     <PrescriptionDetails prescription={prescription} locale={locale} sourceRequestId={sourceRequestId}
       capabilities={capabilities} progressPlannerEnabled={!readOnly && locallyEnabled} onReanalyze={onReanalyze}
       onQuestionSelect={readOnly ? undefined : onQuestionSelect} />
