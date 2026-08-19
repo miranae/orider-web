@@ -54,6 +54,12 @@ interface Props {
    * 마주하는 대신 바로 보낼 수 있는 문장을 채워 준다. 편집은 그대로 가능하다.
    */
   presetQuestion?: string | null;
+  /**
+   * 이 진입이 특정 과업을 끝내려는 것인지. "check_in" 이면 일반 추천 질문을 감춘다 —
+   * 칩을 한 번 누르면 프리셋이 덮이고, 서버는 질문 문구로 플래너 경로를 고르므로
+   * 체크인이 조용히 무산된다.
+   */
+  presetIntent?: "check_in" | "free";
   triggerLabel?: string;
 }
 
@@ -107,7 +113,8 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
 }
 
 export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false,
-  ridePlanSelection = null, progressPlannerSelection = null, presetQuestion = null, triggerLabel }: Props) {
+  ridePlanSelection = null, progressPlannerSelection = null, presetQuestion = null, presetIntent = "free",
+  triggerLabel }: Props) {
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
@@ -439,7 +446,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
         setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
         setDraft(presetQuestion); setPlannerContext(null);
         setPmcSnapshotId(null); setRiderSnapshotId(null); setRidePlanContext(null); setProductSlice(null);
-        setSource("free_text"); setRequestId(null); setCheckInIntent(true);
+        setSource("free_text"); setRequestId(null); setCheckInIntent(presetIntent === "check_in");
       }
       void openSheet(); return;
     }

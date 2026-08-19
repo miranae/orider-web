@@ -152,7 +152,7 @@ function setup(currentUser: User | null = user, discipline: "bike" | "run" | "sw
 function setupCheckIn(preset = "훈련 처방을 알려줘") {
   return render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
     <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()}
-      presetQuestion={preset} triggerLabel="주간 체크인 하기" />
+      presetQuestion={preset} presetIntent="check_in" triggerLabel="주간 체크인 하기" />
   </DialogProvider></MemoryRouter>);
 }
 
@@ -1170,6 +1170,16 @@ describe("CoachQuestionLauncher", () => {
     await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
     expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
     expect(mocks.ask).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the generic suggestions for a preset entry that is not a check-in", async () => {
+    render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
+      <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()}
+        presetQuestion="훈련 처방을 알려줘" triggerLabel="프리셋 질문" />
+    </DialogProvider></MemoryRouter>);
+    await userEvent.click(screen.getByRole("button", { name: "프리셋 질문" }));
+    await screen.findByText("오늘 3회 남음");
+    expect(screen.getByRole("heading", { name: "이런 질문을 해보세요" })).toBeInTheDocument();
   });
 
   // 체크인 진입에서 일반 추천 질문이 한 번의 탭으로 프리셋을 덮으면, 서버가 질문 문구로
