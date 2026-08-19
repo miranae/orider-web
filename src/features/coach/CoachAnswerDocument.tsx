@@ -488,7 +488,7 @@ function GroundedMarkdown({ markdown }: { markdown: string }) {
 }
 
 export function CoachAnswerDocumentView({ response, responseFormat = "auto", locale, onAction, onReanalyze = () => undefined,
-  onPlannerQuestion, historical = false }: {
+  onPlannerQuestion, historical = false, manualCheckIn = false, onManualCheckIn }: {
   response: CoachV2Response | CoachP2Response;
   responseFormat?: CoachResponseFormat;
   locale: string;
@@ -496,6 +496,9 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
   onReanalyze?: () => void;
   onPlannerQuestion?: (question: string, prescriptionId: string, sourceRequestId: string) => void;
   historical?: boolean;
+  /** 체크인을 직접 입력하겠다는 의사. 새 분석에서도 살아 있어야 해서 런처가 소유한다. */
+  manualCheckIn?: boolean;
+  onManualCheckIn?: () => void;
 }) {
   const { t } = useTranslation("coach");
   const document = response.capabilityVersion === "p2"
@@ -528,7 +531,8 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
           ? <UnsupportedBlockNotice key={block.blockId} prescription={block.reason === "prescription_feature_disabled"} />
           : block.kind === "prescription"
             ? <CoachPrescription key={`${response.requestId}:${block.blockId}`} initial={block.prescription} parentRequestId={response.requestId}
-              locale={locale} onReanalyze={onReanalyze} onQuestionSelect={historical ? undefined : onPlannerQuestion} readOnly={historical} />
+              locale={locale} onReanalyze={onReanalyze} onQuestionSelect={historical ? undefined : onPlannerQuestion}
+              readOnly={historical} manualCheckIn={manualCheckIn} onManualCheckIn={historical ? undefined : onManualCheckIn} />
           : <SupportedBlock key={block.blockId} block={block} responseFormat={responseFormat}
             showLocalFormatFallback={responseFormat === "chart" && chartable} locale={locale} onAction={onAction} />;
       })}

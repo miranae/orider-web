@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -1191,5 +1192,17 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveValue("훈련 처방을 알려줘");
     expect(screen.queryByRole("heading", { name: "이런 질문을 해보세요" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).not.toBeInTheDocument();
+  });
+
+  // 직접 입력 의사는 "지금 이 처방" 한정이다. 남아 있으면 이후 모든 체크인이 자동 경로를
+  // 영구히 건너뛴다.
+  it("resets the one-off manual check-in intent when a new question starts", () => {
+    const source = readFileSync("src/features/coach/CoachQuestionLauncher.tsx", "utf8");
+    const startAnother = source.slice(source.indexOf("function startAnother()"),
+      source.indexOf("function choosePlannerQuestion"));
+    expect(startAnother).toContain("setManualCheckIn(false)");
+    const closeSheet = source.slice(source.indexOf("function closeSheet()"),
+      source.indexOf("async function execute("));
+    expect(closeSheet).toContain("setManualCheckIn(false)");
   });
 });

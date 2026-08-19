@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -194,17 +194,22 @@ describe("CoachPrescription", () => {
   });
 
   it("preserves combined check-in answers and gives safety priority without workout or TSS UI", async () => {
-    submit.mockResolvedValue({ status: "ok", prescription: parseCoachPrescription({ ...ready,
-      prescriptionId: "rx_222222222222222222222222", status: "safety_blocked", nextDays: [], nextWeekLoad: undefined,
-      missingSignals: ["pain_or_illness"] }), providerCalls: 0, quotaConsumed: 0 });
-    const { container } = render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
-      locale="ko-KR" onReanalyze={vi.fn()} />);
+    // 자동 확인이 먼저 돌고, 사용자가 "오늘은 다릅니다" 를 택해야 직접 입력이 열린다.
+    // 자동 확인이 실패하면 직접 입력 폼이 그대로 나타난다.
+    submit
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockResolvedValue({ status: "ok", prescription: parseCoachPrescription({ ...ready,
+        prescriptionId: "rx_222222222222222222222222", status: "safety_blocked", nextDays: [], nextWeekLoad: undefined,
+        missingSignals: ["pain_or_illness"] }), providerCalls: 0, quotaConsumed: 0 });
+    const { container } = render(<CoachPrescription initial={needsCheckIn()}
+      parentRequestId="018f47a2-3c4d-7abc-8def-000000000201" locale="ko-KR" onReanalyze={vi.fn()} />);
     const user = userEvent.setup();
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     await user.click(await screen.findByRole("radio", { name: "피곤함" }));
     await user.click(screen.getAllByRole("radio", { name: "있음" })[0]!);
     await user.click(screen.getAllByRole("radio", { name: "있음" })[1]!);
     await user.click(screen.getByRole("button", { name: "확인" }));
-    expect(submit).toHaveBeenCalledWith(expect.objectContaining({ parentRequestId: "018f47a2-3c4d-7abc-8def-000000000201",
+    expect(submit).toHaveBeenLastCalledWith(expect.objectContaining({ parentRequestId: "018f47a2-3c4d-7abc-8def-000000000201",
       requestId: expect.any(String), answers: { subjectiveFatigue: "tired", soreness: "present", painOrIllness: true } }));
     expect(screen.getByRole("alert")).toHaveTextContent("운동 처방을 표시하지 않습니다");
     expect(container.querySelector(".coach-prescription__workout")).toBeNull();
@@ -218,11 +223,10 @@ describe("CoachPrescription", () => {
     render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000201"
       locale="ko-KR" onReanalyze={reanalyze} />);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("radio", { name: "보통" }));
-    await user.click(screen.getAllByRole("radio", { name: "없음" })[0]!);
-    await user.click(screen.getAllByRole("radio", { name: "없음" })[1]!);
-    await user.click(screen.getByRole("button", { name: "확인" }));
+    // 자동 확인이 전송 실패하면 같은 요청으로 재시도할 수 있어야 한다.
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
     const firstId = submit.mock.calls[0]![0].requestId;
+    await screen.findByRole("button", { name: "다시 시도" });
     await user.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(submit.mock.calls[1]![0].requestId).toBe(firstId);
     expect(screen.getByRole("alert")).toHaveTextContent("데이터나 계획이 변경되었거나 확인 시간이 만료되었습니다");
@@ -499,5 +503,38 @@ describe("CoachPrescription", () => {
     expect(onQuestionSelect).toHaveBeenCalledWith("이번 주 계획에서 가장 중요한 운동은 무엇인가요?", ready.prescriptionId,
       "018f47a2-3c4d-7abc-8def-000000000201");
     expect(createProposal).not.toHaveBeenCalled(); expect(confirmProposal).not.toHaveBeenCalled();
+  });
+
+  // 매주 같은 세 문항을 되묻지 않는다. 평소 기준으로 자동 확인하고 처방을 바로 보여준다.
+  it("확인을 묻지 않고 평소 기준으로 처방을 계산한다", async () => {
+    submit.mockResolvedValue({ status: "ok", prescription: ready });
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000301"
+      locale="ko-KR" onReanalyze={vi.fn()} />);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit.mock.calls[0]![0]).toMatchObject({
+      answers: { subjectiveFatigue: "normal", soreness: "none", painOrIllness: false } });
+    expect(await screen.findByText(/평소 컨디션 기준으로 계산했습니다/)).toBeInTheDocument();
+    // 라디오 폼을 사용자에게 들이밀지 않는다.
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  });
+
+
+  // 통증이 있는 사용자가 그 사실을 말할 수 있어야 한다. 자동 확인 뒤에도 직접 입력 경로가 남는다.
+  it("자동 확인 뒤에도 직접 입력을 시작할 수 있다", async () => {
+    submit.mockResolvedValue({ status: "ok", prescription: ready, providerCalls: 0, quotaConsumed: 0 });
+    const onManualCheckIn = vi.fn();
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000401"
+      locale="ko-KR" onReanalyze={vi.fn()} onManualCheckIn={onManualCheckIn} />);
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    await userEvent.click(await screen.findByRole("button", { name: "오늘은 다릅니다" }));
+    expect(onManualCheckIn).toHaveBeenCalledTimes(1);
+  });
+
+  // 상위가 직접 입력 의사를 넘기면 자동 확인이 끼어들지 않고 폼이 나타난다.
+  it("직접 입력 의사가 있으면 자동 확인하지 않고 폼을 보여준다", async () => {
+    render(<CoachPrescription initial={needsCheckIn()} parentRequestId="018f47a2-3c4d-7abc-8def-000000000402"
+      locale="ko-KR" onReanalyze={vi.fn()} manualCheckIn />);
+    expect(await screen.findByRole("radio", { name: "피곤함" })).toBeInTheDocument();
+    expect(submit).not.toHaveBeenCalled();
   });
 });
