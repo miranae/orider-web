@@ -228,7 +228,8 @@ export interface CoachV2Response {
   quota: { limit: number; remaining: number; resetAt: string; consumed: boolean };
   budget: { blocked: boolean; providerCalls: number; inputTokens: number; outputTokens: number };
   retry: CoachRetryDisposition;
-  execution: { parser: "deterministic" | "provider" | "report_provider"; queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string };
+  execution: { parser: "deterministic" | "provider" | "report_provider"; queryPlanHash?: string; catalogVersion?: string;
+    factsId?: string; prescriptionId?: string; prescriptionRulesVersion?: string; asOf: string };
 }
 
 export interface CoachV2QuestionRequest {
@@ -420,7 +421,7 @@ const budget = z.object({ blocked: z.boolean(), providerCalls: z.number().int().
   outputTokens: z.number().int().nonnegative(),
 }).strict();
 const execution = z.object({ parser: z.enum(["deterministic", "provider", "report_provider"]), queryPlanHash: id.optional(), catalogVersion: id.optional(),
-  factsId: id.optional(), asOf: iso,
+  factsId: id.optional(), prescriptionId: id.optional(), prescriptionRulesVersion: id.optional(), asOf: iso,
 }).strict();
 const clarification = z.object({ clarificationId: z.string().regex(/^[A-Za-z0-9_-]{8,96}$/), promptKey: labelKey,
   options: z.array(z.object({ optionId: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/), labelKey }).strict()).min(1).max(6)
