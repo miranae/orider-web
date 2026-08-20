@@ -22,29 +22,14 @@ vi.mock("../activity/ActivitySocialFooter", () => ({
 }));
 
 describe("MobileFeedPage", () => {
-  it.each([
-    { pageDiscipline: "run" as const, expectedHref: "/ko/plan?sport=run" },
-    { pageDiscipline: "swim" as const, expectedHref: "/ko/plan?sport=swim" },
-    { pageDiscipline: undefined, expectedHref: "/ko/plan?sport=bike" },
-  ])("uses the canonical $pageDiscipline decision context, defaulting to bike, when the mobile filter is all", ({ pageDiscipline, expectedHref }) => {
-    const props = {
-      activities: [],
-      loading: false,
-      hasMore: false,
-      loadingMore: false,
-      onLoadMore: vi.fn(),
-      feedScope: "all" as const,
-      onFeedScopeChange: vi.fn(),
-      sportFilter: "all" as const,
-      pageDiscipline,
-    };
-
-    renderWithProviders(<MobileFeedPage {...props} />, {
-      authenticated: true,
-      route: "/ko/",
+  it("keeps the signed-in mobile Home focused on activity and summary content", () => {
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false}
+      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />, {
+      authenticated: true, route: "/ko/",
     });
 
-    expect(screen.getByRole("link", { name: "오늘 계획 보기" })).toHaveAttribute("href", expectedHref);
+    expect(screen.queryByText("오늘의 계획")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "오늘 계획 보기" })).not.toBeInTheDocument();
   });
 
   it("shows load more when the current filtered page is empty but more pages exist", async () => {

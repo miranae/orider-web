@@ -933,19 +933,5 @@
         "postponed": "Postponed"
       }
     }
-  },
-  "decision.checkIn.title": "Weekly check-in needed",
-  "decision.checkIn.body": "Tell us how this week feels and we can give you today's prescription and load read. Once a week, three questions.",
-  "decision.checkIn.start": "Start weekly check-in",
-  "decision.checkIn.question": "Give me my training prescription",
-  "decision.checkIn.signal.subjective_fatigue": "Perceived fatigue",
-  "decision.checkIn.signal.soreness": "Muscle soreness",
-  "decision.checkIn.signal.pain_or_illness": "Pain or illness",
-  "decision.checkIn.signal.readiness": "Readiness",
-  "decision.checkIn.signal.readiness_rhr": "Resting heart rate",
-  "decision.checkIn.signal.readiness_hrv": "Heart rate variability",
-  "decision.checkIn.signal.readiness_sleep": "Sleep duration",
-  "decision.checkIn.signal.readiness_stale": "Current recovery status",
-  "decision.confidenceGap.title": "Some recovery signals are unavailable",
-  "decision.confidenceGap.body": "You can still use the current plan and recommendation, but the prescription has low confidence without the signals below. Check how you feel as well."
+  }
 }
