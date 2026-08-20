@@ -132,6 +132,9 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     : []);
   const executableSessions = decision.effectiveSessions
     .filter((session) => session.current.workout !== "rest" && !blockedExecutionSessionIds.has(session.sessionId));
+  const showConfidenceGap = decision.prescription.status === "ready"
+    && decision.prescription.confidence === "low"
+    && decision.prescription.missingSignals.length > 0;
 
   return <Card className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
@@ -147,6 +150,14 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     {decision.fallback.active && decision.fallback.reasonCode
       && <Text as="p" variant="caption" tone="secondary" data-fallback-reason={decision.fallback.reasonCode}>
         {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}</Text>}
+    {showConfidenceGap && <Alert variant="warning" title={t("decision.confidenceGap.title")}>
+      <Text as="p">{t("decision.confidenceGap.body")}</Text>
+      <ul className="training-decision-card__confidence-signals">
+        {decision.prescription.missingSignals.map((signal) => <li key={signal}>
+          {t(`decision.checkIn.signal.${signal}`, { defaultValue: signal })}
+        </li>)}
+      </ul>
+    </Alert>}
     {surface === "fitness" ? <>
       <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
       <Text as="p" variant="caption" tone="secondary">{t("decision.sourceTuple", { classification: decision.loadAdjustment?.classification ?? decision.prescription.status, phase: decision.plan?.phase ?? "unknown" })}</Text>

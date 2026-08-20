@@ -25,7 +25,7 @@ export function trainingDecisionEnvelope(overrides: Record<string, unknown> = {}
       weeklyCheckInId: "bike_2026-08-11", weeklyCheckInRevision: 1 },
     sourceRefs: { factsId: "facts_123", prescriptionId: "rx_111111111111111111111111", snapshotRevision: "snapshot_123",
       planRevision: "plan_123", rulesVersion: "rules_123", proposalId: null, receiptAuditId: null },
-    prescription: { status: "ready", missingSignals: [], requiredSignals: [], validFrom: "2026-08-14T15:00:00.000Z", validUntil: "2099-08-15T15:00:00.000Z" },
+    prescription: { status: "ready", confidence: "high", missingSignals: [], requiredSignals: [], validFrom: "2026-08-14T15:00:00.000Z", validUntil: "2099-08-15T15:00:00.000Z" },
     healthGate: { state: "clear", reasonCodes: [], sourceFreshness: "current" }, freshness: { asOf: "2026-08-15T00:00:00.000Z",
       generatedAt: "2026-08-15T00:01:00.000Z", validUntil: "2099-08-15T15:00:00.000Z", stale: false },
     scheduledSessions: [session], recommendedAdjustments: [{ sessionId: "ss_aaaaaaaaaaaaaaaaaaaaaaaa", recommendation: { localDate: "2026-08-15",
@@ -70,6 +70,19 @@ describe("today training decision contract", () => {
     const parsed = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     expect(parsed.recommendationSource).toMatchObject({ factsId: "facts_123", planRevision: "plan_123" });
     expect(currentTrainingRecommendation(parsed)).toBe(true);
+  });
+
+  it("accepts the Hosting-first confidence transition but rejects unknown values", () => {
+    const unavailable = trainingDecisionEnvelope();
+    unavailable.data.prescription = { ...unavailable.data.prescription, status: "unavailable", confidence: null };
+    expect(parseTodayTrainingDecisionProjection(unavailable).prescription.confidence).toBeNull();
+
+    const missing = trainingDecisionEnvelope() as any;
+    delete missing.data.prescription.confidence;
+    expect(parseTodayTrainingDecisionProjection(missing).prescription.confidence).toBeUndefined();
+    expect(() => parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      prescription: { ...trainingDecisionEnvelope().data.prescription, confidence: "unknown" },
+    }))).toThrow();
   });
 
   it("rejects shadow recommendations and mismatched plan revisions", () => {
