@@ -933,19 +933,5 @@
         "postponed": "연기됨"
       }
     }
-  },
-  "decision.checkIn.title": "주간 체크인이 필요해요",
-  "decision.checkIn.body": "이번 주 컨디션을 알려주시면 오늘 처방과 부하 판정을 드릴 수 있어요. 주 1회, 세 가지만 답하면 됩니다.",
-  "decision.checkIn.start": "주간 체크인 하기",
-  "decision.checkIn.question": "훈련 처방을 알려줘",
-  "decision.checkIn.signal.subjective_fatigue": "주관적 피로도",
-  "decision.checkIn.signal.soreness": "근육통",
-  "decision.checkIn.signal.pain_or_illness": "통증 · 질병 여부",
-  "decision.checkIn.signal.readiness": "회복 준비도",
-  "decision.checkIn.signal.readiness_rhr": "안정 시 심박수",
-  "decision.checkIn.signal.readiness_hrv": "심박변이도",
-  "decision.checkIn.signal.readiness_sleep": "수면 시간",
-  "decision.checkIn.signal.readiness_stale": "최신 회복 상태",
-  "decision.confidenceGap.title": "일부 회복 신호를 확인하지 못했어요",
-  "decision.confidenceGap.body": "현재 계획과 권고는 계속 이용할 수 있지만, 아래 신호가 없어 처방 신뢰도가 낮습니다. 몸 상태를 함께 확인해 주세요."
+  }
 }

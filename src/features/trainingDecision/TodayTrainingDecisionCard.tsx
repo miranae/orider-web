@@ -1,12 +1,7 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight } from "lucide-react";
 import type { User } from "firebase/auth";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
-import { LocalizedLink } from "../../components/LocalizedLink";
-import TodayPlanLink from "../../components/training/TodayPlanLink";
-import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
-import { Alert, Button, Card, Chip, Text, buttonClass } from "../../theme/components";
+import { Alert, Button, Card, Chip, Text } from "../../theme/components";
 import {
   canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedAdjustment,
   primaryRecommendedSession, primaryScheduledSession,
@@ -17,7 +12,7 @@ import { CoachQuestionLauncher } from "../coach/CoachQuestionLauncher";
 import { TrainingExecutionPanel } from "./TrainingExecutionPanel";
 import "./training-decision.css";
 
-export type TrainingDecisionSurface = "home" | "fitness" | "plan";
+export type TrainingDecisionSurface = "fitness" | "plan";
 
 function ProposalPanel({ decision, recommendationVisible, refresh }: {
   decision: NonNullable<ReturnType<typeof useTodayTrainingDecision>["decision"]>;
@@ -60,35 +55,19 @@ function ProposalPanel({ decision, recommendationVisible, refresh }: {
   </section>;
 }
 
-export default function TodayTrainingDecisionCard({ user, discipline, surface = "home", onSignIn = () => undefined,
-  onAvailabilityChange }: { user: User | null;
-  discipline: "bike" | "run" | "swim"; surface?: TrainingDecisionSurface; onSignIn?: () => void;
-  onAvailabilityChange?: (available: boolean) => void }) {
+export default function TodayTrainingDecisionCard({ user, discipline, surface = "fitness", onSignIn = () => undefined }: {
+  user: User | null;
+  discipline: "bike" | "run" | "swim";
+  surface?: TrainingDecisionSurface;
+  onSignIn?: () => void;
+}) {
   const { t } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailableReason, refresh } = useTodayTrainingDecision(user?.uid, discipline);
-  // 판정이 **추천을 담지 않으면** 계획 화면에서는 오늘의 워크아웃 카드를 유지한다.
-  //
-  // 예전에는 "판정이 있으면 판정 카드" 였는데, 판정이 예정 세션만 되풀이하는 상태(처방 대기 등)
-  // 에서도 워크아웃 카드를 밀어냈다. 그 카드에는 시작 CTA·AI 분석·완료 후 활동 보기가 있고
-  // 판정 카드의 버튼은 추천이 있을 때만 나오므로, 사용자가 쓸 수 있는 기능이 오히려 줄었다.
-  // 판정이 실제로 더 나은 것을 줄 때만 승격한다.
-  // 단, 처리할 제안이 남아 있으면 판정 카드를 유지한다 — 워크아웃 카드로 내려가면 대기 중인
-  // 제안을 확인·거절할 방법이 사라진다(적용된 제안의 되돌리기도 마찬가지).
-  const hasOpenProposal = decision?.proposal?.status === "pending"
-    || decision?.capabilities.rollback === "available";
-  const preferWorkoutCard = surface === "plan" && (!decision || (scheduledOnly && !hasOpenProposal));
-  useEffect(() => onAvailabilityChange?.(!loading && decision !== null && !preferWorkoutCard),
-    [decision, loading, preferWorkoutCard, onAvailabilityChange]);
   if (!user) return null;
-  if (!loading && preferWorkoutCard) return <TodaysWorkoutCard />;
-  if (!decision && !loading && surface === "fitness") return null;
-  if (loading) return <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
-  // 조회 실패만 카드로 설명한다. 롤아웃 미적용(disabled)은 장애가 아니고, 계획이 없는 날은
-  // 서버가 fallback.reasonCode 를 담은 정상 응답을 주므로 여기까지 오지 않는다 — 둘 다 조용한 링크.
-  if (!decision && unavailableReason !== "error") return <div className="training-decision-fallback"
-    data-training-decision-fallback={unavailableReason ?? "empty"}>
-    <TodayPlanLink discipline={discipline} />
-  </div>;
+  if (loading) return surface === "plan" ? null
+    : <Card className="training-decision-card" aria-busy="true"><Text tone="secondary">{t("decision.loading")}</Text></Card>;
+  if (!decision && surface === "plan") return null;
+  if (!decision && unavailableReason !== "error") return null;
   if (!decision) return <Card className="training-decision-card training-decision-card--fallback"
     data-training-decision-fallback="unavailable">
     <div className="training-decision-card__header">
@@ -98,12 +77,23 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     <Text as="p" tone="secondary">{t("decision.fallback.unavailableBody")}</Text>
     <footer className="training-decision-card__actions">
       <Button size="sm" variant="outline" onClick={() => refresh()}>{t("decision.refresh")}</Button>
-      <TodayPlanLink discipline={discipline} />
     </footer>
   </Card>;
 
-  const scheduled = primaryScheduledSession(decision);
   const recommendationVisible = decision.healthGate.state === "clear" && canShowRecommendation(decision);
+  const hasPlanAdjustment = (recommendationVisible && decision.recommendedAdjustments.length > 0)
+    || decision.proposal !== null || decision.receipt !== null;
+  if (surface === "plan") {
+    if (!hasPlanAdjustment) return null;
+    return <Card className="training-decision-card training-decision-card--plan"
+      data-decision-id={decision.projectionId}
+      data-facts-id={decision.recommendationSource?.factsId ?? ""}
+      data-plan-revision={decision.planSource?.planRevision ?? ""}>
+      <ProposalPanel decision={decision} recommendationVisible={recommendationVisible} refresh={refresh} />
+    </Card>;
+  }
+
+  const scheduled = primaryScheduledSession(decision);
   const recommendedAdjustment = recommendationVisible ? primaryRecommendedAdjustment(decision) : null;
   const recommended = recommendedAdjustment ? primaryRecommendedSession(decision) : null;
   const effective = primaryEffectiveSession(decision);
@@ -111,7 +101,6 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   const applied = decision.receipt?.status === "applied";
   const recommendationPending = Boolean(recommendedAdjustment && !applied);
   const displayScheduledOnly = !applied && !recommendationPending;
-  const homeSessionLayout = recommendationPending ? "comparison" : "single";
   const statusKey = applied ? "applied"
     : recommendationPending ? "recommendationPending" : displayScheduledOnly || scheduledOnly || !action ? "scheduledOnly" : action;
   const extraCount = Math.max(0, decision.scheduledSessions.length - 1);
@@ -132,9 +121,6 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     : []);
   const executableSessions = decision.effectiveSessions
     .filter((session) => session.current.workout !== "rest" && !blockedExecutionSessionIds.has(session.sessionId));
-  const showConfidenceGap = decision.prescription.status === "ready"
-    && decision.prescription.confidence === "low"
-    && decision.prescription.missingSignals.length > 0;
 
   return <Card className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
@@ -150,30 +136,7 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     {decision.fallback.active && decision.fallback.reasonCode
       && <Text as="p" variant="caption" tone="secondary" data-fallback-reason={decision.fallback.reasonCode}>
         {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}</Text>}
-    {showConfidenceGap && <Alert variant="warning" title={t("decision.confidenceGap.title")}>
-      <Text as="p">{t("decision.confidenceGap.body")}</Text>
-      <ul className="training-decision-card__confidence-signals">
-        {decision.prescription.missingSignals.map((signal) => <li key={signal}>
-          {t(`decision.checkIn.signal.${signal}`, { defaultValue: signal })}
-        </li>)}
-      </ul>
-    </Alert>}
-    {surface === "fitness" ? <>
-      <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
-      <Text as="p" variant="caption" tone="secondary">{t("decision.sourceTuple", { classification: decision.loadAdjustment?.classification ?? decision.prescription.status, phase: decision.plan?.phase ?? "unknown" })}</Text>
-    </> : surface === "home" ? <div data-session-layout={homeSessionLayout}
-      className={`training-decision-card__sessions training-decision-card__sessions--compact training-decision-card__sessions--${homeSessionLayout}`}>
-      <TrainingDecisionSessionView label={t(applied ? "decision.effective" : "decision.effectiveScheduled")} session={effective} tone="effective" />
-      {recommendationPending && <TrainingDecisionSessionView label={t("decision.recommendedPending")} session={recommended} tone="recommended" />}
-      {recommendationPending && !recommended && <div className="training-decision-session training-decision-session--recommended" data-session-role="recommended">
-        <Text as="span" variant="caption" tone="secondary">{t("decision.recommendedPending")}</Text>
-        <Text as="strong" variant="subtitle">{t(`decision.status.${action}`)}</Text>
-      </div>}
-      {deltaTarget && scheduled && <Text className="training-decision-card__delta" as="p" variant="caption" tone="secondary">
-        {tssDelta === null ? t("decision.deltaDurationOnly", { duration: signed(durationDelta) })
-          : t("decision.delta", { duration: signed(durationDelta), tss: signed(tssDelta) })}
-      </Text>}
-    </div> : <div className="training-decision-card__sessions">
+    <div className="training-decision-card__sessions">
       <TrainingDecisionSessionView label={t("decision.scheduled")} session={scheduled} />
       {recommended && <TrainingDecisionSessionView label={t("decision.recommended")} session={recommended} tone="recommended" />}
       {recommendationPending && !recommended && <div className="training-decision-session training-decision-session--recommended" data-session-role="recommended">
@@ -182,38 +145,23 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
       </div>}
       <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
       {extraCount > 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.extraSessions", { count: extraCount })}</Text>}
-    </div>}
+    </div>
+    {deltaTarget && scheduled && <Text className="training-decision-card__delta" as="p" variant="caption" tone="secondary">
+      {tssDelta === null ? t("decision.deltaDurationOnly", { duration: signed(durationDelta) })
+        : t("decision.delta", { duration: signed(durationDelta), tss: signed(tssDelta) })}
+    </Text>}
+    <Text as="p" variant="caption" tone="secondary">{t("decision.sourceTuple", { classification: decision.loadAdjustment?.classification ?? decision.prescription.status, phase: decision.plan?.phase ?? "unknown" })}</Text>
     {reasonCodes.length > 0 && <section className="training-decision-card__reasons" aria-label={t("decision.reasonTitle")}>
       <Text as="span" variant="caption" tone="secondary">{t("decision.reasonTitle")}</Text>
       <div>{reasonCodes.map((code) => <Chip key={code} variant="default">
         {t(`decision.reason.${code}`, { defaultValue: t("decision.reasonFallback") })}
       </Chip>)}</div>
     </section>}
-    {surface === "home" && <TrainingExecutionPanel decision={decision}
-      sessions={executableSessions} onChanged={refresh} />}
-    {decision.prescription.status === "needs_checkin" && decision.capabilities.checkIn === "available"
-      && <section className="training-decision-card__checkin" aria-labelledby="training-decision-checkin-title">
-        <Text id="training-decision-checkin-title" as="h3" variant="subtitle">{t("decision.checkIn.title")}</Text>
-        <Text as="p" tone="secondary">{t("decision.checkIn.body")}</Text>
-        {decision.prescription.missingSignals.length > 0 && <ul className="training-decision-card__checkin-signals">
-          {decision.prescription.missingSignals.map((signal) => <li key={signal}>
-            {t(`decision.checkIn.signal.${signal}`, { defaultValue: signal })}
-          </li>)}
-        </ul>}
-        <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
-          triggerBlock={false} triggerLabel={t("decision.checkIn.start")}
-          presetQuestion={t("decision.checkIn.question")} presetIntent="check_in" />
-      </section>}
-    {(surface === "home" || surface === "fitness") && <footer className="training-decision-card__actions">
-      {surface === "home" && <LocalizedLink to={{ pathname: "/plan", search: `?sport=${discipline}` }} className={buttonClass({ variant: "outline", size: "sm" })}>
-        {t("decision.viewPlan")}<ChevronRight size={16} aria-hidden />
-      </LocalizedLink>}
-      {surface === "fitness" && decision.capabilities.explain === "available" && decision.recommendationSource && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
+    <TrainingExecutionPanel decision={decision} sessions={executableSessions} onChanged={refresh} />
+    <footer className="training-decision-card__actions">
+      {decision.capabilities.explain === "available" && decision.recommendationSource && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
         triggerBlock={false} triggerLabel={t("decision.askCoach")} progressPlannerSelection={{ question: t("decision.coachQuestion"),
           context: { prescriptionId: decision.recommendationSource.prescriptionId, sourceRequestId: decision.recommendationSource.sourceRequestId } }} />}
-    </footer>}
-    {surface === "plan" && ((recommendationVisible && decision.recommendedAdjustments.length > 0)
-      || decision.proposal !== null || decision.receipt !== null)
-      && <ProposalPanel decision={decision} recommendationVisible={recommendationVisible} refresh={refresh} />}
+    </footer>
   </Card>;
 }

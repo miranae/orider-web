@@ -27,13 +27,13 @@ describe("mobile fitness action", () => {
     expect(overview).toContain("<BikePerformanceSummaryCard");
   });
 
-  it("mounts the authoritative decision card on mobile home and plan without restoring the legacy workout", () => {
+  it("keeps mobile Home activity-focused and limits Plan to adjustment review", () => {
     const mobileHome = read("src/components/mobile/MobileFeedPage.tsx");
     const plan = read("src/pages/PlanPage.tsx");
 
-    expect(mobileHome).toContain("<TodayTrainingDecisionCard");
+    expect(mobileHome).not.toContain("TodayTrainingDecisionCard");
     expect(mobileHome).not.toContain("TodaysWorkoutCard");
-    expect(plan).toContain('<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" onAvailabilityChange={setTodayDecisionAvailable} />');
+    expect(plan).toContain('<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />');
     expect(plan).not.toContain("TodaysWorkoutCard");
   });
 

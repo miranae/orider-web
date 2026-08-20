@@ -525,6 +525,9 @@ export default function FitnessPage() {
   if (isMobile && error) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
+        {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
+        </div>}
         <ErrorState title={t("error.dataFailed")} description={error} />
       </div>
     );
@@ -867,7 +870,12 @@ export default function FitnessPage() {
     return (
       <div>
         {pageHeader}
-        <div className="site-shell" style={bodyPad}><ErrorState title={t("error.dataFailed")} description={error} /></div>
+        <div className="site-shell" style={bodyPad}>
+          {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
+            <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
+          </div>}
+          <ErrorState title={t("error.dataFailed")} description={error} />
+        </div>
       </div>
     );
   }
