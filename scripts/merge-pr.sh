@@ -358,16 +358,23 @@ fi
 # 안전한 이유: 판정을 "이 PR" 이 아니라 "이 정확한 head SHA" 에 묶고, 머지 직전에 head
 # 불변성을 다시 확인하기 때문이다(커밋이 바뀌면 그 지점에서 중단된다).
 # CI 가 아직 안 끝났거나 실패했으면 예전처럼 로컬에서 돌려 빨리 실패한다.
+# 이름이 "check" 인 성공 체크를 찾는 방식은 취약하다. 다른 앱이나 다른 워크플로가 만든
+# 동명 체크로 로컬 게이트 전체를 생략시킬 수 있다. 그래서 이름이 아니라 워크플로 신원으로
+# 조회한다 — ci.yml 의 실행만 보고, 그 실행이 정확히 이 head SHA 에서 성공했는지 본다.
+# 워크플로 실행이 성공이면 그 안의 check 잡도 성공이다.
 ci_check_conclusion_for_head() {
-  gh api "repos/{owner}/{repo}/commits/${HEAD_OID}/check-runs" \
-    --jq '[.check_runs[] | select(.name == "check")] | if length == 0 then "absent"
-          elif any(.status != "completed") then "pending"
-          elif all(.conclusion == "success") then "success"
-          else "failure" end' 2>/dev/null || echo "absent"
+  gh api "repos/{owner}/{repo}/actions/workflows/ci.yml/runs?head_sha=${HEAD_OID}&per_page=100" \
+    --jq '[.workflow_runs[]
+           | select(.head_sha == $ENV.HEAD_OID and .path == ".github/workflows/ci.yml")]
+          | if length == 0 then "absent"
+            elif any(.status != "completed") then "pending"
+            elif any(.conclusion == "success") then "success"
+            else "failure" end' 2>/dev/null || echo "absent"
 }
 
 SKIP_REDUNDANT_LOCAL_GATE=0
 if [[ "$GATE_TIER" == "full" && "$WAIT_CHECKS" == 1 ]]; then
+  export HEAD_OID
   case "$(ci_check_conclusion_for_head)" in
     success) SKIP_REDUNDANT_LOCAL_GATE=1 ;;
     failure) die "GitHub CI check 가 head ${HEAD_OID:0:12} 에서 실패했습니다. 수정 후 재실행하세요." ;;
