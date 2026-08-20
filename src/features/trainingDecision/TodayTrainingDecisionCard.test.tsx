@@ -99,6 +99,53 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.queryByText("주간 체크인이 필요해요")).not.toBeInTheDocument();
   });
 
+  it.each(["home", "fitness", "plan"] as const)(
+    "shows a low-confidence readiness warning before sessions on the %s surface without removing actions",
+    (surface) => {
+      const base = trainingDecisionEnvelope();
+      const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        prescription: { ...base.data.prescription, confidence: "low",
+          missingSignals: ["readiness", "readiness_rhr", "readiness_hrv", "readiness_sleep", "readiness_stale"] },
+      }));
+      mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+      mocks.proposal = { ...mocks.proposal, state: "idle" };
+      const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike"
+        surface={surface} /></MemoryRouter>);
+
+      const warning = screen.getByText("일부 회복 신호를 확인하지 못했어요").closest(".ds-alert");
+      const firstSession = container.querySelector("[data-session-role]");
+      expect(warning).not.toBeNull();
+      expect(firstSession).not.toBeNull();
+      expect(warning!.compareDocumentPosition(firstSession!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+      expect(screen.getByText("회복 준비도")).toBeInTheDocument();
+      expect(screen.getByText("안정 시 심박수")).toBeInTheDocument();
+      expect(screen.getByText("심박변이도")).toBeInTheDocument();
+      expect(screen.getByText("수면 시간")).toBeInTheDocument();
+      expect(screen.getByText("최신 회복 상태")).toBeInTheDocument();
+
+      if (surface === "home") expect(mocks.execution).toHaveBeenCalled();
+      if (surface === "fitness") expect(mocks.coach).toHaveBeenCalled();
+      if (surface === "plan") expect(screen.getByRole("button", { name: "변경안 만들기" })).toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    ["high", ["readiness"], "ready"],
+    ["medium", ["readiness"], "ready"],
+    ["low", [], "ready"],
+    ["low", ["readiness"], "needs_checkin"],
+  ] as const)("does not show the confidence warning for confidence=%s, gaps=%s, status=%s",
+    (confidence, missingSignals, status) => {
+      const base = trainingDecisionEnvelope();
+      const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        prescription: { ...base.data.prescription, confidence, missingSignals: [...missingSignals], status },
+      }));
+      mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+      render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+      expect(screen.queryByText("일부 회복 신호를 확인하지 못했어요")).not.toBeInTheDocument();
+    });
+
   it("separates the scheduled and recommended sessions from one projection", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
