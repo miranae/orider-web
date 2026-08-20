@@ -15,6 +15,8 @@
 # Options:
 #   --no-merge                Run gates only.
 #   --no-review               Skip local AI code review.
+#   --blockers-only           Review only merge-blocking defects (default).
+#   --all-findings            Review BLOCKER, MAJOR, and MINOR findings.
 #   --no-visual-check         Skip the sticky/fixed screenshot-evidence gate.
 #   --require-github-review   Require GitHub reviewDecision=APPROVED before merge.
 #   --skip-build              Skip `npm run build`.
@@ -32,6 +34,7 @@ set -euo pipefail
 
 DO_MERGE=1
 RUN_REVIEW=1
+REVIEW_BLOCKERS_ONLY=1
 REQUIRE_VISUAL_CHECK=1
 REQUIRE_GITHUB_REVIEW=0
 DO_BUILD=1
@@ -44,6 +47,8 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-merge) DO_MERGE=0 ;;
     --no-review) RUN_REVIEW=0 ;;
+    --blockers-only) REVIEW_BLOCKERS_ONLY=1 ;;
+    --all-findings) REVIEW_BLOCKERS_ONLY=0 ;;
     --no-visual-check) REQUIRE_VISUAL_CHECK=0 ;;
     --require-github-review) REQUIRE_GITHUB_REVIEW=1 ;;
     --skip-build) DO_BUILD=0 ;;
@@ -387,6 +392,7 @@ echo "  base=$BASE head=$HEADREF branch=$BRANCH"
 echo "  headSha=${HEAD_OID:0:12}"
 echo "  reviewDecision=${REVIEW_DECISION:-<none>} mergeState=${MERGE_STATE:-<unknown>}"
 echo "  gate_tier=$GATE_TIER code_changes=$code_changes review_mode=$review_mode"
+echo "  review_scope=$([[ "$REVIEW_BLOCKERS_ONLY" == 1 ]] && echo blockers-only || echo all-findings)"
 if [[ "$SKIP_REDUNDANT_LOCAL_GATE" == 1 ]]; then
   echo "  ci_check=success@${HEAD_OID:0:12} — 로컬 풀 게이트의 중복 항목을 생략합니다"
 fi
@@ -409,6 +415,10 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
 - findings: 발견 목록 문자열. 각 항목은 BLOCKER / MAJOR / MINOR 중 하나로 시작하고 file:line을 포함한다. 없으면 '결함 없음'.
 - verdict: 중대한 결함이 있으면 BLOCK, 없으면 PASS.
 다른 키, Markdown 코드 펜스, JSON 앞뒤의 설명은 출력하지 말라."
+
+  if [[ "$REVIEW_BLOCKERS_ONLY" == 1 ]]; then
+    REVIEW_PROMPT+=$'\n\n--blockers-only 기준으로 리뷰하라. 직접적인 보안 침해, 서비스 가용성 상실, 파괴적 데이터 손실, 또는 핵심 기능의 명백한 정확성 실패처럼 이 PR의 병합을 중단해야 하는 결함만 BLOCKER로 보고하라. MAJOR/MINOR나 제품 선택, 개선 제안, 방어적 보강은 findings에서 생략하라. BLOCKER가 하나 이상일 때만 verdict를 BLOCK으로 하고, 없으면 findings를 결함 없음으로, verdict를 PASS로 출력하라.'
+  fi
 
   review_effort="medium"
   if [[ "$review_mode" == "fast" ]]; then
