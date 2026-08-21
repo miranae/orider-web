@@ -61,7 +61,7 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
   surface?: TrainingDecisionSurface;
   onSignIn?: () => void;
 }) {
-  const { t } = useTranslation("training");
+  const { t, i18n } = useTranslation("training");
   const { decision, loading, scheduledOnly, unavailableReason, refresh } = useTodayTrainingDecision(user?.uid, discipline);
   if (!user) return null;
   if (loading) return surface === "plan" ? null
@@ -105,10 +105,20 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     : recommendationPending ? "recommendationPending" : displayScheduledOnly || scheduledOnly || !action ? "scheduledOnly" : action;
   const extraCount = Math.max(0, decision.scheduledSessions.length - 1);
   const tupleId = decision.projectionId;
-  const reasonCodes = recommendedAdjustment
-    ? [...new Set((decision.loadAdjustment?.reasonCodes.length
+  // 조정이 없는 날에도 "왜 오늘 이것인지"는 말해야 한다 — 근거 0개면 처방이 맥락 없이 튀어나온
+  // 것처럼 읽힌다(2026-08-21 사용자 지적). 조정이 없으면 부하 판정의 근거를 그대로 쓴다.
+  const reasonCodes = [...new Set((recommendedAdjustment
+    ? (decision.loadAdjustment?.reasonCodes.length
       ? decision.loadAdjustment.reasonCodes
-      : recommendedAdjustment?.recommendation.reasonCodes) ?? [])].slice(0, 2)
+      : recommendedAdjustment.recommendation.reasonCodes)
+    : decision.loadAdjustment?.reasonCodes) ?? [])].slice(0, 2);
+  // 신뢰도가 낮은 이유를 함께 보여준다. 서버가 무엇을 못 봤는지 내려주지 않으면(구 배포) 아무것도
+  // 표시하지 않는다 — 이유 없는 "확신 낮음" 은 사용자가 할 수 있는 게 없다.
+  // 문구가 없는 코드는 화면에 raw 문자열로 찍히므로 표시하지 않는다 — 서버가 새 코드를 내보내면
+  // 카피와 함께 추가한다(trainingDecisionReasonCopy.test.ts 가 누락을 막는다).
+  const lowConfidenceSignals = decision.prescription.confidence === "low"
+    ? decision.prescription.missingSignals
+      .filter((signal) => i18n.exists(`training:decision.confidence.signal.${signal}`)).slice(0, 4)
     : [];
   const deltaTarget = applied ? effective : recommended;
   const durationDelta = deltaTarget && scheduled ? deltaTarget.current.durationMin - scheduled.current.durationMin : 0;
@@ -151,12 +161,22 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
         : t("decision.delta", { duration: signed(durationDelta), tss: signed(tssDelta) })}
     </Text>}
     <Text as="p" variant="caption" tone="secondary">{t("decision.sourceTuple", { classification: decision.loadAdjustment?.classification ?? decision.prescription.status, phase: decision.plan?.phase ?? "unknown" })}</Text>
-    {reasonCodes.length > 0 && <section className="training-decision-card__reasons" aria-label={t("decision.reasonTitle")}>
-      <Text as="span" variant="caption" tone="secondary">{t("decision.reasonTitle")}</Text>
+    {reasonCodes.length > 0 && <section className="training-decision-card__reasons"
+      aria-label={t(recommendedAdjustment ? "decision.reasonTitle" : "decision.reasonTitlePlain")}>
+      <Text as="span" variant="caption" tone="secondary">
+        {t(recommendedAdjustment ? "decision.reasonTitle" : "decision.reasonTitlePlain")}</Text>
       <div>{reasonCodes.map((code) => <Chip key={code} variant="default">
         {t(`decision.reason.${code}`, { defaultValue: t("decision.reasonFallback") })}
       </Chip>)}</div>
     </section>}
+    {lowConfidenceSignals.length > 0 && <Alert variant="warning" title={t("decision.confidence.lowTitle")}
+      data-confidence="low">
+      <Text as="p">{t("decision.confidence.lowBody")}</Text>
+      <ul className="training-decision-card__confidence-signals">
+        {lowConfidenceSignals.map((signal) => <li key={signal}>
+          {t(`decision.confidence.signal.${signal}`)}</li>)}
+      </ul>
+    </Alert>}
     <TrainingExecutionPanel decision={decision} sessions={executableSessions} onChanged={refresh} />
     <footer className="training-decision-card__actions">
       {decision.capabilities.explain === "available" && decision.recommendationSource && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
