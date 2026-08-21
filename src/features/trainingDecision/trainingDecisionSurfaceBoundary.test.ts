@@ -1,5 +1,7 @@
 import { createElement } from "react";
 import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
@@ -27,8 +29,8 @@ describe("training decision surface boundary", () => {
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
   });
 
-  it("renders the identical authoritative tuple across Home, Fitness, and Plan surfaces", () => {
-    for (const surface of ["home", "fitness", "plan"] as const) {
+  it("keeps the identical authoritative tuple on Fitness and Plan adjustment surfaces", () => {
+    for (const surface of ["fitness", "plan"] as const) {
       const card = renderSurface(surface);
       expect(card).toHaveAttribute("data-decision-id", "today_cccccccccccccccccccccccc");
       expect(card).toHaveAttribute("data-facts-id", "facts_123");
@@ -36,8 +38,8 @@ describe("training decision surface boundary", () => {
     }
   });
 
-  it("keeps the visible scheduled and recommended labels separated without local readiness copy", () => {
-    renderSurface("plan");
+  it("keeps the visible scheduled and recommended labels on Fitness without local readiness copy", () => {
+    renderSurface("fitness");
     expect(screen.getByText("원래 계획")).toBeVisible();
     expect(screen.getByText("조정 권고")).toBeVisible();
     expect(screen.getByText("현재 실행안")).toBeVisible();
@@ -45,19 +47,22 @@ describe("training decision surface boundary", () => {
   });
 
   it("forbids cross-surface actions in the DOM", () => {
-    const home = renderSurface("home")!;
-    expect(home.querySelector("button")?.textContent).toBe("Execution");
-    expect(home).not.toHaveTextContent("Coach");
-    expect(home).not.toHaveTextContent("계획 변경 검토");
-
     const fitness = renderSurface("fitness")!;
     expect(fitness).toHaveTextContent("Coach");
-    expect(fitness).not.toHaveTextContent("Execution");
+    expect(fitness).toHaveTextContent("Execution");
+    expect(fitness).not.toHaveTextContent("계획 변경 검토");
     expect(fitness.querySelector("a")).toBeNull();
 
     const plan = renderSurface("plan")!;
+    expect(plan).toHaveTextContent("계획 변경 검토");
     expect(plan).not.toHaveTextContent("Coach");
     expect(plan).not.toHaveTextContent("Execution");
     expect(plan.querySelector("a")).toBeNull();
+  });
+
+  it("keeps proposal review mounted when the Plan calendar fails", () => {
+    const source = readFileSync(join(process.cwd(), "src/pages/PlanPage.tsx"), "utf8");
+    const errorBranch = source.slice(source.indexOf("if (!loading && loadError)"), source.indexOf("if (!loading && !goal)"));
+    expect(errorBranch).toContain('<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />');
   });
 });

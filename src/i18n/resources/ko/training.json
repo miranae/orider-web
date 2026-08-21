@@ -816,7 +816,7 @@
     },
     "extraSessions": "오늘 예정된 세션이 {{count}}개 더 있어요. 계획에서 각각 확인하세요.",
     "reasonTitle": "조정 근거",
-    "reasonFallback": "현재 부하와 회복 신호 반영",
+    "reasonFallback": "최근 훈련 부하를 기준으로 판단했어요",
     "reason": {
       "classification_high_load": "최근 부하가 높은 상태예요",
       "high_load": "최근 부하가 높은 상태예요",
@@ -825,7 +825,11 @@
       "high_load_plan_reduction": "주간 부하를 안전 범위로 낮춰요",
       "form_gate_before_intensity": "강도 운동 전 폼 확인이 필요해요",
       "readiness_recheck_required": "최신 회복 상태를 다시 확인해야 해요",
-      "threshold_stale": "기준 파워를 최신 상태로 확인해야 해요"
+      "threshold_stale": "기준 파워를 최신 상태로 확인해야 해요",
+      "load_supports_plan": "최근 훈련 부하가 계획대로 진행해도 되는 상태예요",
+      "no_planned_workout": "이 날은 계획에 세션이 없어요",
+      "follow_planned_rest": "계획된 휴식일이에요",
+      "availability_day_cap": "이 날 가능한 시간에 맞춰 줄였어요"
     },
     "viewPlan": "계획에서 보기",
     "viewCalendar": "계획표 보기",
@@ -932,20 +936,18 @@
         "skipped": "건너뜀",
         "postponed": "연기됨"
       }
-    }
-  },
-  "decision.checkIn.title": "주간 체크인이 필요해요",
-  "decision.checkIn.body": "이번 주 컨디션을 알려주시면 오늘 처방과 부하 판정을 드릴 수 있어요. 주 1회, 세 가지만 답하면 됩니다.",
-  "decision.checkIn.start": "주간 체크인 하기",
-  "decision.checkIn.question": "훈련 처방을 알려줘",
-  "decision.checkIn.signal.subjective_fatigue": "주관적 피로도",
-  "decision.checkIn.signal.soreness": "근육통",
-  "decision.checkIn.signal.pain_or_illness": "통증 · 질병 여부",
-  "decision.checkIn.signal.readiness": "회복 준비도",
-  "decision.checkIn.signal.readiness_rhr": "안정 시 심박수",
-  "decision.checkIn.signal.readiness_hrv": "심박변이도",
-  "decision.checkIn.signal.readiness_sleep": "수면 시간",
-  "decision.checkIn.signal.readiness_stale": "최신 회복 상태",
-  "decision.confidenceGap.title": "일부 회복 신호를 확인하지 못했어요",
-  "decision.confidenceGap.body": "현재 계획과 권고는 계속 이용할 수 있지만, 아래 신호가 없어 처방 신뢰도가 낮습니다. 몸 상태를 함께 확인해 주세요."
+    },
+    "confidence": {
+      "lowTitle": "확인하지 못한 정보가 있어요",
+      "lowBody": "아래 항목을 확인하지 못해 오늘 판단의 확신이 낮습니다. 참고용으로만 보세요.",
+      "signal": {
+        "load_history_short": "훈련 이력이 아직 짧아요",
+        "load_history_gaps": "훈련 이력에 빈 구간이 있어요",
+        "load_data_stale": "부하 데이터가 최신이 아니에요",
+        "load_data_unavailable": "부하 데이터를 불러오지 못했어요",
+        "current_week_activities_missing": "이번 주 기록이 아직 없어요"
+      }
+    },
+    "reasonTitlePlain": "판단 근거"
+  }
 }

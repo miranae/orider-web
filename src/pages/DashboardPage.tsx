@@ -41,7 +41,6 @@ import type { FitnessProjection } from "@shared/types/goal";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import AppInstallLinks from "../components/AppInstallLinks";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
-import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Text } from "../theme/components";
 import type { Activity } from "@shared/types";
@@ -135,11 +134,6 @@ export function normalizeDashboardDiscipline(value: string | null): Discipline |
 export function dashboardPlanDiscipline(value: string | null): Exclude<Discipline, "tri"> | undefined {
   const discipline = normalizeDashboardDiscipline(value);
   return discipline && discipline !== "tri" ? discipline : undefined;
-}
-
-export function dashboardDecisionDiscipline(value: string | null,
-  primary: Discipline | null | undefined): Exclude<Discipline, "tri"> {
-  return dashboardPlanDiscipline(value) ?? (primary && primary !== "tri" ? primary : "bike");
 }
 
 export function filterFeedActivities(
@@ -284,7 +278,6 @@ export default function DashboardPage() {
   const [searchParams] = useSearchParams();
   const sportParam = searchParams.get("sport");
   const requestedDiscipline = normalizeDashboardDiscipline(sportParam);
-  const planDiscipline = dashboardDecisionDiscipline(sportParam, profile?.primaryDiscipline);
   const discipline: Discipline = requestedDiscipline ?? "bike";
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
@@ -558,7 +551,6 @@ export default function DashboardPage() {
         onFeedScopeChange={(scope) => updateDashboardPreferences({ feedScope: scope })}
         sportFilter={dashboardPreferences.sportFilter}
         onSportFilterChange={(sportFilter) => updateDashboardPreferences({ sportFilter })}
-        pageDiscipline={planDiscipline}
         datePreset={dashboardPreferences.datePreset}
         onDatePresetChange={(datePreset) => updateDashboardPreferences({ datePreset })}
       />
@@ -604,12 +596,6 @@ export default function DashboardPage() {
             <RunEmptyState stravaConnected={!!profile?.stravaConnected} />
           </div>
         )}
-        {user && (
-          <div style={{ marginTop: 'var(--space-5)' }}>
-            <TodayTrainingDecisionCard user={user} discipline={planDiscipline} surface="home" onSignIn={signInWithGoogle} />
-          </div>
-        )}
-
         {/* 지난주 리캡 — 주 초반(월~수)에만. 변화가 헤드라인이다 (§3.4c) */}
         {isRunTab && showRecap && runRecap && !hasNoRuns && (
           <div style={{ marginTop: 'var(--space-5)' }}>
