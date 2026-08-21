@@ -816,7 +816,7 @@
     },
     "extraSessions": "There are {{count}} more sessions today. Review each one in Plan.",
     "reasonTitle": "Why this changed",
-    "reasonFallback": "Reflects current load and recovery signals",
+    "reasonFallback": "Based on recent training load",
     "reason": {
       "classification_high_load": "Your recent training load is high",
       "high_load": "Your recent training load is high",
@@ -825,7 +825,11 @@
       "high_load_plan_reduction": "Weekly load is reduced toward a safer range",
       "form_gate_before_intensity": "Check form before another hard session",
       "readiness_recheck_required": "Current recovery signals need another check",
-      "threshold_stale": "Your threshold needs a current check"
+      "threshold_stale": "Your threshold needs a current check",
+      "load_supports_plan": "Recent training load supports following the plan",
+      "no_planned_workout": "No session is planned for this day",
+      "follow_planned_rest": "This is a planned rest day",
+      "availability_day_cap": "Trimmed to the time available on this day"
     },
     "viewPlan": "View in Plan",
     "viewCalendar": "View plan calendar",
@@ -932,6 +936,18 @@
         "skipped": "Skipped",
         "postponed": "Postponed"
       }
-    }
+    },
+    "confidence": {
+      "lowTitle": "Some inputs are missing",
+      "lowBody": "We could not confirm the items below, so today's call is low confidence. Treat it as a reference.",
+      "signal": {
+        "load_history_short": "Training history is still short",
+        "load_history_gaps": "Training history has gaps",
+        "load_data_stale": "Load data is not up to date",
+        "load_data_unavailable": "Load data could not be loaded",
+        "current_week_activities_missing": "No activities recorded this week"
+      }
+    },
+    "reasonTitlePlain": "Why this call"
   }
 }

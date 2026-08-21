@@ -91,6 +91,32 @@ describe("TodayTrainingDecisionCard", () => {
       expect(mocks.execution).toHaveBeenCalled();
   });
 
+  it("discloses why confidence is low with copy the user can act on", () => {
+    const base = trainingDecisionEnvelope();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      prescription: { ...base.data.prescription, confidence: "low",
+        missingSignals: ["load_history_short", "current_week_activities_missing"] },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+    expect(screen.getByText("확인하지 못한 정보가 있어요")).toBeInTheDocument();
+    expect(screen.getByText("훈련 이력이 아직 짧아요")).toBeInTheDocument();
+    expect(screen.getByText("이번 주 기록이 아직 없어요")).toBeInTheDocument();
+  });
+
+  it("hides signals that have no user copy instead of printing raw codes", () => {
+    const base = trainingDecisionEnvelope();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      prescription: { ...base.data.prescription, confidence: "low", missingSignals: ["readiness_hrv"] },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+    expect(screen.queryByText("확인하지 못한 정보가 있어요")).not.toBeInTheDocument();
+    expect(screen.queryByText("readiness_hrv")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["high", ["readiness"], "ready"],
     ["medium", ["readiness"], "ready"],
