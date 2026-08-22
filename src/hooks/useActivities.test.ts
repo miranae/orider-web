@@ -109,6 +109,120 @@ describe("useActivities", () => {
     logSpy.mockRestore();
   });
 
+  it("does not retry a fatal feed request after this session already attempted recovery", async () => {
+    const assertion = new Error("INTERNAL ASSERTION FAILED: Unexpected state (ID: b815)");
+    window.sessionStorage.setItem(FIRESTORE_B815_RECOVERY_SESSION_KEY, "1");
+    vi.mocked(getDocs).mockRejectedValueOnce(assertion);
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useActivities(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(getDocs).toHaveBeenCalledTimes(1);
+    expect(result.current.activities).toEqual([]);
+    expect(result.current.hasMore).toBe(false);
+    expect(firestoreRecoveryMocks.execute).not.toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith(
+      "useActivities.initialLoad.first",
+      assertion,
+      expect.objectContaining({
+        firestoreRecoveryKind: "b815",
+        firestoreRecoveryAction: "already-attempted",
+      }),
+    );
+    logSpy.mockRestore();
+  });
+
+  it("settles the guest feed without waiting for the signed-in request after logout", async () => {
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockReset();
+    let rejectSignedIn!: (reason: unknown) => void;
+    const signedInRequest = new Promise((_resolve, reject) => { rejectSignedIn = reject; });
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    const snapshot = (id: string) => ({
+      docs: [{
+        id,
+        data: () => createMockActivity({
+          id,
+          profileImage: "https://example.com/avatar.jpg",
+        }),
+        exists: () => true,
+        ref: { path: `activities/${id}` },
+      }],
+      size: 1,
+      empty: false,
+    });
+    mockedGetDocs
+      .mockImplementationOnce(() => signedInRequest as never)
+      .mockResolvedValueOnce(snapshot("guest-public") as never);
+
+    try {
+      simulateLogin({ uid: "owner-1" });
+      const { result } = renderHook(() => useActivities(), { wrapper });
+      await waitFor(() => expect(mockedGetDocs).toHaveBeenCalledTimes(1));
+      expect(result.current.loading).toBe(true);
+
+      act(() => { simulateLogout(); });
+
+      await waitFor(() => expect(mockedGetDocs).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.activities.map((activity) => activity.id)).toEqual(["guest-public"]);
+      expect(result.current.hasMore).toBe(false);
+
+      const stalePermissionError = Object.assign(
+        new Error("Missing or insufficient permissions."),
+        { code: "permission-denied" },
+      );
+      await act(async () => { rejectSignedIn(stalePermissionError); });
+      expect(result.current.activities.map((activity) => activity.id)).toEqual(["guest-public"]);
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("useActivities.initialLoad"),
+        stalePermissionError,
+        expect.anything(),
+      );
+      expect(firestoreRecoveryMocks.execute).not.toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
+  });
+
+  it("leaves the loading state when the current guest Firestore request never settles", async () => {
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockReset();
+    mockedGetDocs.mockImplementation(() => new Promise(() => {}) as never);
+    const logSpy = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    vi.useFakeTimers();
+
+    try {
+      const { result } = renderHook(() => useActivities(), { wrapper });
+      await act(async () => { await Promise.resolve(); });
+      expect(mockedGetDocs).toHaveBeenCalledTimes(1);
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(12_000); });
+
+      expect(result.current.loading).toBe(false);
+      expect(result.current.activities).toEqual([]);
+      expect(result.current.hasMore).toBe(false);
+      expect(mockedGetDocs).toHaveBeenCalledTimes(1);
+      expect(firestoreRecoveryMocks.execute).not.toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(
+        "useActivities.initialLoad.timeout",
+        expect.objectContaining({ message: "activity-feed-timeout" }),
+        expect.objectContaining({ context: "first", scope: "all", timeoutMs: 12_000 }),
+      );
+    } finally {
+      vi.useRealTimers();
+      logSpy.mockRestore();
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
+  });
+
   it("returns empty activities initially for guest", async () => {
     const { result } = renderHook(() => useActivities(), { wrapper });
     await waitFor(() => {
