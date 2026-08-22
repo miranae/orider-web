@@ -134,10 +134,32 @@ export function clearImpersonationState() {
   }
 }
 
-/** URL 에 위임 토큰이 실려 있는지 — main 이 마운트 전에 await 할지 판단한다. */
+/**
+ * fragment 를 전체 재직렬화하지 않고 위임 토큰 조각만 찾고 제거할 URL 을 계산한다.
+ * bare anchor 와 handoff 등 다른 fragment 조각의 원문을 보존하기 위해서다.
+ */
+function extractFragmentToken(hash: string): { token: string | null; cleanedHash: string } {
+  if (!hash) return { token: null, cleanedHash: hash };
+
+  let token: string | null = null;
+  const kept = hash.slice(1).split("&").filter((part) => {
+    const params = new URLSearchParams(part);
+    if (!params.has(TOKEN_PARAM)) return true;
+    token ??= params.get(TOKEN_PARAM);
+    return false;
+  });
+
+  return {
+    token,
+    cleanedHash: token === null ? hash : kept.length > 0 ? `#${kept.join("&")}` : "",
+  };
+}
+
+/** URL 에 위임 토큰이 실려 있는지 — fragment 와 거부할 옛 query 형식을 모두 감지한다. */
 export function hasImpersonationTokenInUrl(): boolean {
   if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).has(TOKEN_PARAM);
+  return extractFragmentToken(window.location.hash).token !== null ||
+    new URLSearchParams(window.location.search).has(TOKEN_PARAM);
 }
 
 let stashedToken: string | null = null;
@@ -153,8 +175,8 @@ export function stashImpersonationToken(): void {
 
   // 우선순위: URL fragment. fragment 는 최초 문서 요청에도, Referer 에도 실리지 않아
   // 쿼리스트링보다 유출면이 좁다. admin 링크가 fragment 로 옮겨가면 쿼리 경로는 뺀다.
-  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
-  const hashToken = hashParams.get(TOKEN_PARAM);
+  const fragment = extractFragmentToken(url.hash);
+  const hashToken = fragment.token;
   const queryToken = url.searchParams.get(TOKEN_PARAM);
   if (hashToken === null && queryToken === null) return;
 
@@ -163,9 +185,7 @@ export function stashImpersonationToken(): void {
   // 노출이 되돌려지지 않는다 — 쓰지 않고 거부한다(발급측은 fragment 로 보낸다).
   if (hashToken !== null) {
     stashedToken = hashToken;
-    hashParams.delete(TOKEN_PARAM);
-    const rest = hashParams.toString();
-    url.hash = rest ? `#${rest}` : "";
+    url.hash = fragment.cleanedHash;
   }
   if (queryToken !== null) {
     url.searchParams.delete(TOKEN_PARAM);
