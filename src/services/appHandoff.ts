@@ -16,8 +16,8 @@
  * 환경에서 hang 해도 마운트가 무한 블로킹되지 않고 비로그인으로 계속한다(리뷰 MAJOR).
  * 실패는 `didHandoffFail()` 로 마운트 후 토스트 1회 노출.
  */
-import { signInWithCustomToken } from "firebase/auth";
-import { httpsCallable } from "firebase/functions";
+import { signInWithCustomToken, type Auth } from "firebase/auth";
+import { httpsCallable, type Functions } from "firebase/functions";
 import { auth, ensureAppCheckReady, functions } from "./firebase";
 import { logClientError } from "./errorLogger";
 
@@ -68,15 +68,29 @@ export function didHandoffFail(): boolean {
   return failed;
 }
 
-async function redeemAndSignIn(code: string): Promise<void> {
-  await ensureAppCheckReady();
-  const redeem = httpsCallable<{ code: string }, { token: string }>(functions, "webHandoffRedeem");
+export interface AppHandoffFirebaseServices {
+  auth: Auth;
+  functions: Functions;
+  ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void>;
+}
+
+async function redeemAndSignIn(
+  code: string,
+  services: AppHandoffFirebaseServices,
+): Promise<void> {
+  await services.ensureAppCheckReady();
+  const redeem = httpsCallable<{ code: string }, { token: string }>(
+    services.functions,
+    "webHandoffRedeem",
+  );
   const { data } = await redeem({ code });
-  await signInWithCustomToken(auth, data.token);
+  await signInWithCustomToken(services.auth, data.token);
 }
 
 /** 보관된 handoff 코드가 있으면 소비해 로그인한다. 실패·타임아웃은 무해하게 삼킨다. */
-export async function consumeAppHandoffCode(): Promise<void> {
+export async function consumeAppHandoffCode(
+  services: AppHandoffFirebaseServices = { auth, functions, ensureAppCheckReady },
+): Promise<void> {
   if (typeof window === "undefined") return;
   // 방어: stash 가 누락된 채 호출돼도 동작하도록 (정상 경로는 main.tsx 최상단 stash)
   if (stashedCode === null) stashHandoffCode();
@@ -89,7 +103,7 @@ export async function consumeAppHandoffCode(): Promise<void> {
     timer = setTimeout(() => reject(new Error(`handoff timeout (${CONSUME_TIMEOUT_MS}ms)`)), CONSUME_TIMEOUT_MS);
   });
   try {
-    await Promise.race([redeemAndSignIn(code), timeout]);
+    await Promise.race([redeemAndSignIn(code, services), timeout]);
   } catch (err) {
     // 만료/재사용 코드, 네트워크 오류, App Check hang 등 — 비로그인으로 계속
     handoffFailed = true;

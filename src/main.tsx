@@ -2,15 +2,9 @@ import { StrictMode } from "react";
 import "./i18n";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
-import { ToastProvider } from "./contexts/ToastContext";
-import { ThemeProvider } from "./contexts/ThemeContext";
-import { DialogProvider } from "./contexts/DialogContext";
-import { OriderThemeProvider } from "./theme";
 import { auth, ensureAppCheckReady, initFirebase } from "./services/firebase";
 import { consumeAppHandoffCode, stashHandoffCode } from "./services/appHandoff";
 import { applyImpersonationTokenFromUrl, stashImpersonationToken } from "./services/impersonation";
-import ImpersonationBanner from "./components/ImpersonationBanner";
 import { loadRuntimeConfig } from "./services/runtimeConfig";
 import { reportWebVitals } from "./services/webVitals";
 import { installSlowFetchTracker } from "./services/slowRequests";
@@ -24,7 +18,8 @@ import {
   firestoreRecoveryLogContext,
   prepareFirestoreSessionRecovery,
 } from "./utils/firestoreSessionRecovery";
-import App from "./App";
+import { isEmbeddedRoutePath } from "./App";
+import AppRoot from "./AppRoot";
 
 // 느린 fetch (>= 2s) 자동 기록 — Firebase / Firestore SDK 가 fetch 참조를 캡쳐하기
 // 전에 install 해야 Firestore 슬로우 쿼리까지 wrap 됨. analytics 미초기화 시점 호출은
@@ -117,25 +112,12 @@ if (typeof window !== "undefined") {
   });
 }
 
-function mountApp() {
+function mountApp(embedded: boolean) {
+  const routedApp = <BrowserRouter><AppRoot /></BrowserRouter>;
   createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-      <BrowserRouter>
-        <ThemeProvider>
-          <OriderThemeProvider>
-            <AuthProvider>
-              <ToastProvider>
-                <ImpersonationBanner />
-                <DialogProvider>
-                  <App />
-                </DialogProvider>
-              </ToastProvider>
-            </AuthProvider>
-          </OriderThemeProvider>
-        </ThemeProvider>
-      </BrowserRouter>
-    </StrictMode>,
+    embedded ? routedApp : <StrictMode>{routedApp}</StrictMode>,
   );
+  if (embedded) return;
   // Core Web Vitals 측정 시작 — 라이브러리가 페이지 lifecycle 보고 시점 자체 관리.
   // web_vitals 이벤트는 track() 큐를 거치므로 analytics 지연 init 전이어도 유실 없음.
   reportWebVitals();
@@ -159,16 +141,26 @@ function mountApp() {
   }
 }
 
-loadRuntimeConfig()
-  .then(initFirebase)
+const isEmbeddedEntry = typeof window !== "undefined"
+  && isEmbeddedRoutePath(window.location.pathname);
+
+const initializeEntry = isEmbeddedEntry
+  ? loadRuntimeConfig().then(async () => {
+      const { initEmbeddedFirebase } = await import("./embedded/embeddedFirebase");
+      await initEmbeddedFirebase();
+    })
+  : loadRuntimeConfig()
+      .then(initFirebase)
   // 앱 → 웹 로그인 인계: ?handoff= 일회용 코드가 있으면 AuthProvider 마운트 전에
   // custom token 로그인까지 끝낸다 (코드 없으면 즉시 통과 — 초기 로딩 영향 없음).
-  .then(consumeAppHandoffCode)
+      .then(() => consumeAppHandoffCode())
   // 관리자 위임 로그인: #impersonateToken= fragment 가 있으면 마운트 전에 그 사용자로
   // 로그인한다(토큰 없으면 즉시 통과). admin.orider.co.kr 의 지원 접근 페이지와 CLI 가
   // 이 형식으로 링크를 만든다 — 쿼리스트링 형식은 유출 때문에 거부한다.
-  .then(() => applyImpersonationTokenFromUrl(auth))
-  .then(mountApp)
+      .then(() => applyImpersonationTokenFromUrl(auth));
+
+initializeEntry
+  .then(() => mountApp(isEmbeddedEntry))
   .catch((err) => {
     captureError(err, { tags: { source: "firebase-init" } });
     const root = document.getElementById("root")!;

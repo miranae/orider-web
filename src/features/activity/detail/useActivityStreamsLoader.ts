@@ -2,9 +2,15 @@ import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 
 import type { Activity, ActivityStreams } from "@shared/types";
-import { firestore } from "../../../services/firebase";
+import { auth as defaultAuth, firestore as defaultFirestore } from "../../../services/firebase";
 import { logClientError } from "../../../services/errorLogger";
-import { getActivityStreams } from "../../../services/personalDataApi";
+import {
+  getActivityStreams,
+  getActivityStreamsWithAuth,
+} from "../../../services/personalDataApi";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
+import type { Auth } from "firebase/auth";
+import type { Firestore } from "firebase/firestore";
 import { getStravaActivityId } from "../../../utils/stravaActivity";
 import { isStreamNotCachedError } from "./activityDetailUtils";
 
@@ -19,13 +25,17 @@ interface UseActivityStreamsLoaderArgs {
 export async function loadOriderActivityStreams(
   activityId: string,
   fallbackUserId?: string,
+  services?: { auth: Auth; firestore: Firestore },
 ): Promise<ActivityStreams> {
+  const { auth, firestore } = services ?? { auth: defaultAuth, firestore: defaultFirestore };
   const snap = await getDoc(doc(firestore, "activity_streams", activityId));
   if (!snap.exists()) throw new Error("STREAMS_MISSING");
 
   const data = snap.data();
   if (data.storage === "gcs" && typeof data.gcsPath === "string") {
-    const streams = await getActivityStreams(activityId);
+    const streams = services
+      ? await getActivityStreamsWithAuth(auth, activityId)
+      : await getActivityStreams(activityId);
     const ownerId = typeof data.userId === "string" ? data.userId : fallbackUserId;
     if (ownerId) streams.userId = ownerId;
     return streams;
@@ -46,6 +56,7 @@ export function useActivityStreamsLoader({
   getStreams,
   t,
 }: UseActivityStreamsLoaderArgs) {
+  const { auth, firestore } = useFirebaseServices();
   const [streams, setStreams] = useState<ActivityStreams | null>(null);
   const [showStreamSpinner, setShowStreamSpinner] = useState(false);
   const [streamsError, setStreamsError] = useState<string | null>(null);
@@ -68,7 +79,7 @@ export function useActivityStreamsLoader({
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => setShowStreamSpinner(true), 500);
-      loadOriderActivityStreams(activityId, activity.userId).then((parsed) => {
+      loadOriderActivityStreams(activityId, activity.userId, { auth, firestore }).then((parsed) => {
         setStreams(parsed);
       }).catch((err) => {
         logClientError("ActivityPage.streams", err, {
@@ -114,7 +125,7 @@ export function useActivityStreamsLoader({
       setShowStreamSpinner(false);
       setLoadingStreams(false);
     });
-  }, [activity, activityId, getStreams, streams, t, userId]);
+  }, [activity, activityId, auth, firestore, getStreams, streams, t, userId]);
 
   return {
     streams,

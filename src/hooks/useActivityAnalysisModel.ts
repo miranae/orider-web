@@ -26,8 +26,8 @@ import {
   loadOriderActivityStreams,
   useActivityStreamsLoader,
 } from "../features/activity/detail/useActivityStreamsLoader";
-import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useActiveBikeProfile } from "./useActiveBikeProfile";
 import { useActivityMetrics } from "./useActivityMetrics";
 import { useStrava } from "./useStrava";
@@ -72,6 +72,8 @@ export interface ActivityAnalysisModel {
 export function useActivityAnalysisModel(
   activityId: string | undefined,
 ): ActivityAnalysisModel {
+  const firebaseServices = useFirebaseServices();
+  const { firestore } = firebaseServices;
   const { t } = useTranslation("activity");
   const { user } = useAuth();
   const { getStreams } = useStrava();
@@ -124,7 +126,7 @@ export function useActivityAnalysisModel(
       cancelled = true;
       if (processingTimer !== undefined) window.clearTimeout(processingTimer);
     };
-  }, [activityId, activityReloadKey]);
+  }, [activityId, activityReloadKey, firestore]);
 
   const retryActivity = useCallback(() => {
     setActivityReloadKey((key) => key + 1);
@@ -169,7 +171,7 @@ export function useActivityAnalysisModel(
     setShowStreamSpinner(true);
     try {
       if (isOriderActivity) {
-        setStreams(await loadOriderActivityStreams(activityId, activity.userId));
+        setStreams(await loadOriderActivityStreams(activityId, activity.userId, firebaseServices));
         return;
       }
 
@@ -192,7 +194,7 @@ export function useActivityAnalysisModel(
       setShowStreamSpinner(false);
       setLoadingStreams(false);
     }
-  }, [activity, activityId, getStreams, setLoadingStreams, setShowStreamSpinner, setStreams, setStreamsError, t]);
+  }, [activity, activityId, firebaseServices, getStreams, setLoadingStreams, setShowStreamSpinner, setStreams, setStreamsError, t]);
 
   const activePowerOverride = resolveActiveActivityPowerOverride(
     activityId,

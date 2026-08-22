@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 
 export function useStrava() {
+  const { functions } = useFirebaseServices();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +50,7 @@ export function useStrava() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [functions]);
 
   const startMigration = useCallback(async () => {
     setLoading(true);
@@ -65,7 +66,7 @@ export function useStrava() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [functions]);
 
   const cancelMigration = useCallback(async () => {
     setLoading(true);
@@ -80,7 +81,7 @@ export function useStrava() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [functions]);
 
   const getStreams = useCallback(async (stravaActivityId: number) => {
     setLoading(true);
@@ -114,7 +115,7 @@ export function useStrava() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [functions]);
 
   const disconnectStrava = async (operationId: string) => {
     setLoading(true);
@@ -172,7 +173,7 @@ export function useStrava() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [functions]);
 
   const fixMigration = useCallback(async () => {
     setLoading(true);
@@ -188,7 +189,7 @@ export function useStrava() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [functions]);
 
   return {
     loading,
