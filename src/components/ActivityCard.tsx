@@ -455,7 +455,16 @@ export default function ActivityCard({
 
       {/* Route map — static image to avoid WebGL overflow + reduce Mapbox costs */}
       {showMap && activity.thumbnailTrack && (
-        <ActivityRouteThumbnail activityId={activity.id} userId={activity.userId} polyline={activity.thumbnailTrack} mapImageUrl={activity.mapImageUrl} visibility={activity.visibility} priority={priority} />
+        <ActivityRouteThumbnail
+          activityId={activity.id}
+          userId={activity.userId}
+          polyline={activity.thumbnailTrack}
+          mapImageUrl={activity.mapImageUrl}
+          visibility={activity.visibility}
+          contentRevision={activity.contentRevision}
+          contentSelectedRevision={activity.contentSelectedRevision}
+          priority={priority}
+        />
       )}
 
       {/* 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. 작성자 컨텍스트(hideAuthor)에선 생략.

@@ -15,6 +15,10 @@ export interface Activity {
   summary: ActivitySummary;
   thumbnailTrack: string; // encoded polyline
   mapImageUrl?: string | null;
+  /** Revision-managed activity content head. Both revision fields must be present and valid. */
+  contentRevision?: number | null;
+  /** Revision selected for public activity content and its canonical route thumbnail. */
+  contentSelectedRevision?: number | null;
   groupId: string | null;
   groupRideId: string | null;
   /** 백엔드가 원본 GPS 스트림의 같은 시각·위치 근접성을 검증한 매칭 상태. */
