@@ -148,6 +148,8 @@ function MobileRouteThumbnail({ activity, priority = false }: { activity: Activi
       polyline={activity.thumbnailTrack}
       mapImageUrl={activity.mapImageUrl}
       visibility={activity.visibility}
+      contentRevision={activity.contentRevision}
+      contentSelectedRevision={activity.contentSelectedRevision}
       priority={priority}
       layout="mobile"
     />
