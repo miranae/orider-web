@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, setDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 
 import type { AppSettings } from "@shared/types/deviceSettings";
 
@@ -8,17 +8,13 @@ import {
   putDeviceSettings,
 } from "./deviceSettingsClient";
 import { parseBikeProfile } from "../types/bikeProfile";
-import {
-  ftpHistoryEntryWrite,
-  type FtpHistorySource,
-} from "@shared/training/ftpHistory";
 
 /**
- * 운동 프로필(`users/{uid}` 루트)의 ftp/maxHr/weightKg를 변경할 때, 모바일 앱이
+ * 운동 프로필(`users/{uid}` 루트)의 maxHr/weightKg를 변경할 때, 모바일 앱이
  * 보는 두 군데도 함께 갱신해 일관성을 유지한다:
  *
  * 1. `users/{uid}/settings/{deviceId}.data` JSON의
- *    `ftpWatts` / `maxHeartRate` / `riderWeightKg` 필드 (기기별)
+ *    `maxHeartRate` / `riderWeightKg` 필드 (기기별)
  * 2. `users/{uid}/bikeProfiles/{profileId}.virtualPower.riderWeightKg` (자전거별)
  *
  * App `SettingsRepositoryImpl.syncLegacyKeys`가 활성 자전거 프로필의 라이더
@@ -27,25 +23,19 @@ import {
  */
 
 export interface RiderMetricsSync {
-  ftp?: number | null;
   maxHr?: number | null;
   weightKg?: number | null;
 }
 
-export interface RiderMetricsPersistOptions {
-  ftpHistorySource?: FtpHistorySource;
-  changedAt?: number;
-}
-
 /**
- * 프로필 임계값을 기기 설정에 반영하고 사용자 루트에도 즉시 기록한다.
+ * 라이더 심박/체중을 기기 설정에 반영하고 사용자 루트에도 즉시 기록한다.
+ * FTP는 updateCanonicalFtp만 사용하며 이 호환 동기화 경로에서 취급하지 않는다.
  * 기기 미러 트리거의 지연/실패와 무관하게 웹 프로필 정본이 유지된다.
  * 호출 전에는 어떤 변경도 일어나지 않는다.
  */
 export async function persistRiderMetrics(
   uid: string,
   patch: RiderMetricsSync,
-  options: RiderMetricsPersistOptions = {},
 ): Promise<RiderMetricsSyncResult> {
   let result: RiderMetricsSyncResult;
   try {
@@ -66,20 +56,7 @@ export async function persistRiderMetrics(
     )),
   );
   if (Object.keys(rootPatch).length > 0) {
-    const ftp = rootPatch.ftp;
-    if (typeof ftp === "number" && options.ftpHistorySource) {
-      // 프로필 정본과 변경 이력을 한 batch로 커밋해 둘 중 하나만 남는 상태를 막는다.
-      // 랜덤 entry id는 사용자가 같은 값으로 다시 돌아온 변경도 별도 audit event로 보존한다.
-      const batch = writeBatch(firestore);
-      batch.update(doc(firestore, "users", uid), rootPatch);
-      batch.set(
-        doc(collection(firestore, "users", uid, "ftpHistory")),
-        ftpHistoryEntryWrite(ftp, options.ftpHistorySource, options.changedAt),
-      );
-      await batch.commit();
-    } else {
-      await updateDoc(doc(firestore, "users", uid), rootPatch);
-    }
+    await updateDoc(doc(firestore, "users", uid), rootPatch);
   }
   return result;
 }
@@ -103,10 +80,6 @@ export async function syncRiderMetricsToDevices(
     records.map(async (record) => {
       const next: AppSettings & Record<string, unknown> = { ...record.settings };
       let dirty = false;
-      if (typeof patch.ftp === "number" && Number.isFinite(patch.ftp)) {
-        next.ftpWatts = patch.ftp;
-        dirty = true;
-      }
       if (typeof patch.maxHr === "number" && Number.isFinite(patch.maxHr)) {
         next.maxHeartRate = patch.maxHr;
         dirty = true;

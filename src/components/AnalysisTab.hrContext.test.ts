@@ -10,4 +10,11 @@ describe("AnalysisTab legacy HR context", () => {
     expect(source).not.toContain("sm?.contextSnapshot.maxHr");
     expect(source).not.toContain("sm?.contextSnapshot.lthr");
   });
+
+  it("uses the resolved canonical FTP for the activity power curve", () => {
+    const source = readFileSync(join(process.cwd(), "src/components/AnalysisTab.tsx"), "utf8");
+    expect(source).toContain("const ftp = profile?.ftp || streams.ftp || 200");
+    expect(source).toContain("<PowerCurveChart\n            points={powerCurve}\n            ftp={ftp}");
+    expect(source).not.toContain("ftp={streams.ftp}");
+  });
 });

@@ -8,6 +8,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
@@ -26,6 +27,7 @@ import {
 } from "@shared/types/deviceSettings";
 
 import { firestore } from "./firebase";
+import { logClientError } from "./errorLogger";
 
 /**
  * Firestore users/{uid}/settings/{deviceId} 및 users/{uid}/navigation_preferences/{deviceId}
@@ -55,6 +57,39 @@ export interface DeviceNavigationPrefsRecord {
 const DEFAULT_DEVICE_SETTINGS_VERSION = 1;
 const DEFAULT_NAV_PREFS_VERSION = 1;
 
+export function preserveCanonicalFtpCache(
+  nextJson: string,
+  currentJson: unknown,
+  canonicalFtp?: number | null,
+): string {
+  const next = JSON.parse(nextJson) as Record<string, unknown>;
+  let current: Record<string, unknown> = {};
+  if (typeof currentJson === "string") {
+    try {
+      current = JSON.parse(currentJson) as Record<string, unknown>;
+    } catch (error) {
+      // 손상된 legacy JSON의 FTP를 새 문서로 복제하지 않는다.
+      logClientError("deviceSettingsClient.malformedJson", error, {
+        operation: "preserveCanonicalFtpCache",
+        source: "device_settings",
+        jsonRole: "current",
+      });
+    }
+  }
+  const currentFtp = current.ftpWatts;
+  if (typeof canonicalFtp === "number" && Number.isFinite(canonicalFtp)) {
+    // root canonical이 유효하면 stale device cache보다 항상 우선한다.
+    next.ftpWatts = canonicalFtp;
+  } else if (canonicalFtp === undefined && typeof currentFtp === "number" && Number.isFinite(currentFtp)) {
+    // root 필드가 absent/invalid인 legacy 계정만 기존 cache를 호환 fallback으로 보존한다.
+    next.ftpWatts = currentFtp;
+  } else {
+    // canonical null은 명시적 clear이므로 stale cache도 제거한다.
+    delete next.ftpWatts;
+  }
+  return JSON.stringify(next);
+}
+
 function readVersion(raw: unknown, fallback: number): number {
   return typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw : fallback;
 }
@@ -65,19 +100,41 @@ function timestampToMillis(value: unknown): number {
   return 0;
 }
 
-function parseSettingsSnapshot(
-  docSnap: QueryDocumentSnapshot<DocumentData>,
+export function parseDeviceSettingsData(
+  data: DocumentData,
+  fallbackDeviceId: string,
+  operation: string,
+  uid: string,
 ): DeviceSettingsRecord | null {
-  const data = docSnap.data();
   const jsonStr = data.data as string | undefined;
   if (!jsonStr) return null;
-  return {
-    deviceId: (data.deviceId as string) ?? docSnap.id,
-    deviceName: (data.deviceName as string) ?? "",
-    updatedAt: timestampToMillis(data.updatedAt),
-    version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
-    settings: parseAppSettings(jsonStr),
-  };
+  try {
+    const settings = parseAppSettings(jsonStr);
+    return {
+      deviceId: (data.deviceId as string) ?? fallbackDeviceId,
+      deviceName: (data.deviceName as string) ?? "",
+      updatedAt: timestampToMillis(data.updatedAt),
+      version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
+      settings,
+    };
+  } catch (error) {
+    logClientError("deviceSettingsClient.malformedJson", error, {
+      operation,
+      source: "device_settings",
+      uid,
+      deviceId: fallbackDeviceId,
+      jsonRole: "data",
+    });
+    return null;
+  }
+}
+
+function parseSettingsSnapshot(
+  docSnap: QueryDocumentSnapshot<DocumentData>,
+  operation: string,
+  uid: string,
+): DeviceSettingsRecord | null {
+  return parseDeviceSettingsData(docSnap.data(), docSnap.id, operation, uid);
 }
 
 function parseNavPrefsSnapshot(
@@ -111,7 +168,7 @@ export function subscribeLatestDeviceSettings(
     q,
     (snap) => {
       const docSnap = snap.docs[0];
-      onChange(docSnap ? parseSettingsSnapshot(docSnap) : null);
+      onChange(docSnap ? parseSettingsSnapshot(docSnap, "subscribeLatestDeviceSettings", uid) : null);
     },
     (err) => onError?.(err),
   );
@@ -130,7 +187,7 @@ export function subscribeAllDeviceSettings(
     q,
     (snap) => {
       const records = snap.docs.flatMap((docSnap) => {
-        const r = parseSettingsSnapshot(docSnap);
+        const r = parseSettingsSnapshot(docSnap, "subscribeAllDeviceSettings", uid);
         return r ? [r] : [];
       });
       onChange(records);
@@ -171,13 +228,7 @@ export async function fetchDeviceSettings(
   const data = snap.data();
   const jsonStr = data.data as string | undefined;
   if (!jsonStr) return null;
-  return {
-    deviceId: (data.deviceId as string) ?? deviceId,
-    deviceName: (data.deviceName as string) ?? "",
-    updatedAt: timestampToMillis(data.updatedAt),
-    version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
-    settings: parseAppSettings(jsonStr),
-  };
+  return parseDeviceSettingsData(data, deviceId, "fetchDeviceSettings", uid);
 }
 
 /** 가장 최근에 업데이트된 기기의 설정 (단일 기기 모드용 — 모바일 fetchLatestSettings와 동일) */
@@ -192,13 +243,7 @@ export async function fetchLatestDeviceSettings(
   const data = docSnap.data();
   const jsonStr = data.data as string | undefined;
   if (!jsonStr) return null;
-  return {
-    deviceId: (data.deviceId as string) ?? docSnap.id,
-    deviceName: (data.deviceName as string) ?? "",
-    updatedAt: timestampToMillis(data.updatedAt),
-    version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
-    settings: parseAppSettings(jsonStr),
-  };
+  return parseDeviceSettingsData(data, docSnap.id, "fetchLatestDeviceSettings", uid);
 }
 
 /** 사용자가 동기화한 모든 기기 목록 (다중 기기 UI용) */
@@ -212,15 +257,8 @@ export async function fetchAllDeviceSettings(
     const data = docSnap.data();
     const jsonStr = data.data as string | undefined;
     if (!jsonStr) return [];
-    return [
-      {
-        deviceId: (data.deviceId as string) ?? docSnap.id,
-        deviceName: (data.deviceName as string) ?? "",
-        updatedAt: timestampToMillis(data.updatedAt),
-        version: readVersion(data.version, DEFAULT_DEVICE_SETTINGS_VERSION),
-        settings: parseAppSettings(jsonStr),
-      },
-    ];
+    const record = parseDeviceSettingsData(data, docSnap.id, "fetchAllDeviceSettings", uid);
+    return record ? [record] : [];
   });
 }
 
@@ -240,17 +278,27 @@ export async function putDeviceSettings(
   version: number = DEFAULT_DEVICE_SETTINGS_VERSION,
 ): Promise<void> {
   const ref = doc(firestore, "users", uid, "settings", deviceId);
-  await setDoc(
-    ref,
-    {
-      data: serializeAppSettings(settings),
+  const profileRef = doc(firestore, "users", uid);
+  const nextJson = serializeAppSettings(settings);
+  // device settings는 FTP를 author하지 않는다. 서버 fan-out과 동시에 maxHR/weight 등을
+  // 저장해도 transaction이 최신 문서의 FTP cache를 보존하므로 stale 전체 JSON이
+  // canonical root로 역수입되는 경로를 차단한다.
+  await runTransaction(firestore, async (tx) => {
+    const [profile, current] = await Promise.all([tx.get(profileRef), tx.get(ref)]);
+    const profileFtp = profile.data()?.ftp;
+    const canonicalFtp = profileFtp === null
+      ? null
+      : typeof profileFtp === "number" && Number.isFinite(profileFtp)
+        ? profileFtp
+        : undefined;
+    tx.set(ref, {
+      data: preserveCanonicalFtpCache(nextJson, current.data()?.data, canonicalFtp),
       deviceId,
       deviceName,
       updatedAt: serverTimestamp(),
       version,
-    },
-    { merge: true },
-  );
+    }, { merge: true });
+  });
 }
 
 /**

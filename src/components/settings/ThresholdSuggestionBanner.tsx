@@ -25,6 +25,8 @@ interface ThresholdSuggestionBannerProps {
 export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBannerProps) {
   const { t } = useTranslation("settings");
   const { user } = useAuth();
+  const activeUserUidRef = useRef<string | null>(user?.uid ?? null);
+  activeUserUidRef.current = user?.uid ?? null;
   const { showToast } = useToast();
   const [sugg, setSugg] = useState<Suggestion | null>(null);
   const [busy, setBusy] = useState(false);
@@ -84,6 +86,8 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
 
   const handleAccept = async () => {
     if (!sugg || busy) return;
+    const expectedUid = user?.uid ?? null;
+    if (!expectedUid) return;
     const activityId = sugg.activityId; // closure 캡처 — busy 동안 sugg 갱신 무시
     busyRef.current = true;
     setBusy(true);
@@ -96,11 +100,14 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
         activityId,
         fields: { ftp: !!sugg.ftp, lthr: !!sugg.lthr, maxHr: !!sugg.maxHr },
       });
+      if (activeUserUidRef.current !== expectedUid) return;
       showToast(t("threshold.acceptSuccess"));
       onAccepted?.(result.data.applied);
     } catch (err) {
       logClientError("ThresholdSuggestionBanner.handleAccept", err, { activityId });
-      showToast(t("threshold.acceptFailed"));
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(t("threshold.acceptFailed"));
+      }
     } finally {
       releaseBusy();
     }

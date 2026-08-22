@@ -38,4 +38,27 @@ describe("aggregateRecentZoneSeconds", () => {
       total: 655,
     });
   });
+
+  it("does not mix power zones computed with a different FTP into current ranges", () => {
+    const ftpMetrics = new Map<string, ActivityMetrics>([
+      ["inside", {
+        powerZoneSec: [1, 2, 3, 4, 5, 6],
+        contextSnapshot: { ftp: 250 },
+      } as ActivityMetrics],
+      ["boundary", {
+        powerZoneSec: [10, 10, 10, 10, 10, 10],
+        contextSnapshot: { ftp: 240 },
+      } as ActivityMetrics],
+    ]);
+
+    expect(aggregateRecentZoneSeconds(
+      activities,
+      ftpMetrics,
+      "powerZoneSec",
+      6,
+      now,
+      FITNESS_ZONE_WINDOW_DAYS,
+      250,
+    )).toEqual({ counts: [1, 2, 3, 4, 5, 6], total: 21 });
+  });
 });

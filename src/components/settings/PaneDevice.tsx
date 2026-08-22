@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Smartphone, Trash2, Users, Smartphone as PhoneIcon } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
 
 import {
   deleteDevice,
   renameDevice,
 } from "../../services/deviceSettingsClient";
+import { updateCanonicalFtp } from "../../services/ftpProfileClient";
+import { firestore } from "../../services/firebase";
+import { logClientError } from "../../services/errorLogger";
 
 import {
   type AlertMetric,
@@ -558,20 +562,32 @@ type EditingCard =
   | null;
 
 interface RiderDraft {
-  ftpWatts: number;
+  ftpWatts: number | "";
   maxHeartRate: number;
   riderWeightKg: number;
 }
 
-function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
+function RiderEdit({
+  draft,
+  setDraft,
+  onFtpChange,
+}: CardEditProps<RiderDraft> & { onFtpChange: () => void }) {
   const { t } = useTranslation("settings");
   return (
     <FieldGrid cols={3}>
       <Field label={t("device.fieldFtp")} hint={t("device.fieldFtpHint")}>
         <input
           type="number"
+          min={50}
+          max={2000}
           value={draft.ftpWatts}
-          onChange={(e) => setDraft({ ...draft, ftpWatts: Number(e.target.value) })}
+          onChange={(e) => {
+            onFtpChange();
+            setDraft({
+              ...draft,
+              ftpWatts: e.target.value === "" ? "" : Number(e.target.value),
+            });
+          }}
           style={monoInputStyle}
         />
       </Field>
@@ -599,6 +615,8 @@ function RiderEdit({ draft, setDraft }: CardEditProps<RiderDraft>) {
 export function PaneDevice() {
   const { t } = useTranslation("settings");
   const { user } = useAuth();
+  const activeUserUidRef = useRef<string | null>(user?.uid ?? null);
+  activeUserUidRef.current = user?.uid ?? null;
   const { showToast } = useToast();
   const dialog = useDialog();
   const uid = user?.uid ?? null;
@@ -622,9 +640,15 @@ export function PaneDevice() {
   }, [records, selectedDeviceId]);
 
   const [editingCard, setEditingCard] = useState<EditingCard>(null);
+  const [editingOwnerUid, setEditingOwnerUid] = useState<string | null>(null);
+  const [ftpProfile, setFtpProfile] = useState<{
+    ownerUid: string;
+    ftp: number | null;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [riderDraft, setRiderDraft] = useState<RiderDraft | null>(null);
+  const [riderFtpDirty, setRiderFtpDirty] = useState(false);
   const [autoDraft, setAutoDraft] = useState<AutoDraft | null>(null);
   const [alertDraft, setAlertDraft] = useState<AlertSettings | null>(null);
   const [dsDraft, setDsDraft] = useState<DisplaySoundDraft | null>(null);
@@ -632,11 +656,63 @@ export function PaneDevice() {
   const [netDraft, setNetDraft] = useState<NetworkDraft | null>(null);
 
   useEffect(() => {
+    setSaving(false);
+    setEditingCard(null);
+    setEditingOwnerUid(null);
+    setRiderDraft(null);
+    setRiderFtpDirty(false);
+    setAutoDraft(null);
+    setAlertDraft(null);
+    setDsDraft(null);
+    setBgDraft(null);
+    setNetDraft(null);
+  }, [uid]);
+
+  useEffect(() => {
+    const ownerUid = uid;
+    setFtpProfile(null);
+    if (!ownerUid) return;
+    let cancelled = false;
+    void getDoc(doc(firestore, "users", ownerUid)).then((snap) => {
+      if (cancelled) return;
+      const value = snap.data()?.ftp;
+      setFtpProfile({
+        ownerUid,
+        ftp: typeof value === "number" && Number.isFinite(value) ? value : null,
+      });
+    }).catch((error) => {
+      if (cancelled) return;
+      logClientError("PaneDevice.loadFtpProfile", error, {
+        operation: "getUserProfile",
+        ownerUid,
+      });
+    });
+    return () => { cancelled = true; };
+  }, [uid]);
+
+  const verifiedFtp = ftpProfile?.ownerUid === uid ? ftpProfile.ftp : null;
+
+  useEffect(() => {
+    if (
+      editingCard !== "rider" ||
+      editingOwnerUid !== uid ||
+      !riderDraft ||
+      riderFtpDirty ||
+      !ftpProfile ||
+      ftpProfile.ownerUid !== uid
+    ) return;
+    const nextFtp = verifiedFtp ?? "";
+    setRiderDraft((current) => current && current.ftpWatts !== nextFtp
+      ? { ...current, ftpWatts: nextFtp }
+      : current);
+  }, [editingCard, editingOwnerUid, ftpProfile, riderDraft, riderFtpDirty, uid, verifiedFtp]);
+
+  useEffect(() => {
     if (!record) return;
     const s = record.settings;
     if (editingCard === "rider" && !riderDraft) {
       setRiderDraft({
-        ftpWatts: s.ftpWatts,
+        ftpWatts: typeof verifiedFtp === "number" ? verifiedFtp : "",
         maxHeartRate: s.maxHeartRate,
         riderWeightKg: s.riderWeightKg,
       });
@@ -673,7 +749,7 @@ export function PaneDevice() {
         stravaUploadNetworkMode: s.stravaUploadNetworkMode,
       });
     }
-  }, [editingCard, record, riderDraft, autoDraft, alertDraft, dsDraft, bgDraft, netDraft]);
+  }, [editingCard, record, verifiedFtp, riderDraft, autoDraft, alertDraft, dsDraft, bgDraft, netDraft]);
 
   // Translated label helpers (called at render, not in module scope)
   const gpsModeLabel = (m: GpsMode): string => {
@@ -781,31 +857,39 @@ export function PaneDevice() {
   }
 
   const s: AppSettings = record.settings;
+  const isEditingForCurrentOwner = editingOwnerUid === uid;
 
   function startEdit(card: NonNullable<EditingCard>) {
+    if (!uid) return;
     setRiderDraft(null);
+    setRiderFtpDirty(false);
     setAutoDraft(null);
     setAlertDraft(null);
     setDsDraft(null);
     setBgDraft(null);
     setNetDraft(null);
+    setEditingOwnerUid(uid);
     setEditingCard(card);
   }
   function cancelEdit() {
     setEditingCard(null);
     setRiderDraft(null);
+    setRiderFtpDirty(false);
     setAutoDraft(null);
     setAlertDraft(null);
     setDsDraft(null);
     setBgDraft(null);
     setNetDraft(null);
+    setEditingOwnerUid(null);
   }
 
-  async function commit(patch: Partial<AppSettings>, opts?: { broadcast?: boolean }) {
-    if (!uid || !record) return;
-    setSaving(true);
-    try {
-      if (opts?.broadcast && records.length > 1) {
+  async function persistDevicePatch(
+    patch: Partial<AppSettings>,
+    broadcast: boolean,
+  ): Promise<string[]> {
+    if (!record) throw new Error(t("device.noDevice"));
+    const warnings: string[] = [];
+    if (broadcast && records.length > 1) {
         // broadcast 경로:
         // 1) 현재 디바이스에 patch 전체를 적용 (device-scoped 부분 — screen/gps 등 — 포함).
         // 2) 나머지 디바이스에는 user-scoped 부분만 머지. broadcastUserScoped 가 현재 디바이스를
@@ -820,23 +904,80 @@ export function PaneDevice() {
           const parts: string[] = [t("device.broadcastApplied_other", { count: totalApplied })];
           if (validationFailed > 0) parts.push(t("device.broadcastValidationFailed", { count: validationFailed }));
           if (networkFailed > 0) parts.push(t("device.broadcastNetworkFailed", { count: networkFailed }));
-          showToast(parts.join(" · "));
-        } else if (totalApplied > 1) {
-          showToast(t("device.broadcastApplied_other", { count: totalApplied }));
-        } else {
-          showToast(t("device.broadcastAppliedSingle"));
+          warnings.push(parts.join(" · "));
         }
-      } else {
+    } else {
         // hook의 update는 putDeviceSettings 후 optimistic local merge를 수행하므로
         // cancelEdit 직후 read 모드가 즉시 새 값을 보여준다 (onSnapshot latency와 무관).
         await update(record.deviceId, patch);
-        showToast(t("device.saved"));
+    }
+    return warnings;
+  }
+
+  async function commit(patch: Partial<AppSettings>, opts?: { broadcast?: boolean }) {
+    if (!uid || !record || editingOwnerUid !== uid) return;
+    const expectedUid = uid;
+    setSaving(true);
+    try {
+      const warnings = await persistDevicePatch(patch, Boolean(opts?.broadcast));
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(warnings.length > 0 ? warnings.join(" · ") : t("device.saved"));
       }
-      cancelEdit();
+      if (activeUserUidRef.current === expectedUid) cancelEdit();
     } catch (e) {
-      showToast(t("device.saveFailed", { message: e instanceof Error ? e.message : String(e) }));
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(t("device.saveFailed", { message: e instanceof Error ? e.message : String(e) }));
+      }
     } finally {
-      setSaving(false);
+      if (activeUserUidRef.current === expectedUid) setSaving(false);
+    }
+  }
+
+  async function commitRider(draft: RiderDraft, broadcast: boolean) {
+    if (!uid || editingOwnerUid !== uid) return;
+    const expectedUid = uid;
+    if (
+      draft.ftpWatts !== "" &&
+      (!Number.isFinite(draft.ftpWatts) ||
+      draft.ftpWatts < 50 ||
+      draft.ftpWatts > 2000)
+    ) {
+      showToast(t("device.saveFailed", { message: t("device.fieldFtpHint") }));
+      return;
+    }
+    setSaving(true);
+    let deviceSettingsSaved = false;
+    let deviceWarnings: string[] = [];
+    try {
+      deviceWarnings = await persistDevicePatch(
+        {
+          maxHeartRate: draft.maxHeartRate,
+          riderWeightKg: draft.riderWeightKg,
+        },
+        broadcast,
+      );
+      deviceSettingsSaved = true;
+      if (activeUserUidRef.current !== expectedUid) return;
+      if (riderFtpDirty && draft.ftpWatts !== "" && draft.ftpWatts !== verifiedFtp) {
+        await updateCanonicalFtp(expectedUid, draft.ftpWatts, "manual");
+        if (activeUserUidRef.current === expectedUid) {
+          setFtpProfile({ ownerUid: expectedUid, ftp: draft.ftpWatts });
+        }
+      }
+      if (activeUserUidRef.current === expectedUid) {
+        showToast(deviceWarnings.length > 0 ? deviceWarnings.join(" · ") : t("device.saved"));
+        cancelEdit();
+      }
+    } catch (error) {
+      if (activeUserUidRef.current === expectedUid) {
+        const detail = error instanceof Error ? error.message : String(error);
+        const savedDetail = [t("device.saved"), ...deviceWarnings].join(" · ");
+        showToast(deviceSettingsSaved
+          ? `${savedDetail} · FTP ${t("device.saveFailed", { message: detail })}`
+          : t("device.saveFailed", { message: detail }));
+      }
+    } finally {
+      if (activeUserUidRef.current === expectedUid) setSaving(false);
     }
   }
 
@@ -990,32 +1131,31 @@ export function PaneDevice() {
           title={t("device.cardRider")}
           scope="user"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "rider"}
+          isEditing={editingCard === "rider" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("rider")}
           onCancel={cancelEdit}
           onSave={({ broadcast }) =>
             riderDraft
-              ? commit(
-                  {
-                    ftpWatts: riderDraft.ftpWatts,
-                    maxHeartRate: riderDraft.maxHeartRate,
-                    riderWeightKg: riderDraft.riderWeightKg,
-                  },
-                  { broadcast },
-                )
+              ? commitRider(riderDraft, broadcast)
               : Promise.resolve()
           }
           read={
             <KVList
               rows={[
-                { k: "FTP", v: `${s.ftpWatts} W` },
+                { k: "FTP", v: typeof verifiedFtp === "number" ? `${verifiedFtp} W` : "-" },
                 { k: t("device.fieldMaxHr"), v: `${s.maxHeartRate} bpm` },
                 { k: t("device.fieldWeight"), v: `${s.riderWeightKg} kg` },
               ]}
             />
           }
-          edit={riderDraft && <RiderEdit draft={riderDraft} setDraft={setRiderDraft} />}
+          edit={isEditingForCurrentOwner && riderDraft
+            ? <RiderEdit
+                draft={riderDraft}
+                setDraft={setRiderDraft}
+                onFtpChange={() => setRiderFtpDirty(true)}
+              />
+            : null}
         />
       </div>
 
@@ -1024,7 +1164,7 @@ export function PaneDevice() {
           title={t("device.cardAuto")}
           scope="user"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "auto"}
+          isEditing={editingCard === "auto" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("auto")}
           onCancel={cancelEdit}
@@ -1061,14 +1201,14 @@ export function PaneDevice() {
               ]}
             />
           }
-          edit={autoDraft && <AutoEdit draft={autoDraft} setDraft={setAutoDraft} />}
+          edit={isEditingForCurrentOwner && autoDraft && <AutoEdit draft={autoDraft} setDraft={setAutoDraft} />}
         />
 
         <EditableCard
           title={t("device.cardAlert")}
           scope="user"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "alert"}
+          isEditing={editingCard === "alert" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("alert")}
           onCancel={cancelEdit}
@@ -1087,14 +1227,14 @@ export function PaneDevice() {
               }))}
             />
           }
-          edit={alertDraft && <AlertEdit draft={alertDraft} setDraft={setAlertDraft} />}
+          edit={isEditingForCurrentOwner && alertDraft && <AlertEdit draft={alertDraft} setDraft={setAlertDraft} />}
         />
 
         <EditableCard
           title={t("device.cardDisplaySound")}
           scope="mixed"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "displaySound"}
+          isEditing={editingCard === "displaySound" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("displaySound")}
           onCancel={cancelEdit}
@@ -1139,14 +1279,14 @@ export function PaneDevice() {
               ]}
             />
           }
-          edit={dsDraft && <DisplaySoundEdit draft={dsDraft} setDraft={setDsDraft} />}
+          edit={isEditingForCurrentOwner && dsDraft && <DisplaySoundEdit draft={dsDraft} setDraft={setDsDraft} />}
         />
 
         <EditableCard
           title={t("device.cardBatteryGps")}
           scope="device"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "batteryGps"}
+          isEditing={editingCard === "batteryGps" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("batteryGps")}
           onCancel={cancelEdit}
@@ -1163,14 +1303,14 @@ export function PaneDevice() {
               ]}
             />
           }
-          edit={bgDraft && <BatteryGpsEdit draft={bgDraft} setDraft={setBgDraft} />}
+          edit={isEditingForCurrentOwner && bgDraft && <BatteryGpsEdit draft={bgDraft} setDraft={setBgDraft} />}
         />
 
         <EditableCard
           title={t("device.cardNetwork")}
           scope="mixed"
           showBroadcastToggle={records.length > 1}
-          isEditing={editingCard === "network"}
+          isEditing={editingCard === "network" && isEditingForCurrentOwner}
           saving={saving}
           onEdit={() => startEdit("network")}
           onCancel={cancelEdit}
@@ -1193,7 +1333,7 @@ export function PaneDevice() {
               ]}
             />
           }
-          edit={netDraft && <NetworkEdit draft={netDraft} setDraft={setNetDraft} />}
+          edit={isEditingForCurrentOwner && netDraft && <NetworkEdit draft={netDraft} setDraft={setNetDraft} />}
         />
       </div>
 

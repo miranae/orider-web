@@ -73,7 +73,7 @@ import {
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
 import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
-import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
+import { aggregateRecentZoneSeconds, FITNESS_ZONE_WINDOW_DAYS } from "../features/fitness/mobileFitnessMetrics";
 import { deriveMonthlyCyclingVo2maxTrend } from "../features/fitness/deriveMonthlyCyclingVo2maxTrend";
 import { useUserFitness } from "../hooks/useUserFitness";
 import {
@@ -86,7 +86,7 @@ import {
 import { useFitnessClock } from "../hooks/useFitnessClock";
 import { useDialog } from "../contexts/DialogContext";
 import { useToast } from "../contexts/ToastContext";
-import { persistRiderMetrics } from "../services/syncRiderMetrics";
+import { updateCanonicalFtp } from "../services/ftpProfileClient";
 import { useCoachRiderInsight } from "../hooks/useCoachRiderInsight";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { buildCanonicalRiderFitnessView, cyclingAbilityFromCanonicalRider } from "../features/fitness/riderInsightParity";
@@ -100,11 +100,17 @@ export default function FitnessPage() {
   const { t, i18n } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
+  const activeUserUidRef = useRef<string | null>(user?.uid ?? null);
+  activeUserUidRef.current = user?.uid ?? null;
   const { entries: ftpHistory } = useFtpHistory(user?.uid);
   const dialog = useDialog();
   const { showToast } = useToast();
-  const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
+  const [appliedFtp, setAppliedFtp] = useState<{ ownerUid: string; value: number } | null>(null);
   const [applyingFtp, setApplyingFtp] = useState(false);
+  useEffect(() => {
+    setAppliedFtp(null);
+    setApplyingFtp(false);
+  }, [user?.uid]);
   const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
     ownerUid: user?.uid ?? null,
     items: [],
@@ -131,7 +137,9 @@ export default function FitnessPage() {
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
-  const canonicalFtpW = appliedFtpW ?? profile?.ftp ?? null;
+  const canonicalFtpW = appliedFtp && appliedFtp.ownerUid === user?.uid
+    ? appliedFtp.value
+    : profile?.ftp ?? null;
   const thresholdDecision = useMemo(
     () => resolveBikeThresholdDecision(canonicalFtpW, pdc),
     [canonicalFtpW, pdc],
@@ -139,30 +147,26 @@ export default function FitnessPage() {
 
   async function applyAutomaticFtp(candidateW: number) {
     if (!user || applyingFtp) return;
+    const expectedUid = user.uid;
     if (isConservativeDrop(thresholdDecision.activeFtpW, candidateW)) {
       const confirmed = await dialog.confirm(
         t("thresholdDecision.dropConfirm", { current: thresholdDecision.activeFtpW, candidate: candidateW }),
         { title: t("thresholdDecision.dropConfirmTitle"), destructive: true },
       );
       if (!confirmed) return;
+      if (activeUserUidRef.current !== expectedUid) return;
     }
     setApplyingFtp(true);
     try {
-      const result = await persistRiderMetrics(
-        user.uid,
-        { ftp: candidateW },
-        { ftpHistorySource: "detected" },
-      );
-      setAppliedFtpW(candidateW);
-      if (result.failures.length > 0) {
-        showToast(t("thresholdDecision.partial", { count: result.failures.length }), "error");
-      } else {
-        showToast(t("thresholdDecision.applied", { value: candidateW }));
-      }
+      await updateCanonicalFtp(expectedUid, candidateW, "detected");
+      if (activeUserUidRef.current !== expectedUid) return;
+      setAppliedFtp({ ownerUid: expectedUid, value: candidateW });
+      showToast(t("thresholdDecision.applied", { value: candidateW }));
     } catch (error) {
+      if (activeUserUidRef.current !== expectedUid) return;
       showToast(t("thresholdDecision.applyFailed", { message: error instanceof Error ? error.message : String(error) }), "error");
     } finally {
-      setApplyingFtp(false);
+      if (activeUserUidRef.current === expectedUid) setApplyingFtp(false);
     }
   }
 
@@ -585,7 +589,15 @@ export default function FitnessPage() {
     // 파워 존 분포 — 서버 계산 metrics.powerZoneSec(z1..z7 누적 초) 합산. z2~z7 을 z1~z6
     // 으로 매핑 (서버 z1=Active Recovery 는 클라 z1=Recovery 와 동일). bike 전용.
     const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
-      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", 6)
+      ? aggregateRecentZoneSeconds(
+          disciplineActivities,
+          metricsMap,
+          "powerZoneSec",
+          6,
+          Date.now(),
+          FITNESS_ZONE_WINDOW_DAYS,
+          ftp,
+        )
       : { counts: [0, 0, 0, 0, 0, 0], total: 0 };
 
     type MobZone = { name: string; pct: number; color: string; rangeLabel: string; percentLabel: string };

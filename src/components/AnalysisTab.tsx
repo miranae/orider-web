@@ -1231,7 +1231,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.powerCurve")}</h3>
           <PowerCurveChart
             points={powerCurve}
-            ftp={streams.ftp}
+            ftp={ftp}
             emptyTitle={t("analysis.empty.powerCurveTitle")}
             emptyDescription={t("analysis.empty.powerCurveDesc")}
           />
