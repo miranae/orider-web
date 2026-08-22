@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../contexts/AuthContext";
@@ -20,6 +20,10 @@ const MAP_THUMBNAIL_CAPTURE_TIMEOUT_MS = 20_000;
 const MAP_THUMBNAIL_PROCESS_TIMEOUT_MS = 30_000;
 const MAP_THUMBNAIL_WEBP_QUALITIES = [0.85, 0.78, 0.7, 0.62, 0.52, 0.4, 0.28, 0.16];
 type MapThumbnailPhase = "capture" | "encode" | "prepare" | "finalize";
+interface CaptureSlot {
+  token: symbol;
+  identity: string;
+}
 
 let activeCaptureToken: symbol | null = null;
 const waitingCaptureTokens: symbol[] = [];
@@ -68,13 +72,16 @@ interface ActivityRouteThumbnailProps {
   polyline: string;
   mapImageUrl?: string | null;
   visibility: "everyone" | "friends" | "private";
+  contentRevision?: number | null;
+  contentSelectedRevision?: number | null;
   priority?: boolean;
   layout?: "desktop" | "mobile";
 }
 
 /**
  * 현재 경로와 렌더 버전으로 만든 canonical 캡처만 이미지로 재사용한다. 그 외에는
- * 로그인 여부와 무관하게 같은 RouteMap을 표시하고, 인증된 viewer만 고정 해상도 WebP를 저장한다.
+ * 로그인 여부와 무관하게 같은 RouteMap을 표시한다. 레거시는 기존 viewer 정책을 유지하고,
+ * revision-managed 활동은 owner만 고정 해상도 WebP를 저장한다.
  */
 export default function ActivityRouteThumbnail({
   activityId,
@@ -82,6 +89,8 @@ export default function ActivityRouteThumbnail({
   polyline,
   mapImageUrl,
   visibility,
+  contentRevision,
+  contentSelectedRevision,
   priority = false,
   layout = "desktop",
 }: ActivityRouteThumbnailProps) {
@@ -89,21 +98,30 @@ export default function ActivityRouteThumbnail({
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
-  const captureToken = useRef(Symbol(activityId));
   const [visible, setVisible] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(mapImageUrl ?? null);
-  const [hasCaptureSlot, setHasCaptureSlot] = useState(false);
+  const [captureSlot, setCaptureSlot] = useState<CaptureSlot | null>(null);
   const [derivedKey, setDerivedKey] = useState<CanonicalMapThumbnailKey | null>(null);
   const captured = useRef(false);
   const mounted = useRef(true);
   const activeCanonicalKey = useRef("");
+  const revisionState = useMemo(
+    () => resolveActivityMapThumbnailRevision(contentRevision, contentSelectedRevision),
+    [contentRevision, contentSelectedRevision],
+  );
+  const revisionIdentity = revisionState.kind === "managed"
+    ? `managed:${revisionState.headRevision}:${revisionState.selectedRevision}`
+    : revisionState.kind;
 
-  const canonicalKey = derivedKey?.activityId === activityId && derivedKey.sourcePolyline === polyline
+  const canonicalKey = derivedKey?.activityId === activityId
+    && derivedKey.sourcePolyline === polyline
+    && derivedKey.revisionIdentity === revisionIdentity
     ? derivedKey
     : null;
   const canonicalFileName = canonicalKey?.fileName ?? "";
   const canonicalVersion = canonicalKey?.sourceHash ?? "";
-  activeCanonicalKey.current = `${canonicalFileName}:${canonicalVersion}`;
+  const captureIdentity = `${canonicalFileName}:${canonicalVersion}:${revisionIdentity}`;
+  activeCanonicalKey.current = captureIdentity;
   const canonicalImageUrl = canonicalKey && isCanonicalMapThumbnailUrl(
     imageUrl,
     userId,
@@ -115,24 +133,26 @@ export default function ActivityRouteThumbnail({
   useEffect(() => {
     let cancelled = false;
     setDerivedKey(null);
-    void deriveCanonicalMapThumbnailKey(activityId, polyline).then((key) => {
+    void deriveCanonicalMapThumbnailKey(activityId, polyline, revisionState).then((key) => {
       if (!cancelled) setDerivedKey(key);
     }).catch((error) => {
       if (!cancelled) logClientError("ActivityRouteThumbnail.deriveKey", error, { activityId });
     });
     return () => { cancelled = true; };
-  }, [activityId, polyline]);
+  }, [activityId, polyline, revisionIdentity, revisionState]);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
   useEffect(() => {
     captured.current = false;
-  }, [canonicalFileName, canonicalVersion, user?.uid]);
+  }, [canonicalFileName, canonicalVersion, revisionIdentity, user?.uid]);
 
-  // anonymous는 공개 활동만, 인증 viewer는 조회된 friends/private도 시도한다.
-  // 실제 owner/양방향 친구 관계는 prepare/finalize callable이 최신 서버 상태로 최종 강제한다.
-  const mayCapture = visibility === "everyone" || !!user;
+  // Revision-managed 썸네일은 owner만 발행한다. 레거시는 기존 공개/인증 viewer 동작을 유지하고,
+  // 실제 접근 권한은 prepare/finalize callable이 최신 서버 상태로 최종 강제한다.
+  const mayCapture = revisionState.kind === "managed"
+    ? user?.uid === userId
+    : revisionState.kind === "legacy" && (visibility === "everyone" || !!user);
   const needsCapture = mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {
@@ -154,22 +174,31 @@ export default function ActivityRouteThumbnail({
 
   useEffect(() => {
     if (!visible || !needsCapture || captured.current) return;
-    return requestCaptureSlot(captureToken.current, () => setHasCaptureSlot(true));
-  }, [visible, needsCapture, canonicalFileName, canonicalVersion]);
+    const requestedSlot: CaptureSlot = {
+      token: Symbol(captureIdentity),
+      identity: captureIdentity,
+    };
+    const release = requestCaptureSlot(requestedSlot.token, () => setCaptureSlot(requestedSlot));
+    return () => {
+      release();
+      setCaptureSlot((current) => current === requestedSlot ? null : current);
+    };
+  }, [visible, needsCapture, canonicalFileName, canonicalVersion, captureIdentity]);
 
   useEffect(() => {
-    if (!hasCaptureSlot) return;
+    if (!captureSlot) return;
     const timeoutId = globalThis.setTimeout(() => {
       if (captured.current) return;
       captured.current = true;
-      releaseCaptureSlot(captureToken.current);
-      setHasCaptureSlot(false);
+      releaseCaptureSlot(captureSlot.token);
+      setCaptureSlot((current) => current === captureSlot ? null : current);
     }, MAP_THUMBNAIL_CAPTURE_TIMEOUT_MS);
     return () => globalThis.clearTimeout(timeoutId);
-  }, [hasCaptureSlot]);
+  }, [captureSlot]);
 
   const handleMapLoad = useCallback(async () => {
-    if (captured.current || !needsCapture) return;
+    const ownedSlot = captureSlot;
+    if (captured.current || !needsCapture || ownedSlot?.identity !== captureIdentity) return;
     captured.current = true;
 
     const mapCanvas = captureRef.current?.querySelector("canvas");
@@ -180,8 +209,10 @@ export default function ActivityRouteThumbnail({
       const snapshot = copyCanonicalMapThumbnailCanvas(mapCanvas);
 
       // WebGL 픽셀 복사가 끝나는 즉시 다음 카드가 캡처할 수 있게 슬롯을 넘긴다.
-      releaseCaptureSlot(captureToken.current);
-      if (mounted.current) setHasCaptureSlot(false);
+      releaseCaptureSlot(ownedSlot.token);
+      if (mounted.current) {
+        setCaptureSlot((current) => current === ownedSlot ? null : current);
+      }
 
       phase = "encode";
       const blob = await withTimeout(
@@ -192,20 +223,31 @@ export default function ActivityRouteThumbnail({
       const imageBase64 = await blobToBase64(blob);
 
       phase = "prepare";
-      const prepared = await prepareActivityMapThumbnailUpload(activityId, canonicalFileName);
+      const expectedHeadRevision = revisionState.kind === "managed"
+        ? revisionState.headRevision
+        : undefined;
+      const prepared = await prepareActivityMapThumbnailUpload(
+        activityId,
+        canonicalFileName,
+        expectedHeadRevision,
+      );
       if (prepared.expectedFileName !== canonicalFileName) {
         throw new Error("map-thumbnail/stale-prepare");
       }
+      if (expectedHeadRevision != null && prepared.expectedHeadRevision !== expectedHeadRevision) {
+        throw new Error("map-thumbnail/stale-prepare");
+      }
 
-      if (activeCanonicalKey.current !== `${canonicalFileName}:${canonicalVersion}`) return;
+      if (activeCanonicalKey.current !== captureIdentity) return;
       if (!mounted.current) return;
       phase = "finalize";
       const finalized = await finalizeActivityMapThumbnailUpload(
         activityId,
         canonicalFileName,
         imageBase64,
+        expectedHeadRevision,
       );
-      if (activeCanonicalKey.current !== `${canonicalFileName}:${canonicalVersion}`) return;
+      if (activeCanonicalKey.current !== captureIdentity) return;
       if (!mounted.current) return;
       setImageUrl(finalized.mapImageUrl);
     } catch (err) {
@@ -213,10 +255,12 @@ export default function ActivityRouteThumbnail({
         logClientError("ActivityRouteThumbnail.captureMap", err, { activityId, phase });
       }
     } finally {
-      releaseCaptureSlot(captureToken.current);
-      if (mounted.current) setHasCaptureSlot(false);
+      releaseCaptureSlot(ownedSlot.token);
+      if (mounted.current) {
+        setCaptureSlot((current) => current === ownedSlot ? null : current);
+      }
     }
-  }, [activityId, userId, canonicalFileName, canonicalVersion, needsCapture]);
+  }, [activityId, canonicalFileName, captureIdentity, captureSlot, needsCapture, revisionState]);
 
   const isMobile = layout === "mobile";
   const frameClassName = "block relative group overflow-hidden w-full aspect-[var(--feed-thumb-aspect)]";
@@ -273,7 +317,7 @@ export default function ActivityRouteThumbnail({
         >
           {content}
         </div>
-        {hasCaptureSlot && renderCaptureViewport()}
+        {captureSlot && renderCaptureViewport()}
       </>
     );
   }
@@ -290,7 +334,7 @@ export default function ActivityRouteThumbnail({
           {content}
         </Link>
       </div>
-      {hasCaptureSlot && renderCaptureViewport()}
+      {captureSlot && renderCaptureViewport()}
     </>
   );
 
@@ -333,6 +377,33 @@ interface CanonicalMapThumbnailKey {
   sourcePolyline: string;
   sourceHash: string;
   fileName: string;
+  revisionIdentity: string;
+}
+
+export type ActivityMapThumbnailRevision =
+  | { kind: "legacy" }
+  | { kind: "managed"; headRevision: number; selectedRevision: number }
+  | { kind: "invalid" };
+
+export function resolveActivityMapThumbnailRevision(
+  contentRevision: unknown,
+  contentSelectedRevision: unknown,
+): ActivityMapThumbnailRevision {
+  const hasHead = contentRevision != null;
+  const hasSelected = contentSelectedRevision != null;
+  if (!hasHead && !hasSelected) return { kind: "legacy" };
+  if (!Number.isSafeInteger(contentRevision)
+    || !Number.isSafeInteger(contentSelectedRevision)
+    || (contentRevision as number) < 0
+    || (contentSelectedRevision as number) < 0
+    || (contentSelectedRevision as number) > (contentRevision as number)) {
+    return { kind: "invalid" };
+  }
+  return {
+    kind: "managed",
+    headRevision: contentRevision as number,
+    selectedRevision: contentSelectedRevision as number,
+  };
 }
 
 export async function getPolylineHash(polyline: string): Promise<string> {
@@ -341,21 +412,33 @@ export async function getPolylineHash(polyline: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function getCanonicalMapThumbnailFileName(activityId: string, polyline: string): Promise<string> {
+export async function getCanonicalMapThumbnailFileName(
+  activityId: string,
+  polyline: string,
+  selectedRevision?: number,
+): Promise<string> {
   const sourceHash = await getPolylineHash(polyline);
-  return `${activityId}.${MAP_THUMBNAIL_RENDER_VERSION}-${sourceHash.slice(0, 16)}.webp`;
+  const revisionSuffix = selectedRevision == null ? "" : `.r${selectedRevision}`;
+  return `${activityId}${revisionSuffix}.${MAP_THUMBNAIL_RENDER_VERSION}-${sourceHash.slice(0, 16)}.webp`;
 }
 
 async function deriveCanonicalMapThumbnailKey(
   activityId: string,
   sourcePolyline: string,
-): Promise<CanonicalMapThumbnailKey> {
+  revision: ActivityMapThumbnailRevision,
+): Promise<CanonicalMapThumbnailKey | null> {
+  if (revision.kind === "invalid") return null;
   const sourceHash = await getPolylineHash(sourcePolyline);
+  const revisionIdentity = revision.kind === "managed"
+    ? `managed:${revision.headRevision}:${revision.selectedRevision}`
+    : revision.kind;
+  const revisionSuffix = revision.kind === "managed" ? `.r${revision.selectedRevision}` : "";
   return {
     activityId,
     sourcePolyline,
     sourceHash,
-    fileName: `${activityId}.${MAP_THUMBNAIL_RENDER_VERSION}-${sourceHash.slice(0, 16)}.webp`,
+    fileName: `${activityId}${revisionSuffix}.${MAP_THUMBNAIL_RENDER_VERSION}-${sourceHash.slice(0, 16)}.webp`,
+    revisionIdentity,
   };
 }
 
@@ -475,22 +558,33 @@ export async function createCanonicalMapThumbnailBlob(output: HTMLCanvasElement)
 async function prepareActivityMapThumbnailUpload(
   activityId: string,
   expectedFileName: string,
-): Promise<{ expectedFileName: string }> {
+  expectedHeadRevision?: number,
+): Promise<{ expectedFileName: string; expectedHeadRevision?: number }> {
   return invokeMapThumbnailCoordinator<
-    { activityId: string; expectedFileName: string },
-    { expectedFileName: string }
-  >("prepareActivityMapThumbnailUpload", { activityId, expectedFileName });
+    { activityId: string; expectedFileName: string; expectedHeadRevision?: number },
+    { expectedFileName: string; expectedHeadRevision?: number }
+  >("prepareActivityMapThumbnailUpload", {
+    activityId,
+    expectedFileName,
+    ...(expectedHeadRevision != null ? { expectedHeadRevision } : {}),
+  });
 }
 
 async function finalizeActivityMapThumbnailUpload(
   activityId: string,
   expectedFileName: string,
   imageBase64: string,
+  expectedHeadRevision?: number,
 ): Promise<{ mapImageUrl: string }> {
   const data = await invokeMapThumbnailCoordinator<
-    { activityId: string; expectedFileName: string; imageBase64: string },
+    { activityId: string; expectedFileName: string; imageBase64: string; expectedHeadRevision?: number },
     { mapImageUrl: string }
-  >("finalizeActivityMapThumbnailUpload", { activityId, expectedFileName, imageBase64 });
+  >("finalizeActivityMapThumbnailUpload", {
+    activityId,
+    expectedFileName,
+    imageBase64,
+    ...(expectedHeadRevision != null ? { expectedHeadRevision } : {}),
+  });
   if (!data.mapImageUrl) throw new Error("map-thumbnail/finalize-missing-url");
   return data;
 }
