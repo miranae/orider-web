@@ -61,8 +61,10 @@ describe("impersonation token consumer", () => {
       credential({ impersonated: true, impersonatedBy: "moon" }),
     );
 
+    expect(hasImpersonationTokenInUrl()).toBe(true);
     await applyImpersonationTokenFromUrl({ currentUser: null } as never);
 
+    expect(hasImpersonationTokenInUrl()).toBe(false);
     expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "tok-123");
     expect(readImpersonationState()).toMatchObject({ by: "moon", targetUid: "target-uid" });
   });
@@ -292,6 +294,27 @@ describe("impersonation token consumer", () => {
 
     await applyImpersonationTokenFromUrl({ currentUser: null } as never);
     expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "tok-hash");
+  });
+
+  it("removes only its fragment key while preserving a bare anchor and other raw fragments", async () => {
+    const handoff = "A".repeat(43);
+    window.history.replaceState(
+      {},
+      "",
+      `/ko/?sport=run#training&impersonateToken=tok-123&handoff=${handoff}&view=ride%20detail&flag`,
+    );
+    signInWithCustomToken.mockResolvedValue(credential({ impersonated: true }));
+
+    stashImpersonationToken();
+
+    expect(window.location.search).toBe("?sport=run");
+    expect(window.location.hash).toBe(
+      `#training&handoff=${handoff}&view=ride%20detail&flag`,
+    );
+    expect(hasImpersonationTokenInUrl()).toBe(false);
+
+    await applyImpersonationTokenFromUrl({ currentUser: null } as never);
+    expect(signInWithCustomToken).toHaveBeenCalledWith(expect.anything(), "tok-123");
   });
 
   // 쿼리 토큰은 이미 접근 로그·Referer 에 남은 자격증명이라 쓰지 않고 거부한다.

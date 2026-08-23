@@ -105,6 +105,17 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
     connectFunctionsEmulator(embeddedFunctions, "localhost", 5001);
   } else {
     if (!siteKey) throw new Error("embedded-app-check/missing-site-key");
+    // 로컬 개발 전용 App Check 디버그 토큰. reCAPTCHA Enterprise 는 등록된 도메인에서만
+    // 동작해 localhost(특히 앱 WebView 안)에서는 토큰을 못 받고, 그러면 인계 redeem 이
+    // 막혀 임베드를 한 번도 확인할 수 없다. **import.meta.env.DEV 에서만** 켜지므로
+    // 프로덕션 번들에는 이 경로가 남지 않는다(빌드 시 제거).
+    if (import.meta.env.DEV) {
+      const debugToken = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
+      if (debugToken) {
+        (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean })
+          .FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+      }
+    }
     embeddedAppCheck = initializeAppCheck(embeddedApp, {
       provider: new ReCaptchaEnterpriseProvider(siteKey),
       isTokenAutoRefreshEnabled: true,
