@@ -155,9 +155,7 @@ describe("MobileFitnessPage tri", () => {
     expect(integratedLoadSpy).not.toHaveBeenCalled();
   });
 
-  it("renders active FTP evidence and keeps the PDC candidate opt-in", async () => {
-    const user = userEvent.setup();
-    const onApplyFtp = vi.fn();
+  it("renders active FTP evidence without a direct PDC apply action", () => {
     const data = {
       ctl: 42.1, atl: 48.3, tsb: -6.2, pmcHistory: [], weeklyTSS: [], thisWeekTSS: 0, avgWeekTSS: 0, restDays: 0,
       threshold: { label: "FTP", value: "250", unit: "W", sub: "" }, ftp: 250, weightKg: 70, hasLoadData: true, combinedLoad: null,
@@ -170,15 +168,13 @@ describe("MobileFitnessPage tri", () => {
       ftpProgression: [{ period: "2026-06", ftpW: 255, source: "20m" }, { period: "2026-07", ftpW: 265, source: "20m" }],
     } satisfies MobileFitnessData;
 
-    renderWithProviders(<MobileFitnessPage data={data} onApplyFtp={onApplyFtp} />);
+    renderWithProviders(<MobileFitnessPage data={data} />);
 
     expect(screen.getByText("250")).toBeInTheDocument();
     expect(screen.getByText("3.57 W/kg")).toBeInTheDocument();
     expect(screen.queryByText(/CTL 42.1 · ATL 48.3 · TSB -6.2/)).not.toBeInTheDocument();
     expect(screen.getByText(/실험실 측정치 아님/)).toBeInTheDocument();
     expect(screen.getByText(/현재 적용 FTP 250W/)).toBeInTheDocument();
-    expect(onApplyFtp).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "이 후보 적용" }));
-    expect(onApplyFtp).toHaveBeenCalledWith(265);
+    expect(screen.queryByRole("button", { name: "이 후보 적용" })).not.toBeInTheDocument();
   });
 });

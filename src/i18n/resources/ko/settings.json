@@ -883,6 +883,9 @@
     "maxHrLabel": "최대 심박",
     "dismiss": "무시",
     "acceptAll": "전부 적용",
+    "acceptHeartRate": "심박 임계값만 적용",
+    "reviewFtpInFitness": "FTP는 Fitness에서 검토",
+    "checkingFtpDecision": "FTP 결정 확인 중…",
     "acceptSuccess": "임계값 업데이트 완료",
     "acceptFailed": "적용 실패 — 잠시 후 다시 시도하세요"
   },

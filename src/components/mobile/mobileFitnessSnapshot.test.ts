@@ -23,7 +23,7 @@ describe("mobile fitness decision hierarchy", () => {
     const rider = source.indexOf("<Chip");
     const grid = source.indexOf("metrics.map");
     const trend = source.indexOf("<FtpProgressionCard");
-    const candidate = source.indexOf("automaticCandidateW != null");
+    const candidate = source.indexOf("<BikeFtpDecisionActionPanel");
     const evidence = source.indexOf("aria-expanded={evidenceOpen}");
     expect(hero).toBeLessThan(rider);
     expect(rider).toBeLessThan(grid);
