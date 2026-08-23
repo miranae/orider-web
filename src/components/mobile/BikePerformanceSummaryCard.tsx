@@ -3,8 +3,10 @@ import { useTranslation } from "react-i18next";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
+import type { BikeThresholdDecisionV2, FtpDeviceReceipt, FtpMutationReceipt } from "@shared/types/threshold";
 import { Button, Chip, Text } from "../../theme/components";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
+import BikeFtpDecisionActionPanel from "../../features/fitness/components/BikeFtpDecisionActionPanel";
 import AbilityScoreScale from "../fitness/AbilityScoreScale";
 
 export interface MobileFitnessPdcSummary {
@@ -26,8 +28,11 @@ interface BikePerformanceSummaryCardProps {
   weightKg?: number;
   progression?: EstimatedFtpPoint[];
   ftpHistory?: FtpHistoryEntry[];
-  applying: boolean;
-  onApplyCandidate: (watts: number) => void;
+  ftpDecision?: BikeThresholdDecisionV2 | null;
+  ftpReceipt?: FtpMutationReceipt | null;
+  ftpDeviceReceipts?: FtpDeviceReceipt[];
+  decisionBusy?: boolean;
+  onAcceptDecision?: () => void;
 }
 
 const RIDER_TYPE_KEYS = new Set([
@@ -39,7 +44,7 @@ function estimateVo2max(ftp: number | null, weightKg: number | undefined): numbe
   return Math.round((ftp / weightKg) * 15.7 + 3.5);
 }
 
-export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, progression = [], ftpHistory = [], applying, onApplyCandidate }: BikePerformanceSummaryCardProps) {
+export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, progression = [], ftpHistory = [], ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
   const { t } = useTranslation("dashboard");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const evidenceId = useId();
@@ -116,17 +121,13 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
 
       <FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact />
 
-      {decision?.automaticCandidateW != null && (
-        <div style={{ marginTop: "var(--space-4)", padding: "var(--space-4)", borderRadius: "var(--r-md)", background: "var(--accent-soft-bg)", border: "1px solid var(--accent-soft-border)" }}>
-          <Text as="div" variant="eyebrow" style={{ color: "var(--aqua)" }}>{t("fitness:thresholdDecision.candidateLabel")}</Text>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", margin: "var(--space-1) 0 var(--space-3)" }}>
-            <Text variant="dataLarge">{decision.automaticCandidateW}</Text><Text variant="unit">W</Text>
-          </div>
-          <Button variant="primary" size="sm" disabled={applying} onClick={() => onApplyCandidate(decision.automaticCandidateW!)} style={{ width: "100%" }}>
-            {t(applying ? "fitness:thresholdDecision.applying" : "fitness:thresholdDecision.apply")}
-          </Button>
-        </div>
-      )}
+      <BikeFtpDecisionActionPanel
+        decision={ftpDecision}
+        receipt={ftpReceipt}
+        deviceReceipts={ftpDeviceReceipts}
+        busy={decisionBusy}
+        onAccept={onAcceptDecision}
+      />
 
       <Button variant="secondary" size="sm" aria-expanded={evidenceOpen} aria-controls={evidenceId} onClick={() => setEvidenceOpen((open) => !open)} style={{ width: "100%", marginTop: "var(--space-4)" }}>
         {t(evidenceOpen ? "mobileFitness.performance.evidenceClose" : "mobileFitness.performance.evidenceOpen")}

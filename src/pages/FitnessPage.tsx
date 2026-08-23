@@ -57,7 +57,6 @@ import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
 import PowerCurveChart from "../features/fitness/components/PowerCurveChart";
 import { deriveEstimatedFtpProgression } from "@shared/training/ftpProgression";
 import { resolveBikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
-import { isConservativeDrop } from "@shared/training/ftpTest";
 import {
   POWER_DURATION_KEY_SEC,
   formatKoreanDate,
@@ -84,9 +83,9 @@ import {
   computeIntegratedLoadFocus,
 } from "../features/fitness/multisportPerformance";
 import { useFitnessClock } from "../hooks/useFitnessClock";
-import { useDialog } from "../contexts/DialogContext";
 import { useToast } from "../contexts/ToastContext";
-import { persistRiderMetrics } from "../services/syncRiderMetrics";
+import { useBikeFtpDecision } from "../hooks/useBikeFtpDecision";
+import { acceptBikeThresholdDecision } from "../services/bikeFtpDecisionClient";
 import { useCoachRiderInsight } from "../hooks/useCoachRiderInsight";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { buildCanonicalRiderFitnessView, cyclingAbilityFromCanonicalRider } from "../features/fitness/riderInsightParity";
@@ -101,10 +100,8 @@ export default function FitnessPage() {
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
   const { entries: ftpHistory } = useFtpHistory(user?.uid);
-  const dialog = useDialog();
   const { showToast } = useToast();
-  const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
-  const [applyingFtp, setApplyingFtp] = useState(false);
+  const [decisionBusy, setDecisionBusy] = useState(false);
   const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
     ownerUid: user?.uid ?? null,
     items: [],
@@ -122,6 +119,16 @@ export default function FitnessPage() {
   const isMobile = useMobile();
   const [searchParams] = useSearchParams();
   const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
+  const selectedDecisionId = searchParams.get("decisionId");
+  const {
+    decision: bikeFtpDecision,
+    receipt: bikeFtpReceipt,
+    deviceReceipts: bikeFtpDeviceReceipts,
+  } = useBikeFtpDecision({
+    uid: user?.uid,
+    decisionId: selectedDecisionId,
+    enabled: discipline === "bike",
+  });
   const { pdc } = usePdc(user?.uid);
   const riderInsightEnabled = getRuntimeConfig().coachRiderInsightEnabled === true && discipline === "bike";
   const { insight: coachRiderInsight } = useCoachRiderInsight(user?.uid, riderInsightEnabled);
@@ -131,38 +138,23 @@ export default function FitnessPage() {
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
-  const canonicalFtpW = appliedFtpW ?? profile?.ftp ?? null;
+  const canonicalFtpW = profile?.ftp ?? null;
   const thresholdDecision = useMemo(
     () => resolveBikeThresholdDecision(canonicalFtpW, pdc),
     [canonicalFtpW, pdc],
   );
 
-  async function applyAutomaticFtp(candidateW: number) {
-    if (!user || applyingFtp) return;
-    if (isConservativeDrop(thresholdDecision.activeFtpW, candidateW)) {
-      const confirmed = await dialog.confirm(
-        t("thresholdDecision.dropConfirm", { current: thresholdDecision.activeFtpW, candidate: candidateW }),
-        { title: t("thresholdDecision.dropConfirmTitle"), destructive: true },
-      );
-      if (!confirmed) return;
-    }
-    setApplyingFtp(true);
+  async function acceptFtpDecision() {
+    if (!user || !bikeFtpDecision || decisionBusy) return;
+    setDecisionBusy(true);
     try {
-      const result = await persistRiderMetrics(
-        user.uid,
-        { ftp: candidateW },
-        { ftpHistorySource: "detected" },
-      );
-      setAppliedFtpW(candidateW);
-      if (result.failures.length > 0) {
-        showToast(t("thresholdDecision.partial", { count: result.failures.length }), "error");
-      } else {
-        showToast(t("thresholdDecision.applied", { value: candidateW }));
-      }
+      await acceptBikeThresholdDecision(user.uid, bikeFtpDecision);
+      showToast(t("ftpDecision.accepted"));
     } catch (error) {
-      showToast(t("thresholdDecision.applyFailed", { message: error instanceof Error ? error.message : String(error) }), "error");
+      logClientError("FitnessPage.acceptBikeThresholdDecision", error, { decisionId: bikeFtpDecision.decisionId });
+      showToast(t("ftpDecision.acceptFailed"), "error");
     } finally {
-      setApplyingFtp(false);
+      setDecisionBusy(false);
     }
   }
 
@@ -707,8 +699,11 @@ export default function FitnessPage() {
           discipline,
         }}
         consistencyStreak={consistencyStreak}
-        applyingFtp={applyingFtp}
-        onApplyFtp={applyAutomaticFtp}
+        ftpDecision={bikeFtpDecision}
+        ftpReceipt={bikeFtpReceipt}
+        ftpDeviceReceipts={bikeFtpDeviceReceipts}
+        decisionBusy={decisionBusy}
+        onAcceptDecision={acceptFtpDecision}
       />
       </>
     );
@@ -1053,8 +1048,11 @@ export default function FitnessPage() {
           <BikeThresholdDecisionCard
             decision={thresholdDecision}
             hasZoneData={!!zoneDistribution}
-            applying={applyingFtp}
-            onApplyCandidate={applyAutomaticFtp}
+            ftpDecision={bikeFtpDecision}
+            ftpReceipt={bikeFtpReceipt}
+            ftpDeviceReceipts={bikeFtpDeviceReceipts}
+            decisionBusy={decisionBusy}
+            onAcceptDecision={acceptFtpDecision}
             progressionPoints={ftpProgression}
             ftpHistory={ftpHistory}
             defaultEvidenceOpen

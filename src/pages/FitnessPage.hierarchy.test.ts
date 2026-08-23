@@ -24,7 +24,7 @@ describe("FitnessPage desktop hierarchy", () => {
     expect(source).toContain('t("vo2maxCard.pdcLabel")');
     expect(source).toContain('t("vo2maxCard.trendAriaValues"');
     expect(source).toContain("<desc>{trendDescription}</desc>");
-    expect(source).toContain("isConservativeDrop(thresholdDecision.activeFtpW, candidateW)");
-    expect(source).toContain("await dialog.confirm(");
+    expect(source).toContain("await acceptBikeThresholdDecision(user.uid, bikeFtpDecision)");
+    expect(source).not.toContain("persistRiderMetrics");
   });
 });

@@ -21,6 +21,7 @@ import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
+import type { BikeThresholdDecisionV2, FtpDeviceReceipt, FtpMutationReceipt } from "@shared/types/threshold";
 import type { CyclingAbilityResult, LoadFocusResult, RunEvidence, SwimEvidence } from "../../features/fitness/multisportPerformance";
 import IntegratedLoadCard, { type CombinedLoadStatus } from "./IntegratedLoadCard";
 import SportPerformanceCard from "./SportPerformanceCard";
@@ -461,13 +462,19 @@ function SectionCard({ children, title, sub, accentColor }: { children: React.Re
 export default function MobileFitnessPage({
   data,
   consistencyStreak = null,
-  applyingFtp = false,
-  onApplyFtp = () => undefined,
+  ftpDecision = null,
+  ftpReceipt = null,
+  ftpDeviceReceipts = [],
+  decisionBusy = false,
+  onAcceptDecision = () => undefined,
 }: {
   data: MobileFitnessData;
   consistencyStreak?: ConsistencyStreakSummary | null;
-  applyingFtp?: boolean;
-  onApplyFtp?: (watts: number) => void;
+  ftpDecision?: BikeThresholdDecisionV2 | null;
+  ftpReceipt?: FtpMutationReceipt | null;
+  ftpDeviceReceipts?: FtpDeviceReceipt[];
+  decisionBusy?: boolean;
+  onAcceptDecision?: () => void;
 }) {
   const { t } = useTranslation("dashboard");
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
@@ -552,8 +559,11 @@ export default function MobileFitnessPage({
               weightKg={data.weightKg}
               progression={data.ftpProgression}
               ftpHistory={data.ftpHistory}
-              applying={applyingFtp}
-              onApplyCandidate={onApplyFtp}
+              ftpDecision={ftpDecision}
+              ftpReceipt={ftpReceipt}
+              ftpDeviceReceipts={ftpDeviceReceipts}
+              decisionBusy={decisionBusy}
+              onAcceptDecision={onAcceptDecision}
             />
           )}
 
