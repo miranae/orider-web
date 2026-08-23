@@ -128,19 +128,58 @@ function isLifecyclePayload(payload: unknown): boolean {
     && (payload.state === "foreground" || payload.state === "background");
 }
 
+/**
+ * 테마 토큰을 documentElement 인라인 속성으로 복사한다.
+ *
+ * WKWebView 는 로드 후 JS 로 바뀐 `data-theme` 을 스타일 재계산에 반영하지 않는 경우가
+ * 있다(iOS 시뮬레이터 실측: attr=dark 인데 --bg-0 은 light. 강제 리플로우로도 해소되지
+ * 않음. 같은 페이지가 Chrome 에서는 정상). 팔레트를 여기에 복제하지 않고 이미 로드된
+ * 스타일시트에서 해당 모드의 규칙을 그대로 읽어 인라인으로 적용해, 선택자 매칭에
+ * 의존하지 않고도 전체 토큰(bg-0..4 · ink · accent 등)이 일관되게 적용되게 한다.
+ */
+function applyThemeTokensInline(mode: "light" | "dark"): void {
+  const selector = mode === "dark" ? ':root[data-theme="dark"]' : ":root";
+  const target = document.documentElement;
+  for (const sheet of Array.from(document.styleSheets)) {
+    let rules: CSSRuleList;
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      continue; // cross-origin 시트는 건너뛴다
+    }
+    for (const rule of Array.from(rules)) {
+      if (!(rule instanceof CSSStyleRule) || rule.selectorText !== selector) continue;
+      for (const name of Array.from(rule.style)) {
+        if (!name.startsWith("--")) continue;
+        target.style.setProperty(name, rule.style.getPropertyValue(name).trim());
+      }
+    }
+  }
+}
+
 function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
   document.documentElement.setAttribute("data-theme", session.theme.mode);
-  const computed = getComputedStyle(document.documentElement);
-  const token = (name: string, fallback: string) => (
-    computed.getPropertyValue(name).trim() || fallback
-  );
-  const defaults = {
-    bg: token("--bg-0", "oklch(0.98 0.004 85)"),
-    surface: token("--bg-1", "oklch(0.995 0.002 85)"),
-    textPrimary: token("--ink-0", "oklch(0.18 0.010 240)"),
-    textSecondary: token("--ink-1", "oklch(0.28 0.010 240)"),
-    accent: token("--accent", "oklch(0.56 0.115 192)"),
-  };
+  applyThemeTokensInline(session.theme.mode);
+  const fallback = session.theme.mode === "dark"
+    ? {
+      bg: "oklch(0.13 0.007 250)",
+      surface: "oklch(0.18 0.008 250)",
+      textPrimary: "oklch(0.97 0.003 250)",
+      textSecondary: "oklch(0.80 0.006 250)",
+      accent: "oklch(0.78 0.120 192)",
+    }
+    : {
+      bg: "oklch(0.98 0.004 85)",
+      surface: "oklch(0.995 0.002 85)",
+      textPrimary: "oklch(0.18 0.010 240)",
+      textSecondary: "oklch(0.28 0.010 240)",
+      accent: "oklch(0.56 0.115 192)",
+    };
+  // 계산된 CSS 변수를 읽지 않고 모드 상수를 정본으로 쓴다. WebKit(WKWebView)은 방금 건
+  // data-theme 을 반영하지 않은 계산값을 돌려줘, 강제 리플로우를 넣어도 다크 모드에서
+  // 라이트 토큰을 읽었다(iOS 시뮬레이터 실측: attr=dark 인데 --bg-0 은 light).
+  // 값은 src/theme/generated.css 의 :root / :root[data-theme="dark"] 와 동일하게 유지한다.
+  const defaults = fallback;
   const colors = { ...defaults, ...session.theme.colors };
   root.style.setProperty("--orider-host-bg", colors.bg);
   root.style.setProperty("--orider-host-surface", colors.surface);
