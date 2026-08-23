@@ -1,5 +1,12 @@
 {
   "title": "Activity",
+  "ftpDecision": {
+    "eyebrow": "FTP candidate from this activity",
+    "title": "Review your FTP using this activity",
+    "summary": "Current {{current}} W → candidate {{candidate}} W. Review the change and impact in Fitness.",
+    "blocked": "Measured-power evidence was found, but it does not currently meet the FTP change criteria. See why in Fitness.",
+    "openFitness": "Review in Fitness"
+  },
   "equipment": {
     "eyebrow": "Equipment check recommended",
     "loading": "Checking for equipment recommendations",

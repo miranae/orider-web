@@ -14,6 +14,9 @@ import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import type { ThresholdSuggestionDoc } from "@shared/types/threshold";
+import { LocalizedLink } from "../LocalizedLink";
+import { buttonClass } from "../../theme/components";
+import { useBikeFtpDecision } from "../../hooks/useBikeFtpDecision";
 
 type Suggestion = ThresholdSuggestionDoc;
 
@@ -33,6 +36,14 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
   const busyRef = useRef(false);
   // pendingRef: undefined=대기 중인 갱신 없음, null=빈 갱신 대기, Suggestion=새 제안 대기
   const pendingRef = useRef<Suggestion | null | undefined>(undefined);
+  const { decision: v2FtpDecision, loading: v2FtpLoading } = useBikeFtpDecision({
+    uid: user?.uid,
+    sourceActivityId: sugg?.ftp ? sugg.activityId : null,
+    enabled: Boolean(user && sugg?.ftp),
+  });
+  const hasConfirmedV2Ftp = Boolean(
+    sugg?.ftp && v2FtpDecision?.evidence.activityId === sugg.activityId,
+  );
 
   useEffect(() => {
     if (!user) { setSugg(null); return; }
@@ -84,6 +95,8 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
 
   const handleAccept = async () => {
     if (!sugg || busy) return;
+    if (sugg.ftp && v2FtpLoading) return;
+    if (!sugg.ftp && !sugg.lthr && !sugg.maxHr) return;
     const activityId = sugg.activityId; // closure 캡처 — busy 동안 sugg 갱신 무시
     busyRef.current = true;
     setBusy(true);
@@ -94,10 +107,14 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
       );
       const result = await fn({
         activityId,
-        fields: { ftp: !!sugg.ftp, lthr: !!sugg.lthr, maxHr: !!sugg.maxHr },
+        fields: { ftp: !!sugg.ftp && !hasConfirmedV2Ftp, lthr: !!sugg.lthr, maxHr: !!sugg.maxHr },
       });
       showToast(t("threshold.acceptSuccess"));
-      onAccepted?.(result.data.applied);
+      const applied = hasConfirmedV2Ftp ? {
+          ...(result.data.applied.lthr === undefined ? {} : { lthr: result.data.applied.lthr }),
+          ...(result.data.applied.maxHr === undefined ? {} : { maxHr: result.data.applied.maxHr }),
+        } : result.data.applied;
+      onAccepted?.(applied);
     } catch (err) {
       logClientError("ThresholdSuggestionBanner.handleAccept", err, { activityId });
       showToast(t("threshold.acceptFailed"));
@@ -153,7 +170,7 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
         ))}
       </div>
       <div style={{ display: "flex", gap: 'var(--space-2)', justifyContent: "flex-end" }}>
-        <button
+        {(!sugg.ftp || (!v2FtpLoading && !hasConfirmedV2Ftp)) && <button
           type="button"
           onClick={handleDismiss}
           disabled={busy}
@@ -168,8 +185,18 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
           }}
         >
           {t("threshold.dismiss")}
-        </button>
-        <button
+        </button>}
+        {hasConfirmedV2Ftp && (
+          <LocalizedLink
+            to={{ pathname: "/fitness", search: "?sport=bike" }}
+            className={buttonClass({ variant: "secondary", size: "sm" })}
+          >
+            {t("threshold.reviewFtpInFitness")}
+          </LocalizedLink>
+        )}
+        {(!sugg.ftp || !v2FtpLoading)
+          && (hasConfirmedV2Ftp ? (sugg.lthr || sugg.maxHr) : (sugg.ftp || sugg.lthr || sugg.maxHr))
+          && <button
           type="button"
           onClick={handleAccept}
           disabled={busy}
@@ -184,8 +211,9 @@ export function ThresholdSuggestionBanner({ onAccepted }: ThresholdSuggestionBan
             cursor: busy ? "default" : "pointer",
           }}
         >
-          {t("threshold.acceptAll")}
-        </button>
+          {t(hasConfirmedV2Ftp ? "threshold.acceptHeartRate" : "threshold.acceptAll")}
+        </button>}
+        {sugg.ftp && v2FtpLoading && <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>{t("threshold.checkingFtpDecision")}</span>}
       </div>
     </div>
   );

@@ -16,13 +16,12 @@ const t = (key: string) => labels[key] ?? key;
 
 describe("BikeThresholdDecisionCard", () => {
   it("distinguishes the active value, candidate, CP, raw 20m and monthly eFTP", () => {
-    const onApply = vi.fn();
     renderWithProviders(
       <BikeThresholdDecisionCard
         decision={{ activeFtpW: 203, automaticCandidateW: 153, cpW: 158, recentTwentyMinuteW: 173, latestMonthlyEstimate: { period: "2026-06", ftpW: 154 }, tteMin: 42, activityCount: 12 }}
         hasZoneData
-        applying={false}
-        onApplyCandidate={onApply}
+        ftpDecision={null}
+        onAcceptDecision={vi.fn()}
         progressionPoints={[
           { period: "2026-05", ftpW: 150, source: "20m" },
           { period: "2026-06", ftpW: 154, source: "20m" },
@@ -34,9 +33,7 @@ describe("BikeThresholdDecisionCard", () => {
     expect(screen.getByText("203")).toBeInTheDocument();
     expect(screen.getByText("153")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /월별 추정 FTP 추이 차트/, hidden: true })).not.toBeVisible();
-    expect(onApply).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "thresholdDecision.applyAria" }));
-    expect(onApply).toHaveBeenCalledWith(153);
+    expect(screen.queryByRole("button", { name: /후보 적용|candidate/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "추정 근거와 기간 보기" }));
     expect(screen.getByText("158 W")).toBeVisible();
@@ -51,8 +48,19 @@ describe("BikeThresholdDecisionCard", () => {
       <BikeThresholdDecisionCard
         decision={{ activeFtpW: 250, automaticCandidateW: 265, cpW: 270, recentTwentyMinuteW: 279, latestMonthlyEstimate: { period: "2026-06", ftpW: 265 }, tteMin: 45, activityCount: 12 }}
         hasZoneData
-        applying={false}
-        onApplyCandidate={vi.fn()}
+        ftpDecision={{
+          schemaVersion: 2,
+          decisionId: "bike-ftp-1234567890abcdef1234567890abcdef",
+          status: "actionable",
+          candidate: { ftp: 265, currentFtp: 250, method: "pdc_cp_097", deltaW: 15, deltaPct: 6 },
+          evidence: { activityId: "activity-1", activityRevision: "activity-r1", powerSource: "measured", pdcRevision: "pdc-r1" },
+          expectedRevisions: { ftp: "ftp-1", pdc: "pdc-r1", impactPreview: "impact-1" },
+          confidence: { level: "high", score: 0.9, reasons: ["measured_power"] },
+          impactPreview: { revision: "impact-1", effectiveFrom: "next_ride", workoutScalePct: 106 },
+          createdAt: Date.now() - 1_000,
+          expiresAt: Date.now() + 86_400_000,
+        }}
+        onAcceptDecision={vi.fn()}
         progressionPoints={[{ period: "2026-05", ftpW: 255, source: "20m" }, { period: "2026-06", ftpW: 265, source: "20m" }]}
         defaultEvidenceOpen
         t={t}
