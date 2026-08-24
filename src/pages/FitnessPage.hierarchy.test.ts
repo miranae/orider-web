@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 describe("FitnessPage desktop hierarchy", () => {
   const source = readFileSync(join(process.cwd(), "src/pages/FitnessPage.tsx"), "utf8");
+  const modelSource = readFileSync(join(process.cwd(), "src/hooks/useFitnessModel.ts"), "utf8");
   it("uses the site shell and lets KPI cards wrap at intermediate widths", () => {
     expect(source).toContain('className="site-shell"');
     expect(source).not.toContain("maxWidth: 1120");
@@ -24,7 +25,7 @@ describe("FitnessPage desktop hierarchy", () => {
     expect(source).toContain('t("vo2maxCard.pdcLabel")');
     expect(source).toContain('t("vo2maxCard.trendAriaValues"');
     expect(source).toContain("<desc>{trendDescription}</desc>");
-    expect(source).toContain("isConservativeDrop(thresholdDecision.activeFtpW, candidateW)");
-    expect(source).toContain("await dialog.confirm(");
+    expect(modelSource).toContain("isConservativeDrop(thresholdDecision.activeFtpW, candidateW)");
+    expect(modelSource).toContain("await dialog.confirm(");
   });
 });

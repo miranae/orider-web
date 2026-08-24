@@ -6,9 +6,9 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
-import { firestore } from "../services/firebase";
 import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { Milestone, MilestoneId } from "@shared/types/milestone";
 
 export interface MilestonesState {
@@ -21,6 +21,7 @@ export interface MilestonesState {
 
 export function useMilestones(enabled = true): MilestonesState {
   const { user } = useAuth();
+  const { firestore } = useFirebaseServices();
   const [achieved, setAchieved] = useState<Map<MilestoneId, Milestone>>(new Map());
   const [loading, setLoading] = useState(true);
 
@@ -49,7 +50,7 @@ export function useMilestones(enabled = true): MilestonesState {
       },
     );
     return unsub;
-  }, [user, enabled]);
+  }, [enabled, firestore, user]);
 
   const markCelebrated = useCallback(
     async (id: MilestoneId) => {
@@ -60,7 +61,7 @@ export function useMilestones(enabled = true): MilestonesState {
         logClientError("useMilestones.markCelebrated", err, { id });
       }
     },
-    [user],
+    [firestore, user],
   );
 
   return { achieved, loading, markCelebrated };

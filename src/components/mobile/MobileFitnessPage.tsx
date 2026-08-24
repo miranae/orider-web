@@ -463,11 +463,14 @@ export default function MobileFitnessPage({
   consistencyStreak = null,
   applyingFtp = false,
   onApplyFtp = () => undefined,
+  embedded = false,
 }: {
   data: MobileFitnessData;
   consistencyStreak?: ConsistencyStreakSummary | null;
   applyingFtp?: boolean;
   onApplyFtp?: (watts: number) => void;
+  /** Native host already owns the surface title and bottom navigation chrome. */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation("dashboard");
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
@@ -514,11 +517,12 @@ export default function MobileFitnessPage({
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center sticky top-0 z-10"
-        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
-        <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
-      </div>
+      {!embedded && (
+        <div className="flex items-center sticky top-0 z-10"
+          style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
+        </div>
+      )}
 
       <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />
 
@@ -553,7 +557,7 @@ export default function MobileFitnessPage({
               progression={data.ftpProgression}
               ftpHistory={data.ftpHistory}
               applying={applyingFtp}
-              onApplyCandidate={onApplyFtp}
+              onApplyCandidate={embedded ? undefined : onApplyFtp}
             />
           )}
 
@@ -684,7 +688,7 @@ export default function MobileFitnessPage({
         </div>
       )}
 
-      <div style={{ height: 80 }} />
+      {!embedded && <div style={{ height: 80 }} />}
     </div>
   );
 }

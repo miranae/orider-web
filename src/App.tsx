@@ -141,7 +141,9 @@ export function AppRoutes() {
       <Route path="/:lang" element={<LocaleRoot />}>
         <Route path="live/:eventId" element={<EventLivePage />} />
         <Route path="onboarding" element={<OnboardingPage />} />
-        <Route path="embed/activity/:activityId/analysis" element={<EmbeddedBootstrapRoot />} />
+        <Route path="embed/activity/:activityId/analysis" element={<EmbeddedBootstrapRoot surfaceKind="activity-analysis" />} />
+        <Route path="embed/fitness" element={<EmbeddedBootstrapRoot surfaceKind="fitness" />} />
+        <Route path="embed/plan" element={<EmbeddedBootstrapRoot surfaceKind="plan" />} />
         <Route element={<Layout />}>
           <Route index element={null} />
           <Route path="activity/:activityId" element={<ActivityPage />} />
@@ -343,7 +345,7 @@ function StandardApp() {
 }
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
-  return /^\/[^/]+\/embed\/activity\/[^/]+\/analysis\/?$/.test(pathname);
+  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/analysis|fitness|plan)\/?$/.test(pathname);
 }
 
 export default function App() {

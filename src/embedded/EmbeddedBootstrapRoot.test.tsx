@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => {
     currentUser: { uid: "owner-1" } as { uid: string } | null,
     queryProviderMounts: vi.fn(),
     surfaceHookMounts: vi.fn(),
+    fitnessSurfaceMounts: vi.fn(),
+    planSurfaceMounts: vi.fn(),
     consumeHandoff: vi.fn().mockResolvedValue(undefined),
     firestore: {},
     functions: {},
@@ -56,7 +58,21 @@ vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
   },
 }));
 
-import EmbeddedBootstrapRoot from "./EmbeddedBootstrapRoot";
+vi.mock("./surfaces/FitnessSurface", () => ({
+  default: () => {
+    mocks.fitnessSurfaceMounts();
+    return <div data-testid="fitness-surface" />;
+  },
+}));
+
+vi.mock("./surfaces/PlanSurface", () => ({
+  default: () => {
+    mocks.planSurfaceMounts();
+    return <div data-testid="plan-surface" />;
+  },
+}));
+
+import EmbeddedBootstrapRoot, { type EmbeddedSurfaceKind } from "./EmbeddedBootstrapRoot";
 
 interface FakeBridge extends EmbeddedBridge {
   emit(message: HostBridgeEnvelope): void;
@@ -94,13 +110,24 @@ function acceptedPayload() {
   };
 }
 
-function renderBootstrap(bridge: FakeBridge) {
+function renderBootstrap(
+  bridge: FakeBridge,
+  path = "/ko/embed/activity/activity-1/analysis",
+  surfaceKind: EmbeddedSurfaceKind = "activity-analysis",
+) {
   return render(
-    <MemoryRouter initialEntries={["/ko/embed/activity/activity-1/analysis"]}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route
-          path="/:lang/embed/activity/:activityId/analysis"
-          element={<EmbeddedBootstrapRoot bridgeFactory={() => bridge} />}
+          path={surfaceKind === "activity-analysis"
+            ? "/:lang/embed/activity/:activityId/analysis"
+            : "*"}
+          element={(
+            <EmbeddedBootstrapRoot
+              bridgeFactory={() => bridge}
+              surfaceKind={surfaceKind}
+            />
+          )}
         />
       </Routes>
     </MemoryRouter>,
@@ -112,6 +139,8 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     mocks.setCurrentUser({ uid: "owner-1" });
     mocks.queryProviderMounts.mockClear();
     mocks.surfaceHookMounts.mockClear();
+    mocks.fitnessSurfaceMounts.mockClear();
+    mocks.planSurfaceMounts.mockClear();
     mocks.consumeHandoff.mockClear();
     vi.mocked(onSnapshot).mockClear();
   });
@@ -150,8 +179,46 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     await waitFor(() => expect(onSnapshot).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mocks.queryProviderMounts).toHaveBeenCalled());
     expect(mocks.surfaceHookMounts).toHaveBeenCalled();
-    expect(screen.getByTestId("analysis-surface")).toBeInTheDocument();
+    expect(await screen.findByTestId("analysis-surface")).toBeInTheDocument();
   });
+
+  it.each([
+    ["fitness", "/ko/embed/fitness?sport=run", "fitnessSurfaceMounts", "fitness-surface"],
+    ["plan", "/ko/embed/plan?sport=swim", "planSurfaceMounts", "plan-surface"],
+  ] as const)(
+    "keeps %s unmounted until sessionAccepted and mounts only the selected surface",
+    async (surfaceKind, path, mountKey, testId) => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, path, surfaceKind);
+
+      expect(onSnapshot).not.toHaveBeenCalled();
+      expect(mocks.queryProviderMounts).not.toHaveBeenCalled();
+      expect(mocks.fitnessSurfaceMounts).not.toHaveBeenCalled();
+      expect(mocks.planSurfaceMounts).not.toHaveBeenCalled();
+
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", {
+          expectedUid: "owner-1",
+          contractVersion: 1,
+        }));
+      });
+      await waitFor(() => expect(bridge.sent).toContainEqual(expect.objectContaining({
+        type: "auth.state",
+        payload: { uid: "owner-1" },
+      })));
+      expect(onSnapshot).not.toHaveBeenCalled();
+      expect(mocks[mountKey]).not.toHaveBeenCalled();
+
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      expect(await screen.findByTestId(testId)).toBeInTheDocument();
+      expect(mocks[mountKey]).toHaveBeenCalledTimes(1);
+      const otherMounts = surfaceKind === "fitness"
+        ? mocks.planSurfaceMounts
+        : mocks.fitnessSurfaceMounts;
+      expect(otherMounts).not.toHaveBeenCalled();
+      expect(mocks.surfaceHookMounts).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps every data surface unmounted when the current uid differs", async () => {
     mocks.setCurrentUser({ uid: "different-user" });

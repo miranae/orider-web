@@ -11,20 +11,42 @@ vi.mock("./components/Layout", () => ({
 }));
 
 vi.mock("./embedded/EmbeddedBootstrapRoot", () => ({
-  default: () => <div data-testid="embedded-route" />,
+  default: ({ surfaceKind }: { surfaceKind: string }) => (
+    <div data-testid="embedded-route" data-surface-kind={surfaceKind} />
+  ),
 }));
 
-import { AppRoutes } from "./App";
+import { AppRoutes, isEmbeddedRoutePath } from "./App";
 
-describe("embedded activity analysis route", () => {
-  it("renders outside the general Layout", async () => {
+describe("embedded routes", () => {
+  it.each([
+    ["/ko/embed/activity/activity-1/analysis", "activity-analysis"],
+    ["/ko/embed/fitness?sport=run", "fitness"],
+    ["/en/embed/plan?sport=swim", "plan"],
+  ])("renders %s outside the general Layout", async (path, surfaceKind) => {
     render(
-      <MemoryRouter initialEntries={["/ko/embed/activity/activity-1/analysis"]}>
+      <MemoryRouter initialEntries={[path]}>
         <AppRoutes />
       </MemoryRouter>,
     );
 
-    expect(await screen.findByTestId("embedded-route")).toBeInTheDocument();
+    expect(await screen.findByTestId("embedded-route")).toHaveAttribute(
+      "data-surface-kind",
+      surfaceKind,
+    );
     expect(screen.queryByTestId("general-layout")).not.toBeInTheDocument();
   });
+
+  it.each([
+    "/ko/embed/activity/activity-1/analysis",
+    "/ko/embed/fitness",
+    "/en/embed/plan/",
+  ])("recognizes embedded path %s", (path) => {
+    expect(isEmbeddedRoutePath(path)).toBe(true);
+  });
+
+  it.each(["/ko/fitness", "/ko/plan", "/ko/embed/activity/activity-1"])(
+    "does not recognize normal path %s",
+    (path) => expect(isEmbeddedRoutePath(path)).toBe(false),
+  );
 });

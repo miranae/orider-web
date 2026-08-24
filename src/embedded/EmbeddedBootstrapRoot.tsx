@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -30,8 +32,11 @@ import {
   ensureEmbeddedAppCheckReady,
   initEmbeddedFirebase,
 } from "./embeddedFirebase";
-import ActivityAnalysisSurface from "./surfaces/ActivityAnalysisSurface";
 import "./embedded.css";
+
+const ActivityAnalysisSurface = lazy(() => import("./surfaces/ActivityAnalysisSurface"));
+const FitnessSurface = lazy(() => import("./surfaces/FitnessSurface"));
+const PlanSurface = lazy(() => import("./surfaces/PlanSurface"));
 
 const CONTRACT_VERSION = 1 as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/;
@@ -56,7 +61,10 @@ interface AcceptedSession {
 
 interface EmbeddedBootstrapRootProps {
   bridgeFactory?: () => EmbeddedBridge;
+  surfaceKind?: EmbeddedSurfaceKind;
 }
+
+export type EmbeddedSurfaceKind = "activity-analysis" | "fitness" | "plan";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -190,18 +198,20 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
   root.style.setProperty("--orider-host-safe-bottom", `${session.safeInsets.bottom}px`);
 }
 
-function AuthorizedAnalysis({
+function AuthorizedSurface({
   activityId,
   bridge,
   retryKey,
   services,
   session,
+  surfaceKind,
 }: {
-  activityId: string;
+  activityId?: string;
   bridge: EmbeddedBridge;
   retryKey: number;
   services: FirebaseServices;
   session: AcceptedSession;
+  surfaceKind: EmbeddedSurfaceKind;
 }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -257,12 +267,34 @@ function AuthorizedAnalysis({
       <AuthContextProvider value={authValue}>
         <QueryClientProvider client={queryClient}>
           <LocaleProvider userId={null} profile={{ ...profile, locale: session.locale }}>
-            <ActivityAnalysisSurface
-              activityId={activityId}
-              retryKey={retryKey}
-              onReady={() => bridge.send("surface.ready", { activityId })}
-              onError={(code) => bridge.send("surface.error", { code })}
-            />
+            <Suspense fallback={(
+              <div className="orider-embedded-status" role="status" aria-label="Loading surface">
+                <div className="orider-embedded-status__pulse" />
+              </div>
+            )}>
+              {surfaceKind === "activity-analysis" && activityId ? (
+                <ActivityAnalysisSurface
+                  activityId={activityId}
+                  retryKey={retryKey}
+                  onReady={() => bridge.send("surface.ready", { activityId })}
+                  onError={(code) => bridge.send("surface.error", { code })}
+                />
+              ) : surfaceKind === "fitness" ? (
+                <FitnessSurface
+                  key={retryKey}
+                  retryKey={retryKey}
+                  onReady={() => bridge.send("surface.ready", {})}
+                  onError={(code) => bridge.send("surface.error", { code })}
+                />
+              ) : surfaceKind === "plan" ? (
+                <PlanSurface
+                  key={retryKey}
+                  retryKey={retryKey}
+                  onReady={() => bridge.send("surface.ready", {})}
+                  onError={(code) => bridge.send("surface.error", { code })}
+                />
+              ) : null}
+            </Suspense>
           </LocaleProvider>
         </QueryClientProvider>
       </AuthContextProvider>
@@ -272,6 +304,7 @@ function AuthorizedAnalysis({
 
 export default function EmbeddedBootstrapRoot({
   bridgeFactory = () => createEmbeddedBridge(createWebViewTransport()),
+  surfaceKind = "activity-analysis",
 }: EmbeddedBootstrapRootProps) {
   const { activityId } = useParams();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -429,13 +462,14 @@ export default function EmbeddedBootstrapRoot({
       data-testid="embedded-bootstrap-root"
       onClickCapture={handleNavigation}
     >
-      {session && activityId ? (
-        <AuthorizedAnalysis
+      {session && (surfaceKind !== "activity-analysis" || activityId) ? (
+        <AuthorizedSurface
           activityId={activityId}
           bridge={bridge}
           retryKey={retryKey}
           services={services}
           session={session}
+          surfaceKind={surfaceKind}
         />
       ) : (
         <div className="orider-embedded-status" role="status" aria-label="Waiting for host authorization">

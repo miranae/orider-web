@@ -27,7 +27,7 @@ interface BikePerformanceSummaryCardProps {
   progression?: EstimatedFtpPoint[];
   ftpHistory?: FtpHistoryEntry[];
   applying: boolean;
-  onApplyCandidate: (watts: number) => void;
+  onApplyCandidate?: (watts: number) => void;
 }
 
 const RIDER_TYPE_KEYS = new Set([
@@ -116,7 +116,7 @@ export default function BikePerformanceSummaryCard({ decision, pdc, weightKg, pr
 
       <FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact />
 
-      {decision?.automaticCandidateW != null && (
+      {decision?.automaticCandidateW != null && onApplyCandidate && (
         <div style={{ marginTop: "var(--space-4)", padding: "var(--space-4)", borderRadius: "var(--r-md)", background: "var(--accent-soft-bg)", border: "1px solid var(--accent-soft-border)" }}>
           <Text as="div" variant="eyebrow" style={{ color: "var(--aqua)" }}>{t("fitness:thresholdDecision.candidateLabel")}</Text>
           <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", margin: "var(--space-1) 0 var(--space-3)" }}>

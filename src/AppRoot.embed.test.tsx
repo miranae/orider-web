@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("./App", () => ({
   default: () => <div data-testid="app" />,
   isEmbeddedRoutePath: (pathname: string) => (
-    /^\/[^/]+\/embed\/activity\/[^/]+\/analysis\/?$/.test(pathname)
+    /^\/[^/]+\/embed\/(?:activity\/[^/]+\/analysis|fitness|plan)\/?$/.test(pathname)
   ),
 }));
 
@@ -31,7 +31,11 @@ vi.mock("./theme", () => ({
 import AppRoot from "./AppRoot";
 
 describe("AppRoot embedded provider boundary", () => {
-  it("removes the normal AuthProvider when SPA navigation enters an embedded route", async () => {
+  it.each([
+    "/ko/embed/activity/activity-1/analysis",
+    "/ko/embed/fitness?sport=run",
+    "/ko/embed/plan?sport=swim",
+  ])("removes the normal AuthProvider when SPA navigation enters %s", async (embeddedPath) => {
     const router = createMemoryRouter(
       [{ path: "*", element: <AppRoot /> }],
       { initialEntries: ["/ko/activity/activity-1"] },
@@ -40,7 +44,7 @@ describe("AppRoot embedded provider boundary", () => {
 
     expect(screen.getByTestId("normal-auth-provider")).toBeInTheDocument();
     await act(async () => {
-      await router.navigate("/ko/embed/activity/activity-1/analysis");
+      await router.navigate(embeddedPath);
     });
 
     expect(screen.queryByTestId("normal-auth-provider")).not.toBeInTheDocument();

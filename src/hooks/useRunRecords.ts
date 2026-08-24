@@ -6,9 +6,9 @@
  */
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import { firestore } from "../services/firebase";
 import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { PersonalRecords, RunPrTable } from "@shared/types/personal-records";
 
 export interface RunRecordsState {
@@ -18,6 +18,7 @@ export interface RunRecordsState {
 
 export function useRunRecords(enabled = true): RunRecordsState {
   const { user } = useAuth();
+  const { firestore } = useFirebaseServices();
   const [state, setState] = useState<RunRecordsState>({ run: undefined, loading: true });
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function useRunRecords(enabled = true): RunRecordsState {
       },
     );
     return unsub;
-  }, [user, enabled]);
+  }, [enabled, firestore, user]);
 
   return state;
 }

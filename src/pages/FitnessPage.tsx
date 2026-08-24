@@ -1,520 +1,106 @@
-import { useEffect, useRef, useState, useMemo } from "react";
-import { useTranslation } from "react-i18next";
-
-import TriFitnessView from "./fitness/TriFitnessView";
-import TrainingStatusCard from "../components/fitness/TrainingStatusCard";
-import RunRecordsBoard from "../components/fitness/RunRecordsBoard";
-import MilestonesGrid from "../components/fitness/MilestonesGrid";
-import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
-import { useRunRecords } from "../hooks/useRunRecords";
-import { useMilestones } from "../hooks/useMilestones";
-import type { MilestoneId } from "@shared/types/milestone";
 import { useSearchParams } from "react-router-dom";
-import {
-  filterByDiscipline,
-  getDisciplineColor,
-  type Discipline,
-} from "../utils/disciplineFilter";
-import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
-import { collection, query, where, doc, onSnapshot, orderBy, limit } from "firebase/firestore";
 
-import { toLocalDate } from "../utils/dateUtils";
-import { firestore } from "../services/firebase";
-import { logClientError } from "../services/errorLogger";
-import { useAuth } from "../contexts/AuthContext";
-import {
-  estimateActivityLoad,
-  aggregateDailyLoad,
-  calculateFitness,
-  type ActivityLoadEntry,
-  type DailyLoad,
-} from "../utils/fitnessMetrics";
-import type { Activity } from "@shared/types";
-import type { ActivityMetrics } from "@shared/types/activity-metrics";
-import type { Goal, FitnessProjection } from "@shared/types/goal";
-import FitnessChart from "../components/FitnessChart";
-import CriticalPaceCurve, { type PaceStream } from "../components/charts/CriticalPaceCurve";
-import CSSCurve from "../components/charts/CSSCurve";
-import SectionHeader from "../components/redesign/SectionHeader";
-import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
-import { useMobile } from "../hooks/useMobile";
-import { useFreshTraining } from "../hooks/useFreshTraining";
-import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
-import { usePdc } from "../hooks/usePdc";
-import { useConsistencyStreak } from "../hooks/useConsistencyStreak";
-import { useFtpHistory } from "../hooks/useFtpHistory";
-import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
+import { classifyGaps, computeExpectedCurve, computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
+import type { PowerDurationKey } from "@shared/types/personal-records";
+import { deriveEstimatedFtpProgression } from "@shared/training/ftpProgression";
 import AdaptationSummary from "../components/training/AdaptationSummary";
 import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard";
-import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
-import DisciplineTabs from "../components/redesign/DisciplineTabs";
-import DetailsSection from "../components/redesign/DetailsSection";
-import { Card, Text, Chip, buttonClass } from "../theme/components";
+import CriticalPaceCurve from "../components/charts/CriticalPaceCurve";
+import CSSCurve from "../components/charts/CSSCurve";
+import FitnessChart from "../components/FitnessChart";
 import CyclingAbilityCard from "../components/fitness/CyclingAbilityCard";
-import { computeExpectedCurve, classifyGaps, computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
-import type { PowerDurationKey } from "@shared/types/personal-records";
+import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
+import MilestonesGrid from "../components/fitness/MilestonesGrid";
+import RunRecordsBoard from "../components/fitness/RunRecordsBoard";
+import TrainingStatusCard from "../components/fitness/TrainingStatusCard";
+import GuestValuePreview from "../components/guest/GuestValuePreview";
+import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
+import DetailsSection from "../components/redesign/DetailsSection";
+import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import SectionHeader from "../components/redesign/SectionHeader";
+import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
+import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
 import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
 import PowerCurveChart from "../features/fitness/components/PowerCurveChart";
-import { deriveEstimatedFtpProgression } from "@shared/training/ftpProgression";
-import { resolveBikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
-import { isConservativeDrop } from "@shared/training/ftpTest";
+import { deriveMonthlyCyclingVo2maxTrend } from "../features/fitness/deriveMonthlyCyclingVo2maxTrend";
 import {
   POWER_DURATION_KEY_SEC,
   formatKoreanDate,
   formatMonthDay,
   getRangeOptions,
-  makeDurationLabel,
   secToMmss,
   tsbStatusDesc,
   tsbStatusLabel,
   type PowerCurvePoint,
-  type RangeOption,
 } from "../features/fitness/fitnessPageUtils";
-import GuestValuePreview from "../components/guest/GuestValuePreview";
+import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
 import { FitnessWeeklyInsight } from "../features/trainingHub/TrainingHubOpportunityPanel";
-import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
-import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
-import { deriveMonthlyCyclingVo2maxTrend } from "../features/fitness/deriveMonthlyCyclingVo2maxTrend";
-import { useUserFitness } from "../hooks/useUserFitness";
-import {
-  authoritativeCombinedLoad,
-  buildRunEvidence,
-  buildSwimEvidence,
-  computeCyclingAbility,
-  computeIntegratedLoadFocus,
-} from "../features/fitness/multisportPerformance";
-import { useFitnessClock } from "../hooks/useFitnessClock";
-import { useDialog } from "../contexts/DialogContext";
-import { useToast } from "../contexts/ToastContext";
-import { persistRiderMetrics } from "../services/syncRiderMetrics";
-import { useCoachRiderInsight } from "../hooks/useCoachRiderInsight";
-import { getRuntimeConfig } from "../services/runtimeConfig";
-import { buildCanonicalRiderFitnessView, cyclingAbilityFromCanonicalRider } from "../features/fitness/riderInsightParity";
-import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
-import { useActivityDerivedDocuments } from "../features/fitness/useActivityDerivedDocuments";
 import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
+import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
+import { Card, Chip, Text, buttonClass } from "../theme/components";
+import { getDisciplineColor } from "../utils/disciplineFilter";
+import { toLocalDate } from "../utils/dateUtils";
+import TriFitnessView from "./fitness/TriFitnessView";
 
-/* ---------- 메인 페이지 ---------- */
+export interface FitnessViewProps {
+  embedded?: boolean;
+  model: FitnessModel;
+}
 
-export default function FitnessPage() {
-  const { t, i18n } = useTranslation("fitness");
-  const durationLabel = makeDurationLabel(t);
-  const { user, profile } = useAuth();
-  const { entries: ftpHistory } = useFtpHistory(user?.uid);
-  const dialog = useDialog();
-  const { showToast } = useToast();
-  const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
-  const [applyingFtp, setApplyingFtp] = useState(false);
-  const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
-    ownerUid: user?.uid ?? null,
-    items: [],
-  });
-  const activities = activityState.ownerUid === (user?.uid ?? null) ? activityState.items : [];
-  const { streamsMap, metricsMap } = useActivityDerivedDocuments(user?.uid, activities);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [range, setRange] = useState<RangeOption>(90);
-  const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
-  const [projection, setProjection] = useState<FitnessProjection | null>(null);
-  // goal Firestore 쿼리 완료 여부 — 통합 이전 LLM 트리거 안정화용. 현재 페이지는
-  // 사용하지 않지만 effect 내부 호환을 위해 setter 만 남기고 read 는 제거.
-  const [, setGoalQueryDone] = useState(false);
-  const isMobile = useMobile();
-  const [searchParams] = useSearchParams();
-  const discipline: Discipline = (searchParams.get("sport") as Discipline) || "bike";
-  const { pdc } = usePdc(user?.uid);
-  const riderInsightEnabled = getRuntimeConfig().coachRiderInsightEnabled === true && discipline === "bike";
-  const { insight: coachRiderInsight } = useCoachRiderInsight(user?.uid, riderInsightEnabled);
-  const { fitness: userFitness } = useUserFitness(!!user);
-  const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
-  const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
-  const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
-  const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
-
-  const canonicalFtpW = appliedFtpW ?? profile?.ftp ?? null;
-  const thresholdDecision = useMemo(
-    () => resolveBikeThresholdDecision(canonicalFtpW, pdc),
-    [canonicalFtpW, pdc],
-  );
-
-  async function applyAutomaticFtp(candidateW: number) {
-    if (!user || applyingFtp) return;
-    if (isConservativeDrop(thresholdDecision.activeFtpW, candidateW)) {
-      const confirmed = await dialog.confirm(
-        t("thresholdDecision.dropConfirm", { current: thresholdDecision.activeFtpW, candidate: candidateW }),
-        { title: t("thresholdDecision.dropConfirmTitle"), destructive: true },
-      );
-      if (!confirmed) return;
-    }
-    setApplyingFtp(true);
-    try {
-      const result = await persistRiderMetrics(
-        user.uid,
-        { ftp: candidateW },
-        { ftpHistorySource: "detected" },
-      );
-      setAppliedFtpW(candidateW);
-      if (result.failures.length > 0) {
-        showToast(t("thresholdDecision.partial", { count: result.failures.length }), "error");
-      } else {
-        showToast(t("thresholdDecision.applied", { value: candidateW }));
-      }
-    } catch (error) {
-      showToast(t("thresholdDecision.applyFailed", { message: error instanceof Error ? error.message : String(error) }), "error");
-    } finally {
-      setApplyingFtp(false);
-    }
-  }
-
-  // 거리별 러닝 기록 — 러닝 탭에서만 구독 (§3.4a)
-  const { run: runRecords } = useRunRecords(discipline === "run");
-
-  // 마일스톤 — 러닝 탭 (§3.4b). celebrated:false 인 신규 달성 하나를 축하 모달로.
-  const { achieved: milestones, markCelebrated } = useMilestones(discipline === "run");
-  // 단일 슬롯이면 A 닫기 → markCelebrated(A) 실패 → B 닫기 시 슬롯이 B 로 덮이면서 A 가
-  // 다시 pending 이 되어 모달이 되돌아온다. 세션 내에서 닫은 것은 모두 기억한다.
-  const [dismissedMilestones, setDismissedMilestones] = useState<ReadonlySet<MilestoneId>>(new Set());
-  const pendingMilestone = useMemo(() => {
-    for (const m of milestones.values()) {
-      if (!m.celebrated && !dismissedMilestones.has(m.id)) return m.id;
-    }
-    return null;
-  }, [milestones, dismissedMilestones]);
-
-  // lazy revalidate — 화면 진입 시 신선도 체크 + 필요 시 서버 재계산.
-  // discipline 전달 → 멀티 goal 사용자가 종목 전환할 때 해당 종목 신선도 재평가.
-  const { revalidating, justRecomputed } = useFreshTraining(discipline === "tri" ? undefined : discipline);
-  // projection onSnapshot unsubscribe ref — discipline 전환 시 재구독을 위해
-  const projUnsubRef = useRef<(() => void) | null>(null);
-  const projectionGoalIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!user) {
-      setActivityState({ ownerUid: null, items: [] });
-      setLoading(false);
-      return;
-    }
-    const uid = user.uid;
-    let active = true;
-    setActivityState({ ownerUid: uid, items: [] });
-    setLoading(true);
-    // 초기 쿼리는 "표시 범위 + 42일 CTL 워밍업"만 받는다 — 콜드 진입(빈 캐시)에서
-    // 활동 전체(365+42=407일)를 받느라 첫 페인트(LCP)가 지연되던 문제 해소.
-    // range 가 커지면(90→365) 아래 deps 로 재구독해 그때 더 받는다(지연 확장).
-    // +42 는 CTL/ATL 지수이평 워밍업분이라 표시 구간의 정확도는 동일하게 유지된다.
-    const cutoff = Date.now() - (range + 42) * 24 * 60 * 60 * 1000;
-    const q = query(
-      collection(firestore, "activities"),
-      where("userId", "==", user.uid),
-      where("deletedAt", "==", null),
-      where("startTime", ">=", cutoff),
-      orderBy("startTime", "asc"),
-    );
-
-    // onSnapshot 구독 — 신규 활동 ingest 시 자동 반영 (getDocs 1회 대신)
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        if (!active) return;
-        try {
-          const acts = snap.docs
-            .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-            .filter((activity) => activity.userId === uid && activity.summary != null);
-          setActivityState({ ownerUid: uid, items: acts });
-          setLoading(false);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : t("error.loadFailed"));
-          setLoading(false);
-        }
-      },
-      (err) => {
-        if (!active) return;
-        logClientError("FitnessPage.activitiesSubscription", err, { range });
-        setError(t("error.loadFailed"));
-        setLoading(false);
-      },
-    );
-    return () => {
-      active = false;
-      unsub();
-    };
-  }, [user, t, range]);
-
-  // 활성 목표 + 예측 로드
-  useEffect(() => {
-    if (!user || discipline === "tri") return; // tri는 TriFitnessView에서 처리
-    // 종목 전환 시 stale state 즉시 클리어 + 이전 구독 해제
-    setActiveGoal(null);
-    setProjection(null);
-    setGoalQueryDone(false);
-    if (projUnsubRef.current) {
-      projUnsubRef.current();
-      projUnsubRef.current = null;
-    }
-    // 활성 goal 을 onSnapshot 으로 구독 — recomputeProjection 이 서버에서
-    // adaptationFlag 를 갱신할 때 자동 반영. getDocs(cache-first) 로 한 번만 읽으면
-    // persistentLocalCache 가 stale 값을 무한 반환하는 버그 발생.
-    const goalQ = query(
-      collection(firestore, "goals"),
-      where("userId", "==", user.uid),
-      where("status", "==", "active"),
-      where("discipline", "==", discipline),
-      limit(1),
-    );
-    const goalUnsub = onSnapshot(
-      goalQ,
-      (goalSnap) => {
-        if (goalSnap.empty) {
-          setActiveGoal(null);
-          setGoalQueryDone(true);
-          // goal 이 없으면 기존 projection 구독도 정리
-          if (projUnsubRef.current) { projUnsubRef.current(); projUnsubRef.current = null; }
-          projectionGoalIdRef.current = null;
-          return;
-        }
-        const goalDoc = goalSnap.docs[0]!;
-        const goal = { id: goalDoc.id, ...goalDoc.data() } as Goal;
-        setActiveGoal(goal);
-        setGoalQueryDone(true);
-
-        // projection 구독 — goal 교체 시 stale closure 방지를 위해 goalId별로 재구독.
-        // (goal 의 adaptationFlag 변경만으로 onSnapshot 재발화되므로.)
-        if (projectionGoalIdRef.current !== goal.id) {
-          if (projUnsubRef.current) {
-            projUnsubRef.current();
-            projUnsubRef.current = null;
-          }
-          projectionGoalIdRef.current = goal.id;
-          const primaryRef = doc(firestore, "users", user.uid, "fitness", `projection_${discipline}`);
-          const unsub = onSnapshot(
-            primaryRef,
-            (snap) => {
-              if (!snap.exists()) return;
-              const projData = snap.data() as FitnessProjection;
-              if (projData.goalId === goal.id) setProjection(projData);
-            },
-            (err) => logClientError("FitnessPage.projectionSubscription", err, { discipline, goalId: goal.id }),
-          );
-          projUnsubRef.current = unsub;
-        }
-      },
-      (err) => {
-        logClientError("FitnessPage.goalSubscription", err, { discipline });
-        setGoalQueryDone(true);
-      },
-    );
-    // 언마운트/effect 재실행 시 goal + projection 양쪽 구독 정리
-    return () => {
-      goalUnsub();
-      if (projUnsubRef.current) {
-        projUnsubRef.current();
-        projUnsubRef.current = null;
-      }
-      projectionGoalIdRef.current = null;
-    };
-  }, [user, discipline]);
-
-  const disciplineActivities = useMemo(
-    () => discipline === "tri" ? activities : filterByDiscipline(activities, discipline),
-    [activities, discipline],
-  );
-
-  // 클라 재계산(폴백) — 정본 timeseries doc 이 없을 때(미배포/미백필/신규유저/tri) 사용.
-  const clientFitness = useMemo(() => {
-    if (disciplineActivities.length === 0) return { fitnessData: [], dailyData: [] };
-
-    const entries: ActivityLoadEntry[] = disciplineActivities.map((a) => {
-      // 서버 metrics.tss 가 가장 정확(GCS 스트림 기반 계산) — 있으면 우선. 없으면 activity
-      // 자체 tss → summary 폴백. stream watts/ftp 의존성 제거 (클라가 GCS 스트림 못 읽음).
-      const m = metricsMap.get(a.id);
-      const load = estimateActivityLoad({
-        precomputedTss: m?.tss ?? (a as { tss?: number | null }).tss ?? a.summary.tss,
-        relativeEffort: a.summary.relativeEffort,
-        ridingTimeMillis: a.summary.ridingTimeMillis,
-        discipline: discipline === "tri" ? undefined : discipline,
-      });
-      return {
-        date: toLocalDate(a.startTime),
-        load: load.value,
-        source: load.source,
-      };
-    });
-
-    const today = toLocalDate(Date.now());
-    const firstActivity = entries[0]?.date ?? today;
-    const daily = aggregateDailyLoad(entries, firstActivity, today);
-    const fitness = calculateFitness(daily);
-
-    return { fitnessData: fitness, dailyData: daily };
-  }, [disciplineActivities, metricsMap, discipline]);
-
-  // 정본 CTL/ATL/TSB 시계열 — 서버 사전계산 doc(전체 라이프타임, 0-시드 정확).
-  // 콜드 진입 시 활동쿼리 윈도우 축소로 인한 워밍업 부족 문제를 근본 해소. doc 부재 시 클라 폴백.
-  const { timeseries, loaded: timeseriesLoaded } = useFitnessTimeseries(user?.uid, discipline);
-
-  const { fitnessData, dailyData } = useMemo(() => {
-    const pts = timeseries?.points;
-    if (pts && pts.length > 0) {
-      // 차트/KPI 는 doc.points(정본) 사용. dailyData 소비처(weeklyStats·DailyTSSChart)는
-      // date·totalLoad 만 쓰므로 dailyLoad → totalLoad 로 투영(activities 미사용).
-      return {
-        fitnessData: pts,
-        dailyData: pts.map((p) => ({
-          date: p.date,
-          totalLoad: p.dailyLoad,
-          activities: [] as DailyLoad["activities"],
-        })),
-      };
-    }
-    return clientFitness;
-  }, [timeseries, clientFitness]);
-
-  const rangeData = useMemo(() => {
-    if (fitnessData.length === 0) return { fitness: [], daily: [] };
-    const sliceStart = Math.max(0, fitnessData.length - range);
-    return {
-      fitness: fitnessData.slice(sliceStart),
-      daily: dailyData.slice(sliceStart),
-    };
-  }, [fitnessData, dailyData, range]);
-
-  const currentPoint = rangeData.fitness[rangeData.fitness.length - 1] ?? null;
-  const rangeStartPoint = rangeData.fitness[0] ?? null;
-
-  // ── 모든 useMemo 는 early return 이전에 호출 (rules-of-hooks 준수) ────────────
-  // 파워 커브 추이 — 서버 metrics.mmp(activity-metrics 가 GCS 스트림까지 파싱·계산해둔
-  // duration 별 최대 평균 파워) 집계. period 별로 각 duration 의 max 를 취해 곡선 구성.
-  // 가상파워 활동은 PR #167 정책상 mmp 가 비어 곡선 기여 X (실측 파워만 반영).
-  const powerCurveProgressions = useMemo(() => {
-    const DUR_SEC: Record<string, number> = {
-      "1s": 1, "5s": 5, "10s": 10, "30s": 30,
-      "1m": 60, "2m": 120, "5m": 300, "10m": 600,
-      "20m": 1200, "30m": 1800, "1h": 3600,
-    };
-    const now = Date.now();
-    const d28 = 28 * 24 * 60 * 60 * 1000;
-    const recentCutoff = now - d28;
-    const prevCutoff = now - d28 * 2;
-
-    function aggregate(metricsArr: ActivityMetrics[]): { durationSeconds: number; maxPower: number }[] {
-      const maxPerDur: Record<string, number> = {};
-      for (const m of metricsArr) {
-        if (!m?.mmp) continue;
-        for (const [k, v] of Object.entries(m.mmp)) {
-          if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) continue;
-          if (!(k in maxPerDur) || v > maxPerDur[k]!) maxPerDur[k] = v;
-        }
-      }
-      return Object.entries(maxPerDur)
-        .map(([k, v]) => ({ durationSeconds: DUR_SEC[k] ?? 0, maxPower: Math.round(v) }))
-        .filter(p => p.durationSeconds > 0)
-        .sort((a, b) => a.durationSeconds - b.durationSeconds);
-    }
-
-    const recent: ActivityMetrics[] = [];
-    const previous: ActivityMetrics[] = [];
-    for (const a of disciplineActivities) {
-      const m = metricsMap.get(a.id);
-      if (!m) continue;
-      if (a.startTime >= recentCutoff) recent.push(m);
-      else if (a.startTime >= prevCutoff) previous.push(m);
-    }
-    return [
-      { label: t("period.recent"), color: "var(--lime)", points: aggregate(recent) },
-      { label: t("period.previous"), color: "var(--ink-3)", points: aggregate(previous) },
-    ];
-  }, [disciplineActivities, metricsMap, t]);
-
-  // 주간 TSS 통계
-  const weeklyStats = useMemo(() => {
-    const recent42 = dailyData.slice(-42);
-    const thisWeekDays = recent42.slice(-7);
-    const thisWeekTSS = thisWeekDays.reduce((s, d) => s + d.totalLoad, 0);
-    const totalWeeks = Math.max(1, Math.ceil(recent42.length / 7));
-    const avgWeekTSS = Math.round(recent42.reduce((s, d) => s + d.totalLoad, 0) / totalWeeks);
-
-    // 연속 휴식일 (뒤에서부터)
-    let restDays = 0;
-    for (let i = recent42.length - 1; i >= 0; i--) {
-      if (recent42[i]!.totalLoad === 0) restDays++;
-      else break;
-    }
-
-    return { thisWeekTSS, avgWeekTSS, restDays };
-  }, [dailyData]);
-
-  // (제거 2026-05-28) 종목별 CTL 계산은 위 dead block 과 함께 제거. 복구 시 git history.
-
-  // 심박 기반 존 분포 — 서버 계산 metrics.hrZoneSec (z1..z5 누적 초) 합산.
-  // 기존 클라가 stream.heartrate 를 직접 읽던 방식은 GCS 저장 스트림(이 사용자 86%) 을
-  // 다운로드하지 않아 거의 빈 결과 → metrics 컬렉션으로 교체. maxHr 경계는 서버에서
-  // 활동별 athlete.maxHr 로 이미 계산됨 (FitnessPage 의 profile.maxHr 기준 임의 보정은 X).
-  const zoneDistribution = useMemo(() => {
-    const { counts: sums, total } = aggregateRecentZoneSeconds(
-      disciplineActivities, metricsMap, "hrZoneSec", 5, fitnessClock, 30,
-    );
-    if (total === 0) return null;
-    return sums.map(c => Math.round((c / total) * 100));
-  }, [disciplineActivities, metricsMap, fitnessClock]);
-
-  // 모바일 UI는 "최근 4주"를 약속하므로 데스크톱의 30일 분포와 별도로 정확히 28일만 집계한다.
-  const mobileZoneDistribution = useMemo(() => {
-    const { counts: sums, total } = aggregateRecentZoneSeconds(
-      disciplineActivities, metricsMap, "hrZoneSec", 5, fitnessClock,
-    );
-    if (total === 0) return null;
-    return sums.map(c => Math.round((c / total) * 100));
-  }, [disciplineActivities, metricsMap, fitnessClock]);
-
-  // 통합 상태와 28일 Load Focus는 선택한 탭이 아니라 모든 활동을 입력으로 쓴다.
-  // 서버 UserFitness/current가 CTL/ATL/TSB 정본이며, 클라이언트 집계는 강도별 설명만 담당한다.
-  const combinedLoad = useMemo(
-    () => authoritativeCombinedLoad(userFitness, fitnessClock),
-    [userFitness, fitnessClock],
-  );
-  const integratedLoadFocus = useMemo(
-    () => computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
-    [activities, metricsMap, fitnessClock],
-  );
-  const canonicalRiderView = useMemo(
-    () => buildCanonicalRiderFitnessView(pdc, coachRiderInsight),
-    [coachRiderInsight, pdc],
-  );
-  const mayUsePersistedPdcFallback = !riderInsightEnabled || coachRiderInsight === null;
-  const cyclingAbility = useMemo(
-    () => cyclingAbilityFromCanonicalRider(canonicalRiderView)
-      ?? (mayUsePersistedPdcFallback ? computeCyclingAbility(pdc) : null),
-    [canonicalRiderView, mayUsePersistedPdcFallback, pdc],
-  );
-  const runEvidence = useMemo(
-    () => buildRunEvidence(userFitness?.thresholds?.run?.thresholdPace ?? profile?.thresholdPace, runRecords),
-    [userFitness, profile?.thresholdPace, runRecords],
-  );
-  const swimEvidence = useMemo(
-    () => buildSwimEvidence(userFitness?.thresholds?.swim?.css ?? profile?.css, activities, metricsMap, fitnessClock),
-    [userFitness, profile?.css, activities, metricsMap, fitnessClock],
-  );
-
-  const runPaceStreams = useMemo(() => {
-    const now = Date.now();
-    const d28 = 28 * 24 * 60 * 60 * 1000;
-    const recentStreams: PaceStream[] = [];
-    const prevStreams: PaceStream[] = [];
-    for (const a of disciplineActivities) {
-      const stream = streamsMap.get(a.id);
-      if (!stream?.velocity_smooth || stream.velocity_smooth.length < 30) continue;
-      const paceStream = { velocity: stream.velocity_smooth, time: stream.time };
-      if (a.startTime >= now - d28) recentStreams.push(paceStream);
-      else if (a.startTime >= now - d28 * 2) prevStreams.push(paceStream);
-    }
-    return { recentStreams, prevStreams };
-  }, [disciplineActivities, streamsMap]);
+export function FitnessView({ embedded = false, model }: FitnessViewProps) {
+  const {
+    t,
+    i18n,
+    durationLabel,
+    user,
+    profile,
+    ftpHistory,
+    canonicalFtpW,
+    applyingFtp,
+    activities,
+    disciplineActivities,
+    streamsMap,
+    loading,
+    error,
+    range,
+    setRange,
+    activeGoal,
+    projection,
+    isMobile,
+    discipline,
+    pdc,
+    runRecords,
+    milestones,
+    consistencyStreak,
+    thresholdDecision,
+    applyAutomaticFtp,
+    pendingMilestone,
+    setDismissedMilestones,
+    markCelebrated,
+    revalidating,
+    justRecomputed,
+    timeseriesLoaded,
+    fitnessData,
+    dailyData,
+    rangeData,
+    currentPoint,
+    rangeStartPoint,
+    powerCurveProgressions,
+    weeklyStats,
+    zoneDistribution,
+    combinedLoad,
+    integratedLoadFocus,
+    cyclingAbility,
+    runPaceStreams,
+  } = model;
+  const renderMobile = embedded || isMobile;
 
   if (!user) {
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
   }
 
-  if (isMobile && (loading || !timeseriesLoaded)) {
+  if (renderMobile && (loading || !timeseriesLoaded)) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
         <LoadingSkeleton kind="chart" />
@@ -522,7 +108,7 @@ export default function FitnessPage() {
     );
   }
 
-  if (isMobile && error) {
+  if (renderMobile && error) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
         {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -533,7 +119,7 @@ export default function FitnessPage() {
     );
   }
 
-  if (isMobile && activities.length === 0) {
+  if (renderMobile && activities.length === 0) {
     return (
       <div style={{ padding: "20px 16px 40px" }}>
         {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
@@ -553,7 +139,7 @@ export default function FitnessPage() {
 
   // TriFitnessView 는 데스크톱 전용 레이아웃이다. 모바일 tri 는 아래의
   // MobileFitnessPage 로 보내 좁은 화면에서 헤더와 카드가 눌리지 않게 한다.
-  if (!isMobile && discipline === "tri") {
+  if (!renderMobile && discipline === "tri") {
     return (
       <TriFitnessView
         activities={activities}
@@ -566,151 +152,12 @@ export default function FitnessPage() {
     );
   }
 
-  if (isMobile) {
-    const ftp = canonicalFtpW ?? 0;
-    const cp = currentPoint;
-
-    // PMC 추이 — 데스크톱 range 선택과 같은 데이터 범위를 모바일에도 전달한다.
-    const pmcHistory = rangeData.fitness.map((p) => ({
-      ctl: p.ctl, atl: p.atl, tsb: p.tsb, date: p.date,
-    }));
-
-    // 주간 TSS (최근 4주)
-    const last28 = dailyData.slice(-28);
-    const weeklyTSS = [0, 1, 2, 3].map((wk) => {
-      const start = wk * 7;
-      return Math.round(last28.slice(start, start + 7).reduce((s, d) => s + d.totalLoad, 0));
-    });
-
-    // 파워 존 분포 — 서버 계산 metrics.powerZoneSec(z1..z7 누적 초) 합산. z2~z7 을 z1~z6
-    // 으로 매핑 (서버 z1=Active Recovery 는 클라 z1=Recovery 와 동일). bike 전용.
-    const { counts: powerZoneCounts, total: powerSamples } = discipline === "bike"
-      ? aggregateRecentZoneSeconds(disciplineActivities, metricsMap, "powerZoneSec", 6)
-      : { counts: [0, 0, 0, 0, 0, 0], total: 0 };
-
-    type MobZone = { name: string; pct: number; color: string; rangeLabel: string; percentLabel: string };
-    type ZoneSrc = "power" | "hr" | "none";
-    let zones: MobZone[] = [];
-    let zoneSource: ZoneSrc = "none";
-    const hrFracs = mobileZoneDistribution ?? [0, 0, 0, 0, 0];
-    const maxHr = profile?.maxHr ?? 200;
-    const hrZoneBounds = [{ lo: 0, hi: 60 }, { lo: 60, hi: 70 }, { lo: 70, hi: 80 }, { lo: 80, hi: 90 }, { lo: 90, hi: 100 }];
-    const hrColors = ["var(--ink-3)", "var(--aqua)", "var(--lime)", "var(--amber)", "var(--rose)"];
-    const hrNames = [
-      t("hrZone.recovery"),
-      t("hrZone.endurance"),
-      t("hrZone.tempo"),
-      t("hrZone.threshold"),
-      t("hrZone.vo2max"),
-    ];
-
-    // 바이크: FTP 가 있으면 6 파워존 구조를 항상 표시 (분포 데이터 부재 시 0%).
-    // 분포 소스 우선순위: 실측 파워 → HR(Z1~Z5 매핑, Z6 = 0) → 없음.
-    if (discipline === "bike" && ftp > 0) {
-      let pcts: number[] = [0, 0, 0, 0, 0, 0];
-      if (powerSamples > 0) {
-        zoneSource = "power";
-        pcts = powerZoneCounts.map((c) => Math.round((c / powerSamples) * 100));
-      } else if (mobileZoneDistribution) {
-        zoneSource = "hr";
-        // HR Z1~Z5 → 파워 Z1~Z5, Z6 = 0 (HR 로는 무산소 분리 불가).
-        pcts = [hrFracs[0] ?? 0, hrFracs[1] ?? 0, hrFracs[2] ?? 0, hrFracs[3] ?? 0, hrFracs[4] ?? 0, 0];
-      }
-      zones = zoneSource === "none" ? [] : [
-        { name: t("zone.recovery"),  pct: pcts[0]!, color: "var(--ink-3)", rangeLabel: `< ${Math.round(ftp * 0.55)} W`,                            percentLabel: "~55%" },
-        { name: t("zone.endurance"), pct: pcts[1]!, color: "var(--aqua)",  rangeLabel: `${Math.round(ftp * 0.55)}–${Math.round(ftp * 0.75)} W`,    percentLabel: "55–75%" },
-        { name: t("zone.tempo"),     pct: pcts[2]!, color: "var(--lime)",  rangeLabel: `${Math.round(ftp * 0.75)}–${Math.round(ftp * 0.90)} W`,    percentLabel: "75–90%" },
-        { name: t("zone.threshold"), pct: pcts[3]!, color: "var(--amber)", rangeLabel: `${Math.round(ftp * 0.90)}–${Math.round(ftp * 1.05)} W`,    percentLabel: "90–105%" },
-        { name: "VO₂max",            pct: pcts[4]!, color: "var(--rose)",  rangeLabel: `${Math.round(ftp * 1.05)}–${Math.round(ftp * 1.20)} W`,    percentLabel: "105–120%" },
-        { name: t("zone.anaerobic"), pct: pcts[5]!, color: "var(--zone-5)", rangeLabel: `> ${Math.round(ftp * 1.20)} W`,                            percentLabel: ">120%" },
-      ];
-    } else if (mobileZoneDistribution) {
-      zoneSource = "hr";
-      zones = hrZoneBounds.map((z, i) => ({
-        name: hrNames[i]!,
-        pct: hrFracs[i] ?? 0,
-        color: hrColors[i]!,
-        rangeLabel: `${Math.round(maxHr * z.lo / 100)}–${Math.round(maxHr * z.hi / 100)} bpm`,
-        percentLabel: `${z.lo}–${z.hi}% maxHR`,
-      }));
-    }
-
-    // 파워 커브 (recent 기간)
-    const recentPC = powerCurveProgressions.find((p) => p.label === t("period.recent"));
-    const powerCurve = recentPC?.points
-      ?.filter((p) => p.maxPower > 0)
-      .map((p) => ({ durationSeconds: p.durationSeconds, maxPower: Math.round(p.maxPower) }));
-
-    // 임계값 (종목별)
-    let threshold: { label: string; value: string; unit: string; sub: string } | null = null;
-    if (discipline === "run" && profile?.thresholdPace) {
-      threshold = { label: t("mobile.threshold.runLabel"), value: secToMmss(profile.thresholdPace), unit: "/km", sub: t("mobile.threshold.runSub") };
-    } else if (discipline === "swim" && profile?.css) {
-      threshold = { label: "CSS", value: secToMmss(profile.css), unit: "/100m", sub: t("mobile.threshold.swimSub") };
-    } else if (ftp > 0) {
-      threshold = { label: "FTP", value: String(ftp), unit: "W", sub: t("mobile.threshold.bikeSub") };
-    }
-
+  if (renderMobile) {
     return (
-      <>
-      {discipline !== "tri" && <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-        <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
-      </div>}
       <MobileFitnessPage
-        data={{
-          ctl: cp?.ctl ?? 0,
-          atl: cp?.atl ?? 0,
-          tsb: cp?.tsb ?? 0,
-          pmcHistory,
-          pmcProjection: discipline === "tri" ? null : projection?.series ?? null,
-          today: toLocalDate(Date.now()),
-          weeklyTSS,
-          thisWeekTSS: weeklyStats.thisWeekTSS,
-          avgWeekTSS: weeklyStats.avgWeekTSS,
-          restDays: weeklyStats.restDays,
-          threshold,
-          ftp,
-          weightKg: profile?.weightKg,
-          hasLoadData: cp != null,
-          combinedLoad: discipline === "tri" ? combinedLoad : null,
-          loadFocus: integratedLoadFocus,
-          cyclingAbility,
-          runEvidence,
-          swimEvidence,
-          pdcSummary: discipline === "bike" ? canonicalRiderView ? {
-            riderType: canonicalRiderView.profile,
-            abilityScore: canonicalRiderView.ability?.overallPercentile ?? null,
-            vo2maxEst: canonicalRiderView.vo2maxEst,
-            activityCount: canonicalRiderView.activityCount,
-            weightKgSnapshot: canonicalRiderView.weightKgSnapshot,
-            version: 5,
-            provenanceVersion: 2,
-            measuredPower: true,
-            sourceRevision: canonicalRiderView.sourceRevision,
-            asOf: canonicalRiderView.asOf,
-          } : mayUsePersistedPdcFallback ? {
-            riderType: hasDefinitiveRiderProfile(pdc) ? pdc.riderType : null,
-            abilityScore: hasDefinitiveRiderProfile(pdc) ? pdc.ability?.overallPercentile ?? null : null,
-            vo2maxEst: pdc?.vo2maxEst ?? null,
-            activityCount: pdc?.activityCount ?? null,
-            weightKgSnapshot: pdc?.weightKgSnapshot ?? null,
-            version: pdc?.version ?? null,
-            provenanceVersion: pdc?.provenance?.version ?? null,
-            measuredPower: pdc?.provenance?.power === "measured" && pdc?.provenance?.excludesVirtualPower === true,
-          } : null : null,
-          zones,
-          zoneSource,
-          powerCurve,
-          ftpProgression: deriveEstimatedFtpProgression(pdc?.history),
-          ftpHistory,
-          thresholdDecision,
-          discipline,
-        }}
-        consistencyStreak={consistencyStreak}
-        applyingFtp={applyingFtp}
-        onApplyFtp={applyAutomaticFtp}
+        {...model.mobilePageProps}
+        embedded={embedded}
       />
-      </>
     );
   }
 
@@ -1511,4 +958,10 @@ export default function FitnessPage() {
       </div>
     </div>
   );
+}
+
+export default function FitnessPage() {
+  const [searchParams] = useSearchParams();
+  const model = useFitnessModel(searchParams.get("sport"));
+  return <FitnessView model={model} />;
 }

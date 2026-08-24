@@ -1,0 +1,54 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+function read(path: string): string {
+  return readFileSync(join(process.cwd(), path), "utf8");
+}
+
+describe("embedded Fitness and Plan sharing boundaries", () => {
+  it("uses the same Fitness model and mobile presentation as the normal page", () => {
+    const page = read("src/pages/FitnessPage.tsx");
+    const surface = read("src/embedded/surfaces/FitnessSurface.tsx");
+
+    expect(page).toContain("useFitnessModel(searchParams.get(\"sport\"))");
+    expect(surface).toContain("useFitnessModel(searchParams.get(\"sport\")");
+    expect(page).toContain("<MobileFitnessPage");
+    expect(surface).toContain("<MobileFitnessPage");
+    expect(surface).not.toMatch(/from\s+["'][^"']*pages\/FitnessPage["']/);
+    expect(surface).not.toContain("TodayTrainingDecisionCard");
+  });
+
+  it("uses the same Plan model and presentation without page-only action modules", () => {
+    const page = read("src/pages/PlanPage.tsx");
+    const surface = read("src/embedded/surfaces/PlanSurface.tsx");
+    const presentation = read("src/features/training/plan/PlanPresentation.tsx");
+    const mobileContent = read("src/features/training/plan/MobilePlanContent.tsx");
+
+    expect(page).toContain("usePlanModel(searchParams.get(\"sport\"))");
+    expect(surface).toContain("usePlanModel(searchParams.get(\"sport\"))");
+    expect(page).toContain("<PlanPresentation");
+    expect(surface).toContain("<PlanPresentation");
+    expect(surface).not.toMatch(/from\s+["'][^"']*pages\/PlanPage["']/);
+    expect(mobileContent).toContain('{!embedded && <div style={{ height: 80 }} />}');
+    for (const forbidden of [
+      "TodayTrainingDecisionCard",
+      "WorkoutEditModal",
+      "AdaptationBanner",
+      "AddPlanSheet",
+      "icsExport",
+      "services/firebase",
+    ]) {
+      expect(presentation).not.toContain(forbidden);
+      expect(surface).not.toContain(forbidden);
+    }
+  });
+
+  it("keeps each authorized surface behind its own lazy chunk", () => {
+    const bootstrap = read("src/embedded/EmbeddedBootstrapRoot.tsx");
+
+    expect(bootstrap).toContain('lazy(() => import("./surfaces/ActivityAnalysisSurface"))');
+    expect(bootstrap).toContain('lazy(() => import("./surfaces/FitnessSurface"))');
+    expect(bootstrap).toContain('lazy(() => import("./surfaces/PlanSurface"))');
+  });
+});
