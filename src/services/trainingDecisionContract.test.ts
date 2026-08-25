@@ -72,10 +72,14 @@ describe("today training decision contract", () => {
     expect(currentTrainingRecommendation(parsed)).toBe(true);
   });
 
-  it("normalizes the no-check-in revision sentinel and accepts positive revisions", () => {
-    const noCheckIn = trainingDecisionEnvelope();
-    noCheckIn.data.recommendationSource = { ...noCheckIn.data.recommendationSource!, weeklyCheckInRevision: 0 };
-    expect(parseTodayTrainingDecisionProjection(noCheckIn).recommendationSource?.weeklyCheckInRevision).toBeNull();
+  it("accepts public null, normalizes the legacy zero sentinel, and accepts positive revisions", () => {
+    const publicNoCheckIn = trainingDecisionEnvelope() as any;
+    publicNoCheckIn.data.recommendationSource = { ...publicNoCheckIn.data.recommendationSource!, weeklyCheckInRevision: null };
+    expect(parseTodayTrainingDecisionProjection(publicNoCheckIn).recommendationSource?.weeklyCheckInRevision).toBeNull();
+
+    const legacyNoCheckIn = trainingDecisionEnvelope();
+    legacyNoCheckIn.data.recommendationSource = { ...legacyNoCheckIn.data.recommendationSource!, weeklyCheckInRevision: 0 };
+    expect(parseTodayTrainingDecisionProjection(legacyNoCheckIn).recommendationSource?.weeklyCheckInRevision).toBeNull();
 
     const revised = trainingDecisionEnvelope();
     revised.data.recommendationSource = { ...revised.data.recommendationSource!, weeklyCheckInRevision: 2 };
