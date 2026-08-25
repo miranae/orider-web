@@ -175,14 +175,14 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
   const nickname = activity.nickname || t("mobileFeed.defaultRider");
   const discipline = getDiscipline(activity.type);
   // 비현실 속도(GPS noise/오등록) 가드 — 광고 유입자 첫인상 신뢰성 보호.
-  const spdImplausible = isImplausibleAvgSpeed(spdNum, discipline);
+  const spdImplausible = isImplausibleAvgSpeed(spdNum, discipline ?? undefined);
   const spd = spdNum > 0 ? (spdImplausible ? "—" : spdNum.toFixed(1)) : "0";
   const showDataWarning = isImplausibleActivity({
     distanceM: s.distance,
     durationMs: s.ridingTimeMillis,
     avgKph: spdNum,
     maxKph: s.maxSpeed,
-    discipline,
+    discipline: discipline ?? undefined,
   });
   const sColor = getDisciplineColor(discipline);
   const sIcon = getDisciplineIcon(discipline);

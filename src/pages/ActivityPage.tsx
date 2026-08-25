@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useOutletContext, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
@@ -7,7 +7,6 @@ import Avatar from "../components/Avatar";
 import TabNav from "../components/TabNav";
 import AnalysisTab from "../components/AnalysisTab";
 import { ActivityZoneTimeline } from "../components/activity/ActivityZoneTimeline";
-import { resolveAnalysisSummaryTiming } from "../features/activity/detail/analysisSummaryTiming";
 import LapTable from "../components/LapTable";
 import ExportTab from "../components/ExportTab";
 import { useAuth } from "../contexts/AuthContext";
@@ -16,21 +15,19 @@ import { useDialog } from "../contexts/DialogContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance, formatSpeed } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
-import { useStrava } from "../hooks/useStrava";
 import {
-  doc, getDoc, setDoc, updateDoc,
+  doc, setDoc, updateDoc,
   collection, query, where, getDocs, orderBy, onSnapshot,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { firestore, storage } from "../services/firebase";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
-import type { Activity, ActivityStreams, Visibility } from "@shared/types";
+import type { Activity, Visibility } from "@shared/types";
 import { getSportIcon, getSportLabelKey } from "../utils/sportType";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { isImplausibleAvgSpeed, isImplausibleMaxSpeed } from "../utils/activitySanity";
 import { getStravaActivityId } from "../utils/stravaActivity";
-import { useActivityMetrics } from "../hooks/useActivityMetrics";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { usePdc } from "../hooks/usePdc";
 import { RunLeftCards, RunRightCards } from "../components/activity/RunDetailCards";
@@ -38,20 +35,27 @@ import { SwimLeftCards, SwimRightCards } from "../components/activity/SwimDetail
 import KudosCommentsCard from "../components/activity/KudosCommentsCard";
 import AiRideAnalysisCard from "../components/activity/AiRideAnalysisCard";
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
-import { useActiveBikeProfile } from "../hooks/useActiveBikeProfile";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
-import { formatDuration, formatTime, getSportCategory, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
+import { formatDuration, formatTime, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid } from "../features/activity/detail/ActivityStatsGrid";
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
-import { buildChartOverlays, selectChartOverlay, type ActivityPowerOverride } from "../features/activity/detail/activityDetailDerived";
+import {
+  buildChartOverlays,
+  buildSampledData,
+  buildSummaryStats,
+  getAvailableOverlays,
+  getChartHighlightRange,
+  getSegmentEfforts,
+  getStreamPhotos,
+  selectChartOverlay,
+} from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
-import { loadOriderActivityStreams, useActivityStreamsLoader } from "../features/activity/detail/useActivityStreamsLoader";
 import { RideActivityRouteButton } from "../features/activity/detail/RideActivityRouteButton";
 import { selectActualCoRiders } from "../utils/coRiders";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
@@ -60,12 +64,8 @@ import type { ActivityShareMetric } from "../features/activity/share/activitySha
 import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features/activity/detail/ActivityInsightCards";
 import type { LayoutOutletContext } from "../components/Layout";
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
+import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
-import { useActivitySensorDetail } from "../features/activity/detail/useActivitySensorDetail";
-import {
-  createActivityPowerOverride,
-  resolveActiveActivityPowerOverride,
-} from "../features/activity/detail/activityPowerOverride";
 
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
@@ -80,9 +80,6 @@ export default function ActivityPage() {
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
   const dialog = useDialog();
-  const { getStreams } = useStrava();
-  const [activity, setActivity] = useState<Activity | null>(null);
-  const [loadingActivity, setLoadingActivity] = useState(true);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [coRiders, setCoRiders] = useState<Activity[]>([]);
   const [liked, setLiked] = useState(false);
@@ -100,34 +97,43 @@ export default function ActivityPage() {
   const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set());
   const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
   const {
+    activity,
+    setActivity,
+    loadingActivity,
+    activityLoadError,
+    activityProcessing,
+    retryActivity,
     streams,
-    setStreams,
+    effectiveStreams,
     showStreamSpinner,
-    setShowStreamSpinner,
     streamsError,
-    setStreamsError,
     loadingStreams,
-    setLoadingStreams,
-  } = useActivityStreamsLoader({ activityId, activity, userId: user?.uid, getStreams, t });
-  // server-side activity metrics 구독 — movingTimeSec 등 ridingTimeMillis 보완 필드 제공.
-  // activity_metrics 는 rules 상 활동 owner 만 read 가능 → 타인의 공개 활동을 볼 땐
-  // 구독을 막아 permission-denied 알림 노이즈(client:useActivityMetrics)를 없앤다.
-  const isActivityOwner = !!activity && !!user && activity.userId === user.uid;
-  const serverMetrics = useActivityMetrics(activityId ?? null, isActivityOwner);
+    retryStreams,
+    serverMetrics,
+    isActivityOwner,
+    sport,
+    streamSensorSummary,
+    displayedSummary: selectedSummary,
+    avgPowerValue,
+    normalizedPowerValue,
+    hasStreamPowerCandidate,
+    hasAnalysisStreams,
+    analysisProjection,
+    sensorSelectionContext,
+    analysisTabProps,
+    canRecalculateVirtualPowerPreview,
+    recalculateVirtualPowerPreview,
+    revertVirtualPowerPreview,
+    activePowerOverride,
+  } = useActivityAnalysisModel(activityId);
   const shareDiscipline = getDiscipline(activity?.type);
+  // 미지 종목(요가·근력 등)은 종목별 피트니스 시계열이 없다 — uid 를 주지 않아 조회를
+  // 건너뛴다. 예전엔 사이클로 폴백해 **엉뚱한 종목의 곡선**을 이 활동 화면에 붙였다.
   const { timeseries: fitnessTimeseries } = useFitnessTimeseries(
-    isActivityOwner ? user?.uid : undefined,
-    shareDiscipline,
+    isActivityOwner && shareDiscipline ? user?.uid : undefined,
+    shareDiscipline ?? "bike",
   );
   const { pdc: bikePdc } = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
-  // 가상 파워 즉석 재계산 미리보기 (Firestore 저장 안 함). 자전거 활동에서만 구독.
-  const isRide = activity ? getSportCategory(activity.type) === "ride" : false;
-  const { active: activeBike } = useActiveBikeProfile(isRide ? (user?.uid ?? null) : null);
-  const [wattsOverride, setWattsOverride] = useState<ActivityPowerOverride | null>(null);
-  function recalcPreview() {
-    if (!activityId || !activeBike || !streams) return;
-    setWattsOverride(createActivityPowerOverride(activityId, streams, activeBike.virtualPower));
-  }
   // Inline description editing
   const [editingDescription, setEditingDescription] = useState(false);
   const [descriptionText, setDescriptionText] = useState("");
@@ -138,9 +144,6 @@ export default function ActivityPage() {
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   // 탭 네비게이션
   const [activeTab, setActiveTab] = useState("overview");
-  const [activityLoadError, setActivityLoadError] = useState<unknown>(null);
-  const [activityReloadKey, setActivityReloadKey] = useState(0);
-  const [activityProcessing, setActivityProcessing] = useState(false);
 
   // Layout의 허브 판정에 소유권을 전달한다. 같은 ActivityPage 인스턴스에서 activityId만
   // 바뀔 때 이전 활동의 owner가 남지 않도록 현재 문서와 route id가 일치할 때만 publish한다.
@@ -153,56 +156,14 @@ export default function ActivityPage() {
   }, [activity?.id, activity?.userId, activityId, setActivityOwner]);
 
   useEffect(() => {
-    if (!activityId) return;
-
-    // activityId 변경(동일 라우트 내 co-rider 네비게이션 등) 시 이전 활동 상태 리셋.
-    // 안 하면 streams effect 가드(`!activity || streams`)가 옛 streams 를 truthy 로 보고
-    // 새 활동의 스트림 로드를 영영 막아 이전 활동의 GPS/파워 차트가 고착된다(#534).
-    setActivity(null);
-    setLoadingActivity(true);
+    // 분석 데이터는 useActivityAnalysisModel 이 초기화한다. 페이지 전용 소셜 상태는
+    // route id 변경 즉시 별도로 비워 이전 활동 정보가 잠시 노출되지 않게 한다.
     setKudosList([]);
     setKudosLoaded(false);
     setKudosTouched(false);
     setLiked(false);
     setCoRiders([]);
-    setWattsOverride(null);
-    setActivityLoadError(null);
-
-    let cancelled = false;
-    let processingTimer: number | undefined;
-
-    getDoc(doc(firestore, "activities", activityId)).then((snap) => {
-      if (cancelled) return;
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.summary == null) {
-          setActivity(null);
-          setActivityProcessing(true);
-          setLoadingActivity(false);
-          processingTimer = window.setTimeout(() => {
-            setActivityReloadKey((key) => key + 1);
-          }, 3000);
-          return;
-        }
-        setActivityProcessing(false);
-        setActivity({ id: snap.id, ...data } as Activity);
-      } else {
-        setActivityProcessing(false);
-      }
-      setLoadingActivity(false);
-    }).catch((err) => {
-      if (cancelled) return;
-      setActivityLoadError(err);
-      setActivityProcessing(false);
-      setLoadingActivity(false);
-      logClientError("ActivityPage.loadActivity", err, { activityId });
-    });
-
-    return () => {
-      cancelled = true;
-      if (processingTimer !== undefined) window.clearTimeout(processingTimer);
-    };
-  }, [activityId, activityReloadKey]);
+  }, [activityId]);
 
   // 첫 활동 상세 진입 마일스톤 — 로그인 사용자가 activity 로드 완료 후 1회.
   // deps 를 primitive identity 로 좁혀 setActivity 가 같은 doc 으로 재할당되어도 useEffect 가 안 돎.
@@ -490,43 +451,27 @@ export default function ActivityPage() {
       return next.activeOverlays;
     });
   }, []);
-  const renderPowerOverride = resolveActiveActivityPowerOverride(
-    activityId,
-    activity?.id,
-    streams,
-    wattsOverride,
-    activeBike?.virtualPower.enabled ? activeBike.virtualPower : null,
+  // 지도·세그먼트·개요 차트용 파생값은 분석 모델 경계 밖에서 계산한다.
+  const sampledData = useMemo(
+    () => buildSampledData(effectiveStreams, sensorSelectionContext),
+    [effectiveStreams, sensorSelectionContext],
   );
-  const {
-    activePowerOverride,
-    analysisProjection,
-    availableOverlays,
-    avgPowerValue,
-    chartHighlightRange,
-    displayedSummary: selectedSummary,
-    hasAnalysisStreams,
-    hasStreamCadenceCandidate,
-    hasStreamHeartRateCandidate,
-    hasStreamPowerCandidate,
-    hasStreams,
-    markerPosition,
-    normalizedPowerValue,
-    photos,
-    sampledData,
-    segmentEfforts,
-    selectionContext: sensorSelectionContext,
-    summaryStats,
-  } = useActivitySensorDetail({
-    activityId,
-    activity,
-    streams,
-    powerOverride: renderPowerOverride,
-    hoverIndex,
-    hoveredSegment,
-  });
-  useEffect(() => {
-    if (wattsOverride && !activePowerOverride) setWattsOverride(null);
-  }, [activePowerOverride, wattsOverride]);
+  const availableOverlays = useMemo(() => getAvailableOverlays(sampledData), [sampledData]);
+  const summaryStats = useMemo(
+    () => buildSummaryStats(effectiveStreams, streamSensorSummary),
+    [effectiveStreams, streamSensorSummary],
+  );
+  const markerPosition = useMemo(() => {
+    if (hoverIndex == null || !sampledData[hoverIndex]) return null;
+    return sampledData[hoverIndex].latlng;
+  }, [hoverIndex, sampledData]);
+  const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
+  const chartHighlightRange = useMemo(
+    () => getChartHighlightRange(hoveredSegment, streams),
+    [hoveredSegment, streams],
+  );
+  const photos = useMemo(() => getStreamPhotos(streams), [streams]);
+  const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile);
 
   if (loadingActivity) {
@@ -550,7 +495,7 @@ export default function ActivityPage() {
         <ErrorState
           title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
           description={isPermissionError ? t("card.noActivity") : tCommon("error.description")}
-          onRetry={() => setActivityReloadKey((key) => key + 1)}
+          onRetry={retryActivity}
         />
       </div>
     );
@@ -562,7 +507,7 @@ export default function ActivityPage() {
         title={t("card.processingActivity")}
         description={t("card.processingActivityDesc")}
         retryLabel={t("page.retry")}
-        onRetry={() => setActivityReloadKey((key) => key + 1)}
+        onRetry={retryActivity}
       />
     );
   }
@@ -625,7 +570,6 @@ export default function ActivityPage() {
   const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
   const hasAnalysisRoute = !!streams?.latlng?.length;
   const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute);
-  const sport = getSportCategory(activity.type || (isStrava ? undefined : "Ride"));
   const hasAiSummaryPreview = !!(activity.aiSummaryPreview || activity.aiSummaryPreview_en);
   const canShowAiAnalysis = (sport === "ride" || sport === "run") && (hasAnalysisStreams || hasAiSummaryPreview);
   const showElevation = sport === "ride" || sport === "run";
@@ -676,40 +620,6 @@ export default function ActivityPage() {
     ? t("page.loadingGps")
     : streamsError ?? t("page.streamsMissing");
 
-  const handleRetryStreams = async () => {
-    if (!activityId || !activity) return;
-    const source = (activity as Activity & { source?: string }).source;
-    const isOriderActivity = source === "orider" || activityId.startsWith("orider_");
-
-    setLoadingStreams(true);
-    setStreamsError(null);
-    setShowStreamSpinner(true);
-    try {
-      if (isOriderActivity) {
-        setStreams(await loadOriderActivityStreams(activityId, activity.userId));
-        return;
-      }
-
-      const stravaId = stravaActivityId;
-      if (!stravaId) {
-        setStreamsError(t("page.streamsMissing"));
-        return;
-      }
-      const data = await getStreams(stravaId);
-      setStreams(data as unknown as ActivityStreams);
-    } catch (err) {
-      logClientError("ActivityPage.streams.retry", err, {
-        activityId,
-        source: isOriderActivity ? "orider" : "strava",
-      });
-      setStreamsError(err instanceof Error && err.message !== "STREAMS_MISSING"
-        ? err.message
-        : t("page.streamsMissing"));
-    } finally {
-      setShowStreamSpinner(false);
-      setLoadingStreams(false);
-    }
-  };
   const summarySensorMetrics = ([
     displayedSummary.averageHeartRate != null
       ? {
@@ -987,28 +897,26 @@ export default function ActivityPage() {
             description={t("page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
-          <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void handleRetryStreams(); }} retryLabel={t("page.retry")} />
+          <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
         </div>
       )}
-      {activeTab === "analysis" && hasAnalysisStreams && streams && analysisProjection && (
+      {activeTab === "analysis" && hasAnalysisStreams && streams && analysisProjection && analysisTabProps && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
-              activeBike 는 뷰어(user.uid)의 자전거 프로필이라, 비소유자에게 보이면
-              "라이더/자전거/CdA" 가 뷰어 본인 값으로 잘못 표시되고, "재계산 미리보기" 도
-              뷰어의 파라미터로 소유자 스트림을 다시 추정하게 됨 (활동에 stamp 된
-              activity.virtualPowerParams 는 소유자 값으로 VirtualPowerBadge 가 별도 표시). */}
-          {sport === "ride" && user?.uid === activity.userId && activeBike?.virtualPower.enabled && (
+              훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
+              다시 추정하지 않도록 한다. */}
+          {canRecalculateVirtualPowerPreview && (
             <div
               className="flex flex-col gap-2 mb-4 pb-4"
               style={{ borderBottom: "1px solid var(--line-soft)" }}
             >
               <div className="flex items-center flex-wrap gap-2">
                 <Text variant="eyebrow" tone="tertiary">{t("page.vp.heading")}</Text>
-                <Button size="sm" variant="outline" onClick={recalcPreview}>
+                <Button size="sm" variant="outline" onClick={recalculateVirtualPowerPreview}>
                   {t("page.vp.recalcBtn")}
                 </Button>
                 {activePowerOverride && (
-                  <Button size="sm" variant="ghost" onClick={() => setWattsOverride(null)}>
+                  <Button size="sm" variant="ghost" onClick={revertVirtualPowerPreview}>
                     {t("page.vp.revertBtn")}
                   </Button>
                 )}
@@ -1020,22 +928,7 @@ export default function ActivityPage() {
               )}
             </div>
           )}
-          <AnalysisTab
-            activityId={activityId ?? null}
-            isOwner={isActivityOwner}
-            startTime={activity.startTime}
-            streams={analysisProjection.streams}
-            sensorHeartRate={analysisProjection.heartRate}
-            sensorPower={analysisProjection.power}
-            sensorSelectionContext={sensorSelectionContext}
-            hasStreamPowerCandidate={hasStreamPowerCandidate}
-            hasStreamHeartRateCandidate={hasStreamHeartRateCandidate}
-            hasStreamCadenceCandidate={hasStreamCadenceCandidate}
-            summary={resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics)}
-            sport={sport}
-            isVirtualPower={activity.isVirtualPower || activePowerOverride != null}
-            virtualPowerParams={activePowerOverride?.params ?? activity.virtualPowerParams}
-          />
+          <AnalysisTab {...analysisTabProps} />
         </Card>
       )}
 
@@ -1056,7 +949,7 @@ export default function ActivityPage() {
 
       {/* ── 내보내기 탭 ── */}
       {activeTab === "export" && !streams && (
-        <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void handleRetryStreams(); }} retryLabel={t("page.retry")} />
+        <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
       )}
       {activeTab === "export" && streams && activity && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -1196,7 +1089,7 @@ export default function ActivityPage() {
             separateOverlayLanes={chartOverlays.length > 0}
             highlightRange={chartHighlightRange}
           />
-          {analysisProjection && <ActivityZoneTimeline streams={analysisProjection.streams} sensorHeartRate={analysisProjection.heartRate} sensorPower={analysisProjection.power} sensorSelectionContext={sensorSelectionContext} summary={resolveAnalysisSummaryTiming(displayedSummary, serverMetrics.metrics)} sport={sport} startTime={activity.startTime} isOwner={isActivityOwner} activityContextMaxHr={serverMetrics.metrics?.contextSnapshot?.maxHr} activityContextLthr={serverMetrics.metrics?.contextSnapshot?.lthr} />}
+          {analysisProjection && <ActivityZoneTimeline streams={analysisProjection.streams} sensorHeartRate={analysisProjection.heartRate} sensorPower={analysisProjection.power} sensorSelectionContext={sensorSelectionContext} summary={analysisTabProps?.summary} sport={sport} startTime={activity.startTime} isOwner={isActivityOwner} activityContextMaxHr={serverMetrics.metrics?.contextSnapshot?.maxHr} activityContextLthr={serverMetrics.metrics?.contextSnapshot?.lthr} />}
         </Card>
       )}
 
@@ -1206,7 +1099,7 @@ export default function ActivityPage() {
           <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
             <p>{streamsError}</p>
             <button
-              onClick={() => { void handleRetryStreams(); }}
+              onClick={() => { void retryStreams(); }}
               className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
             >
               {t("page.retry")}

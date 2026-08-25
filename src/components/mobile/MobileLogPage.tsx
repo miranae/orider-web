@@ -5,7 +5,7 @@ import { Upload } from "lucide-react";
 import type { Activity } from "@shared/types";
 import ImportActivityModal from "./ImportActivityModal";
 import SportFilterTabs from "./SportFilterTabs";
-import { getDiscipline, getDisciplineColor } from "../../utils/disciplineFilter";
+import { getDiscipline, getDisciplineColor, getDisciplineIcon } from "../../utils/disciplineFilter";
 import { estimateTSS } from "../../utils/estimateTSS";
 
 // DAY_NAMES — i18n via t("mobileLog.dayNames")
@@ -347,7 +347,8 @@ export default function MobileLogPage({ activities, year, month, onChangeMonth, 
             <div style={{ overflowY: "auto", maxHeight: "60vh" }}>
               {dayDetailActs.map((a) => {
                 const disc = getDiscipline(a.type);
-                const icon = disc === "run" ? "🏃" : disc === "swim" ? "🏊" : "🚴";
+                // 삼항 else 가 미지 종목을 자전거로 떨어뜨렸다 — 중립 아이콘까지 다루는 헬퍼로 대체.
+                const icon = getDisciplineIcon(disc);
                 const color = getDisciplineColor(disc);
                 const km = (a.summary.distance / 1000).toFixed(1);
                 const h = Math.floor(a.summary.ridingTimeMillis / 3600000);

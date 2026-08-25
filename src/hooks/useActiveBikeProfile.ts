@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot, setDoc, writeBatch } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useBikeProfiles } from "./useBikeProfiles";
 import type { BikeProfile } from "../types/bikeProfile";
 
 export function useActiveBikeProfile(uid: string | null) {
+  const { firestore } = useFirebaseServices();
   const {
     profiles,
     loading: profilesLoading,
@@ -35,7 +36,7 @@ export function useActiveBikeProfile(uid: string | null) {
       },
     );
     return () => unsub();
-  }, [uid]);
+  }, [firestore, uid]);
 
   const active: BikeProfile | null =
     profiles.find((p) => p.id === activeId) ?? profiles[0] ?? null;

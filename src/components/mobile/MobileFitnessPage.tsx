@@ -467,6 +467,7 @@ export default function MobileFitnessPage({
   ftpDeviceReceipts = [],
   decisionBusy = false,
   onAcceptDecision = () => undefined,
+  embedded = false,
 }: {
   data: MobileFitnessData;
   consistencyStreak?: ConsistencyStreakSummary | null;
@@ -475,6 +476,8 @@ export default function MobileFitnessPage({
   ftpDeviceReceipts?: FtpDeviceReceipt[];
   decisionBusy?: boolean;
   onAcceptDecision?: () => void;
+  /** Native host already owns the surface title and bottom navigation chrome. */
+  embedded?: boolean;
 }) {
   const { t } = useTranslation("dashboard");
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
@@ -521,11 +524,12 @@ export default function MobileFitnessPage({
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center sticky top-0 z-10"
-        style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
-        <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
-      </div>
+      {!embedded && (
+        <div className="flex items-center sticky top-0 z-10"
+          style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
+          <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileFitness.title")}</span>
+        </div>
+      )}
 
       <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />
 
@@ -559,7 +563,9 @@ export default function MobileFitnessPage({
               weightKg={data.weightKg}
               progression={data.ftpProgression}
               ftpHistory={data.ftpHistory}
-              ftpDecision={ftpDecision}
+              // 임베드 표면은 FTP 결정을 쓰기(수락)하지 않는다 — 결정을 넘기지 않으면
+              // 패널이 렌더되지 않아 액션 자체가 노출되지 않는다.
+              ftpDecision={embedded ? null : ftpDecision}
               ftpReceipt={ftpReceipt}
               ftpDeviceReceipts={ftpDeviceReceipts}
               decisionBusy={decisionBusy}
@@ -694,7 +700,7 @@ export default function MobileFitnessPage({
         </div>
       )}
 
-      <div style={{ height: 80 }} />
+      {!embedded && <div style={{ height: 80 }} />}
     </div>
   );
 }

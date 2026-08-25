@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { parseFtpHistoryEntry, type FtpHistoryEntry } from "@shared/training/ftpHistory";
 
 export function useFtpHistory(uid: string | null | undefined) {
+  const { firestore } = useFirebaseServices();
   const [entries, setEntries] = useState<FtpHistoryEntry[]>([]);
   const [loading, setLoading] = useState(Boolean(uid));
 
@@ -34,7 +35,7 @@ export function useFtpHistory(uid: string | null | undefined) {
         logClientError("useFtpHistory.load", error, { uid });
       },
     );
-  }, [uid]);
+  }, [firestore, uid]);
 
   return { entries, loading };
 }

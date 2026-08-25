@@ -14,9 +14,9 @@
 import { useEffect, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { ensureAppCheckReady, firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 import {
   executeFirestoreSessionRecovery,
@@ -77,6 +77,7 @@ function isRetryableListenerError(err: unknown): boolean {
 
 export function useFreshTraining(discipline?: string): FreshTrainingState {
   const { user, loading: authLoading } = useAuth();
+  const { ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const uid = user?.uid;
   const [revalidating, setRevalidating] = useState(false);
   const [justRecomputed, setJustRecomputed] = useState(false);
@@ -148,7 +149,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       cancelled = true;
       unsubscribe();
     };
-  }, [authLoading, uid, userListenerAttempt]);
+  }, [authLoading, firestore, uid, userListenerAttempt]);
 
   useEffect(() => {
     if (authLoading || !uid) return;
@@ -251,7 +252,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
       }
       unsubscribe();
     };
-  }, [authLoading, uid, discipline, userListenerAttempt]);
+  }, [authLoading, discipline, ensureAppCheckReady, firestore, functions, uid, userListenerAttempt]);
 
   // justRecomputed가 켜지면 1.5초 후 자동 해제 — "✓ 업데이트 완료" 트랜지언트 표시
   useEffect(() => {

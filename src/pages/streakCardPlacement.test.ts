@@ -9,7 +9,7 @@ describe("consistency streak card placement", () => {
   it("wires the streak summary into dashboard and fitness surfaces", () => {
     expect(read("src/pages/DashboardPage.tsx")).toContain("useConsistencyStreak");
     expect(read("src/pages/DashboardPage.tsx")).toContain("ConsistencyStreakCard");
-    expect(read("src/pages/FitnessPage.tsx")).toContain("useConsistencyStreak");
+    expect(read("src/hooks/useFitnessModel.ts")).toContain("useConsistencyStreak");
     expect(read("src/pages/FitnessPage.tsx")).toContain("ConsistencyStreakCard");
   });
 

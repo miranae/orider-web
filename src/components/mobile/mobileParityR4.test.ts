@@ -58,7 +58,7 @@ describe("mobile parity r4", () => {
   });
 
   it("does not hard-cap mobile fitness PMC to 60 days", () => {
-    const fitness = read("src/pages/FitnessPage.tsx");
+    const fitness = read("src/hooks/useFitnessModel.ts");
 
     expect(fitness).toContain("const pmcHistory = rangeData.fitness.map");
     expect(fitness).not.toContain("rangeData.fitness.slice(-60)");

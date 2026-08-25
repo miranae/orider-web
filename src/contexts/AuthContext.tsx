@@ -38,7 +38,7 @@ function emitAuthEvent(result: UserCredential, method: string) {
   }
 }
 
-interface AuthContextValue {
+export interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   profileLoading: boolean;
@@ -55,6 +55,17 @@ const AuthContext = createContext<AuthContextValue>({
   signInWithGoogle: async () => {},
   logout: async () => {},
 });
+
+/** Supplies an already-authorized session without mounting the normal web auth/profile listeners. */
+export function AuthContextProvider({
+  children,
+  value,
+}: {
+  children: ReactNode;
+  value: AuthContextValue;
+}) {
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
