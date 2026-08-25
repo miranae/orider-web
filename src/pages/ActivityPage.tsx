@@ -115,9 +115,11 @@ export default function ActivityPage() {
   const isActivityOwner = !!activity && !!user && activity.userId === user.uid;
   const serverMetrics = useActivityMetrics(activityId ?? null, isActivityOwner);
   const shareDiscipline = getDiscipline(activity?.type);
+  // 미지 종목(요가·근력 등)은 종목별 피트니스 시계열이 없다 — uid 를 주지 않아 조회를
+  // 건너뛴다. 예전엔 사이클로 폴백해 **엉뚱한 종목의 곡선**을 이 활동 화면에 붙였다.
   const { timeseries: fitnessTimeseries } = useFitnessTimeseries(
-    isActivityOwner ? user?.uid : undefined,
-    shareDiscipline,
+    isActivityOwner && shareDiscipline ? user?.uid : undefined,
+    shareDiscipline ?? "bike",
   );
   const { pdc: bikePdc } = usePdc(isActivityOwner && shareDiscipline === "bike" ? user?.uid : null);
   // 가상 파워 즉석 재계산 미리보기 (Firestore 저장 안 함). 자전거 활동에서만 구독.

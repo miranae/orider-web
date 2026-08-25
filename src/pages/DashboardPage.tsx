@@ -397,7 +397,9 @@ export default function DashboardPage() {
         relativeEffort: a.summary.relativeEffort,
         ridingTimeMillis: a.summary.ridingTimeMillis,
         // tri(혼합)는 활동별로 종목 resolve, 그 외엔 필터된 종목 그대로. 서버 PMC factor 와 일치.
-        discipline: discipline === "tri" ? getDiscipline((a as { sport?: string }).sport || a.type) : discipline,
+        // estimateLoad 의 discipline 은 추정 공식 계수다 — 미지 종목도 부하는 산출해야 하므로
+        // 사이클 계수로 폴백해 서버 PMC 와 같은 수치를 유지한다(종목 버킷 배정과 무관).
+        discipline: discipline === "tri" ? (getDiscipline((a as { sport?: string }).sport || a.type) ?? "bike") : discipline,
       });
       return {
         date: toLocalDate(a.startTime),

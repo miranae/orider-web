@@ -235,14 +235,17 @@ export default function TodaysWorkoutCard({ variant = "default" }: TodaysWorkout
             precomputedTss: raw,
             relativeEffort: a.summary?.relativeEffort ?? null,
             ridingTimeMillis: a.summary?.ridingTimeMillis ?? 0,
-            discipline: disc,
+            // 추정 공식 계수 — 미지 종목도 부하는 산출한다(사이클 계수, 서버와 동일).
+            discipline: disc ?? "bike",
           });
           sum14 += load.value;
           sessions30++;
           if ((a.startTime ?? 0) >= cutoff7) {
             sum7 += load.value;
             sessions7++;
-            byDisc[disc] = (byDisc[disc] ?? 0) + load.value;
+            // 종목별 breakdown 은 추적 3종목만 — 미지 종목은 합계(sum7)에만 남기고
+            // 특정 종목에 귀속시키지 않는다(예전엔 사이클로 귀속됐다).
+            if (disc) byDisc[disc] = (byDisc[disc] ?? 0) + load.value;
             // bucket into byDay7
             const diffDays = Math.floor((todayMid.getTime() - (a.startTime ?? 0)) / 86400000);
             if (diffDays >= 0 && diffDays <= 6) byDay7[6 - diffDays] = (byDay7[6 - diffDays] ?? 0) + load.value;
