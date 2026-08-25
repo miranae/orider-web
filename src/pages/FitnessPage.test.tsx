@@ -54,7 +54,7 @@ describe("FitnessPage", () => {
   });
 
   it("never carries a single-sport projection into the integrated mobile PMC", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/FitnessPage.tsx"), "utf8");
+    const source = readFileSync(join(process.cwd(), "src/hooks/useFitnessModel.ts"), "utf8");
     expect(source).toContain('pmcProjection: discipline === "tri" ? null : projection?.series ?? null');
   });
 

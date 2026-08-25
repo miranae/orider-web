@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { and, collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import type { Activity } from "@shared/types";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import {
   CONSISTENCY_STREAK_LOOKBACK_MS,
@@ -10,6 +10,7 @@ import {
 } from "../utils/consistencyStreak";
 
 export function useConsistencyStreak(uid: string | null | undefined) {
+  const { firestore } = useFirebaseServices();
   const [summary, setSummary] = useState<ConsistencyStreakSummary | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -49,7 +50,7 @@ export function useConsistencyStreak(uid: string | null | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [uid]);
+  }, [firestore, uid]);
 
   return { summary, loading };
 }

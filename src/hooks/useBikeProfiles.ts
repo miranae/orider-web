@@ -6,7 +6,7 @@ import {
   onSnapshot,
   setDoc,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import {
   type BikeProfile,
   parseBikeProfile,
@@ -14,6 +14,7 @@ import {
 } from "../types/bikeProfile";
 
 export function useBikeProfiles(uid: string | null) {
+  const { firestore } = useFirebaseServices();
   const [profiles, setProfiles] = useState<BikeProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +37,7 @@ export function useBikeProfiles(uid: string | null) {
       },
     );
     return () => unsub();
-  }, [uid]);
+  }, [firestore, uid]);
 
   async function updateVirtualPower(profileId: string, vp: Partial<VirtualPowerConfig>) {
     if (!uid) throw new Error("로그인 필요");

@@ -17,8 +17,8 @@
 
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
 /** @sync-with functions/src/analysis/activity-metrics.ts#ActivityMetrics
  *  서버에서 영속화되는 모든 필드. 서버가 ground truth, 클라는 read-only.
@@ -146,6 +146,7 @@ export type UseActivityMetricsState =
  *   경로를 그대로 쓴다. 기본 true(소유자 화면 등 기존 호출 호환).
  */
 export function useActivityMetrics(activityId: string | null, enabled = true): UseActivityMetricsState {
+  const { firestore } = useFirebaseServices();
   const [state, setState] = useState<UseActivityMetricsState>({ status: "loading", metrics: null });
 
   useEffect(() => {
@@ -179,7 +180,7 @@ export function useActivityMetrics(activityId: string | null, enabled = true): U
       },
     );
     return () => unsub();
-  }, [activityId, enabled]);
+  }, [activityId, enabled, firestore]);
 
   return state;
 }

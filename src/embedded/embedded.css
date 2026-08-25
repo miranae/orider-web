@@ -1,0 +1,46 @@
+.orider-embedded-root {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding-top: var(--orider-host-safe-top, 0px);
+  padding-bottom: var(--orider-host-safe-bottom, 0px);
+  background: var(--orider-host-bg, var(--bg-0));
+  color: var(--orider-host-text-primary, var(--ink-0));
+}
+
+.orider-embedded-surface {
+  --bg-0: var(--orider-host-bg);
+  --bg-1: var(--orider-host-surface);
+  --ink-0: var(--orider-host-text-primary);
+  --ink-1: var(--orider-host-text-primary);
+  --ink-2: var(--orider-host-text-secondary);
+  --ink-3: var(--orider-host-text-secondary);
+  --accent: var(--orider-host-accent);
+  --lime: var(--orider-host-accent);
+
+  min-height: calc(100dvh - var(--orider-host-safe-top) - var(--orider-host-safe-bottom));
+  padding: var(--space-4);
+  background: var(--orider-host-bg);
+  color: var(--orider-host-text-primary);
+}
+
+.orider-embedded-status {
+  display: grid;
+  min-height: calc(100dvh - var(--orider-host-safe-top, 0px) - var(--orider-host-safe-bottom, 0px));
+  place-items: center;
+  padding: var(--space-4);
+  color: var(--orider-host-text-secondary, var(--ink-2));
+  text-align: center;
+}
+
+.orider-embedded-status__pulse {
+  width: min(100%, 28rem);
+  height: var(--space-8);
+  border-radius: var(--r-lg);
+  background: var(--orider-host-surface, var(--bg-1));
+  animation: orider-embedded-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes orider-embedded-pulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}

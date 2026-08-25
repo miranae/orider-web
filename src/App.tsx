@@ -85,6 +85,10 @@ const MyPage = lazyTimed("MyPage", () => import("./pages/MyPage"));
 const YearRecapPage = lazyTimed("YearRecapPage", () => import("./pages/YearRecapPage"));
 const OnboardingPage = lazyTimed("OnboardingPage", () => import("./pages/OnboardingPage"));
 const NotFoundPage = lazyTimed("NotFoundPage", () => import("./pages/NotFoundPage"));
+const EmbeddedBootstrapRoot = lazyTimed(
+  "EmbeddedBootstrapRoot",
+  () => import("./embedded/EmbeddedBootstrapRoot"),
+);
 
 const LoadingSpinner = () => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100dvh", color: "var(--ink-3)" }}>
@@ -131,12 +135,15 @@ function AppErrorFallback({ error, reset }: { error: Error; reset: () => void })
   );
 }
 
-function AppRoutes() {
+export function AppRoutes() {
   return (
     <Routes>
       <Route path="/:lang" element={<LocaleRoot />}>
         <Route path="live/:eventId" element={<EventLivePage />} />
         <Route path="onboarding" element={<OnboardingPage />} />
+        <Route path="embed/activity/:activityId/analysis" element={<EmbeddedBootstrapRoot surfaceKind="activity-analysis" />} />
+        <Route path="embed/fitness" element={<EmbeddedBootstrapRoot surfaceKind="fitness" />} />
+        <Route path="embed/plan" element={<EmbeddedBootstrapRoot surfaceKind="plan" />} />
         <Route element={<Layout />}>
           <Route index element={null} />
           <Route path="activity/:activityId" element={<ActivityPage />} />
@@ -210,7 +217,7 @@ function AppRoutes() {
   );
 }
 
-export default function App() {
+function StandardApp() {
   const location = useLocation();
   const { user, profile } = useAuth();
   const { showToast } = useToast();
@@ -335,4 +342,22 @@ export default function App() {
       </ErrorBoundary>
     </>
   );
+}
+
+export function isEmbeddedRoutePath(pathname: string): boolean {
+  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/analysis|fitness|plan)\/?$/.test(pathname);
+}
+
+export default function App() {
+  const location = useLocation();
+
+  if (isEmbeddedRoutePath(location.pathname)) {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <AppRoutes />
+      </Suspense>
+    );
+  }
+
+  return <StandardApp />;
 }

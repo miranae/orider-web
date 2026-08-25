@@ -1,4 +1,5 @@
 import { auth } from "./firebase";
+import type { Auth } from "firebase/auth";
 import { getRuntimeConfig } from "./runtimeConfig";
 import type { ActivityStreams } from "@shared/types";
 
@@ -26,8 +27,8 @@ export interface CreatedPersonalApiKey {
   scopes: PersonalApiScope[];
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await auth.currentUser?.getIdToken();
+async function apiFetch<T>(authInstance: Auth, path: string, init?: RequestInit): Promise<T> {
+  const token = await authInstance.currentUser?.getIdToken();
   if (!token) throw new Error("SIGN_IN_REQUIRED");
   const apiBase = (getRuntimeConfig().personalApiBase || "").replace(/\/$/, "");
 
@@ -49,7 +50,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function listPersonalApiKeys(): Promise<PersonalApiKeySummary[]> {
-  const payload = await apiFetch<{ data?: PersonalApiKeySummary[] }>("/developer/api-keys");
+  const payload = await apiFetch<{ data?: PersonalApiKeySummary[] }>(auth, "/developer/api-keys");
   return Array.isArray(payload.data) ? payload.data : [];
 }
 
@@ -57,7 +58,7 @@ export async function createPersonalApiKey(input: {
   name: string;
   scopes: PersonalApiScope[];
 }): Promise<CreatedPersonalApiKey> {
-  const payload = await apiFetch<{ data?: CreatedPersonalApiKey }>("/developer/api-keys", {
+  const payload = await apiFetch<{ data?: CreatedPersonalApiKey }>(auth, "/developer/api-keys", {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -68,13 +69,21 @@ export async function createPersonalApiKey(input: {
 }
 
 export async function revokePersonalApiKey(keyId: string): Promise<void> {
-  await apiFetch<{ data: { revoked: boolean } }>(`/developer/api-keys/${encodeURIComponent(keyId)}`, {
+  await apiFetch<{ data: { revoked: boolean } }>(auth, `/developer/api-keys/${encodeURIComponent(keyId)}`, {
     method: "DELETE",
   });
 }
 
 export async function getActivityStreams(activityId: string): Promise<ActivityStreams> {
+  return getActivityStreamsWithAuth(auth, activityId);
+}
+
+export async function getActivityStreamsWithAuth(
+  authInstance: Auth,
+  activityId: string,
+): Promise<ActivityStreams> {
   const payload = await apiFetch<{ data?: ActivityStreams }>(
+    authInstance,
     `/activities/${encodeURIComponent(activityId)}/streams`,
   );
   if (!payload.data || typeof payload.data !== "object") {
