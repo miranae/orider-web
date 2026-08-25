@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Activity } from "@shared/types";
-import { filterByDiscipline, getDiscipline, getDisciplineOrNull } from "./disciplineFilter";
+import {
+  filterByDiscipline,
+  getDiscipline,
+  getDisciplineColor,
+  getDisciplineIcon,
+  getDisciplineLabelKey,
+  getDisciplineTag,
+} from "./disciplineFilter";
 
 function act(type: string | undefined): Activity {
   return { id: type ?? "none", type } as unknown as Activity;
@@ -25,16 +32,14 @@ describe("getDiscipline (웹 표시용 · bike 폴백 유지)", () => {
 
   it("부분 문자열로 매칭하지 않는다", () => {
     // 옛 substring 분류기는 "VirtualRowing" 을 러닝으로 걸었다.
-    expect(getDisciplineOrNull("VirtualRowing")).toBeNull();
-    expect(getDisciplineOrNull("Rideshare")).toBeNull();
+    expect(getDiscipline("VirtualRowing")).toBeNull();
+    expect(getDiscipline("Rideshare")).toBeNull();
   });
 
-  it("미지 종목은 표시용으로 bike 폴백 (잔여 갭 — 문서화된 동작)", () => {
-    expect(getDiscipline("Yoga")).toBe("bike");
-    expect(getDiscipline(undefined)).toBe("bike");
-    // 미상 여부가 필요한 호출자는 OrNull 을 쓴다.
-    expect(getDisciplineOrNull("Yoga")).toBeNull();
-    expect(getDisciplineOrNull(undefined)).toBeNull();
+  it("미지 종목은 null — 사이클로 폴백하지 않는다", () => {
+    for (const t of ["Yoga", "WeightTraining", "Tennis", "Rowing", "Workout", undefined]) {
+      expect(getDiscipline(t)).toBeNull();
+    }
   });
 });
 
@@ -65,5 +70,20 @@ describe("filterByDiscipline", () => {
     // 화면마다 tri 의 의미가 다르다 — FitnessPage 는 호출 전에 전체로 분기하고
     // DashboardPage 는 이 함수에 그대로 넘긴다. 통일은 이 트랙 범위 밖.
     expect(filterByDiscipline(activities, "tri").map((a) => a.type)).toEqual(["Ride", "VirtualRide"]);
+  });
+});
+
+describe("표시 헬퍼 — 미지 종목은 중립값 (자전거로 보이면 안 된다)", () => {
+  it("null 에 중립 색·아이콘·태그·라벨을 준다", () => {
+    expect(getDisciplineColor(null)).toBe("var(--ink-1)");
+    expect(getDisciplineIcon(null)).toBe("🏅");
+    expect(getDisciplineTag(null)).toBe("OTHER");
+    expect(getDisciplineLabelKey(null)).toBe("common:discipline.other");
+  });
+
+  it("사이클 값과 겹치지 않는다", () => {
+    expect(getDisciplineIcon(null)).not.toBe(getDisciplineIcon("bike"));
+    expect(getDisciplineTag(null)).not.toBe(getDisciplineTag("bike"));
+    expect(getDisciplineLabelKey(null)).not.toBe(getDisciplineLabelKey("bike"));
   });
 });

@@ -28,32 +28,26 @@ export function filterByDiscipline(activities: Activity[], discipline: Disciplin
 /**
  * Activity type → discipline. 판정은 `@shared/sport/discipline` 정본.
  *
- * ⚠️ **미지 종목을 `"bike"` 로 폴백한다** — 호출자 다수가 non-null `Discipline` 을
- * 기대하므로(배지 표시·분석 이벤트·평균속도 타당성) 폴백을 남겼다. 즉 요가·근력 활동에
- * 자전거 배지가 붙는 문제는 남아 있다. 제거는 호출지점별 null 처리 설계가 선행돼야 한다.
- *
- * 이 교체로 해소된 것: 부분 문자열 매칭(`VirtualRowing` 이 러닝으로 걸리던 것),
- * 그리고 서버와의 종목표 불일치. 미상 여부가 필요하면 `getDisciplineOrNull` 을 쓴다.
+ * **미지 종목은 `null`** — 요가·근력·테니스 등은 추적 3종목이 아니다. 호출자는 배지·라벨을
+ * 숨기거나 판정을 건너뛴다. 이전에는 `"bike"` 로 폴백해 **요가 활동에 자전거 배지가**
+ * 붙었다.
  */
-export function getDiscipline(type?: string): Discipline {
-  return disciplineOfType(type) ?? "bike";
-}
-
-/** 판정 정본 그대로 — 미지 종목은 `null`(추적 3종목 아님). */
-export function getDisciplineOrNull(type?: string): SportDiscipline | null {
+export function getDiscipline(type?: string): SportDiscipline | null {
   return disciplineOfType(type);
 }
 
 /** Discipline → CSS variable color */
-export function getDisciplineColor(d: Discipline): string {
-  if (d === "tri") return "var(--ink-1)";
+/** 표시 헬퍼 4종은 `null`(추적 3종목 아님)을 중립값으로 렌더한다 — 사이클로 보이면 안 된다. */
+export function getDisciplineColor(d: Discipline | null): string {
+  if (d == null || d === "tri") return "var(--ink-1)";
   if (d === "run") return "var(--amber)";
   if (d === "swim") return "var(--lime)";
   return "var(--aqua)";
 }
 
 /** Discipline → i18n 키 (common 네임스페이스). 소비처에서 t(...)로 번역. */
-export function getDisciplineLabelKey(d: Discipline): string {
+export function getDisciplineLabelKey(d: Discipline | null): string {
+  if (d == null) return "common:discipline.other";
   if (d === "tri") return "common:discipline.tri";
   if (d === "run") return "common:discipline.run";
   if (d === "swim") return "common:discipline.swim";
@@ -61,7 +55,8 @@ export function getDisciplineLabelKey(d: Discipline): string {
 }
 
 /** Discipline → icon */
-export function getDisciplineIcon(d: Discipline): string {
+export function getDisciplineIcon(d: Discipline | null): string {
+  if (d == null) return "🏅";
   if (d === "tri") return "🔺";
   if (d === "run") return "🏃";
   if (d === "swim") return "🏊";
@@ -69,7 +64,8 @@ export function getDisciplineIcon(d: Discipline): string {
 }
 
 /** Discipline → English label */
-export function getDisciplineTag(d: Discipline): string {
+export function getDisciplineTag(d: Discipline | null): string {
+  if (d == null) return "OTHER";
   if (d === "tri") return "TRI";
   if (d === "run") return "RUN";
   if (d === "swim") return "SWIM";
