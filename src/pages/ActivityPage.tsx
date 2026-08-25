@@ -65,6 +65,7 @@ import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features
 import type { LayoutOutletContext } from "../components/Layout";
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
 import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
+import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
 
 export default function ActivityPage() {
   const { t } = useTranslation("activity");
@@ -965,6 +966,12 @@ export default function ActivityPage() {
         activityId={activity.id}
         ownerId={activity.userId}
         viewerId={user?.uid ?? null}
+      />
+
+      <ActivityFtpDecisionCard
+        uid={user?.uid ?? null}
+        activityId={activity.id}
+        enabled={isActivityOwner && shareDiscipline === "bike"}
       />
 
       {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}

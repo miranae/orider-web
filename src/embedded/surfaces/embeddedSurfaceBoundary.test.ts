@@ -11,7 +11,8 @@ describe("embedded Fitness and Plan sharing boundaries", () => {
     const page = read("src/pages/FitnessPage.tsx");
     const surface = read("src/embedded/surfaces/FitnessSurface.tsx");
 
-    expect(page).toContain("useFitnessModel(searchParams.get(\"sport\"))");
+    // 닫는 괄호까지 고정하면 훅에 옵션 인자가 붙을 때마다 깨진다 — 호출 사실만 본다.
+    expect(page).toContain("useFitnessModel(searchParams.get(\"sport\")");
     expect(surface).toContain("useFitnessModel(searchParams.get(\"sport\")");
     expect(page).toContain("<MobileFitnessPage");
     expect(surface).toContain("<MobileFitnessPage");

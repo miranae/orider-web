@@ -21,6 +21,7 @@ import ConsistencyStreakCard from "../training/ConsistencyStreakCard";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
+import type { BikeThresholdDecisionV2, FtpDeviceReceipt, FtpMutationReceipt } from "@shared/types/threshold";
 import type { CyclingAbilityResult, LoadFocusResult, RunEvidence, SwimEvidence } from "../../features/fitness/multisportPerformance";
 import IntegratedLoadCard, { type CombinedLoadStatus } from "./IntegratedLoadCard";
 import SportPerformanceCard from "./SportPerformanceCard";
@@ -461,14 +462,20 @@ function SectionCard({ children, title, sub, accentColor }: { children: React.Re
 export default function MobileFitnessPage({
   data,
   consistencyStreak = null,
-  applyingFtp = false,
-  onApplyFtp = () => undefined,
+  ftpDecision = null,
+  ftpReceipt = null,
+  ftpDeviceReceipts = [],
+  decisionBusy = false,
+  onAcceptDecision = () => undefined,
   embedded = false,
 }: {
   data: MobileFitnessData;
   consistencyStreak?: ConsistencyStreakSummary | null;
-  applyingFtp?: boolean;
-  onApplyFtp?: (watts: number) => void;
+  ftpDecision?: BikeThresholdDecisionV2 | null;
+  ftpReceipt?: FtpMutationReceipt | null;
+  ftpDeviceReceipts?: FtpDeviceReceipt[];
+  decisionBusy?: boolean;
+  onAcceptDecision?: () => void;
   /** Native host already owns the surface title and bottom navigation chrome. */
   embedded?: boolean;
 }) {
@@ -556,8 +563,13 @@ export default function MobileFitnessPage({
               weightKg={data.weightKg}
               progression={data.ftpProgression}
               ftpHistory={data.ftpHistory}
-              applying={applyingFtp}
-              onApplyCandidate={embedded ? undefined : onApplyFtp}
+              // 임베드 표면은 FTP 결정을 쓰기(수락)하지 않는다 — 결정을 넘기지 않으면
+              // 패널이 렌더되지 않아 액션 자체가 노출되지 않는다.
+              ftpDecision={embedded ? null : ftpDecision}
+              ftpReceipt={ftpReceipt}
+              ftpDeviceReceipts={ftpDeviceReceipts}
+              decisionBusy={decisionBusy}
+              onAcceptDecision={onAcceptDecision}
             />
           )}
 

@@ -1,5 +1,12 @@
 {
   "title": "활동",
+  "ftpDecision": {
+    "eyebrow": "활동에서 발견한 FTP 후보",
+    "title": "이 활동으로 FTP를 다시 검토할 수 있어요",
+    "summary": "현재 {{current}} W → 후보 {{candidate}} W. 변경 여부와 영향을 Fitness에서 확인하세요.",
+    "blocked": "측정 파워 근거를 확인했지만 지금은 FTP 변경 기준을 충족하지 못했습니다. Fitness에서 이유를 확인하세요.",
+    "openFitness": "Fitness에서 검토"
+  },
   "equipment": {
     "eyebrow": "장비 점검 권고",
     "loading": "장비 점검 권고 확인 중",

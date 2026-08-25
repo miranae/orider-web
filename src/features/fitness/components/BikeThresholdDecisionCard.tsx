@@ -3,17 +3,22 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
+import type { BikeThresholdDecisionV2, FtpDeviceReceipt, FtpMutationReceipt } from "@shared/types/threshold";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { Card, Text, buttonClass } from "../../../theme/components";
 import FtpProgressionCard from "./FtpProgressionCard";
+import BikeFtpDecisionActionPanel from "./BikeFtpDecisionActionPanel";
 
 type T = (key: string, values?: Record<string, unknown>) => string;
 
 export default function BikeThresholdDecisionCard({
   decision,
   hasZoneData,
-  applying,
-  onApplyCandidate,
+  ftpDecision,
+  ftpReceipt,
+  ftpDeviceReceipts,
+  decisionBusy,
+  onAcceptDecision,
   progressionPoints = [],
   ftpHistory = [],
   defaultEvidenceOpen = false,
@@ -21,8 +26,11 @@ export default function BikeThresholdDecisionCard({
 }: {
   decision: BikeThresholdDecision;
   hasZoneData: boolean;
-  applying: boolean;
-  onApplyCandidate: (watts: number) => void;
+  ftpDecision: BikeThresholdDecisionV2 | null;
+  ftpReceipt?: FtpMutationReceipt | null;
+  ftpDeviceReceipts?: FtpDeviceReceipt[];
+  decisionBusy?: boolean;
+  onAcceptDecision: () => void;
   progressionPoints?: EstimatedFtpPoint[];
   ftpHistory?: FtpHistoryEntry[];
   defaultEvidenceOpen?: boolean;
@@ -61,20 +69,19 @@ export default function BikeThresholdDecisionCard({
               ? t("thresholdDecision.candidateSub", { count: decision.activityCount })
               : t("thresholdDecision.noCandidate")}
           </Text>
-          {decision.automaticCandidateW != null && (
-            <button
-              type="button"
-              className={buttonClass({ variant: "primary", size: "sm" })}
-              style={{ minHeight: 44 }}
-              disabled={applying}
-              aria-label={t("thresholdDecision.applyAria", { value: decision.automaticCandidateW })}
-              onClick={() => onApplyCandidate(decision.automaticCandidateW!)}
-            >
-              {t(applying ? "thresholdDecision.applying" : "thresholdDecision.apply")}
-            </button>
-          )}
+          <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>
+            {t("thresholdDecision.modelOnly")}
+          </Text>
         </div>
       </div>
+
+      <BikeFtpDecisionActionPanel
+        decision={ftpDecision}
+        receipt={ftpReceipt}
+        deviceReceipts={ftpDeviceReceipts}
+        busy={decisionBusy}
+        onAccept={onAcceptDecision}
+      />
 
       <button
         type="button"

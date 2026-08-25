@@ -57,7 +57,6 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     profile,
     ftpHistory,
     canonicalFtpW,
-    applyingFtp,
     activities,
     disciplineActivities,
     streamsMap,
@@ -74,7 +73,11 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     milestones,
     consistencyStreak,
     thresholdDecision,
-    applyAutomaticFtp,
+    bikeFtpDecision,
+    bikeFtpReceipt,
+    bikeFtpDeviceReceipts,
+    decisionBusy,
+    acceptFtpDecision,
     pendingMilestone,
     setDismissedMilestones,
     markCelebrated,
@@ -500,8 +503,11 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           <BikeThresholdDecisionCard
             decision={thresholdDecision}
             hasZoneData={!!zoneDistribution}
-            applying={applyingFtp}
-            onApplyCandidate={applyAutomaticFtp}
+            ftpDecision={bikeFtpDecision}
+            ftpReceipt={bikeFtpReceipt}
+            ftpDeviceReceipts={bikeFtpDeviceReceipts}
+            decisionBusy={decisionBusy}
+            onAcceptDecision={acceptFtpDecision}
             progressionPoints={ftpProgression}
             ftpHistory={ftpHistory}
             defaultEvidenceOpen
@@ -962,6 +968,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
 
 export default function FitnessPage() {
   const [searchParams] = useSearchParams();
-  const model = useFitnessModel(searchParams.get("sport"));
+  const model = useFitnessModel(searchParams.get("sport"), {
+    decisionId: searchParams.get("decisionId"),
+  });
   return <FitnessView model={model} />;
 }

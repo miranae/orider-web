@@ -7,11 +7,9 @@ import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { Goal, FitnessProjection } from "@shared/types/goal";
 import type { MilestoneId } from "@shared/types/milestone";
 import { resolveBikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
-import { isConservativeDrop } from "@shared/training/ftpTest";
 import { deriveEstimatedFtpProgression } from "@shared/training/ftpProgression";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 import { useAuth } from "../contexts/AuthContext";
-import { useDialog } from "../contexts/DialogContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useToast } from "../contexts/ToastContext";
 import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
@@ -54,8 +52,9 @@ import {
   type DailyLoad,
 } from "../utils/fitnessMetrics";
 import { logClientError } from "../services/errorLogger";
+import { useBikeFtpDecision } from "./useBikeFtpDecision";
 import { getRuntimeConfig } from "../services/runtimeConfig";
-import { persistRiderMetrics } from "../services/syncRiderMetrics";
+import { acceptBikeThresholdDecision } from "../services/bikeFtpDecisionClient";
 
 export function resolveFitnessDiscipline(value: string | null | undefined): Discipline {
   return value === "bike" || value === "run" || value === "swim" || value === "tri"
@@ -65,18 +64,16 @@ export function resolveFitnessDiscipline(value: string | null | undefined): Disc
 
 export function useFitnessModel(
   sportParam: string | null | undefined,
-  options: { enableCoachRiderInsight?: boolean } = {},
+  options: { enableCoachRiderInsight?: boolean; decisionId?: string | null } = {},
 ) {
   const { t, i18n } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
   const { user, profile } = useAuth();
   const { firestore } = useFirebaseServices();
   const { entries: ftpHistory } = useFtpHistory(user?.uid);
-  const dialog = useDialog();
   const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
-  const [appliedFtpW, setAppliedFtpW] = useState<number | null>(null);
-  const [applyingFtp, setApplyingFtp] = useState(false);
+  const [decisionBusy, setDecisionBusy] = useState(false);
   const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
     ownerUid: user?.uid ?? null,
     items: [],
@@ -91,6 +88,17 @@ export function useFitnessModel(
   const [, setGoalQueryDone] = useState(false);
   const isMobile = useMobile();
   const { pdc } = usePdc(user?.uid);
+  // 다음 라이드 FTP 브리핑(#837) — 결정 문서를 구독하고 수락만 수행한다.
+  // 임베드 표면은 decisionId 를 넘기지 않아 딥링크로 특정 결정을 열지 않는다.
+  const {
+    decision: bikeFtpDecision,
+    receipt: bikeFtpReceipt,
+    deviceReceipts: bikeFtpDeviceReceipts,
+  } = useBikeFtpDecision({
+    uid: user?.uid,
+    decisionId: options.decisionId ?? null,
+    enabled: discipline === "bike",
+  });
   const riderInsightEnabled = options.enableCoachRiderInsight !== false
     && getRuntimeConfig().coachRiderInsightEnabled === true
     && discipline === "bike";
@@ -101,40 +109,25 @@ export function useFitnessModel(
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
 
-  const canonicalFtpW = appliedFtpW ?? profile?.ftp ?? null;
+  const canonicalFtpW = profile?.ftp ?? null;
   const thresholdDecision = useMemo(
     () => resolveBikeThresholdDecision(canonicalFtpW, pdc),
     [canonicalFtpW, pdc],
   );
 
-  async function applyAutomaticFtp(candidateW: number) {
-    if (!user || applyingFtp) return;
-    if (isConservativeDrop(thresholdDecision.activeFtpW, candidateW)) {
-      const confirmed = await dialog.confirm(
-        t("thresholdDecision.dropConfirm", { current: thresholdDecision.activeFtpW, candidate: candidateW }),
-        { title: t("thresholdDecision.dropConfirmTitle"), destructive: true },
-      );
-      if (!confirmed) return;
-    }
-    setApplyingFtp(true);
+  async function acceptFtpDecision() {
+    if (!user || !bikeFtpDecision || decisionBusy) return;
+    setDecisionBusy(true);
     try {
-      const result = await persistRiderMetrics(
-        user.uid,
-        { ftp: candidateW },
-        { ftpHistorySource: "detected" },
-      );
-      setAppliedFtpW(candidateW);
-      if (result.failures.length > 0) {
-        showToast(t("thresholdDecision.partial", { count: result.failures.length }), "error");
-      } else {
-        showToast(t("thresholdDecision.applied", { value: candidateW }));
-      }
-    } catch (applyError) {
-      showToast(t("thresholdDecision.applyFailed", {
-        message: applyError instanceof Error ? applyError.message : String(applyError),
-      }), "error");
+      await acceptBikeThresholdDecision(user.uid, bikeFtpDecision);
+      showToast(t("ftpDecision.accepted"));
+    } catch (acceptError) {
+      logClientError("useFitnessModel.acceptBikeThresholdDecision", acceptError, {
+        decisionId: bikeFtpDecision.decisionId,
+      });
+      showToast(t("ftpDecision.acceptFailed"), "error");
     } finally {
-      setApplyingFtp(false);
+      setDecisionBusy(false);
     }
   }
 
@@ -552,7 +545,6 @@ export function useFitnessModel(
     profile,
     ftpHistory,
     canonicalFtpW,
-    applyingFtp,
     activities,
     disciplineActivities,
     streamsMap,
@@ -570,7 +562,11 @@ export function useFitnessModel(
     milestones,
     consistencyStreak,
     thresholdDecision,
-    applyAutomaticFtp,
+    bikeFtpDecision,
+    bikeFtpReceipt,
+    bikeFtpDeviceReceipts,
+    decisionBusy,
+    acceptFtpDecision,
     pendingMilestone,
     setDismissedMilestones,
     markCelebrated,
@@ -596,8 +592,11 @@ export function useFitnessModel(
     mobilePageProps: {
       data: mobilePageData,
       consistencyStreak,
-      applyingFtp,
-      onApplyFtp: applyAutomaticFtp,
+      ftpDecision: bikeFtpDecision,
+      ftpReceipt: bikeFtpReceipt,
+      ftpDeviceReceipts: bikeFtpDeviceReceipts,
+      decisionBusy,
+      onAcceptDecision: acceptFtpDecision,
     },
   };
 }

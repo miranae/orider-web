@@ -25,7 +25,9 @@ describe("FitnessPage desktop hierarchy", () => {
     expect(source).toContain('t("vo2maxCard.pdcLabel")');
     expect(source).toContain('t("vo2maxCard.trendAriaValues"');
     expect(source).toContain("<desc>{trendDescription}</desc>");
-    expect(modelSource).toContain("isConservativeDrop(thresholdDecision.activeFtpW, candidateW)");
-    expect(modelSource).toContain("await dialog.confirm(");
+    // FTP 결정 수락은 useFitnessModel 로 추출됐다 — 페이지가 아니라 훅을 본다.
+    expect(modelSource).toContain("await acceptBikeThresholdDecision(user.uid, bikeFtpDecision)");
+    expect(modelSource).not.toContain("persistRiderMetrics");
+    expect(source).not.toContain("persistRiderMetrics");
   });
 });
