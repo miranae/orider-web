@@ -72,6 +72,22 @@ describe("today training decision contract", () => {
     expect(currentTrainingRecommendation(parsed)).toBe(true);
   });
 
+  it("normalizes the no-check-in revision sentinel and accepts positive revisions", () => {
+    const noCheckIn = trainingDecisionEnvelope();
+    noCheckIn.data.recommendationSource = { ...noCheckIn.data.recommendationSource!, weeklyCheckInRevision: 0 };
+    expect(parseTodayTrainingDecisionProjection(noCheckIn).recommendationSource?.weeklyCheckInRevision).toBeNull();
+
+    const revised = trainingDecisionEnvelope();
+    revised.data.recommendationSource = { ...revised.data.recommendationSource!, weeklyCheckInRevision: 2 };
+    expect(parseTodayTrainingDecisionProjection(revised).recommendationSource?.weeklyCheckInRevision).toBe(2);
+  });
+
+  it.each([-1, 1.5])("rejects invalid weekly check-in revision %s", (weeklyCheckInRevision) => {
+    const envelope = trainingDecisionEnvelope();
+    envelope.data.recommendationSource = { ...envelope.data.recommendationSource!, weeklyCheckInRevision };
+    expect(() => parseTodayTrainingDecisionProjection(envelope)).toThrow();
+  });
+
   it("accepts the Hosting-first confidence transition but rejects unknown values", () => {
     const unavailable = trainingDecisionEnvelope();
     unavailable.data.prescription = { ...unavailable.data.prescription, status: "unavailable", confidence: null };
