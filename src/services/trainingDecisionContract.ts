@@ -53,7 +53,7 @@ const session = z.object({
 const source = z.object({
   sourceRequestId: uuid, prescriptionId, factsId: revisionId, snapshotRevision: revisionId,
   planRevision: revisionId.nullable(), rulesVersion: revisionId,
-  weeklyCheckInId, weeklyCheckInRevision: z.number().int().min(1),
+  weeklyCheckInId, weeklyCheckInRevision: z.number().int().nonnegative().transform((revision) => revision === 0 ? null : revision),
 }).strict();
 
 export const todayTrainingDecisionProjectionSchema = z.object({
