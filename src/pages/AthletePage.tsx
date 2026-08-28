@@ -197,7 +197,9 @@ export default function AthletePage() {
           where("userId", "==", userId),
           where("deletedAt", "==", null),
           ...(!isOwnProfile ? [where("visibility", "==", "everyone")] : []),
-          orderBy("createdAt", "desc"),
+          // 목록 순서는 업로드 시각이 아니라 실제 운동 시각 기준 — 카드에 찍힌 날짜와
+          // 순서가 어긋나지 않게 한다. 더보기(startAfter)도 같은 키를 쓴다.
+          orderBy("startTime", "desc"),
           limit(ACTIVITIES_PAGE_SIZE),
         ];
         const q = query(collection(firestore, "activities"), ...constraints);
@@ -348,7 +350,7 @@ export default function AthletePage() {
         where("userId", "==", userId),
         where("deletedAt", "==", null),
         ...(!isOwnProfile ? [where("visibility", "==", "everyone")] : []),
-        orderBy("createdAt", "desc"),
+        orderBy("startTime", "desc"),
         limit(ACTIVITIES_PAGE_SIZE),
         startAfter(lastActivityDoc),
       ];

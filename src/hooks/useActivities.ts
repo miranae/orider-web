@@ -150,12 +150,14 @@ function chunkFriendIds(friendIds: readonly string[]): string[][] {
   return chunks;
 }
 
-function activityCreatedAt(item: BufferedActivity): number {
-  const createdAt = item.doc.data().createdAt;
-  if (typeof createdAt === "number") return createdAt;
-  if (createdAt && typeof createdAt === "object" && "toMillis" in createdAt) {
-    return (createdAt as { toMillis: () => number }).toMillis();
-  }
+/**
+ * 피드 정렬키 — **실제 운동 시각**(startTime). 업로드 시각(createdAt)으로 정렬하면
+ * 지난 라이딩을 나중에 올리거나 Strava 동기화·앱 재업로드가 끼는 순간 오래된 활동이
+ * 맨 위로 올라와, 카드에 찍힌 날짜와 목록 순서가 어긋난다.
+ * 소스 쿼리의 orderBy 와 반드시 같은 키를 써야 한다 — 커서 페이지네이션이 소스별
+ * 쿼리 순서와 이 비교자의 병합 순서가 일치한다는 전제로 동작한다.
+ */
+function activitySortTime(item: BufferedActivity): number {
   return item.activity.startTime;
 }
 
@@ -330,7 +332,7 @@ export function useActivities(
       // 소스의 오래된 항목을 먼저 내보내면 다음 페이지에 더 최신 항목이 나타날 수 있다.
       while (nextSource.buffer.length < pageSize && !nextSource.exhausted) {
         const constraints = [
-          orderBy("createdAt", "desc"),
+          orderBy("startTime", "desc"),
           limit(pageSize),
           ...(nextSource.last ? [startAfter(nextSource.last)] : []),
         ];
@@ -352,10 +354,10 @@ export function useActivities(
 
     const merged = sources
       .flatMap((source, sourceIndex) => source.buffer.map((item) => ({ item, sourceIndex })))
-      // 같은 createdAt에서는 각 Firestore 쿼리가 돌려준 순서를 유지한다. Array#sort의
+      // 같은 startTime에서는 각 Firestore 쿼리가 돌려준 순서를 유지한다. Array#sort의
       // stable ordering 덕분에 단일 소스는 원래 쿼리 순서가 바뀌지 않고, 여러 친구
       // 소스도 임의의 activity id 정렬로 카드가 재배치되지 않는다.
-      .sort((left, right) => activityCreatedAt(right.item) - activityCreatedAt(left.item));
+      .sort((left, right) => activitySortTime(right.item) - activitySortTime(left.item));
     const selected = merged.slice(0, pageSize);
     const consumedBySource = new Map<number, Set<string>>();
     selected.forEach(({ item, sourceIndex }) => {
