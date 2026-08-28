@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 
 import type { Activity, ActivityStreams } from "@shared/types";
+// 훅이 아니라
+// 순수 async 함수라 컨텍스트를 못 쓴다. 임베드 경로의 유일한 호출부
+// (useActivityAnalysisModel)는 항상 services 를 넘기므로 이 기본값은 임베드에서 쓰이지
+// 않는다. services 유무가 익명/인증 fetch 분기도 결정하므로 필수화하면 동작이 바뀐다.
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed
 import { auth as defaultAuth, firestore as defaultFirestore } from "../../../services/firebase";
 import { logClientError } from "../../../services/errorLogger";
 import {

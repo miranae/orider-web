@@ -4,8 +4,12 @@ import { LocaleProvider, useLocale } from './LocaleContext';
 import { AUTO_LOCALE_REDIRECT_KEY } from '../i18n/detector';
 
 vi.mock('../services/firebase', () => ({
+  // LocaleProvider 가 useFirebaseServices() 로 받게 바뀌면서(#847) 기본 컨텍스트가
+  // 이 모듈 전체를 읽는다 — functions/ensureAppCheckReady 까지 있어야 한다.
   firestore: {},
   auth: {},
+  functions: {},
+  ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(),

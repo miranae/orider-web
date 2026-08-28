@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // ESLint flat config — 디자인 시스템 우회 차단이 1차 목표.
 //
 // 룰 레벨 정책:
@@ -47,6 +48,45 @@ const HEX_COLOR = /#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/;
 
 const designSystem = {
   rules: {
+    /**
+     * 임베드 트리에서 `services/firebase` 모듈 싱글턴 직접 import 차단.
+     *
+     * 임베드 진입(`/embed/*`)은 `initFirebase()` 를 부르지 않고 **임베드 전용 named app**
+     * 을 쓴다(계정 격리). 그래서 싱글턴 `firestore`/`auth`/`functions` 는 그 경로에서
+     * 영원히 undefined 이고, 쓰는 순간 `collection()` 이 던져 표면이 통째로 렌더되지
+     * 않는다 — 실제로 피트니스 임베드가 이 이유로 막혔다(#847).
+     *
+     * 이 클래스는 임베드를 **실제로 실행해 보지 않으면** 드러나지 않는다. 일반 웹에서는
+     * 싱글턴이 초기화돼 있어 리뷰도 단위테스트도 통과한다. 그래서 정적으로 막는다.
+     * 대신 `useFirebaseServices()` 를 쓴다.
+     */
+    'no-firebase-singleton-in-embed': {
+      meta: {
+        type: 'problem',
+        docs: { description: '임베드 경로에서 Firebase 싱글턴 대신 useFirebaseServices() 사용' },
+        schema: [],
+        messages: {
+          singleton: "임베드 트리에서는 '{{names}}' 싱글턴을 쓸 수 없다 — 임베드는 별도 named app 을 쓰므로 undefined 다. useFirebaseServices() 로 받을 것 (#847).",
+        },
+      },
+      create(context) {
+        const GUARDED = new Set(['firestore', 'auth', 'functions', 'storage']);
+        return {
+          ImportDeclaration(node) {
+            const source = String(node.source.value ?? '');
+            if (!/(^|\/)services\/firebase$/.test(source)) return;
+            // **import 선언 전체**를 보고한다 — specifier 로 보고하면 여러 줄 import 에서
+            // eslint-disable-next-line 이 첫 줄만 덮어 예외를 달 수 없다.
+            const names = node.specifiers
+              .filter((spec) => spec.type === 'ImportSpecifier' && GUARDED.has(spec.imported?.name))
+              .map((spec) => spec.imported.name);
+            if (names.length > 0) {
+              context.report({ node, messageId: 'singleton', data: { names: names.join(', ') } });
+            }
+          },
+        };
+      },
+    },
     /**
      * className 문자열에서 토큰 우회 패턴 차단.
      *
@@ -390,5 +430,18 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       'no-console': 'off',
     },
+  },
+  // 임베드 표면과 그것이 실제로 렌더하는 모듈은 Firebase 싱글턴을 쓸 수 없다.
+  // 임베드는 계정 격리를 위해 **별도 named app** 을 초기화하므로 싱글턴은 undefined 다.
+  //
+  // 대상 파일은 `scripts/embed-reachable-files.mjs` 가 EmbeddedBootstrapRoot 에서
+  // import 폐포로 계산해 `eslint-embed-scope.json` 에 적는다. 손으로 유지하면 새 의존이
+  // 추가될 때 조용히 빠진다 — 이 결함이 정확히 그렇게 샜다(#847).
+  {
+    files: JSON.parse(
+      readFileSync(new URL('./eslint-embed-scope.json', import.meta.url), 'utf8'),
+    ),
+    plugins: { 'design-system': designSystem },
+    rules: { 'design-system/no-firebase-singleton-in-embed': 'error' },
   },
 );

@@ -28,7 +28,13 @@ vi.mock("firebase/firestore", () => ({
     return unsubscribe;
   }),
 }));
-vi.mock("../services/firebase", () => ({ firestore: {} }));
+// 훅이 useFirebaseServices() 로 받게 바뀌면서(#847) 기본 컨텍스트가 이 모듈 전체를 읽는다.
+vi.mock("../services/firebase", () => ({
+  firestore: {},
+  auth: {},
+  functions: {},
+  ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 function decision(id: string, activityId: string, mutationId?: string): BikeThresholdDecisionV2 {

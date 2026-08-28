@@ -17,7 +17,7 @@ import {
   type FtpDeviceReceipt,
   type FtpMutationReceipt,
 } from "@shared/types/threshold";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 
 interface Options {
@@ -51,6 +51,10 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
   const scopeKey = enabled && uid
     ? JSON.stringify([uid, decisionId ?? null, sourceActivityId ?? null])
     : "";
+  // 임베드 진입(`/embed/*`)은 일반 Firebase 를 초기화하지 않고 **임베드 전용 named app**
+  // 을 쓴다. `services/firebase` 의 모듈 싱글턴을 직접 쓰면 그 경로에서 undefined 라
+  // `collection()` 이 던지고, 피트니스 표면이 통째로 렌더되지 않는다 (#847).
+  const { firestore } = useFirebaseServices();
   const [state, setState] = useState<ScopedState>({ ...EMPTY_STATE, scopeKey: "" });
   const decisionGeneration = useRef(0);
   const receiptGeneration = useRef(0);
@@ -108,7 +112,7 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
       if (decisionGeneration.current === generation) decisionGeneration.current += 1;
       unsubscribe();
     };
-  }, [decisionId, enabled, scopeKey, sourceActivityId, uid]);
+  }, [decisionId, enabled, firestore, scopeKey, sourceActivityId, uid]);
 
   const mutationId = state.scopeKey === scopeKey ? state.decision?.ftpMutationId ?? null : null;
   useEffect(() => {
@@ -147,7 +151,7 @@ export function useBikeFtpDecision({ uid, decisionId, sourceActivityId, enabled 
       unsubscribeReceipt();
       unsubscribeDevices();
     };
-  }, [enabled, mutationId, scopeKey, uid]);
+  }, [enabled, firestore, mutationId, scopeKey, uid]);
 
   if (state.scopeKey !== scopeKey) {
     return { ...EMPTY_STATE, loading: Boolean(uid && enabled) };
