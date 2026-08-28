@@ -375,10 +375,12 @@ describe("useActivities", () => {
     const defaultImplementation = mockedGetDocs.getMockImplementation();
     mockedGetDocs.mockClear();
 
-    const snapshot = (docs: Array<{ id: string; summary: boolean; createdAt: number }>) => ({
-      docs: docs.map(({ id, summary, createdAt }) => {
+    // startTime 을 명시한다 — 피드 정렬키라서 기본값(호출 시각 기반)에 맡기면 문서 생성
+    // 순서에 따라 순서가 뒤집혀 테스트가 비결정적이 된다.
+    const snapshot = (docs: Array<{ id: string; summary: boolean; startTime: number }>) => ({
+      docs: docs.map(({ id, summary, startTime }) => {
         const data = {
-          ...createMockActivity({ id, createdAt, profileImage: "https://example.com/avatar.jpg" }),
+          ...createMockActivity({ id, startTime, profileImage: "https://example.com/avatar.jpg" }),
           ...(summary ? {} : { summary: null }),
         };
         return { id, data: () => data, exists: () => true, ref: { path: `activities/${id}` } };
@@ -389,12 +391,12 @@ describe("useActivities", () => {
 
     mockedGetDocs
       .mockResolvedValueOnce(snapshot([
-        { id: "broken-1", summary: false, createdAt: 400 },
-        { id: "valid-newer", summary: true, createdAt: 300 },
-        { id: "broken-2", summary: false, createdAt: 200 },
+        { id: "broken-1", summary: false, startTime: 400 },
+        { id: "valid-newer", summary: true, startTime: 300 },
+        { id: "broken-2", summary: false, startTime: 200 },
       ]) as never)
       .mockResolvedValueOnce(snapshot([
-        { id: "valid-older", summary: true, createdAt: 100 },
+        { id: "valid-older", summary: true, startTime: 100 },
       ]) as never);
 
     try {
@@ -439,7 +441,8 @@ describe("useActivities", () => {
         const data = createMockActivity({
           id,
           userId: id === "self-new" ? "owner-1" : "other-1",
-          createdAt: Date.now() - index,
+          // 정렬키(startTime)를 인덱스로 고정 — 기본값은 호출 시각 기반이라 순서가 흔들린다.
+          startTime: 1_000 - index,
         });
         return { id, data: () => data, exists: () => true, ref: { path: `activities/${id}` } };
       }),
