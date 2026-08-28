@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import AthletePage from "./AthletePage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
+import { orderBy } from "firebase/firestore";
 import { setDocData, setCollectionDocs } from "../__tests__/mocks/firebase";
 import { createMockProfile, createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 
@@ -55,6 +56,20 @@ describe("AthletePage", () => {
       const content = document.body.textContent ?? "";
       expect(content.includes("한강 라이더") || content.includes("활동")).toBeTruthy();
     });
+  });
+
+  it("requests the athlete activity list ordered by ride time", async () => {
+    // 목록 순서는 업로드 시각(createdAt)이 아니라 실제 운동 시각 기준이어야 카드에 찍힌
+    // 날짜와 순서가 맞는다. 더보기(startAfter)도 같은 정렬키를 전제로 한다.
+    // (같은 페이지의 세그먼트 목록은 createdAt 정렬이라 여기서 단정하지 않는다.)
+    vi.mocked(orderBy).mockClear();
+    setCollectionDocs("activities", [
+      { id: "a1", ...createMockActivity({ userId: "athlete-1" }) },
+    ]);
+
+    renderWithProviders(<AthletePage />);
+
+    await waitFor(() => expect(orderBy).toHaveBeenCalledWith("startTime", "desc"));
   });
 
   it("uses public activity aggregates for other athletes instead of private profile totals", async () => {

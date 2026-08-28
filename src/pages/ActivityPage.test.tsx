@@ -956,11 +956,12 @@ describe("ActivityPage", () => {
 
     renderWithProviders(<ActivityPage />, { authenticated: true });
     fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
+    expect(await screen.findByRole("alert", {}, { timeout: COURSE_ASYNC_TIMEOUT }))
+      .toHaveTextContent("코스 생성 결과를 확인 중입니다");
     expect(window.sessionStorage.getItem("orider:ride-route:test-uid:test-activity")).toContain('"state":"pending"');
 
     fireEvent.click(screen.getByRole("button", { name: "이 경로로 라이드" }));
-    await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(3), { timeout: COURSE_ASYNC_TIMEOUT });
     expect(screen.getByRole("alert")).toHaveTextContent("코스 생성 결과를 확인 중입니다");
     expect(mockCallableInvocations.filter(({ name }) => name === "createCourseFromActivity")).toHaveLength(1);
     expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(0);

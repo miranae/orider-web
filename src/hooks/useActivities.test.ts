@@ -8,7 +8,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import React from "react";
 import * as publicProfiles from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
-import { getDocs, onSnapshot, where } from "firebase/firestore";
+import { getDocs, onSnapshot, orderBy, where } from "firebase/firestore";
 import {
   __resetFirestoreSessionRecoveryForTests,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
@@ -329,15 +329,58 @@ describe("useActivities", () => {
     expect(where).toHaveBeenCalledWith("visibility", "in", ["everyone", "friends"]);
   });
 
+  it("orders the feed by ride time, not upload time", async () => {
+    // 지난 라이딩을 나중에 업로드하거나 Strava 동기화·앱 재업로드가 끼면 createdAt 순서가
+    // 실제 운동 순서와 어긋난다. 카드에 찍힌 날짜와 목록 순서가 같아야 한다.
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockClear();
+    vi.mocked(orderBy).mockClear();
+
+    const docs = [
+      // 어제 탄 라이딩을 방금 업로드 — createdAt 은 가장 최신이지만 startTime 은 더 오래됐다.
+      { id: "ridden-yesterday", startTime: 1_000, createdAt: 9_000 },
+      { id: "ridden-today", startTime: 5_000, createdAt: 1_000 },
+    ];
+    mockedGetDocs.mockResolvedValue({
+      docs: docs.map(({ id, startTime, createdAt }) => ({
+        id,
+        data: () => createMockActivity({ id, startTime, createdAt, profileImage: "https://example.com/avatar.jpg" }),
+        exists: () => true,
+        ref: { path: `activities/${id}` },
+      })),
+      size: docs.length,
+      empty: false,
+    } as never);
+
+    try {
+      const { result } = renderHook(() => useActivities(), { wrapper });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.activities.map((activity) => activity.id)).toEqual([
+        "ridden-today",
+        "ridden-yesterday",
+      ]);
+      // 커서 페이지네이션은 쿼리 정렬키와 병합 정렬키가 같아야 성립한다.
+      expect(orderBy).toHaveBeenCalledWith("startTime", "desc");
+      expect(orderBy).not.toHaveBeenCalledWith("createdAt", "desc");
+    } finally {
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
+  });
+
   it("refills a source after a full raw page contains summary-less documents", async () => {
     const mockedGetDocs = vi.mocked(getDocs);
     const defaultImplementation = mockedGetDocs.getMockImplementation();
     mockedGetDocs.mockClear();
 
-    const snapshot = (docs: Array<{ id: string; summary: boolean; createdAt: number }>) => ({
-      docs: docs.map(({ id, summary, createdAt }) => {
+    // startTime 을 명시한다 — 피드 정렬키라서 기본값(호출 시각 기반)에 맡기면 문서 생성
+    // 순서에 따라 순서가 뒤집혀 테스트가 비결정적이 된다.
+    const snapshot = (docs: Array<{ id: string; summary: boolean; startTime: number }>) => ({
+      docs: docs.map(({ id, summary, startTime }) => {
         const data = {
-          ...createMockActivity({ id, createdAt, profileImage: "https://example.com/avatar.jpg" }),
+          ...createMockActivity({ id, startTime, profileImage: "https://example.com/avatar.jpg" }),
           ...(summary ? {} : { summary: null }),
         };
         return { id, data: () => data, exists: () => true, ref: { path: `activities/${id}` } };
@@ -348,12 +391,12 @@ describe("useActivities", () => {
 
     mockedGetDocs
       .mockResolvedValueOnce(snapshot([
-        { id: "broken-1", summary: false, createdAt: 400 },
-        { id: "valid-newer", summary: true, createdAt: 300 },
-        { id: "broken-2", summary: false, createdAt: 200 },
+        { id: "broken-1", summary: false, startTime: 400 },
+        { id: "valid-newer", summary: true, startTime: 300 },
+        { id: "broken-2", summary: false, startTime: 200 },
       ]) as never)
       .mockResolvedValueOnce(snapshot([
-        { id: "valid-older", summary: true, createdAt: 100 },
+        { id: "valid-older", summary: true, startTime: 100 },
       ]) as never);
 
     try {
@@ -398,7 +441,8 @@ describe("useActivities", () => {
         const data = createMockActivity({
           id,
           userId: id === "self-new" ? "owner-1" : "other-1",
-          createdAt: Date.now() - index,
+          // 정렬키(startTime)를 인덱스로 고정 — 기본값은 호출 시각 기반이라 순서가 흔들린다.
+          startTime: 1_000 - index,
         });
         return { id, data: () => data, exists: () => true, ref: { path: `activities/${id}` } };
       }),
