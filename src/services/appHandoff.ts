@@ -106,7 +106,19 @@ async function redeemAndSignIn(
   code: string,
   services: AppHandoffFirebaseServices,
 ): Promise<void> {
-  await services.ensureAppCheckReady();
+  // App Check 실패는 인계를 막지 않는다(fail-open).
+  //
+  // 앱 WebView 안에서는 reCAPTCHA Enterprise attestation 이 403 으로 거부되고 SDK 가
+  // 24시간 throttle 을 걸어, 코드가 정상 발급돼도 redeem 을 못 해 임베드가 영원히
+  // "host authorization 대기" 에 멈춘다 (#2102).
+  //
+  // 이 엔드포인트의 실질 방어는 **256비트 일회용 코드 엔트로피**이고 서버는 IP rate
+  // limit 도 건다. App Check 는 보조 계층이므로, 획득에 실패해도 토큰 없이 호출한다.
+  await services.ensureAppCheckReady().catch((error) => {
+    logClientError(error, {
+      tags: { source: "app-handoff-appcheck-degraded" },
+    });
+  });
   const redeem = httpsCallable<{ code: string }, { token: string }>(
     services.functions,
     "webHandoffRedeem",
