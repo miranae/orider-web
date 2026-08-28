@@ -114,6 +114,22 @@ describe("stash → consume", () => {
     expect(didHandoffFail()).toBe(false);
   });
 
+  it("App Check 획득 실패해도 redeem 을 진행한다(fail-open)", async () => {
+    // 앱 WebView 는 reCAPTCHA Enterprise attestation 이 403 으로 거부되고 24시간
+    // throttle 이 걸린다. 여기서 막으면 코드가 정상 발급돼도 임베드가 완성되지 않는다 (#2102).
+    setPageUrl(`/#${HANDOFF_PARAM}=${VALID}`);
+    vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("appCheck/initial-throttle"));
+    const redeem = vi.fn().mockResolvedValue({ data: { token: "custom-token" } });
+    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+
+    stashHandoffCode();
+    await consumeAppHandoffCode();
+
+    expect(redeem).toHaveBeenCalledWith({ code: VALID });
+    expect(signInWithCustomToken).toHaveBeenCalledWith(mockAuth, "custom-token");
+    expect(didHandoffFail()).toBe(false);
+  });
+
   it("지연 복원된 기존 세션을 로그아웃한 뒤 redeem 실패를 비로그인으로 계속한다", async () => {
     setPageUrl(`/#${HANDOFF_PARAM}=${VALID}`);
     let finishHydration!: () => void;
