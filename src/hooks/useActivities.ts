@@ -332,6 +332,11 @@ export function useActivities(
       // 소스의 오래된 항목을 먼저 내보내면 다음 페이지에 더 최신 항목이 나타날 수 있다.
       while (nextSource.buffer.length < pageSize && !nextSource.exhausted) {
         const constraints = [
+          // 정렬키를 바꿀 때는 위 activitySortTime 과 인덱스를 함께 확인할 것.
+          // 인덱스(orider-g1-web `firestore/firestore.indexes.json`):
+          //   본인   `deletedAt, userId, startTime DESC`
+          //   공개   `deletedAt, visibility, startTime DESC`
+          //   친구   `userId, deletedAt, visibility, startTime DESC` (#2362 로 추가)
           orderBy("startTime", "desc"),
           limit(pageSize),
           ...(nextSource.last ? [startAfter(nextSource.last)] : []),
