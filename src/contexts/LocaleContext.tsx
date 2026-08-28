@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
-import { firestore } from '../services/firebase';
+import { useFirebaseServices } from './FirebaseServicesContext';
 import { logClientError } from '../services/errorLogger';
 import i18n from '../i18n';
 import { AUTO_LOCALE_REDIRECT_KEY, SUPPORTED_LANGS, type Lang } from '../i18n/detector';
@@ -62,6 +62,9 @@ export function LocaleProvider({
   profile?: Partial<{ locale: Lang; units: Units }> | null;
   children: ReactNode;
 }) {
+  // 싱글턴이 아니라 컨텍스트에서 받는다 — 임베드는 별도 named app 을 쓰므로 싱글턴이
+  // undefined 다(#847). 일반 트리에서는 기본 컨텍스트가 그 싱글턴이라 동작이 같다.
+  const { firestore } = useFirebaseServices();
   const [locale, setLocaleState] = useState<Lang>(initialLocale);
   const [units, setUnitsState] = useState<Units>('metric');
 
@@ -94,7 +97,7 @@ export function LocaleProvider({
         logClientError('LocaleContext.persist', err, { patch: Object.keys(patch) });
       }
     },
-    [userId]
+    [firestore, userId]
   );
 
   const setLocale = useCallback(

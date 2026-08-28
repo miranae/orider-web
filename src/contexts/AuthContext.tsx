@@ -19,6 +19,11 @@ import {
 } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
+// AuthProvider 는
+// 임베드에서 마운트되지 않는다(AppRoot 가 임베드 경로를 AuthProvider 없이 렌더하고,
+// 임베드는 AuthContextProvider 에 세션을 직접 주입한다). 이 모듈이 임베드 폐포에 든 것은
+// 타입·AuthContextProvider 때문이다.
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed
 import { auth, ensureAppCheckReady, firestore, functions, googleProvider } from "../services/firebase";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";

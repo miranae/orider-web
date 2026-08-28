@@ -28,7 +28,13 @@ vi.mock("firebase/firestore", () => ({
   }),
 }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn(() => mocks.callable) }));
-vi.mock("../../services/firebase", () => ({ firestore: {}, functions: {} }));
+vi.mock("../../services/firebase", () => ({
+  // useFirebaseServices() 기본 컨텍스트가 이 모듈 전체를 읽는다 (#847).
+  firestore: {},
+  functions: {},
+  auth: {},
+  ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../contexts/AuthContext", () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => children,
   useAuth: () => ({ user: mocks.user }),
