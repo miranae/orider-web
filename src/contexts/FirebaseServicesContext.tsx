@@ -20,14 +20,30 @@ export interface FirebaseServices {
   ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void>;
 }
 
-const defaultServices: FirebaseServices = {
-  auth,
-  firestore,
-  functions,
-  ensureAppCheckReady,
-};
+// 주입이 없으면 `null` — 기본값을 **모듈 평가 시점에 객체로 만들지 않는다**.
+// `services/firebase` 의 auth/firestore/functions 는 initFirebase() 에서야 채워지는
+// live binding 이라, 여기서 객체 리터럴로 복사하면 import 시점의 undefined 가 그대로
+// 굳는다(main.tsx 는 모든 import 평가가 끝난 뒤에 initFirebase 를 부른다).
+// 2026-08-28 사고 — 로그인 이후 표면 전역이 `collection()` 에서 던져 무한 재마운트.
+const FirebaseServicesContext = createContext<FirebaseServices | null>(null);
 
-const FirebaseServicesContext = createContext<FirebaseServices>(defaultServices);
+let singletonServices: FirebaseServices | null = null;
+
+/**
+ * 호출 시점에 live binding 을 읽어 싱글턴 묶음을 만든다. 같은 인스턴스 조합이면 같은
+ * 객체를 돌려줘 참조가 안정적이다(소비처가 services 객체를 의존성에 쓰는 경우 대비).
+ */
+function liveSingletonServices(): FirebaseServices {
+  if (
+    !singletonServices
+    || singletonServices.auth !== auth
+    || singletonServices.firestore !== firestore
+    || singletonServices.functions !== functions
+  ) {
+    singletonServices = { auth, firestore, functions, ensureAppCheckReady };
+  }
+  return singletonServices;
+}
 
 export function FirebaseServicesProvider({
   children,
@@ -45,5 +61,5 @@ export function FirebaseServicesProvider({
 
 /** Normal web consumers keep the existing singleton services by default. */
 export function useFirebaseServices(): FirebaseServices {
-  return useContext(FirebaseServicesContext);
+  return useContext(FirebaseServicesContext) ?? liveSingletonServices();
 }
