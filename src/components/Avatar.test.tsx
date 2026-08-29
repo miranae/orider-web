@@ -23,6 +23,15 @@ describe("Avatar", () => {
     expect(screen.getByText("테")).toBeInTheDocument();
   });
 
+  it.each([
+    ["undefined", undefined],
+    ["null", null],
+    ["non-string", 42 as unknown as string],
+  ])("renders the default rider for a %s name", (_label, name) => {
+    renderAvatar({ name });
+    expect(screen.getByText("라")).toBeInTheDocument();
+  });
+
   it("wraps in link when userId is provided", () => {
     renderAvatar({ name: "Rider", userId: "user-1" });
     const link = screen.getByRole("link");

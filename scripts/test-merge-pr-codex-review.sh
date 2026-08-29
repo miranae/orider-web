@@ -123,6 +123,9 @@ int main(int argc, char **argv) {
   if (!auth) return 82;
   char *mode = read_all(auth);
   fclose(auth);
+  if (strstr(mode, "scope_all")) {
+    if (strstr(prompt, "--blockers-only")) return 85;
+  } else if (!strstr(prompt, "--blockers-only")) return 85;
   if (strstr(mode, "exit42")) { fprintf(stderr, "mock Codex execution log\n"); return 42; }
   FILE *output = fopen(out, "w");
   if (!output) return 84;
@@ -149,12 +152,13 @@ chmod +x "$TEST_TMP/bin/git" "$TEST_TMP/bin/gh" "$TEST_TMP/bin/codex" "$TEST_TMP
 
 run_gate() {
   local rc=0
-  printf '%s|%s|%s\n' "${MOCK_RESPONSE_MODE:-valid}" "${MOCK_VERDICT:-PASS}" "${MOCK_EXIT:-0}" >"$CODEX_HOME/auth.json"
+  printf '%s|%s|%s|scope_%s\n' "${MOCK_RESPONSE_MODE:-valid}" "${MOCK_VERDICT:-PASS}" "${MOCK_EXIT:-0}" \
+    "${MOCK_REVIEW_SCOPE:-blockers}" >"$CODEX_HOME/auth.json"
   [[ "${MOCK_EXIT:-0}" == 42 ]] && printf 'exit42\n' >"$CODEX_HOME/auth.json"
   CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256="$BOOTSTRAP_PROFILE_SHA256" \
     REVIEW_ENV_SECRET_SENTINEL=must-not-reach-codex GH_TOKEN=must-not-reach-codex VITE_SECRET_SENTINEL=must-not-reach-codex \
     TMPDIR="$TEST_TMP" PATH="$TEST_TMP/bin:$PATH" \
-    "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build 2>&1 || rc=$?
+    "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build "$@" 2>&1 || rc=$?
   grep -qx 'must-not-be-overwritten' "$ABSOLUTE_SENTINEL" || return 97
   ! compgen -G "$TEST_TMP/orider-codex-review-parent.*" >/dev/null || return 98
   return "$rc"
@@ -170,12 +174,16 @@ grep -q 'CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256 필요' <<<"$missing_bootstrap_ou
 
 pass_output="$(MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$pass_output"
+grep -q "review_scope=blockers-only" <<<"$pass_output"
 expected_head="$($REAL_GIT rev-parse HEAD)"
 grep -qx "archive" "$MOCK_ARCHIVE_ARGS_FILE"
 grep -qx "$expected_head" "$MOCK_ARCHIVE_ARGS_FILE"
 
 full_output="$(MOCK_CHANGED=src/example.ts MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$full_output"
+
+all_findings_output="$(MOCK_CHANGED=src/example.ts MOCK_VERDICT=PASS MOCK_REVIEW_SCOPE=all run_gate --all-findings)"
+grep -q "review_scope=all-findings" <<<"$all_findings_output"
 
 set +e
 failure_output="$(MOCK_EXIT=42 run_gate)"

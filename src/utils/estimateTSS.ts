@@ -1,5 +1,6 @@
 import type { Activity } from "@shared/types";
 import { estimateLoad, TIME_FACTORS, type LoadDiscipline } from "@shared/training/activityLoad";
+import { disciplineOfType } from "@shared/sport/discipline";
 
 /**
  * 종목별 TSS 추정 유틸.
@@ -13,12 +14,13 @@ import { estimateLoad, TIME_FACTORS, type LoadDiscipline } from "@shared/trainin
  * 우선 계산하고(시간factor 보다 정밀), 없을 때만 정본 시간factor 로 폴백한다.
  */
 
-/** 활동 type 문자열 → discipline 추론. 정본 inferDiscipline(functions) 과 동일 규칙. */
+/**
+ * 활동 type → discipline. 판정은 `@shared/sport/discipline` 정본.
+ * 서버 부하 추정과 같은 폴백(`?? "bike"`)을 유지해 시간기반 추정 계수가
+ * 서버 PMC 와 어긋나지 않게 한다.
+ */
 function inferDiscipline(type: string | undefined): LoadDiscipline {
-  const t = (type ?? "").toLowerCase();
-  if (t.includes("swim")) return "swim";
-  if (t.includes("run") || t.includes("walk") || t.includes("hike")) return "run";
-  return "bike";
+  return disciplineOfType(type) ?? "bike";
 }
 
 /**

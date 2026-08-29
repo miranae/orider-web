@@ -8,7 +8,6 @@ import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { timeAgo } from "../../utils/timeAgo";
 import { getDiscipline, getDisciplineColor, getDisciplineIcon, getDisciplineTag } from "../../utils/disciplineFilter";
-import type { Discipline } from "../../utils/disciplineFilter";
 import { Button, Card, Text } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
@@ -18,7 +17,6 @@ import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
 import type { ActivityFeedScope } from "../../hooks/useActivities";
 import ActivityRouteThumbnail from "../activity/ActivityRouteThumbnail";
 import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useDashboardPreferences";
-import TodayTrainingDecisionCard from "../../features/trainingDecision/TodayTrainingDecisionCard";
 
 const ConsistencyStreakCard = lazy(() => import("../training/ConsistencyStreakCard"));
 const MOBILE_FEED_RENDER_STEP = 40;
@@ -52,7 +50,6 @@ interface MobileFeedPageProps {
   onFeedScopeChange: (scope: ActivityFeedScope) => void;
   sportFilter?: SportFilter;
   onSportFilterChange?: (sportFilter: SportFilter) => void;
-  pageDiscipline?: Exclude<Discipline, "tri">;
   datePreset?: DashboardDatePreset;
   onDatePresetChange?: (datePreset: DashboardDatePreset) => void;
 }
@@ -151,6 +148,8 @@ function MobileRouteThumbnail({ activity, priority = false }: { activity: Activi
       polyline={activity.thumbnailTrack}
       mapImageUrl={activity.mapImageUrl}
       visibility={activity.visibility}
+      contentRevision={activity.contentRevision}
+      contentSelectedRevision={activity.contentSelectedRevision}
       priority={priority}
       layout="mobile"
     />
@@ -176,14 +175,14 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
   const nickname = activity.nickname || t("mobileFeed.defaultRider");
   const discipline = getDiscipline(activity.type);
   // 비현실 속도(GPS noise/오등록) 가드 — 광고 유입자 첫인상 신뢰성 보호.
-  const spdImplausible = isImplausibleAvgSpeed(spdNum, discipline);
+  const spdImplausible = isImplausibleAvgSpeed(spdNum, discipline ?? undefined);
   const spd = spdNum > 0 ? (spdImplausible ? "—" : spdNum.toFixed(1)) : "0";
   const showDataWarning = isImplausibleActivity({
     distanceM: s.distance,
     durationMs: s.ridingTimeMillis,
     avgKph: spdNum,
     maxKph: s.maxSpeed,
-    discipline,
+    discipline: discipline ?? undefined,
   });
   const sColor = getDisciplineColor(discipline);
   const sIcon = getDisciplineIcon(discipline);
@@ -274,7 +273,6 @@ export default function MobileFeedPage({
   weeklySummary, feedScope, onFeedScopeChange,
   sportFilter: controlledSportFilter,
   onSportFilterChange,
-  pageDiscipline,
   datePreset: controlledDatePreset,
   onDatePresetChange,
 }: MobileFeedPageProps) {
@@ -335,13 +333,6 @@ export default function MobileFeedPage({
 
   return (
     <div style={{ overscrollBehavior: "contain" }}>
-      {user && (
-        <div style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
-          <TodayTrainingDecisionCard user={user}
-            discipline={sportFilter === "all" ? pageDiscipline ?? "bike" : sportFilter} surface="home" />
-        </div>
-      )}
-
       {!user && (
         <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "14px 16px" }}>
           <SportSummaryFilter

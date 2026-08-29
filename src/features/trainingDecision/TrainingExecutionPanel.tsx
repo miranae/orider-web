@@ -269,9 +269,10 @@ function TrainingExecutionPanelBody({ decision, sessions, onChanged }: { decisio
   const [executions, setExecutions] = useState<SessionExecutionLink[]>([]);
   const [listState, setListState] = useState<"loading" | "ready" | "error">("loading");
   const [listKey, setListKey] = useState(0);
-  const executionTupleKey = [decision.projectionId, decision.planSource?.planRevision,
-    decision.sourceRefs.prescriptionId, decision.prescription.validFrom, decision.sourceRefs.proposalId,
-    decision.sourceRefs.receiptAuditId].join(":");
+  const sessionKey = (session: TrainingDecisionSession) => [decision.planSource?.planRevision,
+    decision.targetDiscipline, session.status, session.scheduledSessionId, session.scheduledSessionRevision,
+    session.dayRef.goalId, session.dayRef.weekId, session.dayRef.dayIndex, session.dayRef.localDate].join(":");
+  const executionIdentityKey = sessions.map(sessionKey).join("|");
 
   useEffect(() => {
     let active = true;
@@ -286,7 +287,7 @@ function TrainingExecutionPanelBody({ decision, sessions, onChanged }: { decisio
       setListState("error");
     });
     return () => { active = false; };
-  }, [decision.targetDiscipline, executionTupleKey, listKey]);
+  }, [decision.targetDiscipline, executionIdentityKey, listKey]);
 
   return <section className="training-execution-panel" aria-labelledby="training-execution-title"
     data-execution-state={listState}>
@@ -295,17 +296,13 @@ function TrainingExecutionPanelBody({ decision, sessions, onChanged }: { decisio
     {listState === "error" && <Alert variant="warning" title={t("decision.execution.listError")}>
       <Button size="sm" variant="outline" onClick={() => setListKey((value) => value + 1)}>{t("decision.refresh")}</Button>
     </Alert>}
-    {listState === "ready" && sessions.map((session) => <ExecutionSession key={`${executionTupleKey}:${session.sessionId}`} decision={decision} session={session}
+    {listState === "ready" && sessions.map((session) => <ExecutionSession key={sessionKey(session)} decision={decision} session={session}
       initialExecution={executions.find((item) => item.scheduledSessionId === session.scheduledSessionId
         && item.scheduledSessionRevision === session.scheduledSessionRevision && item.status !== "invalidated"
         && item.discipline === decision.targetDiscipline && item.dayRef.goalId === session.dayRef.goalId
         && item.dayRef.weekId === session.dayRef.weekId && item.dayRef.dayIndex === session.dayRef.dayIndex
-        && item.dayRef.localDate === session.dayRef.localDate && item.planRevision === decision.planSource?.planRevision
-        && item.projectionId === decision.projectionId
-        && item.prescriptionId === decision.sourceRefs.prescriptionId
-        && item.prescriptionValidFrom === decision.prescription.validFrom
-        && item.proposalId === decision.sourceRefs.proposalId
-        && item.receiptAuditId === decision.sourceRefs.receiptAuditId) ?? null}
+        && item.dayRef.localDate === session.dayRef.localDate
+        && item.planRevision === decision.planSource?.planRevision) ?? null}
       onChanged={onChanged} />)}
   </section>;
 }

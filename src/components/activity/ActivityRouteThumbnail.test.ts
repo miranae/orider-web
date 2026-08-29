@@ -14,6 +14,7 @@ import {
   MAP_THUMBNAIL_VIEWPORT_HEIGHT,
   MAP_THUMBNAIL_VIEWPORT_WIDTH,
   MAP_THUMBNAIL_WIDTH,
+  resolveActivityMapThumbnailRevision,
   shouldReportMapCaptureError,
 } from "./ActivityRouteThumbnail";
 
@@ -30,6 +31,37 @@ describe("canonical activity map thumbnails", () => {
     expect(await getPolylineHash(track)).toBe(expectedHash);
     expect(await getPolylineHash(`  ${track}  `)).toBe(expectedHash);
     expect(await getCanonicalMapThumbnailFileName(activityId, track)).toBe(fileName);
+    expect(await getCanonicalMapThumbnailFileName(activityId, track, 7))
+      .toBe("activity-123.r7.route-v2-fcfef7dfc9b21144.webp");
+  });
+
+  it.each([
+    { head: undefined, selected: undefined },
+    { head: null, selected: null },
+  ])("keeps a fully absent revision pair on the legacy contract: %o", ({ head, selected }) => {
+    expect(resolveActivityMapThumbnailRevision(head, selected)).toEqual({ kind: "legacy" });
+  });
+
+  it("accepts only a safe ordered revision pair", () => {
+    expect(resolveActivityMapThumbnailRevision(3, 1)).toEqual({
+      kind: "managed",
+      headRevision: 3,
+      selectedRevision: 1,
+    });
+  });
+
+  it.each([
+    [3, undefined],
+    [undefined, 1],
+    [3, null],
+    [null, 1],
+    [-1, 0],
+    [1, -1],
+    [1, 2],
+    [1.5, 1],
+    ["3", 1],
+  ])("rejects a partial or malformed revision pair: %o/%o", (head, selected) => {
+    expect(resolveActivityMapThumbnailRevision(head, selected)).toEqual({ kind: "invalid" });
   });
 
   it.each([

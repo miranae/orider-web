@@ -48,6 +48,18 @@ interface Props {
   showPmcInsight?: boolean;
   ridePlanSelection?: { selectionId: string; question: string; context: CoachRidePlanContext } | null;
   progressPlannerSelection?: { question: string; context: CoachProgressPlannerContext } | null;
+  /**
+   * 아직 처방이 없어 플래너 컨텍스트를 만들 수 없을 때 쓰는 시작 질문.
+   * 서버는 질문 문구로 플래너 경로를 고르므로(isProgressPlannerQuestion), 사용자가 빈 입력창을
+   * 마주하는 대신 바로 보낼 수 있는 문장을 채워 준다. 편집은 그대로 가능하다.
+   */
+  presetQuestion?: string | null;
+  /**
+   * 이 진입이 특정 과업을 끝내려는 것인지. "check_in" 이면 일반 추천 질문을 감춘다 —
+   * 칩을 한 번 누르면 프리셋이 덮이고, 서버는 질문 문구로 플래너 경로를 고르므로
+   * 체크인이 조용히 무산된다.
+   */
+  presetIntent?: "check_in" | "free";
   triggerLabel?: string;
 }
 
@@ -101,7 +113,8 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
 }
 
 export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false,
-  ridePlanSelection = null, progressPlannerSelection = null, triggerLabel }: Props) {
+  ridePlanSelection = null, progressPlannerSelection = null, presetQuestion = null, presetIntent = "free",
+  triggerLabel }: Props) {
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
@@ -113,6 +126,12 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   const panelRef = useRef<HTMLElement>(null);
   const questionRef = useRef<HTMLTextAreaElement>(null);
   const inFlightRef = useRef(false);
+  // 체크인 진입으로 연 시트인지. 일반 추천 질문을 눌러 프리셋이 덮이면 서버가
+  // 플래너 경로를 고르지 않아(질문 문구로 라우팅) 체크인이 조용히 무산된다.
+  const [checkInIntent, setCheckInIntent] = useState(false);
+  // 체크인을 직접 입력하겠다는 의사. 답변 문서는 requestId 로 키가 걸려 새 분석마다
+  // 리마운트되므로 이 의사는 런처가 들고 있어야 살아남는다.
+  const [manualCheckIn, setManualCheckIn] = useState(false);
   const activeRequestRef = useRef<string | null>(null);
   const activeBodyRef = useRef<CoachRequest | null>(null);
   const responseRef = useRef<CoachResponse | CoachResponseEnvelope | null>(null);
@@ -261,6 +280,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
 
   function closeSheet() {
     if (inFlightRef.current || consentOpen) return;
+    setCheckInIntent(false);
+    setManualCheckIn(false);
     openGenerationRef.current += 1;
     if (!responseRef.current && (phaseRef.current === "network_error" || phaseRef.current === "terminal_error")) setRequestId(null);
     if (responseRef.current) clearSession(); else setPhase("closed");
@@ -410,7 +431,15 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     void openSheet();
   }
 
+  function requestManualCheckIn() {
+    setManualCheckIn(true);
+    void submit(source, true);
+  }
+
   function startAnother() {
+    // 직접 입력 의사는 "지금 이 처방" 한정이다. 새 분석으로 넘어가면 내린다 —
+    // 내리지 않으면 이후 모든 체크인이 영구히 자동 경로를 건너뛴다.
+    setManualCheckIn(false);
     const reloadQuota = quota === null;
     activeBodyRef.current = null;
     setDraft(""); setPmcSnapshotId(null); setRiderSnapshotId(null); setPlannerContext(null); setRidePlanContext(null); setProductSlice(null); setRequestId(null); setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null); setInputFocused(false); setSource("free_text");
@@ -423,13 +452,22 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
   }
 
   function openProgressPlannerQuestion() {
-    if (!progressPlannerSelection) { void openSheet(); return; }
+    if (!progressPlannerSelection) {
+      if (presetQuestion) {
+        activeRequestRef.current = null; activeBodyRef.current = null;
+        setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
+        setDraft(presetQuestion); setPlannerContext(null);
+        setPmcSnapshotId(null); setRiderSnapshotId(null); setRidePlanContext(null); setProductSlice(null);
+        setSource("free_text"); setRequestId(null); setCheckInIntent(presetIntent === "check_in");
+      }
+      void openSheet(); return;
+    }
     activeRequestRef.current = null; activeBodyRef.current = null;
     setResponse(null); setClarificationOption(null); setEvidenceOpen(false); setFeedback(null); setSubmitFailure(null);
     setDraft(progressPlannerSelection.question);
     setPlannerContext(progressPlannerSelection.context);
     setPmcSnapshotId(null); setRiderSnapshotId(null); setRidePlanContext(null); setProductSlice(null);
-    setSource("free_text"); setRequestId(null);
+    setSource("free_text"); setRequestId(null); setCheckInIntent(false);
     void openSheet();
   }
 
@@ -498,7 +536,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     ? response.outcome === "answer"
     : response.answer));
   const showCounter = inputFocused || draft.length >= 900;
-  const suggestions = ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
+  const suggestions = checkInIntent ? [] : ([1, 2, 3] as const).filter((index) => source !== `suggestion_${index}`);
   return (
     <>
       {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
@@ -551,7 +589,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                       {exhausted ? t("quota.exhausted", { resetAt: formatDate(quota.resetAt, i18n.language, quota.timezone) }) : t("quota.remaining", { count: quota.remaining })}
                     </Text>}
                   </div>
-                  <div className="coach-sheet__quick-prompts">
+                  {suggestions.length > 0 && <div className="coach-sheet__quick-prompts">
                     <Text as="h3" variant="label" tone="secondary">{t("suggestions.title")}</Text>
                     <div className="coach-sheet__suggestions">
                       {suggestions.map((index) => {
@@ -565,7 +603,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                         </Button>;
                       })}
                     </div>
-                  </div>
+                  </div>}
                 </div>}
                 {phase === "submitting" && <Card className="coach-sheet__loading" role="status" aria-live="polite"><span className="ds-btn__spinner" aria-hidden />
                   <Text as="p" variant="subtitle">{t("loadingAnswer")}</Text><Text as="small" variant="caption" tone="tertiary">{t("loadingHonest")}</Text></Card>}
@@ -578,6 +616,8 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                   ? <CoachV2Result response={response} locale={i18n.language} selectedOption={clarificationOption} exhausted={submissionBlocked}
                     onSelectOption={setClarificationOption} onClarification={() => void submitClarification()} onAction={v2Action}
                     onReanalyze={startAnother}
+                    manualCheckIn={manualCheckIn}
+                    onManualCheckIn={requestManualCheckIn}
                     onSuggested={(query, prescriptionId, sourceRequestId) => {
                       if (prescriptionId && sourceRequestId) choosePlannerQuestion(query, prescriptionId, sourceRequestId);
                       else { startAnother(); setDraft(query); setSource("free_text"); }
@@ -641,18 +681,21 @@ function CoachFeedback({ feedback, onFeedback }: { feedback: boolean | null; onF
   </section>;
 }
 
-function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOption, onClarification, onAction, onSuggested, onReanalyze }: {
+function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOption, onClarification, onAction, onSuggested, onReanalyze,
+  manualCheckIn = false, onManualCheckIn }: {
   response: CoachResponseEnvelope; locale: string; selectedOption: string | null; exhausted: boolean;
   onSelectOption: (option: string) => void; onClarification: () => void;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
   onSuggested: (query: string, prescriptionId?: string, sourceRequestId?: string) => void;
   onReanalyze: () => void;
+  manualCheckIn?: boolean;
+  onManualCheckIn?: () => void;
 }) {
   const { t } = useTranslation("coach");
   if (response.capabilityVersion === "p2") {
     return <div className="coach-result">
       {response.outcome === "answer" && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
-        onReanalyze={onReanalyze} />}
+        onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn} />}
       {response.outcome === "unavailable" && <Alert className="coach-result__state" variant="warning"
         title={t("p2Unavailable.title")}>{t(`p2Unavailable.${response.retry.reasonCode}`)}</Alert>}
     </div>;
@@ -662,7 +705,7 @@ function CoachV2Result({ response, locale, selectedOption, exhausted, onSelectOp
   const providerUnavailable = response.error?.code === "provider_kill_switch";
   return <div className="coach-result">
     {response.answer && <CoachAnswerDocumentView response={response} locale={locale} onAction={onAction}
-      onReanalyze={onReanalyze}
+      onReanalyze={onReanalyze} manualCheckIn={manualCheckIn} onManualCheckIn={onManualCheckIn}
       onPlannerQuestion={(question, prescriptionId, sourceRequestId) => onSuggested(question, prescriptionId, sourceRequestId)} />}
     {response.outcome === "clarification_required" && spec && <form className="coach-clarification" onSubmit={(event) => { event.preventDefault(); onClarification(); }}>
       <fieldset disabled={expired}><legend>{safeClarificationText(spec.promptKey, "prompt", t)}</legend>

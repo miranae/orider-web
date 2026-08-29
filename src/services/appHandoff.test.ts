@@ -1,11 +1,16 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./firebase", () => ({ auth: {}, functions: {}, ensureAppCheckReady: vi.fn() }));
+const mockAuth = vi.hoisted(() => ({
+  currentUser: null as { uid: string } | null,
+  authStateReady: vi.fn<() => Promise<void>>(),
+}));
+
+vi.mock("./firebase", () => ({ auth: mockAuth, functions: {}, ensureAppCheckReady: vi.fn() }));
 vi.mock("./errorLogger", () => ({ logClientError: vi.fn() }));
-vi.mock("firebase/auth", () => ({ signInWithCustomToken: vi.fn() }));
+vi.mock("firebase/auth", () => ({ signInWithCustomToken: vi.fn(), signOut: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn() }));
 
-import { signInWithCustomToken } from "firebase/auth";
+import { signInWithCustomToken, signOut } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady } from "./firebase";
 import {
@@ -21,6 +26,15 @@ const VALID = "A".repeat(43);
 function setPageUrl(path: string) {
   window.history.replaceState(null, "", path);
 }
+
+beforeEach(() => {
+  mockAuth.currentUser = null;
+  mockAuth.authStateReady.mockReset().mockResolvedValue();
+  vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue();
+  vi.mocked(signOut).mockReset().mockResolvedValue();
+  vi.mocked(signInWithCustomToken).mockReset();
+  vi.mocked(httpsCallable).mockReset();
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -40,9 +54,37 @@ describe("extractHandoffCode", () => {
     expect(replace).toHaveBeenCalledWith("https://orider.co.kr/ko/board?tab=all");
   });
 
+  it("fragment 코드를 우선하고 query·fragment 의 handoff 키만 모두 제거한다", () => {
+    const replace = vi.fn();
+    const fragmentCode = "B".repeat(43);
+    const code = extractHandoffCode(
+      `https://orider.co.kr/ko/board?handoff=${VALID}&tab=all` +
+        `#section&handoff=${fragmentCode}&impersonateToken=tok-123`,
+      replace,
+    );
+
+    expect(code).toBe(fragmentCode);
+    expect(replace).toHaveBeenCalledWith(
+      "https://orider.co.kr/ko/board?tab=all#section&impersonateToken=tok-123",
+    );
+  });
+
+  it("fragment 의 위임 토큰과 다른 파라미터를 보존한다", () => {
+    const replace = vi.fn();
+    const code = extractHandoffCode(
+      `https://orider.co.kr/ko/#impersonateToken=tok-123&handoff=${VALID}&view=summary`,
+      replace,
+    );
+
+    expect(code).toBe(VALID);
+    expect(replace).toHaveBeenCalledWith(
+      "https://orider.co.kr/ko/#impersonateToken=tok-123&view=summary",
+    );
+  });
+
   it("코드가 없으면 null, URL 도 건드리지 않는다", () => {
     const replace = vi.fn();
-    expect(extractHandoffCode("https://orider.co.kr/ko/board", replace)).toBeNull();
+    expect(extractHandoffCode("https://orider.co.kr/ko/board#training", replace)).toBeNull();
     expect(replace).not.toHaveBeenCalled();
   });
 
@@ -65,9 +107,68 @@ describe("stash → consume", () => {
     expect(window.location.search).toBe(""); // 코드가 즉시 URL 에서 사라짐
 
     await consumeAppHandoffCode();
+    expect(mockAuth.authStateReady).toHaveBeenCalled();
     expect(ensureAppCheckReady).toHaveBeenCalled();
     expect(redeem).toHaveBeenCalledWith({ code: VALID });
-    expect(signInWithCustomToken).toHaveBeenCalledWith({}, "custom-token");
+    expect(signInWithCustomToken).toHaveBeenCalledWith(mockAuth, "custom-token");
+    expect(didHandoffFail()).toBe(false);
+  });
+
+  it("App Check 획득 실패해도 redeem 을 진행한다(fail-open)", async () => {
+    // 앱 WebView 는 reCAPTCHA Enterprise attestation 이 403 으로 거부되고 24시간
+    // throttle 이 걸린다. 여기서 막으면 코드가 정상 발급돼도 임베드가 완성되지 않는다 (#2102).
+    setPageUrl(`/#${HANDOFF_PARAM}=${VALID}`);
+    vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("appCheck/initial-throttle"));
+    const redeem = vi.fn().mockResolvedValue({ data: { token: "custom-token" } });
+    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+
+    stashHandoffCode();
+    await consumeAppHandoffCode();
+
+    expect(redeem).toHaveBeenCalledWith({ code: VALID });
+    expect(signInWithCustomToken).toHaveBeenCalledWith(mockAuth, "custom-token");
+    expect(didHandoffFail()).toBe(false);
+  });
+
+  it("지연 복원된 기존 세션을 로그아웃한 뒤 redeem 실패를 비로그인으로 계속한다", async () => {
+    setPageUrl(`/#${HANDOFF_PARAM}=${VALID}`);
+    let finishHydration!: () => void;
+    mockAuth.authStateReady.mockImplementation(() => new Promise<void>((resolve) => {
+      finishHydration = () => {
+        mockAuth.currentUser = { uid: "existing-user" };
+        resolve();
+      };
+    }));
+    const redeem = vi.fn().mockRejectedValue(new Error("expired"));
+    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+
+    stashHandoffCode();
+    const consume = consumeAppHandoffCode();
+    await vi.waitFor(() => expect(mockAuth.authStateReady).toHaveBeenCalled());
+    expect(redeem).not.toHaveBeenCalled();
+
+    finishHydration();
+    await expect(consume).resolves.toBeUndefined();
+    expect(signOut).toHaveBeenCalledWith(mockAuth);
+    expect(redeem).toHaveBeenCalledWith({ code: VALID });
+    expect(signInWithCustomToken).not.toHaveBeenCalled();
+    expect(didHandoffFail()).toBe(true);
+  });
+
+  it("기존 세션 로그아웃 실패는 reject 하여 redeem 과 마운트 연속 실행을 막는다", async () => {
+    setPageUrl(`/#${HANDOFF_PARAM}=${VALID}`);
+    mockAuth.currentUser = { uid: "existing-user" };
+    const signOutError = new Error("auth/network-request-failed");
+    vi.mocked(signOut).mockRejectedValue(signOutError);
+    const redeem = vi.fn();
+    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+    const mount = vi.fn();
+
+    stashHandoffCode();
+    await expect(consumeAppHandoffCode().then(mount)).rejects.toBe(signOutError);
+    expect(redeem).not.toHaveBeenCalled();
+    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+    expect(mount).not.toHaveBeenCalled();
     expect(didHandoffFail()).toBe(false);
   });
 
@@ -99,7 +200,7 @@ describe("stash → consume", () => {
     await consume;
 
     expect(redeem).toHaveBeenCalledWith({ code: VALID });
-    expect(signInWithCustomToken).toHaveBeenCalledWith({}, "custom-token");
+    expect(signInWithCustomToken).toHaveBeenCalledWith(mockAuth, "custom-token");
     expect(didHandoffFail()).toBe(false);
   });
 

@@ -53,7 +53,8 @@ const session = z.object({
 const source = z.object({
   sourceRequestId: uuid, prescriptionId, factsId: revisionId, snapshotRevision: revisionId,
   planRevision: revisionId.nullable(), rulesVersion: revisionId,
-  weeklyCheckInId, weeklyCheckInRevision: z.number().int().min(1),
+  weeklyCheckInId, weeklyCheckInRevision: z.number().int().nonnegative().nullable()
+    .transform((revision) => revision === 0 ? null : revision),
 }).strict();
 
 export const todayTrainingDecisionProjectionSchema = z.object({
@@ -79,6 +80,9 @@ export const todayTrainingDecisionProjectionSchema = z.object({
     planRevision: revisionId.nullable(), rulesVersion: revisionId.nullable(), proposalId: proposalId.nullable(), receiptAuditId: auditId.nullable() }).strict(),
   prescription: z.object({
     status: z.enum(["ready", "needs_checkin", "insufficient_data", "safety_blocked", "unavailable"]),
+    // Hosting 이 Functions 보다 먼저 배포되는 전환 구간에는 기존 응답에 이 필드가 없다.
+    // 새 백엔드의 enum/null 만 엄격히 받고, 필드 없음은 마이그레이션 동안만 허용한다.
+    confidence: z.enum(["low", "medium", "high"]).nullable().optional(),
     missingSignals: z.array(id).max(64), requiredSignals: z.array(id).max(16), validFrom: iso.nullable(), validUntil: iso.nullable(),
   }).strict(),
   healthGate: z.object({

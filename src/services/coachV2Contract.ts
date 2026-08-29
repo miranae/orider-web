@@ -205,7 +205,7 @@ export interface CoachClarification {
   expiresAt: string;
   resolutionMode: "continue_no_charge" | "new_turn_required";
   consumesQuota: false;
-  providerCalls: 0;
+  providerCalls: number;
   reasonCode?: string;
 }
 
@@ -225,10 +225,11 @@ export interface CoachV2Response {
   clarification?: CoachClarification;
   unsupported?: CoachUnsupportedPayload;
   error?: { code: string; retryable: boolean; fallbackAvailable: boolean };
-  quota: { limit: 3; remaining: number; resetAt: string; consumed: boolean };
-  budget: { blocked: boolean; providerCalls: 0 | 1 | 2; inputTokens: number; outputTokens: number };
+  quota: { limit: number; remaining: number; resetAt: string; consumed: boolean };
+  budget: { blocked: boolean; providerCalls: number; inputTokens: number; outputTokens: number };
   retry: CoachRetryDisposition;
-  execution: { parser: "deterministic" | "provider" | "report_provider"; queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string };
+  execution: { parser: "deterministic" | "provider" | "report_provider"; queryPlanHash?: string; catalogVersion?: string;
+    factsId?: string; prescriptionId?: string; prescriptionRulesVersion?: string; asOf: string };
 }
 
 export interface CoachV2QuestionRequest {
@@ -395,18 +396,38 @@ const retry = z.object({ mode: z.enum(["same_request_resume", "same_request_poll
   quotaImpact: z.enum(["none", "one_new_turn"]), previousTurnConsumed: z.boolean(), providerCallAllowed: z.boolean(),
   retryable: z.boolean(), reasonCode,
 }).strict();
-const quota = z.object({ limit: z.literal(3), remaining: z.number().int().min(0).max(3), resetAt: iso, consumed: z.boolean() }).strict();
-const budget = z.object({ blocked: z.boolean(), providerCalls: z.union([z.literal(0), z.literal(1), z.literal(2)]), inputTokens: z.number().int().nonnegative(),
+/**
+ * 일일 턴 한도는 **서버가 정한다**. 값을 여기 박아 두면 서버가 바꿀 때마다 앱이 답변을
+ * 통째로 거부한다 — 실제로 서버가 3에서 5로 올린 뒤(g1-web #1977) 이 스키마가 그대로 3 이라
+ * 모든 코치 답변이 "응답 계약이 맞지 않습니다" 로 버려졌다. 서버는 200 으로 답변을 만들어
+ * 저장까지 마친 상태였다.
+ *
+ * 관리자 조정(adminAdjustCoachBudget)으로 사용자마다 달라질 수도 있으므로 특정 숫자를 고정할
+ * 자리가 아니다. 대신 **자체 정합성**만 검사한다: 남은 횟수가 한도를 넘을 수 없다.
+ * 상한(1000)은 형식 검증일 뿐 정책이 아니다 — 터무니없는 값이 화면에 그대로 나가는 것만 막는다.
+ */
+const quota = z.object({ limit: z.number().int().min(1).max(1000), remaining: z.number().int().min(0),
+  resetAt: iso, consumed: z.boolean() }).strict()
+  .refine((value) => value.remaining <= value.limit, { message: "quota remaining exceeds limit", path: ["remaining"] });
+/**
+ * `providerCalls` 는 **서버 실행 회계**다. 앱이 특정 횟수를 계약으로 박으면, 서버가 에이전트
+ * 루프를 한 라운드만 늘려도 앱이 모든 답변을 거부한다 — 일일 턴 한도를 3 으로 박아 두었다가
+ * 서버가 5 로 올린 뒤 코치 답변이 통째로 버려진 것과 같은 형태다.
+ *
+ * 앱은 인증된 우리 BE 의 응답만 받는다. 횟수를 다시 검사해서 막히는 건 외부 위조가 아니라
+ * 우리 서버의 버그이고, 그건 앱이 서버를 감시하는 일이다. 여기서는 텔레메트리로 받기만 한다.
+ */
+const budget = z.object({ blocked: z.boolean(), providerCalls: z.number().int().nonnegative(), inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
 }).strict();
 const execution = z.object({ parser: z.enum(["deterministic", "provider", "report_provider"]), queryPlanHash: id.optional(), catalogVersion: id.optional(),
-  factsId: id.optional(), asOf: iso,
+  factsId: id.optional(), prescriptionId: id.optional(), prescriptionRulesVersion: id.optional(), asOf: iso,
 }).strict();
 const clarification = z.object({ clarificationId: z.string().regex(/^[A-Za-z0-9_-]{8,96}$/), promptKey: labelKey,
   options: z.array(z.object({ optionId: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/), labelKey }).strict()).min(1).max(6)
     .refine((items) => unique(items.map((item) => item.optionId))),
   turnToken: z.string().max(8_192), expiresAt: iso, resolutionMode: z.enum(["continue_no_charge", "new_turn_required"]),
-  consumesQuota: z.literal(false), providerCalls: z.literal(0), reasonCode: reasonCode.optional(),
+  consumesQuota: z.literal(false), providerCalls: z.number().int().nonnegative(), reasonCode: reasonCode.optional(),
 }).strict().superRefine((value, context) => {
   const validToken = value.resolutionMode === "continue_no_charge"
     ? value.turnToken.length >= 32 && value.turnToken.length <= 8_192
@@ -459,7 +480,7 @@ function displayValues(block: Exclude<CoachAnswerBlock, UnsupportedBlock>): Coac
 }
 
 function parseBlock(value: unknown, index: number, evidenceById: Map<string, CoachEvidenceRecord>,
-  allowGroundedMarkdown: boolean, allowUnboundMarkdown: boolean): CoachAnswerBlock {
+  allowGroundedMarkdown: boolean): CoachAnswerBlock {
   const raw = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
   const safeId = typeof raw?.blockId === "string" && raw.blockId.length <= 160 ? raw.blockId : `unsupported_${index}`;
   if (raw?.kind === "grounded_markdown" && !allowGroundedMarkdown) {
@@ -477,18 +498,19 @@ function parseBlock(value: unknown, index: number, evidenceById: Map<string, Coa
   });
   const relationEvidence = block.kind !== "plan_adherence" || [...block.missed, ...block.replacements]
     .flatMap((item) => item.evidenceIds).every((evidenceId) => evidenceById.has(evidenceId));
+  // 마크다운 블록의 근거 결속은 **서버가 정한다**. 앱은 인증된 우리 BE 의 응답만 받으므로,
+  // 여기서 다시 검사해도 막히는 건 외부 위조가 아니라 우리 서버의 버그다 — 그건 앱이 서버를
+  // 감시하는 것이고, 그 결속을 앱에 박아 두면 서버가 접지 정책을 바꿀 때마다 답변이 통째로
+  // 사라진다. 렌더러는 마크다운을 React 노드로 만들 뿐 raw HTML 을 넣지 않으므로 표시 안전도
+  // 출처 신뢰와 무관하게 유지된다.
   const markdownEvidence = block.kind !== "grounded_markdown"
-    || (block.evidenceIds.length > 0 && block.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId)))
-    || (allowUnboundMarkdown && block.evidenceIds.length === 0 && block.sourceSlotIds.length === 0
-      && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0);
+    || block.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId));
   const goalEvidence = block.kind !== "load_analysis" || !block.assessment.goalAssessment
     || block.assessment.goalAssessment.evidenceIds.every((evidenceId) => evidenceById.has(evidenceId));
   return validEvidence && relationEvidence && markdownEvidence && goalEvidence ? block : { kind: "unsupported_block", blockId: safeId, reason: "invalid_block" };
 }
 
-type UnboundMarkdownMode = "none" | "provider" | "deterministic_general_guidance";
-
-function parseAnswer(value: unknown, unboundMarkdownMode: UnboundMarkdownMode): CoachAnswerDocument {
+function parseAnswer(value: unknown): CoachAnswerDocument {
   const raw = answerRaw.parse(value);
   const compatibleVersion = COACH_ANSWER_SCHEMA_VERSIONS.some((schemaVersion, index) =>
     raw.schemaVersion === schemaVersion && raw.catalogVersion === COACH_ANSWER_CATALOG_VERSIONS[index]);
@@ -499,85 +521,23 @@ function parseAnswer(value: unknown, unboundMarkdownMode: UnboundMarkdownMode): 
   }
   const evidenceById = new Map(raw.evidence.map((item) => [item.evidenceId, item]));
   if (evidenceById.size !== raw.evidence.length) throw new Error("INVALID_COACH_V2_RESPONSE");
-  const allowUnboundMarkdown = unboundMarkdownMode !== "none"
-    && raw.schemaVersion === "coach-answer-document-v2"
-    && raw.catalogVersion === "coach-answer-block-catalog-v2"
-    && (unboundMarkdownMode === "provider"
-      ? ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(raw.questionSummary)
-      : raw.questionSummary === "coach.answer.summary.general_guidance")
-    && raw.evidence.length === 0;
   return { compatibility: "supported", answerId: raw.answerId, sourceFactsId: raw.sourceFactsId,
     questionSummary: raw.questionSummary, status: raw.status, blocks: raw.blocks.map((block, index) =>
-      parseBlock(block, index, evidenceById, raw.schemaVersion === "coach-answer-document-v2", allowUnboundMarkdown)),
+      parseBlock(block, index, evidenceById, raw.schemaVersion === "coach-answer-document-v2")),
     evidence: raw.evidence, warnings: raw.warnings, freshness: raw.freshness, followUps: raw.followUps };
 }
 
 /** Shared strict AnswerDocument boundary for response envelopes with a different execution contract. */
 export function parseCoachAnswerDocument(value: unknown): CoachAnswerDocument {
-  return parseAnswer(value, "none");
+  return parseAnswer(value);
 }
 
-function isUnboundAgentAnswer(answer: CoachAnswerDocument | undefined): boolean {
-  if (!answer || answer.compatibility !== "supported"
-      || !["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary)
-      || answer.evidence.length !== 0 || answer.blocks.length !== 1) return false;
-  const block = answer.blocks[0];
-  return block?.kind === "grounded_markdown" && block.evidenceIds.length === 0 && block.sourceSlotIds.length === 0
-    && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
-}
 
-function isEvidenceBoundAgentAnswer(answer: CoachAnswerDocument | undefined, execution: {
-  queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string;
-}): boolean {
-  if (!answer || answer.compatibility !== "supported"
-      || answer.questionSummary !== "coach.answer.summary.agent_text"
-      || answer.evidence.length === 0 || answer.blocks.length !== 1 || answer.followUps.length !== 0
-      || execution.factsId !== answer.sourceFactsId
-      || execution.asOf !== answer.freshness.asOf
-      || execution.catalogVersion === undefined || execution.queryPlanHash === undefined) return false;
-  const block = answer.blocks[0];
-  if (block?.kind !== "grounded_markdown" || block.blockId !== "block_agent_text"
-      || block.sourceSlotIds.length === 0 || block.evidenceIds.length === 0) return false;
-  const answerEvidenceIds = answer.evidence.map((record) => record.evidenceId).sort();
-  const blockEvidenceIds = [...block.evidenceIds].sort();
-  return answerEvidenceIds.length === blockEvidenceIds.length
-    && answerEvidenceIds.every((evidenceId, index) => evidenceId === blockEvidenceIds[index]);
-}
-
-const serverOwnedId = (value: string, prefix: "answer" | "facts" | "general"): boolean =>
-  new RegExp(`^${prefix}_[0-9a-f]{24}$`, "u").test(value);
-const deterministicGeneralGuidanceMarkdown = new Set([
-  "## 기록 기반 답변 제한\n\n현재 안전 설정에서는 개인 훈련 기록을 사용한 답변을 제공할 수 없습니다.\n\n### 다음 단계\n\n일반적인 훈련 원칙을 질문하거나 나중에 다시 시도해 주세요.",
-  "## Training data answer unavailable\n\nThe current safety setting does not allow an answer using private training data.\n\n### Next step\n\nAsk for general training guidance or try again later.",
-]);
-
-function isServerOwnedGeneralGuidanceAnswer(answer: CoachAnswerDocument | undefined, execution: {
-  queryPlanHash?: string; catalogVersion?: string; factsId?: string; asOf: string;
-}): boolean {
-  if (!answer || answer.compatibility !== "supported"
-      || answer.questionSummary !== "coach.answer.summary.general_guidance"
-      || answer.status !== "complete" || answer.evidence.length !== 0 || answer.warnings.length !== 0
-      || answer.freshness.staleSourceSlotIds.length !== 0 || answer.followUps.length !== 0
-      || !serverOwnedId(answer.answerId, "answer") || !serverOwnedId(answer.sourceFactsId, "facts")
-      || execution.factsId !== answer.sourceFactsId || execution.catalogVersion !== "coach-query-catalog-v1"
-      || typeof execution.queryPlanHash !== "string" || !serverOwnedId(execution.queryPlanHash, "general")
-      || execution.asOf !== answer.freshness.asOf
-      || answer.blocks.length !== 1) return false;
-  const block = answer.blocks[0];
-  return block?.kind === "grounded_markdown" && block.blockId === "block_general_guidance"
-    && deterministicGeneralGuidanceMarkdown.has(block.markdown)
-    && block.evidenceIds.length === 0 && block.sourceSlotIds.length === 0
-    && !block.partial && !block.stale && !block.truncated && block.omittedCount === 0;
-}
 
 export function parseCoachV2Response(input: unknown): CoachV2Response {
   const wrapper = z.object({ data: z.unknown() }).passthrough().parse(input);
   const raw = envelopeRaw.parse(wrapper.data);
-  const unboundMarkdownMode: UnboundMarkdownMode = raw.execution.parser === "deterministic" && raw.budget.providerCalls === 0
-    ? "deterministic_general_guidance"
-    : raw.execution.parser === "provider" && (raw.budget.providerCalls === 1 || raw.budget.providerCalls === 2)
-      ? "provider" : "none";
-  const answer = raw.answer === undefined ? undefined : parseAnswer(raw.answer, unboundMarkdownMode);
+  const answer = raw.answer === undefined ? undefined : parseAnswer(raw.answer);
   const has = (name: "answer" | "clarification" | "unsupported" | "error") => raw[name] !== undefined;
   const validOutcome = raw.outcome === "answer" ? has("answer") && !has("clarification") && !has("unsupported") && !has("error")
     : raw.outcome === "clarification_required" ? has("clarification") && !has("answer") && !has("unsupported") && !has("error")
@@ -587,30 +547,23 @@ export function parseCoachV2Response(input: unknown): CoachV2Response {
     && typeof raw.execution.catalogVersion === "string" && typeof raw.execution.factsId === "string";
   const hasAnyProvenance = [raw.execution.queryPlanHash, raw.execution.catalogVersion, raw.execution.factsId]
     .some((value) => typeof value === "string");
-  const declaresReservedAgentSummary = answer?.compatibility === "supported"
-    && ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"].includes(answer.questionSummary);
-  const deterministicGeneralGuidanceBinding = isServerOwnedGeneralGuidanceAnswer(answer, raw.execution)
-    && !raw.budget.blocked && !raw.quota.consumed && raw.retry.mode === "same_request_replay"
-    && !raw.retry.previousTurnConsumed && !raw.retry.providerCallAllowed && !raw.retry.retryable
-    && raw.retry.reasonCode === "answer_too_short_no_charge";
-  const providerBinding = raw.outcome !== "answer"
-    ? raw.execution.parser !== "deterministic" || raw.budget.providerCalls === 0
-    : raw.execution.parser === "deterministic" ? raw.budget.providerCalls === 0
-      && (!declaresReservedAgentSummary || deterministicGeneralGuidanceBinding)
-      : raw.execution.parser === "report_provider" ? raw.budget.providerCalls === 1 && !declaresReservedAgentSummary
-        : (raw.budget.providerCalls === 1 && (!declaresReservedAgentSummary || isUnboundAgentAnswer(answer)))
-          || (raw.budget.providerCalls === 2
-            && (isUnboundAgentAnswer(answer) || isEvidenceBoundAgentAnswer(answer, raw.execution)));
+  // 앱은 서버의 실행 회계(provider 호출 횟수, 라운드 구성)를 검증하지 않는다.
+  //
+  // 예전에는 parser 별로 정확한 호출 횟수(0·1·2)를 요구했다. 그건 앱이 서버 루프의 모양을
+  // 계약으로 붙잡는 것이라, 서버가 도구 라운드를 하나 늘리는 순간 앱이 **모든 답변을 거부**한다.
+  // 같은 형태로 일일 턴 한도를 3 으로 박아 두었다가 서버가 5 로 올린 뒤 코치가 통째로 멈춘 적이
+  // 있다. 횟수는 서버가 정하고 앱은 받기만 한다.
+  //
+  // 앱이 지켜야 할 것은 스키마 형태뿐이다. 접지 정책·근거 결속은 서버가 정하고, 앱은 인증된
+  // 우리 BE 의 응답만 받으므로 다시 검사하지 않는다.
   if (!validOutcome || raw.quota.consumed !== raw.retry.previousTurnConsumed
       || (raw.retry.mode === "new_request_required") !== (raw.retry.quotaImpact === "one_new_turn")
       || (raw.retry.mode === "same_request_replay" && raw.retry.retryable)
       || (raw.error && raw.error.retryable !== raw.retry.retryable)
-      || (raw.budget.providerCalls === 0 && (raw.budget.inputTokens !== 0 || raw.budget.outputTokens !== 0))
-      || !providerBinding || (raw.budget.providerCalls > 0 && !["provider", "report_provider"].includes(raw.execution.parser))
       || (raw.outcome === "answer" && (!hasProvenance || answer?.sourceFactsId !== raw.execution.factsId))
       || (raw.outcome !== "answer" && hasAnyProvenance)
-      || (raw.outcome === "quota_exceeded" && (raw.quota.remaining !== 0 || raw.quota.consumed || raw.budget.providerCalls !== 0))
-      || (raw.outcome === "budget_blocked" && (!raw.budget.blocked || raw.quota.consumed || raw.budget.providerCalls !== 0))
+      || (raw.outcome === "quota_exceeded" && (raw.quota.remaining !== 0 || raw.quota.consumed))
+      || (raw.outcome === "budget_blocked" && (!raw.budget.blocked || raw.quota.consumed))
       || (raw.error && Boolean(answer) !== raw.error.fallbackAvailable)
       || (answer && raw.outcome !== "answer" && (answer.status !== "partial" || answer.blocks.some((block) => !["metric_grid", "data_gap", "action", "unsupported_block"].includes(block.kind))))) {
     throw new Error("INVALID_COACH_V2_RESPONSE");

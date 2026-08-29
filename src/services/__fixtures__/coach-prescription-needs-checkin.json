@@ -1,0 +1,1399 @@
+{
+  "requestId": "00000000-0000-4000-8000-000000000000",
+  "budget": {
+    "inputTokens": 0,
+    "blocked": false,
+    "providerCalls": 0,
+    "outputTokens": 0
+  },
+  "answer": {
+    "evidence": [
+      {
+        "sourceRevision": "1787148501973",
+        "source": "derived",
+        "value": 4.7,
+        "sourceId": "comparison",
+        "evidenceId": "lev_0551e1ba00e7a08c9ef7",
+        "field": "atl",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-04T15:35:01.229Z"
+      },
+      {
+        "field": "minInclusive",
+        "sourceId": "normal",
+        "evidenceId": "lev_05dc63eb1ebd9c6d8b34",
+        "sourceRevision": "form-band-catalog-v1",
+        "asOf": "2026-01-12T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "value": -10,
+        "source": "policy"
+      },
+      {
+        "sourceId": "orider_00000000-0000-4000-8000-000000000000",
+        "asOf": "2026-01-18T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "field": "tss",
+        "evidenceId": "lev_06566a9efa3b9c9161f9",
+        "sourceRevision": "1787014980484",
+        "value": 169,
+        "source": "activity"
+      },
+      {
+        "source": "fitness",
+        "value": 2.5,
+        "asOf": "2026-01-02T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_083eb586ecf3a7c344de",
+        "field": "form",
+        "sourceId": "2026-01-19"
+      },
+      {
+        "sourceId": "assessment",
+        "field": "asOf",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787153701229",
+        "asOf": "2026-01-17T15:35:01.229Z",
+        "value": "2026-01-18T15:35:01.229Z",
+        "source": "derived",
+        "evidenceId": "lev_0bf979799e1dcd24884a"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-11T15:35:01.229Z",
+        "source": "derived",
+        "field": "tssDelta",
+        "sourceId": "week_comparison",
+        "value": 328,
+        "evidenceId": "lev_1081cd305884f2276af5",
+        "sourceRevision": "c4d6bf95d326c30d"
+      },
+      {
+        "value": 51.5,
+        "sourceId": "orider_00000000-0000-4000-8000-000000000000",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-14T15:35:01.229Z",
+        "evidenceId": "lev_10cd29749435b76f393d",
+        "sourceRevision": "57ff5e1ac4b7f766",
+        "source": "derived",
+        "field": "weeklyLoadContributionPct"
+      },
+      {
+        "source": "derived",
+        "value": "2026-01-27",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-06T15:35:01.229Z",
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_1113bdcf9603934eb4ed",
+        "field": "period.fromCanonicalDate",
+        "sourceId": "2026-01-08"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "source": "policy",
+        "value": -20,
+        "field": "maxExclusive",
+        "sourceId": "high_load",
+        "sourceRevision": "form-band-catalog-v1",
+        "evidenceId": "lev_121c1f173acf9fe4c8f0",
+        "asOf": "2026-01-20T15:35:01.229Z"
+      },
+      {
+        "evidenceId": "lev_1b1df48f872c8de4f814",
+        "value": -1,
+        "source": "derived",
+        "asOf": "2026-01-21T15:35:01.229Z",
+        "sourceRevision": "1787148501973",
+        "sourceId": "comparison",
+        "ownerScope": "authenticated_user",
+        "field": "form"
+      },
+      {
+        "value": 69,
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-22T15:35:01.229Z",
+        "sourceRevision": "1787014980484",
+        "evidenceId": "lev_28c16c0f5e00af42f657",
+        "sourceId": "orider_00000000-0000-4000-8000-000000000000",
+        "source": "activity",
+        "field": "durationMin"
+      },
+      {
+        "field": "distanceKm",
+        "source": "activity",
+        "ownerScope": "authenticated_user",
+        "evidenceId": "lev_2dfc0cda0f5fa83b86ef",
+        "sourceId": "strava_19787095990",
+        "asOf": "2026-01-10T15:35:01.229Z",
+        "value": 38.97,
+        "sourceRevision": "1787067043829"
+      },
+      {
+        "field": "ctl",
+        "ownerScope": "authenticated_user",
+        "sourceId": "2026-01-26",
+        "sourceRevision": "1787148501973",
+        "asOf": "2026-01-25T15:35:01.229Z",
+        "value": 24.2,
+        "source": "fitness",
+        "evidenceId": "lev_2e41e38dad5623ced522"
+      },
+      {
+        "value": 25.9,
+        "asOf": "2026-01-28T15:35:01.229Z",
+        "evidenceId": "lev_30e4102c1bfa5c8a6ac1",
+        "sourceId": "2026-01-14",
+        "source": "fitness",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787148501973",
+        "field": "ctl"
+      },
+      {
+        "field": "ctl",
+        "evidenceId": "lev_32f0ec085f50db0099bd",
+        "sourceId": "2026-01-05",
+        "source": "fitness",
+        "ownerScope": "authenticated_user",
+        "value": 30.6,
+        "asOf": "2026-01-27T15:35:01.229Z",
+        "sourceRevision": "1787148501973"
+      },
+      {
+        "source": "derived",
+        "asOf": "2026-01-25T15:35:01.229Z",
+        "sourceRevision": "1787148501973",
+        "value": "2026-01-15",
+        "ownerScope": "authenticated_user",
+        "evidenceId": "lev_35603004e9e945c3041b",
+        "field": "period.toCanonicalDate",
+        "sourceId": "2026-01-03"
+      },
+      {
+        "field": "period.fromCanonicalDate",
+        "sourceId": "2026-01-26",
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_37ab57328a1467cb0bec",
+        "source": "derived",
+        "ownerScope": "authenticated_user",
+        "value": "2026-01-10",
+        "asOf": "2026-01-27T15:35:01.229Z"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "value": -9.3,
+        "sourceId": "2026-01-24",
+        "field": "form",
+        "source": "fitness",
+        "asOf": "2026-01-03T15:35:01.229Z",
+        "evidenceId": "lev_3ee55c8634ce0022f525",
+        "sourceRevision": "1787148501973"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "value": 29.3,
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_44de026143356a4a8f9b",
+        "field": "ctl",
+        "source": "fitness",
+        "asOf": "2026-01-23T15:35:01.229Z",
+        "sourceId": "2026-01-21"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "sourceId": "2026-01-10",
+        "sourceRevision": "1787148501973",
+        "value": 14.7,
+        "field": "atl",
+        "asOf": "2026-01-13T15:35:01.229Z",
+        "source": "fitness",
+        "evidenceId": "lev_45cd9654e8089eb73e52"
+      },
+      {
+        "asOf": "2026-01-08T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "field": "tss",
+        "value": 328,
+        "source": "derived",
+        "sourceId": "current_week",
+        "sourceRevision": "c4d6bf95d326c30d",
+        "evidenceId": "lev_494d23cb26cb7c4191a7"
+      },
+      {
+        "asOf": "2026-01-21T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "field": "form",
+        "source": "fitness",
+        "sourceId": "2026-01-02",
+        "value": 11.2,
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_4b12ccfc3f4b01bafd2b"
+      },
+      {
+        "asOf": "2026-01-23T15:35:01.229Z",
+        "field": "period.toCanonicalDate",
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "evidenceId": "lev_4cff2f44debb2e1a7cea",
+        "value": "2026-01-11",
+        "source": "derived",
+        "sourceId": "2026-01-09"
+      },
+      {
+        "value": 41.1,
+        "source": "fitness",
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_52f995bf8ba380116d94",
+        "asOf": "2026-01-23T15:35:01.229Z",
+        "sourceId": "2026-01-11",
+        "ownerScope": "authenticated_user",
+        "field": "atl"
+      },
+      {
+        "evidenceId": "lev_569d6ecd36d07063f267",
+        "field": "period.toCanonicalDate",
+        "sourceId": "2026-01-23",
+        "sourceRevision": "1787148501973",
+        "value": "2026-01-28",
+        "ownerScope": "authenticated_user",
+        "source": "derived",
+        "asOf": "2026-01-01T15:35:01.229Z"
+      },
+      {
+        "sourceRevision": "1787148501973",
+        "source": "derived",
+        "value": "2026-01-13",
+        "evidenceId": "lev_573754b5af42c5064bde",
+        "field": "period.toCanonicalDate",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-23T15:35:01.229Z",
+        "sourceId": "2026-01-25"
+      },
+      {
+        "value": -13.2,
+        "sourceId": "2026-01-07",
+        "evidenceId": "lev_5933c4fa7cc9153c4657",
+        "sourceRevision": "1787148501973",
+        "asOf": "2026-01-19T15:35:01.229Z",
+        "source": "fitness",
+        "ownerScope": "authenticated_user",
+        "field": "form"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "sourceId": "2026-01-10",
+        "value": 6.8,
+        "asOf": "2026-01-17T15:35:01.229Z",
+        "field": "form",
+        "source": "fitness",
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_5c48576afe58b3930c64"
+      },
+      {
+        "evidenceId": "lev_8281284923785c068a73",
+        "sourceId": "productive_load",
+        "value": -20,
+        "sourceRevision": "form-band-catalog-v1",
+        "asOf": "2026-01-23T15:35:01.229Z",
+        "field": "minInclusive",
+        "source": "policy",
+        "ownerScope": "authenticated_user"
+      },
+      {
+        "sourceRevision": "1787148501973",
+        "value": -9.8,
+        "asOf": "2026-01-24T15:35:01.229Z",
+        "evidenceId": "lev_8ec27c8ea71d3be0b212",
+        "source": "fitness",
+        "ownerScope": "authenticated_user",
+        "sourceId": "2026-01-07",
+        "field": "form"
+      },
+      {
+        "asOf": "2026-01-05T15:35:01.229Z",
+        "field": "period.toCanonicalDate",
+        "ownerScope": "authenticated_user",
+        "source": "derived",
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_8f586730586f707882fa",
+        "sourceId": "2026-01-23",
+        "value": "2026-01-03"
+      },
+      {
+        "sourceId": "2026-01-09",
+        "asOf": "2026-01-27T15:35:01.229Z",
+        "source": "derived",
+        "field": "period.toCanonicalDate",
+        "evidenceId": "lev_94a2a0bb532ac2e0faa8",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787148501973",
+        "value": "2026-01-28"
+      },
+      {
+        "sourceId": "comparison",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-12T15:35:01.229Z",
+        "source": "derived",
+        "field": "ctl",
+        "evidenceId": "lev_9acba01d384e28a978a5",
+        "value": 3.7,
+        "sourceRevision": "1787148501973"
+      },
+      {
+        "value": 48.5,
+        "asOf": "2026-01-21T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "source": "derived",
+        "sourceRevision": "57ff5e1ac4b7f766",
+        "sourceId": "strava_19787095990",
+        "evidenceId": "lev_9bd4e4ac1446184aa8ce",
+        "field": "weeklyLoadContributionPct"
+      },
+      {
+        "sourceId": "strava_19787095990",
+        "asOf": "2026-01-08T15:35:01.229Z",
+        "evidenceId": "lev_a232799a2a3acf07d8af",
+        "field": "title",
+        "ownerScope": "authenticated_user",
+        "value": "이름 없는 활동",
+        "source": "activity",
+        "sourceRevision": "1787067043829"
+      },
+      {
+        "source": "activity",
+        "value": 85,
+        "evidenceId": "lev_a3c8741fc0dd397fd683",
+        "asOf": "2026-01-15T15:35:01.229Z",
+        "sourceRevision": "1787067043829",
+        "sourceId": "strava_19787095990",
+        "ownerScope": "authenticated_user",
+        "field": "durationMin"
+      },
+      {
+        "evidenceId": "lev_a65483c35672d07c8394",
+        "source": "fitness",
+        "value": 33,
+        "sourceRevision": "1787148501973",
+        "sourceId": "2026-01-28",
+        "asOf": "2026-01-09T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "field": "ctl"
+      },
+      {
+        "evidenceId": "lev_a89b5349035e3f090c95",
+        "sourceId": "2026-01-01",
+        "asOf": "2026-01-12T15:35:01.229Z",
+        "field": "period.toCanonicalDate",
+        "value": "2026-01-16",
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "source": "derived"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "source": "activity",
+        "value": "2026-01-07",
+        "sourceId": "strava_19787095990",
+        "sourceRevision": "1787067043829",
+        "field": "localDate",
+        "evidenceId": "lev_ac844432401ec9ce8c1a",
+        "asOf": "2026-01-16T15:35:01.229Z"
+      },
+      {
+        "evidenceId": "lev_acaa2793baeb2f42c0c0",
+        "field": "atl",
+        "sourceId": "2026-01-21",
+        "asOf": "2026-01-17T15:35:01.229Z",
+        "value": 21.7,
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "source": "fitness"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "value": -12.8,
+        "field": "form",
+        "asOf": "2026-01-07T15:35:01.229Z",
+        "evidenceId": "lev_b1f12e2cfb5b73375cbd",
+        "source": "fitness",
+        "sourceRevision": "1787148501973",
+        "sourceId": "2026-01-25"
+      },
+      {
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "source": "fitness",
+        "asOf": "2026-01-10T15:35:01.229Z",
+        "field": "atl",
+        "value": 17.5,
+        "sourceId": "2026-01-28",
+        "evidenceId": "lev_b44486b31cda14bb725c"
+      },
+      {
+        "sourceId": "2026-01-11",
+        "evidenceId": "lev_b6028913ca405016cdc4",
+        "sourceRevision": "1787148501973",
+        "value": "2026-01-15",
+        "source": "derived",
+        "field": "period.fromCanonicalDate",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-08T15:35:01.229Z"
+      },
+      {
+        "sourceRevision": "1787014980484",
+        "source": "activity",
+        "asOf": "2026-01-22T15:35:01.229Z",
+        "value": "2026-01-17",
+        "ownerScope": "authenticated_user",
+        "evidenceId": "lev_b854ea215e1345b07198",
+        "field": "localDate",
+        "sourceId": "orider_00000000-0000-4000-8000-000000000000"
+      },
+      {
+        "sourceId": "2026-01-13",
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "value": 24.3,
+        "evidenceId": "lev_b8b999d58674d46a13e0",
+        "field": "ctl",
+        "source": "fitness",
+        "asOf": "2026-01-28T15:35:01.229Z"
+      },
+      {
+        "value": -30,
+        "sourceRevision": "form-band-catalog-v1",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-14T15:35:01.229Z",
+        "sourceId": "recovery_review",
+        "source": "policy",
+        "evidenceId": "lev_b936ca4676111ae6d662",
+        "field": "maxExclusive"
+      },
+      {
+        "evidenceId": "lev_bd95848dd7e9f5a148ba",
+        "sourceId": "2026-01-24",
+        "source": "fitness",
+        "asOf": "2026-01-15T15:35:01.229Z",
+        "field": "atl",
+        "value": 46.2,
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user"
+      },
+      {
+        "field": "period.fromCanonicalDate",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787148501973",
+        "asOf": "2026-01-28T15:35:01.229Z",
+        "sourceId": "2026-01-19",
+        "evidenceId": "lev_c1d446509a2b64cdf443",
+        "source": "derived",
+        "value": "2026-01-22"
+      },
+      {
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "value": 36.6,
+        "field": "atl",
+        "evidenceId": "lev_c3ba3350558f090c6b54",
+        "asOf": "2026-01-15T15:35:01.229Z",
+        "source": "fitness",
+        "sourceId": "2026-01-17"
+      },
+      {
+        "asOf": "2026-01-23T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "field": "form",
+        "value": -11.8,
+        "source": "fitness",
+        "sourceId": "2026-01-28",
+        "evidenceId": "lev_c4f11be4a9fa7fdf42ae",
+        "sourceRevision": "1787148501973"
+      },
+      {
+        "asOf": "2026-01-15T15:35:01.229Z",
+        "evidenceId": "lev_c500be9f7b735c6e1265",
+        "value": 45.8,
+        "sourceId": "2026-01-15",
+        "source": "fitness",
+        "field": "atl",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787148501973"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787014980484",
+        "value": 34.24,
+        "sourceId": "orider_00000000-0000-4000-8000-000000000000",
+        "source": "activity",
+        "field": "distanceKm",
+        "evidenceId": "lev_c5f114389284eafa559a",
+        "asOf": "2026-01-28T15:35:01.229Z"
+      },
+      {
+        "field": "period.fromCanonicalDate",
+        "sourceId": "2026-01-02",
+        "evidenceId": "lev_c653be4d6585b7816346",
+        "source": "derived",
+        "ownerScope": "authenticated_user",
+        "value": "2026-01-05",
+        "asOf": "2026-01-04T15:35:01.229Z",
+        "sourceRevision": "1787148501973"
+      },
+      {
+        "evidenceId": "lev_ca8a5d2410aeac82e51e",
+        "sourceId": "2026-01-11",
+        "value": 31.6,
+        "field": "ctl",
+        "asOf": "2026-01-12T15:35:01.229Z",
+        "source": "fitness",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787148501973"
+      },
+      {
+        "evidenceId": "lev_cb0254dcd69324ef1487",
+        "value": -10,
+        "asOf": "2026-01-27T15:35:01.229Z",
+        "sourceId": "productive_load",
+        "sourceRevision": "form-band-catalog-v1",
+        "source": "policy",
+        "ownerScope": "authenticated_user",
+        "field": "maxExclusive"
+      },
+      {
+        "field": "atl",
+        "evidenceId": "lev_cf9e97406e1a2da76282",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787148501973",
+        "asOf": "2026-01-10T15:35:01.229Z",
+        "sourceId": "2026-01-02",
+        "value": 43.1,
+        "source": "fitness"
+      },
+      {
+        "asOf": "2026-01-02T15:35:01.229Z",
+        "evidenceId": "lev_d1067a5653820edc18a3",
+        "field": "period.fromCanonicalDate",
+        "source": "derived",
+        "value": "2026-01-19",
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "sourceId": "2026-01-04"
+      },
+      {
+        "sourceId": "2026-01-09",
+        "evidenceId": "lev_d1c35ed94cb01b7972bc",
+        "value": "2026-01-03",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787148501973",
+        "field": "period.fromCanonicalDate",
+        "asOf": "2026-01-08T15:35:01.229Z",
+        "source": "derived"
+      },
+      {
+        "evidenceId": "lev_d91f5221407f08c0e0c7",
+        "field": "tss",
+        "sourceRevision": "c4d6bf95d326c30d",
+        "sourceId": "previous_comparable_week",
+        "source": "derived",
+        "value": 0,
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-02T15:35:01.229Z"
+      },
+      {
+        "field": "title",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "1787014980484",
+        "asOf": "2026-01-15T15:35:01.229Z",
+        "evidenceId": "lev_da29abb57991d36e3013",
+        "sourceId": "orider_00000000-0000-4000-8000-000000000000",
+        "value": "이름 없는 활동",
+        "source": "activity"
+      },
+      {
+        "evidenceId": "lev_dcbfa00601dfe3afe2b9",
+        "value": -12.5,
+        "sourceId": "2026-01-27",
+        "field": "form",
+        "sourceRevision": "1787148501973",
+        "asOf": "2026-01-03T15:35:01.229Z",
+        "source": "fitness",
+        "ownerScope": "authenticated_user"
+      },
+      {
+        "sourceId": "2026-01-14",
+        "field": "ctl",
+        "ownerScope": "authenticated_user",
+        "evidenceId": "lev_e5620b3592999c81ad27",
+        "sourceRevision": "1787148501973",
+        "value": 28.9,
+        "asOf": "2026-01-05T15:35:01.229Z",
+        "source": "fitness"
+      },
+      {
+        "source": "derived",
+        "evidenceId": "lev_e63beb9ddfb7f0833426",
+        "sourceId": "2026-01-11",
+        "value": "2026-01-05",
+        "asOf": "2026-01-09T15:35:01.229Z",
+        "ownerScope": "authenticated_user",
+        "field": "period.toCanonicalDate",
+        "sourceRevision": "1787148501973"
+      },
+      {
+        "field": "ctl",
+        "evidenceId": "lev_ec1f9593bf2a57d91fd7",
+        "sourceId": "2026-01-19",
+        "source": "fitness",
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-25T15:35:01.229Z",
+        "value": 26.9
+      },
+      {
+        "evidenceId": "lev_ecc6cf083a954637d249",
+        "asOf": "2026-01-02T15:35:01.229Z",
+        "sourceRevision": "1787148501973",
+        "field": "period.fromCanonicalDate",
+        "source": "derived",
+        "value": "2026-01-03",
+        "sourceId": "2026-01-22",
+        "ownerScope": "authenticated_user"
+      },
+      {
+        "evidenceId": "lev_edd724aa86e3e5279830",
+        "value": -14.6,
+        "field": "form",
+        "source": "fitness",
+        "asOf": "2026-01-08T15:35:01.229Z",
+        "sourceId": "2026-01-03",
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "value": 35.1,
+        "field": "atl",
+        "sourceId": "2026-01-01",
+        "asOf": "2026-01-26T15:35:01.229Z",
+        "source": "fitness",
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_edfe3092c89b16d1af6c"
+      },
+      {
+        "value": "2026-01-26",
+        "source": "derived",
+        "sourceId": "2026-01-01",
+        "ownerScope": "authenticated_user",
+        "asOf": "2026-01-18T15:35:01.229Z",
+        "sourceRevision": "1787148501973",
+        "evidenceId": "lev_f1a13f4f00ae76777e11",
+        "field": "period.fromCanonicalDate"
+      },
+      {
+        "source": "fitness",
+        "value": 25.8,
+        "asOf": "2026-01-04T15:35:01.229Z",
+        "sourceRevision": "1787148501973",
+        "ownerScope": "authenticated_user",
+        "sourceId": "2026-01-13",
+        "evidenceId": "lev_f555bb3855545c59245e",
+        "field": "ctl"
+      },
+      {
+        "ownerScope": "authenticated_user",
+        "sourceId": "2026-01-02",
+        "asOf": "2026-01-14T15:35:01.229Z",
+        "field": "atl",
+        "value": 42.1,
+        "evidenceId": "lev_f5dc1da62a1716de1941",
+        "sourceRevision": "1787148501973",
+        "source": "fitness"
+      },
+      {
+        "field": "minInclusive",
+        "evidenceId": "lev_f6bb4bf05bc016fb6bc1",
+        "sourceId": "high_load",
+        "ownerScope": "authenticated_user",
+        "sourceRevision": "form-band-catalog-v1",
+        "value": -30,
+        "asOf": "2026-01-01T15:35:01.229Z",
+        "source": "policy"
+      },
+      {
+        "sourceRevision": "1787067043829",
+        "asOf": "2026-01-11T15:35:01.229Z",
+        "evidenceId": "lev_f83a4d44cb48445a9db5",
+        "field": "tss",
+        "value": 159,
+        "sourceId": "strava_19787095990",
+        "source": "activity",
+        "ownerScope": "authenticated_user"
+      },
+      {
+        "evidenceId": "lev_fa32aa0b3f0e0f025603",
+        "source": "derived",
+        "sourceId": "2026-01-16",
+        "field": "period.toCanonicalDate",
+        "sourceRevision": "1787148501973",
+        "asOf": "2026-01-03T15:35:01.229Z",
+        "value": "2026-01-10",
+        "ownerScope": "authenticated_user"
+      },
+      {
+        "asOf": "2026-01-09T15:35:01.229Z",
+        "evidenceId": "sf_ev_f8d452b67e0956accb38",
+        "field": "form.average",
+        "sourceRevision": "load_9ec04035aac478a742e8d3aa",
+        "value": -20.03,
+        "sourceId": "metric_1_form",
+        "ownerScope": "authenticated_user",
+        "source": "derived"
+      }
+    ],
+    "schemaVersion": "coach-answer-document-v2",
+    "freshness": {
+      "asOf": "2026-01-22T15:35:01.229Z",
+      "timezone": "Asia/Seoul",
+      "staleSourceSlotIds": []
+    },
+    "status": "partial",
+    "warnings": [
+      {
+        "metricId": "form",
+        "sourceSlotId": "metric_1_form",
+        "code": "partial_fact"
+      }
+    ],
+    "followUps": [
+      {
+        "labelKey": "coach.followup.compare_previous_period",
+        "queryTemplateId": "compare_previous_period"
+      },
+      {
+        "labelKey": "coach.followup.show_weekly_trend",
+        "queryTemplateId": "show_weekly_trend"
+      }
+    ],
+    "catalogVersion": "coach-answer-block-catalog-v2",
+    "questionSummary": "coach.answer.summary.form_profile_n_s_b",
+    "blocks": [
+      {
+        "blockId": "block_00_metric_1_form_narrative",
+        "stale": false,
+        "templateKey": "coach.answer.narrative.metric_summary",
+        "sourceSlotIds": [
+          "metric_1_form"
+        ],
+        "omittedCount": 0,
+        "partial": true,
+        "placeholders": {
+          "current": {
+            "value": -20.03,
+            "evidenceId": "sf_ev_f8d452b67e0956accb38",
+            "unit": "score"
+          }
+        },
+        "kind": "narrative",
+        "truncated": false
+      },
+      {
+        "truncated": false,
+        "sourceSlotIds": [
+          "metric_1_form"
+        ],
+        "stale": false,
+        "blockId": "block_01_load_analysis",
+        "kind": "load_analysis",
+        "partial": true,
+        "omittedCount": 0,
+        "assessment": {
+          "factsId": "load_9ec04035aac478a742e8d3aa",
+          "sourceDateConvention": "utc_calendar_day",
+          "drivers": [
+            {
+              "discipline": "bike",
+              "date": {
+                "evidenceId": "lev_b854ea215e1345b07198",
+                "value": "2026-01-18"
+              },
+              "title": {
+                "evidenceId": "lev_da29abb57991d36e3013",
+                "value": "이름 없는 활동"
+              },
+              "durationMin": {
+                "value": 4,
+                "evidenceId": "lev_28c16c0f5e00af42f657"
+              },
+              "activityId": "orider_00000000-0000-4000-8000-000000000000",
+              "weeklyLoadContributionPct": {
+                "value": 1.3,
+                "evidenceId": "lev_10cd29749435b76f393d"
+              },
+              "distanceKm": {
+                "evidenceId": "lev_c5f114389284eafa559a",
+                "value": 47.5
+              },
+              "tss": {
+                "value": 87,
+                "evidenceId": "lev_06566a9efa3b9c9161f9"
+              }
+            },
+            {
+              "date": {
+                "value": "2026-01-14",
+                "evidenceId": "lev_ac844432401ec9ce8c1a"
+              },
+              "distanceKm": {
+                "value": 16.3,
+                "evidenceId": "lev_2dfc0cda0f5fa83b86ef"
+              },
+              "discipline": "bike",
+              "weeklyLoadContributionPct": {
+                "evidenceId": "lev_9bd4e4ac1446184aa8ce",
+                "value": 24.8
+              },
+              "activityId": "strava_19787095990",
+              "title": {
+                "value": "이름 없는 활동",
+                "evidenceId": "lev_a232799a2a3acf07d8af"
+              },
+              "tss": {
+                "evidenceId": "lev_f83a4d44cb48445a9db5",
+                "value": 54
+              },
+              "durationMin": {
+                "value": 13,
+                "evidenceId": "lev_a3c8741fc0dd397fd683"
+              }
+            }
+          ],
+          "asOf": {
+            "value": "2026-01-01T15:35:01.229Z",
+            "evidenceId": "lev_0bf979799e1dcd24884a"
+          },
+          "bandAssessment": {
+            "bands": [
+              {
+                "maxExclusive": {
+                  "evidenceId": "lev_b936ca4676111ae6d662",
+                  "value": 74
+                },
+                "metric": "form",
+                "explanationKey": "coach.load.band.recovery_review.explanation",
+                "referenceId": "ai-coach-load-policy-2026-07",
+                "labelKey": "coach.load.band.recovery_review.label",
+                "classification": "recovery_review_recommended",
+                "id": "recovery_review"
+              },
+              {
+                "classification": "high_load",
+                "referenceId": "ai-coach-load-policy-2026-07",
+                "metric": "form",
+                "explanationKey": "coach.load.band.high_load.explanation",
+                "id": "high_load",
+                "maxExclusive": {
+                  "evidenceId": "lev_121c1f173acf9fe4c8f0",
+                  "value": 3
+                },
+                "minInclusive": {
+                  "evidenceId": "lev_f6bb4bf05bc016fb6bc1",
+                  "value": 74
+                },
+                "labelKey": "coach.load.band.high_load.label"
+              },
+              {
+                "referenceId": "ai-coach-load-policy-2026-07",
+                "labelKey": "coach.load.band.productive_load.label",
+                "explanationKey": "coach.load.band.productive_load.explanation",
+                "id": "productive_load",
+                "metric": "form",
+                "classification": "productive_load",
+                "maxExclusive": {
+                  "value": 66,
+                  "evidenceId": "lev_cb0254dcd69324ef1487"
+                },
+                "minInclusive": {
+                  "value": 11,
+                  "evidenceId": "lev_8281284923785c068a73"
+                }
+              },
+              {
+                "metric": "form",
+                "classification": "normal",
+                "referenceId": "ai-coach-load-policy-2026-07",
+                "minInclusive": {
+                  "evidenceId": "lev_05dc63eb1ebd9c6d8b34",
+                  "value": 35
+                },
+                "labelKey": "coach.load.band.normal.label",
+                "id": "normal",
+                "explanationKey": "coach.load.band.normal.explanation"
+              }
+            ],
+            "currentBandId": "productive_load",
+            "currentValue": {
+              "evidenceId": "lev_b1f12e2cfb5b73375cbd",
+              "value": -12.8
+            },
+            "catalogVersion": "form-band-catalog-v1"
+          },
+          "delta": {
+            "form": {
+              "evidenceId": "lev_1b1df48f872c8de4f814",
+              "value": 52
+            },
+            "atl": {
+              "evidenceId": "lev_0551e1ba00e7a08c9ef7",
+              "value": 79.0
+            },
+            "ctl": {
+              "value": 15.0,
+              "evidenceId": "lev_9acba01d384e28a978a5"
+            }
+          },
+          "classification": "productive_load",
+          "discipline": "bike",
+          "capabilityVersion": "p1",
+          "confidence": "high",
+          "weeklyTrend": [
+            {
+              "sampleBasis": "completed_week_end",
+              "period": {
+                "fromCanonicalDate": {
+                  "value": "2026-01-03",
+                  "evidenceId": "lev_d1c35ed94cb01b7972bc"
+                },
+                "toCanonicalDate": {
+                  "evidenceId": "lev_8f586730586f707882fa",
+                  "value": "2026-01-08"
+                }
+              },
+              "weekId": "2026-01-04",
+              "partial": false,
+              "atl": {
+                "evidenceId": "lev_cf9e97406e1a2da76282",
+                "value": 23.7
+              },
+              "ctl": {
+                "value": 73.5,
+                "evidenceId": "lev_32f0ec085f50db0099bd"
+              },
+              "form": {
+                "value": 32.6,
+                "evidenceId": "lev_dcbfa00601dfe3afe2b9"
+              }
+            },
+            {
+              "period": {
+                "fromCanonicalDate": {
+                  "evidenceId": "lev_c1d446509a2b64cdf443",
+                  "value": "2026-01-25"
+                },
+                "toCanonicalDate": {
+                  "evidenceId": "lev_e63beb9ddfb7f0833426",
+                  "value": "2026-01-14"
+                }
+              },
+              "weekId": "2026-01-01",
+              "partial": false,
+              "ctl": {
+                "value": 74.7,
+                "evidenceId": "lev_30e4102c1bfa5c8a6ac1"
+              },
+              "sampleBasis": "completed_week_end",
+              "form": {
+                "evidenceId": "lev_4b12ccfc3f4b01bafd2b",
+                "value": 57.7
+              },
+              "atl": {
+                "value": 68.5,
+                "evidenceId": "lev_45cd9654e8089eb73e52"
+              }
+            },
+            {
+              "weekId": "2026-01-28",
+              "period": {
+                "toCanonicalDate": {
+                  "evidenceId": "lev_35603004e9e945c3041b",
+                  "value": "2026-01-27"
+                },
+                "fromCanonicalDate": {
+                  "value": "2026-01-23",
+                  "evidenceId": "lev_b6028913ca405016cdc4"
+                }
+              },
+              "ctl": {
+                "evidenceId": "lev_2e41e38dad5623ced522",
+                "value": 30.6
+              },
+              "form": {
+                "value": 59.4,
+                "evidenceId": "lev_5c48576afe58b3930c64"
+              },
+              "atl": {
+                "evidenceId": "lev_b44486b31cda14bb725c",
+                "value": 67.2
+              },
+              "partial": false,
+              "sampleBasis": "completed_week_end"
+            },
+            {
+              "form": {
+                "value": 63.1,
+                "evidenceId": "lev_083eb586ecf3a7c344de"
+              },
+              "partial": false,
+              "ctl": {
+                "evidenceId": "lev_b8b999d58674d46a13e0",
+                "value": 32.1
+              },
+              "sampleBasis": "completed_week_end",
+              "weekId": "2026-01-11",
+              "period": {
+                "toCanonicalDate": {
+                  "value": "2026-01-02",
+                  "evidenceId": "lev_a89b5349035e3f090c95"
+                },
+                "fromCanonicalDate": {
+                  "evidenceId": "lev_ecc6cf083a954637d249",
+                  "value": "2026-01-12"
+                }
+              },
+              "atl": {
+                "evidenceId": "lev_acaa2793baeb2f42c0c0",
+                "value": 62.9
+              }
+            },
+            {
+              "form": {
+                "evidenceId": "lev_3ee55c8634ce0022f525",
+                "value": 20.7
+              },
+              "sampleBasis": "completed_week_end",
+              "period": {
+                "fromCanonicalDate": {
+                  "evidenceId": "lev_37ab57328a1467cb0bec",
+                  "value": "2026-01-10"
+                },
+                "toCanonicalDate": {
+                  "evidenceId": "lev_569d6ecd36d07063f267",
+                  "value": "2026-01-17"
+                }
+              },
+              "weekId": "2026-01-25",
+              "ctl": {
+                "evidenceId": "lev_f555bb3855545c59245e",
+                "value": 8.0
+              },
+              "atl": {
+                "evidenceId": "lev_edfe3092c89b16d1af6c",
+                "value": 68.5
+              },
+              "partial": false
+            },
+            {
+              "form": {
+                "value": 23.7,
+                "evidenceId": "lev_8ec27c8ea71d3be0b212"
+              },
+              "weekId": "2026-01-14",
+              "period": {
+                "fromCanonicalDate": {
+                  "value": "2026-01-05",
+                  "evidenceId": "lev_1113bdcf9603934eb4ed"
+                },
+                "toCanonicalDate": {
+                  "evidenceId": "lev_fa32aa0b3f0e0f025603",
+                  "value": "2026-01-17"
+                }
+              },
+              "partial": false,
+              "ctl": {
+                "evidenceId": "lev_ec1f9593bf2a57d91fd7",
+                "value": 26.9
+              },
+              "sampleBasis": "completed_week_end",
+              "atl": {
+                "evidenceId": "lev_c3ba3350558f090c6b54",
+                "value": 51.6
+              }
+            },
+            {
+              "sampleBasis": "completed_week_end",
+              "form": {
+                "evidenceId": "lev_5933c4fa7cc9153c4657",
+                "value": 5.2
+              },
+              "ctl": {
+                "value": 39.6,
+                "evidenceId": "lev_e5620b3592999c81ad27"
+              },
+              "period": {
+                "toCanonicalDate": {
+                  "evidenceId": "lev_573754b5af42c5064bde",
+                  "value": "2026-01-24"
+                },
+                "fromCanonicalDate": {
+                  "evidenceId": "lev_f1a13f4f00ae76777e11",
+                  "value": "2026-01-28"
+                }
+              },
+              "weekId": "2026-01-02",
+              "partial": false,
+              "atl": {
+                "evidenceId": "lev_f5dc1da62a1716de1941",
+                "value": 87.3
+              }
+            },
+            {
+              "ctl": {
+                "value": 16.3,
+                "evidenceId": "lev_ca8a5d2410aeac82e51e"
+              },
+              "form": {
+                "value": 86.4,
+                "evidenceId": "lev_edd724aa86e3e5279830"
+              },
+              "weekId": "2026-01-18",
+              "period": {
+                "fromCanonicalDate": {
+                  "value": "2026-01-02",
+                  "evidenceId": "lev_c653be4d6585b7816346"
+                },
+                "toCanonicalDate": {
+                  "evidenceId": "lev_94a2a0bb532ac2e0faa8",
+                  "value": "2026-01-13"
+                }
+              },
+              "partial": false,
+              "atl": {
+                "evidenceId": "lev_bd95848dd7e9f5a148ba",
+                "value": 1.6
+              },
+              "sampleBasis": "completed_week_end"
+            },
+            {
+              "ctl": {
+                "evidenceId": "lev_a65483c35672d07c8394",
+                "value": 85
+              },
+              "form": {
+                "value": 44.6,
+                "evidenceId": "lev_b1f12e2cfb5b73375cbd"
+              },
+              "atl": {
+                "evidenceId": "lev_c500be9f7b735c6e1265",
+                "value": 57.5
+              },
+              "sampleBasis": "current_as_of",
+              "partial": true,
+              "period": {
+                "fromCanonicalDate": {
+                  "evidenceId": "lev_d1067a5653820edc18a3",
+                  "value": "2026-01-01"
+                },
+                "toCanonicalDate": {
+                  "evidenceId": "lev_4cff2f44debb2e1a7cea",
+                  "value": "2026-01-09"
+                }
+              },
+              "weekId": "2026-01-17"
+            }
+          ],
+          "current": {
+            "form": {
+              "evidenceId": "lev_b1f12e2cfb5b73375cbd",
+              "value": 57.2
+            },
+            "atl": {
+              "evidenceId": "lev_c500be9f7b735c6e1265",
+              "value": 70.9
+            },
+            "ctl": {
+              "evidenceId": "lev_a65483c35672d07c8394",
+              "value": 55
+            }
+          },
+          "missingSignals": [],
+          "previousComparable": {
+            "form": {
+              "evidenceId": "lev_c4f11be4a9fa7fdf42ae",
+              "value": 38.2
+            },
+            "ctl": {
+              "evidenceId": "lev_44de026143356a4a8f9b",
+              "value": 89.8
+            },
+            "atl": {
+              "value": 23.8,
+              "evidenceId": "lev_52f995bf8ba380116d94"
+            }
+          },
+          "schemaVersion": "coach-load-assessment-v1",
+          "reasonCodes": [
+            "classification_productive_load",
+            "ctl_increased_week_over_week"
+          ],
+          "comparisonBasis": "canonical_utc_day_7d_delta",
+          "weeklyTss": {
+            "current": {
+              "evidenceId": "lev_494d23cb26cb7c4191a7",
+              "value": 328
+            },
+            "delta": {
+              "evidenceId": "lev_1081cd305884f2276af5",
+              "value": 328
+            },
+            "previousComparable": {
+              "evidenceId": "lev_d91f5221407f08c0e0c7",
+              "value": 0
+            },
+            "basis": "user_local_monday_to_as_of"
+          },
+          "timezone": "Asia/Seoul"
+        }
+      },
+      {
+        "blockId": "block_02_data_gap",
+        "kind": "data_gap",
+        "reasonCodes": [
+          "partial_period"
+        ],
+        "stale": false,
+        "omittedCount": 0,
+        "partial": true,
+        "truncated": false,
+        "missingMetricIds": [
+          "form"
+        ],
+        "sourceSlotIds": [
+          "metric_1_form"
+        ]
+      },
+      {
+        "actionCode": "REVIEW_DATA_GAPS",
+        "sourceSlotIds": [
+          "metric_1_form"
+        ],
+        "stale": false,
+        "omittedCount": 0,
+        "blockId": "block_03_metric_1_form_action",
+        "kind": "action",
+        "partial": true,
+        "truncated": false
+      },
+      {
+        "blockId": "block_04_prescription",
+        "kind": "prescription",
+        "stale": false,
+        "partial": true,
+        "sourceSlotIds": [
+          "metric_1_form"
+        ],
+        "omittedCount": 0,
+        "prescription": {
+          "confidence": "low",
+          "missingSignals": [
+            "subjective_fatigue",
+            "soreness",
+            "pain_or_illness"
+          ],
+          "checkInToken": "eyJ2ZXJzaW9uIjoxLCJ1aWRIYXNoIjoiMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsImZhY3RzSWQiOiJmYWN0c18wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJzbmFwc2hvdFJldmlzaW9uIjoxLCJwbGFuUmV2aXNpb24iOjEsImNvbnRpbnVhdGlvblJldmlzaW9uIjoxLCJ3ZWVrbHlDaGVja0luSWQiOiJiaWtlXzIwMjYtMDEtMDUiLCJ3ZWVrbHlDaGVja0luUmV2aXNpb24iOjEsInBhcmVudFJlcXVlc3RJZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMCIsInJlcXVpcmVkU2lnbmFscyI6WyJzdWJqZWN0aXZlX2ZhdGlndWUiLCJzb3JlbmVzcyIsInBhaW5fb3JfaWxsbmVzcyJdLCJleHBpcmVzQXQiOiIyMDI2LTAxLTA1VDAwOjE1OjAwLjAwMFoifQ.synthetic-signature-not-a-real-hmac",
+          "planRevision": "plan_d2fc61f56e40f511f5717b2b",
+          "validFrom": "2026-01-09T15:35:01.229Z",
+          "factsId": "facts_871f2233745c608bc422ad76",
+          "nextDays": [],
+          "quotaConsumed": 0,
+          "snapshotRevision": "rxsnap_bcb44496d9e1f9e8c3bb51e9",
+          "schemaVersion": "coach-prescription-v1",
+          "validUntil": "2026-01-26T15:35:01.229Z",
+          "requiredSignals": [
+            "subjective_fatigue",
+            "soreness",
+            "pain_or_illness"
+          ],
+          "evidence": [
+            {
+              "asOf": "2026-01-22T15:35:01.229Z",
+              "source": "fitness",
+              "evidenceId": "lev_a65483c35672d07c8394",
+              "field": "ctl",
+              "sourceId": "2026-01-14",
+              "value": 33,
+              "sourceRevision": "1787148501973"
+            },
+            {
+              "value": -12.8,
+              "sourceRevision": "1787148501973",
+              "evidenceId": "lev_b1f12e2cfb5b73375cbd",
+              "asOf": "2026-01-21T15:35:01.229Z",
+              "sourceId": "2026-01-25",
+              "source": "fitness",
+              "field": "form"
+            },
+            {
+              "sourceRevision": "1787148501973",
+              "value": 45.8,
+              "evidenceId": "lev_c500be9f7b735c6e1265",
+              "source": "fitness",
+              "field": "atl",
+              "sourceId": "2026-01-15",
+              "asOf": "2026-01-09T15:35:01.229Z"
+            },
+            {
+              "field": "targetDate",
+              "sourceRevision": "1787148501494",
+              "sourceId": "bu24prEf1VV7kklyDVbH",
+              "evidenceId": "rx_ev_8c08d0aaea06bfc34910",
+              "source": "goal",
+              "asOf": "2026-01-13T15:35:01.229Z",
+              "value": "2026-01-20"
+            },
+            {
+              "sourceId": "bu24prEf1VV7kklyDVbH",
+              "evidenceId": "rx_ev_c48c98ceefc8fb0e17a9",
+              "field": "phase",
+              "sourceRevision": "1787148501494",
+              "source": "goal",
+              "value": "base",
+              "asOf": "2026-01-23T15:35:01.229Z"
+            }
+          ],
+          "rulesVersion": "coach-prescription-rules-v1",
+          "prescriptionId": "rx_bc50660e72f22364e47d0bf1",
+          "status": "needs_checkin",
+          "providerCalls": 0
+        },
+        "truncated": false
+      }
+    ],
+    "answerId": "answer_e9536655a5d92816c8086c22",
+    "sourceFactsId": "facts_871f2233745c608bc422ad76"
+  },
+  "quota": {
+    "consumed": false,
+    "resetAt": "2026-01-20T15:00:00.000Z",
+    "limit": 5,
+    "remaining": 5
+  },
+  "execution": {
+    "asOf": "2026-01-12T15:35:01.229Z",
+    "parser": "deterministic",
+    "catalogVersion": "coach-query-catalog-v1",
+    "prescriptionId": "rx_bc50660e72f22364e47d0bf1",
+    "factsId": "facts_871f2233745c608bc422ad76",
+    "queryPlanHash": "850c0a2d21c9e87af0989f26af4412ad09137f92b0026b552c1d10b901eb29fc",
+    "prescriptionRulesVersion": "coach-prescription-rules-v1"
+  },
+  "schemaVersion": "coach-response-envelope-v1",
+  "capabilityVersion": "p1",
+  "retry": {
+    "previousTurnConsumed": false,
+    "retryable": false,
+    "mode": "same_request_replay",
+    "quotaImpact": "none",
+    "providerCallAllowed": false,
+    "reasonCode": "progress_planner_deterministic_no_charge"
+  },
+  "apiVersion": "v2",
+  "outcome": "answer"
+}

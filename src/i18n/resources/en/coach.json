@@ -288,7 +288,7 @@
     "operator": { "gte": "at least", "gt": "greater than", "lte": "at most", "lt": "less than" },
     "signal": { "subjective_fatigue": "Fatigue", "soreness": "Soreness", "pain_or_illness": "Pain or illness" },
     "option": { "subjective_fatigue": { "normal": "Normal", "tired": "Tired" }, "soreness": { "none": "None", "present": "Present" }, "pain_or_illness": { "none": "None", "present": "Present" } },
-    "checkin": { "title": "More information is needed to assess recovery", "body": "Tell us how you feel today.", "submit": "Confirm", "submitting": "Checking…",
+    "checkin": { "title": "More information is needed to assess recovery", "body": "Tell us how you feel today.", "assumedDefaults": "Calculated with your usual state.", "assuming": "Calculating…", "adjust": "Today is different", "submit": "Confirm", "submitting": "Checking…",
       "networkError": "Your check-in was not sent. You can retry the same request.", "retry": "Retry", "reanalyze": "The data or plan changed, or the check-in window expired.",
       "newAnalysis": "Start a new analysis", "error": "The check-in could not be applied. Please start a new analysis shortly.", "noCharge": "No additional use · 0 AI calls" },
     "insufficient": { "title": "More data is needed for a prescription", "body": "Review the missing data or continue with your existing plan." }, "existingPlan": "View existing plan",

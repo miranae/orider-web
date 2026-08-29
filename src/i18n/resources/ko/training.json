@@ -1,7 +1,23 @@
 {
   "title": "훈련",
-  "plan": "계획",
-  "log": "로그",
+  "plan": {
+    "revalidatingUpdating": "최근 활동을 반영해 계획을 다듬는 중…",
+    "revalidatingDone": "계획이 새로 다듬어졌어요"
+  },
+  "log": {
+    "dayNames": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ],
+    "monthLabel": "{{year}}년 {{month}}월",
+    "activitiesCount": "{{count}}개 활동",
+    "activitiesCountTitle": "{{count}}개 활동 — 각 항목 클릭"
+  },
   "goal": "목표",
   "goalSetup": "목표 설정",
   "addWorkout": "운동 추가",
@@ -23,12 +39,6 @@
   },
   "empty": {
     "noPlans": "훈련 계획이 없습니다"
-  },
-  "log": {
-    "dayNames": ["월", "화", "수", "목", "금", "토", "일"],
-    "monthLabel": "{{year}}년 {{month}}월",
-    "activitiesCount": "{{count}}개 활동",
-    "activitiesCountTitle": "{{count}}개 활동 — 각 항목 클릭"
   },
   "page": {
     "planTitle": "현재 목표 · 자동 생성된 운동 계획",
@@ -250,10 +260,19 @@
     "brickSwimFull": "브릭 운동"
   },
   "climbGoal": {
-    "title": "클라임 목표 만들기", "description": "코스나 이벤트 없이 오르막 이름과 목표 기록으로 훈련을 시작해요.",
-    "name": "클라임 이름", "duration": "목표 시간(분)", "wkg": "목표 W/kg (선택)", "date": "목표일", "sessions": "주당 운동 횟수",
-    "submit": "클라임 훈련 시작", "error": "입력을 확인하고 다시 시도해 주세요.",
-    "loginTitle": "로그인이 필요해요", "loginDescription": "클라임 목표와 계획을 저장하려면 로그인해 주세요.", "loginAction": "Google로 로그인", "loading": "로그인 상태를 확인하고 있어요…"
+    "title": "클라임 목표 만들기",
+    "description": "코스나 이벤트 없이 오르막 이름과 목표 기록으로 훈련을 시작해요.",
+    "name": "클라임 이름",
+    "duration": "목표 시간(분)",
+    "wkg": "목표 W/kg (선택)",
+    "date": "목표일",
+    "sessions": "주당 운동 횟수",
+    "submit": "클라임 훈련 시작",
+    "error": "입력을 확인하고 다시 시도해 주세요.",
+    "loginTitle": "로그인이 필요해요",
+    "loginDescription": "클라임 목표와 계획을 저장하려면 로그인해 주세요.",
+    "loginAction": "Google로 로그인",
+    "loading": "로그인 상태를 확인하고 있어요…"
   },
   "intensityChip": {
     "rest": "REST",
@@ -394,10 +413,6 @@
     "analysisUnavailable": "AI 연결을 준비하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     "reanalyze": "다시분석",
     "upToDate": "최신 상태"
-  },
-  "plan": {
-    "revalidatingUpdating": "최근 활동을 반영해 계획을 다듬는 중…",
-    "revalidatingDone": "계획이 새로 다듬어졌어요"
   },
   "revalidatingIndicator": {
     "updating": "현재 상황에 맞춰 운동 계획을 업데이트하는 중…",
@@ -626,12 +641,36 @@
     "infoTitle": "사이클링과 러닝은 하나의 CTL로 합산됩니다.",
     "infoBody": "러닝 부하(rTSS)는 페이스·GAP 기반으로 계산되어 사이클링 TSS와 더해지며, 피트니스 페이지에서 종목별 분해도 확인할 수 있습니다.",
     "event": {
-      "5k":    { "name": "5K 러닝",           "kind": "트랙/도로", "tag": "스피드" },
-      "10k":   { "name": "10K 러닝",          "kind": "도로",      "tag": "역치" },
-      "half":  { "name": "하프마라톤",         "kind": "도로",      "tag": "지구력" },
-      "full":  { "name": "풀마라톤",           "kind": "도로",      "tag": "지구력" },
-      "seoul": { "name": "서울마라톤 (풀코스)", "kind": "도로",      "tag": "레이스" },
-      "trail": { "name": "트레일 24K",         "kind": "트레일",    "tag": "트레일" }
+      "5k": {
+        "name": "5K 러닝",
+        "kind": "트랙/도로",
+        "tag": "스피드"
+      },
+      "10k": {
+        "name": "10K 러닝",
+        "kind": "도로",
+        "tag": "역치"
+      },
+      "half": {
+        "name": "하프마라톤",
+        "kind": "도로",
+        "tag": "지구력"
+      },
+      "full": {
+        "name": "풀마라톤",
+        "kind": "도로",
+        "tag": "지구력"
+      },
+      "seoul": {
+        "name": "서울마라톤 (풀코스)",
+        "kind": "도로",
+        "tag": "레이스"
+      },
+      "trail": {
+        "name": "트레일 24K",
+        "kind": "트레일",
+        "tag": "트레일"
+      }
     }
   },
   "swimWizard": {
@@ -715,12 +754,36 @@
     "infoTitle": "3종목 부하가 하나의 CTL로 합산됩니다.",
     "infoBody": "수영 부하(sTSS)는 CSS·페이스 기반으로 계산되어 사이클 TSS·rTSS와 합쳐집니다. 피트니스 페이지에서 종목별 스택과 피로도를 확인하세요.",
     "event": {
-      "test1500": { "name": "1500m 테스트",                        "kind": "풀 · 25m/50m", "tag": "벤치마크" },
-      "ow1500":   { "name": "오픈워터 1500m",                      "kind": "오픈워터",     "tag": "오픈워터" },
-      "tri750":   { "name": "스프린트 트라이애슬론 (수영 750m)",     "kind": "트라이 레그",  "tag": "트라이애슬론" },
-      "tri1500":  { "name": "올림픽 거리 트라이애슬론 (수영 1.5km)", "kind": "트라이 레그",  "tag": "트라이애슬론" },
-      "ow3000":   { "name": "오픈워터 3 km",                       "kind": "오픈워터",     "tag": "지구력" },
-      "swim5k":   { "name": "풀/오픈워터 5 km",                    "kind": "장거리",       "tag": "마라톤 스윔" }
+      "test1500": {
+        "name": "1500m 테스트",
+        "kind": "풀 · 25m/50m",
+        "tag": "벤치마크"
+      },
+      "ow1500": {
+        "name": "오픈워터 1500m",
+        "kind": "오픈워터",
+        "tag": "오픈워터"
+      },
+      "tri750": {
+        "name": "스프린트 트라이애슬론 (수영 750m)",
+        "kind": "트라이 레그",
+        "tag": "트라이애슬론"
+      },
+      "tri1500": {
+        "name": "올림픽 거리 트라이애슬론 (수영 1.5km)",
+        "kind": "트라이 레그",
+        "tag": "트라이애슬론"
+      },
+      "ow3000": {
+        "name": "오픈워터 3 km",
+        "kind": "오픈워터",
+        "tag": "지구력"
+      },
+      "swim5k": {
+        "name": "풀/오픈워터 5 km",
+        "kind": "장거리",
+        "tag": "마라톤 스윔"
+      }
     }
   },
   "decision": {
@@ -753,7 +816,7 @@
     },
     "extraSessions": "오늘 예정된 세션이 {{count}}개 더 있어요. 계획에서 각각 확인하세요.",
     "reasonTitle": "조정 근거",
-    "reasonFallback": "현재 부하와 회복 신호 반영",
+    "reasonFallback": "최근 훈련 부하를 기준으로 판단했어요",
     "reason": {
       "classification_high_load": "최근 부하가 높은 상태예요",
       "high_load": "최근 부하가 높은 상태예요",
@@ -762,7 +825,11 @@
       "high_load_plan_reduction": "주간 부하를 안전 범위로 낮춰요",
       "form_gate_before_intensity": "강도 운동 전 폼 확인이 필요해요",
       "readiness_recheck_required": "최신 회복 상태를 다시 확인해야 해요",
-      "threshold_stale": "기준 파워를 최신 상태로 확인해야 해요"
+      "threshold_stale": "기준 파워를 최신 상태로 확인해야 해요",
+      "load_supports_plan": "최근 훈련 부하가 계획대로 진행해도 되는 상태예요",
+      "no_planned_workout": "이 날은 계획에 세션이 없어요",
+      "follow_planned_rest": "계획된 휴식일이에요",
+      "availability_day_cap": "이 날 가능한 시간에 맞춰 줄였어요"
     },
     "viewPlan": "계획에서 보기",
     "viewCalendar": "계획표 보기",
@@ -788,8 +855,14 @@
       "applied-plan": "적용됨"
     },
     "workout": {
-      "rest": "휴식", "recovery": "회복", "planned": "예정 세션", "z2": "Z2 지구력",
-      "tempo": "템포", "sweet_spot": "스위트 스팟", "threshold": "역치", "vo2max": "VO₂max"
+      "rest": "휴식",
+      "recovery": "회복",
+      "planned": "예정 세션",
+      "z2": "Z2 지구력",
+      "tempo": "템포",
+      "sweet_spot": "스위트 스팟",
+      "threshold": "역치",
+      "vo2max": "VO₂max"
     },
     "proposal": {
       "title": "계획 변경 검토",
@@ -850,8 +923,31 @@
         "completed": "이 세션의 실행 결과가 기록되었습니다.",
         "error": "실행 상태를 저장하지 못했습니다. 다시 시도해 주세요."
       },
-      "state": { "reserved": "시작 대기", "started": "진행 중", "linked": "활동 연결됨", "invalidated": "연결 무효" },
-      "outcome": { "pending": "결과 대기", "completed": "완료", "partial": "부분 완료", "skipped": "건너뜀", "postponed": "연기됨" }
-    }
+      "state": {
+        "reserved": "시작 대기",
+        "started": "진행 중",
+        "linked": "활동 연결됨",
+        "invalidated": "연결 무효"
+      },
+      "outcome": {
+        "pending": "결과 대기",
+        "completed": "완료",
+        "partial": "부분 완료",
+        "skipped": "건너뜀",
+        "postponed": "연기됨"
+      }
+    },
+    "confidence": {
+      "lowTitle": "확인하지 못한 정보가 있어요",
+      "lowBody": "아래 항목을 확인하지 못해 오늘 판단의 확신이 낮습니다. 참고용으로만 보세요.",
+      "signal": {
+        "load_history_short": "훈련 이력이 아직 짧아요",
+        "load_history_gaps": "훈련 이력에 빈 구간이 있어요",
+        "load_data_stale": "부하 데이터가 최신이 아니에요",
+        "load_data_unavailable": "부하 데이터를 불러오지 못했어요",
+        "current_week_activities_missing": "이번 주 기록이 아직 없어요"
+      }
+    },
+    "reasonTitlePlain": "판단 근거"
   }
 }

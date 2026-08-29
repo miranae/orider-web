@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import { getDoc } from "firebase/firestore";
+import { getDoc, onSnapshot } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,6 +17,9 @@ vi.mock("../hooks/useMobile", () => ({
 }));
 vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ coachRiderInsightEnabled: riderInsight.enabled }) }));
 vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => riderInsight }));
+vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
+  default: ({ surface }: { surface: string }) => <div data-testid="today-training-decision">{surface} workout</div>,
+}));
 
 vi.mock("../components/mobile/MobileFitnessPage", () => ({
   default: ({ data }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number }; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null } }) => (
@@ -51,7 +54,7 @@ describe("FitnessPage", () => {
   });
 
   it("never carries a single-sport projection into the integrated mobile PMC", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/FitnessPage.tsx"), "utf8");
+    const source = readFileSync(join(process.cwd(), "src/hooks/useFitnessModel.ts"), "utf8");
     expect(source).toContain('pmcProjection: discipline === "tri" ? null : projection?.series ?? null');
   });
 
@@ -83,6 +86,28 @@ describe("FitnessPage", () => {
 
     expect(await screen.findByText("mobile fitness dashboard: tri")).toBeInTheDocument();
     expect(screen.queryByText("desktop tri fitness dashboard")).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])("keeps today's workout available when fitness data fails (mobile=%s)", async (isMobile) => {
+    viewport.isMobile = isMobile;
+    const snapshotMock = vi.mocked(onSnapshot);
+    const originalImplementation = snapshotMock.getMockImplementation()!;
+    snapshotMock.mockImplementation(((ref: { path?: string }, onNext: unknown, onError: unknown, optionsError: unknown) => {
+      if (ref.path === "activities" && typeof onError === "function") {
+        onError(new Error("fitness unavailable"));
+        return vi.fn();
+      }
+      return originalImplementation(ref, onNext, onError, optionsError);
+    }) as never);
+
+    try {
+      renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+      expect(await screen.findByTestId("today-training-decision")).toHaveTextContent("fitness workout");
+      expect(screen.getByText("피트니스 데이터를 불러오지 못했습니다")).toBeInTheDocument();
+    } finally {
+      snapshotMock.mockImplementation(originalImplementation);
+    }
   });
 
   it("attempts missing stream and metrics documents only once until activity lifecycle changes", async () => {

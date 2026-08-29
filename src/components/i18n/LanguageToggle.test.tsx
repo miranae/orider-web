@@ -4,7 +4,13 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { LanguageToggle } from './LanguageToggle';
 import { LocaleProvider } from '../../contexts/LocaleContext';
 
-vi.mock('../../services/firebase', () => ({ firestore: {}, auth: {} }));
+vi.mock('../../services/firebase', () => ({
+  // useFirebaseServices() 기본 컨텍스트가 이 모듈 전체를 읽는다 (#847).
+  firestore: {},
+  auth: {},
+  functions: {},
+  ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(),
   setDoc: vi.fn().mockResolvedValue(undefined),

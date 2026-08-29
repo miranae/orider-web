@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { doc, getDoc, onSnapshot, type DocumentReference } from "firebase/firestore";
 import type { Activity, ActivityStreams } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
-import { firestore } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import {
@@ -228,6 +228,7 @@ export function useActivityDerivedDocuments(
   uid: string | null | undefined,
   activities: readonly Activity[],
 ): { streamsMap: Map<string, ActivityStreams>; metricsMap: Map<string, ActivityMetrics> } {
+  const { firestore } = useFirebaseServices();
   const normalizedUid = uid ?? null;
   const generationRef = useRef(0);
   const currentUidRef = useRef(normalizedUid);
@@ -236,7 +237,7 @@ export function useActivityDerivedDocuments(
     generationRef.current += 1;
   }
   const generation = generationRef.current;
-  const resources = useMemo(createResources, [normalizedUid]);
+  const resources = useMemo(createResources, [firestore, normalizedUid]);
   const [state, setState] = useState<DerivedState>({
     ownerUid: normalizedUid,
     streamsMap: new Map(),

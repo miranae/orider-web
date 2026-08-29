@@ -9,9 +9,9 @@
  */
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import { firestore } from "../services/firebase";
 import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { UserFitness } from "@shared/types";
 
 export interface UserFitnessState {
@@ -21,6 +21,7 @@ export interface UserFitnessState {
 
 export function useUserFitness(enabled = true): UserFitnessState {
   const { user } = useAuth();
+  const { firestore } = useFirebaseServices();
   const [state, setState] = useState<UserFitnessState>({ fitness: null, loading: true });
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function useUserFitness(enabled = true): UserFitnessState {
       },
     );
     return unsub;
-  }, [user, enabled]);
+  }, [enabled, firestore, user]);
 
   return state;
 }

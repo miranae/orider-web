@@ -7,17 +7,19 @@ describe("activity detail server insights", () => {
     const activityPage = readFileSync(join(process.cwd(), "src/pages/ActivityPage.tsx"), "utf8");
     const insightCards = readFileSync(join(process.cwd(), "src/features/activity/detail/ActivityInsightCards.tsx"), "utf8");
     const analysisTab = readFileSync(join(process.cwd(), "src/components/AnalysisTab.tsx"), "utf8");
+    const analysisModel = readFileSync(join(process.cwd(), "src/hooks/useActivityAnalysisModel.ts"), "utf8");
     const metricsHook = readFileSync(join(process.cwd(), "src/hooks/useActivityMetrics.ts"), "utf8");
 
     expect(metricsHook).toContain("loadAxes?");
     expect(metricsHook).toContain("newPrs?");
     expect(activityPage).not.toContain("ServerActivityInsightsCard");
     expect(insightCards).not.toContain("Server insights");
-    expect(activityPage).toContain("startTime={activity.startTime}");
+    expect(activityPage).toContain("<AnalysisTab {...analysisTabProps} />");
+    expect(analysisModel).toContain("startTime: activity.startTime");
     expect(analysisTab).toContain("filterServerMetricsForSensorCandidates(serverMetrics.metrics");
-    expect(activityPage).toContain("hasStreamPowerCandidate={hasStreamPowerCandidate}");
-    expect(activityPage).toContain("hasStreamHeartRateCandidate={hasStreamHeartRateCandidate}");
-    expect(activityPage).toContain("hasStreamCadenceCandidate={hasStreamCadenceCandidate}");
+    expect(analysisModel).toContain("hasStreamPowerCandidate,");
+    expect(analysisModel).toContain("hasStreamHeartRateCandidate,");
+    expect(analysisModel).toContain("hasStreamCadenceCandidate,");
     expect(analysisTab).toContain("suppressPowerMetrics={hasStreamPowerCandidate}");
     expect(analysisTab).toContain("suppressHeartRateMetrics={hasStreamHeartRateCandidate}");
     expect(analysisTab).toContain("const climbRows = useMemo");

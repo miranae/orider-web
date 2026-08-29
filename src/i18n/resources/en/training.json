@@ -1,7 +1,23 @@
 {
   "title": "Training",
-  "plan": "Plan",
-  "log": "Log",
+  "plan": {
+    "revalidatingUpdating": "Refining plan based on recent activity…",
+    "revalidatingDone": "Plan has been updated"
+  },
+  "log": {
+    "dayNames": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
+    "monthLabel": "{{year}}/{{month}}",
+    "activitiesCount": "{{count}} activities",
+    "activitiesCountTitle": "{{count}} activities — click each row"
+  },
   "goal": "Goal",
   "goalSetup": "Goal Setup",
   "addWorkout": "Add Workout",
@@ -23,12 +39,6 @@
   },
   "empty": {
     "noPlans": "No training plans"
-  },
-  "log": {
-    "dayNames": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    "monthLabel": "{{year}}/{{month}}",
-    "activitiesCount": "{{count}} activities",
-    "activitiesCountTitle": "{{count}} activities — click each row"
   },
   "page": {
     "planTitle": "Current Goal · Auto-Generated Training Plan",
@@ -250,10 +260,19 @@
     "brickSwimFull": "Brick Workout"
   },
   "climbGoal": {
-    "title": "Create a climb goal", "description": "Train for a named climb and target time without requiring a course or event.",
-    "name": "Climb name", "duration": "Target time (minutes)", "wkg": "Target W/kg (optional)", "date": "Target date", "sessions": "Sessions per week",
-    "submit": "Start climb training", "error": "Check your inputs and try again.",
-    "loginTitle": "Sign in required", "loginDescription": "Sign in to save your climb goal and plan.", "loginAction": "Sign in with Google", "loading": "Checking your sign-in status…"
+    "title": "Create a climb goal",
+    "description": "Train for a named climb and target time without requiring a course or event.",
+    "name": "Climb name",
+    "duration": "Target time (minutes)",
+    "wkg": "Target W/kg (optional)",
+    "date": "Target date",
+    "sessions": "Sessions per week",
+    "submit": "Start climb training",
+    "error": "Check your inputs and try again.",
+    "loginTitle": "Sign in required",
+    "loginDescription": "Sign in to save your climb goal and plan.",
+    "loginAction": "Sign in with Google",
+    "loading": "Checking your sign-in status…"
   },
   "intensityChip": {
     "rest": "REST",
@@ -394,10 +413,6 @@
     "analysisUnavailable": "AI connection is not ready. Please try again shortly.",
     "reanalyze": "Re-analyze",
     "upToDate": "Up to date"
-  },
-  "plan": {
-    "revalidatingUpdating": "Refining plan based on recent activity…",
-    "revalidatingDone": "Plan has been updated"
   },
   "revalidatingIndicator": {
     "updating": "Updating training plan to reflect current status…",
@@ -626,12 +641,36 @@
     "infoTitle": "Cycling and running share one CTL.",
     "infoBody": "Running load (rTSS) is calculated from pace and GAP, then added to cycling TSS. View per-sport breakdown on the Fitness page.",
     "event": {
-      "5k":    { "name": "5K Run",              "kind": "Track/Road", "tag": "Speed" },
-      "10k":   { "name": "10K Run",             "kind": "Road",       "tag": "Threshold" },
-      "half":  { "name": "Half Marathon",        "kind": "Road",       "tag": "Endurance" },
-      "full":  { "name": "Full Marathon",        "kind": "Road",       "tag": "Endurance" },
-      "seoul": { "name": "Seoul Marathon (Full)", "kind": "Road",      "tag": "Race" },
-      "trail": { "name": "Trail 24K",            "kind": "Trail",      "tag": "Trail" }
+      "5k": {
+        "name": "5K Run",
+        "kind": "Track/Road",
+        "tag": "Speed"
+      },
+      "10k": {
+        "name": "10K Run",
+        "kind": "Road",
+        "tag": "Threshold"
+      },
+      "half": {
+        "name": "Half Marathon",
+        "kind": "Road",
+        "tag": "Endurance"
+      },
+      "full": {
+        "name": "Full Marathon",
+        "kind": "Road",
+        "tag": "Endurance"
+      },
+      "seoul": {
+        "name": "Seoul Marathon (Full)",
+        "kind": "Road",
+        "tag": "Race"
+      },
+      "trail": {
+        "name": "Trail 24K",
+        "kind": "Trail",
+        "tag": "Trail"
+      }
     }
   },
   "swimWizard": {
@@ -715,12 +754,36 @@
     "infoTitle": "All three sports share one CTL.",
     "infoBody": "Swimming load (sTSS) is calculated from CSS and pace, then combined with cycling TSS and rTSS. View per-sport stack and fatigue on the Fitness page.",
     "event": {
-      "test1500": { "name": "1500m Test",                           "kind": "Pool · 25m/50m", "tag": "Benchmark" },
-      "ow1500":   { "name": "Open Water 1500m",                     "kind": "Open Water",     "tag": "Open Water" },
-      "tri750":   { "name": "Sprint Triathlon (Swim 750m)",          "kind": "Tri Leg",        "tag": "Triathlon" },
-      "tri1500":  { "name": "Olympic Triathlon (Swim 1.5km)",        "kind": "Tri Leg",        "tag": "Triathlon" },
-      "ow3000":   { "name": "Open Water 3 km",                      "kind": "Open Water",     "tag": "Endurance" },
-      "swim5k":   { "name": "Pool / Open Water 5 km",               "kind": "Long Distance",  "tag": "Marathon Swim" }
+      "test1500": {
+        "name": "1500m Test",
+        "kind": "Pool · 25m/50m",
+        "tag": "Benchmark"
+      },
+      "ow1500": {
+        "name": "Open Water 1500m",
+        "kind": "Open Water",
+        "tag": "Open Water"
+      },
+      "tri750": {
+        "name": "Sprint Triathlon (Swim 750m)",
+        "kind": "Tri Leg",
+        "tag": "Triathlon"
+      },
+      "tri1500": {
+        "name": "Olympic Triathlon (Swim 1.5km)",
+        "kind": "Tri Leg",
+        "tag": "Triathlon"
+      },
+      "ow3000": {
+        "name": "Open Water 3 km",
+        "kind": "Open Water",
+        "tag": "Endurance"
+      },
+      "swim5k": {
+        "name": "Pool / Open Water 5 km",
+        "kind": "Long Distance",
+        "tag": "Marathon Swim"
+      }
     }
   },
   "decision": {
@@ -753,7 +816,7 @@
     },
     "extraSessions": "There are {{count}} more sessions today. Review each one in Plan.",
     "reasonTitle": "Why this changed",
-    "reasonFallback": "Reflects current load and recovery signals",
+    "reasonFallback": "Based on recent training load",
     "reason": {
       "classification_high_load": "Your recent training load is high",
       "high_load": "Your recent training load is high",
@@ -762,7 +825,11 @@
       "high_load_plan_reduction": "Weekly load is reduced toward a safer range",
       "form_gate_before_intensity": "Check form before another hard session",
       "readiness_recheck_required": "Current recovery signals need another check",
-      "threshold_stale": "Your threshold needs a current check"
+      "threshold_stale": "Your threshold needs a current check",
+      "load_supports_plan": "Recent training load supports following the plan",
+      "no_planned_workout": "No session is planned for this day",
+      "follow_planned_rest": "This is a planned rest day",
+      "availability_day_cap": "Trimmed to the time available on this day"
     },
     "viewPlan": "View in Plan",
     "viewCalendar": "View plan calendar",
@@ -788,8 +855,14 @@
       "applied-plan": "Applied"
     },
     "workout": {
-      "rest": "Rest", "recovery": "Recovery", "planned": "Scheduled session", "z2": "Z2 endurance",
-      "tempo": "Tempo", "sweet_spot": "Sweet spot", "threshold": "Threshold", "vo2max": "VO₂max"
+      "rest": "Rest",
+      "recovery": "Recovery",
+      "planned": "Scheduled session",
+      "z2": "Z2 endurance",
+      "tempo": "Tempo",
+      "sweet_spot": "Sweet spot",
+      "threshold": "Threshold",
+      "vo2max": "VO₂max"
     },
     "proposal": {
       "title": "Review plan change",
@@ -850,8 +923,31 @@
         "completed": "The outcome for this session is recorded.",
         "error": "The execution state could not be saved. Try again."
       },
-      "state": { "reserved": "Ready to start", "started": "In progress", "linked": "Activity linked", "invalidated": "Link invalidated" },
-      "outcome": { "pending": "Awaiting result", "completed": "Completed", "partial": "Partially completed", "skipped": "Skipped", "postponed": "Postponed" }
-    }
+      "state": {
+        "reserved": "Ready to start",
+        "started": "In progress",
+        "linked": "Activity linked",
+        "invalidated": "Link invalidated"
+      },
+      "outcome": {
+        "pending": "Awaiting result",
+        "completed": "Completed",
+        "partial": "Partially completed",
+        "skipped": "Skipped",
+        "postponed": "Postponed"
+      }
+    },
+    "confidence": {
+      "lowTitle": "Some inputs are missing",
+      "lowBody": "We could not confirm the items below, so today's call is low confidence. Treat it as a reference.",
+      "signal": {
+        "load_history_short": "Training history is still short",
+        "load_history_gaps": "Training history has gaps",
+        "load_data_stale": "Load data is not up to date",
+        "load_data_unavailable": "Load data could not be loaded",
+        "current_week_activities_missing": "No activities recorded this week"
+      }
+    },
+    "reasonTitlePlain": "Why this call"
   }
 }

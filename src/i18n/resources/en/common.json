@@ -144,7 +144,8 @@
     "tri": "Multi",
     "bike": "Cycling",
     "run": "Running",
-    "swim": "Swimming"
+    "swim": "Swimming",
+    "other": "Other"
   },
   "unit": {
     "km": "km",

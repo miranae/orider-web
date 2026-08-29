@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Activity } from "@shared/types";
-import { dashboardDecisionDiscipline, dashboardPlanDiscipline, filterFeedActivities, normalizeDashboardDiscipline } from "./DashboardPage";
+import { dashboardPlanDiscipline, filterFeedActivities, normalizeDashboardDiscipline } from "./DashboardPage";
 
 function activity(id: string, userId: string): Activity {
   return {
@@ -78,33 +78,12 @@ describe("normalizeDashboardDiscipline", () => {
     expect(dashboardPlanDiscipline(value)).toBe(expected);
   });
 
-  it.each([
-    ["run", "bike", "run"],
-    [null, "swim", "swim"],
-    [null, "tri", "bike"],
-    ["tri", "run", "run"],
-    [null, undefined, "bike"],
-  ] as const)("resolves URL %s and primary %s to authoritative Home discipline %s", (value, primary, expected) => {
-    expect(dashboardDecisionDiscipline(value, primary)).toBe(expected);
-  });
 });
 
 describe("desktop dashboard information hierarchy", () => {
-  it("replaces the workout and coach panels with the authoritative decision before running informational cards", () => {
+  it("keeps Home focused on activity and informational cards without a workout decision", () => {
     const source = readFileSync(join(process.cwd(), "src/pages/DashboardPage.tsx"), "utf8");
-    const mobileBranch = source.indexOf("if (isMobile)");
-    const decision = source.indexOf("<TodayTrainingDecisionCard", mobileBranch);
-    const recap = source.indexOf("<WeeklyRecapCard", mobileBranch);
-    const threshold = source.indexOf("<ThresholdPaceNudge", mobileBranch);
-    const shoe = source.indexOf("<ShoeReplacementBadge", mobileBranch);
-    const crossTraining = source.indexOf("<CrossDisciplineLoadCard", mobileBranch);
-
-    expect(mobileBranch).toBeGreaterThan(-1);
-    expect(decision).toBeGreaterThan(mobileBranch);
-    expect(decision).toBeLessThan(recap);
-    expect(decision).toBeLessThan(threshold);
-    expect(decision).toBeLessThan(shoe);
-    expect(decision).toBeLessThan(crossTraining);
+    expect(source).not.toContain("TodayTrainingDecisionCard");
     expect(source).not.toContain("TodaysWorkoutCard");
     expect(source).not.toContain("CoachQuestionLauncher");
   });

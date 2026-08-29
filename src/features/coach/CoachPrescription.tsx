@@ -17,7 +17,14 @@ import type {
 } from "../../services/coachPrescriptionContract";
 
 interface Props { initial: CoachPrescriptionDTO; parentRequestId: string; locale: string; onReanalyze: () => void;
-  onQuestionSelect?: (question: string, prescriptionId: string, sourceRequestId: string) => void; readOnly?: boolean }
+  onQuestionSelect?: (question: string, prescriptionId: string, sourceRequestId: string) => void; readOnly?: boolean;
+  /**
+   * 사용자가 "오늘은 다릅니다" 로 직접 입력을 택했는지. 이 의사는 새 분석에서도 살아 있어야
+   * 하는데 이 컴포넌트는 requestId 로 키가 걸려 리마운트되므로, 상위(런처)가 소유한다.
+   */
+  manualCheckIn?: boolean;
+  /** 직접 입력을 시작한다. 상위가 의사를 기억하고 같은 질문을 다시 보낸다. */
+  onManualCheckIn?: () => void }
 type Answers = CoachPrescriptionCheckInRequest["answers"];
 type SubmitState = "idle" | "submitting" | "network_error" | "reanalyze" | "error";
 
@@ -352,6 +359,14 @@ function PrescriptionDetails({ prescription, locale, sourceRequestId, capabiliti
   </section>;
 }
 
+/**
+ * 평소 상태. 매주 같은 세 문항을 되묻지 않고 이 값으로 자동 확인한다. 사용자는 컨디션이
+ * 다를 때만 "오늘은 다릅니다" 로 직접 입력한다.
+ */
+const DEFAULT_CHECK_IN_ANSWERS: Answers = {
+  subjectiveFatigue: "normal", soreness: "none", painOrIllness: false,
+};
+
 function Signal({ signal, answers, onChange }: { signal: CoachCheckInSignal; answers: Answers; onChange: (answers: Answers) => void }) {
   const { t } = useTranslation("coach");
   const options = signal === "subjective_fatigue" ? [["normal", "normal"], ["tired", "tired"]] as const
@@ -367,7 +382,8 @@ function Signal({ signal, answers, onChange }: { signal: CoachCheckInSignal; ans
   </fieldset>;
 }
 
-export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect, readOnly = false }: Props) {
+export function CoachPrescription({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect, readOnly = false,
+  manualCheckIn = false, onManualCheckIn }: Props) {
   const { t } = useTranslation("coach");
   const [prescription, setPrescription] = useState(initial);
   const [answers, setAnswers] = useState<Answers>({});
@@ -375,6 +391,7 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   const [sourceRequestId, setSourceRequestId] = useState(parentRequestId);
   const [capabilities, setCapabilities] = useState<CoachProgressPlannerCapabilities | null>(null);
   const [capabilityFailed, setCapabilityFailed] = useState(false);
+  const [assumedDefaults, setAssumedDefaults] = useState(false);
   const requestRef = useRef<CoachPrescriptionCheckInRequest | null>(null);
   const inFlightRef = useRef(false);
   const required = prescription.requiredSignals ?? [];
@@ -395,10 +412,25 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
     return () => { active = false; };
   }, [readOnly]);
 
-  async function submit(retry = false) {
-    if (inFlightRef.current || prescription.status !== "needs_checkin" || !prescription.checkInToken || !complete) return;
+  // 묻지 않고 평소 기준으로 한 번만 자동 확인한다. 체크인 제출은 AI 호출 0회·사용량 0이라
+  // 비용이 없다. 실패하면 아래 직접 입력 폼이 그대로 나타나므로 사용자가 손으로 넣을 수 있다.
+  const autoRef = useRef(false);
+  useEffect(() => {
+    if (readOnly || autoRef.current || manualCheckIn) return;
+    if (prescription.status !== "needs_checkin" || !prescription.checkInToken) return;
+    if (!checkInEnabled) return;
+    autoRef.current = true;
+    setAnswers(DEFAULT_CHECK_IN_ANSWERS);
+    setAssumedDefaults(true);
+    void submit(false, DEFAULT_CHECK_IN_ANSWERS);
+  }, [prescription.status, prescription.checkInToken, checkInEnabled, readOnly, manualCheckIn]);
+
+  async function submit(retry = false, override?: Answers) {
+    const payload = override ?? answers;
+    const ready = override !== undefined || complete;
+    if (inFlightRef.current || prescription.status !== "needs_checkin" || !prescription.checkInToken || !ready) return;
     const request = retry && requestRef.current ? requestRef.current : {
-      requestId: crypto.randomUUID(), parentRequestId, checkInToken: prescription.checkInToken, answers,
+      requestId: crypto.randomUUID(), parentRequestId, checkInToken: prescription.checkInToken, answers: payload,
     };
     requestRef.current = request; inFlightRef.current = true; setState("submitting");
     try {
@@ -412,6 +444,10 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   }
 
   if (prescription.status === "ready") return <>
+    {assumedDefaults && !readOnly && <div className="coach-checkin__assumed">
+      <Text as="p" variant="caption" tone="secondary">{t("prescription.checkin.assumedDefaults")}</Text>
+      {onManualCheckIn && <Button variant="ghost" onClick={onManualCheckIn}>{t("prescription.checkin.adjust")}</Button>}
+    </div>}
     <PrescriptionDetails prescription={prescription} locale={locale} sourceRequestId={sourceRequestId}
       capabilities={capabilities} progressPlannerEnabled={!readOnly && locallyEnabled} onReanalyze={onReanalyze}
       onQuestionSelect={readOnly ? undefined : onQuestionSelect} />
@@ -422,13 +458,16 @@ export function CoachPrescription({ initial, parentRequestId, locale, onReanalyz
   </section>;
   if (prescription.status === "insufficient_data") return <section className="coach-prescription" role="status">
     <Text as="h3" variant="subtitle">{t("prescription.insufficient.title")}</Text><p>{t("prescription.insufficient.body")}</p>
-    {prescription.missingSignals.length > 0 && <ul>{prescription.missingSignals.map((item) => <li key={item}>{item}</li>)}</ul>}
+    {prescription.missingSignals.length > 0 && <ul>{prescription.missingSignals.map((item) => <li key={item}>{t(`prescription.signal.${item}`, { defaultValue: item })}</li>)}</ul>}
     {!readOnly && <Button variant="outline" onClick={onReanalyze}>{t("prescription.existingPlan")}</Button>}
   </section>;
   if (readOnly) return <section className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
     <Text id={`checkin-${prescription.prescriptionId}`} as="h3" variant="subtitle">{t("prescription.checkin.title")}</Text>
     <p>{t("prescription.checkin.body")}</p>
     <Text as="p" variant="caption" tone="secondary">{t("history.readOnlyPrescription")}</Text>
+  </section>;
+  if (assumedDefaults && state === "submitting") return <section className="coach-prescription coach-checkin" role="status">
+    <Text as="p" variant="bodySmall" tone="secondary">{t("prescription.checkin.assuming")}</Text>
   </section>;
   return <section className="coach-prescription coach-checkin" aria-labelledby={`checkin-${prescription.prescriptionId}`}>
     <Text id={`checkin-${prescription.prescriptionId}`} as="h3" variant="subtitle">{t("prescription.checkin.title")}</Text>

@@ -30,7 +30,6 @@ import {
   executeFirestoreSessionRecovery,
   firestoreRecoveryLogContext,
   prepareFirestoreSessionRecovery,
-  shouldAbortForFirestoreRecovery,
 } from "../utils/firestoreSessionRecovery";
 
 export type DatePreset = "all" | "7d" | "30d" | "90d" | "year";
@@ -44,10 +43,40 @@ const FEED_PAGE_SIZE = 10;
 // 나머지 첫 페이지는 백그라운드에서 이어 붙인다.
 const FIRST_FEED_CHUNK_SIZE = 3;
 const FEED_LOAD_RETRY_DELAYS_MS = [600, 1600] as const;
+const FEED_LOAD_TIMEOUT_MS = 12_000;
 // 친구 피드는 userId(in)의 각 후보마다 rules의 양방향 친구 exists() 검사를 수행한다.
 // 단일 쿼리의 rules 문서 접근 호출 한도(10)를 넘지 않도록 10명씩 나눈다. visibility(in)
 // 두 값과 곱해진 DNF 분기도 20개라 Firestore의 30-disjunction 한도 안에 남는다.
 const FRIEND_QUERY_CHUNK_SIZE = 10;
+
+class ActivityFeedTimeoutError extends Error {
+  constructor() {
+    super("activity-feed-timeout");
+    this.name = "ActivityFeedTimeoutError";
+  }
+}
+
+function isActivityFeedTimeoutError(error: unknown): error is ActivityFeedTimeoutError {
+  return error instanceof ActivityFeedTimeoutError;
+}
+
+function withActivityFeedTimeout<T>(request: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      reject(new ActivityFeedTimeoutError());
+    }, FEED_LOAD_TIMEOUT_MS);
+    request.then(
+      (value) => {
+        globalThis.clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (error) => {
+        globalThis.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  });
+}
 
 function handleActivityFeedError(
   source: string,
@@ -60,7 +89,16 @@ function handleActivityFeedError(
     ...firestoreRecoveryLogContext(recovery),
   });
   if (recovery.action === "reload-ready") executeFirestoreSessionRecovery(recovery);
-  return shouldAbortForFirestoreRecovery(recovery);
+  // 이미 한 번 reload했거나 sessionStorage를 사용할 수 없어도 fatal signature가
+  // 확인된 AsyncQueue에서 재시도하면 같은 assertion만 증폭된다.
+  return recovery.kind !== null;
+}
+
+function logActivityFeedTimeout(source: string, context?: Record<string, unknown>): void {
+  logClientError(source, new ActivityFeedTimeoutError(), {
+    ...context,
+    timeoutMs: FEED_LOAD_TIMEOUT_MS,
+  });
 }
 
 export type ActivityFeedScope = "all" | "friends" | "self";
@@ -112,12 +150,14 @@ function chunkFriendIds(friendIds: readonly string[]): string[][] {
   return chunks;
 }
 
-function activityCreatedAt(item: BufferedActivity): number {
-  const createdAt = item.doc.data().createdAt;
-  if (typeof createdAt === "number") return createdAt;
-  if (createdAt && typeof createdAt === "object" && "toMillis" in createdAt) {
-    return (createdAt as { toMillis: () => number }).toMillis();
-  }
+/**
+ * 피드 정렬키 — **실제 운동 시각**(startTime). 업로드 시각(createdAt)으로 정렬하면
+ * 지난 라이딩을 나중에 올리거나 Strava 동기화·앱 재업로드가 끼는 순간 오래된 활동이
+ * 맨 위로 올라와, 카드에 찍힌 날짜와 목록 순서가 어긋난다.
+ * 소스 쿼리의 orderBy 와 반드시 같은 키를 써야 한다 — 커서 페이지네이션이 소스별
+ * 쿼리 순서와 이 비교자의 병합 순서가 일치한다는 전제로 동작한다.
+ */
+function activitySortTime(item: BufferedActivity): number {
   return item.activity.startTime;
 }
 
@@ -182,10 +222,19 @@ export function useActivities(
   ]);
   const feedRequestKeyRef = useRef(feedRequestKey);
   const feedRequestGenerationRef = useRef(0);
+  const mountedRef = useRef(true);
   if (feedRequestKeyRef.current !== feedRequestKey) {
     feedRequestKeyRef.current = feedRequestKey;
     feedRequestGenerationRef.current += 1;
   }
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      feedRequestGenerationRef.current += 1;
+    };
+  }, []);
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -283,7 +332,12 @@ export function useActivities(
       // 소스의 오래된 항목을 먼저 내보내면 다음 페이지에 더 최신 항목이 나타날 수 있다.
       while (nextSource.buffer.length < pageSize && !nextSource.exhausted) {
         const constraints = [
-          orderBy("createdAt", "desc"),
+          // 정렬키를 바꿀 때는 위 activitySortTime 과 인덱스를 함께 확인할 것.
+          // 인덱스(orider-g1-web `firestore/firestore.indexes.json`):
+          //   본인   `deletedAt, userId, startTime DESC`
+          //   공개   `deletedAt, visibility, startTime DESC`
+          //   친구   `userId, deletedAt, visibility, startTime DESC` (#2362 로 추가)
+          orderBy("startTime", "desc"),
           limit(pageSize),
           ...(nextSource.last ? [startAfter(nextSource.last)] : []),
         ];
@@ -305,10 +359,10 @@ export function useActivities(
 
     const merged = sources
       .flatMap((source, sourceIndex) => source.buffer.map((item) => ({ item, sourceIndex })))
-      // 같은 createdAt에서는 각 Firestore 쿼리가 돌려준 순서를 유지한다. Array#sort의
+      // 같은 startTime에서는 각 Firestore 쿼리가 돌려준 순서를 유지한다. Array#sort의
       // stable ordering 덕분에 단일 소스는 원래 쿼리 순서가 바뀌지 않고, 여러 친구
       // 소스도 임의의 activity id 정렬로 카드가 재배치되지 않는다.
-      .sort((left, right) => activityCreatedAt(right.item) - activityCreatedAt(left.item));
+      .sort((left, right) => activitySortTime(right.item) - activitySortTime(left.item));
     const selected = merged.slice(0, pageSize);
     const consumedBySource = new Map<number, Set<string>>();
     selected.forEach(({ item, sourceIndex }) => {
@@ -346,7 +400,10 @@ export function useActivities(
     const existing = activityPageRequests.get(key);
     if (existing) return existing;
 
-    const request = fetchPageRequest(uid, cursor, pageSize);
+    // Firestore의 poisoned AsyncQueue는 getDocs Promise를 resolve/reject하지 않은 채
+    // 남길 수 있다. 공유 Map에는 deadline이 적용된 Promise를 저장해 timeout 뒤 반드시
+    // 제거하고, 이후 auth generation이 같은 멈춘 요청에 다시 합류하지 않게 한다.
+    const request = withActivityFeedTimeout(fetchPageRequest(uid, cursor, pageSize));
     activityPageRequests.set(key, request);
     void request.finally(() => {
       if (activityPageRequests.get(key) === request) activityPageRequests.delete(key);
@@ -382,6 +439,14 @@ export function useActivities(
         try {
           return await fetchPage(user?.uid ?? null, cursor, pageSize);
         } catch (retryErr) {
+          if (cancelled) return null;
+          if (isActivityFeedTimeoutError(retryErr)) {
+            logActivityFeedTimeout("useActivities.initialLoad.timeout", {
+              context,
+              scope,
+            });
+            return null;
+          }
           const recoveryAborted = handleActivityFeedError("useActivities.initialLoad.retry", retryErr, {
             context,
             delayMs,
@@ -410,15 +475,33 @@ export function useActivities(
       try {
         first = await fetchPage(user?.uid ?? null, null, FIRST_FEED_CHUNK_SIZE);
       } catch (err) {
+        if (cancelled) return;
+        if (isActivityFeedTimeoutError(err)) {
+          logActivityFeedTimeout("useActivities.initialLoad.timeout", {
+            context: "first",
+            scope,
+          });
+          if (!cancelled) {
+            setHasMore(false);
+            setLoading(false);
+          }
+          return;
+        }
         if (handleActivityFeedError("useActivities.initialLoad.first", err, { scope })) {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) {
+            setHasMore(false);
+            setLoading(false);
+          }
           return;
         }
         first = await retryFetchPage(null, FIRST_FEED_CHUNK_SIZE, "first");
       }
 
       try {
-        if (!first) return;
+        if (!first) {
+          if (!cancelled) setHasMore(false);
+          return;
+        }
         if (cancelled) return;
         setActivities(first.items);
         setFeedCursor(first.cursor);
@@ -432,6 +515,15 @@ export function useActivities(
         try {
           rest = await fetchPage(user?.uid ?? null, first.cursor, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE);
         } catch (err) {
+          if (cancelled) return;
+          if (isActivityFeedTimeoutError(err)) {
+            logActivityFeedTimeout("useActivities.initialLoad.timeout", {
+              context: "rest",
+              scope,
+            });
+            setHasMore(false);
+            return;
+          }
           if (handleActivityFeedError("useActivities.initialLoad.rest", err, { scope })) return;
           rest = await retryFetchPage(first.cursor, FEED_PAGE_SIZE - FIRST_FEED_CHUNK_SIZE, "rest");
         }
@@ -457,19 +549,30 @@ export function useActivities(
     if (!enabled || !feedCursor || loadingMore) return;
     const requestKey = feedRequestKey;
     const requestGeneration = feedRequestGenerationRef.current;
+    const isCurrentRequest = () => (
+      mountedRef.current
+      && feedRequestKeyRef.current === requestKey
+      && feedRequestGenerationRef.current === requestGeneration
+    );
     setLoadingMore(true);
     try {
       const result = await fetchPage(user?.uid ?? null, feedCursor);
       // 필터/사용자/친구 목록이 바뀐 동안 끝난 이전 요청은 새 피드에 섞지 않는다.
       // A→B→A처럼 키가 되돌아와도 단조 증가 generation으로 옛 A 요청을 구분한다.
-      if (feedRequestKeyRef.current !== requestKey || feedRequestGenerationRef.current !== requestGeneration) return;
+      if (!isCurrentRequest()) return;
       setActivities((prev) => [...prev, ...result.items]);
       setFeedCursor(result.cursor);
       setHasMore(result.hasMore);
     } catch (err) {
-      handleActivityFeedError("useActivities.loadMore", err, { scope });
+      if (!isCurrentRequest()) return;
+      if (isActivityFeedTimeoutError(err)) {
+        logActivityFeedTimeout("useActivities.loadMore.timeout", { scope });
+        setHasMore(false);
+      } else {
+        handleActivityFeedError("useActivities.loadMore", err, { scope });
+      }
     } finally {
-      if (feedRequestKeyRef.current === requestKey && feedRequestGenerationRef.current === requestGeneration) {
+      if (isCurrentRequest()) {
         setLoadingMore(false);
       }
     }

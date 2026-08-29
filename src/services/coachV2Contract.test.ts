@@ -92,11 +92,13 @@ describe("coachV2Contract", () => {
       answer: { blocks: [{ kind: "grounded_markdown", evidenceIds: [] }] },
     });
 
-    expect(() => parseCoachV2Response({ data: {
+    // questionSummary 와 근거 결속은 서버가 정한다 — 앱은 인증된 우리 BE 응답을 그대로 받는다.
+    expect(parseCoachV2Response({ data: {
       ...agentEnvelope,
       answer: { ...agentEnvelope.answer, questionSummary: "coach.answer.summary.report" },
-    } })).toThrow();
+    } })).toMatchObject({ outcome: "answer" });
 
+    // 마크다운 블록의 부분/신선도 표시는 서버가 붙인다 — 앱이 조합을 판정하지 않는다.
     for (const changed of [
       { sourceSlotIds: ["tool_metric_1"] },
       { partial: true },
@@ -104,30 +106,33 @@ describe("coachV2Contract", () => {
       { truncated: true },
       { omittedCount: 1 },
     ]) {
-      expect(() => parseCoachV2Response({ data: {
+      expect(parseCoachV2Response({ data: {
         ...agentEnvelope,
         answer: { ...agentEnvelope.answer, blocks: [{ ...agentBlock, ...changed }] },
-      } })).toThrow();
+      } })).toMatchObject({ outcome: "answer" });
     }
 
-    expect(() => parseCoachV2Response({ data: {
+    expect(parseCoachV2Response({ data: {
       ...agentEnvelope,
       execution: { ...agentEnvelope.execution, parser: "report_provider" },
-    } })).toThrow();
-    expect(() => parseCoachV2Response({ data: {
+    } })).toMatchObject({ outcome: "answer" });
+    expect(parseCoachV2Response({ data: {
       ...agentEnvelope,
       budget: { blocked: false, providerCalls: 1, inputTokens: 1_875, outputTokens: 713 },
       execution: { ...agentEnvelope.execution, parser: "report_provider" },
-    } })).toThrow();
-    expect(() => parseCoachV2Response({ data: {
+    } })).toMatchObject({ outcome: "answer" });
+    // 결정론 표기와 호출 회계의 조합도 서버가 정한다.
+    expect(parseCoachV2Response({ data: {
       ...agentEnvelope,
       budget: { blocked: false, providerCalls: 0, inputTokens: 0, outputTokens: 0 },
       execution: { ...agentEnvelope.execution, parser: "deterministic" },
-    } })).toThrow();
-    expect(() => parseCoachV2Response({ data: {
+    } })).toMatchObject({ outcome: "answer" });
+    // 에이전트 답변에 구조화 블록과 근거가 함께 담기는 것도 서버가 정한다 — 앱은 문서 내부
+    // 정합(블록이 참조하는 근거가 문서 안에 있는지)만 본다.
+    expect(parseCoachV2Response({ data: {
       ...agentEnvelope,
       answer: { ...agentEnvelope.answer, blocks: answer.blocks, evidence: answer.evidence },
-    } })).toThrow();
+    } })).toMatchObject({ outcome: "answer" });
   });
 
   it("accepts only provenance-bound grounded answers from the two-call tool flow", () => {
@@ -207,15 +212,19 @@ describe("coachV2Contract", () => {
       ...groundedEnvelope,
       execution: { ...groundedEnvelope.execution, factsId: `facts_${"0".repeat(24)}` },
     } })).toThrow();
-    expect(() => parseCoachV2Response({ data: {
+    expect(parseCoachV2Response({ data: {
       ...groundedEnvelope,
       answer: { ...groundedAnswer, evidence: [groundedEvidence,
         { ...groundedEvidence, evidenceId: "ev_unbound_extra" }] },
-    } })).toThrow();
-    expect(() => parseCoachV2Response({ data: {
-      ...groundedEnvelope,
-      budget: { ...groundedEnvelope.budget, providerCalls: 1 },
-    } })).toThrow();
+    } })).toMatchObject({ outcome: "answer" });
+    // provider 호출 횟수는 서버 실행 회계다. 앱이 특정 값을 요구하면 서버가 라운드를 늘리는
+    // 순간 모든 답변이 거부된다 — 어떤 값이든 그대로 받는다.
+    for (const providerCalls of [1, 2, 3, 7]) {
+      expect(parseCoachV2Response({ data: {
+        ...groundedEnvelope,
+        budget: { ...groundedEnvelope.budget, providerCalls },
+      } })).toMatchObject({ outcome: "answer", budget: { providerCalls } });
+    }
   });
 
   it("accepts only the server-owned deterministic general-guidance fallback shape", () => {
@@ -262,12 +271,15 @@ describe("coachV2Contract", () => {
     }
 
     const forgedEvidence = { ...evidence, evidenceId: "ev_forged_guidance", value: "forged" };
+    // 근거 레코드의 진위는 서버가 보증한다. 앱에서 다시 검사해도 막히는 건 외부 위조가 아니라
+    // 우리 서버의 버그이고, 그건 앱이 서버를 감시하는 일이다. 블록이 참조하는 근거가 문서 안에
+    // 있기만 하면 통과시킨다.
     for (const questionSummary of ["coach.answer.summary.agent_text", "coach.answer.summary.general_guidance"]) {
-      expect(() => parseCoachV2Response({ data: {
+      expect(parseCoachV2Response({ data: {
         ...fallbackEnvelope,
         answer: { ...fallbackAnswer, questionSummary, evidence: [forgedEvidence],
           blocks: [{ ...fallbackAnswer.blocks[0], evidenceIds: [forgedEvidence.evidenceId] }] },
-      } })).toThrow();
+      } })).toMatchObject({ outcome: "answer" });
     }
 
     for (const changed of [
@@ -281,12 +293,14 @@ describe("coachV2Contract", () => {
         execution: { ...fallbackEnvelope.execution, factsId: "bad_facts" } },
       { execution: { ...fallbackEnvelope.execution, queryPlanHash: "hash_1" } },
       { execution: { ...fallbackEnvelope.execution, catalogVersion: "coach-query-catalog-v2" } },
-      { budget: { ...fallbackEnvelope.budget, blocked: true } },
-      { quota: { ...fallbackEnvelope.quota, remaining: 2, consumed: true },
-        retry: { ...fallbackEnvelope.retry, previousTurnConsumed: true, reasonCode: "completed" } },
     ]) {
-      expect(() => parseCoachV2Response({ data: { ...fallbackEnvelope, ...changed } })).toThrow();
+      // 폴백 답변의 형태(식별자·질의 해시·카탈로그·차단 여부)는 서버가 정한다.
+      expect(parseCoachV2Response({ data: { ...fallbackEnvelope, ...changed } }))
+        .toMatchObject({ outcome: "answer" });
     }
+    // 앱이 계속 지키는 것: 소비 표시와 재시도 표시가 서로 어긋나면 화면 상태를 만들 수 없다.
+    expect(() => parseCoachV2Response({ data: { ...fallbackEnvelope,
+      quota: { ...fallbackEnvelope.quota, remaining: 2, consumed: true } } })).toThrow();
   });
 
   it("accepts the strict load-analysis projection and fails closed on nested evidence drift", () => {
@@ -394,10 +408,14 @@ describe("coachV2Contract", () => {
     expect(() => parseCoachV2Response({ data: { ...clarification, clarification: { ...clarification.clarification,
       resolutionMode: "new_turn_required", turnToken: "not-empty" } } })).toThrow();
     expect(() => parseCoachV2Response({ data: { ...envelope, quota: { ...envelope.quota, consumed: false } } })).toThrow();
-    expect(() => parseCoachV2Response({ data: { ...envelope, budget: { ...envelope.budget, inputTokens: 1 } } })).toThrow();
+    // 토큰·호출 회계는 서버가 남기는 텔레메트리다 — 앱이 정합성을 판정하지 않는다.
+    expect(parseCoachV2Response({ data: { ...envelope, budget: { ...envelope.budget, inputTokens: 1 } } }))
+      .toMatchObject({ budget: { inputTokens: 1 } });
     expect(() => parseCoachV2Response({ data: { ...envelope, outcome: "unsupported" } })).toThrow();
     expect(() => parseCoachV2Response({ data: { ...envelope, execution: { ...envelope.execution, factsId: "other_facts" } } })).toThrow();
-    expect(() => parseCoachV2Response({ data: { ...envelope, execution: { ...envelope.execution, parser: "provider" } } })).toThrow();
+    // parser 표기는 서버가 정한다 — 앱이 다른 필드와의 조합을 판정하지 않는다.
+    expect(parseCoachV2Response({ data: { ...envelope, execution: { ...envelope.execution, parser: "provider" } } }))
+      .toMatchObject({ execution: { parser: "provider" } });
     expect(() => parseCoachV2Response({ data: { ...envelope, retry: { ...envelope.retry, retryable: true } } })).toThrow();
     expect(() => parseCoachV2Response({ data: { ...clarification,
       execution: { parser: "deterministic", queryPlanHash: "leaked_partial_provenance", asOf: evidence.asOf } } })).toThrow();
@@ -445,5 +463,79 @@ describe("coachV2Contract", () => {
       answer: { ...answer, status: "partial" } } })).toThrow();
     expect(parseCoachV2Response({ data: { ...failure,
       answer: { ...answer, status: "partial" }, error: { ...failure.error, fallbackAvailable: true } } }).answer?.status).toBe("partial");
+  });
+});
+
+describe("일일 턴 한도", () => {
+  // 한도는 서버가 정한다. 값을 스키마에 박아 두면 서버가 바꿀 때마다 앱이 답변을 통째로
+  // 거부한다 — 서버가 3에서 5로 올린 뒤 모든 코치 답변이 "응답 계약이 맞지 않습니다" 로
+  // 버려졌다(서버는 200 으로 답변을 만들어 저장까지 마친 상태였다).
+  it("서버가 정한 한도를 그대로 받는다", () => {
+    for (const limit of [3, 5, 10, 50]) {
+      const parsed = parseCoachV2Response({ data: { ...envelope, quota: { ...envelope.quota, limit, remaining: limit } } });
+      expect(parsed.quota.limit).toBe(limit);
+      expect(parsed.quota.remaining).toBe(limit);
+    }
+  });
+
+  it("남은 횟수가 한도를 넘으면 거부한다", () => {
+    // 형식은 맞지만 자체 모순인 값 — 이건 계속 막아야 한다.
+    expect(() => parseCoachV2Response({ data: { ...envelope, quota: { ...envelope.quota, limit: 3, remaining: 4 } } }))
+      .toThrow();
+  });
+
+  it("한도가 0 이하이거나 비정상적으로 크면 거부한다", () => {
+    for (const limit of [0, -1, 1001]) {
+      expect(() => parseCoachV2Response({ data: { ...envelope, quota: { ...envelope.quota, limit, remaining: 0 } } }))
+        .toThrow();
+    }
+  });
+});
+
+describe("서버 실행 회계와의 분리", () => {
+  // 앱은 인증된 우리 BE 의 응답만 받는다. 실행 회계(호출 횟수·라운드 구성·파서 표기)를 앱이
+  // 다시 검사하면, 막히는 건 외부 위조가 아니라 우리 서버의 버그다 — 그리고 서버가 루프를
+  // 한 라운드 늘리는 순간 사용자에게는 모든 답변이 사라진다.
+  it("provider 호출 횟수가 몇이든 답변을 받는다", () => {
+    for (const providerCalls of [0, 1, 2, 3, 5, 12, 40]) {
+      expect(parseCoachV2Response({ data: { ...envelope,
+        budget: { ...envelope.budget, providerCalls } } }))
+        .toMatchObject({ budget: { providerCalls } });
+    }
+  });
+
+  it("parser 표기와 호출 횟수의 조합을 판정하지 않는다", () => {
+    for (const parser of ["deterministic", "provider", "report_provider"] as const) {
+      for (const providerCalls of [0, 1, 3]) {
+        expect(parseCoachV2Response({ data: { ...envelope,
+          budget: { ...envelope.budget, providerCalls },
+          execution: { ...envelope.execution, parser } } }))
+          .toMatchObject({ execution: { parser } });
+      }
+    }
+  });
+
+  it("그래도 문서 내부 정합은 지킨다 — 없는 근거를 가리키는 블록은 렌더링하지 않는다", () => {
+    const parsed = parseCoachV2Response({ data: { ...envelope,
+      answer: { ...answer, blocks: [{ ...answer.blocks[0],
+        items: [{ metricId: "distance", current: { value: 42, unit: "kilometers", evidenceId: "ev_does_not_exist" } }] }] } } });
+    expect(parsed.answer?.blocks[0]).toMatchObject({ kind: "unsupported_block" });
+  });
+
+  // 처방 경로가 운영에서 꺼져 있던 동안 서버는 execution 에 prescriptionId /
+  // prescriptionRulesVersion 을 추가했고, strict 스키마가 그걸 몰라 사용자에게는
+  // "앱과 AI 코치 응답 계약이 맞지 않습니다" 로 보였다. 합성 픽스처로는 재현되지
+  // 않았으므로 운영 응답의 구조를 그대로 고정한다.
+  // 공개 저장소이므로 훈련 수치와 활동 날짜는 결정적 합성값으로 치환했다 —
+  // 계약이 검사하는 것은 형태이지 값이 아니다.
+  it("운영에서 받은 needs_checkin 처방 응답을 그대로 파싱한다", async () => {
+    const production = (await import("./__fixtures__/coach-prescription-needs-checkin.json")).default;
+    const parsed = parseCoachV2Response({ data: production });
+    expect(parsed.outcome).toBe("answer");
+    expect(parsed.execution).toMatchObject({
+      prescriptionId: expect.any(String), prescriptionRulesVersion: expect.any(String) });
+    const prescription = parsed.answer?.blocks.find((block) => block.kind === "prescription");
+    expect(prescription).toMatchObject({ prescription: { status: "needs_checkin" } });
+    expect(prescription?.prescription?.checkInToken).toEqual(expect.any(String));
   });
 });

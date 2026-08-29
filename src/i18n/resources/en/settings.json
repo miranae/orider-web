@@ -883,6 +883,9 @@
     "maxHrLabel": "Max HR",
     "dismiss": "Dismiss",
     "acceptAll": "Accept all",
+    "acceptHeartRate": "Apply heart-rate thresholds only",
+    "reviewFtpInFitness": "Review FTP in Fitness",
+    "checkingFtpDecision": "Checking the FTP decision…",
     "acceptSuccess": "Thresholds updated",
     "acceptFailed": "Failed to apply — please try again"
   },

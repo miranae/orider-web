@@ -232,6 +232,9 @@ export default function ActivityCard({
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
   const s = activity.summary ?? EMPTY_ACTIVITY_SUMMARY;
+  const nickname = typeof activity.nickname === "string" && activity.nickname.trim()
+    ? activity.nickname
+    : tCommon("label.rider");
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const { units } = useLocale();
   const { getStreams } = useStrava();
@@ -281,7 +284,7 @@ export default function ActivityCard({
              *  DisciplineBadge 가 [Bike 아이콘 + "사이클"] 을 자체 포함하므로 옆에 🚴 emoji 추가하면
              *  같은 정보 중복 — emoji 생략. */
             <div className="flex items-center gap-2 flex-wrap text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
-              <DisciplineBadge discipline={getDiscipline(activity.type)} />
+              {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} />}
               <span>{timeAgo(activity.startTime)}</span>
               <span>·</span>
               <span>{formatDate(activity.startTime)}</span>
@@ -289,7 +292,7 @@ export default function ActivityCard({
           ) : (
             <div className="flex items-start gap-3">
               <Avatar
-                name={activity.nickname}
+                name={nickname}
                 imageUrl={activity.profileImage}
                 size="md"
                 userId={activity.userId}
@@ -301,7 +304,7 @@ export default function ActivityCard({
                     className="font-semibold text-[length:var(--fs-sm)] transition-colors hover:opacity-80"
                     style={{ color: 'var(--ink-0)' }}
                   >
-                    {activity.nickname}
+                    {nickname}
                   </Link>
                   {isStrava ? (
                     <svg className="w-3.5 h-3.5 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor">
@@ -312,7 +315,7 @@ export default function ActivityCard({
                   )}
                   {/* DisciplineBadge 가 [Bike 아이콘 + "사이클"] 자체 포함 → 옆에 🚴 emoji 추가
                    *  하면 중복이라 생략. */}
-                  <DisciplineBadge discipline={getDiscipline(activity.type)} />
+                  {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} />}
                   <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>{timeAgo(activity.startTime)}</span>
                 </div>
                 <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: 'var(--ink-3)' }}>{formatDate(activity.startTime)}</div>
@@ -327,7 +330,8 @@ export default function ActivityCard({
               avgKph: s.averageSpeed,
               maxKph: s.maxSpeed,
               averageHeartRate: s.averageHeartRate,
-              discipline: getDiscipline(activity.type),
+              // 타당성 임계값은 종목별이다 — 미지 종목이면 종목 기준 없이 판정한다.
+              discipline: getDiscipline(activity.type) ?? undefined,
             }) && (
               <span
                 className="inline-flex items-center px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-semibold border"
@@ -391,7 +395,7 @@ export default function ActivityCard({
               //  전환 시 경과 기준 원본값은 hover title 로 부연.
               const sd = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
               const avgKph = resolveAvgSpeedKph(s.distance, sd, s.averageSpeed);
-              const implausible = isImplausibleAvgSpeed(avgKph, getDiscipline(activity.type));
+              const implausible = isImplausibleAvgSpeed(avgKph, getDiscipline(activity.type) ?? undefined);
               return (
                 <StatBlock
                   label={t("stat.avgSpeed")}
@@ -452,7 +456,16 @@ export default function ActivityCard({
 
       {/* Route map — static image to avoid WebGL overflow + reduce Mapbox costs */}
       {showMap && activity.thumbnailTrack && (
-        <ActivityRouteThumbnail activityId={activity.id} userId={activity.userId} polyline={activity.thumbnailTrack} mapImageUrl={activity.mapImageUrl} visibility={activity.visibility} priority={priority} />
+        <ActivityRouteThumbnail
+          activityId={activity.id}
+          userId={activity.userId}
+          polyline={activity.thumbnailTrack}
+          mapImageUrl={activity.mapImageUrl}
+          visibility={activity.visibility}
+          contentRevision={activity.contentRevision}
+          contentSelectedRevision={activity.contentSelectedRevision}
+          priority={priority}
+        />
       )}
 
       {/* 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. 작성자 컨텍스트(hideAuthor)에선 생략.

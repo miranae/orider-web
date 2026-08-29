@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import type { PdcDoc } from "@shared/types/pdc";
 import { parsePersistedPdc } from "../services/pdcContract";
@@ -23,6 +23,7 @@ export type UsePdcState =
  * @param uid Firebase Auth uid. null/undefined 이면 구독 안 함 (status="loading" 유지).
  */
 export function usePdc(uid: string | null | undefined): UsePdcState {
+  const { firestore } = useFirebaseServices();
   const [state, setState] = useState<UsePdcState>({ status: "loading", pdc: null });
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export function usePdc(uid: string | null | undefined): UsePdcState {
       },
     );
     return () => unsub();
-  }, [uid]);
+  }, [firestore, uid]);
 
   return state;
 }

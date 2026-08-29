@@ -9,13 +9,11 @@ import TodayTrainingDecisionCard from "./TodayTrainingDecisionCard";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), coach: vi.fn(() => <button>코치 분석</button>),
   execution: vi.fn(() => <div>실행 패널</div>),
-  legacy: vi.fn(() => <div>기존 오늘 운동</div>),
   proposal: { state: "unavailable", proposal: null, create: vi.fn(), confirm: vi.fn(), decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() } }));
 vi.mock("../../hooks/useTodayTrainingDecision", () => ({ useTodayTrainingDecision: mocks.hook }));
 vi.mock("../coach/CoachQuestionLauncher", () => ({ CoachQuestionLauncher: mocks.coach }));
 vi.mock("./useTrainingProposalController", () => ({ useTrainingProposalController: () => mocks.proposal }));
 vi.mock("./TrainingExecutionPanel", () => ({ TrainingExecutionPanel: (props: unknown) => mocks.execution(props) }));
-vi.mock("../../components/training/TodaysWorkoutCard", () => ({ default: () => mocks.legacy() }));
 
 const user = { uid: "owner" } as never;
 const appliedRevision = { goalId: "goal_123", goalHash: `doc_${"a".repeat(32)}`,
@@ -29,34 +27,127 @@ describe("TodayTrainingDecisionCard", () => {
   beforeEach(() => { vi.clearAllMocks(); resetRuntimeConfigForTests({ trainingDecisionEnabled: true });
     mocks.proposal = { state: "unavailable", proposal: null, create: vi.fn(), confirm: vi.fn(),
     decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() }; });
-  it("keeps the existing workout card when the decision rollout is disabled", () => {
-    resetRuntimeConfigForTests({ trainingDecisionEnabled: false });
+  it("keeps Plan empty when the decision API is unavailable", () => {
     mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
-    expect(screen.getByText("기존 오늘 운동")).toBeInTheDocument();
-    expect(mocks.legacy).toHaveBeenCalled();
+    expect(document.querySelector("[data-decision-id]")).not.toBeInTheDocument();
   });
-  it("keeps the existing Plan workout card when the decision API is unavailable", () => {
-    mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true, refresh: vi.fn() });
+  it("keeps Plan empty when the decision only repeats the scheduled session", () => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    mocks.hook.mockReturnValue({ decision: { ...decision, recommendedAdjustments: [] }, loading: false,
+      scheduledOnly: true, unavailable: false, refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
-    expect(screen.getByText("기존 오늘 운동")).toBeInTheDocument();
+    expect(document.querySelector("[data-decision-id]")).not.toBeInTheDocument();
   });
+
+  it("still shows the decision card while a proposal is open, even without a live recommendation", () => {
+    // 워크아웃 카드로 내려가면 대기 중인 제안을 확인·거절할 방법이 사라진다.
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    mocks.proposal = { state: "pending", proposal: null, create: vi.fn(), confirm: vi.fn(),
+      decline: vi.fn(), rollback: vi.fn(), refresh: vi.fn() };
+    mocks.hook.mockReturnValue({ decision: { ...decision, proposal: { proposalId: `proposal_${"d".repeat(24)}`,
+      status: "pending" as const, expiresAt: "2026-08-15T01:00:00.000Z", confirmNonce: null } },
+    loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+
+    expect(screen.queryByText("기존 오늘 운동")).not.toBeInTheDocument();
+  });
+
+  it("does not ask for a manual check-in when an older response is held", () => {
+    const base = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const decision = { ...base, prescription: { ...base.prescription, status: "needs_checkin" as const,
+      missingSignals: ["subjective_fatigue", "soreness", "pain_or_illness"] },
+    capabilities: { ...base.capabilities, checkIn: "available" as const } };
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+    expect(screen.queryByText("주간 체크인이 필요해요")).not.toBeInTheDocument();
+    expect(screen.queryByText("주관적 피로도")).not.toBeInTheDocument();
+  });
+
+  it("does not offer the check-in when the server says it is unavailable", () => {
+    // 열 수 없는 길을 안내하면 안 된다.
+    const base = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const decision = { ...base, prescription: { ...base.prescription, status: "needs_checkin" as const,
+      missingSignals: ["subjective_fatigue"] },
+    capabilities: { ...base.capabilities, checkIn: "unavailable" as const } };
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+    expect(screen.queryByText("주간 체크인이 필요해요")).not.toBeInTheDocument();
+  });
+
+  it("does not show unavailable recovery signals on the Fitness workout", () => {
+      const base = trainingDecisionEnvelope();
+      const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        prescription: { ...base.data.prescription, confidence: "low",
+          missingSignals: ["readiness", "readiness_rhr", "readiness_hrv", "readiness_sleep", "readiness_stale"] },
+      }));
+      mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+      mocks.proposal = { ...mocks.proposal, state: "idle" };
+      render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+      expect(screen.queryByText("일부 회복 신호를 확인하지 못했어요")).not.toBeInTheDocument();
+      expect(screen.queryByText("회복 준비도")).not.toBeInTheDocument();
+      expect(mocks.execution).toHaveBeenCalled();
+  });
+
+  it("discloses why confidence is low with copy the user can act on", () => {
+    const base = trainingDecisionEnvelope();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      prescription: { ...base.data.prescription, confidence: "low",
+        missingSignals: ["load_history_short", "current_week_activities_missing"] },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+    expect(screen.getByText("확인하지 못한 정보가 있어요")).toBeInTheDocument();
+    expect(screen.getByText("훈련 이력이 아직 짧아요")).toBeInTheDocument();
+    expect(screen.getByText("이번 주 기록이 아직 없어요")).toBeInTheDocument();
+  });
+
+  it("hides signals that have no user copy instead of printing raw codes", () => {
+    const base = trainingDecisionEnvelope();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      prescription: { ...base.data.prescription, confidence: "low", missingSignals: ["readiness_hrv"] },
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+    expect(screen.queryByText("확인하지 못한 정보가 있어요")).not.toBeInTheDocument();
+    expect(screen.queryByText("readiness_hrv")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["high", ["readiness"], "ready"],
+    ["medium", ["readiness"], "ready"],
+    ["low", [], "ready"],
+    ["low", ["readiness"], "needs_checkin"],
+  ] as const)("does not show the confidence warning for confidence=%s, gaps=%s, status=%s",
+    (confidence, missingSignals, status) => {
+      const base = trainingDecisionEnvelope();
+      const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        prescription: { ...base.data.prescription, confidence, missingSignals: [...missingSignals], status },
+      }));
+      mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
+      render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+
+      expect(screen.queryByText("일부 회복 신호를 확인하지 못했어요")).not.toBeInTheDocument();
+    });
+
   it("separates the scheduled and recommended sessions from one projection", () => {
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
     const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
-    expect(container.querySelector('[data-session-layout="comparison"]'))
-      .toHaveClass("training-decision-card__sessions--comparison");
+    expect(container.querySelector(".training-decision-card__sessions")).toBeInTheDocument();
     expect(screen.getByText("변경 권고 · 아직 미적용")).toBeInTheDocument();
-    expect(screen.getByText("현재 실행안 · 원래 계획 기준")).toBeInTheDocument();
-    expect(screen.getByText("조정 권고 · 아직 미적용")).toBeInTheDocument();
+    expect(screen.getByText("원래 계획")).toBeInTheDocument();
+    expect(screen.getByText("조정 권고")).toBeInTheDocument();
+    expect(screen.getByText("현재 실행안")).toBeInTheDocument();
     expect(screen.getByText("권고 변화 -20분 · -45 TSS")).toBeInTheDocument();
     expect(screen.queryByText("계획 유지")).not.toBeInTheDocument();
     expect(screen.getByText("회복")).toBeInTheDocument();
     expect(screen.getByText("최근 부하가 높은 상태예요")).toBeInTheDocument();
-    expect(mocks.coach).not.toHaveBeenCalled();
-
-    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+    expect(mocks.execution).toHaveBeenCalled();
     expect(mocks.coach).toHaveBeenCalledWith(expect.objectContaining({ progressPlannerSelection: { context: {
       prescriptionId: "rx_111111111111111111111111", sourceRequestId: "018f47a2-3c4d-7abc-8def-000000000201" }, question: expect.any(String) } }), undefined);
   });
@@ -75,7 +166,7 @@ describe("TodayTrainingDecisionCard", () => {
       .toHaveAttribute("data-fallback-reason", "dependency_unavailable");
   });
 
-  it("keeps a Home card with a retry when the decision API is unavailable", async () => {
+  it("keeps a Fitness card with a retry when the decision API is unavailable", async () => {
     const refresh = vi.fn();
     mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true,
       unavailableReason: "error", refresh });
@@ -83,30 +174,25 @@ describe("TodayTrainingDecisionCard", () => {
     const card = document.querySelector("[data-training-decision-fallback]");
     expect(card).toHaveAttribute("data-training-decision-fallback", "unavailable");
     expect(screen.getByText("오늘 계획을 불러오지 못했습니다")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "새로 확인" }));
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("stays quiet on Home while the decision rollout is off", () => {
+  it("stays quiet on Fitness while the decision rollout is off", () => {
     mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: true,
       unavailableReason: "disabled", refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
-    expect(document.querySelector("[data-training-decision-fallback]"))
-      .toHaveAttribute("data-training-decision-fallback", "disabled");
+    expect(document.querySelector("[data-training-decision-fallback]")).not.toBeInTheDocument();
     expect(screen.queryByText("오늘 계획을 불러오지 못했습니다")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "새로 확인" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
   });
 
   it("stays quiet when the decision is absent without a failure", () => {
     mocks.hook.mockReturnValue({ decision: null, loading: false, scheduledOnly: true, unavailable: false,
       unavailableReason: null, refresh: vi.fn() });
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
-    expect(document.querySelector("[data-training-decision-fallback]"))
-      .toHaveAttribute("data-training-decision-fallback", "empty");
+    expect(document.querySelector("[data-training-decision-fallback]")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "새로 확인" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /오늘 계획 보기/ })).toBeInTheDocument();
   });
 
   it("shows the recommended intensity zone carried by the decision contract", () => {
@@ -116,12 +202,12 @@ describe("TodayTrainingDecisionCard", () => {
       recommendedAdjustments: [{ ...adjustment, recommendation: { ...adjustment.recommendation,
         workout: { ...adjustment.recommendation.workout!, zone: "Z2" } } }] } });
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
-    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
     const recommended = document.querySelector("[data-session-role=\"recommended\"]");
     expect(within(recommended as HTMLElement).getByText("Z2 존")).toBeInTheDocument();
   });
 
-  it("renders an applied Home decision from the effective session and scheduled baseline", () => {
+  it("renders an applied Fitness decision from the effective session and scheduled baseline", () => {
     const base = trainingDecisionEnvelope();
     const effective = { ...base.data.effectiveSessions[0]!, current: { workout: "recovery" as const,
       durationMin: 40, targetTss: 25, completed: false }, basis: "applied_proposal" as const,
@@ -134,16 +220,15 @@ describe("TodayTrainingDecisionCard", () => {
     const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
 
     expect(screen.getByRole("heading", { name: "변경 적용됨" })).toBeInTheDocument();
-    expect(container.querySelector('[data-session-layout="single"]'))
-      .toHaveClass("training-decision-card__sessions--single");
+    expect(container.querySelector(".training-decision-card__sessions")).toBeInTheDocument();
     expect(screen.getByText("적용됨")).toBeInTheDocument();
     expect(screen.getByText("현재 실행안")).toBeInTheDocument();
-    expect(screen.getByText("회복")).toBeInTheDocument();
-    expect(screen.getByText("40분")).toBeInTheDocument();
-    expect(screen.getByText("25 TSS")).toBeInTheDocument();
+    expect(screen.getAllByText("회복")).toHaveLength(2);
+    expect(screen.getAllByText("40분")).toHaveLength(2);
+    expect(screen.getAllByText("25 TSS")).toHaveLength(2);
     expect(screen.getByText("권고 변화 -20분 · -45 TSS")).toBeInTheDocument();
     expect(screen.queryByText(/아직 미적용/u)).not.toBeInTheDocument();
-    expect(screen.queryByText("조정 권고")).not.toBeInTheDocument();
+    expect(screen.getByText("조정 권고")).toBeInTheDocument();
   });
 
   it("does not expose an applied rest session as executable", () => {
@@ -295,8 +380,8 @@ describe("TodayTrainingDecisionCard", () => {
     mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh: vi.fn() });
     mocks.proposal = { ...mocks.proposal, state: "pending" };
     render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
-    expect(screen.getByText(/운동 중단 사유가 있습니다/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "오늘 예정된 계획" })).toBeInTheDocument();
+    expect(screen.getByText("계획 변경 검토")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "오늘 예정된 계획" })).not.toBeInTheDocument();
     expect(screen.queryByText("조정 권고")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "이 변경 적용" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "원래 계획 유지" })).toBeInTheDocument();

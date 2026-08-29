@@ -193,20 +193,24 @@ export function computeYearRecap(activities: Activity[], year: number, nowMs = D
     dayKeys.add(localDayKey(a.startTime));
     dayOrdinals.add(localDayOrdinal(a.startTime));
 
-    // 종목별
+    // 종목별 — 미지 종목(요가·근력 등)은 **종목 버킷만** 건너뛴다. 예전엔 사이클 버킷에
+    // 귀속돼 연말결산의 "사이클" 수치를 부풀렸다. 전체 합계·월별·최고노력은 그대로
+    // 포함한다(활동 자체는 한 해의 운동이므로 — 여기서 continue 하면 안 된다).
     const disc = getDiscipline(a.type);
-    const bucket = discMap.get(disc) ?? {
-      discipline: disc,
-      count: 0,
-      distanceMeters: 0,
-      durationMillis: 0,
-      elevationMeters: 0,
-    };
-    bucket.count += 1;
-    bucket.distanceMeters += dist;
-    bucket.durationMillis += dur;
-    bucket.elevationMeters += elev;
-    discMap.set(disc, bucket);
+    if (disc != null) {
+      const bucket = discMap.get(disc) ?? {
+        discipline: disc,
+        count: 0,
+        distanceMeters: 0,
+        durationMillis: 0,
+        elevationMeters: 0,
+      };
+      bucket.count += 1;
+      bucket.distanceMeters += dist;
+      bucket.durationMillis += dur;
+      bucket.elevationMeters += elev;
+      discMap.set(disc, bucket);
+    }
 
     // 월별
     const m = new Date(a.startTime).getMonth();

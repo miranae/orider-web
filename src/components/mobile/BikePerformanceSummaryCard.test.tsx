@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import BikePerformanceSummaryCard from "./BikePerformanceSummaryCard";
 
@@ -17,7 +17,6 @@ const completeDecision = {
 describe("BikePerformanceSummaryCard", () => {
   it("keeps the personal PDC hierarchy and shows one simple ability score", async () => {
     const user = userEvent.setup();
-    const onApply = vi.fn();
     const { container } = renderWithProviders(
       <BikePerformanceSummaryCard
         decision={completeDecision}
@@ -25,8 +24,6 @@ describe("BikePerformanceSummaryCard", () => {
           weightKgSnapshot: 70, version: 5, provenanceVersion: 2, measuredPower: true }}
         weightKg={70}
         progression={[{ period: "2026-06", ftpW: 255, source: "20m" }, { period: "2026-07", ftpW: 265, source: "20m" }]}
-        applying={false}
-        onApplyCandidate={onApply}
       />,
     );
 
@@ -43,8 +40,7 @@ describe("BikePerformanceSummaryCard", () => {
     expect(within(vo2Tile).queryByRole("meter")).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/상위 \d+%|O-Rider 전체|밀도|표본/);
 
-    await user.click(screen.getByRole("button", { name: "이 후보 적용" }));
-    expect(onApply).toHaveBeenCalledWith(265);
+    expect(screen.queryByRole("button", { name: "이 후보 적용" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "산출 근거 보기" }));
     expect(screen.getByText("최근 20분 최고 평균")).toBeVisible();
     expect(screen.getByText("279 W")).toBeVisible();
@@ -53,7 +49,7 @@ describe("BikePerformanceSummaryCard", () => {
   });
 
   it("shows a stable empty state without inventing scores", () => {
-    const { container } = renderWithProviders(<BikePerformanceSummaryCard applying={false} onApplyCandidate={vi.fn()} />);
+    const { container } = renderWithProviders(<BikePerformanceSummaryCard />);
     expect(screen.getByText("라이더 유형 근거 부족")).toBeInTheDocument();
     expect(screen.getByText("역량 점수 근거 부족")).toBeInTheDocument();
     expect(screen.queryByRole("meter")).not.toBeInTheDocument();
@@ -66,7 +62,7 @@ describe("BikePerformanceSummaryCard", () => {
     ["too few activities", { riderType: { type: "Climber", confidence: 0.9 }, activityCount: 4, weightKgSnapshot: 70, version: 5, provenanceVersion: 2, measuredPower: true }],
     ["legacy version", { riderType: { type: "Climber", confidence: 0.9 }, activityCount: 14, weightKgSnapshot: 70, version: 4, provenanceVersion: 2, measuredPower: true }],
   ])("does not expose a definitive RiderType for %s", (_label, gate) => {
-    renderWithProviders(<BikePerformanceSummaryCard pdc={{ ...gate, abilityScore: null, vo2maxEst: null }} applying={false} onApplyCandidate={vi.fn()} />);
+    renderWithProviders(<BikePerformanceSummaryCard pdc={{ ...gate, abilityScore: null, vo2maxEst: null }} />);
     expect(screen.queryByText("클라이머")).not.toBeInTheDocument();
     expect(screen.getByText("라이더 유형 근거 부족")).toBeInTheDocument();
   });
@@ -77,8 +73,6 @@ describe("BikePerformanceSummaryCard", () => {
         decision={{ ...completeDecision, automaticCandidateW: null, latestMonthlyEstimate: null, tteMin: null, cpW: 245 }}
         pdc={{ riderType: null, abilityScore: null, vo2maxEst: 52.2, activityCount: 4,
           weightKgSnapshot: null, version: 5, provenanceVersion: 2, measuredPower: true }}
-        applying={false}
-        onApplyCandidate={vi.fn()}
       />,
     );
     const vo2Tile = container.querySelector('[data-performance-metric="vo2max"]')!;

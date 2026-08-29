@@ -9,8 +9,8 @@
  */
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { Discipline } from "../utils/disciplineFilter";
 
@@ -18,6 +18,7 @@ export function useFitnessTimeseries(
   uid: string | undefined,
   discipline: Discipline,
 ): { timeseries: FitnessTimeseriesDoc | null; loaded: boolean } {
+  const { firestore } = useFirebaseServices();
   const [timeseries, setTimeseries] = useState<FitnessTimeseriesDoc | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -43,7 +44,7 @@ export function useFitnessTimeseries(
       },
     );
     return () => unsub();
-  }, [uid, discipline]);
+  }, [discipline, firestore, uid]);
 
   return { timeseries, loaded };
 }

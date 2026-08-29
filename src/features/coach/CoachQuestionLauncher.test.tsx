@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -146,6 +147,13 @@ const p1PlannerAnswer = { ...p1Answer, answer: { ...p1Answer.answer,
 function setup(currentUser: User | null = user, discipline: "bike" | "run" | "swim" = "bike") {
   return render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
     <CoachQuestionLauncher user={currentUser} discipline={discipline} onSignIn={vi.fn()} />
+  </DialogProvider></MemoryRouter>);
+}
+
+function setupCheckIn(preset = "훈련 처방을 알려줘") {
+  return render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
+    <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()}
+      presetQuestion={preset} presetIntent="check_in" triggerLabel="주간 체크인 하기" />
   </DialogProvider></MemoryRouter>);
 }
 
@@ -1163,5 +1171,38 @@ describe("CoachQuestionLauncher", () => {
     await userEvent.click(screen.getByRole("button", { name: "차트와 표로 보기" }));
     expect(screen.getByRole("img", { name: "서버가 제공한 시계열의 추세 차트" })).toBeInTheDocument();
     expect(mocks.ask).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the generic suggestions for a preset entry that is not a check-in", async () => {
+    render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
+      <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()}
+        presetQuestion="훈련 처방을 알려줘" triggerLabel="프리셋 질문" />
+    </DialogProvider></MemoryRouter>);
+    await userEvent.click(screen.getByRole("button", { name: "프리셋 질문" }));
+    await screen.findByText("오늘 3회 남음");
+    expect(screen.getByRole("heading", { name: "이런 질문을 해보세요" })).toBeInTheDocument();
+  });
+
+  // 체크인 진입에서 일반 추천 질문이 한 번의 탭으로 프리셋을 덮으면, 서버가 질문 문구로
+  // 플래너 경로를 고르는 특성상 체크인이 조용히 무산된다 (실사용 재현).
+  it("keeps the check-in entry from derailing into the generic suggested questions", async () => {
+    setupCheckIn();
+    await userEvent.click(screen.getByRole("button", { name: "주간 체크인 하기" }));
+    await screen.findByText("오늘 3회 남음");
+    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveValue("훈련 처방을 알려줘");
+    expect(screen.queryByRole("heading", { name: "이런 질문을 해보세요" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).not.toBeInTheDocument();
+  });
+
+  // 직접 입력 의사는 "지금 이 처방" 한정이다. 남아 있으면 이후 모든 체크인이 자동 경로를
+  // 영구히 건너뛴다.
+  it("resets the one-off manual check-in intent when a new question starts", () => {
+    const source = readFileSync("src/features/coach/CoachQuestionLauncher.tsx", "utf8");
+    const startAnother = source.slice(source.indexOf("function startAnother()"),
+      source.indexOf("function choosePlannerQuestion"));
+    expect(startAnother).toContain("setManualCheckIn(false)");
+    const closeSheet = source.slice(source.indexOf("function closeSheet()"),
+      source.indexOf("async function execute("));
+    expect(closeSheet).toContain("setManualCheckIn(false)");
   });
 });
