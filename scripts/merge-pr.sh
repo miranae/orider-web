@@ -677,7 +677,8 @@ if [[ -x "$CLAIM_SH" ]]; then
 fi
 if [[ "$KEEP_WORKTREE" == 0 && "$HEADREF" != "dev" ]]; then
   log "워크트리/브랜치 정리"
-  MAIN_WT="$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')"
+  # awk 의 조기 exit 는 SIGPIPE(141) + pipefail 로 스크립트를 죽인다(start-work.sh 와 동일).
+  MAIN_WT="$(git worktree list --porcelain | awk '/^worktree / && main == "" { main = $2 } END { print main }')"
   WT_PATH="$REPO_ROOT"
   if [[ "$MAIN_WT" != "$WT_PATH" ]]; then
     cd "$MAIN_WT"

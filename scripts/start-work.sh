@@ -49,7 +49,11 @@ log() { printf '\033[1;36m▶ %s\033[0m\n' "$*"; }
 
 # primary 체크아웃(= worktree list 첫 항목) 기준으로 저장소·모노레포 루트를 잡는다.
 # 워크트리 안에서 실행해도 primary 를 찾아 같은 위치 규약을 쓴다.
-PRIMARY_WT="$(git -C "$SCRIPT_DIR" worktree list --porcelain | awk '/^worktree /{sub(/^worktree /,""); print; exit}')"
+# awk 가 첫 줄에서 exit 하면 git 이 아직 쓰는 중이라 SIGPIPE(141) 를 받는다.
+# `set -o pipefail` 때문에 그 141 이 파이프라인 종료코드가 되고 `set -e` 가 여기서 스크립트를
+# 죽인다 — 워크트리가 많을수록 재현되고, 출력 한 줄 없이 실패해 원인이 안 보인다.
+# END 블록으로 첫 항목만 남기면 입력을 끝까지 읽어 SIGPIPE 자체가 생기지 않는다.
+PRIMARY_WT="$(git -C "$SCRIPT_DIR" worktree list --porcelain | awk '/^worktree / && primary == "" { sub(/^worktree /, ""); primary = $0 } END { print primary }')"
 REPO_NAME="$(basename "$PRIMARY_WT")"
 MONO_ROOT="$(dirname "$PRIMARY_WT")"
 WT_ROOT="$MONO_ROOT/_worktrees"
