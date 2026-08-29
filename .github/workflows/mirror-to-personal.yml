@@ -1,0 +1,104 @@
+name: mirror-to-personal
+
+# miranae/<repo> → ansrudska/<repo> 단방향 백업 미러 (개인 계정, private).
+#
+# 목적은 **백업**이다. 따라서 실시간이 아니라 하루 1회 cron 만 돌리고,
+# `main` 과 태그만 가져간다 (feature 브랜치는 백업 대상 아님).
+# → Actions 소모: 저장소당 월 ~30분(job 당 분 단위 올림), 5 저장소 합계 ~150분.
+#
+# ⚠️ 단방향이다. 미러 쪽(ansrudska)에 직접 커밋하면 다음 실행의 mirror push 에 덮여 사라진다.
+# ⚠️ 미러 저장소는 Actions 를 꺼뒀다(미러 push 가 그쪽에서 워크플로를 재발화하는 루프 방지).
+#     이중 안전장치로 아래 `if: github.repository_owner == 'miranae'` 가드도 둔다.
+#
+# 인증: 저장소별 **deploy key**(미러 저장소 1개에만 write). PAT 아님 = 최소 권한.
+#   - secret  MIRROR_SSH_KEY : ed25519 비밀키 (미러 저장소에 공개키가 write deploy key 로 등록됨)
+#   - var     MIRROR_TARGET  : 대상 `owner/repo` (없으면 ansrudska/<원본 저장소명>)
+#   키 재발급 → `ssh-keygen -t ed25519` 후 미러 저장소 Settings > Deploy keys 교체 + secret 갱신.
+#
+# 전체 브랜치까지 백업하려면 아래 MIRROR_REFS 를 'all' 로 바꾼다 (비용 동일 — 실행 횟수가 같다).
+
+on:
+  schedule:
+    - cron: '30 18 * * *' # 매일 03:30 KST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-to-personal
+  cancel-in-progress: false
+
+env:
+  MIRROR_REFS: main-and-tags # 'main-and-tags' | 'all' — 그 외 값은 실패시킨다
+
+jobs:
+  mirror:
+    if: github.repository_owner == 'miranae'
+    runs-on: ubuntu-latest
+    steps:
+      # [1/4] TLS 로 검증된 GitHub API 에서 공식 host key 를 받아 고정한다.
+      #       `ssh-keyscan` 은 실행 시점의 응답을 그대로 신뢰(TOFU)하므로 MITM 을 못 막는다.
+      - name: '[1/4] read: GitHub 공식 SSH host key 고정'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          curl -fsSL --retry 3 https://api.github.com/meta \
+            | python3 -c 'import json,sys; print("\n".join("github.com "+k for k in json.load(sys.stdin)["ssh_keys"]))' \
+            > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          echo "host key $(wc -l < ~/.ssh/known_hosts) 개 고정 (api.github.com/meta)"
+
+      - name: '[2/4] read: 원본 bare 미러 클론'
+        run: |
+          set -euo pipefail
+          echo "clone ← ${GITHUB_REPOSITORY} (bare mirror)"
+          git clone --mirror \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" src.git
+
+      - name: '[3/4] deploy key 준비 + 대상 결정'
+        env:
+          MIRROR_SSH_KEY: ${{ secrets.MIRROR_SSH_KEY }}
+          MIRROR_TARGET: ${{ vars.MIRROR_TARGET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MIRROR_SSH_KEY:-}" ]; then
+            echo "::error::MIRROR_SSH_KEY secret 이 없다 — 원본 저장소 Settings > Secrets 확인."
+            exit 1
+          fi
+          case "${MIRROR_REFS}" in
+            all|main-and-tags) : ;;
+            *) echo "::error::MIRROR_REFS='${MIRROR_REFS}' 는 미지원 값이다 (all | main-and-tags). 오타로 백업 ref 가 prune 되는 것을 막기 위해 중단한다."; exit 1 ;;
+          esac
+          printf '%s\n' "$MIRROR_SSH_KEY" > ~/.ssh/mirror_key
+          chmod 600 ~/.ssh/mirror_key
+          echo "target=${MIRROR_TARGET:-ansrudska/${GITHUB_REPOSITORY#*/}} MIRROR_REFS=${MIRROR_REFS}"
+
+      - name: '[4/4] write: 개인 계정 미러로 push'
+        env:
+          MIRROR_TARGET: ${{ vars.MIRROR_TARGET }}
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/mirror_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+        run: |
+          set -euo pipefail
+          target="${MIRROR_TARGET:-ansrudska/${GITHUB_REPOSITORY#*/}}"
+
+          cd src.git
+          # 남길 ref 패턴. GitHub 은 refs/pull/* 등 자체 관리 ref 의 push 를 거부하므로
+          # clone --mirror 로 함께 받아온 그것들은 어느 모드에서나 제거해야 한다.
+          if [ "${MIRROR_REFS}" = all ]; then
+            keep='^refs/(heads|tags)/'
+          else
+            keep='^(refs/heads/main$|refs/tags/)'
+          fi
+
+          drop="$(git for-each-ref --format='%(refname)' | grep -Ev "$keep" || true)"
+          drop_n=$([ -n "$drop" ] && printf '%s\n' "$drop" | wc -l || echo 0)
+          echo "ref 정리: keep='${keep}' 대상 제외 ${drop_n} 개 (미러 대상 아님/GitHub 관리 ref)"
+          if [ -n "$drop" ]; then
+            printf '%s\n' "$drop" | sed 's|^|delete |' | git update-ref --stdin
+          fi
+
+          echo "push → ${target} (mirror, 남은 ref $(git for-each-ref --format='x' | wc -l) 개)"
+          # --mirror: 남긴 ref 를 그대로 반영하고, 대상에만 있는 ref 는 prune 한다.
+          git push --mirror "git@github.com:${target}.git"
+          echo "미러 완료 (MIRROR_REFS=${MIRROR_REFS}) → https://github.com/${target}"
