@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FITNESS_TIMESERIES_SCHEMA_VERSION } from "@shared/types/fitness-timeseries";
 import { collection, doc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 
 import type { Activity } from "@shared/types";
@@ -281,6 +282,15 @@ export function useFitnessModel(
     return { fitnessData: calculateFitness(daily), dailyData: daily };
   }, [discipline, disciplineActivities, metricsMap]);
   const { timeseries, loaded: timeseriesLoaded } = useFitnessTimeseries(user?.uid, discipline);
+  const hasCanonicalTimeseries = Boolean(
+    timeseries
+    && discipline !== "tri"
+    && timeseries.schemaVersion === FITNESS_TIMESERIES_SCHEMA_VERSION
+    && timeseries.discipline === discipline
+    && timeseries.pointCount === timeseries.points.length
+    && timeseries.points.length > 0
+    && timeseries.endDate === timeseries.points[timeseries.points.length - 1]?.date,
+  );
   const { fitnessData, dailyData } = useMemo(() => {
     const points = timeseries?.points;
     if (points && points.length > 0) {
@@ -573,6 +583,7 @@ export function useFitnessModel(
     revalidating,
     justRecomputed,
     timeseriesLoaded,
+    hasCanonicalTimeseries,
     fitnessData,
     dailyData,
     rangeData,

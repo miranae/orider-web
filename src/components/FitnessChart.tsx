@@ -23,6 +23,12 @@ interface FitnessChartProps {
   goalTSB?: number | null;
   /** Single-sport charts retain their discipline brand color; combined charts use the semantic CTL token. */
   ctlColor?: string;
+  activityMarkers?: Array<{
+    activityId: string;
+    date: string;
+    label: string;
+    selected?: boolean;
+  }>;
 }
 
 function tsToDateStr(ms: number): string {
@@ -83,6 +89,7 @@ export default function FitnessChart({
   goalCTL,
   goalTSB,
   ctlColor = PMC_LINE_PALETTE.ctl.color,
+  activityMarkers = [],
 }: FitnessChartProps) {
   const { t } = useTranslation("dashboard");
   const svgRef = useRef<SVGSVGElement>(null);
@@ -107,6 +114,7 @@ export default function FitnessChart({
     xLabels,
     yTicks,
     series,
+    markerPoints,
     syFn,
   } = useMemo(() => {
     const todayStr = today ?? new Date().toISOString().slice(0, 10);
@@ -237,6 +245,11 @@ export default function FitnessChart({
       tsb: allTSB[i] ?? 0,
       isFuture: i >= pastCount,
     }));
+    const markerData = activityMarkers.flatMap((marker) => {
+      const index = allDates.indexOf(marker.date);
+      if (index < 0) return [];
+      return [{ ...marker, x: sx(index) }];
+    });
 
     return {
       ctlPastPath: ctlPast,
@@ -257,9 +270,10 @@ export default function FitnessChart({
       xLabels: labels,
       yTicks: ticks,
       series: seriesData,
+      markerPoints: markerData,
       syFn: sy,
     };
-  }, [data, projection, today, goalDate, goalCTL, goalTSB, t]);
+  }, [activityMarkers, data, projection, today, goalDate, goalCTL, goalTSB, t]);
 
   if (data.length === 0) {
     return (
@@ -297,6 +311,10 @@ export default function FitnessChart({
       : hover.x + tooltipPad
     : 0;
   const tooltipY = PAD_TOP + 4;
+  const selectedMarker = activityMarkers.find((marker) => marker.selected);
+  const markerAccessibilitySummary = activityMarkers.length > 0
+    ? ` ${t("charts.fitness.activityMarkers", { count: activityMarkers.length })}${selectedMarker ? ` ${t("charts.fitness.selectedActivityMarker", { label: selectedMarker.label })}` : ""}`
+    : "";
 
   return (
     <svg
@@ -307,8 +325,9 @@ export default function FitnessChart({
       onPointerMove={handleMove}
       onPointerLeave={() => setHoverIdx(null)}
       role="img"
-      aria-label={`${t("pmc.title")}. ${t("pmc.interpretation")}`}
+      aria-label={`${t("pmc.title")}. ${t("pmc.interpretation")}.${markerAccessibilitySummary}`}
     >
+      <desc>{`${t("pmc.title")}. ${t("pmc.interpretation")}.${markerAccessibilitySummary}`}</desc>
       <defs>
         <linearGradient id="ctlFill" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={ctlColor} stopOpacity="0.28" />
@@ -376,6 +395,29 @@ export default function FitnessChart({
       {tsbPastPath && (
         <path d={tsbPastPath} stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" fill="none" strokeLinejoin="round" />
       )}
+
+      {/* 최근 활동 마커. 선택은 상단 활동 목록에서 수행하고 차트는 같은 선택을 강조한다. */}
+      {markerPoints.map((marker, index) => (
+        <g key={`${marker.activityId}-${index}`} data-activity-marker={marker.activityId} aria-label={marker.label}>
+          <line
+            x1={marker.x}
+            x2={marker.x}
+            y1={PAD_TOP}
+            y2={PAD_TOP + PLOT_H}
+            stroke={marker.selected ? ctlColor : "var(--ink-4)"}
+            strokeDasharray="2 4"
+            opacity={marker.selected ? 0.72 : 0.24}
+          />
+          <circle
+            cx={marker.x}
+            cy={PAD_TOP + 5}
+            r={marker.selected ? 5 : 3.5}
+            fill={marker.selected ? ctlColor : "var(--ink-3)"}
+            stroke="var(--bg-0)"
+            strokeWidth="2"
+          />
+        </g>
+      ))}
 
       {/* 예측 dashed */}
       {ctlFuturePath && (

@@ -247,7 +247,9 @@
       "legendFitness": "체력",
       "legendFatigue": "피로",
       "legendForm": "회복 상태",
-      "projectionNote": "계획 100% 수행 시"
+      "projectionNote": "계획 100% 수행 시",
+      "activityMarkers": "활동 마커 {{count}}개.",
+      "selectedActivityMarker": "선택한 활동: {{label}}."
     },
     "powerCurve": {
       "noData": "아직 파워 데이터가 없어요",

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { classifyGaps, computeExpectedCurve, computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
@@ -21,8 +22,10 @@ import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import SectionHeader from "../components/redesign/SectionHeader";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresholdDecisionCard";
+import FitnessCoachBriefing from "../features/fitness/components/FitnessCoachBriefing";
 import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
 import PowerCurveChart from "../features/fitness/components/PowerCurveChart";
+import { deriveActivityImpacts, forecastFitness48Hours } from "../features/fitness/activityImpact";
 import { deriveMonthlyCyclingVo2maxTrend } from "../features/fitness/deriveMonthlyCyclingVo2maxTrend";
 import {
   POWER_DURATION_KEY_SEC,
@@ -30,8 +33,6 @@ import {
   formatMonthDay,
   getRangeOptions,
   secToMmss,
-  tsbStatusDesc,
-  tsbStatusLabel,
   type PowerCurvePoint,
 } from "../features/fitness/fitnessPageUtils";
 import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
@@ -49,6 +50,7 @@ export interface FitnessViewProps {
 }
 
 export function FitnessView({ embedded = false, model }: FitnessViewProps) {
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const {
     t,
     i18n,
@@ -56,7 +58,6 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     user,
     profile,
     ftpHistory,
-    canonicalFtpW,
     activities,
     disciplineActivities,
     streamsMap,
@@ -84,6 +85,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     revalidating,
     justRecomputed,
     timeseriesLoaded,
+    hasCanonicalTimeseries,
     fitnessData,
     dailyData,
     rangeData,
@@ -98,6 +100,25 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     runPaceStreams,
   } = model;
   const renderMobile = embedded || isMobile;
+  const activityImpacts = discipline === "tri" || !hasCanonicalTimeseries
+    ? []
+    : deriveActivityImpacts(fitnessData, disciplineActivities, { limit: 6 });
+  const newestDisciplineActivity = disciplineActivities.reduce<(typeof disciplineActivities)[number] | null>(
+    (latest, activity) => !latest || activity.startTime > latest.startTime ? activity : latest,
+    null,
+  );
+  const pendingImpactActivity = newestDisciplineActivity
+    && !activityImpacts.some((entry) => entry.activity.id === newestDisciplineActivity.id)
+    ? newestDisciplineActivity
+    : null;
+  const selectedActivityIsAvailable = selectedActivityId != null && (
+    pendingImpactActivity?.id === selectedActivityId
+    || activityImpacts.some((entry) => entry.activity.id === selectedActivityId)
+  );
+  const effectiveSelectedActivityId = selectedActivityIsAvailable
+    ? selectedActivityId
+    : pendingImpactActivity?.id ?? activityImpacts[0]?.activity.id ?? null;
+  const recoveryForecast = currentPoint ? forecastFitness48Hours(currentPoint, 35) : null;
 
   if (!user) {
     return <GuestValuePreview kind="fitness" lang={i18n.language} />;
@@ -172,8 +193,6 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   const atl = currentPoint?.atl ?? 0;
   const tsb = currentPoint?.tsb ?? 0;
   const ctlDelta = rangeStartPoint ? ctl - rangeStartPoint.ctl : 0;
-  const formulaVo2max = canonicalFtpW ? Math.round((canonicalFtpW / (profile?.weightKg || 70)) * 15.7 + 3.5) : null;
-  const displayedVo2max = pdc?.vo2maxEst != null ? Math.round(pdc.vo2maxEst) : formulaVo2max;
 
   // 훈련 상태 판정용 CTL 램프 — 선택된 range(최대 365일)로 나누면 희석되므로
   // 항상 최근 28일 기울기를 쓴다. 표본이 모자라면 null(램프 승격 규칙 비활성).
@@ -355,9 +374,19 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       {pageHeader}
 
       <div className="site-shell" style={bodyPad}>
-        {discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
-          <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
-        </div>}
+        {discipline !== "tri" && currentPoint && (
+          <FitnessCoachBriefing
+            impacts={activityImpacts}
+            selectedActivityId={effectiveSelectedActivityId}
+            onSelectActivity={setSelectedActivityId}
+            forecast={recoveryForecast}
+            current={{ ctl, atl, tsb }}
+            locale={i18n.language}
+            canonicalAvailable={hasCanonicalTimeseries}
+            pendingActivity={pendingImpactActivity}
+            decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />}
+          />
+        )}
         {(activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
           <DetailsSection title={t("conclusion.evidenceToggle")}>
             {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /plan 으로 이동. */}
@@ -416,104 +445,159 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           />
         )}
 
-        {/* KPI 스트립 */}
-        {currentPoint && (
-          <Card padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-3)", border: "none", background: "transparent", boxShadow: "none" }}>
-            {[
-              {
-                label: t("kpi.ctl.label"),
-                value: ctl.toFixed(1),
-                sub: t("kpi.ctl.subDelta", { delta: `${ctlDelta >= 0 ? "+" : ""}${ctlDelta.toFixed(1)}`, range }),
-                color: "var(--lime)",
-                desc: ctlDelta > 5 ? t("kpi.ctl.descUp") : ctlDelta > 0 ? t("kpi.ctl.descMild") : t("kpi.ctl.descFlat"),
-                hint: t("kpi.ctl.hint"),
-              },
-              {
-                label: t("kpi.atl.label"),
-                value: atl.toFixed(1),
-                sub: t("kpi.atl.sub"),
-                color: "var(--rose)",
-                desc: atl > ctl ? t("kpi.atl.descHigh") : t("kpi.atl.descNormal"),
-                hint: t("kpi.atl.hint"),
-              },
-              {
-                label: t("kpi.tsb.label"),
-                value: `${tsb >= 0 ? "+" : ""}${tsb.toFixed(1)}`,
-                sub: tsbStatusDesc(tsb, t),
-                color: "var(--amber)",
-                desc: tsbStatusLabel(tsb, t),
-                hint: t("kpi.tsb.hint"),
-              },
-              ...(discipline === "run"
-                ? [{
-                    label: t("kpi.thresholdPace"),
-                    value: profile?.thresholdPace ? secToMmss(profile.thresholdPace) : "—",
-                    unit: "/km",
-                    sub: "",
-                    color: "var(--aqua)",
-                    desc: "",
-                    hint: t("kpi.thresholdPaceHint"),
-                  }]
-                : discipline === "swim"
-                ? [{
-                    label: "CSS",
-                    value: profile?.css ? secToMmss(profile.css) : "—",
-                    unit: "/100m",
-                    sub: "",
-                    color: "var(--aqua)",
-                    desc: "",
-                    hint: t("kpi.cssHint"),
-                  }]
-                : []),
-              ...(discipline === "bike" ? [{
-                label: "VO2max",
-                value: displayedVo2max != null ? String(displayedVo2max) : "—",
-                unit: "ml/kg/min",
-                sub: pdc?.vo2maxEst != null && formulaVo2max != null ? t("kpi.vo2max.subFormula", { value: formulaVo2max }) : "",
-                color: "var(--lime)",
-                desc: pdc?.vo2maxEst != null ? t("kpi.vo2max.descServer") : t("kpi.vo2max.descFormula"),
-                hint: t("kpi.vo2max.hint"),
-              }] : []),
-            ].map((s, i) => (
-              <div key={i} style={{ padding: "22px 24px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", background: "var(--bg-1)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color }} />
-                  <Text variant="eyebrow">{s.label}</Text>
-                </div>
-                {s.hint && (
-                  <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-4)", marginBottom: "var(--space-1)" }}>
-                    {s.hint}
-                  </div>
-                )}
-                <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
-                  <Text variant="dataHero" style={{ fontSize: "var(--fs-4xl)", color: s.color }}>{s.value}</Text>
-                  {s.unit && <Text variant="unit">{s.unit}</Text>}
-                </div>
-                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-                  <Text variant="mono">{s.sub}</Text>
-                  {s.sub && s.desc && <span style={{ color: "var(--ink-4)", margin: "0 5px" }}>·</span>}
-                  {s.desc && <span>{s.desc}</span>}
-                </div>
-              </div>
-            ))}
-          </Card>
-        )}
+        {/* PMC 차트 */}
+        <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
+          <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
+            <div>
+              <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("pmc.title")}</h3>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{projection ? t("pmc.subWithProjection", { range }) : t("pmc.subActual", { range })}</div>
+            </div>
+            <div style={{ flex: 1 }} />
+            <div style={{ display: "flex", gap: 'var(--space-4)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
+                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={getDisciplineColor(discipline)} strokeWidth="2" strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.ctl")}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
+                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={PMC_LINE_PALETTE.atl.color} strokeWidth="2" strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.atl")}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
+                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth="2" strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.tsb")}
+              </span>
+              {projection && (
+                <>
+                  <span style={{ width: 1, height: 12, background: "var(--line-soft)" }} />
+                  <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
+                    <svg width="16" height="4">
+                      <line x1="0" y1="2" x2="16" y2="2" stroke="var(--ink-2)" strokeWidth="1.5" strokeDasharray="4 2" />
+                    </svg>
+                    {t("pmc.legend.projection")}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
 
-        {discipline === "bike" && (
-          <BikeThresholdDecisionCard
-            decision={thresholdDecision}
-            hasZoneData={!!zoneDistribution}
-            ftpDecision={bikeFtpDecision}
-            ftpReceipt={bikeFtpReceipt}
-            ftpDeviceReceipts={bikeFtpDeviceReceipts}
-            decisionBusy={decisionBusy}
-            onAcceptDecision={acceptFtpDecision}
-            progressionPoints={ftpProgression}
-            ftpHistory={ftpHistory}
-            defaultEvidenceOpen
-            t={t}
-          />
-        )}
+          {/* 차트 위 한 줄 해석 (#400 §6) — 초심자가 무엇을 먼저 읽어야 할지 알려준다. */}
+          {rangeData.fitness.length > 0 && (
+            <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-3)", maxWidth: 640 }}>
+              {t("pmc.interpretation")}
+            </Text>
+          )}
+
+          {rangeData.fitness.length > 0 ? (
+            <FitnessChart
+              data={rangeData.fitness}
+              projection={projection?.series ?? null}
+              today={toLocalDate(Date.now())}
+              goalDate={activeGoal?.eventDate ?? null}
+              goalCTL={projection?.goalDay.ctl ?? null}
+              goalTSB={projection?.goalDay.tsb ?? null}
+              ctlColor={getDisciplineColor(discipline)}
+              activityMarkers={activityImpacts.map((entry) => ({
+                activityId: entry.activity.id,
+                date: entry.date,
+                label: `${/ride|cycl/i.test(entry.activity.type)
+                  ? t("discipline.bike")
+                  : /run/i.test(entry.activity.type)
+                    ? t("discipline.run")
+                    : /swim/i.test(entry.activity.type)
+                      ? t("discipline.swim")
+                      : entry.activity.type} · ${entry.attributedLoad.toFixed(0)} TSS`,
+                selected: entry.activity.id === effectiveSelectedActivityId,
+              }))}
+            />
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 280, fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
+              {t("pmc.empty")}
+            </div>
+          )}
+
+          {/* 목표 요약 스트립 */}
+          {activeGoal && (() => {
+            const now = Date.now();
+            const daysLeft = Math.max(0, Math.ceil((activeGoal.eventDate - now) / 86400000));
+            const eventDateStr = formatKoreanDate(activeGoal.eventDate);
+            const goalCTLVal = projection?.goalDay.ctl;
+            const goalTSBVal = projection?.goalDay.tsb;
+            const adherence = projection?.goalDay.adherenceRate;
+            const currentCTL = currentPoint?.ctl ?? 0;
+
+            return (
+              <div
+                style={{
+                  marginTop: 'var(--space-4)',
+                  padding: "var(--space-3)",
+                  // 카드 안 서피스는 테두리 없이 배경 틴트만 — surface 3단계 유지 (이슈 401)
+                  background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
+                  borderRadius: "var(--r-md)",
+                  display: "grid",
+                  gridTemplateColumns: "2fr repeat(3, 1fr) auto",
+                  gap: 'var(--space-5)',
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: 'var(--space-1)' }}>
+                    {t("goal.eyebrow", { course: activeGoal.courseName })}
+                  </Text>
+                  <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
+                    {eventDateStr} · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text>
+                    <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>
+                      {activeGoal.goalType === 'climb'
+                        ? `${activeGoal.target?.climbDurationMin ?? activeGoal.targetDurationMin ?? '—'} min${activeGoal.target?.targetWkg != null ? ` · ${activeGoal.target.targetWkg.toFixed(1)} W/kg` : ''}`
+                        : `${activeGoal.courseDist.toFixed(1)} km`}
+                      {activeGoal.goalType !== 'climb' && activeGoal.targetDurationMin != null && (
+                        activeGoal.targetDurationMin % 60 > 0
+                          ? t("goal.targetHm", { h: Math.floor(activeGoal.targetDurationMin / 60), m: activeGoal.targetDurationMin % 60 })
+                          : t("goal.targetH", { h: Math.floor(activeGoal.targetDurationMin / 60) })
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.ctl")}</Text>
+                  {goalCTLVal != null ? (
+                    <div>
+                      <Text variant="dataMedium" style={{ color: "var(--lime)" }}>{Math.round(goalCTLVal)}</Text>
+                      <Text variant="unit">{goalCTLVal > currentCTL ? `+${(goalCTLVal - currentCTL).toFixed(1)}` : (goalCTLVal - currentCTL).toFixed(1)}</Text>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
+                  )}
+                </div>
+                <div>
+                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.tsb")}</Text>
+                  {goalTSBVal != null ? (
+                    <div>
+                      <Text variant="dataMedium" style={{ color: "var(--amber)" }}>
+                        {goalTSBVal >= 0 ? `+${Math.round(goalTSBVal)}` : Math.round(goalTSBVal)}
+                      </Text>
+                      <Text variant="unit">
+                        {goalTSBVal >= 5 && goalTSBVal <= 25 ? t("goal.tsbStatus.optimal") : goalTSBVal > 25 ? t("goal.tsbStatus.over") : t("goal.tsbStatus.fatigue")}
+                      </Text>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
+                  )}
+                </div>
+                <div>
+                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.adherence")}</Text>
+                  {adherence != null ? (
+                    <div>
+                      <Text variant="dataMedium">{Math.round(adherence * 100)}</Text>
+                      <Text variant="unit">%</Text>
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
+                  )}
+                </div>
+                <a href="/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
+                  {t("goal.viewPlan")}
+                </a>
+              </div>
+            );
+          })()}
+        </Card>
 
         {/* 상세 분석 — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·라이더 유형. */}
         {discipline === "bike" && (
@@ -614,152 +698,28 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         </DetailsSection>
         )}
 
-        {/* PMC 차트 */}
-        <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
-          <div style={{ display: "flex", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
-            <div>
-              <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("pmc.title")}</h3>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{projection ? t("pmc.subWithProjection", { range }) : t("pmc.subActual", { range })}</div>
-            </div>
-            <div style={{ flex: 1 }} />
-            <div style={{ display: "flex", gap: 'var(--space-4)', fontSize: "var(--fs-xs)", color: "var(--ink-3)", flexWrap: "wrap" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={getDisciplineColor(discipline)} strokeWidth="2" strokeLinecap={PMC_LINE_PALETTE.ctl.linecap} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.ctl")}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={PMC_LINE_PALETTE.atl.color} strokeWidth="2" strokeDasharray={PMC_LINE_PALETTE.atl.dasharray} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.atl")}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth="2" strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" /></svg> {t("pmc.legend.tsb")}
-              </span>
-              {projection && (
-                <>
-                  <span style={{ width: 1, height: 12, background: "var(--line-soft)" }} />
-                  <span style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                    <svg width="16" height="4">
-                      <line x1="0" y1="2" x2="16" y2="2" stroke="var(--ink-2)" strokeWidth="1.5" strokeDasharray="4 2" />
-                    </svg>
-                    {t("pmc.legend.projection")}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* 차트 위 한 줄 해석 (#400 §6) — 초심자가 무엇을 먼저 읽어야 할지 알려준다. */}
-          {rangeData.fitness.length > 0 && (
-            <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-3)", maxWidth: 640 }}>
-              {t("pmc.interpretation")}
-            </Text>
-          )}
-
-          {rangeData.fitness.length > 0 ? (
-            <FitnessChart
-              data={rangeData.fitness}
-              projection={projection?.series ?? null}
-              today={toLocalDate(Date.now())}
-              goalDate={activeGoal?.eventDate ?? null}
-              goalCTL={projection?.goalDay.ctl ?? null}
-              goalTSB={projection?.goalDay.tsb ?? null}
-              ctlColor={getDisciplineColor(discipline)}
+        {discipline === "bike" && (
+          <DetailsSection title={t("conclusion.performanceDetailToggle")}>
+            <BikeThresholdDecisionCard
+              decision={thresholdDecision}
+              hasZoneData={!!zoneDistribution}
+              ftpDecision={bikeFtpDecision}
+              ftpReceipt={bikeFtpReceipt}
+              ftpDeviceReceipts={bikeFtpDeviceReceipts}
+              decisionBusy={decisionBusy}
+              onAcceptDecision={acceptFtpDecision}
+              progressionPoints={ftpProgression}
+              ftpHistory={ftpHistory}
+              t={t}
             />
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 280, fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
-              {t("pmc.empty")}
-            </div>
-          )}
-
-          {/* 목표 요약 스트립 */}
-          {activeGoal && (() => {
-            const now = Date.now();
-            const daysLeft = Math.max(0, Math.ceil((activeGoal.eventDate - now) / 86400000));
-            const eventDateStr = formatKoreanDate(activeGoal.eventDate);
-            const goalCTLVal = projection?.goalDay.ctl;
-            const goalTSBVal = projection?.goalDay.tsb;
-            const adherence = projection?.goalDay.adherenceRate;
-            const currentCTL = currentPoint?.ctl ?? 0;
-
-            return (
-              <div
-                style={{
-                  marginTop: 'var(--space-4)',
-                  padding: "var(--space-3)",
-                  // 카드 안 서피스는 테두리 없이 배경 틴트만 — surface 3단계 유지 (이슈 401)
-                  background: "color-mix(in oklch, var(--lime) 5%, var(--bg-2))",
-                  borderRadius: "var(--r-md)",
-                  display: "grid",
-                  gridTemplateColumns: "2fr repeat(3, 1fr) auto",
-                  gap: 'var(--space-5)',
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <Text as="div" variant="eyebrow" style={{ color: "var(--lime)", marginBottom: 'var(--space-1)' }}>
-                    {t("goal.eyebrow", { course: activeGoal.courseName })}
-                  </Text>
-                  <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
-                    {eventDateStr} · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text>
-                    <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>
-                      {activeGoal.goalType === 'climb'
-                        ? `${activeGoal.target?.climbDurationMin ?? activeGoal.targetDurationMin ?? '—'} min${activeGoal.target?.targetWkg != null ? ` · ${activeGoal.target.targetWkg.toFixed(1)} W/kg` : ''}`
-                        : `${activeGoal.courseDist.toFixed(1)} km`}
-                      {activeGoal.goalType !== 'climb' && activeGoal.targetDurationMin != null && (
-                        activeGoal.targetDurationMin % 60 > 0
-                          ? t("goal.targetHm", { h: Math.floor(activeGoal.targetDurationMin / 60), m: activeGoal.targetDurationMin % 60 })
-                          : t("goal.targetH", { h: Math.floor(activeGoal.targetDurationMin / 60) })
-                      )}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.ctl")}</Text>
-                  {goalCTLVal != null ? (
-                    <div>
-                      <Text variant="dataMedium" style={{ color: "var(--lime)" }}>{Math.round(goalCTLVal)}</Text>
-                      <Text variant="unit">{goalCTLVal > currentCTL ? `+${(goalCTLVal - currentCTL).toFixed(1)}` : (goalCTLVal - currentCTL).toFixed(1)}</Text>
-                    </div>
-                  ) : (
-                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
-                  )}
-                </div>
-                <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.tsb")}</Text>
-                  {goalTSBVal != null ? (
-                    <div>
-                      <Text variant="dataMedium" style={{ color: "var(--amber)" }}>
-                        {goalTSBVal >= 0 ? `+${Math.round(goalTSBVal)}` : Math.round(goalTSBVal)}
-                      </Text>
-                      <Text variant="unit">
-                        {goalTSBVal >= 5 && goalTSBVal <= 25 ? t("goal.tsbStatus.optimal") : goalTSBVal > 25 ? t("goal.tsbStatus.over") : t("goal.tsbStatus.fatigue")}
-                      </Text>
-                    </div>
-                  ) : (
-                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
-                  )}
-                </div>
-                <div>
-                  <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-1)" }}>{t("goal.adherence")}</Text>
-                  {adherence != null ? (
-                    <div>
-                      <Text variant="dataMedium">{Math.round(adherence * 100)}</Text>
-                      <Text variant="unit">%</Text>
-                    </div>
-                  ) : (
-                    <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>—</span>
-                  )}
-                </div>
-                <a href="/plan" className={`${buttonClass({ variant: 'secondary', size: 'sm' })}`} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-xs)" }}>
-                  {t("goal.viewPlan")}
-                </a>
-              </div>
-            );
-          })()}
-        </Card>
+          </DetailsSection>
+        )}
 
         {/* 종목별 CTL 요약 dead block (2026-05-28 제거) — tri 뷰에서만 표시하던
             컴포넌트. 시안 검토 결과 단일 뷰 (bike/run/swim) 에선 불필요로 결정.
             복구 필요 시 git history 참조: commit 5d00cf2 이전. */}
 
+        <DetailsSection title={t("conclusion.trainingDetailToggle")}>
         {/* 2열 하단: 일별 운동 부하 + 파워 커브 */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>
           {/* 일별 운동 부하 */}
@@ -961,6 +921,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
           </Card>
 
         </div>
+        </DetailsSection>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { getDoc, onSnapshot } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -170,6 +170,56 @@ describe("FitnessPage", () => {
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
     expect(await screen.findByText("피트니스 차트를 만들 활동이 아직 없어요")).toBeInTheDocument();
     expect(screen.queryByTestId("desktop-full-ai-coach")).not.toBeInTheDocument();
+  });
+
+  it("synchronizes recent activity selection with the PMC marker", async () => {
+    viewport.isMobile = false;
+    const activities = [
+      {
+        id: "ride-new",
+        userId: "test-uid",
+        type: "Ride",
+        startTime: Date.parse("2026-08-29T08:00:00.000Z"),
+        deletedAt: null,
+        summary: { distance: 100_000, ridingTimeMillis: 10_800_000, tss: 196, relativeEffort: null },
+      },
+      {
+        id: "ride-old",
+        userId: "test-uid",
+        type: "Ride",
+        startTime: Date.parse("2026-08-28T08:00:00.000Z"),
+        deletedAt: null,
+        summary: { distance: 42_000, ridingTimeMillis: 5_400_000, tss: 84, relativeEffort: null },
+      },
+    ];
+    setCollectionDocs("activities", activities);
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-08-27",
+      endDate: "2026-08-29",
+      pointCount: 3,
+      points: [
+        { date: "2026-08-27", ctl: 36, atl: 42, tsb: -6, dailyLoad: 0 },
+        { date: "2026-08-28", ctl: 37.1, atl: 48, tsb: -10.9, dailyLoad: 84 },
+        { date: "2026-08-29", ctl: 40.8, atl: 69, tsb: -28.2, dailyLoad: 196 },
+      ],
+    });
+
+    const { container } = renderWithProviders(<FitnessPage />, {
+      authenticated: true,
+      route: "/fitness?sport=bike",
+    });
+
+    expect(await screen.findByRole("heading", { name: /회복을 흡수하는 날/ })).toBeInTheDocument();
+    await waitFor(() => expect(container.querySelector('[data-activity-marker="ride-new"] circle')).toHaveAttribute("r", "5"));
+
+    fireEvent.click(screen.getByRole("button", { name: /42.0 km/ }));
+    await waitFor(() => {
+      expect(container.querySelector('[data-activity-marker="ride-old"] circle')).toHaveAttribute("r", "5");
+      expect(container.querySelector('[data-activity-marker="ride-new"] circle')).toHaveAttribute("r", "3.5");
+    });
   });
 
   it("does not pass integrated detail to a single-sport mobile tab", async () => {
