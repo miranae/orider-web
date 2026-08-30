@@ -222,6 +222,101 @@ describe("FitnessPage", () => {
     });
   });
 
+  it.each([
+    {
+      caseName: "production overlap",
+      oriderStart: 1_787_990_769_446,
+      oriderDistance: 77_781.36,
+      oriderMovingSec: 11_735.672,
+      stravaStart: 1_787_994_466_000,
+      stravaDistance: 70_416.6,
+      stravaMovingSec: 9_385,
+    },
+    {
+      caseName: "later Orider document",
+      oriderStart: Date.parse("2026-08-29T08:00:30.000Z"),
+      oriderDistance: 77_800,
+      oriderMovingSec: 8_900,
+      stravaStart: Date.parse("2026-08-29T08:00:00.000Z"),
+      stravaDistance: 70_400,
+      stravaMovingSec: 8_700,
+    },
+  ])("does not show a physical duplicate as pending: $caseName", async ({
+    oriderStart,
+    oriderDistance,
+    oriderMovingSec,
+    stravaStart,
+    stravaDistance,
+    stravaMovingSec,
+  }) => {
+    viewport.isMobile = false;
+    setCollectionDocs("activities", [
+      {
+        id: "orider-duplicate",
+        userId: "test-uid",
+        source: "orider",
+        type: "Ride",
+        startTime: oriderStart,
+        deletedAt: null,
+        summary: { distance: oriderDistance, movingTimeSec: oriderMovingSec, ridingTimeMillis: oriderMovingSec * 1_000, tss: 102 },
+      },
+      {
+        id: "strava_representative",
+        userId: "test-uid",
+        source: "strava",
+        type: "Ride",
+        startTime: stravaStart,
+        deletedAt: null,
+        summary: { distance: stravaDistance, movingTimeSec: stravaMovingSec, ridingTimeMillis: stravaMovingSec * 1_000, tss: null },
+      },
+    ]);
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-08-28",
+      endDate: "2026-08-29",
+      pointCount: 2,
+      points: [
+        { date: "2026-08-28", ctl: 36, atl: 42, tsb: -6, dailyLoad: 0 },
+        { date: "2026-08-29", ctl: 37.9, atl: 48.5, tsb: -10.6, dailyLoad: 102 },
+      ],
+    });
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("반영 부하 102 TSS")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /70\.4 km/ })).toBeInTheDocument();
+    expect(screen.queryByText("일일 부하 반영을 기다리는 중")).not.toBeInTheDocument();
+  });
+
+  it("keeps a genuinely new activity pending until the canonical timeseries covers it", async () => {
+    viewport.isMobile = false;
+    setCollectionDocs("activities", [{
+      id: "new-unprocessed-ride",
+      userId: "test-uid",
+      source: "orider",
+      type: "Ride",
+      startTime: Date.parse("2026-08-30T08:00:00.000Z"),
+      deletedAt: null,
+      summary: { distance: 25_000, movingTimeSec: 3_000, ridingTimeMillis: 3_000_000, tss: null },
+    }]);
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-08-29",
+      endDate: "2026-08-29",
+      pointCount: 1,
+      points: [{ date: "2026-08-29", ctl: 37.9, atl: 48.5, tsb: -10.6, dailyLoad: 102 }],
+    });
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findAllByText("일일 부하 반영을 기다리는 중")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /25\.0 km.*일일 부하 반영을 기다리는 중/ })).toBeInTheDocument();
+  });
+
   it("does not pass integrated detail to a single-sport mobile tab", async () => {
     const now = Date.now();
     setCollectionDocs("activities", [{
