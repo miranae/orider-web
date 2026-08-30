@@ -10,6 +10,7 @@ import {
   buildActivityAnalysisProjection,
   buildActivitySensorSelectionContext,
   deriveStreamSensorSummary,
+  withSynthesizedElapsedTime,
   type ActivityPowerOverride,
 } from "../features/activity/detail/activityDetailDerived";
 import { resolveAnalysisSummaryTiming } from "../features/activity/detail/analysisSummaryTiming";
@@ -210,19 +211,10 @@ export function useActivityAnalysisModel(
   const powerOverrideProvenance = useMemo(() => activePowerOverride
     ? { source: activePowerOverride.source, time: activePowerOverride.time }
     : undefined, [activePowerOverride]);
-  const selectionSummary = useMemo(() => {
-    const summary = activity?.summary;
-    if (!summary || summary.elapsedTimeMillis != null) return summary;
-
-    const startTime = activity.startTime;
-    const endTime = activity.endTime;
-    const elapsedTimeMillis = typeof startTime === "number" && typeof endTime === "number"
-      ? endTime - startTime
-      : 0;
-    const ridingTimeMillis = summary.ridingTimeMillis ?? 0;
-    if (!Number.isFinite(elapsedTimeMillis) || elapsedTimeMillis <= ridingTimeMillis) return summary;
-    return { ...summary, ridingTimeMillis: elapsedTimeMillis };
-  }, [activity?.endTime, activity?.startTime, activity?.summary]);
+  const selectionSummary = useMemo(
+    () => withSynthesizedElapsedTime(activity?.summary, activity?.startTime, activity?.endTime),
+    [activity?.endTime, activity?.startTime, activity?.summary],
+  );
   const sensorSelectionContext = useMemo(
     () => buildActivitySensorSelectionContext(
       selectionSummary,
