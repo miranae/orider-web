@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import AiRideAnalysisCard from "./AiRideAnalysisCard";
+import type { ActivityNarrative, NarrativeSegment } from "../../hooks/useActivityNarrative";
 
 const narrativeApiMocks = vi.hoisted(() => ({
   generate: vi.fn(),
@@ -11,6 +12,53 @@ vi.mock("../../services/activityNarrativeApi", () => ({
   generateActivityNarrative: narrativeApiMocks.generate,
   peekActivityNarrative: narrativeApiMocks.peek,
 }));
+
+function segment(fromKm: number, toKm: number, narrative: string): NarrativeSegment {
+  return {
+    fromKm,
+    toKm,
+    terrain: "flat",
+    avgGradePct: 0,
+    elevGainM: 0,
+    avgSpeedKmh: 25,
+    avgPowerW: 120,
+    avgHr: 130,
+    zone: "Z2",
+    pctHrMax: null,
+    hrDrift: 0,
+    avgCadence: 80,
+    avgTempC: 22,
+    relWind: "cross",
+    movingSec: 600,
+    pauseSec: 0,
+    boundaryDriver: "distance",
+    flags: [],
+    efforts: [],
+    narrative,
+  };
+}
+
+function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: true } {
+  return {
+    hit: true,
+    narrativeVersion: "test",
+    generatedAt: 1,
+    isVirtualPower: false,
+    summary: "전체 코칭 요약",
+    overall: {
+      totalDistanceKm: 30,
+      movingSec: 1800,
+      pauseSec: 0,
+      elevGainM: 0,
+      tempStartC: 22,
+      tempEndC: 22,
+      tempSource: "device",
+      flags: [],
+    },
+    segments,
+    source: "cache",
+  };
+}
 
 describe("AiRideAnalysisCard", () => {
   beforeEach(() => {
@@ -58,5 +106,41 @@ describe("AiRideAnalysisCard", () => {
     });
     expect(screen.queryByText(/분석 실패/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Unauthenticated/)).not.toBeInTheDocument();
+  });
+
+  it("shows only segments with a non-empty narrative while keeping the full timeline", async () => {
+    narrativeApiMocks.peek.mockResolvedValue(narrative([
+      segment(0, 10, "첫 구간 코칭"),
+      segment(10, 20, ""),
+      segment(20, 30, " "),
+    ]));
+
+    renderWithProviders(
+      <AiRideAnalysisCard activityId="focused-segments-visible" enabled />,
+    );
+
+    expect(await screen.findByText("구간별 분석 (2)")).toBeInTheDocument();
+    expect(screen.getByText("첫 구간 코칭")).toBeInTheDocument();
+    expect(screen.queryByText("➡️ 10–20km")).not.toBeInTheDocument();
+    expect(screen.getByTitle(/0–10km/)).toBeInTheDocument();
+    expect(screen.getByTitle(/10–20km/)).toBeInTheDocument();
+    expect(screen.getByTitle(/20–30km/)).toBeInTheDocument();
+  });
+
+  it("hides the segment coaching controls when every narrative is exactly empty", async () => {
+    narrativeApiMocks.peek.mockResolvedValue(narrative([
+      segment(0, 15, ""),
+      segment(15, 30, ""),
+    ]));
+
+    renderWithProviders(
+      <AiRideAnalysisCard activityId="focused-segments-empty" enabled />,
+    );
+
+    await screen.findByText("전체 코칭 요약");
+    expect(screen.queryByText(/구간별 분석/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "접기" })).not.toBeInTheDocument();
+    expect(screen.getByTitle(/0–15km/)).toBeInTheDocument();
+    expect(screen.getByTitle(/15–30km/)).toBeInTheDocument();
   });
 });

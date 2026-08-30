@@ -407,6 +407,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   if (!data || data.segments.length === 0) return null;
 
   const { overall } = data;
+  const coachedSegments = data.segments.filter((segment) => segment.narrative !== "");
   const tempBadge =
     overall.tempStartC != null && overall.tempEndC != null
       ? `🌡️ ${overall.tempStartC}→${overall.tempEndC}° (${overall.tempSource === "device" ? t("ai.temp.device") : t("ai.temp.forecast")})`
@@ -457,17 +458,21 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         <Text variant="caption" tone="tertiary" mono>{totalKm}km</Text>
       </div>
 
-      {/* 구간별 코칭 (접기/펼치기, 기본 펼침) */}
-      <div className="flex items-center justify-between mt-4">
-        <Text variant="eyebrow" tone="tertiary">{t("ai.segmentAnalysis", { count: data.segments.length })}</Text>
-        <Button size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
-          {expanded ? t("ai.collapse") : t("ai.expand")}
-        </Button>
-      </div>
-      {expanded && (
-        <div className="mt-1">
-          {data.segments.map((s) => <SegmentRow key={`${s.fromKm}-${s.toKm}`} seg={s} sport={sport} t={t} />)}
-        </div>
+      {/* 구간별 코칭 (접기/펼치기, 기본 펼침). 빈 내러티브 구간은 타임라인에만 유지. */}
+      {coachedSegments.length > 0 && (
+        <>
+          <div className="flex items-center justify-between mt-4">
+            <Text variant="eyebrow" tone="tertiary">{t("ai.segmentAnalysis", { count: coachedSegments.length })}</Text>
+            <Button size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
+              {expanded ? t("ai.collapse") : t("ai.expand")}
+            </Button>
+          </div>
+          {expanded && (
+            <div className="mt-1">
+              {coachedSegments.map((s) => <SegmentRow key={`${s.fromKm}-${s.toKm}`} seg={s} sport={sport} t={t} />)}
+            </div>
+          )}
+        </>
       )}
 
       {/* 코치 처방 (진단 뒤 행동 권고). 구버전 캐시(rsn-v9)는 미포함 → 조용히 숨김 */}
