@@ -28,7 +28,8 @@ import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
 import RouteMap from "../components/RouteMap";
-import ElevationChart, { ELEVATION_PLOT_AXIS_WIDTH } from "../components/ElevationChart";
+import { ELEVATION_PLOT_AXIS_WIDTH } from "../components/ElevationChart";
+import { CourseStageProfile } from "../features/courses/CourseStageProfile";
 import { track } from "../services/analytics";
 import "../features/courses/course-detail.css";
 import { cumulativeDistancesFromLatLng, laneLabelKey, LANE_DEFS } from "../features/courseEngine";
@@ -1098,29 +1099,13 @@ export default function CoursePage() {
 
       {/* Elevation Chart */}
       {course.elevationProfile && course.elevationProfile.length > 0 && (
-        <Card>
-          <ElevationChart
+        <Card style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
+          <CourseStageProfile
             data={course.elevationProfile.map((p) => ({ distance: p.d, elevation: p.e }))}
-            height={180}
             onHoverIndex={handleElevHover}
-            colorByGrade
-            // 아래 경유지 레인이 같은 거리축을 쓰므로 좌우 플롯 폭을 고정한다.
-            reserveLaneGutter={waypointLaneRows.length > 0}
           />
-          <ul className="course-grade-legend">
-            {[
-              { key: "flat", label: t("grade.flat"), variable: "--color-info" },
-              { key: "rolling", label: t("grade.rolling"), variable: "--color-warning" },
-              { key: "steep", label: t("grade.steep"), variable: "--color-error" },
-            ].map((band) => (
-              <li key={band.key}>
-                <i aria-hidden="true" style={{ background: `var(${band.variable})` }} />
-                {band.label}
-              </li>
-            ))}
-          </ul>
           {waypointLaneRows.length > 0 && (
-            <div className="course-lanes" style={{ "--profile-axis-width": `${ELEVATION_PLOT_AXIS_WIDTH}px` } as React.CSSProperties}>
+            <div className="course-lanes">
               {waypointLaneRows.map((group) => (
                 <div key={group.lane} className="course-lane-row">
                   <span className="course-lane-name">
@@ -1528,6 +1513,7 @@ export function ClimbPredictionStatus({
         type="button"
         variant="ghost"
         size="sm"
+        className="course-climb-prediction"
         onClick={onLogin}
         style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
       >
@@ -1538,7 +1524,7 @@ export function ClimbPredictionStatus({
   return (
     <Link
       to="/settings?section=training"
-      className="block text-[length:var(--fs-xs)] hover:underline"
+      className="course-climb-prediction block text-[length:var(--fs-xs)] hover:underline"
       style={{ color: "var(--lime)", marginTop: "var(--space-2)" }}
     >
       {t("climbPrediction.addMetrics")}

@@ -25,6 +25,32 @@ describe("MobileFitnessPage tri", () => {
     integratedLoadSpy.mockClear();
   });
 
+  it("places the single-sport coach briefing before the PMC evidence", () => {
+    const data = {
+      ctl: 12, atl: 10, tsb: 2,
+      pmcHistory: [
+        { date: "2026-07-13", ctl: 10, atl: 9, tsb: 1 },
+        { date: "2026-07-14", ctl: 12, atl: 10, tsb: 2 },
+      ],
+      weeklyTSS: [], thisWeekTSS: 0, avgWeekTSS: 0, restDays: 0,
+      threshold: null, hasLoadData: true, combinedLoad: null,
+      loadFocus: { windowDays: 28, totalLoad: 0, buckets: { baseAerobic: 0, highAerobic: 0, highIntensity: 0, unclassified: 0 }, sourceLoad: { power: 0, heartRate: 0, unclassified: 0 }, disciplineLoad: { bike: 0, run: 0, swim: 0, other: 0 }, activityCount: 0, coveragePct: 0, confidence: "none", hasAnaerobicBikeDetail: false },
+      cyclingAbility: null, runEvidence: { thresholdPaceSec: null, records: [] }, swimEvidence: { windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 },
+      zones: [], zoneSource: "none", discipline: "bike",
+    } satisfies MobileFitnessData;
+
+    const { container } = renderWithProviders(
+      <MobileFitnessPage data={data} coachSlot={<div>활동 영향과 오늘 선택</div>} />,
+    );
+
+    expect(screen.getByText("활동 영향과 오늘 선택")).toBeInTheDocument();
+    const coach = container.querySelector("[data-mobile-fitness-coach]");
+    const pmc = container.querySelector("[data-pmc-chart]");
+    expect(coach).not.toBeNull();
+    expect(pmc).not.toBeNull();
+    expect(coach!.compareDocumentPosition(pmc!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it.each([
     ["tri", "통합 체력 추이 · 2일", "모든 종목의 훈련 부하 합산", "총 CTL"],
     ["bike", "사이클 체력 추이 · 2일", "사이클 활동 부하만 계산", "사이클 CTL"],

@@ -251,12 +251,21 @@ function projectTwoDays(current: FitnessPoint, firstDayLoad: number): [FitnessFo
   return result as [FitnessForecastPoint, FitnessForecastPoint];
 }
 
+/** Projects one selectable first-day load through the canonical CTL/ATL EMA model. */
+export function forecastFitnessChoice48Hours(
+  current: FitnessPoint,
+  firstDayLoad: number,
+): [FitnessForecastPoint, FitnessForecastPoint] {
+  const safeLoad = Number.isFinite(firstDayLoad) && firstDayLoad > 0 ? firstDayLoad : 0;
+  return projectTwoDays(current, safeLoad);
+}
+
 /** Projects natural recovery and, optionally, one easy-load day without mutating canonical history. */
 export function forecastFitness48Hours(
   current: FitnessPoint,
   easyLoad?: number | null,
 ): Fitness48HourForecast {
-  const forecast: Fitness48HourForecast = { rest: projectTwoDays(current, 0) };
-  if (isFinitePositive(easyLoad)) forecast.easy = projectTwoDays(current, easyLoad);
+  const forecast: Fitness48HourForecast = { rest: forecastFitnessChoice48Hours(current, 0) };
+  if (isFinitePositive(easyLoad)) forecast.easy = forecastFitnessChoice48Hours(current, easyLoad);
   return forecast;
 }

@@ -30,6 +30,18 @@
   "averageGrade": "평균경사",
   "maxGrade": "최대경사",
   "climbSection": "오르막 구간",
+  "stageProfile": {
+    "eyebrow": "Course profile",
+    "title": "코스 프로필",
+    "gradeLegend": "경사도 색상 범례",
+    "highPointNumber": "고점 {{number}}",
+    "distanceElevation": "{{distance}} km · {{elevation}} m",
+    "pointLabel": "주요 고점 {{number}}, {{distance}} km, 고도 {{elevation}} m",
+    "next": "다음",
+    "nextPointLabel": "다음 주요 고점 보기: 고점 {{number}}, {{distance}} km, 고도 {{elevation}} m",
+    "chartLabel": "거리별 고도와 경사도를 보여주는 코스 프로필. 주요 고점 버튼을 선택하면 정확한 거리와 고도를 확인할 수 있습니다.",
+    "note": "주요 고점은 저장된 고도 프로필의 실제 국소 고점이며, 오르막 카테고리를 뜻하지 않습니다."
+  },
   "climbPrediction": {
     "result": "내 예상 {{duration}} · {{wkg}} W/kg",
     "loading": "내 예상 기록을 계산하고 있어요…",
