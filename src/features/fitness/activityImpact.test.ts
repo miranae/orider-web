@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { Activity } from "@shared/types";
 import type { FitnessPoint } from "../../utils/fitnessMetrics";
-import { deriveActivityImpacts, forecastFitness48Hours } from "./activityImpact";
+import {
+  activityIdsCoveredByImpacts,
+  deriveActivityImpacts,
+  forecastFitness48Hours,
+} from "./activityImpact";
 
 function activity(id: string, startTime: number, summaryTss: number | null, topLevelTss?: number): Activity {
   return {
@@ -10,6 +14,27 @@ function activity(id: string, startTime: number, summaryTss: number | null, topL
     startTime,
     summary: { tss: summaryTss },
     ...(topLevelTss === undefined ? {} : { tss: topLevelTss }),
+  } as Activity;
+}
+
+function ride(params: {
+  id: string;
+  source: "strava" | "orider";
+  startTime: number;
+  distanceKm: number;
+  movingSec: number;
+  tss: number | null;
+}): Activity {
+  return {
+    id: params.id,
+    source: params.source,
+    startTime: params.startTime,
+    summary: {
+      distance: params.distanceKm * 1_000,
+      movingTimeSec: params.movingSec,
+      ridingTimeMillis: params.movingSec * 1_000,
+      tss: params.tss,
+    },
   } as Activity;
 }
 
@@ -56,6 +81,88 @@ describe("deriveActivityImpacts", () => {
     expect(impacts.reduce((sum, impact) => sum + impact.attributedLoad, 0)).toBeCloseTo(200);
   });
 
+  it("attributes a duplicated Orider and Strava ride once to the canonical representative", () => {
+    const activities = [
+      ride({
+        id: "orider-ride",
+        source: "orider",
+        startTime: 1_787_990_769_446,
+        distanceKm: 77.78136,
+        movingSec: 11_735.672,
+        tss: 102,
+      }),
+      ride({
+        id: "strava_ride",
+        source: "strava",
+        startTime: 1_787_994_466_000,
+        distanceKm: 70.4166,
+        movingSec: 9_385,
+        tss: null,
+      }),
+    ];
+
+    const impacts = deriveActivityImpacts([point("2026-08-29", 37.9, 48.5, 102)], activities);
+
+    expect(impacts).toHaveLength(1);
+    expect(impacts[0]).toMatchObject({
+      activity: { id: "strava_ride" },
+      attributedLoad: 102,
+      canonicalDailyLoad: 102,
+      confidence: "canonical-single",
+    });
+    expect(impacts.reduce((sum, impact) => sum + impact.attributedLoad, 0)).toBeCloseTo(102);
+    expect(activityIdsCoveredByImpacts(activities, impacts)).toEqual(new Set(["orider-ride", "strava_ride"]));
+  });
+
+  it("uses legacy duration fallback and time load when choosing a same-source representative", () => {
+    const startTime = Date.parse("2026-08-29T10:00:00.000Z");
+    const longerWithoutExplicitTss = {
+      id: "longer-time-load",
+      source: "orider",
+      startTime,
+      summary: { distance: 30_000, movingTimeMillis: 3_600_000, tss: null },
+    } as Activity;
+    const shorterWithExplicitTss = ride({
+      id: "shorter-explicit-load",
+      source: "orider",
+      startTime: startTime + 10_000,
+      distanceKm: 30,
+      movingSec: 3_550,
+      tss: 50,
+    });
+
+    const impacts = deriveActivityImpacts(
+      [point("2026-08-29", 10, 12, 80)],
+      [shorterWithExplicitTss, longerWithoutExplicitTss],
+    );
+
+    expect(impacts).toHaveLength(1);
+    expect(impacts[0].activity.id).toBe("longer-time-load");
+    expect(impacts[0].attributedLoad).toBe(80);
+  });
+
+  it("keeps conservative allocation for genuinely distinct same-day activities", () => {
+    const startTime = Date.parse("2026-08-29T06:00:00.000Z");
+    const known = ride({
+      id: "morning-ride",
+      source: "orider",
+      startTime,
+      distanceKm: 40,
+      movingSec: 3_600,
+      tss: 60,
+    });
+    const unknown = ride({
+      id: "evening-ride",
+      source: "orider",
+      startTime: startTime + 10 * 60 * 60 * 1_000,
+      distanceKm: 30,
+      movingSec: 2_700,
+      tss: null,
+    });
+
+    expect(deriveActivityImpacts([point("2026-08-29", 10, 12, 100)], [known, unknown])).toEqual([]);
+  });
+
   it("omits activities that have no matching canonical fitness point", () => {
     const impacts = deriveActivityImpacts(
       [point("2026-08-28", 10, 12, 30)],
@@ -68,7 +175,7 @@ describe("deriveActivityImpacts", () => {
   it("groups by UTC day at the boundary instead of the browser timezone", () => {
     const activities = [
       activity("before", Date.parse("2026-08-29T23:59:59.999Z"), 40),
-      activity("after", Date.parse("2026-08-30T00:00:00.000Z"), 60),
+      activity("after", Date.parse("2026-08-30T00:10:00.000Z"), 60),
     ];
     const impacts = deriveActivityImpacts(
       [point("2026-08-29", 10, 12, 40), point("2026-08-30", 11, 15, 60)],
