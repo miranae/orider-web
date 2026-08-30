@@ -137,6 +137,65 @@ describe("useActivityAnalysisModel", () => {
     );
   });
 
+  it("keeps production-shaped pause-gapped HR in the analysis model without rewriting moving time", async () => {
+    const sampleCount = 9_388;
+    const pauseGaps = new Map([
+      [1_000, 1_000],
+      [3_000, 1_000],
+      [5_000, 1_000],
+      [7_000, 1_000],
+      [9_000, 1_815],
+    ]);
+    let elapsedSec = 0;
+    const time = Array.from({ length: sampleCount }, (_, index) => {
+      if (index > 0) elapsedSec += 1 + (pauseGaps.get(index) ?? 0);
+      return elapsedSec;
+    });
+    const heartrate = Array.from({ length: sampleCount }, (_, index) => 93 + index % 94);
+    const activity = {
+      ...makeActivity("strava_19949890213"),
+      endTime: 1_700_015_203_000,
+      summary: {
+        ...makeActivity("strava_19949890213").summary,
+        elapsedTimeMillis: undefined,
+        ridingTimeMillis: 9_385_000,
+      },
+    } as Activity;
+    seedActivity(activity, {
+      userId: activity.userId,
+      time,
+      distance: time.map((_, index) => index * 5),
+      altitude: time.map((_, index) => 10 + index % 100),
+      heartrate,
+    });
+
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+
+    await waitFor(() => expect(result.current.loadingActivity).toBe(false));
+    await waitFor(() => expect(result.current.streams).not.toBeNull());
+
+    expect(time.at(-1)).toBe(15_202);
+    expect(result.current.sensorSelectionContext).toMatchObject({
+      legacyDurationSec: 9_385,
+      explicitDurationSec: 15_203,
+    });
+    expect(result.current.streamSensorSummary).toMatchObject({
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+      heartRateSource: "heartrate",
+    });
+    expect(result.current.displayedSummary).toMatchObject({
+      ridingTimeMillis: 9_385_000,
+      averageHeartRate: result.current.streamSensorSummary?.averageHeartRate,
+      maxHeartRate: 186,
+    });
+    expect(result.current.displayedSummary?.elapsedTimeMillis).toBeUndefined();
+    expect(result.current.analysisProjection?.streams.heartrate).toHaveLength(sampleCount);
+    expect(result.current.analysisTabProps?.streams.heartrate).toHaveLength(sampleCount);
+    expect(result.current.hasStreamHeartRateCandidate).toBe(true);
+    expect(result.current.hasAnalysisStreams).toBe(true);
+  });
+
   it("disables owner-only metrics for another rider and never subscribes to social or photo data", async () => {
     mocks.user = { uid: "viewer" };
     const activity = makeActivity("orider_public", "owner");

@@ -153,6 +153,26 @@ function validDurationMillis(value: unknown): number | undefined {
     : undefined;
 }
 
+/** Fills a missing wall-clock duration without changing legacy moving-time evidence. */
+export function withSynthesizedElapsedTime(
+  summary: Pick<ActivitySummary, "ridingTimeMillis" | "elapsedTimeMillis"> | null | undefined,
+  startTime: unknown,
+  endTime: unknown,
+): Pick<ActivitySummary, "ridingTimeMillis" | "elapsedTimeMillis"> | null | undefined {
+  if (!summary || validDurationMillis(summary.elapsedTimeMillis) != null) return summary;
+  if (typeof startTime !== "number" || !Number.isFinite(startTime)
+    || typeof endTime !== "number" || !Number.isFinite(endTime)) return summary;
+  const elapsedTimeMillis = endTime - startTime;
+  const ridingTimeMillis = typeof summary.ridingTimeMillis === "number"
+    && Number.isFinite(summary.ridingTimeMillis)
+    && summary.ridingTimeMillis > 0
+    ? summary.ridingTimeMillis
+    : undefined;
+  if (elapsedTimeMillis <= 0
+    || (ridingTimeMillis != null && elapsedTimeMillis < ridingTimeMillis)) return summary;
+  return { ...summary, elapsedTimeMillis };
+}
+
 export function buildActivitySensorSelectionContext(
   summary: Pick<ActivitySummary, "ridingTimeMillis" | "elapsedTimeMillis"> | null | undefined,
   activityStartTime?: number,
