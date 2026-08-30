@@ -4,6 +4,11 @@ import {
   CTL_DAYS,
   type FitnessPoint,
 } from "../../utils/fitnessMetrics";
+import {
+  dedupeSamePhysicalRides,
+  groupSamePhysicalRides,
+  pickPhysicalRideRepresentative,
+} from "../../utils/samePhysicalRide";
 
 export type ActivityImpactConfidence = "canonical-single" | "estimated-allocation";
 
@@ -49,6 +54,7 @@ export interface Fitness48HourForecast {
 }
 
 type ActivityWithTopLevelTss = Activity & { tss?: number | null };
+type ActivitySummaryWithLegacyMovingTime = Activity["summary"] & { movingTimeMillis?: number | null };
 
 const DAY_MS = 86_400_000;
 
@@ -77,6 +83,47 @@ function candidateTss(activity: Activity): number | null {
   const topLevel = (activity as ActivityWithTopLevelTss).tss;
   if (isFinitePositive(topLevel)) return topLevel;
   return isFinitePositive(activity.summary?.tss) ? activity.summary.tss : null;
+}
+
+function positiveNumber(value: unknown): number | null {
+  return isFinitePositive(value) ? value : null;
+}
+
+function physicalRideIdentity(activity: Activity) {
+  const summary = activity.summary as ActivitySummaryWithLegacyMovingTime;
+  const legacyMovingMillis = positiveNumber(summary.movingTimeMillis);
+  const ridingMillis = positiveNumber(summary.ridingTimeMillis);
+  const elapsedMillis = positiveNumber(summary.elapsedTimeMillis);
+  const movingSec = positiveNumber(summary.movingTimeSec)
+    ?? (legacyMovingMillis != null ? Math.round(legacyMovingMillis / 1_000) : null)
+    ?? (ridingMillis != null ? Math.round(ridingMillis / 1_000) : null)
+    ?? (elapsedMillis != null ? Math.round(elapsedMillis / 1_000) : null);
+  const distanceMeters = positiveNumber(activity.summary?.distance);
+  return {
+    activity,
+    id: activity.id,
+    source: activity.source ?? null,
+    startTime: activity.startTime,
+    distanceKm: distanceMeters != null ? distanceMeters / 1_000 : null,
+    movingSec,
+    // 서버 extractActivityTss는 명시 TSS가 없어도 지원 시간 필드가 있으면 시간 부하로 폴백한다.
+    // 비례 배분의 candidateTss는 그대로 유지하고, 대표 선택 힌트만 서버 의미에 맞춘다.
+    hasLoad: candidateTss(activity) != null || movingSec != null,
+  };
+}
+
+/** Activity ids whose physical-ride representative is present in the rendered impacts. */
+export function activityIdsCoveredByImpacts(
+  activities: readonly Activity[],
+  impacts: readonly ActivityImpactEntry[],
+): ReadonlySet<string> {
+  const impactIds = new Set(impacts.map((entry) => entry.activity.id));
+  const coveredIds = new Set<string>();
+  for (const group of groupSamePhysicalRides(activities.map(physicalRideIdentity))) {
+    if (!impactIds.has(pickPhysicalRideRepresentative(group).id)) continue;
+    group.forEach((row) => coveredIds.add(row.id));
+  }
+  return coveredIds;
 }
 
 function marginalImpact(load: number): FitnessStateDelta {
@@ -110,9 +157,10 @@ function actualDayChange(
 /**
  * Derives activity-attributed effects exclusively from canonical daily FitnessPoints.
  *
- * A single activity receives that day's canonical `dailyLoad`. On a day with several
- * activities, allocation is emitted only when every activity has a safe positive TSS
- * candidate; this avoids silently assigning unknown load or overstating precision.
+ * A single physical activity receives that day's canonical `dailyLoad`. Cross-provider
+ * duplicates are collapsed with the same representative rule as the backend. On a day
+ * with several distinct activities, allocation is emitted only when every representative
+ * has a safe positive TSS candidate; this avoids assigning unknown load or overstating precision.
  */
 export function deriveActivityImpacts(
   fitnessPoints: readonly FitnessPoint[],
@@ -130,9 +178,13 @@ export function deriveActivityImpacts(
   if (!asOfDate) return [];
 
   const activitiesByDate = new Map<string, Activity[]>();
-  for (const activity of activities) {
+  const eligibleActivities = activities.filter((activity) => {
     const date = utcDayFromMillis(activity.startTime);
-    if (!date || date > asOfDate) continue;
+    return date != null && date <= asOfDate;
+  });
+  const physicalActivities = dedupeSamePhysicalRides(eligibleActivities.map(physicalRideIdentity));
+  for (const { activity } of physicalActivities) {
+    const date = utcDayFromMillis(activity.startTime)!;
     const sameDay = activitiesByDate.get(date) ?? [];
     sameDay.push(activity);
     activitiesByDate.set(date, sameDay);

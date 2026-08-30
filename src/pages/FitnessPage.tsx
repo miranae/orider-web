@@ -25,7 +25,11 @@ import BikeThresholdDecisionCard from "../features/fitness/components/BikeThresh
 import FitnessCoachBriefing from "../features/fitness/components/FitnessCoachBriefing";
 import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
 import PowerCurveChart from "../features/fitness/components/PowerCurveChart";
-import { deriveActivityImpacts, forecastFitness48Hours } from "../features/fitness/activityImpact";
+import {
+  activityIdsCoveredByImpacts,
+  deriveActivityImpacts,
+  forecastFitness48Hours,
+} from "../features/fitness/activityImpact";
 import { deriveMonthlyCyclingVo2maxTrend } from "../features/fitness/deriveMonthlyCyclingVo2maxTrend";
 import {
   POWER_DURATION_KEY_SEC,
@@ -103,12 +107,13 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   const activityImpacts = discipline === "tri" || !hasCanonicalTimeseries
     ? []
     : deriveActivityImpacts(fitnessData, disciplineActivities, { limit: 6 });
+  const coveredActivityIds = activityIdsCoveredByImpacts(disciplineActivities, activityImpacts);
   const newestDisciplineActivity = disciplineActivities.reduce<(typeof disciplineActivities)[number] | null>(
     (latest, activity) => !latest || activity.startTime > latest.startTime ? activity : latest,
     null,
   );
   const pendingImpactActivity = newestDisciplineActivity
-    && !activityImpacts.some((entry) => entry.activity.id === newestDisciplineActivity.id)
+    && !coveredActivityIds.has(newestDisciplineActivity.id)
     ? newestDisciplineActivity
     : null;
   const selectedActivityIsAvailable = selectedActivityId != null && (
