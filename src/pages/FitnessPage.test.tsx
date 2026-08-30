@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { getDoc, onSnapshot } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
@@ -22,8 +23,9 @@ vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
 }));
 
 vi.mock("../components/mobile/MobileFitnessPage", () => ({
-  default: ({ data }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number }; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null } }) => (
+  default: ({ data, coachSlot }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number }; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null }; coachSlot?: ReactNode }) => (
     <div>
+      {coachSlot}
       mobile fitness dashboard: {data.discipline}
       <span>selected {data.ctl}/{data.atl}/{data.tsb}</span>
       <span>integrated {data.combinedLoad?.ctl ?? "none"}</span>
@@ -86,6 +88,35 @@ describe("FitnessPage", () => {
 
     expect(await screen.findByText("mobile fitness dashboard: tri")).toBeInTheDocument();
     expect(screen.queryByText("desktop tri fitness dashboard")).not.toBeInTheDocument();
+  });
+
+  it("puts the activity impact briefing on a single-sport mobile overview", async () => {
+    setCollectionDocs("activities", [{
+      id: "mobile-ride",
+      userId: "test-uid",
+      type: "Ride",
+      startTime: Date.parse("2026-08-29T08:00:00.000Z"),
+      deletedAt: null,
+      summary: { distance: 70_400, ridingTimeMillis: 9_385_000, tss: 102, relativeEffort: null },
+    }]);
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-08-28",
+      endDate: "2026-08-29",
+      pointCount: 2,
+      points: [
+        { date: "2026-08-28", ctl: 36, atl: 42, tsb: -6, dailyLoad: 0 },
+        { date: "2026-08-29", ctl: 37.9, atl: 48.5, tsb: -10.6, dailyLoad: 102 },
+      ],
+    });
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("반영 부하 102 TSS")).toBeInTheDocument();
+    expect(screen.getByText("mobile fitness dashboard: bike")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /회복 라이딩/ })).toBeInTheDocument();
   });
 
   it.each([true, false])("keeps today's workout available when fitness data fails (mobile=%s)", async (isMobile) => {

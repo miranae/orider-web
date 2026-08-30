@@ -65,6 +65,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     activities,
     disciplineActivities,
     streamsMap,
+    metricsMap,
     loading,
     error,
     range,
@@ -182,10 +183,27 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   }
 
   if (renderMobile) {
+    const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
+      <FitnessCoachBriefing
+        key={`${discipline}-${currentPoint.date}`}
+        impacts={activityImpacts}
+        selectedActivityId={effectiveSelectedActivityId}
+        onSelectActivity={setSelectedActivityId}
+        forecast={recoveryForecast}
+        current={{ ctl: currentPoint.ctl, atl: currentPoint.atl, tsb: currentPoint.tsb }}
+        locale={i18n.language}
+        canonicalAvailable={hasCanonicalTimeseries}
+        pendingActivity={pendingImpactActivity}
+        metricsMap={metricsMap}
+        discipline={discipline}
+        decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />}
+      />
+    ) : null;
     return (
       <MobileFitnessPage
         {...model.mobilePageProps}
         embedded={embedded}
+        coachSlot={mobileCoachBriefing}
       />
     );
   }
@@ -381,6 +399,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
       <div className="site-shell" style={bodyPad}>
         {discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
+            key={`${discipline}-${currentPoint.date}`}
             impacts={activityImpacts}
             selectedActivityId={effectiveSelectedActivityId}
             onSelectActivity={setSelectedActivityId}
@@ -389,6 +408,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             locale={i18n.language}
             canonicalAvailable={hasCanonicalTimeseries}
             pendingActivity={pendingImpactActivity}
+            metricsMap={metricsMap}
+            discipline={discipline}
             decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />}
           />
         )}
