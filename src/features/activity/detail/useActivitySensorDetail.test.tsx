@@ -70,28 +70,66 @@ describe("useActivitySensorDetail", () => {
     expect(result.current.markerPosition).toEqual([37.2, 127.2]);
   });
 
-  it("uses Strava wall-clock duration when elapsed time is missing", () => {
+  it("keeps pause-gapped Strava HR visible when elapsed time is missing", () => {
+    const sampleCount = 9_388;
+    const pauseGaps = new Map([
+      [1_000, 1_000],
+      [3_000, 1_000],
+      [5_000, 1_000],
+      [7_000, 1_000],
+      [9_000, 1_815],
+    ]);
+    let elapsedSec = 0;
+    const time = Array.from({ length: sampleCount }, (_, index) => {
+      if (index > 0) elapsedSec += 1 + (pauseGaps.get(index) ?? 0);
+      return elapsedSec;
+    });
+    const heartrate = Array.from({ length: sampleCount }, (_, index) => 93 + index % 94);
     const activityWithoutElapsed = {
       ...activity,
       startTime: 1_700_000_000_000,
-      endTime: 1_700_010_000_000,
-      summary: { ...activity.summary, elapsedTimeMillis: undefined, ridingTimeMillis: 4_000 },
+      endTime: 1_700_015_203_000,
+      summary: {
+        ...activity.summary,
+        elapsedTimeMillis: undefined,
+        ridingTimeMillis: 9_385_000,
+      },
     } as unknown as Activity;
     const streams = {
-      time: [0, 5_000, 10_000],
-      distance: [0, 10, 20],
-      watts: [100, 200, 300],
+      time,
+      distance: time.map((_, index) => index * 5),
+      heartrate,
     } as ActivityStreams;
     const { result } = renderHook(() => useActivitySensorDetail({
       activityId: activityWithoutElapsed.id,
       activity: activityWithoutElapsed,
       streams,
-      hoverIndex: 1,
+      hoverIndex: null,
       hoveredSegment: null,
     }));
 
-    expect(result.current.selectionContext.legacyDurationSec).toBe(10_000);
-    expect(result.current.hasStreamPowerCandidate).toBe(true);
+    expect(time.at(-1)).toBe(15_202);
+    expect(result.current.selectionContext).toMatchObject({
+      legacyDurationSec: 9_385,
+      explicitDurationSec: 15_203,
+    });
+    expect(result.current.streamSensorSummary).toMatchObject({
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+      heartRateSource: "heartrate",
+    });
+    expect(result.current.streamSensorSummary?.averageHeartRate).toBeCloseTo(
+      heartrate.reduce((sum, value) => sum + value, 0) / sampleCount,
+    );
+    expect(result.current.displayedSummary).toMatchObject({
+      ridingTimeMillis: 9_385_000,
+      averageHeartRate: result.current.streamSensorSummary?.averageHeartRate,
+      maxHeartRate: 186,
+    });
+    expect(result.current.displayedSummary?.elapsedTimeMillis).toBeUndefined();
+    expect(result.current.analysisProjection?.streams.heartrate).toHaveLength(sampleCount);
+    expect(result.current.availableOverlays.map(({ key }) => key)).toContain("hr");
+    expect(result.current.hasStreamHeartRateCandidate).toBe(true);
     expect(result.current.hasAnalysisStreams).toBe(true);
   });
 

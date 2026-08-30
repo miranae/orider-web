@@ -11,6 +11,7 @@ import {
   getChartHighlightRange,
   getSegmentEfforts,
   getStreamPhotos,
+  withSynthesizedElapsedTime,
 } from "./activityDetailDerived";
 
 function withSparseSlot(values: number[], missingIndex: number): number[] {
@@ -36,6 +37,28 @@ describe("activityDetailDerived", () => {
     ],
     photos: [{ id: "p1", url: "https://example.com/p.webp", caption: null, location: [37, 127] }],
   };
+
+  it("synthesizes only a physically consistent missing elapsed duration", () => {
+    const summary = { ridingTimeMillis: 9_385_000 };
+    const validElapsed = { ...summary, elapsedTimeMillis: 10_000_000 };
+
+    expect(withSynthesizedElapsedTime(summary, 1_000, 15_204_000)).toEqual({
+      ridingTimeMillis: 9_385_000,
+      elapsedTimeMillis: 15_203_000,
+    });
+    for (const elapsedTimeMillis of [0, -1, Number.NaN]) {
+      expect(withSynthesizedElapsedTime(
+        { ...summary, elapsedTimeMillis },
+        1_000,
+        15_204_000,
+      )).toEqual({
+        ridingTimeMillis: 9_385_000,
+        elapsedTimeMillis: 15_203_000,
+      });
+    }
+    expect(withSynthesizedElapsedTime(validElapsed, 1_000, 15_204_000)).toBe(validElapsed);
+    expect(withSynthesizedElapsedTime(summary, 1_000, 9_000_000)).toBe(summary);
+  });
 
   it("samples streams and derives overlay stats", () => {
     const sampled = buildSampledData(streams as never);
