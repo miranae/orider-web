@@ -99,6 +99,7 @@
 
 @container (max-width: 46rem) {
   .course-statstrip { grid-template-columns: repeat(3, 1fr); }
+  .course-stat:last-child:nth-child(3n + 2) { grid-column: span 2; }
 }
 
 @container (max-width: 28rem) {
@@ -124,31 +125,497 @@
   .course-body { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* 경사 구간 범례 — 색이 무엇을 뜻하는지 밝힌다. 색만으로 정보를 전달하지 않는다. */
-.course-grade-legend {
+/* 코스 전용 스테이지 프로필. 공용 활동 차트와 분리해 코스 화면만 강한 실루엣을 쓴다. */
+.course-stage-profile {
+  min-width: 0;
+}
+
+.course-stage-profile__heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.course-stage-profile__eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--lime);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.course-stage-profile__heading {
+  margin: 0;
+  color: var(--ink-0);
+  font-size: var(--fs-xl);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.course-stage-profile__legend {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin: var(--space-2) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   font-size: var(--fs-2xs);
   color: var(--ink-3);
 }
 
-.course-grade-legend li {
+.course-stage-profile__legend li {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
 }
 
-.course-grade-legend i {
-  width: 0.75rem;
+.course-stage-profile__legend i {
+  width: 1rem;
   height: 0.25rem;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
 }
 
-/* 경유지 레인 — 고도 프로필 아래에 거리축을 공유하는 띠. */
+.course-stage-profile__legend [data-band="flat"] i,
+.course-stage-profile__area-segment[data-band="flat"] {
+  background: var(--color-info);
+  fill: var(--color-info);
+}
+
+.course-stage-profile__legend [data-band="rolling"] i,
+.course-stage-profile__area-segment[data-band="rolling"] {
+  background: var(--color-warning);
+  fill: var(--color-warning);
+}
+
+.course-stage-profile__legend [data-band="steep"] i,
+.course-stage-profile__area-segment[data-band="steep"] {
+  background: var(--color-error);
+  fill: var(--color-error);
+}
+
+.course-stage-profile__annotation-rail {
+  position: relative;
+  height: 16rem;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-bottom: 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--bg-2);
+  margin-inline: var(--profile-axis-width, 0);
+}
+
+.course-stage-profile__annotation-slot {
+  position: absolute;
+  top: calc(var(--profile-row) * 5rem + var(--space-2));
+  bottom: 0;
+  left: var(--profile-x);
+  display: flex;
+  width: 8rem;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.course-stage-profile__annotation-slot[data-edge="left"] { transform: translateX(0); }
+.course-stage-profile__annotation-slot[data-edge="center"] { transform: translateX(-50%); }
+.course-stage-profile__annotation-slot[data-edge="right"] { transform: translateX(-100%); }
+
+.course-stage-profile__annotation-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: var(--space-1) var(--space-2);
+  width: 100%;
+  min-height: 4rem;
+  padding: var(--space-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+  background: var(--bg-1);
+  color: var(--ink-1);
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.course-stage-profile__annotation-card:hover,
+.course-stage-profile__annotation-card:focus-visible,
+.course-stage-profile__annotation-card[aria-pressed="true"] {
+  border-color: var(--lime);
+  outline: none;
+}
+
+.course-stage-profile__number {
+  display: inline-grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  flex: none;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--primary-fg);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+}
+
+.course-stage-profile__point-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.course-stage-profile__point-meta {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.course-stage-profile__connector {
+  width: 100%;
+  min-height: var(--space-2);
+  flex: 1;
+  overflow: visible;
+}
+
+.course-stage-profile__connector path {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.course-stage-profile__mobile-detail {
+  display: none;
+}
+
+.course-stage-profile__chart {
+  position: relative;
+  height: 20rem;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+  background: var(--bg-2);
+  cursor: crosshair;
+  touch-action: pan-y;
+  margin-inline: var(--profile-axis-width, 0);
+}
+
+.course-stage-profile__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.course-stage-profile__gridline {
+  stroke: var(--line-soft);
+  stroke-width: 1;
+  stroke-dasharray: 5 7;
+  vector-effect: non-scaling-stroke;
+}
+
+.course-stage-profile__area-segment {
+  opacity: 0.82;
+}
+
+.course-stage-profile__ridge {
+  fill: none;
+  stroke: var(--lime);
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.course-stage-profile__baseline,
+.course-stage-profile__ridge-connector {
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.course-stage-profile__ridge-connector[data-selected="1"] {
+  stroke: var(--lime);
+}
+
+.course-stage-profile__ridge-dot {
+  fill: var(--bg-1);
+  stroke: var(--lime);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.course-stage-profile__ridge-dot[data-selected="1"] {
+  fill: var(--lime);
+}
+
+.course-stage-profile__ridge-number {
+  fill: var(--ink-0);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.course-stage-profile__ridge-hit {
+  position: absolute;
+  z-index: 4;
+  top: var(--profile-y);
+  left: var(--profile-x);
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+
+.course-stage-profile__ridge-hit::after {
+  content: attr(data-number);
+  position: absolute;
+  inset: 50% auto auto 50%;
+  display: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 2px solid var(--lime);
+  border-radius: 999px;
+  background: var(--bg-1);
+  color: var(--ink-0);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  transform: translate(-50%, -50%);
+}
+
+.course-stage-profile__ridge-hit[aria-pressed="true"]::after {
+  background: var(--lime);
+  color: var(--primary-fg);
+}
+
+.course-stage-profile__ridge-hit:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: var(--space-1);
+}
+
+.course-stage-profile__endpoint {
+  position: absolute;
+  z-index: 3;
+  bottom: var(--space-7);
+  display: inline-grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border: 2px solid var(--bg-1);
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--primary-fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+}
+
+.course-stage-profile__endpoint--start { left: var(--space-2); }
+.course-stage-profile__endpoint--finish { right: var(--space-2); }
+
+.course-stage-profile__tooltip {
+  position: absolute;
+  z-index: 5;
+  top: var(--profile-y);
+  left: clamp(4rem, var(--profile-x), calc(100% - 4rem));
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-0);
+  color: var(--ink-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-sm);
+  transform: translate(-50%, calc(-100% - var(--space-2)));
+  pointer-events: none;
+}
+
+.course-stage-profile__tooltip span { color: var(--ink-3); }
+
+.course-stage-profile__tooltip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--space-1) * -1);
+  width: var(--space-2);
+  height: var(--space-2);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-0);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.course-stage-profile__tooltip[data-low="1"] {
+  transform: translate(-50%, calc(-100% - var(--space-6)));
+}
+
+.course-stage-profile__tooltip[data-edge="left"] {
+  left: var(--profile-x);
+  margin-left: var(--space-4);
+  transform: translate(0, calc(-100% - var(--space-3)));
+}
+
+.course-stage-profile__tooltip[data-edge="left"][data-low="1"] {
+  transform: translate(0, calc(-100% - var(--space-7)));
+}
+
+.course-stage-profile__tooltip[data-edge="left"]::after {
+  top: 100%;
+  right: auto;
+  bottom: auto;
+  left: 0;
+  width: 1px;
+  height: var(--space-7);
+  border: 0;
+  background: var(--line);
+  transform: rotate(35deg);
+  transform-origin: top;
+}
+
+.course-stage-profile__tooltip[data-edge="right"] {
+  margin-left: calc(var(--space-6) * -1);
+  transform: translate(-100%, calc(-100% - var(--space-3)));
+}
+
+.course-stage-profile__tooltip[data-edge="right"][data-low="1"] {
+  transform: translate(-100%, calc(-100% - var(--space-7)));
+}
+
+.course-stage-profile__y-axis {
+  position: absolute;
+  z-index: 2;
+  inset: var(--space-2) auto var(--space-7) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.course-stage-profile__x-axis {
+  position: absolute;
+  z-index: 2;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  left: var(--space-2);
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.course-stage-profile__note {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-2xs);
+}
+
+@media (max-width: 52.4375rem) {
+  .course-stage-profile__heading-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .course-stage-profile__annotation-rail {
+    display: none;
+  }
+
+  .course-stage-profile__mobile-detail {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    background: var(--bg-2);
+    color: var(--ink-1);
+    font-size: var(--fs-xs);
+    text-align: left;
+  }
+
+  .course-stage-profile__mobile-detail strong {
+    margin-left: auto;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xs);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .course-stage-profile__mobile-next {
+    flex: none;
+    color: var(--lime);
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+  }
+
+  .course-stage-profile__chart {
+    height: 15rem;
+    border-radius: var(--r-lg);
+    margin-inline: 0;
+  }
+
+  .course-stage-profile__y-axis span:nth-child(2) { display: none; }
+  .course-stage-profile__x-axis span:nth-child(even) { display: none; }
+
+  .course-stage-profile__ridge-dot,
+  .course-stage-profile__ridge-number {
+    display: none;
+  }
+
+  .course-stage-profile__ridge-hit::after {
+    display: grid;
+    transform: translate(-50%, calc(-50% - var(--space-2)));
+  }
+
+  .course-stage-profile__ridge-hit::before {
+    content: "";
+    position: absolute;
+    top: calc(50% - var(--space-2));
+    left: 50%;
+    width: 1px;
+    height: var(--space-2);
+    background: var(--lime);
+    transform: translateX(-50%);
+  }
+}
+
+.course-climb-prediction {
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
+  text-align: left;
+  white-space: normal;
+}
+
+/* 저장된 경유지는 기존 거리축 레인과 지도 선택 동작을 유지한다. */
 .course-lanes {
   display: flex;
   flex-direction: column;
@@ -156,8 +623,6 @@
   margin-top: var(--space-3);
 }
 
-/* 트랙을 프로필 플롯 영역에 맞춘다 — 좌우 축 폭만큼 들여쓴다. 격자 열로 나누면 차트의
-   x축 시작점과 어긋나 핍이 실제 거리와 다른 위치에 찍힌다. */
 .course-lane-row {
   position: relative;
   padding-inline: var(--profile-axis-width, 54px);
@@ -185,7 +650,7 @@
 .course-pip i {
   width: 0.5rem;
   height: 0.5rem;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   flex: none;
 }
 
@@ -236,6 +701,22 @@
   background: color-mix(in oklch, var(--lime) 12%, var(--bg-2));
   color: var(--ink-0);
   font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-stage-profile__annotation-card,
+  .course-stage-profile__ridge-hit {
+    scroll-behavior: auto;
+  }
+}
+
+/* 경유지 표에서 사용하는 레인 태그. */
+
+.course-lane-tag i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--r-xs);
+  overflow: hidden;
 }
 
 .course-wp-table {

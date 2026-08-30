@@ -30,6 +30,18 @@
   "averageGrade": "Avg. Grade",
   "maxGrade": "Max. Grade",
   "climbSection": "Climb Sections",
+  "stageProfile": {
+    "eyebrow": "Course profile",
+    "title": "Stage profile",
+    "gradeLegend": "Grade color legend",
+    "highPointNumber": "High point {{number}}",
+    "distanceElevation": "{{distance}} km · {{elevation}} m",
+    "pointLabel": "High point {{number}}, {{distance}} km, elevation {{elevation}} m",
+    "next": "Next",
+    "nextPointLabel": "Show next high point: high point {{number}}, {{distance}} km, elevation {{elevation}} m",
+    "chartLabel": "Course profile showing elevation and grade by distance. Select a high point to hear its exact distance and elevation.",
+    "note": "High points are actual local peaks in the stored elevation profile; they do not represent climb categories."
+  },
   "climbPrediction": {
     "result": "My estimate {{duration}} · {{wkg}} W/kg",
     "loading": "Calculating my estimate…",
