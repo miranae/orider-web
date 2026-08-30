@@ -9,7 +9,7 @@
  *
  * 모든 데이터는 FitnessPage 가 미리 계산해 props 로 전달.
  */
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import SportFilterTabs from "./SportFilterTabs";
@@ -461,6 +461,7 @@ function SectionCard({ children, title, sub, accentColor }: { children: React.Re
 // ── 메인 ──────────────────────────────────────────────────────
 export default function MobileFitnessPage({
   data,
+  coachSlot = null,
   consistencyStreak = null,
   ftpDecision = null,
   ftpReceipt = null,
@@ -470,6 +471,8 @@ export default function MobileFitnessPage({
   embedded = false,
 }: {
   data: MobileFitnessData;
+  /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
+  coachSlot?: ReactNode;
   consistencyStreak?: ConsistencyStreakSummary | null;
   ftpDecision?: BikeThresholdDecisionV2 | null;
   ftpReceipt?: FtpMutationReceipt | null;
@@ -556,6 +559,12 @@ export default function MobileFitnessPage({
 
       {activeTab === "overview" && (
         <div style={{ paddingTop: 14 }}>
+          {coachSlot && (
+            <div data-mobile-fitness-coach style={{ padding: "0 var(--space-4) var(--space-3)" }}>
+              {coachSlot}
+            </div>
+          )}
+
           {data.discipline === "bike" && (
             <BikePerformanceSummaryCard
               decision={data.thresholdDecision}

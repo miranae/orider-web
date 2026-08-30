@@ -5,6 +5,7 @@ import type { FitnessPoint } from "../../utils/fitnessMetrics";
 import {
   activityIdsCoveredByImpacts,
   deriveActivityImpacts,
+  forecastFitnessChoice48Hours,
   forecastFitness48Hours,
 } from "./activityImpact";
 
@@ -217,5 +218,18 @@ describe("forecastFitness48Hours", () => {
     const current = point("2026-08-29", 42, 49, 100);
     expect(forecastFitness48Hours(current, 0).easy).toBeUndefined();
     expect(forecastFitness48Hours(current, Number.POSITIVE_INFINITY).easy).toBeUndefined();
+  });
+
+  it("projects each selectable load through the same canonical EMA", () => {
+    const current = point("2026-08-29", 42, 49, 100);
+    const recovery = forecastFitnessChoice48Hours(current, 20);
+    const endurance = forecastFitnessChoice48Hours(current, 45);
+
+    expect(recovery[0].dailyLoad).toBe(20);
+    expect(recovery[0].ctl).toBeCloseTo(41 + 20 / 42);
+    expect(recovery[0].atl).toBeCloseTo(42 + 20 / 7);
+    expect(endurance[0].dailyLoad).toBe(45);
+    expect(endurance[0].atl).toBeGreaterThan(recovery[0].atl);
+    expect(endurance[1].tsb).toBeLessThan(recovery[1].tsb);
   });
 });

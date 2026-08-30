@@ -1,11 +1,12 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { ActivityImpactEntry, Fitness48HourForecast } from "../activityImpact";
 import FitnessCoachBriefing from "./FitnessCoachBriefing";
 
-function impact(id: string, day: number, load: number): ActivityImpactEntry {
+function impact(id: string, day: number, load: number, activityOverrides: Partial<Activity> = {}): ActivityImpactEntry {
   const ctl = load / 42;
   const atl = load / 7;
   return {
@@ -13,7 +14,8 @@ function impact(id: string, day: number, load: number): ActivityImpactEntry {
       id,
       type: "Ride",
       startTime: Date.UTC(2026, 7, day, 8),
-      summary: { distance: load * 500, tss: load },
+      summary: { distance: load * 500, tss: load, ridingTimeMillis: 7_200_000 },
+      ...activityOverrides,
     } as Activity,
     date: `2026-08-${day}`,
     attributedLoad: load,
@@ -37,20 +39,26 @@ const forecast = {
   ],
 } as Fitness48HourForecast;
 
+function renderBriefing(overrides: Partial<React.ComponentProps<typeof FitnessCoachBriefing>> = {}) {
+  return renderWithProviders(
+    <FitnessCoachBriefing
+      impacts={[impact("ride-1", 29, 196)]}
+      selectedActivityId="ride-1"
+      onSelectActivity={vi.fn()}
+      forecast={forecast}
+      current={{ ctl: 42, atl: 66, tsb: -24 }}
+      decisionSlot={<div>decision slot</div>}
+      locale="ko-KR"
+      canonicalAvailable
+      discipline="bike"
+      {...overrides}
+    />,
+  );
+}
+
 describe("FitnessCoachBriefing", () => {
   it("separates activity-only contribution from the whole-day change", () => {
-    renderWithProviders(
-      <FitnessCoachBriefing
-        impacts={[impact("ride-1", 29, 196)]}
-        selectedActivityId="ride-1"
-        onSelectActivity={vi.fn()}
-        forecast={forecast}
-        current={{ ctl: 42, atl: 66, tsb: -24 }}
-        decisionSlot={<div>decision slot</div>}
-        locale="ko-KR"
-        canonicalAvailable
-      />,
-    );
+    renderBriefing();
 
     expect(screen.getByRole("heading", { name: "부하 지표상, 오늘은 회복을 흡수하는 날" })).toBeInTheDocument();
     expect(screen.getByText("+4.7")).toBeInTheDocument();
@@ -64,52 +72,105 @@ describe("FitnessCoachBriefing", () => {
     expect(screen.getByText(/자연 감소와 같은 날의 모든 활동/)).toBeInTheDocument();
   });
 
-  it("keeps activity selection explicit and exposes both 48-hour scenarios", () => {
-    const onSelect = vi.fn();
-    renderWithProviders(
+  it("initializes the choice from TSB and updates both EMA forecast horizons", () => {
+    renderBriefing({ current: { ctl: 42, atl: 49, tsb: -10.6 } });
+
+    expect(screen.getByRole("radio", { name: /회복 라이딩/ })).toBeChecked();
+    expect(screen.getByText(/ATL 44.9/)).toBeInTheDocument();
+    expect(screen.getByText(/ATL 38.4/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: /이지 지구력 라이딩/ }));
+    expect(screen.getByText(/ATL 48.4/)).toBeInTheDocument();
+    expect(screen.getByText(/ATL 41.5/)).toBeInTheDocument();
+  });
+
+  it("resets the choice when same-day canonical fitness values are recalculated", async () => {
+    const view = renderBriefing({ current: { ctl: 42, atl: 49, tsb: -7 } });
+    expect(screen.getByRole("radio", { name: /이지 지구력 라이딩/ })).toBeChecked();
+
+    view.rerender(
       <FitnessCoachBriefing
-        impacts={[impact("ride-1", 29, 196), impact("ride-2", 28, 84)]}
+        impacts={[impact("ride-1", 29, 196)]}
         selectedActivityId="ride-1"
-        onSelectActivity={onSelect}
+        onSelectActivity={vi.fn()}
         forecast={forecast}
-        current={{ ctl: 42, atl: 49, tsb: -7 }}
+        current={{ ctl: 43, atl: 67, tsb: -24 }}
         decisionSlot={<div>decision slot</div>}
         locale="ko-KR"
         canonicalAvailable
+        discipline="bike"
       />,
     );
 
-    const activityButtons = screen.getAllByRole("button", { pressed: false });
-    fireEvent.click(activityButtons.at(-1)!);
-    expect(onSelect).toHaveBeenCalledWith("ride-2");
-    expect(screen.getByText("완전 휴식")).toBeInTheDocument();
-    expect(screen.getByText(/단순 예시 · 35 TSS 가정/)).toBeInTheDocument();
-    expect(screen.getByText("decision slot")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("radio", { name: /완전 휴식/ })).toBeChecked());
   });
 
-  it("keeps a newer activity visible while its canonical daily load is pending", () => {
+  it("keeps plan and safety evidence in a collapsed secondary section", () => {
+    renderBriefing();
+    const details = screen.getByText("계획·안전 근거 확인").closest("details");
+    expect(details).not.toHaveAttribute("open");
+    expect(details).toContainElement(screen.getByText("decision slot"));
+  });
+
+  it("uses persisted workout analysis and keeps its confidence separate from load attribution", () => {
+    const metrics = {
+      workoutType: "interval",
+      workoutTypeConfidence: 0.91,
+      if: 0.86,
+      durationSec: 5_400,
+      avgHr: 151,
+      decoupling: { decouplingPct: 4.1 },
+      contextSnapshot: { ftp: 250 },
+    } as ActivityMetrics;
+    renderBriefing({ metricsMap: new Map([["ride-1", metrics]]) });
+
+    expect(screen.getByText("인터벌 자극")).toBeInTheDocument();
+    expect(screen.getByText("서버 활동 분석")).toBeInTheDocument();
+    expect(screen.getByText("훈련유형 신뢰도 91%")).toBeInTheDocument();
+    expect(screen.getByText("일일 정본 부하")).toBeInTheDocument();
+    expect(screen.getByText("심박 기록 있음")).toBeInTheDocument();
+  });
+
+  it("never presents a G1 transfer as complete and does not offer transfer for rest", () => {
+    renderBriefing({ current: { ctl: 42, atl: 49, tsb: -10.6 } });
+
+    fireEvent.click(screen.getByRole("button", { name: "G1 전송 준비" }));
+    expect(screen.getByRole("status")).toHaveTextContent("아직 G1에 전송되지 않았습니다");
+
+    fireEvent.click(screen.getByRole("radio", { name: /완전 휴식/ }));
+    expect(screen.getByRole("button", { name: "오늘 선택 확인" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("기기로 보내지 않습니다");
+  });
+
+  it("keeps a pending activity visible without asserting a workout stimulus", () => {
     const pending = {
       id: "new-ride",
       type: "Ride",
       startTime: Date.UTC(2026, 7, 30, 8),
-      summary: { distance: 100_000 },
+      summary: { distance: 100_000, ridingTimeMillis: 10_000_000, normalizedPower: 190 },
     } as Activity;
-    renderWithProviders(
-      <FitnessCoachBriefing
-        impacts={[impact("old-ride", 29, 84)]}
-        selectedActivityId="new-ride"
-        onSelectActivity={vi.fn()}
-        forecast={forecast}
-        current={{ ctl: 42, atl: 49, tsb: -7 }}
-        decisionSlot={<div>decision slot</div>}
-        locale="ko-KR"
-        canonicalAvailable
-        pendingActivity={pending}
-      />,
-    );
+    renderBriefing({
+      impacts: [impact("old-ride", 29, 84)],
+      selectedActivityId: "new-ride",
+      current: { ctl: 42, atl: 49, tsb: -7 },
+      pendingActivity: pending,
+    });
 
     expect(screen.getByRole("heading", { name: /100.0 km/ })).toBeInTheDocument();
     expect(screen.getAllByText("일일 부하 반영을 기다리는 중").length).toBeGreaterThan(0);
-    expect(screen.queryByText("+2.0")).not.toBeInTheDocument();
+    expect(screen.getByText("판단할 근거가 부족해요")).toBeInTheDocument();
+    expect(screen.getByText("분류 근거 부족")).toBeInTheDocument();
+    expect(screen.queryByText(/^IF /)).not.toBeInTheDocument();
+    expect(screen.queryByText("지구력 자극")).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "오늘의 운동 선택" })).toBeDisabled();
+    expect(screen.queryByText(/24시간 뒤 예상/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "G1 전송 준비" })).not.toBeInTheDocument();
+  });
+
+  it("uses the explicit page discipline when there is no selected activity", () => {
+    renderBriefing({ impacts: [], selectedActivityId: null, discipline: "run" });
+
+    expect(screen.getByRole("radio", { name: /가벼운 회복 조깅/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "G1 전송 준비" })).not.toBeInTheDocument();
   });
 });
