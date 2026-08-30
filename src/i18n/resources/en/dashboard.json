@@ -247,7 +247,9 @@
       "legendFitness": "Fitness",
       "legendFatigue": "Fatigue",
       "legendForm": "Recovery",
-      "projectionNote": "if plan is followed 100%"
+      "projectionNote": "if plan is followed 100%",
+      "activityMarkers": "{{count}} activity markers.",
+      "selectedActivityMarker": "Selected activity: {{label}}."
     },
     "powerCurve": {
       "noData": "No power data yet",
