@@ -768,7 +768,10 @@
     "alertCadence": "Cadence",
     "alertSpeed": "Speed",
     "alertMinPlaceholder": "Min",
-    "alertMaxPlaceholder": "Max"
+    "alertMaxPlaceholder": "Max",
+    "legacyLayoutTitle": "Legacy data pages on this device",
+    "legacyLayoutMigrated": "Data pages are now saved per bike. The layout here is the old device value and is read-only.",
+    "legacyLayoutOpenEquipment": "Open per-bike data pages"
   },
   "layout": {
     "cardTitle": "Data screen layout",

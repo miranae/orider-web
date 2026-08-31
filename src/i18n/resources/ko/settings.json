@@ -768,7 +768,10 @@
     "alertCadence": "케이던스",
     "alertSpeed": "속도",
     "alertMinPlaceholder": "최소",
-    "alertMaxPlaceholder": "최대"
+    "alertMaxPlaceholder": "최대",
+    "legacyLayoutTitle": "기기에 남은 옛 데이터 페이지",
+    "legacyLayoutMigrated": "데이터 페이지는 이제 자전거마다 따로 저장됩니다. 이 화면의 구성은 기기에 남은 예전 값이라 보기만 할 수 있어요.",
+    "legacyLayoutOpenEquipment": "자전거별 데이터 페이지 열기"
   },
   "layout": {
     "cardTitle": "데이터 화면 레이아웃",
