@@ -434,7 +434,11 @@
     "historyRetention": "질문과 답변은 대화 또는 계정을 삭제할 때까지 저장됩니다.",
     "checking": "확인 중…",
     "statusAccepted": "동의함",
-    "status": { "missing": "동의 안 함", "stale": "재동의 필요", "revoked": "철회됨" },
+    "status": {
+      "missing": "동의 안 함",
+      "stale": "재동의 필요",
+      "revoked": "철회됨"
+    },
     "policyVersion": "정책 버전",
     "reviewConsent": "안내 확인 및 동의",
     "consentTitle": "AI 코치 데이터 사용 안내",
@@ -444,7 +448,10 @@
     "consentPersistenceNote": "동의하면 처리 내용이 변경되거나 설정에서 동의를 철회하기 전까지 이 안내는 다시 표시되지 않습니다.",
     "summaryDataTitle": "사용하는 데이터",
     "summaryExternalTitle": "외부 AI 처리 · {{country}}",
-    "country": { "us": "미국", "jp": "일본" },
+    "country": {
+      "us": "미국",
+      "jp": "일본"
+    },
     "summaryStorageTitle": "저장 및 철회",
     "fullDetailsSummary": "전체 데이터 처리 세부사항과 링크 보기",
     "consentIntro": "답변을 만들기 위해 다음 정보를 사용합니다.",
@@ -570,7 +577,18 @@
     "sensorDi2": "Di2 변속기",
     "sensorAxs": "AXS 변속기",
     "sensorRadar": "레이더",
-    "sensorActionCam": "액션캠"
+    "sensorActionCam": "액션캠",
+    "bikeDataPages": "데이터 페이지",
+    "dataPagesTitle": "{{name}} 데이터 페이지",
+    "dataPagesBack": "자전거 목록으로",
+    "dataPagesUnsaved": "이 자전거는 아직 저장된 구성이 없어요. 기본 구성을 보여 주고 있습니다.",
+    "dataPagesQuarantined": "저장된 구성을 읽지 못했어요. 원래 구성을 덮어쓰지 않도록 저장을 잠시 막았습니다.",
+    "dataPagesSaved": "데이터 페이지를 저장했어요.",
+    "dataPagesSyncing": "저장했어요. 서버 반영 중입니다.",
+    "dataPagesConflict": "다른 기기에서 먼저 저장했어요. 무엇을 남길지 정해 주세요.",
+    "dataPagesTargetDeleted": "저장하려던 자전거가 삭제됐어요.",
+    "dataPagesFailed": "저장하지 못했어요. 다시 시도해 주세요.",
+    "dataPagesUnavailable": "저장된 구성을 지금 불러오지 못했어요. 기존 구성을 덮어쓰지 않도록 저장을 잠시 막았습니다."
   },
   "healthSources": {
     "title": "헬스 데이터 소스",
@@ -751,7 +769,22 @@
     "alertCadence": "케이던스",
     "alertSpeed": "속도",
     "alertMinPlaceholder": "최소",
-    "alertMaxPlaceholder": "최대"
+    "alertMaxPlaceholder": "최대",
+    "legacyLayoutTitle": "기기에 남은 옛 데이터 페이지",
+    "legacyLayoutMigrated": "데이터 페이지는 이제 자전거마다 따로 저장됩니다. 이 화면의 구성은 기기에 남은 예전 값이라 보기만 할 수 있어요.",
+    "legacyLayoutOpenEquipment": "자전거별 데이터 페이지 열기",
+    "legacyImportSourceDevice": "가져올 기기",
+    "legacyImportTargetBike": "대상 자전거",
+    "legacyImportTargetPlaceholder": "자전거를 고르세요",
+    "legacyImportPreview": "{{fromPages}}페이지·필드 {{fromFields}}개를 {{name}}의 현재 구성({{toPages}}페이지·필드 {{toFields}}개)과 **교체**합니다.",
+    "legacyImportStart": "이 구성을 자전거로 가져오기",
+    "legacyImportConfirm": "{{name}}의 현재 데이터 페이지를 덮어씁니다. 계속할까요?",
+    "legacyImportConfirmAction": "교체",
+    "legacyImportCancel": "취소",
+    "legacyImportDone": "{{name}}(으)로 가져왔어요.",
+    "legacyImportFailed": "가져오지 못했어요. 다시 시도해 주세요.",
+    "legacyImportBlocked": "대상 자전거의 저장된 구성을 읽지 못해 가져오기를 막았어요.",
+    "legacyImportNoBikes": "가져갈 자전거가 없어요. 자전거를 먼저 만들어 주세요."
   },
   "layout": {
     "cardTitle": "데이터 화면 레이아웃",
@@ -782,7 +815,9 @@
     "groupClimbRoute": "클라임 / 경로",
     "groupWeatherSystem": "날씨 / 시스템",
     "groupRadarCam": "레이더 / 액션캠",
-    "groupMisc": "기타"
+    "groupMisc": "기타",
+    "pageTabsAriaLabel": "데이터 페이지 목록",
+    "gridAriaLabel": "{{number}}번 페이지 배치"
   },
   "dataField": {
     "SPEED": "속도",
