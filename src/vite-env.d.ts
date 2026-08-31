@@ -14,6 +14,7 @@ interface ImportMetaEnv {
   readonly VITE_COACH_PROGRESS_PLANNER_ENABLED?: string;
   readonly VITE_TRAINING_DECISION_ENABLED?: string;
   readonly VITE_TRAINING_EXECUTION_ENABLED?: string;
+  readonly VITE_RIDER_WORKOUT_DELIVERY_ENABLED?: string;
   readonly VITE_COACH_RIDE_PLAN_TOKEN_ENABLED?: string;
   readonly VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED?: string;
   readonly VITE_COACH_RIDE_PLAN_AI_ENABLED?: string;

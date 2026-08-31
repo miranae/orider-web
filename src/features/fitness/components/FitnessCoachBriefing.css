@@ -19,6 +19,21 @@
 .fitness-coach__forecast { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
 .fitness-coach__forecast > div { padding: var(--space-3); background: var(--bg-2); border-radius: var(--r-md); }
 .fitness-coach__handoff { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
+.fitness-coach__delivery-preview,
+.fitness-coach__delivery-status,
+.fitness-coach__bundle,
+.fitness-coach__delivery-error { display: grid; gap: var(--space-2); }
+.fitness-coach__delivery-preview,
+.fitness-coach__bundle { padding: var(--space-3); background: var(--bg-2); border-radius: var(--r-md); }
+.fitness-coach__device-select { display: grid; gap: var(--space-2); }
+.fitness-coach__device-select select { width: 100%; padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-1); color: var(--ink-0); }
+.fitness-coach__bundle-heading { display: grid; gap: var(--space-1); }
+.fitness-coach__bundle ol { display: grid; gap: var(--space-2); margin: 0; padding-left: var(--space-5); }
+.fitness-coach__bundle li { padding-left: var(--space-1); }
+.fitness-coach__bundle li span { display: block; }
+.fitness-coach__bundle p,
+.fitness-coach__delivery-status p,
+.fitness-coach__delivery-error p { margin: 0; }
 .fitness-coach__recent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-2); }
 .fitness-coach__recent { text-align: left; padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-1); color: var(--ink-0); cursor: pointer; }
 .fitness-coach__recent[data-selected] { border-color: var(--lime); background: color-mix(in oklch, var(--lime) 7%, var(--bg-1)); }

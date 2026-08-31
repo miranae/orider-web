@@ -169,6 +169,7 @@ requireIncludes(deployWorkflow, "VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.VITE
 requireIncludes(deployWorkflow, "VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.VITE_COACH_PROGRESS_PLANNER_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_TRAINING_DECISION_ENABLED: ${{ vars.VITE_TRAINING_DECISION_ENABLED }}", "deploy.yml env");
 requireIncludes(deployWorkflow, "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.VITE_TRAINING_EXECUTION_ENABLED }}", "deploy.yml env");
+requireIncludes(deployWorkflow, "VITE_RIDER_WORKOUT_DELIVERY_ENABLED: ${{ vars.VITE_RIDER_WORKOUT_DELIVERY_ENABLED }}", "deploy.yml env");
 for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
   requireIncludes(deployWorkflow, `VITE_COACH_RIDE_PLAN_${name}_ENABLED: \${{ vars.VITE_COACH_RIDE_PLAN_${name}_ENABLED }}`,
     "deploy.yml env");
@@ -229,6 +230,9 @@ requireIncludes(stageDeployWorkflow,
   "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow,
   "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}",
+  "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow,
+  "VITE_RIDER_WORKOUT_DELIVERY_ENABLED: ${{ vars.STAGE_VITE_RIDER_WORKOUT_DELIVERY_ENABLED }}",
   "deploy-stage.yml env");
 requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "- main", "deploy-stage.yml trigger");
