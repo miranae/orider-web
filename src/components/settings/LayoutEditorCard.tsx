@@ -45,9 +45,16 @@ function neededRows(page: LayoutConfig): number {
 interface Props {
   config: DataPageConfig;
   onSave: (next: DataPageConfig) => Promise<void>;
+  /**
+   * 저장을 막아야 하는 상태 (#1943 §6.1, #1950).
+   *
+   * 임시 표시본(격리·대기) 위에서 저장하면 보존해야 할 원문을 정상 데이터로 덮어쓴다.
+   * 편집 자체는 열어 둔다 — 무엇을 만들려 했는지 사용자가 확인할 수 있어야 한다.
+   */
+  readOnly?: boolean;
 }
 
-export function LayoutEditorCard({ config, onSave }: Props) {
+export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
   const { t } = useTranslation("settings");
   const dialog = useDialog();
   const [draft, setDraft] = useState<LayoutConfig[]>(clonePages(config.pages));
@@ -174,13 +181,13 @@ export function LayoutEditorCard({ config, onSave }: Props) {
         <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
           <Button variant="ghost" size="sm"
             onClick={handleReset}
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || readOnly}
           >
             {t("layout.reset")}
           </Button>
           <Button variant="primary" size="sm"
             onClick={() => void handleSave()}
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || readOnly}
           >
             {saving ? t("layout.saving") : t("layout.save")}
           </Button>

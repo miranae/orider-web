@@ -434,7 +434,11 @@
     "historyRetention": "Questions and answers are stored until you delete the conversation or your account.",
     "checking": "Checking…",
     "statusAccepted": "Consented",
-    "status": { "missing": "Not consented", "stale": "Renewal required", "revoked": "Revoked" },
+    "status": {
+      "missing": "Not consented",
+      "stale": "Renewal required",
+      "revoked": "Revoked"
+    },
     "policyVersion": "Policy version",
     "reviewConsent": "Review and consent",
     "consentTitle": "AI Coach data use notice",
@@ -444,7 +448,10 @@
     "consentPersistenceNote": "After you consent, this notice will not appear again unless processing changes or you revoke consent in Settings.",
     "summaryDataTitle": "Data used",
     "summaryExternalTitle": "External AI processing · {{country}}",
-    "country": { "us": "United States", "jp": "Japan" },
+    "country": {
+      "us": "United States",
+      "jp": "Japan"
+    },
     "summaryStorageTitle": "Storage and withdrawal",
     "fullDetailsSummary": "View all processing details and links",
     "consentIntro": "The following data is used to create an answer.",
@@ -570,7 +577,17 @@
     "sensorDi2": "Di2 derailleur",
     "sensorAxs": "AXS derailleur",
     "sensorRadar": "Radar",
-    "sensorActionCam": "Action cam"
+    "sensorActionCam": "Action cam",
+    "bikeDataPages": "Data pages",
+    "dataPagesTitle": "{{name}} data pages",
+    "dataPagesBack": "Back to bikes",
+    "dataPagesUnsaved": "This bike has no saved layout yet. Showing the default layout.",
+    "dataPagesQuarantined": "Couldn't read the saved layout. Saving is paused so the original isn't overwritten.",
+    "dataPagesSaved": "Data pages saved.",
+    "dataPagesSyncing": "Saved. Syncing to the server.",
+    "dataPagesConflict": "Another device saved first. Choose which layout to keep.",
+    "dataPagesTargetDeleted": "The bike you were saving to was deleted.",
+    "dataPagesFailed": "Couldn't save. Please try again."
   },
   "healthSources": {
     "title": "Health data sources",
