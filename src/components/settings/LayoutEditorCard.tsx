@@ -45,9 +45,16 @@ function neededRows(page: LayoutConfig): number {
 interface Props {
   config: DataPageConfig;
   onSave: (next: DataPageConfig) => Promise<void>;
+  /**
+   * 저장을 막아야 하는 상태 (#1943 §6.1, #1950).
+   *
+   * 임시 표시본(격리·대기) 위에서 저장하면 보존해야 할 원문을 정상 데이터로 덮어쓴다.
+   * 편집 자체는 열어 둔다 — 무엇을 만들려 했는지 사용자가 확인할 수 있어야 한다.
+   */
+  readOnly?: boolean;
 }
 
-export function LayoutEditorCard({ config, onSave }: Props) {
+export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
   const { t } = useTranslation("settings");
   const dialog = useDialog();
   const [draft, setDraft] = useState<LayoutConfig[]>(clonePages(config.pages));
@@ -174,19 +181,39 @@ export function LayoutEditorCard({ config, onSave }: Props) {
         <div style={{ display: "flex", gap: "var(--space-1-5)" }}>
           <Button variant="ghost" size="sm"
             onClick={handleReset}
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || readOnly}
           >
             {t("layout.reset")}
           </Button>
           <Button variant="primary" size="sm"
             onClick={() => void handleSave()}
-            disabled={!dirty || saving}
+            disabled={!dirty || saving || readOnly}
           >
             {saving ? t("layout.saving") : t("layout.save")}
           </Button>
         </div>
       }
     >
+      {/*
+        저장 진행·완료를 소리로도 알린다 — 버튼 라벨만 바뀌면 스크린리더 사용자는 저장이
+        끝났는지 알 수 없다.
+      */}
+      <div
+        aria-live="polite"
+        data-testid="layout-editor-live"
+        // 전역 `.sr-only` 유틸이 없어 여기서 직접 숨긴다 — 클래스만 붙이면 화면에 글자가 남는다.
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          overflow: "hidden",
+          clip: "rect(0 0 0 0)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {saving ? t("layout.saving") : ""}
+      </div>
+
       {/* 페이지 탭 */}
       <div
         style={{
@@ -198,10 +225,19 @@ export function LayoutEditorCard({ config, onSave }: Props) {
           alignItems: "center",
           flexWrap: "wrap",
         }}
+        role="tablist"
+        aria-label={t("layout.pageTabsAriaLabel")}
       >
         {draft.map((_, i) => (
           <button
             key={i}
+            // 페이지 전환은 탭이다 — 스크린리더가 "몇 개 중 몇 번째" 를 읽어야 어떤 페이지를
+            // 고치는 중인지 알 수 있다.
+            role="tab"
+            id={`layout-page-tab-${i}`}
+            aria-selected={i === activePage}
+            aria-controls="layout-page-panel"
+            tabIndex={i === activePage ? 0 : -1}
             onClick={() => setActivePage(i)}
             style={{
               padding: "5px 12px",
@@ -237,9 +273,14 @@ export function LayoutEditorCard({ config, onSave }: Props) {
         )}
       </div>
 
-      {/* 4열 그리드 */}
+      {/* 4열 그리드 — 400% 확대에서도 본문이 잘리지 않게 가로 스크롤을 이 안에 가둔다. */}
+      <div style={{ overflowX: "auto" }}>
       <div
+        id="layout-page-panel"
+        role="grid"
+        aria-label={t("layout.gridAriaLabel", { number: activePage + 1 })}
         style={{
+          minWidth: 320,
           display: "grid",
           gridTemplateColumns: `repeat(${COLS}, 1fr)`,
           gridTemplateRows: `repeat(${rows}, ${cellHeight}px)`,
@@ -268,6 +309,7 @@ export function LayoutEditorCard({ config, onSave }: Props) {
               alignItems: "center",
               justifyContent: "center",
             }}
+            role="gridcell"
             aria-label={t("layout.addFieldAriaLabel")}
           >
             +
@@ -279,8 +321,12 @@ export function LayoutEditorCard({ config, onSave }: Props) {
           const isSelected =
             picker && picker.mode === "edit" && picker.placementIndex === i;
           return (
-            <div
+            <button
               key={i}
+              type="button"
+              role="gridcell"
+              aria-selected={Boolean(isSelected)}
+              // div + onClick 은 Tab 으로 닿지 않는다 — 마우스 없이는 배치를 고칠 수 없었다.
               style={{
                 gridColumn: `${f.col + 1} / span ${f.colSpan}`,
                 gridRow: `${f.row + 1} / span ${f.rowSpan}`,
@@ -323,9 +369,10 @@ export function LayoutEditorCard({ config, onSave }: Props) {
                   {f.colSpan}×{f.rowSpan}
                 </span>
               )}
-            </div>
+            </button>
           );
         })}
+      </div>
       </div>
 
       {/* 편집 패널 */}

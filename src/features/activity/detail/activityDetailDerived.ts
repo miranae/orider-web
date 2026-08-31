@@ -301,33 +301,8 @@ function validTimeDurationsSec(value: unknown): {
   if (deltas.some((delta) => delta < 0)) return undefined;
   const sortedDeltas = [...deltas].sort((a, b) => a - b);
   const representativeStep = sortedDeltas[Math.floor(sortedDeltas.length / 2)] ?? 1;
-  const stableStepTolerance = Math.max(
-    representativeStep * 0.05,
-    Number.EPSILON * Math.max(1, representativeStep) * 4,
-  );
-  const stableDeltas = deltas.filter(
-    (delta) => Math.abs(delta - representativeStep) <= stableStepTolerance,
-  );
-  const hasOnlyStableStepsAndPauseGaps = deltas.every(
-    (delta) => Math.abs(delta - representativeStep) <= stableStepTolerance
-      || delta > representativeStep + stableStepTolerance,
-  );
-  const hasStableSampleCadence = hasOnlyStableStepsAndPauseGaps
-    && stableDeltas.length >= Math.ceil(deltas.length * 0.95);
   return {
     elapsed: (numericTime[numericTime.length - 1]! - numericTime[0]!) / divisor + representativeStep,
-    ...(hasStableSampleCadence
-      ? {
-          sampled: deltas.reduce(
-            (sum, delta) => sum + (
-              Math.abs(delta - representativeStep) <= stableStepTolerance
-                ? delta
-                : representativeStep
-            ),
-            representativeStep,
-          ),
-        }
-      : {}),
   };
 }
 
@@ -386,8 +361,8 @@ function legacyCoverageExpectation(
   const timeAxisLength = timeDurationSec != null ? reliableRouteAxisLength(streams.time) : 0;
   const routeTime = timeAxisLength > 0 ? runtimeArray<number>(streams.time) : undefined;
   const rawTime = (streams as unknown as Record<string, unknown>).time;
-  const hasInvalidTimeEvidence = rawTime != null
-    && (!Array.isArray(rawTime) || rawTime.length > 0)
+  const hasInvalidTimeEvidence = Array.isArray(rawTime)
+    && rawTime.length > 0
     && timeDurationSec == null;
   const shapeCount = Math.max(
     timeAxisLength,
@@ -447,7 +422,11 @@ function usesLegacyTimeCoverage(valuesLength: number, expectation: LegacyCoverag
 }
 
 function hasLegacyCoverage(valuesLength: number, expectation: LegacyCoverageExpectation): boolean {
-  if (expectation.hasInvalidTimeEvidence && expectation.summaryDurationSec == null) return false;
+  if (expectation.hasInvalidTimeEvidence) return false;
+  // Top-level legacy channels share the route array's index contract. Once both
+  // arrays are dense, numeric, monotonic, and exactly aligned, cadence irregularity
+  // or a moving/elapsed summary disagreement is not evidence of corruption.
+  if (expectation.timeAxisLength > 0 && valuesLength === expectation.timeAxisLength) return true;
   if (usesLegacyTimeCoverage(valuesLength, expectation)) {
     return legacySensorDurationsAgree(
       expectation.timeDurationSec!,
@@ -756,7 +735,8 @@ export function selectActivityPowerStream(
     // Measured V1 power is authoritative. HR-only V1 payloads still need the
     // legacy fallback because virtual power remains on the top-level axis.
     if (finiteValues.length > 0) {
-      const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
+      const rawExplicitTime = (explicit as unknown as Record<string, unknown>).time;
+      const explicitTime = runtimeArray<number>(rawExplicitTime);
       if (explicit.timeUnit !== "relative_seconds" || explicit.resolutionSeconds !== 1) {
         return {
           source: null, values: null, finiteValues: [], hasCandidate: true,
@@ -869,6 +849,9 @@ function trustedLegacySensor(
   if (!values?.length || !hasValidLegacySensorChannelValues(values)) return null;
   if (!hasLegacyCoverage(values.length, expectation)) return null;
   const positive = positiveValues(values);
+  // Every aligned slot is an actual measurement. Gap-distribution heuristics are
+  // only needed for legacy zero sentinels where absence and a measured zero differ.
+  if (positive.length === values.length) return positive;
   return legacySensorMeasurementsCoverSession(legacySensorCoverageInput(values, expectation, channel))
     ? positive : null;
 }
@@ -888,19 +871,17 @@ function legacySensorAxisInput(
   values: readonly number[],
   expectation: LegacyCoverageExpectation,
 ): LegacySensorAxisInput {
-  const useMovingTimeAxis = expectation.summaryDurationSec != null
+  const canInferMovingTimeAxis = expectation.summaryDurationSec != null
     && expectation.timeDurationSec != null
-    && expectation.timeSampledDurationSec != null
-    && expectation.timeDurationSec > expectation.summaryDurationSec
     && !legacySensorDurationsAgree(expectation.timeDurationSec, expectation.summaryDurationSec)
-    && legacySensorDurationsAgree(expectation.timeSampledDurationSec, expectation.summaryDurationSec);
+    && values.length / Math.ceil(expectation.summaryDurationSec) >= LEGACY_POWER_MIN_AXIS_COVERAGE;
   return {
     hasAlignedShapeEvidence: expectation.shapeCount > 0
       && hasSufficientAxisCoverage(values.length, expectation.shapeCount),
     hasInvalidTimeEvidence: expectation.hasInvalidTimeEvidence,
     values,
-    routeTime: useMovingTimeAxis ? undefined : expectation.routeTime,
-    trustedDurationSec: useMovingTimeAxis
+    routeTime: canInferMovingTimeAxis ? undefined : expectation.routeTime,
+    trustedDurationSec: canInferMovingTimeAxis
       ? expectation.summaryDurationSec
       : expectation.inferenceDurationSec ?? expectation.summaryDurationSec,
   };
@@ -947,7 +928,8 @@ export function selectActivityHeartRateStream(
   const explicitPositive = positiveValues(explicitHeartRate);
   const hasExplicitHeartRateAttempt = explicitHeartRate?.some((value) => value !== null) ?? false;
   if (explicit && explicitHeartRate && hasExplicitHeartRateAttempt) {
-    const explicitTime = runtimeArray<number>((explicit as unknown as Record<string, unknown>).time);
+    const rawExplicitTime = (explicit as unknown as Record<string, unknown>).time;
+    const explicitTime = runtimeArray<number>(rawExplicitTime);
     if (explicit.timeUnit !== "relative_seconds" || explicit.resolutionSeconds !== 1) {
       return {
         source: null, values: null, positiveValues: [], hasRejectedMeasurement: true,

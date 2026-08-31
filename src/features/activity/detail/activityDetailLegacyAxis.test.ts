@@ -6,7 +6,7 @@ import {
 } from "./activityDetailDerived";
 
 describe("activity detail legacy route-axis selection", () => {
-  it("rejects route-aligned sensors when route duration exceeds riding duration tolerance", () => {
+  it("accepts finite route-aligned sensors despite a moving and elapsed duration mismatch", () => {
     const length = 5_400;
     const streams = {
       time: Array.from({ length }, (_, index) => index),
@@ -17,17 +17,15 @@ describe("activity detail legacy route-axis selection", () => {
     };
 
     expect(deriveStreamSensorSummary(streams as never, 3_600)).toMatchObject({
-      hasPowerStream: false,
-      hasRejectedPowerStream: true,
-      hasHeartRateStream: false,
-      hasRejectedHeartRateStream: true,
-      hasCadenceStream: false,
-      hasRejectedCadenceStream: true,
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+      hasCadenceStream: true,
+      hasRejectedCadenceStream: false,
     });
     expect(buildActivityAnalysisProjection(streams as never, 3_600)).toMatchObject({
-      streams: { watts: undefined, heartrate: undefined, cadence: undefined },
-      power: undefined,
-      heartRate: undefined,
+      streams: { watts: streams.watts, heartrate: streams.heartrate, cadence: streams.cadence },
     });
   });
 
@@ -65,7 +63,43 @@ describe("activity detail legacy route-axis selection", () => {
     });
   });
 
-  it("rejects an irregular aligned axis that only mimics the moving duration by its median step", () => {
+  it("accepts adaptively thinned Strava sensors across irregular pauses", () => {
+    const deltaCounts = new Map([
+      [8, 775], [5, 159], [2, 152], [7, 147], [3, 144],
+      [4, 129], [1, 122], [6, 121], [9, 23], [12, 4],
+      [94, 58], [35, 1], [3_058, 1],
+    ]);
+    const deltas = [...deltaCounts].flatMap(([delta, count]) => Array(count).fill(delta));
+    const time = deltas.reduce<number[]>(
+      (samples, delta) => [...samples, samples[samples.length - 1]! + delta],
+      [0],
+    );
+    const streams = {
+      time,
+      distance: time.map((_, index) => index * 37),
+      watts: Array(time.length).fill(200),
+      heartrate: Array(time.length).fill(150),
+      cadence: Array(time.length).fill(85),
+    };
+
+    expect(time).toHaveLength(1_837);
+    expect(time.at(-1)).toBe(18_924);
+    expect(deriveStreamSensorSummary(streams as never, 10_481)).toMatchObject({
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
+      hasCadenceStream: true,
+      hasRejectedCadenceStream: false,
+    });
+    expect(buildActivityAnalysisProjection(streams as never, 10_481)?.streams).toMatchObject({
+      watts: streams.watts,
+      heartrate: streams.heartrate,
+      cadence: streams.cadence,
+    });
+  });
+
+  it("accepts an irregular but monotonic aligned axis", () => {
     const deltas = [
       ...Array(49).fill(1),
       ...Array(49).fill(3),
@@ -83,15 +117,31 @@ describe("activity detail legacy route-axis selection", () => {
     };
 
     expect(deriveStreamSensorSummary(streams as never, 300)).toMatchObject({
-      hasPowerStream: false,
-      hasRejectedPowerStream: true,
-      hasHeartRateStream: false,
-      hasRejectedHeartRateStream: true,
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
     });
     expect(buildActivityAnalysisProjection(streams as never, 300)?.streams).toMatchObject({
-      watts: undefined,
-      heartrate: undefined,
+      watts: streams.watts,
+      heartrate: streams.heartrate,
     });
+  });
+
+  it.each([
+    ["gross length mismatch", [0, 1, 2], [200]],
+    ["time reversal", [0, 2, 1], [200, 210, 220]],
+    ["non-finite measurement", [0, 1, 2], [200, Number.NaN, 220]],
+    ["negative measurement", [0, 1, 2], [200, -1, 220]],
+  ])("still rejects clear legacy corruption: %s", (_case, time, watts) => {
+    const summary = deriveStreamSensorSummary({ time, watts } as never, 3);
+
+    expect(summary).toMatchObject({
+      hasPowerStream: false,
+      hasRejectedPowerStream: true,
+    });
+    expect(buildActivityAnalysisProjection({ time, watts } as never, 3)?.streams.watts)
+      .toBeUndefined();
   });
 
   it("accepts a stable fractional-rate epoch axis with multiple pause gaps", () => {
@@ -132,7 +182,7 @@ describe("activity detail legacy route-axis selection", () => {
     });
   });
 
-  it("does not compound pause-gap removal with duration tolerance", () => {
+  it("does not reject aligned pause gaps because of duration tolerance", () => {
     const length = 100;
     const pauseIndexes = new Set([20, 40, 60, 80]);
     const time = Array.from({ length }, (_, index) => index).reduce<number[]>(
@@ -152,22 +202,22 @@ describe("activity detail legacy route-axis selection", () => {
     };
 
     expect(deriveStreamSensorSummary(streams as never, 94.9)).toMatchObject({
-      hasPowerStream: false,
-      hasRejectedPowerStream: true,
-      hasHeartRateStream: false,
-      hasRejectedHeartRateStream: true,
+      hasPowerStream: true,
+      hasRejectedPowerStream: false,
+      hasHeartRateStream: true,
+      hasRejectedHeartRateStream: false,
     });
     expect(buildActivityAnalysisProjection(streams as never, 94.9)?.streams).toMatchObject({
-      watts: undefined,
-      heartrate: undefined,
+      watts: streams.watts,
+      heartrate: streams.heartrate,
     });
   });
 
   it.each([
     [100, 95, true],
-    [100, 94.999, false],
+    [100, 94.999, true],
     [95, 100, true],
-    [95, 100.001, false],
+    [95, 100.001, true],
   ])(
     "applies symmetric duration coverage for short rides: summary %ss, route %ss",
     (summaryDurationSec, routeDurationSec, accepted) => {
