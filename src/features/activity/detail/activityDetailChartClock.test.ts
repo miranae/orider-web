@@ -163,7 +163,7 @@ describe("activity detail chart clocks", () => {
     ["relative", [0, 2, 4, 6]],
     ["epoch seconds", [1_700_000_000, 1_700_000_002, 1_700_000_004, 1_700_000_006]],
     ["epoch milliseconds", [1_700_000_000_000, 1_700_000_002_000, 1_700_000_004_000, 1_700_000_006_000]],
-  ])("does not trust equal legacy and route lengths on a mismatched %s clock", (_case, time) => {
+  ])("keeps equal-length finite legacy data on a mismatched but valid %s clock", (_case, time) => {
     const context = buildActivitySensorSelectionContext({
       ridingTimeMillis: 4_000,
       elapsedTimeMillis: 8_000,
@@ -177,7 +177,7 @@ describe("activity detail chart clocks", () => {
     };
 
     expect(getAvailableOverlays(buildSampledData(streams as never, context)).map(({ key }) => key))
-      .not.toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
+      .toEqual(expect.arrayContaining(["power", "hr", "cadence"]));
   });
 
   it.each([

@@ -1222,8 +1222,8 @@ describe("ActivityPage", () => {
 
     const stats = await screen.findByTestId("activity-stats-grid");
     await waitFor(() => {
-      expect(stats).not.toHaveTextContent("평균 파워");
-      expect(stats).not.toHaveTextContent("평균 심박");
+      expect(stats).toHaveTextContent("평균 파워210W");
+      expect(stats).toHaveTextContent("평균 심박155bpm최고 160");
     });
   });
 

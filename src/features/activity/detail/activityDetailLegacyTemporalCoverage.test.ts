@@ -94,9 +94,9 @@ describe("activity detail legacy temporal coverage integration", () => {
   });
 
   it.each([
-    [0, Number.NaN, 2],
-    [0, 1, 1],
-    [0, 2, 1],
+    [[0, Number.NaN, 2]],
+    [[0, 1, 1]],
+    [[0, 2, 1]],
   ])("rejects fully positive sensors when aligned distance accompanies malformed time %j", (time) => {
     const streams = {
       time,
