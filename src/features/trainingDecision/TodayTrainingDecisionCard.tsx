@@ -179,7 +179,8 @@ export default function TodayTrainingDecisionCard({ user, discipline, surface = 
     </Alert>}
     <TrainingExecutionPanel decision={decision} sessions={executableSessions} onChanged={refresh} />
     <footer className="training-decision-card__actions">
-      {decision.capabilities.explain === "available" && decision.recommendationSource && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
+      {recommendationVisible && decision.capabilities.explain === "available" && decision.recommendationSource
+        && <CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
         triggerBlock={false} triggerLabel={t("decision.askCoach")} progressPlannerSelection={{ question: t("decision.coachQuestion"),
           context: { prescriptionId: decision.recommendationSource.prescriptionId, sourceRequestId: decision.recommendationSource.sourceRequestId } }} />}
     </footer>

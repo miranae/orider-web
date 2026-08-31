@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
 import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
+import { decisionForNow } from "../../services/todayTrainingDecisionGuard";
 import TodayTrainingDecisionCard from "./TodayTrainingDecisionCard";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), coach: vi.fn(() => <button>코치 분석</button>),
@@ -229,6 +230,59 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByText("권고 변화 -20분 · -45 TSS")).toBeInTheDocument();
     expect(screen.queryByText(/아직 미적용/u)).not.toBeInTheDocument();
     expect(screen.getByText("조정 권고")).toBeInTheDocument();
+  });
+
+  it("keeps applied rollback, execution, and audit linkage after the display recommendation expires", () => {
+    const now = Date.now();
+    const base = trainingDecisionEnvelope();
+    const effective = { ...base.data.effectiveSessions[0]!, basis: "applied_proposal" as const,
+      appliedProposalId: appliedReceipt.proposalId };
+    const applied = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      mode: "applied-plan", recommendationValidUntil: now - 1,
+      scheduledProjectionValidUntil: now + 120_000,
+      effectiveSessions: [effective],
+      proposal: { proposalId: appliedReceipt.proposalId, status: "applied",
+        expiresAt: "2096-08-15T00:00:00.000Z", confirmNonce: null },
+      receipt: appliedReceipt,
+      capabilities: { ...base.data.capabilities, rollback: "available" },
+      sourceRefs: { ...base.data.sourceRefs, proposalId: appliedReceipt.proposalId,
+        receiptAuditId: appliedReceipt.auditId },
+    }));
+    const decision = decisionForNow(applied, now);
+    expect(() => parseTodayTrainingDecisionProjection({ status: "ok", data: decision,
+      providerCalls: 0, quotaConsumed: 0 })).not.toThrow();
+    expect(decision.proposal?.status).toBe("applied");
+    expect(decision.receipt).toEqual(appliedReceipt);
+    expect(decision.effectiveSessions[0]?.appliedProposalId).toBe(appliedReceipt.proposalId);
+    expect(decision.sourceRefs).toMatchObject({ proposalId: appliedReceipt.proposalId,
+      receiptAuditId: appliedReceipt.auditId });
+    expect(decision.capabilities.rollback).toBe("available");
+
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true,
+      unavailable: false, unavailableReason: null, refresh: vi.fn() });
+    mocks.proposal = { ...mocks.proposal, state: "applied", proposal: decision.proposal };
+    const fitness = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(screen.queryByRole("button", { name: "코치 분석" })).not.toBeInTheDocument();
+    expect(mocks.coach).not.toHaveBeenCalled();
+    expect(mocks.execution).toHaveBeenCalledWith(expect.objectContaining({
+      decision: expect.objectContaining({ sourceRefs: expect.objectContaining({
+        receiptAuditId: appliedReceipt.auditId,
+      }) }),
+    }));
+    fitness.unmount();
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="plan" /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "원래 계획으로 되돌리기" })).toBeInTheDocument();
+  });
+
+  it("keeps the Coach CTA for a currently valid recommendation", () => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      recommendationValidUntil: Date.now() + 60_000,
+    }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false,
+      unavailable: false, unavailableReason: null, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "코치 분석" })).toBeInTheDocument();
+    expect(mocks.coach).toHaveBeenCalledTimes(1);
   });
 
   it("does not expose an applied rest session as executable", () => {
