@@ -27,6 +27,15 @@ export interface Activity {
   groupRideMatchVersion?: number | null;
   /** 이 활동과 직접적인 시공간 동승이 확인된 사용자 ID 목록. */
   groupRideConfirmedPeerUserIds?: string[] | null;
+  /**
+   * 이 활동을 기록한 자전거 (#1943 §3). 없으면 **알 수 없음**이다 — 기능 이전 기록이거나
+   * 자전거를 만들지 않은 사용자다.
+   *
+   * 화면이 자전거에 기대는 계산(가상 파워 등)은 **이 값으로만** 대상을 고른다. 지금 선택된
+   * 자전거로 대신 계산하면, 자전거를 바꾼 사용자의 옛 활동이 다른 자전거의 설정으로 다시
+   * 계산돼 숫자가 조용히 달라진다.
+   */
+  bikeProfileId?: string | null;
   photoCount: number;
   kudosCount: number;
   commentCount: number;
