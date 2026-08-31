@@ -19,6 +19,7 @@ export interface RuntimeConfig {
   coachProgressPlannerEnabled?: boolean;
   trainingDecisionEnabled?: boolean;
   trainingExecutionEnabled?: boolean;
+  riderWorkoutDeliveryEnabled?: boolean;
   coachRidePlanTokenEnabled?: boolean;
   coachRidePlanSnapshotEnabled?: boolean;
   coachRidePlanAiEnabled?: boolean;
@@ -66,6 +67,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     coachProgressPlannerEnabled: import.meta.env.VITE_COACH_PROGRESS_PLANNER_ENABLED === "true",
     trainingDecisionEnabled: import.meta.env.VITE_TRAINING_DECISION_ENABLED === "true",
     trainingExecutionEnabled: import.meta.env.VITE_TRAINING_EXECUTION_ENABLED === "true",
+    riderWorkoutDeliveryEnabled: import.meta.env.VITE_RIDER_WORKOUT_DELIVERY_ENABLED === "true",
     coachRidePlanTokenEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_TOKEN_ENABLED === "true",
     coachRidePlanSnapshotEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED === "true",
     coachRidePlanAiEnabled: import.meta.env.VITE_COACH_RIDE_PLAN_AI_ENABLED === "true",

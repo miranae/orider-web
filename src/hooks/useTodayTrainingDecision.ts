@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getTodayTrainingDecision } from "../services/trainingDecisionClient";
 import { currentTrainingRecommendation, type TodayTrainingDecisionProjection } from "../services/trainingDecisionContract";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
+import {
+  loadTodayTrainingDecision,
+  TodayTrainingDecisionCooldownError,
+} from "../services/todayTrainingDecisionGuard";
 
 interface State {
   decision: TodayTrainingDecisionProjection | null;
@@ -15,7 +18,7 @@ interface State {
 }
 
 export function nextTrainingDecisionExpiry(decision: TodayTrainingDecisionProjection, now = Date.now()): number {
-  const pendingProposalExpiry = decision.proposal?.status === "pending" ? decision.proposalExpiresAt : null;
+  const pendingProposalExpiry = decision.proposal?.status === "pending" ? Date.parse(decision.proposal.expiresAt) : null;
   const candidates = [decision.scheduledProjectionValidUntil, decision.recommendationValidUntil, pendingProposalExpiry]
     .filter((value): value is number => value !== null && value > now);
   return Math.min(...candidates);
@@ -24,6 +27,7 @@ export function nextTrainingDecisionExpiry(decision: TodayTrainingDecisionProjec
 export function useTodayTrainingDecision(uid: string | null | undefined,
   discipline: "bike" | "run" | "swim"): State {
   const generation = useRef(0);
+  const manualRefresh = useRef(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [state, setState] = useState<Omit<State, "refresh">>({
     decision: null, loading: Boolean(uid), scheduledOnly: true, unavailable: false, unavailableReason: null,
@@ -42,13 +46,11 @@ export function useTodayTrainingDecision(uid: string | null | undefined,
     let expiryTimer: ReturnType<typeof setTimeout> | null = null;
     setState((current) => ({ ...current, decision: null, loading: true, scheduledOnly: true, unavailable: false,
       unavailableReason: null }));
-    void getTodayTrainingDecision(discipline, controller.signal).then((decision) => {
+    const manualRetry = manualRefresh.current;
+    manualRefresh.current = false;
+    void loadTodayTrainingDecision({ uid, discipline, signal: controller.signal, manualRetry }).then((decision) => {
       if (generation.current !== currentGeneration || controller.signal.aborted) return;
       const now = Date.now();
-      if (decision.scheduledProjectionValidUntil <= now) throw new Error("training decision scheduled projection expired");
-      if (decision.proposal?.status === "pending" && decision.proposalExpiresAt !== null && decision.proposalExpiresAt <= now) {
-        throw new Error("training decision pending proposal expired");
-      }
       const scheduledOnly = !currentTrainingRecommendation(decision);
       setState({ decision, loading: false, scheduledOnly, unavailable: false, unavailableReason: null });
       const expiresAt = nextTrainingDecisionExpiry(decision, now);
@@ -56,10 +58,19 @@ export function useTodayTrainingDecision(uid: string | null | undefined,
         if (generation.current === currentGeneration && !controller.signal.aborted) {
           setRefreshKey((value) => value + 1);
         }
-      }, Math.min(expiresAt - now + 25, 2_147_483_647));
+      }, Math.min(expiresAt - now, 2_147_483_647));
     }).catch((error) => {
       if (generation.current !== currentGeneration || controller.signal.aborted) return;
-      logClientError("useTodayTrainingDecision.load", error, { discipline });
+      // cooldown 자체를 다시 원격 로깅하면 오류 화면 재마운트가 logClientError 폭주로 바뀐다.
+      if (!(error instanceof TodayTrainingDecisionCooldownError)) {
+        logClientError("useTodayTrainingDecision.load", error, { discipline });
+      } else if (error.automaticRetry) {
+        expiryTimer = setTimeout(() => {
+          if (generation.current === currentGeneration && !controller.signal.aborted) {
+            setRefreshKey((value) => value + 1);
+          }
+        }, Math.max(error.retryAfterMs, 1));
+      }
       setState({ decision: null, loading: false, scheduledOnly: true, unavailable: true, unavailableReason: "error" });
     });
     return () => {
@@ -68,6 +79,9 @@ export function useTodayTrainingDecision(uid: string | null | undefined,
     };
   }, [uid, discipline, refreshKey]);
 
-  const refresh = useCallback(() => setRefreshKey((value) => value + 1), []);
+  const refresh = useCallback(() => {
+    manualRefresh.current = true;
+    setRefreshKey((value) => value + 1);
+  }, []);
   return { ...state, refresh };
 }

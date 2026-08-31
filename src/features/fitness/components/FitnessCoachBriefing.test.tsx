@@ -131,11 +131,11 @@ describe("FitnessCoachBriefing", () => {
     expect(screen.getByText("심박 기록 있음")).toBeInTheDocument();
   });
 
-  it("never presents a G1 transfer as complete and does not offer transfer for rest", () => {
+  it("requires a registered device instead of pretending a G1 transfer and keeps rest local", () => {
     renderBriefing({ current: { ctl: 42, atl: 49, tsb: -10.6 } });
 
-    fireEvent.click(screen.getByRole("button", { name: "G1 전송 준비" }));
-    expect(screen.getByRole("status")).toHaveTextContent("아직 G1에 전송되지 않았습니다");
+    expect(screen.getByText(/G1 워크아웃 수신 기능을 안전하게 준비/)).toBeInTheDocument();
+    expect(screen.queryByText("G1 수신 확인")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("radio", { name: /완전 휴식/ }));
     expect(screen.getByRole("button", { name: "오늘 선택 확인" })).toBeInTheDocument();
