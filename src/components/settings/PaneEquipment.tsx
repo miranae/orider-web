@@ -129,7 +129,8 @@ interface ProfileCardProps {
   profile: BikeProfile;
   isActive: boolean;
   canDelete: boolean;
-  onSetActive: () => Promise<void>;
+  /** 웹에서 보고 있는 자전거를 바꾼다 — 이 브라우저에만 남는다(#1950). */
+  onSetActive: () => void;
   onRename: (name: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onUpdateWheel: (mm: number) => Promise<void>;
@@ -211,7 +212,7 @@ function ProfileCard({
   async function handleSetActive() {
     setBusy(true);
     try {
-      await onSetActive();
+      onSetActive();
       showToast(t("equipment.bikeActivateSucceeded", { name: profile.name }));
     } catch (e) {
       showToast(t("equipment.bikeActivateFailed", { message: e instanceof Error ? e.message : String(e) }));
