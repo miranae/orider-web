@@ -106,6 +106,8 @@
     "analyzing": "Analyzing segments… (approx. 15–30 s)",
     "errorPrefix": "Analysis failed: {{error}}",
     "retryBtn": "Retry",
+    "appCheckRecovery": "Reconnecting the analysis service.",
+    "appCheckRestartBtn": "Restart",
     "prescription": "🩺 Coach Prescription",
     "thisWeek": "This week",
     "virtualPower": "· Virtual power",

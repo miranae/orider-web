@@ -6,7 +6,7 @@
  *
  * 설계: docs/architecture/RIDE_SEGMENT_NARRATIVE.md
  */
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, Text, Button } from "../../theme/components";
 
@@ -15,6 +15,10 @@ const MEDAL_LIMIT = 5;
 import { useActivityNarrativeWithOptions, type NarrativeSegment, type Prescription, type NarrativeLang } from "../../hooks/useActivityNarrative";
 import { useActivityNarrativePeek, invalidateActivityNarrativePeekCache } from "../../hooks/useActivityNarrativePeek";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  appCheckThrottleRetryAfterMs,
+  claimActivityNarrativeAppCheckThrottleRecovery,
+} from "../../services/activityNarrativeApi";
 
 const TERRAIN_ICON: Record<string, string> = { climb: "🔼", descent: "🔽", flat: "➡️" };
 type AnalysisSport = "ride" | "run";
@@ -246,6 +250,15 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const [refreshKey, setRefreshKey] = useState(0);
   const full = useActivityNarrativeWithOptions(activityId, enabled && triggerFull && !!user, lang, forceRefresh, refreshKey);
   const [expanded, setExpanded] = useState(true);
+  const [appCheckRecoveryAttempted, setAppCheckRecoveryAttempted] = useState(false);
+  const appCheckThrottled = appCheckThrottleRetryAfterMs(full.error) != null;
+
+  useEffect(() => {
+    if (!appCheckThrottled || appCheckRecoveryAttempted) return;
+    setAppCheckRecoveryAttempted(true);
+    if (claimActivityNarrativeAppCheckThrottleRecovery(window.sessionStorage)) window.location.reload();
+  }, [appCheckRecoveryAttempted, appCheckThrottled]);
+
   const retryFullAnalysis = () => {
     if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
     setForceRefresh(true);
@@ -358,6 +371,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const data = full.data ?? peek.data;
   const error = full.error;
   const authError = isAuthenticationError(error);
+  const restartAfterAppCheckThrottle = () => window.location.reload();
 
   if (error) {
     if (previewSummary) {
@@ -369,20 +383,28 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
               <Button size="sm" variant="secondary" onClick={() => signInWithGoogle()}>
                 {t("ai.loginBtn")}
               </Button>
+            ) : appCheckThrottled ? (
+              appCheckRecoveryAttempted ? (
+                <Button size="sm" variant="secondary" onClick={restartAfterAppCheckThrottle}>
+                  {t("ai.appCheckRestartBtn")}
+                </Button>
+              ) : null
             ) : (
               <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
                 {t("ai.retryBtn")}
               </Button>
             )}
           </div>
-          {!authError && (
+          {!authError && !appCheckThrottled && (
             <Text variant="caption" tone="danger" as="p" className="mt-2">
               {t("ai.errorPrefix", { error })}
             </Text>
           )}
           <Text variant="body" tone="primary" as="p" className="mt-3">{previewSummary}</Text>
           <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-            {authError ? t("ai.previewAuthHint") : t("ai.previewOnlyHint")}
+            {appCheckThrottled
+              ? t("ai.appCheckRecovery")
+              : authError ? t("ai.previewAuthHint") : t("ai.previewOnlyHint")}
           </Text>
         </Card>
       );
@@ -392,12 +414,20 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
       <Card padding="none" style={{ padding: "var(--space-5)" }}>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{header}</span>
-          <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
-            {t("ai.retryBtn")}
-          </Button>
+          {appCheckThrottled ? (
+            appCheckRecoveryAttempted ? (
+              <Button size="sm" variant="secondary" onClick={restartAfterAppCheckThrottle}>
+                {t("ai.appCheckRestartBtn")}
+              </Button>
+            ) : null
+          ) : (
+            <Button size="sm" variant="secondary" onClick={retryFullAnalysis}>
+              {t("ai.retryBtn")}
+            </Button>
+          )}
         </div>
-        <Text variant="caption" tone="danger" as="p" className="mt-2">
-          {t("ai.errorPrefix", { error })}
+        <Text variant="caption" tone={appCheckThrottled ? "tertiary" : "danger"} as="p" className="mt-2">
+          {appCheckThrottled ? t("ai.appCheckRecovery") : t("ai.errorPrefix", { error })}
         </Text>
       </Card>
     );

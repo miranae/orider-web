@@ -45,7 +45,42 @@ type CompatibilityFallbackReason =
 
 /** 회선 순단 복구 전 대기. 짧은 순단이면 이 사이에 회복된다. */
 const REST_NETWORK_RETRY_DELAY_MS = 400;
+const APP_CHECK_THROTTLE_FALLBACK_MS = 5 * 60_000;
+export const ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY = "activity-narrative-app-check-throttle-recovery";
 let authReadyPromise: Promise<void> | null = null;
+
+/** App Check가 403 뒤 토큰 발급을 멈춘 동안에는 재시도를 숨긴다. */
+export function appCheckThrottleRetryAfterMs(error: unknown): number | null {
+  const candidate = error instanceof Error
+    ? `${error.name} ${error.message}`
+    : typeof error === "object" && error !== null
+      ? `${String((error as { code?: unknown }).code ?? "")} ${String((error as { message?: unknown }).message ?? "")}`
+      : String(error);
+  // 훅 경계에서는 FirebaseError의 code가 사라지고 message만 남을 수 있다.
+  // SDK가 만드는 403 재시도 억제 문구도 함께 인식해 원문 오류를 노출하지 않는다.
+  if (!/(?:app[- ]?check\/throttled|requests throttled due to previous \d{3} error)/i.test(candidate)) return null;
+
+  const retryAfter = candidate.match(/attempts allowed again after\s+(?:(\d+)h:)?(?:(\d+)m:)?(?:(\d+)s)?/i);
+  if (!retryAfter) return APP_CHECK_THROTTLE_FALLBACK_MS;
+
+  const hours = Number(retryAfter[1] ?? 0);
+  const minutes = Number(retryAfter[2] ?? 0);
+  const seconds = Number(retryAfter[3] ?? 0);
+  const milliseconds = (hours * 60 * 60 + minutes * 60 + seconds) * 1_000;
+  return milliseconds > 0 ? milliseconds : APP_CHECK_THROTTLE_FALLBACK_MS;
+}
+
+/** 같은 세션에서 자동 복구 새로고침은 한 번만 허용해 반복 새로고침을 막는다. */
+export function claimActivityNarrativeAppCheckThrottleRecovery(storage: Pick<Storage, "getItem" | "setItem">): boolean {
+  try {
+    if (storage.getItem(ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY)) return false;
+    storage.setItem(ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY, "1");
+    return true;
+  } catch {
+    // 세션 저장소를 쓸 수 없으면 루프 위험이 있으므로 자동 새로고침을 하지 않는다.
+    return false;
+  }
+}
 
 export class ActivityNarrativeRestError extends Error {
   readonly code?: string;
