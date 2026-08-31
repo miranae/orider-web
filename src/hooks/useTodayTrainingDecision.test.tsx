@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
-import { parseTodayTrainingDecisionProjection } from "../services/trainingDecisionContract";
+import { parseTodayTrainingDecisionProjection, todayTrainingDecisionProjectionSchema } from "../services/trainingDecisionContract";
 import { trainingDecisionEnvelope } from "../services/trainingDecisionContract.test";
 import { resetTodayTrainingDecisionGuardForTests } from "../services/todayTrainingDecisionGuard";
 import { CoachClientError } from "../services/coachClient";
@@ -62,6 +62,63 @@ describe("useTodayTrainingDecision expiry boundary", () => {
     expect(mocks.get).toHaveBeenCalledTimes(2);
   });
 
+  it("removes an expired recommendation at its boundary while keeping the scheduled projection available", async () => {
+    mocks.get.mockResolvedValue(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      scheduledProjectionValidUntil: Date.now() + 120_000,
+      recommendationValidUntil: Date.now() + 1_000,
+    })));
+    const first = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(first.result.current.scheduledOnly).toBe(false);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(first.result.current.unavailable).toBe(false);
+    expect(first.result.current.scheduledOnly).toBe(true);
+    expect(first.result.current.decision).toMatchObject({
+      mode: "scheduled-only", recommendationValidUntil: null,
+      recommendedAdjustments: [], proposal: null,
+    });
+    expect(first.result.current.decision?.recommendationSource).not.toBeNull();
+
+    first.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    const remounted = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(remounted.result.current.decision).not.toBeNull();
+    expect(remounted.result.current.unavailable).toBe(false);
+    expect(remounted.result.current.scheduledOnly).toBe(true);
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes an expired pending proposal without hiding a still-valid recommendation", async () => {
+    const proposalExpiry = Date.now() + 500;
+    mocks.get.mockResolvedValue(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      scheduledProjectionValidUntil: Date.now() + 120_000,
+      recommendationValidUntil: Date.now() + 120_000,
+      proposalExpiresAt: Date.now() + 120_000,
+      proposal: { proposalId: "proposal_aaaaaaaaaaaaaaaaaaaaaaaa", status: "pending",
+        expiresAt: new Date(proposalExpiry).toISOString(), confirmNonce: "a".repeat(32) },
+      sourceRefs: { ...trainingDecisionEnvelope().data.sourceRefs,
+        proposalId: "proposal_aaaaaaaaaaaaaaaaaaaaaaaa" },
+      coachCore: { ...trainingDecisionEnvelope().data.coachCore, proposalStatus: "pending" },
+    })));
+    const { result } = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.decision?.proposal?.status).toBe("pending");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(result.current.unavailable).toBe(false);
+    expect(result.current.scheduledOnly).toBe(false);
+    expect(result.current.decision?.proposal).toMatchObject({ status: "expired", confirmNonce: null });
+    expect(result.current.decision?.proposalExpiresAt).toBe(proposalExpiry);
+    expect(result.current.decision?.sourceRefs.proposalId).toBe("proposal_aaaaaaaaaaaaaaaaaaaaaaaa");
+    expect(result.current.decision?.capabilities.confirm).toBe("unavailable");
+    expect(result.current.decision?.capabilities.decline).toBe("unavailable");
+    expect(() => todayTrainingDecisionProjectionSchema.parse(result.current.decision)).not.toThrow();
+  });
+
   it("refetches at an earlier pending proposal expiry", async () => {
     const now = Date.now();
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
@@ -120,6 +177,183 @@ describe("useTodayTrainingDecision expiry boundary", () => {
     await act(async () => { await Promise.resolve(); });
     expect(third.result.current.loading).toBe(false);
     expect(mocks.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a still-valid decision available across remounts throughout the request floor", async () => {
+    mocks.get.mockResolvedValue(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      scheduledProjectionValidUntil: Date.now() + 120_000,
+    })));
+    const first = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    first.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(45_000); });
+
+    const remounted = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(remounted.result.current.decision).not.toBeNull();
+    expect(remounted.result.current.unavailable).toBe(false);
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovers automatically once after an initial transport failure", async () => {
+    mocks.get
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockResolvedValueOnce(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        scheduledProjectionValidUntil: Date.now() + 120_000,
+      })));
+    const { result } = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(result.current.unavailable).toBe(true);
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_999); });
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(result.current.unavailable).toBe(false);
+    expect(result.current.decision).not.toBeNull();
+  });
+
+  it("respects Retry-After before opening a retryable 503 half-open probe", async () => {
+    const unavailable = Object.assign(new CoachClientError("http", "TEMPORARILY_UNAVAILABLE"), {
+      status: 503, retryAfterMs: 12_000,
+    });
+    mocks.get
+      .mockRejectedValueOnce(unavailable)
+      .mockResolvedValueOnce(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        scheduledProjectionValidUntil: Date.now() + 120_000,
+      })));
+    const { result } = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(11_999); });
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(result.current.unavailable).toBe(false);
+  });
+
+  it.each([
+    new CoachClientError("http", "HTTP_400"),
+    new CoachClientError("configuration", "AI_API_BASE_MISSING"),
+    new CoachClientError("contract", "INVALID_TRAINING_DECISION"),
+  ])("does not automatically retry a non-transient failure: $code", async (error) => {
+    mocks.get.mockRejectedValue(error);
+    renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15 * 60_000); });
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops transient half-open probes after two bounded retries", async () => {
+    mocks.get.mockRejectedValue(new CoachClientError("transport", "NETWORK_ERROR"));
+    renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(mocks.get).toHaveBeenCalledTimes(3);
+    await act(async () => { await vi.advanceTimersByTimeAsync(15 * 60_000); });
+    expect(mocks.get).toHaveBeenCalledTimes(3);
+  });
+
+  it("preserves the bounded half-open sequence across fast manual refresh and throttle", async () => {
+    mocks.get
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockResolvedValueOnce(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        scheduledProjectionValidUntil: Date.now() + 120_000,
+      })));
+    const { result } = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+
+    act(() => result.current.refresh());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    act(() => result.current.refresh());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_999); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(mocks.get).toHaveBeenCalledTimes(3);
+    await act(async () => { await vi.advanceTimersByTimeAsync(29_999); });
+    expect(mocks.get).toHaveBeenCalledTimes(3);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(mocks.get).toHaveBeenCalledTimes(4);
+    expect(result.current.unavailable).toBe(false);
+    expect(result.current.decision).not.toBeNull();
+  });
+
+  it("closes automatic recovery when a manual probe changes from transient to contract failure", async () => {
+    mocks.get
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockRejectedValueOnce(new CoachClientError("contract", "INVALID_TRAINING_DECISION"));
+    const { result } = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    act(() => result.current.refresh());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15 * 60_000); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses a new manual Retry-After without consuming the remaining automatic attempt", async () => {
+    const retryAfter = Object.assign(new CoachClientError("http", "TEMPORARILY_UNAVAILABLE"), {
+      status: 503, retryAfterMs: 12_000,
+    });
+    mocks.get
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockRejectedValueOnce(retryAfter)
+      .mockResolvedValueOnce(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        scheduledProjectionValidUntil: Date.now() + 120_000,
+      })));
+    const { result } = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    act(() => result.current.refresh());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(11_999); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(mocks.get).toHaveBeenCalledTimes(3);
+    expect(result.current.unavailable).toBe(false);
+  });
+
+  it("opens a new bounded transient recovery after a permanent circuit and manual transport failure", async () => {
+    mocks.get
+      .mockRejectedValueOnce(new CoachClientError("contract", "INVALID_TRAINING_DECISION"))
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockResolvedValueOnce(parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+        scheduledProjectionValidUntil: Date.now() + 120_000,
+      })));
+    const { result } = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    act(() => result.current.refresh());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_999); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(mocks.get).toHaveBeenCalledTimes(3);
+    expect(result.current.unavailable).toBe(false);
+  });
+
+  it("stops automatic recovery when a manual transient response asks for more than 15 minutes", async () => {
+    const longRetryAfter = Object.assign(new CoachClientError("http", "TEMPORARILY_UNAVAILABLE"), {
+      status: 503, retryAfterMs: 15 * 60_000 + 1,
+    });
+    mocks.get
+      .mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"))
+      .mockRejectedValueOnce(longRetryAfter);
+    const { result } = renderHook(() => useTodayTrainingDecision("owner", "bike"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    act(() => result.current.refresh());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(20 * 60_000); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
   });
 
   it("opens a remount-safe circuit after a contract failure and recovers on explicit refresh", async () => {

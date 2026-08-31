@@ -17,10 +17,8 @@ interface State {
   refresh: () => void;
 }
 
-const MIN_AUTOMATIC_REFRESH_MS = 60_000;
-
 export function nextTrainingDecisionExpiry(decision: TodayTrainingDecisionProjection, now = Date.now()): number {
-  const pendingProposalExpiry = decision.proposal?.status === "pending" ? decision.proposalExpiresAt : null;
+  const pendingProposalExpiry = decision.proposal?.status === "pending" ? Date.parse(decision.proposal.expiresAt) : null;
   const candidates = [decision.scheduledProjectionValidUntil, decision.recommendationValidUntil, pendingProposalExpiry]
     .filter((value): value is number => value !== null && value > now);
   return Math.min(...candidates);
@@ -60,13 +58,13 @@ export function useTodayTrainingDecision(uid: string | null | undefined,
         if (generation.current === currentGeneration && !controller.signal.aborted) {
           setRefreshKey((value) => value + 1);
         }
-      }, Math.min(Math.max(expiresAt - now + 25, MIN_AUTOMATIC_REFRESH_MS), 2_147_483_647));
+      }, Math.min(expiresAt - now, 2_147_483_647));
     }).catch((error) => {
       if (generation.current !== currentGeneration || controller.signal.aborted) return;
       // cooldown 자체를 다시 원격 로깅하면 오류 화면 재마운트가 logClientError 폭주로 바뀐다.
       if (!(error instanceof TodayTrainingDecisionCooldownError)) {
         logClientError("useTodayTrainingDecision.load", error, { discipline });
-      } else {
+      } else if (error.automaticRetry) {
         expiryTimer = setTimeout(() => {
           if (generation.current === currentGeneration && !controller.signal.aborted) {
             setRefreshKey((value) => value + 1);

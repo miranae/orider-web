@@ -58,4 +58,22 @@ describe("trainingDecisionClient", () => {
     resolveFetch(new Response(JSON.stringify(trainingDecisionEnvelope())));
     await expect(request).rejects.toMatchObject({ kind: "auth", code: "AUTH_IDENTITY_CHANGED" });
   });
+
+  it("preserves retry-after metadata for a retryable Today endpoint response", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "TEMPORARILY_UNAVAILABLE" },
+    }), { status: 503, headers: { "Retry-After": "12" } }));
+    await expect(getTodayTrainingDecision("owner", "bike")).rejects.toMatchObject({
+      kind: "http", code: "TEMPORARILY_UNAVAILABLE", status: 503, retryAfterMs: 12_000,
+    });
+  });
+
+  it("preserves retryable status when a 503 response body is invalid JSON", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("not-json", {
+      status: 503, headers: { "Retry-After": "7" },
+    }));
+    await expect(getTodayTrainingDecision("owner", "bike")).rejects.toMatchObject({
+      kind: "http", code: "INVALID_JSON_HTTP_503", status: 503, retryAfterMs: 7_000,
+    });
+  });
 });

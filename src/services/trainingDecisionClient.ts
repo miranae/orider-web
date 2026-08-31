@@ -8,6 +8,22 @@ import {
 
 const DECISION_REQUEST_TIMEOUT_MS = 15_000;
 
+export class TodayTrainingDecisionHttpError extends CoachClientError {
+  constructor(code: string, public readonly status: number, public readonly retryAfterMs: number | null,
+    options?: { cause?: unknown }) {
+    super("http", code, options);
+    this.name = "TodayTrainingDecisionHttpError";
+  }
+}
+
+function parseRetryAfter(value: string | null, now = Date.now()): number | null {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1_000);
+  const retryAt = Date.parse(value);
+  return Number.isFinite(retryAt) ? Math.max(0, retryAt - now) : null;
+}
+
 function endpoint(path: string): string {
   const base = getRuntimeConfig().aiApiBase;
   if (!base) throw new CoachClientError("configuration", "AI_API_BASE_MISSING");
@@ -70,14 +86,22 @@ async function request(expectedUid: string, path: string, init?: RequestInit): P
   try {
     payload = await response.json();
   } catch (cause) {
-    throw new CoachClientError(response.ok ? "contract" : "http", `INVALID_JSON_HTTP_${response.status}`, { cause });
+    if (!response.ok) {
+      throw new TodayTrainingDecisionHttpError(
+        `INVALID_JSON_HTTP_${response.status}`,
+        response.status,
+        parseRetryAfter(response.headers?.get("Retry-After") ?? null),
+        { cause },
+      );
+    }
+    throw new CoachClientError("contract", `INVALID_JSON_HTTP_${response.status}`, { cause });
   }
   requireExpectedUser(expectedUid);
   if (!response.ok) {
     const code = payload && typeof payload === "object" && "error" in payload
       && payload.error && typeof payload.error === "object" && "code" in payload.error
       ? String(payload.error.code) : `HTTP_${response.status}`;
-    throw new CoachClientError("http", code);
+    throw new TodayTrainingDecisionHttpError(code, response.status, parseRetryAfter(response.headers.get("Retry-After")));
   }
   return payload;
 }
