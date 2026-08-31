@@ -15,10 +15,27 @@ function endpoint(path: string): string {
   return `${base.replace(/\/$/u, "")}/v1/coach${path}`;
 }
 
-async function request(path: string, init?: RequestInit): Promise<unknown> {
-  const idToken = await auth.currentUser?.getIdToken();
-  if (!idToken) throw new CoachClientError("auth", "SIGN_IN_REQUIRED");
+export function assertTodayTrainingDecisionIdentity(expectedUid: string): void {
+  const user = auth.currentUser;
+  if (!user) throw new CoachClientError("auth", "SIGN_IN_REQUIRED");
+  if (user.uid !== expectedUid) throw new CoachClientError("auth", "AUTH_IDENTITY_CHANGED");
+}
+
+function requireExpectedUser(expectedUid: string) {
+  assertTodayTrainingDecisionIdentity(expectedUid);
+  const user = auth.currentUser;
+  // assert 직후 같은 synchronous turn 안에서는 uid가 일치하는 사용자가 존재한다.
+  if (!user) throw new CoachClientError("auth", "SIGN_IN_REQUIRED");
+  return user;
+}
+
+async function request(expectedUid: string, path: string, init?: RequestInit): Promise<unknown> {
+  const user = requireExpectedUser(expectedUid);
+  const idToken = await user.getIdToken();
+  // getIdToken/App Check/fetch를 기다리는 동안 계정이 바뀌면 다른 사용자의 key에 결과를 넣지 않는다.
+  requireExpectedUser(expectedUid);
   const appCheckToken = await getAppCheckToken();
+  requireExpectedUser(expectedUid);
   const requestController = new AbortController();
   const callerSignal = init?.signal;
   const abortFromCaller = () => requestController.abort(callerSignal?.reason);
@@ -48,12 +65,14 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
     clearTimeout(timeoutId);
     callerSignal?.removeEventListener("abort", abortFromCaller);
   }
+  requireExpectedUser(expectedUid);
   let payload: unknown;
   try {
     payload = await response.json();
   } catch (cause) {
     throw new CoachClientError(response.ok ? "contract" : "http", `INVALID_JSON_HTTP_${response.status}`, { cause });
   }
+  requireExpectedUser(expectedUid);
   if (!response.ok) {
     const code = payload && typeof payload === "object" && "error" in payload
       && payload.error && typeof payload.error === "object" && "code" in payload.error
@@ -63,9 +82,9 @@ async function request(path: string, init?: RequestInit): Promise<unknown> {
   return payload;
 }
 
-export async function getTodayTrainingDecision(discipline: "bike" | "run" | "swim", signal?: AbortSignal): Promise<TodayTrainingDecisionProjection> {
+export async function getTodayTrainingDecision(expectedUid: string, discipline: "bike" | "run" | "swim", signal?: AbortSignal): Promise<TodayTrainingDecisionProjection> {
   try {
-    const decision = parseTodayTrainingDecisionProjection(await request(
+    const decision = parseTodayTrainingDecisionProjection(await request(expectedUid,
       `/training-decisions/today?discipline=${encodeURIComponent(discipline)}`,
       { method: "GET", signal },
     ));
