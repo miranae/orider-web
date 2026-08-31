@@ -6,11 +6,15 @@ import type { ActivityNarrative, NarrativeSegment } from "../../hooks/useActivit
 const narrativeApiMocks = vi.hoisted(() => ({
   generate: vi.fn(),
   peek: vi.fn(),
+  appCheckThrottleRetryAfterMs: vi.fn(),
+  claimActivityNarrativeAppCheckThrottleRecovery: vi.fn(),
 }));
 
 vi.mock("../../services/activityNarrativeApi", () => ({
   generateActivityNarrative: narrativeApiMocks.generate,
   peekActivityNarrative: narrativeApiMocks.peek,
+  appCheckThrottleRetryAfterMs: narrativeApiMocks.appCheckThrottleRetryAfterMs,
+  claimActivityNarrativeAppCheckThrottleRecovery: narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery,
 }));
 
 function segment(fromKm: number, toKm: number, narrative: string): NarrativeSegment {
@@ -62,8 +66,17 @@ function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: tru
 
 describe("AiRideAnalysisCard", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     narrativeApiMocks.generate.mockReset();
     narrativeApiMocks.peek.mockReset().mockResolvedValue({ hit: false });
+    narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery.mockReset().mockReturnValue(false);
+    narrativeApiMocks.appCheckThrottleRetryAfterMs.mockReset().mockImplementation((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      const retryAfter = message.match(/after (\d+)h:(\d+)m:(\d+)s/i);
+      return retryAfter
+        ? (Number(retryAfter[1]) * 60 * 60 + Number(retryAfter[2]) * 60 + Number(retryAfter[3])) * 1_000
+        : null;
+    });
   });
 
   it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
@@ -106,6 +119,26 @@ describe("AiRideAnalysisCard", () => {
     });
     expect(screen.queryByText(/분석 실패/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Unauthenticated/)).not.toBeInTheDocument();
+  });
+
+  it("shows a neutral restart action instead of raw App Check errors after one recovery reload", async () => {
+    narrativeApiMocks.generate.mockRejectedValue(new Error(
+      "AppCheck: Requests throttled due to previous 403 error. Attempts allowed again after 20h:58m:47s (appCheck/throttled).",
+    ));
+
+    renderWithProviders(
+      <AiRideAnalysisCard activityId="app-check-throttle" enabled />,
+      { authenticated: true },
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "분석시작" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/분석 서비스를 다시 연결/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/AppCheck/)).not.toBeInTheDocument();
   });
 
   it("shows only segments with a non-empty narrative while keeping the full timeline", async () => {

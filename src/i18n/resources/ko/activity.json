@@ -106,6 +106,8 @@
     "analyzing": "구간을 분석하고 있어요… (약 15~30초)",
     "errorPrefix": "분석 실패: {{error}}",
     "retryBtn": "다시 시도",
+    "appCheckRecovery": "분석 서비스를 다시 연결하고 있어요.",
+    "appCheckRestartBtn": "다시 시작",
     "prescription": "🩺 코치 처방",
     "thisWeek": "이번 주",
     "virtualPower": "· 가상파워",

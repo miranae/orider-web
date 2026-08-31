@@ -45,7 +45,10 @@ vi.mock("./errorLogger", () => ({
 }));
 
 import {
+  ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY,
   ActivityNarrativeRestError,
+  appCheckThrottleRetryAfterMs,
+  claimActivityNarrativeAppCheckThrottleRecovery,
   generateActivityNarrative,
   peekActivityNarrative,
 } from "./activityNarrativeApi";
@@ -94,6 +97,29 @@ describe("activityNarrativeApi", () => {
       next(mocks.auth.currentUser);
       return vi.fn();
     });
+  });
+
+  it("App Check throttle 응답에서 재시도 가능까지 남은 시간을 분류한다", () => {
+    expect(appCheckThrottleRetryAfterMs({
+      code: "appCheck/throttled",
+      message: "AppCheck: Requests throttled due to previous 403 error. Attempts allowed again after 20h:58m:47s (appCheck/throttled).",
+    })).toBe((20 * 60 * 60 + 58 * 60 + 47) * 1_000);
+    expect(appCheckThrottleRetryAfterMs(
+      new Error("AppCheck: Requests throttled due to previous 403 error."),
+    )).toBe(5 * 60 * 1_000);
+    expect(appCheckThrottleRetryAfterMs(new Error("unrelated request error"))).toBeNull();
+  });
+
+  it("App Check 자동 복구 새로고침은 같은 세션에서 한 번만 허용한다", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    };
+
+    expect(claimActivityNarrativeAppCheckThrottleRecovery(storage)).toBe(true);
+    expect(values.get(ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY)).toBe("1");
+    expect(claimActivityNarrativeAppCheckThrottleRecovery(storage)).toBe(false);
   });
 
   it("runtime-config AI base URL과 Auth/App Check 헤더로 generate REST를 호출한다", async () => {
