@@ -1,4 +1,9 @@
 import { useEffect, useState } from "react";
+import { LayoutEditorCard } from "./LayoutEditorCard";
+import { useBikeProfileLayout } from "../../hooks/useBikeProfileLayout";
+import { DEFAULT_DATA_PAGE_CONFIG } from "@shared/types/deviceSettings";
+import { useSearchParams } from "react-router-dom";
+import type { DataPageConfig } from "@shared/types/deviceSettings";
 import { useTranslation } from "react-i18next";
 import { Bike as BikeIcon, Check, Pencil, Trash2, X } from "lucide-react";
 
@@ -129,11 +134,14 @@ interface ProfileCardProps {
   profile: BikeProfile;
   isActive: boolean;
   canDelete: boolean;
-  onSetActive: () => Promise<void>;
+  /** 웹에서 보고 있는 자전거를 바꾼다 — 이 브라우저에만 남는다(#1950). */
+  onSetActive: () => void;
   onRename: (name: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onUpdateWheel: (mm: number) => Promise<void>;
   onRemoveSensor: (deviceAddress: string) => Promise<void>;
+  /** 이 자전거의 데이터 페이지 편집기를 연다 (#1950). */
+  onOpenDataPages: () => void;
 }
 
 function ProfileCard({
@@ -145,6 +153,7 @@ function ProfileCard({
   onDelete,
   onUpdateWheel,
   onRemoveSensor,
+  onOpenDataPages,
 }: ProfileCardProps) {
   const { t } = useTranslation("settings");
   const { showToast } = useToast();
@@ -211,7 +220,7 @@ function ProfileCard({
   async function handleSetActive() {
     setBusy(true);
     try {
-      await onSetActive();
+      onSetActive();
       showToast(t("equipment.bikeActivateSucceeded", { name: profile.name }));
     } catch (e) {
       showToast(t("equipment.bikeActivateFailed", { message: e instanceof Error ? e.message : String(e) }));
@@ -336,6 +345,16 @@ function ProfileCard({
                 {t("equipment.bikeSetActive")}
               </Button>
             )}
+            {/* 데이터 페이지는 **자전거의 속성**이다 — 기기 화면이 아니라 이 행에서 연다(§5.1). */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onOpenDataPages}
+              disabled={busy}
+              data-testid={`bike-data-pages-${profile.id}`}
+            >
+              {t("equipment.bikeDataPages")}
+            </Button>
             <Button variant="ghost"
               onClick={() => {
                 setEditing(true);
@@ -435,6 +454,7 @@ export function PaneEquipment() {
   const { t } = useTranslation("settings");
   const { user, profile } = useAuth();
   const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const uid = user?.uid ?? null;
   const {
     active,
@@ -453,6 +473,31 @@ export function PaneEquipment() {
   useEffect(() => {
     setVpDraft(active?.virtualPower ?? null);
   }, [active?.id, active?.virtualPower]);
+
+  /**
+   * 데이터 페이지 편집 대상 (#1943 §5.1, #1950).
+   *
+   * URL 에 담는다 — `?profileId={id}&panel=data-pages`. 링크를 공유하거나 새로고침해도 같은
+   * 자전거의 편집기가 열려야 하고, 화면 상태에만 두면 뒤로가기가 편집기를 닫지 못한다.
+   */
+  const panel = searchParams.get("panel");
+  const urlProfileId = searchParams.get("profileId");
+  const editingProfileId = panel === "data-pages" ? (urlProfileId ?? active?.id ?? null) : null;
+  const editingProfile = profiles.find((p) => p.id === editingProfileId) ?? null;
+
+  function openDataPages(profileId: string) {
+    const next = new URLSearchParams(searchParams);
+    next.set("profileId", profileId);
+    next.set("panel", "data-pages");
+    setSearchParams(next);
+  }
+
+  function closeDataPages() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("panel");
+    next.delete("profileId");
+    setSearchParams(next);
+  }
 
   if (!uid) return null;
   if (loading) {
@@ -500,6 +545,18 @@ export function PaneEquipment() {
     ? t("equipment.virtualPowerWeightKg", { weight: userWeightKg })
     : t("equipment.virtualPowerWeightNotSet");
 
+  // 편집기는 **자전거 하나**에 대한 화면이다. 목록 위에 겹쳐 띄우지 않고 자리를 바꾼다 —
+  // 어느 자전거를 고치는 중인지가 화면의 유일한 주제여야 잘못된 자전거에 저장하지 않는다.
+  if (editingProfile) {
+    return (
+      <BikeDataPagesPanel
+        uid={uid}
+        profile={editingProfile}
+        onBack={closeDataPages}
+      />
+    );
+  }
+
   return (
     <>
       <SettingsCard
@@ -528,6 +585,7 @@ export function PaneEquipment() {
               onDelete={() => deleteProfile(p.id)}
               onUpdateWheel={(mm) => updateWheelCircumference(p.id, mm)}
               onRemoveSensor={(addr) => removeSensor(p.id, addr)}
+              onOpenDataPages={() => openDataPages(p.id)}
             />
           ))}
         </div>
@@ -626,6 +684,80 @@ export function PaneEquipment() {
       <BackfillStatusCard uid={uid} />
 
       <GearKitSection uid={uid} />
+    </>
+  );
+}
+
+/**
+ * 한 자전거의 데이터 페이지 편집 (#1943 §5.1, #1950).
+ *
+ * 저장은 canonical callable 경로로 간다 — 기기 설정 문서(`settings/{deviceId}`)를 읽고 쓰던
+ * 예전 경로는 **기기의 구성**이라, 자전거를 바꿔도 같은 배치가 따라다녔다.
+ */
+function BikeDataPagesPanel({
+  uid,
+  profile,
+  onBack,
+}: {
+  uid: string | null;
+  profile: BikeProfile;
+  onBack: () => void;
+}) {
+  const { t } = useTranslation("settings");
+  const { showToast } = useToast();
+  const { config, source, loading, canSave, save } = useBikeProfileLayout(
+    uid,
+    profile.id,
+    DEFAULT_DATA_PAGE_CONFIG.pages,
+  );
+
+  async function handleSave(next: DataPageConfig) {
+    const result = await save(next.pages);
+    // 결과마다 사용자가 할 일이 다르다 — "저장 실패" 하나로 뭉치면 다시 눌러야 하는지,
+    // 다른 기기 편집을 받아야 하는지, 대상이 사라졌는지 구분할 수 없다(§6.1).
+    switch (result.status) {
+      case "synced":
+        showToast(t("equipment.dataPagesSaved"));
+        break;
+      case "savedPendingSync":
+        showToast(t("equipment.dataPagesSyncing"));
+        break;
+      case "conflict":
+        showToast(t("equipment.dataPagesConflict"));
+        break;
+      case "targetDeleted":
+        showToast(t("equipment.dataPagesTargetDeleted"));
+        break;
+      default:
+        showToast(t("equipment.dataPagesFailed"));
+    }
+  }
+
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+        <Button variant="ghost" size="sm" onClick={onBack} data-testid="bike-data-pages-back">
+          {t("equipment.dataPagesBack")}
+        </Button>
+        <Text variant="subtitle" weight={700}>
+          {t("equipment.dataPagesTitle", { name: profile.name })}
+        </Text>
+      </div>
+      {/* 상태를 먼저 말한다 — 저장 버튼이 왜 잠겼는지 모르면 사용자는 고장으로 읽는다. */}
+      {!loading && source !== "canonical" && (
+        <div
+          role="status"
+          style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-2)" }}
+          data-testid="bike-data-pages-status"
+        >
+          {source === "quarantined" && t("equipment.dataPagesQuarantined")}
+          {source === "unavailable" && t("equipment.dataPagesUnavailable")}
+          {source === "unsaved" && t("equipment.dataPagesUnsaved")}
+        </div>
+      )}
+      {config && (
+        <LayoutEditorCard config={config} onSave={handleSave} readOnly={!canSave} />
+      )}
     </>
   );
 }

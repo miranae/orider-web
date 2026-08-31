@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { LegacyLayoutImportWizard } from "./LegacyLayoutImportWizard";
+import type { DataPageConfig } from "@shared/types/deviceSettings";
+import { LocalizedLink } from "../LocalizedLink";
+import { useLayoutAuthority } from "../../hooks/useLayoutAuthority";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil, Smartphone, Trash2, Users, Smartphone as PhoneIcon } from "lucide-react";
@@ -1197,10 +1201,22 @@ export function PaneDevice() {
         />
       </div>
 
+      {/*
+        이관 후에는 이 화면이 **기기에 남아 있는 옛 구성**의 보기 전용 창구다 (#1943 §10, #1950).
+        여기서 저장하면 기기 설정 문서를 고치는데, 그 값은 더 이상 어떤 자전거의 구성도 아니다 —
+        canonical 을 되돌리지도 못하면서 사용자에게는 저장된 것처럼 보인다.
+      */}
       <div style={{ marginTop: 'var(--space-3)' }}>
-        <LayoutEditorCard
+        <LegacyLayoutCard
+          uid={uid}
           config={s.dataPageConfig}
           onSave={(next) => commit({ dataPageConfig: next })}
+          devices={records.map((r) => ({
+            deviceId: r.deviceId,
+            label: r.deviceId,
+            config: r.settings.dataPageConfig,
+          }))}
+          currentDeviceId={record.deviceId}
         />
       </div>
 
@@ -1300,6 +1316,80 @@ function SoundPathsCard({ settings }: { settings: AppSettings }) {
       <KVList rows={rows} />
       <div style={{ marginTop: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
         {t("device.soundFilesHint")}
+      </div>
+    </SettingsCard>
+  );
+}
+
+/**
+ * 기기에 남은 옛 데이터 페이지 구성 (#1943 §10, #1950).
+ *
+ * 이관 전에는 예전처럼 편집한다. 이관 뒤에는 **읽기 전용**이고, 이 구성을 쓰고 싶으면
+ * 자전거로 가져가는 경로만 남긴다 — 자전거별 구성이 진실인 세상에서 기기 구성을 계속 고치면
+ * 어느 쪽이 실제로 쓰이는지 사용자가 알 수 없다.
+ */
+function LegacyLayoutCard({
+  uid,
+  config,
+  onSave,
+  devices,
+  currentDeviceId,
+}: {
+  uid: string | null;
+  config: DataPageConfig;
+  onSave: (next: DataPageConfig) => Promise<void>;
+  devices: Array<{ deviceId: string; label: string; config: DataPageConfig }>;
+  currentDeviceId: string | null;
+}) {
+  const { t } = useTranslation("settings");
+  const { migrated, loading } = useLayoutAuthority(uid);
+  const [importing, setImporting] = useState(false);
+
+  // 판정 전에는 편집을 열지 않는다 — 이관된 계정에서 잠깐 열린 편집이 그대로 저장되면
+  // 되돌릴 수 없다. 잠깐 읽기 전용인 쪽이 회복 가능하다.
+  if (loading) return <LayoutEditorCard config={config} onSave={onSave} readOnly />;
+  if (!migrated) return <LayoutEditorCard config={config} onSave={onSave} />;
+
+  return (
+    <SettingsCard title={t("device.legacyLayoutTitle")}>
+      <div
+        role="status"
+        style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: "var(--space-2)" }}
+        data-testid="legacy-layout-notice"
+      >
+        {t("device.legacyLayoutMigrated")}
+      </div>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+        <LocalizedLink
+          to="/settings/equipment"
+          className="ds-btn ds-btn--secondary ds-btn--sm"
+          data-testid="legacy-layout-open-equipment"
+        >
+          {t("device.legacyLayoutOpenEquipment")}
+        </LocalizedLink>
+        {!importing && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setImporting(true)}
+            data-testid="legacy-layout-import-open"
+          >
+            {t("device.legacyImportStart")}
+          </Button>
+        )}
+      </div>
+      {importing && (
+        <div style={{ marginTop: "var(--space-3)" }}>
+          <LegacyLayoutImportWizard
+            uid={uid}
+            devices={devices}
+            initialDeviceId={currentDeviceId}
+            onDone={() => setImporting(false)}
+          />
+        </div>
+      )}
+      <div style={{ marginTop: "var(--space-3)" }}>
+        <LayoutEditorCard config={config} onSave={onSave} readOnly />
       </div>
     </SettingsCard>
   );

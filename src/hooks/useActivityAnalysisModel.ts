@@ -29,7 +29,7 @@ import {
 } from "../features/activity/detail/useActivityStreamsLoader";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
-import { useActiveBikeProfile } from "./useActiveBikeProfile";
+import { useBikeProfiles } from "./useBikeProfiles";
 import { useActivityMetrics } from "./useActivityMetrics";
 import { useStrava } from "./useStrava";
 import { getStravaActivityId } from "../utils/stravaActivity";
@@ -158,9 +158,20 @@ export function useActivityAnalysisModel(
   const isStrava = activity?.source === "strava";
   const sport = getSportCategory(activity?.type || (isStrava ? undefined : "Ride"));
   const isRide = sport === "ride";
-  const { active: activeBike } = useActiveBikeProfile(
+  /**
+   * 이 활동을 기록한 자전거 (#1943 §3, #1950).
+   *
+   * 예전에는 **지금 선택된** 자전거의 가상 파워 설정으로 다시 계산했다. 자전거를 바꾸면 옛
+   * 활동의 파워가 조용히 달라졌다 — 그 라이드를 그 자전거로 탄 적이 없는데도.
+   * 활동이 자전거를 모르면(기능 이전 기록) **아무 자전거도 쓰지 않는다** — 추측한 계산보다
+   * 계산하지 않는 편이 정확하다.
+   */
+  const { profiles: bikeProfiles } = useBikeProfiles(
     isRide && isActivityOwner ? (user?.uid ?? null) : null,
   );
+  const activityBike = activity?.bikeProfileId
+    ? (bikeProfiles.find((p) => p.id === activity.bikeProfileId) ?? null)
+    : null;
 
   const retryStreams = useCallback(async () => {
     if (!activityId || !activity) return;
@@ -202,7 +213,7 @@ export function useActivityAnalysisModel(
     activity?.id,
     streams,
     wattsOverride,
-    activeBike?.virtualPower.enabled ? activeBike.virtualPower : null,
+    activityBike?.virtualPower.enabled ? activityBike.virtualPower : null,
   );
   const effectiveStreams = useMemo(() => {
     if (!streams || !activePowerOverride) return streams;
@@ -290,13 +301,14 @@ export function useActivityAnalysisModel(
     : activity?.summary.normalizedPower ?? activity?.weightedAvgPower ?? null;
 
   const recalculateVirtualPowerPreview = useCallback(() => {
-    if (!activityId || !isActivityOwner || !activeBike || !streams) return;
+    // 이 활동의 자전거를 모르면 다시 계산하지 않는다 — 추측한 파워는 데이터가 아니다.
+    if (!activityId || !isActivityOwner || !activityBike || !streams) return;
     setWattsOverride(createActivityPowerOverride(
       activityId,
       streams,
-      activeBike.virtualPower,
+      activityBike.virtualPower,
     ));
-  }, [activeBike, activityId, isActivityOwner, streams]);
+  }, [activityBike, activityId, isActivityOwner, streams]);
   const revertVirtualPowerPreview = useCallback(() => {
     setWattsOverride(null);
   }, []);
@@ -367,7 +379,7 @@ export function useActivityAnalysisModel(
     analysisTabProps,
     canRecalculateVirtualPowerPreview: isRide
       && isActivityOwner
-      && activeBike?.virtualPower.enabled === true,
+      && activityBike?.virtualPower.enabled === true,
     recalculateVirtualPowerPreview,
     revertVirtualPowerPreview,
     activePowerOverride,

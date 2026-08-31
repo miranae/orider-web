@@ -434,7 +434,11 @@
     "historyRetention": "Questions and answers are stored until you delete the conversation or your account.",
     "checking": "Checking…",
     "statusAccepted": "Consented",
-    "status": { "missing": "Not consented", "stale": "Renewal required", "revoked": "Revoked" },
+    "status": {
+      "missing": "Not consented",
+      "stale": "Renewal required",
+      "revoked": "Revoked"
+    },
     "policyVersion": "Policy version",
     "reviewConsent": "Review and consent",
     "consentTitle": "AI Coach data use notice",
@@ -444,7 +448,10 @@
     "consentPersistenceNote": "After you consent, this notice will not appear again unless processing changes or you revoke consent in Settings.",
     "summaryDataTitle": "Data used",
     "summaryExternalTitle": "External AI processing · {{country}}",
-    "country": { "us": "United States", "jp": "Japan" },
+    "country": {
+      "us": "United States",
+      "jp": "Japan"
+    },
     "summaryStorageTitle": "Storage and withdrawal",
     "fullDetailsSummary": "View all processing details and links",
     "consentIntro": "The following data is used to create an answer.",
@@ -570,7 +577,18 @@
     "sensorDi2": "Di2 derailleur",
     "sensorAxs": "AXS derailleur",
     "sensorRadar": "Radar",
-    "sensorActionCam": "Action cam"
+    "sensorActionCam": "Action cam",
+    "bikeDataPages": "Data pages",
+    "dataPagesTitle": "{{name}} data pages",
+    "dataPagesBack": "Back to bikes",
+    "dataPagesUnsaved": "This bike has no saved layout yet. Showing the default layout.",
+    "dataPagesQuarantined": "Couldn't read the saved layout. Saving is paused so the original isn't overwritten.",
+    "dataPagesSaved": "Data pages saved.",
+    "dataPagesSyncing": "Saved. Syncing to the server.",
+    "dataPagesConflict": "Another device saved first. Choose which layout to keep.",
+    "dataPagesTargetDeleted": "The bike you were saving to was deleted.",
+    "dataPagesFailed": "Couldn't save. Please try again.",
+    "dataPagesUnavailable": "Couldn't load the saved layout right now. Saving is paused so the existing layout isn't overwritten."
   },
   "healthSources": {
     "title": "Health data sources",
@@ -751,7 +769,22 @@
     "alertCadence": "Cadence",
     "alertSpeed": "Speed",
     "alertMinPlaceholder": "Min",
-    "alertMaxPlaceholder": "Max"
+    "alertMaxPlaceholder": "Max",
+    "legacyLayoutTitle": "Legacy data pages on this device",
+    "legacyLayoutMigrated": "Data pages are now saved per bike. The layout here is the old device value and is read-only.",
+    "legacyLayoutOpenEquipment": "Open per-bike data pages",
+    "legacyImportSourceDevice": "Source device",
+    "legacyImportTargetBike": "Target bike",
+    "legacyImportTargetPlaceholder": "Choose a bike",
+    "legacyImportPreview": "Replaces {{name}}'s current layout ({{toPages}} pages, {{toFields}} fields) with {{fromPages}} pages and {{fromFields}} fields.",
+    "legacyImportStart": "Import this layout to a bike",
+    "legacyImportConfirm": "This overwrites {{name}}'s current data pages. Continue?",
+    "legacyImportConfirmAction": "Replace",
+    "legacyImportCancel": "Cancel",
+    "legacyImportDone": "Imported to {{name}}.",
+    "legacyImportFailed": "Couldn't import. Please try again.",
+    "legacyImportBlocked": "Import is paused because the target bike's saved layout couldn't be read.",
+    "legacyImportNoBikes": "No bikes to import into. Create a bike first."
   },
   "layout": {
     "cardTitle": "Data screen layout",
@@ -782,7 +815,9 @@
     "groupClimbRoute": "Climb / Route",
     "groupWeatherSystem": "Weather / System",
     "groupRadarCam": "Radar / Action cam",
-    "groupMisc": "Other"
+    "groupMisc": "Other",
+    "pageTabsAriaLabel": "Data pages",
+    "gridAriaLabel": "Page {{number}} layout"
   },
   "dataField": {
     "SPEED": "Speed",
