@@ -771,7 +771,19 @@
     "alertMaxPlaceholder": "Max",
     "legacyLayoutTitle": "Legacy data pages on this device",
     "legacyLayoutMigrated": "Data pages are now saved per bike. The layout here is the old device value and is read-only.",
-    "legacyLayoutOpenEquipment": "Open per-bike data pages"
+    "legacyLayoutOpenEquipment": "Open per-bike data pages",
+    "legacyImportSourceDevice": "Source device",
+    "legacyImportTargetBike": "Target bike",
+    "legacyImportTargetPlaceholder": "Choose a bike",
+    "legacyImportPreview": "Replaces {{name}}'s current layout ({{toPages}} pages, {{toFields}} fields) with {{fromPages}} pages and {{fromFields}} fields.",
+    "legacyImportStart": "Import this layout to a bike",
+    "legacyImportConfirm": "This overwrites {{name}}'s current data pages. Continue?",
+    "legacyImportConfirmAction": "Replace",
+    "legacyImportCancel": "Cancel",
+    "legacyImportDone": "Imported to {{name}}.",
+    "legacyImportFailed": "Couldn't import. Please try again.",
+    "legacyImportBlocked": "Import is paused because the target bike's saved layout couldn't be read.",
+    "legacyImportNoBikes": "No bikes to import into. Create a bike first."
   },
   "layout": {
     "cardTitle": "Data screen layout",

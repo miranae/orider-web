@@ -771,7 +771,19 @@
     "alertMaxPlaceholder": "최대",
     "legacyLayoutTitle": "기기에 남은 옛 데이터 페이지",
     "legacyLayoutMigrated": "데이터 페이지는 이제 자전거마다 따로 저장됩니다. 이 화면의 구성은 기기에 남은 예전 값이라 보기만 할 수 있어요.",
-    "legacyLayoutOpenEquipment": "자전거별 데이터 페이지 열기"
+    "legacyLayoutOpenEquipment": "자전거별 데이터 페이지 열기",
+    "legacyImportSourceDevice": "가져올 기기",
+    "legacyImportTargetBike": "대상 자전거",
+    "legacyImportTargetPlaceholder": "자전거를 고르세요",
+    "legacyImportPreview": "{{fromPages}}페이지·필드 {{fromFields}}개를 {{name}}의 현재 구성({{toPages}}페이지·필드 {{toFields}}개)과 **교체**합니다.",
+    "legacyImportStart": "이 구성을 자전거로 가져오기",
+    "legacyImportConfirm": "{{name}}의 현재 데이터 페이지를 덮어씁니다. 계속할까요?",
+    "legacyImportConfirmAction": "교체",
+    "legacyImportCancel": "취소",
+    "legacyImportDone": "{{name}}(으)로 가져왔어요.",
+    "legacyImportFailed": "가져오지 못했어요. 다시 시도해 주세요.",
+    "legacyImportBlocked": "대상 자전거의 저장된 구성을 읽지 못해 가져오기를 막았어요.",
+    "legacyImportNoBikes": "가져갈 자전거가 없어요. 자전거를 먼저 만들어 주세요."
   },
   "layout": {
     "cardTitle": "데이터 화면 레이아웃",

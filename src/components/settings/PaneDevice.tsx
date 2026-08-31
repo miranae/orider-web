@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { LegacyLayoutImportWizard } from "./LegacyLayoutImportWizard";
 import type { DataPageConfig } from "@shared/types/deviceSettings";
 import { LocalizedLink } from "../LocalizedLink";
 import { useLayoutAuthority } from "../../hooks/useLayoutAuthority";
@@ -1210,6 +1211,12 @@ export function PaneDevice() {
           uid={uid}
           config={s.dataPageConfig}
           onSave={(next) => commit({ dataPageConfig: next })}
+          devices={records.map((r) => ({
+            deviceId: r.deviceId,
+            label: r.deviceId,
+            config: r.settings.dataPageConfig,
+          }))}
+          currentDeviceId={record.deviceId}
         />
       </div>
 
@@ -1325,14 +1332,21 @@ function LegacyLayoutCard({
   uid,
   config,
   onSave,
+  devices,
+  currentDeviceId,
 }: {
   uid: string | null;
   config: DataPageConfig;
   onSave: (next: DataPageConfig) => Promise<void>;
+  devices: Array<{ deviceId: string; label: string; config: DataPageConfig }>;
+  currentDeviceId: string | null;
 }) {
   const { t } = useTranslation("settings");
   const { migrated, loading } = useLayoutAuthority(uid);
+  const [importing, setImporting] = useState(false);
 
+  // 판정 전에는 편집을 열지 않는다 — 이관된 계정에서 잠깐 열린 편집이 그대로 저장되면
+  // 되돌릴 수 없다. 잠깐 읽기 전용인 쪽이 회복 가능하다.
   if (loading) return <LayoutEditorCard config={config} onSave={onSave} readOnly />;
   if (!migrated) return <LayoutEditorCard config={config} onSave={onSave} />;
 
@@ -1345,13 +1359,35 @@ function LegacyLayoutCard({
       >
         {t("device.legacyLayoutMigrated")}
       </div>
-      <LocalizedLink
-        to="/settings/equipment"
-        className="ds-btn ds-btn--secondary ds-btn--sm"
-        data-testid="legacy-layout-open-equipment"
-      >
-        {t("device.legacyLayoutOpenEquipment")}
-      </LocalizedLink>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+        <LocalizedLink
+          to="/settings/equipment"
+          className="ds-btn ds-btn--secondary ds-btn--sm"
+          data-testid="legacy-layout-open-equipment"
+        >
+          {t("device.legacyLayoutOpenEquipment")}
+        </LocalizedLink>
+        {!importing && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setImporting(true)}
+            data-testid="legacy-layout-import-open"
+          >
+            {t("device.legacyImportStart")}
+          </Button>
+        )}
+      </div>
+      {importing && (
+        <div style={{ marginTop: "var(--space-3)" }}>
+          <LegacyLayoutImportWizard
+            uid={uid}
+            devices={devices}
+            initialDeviceId={currentDeviceId}
+            onDone={() => setImporting(false)}
+          />
+        </div>
+      )}
       <div style={{ marginTop: "var(--space-3)" }}>
         <LayoutEditorCard config={config} onSave={onSave} readOnly />
       </div>
