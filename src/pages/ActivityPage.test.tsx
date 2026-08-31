@@ -18,13 +18,14 @@ import { createMockActivity, createMockStreams, createMockSummary } from "../__t
 
 const shareButtonProps = vi.hoisted(() => vi.fn());
 const elevationChartProps = vi.hoisted(() => vi.fn());
-const mockActiveBikeProfile = vi.hoisted(() => vi.fn((): { active: null | Record<string, unknown> } => ({ active: null })));
+// 활동 재계산은 **그 활동의 자전거**로만 한다(#1950) — 지금 선택된 자전거가 아니다.
+const mockBikeProfiles = vi.hoisted(() => vi.fn((): { profiles: Array<Record<string, unknown>> } => ({ profiles: [] })));
 const mockVirtualPowerStream = vi.hoisted(() => vi.fn((): number[] => []));
 const mockFitnessTimeseries = vi.hoisted(() => vi.fn(() => ({ timeseries: null, loaded: true })));
 const mockPdc = vi.hoisted(() => vi.fn(() => ({ status: "missing", pdc: null })));
 vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: mockFitnessTimeseries }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: mockPdc }));
-vi.mock("../hooks/useActiveBikeProfile", () => ({ useActiveBikeProfile: mockActiveBikeProfile }));
+vi.mock("../hooks/useBikeProfiles", () => ({ useBikeProfiles: mockBikeProfiles }));
 vi.mock("../utils/virtualPower", () => ({ calcVirtualPowerStream: mockVirtualPowerStream }));
 vi.mock("../features/activity/share/ActivityShareButton", () => ({
   ActivityShareButton: (props: unknown) => {
@@ -99,7 +100,7 @@ describe("ActivityPage", () => {
   beforeEach(() => {
     mockFitnessTimeseries.mockReturnValue({ timeseries: null, loaded: true });
     mockPdc.mockReturnValue({ status: "missing", pdc: null });
-    mockActiveBikeProfile.mockReturnValue({ active: null });
+    mockBikeProfiles.mockReturnValue({ profiles: [] });
     mockVirtualPowerStream.mockReturnValue([]);
     elevationChartProps.mockClear();
     mockRoute.activityId = "test-activity";
@@ -348,6 +349,8 @@ describe("ActivityPage", () => {
       id: "test-activity",
       userId: "test-uid",
       source: "orider",
+      // 재계산 대상은 **이 활동이 기록된 자전거**다(#1950) — 지금 선택된 자전거가 아니다.
+      bikeProfileId: "bike-1",
       summary: createMockSummary({
         averagePower: 900,
         maxPower: 901,
@@ -378,8 +381,8 @@ describe("ActivityPage", () => {
         watts: [900, 901],
       }),
     });
-    mockActiveBikeProfile.mockReturnValue({
-      active: {
+    mockBikeProfiles.mockReturnValue({
+      profiles: [{
         id: "bike-1",
         virtualPower: {
           enabled: true,
@@ -388,7 +391,7 @@ describe("ActivityPage", () => {
           rollingResistance: 0.005,
           cdA: 0.32,
         },
-      },
+      }],
     });
     mockVirtualPowerStream.mockReturnValue(overrideWatts);
 
@@ -431,8 +434,8 @@ describe("ActivityPage", () => {
       ]));
     });
 
-    mockActiveBikeProfile.mockReturnValue({
-      active: {
+    mockBikeProfiles.mockReturnValue({
+      profiles: [{
         id: "bike-1",
         virtualPower: {
           enabled: false,
@@ -441,7 +444,7 @@ describe("ActivityPage", () => {
           rollingResistance: 0.005,
           cdA: 0.32,
         },
-      },
+      }],
     });
     view.rerender(<ActivityPage />);
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
@@ -453,8 +456,8 @@ describe("ActivityPage", () => {
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ label: "평균 파워", value: "250" }),
     ]));
-    mockActiveBikeProfile.mockReturnValue({
-      active: {
+    mockBikeProfiles.mockReturnValue({
+      profiles: [{
         id: "bike-1",
         virtualPower: {
           enabled: true,
@@ -463,7 +466,7 @@ describe("ActivityPage", () => {
           rollingResistance: 0.005,
           cdA: 0.32,
         },
-      },
+      }],
     });
     view.rerender(<ActivityPage />);
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
@@ -489,6 +492,7 @@ describe("ActivityPage", () => {
         id,
         userId: "test-uid",
         source: "orider",
+        bikeProfileId: "bike-1",
         description,
         summary: createMockSummary({ elapsedTimeMillis: 60_000, ridingTimeMillis: 60_000 }),
       }) as unknown as Record<string, unknown>);
@@ -500,8 +504,8 @@ describe("ActivityPage", () => {
         tss: 50,
       });
     }
-    mockActiveBikeProfile.mockReturnValue({
-      active: {
+    mockBikeProfiles.mockReturnValue({
+      profiles: [{
         id: "bike-1",
         virtualPower: {
           enabled: true,
@@ -510,7 +514,7 @@ describe("ActivityPage", () => {
           rollingResistance: 0.005,
           cdA: 0.32,
         },
-      },
+      }],
     });
     mockVirtualPowerStream.mockReturnValue(Array(60).fill(250));
     const latestShareMetrics = () => {

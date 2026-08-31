@@ -814,7 +814,9 @@
     "groupClimbRoute": "클라임 / 경로",
     "groupWeatherSystem": "날씨 / 시스템",
     "groupRadarCam": "레이더 / 액션캠",
-    "groupMisc": "기타"
+    "groupMisc": "기타",
+    "pageTabsAriaLabel": "데이터 페이지 목록",
+    "gridAriaLabel": "{{number}}번 페이지 배치"
   },
   "dataField": {
     "SPEED": "속도",

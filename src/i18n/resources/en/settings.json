@@ -814,7 +814,9 @@
     "groupClimbRoute": "Climb / Route",
     "groupWeatherSystem": "Weather / System",
     "groupRadarCam": "Radar / Action cam",
-    "groupMisc": "Other"
+    "groupMisc": "Other",
+    "pageTabsAriaLabel": "Data pages",
+    "gridAriaLabel": "Page {{number}} layout"
   },
   "dataField": {
     "SPEED": "Speed",
