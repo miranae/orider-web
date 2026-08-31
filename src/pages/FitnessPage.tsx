@@ -196,6 +196,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         pendingActivity={pendingImpactActivity}
         metricsMap={metricsMap}
         discipline={discipline}
+        userId={user.uid}
         decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />}
       />
     ) : null;
@@ -410,6 +411,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             pendingActivity={pendingImpactActivity}
             metricsMap={metricsMap}
             discipline={discipline}
+            userId={user.uid}
             decisionSlot={<TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />}
           />
         )}

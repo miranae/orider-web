@@ -7,6 +7,7 @@ import { forecastFitnessChoice48Hours, type ActivityImpactEntry, type Fitness48H
 import { deriveActivityStimulus } from "../activityStimulus";
 import DetailsSection from "../../../components/redesign/DetailsSection";
 import { Button, Card, Chip, Text } from "../../../theme/components";
+import RiderWorkoutDeliveryPanel from "./RiderWorkoutDeliveryPanel";
 import "./FitnessCoachBriefing.css";
 
 type ImpactMode = "marginal" | "actual";
@@ -24,6 +25,7 @@ interface FitnessCoachBriefingProps {
   pendingActivity?: Activity | null;
   metricsMap?: ReadonlyMap<string, ActivityMetrics>;
   discipline: "bike" | "run" | "swim";
+  userId?: string | null;
 }
 
 const CHOICE_LOAD: Record<TrainingChoice, number> = { rest: 0, recovery: 20, endurance: 45 };
@@ -80,11 +82,12 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, metricsMap, discipline }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, metricsMap, discipline, userId = null }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
   const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => initialTrainingChoice(current.tsb));
-  const [showG1Notice, setShowG1Notice] = useState(false);
+  const [showRestNotice, setShowRestNotice] = useState(false);
+  const [deliveryBusy, setDeliveryBusy] = useState(false);
   const selectedPending = pendingActivity?.id === selectedActivityId ? pendingActivity : null;
   const selected = selectedPending ? null : impacts.find((entry) => entry.activity.id === selectedActivityId) ?? impacts[0] ?? null;
   const selectedActivity = selected?.activity ?? selectedPending;
@@ -93,7 +96,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
   const stimulus = selectedActivity ? deriveActivityStimulus(selectedActivity, metricsMap?.get(selectedActivity.id)) : null;
   useEffect(() => {
     setTrainingChoice(initialTrainingChoice(current.tsb));
-    setShowG1Notice(false);
+    setShowRestNotice(false);
   }, [current.atl, current.ctl, current.tsb, discipline, pendingActivity?.id]);
   const choiceForecast = useMemo(() => {
     if (pendingActivity) return null;
@@ -167,11 +170,11 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
           <Text as="div" variant="eyebrow">{t("coach.choice.eyebrow")}</Text>
           <Text as="h3" variant="title" style={{ margin: "var(--space-2) 0" }}>{t("coach.choice.title")}</Text>
           <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.choice.body")}</Text>
-          <fieldset className="fitness-coach__choices" disabled={Boolean(pendingActivity)}>
+          <fieldset className="fitness-coach__choices" disabled={Boolean(pendingActivity) || deliveryBusy}>
             <legend className="fitness-coach__sr-only">{t("coach.choice.legend")}</legend>
             {(["rest", "recovery", "endurance"] as const).map((choice) => (
               <label key={choice} className="fitness-coach__choice" data-selected={trainingChoice === choice || undefined}>
-                <input type="radio" name="fitness-training-choice" value={choice} checked={trainingChoice === choice} onChange={() => { setTrainingChoice(choice); setShowG1Notice(false); }} />
+                <input type="radio" name="fitness-training-choice" value={choice} checked={trainingChoice === choice} onChange={() => { setTrainingChoice(choice); setShowRestNotice(false); }} />
                 <span>
                   <Text as="span" variant="label">{t(`coach.choice.${choice}.${discipline}`)}</Text>
                   <Text as="span" variant="caption" tone="tertiary">{choice === "rest" ? t("coach.choice.noLoad") : t("coach.choice.load", { load: CHOICE_LOAD[choice] })}</Text>
@@ -190,17 +193,15 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
               ))}
             </div>
           )}
-          {!pendingActivity && discipline === "bike" ? (
+          {!pendingActivity && discipline === "bike" ? trainingChoice === "rest" ? (
             <div className="fitness-coach__handoff">
-              <Button variant="primary" block onClick={() => setShowG1Notice(true)}>
-                {t(trainingChoice === "rest" ? "coach.choice.restConfirm" : "coach.choice.g1Preview")}
-              </Button>
+              <Button variant="primary" block onClick={() => setShowRestNotice(true)}>{t("coach.choice.restConfirm")}</Button>
               <Text as="p" variant="caption" tone="tertiary" role="status" style={{ margin: 0 }}>
-                {trainingChoice === "rest"
-                  ? t(showG1Notice ? "coach.choice.restNoticeExpanded" : "coach.choice.restNotice")
-                  : t(showG1Notice ? "coach.choice.g1NoticeExpanded" : "coach.choice.g1Notice")}
+                {t(showRestNotice ? "coach.choice.restNoticeExpanded" : "coach.choice.restNotice")}
               </Text>
             </div>
+          ) : (
+            <RiderWorkoutDeliveryPanel uid={userId} workoutType={trainingChoice} targetTss={CHOICE_LOAD[trainingChoice] as 20 | 45} onBusyChange={setDeliveryBusy} />
           ) : !pendingActivity ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-4) 0 0" }}>{t("coach.choice.localOnly")}</Text> : null}
         </Card>
       </div>
