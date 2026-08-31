@@ -44,44 +44,51 @@ export function useBikeProfileLayout(
 ): BikeProfileLayoutState {
   const { firestore } = useFirebaseServices();
   const ownerKey = uid ? `uid:${uid}` : null;
-  const [record, setRecord] = useState<CanonicalLayout | null>(null);
-  const [revision, setRevision] = useState(0);
-  const [source, setSource] = useState<LayoutSource>("unsaved");
-  const [loading, setLoading] = useState(true);
+  /**
+   * 상태는 **어느 자전거의 것인지와 함께** 들고 다닌다 (#1950 리뷰 BLOCKER).
+   *
+   * 대상이 바뀌었는데 이전 자전거의 record/revision 이 남아 있으면, 새 스냅샷이 도착하기 전에
+   * `save` 가 **새 profileId + 이전 자전거의 base·revision** 조합으로 나간다. 가져오기 마법사가
+   * 그 구간에 확인을 받으면 미리보기와 실제 덮어쓰는 대상이 달라진다 — 되돌릴 수 없다.
+   */
+  const [state, setState] = useState<{
+    profileId: string | null;
+    record: CanonicalLayout | null;
+    revision: number;
+    source: LayoutSource;
+    loading: boolean;
+  }>({ profileId: null, record: null, revision: 0, source: "unsaved", loading: true });
+
+  // 대상이 바뀐 순간 이전 자전거의 상태는 더 이상 유효하지 않다. 렌더 중에 버려야 같은 커밋에서
+  // `canSave` 가 열려 있는 창이 생기지 않는다.
+  if (state.profileId !== profileId) {
+    setState({ profileId, record: null, revision: 0, source: "unsaved", loading: profileId !== null });
+  }
+
+  const { record, revision, source } = state;
+  const loading = state.loading;
 
   useEffect(() => {
     if (!uid || !profileId || !ownerKey) {
-      setRecord(null);
-      setRevision(0);
-      setSource("unsaved");
-      setLoading(false);
+      setState({ profileId, record: null, revision: 0, source: "unsaved", loading: false });
       return;
     }
     let cancelled = false;
-    setLoading(true);
 
     const apply = (raw: string | null, nextRevision: number) => {
       if (cancelled) return;
       if (!raw) {
-        setRecord(null);
-        setRevision(0);
-        setSource("unsaved");
-        setLoading(false);
+        setState({ profileId, record: null, revision: 0, source: "unsaved", loading: false });
         return;
       }
       const parsed = parseCanonicalLayout(raw, "CYCLING");
-      if (parsed.ok) {
-        setRecord(parsed.layout);
-        setRevision(nextRevision);
-        setSource("canonical");
-      } else {
-        // 읽지 못한 레코드를 기본 구성으로 **대신 보여 주되**, 저장은 막는다. 그대로 쓰면
-        // 보존해야 할 원문이 정상 데이터로 덮인다(§8.2).
-        setRecord(null);
-        setRevision(nextRevision);
-        setSource("quarantined");
-      }
-      setLoading(false);
+      setState(
+        parsed.ok
+          ? { profileId, record: parsed.layout, revision: nextRevision, source: "canonical", loading: false }
+          // 읽지 못한 레코드를 기본 구성으로 **대신 보여 주되**, 저장은 막는다. 그대로 쓰면
+          // 보존해야 할 원문이 정상 데이터로 덮인다(§8.2).
+          : { profileId, record: null, revision: nextRevision, source: "quarantined", loading: false },
+      );
     };
 
     const unsub = onSnapshot(
@@ -125,6 +132,11 @@ export function useBikeProfileLayout(
       if (!ownerKey || !profileId) {
         return { status: "localSaveFailed", cause: new Error("로그인 필요") };
       }
+      // 이 상태가 **이 자전거의 것**이고 조회가 끝났을 때만 쓴다. 아니면 새 profileId 에
+      // 이전 자전거의 base·revision 을 실어 보내게 된다(#1950 리뷰 BLOCKER).
+      if (state.profileId !== profileId || state.loading) {
+        return { status: "localSaveFailed", cause: new Error("아직 이 자전거의 구성을 읽는 중입니다") };
+      }
       // 원본 레코드에서 sport·unknownKeys 를 이어받는다 — 새로 만들면 상위 버전 데이터를 지운다.
       const base = record ?? defaultCanonicalLayout(profileId, pages);
       return saveBikeProfileLayout(
@@ -132,7 +144,7 @@ export function useBikeProfileLayout(
         browserSaveDeps(),
       );
     },
-    [ownerKey, profileId, record, revision],
+    [ownerKey, profileId, record, revision, state.profileId, state.loading],
   );
 
   return {
@@ -140,7 +152,8 @@ export function useBikeProfileLayout(
     source,
     revision,
     loading,
-    canSave: source !== "quarantined",
+    // 조회 중에는 저장을 열지 않는다 — 그 창에서 저장하면 대상과 base 가 어긋난다.
+    canSave: source !== "quarantined" && !loading && state.profileId === profileId,
     save,
   };
 }
