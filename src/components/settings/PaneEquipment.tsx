@@ -750,9 +750,9 @@ function BikeDataPagesPanel({
           style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-2)" }}
           data-testid="bike-data-pages-status"
         >
-          {source === "quarantined"
-            ? t("equipment.dataPagesQuarantined")
-            : t("equipment.dataPagesUnsaved")}
+          {source === "quarantined" && t("equipment.dataPagesQuarantined")}
+          {source === "unavailable" && t("equipment.dataPagesUnavailable")}
+          {source === "unsaved" && t("equipment.dataPagesUnsaved")}
         </div>
       )}
       {config && (

@@ -587,7 +587,8 @@
     "dataPagesSyncing": "저장했어요. 서버 반영 중입니다.",
     "dataPagesConflict": "다른 기기에서 먼저 저장했어요. 무엇을 남길지 정해 주세요.",
     "dataPagesTargetDeleted": "저장하려던 자전거가 삭제됐어요.",
-    "dataPagesFailed": "저장하지 못했어요. 다시 시도해 주세요."
+    "dataPagesFailed": "저장하지 못했어요. 다시 시도해 주세요.",
+    "dataPagesUnavailable": "저장된 구성을 지금 불러오지 못했어요. 기존 구성을 덮어쓰지 않도록 저장을 잠시 막았습니다."
   },
   "healthSources": {
     "title": "헬스 데이터 소스",

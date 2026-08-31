@@ -19,7 +19,14 @@ export type LayoutSource =
   /** 아직 저장된 적 없는 자전거 — 화면은 기본 구성을 보여 주지만 **레코드는 없다**. */
   | "unsaved"
   /** 레코드는 있는데 읽지 못했다. 이 상태의 저장은 원문을 덮어쓴다. */
-  | "quarantined";
+  | "quarantined"
+  /**
+   * 원격을 **읽지 못했다** — "없음" 과 다르다.
+   *
+   * 읽기 실패를 없음으로 분류하면 기본 구성 저장이나 가져오기가 보존해야 할 원격 레코드를
+   * revision 0 으로 덮는다. 못 읽은 것은 못 읽은 것으로 두고 저장을 막는다(§8.2).
+   */
+  | "unavailable";
 
 export type BikeProfileLayoutState = {
   config: DataPageConfig | null;
@@ -109,9 +116,16 @@ export function useBikeProfileLayout(
       },
       () => {
         void (async () => {
-          // 원격을 못 읽어도 로컬이 있으면 그걸 그린다. 둘 다 없으면 "아직 없음" 이다.
+          // 원격을 못 읽어도 로컬이 있으면 그걸 그린다.
           const local = await readHead(ownerKey, profileId).catch(() => null);
-          apply(local?.canonicalPayload ?? null, local?.revision ?? 0);
+          if (local) {
+            apply(local.canonicalPayload, local.revision);
+            return;
+          }
+          // 둘 다 없으면 **"없음" 이 아니라 "모른다"** 다. 없음으로 두면 기본 구성 저장이나
+          // 가져오기가 아직 읽지 못한 원격 레코드를 revision 0 으로 덮어쓴다.
+          if (cancelled) return;
+          setState({ profileId, record: null, revision: 0, source: "unavailable", loading: false });
         })();
       },
     );
@@ -153,7 +167,12 @@ export function useBikeProfileLayout(
     revision,
     loading,
     // 조회 중에는 저장을 열지 않는다 — 그 창에서 저장하면 대상과 base 가 어긋난다.
-    canSave: source !== "quarantined" && !loading && state.profileId === profileId,
+    // 임시 표시본(격리·조회 실패) 위에서는 저장을 막는다 — 보존해야 할 원문을 덮어쓴다.
+    canSave:
+      source !== "quarantined" &&
+      source !== "unavailable" &&
+      !loading &&
+      state.profileId === profileId,
     save,
   };
 }
