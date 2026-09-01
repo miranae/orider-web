@@ -112,6 +112,46 @@ describe("AnalysisTab sensor axis", () => {
     expect(movingTiming.durationsSec?.reduce((total, duration) => total + duration, 0)).toBe(60);
   });
 
+  it("analyzes a pause-heavy legacy heart-rate stream on its valid elapsed route axis", () => {
+    const sampleCount = 1_837;
+    const elapsedDurationSec = 18_924;
+    const movingDurationSec = 10_481;
+    const heartRate = Array.from({ length: sampleCount }, (_, index) => 93 + (index % 99));
+    const routeTime = Array.from(
+      { length: sampleCount },
+      (_, index) => index * elapsedDurationSec / sampleCount,
+    );
+    const selected = selectWholeSessionSensorSeries(
+      undefined,
+      heartRate,
+      routeTime,
+      undefined,
+      movingDurationSec,
+    );
+    const timing = resolveMovingTimeSampleTiming(selected, {
+      elapsedTimeMillis: elapsedDurationSec * 1_000,
+      ridingTimeMillis: movingDurationSec * 1_000,
+      movingTimeSec: movingDurationSec,
+    });
+    const zones = calculateHrZoneDistribution(selected.values, 191, selected.time, timing);
+    const timeline = buildZoneTimeline(
+      selected.values,
+      selected.time,
+      (value) => Math.min(5, Math.max(1, Math.ceil(value / 40))),
+      timing,
+      32,
+      { sourceStartSec: 0, sourceEndSec: elapsedDurationSec, durationSec: movingDurationSec },
+    );
+
+    expect(selected.time).toEqual(routeTime);
+    expect(zones).not.toHaveLength(0);
+    expect(zones.reduce((total, zone) => total + zone.seconds, 0)).toBeCloseTo(movingDurationSec, 8);
+    expect(timeline).toHaveLength(32);
+    expect(timeline.some((bucket) => bucket.zone != null)).toBe(true);
+    expect(timeline.reduce((total, bucket) => total + bucket.durationSec, 0))
+      .toBeCloseTo(movingDurationSec, 8);
+  });
+
   it("preserves explicit sensor gaps for the moving-time zone timeline", () => {
     const series = {
       values: [100, 200, 300, 400],
@@ -482,7 +522,7 @@ describe("AnalysisTab sensor axis", () => {
     });
   });
 
-  it("rejects an equal-length route clock whose sampling duration conflicts with the activity", () => {
+  it("keeps a valid equal-length route clock even when its duration differs from moving time", () => {
     const values = Array.from({ length: 3_600 }, () => 200);
     const halfSecondRouteTime = Array.from(
       { length: 3_600 },
@@ -497,8 +537,22 @@ describe("AnalysisTab sensor axis", () => {
     );
 
     expect(selected.time?.[0]).toBe(0);
-    expect(selected.time?.[1]).toBe(1);
-    expect(selected.time?.[3_599]).toBe(3_599);
+    expect(selected.time?.[1]).toBe(0.5);
+    expect(selected.time?.[3_599]).toBe(1_799.5);
+  });
+
+  it.each([
+    ["non-finite", [0, Number.NaN, 2]],
+    ["duplicate", [0, 1, 1]],
+    ["reversed", [0, 2, 1]],
+  ])("rejects a %s route clock instead of replacing it with an inferred axis", (_case, routeTime) => {
+    expect(selectWholeSessionSensorSeries(
+      undefined,
+      [140, 145, 150],
+      routeTime,
+      undefined,
+      3,
+    ).time).toBeUndefined();
   });
 
   it("keeps an aligned relative-seconds route axis", () => {
