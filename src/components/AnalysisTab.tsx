@@ -180,13 +180,16 @@ export function selectWholeSessionSensorSeries(
 ): WholeSessionSensorSeries {
   if (!sensorSeries) {
     const values = fallbackValues ?? [];
-    const routeAxis = normalizeSensorTimeAxis(values.length, fallbackTime, fallbackExpectedDurationSec);
-    const inferredTime = inferUniformSampleTimeAxis(values.length, fallbackExpectedDurationSec);
+    const routeAxis = normalizeSensorTimeAxis(values.length, fallbackTime);
+    const inferredTime = fallbackTime?.length !== values.length
+      ? inferUniformSampleTimeAxis(values.length, fallbackExpectedDurationSec)
+      : undefined;
     return {
       values,
       time: routeAxis?.time ?? inferredTime,
       source: "legacy",
-      timeOriginEpochMs: routeAxis?.timeOriginEpochMs ?? fallbackTimeOriginEpochMs,
+      timeOriginEpochMs: routeAxis?.timeOriginEpochMs
+        ?? (routeAxis || inferredTime ? fallbackTimeOriginEpochMs : undefined),
     };
   }
   if (sensorSeries.complete !== true && sensorSeries.wholeSessionCoverageAccepted !== true) {
@@ -208,7 +211,6 @@ export function selectWholeSessionSensorSeries(
 function normalizeSensorTimeAxis(
   valuesLength: number,
   time: number[] | undefined,
-  expectedDurationSec?: number,
 ): { time: number[]; timeOriginEpochMs?: number } | undefined {
   if (valuesLength === 0 || time?.length !== valuesLength) return undefined;
   const relSecAt = makeRelSecAt(time);
@@ -222,11 +224,6 @@ function normalizeSensorTimeAxis(
       || (index > 0 && relSec <= normalized[index - 1]!)) return undefined;
     normalized.push(relSec);
   }
-  if (typeof expectedDurationSec === "number" && Number.isFinite(expectedDurationSec) && expectedDurationSec > 0) {
-    const axisDurationSec = totalDurationSec(valuesLength, normalized);
-    if (axisDurationSec / expectedDurationSec < 0.95 || axisDurationSec / expectedDurationSec > 1.05) return undefined;
-  }
-
   const first = time[0]!;
   if (detectTimestampUnit(first) === "epoch_ms") {
     return { time: normalized, timeOriginEpochMs: first };
