@@ -8,6 +8,8 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import parity from "../features/coach/__fixtures__/rider-insight-parity.json";
 import { parseCoachRiderInsight } from "../services/coachRiderInsightContract";
+import FitnessSurface from "../embedded/surfaces/FitnessSurface";
+import { normalizeFitnessRange } from "../hooks/useFitnessModel";
 import FitnessPage from "./FitnessPage";
 
 const viewport = vi.hoisted(() => ({ isMobile: true }));
@@ -37,11 +39,22 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
   ),
 }));
 vi.mock("./fitness/TriFitnessView", () => ({
-  default: ({ combinedLoad, loadFocus }: { combinedLoad?: { ctl: number } | null; loadFocus: { totalLoad: number } }) => (
+  default: ({ combinedLoad, loadFocus, breakdown, onRangeChange }: {
+    combinedLoad?: { ctl: number } | null;
+    loadFocus: { totalLoad: number };
+    breakdown: {
+      bike: { weeklyTSS: number; fitness: Array<{ ctl: number }> };
+      run: { weeklyTSS: number; fitness: Array<{ ctl: number }> };
+    };
+    onRangeChange: (range: 365) => void;
+  }) => (
     <div>
       desktop tri fitness dashboard
       <span>desktop integrated {combinedLoad?.ctl ?? "none"}</span>
       <span>desktop focus {loadFocus.totalLoad}</span>
+      <span>desktop bike {breakdown.bike.fitness[breakdown.bike.fitness.length - 1]?.ctl ?? "none"}/{breakdown.bike.weeklyTSS}</span>
+      <span>desktop run {breakdown.run.fitness[breakdown.run.fitness.length - 1]?.ctl ?? "none"}/{breakdown.run.weeklyTSS}</span>
+      <button onClick={() => onRangeChange(365)}>desktop 1y</button>
     </div>
   ),
 }));
@@ -88,6 +101,43 @@ describe("FitnessPage", () => {
 
     expect(await screen.findByText("mobile fitness dashboard: tri")).toBeInTheDocument();
     expect(screen.queryByText("desktop tri fitness dashboard")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["mobile", <FitnessPage />],
+    ["embedded", <FitnessSurface onError={vi.fn()} onReady={vi.fn()} retryKey={0} />],
+  ])("uses the integrated tri timeline on the %s presentation", async (_surface, view) => {
+    setCollectionDocs("activities", [{
+      id: "tri-activity",
+      userId: "test-uid",
+      type: "Ride",
+      startTime: Date.now(),
+      deletedAt: null,
+      summary: { distance: 20_000, ridingTimeMillis: 3_600_000 },
+    }]);
+    for (const [discipline, ctl, atl] of [
+      ["bike", 30, 28],
+      ["run", 15, 14],
+      ["swim", 3, 2],
+    ] as const) {
+      setDocData(`users/test-uid/fitness/timeseries_${discipline}`, {
+        discipline,
+        schemaVersion: 1,
+        computedAt: Date.now(),
+        startDate: "2026-09-02",
+        endDate: "2026-09-02",
+        pointCount: 1,
+        points: [{ date: "2026-09-02", ctl, atl, tsb: ctl - atl, dailyLoad: 0 }],
+      });
+    }
+
+    renderWithProviders(view, {
+      authenticated: true,
+      route: "/fitness?sport=tri",
+    });
+
+    expect(await screen.findByText("selected 48/44/4")).toBeInTheDocument();
+    expect(screen.getByText("integrated 48")).toBeInTheDocument();
   });
 
   it("puts the activity impact briefing on a single-sport mobile overview", async () => {
@@ -185,6 +235,17 @@ describe("FitnessPage", () => {
       updatedAt: Date.now(), totalCTL: 48, totalATL: 51, totalTSB: -3,
       breakdown: { bike: { ctl: 30 }, run: { ctl: 15 }, swim: { ctl: 3 } },
     });
+    for (const [discipline, ctl] of [["bike", 30], ["run", 15], ["swim", 3]] as const) {
+      setDocData(`users/test-uid/fitness/timeseries_${discipline}`, {
+        discipline,
+        schemaVersion: 1,
+        computedAt: Date.now(),
+        startDate: "2026-09-02",
+        endDate: "2026-09-02",
+        pointCount: 1,
+        points: [{ date: "2026-09-02", ctl, atl: ctl, tsb: 0, dailyLoad: 0 }],
+      });
+    }
 
     renderWithProviders(<FitnessPage />, {
       authenticated: true,
@@ -194,6 +255,102 @@ describe("FitnessPage", () => {
     expect(await screen.findByText("desktop tri fitness dashboard")).toBeInTheDocument();
     expect(screen.getByText("desktop integrated 48")).toBeInTheDocument();
     expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
+  });
+
+  it("prefers canonical discipline timeseries and uses activity_metrics.tss for a missing discipline fallback", async () => {
+    viewport.isMobile = false;
+    setCollectionDocs("activities", [{
+      id: "run-fallback",
+      userId: "test-uid",
+      type: "Run",
+      startTime: Date.now(),
+      deletedAt: null,
+      summary: { distance: 10_000, ridingTimeMillis: 3_600_000, relativeEffort: null },
+    }]);
+    setDocData("activity_metrics/run-fallback", { tss: 72, discipline: "run" });
+    setDocData("users/test-uid/fitness/timeseries_run", {
+      discipline: "run",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-09-02",
+      endDate: "2026-09-02",
+      pointCount: 1,
+      points: [null],
+    });
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-09-01",
+      endDate: "2026-09-02",
+      pointCount: 2,
+      points: [
+        { date: "2026-09-01", ctl: 34, atl: 28, tsb: 6, dailyLoad: 0 },
+        { date: "2026-09-02", ctl: 35.2, atl: 30.5, tsb: 4.7, dailyLoad: 40 },
+      ],
+    });
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=tri" });
+
+    expect(await screen.findByText("desktop bike 35.2/40")).toBeInTheDocument();
+    expect(await screen.findByText(/desktop run [^/]+\/72/)).toBeInTheDocument();
+  });
+
+  it("aligns discipline weekly TSS to the shared final seven-day window", async () => {
+    viewport.isMobile = false;
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-09-01",
+      endDate: "2026-09-01",
+      pointCount: 1,
+      points: [{ date: "2026-09-01", ctl: 35, atl: 30, tsb: 5, dailyLoad: 40 }],
+    });
+    setDocData("users/test-uid/fitness/timeseries_run", {
+      discipline: "run",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-09-10",
+      endDate: "2026-09-10",
+      pointCount: 1,
+      points: [{ date: "2026-09-10", ctl: 8, atl: 7, tsb: 1, dailyLoad: 72 }],
+    });
+    setDocData("users/test-uid/fitness/timeseries_swim", {
+      discipline: "swim",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: null,
+      endDate: null,
+      pointCount: 0,
+      points: [],
+    });
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=tri" });
+
+    expect(await screen.findByText(/desktop bike [^/]+\/0/)).toBeInTheDocument();
+    expect(screen.getByText("desktop run 8/72")).toBeInTheDocument();
+  });
+
+  it("updates the parent tri range without re-subscribing the stable fallback query", async () => {
+    viewport.isMobile = false;
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=tri" });
+    await screen.findByText("desktop tri fitness dashboard");
+    const activitySubscriptions = () => vi.mocked(onSnapshot).mock.calls
+      .filter(([ref]) => (ref as { path?: string }).path === "activities").length;
+    const before = activitySubscriptions();
+
+    fireEvent.click(screen.getByRole("button", { name: "desktop 1y" }));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(activitySubscriptions()).toBe(before);
+  });
+
+  it("normalizes the tri-only 42-day range before a single-sport query", () => {
+    expect(normalizeFitnessRange("tri", 30)).toBe(90);
+    expect(normalizeFitnessRange("tri", 42)).toBe(42);
+    expect(normalizeFitnessRange("bike", 42)).toBe(90);
+    expect(normalizeFitnessRange("run", 180)).toBe(180);
   });
 
   it("keeps today's workout out of an empty single-sport desktop tab", async () => {
