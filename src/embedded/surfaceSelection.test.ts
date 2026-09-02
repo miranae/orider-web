@@ -36,6 +36,7 @@ describe("parseSurfaceSelectionMessage", () => {
 
   it("rejects missing and oversized request ids", () => {
     expect(parseSurfaceSelectionMessage(selectionMessage({ surface: "fitness" }, ""))).toBeNull();
+    expect(parseSurfaceSelectionMessage(selectionMessage({ surface: "fitness" }, "   "))).toBeNull();
     expect(parseSurfaceSelectionMessage(selectionMessage({ surface: "fitness" }, "x".repeat(129))))
       .toBeNull();
   });

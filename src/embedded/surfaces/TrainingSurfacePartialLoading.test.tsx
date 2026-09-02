@@ -64,6 +64,7 @@ describe("training embedded surface partial loading", () => {
       loading: false,
       cacheHit: false,
       freshLoaded: true,
+      derivedMetricsReady: true,
       error: null,
       timeseriesLoaded: false,
       timeseriesError: null,
@@ -175,6 +176,25 @@ describe("training embedded surface partial loading", () => {
 
     expect(screen.getByText("plan presentation")).toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+  });
+
+  it("does not report cached fitness content before derived metrics are ready", async () => {
+    const onReady = vi.fn();
+    mocks.fitnessModel = {
+      ...mocks.fitnessModel,
+      cacheHit: true,
+      freshLoaded: false,
+      timeseriesLoaded: true,
+      derivedMetricsReady: false,
+    };
+    const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
+
+    expect(screen.getByText("derived ready")).toBeInTheDocument();
+    expect(onReady).not.toHaveBeenCalled();
+
+    mocks.fitnessModel.derivedMetricsReady = true;
+    view.rerender(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
   });
 

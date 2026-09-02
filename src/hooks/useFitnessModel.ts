@@ -220,29 +220,41 @@ export function useFitnessModel(
   const { entries: ftpHistory } = useFtpHistory(user?.uid);
   const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
+  const [range, setRange] = useState<RangeOption | 42>(90);
+  const normalizedRange = normalizeFitnessRange(discipline, range);
+  const activityQueryRange = discipline === "tri" ? 365 : normalizedRange;
   const cacheLocale = options.enableCoachRiderInsight === false
     ? (i18n.resolvedLanguage ?? i18n.language)
     : null;
   const cacheKey = user && cacheLocale
-    ? { uid: user.uid, surface: "fitness" as const, sport: discipline, locale: cacheLocale }
+    ? {
+      uid: user.uid,
+      surface: "fitness" as const,
+      sport: discipline,
+      locale: cacheLocale,
+      range: activityQueryRange,
+    }
     : null;
   const initialCache = cacheKey
     && prepareTrainingSurfaceCacheOwner(user!.uid, user!.isAnonymous === true)
     ? getTrainingSurfaceCache<{ activities: Activity[] }>(cacheKey)
     : null;
   const [decisionBusy, setDecisionBusy] = useState(false);
-  const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
-    ownerUid: user?.uid ?? null,
+  const activityDataKey = user
+    ? `${user.uid}\u0000${discipline}\u0000${cacheLocale ?? "uncached"}\u0000${activityQueryRange}`
+    : null;
+  const [activityState, setActivityState] = useState<{ key: string | null; items: Activity[] }>({
+    key: activityDataKey,
     items: initialCache?.activities ?? [],
   });
-  const activities = activityState.ownerUid === (user?.uid ?? null) ? activityState.items : [];
+  const activities = activityState.key === activityDataKey ? activityState.items : [];
   const { streamsMap, metricsMap } = useActivityDerivedDocuments(user?.uid, activities);
+  const derivedMetricsReady = activities.every((activity) => metricsMap.has(activity.id));
   const [loading, setLoading] = useState(initialCache === null);
   const [cacheHit, setCacheHit] = useState(initialCache !== null);
   const [freshLoaded, setFreshLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [range, setRange] = useState<RangeOption | 42>(90);
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
   const [projection, setProjection] = useState<FitnessProjection | null>(null);
   const [, setGoalQueryDone] = useState(false);
@@ -268,9 +280,6 @@ export function useFitnessModel(
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
-  const normalizedRange = normalizeFitnessRange(discipline, range);
-  const activityQueryRange = discipline === "tri" ? 365 : normalizedRange;
-
   useEffect(() => {
     if (normalizedRange !== range) setRange(normalizedRange);
   }, [normalizedRange, range]);
@@ -316,7 +325,7 @@ export function useFitnessModel(
   useEffect(() => {
     if (!user) {
       clearTrainingSurfaceCache();
-      setActivityState({ ownerUid: null, items: [] });
+      setActivityState({ key: null, items: [] });
       setLoading(false);
       setCacheHit(false);
       setFreshLoaded(true);
@@ -325,14 +334,20 @@ export function useFitnessModel(
     const uid = user.uid;
     let active = true;
     const nextCacheKey = cacheLocale
-      ? { uid, surface: "fitness" as const, sport: discipline, locale: cacheLocale }
+      ? {
+        uid,
+        surface: "fitness" as const,
+        sport: discipline,
+        locale: cacheLocale,
+        range: activityQueryRange,
+      }
       : null;
     const cacheEnabled = nextCacheKey !== null
       && prepareTrainingSurfaceCacheOwner(uid, user.isAnonymous === true);
     const cached = cacheEnabled
       ? getTrainingSurfaceCache<{ activities: Activity[] }>(nextCacheKey)
       : null;
-    setActivityState({ ownerUid: uid, items: cached?.activities ?? [] });
+    setActivityState({ key: activityDataKey, items: cached?.activities ?? [] });
     setError(null);
     setLoading(cached === null);
     setCacheHit(cached !== null);
@@ -353,7 +368,7 @@ export function useFitnessModel(
           const items = snapshot.docs
             .map((entry) => ({ id: entry.id, ...entry.data() }) as Activity)
             .filter((activity) => activity.userId === uid && activity.summary != null);
-          setActivityState({ ownerUid: uid, items });
+          setActivityState({ key: activityDataKey, items });
           setLoading(false);
           setFreshLoaded(true);
           if (cacheEnabled) setTrainingSurfaceCache(nextCacheKey, { activities: items });
@@ -377,7 +392,7 @@ export function useFitnessModel(
       active = false;
       unsubscribe();
     };
-  }, [activityQueryRange, cacheLocale, discipline, firestore, reloadKey, t, user]);
+  }, [activityDataKey, activityQueryRange, cacheLocale, discipline, firestore, reloadKey, t, user]);
 
   const retryLoad = useCallback(() => {
     setError(null);
@@ -822,6 +837,7 @@ export function useFitnessModel(
     disciplineActivities,
     streamsMap,
     metricsMap,
+    derivedMetricsReady,
     loading,
     cacheHit: cacheHit && timeseriesCacheHit,
     freshLoaded: freshLoaded && timeseriesFreshLoaded,

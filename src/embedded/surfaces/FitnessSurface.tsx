@@ -21,7 +21,7 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
   const settledKeys = useRef(new Set<string>());
 
   useEffect(() => {
-    if (model.cacheHit) {
+    if (model.cacheHit && model.derivedMetricsReady) {
       const key = `${retryKey}:cached`;
       if (!settledKeys.current.has(key)) {
         settledKeys.current.add(key);
@@ -34,7 +34,7 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
     if (settledKeys.current.has(key)) return;
     settledKeys.current.add(key);
     onReady(status);
-  }, [model.cacheHit, model.error, model.freshLoaded, model.loading, model.timeseriesError, model.timeseriesLoaded, onReady, retryKey]);
+  }, [model.cacheHit, model.derivedMetricsReady, model.error, model.freshLoaded, model.loading, model.timeseriesError, model.timeseriesLoaded, onReady, retryKey]);
 
   if (model.loading) {
     return (

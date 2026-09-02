@@ -34,6 +34,15 @@ describe("trainingSurfaceCache", () => {
     expect(getTrainingSurfaceCache(key)).toBeNull();
   });
 
+  it("isolates fitness activity snapshots by query range", () => {
+    prepareTrainingSurfaceCacheOwner("owner-1");
+    const fitnessKey = { ...key, surface: "fitness" as const, range: 30 };
+    setTrainingSurfaceCache(fitnessKey, { activities: [{ id: "recent" }] });
+
+    expect(getTrainingSurfaceCache(fitnessKey)).toEqual({ activities: [{ id: "recent" }] });
+    expect(getTrainingSurfaceCache({ ...fitnessKey, range: 90 })).toBeNull();
+  });
+
   it("stores detached DTO copies and expires them by TTL", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-03T00:00:00Z"));

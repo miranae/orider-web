@@ -10,6 +10,7 @@ export interface TrainingSurfaceCacheKey {
   surface: TrainingCacheSurface;
   sport: string;
   locale: string;
+  range?: string | number;
 }
 
 interface CacheEntry {
@@ -27,6 +28,7 @@ function serializeKey(key: TrainingSurfaceCacheKey): string {
     key.surface,
     key.sport,
     key.locale,
+    key.range ?? "",
   ].join("\u0000");
 }
 

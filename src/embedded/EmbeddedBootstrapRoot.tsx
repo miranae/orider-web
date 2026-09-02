@@ -35,6 +35,7 @@ import {
 import {
   parseSurfaceSelectionMessage,
   RETAINED_SURFACE_SELECTION_CAPABILITY,
+  SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
   type TrainingSurfaceKind,
 } from "./surfaceSelection";
 import "./embedded.css";
@@ -223,6 +224,7 @@ function AuthorizedSurface({
   retryKey,
   selectionGeneration,
   selectedTrainingSurface,
+  selectionRequestId,
   services,
   session,
   surfaceKind,
@@ -234,6 +236,7 @@ function AuthorizedSurface({
   retryKey: number;
   selectionGeneration: number;
   selectedTrainingSurface: TrainingSurfaceKind | null;
+  selectionRequestId?: string;
   services: FirebaseServices;
   session: AcceptedSession;
   surfaceKind: EmbeddedSurfaceKind;
@@ -245,6 +248,9 @@ function AuthorizedSurface({
     defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } },
   }));
   const user = services.auth.currentUser;
+  const trainingSurface = selectedTrainingSurface !== null;
+  const selectionRequestIdRef = useRef(selectionRequestId);
+  selectionRequestIdRef.current = selectionRequestId;
 
   useEffect(() => {
     if (!user) return undefined;
@@ -258,10 +264,14 @@ function AuthorizedSurface({
       () => {
         setProfile(null);
         setProfileLoading(false);
-        bridge.send("surface.error", { code: "profile_load_failed" });
+        bridge.send(
+          "surface.error",
+          { code: "profile_load_failed" },
+          surfaceKind === "activity-analysis" ? undefined : selectionRequestIdRef.current,
+        );
       },
     );
-  }, [bridge, services.firestore, user]);
+  }, [bridge, services.firestore, surfaceKind, user]);
 
   const logout = useCallback(async () => {
     await signOut(services.auth);
@@ -279,8 +289,6 @@ function AuthorizedSurface({
     void i18n.changeLanguage(session.locale);
     document.documentElement.lang = session.locale;
   }, [session.locale]);
-
-  const trainingSurface = selectedTrainingSurface !== null;
 
   useEffect(() => {
     if (!trainingSurface) return undefined;
@@ -374,11 +382,13 @@ export default function EmbeddedBootstrapRoot({
   const [surfaceSelection, setSurfaceSelection] = useState<{
     generation: number;
     surface: TrainingSurfaceKind | null;
-  }>({ generation: 0, surface: initialTrainingSurface });
+    requestId?: string;
+  }>({ generation: 0, surface: initialTrainingSurface, requestId: undefined });
   const authorizedUid = useRef<string | null>(null);
   const acceptedUid = useRef<string | null>(null);
   const sessionAccepted = useRef(false);
   const selectionGeneration = useRef(0);
+  const activeSelectionRequestId = useRef<string | undefined>(undefined);
   const authorizationAttempt = useRef(0);
   const surfaceLoadingFlow = useRef<SurfaceLoadingFlow | null>(null);
   const embedded = initEmbeddedFirebase();
@@ -425,6 +435,7 @@ export default function EmbeddedBootstrapRoot({
   const handleTrainingSurfaceReady = useCallback((
     surface: TrainingSurfaceKind,
     generation: number,
+    requestId: string | undefined,
     status: "cached" | "fresh" | "error" = "fresh",
   ) => {
     if (
@@ -465,7 +476,11 @@ export default function EmbeddedBootstrapRoot({
         }, flow.requestId);
       }
     }
-    safeSend("surface.ready", {});
+    if (status === "error") {
+      safeSend("surface.error", { code: "surface_load_failed" }, requestId);
+    } else {
+      safeSend("surface.ready", {}, requestId);
+    }
   }, [safeSend, surfaceSelection]);
 
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
@@ -505,6 +520,7 @@ export default function EmbeddedBootstrapRoot({
         sessionAccepted.current = false;
         selectionGeneration.current += 1;
         surfaceLoadingFlow.current = null;
+        activeSelectionRequestId.current = undefined;
         setSession(null);
         void consumeAppHandoffCode({
           auth: services.auth,
@@ -536,6 +552,7 @@ export default function EmbeddedBootstrapRoot({
         if (!authorizedUid.current || authorizedUid.current !== currentUid) {
           clearTrainingSurfaceCache();
           surfaceLoadingFlow.current = null;
+          activeSelectionRequestId.current = undefined;
           setSession(null);
           safeSend("surface.error", { code: "auth_uid_mismatch" }, message.requestId);
           return;
@@ -546,7 +563,8 @@ export default function EmbeddedBootstrapRoot({
         sessionAccepted.current = true;
         const generation = selectionGeneration.current + 1;
         selectionGeneration.current = generation;
-        setSurfaceSelection({ generation, surface: initialTrainingSurface });
+        activeSelectionRequestId.current = undefined;
+        setSurfaceSelection({ generation, surface: initialTrainingSurface, requestId: undefined });
         surfaceLoadingFlow.current = null;
         if ((surfaceKind === "fitness" || surfaceKind === "plan") && message.requestId) {
           const flow: SurfaceLoadingFlow = {
@@ -589,6 +607,7 @@ export default function EmbeddedBootstrapRoot({
         }
         const generation = selectionGeneration.current + 1;
         selectionGeneration.current = generation;
+        activeSelectionRequestId.current = selection.requestId;
         surfaceLoadingFlow.current = selection.surface && selection.requestId
           ? {
             generation,
@@ -598,7 +617,11 @@ export default function EmbeddedBootstrapRoot({
             cacheHit: false,
           }
           : null;
-        setSurfaceSelection({ generation, surface: selection.surface });
+        setSurfaceSelection({
+          generation,
+          surface: selection.surface,
+          requestId: selection.requestId,
+        });
         return;
       }
 
@@ -614,6 +637,7 @@ export default function EmbeddedBootstrapRoot({
         sessionAccepted.current = false;
         selectionGeneration.current += 1;
         surfaceLoadingFlow.current = null;
+        activeSelectionRequestId.current = undefined;
         return;
       }
 
@@ -638,6 +662,7 @@ export default function EmbeddedBootstrapRoot({
         sessionAccepted.current = false;
         selectionGeneration.current += 1;
         surfaceLoadingFlow.current = null;
+        activeSelectionRequestId.current = undefined;
         setSession(null);
         void signOut(services.auth);
       }
@@ -647,6 +672,7 @@ export default function EmbeddedBootstrapRoot({
     const unsubscribeAuth = onAuthStateChanged(services.auth, (user) => {
       const lockedUid = acceptedUid.current;
       if (user?.isAnonymous === true) {
+        const requestId = activeSelectionRequestId.current;
         clearTrainingSurfaceCache();
         authorizationAttempt.current += 1;
         acceptedUid.current = null;
@@ -654,11 +680,13 @@ export default function EmbeddedBootstrapRoot({
         sessionAccepted.current = false;
         selectionGeneration.current += 1;
         surfaceLoadingFlow.current = null;
+        activeSelectionRequestId.current = undefined;
         setSession(null);
-        safeSend("surface.error", { code: "auth_uid_changed" });
+        safeSend("surface.error", { code: "auth_uid_changed" }, requestId);
         return;
       }
       if (!lockedUid || user?.uid === lockedUid) return;
+      const requestId = activeSelectionRequestId.current;
       clearTrainingSurfaceCache();
       authorizationAttempt.current += 1;
       acceptedUid.current = null;
@@ -666,12 +694,16 @@ export default function EmbeddedBootstrapRoot({
       sessionAccepted.current = false;
       selectionGeneration.current += 1;
       surfaceLoadingFlow.current = null;
+      activeSelectionRequestId.current = undefined;
       setSession(null);
-      safeSend("surface.error", { code: "auth_uid_changed" });
+      safeSend("surface.error", { code: "auth_uid_changed" }, requestId);
     });
     safeSend("bootstrap.ready", {
       contractVersion: CONTRACT_VERSION,
-      capabilities: [RETAINED_SURFACE_SELECTION_CAPABILITY],
+      capabilities: [
+        RETAINED_SURFACE_SELECTION_CAPABILITY,
+        SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
+      ],
     });
     return () => {
       unsubscribe();
@@ -689,8 +721,13 @@ export default function EmbeddedBootstrapRoot({
   }, [handleTrainingShellReady, selectedTrainingSurface, surfaceSelection.generation]);
   const trainingSurfaceReady = useCallback((status: "cached" | "fresh" | "error" = "fresh") => {
     if (!selectedTrainingSurface) return;
-    handleTrainingSurfaceReady(selectedTrainingSurface, surfaceSelection.generation, status);
-  }, [handleTrainingSurfaceReady, selectedTrainingSurface, surfaceSelection.generation]);
+    handleTrainingSurfaceReady(
+      selectedTrainingSurface,
+      surfaceSelection.generation,
+      surfaceSelection.requestId,
+      status,
+    );
+  }, [handleTrainingSurfaceReady, selectedTrainingSurface, surfaceSelection.generation, surfaceSelection.requestId]);
 
   return (
     <div
@@ -708,6 +745,7 @@ export default function EmbeddedBootstrapRoot({
           retryKey={retryKey}
           selectionGeneration={surfaceSelection.generation}
           selectedTrainingSurface={selectedTrainingSurface}
+          selectionRequestId={surfaceSelection.requestId}
           services={services}
           session={session}
           surfaceKind={surfaceKind}

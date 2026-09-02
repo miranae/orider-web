@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   collection,
@@ -75,8 +75,10 @@ export function usePlanModel(sport?: string | null): PlanModel {
     && prepareTrainingSurfaceCacheOwner(user!.uid, user!.isAnonymous === true)
     ? getTrainingSurfaceCache<{ goal: Goal | null; weeks: PlanWeek[] }>(initialCacheKey)
     : null;
-  const [goal, setGoal] = useState<Goal | null>(initialCache?.goal ?? null);
-  const [weeks, setWeeks] = useState<PlanWeek[]>(initialCache?.weeks ?? []);
+  const modelKey = user ? `${user.uid}\u0000${discipline}\u0000${locale}` : null;
+  const [dataKey, setDataKey] = useState(modelKey);
+  const [goalState, setGoal] = useState<Goal | null>(initialCache?.goal ?? null);
+  const [weeksState, setWeeks] = useState<PlanWeek[]>(initialCache?.weeks ?? []);
   const [goalLoading, setGoalLoading] = useState(initialCache === null);
   const [planLoading, setPlanLoading] = useState(initialCache === null);
   const [cacheHit, setCacheHit] = useState(initialCache !== null);
@@ -84,6 +86,23 @@ export function usePlanModel(sport?: string | null): PlanModel {
   const [goalError, setGoalError] = useState<unknown>(null);
   const [planError, setPlanError] = useState<unknown>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const stateMatchesKey = dataKey === modelKey;
+  const goal = stateMatchesKey ? goalState : null;
+  const weeks = stateMatchesKey ? weeksState : [];
+  const scopedGoalLoading = stateMatchesKey ? goalLoading : user !== null;
+  const scopedPlanLoading = stateMatchesKey ? planLoading : user !== null;
+  const scopedCacheHit = stateMatchesKey && cacheHit;
+  const scopedFreshLoaded = stateMatchesKey && freshLoaded;
+  const scopedGoalError = stateMatchesKey ? goalError : null;
+  const scopedPlanError = stateMatchesKey ? planError : null;
+  const refreshContextKey = `${modelKey ?? "signed-out"}\u0000${goal?.id ?? "no-goal"}`;
+  const refreshGenerationRef = useRef({ key: refreshContextKey, value: 0 });
+  if (refreshGenerationRef.current.key !== refreshContextKey) {
+    refreshGenerationRef.current = {
+      key: refreshContextKey,
+      value: refreshGenerationRef.current.value + 1,
+    };
+  }
   const { revalidating, justRecomputed } = useFreshTraining(discipline);
   const legacyRecoveryEnabled = getRuntimeConfig().trainingDecisionEnabled !== true;
   const { timeseries } = useFitnessTimeseries(
@@ -99,6 +118,7 @@ export function usePlanModel(sport?: string | null): PlanModel {
   useEffect(() => {
     if (!user) {
       clearTrainingSurfaceCache();
+      setDataKey(null);
       setGoal(null);
       setWeeks([]);
       setGoalError(null);
@@ -117,6 +137,7 @@ export function usePlanModel(sport?: string | null): PlanModel {
       ? getTrainingSurfaceCache<{ goal: Goal | null; weeks: PlanWeek[] }>(cacheKey)
       : null;
     const load = async () => {
+      setDataKey(modelKey);
       setGoal(cached?.goal ?? null);
       setWeeks(cached?.weeks ?? []);
       setGoalLoading(cached === null);
@@ -135,6 +156,7 @@ export function usePlanModel(sport?: string | null): PlanModel {
             limit(1),
           ),
         );
+        if (cancelled) return;
         if (snap.empty) {
           snap = await getDocs(
             query(
@@ -158,8 +180,6 @@ export function usePlanModel(sport?: string | null): PlanModel {
 
         const docSnap = snap.docs[0]!;
         const nextGoal = { id: docSnap.id, ...docSnap.data() } as Goal;
-        setGoal(nextGoal);
-        setGoalLoading(false);
         try {
           const planSnap = await getDocs(
             query(
@@ -169,15 +189,20 @@ export function usePlanModel(sport?: string | null): PlanModel {
           );
           if (cancelled) return;
           const nextWeeks = planSnap.docs.map((item) => ({ id: item.id, ...item.data() }) as PlanWeek);
+          setGoal(nextGoal);
           setWeeks(nextWeeks);
+          setGoalLoading(false);
+          setPlanLoading(false);
           setFreshLoaded(true);
           if (cacheEnabled) setTrainingSurfaceCache(cacheKey, { goal: nextGoal, weeks: nextWeeks });
         } catch (error) {
           if (cancelled) return;
           if (cached === null) {
+            setGoal(null);
             setWeeks([]);
             setPlanError(error);
           }
+          setGoalLoading(false);
           setFreshLoaded(cached === null);
           logClientError("PlanPage.planLoad", error, { discipline, goalId: nextGoal.id });
         } finally {
@@ -201,7 +226,7 @@ export function usePlanModel(sport?: string | null): PlanModel {
     return () => {
       cancelled = true;
     };
-  }, [discipline, firestore, locale, reloadKey, user]);
+  }, [discipline, firestore, locale, modelKey, reloadKey, user]);
 
   const todayMs = useMemo(() => {
     const now = new Date();
@@ -219,9 +244,6 @@ export function usePlanModel(sport?: string | null): PlanModel {
     weeksLeft,
   } = computePlanProgress(weeks, todayMs);
   const goalMatchesDiscipline = !goal || !goal.discipline || goal.discipline === discipline;
-  const loading = goalLoading || planLoading;
-  const loadError = goalError ?? planError;
-
   const isTodayCell = useCallback((day: PlanDay): boolean => {
     const date = new Date(day.date);
     date.setHours(0, 0, 0, 0);
@@ -234,16 +256,21 @@ export function usePlanModel(sport?: string | null): PlanModel {
 
   const refreshPlanWeeks = useCallback(async () => {
     if (!goal || !user) return;
+    const contextKey = refreshGenerationRef.current.key;
+    const generation = ++refreshGenerationRef.current.value;
+    const cacheEnabled = prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
     const planSnap = await getDocs(
       query(
         collection(firestore, "goals", goal.id, "plan"),
         orderBy("weekNumber"),
       ),
     );
+    if (refreshGenerationRef.current.key !== contextKey
+        || refreshGenerationRef.current.value !== generation) return;
     const nextWeeks = planSnap.docs.map((item) => ({ id: item.id, ...item.data() }) as PlanWeek);
     setWeeks(nextWeeks);
     const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
-    if (prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true)) {
+    if (cacheEnabled) {
       setTrainingSurfaceCache(cacheKey, { goal, weeks: nextWeeks });
     }
   }, [discipline, firestore, goal, locale, user]);
@@ -253,12 +280,12 @@ export function usePlanModel(sport?: string | null): PlanModel {
     discipline,
     goal,
     weeks,
-    goalLoading,
-    planLoading,
-    goalError,
-    planError,
-    loading,
-    loadError,
+    goalLoading: scopedGoalLoading,
+    planLoading: scopedPlanLoading,
+    goalError: scopedGoalError,
+    planError: scopedPlanError,
+    loading: scopedGoalLoading || scopedPlanLoading,
+    loadError: scopedGoalError ?? scopedPlanError,
     goalMatchesDiscipline,
     revalidating,
     justRecomputed,
@@ -273,7 +300,7 @@ export function usePlanModel(sport?: string | null): PlanModel {
     isTodayCell,
     retryLoad,
     refreshPlanWeeks,
-    cacheHit,
-    freshLoaded,
+    cacheHit: scopedCacheHit,
+    freshLoaded: scopedFreshLoaded,
   };
 }

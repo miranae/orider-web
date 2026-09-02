@@ -183,7 +183,10 @@ describe("EmbeddedBootstrapRoot session gate", () => {
 
     expect(bridge.sent).toContainEqual({
       type: "bootstrap.ready",
-      payload: { contractVersion: 1, capabilities: ["host.surfaceSelected"] },
+      payload: {
+        contractVersion: 1,
+        capabilities: ["host.surfaceSelected", "surface-selection-request-id-v1"],
+      },
       requestId: undefined,
     });
     expect(onSnapshot).not.toHaveBeenCalled();
@@ -603,6 +606,11 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       })));
 
       act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload(), "tab-flow-1")));
+      act(() => bridge.emit(hostMessage(
+        "host.surfaceSelected",
+        { surface: surfaceKind },
+        "tab-flow-1",
+      )));
       await waitFor(() => expect(mocks.surfaceReadyCallbacks[surfaceKind]).not.toBeNull());
 
       const acceptedTelemetry = bridge.sent.find((message) => (
@@ -644,7 +652,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       expect(bridge.sent[freshIndex + 1]).toEqual({
         type: "surface.ready",
         payload: {},
-        requestId: undefined,
+        requestId: "tab-flow-1",
       });
       act(() => mocks.surfaceReadyCallbacks[surfaceKind]?.());
       expect(bridge.sent.filter((message) => (
@@ -689,6 +697,32 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       type: "surface.ready",
       payload: {},
       requestId: undefined,
+    });
+  });
+
+  it("echoes the active retained selection request id on surface errors", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    act(() => bridge.emit(hostMessage(
+      "host.surfaceSelected",
+      { surface: "fitness" },
+      "fitness-selection",
+    )));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks.fitness).not.toBeNull());
+
+    act(() => mocks.surfaceReadyCallbacks.fitness?.("error"));
+
+    expect(bridge.sent).toContainEqual({
+      type: "surface.error",
+      payload: { code: "surface_load_failed" },
+      requestId: "fitness-selection",
     });
   });
 

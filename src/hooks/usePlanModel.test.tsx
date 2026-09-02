@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { collection, getDocs } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -50,6 +50,7 @@ describe("usePlanModel", () => {
     mocks.freshTraining.mockClear();
     mocks.fitnessTimeseries.mockClear();
     vi.mocked(collection).mockClear();
+    vi.mocked(getDocs).mockClear();
   });
 
   it.each([
@@ -124,7 +125,7 @@ describe("usePlanModel", () => {
     expect(mocks.fitnessTimeseries).toHaveBeenCalledWith("owner", "bike");
   });
 
-  it("exposes the goal while the plan weeks request is still pending", async () => {
+  it("commits a fresh goal and its weeks atomically", async () => {
     const getDocsMock = vi.mocked(getDocs);
     const originalImplementation = getDocsMock.getMockImplementation()!;
     let resolvePlan: ((value: unknown) => void) | null = null;
@@ -148,13 +149,16 @@ describe("usePlanModel", () => {
 
     const { result } = renderHook(() => usePlanModel("run"), { wrapper });
 
-    await waitFor(() => expect(result.current.goalLoading).toBe(false));
-    expect(result.current.goal?.id).toBe("goal-run");
+    await waitFor(() => expect(resolvePlan).not.toBeNull());
+    expect(result.current.goal).toBeNull();
+    expect(result.current.goalLoading).toBe(true);
     expect(result.current.planLoading).toBe(true);
     expect(result.current.loading).toBe(true);
 
-    resolvePlan?.({ empty: true, docs: [] });
+    act(() => resolvePlan?.({ empty: true, docs: [] }));
     await waitFor(() => expect(result.current.planLoading).toBe(false));
+    expect(result.current.goal?.id).toBe("goal-run");
+    expect(result.current.weeks).toEqual([]);
     getDocsMock.mockImplementation(originalImplementation);
   });
 
@@ -230,6 +234,111 @@ describe("usePlanModel", () => {
       sport: "bike",
       locale: "ko",
     })).toBeNull();
+    getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("preserves the cached goal and weeks when only the fresh plan request fails", async () => {
+    const cacheKey = {
+      uid: "owner",
+      surface: "plan" as const,
+      sport: "bike",
+      locale: "ko",
+    };
+    const cachedTuple = {
+      goal: { id: "cached-goal", discipline: "bike" },
+      weeks: [{ id: "cached-week", weekNumber: 1, days: [] }],
+    };
+    prepareTrainingSurfaceCacheOwner("owner");
+    setTrainingSurfaceCache(cacheKey, cachedTuple);
+    const getDocsMock = vi.mocked(getDocs);
+    const originalImplementation = getDocsMock.getMockImplementation()!;
+    getDocsMock
+      .mockResolvedValueOnce({
+        empty: false,
+        docs: [{ id: "fresh-goal", data: () => ({ discipline: "bike" }) }],
+      } as never)
+      .mockRejectedValueOnce(new Error("plan offline"));
+
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalledTimes(2));
+
+    expect(hook.result.current.goal?.id).toBe("cached-goal");
+    expect(hook.result.current.weeks[0]?.id).toBe("cached-week");
+    expect(getTrainingSurfaceCache<typeof cachedTuple>(cacheKey)).toEqual(cachedTuple);
+    getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("never exposes the previous sport tuple while the next key is taking ownership", () => {
+    prepareTrainingSurfaceCacheOwner("owner");
+    setTrainingSurfaceCache({
+      uid: "owner", surface: "plan", sport: "bike", locale: "ko",
+    }, { goal: { id: "bike-goal" }, weeks: [{ id: "bike-week", days: [] }] });
+    setTrainingSurfaceCache({
+      uid: "owner", surface: "plan", sport: "run", locale: "ko",
+    }, { goal: { id: "run-goal" }, weeks: [{ id: "run-week", days: [] }] });
+    const getDocsMock = vi.mocked(getDocs);
+    const originalImplementation = getDocsMock.getMockImplementation()!;
+    getDocsMock.mockImplementation(() => new Promise(() => {}) as never);
+    const hook = renderHook(({ sport }) => usePlanModel(sport), {
+      wrapper,
+      initialProps: { sport: "bike" },
+    });
+
+    expect(hook.result.current.goal?.id).toBe("bike-goal");
+    hook.rerender({ sport: "run" });
+
+    expect(hook.result.current.goal?.id).not.toBe("bike-goal");
+    expect(hook.result.current.weeks[0]?.id).not.toBe("bike-week");
+    getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("does not let a late manual refresh reclaim a previous cache owner", async () => {
+    prepareTrainingSurfaceCacheOwner("owner");
+    setTrainingSurfaceCache({
+      uid: "owner",
+      surface: "plan",
+      sport: "bike",
+      locale: "ko",
+    }, {
+      goal: { id: "owner-goal", discipline: "bike" },
+      weeks: [],
+    });
+    const getDocsMock = vi.mocked(getDocs);
+    const originalImplementation = getDocsMock.getMockImplementation()!;
+    let resolveLoad: ((value: unknown) => void) | null = null;
+    let resolveRefresh: ((value: unknown) => void) | null = null;
+    getDocsMock
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveLoad = resolve;
+      }) as never)
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }) as never);
+    const mounted = renderHook(() => usePlanModel("bike"), { wrapper });
+    expect(mounted.result.current.goal?.id).toBe("owner-goal");
+    let refreshPromise: Promise<void> = Promise.resolve();
+    act(() => {
+      refreshPromise = mounted.result.current.refreshPlanWeeks();
+    });
+    mounted.unmount();
+    prepareTrainingSurfaceCacheOwner("next-owner");
+    const nextKey = {
+      uid: "next-owner",
+      surface: "plan" as const,
+      sport: "bike",
+      locale: "ko",
+    };
+    setTrainingSurfaceCache(nextKey, { goal: null, weeks: [{ id: "next-week" }] });
+
+    resolveRefresh?.({ empty: true, docs: [] });
+    await refreshPromise;
+    resolveLoad?.({ empty: true, docs: [] });
+    await Promise.resolve();
+
+    expect(getTrainingSurfaceCache(nextKey)).toEqual({
+      goal: null,
+      weeks: [{ id: "next-week" }],
+    });
     getDocsMock.mockImplementation(originalImplementation);
   });
 

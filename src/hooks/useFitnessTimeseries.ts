@@ -7,7 +7,7 @@
  *
  * tri 는 단일 종목 doc 이 없으므로 구독하지 않는다(null 반환 → 클라 폴백).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -38,8 +38,11 @@ export function useFitnessTimeseries(
   const [error, setError] = useState<unknown>(null);
   const [cacheHit, setCacheHit] = useState(false);
   const [freshLoaded, setFreshLoaded] = useState(false);
+  const generationRef = useRef(0);
 
   useEffect(() => {
+    const generation = ++generationRef.current;
+    let active = true;
     if (!uid || discipline === "tri") {
       setTimeseries(null);
       setError(null);
@@ -69,6 +72,7 @@ export function useFitnessTimeseries(
     const unsub = onSnapshot(
       ref,
       (snap) => {
+        if (!active || generationRef.current !== generation) return;
         const next = snap.exists() ? (snap.data() as FitnessTimeseriesDoc) : null;
         setTimeseries(next);
         setError(null);
@@ -77,6 +81,7 @@ export function useFitnessTimeseries(
         if (cacheEnabled) setTrainingSurfaceCache(cacheKey, { timeseries: next });
       },
       (err) => {
+        if (!active || generationRef.current !== generation) return;
         logClientError("useFitnessTimeseries", err, { discipline });
         if (!hasCachedValue) setTimeseries(null);
         setError(hasCachedValue ? null : err);
@@ -84,7 +89,10 @@ export function useFitnessTimeseries(
         setFreshLoaded(!hasCachedValue);
       },
     );
-    return () => unsub();
+    return () => {
+      active = false;
+      unsub();
+    };
   }, [cacheAnonymous, cacheLocale, discipline, firestore, reloadKey, uid]);
 
   return { timeseries, loaded, error, cacheHit, freshLoaded };
