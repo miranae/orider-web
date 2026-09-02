@@ -55,6 +55,7 @@ type DerivedState = {
   ownerUid: string | null;
   streamsMap: Map<string, ActivityStreams>;
   metricsMap: Map<string, ActivityMetrics>;
+  metricStatusMap: Map<string, "loaded" | "missing" | "error">;
 };
 
 type ReadResources = {
@@ -72,6 +73,7 @@ type ReadResources = {
 
 const EMPTY_STREAMS = new Map<string, ActivityStreams>();
 const EMPTY_METRICS = new Map<string, ActivityMetrics>();
+const EMPTY_METRIC_STATUSES = new Map<string, "loaded" | "missing" | "error">();
 
 function createRecheckQueue(): RecheckQueue {
   return {
@@ -227,7 +229,11 @@ function grantReadPermit(limiter: ReadLimiter, waiter: ReadPermitWaiter): void {
 export function useActivityDerivedDocuments(
   uid: string | null | undefined,
   activities: readonly Activity[],
-): { streamsMap: Map<string, ActivityStreams>; metricsMap: Map<string, ActivityMetrics> } {
+): {
+  streamsMap: Map<string, ActivityStreams>;
+  metricsMap: Map<string, ActivityMetrics>;
+  metricStatusMap: Map<string, "loaded" | "missing" | "error">;
+} {
   const { firestore } = useFirebaseServices();
   const normalizedUid = uid ?? null;
   const generationRef = useRef(0);
@@ -242,6 +248,7 @@ export function useActivityDerivedDocuments(
     ownerUid: normalizedUid,
     streamsMap: new Map(),
     metricsMap: new Map(),
+    metricStatusMap: new Map(),
   });
 
   useEffect(() => {
@@ -267,16 +274,26 @@ export function useActivityDerivedDocuments(
     pruneResources(resources, activeIds);
     setState((previous) => {
       if (previous.ownerUid !== normalizedUid) {
-        return { ownerUid: normalizedUid, streamsMap: new Map(), metricsMap: new Map() };
+        return {
+          ownerUid: normalizedUid,
+          streamsMap: new Map(),
+          metricsMap: new Map(),
+          metricStatusMap: new Map(),
+        };
       }
       const streamsChanged = [...previous.streamsMap.keys()].some((id) => !activeIds.has(id));
       const metricsChanged = [...previous.metricsMap.keys()].some((id) => !activeIds.has(id));
-      if (!streamsChanged && !metricsChanged) return previous;
+      const metricStatusesChanged = [...previous.metricStatusMap.keys()].some((id) => !activeIds.has(id));
+      if (!streamsChanged && !metricsChanged && !metricStatusesChanged) return previous;
       const streamsMap = new Map<string, ActivityStreams>();
       const metricsMap = new Map<string, ActivityMetrics>();
+      const metricStatusMap = new Map<string, "loaded" | "missing" | "error">();
       for (const [id, value] of previous.streamsMap) if (activeIds.has(id)) streamsMap.set(id, value);
       for (const [id, value] of previous.metricsMap) if (activeIds.has(id)) metricsMap.set(id, value);
-      return { ownerUid: normalizedUid, streamsMap, metricsMap };
+      for (const [id, value] of previous.metricStatusMap) {
+        if (activeIds.has(id)) metricStatusMap.set(id, value);
+      }
+      return { ownerUid: normalizedUid, streamsMap, metricsMap, metricStatusMap };
     });
     if (normalizedUid == null || scopedActivities.length === 0) return;
 
@@ -438,6 +455,7 @@ export function useActivityDerivedDocuments(
           ? Date.now() + DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 2 ** (missingCount - 1)
           : Number.POSITIVE_INFINITY;
         markDerivedDocumentMissing(attempts, activity, nextEligibleAt);
+        if (kind === "metrics") applyMetricStatus(activity.id, "missing");
         if (watchIfMissing) {
           watchCreation(activity, reference, attempts, watches, parse, apply, kind);
         }
@@ -462,6 +480,7 @@ export function useActivityDerivedDocuments(
           cancelRecheck(rechecks, activity.id);
         }
         if (wasCurrent) {
+          if (kind === "metrics") applyMetricStatus(activity.id, "error");
           const previous = attempts.get(activity.id);
           const failureCount = previous?.revision === revision ? previous.failureCount + 1 : 1;
           const canRecover = failureCount < DERIVED_DOCUMENT_MAX_FAILURE_READS;
@@ -529,8 +548,16 @@ export function useActivityDerivedDocuments(
     const applyMetric = (id: string, value: ActivityMetrics) => setState((previous) => {
       if (previous.ownerUid !== normalizedUid) return previous;
       const metricsMap = new Map(previous.metricsMap);
+      const metricStatusMap = new Map(previous.metricStatusMap);
       metricsMap.set(id, value);
-      return { ...previous, metricsMap };
+      metricStatusMap.set(id, "loaded");
+      return { ...previous, metricsMap, metricStatusMap };
+    });
+    const applyMetricStatus = (id: string, status: "missing" | "error") => setState((previous) => {
+      if (previous.ownerUid !== normalizedUid) return previous;
+      const metricStatusMap = new Map(previous.metricStatusMap);
+      metricStatusMap.set(id, status);
+      return { ...previous, metricStatusMap };
     });
 
     const streamActivities = scopedActivities.filter((activity) => {
@@ -585,6 +612,14 @@ export function useActivityDerivedDocuments(
   }, [activities, generation, normalizedUid, resources]);
 
   return state.ownerUid === normalizedUid
-    ? { streamsMap: state.streamsMap, metricsMap: state.metricsMap }
-    : { streamsMap: EMPTY_STREAMS, metricsMap: EMPTY_METRICS };
+    ? {
+      streamsMap: state.streamsMap,
+      metricsMap: state.metricsMap,
+      metricStatusMap: state.metricStatusMap,
+    }
+    : {
+      streamsMap: EMPTY_STREAMS,
+      metricsMap: EMPTY_METRICS,
+      metricStatusMap: EMPTY_METRIC_STATUSES,
+    };
 }

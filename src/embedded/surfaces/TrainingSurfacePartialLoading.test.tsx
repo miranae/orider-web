@@ -64,7 +64,7 @@ describe("training embedded surface partial loading", () => {
       loading: false,
       cacheHit: false,
       freshLoaded: true,
-      derivedMetricsReady: true,
+      derivedMetricsSettled: true,
       error: null,
       timeseriesLoaded: false,
       timeseriesError: null,
@@ -179,23 +179,23 @@ describe("training embedded surface partial loading", () => {
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
   });
 
-  it("does not report cached fitness content before derived metrics are ready", async () => {
+  it("settles cached fitness before fresh when derived metric reads finish", async () => {
     const onReady = vi.fn();
     mocks.fitnessModel = {
       ...mocks.fitnessModel,
       cacheHit: true,
-      freshLoaded: false,
+      freshLoaded: true,
       timeseriesLoaded: true,
-      derivedMetricsReady: false,
+      derivedMetricsSettled: false,
     };
     const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
 
     expect(screen.getByText("derived ready")).toBeInTheDocument();
     expect(onReady).not.toHaveBeenCalled();
 
-    mocks.fitnessModel.derivedMetricsReady = true;
+    mocks.fitnessModel.derivedMetricsSettled = true;
     view.rerender(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
-    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+    await waitFor(() => expect(onReady.mock.calls).toEqual([["cached"], ["fresh"]]));
   });
 
   it("keeps a plan week failure inline and exposes retry", async () => {

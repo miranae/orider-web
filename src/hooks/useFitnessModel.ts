@@ -248,8 +248,8 @@ export function useFitnessModel(
     items: initialCache?.activities ?? [],
   });
   const activities = activityState.key === activityDataKey ? activityState.items : [];
-  const { streamsMap, metricsMap } = useActivityDerivedDocuments(user?.uid, activities);
-  const derivedMetricsReady = activities.every((activity) => metricsMap.has(activity.id));
+  const { streamsMap, metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, activities);
+  const derivedMetricsSettled = activities.every((activity) => metricStatusMap.has(activity.id));
   const [loading, setLoading] = useState(initialCache === null);
   const [cacheHit, setCacheHit] = useState(initialCache !== null);
   const [freshLoaded, setFreshLoaded] = useState(false);
@@ -837,7 +837,7 @@ export function useFitnessModel(
     disciplineActivities,
     streamsMap,
     metricsMap,
-    derivedMetricsReady,
+    derivedMetricsSettled,
     loading,
     cacheHit: cacheHit && timeseriesCacheHit,
     freshLoaded: freshLoaded && timeseriesFreshLoaded,

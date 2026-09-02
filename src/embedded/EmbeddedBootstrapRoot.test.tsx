@@ -585,6 +585,37 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     }));
   });
 
+  it("echoes the retained selection request id for offline cached fitness readiness", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    act(() => bridge.emit(hostMessage(
+      "host.surfaceSelected",
+      { surface: "fitness" },
+      "offline-cache-flow",
+    )));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks.fitness).not.toBeNull());
+
+    act(() => mocks.surfaceReadyCallbacks.fitness?.("cached"));
+
+    expect(bridge.sent).toContainEqual({
+      type: "surface.ready",
+      payload: {},
+      requestId: "offline-cache-flow",
+    });
+    expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "telemetry.event",
+      payload: expect.objectContaining({ milestone: "cached_content" }),
+      requestId: "offline-cache-flow",
+    }));
+  });
+
   it.each([
     ["fitness", "/ko/embed/fitness?sport=run"],
     ["plan", "/ko/embed/plan?sport=swim"],
