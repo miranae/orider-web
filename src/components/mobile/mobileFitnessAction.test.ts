@@ -59,7 +59,8 @@ describe("mobile fitness action", () => {
     const mobileFitness = read("src/components/mobile/MobileFitnessPage.tsx");
     const integrated = read("src/components/mobile/IntegratedLoadCard.tsx");
     expect(mobileFitness).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다.");
-    expect(mobileFitness).toContain("<SectionCard title={pmcTitle} sub={pmcSub} accentColor={pmcCtlColor}>");
+    expect(mobileFitness).toContain('const trendSectionTitle = sectionState.trend === "ready"');
+    expect(mobileFitness).toContain("<SectionCard title={trendSectionTitle} sub={pmcSub} accentColor={pmcCtlColor}>");
     expect(integrated).not.toContain("PmcMiniChart");
     expect(integrated).not.toContain("TripleStackPMC");
   });

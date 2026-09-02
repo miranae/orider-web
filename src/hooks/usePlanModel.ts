@@ -30,6 +30,10 @@ export interface PlanModel {
   discipline: PlanDiscipline;
   goal: Goal | null;
   weeks: PlanWeek[];
+  goalLoading: boolean;
+  planLoading: boolean;
+  goalError: unknown;
+  planError: unknown;
   loading: boolean;
   loadError: unknown;
   goalMatchesDiscipline: boolean;
@@ -55,8 +59,10 @@ export function usePlanModel(sport?: string | null): PlanModel {
   const discipline = normalizePlanSport(sport);
   const [goal, setGoal] = useState<Goal | null>(null);
   const [weeks, setWeeks] = useState<PlanWeek[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<unknown>(null);
+  const [goalLoading, setGoalLoading] = useState(true);
+  const [planLoading, setPlanLoading] = useState(true);
+  const [goalError, setGoalError] = useState<unknown>(null);
+  const [planError, setPlanError] = useState<unknown>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const { revalidating, justRecomputed } = useFreshTraining(discipline);
   const legacyRecoveryEnabled = getRuntimeConfig().trainingDecisionEnabled !== true;
@@ -74,15 +80,21 @@ export function usePlanModel(sport?: string | null): PlanModel {
     if (!user) {
       setGoal(null);
       setWeeks([]);
-      setLoadError(null);
-      setLoading(false);
+      setGoalError(null);
+      setPlanError(null);
+      setGoalLoading(false);
+      setPlanLoading(false);
       return;
     }
 
     let cancelled = false;
     const load = async () => {
-      setLoading(true);
-      setLoadError(null);
+      setGoal(null);
+      setWeeks([]);
+      setGoalLoading(true);
+      setPlanLoading(true);
+      setGoalError(null);
+      setPlanError(null);
       try {
         let snap = await getDocs(
           query(
@@ -107,28 +119,40 @@ export function usePlanModel(sport?: string | null): PlanModel {
         if (snap.empty) {
           setGoal(null);
           setWeeks([]);
+          setGoalLoading(false);
+          setPlanLoading(false);
           return;
         }
 
         const docSnap = snap.docs[0]!;
         const nextGoal = { id: docSnap.id, ...docSnap.data() } as Goal;
-        const planSnap = await getDocs(
-          query(
-            collection(firestore, "goals", nextGoal.id, "plan"),
-            orderBy("weekNumber"),
-          ),
-        );
-        if (cancelled) return;
         setGoal(nextGoal);
-        setWeeks(planSnap.docs.map((item) => ({ id: item.id, ...item.data() }) as PlanWeek));
+        setGoalLoading(false);
+        try {
+          const planSnap = await getDocs(
+            query(
+              collection(firestore, "goals", nextGoal.id, "plan"),
+              orderBy("weekNumber"),
+            ),
+          );
+          if (cancelled) return;
+          setWeeks(planSnap.docs.map((item) => ({ id: item.id, ...item.data() }) as PlanWeek));
+        } catch (error) {
+          if (cancelled) return;
+          setWeeks([]);
+          setPlanError(error);
+          logClientError("PlanPage.planLoad", error, { discipline, goalId: nextGoal.id });
+        } finally {
+          if (!cancelled) setPlanLoading(false);
+        }
       } catch (error) {
         if (cancelled) return;
         setGoal(null);
         setWeeks([]);
-        setLoadError(error);
-        logClientError("PlanPage.load", error, { discipline });
-      } finally {
-        if (!cancelled) setLoading(false);
+        setGoalError(error);
+        setGoalLoading(false);
+        setPlanLoading(false);
+        logClientError("PlanPage.goalLoad", error, { discipline });
       }
     };
 
@@ -154,6 +178,8 @@ export function usePlanModel(sport?: string | null): PlanModel {
     weeksLeft,
   } = computePlanProgress(weeks, todayMs);
   const goalMatchesDiscipline = !goal || !goal.discipline || goal.discipline === discipline;
+  const loading = goalLoading || planLoading;
+  const loadError = goalError ?? planError;
 
   const isTodayCell = useCallback((day: PlanDay): boolean => {
     const date = new Date(day.date);
@@ -181,6 +207,10 @@ export function usePlanModel(sport?: string | null): PlanModel {
     discipline,
     goal,
     weeks,
+    goalLoading,
+    planLoading,
+    goalError,
+    planError,
     loading,
     loadError,
     goalMatchesDiscipline,

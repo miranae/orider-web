@@ -8,6 +8,31 @@ vi.mock("../training/TodaysWorkoutCard", () => ({ default: () => null }));
 vi.mock("./SportPerformanceCard", () => ({ default: () => null }));
 
 describe("MobileFitnessPage power curve", () => {
+  it("does not render zero-valued trend sections before the timeseries settles", () => {
+    const data = {
+      ctl: 0, atl: 0, tsb: 0, pmcHistory: [], weeklyTSS: [0, 0, 0, 0],
+      thisWeekTSS: 0, avgWeekTSS: 0, restDays: 0,
+      threshold: null, hasLoadData: false, combinedLoad: null,
+      loadFocus: { windowDays: 28, totalLoad: 0, buckets: { baseAerobic: 0, highAerobic: 0, highIntensity: 0, unclassified: 0 }, sourceLoad: { power: 0, heartRate: 0, unclassified: 0 }, disciplineLoad: { bike: 0, run: 0, swim: 0, other: 0 }, activityCount: 0, coveragePct: 0, confidence: "none", hasAnaerobicBikeDetail: false },
+      cyclingAbility: null, runEvidence: { thresholdPaceSec: null, records: [] },
+      swimEvidence: { windowDays: 90, cssSecPer100m: null, swolfAvg: null, distancePerStrokeM: null, activityCount: 0 },
+      zones: [], zoneSource: "none", discipline: "bike",
+    } satisfies MobileFitnessData;
+
+    const { container } = renderWithProviders(
+      <MobileFitnessPage
+        data={data}
+        embedded
+        sectionState={{ trend: "loading", derived: "ready" }}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("피트니스 추이를 불러오는 중");
+    expect(container.querySelector("[data-pmc-chart]")).not.toBeInTheDocument();
+    expect(screen.queryByText("주간 부하 · 최근 4주")).not.toBeInTheDocument();
+    expect(screen.queryByText(/이번 주 0/)).not.toBeInTheDocument();
+  });
+
   it("separates explanatory copy from an accessible non-scaling chart", async () => {
     const user = userEvent.setup();
     const data = {

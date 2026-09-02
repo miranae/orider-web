@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FITNESS_TIMESERIES_SCHEMA_VERSION,
@@ -223,6 +223,7 @@ export function useFitnessModel(
   const { streamsMap, metricsMap } = useActivityDerivedDocuments(user?.uid, activities);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [range, setRange] = useState<RangeOption | 42>(90);
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
   const [projection, setProjection] = useState<FitnessProjection | null>(null);
@@ -303,6 +304,7 @@ export function useFitnessModel(
     const uid = user.uid;
     let active = true;
     setActivityState({ ownerUid: uid, items: [] });
+    setError(null);
     setLoading(true);
     const cutoff = Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000;
     const activitiesQuery = query(
@@ -338,7 +340,13 @@ export function useFitnessModel(
       active = false;
       unsubscribe();
     };
-  }, [activityQueryRange, firestore, t, user]);
+  }, [activityQueryRange, firestore, reloadKey, t, user]);
+
+  const retryLoad = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    setReloadKey((current) => current + 1);
+  }, []);
 
   useEffect(() => {
     if (!user || discipline === "tri") return undefined;
@@ -416,15 +424,30 @@ export function useFitnessModel(
     [activities, discipline, metricsMap],
   );
   const selectedTimeseriesDiscipline = discipline === "tri" ? "bike" : discipline;
-  const { timeseries, loaded: selectedTimeseriesLoaded } = useFitnessTimeseries(
+  const {
+    timeseries,
+    loaded: selectedTimeseriesLoaded,
+    error: selectedTimeseriesError,
+  } = useFitnessTimeseries(
     user?.uid,
     selectedTimeseriesDiscipline,
+    reloadKey,
   );
   const triUid = discipline === "tri" ? user?.uid : undefined;
-  const { timeseries: triRunTimeseries, loaded: triRunTimeseriesLoaded } = useFitnessTimeseries(triUid, "run");
-  const { timeseries: triSwimTimeseries, loaded: triSwimTimeseriesLoaded } = useFitnessTimeseries(triUid, "swim");
+  const {
+    timeseries: triRunTimeseries,
+    loaded: triRunTimeseriesLoaded,
+    error: triRunTimeseriesError,
+  } = useFitnessTimeseries(triUid, "run", reloadKey);
+  const {
+    timeseries: triSwimTimeseries,
+    loaded: triSwimTimeseriesLoaded,
+    error: triSwimTimeseriesError,
+  } = useFitnessTimeseries(triUid, "swim", reloadKey);
   const timeseriesLoaded = selectedTimeseriesLoaded
     && (discipline !== "tri" || (triRunTimeseriesLoaded && triSwimTimeseriesLoaded));
+  const timeseriesError = selectedTimeseriesError
+    ?? (discipline === "tri" ? triRunTimeseriesError ?? triSwimTimeseriesError : null);
   const hasCanonicalTimeseries = Boolean(
     discipline !== "tri" && isCanonicalTimeseries(timeseries, discipline),
   );
@@ -774,6 +797,8 @@ export function useFitnessModel(
     revalidating,
     justRecomputed,
     timeseriesLoaded,
+    timeseriesError,
+    retryLoad,
     hasCanonicalTimeseries,
     fitnessData,
     dailyData,
