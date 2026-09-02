@@ -207,6 +207,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
 function AuthorizedSurface({
   activityId,
   bridge,
+  onTrainingShellReady,
   onTrainingSurfaceReady,
   retryKey,
   services,
@@ -215,7 +216,8 @@ function AuthorizedSurface({
 }: {
   activityId?: string;
   bridge: EmbeddedBridge;
-  onTrainingSurfaceReady: () => void;
+  onTrainingShellReady: () => void;
+  onTrainingSurfaceReady: (status?: "fresh" | "error") => void;
   retryKey: number;
   services: FirebaseServices;
   session: AcceptedSession;
@@ -223,6 +225,7 @@ function AuthorizedSurface({
 }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const shellStatusRef = useRef<HTMLParagraphElement>(null);
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } },
   }));
@@ -262,7 +265,18 @@ function AuthorizedSurface({
     document.documentElement.lang = session.locale;
   }, [session.locale]);
 
-  if (profileLoading) {
+  const trainingSurface = surfaceKind === "fitness" || surfaceKind === "plan";
+
+  useEffect(() => {
+    if (!trainingSurface) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      onTrainingShellReady();
+      if (shellStatusRef.current) shellStatusRef.current.hidden = true;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [onTrainingShellReady, trainingSurface]);
+
+  if (profileLoading && !trainingSurface) {
     return (
       <div className="orider-embedded-status" role="status" aria-label="Loading profile">
         <div className="orider-embedded-status__pulse" />
@@ -270,7 +284,7 @@ function AuthorizedSurface({
     );
   }
 
-  return (
+  const surface = (
     <FirebaseServicesProvider services={services}>
       <AuthContextProvider value={authValue}>
         <QueryClientProvider client={queryClient}>
@@ -292,14 +306,12 @@ function AuthorizedSurface({
                   key={retryKey}
                   retryKey={retryKey}
                   onReady={onTrainingSurfaceReady}
-                  onError={(code) => bridge.send("surface.error", { code })}
                 />
               ) : surfaceKind === "plan" ? (
                 <PlanSurface
                   key={retryKey}
                   retryKey={retryKey}
                   onReady={onTrainingSurfaceReady}
-                  onError={(code) => bridge.send("surface.error", { code })}
                 />
               ) : null}
             </Suspense>
@@ -308,6 +320,28 @@ function AuthorizedSurface({
       </AuthContextProvider>
     </FirebaseServicesProvider>
   );
+
+  if (trainingSurface) {
+    const title = session.locale === "en"
+      ? surfaceKind === "fitness" ? "Fitness" : "Plan"
+      : surfaceKind === "fitness" ? "피트니스" : "운동 계획";
+    const loadingLabel = session.locale === "en" ? "Loading…" : "불러오는 중…";
+    return (
+      <section className="orider-embedded-shell" aria-labelledby="orider-training-surface-title">
+        <header className="orider-embedded-shell__header">
+          <h1 id="orider-training-surface-title">{title}</h1>
+          <p ref={shellStatusRef} role="status">{loadingLabel}</p>
+        </header>
+        {profileLoading ? (
+          <div className="orider-embedded-status" role="status" aria-label={loadingLabel}>
+            <div className="orider-embedded-status__pulse" />
+          </div>
+        ) : surface}
+      </section>
+    );
+  }
+
+  return surface;
 }
 
 export default function EmbeddedBootstrapRoot({
@@ -343,19 +377,34 @@ export default function EmbeddedBootstrapRoot({
     }
   }, [bridge]);
 
-  const handleTrainingSurfaceReady = useCallback(() => {
+  const handleTrainingShellReady = useCallback(() => {
+    safeSend("surface.shellReady", {});
+    const flow = surfaceLoadingFlow.current;
+    if (!flow || flow.surface !== surfaceKind) return;
+    safeSend("telemetry.event", {
+      name: "embedded_surface_loading",
+      surface: flow.surface,
+      elapsedMs: Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt))),
+      loadState: "cold",
+      milestone: "shell_visible",
+    }, flow.requestId);
+  }, [safeSend, surfaceKind]);
+
+  const handleTrainingSurfaceReady = useCallback((status: "fresh" | "error" = "fresh") => {
     const flow = surfaceLoadingFlow.current;
     if (flow && flow.surface === surfaceKind) {
-      // terminal milestone은 한 번만 소비한다. retry나 중복 callback이 이전 trace를
-      // 재사용하면 한 번의 탭 진입이 여러 완료 이벤트로 집계된다.
-      surfaceLoadingFlow.current = null;
-      safeSend("telemetry.event", {
-        name: "embedded_surface_loading",
-        surface: flow.surface,
-        elapsedMs: Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt))),
-        loadState: "cold",
-        milestone: "fresh_complete",
-      }, flow.requestId);
+      if (status === "fresh") {
+        // 정상 완료 milestone만 trace를 소비한다. 인라인 오류 뒤 같은 셸에서 재시도해
+        // 복구되면 최초 탭 진입과 연결된 fresh_complete를 한 번 기록한다.
+        surfaceLoadingFlow.current = null;
+        safeSend("telemetry.event", {
+          name: "embedded_surface_loading",
+          surface: flow.surface,
+          elapsedMs: Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt))),
+          loadState: "cold",
+          milestone: "fresh_complete",
+        }, flow.requestId);
+      }
     }
     safeSend("surface.ready", {});
   }, [safeSend, surfaceKind]);
@@ -513,6 +562,7 @@ export default function EmbeddedBootstrapRoot({
         <AuthorizedSurface
           activityId={activityId}
           bridge={bridge}
+          onTrainingShellReady={handleTrainingShellReady}
           onTrainingSurfaceReady={handleTrainingSurfaceReady}
           retryKey={retryKey}
           services={services}

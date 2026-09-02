@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { collection } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ReactNode } from "react";
@@ -90,6 +90,10 @@ describe("usePlanModel", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.discipline).toBe("run");
+    expect(result.current.goalLoading).toBe(false);
+    expect(result.current.planLoading).toBe(false);
+    expect(result.current.goalError).toBeNull();
+    expect(result.current.planError).toBeNull();
     expect(result.current.goal?.id).toBe("goal-run");
     expect(result.current.weeks).toHaveLength(1);
     expect(result.current.totalTSS).toBe(80);
@@ -111,5 +115,39 @@ describe("usePlanModel", () => {
     expect(result.current.goal).toBeNull();
     expect(mocks.freshTraining).toHaveBeenCalledWith("bike");
     expect(mocks.fitnessTimeseries).toHaveBeenCalledWith("owner", "bike");
+  });
+
+  it("exposes the goal while the plan weeks request is still pending", async () => {
+    const getDocsMock = vi.mocked(getDocs);
+    const originalImplementation = getDocsMock.getMockImplementation()!;
+    let resolvePlan: ((value: unknown) => void) | null = null;
+    getDocsMock
+      .mockResolvedValueOnce({
+        empty: false,
+        docs: [{
+          id: "goal-run",
+          data: () => ({
+            userId: "owner",
+            discipline: "run",
+            status: "active",
+            eventDate: Date.now() + 24 * 60 * 60 * 1000,
+            courseName: "10K",
+          }),
+        }],
+      } as never)
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolvePlan = resolve;
+      }) as never);
+
+    const { result } = renderHook(() => usePlanModel("run"), { wrapper });
+
+    await waitFor(() => expect(result.current.goalLoading).toBe(false));
+    expect(result.current.goal?.id).toBe("goal-run");
+    expect(result.current.planLoading).toBe(true);
+    expect(result.current.loading).toBe(true);
+
+    resolvePlan?.({ empty: true, docs: [] });
+    await waitFor(() => expect(result.current.planLoading).toBe(false));
+    getDocsMock.mockImplementation(originalImplementation);
   });
 });

@@ -246,6 +246,71 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     },
   );
 
+  it.each([
+    ["fitness", "/ko/embed/fitness", "피트니스"],
+    ["plan", "/ko/embed/plan", "운동 계획"],
+  ] as const)("emits %s shellReady only after the authenticated shell is committed", async (
+    surfaceKind,
+    path,
+    title,
+  ) => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, path, surfaceKind);
+
+    expect(screen.queryByRole("heading", { name: title })).not.toBeInTheDocument();
+    expect(bridge.sent.some((message) => message.type === "surface.shellReady")).toBe(false);
+
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    expect(bridge.sent.some((message) => message.type === "surface.shellReady")).toBe(false);
+
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload(), "shell-flow")));
+
+    expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
+    await waitFor(() => expect(bridge.sent).toContainEqual({
+      type: "surface.shellReady",
+      payload: {},
+      requestId: undefined,
+    }));
+    expect(bridge.sent).toContainEqual({
+      type: "telemetry.event",
+      payload: {
+        name: "embedded_surface_loading",
+        surface: surfaceKind,
+        elapsedMs: expect.any(Number),
+        loadState: "cold",
+        milestone: "shell_visible",
+      },
+      requestId: "shell-flow",
+    });
+  });
+
+  it("does not change the Activity Analysis ready contract", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge);
+
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks.activityAnalysis).not.toBeNull());
+    act(() => mocks.surfaceReadyCallbacks.activityAnalysis?.());
+
+    expect(bridge.sent.some((message) => message.type === "surface.shellReady")).toBe(false);
+    expect(bridge.sent).toContainEqual({
+      type: "surface.ready",
+      payload: { activityId: "activity-1" },
+      requestId: undefined,
+    });
+  });
+
   it("clamps fresh completion telemetry to the native elapsed upper bound", async () => {
     const now = vi.spyOn(performance, "now").mockReturnValue(1_000);
     const bridge = createFakeBridge();

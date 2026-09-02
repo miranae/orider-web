@@ -17,34 +17,39 @@ import type { Discipline } from "../utils/disciplineFilter";
 export function useFitnessTimeseries(
   uid: string | undefined,
   discipline: Discipline,
-): { timeseries: FitnessTimeseriesDoc | null; loaded: boolean } {
+): { timeseries: FitnessTimeseriesDoc | null; loaded: boolean; error: unknown } {
   const { firestore } = useFirebaseServices();
   const [timeseries, setTimeseries] = useState<FitnessTimeseriesDoc | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     if (!uid || discipline === "tri") {
       setTimeseries(null);
+      setError(null);
       setLoaded(true);
       return undefined;
     }
     setLoaded(false);
+    setError(null);
     setTimeseries(null);
     const ref = doc(firestore, "users", uid, "fitness", `timeseries_${discipline}`);
     const unsub = onSnapshot(
       ref,
       (snap) => {
         setTimeseries(snap.exists() ? (snap.data() as FitnessTimeseriesDoc) : null);
+        setError(null);
         setLoaded(true);
       },
       (err) => {
         logClientError("useFitnessTimeseries", err, { discipline });
         setTimeseries(null);
+        setError(err);
         setLoaded(true);
       },
     );
     return () => unsub();
   }, [discipline, firestore, uid]);
 
-  return { timeseries, loaded };
+  return { timeseries, loaded, error };
 }

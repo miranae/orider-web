@@ -416,15 +416,29 @@ export function useFitnessModel(
     [activities, discipline, metricsMap],
   );
   const selectedTimeseriesDiscipline = discipline === "tri" ? "bike" : discipline;
-  const { timeseries, loaded: selectedTimeseriesLoaded } = useFitnessTimeseries(
+  const {
+    timeseries,
+    loaded: selectedTimeseriesLoaded,
+    error: selectedTimeseriesError,
+  } = useFitnessTimeseries(
     user?.uid,
     selectedTimeseriesDiscipline,
   );
   const triUid = discipline === "tri" ? user?.uid : undefined;
-  const { timeseries: triRunTimeseries, loaded: triRunTimeseriesLoaded } = useFitnessTimeseries(triUid, "run");
-  const { timeseries: triSwimTimeseries, loaded: triSwimTimeseriesLoaded } = useFitnessTimeseries(triUid, "swim");
+  const {
+    timeseries: triRunTimeseries,
+    loaded: triRunTimeseriesLoaded,
+    error: triRunTimeseriesError,
+  } = useFitnessTimeseries(triUid, "run");
+  const {
+    timeseries: triSwimTimeseries,
+    loaded: triSwimTimeseriesLoaded,
+    error: triSwimTimeseriesError,
+  } = useFitnessTimeseries(triUid, "swim");
   const timeseriesLoaded = selectedTimeseriesLoaded
     && (discipline !== "tri" || (triRunTimeseriesLoaded && triSwimTimeseriesLoaded));
+  const timeseriesError = selectedTimeseriesError
+    ?? (discipline === "tri" ? triRunTimeseriesError ?? triSwimTimeseriesError : null);
   const hasCanonicalTimeseries = Boolean(
     discipline !== "tri" && isCanonicalTimeseries(timeseries, discipline),
   );
@@ -774,6 +788,7 @@ export function useFitnessModel(
     revalidating,
     justRecomputed,
     timeseriesLoaded,
+    timeseriesError,
     hasCanonicalTimeseries,
     fitnessData,
     dailyData,

@@ -12,6 +12,7 @@ export const HOST_MESSAGE_TYPES = [
 
 export const WEB_MESSAGE_TYPES = [
   "bootstrap.ready",
+  "surface.shellReady",
   "surface.ready",
   "auth.state",
   "surface.error",
