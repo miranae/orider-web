@@ -93,6 +93,8 @@ class DerivedDocumentReadTimeoutError extends Error {
 async function getDerivedDocument(reference: DocumentReference) {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   try {
+    // Firestore getDoc은 취소 API가 없다. 호출 수는 기존 retry 상한으로 제한하고,
+    // 제한시간 뒤 늦게 끝난 결과는 Promise.race와 아래 generation/revision 가드가 버린다.
     return await Promise.race([
       getDoc(reference),
       new Promise<never>((_, reject) => {
@@ -302,14 +304,15 @@ export function useActivityDerivedDocuments(
       : activities.filter((activity) => (
         activity.userId === normalizedUid && getDiscipline(activity.type) !== null
       ));
-    const activeIds = new Set(activities.map((activity) => activity.id));
-    pruneResources(resources, activeIds);
+    const displayedIds = new Set(activities.map((activity) => activity.id));
+    const scopedReadIds = new Set(scopedActivities.map((activity) => activity.id));
+    pruneResources(resources, scopedReadIds);
     setState((previous) => {
       const ownerChanged = previous.ownerUid !== normalizedUid;
-      const streamsChanged = ownerChanged || [...previous.streamsMap.keys()].some((id) => !activeIds.has(id));
-      const metricsChanged = ownerChanged || [...previous.metricsMap.keys()].some((id) => !activeIds.has(id));
+      const streamsChanged = ownerChanged || [...previous.streamsMap.keys()].some((id) => !displayedIds.has(id));
+      const metricsChanged = ownerChanged || [...previous.metricsMap.keys()].some((id) => !displayedIds.has(id));
       const metricStatusesChanged = ownerChanged
-        || [...previous.metricStatusMap.keys()].some((id) => !activeIds.has(id))
+        || [...previous.metricStatusMap.keys()].some((id) => !displayedIds.has(id))
         || activities.some((activity) => {
           const status = previous.metricStatusMap.get(activity.id);
           const expectedState = normalizedUid == null
@@ -325,7 +328,7 @@ export function useActivityDerivedDocuments(
       const metricsMap = new Map<string, ActivityMetrics>();
       const metricStatusMap = new Map<string, ActivityMetricStatus>();
       if (!ownerChanged) {
-        for (const [id, value] of previous.streamsMap) if (activeIds.has(id)) streamsMap.set(id, value);
+        for (const [id, value] of previous.streamsMap) if (displayedIds.has(id)) streamsMap.set(id, value);
       }
       for (const activity of activities) {
         const revision = activityDerivedDocumentRevision(activity);
@@ -602,6 +605,8 @@ export function useActivityDerivedDocuments(
     });
     const applyMetric = (id: string, value: ActivityMetrics, revision: string) => setState((previous) => {
       if (previous.ownerUid !== normalizedUid) return previous;
+      const currentStatus = previous.metricStatusMap.get(id);
+      if (currentStatus?.revision !== revision || currentStatus.state === "skipped") return previous;
       const metricsMap = new Map(previous.metricsMap);
       const metricStatusMap = new Map(previous.metricStatusMap);
       metricsMap.set(id, value);
@@ -614,6 +619,8 @@ export function useActivityDerivedDocuments(
       status: "missing" | "error",
     ) => setState((previous) => {
       if (previous.ownerUid !== normalizedUid) return previous;
+      const currentStatus = previous.metricStatusMap.get(id);
+      if (currentStatus?.revision !== revision || currentStatus.state === "skipped") return previous;
       const metricStatusMap = new Map(previous.metricStatusMap);
       metricStatusMap.set(id, { revision, state: status });
       return { ...previous, metricStatusMap };
