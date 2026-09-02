@@ -2,29 +2,22 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import DisciplineTabs from "../../components/redesign/DisciplineTabs";
-import type { Activity, ActivityStreams, UserProfile } from "@shared/types";
-import { filterByDiscipline } from "../../utils/disciplineFilter";
-import {
-  estimateActivityLoad,
-  aggregateDailyLoad,
-  calculateFitness,
-  type ActivityLoadEntry,
-  type FitnessPoint,
-} from "../../utils/fitnessMetrics";
-import { toLocalDate } from "../../utils/dateUtils";
 import { Card, Text } from "../../theme/components";
 import IntegratedLoadCard, { type CombinedLoadStatus } from "../../components/mobile/IntegratedLoadCard";
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
 import { DISCIPLINE_CHART_COLORS, PMC_LINE_PALETTE } from "../../features/fitness/chartPalette";
+import type { TriFitnessBreakdown, TriFitnessTimelinePoint } from "../../hooks/useFitnessModel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
 // ─────────────────────────────────────────────────────────────────────────────
+type TriRange = 42 | 90 | 180 | 365;
+
 interface TriFitnessViewProps {
-  activities: Activity[];
-  streamsMap: Map<string, ActivityStreams>;
   range: number;
-  profile: UserProfile | null;
+  onRangeChange: (range: TriRange) => void;
+  breakdown: TriFitnessBreakdown;
+  timeline: TriFitnessTimelinePoint[];
   combinedLoad: CombinedLoadStatus | null;
   loadFocus: LoadFocusResult;
 }
@@ -522,70 +515,26 @@ const LEGEND_ITEM_KEYS = [
 // ─────────────────────────────────────────────────────────────────────────────
 // TriFitnessView
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TriFitnessView({ activities, streamsMap, range, profile, combinedLoad, loadFocus }: TriFitnessViewProps) {
+export default function TriFitnessView({ range, onRangeChange, breakdown: triBreakdown, timeline, combinedLoad, loadFocus }: TriFitnessViewProps) {
   const { t } = useTranslation("fitness");
-  const [rangeLocal, setRangeLocal] = useState(range);
-
-  // ── 실데이터 계산 ──────────────────────────────────────────────────────────
-  const triBreakdown = useMemo(() => {
-    const today = toLocalDate(Date.now());
-    const disciplines = ["bike", "run", "swim"] as const;
-    const result: Record<string, { fitness: FitnessPoint[]; currentCtl: number; weeklyTSS: number }> = {};
-
-    for (const disc of disciplines) {
-      const acts = filterByDiscipline(activities, disc);
-      if (acts.length === 0) {
-        result[disc] = { fitness: [], currentCtl: 0, weeklyTSS: 0 };
-        continue;
-      }
-      const entries: ActivityLoadEntry[] = acts.map((a) => {
-        const stream = streamsMap.get(a.id);
-        const load = estimateActivityLoad({
-          precomputedTss: (a as { tss?: number | null }).tss ?? a.summary.tss,
-          watts: stream?.watts ?? stream?.watts_calc,
-          ftp: stream?.ftp ?? profile?.ftp,
-          heartrate: stream?.heartrate,
-          time: stream?.time,
-          maxHr: stream?.maxHr ?? profile?.maxHr,
-          lthr: profile?.lthr,
-          relativeEffort: a.summary.relativeEffort,
-          ridingTimeMillis: a.summary.ridingTimeMillis,
-          discipline: disc,
-        });
-        return { date: toLocalDate(a.startTime), load: load.value, source: load.source };
-      });
-      // 날짜 오름차순 정렬
-      entries.sort((a, b) => a.date.localeCompare(b.date));
-      const firstDate = entries[0]!.date;
-      const daily = aggregateDailyLoad(entries, firstDate, today);
-      const fitness = calculateFitness(daily);
-      const last7 = daily.slice(-7);
-      const weeklyTSS = last7.reduce((s, d) => s + d.totalLoad, 0);
-      result[disc] = {
-        fitness,
-        currentCtl: fitness[fitness.length - 1]?.ctl ?? 0,
-        weeklyTSS,
-      };
-    }
-    return result;
-  }, [activities, streamsMap, profile]);
 
   // ── 실데이터 기반 KPI 변수 ─────────────────────────────────────────────────
-  const hasData = activities.length > 0;
+  const hasData = Object.values(triBreakdown).some((entry) => entry.fitness.length > 0);
+  const currentTimelinePoint = timeline[timeline.length - 1];
 
-  const bikeCTL = triBreakdown.bike?.currentCtl ?? 0;
-  const runCTL = triBreakdown.run?.currentCtl ?? 0;
-  const swimCTL = triBreakdown.swim?.currentCtl ?? 0;
+  const bikeCTL = currentTimelinePoint?.bike?.ctl ?? 0;
+  const runCTL = currentTimelinePoint?.run?.ctl ?? 0;
+  const swimCTL = currentTimelinePoint?.swim?.ctl ?? 0;
   const totalCTL = bikeCTL + runCTL + swimCTL;
 
-  const bikeATL = triBreakdown.bike?.fitness.slice(-1)[0]?.atl ?? 0;
-  const runATL = triBreakdown.run?.fitness.slice(-1)[0]?.atl ?? 0;
-  const swimATL = triBreakdown.swim?.fitness.slice(-1)[0]?.atl ?? 0;
+  const bikeATL = currentTimelinePoint?.bike?.atl ?? 0;
+  const runATL = currentTimelinePoint?.run?.atl ?? 0;
+  const swimATL = currentTimelinePoint?.swim?.atl ?? 0;
   const totalATL = bikeATL + runATL + swimATL;
 
   const totalTSB = totalCTL - totalATL;
   const displayedWeeklyTss = hasData
-    ? Math.round((triBreakdown.bike?.weeklyTSS ?? 0) + (triBreakdown.run?.weeklyTSS ?? 0) + (triBreakdown.swim?.weeklyTSS ?? 0)).toString()
+    ? Math.round(triBreakdown.bike.weeklyTSS + triBreakdown.run.weeklyTSS + triBreakdown.swim.weeklyTSS).toString()
     : "487";
 
   const totalForPct = totalCTL || 1;
@@ -601,111 +550,39 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
   ];
 
   // ── CTL 스파크라인 (최근 28일 FitnessPoint에서 추출) ───────────────────────
-  const bikeSpark = (triBreakdown.bike?.fitness ?? []).slice(-28).map((p) => p.ctl);
-  const runSpark  = (triBreakdown.run?.fitness  ?? []).slice(-28).map((p) => p.ctl);
-  const swimSpark = (triBreakdown.swim?.fitness ?? []).slice(-28).map((p) => p.ctl);
+  const bikeSpark = timeline.slice(-28).map((point) => point.bike?.ctl ?? 0);
+  const runSpark  = timeline.slice(-28).map((point) => point.run?.ctl ?? 0);
+  const swimSpark = timeline.slice(-28).map((point) => point.swim?.ctl ?? 0);
 
   // 스파크 빈 경우 단일 점(0) fallback — PerDisciplineCard가 빈 배열 처리 가능하도록 그냥 전달
   // ctl.length === 0이면 차트 렌더 생략 (컴포넌트 내부에서 처리)
 
   // ── 일별 부하 차트 데이터 (최근 42일) ────────────────────────────────────
   const dailyLoadData = useMemo((): DailyBarEntry[] => {
-    if (!hasData) return [];
-    const today = toLocalDate(Date.now());
-    // 42일 전 날짜 계산
-    const startMs = Date.now() - 42 * 24 * 3600 * 1000;
-    const startDate = toLocalDate(startMs);
-
-    // 종목별 일별 맵
-    const makeMap = (disc: "bike" | "run" | "swim") => {
-      const acts = filterByDiscipline(activities, disc);
-      const map = new Map<string, number>();
-      for (const a of acts) {
-        const d = toLocalDate(a.startTime);
-        if (d < startDate) continue;
-        const stream = streamsMap.get(a.id);
-        const load = estimateActivityLoad({
-          precomputedTss: (a as { tss?: number | null }).tss ?? a.summary.tss,
-          watts: stream?.watts ?? stream?.watts_calc,
-          ftp: stream?.ftp ?? profile?.ftp,
-          heartrate: stream?.heartrate,
-          time: stream?.time,
-          maxHr: stream?.maxHr ?? profile?.maxHr,
-          lthr: profile?.lthr,
-          relativeEffort: a.summary.relativeEffort,
-          ridingTimeMillis: a.summary.ridingTimeMillis,
-          discipline: disc,
-        });
-        map.set(d, (map.get(d) ?? 0) + load.value);
-      }
-      return map;
-    };
-
-    const bikeMap = makeMap("bike");
-    const runMap  = makeMap("run");
-    const swimMap = makeMap("swim");
-
-    const result: DailyBarEntry[] = [];
-    let dateStr = startDate;
-    while (dateStr <= today) {
-      result.push({ date: dateStr, bike: bikeMap.get(dateStr) ?? 0, run: runMap.get(dateStr) ?? 0, swim: swimMap.get(dateStr) ?? 0 });
-      const [y, m, d] = dateStr.split("-").map(Number) as [number, number, number];
-      const next = new Date(Date.UTC(y, m - 1, d + 1));
-      dateStr = next.toISOString().slice(0, 10);
-    }
-    return result;
-  }, [activities, streamsMap, profile, hasData]);
+    return timeline.slice(-42).map((point) => ({
+      date: point.date,
+      bike: point.bike?.dailyLoad ?? 0,
+      run: point.run?.dailyLoad ?? 0,
+      swim: point.swim?.dailyLoad ?? 0,
+    }));
+  }, [timeline]);
 
   // ── PMC 실데이터 시계열 (rangeLocal 일 기준) ─────────────────────────────
   const pmcSeries = useMemo(() => {
     // 각 종목의 fitness 배열을 rangeLocal 일 slice
-    const bikeFit = (triBreakdown.bike?.fitness ?? []).slice(-rangeLocal);
-    const runFit  = (triBreakdown.run?.fitness  ?? []).slice(-rangeLocal);
-    const swimFit = (triBreakdown.swim?.fitness ?? []).slice(-rangeLocal);
+    const sliced = timeline.slice(-range);
+    return {
+      bikeCtl: sliced.map((point) => point.bike?.ctl ?? 0),
+      runCtl: sliced.map((point) => point.run?.ctl ?? 0),
+      swimCtl: sliced.map((point) => point.swim?.ctl ?? 0),
+      totCtl: sliced.map((point) => point.integrated.ctl),
+      atl: sliced.map((point) => point.integrated.atl),
+      tsb: sliced.map((point) => point.integrated.tsb),
+      dates: sliced.map((point) => point.date),
+    };
+  }, [range, timeline]);
 
-    // 날짜 기준 합산: 세 배열의 날짜가 동일하다고 보장할 수 없으므로
-    // bike의 날짜를 기준으로 Map에서 run/swim을 병합
-    const runMap  = new Map(runFit.map((p) => [p.date, p]));
-    const swimMap = new Map(swimFit.map((p) => [p.date, p]));
-    const bikeMap = new Map(bikeFit.map((p) => [p.date, p]));
-
-    // 전체 날짜 합집합 (정렬)
-    const allDates = Array.from(
-      new Set([...bikeFit, ...runFit, ...swimFit].map((p) => p.date))
-    ).sort();
-
-    const sliced = allDates.slice(-rangeLocal);
-
-    const bikeCtlArr: number[] = [];
-    const runCtlArr: number[]  = [];
-    const swimCtlArr: number[] = [];
-    const totCtlArr: number[]  = [];
-    const atlArr: number[]     = [];
-    const tsbArr: number[]     = [];
-    const dateArr: string[]    = [];
-
-    for (const date of sliced) {
-      const b = bikeMap.get(date)?.ctl ?? 0;
-      const r = runMap.get(date)?.ctl  ?? 0;
-      const s = swimMap.get(date)?.ctl ?? 0;
-      const bAtl = bikeMap.get(date)?.atl ?? 0;
-      const rAtl = runMap.get(date)?.atl  ?? 0;
-      const sAtl = swimMap.get(date)?.atl ?? 0;
-      const tot = b + r + s;
-      const totAtl = bAtl + rAtl + sAtl;
-      bikeCtlArr.push(b);
-      runCtlArr.push(r);
-      swimCtlArr.push(s);
-      totCtlArr.push(tot);
-      atlArr.push(totAtl);
-      tsbArr.push(tot - totAtl);
-      dateArr.push(date);
-    }
-
-    return { bikeCtl: bikeCtlArr, runCtl: runCtlArr, swimCtl: swimCtlArr, totCtl: totCtlArr, atl: atlArr, tsb: tsbArr, dates: dateArr };
-  }, [triBreakdown, rangeLocal]);
-
-  const rangeOptions = [
+  const rangeOptions: Array<{ label: string; value: TriRange }> = [
     { label: t("triView.range.6w"), value: 42 },
     { label: t("triView.range.3m"), value: 90 },
     { label: t("triView.range.6m"), value: 180 },
@@ -738,16 +615,16 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
             {rangeOptions.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setRangeLocal(opt.value)}
+                onClick={() => onRangeChange(opt.value)}
                 style={{
                   padding: "5px 12px",
                   fontSize: "var(--fs-xs)",
                   borderRadius: "var(--r-sm)",
                   border: "none",
                   cursor: "pointer",
-                  background: rangeLocal === opt.value ? "var(--bg-3)" : "transparent",
-                  color: rangeLocal === opt.value ? "var(--ink-0)" : "var(--ink-3)",
-                  fontWeight: rangeLocal === opt.value ? 600 : 400,
+                  background: range === opt.value ? "var(--bg-3)" : "transparent",
+                  color: range === opt.value ? "var(--ink-0)" : "var(--ink-3)",
+                  fontWeight: range === opt.value ? 600 : 400,
                 }}
               >
                 {opt.label}
@@ -917,7 +794,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
             color={DISCIPLINE_CHART_COLORS.bike}
             ctl={bikeSpark.length > 0 ? bikeSpark : [0]}
             delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : 0}
-            tss={Math.round(triBreakdown.bike?.weeklyTSS ?? 0)}
+            tss={Math.round(triBreakdown.bike.weeklyTSS)}
             dist="—"
             unit="km"
             lastSess={hasData ? t("triView.liveData") : t("triView.demo.bikeLastSess")}
@@ -928,7 +805,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
             color={DISCIPLINE_CHART_COLORS.run}
             ctl={runSpark.length > 0 ? runSpark : [0]}
             delta={runSpark.length >= 2 ? runSpark[runSpark.length - 1]! - runSpark[runSpark.length - 2]! : 0}
-            tss={Math.round(triBreakdown.run?.weeklyTSS ?? 0)}
+            tss={Math.round(triBreakdown.run.weeklyTSS)}
             dist="—"
             unit="km"
             lastSess={hasData ? t("triView.liveData") : t("triView.demo.runLastSess")}
@@ -939,7 +816,7 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
             color={DISCIPLINE_CHART_COLORS.swim}
             ctl={swimSpark.length > 0 ? swimSpark : [0]}
             delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : 0}
-            tss={Math.round(triBreakdown.swim?.weeklyTSS ?? 0)}
+            tss={Math.round(triBreakdown.swim.weeklyTSS)}
             dist="—"
             unit="km"
             lastSess={hasData ? t("triView.liveData") : t("triView.demo.swimLastSess")}
@@ -1027,15 +904,15 @@ export default function TriFitnessView({ activities, streamsMap, range, profile,
             </div>
             <div>
               <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.bike")}</Text>
-              <div><Text variant="dataMedium">{Math.round(triBreakdown.bike?.weeklyTSS ?? 0)}</Text><Text variant="unit"> TSS</Text></div>
+              <div><Text variant="dataMedium">{Math.round(triBreakdown.bike.weeklyTSS)}</Text><Text variant="unit"> TSS</Text></div>
             </div>
             <div>
               <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.run")}</Text>
-              <div><Text variant="dataMedium">{Math.round(triBreakdown.run?.weeklyTSS ?? 0)}</Text><Text variant="unit"> TSS</Text></div>
+              <div><Text variant="dataMedium">{Math.round(triBreakdown.run.weeklyTSS)}</Text><Text variant="unit"> TSS</Text></div>
             </div>
             <div>
               <Text as="div" variant="eyebrow" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.swim")}</Text>
-              <div><Text variant="dataMedium">{Math.round(triBreakdown.swim?.weeklyTSS ?? 0)}</Text><Text variant="unit"> TSS</Text></div>
+              <div><Text variant="dataMedium">{Math.round(triBreakdown.swim.weeklyTSS)}</Text><Text variant="unit"> TSS</Text></div>
             </div>
           </div>
         </Card>

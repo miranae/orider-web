@@ -100,6 +100,8 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     weeklyStats,
     zoneDistribution,
     combinedLoad,
+    triFitnessBreakdown,
+    triFitnessTimeline,
     integratedLoadFocus,
     cyclingAbility,
     runPaceStreams,
@@ -172,10 +174,10 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
   if (!renderMobile && discipline === "tri") {
     return (
       <TriFitnessView
-        activities={activities}
-        streamsMap={streamsMap}
         range={range}
-        profile={profile}
+        onRangeChange={setRange}
+        breakdown={triFitnessBreakdown}
+        timeline={triFitnessTimeline}
         combinedLoad={combinedLoad}
         loadFocus={integratedLoadFocus}
       />

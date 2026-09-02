@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FITNESS_TIMESERIES_SCHEMA_VERSION } from "@shared/types/fitness-timeseries";
+import {
+  FITNESS_TIMESERIES_SCHEMA_VERSION,
+  type FitnessTimeseriesDoc,
+  type TimeseriesDiscipline,
+} from "@shared/types/fitness-timeseries";
 import { collection, doc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 
 import type { Activity } from "@shared/types";
@@ -47,10 +51,13 @@ import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { toLocalDate } from "../utils/dateUtils";
 import {
   aggregateDailyLoad,
+  ATL_DAYS,
   calculateFitness,
+  CTL_DAYS,
   estimateActivityLoad,
   type ActivityLoadEntry,
   type DailyLoad,
+  type FitnessPoint,
 } from "../utils/fitnessMetrics";
 import { logClientError } from "../services/errorLogger";
 import { useBikeFtpDecision } from "./useBikeFtpDecision";
@@ -61,6 +68,139 @@ export function resolveFitnessDiscipline(value: string | null | undefined): Disc
   return value === "bike" || value === "run" || value === "swim" || value === "tri"
     ? value
     : "bike";
+}
+
+export interface TriDisciplineFitness {
+  fitness: FitnessPoint[];
+  weeklyTSS: number;
+  canonical: boolean;
+}
+
+export type TriFitnessBreakdown = Record<TimeseriesDiscipline, TriDisciplineFitness>;
+
+export function normalizeFitnessRange(
+  discipline: Discipline,
+  range: RangeOption | 42,
+): RangeOption | 42 {
+  if (discipline === "tri" && range === 30) return 90;
+  return discipline !== "tri" && range === 42 ? 90 : range;
+}
+
+export interface TriFitnessTimelinePoint {
+  date: string;
+  bike: FitnessPoint | null;
+  run: FitnessPoint | null;
+  swim: FitnessPoint | null;
+  integrated: FitnessPoint;
+}
+
+export function buildTriFitnessTimeline(breakdown: TriFitnessBreakdown): TriFitnessTimelinePoint[] {
+  const disciplines = ["bike", "run", "swim"] as const;
+  const dayMs = 24 * 60 * 60 * 1000;
+  const ctlDecay = 1 - 1 / CTL_DAYS;
+  const atlDecay = 1 - 1 / ATL_DAYS;
+  const round1 = (value: number) => Math.round(value * 10) / 10;
+  const dates = Array.from(new Set(
+    disciplines.flatMap((discipline) => breakdown[discipline].fitness.map((point) => point.date)),
+  )).sort();
+  const pointsByDiscipline = {
+    bike: new Map(breakdown.bike.fitness.map((point) => [point.date, point])),
+    run: new Map(breakdown.run.fitness.map((point) => [point.date, point])),
+    swim: new Map(breakdown.swim.fitness.map((point) => [point.date, point])),
+  };
+  const previous: Record<TimeseriesDiscipline, { date: string; ctl: number; atl: number } | null> = {
+    bike: null,
+    run: null,
+    swim: null,
+  };
+  return dates.map((date) => {
+    const resolved = Object.fromEntries(disciplines.map((discipline) => {
+      const exact = pointsByDiscipline[discipline].get(date);
+      let point: FitnessPoint | null = exact ?? null;
+      if (!exact && previous[discipline]) {
+        const elapsedDays = Math.max(0, Math.round(
+          (Date.parse(`${date}T00:00:00Z`) - Date.parse(`${previous[discipline]!.date}T00:00:00Z`)) / dayMs,
+        ));
+        const ctl = previous[discipline]!.ctl * Math.pow(ctlDecay, elapsedDays);
+        const atl = previous[discipline]!.atl * Math.pow(atlDecay, elapsedDays);
+        point = {
+          date,
+          ctl: round1(ctl),
+          atl: round1(atl),
+          tsb: round1(ctl - atl),
+          dailyLoad: 0,
+        };
+        previous[discipline] = { date, ctl, atl };
+      } else if (exact) {
+        previous[discipline] = { date, ctl: exact.ctl, atl: exact.atl };
+      }
+      return [discipline, point];
+    })) as Record<TimeseriesDiscipline, FitnessPoint | null>;
+    const ctl = disciplines.reduce((sum, discipline) => sum + (resolved[discipline]?.ctl ?? 0), 0);
+    const atl = disciplines.reduce((sum, discipline) => sum + (resolved[discipline]?.atl ?? 0), 0);
+    const dailyLoad = disciplines.reduce((sum, discipline) => sum + (resolved[discipline]?.dailyLoad ?? 0), 0);
+    return {
+      date,
+      ...resolved,
+      integrated: {
+        date,
+        ctl: round1(ctl),
+        atl: round1(atl),
+        tsb: round1(ctl - atl),
+        dailyLoad,
+      },
+    };
+  });
+}
+
+function isCanonicalTimeseries(
+  timeseries: FitnessTimeseriesDoc | null,
+  discipline: TimeseriesDiscipline,
+): boolean {
+  if (!timeseries
+    || !Array.isArray(timeseries.points)
+    || timeseries.schemaVersion !== FITNESS_TIMESERIES_SCHEMA_VERSION
+    || timeseries.discipline !== discipline
+    || timeseries.pointCount !== timeseries.points.length) return false;
+  if (timeseries.points.length === 0) {
+    return timeseries.startDate === null && timeseries.endDate === null;
+  }
+  const orderedFinitePoints = (timeseries.points as unknown[]).every((candidate, index, points) => {
+    if (typeof candidate !== "object" || candidate === null) return false;
+    const point = candidate as Partial<FitnessPoint>;
+    const previousPoint = points[index - 1] as Partial<FitnessPoint> | undefined;
+    return typeof point.date === "string"
+      && /^\d{4}-\d{2}-\d{2}$/.test(point.date)
+      && (index === 0 || (typeof previousPoint?.date === "string" && previousPoint.date < point.date))
+      && [point.ctl, point.atl, point.tsb, point.dailyLoad].every(Number.isFinite);
+  });
+  return orderedFinitePoints
+    && timeseries.startDate === timeseries.points[0]?.date
+    && timeseries.endDate === timeseries.points[timeseries.points.length - 1]?.date;
+}
+
+function calculateClientFitness(
+  activities: Activity[],
+  metricsMap: ReadonlyMap<string, ActivityMetrics>,
+  discipline: TimeseriesDiscipline,
+): { fitnessData: FitnessPoint[]; dailyData: DailyLoad[] } {
+  const disciplineActivities = filterByDiscipline(activities, discipline);
+  if (disciplineActivities.length === 0) return { fitnessData: [], dailyData: [] };
+  const entries: ActivityLoadEntry[] = disciplineActivities.map((activity) => {
+    const metrics = metricsMap.get(activity.id);
+    const load = estimateActivityLoad({
+      precomputedTss: metrics?.tss
+        ?? (activity as { tss?: number | null }).tss
+        ?? activity.summary.tss,
+      relativeEffort: activity.summary.relativeEffort,
+      ridingTimeMillis: activity.summary.ridingTimeMillis,
+      discipline,
+    });
+    return { date: toLocalDate(activity.startTime), load: load.value, source: load.source };
+  });
+  const today = toLocalDate(Date.now());
+  const dailyData = aggregateDailyLoad(entries, entries[0]?.date ?? today, today);
+  return { fitnessData: calculateFitness(dailyData), dailyData };
 }
 
 export function useFitnessModel(
@@ -83,7 +223,7 @@ export function useFitnessModel(
   const { streamsMap, metricsMap } = useActivityDerivedDocuments(user?.uid, activities);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [range, setRange] = useState<RangeOption>(90);
+  const [range, setRange] = useState<RangeOption | 42>(90);
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
   const [projection, setProjection] = useState<FitnessProjection | null>(null);
   const [, setGoalQueryDone] = useState(false);
@@ -109,6 +249,12 @@ export function useFitnessModel(
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
+  const normalizedRange = normalizeFitnessRange(discipline, range);
+  const activityQueryRange = discipline === "tri" ? 365 : normalizedRange;
+
+  useEffect(() => {
+    if (normalizedRange !== range) setRange(normalizedRange);
+  }, [normalizedRange, range]);
 
   const canonicalFtpW = profile?.ftp ?? null;
   const thresholdDecision = useMemo(
@@ -158,7 +304,7 @@ export function useFitnessModel(
     let active = true;
     setActivityState({ ownerUid: uid, items: [] });
     setLoading(true);
-    const cutoff = Date.now() - (range + 42) * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000;
     const activitiesQuery = query(
       collection(firestore, "activities"),
       where("userId", "==", uid),
@@ -183,7 +329,7 @@ export function useFitnessModel(
       },
       (subscriptionError) => {
         if (!active) return;
-        logClientError("FitnessPage.activitiesSubscription", subscriptionError, { range });
+        logClientError("FitnessPage.activitiesSubscription", subscriptionError, { range: activityQueryRange });
         setError(t("error.loadFailed"));
         setLoading(false);
       },
@@ -192,7 +338,7 @@ export function useFitnessModel(
       active = false;
       unsubscribe();
     };
-  }, [firestore, range, t, user]);
+  }, [activityQueryRange, firestore, t, user]);
 
   useEffect(() => {
     if (!user || discipline === "tri") return undefined;
@@ -263,36 +409,68 @@ export function useFitnessModel(
     () => discipline === "tri" ? activities : filterByDiscipline(activities, discipline),
     [activities, discipline],
   );
-  const clientFitness = useMemo(() => {
-    if (disciplineActivities.length === 0) return { fitnessData: [], dailyData: [] };
-    const entries: ActivityLoadEntry[] = disciplineActivities.map((activity) => {
-      const metrics = metricsMap.get(activity.id);
-      const load = estimateActivityLoad({
-        precomputedTss: metrics?.tss
-          ?? (activity as { tss?: number | null }).tss
-          ?? activity.summary.tss,
-        relativeEffort: activity.summary.relativeEffort,
-        ridingTimeMillis: activity.summary.ridingTimeMillis,
-        discipline: discipline === "tri" ? undefined : discipline,
-      });
-      return { date: toLocalDate(activity.startTime), load: load.value, source: load.source };
-    });
-    const today = toLocalDate(Date.now());
-    const daily = aggregateDailyLoad(entries, entries[0]?.date ?? today, today);
-    return { fitnessData: calculateFitness(daily), dailyData: daily };
-  }, [discipline, disciplineActivities, metricsMap]);
-  const { timeseries, loaded: timeseriesLoaded } = useFitnessTimeseries(user?.uid, discipline);
-  const hasCanonicalTimeseries = Boolean(
-    timeseries
-    && discipline !== "tri"
-    && timeseries.schemaVersion === FITNESS_TIMESERIES_SCHEMA_VERSION
-    && timeseries.discipline === discipline
-    && timeseries.pointCount === timeseries.points.length
-    && timeseries.points.length > 0
-    && timeseries.endDate === timeseries.points[timeseries.points.length - 1]?.date,
+  const clientFitness = useMemo(
+    () => discipline === "tri"
+      ? { fitnessData: [], dailyData: [] }
+      : calculateClientFitness(activities, metricsMap, discipline),
+    [activities, discipline, metricsMap],
   );
+  const selectedTimeseriesDiscipline = discipline === "tri" ? "bike" : discipline;
+  const { timeseries, loaded: selectedTimeseriesLoaded } = useFitnessTimeseries(
+    user?.uid,
+    selectedTimeseriesDiscipline,
+  );
+  const triUid = discipline === "tri" ? user?.uid : undefined;
+  const { timeseries: triRunTimeseries, loaded: triRunTimeseriesLoaded } = useFitnessTimeseries(triUid, "run");
+  const { timeseries: triSwimTimeseries, loaded: triSwimTimeseriesLoaded } = useFitnessTimeseries(triUid, "swim");
+  const timeseriesLoaded = selectedTimeseriesLoaded
+    && (discipline !== "tri" || (triRunTimeseriesLoaded && triSwimTimeseriesLoaded));
+  const hasCanonicalTimeseries = Boolean(
+    discipline !== "tri" && isCanonicalTimeseries(timeseries, discipline),
+  );
+  const resolvedTriFitness = useMemo<TriFitnessBreakdown>(() => {
+    const resolve = (
+      triDiscipline: TimeseriesDiscipline,
+      canonical: FitnessTimeseriesDoc | null,
+    ): TriDisciplineFitness => {
+      const hasCanonical = isCanonicalTimeseries(canonical, triDiscipline);
+      const fitness = hasCanonical
+        ? canonical!.points
+        : calculateClientFitness(activities, metricsMap, triDiscipline).fitnessData;
+      return {
+        fitness,
+        weeklyTSS: fitness.slice(-7).reduce((sum, point) => sum + point.dailyLoad, 0),
+        canonical: hasCanonical,
+      };
+    };
+    return {
+      bike: resolve("bike", timeseries),
+      run: resolve("run", triRunTimeseries),
+      swim: resolve("swim", triSwimTimeseries),
+    };
+  }, [activities, metricsMap, timeseries, triRunTimeseries, triSwimTimeseries]);
+  const triFitnessTimeline = useMemo(
+    () => buildTriFitnessTimeline(resolvedTriFitness),
+    [resolvedTriFitness],
+  );
+  const triFitnessBreakdown = useMemo<TriFitnessBreakdown>(() => {
+    const disciplines = ["bike", "run", "swim"] as const;
+    const endDate = triFitnessTimeline[triFitnessTimeline.length - 1]?.date;
+    const startDate = endDate
+      ? new Date(Date.parse(`${endDate}T00:00:00Z`) - 6 * 24 * 60 * 60 * 1000)
+        .toISOString().slice(0, 10)
+      : null;
+    return Object.fromEntries(disciplines.map((triDiscipline) => [triDiscipline, {
+      ...resolvedTriFitness[triDiscipline],
+      weeklyTSS: startDate === null ? 0 : triFitnessTimeline.reduce((sum, point) => (
+        point.date >= startDate ? sum + (point[triDiscipline]?.dailyLoad ?? 0) : sum
+      ), 0),
+    }])) as unknown as TriFitnessBreakdown;
+  }, [resolvedTriFitness, triFitnessTimeline]);
   const { fitnessData, dailyData } = useMemo(() => {
-    const points = timeseries?.points;
+    const points = discipline === "tri"
+      ? triFitnessTimeline.map((point) => point.integrated)
+      : timeseries?.points;
     if (points && points.length > 0) {
       return {
         fitnessData: points,
@@ -304,7 +482,7 @@ export function useFitnessModel(
       };
     }
     return clientFitness;
-  }, [clientFitness, timeseries]);
+  }, [clientFitness, discipline, timeseries, triFitnessTimeline]);
   const rangeData = useMemo(() => {
     if (fitnessData.length === 0) return { fitness: [], daily: [] };
     const sliceStart = Math.max(0, fitnessData.length - range);
@@ -382,10 +560,23 @@ export function useFitnessModel(
     );
     return total === 0 ? null : counts.map((count) => Math.round((count / total) * 100));
   }, [disciplineActivities, fitnessClock, metricsMap]);
-  const combinedLoad = useMemo(
-    () => authoritativeCombinedLoad(userFitness, fitnessClock),
-    [fitnessClock, userFitness],
-  );
+  const combinedLoad = useMemo(() => {
+    if (discipline === "tri") {
+      const latest = triFitnessTimeline[triFitnessTimeline.length - 1];
+      const ctl = latest?.integrated.ctl ?? 0;
+      const atl = latest?.integrated.atl ?? 0;
+      return {
+        ctl,
+        atl,
+        tsb: latest?.integrated.tsb ?? 0,
+        contributions: (["bike", "run", "swim"] as const).map((contributionDiscipline) => ({
+          discipline: contributionDiscipline,
+          ctl: latest?.[contributionDiscipline]?.ctl ?? 0,
+        })),
+      };
+    }
+    return authoritativeCombinedLoad(userFitness, fitnessClock);
+  }, [discipline, fitnessClock, triFitnessTimeline, userFitness]);
   const integratedLoadFocus = useMemo(
     () => computeIntegratedLoadFocus(activities, metricsMap, fitnessClock),
     [activities, fitnessClock, metricsMap],
@@ -593,6 +784,8 @@ export function useFitnessModel(
     weeklyStats,
     zoneDistribution,
     combinedLoad,
+    triFitnessBreakdown,
+    triFitnessTimeline,
     integratedLoadFocus,
     canonicalRiderView,
     mayUsePersistedPdcFallback,
