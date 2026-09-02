@@ -75,6 +75,7 @@ interface SurfaceLoadingFlow {
   startedAt: number;
   surface: "fitness" | "plan";
   cacheHit: boolean;
+  cachedContentReported: boolean;
 }
 
 interface EmbeddedBootstrapRootProps {
@@ -232,7 +233,10 @@ function AuthorizedSurface({
   activityId?: string;
   bridge: EmbeddedBridge;
   onTrainingShellReady: () => void;
-  onTrainingSurfaceReady: (status?: "cached" | "fresh" | "error") => void;
+  onTrainingSurfaceReady: (
+    status?: "cached" | "fresh" | "error",
+    contentComplete?: boolean,
+  ) => void;
   retryKey: number;
   selectionGeneration: number;
   selectedTrainingSurface: TrainingSurfaceKind | null;
@@ -437,6 +441,7 @@ export default function EmbeddedBootstrapRoot({
     generation: number,
     requestId: string | undefined,
     status: "cached" | "fresh" | "error" = "fresh",
+    contentComplete = true,
   ) => {
     if (
       selectionGeneration.current !== generation
@@ -455,6 +460,10 @@ export default function EmbeddedBootstrapRoot({
           loadState: "warm",
           milestone: "cache_hit",
         }, flow.requestId);
+      }
+      if (status === "cached" && contentComplete && !flow.cachedContentReported) {
+        flow.cachedContentReported = true;
+        const elapsedMs = Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt)));
         safeSend("telemetry.event", {
           name: "embedded_surface_loading",
           surface: flow.surface,
@@ -463,7 +472,7 @@ export default function EmbeddedBootstrapRoot({
           milestone: "cached_content",
         }, flow.requestId);
       }
-      if (status === "fresh") {
+      if (status === "fresh" && contentComplete) {
         // 정상 완료 milestone만 trace를 소비한다. 인라인 오류 뒤 같은 셸에서 재시도해
         // 복구되면 최초 탭 진입과 연결된 fresh_complete를 한 번 기록한다.
         surfaceLoadingFlow.current = null;
@@ -573,6 +582,7 @@ export default function EmbeddedBootstrapRoot({
             startedAt: performance.now(),
             surface: surfaceKind,
             cacheHit: false,
+            cachedContentReported: false,
           };
           surfaceLoadingFlow.current = flow;
           safeSend("telemetry.event", {
@@ -615,6 +625,7 @@ export default function EmbeddedBootstrapRoot({
             startedAt: performance.now(),
             surface: selection.surface,
             cacheHit: false,
+            cachedContentReported: false,
           }
           : null;
         setSurfaceSelection({
@@ -719,13 +730,17 @@ export default function EmbeddedBootstrapRoot({
     if (!selectedTrainingSurface) return;
     handleTrainingShellReady(selectedTrainingSurface, surfaceSelection.generation);
   }, [handleTrainingShellReady, selectedTrainingSurface, surfaceSelection.generation]);
-  const trainingSurfaceReady = useCallback((status: "cached" | "fresh" | "error" = "fresh") => {
+  const trainingSurfaceReady = useCallback((
+    status: "cached" | "fresh" | "error" = "fresh",
+    contentComplete = true,
+  ) => {
     if (!selectedTrainingSurface) return;
     handleTrainingSurfaceReady(
       selectedTrainingSurface,
       surfaceSelection.generation,
       surfaceSelection.requestId,
       status,
+      contentComplete,
     );
   }, [handleTrainingSurfaceReady, selectedTrainingSurface, surfaceSelection.generation, surfaceSelection.requestId]);
 

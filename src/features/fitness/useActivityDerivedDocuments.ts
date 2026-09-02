@@ -21,6 +21,7 @@ import {
 export const DERIVED_DOCUMENT_CREATION_WATCH_MS = 60_000;
 export const DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND = 24;
 export const DERIVED_DOCUMENT_CREATION_RETRY_MS = 5_000;
+export const DERIVED_DOCUMENT_READ_TIMEOUT_MS = 10_000;
 export const DERIVED_DOCUMENT_CREATION_MAX_RETRIES = 1;
 export const DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS = 60_000;
 export const DERIVED_DOCUMENT_MAX_MISSING_READS = 3;
@@ -51,11 +52,18 @@ type ReadLimiter = {
   pending: ReadPermitWaiter[];
 };
 
+export type ActivityMetricReadState = "loading" | "loaded" | "missing" | "error" | "skipped";
+
+export type ActivityMetricStatus = {
+  revision: string;
+  state: ActivityMetricReadState;
+};
+
 type DerivedState = {
   ownerUid: string | null;
   streamsMap: Map<string, ActivityStreams>;
   metricsMap: Map<string, ActivityMetrics>;
-  metricStatusMap: Map<string, "loaded" | "missing" | "error">;
+  metricStatusMap: Map<string, ActivityMetricStatus>;
 };
 
 type ReadResources = {
@@ -73,7 +81,31 @@ type ReadResources = {
 
 const EMPTY_STREAMS = new Map<string, ActivityStreams>();
 const EMPTY_METRICS = new Map<string, ActivityMetrics>();
-const EMPTY_METRIC_STATUSES = new Map<string, "loaded" | "missing" | "error">();
+const EMPTY_METRIC_STATUSES = new Map<string, ActivityMetricStatus>();
+
+class DerivedDocumentReadTimeoutError extends Error {
+  constructor() {
+    super("파생 문서 조회 제한시간을 초과했습니다");
+    this.name = "DerivedDocumentReadTimeoutError";
+  }
+}
+
+async function getDerivedDocument(reference: DocumentReference) {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  try {
+    // Firestore getDoc은 취소 API가 없다. 호출 수는 기존 retry 상한으로 제한하고,
+    // 제한시간 뒤 늦게 끝난 결과는 Promise.race와 아래 generation/revision 가드가 버린다.
+    return await Promise.race([
+      getDoc(reference),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new DerivedDocumentReadTimeoutError()),
+          DERIVED_DOCUMENT_READ_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout != null) clearTimeout(timeout);
+  }
+}
 
 function createRecheckQueue(): RecheckQueue {
   return {
@@ -232,7 +264,7 @@ export function useActivityDerivedDocuments(
 ): {
   streamsMap: Map<string, ActivityStreams>;
   metricsMap: Map<string, ActivityMetrics>;
-  metricStatusMap: Map<string, "loaded" | "missing" | "error">;
+  metricStatusMap: Map<string, ActivityMetricStatus>;
 } {
   const { firestore } = useFirebaseServices();
   const normalizedUid = uid ?? null;
@@ -269,29 +301,50 @@ export function useActivityDerivedDocuments(
   useEffect(() => {
     const scopedActivities = normalizedUid == null
       ? []
-      : activities.filter((activity) => activity.userId === normalizedUid);
-    const activeIds = new Set(scopedActivities.map((activity) => activity.id));
-    pruneResources(resources, activeIds);
+      : activities.filter((activity) => (
+        activity.userId === normalizedUid && getDiscipline(activity.type) !== null
+      ));
+    const displayedIds = new Set(activities.map((activity) => activity.id));
+    const scopedReadIds = new Set(scopedActivities.map((activity) => activity.id));
+    pruneResources(resources, scopedReadIds);
     setState((previous) => {
-      if (previous.ownerUid !== normalizedUid) {
-        return {
-          ownerUid: normalizedUid,
-          streamsMap: new Map(),
-          metricsMap: new Map(),
-          metricStatusMap: new Map(),
-        };
-      }
-      const streamsChanged = [...previous.streamsMap.keys()].some((id) => !activeIds.has(id));
-      const metricsChanged = [...previous.metricsMap.keys()].some((id) => !activeIds.has(id));
-      const metricStatusesChanged = [...previous.metricStatusMap.keys()].some((id) => !activeIds.has(id));
+      const ownerChanged = previous.ownerUid !== normalizedUid;
+      const streamsChanged = ownerChanged || [...previous.streamsMap.keys()].some((id) => !displayedIds.has(id));
+      const metricsChanged = ownerChanged || [...previous.metricsMap.keys()].some((id) => !displayedIds.has(id));
+      const metricStatusesChanged = ownerChanged
+        || [...previous.metricStatusMap.keys()].some((id) => !displayedIds.has(id))
+        || activities.some((activity) => {
+          const status = previous.metricStatusMap.get(activity.id);
+          const expectedState = normalizedUid == null
+            || activity.userId !== normalizedUid
+            || getDiscipline(activity.type) === null
+            ? "skipped"
+            : null;
+          return status?.revision !== activityDerivedDocumentRevision(activity)
+            || (expectedState != null && status.state !== expectedState);
+        });
       if (!streamsChanged && !metricsChanged && !metricStatusesChanged) return previous;
       const streamsMap = new Map<string, ActivityStreams>();
       const metricsMap = new Map<string, ActivityMetrics>();
-      const metricStatusMap = new Map<string, "loaded" | "missing" | "error">();
-      for (const [id, value] of previous.streamsMap) if (activeIds.has(id)) streamsMap.set(id, value);
-      for (const [id, value] of previous.metricsMap) if (activeIds.has(id)) metricsMap.set(id, value);
-      for (const [id, value] of previous.metricStatusMap) {
-        if (activeIds.has(id)) metricStatusMap.set(id, value);
+      const metricStatusMap = new Map<string, ActivityMetricStatus>();
+      if (!ownerChanged) {
+        for (const [id, value] of previous.streamsMap) if (displayedIds.has(id)) streamsMap.set(id, value);
+      }
+      for (const activity of activities) {
+        const revision = activityDerivedDocumentRevision(activity);
+        const previousStatus = previous.metricStatusMap.get(activity.id);
+        const skipped = normalizedUid == null
+          || activity.userId !== normalizedUid
+          || getDiscipline(activity.type) === null;
+        if (skipped) {
+          metricStatusMap.set(activity.id, { revision, state: "skipped" });
+        } else if (!ownerChanged && previousStatus?.revision === revision) {
+          metricStatusMap.set(activity.id, previousStatus);
+          const metrics = previous.metricsMap.get(activity.id);
+          if (metrics != null) metricsMap.set(activity.id, metrics);
+        } else {
+          metricStatusMap.set(activity.id, { revision, state: "loading" });
+        }
       }
       return { ownerUid: normalizedUid, streamsMap, metricsMap, metricStatusMap };
     });
@@ -344,7 +397,7 @@ export function useActivityDerivedDocuments(
       attempts: DerivedDocumentReadAttempts,
       watches: Map<string, StopWatch>,
       parse: (data: Record<string, unknown>) => T,
-      apply: (id: string, value: T) => void,
+      apply: (id: string, value: T, revision: string) => void,
       kind: "stream" | "metrics",
       retryCount = 0,
       attemptToken = attempts.get(activity.id)?.token,
@@ -391,7 +444,7 @@ export function useActivityDerivedDocuments(
           const value = parse(snapshot.data());
           markDerivedDocumentReadComplete(attempts, activity);
           cancelRecheck(rechecks, activity.id);
-          apply(activity.id, value);
+          apply(activity.id, value, revision);
           stop();
         } catch (error) {
           logClientError("useActivityDerivedDocuments.creationWatch.parse", error, {
@@ -421,7 +474,7 @@ export function useActivityDerivedDocuments(
       attempts: DerivedDocumentReadAttempts,
       watches: Map<string, StopWatch>,
       parse: (data: Record<string, unknown>) => T,
-      apply: (id: string, value: T) => void,
+      apply: (id: string, value: T, revision: string) => void,
       watchIfMissing: boolean,
       kind: "stream" | "metrics",
       retryCount = 0,
@@ -440,12 +493,17 @@ export function useActivityDerivedDocuments(
           release();
           return;
         }
-        const snapshot = await getDoc(reference).finally(release);
+        let snapshot;
+        try {
+          snapshot = await getDerivedDocument(reference);
+        } finally {
+          release();
+        }
         if (!isCurrent(activity, attempts, revision, attemptToken)) return;
         if (snapshot.exists()) {
           const value = parse(snapshot.data());
           markDerivedDocumentReadComplete(attempts, activity);
-          apply(activity.id, value);
+          apply(activity.id, value, revision);
           return;
         }
         const previous = attempts.get(activity.id);
@@ -455,7 +513,7 @@ export function useActivityDerivedDocuments(
           ? Date.now() + DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS * 2 ** (missingCount - 1)
           : Number.POSITIVE_INFINITY;
         markDerivedDocumentMissing(attempts, activity, nextEligibleAt);
-        if (kind === "metrics") applyMetricStatus(activity.id, "missing");
+        if (kind === "metrics") applyMetricStatus(activity.id, revision, "missing");
         if (watchIfMissing) {
           watchCreation(activity, reference, attempts, watches, parse, apply, kind);
         }
@@ -480,7 +538,7 @@ export function useActivityDerivedDocuments(
           cancelRecheck(rechecks, activity.id);
         }
         if (wasCurrent) {
-          if (kind === "metrics") applyMetricStatus(activity.id, "error");
+          if (kind === "metrics") applyMetricStatus(activity.id, revision, "error");
           const previous = attempts.get(activity.id);
           const failureCount = previous?.revision === revision ? previous.failureCount + 1 : 1;
           const canRecover = failureCount < DERIVED_DOCUMENT_MAX_FAILURE_READS;
@@ -545,18 +603,26 @@ export function useActivityDerivedDocuments(
       streamsMap.set(id, value);
       return { ...previous, streamsMap };
     });
-    const applyMetric = (id: string, value: ActivityMetrics) => setState((previous) => {
+    const applyMetric = (id: string, value: ActivityMetrics, revision: string) => setState((previous) => {
       if (previous.ownerUid !== normalizedUid) return previous;
+      const currentStatus = previous.metricStatusMap.get(id);
+      if (currentStatus?.revision !== revision || currentStatus.state === "skipped") return previous;
       const metricsMap = new Map(previous.metricsMap);
       const metricStatusMap = new Map(previous.metricStatusMap);
       metricsMap.set(id, value);
-      metricStatusMap.set(id, "loaded");
+      metricStatusMap.set(id, { revision, state: "loaded" });
       return { ...previous, metricsMap, metricStatusMap };
     });
-    const applyMetricStatus = (id: string, status: "missing" | "error") => setState((previous) => {
+    const applyMetricStatus = (
+      id: string,
+      revision: string,
+      status: "missing" | "error",
+    ) => setState((previous) => {
       if (previous.ownerUid !== normalizedUid) return previous;
+      const currentStatus = previous.metricStatusMap.get(id);
+      if (currentStatus?.revision !== revision || currentStatus.state === "skipped") return previous;
       const metricStatusMap = new Map(previous.metricStatusMap);
-      metricStatusMap.set(id, status);
+      metricStatusMap.set(id, { revision, state: status });
       return { ...previous, metricStatusMap };
     });
 

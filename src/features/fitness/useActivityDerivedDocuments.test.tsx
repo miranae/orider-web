@@ -9,6 +9,7 @@ import {
   DERIVED_DOCUMENT_CREATION_RETRY_MS,
   DERIVED_DOCUMENT_MAX_CREATION_WATCHES_PER_KIND,
   DERIVED_DOCUMENT_MISSING_RECHECK_BASE_MS,
+  DERIVED_DOCUMENT_READ_TIMEOUT_MS,
   useActivityDerivedDocuments,
 } from "./useActivityDerivedDocuments";
 
@@ -72,10 +73,111 @@ describe("useActivityDerivedDocuments", () => {
     const hook = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
 
     await waitFor(() => {
-      expect(hook.result.current.metricStatusMap.get("missing-metrics")).toBe("missing");
+      expect(hook.result.current.metricStatusMap.get("missing-metrics")?.state).toBe("missing");
     });
     expect(hook.result.current.metricsMap.has("missing-metrics")).toBe(false);
     expect(vi.mocked(onSnapshot)).toHaveBeenCalled();
+  });
+
+  it("settles a mixed displayed activity set as loaded missing or skipped", async () => {
+    setDocData("activity_metrics/loaded", { tss: 52 });
+    const activities = [
+      activity("loaded", "user-a", null),
+      activity("absent", "user-a", null),
+      { ...activity("unsupported", "user-a", null), type: "Yoga" },
+      activity("foreign", "user-b", null),
+    ];
+    const hook = renderHook(() => useActivityDerivedDocuments("user-a", activities));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(hook.result.current.metricStatusMap.size).toBe(4);
+    expect(hook.result.current.metricStatusMap.get("loaded")?.state).toBe("loaded");
+    expect(hook.result.current.metricStatusMap.get("absent")?.state).toBe("missing");
+    expect(hook.result.current.metricStatusMap.get("unsupported")?.state).toBe("skipped");
+    expect(hook.result.current.metricStatusMap.get("foreign")?.state).toBe("skipped");
+    const metricReads = vi.mocked(getDoc).mock.calls
+      .map(([reference]) => (reference as { path: string }).path)
+      .filter((path) => path.startsWith("activity_metrics/"));
+    expect(metricReads).toEqual(["activity_metrics/loaded", "activity_metrics/absent"]);
+  });
+
+  it("settles a hanging metrics read as error after the bounded timeout", async () => {
+    vi.useFakeTimers();
+    let resolveLate!: (snapshot: unknown) => void;
+    vi.mocked(getDoc).mockImplementation(() => new Promise((resolve) => {
+      resolveLate = resolve;
+    }) as ReturnType<typeof getDoc>);
+    const current = activity("hanging", "user-a", null);
+    const hook = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(hook.result.current.metricStatusMap.get("hanging")?.state).toBe("loading");
+
+    await act(async () => vi.advanceTimersByTimeAsync(DERIVED_DOCUMENT_READ_TIMEOUT_MS));
+    expect(hook.result.current.metricStatusMap.get("hanging")?.state).toBe("error");
+
+    await act(async () => {
+      resolveLate({ exists: () => true, data: () => ({ tss: 99 }) });
+      await Promise.resolve();
+    });
+    expect(hook.result.current.metricStatusMap.get("hanging")?.state).toBe("error");
+    expect(hook.result.current.metricsMap.has("hanging")).toBe(false);
+    hook.unmount();
+    vi.useRealTimers();
+  });
+
+  it("ignores a late supported read after the activity becomes skipped", async () => {
+    let resolveRead!: (snapshot: unknown) => void;
+    vi.mocked(getDoc).mockImplementation(() => new Promise((resolve) => {
+      resolveRead = resolve;
+    }) as ReturnType<typeof getDoc>);
+    const supported = activity("supported-to-skipped", "user-a", null);
+    const hook = renderHook(
+      ({ current }) => useActivityDerivedDocuments("user-a", [current]),
+      { initialProps: { current: supported } },
+    );
+    await waitFor(() => expect(vi.mocked(getDoc)).toHaveBeenCalledTimes(1));
+
+    hook.rerender({ current: { ...supported, type: "Yoga" } });
+    await waitFor(() => {
+      expect(hook.result.current.metricStatusMap.get("supported-to-skipped")?.state).toBe("skipped");
+    });
+
+    await act(async () => resolveRead({ exists: () => true, data: () => ({ tss: 88 }) }));
+    expect(hook.result.current.metricStatusMap.get("supported-to-skipped")?.state).toBe("skipped");
+    expect(hook.result.current.metricsMap.has("supported-to-skipped")).toBe(false);
+  });
+
+  it("resets terminal metrics state until the current activity revision settles", async () => {
+    const pending: Array<(snapshot: unknown) => void> = [];
+    vi.mocked(getDoc).mockImplementation(() => new Promise((resolve) => {
+      pending.push(resolve);
+    }) as ReturnType<typeof getDoc>);
+    const original = activity("revision", "user-a", null);
+    const hook = renderHook(
+      ({ current }) => useActivityDerivedDocuments("user-a", [current]),
+      { initialProps: { current: original } },
+    );
+    await waitFor(() => expect(pending).toHaveLength(1));
+    await act(async () => pending[0]?.({ exists: () => true, data: () => ({ tss: 40 }) }));
+    expect(hook.result.current.metricStatusMap.get("revision")?.state).toBe("loaded");
+
+    hook.rerender({
+      current: { ...original, summary: { ...original.summary, ridingTimeMillis: 2_000 } },
+    });
+    await waitFor(() => expect(pending).toHaveLength(2));
+    expect(hook.result.current.metricStatusMap.get("revision")?.state).toBe("loading");
+    expect(hook.result.current.metricsMap.has("revision")).toBe(false);
+
+    await act(async () => pending[1]?.({ exists: () => false, data: () => null }));
+    expect(hook.result.current.metricStatusMap.get("revision")?.state).toBe("missing");
   });
 
   it("rechecks a missing document once after watcher TTL without an activity snapshot change", async () => {

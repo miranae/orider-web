@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => {
     planSurfaceMounts: vi.fn(),
     surfaceReadyCallbacks: {
       activityAnalysis: null as (() => void) | null,
-      fitness: null as ((status?: "cached" | "fresh" | "error") => void) | null,
+      fitness: null as ((status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void) | null,
       plan: null as ((status?: "cached" | "fresh" | "error") => void) | null,
     },
     consumeHandoff: vi.fn().mockResolvedValue(undefined),
@@ -76,7 +76,9 @@ vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
 }));
 
 vi.mock("./surfaces/FitnessSurface", () => ({
-  default: ({ onReady }: { onReady: (status?: "cached" | "fresh" | "error") => void }) => {
+  default: ({ onReady }: {
+    onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
+  }) => {
     mocks.fitnessSurfaceMounts();
     mocks.surfaceReadyCallbacks.fitness = onReady;
     return <div data-testid="fitness-surface" />;
@@ -697,6 +699,59 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       expect(telemetryJson).not.toContain("swim");
     },
   );
+
+  it("reports Fitness base readiness before derived completion without overstating telemetry", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    await waitFor(() => expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "auth.state",
+      payload: { uid: "owner-1" },
+    })));
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload(), "fitness-partial-1")));
+    act(() => bridge.emit(hostMessage(
+      "host.surfaceSelected",
+      { surface: "fitness" },
+      "fitness-partial-1",
+    )));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks.fitness).not.toBeNull());
+
+    act(() => mocks.surfaceReadyCallbacks.fitness?.("cached", false));
+    act(() => mocks.surfaceReadyCallbacks.fitness?.("fresh", false));
+
+    expect(bridge.sent.filter((message) => message.type === "surface.ready")).toEqual([
+      { type: "surface.ready", payload: {}, requestId: "fitness-partial-1" },
+      { type: "surface.ready", payload: {}, requestId: "fitness-partial-1" },
+    ]);
+    expect(bridge.sent.some((message) => (
+      message.type === "telemetry.event"
+      && (message.payload as { milestone?: string }).milestone === "cache_hit"
+    ))).toBe(true);
+    expect(bridge.sent.some((message) => (
+      message.type === "telemetry.event"
+      && ["cached_content", "fresh_complete"].includes(
+        (message.payload as { milestone?: string }).milestone ?? "",
+      )
+    ))).toBe(false);
+
+    act(() => mocks.surfaceReadyCallbacks.fitness?.("cached", true));
+    act(() => mocks.surfaceReadyCallbacks.fitness?.("fresh", true));
+    expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "telemetry.event",
+      payload: expect.objectContaining({ milestone: "cached_content" }),
+      requestId: "fitness-partial-1",
+    }));
+    expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "telemetry.event",
+      payload: expect.objectContaining({ milestone: "fresh_complete" }),
+      requestId: "fitness-partial-1",
+    }));
+  });
 
   it.each([
     ["fitness", "/ko/embed/fitness"],
