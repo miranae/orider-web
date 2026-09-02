@@ -67,6 +67,17 @@ describe("useActivityDerivedDocuments", () => {
     expect(vi.mocked(getDoc).mock.calls.length).toBe(2);
   });
 
+  it("settles a legitimate missing metrics document without waiting for its creation watch", async () => {
+    const current = activity("missing-metrics", "user-a", null);
+    const hook = renderHook(() => useActivityDerivedDocuments("user-a", [current]));
+
+    await waitFor(() => {
+      expect(hook.result.current.metricStatusMap.get("missing-metrics")).toBe("missing");
+    });
+    expect(hook.result.current.metricsMap.has("missing-metrics")).toBe(false);
+    expect(vi.mocked(onSnapshot)).toHaveBeenCalled();
+  });
+
   it("rechecks a missing document once after watcher TTL without an activity snapshot change", async () => {
     vi.useFakeTimers();
     let reads = 0;

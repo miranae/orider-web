@@ -6,7 +6,7 @@ import MobileFitnessPage from "../../components/mobile/MobileFitnessPage";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
 
 export interface FitnessSurfaceProps {
-  onReady: (status?: "fresh" | "error") => void;
+  onReady: (status?: "cached" | "fresh" | "error") => void;
   retryKey: number;
 }
 
@@ -18,16 +18,24 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
     // surface uses the persisted PDC fallback until that client accepts injected services.
     enableCoachRiderInsight: false,
   });
-  const settledKey = useRef<string | null>(null);
+  const settledKeys = useRef(new Set<string>());
 
   useEffect(() => {
-    if (model.loading || !model.timeseriesLoaded) return;
+    if (!model.derivedMetricsSettled) return;
+    if (model.cacheHit) {
+      const key = `${retryKey}:cached`;
+      if (!settledKeys.current.has(key)) {
+        settledKeys.current.add(key);
+        onReady("cached");
+      }
+    }
+    if (!model.freshLoaded || model.loading || !model.timeseriesLoaded) return;
     const status = model.error || model.timeseriesError ? "error" : "fresh";
     const key = `${retryKey}:${status}`;
-    if (settledKey.current === key) return;
-    settledKey.current = key;
+    if (settledKeys.current.has(key)) return;
+    settledKeys.current.add(key);
     onReady(status);
-  }, [model.error, model.loading, model.timeseriesError, model.timeseriesLoaded, onReady, retryKey]);
+  }, [model.cacheHit, model.derivedMetricsSettled, model.error, model.freshLoaded, model.loading, model.timeseriesError, model.timeseriesLoaded, onReady, retryKey]);
 
   if (model.loading) {
     return (

@@ -1,6 +1,7 @@
 import type { HostBridgeEnvelope } from "./bridge";
 
 export const RETAINED_SURFACE_SELECTION_CAPABILITY = "host.surfaceSelected" as const;
+export const SURFACE_SELECTION_REQUEST_ID_CAPABILITY = "surface-selection-request-id-v1" as const;
 
 export type TrainingSurfaceKind = "fitness" | "plan";
 
@@ -19,7 +20,7 @@ export function parseSurfaceSelectionMessage(
   if (message.type !== "host.surfaceSelected") return null;
   if (
     message.requestId !== undefined
-    && (message.requestId.length === 0 || message.requestId.length > 128)
+    && (message.requestId.trim().length === 0 || message.requestId.length > 128)
   ) return null;
   if (!isRecord(message.payload)) return null;
   const keys = Object.keys(message.payload);

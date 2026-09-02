@@ -6,7 +6,7 @@ import PlanPresentation from "../../features/training/plan/PlanPresentation";
 import { usePlanModel } from "../../hooks/usePlanModel";
 
 export interface PlanSurfaceProps {
-  onReady: (status?: "fresh" | "error") => void;
+  onReady: (status?: "cached" | "fresh" | "error") => void;
   retryKey: number;
 }
 
@@ -16,16 +16,23 @@ export default function PlanSurface({ onReady, retryKey }: PlanSurfaceProps) {
   const { t: tCommon } = useTranslation("common");
   const model = usePlanModel(searchParams.get("sport"));
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
-  const settledKey = useRef<string | null>(null);
+  const settledKeys = useRef(new Set<string>());
 
   useEffect(() => {
-    if (model.loading) return;
+    if (model.cacheHit) {
+      const key = `${retryKey}:cached`;
+      if (!settledKeys.current.has(key)) {
+        settledKeys.current.add(key);
+        onReady("cached");
+      }
+    }
+    if (!model.freshLoaded || model.loading) return;
     const status = model.loadError ? "error" : "fresh";
     const key = `${retryKey}:${status}`;
-    if (settledKey.current === key) return;
-    settledKey.current = key;
+    if (settledKeys.current.has(key)) return;
+    settledKeys.current.add(key);
     onReady(status);
-  }, [model.loadError, model.loading, onReady, retryKey]);
+  }, [model.cacheHit, model.freshLoaded, model.loadError, model.loading, onReady, retryKey]);
 
   const loadingLabel = tCommon("button.loading");
   const retryLabel = tCommon("button.retry");

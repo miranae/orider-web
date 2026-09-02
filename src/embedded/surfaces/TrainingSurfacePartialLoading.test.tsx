@@ -62,6 +62,9 @@ describe("training embedded surface partial loading", () => {
   beforeEach(() => {
     mocks.fitnessModel = {
       loading: false,
+      cacheHit: false,
+      freshLoaded: true,
+      derivedMetricsSettled: true,
       error: null,
       timeseriesLoaded: false,
       timeseriesError: null,
@@ -76,6 +79,8 @@ describe("training embedded surface partial loading", () => {
       goalError: null,
       planError: null,
       loading: true,
+      cacheHit: false,
+      freshLoaded: false,
       loadError: null,
       retryLoad: vi.fn(),
     };
@@ -155,6 +160,44 @@ describe("training embedded surface partial loading", () => {
     expect(screen.queryByText("plan presentation")).not.toBeInTheDocument();
   });
 
+  it("shows cached Plan content immediately before fresh revalidation completes", async () => {
+    const onReady = vi.fn();
+    mocks.planModel = {
+      ...mocks.planModel,
+      goal: { title: "캐시된 목표" },
+      goalLoading: false,
+      planLoading: false,
+      loading: false,
+      cacheHit: true,
+      freshLoaded: false,
+    };
+
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+
+    expect(screen.getByText("plan presentation")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+  });
+
+  it("settles cached fitness before fresh when derived metric reads finish", async () => {
+    const onReady = vi.fn();
+    mocks.fitnessModel = {
+      ...mocks.fitnessModel,
+      cacheHit: true,
+      freshLoaded: true,
+      timeseriesLoaded: true,
+      derivedMetricsSettled: false,
+    };
+    const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
+
+    expect(screen.getByText("derived ready")).toBeInTheDocument();
+    expect(onReady).not.toHaveBeenCalled();
+
+    mocks.fitnessModel.derivedMetricsSettled = true;
+    view.rerender(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
+    await waitFor(() => expect(onReady.mock.calls).toEqual([["cached"], ["fresh"]]));
+  });
+
   it("keeps a plan week failure inline and exposes retry", async () => {
     const onReady = vi.fn();
     const retryLoad = vi.fn();
@@ -166,6 +209,7 @@ describe("training embedded surface partial loading", () => {
       planError: new Error("failed"),
       loadError: new Error("failed"),
       loading: false,
+      freshLoaded: true,
       retryLoad,
     };
 
