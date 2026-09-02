@@ -13,44 +13,79 @@ import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { Discipline } from "../utils/disciplineFilter";
+import {
+  getTrainingSurfaceCache,
+  prepareTrainingSurfaceCacheOwner,
+  setTrainingSurfaceCache,
+} from "../embedded/trainingSurfaceCache";
 
 export function useFitnessTimeseries(
   uid: string | undefined,
   discipline: Discipline,
   reloadKey = 0,
-): { timeseries: FitnessTimeseriesDoc | null; loaded: boolean; error: unknown } {
+  cacheLocale?: string,
+  cacheAnonymous = false,
+): {
+  timeseries: FitnessTimeseriesDoc | null;
+  loaded: boolean;
+  error: unknown;
+  cacheHit: boolean;
+  freshLoaded: boolean;
+} {
   const { firestore } = useFirebaseServices();
   const [timeseries, setTimeseries] = useState<FitnessTimeseriesDoc | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [cacheHit, setCacheHit] = useState(false);
+  const [freshLoaded, setFreshLoaded] = useState(false);
 
   useEffect(() => {
     if (!uid || discipline === "tri") {
       setTimeseries(null);
       setError(null);
       setLoaded(true);
+      setCacheHit(false);
+      setFreshLoaded(true);
       return undefined;
     }
-    setLoaded(false);
+    const cacheEnabled = cacheLocale !== undefined
+      && prepareTrainingSurfaceCacheOwner(uid, cacheAnonymous);
+    const cacheKey = {
+      uid,
+      surface: "fitness-timeseries" as const,
+      sport: discipline,
+      locale: cacheLocale ?? "",
+    };
+    const cached = cacheEnabled
+      ? getTrainingSurfaceCache<{ timeseries: FitnessTimeseriesDoc | null }>(cacheKey)
+      : null;
+    const hasCachedValue = cached !== null;
+    setLoaded(hasCachedValue);
     setError(null);
-    setTimeseries(null);
+    setTimeseries(cached?.timeseries ?? null);
+    setCacheHit(hasCachedValue);
+    setFreshLoaded(false);
     const ref = doc(firestore, "users", uid, "fitness", `timeseries_${discipline}`);
     const unsub = onSnapshot(
       ref,
       (snap) => {
-        setTimeseries(snap.exists() ? (snap.data() as FitnessTimeseriesDoc) : null);
+        const next = snap.exists() ? (snap.data() as FitnessTimeseriesDoc) : null;
+        setTimeseries(next);
         setError(null);
         setLoaded(true);
+        setFreshLoaded(true);
+        if (cacheEnabled) setTrainingSurfaceCache(cacheKey, { timeseries: next });
       },
       (err) => {
         logClientError("useFitnessTimeseries", err, { discipline });
-        setTimeseries(null);
-        setError(err);
+        if (!hasCachedValue) setTimeseries(null);
+        setError(hasCachedValue ? null : err);
         setLoaded(true);
+        setFreshLoaded(!hasCachedValue);
       },
     );
     return () => unsub();
-  }, [discipline, firestore, reloadKey, uid]);
+  }, [cacheAnonymous, cacheLocale, discipline, firestore, reloadKey, uid]);
 
-  return { timeseries, loaded, error };
+  return { timeseries, loaded, error, cacheHit, freshLoaded };
 }

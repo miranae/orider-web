@@ -38,6 +38,10 @@ import {
   type TrainingSurfaceKind,
 } from "./surfaceSelection";
 import "./embedded.css";
+import {
+  clearTrainingSurfaceCache,
+  prepareTrainingSurfaceCacheOwner,
+} from "./trainingSurfaceCache";
 
 const ActivityAnalysisSurface = lazy(() => import("./surfaces/ActivityAnalysisSurface"));
 const FitnessSurface = lazy(() => import("./surfaces/FitnessSurface"));
@@ -69,6 +73,7 @@ interface SurfaceLoadingFlow {
   requestId: string;
   startedAt: number;
   surface: "fitness" | "plan";
+  cacheHit: boolean;
 }
 
 interface EmbeddedBootstrapRootProps {
@@ -225,7 +230,7 @@ function AuthorizedSurface({
   activityId?: string;
   bridge: EmbeddedBridge;
   onTrainingShellReady: () => void;
-  onTrainingSurfaceReady: (status?: "fresh" | "error") => void;
+  onTrainingSurfaceReady: (status?: "cached" | "fresh" | "error") => void;
   retryKey: number;
   selectionGeneration: number;
   selectedTrainingSurface: TrainingSurfaceKind | null;
@@ -420,7 +425,7 @@ export default function EmbeddedBootstrapRoot({
   const handleTrainingSurfaceReady = useCallback((
     surface: TrainingSurfaceKind,
     generation: number,
-    status: "fresh" | "error" = "fresh",
+    status: "cached" | "fresh" | "error" = "fresh",
   ) => {
     if (
       selectionGeneration.current !== generation
@@ -429,6 +434,24 @@ export default function EmbeddedBootstrapRoot({
     ) return;
     const flow = surfaceLoadingFlow.current;
     if (flow && flow.surface === surface && flow.generation === generation) {
+      if (status === "cached" && !flow.cacheHit) {
+        flow.cacheHit = true;
+        const elapsedMs = Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt)));
+        safeSend("telemetry.event", {
+          name: "embedded_surface_loading",
+          surface: flow.surface,
+          elapsedMs,
+          loadState: "warm",
+          milestone: "cache_hit",
+        }, flow.requestId);
+        safeSend("telemetry.event", {
+          name: "embedded_surface_loading",
+          surface: flow.surface,
+          elapsedMs,
+          loadState: "warm",
+          milestone: "cached_content",
+        }, flow.requestId);
+      }
       if (status === "fresh") {
         // 정상 완료 milestone만 trace를 소비한다. 인라인 오류 뒤 같은 셸에서 재시도해
         // 복구되면 최초 탭 진입과 연결된 fresh_complete를 한 번 기록한다.
@@ -437,7 +460,7 @@ export default function EmbeddedBootstrapRoot({
           name: "embedded_surface_loading",
           surface: flow.surface,
           elapsedMs: Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt))),
-          loadState: "cold",
+          loadState: flow.cacheHit ? "warm" : "cold",
           milestone: "fresh_complete",
         }, flow.requestId);
       }
@@ -491,6 +514,9 @@ export default function EmbeddedBootstrapRoot({
           if (authorizationAttempt.current !== attempt) return;
           const uid = services.auth.currentUser?.uid ?? null;
           authorizedUid.current = uid === authorization.expectedUid ? uid : null;
+          if (authorizedUid.current === null || services.auth.currentUser?.isAnonymous === true) {
+            clearTrainingSurfaceCache();
+          }
           safeSend("auth.state", { uid }, message.requestId);
         }).catch(() => {
           if (authorizationAttempt.current !== attempt) return;
@@ -508,11 +534,13 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         if (!authorizedUid.current || authorizedUid.current !== currentUid) {
+          clearTrainingSurfaceCache();
           surfaceLoadingFlow.current = null;
           setSession(null);
           safeSend("surface.error", { code: "auth_uid_mismatch" }, message.requestId);
           return;
         }
+        prepareTrainingSurfaceCacheOwner(currentUid, services.auth.currentUser?.isAnonymous === true);
         if (rootRef.current) applyHostContract(rootRef.current, accepted);
         acceptedUid.current = currentUid;
         sessionAccepted.current = true;
@@ -526,6 +554,7 @@ export default function EmbeddedBootstrapRoot({
             requestId: message.requestId,
             startedAt: performance.now(),
             surface: surfaceKind,
+            cacheHit: false,
           };
           surfaceLoadingFlow.current = flow;
           safeSend("telemetry.event", {
@@ -552,6 +581,9 @@ export default function EmbeddedBootstrapRoot({
           || !acceptedUid.current
           || services.auth.currentUser?.uid !== acceptedUid.current
         ) {
+          if (acceptedUid.current && services.auth.currentUser?.uid !== acceptedUid.current) {
+            clearTrainingSurfaceCache();
+          }
           safeSend("surface.error", { code: "invalid_host_state" }, message.requestId);
           return;
         }
@@ -563,6 +595,7 @@ export default function EmbeddedBootstrapRoot({
             requestId: selection.requestId,
             startedAt: performance.now(),
             surface: selection.surface,
+            cacheHit: false,
           }
           : null;
         setSurfaceSelection({ generation, surface: selection.surface });
@@ -570,6 +603,7 @@ export default function EmbeddedBootstrapRoot({
       }
 
       if (message.type === "host.sessionRejected") {
+        clearTrainingSurfaceCache();
         if (!isRecord(message.payload) || !hasOnlyKeys(message.payload, ["reason"])) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
           return;
@@ -597,6 +631,7 @@ export default function EmbeddedBootstrapRoot({
       if (message.type === "host.retry") {
         setRetryKey((key) => key + 1);
       } else if (message.type === "host.logout") {
+        clearTrainingSurfaceCache();
         authorizationAttempt.current += 1;
         authorizedUid.current = null;
         acceptedUid.current = null;
@@ -611,7 +646,20 @@ export default function EmbeddedBootstrapRoot({
     const unsubscribe = bridge.subscribe(handleMessage);
     const unsubscribeAuth = onAuthStateChanged(services.auth, (user) => {
       const lockedUid = acceptedUid.current;
+      if (user?.isAnonymous === true) {
+        clearTrainingSurfaceCache();
+        authorizationAttempt.current += 1;
+        acceptedUid.current = null;
+        authorizedUid.current = null;
+        sessionAccepted.current = false;
+        selectionGeneration.current += 1;
+        surfaceLoadingFlow.current = null;
+        setSession(null);
+        safeSend("surface.error", { code: "auth_uid_changed" });
+        return;
+      }
       if (!lockedUid || user?.uid === lockedUid) return;
+      clearTrainingSurfaceCache();
       authorizationAttempt.current += 1;
       acceptedUid.current = null;
       authorizedUid.current = null;
@@ -639,7 +687,7 @@ export default function EmbeddedBootstrapRoot({
     if (!selectedTrainingSurface) return;
     handleTrainingShellReady(selectedTrainingSurface, surfaceSelection.generation);
   }, [handleTrainingShellReady, selectedTrainingSurface, surfaceSelection.generation]);
-  const trainingSurfaceReady = useCallback((status: "fresh" | "error" = "fresh") => {
+  const trainingSurfaceReady = useCallback((status: "cached" | "fresh" | "error" = "fresh") => {
     if (!selectedTrainingSurface) return;
     handleTrainingSurfaceReady(selectedTrainingSurface, surfaceSelection.generation, status);
   }, [handleTrainingSurfaceReady, selectedTrainingSurface, surfaceSelection.generation]);

@@ -62,6 +62,8 @@ describe("training embedded surface partial loading", () => {
   beforeEach(() => {
     mocks.fitnessModel = {
       loading: false,
+      cacheHit: false,
+      freshLoaded: true,
       error: null,
       timeseriesLoaded: false,
       timeseriesError: null,
@@ -76,6 +78,8 @@ describe("training embedded surface partial loading", () => {
       goalError: null,
       planError: null,
       loading: true,
+      cacheHit: false,
+      freshLoaded: false,
       loadError: null,
       retryLoad: vi.fn(),
     };
@@ -155,6 +159,25 @@ describe("training embedded surface partial loading", () => {
     expect(screen.queryByText("plan presentation")).not.toBeInTheDocument();
   });
 
+  it("shows cached Plan content immediately before fresh revalidation completes", async () => {
+    const onReady = vi.fn();
+    mocks.planModel = {
+      ...mocks.planModel,
+      goal: { title: "캐시된 목표" },
+      goalLoading: false,
+      planLoading: false,
+      loading: false,
+      cacheHit: true,
+      freshLoaded: false,
+    };
+
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+
+    expect(screen.getByText("plan presentation")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
+  });
+
   it("keeps a plan week failure inline and exposes retry", async () => {
     const onReady = vi.fn();
     const retryLoad = vi.fn();
@@ -166,6 +189,7 @@ describe("training embedded surface partial loading", () => {
       planError: new Error("failed"),
       loadError: new Error("failed"),
       loading: false,
+      freshLoaded: true,
       retryLoad,
     };
 

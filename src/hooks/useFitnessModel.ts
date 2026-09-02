@@ -63,6 +63,12 @@ import { logClientError } from "../services/errorLogger";
 import { useBikeFtpDecision } from "./useBikeFtpDecision";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { acceptBikeThresholdDecision } from "../services/bikeFtpDecisionClient";
+import {
+  clearTrainingSurfaceCache,
+  getTrainingSurfaceCache,
+  prepareTrainingSurfaceCacheOwner,
+  setTrainingSurfaceCache,
+} from "../embedded/trainingSurfaceCache";
 
 export function resolveFitnessDiscipline(value: string | null | undefined): Discipline {
   return value === "bike" || value === "run" || value === "swim" || value === "tri"
@@ -214,14 +220,26 @@ export function useFitnessModel(
   const { entries: ftpHistory } = useFtpHistory(user?.uid);
   const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
+  const cacheLocale = options.enableCoachRiderInsight === false
+    ? (i18n.resolvedLanguage ?? i18n.language)
+    : null;
+  const cacheKey = user && cacheLocale
+    ? { uid: user.uid, surface: "fitness" as const, sport: discipline, locale: cacheLocale }
+    : null;
+  const initialCache = cacheKey
+    && prepareTrainingSurfaceCacheOwner(user!.uid, user!.isAnonymous === true)
+    ? getTrainingSurfaceCache<{ activities: Activity[] }>(cacheKey)
+    : null;
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
     ownerUid: user?.uid ?? null,
-    items: [],
+    items: initialCache?.activities ?? [],
   });
   const activities = activityState.ownerUid === (user?.uid ?? null) ? activityState.items : [];
   const { streamsMap, metricsMap } = useActivityDerivedDocuments(user?.uid, activities);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialCache === null);
+  const [cacheHit, setCacheHit] = useState(initialCache !== null);
+  const [freshLoaded, setFreshLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [range, setRange] = useState<RangeOption | 42>(90);
@@ -297,15 +315,28 @@ export function useFitnessModel(
 
   useEffect(() => {
     if (!user) {
+      clearTrainingSurfaceCache();
       setActivityState({ ownerUid: null, items: [] });
       setLoading(false);
+      setCacheHit(false);
+      setFreshLoaded(true);
       return undefined;
     }
     const uid = user.uid;
     let active = true;
-    setActivityState({ ownerUid: uid, items: [] });
+    const nextCacheKey = cacheLocale
+      ? { uid, surface: "fitness" as const, sport: discipline, locale: cacheLocale }
+      : null;
+    const cacheEnabled = nextCacheKey !== null
+      && prepareTrainingSurfaceCacheOwner(uid, user.isAnonymous === true);
+    const cached = cacheEnabled
+      ? getTrainingSurfaceCache<{ activities: Activity[] }>(nextCacheKey)
+      : null;
+    setActivityState({ ownerUid: uid, items: cached?.activities ?? [] });
     setError(null);
-    setLoading(true);
+    setLoading(cached === null);
+    setCacheHit(cached !== null);
+    setFreshLoaded(false);
     const cutoff = Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000;
     const activitiesQuery = query(
       collection(firestore, "activities"),
@@ -324,23 +355,29 @@ export function useFitnessModel(
             .filter((activity) => activity.userId === uid && activity.summary != null);
           setActivityState({ ownerUid: uid, items });
           setLoading(false);
+          setFreshLoaded(true);
+          if (cacheEnabled) setTrainingSurfaceCache(nextCacheKey, { activities: items });
         } catch (snapshotError) {
-          setError(snapshotError instanceof Error ? snapshotError.message : t("error.loadFailed"));
+          if (cached === null) {
+            setError(snapshotError instanceof Error ? snapshotError.message : t("error.loadFailed"));
+          }
           setLoading(false);
+          setFreshLoaded(cached === null);
         }
       },
       (subscriptionError) => {
         if (!active) return;
         logClientError("FitnessPage.activitiesSubscription", subscriptionError, { range: activityQueryRange });
-        setError(t("error.loadFailed"));
+        if (cached === null) setError(t("error.loadFailed"));
         setLoading(false);
+        setFreshLoaded(cached === null);
       },
     );
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [activityQueryRange, firestore, reloadKey, t, user]);
+  }, [activityQueryRange, cacheLocale, discipline, firestore, reloadKey, t, user]);
 
   const retryLoad = useCallback(() => {
     setError(null);
@@ -428,26 +465,38 @@ export function useFitnessModel(
     timeseries,
     loaded: selectedTimeseriesLoaded,
     error: selectedTimeseriesError,
+    cacheHit: selectedTimeseriesCacheHit,
+    freshLoaded: selectedTimeseriesFreshLoaded,
   } = useFitnessTimeseries(
     user?.uid,
     selectedTimeseriesDiscipline,
     reloadKey,
+    cacheLocale ?? undefined,
+    user?.isAnonymous === true,
   );
   const triUid = discipline === "tri" ? user?.uid : undefined;
   const {
     timeseries: triRunTimeseries,
     loaded: triRunTimeseriesLoaded,
     error: triRunTimeseriesError,
-  } = useFitnessTimeseries(triUid, "run", reloadKey);
+    cacheHit: triRunTimeseriesCacheHit,
+    freshLoaded: triRunTimeseriesFreshLoaded,
+  } = useFitnessTimeseries(triUid, "run", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
   const {
     timeseries: triSwimTimeseries,
     loaded: triSwimTimeseriesLoaded,
     error: triSwimTimeseriesError,
-  } = useFitnessTimeseries(triUid, "swim", reloadKey);
+    cacheHit: triSwimTimeseriesCacheHit,
+    freshLoaded: triSwimTimeseriesFreshLoaded,
+  } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
   const timeseriesLoaded = selectedTimeseriesLoaded
     && (discipline !== "tri" || (triRunTimeseriesLoaded && triSwimTimeseriesLoaded));
   const timeseriesError = selectedTimeseriesError
     ?? (discipline === "tri" ? triRunTimeseriesError ?? triSwimTimeseriesError : null);
+  const timeseriesCacheHit = selectedTimeseriesCacheHit
+    && (discipline !== "tri" || (triRunTimeseriesCacheHit && triSwimTimeseriesCacheHit));
+  const timeseriesFreshLoaded = selectedTimeseriesFreshLoaded
+    && (discipline !== "tri" || (triRunTimeseriesFreshLoaded && triSwimTimeseriesFreshLoaded));
   const hasCanonicalTimeseries = Boolean(
     discipline !== "tri" && isCanonicalTimeseries(timeseries, discipline),
   );
@@ -774,6 +823,8 @@ export function useFitnessModel(
     streamsMap,
     metricsMap,
     loading,
+    cacheHit: cacheHit && timeseriesCacheHit,
+    freshLoaded: freshLoaded && timeseriesFreshLoaded,
     error,
     range,
     setRange,

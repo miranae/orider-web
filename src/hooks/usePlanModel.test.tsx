@@ -6,6 +6,12 @@ import type { ReactNode } from "react";
 import { FirebaseServicesProvider } from "../contexts/FirebaseServicesContext";
 import { setCollectionDocs } from "../__tests__/mocks/firebase";
 import { normalizePlanSport, usePlanModel } from "./usePlanModel";
+import {
+  clearTrainingSurfaceCache,
+  getTrainingSurfaceCache,
+  prepareTrainingSurfaceCacheOwner,
+  setTrainingSurfaceCache,
+} from "../embedded/trainingSurfaceCache";
 
 const mocks = vi.hoisted(() => ({
   user: { uid: "owner" } as { uid: string } | null,
@@ -39,6 +45,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe("usePlanModel", () => {
   beforeEach(() => {
+    clearTrainingSurfaceCache();
     mocks.user = { uid: "owner" };
     mocks.freshTraining.mockClear();
     mocks.fitnessTimeseries.mockClear();
@@ -149,5 +156,99 @@ describe("usePlanModel", () => {
     resolvePlan?.({ empty: true, docs: [] });
     await waitFor(() => expect(result.current.planLoading).toBe(false));
     getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("renders a remounted Plan from memory while refreshing and preserves it on refresh failure", async () => {
+    const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
+    setCollectionDocs("goals", [{
+      id: "goal-bike",
+      userId: "owner",
+      discipline: "bike",
+      status: "active",
+      eventDate: tomorrow,
+      courseName: "서울 라이딩",
+    }]);
+    setCollectionDocs("goals/goal-bike/plan", [{
+      id: "week-01",
+      weekNumber: 1,
+      phase: "build",
+      startDate: tomorrow,
+      plannedTSS: 60,
+      days: [],
+    }]);
+
+    const first = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(first.result.current.freshLoaded).toBe(true));
+    expect(first.result.current.weeks).toHaveLength(1);
+    first.unmount();
+
+    const getDocsMock = vi.mocked(getDocs);
+    const originalImplementation = getDocsMock.getMockImplementation()!;
+    getDocsMock.mockClear();
+    getDocsMock.mockRejectedValueOnce(new Error("offline"));
+    const second = renderHook(() => usePlanModel("bike"), { wrapper });
+
+    expect(second.result.current.cacheHit).toBe(true);
+    expect(second.result.current.loading).toBe(false);
+    expect(second.result.current.goal?.id).toBe("goal-bike");
+    expect(second.result.current.weeks).toHaveLength(1);
+    await waitFor(() => expect(getDocsMock).toHaveBeenCalledTimes(1));
+    expect(second.result.current.freshLoaded).toBe(false);
+    expect(second.result.current.loadError).toBeNull();
+    expect(second.result.current.weeks).toHaveLength(1);
+    getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("does not let a cancelled sport generation write into the cache", async () => {
+    const getDocsMock = vi.mocked(getDocs);
+    const originalImplementation = getDocsMock.getMockImplementation()!;
+    let resolveBike: ((value: unknown) => void) | null = null;
+    getDocsMock
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveBike = resolve;
+      }) as never)
+      .mockResolvedValueOnce({ empty: true, docs: [] } as never)
+      .mockResolvedValueOnce({ empty: true, docs: [] } as never);
+
+    const hook = renderHook(({ sport }) => usePlanModel(sport), {
+      wrapper,
+      initialProps: { sport: "bike" },
+    });
+    hook.rerender({ sport: "run" });
+    await waitFor(() => expect(hook.result.current.freshLoaded).toBe(true));
+
+    resolveBike?.({
+      empty: false,
+      docs: [{ id: "stale-bike", data: () => ({ discipline: "bike" }) }],
+    });
+    await Promise.resolve();
+
+    prepareTrainingSurfaceCacheOwner("owner");
+    expect(getTrainingSurfaceCache({
+      uid: "owner",
+      surface: "plan",
+      sport: "bike",
+      locale: "ko",
+    })).toBeNull();
+    getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("clears cached Plan data immediately when Auth logs out", async () => {
+    prepareTrainingSurfaceCacheOwner("owner");
+    const cacheKey = {
+      uid: "owner",
+      surface: "plan" as const,
+      sport: "bike",
+      locale: "ko",
+    };
+    setTrainingSurfaceCache(cacheKey, { goal: { id: "private-goal" }, weeks: [] });
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    expect(hook.result.current.cacheHit).toBe(true);
+
+    mocks.user = null;
+    hook.rerender();
+
+    await waitFor(() => expect(hook.result.current.user).toBeNull());
+    expect(getTrainingSurfaceCache(cacheKey)).toBeNull();
   });
 });

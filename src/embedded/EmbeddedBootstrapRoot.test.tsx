@@ -5,6 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { simulateLogin } from "../__tests__/mocks/firebase";
 
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
+import {
+  clearTrainingSurfaceCache,
+  getTrainingSurfaceCache,
+  prepareTrainingSurfaceCacheOwner,
+  setTrainingSurfaceCache,
+} from "./trainingSurfaceCache";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -16,8 +22,8 @@ const mocks = vi.hoisted(() => {
     planSurfaceMounts: vi.fn(),
     surfaceReadyCallbacks: {
       activityAnalysis: null as (() => void) | null,
-      fitness: null as (() => void) | null,
-      plan: null as (() => void) | null,
+      fitness: null as ((status?: "cached" | "fresh" | "error") => void) | null,
+      plan: null as ((status?: "cached" | "fresh" | "error") => void) | null,
     },
     consumeHandoff: vi.fn().mockResolvedValue(undefined),
     firestore: {},
@@ -70,7 +76,7 @@ vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
 }));
 
 vi.mock("./surfaces/FitnessSurface", () => ({
-  default: ({ onReady }: { onReady: () => void }) => {
+  default: ({ onReady }: { onReady: (status?: "cached" | "fresh" | "error") => void }) => {
     mocks.fitnessSurfaceMounts();
     mocks.surfaceReadyCallbacks.fitness = onReady;
     return <div data-testid="fitness-surface" />;
@@ -78,7 +84,7 @@ vi.mock("./surfaces/FitnessSurface", () => ({
 }));
 
 vi.mock("./surfaces/PlanSurface", () => ({
-  default: ({ onReady }: { onReady: () => void }) => {
+  default: ({ onReady }: { onReady: (status?: "cached" | "fresh" | "error") => void }) => {
     mocks.planSurfaceMounts();
     mocks.surfaceReadyCallbacks.plan = onReady;
     return <div data-testid="plan-surface" />;
@@ -157,6 +163,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
   });
 
   beforeEach(() => {
+    clearTrainingSurfaceCache();
     mocks.setCurrentUser({ uid: "owner-1" });
     mocks.queryProviderMounts.mockClear();
     mocks.queryClientCreations.mockClear();
@@ -391,6 +398,14 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     });
     act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
     expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    const cacheKey = {
+      uid: "owner-1",
+      surface: "plan" as const,
+      sport: "bike",
+      locale: "ko",
+    };
+    prepareTrainingSurfaceCacheOwner("owner-1");
+    setTrainingSurfaceCache(cacheKey, { goal: { id: "private-goal" } });
 
     mocks.setCurrentUser({ uid: "different-user" });
     act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "uid-race")));
@@ -401,7 +416,38 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       requestId: "uid-race",
     });
     expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument();
+    expect(getTrainingSurfaceCache(cacheKey)).toBeNull();
   });
+
+  it.each(["host.logout", "host.sessionRejected"] as const)(
+    "clears the in-memory training cache synchronously on %s",
+    async (messageType) => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, "/ko/embed/plan", "plan");
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", {
+          expectedUid: "owner-1",
+          contractVersion: 1,
+        }));
+      });
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+      await screen.findByTestId("plan-surface");
+      const cacheKey = {
+        uid: "owner-1",
+        surface: "plan" as const,
+        sport: "bike",
+        locale: "ko",
+      };
+      setTrainingSurfaceCache(cacheKey, { goal: { id: "private-goal" } });
+
+      act(() => bridge.emit(hostMessage(
+        messageType,
+        messageType === "host.logout" ? {} : { reason: "native_session_closed" },
+      )));
+
+      expect(getTrainingSurfaceCache(cacheKey)).toBeNull();
+    },
+  );
 
   it("drops late callbacks from an older selection generation", async () => {
     const bridge = createFakeBridge();
@@ -502,6 +548,38 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       },
       requestId: "long-flow",
     });
+  });
+
+  it("correlates cached content and background fresh completion to one selection request", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/plan", "plan");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload(), "cache-flow")));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks.plan).not.toBeNull());
+
+    act(() => mocks.surfaceReadyCallbacks.plan?.("cached"));
+    expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "telemetry.event",
+      payload: expect.objectContaining({ loadState: "warm", milestone: "cache_hit" }),
+      requestId: "cache-flow",
+    }));
+    expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "telemetry.event",
+      payload: expect.objectContaining({ loadState: "warm", milestone: "cached_content" }),
+      requestId: "cache-flow",
+    }));
+
+    act(() => mocks.surfaceReadyCallbacks.plan?.("fresh"));
+    expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "telemetry.event",
+      payload: expect.objectContaining({ loadState: "warm", milestone: "fresh_complete" }),
+      requestId: "cache-flow",
+    }));
   });
 
   it.each([
