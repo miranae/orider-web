@@ -30,6 +30,7 @@ import {
   cyclingAbilityFromCanonicalRider,
 } from "../features/fitness/riderInsightParity";
 import { useActivityDerivedDocuments } from "../features/fitness/useActivityDerivedDocuments";
+import { activityDerivedDocumentRevision } from "../features/fitness/derivedDocumentReadAttempts";
 import {
   makeDurationLabel,
   secToMmss,
@@ -249,7 +250,12 @@ export function useFitnessModel(
   });
   const activities = activityState.key === activityDataKey ? activityState.items : [];
   const { streamsMap, metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, activities);
-  const derivedMetricsSettled = activities.every((activity) => metricStatusMap.has(activity.id));
+  const currentMetricStatuses = activities.map((activity) => {
+    const status = metricStatusMap.get(activity.id);
+    return status?.revision === activityDerivedDocumentRevision(activity) ? status.state : "loading";
+  });
+  const derivedMetricsSettled = currentMetricStatuses.every((status) => status !== "loading");
+  const derivedMetricsError = currentMetricStatuses.some((status) => status === "error");
   const [loading, setLoading] = useState(initialCache === null);
   const [cacheHit, setCacheHit] = useState(initialCache !== null);
   const [freshLoaded, setFreshLoaded] = useState(false);
@@ -838,6 +844,7 @@ export function useFitnessModel(
     streamsMap,
     metricsMap,
     derivedMetricsSettled,
+    derivedMetricsError,
     loading,
     cacheHit: cacheHit && timeseriesCacheHit,
     freshLoaded: freshLoaded && timeseriesFreshLoaded,

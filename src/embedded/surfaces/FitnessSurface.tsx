@@ -6,7 +6,7 @@ import MobileFitnessPage from "../../components/mobile/MobileFitnessPage";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
 
 export interface FitnessSurfaceProps {
-  onReady: (status?: "cached" | "fresh" | "error") => void;
+  onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
   retryKey: number;
 }
 
@@ -19,23 +19,23 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
     enableCoachRiderInsight: false,
   });
   const settledKeys = useRef(new Set<string>());
+  const derivedContentReady = model.derivedMetricsSettled && !model.derivedMetricsError;
 
   useEffect(() => {
-    if (!model.derivedMetricsSettled) return;
     if (model.cacheHit) {
-      const key = `${retryKey}:cached`;
+      const key = `${retryKey}:cached:${derivedContentReady ? "complete" : "partial"}`;
       if (!settledKeys.current.has(key)) {
         settledKeys.current.add(key);
-        onReady("cached");
+        onReady("cached", derivedContentReady);
       }
     }
     if (!model.freshLoaded || model.loading || !model.timeseriesLoaded) return;
     const status = model.error || model.timeseriesError ? "error" : "fresh";
-    const key = `${retryKey}:${status}`;
+    const key = `${retryKey}:${status}:${derivedContentReady ? "complete" : "partial"}`;
     if (settledKeys.current.has(key)) return;
     settledKeys.current.add(key);
-    onReady(status);
-  }, [model.cacheHit, model.derivedMetricsSettled, model.error, model.freshLoaded, model.loading, model.timeseriesError, model.timeseriesLoaded, onReady, retryKey]);
+    onReady(status, derivedContentReady);
+  }, [derivedContentReady, model.cacheHit, model.error, model.freshLoaded, model.loading, model.timeseriesError, model.timeseriesLoaded, onReady, retryKey]);
 
   if (model.loading) {
     return (
@@ -63,7 +63,9 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
           trend: !model.timeseriesLoaded
             ? "loading"
             : model.timeseriesError ? "error" : "ready",
-          derived: "ready",
+          derived: !model.derivedMetricsSettled
+            ? "loading"
+            : model.derivedMetricsError ? "error" : "ready",
           onRetryTrend: model.retryLoad,
           retryLabel: tCommon("button.retry"),
         }}

@@ -65,6 +65,7 @@ describe("training embedded surface partial loading", () => {
       cacheHit: false,
       freshLoaded: true,
       derivedMetricsSettled: true,
+      derivedMetricsError: false,
       error: null,
       timeseriesLoaded: false,
       timeseriesError: null,
@@ -101,7 +102,7 @@ describe("training embedded surface partial loading", () => {
       <FitnessSurface onReady={onReady} retryKey={0} />,
     ));
 
-    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh", true));
     expect(screen.getByText("trend ready")).toBeInTheDocument();
   });
 
@@ -115,14 +116,14 @@ describe("training embedded surface partial loading", () => {
     const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
 
     expect(screen.getByRole("alert")).toHaveTextContent("error.dataFailed");
-    await waitFor(() => expect(onReady).toHaveBeenCalledWith("error"));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("error", true));
     await act(async () => screen.getByRole("button", { name: "다시 시도" }).click());
     expect(retryLoad).toHaveBeenCalledTimes(1);
 
     mocks.fitnessModel.error = null;
     view.rerender(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
-    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
-    expect(onReady.mock.calls).toEqual([["error"], ["fresh"]]);
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh", true));
+    expect(onReady.mock.calls).toEqual([["error", true], ["fresh", true]]);
   });
 
   it("retries a fitness timeseries failure and settles fresh exactly once", async () => {
@@ -135,14 +136,14 @@ describe("training embedded surface partial loading", () => {
     const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
 
     expect(screen.getByText("trend error")).toBeInTheDocument();
-    await waitFor(() => expect(onReady).toHaveBeenCalledWith("error"));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("error", true));
     await act(async () => screen.getByRole("button", { name: "다시 시도" }).click());
     expect(retryLoad).toHaveBeenCalledTimes(1);
 
     mocks.fitnessModel.timeseriesError = null;
     view.rerender(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
-    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
-    expect(onReady.mock.calls).toEqual([["error"], ["fresh"]]);
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh", true));
+    expect(onReady.mock.calls).toEqual([["error", true], ["fresh", true]]);
   });
 
   it("shows the accepted plan goal before its week collection finishes", () => {
@@ -179,7 +180,7 @@ describe("training embedded surface partial loading", () => {
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
   });
 
-  it("settles cached fitness before fresh when derived metric reads finish", async () => {
+  it("reports cached and fresh base readiness while derived metrics remain loading", async () => {
     const onReady = vi.fn();
     mocks.fitnessModel = {
       ...mocks.fitnessModel,
@@ -190,12 +191,36 @@ describe("training embedded surface partial loading", () => {
     };
     const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
 
-    expect(screen.getByText("derived ready")).toBeInTheDocument();
-    expect(onReady).not.toHaveBeenCalled();
+    expect(screen.getByText("derived loading")).toBeInTheDocument();
+    await waitFor(() => expect(onReady.mock.calls).toEqual([
+      ["cached", false],
+      ["fresh", false],
+    ]));
 
     mocks.fitnessModel.derivedMetricsSettled = true;
     view.rerender(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
-    await waitFor(() => expect(onReady.mock.calls).toEqual([["cached"], ["fresh"]]));
+    expect(screen.getByText("derived ready")).toBeInTheDocument();
+    await waitFor(() => expect(onReady.mock.calls).toEqual([
+      ["cached", false],
+      ["fresh", false],
+      ["cached", true],
+      ["fresh", true],
+    ]));
+  });
+
+  it("keeps derived metrics failure inline without turning base readiness into surface error", async () => {
+    const onReady = vi.fn();
+    mocks.fitnessModel = {
+      ...mocks.fitnessModel,
+      timeseriesLoaded: true,
+      derivedMetricsSettled: true,
+      derivedMetricsError: true,
+    };
+
+    render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
+
+    expect(screen.getByText("derived error")).toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh", false));
   });
 
   it("keeps a plan week failure inline and exposes retry", async () => {
