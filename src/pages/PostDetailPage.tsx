@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -22,6 +22,7 @@ import { Button, Card, Chip } from "../theme/components";
 import { normalizeUserContentUrl } from "../utils/userContentUrl";
 import { ReportContentModal } from "../features/board/ReportContentModal";
 import { buildBoardReportPayload, type BoardReportReason } from "../features/board/reportPayload";
+import { useBoardPostView } from "./useBoardPostView";
 
 type ReportTarget =
   | { targetType: "post"; postId: string; previewTitle: string; authorNickname: string; createdAt: number }
@@ -48,29 +49,7 @@ const PostDetailPage: React.FC = () => {
   const { isLiked, likeCount, likers, toggleLike } = useBoardLike(postId || '', post?.likeCount ?? 0);
   const safeSourceUrl = normalizeUserContentUrl(post?.sourceUrl);
 
-  useEffect(() => {
-    if (!postId || postLoading || !post) return;
-
-    const logView = async () => {
-      const viewKey = `board:viewed:${postId}`;
-      try {
-        if (sessionStorage.getItem(viewKey)) return;
-        sessionStorage.setItem(viewKey, "1");
-      } catch {
-        // sessionStorage unavailable; keep best-effort view logging.
-      }
-      try {
-        const { doc, updateDoc, increment } = await import("firebase/firestore");
-        const postRef = doc(firestore, "board_posts", postId);
-        await updateDoc(postRef, {
-          viewCount: increment(1)
-        });
-      } catch {
-        // Ignore view count errors
-      }
-    };
-    logView();
-  }, [postId, postLoading]);
+  useBoardPostView(postId, user?.uid, post);
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
