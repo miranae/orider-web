@@ -6,6 +6,7 @@ export const HOST_MESSAGE_TYPES = [
   "host.sessionAccepted",
   "host.sessionRejected",
   "host.lifecycle",
+  "host.surfaceSelected",
   "host.retry",
   "host.logout",
 ] as const;

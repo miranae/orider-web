@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
   const state = {
     currentUser: { uid: "owner-1" } as { uid: string } | null,
     queryProviderMounts: vi.fn(),
+    queryClientCreations: vi.fn(),
     surfaceHookMounts: vi.fn(),
     fitnessSurfaceMounts: vi.fn(),
     planSurfaceMounts: vi.fn(),
@@ -35,7 +36,11 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("@tanstack/react-query", () => ({
-  QueryClient: class {},
+  QueryClient: class {
+    constructor() {
+      mocks.queryClientCreations();
+    }
+  },
   QueryClientProvider: ({ children }: { children: React.ReactNode }) => {
     mocks.queryProviderMounts();
     return children;
@@ -154,6 +159,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
   beforeEach(() => {
     mocks.setCurrentUser({ uid: "owner-1" });
     mocks.queryProviderMounts.mockClear();
+    mocks.queryClientCreations.mockClear();
     mocks.surfaceHookMounts.mockClear();
     mocks.fitnessSurfaceMounts.mockClear();
     mocks.planSurfaceMounts.mockClear();
@@ -170,7 +176,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
 
     expect(bridge.sent).toContainEqual({
       type: "bootstrap.ready",
-      payload: { contractVersion: 1 },
+      payload: { contractVersion: 1, capabilities: ["host.surfaceSelected"] },
       requestId: undefined,
     });
     expect(onSnapshot).not.toHaveBeenCalled();
@@ -309,6 +315,159 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       payload: { activityId: "activity-1" },
       requestId: undefined,
     });
+  });
+
+  it("rejects retained selection before sessionAccepted and on Activity Analysis", async () => {
+    const trainingBridge = createFakeBridge();
+    renderBootstrap(trainingBridge, "/ko/embed/fitness", "fitness");
+
+    act(() => trainingBridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "early")));
+    expect(trainingBridge.sent).toContainEqual({
+      type: "surface.error",
+      payload: { code: "invalid_host_state" },
+      requestId: "early",
+    });
+    expect(mocks.planSurfaceMounts).not.toHaveBeenCalled();
+
+    const analysisBridge = createFakeBridge();
+    renderBootstrap(analysisBridge);
+    await act(async () => {
+      analysisBridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => analysisBridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await screen.findByTestId("analysis-surface");
+    act(() => analysisBridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "analysis")));
+
+    expect(analysisBridge.sent).toContainEqual({
+      type: "surface.error",
+      payload: { code: "invalid_host_state" },
+      requestId: "analysis",
+    });
+    expect(screen.getByTestId("analysis-surface")).toBeInTheDocument();
+  });
+
+  it("retains shared providers while mounting only the selected training surface", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    expect(mocks.queryClientCreations).toHaveBeenCalledTimes(1);
+    expect(onSnapshot).toHaveBeenCalledTimes(1);
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "select-plan")));
+    expect(await screen.findByTestId("plan-surface")).toBeInTheDocument();
+    expect(screen.queryByTestId("fitness-surface")).not.toBeInTheDocument();
+    expect(mocks.queryClientCreations).toHaveBeenCalledTimes(1);
+    expect(onSnapshot).toHaveBeenCalledTimes(1);
+    expect(bridge.sent.some((message) => (
+      message.type === "telemetry.event"
+      && message.requestId === "select-plan"
+      && (message.payload as { milestone?: string }).milestone === "session_accepted"
+    ))).toBe(false);
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null })));
+    await waitFor(() => expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument());
+    expect(mocks.queryClientCreations).toHaveBeenCalledTimes(1);
+    expect(onSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects selection when Auth uid no longer matches the accepted session", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+
+    mocks.setCurrentUser({ uid: "different-user" });
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "uid-race")));
+
+    expect(bridge.sent).toContainEqual({
+      type: "surface.error",
+      payload: { code: "invalid_host_state" },
+      requestId: "uid-race",
+    });
+    expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument();
+  });
+
+  it("drops late callbacks from an older selection generation", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload(), "legacy-flow")));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks.fitness).not.toBeNull());
+    const staleFitnessReady = mocks.surfaceReadyCallbacks.fitness!;
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "plan-flow")));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks.plan).not.toBeNull());
+    const messagesBeforeStaleCallback = bridge.sent.length;
+    act(() => staleFitnessReady());
+    expect(bridge.sent).toHaveLength(messagesBeforeStaleCallback);
+
+    act(() => mocks.surfaceReadyCallbacks.plan?.());
+    expect(bridge.sent).toContainEqual({
+      type: "telemetry.event",
+      payload: {
+        name: "embedded_surface_loading",
+        surface: "plan",
+        elapsedMs: expect.any(Number),
+        loadState: "cold",
+        milestone: "fresh_complete",
+      },
+      requestId: "plan-flow",
+    });
+
+    const stalePlanReady = mocks.surfaceReadyCallbacks.plan!;
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null })));
+    const messagesBeforeNullCallback = bridge.sent.length;
+    act(() => stalePlanReady());
+    expect(bridge.sent).toHaveLength(messagesBeforeNullCallback);
+  });
+
+  it("drops a queued shell callback after the surface is deselected", async () => {
+    let queuedFrame: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      queuedFrame = callback;
+      return 1;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload(), "fitness-flow")));
+    expect(await screen.findByTestId("fitness-surface")).toBeInTheDocument();
+    expect(queuedFrame).not.toBeNull();
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null })));
+    const messagesBeforeStaleShell = bridge.sent.length;
+    act(() => {
+      if (queuedFrame) queuedFrame(performance.now());
+    });
+
+    expect(bridge.sent).toHaveLength(messagesBeforeStaleShell);
   });
 
   it("clamps fresh completion telemetry to the native elapsed upper bound", async () => {

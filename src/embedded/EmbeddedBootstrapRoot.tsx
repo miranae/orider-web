@@ -32,6 +32,11 @@ import {
   ensureEmbeddedAppCheckReady,
   initEmbeddedFirebase,
 } from "./embeddedFirebase";
+import {
+  parseSurfaceSelectionMessage,
+  RETAINED_SURFACE_SELECTION_CAPABILITY,
+  type TrainingSurfaceKind,
+} from "./surfaceSelection";
 import "./embedded.css";
 
 const ActivityAnalysisSurface = lazy(() => import("./surfaces/ActivityAnalysisSurface"));
@@ -60,6 +65,7 @@ interface AcceptedSession {
 }
 
 interface SurfaceLoadingFlow {
+  generation: number;
   requestId: string;
   startedAt: number;
   surface: "fitness" | "plan";
@@ -210,6 +216,8 @@ function AuthorizedSurface({
   onTrainingShellReady,
   onTrainingSurfaceReady,
   retryKey,
+  selectionGeneration,
+  selectedTrainingSurface,
   services,
   session,
   surfaceKind,
@@ -219,6 +227,8 @@ function AuthorizedSurface({
   onTrainingShellReady: () => void;
   onTrainingSurfaceReady: (status?: "fresh" | "error") => void;
   retryKey: number;
+  selectionGeneration: number;
+  selectedTrainingSurface: TrainingSurfaceKind | null;
   services: FirebaseServices;
   session: AcceptedSession;
   surfaceKind: EmbeddedSurfaceKind;
@@ -265,7 +275,7 @@ function AuthorizedSurface({
     document.documentElement.lang = session.locale;
   }, [session.locale]);
 
-  const trainingSurface = surfaceKind === "fitness" || surfaceKind === "plan";
+  const trainingSurface = selectedTrainingSurface !== null;
 
   useEffect(() => {
     if (!trainingSurface) return undefined;
@@ -301,15 +311,15 @@ function AuthorizedSurface({
                   onReady={() => bridge.send("surface.ready", { activityId })}
                   onError={(code) => bridge.send("surface.error", { code })}
                 />
-              ) : surfaceKind === "fitness" ? (
+              ) : selectedTrainingSurface === "fitness" ? (
                 <FitnessSurface
-                  key={retryKey}
+                  key={`${selectionGeneration}:${retryKey}`}
                   retryKey={retryKey}
                   onReady={onTrainingSurfaceReady}
                 />
-              ) : surfaceKind === "plan" ? (
+              ) : selectedTrainingSurface === "plan" ? (
                 <PlanSurface
-                  key={retryKey}
+                  key={`${selectionGeneration}:${retryKey}`}
                   retryKey={retryKey}
                   onReady={onTrainingSurfaceReady}
                 />
@@ -323,8 +333,8 @@ function AuthorizedSurface({
 
   if (trainingSurface) {
     const title = session.locale === "en"
-      ? surfaceKind === "fitness" ? "Fitness" : "Plan"
-      : surfaceKind === "fitness" ? "피트니스" : "운동 계획";
+      ? selectedTrainingSurface === "fitness" ? "Fitness" : "Plan"
+      : selectedTrainingSurface === "fitness" ? "피트니스" : "운동 계획";
     const loadingLabel = session.locale === "en" ? "Loading…" : "불러오는 중…";
     return (
       <section className="orider-embedded-shell" aria-labelledby="orider-training-surface-title">
@@ -353,8 +363,17 @@ export default function EmbeddedBootstrapRoot({
   const [bridge] = useState(bridgeFactory);
   const [session, setSession] = useState<AcceptedSession | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
+    ? surfaceKind
+    : null;
+  const [surfaceSelection, setSurfaceSelection] = useState<{
+    generation: number;
+    surface: TrainingSurfaceKind | null;
+  }>({ generation: 0, surface: initialTrainingSurface });
   const authorizedUid = useRef<string | null>(null);
   const acceptedUid = useRef<string | null>(null);
+  const sessionAccepted = useRef(false);
+  const selectionGeneration = useRef(0);
   const authorizationAttempt = useRef(0);
   const surfaceLoadingFlow = useRef<SurfaceLoadingFlow | null>(null);
   const embedded = initEmbeddedFirebase();
@@ -377,10 +396,18 @@ export default function EmbeddedBootstrapRoot({
     }
   }, [bridge]);
 
-  const handleTrainingShellReady = useCallback(() => {
+  const handleTrainingShellReady = useCallback((
+    surface: TrainingSurfaceKind,
+    generation: number,
+  ) => {
+    if (
+      selectionGeneration.current !== generation
+      || surfaceSelection.surface !== surface
+      || surfaceSelection.generation !== generation
+    ) return;
     safeSend("surface.shellReady", {});
     const flow = surfaceLoadingFlow.current;
-    if (!flow || flow.surface !== surfaceKind) return;
+    if (!flow || flow.surface !== surface || flow.generation !== generation) return;
     safeSend("telemetry.event", {
       name: "embedded_surface_loading",
       surface: flow.surface,
@@ -388,11 +415,20 @@ export default function EmbeddedBootstrapRoot({
       loadState: "cold",
       milestone: "shell_visible",
     }, flow.requestId);
-  }, [safeSend, surfaceKind]);
+  }, [safeSend, surfaceSelection]);
 
-  const handleTrainingSurfaceReady = useCallback((status: "fresh" | "error" = "fresh") => {
+  const handleTrainingSurfaceReady = useCallback((
+    surface: TrainingSurfaceKind,
+    generation: number,
+    status: "fresh" | "error" = "fresh",
+  ) => {
+    if (
+      selectionGeneration.current !== generation
+      || surfaceSelection.surface !== surface
+      || surfaceSelection.generation !== generation
+    ) return;
     const flow = surfaceLoadingFlow.current;
-    if (flow && flow.surface === surfaceKind) {
+    if (flow && flow.surface === surface && flow.generation === generation) {
       if (status === "fresh") {
         // 정상 완료 milestone만 trace를 소비한다. 인라인 오류 뒤 같은 셸에서 재시도해
         // 복구되면 최초 탭 진입과 연결된 fresh_complete를 한 번 기록한다.
@@ -407,7 +443,7 @@ export default function EmbeddedBootstrapRoot({
       }
     }
     safeSend("surface.ready", {});
-  }, [safeSend, surfaceKind]);
+  }, [safeSend, surfaceSelection]);
 
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
@@ -443,6 +479,8 @@ export default function EmbeddedBootstrapRoot({
         authorizationAttempt.current = attempt;
         authorizedUid.current = null;
         acceptedUid.current = null;
+        sessionAccepted.current = false;
+        selectionGeneration.current += 1;
         surfaceLoadingFlow.current = null;
         setSession(null);
         void consumeAppHandoffCode({
@@ -477,9 +515,14 @@ export default function EmbeddedBootstrapRoot({
         }
         if (rootRef.current) applyHostContract(rootRef.current, accepted);
         acceptedUid.current = currentUid;
+        sessionAccepted.current = true;
+        const generation = selectionGeneration.current + 1;
+        selectionGeneration.current = generation;
+        setSurfaceSelection({ generation, surface: initialTrainingSurface });
         surfaceLoadingFlow.current = null;
         if ((surfaceKind === "fitness" || surfaceKind === "plan") && message.requestId) {
           const flow: SurfaceLoadingFlow = {
+            generation,
             requestId: message.requestId,
             startedAt: performance.now(),
             surface: surfaceKind,
@@ -497,6 +540,35 @@ export default function EmbeddedBootstrapRoot({
         return;
       }
 
+      if (message.type === "host.surfaceSelected") {
+        const selection = parseSurfaceSelectionMessage(message);
+        if (!selection) {
+          safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
+          return;
+        }
+        if (
+          surfaceKind === "activity-analysis"
+          || !sessionAccepted.current
+          || !acceptedUid.current
+          || services.auth.currentUser?.uid !== acceptedUid.current
+        ) {
+          safeSend("surface.error", { code: "invalid_host_state" }, message.requestId);
+          return;
+        }
+        const generation = selectionGeneration.current + 1;
+        selectionGeneration.current = generation;
+        surfaceLoadingFlow.current = selection.surface && selection.requestId
+          ? {
+            generation,
+            requestId: selection.requestId,
+            startedAt: performance.now(),
+            surface: selection.surface,
+          }
+          : null;
+        setSurfaceSelection({ generation, surface: selection.surface });
+        return;
+      }
+
       if (message.type === "host.sessionRejected") {
         if (!isRecord(message.payload) || !hasOnlyKeys(message.payload, ["reason"])) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
@@ -505,6 +577,8 @@ export default function EmbeddedBootstrapRoot({
         setSession(null);
         authorizedUid.current = null;
         acceptedUid.current = null;
+        sessionAccepted.current = false;
+        selectionGeneration.current += 1;
         surfaceLoadingFlow.current = null;
         return;
       }
@@ -526,6 +600,8 @@ export default function EmbeddedBootstrapRoot({
         authorizationAttempt.current += 1;
         authorizedUid.current = null;
         acceptedUid.current = null;
+        sessionAccepted.current = false;
+        selectionGeneration.current += 1;
         surfaceLoadingFlow.current = null;
         setSession(null);
         void signOut(services.auth);
@@ -539,17 +615,34 @@ export default function EmbeddedBootstrapRoot({
       authorizationAttempt.current += 1;
       acceptedUid.current = null;
       authorizedUid.current = null;
+      sessionAccepted.current = false;
+      selectionGeneration.current += 1;
       surfaceLoadingFlow.current = null;
       setSession(null);
       safeSend("surface.error", { code: "auth_uid_changed" });
     });
-    safeSend("bootstrap.ready", { contractVersion: CONTRACT_VERSION });
+    safeSend("bootstrap.ready", {
+      contractVersion: CONTRACT_VERSION,
+      capabilities: [RETAINED_SURFACE_SELECTION_CAPABILITY],
+    });
     return () => {
       unsubscribe();
       unsubscribeAuth();
       bridge.dispose();
     };
-  }, [bridge, safeSend, services, surfaceKind]);
+  }, [bridge, initialTrainingSurface, safeSend, services, surfaceKind]);
+
+  const selectedTrainingSurface = surfaceKind === "activity-analysis"
+    ? null
+    : surfaceSelection.surface;
+  const trainingShellReady = useCallback(() => {
+    if (!selectedTrainingSurface) return;
+    handleTrainingShellReady(selectedTrainingSurface, surfaceSelection.generation);
+  }, [handleTrainingShellReady, selectedTrainingSurface, surfaceSelection.generation]);
+  const trainingSurfaceReady = useCallback((status: "fresh" | "error" = "fresh") => {
+    if (!selectedTrainingSurface) return;
+    handleTrainingSurfaceReady(selectedTrainingSurface, surfaceSelection.generation, status);
+  }, [handleTrainingSurfaceReady, selectedTrainingSurface, surfaceSelection.generation]);
 
   return (
     <div
@@ -562,9 +655,11 @@ export default function EmbeddedBootstrapRoot({
         <AuthorizedSurface
           activityId={activityId}
           bridge={bridge}
-          onTrainingShellReady={handleTrainingShellReady}
-          onTrainingSurfaceReady={handleTrainingSurfaceReady}
+          onTrainingShellReady={trainingShellReady}
+          onTrainingSurfaceReady={trainingSurfaceReady}
           retryKey={retryKey}
+          selectionGeneration={surfaceSelection.generation}
+          selectedTrainingSurface={selectedTrainingSurface}
           services={services}
           session={session}
           surfaceKind={surfaceKind}
