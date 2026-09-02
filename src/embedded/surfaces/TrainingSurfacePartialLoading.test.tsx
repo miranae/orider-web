@@ -17,10 +17,20 @@ vi.mock("../../hooks/usePlanModel", () => ({
 }));
 
 vi.mock("../../components/mobile/MobileFitnessPage", () => ({
-  default: ({ sectionState }: { sectionState: { trend: string; derived: string } }) => (
+  default: ({ sectionState }: {
+    sectionState: {
+      trend: string;
+      derived: string;
+      onRetryTrend?: () => void;
+      retryLabel?: string;
+    };
+  }) => (
     <div>
       <span>trend {sectionState.trend}</span>
       <span>derived {sectionState.derived}</span>
+      {sectionState.trend === "error" && sectionState.onRetryTrend && (
+        <button type="button" onClick={sectionState.onRetryTrend}>{sectionState.retryLabel}</button>
+      )}
     </div>
   ),
 }));
@@ -57,6 +67,7 @@ describe("training embedded surface partial loading", () => {
       timeseriesError: null,
       mobilePageProps: {},
       t: (key: string) => key,
+      retryLoad: vi.fn(),
     };
     mocks.planModel = {
       goal: null,
@@ -89,15 +100,44 @@ describe("training embedded surface partial loading", () => {
     expect(screen.getByText("trend ready")).toBeInTheDocument();
   });
 
-  it("settles a fitness data failure as an inline error for legacy hosts", async () => {
+  it("retries a fitness data failure and settles fresh exactly once", async () => {
     const onReady = vi.fn();
+    const retryLoad = vi.fn();
     mocks.fitnessModel.error = "failed";
     mocks.fitnessModel.timeseriesLoaded = true;
+    mocks.fitnessModel.retryLoad = retryLoad;
 
-    render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
+    const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
 
     expect(screen.getByRole("alert")).toHaveTextContent("error.dataFailed");
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("error"));
+    await act(async () => screen.getByRole("button", { name: "다시 시도" }).click());
+    expect(retryLoad).toHaveBeenCalledTimes(1);
+
+    mocks.fitnessModel.error = null;
+    view.rerender(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
+    expect(onReady.mock.calls).toEqual([["error"], ["fresh"]]);
+  });
+
+  it("retries a fitness timeseries failure and settles fresh exactly once", async () => {
+    const onReady = vi.fn();
+    const retryLoad = vi.fn();
+    mocks.fitnessModel.timeseriesLoaded = true;
+    mocks.fitnessModel.timeseriesError = new Error("failed");
+    mocks.fitnessModel.retryLoad = retryLoad;
+
+    const view = render(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
+
+    expect(screen.getByText("trend error")).toBeInTheDocument();
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("error"));
+    await act(async () => screen.getByRole("button", { name: "다시 시도" }).click());
+    expect(retryLoad).toHaveBeenCalledTimes(1);
+
+    mocks.fitnessModel.timeseriesError = null;
+    view.rerender(wrapper(<FitnessSurface onReady={onReady} retryKey={0} />));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
+    expect(onReady.mock.calls).toEqual([["error"], ["fresh"]]);
   });
 
   it("shows the accepted plan goal before its week collection finishes", () => {

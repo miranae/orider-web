@@ -17,6 +17,7 @@ import type { Discipline } from "../utils/disciplineFilter";
 export function useFitnessTimeseries(
   uid: string | undefined,
   discipline: Discipline,
+  reloadKey = 0,
 ): { timeseries: FitnessTimeseriesDoc | null; loaded: boolean; error: unknown } {
   const { firestore } = useFirebaseServices();
   const [timeseries, setTimeseries] = useState<FitnessTimeseriesDoc | null>(null);
@@ -49,7 +50,7 @@ export function useFitnessTimeseries(
       },
     );
     return () => unsub();
-  }, [discipline, firestore, uid]);
+  }, [discipline, firestore, reloadKey, uid]);
 
   return { timeseries, loaded, error };
 }

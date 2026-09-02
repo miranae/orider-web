@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import MobileFitnessPage from "../../components/mobile/MobileFitnessPage";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
@@ -11,6 +12,7 @@ export interface FitnessSurfaceProps {
 
 export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProps) {
   const [searchParams] = useSearchParams();
+  const { t: tCommon } = useTranslation("common");
   const model = useFitnessModel(searchParams.get("sport"), {
     // This REST client still owns the normal web Auth/App Check singleton. The embedded
     // surface uses the persisted PDC fallback until that client accepts injected services.
@@ -39,6 +41,7 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
     return (
       <main className="orider-embedded-surface" data-testid="embedded-fitness">
         <p role="alert">{model.t("error.dataFailed")}</p>
+        <button type="button" onClick={model.retryLoad}>{tCommon("button.retry")}</button>
       </main>
     );
   }
@@ -53,6 +56,8 @@ export default function FitnessSurface({ onReady, retryKey }: FitnessSurfaceProp
             ? "loading"
             : model.timeseriesError ? "error" : "ready",
           derived: "ready",
+          onRetryTrend: model.retryLoad,
+          retryLabel: tCommon("button.retry"),
         }}
       />
     </main>

@@ -91,6 +91,8 @@ export interface MobileFitnessData {
 export interface MobileFitnessSectionState {
   trend: "loading" | "error" | "ready";
   derived: "loading" | "error" | "ready";
+  onRetryTrend?: () => void;
+  retryLabel?: string;
 }
 
 // ── PMC 추이 미니 차트 (Y축·X축 라벨, 오늘 마커, 예측, 탭 툴팁) ──
@@ -621,7 +623,14 @@ export default function MobileFitnessPage({
             {sectionState.trend === "loading" ? (
               <p role="status">{t("mobileFitness.trendLoading")}</p>
             ) : sectionState.trend === "error" ? (
-              <p role="alert">{t("mobileFitness.trendError")}</p>
+              <>
+                <p role="alert">{t("mobileFitness.trendError")}</p>
+                {sectionState.onRetryTrend && (
+                  <button type="button" onClick={sectionState.onRetryTrend}>
+                    {sectionState.retryLabel ?? t("common:button.retry")}
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
