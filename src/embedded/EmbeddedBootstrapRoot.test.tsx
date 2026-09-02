@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { onSnapshot } from "firebase/firestore";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { simulateLogin } from "../__tests__/mocks/firebase";
 
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => {
     surfaceHookMounts: vi.fn(),
     fitnessSurfaceMounts: vi.fn(),
     planSurfaceMounts: vi.fn(),
+    surfaceReadyCallbacks: {
+      activityAnalysis: null as (() => void) | null,
+      fitness: null as (() => void) | null,
+      plan: null as (() => void) | null,
+    },
     consumeHandoff: vi.fn().mockResolvedValue(undefined),
     firestore: {},
     functions: {},
@@ -52,22 +57,25 @@ vi.mock("../services/appHandoff", () => ({
 }));
 
 vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
-  default: () => {
+  default: ({ onReady }: { onReady: () => void }) => {
     mocks.surfaceHookMounts();
+    mocks.surfaceReadyCallbacks.activityAnalysis = onReady;
     return <div data-testid="analysis-surface" />;
   },
 }));
 
 vi.mock("./surfaces/FitnessSurface", () => ({
-  default: () => {
+  default: ({ onReady }: { onReady: () => void }) => {
     mocks.fitnessSurfaceMounts();
+    mocks.surfaceReadyCallbacks.fitness = onReady;
     return <div data-testid="fitness-surface" />;
   },
 }));
 
 vi.mock("./surfaces/PlanSurface", () => ({
-  default: () => {
+  default: ({ onReady }: { onReady: () => void }) => {
     mocks.planSurfaceMounts();
+    mocks.surfaceReadyCallbacks.plan = onReady;
     return <div data-testid="plan-surface" />;
   },
 }));
@@ -98,8 +106,12 @@ function createFakeBridge(): FakeBridge {
   };
 }
 
-function hostMessage(type: HostBridgeEnvelope["type"], payload: unknown): HostBridgeEnvelope {
-  return { version: 1, type, payload };
+function hostMessage(
+  type: HostBridgeEnvelope["type"],
+  payload: unknown,
+  requestId?: string,
+): HostBridgeEnvelope {
+  return { version: 1, type, payload, requestId };
 }
 
 function acceptedPayload() {
@@ -135,12 +147,19 @@ function renderBootstrap(
 }
 
 describe("EmbeddedBootstrapRoot session gate", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     mocks.setCurrentUser({ uid: "owner-1" });
     mocks.queryProviderMounts.mockClear();
     mocks.surfaceHookMounts.mockClear();
     mocks.fitnessSurfaceMounts.mockClear();
     mocks.planSurfaceMounts.mockClear();
+    mocks.surfaceReadyCallbacks.activityAnalysis = null;
+    mocks.surfaceReadyCallbacks.fitness = null;
+    mocks.surfaceReadyCallbacks.plan = null;
     mocks.consumeHandoff.mockClear();
     vi.mocked(onSnapshot).mockClear();
   });
@@ -180,6 +199,13 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     await waitFor(() => expect(mocks.queryProviderMounts).toHaveBeenCalled());
     expect(mocks.surfaceHookMounts).toHaveBeenCalled();
     expect(await screen.findByTestId("analysis-surface")).toBeInTheDocument();
+    act(() => mocks.surfaceReadyCallbacks.activityAnalysis?.());
+    expect(bridge.sent).toContainEqual({
+      type: "surface.ready",
+      payload: { activityId: "activity-1" },
+      requestId: undefined,
+    });
+    expect(bridge.sent.some((message) => message.type === "telemetry.event")).toBe(false);
   });
 
   it.each([
@@ -219,6 +245,150 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       expect(mocks.surfaceHookMounts).not.toHaveBeenCalled();
     },
   );
+
+  it("clamps fresh completion telemetry to the native elapsed upper bound", async () => {
+    const now = vi.spyOn(performance, "now").mockReturnValue(1_000);
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    await waitFor(() => expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "auth.state",
+      payload: { uid: "owner-1" },
+    })));
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload(), "long-flow")));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks.fitness).not.toBeNull());
+
+    now.mockReturnValue(122_000);
+    act(() => mocks.surfaceReadyCallbacks.fitness?.());
+
+    expect(bridge.sent).toContainEqual({
+      type: "telemetry.event",
+      payload: {
+        name: "embedded_surface_loading",
+        surface: "fitness",
+        elapsedMs: 120_000,
+        loadState: "cold",
+        milestone: "fresh_complete",
+      },
+      requestId: "long-flow",
+    });
+  });
+
+  it.each([
+    ["fitness", "/ko/embed/fitness?sport=run"],
+    ["plan", "/ko/embed/plan?sport=swim"],
+  ] as const)(
+    "emits correlated cold loading milestones for %s without sensitive fields",
+    async (surfaceKind, path) => {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge, path, surfaceKind);
+
+      await act(async () => {
+        bridge.emit(hostMessage("host.authorize", {
+          expectedUid: "owner-1",
+          contractVersion: 1,
+        }));
+      });
+      await waitFor(() => expect(bridge.sent).toContainEqual(expect.objectContaining({
+        type: "auth.state",
+        payload: { uid: "owner-1" },
+      })));
+
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload(), "tab-flow-1")));
+      await waitFor(() => expect(mocks.surfaceReadyCallbacks[surfaceKind]).not.toBeNull());
+
+      const acceptedTelemetry = bridge.sent.find((message) => (
+        message.type === "telemetry.event"
+        && (message.payload as { milestone?: string }).milestone === "session_accepted"
+      ));
+      expect(acceptedTelemetry).toEqual({
+        type: "telemetry.event",
+        payload: {
+          name: "embedded_surface_loading",
+          surface: surfaceKind,
+          elapsedMs: 0,
+          loadState: "cold",
+          milestone: "session_accepted",
+        },
+        requestId: "tab-flow-1",
+      });
+
+      act(() => mocks.surfaceReadyCallbacks[surfaceKind]?.());
+
+      const freshTelemetry = bridge.sent.find((message) => (
+        message.type === "telemetry.event"
+        && (message.payload as { milestone?: string }).milestone === "fresh_complete"
+      ));
+      expect(freshTelemetry).toEqual({
+        type: "telemetry.event",
+        payload: {
+          name: "embedded_surface_loading",
+          surface: surfaceKind,
+          elapsedMs: expect.any(Number),
+          loadState: "cold",
+          milestone: "fresh_complete",
+        },
+        requestId: "tab-flow-1",
+      });
+      expect((freshTelemetry?.payload as { elapsedMs: number }).elapsedMs).toBeGreaterThanOrEqual(0);
+
+      const freshIndex = bridge.sent.indexOf(freshTelemetry!);
+      expect(bridge.sent[freshIndex + 1]).toEqual({
+        type: "surface.ready",
+        payload: {},
+        requestId: undefined,
+      });
+      act(() => mocks.surfaceReadyCallbacks[surfaceKind]?.());
+      expect(bridge.sent.filter((message) => (
+        message.type === "telemetry.event"
+        && (message.payload as { milestone?: string }).milestone === "fresh_complete"
+      ))).toHaveLength(1);
+      expect(bridge.sent.filter((message) => message.type === "surface.ready")).toHaveLength(2);
+      const telemetryJson = JSON.stringify([acceptedTelemetry, freshTelemetry]);
+      expect(telemetryJson).not.toContain("owner-1");
+      expect(telemetryJson).not.toContain("run");
+      expect(telemetryJson).not.toContain("swim");
+    },
+  );
+
+  it.each([
+    ["fitness", "/ko/embed/fitness"],
+    ["plan", "/ko/embed/plan"],
+  ] as const)("keeps %s ready behavior without telemetry when sessionAccepted has no requestId", async (
+    surfaceKind,
+    path,
+  ) => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, path, surfaceKind);
+
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    await waitFor(() => expect(bridge.sent).toContainEqual(expect.objectContaining({
+      type: "auth.state",
+      payload: { uid: "owner-1" },
+    })));
+
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await waitFor(() => expect(mocks.surfaceReadyCallbacks[surfaceKind]).not.toBeNull());
+    act(() => mocks.surfaceReadyCallbacks[surfaceKind]?.());
+
+    expect(bridge.sent.some((message) => message.type === "telemetry.event")).toBe(false);
+    expect(bridge.sent).toContainEqual({
+      type: "surface.ready",
+      payload: {},
+      requestId: undefined,
+    });
+  });
 
   it("keeps every data surface unmounted when the current uid differs", async () => {
     mocks.setCurrentUser({ uid: "different-user" });

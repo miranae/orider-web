@@ -59,6 +59,12 @@ interface AcceptedSession {
   safeInsets: { top: number; bottom: number };
 }
 
+interface SurfaceLoadingFlow {
+  requestId: string;
+  startedAt: number;
+  surface: "fitness" | "plan";
+}
+
 interface EmbeddedBootstrapRootProps {
   bridgeFactory?: () => EmbeddedBridge;
   surfaceKind?: EmbeddedSurfaceKind;
@@ -201,6 +207,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
 function AuthorizedSurface({
   activityId,
   bridge,
+  onTrainingSurfaceReady,
   retryKey,
   services,
   session,
@@ -208,6 +215,7 @@ function AuthorizedSurface({
 }: {
   activityId?: string;
   bridge: EmbeddedBridge;
+  onTrainingSurfaceReady: () => void;
   retryKey: number;
   services: FirebaseServices;
   session: AcceptedSession;
@@ -283,14 +291,14 @@ function AuthorizedSurface({
                 <FitnessSurface
                   key={retryKey}
                   retryKey={retryKey}
-                  onReady={() => bridge.send("surface.ready", {})}
+                  onReady={onTrainingSurfaceReady}
                   onError={(code) => bridge.send("surface.error", { code })}
                 />
               ) : surfaceKind === "plan" ? (
                 <PlanSurface
                   key={retryKey}
                   retryKey={retryKey}
-                  onReady={() => bridge.send("surface.ready", {})}
+                  onReady={onTrainingSurfaceReady}
                   onError={(code) => bridge.send("surface.error", { code })}
                 />
               ) : null}
@@ -314,6 +322,7 @@ export default function EmbeddedBootstrapRoot({
   const authorizedUid = useRef<string | null>(null);
   const acceptedUid = useRef<string | null>(null);
   const authorizationAttempt = useRef(0);
+  const surfaceLoadingFlow = useRef<SurfaceLoadingFlow | null>(null);
   const embedded = initEmbeddedFirebase();
   const services = useMemo<FirebaseServices>(() => ({
     auth: embedded.auth,
@@ -333,6 +342,23 @@ export default function EmbeddedBootstrapRoot({
       // Native transport availability is non-sensitive; never log message payloads.
     }
   }, [bridge]);
+
+  const handleTrainingSurfaceReady = useCallback(() => {
+    const flow = surfaceLoadingFlow.current;
+    if (flow && flow.surface === surfaceKind) {
+      // terminal milestone은 한 번만 소비한다. retry나 중복 callback이 이전 trace를
+      // 재사용하면 한 번의 탭 진입이 여러 완료 이벤트로 집계된다.
+      surfaceLoadingFlow.current = null;
+      safeSend("telemetry.event", {
+        name: "embedded_surface_loading",
+        surface: flow.surface,
+        elapsedMs: Math.min(120_000, Math.max(0, Math.round(performance.now() - flow.startedAt))),
+        loadState: "cold",
+        milestone: "fresh_complete",
+      }, flow.requestId);
+    }
+    safeSend("surface.ready", {});
+  }, [safeSend, surfaceKind]);
 
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
@@ -368,6 +394,7 @@ export default function EmbeddedBootstrapRoot({
         authorizationAttempt.current = attempt;
         authorizedUid.current = null;
         acceptedUid.current = null;
+        surfaceLoadingFlow.current = null;
         setSession(null);
         void consumeAppHandoffCode({
           auth: services.auth,
@@ -394,12 +421,29 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         if (!authorizedUid.current || authorizedUid.current !== currentUid) {
+          surfaceLoadingFlow.current = null;
           setSession(null);
           safeSend("surface.error", { code: "auth_uid_mismatch" }, message.requestId);
           return;
         }
         if (rootRef.current) applyHostContract(rootRef.current, accepted);
         acceptedUid.current = currentUid;
+        surfaceLoadingFlow.current = null;
+        if ((surfaceKind === "fitness" || surfaceKind === "plan") && message.requestId) {
+          const flow: SurfaceLoadingFlow = {
+            requestId: message.requestId,
+            startedAt: performance.now(),
+            surface: surfaceKind,
+          };
+          surfaceLoadingFlow.current = flow;
+          safeSend("telemetry.event", {
+            name: "embedded_surface_loading",
+            surface: flow.surface,
+            elapsedMs: 0,
+            loadState: "cold",
+            milestone: "session_accepted",
+          }, flow.requestId);
+        }
         setSession(accepted);
         return;
       }
@@ -412,6 +456,7 @@ export default function EmbeddedBootstrapRoot({
         setSession(null);
         authorizedUid.current = null;
         acceptedUid.current = null;
+        surfaceLoadingFlow.current = null;
         return;
       }
 
@@ -432,6 +477,7 @@ export default function EmbeddedBootstrapRoot({
         authorizationAttempt.current += 1;
         authorizedUid.current = null;
         acceptedUid.current = null;
+        surfaceLoadingFlow.current = null;
         setSession(null);
         void signOut(services.auth);
       }
@@ -444,6 +490,7 @@ export default function EmbeddedBootstrapRoot({
       authorizationAttempt.current += 1;
       acceptedUid.current = null;
       authorizedUid.current = null;
+      surfaceLoadingFlow.current = null;
       setSession(null);
       safeSend("surface.error", { code: "auth_uid_changed" });
     });
@@ -453,7 +500,7 @@ export default function EmbeddedBootstrapRoot({
       unsubscribeAuth();
       bridge.dispose();
     };
-  }, [bridge, safeSend, services]);
+  }, [bridge, safeSend, services, surfaceKind]);
 
   return (
     <div
@@ -466,6 +513,7 @@ export default function EmbeddedBootstrapRoot({
         <AuthorizedSurface
           activityId={activityId}
           bridge={bridge}
+          onTrainingSurfaceReady={handleTrainingSurfaceReady}
           retryKey={retryKey}
           services={services}
           session={session}
