@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const CONTRACT = fileURLToPath(new URL('../shared/types/canonical.ts', import.meta.url));
+const DISPLAY_CONTRACT = fileURLToPath(new URL('../shared/types/canonicalDisplay.ts', import.meta.url));
 
 const STATUS_WIRE = ['canonical', 'stale', 'processing', 'failed', 'unavailable'];
 const PERIOD_RULE_WIRE = ['rolling', 'calendar'];
@@ -63,6 +64,31 @@ function main() {
   // 사본임을 잊고 여기서 원본처럼 고치는 것을 막는다.
   if (!source.includes('이 파일은 사본이다')) {
     errors.push('사본 표기가 없다 — 원본이 orider-g1-web 임을 파일에 남겨야 한다');
+  }
+
+  // ── 표시 규칙: 앱 `CanonicalConsumption.kt` 와 손으로 맞춘 사본이다.
+  //
+  // 언어가 달라 코드를 공유할 수 없다. 표가 갈라지면 같은 계정·같은 기간에서 웹과 앱이
+  // 다른 화면을 보여주고, 그건 사용자가 발견하기 전까지 아무도 모른다.
+  const display = readFileSync(DISPLAY_CONTRACT, 'utf8');
+  // (상태, 캐시유무) → 화면. 오른쪽 값이 바뀌면 앱 쪽도 같이 바꿔야 한다.
+  const DISPLAY_RULES = [
+    ['case "canonical":', 'return "value";'],
+    ['case "stale":', 'return "value_with_stale_hint";'],
+    // 계산 중 + 캐시 있음은 낡은 값을 보여주는 편이 빈 화면보다 낫다.
+    ['case "processing":', 'hasCachedValue ? "value_with_stale_hint" : "loading"'],
+    // 실패는 캐시가 있어도 알린다 — 앱과 같은 규칙. 여기만 완화하면 웹만 조용히 낡은
+    // 값을 최신처럼 그린다.
+    ['case "failed":', 'return "error";'],
+    ['case "unavailable":', 'return "empty";'],
+  ];
+  for (const [label, rule] of DISPLAY_RULES) {
+    if (!display.includes(label) || !display.includes(rule)) {
+      errors.push(`표시 규칙 드리프트: ${label} 의 결과가 앱과 다르다 (${rule})`);
+    }
+  }
+  if (!display.includes('CanonicalConsumption.kt')) {
+    errors.push('표시 규칙의 원본(앱 CanonicalConsumption.kt) 표기가 없다');
   }
 
   if (errors.length > 0) {
