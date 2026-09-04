@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
 import { classifyGaps, computeExpectedCurve, computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
 import type { PowerDurationKey } from "@shared/types/personal-records";
 import { deriveEstimatedFtpProgression } from "@shared/training/ftpProgression";
@@ -112,7 +113,9 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     : deriveActivityImpacts(fitnessData, disciplineActivities, { limit: 6 });
   const coveredActivityIds = activityIdsCoveredByImpacts(disciplineActivities, activityImpacts);
   const newestDisciplineActivity = disciplineActivities.reduce<(typeof disciplineActivities)[number] | null>(
-    (latest, activity) => !latest || activity.startTime > latest.startTime ? activity : latest,
+    (latest, activity) => isNegligibleActivitySummary(activity.summary)
+      ? latest
+      : !latest || activity.startTime > latest.startTime ? activity : latest,
     null,
   );
   const pendingImpactActivity = newestDisciplineActivity

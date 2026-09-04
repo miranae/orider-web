@@ -478,6 +478,58 @@ describe("FitnessPage", () => {
     expect(screen.queryByText("일일 부하 반영을 기다리는 중")).not.toBeInTheDocument();
   });
 
+  it("does not show a newer negligible activity as pending over a canonical ride", async () => {
+    viewport.isMobile = false;
+    const rideStart = Date.parse("2026-09-03T08:00:00.000Z");
+    setCollectionDocs("activities", [
+      {
+        id: "negligible-orider",
+        userId: "test-uid",
+        source: "orider",
+        type: "Ride",
+        startTime: rideStart + 2 * 60 * 60_000,
+        deletedAt: null,
+        summary: { distance: 189, movingTimeSec: 165, ridingTimeMillis: 165_000, tss: null },
+      },
+      {
+        id: "strava_representative",
+        userId: "test-uid",
+        source: "strava",
+        type: "Ride",
+        startTime: rideStart,
+        deletedAt: null,
+        summary: { distance: 39_600, movingTimeSec: 5_400, ridingTimeMillis: 5_400_000, tss: 107 },
+      },
+      {
+        id: "orider-duplicate",
+        userId: "test-uid",
+        source: "orider",
+        type: "Ride",
+        startTime: rideStart + 30_000,
+        deletedAt: null,
+        summary: { distance: 39_600, movingTimeSec: 5_400, ridingTimeMillis: 5_400_000, tss: null },
+      },
+    ]);
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike",
+      schemaVersion: 1,
+      computedAt: Date.now(),
+      startDate: "2026-09-02",
+      endDate: "2026-09-03",
+      pointCount: 2,
+      points: [
+        { date: "2026-09-02", ctl: 36.7, atl: 36.8, tsb: -0.1, dailyLoad: 0 },
+        { date: "2026-09-03", ctl: 38.3, atl: 45.7, tsb: -7.4, dailyLoad: 107 },
+      ],
+    });
+
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+
+    expect(await screen.findByText("반영 부하 107 TSS")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /39\.6 km/ })).toBeInTheDocument();
+    expect(screen.queryByText("일일 부하 반영을 기다리는 중")).not.toBeInTheDocument();
+  });
+
   it("keeps a genuinely new activity pending until the canonical timeseries covers it", async () => {
     viewport.isMobile = false;
     setCollectionDocs("activities", [{

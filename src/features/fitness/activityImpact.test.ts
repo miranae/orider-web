@@ -115,6 +115,47 @@ describe("deriveActivityImpacts", () => {
     expect(activityIdsCoveredByImpacts(activities, impacts)).toEqual(new Set(["orider-ride", "strava_ride"]));
   });
 
+  it("excludes a negligible activity before allocating a duplicated same-day ride", () => {
+    const startTime = Date.parse("2026-09-03T08:00:00.000Z");
+    const activities = [
+      ride({
+        id: "negligible-orider",
+        source: "orider",
+        startTime: startTime + 2 * 60 * 60_000,
+        distanceKm: 0.189,
+        movingSec: 165,
+        tss: null,
+      }),
+      ride({
+        id: "strava_ride",
+        source: "strava",
+        startTime,
+        distanceKm: 39.6,
+        movingSec: 5_400,
+        tss: 107,
+      }),
+      ride({
+        id: "orider-ride",
+        source: "orider",
+        startTime: startTime + 30_000,
+        distanceKm: 39.6,
+        movingSec: 5_400,
+        tss: null,
+      }),
+    ];
+
+    const impacts = deriveActivityImpacts([point("2026-09-03", 38.3, 45.7, 107)], activities);
+
+    expect(impacts).toHaveLength(1);
+    expect(impacts[0]).toMatchObject({
+      activity: { id: "strava_ride" },
+      attributedLoad: 107,
+      canonicalDailyLoad: 107,
+      confidence: "canonical-single",
+    });
+    expect(activityIdsCoveredByImpacts(activities, impacts)).toEqual(new Set(["strava_ride", "orider-ride"]));
+  });
+
   it("uses legacy duration fallback and time load when choosing a same-source representative", () => {
     const startTime = Date.parse("2026-08-29T10:00:00.000Z");
     const longerWithoutExplicitTss = {
