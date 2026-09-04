@@ -124,6 +124,10 @@ interface AnalysisTabProps {
   activityId?: string | null;
   /** 소유자 여부 — CTL 기반 회복 시간 등 개인 컨텍스트에만 쓴다. 지표 읽기 권한은 활동 가시성이 정한다. */
   isOwner?: boolean;
+  /** 스트림 센서 후보 판정(activityDetailDerived) — 거부된 채널의 서버 지표를 숨기는 데 쓴다. */
+  hasStreamPowerCandidate?: boolean;
+  hasStreamHeartRateCandidate?: boolean;
+  hasStreamCadenceCandidate?: boolean;
   /** 활동 시작 epoch (초 또는 밀리초). 클라임 진입 실제 현지 시각 계산에 사용. */
   startTime?: number | null;
   /** 랩·칼로리·FTP 폴백·기질 카드에만 쓴다. 지표는 여기서 계산하지 않는다. */
@@ -211,12 +215,17 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
   );
 }
 
-export default function AnalysisTab({ activityId, isOwner = false, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams }: AnalysisTabProps) {
-  // 읽기 권한은 활동 가시성이 정한다 — 소유자 게이트가 있으면 뷰어는 영원히 "없음" 을 본다.
+export default function AnalysisTab({
+  activityId, isOwner = false, startTime, streams, summary, sport, isVirtualPower, virtualPowerParams,
+  hasStreamPowerCandidate = false, hasStreamHeartRateCandidate = false, hasStreamCadenceCandidate = false,
+}: AnalysisTabProps) {
+  // 읽기 권한은 활동 가시성이 정한다(g1-web #2471 rules: activity_metrics 읽기 = activity_streams 와 동일).
+  // 소유자 게이트를 두면 뷰어는 영원히 "없음" 을 본다.
   const serverMetrics = useActivityMetrics(activityId ?? null, true);
+  // 스트림 센서 후보가 신뢰 게이트에서 거부된 채널의 서버 지표는 숨긴다 — 리터럴 false 로 두면 이 억제가 사라진다.
   const sm = useMemo(() => filterServerMetricsForSensorCandidates(serverMetrics.metrics, {
-    power: false, heartRate: false, cadence: false,
-  }), [serverMetrics.metrics]);
+    power: hasStreamPowerCandidate, heartRate: hasStreamHeartRateCandidate, cadence: hasStreamCadenceCandidate,
+  }), [serverMetrics.metrics, hasStreamPowerCandidate, hasStreamHeartRateCandidate, hasStreamCadenceCandidate]);
   const { t } = useTranslation("activity");
   const { profile, user } = useAuth();
   const ctlDiscipline = sport === "run" ? "run" : sport === "swim" ? "swim" : "bike";
@@ -280,7 +289,7 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     ? { count: sm.matches.count, totalSeconds: sm.matches.totalSec, avgPower: sm.matches.peakW || null, longestSeconds: sm.matches.longestSec ?? 0, longestAvgPower: sm.matches.longestW || null }
     : null;
   const cp = sm && hasPower && !isVirtualPower && sm.cp != null && sm.wPrime != null
-    ? { cp: sm.cp, wPrime: sm.wPrime, rSquared: sm.cpR2 ?? 0 }
+    ? { cp: sm.cp, wPrime: sm.wPrime, rSquared: sm.cpR2 ?? null }
     : null;
   const wbal = useMemo(() => (sm && cp ? presentWPrimeBalance(sm) : null), [sm, cp]);
   // 서버 클라임만 쓴다 — 클라이언트 검출 폴백은 없다(빈 배열).
@@ -369,6 +378,23 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
   };
 
   if (!hasPower && !hasHr && cyclingDynamicsCards.length === 0) {
+    // 서버 분석 문서가 아직 없거나 로딩 중이면 "스트림 없음" 이 아니다 — 모름을 없음으로 그리지 않는다.
+    if (serverMetrics.status === "loading") {
+      return (
+        <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }} data-testid="analysis-loading">
+          <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>{t("analysis.empty.computingTitle")}</div>
+          <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: 'var(--ink-3)' }}>{t("analysis.empty.computingDesc")}</div>
+        </div>
+      );
+    }
+    if (serverMetrics.status === "missing") {
+      return (
+        <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }} data-testid="analysis-missing">
+          <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>{t("analysis.empty.noServerMetricsTitle")}</div>
+          <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: 'var(--ink-3)' }}>{t("analysis.empty.noServerMetricsDesc")}</div>
+        </div>
+      );
+    }
     return (
       <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}>
         <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>
@@ -390,8 +416,8 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
       {/* Phase A.7: 서버 메트릭 배너 (있으면 표시) */}
       <ServerMetricsBanner
         state={serverMetrics}
-        suppressPowerMetrics={false}
-        suppressHeartRateMetrics={false}
+        suppressPowerMetrics={!hasStreamPowerCandidate && serverMetrics.metrics?.avgPower != null}
+        suppressHeartRateMetrics={!hasStreamHeartRateCandidate && serverMetrics.metrics?.avgHr != null}
       />
 
       {/* FTP/maxHR 기본값 경고 */}

@@ -528,7 +528,11 @@
       "powerZonesTitle": "파워 존을 계산할 수 없어요",
       "powerZonesDesc": "파워 스트림이 충분히 기록되면 FTP 기준 강도 분포가 표시됩니다.",
       "powerCurveTitle": "파워 커브를 만들 수 없어요",
-      "powerCurveDesc": "파워 스트림이 충분히 길게 기록되면 5초부터 60분까지 최고 평균 파워가 표시됩니다."
+      "powerCurveDesc": "파워 스트림이 충분히 길게 기록되면 5초부터 60분까지 최고 평균 파워가 표시됩니다.",
+      "computingTitle": "분석 계산 중",
+      "computingDesc": "서버가 이 활동의 지표를 계산하고 있어요. 잠시 후 다시 확인해 주세요.",
+      "noServerMetricsTitle": "서버 분석이 아직 없어요",
+      "noServerMetricsDesc": "이 활동의 분석 문서가 만들어지지 않았어요. 스트림이 있으면 곧 계산됩니다."
     },
     "seiler": {
       "z1": "저강도",

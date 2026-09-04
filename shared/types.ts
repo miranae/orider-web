@@ -63,6 +63,8 @@ export interface Activity {
   stravaActivityId?: number;
   /** 이 문서를 만든 앱 로컬 세션 id (orider 문서). 같은 실주행 판정의 링크 키. */
   localSessionId?: string;
+  /** orider 문서가 가리키는 쌍둥이 Strava 활동 id(동일주행 링크, #2437). */
+  stravaTwinActivityId?: number;
   /** 외부 소스의 원본 ID. health-source (Apple Health / Health Connect) 활동에서 사용. */
   externalId?: string;
   /**

@@ -596,7 +596,8 @@ describe("ActivityPage", () => {
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    expect(await screen.findByText("분석 차트를 만들 스트림 데이터가 아직 없어요")).toBeInTheDocument();
+    // 서버 분석 문서가 없을 때는 "스트림 없음" 이 아니라 "서버 분석 없음" — 모름을 없음으로 그리지 않는다(리뷰 A3)
+    expect(await screen.findByText("서버 분석이 아직 없어요")).toBeInTheDocument();
     expect(screen.queryByText("파워 분석")).not.toBeInTheDocument();
     expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
   });

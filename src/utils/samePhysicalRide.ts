@@ -18,7 +18,7 @@
  * 오류를 옮길 뿐이다 — 넓히면 별개 주행을 삼키고, 좁히면 같은 주행을 두 번 센다.
  *
  * 연결 사실은 이미 있다: 앱이 업로드 시 `localSessionId` 를 쓰고, Strava 업로드 성공
- * 응답의 활동 id 를 orider 문서 `stravaActivityId` 에 남긴다. Strava 임포트 문서는
+ * 응답의 활동 id 를 orider 문서 `stravaTwinActivityId` 에 남긴다. Strava 임포트 문서는
  * 처음부터 그 필드를 갖는다.
  *
  * ## 링크가 없는 기록은 다른 주행이다
@@ -32,7 +32,10 @@
 export interface PhysicalRideIdentity {
   id: string;
   localSessionId?: string | null;
+  /** Strava 임포트 문서 자신의 Strava 활동 id. */
   stravaActivityId?: number | null;
+  /** orider 문서가 가리키는 쌍둥이 Strava 활동 id — 링크 전용 필드(`stravaActivityId` 는 스트림 위치 의미라 재사용 금지). */
+  stravaTwinActivityId?: number | null;
   /** 판정에 쓰지 않는다. 호출부가 다른 용도로 함께 들고 다니는 값. */
   startTime?: number | null;
   distanceKm?: number | null;
@@ -45,6 +48,7 @@ export function physicalRideIdentityKeys(row: PhysicalRideIdentity): string[] {
   if (typeof row.id === "string" && row.id.length > 0) keys.push(`doc:${row.id}`);
   if (typeof row.localSessionId === "string" && row.localSessionId.length > 0) keys.push(`session:${row.localSessionId}`);
   if (typeof row.stravaActivityId === "number" && Number.isFinite(row.stravaActivityId)) keys.push(`strava:${row.stravaActivityId}`);
+  if (typeof row.stravaTwinActivityId === "number" && Number.isFinite(row.stravaTwinActivityId)) keys.push(`strava:${row.stravaTwinActivityId}`);
   return keys;
 }
 
