@@ -310,7 +310,6 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
     return { duration: d, watts: pt?.maxPower ?? null, wkg: pt && weightKg ? pt.maxPower / weightKg : null };
   }), [powerCurve, weightKg]);
   // 기질(지방/탄수) 카드는 아직 원시 파워로 웹이 적분한다 — 서버 정본 이전 대상(남은 항목).
-  const metabolismWatts = streams.watts && streams.watts.length > 0 ? streams.watts : streams.watts_calc ?? [];
   const laps = streams.laps;
 
   // 파워 존 뷰 토글: Coggan 7존 ↔ Seiler 3존
@@ -616,13 +615,10 @@ export default function AnalysisTab({ activityId, isOwner = false, startTime, st
       )}
 
       {/* 에너지 대사 (FATMAX / 지방·탄수) — 바이크 + 충분한 파워 스트림일 때만 */}
-      {hasPower && sport !== "run" && sport !== "swim" && metabolismWatts.length >= 60 && (
+      {hasPower && sport !== "run" && sport !== "swim" && sm.substrate && (
         <MetabolismCard
-          watts={metabolismWatts}
-          ftp={ftp}
-          weightKg={weightKg}
-          cp={cp?.cp ?? null}
-          wPrime={cp?.wPrime ?? null}
+          substrate={sm.substrate}
+          fatMax={sm.fatMax}
           isVirtualPower={isVirtualPower}
         />
       )}

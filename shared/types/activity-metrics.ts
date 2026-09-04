@@ -1,3 +1,4 @@
+import type { FatMaxProfile, RideSubstrate } from "../training/metabolism";
 /**
  * 활동별 영속 분석 메트릭 — `activity_metrics/{activityId}` 컬렉션.
  *
@@ -138,6 +139,9 @@ export interface ActivityMetrics {
   maxCadence?: number | null;
   /** W' 잔량 곡선(≤200점). `wPrimeMinJ` 와 같은 적산. */
   wPrimeBalance?: number[] | null;
+  /** 기질(지방/탄수 kcal) — 서버 시간 가중 적분 (#2437). 웹은 계산하지 않고 읽는다. */
+  substrate?: RideSubstrate | null;
+  fatMax?: FatMaxProfile | null;
   /** 그래프용 축약 시계열. 계산 입력이 아니다 — 여기서 값을 다시 계산하면 요약과 어긋난다. */
   renderSeries?: { resolution: number; axes: Record<string, Array<number | null>> } | null;
   /** 어느 입력에서 나온 값인가. inline 은 800KB 에서 잘린 스트림이다. */
