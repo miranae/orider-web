@@ -73,11 +73,12 @@ export default function LikersAvatarStack({
   const [shiftX, setShiftX] = useState(0);
 
   useLayoutEffect(() => {
-    if (!open || !wrapRef.current) return;
+    if (!open || !wrapRef.current || !tipRef.current) return;
     const r = wrapRef.current.getBoundingClientRect();
+    const tipWidth = tipRef.current.getBoundingClientRect().width;
     const center = r.left + r.width / 2;
-    const idealLeft = center - TIP_MAX_WIDTH / 2;
-    const maxLeft = window.innerWidth - VIEWPORT_MARGIN - TIP_MAX_WIDTH;
+    const idealLeft = center - tipWidth / 2;
+    const maxLeft = window.innerWidth - VIEWPORT_MARGIN - tipWidth;
     const clampedLeft = Math.max(VIEWPORT_MARGIN, Math.min(idealLeft, maxLeft));
     setShiftX(clampedLeft - idealLeft);
   }, [open]);
@@ -260,6 +261,9 @@ export default function LikersAvatarStack({
             left: "50%",
             transform: `translateX(calc(-50% + ${shiftX}px))`,
             zIndex: 50,
+            // absolute 요소의 shrink-to-fit 폭이 한 글자까지 줄어 한국어가 세로로 보이지
+            // 않도록 폭을 명시하되, 좁은 화면에서는 뷰포트 여백 안으로 제한한다.
+            width: `min(${TIP_MAX_WIDTH}px, calc(100vw - ${VIEWPORT_MARGIN * 2}px))`,
             maxWidth: TIP_MAX_WIDTH,
             // 터치에선 이 목록이 프로필로 가는 유일한 통로라 클릭을 받아야 한다.
             pointerEvents: linkToProfile ? "auto" : "none",
@@ -278,15 +282,16 @@ export default function LikersAvatarStack({
               fontWeight: 400,
               boxShadow: "0 4px 16px color-mix(in oklch, var(--ink-0) 18%, transparent)",
               textAlign: "left",
-              wordBreak: "keep-all",
-              overflowWrap: "anywhere",
+              boxSizing: "border-box",
+              width: "100%",
+              maxWidth: "100%",
             }}
           >
-          <span style={{ display: "block", color: "var(--ink-3)", marginBottom: 2 }}>
+          <span style={{ display: "block", color: "var(--ink-3)", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {t(`likers.${variant}.title`, { count: total })}
           </span>
           {named.map((k) => (
-            <span key={k.userId} style={{ display: "block" }}>
+            <span key={k.userId} style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {linkToProfile ? (
                 <Link to={`/athlete/${k.userId}`} style={{ color: "inherit" }}>
                   {k.nickname}
@@ -297,7 +302,7 @@ export default function LikersAvatarStack({
             </span>
           ))}
           {namedOverflow > 0 && (
-            <span style={{ display: "block", color: "var(--ink-3)" }}>
+            <span style={{ display: "block", color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {t("likers.andOthers", { count: namedOverflow })}
             </span>
           )}
