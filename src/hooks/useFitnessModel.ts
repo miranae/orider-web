@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FITNESS_TIMESERIES_SCHEMA_VERSION,
@@ -30,6 +30,7 @@ import {
   cyclingAbilityFromCanonicalRider,
 } from "../features/fitness/riderInsightParity";
 import { useActivityDerivedDocuments } from "../features/fitness/useActivityDerivedDocuments";
+import { activityDerivedDocumentRevision } from "../features/fitness/derivedDocumentReadAttempts";
 import {
   makeDurationLabel,
   secToMmss,
@@ -63,6 +64,12 @@ import { logClientError } from "../services/errorLogger";
 import { useBikeFtpDecision } from "./useBikeFtpDecision";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { acceptBikeThresholdDecision } from "../services/bikeFtpDecisionClient";
+import {
+  clearTrainingSurfaceCache,
+  getTrainingSurfaceCache,
+  prepareTrainingSurfaceCacheOwner,
+  setTrainingSurfaceCache,
+} from "../embedded/trainingSurfaceCache";
 
 export function resolveFitnessDiscipline(value: string | null | undefined): Discipline {
   return value === "bike" || value === "run" || value === "swim" || value === "tri"
@@ -214,16 +221,46 @@ export function useFitnessModel(
   const { entries: ftpHistory } = useFtpHistory(user?.uid);
   const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
-  const [decisionBusy, setDecisionBusy] = useState(false);
-  const [activityState, setActivityState] = useState<{ ownerUid: string | null; items: Activity[] }>({
-    ownerUid: user?.uid ?? null,
-    items: [],
-  });
-  const activities = activityState.ownerUid === (user?.uid ?? null) ? activityState.items : [];
-  const { streamsMap, metricsMap } = useActivityDerivedDocuments(user?.uid, activities);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<RangeOption | 42>(90);
+  const normalizedRange = normalizeFitnessRange(discipline, range);
+  const activityQueryRange = discipline === "tri" ? 365 : normalizedRange;
+  const cacheLocale = options.enableCoachRiderInsight === false
+    ? (i18n.resolvedLanguage ?? i18n.language)
+    : null;
+  const cacheKey = user && cacheLocale
+    ? {
+      uid: user.uid,
+      surface: "fitness" as const,
+      sport: discipline,
+      locale: cacheLocale,
+      range: activityQueryRange,
+    }
+    : null;
+  const initialCache = cacheKey
+    && prepareTrainingSurfaceCacheOwner(user!.uid, user!.isAnonymous === true)
+    ? getTrainingSurfaceCache<{ activities: Activity[] }>(cacheKey)
+    : null;
+  const [decisionBusy, setDecisionBusy] = useState(false);
+  const activityDataKey = user
+    ? `${user.uid}\u0000${discipline}\u0000${cacheLocale ?? "uncached"}\u0000${activityQueryRange}`
+    : null;
+  const [activityState, setActivityState] = useState<{ key: string | null; items: Activity[] }>({
+    key: activityDataKey,
+    items: initialCache?.activities ?? [],
+  });
+  const activities = activityState.key === activityDataKey ? activityState.items : [];
+  const { streamsMap, metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, activities);
+  const currentMetricStatuses = activities.map((activity) => {
+    const status = metricStatusMap.get(activity.id);
+    return status?.revision === activityDerivedDocumentRevision(activity) ? status.state : "loading";
+  });
+  const derivedMetricsSettled = currentMetricStatuses.every((status) => status !== "loading");
+  const derivedMetricsError = currentMetricStatuses.some((status) => status === "error");
+  const [loading, setLoading] = useState(initialCache === null);
+  const [cacheHit, setCacheHit] = useState(initialCache !== null);
+  const [freshLoaded, setFreshLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
   const [projection, setProjection] = useState<FitnessProjection | null>(null);
   const [, setGoalQueryDone] = useState(false);
@@ -249,9 +286,6 @@ export function useFitnessModel(
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
   const { summary: consistencyStreak } = useConsistencyStreak(user?.uid);
-  const normalizedRange = normalizeFitnessRange(discipline, range);
-  const activityQueryRange = discipline === "tri" ? 365 : normalizedRange;
-
   useEffect(() => {
     if (normalizedRange !== range) setRange(normalizedRange);
   }, [normalizedRange, range]);
@@ -296,14 +330,34 @@ export function useFitnessModel(
 
   useEffect(() => {
     if (!user) {
-      setActivityState({ ownerUid: null, items: [] });
+      clearTrainingSurfaceCache();
+      setActivityState({ key: null, items: [] });
       setLoading(false);
+      setCacheHit(false);
+      setFreshLoaded(true);
       return undefined;
     }
     const uid = user.uid;
     let active = true;
-    setActivityState({ ownerUid: uid, items: [] });
-    setLoading(true);
+    const nextCacheKey = cacheLocale
+      ? {
+        uid,
+        surface: "fitness" as const,
+        sport: discipline,
+        locale: cacheLocale,
+        range: activityQueryRange,
+      }
+      : null;
+    const cacheEnabled = nextCacheKey !== null
+      && prepareTrainingSurfaceCacheOwner(uid, user.isAnonymous === true);
+    const cached = cacheEnabled
+      ? getTrainingSurfaceCache<{ activities: Activity[] }>(nextCacheKey)
+      : null;
+    setActivityState({ key: activityDataKey, items: cached?.activities ?? [] });
+    setError(null);
+    setLoading(cached === null);
+    setCacheHit(cached !== null);
+    setFreshLoaded(false);
     const cutoff = Date.now() - (activityQueryRange + 42) * 24 * 60 * 60 * 1000;
     const activitiesQuery = query(
       collection(firestore, "activities"),
@@ -320,25 +374,37 @@ export function useFitnessModel(
           const items = snapshot.docs
             .map((entry) => ({ id: entry.id, ...entry.data() }) as Activity)
             .filter((activity) => activity.userId === uid && activity.summary != null);
-          setActivityState({ ownerUid: uid, items });
+          setActivityState({ key: activityDataKey, items });
           setLoading(false);
+          setFreshLoaded(true);
+          if (cacheEnabled) setTrainingSurfaceCache(nextCacheKey, { activities: items });
         } catch (snapshotError) {
-          setError(snapshotError instanceof Error ? snapshotError.message : t("error.loadFailed"));
+          if (cached === null) {
+            setError(snapshotError instanceof Error ? snapshotError.message : t("error.loadFailed"));
+          }
           setLoading(false);
+          setFreshLoaded(cached === null);
         }
       },
       (subscriptionError) => {
         if (!active) return;
         logClientError("FitnessPage.activitiesSubscription", subscriptionError, { range: activityQueryRange });
-        setError(t("error.loadFailed"));
+        if (cached === null) setError(t("error.loadFailed"));
         setLoading(false);
+        setFreshLoaded(cached === null);
       },
     );
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [activityQueryRange, firestore, t, user]);
+  }, [activityDataKey, activityQueryRange, cacheLocale, discipline, firestore, reloadKey, t, user]);
+
+  const retryLoad = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    setReloadKey((current) => current + 1);
+  }, []);
 
   useEffect(() => {
     if (!user || discipline === "tri") return undefined;
@@ -416,15 +482,42 @@ export function useFitnessModel(
     [activities, discipline, metricsMap],
   );
   const selectedTimeseriesDiscipline = discipline === "tri" ? "bike" : discipline;
-  const { timeseries, loaded: selectedTimeseriesLoaded } = useFitnessTimeseries(
+  const {
+    timeseries,
+    loaded: selectedTimeseriesLoaded,
+    error: selectedTimeseriesError,
+    cacheHit: selectedTimeseriesCacheHit,
+    freshLoaded: selectedTimeseriesFreshLoaded,
+  } = useFitnessTimeseries(
     user?.uid,
     selectedTimeseriesDiscipline,
+    reloadKey,
+    cacheLocale ?? undefined,
+    user?.isAnonymous === true,
   );
   const triUid = discipline === "tri" ? user?.uid : undefined;
-  const { timeseries: triRunTimeseries, loaded: triRunTimeseriesLoaded } = useFitnessTimeseries(triUid, "run");
-  const { timeseries: triSwimTimeseries, loaded: triSwimTimeseriesLoaded } = useFitnessTimeseries(triUid, "swim");
+  const {
+    timeseries: triRunTimeseries,
+    loaded: triRunTimeseriesLoaded,
+    error: triRunTimeseriesError,
+    cacheHit: triRunTimeseriesCacheHit,
+    freshLoaded: triRunTimeseriesFreshLoaded,
+  } = useFitnessTimeseries(triUid, "run", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
+  const {
+    timeseries: triSwimTimeseries,
+    loaded: triSwimTimeseriesLoaded,
+    error: triSwimTimeseriesError,
+    cacheHit: triSwimTimeseriesCacheHit,
+    freshLoaded: triSwimTimeseriesFreshLoaded,
+  } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
   const timeseriesLoaded = selectedTimeseriesLoaded
     && (discipline !== "tri" || (triRunTimeseriesLoaded && triSwimTimeseriesLoaded));
+  const timeseriesError = selectedTimeseriesError
+    ?? (discipline === "tri" ? triRunTimeseriesError ?? triSwimTimeseriesError : null);
+  const timeseriesCacheHit = selectedTimeseriesCacheHit
+    && (discipline !== "tri" || (triRunTimeseriesCacheHit && triSwimTimeseriesCacheHit));
+  const timeseriesFreshLoaded = selectedTimeseriesFreshLoaded
+    && (discipline !== "tri" || (triRunTimeseriesFreshLoaded && triSwimTimeseriesFreshLoaded));
   const hasCanonicalTimeseries = Boolean(
     discipline !== "tri" && isCanonicalTimeseries(timeseries, discipline),
   );
@@ -750,7 +843,11 @@ export function useFitnessModel(
     disciplineActivities,
     streamsMap,
     metricsMap,
+    derivedMetricsSettled,
+    derivedMetricsError,
     loading,
+    cacheHit: cacheHit && timeseriesCacheHit,
+    freshLoaded: freshLoaded && timeseriesFreshLoaded,
     error,
     range,
     setRange,
@@ -774,6 +871,8 @@ export function useFitnessModel(
     revalidating,
     justRecomputed,
     timeseriesLoaded,
+    timeseriesError,
+    retryLoad,
     hasCanonicalTimeseries,
     fitnessData,
     dailyData,
