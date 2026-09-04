@@ -17,17 +17,18 @@ describe("activity detail server insights", () => {
     expect(activityPage).toContain("<AnalysisTab {...analysisTabProps} />");
     expect(analysisModel).toContain("startTime: activity.startTime");
     expect(analysisTab).toContain("filterServerMetricsForSensorCandidates(serverMetrics.metrics");
-    expect(analysisModel).toContain("hasStreamPowerCandidate,");
-    expect(analysisModel).toContain("hasStreamHeartRateCandidate,");
-    expect(analysisModel).toContain("hasStreamCadenceCandidate,");
-    expect(analysisTab).toContain("suppressPowerMetrics={hasStreamPowerCandidate}");
-    expect(analysisTab).toContain("suppressHeartRateMetrics={hasStreamHeartRateCandidate}");
+    // 분석 탭은 서버 정본을 그린다 — 스트림 후보로 서버 값을 억제하는 분기가 없다 (#2437).
+    expect(analysisTab).toContain("suppressPowerMetrics={false}");
+    expect(analysisTab).toContain("suppressHeartRateMetrics={false}");
+    expect(analysisTab).not.toContain("calculateNP(");
+    expect(analysisTab).not.toContain("calculateTSS(");
+    expect(analysisTab).not.toContain("calculateHrZoneDistribution(");
     expect(analysisTab).toContain("const climbRows = useMemo");
     expect(analysisTab).toContain("sm?.climbs");
     expect(analysisTab).toContain("c.wPerKg");
     expect(analysisTab).toContain("c.vam");
     expect(analysisTab).toContain("c.durationSec");
     expect(analysisTab).toContain("c.entrySec");
-    expect(analysisTab).toContain("buildClimbTableRows(sm?.climbs, climbs, {");
+    expect(analysisTab).toContain("buildClimbTableRows(sm?.climbs, [], {");
   });
 });

@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeActivityStartTimeMs } from "../components/AnalysisTab";
 import {
   buildSampledData,
   deriveStreamSensorSummary,
 } from "../features/activity/detail/activityDetailDerived";
-import { calculateEF } from "./advancedMetrics";
 import { makeRelSecAt } from "./streamTime";
 import { detectTimestampUnit, normalizeEpochMilliseconds } from "./timestampUnit";
 
@@ -20,14 +18,14 @@ describe("timestamp unit normalization", () => {
   it.each(EPOCH_MILLISECONDS)("recognizes %i as epoch milliseconds", (epochMs) => {
     expect(detectTimestampUnit(epochMs)).toBe("epoch_ms");
     expect(normalizeEpochMilliseconds(epochMs)).toBe(epochMs);
-    expect(normalizeActivityStartTimeMs(epochMs)).toBe(epochMs);
+    expect(normalizeEpochMilliseconds(epochMs)).toBe(epochMs);
   });
 
   it.each(EPOCH_MILLISECONDS)("recognizes the seconds form of %i", (epochMs) => {
     const epochSec = epochMs / 1000;
     expect(detectTimestampUnit(epochSec)).toBe("epoch_sec");
     expect(normalizeEpochMilliseconds(epochSec)).toBe(epochMs);
-    expect(normalizeActivityStartTimeMs(epochSec)).toBe(epochMs);
+    expect(normalizeEpochMilliseconds(epochSec)).toBe(epochMs);
   });
 
   it("normalizes pre-2001 millisecond route clocks for duration and sensor selection", () => {
@@ -55,13 +53,5 @@ describe("timestamp unit normalization", () => {
     expect(sampled[0]?.heartRate).toBe(100);
   });
 
-  it("uses owned durations for EF instead of a simple heart-rate mean", () => {
-    const watts = Array(40).fill(200);
-    const heartrate = Array(40).fill(100);
-    const durationsSec = Array(40).fill(1);
-    heartrate[1] = 200;
-    durationsSec[1] = 3;
-    expect(calculateEF(watts, heartrate, { durationsSec }))
-      .toBeCloseTo(200 / (4_500 / 42), 8);
-  });
+  // EF 시간가중 테스트는 서버 정본(functions advancedMetrics)으로 옮겨졌다 (#2437).
 });

@@ -120,9 +120,6 @@ describe("useActivityAnalysisModel", () => {
       isOwner: true,
       startTime: activity.startTime,
       sport: "ride",
-      hasStreamPowerCandidate: true,
-      hasStreamHeartRateCandidate: true,
-      hasStreamCadenceCandidate: true,
       summary: {
         averagePower: 250,
         movingTimeSec: 3,

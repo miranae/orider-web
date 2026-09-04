@@ -406,9 +406,12 @@ describe("ActivityPage", () => {
 
     await waitFor(() => expect(mockVirtualPowerStream).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText("파워 분석")).toBeInTheDocument());
-    expect(screen.queryByText("444")).not.toBeInTheDocument();
-    expect(screen.queryByText("333 W")).not.toBeInTheDocument();
-    expect(screen.queryByText("서버 분석")).not.toBeInTheDocument();
+    // 분석 탭은 서버 정본(activity_metrics)을 그린다 — 프리뷰가 바꾸는 건 요약·차트·공유다.
+    // 이전엔 분석 탭이 스트림에서 다시 계산해 프리뷰 파워를 따라갔고, 그게 서버와 다른 값을 내는 경로였다 (#2437).
+    expect(screen.getAllByText("444").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("333").length).toBeGreaterThan(0);
+    // 서버 분석 배너는 항상 보인다 — 분석 탭이 서버 정본을 그리므로 억제 분기가 없다 (#2437).
+    expect(screen.getByText("서버 분석")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     await waitFor(() => expect(stats).toHaveTextContent("평균 파워250W"));
@@ -1258,6 +1261,8 @@ describe("ActivityPage", () => {
       summary: createMockSummary({ elapsedTimeMillis: 3_000, ridingTimeMillis: 3_000 }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    // 분석 탭은 서버 정본을 그린다 — 심박 분석 섹션은 activity_metrics 의 심박 값으로 뜬다 (#2437).
+    setDocData("activity_metrics/test-activity", { version: 22, computedAt: 0, avgHr: 150, maxHr: 160, hrZoneSec: [0, 0, 3, 0, 0], contextSnapshot: { maxHr: 190 } });
     setDocData("activity_streams/test-activity", {
       userId: "user-1",
       json: JSON.stringify({
@@ -1476,6 +1481,8 @@ describe("ActivityPage", () => {
       summary: createMockSummary({ elapsedTimeMillis: 120_000, ridingTimeMillis: 120_000 }),
     });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    // 훈련 부하 섹션은 서버 정본에서 뜬다. 스트림 재시도는 차트·랩의 것이다 (#2437).
+    setDocData("activity_metrics/test-activity", { version: 22, computedAt: 0, np: 200, tss: 50, if: 0.8, trimp: 40, durationSec: 120, contextSnapshot: { ftp: 250 } });
 
     renderWithProviders(<ActivityPage />);
 

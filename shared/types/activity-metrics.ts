@@ -95,6 +95,7 @@ export interface ActivityMetrics {
     totalSec: number;
     peakW: number;
     longestW: number;
+    longestSec?: number;
   };
 
   // ── 클라임 (자동 감지 + 분류 + VAM/W·kg)
@@ -121,7 +122,28 @@ export interface ActivityMetrics {
     anaerobic: number;  // >120%
   };
   hrZoneSec: number[];     // [z1..z5]
+  /** 존 경계 정본(서버 파생). 웹은 경계를 다시 파생하지 않는다 (#2437). */
+  hrZoneBoundaries?: {
+    reference: "lthr" | "max_hr";
+    referenceBpm: number;
+    sport: "bike" | "run" | "other";
+    zones: Array<{ zone: number; minPct: number; maxPct: number | null; minBpm: number; maxBpmExclusive: number | null }>;
+  } | null;
   powerZoneSec: number[];  // [z1..z7]
+  /** Seiler 3존 체류 초 [저강도, 역치, 고강도] (사이클만). */
+  seilerZoneSec?: [number, number, number] | null;
+  polarization?: { verdict: "polarized" | "threshold" | "pyramidal"; extremePct: number; thresholdPct: number } | null;
+  /** 3초 최대 파워 — 화면의 "최대 파워". 1초 최대(`maxPower`)는 스파이크에 취약하다. */
+  maxPower3s?: number | null;
+  maxCadence?: number | null;
+  /** W' 잔량 곡선(≤200점). `wPrimeMinJ` 와 같은 적산. */
+  wPrimeBalance?: number[] | null;
+  /** 그래프용 축약 시계열. 계산 입력이 아니다 — 여기서 값을 다시 계산하면 요약과 어긋난다. */
+  renderSeries?: { resolution: number; axes: Record<string, Array<number | null>> } | null;
+  /** 어느 입력에서 나온 값인가. inline 은 800KB 에서 잘린 스트림이다. */
+  sourceLayer?: "raw_parts" | "inline_streams";
+  /** 원시 파트가 아직 올라오는 중 — 지금 값은 잠정값이다. */
+  inputPending?: boolean;
 
   // ── A.6 신규: 존 별 누적 일 (kJ) — power zone z1..z7.
   /** 사이클만 의미 있음 (watts 필요). watts 없으면 모두 0. */
@@ -221,7 +243,9 @@ export interface SplitRow {
   paceSec: number;
   gapSec: number;
   elevGain: number;
+  elevLoss?: number;
   avgHr: number | null;
+  avgCadence?: number | null;
 }
 
 /** 현재 ActivityMetrics 계산 스키마 버전. 변경 시 +1, backfill 트리거. */
