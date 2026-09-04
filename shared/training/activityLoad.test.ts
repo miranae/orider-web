@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { estimateLoad, isSaneTss, TSS_SANITY_MAX } from "./activityLoad";
+import {
+  estimateLoad,
+  isNegligibleActivity,
+  isNegligibleActivitySummary,
+  isSaneTss,
+  TSS_SANITY_MAX,
+} from "./activityLoad";
 
 describe("estimateLoad — 폴백 체인 (#365: streamTrimpTss 단계 삽입)", () => {
   it("precomputedTss 최우선", () => {
@@ -59,5 +65,23 @@ describe("isSaneTss", () => {
     expect(isSaneTss(null)).toBe(false);
     expect(isSaneTss(undefined)).toBe(false);
     expect(isSaneTss(NaN)).toBe(false);
+  });
+});
+
+describe("isNegligibleActivity", () => {
+  it("requires both sub-500m distance and sub-10-minute duration", () => {
+    expect(isNegligibleActivity(189, 165_000)).toBe(true);
+    expect(isNegligibleActivity(500, 165_000)).toBe(false);
+    expect(isNegligibleActivity(189, 10 * 60_000)).toBe(false);
+    expect(isNegligibleActivity(null, 165_000)).toBe(false);
+  });
+
+  it("uses the server duration fallback order for activity summaries", () => {
+    expect(isNegligibleActivitySummary({
+      distance: 189,
+      ridingTimeMillis: 165_000,
+      movingTimeMillis: 20 * 60_000,
+    })).toBe(true);
+    expect(isNegligibleActivitySummary({ distance: 189, elapsedTimeMillis: 20 * 60_000 })).toBe(false);
   });
 });

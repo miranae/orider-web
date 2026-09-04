@@ -1,4 +1,5 @@
 import type { Activity } from "@shared/types";
+import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
 import {
   ATL_DAYS,
   CTL_DAYS,
@@ -180,7 +181,7 @@ export function deriveActivityImpacts(
   const activitiesByDate = new Map<string, Activity[]>();
   const eligibleActivities = activities.filter((activity) => {
     const date = utcDayFromMillis(activity.startTime);
-    return date != null && date <= asOfDate;
+    return date != null && date <= asOfDate && !isNegligibleActivitySummary(activity.summary);
   });
   const physicalActivities = dedupeSamePhysicalRides(eligibleActivities.map(physicalRideIdentity));
   for (const { activity } of physicalActivities) {

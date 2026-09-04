@@ -34,6 +34,41 @@ export const TIME_FACTORS: Record<LoadDiscipline, number> = { bike: 42, run: 60,
  */
 export const DEFAULT_TIME_FACTOR = 50;
 
+/** 활동 부하에서 제외하는 짧은 테스트 기록의 거리 경계. */
+export const NEGLIGIBLE_DISTANCE_M = 500;
+/** 활동 부하에서 제외하는 짧은 테스트 기록의 지속시간 경계. */
+export const NEGLIGIBLE_DURATION_MILLIS = 10 * 60 * 1000;
+
+/** 거리 500m 미만이면서 지속시간도 10분 미만인 활동만 무시한다. */
+export function isNegligibleActivity(
+  distanceMeters: number | null | undefined,
+  durationMillis: number | null | undefined,
+): boolean {
+  if (distanceMeters == null || !Number.isFinite(distanceMeters)) return false;
+  if (distanceMeters >= NEGLIGIBLE_DISTANCE_M) return false;
+  const duration = durationMillis != null && Number.isFinite(durationMillis) ? durationMillis : 0;
+  return duration < NEGLIGIBLE_DURATION_MILLIS;
+}
+
+/** 서버 부하 추출과 같은 시간 필드 우선순위로 negligible 활동을 판정한다. */
+export function isNegligibleActivitySummary(summary: {
+  distance?: number | null;
+  ridingTimeMillis?: number | null;
+  movingTimeMillis?: number | null;
+  elapsedTimeMillis?: number | null;
+} | null | undefined): boolean {
+  if (!summary) return false;
+  const durationMillis =
+    typeof summary.ridingTimeMillis === "number" ? summary.ridingTimeMillis
+    : typeof summary.movingTimeMillis === "number" ? summary.movingTimeMillis
+    : typeof summary.elapsedTimeMillis === "number" ? summary.elapsedTimeMillis
+    : 0;
+  return isNegligibleActivity(
+    typeof summary.distance === "number" ? summary.distance : null,
+    durationMillis,
+  );
+}
+
 export interface LoadInputs {
   /** 사전계산 TSS (activity.tss / summary.tss). 있으면 최우선. */
   precomputedTss?: number | null;
