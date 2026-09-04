@@ -6,12 +6,14 @@ export const HOST_MESSAGE_TYPES = [
   "host.sessionAccepted",
   "host.sessionRejected",
   "host.lifecycle",
+  "host.surfaceSelected",
   "host.retry",
   "host.logout",
 ] as const;
 
 export const WEB_MESSAGE_TYPES = [
   "bootstrap.ready",
+  "surface.shellReady",
   "surface.ready",
   "auth.state",
   "surface.error",
