@@ -51,6 +51,54 @@ describe("LikersAvatarStack", () => {
     expect(screen.queryByRole("tooltip", { hidden: true })).not.toBeInTheDocument();
   });
 
+  it("한 명의 한국어 이름을 한 글자 폭으로 축소하지 않고 가로로 표시한다", async () => {
+    const user = userEvent.setup();
+    renderStack({ likers: [liker(1)] });
+
+    await user.hover(screen.getByRole("group"));
+    const tip = screen.getByRole("tooltip", { hidden: true });
+    const content = tip.firstElementChild;
+
+    expect(tip).toHaveStyle({
+      width: "min(220px, calc(100vw - 16px))",
+      maxWidth: "220px",
+    });
+    expect(content).toHaveStyle({
+      width: "100%",
+      maxWidth: "100%",
+    });
+    expect(within(tip).getByRole("link", { name: "라이더1" }).parentElement).toHaveStyle({
+      whiteSpace: "nowrap",
+    });
+  });
+
+  it("여러 명과 긴 이름도 220px 및 뷰포트 상한 안에서 이름별 가로 한 줄로 말줄임한다", async () => {
+    const user = userEvent.setup();
+    renderStack({
+      likers: [
+        { userId: "long", nickname: "아주아주긴라이더닉네임아주아주긴라이더닉네임" },
+        liker(2),
+        liker(3),
+      ],
+    });
+
+    await user.hover(screen.getByRole("group"));
+    const tip = screen.getByRole("tooltip", { hidden: true });
+    const longName = within(tip).getByRole("link", { name: "아주아주긴라이더닉네임아주아주긴라이더닉네임" });
+    const secondName = within(tip).getByRole("link", { name: "라이더2" });
+    const thirdName = within(tip).getByRole("link", { name: "라이더3" });
+
+    expect(tip).toHaveStyle({ width: "min(220px, calc(100vw - 16px))", maxWidth: "220px" });
+    for (const name of [longName, secondName, thirdName]) {
+      expect(name.parentElement).toHaveStyle({
+        display: "block",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      });
+    }
+  });
+
   it("터치로 탭하면 툴팁이 열리고, 다시 탭하면 닫힌다", async () => {
     // hover 가 없는 터치에서도 열려야 한다. pointerenter→click 이 연달아 오므로
     // 토글이 상쇄돼 열리지 않던 회귀를 막는다.
