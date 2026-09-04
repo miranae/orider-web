@@ -8,17 +8,16 @@
   isolation: isolate;
 }
 
-/* 지도 위 텍스트 대비 확보. 실제 지도 타일은 지역마다 밝기가 달라서(수면·개활지)
-   아래쪽을 충분히 짙게 잡는다. */
+/* 지도 가독성을 유지하면서 썸네일을 가리지 않도록 옅은 대비만 더한다. */
 .course-hero-overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background: linear-gradient(
     to top,
-    color-mix(in oklch, var(--bg-0) 92%, transparent) 0%,
-    color-mix(in oklch, var(--bg-0) 62%, transparent) 52%,
-    color-mix(in oklch, var(--bg-0) 20%, transparent) 100%
+    color-mix(in oklch, var(--bg-0) 23%, transparent) 0%,
+    color-mix(in oklch, var(--bg-0) 15.5%, transparent) 52%,
+    color-mix(in oklch, var(--bg-0) 5%, transparent) 100%
   );
 }
 
