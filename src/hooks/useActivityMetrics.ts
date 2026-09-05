@@ -31,12 +31,6 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
  * 이전엔 이 파일이 같은 문서를 따로 선언해 필드가 두 곳에서 갈렸다 (#2437).
  */
 export type ActivityMetricsDoc = ActivityMetrics & {
-  loadAxes?: {
-    cardiovascular?: number | null;
-    muscular?: number | null;
-    perceptual?: number | null;
-    confidence?: number | null;
-  } | null;
   newPrs?: Array<{ duration?: string; durationSeconds?: number; rank?: number; value?: number; watts?: number }>;
   workoutTypeConfidence?: number;
 };

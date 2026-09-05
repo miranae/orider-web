@@ -213,7 +213,16 @@ export interface ActivityMetrics {
   cyclingDynamics?: CyclingDynamicsMetrics;
 
   // ── Meta
-  discipline: "bike" | "run" | "swim";
+  /** 가상파워 활동 — mmp/cp/wPrime 은 비운다. */
+  isVirtualPower?: boolean;
+  /** 부하 3축 — **서버 형태 그대로**. 웹이 다른 이름(cardiovascular/muscular/perceptual)으로 재선언하던 것을 제거(ETL 감사). */
+  loadAxes?: {
+    cardio: { score: number | null; source: "tss" | "trimp" | "time"; confidence: "low" | "medium" | "high" };
+    muscle: { score: number | null; source: "wprime" | "power-zones" | "cardio"; confidence: "low" | "medium" | "high" };
+    perceived: { score: number | null; source: "rpe" | "decoupling" | "cardio"; confidence: "low" | "medium" | "high" };
+  };
+  thresholdFlags?: { ftpStale: boolean; ifSuspect: boolean; suggestedFtp?: number } | null;
+  discipline: "bike" | "run" | "swim" | "other";
   activityType: string;            // raw a.type ("Ride", "VirtualRide", ...)
   startTime: number;
   computedAt: number;
@@ -253,4 +262,4 @@ export interface SplitRow {
 }
 
 /** 현재 ActivityMetrics 계산 스키마 버전. 변경 시 +1, backfill 트리거. */
-export const ACTIVITY_METRICS_VERSION = 2;
+export const ACTIVITY_METRICS_VERSION = 22;
