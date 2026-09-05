@@ -22,12 +22,12 @@ export type WorkoutType =
   | "interval" | "race" | "mixed";
 
 export interface CyclingDynamicsMetrics {
-  source: "session" | "records";
+  source: "session" | "records" | "session_summary";
   sampleCount: number;
   validSampleCount: number;
   coverage: number;
   balance?: { leftAvgPct: number; rightAvgPct: number; asymmetryPct: number };
-  torqueEffectiveness?: { leftAvgPct?: number; rightAvgPct?: number };
+  torqueEffectiveness?: { leftAvgPct?: number; rightAvgPct?: number; combinedAvgPct?: number };
   pedalSmoothness?: { leftAvgPct?: number; rightAvgPct?: number; combinedAvgPct?: number };
   platformCenterOffset?: { leftAvgMm?: number; rightAvgMm?: number };
   powerPhase?: {
@@ -201,12 +201,13 @@ export interface ActivityMetrics {
   aet?: { hr: number; watts: number; confidence: number };
 
   // ── 환경
+  /** 주행 당시 날씨 — 서버 v22: 습도·풍속은 결측이면 null(0 으로 채우지 않음), windSpeed m/s, condition `wmo_<code>`|unknown. */
   weather?: {
     tempC: number;
-    humidity: number;
-    windSpeed: number;
+    humidity: number | null;
+    windSpeed: number | null;
     condition: string;
-  };
+  } | null;
 
   // ── 좌우 파워 균형 (dual power 사용자)
   lrBalance?: { avg: number; asymmetryPct: number };
