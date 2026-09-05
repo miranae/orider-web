@@ -842,7 +842,9 @@
       "interval": "인터벌",
       "race": "레이스",
       "mixed": "혼합"
-    }
+    },
+    "provisionalChip": "잠정값 · 업로드 반영 중",
+    "truncatedInputChip": "잘린 입력 기준"
   },
   "vp": {
     "badge": "가상 파워",

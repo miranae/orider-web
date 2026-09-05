@@ -214,6 +214,8 @@ export interface ActivityMetrics {
 
   // ── Meta
   /** 가상파워 활동 — mmp/cp/wPrime 은 비운다. */
+  /** GPS 품질 요약 (#2345). */
+  gpsQuality?: { medianAccuracyM: number; p90AccuracyM: number; coverage: number; poorFixPct: number } | null;
   isVirtualPower?: boolean;
   /** 부하 3축 — **서버 형태 그대로**. 웹이 다른 이름(cardiovascular/muscular/perceptual)으로 재선언하던 것을 제거(ETL 감사). */
   loadAxes?: {

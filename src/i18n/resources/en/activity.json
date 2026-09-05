@@ -842,7 +842,9 @@
       "interval": "Interval",
       "race": "Race",
       "mixed": "Mixed"
-    }
+    },
+    "provisionalChip": "Provisional · upload in progress",
+    "truncatedInputChip": "From truncated input"
   },
   "vp": {
     "badge": "Virtual Power",

@@ -633,8 +633,9 @@ export default function AnalysisTab({
             {sport === "run" && sm?.runMetrics?.paceStdDevSec != null && (
               <MetricCard color="aqua" label={t("analysis.metric.paceConsistency")} value={formatPace(sm.runMetrics.paceStdDevSec)} unit="σ" description={t("analysis.metric.paceConsistencyDesc")} tooltip={t("analysis.glossary.paceConsistency")} />
             )}
-            {streams.calories != null && (
-              <MetricCard color="amber" label={t("analysis.metric.calories")} value={Math.round(streams.calories).toString()} unit="kcal" tooltip={t("analysis.glossary.calories")} />
+            {/* 칼로리는 서버 caloriesKcal 이 정본 — 분석 문서가 없을 때만 업로드 요약(streams.calories) 폴백 (#900) */}
+            {(sm?.caloriesKcal ?? streams.calories) != null && (
+              <MetricCard color="amber" label={t("analysis.metric.calories")} value={Math.round((sm?.caloriesKcal ?? streams.calories) as number).toString()} unit="kcal" tooltip={t("analysis.glossary.calories")} />
             )}
           </div>
         </div>
