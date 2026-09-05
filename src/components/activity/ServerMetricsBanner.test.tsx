@@ -109,4 +109,17 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.getByText("지구력")).toBeInTheDocument();
     expect(screen.getByText("신뢰도 90%")).toBeInTheDocument();
   });
+
+  it("잠정값·잘린 입력 표식을 칩으로 드러낸다 — 숨기면 잘린 값이 확정값으로 읽힌다 (#900)", () => {
+    const provisional = { ...readyState, metrics: { ...readyState.metrics, inputPending: true, sourceLayer: "inline_streams" } };
+    render(<ServerMetricsBanner state={provisional as never} />);
+    expect(screen.getByText("잠정값 · 업로드 반영 중")).toBeInTheDocument();
+    expect(screen.getByText("잘린 입력 기준")).toBeInTheDocument();
+  });
+
+  it("출처 표식이 없으면 칩을 그리지 않는다", () => {
+    render(<ServerMetricsBanner state={readyState as never} />);
+    expect(screen.queryByText("잠정값 · 업로드 반영 중")).not.toBeInTheDocument();
+    expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
+  });
 });
