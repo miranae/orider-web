@@ -906,6 +906,28 @@
       "first": "Set my first {{dist}} record: {{time}}! Analyzed on O-Rider."
     }
   },
+  "stravaSummary": {
+    "title": "Publish summary to Strava",
+    "disclosure": "Publish this summary, including fitness, fatigue and form, to your Strava activity description. Your existing description is preserved; only the O-Rider summary is updated.",
+    "publish": "Publish / update on Strava",
+    "working": "Working…",
+    "reconnect": "Connect Strava write access",
+    "targetHelp": "No linked Strava activity?",
+    "targetLabel": "Your Strava activity link to receive this summary",
+    "automatic": "Automatically publish new activities started from now on once linked to Strava",
+    "loadSettings": "Reload automatic publishing settings",
+    "published": "Summary published to your Strava activity description.",
+    "unchanged": "The same summary is already published.",
+    "queued": "Publishing is queued. Temporary errors will be retried automatically.",
+    "reauthorization-required": "A Strava connection with activity write access is required. Please reconnect.",
+    "unavailable": "The activity link or analysis is not ready. Specify your Strava activity link or try again later.",
+    "invalidTarget": "Enter a valid Strava activity link.",
+    "settingsError": "Could not load or save automatic publishing settings. Please try again.",
+    "publishError": "Could not request publishing to Strava. Please try again.",
+    "autoEnabled": "Automatic publishing is enabled for activities started from now on.",
+    "autoDisabled": "Automatic publishing is disabled.",
+    "view": "View on Strava"
+  },
   "socialSummary": {
     "retry": "Reload share summary",
     "retrying": "Loading share summary…",

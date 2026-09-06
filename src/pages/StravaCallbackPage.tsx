@@ -134,7 +134,9 @@ export default function StravaCallbackPage() {
     (async () => {
       try {
         setStep("exchanging");
-        await exchangeCode(code);
+        const grantedScope = searchParams.get("scope");
+        if (grantedScope) await exchangeCode(code, grantedScope);
+        else await exchangeCode(code);
         // funnel 의 결정적 마일스톤 — first_open → sign_up → strava_connect → first_kudos
         track("strava_connect", { result: "ok" });
         setStep("done");

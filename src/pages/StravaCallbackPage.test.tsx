@@ -48,7 +48,7 @@ vi.mock("../hooks/useLocalizedNavigate", () => ({
 vi.mock("../hooks/useStrava", () => ({
   useStrava: () => ({
     connectStrava: (returnTo: string) => mocks.connectStrava(returnTo),
-    exchangeCode: (code: string) => mocks.exchangeCode(code),
+    exchangeCode: (...args: [string, string?]) => mocks.exchangeCode(...args),
   }),
 }));
 
@@ -57,6 +57,11 @@ vi.mock("../services/analytics", () => ({
 }));
 
 describe("StravaCallbackPage", () => {
+  it("forwards the scope returned by Strava when authorizing publishing", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    render(<MemoryRouter initialEntries={["/strava/callback?code=write-code&state=nonce&scope=read,activity:read_all,activity:write"]}><StravaCallbackPage /></MemoryRouter>);
+    await waitFor(() => expect(mocks.exchangeCode).toHaveBeenCalledWith("write-code", "read,activity:read_all,activity:write"));
+  });
   beforeEach(() => {
     vi.useRealTimers();
     sessionStorage.clear();
