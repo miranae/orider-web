@@ -905,5 +905,17 @@
       "improvedTiny": "{{dist}} 최고 기록 {{time}} — 이전 기록을 갱신했어요! O-Rider에서 분석했어요.",
       "first": "{{dist}} 첫 기록 {{time}}을 세웠어요! O-Rider에서 분석했어요."
     }
+  },
+  "socialSummary": {
+    "title": "공유용 요약",
+    "integrated": "종목 통합 부하 · 활동 반영 전 → 후",
+    "ctl": "CTL · 통합 체력",
+    "atl": "ATL · 피로",
+    "tsb": "TSB · 상태",
+    "counterfactual": "같은 기준 시점에서 이 활동의 포함 여부를 비교한 훈련 부하 추정치입니다.",
+    "unavailable": "이 활동의 통합 체력 변화를 계산할 데이터가 부족합니다.",
+    "copy": "공유 문구 복사",
+    "copied": "공유 문구를 복사했습니다.",
+    "error": "복사하지 못했습니다. 다시 시도해 주세요."
   }
 }

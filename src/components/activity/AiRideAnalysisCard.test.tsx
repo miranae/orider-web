@@ -65,6 +65,18 @@ function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: tru
 }
 
 describe("AiRideAnalysisCard", () => {
+  it("preserves senior coaching and segment details alongside a separate share summary", async () => {
+    narrativeApiMocks.peek.mockResolvedValue({
+      ...narrative([segment(0, 10, "구간별 코칭 유지")]),
+      socialSummary: { narrative: "공유할 성취 요약", achievements: [], shareText: "공유할 성취 요약" },
+    });
+    renderWithProviders(<AiRideAnalysisCard activityId="coaching-with-social-summary" enabled isActivityOwner />, { authenticated: true });
+    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
+    expect(screen.getByText("공유할 성취 요약")).toBeInTheDocument();
+    expect(screen.getByText("구간별 코칭 유지")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "공유용 요약" })).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     window.sessionStorage.clear();
     narrativeApiMocks.generate.mockReset();

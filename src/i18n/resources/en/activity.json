@@ -905,5 +905,17 @@
       "improvedTiny": "{{dist}} best {{time}} — a new personal best! Analyzed on O-Rider.",
       "first": "Set my first {{dist}} record: {{time}}! Analyzed on O-Rider."
     }
+  },
+  "socialSummary": {
+    "title": "Share summary",
+    "integrated": "Integrated training load · Before → after activity",
+    "ctl": "CTL · Fitness",
+    "atl": "ATL · Fatigue",
+    "tsb": "TSB · Form",
+    "counterfactual": "Estimated training load with and without this activity at the same reference time.",
+    "unavailable": "There is not enough data to calculate this activity’s integrated fitness impact.",
+    "copy": "Copy share text",
+    "copied": "Share text copied.",
+    "error": "Could not copy. Please try again."
   }
 }
