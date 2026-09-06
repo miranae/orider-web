@@ -15,6 +15,12 @@ vi.mock("../services/analytics", () => ({ track: mocks.track }));
 vi.mock("../services/errorLogger", () => ({ logClientError: mocks.logClientError }));
 
 describe("useStrava", () => {
+  it("forwards granted scopes when reconnecting for publishing", async () => {
+    setCallableResult("stravaExchangeToken", { data: { athleteId: 123 } });
+    const { result } = renderHook(() => useStrava());
+    await act(async () => { await result.current.exchangeCode("write-code", "read,activity:read_all,activity:write"); });
+    expect(mockCallableInvocations).toContainEqual({ name: "stravaExchangeToken", data: { code: "write-code", scope: "read,activity:read_all,activity:write" } });
+  });
   it("starts with loading=false and no error", () => {
     const { result } = renderHook(() => useStrava());
     expect(result.current.loading).toBe(false);

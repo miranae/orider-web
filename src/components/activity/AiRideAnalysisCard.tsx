@@ -1,3 +1,4 @@
+import ActivitySocialSummary from "./ActivitySocialSummary";
 /**
  * AI 라이딩 분석 카드 (활동 개요).
  *
@@ -227,12 +228,13 @@ interface Props {
   /** 지원 종목 활동 + 스트림 준비 시에만 호출 */
   enabled: boolean;
   sport?: AnalysisSport;
+  isActivityOwner?: boolean;
   /** 활동 문서에 비정규화된 AI 요약. 상세 캐시 miss 시 fallback으로 보여준다. */
   summaryPreview?: string | null;
   summaryPreviewEn?: string | null;
 }
 
-export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride", summaryPreview, summaryPreviewEn }: Props) {
+export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride", summaryPreview, summaryPreviewEn, isActivityOwner = false }: Props) {
   const { t, i18n } = useTranslation("activity");
   const lang = narrativeLangFrom(i18n.language);
   const header = t(sportHeaderKey(sport));
@@ -460,6 +462,8 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
 
       {/* 요약 (항상 노출) */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
+      <ActivitySocialSummary key={`${activityId}:${lang}:${user?.uid ?? "anonymous"}:${data.generatedAt}`}
+        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner} />
       {data.stale && (
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">
           {user ? t("ai.staleHint") : t("ai.staleLoginHint")}
