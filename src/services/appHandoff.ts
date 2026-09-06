@@ -18,7 +18,7 @@
  * 실패는 `didHandoffFail()` 로 마운트 후 토스트 1회 노출.
  */
 import { signInWithCustomToken, signOut, type Auth } from "firebase/auth";
-import { httpsCallable, type Functions } from "firebase/functions";
+import { httpsCallableFromURL, type Functions } from "firebase/functions";
 import { auth, ensureAppCheckReady, functions } from "./firebase";
 import { logClientError } from "./errorLogger";
 
@@ -119,9 +119,9 @@ async function redeemAndSignIn(
       tags: { source: "app-handoff-appcheck-degraded" },
     });
   });
-  const redeem = httpsCallable<{ code: string }, { token: string }>(
+  const redeem = httpsCallableFromURL<{ code: string }, { token: string }>(
     services.functions,
-    "webHandoffRedeem",
+    "https://auth.orider.co.kr/webHandoffRedeem",
   );
   const { data } = await redeem({ code });
   await signInWithCustomToken(services.auth, data.token);
