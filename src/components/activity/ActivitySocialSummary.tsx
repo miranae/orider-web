@@ -1,17 +1,51 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Text } from "../../theme/components";
 import type { ActivitySocialSummary as SocialSummary } from "../../hooks/useActivityNarrative";
+import type { NarrativeLang } from "../../hooks/useActivityNarrative";
+import { retryActivitySocialSummary } from "../../services/activityNarrativeApi";
 
 interface Props {
   summary?: SocialSummary;
   isActivityOwner: boolean;
+  activityId?: string;
+  lang?: NarrativeLang;
 }
 
-export default function ActivitySocialSummary({ summary, isActivityOwner }: Props) {
+export default function ActivitySocialSummary({ summary: initialSummary, isActivityOwner, activityId, lang = "ko" }: Props) {
   const { t } = useTranslation("activity");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
-  if (!summary) return null;
+  const [recovered, setRecovered] = useState<SocialSummary>();
+  const [retryState, setRetryState] = useState<"idle" | "loading" | "error">("idle");
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const summary = recovered ?? initialSummary;
+  const retry = async () => {
+    if (!activityId || !isActivityOwner || retryState === "loading") return;
+    setRetryState("loading");
+    try {
+      const result = await retryActivitySocialSummary(activityId, lang);
+      if (!mounted.current) return;
+      if (!result.socialSummary) { setRetryState("error"); return; }
+      setRecovered(result.socialSummary);
+      setRetryState("idle");
+    } catch {
+      if (mounted.current) setRetryState("error");
+    }
+  };
+  if (!summary) return isActivityOwner && activityId ? (
+    <section className="mt-4 space-y-3" aria-label={t("socialSummary.title")}>
+      <Text variant="body" tone="primary" as="h3">{t("socialSummary.title")}</Text>
+      <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.retryHint")}</Text>
+      <Button variant="secondary" size="sm" disabled={retryState === "loading"} onClick={() => { void retry(); }}>
+        {t(retryState === "loading" ? "socialSummary.retrying" : "socialSummary.retry")}
+      </Button>
+      {retryState === "error" && <p role="status">{t("socialSummary.retryError")}</p>}
+    </section>
+  ) : null;
   const impact = isActivityOwner ? summary.fitnessImpact : undefined;
   const copy = async () => {
     try {

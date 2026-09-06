@@ -51,6 +51,7 @@ import {
   claimActivityNarrativeAppCheckThrottleRecovery,
   generateActivityNarrative,
   peekActivityNarrative,
+  retryActivitySocialSummary,
 } from "./activityNarrativeApi";
 
 const narrative = {
@@ -80,6 +81,13 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("activityNarrativeApi", () => {
+  it("requests only the share summary in read-only mode", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ socialSummary: { narrative: "recovered" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(retryActivitySocialSummary("ride", "ko")).resolves.toEqual({ socialSummary: { narrative: "recovered" } });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ activityId: "ride", lang: "ko", cacheOnly: true, socialSummaryOnly: true });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
   });

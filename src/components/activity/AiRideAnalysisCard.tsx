@@ -462,7 +462,8 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
 
       {/* 요약 (항상 노출) */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
-      <ActivitySocialSummary summary={data.socialSummary} isActivityOwner={isActivityOwner} />
+      <ActivitySocialSummary key={`${activityId}:${lang}:${user?.uid ?? "anonymous"}:${data.generatedAt}`}
+        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner} />
       {data.stale && (
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">
           {user ? t("ai.staleHint") : t("ai.staleLoginHint")}

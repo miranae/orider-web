@@ -6,6 +6,7 @@ import type { ActivityNarrative, NarrativeSegment } from "../../hooks/useActivit
 const narrativeApiMocks = vi.hoisted(() => ({
   generate: vi.fn(),
   peek: vi.fn(),
+  retrySummary: vi.fn(),
   appCheckThrottleRetryAfterMs: vi.fn(),
   claimActivityNarrativeAppCheckThrottleRecovery: vi.fn(),
 }));
@@ -13,6 +14,7 @@ const narrativeApiMocks = vi.hoisted(() => ({
 vi.mock("../../services/activityNarrativeApi", () => ({
   generateActivityNarrative: narrativeApiMocks.generate,
   peekActivityNarrative: narrativeApiMocks.peek,
+  retryActivitySocialSummary: narrativeApiMocks.retrySummary,
   appCheckThrottleRetryAfterMs: narrativeApiMocks.appCheckThrottleRetryAfterMs,
   claimActivityNarrativeAppCheckThrottleRecovery: narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery,
 }));
@@ -80,6 +82,7 @@ describe("AiRideAnalysisCard", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     narrativeApiMocks.generate.mockReset();
+    narrativeApiMocks.retrySummary.mockReset();
     narrativeApiMocks.peek.mockReset().mockResolvedValue({ hit: false });
     narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery.mockReset().mockReturnValue(false);
     narrativeApiMocks.appCheckThrottleRetryAfterMs.mockReset().mockImplementation((error: unknown) => {
@@ -89,6 +92,22 @@ describe("AiRideAnalysisCard", () => {
         ? (Number(retryAfter[1]) * 60 * 60 + Number(retryAfter[2]) * 60 + Number(retryAfter[3])) * 1_000
         : null;
     });
+  });
+
+  it("retries only a missing share summary and keeps coaching visible through failure and success", async () => {
+    narrativeApiMocks.peek.mockResolvedValue(narrative([segment(0, 10, "구간 코칭 보존")]));
+    narrativeApiMocks.retrySummary.mockRejectedValueOnce(new Error("temporary"))
+      .mockResolvedValueOnce({ socialSummary: { narrative: "복구된 공유요약", achievements: [], shareText: "복구된 공유요약" } });
+    renderWithProviders(<AiRideAnalysisCard activityId="retry-only-summary" enabled isActivityOwner />, { authenticated: true });
+    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
+    expect(await screen.findByText("공유요약을 불러오지 못했습니다. 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
+    expect(await screen.findByText("복구된 공유요약")).toBeInTheDocument();
+    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
+    expect(narrativeApiMocks.retrySummary).toHaveBeenCalledWith("retry-only-summary", "ko");
+    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
   });
 
   it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {

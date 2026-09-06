@@ -907,6 +907,10 @@
     }
   },
   "socialSummary": {
+    "retry": "Reload share summary",
+    "retrying": "Loading share summary…",
+    "retryHint": "Your coaching stays available. Reload just the share summary.",
+    "retryError": "Could not load the share summary. Please try again.",
     "title": "Share summary",
     "integrated": "Integrated training load · Before → after activity",
     "ctl": "CTL · Fitness",
