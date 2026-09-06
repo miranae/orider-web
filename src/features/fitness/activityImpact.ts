@@ -13,6 +13,24 @@ import {
 
 export type ActivityImpactConfidence = "canonical-single" | "estimated-allocation";
 
+export interface ActivityDayLoad {
+  dailyLoad: number;
+}
+
+/** A day's aggregate is not an allocation to, or proof of inclusion of, one activity. */
+export function activityDayLoad(
+  activity: Activity,
+  points: readonly FitnessPoint[],
+): ActivityDayLoad | null {
+  if (!Number.isFinite(activity.startTime)) return null;
+  const start = new Date(activity.startTime);
+  if (!Number.isFinite(start.getTime())) return null;
+  const date = start.toISOString().slice(0, 10);
+  const point = points.find((candidate) => candidate.date === date);
+  if (!point || !Number.isFinite(point.dailyLoad) || point.dailyLoad < 0) return null;
+  return { dailyLoad: point.dailyLoad };
+}
+
 export interface FitnessStateDelta {
   ctl: number;
   atl: number;

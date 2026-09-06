@@ -57,6 +57,21 @@ function renderBriefing(overrides: Partial<React.ComponentProps<typeof FitnessCo
 }
 
 describe("FitnessCoachBriefing", () => {
+  it.each([0, 154])("shows a day-only load of %s without inventing a marginal contribution or blocking choices", (dailyLoad) => {
+    const newest = impact("newest", 29, 63).activity;
+    renderBriefing({
+      impacts: [], selectedActivityId: newest.id, pendingActivity: newest,
+      pendingDayLoad: { dailyLoad },
+    });
+    expect(screen.getAllByText(`이날 일일 부하 ${dailyLoad} TSS · 개별 활동의 기여도는 정보 부족으로 구분할 수 없습니다.`)).toHaveLength(2);
+    expect(screen.getByText("기존 일일 합계 기준 예상이며, 개별 활동 반영 여부를 확인한 결과는 아닙니다.")).toBeInTheDocument();
+    expect(screen.getAllByText("—")).toHaveLength(3);
+    expect(screen.getByRole("group", { name: "오늘의 운동 선택" })).not.toBeDisabled();
+    expect(screen.getByText(/24시간 뒤 예상/)).toBeInTheDocument();
+    expect(screen.queryByText("일일 부하 반영을 기다리는 중")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-pending]")).toBeNull();
+    expect(document.querySelector("[data-day-load-available]")).not.toBeNull();
+  });
   it("separates activity-only contribution from the whole-day change", () => {
     renderBriefing();
 
