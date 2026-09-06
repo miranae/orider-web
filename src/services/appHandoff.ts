@@ -13,21 +13,20 @@
  *   2. `consumeAppHandoffCode()` — initFirebase 후, AuthProvider 마운트 전에 await.
  *      (마운트 전에 끝내야 onAuthStateChanged/ensureUserProfile 이 인계 계정으로 흐른다.)
  *
- * 소비는 CONSUME_TIMEOUT_MS 로 상한 — reCAPTCHA(App Check) 로드가 애드블록/프록시
- * 환경에서 hang 해도 마운트가 무한 블로킹되지 않고 비로그인으로 계속한다(리뷰 MAJOR).
+ * 코드 교환·로그인은 CONSUME_TIMEOUT_MS 로 상한을 두고 실패 시 비로그인으로 계속한다.
+ * 원래 App Check 준비는 병렬이므로 reCAPTCHA 지연이 코드 교환을 막지 않는다.
  * 실패는 `didHandoffFail()` 로 마운트 후 토스트 1회 노출.
  */
 import { signInWithCustomToken, signOut, type Auth } from "firebase/auth";
-import { httpsCallableFromURL, type Functions } from "firebase/functions";
+import { type Functions } from "firebase/functions";
 import { auth, ensureAppCheckReady, functions } from "./firebase";
-import { logClientError } from "./errorLogger";
+import { debugLog, logClientError } from "./errorLogger";
+import { redeemHandoffCode } from "./handoffRedeem";
 
 export const HANDOFF_PARAM = "handoff";
 // base64url 32바이트 = 43자 (functions/web-auth-handoff.ts 와 동일 계약)
 const CODE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-// App Check 토큰 획득 자체가 최대 12초를 기다린다(firebase.ts). 그보다 짧으면 정상적인
-// 인계가 먼저 timeout 처리되므로, callable·custom-token 로그인을 위한 여유를 더한다.
-// hang 은 catch 로 못 잡으므로 race 는 유지한다.
+// 코드 교환·custom-token 로그인 지연은 상한을 둔다. App Check는 별도로 준비한다.
 const CONSUME_TIMEOUT_MS = 15_000;
 
 let stashedCode: string | null = null;
@@ -102,29 +101,43 @@ export interface AppHandoffFirebaseServices {
   ensureAppCheckReady: (forceRefresh?: boolean) => Promise<void>;
 }
 
+function logHandoffTiming(stage: "app_check" | "redeem" | "sign_in" | "total", started: number, outcome: "success" | "failure" | "degraded"): void {
+  debugLog("앱 로그인 인계 시간", {
+    stage,
+    elapsedMs: Math.min(120_000, Math.max(0, Math.round(performance.now() - started))),
+    outcome,
+  });
+}
+
 async function redeemAndSignIn(
   code: string,
   services: AppHandoffFirebaseServices,
 ): Promise<void> {
-  // App Check 실패는 인계를 막지 않는다(fail-open).
-  //
-  // 앱 WebView 안에서는 reCAPTCHA Enterprise attestation 이 403 으로 거부되고 SDK 가
-  // 24시간 throttle 을 걸어, 코드가 정상 발급돼도 redeem 을 못 해 임베드가 영원히
-  // "host authorization 대기" 에 멈춘다 (#2102).
-  //
-  // 이 엔드포인트의 실질 방어는 **256비트 일회용 코드 엔트로피**이고 서버는 IP rate
-  // limit 도 건다. App Check 는 보조 계층이므로, 획득에 실패해도 토큰 없이 호출한다.
-  await services.ensureAppCheckReady().catch((error) => {
-    logClientError(error, {
-      tags: { source: "app-handoff-appcheck-degraded" },
-    });
+  // redeem만 256비트 일회용 코드로 보호한다. 보호 API가 사용할 원래 App Check는
+  // 병렬로 준비하고, 별도 FirebaseApp의 redeem 요청에는 대기나 토큰을 붙이지 않는다.
+  const appCheckStarted = performance.now();
+  void Promise.resolve().then(() => services.ensureAppCheckReady()).then(() => {
+    logHandoffTiming("app_check", appCheckStarted, "success");
+  }).catch(() => {
+    logHandoffTiming("app_check", appCheckStarted, "degraded");
   });
-  const redeem = httpsCallableFromURL<{ code: string }, { token: string }>(
-    services.functions,
-    "https://auth.orider.co.kr/webHandoffRedeem",
-  );
-  const { data } = await redeem({ code });
-  await signInWithCustomToken(services.auth, data.token);
+  const redeemStarted = performance.now();
+  let token: string;
+  try {
+    token = await redeemHandoffCode(services.functions, code);
+    logHandoffTiming("redeem", redeemStarted, "success");
+  } catch (error) {
+    logHandoffTiming("redeem", redeemStarted, "failure");
+    throw error;
+  }
+  const signInStarted = performance.now();
+  try {
+    await signInWithCustomToken(services.auth, token);
+    logHandoffTiming("sign_in", signInStarted, "success");
+  } catch (error) {
+    logHandoffTiming("sign_in", signInStarted, "failure");
+    throw error;
+  }
 }
 
 /**
@@ -140,6 +153,7 @@ export async function consumeAppHandoffCode(
   const code = stashedCode;
   stashedCode = null;
   if (!code) return;
+  const consumeStarted = performance.now();
 
   // currentUser 는 Firebase Auth 영속성 복원이 끝나기 전 일시적으로 null 일 수 있다.
   // 복원 완료 후 기존 세션을 먼저 끊어야 redeem 실패 시 다른 계정이 남지 않는다.
@@ -155,17 +169,20 @@ export async function consumeAppHandoffCode(
     }
   }
 
+  let succeeded = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`handoff timeout (${CONSUME_TIMEOUT_MS}ms)`)), CONSUME_TIMEOUT_MS);
   });
   try {
     await Promise.race([redeemAndSignIn(code, services), timeout]);
+    succeeded = true;
   } catch (err) {
     // 만료/재사용 코드, 네트워크 오류, App Check hang 등 — 비로그인으로 계속
     handoffFailed = true;
     logClientError("appHandoff.consume", err);
   } finally {
     clearTimeout(timer);
+    logHandoffTiming("total", consumeStarted, succeeded ? "success" : "failure");
   }
 }
