@@ -114,6 +114,8 @@
   "coach.impact.load": "반영 부하 {{load}} TSS",
   "coach.impact.modeLabel": "활동 영향 기준",
   "coach.impact.pending": "일일 부하 반영을 기다리는 중",
+  "coach.impact.dayLoadAvailable": "이날 일일 부하 {{load}} TSS · 개별 활동의 기여도는 정보 부족으로 구분할 수 없습니다.",
+  "coach.choice.dayAggregateBasis": "기존 일일 합계 기준 예상이며, 개별 활동 반영 여부를 확인한 결과는 아닙니다.",
   "coach.impact.modeMarginal": "이 활동의 순기여",
   "coach.impact.modeActual": "하루 상태 변화",
   "coach.impact.marginalHelp": "같은 날 이 활동만 없었다면 어땠을지를 비교한 기여도입니다. 하루 전체의 자연 감소와 다른 활동은 제외합니다.",

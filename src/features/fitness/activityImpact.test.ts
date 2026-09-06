@@ -4,6 +4,7 @@ import type { Activity } from "@shared/types";
 import type { FitnessPoint } from "../../utils/fitnessMetrics";
 import {
   activityIdsCoveredByImpacts,
+  activityDayLoad,
   deriveActivityImpacts,
   forecastFitnessChoice48Hours,
   forecastFitness48Hours,
@@ -48,6 +49,36 @@ const point = (date: string, ctl: number, atl: number, dailyLoad: number): Fitne
 });
 
 describe("deriveActivityImpacts", () => {
+  it("exposes only the day aggregate when multiple activity TSS values are missing", () => {
+    const activities = [null, null, 51.2866, 63.1913].map((tss, index) => activity(
+      `ride-${index}`, Date.UTC(2026, 8, 6, 4 + index * 2), tss,
+    ));
+    const points = [point("2026-09-06", 40.1, 55.6, 154)];
+    expect(deriveActivityImpacts(points, activities)).toEqual([]);
+    expect(activityDayLoad(activities[3]!, points)).toEqual({ dailyLoad: 154 });
+  });
+
+  it.each([0, 154])("does not imply individual inclusion from a same-day aggregate of %s", (dailyLoad) => {
+    expect(activityDayLoad(activity("newer", Date.UTC(2026, 8, 6, 20), null), [
+      point("2026-09-06", 40, 55, dailyLoad),
+    ])).toEqual({ dailyLoad });
+  });
+
+  it.each([Number.NaN, Infinity, -1])("rejects unusable daily aggregate %s", (dailyLoad) => {
+    expect(activityDayLoad(activity("ride", Date.UTC(2026, 8, 6), null), [
+      point("2026-09-06", 40, 55, dailyLoad),
+    ])).toBeNull();
+  });
+
+  it("does not substitute an older day aggregate for a missing activity day", () => {
+    expect(activityDayLoad(activity("ride", Date.UTC(2026, 8, 7), null), [
+      point("2026-09-06", 40, 55, 154),
+    ])).toBeNull();
+  });
+
+  it.each([Number.NaN, Infinity, 1e20])("ignores an invalid activity timestamp %s", (startTime) => {
+    expect(activityDayLoad(activity("ride", startTime, null), [])).toBeNull();
+  });
   it("uses canonical 196 TSS for a single activity and exposes its marginal effect", () => {
     const points = [point("2026-08-28", 36, 42, 0), point("2026-08-29", 39.8, 64, 196)];
     const [impact] = deriveActivityImpacts(points, [activity("ride", Date.UTC(2026, 7, 29, 8), 120)]);

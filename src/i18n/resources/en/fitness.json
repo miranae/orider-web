@@ -114,6 +114,8 @@
   "coach.impact.load": "Attributed load {{load}} TSS",
   "coach.impact.modeLabel": "Activity impact basis",
   "coach.impact.pending": "Waiting for the daily load to be applied",
+  "coach.impact.dayLoadAvailable": "Daily load for this day: {{load}} TSS. Individual activity contributions cannot be separated with the available information.",
+  "coach.choice.dayAggregateBasis": "This outlook uses the existing daily totals. It does not confirm whether an individual activity has been included.",
   "coach.impact.modeMarginal": "This activity's contribution",
   "coach.impact.modeActual": "Whole-day change",
   "coach.impact.marginalHelp": "A counterfactual comparison with only this activity removed. Natural daily decay and other activities are excluded.",

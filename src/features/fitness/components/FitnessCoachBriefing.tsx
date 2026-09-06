@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import type { FitnessPoint } from "../../../utils/fitnessMetrics";
-import { forecastFitnessChoice48Hours, type ActivityImpactEntry, type Fitness48HourForecast } from "../activityImpact";
+import { forecastFitnessChoice48Hours, type ActivityDayLoad, type ActivityImpactEntry, type Fitness48HourForecast } from "../activityImpact";
 import { deriveActivityStimulus } from "../activityStimulus";
 import DetailsSection from "../../../components/redesign/DetailsSection";
 import { Button, Card, Chip, Text } from "../../../theme/components";
@@ -23,6 +23,7 @@ interface FitnessCoachBriefingProps {
   locale: string;
   canonicalAvailable: boolean;
   pendingActivity?: Activity | null;
+  pendingDayLoad?: ActivityDayLoad | null;
   metricsMap?: ReadonlyMap<string, ActivityMetrics>;
   discipline: "bike" | "run" | "swim";
   userId?: string | null;
@@ -82,13 +83,17 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, metricsMap, discipline, userId = null }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
   const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => initialTrainingChoice(current.tsb));
   const [showRestNotice, setShowRestNotice] = useState(false);
   const [deliveryBusy, setDeliveryBusy] = useState(false);
   const selectedPending = pendingActivity?.id === selectedActivityId ? pendingActivity : null;
+  const awaitingAggregate = Boolean(pendingActivity) && pendingDayLoad == null;
+  const pendingDescription = pendingDayLoad
+    ? t("coach.impact.dayLoadAvailable", { load: pendingDayLoad.dailyLoad.toFixed(0) })
+    : t("coach.impact.pending");
   const selected = selectedPending ? null : impacts.find((entry) => entry.activity.id === selectedActivityId) ?? impacts[0] ?? null;
   const selectedActivity = selected?.activity ?? selectedPending;
   const conclusion = coachConclusion(current.tsb);
@@ -99,12 +104,12 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
     setShowRestNotice(false);
   }, [current.atl, current.ctl, current.tsb, discipline, pendingActivity?.id]);
   const choiceForecast = useMemo(() => {
-    if (pendingActivity) return null;
+    if (awaitingAggregate) return null;
     const firstRestPoint = forecast?.rest[0];
     if (!firstRestPoint) return null;
     const currentPoint: FitnessPoint = { date: previousUtcDay(firstRestPoint.date), ctl: current.ctl, atl: current.atl, tsb: current.tsb, dailyLoad: 0 };
     return forecastFitnessChoice48Hours(currentPoint, CHOICE_LOAD[trainingChoice]);
-  }, [current.atl, current.ctl, current.tsb, forecast, pendingActivity, trainingChoice]);
+  }, [current.atl, current.ctl, current.tsb, forecast, awaitingAggregate, trainingChoice]);
 
   return (
     <section aria-labelledby="fitness-coach-title">
@@ -144,7 +149,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
             <MetricDelta label={t("coach.metric.tsb")} value={delta?.tsb ?? null} color="var(--amber)" />
           </div>
           <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>
-            {selectedPending ? t("coach.impact.pending") : mode === "marginal" ? t("coach.impact.marginalHelp") : t("coach.impact.actualHelp")}
+            {selectedPending ? pendingDescription : mode === "marginal" ? t("coach.impact.marginalHelp") : t("coach.impact.actualHelp")}
           </Text>
           {stimulus && (
             <div className="fitness-coach__stimulus">
@@ -170,7 +175,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
           <Text as="div" variant="eyebrow">{t("coach.choice.eyebrow")}</Text>
           <Text as="h3" variant="title" style={{ margin: "var(--space-2) 0" }}>{t("coach.choice.title")}</Text>
           <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.choice.body")}</Text>
-          <fieldset className="fitness-coach__choices" disabled={Boolean(pendingActivity) || deliveryBusy}>
+          <fieldset className="fitness-coach__choices" disabled={awaitingAggregate || deliveryBusy}>
             <legend className="fitness-coach__sr-only">{t("coach.choice.legend")}</legend>
             {(["rest", "recovery", "endurance"] as const).map((choice) => (
               <label key={choice} className="fitness-coach__choice" data-selected={trainingChoice === choice || undefined}>
@@ -182,7 +187,8 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
               </label>
             ))}
           </fieldset>
-          {pendingActivity && <Text as="p" variant="caption" tone="warning" style={{ margin: "var(--space-3) 0 0" }}>{t("coach.choice.pending")}</Text>}
+          {awaitingAggregate && <Text as="p" variant="caption" tone="warning" style={{ margin: "var(--space-3) 0 0" }}>{t("coach.choice.pending")}</Text>}
+          {pendingActivity && pendingDayLoad && <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>{t("coach.choice.dayAggregateBasis")}</Text>}
           {choiceForecast && (
             <div className="fitness-coach__forecast" aria-live="polite">
               {choiceForecast.map((point) => (
@@ -193,7 +199,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
               ))}
             </div>
           )}
-          {!pendingActivity && discipline === "bike" ? trainingChoice === "rest" ? (
+          {!awaitingAggregate && discipline === "bike" ? trainingChoice === "rest" ? (
             <div className="fitness-coach__handoff">
               <Button variant="primary" block onClick={() => setShowRestNotice(true)}>{t("coach.choice.restConfirm")}</Button>
               <Text as="p" variant="caption" tone="tertiary" role="status" style={{ margin: 0 }}>
@@ -202,7 +208,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
             </div>
           ) : (
             <RiderWorkoutDeliveryPanel uid={userId} workoutType={trainingChoice} targetTss={CHOICE_LOAD[trainingChoice] as 20 | 45} onBusyChange={setDeliveryBusy} />
-          ) : !pendingActivity ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-4) 0 0" }}>{t("coach.choice.localOnly")}</Text> : null}
+          ) : !awaitingAggregate ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-4) 0 0" }}>{t("coach.choice.localOnly")}</Text> : null}
         </Card>
       </div>
 
@@ -216,9 +222,9 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-3)" }}>{t("coach.recent.title")}</Text>
           <div className="fitness-coach__recent-grid">
             {pendingActivity && (
-              <button type="button" onClick={() => onSelectActivity(pendingActivity.id)} aria-pressed={pendingActivity.id === selectedActivityId} className="fitness-coach__recent" data-pending data-selected={pendingActivity.id === selectedActivityId || undefined}>
+              <button type="button" onClick={() => onSelectActivity(pendingActivity.id)} aria-pressed={pendingActivity.id === selectedActivityId} className="fitness-coach__recent" data-pending={awaitingAggregate || undefined} data-day-load-available={pendingDayLoad != null || undefined} data-selected={pendingActivity.id === selectedActivityId || undefined}>
                 <Text as="div" variant="label">{pendingActivityLabel(pendingActivity, locale, t)}</Text>
-                <Text as="div" variant="caption" tone="warning" style={{ marginTop: "var(--space-2)" }}>{t("coach.impact.pending")}</Text>
+                <Text as="div" variant="caption" tone={awaitingAggregate ? "warning" : "tertiary"} style={{ marginTop: "var(--space-2)" }}>{pendingDescription}</Text>
               </button>
             )}
             {impacts.map((entry) => {

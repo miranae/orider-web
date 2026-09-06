@@ -28,6 +28,7 @@ import DailyTSSChart from "../features/fitness/components/DailyTSSChart";
 import PowerCurveChart from "../features/fitness/components/PowerCurveChart";
 import {
   activityIdsCoveredByImpacts,
+  activityDayLoad,
   deriveActivityImpacts,
   forecastFitness48Hours,
 } from "../features/fitness/activityImpact";
@@ -122,6 +123,9 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
     && !coveredActivityIds.has(newestDisciplineActivity.id)
     ? newestDisciplineActivity
     : null;
+  const pendingDayLoad = pendingImpactActivity && hasCanonicalTimeseries
+    ? activityDayLoad(pendingImpactActivity, fitnessData)
+    : null;
   const selectedActivityIsAvailable = selectedActivityId != null && (
     pendingImpactActivity?.id === selectedActivityId
     || activityImpacts.some((entry) => entry.activity.id === selectedActivityId)
@@ -199,6 +203,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
         locale={i18n.language}
         canonicalAvailable={hasCanonicalTimeseries}
         pendingActivity={pendingImpactActivity}
+        pendingDayLoad={pendingDayLoad}
         metricsMap={metricsMap}
         discipline={discipline}
         userId={user.uid}
@@ -414,6 +419,7 @@ export function FitnessView({ embedded = false, model }: FitnessViewProps) {
             locale={i18n.language}
             canonicalAvailable={hasCanonicalTimeseries}
             pendingActivity={pendingImpactActivity}
+            pendingDayLoad={pendingDayLoad}
             metricsMap={metricsMap}
             discipline={discipline}
             userId={user.uid}
