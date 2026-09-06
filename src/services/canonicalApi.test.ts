@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const currentUser = { getIdToken: vi.fn(async () => "tok") };
+const currentUser = { uid: "a", getIdToken: vi.fn(async () => "tok") };
 vi.mock("./firebase", () => ({ auth: { get currentUser() { return currentUser; } } }));
 vi.mock("./runtimeConfig", () => ({
   getRuntimeConfig: () => runtimeConfig,
@@ -11,11 +11,13 @@ let runtimeConfig: Record<string, unknown> = {};
 import {
   canonicalConsumersEnabled,
   fetchCanonicalHomeSummary,
+  fetchCanonicalFitnessSummary,
 } from "./canonicalApi";
 
 describe("canonicalApi", () => {
   beforeEach(() => {
     runtimeConfig = { personalApiBase: "https://api.example" };
+    currentUser.uid = "a";
     currentUser.getIdToken.mockResolvedValue("tok");
   });
   afterEach(() => vi.unstubAllGlobals());
@@ -27,6 +29,14 @@ describe("canonicalApi", () => {
     // 문자열 "true" 같은 느슨한 값으로 켜지지 않는다.
     runtimeConfig.canonicalConsumersEnabled = "true";
     expect(canonicalConsumersEnabled()).toBe(false);
+  });
+
+  it("does not fetch another account's bundle while its token is resolving", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    currentUser.getIdToken.mockImplementationOnce(async () => { currentUser.uid = "b"; return "token-a"; });
+    expect((await fetchCanonicalFitnessSummary("a")).error?.code).toBe("account_changed");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("HTTP 오류를 던지지 않고 failed 봉투로 내린다 — 던지면 호출부가 0 을 채운다", async () => {

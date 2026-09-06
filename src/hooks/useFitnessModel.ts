@@ -48,6 +48,7 @@ import { useMobile } from "./useMobile";
 import { usePdc } from "./usePdc";
 import { useRunRecords } from "./useRunRecords";
 import { useUserFitness } from "./useUserFitness";
+import { useCanonicalFitnessSummary } from "./useCanonicalFitnessSummary";
 import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { toLocalDate } from "../utils/dateUtils";
 import {
@@ -262,7 +263,14 @@ export function useFitnessModel(
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [activeGoal, setActiveGoal] = useState<Goal | null>(null);
-  const [projection, setProjection] = useState<FitnessProjection | null>(null);
+  const [legacyProjection, setProjection] = useState<FitnessProjection | null>(null);
+  const canonicalFitness = useCanonicalFitnessSummary(user?.uid, reloadKey);
+  const canonicalProjection = canonicalFitness.enabled
+    ? discipline === "tri" ? null : canonicalFitness.data?.projections[discipline] ?? null
+    : null;
+  const projection = canonicalFitness.enabled
+    ? canonicalProjection?.goalId === activeGoal?.id ? canonicalProjection : null
+    : legacyProjection;
   const [, setGoalQueryDone] = useState(false);
   const isMobile = useMobile();
   const { pdc } = usePdc(user?.uid);
@@ -281,7 +289,8 @@ export function useFitnessModel(
     && getRuntimeConfig().coachRiderInsightEnabled === true
     && discipline === "bike";
   const { insight: coachRiderInsight } = useCoachRiderInsight(user?.uid, riderInsightEnabled);
-  const { fitness: userFitness } = useUserFitness(!!user);
+  const { fitness: legacyUserFitness } = useUserFitness(!!user && !canonicalFitness.enabled);
+  const userFitness = canonicalFitness.enabled ? canonicalFitness.data?.current ?? null : legacyUserFitness;
   const latestActivityStart = activities.reduce((latest, activity) => Math.max(latest, activity.startTime), 0);
   const activityRefreshKey = `${activities.length}:${latestActivityStart}`;
   const fitnessClock = useFitnessClock(userFitness?.updatedAt, activityRefreshKey);
@@ -483,34 +492,38 @@ export function useFitnessModel(
   );
   const selectedTimeseriesDiscipline = discipline === "tri" ? "bike" : discipline;
   const {
-    timeseries,
+    timeseries: legacyTimeseries,
     loaded: selectedTimeseriesLoaded,
     error: selectedTimeseriesError,
     cacheHit: selectedTimeseriesCacheHit,
     freshLoaded: selectedTimeseriesFreshLoaded,
   } = useFitnessTimeseries(
-    user?.uid,
+    canonicalFitness.enabled ? undefined : user?.uid,
     selectedTimeseriesDiscipline,
     reloadKey,
     cacheLocale ?? undefined,
     user?.isAnonymous === true,
   );
-  const triUid = discipline === "tri" ? user?.uid : undefined;
+  const timeseries = canonicalFitness.enabled
+    ? canonicalFitness.data?.timeseries[selectedTimeseriesDiscipline] ?? null : legacyTimeseries;
+  const triUid = discipline === "tri" && !canonicalFitness.enabled ? user?.uid : undefined;
   const {
-    timeseries: triRunTimeseries,
+    timeseries: legacyTriRunTimeseries,
     loaded: triRunTimeseriesLoaded,
     error: triRunTimeseriesError,
     cacheHit: triRunTimeseriesCacheHit,
     freshLoaded: triRunTimeseriesFreshLoaded,
   } = useFitnessTimeseries(triUid, "run", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
   const {
-    timeseries: triSwimTimeseries,
+    timeseries: legacyTriSwimTimeseries,
     loaded: triSwimTimeseriesLoaded,
     error: triSwimTimeseriesError,
     cacheHit: triSwimTimeseriesCacheHit,
     freshLoaded: triSwimTimeseriesFreshLoaded,
   } = useFitnessTimeseries(triUid, "swim", reloadKey, cacheLocale ?? undefined, user?.isAnonymous === true);
-  const timeseriesLoaded = selectedTimeseriesLoaded
+  const triRunTimeseries = canonicalFitness.enabled ? canonicalFitness.data?.timeseries.run ?? null : legacyTriRunTimeseries;
+  const triSwimTimeseries = canonicalFitness.enabled ? canonicalFitness.data?.timeseries.swim ?? null : legacyTriSwimTimeseries;
+  const timeseriesLoaded = canonicalFitness.enabled ? canonicalFitness.status !== "loading" : selectedTimeseriesLoaded
     && (discipline !== "tri" || (triRunTimeseriesLoaded && triSwimTimeseriesLoaded));
   const timeseriesError = selectedTimeseriesError
     ?? (discipline === "tri" ? triRunTimeseriesError ?? triSwimTimeseriesError : null);
@@ -529,7 +542,7 @@ export function useFitnessModel(
       const hasCanonical = isCanonicalTimeseries(canonical, triDiscipline);
       const fitness = hasCanonical
         ? canonical!.points
-        : calculateClientFitness(activities, metricsMap, triDiscipline).fitnessData;
+        : canonicalFitness.enabled ? [] : calculateClientFitness(activities, metricsMap, triDiscipline).fitnessData;
       return {
         fitness,
         weeklyTSS: fitness.slice(-7).reduce((sum, point) => sum + point.dailyLoad, 0),
@@ -541,7 +554,7 @@ export function useFitnessModel(
       run: resolve("run", triRunTimeseries),
       swim: resolve("swim", triSwimTimeseries),
     };
-  }, [activities, metricsMap, timeseries, triRunTimeseries, triSwimTimeseries]);
+  }, [activities, canonicalFitness.enabled, metricsMap, timeseries, triRunTimeseries, triSwimTimeseries]);
   const triFitnessTimeline = useMemo(
     () => buildTriFitnessTimeline(resolvedTriFitness),
     [resolvedTriFitness],
@@ -574,8 +587,8 @@ export function useFitnessModel(
         })),
       };
     }
-    return clientFitness;
-  }, [clientFitness, discipline, timeseries, triFitnessTimeline]);
+    return canonicalFitness.enabled ? { fitnessData: [], dailyData: [] } : clientFitness;
+  }, [canonicalFitness.enabled, clientFitness, discipline, timeseries, triFitnessTimeline]);
   const rangeData = useMemo(() => {
     if (fitnessData.length === 0) return { fitness: [], daily: [] };
     const sliceStart = Math.max(0, fitnessData.length - range);
@@ -832,6 +845,7 @@ export function useFitnessModel(
   ]);
 
   return {
+    canonicalFitnessStatus: canonicalFitness.enabled ? canonicalFitness.status : null,
     t,
     i18n,
     durationLabel,

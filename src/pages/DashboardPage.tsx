@@ -18,6 +18,8 @@ import { latestShoeStatus } from "../utils/shoeStatus";
 import { useRunHistory } from "../hooks/useRunHistory";
 import { useRunRecords } from "../hooks/useRunRecords";
 import { useUserFitness } from "../hooks/useUserFitness";
+import CanonicalHomeSummaryCard from "../components/CanonicalHomeSummaryCard";
+import { canonicalConsumersEnabled } from "../services/canonicalApi";
 import { useFirstSyncCelebration } from "../hooks/useFirstSyncCelebration";
 import { computeRunWeeklyRecap, isRecapVisible } from "../utils/runWeeklyRecap";
 import { seoulWeekday } from "../utils/seoulWeek";
@@ -535,9 +537,13 @@ export default function DashboardPage() {
   ];
 
   const isMobile = useMobile();
+  const canonicalHomeEnabled = Boolean(user) && canonicalConsumersEnabled();
 
   if (isMobile) {
     return (
+      <>
+      {canonicalHomeEnabled && <CanonicalHomeSummaryCard />}
+      {canonicalHomeEnabled && <p>{t("canonical.localBreakdown")}</p>}
       <MobileFeedPage
         activities={activities}
         loading={loading}
@@ -556,6 +562,7 @@ export default function DashboardPage() {
         datePreset={dashboardPreferences.datePreset}
         onDatePresetChange={(datePreset) => updateDashboardPreferences({ datePreset })}
       />
+      </>
     );
   }
 
@@ -665,8 +672,9 @@ export default function DashboardPage() {
         )}
 
         {/* KPI 스트립 */}
+        {canonicalHomeEnabled && <CanonicalHomeSummaryCard />}
         <Card padding="none" style={{ marginTop: 'var(--space-4)', display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(112px, 1fr))" }}>
-          {KPI.map((s, i) => (
+          {(canonicalHomeEnabled ? KPI.slice(4) : KPI).map((s, i) => (
             <div key={i} style={{ padding: "18px 20px", borderRight: i < KPI.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
               <StatBlock {...s} />
             </div>

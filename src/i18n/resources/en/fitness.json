@@ -1,5 +1,6 @@
 {
   "title": "Fitness",
+  "lastConfirmed": "Showing the last confirmed fitness data while the latest result is unavailable.",
   "ctl": "Fitness (CTL)",
   "atl": "Fatigue (ATL)",
   "tsb": "Form (TSB)",

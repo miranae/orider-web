@@ -32,12 +32,14 @@ export function useCanonicalHomeSummary(): CanonicalHomeSummaryState {
   const { user } = useAuth();
   const [state, setState] = useState<CanonicalHomeSummaryState>(DISABLED);
   const lastGood = useRef<CanonicalHomeTotals | null>(null);
+  const owner = useRef<string | undefined>(undefined);
+  const [stateOwner, setStateOwner] = useState<string | undefined>(undefined);
   // 늦게 도착한 응답이 최신을 덮지 않게 한다. uid 비교만으로는 같은 계정의 중복
   // 요청과 A→B→A 전환을 걸러내지 못한다.
   const generation = useRef(0);
 
   const load = useCallback(async (uid: string, myGeneration: number) => {
-    const envelope = await fetchCanonicalHomeSummary();
+    const envelope = await fetchCanonicalHomeSummary(uid);
     if (generation.current !== myGeneration) return;
     const data = envelope.data as CanonicalHomeSummaryData | null;
     const decision = decideCanonicalRender(envelope, lastGood.current !== null);
@@ -46,9 +48,11 @@ export function useCanonicalHomeSummary(): CanonicalHomeSummaryState {
     }
     const fresh = data?.rolling7d?.totals ?? null;
     if (fresh !== null && decision.display === "value") lastGood.current = fresh;
+    const confirmed = decision.display === "value" ? fresh : lastGood.current;
+    setStateOwner(uid);
     setState({
-      totals: fresh ?? (decision.display === "value_with_stale_hint" ? lastGood.current : null),
-      display: decision.display,
+      totals: confirmed,
+      display: confirmed && decision.display !== "value" ? "value_with_stale_hint" : decision.display,
       computedAt: envelope.computedAt,
     });
   }, []);
@@ -57,11 +61,18 @@ export function useCanonicalHomeSummary(): CanonicalHomeSummaryState {
     generation.current += 1;
     const myGeneration = generation.current;
     // 계정이 바뀌면 이전 계정의 값을 즉시 버린다 — 남겨 두면 남의 기록이 보인다.
-    lastGood.current = null;
-    setState(DISABLED);
+    if (owner.current !== user?.uid) {
+      lastGood.current = null;
+      owner.current = user?.uid;
+      setState(DISABLED);
+    }
     if (!canonicalConsumersEnabled() || !user) return;
     void load(user.uid, myGeneration);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") void load(user.uid, ++generation.current);
+    }, 30_000);
+    return () => { generation.current += 1; window.clearInterval(timer); };
   }, [user, load]);
 
-  return state;
+  return stateOwner === user?.uid ? state : DISABLED;
 }

@@ -13,6 +13,11 @@ import { normalizeFitnessRange } from "../hooks/useFitnessModel";
 import FitnessPage from "./FitnessPage";
 
 const viewport = vi.hoisted(() => ({ isMobile: true }));
+const canonicalFitness = vi.hoisted(() => ({ enabled: false,
+  status: "loading" as import("../hooks/useCanonicalFitnessSummary").FitnessReadStatus,
+  data: null as import("../hooks/useCanonicalFitnessSummary").CanonicalFitnessBundle | null,
+}));
+vi.mock("../hooks/useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => canonicalFitness }));
 const riderInsight = vi.hoisted(() => ({ enabled: false, insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false }));
 
 vi.mock("../hooks/useMobile", () => ({
@@ -30,6 +35,7 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
       {coachSlot}
       mobile fitness dashboard: {data.discipline}
       <span>selected {data.ctl}/{data.atl}/{data.tsb}</span>
+      <span>projection points {(data as { pmcProjection?: unknown[] | null }).pmcProjection?.length ?? 0}</span>
       <span>integrated {data.combinedLoad?.ctl ?? "none"}</span>
       <span>contributions {data.combinedLoad?.contributions.length ?? 0}</span>
       <span>focus {data.loadFocus.totalLoad}</span>
@@ -61,11 +67,64 @@ vi.mock("./fitness/TriFitnessView", () => ({
 
 describe("FitnessPage", () => {
   beforeEach(() => {
+    canonicalFitness.enabled = false;
+    canonicalFitness.status = "loading";
+    canonicalFitness.data = null;
     viewport.isMobile = true;
     riderInsight.enabled = false;
     riderInsight.insight = null;
     riderInsight.loading = false;
     riderInsight.unavailable = false;
+  });
+
+  it("renders canonical zero instead of independently published legacy values and retains it with a stale hint", async () => {
+    canonicalFitness.enabled = true;
+    canonicalFitness.status = "canonical";
+    canonicalFitness.data = {
+      current: { totalCTL: 0, totalATL: 0, totalTSB: 0 },
+      timeseries: { bike: { discipline: "bike", schemaVersion: 1, computedAt: 1,
+        startDate: "2026-09-06", endDate: "2026-09-06", pointCount: 1,
+        points: [{ date: "2026-09-06", ctl: 0, atl: 0, tsb: 0, dailyLoad: 0 }] }, run: null, swim: null },
+      projections: { bike: null, run: null, swim: null }, summaries: { bike: null, run: null, swim: null },
+    } as import("../hooks/useCanonicalFitnessSummary").CanonicalFitnessBundle;
+    setCollectionDocs("activities", [{ id: "ride", userId: "test-uid", type: "Ride", startTime: Date.now(),
+      deletedAt: null, summary: { distance: 20000, ridingTimeMillis: 3600000, tss: 100 } }]);
+    setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1,
+      points: [{ date: "2026-09-06", ctl: 999, atl: 999, tsb: 0, dailyLoad: 100 }] });
+    const view = renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+    expect(await screen.findByText("selected 0/0/0")).toBeInTheDocument();
+    canonicalFitness.status = "stale";
+    view.rerender(<FitnessPage />);
+    expect(screen.getByText("selected 0/0/0")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("마지막으로 확정된 체력 정보");
+  });
+
+  it.each([true, false])("does not render a fake zero dashboard when the first canonical read fails (mobile=%s)", async (mobile) => {
+    viewport.isMobile = mobile;
+    canonicalFitness.enabled = true;
+    canonicalFitness.status = "failed";
+    renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByText("selected 0/0/0")).not.toBeInTheDocument();
+  });
+
+  it("does not pair the live replacement goal with an older bundle's projection", async () => {
+    canonicalFitness.enabled = true;
+    canonicalFitness.status = "stale";
+    canonicalFitness.data = {
+      current: { totalCTL: 0, totalATL: 0, totalTSB: 0 },
+      timeseries: { bike: null, run: null, swim: null },
+      projections: { bike: { goalId: "old-goal", series: [{ date: "2026-10-01", ctl: 70, atl: 50, tsb: 20 }] }, run: null, swim: null },
+      summaries: { bike: null, run: null, swim: null },
+    } as unknown as import("../hooks/useCanonicalFitnessSummary").CanonicalFitnessBundle;
+    setCollectionDocs("goals", [{ id: "new-goal", userId: "test-uid", status: "active", discipline: "bike", eventDate: Date.now() + 86400000, name: "New goal" }]);
+    setCollectionDocs("activities", [{ id: "ride", userId: "test-uid", type: "Ride", startTime: Date.now(),
+      deletedAt: null, summary: { distance: 20000, ridingTimeMillis: 3600000 } }]);
+    const view = renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
+    expect(await screen.findByText("projection points 0")).toBeInTheDocument();
+    canonicalFitness.data.projections.bike!.goalId = "new-goal";
+    view.rerender(<FitnessPage />);
+    expect(await screen.findByText("projection points 1")).toBeInTheDocument();
   });
 
   it("never carries a single-sport projection into the integrated mobile PMC", () => {

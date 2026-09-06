@@ -55,6 +55,19 @@ export interface FitnessViewProps {
 }
 
 export function FitnessView({ embedded = false, model }: FitnessViewProps) {
+  if (model.canonicalFitnessStatus === "loading") return <LoadingSkeleton kind="chart" />;
+  if (model.canonicalFitnessStatus === "failed" || model.canonicalFitnessStatus === "unavailable") {
+    return <ErrorState title={model.t("error.dataFailed")} onRetry={model.retryLoad} />;
+  }
+  return <>
+    {model.canonicalFitnessStatus === "stale" && <p role="status">
+      {model.t("lastConfirmed")}
+    </p>}
+    <FitnessContent embedded={embedded} model={model} />
+  </>;
+}
+
+function FitnessContent({ embedded = false, model }: FitnessViewProps) {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   const {
     t,

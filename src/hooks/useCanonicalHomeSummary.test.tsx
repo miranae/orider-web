@@ -33,7 +33,7 @@ function envelope(over: Partial<CanonicalEnvelope<unknown>>): CanonicalEnvelope<
   };
 }
 
-const totals = { rideCount: 3, distanceKm: 42, movingSec: 100, elevationGainMeters: 10 };
+const totals = { activityCount: 3, distanceMeters: 42000, movingMillis: 100000, elevationGainMeters: 10 };
 const withTotals = (status: CanonicalEnvelope<unknown>["status"] = "canonical") =>
   envelope({ status, data: { rolling7d: { period: null, totals } } });
 
@@ -66,8 +66,8 @@ describe("useCanonicalHomeSummary", () => {
     mocks.fetch.mockResolvedValueOnce(envelope({ status: "failed", computedAt: null }));
     mocks.user = { uid: "u1" };
     rerender();
-    await waitFor(() => expect(result.current.display).toBe("error"));
-    expect(result.current.totals).toBeNull();
+    await waitFor(() => expect(result.current.display).toBe("value_with_stale_hint"));
+    expect(result.current.totals).toEqual(totals);
   });
 
   it("계정이 바뀌면 이전 계정 값을 즉시 버린다", async () => {

@@ -17,37 +17,47 @@ import type { UserFitness } from "@shared/types";
 export interface UserFitnessState {
   fitness: UserFitness | null;
   loading: boolean;
+  stale?: boolean;
 }
 
 export function useUserFitness(enabled = true): UserFitnessState {
   const { user } = useAuth();
   const { firestore } = useFirebaseServices();
-  const [state, setState] = useState<UserFitnessState>({ fitness: null, loading: true });
+  const uid = user?.uid;
+  const [state, setState] = useState<UserFitnessState & { uid?: string }>({ fitness: null, loading: true });
 
   useEffect(() => {
-    if (!user || !enabled) {
+    let active = true;
+    if (!uid || !enabled) {
       setState({ fitness: null, loading: false });
       return;
     }
-    const ref = doc(firestore, "users", user.uid, "fitness", "current");
+    setState({ uid, fitness: null, loading: true });
+    const ref = doc(firestore, "users", uid, "fitness", "current");
     const unsub = onSnapshot(
       ref,
       (snap) => {
+        if (!active) return;
         const fitness = snap.exists() ? (snap.data() as UserFitness) : null;
+        if ((fitness as (UserFitness & { state?: string }) | null)?.state === "failed") {
+          setState((previous) => ({ ...previous, loading: false, stale: true }));
+          return;
+        }
         debugLog("useUserFitness.snapshot", {
           exists: snap.exists(),
           totalCTL: fitness?.totalCTL ?? null,
           hasBreakdown: !!fitness?.breakdown,
         });
-        setState({ fitness, loading: false });
+        setState({ uid, fitness, loading: false, stale: false });
       },
       (err) => {
+        if (!active) return;
         logClientError("useUserFitness.subscribe", err);
-        setState({ fitness: null, loading: false });
+        setState((previous) => ({ ...previous, loading: false, stale: true }));
       },
     );
-    return unsub;
-  }, [enabled, firestore, user]);
+    return () => { active = false; unsub(); };
+  }, [enabled, firestore, uid]);
 
-  return state;
+  return enabled && uid && state.uid === uid ? state : { fitness: null, loading: Boolean(enabled && uid) };
 }

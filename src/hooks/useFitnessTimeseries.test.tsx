@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  firestore: { name: "test" },
   onSnapshot: vi.fn(() => vi.fn()),
   doc: vi.fn(() => ({ path: "users/user-1/fitness/timeseries_bike" })),
 }));
@@ -12,7 +13,7 @@ vi.mock("firebase/firestore", () => ({
 }));
 
 vi.mock("../contexts/FirebaseServicesContext", () => ({
-  useFirebaseServices: () => ({ firestore: { name: "test" } }),
+  useFirebaseServices: () => ({ firestore: mocks.firestore }),
 }));
 
 vi.mock("../services/errorLogger", () => ({
@@ -22,6 +23,20 @@ vi.mock("../services/errorLogger", () => ({
 import { useFitnessTimeseries } from "./useFitnessTimeseries";
 
 describe("useFitnessTimeseries retry", () => {
+  it("keeps a snapshot received in this subscription after a later error without a preloaded cache", () => {
+    let success: (snapshot: { exists: () => boolean; data: () => unknown }) => void;
+    let error: (error: Error) => void;
+    mocks.onSnapshot.mockImplementation((_ref, onNext, onError) => {
+      success = onNext;
+      error = onError;
+      return vi.fn();
+    });
+    const hook = renderHook(() => useFitnessTimeseries("a", "bike"));
+    act(() => success({ exists: () => true, data: () => ({ discipline: "bike", points: [] }) }));
+    act(() => error(new Error("offline")));
+    expect(hook.result.current.timeseries).toEqual({ discipline: "bike", points: [] });
+    expect(hook.result.current.freshLoaded).toBe(false);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.onSnapshot.mockImplementation(() => vi.fn());

@@ -29,9 +29,9 @@ export function canonicalConsumersEnabled(): boolean {
 }
 
 export interface CanonicalHomeTotals {
-  rideCount: number;
-  distanceKm: number;
-  movingSec: number;
+  activityCount: number;
+  distanceMeters: number;
+  movingMillis: number;
   elevationGainMeters: number;
 }
 
@@ -58,8 +58,12 @@ function failedEnvelope<T>(code: string, message: string): CanonicalEnvelope<T> 
   };
 }
 
-async function fetchCanonical<T>(path: string): Promise<CanonicalEnvelope<T>> {
-  const token = await auth.currentUser?.getIdToken().catch(() => null);
+async function fetchCanonical<T>(path: string, expectedUid?: string): Promise<CanonicalEnvelope<T>> {
+  const owner = auth.currentUser;
+  const token = expectedUid && owner?.uid !== expectedUid ? null : await owner?.getIdToken().catch(() => null);
+  if (expectedUid && (owner?.uid !== expectedUid || auth.currentUser?.uid !== expectedUid)) {
+    return failedEnvelope<T>("account_changed", "계정이 변경되었습니다");
+  }
   if (!token) {
     // 미로그인은 실패가 아니라 "줄 값이 없다" 다 — 재시도해도 달라지지 않는다.
     return {
@@ -87,10 +91,10 @@ async function fetchCanonical<T>(path: string): Promise<CanonicalEnvelope<T>> {
   }
 }
 
-export function fetchCanonicalHomeSummary(): Promise<CanonicalEnvelope<CanonicalHomeSummaryData>> {
-  return fetchCanonical<CanonicalHomeSummaryData>("/home/summary");
+export function fetchCanonicalHomeSummary(expectedUid?: string): Promise<CanonicalEnvelope<CanonicalHomeSummaryData>> {
+  return fetchCanonical<CanonicalHomeSummaryData>("/home/summary", expectedUid);
 }
 
-export function fetchCanonicalFitnessSummary(): Promise<CanonicalEnvelope<Record<string, unknown>>> {
-  return fetchCanonical<Record<string, unknown>>("/fitness/summary");
+export function fetchCanonicalFitnessSummary(expectedUid?: string): Promise<CanonicalEnvelope<Record<string, unknown>>> {
+  return fetchCanonical<Record<string, unknown>>("/fitness/summary", expectedUid);
 }

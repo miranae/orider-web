@@ -479,7 +479,7 @@ export default function AnalysisTab({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {cp && (
               <>
-                <MetricCard color="violet" label={t("analysis.metric.cp")} value={Math.round(cp.cp).toString()} unit="W" description={t("analysis.metric.cpDesc", { value: cp.rSquared.toFixed(2) })} tooltip={t("analysis.glossary.cp")} />
+                <MetricCard color="violet" label={t("analysis.metric.cp")} value={Math.round(cp.cp).toString()} unit="W" description={cp.rSquared != null ? t("analysis.metric.cpDesc", { value: cp.rSquared.toFixed(2) }) : undefined} tooltip={t("analysis.glossary.cp")} />
                 <MetricCard color="amber" label={t("analysis.metric.wPrime")} value={Math.round(cp.wPrime / 1000).toString()} unit="kJ" description={t("analysis.metric.wPrimeDesc")} tooltip={t("analysis.glossary.wprime")} />
               </>
             )}

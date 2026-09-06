@@ -1,4 +1,5 @@
 {
+  "canonical": { "pending": "The latest seven-day summary is not available yet.", "failed": "The seven-day summary could not be loaded. Please try again shortly.", "stale": "Showing the last confirmed seven-day summary.", "localBreakdown": "The sport filters below use separately loaded activity data and may update at a different time." },
   "header": {
     "greetingPrefix": "Hi, ",
     "greetingSuffix": ".",

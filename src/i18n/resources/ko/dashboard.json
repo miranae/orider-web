@@ -1,4 +1,5 @@
 {
+  "canonical": { "pending": "최근 7일 요약을 아직 확인할 수 없습니다.", "failed": "최근 7일 요약을 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.", "stale": "마지막으로 확정된 최근 7일 요약을 표시합니다.", "localBreakdown": "아래 종목 필터는 별도로 불러온 활동을 기준으로 하며 요약과 갱신 시점이 다를 수 있습니다." },
   "header": {
     "greetingPrefix": "안녕하세요, ",
     "greetingSuffix": "님.",

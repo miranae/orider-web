@@ -63,6 +63,7 @@ export function useFitnessTimeseries(
       ? getTrainingSurfaceCache<{ timeseries: FitnessTimeseriesDoc | null }>(cacheKey)
       : null;
     const hasCachedValue = cached !== null;
+    let hasUsableValue = cached?.timeseries != null;
     setLoaded(hasCachedValue);
     setError(null);
     setTimeseries(cached?.timeseries ?? null);
@@ -74,6 +75,7 @@ export function useFitnessTimeseries(
       (snap) => {
         if (!active || generationRef.current !== generation) return;
         const next = snap.exists() ? (snap.data() as FitnessTimeseriesDoc) : null;
+        hasUsableValue = next !== null;
         setTimeseries(next);
         setError(null);
         setLoaded(true);
@@ -83,10 +85,10 @@ export function useFitnessTimeseries(
       (err) => {
         if (!active || generationRef.current !== generation) return;
         logClientError("useFitnessTimeseries", err, { discipline });
-        if (!hasCachedValue) setTimeseries(null);
-        setError(hasCachedValue ? null : err);
+        if (!hasUsableValue) setTimeseries(null);
+        setError(hasUsableValue ? null : err);
         setLoaded(true);
-        setFreshLoaded(!hasCachedValue);
+        setFreshLoaded(!hasUsableValue);
       },
     );
     return () => {

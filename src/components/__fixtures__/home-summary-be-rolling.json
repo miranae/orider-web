@@ -1,0 +1,15 @@
+{
+  "period": {
+    "start": 1788048000000,
+    "end": 1788652800000,
+    "timezone": "Asia/Seoul",
+    "asOf": 1788652800000,
+    "rule": "rolling"
+  },
+  "totals": {
+    "activityCount": 1,
+    "distanceMeters": 42000,
+    "movingMillis": 3600000,
+    "elevationGainMeters": 120
+  }
+}
