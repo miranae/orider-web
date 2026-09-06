@@ -8,11 +8,11 @@ const mockAuth = vi.hoisted(() => ({
 vi.mock("./firebase", () => ({ auth: mockAuth, functions: {}, ensureAppCheckReady: vi.fn() }));
 vi.mock("./errorLogger", () => ({ logClientError: vi.fn() }));
 vi.mock("firebase/auth", () => ({ signInWithCustomToken: vi.fn(), signOut: vi.fn() }));
-vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn() }));
+vi.mock("firebase/functions", () => ({ httpsCallableFromURL: vi.fn() }));
 
 import { signInWithCustomToken, signOut } from "firebase/auth";
-import { httpsCallable } from "firebase/functions";
-import { ensureAppCheckReady } from "./firebase";
+import { httpsCallableFromURL } from "firebase/functions";
+import { ensureAppCheckReady, functions } from "./firebase";
 import {
   consumeAppHandoffCode,
   didHandoffFail,
@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue();
   vi.mocked(signOut).mockReset().mockResolvedValue();
   vi.mocked(signInWithCustomToken).mockReset();
-  vi.mocked(httpsCallable).mockReset();
+  vi.mocked(httpsCallableFromURL).mockReset();
 });
 
 afterEach(() => {
@@ -101,7 +101,7 @@ describe("stash → consume", () => {
   it("stash 는 URL 에서 코드를 동기 제거하고, consume 이 redeem→signIn 한다", async () => {
     setPageUrl(`/ko/board?${HANDOFF_PARAM}=${VALID}`);
     const redeem = vi.fn().mockResolvedValue({ data: { token: "custom-token" } });
-    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+    vi.mocked(httpsCallableFromURL).mockReturnValue(redeem as never);
 
     stashHandoffCode();
     expect(window.location.search).toBe(""); // 코드가 즉시 URL 에서 사라짐
@@ -109,8 +109,38 @@ describe("stash → consume", () => {
     await consumeAppHandoffCode();
     expect(mockAuth.authStateReady).toHaveBeenCalled();
     expect(ensureAppCheckReady).toHaveBeenCalled();
+    expect(httpsCallableFromURL).toHaveBeenCalledWith(functions, "https://auth.orider.co.kr/webHandoffRedeem");
     expect(redeem).toHaveBeenCalledWith({ code: VALID });
     expect(signInWithCustomToken).toHaveBeenCalledWith(mockAuth, "custom-token");
+    expect(didHandoffFail()).toBe(false);
+  });
+
+  it("고정 도메인을 호출할 때 주입된 임베드 Functions와 Auth를 유지한다", async () => {
+    setPageUrl(`/#${HANDOFF_PARAM}=${VALID}`);
+    const embeddedAuth = {
+      currentUser: { uid: "previous-embedded-user" },
+      authStateReady: vi.fn().mockResolvedValue(undefined),
+    };
+    const embeddedFunctions = { app: { name: "embedded" } };
+    const embeddedAppCheck = vi.fn().mockResolvedValue(undefined);
+    const redeem = vi.fn().mockResolvedValue({ data: { token: "embedded-token" } });
+    vi.mocked(httpsCallableFromURL).mockReturnValue(redeem as never);
+
+    stashHandoffCode();
+    await consumeAppHandoffCode({
+      auth: embeddedAuth as never,
+      functions: embeddedFunctions as never,
+      ensureAppCheckReady: embeddedAppCheck,
+    });
+
+    expect(httpsCallableFromURL).toHaveBeenCalledWith(
+      embeddedFunctions,
+      "https://auth.orider.co.kr/webHandoffRedeem",
+    );
+    expect(embeddedAppCheck).toHaveBeenCalled();
+    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+    expect(signOut).toHaveBeenCalledWith(embeddedAuth);
+    expect(signInWithCustomToken).toHaveBeenCalledWith(embeddedAuth, "embedded-token");
     expect(didHandoffFail()).toBe(false);
   });
 
@@ -120,7 +150,7 @@ describe("stash → consume", () => {
     setPageUrl(`/#${HANDOFF_PARAM}=${VALID}`);
     vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("appCheck/initial-throttle"));
     const redeem = vi.fn().mockResolvedValue({ data: { token: "custom-token" } });
-    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+    vi.mocked(httpsCallableFromURL).mockReturnValue(redeem as never);
 
     stashHandoffCode();
     await consumeAppHandoffCode();
@@ -140,7 +170,7 @@ describe("stash → consume", () => {
       };
     }));
     const redeem = vi.fn().mockRejectedValue(new Error("expired"));
-    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+    vi.mocked(httpsCallableFromURL).mockReturnValue(redeem as never);
 
     stashHandoffCode();
     const consume = consumeAppHandoffCode();
@@ -161,7 +191,7 @@ describe("stash → consume", () => {
     const signOutError = new Error("auth/network-request-failed");
     vi.mocked(signOut).mockRejectedValue(signOutError);
     const redeem = vi.fn();
-    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+    vi.mocked(httpsCallableFromURL).mockReturnValue(redeem as never);
     const mount = vi.fn();
 
     stashHandoffCode();
@@ -174,7 +204,7 @@ describe("stash → consume", () => {
 
   it("redeem 실패는 삼키고 didHandoffFail 플래그만 세운다 (마운트 진행 보장)", async () => {
     setPageUrl(`/?${HANDOFF_PARAM}=${VALID}`);
-    vi.mocked(httpsCallable).mockReturnValue(
+    vi.mocked(httpsCallableFromURL).mockReturnValue(
       vi.fn().mockRejectedValue(new Error("expired")) as never,
     );
 
@@ -191,7 +221,7 @@ describe("stash → consume", () => {
     let resolveAppCheck!: () => void;
     vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise<void>((resolve) => { resolveAppCheck = resolve; }));
     const redeem = vi.fn().mockResolvedValue({ data: { token: "custom-token" } });
-    vi.mocked(httpsCallable).mockReturnValue(redeem as never);
+    vi.mocked(httpsCallableFromURL).mockReturnValue(redeem as never);
 
     stashHandoffCode();
     const consume = consumeAppHandoffCode();
