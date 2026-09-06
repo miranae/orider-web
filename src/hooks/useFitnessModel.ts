@@ -236,10 +236,10 @@ export function useFitnessModel(
       range: activityQueryRange,
     }
     : null;
-  const initialCache = cacheKey
+  const [initialCache] = useState(() => cacheKey
     && prepareTrainingSurfaceCacheOwner(user!.uid, user!.isAnonymous === true)
     ? getTrainingSurfaceCache<{ activities: Activity[] }>(cacheKey)
-    : null;
+    : null);
   const [decisionBusy, setDecisionBusy] = useState(false);
   const activityDataKey = user
     ? `${user.uid}\u0000${discipline}\u0000${cacheLocale ?? "uncached"}\u0000${activityQueryRange}`
@@ -249,8 +249,12 @@ export function useFitnessModel(
     items: initialCache?.activities ?? [],
   });
   const activities = activityState.key === activityDataKey ? activityState.items : [];
+  const disciplineActivities = useMemo(
+    () => discipline === "tri" ? activities : filterByDiscipline(activities, discipline),
+    [activities, discipline],
+  );
   const { streamsMap, metricsMap, metricStatusMap } = useActivityDerivedDocuments(user?.uid, activities);
-  const currentMetricStatuses = activities.map((activity) => {
+  const currentMetricStatuses = disciplineActivities.map((activity) => {
     const status = metricStatusMap.get(activity.id);
     return status?.revision === activityDerivedDocumentRevision(activity) ? status.state : "loading";
   });
@@ -471,10 +475,6 @@ export function useFitnessModel(
     };
   }, [discipline, firestore, user]);
 
-  const disciplineActivities = useMemo(
-    () => discipline === "tri" ? activities : filterByDiscipline(activities, discipline),
-    [activities, discipline],
-  );
   const clientFitness = useMemo(
     () => discipline === "tri"
       ? { fitnessData: [], dailyData: [] }

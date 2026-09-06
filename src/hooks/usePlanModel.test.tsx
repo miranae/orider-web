@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { FirebaseServicesProvider } from "../contexts/FirebaseServicesContext";
 import { setCollectionDocs } from "../__tests__/mocks/firebase";
 import { normalizePlanSport, usePlanModel } from "./usePlanModel";
+import * as trainingSurfaceCache from "../embedded/trainingSurfaceCache";
 import {
   clearTrainingSurfaceCache,
   getTrainingSurfaceCache,
@@ -14,9 +15,14 @@ import {
 } from "../embedded/trainingSurfaceCache";
 
 const mocks = vi.hoisted(() => ({
+  locale: "ko",
   user: { uid: "owner" } as { uid: string } | null,
   freshTraining: vi.fn(() => ({ revalidating: false, justRecomputed: false })),
   fitnessTimeseries: vi.fn(() => ({ timeseries: null, loaded: true })),
+}));
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({ i18n: { resolvedLanguage: mocks.locale } }),
 }));
 
 vi.mock("../contexts/AuthContext", () => ({
@@ -46,6 +52,7 @@ function wrapper({ children }: { children: ReactNode }) {
 describe("usePlanModel", () => {
   beforeEach(() => {
     clearTrainingSurfaceCache();
+    mocks.locale = "ko";
     mocks.user = { uid: "owner" };
     mocks.freshTraining.mockClear();
     mocks.fitnessTimeseries.mockClear();
@@ -290,6 +297,78 @@ describe("usePlanModel", () => {
     expect(hook.result.current.goal?.id).not.toBe("bike-goal");
     expect(hook.result.current.weeks[0]?.id).not.toBe("bike-week");
     getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("does not reread the cache on same-key renders or a manual data refresh", async () => {
+    prepareTrainingSurfaceCacheOwner("owner");
+    setTrainingSurfaceCache({
+      uid: "owner", surface: "plan", sport: "bike", locale: "ko",
+    }, { goal: { id: "cached-goal", discipline: "bike" }, weeks: [] });
+    const getDocsMock = vi.mocked(getDocs);
+    const originalImplementation = getDocsMock.getMockImplementation()!;
+    getDocsMock
+      .mockImplementationOnce(() => new Promise(() => {}) as never)
+      .mockResolvedValueOnce({
+        empty: false,
+        docs: [{ id: "fresh-week", data: () => ({ weekNumber: 1, days: [] }) }],
+      } as never);
+    const cacheRead = vi.spyOn(trainingSurfaceCache, "getTrainingSurfaceCache");
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    try {
+      expect(hook.result.current.goal?.id).toBe("cached-goal");
+      const initialReads = cacheRead.mock.calls.length;
+      hook.rerender();
+      expect(cacheRead).toHaveBeenCalledTimes(initialReads);
+
+      await act(async () => hook.result.current.refreshPlanWeeks());
+      expect(hook.result.current.weeks[0]?.id).toBe("fresh-week");
+      expect(cacheRead).toHaveBeenCalledTimes(initialReads);
+    } finally {
+      hook.unmount();
+      cacheRead.mockRestore();
+      getDocsMock.mockReset().mockImplementation(originalImplementation);
+    }
+  });
+
+  it("loads the matching cache on sport locale and user transitions", () => {
+    prepareTrainingSurfaceCacheOwner("owner");
+    for (const [sport, locale, id] of [
+      ["bike", "ko", "bike-ko"],
+      ["run", "ko", "run-ko"],
+      ["run", "en", "run-en"],
+    ]) {
+      setTrainingSurfaceCache({ uid: "owner", surface: "plan", sport, locale }, {
+        goal: { id }, weeks: [{ id: `${id}-week`, days: [] }],
+      });
+    }
+    const getDocsMock = vi.mocked(getDocs);
+    const originalImplementation = getDocsMock.getMockImplementation()!;
+    getDocsMock.mockImplementation(() => new Promise(() => {}) as never);
+    const hook = renderHook(({ sport }) => usePlanModel(sport), {
+      wrapper, initialProps: { sport: "bike" },
+    });
+    try {
+      expect(hook.result.current.goal?.id).toBe("bike-ko");
+      hook.rerender({ sport: "run" });
+      expect(hook.result.current.goal?.id).toBe("run-ko");
+      mocks.locale = "en";
+      hook.rerender({ sport: "run" });
+      expect(hook.result.current.goal?.id).toBe("run-en");
+      expect(hook.result.current.weeks[0]?.id).toBe("run-en-week");
+
+      mocks.user = { uid: "next-owner" };
+      prepareTrainingSurfaceCacheOwner("next-owner");
+      setTrainingSurfaceCache({
+        uid: "next-owner", surface: "plan", sport: "run", locale: "en",
+      }, { goal: { id: "next-goal" }, weeks: [] });
+      hook.rerender({ sport: "run" });
+      expect(hook.result.current.goal?.id).toBe("next-goal");
+      expect(hook.result.current.weeks).toEqual([]);
+      expect(hook.result.current.cacheHit).toBe(true);
+    } finally {
+      hook.unmount();
+      getDocsMock.mockImplementation(originalImplementation);
+    }
   });
 
   it("does not let a late manual refresh reclaim a previous cache owner", async () => {

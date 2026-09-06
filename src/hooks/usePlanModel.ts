@@ -68,13 +68,14 @@ export function usePlanModel(sport?: string | null): PlanModel {
   const { i18n } = useTranslation();
   const discipline = normalizePlanSport(sport);
   const locale = i18n.resolvedLanguage ?? i18n.language;
-  const initialCacheKey = user
-    ? { uid: user.uid, surface: "plan" as const, sport: discipline, locale }
-    : null;
-  const initialCache = initialCacheKey
-    && prepareTrainingSurfaceCacheOwner(user!.uid, user!.isAnonymous === true)
-    ? getTrainingSurfaceCache<{ goal: Goal | null; weeks: PlanWeek[] }>(initialCacheKey)
-    : null;
+  const [initialCache] = useState(() => {
+    if (!user || !prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true)) {
+      return null;
+    }
+    return getTrainingSurfaceCache<{ goal: Goal | null; weeks: PlanWeek[] }>({
+      uid: user.uid, surface: "plan", sport: discipline, locale,
+    });
+  });
   const modelKey = user ? `${user.uid}\u0000${discipline}\u0000${locale}` : null;
   const [dataKey, setDataKey] = useState(modelKey);
   const [goalState, setGoal] = useState<Goal | null>(initialCache?.goal ?? null);
