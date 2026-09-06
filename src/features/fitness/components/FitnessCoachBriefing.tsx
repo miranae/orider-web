@@ -136,10 +136,10 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
               <Text as="h3" variant="title" style={{ margin: "var(--space-2) 0 var(--space-1)" }}>
                 {selected ? activityLabel(selected, locale, t) : selectedPending ? pendingActivityLabel(selectedPending, locale, t) : canonicalAvailable ? t("coach.impact.empty") : t("coach.impact.unavailable")}
               </Text>
-              {selected && <Text variant="caption" tone="tertiary">{t("coach.impact.load", { load: selected.attributedLoad.toFixed(0) })}</Text>}
+              {selected && <Text variant="caption" tone="tertiary">{t(selected.confidence === "activity-tss" ? "coach.impact.activityTssLoad" : "coach.impact.load", { load: selected.attributedLoad.toFixed(0) })}</Text>}
             </div>
             <div role="group" aria-label={t("coach.impact.modeLabel")} className="fitness-coach__mode">
-              <button type="button" onClick={() => setMode("marginal")} aria-pressed={mode === "marginal"}>{t("coach.impact.modeMarginal")}</button>
+              <button type="button" onClick={() => setMode("marginal")} aria-pressed={mode === "marginal"}>{t(selected?.confidence === "activity-tss" ? "coach.impact.modeActivityTss" : "coach.impact.modeMarginal")}</button>
               <button type="button" onClick={() => setMode("actual")} aria-pressed={mode === "actual"}>{t("coach.impact.modeActual")}</button>
             </div>
           </div>
@@ -149,7 +149,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
             <MetricDelta label={t("coach.metric.tsb")} value={delta?.tsb ?? null} color="var(--amber)" />
           </div>
           <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>
-            {selectedPending ? pendingDescription : mode === "marginal" ? t("coach.impact.marginalHelp") : t("coach.impact.actualHelp")}
+            {selectedPending ? pendingDescription : mode === "marginal" ? t(selected?.confidence === "activity-tss" ? "coach.impact.activityTssHelp" : "coach.impact.marginalHelp") : t("coach.impact.actualHelp")}
           </Text>
           {stimulus && (
             <div className="fitness-coach__stimulus">
@@ -233,7 +233,7 @@ export default function FitnessCoachBriefing({ impacts, selectedActivityId, onSe
                 <button key={entry.activity.id} type="button" onClick={() => onSelectActivity(entry.activity.id)} aria-pressed={selectedEntry} className="fitness-coach__recent" data-selected={selectedEntry || undefined}>
                   <Text as="div" variant="label">{activityLabel(entry, locale, t)}</Text>
                   <Text as="div" variant="mono" style={{ marginTop: "var(--space-2)", color: "var(--ink-2)" }}>CTL {signed(entry.marginalImpact.ctl)} · ATL {signed(entry.marginalImpact.atl)}</Text>
-                  <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{entry.confidence === "canonical-single" ? t("coach.recent.canonical") : t("coach.recent.estimated")}</Text>
+                  <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{entry.confidence === "canonical-single" ? t("coach.recent.canonical") : entry.confidence === "activity-tss" ? t("coach.recent.activityTss") : t("coach.recent.estimated")}</Text>
                 </button>
               );
             })}
