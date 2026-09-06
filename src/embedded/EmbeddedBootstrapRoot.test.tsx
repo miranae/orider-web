@@ -392,6 +392,58 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     expect(onSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it("correlates shell readiness across fitness plan inactive and fitness selections without stale signals", async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    const bridge = createFakeBridge();
+    const shellMessages = () => bridge.sent.filter((message) => message.type === "surface.shellReady");
+    renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
+    await act(async () => {
+      bridge.emit(hostMessage("host.authorize", {
+        expectedUid: "owner-1",
+        contractVersion: 1,
+      }));
+    });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await screen.findByTestId("fitness-surface");
+    const initialFrame = frames.at(-1)!;
+    act(() => initialFrame(performance.now()));
+    expect(shellMessages()).toEqual([{ type: "surface.shellReady", payload: {}, requestId: undefined }]);
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "select-plan")));
+    await screen.findByTestId("plan-surface");
+    const planFrame = frames.at(-1)!;
+    act(() => planFrame(performance.now()));
+    expect(shellMessages()).toHaveLength(2);
+    expect(shellMessages().at(-1)).toEqual({
+      type: "surface.shellReady", payload: {}, requestId: "select-plan",
+    });
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null })));
+    await waitFor(() => expect(screen.queryByTestId("plan-surface")).not.toBeInTheDocument());
+    act(() => planFrame(performance.now()));
+    expect(shellMessages()).toHaveLength(2);
+
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "select-fitness")));
+    await screen.findByTestId("fitness-surface");
+    const fitnessFrame = frames.at(-1)!;
+    act(() => {
+      initialFrame(performance.now());
+      planFrame(performance.now());
+    });
+    expect(shellMessages()).toHaveLength(2);
+    act(() => fitnessFrame(performance.now()));
+    expect(shellMessages()).toEqual([
+      { type: "surface.shellReady", payload: {}, requestId: undefined },
+      { type: "surface.shellReady", payload: {}, requestId: "select-plan" },
+      { type: "surface.shellReady", payload: {}, requestId: "select-fitness" },
+    ]);
+  });
+
   it("rejects selection when Auth uid no longer matches the accepted session", async () => {
     const bridge = createFakeBridge();
     renderBootstrap(bridge, "/ko/embed/fitness", "fitness");
