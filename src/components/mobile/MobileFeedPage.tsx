@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState, useMemo } from "react";
+import { useActivityAuthor } from "../../hooks/useActivityAuthor";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -172,7 +173,7 @@ function CompactActivityCard({ activity, priority = false }: { activity: Activit
     ? (s.distance / 1000) / (s.ridingTimeMillis / 3600000)
     : 0;
   const spdNum = resolveAvgSpeedKph(s.distance, sd, elapsedSpd);
-  const nickname = activity.nickname || t("mobileFeed.defaultRider");
+  const nickname = useActivityAuthor(activity).nickname ?? t("mobileFeed.defaultRider");
   const discipline = getDiscipline(activity.type);
   // 비현실 속도(GPS noise/오등록) 가드 — 광고 유입자 첫인상 신뢰성 보호.
   const spdImplausible = isImplausibleAvgSpeed(spdNum, discipline ?? undefined);
