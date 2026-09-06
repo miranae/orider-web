@@ -23,6 +23,22 @@
   color: var(--orider-host-text-primary);
 }
 
+.orider-embedded-shell__header {
+  padding: var(--space-4) var(--space-4) 0;
+}
+
+.orider-embedded-shell__header h1 {
+  margin: 0;
+  color: var(--orider-host-text-primary, var(--ink-0));
+  font-size: var(--fs-xl);
+}
+
+.orider-embedded-shell__header p {
+  margin: var(--space-1) 0 0;
+  color: var(--orider-host-text-secondary, var(--ink-2));
+  font-size: var(--fs-sm);
+}
+
 .orider-embedded-status {
   display: grid;
   min-height: calc(100dvh - var(--orider-host-safe-top, 0px) - var(--orider-host-safe-bottom, 0px));
