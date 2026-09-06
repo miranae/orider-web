@@ -563,8 +563,8 @@ export function useFitnessModel(
   const { fitnessData, dailyData } = useMemo(() => {
     const points = discipline === "tri"
       ? triFitnessTimeline.map((point) => point.integrated)
-      : timeseries?.points;
-    if (points && points.length > 0) {
+      : hasCanonicalTimeseries ? timeseries?.points : undefined;
+    if (points) {
       return {
         fitnessData: points,
         dailyData: points.map((point) => ({
@@ -575,7 +575,11 @@ export function useFitnessModel(
       };
     }
     return clientFitness;
-  }, [clientFitness, discipline, timeseries, triFitnessTimeline]);
+  }, [clientFitness, discipline, hasCanonicalTimeseries, timeseries, triFitnessTimeline]);
+  // 장기 PMC는 기존 일별 값만 요약한다. 페이지 range / 활동 상세 조회 범위와 독립이다.
+  const hasCanonicalHistory = discipline === "tri"
+    ? Object.values(resolvedTriFitness).every((entry) => entry.canonical)
+    : hasCanonicalTimeseries;
   const rangeData = useMemo(() => {
     if (fitnessData.length === 0) return { fitness: [], daily: [] };
     const sliceStart = Math.max(0, fitnessData.length - range);
@@ -874,6 +878,7 @@ export function useFitnessModel(
     timeseriesError,
     retryLoad,
     hasCanonicalTimeseries,
+    hasCanonicalHistory,
     fitnessData,
     dailyData,
     rangeData,
@@ -894,6 +899,8 @@ export function useFitnessModel(
     runPaceStreams,
     mobilePageProps: {
       data: mobilePageData,
+      pmcHistoryPoints: fitnessData,
+      pmcHistoryCanonical: hasCanonicalHistory,
       consistencyStreak,
       ftpDecision: bikeFtpDecision,
       ftpReceipt: bikeFtpReceipt,

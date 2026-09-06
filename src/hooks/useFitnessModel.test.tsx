@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
+import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { ActivityMetricStatus } from "../features/fitness/useActivityDerivedDocuments";
 import { activityDerivedDocumentRevision } from "../features/fitness/derivedDocumentReadAttempts";
 import * as cache from "../embedded/trainingSurfaceCache";
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   status: new Map<string, ActivityMetricStatus>(),
   derived: vi.fn(),
   snapshot: null as null | ((value: { docs: { id: string; data: () => Activity }[] }) => void),
+  timeseries: null as FitnessTimeseriesDoc | null,
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: mocks.t, i18n: { language: "ko" } }) }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: null }) }));
@@ -45,7 +47,7 @@ vi.mock("./useRunRecords", () => ({ useRunRecords: () => ({ run: null }) }));
 vi.mock("./useMilestones", () => ({ useMilestones: () => ({ achieved: new Map(), markCelebrated: vi.fn() }) }));
 vi.mock("./useFreshTraining", () => ({ useFreshTraining: () => ({ revalidating: false, justRecomputed: false }) }));
 vi.mock("./useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({
-  timeseries: null, loaded: true, error: null, cacheHit: true, freshLoaded: true,
+  timeseries: mocks.timeseries, loaded: true, error: null, cacheHit: true, freshLoaded: true,
 }) }));
 
 const bike = { id: "bike", userId: "rider-a", type: "Ride", startTime: Date.now(), summary: { ridingTimeMillis: 3600000, distanceMeters: 20000 } } as Activity;
@@ -60,6 +62,7 @@ function seed(sport: string, activities = [bike, run]) {
 }
 beforeEach(() => {
   mocks.user = { uid: "rider-a", isAnonymous: false };
+  mocks.timeseries = null;
   mocks.status.clear();
   mocks.derived.mockClear();
   cache.clearTrainingSurfaceCache();
@@ -69,6 +72,27 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it("유효한 빈 정본을 활동 기반 fallback으로 바꾸지 않는다", () => {
+    seed("bike");
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: null, endDate: null, pointCount: 0, points: [] };
+    const { result } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.hasCanonicalHistory).toBe(true);
+    expect(result.current.fitnessData).toEqual([]);
+    expect(result.current.mobilePageProps.pmcHistoryPoints).toEqual([]);
+  });
+
+  it("스키마 검증에 실패한 시계열을 정본 이력으로 소비하지 않는다", () => {
+    seed("bike");
+    mocks.timeseries = {
+      discipline: "bike", schemaVersion: 999, computedAt: Date.now(),
+      startDate: "2023-01-01", endDate: "2023-01-01", pointCount: 1,
+      points: [{ date: "2023-01-01", ctl: 99999, atl: 99999, tsb: 0, dailyLoad: 99999 }],
+    };
+    const { result } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.hasCanonicalHistory).toBe(false);
+    expect(result.current.fitnessData.some((point) => point.ctl === 99999)).toBe(false);
+    expect(result.current.mobilePageProps.pmcHistoryCanonical).toBe(false);
+  });
   it.each(["loading", "error"] as const)("자전거 분석은 러닝 %s 상태에 막히지 않는다", (state) => {
     seed("bike");
     setStatus(run, state);

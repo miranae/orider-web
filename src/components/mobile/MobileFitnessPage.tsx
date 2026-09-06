@@ -12,6 +12,10 @@
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
+import type { FitnessPoint } from "@shared/training/fitness";
+import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
+import { toLocalDate } from "../../utils/dateUtils";
+import DetailsSection from "../redesign/DetailsSection";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
@@ -468,6 +472,8 @@ function SectionCard({ children, title, sub, accentColor }: { children: React.Re
 // ── 메인 ──────────────────────────────────────────────────────
 export default function MobileFitnessPage({
   data,
+  pmcHistoryPoints,
+  pmcHistoryCanonical = false,
   coachSlot = null,
   consistencyStreak = null,
   ftpDecision = null,
@@ -479,6 +485,9 @@ export default function MobileFitnessPage({
   sectionState = { trend: "ready", derived: "ready" },
 }: {
   data: MobileFitnessData;
+  /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
+  pmcHistoryPoints?: readonly FitnessPoint[];
+  pmcHistoryCanonical?: boolean;
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
   coachSlot?: ReactNode;
   consistencyStreak?: ConsistencyStreakSummary | null;
@@ -619,7 +628,7 @@ export default function MobileFitnessPage({
           )}
 
           {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
-          <SectionCard title={trendSectionTitle} sub={pmcSub} accentColor={pmcCtlColor}>
+          <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
             {sectionState.trend === "loading" ? (
               <p role="status">{t("mobileFitness.trendLoading")}</p>
             ) : sectionState.trend === "error" ? (
@@ -633,6 +642,10 @@ export default function MobileFitnessPage({
               </>
             ) : (
               <>
+                {pmcHistoryPoints && (
+                  <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={data.today ?? toLocalDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} />
+                )}
+                <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>
                 {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
                     제목/범례는 카드 padding 인셋 유지. */}
                 <div style={{ margin: "0 -16px" }}>
@@ -649,6 +662,7 @@ export default function MobileFitnessPage({
                     <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
                   </span>
                 </div>
+                </DetailsSection>
               </>
             )}
           </SectionCard>
