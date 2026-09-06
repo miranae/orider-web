@@ -1,0 +1,38 @@
+.pmc-history { min-width: 0; padding: var(--space-5); background: var(--bg-1); border: 1px solid var(--line-soft); border-radius: var(--r-lg); color: var(--ink-0); }
+.pmc-history h2, .pmc-history h3, .pmc-history p { margin: 0; }
+.pmc-history__header, .pmc-history__controls, .pmc-history__legend, .pmc-history__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.pmc-history__header { justify-content: space-between; margin-bottom: var(--space-4); }
+.pmc-history__header p, .pmc-history__note, .pmc-history__source { color: var(--ink-2); font-size: var(--fs-sm); }
+.pmc-history__source { padding: var(--space-2); background: var(--bg-2); border-radius: var(--r-sm); }
+.pmc-history__buttons { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.pmc-history button, .pmc-history select { font: inherit; color: var(--ink-1); background: var(--bg-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); padding: var(--space-2) var(--space-3); min-height: 2.75rem; cursor: pointer; }
+.pmc-history button[aria-pressed="true"] { color: var(--ink-0); border-color: var(--lime); background: color-mix(in oklch, var(--lime) 10%, var(--bg-2)); }
+.pmc-history button:disabled { opacity: 0.45; cursor: default; }
+.pmc-history button { white-space: nowrap; }
+.pmc-history :focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+.pmc-history .pmc-history__note { margin-top: var(--space-3); line-height: 1.6; }
+.pmc-history__legend { margin-top: var(--space-4); font-size: var(--fs-sm); }
+.pmc-history__legend span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.pmc-history__atl { color: var(--rose); }
+.pmc-history__tsb { color: var(--amber); }
+.pmc-history__chart { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+.pmc-history__chart text { fill: var(--ink-2); font-size: var(--fs-sm); }
+.pmc-history__grid { stroke: var(--line-soft); }
+.pmc-history__zero { stroke: var(--ink-3); }
+.pmc-history__cursor { stroke: var(--ink-2); stroke-dasharray: 3 4; }
+.pmc-history__navigation { margin-top: var(--space-3); }
+.pmc-history__navigation label { display: grid; gap: var(--space-1); min-width: 0; flex: 1; font-size: var(--fs-sm); }
+.pmc-history__navigation select { width: 100%; min-width: 0; }
+.pmc-history__selection { margin-top: var(--space-4); padding: var(--space-3); background: var(--bg-2); border-radius: var(--r-md); }
+.pmc-history__table-scroll { overflow-x: auto; }
+.pmc-history table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+.pmc-history caption { text-align: left; padding: var(--space-2) 0; color: var(--ink-2); }
+.pmc-history th, .pmc-history td { text-align: left; white-space: nowrap; padding: var(--space-2); border-bottom: 1px solid var(--line-soft); }
+@media (max-width: 36rem) {
+  .pmc-history { padding: var(--space-3); }
+  .pmc-history__controls { align-items: stretch; flex-direction: column; }
+  .pmc-history__buttons button { flex: 1; padding-inline: var(--space-2); }
+  .pmc-history__ranges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pmc-history__navigation { gap: var(--space-1); }
+  .pmc-history__navigation label { flex-basis: 60%; }
+}

@@ -23,11 +23,17 @@ vi.mock("../hooks/useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ri
 vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({
   default: ({ surface }: { surface: string }) => <div data-testid="today-training-decision">{surface} workout</div>,
 }));
+vi.mock("../features/fitness/components/PmcHistoryPanel", () => ({
+  default: ({ points, canonical }: { points: Array<{ date: string }>; canonical: boolean }) => (
+    <div data-testid="pmc-history" data-count={points.length} data-start={points[0]?.date} data-canonical={String(canonical)} />
+  ),
+}));
 
 vi.mock("../components/mobile/MobileFitnessPage", () => ({
-  default: ({ data, coachSlot }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number }; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null }; coachSlot?: ReactNode }) => (
+  default: ({ data, coachSlot, pmcHistoryPoints, pmcHistoryCanonical }: { data: { discipline: string; ctl: number; atl: number; tsb: number; combinedLoad?: { ctl: number; contributions: unknown[] } | null; loadFocus: { totalLoad: number }; cyclingAbility?: { activityCount: number; axes: Array<{ score: number | null }> } | null; pdcSummary?: { riderType?: { type: string } | null; abilityScore?: number | null; activityCount?: number | null } | null }; coachSlot?: ReactNode; pmcHistoryPoints?: Array<{ date: string }>; pmcHistoryCanonical?: boolean }) => (
     <div>
       {coachSlot}
+      <div data-testid="pmc-history" data-count={pmcHistoryPoints?.length} data-start={pmcHistoryPoints?.[0]?.date} data-canonical={String(pmcHistoryCanonical)} />
       mobile fitness dashboard: {data.discipline}
       <span>selected {data.ctl}/{data.atl}/{data.tsb}</span>
       <span>integrated {data.combinedLoad?.ctl ?? "none"}</span>
@@ -39,7 +45,8 @@ vi.mock("../components/mobile/MobileFitnessPage", () => ({
   ),
 }));
 vi.mock("./fitness/TriFitnessView", () => ({
-  default: ({ combinedLoad, loadFocus, breakdown, onRangeChange }: {
+  default: ({ combinedLoad, loadFocus, breakdown, onRangeChange, historySlot }: {
+    historySlot?: ReactNode;
     combinedLoad?: { ctl: number } | null;
     loadFocus: { totalLoad: number };
     breakdown: {
@@ -50,6 +57,7 @@ vi.mock("./fitness/TriFitnessView", () => ({
   }) => (
     <div>
       desktop tri fitness dashboard
+      {historySlot}
       <span>desktop integrated {combinedLoad?.ctl ?? "none"}</span>
       <span>desktop focus {loadFocus.totalLoad}</span>
       <span>desktop bike {breakdown.bike.fitness[breakdown.bike.fitness.length - 1]?.ctl ?? "none"}/{breakdown.bike.weeklyTSS}</span>
@@ -71,6 +79,26 @@ describe("FitnessPage", () => {
   it("never carries a single-sport projection into the integrated mobile PMC", () => {
     const source = readFileSync(join(process.cwd(), "src/hooks/useFitnessModel.ts"), "utf8");
     expect(source).toContain('pmcProjection: discipline === "tri" ? null : projection?.series ?? null');
+  });
+
+  it.each(["desktop", "mobile", "embedded"])("최근 활동이 없어도 %s PMC에 전체 정본 이력을 전달한다", async (surface) => {
+    viewport.isMobile = surface !== "desktop";
+    setCollectionDocs("activities", []);
+    const points = [
+      { date: "2023-08-01", ctl: 20, atl: 22, tsb: -2, dailyLoad: 10 },
+      { date: "2026-08-01", ctl: 40, atl: 42, tsb: -2, dailyLoad: 30 },
+    ];
+    setDocData("users/test-uid/fitness/timeseries_bike", {
+      discipline: "bike", schemaVersion: 1, computedAt: Date.now(),
+      startDate: points[0]!.date, endDate: points[1]!.date, pointCount: points.length, points,
+    });
+    renderWithProviders(surface === "embedded" ? <FitnessSurface onReady={vi.fn()} retryKey={0} /> : <FitnessPage />, {
+      authenticated: true, route: "/fitness?sport=bike",
+    });
+    const history = await screen.findByTestId("pmc-history");
+    expect(history).toHaveAttribute("data-count", "2");
+    expect(history).toHaveAttribute("data-start", "2023-08-01");
+    expect(history).toHaveAttribute("data-canonical", "true");
   });
 
   it("shows the guest demo instead of the mobile dashboard for signed-out mobile visitors", async () => {
@@ -138,6 +166,7 @@ describe("FitnessPage", () => {
 
     expect(await screen.findByText("selected 48/44/4")).toBeInTheDocument();
     expect(screen.getByText("integrated 48")).toBeInTheDocument();
+    expect(screen.getByTestId("pmc-history")).toHaveAttribute("data-canonical", "true");
   });
 
   it("puts the activity impact briefing on a single-sport mobile overview", async () => {
