@@ -25,6 +25,31 @@ interface FirestoreRecoveryExecutionEnvironment {
 }
 
 let reloadPending = false;
+let firstServerSuccessAt: number | null = null;
+
+/** 기존 읽기의 서버 확인만으로 복구를 재무장한다. 시간 경과만으로는 마커를 지우지 않는다. */
+export function noteFirestoreServerSuccess(
+  metadata: { fromCache: boolean; hasPendingWrites: boolean } | undefined,
+  environment?: { sessionStorage: Pick<Storage, "getItem" | "removeItem"> },
+): void {
+  if (reloadPending || metadata?.fromCache !== false || metadata.hasPendingWrites !== false) return;
+  try {
+    const storage = environment?.sessionStorage ?? (typeof window !== "undefined" ? window.sessionStorage : null);
+    if (!storage || storage.getItem(FIRESTORE_B815_RECOVERY_SESSION_KEY) !== "1") {
+      firstServerSuccessAt = null;
+      return;
+    }
+    const now = Date.now();
+    if (firstServerSuccessAt === null) {
+      firstServerSuccessAt = now;
+    } else if (now - firstServerSuccessAt >= 60_000) {
+      storage.removeItem(FIRESTORE_B815_RECOVERY_SESSION_KEY);
+      firstServerSuccessAt = null;
+    }
+  } catch {
+    firstServerSuccessAt = null;
+  }
+}
 
 function errorText(error: unknown): string {
   if (error instanceof Error) {
@@ -76,6 +101,7 @@ export function prepareFirestoreSessionRecovery(
 ): FirestoreRecoveryResult {
   const kind = classifyFirestoreFatalError(error);
   if (!kind) return { kind: null, action: "not-applicable" };
+  firstServerSuccessAt = null;
   if (reloadPending) return { kind, action: "reload-pending" };
 
   let sessionStorage = environment?.sessionStorage ?? null;
@@ -145,4 +171,5 @@ export function firestoreRecoveryLogContext(result: FirestoreRecoveryResult): Re
 
 export function __resetFirestoreSessionRecoveryForTests(): void {
   reloadPending = false;
+  firstServerSuccessAt = null;
 }

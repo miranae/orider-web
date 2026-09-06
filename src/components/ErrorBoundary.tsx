@@ -1,5 +1,10 @@
 import { Component, type ReactNode, type ErrorInfo } from "react";
 import { captureError } from "../services/sentry";
+import {
+  executeFirestoreSessionRecovery,
+  firestoreRecoveryLogContext,
+  prepareFirestoreSessionRecovery,
+} from "../utils/firestoreSessionRecovery";
 
 /**
  * 로컬 React ErrorBoundary — Sentry.ErrorBoundary 대체.
@@ -32,11 +37,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    const recovery = prepareFirestoreSessionRecovery(error);
     this.props.onError?.(error, info);
     captureError(error, {
       tags: { source: "react-error-boundary" },
-      extra: { componentStack: info.componentStack ?? "" },
+      extra: { componentStack: info.componentStack ?? "", ...firestoreRecoveryLogContext(recovery) },
     });
+    executeFirestoreSessionRecovery(recovery);
   }
 
   reset = () => this.setState({ error: null });

@@ -12,6 +12,7 @@ import { getDocs, onSnapshot, orderBy, where } from "firebase/firestore";
 import {
   __resetFirestoreSessionRecoveryForTests,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
+  noteFirestoreServerSuccess,
 } from "../utils/firestoreSessionRecovery";
 
 const firestoreRecoveryMocks = vi.hoisted(() => ({
@@ -23,6 +24,7 @@ vi.mock("../utils/firestoreSessionRecovery", async (importOriginal) => {
   return {
     ...actual,
     executeFirestoreSessionRecovery: firestoreRecoveryMocks.execute,
+    noteFirestoreServerSuccess: vi.fn(actual.noteFirestoreServerSuccess),
   };
 });
 
@@ -48,6 +50,30 @@ describe("useActivities", () => {
     __resetFirestoreSessionRecoveryForTests();
     window.sessionStorage.removeItem(FIRESTORE_B815_RECOVERY_SESSION_KEY);
     firestoreRecoveryMocks.execute.mockClear();
+    vi.mocked(noteFirestoreServerSuccess).mockClear();
+  });
+
+  it("reports actual server metadata after a current feed request succeeds", async () => {
+    vi.mocked(getDocs).mockResolvedValueOnce({
+      docs: [],
+      metadata: { fromCache: false, hasPendingWrites: false },
+    } as unknown as Awaited<ReturnType<typeof getDocs>>);
+    const { result } = renderHook(() => useActivities(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(noteFirestoreServerSuccess).toHaveBeenCalledWith({ fromCache: false, hasPendingWrites: false });
+  });
+
+  it("does not report server success when a pending feed read finishes after unmount", async () => {
+    let resolveRead!: (value: Awaited<ReturnType<typeof getDocs>>) => void;
+    vi.mocked(getDocs).mockReturnValueOnce(new Promise((resolve) => { resolveRead = resolve; }));
+    const { unmount } = renderHook(() => useActivities(), { wrapper });
+    await waitFor(() => expect(getDocs).toHaveBeenCalled());
+    unmount();
+    await act(async () => resolveRead({
+      docs: [],
+      metadata: { fromCache: false, hasPendingWrites: false },
+    } as unknown as Awaited<ReturnType<typeof getDocs>>));
+    expect(noteFirestoreServerSuccess).not.toHaveBeenCalled();
   });
 
   it("shares the first Firestore request across concurrent hook mounts", async () => {
