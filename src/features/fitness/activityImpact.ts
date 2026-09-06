@@ -1,5 +1,5 @@
 import type { Activity } from "@shared/types";
-import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
+import { isNegligibleActivitySummary, isSaneTss } from "@shared/training/activityLoad";
 import {
   ATL_DAYS,
   CTL_DAYS,
@@ -11,7 +11,7 @@ import {
   pickPhysicalRideRepresentative,
 } from "../../utils/samePhysicalRide";
 
-export type ActivityImpactConfidence = "canonical-single" | "estimated-allocation";
+export type ActivityImpactConfidence = "canonical-single" | "estimated-allocation" | "activity-tss";
 
 export interface ActivityDayLoad {
   dailyLoad: number;
@@ -41,7 +41,7 @@ export interface ActivityImpactEntry {
   activity: Activity;
   /** The UTC calendar day whose canonical aggregate load backs this entry. */
   date: string;
-  /** Canonical daily load, or a conservative allocation of it on multi-activity days. */
+  /** Canonical allocation, or the activity's own rounded TSS for an activity-tss model estimate. */
   attributedLoad: number;
   canonicalDailyLoad: number;
   confidence: ActivityImpactConfidence;
@@ -87,7 +87,8 @@ function isUtcDay(value: string): boolean {
 
 function utcDayFromMillis(value: number): string | null {
   if (!Number.isFinite(value)) return null;
-  return new Date(value).toISOString().slice(0, 10);
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : null;
 }
 
 function previousUtcDay(date: string): string {
@@ -100,8 +101,8 @@ function daysBetweenUtcDays(from: string, to: string): number {
 
 function candidateTss(activity: Activity): number | null {
   const topLevel = (activity as ActivityWithTopLevelTss).tss;
-  if (isFinitePositive(topLevel)) return topLevel;
-  return isFinitePositive(activity.summary?.tss) ? activity.summary.tss : null;
+  if (isSaneTss(topLevel)) return topLevel;
+  return isSaneTss(activity.summary?.tss) ? activity.summary.tss : null;
 }
 
 function positiveNumber(value: unknown): number | null {
@@ -174,12 +175,13 @@ function actualDayChange(
 }
 
 /**
- * Derives activity-attributed effects exclusively from canonical daily FitnessPoints.
+ * Derives activity effects alongside canonical daily FitnessPoints.
  *
  * A single physical activity receives that day's canonical `dailyLoad`. Cross-provider
  * duplicates are collapsed with the same representative rule as the backend. On a day
  * with several distinct activities, allocation is emitted only when every representative
- * has a safe positive TSS candidate; this avoids assigning unknown load or overstating precision.
+ * has a safe positive TSS candidate. Otherwise known activity TSS produces a model-only
+ * estimate, without redistributing the daily total or claiming canonical inclusion.
  */
 export function deriveActivityImpacts(
   fitnessPoints: readonly FitnessPoint[],
@@ -221,13 +223,21 @@ export function deriveActivityImpacts(
       confidence = "canonical-single";
     } else {
       const candidates = sameDayActivities.map(candidateTss);
-      if (candidates.some((value) => value === null)) continue;
-      const candidateTotal = candidates.reduce<number>((sum, value) => sum + (value ?? 0), 0);
-      if (!isFinitePositive(candidateTotal)) continue;
-      sameDayActivities.forEach((activity, index) => {
-        allocations.set(activity, point.dailyLoad * (candidates[index]! / candidateTotal));
-      });
-      confidence = "estimated-allocation";
+      if (candidates.some((value) => value === null)) {
+        sameDayActivities.forEach((activity, index) => {
+          const tss = candidates[index];
+          // Match shared estimateLoad's rounding, without assigning unknown activity load.
+          if (tss != null) allocations.set(activity, Math.round(tss));
+        });
+        confidence = "activity-tss";
+      } else {
+        const candidateTotal = candidates.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+        if (!isFinitePositive(candidateTotal)) continue;
+        sameDayActivities.forEach((activity, index) => {
+          allocations.set(activity, point.dailyLoad * (candidates[index]! / candidateTotal));
+        });
+        confidence = "estimated-allocation";
+      }
     }
 
     const elapsedDays = daysBetweenUtcDays(date, asOfDate);
