@@ -105,7 +105,7 @@ describe("FitnessPage", () => {
 
   it.each([
     ["mobile", <FitnessPage />],
-    ["embedded", <FitnessSurface onError={vi.fn()} onReady={vi.fn()} retryKey={0} />],
+    ["embedded", <FitnessSurface onReady={vi.fn()} retryKey={0} />],
   ])("uses the integrated tri timeline on the %s presentation", async (_surface, view) => {
     setCollectionDocs("activities", [{
       id: "tri-activity",

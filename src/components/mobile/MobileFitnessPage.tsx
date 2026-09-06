@@ -88,6 +88,13 @@ export interface MobileFitnessData {
   discipline: "bike" | "run" | "swim" | "tri";
 }
 
+export interface MobileFitnessSectionState {
+  trend: "loading" | "error" | "ready";
+  derived: "loading" | "error" | "ready";
+  onRetryTrend?: () => void;
+  retryLabel?: string;
+}
+
 // ── PMC 추이 미니 차트 (Y축·X축 라벨, 오늘 마커, 예측, 탭 툴팁) ──
 function niceTicks(min: number, max: number, count = 4): number[] {
   if (max <= min) return [min];
@@ -469,6 +476,7 @@ export default function MobileFitnessPage({
   decisionBusy = false,
   onAcceptDecision = () => undefined,
   embedded = false,
+  sectionState = { trend: "ready", derived: "ready" },
 }: {
   data: MobileFitnessData;
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
@@ -481,6 +489,8 @@ export default function MobileFitnessPage({
   onAcceptDecision?: () => void;
   /** Native host already owns the surface title and bottom navigation chrome. */
   embedded?: boolean;
+  /** 임베드 부분 로딩에서 시계열과 파생 섹션을 독립적으로 표시한다. */
+  sectionState?: MobileFitnessSectionState;
 }) {
   const { t } = useTranslation("dashboard");
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
@@ -508,6 +518,9 @@ export default function MobileFitnessPage({
   const pmcTitle = t(`mobileFitness.pmcByDiscipline.${data.discipline}.title`, { n: data.pmcHistory.length });
   const pmcSub = t(`mobileFitness.pmcByDiscipline.${data.discipline}.sub`);
   const pmcCtlLabel = t(`mobileFitness.pmcByDiscipline.${data.discipline}.ctlLabel`);
+  const trendSectionTitle = sectionState.trend === "ready"
+    ? pmcTitle
+    : t("mobileFitness.trendTitle");
 
   const analysisTabLabel = data.discipline === "bike"
     ? t("mobileFitness.tabZonesBike")
@@ -606,27 +619,42 @@ export default function MobileFitnessPage({
           )}
 
           {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
-          <SectionCard title={pmcTitle} sub={pmcSub} accentColor={pmcCtlColor}>
-            {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
-                제목/범례는 카드 padding 인셋 유지. */}
-            <div style={{ margin: "0 -16px" }}>
-              <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ctlLabel={pmcCtlLabel} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
-            </div>
-            <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: "var(--space-3)" }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />{pmcCtlLabel}
-              </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
-              </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
-                <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
-              </span>
-            </div>
+          <SectionCard title={trendSectionTitle} sub={pmcSub} accentColor={pmcCtlColor}>
+            {sectionState.trend === "loading" ? (
+              <p role="status">{t("mobileFitness.trendLoading")}</p>
+            ) : sectionState.trend === "error" ? (
+              <>
+                <p role="alert">{t("mobileFitness.trendError")}</p>
+                {sectionState.onRetryTrend && (
+                  <button type="button" onClick={sectionState.onRetryTrend}>
+                    {sectionState.retryLabel ?? t("common:button.retry")}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
+                    제목/범례는 카드 padding 인셋 유지. */}
+                <div style={{ margin: "0 -16px" }}>
+                  <PmcMiniChart history={data.pmcHistory} projection={data.pmcProjection} today={data.today} ctlColor={pmcCtlColor} ctlLabel={pmcCtlLabel} ariaLabel={`${pmcTitle}. ${pmcSub}`} t={t} />
+                </div>
+                <div style={{ marginTop: "var(--space-1-5)", fontSize: "var(--fs-xs)", color: "var(--ink-4)", display: "flex", gap: "var(--space-3)" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                    <PmcLegendSample color={pmcCtlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />{pmcCtlLabel}
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                    <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />ATL
+                  </span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
+                    <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />TSB
+                  </span>
+                </div>
+              </>
+            )}
           </SectionCard>
 
           {/* 주간 TSS */}
-          {data.weeklyTSS.length > 0 && (
+          {sectionState.trend === "ready" && data.weeklyTSS.length > 0 && (
             <SectionCard title={t("mobileFitness.weeklyLoadTitle")} sub={t("mobileFitness.weeklyLoadSub", { thisWeek: data.thisWeekTSS, avg: data.avgWeekTSS, restDays: data.restDays })}>
               <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />
             </SectionCard>
@@ -637,8 +665,18 @@ export default function MobileFitnessPage({
 
       {activeTab === "analysis" && (
         <div style={{ paddingTop: 14 }}>
+          {sectionState.derived === "loading" && (
+            <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
+              {t("mobileFitness.derivedLoading")}
+            </div>
+          )}
+          {sectionState.derived === "error" && (
+            <div role="alert" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
+              {t("mobileFitness.derivedError")}
+            </div>
+          )}
           {/* 임계값 카드 */}
-          {data.threshold && !isBike && (
+          {sectionState.derived === "ready" && data.threshold && !isBike && (
             <SectionCard>
               <Text variant="eyebrow">{data.threshold.label}</Text>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--fs-3xl)", fontWeight: 600, color: "var(--ink-0)", letterSpacing: "-0.03em", marginTop: "var(--space-1)" }}>
@@ -650,7 +688,7 @@ export default function MobileFitnessPage({
           )}
 
           {/* 존 분포 */}
-          {showZones && (
+          {sectionState.derived === "ready" && showZones && (
             <SectionCard
               title={isBike ? t("mobileFitness.zonePowerTitle") : t("mobileFitness.zoneHrTitle")}
               sub={
@@ -672,7 +710,7 @@ export default function MobileFitnessPage({
           )}
 
           {/* 파워 커브 (bike) */}
-          {isBike && data.powerCurve && data.powerCurve.length >= 2 && (
+          {sectionState.derived === "ready" && isBike && data.powerCurve && data.powerCurve.length >= 2 && (
             <SectionCard>
               <div data-power-curve-copy style={{ marginBottom: "var(--space-2)" }}>
                 <Text variant="eyebrow">{powerCurveTitle}</Text>
@@ -688,7 +726,7 @@ export default function MobileFitnessPage({
           )}
 
           {/* 존 정의 */}
-          {showZones && (
+          {sectionState.derived === "ready" && showZones && (
             <SectionCard title={t("mobileFitness.zoneDefsSectionTitle")}>
               {data.zones.map((z, i) => (
                 <div key={i} className="flex items-center" style={{ padding: "8px 0", borderBottom: i < data.zones.length - 1 ? "1px solid var(--line-soft)" : "none", gap: "var(--space-3)" }}>
@@ -701,7 +739,7 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {!showZones && !data.threshold && (
+          {sectionState.derived === "ready" && !showZones && !data.threshold && (
             <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
               {t("mobileFitness.analysisInsufficient")}
             </div>
