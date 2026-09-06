@@ -528,7 +528,11 @@
       "powerZonesTitle": "Power zones are not ready",
       "powerZonesDesc": "When enough power stream data is recorded, FTP-based intensity distribution will appear here.",
       "powerCurveTitle": "Power curve is not ready yet",
-      "powerCurveDesc": "When the power stream is long enough, peak average power from 5 seconds to 60 minutes will appear here."
+      "powerCurveDesc": "When the power stream is long enough, peak average power from 5 seconds to 60 minutes will appear here.",
+      "computingTitle": "Computing analysis",
+      "computingDesc": "The server is computing metrics for this activity. Check back shortly.",
+      "noServerMetricsTitle": "No server analysis yet",
+      "noServerMetricsDesc": "The analysis document for this activity has not been produced yet."
     },
     "seiler": {
       "z1": "Low Intensity",
@@ -838,7 +842,9 @@
       "interval": "Interval",
       "race": "Race",
       "mixed": "Mixed"
-    }
+    },
+    "provisionalChip": "Provisional · upload in progress",
+    "truncatedInputChip": "From truncated input"
   },
   "vp": {
     "badge": "Virtual Power",

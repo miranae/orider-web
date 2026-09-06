@@ -98,6 +98,9 @@ export default function ServerMetricsBanner({
     <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>
       <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
         <Chip>{t("serverMetrics.chip")}</Chip>
+        {/* 서버가 찍은 출처 표식 — 파츠 업로드 중 잠정값 / 800KB 에서 잘린 inline 입력. 숨기면 잘린 값이 확정값으로 읽힌다 (#900). */}
+        {m.inputPending && <Chip>{t("serverMetrics.provisionalChip")}</Chip>}
+        {m.sourceLayer === "inline_streams" && <Chip>{t("serverMetrics.truncatedInputChip")}</Chip>}
         <Text size="xs" tone="tertiary">
           {new Date(m.computedAt).toLocaleString("ko-KR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })} · v{m.version}
         </Text>

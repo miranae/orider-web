@@ -148,21 +148,25 @@ export function computeRideSubstrate(
   watts: number[],
   ftp: number,
   weightKg: number | null,
+  /** 샘플별 소유 초. 없으면 1Hz 로 본다 — 2초 간격 기록을 1Hz 로 적분하면 kcal 이 절반이 된다 (#2437). */
+  durationsSec?: readonly number[],
 ): RideSubstrate {
   void weightKg; // v1 미사용 (위 주석 참조)
   if (!watts || watts.length === 0 || !Number.isFinite(ftp) || ftp <= 0) {
     return { fatKcal: 0, carbKcal: 0, fatPct: 0, totalKcal: 0 };
   }
 
-  // 초당 일(J) 누적을 지방/탄수로 분할 (각 초 1Hz 가정 → W=J/s).
+  // 일(J) = W × 소유 초. 샘플 수가 아니라 시간으로 적분한다.
   let fatJoules = 0;
   let totalJoules = 0;
   for (let i = 0; i < watts.length; i++) {
     const w = watts[i];
     if (w == null || !Number.isFinite(w) || w <= 0) continue;
-    totalJoules += w;
+    const dt = durationsSec?.[i];
+    const seconds = typeof dt === "number" && Number.isFinite(dt) && dt > 0 ? dt : 1;
+    totalJoules += w * seconds;
     const frac = fatEnergyFraction(w / ftp);
-    fatJoules += w * frac;
+    fatJoules += w * seconds * frac;
   }
 
   const kjToKcal = (kj: number) => kj / GROSS_EFFICIENCY / 4.184;

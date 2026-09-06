@@ -1089,7 +1089,7 @@ export default function ActivityPage() {
             separateOverlayLanes={chartOverlays.length > 0}
             highlightRange={chartHighlightRange}
           />
-          {analysisProjection && <ActivityZoneTimeline streams={analysisProjection.streams} sensorHeartRate={analysisProjection.heartRate} sensorPower={analysisProjection.power} sensorSelectionContext={sensorSelectionContext} summary={analysisTabProps?.summary} sport={sport} startTime={activity.startTime} isOwner={isActivityOwner} activityContextMaxHr={serverMetrics.metrics?.contextSnapshot?.maxHr} activityContextLthr={serverMetrics.metrics?.contextSnapshot?.lthr} />}
+          <ActivityZoneTimeline metrics={serverMetrics.metrics} />
         </Card>
       )}
 
@@ -1109,7 +1109,7 @@ export default function ActivityPage() {
       )}
 
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
-      <RunActivityIntro detail={runDetail} activityId={activityId} streams={streams} />
+      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null} />
 
       {/* 러닝/수영 전용 상세 카드 (좌측, 개요 탭에서만) */}
       {activeTab === "overview" && sport === "run" && streams && <RunLeftCards streams={streams} thresholdPaceSecPerKm={profile?.thresholdPace ?? null} />}

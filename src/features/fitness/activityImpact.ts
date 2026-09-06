@@ -123,6 +123,10 @@ function physicalRideIdentity(activity: Activity) {
     activity,
     id: activity.id,
     source: activity.source ?? null,
+    // 같은 실주행 판정은 이 두 링크 키로만 한다 — 시각·거리는 대표 선택 힌트일 뿐이다.
+    localSessionId: activity.localSessionId ?? null,
+    stravaActivityId: activity.stravaActivityId ?? null,
+    stravaTwinActivityId: activity.stravaTwinActivityId ?? null,
     startTime: activity.startTime,
     distanceKm: distanceMeters != null ? distanceMeters / 1_000 : null,
     movingSec,

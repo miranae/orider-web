@@ -1,5 +1,5 @@
 import type { ClimbMetric } from "@shared/types/activity-metrics";
-import type { ClimbSegment } from "./advancedMetrics";
+import type { ClimbSegment } from "../features/activity/detail/metricsPresentation";
 import { normalizeEpochMilliseconds } from "./timestampUnit";
 
 export interface ClimbTableRow {

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { useOriderTheme } from "../theme";
-import type { ZoneDistribution } from "../utils/zoneAnalysis";
+import type { ZoneDistribution } from "../features/activity/detail/metricsPresentation";
 import ZoneDistributionChart from "./ZoneDistributionChart";
 
 vi.mock("react-chartjs-2", () => ({

@@ -1,4 +1,3 @@
-import { calculateTSS } from "./powerMetrics";
 import { calcVirtualPowerStream } from "./virtualPower";
 
 export interface VirtualPowerToolInput {
@@ -37,7 +36,11 @@ export function calculateVirtualPowerTool(input: VirtualPowerToolInput): Virtual
   const averageWatts = activeWatts.length > 0
     ? Math.round(activeWatts.reduce((sum, w) => sum + w, 0) / activeWatts.length)
     : 0;
-  const estimatedTss = input.ftp > 0 ? calculateTSS(watts, input.ftp, time) : null;
+  // 도구 입력은 등속·등경사라 파워가 상수다. 상수 파워에서 NP = 평균이므로 TSS 는 닫힌 식
+  // (초 × IF²) / 36 이다 — 스트림 분석 원시함수를 여기서 다시 구현하지 않는다.
+  const estimatedTss = input.ftp > 0 && averageWatts > 0
+    ? (seconds * (averageWatts / input.ftp) ** 2) / 36
+    : null;
   return {
     averageWatts,
     estimatedTss: estimatedTss == null ? null : Math.round(estimatedTss),

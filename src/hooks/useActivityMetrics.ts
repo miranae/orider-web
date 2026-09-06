@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
@@ -25,108 +26,14 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
  *  필드 drift 방지를 위해 모두 optional/nullable 로 선언 — 새 서버 필드 누락 시
  *  consumer 가 undefined 안전 처리하도록 강제.
  *  TODO: shared/types/activity-metrics.ts 로 단일 source 화 (현재 inline mirror 2곳). */
-export interface ActivityMetricsDoc {
-  // 기본
-  np: number | null;
-  if: number | null;
-  tss: number | null;
-  vi: number | null;
-  xPower: number | null;
-  workKj: number;
-  caloriesKcal: number;
-
-  // 평균/최대
-  avgPower: number | null;
-  maxPower: number | null;
-  avgHr: number | null;
-  maxHr: number | null;
-  avgCadence: number | null;
-  avgSpeedKph: number | null;
-  maxSpeedKph: number | null;
-  distanceKm: number;
-  durationSec: number;
-  elevationGainM: number;
-
-  // A.6
-  avgGrade?: number | null;
-  maxGrade?: number | null;
-  elevationLossM?: number;
-  movingTimeSec?: number;
-  pauseTimeSec?: number;
-  peakHr?: { "1m"?: number; "5m"?: number; "20m"?: number };
-  zoneKj?: { z1: number; z2: number; z3: number; z4: number; z5: number; z6: number; z7: number };
-  wPrimeMinJ?: number | null;
-  loadAxes?: {
-    cardiovascular?: number | null;
-    muscular?: number | null;
-    perceptual?: number | null;
-    confidence?: number | null;
-  } | null;
-  newPrs?: Array<{
-    duration?: string;
-    durationSeconds?: number;
-    rank?: number;
-    value?: number;
-    watts?: number;
-  }>;
+/**
+ * `activity_metrics/{activityId}` 문서. 정의는 `@shared/types/activity-metrics` 하나다 —
+ * 이전엔 이 파일이 같은 문서를 따로 선언해 필드가 두 곳에서 갈렸다 (#2437).
+ */
+export type ActivityMetricsDoc = ActivityMetrics & {
+  newPrs?: Array<{ duration?: string; durationSeconds?: number; rank?: number; value?: number; watts?: number }>;
   workoutTypeConfidence?: number;
-  cyclingMetrics?: { cadenceStdDev: number | null; longestZ4PlusSec: number | null };
-  /** FIT dual-sided power meter. avg is right-side percentage; left = 100 - avg. */
-  lrBalance?: { avg: number; asymmetryPct: number };
-  cyclingDynamics?: {
-    source: "session" | "records";
-    sampleCount: number;
-    validSampleCount: number;
-    coverage: number;
-    balance?: { leftAvgPct: number; rightAvgPct: number; asymmetryPct: number };
-    torqueEffectiveness?: { leftAvgPct?: number; rightAvgPct?: number };
-    pedalSmoothness?: { leftAvgPct?: number; rightAvgPct?: number; combinedAvgPct?: number };
-    platformCenterOffset?: { leftAvgMm?: number; rightAvgMm?: number };
-    powerPhase?: {
-      left?: { startDeg: number; endDeg: number; arcDeg: number; peakStartDeg?: number; peakEndDeg?: number };
-      right?: { startDeg: number; endDeg: number; arcDeg: number; peakStartDeg?: number; peakEndDeg?: number };
-    };
-  };
-
-  // 모델 / 분포
-  cp: number | null;
-  wPrime: number | null;
-  cpR2: number | null;
-  quadrant: { q1Pct: number; q2Pct: number; q3Pct: number; q4Pct: number } | null;
-  matches: { count: number; totalSec: number; peakW: number; longestW: number };
-  climbs: Array<{
-    startKm: number; endKm: number; lengthKm: number;
-    elevationGainM: number; avgGrade: number;
-    category: "HC"|"Cat1"|"Cat2"|"Cat3"|"Cat4"|null;
-    vam: number|null; durationSec: number|null;
-    avgPower: number|null; wPerKg: number|null; normalizedPower: number|null;
-    climbScore: number;
-  }>;
-  decoupling: { ef: number|null; decouplingPct: number|null; hrDriftPct: number|null };
-  trimp: number | null;
-  streamTrimpTss?: number | null;
-  sufferScore: number | null;
-  zonesSec: { sweetSpot: number; threshold: number; vo2: number; anaerobic: number };
-  hrZoneSec: number[];
-  powerZoneSec: number[];
-  mmp: Partial<Record<"1s"|"5s"|"10s"|"30s"|"1m"|"2m"|"5m"|"10m"|"20m"|"30m"|"1h", number>>;
-  splits?: Array<{ km: number; paceSec: number; gapSec: number; elevGain: number; avgHr: number | null }>;
-  runMetrics?: {
-    gapAvgSec: number | null;
-    paceStdDevSec?: number | null;
-    minPaceSecPerKm?: number | null;
-  };
-
-  workoutType: "recovery"|"endurance"|"tempo"|"threshold"|"interval"|"race"|"mixed";
-
-  // Meta
-  discipline: "bike"|"run"|"swim";
-  activityType: string;
-  startTime: number;
-  computedAt: number;
-  version: number;
-  contextSnapshot: { ftp?: number; maxHr?: number; weightKg?: number; lthr?: number };
-}
+};
 
 export type UseActivityMetricsState =
   | { status: "loading"; metrics: null }
