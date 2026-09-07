@@ -44,6 +44,8 @@ import { EmptyState, LoadingSkeleton } from "../components/redesign";
 import { Button, buttonClass, Card, Chip, Text } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
 import { CourseRidePlanSection } from "../features/courses/CourseRidePlanSection";
+import { canonicalDisplayShowsValue } from "@shared/types/canonicalDisplay";
+import { courseAnalysisNoteKey, useCourseAnalysis } from "../hooks/useCourseAnalysis";
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
 import { formatClimbDuration, predictClimb, type ClimbPrediction } from "@shared/sim/climbPrediction";
@@ -339,6 +341,10 @@ export default function CoursePage() {
   const { user, profile, profileLoading, loading: authLoading, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId);
+  // 획득고도 정본(#887). 전환이 꺼져 있으면 envelope 은 null 이고 코스 문서 값이 그대로 남는다.
+  const courseAnalysis = useCourseAnalysis(courseId);
+  const courseAnalysisNote = courseAnalysis.envelope ? courseAnalysisNoteKey(courseAnalysis.display) : null;
+
   const { items: gearItems, loading: gearLoading } = useGear(user?.uid ?? null);
   const pdcState = usePdc(user?.uid ?? null);
 
@@ -993,11 +999,25 @@ export default function CoursePage() {
       </div>
 
       {/* 통계 스트립 — 히어로에 용접해 첫 화면에서 규모가 읽히게 한다. */}
+      {courseAnalysisNote && (
+        <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-2)" }}>
+          {t(courseAnalysisNote)}
+        </Text>
+      )}
       <div className="course-statstrip-wrap">
       <div className="course-statstrip">
         {[
           { k: t("distance"), v: (course.distance / 1000).toFixed(1), u: "km" },
-          { k: t("elevationGainShort"), v: String(Math.round(course.elevationGain)), u: "m" },
+          {
+            k: t("elevationGainShort"),
+            // 정본이 있으면 스무딩된 값을, 값 없는 상태면 숫자 대신 —.
+            v: courseAnalysis.envelope
+              ? (canonicalDisplayShowsValue(courseAnalysis.display ?? "loading") && courseAnalysis.envelope.data
+                  ? String(Math.round(courseAnalysis.envelope.data.elevationGainM))
+                  : "—")
+              : String(Math.round(course.elevationGain)),
+            u: "m",
+          },
           { k: t("elevationHigh"), v: String(Math.round(course.elevationHigh)), u: "m" },
           { k: t("averageGrade"), v: course.averageGrade.toFixed(1), u: "%" },
           { k: t("maxGrade"), v: course.maximumGrade.toFixed(1), u: "%" },
