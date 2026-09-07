@@ -844,6 +844,7 @@
       "mixed": "Mixed"
     },
     "provisionalChip": "Provisional · upload in progress",
+    "staleChip": "From an earlier analysis · awaiting recompute",
     "truncatedInputChip": "From truncated input"
   },
   "vp": {

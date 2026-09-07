@@ -844,6 +844,7 @@
       "mixed": "혼합"
     },
     "provisionalChip": "잠정값 · 업로드 반영 중",
+    "staleChip": "이전 분석 기준 · 재계산 대기",
     "truncatedInputChip": "잘린 입력 기준"
   },
   "vp": {

@@ -122,4 +122,15 @@ describe("ServerMetricsBanner sensor provenance", () => {
     expect(screen.queryByText("잠정값 · 업로드 반영 중")).not.toBeInTheDocument();
     expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
   });
+  it("stale 상태에서도 값을 보여주되 '이전 분석' 칩을 붙인다 (#885)", () => {
+    render(<ServerMetricsBanner state={{ ...readyState, status: "stale" } as never} />);
+    expect(screen.getByText("이전 분석 기준 · 재계산 대기")).toBeInTheDocument();
+    expect(screen.getByText("333 W")).toBeInTheDocument();
+    expect(screen.getByText("444")).toBeInTheDocument();
+  });
+
+  it("ready 상태에는 '이전 분석' 칩이 없다", () => {
+    render(<ServerMetricsBanner state={readyState as never} />);
+    expect(screen.queryByText("이전 분석 기준 · 재계산 대기")).not.toBeInTheDocument();
+  });
 });

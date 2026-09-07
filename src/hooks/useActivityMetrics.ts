@@ -17,7 +17,7 @@
 
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import type { ActivityMetrics } from "@shared/types/activity-metrics";
+import { ACTIVITY_METRICS_VERSION, type ActivityMetrics } from "@shared/types/activity-metrics";
 import { logClientError } from "../services/errorLogger";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
@@ -32,13 +32,15 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
  */
 export type ActivityMetricsDoc = ActivityMetrics & {
   newPrs?: Array<{ duration?: string; durationSeconds?: number; rank?: number; value?: number; watts?: number }>;
-  workoutTypeConfidence?: number;
 };
 
 export type UseActivityMetricsState =
   | { status: "loading"; metrics: null }
   | { status: "disabled"; metrics: null }
   | { status: "missing"; metrics: null }
+  /** 서버 doc 이 있으나 스키마 버전이 클라 기대보다 낮다. 값은 last-known-good 으로 그대로 쓰되
+   *  화면에는 "이전 분석" 표식을 붙인다 — 다음 streams write 때 서버가 재계산한다. */
+  | { status: "stale"; metrics: ActivityMetricsDoc }
   | { status: "ready"; metrics: ActivityMetricsDoc };
 
 /**
@@ -77,7 +79,10 @@ export function useActivityMetrics(activityId: string | null, enabled = true): U
         }
         // 캐스팅은 hook 사용자 책임 영역 — 서버 doc 스키마는 functions 쪽에서
         // 강제. 클라가 잘못 읽을 일 자체가 적음 (rules: owner read).
-        setState({ status: "ready", metrics: snap.data() as ActivityMetricsDoc });
+        const data = snap.data() as ActivityMetricsDoc;
+        // version 이 클라 기대보다 낮으면 stale — 값은 그대로 노출하되 호출자가 표식을 붙인다.
+        const isStale = typeof data.version === "number" && data.version < ACTIVITY_METRICS_VERSION;
+        setState({ status: isStale ? "stale" : "ready", metrics: data });
       },
       (err) => {
         // permission-denied (rule 평가 실패 — auth state desync 의심) / network 등.
