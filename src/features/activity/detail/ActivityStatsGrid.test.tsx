@@ -159,6 +159,19 @@ describe("ActivityStatsGrid", () => {
     expect(power).toBe("평균 파워300W");
   });
 
+  it("서버 상승이 null 이어도 하강이 있으면 칸을 내고 상승은 대시로 — 하강을 묻지 않는다", () => {
+    renderGrid(readyState({ elevationGainM: null, elevationLossM: 280 }));
+
+    const elev = cellTexts().find((text) => text?.startsWith("획득 고도"));
+    expect(elev).toBe("획득 고도--하강 280m");
+  });
+
+  it("상승·하강이 모두 null 이면 고도 칸 자체를 내지 않는다", () => {
+    renderGrid(readyState({ elevationGainM: null, elevationLossM: null }));
+
+    expect(cellTexts().some((text) => text?.startsWith("획득 고도"))).toBe(false);
+  });
+
   it("uses two columns on mobile and delays six columns until extra-wide screens", () => {
     renderGrid(missingState, {
       showElevation: false,

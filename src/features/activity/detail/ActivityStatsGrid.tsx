@@ -301,7 +301,9 @@ export function ActivityStatsGrid({
           </MetricCell>
         )}
 
-        {showElevation && (stats.elevationGainM.value ?? 0) > 0 && (
+        {/* 상승·하강 중 하나라도 값이 있으면 칸을 낸다. 상승이 null 이라고 칸을 숨기면
+            서버가 준 하강까지 함께 묻히고, 모름이 "없음"으로 보인다 (#2237). */}
+        {showElevation && (stats.elevationGainM.value != null || stats.elevationLossM.value != null) && (
           <MetricCell
             label={t("stat.elev")}
             /* 누적 하강은 기기 요약에 없는 서버 전용 값 — 있을 때만 보조줄로. */
@@ -310,8 +312,14 @@ export function ActivityStatsGrid({
               : undefined}
             provisionalLabel={provisional(stats.elevationGainM)}
           >
-            <Value>{elevVal(stats.elevationGainM.value as number)}</Value>
-            <Unit>{elevUnit}</Unit>
+            {stats.elevationGainM.value != null ? (
+              <>
+                <Value>{elevVal(stats.elevationGainM.value)}</Value>
+                <Unit>{elevUnit}</Unit>
+              </>
+            ) : (
+              <Value>--</Value>
+            )}
           </MetricCell>
         )}
 
