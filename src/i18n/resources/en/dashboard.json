@@ -85,6 +85,7 @@
       "title": "Weekly TSS",
       "sub": "Last 12 weeks",
       "barTooltip": "{{week}}: {{tss}} TSS",
+      "barTooltipUnknown": "{{week}}: No data",
       "avgPerWeek": "Avg / week",
       "peakWeek": "Peak week",
       "trend": "Trend",

@@ -85,6 +85,7 @@
       "title": "주간 TSS",
       "sub": "최근 12주",
       "barTooltip": "{{week}}: {{tss}} TSS",
+      "barTooltipUnknown": "{{week}}: 기록 없음",
       "avgPerWeek": "평균/주",
       "peakWeek": "최고주",
       "trend": "추세",

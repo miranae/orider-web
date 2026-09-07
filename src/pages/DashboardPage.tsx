@@ -188,15 +188,25 @@ function FeedSkeleton() {
   );
 }
 
-/** 주간 TSS 막대 차트 — 호버 시 디자인 시스템 툴팁 표시 (기존 native title 대체). */
-function WeeklyTssBars({
+export interface WeeklyTssBar {
+  week: string;
+  /** 부하를 알 수 없는 주는 `null` — 0 으로 내리면 "쉰 주"로 보인다 (#2237). */
+  tss: number | null;
+}
+
+/**
+ * 주간 TSS 막대 차트 — 호버 시 디자인 시스템 툴팁 표시 (기존 native title 대체).
+ *
+ * `tss=null` 인 주는 막대를 그리지 않고 빈 칸으로 두고, 툴팁은 "기록 없음"을 말한다.
+ */
+export function WeeklyTssBars({
   weeks,
   tooltipFor,
 }: {
-  weeks: { week: string; tss: number }[];
-  tooltipFor: (w: { week: string; tss: number }) => string;
+  weeks: WeeklyTssBar[];
+  tooltipFor: (w: WeeklyTssBar) => string;
 }) {
-  const maxTSS = Math.max(...weeks.map((w) => w.tss), 1);
+  const maxTSS = Math.max(...weeks.map((w) => w.tss ?? 0), 1);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const hover = hoverIdx != null ? weeks[hoverIdx] : null;
   // 양 끝 막대 툴팁이 카드 밖으로 잘리지 않도록 앵커 중심을 [12%, 88%] 로 클램프
@@ -211,9 +221,10 @@ function WeeklyTssBars({
         {weeks.map((w, i) => (
           <div
             key={i}
-            className={`bar ${i === weeks.length - 1 ? "bar--current" : ""}`}
+            className={w.tss == null ? "bar bar--unknown" : `bar ${i === weeks.length - 1 ? "bar--current" : ""}`}
+            data-testid={w.tss == null ? "weekly-tss-bar-unknown" : "weekly-tss-bar"}
             style={{
-              height: `${Math.round((w.tss / maxTSS) * 100)}%`,
+              height: w.tss == null ? "100%" : `${Math.round((w.tss / maxTSS) * 100)}%`,
               opacity: hoverIdx != null && hoverIdx !== i ? 0.5 : 1,
               cursor: "default",
             }}
@@ -869,8 +880,10 @@ export default function DashboardPage() {
                 <Card padding="none" style={{ padding: "var(--space-4)" }}>
                   <SectionHeader title={t("sidebar.weeklyTss.title")} sub={t("sidebar.weeklyTss.sub")} right={<Chip>TSS</Chip>} />
                   <WeeklyTssBars
-                    weeks={weeklyStats.map((w) => ({ ...w, tss: w.tss ?? 0 }))}
-                    tooltipFor={(w) => t("sidebar.weeklyTss.barTooltip", { week: w.week, tss: w.tss })}
+                    weeks={weeklyStats.map((w) => ({ week: w.week, tss: w.tss ?? null }))}
+                    tooltipFor={(w) => (w.tss == null
+                      ? t("sidebar.weeklyTss.barTooltipUnknown", { week: w.week })
+                      : t("sidebar.weeklyTss.barTooltip", { week: w.week, tss: w.tss }))}
                   />
                   <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>
                     {weeklyStats.length > 0 && (
