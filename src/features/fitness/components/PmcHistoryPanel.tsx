@@ -123,7 +123,8 @@ export default function PmcHistoryPanel({ points, today, canonical, ctlColor = "
   const selectionLabel = mode === "years" ? labels[selectedIndex] ?? t("history.empty") : firstSelected ? `${firstSelected.bucket.startDate} – ${firstSelected.bucket.endDate}` : t("history.empty");
   const selectionOptions = mode === "years" ? labels : history.buckets.map((bucket) => `${bucket.startDate} – ${bucket.endDate}`);
   const unit = mode === "years" ? "month" : history.unit;
-  const sourceKey = points.length && points.every(point => point.calculationStatus === "server")
+  const sourceKey = points.some(point => ["pending", "failed", "stale"].includes(point.calculationStatus ?? ""))
+    ? "history.processing" : points.length && points.every(point => point.calculationStatus === "server")
     ? "history.canonical" : points.length && points.every(point => point.calculationStatus === "derived")
       ? "history.derived" : points.some(point => point.calculationStatus) ? "history.estimated" : "history.fallback";
   return <section className="pmc-history" aria-labelledby={headingId}>

@@ -5,28 +5,102 @@ export type PmcRange = 30 | 90 | 180 | 360 | '3y' | 'all'
 export type PmcUnit = 'day' | 'week' | 'month'
 
 /** snapshot은 계산 시점에 저장된 부하이며 활동 수집 완료를 뜻하지 않는다. */
-export interface PmcHistoryPoint extends FitnessPoint {
-  loadStatus?: 'snapshot' | 'unconfirmed'
-  calculationStatus?: 'server' | 'derived' | 'estimated'
+export interface PmcHistoryPoint extends Omit<FitnessPoint, 'ctl' | 'atl' | 'tsb'> {
+  ctl: number | null
+  atl: number | null
+  tsb: number | null
+  loadStatus?: 'final' | 'snapshot' | 'unconfirmed'
+  calculationStatus?: 'server' | 'derived' | 'estimated' | 'pending' | 'failed' | 'stale'
+}
+const calculationPriority: NonNullable<PmcHistoryPoint['calculationStatus']>[] = ['failed', 'stale', 'pending', 'estimated', 'derived', 'server']
+
+export function hasFitnessLoadLifecycle(source: FitnessTimeseriesDoc | null): boolean {
+  const load = source?.loadSnapshot
+  const pmc = source?.pmc
+  return !!load && !!pmc && Number.isInteger(load.inputRevision) && load.inputRevision > 0
+    && Number.isFinite(load.asOf) && typeof load.inputDigest === 'string'
+    && validDate(load.coverageStartDate) && validDate(load.coverageEndDate) && load.coverageStartDate <= load.coverageEndDate
+    && validReadTime(load.inputReadTime)
+    && Array.isArray(load.points) && load.points.every(point => point !== null && typeof point === 'object')
+    && new Set(load.points.map(point => point.date)).size === load.points.length
+    && load.points.every(point => validDate(point.date) && point.date >= load.coverageStartDate && point.date <= load.coverageEndDate
+      && Number.isFinite(point.dailyLoad) && point.dailyLoad >= 0
+      && (point.status === 'final' || point.status === 'unknown'))
+    && ['pending', 'processed', 'failed'].includes(pmc.status) && Number.isFinite(pmc.deadlineAt)
+    && pmc.inputRevision === load.inputRevision && typeof pmc.attemptId === 'string'
+    && (pmc.processedInputRevision === null || Number.isInteger(pmc.processedInputRevision))
+}
+
+function validReadTime(value: { seconds: number; nanoseconds: number } | undefined): boolean {
+  return !!value && Number.isInteger(value.seconds) && Number.isInteger(value.nanoseconds) && value.nanoseconds >= 0 && value.nanoseconds < 1e9
+}
+
+function invalidated(source: FitnessTimeseriesDoc | null): boolean {
+  const dirty = source?.inputInvalidatedAt
+  if (!dirty) return false
+  const read = source?.loadSnapshot?.inputReadTime
+  return !validReadTime(dirty) || !validReadTime(read) || dirty.seconds > read!.seconds
+    || dirty.seconds === read!.seconds && dirty.nanoseconds > read!.nanoseconds
 }
 
 /** 검증된 정본만 전달한다. 빈 문서/범위 밖/누락 날짜는 휴식의 증거가 아니다. */
 export function describePmcHistory(
-  points: readonly FitnessPoint[], sources: readonly (FitnessTimeseriesDoc | null)[],
+  points: readonly FitnessPoint[], sources: readonly (FitnessTimeseriesDoc | null)[], now = Date.now(),
 ): PmcHistoryPoint[] {
-  const evidence = sources.map(source => ({
-    dates: new Set(source?.points.map(point => point.date)),
+  const evidence = sources.map(source => {
+    const saved = new Map((Array.isArray(source?.points) ? source.points : [])
+      .filter(point => point && validDate(point.date) && metrics.every(metric => Number.isFinite(point[metric])))
+      .map(point => [point.date, point]))
+    return {
+    dates: new Set(saved.keys()),
+    saved,
+    source,
+    invalidated: invalidated(source),
+    invalidLifecycle: !!(source?.loadSnapshot || source?.pmc) && !hasFitnessLoadLifecycle(source),
+    load: hasFitnessLoadLifecycle(source) ? new Map(source!.loadSnapshot!.points.map(point => [point.date, point])) : null,
     computedDate: source && Number.isFinite(source.computedAt)
       && Number.isFinite(new Date(source.computedAt).getTime())
       ? new Date(source.computedAt).toISOString().slice(0, 10) : null,
-  }))
-  return points.map(point => {
-    const exact = evidence.length > 0 && evidence.every(source => source.dates.has(point.date))
+  }})
+  const hasLifecycle = evidence.some(entry => entry.load)
+  const byDate = new Map<string, PmcHistoryPoint>(points
+    .filter(point => !hasLifecycle || evidence.some(entry => entry.dates.has(point.date)))
+    .map(point => [point.date, point]))
+  const loadDates = evidence.flatMap(entry => entry.load ? [...entry.load.values()].filter(point => point.dailyLoad > 0 || point.status === 'unknown').map(point => point.date) : [])
+  const firstDate = [...byDate.keys(), ...loadDates].sort()[0]
+    ?? evidence.flatMap(entry => entry.source?.loadSnapshot?.coverageEndDate ?? []).sort().slice(-1)[0]
+  for (const entry of evidence) {
+    if (!entry.load || !firstDate) continue
+    for (const point of entry.load.values()) if (point.date >= firstDate && !byDate.has(point.date)) {
+      byDate.set(point.date, { date: point.date, dailyLoad: 0, ctl: null, atl: null, tsb: null })
+    }
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date)).map(point => {
+    const exact = evidence.length > 0 && evidence.every(entry => entry.dates.has(point.date))
+    const completePmc = evidence.length > 0 && evidence.every(entry => entry.dates.has(point.date)
+      || entry.load?.get(point.date)?.status === 'final' && entry.load.get(point.date)?.dailyLoad === 0
+        && entry.source?.points?.length === 0 && entry.source.pmc?.status === 'processed'
+        && entry.source.pmc.processedInputRevision === entry.source.loadSnapshot?.inputRevision)
+    const covered = evidence.map(entry => entry.load?.get(point.date))
+    const lifecycle = evidence.some(entry => entry.load)
+    const dirty = evidence.some(entry => entry.invalidated)
+    const malformed = evidence.some(entry => entry.invalidLifecycle)
+    const allCovered = covered.length > 0 && covered.every(Boolean)
+    const failed = evidence.some(entry => entry.load && entry.source?.pmc?.status === 'failed')
+    const pending = evidence.some(entry => entry.load && (entry.source?.pmc?.status !== 'processed'
+      || entry.source.pmc.processedInputRevision !== entry.source.loadSnapshot!.inputRevision))
+    const expired = evidence.some(entry => entry.load && entry.source?.pmc?.status === 'pending' && now > entry.source.pmc.deadlineAt)
+    const hasSavedPmc = evidence.some(entry => entry.dates.has(point.date))
     return {
       ...point,
-      loadStatus: exact && evidence.every(source => source.computedDate !== null && source.computedDate >= point.date)
-        ? 'snapshot' : 'unconfirmed',
-      calculationStatus: exact ? sources.length > 1 ? 'derived' : 'server' : 'estimated',
+      ...((lifecycle || dirty) && !hasSavedPmc ? completePmc && !pending && !failed && !dirty
+        ? { ctl: 0, atl: 0, tsb: 0 } : { ctl: null, atl: null, tsb: null } : {}),
+      dailyLoad: lifecycle ? covered.reduce((sum, load, index) => sum + (load?.dailyLoad
+        ?? evidence[index]?.saved.get(point.date)?.dailyLoad ?? 0), 0) : point.dailyLoad,
+      loadStatus: dirty || malformed ? 'unconfirmed' : lifecycle ? allCovered && covered.every(load => load?.status === 'final') ? 'final' : 'unconfirmed'
+        : exact && evidence.every(source => source.computedDate !== null && source.computedDate >= point.date) ? 'snapshot' : 'unconfirmed',
+      calculationStatus: dirty ? 'pending' : malformed ? 'estimated' : failed ? 'failed' : expired ? 'stale' : pending ? 'pending'
+        : completePmc ? sources.length > 1 ? 'derived' : 'server' : 'estimated',
     }
   })
 }
@@ -45,8 +119,9 @@ export interface PmcBucket {
   expectedDays: number
   partial: boolean
   loadSnapshotDays: number
-  loadStatus: 'snapshot' | 'unconfirmed'
-  calculationStatus: 'server' | 'derived' | 'estimated' | 'missing'
+  loadFinalDays: number
+  loadStatus: 'final' | 'snapshot' | 'unconfirmed'
+  calculationStatus: NonNullable<PmcHistoryPoint['calculationStatus']> | 'missing'
 }
 
 const DAY = 86_400_000
@@ -66,7 +141,8 @@ function normalize(points: readonly PmcHistoryPoint[], today: string): PmcHistor
   const conflictingDates = new Set<string>()
   for (const point of points) {
     if (!validDate(point.date) || point.date > today
-      || !metrics.every(metric => Number.isFinite(point[metric]))) continue
+      || !Number.isFinite(point.dailyLoad)
+      || !(['ctl', 'atl', 'tsb'] as const).every(metric => point[metric] === null || Number.isFinite(point[metric]))) continue
     if (conflictingDates.has(point.date)) continue
     const previous = byDate.get(point.date)
     // 정본을 결정할 근거가 없는 충돌 날짜는 임의 선택하지 않고 누락으로 남긴다.
@@ -76,10 +152,9 @@ function normalize(points: readonly PmcHistoryPoint[], today: string): PmcHistor
     } else if (previous) {
       byDate.set(point.date, {
         ...previous,
-        loadStatus: previous.loadStatus === 'snapshot' && point.loadStatus === 'snapshot' ? 'snapshot' : 'unconfirmed',
-        calculationStatus: !previous.calculationStatus || !point.calculationStatus
-          || previous.calculationStatus === 'estimated' || point.calculationStatus === 'estimated' ? 'estimated'
-          : previous.calculationStatus === 'derived' || point.calculationStatus === 'derived' ? 'derived' : 'server',
+        loadStatus: previous.loadStatus === 'final' && point.loadStatus === 'final' ? 'final'
+          : [previous.loadStatus, point.loadStatus].every(status => status === 'snapshot' || status === 'final') ? 'snapshot' : 'unconfirmed',
+        calculationStatus: calculationPriority.find(status => [previous.calculationStatus ?? 'estimated', point.calculationStatus ?? 'estimated'].includes(status)),
       })
     } else {
       byDate.set(point.date, point)
@@ -117,26 +192,28 @@ function bucketize(points: PmcHistoryPoint[], unit: PmcUnit, startDate: string, 
     const end = calendarEndDate > endDate ? endDate : calendarEndDate
     const observed = grouped.get(key) ?? []
     const expectedDays = Math.round((stamp(end) - stamp(start)) / DAY) + 1
-    const loadSnapshotDays = observed.filter(point => point.loadStatus === 'snapshot').length
-    const mean = (metric: 'ctl' | 'atl' | 'tsb') => observed.length
-      ? observed.reduce((sum, point) => sum + point[metric], 0) / observed.length : null
+    const loadSnapshotDays = observed.filter(point => point.loadStatus === 'snapshot' || point.loadStatus === 'final').length
+    const loadFinalDays = observed.filter(point => point.loadStatus === 'final').length
+    const calculated = observed.filter(point => point.ctl !== null && point.atl !== null && point.tsb !== null)
+    const mean = (metric: 'ctl' | 'atl' | 'tsb') => calculated.length
+      ? calculated.reduce((sum, point) => sum + point[metric]!, 0) / calculated.length : null
     buckets.push({
       key, startDate: start, endDate: end, calendarStartDate: key, calendarEndDate,
       ctl: mean('ctl'), atl: mean('atl'), tsb: mean('tsb'),
       totalLoad: observed.length ? observed.reduce((sum, point) => sum + point.dailyLoad, 0) : null,
-      observedDays: observed.length, expectedDays,
-      partial: start !== key || end !== calendarEndDate || observed.length < expectedDays,
+      observedDays: calculated.length, expectedDays,
+      partial: start !== key || end !== calendarEndDate || calculated.length < expectedDays,
       loadSnapshotDays,
-      loadStatus: loadSnapshotDays === expectedDays ? 'snapshot' : 'unconfirmed',
+      loadFinalDays,
+      loadStatus: loadFinalDays === expectedDays ? 'final' : loadSnapshotDays === expectedDays ? 'snapshot' : 'unconfirmed',
       calculationStatus: !observed.length ? 'missing'
-        : observed.some(point => !point.calculationStatus || point.calculationStatus === 'estimated') ? 'estimated'
-          : observed.some(point => point.calculationStatus === 'derived') ? 'derived' : 'server',
+        : calculationPriority.find(status => observed.some(point => (point.calculationStatus ?? 'estimated') === status)) ?? 'estimated',
     })
   }
   return buckets
 }
 
-function availableYears(points: FitnessPoint[], today: string): number[] {
+function availableYears(points: PmcHistoryPoint[], today: string): number[] {
   return [...new Set([Number(today.slice(0, 4)), ...points.map(point => Number(point.date.slice(0, 4)))])]
     .sort((a, b) => b - a)
 }
@@ -175,7 +252,8 @@ export function buildPmcYearComparison(points: readonly PmcHistoryPoint[], years
         if (bucket.startDate <= today && bucket.endDate > today) {
           const expectedDays = Math.round((stamp(today) - stamp(bucket.startDate)) / DAY) + 1
           return { ...bucket, endDate: today, expectedDays,
-            loadStatus: bucket.loadSnapshotDays === expectedDays ? 'snapshot' as const : 'unconfirmed' as const,
+            loadStatus: bucket.loadFinalDays === expectedDays ? 'final' as const
+              : bucket.loadSnapshotDays === expectedDays ? 'snapshot' as const : 'unconfirmed' as const,
             partial: true }
         }
         return bucket

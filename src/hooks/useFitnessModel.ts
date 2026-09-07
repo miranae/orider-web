@@ -328,7 +328,7 @@ export function useFitnessModel(
   }, [dismissedMilestones, milestones]);
 
   const { revalidating, justRecomputed } = useFreshTraining(
-    discipline === "tri" ? undefined : discipline,
+    discipline,
   );
   const projUnsubRef = useRef<(() => void) | null>(null);
   const projectionGoalIdRef = useRef<string | null>(null);
@@ -581,13 +581,24 @@ export function useFitnessModel(
   const hasCanonicalHistory = discipline === "tri"
     ? Object.values(resolvedTriFitness).every((entry) => entry.canonical)
     : hasCanonicalTimeseries;
-  const pmcHistoryPoints = useMemo(() => describePmcHistory(fitnessData,
+  const [pmcHistoryTick, setPmcHistoryTick] = useState(0);
+  useEffect(() => {
+    const now = Date.now();
+    const deadlines = [timeseries, triRunTimeseries, triSwimTimeseries]
+      .flatMap(source => source?.pmc?.status === "pending" && Number.isFinite(source.pmc.deadlineAt)
+        && source.pmc.deadlineAt >= now ? [source.pmc.deadlineAt] : []);
+    if (!deadlines.length) return;
+    const timer = setTimeout(() => setPmcHistoryTick(Date.now()), Math.min(...deadlines) - now + 1);
+    return () => clearTimeout(timer);
+  }, [timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
+  const pmcHistoryPoints = useMemo(() => {
+    const source = (doc: FitnessTimeseriesDoc | null, sport: TimeseriesDiscipline) => doc?.discipline === sport
+      && (isCanonicalTimeseries(doc, sport) || doc.loadSnapshot || doc.inputInvalidatedAt) ? doc : null;
+    return describePmcHistory(fitnessData,
     discipline === "tri" ? [
-      resolvedTriFitness.bike.canonical ? timeseries : null,
-      resolvedTriFitness.run.canonical ? triRunTimeseries : null,
-      resolvedTriFitness.swim.canonical ? triSwimTimeseries : null,
-    ] : [hasCanonicalTimeseries ? timeseries : null]),
-  [fitnessData, discipline, resolvedTriFitness, timeseries, triRunTimeseries, triSwimTimeseries, hasCanonicalTimeseries]);
+      source(timeseries, "bike"), source(triRunTimeseries, "run"), source(triSwimTimeseries, "swim"),
+    ] : [source(timeseries, discipline)], Math.max(pmcHistoryTick, Date.now()));
+  }, [fitnessData, discipline, timeseries, triRunTimeseries, triSwimTimeseries, pmcHistoryTick]);
   const rangeData = useMemo(() => {
     if (fitnessData.length === 0) return { fitness: [], daily: [] };
     const sliceStart = Math.max(0, fitnessData.length - range);

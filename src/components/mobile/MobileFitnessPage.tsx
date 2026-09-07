@@ -12,7 +12,7 @@
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import type { FitnessPoint } from "@shared/training/fitness";
+import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { toLocalDate } from "../../utils/dateUtils";
 import DetailsSection from "../redesign/DetailsSection";
@@ -486,7 +486,7 @@ export default function MobileFitnessPage({
 }: {
   data: MobileFitnessData;
   /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
-  pmcHistoryPoints?: readonly FitnessPoint[];
+  pmcHistoryPoints?: readonly PmcHistoryPoint[];
   pmcHistoryCanonical?: boolean;
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
   coachSlot?: ReactNode;

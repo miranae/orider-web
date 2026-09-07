@@ -26,4 +26,33 @@ export interface FitnessTimeseriesDoc {
   pointCount: number
   /** 첫 활동일~오늘 0-fill 일별 포인트. 0-시드는 첫 활동 지점에서 정확. */
   points: FitnessPoint[]
+  loadSnapshot?: FitnessLoadSnapshot
+  pmc?: FitnessPmcState
+  inputInvalidatedAt?: { seconds: number; nanoseconds: number }
+}
+
+/** final은 이 입력 snapshot의 부하 계산 완료이며 향후 동기화/하루 최종 확정이 아니다. */
+export interface FitnessLoadPoint {
+  date: string
+  dailyLoad: number
+  status: 'final' | 'unknown'
+  quality: 'precomputed' | 'estimated' | 'zero' | 'mixed'
+}
+export interface FitnessLoadSnapshot {
+  inputRevision: number
+  inputDigest: string
+  asOf: number
+  inputReadTime: { seconds: number; nanoseconds: number }
+  coverageStartDate: string
+  coverageEndDate: string
+  points: FitnessLoadPoint[]
+}
+export interface FitnessPmcState {
+  status: 'pending' | 'processed' | 'failed'
+  attemptId: string
+  inputRevision: number
+  processedInputRevision: number | null
+  asOf: number | null
+  deadlineAt: number
+  errorCode: string | null
 }

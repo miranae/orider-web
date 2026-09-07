@@ -72,6 +72,27 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("useFitnessModel", () => {
+  it("새 snapshot 없이 deadline에 도달해도 PMC 대기를 처리 지연으로 바꾼다", () => {
+    vi.useFakeTimers();
+    const now = Date.parse("2026-09-06T12:00:00Z");
+    vi.setSystemTime(now);
+    seed("bike");
+    const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 40 };
+    mocks.timeseries = { discipline: "bike", schemaVersion: 1, computedAt: now, points: [point],
+      startDate: point.date, endDate: point.date, pointCount: 1,
+      loadSnapshot: { inputRevision: 2, inputDigest: "next", asOf: now, inputReadTime: { seconds: now / 1000, nanoseconds: 0 },
+        coverageStartDate: point.date, coverageEndDate: point.date,
+        points: [{ date: point.date, dailyLoad: 70, status: "final", quality: "estimated" }] },
+      pmc: { status: "pending", attemptId: "next", inputRevision: 2, processedInputRevision: 1, asOf: now - 1, deadlineAt: now + 1000, errorCode: null },
+    };
+    const { result, unmount } = renderHook(() => useFitnessModel("bike", options));
+    expect(result.current.pmcHistoryPoints[0].calculationStatus).toBe("pending");
+    act(() => vi.advanceTimersByTime(1001));
+    expect(result.current.pmcHistoryPoints[0]).toMatchObject({ dailyLoad: 70, ctl: 40, loadStatus: "final", calculationStatus: "stale" });
+    unmount();
+    vi.useRealTimers();
+  });
+
   it("이력 표시 상태를 별도 전달하고 기존 KPI 입력은 보존한다", () => {
     seed("bike");
     const point = { date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 70 };

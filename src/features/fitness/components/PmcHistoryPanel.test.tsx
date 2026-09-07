@@ -65,7 +65,7 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByText("제한된 활동 기반 이력")).toBeInTheDocument();
     expect(within(screen.getByRole("table")).getByText("75.0")).toBeInTheDocument();
     view.rerender(<PmcHistoryPanel points={[]} today="2026-09-06" canonical={false} />);
-    expect(screen.getByRole("status")).toHaveTextContent("이 구간에 표시할 기록이 없습니다");
+    expect(screen.getByRole("status")).toHaveTextContent("이 구간에 표시할 PMC 계산값이 없습니다");
     expect(screen.queryByText("75.0")).not.toBeInTheDocument();
   });
 

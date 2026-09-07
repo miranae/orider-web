@@ -2,6 +2,28 @@ import { test, expect } from "@playwright/test";
 
 for (const width of [1440, 390]) {
   for (const lang of ["ko", "en"]) {
+    test(`PMC lifecycle ${width}px ${lang}: 확정 부하와 계산 대기·실패·완료`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 1000 });
+      const errors: string[] = [];
+      page.on("pageerror", error => errors.push(error.message));
+      await page.route(/^https?:\/\/(?!127\.0\.0\.1:5189)/, route => route.abort());
+      for (const lifecycle of ["pending", "failed", "processed"] as const) {
+        await page.goto(`/e2e/fixtures/pmc-history.html?lang=${lang}&lifecycle=${lifecycle}`);
+        const panel = page.locator(".pmc-history");
+        const row = panel.locator("tbody tr").first();
+        await expect(row).toContainText(lang === "ko" ? "확정" : "Finalized");
+        const stateLabel = lifecycle === "pending" ? (lang === "ko" ? "반영 대기" : "Awaiting update")
+          : lifecycle === "failed" ? (lang === "ko" ? "계산 실패" : "Calculation failed")
+            : (lang === "ko" ? "서버 계산" : "Server calculation");
+        await expect(row).toContainText(stateLabel);
+        await expect(row.locator("td").nth(3)).not.toHaveText("—");
+        if (lifecycle === "processed") await expect(row.locator("td").first()).not.toHaveText("—");
+        else await expect(row.locator("td").first()).toHaveText("—");
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      }
+      expect(errors).toEqual([]);
+    });
+
     test(`PMC ${width}px ${lang}: 월평균·연도 비교·키보드`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 1000 });
       const errors: string[] = [];

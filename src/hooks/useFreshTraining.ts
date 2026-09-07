@@ -227,14 +227,19 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
     // transient getDoc target을 즉시 만들고 제거하면 멀티탭 Firestore AsyncQueue에서
     // target 해제 경쟁이 발생할 수 있다. 두 서버 확정 스냅샷을 기다린 뒤 한 번만 평가하되,
     // listener는 해당 user/discipline 세대 전체에서 유지해 target churn을 피한다.
-    const projDocId = discipline ? `projection_${discipline}` : "projection";
+    const projDocId = discipline === "tri" ? "current" : discipline ? `projection_${discipline}` : "projection";
     try {
       unsubscribe = onSnapshot(
         doc(firestore, "users", uid, "fitness", projDocId),
         { includeMetadataChanges: true },
         (snapshot) => {
           if (cancelled || projectionSnapshotReady) return;
-          computedAt = (snapshot.data()?.computedAt as number | undefined) ?? 0;
+          const data = snapshot.data();
+          const triComplete = data?.state === "final" && typeof data.inputRevision === "string"
+            && typeof data.computedAt === "number" && Number.isFinite(new Date(data.computedAt).getTime())
+            && new Date(data.computedAt).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10)
+            && ["bike", "run", "swim"].every(sport => new RegExp(`(?:^|\\|)${sport}:[1-9]\\d*(?:\\||$)`).test(data.inputRevision as string));
+          computedAt = discipline === "tri" && !triComplete ? 0 : (data?.computedAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
           projectionSnapshotReady = true;
           evaluateWhenReady();

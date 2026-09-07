@@ -8,6 +8,71 @@ const source = (points: FitnessPoint[], discipline: FitnessTimeseriesDoc['discip
   discipline, schemaVersion: 1, computedAt: Date.parse('2026-09-06T12:00:00Z'),
   startDate: points[0]?.date ?? null, endDate: points.at(-1)?.date ?? null, pointCount: points.length, points,
 })
+function lifecycleSource(status: 'pending' | 'processed' | 'failed' = 'pending'): FitnessTimeseriesDoc {
+  const doc = source([point('2026-09-05')])
+  return { ...doc,
+    loadSnapshot: { inputRevision: 2, inputDigest: 'new', asOf: doc.computedAt,
+      inputReadTime: { seconds: doc.computedAt / 1000, nanoseconds: 1 }, coverageStartDate: '2026-09-05', coverageEndDate: '2026-09-06',
+      points: [{ date: '2026-09-05', dailyLoad: 30, status: 'final', quality: 'precomputed' },
+        { date: '2026-09-06', dailyLoad: 70, status: 'final', quality: 'estimated' }],
+    },
+    pmc: { status, attemptId: 'new', inputRevision: 2, processedInputRevision: status === 'processed' ? 2 : 1,
+      asOf: doc.computedAt, deadlineAt: doc.computedAt + 60000, errorCode: status === 'failed' ? 'failure' : null },
+  }
+}
+
+describe('서버 운동부하와 PMC 수명주기', () => {
+  it('새 날짜 부하는 PMC 포인트 없이도 확정으로 표시하고 CTL을 0으로 만들지 않는다', () => {
+    const doc = lifecycleSource()
+    const points = describePmcHistory(doc.points, [doc], doc.computedAt)
+    expect(points.at(-1)).toMatchObject({ date: '2026-09-06', dailyLoad: 70, ctl: null, atl: null, tsb: null,
+      loadStatus: 'final', calculationStatus: 'pending' })
+    expect(buildPmcHistory(points, 30, '2026-09-06').buckets.at(-1)).toMatchObject({ totalLoad: 70, ctl: null,
+      loadFinalDays: 1, observedDays: 0, loadStatus: 'final', calculationStatus: 'pending' })
+  })
+
+  it('이전 계산값을 보존하면서 대기/실패/지연을 구분하고 revision이 일치해야 완료다', () => {
+    for (const status of ['pending', 'failed', 'processed'] as const) {
+      const doc = lifecycleSource(status)
+      expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0]).toMatchObject({ ctl: 10,
+        loadStatus: 'final', calculationStatus: status === 'processed' ? 'server' : status })
+    }
+    const doc = lifecycleSource()
+    expect(describePmcHistory(doc.points, [doc], doc.pmc!.deadlineAt + 1)[0].calculationStatus).toBe('stale')
+    doc.pmc!.status = 'processed'
+    expect(describePmcHistory(doc.points, [doc], doc.computedAt)[0].calculationStatus).toBe('pending')
+  })
+
+  it('PMC가 완료됐어도 알 수 없는 부하 입력은 확정으로 승격하지 않는다', () => {
+    const doc = lifecycleSource('processed')
+    doc.loadSnapshot!.points[0].status = 'unknown'
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'server' })
+  })
+
+  it('다른 종목의 알려진 0도 통합 입력으로 사용하고 전부 0인 과거 범위를 늘리지 않는다', () => {
+    const bike = lifecycleSource('processed')
+    const run = { ...lifecycleSource('processed'), discipline: 'run' as const }
+    const swim = { ...lifecycleSource('processed'), discipline: 'swim' as const, points: [] }
+    for (const doc of [run, swim]) doc.loadSnapshot!.points.forEach(p => { p.dailyLoad = 0 })
+    expect(describePmcHistory(bike.points, [bike, run, swim])[0]).toMatchObject({ loadStatus: 'final', calculationStatus: 'derived' })
+    swim.loadSnapshot!.points = [{ date: '2026-09-05', dailyLoad: 0, status: 'final', quality: 'zero' },
+      { date: '2026-09-06', dailyLoad: 0, status: 'final', quality: 'zero' }]
+    expect(describePmcHistory([], [swim])).toHaveLength(1)
+    expect(describePmcHistory([], [swim])[0]).toMatchObject({ ctl: 0, atl: 0, tsb: 0, loadStatus: 'final', calculationStatus: 'server' })
+    expect(describePmcHistory([], [swim, swim, swim])[0]).toMatchObject({ ctl: 0, calculationStatus: 'derived' })
+  })
+
+  it('무효화 watermark와 손상된/중복된 snapshot을 확정 상태로 쓰지 않는다', () => {
+    const doc = lifecycleSource('processed')
+    doc.inputInvalidatedAt = { ...doc.loadSnapshot!.inputReadTime, nanoseconds: 2 }
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'pending' })
+    delete doc.inputInvalidatedAt
+    doc.loadSnapshot!.points.push(doc.loadSnapshot!.points[0])
+    expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ loadStatus: 'unconfirmed', calculationStatus: 'estimated' })
+    doc.loadSnapshot!.points = [null] as unknown as NonNullable<FitnessTimeseriesDoc['loadSnapshot']>['points']
+    expect(() => describePmcHistory([], [{ ...doc, points: {} as FitnessPoint[] }])).not.toThrow()
+  })
+})
 
 describe('PMC 부하 반영과 계산 출처', () => {
   it('서로 다른 종목으로 운동해도 저장된 0 부하와 통합 계산을 정상적으로 구분한다', () => {
