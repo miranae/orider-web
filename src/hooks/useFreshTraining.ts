@@ -21,6 +21,7 @@ import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 import {
   executeFirestoreSessionRecovery,
   firestoreRecoveryLogContext,
+  noteFirestoreServerSuccess,
   prepareFirestoreSessionRecovery,
 } from "../utils/firestoreSessionRecovery";
 
@@ -132,6 +133,7 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         { includeMetadataChanges: true },
         (snapshot) => {
           if (cancelled || listenerFailed || userFreshnessRef.current !== userGeneration) return;
+          noteFirestoreServerSuccess(snapshot.metadata);
           userGeneration.lastIngest =
             (snapshot.data()?.lastActivityIngestAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
@@ -233,7 +235,9 @@ export function useFreshTraining(discipline?: string): FreshTrainingState {
         doc(firestore, "users", uid, "fitness", projDocId),
         { includeMetadataChanges: true },
         (snapshot) => {
-          if (cancelled || projectionSnapshotReady) return;
+          if (cancelled || listenerFailed || !hasCurrentUserGeneration()) return;
+          noteFirestoreServerSuccess(snapshot.metadata);
+          if (projectionSnapshotReady) return;
           computedAt = (snapshot.data()?.computedAt as number | undefined) ?? 0;
           if (snapshot.metadata.fromCache) return;
           projectionSnapshotReady = true;
