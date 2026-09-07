@@ -21,9 +21,11 @@ export function useMaintenanceSnapshot(
   bikeProfileId: string | null | undefined,
 ): MaintenanceSnapshotState {
   const [envelope, setEnvelope] = useState<MaintenanceEnvelope | null>(null);
+  // 런타임 설정은 fetch 로 늦게 도착할 수 있다 — 플래그 값을 deps 에 넣어 도착 시 재구독한다.
+  const enabled = canonicalConsumerEnabled("maintenance");
 
   useEffect(() => {
-    if (!uid || !bikeProfileId || !canonicalConsumerEnabled("maintenance")) {
+    if (!uid || !bikeProfileId || !enabled) {
       setEnvelope(null);
       return;
     }
@@ -32,7 +34,7 @@ export function useMaintenanceSnapshot(
       if (active) setEnvelope(next);
     });
     return () => { active = false; };
-  }, [uid, bikeProfileId]);
+  }, [uid, bikeProfileId, enabled]);
 
   return {
     envelope,

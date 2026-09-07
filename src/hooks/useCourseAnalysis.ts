@@ -28,9 +28,11 @@ export function courseAnalysisNoteKey(display: CanonicalDisplay | null): string 
 
 export function useCourseAnalysis(courseId: string | null | undefined): CourseAnalysisState {
   const [envelope, setEnvelope] = useState<CourseAnalysisEnvelope | null>(null);
+  // 런타임 설정은 fetch 로 늦게 도착할 수 있다 — 플래그 값을 deps 에 넣어 도착 시 재구독한다.
+  const enabled = canonicalConsumerEnabled("course");
 
   useEffect(() => {
-    if (!courseId || !canonicalConsumerEnabled("course")) {
+    if (!courseId || !enabled) {
       setEnvelope(null);
       return;
     }
@@ -39,7 +41,7 @@ export function useCourseAnalysis(courseId: string | null | undefined): CourseAn
       if (active) setEnvelope(next);
     });
     return () => { active = false; };
-  }, [courseId]);
+  }, [courseId, enabled]);
 
   return {
     envelope,

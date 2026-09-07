@@ -40,9 +40,16 @@ describe("useActivityMetrics", () => {
     expect(result.current.metrics?.tss).toBe(42);
   });
 
-  it("version 필드가 없는 옛 문서는 stale 로 격하하지 않는다", async () => {
+  it("version 필드가 없는 옛 문서는 stale — 모름을 최신으로 그리지 않는다", async () => {
     setDocData("activity_metrics/act-noversion", { tss: 42 });
     const { result } = renderHook(() => useActivityMetrics("act-noversion"));
-    await waitFor(() => expect(result.current.status).toBe("ready"));
+    await waitFor(() => expect(result.current.status).toBe("stale"));
+    expect(result.current.metrics?.tss).toBe(42);
+  });
+
+  it("version 이 숫자가 아니면(문자열 등) stale", async () => {
+    setDocData("activity_metrics/act-badversion", { version: "3", tss: 42 });
+    const { result } = renderHook(() => useActivityMetrics("act-badversion"));
+    await waitFor(() => expect(result.current.status).toBe("stale"));
   });
 });

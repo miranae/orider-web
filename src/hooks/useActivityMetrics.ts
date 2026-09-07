@@ -81,7 +81,9 @@ export function useActivityMetrics(activityId: string | null, enabled = true): U
         // 강제. 클라가 잘못 읽을 일 자체가 적음 (rules: owner read).
         const data = snap.data() as ActivityMetricsDoc;
         // version 이 클라 기대보다 낮으면 stale — 값은 그대로 노출하되 호출자가 표식을 붙인다.
-        const isStale = typeof data.version === "number" && data.version < ACTIVITY_METRICS_VERSION;
+        // version 필드가 아예 없는 옛 문서는 0 으로 본다 — 모름을 최신으로 그리면 안 된다 (#2237).
+        const version = typeof data.version === "number" ? data.version : 0;
+        const isStale = version < ACTIVITY_METRICS_VERSION;
         setState({ status: isStale ? "stale" : "ready", metrics: data });
       },
       (err) => {

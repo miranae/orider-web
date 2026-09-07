@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { setDocData } from "../__tests__/mocks/firebase";
 import { useActivityAnalysisModel } from "./useActivityAnalysisModel";
@@ -98,6 +99,8 @@ describe("useActivityAnalysisModel", () => {
     const activity = makeActivity("orider_owner");
     seedActivity(activity);
     setDocData("activity_metrics/orider_owner", {
+      // version 없는 문서는 이제 stale 로 격하된다 (#2237) — 정상 경로 테스트라 현재 버전을 심는다.
+      version: ACTIVITY_METRICS_VERSION,
       movingTimeSec: 3,
       pauseTimeSec: 1,
     });
